@@ -1,32 +1,38 @@
 import os
-
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from log import log
 from models import Base
 
-DATABASE_URL = "sqlite:///kwalah.db"
+# =========================================================
+# USE POSTGRES ON RENDER (IMPORTANT FIX)
+# =========================================================
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set (you need Postgres on Render)")
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},
     pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
 )
 
 _Session = scoped_session(
     sessionmaker(bind=engine, autocommit=False, autoflush=False)
 )
 
-
-_db_ready = False  # set once; prevents repeated PRAGMA checks on hot-reload
+_db_ready = False
 
 
 def init_db():
-    """Create all tables and run additive migrations. Safe to call multiple times."""
     global _db_ready
     if _db_ready:
         return
+
     Base.metadata.create_all(engine)
     _apply_migrations()
     _db_ready = True
@@ -34,22 +40,26 @@ def init_db():
 
 def _apply_migrations():
     """
-    Add columns missing from older schema versions.
-    SQLite has no ADD COLUMN IF NOT EXISTS, so we check PRAGMA table_info first.
+    Safe Postgres-compatible migration (no PRAGMA)
     """
     with engine.connect() as conn:
-        cols = {
-            row[1]
-            for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()
-        }
+        result = conn.execute(
+            text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name='users'
+            """)
+        )
+
+        cols = {row[0] for row in result.fetchall()}
+
         if "sync_retry_after" not in cols:
             conn.execute(
-                text("ALTER TABLE users ADD COLUMN sync_retry_after DATETIME")
+                text("ALTER TABLE users ADD COLUMN sync_retry_after TIMESTAMP")
             )
             conn.commit()
-            log("INFO", "db", "Migration applied: added users.sync_retry_after")
+            log("INFO", "db", "Migration applied: sync_retry_after added")
 
 
 def get_db():
-    """Return a new scoped DB session. Caller must call .close() when done."""
     return _Session()
