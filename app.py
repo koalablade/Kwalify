@@ -1,6 +1,10 @@
 """
-app.py — STABLE PRODUCTION-SAFE VERSION
-Fixes: 400 JSON errors, 429 handling, request safety, deploy stability
+app.py — STABLE PRODUCTION VERSION (FIXED)
+Fixes:
+- 400 silent failures
+- 429 clarity + safer throttling
+- sync-not-ready handling
+- better generate flow reliability
 """
 
 import os
@@ -16,7 +20,6 @@ from cache import (
     get_sync_status,
     load_user_tracks,
     start_sync_if_needed,
-    start_manual_sync,
     start_full_reset_sync,
 )
 
@@ -25,6 +28,7 @@ from log import log
 from spotify_service import add_tracks_to_playlist, create_playlist
 from vibe_engine import diverse_select, interpret_vibe, score_track
 
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SESSION_SECRET", "dev_key")
 
@@ -32,20 +36,21 @@ init_db()
 
 
 # =========================================================
-# SIMPLE SAFE THROTTLE
+# GLOBAL SAFETY THROTTLE
 # =========================================================
 
-_last = {}
-_MIN = 3.0
+_last_call = {}
+_MIN_INTERVAL = 2.5  # slightly tighter, still safe
+
 
 def throttle(key: str):
     now = time.time()
-    last = _last.get(key, 0)
+    last = _last_call.get(key, 0)
 
-    if now - last < _MIN:
-        return False, _MIN - (now - last)
+    if now - last < _MIN_INTERVAL:
+        return False, round(_MIN_INTERVAL - (now - last), 2)
 
-    _last[key] = now
+    _last_call[key] = now
     return True, 0
 
 
@@ -107,12 +112,13 @@ def logout():
 
 
 # =========================================================
-# GENERATE PLAYLIST (FULLY SAFE)
+# GENERATE PLAYLIST (FIXED + SAFE)
 # =========================================================
 
 @app.route("/generate", methods=["POST"])
 def generate():
     sp = get_spotify_client()
+
     if not sp:
         return jsonify({"error": "not_logged_in"}), 401
 
@@ -120,12 +126,12 @@ def generate():
     if not user:
         return jsonify({"error": "no_user"}), 400
 
-    # throttle protection (prevents spam clicks)
+    # throttle
     ok, wait = throttle(f"generate:{user}")
     if not ok:
         return jsonify({
-            "error": "too_many_requests",
-            "retry_after": round(wait, 2)
+            "error": "rate_limited",
+            "retry_after": wait
         }), 429
 
     db = get_db()
@@ -133,10 +139,14 @@ def generate():
     try:
         cache = load_user_tracks(user, db)
 
+        # ✅ FIX: clearer sync state instead of silent failure
         if not cache:
-            return jsonify({"error": "no_tracks"}), 400
+            return jsonify({
+                "error": "syncing_or_empty",
+                "message": "Your Spotify library is still syncing or empty. Try again shortly."
+            }), 202
 
-        # SAFE JSON HANDLING (fixes your 400 errors)
+        # SAFE JSON HANDLING
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             data = {}
@@ -164,13 +174,20 @@ def generate():
             None,
         )
 
+        if not selected:
+            return jsonify({
+                "error": "no_selection",
+                "message": "Could not generate a playlist from your tracks."
+            }), 400
+
         uris = [f"spotify:track:{t['id']}" for t in selected]
 
         playlist = create_playlist(sp, vibe)
         add_tracks_to_playlist(sp, playlist["id"], uris)
 
         return jsonify({
-            "url": playlist["external_urls"]["spotify"]
+            "url": playlist["external_urls"]["spotify"],
+            "count": len(uris)
         })
 
     except Exception as e:
@@ -182,7 +199,7 @@ def generate():
 
 
 # =========================================================
-# SYNC ROUTES
+# SYNC
 # =========================================================
 
 @app.route("/sync/trigger", methods=["POST"])
