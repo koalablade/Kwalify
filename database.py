@@ -5,14 +5,11 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from log import log
 from models import Base
 
-# =========================================================
-# USE POSTGRES ON RENDER (IMPORTANT FIX)
-# =========================================================
-
+# IMPORTANT: Render Postgres URL
 DATABASE_URL = os.getenv("postgresql://kwalify_user:jcHV2PF8lIaL7jk564kadooToMThnAR8@dpg-d8cco3h9rddc73d7e1j0-a.frankfurt-postgres.render.com/kwalify")
 
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set (you need Postgres on Render)")
+    raise RuntimeError("DATABASE_URL missing")
 
 engine = create_engine(
     DATABASE_URL,
@@ -21,7 +18,7 @@ engine = create_engine(
     max_overflow=10,
 )
 
-_Session = scoped_session(
+Session = scoped_session(
     sessionmaker(bind=engine, autocommit=False, autoflush=False)
 )
 
@@ -39,9 +36,6 @@ def init_db():
 
 
 def _apply_migrations():
-    """
-    Safe Postgres-compatible migration (no PRAGMA)
-    """
     with engine.connect() as conn:
         result = conn.execute(
             text("""
@@ -58,8 +52,8 @@ def _apply_migrations():
                 text("ALTER TABLE users ADD COLUMN sync_retry_after TIMESTAMP")
             )
             conn.commit()
-            log("INFO", "db", "Migration applied: sync_retry_after added")
+            log("INFO", "db", "migration: sync_retry_after added")
 
 
 def get_db():
-    return _Session()
+    return Session()
