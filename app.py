@@ -142,7 +142,7 @@ def callback():
     except Exception:
         pass
     except Exception:
-    pass
+        pass
         session["spotify_user_id"] = me["id"]
         session.modified = True
 
