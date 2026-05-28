@@ -9,7 +9,7 @@ from models import Base
 # USE POSTGRES ON RENDER (IMPORTANT FIX)
 # =========================================================
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("postgresql://kwalify_user:jcHV2PF8lIaL7jk564kadooToMThnAR8@dpg-d8cco3h9rddc73d7e1j0-a.frankfurt-postgres.render.com/kwalify")
 
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set (you need Postgres on Render)")
