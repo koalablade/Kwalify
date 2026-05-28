@@ -47,7 +47,7 @@ app.secret_key = os.getenv("SESSION_SECRET", "dev_key_change_me")
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE= os.getenv("ENV") == "production"
+    SESSION_COOKIE_SECURE=os.getenv("ENV") == "production",
 )
 
 CACHE_FILE = "song_index.json"
@@ -123,30 +123,43 @@ def callback():
 
     try:
         token_info = auth.get_access_token(code=code, check_cache=False)
-
-        session["token_info"] = token_info
-        session.modified = True
-
-        log("INFO", "auth", "Token stored in session")
-
     except SpotifyOauthError as exc:
         return f"Token exchange failed: {exc}", 400
 
-    # optional: fetch user immediately (safe + clean)
+    # Store token immediately — this is the single write that matters most.
+    session["token_info"] = token_info
+    session.modified = True
+    log("INFO", "auth", "Token stored in session")
+
+    # Resolve Spotify user ID — required for cache and generate to work.
+    spotify_user_id = None
     try:
         sp = get_spotify_client()
         if sp:
             me = sp.me()
-            session["spotify_user_id"] = me["id"]
+            spotify_user_id = me["id"]
+            session["spotify_user_id"] = spotify_user_id
             session.modified = True
-    except Exception:
-        pass
-    except Exception:
-        pass
-        session["spotify_user_id"] = me["id"]
-        session.modified = True
+            log("INFO", "auth", "Spotify user ID stored", user=spotify_user_id)
+    except Exception as exc:
+        # Non-fatal: /generate will re-resolve if missing.
+        log("WARN", "auth", "Could not fetch Spotify user ID in callback", exc=str(exc))
+
+    # Ensure the user row exists in DB so get_sync_status never returns "no_user".
+    # This is the fix for the [WARN] Empty cache sync_status=no_user issue.
+    if spotify_user_id:
+        db = get_db()
+        try:
+            get_or_create_user(spotify_user_id, db)
+            db.commit()
+            start_sync_if_needed(spotify_user_id, get_spotify_client(), get_db)
+        except Exception as exc:
+            log("WARN", "auth", "DB user bootstrap failed (non-fatal)", exc=str(exc))
+        finally:
+            db.close()
 
     return redirect("/")
+
 
 @app.route("/logout")
 def logout():
@@ -160,11 +173,33 @@ def logout():
 
 @app.route("/generate", methods=["POST"])
 def generate():
+    # --- Guard 1: session must have token_info ---
+    token_info = session.get("token_info")
+    if not token_info:
+        log("WARN", "gen", "Rejected: no token_info in session")
+        return jsonify({"error": "not_logged_in", "detail": "No active session — please log in."}), 401
+
+    # --- Guard 2: Spotify client must be usable ---
     sp = get_spotify_client()
     if not sp:
-        return jsonify({"error": "not_logged_in"}), 401
+        log("WARN", "gen", "Rejected: get_spotify_client returned None")
+        return jsonify({"error": "not_logged_in", "detail": "Could not build Spotify client — token may be expired."}), 401
 
-    token_suffix = (session.get("token_info") or {}).get("access_token", "")[-12:]
+    # --- Guard 3: user_id must be resolvable ---
+    spotify_user_id = session.get("spotify_user_id")
+    if not spotify_user_id:
+        try:
+            me = sp.me()
+            spotify_user_id = me["id"]
+            session["spotify_user_id"] = spotify_user_id
+            session.modified = True
+            log("INFO", "gen", "Resolved user ID on demand", user=spotify_user_id)
+        except Exception as exc:
+            log("WARN", "gen", "Could not resolve user ID", exc=str(exc))
+            return jsonify({"error": "not_logged_in", "detail": "Could not identify Spotify user."}), 401
+
+    # --- Throttle ---
+    token_suffix = (token_info.get("access_token") or "")[-12:]
     allowed, retry_after = _check_generate_throttle(token_suffix)
     if not allowed:
         return jsonify({"error": "rate_limited", "retry_after": retry_after}), 429
@@ -177,43 +212,36 @@ def generate():
     if mode not in ("strict", "balanced", "chaotic"):
         mode = "balanced"
 
-    log("INFO", "gen", "Generate called", vibe=vibe_text, length=length, mode=mode)
+    log("INFO", "gen", "Generate called", user=spotify_user_id, vibe=vibe_text, length=length, mode=mode)
 
     # Step 1: load tracks from DB — zero Spotify calls
-    spotify_user_id = session.get("spotify_user_id")
-    if not spotify_user_id:
-        try:
-            me = sp.me()
-            spotify_user_id = me["id"]
-            session["spotify_user_id"] = spotify_user_id
-            session.modified = True
-        except Exception as exc:
-            log("WARN", "gen", "Could not resolve user ID", exc=str(exc))
-            return jsonify({"error": "not_logged_in"}), 401
-
-    # Single DB session covers both track loading and playlist logging below.
     db = get_db()
     try:
         cache = load_user_tracks(spotify_user_id, db)
     except Exception as exc:
         db.close()
         log("ERROR", "gen", "DB load failed", exc=str(exc))
-        return jsonify({"error": "cache_build_failed"}), 500
+        return jsonify({"error": "cache_build_failed", "detail": "Could not load your track library."}), 500
 
     if not cache:
+        # Fetch sync status using the same db (still open).
         try:
             sync_info = get_sync_status(spotify_user_id, db)
-        except Exception:
+        except Exception as exc:
+            log("WARN", "gen", "get_sync_status failed", exc=str(exc))
             sync_info = {}
         finally:
             db.close()
+
         status = sync_info.get("status", "idle")
-        log("WARN", "gen", "Empty cache", sync_status=status)
+        log("WARN", "gen", "Empty cache", user=spotify_user_id, sync_status=status)
+
         if status == "syncing":
             return jsonify({
                 "error": "no_tracks_available",
                 "detail": "Your library is still syncing — check back in a moment.",
-            }), 400
+            }), 202
+
         if status == "rate_limited":
             return jsonify({
                 "error": "no_tracks_available",
@@ -221,8 +249,29 @@ def generate():
                     "Sync is paused due to Spotify rate limiting. "
                     "Your library will update automatically soon."
                 ),
-            }), 400
-        return jsonify({"error": "no_tracks_available"}), 400
+            }), 202
+
+        if status in ("idle", "no_user"):
+            # User exists in session but DB record is missing or sync hasn't started.
+            # Kick off a sync now and tell the frontend to retry.
+            try:
+                ensure_db = get_db()
+                get_or_create_user(spotify_user_id, ensure_db)
+                ensure_db.commit()
+                ensure_db.close()
+                start_sync_if_needed(spotify_user_id, sp, get_db)
+                log("INFO", "gen", "Kicked off sync for user with empty cache", user=spotify_user_id)
+            except Exception as exc:
+                log("WARN", "gen", "Auto-sync kick failed (non-fatal)", exc=str(exc))
+            return jsonify({
+                "error": "no_tracks_available",
+                "detail": "Your library hasn't been synced yet — we've started it now. Check /cache-status and try again shortly.",
+            }), 202
+
+        return jsonify({
+            "error": "no_tracks_available",
+            "detail": "No tracks found in your library. Try triggering a sync.",
+        }), 400
 
     # Step 2: score tracks (pure local computation — no Spotify calls)
     # db is still open; reused for playlist logging after Step 3.
@@ -239,7 +288,7 @@ def generate():
     if not selected_tracks:
         db.close()
         log("WARN", "gen", "No tracks matched vibe", vibe=vibe_text)
-        return jsonify({"error": "no_tracks_matched"}), 400
+        return jsonify({"error": "no_tracks_matched", "detail": f"No tracks matched the vibe '{vibe_text}'."}), 400
 
     top_uris = [f"spotify:track:{t['id']}" for t in selected_tracks]
 
@@ -296,7 +345,7 @@ def generate():
         if status_code == 401:
             session.pop("token_info", None)
             session.modified = True
-            return jsonify({"error": "session_expired"}), 401
+            return jsonify({"error": "session_expired", "detail": "Your Spotify session expired — please log in again."}), 401
         if status_code == 403:
             session.pop("token_info", None)
             session.modified = True
@@ -324,7 +373,7 @@ def sync_trigger():
 
     spotify_user_id = session.get("spotify_user_id")
     if not spotify_user_id:
-        return jsonify({"error": "no_user_id"}), 400
+        return jsonify({"error": "no_user_id", "detail": "Session is missing Spotify user ID — please log out and back in."}), 400
 
     tmp_db = get_db()
     try:
@@ -359,7 +408,7 @@ def sync_reset():
 
     spotify_user_id = session.get("spotify_user_id")
     if not spotify_user_id:
-        return jsonify({"error": "no_user_id"}), 400
+        return jsonify({"error": "no_user_id", "detail": "Session is missing Spotify user ID — please log out and back in."}), 400
 
     launched = start_full_reset_sync(spotify_user_id, sp, get_db)
     log("INFO", "sync", "Full reset trigger", user=spotify_user_id, launched=launched)
