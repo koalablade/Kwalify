@@ -1,5 +1,6 @@
 """
-app.py — Flask entry point (STABLE FIXED VERSION)
+app.py — STABLE PRODUCTION-SAFE VERSION
+Fixes: 400 JSON errors, 429 handling, request safety, deploy stability
 """
 
 import os
@@ -8,8 +9,6 @@ import time
 
 from flask import Flask, jsonify, redirect, render_template, request, session
 from sqlalchemy import text as sa_text
-from spotipy.exceptions import SpotifyException
-from spotipy.oauth2 import SpotifyOauthError
 
 from auth import get_spotify_client, spotify_oauth
 from cache import (
@@ -33,13 +32,13 @@ init_db()
 
 
 # =========================================================
-# THROTTLE (PROTECT SPOTIFY)
+# SIMPLE SAFE THROTTLE
 # =========================================================
 
 _last = {}
 _MIN = 3.0
 
-def throttle(key):
+def throttle(key: str):
     now = time.time()
     last = _last.get(key, 0)
 
@@ -69,6 +68,8 @@ def login():
 
 @app.route("/callback")
 def callback():
+    from spotipy.oauth2 import SpotifyOauthError
+
     code = request.args.get("code")
     state = request.args.get("state")
 
@@ -106,7 +107,7 @@ def logout():
 
 
 # =========================================================
-# GENERATE PLAYLIST (FIXED JSON SAFETY + THROTTLE)
+# GENERATE PLAYLIST (FULLY SAFE)
 # =========================================================
 
 @app.route("/generate", methods=["POST"])
@@ -119,44 +120,65 @@ def generate():
     if not user:
         return jsonify({"error": "no_user"}), 400
 
+    # throttle protection (prevents spam clicks)
     ok, wait = throttle(f"generate:{user}")
     if not ok:
-        return jsonify({"error": "too_many_requests", "retry_after": wait}), 429
+        return jsonify({
+            "error": "too_many_requests",
+            "retry_after": round(wait, 2)
+        }), 429
 
     db = get_db()
 
-    cache = load_user_tracks(user, db)
-    if not cache:
-        return jsonify({"error": "no_tracks"}), 400
+    try:
+        cache = load_user_tracks(user, db)
 
-    # FIX: SAFE JSON HANDLING
-    data = request.get_json(silent=True) or {}
+        if not cache:
+            return jsonify({"error": "no_tracks"}), 400
 
-    vibe = data.get("vibe", "chill")
-    length = int(data.get("length", 25))
+        # SAFE JSON HANDLING (fixes your 400 errors)
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            data = {}
 
-    profile, confidence, _ = interpret_vibe(vibe)
+        vibe = data.get("vibe", "chill")
 
-    scored = sorted(
-        [(t["id"], score_track(t, profile)) for t in cache],
-        key=lambda x: x[1],
-        reverse=True,
-    )
+        try:
+            length = int(data.get("length", 25))
+        except:
+            length = 25
 
-    selected = diverse_select(
-        scored,
-        {t["id"]: t for t in cache},
-        length,
-        "balanced",
-        None,
-    )
+        profile, confidence, _ = interpret_vibe(vibe)
 
-    uris = [f"spotify:track:{t['id']}" for t in selected]
+        scored = sorted(
+            [(t["id"], score_track(t, profile)) for t in cache],
+            key=lambda x: x[1],
+            reverse=True,
+        )
 
-    playlist = create_playlist(sp, vibe)
-    add_tracks_to_playlist(sp, playlist["id"], uris)
+        selected = diverse_select(
+            scored,
+            {t["id"]: t for t in cache},
+            length,
+            "balanced",
+            None,
+        )
 
-    return jsonify({"url": playlist["external_urls"]["spotify"]})
+        uris = [f"spotify:track:{t['id']}" for t in selected]
+
+        playlist = create_playlist(sp, vibe)
+        add_tracks_to_playlist(sp, playlist["id"], uris)
+
+        return jsonify({
+            "url": playlist["external_urls"]["spotify"]
+        })
+
+    except Exception as e:
+        log("ERROR", "generate", str(e), user=user)
+        return jsonify({"error": "internal_error"}), 500
+
+    finally:
+        db.close()
 
 
 # =========================================================
