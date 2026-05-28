@@ -1,5 +1,5 @@
 """
-app.py — Flask entry point (FIXED)
+app.py — Flask entry point (STABLE FIXED VERSION)
 """
 
 import os
@@ -32,9 +32,9 @@ app.secret_key = os.getenv("SESSION_SECRET", "dev_key")
 init_db()
 
 
-# ---------------------------------------------------------
-# throttle
-# ---------------------------------------------------------
+# =========================================================
+# THROTTLE (PROTECT SPOTIFY)
+# =========================================================
 
 _last = {}
 _MIN = 3.0
@@ -42,15 +42,17 @@ _MIN = 3.0
 def throttle(key):
     now = time.time()
     last = _last.get(key, 0)
+
     if now - last < _MIN:
         return False, _MIN - (now - last)
+
     _last[key] = now
     return True, 0
 
 
-# ---------------------------------------------------------
+# =========================================================
 # ROUTES
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/")
 def home():
@@ -84,15 +86,13 @@ def callback():
 
     sp = get_spotify_client()
     me = sp.me()
+
     session["spotify_user_id"] = me["id"]
 
     db = get_db()
     try:
         get_or_create_user(me["id"], db, token_info=token_info)
-        db.commit()
-
         start_sync_if_needed(me["id"], sp, get_db)
-
     finally:
         db.close()
 
@@ -105,9 +105,9 @@ def logout():
     return redirect("/")
 
 
-# ---------------------------------------------------------
-# GENERATE PLAYLIST
-# ---------------------------------------------------------
+# =========================================================
+# GENERATE PLAYLIST (FIXED JSON SAFETY + THROTTLE)
+# =========================================================
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -116,14 +116,24 @@ def generate():
         return jsonify({"error": "not_logged_in"}), 401
 
     user = session.get("spotify_user_id")
+    if not user:
+        return jsonify({"error": "no_user"}), 400
+
+    ok, wait = throttle(f"generate:{user}")
+    if not ok:
+        return jsonify({"error": "too_many_requests", "retry_after": wait}), 429
+
     db = get_db()
 
     cache = load_user_tracks(user, db)
     if not cache:
         return jsonify({"error": "no_tracks"}), 400
 
-    vibe = request.json.get("vibe", "chill")
-    length = int(request.json.get("length", 25))
+    # FIX: SAFE JSON HANDLING
+    data = request.get_json(silent=True) or {}
+
+    vibe = data.get("vibe", "chill")
+    length = int(data.get("length", 25))
 
     profile, confidence, _ = interpret_vibe(vibe)
 
@@ -133,7 +143,13 @@ def generate():
         reverse=True,
     )
 
-    selected = diverse_select(scored, {t["id"]: t for t in cache}, length, "balanced", None)
+    selected = diverse_select(
+        scored,
+        {t["id"]: t for t in cache},
+        length,
+        "balanced",
+        None,
+    )
 
     uris = [f"spotify:track:{t['id']}" for t in selected]
 
@@ -143,9 +159,9 @@ def generate():
     return jsonify({"url": playlist["external_urls"]["spotify"]})
 
 
-# ---------------------------------------------------------
-# SYNC
-# ---------------------------------------------------------
+# =========================================================
+# SYNC ROUTES
+# =========================================================
 
 @app.route("/sync/trigger", methods=["POST"])
 def sync_trigger():
@@ -164,6 +180,9 @@ def sync_reset():
     sp = get_spotify_client()
     user = session.get("spotify_user_id")
 
+    if not user:
+        return jsonify({"error": "no_user"}), 400
+
     start_full_reset_sync(user, sp, get_db)
     return jsonify({"ok": True})
 
@@ -171,6 +190,10 @@ def sync_reset():
 @app.route("/cache-status")
 def cache_status():
     user = session.get("spotify_user_id")
+
+    if not user:
+        return jsonify({"error": "not_logged_in"}), 401
+
     db = get_db()
     try:
         return jsonify(get_sync_status(user, db))
@@ -186,9 +209,9 @@ def health():
     return jsonify({"ok": True})
 
 
-# ---------------------------------------------------------
+# =========================================================
 # RUN
-# ---------------------------------------------------------
+# =========================================================
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
