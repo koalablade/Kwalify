@@ -1,4 +1,7 @@
-import datetime
+"""
+app.py — Flask entry point (FIXED)
+"""
+
 import os
 import secrets
 import time
@@ -8,52 +11,46 @@ from sqlalchemy import text as sa_text
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOauthError
 
-from auth import REDIRECT_URI, SCOPE, get_spotify_client, spotify_oauth
-
+from auth import get_spotify_client, spotify_oauth
 from cache import (
-    get_active_syncs,
     get_or_create_user,
     get_sync_status,
     load_user_tracks,
     start_sync_if_needed,
+    start_manual_sync,
     start_full_reset_sync,
 )
 
-from sync_service import run_incremental_sync, run_full_reset_sync
-
 from database import get_db, init_db
 from log import log
-from models import Playlist as PlaylistModel, User
 from spotify_service import add_tracks_to_playlist, create_playlist
 from vibe_engine import diverse_select, interpret_vibe, score_track
 
-
 app = Flask(__name__)
-app.secret_key = os.getenv("SESSION_SECRET", "dev_key_change_me")
-
-app.config.update(
-    SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=os.getenv("ENV") == "production",
-)
+app.secret_key = os.getenv("SESSION_SECRET", "dev_key")
 
 init_db()
 
 
-_user_last_generate = {}
-_GENERATE_MIN_GAP = 3.0
+# ---------------------------------------------------------
+# throttle
+# ---------------------------------------------------------
 
+_last = {}
+_MIN = 3.0
 
-def _check_generate_throttle(token_suffix: str):
+def throttle(key):
     now = time.time()
-    last = _user_last_generate.get(token_suffix, 0.0)
+    last = _last.get(key, 0)
+    if now - last < _MIN:
+        return False, _MIN - (now - last)
+    _last[key] = now
+    return True, 0
 
-    if now - last < _GENERATE_MIN_GAP:
-        return False, round(_GENERATE_MIN_GAP - (now - last), 1)
 
-    _user_last_generate[token_suffix] = now
-    return True, 0.0
-
+# ---------------------------------------------------------
+# ROUTES
+# ---------------------------------------------------------
 
 @app.route("/")
 def home():
@@ -64,159 +61,116 @@ def home():
 def login():
     auth = spotify_oauth()
     state = secrets.token_urlsafe(16)
-
     session["oauth_state"] = state
-    session.modified = True
-
     return redirect(auth.get_authorize_url(state=state))
 
 
 @app.route("/callback")
 def callback():
-    error = request.args.get("error")
-    if error:
-        return f"Spotify auth error: {error}", 400
-
     code = request.args.get("code")
-    if not code:
-        return "No code returned from Spotify", 400
+    state = request.args.get("state")
 
-    returned_state = request.args.get("state")
-    expected_state = session.pop("oauth_state", None)
-
-    if not expected_state or returned_state != expected_state:
-        session.clear()
-        return "OAuth state mismatch", 400
+    if state != session.pop("oauth_state", None):
+        return "OAuth error", 400
 
     auth = spotify_oauth()
 
     try:
         token_info = auth.get_access_token(code=code, check_cache=False)
-    except SpotifyOauthError as exc:
-        return f"Token exchange failed: {exc}", 400
+    except SpotifyOauthError as e:
+        return str(e), 400
 
     session["token_info"] = token_info
-    session.modified = True
 
     sp = get_spotify_client()
-    if sp:
-        try:
-            me = sp.me()
-            session["spotify_user_id"] = me["id"]
-        except Exception:
-            pass
+    me = sp.me()
+    session["spotify_user_id"] = me["id"]
+
+    db = get_db()
+    try:
+        get_or_create_user(me["id"], db, token_info=token_info)
+        db.commit()
+
+        start_sync_if_needed(me["id"], sp, get_db)
+
+    finally:
+        db.close()
 
     return redirect("/")
 
 
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
+
+
+# ---------------------------------------------------------
+# GENERATE PLAYLIST
+# ---------------------------------------------------------
+
 @app.route("/generate", methods=["POST"])
 def generate():
-    token_info = session.get("token_info")
-    if not token_info:
-        return jsonify({"error": "not_logged_in"}), 401
-
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({"error": "spotify_client_failed"}), 401
-
-    spotify_user_id = session.get("spotify_user_id")
-    if not spotify_user_id:
-        me = sp.me()
-        spotify_user_id = me["id"]
-        session["spotify_user_id"] = spotify_user_id
-
-    token_suffix = token_info.get("access_token", "")[-12:]
-    ok, wait = _check_generate_throttle(token_suffix)
-
-    if not ok:
-        return jsonify({"error": "rate_limited", "retry_after": wait}), 429
-
-    data = request.get_json(silent=True) or {}
-    vibe_text = data.get("vibe", "chill")
-    length = int(max(10, min(100, data.get("length", 25))))
-
-    db = get_db()
-
-    try:
-        cache = load_user_tracks(spotify_user_id, db)
-    except Exception:
-        return jsonify({"error": "cache_failed"}), 500
-
-    if not cache:
-        return jsonify({"error": "no_tracks"}), 202
-
-    profile, confidence, _ = interpret_vibe(vibe_text)
-
-    scored = sorted(
-        [(t["id"], score_track(t, profile)) for t in cache if t.get("id")],
-        key=lambda x: x[1],
-        reverse=True,
-    )
-
-    selected = diverse_select(
-        scored,
-        {t["id"]: t for t in cache},
-        length,
-        "balanced",
-        None
-    )
-
-    if not selected:
-        return jsonify({"error": "no_match"}), 400
-
-    uris = [f"spotify:track:{t['id']}" for t in selected]
-
-    try:
-        playlist = create_playlist(sp, vibe_text)
-        add_tracks_to_playlist(sp, playlist["id"], uris)
-
-        return jsonify({
-            "url": playlist["external_urls"]["spotify"],
-            "count": len(selected),
-            "vibe": vibe_text,
-            "confidence": confidence
-        })
-
-    except SpotifyException as exc:
-        return jsonify({"error": "spotify_error", "details": str(exc)}), 500
-
-
-@app.route("/sync/trigger", methods=["POST"])
-def sync_trigger():
     sp = get_spotify_client()
     if not sp:
         return jsonify({"error": "not_logged_in"}), 401
 
     user = session.get("spotify_user_id")
+    db = get_db()
+
+    cache = load_user_tracks(user, db)
+    if not cache:
+        return jsonify({"error": "no_tracks"}), 400
+
+    vibe = request.json.get("vibe", "chill")
+    length = int(request.json.get("length", 25))
+
+    profile, confidence, _ = interpret_vibe(vibe)
+
+    scored = sorted(
+        [(t["id"], score_track(t, profile)) for t in cache],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+
+    selected = diverse_select(scored, {t["id"]: t for t in cache}, length, "balanced", None)
+
+    uris = [f"spotify:track:{t['id']}" for t in selected]
+
+    playlist = create_playlist(sp, vibe)
+    add_tracks_to_playlist(sp, playlist["id"], uris)
+
+    return jsonify({"url": playlist["external_urls"]["spotify"]})
+
+
+# ---------------------------------------------------------
+# SYNC
+# ---------------------------------------------------------
+
+@app.route("/sync/trigger", methods=["POST"])
+def sync_trigger():
+    sp = get_spotify_client()
+    user = session.get("spotify_user_id")
+
     if not user:
         return jsonify({"error": "no_user"}), 400
 
-    started = run_incremental_sync(user, sp, get_db())
-
-    return jsonify({"started": started})
+    start_sync_if_needed(user, sp, get_db)
+    return jsonify({"ok": True})
 
 
 @app.route("/sync/reset", methods=["POST"])
 def sync_reset():
     sp = get_spotify_client()
-    if not sp:
-        return jsonify({"error": "not_logged_in"}), 401
-
     user = session.get("spotify_user_id")
-    if not user:
-        return jsonify({"error": "no_user"}), 400
 
-    started = start_full_reset_sync(user, sp, get_db)
-
-    return jsonify({"started": started})
+    start_full_reset_sync(user, sp, get_db)
+    return jsonify({"ok": True})
 
 
 @app.route("/cache-status")
 def cache_status():
     user = session.get("spotify_user_id")
-    if not user:
-        return jsonify({"status": "not_logged_in"})
-
     db = get_db()
     try:
         return jsonify(get_sync_status(user, db))
@@ -226,14 +180,15 @@ def cache_status():
 
 @app.route("/health")
 def health():
-    try:
-        db = get_db()
-        db.execute(sa_text("SELECT 1"))
-        db.close()
-        return jsonify({"status": "ok", "db": "connected"})
-    except Exception:
-        return jsonify({"status": "ok", "db": "error"})
+    db = get_db()
+    db.execute(sa_text("SELECT 1"))
+    db.close()
+    return jsonify({"ok": True})
 
+
+# ---------------------------------------------------------
+# RUN
+# ---------------------------------------------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
