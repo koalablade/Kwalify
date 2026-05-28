@@ -1,16 +1,3 @@
-"""
-app.py — Flask entry point. Routes only.
-
-Business logic lives in:
-  auth.py
-  spotify_service.py
-  sync_service.py
-  vibe_engine.py
-  cache.py
-  models.py
-  database.py
-"""
-
 import datetime
 import os
 import secrets
@@ -22,24 +9,24 @@ from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOauthError
 
 from auth import REDIRECT_URI, SCOPE, get_spotify_client, spotify_oauth
+
 from cache import (
     get_active_syncs,
     get_or_create_user,
     get_sync_status,
     load_user_tracks,
-    start_full_reset_sync,
-    start_manual_sync,
     start_sync_if_needed,
+    start_full_reset_sync,
 )
+
+from sync_service import run_incremental_sync, run_full_reset_sync
+
 from database import get_db, init_db
 from log import log
 from models import Playlist as PlaylistModel, User
 from spotify_service import add_tracks_to_playlist, create_playlist
 from vibe_engine import diverse_select, interpret_vibe, score_track
 
-# ---------------------------------------------------------------------------
-# App setup
-# ---------------------------------------------------------------------------
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SESSION_SECRET", "dev_key_change_me")
@@ -52,9 +39,6 @@ app.config.update(
 
 init_db()
 
-# ---------------------------------------------------------------------------
-# throttle
-# ---------------------------------------------------------------------------
 
 _user_last_generate = {}
 _GENERATE_MIN_GAP = 3.0
@@ -71,18 +55,10 @@ def _check_generate_throttle(token_suffix: str):
     return True, 0.0
 
 
-# ---------------------------------------------------------------------------
-# HOME
-# ---------------------------------------------------------------------------
-
 @app.route("/")
 def home():
     return render_template("index.html", logged_in="token_info" in session)
 
-
-# ---------------------------------------------------------------------------
-# LOGIN
-# ---------------------------------------------------------------------------
 
 @app.route("/login")
 def login():
@@ -94,10 +70,6 @@ def login():
 
     return redirect(auth.get_authorize_url(state=state))
 
-
-# ---------------------------------------------------------------------------
-# CALLBACK (FIXED CLEAN VERSION)
-# ---------------------------------------------------------------------------
 
 @app.route("/callback")
 def callback():
@@ -126,56 +98,16 @@ def callback():
     session["token_info"] = token_info
     session.modified = True
 
-    spotify_user_id = None
-
-    try:
-        sp = get_spotify_client()
-        if sp:
-            me = sp.me()
-            spotify_user_id = me["id"]
-            session["spotify_user_id"] = spotify_user_id
-    except Exception:
-        pass
-
-    # ---------------- CLEAN USER BOOTSTRAP ----------------
-    if spotify_user_id:
-        db = get_db()
+    sp = get_spotify_client()
+    if sp:
         try:
-            display_name = None
-
-            try:
-                sp = get_spotify_client()
-                if sp:
-                    display_name = sp.me().get("display_name")
-            except Exception:
-                pass
-
-            get_or_create_user(
-                spotify_user_id,
-                db,
-                display_name=display_name,
-                token_info=token_info
-            )
-
-            db.commit()
-
-            start_sync_if_needed(
-                spotify_user_id,
-                get_spotify_client(),
-                get_db
-            )
-
-        except Exception as exc:
-            log("WARN", "auth", "DB bootstrap failed", exc=str(exc))
-        finally:
-            db.close()
+            me = sp.me()
+            session["spotify_user_id"] = me["id"]
+        except Exception:
+            pass
 
     return redirect("/")
 
-
-# ---------------------------------------------------------------------------
-# GENERATE
-# ---------------------------------------------------------------------------
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -221,7 +153,13 @@ def generate():
         reverse=True,
     )
 
-    selected = diverse_select(scored, {t["id"]: t for t in cache}, length, "balanced", None)
+    selected = diverse_select(
+        scored,
+        {t["id"]: t for t in cache},
+        length,
+        "balanced",
+        None
+    )
 
     if not selected:
         return jsonify({"error": "no_match"}), 400
@@ -243,10 +181,6 @@ def generate():
         return jsonify({"error": "spotify_error", "details": str(exc)}), 500
 
 
-# ---------------------------------------------------------------------------
-# SYNC
-# ---------------------------------------------------------------------------
-
 @app.route("/sync/trigger", methods=["POST"])
 def sync_trigger():
     sp = get_spotify_client()
@@ -257,7 +191,7 @@ def sync_trigger():
     if not user:
         return jsonify({"error": "no_user"}), 400
 
-    started = start_manual_sync(user, sp, get_db)
+    started = run_incremental_sync(user, sp, get_db())
 
     return jsonify({"started": started})
 
@@ -277,10 +211,6 @@ def sync_reset():
     return jsonify({"started": started})
 
 
-# ---------------------------------------------------------------------------
-# CACHE STATUS
-# ---------------------------------------------------------------------------
-
 @app.route("/cache-status")
 def cache_status():
     user = session.get("spotify_user_id")
@@ -294,10 +224,6 @@ def cache_status():
         db.close()
 
 
-# ---------------------------------------------------------------------------
-# HEALTH
-# ---------------------------------------------------------------------------
-
 @app.route("/health")
 def health():
     try:
@@ -308,10 +234,6 @@ def health():
     except Exception:
         return jsonify({"status": "ok", "db": "error"})
 
-
-# ---------------------------------------------------------------------------
-# RUN
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
