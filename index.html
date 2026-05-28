@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>K_WALAH — AI DJ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #090910;
+      --surface:      rgba(255,255,255,0.04);
+      --surface-hi:   rgba(255,255,255,0.07);
+      --border:       rgba(255,255,255,0.08);
+      --border-hi:    rgba(255,255,255,0.14);
+      --border-focus: rgba(130,80,255,0.5);
+      --green:        #1db954;
+      --green-dim:    rgba(29,185,84,0.12);
+      --green-glow:   rgba(29,185,84,0.28);
+      --purple:       #8250ff;
+      --purple-dim:   rgba(130,80,255,0.12);
+      --purple-mid:   rgba(130,80,255,0.2);
+      --purple-glow:  rgba(130,80,255,0.28);
+      --text:         #ffffff;
+      --text-sub:     rgba(255,255,255,0.58);
+      --text-muted:   rgba(255,255,255,0.33);
+      --text-faint:   rgba(255,255,255,0.18);
+      --r:            14px;
+      --r-sm:         10px;
+      --r-pill:       9999px;
+      --spring:       cubic-bezier(0.16,1,0.3,1);
+    }
+
+    html, body {
+      min-height: 100%;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ─── Background ─── */
+    .bg {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+    }
+    .orb {
+      position: absolute; border-radius: 50%; filter: blur(90px);
+      animation: drift 20s ease-in-out infinite alternate;
+    }
+    .orb-1 { width:700px;height:700px;top:-200px;left:-150px;
+              background:radial-gradient(circle,rgba(130,80,255,.20),transparent 70%);
+              animation-duration:24s; }
+    .orb-2 { width:550px;height:550px;bottom:-120px;right:-100px;
+              background:radial-gradient(circle,rgba(29,185,84,.13),transparent 70%);
+              animation-duration:18s;animation-delay:-9s; }
+    .orb-3 { width:420px;height:420px;top:45%;left:50%;transform:translate(-50%,-50%);
+              background:radial-gradient(circle,rgba(130,80,255,.08),transparent 70%);
+              animation-duration:28s;animation-delay:-5s; }
+
+    @keyframes drift {
+      0%   { transform: translate(0,0) scale(1); }
+      40%  { transform: translate(28px,-22px) scale(1.04); }
+      70%  { transform: translate(-18px,26px) scale(.97); }
+      100% { transform: translate(14px,-32px) scale(1.02); }
+    }
+
+    /* wave bars */
+    .waves {
+      position: fixed; bottom:0; left:50%; transform:translateX(-50%);
+      display:flex; align-items:flex-end; gap:3px; height:55px;
+      padding-bottom:6px; pointer-events:none; z-index:0; opacity:.10;
+    }
+    .wb {
+      width:3px; border-radius:3px; background:var(--purple);
+      animation: wv 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes wv { from{height:3px} to{height:var(--h)} }
+
+    /* ─── Layout ─── */
+    .page {
+      position:relative; z-index:1; min-height:100vh;
+      display:flex; flex-direction:column; align-items:center;
+      padding: 0 16px 140px;
+    }
+    .inner { width:100%; max-width:660px; }
+
+    /* ─── Header ─── */
+    .header {
+      width:100%; max-width:660px;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:22px 0 0;
+    }
+    .logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
+    .logo-mark {
+      width:33px; height:33px;
+      background:linear-gradient(135deg,#8250ff,#b47eff);
+      border-radius:9px; display:flex; align-items:center; justify-content:center;
+      font-size:16px; box-shadow:0 0 18px rgba(130,80,255,.4); flex-shrink:0;
+    }
+    .logo-name { font-size:15px; font-weight:800; letter-spacing:-.3px; color:var(--text); }
+    .logo-name em { color:var(--purple); font-style:normal; }
+    .header-nav { display:flex; align-items:center; gap:8px; }
+
+    /* ─── Buttons ─── */
+    .btn {
+      display:inline-flex; align-items:center; justify-content:center; gap:7px;
+      border:none; font-family:inherit; font-weight:600; cursor:pointer;
+      text-decoration:none; user-select:none; white-space:nowrap;
+      transition: transform .15s var(--spring), box-shadow .2s, background .18s, opacity .18s, color .18s, border-color .18s;
+    }
+    .btn:active:not(:disabled) { transform:scale(0.95) !important; }
+    .btn:disabled { opacity:.42; cursor:not-allowed; }
+    .btn-sm  { padding:8px 15px; font-size:13px; border-radius:var(--r-pill); }
+    .btn-md  { padding:12px 20px; font-size:14px; border-radius:var(--r-sm); }
+    .btn-lg  { padding:15px 32px; font-size:15px; font-weight:700; border-radius:var(--r-pill); }
+    .btn-ghost {
+      background:var(--surface); border:1px solid var(--border); color:var(--text-sub);
+    }
+    .btn-ghost:hover { background:var(--surface-hi); color:var(--text); border-color:var(--border-hi); }
+    .btn-green {
+      background:var(--green); color:#000; font-weight:700;
+      box-shadow:0 4px 18px var(--green-glow);
+    }
+    .btn-green:hover:not(:disabled) { transform:translateY(-1px) scale(1.02); box-shadow:0 8px 28px var(--green-glow); }
+    .btn-purple {
+      background:linear-gradient(135deg,#8250ff,#6535d4); color:#fff;
+      box-shadow:0 4px 18px var(--purple-glow);
+    }
+    .btn-purple:hover:not(:disabled) { transform:translateY(-1px) scale(1.02); box-shadow:0 8px 28px rgba(130,80,255,.4); }
+    .btn-subtle {
+      background:var(--surface); border:1px solid var(--border); color:var(--text-sub);
+      border-radius:var(--r-sm);
+    }
+    .btn-subtle:hover { background:var(--surface-hi); color:var(--text); border-color:var(--border-hi); }
+
+    /* ─── Glass card ─── */
+    .glass {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:18px; backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px);
+    }
+
+    /* ════════════════════════════════════════
+       LOGGED-IN UI
+    ════════════════════════════════════════ */
+
+    /* Hero */
+    .hero { padding:52px 0 36px; text-align:center; }
+    .badge {
+      display:inline-flex; align-items:center; gap:7px;
+      background:rgba(130,80,255,.11); border:1px solid rgba(130,80,255,.26);
+      border-radius:var(--r-pill); padding:5px 14px 5px 10px;
+      font-size:11px; font-weight:700; letter-spacing:.5px;
+      text-transform:uppercase; color:#c09fff; margin-bottom:20px;
+    }
+    .badge-dot {
+      width:7px; height:7px; background:var(--purple); border-radius:50%;
+      box-shadow:0 0 10px var(--purple); animation:pdot 2.4s ease-in-out infinite;
+    }
+    @keyframes pdot { 0%,100%{opacity:1;box-shadow:0 0 8px var(--purple)} 50%{opacity:.4;box-shadow:0 0 18px var(--purple)} }
+
+    .hero h1 {
+      font-size:clamp(36px,7vw,58px); font-weight:900; line-height:1.06;
+      letter-spacing:-2px; margin-bottom:14px;
+      background:linear-gradient(155deg,#fff 0%,rgba(255,255,255,.48) 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .hero p { font-size:16px; color:var(--text-sub); line-height:1.65; max-width:430px; margin:0 auto; }
+
+    /* Input card */
+    .input-card {
+      padding:24px;
+      transition:border-color .25s,box-shadow .25s;
+    }
+    .input-card.glow {
+      border-color:var(--border-focus);
+      box-shadow:0 0 0 3px var(--purple-glow),0 24px 56px rgba(0,0,0,.35);
+    }
+    .field-label {
+      font-size:10.5px; font-weight:700; letter-spacing:1px;
+      text-transform:uppercase; color:var(--text-muted); margin-bottom:10px;
+    }
+    .input-row { display:flex; gap:8px; }
+    .vibe-input {
+      flex:1; min-width:0;
+      background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.07);
+      border-radius:10px; color:var(--text); font-family:inherit;
+      font-size:15px; padding:13px 16px; outline:none;
+      transition:border-color .2s;
+    }
+    .vibe-input::placeholder { color:var(--text-faint); }
+    .vibe-input:focus { border-color:rgba(130,80,255,.45); }
+    #generateBtn { border-radius:10px; padding:0 22px; font-size:14px; }
+
+    /* Presets */
+    .presets { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-top:14px; }
+    .preset-label { font-size:10px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--text-faint); }
+    .preset-btn {
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+      color:var(--text-sub); padding:6px 13px; border-radius:var(--r-pill);
+      font-size:12.5px; font-weight:500; cursor:pointer; font-family:inherit;
+      transition:background .18s,border-color .18s,color .18s,transform .15s var(--spring);
+    }
+    .preset-btn:hover { background:var(--purple-dim); border-color:rgba(130,80,255,.35); color:#c09fff; transform:translateY(-1px); }
+    .preset-btn:active { transform:scale(.94); }
+
+    /* Controls row (length + mode) */
+    .controls { display:flex; gap:12px; margin-top:18px; flex-wrap:wrap; align-items:flex-end; }
+
+    .ctrl-block { display:flex; flex-direction:column; gap:6px; }
+    .ctrl-block.grow { flex:1; min-width:140px; }
+
+    .ctrl-label { font-size:10px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--text-muted); }
+    .ctrl-val { font-size:10px; color:var(--purple); font-weight:600; }
+
+    .length-slider {
+      -webkit-appearance:none; appearance:none;
+      width:100%; height:4px; border-radius:2px;
+      background:rgba(255,255,255,.1); outline:none; cursor:pointer;
+    }
+    .length-slider::-webkit-slider-thumb {
+      -webkit-appearance:none; width:16px; height:16px;
+      border-radius:50%; background:var(--purple);
+      box-shadow:0 0 8px var(--purple-glow); cursor:pointer;
+      transition:box-shadow .15s,transform .15s;
+    }
+    .length-slider::-webkit-slider-thumb:hover { box-shadow:0 0 14px var(--purple-glow); transform:scale(1.15); }
+    .length-slider::-moz-range-thumb {
+      width:16px; height:16px; border:none; border-radius:50%;
+      background:var(--purple); cursor:pointer;
+    }
+
+    .mode-tabs { display:flex; gap:4px; }
+    .mode-tab {
+      padding:7px 14px; border-radius:8px; font-size:12px; font-weight:600;
+      cursor:pointer; font-family:inherit; border:1px solid var(--border);
+      background:var(--surface); color:var(--text-muted);
+      transition:all .18s var(--spring);
+    }
+    .mode-tab:hover { background:var(--surface-hi); color:var(--text-sub); border-color:var(--border-hi); }
+    .mode-tab.active { background:var(--purple-dim); border-color:rgba(130,80,255,.4); color:#c09fff; }
+    .mode-tab:active { transform:scale(.95); }
+
+    .kbd-hint {
+      font-size:11px; color:var(--text-faint);
+      display:flex; justify-content:flex-end; align-items:center; gap:4px;
+      margin-top:12px;
+    }
+    kbd {
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+      border-radius:4px; padding:2px 5px; font-size:10px; font-family:inherit;
+    }
+
+    /* Progress bar */
+    .prog-wrap { margin-top:18px; display:none; }
+    .prog-wrap.visible { display:block; }
+    .prog-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+    .prog-label { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-sub); font-weight:500; }
+    .prog-spin { width:13px; height:13px; border:2px solid rgba(130,80,255,.2); border-top-color:var(--purple); border-radius:50%; animation:spin .65s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .prog-pct { font-size:11.5px; color:var(--text-muted); font-weight:600; font-variant-numeric:tabular-nums; }
+    .prog-track { height:3px; background:rgba(255,255,255,.06); border-radius:2px; overflow:hidden; }
+    .prog-fill { height:100%; background:linear-gradient(90deg,#8250ff,#1db954); border-radius:2px; width:0; transition:width .5s ease; }
+
+    /* Skeleton */
+    .skel-card { margin-top:18px; padding:24px; display:none; }
+    .skel-card.visible { display:block; }
+    .skel {
+      background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.05) 75%);
+      background-size:200% 100%; border-radius:8px; animation:shimmer 1.6s infinite;
+    }
+    @keyframes shimmer { from{background-position:200% 0} to{background-position:-200% 0} }
+    .skel-line { height:12px; margin-bottom:8px; }
+
+    /* Result card */
+    .result-card { margin-top:18px; padding:24px; display:none; }
+    .result-card.visible { display:block; animation:fsu .4s var(--spring); }
+    @keyframes fsu { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+
+    .result-top { display:flex; align-items:center; gap:16px; margin-bottom:20px; }
+    .result-icon {
+      width:52px; height:52px;
+      background:linear-gradient(135deg,var(--green),#17a349);
+      border-radius:13px; display:flex; align-items:center; justify-content:center;
+      font-size:22px; flex-shrink:0; box-shadow:0 4px 20px var(--green-glow);
+      animation:popIn .5s var(--spring);
+    }
+    @keyframes popIn { from{transform:scale(.4);opacity:0} to{transform:scale(1);opacity:1} }
+    .result-info { flex:1; min-width:0; }
+    .result-tag { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--green); margin-bottom:3px; }
+    .result-name { font-size:17px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .result-meta-txt { font-size:12.5px; color:var(--text-muted); margin-top:2px; }
+
+    .result-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+    .result-actions .btn-green { flex:1; min-width:140px; }
+
+    .tracks-label { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px; }
+    .track-list { display:flex; flex-direction:column; gap:1px; }
+    .track-row {
+      display:flex; align-items:center; gap:12px;
+      padding:8px 10px; border-radius:8px;
+      transition:background .15s;
+      animation:fsu .3s var(--spring) both;
+    }
+    .track-row:hover { background:rgba(255,255,255,.04); }
+    .track-num { font-size:11px; color:var(--text-faint); width:14px; text-align:right; flex-shrink:0; font-variant-numeric:tabular-nums; }
+    .track-dot { width:5px; height:5px; background:var(--green); border-radius:50%; flex-shrink:0; opacity:.6; }
+    .track-info { flex:1; min-width:0; }
+    .track-name { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .track-artist { font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .divider { height:1px; background:var(--border); margin:18px 0; }
+    .status-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+    .status-left { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-faint); }
+    .status-dot { width:6px; height:6px; background:var(--green); border-radius:50%; box-shadow:0 0 7px var(--green); flex-shrink:0; }
+
+    /* Mode badge on result */
+    .mode-badge {
+      display:inline-flex; align-items:center; gap:5px;
+      background:var(--purple-dim); border:1px solid var(--purple-mid);
+      border-radius:var(--r-pill); padding:3px 10px;
+      font-size:11px; font-weight:600; color:#c09fff; margin-left:8px;
+    }
+
+    /* History */
+    .history-section { margin-top:26px; display:none; }
+    .history-section.visible { display:block; animation:fsu .3s var(--spring); }
+    .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .section-title { display:flex; align-items:center; gap:7px; font-size:10.5px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); }
+    .btn-clear { background:none; border:none; color:var(--text-faint); font-size:12px; font-family:inherit; font-weight:500; cursor:pointer; padding:4px 8px; border-radius:6px; transition:color .15s,background .15s; }
+    .btn-clear:hover { color:#ff7070; background:rgba(255,60,60,.08); }
+    .h-list { display:flex; flex-direction:column; gap:6px; }
+    .h-item {
+      display:flex; align-items:center; gap:12px; padding:12px 16px;
+      border-radius:12px; transition:background .18s,border-color .18s;
+      animation:fsu .28s var(--spring) both;
+    }
+    .h-item:hover { background:var(--surface-hi); border-color:var(--border-hi); }
+    .h-icon { width:34px; height:34px; background:var(--purple-dim); border:1px solid var(--purple-mid); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+    .h-body { flex:1; min-width:0; }
+    .h-vibe { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .h-meta { font-size:11.5px; color:var(--text-faint); margin-top:1px; }
+    .h-actions { display:flex; gap:6px; flex-shrink:0; }
+    .btn-h {
+      padding:6px 12px; border-radius:var(--r-pill); font-size:12px; font-weight:600;
+      cursor:pointer; font-family:inherit; border:1px solid; text-decoration:none;
+      transition:background .15s,transform .15s var(--spring);
+    }
+    .btn-h:active { transform:scale(.94); }
+    .btn-h-open { background:var(--green-dim); border-color:rgba(29,185,84,.22); color:var(--green); }
+    .btn-h-open:hover { background:rgba(29,185,84,.18); }
+    .btn-h-replay { background:var(--purple-dim); border-color:var(--purple-mid); color:#b47eff; }
+    .btn-h-replay:hover { background:rgba(130,80,255,.2); }
+
+    /* ════════════════════════════════════════
+       TOASTS
+    ════════════════════════════════════════ */
+    .toast-stack { position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column-reverse; gap:8px; z-index:200; pointer-events:none; }
+    .toast {
+      display:flex; align-items:center; gap:10px;
+      padding:12px 18px; border-radius:12px; font-size:13.5px; font-weight:500;
+      max-width:340px; pointer-events:all; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+      animation:tin .3s var(--spring) forwards;
+      box-shadow:0 8px 32px rgba(0,0,0,.45);
+    }
+    @keyframes tin { from{opacity:0;transform:translateX(20px) scale(.95)} to{opacity:1;transform:none} }
+    .toast-out { animation:tout .25s ease forwards; }
+    @keyframes tout { to{opacity:0;transform:translateX(20px) scale(.9)} }
+    .toast-error   { background:rgba(28,8,8,.93); border:1px solid rgba(255,80,80,.25); color:#ff9090; }
+    .toast-success { background:rgba(4,20,10,.93); border:1px solid rgba(29,185,84,.28); color:#5edf8a; }
+    .toast-info    { background:rgba(14,8,28,.93); border:1px solid rgba(130,80,255,.28); color:#c09fff; }
+
+    /* ════════════════════════════════════════
+       LANDING PAGE (logged-out)
+    ════════════════════════════════════════ */
+    .landing { width:100%; }
+
+    /* Landing hero */
+    .lhero {
+      text-align:center;
+      padding:72px 20px 56px;
+    }
+    .lhero-badge {
+      display:inline-flex; align-items:center; gap:8px;
+      background:rgba(130,80,255,.1); border:1px solid rgba(130,80,255,.25);
+      border-radius:var(--r-pill); padding:6px 16px;
+      font-size:12px; font-weight:600; letter-spacing:.4px; color:#c09fff;
+      margin-bottom:28px;
+    }
+    .lhero h1 {
+      font-size:clamp(44px,9vw,76px); font-weight:900; line-height:1.02;
+      letter-spacing:-3px; margin-bottom:22px;
+      background:linear-gradient(155deg,#fff 30%,rgba(255,255,255,.38) 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .lhero h1 span { color:#8250ff; -webkit-text-fill-color:#8250ff; }
+    .lhero p {
+      font-size:18px; color:var(--text-sub); line-height:1.7;
+      max-width:500px; margin:0 auto 36px;
+    }
+    .lhero-cta { display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; }
+    .lhero .btn-green { font-size:15px; padding:15px 32px; border-radius:var(--r-pill); }
+    .lhero-note { font-size:12.5px; color:var(--text-faint); margin-top:14px; }
+
+    /* Feature grid */
+    .features {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+      gap:12px; padding:0 0 16px; margin-bottom:24px;
+    }
+    .feat-card {
+      padding:22px 20px;
+      border-radius:16px;
+    }
+    .feat-icon { font-size:26px; margin-bottom:14px; }
+    .feat-title { font-size:14px; font-weight:700; margin-bottom:6px; color:var(--text); }
+    .feat-desc { font-size:13px; color:var(--text-sub); line-height:1.55; }
+
+    /* How it works */
+    .how { padding:8px 0 48px; text-align:center; }
+    .how h2 { font-size:22px; font-weight:800; letter-spacing:-.4px; margin-bottom:32px; }
+    .steps { display:flex; gap:0; flex-wrap:wrap; justify-content:center; }
+    .step {
+      display:flex; flex-direction:column; align-items:center;
+      text-align:center; padding:0 20px; max-width:200px; position:relative;
+    }
+    .step:not(:last-child)::after {
+      content:'→'; position:absolute; right:-10px; top:20px;
+      font-size:16px; color:var(--text-faint);
+    }
+    .step-num {
+      width:40px; height:40px; border-radius:50%;
+      background:var(--purple-dim); border:1px solid var(--purple-mid);
+      display:flex; align-items:center; justify-content:center;
+      font-size:15px; font-weight:800; color:var(--purple);
+      margin-bottom:14px;
+    }
+    .step-title { font-size:13.5px; font-weight:700; margin-bottom:6px; }
+    .step-desc { font-size:12.5px; color:var(--text-muted); line-height:1.5; }
+
+    /* Social proof strip */
+    .proof {
+      border-radius:16px; padding:20px 24px;
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:16px; margin-bottom:48px;
+    }
+    .proof-stat { text-align:center; }
+    .proof-num { font-size:24px; font-weight:900; letter-spacing:-.5px; color:var(--text); }
+    .proof-lbl { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+    /* Bottom CTA */
+    .bottom-cta { text-align:center; padding:0 20px 20px; }
+    .bottom-cta h2 { font-size:28px; font-weight:900; letter-spacing:-.5px; margin-bottom:12px; }
+    .bottom-cta p { font-size:15px; color:var(--text-sub); margin-bottom:28px; }
+
+    /* ─── Sync status banner ─── */
+    .sync-banner {
+      display:flex; align-items:center; gap:9px;
+      padding:9px 16px; border-radius:10px;
+      font-size:12.5px; font-weight:500;
+      margin-bottom:12px;
+      transition:opacity .3s;
+    }
+    .sync-banner.syncing {
+      background:rgba(130,80,255,.10); border:1px solid rgba(130,80,255,.22); color:#c09fff;
+    }
+    .sync-banner.done {
+      background:rgba(29,185,84,.07); border:1px solid rgba(29,185,84,.18); color:#5edf8a;
+    }
+    .sync-banner.rate_limited {
+      background:rgba(255,160,40,.07); border:1px solid rgba(255,160,40,.20); color:#ffbc6a;
+    }
+    .sync-banner.idle, .sync-banner.error, .sync-banner.no_user {
+      background:rgba(255,255,255,.03); border:1px solid var(--border); color:var(--text-muted);
+    }
+    .sb-spin {
+      width:11px; height:11px;
+      border:1.5px solid rgba(130,80,255,.3); border-top-color:var(--purple);
+      border-radius:50%; animation:spin .65s linear infinite; flex-shrink:0;
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width:520px) {
+      .lhero h1 { letter-spacing:-1.5px; }
+      .lhero p { font-size:16px; }
+      .step:not(:last-child)::after { display:none; }
+      .input-row { flex-direction:column; }
+      #generateBtn { padding:13px; }
+      .result-actions { flex-direction:column; }
+      .result-actions .btn-green { min-width:0; }
+      .h-actions { flex-direction:column; }
+      .toast-stack { right:12px; left:12px; bottom:16px; }
+      .toast { max-width:100%; }
+      .controls { flex-direction:column; }
+      .mode-tabs .mode-tab { flex:1; text-align:center; }
+      .kbd-hint { display:none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+<div class="waves" id="waveBars"></div>
+<div class="toast-stack" id="toastStack"></div>
+
+<div class="page">
+
+  <header class="header">
+    <a class="logo" href="/">
+      <div class="logo-mark">🎧</div>
+      <span class="logo-name">K_<em>WALAH</em></span>
+    </a>
+    <nav class="header-nav">
+      {% if logged_in %}
+        <a href="/cache-status" class="btn btn-ghost btn-sm" target="_blank">Cache</a>
+        <a href="/logout" class="btn btn-ghost btn-sm">Log out</a>
+      {% else %}
+        <a href="/login" class="btn btn-green btn-sm">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          Connect
+        </a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <div class="inner">
+  {% if logged_in %}
+  <!-- ══════════ LOGGED IN ══════════ -->
+
+    <section class="hero">
+      <div class="badge"><span class="badge-dot"></span>AI DJ · Vibe Intelligence</div>
+      <h1>What's the vibe?</h1>
+      <p>Describe your mood, scene, or moment — the AI scores your entire library and builds the perfect playlist.</p>
+    </section>
+
+    <!-- Sync status banner — updated by JS polling /cache-status -->
+    <div id="syncBanner" class="sync-banner" style="display:none" aria-live="polite"></div>
+
+    <!-- Input card -->
+    <div class="glass input-card" id="inputCard">
+      <div class="field-label">Describe your vibe</div>
+      <div class="input-row">
+        <input class="vibe-input" id="vibeInput" type="text"
+          placeholder="e.g. night drive alone in the rain…"
+          maxlength="140" autocomplete="off" spellcheck="false" />
+        <button class="btn btn-purple" id="generateBtn" onclick="generate()" style="min-width:110px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Generate
+        </button>
+      </div>
+
+      <div class="presets">
+        <span class="preset-label">Quick</span>
+        <button class="preset-btn" onclick="applyPreset('night drive alone on the motorway')">🌙 Night Drive</button>
+        <button class="preset-btn" onclick="applyPreset('gym rage villain arc training session')">💪 Gym</button>
+        <button class="preset-btn" onclick="applyPreset('chill evening at home relaxing')">☁️ Chill</button>
+        <button class="preset-btn" onclick="applyPreset('deep focus study session no distractions')">🧠 Focus</button>
+        <button class="preset-btn" onclick="applyPreset('summer sunset golden hour warm vibes')">🌅 Summer</button>
+      </div>
+
+      <!-- Controls: length slider + mode -->
+      <div class="controls">
+        <div class="ctrl-block grow">
+          <div class="ctrl-label">Playlist length — <span class="ctrl-val" id="lenVal">25 tracks</span></div>
+          <input class="length-slider" id="lenSlider" type="range" min="10" max="100" step="5" value="25"
+            oninput="document.getElementById('lenVal').textContent=this.value+' tracks'" />
+        </div>
+        <div class="ctrl-block">
+          <div class="ctrl-label">Match mode</div>
+          <div class="mode-tabs">
+            <button class="mode-tab" id="modeStrict"  onclick="setMode('strict')">Strict</button>
+            <button class="mode-tab active" id="modeBalanced" onclick="setMode('balanced')">Balanced</button>
+            <button class="mode-tab" id="modeChaotic" onclick="setMode('chaotic')">Chaotic</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="kbd-hint"><kbd>Enter</kbd> generate &nbsp;·&nbsp; <kbd>Ctrl K</kbd> focus</div>
+
+      <!-- Progress -->
+      <div class="prog-wrap" id="progWrap">
+        <div class="prog-head">
+          <div class="prog-label"><div class="prog-spin"></div><span id="progLabel">Analysing vibe…</span></div>
+          <span class="prog-pct" id="progPct">0%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+      </div>
+    </div>
+
+    <!-- Skeleton -->
+    <div class="glass skel-card" id="skelCard">
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px">
+        <div class="skel" style="width:52px;height:52px;border-radius:13px;flex-shrink:0"></div>
+        <div style="flex:1">
+          <div class="skel skel-line" style="width:38%;margin-bottom:8px"></div>
+          <div class="skel skel-line" style="width:66%"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:18px">
+        <div class="skel" style="flex:1;height:44px;border-radius:10px"></div>
+        <div class="skel" style="width:120px;height:44px;border-radius:10px"></div>
+      </div>
+      <div class="skel skel-line" style="width:100%"></div>
+      <div class="skel skel-line" style="width:84%;margin-top:6px"></div>
+      <div class="skel skel-line" style="width:91%;margin-top:6px"></div>
+    </div>
+
+    <!-- Result card -->
+    <div class="glass result-card" id="resultCard">
+      <div class="result-top">
+        <div class="result-icon">🎵</div>
+        <div class="result-info">
+          <div class="result-tag">Playlist ready</div>
+          <div class="result-name" id="resultName">K_WALAH Playlist</div>
+          <div class="result-meta-txt" id="resultMeta">25 tracks · Private playlist</div>
+        </div>
+      </div>
+
+      <div class="result-actions">
+        <a class="btn btn-green btn-md" id="openBtn" href="#" target="_blank" rel="noopener">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          Open in Spotify
+        </a>
+        <button class="btn btn-subtle btn-md" id="copyBtn" onclick="copyLink()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy link
+        </button>
+        <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Regenerate same vibe">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Regen
+        </button>
+      </div>
+
+      <div class="tracks-label">Top picks from your library</div>
+      <div class="track-list" id="trackList"></div>
+
+      <div class="divider"></div>
+      <div class="status-row">
+        <div class="status-left">
+          <div class="status-dot"></div>
+          <span>Saved to Spotify · scored from your liked songs</span>
+        </div>
+        <span class="mode-badge" id="modeBadge">balanced</span>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="history-section" id="histSection">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Recent playlists
+        </div>
+        <button class="btn-clear" onclick="clearHistory()">Clear all</button>
+      </div>
+      <div class="h-list" id="hList"></div>
+    </div>
+
+  {% else %}
+  <!-- ══════════ LANDING PAGE ══════════ -->
+
+    <div class="landing">
+
+      <!-- Hero -->
+      <div class="lhero">
+        <div class="lhero-badge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Playlists that match your mood.
+        </div>
+        <h1>Your vibe.<br/><span>Your playlist.</span></h1>
+        <p>Kwalify builds playlists from the music you actually listen to — tuned to how you feel right now..</p>
+        <div class="lhero-cta">
+          <a href="/login" class="btn btn-green" style="font-size:15px;padding:15px 32px;border-radius:9999px">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+            Connect with Spotify — it's free
+          </a>
+        </div>
+        <p class="lhero-note">Only your music· Nothing Else Private playlists only</p>
+      </div>
+
+      <!-- Feature cards -->
+      <div class="features">
+        <div class="glass feat-card">
+          <div class="feat-icon">🧠</div>
+          <div class="feat-title">3-Layer Vibe AI</div>
+          <div class="feat-desc">Parses your scene into location, time, mood, and motion — then maps it to exact audio fingerprints.</div>
+        </div>
+        <div class="glass feat-card">
+          <div class="feat-icon">🎵</div>
+          <div class="feat-title">Scores your library</div>
+          <div class="feat-desc">Every liked song is scored against 5 audio dimensions. Only songs you already love make the cut.</div>
+        </div>
+        <div class="glass feat-card">
+          <div class="feat-icon">🎛️</div>
+          <div class="feat-title">Strict, Balanced, Chaotic</div>
+          <div class="feat-desc">Choose how closely tracks match your vibe. Balanced ensures artist variety and tempo diversity.</div>
+        </div>
+        <div class="glass feat-card">
+          <div class="feat-icon">⚡</div>
+          <div class="feat-title">One click, done</div>
+          <div class="feat-desc">Describe your mood, hit Generate. A private playlist appears in your Spotify in seconds.</div>
+        </div>
+      </div>
+
+      <!-- How it works -->
+      <div class="how">
+        <h2>How it works</h2>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-title">Connect Spotify</div>
+            <div class="step-desc">One-click OAuth — read-only access to your liked songs</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-title">Describe your vibe</div>
+            <div class="step-desc">Type anything: "night drive alone" or hit a preset</div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-title">AI scores tracks</div>
+            <div class="step-desc">Energy, valence, tempo, acousticness — all matched locally</div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-title">Playlist created</div>
+            <div class="step-desc">Opens in Spotify automatically — no manual steps</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats strip -->
+      <div class="glass proof">
+        <div class="proof-stat"><div class="proof-num">5</div><div class="proof-lbl">Audio dimensions scored</div></div>
+        <div class="proof-stat"><div class="proof-num">3</div><div class="proof-lbl">AI pipeline layers</div></div>
+        <div class="proof-stat"><div class="proof-num">10–100</div><div class="proof-lbl">Tracks per playlist</div></div>
+        <div class="proof-stat"><div class="proof-num">0</div><div class="proof-lbl">Data stored on server</div></div>
+      </div>
+
+      <!-- Bottom CTA -->
+      <div class="bottom-cta">
+        <h2>Ready to hear it?</h2>
+        <p>Connect your Spotify and describe your first vibe. Takes 10 seconds.</p>
+        <a href="/login" class="btn btn-green" style="font-size:15px;padding:15px 32px;border-radius:9999px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          Get started free
+        </a>
+      </div>
+
+    </div>
+  {% endif %}
+  </div><!-- /inner -->
+</div><!-- /page -->
+
+<script>
+/* ── Wave bars ────────────────────────────────── */
+(function(){
+  const c=document.getElementById('waveBars'); if(!c) return;
+  [8,14,22,34,28,40,28,34,22,14,8,18,30,24,36,24,30,18].forEach((h,i)=>{
+    const b=document.createElement('div'); b.className='wb';
+    b.style.cssText=`--h:${h}px;animation-delay:${(i*.07).toFixed(2)}s;animation-duration:${(1.2+i*.05).toFixed(2)}s`;
+    c.appendChild(b);
+  });
+})();
+
+/* ── Toast system ─────────────────────────────── */
+const toastStack=document.getElementById('toastStack');
+function showToast(msg,type='info',ms=4000){
+  if(!toastStack) return;
+  const icons={error:'✕',success:'✓',info:'◆'};
+  const t=document.createElement('div');
+  t.className=`toast toast-${type}`;
+  t.innerHTML=`<span style="flex-shrink:0">${icons[type]}</span><span>${msg}</span>`;
+  toastStack.appendChild(t);
+  const rm=()=>{ t.classList.add('toast-out'); setTimeout(()=>t.remove(),280); };
+  setTimeout(rm,ms);
+  t.addEventListener('click',rm);
+}
+
+/* ── State ────────────────────────────────────── */
+const $=id=>document.getElementById(id);
+const vibeInput=$('vibeInput'), generateBtn=$('generateBtn'), inputCard=$('inputCard');
+const progWrap=$('progWrap'), progFill=$('progFill'), progPct=$('progPct'), progLabel=$('progLabel');
+const skelCard=$('skelCard'), resultCard=$('resultCard');
+const resultName=$('resultName'), resultMeta=$('resultMeta'), openBtn=$('openBtn');
+const copyBtn=$('copyBtn'), trackList=$('trackList'), modeBadge=$('modeBadge');
+const histSection=$('histSection'), hList=$('hList');
+
+let currentUrl='', lastVibe='', currentMode='balanced';
+let isGenerating=false, debTimer=null;
+
+const HIST_KEY='kwalah_v3', MAX_HIST=10;
+const ICONS=['🎵','🌙','💪','☁️','🌅','🎧','🔥','✨','🎶','🌊'];
+
+/* ── Mode selector ────────────────────────────── */
+function setMode(m){
+  currentMode=m;
+  ['strict','balanced','chaotic'].forEach(k=>{
+    const el=$(('mode'+k.charAt(0).toUpperCase()+k.slice(1)));
+    if(el) el.classList.toggle('active', k===m);
+  });
+}
+
+/* ── Progress ─────────────────────────────────── */
+const STAGES=[
+  {label:'Analysing your vibe…',     pct:12},
+  {label:'Scanning your library…',   pct:32},
+  {label:'Scoring all tracks…',      pct:58},
+  {label:'Applying diversity rules…',pct:76},
+  {label:'Creating Spotify playlist…',pct:92},
+];
+let stageIdx=0, progTimer=null;
+
+function startProgress(){
+  stageIdx=0; setStage(0);
+  progTimer=setInterval(()=>{ if(stageIdx<STAGES.length-1) setStage(++stageIdx); },1800);
+}
+function setStage(i){
+  const s=STAGES[i];
+  if(progLabel) progLabel.textContent=s.label;
+  if(progFill)  progFill.style.width=s.pct+'%';
+  if(progPct)   progPct.textContent=s.pct+'%';
+}
+function finishProgress(){
+  clearInterval(progTimer);
+  if(progFill) progFill.style.width='100%';
+  if(progPct)  progPct.textContent='100%';
+}
+
+/* ── Loading state ────────────────────────────── */
+const _GEN_BTN_HTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Generate`;
+const _GEN_BTN_LOADING = `<span class="prog-spin" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:5px"></span>Generating…`;
+
+function setLoading(on){
+  if(!generateBtn) return;
+  isGenerating=on;
+  generateBtn.disabled=on;
+  generateBtn.innerHTML=on ? _GEN_BTN_LOADING : _GEN_BTN_HTML;
+  if(progWrap) progWrap.classList.toggle('visible',on);
+  if(skelCard) skelCard.classList.toggle('visible',on);
+  if(on){ resultCard && resultCard.classList.remove('visible'); startProgress(); }
+  else  { finishProgress(); setTimeout(()=>{ progWrap && progWrap.classList.remove('visible'); skelCard && skelCard.classList.remove('visible'); },350); }
+}
+
+/* ── Show result ──────────────────────────────── */
+function confLabel(c){
+  if(c>=0.65) return ' · ✓ Strong match';
+  if(c>=0.35) return ' · Good match';
+  return '';
+}
+function showResult(url,vibe,tracks,count,mode,confidence){
+  currentUrl=url; lastVibe=vibe;
+  if(resultName) resultName.textContent=`K_WALAH • ${vibe}`;
+  if(resultMeta) resultMeta.textContent=`${count||tracks.length||25} tracks · Private · ${mode||currentMode}${confLabel(confidence||0)}`;
+  if(openBtn)    openBtn.href=url;
+  if(modeBadge)  modeBadge.textContent=mode||currentMode;
+  if(trackList){
+    trackList.innerHTML=(tracks||[]).slice(0,5).map((t,i)=>`
+      <div class="track-row" style="animation-delay:${i*.06}s">
+        <span class="track-num">${i+1}</span><span class="track-dot"></span>
+        <div class="track-info">
+          <div class="track-name">${esc(t.name)}</div>
+          <div class="track-artist">${esc(t.artist)}</div>
+        </div>
+      </div>`).join('');
+  }
+  resultCard && resultCard.classList.add('visible');
+  resetCopyBtn();
+  resultCard && resultCard.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ── Generate ─────────────────────────────────── */
+function generate(){
+  if(debTimer||isGenerating) return;
+  const vibe=(vibeInput?.value||'').trim();
+  if(!vibe){ vibeInput?.focus(); showToast('Type a vibe first!','info',2200); return; }
+
+  debTimer=setTimeout(()=>debTimer=null, 900);
+  setLoading(true);
+  resultCard && resultCard.classList.remove('visible');
+
+  const length=parseInt($('lenSlider')?.value)||25;
+
+  fetch('/generate',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({vibe, length, mode:currentMode}),
+  })
+  .then(r=>r.json().then(d=>({ok:r.ok,status:r.status,d})))
+  .then(({ok,status,d})=>{
+    setLoading(false);
+    if(status===429||d.error==='rate_limited'){
+      const wait=d.retry_after||3;
+      showToast(`Hold on — wait ${wait}s before generating again.`,'info',4000);
+      return;
+    }
+    if(!ok||d.error){
+      const m={
+        not_logged_in:'Log in with Spotify to generate playlists.',
+        session_expired:'Session expired — redirecting to login…',
+        scope_mismatch:'Spotify permissions need updating — redirecting to login…',
+        no_tracks_available:'No tracks found in your library.',
+        no_tracks_matched:'No tracks matched this vibe — try something broader.',
+        cache_build_failed:'Could not load your library. Try again.',
+        playlist_creation_failed:'Playlist creation failed — check Spotify permissions.',
+      };
+      showToast(m[d.error]||d.details||d.error||'Something went wrong.','error',5500);
+      if(d.error==='not_logged_in'||d.error==='session_expired'||d.error==='scope_mismatch'||status===401){
+        setTimeout(()=>window.location.href='/login',2200);
+      }
+      return;
+    }
+    if(vibeInput) vibeInput.value='';
+    showResult(d.url, vibe, d.tracks||[], d.count, d.mode, d.confidence);
+    addToHistory(vibe, d.url, d.count, d.mode);
+    showToast(`Playlist created — ${d.count||25} tracks!`,'success',3500);
+  })
+  .catch(()=>{ setLoading(false); showToast('Network error — is the server running?','error',5000); });
+}
+
+function regenerate(){
+  if(!lastVibe) return;
+  if(vibeInput) vibeInput.value=lastVibe;
+  // Use chaotic for regen so tracks vary
+  const prev=currentMode;
+  if(prev==='strict') setMode('balanced');
+  generate();
+}
+
+function applyPreset(v){
+  if(!vibeInput) return;
+  vibeInput.value=v; generate();
+}
+
+/* ── Copy link ────────────────────────────────── */
+function resetCopyBtn(){
+  if(!copyBtn) return;
+  copyBtn.classList.remove('btn-green');
+  copyBtn.classList.add('btn-subtle');
+  copyBtn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy link`;
+}
+function copyLink(){
+  if(!currentUrl) return;
+  const ok=()=>{
+    copyBtn.classList.remove('btn-subtle'); copyBtn.classList.add('btn-green');
+    copyBtn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    showToast('Link copied to clipboard','success',2500);
+    setTimeout(resetCopyBtn,3000);
+  };
+  navigator.clipboard?.writeText(currentUrl).then(ok).catch(()=>{
+    const ta=Object.assign(document.createElement('textarea'),{value:currentUrl,style:'position:fixed;opacity:0'});
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); ok();
+  });
+}
+
+/* ── History ──────────────────────────────────── */
+function loadHist(){ try{return JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}catch{return[];} }
+function saveHist(items){ try{localStorage.setItem(HIST_KEY,JSON.stringify(items));}catch{} }
+
+function addToHistory(vibe,url,count,mode){
+  const prev=loadHist().filter(h=>h.vibe.toLowerCase()!==vibe.toLowerCase());
+  const entry={vibe,url,count,mode,ts:Date.now(),icon:ICONS[Math.floor(Math.random()*ICONS.length)]};
+  const updated=[entry,...prev].slice(0,MAX_HIST);
+  saveHist(updated); renderHist(updated);
+}
+function clearHistory(){ saveHist([]); renderHist([]); showToast('History cleared','info',2000); }
+
+function timeAgo(ts){
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60) return 'just now';
+  const m=Math.floor(s/60); if(m<60) return `${m}m ago`;
+  const h=Math.floor(m/60); if(h<24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+
+function renderHist(items){
+  if(!histSection||!hList) return;
+  if(!items||!items.length){ histSection.classList.remove('visible'); hList.innerHTML=''; return; }
+  histSection.classList.add('visible');
+  hList.innerHTML=items.map((h,i)=>`
+    <div class="glass h-item" style="animation-delay:${i*.04}s">
+      <div class="h-icon">${h.icon||'🎵'}</div>
+      <div class="h-body">
+        <div class="h-vibe">${esc(h.vibe)}</div>
+        <div class="h-meta">${timeAgo(h.ts)}${h.count?' · '+h.count+' tracks':''}${h.mode?' · '+h.mode:''}</div>
+      </div>
+      <div class="h-actions">
+        <a class="btn-h btn-h-open" href="${esc(h.url)}" target="_blank" rel="noopener">Open</a>
+        <button class="btn-h btn-h-replay" onclick="replayHist(${i})">▶ Replay</button>
+      </div>
+    </div>`).join('');
+}
+
+function replayHist(i){
+  const h=loadHist()[i]; if(!h||!vibeInput) return;
+  vibeInput.value=h.vibe; generate();
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── Input focus glow ─────────────────────────── */
+if(vibeInput&&inputCard){
+  vibeInput.addEventListener('focus',()=>inputCard.classList.add('glow'));
+  vibeInput.addEventListener('blur', ()=>inputCard.classList.remove('glow'));
+}
+
+/* ── Keyboard shortcuts ───────────────────────── */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.activeElement===vibeInput){ e.preventDefault(); if(!generateBtn?.disabled) generate(); }
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){ e.preventDefault(); vibeInput?.focus(); vibeInput?.select(); }
+});
+
+/* ── Init ─────────────────────────────────────── */
+renderHist(loadHist());
+if(vibeInput) setTimeout(()=>vibeInput.focus(),180);
+
+/* ── Sync status banner ───────────────────────── */
+(function(){
+  const banner=document.getElementById('syncBanner');
+  if(!banner) return;
+
+  function minsUntil(isoStr){
+    if(!isoStr) return null;
+    const ms=new Date(isoStr)-Date.now();
+    return ms>0 ? Math.max(1,Math.round(ms/60000)) : null;
+  }
+  function fmtTime(isoStr){
+    if(!isoStr) return '';
+    try{
+      const d=new Date(isoStr.endsWith('Z')?isoStr:isoStr+'Z');
+      return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    }catch{ return ''; }
+  }
+
+  const SPIN='<span class="sb-spin"></span>';
+  const CHECK='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+  function render(d){
+    const s=d.status;
+    if(s==='not_logged_in'||s==='no_user'){banner.style.display='none';return;}
+    let cls=s, icon='', msg='';
+
+    if(s==='syncing'){
+      const done=d.sync_done||0, total=d.sync_total||0;
+      const prog=total>0?` (${done} / ${total})`:'';
+      icon=SPIN; msg=`Syncing your library${prog}…`;
+    } else if(s==='done'){
+      const t=fmtTime(d.last_sync_at);
+      const n=d.track_count||0;
+      icon=CHECK; msg=`Library ready — ${n} track${n!==1?'s':''}`+(t?` · Last synced ${t}`:'');
+    } else if(s==='rate_limited'){
+      const m=minsUntil(d.sync_retry_after);
+      icon='⏸'; msg='Sync paused — Spotify rate limit'+(m?` · Retrying in ~${m} min`:'');
+    } else if(s==='error'){
+      icon='⚠'; msg='Sync error — log out and back in to retry';
+    } else {
+      icon='○'; msg='Library not yet synced';
+    }
+
+    banner.className='sync-banner '+cls;
+    banner.innerHTML=icon+'<span>'+msg+'</span>';
+    banner.style.display='flex';
+  }
+
+  let _pending=false;
+  function poll(){
+    if(_pending) return;
+    _pending=true;
+    fetch('/cache-status')
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{if(d)render(d);})
+      .catch(()=>{})
+      .finally(()=>{_pending=false;});
+  }
+
+  poll();
+  setInterval(poll,7000);
+})();
+</script>
+</body>
+</html>
