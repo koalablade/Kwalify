@@ -1,11 +1,10 @@
 """
-cache.py — SAFE STABLE VERSION (no UI changes, rate-limit protected)
+cache.py — SAFE STABLE VERSION (SYNC + RATE LIMIT PROTECTED)
 """
 
 import datetime
 import json
 import threading
-import time
 
 from log import log
 from models import Track, User, UserTrack
@@ -42,6 +41,10 @@ def load_user_tracks(spotify_user_id, db):
     ]
 
 
+# =========================================================
+# USER CREATION
+# =========================================================
+
 def get_or_create_user(spotify_user_id, db, display_name=None, token_info=None):
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
 
@@ -59,12 +62,15 @@ def get_or_create_user(spotify_user_id, db, display_name=None, token_info=None):
     return user
 
 
+# =========================================================
+# SYNC CHECKS
+# =========================================================
+
 def needs_sync(spotify_user_id, db):
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
     if not user:
         return True
 
-    # prevents constant re-sync spam (IMPORTANT FOR SPOTIFY 429 PROTECTION)
     if user.sync_retry_after and user.sync_retry_after > datetime.datetime.utcnow():
         return False
 
@@ -80,6 +86,7 @@ def needs_sync(spotify_user_id, db):
 
 def get_sync_status(spotify_user_id, db):
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
+
     if not user:
         return {"status": "no_user", "track_count": 0}
 
@@ -96,7 +103,7 @@ def get_sync_status(spotify_user_id, db):
 
 
 # =========================================================
-# SIMPLE SAFE SYNC CONTROL
+# SYNC LOCK SYSTEM
 # =========================================================
 
 _sync_lock = threading.Lock()
@@ -104,8 +111,6 @@ _sync_running = set()
 
 
 def _run_sync(user_id, sp, db_factory, sync_fn):
-    """safe wrapper for ANY sync function"""
-
     with _sync_lock:
         if user_id in _sync_running:
             log("INFO", "cache", "Sync already running — skipping", user=user_id)
@@ -129,7 +134,7 @@ def _run_sync(user_id, sp, db_factory, sync_fn):
 
 
 # =========================================================
-# PUBLIC SYNC FUNCTIONS (NO UI CHANGE REQUIRED)
+# PUBLIC SYNC API (MATCHED TO APP.PY)
 # =========================================================
 
 def start_sync_if_needed(user_id, sp, db_factory):
