@@ -4,7 +4,6 @@ cache.py — DB-backed cache helpers and background sync orchestration.
 
 import datetime
 import json
-import os
 import threading
 import time
 import traceback
@@ -14,7 +13,7 @@ from models import Track, User, UserTrack
 
 
 # =========================================================
-# DB HELPERS
+# LOAD TRACKS
 # =========================================================
 
 def load_user_tracks(spotify_user_id, db):
@@ -46,6 +45,10 @@ def load_user_tracks(spotify_user_id, db):
         for t in rows
     ]
 
+
+# =========================================================
+# USER
+# =========================================================
 
 def get_or_create_user(spotify_user_id, db, display_name=None, token_info=None):
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
@@ -89,17 +92,9 @@ def get_sync_status(spotify_user_id, db):
 
     track_count = db.query(UserTrack).filter_by(user_id=user.id).count()
 
-    tracks_with_features = (
-        db.query(Track)
-        .join(UserTrack, UserTrack.track_id == Track.id)
-        .filter(UserTrack.user_id == user.id, Track.energy.isnot(None))
-        .count()
-    )
-
     return {
         "status": user.sync_status or "idle",
         "track_count": track_count,
-        "tracks_with_features": tracks_with_features,
         "sync_total": user.sync_total or 0,
         "sync_done": user.sync_done or 0,
         "last_sync_at": user.last_sync_at.isoformat() if user.last_sync_at else None,
@@ -108,236 +103,60 @@ def get_sync_status(spotify_user_id, db):
 
 
 # =========================================================
-# SYNC STATE
+# SIMPLE SYNC RUNNER (CLEAN VERSION)
 # =========================================================
 
-_sync_lock = threading.Lock()
-_syncing_users = set()
-_sync_start_times = {}
-_STALE_TIMEOUT = 7200
+def run_sync(spotify_user_id, sp, db_factory, reset=False):
+    """
+    Single unified sync function:
+    - reset=False → incremental sync
+    - reset=True  → full reset sync
+    """
 
+    db = db_factory()
 
-def get_active_syncs():
-    now = time.time()
-    with _sync_lock:
-        return {
-            uid: round(now - start, 0)
-            for uid, start in _sync_start_times.items()
-        }
+    try:
+        if reset:
+            from sync_service import run_full_reset_sync
+            log("INFO", "cache", "Starting FULL RESET sync", user=spotify_user_id)
+            run_full_reset_sync(spotify_user_id, sp, db)
+        else:
+            from sync_service import run_incremental_sync
+            log("INFO", "cache", "Starting INCREMENTAL sync", user=spotify_user_id)
+            run_incremental_sync(spotify_user_id, sp, db)
 
+        log("INFO", "cache", "Sync finished", user=spotify_user_id)
+        return True
 
-def _launch_sync_thread(user_id, fn):
-    with _sync_lock:
-        now = time.time()
+    except Exception as exc:
+        log("ERROR", "cache", "Sync failed", user=spotify_user_id, exc=str(exc))
+        traceback.print_exc()
 
-        stale = [
-            u for u, t in _sync_start_times.items()
-            if now - t > _STALE_TIMEOUT
-        ]
-        for u in stale:
-            _syncing_users.discard(u)
-            _sync_start_times.pop(u, None)
-
-        if user_id in _syncing_users:
-            return False
-
-        _syncing_users.add(user_id)
-        _sync_start_times[user_id] = now
-
-    def runner():
         try:
-            fn()
-        except Exception as exc:
-            log("ERROR", "cache", "Sync thread crash", user=user_id, exc=str(exc))
-            traceback.print_exc()
-        finally:
-            with _sync_lock:
-                _syncing_users.discard(user_id)
-                _sync_start_times.pop(user_id, None)
+            user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
+            if user:
+                user.sync_status = "error"
+                db.commit()
+        except Exception:
+            pass
 
-    threading.Thread(target=runner, daemon=True).start()
-    return True
+        return False
+
+    finally:
+        db.close()
 
 
 # =========================================================
-# SYNC STARTERS
+# BACKWARDS COMPAT (so your app.py doesn’t break)
 # =========================================================
 
 def start_sync_if_needed(spotify_user_id, sp, db_factory):
-    """
-    TEMP FIX FOR RENDER:
-    Run sync inline instead of background thread.
-    """
+    if not needs_sync(spotify_user_id, db_factory()):
+        log("INFO", "cache", "No sync needed", user=spotify_user_id)
+        return False
 
-    from sync_service import run_incremental_sync
-
-    tmp_db = db_factory()
-
-    try:
-        needed = needs_sync(spotify_user_id, tmp_db)
-    finally:
-        tmp_db.close()
-
-    if not needed:
-        log("INFO", "cache", "Library up to date — no sync needed", user=spotify_user_id)
-        return
-
-    db = db_factory()
-
-    try:
-        log("INFO", "cache", "Starting INLINE sync", user=spotify_user_id)
-
-        run_incremental_sync(
-            spotify_user_id,
-            sp,
-            db
-        )
-
-        log("INFO", "cache", "INLINE sync completed", user=spotify_user_id)
-
-    except Exception as exc:
-        log(
-            "ERROR",
-            "cache",
-            "INLINE sync failed",
-            user=spotify_user_id,
-            exc=str(exc)
-        )
-
-        try:
-            user = db.query(User).filter_by(
-                spotify_id=spotify_user_id
-            ).first()
-
-            if user:
-                user.sync_status = "error"
-                db.commit()
-
-        except Exception:
-            pass
-
-    finally:
-        db.close()
-        
-def start_manual_sync(spotify_user_id, sp, db_factory):
-    """
-    Manual sync trigger.
-    TEMP FIX: runs inline for Render stability.
-    """
-
-    from sync_service import run_incremental_sync
-
-    db = db_factory()
-
-    try:
-        log("INFO", "cache", "Starting MANUAL INLINE sync", user=spotify_user_id)
-
-        run_incremental_sync(
-            spotify_user_id,
-            sp,
-            db
-        )
-
-        log("INFO", "cache", "MANUAL INLINE sync completed", user=spotify_user_id)
-
-    except Exception as exc:
-        log(
-            "ERROR",
-            "cache",
-            "MANUAL INLINE sync failed",
-            user=spotify_user_id,
-            exc=str(exc)
-        )
-
-        try:
-            user = db.query(User).filter_by(
-                spotify_id=spotify_user_id
-            ).first()
-
-            if user:
-                user.sync_status = "error"
-                db.commit()
-
-        except Exception:
-            pass
-
-    finally:
-        db.close()
-
-    return True
-
-def start_full_reset_sync(user_id, sp, db_factory):
-    from sync_service import run_full_reset_sync
-
-    def fn():
-        db = db_factory()
-        try:
-            run_full_reset_sync(user_id, sp, db)
-        finally:
-            db.close()
-
-    return _launch_sync_thread(user_id, fn)
+    return run_sync(spotify_user_id, sp, db_factory, reset=False)
 
 
-# =========================================================
-# LEGACY MIGRATION
-# =========================================================
-
-def migrate_json_cache(json_path, user_id, db):
-    if not os.path.exists(json_path):
-        return 0
-
-    try:
-        with open(json_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        return 0
-
-    user = db.query(User).filter_by(spotify_id=user_id).first()
-    if not user:
-        return 0
-
-    existing = {
-        r[0]
-        for r in db.query(Track.spotify_id)
-        .join(UserTrack, UserTrack.track_id == Track.id)
-        .filter(UserTrack.user_id == user.id)
-        .all()
-    }
-
-    added = 0
-
-    for t in data:
-        sid = t.get("id")
-        if not sid or sid in existing:
-            continue
-
-        track = db.query(Track).filter_by(spotify_id=sid).first()
-
-        if not track:
-            track = Track(
-                spotify_id=sid,
-                name=t.get("name"),
-                artist=t.get("artist"),
-                album=t.get("album"),
-                energy=t.get("energy"),
-                valence=t.get("valence"),
-                tempo=t.get("tempo"),
-                danceability=t.get("danceability"),
-                acousticness=t.get("acousticness"),
-                speechiness=t.get("speechiness"),
-                instrumentalness=t.get("instrumentalness"),
-            )
-            db.add(track)
-            db.flush()
-
-        db.add(UserTrack(user_id=user.id, track_id=track.id))
-        existing.add(sid)
-        added += 1
-
-    if added:
-        user.last_sync_at = datetime.datetime.utcnow()
-        user.sync_status = "done"
-        db.commit()
-
-    return added
+def start_full_reset_sync(spotify_user_id, sp, db_factory):
+    return run_sync(spotify_user_id, sp, db_factory, reset=True)
