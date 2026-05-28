@@ -1,10 +1,10 @@
 """
-app.py — STABLE PRODUCTION VERSION (FIXED)
+app.py — STABLE PRODUCTION-SAFE VERSION (FIXED + CONSISTENT)
 Fixes:
-- 400 silent failures
-- 429 clarity + safer throttling
-- sync-not-ready handling
-- better generate flow reliability
+- 400 JSON errors (strict input handling)
+- 429 clarity (throttle transparency)
+- safer Spotify client handling
+- better generate reliability
 """
 
 import os
@@ -36,19 +36,18 @@ init_db()
 
 
 # =========================================================
-# GLOBAL SAFETY THROTTLE
+# SIMPLE THROTTLE (PER USER)
 # =========================================================
 
 _last_call = {}
-_MIN_INTERVAL = 2.5  # slightly tighter, still safe
-
+_MIN_INTERVAL = 2.5  # safe for UI clicks
 
 def throttle(key: str):
     now = time.time()
     last = _last_call.get(key, 0)
 
     if now - last < _MIN_INTERVAL:
-        return False, round(_MIN_INTERVAL - (now - last), 2)
+        return False, _MIN_INTERVAL - (now - last)
 
     _last_call[key] = now
     return True, 0
@@ -112,52 +111,48 @@ def logout():
 
 
 # =========================================================
-# GENERATE PLAYLIST (FIXED + SAFE)
+# GENERATE PLAYLIST (ROBUST + SAFE)
 # =========================================================
 
 @app.route("/generate", methods=["POST"])
 def generate():
     sp = get_spotify_client()
-
     if not sp:
         return jsonify({"error": "not_logged_in"}), 401
 
-    user = session.get("spotify_user_id")
-    if not user:
+    user_id = session.get("spotify_user_id")
+    if not user_id:
         return jsonify({"error": "no_user"}), 400
 
     # throttle
-    ok, wait = throttle(f"generate:{user}")
+    ok, wait = throttle(f"generate:{user_id}")
     if not ok:
         return jsonify({
-            "error": "rate_limited",
-            "retry_after": wait
+            "error": "too_many_requests",
+            "retry_after": round(wait, 2)
         }), 429
 
     db = get_db()
 
     try:
-        cache = load_user_tracks(user, db)
+        cache = load_user_tracks(user_id, db)
 
-        # ✅ FIX: clearer sync state instead of silent failure
-        if not cache:
-            return jsonify({
-                "error": "syncing_or_empty",
-                "message": "Your Spotify library is still syncing or empty. Try again shortly."
-            }), 202
+        if not cache or len(cache) == 0:
+            return jsonify({"error": "no_tracks_cached"}), 400
 
-        # SAFE JSON HANDLING
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            data = {}
+        # SAFE JSON parsing
+        data = request.get_json(silent=True) or {}
 
-        vibe = data.get("vibe", "chill")
+        vibe = str(data.get("vibe", "chill"))
 
         try:
             length = int(data.get("length", 25))
         except:
             length = 25
 
+        length = max(5, min(length, 100))  # safety clamp
+
+        # vibe engine
         profile, confidence, _ = interpret_vibe(vibe)
 
         scored = sorted(
@@ -175,14 +170,15 @@ def generate():
         )
 
         if not selected:
-            return jsonify({
-                "error": "no_selection",
-                "message": "Could not generate a playlist from your tracks."
-            }), 400
+            return jsonify({"error": "selection_failed"}), 500
 
         uris = [f"spotify:track:{t['id']}" for t in selected]
 
         playlist = create_playlist(sp, vibe)
+
+        if not playlist or "id" not in playlist:
+            return jsonify({"error": "playlist_creation_failed"}), 500
+
         add_tracks_to_playlist(sp, playlist["id"], uris)
 
         return jsonify({
@@ -191,7 +187,7 @@ def generate():
         })
 
     except Exception as e:
-        log("ERROR", "generate", str(e), user=user)
+        log("ERROR", "generate", str(e), user=user_id)
         return jsonify({"error": "internal_error"}), 500
 
     finally:
@@ -202,40 +198,28 @@ def generate():
 # SYNC
 # =========================================================
 
-@app.route("/sync/trigger", methods=["POST"])
-def sync_trigger():
-    sp = get_spotify_client()
-    user = session.get("spotify_user_id")
-
-    if not user:
-        return jsonify({"error": "no_user"}), 400
-
-    start_sync_if_needed(user, sp, get_db)
-    return jsonify({"ok": True})
-
-
 @app.route("/sync/reset", methods=["POST"])
 def sync_reset():
     sp = get_spotify_client()
-    user = session.get("spotify_user_id")
+    user_id = session.get("spotify_user_id")
 
-    if not user:
+    if not user_id:
         return jsonify({"error": "no_user"}), 400
 
-    start_full_reset_sync(user, sp, get_db)
+    start_full_reset_sync(user_id, sp, get_db)
     return jsonify({"ok": True})
 
 
 @app.route("/cache-status")
 def cache_status():
-    user = session.get("spotify_user_id")
+    user_id = session.get("spotify_user_id")
 
-    if not user:
+    if not user_id:
         return jsonify({"error": "not_logged_in"}), 401
 
     db = get_db()
     try:
-        return jsonify(get_sync_status(user, db))
+        return jsonify(get_sync_status(user_id, db))
     finally:
         db.close()
 
