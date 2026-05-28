@@ -47,7 +47,7 @@ app.secret_key = os.getenv("SESSION_SECRET", "dev_key_change_me")
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SECURE= os.getenv("ENV") == "production"
 )
 
 CACHE_FILE = "song_index.json"
@@ -89,10 +89,13 @@ def home():
 @app.route("/login")
 def login():
     log("INFO", "auth", "OAuth flow started")
+
     auth = spotify_oauth()
     state = secrets.token_urlsafe(16)
+
     session["oauth_state"] = state
     session.modified = True
+
     url = auth.get_authorize_url(state=state)
     return redirect(url)
 
@@ -103,72 +106,47 @@ def callback():
 
     error = request.args.get("error")
     if error:
-        log("WARN", "auth", "Spotify returned error", error=error)
         return f"Spotify auth error: {error}", 400
 
     code = request.args.get("code")
     if not code:
-        log("WARN", "auth", "No code in callback")
-        return (
-            "Login failed: no code returned. Check Spotify app redirect URI settings.",
-            400,
-        )
+        return "No code returned from Spotify", 400
 
     returned_state = request.args.get("state")
     expected_state = session.pop("oauth_state", None)
-    session.modified = True
-    if expected_state and returned_state and returned_state != expected_state:
-        session.pop("token_info", None)
-        return "OAuth state mismatch. Please try logging in again.", 400
 
-auth = spotify_oauth()
+    if not expected_state or not returned_state or returned_state != expected_state:
+        session.clear()
+        return "OAuth state mismatch", 400
 
-try:
-    token_info = auth.get_access_token(code=code, check_cache=False)
+    auth = spotify_oauth()
 
-    session["token_info"] = token_info
-    session.modified = True
+    try:
+        token_info = auth.get_access_token(code=code, check_cache=False)
 
-    log("INFO", "auth", "Token stored in session")
+        session["token_info"] = token_info
+        session.modified = True
 
-except SpotifyOauthError as exc:
-    log("ERROR", "auth", "SpotifyOauthError during token exchange", exc=str(exc))
-    return f"Token exchange failed: {exc}", 400
+        log("INFO", "auth", "Token stored in session")
 
-except Exception as exc:
-    log("ERROR", "auth", "Unexpected error during token exchange", exc=str(exc))
-    return f"Unexpected auth error: {exc}", 500
+    except SpotifyOauthError as exc:
+        return f"Token exchange failed: {exc}", 400
 
-    # Post-login: upsert User, migrate JSON legacy cache, start incremental sync
-    sp = get_spotify_client()
-    if sp:
-        try:
+    # optional: fetch user immediately (safe + clean)
+    try:
+        sp = get_spotify_client()
+        if sp:
             me = sp.me()
-            spotify_user_id = me["id"]
-            display_name = me.get("display_name", spotify_user_id)
-            session["spotify_user_id"] = spotify_user_id
+            session["spotify_user_id"] = me["id"]
             session.modified = True
-
-            db = get_db()
-            try:
-                get_or_create_user(
-                    spotify_user_id, display_name, session["token_info"], db
-                )
-                if os.path.exists(CACHE_FILE):
-                    migrated = migrate_json_cache(CACHE_FILE, spotify_user_id, db)
-                    if migrated:
-                        log("INFO", "auth", "Migrated legacy JSON cache", tracks=migrated)
-
-                start_sync_if_needed(spotify_user_id, sp, get_db)
-            finally:
-                db.close()
-
-            log("INFO", "auth", "Login complete", user=spotify_user_id)
-        except Exception as exc:
-            log("WARN", "auth", "Post-login setup error (non-fatal)", exc=str(exc))
+    except Exception:
+        pass
+except Exception:
+    pass
+        session["spotify_user_id"] = me["id"]
+        session.modified = True
 
     return redirect("/")
-
 
 @app.route("/logout")
 def logout():
