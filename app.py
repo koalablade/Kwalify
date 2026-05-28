@@ -121,18 +121,23 @@ def callback():
         session.pop("token_info", None)
         return "OAuth state mismatch. Please try logging in again.", 400
 
-    auth = spotify_oauth()
-    try:
-        auth.get_access_token(code=code, check_cache=False)
-        if not session.get("token_info"):
-            return "Token exchange succeeded but session storage failed.", 500
-        log("INFO", "auth", "Token stored in session")
-    except SpotifyOauthError as exc:
-        log("ERROR", "auth", "SpotifyOauthError during token exchange", exc=str(exc))
-        return f"Token exchange failed: {exc}", 400
-    except Exception as exc:
-        log("ERROR", "auth", "Unexpected error during token exchange", exc=str(exc))
-        return f"Unexpected auth error: {exc}", 500
+auth = spotify_oauth()
+
+try:
+    token_info = auth.get_access_token(code=code, check_cache=False)
+
+    session["token_info"] = token_info
+    session.modified = True
+
+    log("INFO", "auth", "Token stored in session")
+
+except SpotifyOauthError as exc:
+    log("ERROR", "auth", "SpotifyOauthError during token exchange", exc=str(exc))
+    return f"Token exchange failed: {exc}", 400
+
+except Exception as exc:
+    log("ERROR", "auth", "Unexpected error during token exchange", exc=str(exc))
+    return f"Unexpected auth error: {exc}", 500
 
     # Post-login: upsert User, migrate JSON legacy cache, start incremental sync
     sp = get_spotify_client()
