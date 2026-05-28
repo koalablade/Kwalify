@@ -218,6 +218,53 @@ def start_sync_if_needed(spotify_user_id, sp, db_factory):
 
     finally:
         db.close()
+        
+def start_manual_sync(spotify_user_id, sp, db_factory):
+    """
+    Manual sync trigger.
+    TEMP FIX: runs inline for Render stability.
+    """
+
+    from sync_service import run_incremental_sync
+
+    db = db_factory()
+
+    try:
+        log("INFO", "cache", "Starting MANUAL INLINE sync", user=spotify_user_id)
+
+        run_incremental_sync(
+            spotify_user_id,
+            sp,
+            db
+        )
+
+        log("INFO", "cache", "MANUAL INLINE sync completed", user=spotify_user_id)
+
+    except Exception as exc:
+        log(
+            "ERROR",
+            "cache",
+            "MANUAL INLINE sync failed",
+            user=spotify_user_id,
+            exc=str(exc)
+        )
+
+        try:
+            user = db.query(User).filter_by(
+                spotify_id=spotify_user_id
+            ).first()
+
+            if user:
+                user.sync_status = "error"
+                db.commit()
+
+        except Exception:
+            pass
+
+    finally:
+        db.close()
+
+    return True
 
 def start_full_reset_sync(user_id, sp, db_factory):
     from sync_service import run_full_reset_sync
