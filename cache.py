@@ -160,3 +160,18 @@ def start_sync_if_needed(spotify_user_id, sp, db_factory):
 
 def start_full_reset_sync(spotify_user_id, sp, db_factory):
     return run_sync(spotify_user_id, sp, db_factory, reset=True)
+
+import time
+import threading
+
+_sync_lock = threading.Lock()
+_sync_start_times = {}
+_syncing_users = set()
+
+def get_active_syncs():
+    now = time.time()
+    with _sync_lock:
+        return {
+            uid: round(now - start, 1)
+            for uid, start in _sync_start_times.items()
+        }
