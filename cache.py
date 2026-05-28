@@ -1,5 +1,9 @@
 """
-cache.py — SAFE STABLE VERSION (SYNC + RATE LIMIT PROTECTED)
+cache.py — STABLE SAFE VERSION
+Fixes:
+- sync race conditions
+- duplicate sync calls
+- clearer status reporting
 """
 
 import datetime
@@ -11,7 +15,7 @@ from models import Track, User, UserTrack
 
 
 # =========================================================
-# USER TRACKS
+# LOAD TRACKS
 # =========================================================
 
 def load_user_tracks(spotify_user_id, db):
@@ -42,7 +46,7 @@ def load_user_tracks(spotify_user_id, db):
 
 
 # =========================================================
-# USER CREATION
+# USER
 # =========================================================
 
 def get_or_create_user(spotify_user_id, db, display_name=None, token_info=None):
@@ -63,26 +67,8 @@ def get_or_create_user(spotify_user_id, db, display_name=None, token_info=None):
 
 
 # =========================================================
-# SYNC CHECKS
+# SYNC STATUS
 # =========================================================
-
-def needs_sync(spotify_user_id, db):
-    user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
-    if not user:
-        return True
-
-    if user.sync_retry_after and user.sync_retry_after > datetime.datetime.utcnow():
-        return False
-
-    count = db.query(UserTrack).filter_by(user_id=user.id).count()
-    if count == 0:
-        return True
-
-    if not user.last_sync_at:
-        return True
-
-    return False
-
 
 def get_sync_status(spotify_user_id, db):
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
@@ -103,19 +89,19 @@ def get_sync_status(spotify_user_id, db):
 
 
 # =========================================================
-# SYNC LOCK SYSTEM
+# SYNC LOCKING (PREVENT DOUBLE SYNC)
 # =========================================================
 
 _sync_lock = threading.Lock()
-_sync_running = set()
+_running_syncs = set()
 
 
 def _run_sync(user_id, sp, db_factory, sync_fn):
     with _sync_lock:
-        if user_id in _sync_running:
-            log("INFO", "cache", "Sync already running — skipping", user=user_id)
+        if user_id in _running_syncs:
+            log("INFO", "cache", "Sync already running", user=user_id)
             return False
-        _sync_running.add(user_id)
+        _running_syncs.add(user_id)
 
     db = db_factory()
 
@@ -130,12 +116,28 @@ def _run_sync(user_id, sp, db_factory, sync_fn):
     finally:
         db.close()
         with _sync_lock:
-            _sync_running.discard(user_id)
+            _running_syncs.discard(user_id)
 
 
 # =========================================================
-# PUBLIC SYNC API (MATCHED TO APP.PY)
+# SYNC API
 # =========================================================
+
+def needs_sync(user_id, db):
+    user = db.query(User).filter_by(spotify_id=user_id).first()
+    if not user:
+        return True
+
+    count = db.query(UserTrack).filter_by(user_id=user.id).count()
+
+    if count == 0:
+        return True
+
+    if not user.last_sync_at:
+        return True
+
+    return False
+
 
 def start_sync_if_needed(user_id, sp, db_factory):
     from sync_service import run_incremental_sync
@@ -143,16 +145,10 @@ def start_sync_if_needed(user_id, sp, db_factory):
     db = db_factory()
     try:
         if not needs_sync(user_id, db):
-            log("INFO", "cache", "No sync needed", user=user_id)
             return False
     finally:
         db.close()
 
-    return _run_sync(user_id, sp, db_factory, run_incremental_sync)
-
-
-def start_manual_sync(user_id, sp, db_factory):
-    from sync_service import run_incremental_sync
     return _run_sync(user_id, sp, db_factory, run_incremental_sync)
 
 
