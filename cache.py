@@ -163,38 +163,61 @@ def _launch_sync_thread(user_id, fn):
 # SYNC STARTERS
 # =========================================================
 
-def start_sync_if_needed(user_id, sp, db_factory):
+def start_sync_if_needed(spotify_user_id, sp, db_factory):
+    """
+    TEMP FIX FOR RENDER:
+    Run sync inline instead of background thread.
+    """
+
     from sync_service import run_incremental_sync
 
-    tmp = db_factory()
+    tmp_db = db_factory()
+
     try:
-        if not needs_sync(user_id, tmp):
-            return
+        needed = needs_sync(spotify_user_id, tmp_db)
     finally:
-        tmp.close()
+        tmp_db.close()
 
-    def fn():
-        db = db_factory()
+    if not needed:
+        log("INFO", "cache", "Library up to date — no sync needed", user=spotify_user_id)
+        return
+
+    db = db_factory()
+
+    try:
+        log("INFO", "cache", "Starting INLINE sync", user=spotify_user_id)
+
+        run_incremental_sync(
+            spotify_user_id,
+            sp,
+            db
+        )
+
+        log("INFO", "cache", "INLINE sync completed", user=spotify_user_id)
+
+    except Exception as exc:
+        log(
+            "ERROR",
+            "cache",
+            "INLINE sync failed",
+            user=spotify_user_id,
+            exc=str(exc)
+        )
+
         try:
-            run_incremental_sync(user_id, sp, db)
-        finally:
-            db.close()
+            user = db.query(User).filter_by(
+                spotify_id=spotify_user_id
+            ).first()
 
-    _launch_sync_thread(user_id, fn)
+            if user:
+                user.sync_status = "error"
+                db.commit()
 
+        except Exception:
+            pass
 
-def start_manual_sync(user_id, sp, db_factory):
-    from sync_service import run_incremental_sync
-
-    def fn():
-        db = db_factory()
-        try:
-            run_incremental_sync(user_id, sp, db)
-        finally:
-            db.close()
-
-    return _launch_sync_thread(user_id, fn)
-
+    finally:
+        db.close()
 
 def start_full_reset_sync(user_id, sp, db_factory):
     from sync_service import run_full_reset_sync
