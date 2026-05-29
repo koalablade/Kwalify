@@ -13,7 +13,8 @@ from models import Base
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise RuntimeError(
+    print("⚠️ DATABASE_URL missing — falling back to SQLite (dev mode)")
+    DATABASE_URL = "sqlite:///local.db"
         "DATABASE_URL is missing (set it in Render environment variables)"
     )
 
