@@ -7,7 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 
 # =========================================================
-# MODEL (loaded once, Render-safe)
+# MODEL (cached for Render stability)
 # =========================================================
 
 @lru_cache(maxsize=1)
@@ -16,7 +16,7 @@ def get_model():
 
 
 # =========================================================
-# VIBE → EMBEDDING
+# VIBE EMBEDDING
 # =========================================================
 
 def interpret_vibe(vibe_text: str):
@@ -25,34 +25,29 @@ def interpret_vibe(vibe_text: str):
 
 
 # =========================================================
-# TRACK → SEMANTIC TEXT
+# TRACK TEXT CONVERSION
 # =========================================================
 
 def track_to_text(track):
     return (
-        f"{track.name}. "
-        f"{track.artist}. "
-        f"{track.album}. "
-        f"energy {track.energy}. "
-        f"valence {track.valence}. "
-        f"tempo {track.tempo}. "
-        f"danceability {track.danceability}. "
-        f"acousticness {track.acousticness}. "
-        f"instrumentalness {track.instrumentalness}. "
-        f"speechiness {track.speechiness}. "
-        f"liveness {track.liveness}."
+        f"{track.name}. {track.artist}. {track.album}. "
+        f"energy {track.energy}. valence {track.valence}. "
+        f"danceability {track.danceability}. acoustic {track.acousticness}. "
+        f"instrumental {track.instrumentalness}."
     )
 
 
 # =========================================================
-# SCORING (semantic similarity)
+# BASE SEMANTIC SCORE
 # =========================================================
 
 def score_track(vibe_embedding, track):
     model = get_model()
 
-    track_text = track_to_text(track)
-    track_embedding = model.encode(track_text, normalize_embeddings=True)
+    track_embedding = model.encode(
+        track_to_text(track),
+        normalize_embeddings=True
+    )
 
     score = cosine_similarity(
         [vibe_embedding],
@@ -63,7 +58,60 @@ def score_track(vibe_embedding, track):
 
 
 # =========================================================
-# REPETITION PENALTY
+# 🔥 EMOTIONAL REPETITION PREVENTION
+# =========================================================
+
+def emotional_diversity_penalty(track_embedding, recent_embeddings):
+    """
+    Reduces score if track is too emotionally similar
+    to already selected tracks.
+    """
+
+    if not recent_embeddings:
+        return 1.0
+
+    similarities = cosine_similarity(
+        [track_embedding],
+        recent_embeddings
+    )[0]
+
+    max_similarity = np.max(similarities)
+
+    # If too similar → reduce score
+    if max_similarity > 0.88:
+        return 0.65
+    elif max_similarity > 0.80:
+        return 0.80
+    elif max_similarity > 0.72:
+        return 0.92
+
+    return 1.0
+
+
+# =========================================================
+# FINAL SCORING WRAPPER
+# =========================================================
+
+def score_track_with_diversity(vibe_embedding, track, recent_embeddings):
+    model = get_model()
+
+    base = score_track(vibe_embedding, track)
+
+    track_embedding = model.encode(
+        track_to_text(track),
+        normalize_embeddings=True
+    )
+
+    diversity_multiplier = emotional_diversity_penalty(
+        track_embedding,
+        recent_embeddings
+    )
+
+    return base * diversity_multiplier
+
+
+# =========================================================
+# REPEAT PENALTY (existing safety layer)
 # =========================================================
 
 def apply_repeat_penalty(score, already_used, track_id):
