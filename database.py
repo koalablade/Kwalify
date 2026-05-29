@@ -1,5 +1,5 @@
 """
-database.py — FIXED (Render + SQLite + auto table registration)
+database.py — Production-safe DB layer (Render + SQLite fallback fixed)
 """
 
 import os
@@ -34,31 +34,24 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-# ---------------------------------------------------------
-# CRITICAL FIX: ensure models are imported BEFORE create_all
-# ---------------------------------------------------------
+
+def get_db():
+    return SessionLocal()
+
 
 def init_db():
     """
-    Ensures all models are loaded before table creation.
-    Prevents 'no such table' errors.
+    IMPORTANT FIX:
+    ensure models are imported so tables register on Base.metadata
     """
-
     try:
-        # 🔥 IMPORTANT: import models so they register with Base
-        import models  # noqa: F401
+        import models  # registers tables with Base
 
         Base.metadata.create_all(bind=engine)
-
-        print("✅ Database initialised (tables ready)")
+        print("✅ Database initialised (tables created)")
 
     except Exception as e:
         print("⚠️ DB init failed:", str(e))
-
-
-def get_db():
-    db = SessionLocal()
-    return db
 
 
 def ping_db():
