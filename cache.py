@@ -1,18 +1,13 @@
 import threading
-
 from log import log
 from database import get_db
 from models import User, Track, UserTrack
 from sync_service import run_incremental_sync
 
-
 _sync_lock = threading.Lock()
 _running = set()
 
 
-# =========================
-# LOAD TRACKS (returns ORM objects for scoring)
-# =========================
 def load_user_tracks(spotify_user_id, db):
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
     if not user:
@@ -26,9 +21,6 @@ def load_user_tracks(spotify_user_id, db):
     )
 
 
-# =========================
-# SYNC STATUS
-# =========================
 def get_sync_status(spotify_user_id, db):
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
 
@@ -42,19 +34,17 @@ def get_sync_status(spotify_user_id, db):
         "track_count": track_count,
         "sync_done": user.sync_done,
         "sync_total": user.sync_total,
+        "last_sync_at": user.last_sync_at
     }
 
 
-# =========================
-# SAFE BACKGROUND SYNC RUNNER
-# =========================
 def _run_in_thread(spotify_user_id, sp):
     with _sync_lock:
         if spotify_user_id in _running:
             return
         _running.add(spotify_user_id)
 
-    def _worker():
+    def worker():
         db = get_db()
         try:
             run_incremental_sync(spotify_user_id, sp, db)
@@ -65,11 +55,13 @@ def _run_in_thread(spotify_user_id, sp):
             with _sync_lock:
                 _running.discard(spotify_user_id)
 
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
+    threading.Thread(target=worker, daemon=True).start()
 
 
 def start_sync_if_needed(spotify_user_id, sp=None):
+    if not sp:
+        return False
+
     db = get_db()
     try:
         user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
@@ -82,6 +74,6 @@ def start_sync_if_needed(spotify_user_id, sp=None):
     return True
 
 
-def is_syncing(spotify_user_id):
+def is_syncing(user_id):
     with _sync_lock:
-        return spotify_user_id in _running
+        return user_id in _running
