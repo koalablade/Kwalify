@@ -1,20 +1,42 @@
+"""
+models.py — DB schema only
+"""
+
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    spotify_id = Column(String, unique=True)
+
+    sync_status = Column(String, default="idle")
+    sync_total = Column(Integer, default=0)
+    sync_done = Column(Integer, default=0)
+
+
 class Track(Base):
     __tablename__ = "tracks"
 
     id = Column(Integer, primary_key=True)
-    spotify_id = Column(String, unique=True, index=True)
 
+    spotify_id = Column(String, unique=True)
     name = Column(String)
     artist = Column(String)
-    album = Column(String)
 
-    energy = Column(Float, default=0)
-    valence = Column(Float, default=0)
-    tempo = Column(Float, default=0)
-    danceability = Column(Float, default=0)
+    energy = Column(Float)
+    valence = Column(Float)
 
-    # FIXED MISSING FIELDS 👇
-    acousticness = Column(Float, default=0)
-    instrumentalness = Column(Float, default=0)
-    speechiness = Column(Float, default=0)
-    liveness = Column(Float, default=0)
+
+class UserTrack(Base):
+    __tablename__ = "user_tracks"
+
+    id = Column(Integer, primary_key=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+    track_id = Column(Integer, ForeignKey("tracks.id"))
+
+    added_at = Column(DateTime, default=datetime.utcnow)
