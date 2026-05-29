@@ -30,6 +30,14 @@ def create_app():
 
     @app.get("/")
     def home():
+        if session.get("token_info"):
+            return redirect("/generator")
+        return redirect("/login")
+
+    @app.get("/generator")
+    def generator():
+        if not session.get("token_info"):
+            return redirect("/login")
         return render_template("index.html")
 
     @app.get("/api/status")
@@ -42,27 +50,39 @@ def create_app():
 
     @app.get("/cache-status")
     def cache_status():
-        user_id = request.args.get("user_id", "demo")
+        spotify_user_id = session.get("spotify_user_id")
+        if not spotify_user_id:
+            return jsonify({"status": "not_authenticated"}), 401
 
         with get_session() as db:
-            return jsonify(get_sync_status(user_id, db))
+            return jsonify(get_sync_status(spotify_user_id, db))
 
     @app.get("/tracks")
     def tracks():
-        user_id = request.args.get("user_id", "demo")
+        spotify_user_id = session.get("spotify_user_id")
+        if not spotify_user_id:
+            return jsonify({"error": "not_authenticated"}), 401
 
         with get_session() as db:
-            return jsonify(load_user_tracks(user_id, db))
+            track_objs = load_user_tracks(spotify_user_id, db)
+            return jsonify([
+                {"id": t.spotify_id, "name": t.name, "artist": t.artist,
+                 "energy": t.energy, "valence": t.valence}
+                for t in track_objs
+            ])
 
     @app.get("/sync")
     def sync():
-        user_id = request.args.get("user_id", "demo")
+        spotify_user_id = session.get("spotify_user_id")
+        if not spotify_user_id:
+            return jsonify({"error": "not_authenticated"}), 401
 
-        start_sync_if_needed(user_id, sp=None)
+        sp = get_spotify_client()
+        start_sync_if_needed(spotify_user_id, sp=sp)
 
         return jsonify({
             "status": "sync_started",
-            "user": user_id
+            "user": spotify_user_id
         })
 
     # =========================
@@ -107,7 +127,12 @@ def create_app():
             except Exception:
                 pass
 
-        return redirect("/")
+        # Kick off background sync immediately after login
+        if spotify_user_id := session.get("spotify_user_id"):
+            sp_for_sync = get_spotify_client()
+            start_sync_if_needed(spotify_user_id, sp=sp_for_sync)
+
+        return redirect("/generator")
 
     @app.get("/logout")
     def logout():
@@ -148,11 +173,11 @@ def create_app():
         try:
             user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
             if not user:
-                return jsonify({"error": "user not synced yet"}), 404
+                return jsonify({"error": "user not synced yet — try /sync first"}), 404
 
-            tracks = load_user_tracks(user.id, db)
+            tracks = load_user_tracks(spotify_user_id, db)
             if not tracks:
-                return jsonify({"error": "no tracks synced yet"}), 404
+                return jsonify({"error": "no tracks synced yet — try /sync first"}), 404
 
             vibe_vec = interpret_vibe(vibe_text)
             history = get_user_history(user.id, db)
