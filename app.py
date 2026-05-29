@@ -47,7 +47,7 @@ def create_app():
     def sync():
         user_id = request.args.get("user_id", "demo")
 
-        start_sync_if_needed(user_id)
+        start_sync_if_needed(user_id, sp=None)
 
         return jsonify({
             "status": "sync_started",
