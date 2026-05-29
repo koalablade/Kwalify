@@ -5,5 +5,5 @@ requests
 redis
 psycopg2-binary
 numpy
-sentence-transformers
 scikit-learn
+sentence-transformers
