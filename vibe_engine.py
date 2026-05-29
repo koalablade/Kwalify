@@ -1,4 +1,8 @@
-import os
+"""
+vibe_engine.py — semantic + hybrid Spotify ranking engine (Render-safe)
+NO external ML dependencies (no torch, no sentence-transformers)
+"""
+
 import time
 import math
 import hashlib
@@ -9,10 +13,10 @@ from collections import defaultdict, deque
 # CONFIG
 # =========================================================
 
-EMBED_DIM = 32  # lightweight + stable for Render
+EMBED_DIM = 32  # lightweight semantic space
 
 # =========================================================
-# MEMORY (in-memory, Render-safe fallback)
+# MEMORY (in-memory fallback — resets on restart)
 # =========================================================
 
 _user_memory = defaultdict(lambda: {
@@ -23,8 +27,9 @@ _user_memory = defaultdict(lambda: {
 
 _user_emotion_history = defaultdict(lambda: deque(maxlen=10))
 
+
 # =========================================================
-# EMBEDDINGS (NO ML LIBS — SAFE FALLBACK)
+# SAFE TEXT EMBEDDING (NO ML LIBS)
 # =========================================================
 
 def _stable_hash(text: str):
@@ -45,7 +50,7 @@ def embed_text(text: str):
 
 
 # =========================================================
-# TRACK VECTOR
+# TRACK VECTOR (Spotify audio features → semantic vector)
 # =========================================================
 
 def track_vector(track):
@@ -64,7 +69,7 @@ def track_vector(track):
 
 
 # =========================================================
-# SEMANTIC INTERPRETER
+# VIBE INTERPRETER
 # =========================================================
 
 def interpret_vibe(vibe_text: str):
@@ -99,11 +104,15 @@ def _emotion_bucket(vec):
         return "neutral"
 
 
+# =========================================================
+# REPEAT / EMOTIONAL REPETITION BIAS CONTROL
+# =========================================================
+
 def apply_repeat_penalty(user_id, score, track_vec):
     bucket = _emotion_bucket(track_vec)
-
     history = _user_emotion_history[user_id]
 
+    # penalize repeated emotional states
     if len(history) >= 3 and history[-1] == bucket:
         score *= 0.75
 
@@ -115,18 +124,16 @@ def apply_repeat_penalty(user_id, score, track_vec):
 
 
 # =========================================================
-# MEMORY UPDATES
+# MEMORY UPDATE
 # =========================================================
 
 def update_memory(user_id, track_id, track_vec):
     memory = _user_memory[user_id]
     bucket = _emotion_bucket(track_vec)
 
-    now = time.time()
-
     memory["recent_tracks"].append(track_id)
     memory["recent_emotions"].append(bucket)
-    memory["last_seen"][track_id] = now
+    memory["last_seen"][track_id] = time.time()
 
 
 # =========================================================
@@ -163,36 +170,48 @@ def freshness_score(user_id, track_id):
 # =========================================================
 
 def hybrid_score(user_id, vibe_vec, track):
+    """
+    Final ranking:
+    semantic + novelty + freshness + emotional stability
+    """
+
     t_vec = track_vector(track)
 
-    # semantic match
+    # semantic similarity
     semantic = cosine(vibe_vec, t_vec)
 
-    # diversity + freshness
+    # memory signals
     novelty = novelty_score(user_id, track.spotify_id)
     freshness = freshness_score(user_id, track.spotify_id)
 
-    # emotional repetition penalty
+    # emotional repetition control
     semantic = apply_repeat_penalty(user_id, semantic, t_vec)
 
-    # final blend
+    # FINAL BLEND
     final = (
         semantic * 0.65 +
         novelty * 0.20 +
         freshness * 0.15
     )
 
+    # IMPORTANT: update memory AFTER scoring
+    update_memory(user_id, track.spotify_id, t_vec)
+
     return final
 
 
 # =========================================================
-# OPTIONAL HELPERS
+# LOGGING HELPERS
 # =========================================================
 
 def log_interaction(user_id, track):
     vec = track_vector(track)
     update_memory(user_id, track.spotify_id, vec)
 
+
+# =========================================================
+# NORMALIZATION (optional debugging tool)
+# =========================================================
 
 def normalize_scores(scores):
     if not scores:
