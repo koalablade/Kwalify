@@ -1,69 +1,85 @@
 """
-vector_db.py — lightweight persistent vector memory (SQLite)
-V3 AI memory layer
+dj_scoring.py — AI DJ TRACK RANKING ENGINE
 """
 
-import sqlite3
-import json
-import numpy as np
-
-DB_PATH = "vector_memory.db"
+import math
 
 
 # =========================
-# INIT DB
+# CORE SCORING FUNCTION
 # =========================
-def init_vector_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+def score_track(track, vibe="balanced"):
+    """
+    Converts audio features into a single score.
+    """
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS vectors (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT,
-        track_id TEXT,
-        mood TEXT,
-        vector TEXT
-    )
-    """)
+    energy = getattr(track, "energy", 0.5)
+    valence = getattr(track, "valence", 0.5)
+    danceability = getattr(track, "danceability", 0.5)
+    acousticness = getattr(track, "acousticness", 0.5)
+    tempo = getattr(track, "tempo", 120)
 
-    conn.commit()
-    conn.close()
+    # -------------------------
+    # VIBE WEIGHTS
+    # -------------------------
+    if vibe == "hype":
+        score = (energy * 0.5) + (danceability * 0.3) + (valence * 0.2)
 
+    elif vibe == "chill":
+        score = (acousticness * 0.4) + (valence * 0.4) + ((1 - energy) * 0.2)
 
-# =========================
-# STORE VECTOR
-# =========================
-def store_vector(user_id, track_id, mood, vector):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    elif vibe == "focus":
+        score = (acousticness * 0.5) + ((1 - valence) * 0.2) + (energy * 0.3)
 
-    c.execute(
-        "INSERT INTO vectors (user_id, track_id, mood, vector) VALUES (?, ?, ?, ?)",
-        (user_id, track_id, mood, json.dumps(vector.tolist()))
-    )
+    else:  # balanced
+        score = (energy + valence + danceability) / 3
 
-    conn.commit()
-    conn.close()
+    # small tempo smoothing
+    score += math.exp(-abs(tempo - 120) / 200) * 0.05
+
+    return score
 
 
 # =========================
-# LOAD USER VECTORS
+# RANK TRACKS (THIS FIXES YOUR ERROR)
 # =========================
-def load_user_vectors(user_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+def rank_tracks(tracks, vibe="balanced", limit=25):
+    """
+    Main AI DJ ranking function.
+    """
 
-    c.execute("SELECT track_id, mood, vector FROM vectors WHERE user_id=?", (user_id,))
-    rows = c.fetchall()
+    scored = []
 
-    conn.close()
+    for t in tracks:
+        s = score_track(t, vibe=vibe)
+        scored.append((s, t))
 
-    return [
-        {
-            "track_id": r[0],
-            "mood": r[1],
-            "vector": np.array(json.loads(r[2]))
-        }
-        for r in rows
-    ]
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    return [t for _, t in scored][:limit]
+
+
+# =========================
+# OPTIONAL MOOD DETECTION (SAFE)
+# =========================
+def detect_session_mood(tracks):
+    """
+    Simple mood guess based on average energy/valence.
+    """
+
+    if not tracks:
+        return "balanced_session"
+
+    avg_energy = sum(getattr(t, "energy", 0.5) for t in tracks) / len(tracks)
+    avg_valence = sum(getattr(t, "valence", 0.5) for t in tracks) / len(tracks)
+
+    if avg_energy > 0.7:
+        return "hype_session"
+
+    if avg_energy < 0.4:
+        return "sad_session"
+
+    if avg_valence < 0.4:
+        return "focus_session"
+
+    return "balanced_session"
