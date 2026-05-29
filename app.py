@@ -1,12 +1,9 @@
 """
-app.py — K_WALAH main Flask app (SEMANTIC VIBE VERSION)
+app.py — K_WALAH semantic vibe engine (stable production version)
 """
 
 import os
-import time
 from flask import Flask, jsonify, redirect, render_template, request, session
-
-from sqlalchemy import text as sa_text
 
 from auth import spotify_oauth, get_spotify_client
 from cache import (
@@ -18,7 +15,13 @@ from cache import (
 
 from spotify_service import create_playlist_on_spotify
 
-from vibe_engine import interpret_vibe, score_track, apply_repeat_penalty
+from vibe_engine import (
+    interpret_vibe,
+    score_track_with_diversity,
+    apply_repeat_penalty
+)
+
+from sentence_transformers import SentenceTransformer
 
 
 # =========================================================
@@ -39,7 +42,7 @@ def home():
 
 
 # =========================================================
-# LOGIN (Spotify OAuth)
+# LOGIN
 # =========================================================
 
 @app.route("/login")
@@ -61,6 +64,7 @@ def callback():
     )
 
     session["user_id"] = db_user.id
+    session["token_info"] = token_info
 
     start_sync_if_needed(db_user.id)
 
@@ -86,12 +90,11 @@ def cache_status():
     if "user_id" not in session:
         return redirect("/login")
 
-    status = get_sync_status(session["user_id"])
-    return jsonify(status)
+    return jsonify(get_sync_status(session["user_id"]))
 
 
 # =========================================================
-# SEMANTIC GENERATOR (CORE FEATURE)
+# SEMANTIC GENERATE (CORE ENGINE)
 # =========================================================
 
 @app.route("/generate", methods=["POST"])
@@ -100,64 +103,86 @@ def generate():
         return {"error": "not logged in"}, 401
 
     data = request.get_json(force=True)
-
     vibe_text = data.get("vibe", "").strip()
-    user_id = session["user_id"]
 
     if not vibe_text:
         return {"error": "missing vibe"}, 400
 
-    # ----------------------------------------
-    # 1. LOAD USER TRACKS
-    # ----------------------------------------
+    user_id = session["user_id"]
+
+    # -----------------------------------------------------
+    # 1. LOAD TRACKS
+    # -----------------------------------------------------
     tracks = load_user_tracks(user_id)
 
     if not tracks:
         return {"error": "no tracks found"}, 404
 
-    # ----------------------------------------
-    # 2. SEMANTIC VIBE EMBEDDING
-    # ----------------------------------------
+    # -----------------------------------------------------
+    # 2. VIBE EMBEDDING
+    # -----------------------------------------------------
     vibe_embedding = interpret_vibe(vibe_text)
 
-    # ----------------------------------------
-    # 3. SCORE TRACKS SEMANTICALLY
-    # ----------------------------------------
+    # -----------------------------------------------------
+    # 3. SEMANTIC SCORING WITH DIVERSITY CONTROL
+    # -----------------------------------------------------
     scored_tracks = []
-    used = set()
+    used_ids = set()
+    recent_embeddings = []
+
+    model = SentenceTransformer("all-MiniLM-L6-v2")
 
     for t in tracks:
-        score = score_track(vibe_embedding, t)
 
-        score = apply_repeat_penalty(score, used, t.spotify_id)
+        # track embedding (for diversity check)
+        track_emb = model.encode(
+            f"{t.name} {t.artist} {t.album}",
+            normalize_embeddings=True
+        )
+
+        # base semantic score + diversity adjustment
+        score = score_track_with_diversity(
+            vibe_embedding,
+            t,
+            recent_embeddings
+        )
+
+        # repeat penalty
+        score = apply_repeat_penalty(score, used_ids, t.spotify_id)
 
         scored_tracks.append((score, t))
 
-    # ----------------------------------------
-    # 4. SORT + PICK TOP TRACKS
-    # ----------------------------------------
-    scored_tracks.sort(key=lambda x: x[0], reverse=True)
+        # update memory AFTER scoring
+        recent_embeddings.append(track_emb)
+        used_ids.add(t.spotify_id)
 
+    # -----------------------------------------------------
+    # 4. SORT + SELECT TOP TRACKS
+    # -----------------------------------------------------
+    scored_tracks.sort(key=lambda x: x[0], reverse=True)
     playlist_tracks = [t for _, t in scored_tracks[:30]]
 
-    # ----------------------------------------
-    # 5. OPTIONAL: CREATE SPOTIFY PLAYLIST
-    # ----------------------------------------
-    try:
-        sp = get_spotify_client_from_session(session)
+    # -----------------------------------------------------
+    # 5. OPTIONAL SPOTIFY PLAYLIST CREATION
+    # -----------------------------------------------------
+    playlist_url = None
 
-        playlist_url = create_playlist_on_spotify(
-            sp,
-            user_id,
-            vibe_text,
-            playlist_tracks
-        )
+    try:
+        token_info = session.get("token_info")
+        if token_info:
+            sp = get_spotify_client(token_info["access_token"])
+            playlist_url = create_playlist_on_spotify(
+                sp,
+                user_id,
+                vibe_text,
+                playlist_tracks
+            )
     except Exception:
         playlist_url = None
 
-    # ----------------------------------------
+    # -----------------------------------------------------
     # 6. RESPONSE
-    # ----------------------------------------
+    # -----------------------------------------------------
     return jsonify({
         "vibe": vibe_text,
         "playlist_url": playlist_url,
@@ -174,7 +199,7 @@ def generate():
 
 
 # =========================================================
-# OPTIONAL: SYNC TRIGGER
+# SYNC
 # =========================================================
 
 @app.route("/sync")
@@ -184,19 +209,6 @@ def sync():
 
     start_sync_if_needed(session["user_id"])
     return redirect("/cache-status")
-
-
-# =========================================================
-# HELPER: GET SPOTIFY CLIENT
-# =========================================================
-
-def get_spotify_client_from_session(session):
-    token_info = session.get("token_info")
-
-    if not token_info:
-        raise Exception("No token in session")
-
-    return get_spotify_client(token_info["access_token"])
 
 
 # =========================================================
