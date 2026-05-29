@@ -1,12 +1,7 @@
-"""
-cache.py — V2 safe cache + sync orchestration
-"""
-
 import threading
-import json
 
 from log import log
-
+from database import get_session
 from models import User, Track, UserTrack
 from sync_service import run_incremental_sync
 
@@ -16,7 +11,7 @@ _running = set()
 
 
 # =========================
-# TRACK LOADING
+# LOAD TRACKS
 # =========================
 def load_user_tracks(user_id, db):
     user = db.query(User).filter_by(spotify_id=user_id).first()
@@ -64,32 +59,30 @@ def get_sync_status(user_id, db):
 # =========================
 # SAFE SYNC RUNNER
 # =========================
-def _run(user_id, db_factory):
+def _run(user_id, sp):
     with _sync_lock:
         if user_id in _running:
             return False
         _running.add(user_id)
 
-    db = db_factory()
-
     try:
-        run_incremental_sync(user_id, None, db)
+        with get_session() as db:
+            run_incremental_sync(user_id, sp, db)
         return True
+
     except Exception as e:
         log("ERROR", "sync", str(e))
         return False
+
     finally:
-        db.close()
         with _sync_lock:
             _running.discard(user_id)
 
 
-def start_sync_if_needed(user_id):
-    from database import get_session
-
+def start_sync_if_needed(user_id, sp=None):
     with get_session() as db:
         user = db.query(User).filter_by(spotify_id=user_id).first()
         if not user:
             return False
 
-    return _run(user_id, lambda: SessionLocal())
+    return _run(user_id, sp)
