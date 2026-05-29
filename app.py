@@ -3,7 +3,7 @@ app.py — V2 Production Entry (Render + Gunicorn Safe)
 """
 
 import os
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 
 from database import init_db, get_session
 from cache import get_sync_status, load_user_tracks, start_sync_if_needed
@@ -23,6 +23,10 @@ def create_app():
 
     @app.get("/")
     def home():
+        return render_template("index.html")
+
+    @app.get("/api/status")
+    def api_status():
         return jsonify({
             "status": "ok",
             "version": "v2",
@@ -61,5 +65,5 @@ app = create_app()
 
 # IMPORTANT: Render uses gunicorn ONLY
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

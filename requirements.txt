@@ -7,3 +7,13 @@ scikit-learn
 spotipy
 requests
 redis
+flask
+gunicorn
+numpy
+psycopg2-binary
+redis
+requests
+rq
+scikit-learn
+spotipy
+sqlalchemy
