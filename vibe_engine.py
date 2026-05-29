@@ -1,83 +1,128 @@
 """
-vibe_engine.py — stable semantic vibe interpreter (no keyword matching)
+vibe_engine.py — semantic embedding-based vibe system
+(no keyword rules, real meaning comparison)
 """
 
-import re
+import numpy as np
+from sentence_transformers import SentenceTransformer
 
 
 # ---------------------------------------------------------
-# soft signal maps (NOT keyword matching, just weighting hints)
+# lightweight model (fast + good enough for vibe matching)
 # ---------------------------------------------------------
 
-ENERGY_SIGNALS = {
-    "high": ["energy", "hyped", "pump", "gym", "fast", "party", "driving"],
-    "low": ["chill", "calm", "sleep", "relax", "focus", "study", "late"],
+_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+# ---------------------------------------------------------
+# vibe anchors (semantic meaning buckets)
+# ---------------------------------------------------------
+
+VIBE_ANCHORS = {
+    "chill": "calm relaxed soft mellow peaceful music",
+    "focus": "study concentration deep work instrumental minimal",
+    "happy": "uplifting joyful bright positive energetic fun",
+    "sad": "emotional melancholic deep reflective sorrowful",
+    "gym": "high energy workout aggressive pumping intense fast",
+    "party": "dance upbeat club electronic energetic loud",
+    "night_drive": "late night driving atmospheric reflective ambient",
 }
 
-MOOD_SIGNALS = {
-    "positive": ["happy", "uplifting", "good", "bright", "fun"],
-    "negative": ["sad", "melancholy", "lonely", "dark", "emotional"],
+
+# pre-encode anchors once (FAST at runtime)
+_anchor_embeddings = {
+    k: _model.encode(v)
+    for k, v in VIBE_ANCHORS.items()
 }
 
 
-def _score_text(text, buckets):
-    score = 0.5  # neutral baseline
+# ---------------------------------------------------------
+# helpers
+# ---------------------------------------------------------
 
-    t = text.lower()
-
-    for k, words in buckets.items():
-        for w in words:
-            if w in t:
-                if k in ["high", "positive"]:
-                    score += 0.1
-                else:
-                    score -= 0.1
-
-    return max(0.0, min(1.0, score))
+def _cosine(a, b):
+    a = np.array(a)
+    b = np.array(b)
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
 
-def interpret_vibe(vibe_text):
+# ---------------------------------------------------------
+# MAIN VIBE INTERPRETER
+# ---------------------------------------------------------
+
+def interpret_vibe(text: str):
     """
     Returns:
-    - profile dict
+    - profile (energy/valence-like mapping)
     - confidence
     - signals
     """
 
-    energy = _score_text(vibe_text, ENERGY_SIGNALS)
-    mood = _score_text(vibe_text, MOOD_SIGNALS)
+    if not text:
+        text = "chill music"
 
-    profile = {
-        "energy": energy,
-        "valence": mood,
-        "acousticness": 1.0 - energy,
-        "danceability": energy * 0.8,
-    }
+    emb = _model.encode(text)
 
-    confidence = 0.65  # stable baseline (no fake ML claims)
+    # find closest vibe anchor
+    best_vibe = None
+    best_score = -1
+
+    for vibe, v_emb in _anchor_embeddings.items():
+        score = _cosine(emb, v_emb)
+        if score > best_score:
+            best_score = score
+            best_vibe = vibe
+
+    # map vibe → numeric profile
+    profile = _vibe_to_profile(best_vibe)
+
+    confidence = max(0.4, min(0.95, best_score))
 
     signals = {
-        "raw_input": vibe_text,
-        "energy_score": energy,
-        "mood_score": mood,
+        "input": text,
+        "matched_vibe": best_vibe,
+        "similarity": best_score,
     }
 
     return profile, confidence, signals
 
 
-def score_track(track, profile):
-    """
-    Stable weighted scoring
-    """
+# ---------------------------------------------------------
+# vibe → spotify feature profile
+# ---------------------------------------------------------
 
+def _vibe_to_profile(vibe):
+    mapping = {
+        "chill":        (0.3, 0.5),
+        "focus":        (0.2, 0.4),
+        "happy":        (0.7, 0.8),
+        "sad":          (0.2, 0.3),
+        "gym":          (0.95, 0.6),
+        "party":        (0.9, 0.8),
+        "night_drive":  (0.5, 0.4),
+    }
+
+    energy, valence = mapping.get(vibe, (0.5, 0.5))
+
+    return {
+        "energy": energy,
+        "valence": valence,
+        "danceability": energy * 0.8,
+        "acousticness": 1.0 - energy,
+    }
+
+
+# ---------------------------------------------------------
+# scoring (unchanged logic, now driven by semantics)
+# ---------------------------------------------------------
+
+def score_track(track, profile):
     return (
-        (track.get("energy", 0.5) * profile["energy"]) +
-        (track.get("valence", 0.5) * profile["valence"]) +
-        (track.get("danceability", 0.5) * profile["danceability"])
+        track.get("energy", 0.5) * profile["energy"] +
+        track.get("valence", 0.5) * profile["valence"] +
+        track.get("danceability", 0.5) * profile["danceability"]
     )
 
 
 def apply_repeat_penalty(track_id, history_map):
-    if track_id in history_map:
-        return 0.4
-    return 1.0
+    return 0.4 if track_id in history_map else 1.0
