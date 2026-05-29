@@ -1,8 +1,14 @@
 from flask import Flask, render_template, request, jsonify, session, redirect
 import random
+import os
+
+# Spotify OAuth helper
+from auth import spotify_oauth
 
 app = Flask(__name__)
-app.secret_key = "change-this-secret"
+
+# secure secret key (Render + fallback)
+app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-change-me")
 
 # ─────────────────────────────────────────────
 # HOME PAGE
@@ -15,12 +21,16 @@ def index():
     )
 
 # ─────────────────────────────────────────────
-# LOGIN
+# LOGIN (REAL SPOTIFY REDIRECT)
 # ─────────────────────────────────────────────
 @app.route("/login")
 def login():
-    session["logged_in"] = True
-    return redirect("/")
+    try:
+        sp_oauth = spotify_oauth()
+        auth_url = sp_oauth.get_authorize_url()
+        return redirect(auth_url)
+    except Exception as e:
+        return f"Login error: {str(e)}"
 
 # ─────────────────────────────────────────────
 # LOGOUT
@@ -31,7 +41,7 @@ def logout():
     return redirect("/")
 
 # ─────────────────────────────────────────────
-# GENERATE PLAYLIST
+# GENERATE PLAYLIST (still placeholder for now)
 # ─────────────────────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -58,7 +68,7 @@ def generate():
     })
 
 # ─────────────────────────────────────────────
-# CACHE STATUS
+# CACHE STATUS (placeholder for now)
 # ─────────────────────────────────────────────
 @app.route("/cache-status")
 def cache_status():
