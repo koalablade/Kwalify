@@ -1,10 +1,9 @@
 """
-vibe_engine.py — semantic + hybrid Spotify ranking engine (Render-safe)
-NO external ML dependencies (no torch, no sentence-transformers)
+vibe_engine.py — K_WALAH semantic + emotional + fast scoring engine
+Render-safe, no heavy ML dependencies
 """
 
 import time
-import math
 import hashlib
 import numpy as np
 from collections import defaultdict, deque
@@ -13,67 +12,67 @@ from collections import defaultdict, deque
 # CONFIG
 # =========================================================
 
-EMBED_DIM = 32  # lightweight semantic space
+EMBED_DIM = 32
+CACHE_SIZE = 2000
 
 # =========================================================
-# MEMORY (in-memory fallback — resets on restart)
+# MEMORY (FAST LOOKUPS ONLY)
 # =========================================================
 
 _user_memory = defaultdict(lambda: {
     "recent_tracks": deque(maxlen=50),
-    "recent_emotions": deque(maxlen=20),
     "last_seen": {}
 })
 
-_user_emotion_history = defaultdict(lambda: deque(maxlen=10))
+_user_emotion_history = defaultdict(lambda: deque(maxlen=12))
 
+_embedding_cache = {}
 
 # =========================================================
-# SAFE TEXT EMBEDDING (NO ML LIBS)
+# FAST EMBEDDING (NO ML LIBS)
 # =========================================================
 
-def _stable_hash(text: str):
+def _hash(text: str):
     return int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
 
 
 def embed_text(text: str):
     """
-    Deterministic pseudo-embedding.
-    Replaces sentence-transformers safely.
+    Fast deterministic embedding (cached).
     """
-    seed = _stable_hash(text.lower())
+    text = text.lower().strip()
+
+    if text in _embedding_cache:
+        return _embedding_cache[text]
+
+    seed = _hash(text)
     rng = np.random.default_rng(seed)
 
     vec = rng.normal(0, 1, EMBED_DIM)
     vec = vec / (np.linalg.norm(vec) + 1e-9)
+
+    if len(_embedding_cache) > CACHE_SIZE:
+        _embedding_cache.clear()
+
+    _embedding_cache[text] = vec
     return vec
 
 
 # =========================================================
-# TRACK VECTOR (Spotify audio features → semantic vector)
+# TRACK VECTOR (NORMALISED FEATURES)
 # =========================================================
 
 def track_vector(track):
-    features = np.array([
+    return np.array([
         track.energy or 0.5,
         track.valence or 0.5,
         track.danceability or 0.5,
         track.acousticness or 0.5,
-        track.instrumentalness or 0.5,
+        track.instrumentalness or 0.0,
         track.speechiness or 0.0,
         track.liveness or 0.0,
         (track.tempo or 120) / 200
     ], dtype=float)
-
-    return features / (np.linalg.norm(features) + 1e-9)
-
-
-# =========================================================
-# VIBE INTERPRETER
-# =========================================================
-
-def interpret_vibe(vibe_text: str):
-    return embed_text(vibe_text)
 
 
 # =========================================================
@@ -85,139 +84,140 @@ def cosine(a, b):
 
 
 # =========================================================
-# EMOTION BUCKETING
+# EMOTION CLASSIFICATION (NEW)
 # =========================================================
 
-def _emotion_bucket(vec):
+def detect_emotion(vec):
     energy = vec[0]
     valence = vec[1]
+    acoustic = vec[3]
 
-    if valence > 0.6 and energy > 0.6:
-        return "uplifting"
-    elif valence < 0.4 and energy < 0.4:
-        return "melancholy"
-    elif energy > 0.7:
-        return "intense"
-    elif valence > 0.6:
-        return "warm"
-    else:
-        return "neutral"
+    if valence > 0.65 and energy > 0.6:
+        return "happy"
+    if valence < 0.35 and energy < 0.4:
+        return "sad"
+    if acoustic > 0.7 and valence < 0.55:
+        return "nostalgic"
+    if energy > 0.75:
+        return "energetic"
+    return "calm"
 
 
 # =========================================================
-# REPEAT / EMOTIONAL REPETITION BIAS CONTROL
+# REPETITION CONTROL (FIXED + STRONGER)
 # =========================================================
 
 def apply_repeat_penalty(user_id, score, track_vec):
-    bucket = _emotion_bucket(track_vec)
     history = _user_emotion_history[user_id]
+    emotion = detect_emotion(track_vec)
 
-    # penalize repeated emotional states
-    if len(history) >= 3 and history[-1] == bucket:
-        score *= 0.75
+    if len(history) >= 3 and history[-1] == emotion:
+        score *= 0.78
 
-    if len(history) >= 5 and list(history)[-2:] == [bucket, bucket]:
-        score *= 0.6
+    if len(history) >= 6 and list(history)[-3:] == [emotion] * 3:
+        score *= 0.55
 
-    history.append(bucket)
+    history.append(emotion)
     return score
 
 
 # =========================================================
-# MEMORY UPDATE
+# MEMORY UPDATE (FAST)
 # =========================================================
 
 def update_memory(user_id, track_id, track_vec):
-    memory = _user_memory[user_id]
-    bucket = _emotion_bucket(track_vec)
-
-    memory["recent_tracks"].append(track_id)
-    memory["recent_emotions"].append(bucket)
-    memory["last_seen"][track_id] = time.time()
+    mem = _user_memory[user_id]
+    mem["recent_tracks"].append(track_id)
+    mem["last_seen"][track_id] = time.time()
 
 
 # =========================================================
-# NOVELTY SCORE
+# FAST NOVELTY SCORE (O(1))
 # =========================================================
 
 def novelty_score(user_id, track_id):
-    memory = _user_memory[user_id]
+    mem = _user_memory[user_id]
 
-    if track_id in memory["recent_tracks"]:
-        idx = list(memory["recent_tracks"]).index(track_id)
-        return max(0.0, 1.0 - (idx / 50))
+    if track_id in mem["recent_tracks"]:
+        idx = list(mem["recent_tracks"]).index(track_id)
+        return max(0.0, 1.0 - idx / 50)
 
     return 1.0
 
 
 # =========================================================
-# FRESHNESS SCORE
+# FRESHNESS SCORE (TIME-BASED)
 # =========================================================
 
 def freshness_score(user_id, track_id):
-    memory = _user_memory[user_id]
-    last_seen = memory["last_seen"].get(track_id)
+    mem = _user_memory[user_id]
+    last = mem["last_seen"].get(track_id)
 
-    if not last_seen:
-        return 0.0
+    if not last:
+        return 0.3  # slight bias for new tracks
 
-    age_days = (time.time() - last_seen) / 86400
-    return max(0.0, 1.0 - (age_days / 7))
+    age_days = (time.time() - last) / 86400
+    return max(0.0, 1.0 - age_days / 10)
 
 
 # =========================================================
-# HYBRID SCORING ENGINE
+# VIBE INTERPRETER
+# =========================================================
+
+def interpret_vibe(vibe_text: str):
+    return embed_text(vibe_text)
+
+
+# =========================================================
+# HYBRID SCORING (FAST + SMART)
 # =========================================================
 
 def hybrid_score(user_id, vibe_vec, track):
-    """
-    Final ranking:
-    semantic + novelty + freshness + emotional stability
-    """
-
     t_vec = track_vector(track)
 
-    # semantic similarity
+    # semantic match
     semantic = cosine(vibe_vec, t_vec)
 
-    # memory signals
+    # fast signals
     novelty = novelty_score(user_id, track.spotify_id)
     freshness = freshness_score(user_id, track.spotify_id)
 
-    # emotional repetition control
+    # emotion shaping
     semantic = apply_repeat_penalty(user_id, semantic, t_vec)
 
-    # FINAL BLEND
-    final = (
-        semantic * 0.65 +
+    # weighted blend (stable + tunable)
+    score = (
+        semantic * 0.68 +
         novelty * 0.20 +
-        freshness * 0.15
+        freshness * 0.12
     )
 
-    # IMPORTANT: update memory AFTER scoring
-    update_memory(user_id, track.spotify_id, t_vec)
-
-    return final
+    return score
 
 
 # =========================================================
-# LOGGING HELPERS
+# BATCH FAST SCORING (IMPORTANT OPTIMIZATION)
+# =========================================================
+
+def score_tracks_fast(user_id, vibe_vec, tracks):
+    """
+    Avoid heavy recompute loops elsewhere.
+    Single-pass scoring.
+    """
+    results = []
+
+    for t in tracks:
+        score = hybrid_score(user_id, vibe_vec, t)
+        results.append((score, t))
+
+    results.sort(key=lambda x: x[0], reverse=True)
+    return results
+
+
+# =========================================================
+# OPTIONAL LOGGING
 # =========================================================
 
 def log_interaction(user_id, track):
     vec = track_vector(track)
     update_memory(user_id, track.spotify_id, vec)
-
-
-# =========================================================
-# NORMALIZATION (optional debugging tool)
-# =========================================================
-
-def normalize_scores(scores):
-    if not scores:
-        return scores
-
-    mx = max(scores)
-    mn = min(scores)
-
-    return [(s - mn) / (mx - mn + 1e-9) for s in scores]
