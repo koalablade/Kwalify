@@ -1,5 +1,5 @@
 """
-app.py — K_WALAH stable semantic vibe engine (Render-safe)
+app.py — K_WALAH stable semantic vibe engine (emotion + memory upgraded)
 """
 
 import os
@@ -36,7 +36,6 @@ from memory import log_track_interaction, get_user_history
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
 
-# ✅ AUTO CREATE TABLES (IMPORTANT FIX)
 init_db()
 
 
@@ -80,7 +79,7 @@ def callback():
 
 
 # =========================================================
-# LOGOUT (FIXED)
+# LOGOUT
 # =========================================================
 
 @app.route("/logout")
@@ -102,7 +101,21 @@ def cache_status():
 
 
 # =========================================================
-# GENERATE (CORE ENGINE)
+# EMOTION WEIGHTS (NEW)
+# =========================================================
+
+EMOTION_BOOST = {
+    "nostalgic": 1.25,
+    "melancholy": 1.10,
+    "warm": 1.15,
+    "euphoric": 1.10,
+    "intense": 1.00,
+    "neutral": 1.00
+}
+
+
+# =========================================================
+# GENERATE (IMPROVED CORE ENGINE)
 # =========================================================
 
 @app.route("/generate", methods=["POST"])
@@ -118,35 +131,52 @@ def generate():
     if not vibe_text:
         return {"error": "missing vibe"}, 400
 
-    # Load user tracks
     tracks = load_user_tracks(user_id)
 
     if not tracks:
         return {"error": "no tracks found"}, 404
 
-    # Vibe embedding
     vibe_vec = interpret_vibe(vibe_text)
 
-    # User memory history (LONG TERM)
     history = get_user_history(user_id)
 
     scored = []
 
+    # track recent emotions to prevent loops
+    recent_emotions = [h.emotion for h in history[-10:]]
+
     for t in tracks:
 
-        # vector for track
         t_vec = track_vector(t)
 
-        # semantic score
+        # base semantic score
         score = hybrid_score(vibe_vec, t_vec, t)
 
-        # repeat penalty
-        score = apply_repeat_penalty(history, t.spotify_id, score)
-
-        # emotion tagging
+        # emotion detection
         emotion = get_emotion(t_vec)
 
-        # store long-term memory
+        # -----------------------------
+        # 🎭 EMOTION BOOST (NOSTALGIA FIX)
+        # -----------------------------
+        score *= EMOTION_BOOST.get(emotion, 1.0)
+
+        # nostalgia gets stronger if user vibe implies memory/softness
+        if "nostalgia" in vibe_text.lower() or "remember" in vibe_text.lower():
+            if emotion == "nostalgic":
+                score *= 1.35
+
+        # -----------------------------
+        # 🔁 REPETITION AVOIDANCE (FIXED LOOP ISSUE)
+        # -----------------------------
+        score = apply_repeat_penalty(history, t.spotify_id, score)
+
+        if len(recent_emotions) >= 3:
+            if recent_emotions[-1] == emotion and recent_emotions[-2] == emotion:
+                score *= 0.65  # breaks emotional loop
+
+        # -----------------------------
+        # 🧠 MEMORY LOGGING (LONG TERM PERSONALIZATION)
+        # -----------------------------
         log_track_interaction(
             user_id=user_id,
             track_id=t.spotify_id,
@@ -156,7 +186,6 @@ def generate():
 
         scored.append((score, t))
 
-    # sort
     scored.sort(key=lambda x: x[0], reverse=True)
     top_tracks = [t for _, t in scored[:30]]
 
