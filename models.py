@@ -11,9 +11,10 @@ from sqlalchemy import (
     Text,
 )
 
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 
-Base = declarative_base()
+# IMPORTANT: single shared Base (fixes your crash)
+from database import Base
 
 
 # =========================================================
@@ -24,44 +25,15 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-
-    spotify_id = Column(
-        String(100),
-        unique=True,
-        nullable=False,
-        index=True
-    )
-
+    spotify_id = Column(String(100), unique=True, nullable=False, index=True)
     display_name = Column(String(300))
-
     token_json = Column(Text)
 
-    # -------------------------
-    # Sync state
-    # -------------------------
-
     last_sync_at = Column(DateTime)
-
-    sync_status = Column(
-        String(20),
-        default="idle"
-    )
-
-    # idle
-    # syncing
-    # done
-    # error
-    # rate_limited
-
+    sync_status = Column(String(20), default="idle")
     sync_total = Column(Integer, default=0)
-
     sync_done = Column(Integer, default=0)
-
     sync_retry_after = Column(DateTime)
-
-    # -------------------------
-    # Relationships
-    # -------------------------
 
     user_tracks = relationship(
         "UserTrack",
@@ -90,44 +62,22 @@ class Track(Base):
     __tablename__ = "tracks"
 
     id = Column(Integer, primary_key=True)
-
-    spotify_id = Column(
-        String(100),
-        unique=True,
-        nullable=False,
-        index=True
-    )
+    spotify_id = Column(String(100), unique=True, nullable=False, index=True)
 
     name = Column(String(500))
-
     artist = Column(String(500))
-
     album = Column(String(500))
 
-    # -------------------------
-    # Audio features
-    # -------------------------
-
     energy = Column(Float)
-
     valence = Column(Float)
-
     tempo = Column(Float)
-
     danceability = Column(Float)
-
     acousticness = Column(Float)
-
     speechiness = Column(Float)
-
     instrumentalness = Column(Float)
-
     liveness = Column(Float)
 
-    user_tracks = relationship(
-        "UserTrack",
-        back_populates="track"
-    )
+    user_tracks = relationship("UserTrack", back_populates="track")
 
 
 # =========================================================
@@ -137,35 +87,13 @@ class Track(Base):
 class UserTrack(Base):
     __tablename__ = "user_tracks"
 
-    user_id = Column(
-        Integer,
-        ForeignKey(
-            "users.id",
-            ondelete="CASCADE"
-        ),
-        primary_key=True
-    )
-
-    track_id = Column(
-        Integer,
-        ForeignKey(
-            "tracks.id",
-            ondelete="CASCADE"
-        ),
-        primary_key=True
-    )
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True)
 
     liked_at = Column(DateTime)
 
-    user = relationship(
-        "User",
-        back_populates="user_tracks"
-    )
-
-    track = relationship(
-        "Track",
-        back_populates="user_tracks"
-    )
+    user = relationship("User", back_populates="user_tracks")
+    track = relationship("Track", back_populates="user_tracks")
 
 
 # =========================================================
@@ -176,34 +104,19 @@ class Playlist(Base):
     __tablename__ = "playlists"
 
     id = Column(Integer, primary_key=True)
-
-    user_id = Column(
-        Integer,
-        ForeignKey(
-            "users.id",
-            ondelete="CASCADE"
-        )
-    )
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
 
     spotify_playlist_id = Column(String(100))
-
     vibe_text = Column(String(500))
-
     track_count = Column(Integer)
 
-    created_at = Column(
-        DateTime,
-        default=datetime.datetime.utcnow
-    )
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-    user = relationship(
-        "User",
-        back_populates="playlists"
-    )
+    user = relationship("User", back_populates="playlists")
 
 
 # =========================================================
-# RECOMMENDATION MEMORY
+# RECOMMENDATION HISTORY
 # =========================================================
 
 class RecommendationHistory(Base):
@@ -211,19 +124,8 @@ class RecommendationHistory(Base):
 
     id = Column(Integer, primary_key=True)
 
-    user_id = Column(
-        Integer,
-        ForeignKey(
-            "users.id",
-            ondelete="CASCADE"
-        ),
-        index=True
-    )
-
-    spotify_track_id = Column(
-        String(100),
-        index=True
-    )
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    spotify_track_id = Column(String(100), index=True)
 
     vibe = Column(String(200))
 
@@ -234,12 +136,7 @@ class RecommendationHistory(Base):
     )
 
     score = Column(Float, default=0.0)
-
     skipped = Column(Boolean, default=False)
-
     replayed = Column(Boolean, default=False)
 
-    user = relationship(
-        "User",
-        back_populates="recommendations"
-    )
+    user = relationship("User", back_populates="recommendations")
