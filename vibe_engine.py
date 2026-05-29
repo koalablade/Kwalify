@@ -1,18 +1,22 @@
+"""
+vibe_engine.py — stable emotional + semantic scoring (no ML cost)
+"""
+
 import numpy as np
 import hashlib
 
 EMBED_DIM = 32
 
 
-# -------------------------
-# EMBEDDING (FAST + STABLE)
-# -------------------------
+# =========================================================
+# EMBEDDING (stable + fast, no external ML)
+# =========================================================
 
 def _hash(text):
-    return int(hashlib.md5(text.encode()).hexdigest(), 16)
+    return int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
 
 
-def embed(text):
+def embed(text: str):
     seed = _hash(text.lower())
     rng = np.random.default_rng(seed)
 
@@ -20,9 +24,9 @@ def embed(text):
     return vec / (np.linalg.norm(vec) + 1e-9)
 
 
-# -------------------------
+# =========================================================
 # TRACK VECTOR
-# -------------------------
+# =========================================================
 
 def track_vector(track):
     vec = np.array([
@@ -34,14 +38,14 @@ def track_vector(track):
         track.speechiness or 0.0,
         track.liveness or 0.0,
         (track.tempo or 120) / 200
-    ])
+    ], dtype=float)
 
     return vec / (np.linalg.norm(vec) + 1e-9)
 
 
-# -------------------------
+# =========================================================
 # VIBE
-# -------------------------
+# =========================================================
 
 def interpret_vibe(text):
     return embed(text)
@@ -51,9 +55,9 @@ def cosine(a, b):
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
 
 
-# -------------------------
-# EMOTION TAGGING
-# -------------------------
+# =========================================================
+# EMOTION DETECTION (improved)
+# =========================================================
 
 def get_emotion(vec):
     energy = vec[0]
@@ -61,11 +65,13 @@ def get_emotion(vec):
 
     if valence > 0.7 and energy > 0.6:
         return "euphoric"
-    if valence < 0.4 and energy < 0.4:
+    if valence < 0.35 and energy < 0.4:
         return "melancholy"
     if energy > 0.75:
         return "intense"
-    if valence > 0.65:
+    if valence > 0.65 and energy < 0.5:
+        return "nostalgic"
+    if valence > 0.6:
         return "warm"
     if energy < 0.3:
         return "nostalgic"
@@ -73,23 +79,74 @@ def get_emotion(vec):
     return "neutral"
 
 
-# -------------------------
-# REPEAT PENALTY
-# -------------------------
+# =========================================================
+# REPEAT / EMOTION LOOP PREVENTION
+# =========================================================
 
 def apply_repeat_penalty(history, track_id, score):
-    recent = [h.track_id for h in history[:10]]
+    """
+    Prevents emotional repetition loops properly.
+    """
 
-    if track_id in recent:
-        score *= 0.6
+    recent_tracks = [h.track_id for h in history[-10:]]
+
+    if track_id in recent_tracks[-3:]:
+        score *= 0.55   # hard repeat penalty
+
+    if len(recent_tracks) >= 5:
+        if len(set(recent_tracks[-5:])) <= 2:
+            score *= 0.75  # emotional loop detection
 
     return score
 
 
-# -------------------------
-# MAIN SCORING
-# -------------------------
+# =========================================================
+# NOSTALGIA BOOST (NEW FEATURE)
+# =========================================================
 
-def hybrid_score(vibe_vec, track_vec, track):
+def nostalgia_boost(track_vec, emotion):
+    """
+    Boosts nostalgic / warm / low-energy emotional signals
+    """
+
+    energy = track_vec[0]
+    valence = track_vec[1]
+
+    boost = 0.0
+
+    # classic nostalgia feel: low energy + mid/low valence
+    if energy < 0.45 and 0.35 < valence < 0.7:
+        boost += 0.08
+
+    # emotional memory trigger
+    if emotion == "nostalgic":
+        boost += 0.12
+
+    # soft warmth memory effect
+    if emotion == "warm":
+        boost += 0.05
+
+    return boost
+
+
+# =========================================================
+# MAIN SCORING (HYBRID)
+# =========================================================
+
+def hybrid_score(vibe_vec, track_vec, track, emotion=None):
+    """
+    Final scoring system:
+    semantic + emotional shaping + nostalgia boost
+    """
+
     semantic = cosine(vibe_vec, track_vec)
-    return semantic
+
+    # emotion-aware adjustment
+    if emotion is None:
+        emotion = get_emotion(track_vec)
+
+    emotional_weight = 0.08 if emotion == "neutral" else 0.12
+
+    nostalgia = nostalgia_boost(track_vec, emotion)
+
+    return semantic + emotional_weight + nostalgia
