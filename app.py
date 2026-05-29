@@ -6,6 +6,7 @@ import os
 from flask import Flask, jsonify, redirect, render_template, request, session
 
 from auth import spotify_oauth, get_spotify_client
+
 from cache import (
     get_or_create_user,
     load_user_tracks,
@@ -17,12 +18,9 @@ from spotify_service import create_playlist_on_spotify
 
 from vibe_engine import (
     interpret_vibe,
-    score_track_with_diversity,
+    hybrid_score,
     apply_repeat_penalty
 )
-
-from sentence_transformers import SentenceTransformer
-
 
 # =========================================================
 # APP SETUP
@@ -94,7 +92,7 @@ def cache_status():
 
 
 # =========================================================
-# SEMANTIC GENERATE (CORE ENGINE)
+# SEMANTIC GENERATE (HYBRID ENGINE)
 # =========================================================
 
 @app.route("/generate", methods=["POST"])
@@ -103,7 +101,7 @@ def generate():
         return {"error": "not logged in"}, 401
 
     data = request.get_json(force=True)
-    vibe_text = data.get("vibe", "").strip()
+    vibe_text = (data.get("vibe") or "").strip()
 
     if not vibe_text:
         return {"error": "missing vibe"}, 400
@@ -119,64 +117,55 @@ def generate():
         return {"error": "no tracks found"}, 404
 
     # -----------------------------------------------------
-    # 2. VIBE EMBEDDING
+    # 2. SEMANTIC VIBE VECTOR
     # -----------------------------------------------------
-    vibe_embedding = interpret_vibe(vibe_text)
+    vibe_vec = interpret_vibe(vibe_text)
 
     # -----------------------------------------------------
-    # 3. SEMANTIC SCORING WITH DIVERSITY CONTROL
+    # 3. HYBRID RANKING
+    #    (semantic + novelty + repetition control)
     # -----------------------------------------------------
-    scored_tracks = []
+
+    scored = []
     used_ids = set()
-    recent_embeddings = []
-
-    model = SentenceTransformer("all-MiniLM-L6-v2")
 
     for t in tracks:
 
-        # track embedding (for diversity check)
-        track_emb = model.encode(
-            f"{t.name} {t.artist} {t.album}",
-            normalize_embeddings=True
+        score = hybrid_score(
+            user_id=user_id,
+            vibe_vec=vibe_vec,
+            track=t
         )
 
-        # base semantic score + diversity adjustment
-        score = score_track_with_diversity(
-            vibe_embedding,
-            t,
-            recent_embeddings
-        )
-
-        # repeat penalty
         score = apply_repeat_penalty(score, used_ids, t.spotify_id)
 
-        scored_tracks.append((score, t))
-
-        # update memory AFTER scoring
-        recent_embeddings.append(track_emb)
+        scored.append((score, t))
         used_ids.add(t.spotify_id)
 
     # -----------------------------------------------------
-    # 4. SORT + SELECT TOP TRACKS
+    # 4. SORT + PICK TOP TRACKS
     # -----------------------------------------------------
-    scored_tracks.sort(key=lambda x: x[0], reverse=True)
-    playlist_tracks = [t for _, t in scored_tracks[:30]]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    playlist_tracks = [t for _, t in scored[:30]]
 
     # -----------------------------------------------------
-    # 5. OPTIONAL SPOTIFY PLAYLIST CREATION
+    # 5. CREATE SPOTIFY PLAYLIST
     # -----------------------------------------------------
     playlist_url = None
 
     try:
         token_info = session.get("token_info")
+
         if token_info:
             sp = get_spotify_client(token_info["access_token"])
+
             playlist_url = create_playlist_on_spotify(
                 sp,
                 user_id,
                 vibe_text,
                 playlist_tracks
             )
+
     except Exception:
         playlist_url = None
 
