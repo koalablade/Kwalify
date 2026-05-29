@@ -1,12 +1,7 @@
 import random
 import time
-from log import log
-import spotipy
 
 
-# =========================
-# SAFE SPOTIFY WRAPPER
-# =========================
 def safe_spotify_call(func, *args, retries=3, **kwargs):
     for attempt in range(retries):
         try:
@@ -40,14 +35,14 @@ def create_playlist(sp, name, description="AI DJ Playlist"):
 # =========================
 # ADD TRACKS
 # =========================
-def add_tracks(sp, playlist_id, uris):
+def add_tracks_to_playlist(sp, playlist_id, uris):
     for i in range(0, len(uris), 100):
         sp.playlist_add_items(playlist_id, uris[i:i+100])
         time.sleep(0.1)
 
 
 # =========================
-# EMOTION → NAME
+# PLAYLIST NAME
 # =========================
 def generate_name(session_mood, vibe):
     base = {
@@ -62,13 +57,9 @@ def generate_name(session_mood, vibe):
 
 
 # =========================
-# AUDIO FEATURES (🔥 FIXED + REQUIRED)
+# AUDIO FEATURES (FIXED EXPORT)
 # =========================
 def get_audio_features(sp, track_id):
-    """
-    Fetch Spotify audio features for AI DJ scoring.
-    """
-
     try:
         features = sp.audio_features([track_id])
 
@@ -84,8 +75,6 @@ def get_audio_features(sp, track_id):
             "acousticness": f.get("acousticness", 0.5),
             "instrumentalness": f.get("instrumentalness", 0.0),
             "tempo": f.get("tempo", 120.0),
-            "speechiness": f.get("speechiness", 0.0),
-            "liveness": f.get("liveness", 0.0),
         }
 
     except Exception:
