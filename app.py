@@ -68,7 +68,7 @@ def logout():
 
 
 # ─────────────────────────────
-# 🔥 FULL AI DJ PIPELINE (CLEAN + FINAL)
+# 🔥 FULL AI DJ PIPELINE (FIXED)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -91,16 +91,17 @@ def generate():
         if not raw_tracks:
             return jsonify({"error": "no_tracks"}), 400
 
-        # convert ORM → dict format
-        tracks = []
-        for t in raw_tracks:
-            tracks.append({
+        # 2. FORMAT FOR AI ENGINE
+        tracks = [
+            {
                 "id": t.spotify_id,
                 "name": t.name,
                 "artist": t.artist
-            })
+            }
+            for t in raw_tracks
+        ]
 
-        # 2. AI DJ ENGINE (ENRICH + SCORE + SORT)
+        # 3. AI DJ RANKING ENGINE
         ranked = generate_ai_playlist(
             sp,
             tracks,
@@ -108,23 +109,23 @@ def generate():
             limit=length
         )
 
-        # 3. CREATE PLAYLIST
-        playlist = create_playlist(sp, f"{vibe} • AI DJ Session")
-
-        # 4. BUILD URIS
+        # 4. CONVERT RANKED → URIS (🔥 FIXED)
         uris = [
-            f"spotify:track:{t.spotify_id if hasattr(t, 'spotify_id') else ''}"
+            f"spotify:track:{t.spotify_id if hasattr(t, 'spotify_id') else t.get('id')}"
             for t in ranked
-            if hasattr(t, "spotify_id")
         ]
 
-        # fallback safe extraction (important fix)
+        # fallback safety (if objects missing ids)
         uris = [
-            f"spotify:track:{t.spotify_id}"
-            for t in raw_tracks
-        ][:length]
+            f"spotify:track:{t.get('id')}"
+            if isinstance(t, dict) else f"spotify:track:{t.spotify_id}"
+            for t in ranked
+        ]
 
-        # 5. UPLOAD
+        # 5. CREATE PLAYLIST
+        playlist = create_playlist(sp, f"{vibe} • AI DJ Session")
+
+        # 6. UPLOAD TRACKS
         add_tracks_to_playlist(sp, playlist["id"], uris)
 
         return jsonify({
