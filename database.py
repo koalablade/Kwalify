@@ -1,5 +1,5 @@
 """
-database.py — Production-safe DB layer
+database.py — Render-safe DB layer
 """
 
 import os
@@ -39,7 +39,11 @@ def init_db():
         Base.metadata.create_all(bind=engine)
         print("✅ DB ready")
     except Exception as e:
-        print("⚠️ DB init failed:", str(e))
+        print("DB init error:", str(e))
+
+
+def get_db():
+    return SessionLocal()
 
 
 def ping_db():
@@ -47,6 +51,5 @@ def ping_db():
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return True
-    except Exception as e:
-        print("DB ping failed:", e)
+    except:
         return False
