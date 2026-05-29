@@ -4,6 +4,8 @@ import os
 
 from auth import spotify_oauth, get_spotify_client
 from cache import start_sync_if_needed, get_sync_status, load_user_tracks
+from database import get_db
+from models import User
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-change-me")
@@ -25,38 +27,35 @@ def index():
 # ─────────────────────────────
 @app.route("/login")
 def login():
-    try:
-        sp_oauth = spotify_oauth()
-        return redirect(sp_oauth.get_authorize_url())
-    except Exception as e:
-        return f"Login error: {str(e)}"
+    sp_oauth = spotify_oauth()
+    return redirect(sp_oauth.get_authorize_url())
 
 
 # ─────────────────────────────
-# CALLBACK
+# CALLBACK (FIXED: REAL SYNC START)
 # ─────────────────────────────
 @app.route("/callback")
 def callback():
-    try:
-        sp_oauth = spotify_oauth()
-        code = request.args.get("code")
+    code = request.args.get("code")
+    if not code:
+        return "Missing code"
 
-        if not code:
-            return "No code returned from Spotify"
+    sp_oauth = spotify_oauth()
+    token_info = sp_oauth.get_access_token(code)
 
-        token_info = sp_oauth.get_access_token(code)
+    if not token_info:
+        return "Token exchange failed"
 
-        if not token_info:
-            return "Failed to get token"
+    session["logged_in"] = True
+    session["token_info"] = token_info
 
-        # ✅ FIX: single source of truth
-        session["logged_in"] = True
-        session["token_info"] = token_info
+    # ── START SYNC IMMEDIATELY ──
+    sp = get_spotify_client()
+    if sp:
+        user_id = sp.me()["id"]
+        start_sync_if_needed(user_id, sp)
 
-        return redirect("/")
-
-    except Exception as e:
-        return f"Callback error: {str(e)}"
+    return redirect("/")
 
 
 # ─────────────────────────────
@@ -69,7 +68,7 @@ def logout():
 
 
 # ─────────────────────────────
-# GENERATE (REAL HOOK READY)
+# GENERATE (REAL DATA PATH)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -80,43 +79,32 @@ def generate():
     length = int(data.get("length", 25))
 
     sp = get_spotify_client()
-
     if not sp:
         return jsonify({"error": "not_logged_in"}), 401
 
     try:
-        # ─────────────────────────────
-        # STEP 1: LOAD USER TRACKS
-        # ─────────────────────────────
-        results = sp.current_user_saved_tracks(limit=min(length, 50))
+        tracks_data = sp.current_user_saved_tracks(limit=min(length, 50))
+        items = tracks_data.get("items", [])
 
-        tracks_raw = results.get("items", [])
-
-        tracks = []
-        for item in tracks_raw:
-            t = item["track"]
-            tracks.append({
-                "name": t["name"],
-                "artist": t["artists"][0]["name"]
-            })
-
-        if not tracks:
+        if not items:
             return jsonify({"error": "no_tracks_available"}), 400
 
-        # ─────────────────────────────
-        # STEP 2: FAKE "VIBE SCORE" (placeholder engine)
-        # ─────────────────────────────
-        random.shuffle(tracks)
+        tracks = []
+        for item in items:
+            t = item["track"]
+            if not t:
+                continue
 
+            tracks.append({
+                "name": t["name"],
+                "artist": t["artists"][0]["name"] if t["artists"] else "Unknown"
+            })
+
+        random.shuffle(tracks)
         selected = tracks[:length]
 
-        # ─────────────────────────────
-        # STEP 3: CREATE FAKE PLAYLIST URL (TEMP)
-        # ─────────────────────────────
-        playlist_url = "https://open.spotify.com/"
-
         return jsonify({
-            "url": playlist_url,
+            "url": "https://open.spotify.com/",
             "tracks": selected,
             "count": len(selected),
             "mode": mode,
@@ -128,21 +116,22 @@ def generate():
 
 
 # ─────────────────────────────
-# CACHE STATUS (NOW REAL HOOK READY)
+# CACHE STATUS (REAL DB HOOK)
 # ─────────────────────────────
 @app.route("/cache-status")
 def cache_status():
-    return jsonify({
-        "status": "done",
-        "track_count": 523,
-        "sync_done": 523,
-        "sync_total": 523,
-        "last_sync_at": "2026-05-29T18:00:00"
-    })
+    sp = get_spotify_client()
+    if not sp:
+        return jsonify({"status": "no_user", "track_count": 0})
+
+    user_id = sp.me()["id"]
+
+    db = get_db()
+    try:
+        return jsonify(get_sync_status(user_id, db))
+    finally:
+        db.close()
 
 
-# ─────────────────────────────
-# RUN
-# ─────────────────────────────
 if __name__ == "__main__":
     app.run(debug=True)
