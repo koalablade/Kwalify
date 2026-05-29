@@ -173,3 +173,24 @@ def generate_playlist_name(vibe_text):
     ]
 
     return random.choice(formats)()
+
+def get_audio_features(sp, track_id):
+    try:
+        features = safe_spotify_call(sp.audio_features, [track_id])
+        if features and features[0]:
+            f = features[0]
+
+            return {
+                "energy": f.get("energy", 0.5),
+                "valence": f.get("valence", 0.5),
+                "danceability": f.get("danceability", 0.5),
+                "acousticness": f.get("acousticness", 0.5),
+                "instrumentalness": f.get("instrumentalness", 0.0),
+                "tempo": f.get("tempo", 120),
+                "speechiness": f.get("speechiness", 0.0),
+                "liveness": f.get("liveness", 0.0),
+            }
+    except Exception:
+        pass
+
+    return None
