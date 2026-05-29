@@ -31,6 +31,7 @@ from cache import (
 from database import (
     get_db,
     init_db,
+    ping_db,
 )
 
 from log import log
@@ -65,25 +66,17 @@ init_db()
 # =========================================================
 
 _last = {}
-
 MIN_DELAY = 2.5
 
 
 def throttle(key):
-
     now = time.time()
-
     last = _last.get(key, 0)
 
     if now - last < MIN_DELAY:
-
-        return (
-            False,
-            MIN_DELAY - (now - last)
-        )
+        return False, MIN_DELAY - (now - last)
 
     _last[key] = now
-
     return True, 0
 
 
@@ -93,7 +86,6 @@ def throttle(key):
 
 @app.route("/")
 def home():
-
     return render_template(
         "index.html",
         logged_in="token_info" in session
@@ -106,11 +98,9 @@ def home():
 
 @app.route("/login")
 def login():
-
     auth = spotify_oauth()
 
     state = secrets.token_urlsafe(16)
-
     session["oauth_state"] = state
 
     return redirect(
@@ -124,34 +114,27 @@ def login():
 
 @app.route("/callback")
 def callback():
-
     from spotipy.oauth2 import SpotifyOauthError
 
     code = request.args.get("code")
-
     state = request.args.get("state")
 
     if state != session.pop("oauth_state", None):
-
         return "OAuth error", 400
 
     auth = spotify_oauth()
 
     try:
-
         token_info = auth.get_access_token(
             code=code,
             check_cache=False
         )
-
     except SpotifyOauthError as e:
-
         return str(e), 400
 
     session["token_info"] = token_info
 
     sp = get_spotify_client()
-
     me = sp.me()
 
     session["spotify_user_id"] = me["id"]
@@ -159,7 +142,6 @@ def callback():
     db = get_db()
 
     try:
-
         get_or_create_user(
             me["id"],
             db,
@@ -173,7 +155,6 @@ def callback():
         )
 
     finally:
-
         db.close()
 
     return redirect("/")
@@ -189,25 +170,16 @@ def generate():
     sp = get_spotify_client()
 
     if not sp:
-        return jsonify({
-            "error": "not_logged_in"
-        }), 401
+        return jsonify({"error": "not_logged_in"}), 401
 
-    spotify_user_id = session.get(
-        "spotify_user_id"
-    )
+    spotify_user_id = session.get("spotify_user_id")
 
     if not spotify_user_id:
-        return jsonify({
-            "error": "no_user"
-        }), 400
+        return jsonify({"error": "no_user"}), 400
 
-    ok, wait = throttle(
-        f"generate:{spotify_user_id}"
-    )
+    ok, wait = throttle(f"generate:{spotify_user_id}")
 
     if not ok:
-
         return jsonify({
             "error": "too_many_requests",
             "retry_after": wait
@@ -216,79 +188,30 @@ def generate():
     db = get_db()
 
     try:
-
-        # -------------------------------------------------
-        # DB USER
-        # -------------------------------------------------
-
-        user = (
-            db.query(User)
-            .filter_by(
-                spotify_id=spotify_user_id
-            )
-            .first()
-        )
+        user = db.query(User).filter_by(
+            spotify_id=spotify_user_id
+        ).first()
 
         if not user:
+            return jsonify({"error": "user_missing"}), 400
 
-            return jsonify({
-                "error": "user_missing"
-            }), 400
-
-        # -------------------------------------------------
-        # TRACK CACHE
-        # -------------------------------------------------
-
-        cache = load_user_tracks(
-            spotify_user_id,
-            db
-        )
+        cache = load_user_tracks(spotify_user_id, db)
 
         if not cache:
+            return jsonify({"error": "no_tracks"}), 400
 
-            return jsonify({
-                "error": "no_tracks"
-            }), 400
+        data = request.get_json(silent=True) or {}
 
-        # -------------------------------------------------
-        # REQUEST DATA
-        # -------------------------------------------------
-
-        data = request.get_json(
-            silent=True
-        ) or {}
-
-        vibe = data.get(
-            "vibe",
-            "chill"
-        )
+        vibe = data.get("vibe", "chill")
 
         try:
-
-            length = int(
-                data.get("length", 50)
-            )
-
+            length = int(data.get("length", 50))
         except:
-
             length = 50
 
-        length = max(
-            10,
-            min(200, length)
-        )
+        length = max(10, min(200, length))
 
-        # -------------------------------------------------
-        # INTERPRET VIBE
-        # -------------------------------------------------
-
-        profile, confidence, signals = (
-            interpret_vibe(vibe)
-        )
-
-        # -------------------------------------------------
-        # SEED
-        # -------------------------------------------------
+        profile, confidence, signals = interpret_vibe(vibe)
 
         seed = hash(
             f"{spotify_user_id}"
@@ -298,212 +221,97 @@ def generate():
 
         rng = random.Random(seed)
 
-        # -------------------------------------------------
-        # LOAD RECENT HISTORY
-        # -------------------------------------------------
-
-        recent_rows = (
-            db.query(RecommendationHistory)
-            .filter(
-                RecommendationHistory.user_id == user.id,
-                RecommendationHistory.recommended_at >
-                datetime.utcnow() - timedelta(days=14)
-            )
-            .all()
-        )
+        recent_rows = db.query(RecommendationHistory).filter(
+            RecommendationHistory.user_id == user.id,
+            RecommendationHistory.recommended_at >
+            datetime.utcnow() - timedelta(days=14)
+        ).all()
 
         history_map = {
             r.spotify_track_id: r.recommended_at
             for r in recent_rows
         }
 
-        # -------------------------------------------------
-        # SCORE TRACKS
-        # -------------------------------------------------
-
         scored = []
 
         for track in cache:
-
-            base_score = score_track(
-                track,
-                profile
-            )
+            base_score = score_track(track, profile)
 
             repeat_penalty = apply_repeat_penalty(
                 track["id"],
                 history_map
             )
 
-            final_score = (
-                base_score *
-                repeat_penalty
-            )
+            final_score = base_score * repeat_penalty
 
-            scored.append(
-                (
-                    track["id"],
-                    final_score
-                )
-            )
-
-        # -------------------------------------------------
-        # SHUFFLE BEFORE SORT
-        # -------------------------------------------------
+            scored.append((track["id"], final_score))
 
         rng.shuffle(scored)
+        scored.sort(key=lambda x: x[1], reverse=True)
 
-        scored.sort(
-            key=lambda x: x[1],
-            reverse=True
-        )
-
-        # -------------------------------------------------
-        # LOOKUP TABLE
-        # -------------------------------------------------
-
-        track_lookup = {
-            t["id"]: t
-            for t in cache
-        }
-
-        # -------------------------------------------------
-        # SMART SELECTION
-        # -------------------------------------------------
+        track_lookup = {t["id"]: t for t in cache}
 
         selected = []
-
         seen_artists = {}
 
         for track_id, score in scored[:600]:
 
             track = track_lookup.get(track_id)
-
             if not track:
                 continue
 
-            artist = (
-                track.get("artist") or ""
-            )
+            artist = track.get("artist") or ""
 
-            artist_count = (
-                seen_artists.get(artist, 0)
-            )
-
-            # -----------------------------
-            # artist diversity
-            # -----------------------------
-
-            if artist_count >= 2:
+            if seen_artists.get(artist, 0) >= 2:
                 continue
 
-            # -----------------------------
-            # weighted randomness
-            # -----------------------------
-
-            random_gate = rng.random()
-
-            threshold = max(
-                0.15,
-                min(0.98, score)
-            )
-
-            if random_gate > threshold:
+            if rng.random() > max(0.15, min(0.98, score)):
                 continue
 
             selected.append(track)
-
-            seen_artists[artist] = (
-                artist_count + 1
-            )
+            seen_artists[artist] = seen_artists.get(artist, 0) + 1
 
             if len(selected) >= length:
                 break
 
-        # -------------------------------------------------
-        # FALLBACK
-        # -------------------------------------------------
-
         if len(selected) < length:
-
-            used = {
-                t["id"]
-                for t in selected
-            }
+            used = {t["id"] for t in selected}
 
             for track_id, _ in scored:
-
                 if len(selected) >= length:
                     break
-
                 if track_id in used:
                     continue
 
                 track = track_lookup.get(track_id)
-
                 if not track:
                     continue
 
                 selected.append(track)
-
                 used.add(track_id)
 
-        # -------------------------------------------------
-        # PLAYLIST URIS
-        # -------------------------------------------------
+        uris = [f"spotify:track:{t['id']}" for t in selected]
 
-        uris = [
-            f"spotify:track:{t['id']}"
-            for t in selected
-        ]
-
-        # -------------------------------------------------
-        # CREATE PLAYLIST
-        # -------------------------------------------------
-
-        playlist = create_playlist(
-            sp,
-            vibe
-        )
-
-        # -------------------------------------------------
-        # ADD TRACKS
-        # -------------------------------------------------
+        playlist = create_playlist(sp, vibe)
 
         for i in range(0, len(uris), 100):
-
-            chunk = uris[i:i + 100]
-
             sp.playlist_add_items(
                 playlist["id"],
-                chunk
+                uris[i:i + 100]
             )
 
-        # -------------------------------------------------
-        # SAVE RECOMMENDATION MEMORY
-        # -------------------------------------------------
-
         for track in selected:
-
-            row = RecommendationHistory(
+            db.add(RecommendationHistory(
                 user_id=user.id,
                 spotify_track_id=track["id"],
                 vibe=vibe,
                 score=1.0,
-            )
-
-            db.add(row)
+            ))
 
         db.commit()
 
-        # -------------------------------------------------
-        # SUCCESS
-        # -------------------------------------------------
-
         return jsonify({
-
             "url": playlist["external_urls"]["spotify"],
-
             "meta": {
                 "confidence": confidence,
                 "signals": signals,
@@ -512,20 +320,11 @@ def generate():
         })
 
     except Exception as e:
+        log("ERROR", "generate", str(e), user=spotify_user_id)
 
-        log(
-            "ERROR",
-            "generate",
-            str(e),
-            user=spotify_user_id
-        )
-
-        return jsonify({
-            "error": "internal_error"
-        }), 500
+        return jsonify({"error": "internal_error"}), 500
 
     finally:
-
         db.close()
 
 
@@ -536,29 +335,18 @@ def generate():
 @app.route("/cache-status")
 def cache_status():
 
-    spotify_user_id = session.get(
-        "spotify_user_id"
-    )
+    spotify_user_id = session.get("spotify_user_id")
 
     if not spotify_user_id:
-
-        return jsonify({
-            "error": "not_logged_in"
-        }), 401
+        return jsonify({"error": "not_logged_in"}), 401
 
     db = get_db()
 
     try:
-
         return jsonify(
-            get_sync_status(
-                spotify_user_id,
-                db
-            )
+            get_sync_status(spotify_user_id, db)
         )
-
     finally:
-
         db.close()
 
 
@@ -568,17 +356,8 @@ def cache_status():
 
 @app.route("/health")
 def health():
-
-    db = get_db()
-
-    db.execute(
-        sa_text("SELECT 1")
-    )
-
-    db.close()
-
     return jsonify({
-        "ok": True
+        "ok": ping_db()
     })
 
 
@@ -587,10 +366,7 @@ def health():
 # =========================================================
 
 if __name__ == "__main__":
-
     app.run(
         host="0.0.0.0",
-        port=int(
-            os.getenv("PORT", 5000)
-        )
+        port=int(os.getenv("PORT", 5000))
     )
