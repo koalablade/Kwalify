@@ -1,14 +1,20 @@
 """
-vibe_engine.py — improved semantic vibe interpretation
+vibe_engine.py — stable production version
+
 Fixes:
-- less keyword-only matching
-- phrase weighting + partial matching
-- smoother confidence scoring
+- restores missing score_track + apply_repeat_penalty
+- keeps smarter interpretation
+- ensures app.py imports never break again
 """
 
 import re
 import random
+from datetime import datetime
 
+
+# ---------------------------------------------------------------------------
+# Emotion model (lightweight but expressive)
+# ---------------------------------------------------------------------------
 
 EMOTION_VOCAB = {
     "happy": {"energy": 0.4, "calm": -0.1},
@@ -31,6 +37,10 @@ MODIFIERS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# INTERPRET VIBE (smarter semantic + still stable)
+# ---------------------------------------------------------------------------
+
 def interpret_vibe(text):
     text = (text or "").lower()
 
@@ -49,14 +59,14 @@ def interpret_vibe(text):
 
     signals = []
 
-    # phrase match (multi-word first)
+    # phrase matching
     for phrase in sorted(EMOTION_VOCAB, key=len, reverse=True):
         if phrase in text:
             signals.append(phrase)
             for k, v in EMOTION_VOCAB[phrase].items():
                 base[k] = max(0, min(1, base[k] + v * modifier))
 
-    # partial token match
+    # token matching
     tokens = re.findall(r"\w+", text)
     for t in tokens:
         if t in EMOTION_VOCAB:
@@ -75,3 +85,59 @@ def interpret_vibe(text):
     }
 
     return profile, round(confidence, 2), signals
+
+
+# ---------------------------------------------------------------------------
+# REQUIRED FOR app.py (RESTORED)
+# ---------------------------------------------------------------------------
+
+def score_track(track, profile):
+    """
+    Simple similarity scoring between track audio features and vibe profile.
+    Keeps your system stable even without heavy ML.
+    """
+
+    def f(x, default=0.5):
+        try:
+            return float(x)
+        except:
+            return default
+
+    energy_diff = abs(f(track.get("energy")) - profile["energy"])
+    valence_diff = abs(f(track.get("valence")) - profile.get("calm", 0.5))
+
+    distance = (
+        energy_diff * 0.6 +
+        valence_diff * 0.4
+    )
+
+    return max(0.0, 1.0 - distance)
+
+
+# ---------------------------------------------------------------------------
+# REQUIRED FOR app.py (REPEAT CONTROL)
+# ---------------------------------------------------------------------------
+
+def apply_repeat_penalty(track_id, history_map):
+    """
+    Penalises repeated tracks based on last seen time.
+    Keeps playlist fresh.
+    """
+
+    if track_id not in history_map:
+        return 1.0
+
+    last_seen = history_map[track_id]
+
+    hours = (datetime.utcnow() - last_seen).total_seconds() / 3600
+
+    if hours < 12:
+        return 0.02
+    if hours < 24:
+        return 0.10
+    if hours < 72:
+        return 0.30
+    if hours < 168:
+        return 0.55
+
+    return 1.0
