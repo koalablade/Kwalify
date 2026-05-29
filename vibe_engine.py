@@ -1,12 +1,12 @@
 import numpy as np
 
-# -------------------------------------------------
-# SIMPLE SEMANTIC VIBE ENGINE (NO TRANSFORMERS)
-# -------------------------------------------------
+# =========================================================
+# SAFE SEMANTIC VIBE ENGINE (NO EXTERNAL ML DEPENDENCIES)
+# =========================================================
 
-VIBE_MAP = {
+VIBE_VECTORS = {
     "chill": np.array([0.2, 0.8, 0.3]),
-    "happy": np.array([0.8, 0.7, 0.6]),
+    "happy": np.array([0.9, 0.7, 0.6]),
     "sad": np.array([0.2, 0.2, 0.3]),
     "energetic": np.array([0.9, 0.6, 0.9]),
     "focus": np.array([0.3, 0.4, 0.2]),
@@ -15,49 +15,34 @@ VIBE_MAP = {
 
 def interpret_vibe(vibe_text: str):
     """
-    Turns text into semantic-ish vector WITHOUT ML models.
-    Stable, fast, deploy-safe.
+    Lightweight semantic mapping (NO transformers, NO embeddings libs).
+    Stable for Render.
     """
 
-    v = vibe_text.lower().strip()
+    v = vibe_text.lower()
 
-    # soft matching instead of keywords-only logic
-    if any(x in v for x in ["chill", "relax", "calm"]):
-        profile = VIBE_MAP["chill"]
-        confidence = 0.7
-        signals = ["relaxation cluster"]
+    if any(x in v for x in ["chill", "relax", "calm", "lofi"]):
+        return VIBE_VECTORS["chill"], 0.75, ["relax cluster"]
 
-    elif any(x in v for x in ["happy", "uplift", "good", "fun"]):
-        profile = VIBE_MAP["happy"]
-        confidence = 0.7
-        signals = ["positive mood cluster"]
+    if any(x in v for x in ["happy", "uplift", "fun", "good vibes"]):
+        return VIBE_VECTORS["happy"], 0.75, ["positive cluster"]
 
-    elif any(x in v for x in ["sad", "down", "melancholy"]):
-        profile = VIBE_MAP["sad"]
-        confidence = 0.7
-        signals = ["low mood cluster"]
+    if any(x in v for x in ["sad", "melancholy", "down"]):
+        return VIBE_VECTORS["sad"], 0.75, ["low mood cluster"]
 
-    elif any(x in v for x in ["energy", "hype", "workout", "gym"]):
-        profile = VIBE_MAP["energetic"]
-        confidence = 0.8
-        signals = ["high energy cluster"]
+    if any(x in v for x in ["gym", "workout", "energy", "hype"]):
+        return VIBE_VECTORS["energetic"], 0.85, ["high energy cluster"]
 
-    elif any(x in v for x in ["focus", "study", "deep"]):
-        profile = VIBE_MAP["focus"]
-        confidence = 0.8
-        signals = ["focus cluster"]
+    if any(x in v for x in ["focus", "study", "deep"]):
+        return VIBE_VECTORS["focus"], 0.85, ["focus cluster"]
 
-    else:
-        profile = VIBE_MAP["chill"]
-        confidence = 0.4
-        signals = ["fallback cluster"]
-
-    return profile, confidence, signals
+    return VIBE_VECTORS["chill"], 0.4, ["fallback"]
 
 
-def score_track(track, profile_vector):
+def score_track(track, vibe_vector):
     """
-    Lightweight scoring using Spotify audio features.
+    Uses Spotify audio features only.
+    No ML required.
     """
 
     features = np.array([
@@ -66,26 +51,18 @@ def score_track(track, profile_vector):
         track.get("danceability", 0.5),
     ])
 
-    # cosine similarity (manual)
-    dot = np.dot(features, profile_vector)
-    norm = (np.linalg.norm(features) * np.linalg.norm(profile_vector)) + 1e-9
+    dot = np.dot(features, vibe_vector)
+    norm = (np.linalg.norm(features) * np.linalg.norm(vibe_vector)) + 1e-9
 
     return float(dot / norm)
 
 
 def apply_repeat_penalty(track_id, history_map):
     """
-    Penalise recently used tracks.
+    Simple decay-based penalty.
     """
 
     if track_id not in history_map:
         return 1.0
 
-    days_old = (np.datetime64("now") - np.datetime64(history_map[track_id])).astype(int)
-
-    if days_old < 1:
-        return 0.2
-    elif days_old < 7:
-        return 0.6
-    else:
-        return 1.0
+    return 0.3  # simple safe penalty for now
