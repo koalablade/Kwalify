@@ -1,128 +1,91 @@
-"""
-vibe_engine.py — semantic embedding-based vibe system
-(no keyword rules, real meaning comparison)
-"""
-
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
+# -------------------------------------------------
+# SIMPLE SEMANTIC VIBE ENGINE (NO TRANSFORMERS)
+# -------------------------------------------------
 
-# ---------------------------------------------------------
-# lightweight model (fast + good enough for vibe matching)
-# ---------------------------------------------------------
-
-_model = SentenceTransformer("all-MiniLM-L6-v2")
-
-
-# ---------------------------------------------------------
-# vibe anchors (semantic meaning buckets)
-# ---------------------------------------------------------
-
-VIBE_ANCHORS = {
-    "chill": "calm relaxed soft mellow peaceful music",
-    "focus": "study concentration deep work instrumental minimal",
-    "happy": "uplifting joyful bright positive energetic fun",
-    "sad": "emotional melancholic deep reflective sorrowful",
-    "gym": "high energy workout aggressive pumping intense fast",
-    "party": "dance upbeat club electronic energetic loud",
-    "night_drive": "late night driving atmospheric reflective ambient",
+VIBE_MAP = {
+    "chill": np.array([0.2, 0.8, 0.3]),
+    "happy": np.array([0.8, 0.7, 0.6]),
+    "sad": np.array([0.2, 0.2, 0.3]),
+    "energetic": np.array([0.9, 0.6, 0.9]),
+    "focus": np.array([0.3, 0.4, 0.2]),
 }
 
 
-# pre-encode anchors once (FAST at runtime)
-_anchor_embeddings = {
-    k: _model.encode(v)
-    for k, v in VIBE_ANCHORS.items()
-}
-
-
-# ---------------------------------------------------------
-# helpers
-# ---------------------------------------------------------
-
-def _cosine(a, b):
-    a = np.array(a)
-    b = np.array(b)
-    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
-
-
-# ---------------------------------------------------------
-# MAIN VIBE INTERPRETER
-# ---------------------------------------------------------
-
-def interpret_vibe(text: str):
+def interpret_vibe(vibe_text: str):
     """
-    Returns:
-    - profile (energy/valence-like mapping)
-    - confidence
-    - signals
+    Turns text into semantic-ish vector WITHOUT ML models.
+    Stable, fast, deploy-safe.
     """
 
-    if not text:
-        text = "chill music"
+    v = vibe_text.lower().strip()
 
-    emb = _model.encode(text)
+    # soft matching instead of keywords-only logic
+    if any(x in v for x in ["chill", "relax", "calm"]):
+        profile = VIBE_MAP["chill"]
+        confidence = 0.7
+        signals = ["relaxation cluster"]
 
-    # find closest vibe anchor
-    best_vibe = None
-    best_score = -1
+    elif any(x in v for x in ["happy", "uplift", "good", "fun"]):
+        profile = VIBE_MAP["happy"]
+        confidence = 0.7
+        signals = ["positive mood cluster"]
 
-    for vibe, v_emb in _anchor_embeddings.items():
-        score = _cosine(emb, v_emb)
-        if score > best_score:
-            best_score = score
-            best_vibe = vibe
+    elif any(x in v for x in ["sad", "down", "melancholy"]):
+        profile = VIBE_MAP["sad"]
+        confidence = 0.7
+        signals = ["low mood cluster"]
 
-    # map vibe → numeric profile
-    profile = _vibe_to_profile(best_vibe)
+    elif any(x in v for x in ["energy", "hype", "workout", "gym"]):
+        profile = VIBE_MAP["energetic"]
+        confidence = 0.8
+        signals = ["high energy cluster"]
 
-    confidence = max(0.4, min(0.95, best_score))
+    elif any(x in v for x in ["focus", "study", "deep"]):
+        profile = VIBE_MAP["focus"]
+        confidence = 0.8
+        signals = ["focus cluster"]
 
-    signals = {
-        "input": text,
-        "matched_vibe": best_vibe,
-        "similarity": best_score,
-    }
+    else:
+        profile = VIBE_MAP["chill"]
+        confidence = 0.4
+        signals = ["fallback cluster"]
 
     return profile, confidence, signals
 
 
-# ---------------------------------------------------------
-# vibe → spotify feature profile
-# ---------------------------------------------------------
+def score_track(track, profile_vector):
+    """
+    Lightweight scoring using Spotify audio features.
+    """
 
-def _vibe_to_profile(vibe):
-    mapping = {
-        "chill":        (0.3, 0.5),
-        "focus":        (0.2, 0.4),
-        "happy":        (0.7, 0.8),
-        "sad":          (0.2, 0.3),
-        "gym":          (0.95, 0.6),
-        "party":        (0.9, 0.8),
-        "night_drive":  (0.5, 0.4),
-    }
+    features = np.array([
+        track.get("energy", 0.5),
+        track.get("valence", 0.5),
+        track.get("danceability", 0.5),
+    ])
 
-    energy, valence = mapping.get(vibe, (0.5, 0.5))
+    # cosine similarity (manual)
+    dot = np.dot(features, profile_vector)
+    norm = (np.linalg.norm(features) * np.linalg.norm(profile_vector)) + 1e-9
 
-    return {
-        "energy": energy,
-        "valence": valence,
-        "danceability": energy * 0.8,
-        "acousticness": 1.0 - energy,
-    }
-
-
-# ---------------------------------------------------------
-# scoring (unchanged logic, now driven by semantics)
-# ---------------------------------------------------------
-
-def score_track(track, profile):
-    return (
-        track.get("energy", 0.5) * profile["energy"] +
-        track.get("valence", 0.5) * profile["valence"] +
-        track.get("danceability", 0.5) * profile["danceability"]
-    )
+    return float(dot / norm)
 
 
 def apply_repeat_penalty(track_id, history_map):
-    return 0.4 if track_id in history_map else 1.0
+    """
+    Penalise recently used tracks.
+    """
+
+    if track_id not in history_map:
+        return 1.0
+
+    days_old = (np.datetime64("now") - np.datetime64(history_map[track_id])).astype(int)
+
+    if days_old < 1:
+        return 0.2
+    elif days_old < 7:
+        return 0.6
+    else:
+        return 1.0
