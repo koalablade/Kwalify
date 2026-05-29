@@ -1,10 +1,9 @@
 flask
+gunicorn
 sqlalchemy
-spotipy
-requests
-redis
 psycopg2-binary
 numpy
 scikit-learn
-sentence-transformers
-gunicorn
+spotipy
+requests
+redis
