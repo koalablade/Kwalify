@@ -3,5 +3,8 @@ sqlalchemy
 spotipy
 requests
 redis
+
 psycopg2-binary
 numpy
+
+sentence-transformers
