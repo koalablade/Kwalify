@@ -1,7 +1,3 @@
-"""
-database.py — V2 safe DB layer (Render stable)
-"""
-
 import os
 from contextlib import contextmanager
 
@@ -21,18 +17,28 @@ engine = create_engine(
     connect_args=connect_args,
 )
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+    expire_on_commit=False
+)
+
 Base = declarative_base()
 
 
 # =========================
-# SAFE SESSION WRAPPER
+# SINGLE SAFE SESSION API
 # =========================
 @contextmanager
 def get_session():
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -42,9 +48,9 @@ def get_session():
 # =========================
 def init_db():
     try:
-        from models import Base  # avoid circular issues
-        Base.metadata.create_all(bind=engine)
-        print("✅ DB ready (v2)")
+        from models import Base as ModelsBase
+        ModelsBase.metadata.create_all(bind=engine)
+        print("✅ DB ready (v2 stable)")
     except Exception as e:
         print("❌ DB init failed:", e)
 
