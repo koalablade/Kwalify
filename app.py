@@ -1,12 +1,12 @@
 """
-app.py — K_WALAH semantic vibe engine (stable production version)
+app.py — K_WALAH semantic vibe engine (FAST + EMOTION + HYBRID)
+Render-safe production version
 """
 
 import os
 from flask import Flask, jsonify, redirect, render_template, request, session
 
 from auth import spotify_oauth, get_spotify_client
-
 from cache import (
     get_or_create_user,
     load_user_tracks,
@@ -14,12 +14,13 @@ from cache import (
     start_sync_if_needed
 )
 
-from spotify_service import create_playlist_on_spotify
+from spotify_service import create_playlist  # FIXED IMPORT
 
 from vibe_engine import (
     interpret_vibe,
-    hybrid_score,
-    apply_repeat_penalty
+    score_tracks_fast,
+    track_vector,
+    update_memory
 )
 
 # =========================================================
@@ -92,7 +93,7 @@ def cache_status():
 
 
 # =========================================================
-# SEMANTIC GENERATE (HYBRID ENGINE)
+# CORE GENERATE (FAST SEMANTIC ENGINE)
 # =========================================================
 
 @app.route("/generate", methods=["POST"])
@@ -101,7 +102,7 @@ def generate():
         return {"error": "not logged in"}, 401
 
     data = request.get_json(force=True)
-    vibe_text = (data.get("vibe") or "").strip()
+    vibe_text = data.get("vibe", "").strip()
 
     if not vibe_text:
         return {"error": "missing vibe"}, 400
@@ -109,7 +110,7 @@ def generate():
     user_id = session["user_id"]
 
     # -----------------------------------------------------
-    # 1. LOAD TRACKS
+    # LOAD TRACKS
     # -----------------------------------------------------
     tracks = load_user_tracks(user_id)
 
@@ -117,39 +118,33 @@ def generate():
         return {"error": "no tracks found"}, 404
 
     # -----------------------------------------------------
-    # 2. SEMANTIC VIBE VECTOR
+    # SEMANTIC VIBE EMBEDDING
     # -----------------------------------------------------
     vibe_vec = interpret_vibe(vibe_text)
 
     # -----------------------------------------------------
-    # 3. HYBRID RANKING
-    #    (semantic + novelty + repetition control)
+    # FAST HYBRID SCORING
     # -----------------------------------------------------
-
-    scored = []
-    used_ids = set()
-
-    for t in tracks:
-
-        score = hybrid_score(
-            user_id=user_id,
-            vibe_vec=vibe_vec,
-            track=t
-        )
-
-        score = apply_repeat_penalty(score, used_ids, t.spotify_id)
-
-        scored.append((score, t))
-        used_ids.add(t.spotify_id)
+    scored_tracks = score_tracks_fast(
+        user_id,
+        vibe_vec,
+        tracks
+    )
 
     # -----------------------------------------------------
-    # 4. SORT + PICK TOP TRACKS
+    # SELECT TOP TRACKS
     # -----------------------------------------------------
-    scored.sort(key=lambda x: x[0], reverse=True)
-    playlist_tracks = [t for _, t in scored[:30]]
+    playlist_tracks = [t for _, t in scored_tracks[:30]]
 
     # -----------------------------------------------------
-    # 5. CREATE SPOTIFY PLAYLIST
+    # UPDATE MEMORY (IMPORTANT FOR REPETITION CONTROL)
+    # -----------------------------------------------------
+    for t in playlist_tracks:
+        vec = track_vector(t)
+        update_memory(user_id, t.spotify_id, vec)
+
+    # -----------------------------------------------------
+    # CREATE SPOTIFY PLAYLIST
     # -----------------------------------------------------
     playlist_url = None
 
@@ -159,18 +154,21 @@ def generate():
         if token_info:
             sp = get_spotify_client(token_info["access_token"])
 
-            playlist_url = create_playlist_on_spotify(
-                sp,
-                user_id,
-                vibe_text,
-                playlist_tracks
+            playlist = create_playlist(sp, vibe_text)
+
+            # add tracks
+            sp.playlist_add_items(
+                playlist["id"],
+                [t.spotify_id for t in playlist_tracks]
             )
+
+            playlist_url = playlist["external_urls"]["spotify"]
 
     except Exception:
         playlist_url = None
 
     # -----------------------------------------------------
-    # 6. RESPONSE
+    # RESPONSE
     # -----------------------------------------------------
     return jsonify({
         "vibe": vibe_text,
