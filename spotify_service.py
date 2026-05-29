@@ -1,8 +1,12 @@
 import random
 import time
 from log import log
+import spotipy
 
 
+# =========================
+# SAFE SPOTIFY WRAPPER
+# =========================
 def safe_spotify_call(func, *args, retries=3, **kwargs):
     for attempt in range(retries):
         try:
@@ -55,3 +59,34 @@ def generate_name(session_mood, vibe):
 
     prefix = random.choice(base.get(session_mood, ["mix"]))
     return f"{prefix} • {vibe}"
+
+
+# =========================
+# AUDIO FEATURES (🔥 FIXED + REQUIRED)
+# =========================
+def get_audio_features(sp, track_id):
+    """
+    Fetch Spotify audio features for AI DJ scoring.
+    """
+
+    try:
+        features = sp.audio_features([track_id])
+
+        if not features or not features[0]:
+            return None
+
+        f = features[0]
+
+        return {
+            "energy": f.get("energy", 0.5),
+            "valence": f.get("valence", 0.5),
+            "danceability": f.get("danceability", 0.5),
+            "acousticness": f.get("acousticness", 0.5),
+            "instrumentalness": f.get("instrumentalness", 0.0),
+            "tempo": f.get("tempo", 120.0),
+            "speechiness": f.get("speechiness", 0.0),
+            "liveness": f.get("liveness", 0.0),
+        }
+
+    except Exception:
+        return None
