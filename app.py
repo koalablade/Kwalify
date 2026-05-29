@@ -2,10 +2,10 @@ from flask import Flask, render_template, request, jsonify, session, redirect
 import os
 
 from auth import spotify_oauth, get_spotify_client
-from cache import start_sync_if_needed, get_sync_status
+from cache import start_sync_if_needed, get_sync_status, load_user_tracks
 from database import get_db
-from sync_service import run_incremental_sync
-from dj_engine import generate_ai_playlist
+from models import User
+from dj_scoring import rank_tracks
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-change-me")
@@ -32,7 +32,7 @@ def login():
 
 
 # ─────────────────────────────
-# CALLBACK (LOGIN + SYNC START)
+# CALLBACK (START SYNC)
 # ─────────────────────────────
 @app.route("/callback")
 def callback():
@@ -49,7 +49,6 @@ def callback():
     session["logged_in"] = True
     session["token_info"] = token_info
 
-    # start background sync
     sp = get_spotify_client()
     if sp:
         user_id = sp.me()["id"]
@@ -68,7 +67,7 @@ def logout():
 
 
 # ─────────────────────────────
-# GENERATE (REAL AI DJ ENGINE)
+# GENERATE (🔥 REAL AI DJ ENGINE)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -78,69 +77,54 @@ def generate():
     length = int(data.get("length", 25))
 
     sp = get_spotify_client()
-
     if not sp:
         return jsonify({"error": "not_logged_in"}), 401
 
     try:
-        # STEP 1 — GET USER TRACKS
-        results = sp.current_user_saved_tracks(limit=50)
-        items = results.get("items", [])
+        user_id = sp.me()["id"]
 
-        if not items:
-            return jsonify({"error": "no_tracks_available"}), 400
+        db = get_db()
+        try:
+            # LOAD FULL USER LIBRARY FROM DB (NOT SPOTIFY API)
+            tracks = load_user_tracks(user_id, db)
 
-        raw_tracks = []
+            if not tracks:
+                return jsonify({"error": "no_tracks_available"}), 400
 
-        for item in items:
-            t = item.get("track")
-            if not t:
-                continue
+            # 🔥 AI DJ CORE
+            ranked = rank_tracks(tracks, vibe=vibe, limit=length)
 
-            raw_tracks.append({
-                "id": t["id"],
-                "name": t["name"],
-                "artist": t["artists"][0]["name"] if t["artists"] else "Unknown"
+            # FORMAT RESPONSE
+            output = []
+            for t in ranked:
+                output.append({
+                    "name": t.name,
+                    "artist": t.artist,
+                    "energy": t.energy,
+                    "valence": t.valence,
+                    "danceability": t.danceability
+                })
+
+            return jsonify({
+                "tracks": output,
+                "count": len(output),
+                "mode": vibe,
+                "confidence": 0.85
             })
 
-        # STEP 2 — AI DJ ENGINE (THIS IS THE IMPORTANT PART)
-        ranked = generate_ai_playlist(
-            sp=sp,
-            tracks=raw_tracks,
-            vibe=vibe,
-            limit=length
-        )
-
-        # STEP 3 — FORMAT RESPONSE
-        selected = [
-            {
-                "name": t.name,
-                "artist": t.artist
-            }
-            for t in ranked
-        ]
-
-        return jsonify({
-            "tracks": selected,
-            "count": len(selected),
-            "mode": vibe,
-            "confidence": 0.85
-        })
+        finally:
+            db.close()
 
     except Exception as e:
-        return jsonify({
-            "error": "generation_failed",
-            "details": str(e)
-        }), 500
+        return jsonify({"error": "generation_failed", "details": str(e)}), 500
 
 
 # ─────────────────────────────
-# CACHE STATUS (REAL)
+# CACHE STATUS
 # ─────────────────────────────
 @app.route("/cache-status")
 def cache_status():
     sp = get_spotify_client()
-
     if not sp:
         return jsonify({"status": "no_user", "track_count": 0})
 
@@ -153,8 +137,5 @@ def cache_status():
         db.close()
 
 
-# ─────────────────────────────
-# RUN APP
-# ─────────────────────────────
 if __name__ == "__main__":
     app.run(debug=True)
