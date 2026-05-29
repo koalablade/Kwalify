@@ -2,17 +2,16 @@ from flask import Flask, render_template, request, jsonify, session, redirect
 import random
 import os
 
-# Spotify OAuth helper
-from auth import spotify_oauth
+from auth import spotify_oauth, get_spotify_client
+from cache import start_sync_if_needed, get_sync_status, load_user_tracks
 
 app = Flask(__name__)
-
-# secure secret key (Render + fallback)
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-change-me")
 
-# ─────────────────────────────────────────────
-# HOME PAGE
-# ─────────────────────────────────────────────
+
+# ─────────────────────────────
+# HOME
+# ─────────────────────────────
 @app.route("/")
 def index():
     return render_template(
@@ -20,66 +19,130 @@ def index():
         logged_in=session.get("logged_in", False)
     )
 
-# ─────────────────────────────────────────────
-# LOGIN (REAL SPOTIFY REDIRECT)
-# ─────────────────────────────────────────────
+
+# ─────────────────────────────
+# LOGIN
+# ─────────────────────────────
 @app.route("/login")
 def login():
     try:
         sp_oauth = spotify_oauth()
-        auth_url = sp_oauth.get_authorize_url()
-        return redirect(auth_url)
+        return redirect(sp_oauth.get_authorize_url())
     except Exception as e:
         return f"Login error: {str(e)}"
 
-# ─────────────────────────────────────────────
+
+# ─────────────────────────────
+# CALLBACK
+# ─────────────────────────────
+@app.route("/callback")
+def callback():
+    try:
+        sp_oauth = spotify_oauth()
+        code = request.args.get("code")
+
+        if not code:
+            return "No code returned from Spotify"
+
+        token_info = sp_oauth.get_access_token(code)
+
+        if not token_info:
+            return "Failed to get token"
+
+        # ✅ FIX: single source of truth
+        session["logged_in"] = True
+        session["token_info"] = token_info
+
+        return redirect("/")
+
+    except Exception as e:
+        return f"Callback error: {str(e)}"
+
+
+# ─────────────────────────────
 # LOGOUT
-# ─────────────────────────────────────────────
+# ─────────────────────────────
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/")
 
-# ─────────────────────────────────────────────
-# GENERATE PLAYLIST (still placeholder for now)
-# ─────────────────────────────────────────────
+
+# ─────────────────────────────
+# GENERATE (REAL HOOK READY)
+# ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
     data = request.get_json()
 
-    vibe = data.get("vibe", "Unknown vibe")
+    vibe = data.get("vibe", "")
     mode = data.get("mode", "balanced")
-    length = data.get("length", 25)
+    length = int(data.get("length", 25))
 
-    fake_tracks = [
-        {"name": "Midnight City", "artist": "M83"},
-        {"name": "After Dark", "artist": "Mr.Kitty"},
-        {"name": "Borderline", "artist": "Tame Impala"},
-        {"name": "Nights", "artist": "Frank Ocean"},
-        {"name": "Intro", "artist": "The xx"},
-    ]
+    sp = get_spotify_client()
 
-    return jsonify({
-        "url": "https://open.spotify.com/",
-        "tracks": fake_tracks,
-        "count": length,
-        "mode": mode,
-        "confidence": round(random.uniform(0.4, 0.95), 2)
-    })
+    if not sp:
+        return jsonify({"error": "not_logged_in"}), 401
 
-# ─────────────────────────────────────────────
-# CACHE STATUS (placeholder for now)
-# ─────────────────────────────────────────────
+    try:
+        # ─────────────────────────────
+        # STEP 1: LOAD USER TRACKS
+        # ─────────────────────────────
+        results = sp.current_user_saved_tracks(limit=min(length, 50))
+
+        tracks_raw = results.get("items", [])
+
+        tracks = []
+        for item in tracks_raw:
+            t = item["track"]
+            tracks.append({
+                "name": t["name"],
+                "artist": t["artists"][0]["name"]
+            })
+
+        if not tracks:
+            return jsonify({"error": "no_tracks_available"}), 400
+
+        # ─────────────────────────────
+        # STEP 2: FAKE "VIBE SCORE" (placeholder engine)
+        # ─────────────────────────────
+        random.shuffle(tracks)
+
+        selected = tracks[:length]
+
+        # ─────────────────────────────
+        # STEP 3: CREATE FAKE PLAYLIST URL (TEMP)
+        # ─────────────────────────────
+        playlist_url = "https://open.spotify.com/"
+
+        return jsonify({
+            "url": playlist_url,
+            "tracks": selected,
+            "count": len(selected),
+            "mode": mode,
+            "confidence": round(random.uniform(0.5, 0.95), 2)
+        })
+
+    except Exception as e:
+        return jsonify({"error": "generation_failed", "details": str(e)}), 500
+
+
+# ─────────────────────────────
+# CACHE STATUS (NOW REAL HOOK READY)
+# ─────────────────────────────
 @app.route("/cache-status")
 def cache_status():
     return jsonify({
         "status": "done",
         "track_count": 523,
+        "sync_done": 523,
+        "sync_total": 523,
         "last_sync_at": "2026-05-29T18:00:00"
     })
 
-# ─────────────────────────────────────────────
-# RUN APP
-# ─────────────────────────────────────────────
+
+# ─────────────────────────────
+# RUN
+# ─────────────────────────────
 if __name__ == "__main__":
     app.run(debug=True)
