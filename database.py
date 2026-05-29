@@ -1,9 +1,5 @@
 """
-database.py — Production-grade DB layer for Render + Flask + Spotify sync system
-Fixes:
-- Render cold starts
-- Missing psycopg2 crash (safe fallback)
-- SQLite/Postgres compatibility
+database.py — FIXED (Render + SQLite + auto table registration)
 """
 
 import os
@@ -16,24 +12,9 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     print("⚠️ DATABASE_URL missing — using SQLite fallback")
     DATABASE_URL = "sqlite:///local.db"
-
-# ---------------------------------------------------------------------------
-# DRIVER SAFETY (FIX FOR psycopg2 CRASH ON RENDER)
-# ---------------------------------------------------------------------------
-
-_is_postgres = DATABASE_URL.startswith("postgres")
-
-if _is_postgres:
-    try:
-        import psycopg2  # noqa: F401
-    except Exception:
-        print("⚠️ psycopg2 missing — falling back to SQLite to prevent crash")
-        DATABASE_URL = "sqlite:///local.db"
-        _is_postgres = False
-
-# ---------------------------------------------------------------------------
-# ENGINE
-# ---------------------------------------------------------------------------
+    USING_SQLITE = True
+else:
+    USING_SQLITE = "sqlite" in DATABASE_URL
 
 engine = create_engine(
     DATABASE_URL,
@@ -41,11 +22,7 @@ engine = create_engine(
     pool_recycle=300,
     pool_size=5,
     max_overflow=10,
-    connect_args=(
-        {"check_same_thread": False}
-        if not _is_postgres
-        else {}
-    ),
+    connect_args={"check_same_thread": False} if USING_SQLITE else {}
 )
 
 SessionLocal = sessionmaker(
@@ -57,33 +34,32 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-# ---------------------------------------------------------------------------
-# SESSION
-# ---------------------------------------------------------------------------
-
-def get_db():
-    return SessionLocal()
-
-def close_db(db):
-    try:
-        db.close()
-    except Exception:
-        pass
-
-# ---------------------------------------------------------------------------
-# INIT
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------
+# CRITICAL FIX: ensure models are imported BEFORE create_all
+# ---------------------------------------------------------
 
 def init_db():
-    try:
-        Base.metadata.create_all(bind=engine)
-        print("✅ Database ready")
-    except Exception as e:
-        print("⚠️ DB init skipped:", str(e))
+    """
+    Ensures all models are loaded before table creation.
+    Prevents 'no such table' errors.
+    """
 
-# ---------------------------------------------------------------------------
-# HEALTH
-# ---------------------------------------------------------------------------
+    try:
+        # 🔥 IMPORTANT: import models so they register with Base
+        import models  # noqa: F401
+
+        Base.metadata.create_all(bind=engine)
+
+        print("✅ Database initialised (tables ready)")
+
+    except Exception as e:
+        print("⚠️ DB init failed:", str(e))
+
+
+def get_db():
+    db = SessionLocal()
+    return db
+
 
 def ping_db():
     try:
@@ -91,12 +67,16 @@ def ping_db():
             conn.execute(text("SELECT 1"))
         return True
     except Exception as e:
-        print("DB ping failed:", str(e))
+        print("DB ping failed:", e)
         return False
 
-# ---------------------------------------------------------------------------
-# RETRY
-# ---------------------------------------------------------------------------
+
+def close_db(db):
+    try:
+        db.close()
+    except:
+        pass
+
 
 def with_retry(fn, retries=3, delay=1.5):
     last = None
