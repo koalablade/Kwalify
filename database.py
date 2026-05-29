@@ -1,34 +1,21 @@
 """
-database.py — Render-safe DB layer (stable + production-safe)
+database.py — Production-safe DB layer
 """
 
 import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-
-# =========================================================
-# ENV SETUP
-# =========================================================
-
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    print("⚠️ No DATABASE_URL → using SQLite fallback")
+    print("⚠️ Using SQLite fallback")
     DATABASE_URL = "sqlite:///local.db"
     USING_SQLITE = True
 else:
     USING_SQLITE = DATABASE_URL.startswith("sqlite")
 
-
-# =========================================================
-# ENGINE CONFIG
-# =========================================================
-
-connect_args = {}
-
-if USING_SQLITE:
-    connect_args = {"check_same_thread": False}
+connect_args = {"check_same_thread": False} if USING_SQLITE else {}
 
 engine = create_engine(
     DATABASE_URL,
@@ -36,11 +23,6 @@ engine = create_engine(
     pool_recycle=300,
     connect_args=connect_args,
 )
-
-
-# =========================================================
-# SESSION
-# =========================================================
 
 SessionLocal = sessionmaker(
     bind=engine,
@@ -52,23 +34,7 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 
-# =========================================================
-# DB ACCESS
-# =========================================================
-
-def get_db():
-    return SessionLocal()
-
-
-# =========================================================
-# INIT DB (SAFE FOR RENDER)
-# =========================================================
-
 def init_db():
-    """
-    IMPORTANT:
-    Only call this ONCE at startup (not per request).
-    """
     try:
         Base.metadata.create_all(bind=engine)
         print("✅ DB ready")
@@ -76,18 +42,11 @@ def init_db():
         print("⚠️ DB init failed:", str(e))
 
 
-# =========================================================
-# HEALTH CHECK
-# =========================================================
-
 def ping_db():
-    """
-    Lightweight Render-friendly DB check
-    """
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return True
     except Exception as e:
-        print("DB ping failed:", str(e))
+        print("DB ping failed:", e)
         return False
