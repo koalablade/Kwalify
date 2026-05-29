@@ -1,68 +1,64 @@
+# vibe_engine.py
+
 import numpy as np
+from functools import lru_cache
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# =========================================================
-# SAFE SEMANTIC VIBE ENGINE (NO EXTERNAL ML DEPENDENCIES)
-# =========================================================
-
-VIBE_VECTORS = {
-    "chill": np.array([0.2, 0.8, 0.3]),
-    "happy": np.array([0.9, 0.7, 0.6]),
-    "sad": np.array([0.2, 0.2, 0.3]),
-    "energetic": np.array([0.9, 0.6, 0.9]),
-    "focus": np.array([0.3, 0.4, 0.2]),
-}
+# Load once (critical for Render stability)
+@lru_cache(maxsize=1)
+def get_model():
+    return SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def interpret_vibe(vibe_text: str):
     """
-    Lightweight semantic mapping (NO transformers, NO embeddings libs).
-    Stable for Render.
+    Converts any user input into semantic embedding.
     """
-
-    v = vibe_text.lower()
-
-    if any(x in v for x in ["chill", "relax", "calm", "lofi"]):
-        return VIBE_VECTORS["chill"], 0.75, ["relax cluster"]
-
-    if any(x in v for x in ["happy", "uplift", "fun", "good vibes"]):
-        return VIBE_VECTORS["happy"], 0.75, ["positive cluster"]
-
-    if any(x in v for x in ["sad", "melancholy", "down"]):
-        return VIBE_VECTORS["sad"], 0.75, ["low mood cluster"]
-
-    if any(x in v for x in ["gym", "workout", "energy", "hype"]):
-        return VIBE_VECTORS["energetic"], 0.85, ["high energy cluster"]
-
-    if any(x in v for x in ["focus", "study", "deep"]):
-        return VIBE_VECTORS["focus"], 0.85, ["focus cluster"]
-
-    return VIBE_VECTORS["chill"], 0.4, ["fallback"]
+    model = get_model()
+    return model.encode([vibe_text])[0]
 
 
-def score_track(track, vibe_vector):
+def track_to_text(track):
     """
-    Uses Spotify audio features only.
-    No ML required.
+    Converts Spotify track + audio features into semantic text.
     """
+    return f"""
+    song: {track.name}
+    artist: {track.artist}
+    album: {track.album}
+    energy: {track.energy}
+    valence: {track.valence}
+    tempo: {track.tempo}
+    danceability: {track.danceability}
+    acousticness: {track.acousticness}
+    instrumentalness: {track.instrumentalness}
+    speechiness: {track.speechiness}
+    liveness: {track.liveness}
+    """.strip()
 
-    features = np.array([
-        track.get("energy", 0.5),
-        track.get("valence", 0.5),
-        track.get("danceability", 0.5),
-    ])
 
-    dot = np.dot(features, vibe_vector)
-    norm = (np.linalg.norm(features) * np.linalg.norm(vibe_vector)) + 1e-9
-
-    return float(dot / norm)
-
-
-def apply_repeat_penalty(track_id, history_map):
+def score_track(vibe_embedding, track):
     """
-    Simple decay-based penalty.
+    Returns semantic similarity score (0-1)
     """
+    model = get_model()
 
-    if track_id not in history_map:
-        return 1.0
+    track_text = track_to_text(track)
+    track_embedding = model.encode([track_text])[0]
 
-    return 0.3  # simple safe penalty for now
+    score = cosine_similarity(
+        [vibe_embedding],
+        [track_embedding]
+    )[0][0]
+
+    return float(score)
+
+
+def apply_repeat_penalty(score, already_used, track_id):
+    """
+    Prevents spam repetition in playlists
+    """
+    if track_id in already_used:
+        return score * 0.2
+    return score
