@@ -1,28 +1,36 @@
 """
-database.py — Production-safe DB layer (Render + SQLite fallback fixed)
+database.py — Render-safe DB layer (stable version)
 """
 
 import os
-import time
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# ------------------------------
+# SAFE FALLBACK
+# ------------------------------
 if not DATABASE_URL:
-    print("⚠️ DATABASE_URL missing — using SQLite fallback")
+    print("⚠️ No DATABASE_URL → using SQLite fallback")
     DATABASE_URL = "sqlite:///local.db"
     USING_SQLITE = True
 else:
-    USING_SQLITE = "sqlite" in DATABASE_URL
+    USING_SQLITE = DATABASE_URL.startswith("sqlite")
+
+# ------------------------------
+# ENGINE
+# ------------------------------
+connect_args = {}
+
+if USING_SQLITE:
+    connect_args = {"check_same_thread": False}
 
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
     pool_recycle=300,
-    pool_size=5,
-    max_overflow=10,
-    connect_args={"check_same_thread": False} if USING_SQLITE else {}
+    connect_args=connect_args,
 )
 
 SessionLocal = sessionmaker(
@@ -34,26 +42,25 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-
+# ------------------------------
+# SESSION
+# ------------------------------
 def get_db():
     return SessionLocal()
 
-
+# ------------------------------
+# INIT
+# ------------------------------
 def init_db():
-    """
-    IMPORTANT FIX:
-    ensure models are imported so tables register on Base.metadata
-    """
     try:
-        import models  # registers tables with Base
-
         Base.metadata.create_all(bind=engine)
-        print("✅ Database initialised (tables created)")
-
+        print("✅ DB ready")
     except Exception as e:
-        print("⚠️ DB init failed:", str(e))
+        print("⚠️ DB init failed:", e)
 
-
+# ------------------------------
+# HEALTH
+# ------------------------------
 def ping_db():
     try:
         with engine.connect() as conn:
@@ -62,21 +69,3 @@ def ping_db():
     except Exception as e:
         print("DB ping failed:", e)
         return False
-
-
-def close_db(db):
-    try:
-        db.close()
-    except:
-        pass
-
-
-def with_retry(fn, retries=3, delay=1.5):
-    last = None
-    for _ in range(retries):
-        try:
-            return fn()
-        except Exception as e:
-            last = e
-            time.sleep(delay)
-    raise last
