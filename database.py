@@ -28,7 +28,14 @@ Base = declarative_base()
 
 
 # =========================
-# SINGLE SAFE SESSION API
+# SIMPLE SESSION (for direct use)
+# =========================
+def get_db():
+    return SessionLocal()
+
+
+# =========================
+# CONTEXT MANAGER SESSION API
 # =========================
 @contextmanager
 def get_session():

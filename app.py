@@ -2,12 +2,17 @@
 app.py — V2 Production Entry (Render + Gunicorn Safe)
 """
 
+import json
 import os
+
 from flask import Flask, jsonify, request, render_template, redirect, session
 
-from database import init_db, get_session
+from database import init_db, get_db, get_session
 from cache import get_sync_status, load_user_tracks, start_sync_if_needed
 from auth import spotify_oauth, get_spotify_client
+from models import User
+from vibe_engine import interpret_vibe, track_vector, hybrid_score, get_emotion, apply_repeat_penalty
+from memory import log_track_interaction, get_user_history
 
 
 def create_app():
@@ -82,6 +87,26 @@ def create_app():
         token_info = auth.get_access_token(code, as_dict=True)
         session["token_info"] = token_info
 
+        # Upsert user in DB so /generate and sync can find them
+        sp = get_spotify_client()
+        if sp:
+            try:
+                spotify_user = sp.current_user()
+                db = get_db()
+                try:
+                    user = db.query(User).filter_by(spotify_id=spotify_user["id"]).first()
+                    if not user:
+                        user = User(spotify_id=spotify_user["id"])
+                        db.add(user)
+                    user.display_name = spotify_user.get("display_name")
+                    user.token_json = json.dumps(token_info)
+                    db.commit()
+                    session["spotify_user_id"] = spotify_user["id"]
+                finally:
+                    db.close()
+            except Exception:
+                pass
+
         return redirect("/")
 
     @app.get("/logout")
@@ -96,6 +121,61 @@ def create_app():
             return jsonify({"authenticated": False}), 401
         user = sp.current_user()
         return jsonify({"authenticated": True, "user": user})
+
+    # =========================
+    # GENERATE ROUTE
+    # =========================
+
+    @app.post("/generate")
+    def generate():
+        sp = get_spotify_client()
+        if not sp:
+            return jsonify({"error": "not_authenticated"}), 401
+
+        vibe_text = (request.json or {}).get("vibe", "")
+        if not vibe_text:
+            return jsonify({"error": "vibe text required"}), 400
+
+        spotify_user_id = session.get("spotify_user_id")
+        if not spotify_user_id:
+            try:
+                spotify_user_id = sp.current_user()["id"]
+                session["spotify_user_id"] = spotify_user_id
+            except Exception:
+                return jsonify({"error": "could not resolve user"}), 500
+
+        db = get_db()
+        try:
+            user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
+            if not user:
+                return jsonify({"error": "user not synced yet"}), 404
+
+            tracks = load_user_tracks(user.id, db)
+            if not tracks:
+                return jsonify({"error": "no tracks synced yet"}), 404
+
+            vibe_vec = interpret_vibe(vibe_text)
+            history = get_user_history(user.id, db)
+
+            scored = []
+            for t in tracks:
+                t_vec = track_vector(t)
+                emotion = get_emotion(t_vec)
+                score = hybrid_score(vibe_vec, t_vec, t, emotion)
+                score = apply_repeat_penalty(history, t.spotify_id, score)
+                log_track_interaction(user.id, t.spotify_id, emotion, score, db)
+                scored.append((score, t))
+
+            scored.sort(reverse=True, key=lambda x: x[0])
+
+            return jsonify({
+                "tracks": [
+                    {"name": t.name, "artist": t.artist, "id": t.spotify_id}
+                    for _, t in scored[:25]
+                ]
+            })
+        finally:
+            db.close()
 
     return app
 
