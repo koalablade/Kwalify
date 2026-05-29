@@ -1,36 +1,34 @@
 """
-models.py — Kwalify Core Database Models (FIXED + CONSISTENT)
+models.py — FULL FIXED VERSION (Render-safe)
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from database import Base
 
 
 # =========================================================
-# USER
+# USER MODEL
 # =========================================================
 
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
+    spotify_id = Column(String, unique=True, index=True)
 
-    spotify_id = Column(String, unique=True, index=True, nullable=False)
-    display_name = Column(String, nullable=True)
+    display_name = Column(String)
+    token_json = Column(String)
 
     sync_status = Column(String, default="idle")
-
     sync_total = Column(Integer, default=0)
     sync_done = Column(Integer, default=0)
 
-    last_sync_at = Column(DateTime, nullable=True)
-
-    token_json = Column(String, nullable=True)
+    last_sync_at = Column(DateTime)
 
 
 # =========================================================
-# TRACK
+# TRACK MODEL
 # =========================================================
 
 class Track(Base):
@@ -38,17 +36,16 @@ class Track(Base):
 
     id = Column(Integer, primary_key=True)
 
-    spotify_id = Column(String, unique=True, index=True, nullable=False)
+    spotify_id = Column(String, unique=True, index=True)
 
-    name = Column(String, default="")
-    artist = Column(String, default="")
-    album = Column(String, default="")
+    name = Column(String)
+    artist = Column(String)
+    album = Column(String)
 
-    # Audio features (Spotify analysis)
-    energy = Column(Float, default=0.0)
-    valence = Column(Float, default=0.0)
-    tempo = Column(Float, default=0.0)
-    danceability = Column(Float, default=0.0)
+    energy = Column(Float, default=0)
+    valence = Column(Float, default=0)
+    tempo = Column(Float, default=0)
+    danceability = Column(Float, default=0)
 
 
 # =========================================================
@@ -60,14 +57,14 @@ class UserTrack(Base):
 
     id = Column(Integer, primary_key=True)
 
-    user_id = Column(Integer, index=True, nullable=False)
-    track_id = Column(Integer, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id"), index=True)
 
     added_at = Column(DateTime, default=datetime.utcnow)
 
 
 # =========================================================
-# MEMORY / EMOTION SYSTEM
+# MEMORY TABLE (you added this earlier)
 # =========================================================
 
 class UserTrackMemory(Base):
@@ -75,8 +72,8 @@ class UserTrackMemory(Base):
 
     id = Column(Integer, primary_key=True)
 
-    user_id = Column(Integer, index=True, nullable=False)
-    track_id = Column(String, index=True, nullable=False)
+    user_id = Column(Integer, index=True)
+    track_id = Column(String, index=True)
 
     emotion = Column(String)
     score = Column(Float)
