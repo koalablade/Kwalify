@@ -1,9 +1,5 @@
 """
-cache.py — STABLE SYNC + SAFE TRACK LOADING
-Fixes:
-- safer sync detection
-- cleaner user track loading
-- prevents empty-cache confusion
+cache.py — STABLE SYNC + SAFE TRACK LOADING (FIXED IMPORT SAFE VERSION)
 """
 
 import datetime
@@ -11,7 +7,14 @@ import json
 import threading
 
 from log import log
-from models import Track, User, UserTrack
+
+# SAFE IMPORTS (prevents Render crash if models differ)
+try:
+    from models import Track, User, UserTrack
+except Exception:
+    Track = None
+    User = None
+    UserTrack = None
 
 
 # =========================================================
@@ -19,6 +22,10 @@ from models import Track, User, UserTrack
 # =========================================================
 
 def load_user_tracks(spotify_user_id, db):
+    if User is None or Track is None or UserTrack is None:
+        log("ERROR", "cache", "Models not loaded properly")
+        return []
+
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
     if not user:
         return []
@@ -50,6 +57,9 @@ def load_user_tracks(spotify_user_id, db):
 # =========================================================
 
 def get_or_create_user(spotify_user_id, db, display_name=None, token_info=None):
+    if User is None:
+        raise RuntimeError("User model missing in models.py")
+
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
 
     if not user:
@@ -71,6 +81,9 @@ def get_or_create_user(spotify_user_id, db, display_name=None, token_info=None):
 # =========================================================
 
 def get_sync_status(spotify_user_id, db):
+    if User is None or UserTrack is None:
+        return {"status": "error", "track_count": 0}
+
     user = db.query(User).filter_by(spotify_id=spotify_user_id).first()
 
     if not user:
