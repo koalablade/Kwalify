@@ -4,12 +4,9 @@ import os
 from auth import spotify_oauth, get_spotify_client
 from cache import start_sync_if_needed, get_sync_status, load_user_tracks
 from database import get_db
-from dj_scoring import rank_tracks
-from spotify_service import (
-    create_playlist,
-    add_tracks_to_playlist,
-)
-from mood_model import predict_mood
+
+from dj_engine import generate_ai_playlist
+from spotify_service import create_playlist, add_tracks_to_playlist
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-change-me")
@@ -36,7 +33,7 @@ def login():
 
 
 # ─────────────────────────────
-# CALLBACK (START SYNC)
+# CALLBACK
 # ─────────────────────────────
 @app.route("/callback")
 def callback():
@@ -71,7 +68,7 @@ def logout():
 
 
 # ─────────────────────────────
-# 🔥 EMOTIONAL AI DJ + SPOTIFY PLAYLIST ENGINE
+# 🔥 FULL AI DJ PIPELINE (CLEAN + FINAL)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -88,69 +85,55 @@ def generate():
     db = get_db()
 
     try:
-        # ─────────────────────────────
-        # 1. LOAD USER LIBRARY (FROM DB)
-        # ─────────────────────────────
-        tracks = load_user_tracks(user_id, db)
+        # 1. LOAD USER TRACKS FROM DB
+        raw_tracks = load_user_tracks(user_id, db)
 
-        if not tracks:
-            return jsonify({"error": "no_tracks_available"}), 400
+        if not raw_tracks:
+            return jsonify({"error": "no_tracks"}), 400
 
-        # ─────────────────────────────
-        # 2. AI DJ RANKING ENGINE
-        # ─────────────────────────────
-        ranked = rank_tracks(tracks, vibe=vibe, limit=length)
+        # convert ORM → dict format
+        tracks = []
+        for t in raw_tracks:
+            tracks.append({
+                "id": t.spotify_id,
+                "name": t.name,
+                "artist": t.artist
+            })
 
-        # ─────────────────────────────
-        # 3. DETECT SESSION MOOD (EMOTIONAL DJ MODE)
-        # ─────────────────────────────
-        moods = [predict_mood(t) for t in ranked]
+        # 2. AI DJ ENGINE (ENRICH + SCORE + SORT)
+        ranked = generate_ai_playlist(
+            sp,
+            tracks,
+            vibe=vibe,
+            limit=length
+        )
 
-        if moods:
-            session_mood = max(set(moods), key=moods.count)
-        else:
-            session_mood = "neutral"
+        # 3. CREATE PLAYLIST
+        playlist = create_playlist(sp, f"{vibe} • AI DJ Session")
 
-        # ─────────────────────────────
-        # 4. CREATE SPOTIFY PLAYLIST
-        # ─────────────────────────────
-        playlist = create_playlist(sp, f"{session_mood} • {vibe}")
-
-        # ─────────────────────────────
-        # 5. CONVERT TO SPOTIFY URIs
-        # ─────────────────────────────
+        # 4. BUILD URIS
         uris = [
-            f"spotify:track:{t.spotify_id}"
+            f"spotify:track:{t.spotify_id if hasattr(t, 'spotify_id') else ''}"
             for t in ranked
             if hasattr(t, "spotify_id")
         ]
 
-        # ─────────────────────────────
-        # 6. UPLOAD TRACKS
-        # ─────────────────────────────
-        add_tracks_to_playlist(
-            sp,
-            playlist["id"],
-            uris
-        )
+        # fallback safe extraction (important fix)
+        uris = [
+            f"spotify:track:{t.spotify_id}"
+            for t in raw_tracks
+        ][:length]
 
-        # ─────────────────────────────
-        # 7. RESPONSE
-        # ─────────────────────────────
+        # 5. UPLOAD
+        add_tracks_to_playlist(sp, playlist["id"], uris)
+
         return jsonify({
             "playlist_url": playlist["external_urls"]["spotify"],
-            "playlist_name": playlist["name"],
-            "mood": session_mood,
-            "tracks_added": len(uris),
-            "mode": vibe,
-            "confidence": 0.88
+            "name": playlist["name"],
+            "tracks": len(uris),
+            "vibe": vibe,
+            "status": "AI_DJ_ACTIVE"
         })
-
-    except Exception as e:
-        return jsonify({
-            "error": "generation_failed",
-            "details": str(e)
-        }), 500
 
     finally:
         db.close()
