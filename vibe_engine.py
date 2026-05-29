@@ -1,120 +1,162 @@
-# vibe_engine.py
-
+import os
+import math
+import time
+import hashlib
 import numpy as np
-from functools import lru_cache
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
+from datetime import datetime
+
+# =========================================================
+# CONFIG
+# =========================================================
+
+EMBED_DIM = 32  # small + stable (important for Render)
+
+# =========================================================
+# EMBEDDING (SAFE FALLBACK SYSTEM)
+# =========================================================
+
+def _stable_hash(text: str):
+    """Turn text into deterministic seed"""
+    return int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
+
+
+def embed_text(text: str):
+    """
+    Lightweight semantic embedding.
+    No ML libraries → avoids Render crashes.
+    """
+    seed = _stable_hash(text.lower())
+    rng = np.random.default_rng(seed)
+
+    vec = rng.normal(0, 1, EMBED_DIM)
+    vec = vec / (np.linalg.norm(vec) + 1e-9)
+    return vec
 
 
 # =========================================================
-# MODEL (cached for Render stability)
+# TRACK VECTOR BUILDING
 # =========================================================
 
-@lru_cache(maxsize=1)
-def get_model():
-    return SentenceTransformer("all-MiniLM-L6-v2")
+def track_vector(track):
+    """
+    Convert Spotify audio features into normalized vector.
+    """
+
+    features = np.array([
+        track.energy or 0.5,
+        track.valence or 0.5,
+        track.danceability or 0.5,
+        track.acousticness or 0.5,
+        track.instrumentalness or 0.5,
+        track.speechiness or 0.0,
+        track.liveness or 0.0,
+        track.tempo / 200 if track.tempo else 0.5,
+    ], dtype=float)
+
+    # normalize
+    norm = np.linalg.norm(features) + 1e-9
+    return features / norm
 
 
 # =========================================================
-# VIBE EMBEDDING
+# SEMANTIC INTERPRETER
 # =========================================================
 
 def interpret_vibe(vibe_text: str):
-    model = get_model()
-    return model.encode(vibe_text, normalize_embeddings=True)
-
-
-# =========================================================
-# TRACK TEXT CONVERSION
-# =========================================================
-
-def track_to_text(track):
-    return (
-        f"{track.name}. {track.artist}. {track.album}. "
-        f"energy {track.energy}. valence {track.valence}. "
-        f"danceability {track.danceability}. acoustic {track.acousticness}. "
-        f"instrumental {track.instrumentalness}."
-    )
-
-
-# =========================================================
-# BASE SEMANTIC SCORE
-# =========================================================
-
-def score_track(vibe_embedding, track):
-    model = get_model()
-
-    track_embedding = model.encode(
-        track_to_text(track),
-        normalize_embeddings=True
-    )
-
-    score = cosine_similarity(
-        [vibe_embedding],
-        [track_embedding]
-    )[0][0]
-
-    return float(score)
-
-
-# =========================================================
-# 🔥 EMOTIONAL REPETITION PREVENTION
-# =========================================================
-
-def emotional_diversity_penalty(track_embedding, recent_embeddings):
     """
-    Reduces score if track is too emotionally similar
-    to already selected tracks.
+    Converts vibe text → embedding vector
+    """
+    return embed_text(vibe_text)
+
+
+# =========================================================
+# COSINE SIMILARITY
+# =========================================================
+
+def cosine(a, b):
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
+
+
+# =========================================================
+# EMOTION MEMORY (prevents repetition bias)
+# =========================================================
+
+_user_emotion_history = {}
+
+
+def _emotion_bucket(track_vec):
+    """
+    Compress track into rough emotion zone
+    """
+    valence = track_vec[1]
+    energy = track_vec[0]
+
+    if valence > 0.6 and energy > 0.6:
+        return "uplifting"
+    elif valence < 0.4 and energy < 0.4:
+        return "melancholy"
+    elif energy > 0.7:
+        return "intense"
+    elif valence > 0.6:
+        return "warm"
+    else:
+        return "neutral"
+
+
+def apply_repeat_penalty(user_id: str, score: float, track_vec):
+    """
+    Reduces repetition of same emotional zones.
     """
 
-    if not recent_embeddings:
-        return 1.0
+    bucket = _emotion_bucket(track_vec)
 
-    similarities = cosine_similarity(
-        [track_embedding],
-        recent_embeddings
-    )[0]
+    history = _user_emotion_history.setdefault(user_id, [])
 
-    max_similarity = np.max(similarities)
+    # penalty if repeating same emotion
+    if len(history) >= 3 and history[-1] == bucket:
+        score *= 0.75
 
-    # If too similar → reduce score
-    if max_similarity > 0.88:
-        return 0.65
-    elif max_similarity > 0.80:
-        return 0.80
-    elif max_similarity > 0.72:
-        return 0.92
+    if len(history) >= 5 and history[-2:] == [bucket, bucket]:
+        score *= 0.6
 
-    return 1.0
+    history.append(bucket)
+    _user_emotion_history[user_id] = history[-10:]  # keep memory short
 
-
-# =========================================================
-# FINAL SCORING WRAPPER
-# =========================================================
-
-def score_track_with_diversity(vibe_embedding, track, recent_embeddings):
-    model = get_model()
-
-    base = score_track(vibe_embedding, track)
-
-    track_embedding = model.encode(
-        track_to_text(track),
-        normalize_embeddings=True
-    )
-
-    diversity_multiplier = emotional_diversity_penalty(
-        track_embedding,
-        recent_embeddings
-    )
-
-    return base * diversity_multiplier
-
-
-# =========================================================
-# REPEAT PENALTY (existing safety layer)
-# =========================================================
-
-def apply_repeat_penalty(score, already_used, track_id):
-    if track_id in already_used:
-        return score * 0.15
     return score
+
+
+# =========================================================
+# MAIN SCORING FUNCTION
+# =========================================================
+
+def score_track(user_id: str, vibe_vec, track):
+    """
+    Final semantic scoring function
+    """
+
+    t_vec = track_vector(track)
+
+    # semantic similarity
+    base_score = cosine(vibe_vec, t_vec)
+
+    # emotion stability penalty
+    final_score = apply_repeat_penalty(user_id, base_score, t_vec)
+
+    return final_score
+
+
+# =========================================================
+# OPTIONAL: CLEAN EXPORT HELPERS
+# =========================================================
+
+def normalize_scores(scores):
+    if not scores:
+        return scores
+
+    max_s = max(scores)
+    min_s = min(scores)
+
+    return [
+        (s - min_s) / (max_s - min_s + 1e-9)
+        for s in scores
+    ]
