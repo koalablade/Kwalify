@@ -1,38 +1,46 @@
 """
-app.py — Flask entry point (RENDER SAFE FIXED)
+app.py — Render production safe entrypoint
 """
 
 import os
 from flask import Flask, jsonify, request
 
 from cache import (
-    get_or_create_user,
     get_sync_status,
     load_user_tracks,
     start_sync_if_needed,
 )
 
-from database import SessionLocal
+from database import SessionLocal, init_db
 
 
 app = Flask(__name__)
 
 
-# =========================================================
-# DB helper
-# =========================================================
+# =========================
+# INIT DB ON START
+# =========================
+with app.app_context():
+    init_db()
 
+
+# =========================
+# DB HELP
+# =========================
 def get_db():
     return SessionLocal()
 
 
-# =========================================================
+# =========================
 # ROUTES
-# =========================================================
+# =========================
 
 @app.route("/")
 def home():
-    return jsonify({"status": "ok", "service": "Kwalify running"})
+    return jsonify({
+        "status": "ok",
+        "service": "Kwalify running"
+    })
 
 
 @app.route("/cache-status")
@@ -61,20 +69,17 @@ def tracks():
 def sync():
     user_id = request.args.get("user_id", "demo")
 
-    sp = None  # keep your spotify client here if needed
-
     def db_factory():
         return SessionLocal()
 
-    start_sync_if_needed(user_id, sp, db_factory)
+    start_sync_if_needed(user_id, None, db_factory)
 
     return jsonify({"status": "sync_started"})
 
 
-# =========================================================
-# RENDER ENTRYPOINT (THIS FIXES YOUR ERROR)
-# =========================================================
-
+# =========================
+# LOCAL DEV ONLY
+# =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
