@@ -3,7 +3,7 @@ import os
 
 from auth import spotify_oauth, get_spotify_client
 from cache import start_sync_if_needed, get_sync_status, load_user_tracks
-from database import get_db, init_db  # ✅ ADD THIS
+from database import get_db, init_db
 
 from dj_engine import generate_ai_playlist
 from spotify_service import create_playlist, add_tracks_to_playlist
@@ -11,8 +11,7 @@ from spotify_service import create_playlist, add_tracks_to_playlist
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-change-me")
 
-
-# ✅ IMPORTANT: ensures tables exist on Render + local
+# ensure DB exists
 init_db()
 
 
@@ -43,13 +42,13 @@ def login():
 def callback():
     code = request.args.get("code")
     if not code:
-        return "Missing code"
+        return "Missing code", 400
 
     sp_oauth = spotify_oauth()
     token_info = sp_oauth.get_access_token(code)
 
     if not token_info:
-        return "Token exchange failed"
+        return "Token exchange failed", 400
 
     session["logged_in"] = True
     session["token_info"] = token_info
@@ -72,11 +71,18 @@ def logout():
 
 
 # ─────────────────────────────
-# 🔥 FULL AI DJ PIPELINE
+# 🔥 AI DJ PIPELINE (FIXED + SAFE)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
-    data = request.get_json()
+    # 🧠 SAFETY: ensure JSON exists
+    data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({
+            "error": "missing_json",
+            "hint": "Frontend did not send JSON body"
+        }), 400
 
     vibe = data.get("vibe", "balanced")
     length = int(data.get("length", 25))
@@ -89,13 +95,16 @@ def generate():
     db = get_db()
 
     try:
-        # 1. LOAD USER TRACKS FROM DB
+        # 1. LOAD TRACKS
         raw_tracks = load_user_tracks(user_id, db)
 
         if not raw_tracks:
-            return jsonify({"error": "no_tracks"}), 400
+            return jsonify({
+                "error": "no_tracks",
+                "hint": "Spotify sync has not populated DB yet"
+            }), 400
 
-        # 2. FORMAT TRACKS FOR AI ENGINE
+        # 2. FORMAT
         tracks = [
             {
                 "id": t.spotify_id,
@@ -105,7 +114,7 @@ def generate():
             for t in raw_tracks
         ]
 
-        # 3. AI DJ ENGINE
+        # 3. AI RANKING
         ranked = generate_ai_playlist(
             sp,
             tracks,
@@ -113,14 +122,18 @@ def generate():
             limit=length
         )
 
-        # 4. BUILD SPOTIFY URIs
-        uris = [
-            f"spotify:track:{t.get('id')}"
-            for t in ranked
-            if t.get("id")
-        ]
+        # 4. URIS
+        uris = []
+        for t in ranked:
+            if t.get("id"):
+                uris.append(f"spotify:track:{t['id']}")
 
-        # 5. CREATE PLAYLIST
+        if not uris:
+            return jsonify({
+                "error": "no_valid_tracks_after_ai"
+            }), 400
+
+        # 5. PLAYLIST
         playlist = create_playlist(sp, f"{vibe} • AI DJ Session")
 
         # 6. ADD TRACKS
@@ -157,7 +170,7 @@ def cache_status():
 
 
 # ─────────────────────────────
-# START APP
+# RUN
 # ─────────────────────────────
 if __name__ == "__main__":
     app.run(debug=True)
