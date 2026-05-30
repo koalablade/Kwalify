@@ -8,6 +8,8 @@ from dj_engine import generate_ai_playlist
 from spotify_service import create_playlist, add_tracks_to_playlist
 
 app = Flask(__name__)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = True
 
 # 🔥 MUST be stable across deploys
 app.secret_key = "my-super-secret-123454ffsda\zc2345251.,/'5215136dfdsdfs"
