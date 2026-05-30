@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, jsonify, session, redirect
 import os
+from flask import Flask, render_template, request, jsonify, session, redirect
 
 from auth import spotify_oauth, get_spotify_client
 from cache import start_sync_if_needed, get_sync_status, load_user_tracks
@@ -8,8 +8,16 @@ from dj_engine import generate_ai_playlist
 from spotify_service import create_playlist, add_tracks_to_playlist
 
 app = Flask(__name__)
+
+# --- Configuration ---
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = True
+
+# Only use Secure cookies if we are running on Render (the live site)
+# This prevents login issues when testing on your own computer
+if os.environ.get('RENDER'):
+    app.config['SESSION_COOKIE_SECURE'] = True
+else:
+    app.config['SESSION_COOKIE_SECURE'] = False
 
 # 🔥 MUST be stable across deploys
 app.secret_key = "my-super-secret-123454ffsda\zc2345251.,/'5215136dfdsdfs"
@@ -91,17 +99,15 @@ def logout():
     return redirect("/")
 
 # ─────────────────────────────
-# 🔥 FIXED GENERATE ROUTE
+# GENERATE
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
-    # Force parsing to catch payload issues
     data = request.get_json(force=True, silent=True)
     if not data:
         data = request.form.to_dict()
 
     if not data:
-        print("DEBUG: 400_FAILURE - No input data")
         return jsonify({"error": "no_input_received"}), 400
 
     vibe = data.get("vibe") or data.get("mode") or "balanced"
@@ -124,7 +130,6 @@ def generate():
         raw_tracks = load_user_tracks(user_id, db)
 
         if not raw_tracks:
-            print("DEBUG: 400_FAILURE - No tracks in database")
             return jsonify({"error": "no_tracks_available"}), 400
 
         tracks = [
@@ -140,13 +145,11 @@ def generate():
         )
 
         if not ranked:
-            print("DEBUG: 400_FAILURE - AI engine returned no tracks")
             return jsonify({"error": "no_tracks_matched"}), 400
 
         uris = [f"spotify:track:{t['id']}" for t in ranked if t.get("id")]
 
         if not uris:
-            print("DEBUG: 400_FAILURE - No valid track URIs")
             return jsonify({"error": "no_valid_tracks"}), 400
 
         playlist = create_playlist(sp, f"{vibe} • AI DJ Session")
@@ -161,7 +164,6 @@ def generate():
         })
 
     except Exception as e:
-        print(f"DEBUG: 500_FAILURE - {str(e)}")
         return jsonify({"error": "internal_server_error", "details": str(e)}), 500
     finally:
         db.close()
@@ -185,8 +187,5 @@ def cache_status():
     finally:
         db.close()
 
-# ─────────────────────────────
-# RUN
-# ─────────────────────────────
 if __name__ == "__main__":
     app.run(debug=True)
