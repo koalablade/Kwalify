@@ -11,16 +11,11 @@ app = Flask(__name__)
 
 # --- Configuration ---
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-
 # Only use Secure cookies if we are running on Render (the live site)
-# This prevents login issues when testing on your own computer
-if os.environ.get('RENDER'):
-    app.config['SESSION_COOKIE_SECURE'] = True
-else:
-    app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('RENDER'))
 
-# 🔥 MUST be stable across deploys
-app.secret_key = "my-super-secret-123454ffsda\zc2345251.,/'5215136dfdsdfs"
+# Fix: Added 'r' prefix to make this a raw string (prevents invalid escape sequence errors)
+app.secret_key = r"my-super-secret-123454ffsda\zc2345251.,/'5215136dfdsdfs"
 
 init_db()
 
@@ -63,28 +58,19 @@ def callback():
     session.modified = True
 
     sp = get_spotify_client()
-
     if not sp:
         return "Spotify auth failed", 400
 
     user_id = sp.me()["id"]
-
     db = get_db()
     try:
         from models import User
-
         user = db.query(User).filter_by(spotify_id=user_id).first()
-
         if not user:
-            user = User(
-                spotify_id=user_id,
-                sync_status="pending"
-            )
+            user = User(spotify_id=user_id, sync_status="pending")
             db.add(user)
             db.commit()
-
         start_sync_if_needed(user_id, sp)
-
     finally:
         db.close()
 
@@ -103,17 +89,20 @@ def logout():
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
+    # Attempt to get JSON
     data = request.get_json(force=True, silent=True)
     if not data:
         data = request.form.to_dict()
-
+    
+    # DEBUGGING: If this fails, the server logs will show exactly what was received
     if not data:
+        print(f"DEBUG: Generate request failed. Headers: {request.headers}")
         return jsonify({"error": "no_input_received"}), 400
 
     vibe = data.get("vibe") or data.get("mode") or "balanced"
     try:
         length = int(data.get("length", 25))
-    except:
+    except (ValueError, TypeError):
         length = 25
 
     if "token_info" not in session:
@@ -128,27 +117,16 @@ def generate():
 
     try:
         raw_tracks = load_user_tracks(user_id, db)
-
         if not raw_tracks:
             return jsonify({"error": "no_tracks_available"}), 400
 
-        tracks = [
-            {"id": t.spotify_id, "name": t.name, "artist": t.artist}
-            for t in raw_tracks
-        ]
+        tracks = [{"id": t.spotify_id, "name": t.name, "artist": t.artist} for t in raw_tracks]
 
-        ranked = generate_ai_playlist(
-            sp,
-            tracks,
-            vibe=vibe,
-            limit=length
-        )
-
+        ranked = generate_ai_playlist(sp, tracks, vibe=vibe, limit=length)
         if not ranked:
             return jsonify({"error": "no_tracks_matched"}), 400
 
         uris = [f"spotify:track:{t['id']}" for t in ranked if t.get("id")]
-
         if not uris:
             return jsonify({"error": "no_valid_tracks"}), 400
 
@@ -162,8 +140,8 @@ def generate():
             "vibe": vibe,
             "status": "AI_DJ_ACTIVE"
         })
-
     except Exception as e:
+        print(f"DEBUG: Exception in generate: {str(e)}")
         return jsonify({"error": "internal_server_error", "details": str(e)}), 500
     finally:
         db.close()
