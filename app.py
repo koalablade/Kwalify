@@ -9,7 +9,7 @@ from spotify_service import create_playlist, add_tracks_to_playlist
 
 app = Flask(__name__)
 
-# 🔥 CRITICAL FIX: must be strong + consistent across deploys
+# 🔥 MUST be stable across deploys
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-change-me")
 
 init_db()
@@ -20,7 +20,10 @@ init_db()
 # ─────────────────────────────
 @app.route("/")
 def index():
-    return render_template("index.html", logged_in="token_info" in session)
+    return render_template(
+        "index.html",
+        logged_in="token_info" in session
+    )
 
 
 # ─────────────────────────────
@@ -33,7 +36,7 @@ def login():
 
 
 # ─────────────────────────────
-# CALLBACK (FIXED SESSION PERSISTENCE)
+# CALLBACK (CRITICAL FIXED SESSION + USER BOOTSTRAP)
 # ─────────────────────────────
 @app.route("/callback")
 def callback():
@@ -47,7 +50,7 @@ def callback():
     if not token_info:
         return "Token exchange failed", 400
 
-    # 🔥 FORCE SESSION SAVE
+    # 🔥 FORCE SESSION WRITE (IMPORTANT FOR RENDER)
     session.clear()
     session["token_info"] = token_info
     session["logged_in"] = True
@@ -55,9 +58,31 @@ def callback():
 
     sp = get_spotify_client()
 
-    if sp:
-        user_id = sp.me()["id"]
+    if not sp:
+        return "Spotify auth failed", 400
+
+    user_id = sp.me()["id"]
+
+    db = get_db()
+    try:
+        # 🔥 ENSURE USER EXISTS IN DB
+        from models import User
+
+        user = db.query(User).filter_by(spotify_id=user_id).first()
+
+        if not user:
+            user = User(
+                spotify_id=user_id,
+                sync_status="pending"
+            )
+            db.add(user)
+            db.commit()
+
+        # 🔥 START SYNC SAFELY
         start_sync_if_needed(user_id, sp)
+
+    finally:
+        db.close()
 
     return redirect("/")
 
@@ -72,16 +97,16 @@ def logout():
 
 
 # ─────────────────────────────
-# 🔥 FIXED GENERATE ENDPOINT
+# 🔥 GENERATE (STABLE + SAFE + FRONTEND COMPATIBLE)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
 
-    # 🔥 DEBUG SAFETY (THIS WILL STOP 90% OF YOUR ISSUES)
+    # 🔥 STRICT JSON CHECK
     if not request.is_json:
         return jsonify({
             "error": "no_json_sent",
-            "hint": "Frontend must send JSON with Content-Type: application/json"
+            "hint": "Send JSON with Content-Type: application/json"
         }), 400
 
     data = request.get_json()
@@ -89,7 +114,7 @@ def generate():
     vibe = data.get("vibe", "balanced")
     length = int(data.get("length", 25))
 
-    # 🔥 FIX: proper auth check
+    # 🔥 AUTH CHECK
     if "token_info" not in session:
         return jsonify({"error": "not_logged_in"}), 401
 
@@ -97,22 +122,23 @@ def generate():
 
     if not sp:
         return jsonify({
-            "error": "spotify_client_failed",
-            "hint": "Session token exists but Spotify auth failed"
+            "error": "spotify_client_failed"
         }), 401
 
     user_id = sp.me()["id"]
     db = get_db()
 
     try:
+        # 1. LOAD TRACKS
         raw_tracks = load_user_tracks(user_id, db)
 
         if not raw_tracks:
             return jsonify({
                 "error": "no_tracks_available",
-                "hint": "Sync has not completed or DB is empty"
+                "hint": "Sync has not completed yet"
             }), 400
 
+        # 2. FORMAT TRACKS
         tracks = [
             {
                 "id": t.spotify_id,
@@ -122,11 +148,20 @@ def generate():
             for t in raw_tracks
         ]
 
-        ranked = generate_ai_playlist(sp, tracks, vibe=vibe, limit=length)
+        # 3. AI RANK
+        ranked = generate_ai_playlist(
+            sp,
+            tracks,
+            vibe=vibe,
+            limit=length
+        )
 
         if not ranked:
-            return jsonify({"error": "no_tracks_matched"}), 400
+            return jsonify({
+                "error": "no_tracks_matched"
+            }), 400
 
+        # 4. BUILD URIS
         uris = [
             f"spotify:track:{t['id']}"
             for t in ranked
@@ -134,10 +169,14 @@ def generate():
         ]
 
         if not uris:
-            return jsonify({"error": "no_valid_tracks"}), 400
+            return jsonify({
+                "error": "no_valid_tracks"
+            }), 400
 
+        # 5. CREATE PLAYLIST
         playlist = create_playlist(sp, f"{vibe} • AI DJ Session")
 
+        # 6. ADD TRACKS
         add_tracks_to_playlist(sp, playlist["id"], uris)
 
         return jsonify({
@@ -153,18 +192,24 @@ def generate():
 
 
 # ─────────────────────────────
-# CACHE STATUS (FIXED SAFETY)
+# CACHE STATUS (ROBUST FIX)
 # ─────────────────────────────
 @app.route("/cache-status")
 def cache_status():
 
     if "token_info" not in session:
-        return jsonify({"status": "no_user", "track_count": 0})
+        return jsonify({
+            "status": "no_user",
+            "track_count": 0
+        })
 
     sp = get_spotify_client()
 
     if not sp:
-        return jsonify({"status": "no_spotify_client", "track_count": 0})
+        return jsonify({
+            "status": "no_spotify_client",
+            "track_count": 0
+        })
 
     user_id = sp.me()["id"]
     db = get_db()
