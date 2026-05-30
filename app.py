@@ -3,13 +3,17 @@ import os
 
 from auth import spotify_oauth, get_spotify_client
 from cache import start_sync_if_needed, get_sync_status, load_user_tracks
-from database import get_db
+from database import get_db, init_db  # ✅ ADD THIS
 
 from dj_engine import generate_ai_playlist
 from spotify_service import create_playlist, add_tracks_to_playlist
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-change-me")
+
+
+# ✅ IMPORTANT: ensures tables exist on Render + local
+init_db()
 
 
 # ─────────────────────────────
@@ -68,7 +72,7 @@ def logout():
 
 
 # ─────────────────────────────
-# 🔥 FULL AI DJ PIPELINE (FIXED)
+# 🔥 FULL AI DJ PIPELINE
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -101,7 +105,7 @@ def generate():
             for t in raw_tracks
         ]
 
-        # 3. AI DJ ENGINE (ranking + mood + features)
+        # 3. AI DJ ENGINE
         ranked = generate_ai_playlist(
             sp,
             tracks,
@@ -109,7 +113,7 @@ def generate():
             limit=length
         )
 
-        # 4. BUILD SPOTIFY URIs (FINAL FIX)
+        # 4. BUILD SPOTIFY URIs
         uris = [
             f"spotify:track:{t.get('id')}"
             for t in ranked
@@ -152,5 +156,8 @@ def cache_status():
         db.close()
 
 
+# ─────────────────────────────
+# START APP
+# ─────────────────────────────
 if __name__ == "__main__":
     app.run(debug=True)
