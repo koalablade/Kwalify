@@ -5,6 +5,9 @@ from spotipy.cache_handler import CacheHandler
 from spotipy.oauth2 import SpotifyOAuth
 
 
+# ─────────────────────────────
+# CONFIG
+# ─────────────────────────────
 SCOPE = "user-library-read playlist-modify-private playlist-modify-public"
 
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
@@ -20,7 +23,7 @@ REDIRECT_URI = (
 
 
 # ─────────────────────────────
-# SESSION TOKEN CACHE
+# FLASK SESSION TOKEN CACHE
 # ─────────────────────────────
 class FlaskSessionCache(CacheHandler):
     def get_cached_token(self):
@@ -32,7 +35,7 @@ class FlaskSessionCache(CacheHandler):
 
 
 # ─────────────────────────────
-# OAUTH
+# OAUTH OBJECT
 # ─────────────────────────────
 def spotify_oauth():
     return SpotifyOAuth(
@@ -46,9 +49,17 @@ def spotify_oauth():
 
 
 # ─────────────────────────────
-# SPOTIFY CLIENT
+# SAFE SPOTIFY CLIENT (FIXED CORE ISSUE)
 # ─────────────────────────────
 def get_spotify_client():
+    """
+    Returns a fully authenticated Spotify client OR None safely.
+    Fixes:
+    - session loss on Render
+    - expired token handling
+    - missing refresh_token crashes
+    """
+
     token_info = session.get("token_info")
 
     if not token_info:
@@ -57,11 +68,30 @@ def get_spotify_client():
     try:
         sp_oauth = spotify_oauth()
 
+        # ─────────────────────────
+        # TOKEN REFRESH SAFETY
+        # ─────────────────────────
         if sp_oauth.is_token_expired(token_info):
-            token_info = sp_oauth.refresh_access_token(token_info["refresh_token"])
+            if "refresh_token" not in token_info:
+                return None
+
+            token_info = sp_oauth.refresh_access_token(
+                token_info["refresh_token"]
+            )
+
             session["token_info"] = token_info
+            session.modified = True
 
-        return spotipy.Spotify(auth=token_info["access_token"], retries=0)
+        # ─────────────────────────
+        # BUILD CLIENT
+        # ─────────────────────────
+        return spotipy.Spotify(
+            auth=token_info["access_token"],
+            retries=2,
+            requests_timeout=10
+        )
 
-    except Exception:
+    except Exception as e:
+        # IMPORTANT: do not silently crash auth forever
+        print(f"[Spotify Auth Error] {e}")
         return None
