@@ -10,7 +10,7 @@ from spotify_service import create_playlist, add_tracks_to_playlist
 app = Flask(__name__)
 
 # 🔥 MUST be stable across deploys
-app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-change-me")
+app.secret_key = "my-super-secret-123454ffsda\zc2345251.,/'5215136dfdsdfs"
 
 init_db()
 
