@@ -71,7 +71,7 @@ def logout():
 
 
 # ─────────────────────────────
-# 🔥 AI DJ PIPELINE (FIXED RESPONSE CONTRACT)
+# 🔥 AI DJ PIPELINE (STABLE + FRONTEND SAFE)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -80,15 +80,18 @@ def generate():
     if not data:
         return jsonify({
             "error": "missing_json",
-            "hint": "Frontend did not send JSON body"
+            "message": "Frontend did not send JSON body"
         }), 400
 
-    vibe = data.get("vibe", "balanced")
-    length = int(data.get("length", 25))
+    vibe = (data.get("vibe") or "balanced").strip()
+    length = int(data.get("length") or 25)
+    mode = data.get("mode") or "balanced"
 
     sp = get_spotify_client()
     if not sp:
-        return jsonify({"error": "not_logged_in"}), 401
+        return jsonify({
+            "error": "not_logged_in"
+        }), 401
 
     user_id = sp.me()["id"]
     db = get_db()
@@ -102,7 +105,7 @@ def generate():
                 "error": "no_tracks_available"
             }), 400
 
-        # 2. FORMAT TRACKS
+        # 2. FORMAT
         tracks = [
             {
                 "id": t.spotify_id,
@@ -112,7 +115,7 @@ def generate():
             for t in raw_tracks
         ]
 
-        # 3. AI RANKING
+        # 3. AI ENGINE
         ranked = generate_ai_playlist(
             sp,
             tracks,
@@ -125,7 +128,7 @@ def generate():
                 "error": "no_tracks_matched"
             }), 400
 
-        # 4. BUILD URIS + PREVIEW TRACKS
+        # 4. BUILD SPOTIFY URIS + PREVIEW DATA
         uris = []
         preview_tracks = []
 
@@ -133,7 +136,6 @@ def generate():
             if t.get("id"):
                 uris.append(f"spotify:track:{t['id']}")
 
-            # frontend preview support
             preview_tracks.append({
                 "id": t.get("id"),
                 "name": t.get("name", "Unknown"),
@@ -151,19 +153,27 @@ def generate():
         # 6. ADD TRACKS
         add_tracks_to_playlist(sp, playlist["id"], uris)
 
-        # 7. MATCH FRONTEND EXPECTATION (IMPORTANT FIX)
+        # 7. RESPONSE (MATCHES YOUR FRONTEND EXACTLY)
         return jsonify({
-            "url": playlist["external_urls"]["spotify"],   # FIXED (was playlist_url)
+            "url": playlist["external_urls"]["spotify"],
             "name": playlist["name"],
             "count": len(uris),
             "vibe": vibe,
-            "mode": "balanced",  # placeholder (you can later connect AI modes)
-            "confidence": 0.72,   # placeholder scoring (can be upgraded later)
+            "mode": mode,
 
-            "tracks": preview_tracks[:10],  # FIX: frontend needs objects, not count
+            # frontend expects this structure
+            "tracks": preview_tracks[:10],
 
+            # optional UI extras
+            "confidence": 0.72,
             "status": "AI_DJ_ACTIVE"
         })
+
+    except Exception as e:
+        return jsonify({
+            "error": "server_error",
+            "message": str(e)
+        }), 500
 
     finally:
         db.close()
