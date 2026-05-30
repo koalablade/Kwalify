@@ -94,21 +94,21 @@ def logout():
 
 
 # ─────────────────────────────
-# 🔥 FIXED GENERATE (ROBUST JSON HANDLING)
+# 🔥 FIXED GENERATE (THIS IS THE IMPORTANT FIX)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
 
-    # ✅ ACCEPT JSON OR FORM DATA (THIS FIXES YOUR 400 ERROR)
+    # 🔥 ACCEPT JSON OR FORM DATA (FIXES YOUR 400 ISSUE)
     data = request.get_json(silent=True)
 
-    if data is None:
+    if not data:
         data = request.form.to_dict()
 
     if not data:
         return jsonify({
             "error": "no_input_received",
-            "hint": "Send JSON or form-data with vibe + length"
+            "hint": "Send JSON: {vibe, length}"
         }), 400
 
     vibe = data.get("vibe") or data.get("mode") or "balanced"
