@@ -36,7 +36,7 @@ def login():
 
 
 # ─────────────────────────────
-# CALLBACK (CRITICAL FIXED SESSION + USER BOOTSTRAP)
+# CALLBACK
 # ─────────────────────────────
 @app.route("/callback")
 def callback():
@@ -50,7 +50,6 @@ def callback():
     if not token_info:
         return "Token exchange failed", 400
 
-    # 🔥 FORCE SESSION WRITE (IMPORTANT FOR RENDER)
     session.clear()
     session["token_info"] = token_info
     session["logged_in"] = True
@@ -65,7 +64,6 @@ def callback():
 
     db = get_db()
     try:
-        # 🔥 ENSURE USER EXISTS IN DB
         from models import User
 
         user = db.query(User).filter_by(spotify_id=user_id).first()
@@ -78,7 +76,6 @@ def callback():
             db.add(user)
             db.commit()
 
-        # 🔥 START SYNC SAFELY
         start_sync_if_needed(user_id, sp)
 
     finally:
@@ -97,22 +94,29 @@ def logout():
 
 
 # ─────────────────────────────
-# 🔥 GENERATE (STABLE + SAFE + FRONTEND COMPATIBLE)
+# 🔥 FIXED GENERATE (ROBUST JSON HANDLING)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
 
-    # 🔥 STRICT JSON CHECK
-    if not request.is_json:
+    # ✅ ACCEPT JSON OR FORM DATA (THIS FIXES YOUR 400 ERROR)
+    data = request.get_json(silent=True)
+
+    if data is None:
+        data = request.form.to_dict()
+
+    if not data:
         return jsonify({
-            "error": "no_json_sent",
-            "hint": "Send JSON with Content-Type: application/json"
+            "error": "no_input_received",
+            "hint": "Send JSON or form-data with vibe + length"
         }), 400
 
-    data = request.get_json()
+    vibe = data.get("vibe") or data.get("mode") or "balanced"
 
-    vibe = data.get("vibe", "balanced")
-    length = int(data.get("length", 25))
+    try:
+        length = int(data.get("length", 25))
+    except:
+        length = 25
 
     # 🔥 AUTH CHECK
     if "token_info" not in session:
@@ -121,24 +125,20 @@ def generate():
     sp = get_spotify_client()
 
     if not sp:
-        return jsonify({
-            "error": "spotify_client_failed"
-        }), 401
+        return jsonify({"error": "spotify_client_failed"}), 401
 
     user_id = sp.me()["id"]
     db = get_db()
 
     try:
-        # 1. LOAD TRACKS
         raw_tracks = load_user_tracks(user_id, db)
 
         if not raw_tracks:
             return jsonify({
                 "error": "no_tracks_available",
-                "hint": "Sync has not completed yet"
+                "hint": "Sync not finished yet"
             }), 400
 
-        # 2. FORMAT TRACKS
         tracks = [
             {
                 "id": t.spotify_id,
@@ -148,7 +148,6 @@ def generate():
             for t in raw_tracks
         ]
 
-        # 3. AI RANK
         ranked = generate_ai_playlist(
             sp,
             tracks,
@@ -157,11 +156,8 @@ def generate():
         )
 
         if not ranked:
-            return jsonify({
-                "error": "no_tracks_matched"
-            }), 400
+            return jsonify({"error": "no_tracks_matched"}), 400
 
-        # 4. BUILD URIS
         uris = [
             f"spotify:track:{t['id']}"
             for t in ranked
@@ -169,14 +165,10 @@ def generate():
         ]
 
         if not uris:
-            return jsonify({
-                "error": "no_valid_tracks"
-            }), 400
+            return jsonify({"error": "no_valid_tracks"}), 400
 
-        # 5. CREATE PLAYLIST
         playlist = create_playlist(sp, f"{vibe} • AI DJ Session")
 
-        # 6. ADD TRACKS
         add_tracks_to_playlist(sp, playlist["id"], uris)
 
         return jsonify({
@@ -192,7 +184,7 @@ def generate():
 
 
 # ─────────────────────────────
-# CACHE STATUS (ROBUST FIX)
+# CACHE STATUS
 # ─────────────────────────────
 @app.route("/cache-status")
 def cache_status():
