@@ -71,11 +71,10 @@ def logout():
 
 
 # ─────────────────────────────
-# 🔥 AI DJ PIPELINE (FIXED + SAFE)
+# 🔥 AI DJ PIPELINE (FIXED RESPONSE CONTRACT)
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
-    # 🧠 SAFETY: ensure JSON exists
     data = request.get_json(silent=True)
 
     if not data:
@@ -100,11 +99,10 @@ def generate():
 
         if not raw_tracks:
             return jsonify({
-                "error": "no_tracks",
-                "hint": "Spotify sync has not populated DB yet"
+                "error": "no_tracks_available"
             }), 400
 
-        # 2. FORMAT
+        # 2. FORMAT TRACKS
         tracks = [
             {
                 "id": t.spotify_id,
@@ -122,28 +120,48 @@ def generate():
             limit=length
         )
 
-        # 4. URIS
+        if not ranked:
+            return jsonify({
+                "error": "no_tracks_matched"
+            }), 400
+
+        # 4. BUILD URIS + PREVIEW TRACKS
         uris = []
+        preview_tracks = []
+
         for t in ranked:
             if t.get("id"):
                 uris.append(f"spotify:track:{t['id']}")
+
+            # frontend preview support
+            preview_tracks.append({
+                "id": t.get("id"),
+                "name": t.get("name", "Unknown"),
+                "artist": t.get("artist", "Unknown")
+            })
 
         if not uris:
             return jsonify({
                 "error": "no_valid_tracks_after_ai"
             }), 400
 
-        # 5. PLAYLIST
+        # 5. CREATE PLAYLIST
         playlist = create_playlist(sp, f"{vibe} • AI DJ Session")
 
         # 6. ADD TRACKS
         add_tracks_to_playlist(sp, playlist["id"], uris)
 
+        # 7. MATCH FRONTEND EXPECTATION (IMPORTANT FIX)
         return jsonify({
-            "playlist_url": playlist["external_urls"]["spotify"],
+            "url": playlist["external_urls"]["spotify"],   # FIXED (was playlist_url)
             "name": playlist["name"],
-            "tracks": len(uris),
+            "count": len(uris),
             "vibe": vibe,
+            "mode": "balanced",  # placeholder (you can later connect AI modes)
+            "confidence": 0.72,   # placeholder scoring (can be upgraded later)
+
+            "tracks": preview_tracks[:10],  # FIX: frontend needs objects, not count
+
             "status": "AI_DJ_ACTIVE"
         })
 
