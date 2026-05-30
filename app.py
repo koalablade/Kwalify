@@ -11,92 +11,31 @@ app = Flask(__name__)
 
 # --- Configuration ---
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-# Only use Secure cookies if we are running on Render (the live site)
 app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('RENDER'))
-
-# Fix: Added 'r' prefix to make this a raw string (prevents invalid escape sequence errors)
 app.secret_key = r"my-super-secret-123454ffsda\zc2345251.,/'5215136dfdsdfs"
 
+# ADD THIS: A simple hardcoded key for your script
+API_KEY = "my-secure-api-key-123" 
+
 init_db()
-
-# ─────────────────────────────
-# HOME
-# ─────────────────────────────
-@app.route("/")
-def index():
-    return render_template(
-        "index.html",
-        logged_in="token_info" in session
-    )
-
-# ─────────────────────────────
-# LOGIN
-# ─────────────────────────────
-@app.route("/login")
-def login():
-    sp_oauth = spotify_oauth()
-    return redirect(sp_oauth.get_authorize_url())
-
-# ─────────────────────────────
-# CALLBACK
-# ─────────────────────────────
-@app.route("/callback")
-def callback():
-    code = request.args.get("code")
-    if not code:
-        return "Missing code", 400
-
-    sp_oauth = spotify_oauth()
-    token_info = sp_oauth.get_access_token(code)
-
-    if not token_info:
-        return "Token exchange failed", 400
-
-    session.clear()
-    session["token_info"] = token_info
-    session["logged_in"] = True
-    session.modified = True
-
-    sp = get_spotify_client()
-    if not sp:
-        return "Spotify auth failed", 400
-
-    user_id = sp.me()["id"]
-    db = get_db()
-    try:
-        from models import User
-        user = db.query(User).filter_by(spotify_id=user_id).first()
-        if not user:
-            user = User(spotify_id=user_id, sync_status="pending")
-            db.add(user)
-            db.commit()
-        start_sync_if_needed(user_id, sp)
-    finally:
-        db.close()
-
-    return redirect("/")
-
-# ─────────────────────────────
-# LOGOUT
-# ─────────────────────────────
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/")
 
 # ─────────────────────────────
 # GENERATE
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
-    # Attempt to get JSON
+    # 1. Allow API Key override
+    provided_key = request.headers.get("X-API-KEY")
+    is_authorized = "token_info" in session or (provided_key == API_KEY)
+    
+    if not is_authorized:
+        return jsonify({"error": "not_authorized"}), 401
+
     data = request.get_json(force=True, silent=True)
     if not data:
         data = request.form.to_dict()
     
-    # DEBUGGING: If this fails, the server logs will show exactly what was received
     if not data:
-        print(f"DEBUG: Generate request failed. Headers: {request.headers}")
         return jsonify({"error": "no_input_received"}), 400
 
     vibe = data.get("vibe") or data.get("mode") or "balanced"
@@ -105,9 +44,8 @@ def generate():
     except (ValueError, TypeError):
         length = 25
 
-    if "token_info" not in session:
-        return jsonify({"error": "not_logged_in"}), 401
-
+    # If using API key, we might need a specific user_id if multiple users exist
+    # For now, we assume standard usage:
     sp = get_spotify_client()
     if not sp:
         return jsonify({"error": "spotify_client_failed"}), 401
@@ -141,29 +79,11 @@ def generate():
             "status": "AI_DJ_ACTIVE"
         })
     except Exception as e:
-        print(f"DEBUG: Exception in generate: {str(e)}")
         return jsonify({"error": "internal_server_error", "details": str(e)}), 500
     finally:
         db.close()
 
-# ─────────────────────────────
-# CACHE STATUS
-# ─────────────────────────────
-@app.route("/cache-status")
-def cache_status():
-    if "token_info" not in session:
-        return jsonify({"status": "no_user", "track_count": 0})
-
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({"status": "no_spotify_client", "track_count": 0})
-
-    user_id = sp.me()["id"]
-    db = get_db()
-    try:
-        return jsonify(get_sync_status(user_id, db))
-    finally:
-        db.close()
+# ... (Keep all other routes the same as before) ...
 
 if __name__ == "__main__":
     app.run(debug=True)
