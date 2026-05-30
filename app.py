@@ -93,25 +93,21 @@ def logout():
 # ─────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
-    # 'force=True' ignores the missing Content-Type header
+    # Force parsing to catch payload issues
     data = request.get_json(force=True, silent=True)
-
-    # If it's not JSON, try reading it as form-data
     if not data:
         data = request.form.to_dict()
 
-    # Safety check
     if not data:
-        return jsonify({"error": "No input received", "status": 400}), 400
+        print("DEBUG: 400_FAILURE - No input data")
+        return jsonify({"error": "no_input_received"}), 400
 
-    # Extract values with smart defaults
     vibe = data.get("vibe") or data.get("mode") or "balanced"
     try:
         length = int(data.get("length", 25))
     except:
         length = 25
 
-    # 🔥 AUTH CHECK
     if "token_info" not in session:
         return jsonify({"error": "not_logged_in"}), 401
 
@@ -126,10 +122,8 @@ def generate():
         raw_tracks = load_user_tracks(user_id, db)
 
         if not raw_tracks:
-            return jsonify({
-                "error": "no_tracks_available",
-                "hint": "Sync not finished yet"
-            }), 400
+            print("DEBUG: 400_FAILURE - No tracks in database")
+            return jsonify({"error": "no_tracks_available"}), 400
 
         tracks = [
             {"id": t.spotify_id, "name": t.name, "artist": t.artist}
@@ -144,11 +138,13 @@ def generate():
         )
 
         if not ranked:
+            print("DEBUG: 400_FAILURE - AI engine returned no tracks")
             return jsonify({"error": "no_tracks_matched"}), 400
 
         uris = [f"spotify:track:{t['id']}" for t in ranked if t.get("id")]
 
         if not uris:
+            print("DEBUG: 400_FAILURE - No valid track URIs")
             return jsonify({"error": "no_valid_tracks"}), 400
 
         playlist = create_playlist(sp, f"{vibe} • AI DJ Session")
@@ -162,6 +158,9 @@ def generate():
             "status": "AI_DJ_ACTIVE"
         })
 
+    except Exception as e:
+        print(f"DEBUG: 500_FAILURE - {str(e)}")
+        return jsonify({"error": "internal_server_error", "details": str(e)}), 500
     finally:
         db.close()
 
