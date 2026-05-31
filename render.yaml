@@ -1,0 +1,36 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# After connecting GitHub, use: New > Blueprint > select koalablade/Kwalify
+
+databases:
+  - name: kwalify-db
+    plan: free
+    databaseName: kwalify
+    user: kwalify
+
+services:
+  - type: web
+    name: kwalify-api
+    runtime: node
+    plan: free
+    repo: https://github.com/koalablade/Kwalify
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kwalify-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_CLIENT_SECRET
+        sync: false
+      - key: SPOTIFY_REDIRECT_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
