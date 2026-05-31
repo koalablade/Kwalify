@@ -51,4 +51,4 @@ Attach a PostgreSQL database and add the environment variables above.
 
 ## Health check
 
-`GET /api/health` on your service URL after deploy.
+`GET /api/healthz` on your service URL after deploy.

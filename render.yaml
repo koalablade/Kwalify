@@ -18,7 +18,7 @@ services:
     branch: main
     buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
     startCommand: npm start
-    healthCheckPath: /api/health
+    healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production
