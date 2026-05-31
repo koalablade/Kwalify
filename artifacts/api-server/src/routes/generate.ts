@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { likedSongsTable, playlistHistoryTable } from "@workspace/db";
+import { db } from "../db";
+import { likedSongsTable, playlistHistoryTable } from "../db";
 import { eq } from "drizzle-orm";
 import { createSpotifyPlaylist, getValidAccessToken } from "../lib/spotify";
 import {
@@ -15,7 +15,7 @@ import {
   enforceArc,
   type EmotionProfile,
 } from "../lib/emotion";
-import { GeneratePlaylistBody } from "@workspace/api-zod";
+import { GeneratePlaylistBody } from "../zod/api";
 import { checkRateLimit } from "../lib/rate-limit";
 
 const router: IRouter = Router();

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { playlistHistoryTable } from "@workspace/db";
+import { db } from "../db";
+import { playlistHistoryTable } from "../db";
 import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();

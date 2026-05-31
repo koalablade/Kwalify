@@ -2,8 +2,15 @@
   "name": "kwalify",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build": "cd api-server && npm install && npm run build",
-    "start": "node api-server/dist/index.js"
+    "build": "npm install --prefix artifacts/api-server && npm run build --prefix artifacts/api-server",
+    "start": "node artifacts/api-server/dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
   }
 }

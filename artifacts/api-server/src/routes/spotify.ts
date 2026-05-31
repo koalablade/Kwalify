@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { likedSongsTable, syncStatusTable } from "@workspace/db";
+import { db } from "../db";
+import { likedSongsTable, syncStatusTable } from "../db";
 import { eq } from "drizzle-orm";
 import {
   fetchLikedSongs,
