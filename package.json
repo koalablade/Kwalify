@@ -10,6 +10,9 @@
     "start": "node artifacts/api-server/dist/index.js",
     "typecheck": "tsc --noEmit"
   },
+  "overrides": {
+    "typescript": "5.7.3"
+  },
   "devDependencies": {
     "typescript": "5.7.3"
   }
