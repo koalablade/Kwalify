@@ -4,6 +4,7 @@
 databases:
   - name: kwalify-db
     plan: free
+    region: frankfurt
     databaseName: kwalify
     user: kwalify
 
@@ -12,6 +13,7 @@ services:
     name: kwalify-api
     runtime: node
     plan: free
+    region: frankfurt
     repo: https://github.com/koalablade/Kwalify
     branch: main
     buildCommand: npm install && npm run build
