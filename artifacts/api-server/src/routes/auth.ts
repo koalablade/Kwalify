@@ -4,6 +4,16 @@ import { getAuthUrl, exchangeCode, getSpotifyUser, getValidAccessToken } from ".
 
 const router: IRouter = Router();
 
+/** Where to send the browser after OAuth (your site, not the API root). */
+function getFrontendRedirect(path = "/"): string {
+  const base = process.env.FRONTEND_URL?.split(",")[0]?.trim();
+  if (!base) {
+    return path;
+  }
+  const normalized = base.replace(/\/$/, "");
+  return path === "/" ? normalized : `${normalized}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 function getRedirectUri(req: any): string {
   if (process.env.SPOTIFY_REDIRECT_URI) {
     return process.env.SPOTIFY_REDIRECT_URI;
@@ -44,12 +54,12 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
 
   if (error) {
     req.log.warn({ error }, "Spotify OAuth error");
-    res.redirect(`/?error=${encodeURIComponent(String(error))}`);
+    res.redirect(getFrontendRedirect(`/?error=${encodeURIComponent(String(error))}`));
     return;
   }
 
   if (!code) {
-    res.redirect("/?error=no_code");
+    res.redirect(getFrontendRedirect("/?error=no_code"));
     return;
   }
 
@@ -78,10 +88,10 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
     req.session.spotifyCountry = user.country ?? null;
 
     req.log.info({ userId: user.id }, "Spotify OAuth successful");
-    res.redirect("/");
+    res.redirect(getFrontendRedirect("/"));
   } catch (err) {
     req.log.error({ err }, "Spotify OAuth callback failed");
-    res.redirect("/?error=auth_failed");
+    res.redirect(getFrontendRedirect("/?error=auth_failed"));
   }
 });
 

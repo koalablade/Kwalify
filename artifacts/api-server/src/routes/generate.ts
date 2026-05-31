@@ -216,9 +216,11 @@ router.post("/generate", async (req, res): Promise<void> => {
     res.json({
       playlistId,
       playlistUrl,
+      url: playlistUrl,
       name: playlistName,
       vibe,
       mode,
+      count: finalTracks.length,
       totalTracks: finalTracks.length,
       emotionProfile,
       tracks: finalTracks.map((t) => ({
