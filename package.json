@@ -6,7 +6,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "build": "npm install --prefix artifacts/api-server && npm run build --prefix artifacts/api-server",
+    "build": "npm install --prefix artifacts/api-server --include=dev && npm run build --prefix artifacts/api-server",
     "start": "node artifacts/api-server/dist/index.js",
     "typecheck": "tsc --noEmit"
   },

@@ -16,7 +16,7 @@ services:
     region: frankfurt
     repo: https://github.com/koalablade/Kwalify
     branch: main
-    buildCommand: npm install && npm run build
+    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

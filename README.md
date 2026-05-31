@@ -38,7 +38,7 @@ Set the same value as `SPOTIFY_REDIRECT_URI` in Render.
 
 | Setting | Value |
 |---------|--------|
-| **Build command** | `npm install && npm run build` |
+| **Build command** | `NPM_CONFIG_PRODUCTION=false npm install && npm run build` |
 | **Start command** | `npm start` |
 
 Attach a PostgreSQL database and add the environment variables above.
