@@ -69,7 +69,7 @@ In the web service → **Environment** → add:
 | `SPOTIFY_CLIENT_ID` | From Spotify dashboard | |
 | `SPOTIFY_CLIENT_SECRET` | From Spotify dashboard | |
 | `SPOTIFY_REDIRECT_URI` | `https://YOUR-SERVICE-NAME.onrender.com/api/auth/callback` | **Must match Spotify exactly** |
-| `FRONTEND_URL` | Your frontend URL, or `https://YOUR-SERVICE-NAME.onrender.com` for API-only testing | Comma-separated if multiple |
+| `FRONTEND_URL` | Your live site, e.g. `https://www.kwalify.net` (no trailing slash). Add `https://kwalify.net` too if you use both www and non-www | Comma-separated if multiple |
 
 **Do not set `PORT`** — Render sets it automatically.
 
