@@ -23,10 +23,12 @@ export function pickFallbackGenres(
     return ["country", "folk", ...fromUser.filter((g) => g !== "christmas")];
   }
   if (profile.nostalgia > 0.5) {
-    return ["country", "folk", "rock", ...fromUser].filter((g, i, a) => a.indexOf(g) === i);
+    return ["country", "folk", "rock", ...fromUser].filter(
+      (g, i, a) => a.indexOf(g) === i
+    ) as RootGenre[];
   }
   if (profile.energy > 0.6) {
-    return ["rock", "pop", "hip_hop", ...fromUser];
+    return ["rock", "pop", "hip_hop", ...fromUser] as RootGenre[];
   }
 
   return fromUser.length > 0 ? fromUser : ["pop", "rock", "indie"];

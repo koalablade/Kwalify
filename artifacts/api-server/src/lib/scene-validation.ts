@@ -88,15 +88,31 @@ export function resolveSceneContext(
   };
 }
 
+export type SceneAudioTrack = {
+  energy: number | null;
+  valence: number | null;
+  acousticness: number | null;
+  danceability: number | null;
+};
+
+export function toSceneAudioTrack(track: {
+  energy: number | null;
+  valence: number | null;
+  acousticness?: number | null;
+  danceability?: number | null;
+}): SceneAudioTrack {
+  return {
+    energy: track.energy,
+    valence: track.valence,
+    acousticness: track.acousticness ?? null,
+    danceability: track.danceability ?? null,
+  };
+}
+
 export function sceneMatchScore(
   scene: SceneContext,
   profile: EmotionProfile,
-  track: {
-    energy: number | null;
-    valence: number | null;
-    acousticness: number | null;
-    danceability: number | null;
-  }
+  track: SceneAudioTrack
 ): number {
   const e = track.energy ?? 0.5;
   const v = track.valence ?? 0.5;

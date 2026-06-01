@@ -128,10 +128,11 @@ export function applyStackToFinalTracks<T extends { trackId: string }>(
   finalTracks: T[],
   stack: GenreIntelligenceStack
 ): { tracks: T[]; clusterCapped: string | null } {
-  return enforceClusterDiversityCap(
+  const { tracks, capped } = enforceClusterDiversityCap(
     finalTracks,
     stack.trackEmbeddings,
     stack.microGenres,
     0.32
   );
+  return { tracks, clusterCapped: capped };
 }

@@ -30,7 +30,7 @@ export function computeGenreDistribution(
   for (const id of trackIds) {
     const c = classifications.get(id);
     if (!c) continue;
-    const fam = "genreFamily" in c ? c.genreFamily : c.genrePrimary;
+    const fam = familyOf(c);
     if (fam === "unknown") continue;
     counts[fam] = (counts[fam] ?? 0) + 1;
   }

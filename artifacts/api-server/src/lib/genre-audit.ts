@@ -19,10 +19,8 @@ import {
   detectMissingGenres,
 
   vectorToRecord,
-
-  activeCoverageTargets,
-
 } from "./genre-coverage-enforcement";
+import { activeCoverageTargets } from "./genre-coverage";
 
 import { GENRE_MIN_LIBRARY_SHARE } from "./genre-coverage";
 
@@ -189,7 +187,12 @@ export function buildGenreAudit(opts: {
 
     finalDistribution,
 
-    coverageTargets: activeCoverageTargets(opts.userVector, ["christmas"]).map((t) => ({
+    coverageTargets: activeCoverageTargets(opts.userVector, ["christmas"]).map((t: {
+      genre: string;
+      min: number;
+      max: number;
+      userShare: number;
+    }) => ({
 
       genre: t.genre,
 

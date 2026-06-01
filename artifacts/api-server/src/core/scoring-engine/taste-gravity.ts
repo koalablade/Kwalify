@@ -9,7 +9,7 @@ import type { LibrarySignals } from "../../lib/library-signals";
 import type { GenreMemoryTrace } from "../genre-intelligence/genre-memory-trace";
 import { memoryTraceBoost } from "../genre-intelligence/genre-memory-trace";
 import type { SceneContext } from "../../lib/scene-validation";
-import { sceneMatchScore } from "../../lib/scene-validation";
+import { sceneMatchScore, toSceneAudioTrack } from "../../lib/scene-validation";
 import { ecosystemOf } from "../genre-intelligence/genre-ecosystems";
 import { graphRelatedGenres } from "../../shared/embeddings/genre-similarity-graph";
 import {
@@ -105,7 +105,7 @@ export function computeTrackGravity<T extends {
   const c = ctx.classifications.get(track.trackId);
   const fam = c?.genreFamily ?? "unknown";
 
-  const sceneAffinity = sceneMatchScore(ctx.sceneCtx, ctx.emotionProfile, track);
+  const sceneAffinity = sceneMatchScore(ctx.sceneCtx, ctx.emotionProfile, toSceneAudioTrack(track));
   const resonanceStrength =
     sceneAffinity * 0.55 + emotionResonance(track, ctx.emotionProfile) * 0.45;
 

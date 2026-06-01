@@ -11,7 +11,13 @@ import { getTruthAnchor } from "../genre-intelligence/genre-truth-anchor";
 import { graphRelatedGenres } from "../../shared/embeddings/genre-similarity-graph";
 import type { ContradictionProfile } from "../scene-intelligence/contradiction-handler";
 import { contradictionBridgeFit } from "../scene-intelligence/contradiction-handler";
-import { resolveSceneContext, sceneMatchScore, type SceneContext } from "../../lib/scene-validation";
+import {
+  resolveSceneContext,
+  sceneMatchScore,
+  toSceneAudioTrack,
+  type SceneContext,
+} from "../../lib/scene-validation";
+import type { HybridScoreResult } from "../../lib/hybrid-scoring";
 import type { CanonicalSceneResult } from "../../lib/scene-canonicalizer";
 import { ecosystemOf } from "../genre-intelligence/genre-ecosystems";
 
@@ -87,7 +93,7 @@ function pickLeapType(
     }
   }
 
-  const sceneFit = sceneMatchScore(sceneCtx, ctx.emotionProfile, track);
+  const sceneFit = sceneMatchScore(sceneCtx, ctx.emotionProfile, toSceneAudioTrack(track));
   if (sceneFit < 0.42) return null;
 
   if (anchorFam && fam !== anchorFam) {
@@ -112,6 +118,8 @@ export function applyEmotionalLeaps<T extends {
   score: number;
   energy: number | null;
   valence: number | null;
+  acousticness?: number | null;
+  danceability?: number | null;
 }>(
   tracks: T[],
   ctx: EmotionalLeapContext
@@ -137,7 +145,7 @@ export function applyEmotionalLeaps<T extends {
     const fam = c?.genreFamily ?? "unknown";
     if (!isGenreAllowedForLeap(fam, anchorFam, ctx.sceneRouting)) continue;
 
-    const sceneFit = sceneMatchScore(sceneCtx, ctx.emotionProfile, track);
+    const sceneFit = sceneMatchScore(sceneCtx, ctx.emotionProfile, toSceneAudioTrack(track));
     const priority = sceneFit * 0.6 + seededUnit(track.trackId, ctx.seed + 7) * 0.4;
     candidates.push({ track, leap, priority });
   }
@@ -168,15 +176,19 @@ export function applyEmotionalLeapsToHybridResults<T extends {
   trackId: string;
   energy: number | null;
   valence: number | null;
+  acousticness?: number | null;
+  danceability?: number | null;
 }>(
-  hybridResults: { track: T; score: number }[],
+  hybridResults: HybridScoreResult<T>[],
   ctx: EmotionalLeapContext
-): { results: { track: T; score: number }[]; leaps: EmotionalLeapRecord[] } {
+): { results: HybridScoreResult<T>[]; leaps: EmotionalLeapRecord[] } {
   const flat = hybridResults.map((r) => ({
     trackId: r.track.trackId,
     score: r.score,
     energy: r.track.energy,
     valence: r.track.valence,
+    acousticness: r.track.acousticness ?? null,
+    danceability: r.track.danceability ?? null,
   }));
   const { tracks, leaps } = applyEmotionalLeaps(flat, ctx);
   const scoreById = new Map(tracks.map((t) => [t.trackId, t.score]));
@@ -204,7 +216,7 @@ export function tagMagicMomentCandidates<T extends {
   }
 ): { trackId: string; magicMomentCandidate: boolean; resonance: number }[] {
   return tracks.map((t) => {
-    const sceneFit = sceneMatchScore(opts.sceneCtx, opts.emotionProfile, t);
+    const sceneFit = sceneMatchScore(opts.sceneCtx, opts.emotionProfile, toSceneAudioTrack(t));
     const emotionFit =
       1 -
       (Math.abs((t.energy ?? 0.5) - opts.emotionProfile.energy) +

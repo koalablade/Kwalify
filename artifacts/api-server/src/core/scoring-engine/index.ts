@@ -79,7 +79,6 @@ import {
   type StabilityDiagnostics,
 } from "../debug/stability-metrics";
 import { FORCE_DETERMINISTIC_MODE } from "../debug/stability-config";
-import { profileToClassification } from "../../lib/genre-taxonomy";
 import { resolveContradiction } from "../scene-intelligence/contradiction-handler";
 import {
   computeExplorationModeScore,
@@ -159,7 +158,7 @@ export interface RunScoringPipelineOpts<T extends {
 
 
 
-export interface ScoringPipelineResult<T> {
+export interface ScoringPipelineResult<T extends { trackId: string }> {
 
   scored: ScoredLibraryTrack<T>[];
 
@@ -209,12 +208,10 @@ export function runScoringPipeline<T extends {
 
   speechiness?: number | null;
 
-}>(opts: RunScoringPipelineOpts<T>): ScoringPipelineResult<T> {
+} & { trackId: string }>(opts: RunScoringPipelineOpts<T>): ScoringPipelineResult<T> {
 
   const classifications = opts.userGenreProfile.trackClassifications;
-  const classMap = new Map(
-    [...classifications.entries()].map(([id, p]) => [id, profileToClassification(p)])
-  );
+  const classMap = opts.userGenreProfile.trackClassifications;
 
   const truthAnchors = buildTruthAnchorStore(classifications);
 

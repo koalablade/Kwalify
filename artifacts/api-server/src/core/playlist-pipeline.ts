@@ -57,6 +57,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
   postScore: {
     referenceFingerprint: ReferenceFingerprint | null;
     memoryWeight: number;
+    emotionProfile: EmotionProfile;
     librarySignals: LibrarySignals;
     rediscoveryMode: RediscoveryMode;
     archaeology: ArchaeologyIntent | null;
@@ -130,7 +131,10 @@ export function buildPlaylistPipeline<T extends {
     memoryByTrack: opts.memoryByTrack,
     noveltyByTrack: opts.noveltyByTrack,
     recentPlaylistTrackIds: opts.recentPlaylistTrackIds,
-    postScore: opts.postScore,
+    postScore: {
+      ...opts.postScore,
+      emotionProfile: opts.emotionProfile,
+    },
   });
 
   const composed = composePlaylistFromPool({

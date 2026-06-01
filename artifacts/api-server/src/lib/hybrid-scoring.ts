@@ -13,7 +13,12 @@ import type { IntentDecodeResult, HumanIntent } from "./intent-decoder";
 import type { CanonicalSceneResult } from "./scene-canonicalizer";
 import { getPrototype, type ScenePrototype } from "./scene-prototypes";
 import { buildSceneSeasonContext, inferTrackSeasonTags, seasonalMatchScore } from "./seasonal-logic";
-import { resolveSceneContext, sceneMatchScore, type SceneContext } from "./scene-validation";
+import {
+  resolveSceneContext,
+  sceneMatchScore,
+  toSceneAudioTrack,
+  type SceneContext,
+} from "./scene-validation";
 import { applyHardFilters, type HardFilterContext } from "./hard-filters";
 import { sonicFitBonus } from "./scene-sonic-profile";
 import type { SonicProfile } from "./scene-sonic-map";
@@ -241,11 +246,20 @@ export function computeTriScores(
     classification = applyTruthAnchorGuard(classification, anchor).classification;
   }
 
-  const signature = computeGenreSignature(track, classification);
+  const audio = {
+    energy: track.energy,
+    valence: track.valence,
+    acousticness: track.acousticness,
+    danceability: track.danceability,
+    instrumentalness: track.instrumentalness ?? null,
+    speechiness: track.speechiness ?? null,
+    tempo: track.tempo,
+  };
+  const signature = computeGenreSignature(audio, classification);
   const blueprint = ctx.prototype?.blueprint;
 
   // Scene modifier — energy/atmosphere only (no genre affinity in this channel)
-  let sceneMoment = sceneMatchScore(ctx.scene, ctx.profile, track);
+  let sceneMoment = sceneMatchScore(ctx.scene, ctx.profile, toSceneAudioTrack(track));
   const seasonalMatch = seasonalMatchScore(ctx.season, inferTrackSeasonTags(track));
   sceneMoment = sceneMoment * 0.85 + seasonalMatch * 0.15;
 
@@ -263,7 +277,7 @@ export function computeTriScores(
     sceneMoment *= 0.94;
   }
 
-  const emotionMatch = scoreSong(track, ctx.profile, mode, ctx.vibeKind);
+  const emotionMatch = scoreSong(audio, ctx.profile, mode, ctx.vibeKind);
 
   let libraryFit = libraryFitScore(classification, ctx.userGenre.vector);
   libraryFit = libraryFit * 0.8 + memoryMatch * 0.12 + noveltyScore * 0.08;

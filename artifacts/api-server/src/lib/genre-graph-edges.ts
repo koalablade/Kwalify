@@ -145,13 +145,15 @@ export function transitionEdges(
   return edges;
 }
 
-export function mergeEdges(...lists: GenreEdge[]): GenreEdge[] {
+export function mergeEdges(...lists: GenreEdge[][]): GenreEdge[] {
   const key = (e: GenreEdge) => `${e.from}|${e.to}|${e.type}`;
   const map = new Map<string, GenreEdge>();
-  for (const e of lists) {
+  for (const list of lists) {
+    for (const e of list) {
     const k = key(e);
-    const prev = map.get(k);
-    if (!prev || e.weight > prev.weight) map.set(k, e);
+      const prev = map.get(k);
+      if (!prev || e.weight > prev.weight) map.set(k, e);
+    }
   }
   return [...map.values()];
 }

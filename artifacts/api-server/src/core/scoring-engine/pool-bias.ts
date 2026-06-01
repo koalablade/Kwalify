@@ -35,13 +35,10 @@ import type { ScoredLibraryTrack } from "./types";
 
 
 export function applySunnyGateIfNeeded<T extends {
-
+  trackId: string;
   valence: number | null;
-
   energy: number | null;
-
   acousticness: number | null;
-
 }>(
 
   tracks: ScoredLibraryTrack<T>[],

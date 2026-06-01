@@ -335,6 +335,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       postScore: {
         referenceFingerprint,
         memoryWeight,
+        emotionProfile,
         librarySignals,
         rediscoveryMode,
         archaeology,
@@ -355,7 +356,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
     });
 
-    let finalTracks = pipeline.finalTracks;
+    type PlaylistTrack = (typeof likedSongs)[number] & {
+      score: number;
+      rediscoveryScore?: number;
+      narrativeRole?: string;
+    };
+    const finalTracks = pipeline.finalTracks as PlaylistTrack[];
     const sorted = pipeline.sorted;
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;

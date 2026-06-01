@@ -198,8 +198,8 @@ export function detectTrackGenre(
       valence: track.valence,
       acousticness: track.acousticness,
       danceability: track.danceability,
-      speechiness: track.speechiness,
-      tempo: track.tempo,
+      speechiness: track.speechiness ?? null,
+      tempo: track.tempo ?? null,
     })
   );
 }
