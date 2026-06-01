@@ -252,6 +252,67 @@ export async function fetchLikedSongs(
   } while (offset < total);
 }
 
+/** Extract playlist ID from a Spotify URL or raw 22-char id. */
+export function parseSpotifyPlaylistId(input: string): string | null {
+  const trimmed = input.trim();
+  if (/^[a-zA-Z0-9]{22}$/.test(trimmed)) return trimmed;
+  const m = trimmed.match(/playlist\/([a-zA-Z0-9]{22})/i);
+  return m?.[1] ?? null;
+}
+
+/**
+ * Read track IDs from a public (or user-visible) playlist.
+ * Tries /tracks then /items for Spotify API variants.
+ */
+export async function fetchPlaylistTrackIds(
+  accessToken: string,
+  playlistId: string,
+  maxTracks = 100
+): Promise<string[]> {
+  const ids: string[] = [];
+  let offset = 0;
+  const limit = 50;
+  let pathSuffix: "tracks" | "items" = "tracks";
+
+  while (ids.length < maxTracks) {
+    try {
+      const response = await spotifyRequest<any>({
+        method: "GET",
+        url: `${SPOTIFY_API_BASE}/playlists/${playlistId}/${pathSuffix}`,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: {
+          offset,
+          limit,
+          fields: "items(track(id,type)),total,next",
+          market: "from_token",
+        },
+      });
+
+      const data = response.data;
+      const total = data.total ?? 0;
+      for (const item of data.items ?? []) {
+        if (ids.length >= maxTracks) break;
+        const track = item.track;
+        if (track?.id && track.type === "track") ids.push(track.id);
+      }
+
+      offset += limit;
+      if (offset >= total || !data.next) break;
+      await new Promise((r) => setTimeout(r, 80));
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (pathSuffix === "tracks" && (status === 404 || status === 410)) {
+        pathSuffix = "items";
+        offset = 0;
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  return ids;
+}
+
 export async function fetchAudioFeatures(
   accessToken: string,
   trackIds: string[]

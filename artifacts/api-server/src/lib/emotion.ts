@@ -148,6 +148,11 @@ const SCENE_PATTERNS: Array<{
   { pattern: /\bmidnight\b|\b1\s*am\b|\b3\s*am\b|\b4\s*am\b/i, timeOfDay: "late_night" },
   { pattern: /\bmorning\b|\bsunrise\b|\bdawn\b|\bearly\b/i, timeOfDay: "morning" },
   { pattern: /\bafternoon\b|\bmidday\b|\bnoon\b/i, timeOfDay: "afternoon" },
+  {
+    pattern: /\bsunshine\b|\bsunlit\b|\bsunny\b|\bfeel like (the )?sun\b|\bsongs that feel like sun\b|\bblue sky\b/i,
+    environment: "coastal",
+    timeOfDay: "afternoon",
+  },
   { pattern: /\bsunset\b|\bdusk\b|\bgolden hour\b|\bevening\b/i, timeOfDay: "evening" },
   { pattern: /\bnight\b|\bnight time\b/i, timeOfDay: "night" },
 ];
@@ -199,6 +204,10 @@ function applySceneWeights(
     p.calm = clamp(p.calm + 0.08);
     p.valence = clamp(p.valence + 0.05);
   }
+  if (scene.timeOfDay === "afternoon" && p.valence > 0.55) {
+    p.energy = clamp(p.energy + 0.06);
+    p.valence = clamp(p.valence + 0.04);
+  }
   if (scene.environment === "indoor") {
     p.calm = clamp(p.calm + 0.05);
     p.energy = clamp(p.energy - 0.04);
@@ -246,6 +255,94 @@ function applySceneWeights(
 // ─── VIBE KEYWORD BANK ───────────────────────────────────────────────────────
 
 const VIBE_KEYWORDS: VibeKeyword[] = [
+  // ── Sensory metaphors ("feels like X") — must be before generic words ───────
+  {
+    terms: [
+      "songs that feel like sun",
+      "feel like sun",
+      "feels like sun",
+      "feel like the sun",
+      "like the sun",
+      "like sun",
+      "warm like sun",
+      "sunshine",
+      "sunshiney",
+      "sunlit",
+      "sunny day",
+      "sunny",
+      "bright sun",
+      "golden sun",
+      "summer sun",
+      "warm light",
+      "bright and warm",
+      "sun on my face",
+      "walking in sunshine",
+      "daylight",
+      "clear sky",
+      "blue sky day",
+    ],
+    weights: { energy: 0.38, valence: 0.52, tension: -0.28, nostalgia: 0.05, calm: -0.12 },
+    sceneHints: { timeOfDay: "afternoon", environment: "coastal" },
+  },
+  {
+    terms: [
+      "sun drenched",
+      "sun-drenched",
+      "warm pop",
+      "feel-good pop",
+      "feel good pop",
+      "summer pop",
+      "indie pop sunshine",
+      "tropical pop",
+      "golden hour pop",
+      "beach pop",
+      "driving with windows down",
+      "windows down",
+      "top down",
+      "road trip sunshine",
+    ],
+    weights: { energy: 0.35, valence: 0.45, tension: -0.22, nostalgia: 0.1, calm: -0.08 },
+    sceneHints: { timeOfDay: "afternoon", environment: "coastal" },
+    artistOrGenreCue: true,
+  },
+  {
+    terms: [
+      "empire of the sun",
+      "mgmt",
+      "phoenix band",
+      "two door cinema club",
+      "tame impala sunny",
+      "m83 midday",
+      "passion pit",
+      "foster the people",
+      "coin sunny",
+    ],
+    weights: { energy: 0.3, valence: 0.4, tension: -0.15, nostalgia: 0.12, calm: -0.05 },
+    artistOrGenreCue: true,
+  },
+  {
+    terms: [
+      "feel like rain",
+      "feels like rain",
+      "songs that feel like rain",
+      "like rain",
+      "rainy day mood",
+    ],
+    weights: { energy: -0.18, valence: -0.12, tension: 0.08, nostalgia: 0.2, calm: 0.2 },
+    sceneHints: { environment: "rainy" },
+  },
+  {
+    terms: [
+      "feel like moon",
+      "feels like moon",
+      "moonlit",
+      "moonlight",
+      "night sky",
+    ],
+    weights: { energy: -0.12, valence: 0.05, tension: 0.1, nostalgia: 0.25, calm: 0.2 },
+    sceneHints: { timeOfDay: "night" },
+  },
+
   // ── Specific scenes (listed first; long phrases beat generic "2am" alone) ───
   {
     terms: [
@@ -812,7 +909,7 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
 
 /** True when the vibe describes a concrete place/scene (not a one-word preset). */
 const SPECIFIC_SCENE_PATTERN =
-  /petrol station|gas station|service station|forecourt|motorway services|rest stop|fluorescent|night drive alone|empty road at night|fixing cars|garage day|under the hood|mountain top|summit walk|ridge walk|kate bush|1am still|laundromat|warehouse rave/i;
+  /petrol station|gas station|service station|forecourt|motorway services|rest stop|fluorescent|night drive alone|empty road at night|fixing cars|garage day|under the hood|mountain top|summit walk|ridge walk|kate bush|1am still|laundromat|warehouse rave|feel like sun|feel like the sun|songs that feel like sun|sunshine|sunlit/i;
 
 export function analyzeVibe(vibe: string): EmotionProfile {
   const text = vibe.toLowerCase().trim();
@@ -945,12 +1042,41 @@ const FEATURE_WEIGHTS = {
   chaotic: { energy: 0.2, valence: 0.2, danceability: 0.2, acousticness: 0.15, tempo: 0.25 },
 };
 
+/** Sunny-day playlists: valence + danceability matter more than acoustic chill. */
+const SUNNY_FEATURE_WEIGHTS = {
+  energy: 0.22,
+  valence: 0.42,
+  danceability: 0.22,
+  acousticness: 0.04,
+  tempo: 0.1,
+};
+
+export type VibeKind = "sunny" | "late_night" | "neutral";
+
+const SUNNY_VIBE_PATTERN =
+  /feel like (the )?sun|songs that feel like sun|sunshine|sunlit|sunny day|sun drenched|warm pop|summer pop|windows down|blue sky/i;
+
+export function detectVibeKind(vibe: string, profile: EmotionProfile): VibeKind {
+  if (SUNNY_VIBE_PATTERN.test(vibe)) return "sunny";
+  if (
+    profile.valence >= 0.62 &&
+    profile.energy >= 0.54 &&
+    profile.tension < 0.35 &&
+    profile.calm < 0.55
+  ) {
+    return "sunny";
+  }
+  if (profile.timeOfDay === "late_night" && profile.energy < 0.55) return "late_night";
+  return "neutral";
+}
+
 export function scoreSong(
   song: SongFeatures,
   profile: EmotionProfile,
-  mode: "strict" | "balanced" | "chaotic"
+  mode: "strict" | "balanced" | "chaotic",
+  vibeKind: VibeKind = "neutral"
 ): number {
-  const weights = FEATURE_WEIGHTS[mode];
+  const weights = vibeKind === "sunny" ? SUNNY_FEATURE_WEIGHTS : FEATURE_WEIGHTS[mode];
 
   // Normalise tempo from BPM to [0,1] — 60 BPM → 0, 200 BPM → 1
   const normTempo = song.tempo != null ? clamp((song.tempo - 60) / 140) : 0.5;
@@ -965,10 +1091,16 @@ export function scoreSong(
   const effectiveEnergy = song.energy ?? 0.5;
   const effectiveValence = song.valence ?? 0.5;
 
-  const desiredDanceability = clamp(profile.energy * 0.5 + profile.valence * 0.3 + 0.2);
+  const desiredDanceability =
+    vibeKind === "sunny"
+      ? clamp(profile.valence * 0.45 + profile.energy * 0.35 + 0.25)
+      : clamp(profile.energy * 0.5 + profile.valence * 0.3 + 0.2);
   const effectiveDanceability = song.danceability ?? 0.5;
 
-  const desiredAcousticness = clamp(profile.calm * 0.4 + profile.nostalgia * 0.4);
+  const desiredAcousticness =
+    vibeKind === "sunny"
+      ? clamp(0.15 + profile.nostalgia * 0.15)
+      : clamp(profile.calm * 0.4 + profile.nostalgia * 0.4);
   const effectiveAcousticness = song.acousticness ?? 0.5;
 
   const energyDelta = Math.abs(effectiveEnergy - profile.energy);
@@ -1036,7 +1168,34 @@ export function refineSongScore(
     if ((song.speechiness ?? 0) > 0.45 && profile.calm > 0.35) s -= 0.05;
   }
 
+  const sunnyMood =
+    profile.valence >= 0.6 && profile.energy >= 0.52 && profile.tension < 0.35;
+
+  if (sunnyMood) {
+    if (v < 0.48) s -= 0.2;
+    if (v < 0.35) s -= 0.15;
+    if (e < 0.4) s -= 0.12;
+    if ((song.acousticness ?? 0) > 0.72) s -= 0.12;
+    if (v >= 0.58 && e >= 0.48 && e <= 0.82 && d >= 0.45) s += 0.14;
+    if (v >= 0.65 && d >= 0.5) s += 0.06;
+  }
+
   return clamp(s);
+}
+
+/** Hard gate: sunny vibes should not surface clearly sad/low-valence tracks. */
+export function passesSunnyGate(song: {
+  valence: number | null;
+  energy: number | null;
+  acousticness: number | null;
+}): boolean {
+  const v = song.valence ?? 0.5;
+  const e = song.energy ?? 0.5;
+  const a = song.acousticness ?? 0.5;
+  if (v < 0.32) return false;
+  if (v < 0.42 && a > 0.65) return false;
+  if (e < 0.28 && v < 0.45) return false;
+  return true;
 }
 
 // ─── PLAYLIST STRUCTURE ───────────────────────────────────────────────────────

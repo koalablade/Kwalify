@@ -2,6 +2,13 @@ import { Router, type IRouter } from "express";
 import { db } from "../db";
 import { likedSongsTable, playlistHistoryTable, savedPlaylistsTable } from "../db";
 import { createSpotifyPlaylist, getValidAccessToken } from "../lib/spotify";
+import {
+  blendEmotionProfiles,
+  fingerprintToEmotionProfile,
+  loadReferenceFingerprint,
+  referenceSimilarityBonus,
+  type ReferenceFingerprint,
+} from "../lib/reference-playlist";
 import { eq, desc, and } from "drizzle-orm";
 import {
   analyzeVibe,
@@ -10,6 +17,8 @@ import {
   limitArtistRepetition,
   generatePlaylistName,
   refineSongScore,
+  detectVibeKind,
+  passesSunnyGate,
   filterDeadZones,
   smoothEnergyCurve,
   separateAdjacentArtists,
@@ -64,6 +73,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     const vibeRaw = rawBody.vibe ?? "";
     const modeRaw = rawBody.mode ?? "balanced";
     const lengthRaw = rawBody.length ?? 25;
+    const referencePlaylistRaw =
+      typeof rawBody.referencePlaylist === "string" ? rawBody.referencePlaylist.trim() : "";
     const parsedLength =
       typeof lengthRaw === "string" ? parseInt(lengthRaw, 10) : Number(lengthRaw);
 
@@ -71,6 +82,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       vibe: (typeof vibeRaw === "string" ? vibeRaw.trim() : String(vibeRaw).trim()) || "balanced",
       mode: (["strict", "balanced", "chaotic"] as const).includes(modeRaw) ? modeRaw : "balanced",
       length: isNaN(parsedLength) || parsedLength <= 0 ? 25 : parsedLength,
+      ...(referencePlaylistRaw ? { referencePlaylist: referencePlaylistRaw } : {}),
     };
 
     const parsed = GeneratePlaylistBody.safeParse(payload);
@@ -80,7 +92,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const { vibe, mode, length } = parsed.data;
+    const { vibe, mode, length, referencePlaylist } = parsed.data;
 
     let emotionProfile: EmotionProfile;
     try {
@@ -89,6 +101,36 @@ router.post("/generate", async (req, res): Promise<void> => {
     } catch (emotionErr) {
       req.log.error({ err: emotionErr }, "Emotion engine failed — using neutral fallback");
       emotionProfile = { ...NEUTRAL_PROFILE };
+    }
+
+    let referenceFingerprint: ReferenceFingerprint | null = null;
+    let referencePlaylistId: string | null = null;
+
+    if (referencePlaylist) {
+      try {
+        const tokens = await getValidAccessToken(req.session.spotifyTokens);
+        const loaded = await loadReferenceFingerprint(tokens.accessToken, referencePlaylist);
+        if (loaded) {
+          referenceFingerprint = loaded.fingerprint;
+          referencePlaylistId = loaded.playlistId;
+          const refProfile = fingerprintToEmotionProfile(referenceFingerprint);
+          const refWeight = mode === "strict" ? 0.65 : mode === "balanced" ? 0.55 : 0.42;
+          emotionProfile = blendEmotionProfiles(emotionProfile, refProfile, refWeight);
+          req.log.info(
+            {
+              referencePlaylistId,
+              sampleCount: referenceFingerprint.sampleCount,
+              refValence: referenceFingerprint.valence,
+              refEnergy: referenceFingerprint.energy,
+            },
+            "Reference playlist fingerprint applied"
+          );
+        } else {
+          req.log.warn({ referencePlaylist }, "Reference playlist had too few audio features");
+        }
+      } catch (refErr) {
+        req.log.warn({ err: refErr, referencePlaylist }, "Reference playlist load failed");
+      }
     }
 
     const likedSongs = await db
@@ -103,6 +145,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
+    const vibeKind = detectVibeKind(vibe, emotionProfile);
+    req.log.info({ vibe, vibeKind, emotionProfile }, "Vibe kind detected");
+
     const scored = likedSongs.map((song) => {
       const base = scoreSong(
         {
@@ -113,24 +158,38 @@ router.post("/generate", async (req, res): Promise<void> => {
           acousticness: song.acousticness,
         },
         emotionProfile,
-        mode as "strict" | "balanced" | "chaotic"
+        mode as "strict" | "balanced" | "chaotic",
+        vibeKind
       );
-      return {
-        ...song,
-        score: refineSongScore(
-          base,
+      let score = refineSongScore(
+        base,
+        {
+          energy: song.energy,
+          valence: song.valence,
+          tempo: song.tempo,
+          danceability: song.danceability,
+          acousticness: song.acousticness,
+          instrumentalness: song.instrumentalness,
+          speechiness: song.speechiness,
+        },
+        emotionProfile
+      );
+
+      if (referenceFingerprint) {
+        score += referenceSimilarityBonus(
           {
             energy: song.energy,
             valence: song.valence,
             tempo: song.tempo,
             danceability: song.danceability,
             acousticness: song.acousticness,
-            instrumentalness: song.instrumentalness,
-            speechiness: song.speechiness,
           },
-          emotionProfile
-        ),
-      };
+          referenceFingerprint,
+          mode as "strict" | "balanced" | "chaotic"
+        );
+      }
+
+      return { ...song, score };
     });
 
     req.log.info({ totalSongs: likedSongs.length }, "Songs scored");
@@ -147,10 +206,27 @@ router.post("/generate", async (req, res): Promise<void> => {
       ids.forEach((id) => recentTrackIds.add(id));
     }
 
-    const penalised = scored.map((song) => ({
+    let penalised = scored.map((song) => ({
       ...song,
       score: recentTrackIds.has(song.trackId) ? song.score * 0.6 : song.score,
     }));
+
+    if (vibeKind === "sunny") {
+      const gated = penalised.filter((s) =>
+        passesSunnyGate({
+          valence: s.valence,
+          energy: s.energy,
+          acousticness: s.acousticness,
+        })
+      );
+      if (gated.length >= Math.min(length * 2, penalised.length * 0.15)) {
+        penalised = gated;
+        req.log.info(
+          { kept: gated.length, dropped: scored.length - gated.length },
+          "Sunny vibe gate applied"
+        );
+      }
+    }
 
     const maxPerArtist = mode === "strict" ? 2 : mode === "balanced" ? 3 : 5;
     const sorted = penalised.sort((a, b) => b.score - a.score);
@@ -178,7 +254,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     const isSpecificLateScene =
       emotionProfile.timeOfDay === "late_night" &&
       (emotionProfile.environment === "urban" || emotionProfile.nostalgia > 0.45);
-    const energyWindow = isSpecificLateScene ? 0.32 : 0.5;
+    const energyWindow =
+      vibeKind === "sunny" ? 0.28 : isSpecificLateScene ? 0.32 : 0.5;
     const smoothMin = Math.max(0.05, emotionProfile.energy - energyWindow);
     const smoothMax = Math.min(0.95, emotionProfile.energy + energyWindow);
     const afterSmoothing = smoothEnergyCurve(afterDeadZone, smoothMin, smoothMax);
@@ -256,22 +333,20 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     req.log.info({ userId, playlistId: savedPlaylistId, trackCount: finalTracks.length }, "Playlist saved to DB");
 
-    if (spotifyPlaylistUrl) {
-      try {
-        await db.insert(playlistHistoryTable).values({
-          spotifyUserId: userId,
-          playlistId: spotifyPlaylistUrl.split("/").pop() ?? String(savedPlaylistId),
-          playlistUrl: spotifyPlaylistUrl,
-          name: playlistName,
-          vibe,
-          mode,
-          trackCount: finalTracks.length,
-          emotionProfile: emotionProfile as any,
-          trackIds: finalTracks.map((t) => t.trackId) as any,
-        });
-      } catch (histErr) {
-        req.log.warn({ err: histErr }, "playlist_history insert failed");
-      }
+    try {
+      await db.insert(playlistHistoryTable).values({
+        spotifyUserId: userId,
+        playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
+        playlistUrl: spotifyPlaylistUrl ?? `https://kwalify.onrender.com/p/${savedPlaylistId}`,
+        name: playlistName,
+        vibe,
+        mode,
+        trackCount: finalTracks.length,
+        emotionProfile: emotionProfile as any,
+        trackIds: finalTracks.map((t) => t.trackId) as any,
+      });
+    } catch (histErr) {
+      req.log.warn({ err: histErr }, "playlist_history insert failed");
     }
 
     const spotifyFields = spotifyPlaylistUrl
@@ -300,6 +375,15 @@ router.post("/generate", async (req, res): Promise<void> => {
         generationMs,
       },
       emotionProfile,
+      vibeKind,
+      referenceMatch: referenceFingerprint
+        ? {
+            playlistId: referencePlaylistId,
+            sampleCount: referenceFingerprint.sampleCount,
+            valence: Math.round(referenceFingerprint.valence * 100) / 100,
+            energy: Math.round(referenceFingerprint.energy * 100) / 100,
+          }
+        : null,
       tracks: finalTracks.map((t) => ({
         id: t.trackId,
         name: t.trackName,

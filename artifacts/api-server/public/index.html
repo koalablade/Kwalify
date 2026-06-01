@@ -421,6 +421,13 @@
           </button>
         </div>
 
+        <div class="ref-field" style="margin-top:14px">
+          <div class="field-label">Sound like this playlist <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint)">(optional)</span></div>
+          <input class="vibe-input" id="referencePlaylistInput" type="url"
+            placeholder="Paste a Spotify playlist link that nails the vibe…"
+            autocomplete="off" spellcheck="false" style="padding-right:16px;font-size:13px" />
+        </div>
+
         <div class="presets">
           <span class="preset-label">Quick</span>
           <button class="preset-btn" onclick="applyPreset('night drive alone on the motorway')">🌙 Night Drive</button>
@@ -719,6 +726,9 @@ function showApp(userData){
     <button class="btn btn-ghost btn-sm btn-logout" onclick="logout()">Log out</button>`;
 
   fetchAndRenderPlaylists();
+  const refSaved=localStorage.getItem('kwalify_reference_playlist');
+  const refEl=$('referencePlaylistInput');
+  if(refEl&&refSaved) refEl.value=refSaved;
   if($('vibeInput')) setTimeout(()=>$('vibeInput').focus(),180);
   startSyncPolling();
 }
@@ -788,6 +798,8 @@ function setLoading(on){
 function _vibeInterpretation(ep){
   if(!ep) return "Balanced mix — curated from your full range of taste";
   const {energy=0.5, valence=0.5, calm=0.5, nostalgia=0.2, tension=0.3} = ep;
+  if(ep.valence>=0.6 && ep.energy>=0.52 && ep.tension<0.35)
+    return "Warm, bright, and open — high valence sunshine energy, not dark or sleepy";
   if(ep.environment==='urban' && ep.timeOfDay==='late_night' && nostalgia>=0.38)
     return "Empty roads and fluorescent stillness — moody, reflective, not party music";
   if(energy>=0.7 && valence>=0.65) return "High energy, uplifting — built to keep you moving";
@@ -830,7 +842,7 @@ function _fmtDuration(ms){
 }
 
 /* ── Show result ── */
-function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotionProfile, spotifyPlaylistUrl, spotifyUnavailable, stats){
+function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotionProfile, spotifyPlaylistUrl, spotifyUnavailable, stats, referenceMatch){
   currentPlaylistId=playlistId; lastVibe=vibe;
   const displayName = playlistName || `Kwalify • ${vibe}`;
   if(resultName) resultName.textContent=displayName;
@@ -873,9 +885,15 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   /* Vibe interpretation line — shown above track list */
   const vibeInterpEl=$('vibeInterpretation');
   if(vibeInterpEl){
-    vibeInterpEl.innerHTML = emotionProfile && typeof emotionProfile==='object'
-      ? `<div class="vibe-interpretation">${esc(_vibeInterpretation(emotionProfile))}</div>`
+    const interp = emotionProfile && typeof emotionProfile==='object'
+      ? esc(_vibeInterpretation(emotionProfile))
       : '';
+    const refLine = referenceMatch && referenceMatch.sampleCount
+      ? `<div class="vibe-interpretation" style="margin-top:8px;border-left-color:#1ed760">🎯 Matched audio fingerprint from your reference playlist (${referenceMatch.sampleCount} tracks · valence ${Math.round((referenceMatch.valence||0)*100)}% · energy ${Math.round((referenceMatch.energy||0)*100)}%)</div>`
+      : '';
+    vibeInterpEl.innerHTML = interp
+      ? `<div class="vibe-interpretation">${interp}</div>${refLine}`
+      : refLine;
   }
 
   /* Stats bar */
@@ -1022,10 +1040,17 @@ function generate(){
   resultCard&&resultCard.classList.remove('visible');
   const length=parseInt($('lenSlider')?.value)||25;
 
+  const refInput=$('referencePlaylistInput');
+  const referencePlaylist=(refInput?.value||'').trim();
+  if(referencePlaylist) try{ localStorage.setItem('kwalify_reference_playlist', referencePlaylist); }catch(_){}
+
   fetch('/api/generate',{
     method:'POST', credentials:'include',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({vibe, length, mode:currentMode}),
+    body:JSON.stringify({
+      vibe, length, mode:currentMode,
+      ...(referencePlaylist?{ referencePlaylist }:{}),
+    }),
   })
   .then(r=>r.json().then(d=>({ok:r.ok,status:r.status,d})))
   .then(({ok,status,d})=>{
@@ -1057,7 +1082,10 @@ function generate(){
     if(vibeInput) vibeInput.value='';
     if($('vibeCounter')) $('vibeCounter').textContent='0/140';
     const trackCount=d.count||d.totalTracks||25;
-    showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null);
+    showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null);
+    if(referencePlaylist && !d.referenceMatch){
+      showToast('Reference playlist could not be read — used text vibe only. Check the link is public.','info',4500);
+    }
     fetchAndRenderPlaylists();
     const toastMsg = d.spotifyPlaylistUrl
       ? `✓ Playlist saved to Kwalify + Spotify — ${trackCount} tracks!`
