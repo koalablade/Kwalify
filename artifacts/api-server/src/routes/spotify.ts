@@ -6,6 +6,7 @@ import {
   fetchLikedSongs,
   fetchAudioFeatures,
   getValidAccessToken,
+  getClientCredentialsToken,
   type SpotifyTrack,
 } from "../lib/spotify";
 import { logger } from "../lib/logger";
@@ -113,7 +114,19 @@ async function runSync(userId: string, tokens: any): Promise<void> {
     });
 
     const trackIds = allTracks.map((t) => t.id);
-    const allFeatures = await fetchAudioFeatures(accessToken, trackIds);
+
+    // Use a server-level Client Credentials token for audio features so it has
+    // its own quota bucket, independent of the user token that was already used
+    // for 180+ liked-songs pages above.  Falls back to the user token if the
+    // CC token request fails (e.g. missing env vars in local dev).
+    let audioFeaturesToken = accessToken;
+    try {
+      audioFeaturesToken = await getClientCredentialsToken();
+    } catch (err) {
+      logger.warn({ err }, "Could not obtain CC token for audio features — using user token");
+    }
+
+    const allFeatures = await fetchAudioFeatures(audioFeaturesToken, trackIds);
     const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
 
     await db.delete(likedSongsTable).where(eq(likedSongsTable.spotifyUserId, userId));

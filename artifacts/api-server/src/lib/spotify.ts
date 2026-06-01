@@ -156,6 +156,32 @@ export async function getValidAccessToken(tokens: SpotifyTokens): Promise<Spotif
   return refreshAccessToken(tokens.refreshToken);
 }
 
+/**
+ * Obtains a short-lived Client Credentials access token.
+ *
+ * Audio features are not user-specific — they only need a valid app token,
+ * not the user's OAuth token. Using a separate CC token gives the audio-features
+ * call its own quota bucket so it doesn't exhaust the user token that is also
+ * handling 189+ liked-songs pages in the same sync run.
+ */
+export async function getClientCredentialsToken(): Promise<string> {
+  const credentials = Buffer.from(
+    `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+  ).toString("base64");
+
+  const response = await spotifyRequest<any>({
+    method: "POST",
+    url: `${SPOTIFY_AUTH_BASE}/api/token`,
+    data: "grant_type=client_credentials",
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+
+  return response.data.access_token as string;
+}
+
 export async function getSpotifyUser(accessToken: string): Promise<any> {
   const response = await spotifyRequest<any>({
     method: "GET",
