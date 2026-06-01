@@ -429,10 +429,14 @@
         </div>
 
         <div class="ref-field" style="margin-top:14px">
-          <div class="field-label">Sound like this playlist <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint)">(optional)</span></div>
+          <div class="field-label">Sound like this playlist <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint)">(optional mood hint)</span></div>
           <input class="vibe-input" id="referencePlaylistInput" type="url"
-            placeholder="Paste a Spotify playlist link that nails the vibe…"
+            placeholder="Paste a public Spotify playlist link to bias the vibe…"
             autocomplete="off" spellcheck="false" style="padding-right:16px;font-size:13px" />
+          <p class="ref-hint" id="referencePlaylistHint" style="font-size:11px;color:var(--text-faint);margin:6px 0 0;line-height:1.45">
+            Biases matching only — generate always creates a <em>new</em> playlist on your Spotify, not this link.
+            <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>
+          </p>
         </div>
 
         <div class="presets">
@@ -740,6 +744,7 @@ function showApp(userData){
   const refSaved=localStorage.getItem('kwalify_reference_playlist');
   const refEl=$('referencePlaylistInput');
   if(refEl&&refSaved) refEl.value=refSaved;
+  updateReferenceHint();
   if($('vibeInput')) setTimeout(()=>$('vibeInput').focus(),180);
   startSyncPolling();
 }
@@ -786,7 +791,7 @@ const PROG_PHASE_MAP={
   done:{pct:100, labels:['Done']},
   error:{pct:0, labels:['Something went wrong']},
 };
-let progTimer=null, progPollTimer=null, progStartMs=0, _lastProgPhase='';
+let progTimer=null, progPollTimer=null, progLabelTimer=null, progStartMs=0, _lastProgPhase='';
 
 function _pickProgLabel(phase){
   const s=PROG_PHASE_MAP[phase]||PROG_PHASE_MAP.scoring;
@@ -794,12 +799,26 @@ function _pickProgLabel(phase){
   return list[Math.floor(Math.random()*list.length)];
 }
 
+function _elapsedProgPhase(elapsedMs){
+  if(elapsedMs<3500) return 'starting';
+  if(elapsedMs<11000) return 'building_profile';
+  if(elapsedMs<50000) return 'scoring';
+  if(elapsedMs<72000) return 'composing';
+  return 'spotify';
+}
+
+function _rotateProgLabel(){
+  if(!progLabel) return;
+  const phase=_lastProgPhase||'scoring';
+  progLabel.textContent=_pickProgLabel(phase);
+}
+
 function _setProgPhase(phase){
   const s=PROG_PHASE_MAP[phase]||PROG_PHASE_MAP.scoring;
   const p=Math.min(88, Math.max(4, s.pct));
   if(phase!==_lastProgPhase){
     _lastProgPhase=phase;
-    if(progLabel) progLabel.textContent=_pickProgLabel(phase);
+    _rotateProgLabel();
   }
   if(progFill) progFill.style.width=p+'%';
   if(progPct) progPct.textContent=p+'%';
@@ -812,19 +831,26 @@ function _setProgPct(pct){
 function stopProgressTimers(){
   clearInterval(progTimer);
   clearInterval(progPollTimer);
+  clearInterval(progLabelTimer);
   progPollTimer=null;
+  progLabelTimer=null;
 }
 function startProgress(){
   stopProgressTimers();
   progStartMs=Date.now();
   _lastProgPhase='';
   _setProgPhase('starting');
+  progLabelTimer=setInterval(_rotateProgLabel, 2600);
   progPollTimer=setInterval(()=>{
+    const elapsed=Date.now()-progStartMs;
     fetch('/api/generate/status',{credentials:'include'})
       .then(r=>r.ok?r.json():null)
-      .then(d=>{ if(d&&d.phase&&d.phase!=='idle') _setProgPhase(d.phase); })
-      .catch(()=>{});
-  },900);
+      .then(d=>{
+        if(d&&d.phase&&d.phase!=='idle'&&d.phase!=='done') _setProgPhase(d.phase);
+        else if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed));
+      })
+      .catch(()=>{ if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed)); });
+  },700);
   progTimer=setInterval(()=>{
     const elapsed=Date.now()-progStartMs;
     const bump=4+Math.min(84, elapsed/90000*84);
@@ -1092,6 +1118,38 @@ function showPendingPreview(pendingTracks, emotionProfile, playlistName, vibe){
   card.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
+function clearReferencePlaylist(){
+  const refEl=$('referencePlaylistInput');
+  if(refEl) refEl.value='';
+  try{ localStorage.removeItem('kwalify_reference_playlist'); }catch(_){}
+  updateReferenceHint();
+  showToast('Reference playlist cleared — generate will use your vibe text only.','info',2800);
+}
+
+function updateReferenceHint(){
+  const hint=$('referencePlaylistHint');
+  const val=($('referencePlaylistInput')?.value||'').trim();
+  if(!hint) return;
+  if(val){
+    hint.innerHTML='Saved reference will bias the next run only — output is still a <em>new</em> playlist. <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>';
+  } else {
+    hint.innerHTML='Biases matching only — generate always creates a <em>new</em> playlist on your Spotify, not this link. <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>';
+  }
+}
+
+function wireReferencePlaylistInput(){
+  const refEl=$('referencePlaylistInput');
+  if(!refEl||refEl.dataset.wired) return;
+  refEl.dataset.wired='1';
+  refEl.addEventListener('input', updateReferenceHint);
+  refEl.addEventListener('change', ()=>{
+    const v=refEl.value.trim();
+    if(v) try{ localStorage.setItem('kwalify_reference_playlist', v); }catch(_){}
+    else try{ localStorage.removeItem('kwalify_reference_playlist'); }catch(_){}
+    updateReferenceHint();
+  });
+}
+
 /* ── Generate ── */
 function generate(){
   if(isGenerating) return;
@@ -1106,6 +1164,8 @@ function generate(){
   const refInput=$('referencePlaylistInput');
   const referencePlaylist=(refInput?.value||'').trim();
   if(referencePlaylist) try{ localStorage.setItem('kwalify_reference_playlist', referencePlaylist); }catch(_){}
+  else try{ localStorage.removeItem('kwalify_reference_playlist'); }catch(_){}
+  updateReferenceHint();
 
   const genAbort=new AbortController();
   const genTimeout=setTimeout(()=>genAbort.abort(),92000);
@@ -1564,6 +1624,7 @@ async function _startFullSync(){
 }
 
 /* ── Boot ── */
+wireReferencePlaylistInput();
 init();
 </script>
 </body>
