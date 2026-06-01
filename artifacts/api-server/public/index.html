@@ -1222,6 +1222,10 @@ function generate(){
       showToast(`Rate limited — try again in ${retryAfter}s`,'info',5000);
       return;
     }
+    if(status===503&&d.code==='SERVER_RESTARTING'){
+      showToast(d.error||'Server is updating — wait ~30s after deploy finishes, then try again.','info',8000);
+      return;
+    }
     if(status===504||(d.code==='TIMEOUT'&&!d.success)){
       const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
       showToast(d.error||'Generation timed out. Try Balanced mode or a shorter playlist.','error',6500);

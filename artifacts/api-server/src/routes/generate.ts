@@ -52,6 +52,7 @@ import {
   getGenerateProgress,
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
+import { isShuttingDown } from "../lib/shutdown";
 import {
   buildFallbackPipelineResult,
   formatTracksForApi,
@@ -132,6 +133,7 @@ router.post("/generate", async (req, res): Promise<void> => {
   const startMs = Date.now();
   let requestId = "";
   let sessionUserId = "";
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   try {
     if (!getFeatures().spotify.enabled) {
       generateFail(res, 503, "SPOTIFY_DISABLED", "Spotify is not configured on this server.");
@@ -139,6 +141,16 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     if (!req.session.spotifyTokens || !req.session.spotifyUserId) {
       generateFail(res, 401, "NOT_AUTHENTICATED", "Not authenticated");
+      return;
+    }
+
+    if (isShuttingDown()) {
+      generateFail(
+        res,
+        503,
+        "SERVER_RESTARTING",
+        "Server is updating — wait about 30 seconds, then try again."
+      );
       return;
     }
 
@@ -200,6 +212,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     requestId = acquired;
     sessionUserId = userId;
     setGeneratePhase(userId, requestId, "starting");
+    heartbeatTimer = setInterval(() => {
+      const progress = getGenerateProgress(userId);
+      req.log.info(
+        {
+          requestId,
+          ms: Date.now() - startMs,
+          phase: progress?.phase ?? "unknown",
+        },
+        "Generate in progress"
+      );
+    }, 15_000);
 
     try {
 
@@ -512,6 +535,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const stackCacheKey = `${resultCacheKey}:${likedSongs.length}`;
 
     t0 = Date.now();
+    req.log.info({ tracks: likedSongs.length }, "Building genre stack");
     let genreStack = getCachedGenreStack(stackCacheKey);
     const stackFromCache = !!genreStack;
     if (!genreStack) {
@@ -543,6 +567,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     setGeneratePhase(userId, requestId, "scoring");
     t0 = Date.now();
+    req.log.info({ tracks: likedSongs.length, stackFromCache }, "Starting hybrid scoring");
     const useFastFallback = budget.shouldFastFallback() || budget.isExpired();
 
     let pipeline: ReturnType<typeof buildPlaylistPipeline>;
@@ -942,17 +967,20 @@ router.post("/generate", async (req, res): Promise<void> => {
         : {}),
     });
     } finally {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (sessionUserId && requestId) {
         endGenerateSession(sessionUserId, requestId);
       }
     }
   } catch (fatalErr: any) {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
     req.log.error(
       { err: fatalErr?.message, code: "INTERNAL_ERROR", userId: sessionUserId },
       "Unhandled error in /generate"
     );
     if (sessionUserId && requestId) {
       setGeneratePhase(sessionUserId, requestId, "error");
+      endGenerateSession(sessionUserId, requestId);
     }
     if (!res.headersSent && !staleGenerate(sessionUserId, requestId)) {
       const timedOut = Date.now() - startMs >= REQUEST_HARD_TIMEOUT_MS - 1000;

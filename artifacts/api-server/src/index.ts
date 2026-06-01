@@ -6,6 +6,7 @@ import { createApp } from "./app";
 import { markBootComplete } from "./lib/boot-state";
 import { logger } from "./lib/logger";
 import { runDbInit } from "./lib/db-init";
+import { beginGracefulShutdown } from "./lib/shutdown";
 
 /**
  * Startup health verification.
@@ -116,6 +117,8 @@ async function bootstrap(): Promise<void> {
             "[boot] Spotify credentials not configured — /auth, /spotify, and /generate return 503",
           );
         }
+
+        process.on("SIGTERM", () => beginGracefulShutdown(logger));
 
         resolve();
       })
