@@ -66,8 +66,8 @@ type ComposePoolTrack = {
 
 type ComposedTrack<T extends ComposePoolTrack> = T & { narrativeRole: TrackNarrativeRole };
 
-export interface ComposePlaylistResult<T> {
-  finalTracks: T[];
+export interface ComposePlaylistResult<T extends ComposePoolTrack> {
+  finalTracks: ComposedTrack<T>[];
   structured: T[];
   poolTarget: number;
   afterDeadZone: T[];
@@ -81,7 +81,7 @@ export interface ComposePlaylistResult<T> {
 
 export function composePlaylistFromPool<T extends ComposePoolTrack>(
   input: ComposePlaylistInput<T>
-): ComposePlaylistResult<ComposedTrack<T>> {
+): ComposePlaylistResult<T> {
   const {
     sortedPool,
     playlistLength,
