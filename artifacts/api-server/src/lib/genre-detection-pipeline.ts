@@ -12,6 +12,7 @@ import {
   toGenreProfile,
 } from "./genre-taxonomy";
 import type { UserGenreVector } from "./user-genre-profile";
+import { applyCountryClassificationBias } from "../core/genre-intelligence/country-scoring";
 
 const WEIGHTS = {
   metadata: 0.35,
@@ -188,7 +189,19 @@ export function detectTrackGenre(
 
   merged.holidayBound = merged.genreFamily === "christmas" || meta.holidayBound;
 
-  return toGenreProfile(merged);
+  return toGenreProfile(
+    applyCountryClassificationBias(merged, {
+      trackName: track.trackName,
+      artistName: track.artistName,
+      albumName: track.albumName,
+      energy: track.energy,
+      valence: track.valence,
+      acousticness: track.acousticness,
+      danceability: track.danceability,
+      speechiness: track.speechiness,
+      tempo: track.tempo,
+    })
+  );
 }
 
 export function detectLibraryGenres(
@@ -231,7 +244,10 @@ export function detectLibraryGenres(
 function extractVibeHints(vibe: string): string[] {
   const lower = vibe.toLowerCase();
   const hints: string[] = [];
-  if (/\b(country|americana|bluegrass|honky)\b/.test(lower)) hints.push("country");
+  if (/\b(country|americana|bluegrass|honky|nashville|road trip|highway|outlaw)\b/.test(lower)) {
+    hints.push("country");
+  }
+  if (/\b(afrobeat|afrobeats|amapiano|highlife)\b/.test(lower)) hints.push("world", "latin");
   if (/\b(rap|hip hop|trap|drill)\b/.test(lower)) hints.push("hip_hop");
   if (/\b(rock|metal|punk|emo)\b/.test(lower)) hints.push("rock");
   if (/\b(electronic|house|techno|dnb|trance)\b/.test(lower)) hints.push("electronic");

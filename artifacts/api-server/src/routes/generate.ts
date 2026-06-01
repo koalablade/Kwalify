@@ -6,13 +6,11 @@ import {
   blendEmotionProfiles,
   fingerprintToEmotionProfile,
   loadReferenceFingerprint,
-  referenceSimilarityBonus,
   type ReferenceFingerprint,
 } from "../lib/reference-playlist";
 import { eq, desc, and } from "drizzle-orm";
 import { parseEmotionalDestination } from "../lib/emotion-destination";
 import {
-  applyFreshnessToScore,
   buildAlbumAppearanceMap,
   buildArtistAppearanceMap,
   buildFreshnessStats,
@@ -22,68 +20,27 @@ import {
 } from "../lib/playlist-freshness";
 import { rediscoveryJitter } from "../lib/rediscovery";
 import { buildLibrarySignals, type LikedSongRow } from "../lib/library-signals";
-import {
-  computeRediscoveryScore,
-  detectRediscoveryMode,
-  rediscoveryScoreBoost,
-  type RediscoveryMode,
-} from "../lib/forgotten-favourites";
-import {
-  chapterTrackBoost,
-  detectMusicChapters,
-  matchChapterFromVibe,
-} from "../lib/music-life-chapters";
-import {
-  archaeologyRediscoveryBoost,
-  detectArchaeologyIntent,
-} from "../lib/library-archaeology";
+import { detectRediscoveryMode, type RediscoveryMode } from "../lib/forgotten-favourites";
+import { detectMusicChapters, matchChapterFromVibe } from "../lib/music-life-chapters";
+import { detectArchaeologyIntent } from "../lib/library-archaeology";
 import { computeSurpriseMix } from "../lib/human-surprise";
-import { applyRediscoveryPoolBias } from "../lib/emotional-discovery";
-import { injectControlledSurprise } from "../lib/controlled-surprise";
 import { analyzeMomentPipeline } from "../lib/moment-pipeline";
-import {
-  buildHybridScoringContext,
-  scoreLibraryHybrid,
-  buildScoringDiagnostics,
-} from "../lib/hybrid-scoring";
 import { buildUserGenreProfile } from "../lib/user-genre-profile";
-import { applyGenreCoverageBias } from "../lib/genre-coverage";
-import {
-  shouldUseGenreFallback,
-  genreFallbackScore,
-  pickFallbackGenres,
-} from "../lib/anti-generic-fallback";
-import { classifyTrack } from "../lib/genre-taxonomy";
-import {
-  enforcePlaylistGenreBalance,
-  type GenreAudit,
-} from "../lib/genre-coverage-enforcement";
-import {
-  buildGenreIntelligenceStack,
-  applyStackToScoredPool,
-  applyStackToFinalTracks,
-} from "../lib/genre-intelligence-stack";
-import { applyTopGenreDiversityFloor } from "../lib/genre-identity-rules";
+import { buildGenreIntelligenceStack } from "../lib/genre-intelligence-stack";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
+import { buildPlaylistPipeline } from "../core/playlist-pipeline";
+import type { GenreAudit } from "../lib/genre-audit";
 import { summarizePipeline } from "../lib/scoring-explanation";
 import { scorePromptConfidence } from "../lib/prompt-confidence";
 import { buildGenerationExplanation } from "../lib/vibe-explanation";
 import { buildMomentUnderstanding } from "../lib/moment-understanding";
 import { detectMixedEmotions } from "../lib/multi-emotion";
-import { assignNarrativeRoles } from "../lib/narrative-roles";
 import {
   analyzeVibeWithContext,
-  buildPlaylistStructure,
-  limitArtistRepetition,
   generatePlaylistName,
   detectVibeKind,
   detectJourneyArc,
-  passesSunnyGate,
-  filterDeadZones,
-  smoothEnergyCurve,
-  separateAdjacentArtists,
-  enforceArc,
   type EmotionProfile,
 } from "../lib/emotion";
 import { GeneratePlaylistBody } from "../zod/api";
@@ -343,247 +300,75 @@ router.post("/generate", async (req, res): Promise<void> => {
       recentPlaylistTrackIds: recentTrackLists,
     });
 
-    const hybridCtx = buildHybridScoringContext({
+    const maxPerArtist = mode === "strict" ? 2 : mode === "balanced" ? 3 : 5;
+
+    const allowHolidaySeason =
+      /\b(christmas|xmas|holiday|festive|winter holiday)\b/i.test(vibe) ||
+      (humanIntent.intent === "nostalgia" && /\bchristmas|holiday\b/i.test(vibe));
+
+    const pipeline = buildPlaylistPipeline({
+      likedSongs,
       vibe,
-      profile: emotionProfile,
+      mode: mode as "strict" | "balanced" | "chaotic",
+      playlistLength: length,
+      emotionProfile,
+      vibeKind,
       intent: humanIntent,
+      humanIntent,
       canonical: momentPipeline?.canonicalScene ?? null,
       prototype: scenePrototype,
       sonicProfile,
-      vibeKind,
-      userGenre: userGenreProfile,
-    });
-
-    const { results: hybridResults, excluded: hybridExcluded } = scoreLibraryHybrid(
-      likedSongs,
-      hybridCtx,
-      mode as "strict" | "balanced" | "chaotic",
-      (trackId) => {
+      userGenreProfile,
+      genreStack,
+      surpriseMix,
+      journeyArc,
+      maxPerArtist,
+      recentPlaylistTrackIds: recentTrackLists,
+      memoryByTrack: (trackId) => {
         const signal = librarySignals.tracks.get(trackId);
         if (!signal) return 0.35;
         const tm = computeTemporalMemory(signal);
         return Math.max(0, Math.min(1, 0.42 + tm.scoreModifier * 2));
       },
-      (trackId) => Math.max(0, Math.min(1, 0.32 + (rediscoveryJitter(trackId, startMs) + 0.02) / 0.06))
-    );
-
-    const scoringDiagnostics = buildScoringDiagnostics(hybridResults, hybridExcluded, hybridCtx, 15);
-
-    const scored = hybridResults.map(({ track: song, score: hybridBase, debug }) => {
-      let score = hybridBase;
-
-      if (referenceFingerprint) {
-        score += referenceSimilarityBonus(
-          {
-            energy: song.energy,
-            valence: song.valence,
-            tempo: song.tempo,
-            danceability: song.danceability,
-            acousticness: song.acousticness,
-          },
-          referenceFingerprint,
-          mode as "strict" | "balanced" | "chaotic"
-        );
-      }
-
-      if (memoryWeight > 0.45 && (song.acousticness ?? 0) > 0.35) {
-        score += memoryWeight * 0.04;
-      }
-
-      const signal = librarySignals.tracks.get(song.trackId);
-      const emotionFit = score;
-
-      const rediscoveryScore = signal
-        ? computeRediscoveryScore({
-            signal,
-            emotionFit,
-            profile: emotionProfile,
-            mode: rediscoveryMode,
-          })
-        : 0.2;
-
-      score += rediscoveryScoreBoost(rediscoveryScore, emotionFit, rediscoveryMode) * 0.85;
-      score += chapterTrackBoost(song.trackId, chapterMatch);
-      if (archaeology) score += archaeologyRediscoveryBoost(archaeology.concept);
-      score += rediscoveryJitter(song.trackId, startMs) * 0.001;
-      score *= promptConfidence.qualityBoost;
-      score *= journeyArcMultiplier;
-
-      score = applyFreshnessToScore(score, {
-        trackId: song.trackId,
-        artistName: song.artistName,
-        albumName: song.albumName,
-        stats: freshnessStats,
-        artistAppearances,
-        albumAppearances,
-        globalCloneMultiplier: cloneMultiplier,
-      });
-
-      return { ...song, score, rediscoveryScore, scoringDebug: debug };
+      noveltyByTrack: (trackId) =>
+        Math.max(0, Math.min(1, 0.32 + (rediscoveryJitter(trackId, startMs) + 0.02) / 0.06)),
+      postScore: {
+        referenceFingerprint,
+        memoryWeight,
+        librarySignals,
+        rediscoveryMode,
+        archaeology,
+        chapterMatch,
+        startMs,
+        promptConfidenceMultiplier: promptConfidence.qualityBoost,
+        journeyArcMultiplier,
+        freshness: {
+          stats: freshnessStats,
+          artistAppearances,
+          albumAppearances,
+          globalCloneMultiplier: cloneMultiplier,
+        },
+      },
+      genrePost: {
+        allowHoliday: allowHolidaySeason,
+        suppressGenres: allowHolidaySeason ? [] : ["christmas"],
+      },
     });
 
+    let finalTracks = pipeline.finalTracks;
+    const sorted = pipeline.sorted;
+    const scoringDiagnostics = pipeline.scoringDiagnostics;
+    const genreAudit: GenreAudit = pipeline.genreAudit;
+    const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
+
     req.log.info(
-      { totalSongs: likedSongs.length, excluded: hybridExcluded.length, scoringDiagnostics },
+      {
+        totalSongs: likedSongs.length,
+        excluded: pipeline.hybridExcludedCount,
+        scoringDiagnostics,
+      },
       "Hybrid scoring complete"
     );
-
-    let penalised = scored;
-
-    if (vibeKind === "sunny") {
-      const gated = penalised.filter((s) =>
-        passesSunnyGate({
-          valence: s.valence,
-          energy: s.energy,
-          acousticness: s.acousticness,
-        })
-      );
-      if (gated.length >= Math.min(length * 2, penalised.length * 0.15)) {
-        penalised = gated;
-        req.log.info(
-          { kept: gated.length, dropped: scored.length - gated.length },
-          "Sunny vibe gate applied"
-        );
-      }
-    }
-
-    const maxPerArtist = mode === "strict" ? 2 : mode === "balanced" ? 3 : 5;
-    let sorted = penalised.sort((a, b) => b.score - a.score);
-
-    if (shouldUseGenreFallback(sorted.length, Math.max(length * 2, 40))) {
-      const fallbackGenres = pickFallbackGenres(userGenreProfile, emotionProfile, vibe);
-      sorted = sorted
-        .map((t) => {
-          const c = userGenreProfile.trackClassifications.get(t.trackId) ?? classifyTrack(t);
-          return { ...t, score: t.score + genreFallbackScore(c, fallbackGenres, emotionProfile) * 0.35 };
-        })
-        .sort((a, b) => b.score - a.score);
-      req.log.info({ fallbackGenres, pool: sorted.length }, "Genre-consistent fallback bias applied");
-    }
-
-    sorted = applyGenreCoverageBias(
-      sorted,
-      userGenreProfile.trackClassifications,
-      userGenreProfile.vector,
-      length
-    );
-
-    sorted = applyStackToScoredPool(sorted, genreStack);
-
-    const poolTarget = Math.max(Math.ceil(length * 3), 75);
-    const poolBiased = applyRediscoveryPoolBias(sorted, surpriseMix, poolTarget * 2);
-    const diversified = limitArtistRepetition(poolBiased, maxPerArtist);
-
-    const structured = buildPlaylistStructure(
-      diversified,
-      poolTarget,
-      mode as "strict" | "balanced" | "chaotic"
-    );
-
-    // Shuffle only the top half of the pool so each regen call picks different
-    // tracks from the high-quality set, without demoting any low-scoring song
-    // into the top half (bottom half ordering is preserved).
-    const pool = structured.slice(0, poolTarget);
-    const halfLen = Math.floor(pool.length / 2);
-    for (let i = halfLen - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    const shuffledStructured = [...pool, ...structured.slice(poolTarget)];
-
-    const afterDeadZone = filterDeadZones(shuffledStructured, length);
-    const isSpecificLateScene =
-      emotionProfile.timeOfDay === "late_night" &&
-      (emotionProfile.environment === "urban" || emotionProfile.nostalgia > 0.45);
-    const lowEnergyTarget = emotionProfile.energy < 0.25;
-    const energyWindow =
-      vibeKind === "sunny"
-        ? 0.28
-        : isSpecificLateScene
-          ? 0.42
-          : lowEnergyTarget
-            ? 0.48
-            : 0.5;
-    const smoothMin = Math.max(0.05, emotionProfile.energy - energyWindow);
-    const smoothMax = Math.min(0.95, emotionProfile.energy + energyWindow);
-    let afterSmoothing = smoothEnergyCurve(afterDeadZone, smoothMin, smoothMax);
-    if (afterSmoothing.length < length && afterDeadZone.length >= length) {
-      req.log.warn(
-        { smoothMin, smoothMax, pool: afterDeadZone.length, kept: afterSmoothing.length },
-        "Energy window removed too many tracks — using unfiltered pool"
-      );
-      afterSmoothing = afterDeadZone;
-    }
-    const afterArtistSep = separateAdjacentArtists(afterSmoothing);
-    const afterArc = enforceArc(afterArtistSep, emotionProfile, journeyArc);
-    let finalTracks = assignNarrativeRoles(afterArc.slice(0, length), journeyArc);
-
-    const wildcardPool = sorted.slice(0, Math.min(sorted.length, poolTarget * 3));
-    type ScoredLiked = (typeof finalTracks)[number];
-    finalTracks = assignNarrativeRoles(
-      injectControlledSurprise<ScoredLiked>(
-        finalTracks,
-        wildcardPool as ScoredLiked[],
-        emotionProfile,
-        surpriseMix,
-        humanIntent.intent,
-        length
-      ),
-      journeyArc
-    );
-
-    const allowHolidaySeason =
-      /\b(christmas|xmas|holiday|festive|winter holiday)\b/i.test(vibe) ||
-      humanIntent.intent === "nostalgia" && /\bchristmas|holiday\b/i.test(vibe);
-
-    const genreClassMap = userGenreProfile.trackClassifications;
-
-    const genreEnforced = enforcePlaylistGenreBalance(
-      finalTracks,
-      sorted,
-      genreClassMap,
-      userGenreProfile.vector,
-      {
-        allowHoliday: allowHolidaySeason,
-        maxDominance: 0.55,
-        suppressGenres: allowHolidaySeason ? [] : ["christmas"],
-      }
-    );
-    finalTracks = genreEnforced.tracks as typeof finalTracks;
-    let genreAudit = genreEnforced.audit;
-
-    const top3Floor = applyTopGenreDiversityFloor(
-      finalTracks,
-      sorted,
-      userGenreProfile.trackClassifications,
-      userGenreProfile.vector,
-      3
-    );
-    finalTracks = top3Floor.tracks as typeof finalTracks;
-    if (top3Floor.enforced.length) {
-      genreAudit = {
-        ...genreAudit,
-        enforcedAdjustments: [
-          ...genreAudit.enforcedAdjustments,
-          ...top3Floor.enforced.map((g) => ({
-            genre: g,
-            action: "top3_diversity_floor",
-            count: 1,
-          })),
-        ],
-      };
-    }
-
-    const clusterCap = applyStackToFinalTracks(finalTracks, genreStack);
-    finalTracks = clusterCap.tracks as typeof finalTracks;
-    if (clusterCap.clusterCapped) {
-      genreAudit = {
-        ...genreAudit,
-        enforcedAdjustments: [
-          ...genreAudit.enforcedAdjustments,
-          { genre: clusterCap.clusterCapped, action: "micro_cluster_cap", count: 1 },
-        ],
-      };
-    }
 
     req.log.info({ genreAudit, genreStack: genreStack.stats }, "Genre coverage enforcement");
 
@@ -777,10 +562,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         genreAudit,
         genreIntelligence: {
           ontologyNodes: genreStack.stats.ontologyNodes,
+          ontologyTargetMet: genreStack.stats.ontologyTargetMet,
           ontologyEdges: genreStack.stats.ontologyEdges,
           microGenres: genreStack.stats.microGenreCount,
           topMicroLabels: genreStack.stats.topMicroLabels,
           embeddingVersion: genreStack.stats.embeddingVersion,
+          vectorStoreSizes: genreStack.stats.vectorStoreSizes,
           strengthenedEdges: genreStack.userLayer.strengthenedEdges.length,
         },
       },

@@ -1,6 +1,5 @@
 /**
- * 3-layer genre intelligence stack orchestrator.
- * A: Ontology | B: Embeddings | C: Clustering + living graph
+ * Spotify-scale genre intelligence — unified GenreGraph orchestrator.
  */
 
 import { buildGenreOntology, ontologyStats } from "./genre-ontology";
@@ -11,9 +10,7 @@ import {
 } from "./genre-embeddings";
 import { discoverMicroGenres, enforceClusterDiversityCap, type MicroGenre } from "./genre-clustering";
 import {
-  addCoOccurrenceEdges,
-  addTransitionEdges,
-  buildGenreGraph,
+  buildUnifiedGenreGraph,
   buildUserGenreLayer,
   type GenreGraph,
   type UserGenreLayer,
@@ -24,7 +21,6 @@ import type { RootGenre } from "./genre-taxonomy";
 import { profileToClassification } from "./genre-taxonomy";
 
 export interface GenreIntelligenceStack {
-  ontology: ReturnType<typeof buildGenreOntology>;
   graph: GenreGraph;
   microGenres: MicroGenre[];
   trackEmbeddings: Map<string, number[]>;
@@ -33,10 +29,12 @@ export interface GenreIntelligenceStack {
   seedEmbedding: number[];
   stats: {
     ontologyNodes: number;
+    ontologyTargetMet: boolean;
     ontologyEdges: number;
     microGenreCount: number;
     embeddingVersion: string;
     topMicroLabels: string[];
+    vectorStoreSizes: { genre: number; track: number; cluster: number };
   };
 }
 
@@ -78,20 +76,15 @@ export function buildGenreIntelligenceStack(opts: {
     trackEmbeddings.set(t.trackId, combineTrackEmbedding(input));
   }
 
-  const graph = buildGenreGraph([...trackInputs.values()]);
-
-  const trackFamily = new Map<string, RootGenre>();
-  for (const [id, input] of trackInputs) {
-    const fam = input.classification?.genreFamily;
-    if (fam) trackFamily.set(id, fam);
-  }
-
-  if (opts.recentPlaylistTrackIds?.length) {
-    addCoOccurrenceEdges(graph, opts.recentPlaylistTrackIds, trackFamily);
-    addTransitionEdges(graph, opts.recentPlaylistTrackIds, trackFamily);
-  }
-
   const microGenres = discoverMicroGenres([...trackInputs.values()]);
+
+  const graph = buildUnifiedGenreGraph({
+    trackInputs: [...trackInputs.values()],
+    userProfile: opts.userProfile.vector,
+    clusters: microGenres,
+    recentPlaylistTrackIds: opts.recentPlaylistTrackIds,
+  });
+
   const userLayer = buildUserGenreLayer(opts.userProfile.vector, graph);
   const seedEmbedding = buildSeedEmbeddingFromVibe(
     [...trackInputs.values()],
@@ -102,7 +95,6 @@ export function buildGenreIntelligenceStack(opts: {
   const oStats = ontologyStats();
 
   return {
-    ontology: buildGenreOntology(),
     graph,
     microGenres,
     trackEmbeddings,
@@ -111,10 +103,16 @@ export function buildGenreIntelligenceStack(opts: {
     seedEmbedding,
     stats: {
       ontologyNodes: oStats.nodeCount,
+      ontologyTargetMet: oStats.targetMet,
       ontologyEdges: oStats.edgeCount,
       microGenreCount: microGenres.length,
       embeddingVersion: EMBEDDING_VERSION,
-      topMicroLabels: microGenres.slice(0, 5).flatMap((m) => m.discoveredLabels),
+      topMicroLabels: microGenres.slice(0, 8).flatMap((m) => m.labels),
+      vectorStoreSizes: {
+        genre: graph.embeddings.genreSpace.size(),
+        track: graph.embeddings.trackSpace.size(),
+        cluster: graph.embeddings.clusterSpace.size(),
+      },
     },
   };
 }

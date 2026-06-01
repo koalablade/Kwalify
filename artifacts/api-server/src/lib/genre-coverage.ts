@@ -11,6 +11,12 @@ export interface GenreCoverageBand {
   max: number;
 }
 
+/** If genre is ≥ this share in user library, playlist must include at least min band */
+export const GENRE_MIN_LIBRARY_SHARE = 0.03;
+
+/** No single genre family may exceed this share in a playlist (hard constraint) */
+export const GENRE_MAX_DOMINANCE = 0.35;
+
 /** Target share of playlist slots (0–1) when genre exists in user library */
 export const GENRE_COVERAGE: Partial<Record<RootGenre, GenreCoverageBand>> = {
   country: { min: 0.05, max: 0.3 },
@@ -42,8 +48,8 @@ export function activeCoverageTargets(
     if (suppressGenres.includes(genre)) continue;
     const userShare = userVector[genre] ?? 0;
     if (userShare < 0.04) continue;
-    const min = Math.min(band.min, userShare * 0.85);
-    const max = Math.min(band.max, userShare * 1.4 + 0.08);
+    const min = Math.max(GENRE_MIN_LIBRARY_SHARE, Math.min(band.min, userShare * 0.85));
+    const max = Math.min(GENRE_MAX_DOMINANCE, Math.min(band.max, userShare * 1.4 + 0.08));
     out.push({ genre, min, max, userShare });
   }
 

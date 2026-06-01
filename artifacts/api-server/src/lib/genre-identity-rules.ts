@@ -9,7 +9,7 @@ import type { UserGenreVector } from "./user-genre-profile";
 
 export const TOP_GENRE_MIN_SHARE = 0.08;
 export const MICRO_CLUSTER_MAX_SHARE = 0.32;
-export const SINGLE_GENRE_MAX_DOMINANCE = 0.55;
+export const SINGLE_GENRE_MAX_DOMINANCE = 0.35;
 
 export function applyTopGenreDiversityFloor<T extends { trackId: string; score: number }>(
   tracks: T[],

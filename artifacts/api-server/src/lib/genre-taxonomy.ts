@@ -159,6 +159,8 @@ export function classifyTrack(
   const second = hits[1];
 
   if (!top) {
+    const inferred = inferGenreFromAudioOnly(track);
+    if (inferred) return inferred;
     return emptyClassification();
   }
 
@@ -179,6 +181,48 @@ export function classifyTrack(
     microStyle: top.micro,
     confidenceScore: confidence,
     holidayBound: top.taxon.root === "christmas",
+  };
+}
+
+function inferGenreFromAudioOnly(track: {
+  energy?: number | null;
+  valence?: number | null;
+  acousticness?: number | null;
+  danceability?: number | null;
+  speechiness?: number | null;
+}): TrackGenreClassification | null {
+  const a = track.acousticness ?? 0.5;
+  const e = track.energy ?? 0.5;
+  const d = track.danceability ?? 0.5;
+  const sp = track.speechiness ?? 0.2;
+  let root: RootGenre = "indie";
+  let sub = "indie_rock";
+  if (sp > 0.4 && e > 0.45) {
+    root = "hip_hop";
+    sub = "trap";
+  } else if (d > 0.72 && e > 0.6) {
+    root = "electronic";
+    sub = "house";
+  } else if (a > 0.55 && e < 0.5) {
+    root = "country";
+    sub = "folk_country";
+  } else if (e > 0.75) {
+    root = "rock";
+    sub = "classic_rock";
+  } else if (a > 0.5 && (track.valence ?? 0.5) < 0.45) {
+    root = "jazz";
+    sub = "smooth_jazz";
+  }
+  return {
+    genrePrimary: root,
+    genreFamily: root,
+    genreSecondary: null,
+    primarySubgenre: sub,
+    secondarySubgenre: null,
+    subGenres: [sub],
+    microStyle: null,
+    confidenceScore: 0.38,
+    holidayBound: false,
   };
 }
 
@@ -214,8 +258,12 @@ function applyAudioGenreHeuristics(
   const inst = track.instrumentalness ?? 0.1;
 
   if (a > 0.58 && e < 0.55 && d < 0.6) {
-    pushHit(hits, "country", "folk_country", 0.3, "acoustic lean");
-    pushHit(hits, "folk", "singer_songwriter", 0.26, null);
+    pushHit(hits, "country", "folk_country", 0.38, "acoustic country lean");
+    pushHit(hits, "folk", "singer_songwriter", 0.18, null);
+  }
+  if (a > 0.52 && a < 0.88 && e >= 0.35 && e <= 0.72 && (track.speechiness ?? 0.2) < 0.28) {
+    pushHit(hits, "country", "alt_country", 0.32, "storytelling acoustic");
+    pushHit(hits, "country", "modern_country", 0.24, null);
   }
   if (sp > 0.38 && e > 0.42) pushHit(hits, "hip_hop", "trap", 0.34, null);
   if (d > 0.72 && e > 0.62) {

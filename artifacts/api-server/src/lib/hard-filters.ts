@@ -8,6 +8,10 @@ import type { SceneSeasonContext } from "./seasonal-logic";
 import { seasonalHardExclude, inferTrackSeasonTags } from "./seasonal-logic";
 import { classifyTrack } from "./genre-taxonomy";
 import type { SceneFamily } from "./scene-validation";
+import {
+  resolveSceneConflicts,
+  trackViolatesSceneConflict,
+} from "../core/scene-intelligence/scene-conflict-rules";
 
 export interface HardFilterContext {
   vibe: string;
@@ -47,6 +51,17 @@ export function applyHardFilters(track: TrackRow, ctx: HardFilterContext): HardF
     acousticness: track.acousticness,
     energy: track.energy,
   });
+
+  const sceneConflicts = resolveSceneConflicts({
+    vibe: ctx.vibe,
+    vibeKind: ctx.vibeKind,
+    sceneFamily: ctx.sceneFamily,
+    intent: ctx.intent,
+  });
+  if (!ctx.season.nostalgiaOverride && !ctx.allowContrast) {
+    const conflict = trackViolatesSceneConflict(track, sceneConflicts, classification.holidayBound);
+    if (conflict) return { pass: false, excludedBy: conflict };
+  }
 
   if (
     classification.holidayBound &&

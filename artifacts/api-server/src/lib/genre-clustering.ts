@@ -14,8 +14,12 @@ import {
 export interface MicroGenre {
   id: string;
   centroid: number[];
+  /** Alias: tracks in cluster */
+  tracks: string[];
   sampleTrackIds: string[];
   discoveredLabels: string[];
+  /** Alias for discoveredLabels */
+  labels: string[];
   size: number;
 }
 
@@ -63,11 +67,14 @@ export function discoverMicroGenres(
     if (c.ids.length < MIN_CLUSTER_SIZE) continue;
     const centroid = meanEmbedding(c.vectors);
     const discoveredLabels = topLabels(c.labels);
+    const trackIds = c.ids.slice(0, 12);
     micro.push({
       id: `micro_cluster_${idx++}`,
       centroid,
-      sampleTrackIds: c.ids.slice(0, 12),
+      tracks: trackIds,
+      sampleTrackIds: trackIds,
       discoveredLabels,
+      labels: discoveredLabels,
       size: c.ids.length,
     });
     if (micro.length >= maxClusters) break;

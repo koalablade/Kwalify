@@ -2,9 +2,8 @@
  * Layer B — Embedding space (v0 deterministic; swap provider for OpenAI / music models).
  */
 
-import type { RootGenre } from "./genre-taxonomy";
-import type { TrackGenreClassification } from "./genre-taxonomy";
-import { buildGenreOntology, type OntologyNode } from "./genre-ontology";
+import type { RootGenre, TrackGenreClassification } from "./genre-taxonomy";
+import { buildGenreOntology } from "./genre-ontology";
 
 export const EMBEDDING_DIM = 384;
 export const EMBEDDING_VERSION = "deterministic-v1";
@@ -153,7 +152,10 @@ function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 40);
 }
 
-export function embeddingForOntologyNode(node: OntologyNode, centroids: Map<string, GenreNodeEmbedding>): number[] {
+export function embeddingForOntologyNode(
+  node: { id: string; family: RootGenre; keywords: string[]; weight: number },
+  centroids: Map<string, GenreNodeEmbedding>
+): number[] {
   const c = centroids.get(node.id);
   if (c) return c.embedding;
   const keywords = node.keywords.join(" ");

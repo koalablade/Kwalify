@@ -3,6 +3,8 @@
  *
  * finalScore = scene×0.45 + libraryFit×0.35 + genreBalance×0.20
  * Genre lock prevents scene from overriding confident taxonomy.
+ *
+ * Orchestrated via `core/scoring-engine` — do not add parallel scoring paths here.
  */
 
 import type { EmotionProfile } from "./emotion";
@@ -32,14 +34,24 @@ import {
 } from "./user-genre-profile";
 import { genreFallbackScore, pickFallbackGenres } from "./anti-generic-fallback";
 import type { RootGenre } from "./genre-taxonomy";
+import {
+  SCORING_WEIGHTS,
+  MAX_SCENE_SCORE_INFLUENCE,
+  requireTrackClassification,
+} from "../core/genre-intelligence/genre-constraints";
+import { dynamicSimilarityBoost } from "../shared/embeddings/dynamic-genre-graph";
+import { similarityFillBoost } from "../shared/embeddings/genre-similarity-graph";
+import type { PreScoreContext } from "../core/genre-intelligence/pre-score-bias";
+import {
+  computePreScoreBias,
+  computePreScoreBiasBreakdown,
+} from "../core/genre-intelligence/pre-score-bias";
+import type { TruthAnchorStore } from "../core/genre-intelligence/genre-truth-anchor";
+import {
+  applyTruthAnchorGuard,
+  getTruthAnchor,
+} from "../core/genre-intelligence/genre-truth-anchor";
 
-const TRI_WEIGHTS = {
-  scene: 0.45,
-  library: 0.35,
-  genre: 0.2,
-} as const;
-
-const SCENE_MAX_INFLUENCE = 0.55;
 const GENRE_FLOOR_STRONG = 0.15;
 
 export interface TrackScoringDebug {
@@ -77,6 +89,8 @@ export interface HybridScoringContext {
   userGenre: UserGenreProfile;
   fallbackGenres: RootGenre[];
   sceneSeasonMode: "winter_holiday" | "summer" | "neutral";
+  preScore?: PreScoreContext;
+  truthAnchors?: TruthAnchorStore;
 }
 
 export function buildHybridScoringContext(opts: {
@@ -90,6 +104,8 @@ export function buildHybridScoringContext(opts: {
   experienceSeason?: string | null;
   userGenre?: UserGenreProfile;
   libraryTracks?: Parameters<typeof buildUserGenreProfile>[0];
+  preScore?: PreScoreContext;
+  truthAnchors?: TruthAnchorStore;
 }): HybridScoringContext {
   let prototype = opts.prototype;
   if (!prototype && opts.vibeKind === "sunny") {
@@ -135,6 +151,8 @@ export function buildHybridScoringContext(opts: {
     userGenre,
     fallbackGenres: pickFallbackGenres(userGenre, opts.profile, opts.vibe),
     sceneSeasonMode,
+    preScore: opts.preScore,
+    truthAnchors: opts.truthAnchors,
     hardFilter: {
       vibe: opts.vibe,
       intent: opts.intent.intent,
@@ -213,67 +231,90 @@ export function computeTriScores(
   memoryMatch: number,
   noveltyScore: number
 ): TriScores {
-  const classification =
-    ctx.userGenre.trackClassifications.get(track.trackId) ?? classifyTrack(track);
+  let classification = requireTrackClassification(
+    track.trackId,
+    ctx.userGenre.trackClassifications,
+    () => classifyTrack(track)
+  );
+  const anchor = ctx.truthAnchors ? getTruthAnchor(ctx.truthAnchors, track.trackId) : undefined;
+  if (anchor) {
+    classification = applyTruthAnchorGuard(classification, anchor).classification;
+  }
 
   const signature = computeGenreSignature(track, classification);
   const blueprint = ctx.prototype?.blueprint;
 
+  // Scene modifier — energy/atmosphere only (no genre affinity in this channel)
   let sceneMoment = sceneMatchScore(ctx.scene, ctx.profile, track);
   const seasonalMatch = seasonalMatchScore(ctx.season, inferTrackSeasonTags(track));
-  sceneMoment = sceneMoment * 0.8 + seasonalMatch * 0.2;
+  sceneMoment = sceneMoment * 0.85 + seasonalMatch * 0.15;
 
   if (blueprint?.instrumentationBias) {
-    sceneMoment = sceneMoment * 0.65 + signatureSceneAffinity(signature, blueprint.instrumentationBias) * 0.35;
+    sceneMoment =
+      sceneMoment * 0.82 +
+      signatureSceneAffinity(signature, blueprint.instrumentationBias) * 0.18;
   }
   if (ctx.sonicProfile) {
-    sceneMoment = sceneMoment * 0.8 + Math.min(1, sonicFitBonus(track, ctx.sonicProfile) * 4) * 0.2;
+    sceneMoment = sceneMoment * 0.88 + Math.min(1, sonicFitBonus(track, ctx.sonicProfile) * 4) * 0.12;
+  }
+
+  const moodPurity = computeMoodPurity(track);
+  if (!ctx.emotionalComplexity && moodPurity < 0.42) {
+    sceneMoment *= 0.94;
   }
 
   const emotionMatch = scoreSong(track, ctx.profile, mode, ctx.vibeKind);
-  const moodPurity = computeMoodPurity(track);
-  if (!ctx.emotionalComplexity && moodPurity < 0.42) {
-    sceneMoment *= 0.92;
-  }
 
   let libraryFit = libraryFitScore(classification, ctx.userGenre.vector);
-  libraryFit = libraryFit * 0.75 + memoryMatch * 0.15 + noveltyScore * 0.1;
-  libraryFit += genreFallbackScore(classification, ctx.fallbackGenres, ctx.profile) * 0.12;
+  libraryFit = libraryFit * 0.8 + memoryMatch * 0.12 + noveltyScore * 0.08;
+  libraryFit += genreFallbackScore(classification, ctx.fallbackGenres, ctx.profile) * 0.08;
 
-  let genreBalance = 0.35;
-  if (blueprint?.genreAffinity) {
-    const aff = blueprint.genreAffinity[classification.genrePrimary] ?? 0.35;
-    genreBalance = aff * 0.55 + signatureSceneAffinity(signature, blueprint.instrumentationBias) * 0.45;
-  } else {
-    genreBalance = signatureSceneAffinity(signature, {
+  // Genre PRIMARY — not driven by scene blueprint
+  const userShare = ctx.userGenre.vector[classification.genrePrimary] ?? 0;
+  let genreBalance =
+    Math.min(1, userShare * 2.8) * 0.45 +
+    classification.confidenceScore * 0.35 +
+    signatureSceneAffinity(signature, {
       acoustic: 0.5,
       storytelling: 0.45,
       warmth: 0.5,
       synth: 0.35,
-    });
+    }) *
+      0.2;
+
+  const underrepresented = (Object.entries(ctx.userGenre.vector) as [RootGenre, number][])
+    .filter(([g, v]) => (v ?? 0) >= 0.05 && g !== "christmas")
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, 6)
+    .map(([g]) => g);
+  if (ctx.preScore) {
+    genreBalance += computePreScoreBiasBreakdown(classification, ctx.preScore).total;
+  } else {
+    genreBalance += similarityFillBoost(classification.genreFamily, underrepresented);
   }
 
-  const userShare = ctx.userGenre.vector[classification.genrePrimary] ?? 0;
-  genreBalance = genreBalance * 0.6 + Math.min(1, userShare * 2.5) * 0.4;
+  if (blueprint?.genreAffinity) {
+    const aff = blueprint.genreAffinity[classification.genrePrimary] ?? 0;
+    genreBalance += aff * 0.08;
+  }
 
   if (classification.holidayBound && ctx.sceneSeasonMode !== "winter_holiday") {
-    genreBalance *= 0.05;
-    sceneMoment *= 0.15;
+    genreBalance *= 0.04;
+    sceneMoment *= 0.12;
   }
 
   const lock = isGenreLocked(classification);
   if (lock) {
     const lockW = genreLockWeight(classification);
-    sceneMoment *= 1 - lockW * 0.55;
-    genreBalance = Math.max(genreBalance, GENRE_FLOOR_STRONG + classification.confidenceScore * 0.25);
+    sceneMoment *= 1 - lockW * 0.65;
+    genreBalance = Math.max(genreBalance, GENRE_FLOOR_STRONG + classification.confidenceScore * 0.3);
   }
 
   if (classification.confidenceScore >= 0.5) {
     genreBalance = Math.max(genreBalance, GENRE_FLOOR_STRONG);
   }
 
-  let sceneScore = sceneMoment * 0.7 + emotionMatch * 0.3;
-  sceneScore = Math.min(sceneScore, SCENE_MAX_INFLUENCE);
+  let sceneScore = Math.min(sceneMoment, MAX_SCENE_SCORE_INFLUENCE);
 
   return {
     sceneScore,
@@ -287,16 +328,18 @@ export function computeTriScores(
 }
 
 export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): number {
+  const sceneContrib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * SCORING_WEIGHTS.scene;
   let final =
-    tri.sceneScore * TRI_WEIGHTS.scene +
-    tri.libraryFitScore * TRI_WEIGHTS.library +
-    tri.genreBalanceScore * TRI_WEIGHTS.genre;
+    tri.genreBalanceScore * SCORING_WEIGHTS.genre +
+    sceneContrib +
+    tri.emotionMatch * SCORING_WEIGHTS.emotion +
+    tri.libraryFitScore * SCORING_WEIGHTS.library;
 
   if (ctx.intent.intent === "nostalgia") {
-    final += tri.libraryFitScore * 0.06;
+    final += tri.libraryFitScore * 0.04;
   }
   if (isGenreLocked(tri.classification)) {
-    final = final * 0.85 + tri.genreBalanceScore * 0.15;
+    final = final * 0.82 + tri.genreBalanceScore * 0.18;
   }
 
   return Math.max(0, Math.min(1.25, final));
@@ -434,7 +477,8 @@ export function buildScoringDiagnostics(
     dominantGenres: ctx.userGenre.dominant,
     fallbackGenres: ctx.fallbackGenres,
     contrastAllowance: ctx.contrastAllowance,
-    scoringModel: "scene0.45_library0.35_genre0.20",
+    scoringModel: "genre0.50_scene0.25_emotion0.15_library0.10",
+    sceneInfluenceCap: MAX_SCENE_SCORE_INFLUENCE,
     excludedCount: excluded.length,
     exclusionReasons: countBy(excluded.map((e) => e.excludedBy ?? "unknown")),
     topScored: top.map((r) => r.debug),

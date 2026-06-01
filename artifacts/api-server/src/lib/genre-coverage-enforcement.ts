@@ -7,8 +7,10 @@ import type { TrackGenreProfile } from "./genre-taxonomy";
 import type { UserGenreVector } from "./user-genre-profile";
 import { activeCoverageTargets, GENRE_COVERAGE } from "./genre-coverage";
 
-export const DEFAULT_MAX_GENRE_DOMINANCE = 0.55;
-export const LIBRARY_PRESENCE_THRESHOLD = 0.04;
+import { GENRE_MAX_DOMINANCE, GENRE_MIN_LIBRARY_SHARE } from "./genre-coverage";
+
+export const DEFAULT_MAX_GENRE_DOMINANCE = GENRE_MAX_DOMINANCE;
+export const LIBRARY_PRESENCE_THRESHOLD = GENRE_MIN_LIBRARY_SHARE;
 export const DISTRIBUTION_TOLERANCE = 0.12;
 
 export interface GenreAudit {
@@ -222,24 +224,3 @@ export function enforcePlaylistGenreBalance<T extends { trackId: string; score: 
   return { tracks, audit };
 }
 
-export function buildGenreAudit(
-  userVector: UserGenreVector,
-  finalTrackIds: string[],
-  classifications: Map<string, TrackGenreClassification | TrackGenreProfile>,
-  adjustments: GenreAudit["enforcedAdjustments"] = []
-): GenreAudit {
-  const finalDistribution = computeGenreDistribution(finalTrackIds, classifications);
-  return {
-    detectedGenres: vectorToRecord(userVector),
-    userDistribution: vectorToRecord(userVector),
-    missingGenres: detectMissingGenres(userVector, finalDistribution),
-    enforcedAdjustments: adjustments,
-    finalDistribution,
-    coverageTargets: activeCoverageTargets(userVector, ["christmas"]).map((t) => ({
-      genre: t.genre,
-      min: t.min,
-      max: t.max,
-      userShare: t.userShare,
-    })),
-  };
-}
