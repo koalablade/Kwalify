@@ -781,22 +781,43 @@ function setMode(m){
 /* ── Progress (server phase + rotating labels — never stalls at 90%) ── */
 const PROG_PHASE_MAP={
   idle:{pct:5, labels:['Starting…']},
-  starting:{pct:8, labels:['Reading your vibe…','Tuning in to the moment…','Got it — one sec…']},
-  loading_library:{pct:18, labels:['Loading your library…','Pulling your liked songs…','Checking your collection…']},
-  building_profile:{pct:32, labels:['Mapping your taste…','Building your genre profile…','Learning what you save…']},
-  scoring:{pct:55, labels:['Scoring thousands of tracks…','Finding the best matches…','Ranking your library…']},
-  composing:{pct:72, labels:['Shaping the flow…','Sequencing the set…','Picking the best flow…']},
-  spotify:{pct:85, labels:['Creating Spotify playlist…','Saving to Spotify…','Publishing your playlist…']},
-  saving:{pct:92, labels:['Finalising…','Almost there…','Wrapping up…']},
+  starting:{pct:8, labels:['Reading your vibe…','Tuning in to the moment…','Got it — one sec…','Parsing the mood you described…','Locking in intent…']},
+  loading_library:{pct:18, labels:['Loading your library…','Pulling your liked songs…','Checking your collection…','Scanning saved tracks…','Warming up your taste data…']},
+  building_profile:{pct:32, labels:['Mapping your taste…','Building your genre profile…','Learning what you save…','Studying your listening patterns…','Connecting genres to your vibe…']},
+  scoring:{pct:55, labels:['Scoring thousands of tracks…','Finding the best matches…','Ranking your library…','Comparing energy and mood…','Filtering tracks that miss the vibe…','Weighing nostalgia vs energy…','Digging for hidden gems in your likes…']},
+  composing:{pct:72, labels:['Shaping the flow…','Sequencing the set…','Picking the best flow…','Spacing artists for variety…','Smoothing transitions between tracks…']},
+  spotify:{pct:85, labels:['Creating Spotify playlist…','Saving to Spotify…','Publishing your playlist…','Writing tracks to a new playlist…','Almost ready to listen…']},
+  saving:{pct:92, labels:['Finalising…','Almost there…','Wrapping up…','Saving to your history…']},
   done:{pct:100, labels:['Done']},
   error:{pct:0, labels:['Something went wrong']},
 };
-let progTimer=null, progPollTimer=null, progLabelTimer=null, progStartMs=0, _lastProgPhase='';
+const PROG_EXTRA_LABELS=[
+  'Still working — large libraries take a bit longer…',
+  'Matching audio features to your prompt…',
+  'Balancing discovery with songs you already love…',
+  'Keeping artist repeats low…',
+  'Tuning genre mix toward your vibe…',
+];
+const PROG_FLAT_LABELS=(()=>{
+  const seen=new Set();
+  Object.values(PROG_PHASE_MAP).forEach(p=>(p.labels||[]).forEach(l=>seen.add(l)));
+  PROG_EXTRA_LABELS.forEach(l=>seen.add(l));
+  return [...seen];
+})();
+const PROG_LABEL_ROTATE_MS=5200;
+let progTimer=null, progPollTimer=null, progLabelTimer=null, progStartMs=0, _lastProgPhase='', _lastProgLabel='';
 
 function _pickProgLabel(phase){
   const s=PROG_PHASE_MAP[phase]||PROG_PHASE_MAP.scoring;
-  const list=s.labels||['Working…'];
-  return list[Math.floor(Math.random()*list.length)];
+  const phaseList=s.labels||['Working…'];
+  const pool=phaseList.length>=6?phaseList:phaseList.concat(PROG_FLAT_LABELS);
+  let pick=pool[0];
+  for(let i=0;i<12;i++){
+    pick=pool[Math.floor(Math.random()*pool.length)];
+    if(pick!==_lastProgLabel) break;
+  }
+  _lastProgLabel=pick;
+  return pick;
 }
 
 function _elapsedProgPhase(elapsedMs){
@@ -839,8 +860,9 @@ function startProgress(){
   stopProgressTimers();
   progStartMs=Date.now();
   _lastProgPhase='';
+  _lastProgLabel='';
   _setProgPhase('starting');
-  progLabelTimer=setInterval(_rotateProgLabel, 2600);
+  progLabelTimer=setInterval(_rotateProgLabel, PROG_LABEL_ROTATE_MS);
   progPollTimer=setInterval(()=>{
     const elapsed=Date.now()-progStartMs;
     fetch('/api/generate/status',{credentials:'include'})
@@ -1241,13 +1263,32 @@ function generate(){
       : `✓ Playlist saved to Kwalify — ${trackCount} tracks matched your vibe!`;
     showToast(toastMsg,'success',3500);
   })
-  .catch(err=>{
+  .catch(async err=>{
     setLoading(false);
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
-    const msg=err&&err.name==='AbortError'
-      ?'Generation timed out. Try Balanced mode or try again in a moment.'
-      :'Connection failed. Check your internet and try again.';
-    showToast(msg,'error',6000);
+    if(err&&err.name==='AbortError'){
+      try{
+        const pr=await fetch('/api/playlists',{credentials:'include'});
+        if(pr.ok){
+          const pd=await pr.json();
+          const list=pd.playlists||[];
+          const latest=list[0];
+          if(latest&&latest.createdAt){
+            const ageMs=Date.now()-new Date(latest.createdAt).getTime();
+            if(ageMs<180000&&Array.isArray(latest.tracks)&&latest.tracks.length){
+              showResult(latest.id, latest.name, latest.vibe||vibe, latest.tracks, latest.tracks.length, latest.mode||currentMode, null, latest.spotifyUrl||null, !latest.spotifyUrl, null, null);
+              fetchAndRenderPlaylists();
+              showToast('Request timed out in the browser, but your playlist finished — loaded the latest from history.','info',7000);
+              return;
+            }
+          }
+        }
+      }catch(_){}
+      showToast('Generation timed out in the browser (server may still finish). Check Recent Playlists in ~30s, or try Balanced mode.','error',8000);
+      fetchAndRenderPlaylists();
+      return;
+    }
+    showToast('Connection failed. Check your internet and try again.','error',6000);
   })
   .finally(()=>clearTimeout(genTimeout));
 }
