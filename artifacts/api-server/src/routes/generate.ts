@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "../db";
 import { likedSongsTable, playlistHistoryTable } from "../db";
 import { eq } from "drizzle-orm";
-import { createSpotifyPlaylist, getValidAccessToken } from "../lib/spotify";
+import { createSpotifyPlaylist, getValidAccessToken, getSpotifyUser } from "../lib/spotify";
 import {
   analyzeVibe,
   scoreSong,
@@ -183,16 +183,24 @@ router.post("/generate", async (req, res): Promise<void> => {
       req.session.spotifyTokens = freshTokens;
 
       const accessToken = freshTokens.accessToken;
+
+      // Fetch the live Spotify profile to get the canonical user ID directly
+      // from the token — eliminates any risk of session userId mismatch.
+      const spotifyProfile = await getSpotifyUser(accessToken);
+      const spotifyProfileId: string = spotifyProfile.id;
+
       req.log.info({
-        userId,
+        sessionUserId: userId,
+        spotifyProfileId,
+        userIdMatch: userId === spotifyProfileId,
         accessTokenExists: !!accessToken,
         accessTokenPreview: accessToken?.slice(0, 12) ?? "MISSING",
-        msg: "[playlist-create-debug] about to create playlist",
+        msg: "[playlist-create-debug] identity check + about to create playlist",
       });
 
       const result = await createSpotifyPlaylist(
         accessToken,
-        userId,
+        spotifyProfileId,
         playlistName,
         trackUris
       );
