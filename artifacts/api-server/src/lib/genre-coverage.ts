@@ -13,15 +13,23 @@ export interface GenreCoverageBand {
 
 /** Target share of playlist slots (0–1) when genre exists in user library */
 export const GENRE_COVERAGE: Partial<Record<RootGenre, GenreCoverageBand>> = {
-  country: { min: 0.08, max: 0.25 },
-  hip_hop: { min: 0.1, max: 0.3 },
-  rock: { min: 0.1, max: 0.35 },
-  electronic: { min: 0.05, max: 0.25 },
+  country: { min: 0.05, max: 0.3 },
+  hip_hop: { min: 0.1, max: 0.35 },
+  rock: { min: 0.1, max: 0.4 },
+  electronic: { min: 0.05, max: 0.3 },
   jazz: { min: 0.03, max: 0.15 },
   pop: { min: 0.08, max: 0.4 },
   folk: { min: 0.05, max: 0.22 },
   soul: { min: 0.05, max: 0.2 },
   indie: { min: 0.06, max: 0.28 },
+  metal: { min: 0.04, max: 0.25 },
+  blues: { min: 0.03, max: 0.15 },
+  rnb: { min: 0.05, max: 0.25 },
+  reggae: { min: 0.03, max: 0.12 },
+  latin: { min: 0.04, max: 0.2 },
+  soundtrack: { min: 0.02, max: 0.12 },
+  world: { min: 0.03, max: 0.15 },
+  classical: { min: 0.02, max: 0.1 },
 };
 
 export function activeCoverageTargets(

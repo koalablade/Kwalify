@@ -54,6 +54,10 @@ import {
   pickFallbackGenres,
 } from "../lib/anti-generic-fallback";
 import { classifyTrack } from "../lib/genre-taxonomy";
+import {
+  enforcePlaylistGenreBalance,
+  type GenreAudit,
+} from "../lib/genre-coverage-enforcement";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
 import { summarizePipeline } from "../lib/scoring-explanation";
@@ -511,6 +515,28 @@ router.post("/generate", async (req, res): Promise<void> => {
       journeyArc
     );
 
+    const allowHolidaySeason =
+      /\b(christmas|xmas|holiday|festive|winter holiday)\b/i.test(vibe) ||
+      humanIntent.intent === "nostalgia" && /\bchristmas|holiday\b/i.test(vibe);
+
+    const genreClassMap = userGenreProfile.trackClassifications;
+
+    const genreEnforced = enforcePlaylistGenreBalance(
+      finalTracks,
+      sorted,
+      genreClassMap,
+      userGenreProfile.vector,
+      {
+        allowHoliday: allowHolidaySeason,
+        maxDominance: 0.55,
+        suppressGenres: allowHolidaySeason ? [] : ["christmas"],
+      }
+    );
+    finalTracks = genreEnforced.tracks as typeof finalTracks;
+    const genreAudit = genreEnforced.audit;
+
+    req.log.info({ genreAudit }, "Genre coverage enforcement");
+
     const explanation = buildGenerationExplanation({
       profile: emotionProfile,
       vibe,
@@ -669,8 +695,9 @@ router.post("/generate", async (req, res): Promise<void> => {
             }),
             sonicTraits: momentPipeline.sonicProfile?.traits ?? [],
             scoringDiagnostics,
+            genreAudit,
           }
-        : { scoringDiagnostics },
+        : { scoringDiagnostics, genreAudit },
       explanation,
       promptConfidence,
       libraryIntelligence: {
@@ -689,6 +716,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         chaptersAvailable: musicChapters.length,
         userGenreVector: userGenreProfile.vector,
         dominantGenres: userGenreProfile.dominant,
+        genreAudit,
       },
       vibeKind,
       journeyArc,

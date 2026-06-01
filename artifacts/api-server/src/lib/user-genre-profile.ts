@@ -1,8 +1,15 @@
 /**
- * User genre vector — taste backbone from full liked library.
+ * User genre vector — full-library detection pipeline output.
  */
 
-import { classifyTrack, type RootGenre, type TrackGenreClassification } from "./genre-taxonomy";
+import {
+  profileToClassification,
+  type RootGenre,
+  type TrackGenreClassification,
+  type TrackGenreProfile,
+} from "./genre-taxonomy";
+import { detectLibraryGenres } from "./genre-detection-pipeline";
+import type { ArtistGenreHistory } from "./genre-detection-pipeline";
 
 export type UserGenreVector = Partial<Record<RootGenre, number>>;
 
@@ -11,22 +18,11 @@ export interface UserGenreProfile {
   dominant: RootGenre[];
   totalClassified: number;
   trackClassifications: Map<string, TrackGenreClassification>;
+  genreProfiles: Map<string, TrackGenreProfile>;
+  artistHistory: Map<string, ArtistGenreHistory>;
 }
 
-const VECTOR_KEYS: RootGenre[] = [
-  "country",
-  "hip_hop",
-  "rock",
-  "electronic",
-  "jazz",
-  "pop",
-  "folk",
-  "soul",
-  "indie",
-  "metal",
-  "christmas",
-  "classical",
-];
+const DOMINANT_MIN = 0.05;
 
 export function buildUserGenreProfile(
   tracks: {
@@ -44,56 +40,32 @@ export function buildUserGenreProfile(
   }[],
   vibe?: string
 ): UserGenreProfile {
-  const vibeHints = extractVibeGenreHints(vibe ?? "");
-  const counts: Partial<Record<RootGenre, number>> = {};
+  const { classifications, artistHistory, userVector } = detectLibraryGenres(tracks, vibe);
+
   const trackClassifications = new Map<string, TrackGenreClassification>();
-  let totalClassified = 0;
-
-  for (const t of tracks) {
-    const c = classifyTrack(t, vibeHints);
-    trackClassifications.set(t.trackId, c);
-    if (c.genrePrimary === "unknown" && c.confidenceScore < 0.35) continue;
-    totalClassified++;
-    const w = c.confidenceScore;
-    counts[c.genrePrimary] = (counts[c.genrePrimary] ?? 0) + w;
-    if (c.genreSecondary) {
-      counts[c.genreSecondary] = (counts[c.genreSecondary] ?? 0) + w * 0.45;
-    }
+  for (const [id, profile] of classifications) {
+    trackClassifications.set(id, profileToClassification(profile));
   }
 
-  const sum = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
-  const vector: UserGenreVector = {};
-  for (const k of VECTOR_KEYS) {
-    vector[k] = (counts[k] ?? 0) / sum;
-  }
+  const dominant = (Object.keys(userVector) as RootGenre[])
+    .sort((a, b) => (userVector[b] ?? 0) - (userVector[a] ?? 0))
+    .filter((k) => (userVector[k] ?? 0) >= DOMINANT_MIN);
 
-  const dominant = [...VECTOR_KEYS]
-    .sort((a, b) => (vector[b] ?? 0) - (vector[a] ?? 0))
-    .filter((k) => (vector[k] ?? 0) >= 0.06)
-    .slice(0, 5);
-
-  return { vector, dominant, totalClassified, trackClassifications };
-}
-
-function extractVibeGenreHints(vibe: string): string[] {
-  const lower = vibe.toLowerCase();
-  const hints: string[] = [];
-  if (/\b(country|americana|honky|nashville|bluegrass)\b/.test(lower)) hints.push("country");
-  if (/\b(rap|hip hop|hip-hop|trap|drill)\b/.test(lower)) hints.push("hip_hop");
-  if (/\b(rock|metal|punk|grunge)\b/.test(lower)) hints.push("rock");
-  if (/\b(electronic|edm|house|techno|synth)\b/.test(lower)) hints.push("electronic");
-  if (/\b(jazz|soul|motown|r&b|funk)\b/.test(lower)) hints.push("soul");
-  if (/\b(folk|acoustic|singer-songwriter)\b/.test(lower)) hints.push("folk");
-  if (/\b(pop|indie pop)\b/.test(lower)) hints.push("pop");
-  if (/\b(christmas|xmas|holiday)\b/.test(lower)) hints.push("christmas");
-  return hints;
+  return {
+    vector: userVector,
+    dominant,
+    totalClassified: trackClassifications.size,
+    trackClassifications,
+    genreProfiles: classifications,
+    artistHistory,
+  };
 }
 
 export function libraryFitScore(
   classification: TrackGenreClassification,
   userVector: UserGenreVector
 ): number {
-  const primary = userVector[classification.genrePrimary] ?? 0.02;
+  const primary = userVector[classification.genreFamily] ?? userVector[classification.genrePrimary] ?? 0.02;
   const secondary = classification.genreSecondary
     ? (userVector[classification.genreSecondary] ?? 0) * 0.5
     : 0;

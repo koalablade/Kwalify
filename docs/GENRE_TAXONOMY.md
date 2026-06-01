@@ -1,35 +1,47 @@
-# Genre taxonomy backbone
+# Genre completeness system
 
-## Architecture shift
+## Stack
 
-**Before:** scene → emotion → keywords (genre as weak labels)  
-**Now:** user genre vector + per-track taxonomy → scene modulates on top
+| Layer | File |
+|-------|------|
+| Taxonomy tree | `genre-taxonomy-data.ts` — 18 families, 80+ subgenres |
+| Classification API | `genre-taxonomy.ts` — `genreFamily`, `primarySubgenre`, `confidenceScore` |
+| Detection pipeline | `genre-detection-pipeline.ts` — metadata + artist history + audio + user bias |
+| User taste vector | `user-genre-profile.ts` — full library scan |
+| Pool bias | `genre-coverage.ts` — dynamic min/max bands |
+| Playlist enforcement | `genre-coverage-enforcement.ts` — swaps + `genreAudit` |
 
-## Modules
+## Priority order (fixed)
 
-| File | Role |
-|------|------|
-| `genre-taxonomy.ts` | Root/subgenre/micro classification + confidence + holiday lock |
-| `genre-signature.ts` | Acoustic/storytelling/twang/synth fingerprint |
-| `user-genre-profile.ts` | Vector from full liked library |
-| `genre-coverage.ts` | Min/max genre presence per playlist |
-| `anti-generic-fallback.ts` | Country/rock fallback instead of generic chill |
-| `hybrid-scoring.ts` | scene×0.45 + library×0.35 + genre×0.20 |
+1. Genre identity (hard / lock ≥ 0.72)
+2. Subgenre
+3. Scene (soft modifier only)
+4. Emotion
+5. Surprise / rediscovery
 
-## Genre lock
+## Scoring
 
-When `confidenceScore >= 0.72`, scene influence on that track is capped (~60% lock) so sunny vibes cannot pull locked christmas/country tracks off-axis.
+`scene×0.45 + libraryFit×0.35 + genre×0.20` with genre floor when confidence high.
 
-## Scene blueprints
+## API: `genreAudit`
 
-`scene-prototypes.ts` → `blueprint.genreAffinity`, `instrumentationBias`, `season`, `memoryType`.
+On `POST /api/generate` → `libraryIntelligence.genreAudit`:
 
-## API
+```json
+{
+  "detectedGenres": { "country": 0.12, "rock": 0.18 },
+  "userDistribution": { ... },
+  "missingGenres": ["jazz"],
+  "enforcedAdjustments": [{ "genre": "country", "action": "swap_in_underrepresented", "count": 1 }],
+  "finalDistribution": { "country": 0.1, "rock": 0.2 },
+  "coverageTargets": [{ "genre": "country", "min": 0.05, "max": 0.3, "userShare": 0.12 }]
+}
+```
 
-- `libraryIntelligence.userGenreVector`
-- `libraryIntelligence.dominantGenres`
-- `emotionalIntelligence.scoringDiagnostics` — tri-scores + `genrePrimary` per track debug
+## Christmas
 
-## Limitation
+Hard-blocked outside holiday scenes (filter + hard-filters + `holidayBound`).
 
-Genre still inferred from **metadata + audio features** until Spotify genre IDs are stored on sync.
+## Next upgrade
+
+Store Spotify `artist.genres[]` on sync for near-perfect taxonomy on 5k–20k libraries.
