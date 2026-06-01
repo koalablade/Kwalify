@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kwalify — AI DJ</title>
+  <title>Kwalify — Vibe DJ for Spotify</title>
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#090910" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -403,9 +403,9 @@
     <div id="appView" style="display:none">
 
       <section class="hero">
-        <div class="badge"><span class="badge-dot"></span>AI DJ · Vibe Intelligence</div>
+        <div class="badge"><span class="badge-dot"></span>Vibe DJ · From your liked songs</div>
         <h1>What's the vibe?</h1>
-        <p>Describe your mood, scene, or moment — the AI scores your entire library and builds the perfect playlist.</p>
+        <p>Describe your mood, scene, or moment — we score your library and build a playlist only from songs you already saved.</p>
       </section>
 
       <div id="syncBanner" class="sync-banner" style="display:none" aria-live="polite"></div>
@@ -576,7 +576,7 @@
         <div class="lhero">
           <div class="lhero-badge">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            AI-crafted playlists
+            Playlists from your liked songs
           </div>
           <h1>Your vibe.<br/><span>Your playlist.</span></h1>
           <p>Describe your mood. Get a playlist in seconds.</p>
@@ -592,8 +592,8 @@
         <div class="features">
           <div class="glass feat-card">
             <div class="feat-icon">🧠</div>
-            <div class="feat-title">3-Layer Vibe AI</div>
-            <div class="feat-desc">Parses your scene into location, time, mood, and motion — then maps it to exact audio fingerprints.</div>
+            <div class="feat-title">Moment-aware matching</div>
+            <div class="feat-desc">Parses your scene into location, time, mood, and motion — then matches tracks from your library.</div>
           </div>
           <div class="glass feat-card">
             <div class="feat-icon">🎵</div>
@@ -627,8 +627,8 @@
             </div>
             <div class="step">
               <div class="step-num">3</div>
-              <div class="step-title">AI scores tracks</div>
-              <div class="step-desc">Energy, valence, tempo, acousticness — all matched locally</div>
+              <div class="step-title">We score your library</div>
+              <div class="step-desc">Energy, valence, tempo, and more — matched on our servers, no ChatGPT</div>
             </div>
             <div class="step">
               <div class="step-num">4</div>
@@ -640,7 +640,7 @@
 
         <div class="glass proof">
           <div class="proof-stat"><div class="proof-num">5</div><div class="proof-lbl">Audio dimensions scored</div></div>
-          <div class="proof-stat"><div class="proof-num">3</div><div class="proof-lbl">AI pipeline layers</div></div>
+          <div class="proof-stat"><div class="proof-num">3</div><div class="proof-lbl">Scoring layers</div></div>
           <div class="proof-stat"><div class="proof-num">10–100</div><div class="proof-lbl">Tracks per playlist</div></div>
           <div class="proof-stat"><div class="proof-num">0</div><div class="proof-lbl">Data stored on server</div></div>
         </div>
@@ -773,25 +773,34 @@ function setMode(m){
   });
 }
 
-/* ── Progress (server phase + time cap — never stalls at 90%) ── */
+/* ── Progress (server phase + rotating labels — never stalls at 90%) ── */
 const PROG_PHASE_MAP={
-  idle:{pct:5, label:'Starting…'},
-  starting:{pct:8, label:'Understanding your vibe…'},
-  loading_library:{pct:18, label:'Loading your library…'},
-  building_profile:{pct:32, label:'Building genre profile…'},
-  scoring:{pct:55, label:'Scoring your library…'},
-  composing:{pct:72, label:'Picking the best flow…'},
-  spotify:{pct:85, label:'Creating Spotify playlist…'},
-  saving:{pct:92, label:'Finalising…'},
-  done:{pct:100, label:'Done'},
-  error:{pct:0, label:'Something went wrong'},
+  idle:{pct:5, labels:['Starting…']},
+  starting:{pct:8, labels:['Reading your vibe…','Tuning in to the moment…','Got it — one sec…']},
+  loading_library:{pct:18, labels:['Loading your library…','Pulling your liked songs…','Checking your collection…']},
+  building_profile:{pct:32, labels:['Mapping your taste…','Building your genre profile…','Learning what you save…']},
+  scoring:{pct:55, labels:['Scoring thousands of tracks…','Finding the best matches…','Ranking your library…']},
+  composing:{pct:72, labels:['Shaping the flow…','Sequencing the set…','Picking the best flow…']},
+  spotify:{pct:85, labels:['Creating Spotify playlist…','Saving to Spotify…','Publishing your playlist…']},
+  saving:{pct:92, labels:['Finalising…','Almost there…','Wrapping up…']},
+  done:{pct:100, labels:['Done']},
+  error:{pct:0, labels:['Something went wrong']},
 };
-let progTimer=null, progPollTimer=null, progStartMs=0;
+let progTimer=null, progPollTimer=null, progStartMs=0, _lastProgPhase='';
+
+function _pickProgLabel(phase){
+  const s=PROG_PHASE_MAP[phase]||PROG_PHASE_MAP.scoring;
+  const list=s.labels||['Working…'];
+  return list[Math.floor(Math.random()*list.length)];
+}
 
 function _setProgPhase(phase){
   const s=PROG_PHASE_MAP[phase]||PROG_PHASE_MAP.scoring;
   const p=Math.min(88, Math.max(4, s.pct));
-  if(progLabel) progLabel.textContent=s.label;
+  if(phase!==_lastProgPhase){
+    _lastProgPhase=phase;
+    if(progLabel) progLabel.textContent=_pickProgLabel(phase);
+  }
   if(progFill) progFill.style.width=p+'%';
   if(progPct) progPct.textContent=p+'%';
 }
@@ -808,6 +817,7 @@ function stopProgressTimers(){
 function startProgress(){
   stopProgressTimers();
   progStartMs=Date.now();
+  _lastProgPhase='';
   _setProgPhase('starting');
   progPollTimer=setInterval(()=>{
     fetch('/api/generate/status',{credentials:'include'})
@@ -1531,9 +1541,23 @@ async function _startSync(){
 }
 
 async function _startFullSync(){
-  showToast('Full library sync started — this can take a few minutes.','info',5000);
+  const n=_libTrackCount||0;
+  const msg=n>0
+    ? `Re-sync all ${n} liked songs? Usually only needed once. Spotify may rate-limit heavy syncs. Continue?`
+    : 'Download your full liked-songs library? This can take a few minutes.';
+  if(!confirm(msg)) return;
   try {
-    await fetch('/api/spotify/sync',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({full:true})});
+    const r=await fetch('/api/spotify/sync',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({full:true})});
+    const d=await r.json().catch(()=>({}));
+    if(d.skipped&&d.reason==='FULL_SYNC_COOLDOWN'){
+      showToast(d.message||'Library was synced recently — try again later.','info',6000);
+      return;
+    }
+    if(d.started===false){
+      showToast(d.message||'Sync already running.','info',4000);
+      return;
+    }
+    showToast('Full library sync started — keep this tab open.','info',5000);
     _pollSync();
     clearInterval(_syncTimer); _syncTimer=setInterval(_pollSync,3000);
   } catch { showToast('Could not start full sync.','error',4000); }

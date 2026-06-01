@@ -358,32 +358,67 @@ export async function fetchPlaylistTrackIds(
 
 export async function fetchAudioFeatures(
   accessToken: string,
-  trackIds: string[]
+  trackIds: string[],
+  opts?: { fallbackToken?: string; userKey?: string }
 ): Promise<SpotifyAudioFeatures[]> {
+  if (!trackIds.length) return [];
+
   const results: SpotifyAudioFeatures[] = [];
   const batchSize = 100;
+  let token = accessToken;
+  let usedFallback = false;
+  let stopped403 = false;
 
   for (let i = 0; i < trackIds.length; i += batchSize) {
+    if (stopped403) break;
+
     const batch = trackIds.slice(i, i + batchSize);
 
     try {
-      const response = await spotifyRequest<any>({
-        method: "GET",
-        url: `${SPOTIFY_API_BASE}/audio-features`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: { ids: batch.join(",") },
-      });
+      const response = await spotifyRequest<any>(
+        {
+          method: "GET",
+          url: `${SPOTIFY_API_BASE}/audio-features`,
+          headers: { Authorization: `Bearer ${token}` },
+          params: { ids: batch.join(",") },
+        },
+        { userKey: opts?.userKey }
+      );
 
       const features = response.data.audio_features?.filter(Boolean) ?? [];
       results.push(...features);
     } catch (err: any) {
+      const status = err?.response?.status;
+
+      if (
+        status === 403 &&
+        opts?.fallbackToken &&
+        !usedFallback &&
+        token !== opts.fallbackToken
+      ) {
+        usedFallback = true;
+        token = opts.fallbackToken;
+        i -= batchSize;
+        logger.warn("Audio features 403 on app token — retrying with user token");
+        continue;
+      }
+
+      if (status === 403) {
+        stopped403 = true;
+        logger.warn(
+          { batchStart: i, totalIds: trackIds.length, fetched: results.length },
+          "Audio features forbidden (403) — stopping further feature fetches (Spotify API restriction)"
+        );
+        break;
+      }
+
       logger.warn(
-        { err: err?.message, batchStart: i },
-        "Audio features fetch failed for batch — continuing without features"
+        { err: err?.message, status, batchStart: i },
+        "Audio features fetch failed for batch — skipping batch"
       );
     }
 
-    if (i + batchSize < trackIds.length) {
+    if (i + batchSize < trackIds.length && !stopped403) {
       await new Promise((r) => setTimeout(r, 100));
     }
   }

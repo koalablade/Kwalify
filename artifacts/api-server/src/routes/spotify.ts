@@ -98,6 +98,31 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
     return;
   }
 
+  const forceFull = req.body?.full === true;
+  const [existingStatus] = await db
+    .select()
+    .from(syncStatusTable)
+    .where(eq(syncStatusTable.spotifyUserId, userId));
+
+  if (
+    forceFull &&
+    existingStatus?.lastSyncedAt &&
+    (existingStatus.totalTracks ?? 0) >= 500
+  ) {
+    const hoursSince =
+      (Date.now() - existingStatus.lastSyncedAt.getTime()) / (60 * 60 * 1000);
+    if (hoursSince < 6) {
+      res.json({
+        message:
+          "Library was synced recently. Use normal sync for new likes, or wait a few hours before another full sync.",
+        started: false,
+        skipped: true,
+        reason: "FULL_SYNC_COOLDOWN",
+      });
+      return;
+    }
+  }
+
   activeSyncs.add(userId);
 
   await db
@@ -108,9 +133,11 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
       set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
     });
 
-  const forceFull = req.body?.full === true;
-
-  res.json({ message: forceFull ? "Full sync started" : "Sync started", started: true, full: forceFull });
+  res.json({
+    message: forceFull ? "Full sync started" : "Sync started",
+    started: true,
+    full: forceFull,
+  });
 
   runSync(userId, req.session.spotifyTokens, { forceFull }).catch((err) => {
     logger.error({ err, userId }, "Background sync failed");
@@ -175,23 +202,75 @@ export async function runSync(
       );
     }
 
-    const trackIds = newTracks.map((t) => t.id);
-
-    // Use a server-level Client Credentials token for audio features so it has
-    // its own quota bucket, independent of the user token that was already used
-    // for liked-songs pages above.  Falls back to the user token if the CC
-    // token request fails (e.g. missing env vars in local dev).
-    let audioFeaturesToken = accessToken;
-    try {
-      audioFeaturesToken = await getClientCredentialsToken();
-    } catch (err) {
-      logger.warn({ err }, "Could not obtain CC token for audio features — using user token");
+    // Preserve audio features from DB before full sync wipe (Spotify often 403s bulk audio-features).
+    const preservedFeatures = new Map<
+      string,
+      {
+        energy: number | null;
+        valence: number | null;
+        tempo: number | null;
+        danceability: number | null;
+        acousticness: number | null;
+        instrumentalness: number | null;
+        loudness: number | null;
+        speechiness: number | null;
+      }
+    >();
+    if (!isIncremental) {
+      const existingRows = await db
+        .select()
+        .from(likedSongsTable)
+        .where(eq(likedSongsTable.spotifyUserId, userId));
+      for (const row of existingRows) {
+        if (row.energy != null || row.valence != null) {
+          preservedFeatures.set(row.trackId, {
+            energy: row.energy,
+            valence: row.valence,
+            tempo: row.tempo,
+            danceability: row.danceability,
+            acousticness: row.acousticness,
+            instrumentalness: row.instrumentalness,
+            loudness: row.loudness,
+            speechiness: row.speechiness,
+          });
+        }
+      }
     }
 
-    const allFeatures = trackIds.length > 0
-      ? await fetchAudioFeatures(audioFeaturesToken, trackIds)
-      : [];
+    const trackIds = newTracks.map((t) => t.id);
+    const idsNeedingFeatures = trackIds.filter((id) => !preservedFeatures.has(id));
+
+    let ccToken: string | undefined;
+    try {
+      ccToken = await getClientCredentialsToken();
+    } catch (err) {
+      logger.warn({ err }, "Could not obtain CC token for audio features — using user token only");
+    }
+
+    const allFeatures =
+      idsNeedingFeatures.length > 0
+        ? await fetchAudioFeatures(ccToken ?? accessToken, idsNeedingFeatures, {
+            fallbackToken: accessToken,
+            userKey: userId,
+          })
+        : [];
     const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+
+    for (const [trackId, preserved] of preservedFeatures) {
+      if (!featuresMap.has(trackId)) {
+        featuresMap.set(trackId, {
+          id: trackId,
+          energy: preserved.energy ?? 0.5,
+          valence: preserved.valence ?? 0.5,
+          tempo: preserved.tempo ?? 120,
+          danceability: preserved.danceability ?? 0.5,
+          acousticness: preserved.acousticness ?? 0.5,
+          instrumentalness: preserved.instrumentalness ?? 0,
+          loudness: preserved.loudness ?? -10,
+          speechiness: preserved.speechiness ?? 0.05,
+        });
+      }
+    }
 
     if (!isIncremental) {
       // Full sync: wipe and re-insert everything
@@ -267,8 +346,26 @@ export async function runSync(
       }))
     );
 
+    const withFeatures = allRows.filter(
+      (r) => r.energy != null && r.valence != null
+    ).length;
+    const featureCoverage =
+      allRows.length > 0 ? withFeatures / allRows.length : 0;
+    if (featureCoverage < 0.35 && allRows.length > 100) {
+      logger.warn(
+        { userId, featureCoverage, withFeatures, total: allRows.length },
+        "Low audio-feature coverage — generation uses metadata and defaults"
+      );
+    }
+
     logger.info(
-      { userId, totalTracks: finalTotalTracks, newTracks: newTracks.length, isIncremental },
+      {
+        userId,
+        totalTracks: finalTotalTracks,
+        newTracks: newTracks.length,
+        isIncremental,
+        featureCoverage: Math.round(featureCoverage * 1000) / 1000,
+      },
       "Sync complete"
     );
   } catch (err) {
