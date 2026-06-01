@@ -207,11 +207,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       });
 
       if ((spotifyErr as any)?.response?.status === 403 || (spotifyErr as any)?.status === 403) {
-        return res.status(403).json({
+        res.status(403).json({
           error: "Spotify playlist creation failed. Your account may need to re-authorize with updated permissions.",
           reAuthRequired: true,
           details: (spotifyErr as any)?.response?.data?.error?.message ?? "Forbidden"
         });
+        return;
       }
 
       const status = (spotifyErr as any)?.response?.status ?? (spotifyErr as any)?.status ?? 500;
