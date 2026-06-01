@@ -270,10 +270,11 @@ export async function createSpotifyPlaylist(
   name: string,
   trackUris: string[]
 ): Promise<{ id: string; url: string }> {
-  // userId here is the live canonical ID from GET /me — not the session value.
+  // POST /me/playlists is the correct endpoint per Spotify docs and confirmed
+  // working in Spotify's own API console with this account.
   const playlistResponse = await spotifyRequest<any>({
     method: "POST",
-    url: `${SPOTIFY_API_BASE}/users/${userId}/playlists`,
+    url: `${SPOTIFY_API_BASE}/me/playlists`,
     data: {
       name,
       public: false,
