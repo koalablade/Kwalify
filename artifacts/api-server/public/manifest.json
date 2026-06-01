@@ -1,0 +1,12 @@
+{
+  "name": "Kwalify — AI DJ",
+  "short_name": "Kwalify",
+  "description": "AI-powered playlist generation from your Spotify library",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090910",
+  "theme_color": "#8250ff",
+  "icons": [
+    { "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%238250ff'/><text y='.9em' font-size='60' x='20'>🎵</text></svg>", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
