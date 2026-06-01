@@ -1084,7 +1084,8 @@ function showPendingPreview(pendingTracks, emotionProfile, playlistName, vibe){
 
 /* ── Generate ── */
 function generate(){
-  if(debTimer||isGenerating) return;
+  if(isGenerating) return;
+  if(debTimer) return;
   const vibe=(vibeInput?.value||'').trim();
   if(!vibe){ vibeInput?.focus(); showToast('Type a vibe first!','info',2200); return; }
   debTimer=setTimeout(()=>debTimer=null, 900);
@@ -1112,6 +1113,10 @@ function generate(){
   .then(({ok,status,d})=>{
     varietyBoostNext=false;
     setLoading(false);
+    if(status===409||d.code==='GENERATION_IN_PROGRESS'){
+      showToast(d.error||'Already generating — please wait.','info',4000);
+      return;
+    }
     if(status===429){
       const retryAfter=(d&&d.retry_after)||60;
       let rem=retryAfter;

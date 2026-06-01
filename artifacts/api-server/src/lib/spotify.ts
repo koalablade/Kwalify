@@ -84,8 +84,11 @@ async function spotifyRequest<T = unknown>(
       if (status && status < 500) throw err;
 
       if (attempt < maxRetries) {
-        const wait = (attempt + 1) * 600;
-        logger.warn({ attempt, status, wait }, "Spotify error — retrying");
+        const wait = (status && status >= 500 ? 800 : 500) * Math.pow(2, Math.min(attempt, 3));
+        logger.warn(
+          { attempt, status, wait, userKey: opts.userKey },
+          status && status >= 500 ? "Spotify 5xx — backoff retry" : "Spotify error — retrying"
+        );
         await new Promise((r) => setTimeout(r, wait));
       }
     }

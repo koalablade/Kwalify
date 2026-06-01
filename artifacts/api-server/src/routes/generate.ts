@@ -37,9 +37,12 @@ import {
   setCachedGenerateResult,
 } from "../lib/generate-result-cache";
 import { createRequestBudget } from "../lib/request-budget";
-import { REQUEST_HARD_TIMEOUT_MS } from "../lib/production-limits";
 import {
-  beginGenerateSession,
+  REQUEST_HARD_TIMEOUT_MS,
+  MINIMAL_GENRE_STACK_THRESHOLD,
+} from "../lib/production-limits";
+import {
+  acquireGenerateSession,
   endGenerateSession,
   setGeneratePhase,
   isGenerateCancelled,
@@ -94,6 +97,24 @@ function staleGenerate(userId: string, requestId: string): boolean {
   return isGenerateCancelled(userId, requestId);
 }
 
+/** Consistent /generate failure payload (API shape unchanged). */
+function generateFail(
+  res: import("express").Response,
+  status: number,
+  code: string,
+  error: string,
+  extra?: Record<string, unknown>
+): void {
+  res.status(status).json({
+    success: false,
+    code,
+    error,
+    tracks: [],
+    spotifyUnavailable: true,
+    ...extra,
+  });
+}
+
 router.get("/generate/status", (req, res): void => {
   if (!req.session.spotifyUserId) {
     res.status(401).json({ error: "Not authenticated" });
@@ -113,26 +134,27 @@ router.post("/generate", async (req, res): Promise<void> => {
   let sessionUserId = "";
   try {
     if (!getFeatures().spotify.enabled) {
-      res.status(503).json({ error: "Spotify is not configured on this server." });
+      generateFail(res, 503, "SPOTIFY_DISABLED", "Spotify is not configured on this server.");
       return;
     }
     if (!req.session.spotifyTokens || !req.session.spotifyUserId) {
-      res.status(401).json({ error: "Not authenticated" });
+      generateFail(res, 401, "NOT_AUTHENTICATED", "Not authenticated");
       return;
     }
 
     const userId = req.session.spotifyUserId;
-    sessionUserId = userId;
-    requestId = beginGenerateSession(userId);
-    setGeneratePhase(userId, requestId, "starting");
 
     const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!rateCheck.allowed) {
       const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
       res.setHeader("Retry-After", String(retryAfterSec));
-      res.status(429).json({
-        error: `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
-      });
+      generateFail(
+        res,
+        429,
+        "RATE_LIMITED",
+        `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
+        { retry_after: retryAfterSec }
+      );
       return;
     }
 
@@ -158,11 +180,28 @@ router.post("/generate", async (req, res): Promise<void> => {
     const parsed = GeneratePlaylistBody.safeParse(payload);
     if (!parsed.success) {
       req.log.warn({ errors: parsed.error.message, rawBody }, "Invalid generate request");
-      res.status(400).json({ error: parsed.error.message });
+      generateFail(res, 400, "INVALID_REQUEST", parsed.error.message);
       return;
     }
 
     const { vibe, mode, length, referencePlaylist, varietyBoost } = parsed.data;
+
+    const acquired = acquireGenerateSession(userId, { force: !!varietyBoost });
+    if (!acquired) {
+      req.log.info({ userId, code: "GENERATION_IN_PROGRESS" }, "Rejected duplicate generate");
+      generateFail(
+        res,
+        409,
+        "GENERATION_IN_PROGRESS",
+        "A playlist is already being generated. Wait for it to finish or try again in a moment."
+      );
+      return;
+    }
+    requestId = acquired;
+    sessionUserId = userId;
+    setGeneratePhase(userId, requestId, "starting");
+
+    try {
 
     const mixedEmotions = detectMixedEmotions(vibe);
     const destParse = parseEmotionalDestination(vibe);
@@ -239,12 +278,23 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (likedSongs.length === 0) {
       setGeneratePhase(userId, requestId, "error");
-      res.status(400).json({
-        success: false,
-        error: "No liked songs found. Please sync your Spotify library first.",
-        code: "LIBRARY_EMPTY",
-        tracks: [],
-      });
+      generateFail(
+        res,
+        400,
+        "LIBRARY_EMPTY",
+        "No liked songs found. Please sync your Spotify library first."
+      );
+      return;
+    }
+
+    if (likedSongs.length < 12) {
+      setGeneratePhase(userId, requestId, "error");
+      generateFail(
+        res,
+        400,
+        "LIBRARY_TOO_SMALL",
+        "Library is too small to generate. Sync more liked songs from Spotify first."
+      );
       return;
     }
 
@@ -466,7 +516,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     const stackFromCache = !!genreStack;
     if (!genreStack) {
       genreStack = buildGenreIntelligenceStack({
-        tracks: likedSongs,
+        tracks:
+          likedSongs.length >= MINIMAL_GENRE_STACK_THRESHOLD ? [] : likedSongs,
         userProfile: userGenreProfile,
         vibe,
         recentPlaylistTrackIds: recentTrackLists,
@@ -648,14 +699,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       } else {
         setGeneratePhase(userId, requestId, "error");
         if (staleGenerate(userId, requestId)) return;
-        res.status(400).json({
-          success: false,
-          error:
-            "Could not build a playlist — nothing matched this vibe with your current library. Try Balanced or Chaotic mode, a broader vibe, or wait a moment and regenerate.",
-          code: "EMPTY_PLAYLIST",
-          tracks: [],
-          hint: "Sync more liked songs if your library is small. This is not a Spotify API limit.",
-        });
+        generateFail(
+          res,
+          400,
+          "EMPTY_PLAYLIST",
+          "Could not build a playlist — nothing matched this vibe with your current library. Try Balanced or Chaotic mode, a broader vibe, or wait a moment and regenerate.",
+          {
+            hint: "Sync more liked songs if your library is small. This is not a Spotify API limit.",
+          }
+        );
         return;
       }
     }
@@ -889,6 +941,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? { fastFallback: true }
         : {}),
     });
+    } finally {
+      if (sessionUserId && requestId) {
+        endGenerateSession(sessionUserId, requestId);
+      }
+    }
   } catch (fatalErr: any) {
     req.log.error(
       { err: fatalErr?.message, code: "INTERNAL_ERROR", userId: sessionUserId },
@@ -940,10 +997,6 @@ router.post("/generate", async (req, res): Promise<void> => {
           tracks: [],
         });
       }
-    }
-  } finally {
-    if (sessionUserId && requestId) {
-      endGenerateSession(sessionUserId, requestId);
     }
   }
 });

@@ -2,6 +2,8 @@
  * Per-user generate session — single active request, phase tracking, Spotify idempotency.
  */
 
+import { REQUEST_HARD_TIMEOUT_MS } from "./production-limits";
+
 export type GeneratePhase =
   | "idle"
   | "starting"
@@ -26,16 +28,42 @@ type SessionState = {
 const sessions = new Map<string, SessionState>();
 const MAX_SESSIONS = 500;
 
+const ACTIVE_PHASES = new Set<GeneratePhase>([
+  "starting",
+  "loading_library",
+  "building_profile",
+  "scoring",
+  "composing",
+  "spotify",
+  "saving",
+]);
+
+function isActiveSession(s: SessionState): boolean {
+  if (s.cancelled) return false;
+  if (Date.now() - s.startedAt >= REQUEST_HARD_TIMEOUT_MS) return false;
+  return ACTIVE_PHASES.has(s.phase);
+}
+
 function evictIfNeeded(): void {
   if (sessions.size <= MAX_SESSIONS) return;
   const sorted = [...sessions.entries()].sort((a, b) => a[1].startedAt - b[1].startedAt);
   for (let i = 0; i < 50; i++) sessions.delete(sorted[i]![0]);
 }
 
-export function beginGenerateSession(userId: string): string {
+/**
+ * Start a generate session. Returns null if another generate is in flight (unless force).
+ */
+export function acquireGenerateSession(
+  userId: string,
+  opts?: { force?: boolean }
+): string | null {
+  const existing = sessions.get(userId);
+  if (!opts?.force && existing && isActiveSession(existing)) {
+    return null;
+  }
+  if (existing) existing.cancelled = true;
+
   const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const prev = sessions.get(userId);
-  if (prev) prev.cancelled = true;
   sessions.set(userId, {
     requestId,
     startedAt: Date.now(),
@@ -44,6 +72,11 @@ export function beginGenerateSession(userId: string): string {
   });
   evictIfNeeded();
   return requestId;
+}
+
+/** @deprecated use acquireGenerateSession */
+export function beginGenerateSession(userId: string): string {
+  return acquireGenerateSession(userId, { force: true })!;
 }
 
 export function setGeneratePhase(
@@ -96,6 +129,5 @@ export function clearPendingSpotifyPlaylist(userId: string, requestId: string): 
 /** True if another generate is already running for this user. */
 export function isGenerateInFlight(userId: string): boolean {
   const s = sessions.get(userId);
-  if (!s || s.cancelled) return false;
-  return Date.now() - s.startedAt < 120_000 && s.phase !== "done" && s.phase !== "error";
+  return !!s && isActiveSession(s);
 }
