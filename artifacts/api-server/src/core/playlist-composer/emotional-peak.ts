@@ -3,7 +3,12 @@
  */
 
 import type { EmotionProfile } from "../../lib/emotion";
-import { resolveSceneContext, sceneMatchScore, type SceneContext } from "../../lib/scene-validation";
+import {
+  resolveSceneContext,
+  sceneMatchScore,
+  toSceneAudioTrack,
+  type SceneContext,
+} from "../../lib/scene-validation";
 import type { CanonicalSceneResult } from "../../lib/scene-canonicalizer";
 
 export interface PeakPlacementResult<T> {
@@ -14,11 +19,16 @@ export interface PeakPlacementResult<T> {
 }
 
 export function emotionalResonance(
-  track: { energy: number | null; valence: number | null },
+  track: {
+    energy: number | null;
+    valence: number | null;
+    acousticness?: number | null;
+    danceability?: number | null;
+  },
   sceneCtx: SceneContext,
   profile: EmotionProfile
 ): number {
-  const sceneFit = sceneMatchScore(sceneCtx, profile, track);
+  const sceneFit = sceneMatchScore(sceneCtx, profile, toSceneAudioTrack(track));
   const emotionFit =
     1 -
     (Math.abs((track.energy ?? 0.5) - profile.energy) +

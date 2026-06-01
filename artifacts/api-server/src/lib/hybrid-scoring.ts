@@ -269,7 +269,7 @@ export function computeTriScores(
       signatureSceneAffinity(signature, blueprint.instrumentationBias) * 0.18;
   }
   if (ctx.sonicProfile) {
-    sceneMoment = sceneMoment * 0.88 + Math.min(1, sonicFitBonus(track, ctx.sonicProfile) * 4) * 0.12;
+    sceneMoment = sceneMoment * 0.88 + Math.min(1, sonicFitBonus(audio, ctx.sonicProfile) * 4) * 0.12;
   }
 
   const moodPurity = computeMoodPurity(track);

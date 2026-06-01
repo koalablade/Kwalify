@@ -13,7 +13,7 @@ import {
 } from "../../lib/emotion";
 import { applyRediscoveryPoolBias } from "../../lib/emotional-discovery";
 import { injectControlledSurprise } from "../../lib/controlled-surprise";
-import { assignNarrativeRoles } from "../../lib/narrative-roles";
+import { assignNarrativeRoles, type TrackNarrativeRole } from "../../lib/narrative-roles";
 import type { JourneyArc } from "../../lib/emotion-destination";
 import type { IntentDecodeResult } from "../../lib/intent-decoder";
 import type { HumanIntent } from "../../lib/intent-decoder";
@@ -48,6 +48,24 @@ export interface ComposePlaylistInput<T extends {
   canonical: CanonicalSceneResult | null;
 }
 
+type ComposePoolTrack = {
+  trackId: string;
+  score: number;
+  rediscoveryScore: number;
+  energy: number | null;
+  valence: number | null;
+  artistName: string;
+  gravityScore?: number;
+  emotionalMass?: number;
+  surpriseTier?: TrackGravityProfile["surpriseTier"];
+  historicalAffinity?: number;
+  explorationDistance?: number;
+  resonanceStrength?: number;
+  stickiness?: number;
+};
+
+type ComposedTrack<T extends ComposePoolTrack> = T & { narrativeRole: TrackNarrativeRole };
+
 export interface ComposePlaylistResult<T> {
   finalTracks: T[];
   structured: T[];
@@ -61,16 +79,9 @@ export interface ComposePlaylistResult<T> {
   gradientPhases: { start: number; explore: number; peak: number; resolve: number };
 }
 
-export function composePlaylistFromPool<T extends {
-  trackId: string;
-  score: number;
-  rediscoveryScore: number;
-  energy: number | null;
-  valence: number | null;
-  artistName: string;
-}>(
+export function composePlaylistFromPool<T extends ComposePoolTrack>(
   input: ComposePlaylistInput<T>
-): ComposePlaylistResult<T> {
+): ComposePlaylistResult<ComposedTrack<T>> {
   const {
     sortedPool,
     playlistLength,
@@ -125,7 +136,10 @@ export function composePlaylistFromPool<T extends {
   const afterArtistSep = separateAdjacentArtists(afterSmoothing);
   const afterArc = enforceArc(afterArtistSep, emotionProfile, journeyArc);
 
-  let finalTracks = assignNarrativeRoles(afterArc.slice(0, playlistLength), journeyArc);
+  let finalTracks: ComposedTrack<T>[] = assignNarrativeRoles(
+    afterArc.slice(0, playlistLength),
+    journeyArc
+  );
 
   const wildcardPool = sortedPool.slice(0, Math.min(sortedPool.length, poolTarget * 3));
   finalTracks = assignNarrativeRoles(
@@ -146,7 +160,7 @@ export function composePlaylistFromPool<T extends {
     canonical,
     playlistLength,
   });
-  finalTracks = peakPlacement.tracks;
+  finalTracks = peakPlacement.tracks as ComposedTrack<T>[];
 
   const gravityByTrackId = new Map<string, TrackGravityProfile>();
   for (const t of sortedPool) {

@@ -18,7 +18,7 @@ import type { UserGenreProfile } from "../../lib/user-genre-profile";
 
 import type { GenreIntelligenceStack } from "../../lib/genre-intelligence-stack";
 
-import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
+import type { RootGenre, TrackGenreClassification } from "../../lib/genre-taxonomy";
 
 import {
 
@@ -194,7 +194,7 @@ export function enforceFinalPlaylistGenres<T extends { trackId: string; score: n
 
       maxDominance: HARD_GENRE_BACKSTOP,
 
-      suppressGenres: input.suppressGenres,
+      suppressGenres: input.suppressGenres as RootGenre[],
 
     }
 

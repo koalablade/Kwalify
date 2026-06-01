@@ -79,7 +79,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
   maxPerArtist: number;
 }
 
-export interface BuildPlaylistPipelineResult<T> {
+export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
   finalTracks: T[];
   sorted: ScoredLibraryTrack<T>[];
   scoringDiagnostics: Record<string, unknown>;

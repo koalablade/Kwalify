@@ -21,10 +21,10 @@ import type { SceneGenreRouting } from "../scene-intelligence/scene-genre-routin
 import type { GenreForecast } from "../genre-intelligence/genre-forecast";
 import { preScoreBoostForTrack } from "../genre-intelligence/genre-forecast";
 
-export interface TraceAssemblyInput<T extends { trackId: string; score: number }> {
-  hybridResults: HybridScoreResult<T>[];
+export interface TraceAssemblyInput<TTrack extends { trackId: string }> {
+  hybridResults: HybridScoreResult<TTrack>[];
   hybridExcluded: TrackScoringDebug[];
-  finalSorted: T[];
+  finalSorted: Array<TTrack & { score: number }>;
   classifications: Map<string, TrackGenreClassification>;
   preScore: PreScoreContext;
   truthAnchors: TruthAnchorStore;
@@ -34,8 +34,8 @@ export interface TraceAssemblyInput<T extends { trackId: string; score: number }
   traceSampleSize?: number;
 }
 
-export function assemblePipelineTraces<T extends { trackId: string; score: number }>(
-  input: TraceAssemblyInput<T>
+export function assemblePipelineTraces<TTrack extends { trackId: string }>(
+  input: TraceAssemblyInput<TTrack>
 ): {
   traces: TrackDecisionTrace[];
   conflictReports: BiasConflictReport[];
