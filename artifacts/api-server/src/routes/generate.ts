@@ -215,6 +215,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
         req.session.spotifyTokens = freshTokens;
       }
+      req.log.info({ userId, sessionUserId: req.session.spotifyUserId, tokenExpiresAt: freshTokens.expiresAt }, "[playlist-debug] token identity before create");
       const trackUris = finalTracks.map((t) => `spotify:track:${t.trackId}`);
       const spotifyResult = await createSpotifyPlaylist(
         freshTokens.accessToken,

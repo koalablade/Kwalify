@@ -317,6 +317,11 @@ export async function createSpotifyPlaylist(
     );
   }
 
+  logger.info(
+    { playlistId: playlist.id, playlistOwner: playlist.owner?.id, tokenUserId: userId },
+    "[spotify] Playlist created — owner vs token user check"
+  );
+
   // Small delay — Spotify occasionally 403s track-add immediately after playlist creation
   // due to backend propagation lag. 800ms resolves this in practice.
   await new Promise((r) => setTimeout(r, 800));
