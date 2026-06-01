@@ -41,8 +41,11 @@ import { computeSurpriseMix } from "../lib/human-surprise";
 import { applyRediscoveryPoolBias } from "../lib/emotional-discovery";
 import { injectControlledSurprise } from "../lib/controlled-surprise";
 import { analyzeMomentPipeline } from "../lib/moment-pipeline";
-import { sonicFitBonus } from "../lib/scene-sonic-profile";
-import { exclusionPenalty } from "../lib/negative-tags";
+import {
+  buildHybridScoringContext,
+  scoreLibraryHybrid,
+  buildScoringDiagnostics,
+} from "../lib/hybrid-scoring";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
 import { summarizePipeline } from "../lib/scoring-explanation";
@@ -53,11 +56,9 @@ import { detectMixedEmotions } from "../lib/multi-emotion";
 import { assignNarrativeRoles } from "../lib/narrative-roles";
 import {
   analyzeVibeWithContext,
-  scoreSong,
   buildPlaylistStructure,
   limitArtistRepetition,
   generatePlaylistName,
-  refineSongScore,
   detectVibeKind,
   detectJourneyArc,
   passesSunnyGate,
@@ -314,32 +315,33 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
-    const scored = likedSongs.map((song) => {
-      const base = scoreSong(
-        {
-          energy: song.energy,
-          valence: song.valence,
-          tempo: song.tempo,
-          danceability: song.danceability,
-          acousticness: song.acousticness,
-        },
-        emotionProfile,
-        mode as "strict" | "balanced" | "chaotic",
-        vibeKind
-      );
-      let score = refineSongScore(
-        base,
-        {
-          energy: song.energy,
-          valence: song.valence,
-          tempo: song.tempo,
-          danceability: song.danceability,
-          acousticness: song.acousticness,
-          instrumentalness: song.instrumentalness,
-          speechiness: song.speechiness,
-        },
-        emotionProfile
-      );
+    const hybridCtx = buildHybridScoringContext({
+      vibe,
+      profile: emotionProfile,
+      intent: humanIntent,
+      canonical: momentPipeline?.canonicalScene ?? null,
+      prototype: scenePrototype,
+      sonicProfile,
+      vibeKind,
+    });
+
+    const { results: hybridResults, excluded: hybridExcluded } = scoreLibraryHybrid(
+      likedSongs,
+      hybridCtx,
+      mode as "strict" | "balanced" | "chaotic",
+      (trackId) => {
+        const signal = librarySignals.tracks.get(trackId);
+        if (!signal) return 0.35;
+        const tm = computeTemporalMemory(signal);
+        return Math.max(0, Math.min(1, 0.42 + tm.scoreModifier * 2));
+      },
+      (trackId) => Math.max(0, Math.min(1, 0.32 + (rediscoveryJitter(trackId, startMs) + 0.02) / 0.06))
+    );
+
+    const scoringDiagnostics = buildScoringDiagnostics(hybridResults, hybridExcluded, hybridCtx, 15);
+
+    const scored = hybridResults.map(({ track: song, score: hybridBase, debug }) => {
+      let score = hybridBase;
 
       if (referenceFingerprint) {
         score += referenceSimilarityBonus(
@@ -356,11 +358,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
 
       if (memoryWeight > 0.45 && (song.acousticness ?? 0) > 0.35) {
-        score += memoryWeight * 0.06;
+        score += memoryWeight * 0.04;
       }
-
-      score += sonicFitBonus(song, sonicProfile);
-      score += exclusionPenalty(song, scenePrototype);
 
       const signal = librarySignals.tracks.get(song.trackId);
       const emotionFit = score;
@@ -374,14 +373,10 @@ router.post("/generate", async (req, res): Promise<void> => {
           })
         : 0.2;
 
-      if (signal) {
-        score += computeTemporalMemory(signal).scoreModifier;
-      }
-
-      score += rediscoveryScoreBoost(rediscoveryScore, emotionFit, rediscoveryMode);
+      score += rediscoveryScoreBoost(rediscoveryScore, emotionFit, rediscoveryMode) * 0.85;
       score += chapterTrackBoost(song.trackId, chapterMatch);
       if (archaeology) score += archaeologyRediscoveryBoost(archaeology.concept);
-      score += rediscoveryJitter(song.trackId, startMs);
+      score += rediscoveryJitter(song.trackId, startMs) * 0.001;
       score *= promptConfidence.qualityBoost;
       score *= journeyArcMultiplier;
 
@@ -395,10 +390,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         globalCloneMultiplier: cloneMultiplier,
       });
 
-      return { ...song, score, rediscoveryScore };
+      return { ...song, score, rediscoveryScore, scoringDebug: debug };
     });
 
-    req.log.info({ totalSongs: likedSongs.length }, "Songs scored");
+    req.log.info(
+      { totalSongs: likedSongs.length, excluded: hybridExcluded.length, scoringDiagnostics },
+      "Hybrid scoring complete"
+    );
 
     let penalised = scored;
 
@@ -641,8 +639,9 @@ router.post("/generate", async (req, res): Promise<void> => {
               graphPaths: momentPipeline.graph.propagationPath,
             }),
             sonicTraits: momentPipeline.sonicProfile?.traits ?? [],
+            scoringDiagnostics,
           }
-        : null,
+        : { scoringDiagnostics },
       explanation,
       promptConfidence,
       libraryIntelligence: {
