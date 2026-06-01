@@ -82,7 +82,7 @@ export function getAuthUrl(redirectUri: string, state: string): string {
     redirect_uri: redirectUri,
     scope: scopes,
     state,
-    show_dialog: "false",
+    show_dialog: "true",
   });
 
   return `${SPOTIFY_AUTH_BASE}/authorize?${params.toString()}`;
