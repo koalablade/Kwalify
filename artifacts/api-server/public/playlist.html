@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kwalify Playlist</title>
+  <meta name="theme-color" content="#090910" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:           #090910;
+      --surface:      rgba(255,255,255,0.04);
+      --surface-hi:   rgba(255,255,255,0.07);
+      --border:       rgba(255,255,255,0.08);
+      --border-hi:    rgba(255,255,255,0.14);
+      --green:        #1db954;
+      --green-dim:    rgba(29,185,84,0.12);
+      --green-glow:   rgba(29,185,84,0.28);
+      --purple:       #8250ff;
+      --purple-dim:   rgba(130,80,255,0.12);
+      --purple-mid:   rgba(130,80,255,0.2);
+      --purple-glow:  rgba(130,80,255,0.28);
+      --text:         #ffffff;
+      --text-sub:     rgba(255,255,255,0.58);
+      --text-muted:   rgba(255,255,255,0.33);
+      --text-faint:   rgba(255,255,255,0.18);
+      --r:            14px;
+      --r-sm:         10px;
+      --r-pill:       9999px;
+      --spring:       cubic-bezier(0.16,1,0.3,1);
+    }
+    html, body { min-height: 100%; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+
+    .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .orb { position: absolute; border-radius: 50%; filter: blur(90px); animation: drift 20s ease-out infinite alternate; }
+    .orb-1 { width:700px;height:700px;top:-200px;left:-150px; background:radial-gradient(circle,rgba(130,80,255,.18),transparent 70%); animation-duration:24s; }
+    .orb-2 { width:500px;height:500px;bottom:-120px;right:-100px; background:radial-gradient(circle,rgba(29,185,84,.11),transparent 70%); animation-duration:18s;animation-delay:-9s; }
+    @keyframes drift { 0%{transform:translate(0,0)} 50%{transform:translate(22px,-18px)} 100%{transform:translate(-14px,24px)} }
+
+    .page { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0 16px 80px; }
+    .inner { width: 100%; max-width: 660px; }
+
+    .header { width: 100%; max-width: 660px; display: flex; align-items: center; justify-content: space-between; padding: 22px 0 0; }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-mark { width: 33px; height: 33px; background: linear-gradient(135deg,#8250ff,#b47eff); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 0 18px rgba(130,80,255,.4); }
+    .logo-name { font-size: 15px; font-weight: 800; letter-spacing: -.3px; color: var(--text); }
+    .logo-name em { color: var(--purple); font-style: normal; }
+    .back-link { font-size: 13px; color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 5px; transition: color .15s; }
+    .back-link:hover { color: var(--text-sub); }
+
+    .glass { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px); }
+
+    .playlist-card { margin-top: 28px; padding: 26px 28px; animation: fsu .4s var(--spring) both; }
+    @keyframes fsu { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+
+    .pl-header { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 22px; }
+    .pl-icon { width: 58px; height: 58px; background: linear-gradient(135deg,var(--green),#17a349); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; box-shadow: 0 4px 22px var(--green-glow); }
+    .pl-meta { flex: 1; min-width: 0; }
+    .pl-badge { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--green); margin-bottom: 4px; }
+    .pl-name { font-size: 22px; font-weight: 800; letter-spacing: -.4px; line-height: 1.2; }
+    .pl-vibe { font-size: 13px; color: var(--text-sub); font-style: italic; margin-top: 5px; }
+    .pl-date { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; font-family: inherit; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; transition: transform .15s var(--spring), box-shadow .2s, background .18s; }
+    .btn:active { transform: scale(0.95) !important; }
+    .btn-green { background: var(--green); color: #000; font-weight: 700; box-shadow: 0 4px 18px var(--green-glow); border-radius: 10px; padding: 11px 20px; font-size: 14px; }
+    .btn-green:hover { transform: translateY(-1px); box-shadow: 0 8px 28px var(--green-glow); }
+    .btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--text-sub); border-radius: 10px; padding: 11px 20px; font-size: 14px; }
+    .btn-ghost:hover { background: var(--surface-hi); color: var(--text); border-color: var(--border-hi); }
+
+    .emotion-section { margin-bottom: 22px; }
+    .section-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+    .emotion-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+    .emotion-label { font-size: 11px; color: var(--text-sub); width: 72px; flex-shrink: 0; }
+    .emotion-track { flex: 1; max-width: 220px; height: 5px; background: rgba(255,255,255,.07); border-radius: 3px; overflow: hidden; }
+    .emotion-fill { height: 100%; background: linear-gradient(90deg,#8250ff,#1db954); border-radius: 3px; transition: width .7s ease-out; }
+    .emotion-pct { font-size: 10px; color: var(--text-faint); width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
+
+    .divider { height: 1px; background: var(--border); margin: 18px 0; }
+
+    .track-list { display: flex; flex-direction: column; gap: 1px; max-height: 440px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(130,80,255,.3) transparent; }
+    .track-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 8px; transition: background .15s; animation: fsu .3s var(--spring) both; }
+    .track-row:hover { background: rgba(255,255,255,.04); }
+    .track-num { font-size: 11px; color: var(--text-faint); width: 16px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+    .track-art { width: 38px; height: 38px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+    .track-art-fb { width: 38px; height: 38px; border-radius: 8px; background: var(--purple-dim); border: 1px solid var(--purple-mid); display: inline-flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .track-info { flex: 1; min-width: 0; }
+    .track-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-artist { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-link { display: inline-flex; align-items: center; font-size: 11px; color: var(--green); text-decoration: none; opacity: .7; transition: opacity .15s; flex-shrink: 0; padding: 3px 6px; border-radius: 4px; }
+    .track-link:hover { opacity: 1; background: var(--green-dim); }
+
+    .cta-section { margin-top: 28px; text-align: center; padding: 26px 20px; }
+    .cta-section h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .cta-section p { font-size: 13.5px; color: var(--text-sub); margin-bottom: 20px; line-height: 1.6; }
+
+    .error-card { margin-top: 60px; text-align: center; padding: 48px 28px; }
+    .error-icon { font-size: 48px; margin-bottom: 18px; }
+    .error-title { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+    .error-body { font-size: 14px; color: var(--text-sub); margin-bottom: 24px; }
+
+    .spin { width: 28px; height: 28px; border: 2.5px solid rgba(255,255,255,.12); border-top-color: var(--purple); border-radius: 50%; animation: spin .65s linear infinite; margin: 60px auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 520px) {
+      .pl-name { font-size: 18px; }
+      .actions { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+</div>
+
+<div class="page">
+  <header class="header">
+    <a class="logo" href="/">
+      <div class="logo-mark">🎧</div>
+      <span class="logo-name">K<em>walify</em></span>
+    </a>
+    <a href="/" class="back-link">← Back to app</a>
+  </header>
+
+  <div class="inner" id="main">
+    <div class="spin"></div>
+  </div>
+</div>
+
+<script>
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+const match = window.location.pathname.match(/\/p\/(\d+)/);
+const playlistId = match ? match[1] : null;
+
+function renderEmotionBars(ep){
+  if(!ep || typeof ep !== 'object') return '';
+  const dims=[
+    {key:'energy',label:'Energy'},{key:'valence',label:'Valence'},
+    {key:'tension',label:'Tension'},{key:'nostalgia',label:'Nostalgia'},{key:'calm',label:'Calm'},
+  ];
+  return `<div class="emotion-section">
+    <div class="section-label">Vibe Analysis</div>
+    ${dims.map(({key,label})=>{
+      const val=Math.min(1,Math.max(0,(ep[key]||0)));
+      const pct=Math.round(val*100);
+      return `<div class="emotion-row">
+        <span class="emotion-label">${label}</span>
+        <div class="emotion-track"><div class="emotion-fill" style="width:${pct}%"></div></div>
+        <span class="emotion-pct">${pct}%</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderPage(data){
+  const tracks = Array.isArray(data.tracks) ? data.tracks : [];
+  const date = data.createdAt ? new Date(data.createdAt).toLocaleDateString([],{year:'numeric',month:'short',day:'numeric'}) : '';
+  const vibeHtml = data.vibe ? `<div class="pl-vibe">"${esc(data.vibe)}"</div>` : '';
+  const dateHtml = date ? `<div class="pl-date">${date} · ${tracks.length} tracks</div>` : `<div class="pl-date">${tracks.length} tracks</div>`;
+
+  const spotifyBtn = data.spotifyUrl
+    ? `<a class="btn btn-green" href="${esc(data.spotifyUrl)}" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+        Open on Spotify
+      </a>`
+    : '';
+
+  const trackRows = tracks.map((t,i)=>{
+    const art = (t.albumArt || t.album_art)
+      ? `<img src="${esc(t.albumArt||t.album_art)}" alt="" class="track-art" onerror="this.outerHTML='<span class=track-art-fb>🎵</span>'">`
+      : '<span class="track-art-fb">🎵</span>';
+    const tid = t.trackId || t.track_id || t.id;
+    const link = tid
+      ? `<a class="track-link" href="https://open.spotify.com/track/${esc(tid)}" target="_blank" rel="noopener" title="Open in Spotify">▶</a>`
+      : '';
+    return `<div class="track-row" style="animation-delay:${i*.03}s">
+      <span class="track-num">${i+1}</span>
+      ${art}
+      <div class="track-info">
+        <div class="track-name">${esc(t.trackName||t.name||'')}</div>
+        <div class="track-artist">${esc(t.artistName||t.artist||'')}</div>
+      </div>
+      ${link}
+    </div>`;
+  }).join('');
+
+  document.title = `${data.name} — Kwalify`;
+
+  document.getElementById('main').innerHTML = `
+    <div class="glass playlist-card">
+      <div class="pl-header">
+        <div class="pl-icon">🎵</div>
+        <div class="pl-meta">
+          <div class="pl-badge">Kwalify Playlist</div>
+          <div class="pl-name">${esc(data.name)}</div>
+          ${vibeHtml}
+          ${dateHtml}
+        </div>
+      </div>
+      <div class="actions">
+        ${spotifyBtn}
+      </div>
+      ${renderEmotionBars(data.emotionProfile)}
+      ${tracks.length > 0 ? `
+        <div class="divider"></div>
+        <div class="section-label" style="margin-bottom:10px">Tracks</div>
+        <div class="track-list">${trackRows}</div>
+      ` : ''}
+    </div>
+    <div class="glass cta-section">
+      <h3>Make your own playlist</h3>
+      <p>Describe your mood and let the AI score your entire Spotify library to build the perfect playlist.</p>
+      <a href="/" class="btn btn-green" style="display:inline-flex;">
+        Create your own on Kwalify →
+      </a>
+    </div>
+  `;
+}
+
+function renderNotFound(){
+  document.getElementById('main').innerHTML = `
+    <div class="glass error-card">
+      <div class="error-icon">🎵</div>
+      <div class="error-title">Playlist not found</div>
+      <div class="error-body">This playlist may have been deleted or the link is incorrect.</div>
+      <a href="/" class="btn btn-ghost">← Back to Kwalify</a>
+    </div>
+  `;
+}
+
+async function load(){
+  if(!playlistId){ renderNotFound(); return; }
+  try {
+    const res = await fetch('/api/share/' + playlistId);
+    if(res.status === 404){ renderNotFound(); return; }
+    if(!res.ok){ throw new Error('Server error'); }
+    const data = await res.json();
+    renderPage(data);
+  } catch {
+    document.getElementById('main').innerHTML = `
+      <div class="glass error-card">
+        <div class="error-icon">⚠️</div>
+        <div class="error-title">Something went wrong</div>
+        <div class="error-body">Could not load this playlist. Please try again later.</div>
+        <a href="/" class="btn btn-ghost">← Back to Kwalify</a>
+      </div>
+    `;
+  }
+}
+
+load();
+</script>
+</body>
+</html>

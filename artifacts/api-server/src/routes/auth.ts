@@ -2,6 +2,10 @@ import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
 import { getAuthUrl, exchangeCode, getSpotifyUser, getValidAccessToken } from "../lib/spotify";
 import { getFeatures } from "../lib/env";
+import { db, syncStatusTable } from "../db";
+import { eq } from "drizzle-orm";
+import { runSync, activeSyncs } from "./spotify";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -150,6 +154,36 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
     req.session.spotifyCountry = user.country ?? null;
 
     req.log.info({ userId: user.id }, "Spotify OAuth successful");
+
+    // Auto-sync on first login — fire and forget (don't await)
+    try {
+      const [syncStatus] = await db
+        .select()
+        .from(syncStatusTable)
+        .where(eq(syncStatusTable.spotifyUserId, user.id));
+
+      const neverSynced =
+        !syncStatus ||
+        (syncStatus.totalTracks === 0 && syncStatus.lastSyncedAt === null);
+
+      if (neverSynced && !activeSyncs.has(user.id)) {
+        req.log.info({ userId: user.id }, "Auto-syncing on first login");
+        await db
+          .insert(syncStatusTable)
+          .values({ spotifyUserId: user.id, isSyncing: 1, totalTracks: 0 })
+          .onConflictDoUpdate({
+            target: syncStatusTable.spotifyUserId,
+            set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
+          });
+        activeSyncs.add(user.id);
+        runSync(user.id, tokens).catch((err) => {
+          logger.error({ err, userId: user.id }, "Background auto-sync failed");
+        });
+      }
+    } catch (autoSyncErr) {
+      req.log.warn({ err: autoSyncErr }, "Auto-sync check failed — continuing");
+    }
+
     res.redirect(getFrontendRedirect("/"));
   } catch (err) {
     req.log.error({ err }, "Spotify OAuth callback failed");

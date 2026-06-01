@@ -36,6 +36,7 @@ const NEUTRAL_PROFILE: EmotionProfile = {
 };
 
 router.post("/generate", async (req, res): Promise<void> => {
+  const startMs = Date.now();
   try {
     if (!getFeatures().spotify.enabled) {
       res.status(503).json({ error: "Spotify is not configured on this server." });
@@ -193,21 +194,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       albumArt: t.albumArt ?? null,
     }));
 
-    const insertResult = await db
-      .insert(savedPlaylistsTable)
-      .values({
-        userId,
-        name: playlistName,
-        emotionProfile: emotionProfile as any,
-        tracks: trackObjects as any,
-      })
-      .returning({ id: savedPlaylistsTable.id });
-
-    const savedPlaylistId = insertResult[0]?.id ?? 0;
-
-    req.log.info({ userId, playlistId: savedPlaylistId, trackCount: finalTracks.length }, "Playlist saved to DB");
-
-    // Attempt Spotify playlist creation — graceful degradation on any failure
+    // Attempt Spotify playlist creation first — graceful degradation on any failure
     let spotifyPlaylistUrl: string | null = null;
 
     try {
@@ -232,9 +219,30 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
     }
 
+    const insertResult = await db
+      .insert(savedPlaylistsTable)
+      .values({
+        userId,
+        name: playlistName,
+        emotionProfile: emotionProfile as any,
+        tracks: trackObjects as any,
+        spotifyUrl: spotifyPlaylistUrl,
+        vibe,
+        mode,
+      })
+      .returning({ id: savedPlaylistsTable.id });
+
+    const savedPlaylistId = insertResult[0]?.id ?? 0;
+
+    req.log.info({ userId, playlistId: savedPlaylistId, trackCount: finalTracks.length }, "Playlist saved to DB");
+
     const spotifyFields = spotifyPlaylistUrl
       ? { spotifyPlaylistUrl }
       : { spotifyUnavailable: true as const };
+
+    const totalDurationMs = finalTracks.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
+    const artistCount = new Set(finalTracks.map((t) => t.artistName)).size;
+    const generationMs = Date.now() - startMs;
 
     res.json({
       success: true,
@@ -246,6 +254,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       mode,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
+      generationMs,
+      stats: {
+        trackCount: finalTracks.length,
+        totalDurationMs,
+        artistCount,
+        generationMs,
+      },
       emotionProfile,
       tracks: finalTracks.map((t) => ({
         id: t.trackId,
@@ -294,11 +309,46 @@ router.get("/playlists", async (req, res): Promise<void> => {
         emotionProfile: p.emotionProfile ?? null,
         tracks: p.tracks ?? [],
         createdAt: p.createdAt.toISOString(),
+        spotifyUrl: p.spotifyUrl ?? null,
+        vibe: p.vibe ?? null,
+        mode: p.mode ?? null,
       })),
     });
   } catch (err: any) {
     req.log.error({ err }, "Error fetching playlists");
     res.status(500).json({ error: "Failed to fetch playlists." });
+  }
+});
+
+router.get("/share/:id", async (req, res): Promise<void> => {
+  const playlistId = parseInt(req.params.id, 10);
+  if (isNaN(playlistId)) {
+    res.status(400).json({ error: "Invalid playlist id." });
+    return;
+  }
+  try {
+    const rows = await db
+      .select()
+      .from(savedPlaylistsTable)
+      .where(eq(savedPlaylistsTable.id, playlistId))
+      .limit(1);
+    const playlist = rows[0];
+    if (!playlist) {
+      res.status(404).json({ error: "Playlist not found." });
+      return;
+    }
+    res.json({
+      id: playlist.id,
+      name: playlist.name,
+      vibe: playlist.vibe ?? null,
+      emotionProfile: playlist.emotionProfile ?? null,
+      tracks: playlist.tracks ?? [],
+      spotifyUrl: playlist.spotifyUrl ?? null,
+      createdAt: playlist.createdAt.toISOString(),
+      userId: playlist.userId,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to fetch playlist." });
   }
 });
 

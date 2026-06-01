@@ -14,7 +14,7 @@ import { getFeatures } from "../lib/env";
 
 const router: IRouter = Router();
 
-const activeSyncs = new Set<string>();
+export const activeSyncs = new Set<string>();
 
 router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   // Guard: Spotify must be configured for any sync-related endpoint to work.
@@ -90,7 +90,7 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
   });
 });
 
-async function runSync(userId: string, tokens: any): Promise<void> {
+export async function runSync(userId: string, tokens: any): Promise<void> {
   try {
     const freshTokens = await getValidAccessToken(tokens);
     const accessToken = freshTokens.accessToken;

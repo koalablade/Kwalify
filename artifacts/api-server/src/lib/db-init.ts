@@ -57,9 +57,16 @@ CREATE TABLE IF NOT EXISTS "saved_playlists" (
   "name" text NOT NULL,
   "emotion_profile" jsonb,
   "tracks" jsonb,
+  "spotify_url" text,
+  "vibe" text,
+  "mode" text,
   "created_at" timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "IDX_saved_playlists_user" ON "saved_playlists" ("user_id");
+
+ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "spotify_url" text;
+ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "vibe" text;
+ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "mode" text;
 `;
 
 export async function runDbInit(rawPool: pg.Pool): Promise<void> {

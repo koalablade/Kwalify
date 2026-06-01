@@ -54,6 +54,9 @@ export const savedPlaylistsTable = pgTable("saved_playlists", {
   name: text("name").notNull(),
   emotionProfile: jsonb("emotion_profile"),
   tracks: jsonb("tracks"),
+  spotifyUrl: text("spotify_url"),
+  vibe: text("vibe"),
+  mode: text("mode"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
