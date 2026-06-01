@@ -311,8 +311,18 @@ export async function createSpotifyPlaylist(
 
   const playlist = playlistResponse.data;
 
+  if (!playlist?.id) {
+    throw new Error(
+      `[spotify] Playlist create response missing 'id'. Full response: ${JSON.stringify(playlist)}`
+    );
+  }
+
   const batchSize = 100;
   try {
+    logger.info(
+      { playlistId: playlist.id, totalUris: trackUris.length, firstUri: trackUris[0] ?? null },
+      "[spotify] Adding tracks to playlist"
+    );
     for (let i = 0; i < trackUris.length; i += batchSize) {
       const batch = trackUris.slice(i, i + batchSize);
       await spotifyRequest({
@@ -329,7 +339,12 @@ export async function createSpotifyPlaylist(
     // Track addition failed — delete the empty playlist to avoid Spotify clutter,
     // then re-throw so the caller can fall back to DB-only mode.
     logger.warn(
-      { playlistId: playlist.id, status: err?.response?.status, msg: err?.response?.data },
+      {
+        playlistId: playlist.id,
+        status: err?.response?.status,
+        errorBody: err?.response?.data,
+        msg: err?.message,
+      },
       "[spotify] Track add failed — deleting empty playlist"
     );
     try {

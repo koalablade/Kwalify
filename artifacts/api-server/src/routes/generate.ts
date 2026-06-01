@@ -146,7 +146,18 @@ router.post("/generate", async (req, res): Promise<void> => {
       mode as "strict" | "balanced" | "chaotic"
     );
 
-    const afterDeadZone = filterDeadZones(structured, length);
+    // Shuffle only the top half of the pool so each regen call picks different
+    // tracks from the high-quality set, without demoting any low-scoring song
+    // into the top half (bottom half ordering is preserved).
+    const pool = structured.slice(0, poolTarget);
+    const halfLen = Math.floor(pool.length / 2);
+    for (let i = halfLen - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const shuffledStructured = [...pool, ...structured.slice(poolTarget)];
+
+    const afterDeadZone = filterDeadZones(shuffledStructured, length);
     const smoothMin = Math.max(0.05, emotionProfile.energy - 0.5);
     const smoothMax = Math.min(0.95, emotionProfile.energy + 0.5);
     const afterSmoothing = smoothEnergyCurve(afterDeadZone, smoothMin, smoothMax);
