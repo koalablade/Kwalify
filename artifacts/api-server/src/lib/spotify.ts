@@ -337,7 +337,7 @@ export async function createSpotifyPlaylist(
       // Use PUT on first batch to set initial tracks, POST for subsequent batches
       await spotifyRequest({
         method: i === 0 ? "PUT" : "POST",
-        url: `${SPOTIFY_API_BASE}/playlists/${playlist.id}/tracks`,
+        url: `${SPOTIFY_API_BASE}/playlists/${playlist.id}/items`,
         data: { uris: batch },
         headers: {
           Authorization: `Bearer ${accessToken}`,
