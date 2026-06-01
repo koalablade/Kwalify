@@ -6,7 +6,11 @@ import { EXTENDED_VIBE_KEYWORDS } from "./vibe-keywords-extended";
 import { EXTENDED_VIBE_KEYWORDS_B } from "./vibe-keywords-extended-b";
 import { EXTENDED_VIBE_KEYWORDS_C } from "./vibe-keywords-context-c";
 import { EXTENDED_VIBE_KEYWORDS_PLACES_TIMES } from "./vibe-keywords-places-times";
-import { applyEmotionalDestination, type JourneyArc } from "./emotion-destination";
+import {
+  applyEmotionalDestination,
+  parseEmotionalDestination,
+  type JourneyArc,
+} from "./emotion-destination";
 import { applyArchetypeNudge } from "./vibe-archetypes";
 import {
   detectLayeredScene,
@@ -16,10 +20,17 @@ import {
   matchedTermImpliesTime,
   type KeywordLayer,
 } from "./emotion-scene-layers";
+import {
+  applyExperienceScene,
+  describeSceneMatch,
+  getSceneJourneyArc,
+  matchExperienceScene,
+} from "./scene-intelligence";
 
 export type { JourneyArc };
 export { detectJourneyArc, parseEmotionalDestination } from "./emotion-destination";
 export { matchArchetype, VIBE_ARCHETYPES } from "./vibe-archetypes";
+export { matchExperienceScene, describeSceneMatch, getSceneLibrarySize } from "./scene-intelligence";
 
 export interface EmotionProfile {
   energy: number;
@@ -1008,7 +1019,9 @@ export function analyzeVibe(vibe: string): EmotionProfile {
   const contradictionBoost = detectContradictionBoost(text);
   const emotionalDepth = computeEmotionalDepth(text);
   const scene = detectScene(text);
-  const hasSpecificScene = SPECIFIC_SCENE_PATTERN.test(text);
+  const experienceScene = matchExperienceScene(text);
+  const hasSpecificScene =
+    SPECIFIC_SCENE_PATTERN.test(text) || experienceScene !== null;
 
   const profile: EmotionProfile = {
     energy: 0.5,
@@ -1130,10 +1143,36 @@ export function analyzeVibe(vibe: string): EmotionProfile {
 
   // Apply scene-based weight adjustments
   let withScene = applySceneWeights(profile, scene);
+
+  if (experienceScene && experienceScene.matchedTerm.length >= 10) {
+    withScene = applyExperienceScene(withScene, experienceScene);
+  }
+
   withScene = applyArchetypeNudge(text, withScene);
   withScene = applyEmotionalDestination(text, withScene);
 
   return withScene;
+}
+
+/** Full analysis including matched human experience (for API/debug). */
+export function analyzeVibeWithContext(vibe: string): {
+  profile: EmotionProfile;
+  experienceScene: ReturnType<typeof describeSceneMatch>;
+  journeyArc: JourneyArc;
+} {
+  const text = vibe.toLowerCase().trim();
+  const profile = analyzeVibe(vibe);
+  const match = matchExperienceScene(text);
+  const destArc = parseEmotionalDestination(text).journeyArc;
+  const sceneArc = getSceneJourneyArc(text, match);
+  const journeyArc =
+    destArc !== "default" ? destArc : sceneArc ?? destArc;
+
+  return {
+    profile,
+    experienceScene: describeSceneMatch(match),
+    journeyArc,
+  };
 }
 
 function clamp(val: number, min = 0, max = 1): number {

@@ -12,6 +12,7 @@ import {
 import { eq, desc, and } from "drizzle-orm";
 import {
   analyzeVibe,
+  analyzeVibeWithContext,
   scoreSong,
   buildPlaylistStructure,
   limitArtistRepetition,
@@ -97,9 +98,14 @@ router.post("/generate", async (req, res): Promise<void> => {
     const { vibe, mode, length, referencePlaylist } = parsed.data;
 
     let emotionProfile: EmotionProfile;
+    let experienceScene: ReturnType<typeof analyzeVibeWithContext>["experienceScene"] = null;
+    let sceneJourneyArc: ReturnType<typeof analyzeVibeWithContext>["journeyArc"] | null = null;
     try {
-      emotionProfile = analyzeVibe(vibe);
-      req.log.info({ emotionProfile }, "Emotion profile computed");
+      const analyzed = analyzeVibeWithContext(vibe);
+      emotionProfile = analyzed.profile;
+      experienceScene = analyzed.experienceScene;
+      sceneJourneyArc = analyzed.journeyArc;
+      req.log.info({ emotionProfile, experienceScene, sceneJourneyArc }, "Emotion profile computed");
     } catch (emotionErr) {
       req.log.error({ err: emotionErr }, "Emotion engine failed — using neutral fallback");
       emotionProfile = { ...NEUTRAL_PROFILE };
@@ -280,7 +286,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       afterSmoothing = afterDeadZone;
     }
     const afterArtistSep = separateAdjacentArtists(afterSmoothing);
-    const journeyArc = detectJourneyArc(vibe, emotionProfile);
+    const journeyArc =
+      sceneJourneyArc && sceneJourneyArc !== "default"
+        ? sceneJourneyArc
+        : detectJourneyArc(vibe, emotionProfile);
     const afterArc = enforceArc(afterArtistSep, emotionProfile, journeyArc);
     const finalTracks = afterArc.slice(0, length);
 
@@ -399,6 +408,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         generationMs,
       },
       emotionProfile,
+      experienceScene,
       vibeKind,
       journeyArc,
       referenceMatch: referenceFingerprint
