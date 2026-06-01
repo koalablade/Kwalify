@@ -216,9 +216,18 @@ router.post("/generate", async (req, res): Promise<void> => {
 
       if ((spotifyErr as any)?.response?.status === 403 || (spotifyErr as any)?.status === 403) {
         res.status(403).json({
-          error: "Spotify playlist creation failed. Your account may need to re-authorize with updated permissions.",
+          error: "Spotify playlist creation is temporarily unavailable.",
           reAuthRequired: true,
-          details: (spotifyErr as any)?.response?.data?.error?.message ?? "Forbidden"
+          details: (spotifyErr as any)?.response?.data?.error?.message ?? "Forbidden",
+          pendingTracks: finalTracks.map((t) => ({
+            trackId: t.trackId,
+            trackName: t.trackName,
+            artistName: t.artistName,
+            albumName: t.albumName,
+            albumArt: t.albumArt ?? null,
+          })),
+          emotionProfile: emotionProfile,
+          playlistName: playlistName,
         });
         return;
       }

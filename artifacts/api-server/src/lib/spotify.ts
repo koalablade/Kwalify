@@ -19,6 +19,8 @@ export interface SpotifyTrack {
     images: Array<{ url: string; width: number; height: number }>;
   };
   duration_ms: number;
+  /** ISO-8601 timestamp from the liked-songs `added_at` field */
+  addedAt?: string;
 }
 
 export interface SpotifyAudioFeatures {
@@ -199,7 +201,8 @@ export async function getSpotifyUser(accessToken: string): Promise<any> {
 
 export async function fetchLikedSongs(
   accessToken: string,
-  onBatch: (tracks: SpotifyTrack[], total: number, offset: number) => Promise<void>
+  onBatch: (tracks: SpotifyTrack[], total: number, offset: number) => Promise<void>,
+  stopBefore?: Date
 ): Promise<void> {
   let offset = 0;
   const limit = 50;
@@ -216,9 +219,29 @@ export async function fetchLikedSongs(
     const data = response.data;
     total = data.total;
 
-    const tracks: SpotifyTrack[] = data.items
+    // Attach added_at to each track so callers can use it for incremental sync
+    let tracks: SpotifyTrack[] = data.items
       .filter((item: any) => item.track && !item.track.is_local)
-      .map((item: any) => item.track);
+      .map((item: any) => ({ ...item.track, addedAt: item.added_at as string | undefined }));
+
+    // Incremental stop: Spotify returns tracks newest-first.
+    // If stopBefore is set, drop tracks that were added before the cutoff.
+    // When some tracks in this page are older than the cutoff we've reached
+    // already-synced territory — emit the new ones and stop.
+    if (stopBefore) {
+      const cutoff = stopBefore.getTime();
+      const newTracks = tracks.filter(
+        (t) => t.addedAt && new Date(t.addedAt).getTime() > cutoff
+      );
+      if (newTracks.length < tracks.length) {
+        // Hit the boundary — emit new tracks from this page and bail out
+        if (newTracks.length > 0) {
+          await onBatch(newTracks, total, offset);
+        }
+        return;
+      }
+      tracks = newTracks;
+    }
 
     await onBatch(tracks, total, offset);
     offset += limit;

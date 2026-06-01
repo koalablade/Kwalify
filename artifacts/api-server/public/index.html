@@ -205,6 +205,28 @@
     .status-dot { width:6px; height:6px; background:var(--green); border-radius:50%; box-shadow:0 0 7px var(--green); flex-shrink:0; }
     .mode-badge { display:inline-flex; align-items:center; gap:5px; background:var(--purple-dim); border:1px solid var(--purple-mid); border-radius:var(--r-pill); padding:3px 10px; font-size:11px; font-weight:600; color:#c09fff; margin-left:8px; }
 
+    /* Pending preview card (403 / dev-mode block) */
+    .pending-card { margin-top:18px; padding:22px 24px; display:none; border-color:rgba(255,200,60,.18); }
+    .pending-card.visible { display:block; animation:fsu .4s var(--spring); }
+    .pending-banner { display:flex; align-items:center; gap:10px; background:rgba(255,180,40,.07); border:1px solid rgba(255,180,40,.18); border-radius:10px; padding:10px 14px; margin-bottom:18px; font-size:13px; color:#f0c060; }
+    .pending-banner svg { flex-shrink:0; }
+    .pending-top { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+    .pending-icon { width:48px; height:48px; background:rgba(255,180,40,.13); border:1px solid rgba(255,180,40,.28); border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+    .pending-title { font-size:16px; font-weight:700; }
+    .pending-subtitle { font-size:12.5px; color:var(--text-muted); margin-top:3px; }
+    .pending-track-list { display:flex; flex-direction:column; gap:1px; margin-top:2px; }
+    .pending-track { display:flex; align-items:center; gap:12px; padding:7px 8px; border-radius:8px; transition:background .15s; animation:fsu .3s var(--spring) both; }
+    .pending-track:hover { background:rgba(255,255,255,.04); }
+    .pending-track-num { font-size:11px; color:var(--text-faint); width:14px; text-align:right; flex-shrink:0; font-variant-numeric:tabular-nums; }
+    .pending-art { width:40px; height:40px; border-radius:6px; object-fit:cover; flex-shrink:0; }
+    .pending-art-fb { width:40px; height:40px; border-radius:6px; background:var(--purple-dim); border:1px solid var(--purple-mid); display:inline-flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .pending-track-info { flex:1; min-width:0; }
+    .pending-track-name { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pending-track-artist { font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pending-track-album { font-size:11px; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pending-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
+    .pending-more { font-size:12px; color:var(--text-faint); text-align:center; padding:10px 0 2px; }
+
     /* Sync gate card */
     .sync-gate-card { margin-top:18px; padding:22px 24px; text-align:center; }
     .sync-gate-icon { font-size:44px; margin-bottom:16px; }
@@ -451,6 +473,31 @@
             <span>Saved to Spotify · scored from your liked songs</span>
           </div>
           <span class="mode-badge" id="modeBadge">balanced</span>
+        </div>
+      </div>
+
+      <!-- Pending preview card (shown when Spotify playlist creation is blocked) -->
+      <div class="glass pending-card" id="pendingCard">
+        <div class="pending-banner">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Playlist saved locally — Spotify creation is temporarily unavailable (Development Mode)</span>
+        </div>
+        <div class="pending-top">
+          <div class="pending-icon">🎵</div>
+          <div>
+            <div class="pending-title" id="pendingTitle">Your Playlist Preview</div>
+            <div class="pending-subtitle" id="pendingSubtitle">25 tracks · Preview only · not yet on Spotify</div>
+          </div>
+        </div>
+        <div class="tracks-label">Tracks selected for your vibe</div>
+        <div class="pending-track-list" id="pendingTrackList"></div>
+        <div id="pendingMore" class="pending-more"></div>
+        <div id="pendingEmotionBars"></div>
+        <div class="pending-actions">
+          <button class="btn btn-purple btn-md" onclick="generate()" style="flex:1">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Try Again
+          </button>
         </div>
       </div>
 
@@ -762,6 +809,72 @@ function showResult(url, vibe, tracks, count, mode, emotionProfile){
   resultCard&&resultCard.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
+/* ── Pending Preview (403 / dev-mode block) ── */
+function showPendingPreview(pendingTracks, emotionProfile, playlistName, vibe){
+  const card=$('pendingCard');
+  if(!card) return;
+
+  const title=$('pendingTitle');
+  const subtitle=$('pendingSubtitle');
+  const list=$('pendingTrackList');
+  const moreEl=$('pendingMore');
+  const emotionEl=$('pendingEmotionBars');
+
+  if(title) title.textContent = playlistName || `Your Playlist Preview`;
+  if(subtitle) subtitle.textContent = `${pendingTracks.length} tracks · Preview only · not yet on Spotify`;
+
+  const shown = pendingTracks.slice(0, 25);
+  if(list){
+    list.innerHTML = shown.map((t, i) => {
+      const artHtml = t.albumArt
+        ? `<img src="${esc(t.albumArt)}" alt="" class="pending-art" onerror="this.outerHTML='<span class=pending-art-fb>🎵</span>'">`
+        : '<span class="pending-art-fb">🎵</span>';
+      return `<div class="pending-track" style="animation-delay:${i*.04}s">
+        <span class="pending-track-num">${i+1}</span>
+        ${artHtml}
+        <div class="pending-track-info">
+          <div class="pending-track-name">${esc(t.trackName)}</div>
+          <div class="pending-track-artist">${esc(t.artistName)}</div>
+          <div class="pending-track-album">${esc(t.albumName||'')}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if(moreEl) moreEl.textContent = pendingTracks.length > 25 ? `+ ${pendingTracks.length - 25} more tracks` : '';
+
+  /* Emotion profile bars */
+  if(emotionEl){
+    if(emotionProfile && typeof emotionProfile === 'object'){
+      const dims=[
+        {key:'energy',    label:'Energy'},
+        {key:'valence',   label:'Valence'},
+        {key:'tension',   label:'Tension'},
+        {key:'nostalgia', label:'Nostalgia'},
+        {key:'calm',      label:'Calm'},
+      ];
+      emotionEl.innerHTML=`<div class="emotion-section">
+        <div class="emotion-title">Vibe Analysis</div>
+        ${dims.map(({key,label})=>{
+          const val=Math.min(1,Math.max(0,emotionProfile[key]||0));
+          const pct=Math.round(val*100);
+          return `<div class="emotion-row">
+            <span class="emotion-label">${label}</span>
+            <div class="emotion-track"><div class="emotion-fill" style="width:${pct}%"></div></div>
+            <span class="emotion-pct">${pct}%</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    } else {
+      emotionEl.innerHTML='';
+    }
+  }
+
+  // Hide normal result card, show pending card
+  resultCard&&resultCard.classList.remove('visible');
+  card.classList.add('visible');
+  card.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
 /* ── Generate ── */
 function generate(){
   if(debTimer||isGenerating) return;
@@ -793,6 +906,11 @@ function generate(){
       showToast(`Rate limited — try again in ${retryAfter}s`,'info',5000);
       return;
     }
+    if(status===403 && d.reAuthRequired && Array.isArray(d.pendingTracks)){
+      showPendingPreview(d.pendingTracks, d.emotionProfile, d.playlistName, vibe);
+      showToast('Spotify blocked playlist creation — showing your preview instead.','info',5500);
+      return;
+    }
     if(!ok||d.error){
       const m={
         'Not authenticated':'Log in with Spotify to generate playlists.',
@@ -802,6 +920,8 @@ function generate(){
       if(status===401) setTimeout(()=>window.location.href='/api/auth/login',2200);
       return;
     }
+    // Hide pending card on successful generation
+    const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
     if(vibeInput) vibeInput.value='';
     if($('vibeCounter')) $('vibeCounter').textContent='0/140';
     const trackCount=d.count||d.totalTracks||25;
@@ -916,6 +1036,7 @@ function _fmtSyncTime(isoStr){
 }
 
 let _syncTimer=null, _syncPending=false, _syncState=null;
+let _syncStartTime=null, _syncStartProgress=0, _syncIsIncremental=false;
 
 function startSyncPolling(){
   _pollSync();
@@ -945,8 +1066,14 @@ function _updateSyncUI(d){
 
   /* Tighten poll interval during active sync */
   if(d.isSyncing&&prevState!=='syncing'){
+    // Sync just started — record start time and baseline progress
+    _syncStartTime=Date.now();
+    _syncStartProgress=d.syncProgress||0;
+    // Incremental sync: syncTotal is very small relative to totalTracks
+    _syncIsIncremental = !!(d.syncTotal && d.totalTracks && d.syncTotal < d.totalTracks * 0.5);
     clearInterval(_syncTimer); _syncTimer=setInterval(_pollSync,3000);
   } else if(!d.isSyncing&&prevState==='syncing'){
+    _syncStartTime=null;
     clearInterval(_syncTimer); _syncTimer=setInterval(_pollSync,7000);
   }
 
@@ -972,20 +1099,47 @@ function _updateSyncUI(d){
   }
 }
 
+function _fmtRemaining(elapsedMs, done, total){
+  if(!done||done<=0||!total||total<=0||done>=total) return '';
+  const ratePerMs=done/elapsedMs;
+  if(ratePerMs<=0) return '';
+  const remainMs=((total-done)/ratePerMs);
+  if(remainMs<5000) return '~a few seconds remaining';
+  const remainSec=Math.ceil(remainMs/1000);
+  if(remainSec<90) return `~${remainSec}s remaining`;
+  return `~${Math.ceil(remainSec/60)}min remaining`;
+}
+
 function _renderSyncGate(d){
   const gate=$('syncGateCard');
   if(!gate) return;
   if(d.isSyncing){
     const done=d.syncProgress||0, total=d.syncTotal||0;
     const pct=total>0?Math.round(done/total*100):null;
+
+    let timeHint='This usually takes 1–3 minutes';
+    if(_syncStartTime&&done>_syncStartProgress){
+      const elapsed=Date.now()-_syncStartTime;
+      const hint=_fmtRemaining(elapsed, done-_syncStartProgress, (total||done*1.5)-_syncStartProgress);
+      if(hint) timeHint=hint;
+    }
+
+    const syncLabel=_syncIsIncremental
+      ? `Syncing ${done>0?done+' ':'' }new tracks…`
+      : 'Syncing your library…';
+
+    const countLabel=total>0
+      ? (_syncIsIncremental ? `${done} new track${done!==1?'s':''} found` : `${done} of ${total} tracks`)
+      : 'Scanning…';
+
     gate.innerHTML=`
       <div class="spin" style="margin:0 auto 20px"></div>
-      <div class="sync-gate-title">Syncing your library…</div>
+      <div class="sync-gate-title">${syncLabel}</div>
       <div class="sync-prog-track">
         <div class="sync-prog-fill" style="width:${pct!==null?pct:35}%"></div>
       </div>
-      <div class="sync-track-count">${total>0?`${done} of ${total} tracks`:'Scanning…'}</div>
-      <div class="sync-time-hint">This usually takes 1–3 minutes</div>`;
+      <div class="sync-track-count">${countLabel}</div>
+      <div class="sync-time-hint">${timeHint}</div>`;
   } else {
     gate.innerHTML=`
       <div class="sync-gate-icon">🎵</div>

@@ -95,30 +95,59 @@ async function runSync(userId: string, tokens: any): Promise<void> {
     const freshTokens = await getValidAccessToken(tokens);
     const accessToken = freshTokens.accessToken;
 
-    let allTracks: SpotifyTrack[] = [];
+    // Determine whether this is an incremental sync by checking lastSyncedAt
+    const [existingStatus] = await db
+      .select()
+      .from(syncStatusTable)
+      .where(eq(syncStatusTable.spotifyUserId, userId));
+
+    const lastSyncedAt: Date | null = existingStatus?.lastSyncedAt ?? null;
+    const isIncremental = !!lastSyncedAt;
+
+    let newTracks: SpotifyTrack[] = [];
     let grandTotal = 0;
 
-    await fetchLikedSongs(accessToken, async (tracks, total, offset) => {
-      allTracks.push(...tracks);
-      grandTotal = total;
+    await fetchLikedSongs(
+      accessToken,
+      async (tracks, total, offset) => {
+        newTracks.push(...tracks);
+        grandTotal = total;
 
-      await db
-        .update(syncStatusTable)
-        .set({
-          syncProgress: offset + tracks.length,
-          syncTotal: total,
-          totalTracks: offset + tracks.length,
-          updatedAt: new Date(),
-        })
-        .where(eq(syncStatusTable.spotifyUserId, userId));
-    });
+        const progressCount = isIncremental
+          ? newTracks.length
+          : offset + tracks.length;
+        const progressTotal = isIncremental ? null : total;
 
-    const trackIds = allTracks.map((t) => t.id);
+        await db
+          .update(syncStatusTable)
+          .set({
+            syncProgress: progressCount,
+            syncTotal: progressTotal ?? total,
+            // During incremental sync keep totalTracks as existing count until done
+            totalTracks: isIncremental
+              ? (existingStatus?.totalTracks ?? 0)
+              : offset + tracks.length,
+            updatedAt: new Date(),
+          })
+          .where(eq(syncStatusTable.spotifyUserId, userId));
+      },
+      // Pass the cutoff so fetchLikedSongs stops early on incremental runs
+      lastSyncedAt ?? undefined
+    );
+
+    if (isIncremental) {
+      logger.info(
+        { userId, newTrackCount: newTracks.length, lastSyncedAt },
+        `[sync] Incremental sync: found ${newTracks.length} new tracks since lastSyncedAt`
+      );
+    }
+
+    const trackIds = newTracks.map((t) => t.id);
 
     // Use a server-level Client Credentials token for audio features so it has
     // its own quota bucket, independent of the user token that was already used
-    // for 180+ liked-songs pages above.  Falls back to the user token if the
-    // CC token request fails (e.g. missing env vars in local dev).
+    // for liked-songs pages above.  Falls back to the user token if the CC
+    // token request fails (e.g. missing env vars in local dev).
     let audioFeaturesToken = accessToken;
     try {
       audioFeaturesToken = await getClientCredentialsToken();
@@ -126,52 +155,66 @@ async function runSync(userId: string, tokens: any): Promise<void> {
       logger.warn({ err }, "Could not obtain CC token for audio features — using user token");
     }
 
-    const allFeatures = await fetchAudioFeatures(audioFeaturesToken, trackIds);
+    const allFeatures = trackIds.length > 0
+      ? await fetchAudioFeatures(audioFeaturesToken, trackIds)
+      : [];
     const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
 
-    await db.delete(likedSongsTable).where(eq(likedSongsTable.spotifyUserId, userId));
-
-    const batchSize = 200;
-    for (let i = 0; i < allTracks.length; i += batchSize) {
-      const batch = allTracks.slice(i, i + batchSize);
-      const rows = batch.map((track) => {
-        const features = featuresMap.get(track.id);
-        return {
-          spotifyUserId: userId,
-          trackId: track.id,
-          trackName: track.name,
-          artistName: track.artists[0]?.name ?? "Unknown",
-          albumName: track.album.name,
-          albumArt: track.album.images[0]?.url ?? null,
-          durationMs: track.duration_ms,
-          energy: features?.energy ?? null,
-          valence: features?.valence ?? null,
-          tempo: features?.tempo ?? null,
-          danceability: features?.danceability ?? null,
-          acousticness: features?.acousticness ?? null,
-          instrumentalness: features?.instrumentalness ?? null,
-          loudness: features?.loudness ?? null,
-          speechiness: features?.speechiness ?? null,
-          addedAt: new Date(),
-        };
-      });
-
-      await db.insert(likedSongsTable).values(rows);
+    if (!isIncremental) {
+      // Full sync: wipe and re-insert everything
+      await db.delete(likedSongsTable).where(eq(likedSongsTable.spotifyUserId, userId));
     }
+
+    if (newTracks.length > 0) {
+      const batchSize = 200;
+      for (let i = 0; i < newTracks.length; i += batchSize) {
+        const batch = newTracks.slice(i, i + batchSize);
+        const rows = batch.map((track) => {
+          const features = featuresMap.get(track.id);
+          return {
+            spotifyUserId: userId,
+            trackId: track.id,
+            trackName: track.name,
+            artistName: track.artists[0]?.name ?? "Unknown",
+            albumName: track.album.name,
+            albumArt: track.album.images[0]?.url ?? null,
+            durationMs: track.duration_ms,
+            energy: features?.energy ?? null,
+            valence: features?.valence ?? null,
+            tempo: features?.tempo ?? null,
+            danceability: features?.danceability ?? null,
+            acousticness: features?.acousticness ?? null,
+            instrumentalness: features?.instrumentalness ?? null,
+            loudness: features?.loudness ?? null,
+            speechiness: features?.speechiness ?? null,
+            addedAt: track.addedAt ? new Date(track.addedAt) : new Date(),
+          };
+        });
+
+        await db.insert(likedSongsTable).values(rows);
+      }
+    }
+
+    const finalTotalTracks = isIncremental
+      ? (existingStatus?.totalTracks ?? 0) + newTracks.length
+      : newTracks.length;
 
     await db
       .update(syncStatusTable)
       .set({
         isSyncing: 0,
-        totalTracks: allTracks.length,
+        totalTracks: finalTotalTracks,
         lastSyncedAt: new Date(),
-        syncProgress: allTracks.length,
+        syncProgress: newTracks.length,
         syncTotal: grandTotal,
         updatedAt: new Date(),
       })
       .where(eq(syncStatusTable.spotifyUserId, userId));
 
-    logger.info({ userId, totalTracks: allTracks.length }, "Sync complete");
+    logger.info(
+      { userId, totalTracks: finalTotalTracks, newTracks: newTracks.length, isIncremental },
+      "Sync complete"
+    );
   } catch (err) {
     logger.error({ err, userId }, "Sync failed");
 
