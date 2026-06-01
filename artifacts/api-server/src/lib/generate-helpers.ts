@@ -2,6 +2,29 @@ import { buildFastFallbackPlaylist } from "./fast-fallback-playlist";
 import type { EmotionProfile } from "./emotion";
 import type { GenreAudit } from "./genre-audit";
 import type { BuildPlaylistPipelineResult } from "../core/playlist-pipeline";
+import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
+import type { TrackScoringDebug } from "./hybrid-scoring";
+
+function fallbackScoringDebug(trackId: string): TrackScoringDebug {
+  return {
+    trackId,
+    sceneScore: 0.72,
+    libraryFitScore: 0.72,
+    genreBalanceScore: 0.5,
+    sceneMatch: 0.72,
+    emotionMatch: 0.72,
+    genreMatch: 0.5,
+    memoryMatch: 0.35,
+    noveltyScore: 0.35,
+    seasonalMatch: 0.5,
+    moodPurity: 0.5,
+    genrePrimary: "unknown",
+    genreConfidence: 0,
+    genreLocked: false,
+    excludedBy: null,
+    finalScore: 0.72,
+  };
+}
 
 export function buildFallbackPipelineResult<
   T extends {
@@ -32,10 +55,11 @@ export function buildFallbackPipelineResult<
     playlistLength: opts.playlistLength,
     maxPerArtist: opts.maxPerArtist,
   });
-  const fbScored = fb.map((t) => ({
+  const fbScored: ScoredLibraryTrack<T>[] = fb.map((t) => ({
     ...t,
     score: 0.72,
     rediscoveryScore: 0.35,
+    scoringDebug: fallbackScoringDebug(t.trackId),
   }));
   return {
     finalTracks: fbScored,

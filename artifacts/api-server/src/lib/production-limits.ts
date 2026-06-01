@@ -40,7 +40,7 @@ export function resolveHybridPoolCap(
   let cap = HYBRID_POOL_COMPLEX;
   if (opts.referencePlaylist) cap = Math.min(cap + 100, HYBRID_POOL_ABSOLUTE_MAX);
   if ((opts.promptWordCount ?? 0) >= 12) cap = HYBRID_POOL_ABSOLUTE_MAX;
-  if (opts.vibeKind === "sunny" || opts.vibeKind === "night") {
+  if (opts.vibeKind === "sunny" || opts.vibeKind === "late_night") {
     cap = Math.min(cap + 100, HYBRID_POOL_ABSOLUTE_MAX);
   }
   return Math.min(cap, HYBRID_POOL_ABSOLUTE_MAX);

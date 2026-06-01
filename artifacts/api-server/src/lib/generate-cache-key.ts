@@ -16,7 +16,7 @@ export function buildGenerateCacheKey(parts: {
   mode: string;
   length: number;
   varietyBoost?: boolean;
-  referencePlaylist?: string;
+  referencePlaylist?: boolean;
 }): string {
   const norm = normalizePrompt(parts.vibe);
   const raw = [

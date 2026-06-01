@@ -167,14 +167,14 @@ router.post("/generate", async (req, res): Promise<void> => {
     const parsedLength =
       typeof lengthRaw === "string" ? parseInt(lengthRaw, 10) : Number(lengthRaw);
 
-    const varietyBoost = rawBody.varietyBoost === true;
+    const varietyBoostRequested = rawBody.varietyBoost === true;
 
     const payload = {
       vibe: (typeof vibeRaw === "string" ? vibeRaw.trim() : String(vibeRaw).trim()) || "balanced",
       mode: (["strict", "balanced", "chaotic"] as const).includes(modeRaw) ? modeRaw : "balanced",
       length: isNaN(parsedLength) || parsedLength <= 0 ? 25 : parsedLength,
       ...(referencePlaylistRaw ? { referencePlaylist: referencePlaylistRaw } : {}),
-      ...(varietyBoost ? { varietyBoost: true } : {}),
+      ...(varietyBoostRequested ? { varietyBoost: true } : {}),
     };
 
     const parsed = GeneratePlaylistBody.safeParse(payload);

@@ -445,7 +445,7 @@ export async function createSpotifyPlaylist(
     );
 
     await new Promise((r) => setTimeout(r, 800));
-    opts?.onPlaylistCreated?.(playlistId);
+    opts?.onPlaylistCreated?.(playlistId!);
   } else if (playlistId) {
     opts?.onPlaylistCreated?.(playlistId);
   }
