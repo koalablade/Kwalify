@@ -49,7 +49,7 @@ import {
   getPendingSpotifyPlaylistId,
   setPendingSpotifyPlaylistId,
   clearPendingSpotifyPlaylist,
-  getGenerateProgress,
+  getGenerateStatus,
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
@@ -121,12 +121,7 @@ router.get("/generate/status", (req, res): void => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
-  const progress = getGenerateProgress(req.session.spotifyUserId);
-  res.json({
-    phase: progress?.phase ?? "idle",
-    requestId: progress?.requestId ?? null,
-    active: !!progress,
-  });
+  res.json(getGenerateStatus(req.session.spotifyUserId));
 });
 
 router.post("/generate", async (req, res): Promise<void> => {

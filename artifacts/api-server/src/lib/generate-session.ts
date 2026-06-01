@@ -100,7 +100,28 @@ export function getGenerateProgress(userId: string): {
 } | null {
   const s = sessions.get(userId);
   if (!s || s.cancelled) return null;
+  if (!isActiveSession(s)) {
+    sessions.delete(userId);
+    return null;
+  }
   return { phase: s.phase, requestId: s.requestId, startedAt: s.startedAt };
+}
+
+/** Status polling — never report active after timeout or terminal phase. */
+export function getGenerateStatus(userId: string): {
+  phase: GeneratePhase;
+  requestId: string | null;
+  active: boolean;
+} {
+  const progress = getGenerateProgress(userId);
+  if (!progress) {
+    return { phase: "idle", requestId: null, active: false };
+  }
+  return {
+    phase: progress.phase,
+    requestId: progress.requestId,
+    active: true,
+  };
 }
 
 export function endGenerateSession(userId: string, requestId: string): void {

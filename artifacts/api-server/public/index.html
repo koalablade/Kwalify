@@ -805,7 +805,7 @@ const PROG_FLAT_LABELS=(()=>{
   return [...seen];
 })();
 const PROG_LABEL_ROTATE_MS=5200;
-let progTimer=null, progPollTimer=null, progLabelTimer=null, progStartMs=0, _lastProgPhase='', _lastProgLabel='';
+let progTimer=null, progPollTimer=null, progLabelTimer=null, progStartMs=0, _lastProgPhase='', _lastProgLabel='', _deployHintShown=false;
 
 function _pickProgLabel(phase){
   const s=PROG_PHASE_MAP[phase]||PROG_PHASE_MAP.scoring;
@@ -861,6 +861,7 @@ function startProgress(){
   progStartMs=Date.now();
   _lastProgPhase='';
   _lastProgLabel='';
+  _deployHintShown=false;
   _setProgPhase('starting');
   progLabelTimer=setInterval(_rotateProgLabel, PROG_LABEL_ROTATE_MS);
   progPollTimer=setInterval(()=>{
@@ -868,7 +869,12 @@ function startProgress(){
     fetch('/api/generate/status',{credentials:'include'})
       .then(r=>r.ok?r.json():null)
       .then(d=>{
-        if(d&&d.phase&&d.phase!=='idle'&&d.phase!=='done') _setProgPhase(d.phase);
+        if(d&&d.active&&d.phase&&d.phase!=='idle'&&d.phase!=='done') _setProgPhase(d.phase);
+        else if(isGenerating&&elapsed>12000&&!d?.active&&!_deployHintShown){
+          _deployHintShown=true;
+          showToast('Server may have restarted — if this stalls, refresh the page and check Recent Playlists.','info',7500);
+          _setProgPhase(_elapsedProgPhase(elapsed));
+        }
         else if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed));
       })
       .catch(()=>{ if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed)); });
