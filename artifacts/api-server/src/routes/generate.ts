@@ -17,6 +17,7 @@ import {
 } from "../lib/emotion";
 import { GeneratePlaylistBody } from "../zod/api";
 import { checkRateLimit } from "../lib/rate-limit";
+import { getFeatures } from "../lib/env";
 
 const router: IRouter = Router();
 
@@ -36,6 +37,11 @@ const NEUTRAL_PROFILE: EmotionProfile = {
 
 router.post("/generate", async (req, res): Promise<void> => {
   try {
+    // Guard: playlist creation calls the Spotify API — requires credentials.
+    if (!getFeatures().spotify.enabled) {
+      res.status(503).json({ error: "Spotify is not configured on this server." });
+      return;
+    }
     if (!req.session.spotifyTokens || !req.session.spotifyUserId) {
       res.status(401).json({ error: "Not authenticated" });
       return;

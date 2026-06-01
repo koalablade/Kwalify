@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "outDir": "./artifacts/api-server/dist",
+    "rootDir": "artifacts/api-server/src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -11,9 +13,7 @@
     "noImplicitAny": true,
     "strictNullChecks": true,
     "noImplicitReturns": true,
-    "useUnknownInCatchVariables": true,
-    "noEmit": true,
-    "rootDir": "artifacts/api-server/src"
+    "useUnknownInCatchVariables": true
   },
   "include": ["artifacts/api-server/src/**/*"]
 }

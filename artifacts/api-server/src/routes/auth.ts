@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
 import { getAuthUrl, exchangeCode, getSpotifyUser, getValidAccessToken } from "../lib/spotify";
+import { getFeatures } from "../lib/env";
 
 const router: IRouter = Router();
 
@@ -14,21 +15,32 @@ function getFrontendRedirect(path = "/"): string {
   return path === "/" ? normalized : `${normalized}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function getRedirectUri(req: any): string {
-  if (process.env.SPOTIFY_REDIRECT_URI) {
-    return process.env.SPOTIFY_REDIRECT_URI;
+/**
+ * Returns the registered SPOTIFY_REDIRECT_URI from the features singleton.
+ * Only callable after requireSpotify() has confirmed Spotify is enabled, which
+ * means the discriminated union narrows to { enabled: true } and redirectUri
+ * is a typed string — no process.env access or unsafe cast needed.
+ */
+function getRedirectUri(): string {
+  const feat = getFeatures();
+  if (!feat.spotify.enabled) {
+    throw new Error("[auth] getRedirectUri() called when Spotify is disabled");
   }
-  const domains = process.env.REPLIT_DOMAINS?.split(",")[0];
-  if (domains) {
-    return `https://${domains}/api/auth/callback`;
+  return feat.spotify.redirectUri;
+}
+
+/** Returns false and sends 503 if Spotify credentials were not provided at startup. */
+function requireSpotify(res: any): boolean {
+  if (!getFeatures().spotify.enabled) {
+    res.status(503).json({ error: "Spotify is not configured on this server." });
+    return false;
   }
-  const host = req.get("host") ?? "localhost:5000";
-  const proto = req.get("x-forwarded-proto") ?? req.protocol ?? "http";
-  return `${proto}://${host}/api/auth/callback`;
+  return true;
 }
 
 router.get("/auth/login", (req, res): void => {
-  const redirectUri = getRedirectUri(req);
+  if (!requireSpotify(res)) return;
+  const redirectUri = getRedirectUri();
 
   const state = randomBytes(32).toString("hex");
   req.session.oauthState = state;
@@ -46,6 +58,7 @@ router.get("/auth/login", (req, res): void => {
 });
 
 router.get("/auth/callback", async (req, res): Promise<void> => {
+  if (!requireSpotify(res)) return;
   const { code, error, state: returnedState } = req.query as {
     code?: string;
     error?: string;
@@ -76,7 +89,7 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
   delete req.session.oauthState;
 
   try {
-    const redirectUri = getRedirectUri(req);
+    const redirectUri = getRedirectUri();
     const tokens = await exchangeCode(String(code), redirectUri);
     const user = await getSpotifyUser(tokens.accessToken);
 
@@ -102,6 +115,7 @@ router.post("/auth/logout", (req, res): void => {
 });
 
 router.get("/auth/me", async (req, res): Promise<void> => {
+  if (!requireSpotify(res)) return;
   if (!req.session.spotifyTokens || !req.session.spotifyUserId) {
     res.status(401).json({ error: "Not authenticated" });
     return;

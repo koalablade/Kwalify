@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterShellExecution": [
+      {
+        "command": "node .cursor/hooks/auto-push.js",
+        "matcher": "git commit"
+      }
+    ]
+  }
+}

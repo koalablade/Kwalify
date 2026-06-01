@@ -9,12 +9,18 @@ import {
   type SpotifyTrack,
 } from "../lib/spotify";
 import { logger } from "../lib/logger";
+import { getFeatures } from "../lib/env";
 
 const router: IRouter = Router();
 
 const activeSyncs = new Set<string>();
 
 router.get("/spotify/cache-status", async (req, res): Promise<void> => {
+  // Guard: Spotify must be configured for any sync-related endpoint to work.
+  if (!getFeatures().spotify.enabled) {
+    res.status(503).json({ error: "Spotify is not configured on this server." });
+    return;
+  }
   if (!req.session.spotifyUserId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
@@ -49,6 +55,10 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
 });
 
 router.post("/spotify/sync", async (req, res): Promise<void> => {
+  if (!getFeatures().spotify.enabled) {
+    res.status(503).json({ error: "Spotify is not configured on this server." });
+    return;
+  }
   if (!req.session.spotifyTokens || !req.session.spotifyUserId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
