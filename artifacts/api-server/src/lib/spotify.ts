@@ -113,6 +113,12 @@ export async function exchangeCode(
   });
 
   const data = response.data as any;
+
+  // Log the exact scopes Spotify included in the issued token.
+  // If playlist-modify-private / playlist-modify-public are absent here,
+  // Spotify is not granting write scopes to this app (requires Extended Quota).
+  console.log("[oauth-token-scopes] Spotify issued token with scopes:", data.scope ?? "NONE");
+
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
