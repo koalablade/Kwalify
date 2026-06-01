@@ -471,13 +471,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     let finalTracks = assignNarrativeRoles(afterArc.slice(0, length), journeyArc);
 
     const wildcardPool = sorted.slice(0, Math.min(sorted.length, poolTarget * 3));
-    finalTracks = injectControlledSurprise(
-      finalTracks,
-      wildcardPool,
-      emotionProfile,
-      surpriseMix,
-      humanIntent.intent,
-      length
+    type ScoredLiked = (typeof finalTracks)[number];
+    finalTracks = assignNarrativeRoles(
+      injectControlledSurprise<ScoredLiked>(
+        finalTracks,
+        wildcardPool as ScoredLiked[],
+        emotionProfile,
+        surpriseMix,
+        humanIntent.intent,
+        length
+      ),
+      journeyArc
     );
 
     const explanation = buildGenerationExplanation({

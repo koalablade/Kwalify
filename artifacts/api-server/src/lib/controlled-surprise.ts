@@ -5,8 +5,6 @@
 import type { EmotionProfile } from "./emotion";
 import type { HumanIntent } from "./intent-decoder";
 import type { SurpriseMix } from "./human-surprise";
-import type { TrackNarrativeRole } from "./narrative-roles";
-
 export type SurpriseType = "safe" | "edge" | "memory_shock" | "contrast";
 
 export interface ScoredTrack {
@@ -15,11 +13,8 @@ export interface ScoredTrack {
   rediscoveryScore: number;
   energy: number | null;
   valence: number | null;
-  narrativeRole?: TrackNarrativeRole;
+  narrativeRole?: string;
 }
-
-/** Tracks in the final playlist order (narrative role required). */
-export type NarrativeScoredTrack = ScoredTrack & { narrativeRole: TrackNarrativeRole };
 
 function fit(track: ScoredTrack, profile: EmotionProfile, window: number): boolean {
   const e = track.energy ?? 0.5;
@@ -37,12 +32,9 @@ function pickCandidate<T extends ScoredTrack>(
   return c[0] ?? null;
 }
 
-export function injectControlledSurprise<
-  T extends NarrativeScoredTrack,
-  P extends ScoredTrack = ScoredTrack,
->(
+export function injectControlledSurprise<T extends ScoredTrack>(
   ordered: T[],
-  pool: P[],
+  pool: T[],
   profile: EmotionProfile,
   mix: SurpriseMix,
   intent: HumanIntent,
@@ -78,7 +70,7 @@ export function injectControlledSurprise<
     const idx = replaceIdx[ri++];
     if (idx == null) break;
 
-    let pick: P | null = null;
+    let pick: T | null = null;
     switch (type) {
       case "safe":
         pick = pickCandidate(pool, used, (t) => fit(t, profile, 0.28), (a, b) => b.score - a.score);
@@ -109,10 +101,9 @@ export function injectControlledSurprise<
         break;
     }
 
-    if (pick && result[idx]) {
-      const slot = result[idx];
+    if (pick) {
       used.add(pick.trackId);
-      result[idx] = { ...pick, narrativeRole: slot.narrativeRole } as T;
+      result[idx] = pick;
     }
   }
 
