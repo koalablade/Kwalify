@@ -82,6 +82,9 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
         secure: env.NODE_ENV === "production",
         httpOnly: true,
         maxAge: 7 * 24 * 60 * 60 * 1000,
+        // TEMPORARY TEST: "none" forces cross-site cookie sending on production
+        // to rule out sameSite="lax" as the cause of missing oauthState. Revert
+        // to "lax" once the root cause is confirmed (requires secure:true in prod).
         sameSite: env.NODE_ENV === "production" ? "none" : "lax",
       },
     }),

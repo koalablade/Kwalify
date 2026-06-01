@@ -45,13 +45,37 @@ router.get("/auth/login", (req, res): void => {
   const state = randomBytes(32).toString("hex");
   req.session.oauthState = state;
 
+  req.log.info(
+    { sessionId: req.sessionID, statePrefix: state.slice(0, 8) },
+    "[oauth-debug] state generated and stored in session",
+  );
+
+  req.log.info(
+    {
+      cookie: req.headers.cookie,
+      sessionId: req.sessionID,
+      session: (() => { try { return JSON.stringify(req.session); } catch { return "[unserializable]"; } })(),
+      oauthState: req.session?.oauthState,
+      host: req.headers.host,
+      origin: req.headers.origin,
+    },
+    "[oauth-debug-raw] login — session state before save",
+  );
+
   req.session.save((err) => {
     if (err) {
       req.log.error({ err }, "Failed to save session before OAuth redirect");
       res.status(500).json({ error: "Session error. Please try again." });
       return;
     }
-    req.log.info({ redirectUri }, "Initiating Spotify OAuth");
+    req.log.info(
+      { sessionId: req.sessionID },
+      "[oauth-debug-raw] login — session saved successfully",
+    );
+    req.log.info(
+      { sessionId: req.sessionID, redirectUri },
+      "[oauth-debug] session saved — redirecting to Spotify",
+    );
     const url = getAuthUrl(redirectUri, state);
     res.redirect(url);
   });
@@ -76,7 +100,32 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
     return;
   }
 
+  req.log.info(
+    {
+      cookie: req.headers.cookie,
+      sessionId: req.sessionID,
+      session: (() => { try { return JSON.stringify(req.session); } catch { return "[unserializable]"; } })(),
+      oauthState: req.session?.oauthState,
+      host: req.headers.host,
+      origin: req.headers.origin,
+    },
+    "[oauth-debug-raw] callback — raw session on arrival",
+  );
+
   const expectedState = req.session.oauthState;
+
+  req.log.info(
+    {
+      sessionId: req.sessionID,
+      hasExpectedState: !!expectedState,
+      hasReturnedState: !!returnedState,
+      stateMatch: returnedState === expectedState,
+      expectedPrefix: expectedState?.slice(0, 8) ?? "MISSING",
+      returnedPrefix: returnedState?.slice(0, 8) ?? "MISSING",
+    },
+    "[oauth-debug] callback state check",
+  );
+
   if (!expectedState || !returnedState || returnedState !== expectedState) {
     req.log.warn(
       { expectedState: !!expectedState, returnedState: !!returnedState, match: returnedState === expectedState },
