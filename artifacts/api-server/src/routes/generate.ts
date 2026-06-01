@@ -58,6 +58,12 @@ import {
   enforcePlaylistGenreBalance,
   type GenreAudit,
 } from "../lib/genre-coverage-enforcement";
+import {
+  buildGenreIntelligenceStack,
+  applyStackToScoredPool,
+  applyStackToFinalTracks,
+} from "../lib/genre-intelligence-stack";
+import { applyTopGenreDiversityFloor } from "../lib/genre-identity-rules";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
 import { summarizePipeline } from "../lib/scoring-explanation";
@@ -329,6 +335,14 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const userGenreProfile = buildUserGenreProfile(likedSongs, vibe);
 
+    const recentTrackLists = recentPlaylists.map((p) => (p.trackIds as string[]) ?? []);
+    const genreStack = buildGenreIntelligenceStack({
+      tracks: likedSongs,
+      userProfile: userGenreProfile,
+      vibe,
+      recentPlaylistTrackIds: recentTrackLists,
+    });
+
     const hybridCtx = buildHybridScoringContext({
       vibe,
       profile: emotionProfile,
@@ -453,6 +467,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       length
     );
 
+    sorted = applyStackToScoredPool(sorted, genreStack);
+
     const poolTarget = Math.max(Math.ceil(length * 3), 75);
     const poolBiased = applyRediscoveryPoolBias(sorted, surpriseMix, poolTarget * 2);
     const diversified = limitArtistRepetition(poolBiased, maxPerArtist);
@@ -533,9 +549,43 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     );
     finalTracks = genreEnforced.tracks as typeof finalTracks;
-    const genreAudit = genreEnforced.audit;
+    let genreAudit = genreEnforced.audit;
 
-    req.log.info({ genreAudit }, "Genre coverage enforcement");
+    const top3Floor = applyTopGenreDiversityFloor(
+      finalTracks,
+      sorted,
+      userGenreProfile.trackClassifications,
+      userGenreProfile.vector,
+      3
+    );
+    finalTracks = top3Floor.tracks as typeof finalTracks;
+    if (top3Floor.enforced.length) {
+      genreAudit = {
+        ...genreAudit,
+        enforcedAdjustments: [
+          ...genreAudit.enforcedAdjustments,
+          ...top3Floor.enforced.map((g) => ({
+            genre: g,
+            action: "top3_diversity_floor",
+            count: 1,
+          })),
+        ],
+      };
+    }
+
+    const clusterCap = applyStackToFinalTracks(finalTracks, genreStack);
+    finalTracks = clusterCap.tracks as typeof finalTracks;
+    if (clusterCap.clusterCapped) {
+      genreAudit = {
+        ...genreAudit,
+        enforcedAdjustments: [
+          ...genreAudit.enforcedAdjustments,
+          { genre: clusterCap.clusterCapped, action: "micro_cluster_cap", count: 1 },
+        ],
+      };
+    }
+
+    req.log.info({ genreAudit, genreStack: genreStack.stats }, "Genre coverage enforcement");
 
     const explanation = buildGenerationExplanation({
       profile: emotionProfile,
@@ -697,7 +747,15 @@ router.post("/generate", async (req, res): Promise<void> => {
             scoringDiagnostics,
             genreAudit,
           }
-        : { scoringDiagnostics, genreAudit },
+        : {
+            scoringDiagnostics,
+            genreAudit,
+            genreIntelligence: {
+              ontologyNodes: genreStack.stats.ontologyNodes,
+              microGenres: genreStack.stats.microGenreCount,
+              embeddingVersion: genreStack.stats.embeddingVersion,
+            },
+          },
       explanation,
       promptConfidence,
       libraryIntelligence: {
@@ -717,6 +775,14 @@ router.post("/generate", async (req, res): Promise<void> => {
         userGenreVector: userGenreProfile.vector,
         dominantGenres: userGenreProfile.dominant,
         genreAudit,
+        genreIntelligence: {
+          ontologyNodes: genreStack.stats.ontologyNodes,
+          ontologyEdges: genreStack.stats.ontologyEdges,
+          microGenres: genreStack.stats.microGenreCount,
+          topMicroLabels: genreStack.stats.topMicroLabels,
+          embeddingVersion: genreStack.stats.embeddingVersion,
+          strengthenedEdges: genreStack.userLayer.strengthenedEdges.length,
+        },
       },
       vibeKind,
       journeyArc,

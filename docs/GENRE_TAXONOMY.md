@@ -42,6 +42,12 @@ On `POST /api/generate` → `libraryIntelligence.genreAudit`:
 
 Hard-blocked outside holiday scenes (filter + hard-filters + `holidayBound`).
 
+## 3-layer stack (v2)
+
+See **`docs/GENRE_INTELLIGENCE_STACK.md`** — ontology graph + 384-d embeddings + emergent micro-genres.
+
 ## Next upgrade
 
-Store Spotify `artist.genres[]` on sync for near-perfect taxonomy on 5k–20k libraries.
+1. Store Spotify `artist.genres[]` on sync  
+2. Swap `deterministic-v1` embeddings for OpenAI / music-model vectors  
+3. HDBSCAN micro-genre service for 1000+ emergent clusters
