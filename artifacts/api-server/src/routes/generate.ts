@@ -178,11 +178,20 @@ router.post("/generate", async (req, res): Promise<void> => {
     const trackUris = finalTracks.map((t) => `spotify:track:${t.trackId}`);
 
     try {
+      // MUST be the user's OAuth token — a Client Credentials token will always 403 here.
       const freshTokens = await getValidAccessToken(req.session.spotifyTokens);
       req.session.spotifyTokens = freshTokens;
 
+      const accessToken = freshTokens.accessToken;
+      req.log.info({
+        userId,
+        accessTokenExists: !!accessToken,
+        accessTokenPreview: accessToken?.slice(0, 12) ?? "MISSING",
+        msg: "[playlist-create-debug] about to create playlist",
+      });
+
       const result = await createSpotifyPlaylist(
-        freshTokens.accessToken,
+        accessToken,
         userId,
         playlistName,
         trackUris
@@ -191,7 +200,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       playlistUrl = result.url;
     } catch (spotifyErr: any) {
       const status = spotifyErr?.response?.status ?? 500;
-      req.log.error({ userId, status }, "Spotify playlist creation failed");
+      req.log.error({
+        userId,
+        status,
+        spotifyError: spotifyErr?.response?.data,
+        msg: "[playlist-create-error] Spotify rejected playlist creation",
+      }, "Spotify playlist creation failed");
 
       if (status === 401) {
         res.status(401).json({ error: "Spotify session expired. Please log in again." });
