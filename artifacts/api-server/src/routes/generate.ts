@@ -155,7 +155,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           experienceScene,
           sceneJourneyArc,
           mixedEmotions,
-          canonicalScene: momentPipeline.canonicalScene?.id,
+          canonicalScene: momentPipeline.canonicalScene?.sceneId,
           intent: momentPipeline.intent.intent,
         },
         "Emotion profile computed"

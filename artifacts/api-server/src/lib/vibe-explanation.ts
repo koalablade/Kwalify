@@ -24,6 +24,7 @@ export interface GenerationExplanation {
 
 const ARC_LABELS: Record<JourneyArc, string> = {
   default: "intro → build → peak → reflection",
+  flat: "steady mood throughout",
   recovery: "heavier start → gradual warmth",
   linear_rise: "steady lift in energy",
   linear_fall: "gentle wind-down",

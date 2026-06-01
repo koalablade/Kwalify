@@ -23,12 +23,12 @@ function fit(track: ScoredTrack, profile: EmotionProfile, window: number): boole
   return Math.abs(e - profile.energy) < window && Math.abs(v - profile.valence) < window + 0.05;
 }
 
-function pickCandidate(
-  pool: ScoredTrack[],
+function pickCandidate<T extends ScoredTrack>(
+  pool: T[],
   used: Set<string>,
-  predicate: (t: ScoredTrack) => boolean,
-  sort: (a: ScoredTrack, b: ScoredTrack) => number
-): ScoredTrack | null {
+  predicate: (t: T) => boolean,
+  sort: (a: T, b: T) => number
+): T | null {
   const c = pool.filter((t) => !used.has(t.trackId) && predicate(t)).sort(sort);
   return c[0] ?? null;
 }
@@ -102,9 +102,9 @@ export function injectControlledSurprise<T extends ScoredTrack>(
         break;
     }
 
-    if (pick) {
+    if (pick && result[idx]) {
       used.add(pick.trackId);
-      result[idx] = { ...pick, narrativeRole: result[idx]?.narrativeRole };
+      result[idx] = { ...pick, narrativeRole: result[idx].narrativeRole };
     }
   }
 
