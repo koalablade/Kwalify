@@ -6,7 +6,7 @@ import type { HumanIntent } from "./intent-decoder";
 import type { ScenePrototype } from "./scene-prototypes";
 import type { SceneSeasonContext } from "./seasonal-logic";
 import { seasonalHardExclude, inferTrackSeasonTags } from "./seasonal-logic";
-import { inferTrackGenreHintsFromSignals } from "./genre-expansion-map";
+import { classifyTrack } from "./genre-taxonomy";
 import type { SceneFamily } from "./scene-validation";
 
 export interface HardFilterContext {
@@ -42,19 +42,28 @@ export function applyHardFilters(track: TrackRow, ctx: HardFilterContext): HardF
   const seasonal = seasonalHardExclude(ctx.season, seasonTags, ctx.intent);
   if (seasonal) return { pass: false, excludedBy: seasonal };
 
-  const genreHints = inferTrackGenreHintsFromSignals(track, {
+  const classification = classifyTrack({
+    ...track,
     acousticness: track.acousticness,
     energy: track.energy,
   });
 
   if (
-    (ctx.sceneFamily === "sun_day" || ctx.vibeKind === "sunny") &&
-    genreHints.clusters.includes("christmas") &&
+    classification.holidayBound &&
     ctx.intent !== "nostalgia" &&
     !ctx.season.nostalgiaOverride &&
-    !ctx.allowContrast
+    !ctx.allowContrast &&
+    (ctx.sceneFamily === "sun_day" || ctx.vibeKind === "sunny")
   ) {
     return { pass: false, excludedBy: "genre_exclusion:christmas_in_sun" };
+  }
+
+  if (
+    ctx.prototype?.excludes.includes("christmas_holiday") &&
+    classification.holidayBound &&
+    !ctx.season.nostalgiaOverride
+  ) {
+    return { pass: false, excludedBy: "prototype_exclude:christmas_holiday" };
   }
 
   const e = track.energy ?? 0.5;

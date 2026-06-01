@@ -1,33 +1,52 @@
 /**
- * Hybrid scoring — scene-first, normalized layers, hard filters, debug output.
+ * Hybrid scoring — genre backbone + scene modulation.
  *
- * Order: scene > intent > emotion > memory > genre > novelty
+ * finalScore = scene×0.45 + libraryFit×0.35 + genreBalance×0.20
+ * Genre lock prevents scene from overriding confident taxonomy.
  */
 
 import type { EmotionProfile } from "./emotion";
 import { scoreSong, type VibeKind } from "./emotion";
 import type { IntentDecodeResult, HumanIntent } from "./intent-decoder";
 import type { CanonicalSceneResult } from "./scene-canonicalizer";
-import type { ScenePrototype } from "./scene-prototypes";
+import { getPrototype, type ScenePrototype } from "./scene-prototypes";
 import { buildSceneSeasonContext, inferTrackSeasonTags, seasonalMatchScore } from "./seasonal-logic";
-import { inferTrackGenreHintsFromSignals, genreMatchScore } from "./genre-expansion-map";
 import { resolveSceneContext, sceneMatchScore, type SceneContext } from "./scene-validation";
 import { applyHardFilters, type HardFilterContext } from "./hard-filters";
 import { sonicFitBonus } from "./scene-sonic-profile";
 import type { SonicProfile } from "./scene-sonic-map";
+import {
+  classifyTrack,
+  genreLockWeight,
+  isGenreLocked,
+  type TrackGenreClassification,
+} from "./genre-taxonomy";
+import {
+  computeGenreSignature,
+  signatureSceneAffinity,
+} from "./genre-signature";
+import {
+  buildUserGenreProfile,
+  libraryFitScore,
+  type UserGenreProfile,
+} from "./user-genre-profile";
+import { genreFallbackScore, pickFallbackGenres } from "./anti-generic-fallback";
+import type { RootGenre } from "./genre-taxonomy";
 
-const LAYER_WEIGHTS = {
-  scene: 0.35,
-  emotion: 0.3,
+const TRI_WEIGHTS = {
+  scene: 0.45,
+  library: 0.35,
   genre: 0.2,
-  memory: 0.1,
-  novelty: 0.05,
 } as const;
 
-const MAX_LAYER_INFLUENCE = 0.4;
+const SCENE_MAX_INFLUENCE = 0.55;
+const GENRE_FLOOR_STRONG = 0.15;
 
 export interface TrackScoringDebug {
   trackId: string;
+  sceneScore: number;
+  libraryFitScore: number;
+  genreBalanceScore: number;
   sceneMatch: number;
   emotionMatch: number;
   genreMatch: number;
@@ -35,6 +54,9 @@ export interface TrackScoringDebug {
   noveltyScore: number;
   seasonalMatch: number;
   moodPurity: number;
+  genrePrimary: string;
+  genreConfidence: number;
+  genreLocked: boolean;
   excludedBy: string | null;
   finalScore: number;
 }
@@ -52,6 +74,9 @@ export interface HybridScoringContext {
   hardFilter: Omit<HardFilterContext, "vibe"> & { vibe: string };
   contrastAllowance: number;
   emotionalComplexity: boolean;
+  userGenre: UserGenreProfile;
+  fallbackGenres: RootGenre[];
+  sceneSeasonMode: "winter_holiday" | "summer" | "neutral";
 }
 
 export function buildHybridScoringContext(opts: {
@@ -63,7 +88,18 @@ export function buildHybridScoringContext(opts: {
   sonicProfile: SonicProfile | null;
   vibeKind: VibeKind;
   experienceSeason?: string | null;
+  userGenre?: UserGenreProfile;
+  libraryTracks?: Parameters<typeof buildUserGenreProfile>[0];
 }): HybridScoringContext {
+  let prototype = opts.prototype;
+  if (!prototype && opts.vibeKind === "sunny") {
+    prototype = getPrototype("SUN_DAY_DRIVE");
+  }
+
+  const userGenre =
+    opts.userGenre ??
+    (opts.libraryTracks ? buildUserGenreProfile(opts.libraryTracks, opts.vibe) : buildUserGenreProfile([], opts.vibe));
+
   const scene = resolveSceneContext(opts.vibe, opts.canonical, opts.profile, opts.experienceSeason);
   const season = buildSceneSeasonContext(opts.vibe, opts.experienceSeason);
   const emotionalComplexity =
@@ -76,24 +112,35 @@ export function buildHybridScoringContext(opts: {
     emotionalComplexity
   );
 
+  const blueprintSeason = prototype?.blueprint?.season;
+  let sceneSeasonMode: "winter_holiday" | "summer" | "neutral" = "neutral";
+  if (blueprintSeason === "winter_holiday" || /\b(christmas|xmas|holiday)\b/i.test(opts.vibe)) {
+    sceneSeasonMode = "winter_holiday";
+  } else if (blueprintSeason === "summer" || opts.vibeKind === "sunny" || scene.primary === "sun_day") {
+    sceneSeasonMode = "summer";
+  }
+
   return {
     vibe: opts.vibe,
     profile: opts.profile,
     intent: opts.intent,
     canonical: opts.canonical,
-    prototype: opts.prototype,
+    prototype,
     sonicProfile: opts.sonicProfile,
     vibeKind: opts.vibeKind,
     scene,
     season,
     contrastAllowance,
     emotionalComplexity,
+    userGenre,
+    fallbackGenres: pickFallbackGenres(userGenre, opts.profile, opts.vibe),
+    sceneSeasonMode,
     hardFilter: {
       vibe: opts.vibe,
       intent: opts.intent.intent,
       sceneFamily: scene.primary,
       season,
-      prototype: opts.prototype,
+      prototype,
       allowContrast: contrastAllowance > 0.08,
       allowEnergyMismatch: opts.intent.scoringOverrides.allowEnergyMismatch,
       emotionalComplexity,
@@ -115,7 +162,6 @@ function computeContrastAllowance(
   return 0.06;
 }
 
-/** Mood purity — high = one dominant emotional direction */
 export function computeMoodPurity(track: {
   energy: number | null;
   valence: number | null;
@@ -126,8 +172,7 @@ export function computeMoodPurity(track: {
   const sad = Math.max(0, (0.5 - v) * 2) * Math.max(0.3, 1 - e);
   const hyped = Math.max(0, (e - 0.5) * 2) * Math.max(0.3, v);
   const spread = happy + sad + hyped + 0.01;
-  const dominant = Math.max(happy, sad, hyped);
-  return dominant / spread;
+  return Math.max(happy, sad, hyped) / spread;
 }
 
 function percentileNormalize(values: number[]): number[] {
@@ -139,22 +184,17 @@ function percentileNormalize(values: number[]): number[] {
   });
 }
 
-function capLayerContribution(layer: number, weight: number): number {
-  const raw = layer * weight;
-  return Math.min(raw, MAX_LAYER_INFLUENCE);
-}
-
-export interface ScoredTrackLayers {
-  sceneMatch: number;
+export interface TriScores {
+  sceneScore: number;
+  libraryFitScore: number;
+  genreBalanceScore: number;
   emotionMatch: number;
-  genreMatch: number;
-  memoryMatch: number;
-  noveltyScore: number;
   seasonalMatch: number;
   moodPurity: number;
+  classification: TrackGenreClassification;
 }
 
-export function computeTrackLayers(
+export function computeTriScores(
   track: {
     trackId: string;
     trackName: string;
@@ -165,81 +205,101 @@ export function computeTrackLayers(
     tempo: number | null;
     danceability: number | null;
     acousticness: number | null;
+    instrumentalness?: number | null;
+    speechiness?: number | null;
   },
   ctx: HybridScoringContext,
   mode: "strict" | "balanced" | "chaotic",
   memoryMatch: number,
   noveltyScore: number
-): ScoredTrackLayers {
-  const sceneMatch = sceneMatchScore(ctx.scene, ctx.profile, track);
-  const emotionMatch = scoreSong(
-    track,
-    ctx.profile,
-    mode,
-    ctx.vibeKind
-  );
-  const genreHints = inferTrackGenreHintsFromSignals(track, {
-    acousticness: track.acousticness,
-    energy: track.energy,
-  });
-  const genreMatch = genreMatchScore({
-    vibe: ctx.vibe,
-    sceneFamily: ctx.scene.primary,
-    profile: ctx.profile,
-    intent: ctx.intent.intent,
-    hints: genreHints,
-  });
+): TriScores {
+  const classification =
+    ctx.userGenre.trackClassifications.get(track.trackId) ?? classifyTrack(track);
+
+  const signature = computeGenreSignature(track, classification);
+  const blueprint = ctx.prototype?.blueprint;
+
+  let sceneMoment = sceneMatchScore(ctx.scene, ctx.profile, track);
   const seasonalMatch = seasonalMatchScore(ctx.season, inferTrackSeasonTags(track));
-  const moodPurity = computeMoodPurity(track);
+  sceneMoment = sceneMoment * 0.8 + seasonalMatch * 0.2;
 
-  let sceneAdj = sceneMatch * 0.85 + seasonalMatch * 0.15;
+  if (blueprint?.instrumentationBias) {
+    sceneMoment = sceneMoment * 0.65 + signatureSceneAffinity(signature, blueprint.instrumentationBias) * 0.35;
+  }
   if (ctx.sonicProfile) {
-    sceneAdj = sceneAdj * 0.75 + Math.min(1, sonicFitBonus(track, ctx.sonicProfile) * 4) * 0.25;
+    sceneMoment = sceneMoment * 0.8 + Math.min(1, sonicFitBonus(track, ctx.sonicProfile) * 4) * 0.2;
   }
 
-  let emotionAdj = emotionMatch;
-  if (!ctx.emotionalComplexity && moodPurity < 0.42 && ctx.scene.primary !== "memory_nostalgia") {
-    emotionAdj *= 0.88;
+  const emotionMatch = scoreSong(track, ctx.profile, mode, ctx.vibeKind);
+  const moodPurity = computeMoodPurity(track);
+  if (!ctx.emotionalComplexity && moodPurity < 0.42) {
+    sceneMoment *= 0.92;
   }
+
+  let libraryFit = libraryFitScore(classification, ctx.userGenre.vector);
+  libraryFit = libraryFit * 0.75 + memoryMatch * 0.15 + noveltyScore * 0.1;
+  libraryFit += genreFallbackScore(classification, ctx.fallbackGenres, ctx.profile) * 0.12;
+
+  let genreBalance = 0.35;
+  if (blueprint?.genreAffinity) {
+    const aff = blueprint.genreAffinity[classification.genrePrimary] ?? 0.35;
+    genreBalance = aff * 0.55 + signatureSceneAffinity(signature, blueprint.instrumentationBias) * 0.45;
+  } else {
+    genreBalance = signatureSceneAffinity(signature, {
+      acoustic: 0.5,
+      storytelling: 0.45,
+      warmth: 0.5,
+      synth: 0.35,
+    });
+  }
+
+  const userShare = ctx.userGenre.vector[classification.genrePrimary] ?? 0;
+  genreBalance = genreBalance * 0.6 + Math.min(1, userShare * 2.5) * 0.4;
+
+  if (classification.holidayBound && ctx.sceneSeasonMode !== "winter_holiday") {
+    genreBalance *= 0.05;
+    sceneMoment *= 0.15;
+  }
+
+  const lock = isGenreLocked(classification);
+  if (lock) {
+    const lockW = genreLockWeight(classification);
+    sceneMoment *= 1 - lockW * 0.55;
+    genreBalance = Math.max(genreBalance, GENRE_FLOOR_STRONG + classification.confidenceScore * 0.25);
+  }
+
+  if (classification.confidenceScore >= 0.5) {
+    genreBalance = Math.max(genreBalance, GENRE_FLOOR_STRONG);
+  }
+
+  let sceneScore = sceneMoment * 0.7 + emotionMatch * 0.3;
+  sceneScore = Math.min(sceneScore, SCENE_MAX_INFLUENCE);
 
   return {
-    sceneMatch: sceneAdj,
-    emotionMatch: emotionAdj,
-    genreMatch,
-    memoryMatch,
-    noveltyScore,
+    sceneScore,
+    libraryFitScore: Math.min(1, libraryFit),
+    genreBalanceScore: Math.min(1, genreBalance),
+    emotionMatch,
     seasonalMatch,
     moodPurity,
+    classification,
   };
 }
 
-export function combineHybridScore(
-  normalized: ScoredTrackLayers,
-  ctx: HybridScoringContext,
-  rediscoveryScore: number
-): number {
-  let base =
-    capLayerContribution(normalized.sceneMatch, LAYER_WEIGHTS.scene) +
-    capLayerContribution(normalized.emotionMatch, LAYER_WEIGHTS.emotion) +
-    capLayerContribution(normalized.genreMatch, LAYER_WEIGHTS.genre) +
-    capLayerContribution(normalized.memoryMatch, LAYER_WEIGHTS.memory) +
-    capLayerContribution(normalized.noveltyScore, LAYER_WEIGHTS.novelty);
+export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): number {
+  let final =
+    tri.sceneScore * TRI_WEIGHTS.scene +
+    tri.libraryFitScore * TRI_WEIGHTS.library +
+    tri.genreBalanceScore * TRI_WEIGHTS.genre;
 
   if (ctx.intent.intent === "nostalgia") {
-    base += normalized.memoryMatch * 0.08;
-    base += rediscoveryScore * 0.06;
+    final += tri.libraryFitScore * 0.06;
   }
-  if (ctx.intent.intent === "energise") {
-    base += normalized.emotionMatch * 0.06;
-  }
-  if (ctx.scene.primary === "sun_day" || ctx.vibeKind === "sunny") {
-    base += normalized.genreMatch * 0.04;
-  }
-  if (ctx.scene.primary === "travel_driving" && normalized.genreMatch > 0.6) {
-    base += 0.05;
+  if (isGenreLocked(tri.classification)) {
+    final = final * 0.85 + tri.genreBalanceScore * 0.15;
   }
 
-  return Math.max(0, Math.min(1.2, base));
+  return Math.max(0, Math.min(1.25, final));
 }
 
 export interface HybridScoreResult<T> {
@@ -259,6 +319,8 @@ export function scoreLibraryHybrid<T extends {
   tempo: number | null;
   danceability: number | null;
   acousticness: number | null;
+  instrumentalness?: number | null;
+  speechiness?: number | null;
 }>(
   tracks: T[],
   ctx: HybridScoringContext,
@@ -266,55 +328,40 @@ export function scoreLibraryHybrid<T extends {
   memoryByTrack: (trackId: string) => number,
   noveltyByTrack: (trackId: string) => number
 ): { results: HybridScoreResult<T>[]; excluded: TrackScoringDebug[] } {
-  const passed: { track: T; layers: ScoredTrackLayers }[] = [];
+  const passed: { track: T; tri: TriScores }[] = [];
   const excluded: TrackScoringDebug[] = [];
 
   for (const track of tracks) {
     const hard = applyHardFilters(track, ctx.hardFilter);
     if (!hard.pass) {
-      excluded.push({
-        trackId: track.trackId,
-        sceneMatch: 0,
-        emotionMatch: 0,
-        genreMatch: 0,
-        memoryMatch: 0,
-        noveltyScore: 0,
-        seasonalMatch: 0,
-        moodPurity: 0,
-        excludedBy: hard.excludedBy,
-        finalScore: 0,
-      });
+      excluded.push(emptyDebug(track.trackId, hard.excludedBy));
       continue;
     }
 
-    const layers = computeTrackLayers(
+    const tri = computeTriScores(
       track,
       ctx,
       mode,
       memoryByTrack(track.trackId),
       noveltyByTrack(track.trackId)
     );
-    passed.push({ track, layers });
+    passed.push({ track, tri });
   }
 
-  const sceneNorm = percentileNormalize(passed.map((p) => p.layers.sceneMatch));
-  const emotionNorm = percentileNormalize(passed.map((p) => p.layers.emotionMatch));
-  const genreNorm = percentileNormalize(passed.map((p) => p.layers.genreMatch));
-  const memoryNorm = percentileNormalize(passed.map((p) => p.layers.memoryMatch));
-  const noveltyNorm = percentileNormalize(passed.map((p) => p.layers.noveltyScore));
+  const sceneNorm = percentileNormalize(passed.map((p) => p.tri.sceneScore));
+  const libNorm = percentileNormalize(passed.map((p) => p.tri.libraryFitScore));
+  const genreNorm = percentileNormalize(passed.map((p) => p.tri.genreBalanceScore));
 
   const results: HybridScoreResult<T>[] = passed.map((p, i) => {
-    const normalized: ScoredTrackLayers = {
-      ...p.layers,
-      sceneMatch: sceneNorm[i] ?? p.layers.sceneMatch,
-      emotionMatch: emotionNorm[i] ?? p.layers.emotionMatch,
-      genreMatch: genreNorm[i] ?? p.layers.genreMatch,
-      memoryMatch: memoryNorm[i] ?? p.layers.memoryMatch,
-      noveltyScore: noveltyNorm[i] ?? p.layers.noveltyScore,
+    const tri: TriScores = {
+      ...p.tri,
+      sceneScore: sceneNorm[i] ?? p.tri.sceneScore,
+      libraryFitScore: libNorm[i] ?? p.tri.libraryFitScore,
+      genreBalanceScore: genreNorm[i] ?? p.tri.genreBalanceScore,
     };
 
-    const rediscovery = memoryByTrack(p.track.trackId);
-    const finalScore = combineHybridScore(normalized, ctx, rediscovery);
+    const finalScore = combineTriScore(tri, ctx);
+    const c = tri.classification;
 
     return {
       track: p.track,
@@ -322,20 +369,51 @@ export function scoreLibraryHybrid<T extends {
       passed: true,
       debug: {
         trackId: p.track.trackId,
-        sceneMatch: Math.round(normalized.sceneMatch * 1000) / 1000,
-        emotionMatch: Math.round(normalized.emotionMatch * 1000) / 1000,
-        genreMatch: Math.round(normalized.genreMatch * 1000) / 1000,
-        memoryMatch: Math.round(normalized.memoryMatch * 1000) / 1000,
-        noveltyScore: Math.round(normalized.noveltyScore * 1000) / 1000,
-        seasonalMatch: Math.round(p.layers.seasonalMatch * 1000) / 1000,
-        moodPurity: Math.round(p.layers.moodPurity * 1000) / 1000,
+        sceneScore: round(tri.sceneScore),
+        libraryFitScore: round(tri.libraryFitScore),
+        genreBalanceScore: round(tri.genreBalanceScore),
+        sceneMatch: round(tri.sceneScore),
+        emotionMatch: round(tri.emotionMatch),
+        genreMatch: round(tri.genreBalanceScore),
+        memoryMatch: round(memoryByTrack(p.track.trackId)),
+        noveltyScore: round(noveltyByTrack(p.track.trackId)),
+        seasonalMatch: round(tri.seasonalMatch),
+        moodPurity: round(tri.moodPurity),
+        genrePrimary: c.genrePrimary,
+        genreConfidence: round(c.confidenceScore),
+        genreLocked: isGenreLocked(c),
         excludedBy: null,
-        finalScore: Math.round(finalScore * 1000) / 1000,
+        finalScore: round(finalScore),
       },
     };
   });
 
   return { results, excluded };
+}
+
+function emptyDebug(trackId: string, excludedBy: string | null): TrackScoringDebug {
+  return {
+    trackId,
+    sceneScore: 0,
+    libraryFitScore: 0,
+    genreBalanceScore: 0,
+    sceneMatch: 0,
+    emotionMatch: 0,
+    genreMatch: 0,
+    memoryMatch: 0,
+    noveltyScore: 0,
+    seasonalMatch: 0,
+    moodPurity: 0,
+    genrePrimary: "unknown",
+    genreConfidence: 0,
+    genreLocked: false,
+    excludedBy,
+    finalScore: 0,
+  };
+}
+
+function round(n: number): number {
+  return Math.round(n * 1000) / 1000;
 }
 
 export function buildScoringDiagnostics(
@@ -351,8 +429,12 @@ export function buildScoringDiagnostics(
 
   return {
     sceneFamily: ctx.scene.primary,
-    secondaryScene: ctx.scene.secondary,
+    sceneSeasonMode: ctx.sceneSeasonMode,
+    userGenreVector: ctx.userGenre.vector,
+    dominantGenres: ctx.userGenre.dominant,
+    fallbackGenres: ctx.fallbackGenres,
     contrastAllowance: ctx.contrastAllowance,
+    scoringModel: "scene0.45_library0.35_genre0.20",
     excludedCount: excluded.length,
     exclusionReasons: countBy(excluded.map((e) => e.excludedBy ?? "unknown")),
     topScored: top.map((r) => r.debug),

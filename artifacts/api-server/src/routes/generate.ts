@@ -46,6 +46,14 @@ import {
   scoreLibraryHybrid,
   buildScoringDiagnostics,
 } from "../lib/hybrid-scoring";
+import { buildUserGenreProfile } from "../lib/user-genre-profile";
+import { applyGenreCoverageBias } from "../lib/genre-coverage";
+import {
+  shouldUseGenreFallback,
+  genreFallbackScore,
+  pickFallbackGenres,
+} from "../lib/anti-generic-fallback";
+import { classifyTrack } from "../lib/genre-taxonomy";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
 import { summarizePipeline } from "../lib/scoring-explanation";
@@ -315,6 +323,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
+    const userGenreProfile = buildUserGenreProfile(likedSongs, vibe);
+
     const hybridCtx = buildHybridScoringContext({
       vibe,
       profile: emotionProfile,
@@ -323,6 +333,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       prototype: scenePrototype,
       sonicProfile,
       vibeKind,
+      userGenre: userGenreProfile,
     });
 
     const { results: hybridResults, excluded: hybridExcluded } = scoreLibraryHybrid(
@@ -418,7 +429,25 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     const maxPerArtist = mode === "strict" ? 2 : mode === "balanced" ? 3 : 5;
-    const sorted = penalised.sort((a, b) => b.score - a.score);
+    let sorted = penalised.sort((a, b) => b.score - a.score);
+
+    if (shouldUseGenreFallback(sorted.length, Math.max(length * 2, 40))) {
+      const fallbackGenres = pickFallbackGenres(userGenreProfile, emotionProfile, vibe);
+      sorted = sorted
+        .map((t) => {
+          const c = userGenreProfile.trackClassifications.get(t.trackId) ?? classifyTrack(t);
+          return { ...t, score: t.score + genreFallbackScore(c, fallbackGenres, emotionProfile) * 0.35 };
+        })
+        .sort((a, b) => b.score - a.score);
+      req.log.info({ fallbackGenres, pool: sorted.length }, "Genre-consistent fallback bias applied");
+    }
+
+    sorted = applyGenreCoverageBias(
+      sorted,
+      userGenreProfile.trackClassifications,
+      userGenreProfile.vector,
+      length
+    );
 
     const poolTarget = Math.max(Math.ceil(length * 3), 75);
     const poolBiased = applyRediscoveryPoolBias(sorted, surpriseMix, poolTarget * 2);
@@ -658,6 +687,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           : null,
         surpriseMix,
         chaptersAvailable: musicChapters.length,
+        userGenreVector: userGenreProfile.vector,
+        dominantGenres: userGenreProfile.dominant,
       },
       vibeKind,
       journeyArc,

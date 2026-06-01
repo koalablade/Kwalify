@@ -1,11 +1,11 @@
 /**
- * Genre cluster coverage — country/folk/americana and scene bindings.
+ * @deprecated Use genre-taxonomy.ts + genre-signature.ts — thin compat layer.
  */
 
 import type { EmotionProfile } from "./emotion";
 import type { HumanIntent } from "./intent-decoder";
 import type { SceneFamily } from "./scene-validation";
-
+import { classifyTrack } from "./genre-taxonomy";
 export const COUNTRY_CLUSTER = [
   "country",
   "modern country",
@@ -57,22 +57,14 @@ export function inferTrackGenreHints(track: {
   trackName: string;
   artistName: string;
   albumName: string;
+  acousticness?: number | null;
+  energy?: number | null;
 }): TrackGenreHints {
-  const blob = `${track.trackName} ${track.artistName} ${track.albumName}`.toLowerCase();
-  const clusters: string[] = [];
-
-  for (const term of COUNTRY_CLUSTER) {
-    if (blob.includes(term)) clusters.push("country");
-  }
-  if (COUNTRY_ARTIST_HINTS.test(blob)) clusters.push("country");
-
-  for (const [genre, re] of Object.entries(GENRE_TERM_RE)) {
-    if (re.test(blob)) clusters.push(genre);
-  }
-
+  const c = classifyTrack(track);
+  const clusters = [c.genrePrimary, ...c.subGenres].filter((x) => x !== "unknown");
   return {
     clusters: [...new Set(clusters)],
-    isCountryFamily: clusters.includes("country") || clusters.includes("folk"),
+    isCountryFamily: c.genrePrimary === "country" || c.genrePrimary === "folk",
   };
 }
 
@@ -80,17 +72,7 @@ export function inferTrackGenreHintsFromSignals(
   track: { trackName: string; artistName: string; albumName: string },
   signals?: { acousticness?: number | null; energy?: number | null }
 ): TrackGenreHints {
-  const base = inferTrackGenreHints(track);
-  if (
-    !base.isCountryFamily &&
-    signals &&
-    (signals.acousticness ?? 0) > 0.58 &&
-    (signals.energy ?? 0.5) < 0.52
-  ) {
-    base.clusters.push("folk");
-    base.isCountryFamily = true;
-  }
-  return base;
+  return inferTrackGenreHints({ ...track, ...signals });
 }
 
 export function genreMatchScore(opts: {

@@ -1,22 +1,25 @@
-# Hybrid scoring (scene-first)
+# Hybrid scoring (genre backbone + scene modulation)
 
 ## Pipeline
 
-1. **hard-filters.ts** — absolute exclusions (seasonal, energy, prototype)
-2. **hybrid-scoring.ts** — layered match + percentile normalization
-3. Post-multipliers in `generate.ts` — freshness, reference, rediscovery boost
+1. **user-genre-profile.ts** — classify every liked track; build taste vector
+2. **hard-filters.ts** — seasonal/christmas/prototype exclusions
+3. **hybrid-scoring.ts** — tri-score model + genre lock
+4. **genre-coverage.ts** — min genre presence in ranked pool
+5. **anti-generic-fallback.ts** — if pool thin, bias user's dominant genres
+6. Post-multipliers — freshness, reference, rediscovery
 
-## Layer weights (capped at 0.4 each)
+## Tri-score model
 
-| Layer | Weight | Driver |
-|-------|--------|--------|
-| Scene | 0.35 | `scene-validation` + `seasonal-logic` + sonic |
-| Emotion | 0.30 | `scoreSong` (audio features) |
-| Genre | 0.20 | `genre-expansion-map` (title/artist/album text) |
-| Memory | 0.10 | temporal memory + library signals |
-| Novelty | 0.05 | jitter / discovery |
+```
+finalScore = sceneScore×0.45 + libraryFitScore×0.35 + genreBalanceScore×0.20
+```
 
-**Priority:** scene → intent → emotion → memory → genre → novelty
+- **Scene** — moment + blueprint instrumentation + sonic (capped, cannot fully override locked genre)
+- **Library fit** — user genre vector + memory + novelty
+- **Genre balance** — taxonomy + signature vs scene `genreAffinity` (floor 0.15 when confident)
+
+See `docs/GENRE_TAXONOMY.md`.
 
 ## API debug
 
