@@ -787,7 +787,9 @@ function setLoading(on){
 /* ── Vibe interpretation ── */
 function _vibeInterpretation(ep){
   if(!ep) return "Balanced mix — curated from your full range of taste";
-  const {energy=0.5, valence=0.5, calm=0.5, nostalgia=0.2} = ep;
+  const {energy=0.5, valence=0.5, calm=0.5, nostalgia=0.2, tension=0.3} = ep;
+  if(ep.environment==='urban' && ep.timeOfDay==='late_night' && nostalgia>=0.38)
+    return "Empty roads and fluorescent stillness — moody, reflective, not party music";
   if(energy>=0.7 && valence>=0.65) return "High energy, uplifting — built to keep you moving";
   if(energy>=0.7 && valence<0.4)   return "Intense and driven — dark energy, focused mood";
   if(energy<=0.35 && valence>=0.65) return "Gentle and warm — easy listening for easy moments";

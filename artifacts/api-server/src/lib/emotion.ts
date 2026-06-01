@@ -2,6 +2,9 @@
 // Analyses a free-text vibe string and converts it into a structured
 // EmotionProfile that drives playlist scoring.
 
+import { EXTENDED_VIBE_KEYWORDS } from "./vibe-keywords-extended";
+import { EXTENDED_VIBE_KEYWORDS_B } from "./vibe-keywords-extended-b";
+
 export interface EmotionProfile {
   energy: number;
   valence: number;
@@ -119,6 +122,22 @@ const SCENE_PATTERNS: Array<{
   { pattern: /\btrain\b|\bsubway\b|\bmetro\b|\bbus\b/i, environment: "transit", motionState: "transit" },
   { pattern: /\bplane\b|\bflight\b|\bairport\b/i, environment: "transit", motionState: "transit" },
   { pattern: /\bcity\b|\burban\b|\bstreet\b|\bdowntown\b|\balley\b/i, environment: "urban" },
+  {
+    pattern: /\bpetrol station\b|\bgas station\b|\bservice station\b|\bforecourt\b|\bmotorway services\b|\brest stop\b/i,
+    environment: "urban",
+    timeOfDay: "late_night",
+  },
+  {
+    pattern: /\bgarage\b|\bworkshop\b|\bfixing cars\b|\bunder the hood\b|\bmechanic\b|\bwrenching\b/i,
+    environment: "urban",
+  },
+  {
+    pattern: /\bmountain top\b|\bsummit\b|\bridge walk\b|\bfell walk\b|\balpine\b|\blong hike\b|\bhiking\b/i,
+    environment: "nature",
+    motionState: "walking",
+  },
+  { pattern: /\brecord shop\b|\bvinyl\b|\bcrate dig/i, environment: "urban" },
+  { pattern: /\blaundromat\b|\blaundrette\b/i, environment: "urban", timeOfDay: "late_night" },
   { pattern: /\bforest\b|\bwoods\b|\bhike\b|\btrail\b|\bnature\b|\bpark\b/i, environment: "nature" },
   { pattern: /\beach\b|\bocean\b|\bsea\b|\bcoast\b|\bwaves?\b/i, environment: "coastal" },
   { pattern: /\brainy?\b|\brain(fall)?\b|\bstorm\b|\bthunder\b/i, environment: "rainy" },
@@ -184,6 +203,12 @@ function applySceneWeights(
     p.calm = clamp(p.calm + 0.05);
     p.energy = clamp(p.energy - 0.04);
   }
+  if (scene.environment === "urban" && scene.timeOfDay === "late_night") {
+    p.energy = clamp(p.energy + 0.04);
+    p.tension = clamp(p.tension + 0.06);
+    p.nostalgia = clamp(p.nostalgia + 0.08);
+    p.valence = clamp(p.valence - 0.05);
+  }
   if (scene.timeOfDay === "late_night") {
     p.energy = clamp(p.energy - 0.12);
     p.nostalgia = clamp(p.nostalgia + 0.1);
@@ -221,6 +246,43 @@ function applySceneWeights(
 // ─── VIBE KEYWORD BANK ───────────────────────────────────────────────────────
 
 const VIBE_KEYWORDS: VibeKeyword[] = [
+  // ── Specific scenes (listed first; long phrases beat generic "2am" alone) ───
+  {
+    terms: [
+      "petrol station at 2am",
+      "petrol station at 2 am",
+      "gas station at 2am",
+      "gas station at night",
+      "petrol station",
+      "gas station",
+      "service station",
+      "forecourt",
+      "motorway services",
+      "rest stop at night",
+      "empty forecourt",
+      "fluorescent lights",
+      "late night shop",
+    ],
+    weights: { energy: 0.1, valence: -0.18, tension: 0.28, nostalgia: 0.42, calm: 0.1 },
+    sceneHints: { timeOfDay: "late_night", environment: "urban" },
+  },
+  {
+    terms: [
+      "night drive alone",
+      "night drive",
+      "driving home late",
+      "empty road at night",
+      "motorway at night",
+      "highway at 2am",
+    ],
+    weights: { energy: 0.05, valence: -0.1, tension: 0.15, nostalgia: 0.35, calm: 0.15 },
+    sceneHints: { timeOfDay: "late_night", motionState: "driving", environment: "urban" },
+  },
+
+  // ── Extended bank (genres, artists, obscure scenes) ─────────────────────────
+  ...EXTENDED_VIBE_KEYWORDS,
+  ...EXTENDED_VIBE_KEYWORDS_B,
+
   // ── Core Moods ──────────────────────────────────────────────────────────────
   {
     terms: ["2am", "2 am", "late night", "insomnia", "can't sleep", "sleepless", "up late", "3am", "4am"],
@@ -748,12 +810,17 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
 
 // ─── VIBE ANALYSIS ────────────────────────────────────────────────────────────
 
+/** True when the vibe describes a concrete place/scene (not a one-word preset). */
+const SPECIFIC_SCENE_PATTERN =
+  /petrol station|gas station|service station|forecourt|motorway services|rest stop|fluorescent|night drive alone|empty road at night|fixing cars|garage day|under the hood|mountain top|summit walk|ridge walk|kate bush|1am still|laundromat|warehouse rave/i;
+
 export function analyzeVibe(vibe: string): EmotionProfile {
   const text = vibe.toLowerCase().trim();
   const negatedTerms = extractNegatedTerms(text);
   const contradictionBoost = detectContradictionBoost(text);
   const emotionalDepth = computeEmotionalDepth(text);
   const scene = detectScene(text);
+  const hasSpecificScene = SPECIFIC_SCENE_PATTERN.test(text);
 
   const profile: EmotionProfile = {
     energy: 0.5,
@@ -766,43 +833,57 @@ export function analyzeVibe(vibe: string): EmotionProfile {
     motionState: scene.motionState,
   };
 
-  let totalWeight = 0;
+  // Collect all keyword hits, then apply longest phrases first with diminishing
+  // strength so a huge bank does not stack into nonsense profiles.
+  const pendingMatches: Array<{ keyword: VibeKeyword; matchedTerm: string }> = [];
 
   for (const keyword of VIBE_KEYWORDS) {
-    let matched = false;
     let matchedTerm = "";
 
     for (const term of keyword.terms) {
       if (keyword.exactMatch) {
         if (text === term) {
-          matched = true;
           matchedTerm = term;
           break;
         }
-      } else {
-        if (text.includes(term)) {
-          matched = true;
-          matchedTerm = term;
-          break;
-        }
+      } else if (text.includes(term)) {
+        matchedTerm = term;
+        break;
       }
     }
 
-    if (!matched) continue;
+    if (!matchedTerm) continue;
 
-    // Check if the matched term is negated
+    if (hasSpecificScene) {
+      const onlyGenericTime = keyword.terms.every((t) =>
+        /^(2\s*am|2am|1\s*am|1am|3\s*am|3am|4\s*am|4am|late night|up late|insomnia|morning|night|chill|sad|happy)$/.test(
+          t
+        )
+      );
+      if (onlyGenericTime) continue;
+    }
+
+    pendingMatches.push({ keyword, matchedTerm });
+  }
+
+  pendingMatches.sort((a, b) => b.matchedTerm.length - a.matchedTerm.length);
+
+  let matchRank = 0;
+  for (const { keyword, matchedTerm } of pendingMatches) {
+    const rankScale =
+      matchRank < 3 ? 1 : matchRank < 6 ? 0.85 : matchRank < 10 ? 0.7 : matchRank < 16 ? 0.55 : 0.4;
+    matchRank++;
+
     const termWords = matchedTerm.split(/\s+/);
     const isNegated = termWords.some((word) => negatedTerms.has(word));
 
-    // Intensifier context around the match
     const matchIdx = text.indexOf(matchedTerm);
     const contextStart = Math.max(0, matchIdx - 20);
     const context = text.slice(contextStart, matchIdx + matchedTerm.length + 20);
     const intensifierScale = getIntensifierScale(context);
 
-    // Artist/genre cues get a fixed weight (0.6) regardless of intensifiers
     const baseScale = keyword.artistOrGenreCue ? 0.6 : 1.0;
-    const effectiveScale = isNegated ? -0.5 : baseScale * intensifierScale;
+    const effectiveScale = (isNegated ? -0.5 : baseScale * intensifierScale) * rankScale;
 
     const w = keyword.weights;
 
@@ -812,7 +893,6 @@ export function analyzeVibe(vibe: string): EmotionProfile {
     if (w.nostalgia !== undefined) profile.nostalgia += w.nostalgia * effectiveScale;
     if (w.calm !== undefined) profile.calm += w.calm * effectiveScale;
 
-    // Apply scene hints from keyword if not already set
     if (keyword.sceneHints) {
       if (keyword.sceneHints.environment && !profile.environment) {
         profile.environment = keyword.sceneHints.environment;
@@ -824,8 +904,6 @@ export function analyzeVibe(vibe: string): EmotionProfile {
         profile.motionState = keyword.sceneHints.motionState;
       }
     }
-
-    totalWeight += 1;
   }
 
   // Apply contradiction boost to tension
@@ -915,6 +993,50 @@ export function scoreSong(
   const nostalgiaBonus = profile.nostalgia * 0.05 * effectiveAcousticness;
 
   return clamp(rawScore + tensionBonus + nostalgiaBonus);
+}
+
+interface RefineSongInput extends SongFeatures {
+  instrumentalness?: number | null;
+  speechiness?: number | null;
+}
+
+/** Second-pass scoring: penalise tracks that clash with the parsed mood (e.g. party bangers for petrol-station-at-2am). */
+export function refineSongScore(
+  baseScore: number,
+  song: RefineSongInput,
+  profile: EmotionProfile
+): number {
+  let s = baseScore;
+  const e = song.energy ?? 0.5;
+  const v = song.valence ?? 0.5;
+  const d = song.danceability ?? 0.5;
+
+  const lateNightMood =
+    profile.timeOfDay === "late_night" && profile.energy < 0.58 && profile.valence < 0.55;
+
+  if (lateNightMood) {
+    if (e > 0.78) s -= 0.14;
+    if (d > 0.72 && profile.calm > 0.3) s -= 0.1;
+    if (v > 0.8) s -= 0.1;
+    const ideal = profile.energy;
+    s += Math.max(0, 0.12 - Math.abs(e - ideal) * 0.25);
+  }
+
+  if (profile.nostalgia > 0.42) {
+    if ((song.acousticness ?? 0) > 0.4) s += 0.05;
+    if ((song.instrumentalness ?? 0) > 0.45) s += 0.05;
+  }
+
+  if (profile.tension > 0.35 && profile.valence < 0.48) {
+    if (e > 0.7 && v > 0.72) s -= 0.08;
+  }
+
+  if (profile.environment === "urban" && profile.timeOfDay === "late_night") {
+    if (e >= 0.32 && e <= 0.68) s += 0.04;
+    if ((song.speechiness ?? 0) > 0.45 && profile.calm > 0.35) s -= 0.05;
+  }
+
+  return clamp(s);
 }
 
 // ─── PLAYLIST STRUCTURE ───────────────────────────────────────────────────────
@@ -1299,7 +1421,38 @@ function pickFromList(list: string[], seed: string): string {
   return list[idx]!;
 }
 
+const GENERIC_VIBE_PRESETS =
+  /^(chill|gym|focus|happy|sad|night drive|summer|balanced|workout|vibes?)$/i;
+
+function titleCaseVibe(vibe: string): string {
+  return vibe
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w.length ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}
+
+/** Use the user's own words when they typed a real scene, not a one-word preset. */
+function nameFromUserVibe(vibe: string): string | null {
+  const trimmed = vibe.trim();
+  if (trimmed.length < 4 || GENERIC_VIBE_PRESETS.test(trimmed)) return null;
+
+  const wordCount = trimmed.split(/\s+/).length;
+  const isDescriptive =
+    wordCount >= 3 ||
+    SPECIFIC_SCENE_PATTERN.test(trimmed) ||
+    /\b(at|while|during|after|before|alone|empty|quiet)\b/i.test(trimmed);
+
+  if (!isDescriptive && wordCount < 2) return null;
+
+  const title = titleCaseVibe(trimmed);
+  return title.length > 64 ? title.slice(0, 61) + "…" : title;
+}
+
 export function generatePlaylistName(vibe: string, profile: EmotionProfile): string {
+  const fromVibe = nameFromUserVibe(vibe);
+  if (fromVibe) return fromVibe;
+
   const { energy, valence, tension, nostalgia, calm, timeOfDay, environment } = profile;
   const lowerVibe = vibe.toLowerCase();
 

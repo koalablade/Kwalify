@@ -9,6 +9,7 @@ import {
   buildPlaylistStructure,
   limitArtistRepetition,
   generatePlaylistName,
+  refineSongScore,
   filterDeadZones,
   smoothEnergyCurve,
   separateAdjacentArtists,
@@ -102,9 +103,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const scored = likedSongs.map((song) => ({
-      ...song,
-      score: scoreSong(
+    const scored = likedSongs.map((song) => {
+      const base = scoreSong(
         {
           energy: song.energy,
           valence: song.valence,
@@ -114,8 +114,24 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
         emotionProfile,
         mode as "strict" | "balanced" | "chaotic"
-      ),
-    }));
+      );
+      return {
+        ...song,
+        score: refineSongScore(
+          base,
+          {
+            energy: song.energy,
+            valence: song.valence,
+            tempo: song.tempo,
+            danceability: song.danceability,
+            acousticness: song.acousticness,
+            instrumentalness: song.instrumentalness,
+            speechiness: song.speechiness,
+          },
+          emotionProfile
+        ),
+      };
+    });
 
     req.log.info({ totalSongs: likedSongs.length }, "Songs scored");
 
@@ -159,8 +175,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     const shuffledStructured = [...pool, ...structured.slice(poolTarget)];
 
     const afterDeadZone = filterDeadZones(shuffledStructured, length);
-    const smoothMin = Math.max(0.05, emotionProfile.energy - 0.5);
-    const smoothMax = Math.min(0.95, emotionProfile.energy + 0.5);
+    const isSpecificLateScene =
+      emotionProfile.timeOfDay === "late_night" &&
+      (emotionProfile.environment === "urban" || emotionProfile.nostalgia > 0.45);
+    const energyWindow = isSpecificLateScene ? 0.32 : 0.5;
+    const smoothMin = Math.max(0.05, emotionProfile.energy - energyWindow);
+    const smoothMax = Math.min(0.95, emotionProfile.energy + energyWindow);
     const afterSmoothing = smoothEnergyCurve(afterDeadZone, smoothMin, smoothMax);
     const afterArtistSep = separateAdjacentArtists(afterSmoothing);
     const afterArc = enforceArc(afterArtistSep, emotionProfile);
@@ -235,6 +255,24 @@ router.post("/generate", async (req, res): Promise<void> => {
     const savedPlaylistId = insertResult[0]?.id ?? 0;
 
     req.log.info({ userId, playlistId: savedPlaylistId, trackCount: finalTracks.length }, "Playlist saved to DB");
+
+    if (spotifyPlaylistUrl) {
+      try {
+        await db.insert(playlistHistoryTable).values({
+          spotifyUserId: userId,
+          playlistId: spotifyPlaylistUrl.split("/").pop() ?? String(savedPlaylistId),
+          playlistUrl: spotifyPlaylistUrl,
+          name: playlistName,
+          vibe,
+          mode,
+          trackCount: finalTracks.length,
+          emotionProfile: emotionProfile as any,
+          trackIds: finalTracks.map((t) => t.trackId) as any,
+        });
+      } catch (histErr) {
+        req.log.warn({ err: histErr }, "playlist_history insert failed");
+      }
+    }
 
     const spotifyFields = spotifyPlaylistUrl
       ? { spotifyPlaylistUrl }
