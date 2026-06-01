@@ -5,6 +5,7 @@
 import { buildGenreOntology, ontologyStats } from "./genre-ontology";
 import {
   combineTrackEmbedding,
+  EMBEDDING_DIM,
   EMBEDDING_VERSION,
   type TrackEmbeddingInput,
 } from "./genre-embeddings";
@@ -19,6 +20,9 @@ import { buildSeedEmbeddingFromVibe, similarityBoostForPool } from "./genre-simi
 import type { UserGenreProfile } from "./user-genre-profile";
 import type { RootGenre } from "./genre-taxonomy";
 import { profileToClassification } from "./genre-taxonomy";
+import { parentEdges, similarityBridgeEdges, mergeEdges } from "./genre-graph-edges";
+import { VectorStore } from "./genre-vector-store";
+import { embeddingForOntologyNode, buildGenreCentroids } from "./genre-embeddings";
 
 export interface GenreIntelligenceStack {
   graph: GenreGraph;
@@ -38,81 +42,65 @@ export interface GenreIntelligenceStack {
   };
 }
 
-const LIGHT_STACK_TRACK_THRESHOLD = 1200;
+const MINIMAL_STACK_THRESHOLD = 800;
 
-type StackTrack = {
-  trackId: string;
-  trackName: string;
-  artistName: string;
-  albumName: string;
-  energy: number | null;
-  valence: number | null;
-  tempo: number | null;
-  danceability: number | null;
-  acousticness: number | null;
-  instrumentalness?: number | null;
-  speechiness?: number | null;
-};
-
-/** Fast path for large libraries — skips micro-clustering and full track vector graph. */
-function buildLightGenreIntelligenceStack(opts: {
-  tracks: StackTrack[];
-  userProfile: UserGenreProfile;
-  vibe: string;
-}): GenreIntelligenceStack {
+/** Skips O(n²) ontology similarity + per-track embedding graph (critical for 5k+ libraries). */
+function buildMinimalGenreIntelligenceStack(
+  userProfile: UserGenreProfile,
+  vibe: string
+): GenreIntelligenceStack {
   const { nodes } = buildGenreOntology();
-  const trackInputs = new Map<string, TrackEmbeddingInput>();
-  const trackEmbeddings = new Map<string, number[]>();
+  const centroids = buildGenreCentroids([]);
+  const genreSpace = new VectorStore();
 
-  for (const t of opts.tracks) {
-    const profile = opts.userProfile.genreProfiles.get(t.trackId);
-    const classification = profile
-      ? profileToClassification(profile)
-      : opts.userProfile.trackClassifications.get(t.trackId);
-    const input: TrackEmbeddingInput = {
-      ...t,
-      classification,
-      userGenreWeight: classification
-        ? opts.userProfile.vector[classification.genreFamily] ?? 0.05
-        : 0.05,
-    };
-    trackInputs.set(t.trackId, input);
+  for (const node of nodes) {
+    if (node.level !== "family") continue;
+    const emb = embeddingForOntologyNode(node, centroids);
+    node.embedding = emb;
+    genreSpace.upsert(node.id, emb, { family: node.family, level: node.level });
   }
 
-  const graph = buildUnifiedGenreGraph({
-    trackInputs: [],
-    userProfile: opts.userProfile.vector,
+  const edges = mergeEdges([parentEdges(nodes), similarityBridgeEdges()]);
+  const graph: GenreGraph = {
+    nodes,
+    edges,
+    embeddings: {
+      genreSpace,
+      trackSpace: new VectorStore(),
+      clusterSpace: new VectorStore(),
+    },
     clusters: [],
-    recentPlaylistTrackIds: undefined,
-  });
+    userProfile: userProfile.vector,
+    centroids,
+    embeddingVersion: EMBEDDING_VERSION,
+  };
 
-  const userLayer = buildUserGenreLayer(opts.userProfile.vector, graph);
-  const seedEmbedding = buildSeedEmbeddingFromVibe(
-    [...trackInputs.values()].slice(0, 400),
-    opts.vibe,
-    opts.userProfile.vector
-  );
+  const userLayer = buildUserGenreLayer(userProfile.vector, graph);
+  const seedEmbedding = new Array(EMBEDDING_DIM).fill(0);
+  const top = (Object.entries(userProfile.vector) as [RootGenre, number][])
+    .filter(([, v]) => (v ?? 0) > 0.05)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  for (let i = 0; i < top.length; i++) {
+    seedEmbedding[i % EMBEDDING_DIM] = top[i]![1];
+  }
+
   const oStats = ontologyStats();
-
   return {
     graph,
     microGenres: [],
-    trackEmbeddings,
-    trackInputs,
+    trackEmbeddings: new Map(),
+    trackInputs: new Map(),
     userLayer,
     seedEmbedding,
     stats: {
       ontologyNodes: oStats.nodeCount,
       ontologyTargetMet: oStats.targetMet,
-      ontologyEdges: graph.edges.length,
+      ontologyEdges: edges.length,
       microGenreCount: 0,
       embeddingVersion: EMBEDDING_VERSION,
       topMicroLabels: [],
-      vectorStoreSizes: {
-        genre: graph.embeddings.genreSpace.size(),
-        track: 0,
-        cluster: 0,
-      },
+      vectorStoreSizes: { genre: genreSpace.size(), track: 0, cluster: 0 },
     },
   };
 }
@@ -135,8 +123,8 @@ export function buildGenreIntelligenceStack(opts: {
   vibe: string;
   recentPlaylistTrackIds?: string[][];
 }): GenreIntelligenceStack {
-  if (opts.tracks.length >= LIGHT_STACK_TRACK_THRESHOLD) {
-    return buildLightGenreIntelligenceStack(opts);
+  if (opts.tracks.length >= MINIMAL_STACK_THRESHOLD) {
+    return buildMinimalGenreIntelligenceStack(opts.userProfile, opts.vibe);
   }
 
   const trackInputs = new Map<string, TrackEmbeddingInput>();
@@ -204,6 +192,7 @@ export function applyStackToScoredPool<T extends { trackId: string; score: numbe
   pool: T[],
   stack: GenreIntelligenceStack
 ): T[] {
+  if (stack.trackInputs.size === 0) return pool;
   return similarityBoostForPool(pool, stack.trackInputs, stack.seedEmbedding, 0.1);
 }
 
@@ -211,6 +200,9 @@ export function applyStackToFinalTracks<T extends { trackId: string }>(
   finalTracks: T[],
   stack: GenreIntelligenceStack
 ): { tracks: T[]; clusterCapped: string | null } {
+  if (stack.trackEmbeddings.size === 0) {
+    return { tracks: finalTracks, clusterCapped: null };
+  }
   const { tracks, capped } = enforceClusterDiversityCap(
     finalTracks,
     stack.trackEmbeddings,

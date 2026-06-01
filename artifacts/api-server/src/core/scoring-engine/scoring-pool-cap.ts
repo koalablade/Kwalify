@@ -7,6 +7,8 @@ import { passesSunnyGate } from "../../lib/emotion";
 import type { TrackGenreClassification, RootGenre } from "../../lib/genre-taxonomy";
 
 export const DEFAULT_MAX_HYBRID_SCORING_TRACKS = 2400;
+export const LARGE_LIBRARY_MAX_HYBRID_SCORING_TRACKS = 1000;
+export const LARGE_LIBRARY_THRESHOLD = 5000;
 
 function seededJitter(trackId: string, seed: number): number {
   let h = seed;
@@ -46,8 +48,12 @@ export function capTracksForHybridScoring<T extends {
   poolCapped: boolean;
   candidateCount: number;
 } {
-  const max = opts.maxTracks ?? DEFAULT_MAX_HYBRID_SCORING_TRACKS;
   const originalCount = tracks.length;
+  const max =
+    opts.maxTracks ??
+    (originalCount > LARGE_LIBRARY_THRESHOLD
+      ? LARGE_LIBRARY_MAX_HYBRID_SCORING_TRACKS
+      : DEFAULT_MAX_HYBRID_SCORING_TRACKS);
   if (originalCount <= max) {
     return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount };
   }

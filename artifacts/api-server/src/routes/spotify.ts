@@ -10,6 +10,7 @@ import {
   type SpotifyTrack,
 } from "../lib/spotify";
 import { logger } from "../lib/logger";
+import { invalidateGenreProfileCache } from "../lib/genre-profile-cache";
 import { getFeatures } from "../lib/env";
 
 const router: IRouter = Router();
@@ -210,6 +211,8 @@ export async function runSync(userId: string, tokens: any): Promise<void> {
         updatedAt: new Date(),
       })
       .where(eq(syncStatusTable.spotifyUserId, userId));
+
+    invalidateGenreProfileCache(userId);
 
     logger.info(
       { userId, totalTracks: finalTotalTracks, newTracks: newTracks.length, isIncremental },

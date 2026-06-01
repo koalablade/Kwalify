@@ -25,7 +25,7 @@ import { detectMusicChapters, matchChapterFromVibe } from "../lib/music-life-cha
 import { detectArchaeologyIntent } from "../lib/library-archaeology";
 import { computeSurpriseMix } from "../lib/human-surprise";
 import { analyzeMomentPipeline } from "../lib/moment-pipeline";
-import { buildUserGenreProfile } from "../lib/user-genre-profile";
+import { getUserGenreProfileForGenerate } from "../lib/genre-profile-cache";
 import { buildGenreIntelligenceStack } from "../lib/genre-intelligence-stack";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
@@ -291,9 +291,13 @@ router.post("/generate", async (req, res): Promise<void> => {
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
     let t0 = Date.now();
-    const userGenreProfile = buildUserGenreProfile(likedSongs, vibe);
+    const { profile: userGenreProfile, cacheHit } = getUserGenreProfileForGenerate(
+      userId,
+      likedSongs,
+      vibe
+    );
     req.log.info(
-      { ms: Date.now() - t0, tracks: likedSongs.length },
+      { ms: Date.now() - t0, tracks: likedSongs.length, cacheHit },
       "Genre profile built"
     );
 
@@ -306,7 +310,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       recentPlaylistTrackIds: recentTrackLists,
     });
     req.log.info(
-      { ms: Date.now() - t0, tracks: likedSongs.length, microGenres: genreStack.stats.microGenreCount },
+      {
+        ms: Date.now() - t0,
+        tracks: likedSongs.length,
+        microGenres: genreStack.stats.microGenreCount,
+        ontologyEdges: genreStack.stats.ontologyEdges,
+      },
       "Genre stack built"
     );
 
