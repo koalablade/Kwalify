@@ -10,6 +10,8 @@ import {
 } from "./genre-taxonomy";
 import { detectLibraryGenres } from "./genre-detection-pipeline";
 import type { ArtistGenreHistory } from "./genre-detection-pipeline";
+import { sampleTracksForProfile } from "./library-sample";
+import { GENRE_PROFILE_MAX_TRACKS } from "./production-limits";
 
 export type UserGenreVector = Partial<Record<RootGenre, number>>;
 
@@ -40,7 +42,11 @@ export function buildUserGenreProfile(
   }[],
   vibe?: string
 ): UserGenreProfile {
-  const { classifications, artistHistory, userVector } = detectLibraryGenres(tracks, vibe);
+  const working =
+    tracks.length > GENRE_PROFILE_MAX_TRACKS
+      ? sampleTracksForProfile(tracks, GENRE_PROFILE_MAX_TRACKS)
+      : tracks;
+  const { classifications, artistHistory, userVector } = detectLibraryGenres(working, vibe);
 
   const trackClassifications = new Map<string, TrackGenreClassification>();
   for (const [id, profile] of classifications) {

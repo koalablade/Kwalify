@@ -19,11 +19,19 @@ export interface TruthAnchorStore {
   builtAt: number;
 }
 
+/** Build anchors only for tracks that enter scoring (avoids O(library) on 9k+ maps). */
 export function buildTruthAnchorStore(
-  classifications: Map<string, TrackGenreProfile | TrackGenreClassification>
+  classifications: Map<string, TrackGenreProfile | TrackGenreClassification>,
+  trackIds?: Iterable<string>
 ): TruthAnchorStore {
   const anchors = new Map<string, GenreTruthAnchor>();
-  for (const [trackId, c] of classifications) {
+  const ids = trackIds ? new Set(trackIds) : null;
+  const entries = ids
+    ? [...ids].map((id) => [id, classifications.get(id)] as const)
+    : [...classifications.entries()];
+
+  for (const [trackId, c] of entries) {
+    if (!c) continue;
     const cl =
       "genreFamily" in c && typeof c.genreFamily === "string"
         ? (c as TrackGenreClassification)

@@ -27,6 +27,32 @@ import { computeSurpriseMix } from "../lib/human-surprise";
 import { analyzeMomentPipeline } from "../lib/moment-pipeline";
 import { getUserGenreProfileForGenerate } from "../lib/genre-profile-cache";
 import { buildGenreIntelligenceStack } from "../lib/genre-intelligence-stack";
+import {
+  getCachedGenreStack,
+  setCachedGenreStack,
+} from "../lib/genre-stack-cache";
+import {
+  getGenerateCacheKey,
+  getCachedGenerateResult,
+  setCachedGenerateResult,
+} from "../lib/generate-result-cache";
+import { createRequestBudget } from "../lib/request-budget";
+import { REQUEST_HARD_TIMEOUT_MS } from "../lib/production-limits";
+import {
+  beginGenerateSession,
+  endGenerateSession,
+  setGeneratePhase,
+  isGenerateCancelled,
+  getPendingSpotifyPlaylistId,
+  setPendingSpotifyPlaylistId,
+  clearPendingSpotifyPlaylist,
+  getGenerateProgress,
+} from "../lib/generate-session";
+import { sanitizeLikedSongs } from "../lib/library-sanitize";
+import {
+  buildFallbackPipelineResult,
+  formatTracksForApi,
+} from "../lib/generate-helpers";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
 import { buildPlaylistPipeline } from "../core/playlist-pipeline";
@@ -64,8 +90,27 @@ const NEUTRAL_PROFILE: EmotionProfile = {
   motionState: null,
 };
 
+function staleGenerate(userId: string, requestId: string): boolean {
+  return isGenerateCancelled(userId, requestId);
+}
+
+router.get("/generate/status", (req, res): void => {
+  if (!req.session.spotifyUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const progress = getGenerateProgress(req.session.spotifyUserId);
+  res.json({
+    phase: progress?.phase ?? "idle",
+    requestId: progress?.requestId ?? null,
+    active: !!progress,
+  });
+});
+
 router.post("/generate", async (req, res): Promise<void> => {
   const startMs = Date.now();
+  let requestId = "";
+  let sessionUserId = "";
   try {
     if (!getFeatures().spotify.enabled) {
       res.status(503).json({ error: "Spotify is not configured on this server." });
@@ -77,6 +122,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     const userId = req.session.spotifyUserId;
+    sessionUserId = userId;
+    requestId = beginGenerateSession(userId);
+    setGeneratePhase(userId, requestId, "starting");
 
     const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!rateCheck.allowed) {
@@ -97,11 +145,14 @@ router.post("/generate", async (req, res): Promise<void> => {
     const parsedLength =
       typeof lengthRaw === "string" ? parseInt(lengthRaw, 10) : Number(lengthRaw);
 
+    const varietyBoost = rawBody.varietyBoost === true;
+
     const payload = {
       vibe: (typeof vibeRaw === "string" ? vibeRaw.trim() : String(vibeRaw).trim()) || "balanced",
       mode: (["strict", "balanced", "chaotic"] as const).includes(modeRaw) ? modeRaw : "balanced",
       length: isNaN(parsedLength) || parsedLength <= 0 ? 25 : parsedLength,
       ...(referencePlaylistRaw ? { referencePlaylist: referencePlaylistRaw } : {}),
+      ...(varietyBoost ? { varietyBoost: true } : {}),
     };
 
     const parsed = GeneratePlaylistBody.safeParse(payload);
@@ -111,7 +162,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const { vibe, mode, length, referencePlaylist } = parsed.data;
+    const { vibe, mode, length, referencePlaylist, varietyBoost } = parsed.data;
 
     const mixedEmotions = detectMixedEmotions(vibe);
     const destParse = parseEmotionalDestination(vibe);
@@ -175,19 +226,120 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
-    const likedSongs = await db
+    setGeneratePhase(userId, requestId, "loading_library");
+    const likedRowsRaw = await db
       .select()
       .from(likedSongsTable)
       .where(eq(likedSongsTable.spotifyUserId, userId));
 
+    const { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
+    if (droppedTracks > 0) {
+      req.log.warn({ droppedTracks, userId }, "Dropped invalid liked-song rows");
+    }
+
     if (likedSongs.length === 0) {
+      setGeneratePhase(userId, requestId, "error");
       res.status(400).json({
+        success: false,
         error: "No liked songs found. Please sync your Spotify library first.",
+        code: "LIBRARY_EMPTY",
+        tracks: [],
       });
       return;
     }
 
+    (req as { _genCtx?: Record<string, unknown> })._genCtx = {
+      requestId,
+      userId,
+      likedSongs,
+      emotionProfile,
+      length,
+      mode,
+      vibe,
+      maxPerArtist: mode === "strict" ? 2 : mode === "balanced" ? 3 : 5,
+    };
+
     const vibeKind = detectVibeKind(vibe, emotionProfile);
+    const budget = createRequestBudget(startMs);
+    const resultCacheKey = getGenerateCacheKey({
+      userId,
+      vibe,
+      vibeKind,
+      mode,
+      length,
+      referencePlaylist: !!referencePlaylist,
+    });
+
+    res.setTimeout(REQUEST_HARD_TIMEOUT_MS + 2000, () => {
+      if (res.headersSent || staleGenerate(userId, requestId)) return;
+      const ctx = (req as { _genCtx?: {
+        likedSongs: typeof likedSongs;
+        emotionProfile: EmotionProfile;
+        length: number;
+        maxPerArtist?: number;
+        vibe: string;
+        mode: string;
+      } })._genCtx;
+      req.log.error({ userId, requestId, code: "TIMEOUT" }, "Generate hard timeout — emergency fallback");
+      if (!ctx?.likedSongs?.length) {
+        res.status(504).json({
+          success: false,
+          error: "Generation timed out. Please try again.",
+          code: "TIMEOUT",
+          tracks: [],
+        });
+        return;
+      }
+      const maxPerArtist =
+        ctx.mode === "strict" ? 2 : ctx.mode === "balanced" ? 3 : 5;
+      const pipeline = buildFallbackPipelineResult({
+        tracks: ctx.likedSongs,
+        emotionProfile: ctx.emotionProfile,
+        playlistLength: ctx.length,
+        maxPerArtist,
+        librarySize: ctx.likedSongs.length,
+      });
+      const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
+      res.json({
+        success: true,
+        fastFallback: true,
+        code: "TIMEOUT_FALLBACK",
+        playlistName,
+        name: playlistName,
+        vibe: ctx.vibe,
+        mode: ctx.mode,
+        count: pipeline.finalTracks.length,
+        totalTracks: pipeline.finalTracks.length,
+        spotifyUnavailable: true,
+        tracks: formatTracksForApi(pipeline.finalTracks),
+      });
+    });
+
+    if (!varietyBoost) {
+      const cached = getCachedGenerateResult(resultCacheKey);
+      if (cached) {
+        if (staleGenerate(userId, requestId)) return;
+        setGeneratePhase(userId, requestId, "done");
+        req.log.info({ userId, resultCacheKey }, "Generate result cache hit");
+        res.json({
+          success: true,
+          cached: true,
+          tracks: formatTracksForApi(cached.finalTracks),
+          playlistName: cached.playlistName,
+          name: cached.playlistName,
+          vibe: cached.vibe,
+          mode: cached.mode,
+          count: cached.finalTracks.length,
+          totalTracks: cached.finalTracks.length,
+          emotionProfile: cached.emotionProfile,
+          ...(cached.spotifyPlaylistUrl
+            ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
+            : { spotifyUnavailable: true as const }),
+        });
+        return;
+      }
+    }
+
     const promptConfidence = scorePromptConfidence(vibe, emotionProfile, {
       experienceSceneMatched: !!experienceScene,
       hasJourneyDestination: !!destParse.desired,
@@ -290,6 +442,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
+    setGeneratePhase(userId, requestId, "building_profile");
     let t0 = Date.now();
     const { profile: userGenreProfile, cacheHit } = getUserGenreProfileForGenerate(
       userId,
@@ -302,17 +455,29 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     const recentTrackLists = recentPlaylists.map((p) => (p.trackIds as string[]) ?? []);
+    const recentTrackPenaltyScale = varietyBoost ? 1.75 : 1;
+    const freshnessCloneMultiplier = varietyBoost
+      ? cloneMultiplier * 0.88
+      : cloneMultiplier;
+    const stackCacheKey = `${resultCacheKey}:${likedSongs.length}`;
+
     t0 = Date.now();
-    const genreStack = buildGenreIntelligenceStack({
-      tracks: likedSongs,
-      userProfile: userGenreProfile,
-      vibe,
-      recentPlaylistTrackIds: recentTrackLists,
-    });
+    let genreStack = getCachedGenreStack(stackCacheKey);
+    const stackFromCache = !!genreStack;
+    if (!genreStack) {
+      genreStack = buildGenreIntelligenceStack({
+        tracks: likedSongs,
+        userProfile: userGenreProfile,
+        vibe,
+        recentPlaylistTrackIds: recentTrackLists,
+      });
+      setCachedGenreStack(stackCacheKey, genreStack);
+    }
     req.log.info(
       {
         ms: Date.now() - t0,
         tracks: likedSongs.length,
+        stackFromCache,
         microGenres: genreStack.stats.microGenreCount,
         ontologyEdges: genreStack.stats.ontologyEdges,
       },
@@ -325,12 +490,30 @@ router.post("/generate", async (req, res): Promise<void> => {
       /\b(christmas|xmas|holiday|festive|winter holiday)\b/i.test(vibe) ||
       (humanIntent.intent === "nostalgia" && /\bchristmas|holiday\b/i.test(vibe));
 
+    setGeneratePhase(userId, requestId, "scoring");
     t0 = Date.now();
-    const pipeline = buildPlaylistPipeline({
+    const useFastFallback = budget.shouldFastFallback() || budget.isExpired();
+
+    let pipeline: ReturnType<typeof buildPlaylistPipeline>;
+    if (useFastFallback) {
+      req.log.warn(
+        { ms: Date.now() - startMs, remainingMs: budget.remainingMs(), code: "FAST_FALLBACK" },
+        "Time budget — fast fallback playlist"
+      );
+      pipeline = buildFallbackPipelineResult({
+        tracks: likedSongs,
+        emotionProfile,
+        playlistLength: length,
+        maxPerArtist,
+        librarySize: likedSongs.length,
+      });
+    } else {
+      pipeline = buildPlaylistPipeline({
       likedSongs,
       vibe,
       mode: mode as "strict" | "balanced" | "chaotic",
       playlistLength: length,
+      referencePlaylist: !!referencePlaylist,
       emotionProfile,
       vibeKind,
       intent: humanIntent,
@@ -367,21 +550,25 @@ router.post("/generate", async (req, res): Promise<void> => {
           stats: freshnessStats,
           artistAppearances,
           albumAppearances,
-          globalCloneMultiplier: cloneMultiplier,
+          globalCloneMultiplier: freshnessCloneMultiplier,
         },
+        vibe,
       },
+      varietyPenaltyScale: recentTrackPenaltyScale,
       genrePost: {
         allowHoliday: allowHolidaySeason,
         suppressGenres: allowHolidaySeason ? [] : ["christmas"],
       },
     });
+    }
 
     type PlaylistTrack = (typeof likedSongs)[number] & {
       score: number;
       rediscoveryScore?: number;
       narrativeRole?: string;
     };
-    const finalTracks = pipeline.finalTracks as PlaylistTrack[];
+    setGeneratePhase(userId, requestId, "composing");
+    let finalTracks = pipeline.finalTracks as PlaylistTrack[];
     const sorted = pipeline.sorted;
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
@@ -447,14 +634,33 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     if (finalTracks.length === 0) {
-      res.status(400).json({
-        error:
-          "Could not build a playlist — nothing matched this vibe with your current library. Try Balanced or Chaotic mode, a broader vibe, or wait a moment and regenerate.",
-        code: "EMPTY_PLAYLIST",
-        hint: "Sync more liked songs if your library is small. This is not a Spotify API limit.",
+      req.log.warn({ userId, code: "EMPTY_POOL" }, "Empty pipeline — trying fallback");
+      const rescue = buildFallbackPipelineResult({
+        tracks: likedSongs,
+        emotionProfile,
+        playlistLength: length,
+        maxPerArtist,
+        librarySize: likedSongs.length,
       });
-      return;
+      if (rescue.finalTracks.length > 0) {
+        pipeline = rescue;
+        finalTracks = rescue.finalTracks as PlaylistTrack[];
+      } else {
+        setGeneratePhase(userId, requestId, "error");
+        if (staleGenerate(userId, requestId)) return;
+        res.status(400).json({
+          success: false,
+          error:
+            "Could not build a playlist — nothing matched this vibe with your current library. Try Balanced or Chaotic mode, a broader vibe, or wait a moment and regenerate.",
+          code: "EMPTY_PLAYLIST",
+          tracks: [],
+          hint: "Sync more liked songs if your library is small. This is not a Spotify API limit.",
+        });
+        return;
+      }
     }
+
+    if (staleGenerate(userId, requestId)) return;
 
     const playlistName = generatePlaylistName(vibe, emotionProfile);
 
@@ -466,30 +672,50 @@ router.post("/generate", async (req, res): Promise<void> => {
       albumArt: t.albumArt ?? null,
     }));
 
-    // Attempt Spotify playlist creation first — graceful degradation on any failure
+    setGeneratePhase(userId, requestId, "spotify");
     let spotifyPlaylistUrl: string | null = null;
 
-    try {
-      const freshTokens = await getValidAccessToken(req.session.spotifyTokens!);
-      if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
-        req.session.spotifyTokens = freshTokens;
+    if (!staleGenerate(userId, requestId)) {
+      try {
+        const freshTokens = await getValidAccessToken(
+          req.session.spotifyTokens!,
+          userId
+        );
+        if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
+          req.session.spotifyTokens = freshTokens;
+        }
+        const trackUris = finalTracks.map((t) => `spotify:track:${t.trackId}`);
+        const pendingId = getPendingSpotifyPlaylistId(userId);
+        const spotifyResult = await createSpotifyPlaylist(
+          freshTokens.accessToken,
+          userId,
+          playlistName,
+          trackUris,
+          {
+            existingPlaylistId: pendingId,
+            onPlaylistCreated: (id) =>
+              setPendingSpotifyPlaylistId(userId, requestId, id),
+          }
+        );
+        clearPendingSpotifyPlaylist(userId, requestId);
+        spotifyPlaylistUrl = spotifyResult.url;
+        req.log.info(
+          { spotifyPlaylistId: spotifyResult.id, userId, reused: !!pendingId },
+          "Spotify playlist created"
+        );
+      } catch (spotifyErr: any) {
+        req.log.warn(
+          {
+            code: "SPOTIFY_CREATE_FAILED",
+            err: spotifyErr?.message,
+            status: spotifyErr?.response?.status,
+          },
+          "Spotify playlist creation failed — degrading gracefully"
+        );
       }
-      req.log.info({ userId, sessionUserId: req.session.spotifyUserId, tokenExpiresAt: freshTokens.expiresAt }, "[playlist-debug] token identity before create");
-      const trackUris = finalTracks.map((t) => `spotify:track:${t.trackId}`);
-      const spotifyResult = await createSpotifyPlaylist(
-        freshTokens.accessToken,
-        userId,
-        playlistName,
-        trackUris
-      );
-      spotifyPlaylistUrl = spotifyResult.url;
-      req.log.info({ spotifyPlaylistId: spotifyResult.id, userId }, "Spotify playlist created");
-    } catch (spotifyErr: any) {
-      req.log.warn(
-        { err: spotifyErr?.message, status: spotifyErr?.response?.status },
-        "Spotify playlist creation failed — degrading gracefully"
-      );
     }
+
+    setGeneratePhase(userId, requestId, "saving");
 
     const insertResult = await db
       .insert(savedPlaylistsTable)
@@ -531,6 +757,45 @@ router.post("/generate", async (req, res): Promise<void> => {
     const totalDurationMs = finalTracks.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
     const artistCount = new Set(finalTracks.map((t) => t.artistName)).size;
     const generationMs = Date.now() - startMs;
+
+    const datedLikes = likedSongs.filter((s) => s.addedAt);
+    const recentCutoff = Date.now() - 120 * 24 * 60 * 60 * 1000;
+    const recentLikeShare =
+      datedLikes.length > 0
+        ? datedLikes.filter((s) => s.addedAt!.getTime() > recentCutoff).length / datedLikes.length
+        : 0;
+    const librarySyncHint =
+      datedLikes.length >= 200 && recentLikeShare > 0.85
+        ? "Most cached likes look recently added. Run a full library sync from the app so older favourites are included."
+        : null;
+
+    if (!varietyBoost) {
+      setCachedGenerateResult(resultCacheKey, {
+        playlistName,
+        vibe,
+        mode,
+        finalTracks: finalTracks.map((t) => ({
+          trackId: t.trackId,
+          trackName: t.trackName,
+          artistName: t.artistName,
+          albumName: t.albumName,
+          albumArt: t.albumArt ?? null,
+          durationMs: t.durationMs ?? null,
+          energy: t.energy ?? null,
+          valence: t.valence ?? null,
+          tempo: t.tempo ?? null,
+          score: Math.round(t.score * 100) / 100,
+          rediscoveryScore: t.rediscoveryScore,
+          narrativeRole: t.narrativeRole,
+        })),
+        emotionProfile: { ...emotionProfile, journeyArc },
+        spotifyPlaylistUrl,
+        cachedAt: Date.now(),
+      });
+    }
+
+    setGeneratePhase(userId, requestId, "done");
+    if (staleGenerate(userId, requestId)) return;
 
     res.json({
       success: true,
@@ -616,31 +881,69 @@ router.post("/generate", async (req, res): Promise<void> => {
           }
         : null,
       referencePlaylistWarning: referencePlaylist && !referenceFingerprint
-        ? "Could not read that Spotify playlist (private or permissions). Used your text vibe only — log out and back in if you recently updated the app."
+        ? "Could not read that reference playlist. If it is public, try the open.spotify.com link; if it is yours, log out and back in to refresh permissions. Generation used your text vibe only."
         : null,
-      tracks: finalTracks.map((t) => ({
-        id: t.trackId,
-        name: t.trackName,
-        artist: t.artistName,
-        album: t.albumName,
-        albumArt: t.albumArt ?? null,
-        durationMs: t.durationMs,
-        energy: t.energy ?? null,
-        valence: t.valence ?? null,
-        tempo: t.tempo ?? null,
-        score: Math.round(t.score * 100) / 100,
-        rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
-        narrativeRole: t.narrativeRole,
-      })),
+      librarySyncHint,
+      tracks: formatTracksForApi(finalTracks),
+      ...(pipeline.scoringDiagnostics?.fastFallback
+        ? { fastFallback: true }
+        : {}),
     });
   } catch (fatalErr: any) {
-    req.log.error({ err: fatalErr }, "Unhandled error in /generate");
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        error: "An unexpected error occurred. Please try again.",
-        playlist: [],
-      });
+    req.log.error(
+      { err: fatalErr?.message, code: "INTERNAL_ERROR", userId: sessionUserId },
+      "Unhandled error in /generate"
+    );
+    if (sessionUserId && requestId) {
+      setGeneratePhase(sessionUserId, requestId, "error");
+    }
+    if (!res.headersSent && !staleGenerate(sessionUserId, requestId)) {
+      const timedOut = Date.now() - startMs >= REQUEST_HARD_TIMEOUT_MS - 1000;
+      const ctx = (req as { _genCtx?: {
+        likedSongs: { trackId: string; trackName: string; artistName: string; albumName: string }[];
+        emotionProfile: EmotionProfile;
+        length: number;
+        vibe: string;
+        mode: string;
+      } })._genCtx;
+      if (timedOut && ctx?.likedSongs?.length) {
+        const maxPerArtist =
+          ctx.mode === "strict" ? 2 : ctx.mode === "balanced" ? 3 : 5;
+        const pipeline = buildFallbackPipelineResult({
+          tracks: ctx.likedSongs as Parameters<typeof buildFallbackPipelineResult>[0]["tracks"],
+          emotionProfile: ctx.emotionProfile,
+          playlistLength: ctx.length,
+          maxPerArtist,
+          librarySize: ctx.likedSongs.length,
+        });
+        const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
+        res.json({
+          success: true,
+          fastFallback: true,
+          code: "TIMEOUT_FALLBACK",
+          playlistName,
+          name: playlistName,
+          vibe: ctx.vibe,
+          mode: ctx.mode,
+          count: pipeline.finalTracks.length,
+          totalTracks: pipeline.finalTracks.length,
+          spotifyUnavailable: true,
+          tracks: formatTracksForApi(pipeline.finalTracks),
+        });
+      } else {
+        res.status(timedOut ? 504 : 500).json({
+          success: false,
+          error: timedOut
+            ? "Generation took too long. Try Balanced mode or regenerate in a moment."
+            : "An unexpected error occurred. Please try again.",
+          code: timedOut ? "TIMEOUT" : "INTERNAL_ERROR",
+          tracks: [],
+        });
+      }
+    }
+  } finally {
+    if (sessionUserId && requestId) {
+      endGenerateSession(sessionUserId, requestId);
     }
   }
 });

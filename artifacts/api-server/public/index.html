@@ -342,6 +342,13 @@
     .sync-banner.syncing { background:rgba(130,80,255,.10); border:1px solid rgba(130,80,255,.22); color:#c09fff; }
     .sync-banner.done    { background:rgba(29,185,84,.07);  border:1px solid rgba(29,185,84,.18);  color:#5edf8a; }
     .sync-banner.idle, .sync-banner.error { background:rgba(255,255,255,.03); border:1px solid var(--border); color:var(--text-muted); }
+    .sync-banner.warn { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.28); color:#fbbf24; flex-wrap:wrap; gap:10px; }
+    .sync-banner .sync-banner-actions { display:flex; gap:8px; margin-left:auto; flex-shrink:0; }
+    .mode-tab { display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1.2; }
+    .mode-tab .mode-hint { font-size:9px; font-weight:500; opacity:.65; text-transform:none; letter-spacing:0; }
+    .site-footer { margin-top:28px; padding:16px 0 8px; text-align:center; font-size:12px; color:var(--text-faint); border-top:1px solid var(--border); }
+    .site-footer a { color:var(--text-muted); text-decoration:underline; text-underline-offset:2px; }
+    .site-footer a:hover { color:var(--text); }
 
     /* Loading overlay */
     #loadOverlay { display:flex; align-items:center; justify-content:center; min-height:60vh; }
@@ -446,9 +453,9 @@
           <div class="ctrl-block">
             <div class="ctrl-label">Match mode</div>
             <div class="mode-tabs">
-              <button class="mode-tab" id="modeStrict"   onclick="setMode('strict')">Strict</button>
-              <button class="mode-tab active" id="modeBalanced" onclick="setMode('balanced')">Balanced</button>
-              <button class="mode-tab" id="modeChaotic"  onclick="setMode('chaotic')">Chaotic</button>
+              <button class="mode-tab" id="modeStrict" onclick="setMode('strict')"><span>Strict</span><span class="mode-hint">Closest match</span></button>
+              <button class="mode-tab active" id="modeBalanced" onclick="setMode('balanced')"><span>Balanced</span><span class="mode-hint">Default mix</span></button>
+              <button class="mode-tab" id="modeChaotic" onclick="setMode('chaotic')"><span>Chaotic</span><span class="mode-hint">More surprises</span></button>
             </div>
           </div>
         </div>
@@ -494,9 +501,9 @@
         </div>
         <div class="result-actions">
           <div id="spotifyActionArea" style="flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px;"></div>
-          <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Regenerate same vibe">
+          <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different songs">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Regen
+            More variety
           </button>
         </div>
         <div id="vibeInterpretation"></div>
@@ -555,6 +562,10 @@
         </div>
         <div class="pl-list" id="plList"></div>
       </div>
+
+      <footer class="site-footer">
+        Beta — <a href="https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform" target="_blank" rel="noopener">Send feedback</a>
+      </footer>
 
     </div><!-- /appView -->
 
@@ -747,8 +758,8 @@ const copyBtn=$('copyBtn'), trackList=$('trackList'), modeBadge=$('modeBadge');
 const histSection=$('histSection'), hList=$('hList');
 
 let currentUrl='', lastVibe='', currentMode='balanced';
-let isGenerating=false, debTimer=null;
-let currentPlaylistId=null;
+let isGenerating=false, debTimer=null, varietyBoostNext=false;
+let currentPlaylistId=null, _libTrackCount=0;
 
 const HIST_KEY='kwalah_v3', MAX_HIST=10;
 const ICONS=['🎵','🌙','💪','☁️','🌅','🎧','🔥','✨','🎶','🌊'];
@@ -762,19 +773,60 @@ function setMode(m){
   });
 }
 
-/* ── Progress stages ── */
-const STAGES=[
-  {label:'Feeling the vibe…',           pct:10},
-  {label:'Scanning your library…',      pct:28},
-  {label:'Scoring every track…',        pct:52},
-  {label:'Applying diversity magic…',   pct:74},
-  {label:'Creating your playlist…',     pct:90},
-];
-let stageIdx=0, progTimer=null;
+/* ── Progress (server phase + time cap — never stalls at 90%) ── */
+const PROG_PHASE_MAP={
+  idle:{pct:5, label:'Starting…'},
+  starting:{pct:8, label:'Understanding your vibe…'},
+  loading_library:{pct:18, label:'Loading your library…'},
+  building_profile:{pct:32, label:'Building genre profile…'},
+  scoring:{pct:55, label:'Scoring your library…'},
+  composing:{pct:72, label:'Picking the best flow…'},
+  spotify:{pct:85, label:'Creating Spotify playlist…'},
+  saving:{pct:92, label:'Finalising…'},
+  done:{pct:100, label:'Done'},
+  error:{pct:0, label:'Something went wrong'},
+};
+let progTimer=null, progPollTimer=null, progStartMs=0;
 
-function startProgress(){ stageIdx=0; setStage(0); progTimer=setInterval(()=>{ if(stageIdx<STAGES.length-1) setStage(++stageIdx); },1800); }
-function setStage(i){ const s=STAGES[i]; if(progLabel) progLabel.textContent=s.label; if(progFill) progFill.style.width=s.pct+'%'; if(progPct) progPct.textContent=s.pct+'%'; }
-function finishProgress(){ clearInterval(progTimer); if(progFill) progFill.style.width='100%'; if(progPct) progPct.textContent='100%'; }
+function _setProgPhase(phase){
+  const s=PROG_PHASE_MAP[phase]||PROG_PHASE_MAP.scoring;
+  const p=Math.min(88, Math.max(4, s.pct));
+  if(progLabel) progLabel.textContent=s.label;
+  if(progFill) progFill.style.width=p+'%';
+  if(progPct) progPct.textContent=p+'%';
+}
+function _setProgPct(pct){
+  const p=Math.min(88,Math.max(4,Math.round(pct)));
+  if(progFill) progFill.style.width=p+'%';
+  if(progPct) progPct.textContent=p+'%';
+}
+function stopProgressTimers(){
+  clearInterval(progTimer);
+  clearInterval(progPollTimer);
+  progPollTimer=null;
+}
+function startProgress(){
+  stopProgressTimers();
+  progStartMs=Date.now();
+  _setProgPhase('starting');
+  progPollTimer=setInterval(()=>{
+    fetch('/api/generate/status',{credentials:'include'})
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{ if(d&&d.phase&&d.phase!=='idle') _setProgPhase(d.phase); })
+      .catch(()=>{});
+  },900);
+  progTimer=setInterval(()=>{
+    const elapsed=Date.now()-progStartMs;
+    const bump=4+Math.min(84, elapsed/90000*84);
+    _setProgPct(bump);
+  },400);
+}
+function finishProgress(){
+  stopProgressTimers();
+  if(progLabel) progLabel.textContent='Done';
+  if(progFill) progFill.style.width='100%';
+  if(progPct) progPct.textContent='100%';
+}
 
 const _GEN_HTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Generate`;
 const _GEN_LOADING=`<span class="spin"></span> Generating…`;
@@ -1045,7 +1097,7 @@ function generate(){
   if(referencePlaylist) try{ localStorage.setItem('kwalify_reference_playlist', referencePlaylist); }catch(_){}
 
   const genAbort=new AbortController();
-  const genTimeout=setTimeout(()=>genAbort.abort(),120000);
+  const genTimeout=setTimeout(()=>genAbort.abort(),92000);
   fetch('/api/generate',{
     method:'POST', credentials:'include',
     signal:genAbort.signal,
@@ -1053,10 +1105,12 @@ function generate(){
     body:JSON.stringify({
       vibe, length, mode:currentMode,
       ...(referencePlaylist?{ referencePlaylist }:{}),
+      ...(varietyBoostNext?{ varietyBoost:true }:{}),
     }),
   })
   .then(r=>r.json().then(d=>({ok:r.ok,status:r.status,d})))
   .then(({ok,status,d})=>{
+    varietyBoostNext=false;
     setLoading(false);
     if(status===429){
       const retryAfter=(d&&d.retry_after)||60;
@@ -1071,6 +1125,11 @@ function generate(){
       showToast(`Rate limited — try again in ${retryAfter}s`,'info',5000);
       return;
     }
+    if(status===504||(d.code==='TIMEOUT'&&!d.success)){
+      const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
+      showToast(d.error||'Generation timed out. Try Balanced mode or a shorter playlist.','error',6500);
+      return;
+    }
     if(!ok||d.error){
       const m={
         'Not authenticated':'Log in with Spotify to generate playlists.',
@@ -1080,12 +1139,22 @@ function generate(){
       if(status===401) setTimeout(()=>window.location.href='/api/auth/login',2200);
       return;
     }
+    if(!Array.isArray(d.tracks)||!d.tracks.length){
+      showToast(d.error||'No tracks returned. Try syncing your library or regenerate.','error',6000);
+      return;
+    }
+    if(d.fastFallback||d.code==='TIMEOUT_FALLBACK'){
+      showToast('Used a quick fallback mix to finish in time — your playlist is still valid.','info',5500);
+    }
     // Hide pending card on successful generation
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
     if(vibeInput) vibeInput.value='';
     if($('vibeCounter')) $('vibeCounter').textContent='0/140';
     const trackCount=d.count||d.totalTracks||25;
     showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null);
+    if(d.librarySyncHint){
+      showToast(d.librarySyncHint,'info',8000);
+    }
     if(d.referencePlaylistWarning){
       showToast(d.referencePlaylistWarning,'info',6000);
     } else if(referencePlaylist && !d.referenceMatch){
@@ -1099,8 +1168,9 @@ function generate(){
   })
   .catch(err=>{
     setLoading(false);
+    const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
     const msg=err&&err.name==='AbortError'
-      ?'Generation is taking too long. Try a shorter playlist or try again in a moment.'
+      ?'Generation timed out. Try Balanced mode or try again in a moment.'
       :'Connection failed. Check your internet and try again.';
     showToast(msg,'error',6000);
   })
@@ -1110,7 +1180,7 @@ function generate(){
 function regenerate(){
   if(!lastVibe) return;
   if(vibeInput) vibeInput.value=lastVibe;
-  if(currentMode==='strict') setMode('balanced');
+  varietyBoostNext=true;
   generate();
 }
 
@@ -1352,6 +1422,8 @@ function _updateSyncUI(d){
     clearInterval(_syncTimer); _syncTimer=setInterval(_pollSync,7000);
   }
 
+  _libTrackCount=d.totalTracks||0;
+
   if(_syncState==='synced'){
     if(gate) gate.style.display='none';
     if(ic){
@@ -1363,8 +1435,19 @@ function _updateSyncUI(d){
     const t=_fmtSyncTime(d.lastSyncedAt);
     const n=d.totalTracks||0;
     if(banner){
-      banner.className='sync-banner done';
-      banner.innerHTML=_SYNC_CHECK+`<span>Library ready — ${n} track${n!==1?'s':''}${t?' · Last synced '+t:''}</span>`;
+      if(d.suggestFullSync){
+        banner.className='sync-banner warn';
+        banner.innerHTML=`<span>Library may be missing older likes — run a full sync for your whole library.</span>
+          <span class="sync-banner-actions">
+            <button type="button" class="btn btn-green btn-sm" onclick="_startFullSync()">Full library sync</button>
+          </span>`;
+      } else {
+        banner.className='sync-banner done';
+        banner.innerHTML=_SYNC_CHECK+`<span>Library ready — ${n} track${n!==1?'s':''}${t?' · Last synced '+t:''}</span>
+          <span class="sync-banner-actions">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="_startFullSync()" title="Re-download all liked songs">Full sync</button>
+          </span>`;
+      }
       banner.style.display='flex';
     }
   } else {
@@ -1437,9 +1520,18 @@ async function _startSync(){
   const btn=document.querySelector('#syncGateCard .btn-green');
   if(btn){ btn.disabled=true; btn.textContent='Starting…'; }
   try {
-    await fetch('/api/spotify/sync',{method:'POST',credentials:'include'});
+    await fetch('/api/spotify/sync',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:'{}'});
     _pollSync();
   } catch { showToast('Failed to start sync — try again.','error',4000); if(btn){ btn.disabled=false; btn.textContent='Sync Now'; } }
+}
+
+async function _startFullSync(){
+  showToast('Full library sync started — this can take a few minutes.','info',5000);
+  try {
+    await fetch('/api/spotify/sync',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({full:true})});
+    _pollSync();
+    clearInterval(_syncTimer); _syncTimer=setInterval(_pollSync,3000);
+  } catch { showToast('Could not start full sync.','error',4000); }
 }
 
 /* ── Boot ── */

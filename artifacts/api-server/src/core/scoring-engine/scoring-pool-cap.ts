@@ -5,10 +5,15 @@
 import type { EmotionProfile, VibeKind } from "../../lib/emotion";
 import { passesSunnyGate } from "../../lib/emotion";
 import type { TrackGenreClassification, RootGenre } from "../../lib/genre-taxonomy";
-
-export const DEFAULT_MAX_HYBRID_SCORING_TRACKS = 2400;
-export const LARGE_LIBRARY_MAX_HYBRID_SCORING_TRACKS = 1000;
-export const LARGE_LIBRARY_THRESHOLD = 5000;
+import {
+  detectLibraryEraMode,
+  libraryEraScoreBoost,
+  type LibraryEraMode,
+} from "../../lib/vibe-match-guards";
+import {
+  LARGE_LIBRARY_THRESHOLD,
+  resolveHybridPoolCap,
+} from "../../lib/production-limits";
 
 function seededJitter(trackId: string, seed: number): number {
   let h = seed;
@@ -33,6 +38,7 @@ export function capTracksForHybridScoring<T extends {
   energy: number | null;
   valence: number | null;
   acousticness?: number | null;
+  addedAt?: Date | null;
 }>(
   tracks: T[],
   opts: {
@@ -40,7 +46,13 @@ export function capTracksForHybridScoring<T extends {
     vibeKind: VibeKind;
     classifications: Map<string, TrackGenreClassification>;
     maxTracks?: number;
+    librarySize?: number;
+    referencePlaylist?: boolean;
+    promptWordCount?: number;
     seedMs?: number;
+    recentTrackPenalty?: Map<string, number>;
+    libraryEraMode?: LibraryEraMode;
+    vibe?: string;
   }
 ): {
   pool: T[];
@@ -49,11 +61,14 @@ export function capTracksForHybridScoring<T extends {
   candidateCount: number;
 } {
   const originalCount = tracks.length;
+  const libSize = opts.librarySize ?? originalCount;
   const max =
     opts.maxTracks ??
-    (originalCount > LARGE_LIBRARY_THRESHOLD
-      ? LARGE_LIBRARY_MAX_HYBRID_SCORING_TRACKS
-      : DEFAULT_MAX_HYBRID_SCORING_TRACKS);
+    resolveHybridPoolCap(libSize, {
+      referencePlaylist: opts.referencePlaylist,
+      vibeKind: opts.vibeKind,
+      promptWordCount: opts.promptWordCount,
+    });
   if (originalCount <= max) {
     return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount };
   }
@@ -73,13 +88,48 @@ export function capTracksForHybridScoring<T extends {
   }
 
   const seed = opts.seedMs ?? 0;
-  const ranked = candidates.map((t) => ({
-    t,
-    fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05,
-  }));
+  const eraMode =
+    opts.libraryEraMode ?? detectLibraryEraMode(opts.vibe ?? "");
+  const ranked = candidates.map((t) => {
+    const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
+    const eraBoost = libraryEraScoreBoost(t.addedAt ?? null, eraMode);
+    return {
+      t,
+      fit:
+        quickEmotionFit(t, opts.emotionProfile) +
+        seededJitter(t.trackId, seed) * 0.05 -
+        recentPen +
+        eraBoost,
+    };
+  });
   ranked.sort((a, b) => b.fit - a.fit);
 
-  const head = ranked.slice(0, Math.min(ranked.length, max * 2));
+  let head = ranked.slice(0, Math.min(ranked.length, max * 2));
+  if (eraMode === "balanced" && candidates.some((t) => t.addedAt)) {
+    const now = Date.now();
+    const withAge = candidates
+      .map((t) => ({
+        t,
+        age: t.addedAt ? now - t.addedAt.getTime() : now,
+      }))
+      .sort((a, b) => a.age - b.age);
+    const mid = Math.floor(withAge.length / 2);
+    const olderHalf = new Set(
+      withAge.slice(0, Math.max(mid, Math.floor(withAge.length * 0.45))).map((x) => x.t.trackId)
+    );
+    const olderInHead = head.filter((x) => olderHalf.has(x.t.trackId));
+    const rest = head.filter((x) => !olderHalf.has(x.t.trackId));
+    const olderQuota = Math.min(
+      Math.floor(max * 0.4),
+      olderInHead.length,
+      Math.max(8, Math.floor(max * 0.25))
+    );
+    head = [
+      ...olderInHead.slice(0, olderQuota),
+      ...rest.slice(0, Math.max(0, max * 2 - olderQuota)),
+    ];
+  }
+
   const byFamily = new Map<RootGenre, typeof ranked>();
   for (const item of head) {
     const fam =

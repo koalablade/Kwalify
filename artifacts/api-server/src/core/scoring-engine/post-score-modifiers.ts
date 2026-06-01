@@ -22,6 +22,8 @@ import {
   applyFreshnessToScore,
   type FreshnessStats,
 } from "../../lib/playlist-freshness";
+import { applyVibeMatchGuards, modeScoreMultiplier } from "../../lib/vibe-match-guards";
+import { refineSongScore } from "../../lib/emotion";
 import type { ScoredLibraryTrack } from "./types";
 import type { HybridScoreResult } from "../../lib/hybrid-scoring";
 
@@ -44,6 +46,7 @@ export interface PostScoreModifierInput<T extends { trackId: string; artistName:
     albumAppearances: Map<string, number>;
     globalCloneMultiplier: number;
   };
+  vibe: string;
 }
 
 export function applyPostScoreModifiers<T extends {
@@ -107,6 +110,10 @@ export function applyPostScoreModifiers<T extends {
       albumAppearances: input.freshness.albumAppearances,
       globalCloneMultiplier: input.freshness.globalCloneMultiplier,
     });
+
+    score = refineSongScore(score, song, input.emotionProfile);
+    score = applyVibeMatchGuards(score, song, input.emotionProfile, input.vibe);
+    score *= modeScoreMultiplier(input.mode);
 
     return { ...song, score, rediscoveryScore, scoringDebug: debug };
   });

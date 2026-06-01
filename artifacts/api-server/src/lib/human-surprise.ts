@@ -29,10 +29,10 @@ export function computeSurpriseMix(opts: {
   const { profile, vibe, rediscoveryMode, archaeology, journeyArc, mode } = opts;
   const lower = vibe.toLowerCase();
 
-  let comfort = 0.55;
-  let discovery = 0.25;
+  let comfort = mode === "strict" ? 0.68 : 0.55;
+  let discovery = mode === "chaotic" ? 0.32 : mode === "balanced" ? 0.24 : 0.16;
   let nostalgia = profile.nostalgia > 0.4 ? 0.45 : 0.2;
-  let novelty = mode === "chaotic" ? 0.35 : mode === "balanced" ? 0.22 : 0.12;
+  let novelty = mode === "chaotic" ? 0.38 : mode === "balanced" ? 0.2 : 0.08;
 
   if (archaeology?.active) {
     discovery = 0.42;
@@ -76,7 +76,10 @@ export function computeSurpriseMix(opts: {
   nostalgia /= sum;
   novelty /= sum;
 
-  const wildcardRatio = Math.min(0.15, novelty * 0.45 + (mode === "chaotic" ? 0.04 : 0));
+  const wildcardRatio = Math.min(
+    0.18,
+    novelty * 0.45 + (mode === "chaotic" ? 0.06 : mode === "strict" ? 0 : 0.02)
+  );
   const rediscoveryRatio = Math.min(0.35, discovery * 0.5 + (archaeology ? 0.12 : 0));
 
   return {

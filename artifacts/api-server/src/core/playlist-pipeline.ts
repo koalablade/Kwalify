@@ -19,7 +19,10 @@ import type { ArchaeologyIntent } from "../lib/library-archaeology";
 import type { ChapterMatch } from "../lib/music-life-chapters";
 import type { SurpriseMix } from "../lib/human-surprise";
 import type { JourneyArc } from "../lib/emotion-destination";
-import type { FreshnessStats } from "../lib/playlist-freshness";
+import {
+  buildRecentTrackPoolPenalty,
+  type FreshnessStats,
+} from "../lib/playlist-freshness";
 import type { GenreAudit } from "../lib/genre-audit";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
 
@@ -71,12 +74,15 @@ export interface BuildPlaylistPipelineOpts<T extends {
       albumAppearances: Map<string, number>;
       globalCloneMultiplier: number;
     };
+    vibe: string;
   };
   genrePost: {
     allowHoliday: boolean;
     suppressGenres: string[];
   };
   maxPerArtist: number;
+  varietyPenaltyScale?: number;
+  referencePlaylist?: boolean;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -131,11 +137,21 @@ export function buildPlaylistPipeline<T extends {
     memoryByTrack: opts.memoryByTrack,
     noveltyByTrack: opts.noveltyByTrack,
     recentPlaylistTrackIds: opts.recentPlaylistTrackIds,
+    varietyPenaltyScale: opts.varietyPenaltyScale,
+    referencePlaylist: opts.referencePlaylist,
     postScore: {
       ...opts.postScore,
       emotionProfile: opts.emotionProfile,
     },
   });
+
+  const recentTrackPenalty = opts.recentPlaylistTrackIds?.length
+    ? buildRecentTrackPoolPenalty(
+        opts.recentPlaylistTrackIds,
+        5,
+        opts.varietyPenaltyScale ?? 1
+      )
+    : undefined;
 
   const composed = composePlaylistFromPool({
     sortedPool: scoring.sorted,
@@ -149,6 +165,7 @@ export function buildPlaylistPipeline<T extends {
     humanIntent: opts.humanIntent,
     vibe: opts.vibe,
     canonical: opts.canonical,
+    recentTrackPenalty,
   });
 
   const enforced = enforceFinalPlaylistGenres({

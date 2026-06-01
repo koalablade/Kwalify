@@ -42,7 +42,9 @@ export interface GenreIntelligenceStack {
   };
 }
 
-const MINIMAL_STACK_THRESHOLD = 800;
+import { MINIMAL_GENRE_STACK_THRESHOLD } from "./production-limits";
+
+const MINIMAL_STACK_THRESHOLD = MINIMAL_GENRE_STACK_THRESHOLD;
 
 /** Skips O(n²) ontology similarity + per-track embedding graph (critical for 5k+ libraries). */
 function buildMinimalGenreIntelligenceStack(

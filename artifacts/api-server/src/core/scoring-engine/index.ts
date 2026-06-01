@@ -100,6 +100,7 @@ import {
 } from "./taste-gravity";
 import { applyGravityBiasedSurprise } from "./gravity-surprise";
 import { capTracksForHybridScoring } from "./scoring-pool-cap";
+import { buildRecentTrackPoolPenalty } from "../../lib/playlist-freshness";
 
 
 
@@ -152,6 +153,10 @@ export interface RunScoringPipelineOpts<T extends {
   noveltyByTrack: (trackId: string) => number;
 
   recentPlaylistTrackIds?: string[][];
+
+  varietyPenaltyScale?: number;
+
+  referencePlaylist?: boolean;
 
   postScore: Omit<PostScoreModifierInput<T>, "hybridResults" | "mode">;
 
@@ -214,7 +219,28 @@ export function runScoringPipeline<T extends {
   const classifications = opts.userGenreProfile.trackClassifications;
   const classMap = opts.userGenreProfile.trackClassifications;
 
-  const truthAnchors = buildTruthAnchorStore(classifications);
+  const poolCap = capTracksForHybridScoring(opts.tracks, {
+    emotionProfile: opts.emotionProfile,
+    vibeKind: opts.vibeKind,
+    classifications: classMap,
+    librarySize: opts.tracks.length,
+    referencePlaylist: opts.referencePlaylist,
+    seedMs: opts.postScore.startMs,
+    vibe: opts.vibe,
+    promptWordCount: opts.vibe.trim().split(/\s+/).length,
+    recentTrackPenalty: opts.recentPlaylistTrackIds?.length
+      ? buildRecentTrackPoolPenalty(
+          opts.recentPlaylistTrackIds,
+          5,
+          opts.varietyPenaltyScale ?? 1
+        )
+      : undefined,
+  });
+
+  const truthAnchors = buildTruthAnchorStore(
+    classifications,
+    poolCap.pool.map((t) => t.trackId)
+  );
 
   const sceneCtx = resolveSceneContext(opts.vibe, opts.canonical, opts.emotionProfile, null);
   const sceneRouting = resolveSceneGenreRouting({
@@ -332,15 +358,6 @@ export function runScoringPipeline<T extends {
     truthAnchors,
   });
 
-
-
-  const poolCap = capTracksForHybridScoring(opts.tracks, {
-    emotionProfile: opts.emotionProfile,
-    vibeKind: opts.vibeKind,
-    classifications: classMap,
-    seedMs: opts.postScore.startMs,
-  });
-
   const { results: hybridResults, excluded: hybridExcluded } = scoreLibraryHybrid(
     poolCap.pool,
     hybridCtx,
@@ -454,7 +471,7 @@ export function runScoringPipeline<T extends {
   const sceneInfluenceRatio = SCORING_WEIGHTS.scene;
 
   const finalTopIds = sorted.slice(0, opts.playlistLength).map((t) => t.trackId);
-  const { traces, conflictReports, truthAnchorDriftScore } = assemblePipelineTraces({
+  const traceInput = {
     hybridResults,
     hybridExcluded,
     finalSorted: sorted,
@@ -464,8 +481,12 @@ export function runScoringPipeline<T extends {
     sceneRouting,
     genreForecast,
     scoreBeforePost,
-    traceSampleSize: Math.max(opts.playlistLength * 2, 50),
-  });
+    traceSampleSize: Math.min(40, opts.playlistLength + 15),
+  };
+  const { traces, conflictReports, truthAnchorDriftScore } =
+    process.env.NODE_ENV === "production"
+      ? { traces: [], conflictReports: [], truthAnchorDriftScore: 0 }
+      : assemblePipelineTraces(traceInput);
 
   const magicMoments = tagMagicMomentCandidates(sorted, {
     sceneCtx,

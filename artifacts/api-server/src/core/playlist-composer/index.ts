@@ -18,6 +18,7 @@ import type { JourneyArc } from "../../lib/emotion-destination";
 import type { IntentDecodeResult } from "../../lib/intent-decoder";
 import type { HumanIntent } from "../../lib/intent-decoder";
 import type { SurpriseMix } from "../../lib/human-surprise";
+import { modeWildcardScale } from "../../lib/vibe-match-guards";
 import type { CanonicalSceneResult } from "../../lib/scene-canonicalizer";
 import { placeEmotionalPeak } from "./emotional-peak";
 import { applyEmotionalGradientFlow } from "./emotional-gradient-flow";
@@ -46,6 +47,8 @@ export interface ComposePlaylistInput<T extends {
   humanIntent: IntentDecodeResult;
   vibe: string;
   canonical: CanonicalSceneResult | null;
+  /** Tracks from recent playlists — deprioritized so back-to-back gens don't clone. */
+  recentTrackPenalty?: Map<string, number>;
 }
 
 type ComposePoolTrack = {
@@ -94,10 +97,25 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
     humanIntent,
     vibe,
     canonical,
+    recentTrackPenalty,
   } = input;
 
   const poolTarget = Math.max(Math.ceil(playlistLength * 3), 75);
-  const poolBiased = applyRediscoveryPoolBias(sortedPool, surpriseMix, poolTarget * 2);
+  const deprioritized =
+    recentTrackPenalty && recentTrackPenalty.size > 0
+      ? [...sortedPool].sort((a, b) => {
+          const pa = recentTrackPenalty.get(a.trackId) ?? 0;
+          const pb = recentTrackPenalty.get(b.trackId) ?? 0;
+          if (pa !== pb) return pa - pb;
+          return b.score - a.score;
+        })
+      : sortedPool;
+  const scaledSurprise: SurpriseMix = {
+    ...surpriseMix,
+    wildcardRatio:
+      surpriseMix.wildcardRatio * modeWildcardScale(mode),
+  };
+  const poolBiased = applyRediscoveryPoolBias(deprioritized, scaledSurprise, poolTarget * 2);
   const diversified = limitArtistRepetition(poolBiased, maxPerArtist);
 
   const structured = buildPlaylistStructure(
@@ -147,7 +165,7 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
       finalTracks,
       wildcardPool,
       emotionProfile,
-      surpriseMix,
+      scaledSurprise,
       humanIntent.intent as HumanIntent,
       playlistLength
     ),

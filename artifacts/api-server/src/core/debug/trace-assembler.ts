@@ -20,6 +20,7 @@ import {
 import type { SceneGenreRouting } from "../scene-intelligence/scene-genre-routing";
 import type { GenreForecast } from "../genre-intelligence/genre-forecast";
 import { preScoreBoostForTrack } from "../genre-intelligence/genre-forecast";
+import { TRACE_MAX_TOTAL, TRACE_SAMPLE_SIZE } from "../../lib/production-limits";
 
 export interface TraceAssemblyInput<TTrack extends { trackId: string }> {
   hybridResults: HybridScoreResult<TTrack>[];
@@ -65,13 +66,15 @@ export function assemblePipelineTraces<TTrack extends { trackId: string }>(
   }
 
   const traces: TrackDecisionTrace[] = [];
+  const sampleN = Math.min(
+    TRACE_SAMPLE_SIZE,
+    input.traceSampleSize ?? TRACE_SAMPLE_SIZE
+  );
   const sampleIds = new Set(
-    input.finalSorted
-      .slice(0, input.traceSampleSize ?? 40)
-      .map((t) => t.trackId)
+    input.finalSorted.slice(0, sampleN).map((t) => t.trackId)
   );
 
-  const maxTraces = Math.min(120, (input.traceSampleSize ?? 40) + 40);
+  const maxTraces = TRACE_MAX_TOTAL;
 
   for (const ex of input.hybridExcluded) {
     if (!sampleIds.has(ex.trackId)) continue;

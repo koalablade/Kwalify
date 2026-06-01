@@ -129,7 +129,7 @@ export function computeTrackGravity<T extends {
   );
 
   const explorationDistance = Math.max(0, Math.min(1, ctx.noveltyByTrack(track.trackId)));
-  const stickiness = persistenceStickiness(track.trackId, ctx.persistence);
+  const recentPull = persistenceStickiness(track.trackId, ctx.persistence);
   const wellPull = fam !== "unknown" ? gravityWellPullForGenre(fam, ctx.gravityWells) : 0;
 
   let gravityScore =
@@ -138,7 +138,7 @@ export function computeTrackGravity<T extends {
     genreFamiliarity * 0.12 +
     memoryStrength * 0.18 +
     explorationDistance * 0.1 +
-    stickiness * 0.1;
+    (1 - recentPull) * 0.08;
 
   gravityScore *= 1 + wellPull;
   gravityScore = Math.max(0.08, Math.min(1, gravityScore));
@@ -164,7 +164,7 @@ export function computeTrackGravity<T extends {
     explorationDistance: Math.round(explorationDistance * 1000) / 1000,
     historicalAffinity: Math.round(historicalAffinity * 1000) / 1000,
     resonanceStrength: Math.round(resonanceStrength * 1000) / 1000,
-    stickiness: Math.round(stickiness * 1000) / 1000,
+    stickiness: Math.round(recentPull * 1000) / 1000,
     wellPull: Math.round(wellPull * 1000) / 1000,
     surpriseTier,
   };

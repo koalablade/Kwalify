@@ -84,6 +84,7 @@ export const GeneratePlaylistBody = zod.object({
   "mode": zod.enum(['strict', 'balanced', 'chaotic']).default(generatePlaylistBodyModeDefault),
   "length": zod.number().min(generatePlaylistBodyLengthMin).max(generatePlaylistBodyLengthMax).default(generatePlaylistBodyLengthDefault),
   "referencePlaylist": zod.string().max(500).optional(),
+  "varietyBoost": zod.boolean().optional(),
 })
 
 export const GeneratePlaylistResponse = zod.object({

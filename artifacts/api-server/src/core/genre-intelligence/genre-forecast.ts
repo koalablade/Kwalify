@@ -120,16 +120,19 @@ export function buildGenreForecastFromLibrary(opts: {
   playlistLength: number;
   sceneRouting?: SceneGenreRouting;
 }): GenreForecast {
-  const counts: Partial<Record<RootGenre, number>> = {};
-  let total = 0;
-  for (const c of opts.classifications.values()) {
-    if (c.genreFamily === "unknown") continue;
-    counts[c.genreFamily] = (counts[c.genreFamily] ?? 0) + 1;
-    total++;
-  }
+  // Use the user's taste vector — raw per-track heuristics over-count country on acoustic indie.
   const predictedDistribution: Record<string, number> = {};
-  for (const [g, n] of Object.entries(counts) as [RootGenre, number][]) {
-    predictedDistribution[g] = Math.round((n / Math.max(1, total)) * 1000) / 1000;
+  let total = 0;
+  for (const [g, share] of Object.entries(opts.userVector) as [RootGenre, number][]) {
+    if (!share || g === "unknown") continue;
+    predictedDistribution[g] = share;
+    total += share;
+  }
+  if (total > 0) {
+    for (const g of Object.keys(predictedDistribution)) {
+      predictedDistribution[g] =
+        Math.round((predictedDistribution[g]! / total) * 1000) / 1000;
+    }
   }
 
   const base = buildGenreForecast({

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "../db";
 import { likedSongsTable, syncStatusTable } from "../db";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import {
   fetchLikedSongs,
   fetchAudioFeatures,
@@ -10,7 +10,10 @@ import {
   type SpotifyTrack,
 } from "../lib/spotify";
 import { logger } from "../lib/logger";
-import { invalidateGenreProfileCache } from "../lib/genre-profile-cache";
+import {
+  invalidateGenreProfileCache,
+  warmGenreProfileCache,
+} from "../lib/genre-profile-cache";
 import { getFeatures } from "../lib/env";
 
 const router: IRouter = Router();
@@ -46,6 +49,27 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
     return;
   }
 
+  let suggestFullSync = false;
+  if (status.totalTracks >= 200) {
+    const recentCutoff = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000);
+    const [totalRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(likedSongsTable)
+      .where(eq(likedSongsTable.spotifyUserId, userId));
+    const [recentRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(likedSongsTable)
+      .where(
+        and(
+          eq(likedSongsTable.spotifyUserId, userId),
+          gt(likedSongsTable.addedAt, recentCutoff)
+        )
+      );
+    const total = Number(totalRow?.count ?? 0);
+    const recent = Number(recentRow?.count ?? 0);
+    if (total > 0 && recent / total > 0.85) suggestFullSync = true;
+  }
+
   res.json({
     synced: !!status.lastSyncedAt,
     totalTracks: status.totalTracks,
@@ -53,6 +77,7 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
     isSyncing: activeSyncs.has(userId) || status.isSyncing === 1,
     syncProgress: status.syncProgress ?? null,
     syncTotal: status.syncTotal ?? null,
+    suggestFullSync,
   });
 });
 
@@ -83,15 +108,21 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
       set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
     });
 
-  res.json({ message: "Sync started", started: true });
+  const forceFull = req.body?.full === true;
 
-  runSync(userId, req.session.spotifyTokens).catch((err) => {
+  res.json({ message: forceFull ? "Full sync started" : "Sync started", started: true, full: forceFull });
+
+  runSync(userId, req.session.spotifyTokens, { forceFull }).catch((err) => {
     logger.error({ err, userId }, "Background sync failed");
     activeSyncs.delete(userId);
   });
 });
 
-export async function runSync(userId: string, tokens: any): Promise<void> {
+export async function runSync(
+  userId: string,
+  tokens: any,
+  opts?: { forceFull?: boolean }
+): Promise<void> {
   try {
     const freshTokens = await getValidAccessToken(tokens);
     const accessToken = freshTokens.accessToken;
@@ -102,7 +133,8 @@ export async function runSync(userId: string, tokens: any): Promise<void> {
       .from(syncStatusTable)
       .where(eq(syncStatusTable.spotifyUserId, userId));
 
-    const lastSyncedAt: Date | null = existingStatus?.lastSyncedAt ?? null;
+    const lastSyncedAt: Date | null =
+      opts?.forceFull ? null : (existingStatus?.lastSyncedAt ?? null);
     const isIncremental = !!lastSyncedAt;
 
     let newTracks: SpotifyTrack[] = [];
@@ -213,6 +245,27 @@ export async function runSync(userId: string, tokens: any): Promise<void> {
       .where(eq(syncStatusTable.spotifyUserId, userId));
 
     invalidateGenreProfileCache(userId);
+
+    const allRows = await db
+      .select()
+      .from(likedSongsTable)
+      .where(eq(likedSongsTable.spotifyUserId, userId));
+    warmGenreProfileCache(
+      userId,
+      allRows.map((s) => ({
+        trackId: s.trackId,
+        trackName: s.trackName,
+        artistName: s.artistName,
+        albumName: s.albumName,
+        energy: s.energy,
+        valence: s.valence,
+        acousticness: s.acousticness,
+        danceability: s.danceability,
+        tempo: s.tempo,
+        instrumentalness: s.instrumentalness,
+        speechiness: s.speechiness,
+      }))
+    );
 
     logger.info(
       { userId, totalTracks: finalTotalTracks, newTracks: newTracks.length, isIncremental },

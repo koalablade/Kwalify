@@ -145,7 +145,15 @@ export async function loadReferenceFingerprint(
   const playlistId = parseSpotifyPlaylistId(playlistUrlOrId);
   if (!playlistId) return null;
 
-  const trackIds = await fetchPlaylistTrackIds(userAccessToken, playlistId, maxTracks);
+  let trackIds = await fetchPlaylistTrackIds(userAccessToken, playlistId, maxTracks);
+  if (trackIds.length < 5) {
+    try {
+      const cc = await getClientCredentialsToken();
+      trackIds = await fetchPlaylistTrackIds(cc, playlistId, maxTracks);
+    } catch {
+      /* keep empty */
+    }
+  }
   if (trackIds.length < 5) return null;
 
   const ccToken = await getClientCredentialsToken();

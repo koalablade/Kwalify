@@ -203,9 +203,12 @@ function inferGenreFromAudioOnly(track: {
   } else if (d > 0.72 && e > 0.6) {
     root = "electronic";
     sub = "house";
-  } else if (a > 0.55 && e < 0.5) {
+  } else if (a > 0.55 && e < 0.5 && (track.valence ?? 0.5) < 0.55) {
     root = "country";
     sub = "folk_country";
+  } else if (a > 0.5 && (track.valence ?? 0.5) >= 0.58) {
+    root = "indie";
+    sub = "indie_pop";
   } else if (e > 0.75) {
     root = "rock";
     sub = "classic_rock";
@@ -257,13 +260,32 @@ function applyAudioGenreHeuristics(
   const sp = track.speechiness ?? 0.2;
   const inst = track.instrumentalness ?? 0.1;
 
+  const v = track.valence ?? 0.5;
+  const sunnyAcoustic = v >= 0.58 && a > 0.45 && e >= 0.35 && e <= 0.78;
+
   if (a > 0.58 && e < 0.55 && d < 0.6) {
-    pushHit(hits, "country", "folk_country", 0.38, "acoustic country lean");
-    pushHit(hits, "folk", "singer_songwriter", 0.18, null);
+    if (sunnyAcoustic) {
+      pushHit(hits, "indie", "indie_pop", 0.36, "bright acoustic indie");
+      pushHit(hits, "folk", "singer_songwriter", 0.22, null);
+    } else {
+      pushHit(hits, "country", "folk_country", 0.38, "acoustic country lean");
+      pushHit(hits, "folk", "singer_songwriter", 0.18, null);
+    }
   }
-  if (a > 0.52 && a < 0.88 && e >= 0.35 && e <= 0.72 && (track.speechiness ?? 0.2) < 0.28) {
-    pushHit(hits, "country", "alt_country", 0.32, "storytelling acoustic");
-    pushHit(hits, "country", "modern_country", 0.24, null);
+  if (
+    a > 0.52 &&
+    a < 0.88 &&
+    e >= 0.35 &&
+    e <= 0.72 &&
+    (track.speechiness ?? 0.2) < 0.28
+  ) {
+    if (sunnyAcoustic) {
+      pushHit(hits, "indie", "indie_folk", 0.3, "warm acoustic indie");
+      pushHit(hits, "pop", "indie_pop", 0.18, null);
+    } else {
+      pushHit(hits, "country", "alt_country", 0.32, "storytelling acoustic");
+      pushHit(hits, "country", "modern_country", 0.24, null);
+    }
   }
   if (sp > 0.38 && e > 0.42) pushHit(hits, "hip_hop", "trap", 0.34, null);
   if (d > 0.72 && e > 0.62) {

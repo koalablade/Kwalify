@@ -19,13 +19,13 @@ export interface FreshnessStats {
   playlistsScanned: number;
 }
 
-/** Progressive track cooldown: 100% → 75% → 50% → 15% (never zero). */
+/** Progressive track cooldown: recent playlists should not dominate the next pick. */
 export function trackCooldownMultiplier(appearances: number): number {
   if (appearances <= 0) return 1;
-  if (appearances === 1) return 0.75;
-  if (appearances === 2) return 0.5;
-  if (appearances === 3) return 0.3;
-  return 0.15;
+  if (appearances === 1) return 0.45;
+  if (appearances === 2) return 0.28;
+  if (appearances === 3) return 0.18;
+  return 0.1;
 }
 
 /** Artist used heavily across recent playlists. */
@@ -161,6 +161,22 @@ export function sceneClonePenalty(
   if (hits >= 2) return 0.88;
   if (hits >= 1) return 0.94;
   return 1;
+}
+
+/** Penalty for hybrid pool pre-filter (last playlists weighted heavier). */
+export function buildRecentTrackPoolPenalty(
+  recentPlaylistTrackIds: string[][],
+  maxPlaylists = 5,
+  scale = 1
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const [i, ids] of recentPlaylistTrackIds.slice(0, maxPlaylists).entries()) {
+    const weight = (i === 0 ? 0.22 : i === 1 ? 0.14 : 0.08) * scale;
+    for (const id of ids) {
+      map.set(id, (map.get(id) ?? 0) + weight);
+    }
+  }
+  return map;
 }
 
 export function applyFreshnessToScore(

@@ -46,8 +46,9 @@ export function computeExplorationModeScore(input: ExplorationModeInput): number
     else if (repeats >= 2) score += 0.12;
   }
 
-  if (input.mode === "chaotic") score += 0.15;
-  else if (input.mode === "balanced") score += 0.05;
+  if (input.mode === "chaotic") score += 0.18;
+  else if (input.mode === "balanced") score += 0.04;
+  else if (input.mode === "strict") score -= 0.12;
 
   return Math.round(Math.min(1, score) * 1000) / 1000;
 }
