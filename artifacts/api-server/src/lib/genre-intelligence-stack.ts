@@ -60,7 +60,7 @@ function buildMinimalGenreIntelligenceStack(
     genreSpace.upsert(node.id, emb, { family: node.family, level: node.level });
   }
 
-  const edges = mergeEdges([parentEdges(nodes), similarityBridgeEdges()]);
+  const edges = mergeEdges(parentEdges(nodes), similarityBridgeEdges());
   const graph: GenreGraph = {
     nodes,
     edges,
