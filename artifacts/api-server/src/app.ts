@@ -39,6 +39,14 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   const PgStore = connectPgSimple(session);
   const app: Express = express();
 
+  // Render (and most cloud platforms) terminate TLS at their load balancer and
+  // forward requests to the app over HTTP. Without trust proxy, express-session
+  // sees a non-secure connection and skips sending the Set-Cookie header when
+  // cookie.secure is true — so the browser never gets a session cookie and every
+  // OAuth state check fails. Setting this to 1 trusts the first X-Forwarded-*
+  // hop (the Render proxy) so req.secure reflects the user-facing HTTPS.
+  app.set("trust proxy", 1);
+
   app.use(
     pinoHttp({
       logger,
