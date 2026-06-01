@@ -5,6 +5,7 @@ import type pg from "pg";
 import { createApp } from "./app";
 import { markBootComplete } from "./lib/boot-state";
 import { logger } from "./lib/logger";
+import { runDbInit } from "./lib/db-init";
 
 /**
  * Startup health verification.
@@ -75,6 +76,13 @@ async function bootstrap(): Promise<void> {
     throw new Error(
       `[boot] Session table DDL failed: ${(err as Error).message}`,
     );
+  }
+
+  // ── 4b. Application schema bootstrap ──────────────────────────────────────
+  try {
+    await runDbInit(rawPool);
+  } catch (err) {
+    throw new Error(`[boot] App schema bootstrap failed: ${(err as Error).message}`);
   }
 
   // ── 5. Health verification — must pass before any listener is opened ─────────
