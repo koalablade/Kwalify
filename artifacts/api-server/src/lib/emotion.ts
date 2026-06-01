@@ -657,6 +657,93 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
     weights: { energy: -0.2, valence: 0.1, tension: 0.0, nostalgia: 0.3, calm: 0.3 },
     artistOrGenreCue: true,
   },
+
+  // ── Activity / Lifestyle ─────────────────────────────────────────────────────
+  {
+    terms: ["workout", "gym", "lifting", "weights", "training", "fitness", "pre-workout", "pre workout"],
+    weights: { energy: 0.5, valence: 0.2, tension: 0.1, nostalgia: -0.1, calm: -0.45 },
+  },
+  {
+    terms: ["getting ready", "pre-drinks", "pregame", "pre game", "before the party", "going out tonight"],
+    weights: { energy: 0.3, valence: 0.35, tension: 0.05, nostalgia: -0.05, calm: -0.2 },
+    sceneHints: { timeOfDay: "night" },
+  },
+  {
+    terms: ["sleepy", "drowsy", "half asleep", "barely awake", "nodding off"],
+    weights: { energy: -0.45, valence: 0.05, tension: -0.25, nostalgia: 0.1, calm: 0.35 },
+  },
+  {
+    terms: ["peaceful", "serene", "tranquil", "at peace", "zen", "meditative", "meditate"],
+    weights: { energy: -0.2, valence: 0.25, tension: -0.3, nostalgia: 0.08, calm: 0.45 },
+  },
+  {
+    terms: ["cozy", "comfy", "comfort", "snug", "bundled up", "warm inside"],
+    weights: { energy: -0.15, valence: 0.2, tension: -0.2, nostalgia: 0.15, calm: 0.38 },
+    sceneHints: { environment: "indoor" },
+  },
+  {
+    terms: ["boss mode", "main character", "main character energy", "confident", "unstoppable", "that girl", "that guy"],
+    weights: { energy: 0.25, valence: 0.35, tension: 0.05, nostalgia: -0.1, calm: -0.1 },
+  },
+  {
+    terms: ["grind", "grind mode", "hustle", "grindset", "no days off"],
+    weights: { energy: 0.25, valence: 0.1, tension: 0.1, nostalgia: -0.1, calm: -0.2 },
+  },
+  {
+    terms: ["sultry", "sensual", "seductive", "slow burn", "intimate"],
+    weights: { energy: -0.05, valence: 0.2, tension: 0.15, nostalgia: 0.1, calm: 0.1 },
+  },
+  {
+    terms: ["cinematic", "epic", "movie moment", "film score", "orchestral vibes", "montage"],
+    weights: { energy: 0.2, valence: 0.1, tension: 0.2, nostalgia: 0.2, calm: -0.05 },
+  },
+  {
+    terms: ["daydream", "daydreaming", "zoning out", "mind wandering", "in my head"],
+    weights: { energy: -0.2, valence: 0.1, tension: -0.05, nostalgia: 0.2, calm: 0.25 },
+  },
+  {
+    terms: ["aggressive", "intense", "raw energy", "primal"],
+    weights: { energy: 0.4, valence: -0.1, tension: 0.35, nostalgia: -0.05, calm: -0.4 },
+  },
+  {
+    terms: ["melancholic", "melancholia"],
+    weights: { energy: -0.25, valence: -0.35, tension: 0.12, nostalgia: 0.18, calm: -0.05 },
+  },
+  {
+    terms: ["empowered", "empowerment", "liberation", "freedom vibe"],
+    weights: { energy: 0.2, valence: 0.35, tension: -0.05, nostalgia: 0.05, calm: 0.1 },
+  },
+  {
+    terms: ["escape", "escapism", "running away", "get away", "leave it all behind"],
+    weights: { energy: 0.1, valence: 0.0, tension: 0.1, nostalgia: 0.2, calm: 0.1 },
+  },
+  {
+    terms: ["coffee"],
+    weights: { energy: 0.1, valence: 0.12, tension: -0.08, nostalgia: 0.06, calm: 0.18 },
+    sceneHints: { timeOfDay: "morning" },
+  },
+
+  // ── Additional Compound Scene Phrases ────────────────────────────────────────
+  {
+    terms: ["friday night", "saturday night", "weekend night", "night out"],
+    weights: { energy: 0.25, valence: 0.3, tension: 0.05, nostalgia: 0.05, calm: -0.15 },
+    sceneHints: { timeOfDay: "night" },
+  },
+  {
+    terms: ["sunday afternoon", "slow afternoon", "lazy afternoon"],
+    weights: { energy: -0.15, valence: 0.15, tension: -0.15, nostalgia: 0.2, calm: 0.3 },
+    sceneHints: { timeOfDay: "afternoon", environment: "indoor" },
+  },
+  {
+    terms: ["morning commute", "commute", "on the way to work"],
+    weights: { energy: 0.1, valence: 0.0, tension: 0.08, nostalgia: 0.05, calm: -0.05 },
+    sceneHints: { motionState: "transit", timeOfDay: "morning" },
+  },
+  {
+    terms: ["midnight thoughts", "midnight vibes", "midnight hour"],
+    weights: { energy: -0.2, valence: -0.05, tension: 0.15, nostalgia: 0.25, calm: 0.05 },
+    sceneHints: { timeOfDay: "late_night" },
+  },
 ];
 
 // ─── VIBE ANALYSIS ────────────────────────────────────────────────────────────
@@ -794,19 +881,23 @@ export function scoreSong(
   // High energy/tension → high tempo, low energy/calm → low tempo
   const desiredTempo = clamp(profile.energy * 0.6 + profile.tension * 0.4);
 
-  const energyDelta = song.energy != null ? Math.abs(song.energy - profile.energy) : 0.3;
-  const valenceDelta = song.valence != null ? Math.abs(song.valence - profile.valence) : 0.3;
-  const tempoDelta = Math.abs(normTempo - desiredTempo);
+  // Tracks missing audio features receive a neutral 0.5 value rather than a
+  // fixed 0.3 delta penalty. This ensures songs that were never returned by
+  // Spotify's /audio-features endpoint still compete fairly in scoring.
+  const effectiveEnergy = song.energy ?? 0.5;
+  const effectiveValence = song.valence ?? 0.5;
 
-  // Danceability: high party/energy → high danceability is good
   const desiredDanceability = clamp(profile.energy * 0.5 + profile.valence * 0.3 + 0.2);
-  const danceabilityDelta =
-    song.danceability != null ? Math.abs(song.danceability - desiredDanceability) : 0.3;
+  const effectiveDanceability = song.danceability ?? 0.5;
 
-  // Acousticness: high calm/nostalgia → acoustic preferred
   const desiredAcousticness = clamp(profile.calm * 0.4 + profile.nostalgia * 0.4);
-  const acousticnessDelta =
-    song.acousticness != null ? Math.abs(song.acousticness - desiredAcousticness) : 0.3;
+  const effectiveAcousticness = song.acousticness ?? 0.5;
+
+  const energyDelta = Math.abs(effectiveEnergy - profile.energy);
+  const valenceDelta = Math.abs(effectiveValence - profile.valence);
+  const tempoDelta = Math.abs(normTempo - desiredTempo);
+  const danceabilityDelta = Math.abs(effectiveDanceability - desiredDanceability);
+  const acousticnessDelta = Math.abs(effectiveAcousticness - desiredAcousticness);
 
   // Score = 1 - weighted delta (higher = better match)
   const rawScore =
@@ -817,15 +908,11 @@ export function scoreSong(
       acousticnessDelta * weights.acousticness +
       tempoDelta * weights.tempo);
 
-  // Tension bonus — songs with high energy & low valence score better when tension is high
-  const tensionBonus =
-    song.energy != null && song.valence != null
-      ? profile.tension * 0.1 * (song.energy - song.valence)
-      : 0;
+  // Tension bonus — high energy + low valence scores better when tension is high
+  const tensionBonus = profile.tension * 0.1 * (effectiveEnergy - effectiveValence);
 
   // Nostalgia bonus — acousticness correlates with nostalgia
-  const nostalgiaBonus =
-    song.acousticness != null ? profile.nostalgia * 0.05 * song.acousticness : 0;
+  const nostalgiaBonus = profile.nostalgia * 0.05 * effectiveAcousticness;
 
   return clamp(rawScore + tensionBonus + nostalgiaBonus);
 }
@@ -993,19 +1080,20 @@ export function filterDeadZones<T extends { energy: number | null }>(
 }
 
 /**
- * Re-sorts a playlist to loosely follow an energy arc:
- * low → rising → peak (60-75%) → descent.
- * Preserves relative score ordering within each segment.
+ * Re-sorts a playlist to follow an energy arc shaped by the emotion profile:
+ *   - Hype (energy ≥ 0.72, calm < 0.35): front-load high energy, brief wind-down
+ *   - Chill (energy ≤ 0.30 or calm ≥ 0.65): flat / consistent — sorted by proximity to target
+ *   - Default: low intro → build → peak (60-75%) → descent
  */
 export function enforceArc<T extends { energy: number | null; score: number }>(
-  songs: T[]
+  songs: T[],
+  profile?: EmotionProfile
 ): T[] {
   if (songs.length < 4) return songs;
 
   const n = songs.length;
-  const introEnd = Math.round(n * 0.15);
-  const buildEnd = Math.round(n * 0.4);
-  const peakEnd = Math.round(n * 0.75);
+  const targetEnergy = profile?.energy ?? 0.5;
+  const targetCalm = profile?.calm ?? 0.5;
 
   const byEnergy = [...songs].sort((a, b) => (a.energy ?? 0.5) - (b.energy ?? 0.5));
   const totalQ = Math.floor(n / 4);
@@ -1014,28 +1102,34 @@ export function enforceArc<T extends { energy: number | null; score: number }>(
   const midPool = byEnergy.slice(totalQ, totalQ * 3);
   const highPool = byEnergy.slice(totalQ * 2);
 
-  function fillSegment(pool: T[], count: number, used: Set<number>): T[] {
-    return pool
-      .map((t, i) => ({ t, i }))
-      .filter(({ i }) => !used.has(i))
-      .sort((a, b) => b.t.score - a.t.score)
-      .slice(0, count)
-      .map(({ t, i }) => {
-        used.add(i);
-        return t;
-      });
+  const usedEnergy = new Set<T>();
+
+  // Hype: front-load peak energy, brief mid section, calm descent
+  if (targetEnergy >= 0.72 && targetCalm < 0.35) {
+    const peakCount = Math.round(n * 0.6);
+    const midCount = Math.round(n * 0.25);
+    const peak = highPool.slice(0, peakCount);
+    peak.forEach((t) => usedEnergy.add(t));
+    const mid = midPool.filter((t) => !usedEnergy.has(t)).slice(0, midCount);
+    mid.forEach((t) => usedEnergy.add(t));
+    const rest = songs.filter((t) => !usedEnergy.has(t));
+    return [...peak, ...mid, ...rest];
   }
 
-  const used = new Set<number>();
+  // Chill: flat energy — sort by proximity to target energy, then score
+  if (targetEnergy <= 0.3 || targetCalm >= 0.65) {
+    return [...songs].sort((a, b) => {
+      const aDist = Math.abs((a.energy ?? 0.5) - targetEnergy);
+      const bDist = Math.abs((b.energy ?? 0.5) - targetEnergy);
+      return aDist !== bDist ? aDist - bDist : b.score - a.score;
+    });
+  }
 
-  const introTracks = fillSegment(
-    lowPool.map((t, i) => ({ ...t, _idx: i })) as any,
-    introEnd,
-    used
-  );
+  // Standard arc: low intro → build → peak (60-75%) → descent
+  const introEnd = Math.round(n * 0.15);
+  const buildEnd = Math.round(n * 0.4);
+  const peakEnd = Math.round(n * 0.75);
 
-  // Reset — use energy-indexed pool directly
-  const usedEnergy = new Set<T>();
   const introFinal = lowPool.slice(0, introEnd);
   introFinal.forEach((t) => usedEnergy.add(t));
 
@@ -1053,13 +1147,25 @@ export function enforceArc<T extends { energy: number | null; score: number }>(
 // ─── PLAYLIST NAMING ──────────────────────────────────────────────────────────
 
 const NAME_TEMPLATES = {
+  hype: [
+    "Adrenaline Loop",
+    "Pre-Game",
+    "Locked In",
+    "Going Off",
+    "Maximum Output",
+    "Red Zone",
+    "Surge Protocol",
+    "Unleashed",
+  ],
   high_energy: [
     "Maximum Voltage",
     "Kinetic",
     "Overdrive",
     "Full Throttle",
-    "Surge",
     "Critical Mass",
+    "Velocity",
+    "Electric Pulse",
+    "Power Grid",
   ],
   low_energy: [
     "Slow Dissolve",
@@ -1068,6 +1174,8 @@ const NAME_TEMPLATES = {
     "Still Water",
     "Low Signal",
     "Gentle Frequency",
+    "Soft Static",
+    "Fade Out",
   ],
   high_tension: [
     "Edge of Collapse",
@@ -1076,6 +1184,8 @@ const NAME_TEMPLATES = {
     "Fault Lines",
     "Live Wire",
     "Storm Front",
+    "Hairline Fracture",
+    "Voltage Spike",
   ],
   nostalgic: [
     "Ghost Light",
@@ -1084,14 +1194,18 @@ const NAME_TEMPLATES = {
     "Analogue Warmth",
     "Soft Rewind",
     "Before Everything Changed",
+    "Golden Archive",
+    "Long Exposure",
   ],
   calm: [
     "Low Tide",
     "Quiet Current",
     "Drift State",
     "Settled",
-    "Noon Glass",
     "Still Morning",
+    "Glass Water",
+    "Fog Quiet",
+    "Open Air",
   ],
   joyful: [
     "Signal Boost",
@@ -1099,7 +1213,9 @@ const NAME_TEMPLATES = {
     "Open Window",
     "Sun Exposure",
     "Clear Channel",
+    "Golden Static",
     "Good Frequency",
+    "Radiant",
   ],
   dark: [
     "Negative Space",
@@ -1108,14 +1224,68 @@ const NAME_TEMPLATES = {
     "Deep Current",
     "Radio Silence",
     "Dark Matter",
+    "2AM Static",
+    "Glass Half Empty",
+  ],
+  late_night: [
+    "2AM Static",
+    "Dead Hours",
+    "Midnight Drift",
+    "Blue Hours",
+    "Witching Hour",
+    "Insomnia Radio",
+    "After Last Call",
+    "Night Signal",
+  ],
+  morning: [
+    "First Light",
+    "Slow Sunrise",
+    "Before the Day",
+    "Dawn Frequency",
+    "Golden Hour",
+    "Waking State",
+    "Coffee and Clouds",
+    "Morning Pages",
+  ],
+  heartbreak: [
+    "Glass Half Empty",
+    "Exit Wounds",
+    "What Remains",
+    "Aftermath",
+    "Signal Lost",
+    "The Space You Left",
+    "Old Frequency",
+    "Residue",
+  ],
+  summer: [
+    "Golden Hour Drift",
+    "Sun-Bleached",
+    "Heat Haze",
+    "Open Sky",
+    "Long Day",
+    "Coastal Static",
+    "Vitamin D",
+    "Solar Frequency",
+  ],
+  cozy: [
+    "Indoor Weather",
+    "Soft Ceiling",
+    "Home Signal",
+    "Interior Warmth",
+    "Blanket Static",
+    "Lamp Glow",
+    "Window Seat",
+    "Wool and Warmth",
   ],
   default: [
     "Emotional Frequency",
     "Signal and Noise",
     "Interior Landscape",
     "Frequency Shift",
-    "Mood Index",
+    "Current State",
+    "Live Feed",
     "The Mix",
+    "Mood Index",
   ],
 };
 
@@ -1130,45 +1300,44 @@ function pickFromList(list: string[], seed: string): string {
 }
 
 export function generatePlaylistName(vibe: string, profile: EmotionProfile): string {
-  const { energy, valence, tension, nostalgia, calm } = profile;
+  const { energy, valence, tension, nostalgia, calm, timeOfDay, environment } = profile;
+  const lowerVibe = vibe.toLowerCase();
 
   let category: keyof typeof NAME_TEMPLATES;
 
-  if (energy > 0.7) category = "high_energy";
-  else if (energy < 0.3) category = "low_energy";
-  else if (tension > 0.6) category = "high_tension";
-  else if (nostalgia > 0.5) category = "nostalgic";
-  else if (calm > 0.6) category = "calm";
-  else if (valence > 0.65) category = "joyful";
-  else if (valence < 0.3) category = "dark";
-  else category = "default";
-
-  const base = pickFromList(NAME_TEMPLATES[category], vibe);
-
-  // Append a short vibe fragment if the input has meaningful words
-  const vibeWords = vibe
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, "")
-    .split(/\s+/)
-    .filter((w) => w.length > 3 && !["with", "that", "this", "when", "like", "just", "feel", "feeling"].includes(w));
-
-  if (vibeWords.length > 0 && Math.abs(hashStr(vibe)) % 3 !== 0) {
-    const fragment = vibeWords.slice(0, 2).join(" ");
-    return `${base}: ${capitalize(fragment)}`;
+  // Specific combined states take precedence over single-dimension checks
+  if (timeOfDay === "late_night" && energy < 0.5) {
+    category = "late_night";
+  } else if (valence < 0.28 && nostalgia > 0.38 && energy < 0.45) {
+    category = "heartbreak";
+  } else if (timeOfDay === "morning" && calm > 0.4) {
+    category = "morning";
+  } else if (
+    (environment === "coastal" || /summer|beach|sunny|vacation/.test(lowerVibe)) &&
+    valence > 0.55
+  ) {
+    category = "summer";
+  } else if (environment === "indoor" && calm > 0.5 && valence > 0.45) {
+    category = "cozy";
+  } else if (energy > 0.72 && calm < 0.35) {
+    category = "hype";
+  } else if (energy > 0.7) {
+    category = "high_energy";
+  } else if (energy < 0.28) {
+    category = "low_energy";
+  } else if (tension > 0.6) {
+    category = "high_tension";
+  } else if (nostalgia > 0.5) {
+    category = "nostalgic";
+  } else if (calm > 0.6) {
+    category = "calm";
+  } else if (valence > 0.65) {
+    category = "joyful";
+  } else if (valence < 0.3) {
+    category = "dark";
+  } else {
+    category = "default";
   }
 
-  return base;
-}
-
-function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-function hashStr(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash;
+  return pickFromList(NAME_TEMPLATES[category], vibe);
 }

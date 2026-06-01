@@ -140,7 +140,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const sorted = penalised.sort((a, b) => b.score - a.score);
     const diversified = limitArtistRepetition(sorted, maxPerArtist);
 
-    const poolTarget = Math.ceil(length * 1.6);
+    const poolTarget = Math.max(Math.ceil(length * 3), 75);
     const structured = buildPlaylistStructure(
       diversified,
       poolTarget,
@@ -148,9 +148,13 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     const afterDeadZone = filterDeadZones(structured, length);
-    const afterSmoothing = smoothEnergyCurve(afterDeadZone, 0.35, 0.65);
+    // Centre the allowed energy window around the profile's target energy so
+    // the filter never strips the high/low-energy tracks needed for arc shaping.
+    const smoothMin = Math.max(0.05, emotionProfile.energy - 0.5);
+    const smoothMax = Math.min(0.95, emotionProfile.energy + 0.5);
+    const afterSmoothing = smoothEnergyCurve(afterDeadZone, smoothMin, smoothMax);
     const afterArtistSep = separateAdjacentArtists(afterSmoothing);
-    const afterArc = enforceArc(afterArtistSep);
+    const afterArc = enforceArc(afterArtistSep, emotionProfile);
     const finalTracks = afterArc.slice(0, length);
 
     req.log.info(
