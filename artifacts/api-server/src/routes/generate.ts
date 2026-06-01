@@ -199,18 +199,24 @@ router.post("/generate", async (req, res): Promise<void> => {
       playlistId = result.id;
       playlistUrl = result.url;
     } catch (spotifyErr: any) {
-      const status = spotifyErr?.response?.status ?? 500;
       req.log.error({
         userId,
-        status,
-        spotifyError: spotifyErr?.response?.data,
-        msg: "[playlist-create-error] Spotify rejected playlist creation",
-      }, "Spotify playlist creation failed");
+        status: (spotifyErr as any)?.response?.status ?? (spotifyErr as any)?.status,
+        spotifyError: (spotifyErr as any)?.response?.data,
+        msg: "[playlist-create-error] Spotify rejected playlist creation"
+      });
 
+      if ((spotifyErr as any)?.response?.status === 403 || (spotifyErr as any)?.status === 403) {
+        return res.status(403).json({
+          error: "Spotify playlist creation failed. Your account may need to re-authorize with updated permissions.",
+          reAuthRequired: true,
+          details: (spotifyErr as any)?.response?.data?.error?.message ?? "Forbidden"
+        });
+      }
+
+      const status = (spotifyErr as any)?.response?.status ?? (spotifyErr as any)?.status ?? 500;
       if (status === 401) {
         res.status(401).json({ error: "Spotify session expired. Please log in again." });
-      } else if (status === 403) {
-        res.status(403).json({ error: "Spotify permission denied. Check your app scopes." });
       } else if (status === 429) {
         res.status(429).json({ error: "Spotify rate limit hit. Please try again in a moment." });
       } else {
