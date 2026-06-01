@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "../db";
 import { likedSongsTable, playlistHistoryTable, savedPlaylistsTable } from "../db";
+import { createSpotifyPlaylist, getValidAccessToken } from "../lib/spotify";
 import { eq, desc, and } from "drizzle-orm";
 import {
   analyzeVibe,
@@ -195,9 +196,38 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     req.log.info({ userId, playlistId: savedPlaylistId, trackCount: finalTracks.length }, "Playlist saved to DB");
 
+    // Attempt Spotify playlist creation — graceful degradation on any failure
+    let spotifyPlaylistUrl: string | null = null;
+
+    try {
+      const freshTokens = await getValidAccessToken(req.session.spotifyTokens!);
+      if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
+        req.session.spotifyTokens = freshTokens;
+      }
+      const trackUris = finalTracks.map((t) => `spotify:track:${t.trackId}`);
+      const spotifyResult = await createSpotifyPlaylist(
+        freshTokens.accessToken,
+        userId,
+        playlistName,
+        trackUris
+      );
+      spotifyPlaylistUrl = spotifyResult.url;
+      req.log.info({ spotifyPlaylistId: spotifyResult.id, userId }, "Spotify playlist created");
+    } catch (spotifyErr: any) {
+      req.log.warn(
+        { err: spotifyErr?.message, status: spotifyErr?.response?.status },
+        "Spotify playlist creation failed — degrading gracefully"
+      );
+    }
+
+    const spotifyFields = spotifyPlaylistUrl
+      ? { spotifyPlaylistUrl }
+      : { spotifyUnavailable: true as const };
+
     res.json({
       success: true,
       playlistId: savedPlaylistId,
+      ...spotifyFields,
       playlistName,
       name: playlistName,
       vibe,
