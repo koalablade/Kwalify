@@ -49,6 +49,7 @@ import {
   getPendingSpotifyPlaylistId,
   setPendingSpotifyPlaylistId,
   clearPendingSpotifyPlaylist,
+  getGenerateProgress,
   getGenerateStatus,
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
