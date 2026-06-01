@@ -264,9 +264,13 @@ export async function createSpotifyPlaylist(
   name: string,
   trackUris: string[]
 ): Promise<{ id: string; url: string }> {
+  // Use /v1/me/playlists instead of /v1/users/{id}/playlists.
+  // The user-scoped endpoint returns 403 "Forbidden" for Development Mode apps
+  // even with correct scopes; /me/playlists creates for the authenticated user
+  // directly and does not carry the same ownership-check restrictions.
   const playlistResponse = await spotifyRequest<any>({
     method: "POST",
-    url: `${SPOTIFY_API_BASE}/users/${userId}/playlists`,
+    url: `${SPOTIFY_API_BASE}/me/playlists`,
     data: {
       name,
       public: false,
