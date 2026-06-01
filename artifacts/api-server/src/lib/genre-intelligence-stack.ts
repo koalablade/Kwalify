@@ -38,7 +38,7 @@ export interface GenreIntelligenceStack {
   };
 }
 
-const LIGHT_STACK_TRACK_THRESHOLD = 1800;
+const LIGHT_STACK_TRACK_THRESHOLD = 1200;
 
 type StackTrack = {
   trackId: string;

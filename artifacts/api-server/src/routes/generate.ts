@@ -378,10 +378,18 @@ router.post("/generate", async (req, res): Promise<void> => {
     const genreAudit: GenreAudit = pipeline.genreAudit;
     const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
 
+    const scoringPool = (pipeline.scoringDiagnostics.scoringPool ?? {}) as {
+      librarySize?: number;
+      hybridPoolSize?: number;
+      poolCapped?: boolean;
+    };
     req.log.info(
       {
         ms: Date.now() - t0,
+        totalMs: Date.now() - startMs,
         totalSongs: likedSongs.length,
+        hybridPool: scoringPool.hybridPoolSize,
+        poolCapped: scoringPool.poolCapped,
         excluded: pipeline.hybridExcludedCount,
       },
       "Hybrid scoring complete"

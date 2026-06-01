@@ -99,6 +99,7 @@ import {
   type TasteGravityContext,
 } from "./taste-gravity";
 import { applyGravityBiasedSurprise } from "./gravity-surprise";
+import { capTracksForHybridScoring } from "./scoring-pool-cap";
 
 
 
@@ -333,8 +334,15 @@ export function runScoringPipeline<T extends {
 
 
 
+  const poolCap = capTracksForHybridScoring(opts.tracks, {
+    emotionProfile: opts.emotionProfile,
+    vibeKind: opts.vibeKind,
+    classifications: classMap,
+    seedMs: opts.postScore.startMs,
+  });
+
   const { results: hybridResults, excluded: hybridExcluded } = scoreLibraryHybrid(
-    opts.tracks,
+    poolCap.pool,
     hybridCtx,
     opts.mode,
     opts.memoryByTrack,
@@ -523,6 +531,12 @@ export function runScoringPipeline<T extends {
           })),
       },
       gravityDiagnostics,
+      scoringPool: {
+        librarySize: poolCap.originalCount,
+        hybridPoolSize: poolCap.pool.length,
+        poolCapped: poolCap.poolCapped,
+        candidateCount: poolCap.candidateCount,
+      },
     },
     hybridExcludedCount: hybridExcluded.length,
     coverageState,

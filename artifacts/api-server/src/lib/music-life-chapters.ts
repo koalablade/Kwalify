@@ -23,12 +23,23 @@ export interface ChapterMatch {
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
+function reservoirSample<T>(items: T[], k: number): T[] {
+  if (items.length <= k) return items;
+  const out = items.slice(0, k);
+  for (let i = k; i < items.length; i++) {
+    const j = Math.floor(Math.random() * (i + 1));
+    if (j < k) out[j] = items[i]!;
+  }
+  return out;
+}
+
 function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 export function detectMusicChapters(songs: LikedSongRow[], _now = Date.now()): MusicChapter[] {
-  const dated = songs.filter((s) => s.addedAt).sort((a, b) => a.addedAt!.getTime() - b.addedAt!.getTime());
+  const sample = songs.length > 8000 ? reservoirSample(songs, 8000) : songs;
+  const dated = sample.filter((s) => s.addedAt).sort((a, b) => a.addedAt!.getTime() - b.addedAt!.getTime());
   if (dated.length < 20) return buildYearChapters(dated);
 
   const byMonth = new Map<string, LikedSongRow[]>();
