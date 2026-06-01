@@ -72,6 +72,7 @@ async function spotifyRequest<T = unknown>(
 export function getAuthUrl(redirectUri: string, state: string): string {
   const scopes = [
     "user-library-read",
+    "playlist-read-private",
     "playlist-modify-private",
     "playlist-modify-public",
     "user-read-private",
@@ -262,7 +263,7 @@ export function parseSpotifyPlaylistId(input: string): string | null {
 
 /**
  * Read track IDs from a public (or user-visible) playlist.
- * Tries /tracks then /items for Spotify API variants.
+ * Uses /items (current Spotify API); falls back to legacy /tracks.
  */
 export async function fetchPlaylistTrackIds(
   accessToken: string,
@@ -272,7 +273,7 @@ export async function fetchPlaylistTrackIds(
   const ids: string[] = [];
   let offset = 0;
   const limit = 50;
-  let pathSuffix: "tracks" | "items" = "tracks";
+  let pathSuffix: "items" | "tracks" = "items";
 
   while (ids.length < maxTracks) {
     try {
@@ -301,9 +302,10 @@ export async function fetchPlaylistTrackIds(
       await new Promise((r) => setTimeout(r, 80));
     } catch (err: any) {
       const status = err?.response?.status;
-      if (pathSuffix === "tracks" && (status === 404 || status === 410)) {
-        pathSuffix = "items";
+      if (pathSuffix === "items" && (status === 403 || status === 404 || status === 410)) {
+        pathSuffix = "tracks";
         offset = 0;
+        ids.length = 0;
         continue;
       }
       throw err;

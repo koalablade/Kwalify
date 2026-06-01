@@ -18,6 +18,7 @@ import {
   generatePlaylistName,
   refineSongScore,
   detectVibeKind,
+  detectJourneyArc,
   passesSunnyGate,
   filterDeadZones,
   smoothEnergyCurve,
@@ -129,8 +130,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         } else {
           req.log.warn({ referencePlaylist }, "Reference playlist had too few audio features");
         }
-      } catch (refErr) {
-        req.log.warn({ err: refErr, referencePlaylist }, "Reference playlist load failed");
+      } catch (refErr: any) {
+        const refStatus = refErr?.response?.status;
+        req.log.warn(
+          { status: refStatus, referencePlaylist },
+          "Reference playlist load failed — continuing with text vibe only"
+        );
       }
     }
 
@@ -255,13 +260,28 @@ router.post("/generate", async (req, res): Promise<void> => {
     const isSpecificLateScene =
       emotionProfile.timeOfDay === "late_night" &&
       (emotionProfile.environment === "urban" || emotionProfile.nostalgia > 0.45);
+    const lowEnergyTarget = emotionProfile.energy < 0.25;
     const energyWindow =
-      vibeKind === "sunny" ? 0.28 : isSpecificLateScene ? 0.32 : 0.5;
+      vibeKind === "sunny"
+        ? 0.28
+        : isSpecificLateScene
+          ? 0.42
+          : lowEnergyTarget
+            ? 0.48
+            : 0.5;
     const smoothMin = Math.max(0.05, emotionProfile.energy - energyWindow);
     const smoothMax = Math.min(0.95, emotionProfile.energy + energyWindow);
-    const afterSmoothing = smoothEnergyCurve(afterDeadZone, smoothMin, smoothMax);
+    let afterSmoothing = smoothEnergyCurve(afterDeadZone, smoothMin, smoothMax);
+    if (afterSmoothing.length < length && afterDeadZone.length >= length) {
+      req.log.warn(
+        { smoothMin, smoothMax, pool: afterDeadZone.length, kept: afterSmoothing.length },
+        "Energy window removed too many tracks — using unfiltered pool"
+      );
+      afterSmoothing = afterDeadZone;
+    }
     const afterArtistSep = separateAdjacentArtists(afterSmoothing);
-    const afterArc = enforceArc(afterArtistSep, emotionProfile);
+    const journeyArc = detectJourneyArc(vibe, emotionProfile);
+    const afterArc = enforceArc(afterArtistSep, emotionProfile, journeyArc);
     const finalTracks = afterArc.slice(0, length);
 
     req.log.info(
@@ -277,7 +297,10 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (finalTracks.length === 0) {
       res.status(400).json({
-        error: "Could not build a playlist. Try syncing more songs.",
+        error:
+          "Could not build a playlist — nothing matched this vibe with your current library. Try Balanced or Chaotic mode, a broader vibe, or wait a moment and regenerate.",
+        code: "EMPTY_PLAYLIST",
+        hint: "Sync more liked songs if your library is small. This is not a Spotify API limit.",
       });
       return;
     }
@@ -377,6 +400,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       emotionProfile,
       vibeKind,
+      journeyArc,
       referenceMatch: referenceFingerprint
         ? {
             playlistId: referencePlaylistId,
@@ -384,6 +408,9 @@ router.post("/generate", async (req, res): Promise<void> => {
             valence: Math.round(referenceFingerprint.valence * 100) / 100,
             energy: Math.round(referenceFingerprint.energy * 100) / 100,
           }
+        : null,
+      referencePlaylistWarning: referencePlaylist && !referenceFingerprint
+        ? "Could not read that Spotify playlist (private or permissions). Used your text vibe only — log out and back in if you recently updated the app."
         : null,
       tracks: finalTracks.map((t) => ({
         id: t.trackId,

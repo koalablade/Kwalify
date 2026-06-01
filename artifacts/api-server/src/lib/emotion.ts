@@ -4,6 +4,22 @@
 
 import { EXTENDED_VIBE_KEYWORDS } from "./vibe-keywords-extended";
 import { EXTENDED_VIBE_KEYWORDS_B } from "./vibe-keywords-extended-b";
+import { EXTENDED_VIBE_KEYWORDS_C } from "./vibe-keywords-context-c";
+import { EXTENDED_VIBE_KEYWORDS_PLACES_TIMES } from "./vibe-keywords-places-times";
+import { applyEmotionalDestination, type JourneyArc } from "./emotion-destination";
+import { applyArchetypeNudge } from "./vibe-archetypes";
+import {
+  detectLayeredScene,
+  inferKeywordLayer,
+  KEYWORD_LAYER_LIMITS,
+  matchedTermImpliesPlace,
+  matchedTermImpliesTime,
+  type KeywordLayer,
+} from "./emotion-scene-layers";
+
+export type { JourneyArc };
+export { detectJourneyArc, parseEmotionalDestination } from "./emotion-destination";
+export { matchArchetype, VIBE_ARCHETYPES } from "./vibe-archetypes";
 
 export interface EmotionProfile {
   energy: number;
@@ -110,10 +126,10 @@ function computeEmotionalDepth(text: string): number {
 
 // ─── SCENE DETECTION ─────────────────────────────────────────────────────────
 
+/** Place/motion fallback only — time is resolved in emotion-scene-layers.ts */
 const SCENE_PATTERNS: Array<{
   pattern: RegExp;
   environment?: string;
-  timeOfDay?: string;
   motionState?: string;
 }> = [
   { pattern: /\bdriving\b|\bhighway\b|\bmotorway\b|\bcar\b|\bcommute\b/i, environment: "urban", motionState: "driving" },
@@ -125,7 +141,6 @@ const SCENE_PATTERNS: Array<{
   {
     pattern: /\bpetrol station\b|\bgas station\b|\bservice station\b|\bforecourt\b|\bmotorway services\b|\brest stop\b/i,
     environment: "urban",
-    timeOfDay: "late_night",
   },
   {
     pattern: /\bgarage\b|\bworkshop\b|\bfixing cars\b|\bunder the hood\b|\bmechanic\b|\bwrenching\b/i,
@@ -137,47 +152,55 @@ const SCENE_PATTERNS: Array<{
     motionState: "walking",
   },
   { pattern: /\brecord shop\b|\bvinyl\b|\bcrate dig/i, environment: "urban" },
-  { pattern: /\blaundromat\b|\blaundrette\b/i, environment: "urban", timeOfDay: "late_night" },
+  { pattern: /\blaundromat\b|\blaundrette\b/i, environment: "urban" },
   { pattern: /\bforest\b|\bwoods\b|\bhike\b|\btrail\b|\bnature\b|\bpark\b/i, environment: "nature" },
   { pattern: /\beach\b|\bocean\b|\bsea\b|\bcoast\b|\bwaves?\b/i, environment: "coastal" },
   { pattern: /\brainy?\b|\brain(fall)?\b|\bstorm\b|\bthunder\b/i, environment: "rainy" },
   { pattern: /\bsnow\b|\bwinter storm\b|\bblizzard\b/i, environment: "winter" },
   { pattern: /\bhome\b|\bbedroom\b|\broom\b|\bindoors?\b/i, environment: "indoor" },
   { pattern: /\bcafe\b|\bcoffee shop\b|\bbar\b|\brestaurant\b/i, environment: "social_indoor" },
-  { pattern: /\b2\s*am\b|\blate night\b|\bafter midnight\b|\bdeep night\b|\bdead of night\b/i, timeOfDay: "late_night" },
-  { pattern: /\bmidnight\b|\b1\s*am\b|\b3\s*am\b|\b4\s*am\b/i, timeOfDay: "late_night" },
-  { pattern: /\bmorning\b|\bsunrise\b|\bdawn\b|\bearly\b/i, timeOfDay: "morning" },
-  { pattern: /\bafternoon\b|\bmidday\b|\bnoon\b/i, timeOfDay: "afternoon" },
   {
     pattern: /\bsunshine\b|\bsunlit\b|\bsunny\b|\bfeel like (the )?sun\b|\bsongs that feel like sun\b|\bblue sky\b/i,
     environment: "coastal",
-    timeOfDay: "afternoon",
   },
-  { pattern: /\bsunset\b|\bdusk\b|\bgolden hour\b|\bevening\b/i, timeOfDay: "evening" },
-  { pattern: /\bnight\b|\bnight time\b/i, timeOfDay: "night" },
+  { pattern: /\brooftop\b|\bskyline\b|\bbalcony\b/i, environment: "urban" },
+  { pattern: /\bsupermarket\b|\bgrocery\b|\bconvenience store\b|\bcorner shop\b/i, environment: "urban" },
+  { pattern: /\blibrary\b|\bbookshop\b|\bstudy hall\b/i, environment: "library" },
+  { pattern: /\blecture\b|\bclassroom\b|\bcampus\b|\buniversity\b/i, environment: "library" },
+  { pattern: /\boffice\b|\bworkplace\b|\bcubicle\b|\bopen plan\b/i, environment: "office" },
+  { pattern: /\bgym\b|\bfitness\b|\bweight room\b|\bspin class\b/i, environment: "gym" },
+  { pattern: /\bhotel\b|\bmotel\b|\bairbnb\b|\bhostel\b/i, environment: "indoor" },
+  { pattern: /\bkitchen\b|\bliving room\b|\blounge\b|\bcouch\b|\bsofa\b/i, environment: "indoor" },
+  { pattern: /\bbackyard\b|\bgarden\b|\bpatio\b|\bterrace\b/i, environment: "nature" },
+  { pattern: /\blake\b|\bpond\b|\briverbank\b|\bcanal\b/i, environment: "nature" },
+  { pattern: /\bcountryside\b|\brural\b|\bcountry road\b|\bfarm lane\b/i, environment: "nature" },
+  { pattern: /\btunnel\b|\bunderpass\b/i, environment: "urban", motionState: "driving" },
+  { pattern: /\bparking lot\b|\bcar park\b|\bcarpark\b/i, environment: "urban" },
+  { pattern: /\bclub\b|\bnightclub\b|\bdance floor\b/i, environment: "social_indoor" },
+  { pattern: /\bwarehouse\b|\bindustrial\b|\bfactory floor\b/i, environment: "urban" },
+  { pattern: /\bferry\b|\bboat\b|\bcruise\b|\bharbour\b|\bharbor\b|\bpier\b/i, environment: "coastal" },
+  { pattern: /\bcycling\b|\bbike ride\b|\bbicycle\b/i, motionState: "transit" },
+  { pattern: /\btaxi\b|\buber\b|\bbackseat\b/i, motionState: "driving", environment: "urban" },
+  { pattern: /\bplatform\b|\bstation\b|\bdeparture lounge\b|\bterminal\b/i, environment: "transit", motionState: "transit" },
+  { pattern: /\bfoggy\b|\bmisty\b|\bhazy\b/i, environment: "rainy" },
 ];
 
-function detectScene(text: string): SceneContext {
-  const ctx: SceneContext = {
-    environment: null,
-    timeOfDay: null,
-    motionState: null,
-    intensityBoost: 0,
-  };
+/** Legacy regex pass — fills gaps layered detection might miss. Time never set here. */
+function detectSceneRegexFallback(text: string, base: SceneContext): SceneContext {
+  const ctx = { ...base };
 
-  for (const { pattern, environment, timeOfDay, motionState } of SCENE_PATTERNS) {
-    if (pattern.test(text)) {
-      if (environment && !ctx.environment) ctx.environment = environment;
-      if (timeOfDay && !ctx.timeOfDay) ctx.timeOfDay = timeOfDay;
-      if (motionState && !ctx.motionState) ctx.motionState = motionState;
-    }
+  for (const { pattern, environment, motionState } of SCENE_PATTERNS) {
+    if (!pattern.test(text)) continue;
+    if (environment && !ctx.environment) ctx.environment = environment;
+    if (motionState && !ctx.motionState) ctx.motionState = motionState;
   }
 
-  // Motion boosts energy slightly
-  if (ctx.motionState === "running") ctx.intensityBoost = 0.15;
-  else if (ctx.motionState === "driving") ctx.intensityBoost = 0.08;
-
   return ctx;
+}
+
+function detectScene(text: string): SceneContext {
+  const layered = detectLayeredScene(text);
+  return detectSceneRegexFallback(text, layered);
 }
 
 function applySceneWeights(
@@ -245,6 +268,37 @@ function applySceneWeights(
   if (scene.motionState === "running") {
     p.energy = clamp(p.energy + 0.15);
     p.tension = clamp(p.tension + 0.04);
+  }
+  if (scene.environment === "winter") {
+    p.energy = clamp(p.energy - 0.08);
+    p.nostalgia = clamp(p.nostalgia + 0.1);
+    p.calm = clamp(p.calm + 0.08);
+  }
+  if (scene.environment === "transit") {
+    p.nostalgia = clamp(p.nostalgia + 0.1);
+    p.calm = clamp(p.calm + 0.06);
+  }
+  if (scene.environment === "social_indoor" && scene.timeOfDay === "night") {
+    p.energy = clamp(p.energy + 0.12);
+    p.valence = clamp(p.valence + 0.08);
+  }
+  if (scene.environment === "gym") {
+    p.energy = clamp(p.energy + 0.2);
+    p.calm = clamp(p.calm - 0.15);
+  }
+  if (scene.environment === "office") {
+    p.energy = clamp(p.energy + 0.04);
+    p.tension = clamp(p.tension + 0.06);
+    p.calm = clamp(p.calm + 0.08);
+  }
+  if (scene.environment === "library") {
+    p.energy = clamp(p.energy - 0.08);
+    p.calm = clamp(p.calm + 0.15);
+    p.tension = clamp(p.tension - 0.05);
+  }
+  if (scene.timeOfDay === "afternoon" && scene.environment === "nature") {
+    p.valence = clamp(p.valence + 0.06);
+    p.calm = clamp(p.calm + 0.1);
   }
 
   p.energy = clamp(p.energy + scene.intensityBoost);
@@ -343,18 +397,17 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
     sceneHints: { timeOfDay: "night" },
   },
 
-  // ── Specific scenes (listed first; long phrases beat generic "2am" alone) ───
+  // ── Petrol / forecourt — split by time so 2am vs 10am diverge ───────────────
   {
     terms: [
       "petrol station at 2am",
       "petrol station at 2 am",
+      "2am petrol station",
+      "2 am petrol station",
       "gas station at 2am",
+      "2am gas station",
       "gas station at night",
-      "petrol station",
-      "gas station",
-      "service station",
-      "forecourt",
-      "motorway services",
+      "petrol station at night",
       "rest stop at night",
       "empty forecourt",
       "fluorescent lights",
@@ -362,6 +415,32 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
     ],
     weights: { energy: 0.1, valence: -0.18, tension: 0.28, nostalgia: 0.42, calm: 0.1 },
     sceneHints: { timeOfDay: "late_night", environment: "urban" },
+  },
+  {
+    terms: [
+      "petrol station at 10am",
+      "petrol station at 10 am",
+      "10am petrol station",
+      "10 am petrol station",
+      "petrol station morning",
+      "gas station in the morning",
+      "petrol station daytime",
+    ],
+    weights: { energy: 0.12, valence: 0.05, tension: 0.14, nostalgia: 0.2, calm: 0.12 },
+    sceneHints: { timeOfDay: "morning", environment: "urban" },
+  },
+  {
+    terms: [
+      "petrol station",
+      "gas station",
+      "service station",
+      "forecourt",
+      "motorway services",
+      "petrol station in a city",
+      "gas station in the city",
+    ],
+    weights: { energy: 0.08, valence: -0.08, tension: 0.18, nostalgia: 0.28, calm: 0.1 },
+    sceneHints: { environment: "urban" },
   },
   {
     terms: [
@@ -379,6 +458,8 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
   // ── Extended bank (genres, artists, obscure scenes) ─────────────────────────
   ...EXTENDED_VIBE_KEYWORDS,
   ...EXTENDED_VIBE_KEYWORDS_B,
+  ...EXTENDED_VIBE_KEYWORDS_C,
+  ...EXTENDED_VIBE_KEYWORDS_PLACES_TIMES,
 
   // ── Core Moods ──────────────────────────────────────────────────────────────
   {
@@ -662,6 +743,16 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
     artistOrGenreCue: true,
   },
   {
+    terms: ["60s", "60's", "60s music", "sixties", "1960s", "groovy", "oldies"],
+    weights: { energy: 0.2, valence: 0.3, tension: -0.05, nostalgia: 0.55, calm: -0.05 },
+    artistOrGenreCue: true,
+  },
+  {
+    terms: ["70s", "70's", "70s music", "seventies", "1970s"],
+    weights: { energy: 0.15, valence: 0.2, tension: -0.05, nostalgia: 0.5, calm: 0.0 },
+    artistOrGenreCue: true,
+  },
+  {
     terms: ["90s", "90s music", "nineties", "old school 90s"],
     weights: { energy: 0.1, valence: 0.1, tension: -0.05, nostalgia: 0.45, calm: 0.0 },
     artistOrGenreCue: true,
@@ -909,7 +1000,7 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
 
 /** True when the vibe describes a concrete place/scene (not a one-word preset). */
 const SPECIFIC_SCENE_PATTERN =
-  /petrol station|gas station|service station|forecourt|motorway services|rest stop|fluorescent|night drive alone|empty road at night|fixing cars|garage day|under the hood|mountain top|summit walk|ridge walk|kate bush|1am still|laundromat|warehouse rave|feel like sun|feel like the sun|songs that feel like sun|sunshine|sunlit/i;
+  /petrol station|gas station|service station|forecourt|motorway services|rest stop|fluorescent|night drive alone|empty road at night|driving home at 11|fixing cars|garage day|under the hood|mountain top|summit walk|ridge walk|kate bush|1am still|laundromat|warehouse rave|feel like sun|feel like the sun|songs that feel like sun|sunshine|sunlit|coffee shop rainy|train at night|parking lot night|golden hour drive|blue hour city/i;
 
 export function analyzeVibe(vibe: string): EmotionProfile {
   const text = vibe.toLowerCase().trim();
@@ -953,8 +1044,8 @@ export function analyzeVibe(vibe: string): EmotionProfile {
 
     if (hasSpecificScene) {
       const onlyGenericTime = keyword.terms.every((t) =>
-        /^(2\s*am|2am|1\s*am|1am|3\s*am|3am|4\s*am|4am|late night|up late|insomnia|morning|night|chill|sad|happy)$/.test(
-          t
+        /^(2\s*am|2am|1\s*am|1am|3\s*am|3am|4\s*am|4am|5\s*am|5am|10\s*am|10am|11\s*am|11am|late night|up late|insomnia|morning|afternoon|evening|night|chill|sad|happy)$/.test(
+          t.trim()
         )
       );
       if (onlyGenericTime) continue;
@@ -965,8 +1056,23 @@ export function analyzeVibe(vibe: string): EmotionProfile {
 
   pendingMatches.sort((a, b) => b.matchedTerm.length - a.matchedTerm.length);
 
+  const layerCounts: Record<KeywordLayer, number> = {
+    time: 0,
+    place: 0,
+    atmosphere: 0,
+    emotion: 0,
+    era: 0,
+    compound: 0,
+  };
+
   let matchRank = 0;
   for (const { keyword, matchedTerm } of pendingMatches) {
+    const layer = inferKeywordLayer(matchedTerm, {
+      artistOrGenreCue: keyword.artistOrGenreCue,
+      hasSceneHints: !!keyword.sceneHints,
+    });
+    if (layerCounts[layer] >= KEYWORD_LAYER_LIMITS[layer]) continue;
+    layerCounts[layer]++;
     const rankScale =
       matchRank < 3 ? 1 : matchRank < 6 ? 0.85 : matchRank < 10 ? 0.7 : matchRank < 16 ? 0.55 : 0.4;
     matchRank++;
@@ -991,10 +1097,16 @@ export function analyzeVibe(vibe: string): EmotionProfile {
     if (w.calm !== undefined) profile.calm += w.calm * effectiveScale;
 
     if (keyword.sceneHints) {
-      if (keyword.sceneHints.environment && !profile.environment) {
+      if (
+        keyword.sceneHints.environment &&
+        (matchedTermImpliesPlace(matchedTerm) || !profile.environment)
+      ) {
         profile.environment = keyword.sceneHints.environment;
       }
-      if (keyword.sceneHints.timeOfDay && !profile.timeOfDay) {
+      if (
+        keyword.sceneHints.timeOfDay &&
+        (matchedTermImpliesTime(matchedTerm) || !profile.timeOfDay)
+      ) {
         profile.timeOfDay = keyword.sceneHints.timeOfDay;
       }
       if (keyword.sceneHints.motionState && !profile.motionState) {
@@ -1017,7 +1129,9 @@ export function analyzeVibe(vibe: string): EmotionProfile {
   profile.calm = clamp(profile.calm);
 
   // Apply scene-based weight adjustments
-  const withScene = applySceneWeights(profile, scene);
+  let withScene = applySceneWeights(profile, scene);
+  withScene = applyArchetypeNudge(text, withScene);
+  withScene = applyEmotionalDestination(text, withScene);
 
   return withScene;
 }
@@ -1336,11 +1450,12 @@ export function smoothEnergyCurve<T extends { energy: number | null }>(
 ): T[] {
   if (songs.length < 3) return songs;
 
-  // Filter out extreme outliers
-  return songs.filter((s) => {
+  const filtered = songs.filter((s) => {
     const e = s.energy ?? 0.5;
     return e >= minEnergy && e <= maxEnergy;
   });
+  // Never empty the pool — e.g. after regen when recent-playlist penalty reshuffles ranks
+  return filtered.length > 0 ? filtered : songs;
 }
 
 /**
@@ -1366,11 +1481,38 @@ export function filterDeadZones<T extends { energy: number | null }>(
  *   - Chill (energy ≤ 0.30 or calm ≥ 0.65): flat / consistent — sorted by proximity to target
  *   - Default: low intro → build → peak (60-75%) → descent
  */
-export function enforceArc<T extends { energy: number | null; score: number }>(
+export function enforceArc<T extends {
+  energy: number | null;
+  score: number;
+  valence?: number | null;
+}>(
   songs: T[],
-  profile?: EmotionProfile
+  profile?: EmotionProfile,
+  journeyArc: JourneyArc = "default"
 ): T[] {
   if (songs.length < 4) return songs;
+
+  // Emotional recovery: start heavier, end warmer/brighter (valence rises)
+  if (journeyArc === "recovery") {
+    return [...songs].sort((a, b) => {
+      const av = a.valence ?? 0.5;
+      const bv = b.valence ?? 0.5;
+      if (av !== bv) return av - bv;
+      return a.score - b.score;
+    });
+  }
+
+  if (journeyArc === "linear_rise") {
+    return [...songs].sort(
+      (a, b) => (a.energy ?? 0.5) - (b.energy ?? 0.5) || b.score - a.score
+    );
+  }
+
+  if (journeyArc === "linear_fall") {
+    return [...songs].sort(
+      (a, b) => (b.energy ?? 0.5) - (a.energy ?? 0.5) || b.score - a.score
+    );
+  }
 
   const n = songs.length;
   const targetEnergy = profile?.energy ?? 0.5;

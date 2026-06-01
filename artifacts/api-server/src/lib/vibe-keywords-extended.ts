@@ -217,7 +217,7 @@ export const EXTENDED_VIBE_KEYWORDS: ExtendedVibeKeyword[] = [
     artistOrGenreCue: true,
   },
   {
-    terms: ["motown", "soul classics", "funk", "disco", "disco fever"],
+    terms: ["motown", "soul classics", "funk", "disco", "disco fever", "groovy playlist", "psychedelic rock"],
     weights: { energy: 0.35, valence: 0.35, tension: -0.05, nostalgia: 0.4, calm: -0.1 },
     artistOrGenreCue: true,
   },

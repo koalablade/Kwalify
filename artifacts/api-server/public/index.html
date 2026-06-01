@@ -1083,8 +1083,10 @@ function generate(){
     if($('vibeCounter')) $('vibeCounter').textContent='0/140';
     const trackCount=d.count||d.totalTracks||25;
     showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null);
-    if(referencePlaylist && !d.referenceMatch){
-      showToast('Reference playlist could not be read — used text vibe only. Check the link is public.','info',4500);
+    if(d.referencePlaylistWarning){
+      showToast(d.referencePlaylistWarning,'info',6000);
+    } else if(referencePlaylist && !d.referenceMatch){
+      showToast('Reference playlist could not be read — used text vibe only. Try a public playlist or log out and back in.','info',5000);
     }
     fetchAndRenderPlaylists();
     const toastMsg = d.spotifyPlaylistUrl
