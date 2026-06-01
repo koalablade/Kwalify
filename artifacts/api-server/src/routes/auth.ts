@@ -6,17 +6,17 @@ import { db, syncStatusTable } from "../db";
 import { eq } from "drizzle-orm";
 import { runSync, activeSyncs } from "./spotify";
 import { logger } from "../lib/logger";
+import { getPublicBaseUrl } from "../lib/public-url";
 
 const router: IRouter = Router();
 
-/** Where to send the browser after OAuth (your site, not the API root). */
+/** Where to send the browser after OAuth (your public site). */
 function getFrontendRedirect(path = "/"): string {
-  const base = process.env.FRONTEND_URL?.split(",")[0]?.trim();
+  const base = getPublicBaseUrl();
   if (!base) {
     return path;
   }
-  const normalized = base.replace(/\/$/, "");
-  return path === "/" ? normalized : `${normalized}${path.startsWith("/") ? path : `/${path}`}`;
+  return path === "/" ? base : `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 /**

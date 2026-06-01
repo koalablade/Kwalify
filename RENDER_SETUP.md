@@ -68,18 +68,23 @@ In the web service → **Environment** → add:
 | `SESSION_SECRET` | Random long string | e.g. run locally: `openssl rand -hex 32` or use any 32+ char secret |
 | `SPOTIFY_CLIENT_ID` | From Spotify dashboard | |
 | `SPOTIFY_CLIENT_SECRET` | From Spotify dashboard | |
-| `SPOTIFY_REDIRECT_URI` | `https://YOUR-SERVICE-NAME.onrender.com/api/auth/callback` | **Must match Spotify exactly** |
-| `FRONTEND_URL` | Your live site, e.g. `https://www.kwalify.net` (no trailing slash). Add `https://kwalify.net` too if you use both www and non-www | Comma-separated if multiple |
+| `APP_URL` | `https://kwalify.net` | Canonical public URL; enables redirect from `*.onrender.com` |
+| `SPOTIFY_REDIRECT_URI` | `https://kwalify.net/api/auth/callback` | **Must match Spotify exactly** |
+| `FRONTEND_URL` | `https://kwalify.net,https://www.kwalify.net` | Comma-separated CORS origins (no trailing slashes) |
 
 **Do not set `PORT`** — Render sets it automatically.
 
-Example if your service is `kwalify-api`:
+Example for custom domain **kwalify.net**:
 
 ```
-SPOTIFY_REDIRECT_URI=https://kwalify-api.onrender.com/api/auth/callback
+APP_URL=https://kwalify.net
+SPOTIFY_REDIRECT_URI=https://kwalify.net/api/auth/callback
+FRONTEND_URL=https://kwalify.net,https://www.kwalify.net
 ```
 
-Add the **same** URI in Spotify → **Redirect URIs** → **Save**.
+Add the **same** redirect URI in Spotify → **Redirect URIs** → **Save**.
+
+Full DNS + Render domain steps: **[CUSTOM_DOMAIN.md](./CUSTOM_DOMAIN.md)**.
 
 ---
 

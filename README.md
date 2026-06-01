@@ -21,7 +21,8 @@ Set `PORT` locally (e.g. `5000`). Render sets `PORT` automatically.
 | `SPOTIFY_CLIENT_ID` | Spotify app client ID |
 | `SPOTIFY_CLIENT_SECRET` | Spotify app client secret |
 | `SPOTIFY_REDIRECT_URI` | OAuth callback (must match Spotify dashboard) |
-| `FRONTEND_URL` | CORS origin for your frontend |
+| `APP_URL` | Public site URL, e.g. `https://kwalify.net` (no trailing slash) |
+| `FRONTEND_URL` | CORS origins; comma-separated if you use www + apex |
 | `NODE_ENV` | Use `production` on Render |
 
 ## Spotify setup
@@ -29,10 +30,10 @@ Set `PORT` locally (e.g. `5000`). Render sets `PORT` automatically.
 In [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), add this **Redirect URI**:
 
 ```
-https://YOUR-RENDER-URL.onrender.com/api/auth/callback
+https://kwalify.net/api/auth/callback
 ```
 
-Set the same value as `SPOTIFY_REDIRECT_URI` in Render.
+Set the same value as `SPOTIFY_REDIRECT_URI` in Render. See **[CUSTOM_DOMAIN.md](./CUSTOM_DOMAIN.md)** for DNS + Render custom domain steps.
 
 ## Deploy (Render)
 

@@ -61,11 +61,27 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
     }),
   );
 
-  const allowedOrigins: string | string[] | boolean = env.FRONTEND_URL
-    ? env.FRONTEND_URL.split(",").map((u) => u.trim()).filter(Boolean)
-    : true;
+  const corsOrigins = new Set<string>();
+  if (env.APP_URL) corsOrigins.add(env.APP_URL);
+  if (env.FRONTEND_URL) {
+    for (const u of env.FRONTEND_URL.split(",")) {
+      const t = u.trim().replace(/\/$/, "");
+      if (t) corsOrigins.add(t);
+    }
+  }
+  const allowedOrigins: string | string[] | boolean =
+    corsOrigins.size > 0 ? [...corsOrigins] : true;
 
   app.use(cors({ origin: allowedOrigins, credentials: true }));
+
+  if (env.APP_URL && env.NODE_ENV === "production") {
+    const canonical = new URL(env.APP_URL);
+    app.use((req, res, next) => {
+      if (req.path === "/api/healthz" || req.path === "/api/health") return next();
+      if (req.hostname === "localhost" || req.hostname === canonical.hostname) return next();
+      return res.redirect(301, `${canonical.origin}${req.originalUrl}`);
+    });
+  }
 
   app.use(
     session({
@@ -82,10 +98,13 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
         secure: env.NODE_ENV === "production",
         httpOnly: true,
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        // TEMPORARY TEST: "none" forces cross-site cookie sending on production
-        // to rule out sameSite="lax" as the cause of missing oauthState. Revert
-        // to "lax" once the root cause is confirmed (requires secure:true in prod).
-        sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+        // Same host (APP_URL on Render custom domain): lax. Split frontend/API: none.
+        sameSite:
+          env.NODE_ENV === "production"
+            ? env.APP_URL
+              ? "lax"
+              : "none"
+            : "lax",
       },
     }),
   );

@@ -28,6 +28,7 @@ import {
 import { GeneratePlaylistBody } from "../zod/api";
 import { checkRateLimit } from "../lib/rate-limit";
 import { getFeatures } from "../lib/env";
+import { publicUrl } from "../lib/public-url";
 
 const router: IRouter = Router();
 
@@ -337,7 +338,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       await db.insert(playlistHistoryTable).values({
         spotifyUserId: userId,
         playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
-        playlistUrl: spotifyPlaylistUrl ?? `https://kwalify.onrender.com/p/${savedPlaylistId}`,
+        playlistUrl: spotifyPlaylistUrl ?? publicUrl(`/p/${savedPlaylistId}`),
         name: playlistName,
         vibe,
         mode,

@@ -17,6 +17,8 @@ export interface AppEnv {
   DATABASE_URL: string;
   SESSION_SECRET: string;
   PORT: number;
+  /** Canonical public origin, e.g. https://kwalify.net (no trailing slash) */
+  APP_URL: string | undefined;
   FRONTEND_URL: string | undefined;
   NODE_ENV: string;
 }
@@ -67,10 +69,14 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
     throw new Error(`[env] PORT must be a positive integer, got "${rawPort}"`);
   }
 
+  const appUrlRaw = process.env["APP_URL"]?.trim();
+  const APP_URL = appUrlRaw ? appUrlRaw.replace(/\/$/, "") : undefined;
+
   _env = {
     DATABASE_URL,
     SESSION_SECRET,
     PORT,
+    APP_URL,
     FRONTEND_URL: process.env["FRONTEND_URL"],
     NODE_ENV: process.env["NODE_ENV"] ?? "development",
   };

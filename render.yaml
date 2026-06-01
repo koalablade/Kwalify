@@ -34,5 +34,7 @@ services:
         sync: false
       - key: SPOTIFY_REDIRECT_URI
         sync: false
+      - key: APP_URL
+        sync: false
       - key: FRONTEND_URL
         sync: false
