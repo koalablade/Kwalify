@@ -101,6 +101,8 @@ import {
 import { applyGravityBiasedSurprise } from "./gravity-surprise";
 import { capTracksForHybridScoring } from "./scoring-pool-cap";
 import { buildRecentTrackPoolPenalty } from "../../lib/playlist-freshness";
+import type { Logger } from "pino";
+import { logScoringStage } from "../../lib/generate-stage-timer";
 
 
 
@@ -160,6 +162,9 @@ export interface RunScoringPipelineOpts<T extends {
 
   postScore: Omit<PostScoreModifierInput<T>, "hybridResults" | "mode">;
 
+  /** Request logger — stage timing for production stall diagnosis */
+  pipelineLog?: Logger;
+
 }
 
 
@@ -216,8 +221,13 @@ export function runScoringPipeline<T extends {
 
 } & { trackId: string }>(opts: RunScoringPipelineOpts<T>): ScoringPipelineResult<T> {
 
+  const log = opts.pipelineLog;
+  const isProd = process.env.NODE_ENV === "production";
   const classifications = opts.userGenreProfile.trackClassifications;
   const classMap = opts.userGenreProfile.trackClassifications;
+
+  let t = Date.now();
+  log?.info({ librarySize: opts.tracks.length }, "Scoring: capping candidate pool");
 
   const poolCap = capTracksForHybridScoring(opts.tracks, {
     emotionProfile: opts.emotionProfile,
@@ -237,63 +247,59 @@ export function runScoringPipeline<T extends {
       : undefined,
   });
 
+  logScoringStage(log, "Candidate pool capped", t, {
+    librarySize: poolCap.originalCount,
+    hybridPoolSize: poolCap.pool.length,
+    poolCapped: poolCap.poolCapped,
+    candidateCount: poolCap.candidateCount,
+  });
+
+  t = Date.now();
   const truthAnchors = buildTruthAnchorStore(
     classifications,
     poolCap.pool.map((t) => t.trackId)
   );
+  logScoringStage(log, "Truth anchors built", t, { anchorCount: truthAnchors.anchors.size });
 
+  t = Date.now();
   const sceneCtx = resolveSceneContext(opts.vibe, opts.canonical, opts.emotionProfile, null);
   const sceneRouting = resolveSceneGenreRouting({
     vibe: opts.vibe,
     vibeKind: opts.vibeKind,
     sceneFamily: sceneCtx.primary,
   });
+  logScoringStage(log, "Scene routing resolved", t);
 
-
-
+  t = Date.now();
   const genreForecast = buildGenreForecastFromLibrary({
-
     classifications,
-
     userVector: opts.userGenreProfile.vector,
-
     playlistLength: opts.playlistLength,
-
     sceneRouting,
-
   });
+  logScoringStage(log, "Genre forecast complete", t);
 
-
-
+  t = Date.now();
   const recentDominant = opts.recentPlaylistTrackIds?.length
-
     ? dominantGenresFromRecentPlaylists(opts.recentPlaylistTrackIds, classifications)
-
     : [];
+  logScoringStage(log, "Recent dominant genres resolved", t, { count: recentDominant.length });
 
-
-
+  t = Date.now();
   const dynamicGraph = buildDynamicGenreGraph({
-
     userVector: opts.userGenreProfile.vector,
-
     recentDominantGenres: recentDominant,
-
     overusedGenres: genreForecast.poolSkewGenres,
-
   });
+  logScoringStage(log, "Dynamic genre graph built", t, { edges: dynamicGraph.edges.length });
 
-
-
+  t = Date.now();
   const memoryTrace = buildGenreMemoryTrace({
-
     recentPlaylistTrackIds: opts.recentPlaylistTrackIds ?? [],
-
     classifications,
-
     suppressedGenres: genreForecast.poolSkewGenres,
-
   });
+  logScoringStage(log, "Genre memory trace built", t);
 
 
 
@@ -323,41 +329,32 @@ export function runScoringPipeline<T extends {
         }
       : genreForecast;
 
+  t = Date.now();
   const preScore = initPreScoreContext({
-
     forecast: forecastForPreScore,
-
     sceneRouting,
-
     dynamicGraph,
-
     memoryTrace,
-
   });
+  logScoringStage(log, "Pre-score context ready", t);
 
-
-
+  t = Date.now();
   const hybridCtx = buildHybridScoringContext({
-
     vibe: opts.vibe,
-
     profile: opts.emotionProfile,
-
     intent: opts.intent,
-
     canonical: opts.canonical,
-
     prototype: opts.prototype,
-
     sonicProfile: opts.sonicProfile,
-
     vibeKind: opts.vibeKind,
-
     userGenre: opts.userGenreProfile,
     preScore,
     truthAnchors,
   });
+  logScoringStage(log, "Hybrid scoring context built", t);
 
+  t = Date.now();
+  log?.info({ hybridPoolSize: poolCap.pool.length }, "Scoring: hybrid tri-score");
   const { results: hybridResults, excluded: hybridExcluded } = scoreLibraryHybrid(
     poolCap.pool,
     hybridCtx,
@@ -365,11 +362,16 @@ export function runScoringPipeline<T extends {
     opts.memoryByTrack,
     opts.noveltyByTrack
   );
+  logScoringStage(log, "Hybrid scoring complete", t, {
+    scored: hybridResults.length,
+    excluded: hybridExcluded.length,
+  });
 
   const scoreBeforePost = new Map(
     hybridResults.map((r) => [r.track.trackId, r.score])
   );
 
+  t = Date.now();
   const { results: leapedHybrid, leaps: emotionalLeaps } = applyEmotionalLeapsToHybridResults(
     hybridResults,
     {
@@ -385,12 +387,15 @@ export function runScoringPipeline<T extends {
       seed: opts.postScore.startMs,
     }
   );
+  logScoringStage(log, "Emotional leaps applied", t, { leaps: emotionalLeaps.length });
 
+  t = Date.now();
   const scored = applyPostScoreModifiers({
     ...opts.postScore,
     hybridResults: leapedHybrid,
     mode: opts.mode,
   });
+  logScoringStage(log, "Post-score modifiers applied", t, { tracks: scored.length });
 
   const gravityWells = resolveGravityWells({
     vibe: opts.vibe,
@@ -418,15 +423,19 @@ export function runScoringPipeline<T extends {
     dominantGenres: genreForecast.predictedDominantGenres,
   };
 
+  t = Date.now();
   const gravityProfiles = buildGravityProfiles(scored, gravityCtx);
   const massBoosted = applyEmotionalMassToScores(scored, gravityProfiles);
+  logScoringStage(log, "Taste gravity applied", t, { profiles: gravityProfiles.size });
 
+  t = Date.now();
   const surpriseResult = applyGravityBiasedSurprise(massBoosted, {
     surpriseBudget,
     sceneRouting,
     profiles: gravityProfiles,
     classifications: classMap,
   });
+  logScoringStage(log, "Gravity surprise applied", t);
 
   const gravityEnriched = attachGravityFieldsToTracks(
     surpriseResult.tracks,
@@ -435,6 +444,7 @@ export function runScoringPipeline<T extends {
 
   const gated = applySunnyGateIfNeeded(gravityEnriched, opts.vibeKind, opts.playlistLength);
 
+  t = Date.now();
   const { pool: biased, coverageState } = applyGenrePoolBias(gated, {
 
     userGenreProfile: opts.userGenreProfile,
@@ -457,6 +467,10 @@ export function runScoringPipeline<T extends {
 
     memoryTrace,
 
+  });
+  logScoringStage(log, "Genre coverage engine applied", t, {
+    poolSize: biased.length,
+    diversityScore: coverageState.diversityScore,
   });
 
   const sorted = sortByScore(biased);
@@ -483,12 +497,12 @@ export function runScoringPipeline<T extends {
     scoreBeforePost,
     traceSampleSize: Math.min(40, opts.playlistLength + 15),
   };
-  const { traces, conflictReports, truthAnchorDriftScore } =
-    process.env.NODE_ENV === "production"
-      ? { traces: [], conflictReports: [], truthAnchorDriftScore: 0 }
-      : assemblePipelineTraces(traceInput);
+  const { traces, conflictReports, truthAnchorDriftScore } = isProd
+    ? { traces: [], conflictReports: [], truthAnchorDriftScore: 0 }
+    : assemblePipelineTraces(traceInput);
 
-  const magicMoments = tagMagicMomentCandidates(sorted, {
+  const magicSample = sorted.slice(0, isProd ? 50 : sorted.length);
+  const magicMoments = tagMagicMomentCandidates(magicSample, {
     sceneCtx,
     emotionProfile: opts.emotionProfile,
     librarySignals: opts.postScore.librarySignals,
@@ -496,15 +510,24 @@ export function runScoringPipeline<T extends {
     classifications: classMap,
   });
 
-  const stabilityDiagnostics = buildStabilityDiagnostics({
-    traces,
-    finalTrackIds: finalTopIds,
-    classifications: classMap,
-    conflictReports,
-    truthAnchorDriftScore,
-    sceneInfluenceRatio,
-    deterministicMode: FORCE_DETERMINISTIC_MODE,
-  });
+  const stabilityDiagnostics: StabilityDiagnostics = isProd
+    ? {
+        playlistStabilityScore: 1,
+        conflictReports: [],
+        layerContributionSummary: {},
+        truthAnchorDriftScore: 0,
+        layerDominanceWarnings: 0,
+        deterministicMode: FORCE_DETERMINISTIC_MODE,
+      }
+    : buildStabilityDiagnostics({
+        traces,
+        finalTrackIds: finalTopIds,
+        classifications: classMap,
+        conflictReports,
+        truthAnchorDriftScore,
+        sceneInfluenceRatio,
+        deterministicMode: FORCE_DETERMINISTIC_MODE,
+      });
 
   return {
     scored,

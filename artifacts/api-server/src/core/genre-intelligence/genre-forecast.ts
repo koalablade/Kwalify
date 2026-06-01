@@ -135,8 +135,15 @@ export function buildGenreForecastFromLibrary(opts: {
     }
   }
 
+  const sampleLimit = Math.min(500, opts.playlistLength * 8);
+  const trackIds: string[] = [];
+  for (const id of opts.classifications.keys()) {
+    trackIds.push(id);
+    if (trackIds.length >= sampleLimit) break;
+  }
+
   const base = buildGenreForecast({
-    trackIds: [...opts.classifications.keys()].slice(0, Math.min(500, opts.playlistLength * 8)),
+    trackIds,
     classifications: opts.classifications,
     userVector: opts.userVector,
     playlistLength: opts.playlistLength,

@@ -34,8 +34,9 @@ export function resolveHybridPoolCap(
   if (librarySize <= LARGE_LIBRARY_THRESHOLD) {
     return librarySize <= 1500 ? HYBRID_POOL_STANDARD : HYBRID_POOL_COMPLEX;
   }
+  // Large libraries: 1000 candidates keeps /generate under HTTP + Render time budget.
   if (librarySize > 5000) {
-    return HYBRID_POOL_ABSOLUTE_MAX;
+    return HYBRID_POOL_STANDARD;
   }
   let cap = HYBRID_POOL_COMPLEX;
   if (opts.referencePlaylist) cap = Math.min(cap + 100, HYBRID_POOL_ABSOLUTE_MAX);

@@ -47,9 +47,11 @@ export function buildLibrarySignals(
   now = Date.now()
 ): LibrarySignals {
   const artistLibraryCounts = new Map<string, number>();
+  const trackArtistById = new Map<string, string>();
   for (const s of songs) {
     const k = s.artistName.toLowerCase();
     artistLibraryCounts.set(k, (artistLibraryCounts.get(k) ?? 0) + 1);
+    trackArtistById.set(s.trackId, k);
   }
 
   const trackAppearances = new Map<string, number>();
@@ -68,14 +70,16 @@ export function buildLibrarySignals(
     const ids = (pl.trackIds as string[]) ?? [];
     const artistsInPl = new Set<string>();
 
-    for (const id of ids) {
+    const idSet = new Set(ids);
+    for (const id of idSet) {
       trackAppearances.set(id, (trackAppearances.get(id) ?? 0) + 1);
       const prev = trackLastSurfaced.get(id);
       if (!prev || created > prev) trackLastSurfaced.set(id, created);
     }
 
-    for (const s of songs) {
-      if (ids.includes(s.trackId)) artistsInPl.add(s.artistName.toLowerCase());
+    for (const id of idSet) {
+      const artist = trackArtistById.get(id);
+      if (artist) artistsInPl.add(artist);
     }
     for (const a of artistsInPl) {
       artistPlaylistCounts.set(a, (artistPlaylistCounts.get(a) ?? 0) + 1);

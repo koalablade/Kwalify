@@ -11,7 +11,7 @@ import {
   type LibraryEraMode,
 } from "../../lib/vibe-match-guards";
 import {
-  LARGE_LIBRARY_THRESHOLD,
+  MINIMAL_GENRE_STACK_THRESHOLD,
   resolveHybridPoolCap,
 } from "../../lib/production-limits";
 
@@ -71,6 +71,39 @@ export function capTracksForHybridScoring<T extends {
     });
   if (originalCount <= max) {
     return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount };
+  }
+
+  // Fast path for 500+ libraries — skip era-balanced reshuffle (maps/sorts entire library).
+  if (originalCount >= MINIMAL_GENRE_STACK_THRESHOLD) {
+    let candidates = tracks;
+    if (opts.vibeKind === "sunny") {
+      const sunny = tracks.filter((t) =>
+        passesSunnyGate({
+          valence: t.valence,
+          energy: t.energy,
+          acousticness: t.acousticness ?? null,
+        })
+      );
+      if (sunny.length >= Math.min(max, Math.floor(originalCount * 0.25))) {
+        candidates = sunny;
+      }
+    }
+    const seed = opts.seedMs ?? 0;
+    const ranked = candidates
+      .map((t) => {
+        const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
+        return {
+          t,
+          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05 - recentPen,
+        };
+      })
+      .sort((a, b) => b.fit - a.fit);
+    return {
+      pool: ranked.slice(0, max).map((x) => x.t),
+      originalCount,
+      poolCapped: true,
+      candidateCount: candidates.length,
+    };
   }
 
   let candidates = tracks;

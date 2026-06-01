@@ -40,6 +40,7 @@ import { createRequestBudget } from "../lib/request-budget";
 import {
   REQUEST_HARD_TIMEOUT_MS,
   MINIMAL_GENRE_STACK_THRESHOLD,
+  resolveHybridPoolCap,
 } from "../lib/production-limits";
 import {
   acquireGenerateSession,
@@ -54,6 +55,7 @@ import {
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
+import { createGenerateStageTimer } from "../lib/generate-stage-timer";
 import {
   buildFallbackPipelineResult,
   formatTracksForApi,
@@ -219,6 +221,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         "Generate in progress"
       );
     }, 15_000);
+
+    let genStageTimer: ReturnType<typeof createGenerateStageTimer> | null = null;
 
     try {
 
@@ -523,6 +527,18 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Genre profile built"
     );
 
+    genStageTimer = createGenerateStageTimer(req.log, { requestId, userId });
+    const stageTimer = genStageTimer;
+    const hybridCap = resolveHybridPoolCap(likedSongs.length, {
+      vibeKind,
+      referencePlaylist: !!referencePlaylist,
+      promptWordCount: vibe.trim().split(/\s+/).length,
+    });
+    stageTimer.start("Starting scoring pipeline", {
+      tracks: likedSongs.length,
+      hybridCap,
+    });
+
     const recentTrackLists = recentPlaylists.map((p) => (p.trackIds as string[]) ?? []);
     const recentTrackPenaltyScale = varietyBoost ? 1.75 : 1;
     const freshnessCloneMultiplier = varietyBoost
@@ -530,8 +546,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       : cloneMultiplier;
     const stackCacheKey = `${resultCacheKey}:${likedSongs.length}`;
 
-    t0 = Date.now();
-    req.log.info({ tracks: likedSongs.length }, "Building genre stack");
+    stageTimer.start("Building genre stack", {
+      tracks: likedSongs.length,
+      minimal: likedSongs.length >= MINIMAL_GENRE_STACK_THRESHOLD,
+    });
     let genreStack = getCachedGenreStack(stackCacheKey);
     const stackFromCache = !!genreStack;
     if (!genreStack) {
@@ -544,16 +562,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       });
       setCachedGenreStack(stackCacheKey, genreStack);
     }
-    req.log.info(
-      {
-        ms: Date.now() - t0,
-        tracks: likedSongs.length,
-        stackFromCache,
-        microGenres: genreStack.stats.microGenreCount,
-        ontologyEdges: genreStack.stats.ontologyEdges,
-      },
-      "Genre stack built"
-    );
+    stageTimer.end("Genre stack built", {
+      stackFromCache,
+      microGenres: genreStack.stats.microGenreCount,
+      ontologyEdges: genreStack.stats.ontologyEdges,
+    });
 
     const maxPerArtist = mode === "strict" ? 2 : mode === "balanced" ? 3 : 5;
 
@@ -562,8 +575,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       (humanIntent.intent === "nostalgia" && /\bchristmas|holiday\b/i.test(vibe));
 
     setGeneratePhase(userId, requestId, "scoring");
-    t0 = Date.now();
-    req.log.info({ tracks: likedSongs.length, stackFromCache }, "Starting hybrid scoring");
+    stageTimer.start("Running playlist pipeline (scoring + compose)", {
+      tracks: likedSongs.length,
+      stackFromCache,
+    });
     const useFastFallback = budget.shouldFastFallback() || budget.isExpired();
 
     let pipeline: ReturnType<typeof buildPlaylistPipeline>;
@@ -581,6 +596,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       });
     } else {
       pipeline = buildPlaylistPipeline({
+      pipelineLog: req.log,
       likedSongs,
       vibe,
       mode: mode as "strict" | "balanced" | "chaotic",
@@ -651,18 +667,14 @@ router.post("/generate", async (req, res): Promise<void> => {
       hybridPoolSize?: number;
       poolCapped?: boolean;
     };
-    req.log.info(
-      {
-        ms: Date.now() - t0,
-        totalMs: Date.now() - startMs,
-        totalSongs: likedSongs.length,
-        hybridPool: scoringPool.hybridPoolSize,
-        poolCapped: scoringPool.poolCapped,
-        excluded: pipeline.hybridExcludedCount,
-      },
-      "Hybrid scoring complete"
-    );
-
+    stageTimer.end("Playlist pipeline complete", {
+      totalMs: Date.now() - startMs,
+      totalSongs: likedSongs.length,
+      hybridPool: scoringPool.hybridPoolSize,
+      poolCapped: scoringPool.poolCapped,
+      excluded: pipeline.hybridExcludedCount,
+      finalTracks: finalTracks.length,
+    });
     req.log.info({ genreAudit, genreStack: genreStack.stats }, "Genre coverage enforcement");
 
     const explanation = buildGenerationExplanation({
@@ -747,6 +759,8 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     setGeneratePhase(userId, requestId, "spotify");
     let spotifyPlaylistUrl: string | null = null;
+    const tSpotify = Date.now();
+    req.log.info({ trackCount: finalTracks.length }, "Creating Spotify playlist");
 
     if (!staleGenerate(userId, requestId)) {
       try {
@@ -788,7 +802,14 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
+    req.log.info(
+      { ms: Date.now() - tSpotify, spotifyPlaylistUrl: !!spotifyPlaylistUrl },
+      "Spotify playlist step complete"
+    );
+
     setGeneratePhase(userId, requestId, "saving");
+    const tSave = Date.now();
+    req.log.info("Saving playlist to database");
 
     const insertResult = await db
       .insert(savedPlaylistsTable)
@@ -805,7 +826,10 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const savedPlaylistId = insertResult[0]?.id ?? 0;
 
-    req.log.info({ userId, playlistId: savedPlaylistId, trackCount: finalTracks.length }, "Playlist saved to DB");
+    req.log.info(
+      { ms: Date.now() - tSave, userId, playlistId: savedPlaylistId, trackCount: finalTracks.length },
+      "Playlist saved to DB"
+    );
 
     try {
       await db.insert(playlistHistoryTable).values({
@@ -963,6 +987,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         : {}),
     });
     } finally {
+      genStageTimer?.dispose();
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (sessionUserId && requestId) {
         endGenerateSession(sessionUserId, requestId);

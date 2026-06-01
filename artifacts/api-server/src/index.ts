@@ -7,6 +7,7 @@ import { markBootComplete } from "./lib/boot-state";
 import { logger } from "./lib/logger";
 import { runDbInit } from "./lib/db-init";
 import { beginGracefulShutdown } from "./lib/shutdown";
+import { warmGenreOntologyAtBoot } from "./lib/warm-genre-ontology";
 
 /**
  * Startup health verification.
@@ -88,6 +89,8 @@ async function bootstrap(): Promise<void> {
 
   // ── 5. Health verification — must pass before any listener is opened ─────────
   await verifyStartupHealth(rawPool, env);
+
+  warmGenreOntologyAtBoot();
 
   // ── 6. App ──────────────────────────────────────────────────────────────────
   const app = createApp(env, rawPool);

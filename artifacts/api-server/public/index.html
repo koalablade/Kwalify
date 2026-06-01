@@ -864,7 +864,11 @@ function startProgress(){
   _deployHintShown=false;
   _setProgPhase('starting');
   progLabelTimer=setInterval(_rotateProgLabel, PROG_LABEL_ROTATE_MS);
+  let progStatusInflight=false;
   progPollTimer=setInterval(()=>{
+    if(!isGenerating||progStatusInflight) return;
+    if(typeof document!=='undefined'&&document.visibilityState==='hidden') return;
+    progStatusInflight=true;
     const elapsed=Date.now()-progStartMs;
     fetch('/api/generate/status',{credentials:'include'})
       .then(r=>r.ok?r.json():null)
@@ -877,8 +881,9 @@ function startProgress(){
         }
         else if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed));
       })
-      .catch(()=>{ if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed)); });
-  },700);
+      .catch(()=>{ if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed)); })
+      .finally(()=>{ progStatusInflight=false; });
+  },1500);
   progTimer=setInterval(()=>{
     const elapsed=Date.now()-progStartMs;
     const bump=4+Math.min(84, elapsed/90000*84);
@@ -1196,7 +1201,7 @@ function generate(){
   updateReferenceHint();
 
   const genAbort=new AbortController();
-  const genTimeout=setTimeout(()=>genAbort.abort(),92000);
+  const genTimeout=setTimeout(()=>genAbort.abort(),100000);
   fetch('/api/generate',{
     method:'POST', credentials:'include',
     signal:genAbort.signal,

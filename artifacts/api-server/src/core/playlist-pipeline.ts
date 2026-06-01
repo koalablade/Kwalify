@@ -25,6 +25,7 @@ import {
 } from "../lib/playlist-freshness";
 import type { GenreAudit } from "../lib/genre-audit";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
+import { logScoringStage } from "../lib/generate-stage-timer";
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -83,6 +84,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
   maxPerArtist: number;
   varietyPenaltyScale?: number;
   referencePlaylist?: boolean;
+  pipelineLog?: import("pino").Logger;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -122,6 +124,7 @@ export function buildPlaylistPipeline<T extends {
   opts: BuildPlaylistPipelineOpts<T>
 ): BuildPlaylistPipelineResult<T> {
   const scoring = runScoringPipeline({
+    pipelineLog: opts.pipelineLog,
     tracks: opts.likedSongs,
     vibe: opts.vibe,
     mode: opts.mode,
@@ -153,6 +156,7 @@ export function buildPlaylistPipeline<T extends {
       )
     : undefined;
 
+  let t = Date.now();
   const composed = composePlaylistFromPool({
     sortedPool: scoring.sorted,
     playlistLength: opts.playlistLength,
@@ -167,7 +171,12 @@ export function buildPlaylistPipeline<T extends {
     canonical: opts.canonical,
     recentTrackPenalty,
   });
+  logScoringStage(opts.pipelineLog, "Playlist composed", t, {
+    poolSize: scoring.sorted.length,
+    finalTracks: composed.finalTracks.length,
+  });
 
+  t = Date.now();
   const enforced = enforceFinalPlaylistGenres({
     finalTracks: composed.finalTracks,
     sortedPool: scoring.sorted,
@@ -179,6 +188,9 @@ export function buildPlaylistPipeline<T extends {
     genreForecast: scoring.genreForecast,
     sceneInfluenceRatio: scoring.sceneInfluenceRatio,
     stabilityDiagnostics: scoring.stabilityDiagnostics,
+  });
+  logScoringStage(opts.pipelineLog, "Final genre enforcement complete", t, {
+    tracks: enforced.tracks.length,
   });
 
   const chaos = scoring.scoringDiagnostics.controlledChaos as Record<string, unknown> | undefined;
