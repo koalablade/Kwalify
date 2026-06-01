@@ -38,6 +38,85 @@ export interface GenreIntelligenceStack {
   };
 }
 
+const LIGHT_STACK_TRACK_THRESHOLD = 1800;
+
+type StackTrack = {
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  energy: number | null;
+  valence: number | null;
+  tempo: number | null;
+  danceability: number | null;
+  acousticness: number | null;
+  instrumentalness?: number | null;
+  speechiness?: number | null;
+};
+
+/** Fast path for large libraries — skips micro-clustering and full track vector graph. */
+function buildLightGenreIntelligenceStack(opts: {
+  tracks: StackTrack[];
+  userProfile: UserGenreProfile;
+  vibe: string;
+}): GenreIntelligenceStack {
+  const { nodes } = buildGenreOntology();
+  const trackInputs = new Map<string, TrackEmbeddingInput>();
+  const trackEmbeddings = new Map<string, number[]>();
+
+  for (const t of opts.tracks) {
+    const profile = opts.userProfile.genreProfiles.get(t.trackId);
+    const classification = profile
+      ? profileToClassification(profile)
+      : opts.userProfile.trackClassifications.get(t.trackId);
+    const input: TrackEmbeddingInput = {
+      ...t,
+      classification,
+      userGenreWeight: classification
+        ? opts.userProfile.vector[classification.genreFamily] ?? 0.05
+        : 0.05,
+    };
+    trackInputs.set(t.trackId, input);
+  }
+
+  const graph = buildUnifiedGenreGraph({
+    trackInputs: [],
+    userProfile: opts.userProfile.vector,
+    clusters: [],
+    recentPlaylistTrackIds: undefined,
+  });
+
+  const userLayer = buildUserGenreLayer(opts.userProfile.vector, graph);
+  const seedEmbedding = buildSeedEmbeddingFromVibe(
+    [...trackInputs.values()].slice(0, 400),
+    opts.vibe,
+    opts.userProfile.vector
+  );
+  const oStats = ontologyStats();
+
+  return {
+    graph,
+    microGenres: [],
+    trackEmbeddings,
+    trackInputs,
+    userLayer,
+    seedEmbedding,
+    stats: {
+      ontologyNodes: oStats.nodeCount,
+      ontologyTargetMet: oStats.targetMet,
+      ontologyEdges: graph.edges.length,
+      microGenreCount: 0,
+      embeddingVersion: EMBEDDING_VERSION,
+      topMicroLabels: [],
+      vectorStoreSizes: {
+        genre: graph.embeddings.genreSpace.size(),
+        track: 0,
+        cluster: 0,
+      },
+    },
+  };
+}
+
 export function buildGenreIntelligenceStack(opts: {
   tracks: {
     trackId: string;
@@ -56,6 +135,10 @@ export function buildGenreIntelligenceStack(opts: {
   vibe: string;
   recentPlaylistTrackIds?: string[][];
 }): GenreIntelligenceStack {
+  if (opts.tracks.length >= LIGHT_STACK_TRACK_THRESHOLD) {
+    return buildLightGenreIntelligenceStack(opts);
+  }
+
   const trackInputs = new Map<string, TrackEmbeddingInput>();
   const trackEmbeddings = new Map<string, number[]>();
 

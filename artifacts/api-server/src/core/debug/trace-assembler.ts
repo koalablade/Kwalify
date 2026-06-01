@@ -71,8 +71,11 @@ export function assemblePipelineTraces<TTrack extends { trackId: string }>(
       .map((t) => t.trackId)
   );
 
+  const maxTraces = Math.min(120, (input.traceSampleSize ?? 40) + 40);
+
   for (const ex of input.hybridExcluded) {
-    if (!sampleIds.has(ex.trackId) && traces.length > 80) continue;
+    if (!sampleIds.has(ex.trackId)) continue;
+    if (traces.length >= maxTraces) break;
     const c = input.classifications.get(ex.trackId);
     traces.push(
       buildTrackDecisionTrace({
@@ -96,7 +99,8 @@ export function assemblePipelineTraces<TTrack extends { trackId: string }>(
   }
 
   for (const { track, score, debug } of input.hybridResults) {
-    if (!sampleIds.has(track.trackId) && traces.length > 100) continue;
+    if (!sampleIds.has(track.trackId)) continue;
+    if (traces.length >= maxTraces) break;
 
     let classification =
       input.classifications.get(track.trackId) ??

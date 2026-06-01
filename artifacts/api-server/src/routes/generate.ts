@@ -290,15 +290,25 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
+    let t0 = Date.now();
     const userGenreProfile = buildUserGenreProfile(likedSongs, vibe);
+    req.log.info(
+      { ms: Date.now() - t0, tracks: likedSongs.length },
+      "Genre profile built"
+    );
 
     const recentTrackLists = recentPlaylists.map((p) => (p.trackIds as string[]) ?? []);
+    t0 = Date.now();
     const genreStack = buildGenreIntelligenceStack({
       tracks: likedSongs,
       userProfile: userGenreProfile,
       vibe,
       recentPlaylistTrackIds: recentTrackLists,
     });
+    req.log.info(
+      { ms: Date.now() - t0, tracks: likedSongs.length, microGenres: genreStack.stats.microGenreCount },
+      "Genre stack built"
+    );
 
     const maxPerArtist = mode === "strict" ? 2 : mode === "balanced" ? 3 : 5;
 
@@ -306,6 +316,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       /\b(christmas|xmas|holiday|festive|winter holiday)\b/i.test(vibe) ||
       (humanIntent.intent === "nostalgia" && /\bchristmas|holiday\b/i.test(vibe));
 
+    t0 = Date.now();
     const pipeline = buildPlaylistPipeline({
       likedSongs,
       vibe,
@@ -369,9 +380,9 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     req.log.info(
       {
+        ms: Date.now() - t0,
         totalSongs: likedSongs.length,
         excluded: pipeline.hybridExcludedCount,
-        scoringDiagnostics,
       },
       "Hybrid scoring complete"
     );

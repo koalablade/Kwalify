@@ -1044,8 +1044,11 @@ function generate(){
   const referencePlaylist=(refInput?.value||'').trim();
   if(referencePlaylist) try{ localStorage.setItem('kwalify_reference_playlist', referencePlaylist); }catch(_){}
 
+  const genAbort=new AbortController();
+  const genTimeout=setTimeout(()=>genAbort.abort(),120000);
   fetch('/api/generate',{
     method:'POST', credentials:'include',
+    signal:genAbort.signal,
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       vibe, length, mode:currentMode,
@@ -1094,7 +1097,14 @@ function generate(){
       : `✓ Playlist saved to Kwalify — ${trackCount} tracks matched your vibe!`;
     showToast(toastMsg,'success',3500);
   })
-  .catch(()=>{ setLoading(false); showToast('Connection failed. Check your internet and try again.','error',5000); });
+  .catch(err=>{
+    setLoading(false);
+    const msg=err&&err.name==='AbortError'
+      ?'Generation is taking too long. Try a shorter playlist or try again in a moment.'
+      :'Connection failed. Check your internet and try again.';
+    showToast(msg,'error',6000);
+  })
+  .finally(()=>clearTimeout(genTimeout));
 }
 
 function regenerate(){
