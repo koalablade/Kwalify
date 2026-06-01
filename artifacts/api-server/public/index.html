@@ -182,7 +182,7 @@
     .result-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
     .result-actions .btn-green { flex:1; min-width:140px; }
     .tracks-label { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px; }
-    .track-list { display:flex; flex-direction:column; gap:1px; }
+    .track-list { display:flex; flex-direction:column; gap:1px; max-height:420px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(130,80,255,.3) transparent; }
     .track-row { display:flex; align-items:center; gap:12px; padding:8px 10px; border-radius:8px; transition:background .15s; animation:fsu .3s var(--spring) both; }
     .track-row:hover { background:rgba(255,255,255,.04); }
     .track-num { font-size:11px; color:var(--text-faint); width:14px; text-align:right; flex-shrink:0; font-variant-numeric:tabular-nums; }
@@ -237,28 +237,44 @@
     .sync-track-count { font-size:12px; color:var(--text-muted); margin-bottom:8px; }
     .sync-time-hint { font-size:12px; color:var(--text-faint); margin-top:12px; }
 
-    /* History */
-    .history-section { margin-top:26px; }
+    /* Track Spotify link */
+    .track-spotify { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--green); text-decoration:none; opacity:.7; transition:opacity .15s; flex-shrink:0; padding:3px 6px; border-radius:4px; }
+    .track-spotify:hover { opacity:1; background:var(--green-dim); }
+
+    /* My Playlists */
+    .my-playlists-section { margin-top:26px; }
     .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
     .section-title { display:flex; align-items:center; gap:7px; font-size:10.5px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); }
-    .btn-clear { background:none; border:none; color:var(--text-faint); font-size:12px; font-family:inherit; font-weight:500; cursor:pointer; padding:4px 8px; border-radius:6px; transition:color .15s ease-out,background .15s ease-out; }
-    .btn-clear:hover { color:#ff7070; background:rgba(255,60,60,.08); }
+    .pl-list { display:flex; flex-direction:column; gap:8px; }
+    .pl-empty { text-align:center; padding:28px 0; font-size:13px; color:var(--text-faint); }
+    .pl-card { border-radius:12px; overflow:hidden; transition:border-color .18s; }
+    .pl-card-head { display:flex; align-items:center; gap:12px; padding:12px 16px; cursor:pointer; user-select:none; }
+    .pl-card-head:hover { background:rgba(255,255,255,.03); }
+    .pl-thumbs { display:flex; gap:2px; flex-shrink:0; }
+    .pl-thumb { width:28px; height:28px; border-radius:5px; object-fit:cover; }
+    .pl-thumb-fb { width:28px; height:28px; border-radius:5px; background:var(--purple-dim); border:1px solid var(--purple-mid); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+    .pl-body { flex:1; min-width:0; }
+    .pl-name { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pl-meta { font-size:11.5px; color:var(--text-faint); margin-top:1px; }
+    .pl-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+    .pl-chevron { font-size:11px; color:var(--text-faint); transition:transform .2s; }
+    .pl-card.expanded .pl-chevron { transform:rotate(180deg); }
+    .pl-track-list { display:none; padding:0 16px 12px; flex-direction:column; gap:1px; }
+    .pl-card.expanded .pl-track-list { display:flex; }
+    .pl-track { display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:7px; transition:background .15s; }
+    .pl-track:hover { background:rgba(255,255,255,.04); }
+    .pl-track-num { font-size:11px; color:var(--text-faint); width:14px; text-align:right; flex-shrink:0; font-variant-numeric:tabular-nums; }
+    .pl-track-art { width:32px; height:32px; border-radius:6px; object-fit:cover; flex-shrink:0; }
+    .pl-track-art-fb { width:32px; height:32px; border-radius:6px; background:var(--purple-dim); border:1px solid var(--purple-mid); display:inline-flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+    .pl-track-info { flex:1; min-width:0; }
+    .pl-track-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pl-track-artist { font-size:11.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .btn-del { background:none; border:none; color:var(--text-faint); font-size:14px; cursor:pointer; padding:5px 7px; border-radius:6px; line-height:1; transition:color .15s,background .15s; }
+    .btn-del:hover { color:#ff7070; background:rgba(255,60,60,.08); }
+
+    /* History (keep for legacy compat but hide) */
+    .history-section { display:none !important; }
     .btn-logout:hover { color:#ff7070; }
-    .h-list { display:flex; flex-direction:column; gap:6px; }
-    .h-empty { text-align:center; padding:28px 0; font-size:13px; color:var(--text-faint); }
-    .h-item { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:12px; transition:background .18s,border-color .18s; animation:fsu .28s var(--spring) both; }
-    .h-item:hover { background:var(--surface-hi); border-color:var(--border-hi); }
-    .h-icon { width:34px; height:34px; background:var(--purple-dim); border:1px solid var(--purple-mid); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
-    .h-body { flex:1; min-width:0; }
-    .h-vibe { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .h-meta { font-size:11.5px; color:var(--text-faint); margin-top:1px; }
-    .h-actions { display:flex; gap:6px; flex-shrink:0; }
-    .btn-h { padding:6px 12px; border-radius:var(--r-pill); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; border:1px solid; text-decoration:none; transition:background .15s,transform .15s var(--spring); }
-    .btn-h:active { transform:scale(.94); }
-    .btn-h-open { background:var(--green-dim); border-color:rgba(29,185,84,.22); color:var(--green); }
-    .btn-h-open:hover { background:rgba(29,185,84,.18); }
-    .btn-h-replay { background:var(--purple-dim); border-color:var(--purple-mid); color:#b47eff; }
-    .btn-h-replay:hover { background:rgba(130,80,255,.2); }
 
     /* ════════ TOASTS ════════ */
     .toast-stack { position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column-reverse; gap:8px; z-index:200; pointer-events:none; }
@@ -450,13 +466,9 @@
           </div>
         </div>
         <div class="result-actions">
-          <a class="btn btn-green btn-md" id="openBtn" href="#" target="_blank" rel="noopener">
+          <button class="btn btn-subtle btn-md" disabled title="Coming soon — Spotify partner approval pending" style="cursor:not-allowed;opacity:.45;flex:1;min-width:140px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-            Open in Spotify
-          </a>
-          <button class="btn btn-subtle btn-md" id="copyBtn" onclick="copyLink()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy link
+            Save to Spotify
           </button>
           <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Regenerate same vibe">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -470,7 +482,7 @@
         <div class="status-row">
           <div class="status-left">
             <div class="status-dot"></div>
-            <span>Saved to Spotify · scored from your liked songs</span>
+            <span>Saved to Kwalify · scored from your liked songs</span>
           </div>
           <span class="mode-badge" id="modeBadge">balanced</span>
         </div>
@@ -501,16 +513,20 @@
         </div>
       </div>
 
-      <!-- History -->
-      <div class="history-section" id="histSection">
+      <!-- History (hidden — replaced by My Playlists) -->
+      <div class="history-section" id="histSection" style="display:none">
+        <div class="h-list" id="hList"></div>
+      </div>
+
+      <!-- My Playlists -->
+      <div class="my-playlists-section" id="myPlaylistsSection" style="display:none">
         <div class="section-header">
           <div class="section-title">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Recent playlists
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            My Playlists
           </div>
-          <button class="btn-clear" onclick="clearHistory()">Clear all</button>
         </div>
-        <div class="h-list" id="hList"></div>
+        <div class="pl-list" id="plList"></div>
       </div>
 
     </div><!-- /appView -->
@@ -681,7 +697,7 @@ function showApp(userData){
     <a href="/api/spotify/cache-status" class="btn btn-ghost btn-sm" target="_blank">Cache</a>
     <button class="btn btn-ghost btn-sm btn-logout" onclick="logout()">Log out</button>`;
 
-  renderHist(loadHist());
+  fetchAndRenderPlaylists();
   if($('vibeInput')) setTimeout(()=>$('vibeInput').focus(),180);
   startSyncPolling();
 }
@@ -701,6 +717,7 @@ const histSection=$('histSection'), hList=$('hList');
 
 let currentUrl='', lastVibe='', currentMode='balanced';
 let isGenerating=false, debTimer=null;
+let currentPlaylistId=null;
 
 const HIST_KEY='kwalah_v3', MAX_HIST=10;
 const ICONS=['🎵','🌙','💪','☁️','🌅','🎧','🔥','✨','🎶','🌊'];
@@ -747,25 +764,29 @@ function setLoading(on){
 }
 
 /* ── Show result ── */
-function showResult(url, vibe, tracks, count, mode, emotionProfile){
-  currentUrl=url; lastVibe=vibe;
-  if(resultName) resultName.textContent=`Kwalify • ${vibe}`;
-  if(resultMeta) resultMeta.textContent=`${count||tracks.length||25} tracks · Private · ${mode||currentMode}`;
-  if(openBtn)    openBtn.href=url;
+function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotionProfile){
+  currentPlaylistId=playlistId; lastVibe=vibe;
+  const displayName = playlistName || `Kwalify • ${vibe}`;
+  if(resultName) resultName.textContent=displayName;
+  if(resultMeta) resultMeta.textContent=`${count||tracks.length||25} tracks · Saved to Kwalify · ${mode||currentMode}`;
   if(modeBadge)  modeBadge.textContent=mode||currentMode;
 
   if(trackList){
-    trackList.innerHTML=(tracks||[]).slice(0,5).map((t,i)=>{
+    trackList.innerHTML=(tracks||[]).map((t,i)=>{
       const artHtml = t.albumArt
         ? `<img src="${esc(t.albumArt)}" alt="" class="track-art" onerror="this.outerHTML='<span class=track-art-fallback>🎵</span>'">`
         : '<span class="track-art-fallback">🎵</span>';
-      return `<div class="track-row" style="animation-delay:${i*.06}s">
+      const spotifyLink = t.id
+        ? `<a class="track-spotify" href="https://open.spotify.com/track/${esc(t.id)}" target="_blank" rel="noopener" title="Open in Spotify">▶</a>`
+        : '';
+      return `<div class="track-row" style="animation-delay:${i*.04}s">
         <span class="track-num">${i+1}</span>
         ${artHtml}
         <div class="track-info">
           <div class="track-name">${esc(t.name)}</div>
           <div class="track-artist">${esc(t.artist)}</div>
         </div>
+        ${spotifyLink}
       </div>`;
     }).join('');
   }
@@ -925,8 +946,8 @@ function generate(){
     if(vibeInput) vibeInput.value='';
     if($('vibeCounter')) $('vibeCounter').textContent='0/140';
     const trackCount=d.count||d.totalTracks||25;
-    showResult(d.url||d.playlistUrl, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile);
-    addToHistory(vibe, d.url||d.playlistUrl, trackCount, d.mode);
+    showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile);
+    fetchAndRenderPlaylists();
     showToast(`✓ Playlist ready — ${trackCount} tracks matched your vibe!`,'success',3500);
   })
   .catch(()=>{ setLoading(false); showToast('Connection failed. Check your internet and try again.','error',5000); });
@@ -1003,6 +1024,86 @@ function renderHist(items){
 }
 
 function replayHist(i){ const h=loadHist()[i]; if(!h||!vibeInput) return; vibeInput.value=h.vibe; generate(); }
+
+/* ── My Playlists (server-side) ── */
+async function fetchAndRenderPlaylists(){
+  try {
+    const {ok, data} = await api('/playlists');
+    if(ok && Array.isArray(data.playlists)){
+      renderPlaylists(data.playlists);
+    }
+  } catch {}
+}
+
+function renderPlaylists(items){
+  const section=$('myPlaylistsSection');
+  const list=$('plList');
+  if(!section||!list) return;
+  section.style.display='block';
+  if(!items||!items.length){
+    list.innerHTML='<div class="pl-empty"><div style="font-size:15px;font-weight:600;margin-bottom:6px">🎵&nbsp;&nbsp;No playlists yet</div><div>Generate your first one above ↑</div></div>';
+    return;
+  }
+  list.innerHTML=items.map((p,idx)=>{
+    const tracks=Array.isArray(p.tracks)?p.tracks:[];
+    const trackCount=tracks.length;
+    const date=p.createdAt?new Date(p.createdAt).toLocaleDateString([],{month:'short',day:'numeric'}):'';
+    const thumbs=tracks.slice(0,3).map(t=>
+      t.albumArt
+        ? `<img src="${esc(t.albumArt)}" alt="" class="pl-thumb" onerror="this.outerHTML='<span class=pl-thumb-fb>🎵</span>'">`
+        : '<span class="pl-thumb-fb">🎵</span>'
+    ).join('');
+    const trackRows=tracks.map((t,i)=>{
+      const artHtml=t.albumArt
+        ? `<img src="${esc(t.albumArt)}" alt="" class="pl-track-art" onerror="this.outerHTML='<span class=pl-track-art-fb>🎵</span>'">`
+        : '<span class="pl-track-art-fb">🎵</span>';
+      const link=t.trackId
+        ? `<a class="track-spotify" href="https://open.spotify.com/track/${esc(t.trackId)}" target="_blank" rel="noopener" title="Open in Spotify">▶</a>`
+        : '';
+      return `<div class="pl-track">
+        <span class="pl-track-num">${i+1}</span>
+        ${artHtml}
+        <div class="pl-track-info">
+          <div class="pl-track-name">${esc(t.trackName||'')}</div>
+          <div class="pl-track-artist">${esc(t.artistName||'')}</div>
+        </div>
+        ${link}
+      </div>`;
+    }).join('');
+    return `<div class="glass pl-card" id="plc-${p.id}" style="animation-delay:${idx*.04}s">
+      <div class="pl-card-head" onclick="togglePlaylist(${p.id})">
+        <div class="pl-thumbs">${thumbs||'<span class="pl-thumb-fb">🎵</span>'}</div>
+        <div class="pl-body">
+          <div class="pl-name">${esc(p.name)}</div>
+          <div class="pl-meta">${trackCount} track${trackCount!==1?'s':''}${date?' · '+date:''}</div>
+        </div>
+        <div class="pl-actions">
+          <button class="btn-del" onclick="event.stopPropagation();deletePlaylist(${p.id})" title="Delete playlist">🗑</button>
+          <span class="pl-chevron">▼</span>
+        </div>
+      </div>
+      <div class="pl-track-list">${trackRows}</div>
+    </div>`;
+  }).join('');
+}
+
+function togglePlaylist(id){
+  const card=$('plc-'+id);
+  if(card) card.classList.toggle('expanded');
+}
+
+async function deletePlaylist(id){
+  if(!confirm('Delete this playlist?')) return;
+  try {
+    const {ok}=await api('/playlists/'+id,{method:'DELETE'});
+    if(ok){
+      showToast('Playlist deleted','info',2000);
+      fetchAndRenderPlaylists();
+    } else {
+      showToast('Could not delete playlist','error',3000);
+    }
+  } catch { showToast('Connection error','error',3000); }
+}
 
 /* ── Input glow ── */
 if(vibeInput&&inputCard){

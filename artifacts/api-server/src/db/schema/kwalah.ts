@@ -48,6 +48,15 @@ export const syncStatusTable = pgTable("sync_status", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const savedPlaylistsTable = pgTable("saved_playlists", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  emotionProfile: jsonb("emotion_profile"),
+  tracks: jsonb("tracks"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertLikedSongSchema = createInsertSchema(likedSongsTable).omit({ id: true, createdAt: true });
 export const insertPlaylistHistorySchema = createInsertSchema(playlistHistoryTable).omit({ id: true, createdAt: true });
 export const insertSyncStatusSchema = createInsertSchema(syncStatusTable).omit({ id: true });
@@ -56,3 +65,4 @@ export type LikedSong = typeof likedSongsTable.$inferSelect;
 export type InsertLikedSong = z.infer<typeof insertLikedSongSchema>;
 export type PlaylistHistory = typeof playlistHistoryTable.$inferSelect;
 export type SyncStatus = typeof syncStatusTable.$inferSelect;
+export type SavedPlaylist = typeof savedPlaylistsTable.$inferSelect;

@@ -1,8 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "../db";
-import { likedSongsTable, playlistHistoryTable } from "../db";
-import { eq } from "drizzle-orm";
-import { createSpotifyPlaylist, getValidAccessToken, getSpotifyUser } from "../lib/spotify";
+import { likedSongsTable, playlistHistoryTable, savedPlaylistsTable } from "../db";
+import { eq, desc, and } from "drizzle-orm";
 import {
   analyzeVibe,
   scoreSong,
@@ -37,7 +36,6 @@ const NEUTRAL_PROFILE: EmotionProfile = {
 
 router.post("/generate", async (req, res): Promise<void> => {
   try {
-    // Guard: playlist creation calls the Spotify API — requires credentials.
     if (!getFeatures().spotify.enabled) {
       res.status(503).json({ error: "Spotify is not configured on this server." });
       return;
@@ -148,8 +146,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     const afterDeadZone = filterDeadZones(structured, length);
-    // Centre the allowed energy window around the profile's target energy so
-    // the filter never strips the high/low-energy tracks needed for arc shaping.
     const smoothMin = Math.max(0.05, emotionProfile.energy - 0.5);
     const smoothMax = Math.min(0.95, emotionProfile.energy + 0.5);
     const afterSmoothing = smoothEnergyCurve(afterDeadZone, smoothMin, smoothMax);
@@ -175,96 +171,34 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    let playlistId: string;
-    let playlistUrl: string;
-
     const playlistName = generatePlaylistName(vibe, emotionProfile);
-    const trackUris = finalTracks.map((t) => `spotify:track:${t.trackId}`);
 
-    try {
-      // MUST be the user's OAuth token — a Client Credentials token will always 403 here.
-      const freshTokens = await getValidAccessToken(req.session.spotifyTokens);
-      req.session.spotifyTokens = freshTokens;
+    const trackObjects = finalTracks.map((t) => ({
+      trackId: t.trackId,
+      trackName: t.trackName,
+      artistName: t.artistName,
+      albumName: t.albumName,
+      albumArt: t.albumArt ?? null,
+    }));
 
-      const accessToken = freshTokens.accessToken;
-
-      // Fetch the live Spotify profile to get the canonical user ID directly
-      // from the token — eliminates any risk of session userId mismatch.
-      const spotifyProfile = await getSpotifyUser(accessToken);
-      const spotifyProfileId: string = spotifyProfile.id;
-
-      req.log.info({
-        sessionUserId: userId,
-        spotifyProfileId,
-        userIdMatch: userId === spotifyProfileId,
-        accessTokenExists: !!accessToken,
-        accessTokenPreview: accessToken?.slice(0, 12) ?? "MISSING",
-        msg: "[playlist-create-debug] identity check + about to create playlist",
-      });
-
-      const result = await createSpotifyPlaylist(
-        accessToken,
-        spotifyProfileId,
-        playlistName,
-        trackUris
-      );
-      playlistId = result.id;
-      playlistUrl = result.url;
-    } catch (spotifyErr: any) {
-      req.log.error({
+    const insertResult = await db
+      .insert(savedPlaylistsTable)
+      .values({
         userId,
-        status: (spotifyErr as any)?.response?.status ?? (spotifyErr as any)?.status,
-        spotifyError: (spotifyErr as any)?.response?.data,
-        msg: "[playlist-create-error] Spotify rejected playlist creation"
-      });
+        name: playlistName,
+        emotionProfile: emotionProfile as any,
+        tracks: trackObjects as any,
+      })
+      .returning({ id: savedPlaylistsTable.id });
 
-      if ((spotifyErr as any)?.response?.status === 403 || (spotifyErr as any)?.status === 403) {
-        res.status(403).json({
-          error: "Spotify playlist creation is temporarily unavailable.",
-          reAuthRequired: true,
-          details: (spotifyErr as any)?.response?.data?.error?.message ?? "Forbidden",
-          pendingTracks: finalTracks.map((t) => ({
-            trackId: t.trackId,
-            trackName: t.trackName,
-            artistName: t.artistName,
-            albumName: t.albumName,
-            albumArt: t.albumArt ?? null,
-          })),
-          emotionProfile: emotionProfile,
-          playlistName: playlistName,
-        });
-        return;
-      }
+    const savedPlaylistId = insertResult[0]?.id ?? 0;
 
-      const status = (spotifyErr as any)?.response?.status ?? (spotifyErr as any)?.status ?? 500;
-      if (status === 401) {
-        res.status(401).json({ error: "Spotify session expired. Please log in again." });
-      } else if (status === 429) {
-        res.status(429).json({ error: "Spotify rate limit hit. Please try again in a moment." });
-      } else {
-        res.status(500).json({ error: "Failed to create Spotify playlist. Please try again." });
-      }
-      return;
-    }
-
-    await db.insert(playlistHistoryTable).values({
-      spotifyUserId: userId,
-      playlistId,
-      playlistUrl,
-      name: playlistName,
-      vibe,
-      mode,
-      trackCount: finalTracks.length,
-      emotionProfile: emotionProfile as any,
-      trackIds: finalTracks.map((t) => t.trackId) as any,
-    });
-
-    req.log.info({ userId, playlistId, trackCount: finalTracks.length }, "Playlist created");
+    req.log.info({ userId, playlistId: savedPlaylistId, trackCount: finalTracks.length }, "Playlist saved to DB");
 
     res.json({
-      playlistId,
-      playlistUrl,
-      url: playlistUrl,
+      success: true,
+      playlistId: savedPlaylistId,
+      playlistName,
       name: playlistName,
       vibe,
       mode,
@@ -293,6 +227,68 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlist: [],
       });
     }
+  }
+});
+
+router.get("/playlists", async (req, res): Promise<void> => {
+  if (!req.session.spotifyUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const userId = req.session.spotifyUserId;
+
+  try {
+    const playlists = await db
+      .select()
+      .from(savedPlaylistsTable)
+      .where(eq(savedPlaylistsTable.userId, userId))
+      .orderBy(desc(savedPlaylistsTable.createdAt));
+
+    res.json({
+      playlists: playlists.map((p) => ({
+        id: p.id,
+        name: p.name,
+        emotionProfile: p.emotionProfile ?? null,
+        tracks: p.tracks ?? [],
+        createdAt: p.createdAt.toISOString(),
+      })),
+    });
+  } catch (err: any) {
+    req.log.error({ err }, "Error fetching playlists");
+    res.status(500).json({ error: "Failed to fetch playlists." });
+  }
+});
+
+router.delete("/playlists/:id", async (req, res): Promise<void> => {
+  if (!req.session.spotifyUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const userId = req.session.spotifyUserId;
+  const playlistId = parseInt(req.params.id, 10);
+
+  if (isNaN(playlistId)) {
+    res.status(400).json({ error: "Invalid playlist id." });
+    return;
+  }
+
+  try {
+    const deleted = await db
+      .delete(savedPlaylistsTable)
+      .where(and(eq(savedPlaylistsTable.id, playlistId), eq(savedPlaylistsTable.userId, userId)))
+      .returning({ id: savedPlaylistsTable.id });
+
+    if (deleted.length === 0) {
+      res.status(404).json({ error: "Playlist not found." });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (err: any) {
+    req.log.error({ err }, "Error deleting playlist");
+    res.status(500).json({ error: "Failed to delete playlist." });
   }
 });
 
