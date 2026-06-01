@@ -4,6 +4,8 @@
  */
 
 import type { SceneEntry } from "./scene-types";
+import { SCENE_LIBRARY_EXTENDED } from "./scene-library-extended";
+import { SCENE_LIBRARY_MASTER } from "./scene-library-master";
 
 export const SCENE_LIBRARY: SceneEntry[] = [
   // ── Petrol / forecourt (same place, different meaning) ─────────────────────
@@ -619,4 +621,7 @@ export const SCENE_LIBRARY: SceneEntry[] = [
     qualities: ["memory", "journey"],
     memoryWeight: 0.88,
   },
+
+  ...SCENE_LIBRARY_EXTENDED,
+  ...SCENE_LIBRARY_MASTER,
 ];

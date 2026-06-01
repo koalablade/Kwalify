@@ -6,6 +6,9 @@ import { EXTENDED_VIBE_KEYWORDS } from "./vibe-keywords-extended";
 import { EXTENDED_VIBE_KEYWORDS_B } from "./vibe-keywords-extended-b";
 import { EXTENDED_VIBE_KEYWORDS_C } from "./vibe-keywords-context-c";
 import { EXTENDED_VIBE_KEYWORDS_PLACES_TIMES } from "./vibe-keywords-places-times";
+import { MASTER_TAG_KEYWORDS } from "./vibe-keywords-master-tags";
+import { MASTER_CULTURE_KEYWORDS } from "./vibe-keywords-master-culture";
+import { analyzeMomentPipeline } from "./moment-pipeline";
 import {
   applyEmotionalDestination,
   parseEmotionalDestination,
@@ -31,6 +34,7 @@ export type { JourneyArc };
 export { detectJourneyArc, parseEmotionalDestination } from "./emotion-destination";
 export { matchArchetype, VIBE_ARCHETYPES } from "./vibe-archetypes";
 export { matchExperienceScene, describeSceneMatch, getSceneLibrarySize } from "./scene-intelligence";
+export { describeMatchedConcepts } from "./knowledge-graph";
 
 export interface EmotionProfile {
   energy: number;
@@ -471,6 +475,8 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
   ...EXTENDED_VIBE_KEYWORDS_B,
   ...EXTENDED_VIBE_KEYWORDS_C,
   ...EXTENDED_VIBE_KEYWORDS_PLACES_TIMES,
+  ...MASTER_TAG_KEYWORDS,
+  ...MASTER_CULTURE_KEYWORDS,
 
   // ── Core Moods ──────────────────────────────────────────────────────────────
   {
@@ -1150,6 +1156,7 @@ export function analyzeVibe(vibe: string): EmotionProfile {
 
   withScene = applyArchetypeNudge(text, withScene);
   withScene = applyEmotionalDestination(text, withScene);
+  // Knowledge graph + canonical pipeline applied in moment-pipeline.ts
 
   return withScene;
 }
@@ -1160,18 +1167,11 @@ export function analyzeVibeWithContext(vibe: string): {
   experienceScene: ReturnType<typeof describeSceneMatch>;
   journeyArc: JourneyArc;
 } {
-  const text = vibe.toLowerCase().trim();
-  const profile = analyzeVibe(vibe);
-  const match = matchExperienceScene(text);
-  const destArc = parseEmotionalDestination(text).journeyArc;
-  const sceneArc = getSceneJourneyArc(text, match);
-  const journeyArc =
-    destArc !== "default" ? destArc : sceneArc ?? destArc;
-
+  const m = analyzeMomentPipeline(vibe);
   return {
-    profile,
-    experienceScene: describeSceneMatch(match),
-    journeyArc,
+    profile: m.profile,
+    experienceScene: m.experienceScene,
+    journeyArc: m.journeyArc,
   };
 }
 

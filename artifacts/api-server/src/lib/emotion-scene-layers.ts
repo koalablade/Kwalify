@@ -40,7 +40,16 @@ export function detectTimeOfDay(text: string): string | null {
     { pattern: /\blate night\b|\bafter midnight\b|\bdead of night\b|\bdeep night\b/i, value: "late_night", score: 85 },
     { pattern: /\b2\s*am\b|\b3\s*am\b|\b4\s*am\b|\b1\s*am\b/i, value: "late_night", score: 90 },
     { pattern: /\bmidnight\b|\bwitching hour\b/i, value: "late_night", score: 88 },
-    { pattern: /\bsunrise\b|\bdawn\b|\bpre-?dawn\b|\bearly morning\b/i, value: "morning", score: 82 },
+    { pattern: /\bsunrise\b|\bdawn\b|\bpre-?dawn\b|\bearly morning\b|\bweekend morning\b/i, value: "morning", score: 82 },
+    { pattern: /\bgolden hour\b/i, value: "evening", score: 86 },
+    { pattern: /\bmorning commute\b|\brush hour\b/i, value: "morning", score: 84 },
+    { pattern: /\blunchtime\b|\blunch break\b/i, value: "afternoon", score: 80 },
+    { pattern: /\bafternoon slump\b/i, value: "afternoon", score: 82 },
+    { pattern: /\bafter work\b|\bevening unwind\b/i, value: "evening", score: 83 },
+    { pattern: /\blate evening\b/i, value: "evening", score: 81 },
+    { pattern: /\bfriday afternoon\b/i, value: "afternoon", score: 80 },
+    { pattern: /\bsunday evening\b|\bsunday night\b/i, value: "evening", score: 82 },
+    { pattern: /\bfirst day of spring\b/i, value: "morning", score: 75 },
     { pattern: /\b5\s*am\b|\b6\s*am\b|\b7\s*am\b|\b8\s*am\b|\brush hour\b/i, value: "morning", score: 88 },
     { pattern: /\b9\s*am\b|\b10\s*am\b|\b11\s*am\b|\bmid-?morning\b/i, value: "morning", score: 90 },
     { pattern: /\bnoon\b|\bmidday\b|\b1\s*pm\b|\b2\s*pm\b|\b3\s*pm\b|\blunch\b/i, value: "afternoon", score: 88 },
@@ -70,9 +79,17 @@ export function detectEnvironment(text: string): string | null {
   const candidates: ScoredMatch[] = [];
 
   const rules: Array<{ pattern: RegExp; value: string; score: number }> = [
-    { pattern: /\brainy?\b|\brain(fall)?\b|\bstorm\b|\bthunder\b/i, value: "rainy", score: 90 },
-    { pattern: /\bfoggy\b|\bmisty\b|\bhazy\b/i, value: "rainy", score: 85 },
-    { pattern: /\bsnow\b|\bblizzard\b|\bwinter storm\b/i, value: "winter", score: 90 },
+    { pattern: /\blight rain\b|\bsoft rain\b|\bdrizzle\b/i, value: "rainy", score: 88 },
+    { pattern: /\bheavy rain\b|\bpouring\b|\btorrential\b/i, value: "rainy", score: 92 },
+    { pattern: /\brainy?\b|\brain(fall)?\b|\bstorm\b|\bthunderstorm\b|\bthunder\b/i, value: "rainy", score: 90 },
+    { pattern: /\bfoggy\b|\bfog\b|\bmisty\b|\bmist\b|\bhazy\b/i, value: "rainy", score: 85 },
+    { pattern: /\bsnowfall\b|\bfirst snow\b|\bsnow\b|\bblizzard\b|\bfrost\b/i, value: "winter", score: 90 },
+    { pattern: /\bovercast\b/i, value: "rainy", score: 70 },
+    { pattern: /\bsun after rain\b/i, value: "coastal", score: 72 },
+    { pattern: /\bsummer heat\b|\bheatwave\b/i, value: "coastal", score: 68 },
+    { pattern: /\bcold morning\b/i, value: "winter", score: 75 },
+    { pattern: /\bwindy coast\b/i, value: "coastal", score: 78 },
+    { pattern: /\bneon\b/i, value: "urban", score: 72 },
     { pattern: /\bbeach\b|\bocean\b|\bsea\b|\bcoast\b|\bwaves?\b|\bharbour\b|\bharbor\b/i, value: "coastal", score: 75 },
     { pattern: /\bforest\b|\bwoods\b|\btrail\b|\bhike\b|\bmountain\b|\bsummit\b/i, value: "nature", score: 72 },
     { pattern: /\bpetrol station\b|\bgas station\b|\bforecourt\b|\bservice station\b/i, value: "urban", score: 78 },
@@ -82,7 +99,9 @@ export function detectEnvironment(text: string): string | null {
     { pattern: /\bgym\b|\bfitness\b|\bworkout\b/i, value: "gym", score: 75 },
     { pattern: /\bclub\b|\bnightclub\b|\bdance floor\b/i, value: "social_indoor", score: 72 },
     { pattern: /\bcafe\b|\bcoffee shop\b|\bbar\b|\brestaurant\b/i, value: "social_indoor", score: 68 },
-    { pattern: /\btrain\b|\bsubway\b|\bmetro\b|\bairport\b|\bplatform\b|\bterminal\b/i, value: "transit", score: 72 },
+    { pattern: /\btrain\b|\bsubway\b|\bmetro\b|\bunderground\b|\bairport\b|\bplatform\b|\bterminal\b|\bbus\b/i, value: "transit", score: 72 },
+    { pattern: /\bmountains?\b|\brooftop\b|\bpark\b|\briver\b/i, value: "nature", score: 70 },
+    { pattern: /\bpub\b|\bbar\b|\bclub\b|\bnightclub\b/i, value: "social_indoor", score: 74 },
     { pattern: /\bbedroom\b|\bkitchen\b|\bliving room\b|\bhome\b|\bindoors?\b/i, value: "indoor", score: 65 },
     { pattern: /\bcity\b|\burban\b|\bdowntown\b|\bstreet\b|\bskyline\b/i, value: "urban", score: 45 },
     { pattern: /\bsunny\b|\bsunshine\b|\bblue sky\b/i, value: "coastal", score: 50 },
@@ -101,8 +120,10 @@ export function detectMotionState(text: string): string | null {
   const lower = text.toLowerCase();
   if (/\brun(ning)?\b|\bjogging\b/i.test(lower)) return "running";
   if (/\bdriving\b|\bhighway\b|\bmotorway\b|\bcommute\b|\bcar\b|\btaxi\b/i.test(lower)) return "driving";
-  if (/\bwalk(ing)?\b|\bstroll\b/i.test(lower)) return "walking";
-  if (/\btrain\b|\bbus\b|\bplane\b|\bflight\b|\bferry\b/i.test(lower)) return "transit";
+  if (/\bwalk(ing)?\b|\bstroll\b|\bwander(ing)?\b|\bexplor(e|ing)\b/i.test(lower)) return "walking";
+  if (/\bcycl(ing|e)\b|\brun(ning)?\b|\bjogging\b/i.test(lower)) return "running";
+  if (/\btrain\b|\bbus\b|\bplane\b|\bflight\b|\bferry\b|\bcommut(e|ing)\b/i.test(lower)) return "transit";
+  if (/\bsail(ing)?\b|\bflying\b/i.test(lower)) return "transit";
   return null;
 }
 

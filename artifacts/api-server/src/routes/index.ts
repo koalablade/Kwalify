@@ -4,6 +4,7 @@ import authRouter from "./auth";
 import spotifyRouter from "./spotify";
 import generateRouter from "./generate";
 import historyRouter from "./history";
+import libraryRouter from "./library";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(authRouter);
 router.use(spotifyRouter);
 router.use(generateRouter);
 router.use(historyRouter);
+router.use(libraryRouter);
 
 export default router;

@@ -10,8 +10,48 @@ import {
   type ReferenceFingerprint,
 } from "../lib/reference-playlist";
 import { eq, desc, and } from "drizzle-orm";
+import { parseEmotionalDestination } from "../lib/emotion-destination";
 import {
-  analyzeVibe,
+  applyFreshnessToScore,
+  buildAlbumAppearanceMap,
+  buildArtistAppearanceMap,
+  buildFreshnessStats,
+  countRecentJourneyArc,
+  journeyArcCooldownMultiplier,
+  sceneClonePenalty,
+} from "../lib/playlist-freshness";
+import { rediscoveryJitter } from "../lib/rediscovery";
+import { buildLibrarySignals, type LikedSongRow } from "../lib/library-signals";
+import {
+  computeRediscoveryScore,
+  detectRediscoveryMode,
+  rediscoveryScoreBoost,
+  type RediscoveryMode,
+} from "../lib/forgotten-favourites";
+import {
+  chapterTrackBoost,
+  detectMusicChapters,
+  matchChapterFromVibe,
+} from "../lib/music-life-chapters";
+import {
+  archaeologyRediscoveryBoost,
+  detectArchaeologyIntent,
+} from "../lib/library-archaeology";
+import { computeSurpriseMix } from "../lib/human-surprise";
+import { applyRediscoveryPoolBias } from "../lib/emotional-discovery";
+import { injectControlledSurprise } from "../lib/controlled-surprise";
+import { analyzeMomentPipeline } from "../lib/moment-pipeline";
+import { sonicFitBonus } from "../lib/scene-sonic-profile";
+import { exclusionPenalty } from "../lib/negative-tags";
+import { decodeIntent } from "../lib/intent-decoder";
+import { computeTemporalMemory } from "../lib/temporal-memory";
+import { summarizePipeline } from "../lib/scoring-explanation";
+import { scorePromptConfidence } from "../lib/prompt-confidence";
+import { buildGenerationExplanation } from "../lib/vibe-explanation";
+import { buildMomentUnderstanding } from "../lib/moment-understanding";
+import { detectMixedEmotions } from "../lib/multi-emotion";
+import { assignNarrativeRoles } from "../lib/narrative-roles";
+import {
   analyzeVibeWithContext,
   scoreSong,
   buildPlaylistStructure,
@@ -97,15 +137,29 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const { vibe, mode, length, referencePlaylist } = parsed.data;
 
+    const mixedEmotions = detectMixedEmotions(vibe);
+    const destParse = parseEmotionalDestination(vibe);
+
     let emotionProfile: EmotionProfile;
     let experienceScene: ReturnType<typeof analyzeVibeWithContext>["experienceScene"] = null;
     let sceneJourneyArc: ReturnType<typeof analyzeVibeWithContext>["journeyArc"] | null = null;
+    let momentPipeline: ReturnType<typeof analyzeMomentPipeline> | null = null;
     try {
-      const analyzed = analyzeVibeWithContext(vibe);
-      emotionProfile = analyzed.profile;
-      experienceScene = analyzed.experienceScene;
-      sceneJourneyArc = analyzed.journeyArc;
-      req.log.info({ emotionProfile, experienceScene, sceneJourneyArc }, "Emotion profile computed");
+      momentPipeline = analyzeMomentPipeline(vibe);
+      emotionProfile = momentPipeline.profile;
+      experienceScene = momentPipeline.experienceScene;
+      sceneJourneyArc = momentPipeline.journeyArc;
+      req.log.info(
+        {
+          emotionProfile,
+          experienceScene,
+          sceneJourneyArc,
+          mixedEmotions,
+          canonicalScene: momentPipeline.canonicalScene?.id,
+          intent: momentPipeline.intent.intent,
+        },
+        "Emotion profile computed"
+      );
     } catch (emotionErr) {
       req.log.error({ err: emotionErr }, "Emotion engine failed — using neutral fallback");
       emotionProfile = { ...NEUTRAL_PROFILE };
@@ -158,7 +212,107 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     const vibeKind = detectVibeKind(vibe, emotionProfile);
-    req.log.info({ vibe, vibeKind, emotionProfile }, "Vibe kind detected");
+    const promptConfidence = scorePromptConfidence(vibe, emotionProfile, {
+      experienceSceneMatched: !!experienceScene,
+      hasJourneyDestination: !!destParse.desired,
+      mixedEmotions,
+    });
+    req.log.info({ vibe, vibeKind, promptConfidence }, "Vibe kind detected");
+
+    const recentPlaylists = await db
+      .select()
+      .from(playlistHistoryTable)
+      .where(eq(playlistHistoryTable.spotifyUserId, userId))
+      .orderBy(desc(playlistHistoryTable.createdAt))
+      .limit(25);
+
+    const freshnessStats = buildFreshnessStats(
+      recentPlaylists.map((p) => ({
+        vibe: p.vibe,
+        trackIds: (p.trackIds as string[]) ?? [],
+        emotionProfile: p.emotionProfile as EmotionProfile | null,
+      }))
+    );
+
+    const trackIdToArtist = new Map(likedSongs.map((s) => [s.trackId, s.artistName]));
+    const trackIdToAlbum = new Map(likedSongs.map((s) => [s.trackId, s.albumName]));
+    const artistAppearances = buildArtistAppearanceMap(
+      recentPlaylists.map((p) => ({ vibe: p.vibe, trackIds: (p.trackIds as string[]) ?? [] })),
+      trackIdToArtist
+    );
+    const albumAppearances = buildAlbumAppearanceMap(
+      recentPlaylists.map((p) => ({ vibe: p.vibe, trackIds: (p.trackIds as string[]) ?? [] })),
+      trackIdToAlbum
+    );
+
+    const cloneMultiplier = sceneClonePenalty(
+      vibe,
+      emotionProfile,
+      freshnessStats.recentSceneFingerprints,
+      momentPipeline?.canonicalScene?.sceneId ?? experienceScene?.sceneId
+    );
+
+    const humanIntent = momentPipeline?.intent ?? decodeIntent(vibe);
+    const sonicProfile = momentPipeline?.sonicProfile ?? null;
+    const scenePrototype = momentPipeline?.prototype ?? null;
+    const memoryWeight =
+      momentPipeline?.canonicalScene && momentPipeline.canonicalScene.confidence >= 0.65
+        ? 0.55
+        : momentPipeline?.experienceScene
+          ? 0.35
+          : 0;
+
+    const journeyArc =
+      sceneJourneyArc && sceneJourneyArc !== "default"
+        ? sceneJourneyArc
+        : detectJourneyArc(vibe, emotionProfile);
+
+    const archaeology = detectArchaeologyIntent(vibe);
+    let rediscoveryMode: RediscoveryMode = detectRediscoveryMode(vibe);
+    if (archaeology) rediscoveryMode = archaeology.rediscoveryMode;
+
+    const likedRows: LikedSongRow[] = likedSongs.map((s) => ({
+      trackId: s.trackId,
+      artistName: s.artistName,
+      albumName: s.albumName,
+      addedAt: s.addedAt,
+      energy: s.energy,
+      valence: s.valence,
+      acousticness: s.acousticness,
+      danceability: s.danceability,
+    }));
+
+    const musicChapters = detectMusicChapters(likedRows);
+    const chapterMatch = matchChapterFromVibe(vibe, musicChapters, likedRows);
+
+    const librarySignals = buildLibrarySignals(
+      likedRows,
+      recentPlaylists.map((p) => ({
+        vibe: p.vibe,
+        trackIds: (p.trackIds as string[]) ?? [],
+        emotionProfile: p.emotionProfile as EmotionProfile | null,
+        createdAt: p.createdAt,
+      }))
+    );
+
+    const surpriseMix = computeSurpriseMix({
+      profile: emotionProfile,
+      vibe,
+      rediscoveryMode,
+      archaeology,
+      journeyArc,
+      mode: mode as "strict" | "balanced" | "chaotic",
+    });
+
+    const arcRepeatCount = countRecentJourneyArc(
+      recentPlaylists.map((p) => ({
+        vibe: p.vibe,
+        trackIds: (p.trackIds as string[]) ?? [],
+        emotionProfile: p.emotionProfile as EmotionProfile | null,
+      })),
+      journeyArc
+    );
+    const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
     const scored = likedSongs.map((song) => {
       const base = scoreSong(
@@ -201,27 +355,52 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
       }
 
-      return { ...song, score };
+      if (memoryWeight > 0.45 && (song.acousticness ?? 0) > 0.35) {
+        score += memoryWeight * 0.06;
+      }
+
+      score += sonicFitBonus(song, sonicProfile);
+      score += exclusionPenalty(song, scenePrototype);
+
+      const signal = librarySignals.tracks.get(song.trackId);
+      const emotionFit = score;
+
+      const rediscoveryScore = signal
+        ? computeRediscoveryScore({
+            signal,
+            emotionFit,
+            profile: emotionProfile,
+            mode: rediscoveryMode,
+          })
+        : 0.2;
+
+      if (signal) {
+        score += computeTemporalMemory(signal).scoreModifier;
+      }
+
+      score += rediscoveryScoreBoost(rediscoveryScore, emotionFit, rediscoveryMode);
+      score += chapterTrackBoost(song.trackId, chapterMatch);
+      if (archaeology) score += archaeologyRediscoveryBoost(archaeology.concept);
+      score += rediscoveryJitter(song.trackId, startMs);
+      score *= promptConfidence.qualityBoost;
+      score *= journeyArcMultiplier;
+
+      score = applyFreshnessToScore(score, {
+        trackId: song.trackId,
+        artistName: song.artistName,
+        albumName: song.albumName,
+        stats: freshnessStats,
+        artistAppearances,
+        albumAppearances,
+        globalCloneMultiplier: cloneMultiplier,
+      });
+
+      return { ...song, score, rediscoveryScore };
     });
 
     req.log.info({ totalSongs: likedSongs.length }, "Songs scored");
 
-    const recentPlaylists = await db
-      .select()
-      .from(playlistHistoryTable)
-      .where(eq(playlistHistoryTable.spotifyUserId, userId))
-      .limit(5);
-
-    const recentTrackIds = new Set<string>();
-    for (const pl of recentPlaylists) {
-      const ids = (pl.trackIds as string[]) ?? [];
-      ids.forEach((id) => recentTrackIds.add(id));
-    }
-
-    let penalised = scored.map((song) => ({
-      ...song,
-      score: recentTrackIds.has(song.trackId) ? song.score * 0.6 : song.score,
-    }));
+    let penalised = scored;
 
     if (vibeKind === "sunny") {
       const gated = penalised.filter((s) =>
@@ -242,9 +421,11 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const maxPerArtist = mode === "strict" ? 2 : mode === "balanced" ? 3 : 5;
     const sorted = penalised.sort((a, b) => b.score - a.score);
-    const diversified = limitArtistRepetition(sorted, maxPerArtist);
 
     const poolTarget = Math.max(Math.ceil(length * 3), 75);
+    const poolBiased = applyRediscoveryPoolBias(sorted, surpriseMix, poolTarget * 2);
+    const diversified = limitArtistRepetition(poolBiased, maxPerArtist);
+
     const structured = buildPlaylistStructure(
       diversified,
       poolTarget,
@@ -286,12 +467,47 @@ router.post("/generate", async (req, res): Promise<void> => {
       afterSmoothing = afterDeadZone;
     }
     const afterArtistSep = separateAdjacentArtists(afterSmoothing);
-    const journeyArc =
-      sceneJourneyArc && sceneJourneyArc !== "default"
-        ? sceneJourneyArc
-        : detectJourneyArc(vibe, emotionProfile);
     const afterArc = enforceArc(afterArtistSep, emotionProfile, journeyArc);
-    const finalTracks = afterArc.slice(0, length);
+    let finalTracks = assignNarrativeRoles(afterArc.slice(0, length), journeyArc);
+
+    const wildcardPool = sorted.slice(0, Math.min(sorted.length, poolTarget * 3));
+    finalTracks = injectControlledSurprise(
+      finalTracks,
+      wildcardPool,
+      emotionProfile,
+      surpriseMix,
+      humanIntent.intent,
+      length
+    );
+
+    const explanation = buildGenerationExplanation({
+      profile: emotionProfile,
+      vibe,
+      journeyArc,
+      experienceScene,
+      mixedEmotions,
+      promptConfidence,
+      socialContext: undefined,
+      season: undefined,
+    });
+
+    const momentUnderstanding = buildMomentUnderstanding({
+      vibe,
+      profile: emotionProfile,
+      journeyArc,
+      destParse,
+      mixedEmotions,
+      explanation,
+      experienceScene,
+      socialContext: undefined,
+      season: undefined,
+      librarySize: likedSongs.length,
+      tracksSelected: finalTracks.length,
+      rediscoveryMode,
+      chapterLabel: chapterMatch?.chapter.label ?? null,
+      surpriseMix,
+      archaeologyActive: !!archaeology,
+    });
 
     req.log.info(
       {
@@ -354,7 +570,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       .values({
         userId,
         name: playlistName,
-        emotionProfile: emotionProfile as any,
+        emotionProfile: { ...emotionProfile, journeyArc } as any,
         tracks: trackObjects as any,
         spotifyUrl: spotifyPlaylistUrl,
         vibe,
@@ -375,7 +591,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         vibe,
         mode,
         trackCount: finalTracks.length,
-        emotionProfile: emotionProfile as any,
+        emotionProfile: { ...emotionProfile, journeyArc } as any,
         trackIds: finalTracks.map((t) => t.trackId) as any,
       });
     } catch (histErr) {
@@ -407,8 +623,39 @@ router.post("/generate", async (req, res): Promise<void> => {
         artistCount,
         generationMs,
       },
-      emotionProfile,
+      emotionProfile: { ...emotionProfile, journeyArc },
       experienceScene,
+      momentUnderstanding,
+      emotionalIntelligence: momentPipeline
+        ? {
+            pipeline: momentPipeline.pipelineSummary,
+            ...summarizePipeline({
+              canonical: momentPipeline.canonicalScene,
+              prototype: momentPipeline.prototype,
+              intent: momentPipeline.intent,
+              physics: momentPipeline.physics,
+              graphPaths: momentPipeline.graph.propagationPath,
+            }),
+            sonicTraits: momentPipeline.sonicProfile?.traits ?? [],
+          }
+        : null,
+      explanation,
+      promptConfidence,
+      libraryIntelligence: {
+        rediscoveryMode,
+        archaeology: archaeology
+          ? { concept: archaeology.concept, label: archaeology.label }
+          : null,
+        chapter: chapterMatch
+          ? {
+              id: chapterMatch.chapter.id,
+              label: chapterMatch.chapter.label,
+              trackCount: chapterMatch.chapter.trackIds.length,
+            }
+          : null,
+        surpriseMix,
+        chaptersAvailable: musicChapters.length,
+      },
       vibeKind,
       journeyArc,
       referenceMatch: referenceFingerprint
@@ -433,6 +680,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         valence: t.valence ?? null,
         tempo: t.tempo ?? null,
         score: Math.round(t.score * 100) / 100,
+        rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
+        narrativeRole: t.narrativeRole,
       })),
     });
   } catch (fatalErr: any) {
