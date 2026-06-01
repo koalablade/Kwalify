@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kwalify — AI Playlist Generator</title>
+  <meta name="description" content="Generate emotionally intelligent playlists from your Spotify library." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #1db954;
+      --green-dim: #17a349;
+      --bg: #0b0b0f;
+      --surface: #141418;
+      --surface2: #1c1c22;
+      --border: #2a2a32;
+      --text: #e8e8f0;
+      --muted: #8888a0;
+      --danger: #e05252;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Layout ── */
+    #app { min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Loading screen ── */
+    #loading {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: var(--bg); z-index: 100; flex-direction: column; gap: 16px;
+    }
+    .spinner {
+      width: 36px; height: 36px; border: 3px solid var(--border);
+      border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Landing page ── */
+    #landing {
+      display: none; flex: 1; flex-direction: column;
+      align-items: center; justify-content: center; padding: 32px 20px; text-align: center;
+    }
+    .landing-logo { font-size: 56px; margin-bottom: 8px; }
+    .landing-title { font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-bottom: 10px; }
+    .landing-title span { color: var(--green); }
+    .landing-sub { font-size: 18px; color: var(--muted); max-width: 460px; line-height: 1.6; margin-bottom: 40px; }
+    .btn-spotify {
+      display: inline-flex; align-items: center; gap: 12px;
+      background: var(--green); color: #000; font-weight: 700; font-size: 16px;
+      padding: 16px 36px; border-radius: 50px; text-decoration: none; border: none;
+      cursor: pointer; transition: background .15s, transform .1s; letter-spacing: .3px;
+    }
+    .btn-spotify:hover { background: var(--green-dim); }
+    .btn-spotify:active { transform: scale(.97); }
+    .btn-spotify svg { width: 22px; height: 22px; flex-shrink: 0; }
+    .landing-features { display: flex; gap: 28px; margin-top: 56px; flex-wrap: wrap; justify-content: center; }
+    .feat-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px 24px; max-width: 200px; text-align: left;
+    }
+    .feat-icon { font-size: 28px; margin-bottom: 10px; }
+    .feat-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .feat-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    /* ── App shell ── */
+    #shell { display: none; flex: 1; flex-direction: column; }
+
+    /* ── Header ── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 28px; border-bottom: 1px solid var(--border);
+      background: var(--surface); position: sticky; top: 0; z-index: 10;
+    }
+    .header-logo { font-size: 20px; font-weight: 800; letter-spacing: -.5px; }
+    .header-logo span { color: var(--green); }
+    .header-user { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+      width: 34px; height: 34px; border-radius: 50%; background: var(--border);
+      object-fit: cover; flex-shrink: 0;
+    }
+    .user-name { font-size: 14px; font-weight: 500; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-logout {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+    .btn-logout:hover { color: var(--text); border-color: var(--muted); }
+
+    /* ── Main content ── */
+    main { flex: 1; max-width: 760px; width: 100%; margin: 0 auto; padding: 32px 20px 60px; }
+
+    /* ── Sync banner ── */
+    #sync-section { margin-bottom: 28px; }
+    .sync-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px 24px;
+    }
+    .sync-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .sync-title { font-size: 15px; font-weight: 600; }
+    .sync-meta { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 50px; font-size: 12px; font-weight: 600;
+    }
+    .badge-green { background: rgba(29,185,84,.15); color: var(--green); }
+    .badge-yellow { background: rgba(255,196,0,.12); color: #ffc400; }
+    .badge-muted { background: var(--surface2); color: var(--muted); }
+    .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 14px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .4s; }
+    .btn-sync {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 18px; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer;
+      transition: background .15s; font-weight: 500; white-space: nowrap;
+    }
+    .btn-sync:hover { background: var(--border); }
+    .btn-sync:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Generate form ── */
+    #generate-section {}
+    .section-title { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+    .form-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px 28px 24px;
+    }
+    .field { margin-bottom: 20px; }
+    .field:last-child { margin-bottom: 0; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+    textarea, input[type=range] { width: 100%; }
+    textarea {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: var(--radius-sm); padding: 14px 16px; font-size: 15px;
+      font-family: inherit; resize: vertical; min-height: 90px; line-height: 1.5;
+      transition: border-color .15s;
+    }
+    textarea:focus { outline: none; border-color: var(--green); }
+    textarea::placeholder { color: var(--muted); }
+    .mode-group { display: flex; gap: 10px; flex-wrap: wrap; }
+    .mode-btn {
+      flex: 1; min-width: 100px; padding: 12px 8px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted);
+      font-size: 13px; font-weight: 600; cursor: pointer; text-align: center;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+    .mode-btn.active { background: rgba(29,185,84,.15); border-color: var(--green); color: var(--green); }
+    .mode-btn:hover:not(.active) { background: var(--border); color: var(--text); }
+    .mode-label { font-size: 15px; margin-bottom: 2px; }
+    .mode-desc { font-size: 11px; opacity: .7; font-weight: 400; }
+    .range-row { display: flex; align-items: center; gap: 14px; }
+    input[type=range] {
+      -webkit-appearance: none; appearance: none; height: 4px;
+      background: var(--border); border-radius: 2px; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: var(--green); cursor: pointer; margin-top: -7px;
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%; background: var(--green); cursor: pointer; border: none;
+    }
+    .range-val {
+      min-width: 44px; text-align: right; font-size: 14px; font-weight: 600; color: var(--green);
+    }
+    .btn-generate {
+      width: 100%; margin-top: 24px; padding: 16px;
+      background: var(--green); color: #000; border: none; border-radius: var(--radius-sm);
+      font-size: 16px; font-weight: 700; cursor: pointer; letter-spacing: .3px;
+      transition: background .15s, transform .1s; display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .btn-generate:hover:not(:disabled) { background: var(--green-dim); }
+    .btn-generate:active:not(:disabled) { transform: scale(.98); }
+    .btn-generate:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-generate .btn-spinner {
+      width: 18px; height: 18px; border: 2px solid rgba(0,0,0,.3);
+      border-top-color: #000; border-radius: 50%; animation: spin .6s linear infinite;
+    }
+
+    /* ── Results ── */
+    #result-section { display: none; margin-top: 32px; }
+    .result-card {
+      background: var(--surface); border: 1px solid var(--green);
+      border-radius: var(--radius); padding: 24px;
+    }
+    .result-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+    .result-name { font-size: 20px; font-weight: 700; line-height: 1.3; }
+    .result-meta { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .btn-open {
+      display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+      background: var(--green); color: #000; font-weight: 700; font-size: 14px;
+      padding: 10px 20px; border-radius: 50px; text-decoration: none; flex-shrink: 0;
+      transition: background .15s;
+    }
+    .btn-open:hover { background: var(--green-dim); }
+    .emotion-bars { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .emotion-bar { background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 14px; }
+    .emotion-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+    .emotion-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .emotion-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .6s; }
+    .tracks-toggle {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 8px 16px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer;
+      transition: color .15s, border-color .15s; margin-bottom: 12px;
+    }
+    .tracks-toggle:hover { color: var(--text); border-color: var(--muted); }
+    #tracks-list { display: none; }
+    .track-row {
+      display: flex; align-items: center; gap: 12px; padding: 10px 0;
+      border-bottom: 1px solid var(--border); font-size: 14px;
+    }
+    .track-row:last-child { border-bottom: none; }
+    .track-num { min-width: 24px; color: var(--muted); font-size: 12px; text-align: right; }
+    .track-art {
+      width: 40px; height: 40px; border-radius: 4px; background: var(--border);
+      object-fit: cover; flex-shrink: 0;
+    }
+    .track-info { flex: 1; min-width: 0; }
+    .track-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-artist { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-again {
+      width: 100%; margin-top: 20px; padding: 12px;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-again:hover { background: var(--border); }
+
+    /* ── History ── */
+    #history-section { margin-top: 40px; }
+    .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .history-toggle { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; }
+    .history-toggle:hover { color: var(--text); }
+    #history-list {}
+    .history-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px 18px; margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .history-name { font-size: 15px; font-weight: 600; }
+    .history-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .history-link {
+      color: var(--green); font-size: 12px; font-weight: 600;
+      text-decoration: none; white-space: nowrap;
+    }
+    .history-link:hover { text-decoration: underline; }
+    .empty-state { text-align: center; padding: 32px; color: var(--muted); font-size: 14px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      padding: 12px 22px; border-radius: 50px; font-size: 14px; font-weight: 500;
+      transition: transform .25s; z-index: 200; white-space: nowrap; pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.error { border-color: var(--danger); color: var(--danger); }
+
+    @media (max-width: 520px) {
+      header { padding: 14px 16px; }
+      main { padding: 20px 14px 48px; }
+      .form-card { padding: 20px 16px; }
+      .landing-title { font-size: 32px; }
+      .landing-sub { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <span style="color:var(--muted);font-size:14px">Loading Kwalify…</span>
+</div>
+
+<!-- ── Landing ── -->
+<div id="landing" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center">
+  <div class="landing-logo">🎵</div>
+  <h1 class="landing-title">Kwal<span>ify</span></h1>
+  <p class="landing-sub">Your AI DJ. Describe a feeling — get a playlist built from music you actually own.</p>
+  <a href="/api/auth/login" class="btn-spotify">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+    Login with Spotify
+  </a>
+  <div class="landing-features">
+    <div class="feat-card">
+      <div class="feat-icon">🧠</div>
+      <div class="feat-title">Emotion Analysis</div>
+      <div class="feat-desc">Describe your vibe — AI maps it to energy, valence, and tension.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🎯</div>
+      <div class="feat-title">Your Library</div>
+      <div class="feat-desc">Only uses songs you've already liked on Spotify.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🎚️</div>
+      <div class="feat-title">Three Modes</div>
+      <div class="feat-desc">Strict, balanced, or chaotic — control how literally AI interprets you.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── App shell ── -->
+<div id="shell" style="display:none;flex:1;flex-direction:column;">
+  <header>
+    <div class="header-logo">Kwal<span>ify</span></div>
+    <div class="header-user">
+      <img id="user-avatar" class="avatar" src="" alt="" onerror="this.style.display='none'" />
+      <span id="user-name" class="user-name"></span>
+      <button class="btn-logout" id="btn-logout">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Sync status -->
+    <div id="sync-section" class="sync-card">
+      <div class="sync-header">
+        <div>
+          <div class="sync-title">Spotify Library <span id="sync-badge"></span></div>
+          <div id="sync-meta" class="sync-meta">Checking…</div>
+        </div>
+        <button id="btn-sync" class="btn-sync">Sync Library</button>
+      </div>
+      <div id="sync-progress-wrap" class="progress-bar" style="display:none">
+        <div id="sync-progress-fill" class="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Generate -->
+    <div id="generate-section" style="margin-top:28px">
+      <h2 class="section-title">Generate a Playlist</h2>
+      <div class="form-card">
+        <div class="field">
+          <label>Describe Your Vibe</label>
+          <textarea id="vibe-input" placeholder="e.g. "late night drive through rain, nostalgic and a little melancholy"" rows="3"></textarea>
+        </div>
+        <div class="field">
+          <label>Mode</label>
+          <div class="mode-group">
+            <button class="mode-btn" data-mode="strict">
+              <div class="mode-label">🎯 Strict</div>
+              <div class="mode-desc">Pure emotion match</div>
+            </button>
+            <button class="mode-btn active" data-mode="balanced">
+              <div class="mode-label">⚖️ Balanced</div>
+              <div class="mode-desc">Best of both</div>
+            </button>
+            <button class="mode-btn" data-mode="chaotic">
+              <div class="mode-label">🎲 Chaotic</div>
+              <div class="mode-desc">Surprising picks</div>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Length — <span id="length-label">25</span> tracks</label>
+          <div class="range-row">
+            <input type="range" id="length-input" min="10" max="100" value="25" step="5" />
+            <span class="range-val" id="length-val">25</span>
+          </div>
+        </div>
+        <button id="btn-generate" class="btn-generate">
+          <span id="gen-label">✨ Generate Playlist</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div id="result-section">
+      <div class="result-card">
+        <div class="result-header">
+          <div>
+            <div id="result-name" class="result-name"></div>
+            <div id="result-meta" class="result-meta"></div>
+          </div>
+          <a id="result-link" href="#" target="_blank" rel="noopener" class="btn-open">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+            Open in Spotify
+          </a>
+        </div>
+        <div id="emotion-bars" class="emotion-bars"></div>
+        <button class="tracks-toggle" id="tracks-toggle">Show tracks ▾</button>
+        <div id="tracks-list"></div>
+        <button class="btn-again" id="btn-again">Generate Another</button>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div id="history-section">
+      <div class="history-header">
+        <h2 class="section-title" style="margin-bottom:0">Recent Playlists</h2>
+        <button class="history-toggle" id="history-refresh">↻ Refresh</button>
+      </div>
+      <div id="history-list"><div class="empty-state">No playlists yet.</div></div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── State ────────────────────────────────────────────────────────────────────
+let me = null;
+let selectedMode = 'balanced';
+let syncPoller = null;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function show(id) { const el = $(id); if (el) el.style.display = el.dataset.display || 'block'; }
+function hide(id) { const el = $(id); if (el) el.style.display = 'none'; }
+function flex(id) { const el = $(id); if (el) el.style.display = 'flex'; }
+
+async function api(path, opts = {}) {
+  const res = await fetch(`/api${path}`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    ...opts,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw Object.assign(new Error(err.error || 'Request failed'), { status: res.status });
+  }
+  return res.json();
+}
+
+let toastTimer;
+function toast(msg, isError = false) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = isError ? 'error show' : 'show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = el.className.replace(' show', ''); }, 3200);
+}
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+async function boot() {
+  try {
+    me = await api('/auth/me');
+    showApp();
+  } catch (e) {
+    if (e.status === 503) {
+      // Spotify not configured — show landing with a note
+      showLanding('Spotify not configured on this server.');
+    } else {
+      showLanding();
+    }
+  }
+}
+
+function showLanding(note) {
+  hide('loading');
+  const el = $('landing');
+  el.style.display = 'flex';
+  if (note) toast(note, true);
+}
+
+function showApp() {
+  hide('loading');
+  const shell = $('shell');
+  shell.style.display = 'flex';
+
+  // User header
+  if (me.avatarUrl) $('user-avatar').src = me.avatarUrl;
+  $('user-name').textContent = me.displayName || me.id;
+
+  // Load everything
+  pollSync();
+  loadHistory();
+}
+
+// ── Sync ─────────────────────────────────────────────────────────────────────
+async function pollSync() {
+  clearInterval(syncPoller);
+  try {
+    const s = await api('/spotify/cache-status');
+    renderSync(s);
+    if (s.isSyncing) {
+      syncPoller = setInterval(async () => {
+        try {
+          const s2 = await api('/spotify/cache-status');
+          renderSync(s2);
+          if (!s2.isSyncing) clearInterval(syncPoller);
+        } catch {}
+      }, 2500);
+    }
+  } catch (e) {
+    $('sync-meta').textContent = 'Could not check sync status.';
+  }
+}
+
+function renderSync(s) {
+  const badge = $('sync-badge');
+  const meta = $('sync-meta');
+  const btn = $('btn-sync');
+  const progressWrap = $('sync-progress-wrap');
+  const progressFill = $('sync-progress-fill');
+
+  if (s.isSyncing) {
+    badge.innerHTML = '<span class="badge badge-yellow">● Syncing…</span>';
+    const pct = s.syncTotal ? Math.round((s.syncProgress / s.syncTotal) * 100) : 0;
+    meta.textContent = s.syncTotal ? `${s.syncProgress} / ${s.syncTotal} tracks` : 'Syncing your library…';
+    progressWrap.style.display = 'block';
+    progressFill.style.width = pct + '%';
+    btn.disabled = true;
+    btn.textContent = 'Syncing…';
+  } else if (s.synced) {
+    badge.innerHTML = '<span class="badge badge-green">✓ Synced</span>';
+    const ts = s.lastSyncedAt ? `Last synced ${timeAgo(s.lastSyncedAt)}` : '';
+    meta.textContent = `${s.totalTracks.toLocaleString()} tracks${ts ? ' · ' + ts : ''}`;
+    progressWrap.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = 'Re-sync';
+  } else {
+    badge.innerHTML = '<span class="badge badge-muted">Not synced</span>';
+    meta.textContent = 'Sync your liked songs to get started.';
+    progressWrap.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = 'Sync Library';
+  }
+}
+
+$('btn-sync').addEventListener('click', async () => {
+  $('btn-sync').disabled = true;
+  $('btn-sync').textContent = 'Starting…';
+  try {
+    await api('/spotify/sync', { method: 'POST' });
+    toast('Sync started — this may take a minute');
+    pollSync();
+  } catch (e) {
+    toast(e.message || 'Sync failed', true);
+    $('btn-sync').disabled = false;
+    $('btn-sync').textContent = 'Sync Library';
+  }
+});
+
+// ── Mode buttons ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedMode = btn.dataset.mode;
+  });
+});
+
+// ── Length slider ─────────────────────────────────────────────────────────────
+const lengthInput = $('length-input');
+const lengthVal = $('length-val');
+const lengthLabel = $('length-label');
+lengthInput.addEventListener('input', () => {
+  lengthVal.textContent = lengthInput.value;
+  lengthLabel.textContent = lengthInput.value;
+});
+
+// ── Generate ─────────────────────────────────────────────────────────────────
+$('btn-generate').addEventListener('click', async () => {
+  const vibe = $('vibe-input').value.trim();
+  if (!vibe) { toast('Describe your vibe first!', true); $('vibe-input').focus(); return; }
+
+  const btn = $('btn-generate');
+  btn.disabled = true;
+  $('gen-label').innerHTML = '<span class="btn-spinner"></span> Generating…';
+  hide('result-section');
+
+  try {
+    const result = await api('/generate', {
+      method: 'POST',
+      body: JSON.stringify({ vibe, mode: selectedMode, length: parseInt(lengthInput.value) }),
+    });
+    renderResult(result);
+    loadHistory();
+  } catch (e) {
+    toast(e.message || 'Generation failed', true);
+  } finally {
+    btn.disabled = false;
+    $('gen-label').textContent = '✨ Generate Playlist';
+  }
+});
+
+function renderResult(r) {
+  $('result-name').textContent = r.name;
+  $('result-meta').textContent = `${r.tracks.length} tracks · ${r.mode} mode · "${r.vibe}"`;
+  $('result-link').href = r.playlistUrl;
+
+  // Emotion bars
+  const ep = r.emotionProfile;
+  const dims = [
+    ['Energy', ep.energy], ['Valence', ep.valence], ['Tension', ep.tension],
+    ['Nostalgia', ep.nostalgia], ['Calm', ep.calm],
+  ];
+  $('emotion-bars').innerHTML = dims.map(([label, val]) => `
+    <div class="emotion-bar">
+      <div class="emotion-label">${label}</div>
+      <div class="emotion-track">
+        <div class="emotion-fill" style="width:${Math.round((val||0)*100)}%"></div>
+      </div>
+    </div>
+  `).join('');
+
+  // Tracks
+  $('tracks-list').innerHTML = r.tracks.map((t, i) => `
+    <div class="track-row">
+      <span class="track-num">${i + 1}</span>
+      <div class="track-info">
+        <div class="track-name">${t.name}</div>
+        <div class="track-artist">${t.artist}</div>
+      </div>
+    </div>
+  `).join('');
+
+  $('tracks-toggle').textContent = 'Show tracks ▾';
+  $('tracks-list').style.display = 'none';
+  show('result-section');
+  $('result-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Toggle tracks
+$('tracks-toggle').addEventListener('click', () => {
+  const list = $('tracks-list');
+  const open = list.style.display !== 'none';
+  list.style.display = open ? 'none' : 'block';
+  $('tracks-toggle').textContent = open ? 'Show tracks ▾' : 'Hide tracks ▴';
+});
+
+// Generate another
+$('btn-again').addEventListener('click', () => {
+  hide('result-section');
+  $('vibe-input').focus();
+});
+
+// ── History ─────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const items = await api('/history');
+    const list = $('history-list');
+    if (!items.length) {
+      list.innerHTML = '<div class="empty-state">No playlists yet — generate your first one above.</div>';
+      return;
+    }
+    list.innerHTML = items.slice(0, 10).map(h => `
+      <div class="history-item">
+        <div>
+          <div class="history-name">${h.name}</div>
+          <div class="history-meta">${h.trackCount} tracks · ${h.mode} · ${timeAgo(h.createdAt)}</div>
+        </div>
+        <a href="${h.playlistUrl}" target="_blank" rel="noopener" class="history-link">Open ↗</a>
+      </div>
+    `).join('');
+  } catch {}
+}
+
+$('history-refresh').addEventListener('click', loadHistory);
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+$('btn-logout').addEventListener('click', async () => {
+  try {
+    await api('/auth/logout', { method: 'POST' });
+  } catch {}
+  location.reload();
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>

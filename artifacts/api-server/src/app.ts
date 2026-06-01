@@ -4,6 +4,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
 import pg from "pg";
+import path from "node:path";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { type AppEnv } from "./lib/env";
@@ -80,6 +81,11 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  // Serve the frontend from public/ directory.
+  // __dirname = artifacts/api-server/dist at runtime → ../public = artifacts/api-server/public
+  app.use(express.static(path.resolve(__dirname, "../public")));
+
   app.use("/api", router);
 
   return app;
