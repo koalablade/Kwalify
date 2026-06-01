@@ -312,17 +312,36 @@ export async function createSpotifyPlaylist(
   const playlist = playlistResponse.data;
 
   const batchSize = 100;
-  for (let i = 0; i < trackUris.length; i += batchSize) {
-    const batch = trackUris.slice(i, i + batchSize);
-    await spotifyRequest({
-      method: "POST",
-      url: `${SPOTIFY_API_BASE}/playlists/${playlist.id}/tracks`,
-      data: { uris: batch },
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-    });
+  try {
+    for (let i = 0; i < trackUris.length; i += batchSize) {
+      const batch = trackUris.slice(i, i + batchSize);
+      await spotifyRequest({
+        method: "POST",
+        url: `${SPOTIFY_API_BASE}/playlists/${playlist.id}/tracks`,
+        data: { uris: batch },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+    }
+  } catch (err: any) {
+    // Track addition failed — delete the empty playlist to avoid Spotify clutter,
+    // then re-throw so the caller can fall back to DB-only mode.
+    logger.warn(
+      { playlistId: playlist.id, status: err?.response?.status, msg: err?.response?.data },
+      "[spotify] Track add failed — deleting empty playlist"
+    );
+    try {
+      await spotifyRequest({
+        method: "DELETE",
+        url: `${SPOTIFY_API_BASE}/playlists/${playlist.id}/followers`,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+    } catch {
+      // Ignore cleanup failure
+    }
+    throw err;
   }
 
   return {
