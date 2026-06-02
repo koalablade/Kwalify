@@ -528,21 +528,43 @@
       .presets { overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; }
     }
 
-    /* ── Emotional density + attention gravity (timing/opacity only) ── */
+    /* ── Mood Cinema Engine v1 (light as emotion) ── */
     body.moment-compose,
     body.moment-listening,
     body.moment-result {
-      transition: filter 1.05s cubic-bezier(0.16, 1, 0.28, 1);
+      transition: background 900ms cubic-bezier(0.16, 1, 0.3, 1),
+                  filter 900ms cubic-bezier(0.16, 1, 0.3, 1);
     }
-    body.moment-compose {
-      filter: blur(0) brightness(1) contrast(.94) saturate(.98);
-    }
-    body.moment-listening {
-      filter: blur(2px) brightness(.88) contrast(.9) saturate(.88);
-    }
-    body.moment-result {
-      filter: blur(0) brightness(1.03) contrast(1.1) saturate(1.04);
-    }
+    body.atmo-neutral { background:#060608; }
+    body.atmo-sun { background:radial-gradient(circle at 50% 40%, #2a1f0a 0%, #060608 70%); }
+    body.atmo-night { background:radial-gradient(circle at 50% 45%, #0a0f1f 0%, #050508 75%); }
+    body.atmo-rain { background:radial-gradient(circle at 50% 50%, #0b1116 0%, #050508 80%); }
+    body.atmo-drive { background:radial-gradient(circle at 50% 50%, #111018 0%, #050508 80%); }
+    body.atmo-memory { background:radial-gradient(circle at 50% 45%, #1a1418 0%, #050508 75%); }
+    body.atmo-calm { background:radial-gradient(circle at 50% 50%, #0c0f0f 0%, #050508 80%); }
+    body.moment-compose.atmo-neutral { filter:blur(0) brightness(1) contrast(.94) saturate(.98); }
+    body.moment-compose.atmo-sun { filter:blur(0) brightness(1.08) contrast(1.02) saturate(1.1); }
+    body.moment-compose.atmo-night { filter:blur(0) brightness(.88) contrast(1.08) saturate(.9); }
+    body.moment-compose.atmo-rain { filter:blur(0) brightness(.82) contrast(1.05) saturate(.85); }
+    body.moment-compose.atmo-drive { filter:blur(0) brightness(.95) contrast(1.1) saturate(.98); }
+    body.moment-compose.atmo-memory { filter:blur(.2px) brightness(.9) contrast(.95) saturate(.92); }
+    body.moment-compose.atmo-calm { filter:blur(0) brightness(.92) contrast(.95) saturate(.85); }
+    body.moment-listening.atmo-neutral { filter:blur(2px) brightness(.85) contrast(1.05) saturate(.88); }
+    body.moment-listening.atmo-sun { filter:blur(2px) brightness(.85) contrast(1.05) saturate(1.02); }
+    body.moment-listening.atmo-night { filter:blur(2px) brightness(.82) contrast(1.08) saturate(.86); }
+    body.moment-listening.atmo-rain { filter:blur(2px) brightness(.78) contrast(1.06) saturate(.82); }
+    body.moment-listening.atmo-drive { filter:blur(2px) brightness(.84) contrast(1.08) saturate(.9); }
+    body.moment-listening.atmo-memory { filter:blur(2px) brightness(.8) contrast(1.04) saturate(.88); }
+    body.moment-listening.atmo-calm { filter:blur(2px) brightness(.83) contrast(1.02) saturate(.84); }
+    body.moment-result.atmo-neutral { filter:blur(0) brightness(1.03) contrast(1.1) saturate(1.04); }
+    body.moment-result.atmo-sun { filter:blur(0) brightness(1.05) contrast(1.08) saturate(1.08); }
+    body.moment-result.atmo-night { filter:blur(0) brightness(1.02) contrast(1.1) saturate(.94); }
+    body.moment-result.atmo-rain { filter:blur(0) brightness(1.01) contrast(1.09) saturate(.9); }
+    body.moment-result.atmo-drive { filter:blur(0) brightness(1.04) contrast(1.1) saturate(1.02); }
+    body.moment-result.atmo-memory { filter:blur(0) brightness(1.02) contrast(1.06) saturate(.96); }
+    body.moment-result.atmo-calm { filter:blur(0) brightness(1.03) contrast(1.07) saturate(.92); }
+
+    /* ── Emotional density grain + depth (timing/opacity only) ── */
     body.moment-compose::before,
     body.moment-listening::before,
     body.moment-result::before {
@@ -593,11 +615,12 @@
     body.moment-result .moment-app .page::before {
       background:rgba(8,6,4,.12);
     }
-    body.moment-result.atmo-sun .moment-app .page::before { background:rgba(32,24,8,.14); }
-    body.moment-result.atmo-night .moment-app .page::before { background:rgba(6,8,18,.22); }
-    body.moment-result.atmo-rain .moment-app .page::before { background:rgba(10,14,20,.18); }
-    body.moment-result.atmo-city .moment-app .page::before { background:rgba(8,10,16,.16); }
-    body.moment-result.atmo-memory .moment-app .page::before { background:rgba(28,18,10,.14); }
+    body.moment-result.atmo-sun .moment-app .page::before { background:rgba(32,24,8,.1); }
+    body.moment-result.atmo-night .moment-app .page::before { background:rgba(6,8,18,.16); }
+    body.moment-result.atmo-rain .moment-app .page::before { background:rgba(10,14,20,.14); }
+    body.moment-result.atmo-drive .moment-app .page::before { background:rgba(12,10,18,.12); }
+    body.moment-result.atmo-memory .moment-app .page::before { background:rgba(28,18,10,.12); }
+    body.moment-result.atmo-calm .moment-app .page::before { background:rgba(10,12,12,.1); }
     .moment-app .page::after {
       content:''; position:fixed; inset:0; z-index:2; pointer-events:none;
       background:radial-gradient(ellipse 78% 68% at 50% 38%, rgba(14,16,20,.12) 0%, transparent 42%, rgba(2,2,4,.9) 100%);
@@ -1293,7 +1316,8 @@ function returnToCompose(){
   const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
   const lo=$('listenOverlay');
   if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
-  _clearAtmosphere();
+  if(vibeInput?.value?.trim()) scheduleMoodCinemaFromInput(vibeInput.value);
+  else setMoodCinema('neutral');
   setMomentState('compose');
   if(generateBtn){ generateBtn.style.opacity=''; }
   vibeInput?.focus();
@@ -1304,6 +1328,7 @@ function showApp(userData){
   $('appView').style.display='flex';
   document.querySelector('.page')?.classList.add('moment-app');
   setMomentState('compose');
+  setMoodCinema('neutral');
 
   $('headerNav').innerHTML=`
     <div class="header-menu-wrap">
@@ -1450,30 +1475,61 @@ const _AESTHETIC_CUES=[
   {re:/calm|quiet|peace|slow|soft|still/i, line:'Soft focus — unhurried, near, gentle.'},
 ];
 
-function _atmosphereClass(vibe, ep){
-  const t=(vibe||'').toLowerCase();
-  if(/sun|sunny|morning|bright|golden|warm/.test(t)) return 'atmo-sun';
-  if(/night|midnight|late|dark|alone|3am/.test(t)) return 'atmo-night';
-  if(/rain|wet|grey|gray|storm|drizzle/.test(t)) return 'atmo-rain';
-  if(/city|london|street|neon|urban|lights/.test(t)) return 'atmo-city';
-  if(/memory|remember|nostalg|childhood|old/.test(t)) return 'atmo-memory';
-  if(ep&&typeof ep==='object'){
-    const e=ep.energy||0, v=ep.valence||0;
-    if(e>.62&&v>.55) return 'atmo-sun';
-    if(e<.42||v<.42) return 'atmo-night';
-    if(v>.58) return 'atmo-memory';
+const MOOD_CINEMA_IDS=['sun','night','rain','drive','memory','calm','neutral'];
+const MOOD_CINEMA_WORDS={
+  sun:['sun','sunny','bright','happy','summer','warm','golden','morning','daylight','golden hour'],
+  night:['night','dark','midnight','alone','late','citylights','city','neon','urban','lights','3am','after hours'],
+  rain:['rain','storm','grey','gray','cold','wet','fog','drizzle'],
+  drive:['drive','motorway','road','car','speed','journey','highway','windows down','motorway'],
+  memory:['memory','nostalgia','childhood','remember','past','nostalg','used to','old times'],
+  calm:['calm','soft','quiet','still','peace','gentle','slow','unhurried'],
+};
+let _moodCinemaTimer=null;
+
+function detectMoodCinema(text){
+  const t=(text||'').toLowerCase();
+  let best='neutral', score=0;
+  for(const mood of MOOD_CINEMA_IDS){
+    if(mood==='neutral') continue;
+    const words=MOOD_CINEMA_WORDS[mood]||[];
+    let s=0;
+    for(const w of words){
+      if(t.includes(w)) s++;
+    }
+    if(s>score){ score=s; best=mood; }
   }
-  return '';
+  return best;
+}
+
+function setMoodCinema(mood){
+  const m=MOOD_CINEMA_IDS.includes(mood)?mood:'neutral';
+  MOOD_CINEMA_IDS.forEach(id=>document.body.classList.remove('atmo-'+id));
+  document.body.classList.add('atmo-'+m);
+}
+
+function scheduleMoodCinemaFromInput(text){
+  clearTimeout(_moodCinemaTimer);
+  _moodCinemaTimer=setTimeout(()=>setMoodCinema(detectMoodCinema(text)), 140);
+}
+
+function _moodCinemaFromProfile(ep){
+  if(!ep||typeof ep!=='object') return 'neutral';
+  const e=ep.energy||0, v=ep.valence||0, c=ep.calm||0;
+  if(e>.62&&v>.55) return 'sun';
+  if(e<.42&&v<.48) return 'night';
+  if(c>.55||v<.45) return 'calm';
+  if(v>.58) return 'memory';
+  return 'drive';
 }
 
 function _clearAtmosphere(){
-  document.body.classList.remove('atmo-sun','atmo-night','atmo-rain','atmo-city','atmo-memory');
+  setMoodCinema('neutral');
 }
 
 function _applyAtmosphere(vibe, ep){
-  _clearAtmosphere();
-  const c=_atmosphereClass(vibe, ep);
-  if(c) document.body.classList.add(c);
+  let mood=detectMoodCinema(vibe);
+  if(mood==='neutral') mood=_moodCinemaFromProfile(ep);
+  setMoodCinema(mood);
 }
 
 function _aestheticMomentLine(vibe, ep){
@@ -2159,9 +2215,13 @@ function generate(){
   .then(({ok,status,d})=>{
     varietyBoostNext=false;
     setLoading(false);
-    _clearAtmosphere();
-    setMomentState('compose');
+    function _restoreComposeMood(){
+      setMomentState('compose');
+      if(vibeInput?.value?.trim()) scheduleMoodCinemaFromInput(vibeInput.value);
+      else setMoodCinema('neutral');
+    }
     if(status===409||d.code==='GENERATION_IN_PROGRESS'){
+      _restoreComposeMood();
       showToast(d.error||'Already generating — please wait.','info',4000);
       return;
     }
@@ -2176,14 +2236,17 @@ function generate(){
         else { updateBtn(); }
       },1000);
       showToast(`Rate limited — try again in ${retryAfter}s`,'info',5000);
+      _restoreComposeMood();
       return;
     }
     if(status===503&&d.code==='SERVER_RESTARTING'){
+      _restoreComposeMood();
       showToast(d.error||'Server is updating — wait ~30s after deploy finishes, then try again.','info',8000);
       return;
     }
     if(status===504||(d.code==='TIMEOUT'&&!d.success)){
       const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
+      _restoreComposeMood();
       showToast(d.error||'Generation timed out. Try Balanced mode or a shorter playlist.','error',6500);
       return;
     }
@@ -2194,9 +2257,11 @@ function generate(){
       };
       showToast(m[d.error]||d.error||'Something went wrong.','error',5500);
       if(status===401) setTimeout(()=>window.location.href='/api/auth/login',2200);
+      _restoreComposeMood();
       return;
     }
     if(!Array.isArray(d.tracks)||!d.tracks.length){
+      _restoreComposeMood();
       showToast(d.error||'No tracks returned. Try syncing your library or regenerate.','error',6000);
       return;
     }
@@ -2231,8 +2296,9 @@ function generate(){
   })
   .catch(async err=>{
     setLoading(false);
-    _clearAtmosphere();
     setMomentState('compose');
+    if(vibeInput?.value?.trim()) scheduleMoodCinemaFromInput(vibeInput.value);
+    else setMoodCinema('neutral');
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
     if(err&&err.name==='AbortError'){
       try{
@@ -2433,6 +2499,7 @@ if(vibeInput&&vibeCounter){
     const len=vibeInput.value.length;
     vibeCounter.textContent=`${len}/140`;
     vibeCounter.style.color=len>130?'#ff7070':len>100?'#f59e0b':'var(--text-faint)';
+    scheduleMoodCinemaFromInput(vibeInput.value);
   });
 }
 
