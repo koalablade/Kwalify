@@ -654,55 +654,111 @@
     body.emotion-grid-scene #emotionGridHome { display:none !important; }
     .emotion-grid-home {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      padding:56px 72px; overflow:auto;
+      padding:64px 80px; overflow:auto;
     }
     .emotion-mood-grid {
-      display:grid; grid-template-columns:repeat(3, 240px); gap:28px;
-      justify-content:center; width:100%; max-width:816px;
+      display:grid; grid-template-columns:repeat(3, 240px); gap:32px;
+      justify-content:center; width:100%; max-width:840px;
     }
     @media (max-width:860px) {
-      .emotion-mood-grid { grid-template-columns:repeat(2, min(240px, 100%)); gap:24px; }
-      .emotion-grid-home { padding:40px 28px; }
+      .emotion-mood-grid { grid-template-columns:repeat(2, min(240px, 100%)); gap:28px; }
+      .emotion-grid-home { padding:48px 32px; }
     }
     .mood-card {
-      width:240px; height:180px; margin:0; padding:0; border:1px solid rgba(255,255,255,.08);
-      border-radius:20px; background:rgba(255,255,255,.045); cursor:pointer;
-      font-family:inherit; color:rgba(255,255,255,.88);
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px;
-      box-shadow:0 10px 36px rgba(0,0,0,.14);
-      transition:transform .55s cubic-bezier(.22,1,.36,1), box-shadow .55s ease, background .55s ease;
+      width:240px; height:180px; margin:0; padding:0;
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:20px;
+      background:linear-gradient(168deg, rgba(255,255,255,.055) 0%, rgba(255,255,255,.02) 48%, rgba(0,0,0,.12) 100%);
+      cursor:pointer; font-family:inherit;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+      box-shadow:0 6px 28px rgba(0,0,0,.07), inset 0 1px 0 rgba(255,255,255,.05);
+      transition:transform .55s cubic-bezier(.22,1,.36,1), box-shadow .55s ease, filter .55s ease;
     }
     .mood-card:hover {
-      transform:translateY(-5px);
-      background:rgba(255,255,255,.065);
-      box-shadow:0 18px 44px rgba(0,0,0,.22);
+      transform:translateY(-4px);
+      filter:brightness(1.06);
+      box-shadow:0 12px 32px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.07);
     }
-    .mood-card-title { font-size:15px; font-weight:500; letter-spacing:-.01em; }
-    .emotion-icon { display:block; }
-    .emotion-icon-square { width:28px; height:44px; border-radius:8px; background:rgba(255,255,255,.78); }
-    .emotion-icon-line { width:48px; height:4px; border-radius:2px; background:rgba(255,255,255,.72); }
-    .emotion-icon-circle { width:14px; height:14px; border-radius:50%; background:rgba(255,255,255,.8); }
-    .emotion-icon-lamp { display:flex; flex-direction:column; align-items:center; gap:8px; }
-    .emotion-icon-lamp .emotion-icon-line { width:4px; height:40px; }
+    .mood-card-title {
+      font-size:13px; font-weight:400; letter-spacing:.02em;
+      color:rgba(255,255,255,.42); line-height:1.2;
+    }
+    .emotion-icon { display:block; flex-shrink:0; }
+    .emotion-icon-square {
+      width:26px; height:40px; border-radius:6px;
+      background:linear-gradient(145deg, rgba(255,255,255,.88) 0%, rgba(255,255,255,.62) 100%);
+    }
+    .emotion-icon-line {
+      width:52px; height:3px; border-radius:999px;
+      background:linear-gradient(90deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.82) 50%, rgba(255,255,255,.5) 100%);
+    }
+    .emotion-icon-circle {
+      width:12px; height:12px; border-radius:50%;
+      background:rgba(255,255,255,.84);
+    }
+    .emotion-icon-capsule {
+      width:44px; height:14px; border-radius:999px;
+      background:linear-gradient(180deg, rgba(255,255,255,.78) 0%, rgba(255,255,255,.58) 100%);
+    }
+    .emotion-icon-capsule.is-vertical {
+      width:12px; height:38px;
+      background:linear-gradient(180deg, rgba(255,255,255,.82) 0%, rgba(255,255,255,.55) 100%);
+    }
+    .emotion-icon-mark {
+      display:flex; flex-direction:column; align-items:center; gap:10px;
+    }
+    .emotion-icon-mark .emotion-icon-line {
+      width:3px; height:34px;
+      background:linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.45) 100%);
+    }
     .emotion-scene {
       position:fixed; inset:0; z-index:60; cursor:pointer;
     }
     .emotion-scene[hidden] { display:none !important; }
-    .emotion-scene-bg { position:absolute; inset:0; background:#0c0e12; transition:background .4s ease; }
+    .emotion-scene-bg {
+      position:absolute; inset:0;
+      background:#080a0e;
+      transition:background .4s ease;
+    }
     .emotion-scene-object {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      pointer-events:none;
+      padding:0 12vw 8vh; pointer-events:none;
+      transform:translateY(-2.5%);
+    }
+    .emotion-scene-object .emotion-shape {
+      box-shadow:
+        0 28px 56px rgba(0,0,0,.28),
+        0 10px 20px rgba(0,0,0,.14),
+        inset 1px 2px 0 rgba(255,255,255,.14);
     }
     .emotion-shape-square {
-      width:min(24vw,112px); height:min(36vw,168px); border-radius:16px;
-      background:#E8E8E4; box-shadow:0 0 0 3px #121212;
+      width:min(22vw,104px); height:min(32vw,156px); border-radius:14px;
+      background:linear-gradient(158deg, #ececea 0%, #d8d8d4 55%, #c8c8c4 100%);
     }
-    .emotion-shape-car { border-radius:28px; width:min(40vw,188px); height:min(16vw,68px); }
-    .emotion-shape-line-h { width:min(64vw,400px); height:10px; border-radius:5px; background:#B4B4BC; }
-    .emotion-shape-horizon { width:min(72vw,480px); height:6px; border-radius:999px; background:#B8A898; }
-    .emotion-shape-lamp { display:flex; flex-direction:column; align-items:center; }
-    .emotion-shape-line-v { width:10px; height:min(36vh,240px); border-radius:5px; background:#2C2C2C; }
-    .emotion-shape-circle { width:40px; height:40px; border-radius:50%; background:#E6D6B4; margin-bottom:-6px; }
+    .emotion-shape-car {
+      width:min(36vw,172px); height:min(14vw,62px); border-radius:999px;
+      background:linear-gradient(180deg, #e4e4e0 0%, #c8c8c4 100%);
+    }
+    .emotion-shape-line-h {
+      width:min(58vw,360px); height:8px; border-radius:999px;
+      background:linear-gradient(90deg, #9a9aa4 0%, #b8b8c0 45%, #9a9aa4 100%);
+      box-shadow:0 20px 40px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.1);
+    }
+    .emotion-shape-horizon {
+      width:min(64vw,420px); height:5px;
+      background:linear-gradient(90deg, #9a9088 0%, #b8a898 50%, #9a9088 100%);
+    }
+    .emotion-shape-lamp { display:flex; flex-direction:column; align-items:center; gap:0; }
+    .emotion-shape-line-v {
+      width:8px; height:min(32vh,220px); border-radius:999px;
+      background:linear-gradient(180deg, #3a3a3a 0%, #242424 100%);
+    }
+    .emotion-shape-circle {
+      width:36px; height:36px; border-radius:50%;
+      background:linear-gradient(145deg, #f0e6c8 0%, #d8c8a0 100%);
+      margin-bottom:-4px;
+      box-shadow:0 12px 28px rgba(0,0,0,.2), inset 1px 1px 0 rgba(255,255,255,.2);
+    }
 
     .compose-layer {
       width:100%; max-width:340px; margin:0 auto;
@@ -1380,12 +1436,16 @@ const EMOTION_MOODS=[
 ];
 
 function _emotionIconHtml(shape){
-  if(shape==='square') return '<span class="emotion-icon emotion-icon-square"></span>';
-  if(shape==='line') return '<span class="emotion-icon emotion-icon-line"></span>';
-  if(shape==='lamp') return '<span class="emotion-icon emotion-icon-lamp"><span class="emotion-icon-circle"></span><span class="emotion-icon-line"></span></span>';
-  if(shape==='car') return '<span class="emotion-icon emotion-icon-square" style="width:40px;height:18px;border-radius:9px"></span>';
-  if(shape==='horizon') return '<span class="emotion-icon emotion-icon-line" style="width:56px"></span>';
-  return '<span class="emotion-icon emotion-icon-circle"></span>';
+  if(shape==='square') return '<span class="emotion-icon emotion-icon-square" aria-hidden="true"></span>';
+  if(shape==='line') return '<span class="emotion-icon emotion-icon-line" aria-hidden="true"></span>';
+  if(shape==='lamp') return '<span class="emotion-icon emotion-icon-mark" aria-hidden="true"><span class="emotion-icon-circle"></span><span class="emotion-icon-line"></span></span>';
+  if(shape==='car') return '<span class="emotion-icon emotion-icon-capsule" aria-hidden="true"></span>';
+  if(shape==='horizon') return '<span class="emotion-icon emotion-icon-line" aria-hidden="true"></span>';
+  return '<span class="emotion-icon emotion-icon-circle" aria-hidden="true"></span>';
+}
+
+function _emotionSceneBg(hex){
+  return `radial-gradient(ellipse 72% 58% at 50% 36%, ${hex} 0%, #07080c 72%)`;
 }
 
 function _emotionShapeHtml(shape){
@@ -1426,7 +1486,7 @@ function setEmotionUIState(state, sceneId){
     if(home) home.hidden=true;
     if(scene) scene.hidden=false;
     const bg=$('emotionSceneBg');
-    if(bg) bg.style.background=mood.bg;
+    if(bg) bg.style.background=_emotionSceneBg(mood.bg);
     const obj=$('emotionSceneObject');
     if(obj) obj.innerHTML=_emotionShapeHtml(mood.shape);
   }
