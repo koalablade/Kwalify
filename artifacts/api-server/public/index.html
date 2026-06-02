@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -638,14 +638,28 @@
     #bootSplash {
       position:fixed; inset:0; z-index:200; display:none;
       align-items:center; justify-content:center;
-      background:#0c0e14;
+      background:radial-gradient(ellipse 100% 80% at 50% 30%, #1a1e28 0%, #101218 55%, #0c0e14 100%);
+      font-family:'Nunito', system-ui, sans-serif;
     }
     html[data-kw="loading"] #bootSplash { display:flex; }
     html[data-kw="loading"] .page,
     html[data-kw="loading"] #appView { display:none !important; }
     html[data-kw="guest"] #appView { display:none !important; }
-    html[data-kw="guest"] #landingView { display:block !important; }
-    html[data-kw="guest"] .page { display:block !important; }
+    html[data-kw="guest"] .page {
+      display:flex !important; flex-direction:column; align-items:stretch;
+      min-height:100vh; padding:0; max-width:none;
+      background:radial-gradient(ellipse 110% 85% at 50% 25%, #1a1e28 0%, #101218 58%, #0c0e14 100%);
+    }
+    html[data-kw="guest"] .inner { max-width:none; flex:1; display:flex; }
+    html[data-kw="guest"] .header,
+    html[data-kw="guest"] .bg,
+    html[data-kw="guest"] .waves,
+    html[data-kw="guest"] #cinema,
+    html[data-kw="guest"] #cinemaStill,
+    html[data-kw="guest"] #cinemaFallback,
+    html[data-kw="guest"] #momentCanvasOverlay,
+    html[data-kw="guest"] #loadOverlay { display:none !important; }
+    html[data-kw="guest"] #landingView { display:flex !important; flex:1; }
     html[data-kw="app"] .page,
     html[data-kw="app"] #landingView,
     html[data-kw="app"] .header,
@@ -664,8 +678,10 @@
       animation:kwSpin .7s linear infinite;
     }
     @keyframes kwSpin { to { transform:rotate(360deg); } }
-    /* ══ Pets UI — canonical: docs/EMOTION_GRID_UI_ENTRY.md · KWALIFY_OBJECT_CONSTRUCTION_MODE.md
-       ONLY 2 screens: (1) 5-card 3-col grid (2) fullscreen one soft illustrated object ══ */
+    /* ══ Pets UI — soft illustrated system (Spotify Pets hybrid, not dashboard) ══ */
+    .pets-font,
+    #appView.pets-shell,
+    .pets-guest { font-family:'Nunito', system-ui, -apple-system, sans-serif; }
     body.pets-app .page,
     body.pets-app .header,
     body.pets-app .bg,
@@ -678,8 +694,9 @@
     body.pets-app video#cinema { display:none !important; visibility:hidden !important; }
     #appView.pets-shell {
       position:fixed; inset:0; z-index:100; display:none;
-      background:radial-gradient(ellipse 120% 80% at 50% 20%, #1a1e28 0%, #101218 55%, #0c0e14 100%);
+      background:radial-gradient(ellipse 120% 80% at 50% 18%, #1c2030 0%, #111520 52%, #0c0e14 100%);
       overflow:hidden;
+      font-family:'Nunito', system-ui, sans-serif;
     }
     html[data-kw="app"] #appView.pets-shell,
     body.pets-app #appView.pets-shell { display:block !important; }
@@ -696,37 +713,51 @@
       opacity:0; transform:scale(.97); pointer-events:none;
     }
     .pets-grid {
-      display:grid; grid-template-columns:repeat(3, 232px); gap:32px;
-      justify-content:center; width:100%; max-width:800px;
+      display:grid; grid-template-columns:repeat(3, 240px); gap:36px;
+      justify-content:center; width:100%; max-width:820px;
     }
-    @media (max-width:780px) {
-      .pets-grid { grid-template-columns:repeat(2, min(228px, 100%)); gap:24px; }
-      .pets-home { padding:40px 24px; }
+    @media (max-width:820px) {
+      .pets-grid { grid-template-columns:repeat(2, min(240px, 44vw)); gap:28px; }
+      .pets-home { padding:48px 28px; }
     }
     .pets-card {
-      width:232px; height:196px; margin:0; padding:22px 18px 20px; border:none;
-      border-radius:24px;
-      background:linear-gradient(165deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.035) 45%, rgba(14,18,28,.5) 100%);
+      width:100%; max-width:240px; height:204px; margin:0; padding:26px 20px 22px; border:none;
+      border-radius:28px;
+      background:linear-gradient(168deg, rgba(255,255,255,.11) 0%, rgba(255,255,255,.04) 42%, rgba(12,16,26,.35) 100%);
       cursor:pointer; font-family:inherit;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
-      box-shadow:0 8px 28px rgba(0,0,0,.1);
-      transition:transform .5s cubic-bezier(.22,1,.36,1), box-shadow .5s ease, filter .5s ease;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
+      box-shadow:0 6px 24px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.06);
+      transition:transform .55s cubic-bezier(.22,1,.36,1), box-shadow .55s ease, filter .55s ease;
     }
     .pets-card:hover {
-      transform:translateY(-3px);
-      filter:brightness(1.03);
-      box-shadow:0 12px 32px rgba(0,0,0,.12);
+      transform:translateY(-4px) scale(1.02);
+      filter:brightness(1.04);
+      box-shadow:0 14px 36px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.08);
     }
+    .pets-card:active { transform:translateY(-1px) scale(.99); }
     .pets-card-title {
-      font-size:11px; font-weight:500; letter-spacing:.04em;
-      color:rgba(255,255,255,.42); line-height:1.3;
+      font-size:12px; font-weight:600; letter-spacing:.02em;
+      color:rgba(255,255,255,.48); line-height:1.35;
     }
     .pets-illust { display:block; flex-shrink:0; overflow:visible; }
-    .pets-illust--preview { width:84px; height:68px; }
+    .pets-illust--preview {
+      width:92px; height:76px;
+      filter:drop-shadow(0 8px 16px rgba(0,0,0,.12));
+      animation:petsFloat 4.5s ease-in-out infinite;
+    }
+    .pets-card:nth-child(2) .pets-illust--preview { animation-delay:.4s; }
+    .pets-card:nth-child(3) .pets-illust--preview { animation-delay:.8s; }
+    .pets-card:nth-child(4) .pets-illust--preview { animation-delay:1.2s; }
+    .pets-card:nth-child(5) .pets-illust--preview { animation-delay:1.6s; }
+    @keyframes petsFloat {
+      0%, 100% { transform:translateY(0); }
+      50% { transform:translateY(-5px); }
+    }
     .pets-illust--hero {
-      width:min(50vw,272px); height:min(50vw,272px); max-height:56vh;
-      opacity:0; transform:scale(.9);
-      transition:opacity .55s cubic-bezier(.22,1,.36,1), transform .55s cubic-bezier(.22,1,.36,1);
+      width:min(54vw,300px); height:min(54vw,300px); max-height:58vh;
+      opacity:0; transform:scale(.88);
+      filter:drop-shadow(0 20px 40px rgba(0,0,0,.14));
+      transition:opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1);
     }
     .pets-illust--hero.pets-hero-in { opacity:1; transform:scale(1); }
     .pets-illust svg { width:100%; height:100%; overflow:visible; }
@@ -742,16 +773,61 @@
     .pets-scene-bg {
       position:absolute; inset:0;
       background:#12141c;
-      transition:background .5s ease;
+      transition:background .65s ease;
+    }
+    .pets-scene-ambient {
+      position:absolute; left:50%; top:42%; width:min(70vw,420px); height:min(70vw,420px);
+      transform:translate(-50%,-50%); border-radius:50%; pointer-events:none;
+      background:radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 68%);
+      filter:blur(24px); opacity:.85;
     }
     .pets-scene-hero {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      padding:0 18vw 14vh; pointer-events:none;
-      transform:translateY(-5%);
+      padding:0 16vw 12vh; pointer-events:none;
+      transform:translateY(-4%);
     }
     .pets-scene-hero .pets-illust--hero {
-      filter:drop-shadow(0 16px 32px rgba(0,0,0,.12));
+      filter:drop-shadow(0 24px 48px rgba(0,0,0,.1));
     }
+    .pets-scene-hint {
+      position:absolute; bottom:max(32px, env(safe-area-inset-bottom)); left:0; right:0;
+      text-align:center; font-size:11px; font-weight:600; letter-spacing:.06em;
+      color:rgba(255,255,255,.22); pointer-events:none;
+    }
+    /* Guest — same soft illustrated empty space as logged-in app */
+    .pets-guest {
+      flex:1; display:flex; align-items:center; justify-content:center;
+      padding:48px 28px; text-align:center; position:relative;
+    }
+    .pets-guest-illust {
+      width:min(42vw,140px); height:min(42vw,120px); margin:0 auto 36px;
+      filter:drop-shadow(0 16px 32px rgba(0,0,0,.12));
+      animation:petsFloat 5s ease-in-out infinite;
+    }
+    .pets-guest-illust svg { width:100%; height:100%; }
+    .pets-guest-title {
+      font-size:clamp(28px,6vw,40px); font-weight:800; letter-spacing:-.02em;
+      color:rgba(255,255,255,.92); margin-bottom:12px;
+    }
+    .pets-guest-tag {
+      font-size:15px; font-weight:500; line-height:1.55;
+      color:rgba(255,255,255,.42); max-width:320px; margin:0 auto 32px;
+    }
+    .pets-connect-btn {
+      display:inline-flex; align-items:center; justify-content:center; gap:10px;
+      padding:16px 36px; border-radius:999px; border:none; text-decoration:none;
+      font-family:inherit; font-size:15px; font-weight:700; letter-spacing:.01em;
+      color:#0a0c10;
+      background:linear-gradient(165deg, #5ee89a 0%, #1ed760 55%, #1db954 100%);
+      box-shadow:0 8px 28px rgba(30,215,96,.22), inset 0 1px 0 rgba(255,255,255,.35);
+      transition:transform .45s cubic-bezier(.22,1,.36,1), box-shadow .45s ease, filter .45s ease;
+    }
+    .pets-connect-btn:hover {
+      transform:translateY(-2px) scale(1.02);
+      filter:brightness(1.05);
+      box-shadow:0 12px 32px rgba(30,215,96,.28), inset 0 1px 0 rgba(255,255,255,.4);
+    }
+    .pets-connect-btn:active { transform:translateY(0) scale(.98); }
 
     .compose-layer {
       width:100%; max-width:340px; margin:0 auto;
@@ -1019,7 +1095,9 @@
   </main>
   <div id="emotionScene" class="pets-scene" aria-hidden="true">
     <div class="pets-scene-bg" id="emotionSceneBg"></div>
+    <div class="pets-scene-ambient" aria-hidden="true"></div>
     <div class="pets-scene-hero" id="emotionSceneObject"></div>
+    <p class="pets-scene-hint">tap to return</p>
   </div>
 </div>
 
@@ -1040,19 +1118,16 @@
     <!-- ── Loading ── -->
     <div id="loadOverlay"><div class="spin"></div></div>
 
-    <!-- ── GUEST (not logged in) ── -->
-    <div id="landingView" style="display:none">
-      <div class="landing">
-        <div class="lhero">
-          <h1 style="font-size:clamp(32px,7vw,48px);font-weight:900;letter-spacing:-1.5px;margin-bottom:10px">Kwalify</h1>
-          <p style="font-size:17px;color:var(--text-sub);max-width:400px;margin:0 auto 28px;line-height:1.6">Connect Spotify. Pick a mood. Build playlists from songs you already love.</p>
-          <div class="lhero-cta">
-            <a href="/api/auth/login" class="btn btn-green" style="font-size:15px;padding:15px 32px;border-radius:9999px">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-              Connect with Spotify
-            </a>
-          </div>
-        </div>
+    <!-- ── GUEST — Pets-style connect screen ── -->
+    <div id="landingView" class="pets-guest" style="display:none">
+      <div class="pets-guest-content">
+        <div class="pets-guest-illust" id="guestHeroIllust" aria-hidden="true"></div>
+        <h1 class="pets-guest-title">Kwalify</h1>
+        <p class="pets-guest-tag">Pick a mood. Playlists from songs you already love.</p>
+        <a href="/api/auth/login" class="pets-connect-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          Connect Spotify
+        </a>
       </div>
     </div><!-- /landingView -->
 
@@ -1131,12 +1206,10 @@ function kwSetView(mode){
   if(splash) splash.setAttribute('aria-busy', mode==='loading'?'true':'false');
 }
 
-const _CONNECT_BTN=`<a href="/api/auth/login" class="btn btn-green btn-sm">
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-  Connect
-</a>`;
+const _CONNECT_BTN=`<a href="/api/auth/login" class="pets-connect-btn" style="padding:10px 20px;font-size:13px">Connect</a>`;
 
 function bootAuthedHome(){
+  document.documentElement.classList.add('pets-font');
   document.body.classList.add('pets-app','pets-home-active');
   document.body.classList.remove('pets-scene-active');
   const av=$('appView');
@@ -1149,10 +1222,13 @@ function bootAuthedHome(){
 }
 
 function bootGuestLanding(){
+  document.documentElement.classList.add('pets-font');
   document.body.classList.remove('pets-app','pets-home-active','pets-scene-active');
   const av=$('appView');
   if(av){ av.hidden=true; av.setAttribute('hidden',''); }
-  $('landingView').style.display='block';
+  const lv=$('landingView');
+  if(lv) lv.style.display='flex';
+  _mountGuestHero();
   $('headerNav').innerHTML=_CONNECT_BTN;
   kwSetView('guest');
 }
@@ -1395,52 +1471,54 @@ const EMOTION_MOODS=[
 
 const PETS_ILLUST_DEFS={
   pump:`<svg viewBox="0 0 80 96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <!-- LOCKED: docs/KWALIFY_PETROL_PUMP_SVG_LOCKED.md — layers 1–6 -->
     <defs><linearGradient id="pg" x1="40" y1="28" x2="40" y2="86" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F2F4FA"/><stop offset="1" stop-color="#B8C4D8"/></linearGradient>
+      <stop stop-color="#F4F6FC"/><stop offset="1" stop-color="#C4D0E4"/></linearGradient>
     <linearGradient id="ph" x1="40" y1="12" x2="40" y2="34" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#E8ECF4"/><stop offset="1" stop-color="#C8D0E0"/></linearGradient>
+      <stop stop-color="#EEF2FA"/><stop offset="1" stop-color="#D0D8EA"/></linearGradient>
     <linearGradient id="ps" x1="40" y1="38" x2="40" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B8E0F8"/><stop offset="1" stop-color="#88B8E0" stop-opacity=".45"/></linearGradient>
+      <stop stop-color="#C8E8FC"/><stop offset="1" stop-color="#98C8E8" stop-opacity=".5"/></linearGradient>
     <radialGradient id="pgl" cx="40" cy="47" r="14" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#A8D8F8" stop-opacity=".22"/><stop offset="1" stop-color="#A8D8F8" stop-opacity="0"/></radialGradient></defs>
+      <stop stop-color="#B8E4FC" stop-opacity=".28"/><stop offset="1" stop-color="#B8E4FC" stop-opacity="0"/></radialGradient></defs>
+    <ellipse cx="40" cy="88" rx="22" ry="5" fill="rgba(0,0,0,.12)"/>
     <rect x="18" y="28" width="44" height="58" rx="22" fill="url(#pg)"/>
     <rect x="21" y="10" width="38" height="24" rx="14" fill="url(#ph)"/>
-    <rect x="26" y="38" width="28" height="18" rx="8" fill="url(#ps)"/>
-    <path d="M56 72 Q70 66, 74 50" fill="none" stroke="#B0BCD0" stroke-width="8" stroke-linecap="round"/>
-    <rect x="66" y="44" width="16" height="12" rx="6" fill="#A0B0C8"/>
+    <rect x="26" y="38" width="28" height="18" rx="10" fill="url(#ps)"/>
+    <path d="M56 72 Q70 66, 74 50" fill="none" stroke="#B8C4D8" stroke-width="9" stroke-linecap="round"/>
+    <rect x="66" y="44" width="16" height="12" rx="8" fill="#A8B8D0"/>
     <ellipse cx="40" cy="47" rx="14" ry="10" fill="url(#pgl)"/>
   </svg>`,
   road:`<svg viewBox="0 0 96 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs><linearGradient id="rg" x1="4" y1="32" x2="92" y2="32" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#88B8E8"/><stop offset=".45" stop-color="#D0E4F8"/><stop offset="1" stop-color="#78A8D8"/></linearGradient></defs>
-    <path d="M6 46 C26 10 44 54 66 18 C76 6 90 26 90 26" stroke="url(#rg)" stroke-width="16" stroke-linecap="round" fill="none"/>
-    <path d="M10 50 C30 30 50 58 70 34" stroke="rgba(255,255,255,.22)" stroke-width="7" stroke-linecap="round" fill="none"/>
+      <stop stop-color="#98C8F0"/><stop offset=".45" stop-color="#DCEAF8"/><stop offset="1" stop-color="#88B8E8"/></linearGradient></defs>
+    <path d="M6 46 C26 10 44 54 66 18 C76 6 90 26 90 26" stroke="url(#rg)" stroke-width="18" stroke-linecap="round" fill="none"/>
+    <path d="M10 50 C30 30 50 58 70 34" stroke="rgba(255,255,255,.28)" stroke-width="8" stroke-linecap="round" fill="none"/>
   </svg>`,
   lamp:`<svg viewBox="0 0 72 96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <defs><radialGradient id="lg" cx="36" cy="20" r="24" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFF8E0"/><stop offset=".5" stop-color="#F0D080"/><stop offset="1" stop-color="#E8A848" stop-opacity="0"/></radialGradient>
+    <defs><radialGradient id="lg" cx="36" cy="20" r="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF8E8"/><stop offset=".45" stop-color="#F4D890"/><stop offset="1" stop-color="#E8B060" stop-opacity="0"/></radialGradient>
     <linearGradient id="lp" x1="36" y1="34" x2="36" y2="94" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#D0D8E8"/><stop offset="1" stop-color="#98A4B8"/></linearGradient></defs>
-    <ellipse cx="36" cy="22" rx="28" ry="24" fill="url(#lg)"/>
-    <circle cx="36" cy="20" r="16" fill="#FFFAF0"/>
-    <rect x="28" y="34" width="16" height="56" rx="8" fill="url(#lp)"/>
+      <stop stop-color="#DCE4F4"/><stop offset="1" stop-color="#A8B4C8"/></linearGradient></defs>
+    <ellipse cx="36" cy="90" rx="14" ry="4" fill="rgba(0,0,0,.1)"/>
+    <ellipse cx="36" cy="22" rx="30" ry="26" fill="url(#lg)"/>
+    <circle cx="36" cy="20" r="17" fill="#FFFCF4"/>
+    <rect x="27" y="34" width="18" height="56" rx="9" fill="url(#lp)"/>
   </svg>`,
   car:`<svg viewBox="0 0 96 56" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs><linearGradient id="cg" x1="48" y1="6" x2="48" y2="46" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#E8ECF4"/><stop offset="1" stop-color="#A8B4C8"/></linearGradient></defs>
-    <rect x="8" y="16" width="80" height="30" rx="18" fill="url(#cg)"/>
-    <rect x="26" y="8" width="44" height="20" rx="12" fill="rgba(255,255,255,.4)"/>
-    <circle cx="24" cy="46" r="11" fill="#8898B0"/><circle cx="24" cy="46" r="6" fill="#D8E0EC"/>
-    <circle cx="72" cy="46" r="11" fill="#8898B0"/><circle cx="72" cy="46" r="6" fill="#D8E0EC"/>
+      <stop stop-color="#F0F4FC"/><stop offset="1" stop-color="#B0BCD4"/></linearGradient></defs>
+    <ellipse cx="48" cy="50" rx="36" ry="5" fill="rgba(0,0,0,.1)"/>
+    <rect x="8" y="16" width="80" height="30" rx="20" fill="url(#cg)"/>
+    <rect x="26" y="8" width="44" height="20" rx="14" fill="rgba(255,255,255,.45)"/>
+    <circle cx="24" cy="46" r="12" fill="#98A8C0"/><circle cx="24" cy="46" r="6" fill="#E4ECF8"/>
+    <circle cx="72" cy="46" r="12" fill="#98A8C0"/><circle cx="72" cy="46" r="6" fill="#E4ECF8"/>
   </svg>`,
   horizon:`<svg viewBox="0 0 96 52" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs><linearGradient id="hg" x1="4" y1="22" x2="92" y2="22" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F8D8A8" stop-opacity=".15"/><stop offset=".4" stop-color="#F0B878"/><stop offset=".6" stop-color="#E8A868"/><stop offset="1" stop-color="#F8D0A0" stop-opacity=".12"/></linearGradient>
+      <stop stop-color="#FCE0B8" stop-opacity=".2"/><stop offset=".35" stop-color="#F0C080"/><stop offset=".65" stop-color="#E8A868"/><stop offset="1" stop-color="#F8D8B0" stop-opacity=".15"/></linearGradient>
     <linearGradient id="hg2" x1="48" y1="34" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B0C0E0" stop-opacity=".45"/><stop offset="1" stop-color="#7888A8" stop-opacity=".15"/></linearGradient></defs>
-    <ellipse cx="48" cy="20" rx="42" ry="12" fill="url(#hg)"/>
-    <ellipse cx="48" cy="38" rx="46" ry="8" fill="url(#hg2)"/>
+      <stop stop-color="#C0D0F0" stop-opacity=".5"/><stop offset="1" stop-color="#8090B0" stop-opacity=".12"/></linearGradient></defs>
+    <ellipse cx="48" cy="22" rx="44" ry="14" fill="url(#hg)"/>
+    <ellipse cx="48" cy="40" rx="48" ry="10" fill="url(#hg2)"/>
   </svg>`,
 };
 
@@ -1459,11 +1537,18 @@ function _petsIllustHtml(illust, variant){
 }
 
 function _emotionSceneBg(hex){
-  return `radial-gradient(ellipse 75% 65% at 50% 36%, ${hex} 0%, #121620 62%, #0a0c12 100%)`;
+  return `radial-gradient(ellipse 80% 70% at 50% 38%, ${hex}88 0%, ${hex}44 28%, #141824 58%, #0a0c12 100%)`;
 }
 
 function _emotionPreviewHtml(illust){ return _petsIllustHtml(illust,'preview'); }
 function _emotionHeroHtml(illust){ return _petsIllustHtml(illust,'hero'); }
+
+function _mountGuestHero(){
+  const el=$('guestHeroIllust');
+  if(!el||el.dataset.mounted) return;
+  el.innerHTML=_emotionPreviewHtml('horizon');
+  el.dataset.mounted='1';
+}
 
 function renderEmotionGrid(){
   const grid=$('emotionMoodGrid');
