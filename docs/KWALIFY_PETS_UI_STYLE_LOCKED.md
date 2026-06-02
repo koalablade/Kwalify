@@ -1,6 +1,6 @@
 # Kwalify object UI style lock
 
-**Brand DNA:** [KWALIFY_STYLE_DNA.md](./KWALIFY_STYLE_DNA.md) — canonical atmosphere + form language  
+**Brand DNA:** [KWALIFY_STYLE_DNA.md](./KWALIFY_STYLE_DNA.md) — Pets-influenced objects in Kwalify night atmosphere  
 **Canonical UI:** `artifacts/api-server/public/js/pets-ui.js` · `#appView.pets-shell`  
 **Illustration:** [KWALIFY_OBJECT_CONSTRUCTION_MODE.md](./KWALIFY_OBJECT_CONSTRUCTION_MODE.md) · [KWALIFY_PETROL_PUMP_SVG_LOCKED.md](./KWALIFY_PETROL_PUMP_SVG_LOCKED.md)  
 **Boot:** [EMOTION_GRID_UI_ENTRY.md](./EMOTION_GRID_UI_ENTRY.md)
@@ -9,7 +9,7 @@
 
 ## Core principle
 
-Every screen = **ONE soft illustrated object** as hero in **quiet night atmosphere**. Everything else is secondary.
+Every screen = **ONE Spotify Pets–soft illustrated object** as hero in **quiet night atmosphere**. Everything else is secondary.
 
 **Positioning:** Emotional object system for moments — not playlist browsing.
 
@@ -17,26 +17,32 @@ Every screen = **ONE soft illustrated object** as hero in **quiet night atmosphe
 
 ## Visual language (required)
 
-- Soft rounded geometry · simplified silhouettes · controlled asymmetry
-- Objects feel *found in the real world at night* — not cute mascots
-- Personality via **scale, silence, lighting, spacing** — never faces
-- Gentle gradients, cinematic restraint, generous negative space
+- **Objects:** Pets chunkiness — soft pills, gentle pastels, thick soft curves, slight asymmetry  
+- **World:** Kwalify night — deep radial vignette, restrained chrome, generous space  
+- **Type:** Nunito · uppercase whisper labels on cards  
+- Personality via **scale, silence, lighting, spacing** — never faces  
 
 ## Forbidden
 
-- Spotify Pets clone aesthetics (bright blue, bouncy UI, custom cursor, card tilt)
-- Mascots · faces · UI icons · diagrams · toys
-- Dashboards · industrial chrome · neon · harsh contrast
+- Mascots · faces · Spotify Pet *characters*  
+- Dashboard / industrial UI on logged-in path  
+- Harsh neon · mechanical SVG detail · icon-grid shapes  
+
+## Allowed from Pets
+
+- Card color tints · soft illustration fills · friendly rounded type · chunky object proportions  
+
+## Restrained (not cloned)
+
+- Custom cursor · card tilt parallax · bouncy loaders · playful UI chrome  
 
 ---
 
 ## Object system
 
-One simplified object per mood: `pump` · `road` · `lamp` · `car` · `horizon`
+One object per mood: `pump` · `road` · `lamp` · `car` · `horizon`
 
-Design question: *What does this object feel like in a quiet world?*
-
-**Reference hero:** `pump` (Night Refuel) sets the bar for all others.
+**Reference hero:** `pump` (Night Refuel) sets the illustration bar.
 
 ---
 
@@ -45,26 +51,16 @@ Design question: *What does this object feel like in a quiet world?*
 | Screen | Content |
 |--------|---------|
 | **Home** | 5 cards · 2+3 centered grid · mini illustration + title only |
-| **Emotion** | Fullscreen one object · dark gradient bg · auto-generate · tap to return |
-
-No other chrome on logged-in path.
-
----
-
-## Lighting
-
-- Late night / early morning stillness
-- Low ambient glow · subtle depth · objects paused in time
-- No harsh shadows · no dramatic contrast · no global bloom
+| **Emotion** | Fullscreen one object · mood gradient bg · auto-generate · tap to return · retry on error |
 
 ---
 
 ## Override
 
-> If it looks cute, darken the atmosphere. If it looks like a dashboard, remove chrome. If it looks like Spotify Pets, add silence.
+> If objects lack Pets softness, inflate and round. If the world lacks Kwalify silence, darken and simplify.
 
 ---
 
-## Auth note (separate from visuals)
+## Auth note
 
-If `/api/auth/me` returns **401**, boot shows guest path (landing) — **not** the emotion grid. Fix session/cookies separately from visual polish.
+If `/api/auth/me` returns **401**, boot shows guest landing — not the emotion grid.

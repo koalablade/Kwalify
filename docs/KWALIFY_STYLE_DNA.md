@@ -1,6 +1,7 @@
-# Kwalify Style DNA (original — not Spotify Pets clone)
+# Kwalify Style DNA
 
 **Product:** Emotional object system for moments — not playlist browsing.  
+**Illustration language:** Spotify Pets–influenced (chunky, soft, friendly) · **Atmosphere:** Kwalify night-world (restraint, silence, depth)  
 **Code:** `artifacts/api-server/public/js/pets-ui.js` · `#appView.pets-shell`  
 **Assembly:** [KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md](./KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md)
 
@@ -14,21 +15,27 @@ Not characters. Not UI icons. Not machines.
 
 ---
 
-## Form language
+## Two-layer formula
 
-| Use | Avoid |
-|-----|--------|
-| Soft rounded geometry | Sharp mechanical detail |
-| Simplified silhouettes | Icon-grid UI shapes |
-| Slight exaggeration for readability | Decorative clutter |
-| Controlled asymmetry | Perfect symmetry (feels generic) |
+| Layer | Source | Rule |
+|-------|--------|------|
+| **Object art** | Spotify Pets | Soft rounded geometry · chunky silhouettes · gentle pastel gradients · slight inflation |
+| **World / UI** | Kwalify | Night atmosphere · cinematic restraint · silence · optical spacing |
 
-**Kwalify difference:** Objects feel *found in the real world at night* — not cute illustrations.
-
-- Spotify Pets → friendly characters  
-- Kwalify → emotional objects under atmosphere  
+> Pets softness on the object. Kwalify quiet on the world.
 
 Personality lives in **scale, silence, lighting, spacing** — never faces.
+
+---
+
+## Form language
+
+- Soft rounded geometry · simplified silhouettes · controlled asymmetry  
+- Slight exaggeration for readability at card and hero scale  
+- Thick soft strokes (hose, road) — ribbon not wire  
+- Objects feel *found in the real world at night*, illustrated in a **Pets-soft** way  
+
+Forbidden: mascots · faces · UI icons · diagrams · toys · mechanical detail
 
 ---
 
@@ -36,43 +43,33 @@ Personality lives in **scale, silence, lighting, spacing** — never faces.
 
 Every scene = late night / early morning stillness.
 
-- Low ambient noise (visual quiet)
-- Cinematic restraint — not cinematic overload
+- Saturated mood tint at center (Pets card DNA) fading to deep night at edges  
+- Low ambient noise (visual quiet)  
 - Objects **paused in time**
-
----
-
-## Object behaviour
-
-- Slightly isolated  
-- Intentionally simple  
-- Emotionally readable through composition  
-
-Forbidden: mascots · UI icons · diagrams · toys
 
 ---
 
 ## Visual brand principles
 
 1. Silence over noise  
-2. Restraint over decoration  
+2. Restraint over decoration (UI chrome)  
 3. Objects over interfaces  
-4. Atmosphere over illustration  
+4. Atmosphere over illustration (background)  
 5. Memory over UI  
 
-Design question: *What does this object feel like in a quiet world?*
+Design question: *What does this Pets-soft object feel like in a quiet world?*
 
 ---
 
-## UI hierarchy (polish pass)
+## UI hierarchy
 
-- Generous negative space  
-- Optical centering (hero slightly above geometric center)  
-- Typographic hierarchy: title whispers, object speaks  
-- One hero asset sets the bar (pump = reference)
+- Generous negative space · 2+3 centered mood grid  
+- Optical centering (hero ~8% above geometric center)  
+- Nunito for friendly Pets-adjacent type; titles whisper, object speaks  
+- **Pump** = reference hero asset — all objects match its illustration bar  
 
 ---
 
 ## Override
 
-> If it looks cute, darken the atmosphere. If it looks like a dashboard, remove chrome. If it looks like Spotify Pets, add silence.
+> If objects look flat, add Pets softness and chunk. If the world looks cute/daytime, darken the atmosphere. If UI looks like a dashboard, remove chrome. If it feels like a Pets clone with no soul, add Kwalify silence.

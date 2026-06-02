@@ -67,7 +67,8 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
       "2 am petrol station",
       "petrol station at 2am",
       "late petrol station",
-      "fluorescent forecourt at night",
+      "petrol station 2am",
+      "petrol station 2am empty forecourt",
     ],
   },
   {
@@ -116,7 +117,70 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
       "your old soundtrack",
     ],
   },
+  {
+    id: "urban_midnight_walk",
+    prototypeId: "TRANSIT_DECOMPRESS",
+    emotionalTone: "solitude",
+    aliases: [
+      "midnight city walk",
+      "late london walk",
+      "urban midnight walk",
+      "walking alone at night in the city",
+    ],
+  },
+  {
+    id: "memory_road_nostalgia",
+    prototypeId: "ARCHAEOLOGY_MEMORY",
+    emotionalTone: "nostalgic_warmth",
+    aliases: [
+      "nostalgic country road",
+      "old car project",
+      "memory road",
+      "country road memory",
+    ],
+  },
+  {
+    id: "summer_afternoon_drift",
+    prototypeId: "SUN_DAY_DRIVE",
+    emotionalTone: "warmth",
+    aliases: [
+      "summer afternoon drift",
+      "end of summer drive",
+      "warm haze drive",
+      "afternoon drift warm haze",
+    ],
+  },
 ];
+
+/** UI mood cards → canonical scene (Emotion Grid in pets-ui.js). */
+export const MOOD_SCENE_ID_MAP: Record<string, string> = {
+  petrol_station_2am: "petrol_2am_liminal",
+  night_drive: "night_drive_alone_reflection",
+  urban_midnight_walk: "urban_midnight_walk",
+  memory_road: "memory_road_nostalgia",
+  summer_afternoon_drift: "summer_afternoon_drift",
+};
+
+export function resolveMoodSceneById(moodSceneId: string): CanonicalSceneResult | null {
+  const canonicalId = MOOD_SCENE_ID_MAP[moodSceneId.trim()];
+  if (!canonicalId) return null;
+  const entry = CANONICAL_SCENES.find((e) => e.id === canonicalId);
+  if (!entry) return null;
+  const layers = detectLayeredScene(entry.aliases[0] ?? "");
+  return {
+    sceneId: entry.id,
+    prototypeId: entry.prototypeId,
+    confidence: 1,
+    matchedVariants: [moodSceneId],
+    matchedAlias: moodSceneId,
+    inferredLayers: {
+      time: layers.timeOfDay,
+      motion: layers.motionState,
+      place: layers.environment,
+      emotionalTone: entry.emotionalTone,
+    },
+  };
+}
 
 /** @deprecated use resolveCanonicalSceneFull */
 export type CanonicalScene = CanonicalSceneResult;

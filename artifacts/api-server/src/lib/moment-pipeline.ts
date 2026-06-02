@@ -17,6 +17,7 @@ import { parseEmotionalDestination, type JourneyArc } from "./emotion-destinatio
 import { propagateGraph, type GraphApplyResult } from "./knowledge-graph";
 import {
   resolveCanonicalSceneFull,
+  resolveMoodSceneById,
   canonicalToPrototype,
   profileFromCanonical,
   type CanonicalSceneResult,
@@ -52,14 +53,23 @@ export interface MomentPipelineResult {
   pipelineSummary: Record<string, unknown>;
 }
 
-export function analyzeMomentPipeline(vibe: string): MomentPipelineResult {
+export interface MomentPipelineOptions {
+  /** When set (Emotion Grid tap), force canonical scene from UI mood id. */
+  moodSceneId?: string | null;
+}
+
+export function analyzeMomentPipeline(
+  vibe: string,
+  opts?: MomentPipelineOptions
+): MomentPipelineResult {
   const text = vibe.toLowerCase().trim();
 
   // 1. Intent (before everything else)
   const intent = decodeIntent(vibe);
 
-  // 2. Canonical scene
-  const canonical = resolveCanonicalSceneFull(text);
+  // 2. Canonical scene — UI mood id wins over vibe text
+  const moodCanonical = opts?.moodSceneId ? resolveMoodSceneById(opts.moodSceneId) : null;
+  const canonical = moodCanonical ?? resolveCanonicalSceneFull(text);
   const prototype = canonicalToPrototype(canonical);
 
   // 3. Base profile — keyword layer only when canonical is weak (anti tag-soup)

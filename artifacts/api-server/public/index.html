@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kwalify — Vibe DJ for Spotify</title>
+  <title>Kwalify — moments, not playlists</title>
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#090910" />
-  <meta property="og:title" content="Kwalify — Vibe DJ for Spotify" />
-  <meta property="og:description" content="Type a vibe. Get a playlist from your Spotify liked songs only." />
+  <meta name="theme-color" content="#0f2840" />
+  <meta property="og:title" content="Kwalify — moments, not playlists" />
+  <meta property="og:description" content="Quiet illustrated objects for the moments between. Playlists from songs you already love." />
   <meta property="og:type" content="website" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -640,21 +640,23 @@
     #bootSplash {
       position:fixed; inset:0; z-index:200; display:none;
       align-items:center; justify-content:center;
-      background:#090a0e;
-      font-family:system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background:radial-gradient(ellipse 80% 60% at 50% 40%, #1a5080 0%, #0f2840 55%, #08090c 100%);
+      font-family:'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
     }
     html[data-kw="loading"] #bootSplash { display:flex; }
-    .pets-load-dots { display:flex; gap:6px; align-items:center; }
-    .pets-load-dots span {
-      width:5px; height:5px; border-radius:50%;
-      background:rgba(255,255,255,.35);
-      animation:kwFadePulse 1.4s ease-in-out infinite;
+    .pets-boot-line {
+      width:min(120px, 32vw); height:3px; border-radius:999px;
+      background:rgba(255,255,255,.1); overflow:hidden;
     }
-    .pets-load-dots span:nth-child(2) { animation-delay:.2s; }
-    .pets-load-dots span:nth-child(3) { animation-delay:.4s; }
-    @keyframes kwFadePulse {
-      0%, 100% { opacity:.25; transform:scale(.85); }
-      50% { opacity:.7; transform:scale(1); }
+    .pets-boot-line::after {
+      content:''; display:block; width:40%; height:100%; border-radius:999px;
+      background:rgba(255,255,255,.45);
+      animation:kwBootSlide 1.2s ease-in-out infinite;
+    }
+    @keyframes kwBootSlide {
+      0% { transform:translateX(-100%); opacity:.4; }
+      50% { opacity:1; }
+      100% { transform:translateX(250%); opacity:.4; }
     }
     html[data-kw="loading"] .page,
     html[data-kw="loading"] #appView { display:none !important; }
@@ -692,11 +694,11 @@
       animation:kwSpin .7s linear infinite;
     }
     @keyframes kwSpin { to { transform:rotate(360deg); } }
-    /* legacy kw-boot-spin unused — pets-load-dots on boot */
+    /* legacy kw-boot-spin unused — pets-boot-line on boot */
     /* ══ Kwalify object UI — docs/KWALIFY_STYLE_DNA.md ══ */
     .pets-font,
     #appView.pets-shell,
-    .pets-guest { font-family:system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .pets-guest { font-family:'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif; }
     body.pets-app .page,
     body.pets-app .header,
     body.pets-app .bg,
@@ -709,18 +711,17 @@
     body.pets-app video#cinema { display:none !important; visibility:hidden !important; }
     #appView.pets-shell {
       position:fixed; inset:0; z-index:100; display:none;
-      background:radial-gradient(ellipse 90% 70% at 50% 42%, #141820 0%, #0c0e14 55%, #08090c 100%);
+      background:radial-gradient(ellipse 88% 68% at 50% 40%, #1a5080 0%, #122840 42%, #0c0e14 72%, #08090c 100%);
       overflow:hidden;
-      font-family:system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-family:'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
     }
-    #petsCursor { display:none !important; }
     html[data-kw="app"] #appView.pets-shell,
     body.pets-app #appView.pets-shell { display:block !important; }
     #apiStubs,
     #syncGateCard { display:none !important; visibility:hidden !important; pointer-events:none !important; }
     .pets-home {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      padding:72px 48px; overflow:auto;
+      padding:80px 48px 72px; overflow:auto;
       opacity:1; transform:scale(1);
       transition:opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1);
       pointer-events:auto;
@@ -730,7 +731,7 @@
     }
     .pets-grid {
       display:flex; flex-wrap:wrap; justify-content:center; align-content:center;
-      gap:40px 44px; width:100%; max-width:760px;
+      gap:36px 40px; width:100%; max-width:780px;
     }
     @media (min-width:640px) {
       .pets-grid::after { content:''; flex-basis:100%; height:0; order:2; }
@@ -745,33 +746,32 @@
       .pets-home { padding:40px 24px; }
     }
     .pets-card {
-      width:220px; flex:0 0 220px; height:196px; margin:0; padding:28px 22px 24px; border:none;
-      border-radius:28px;
-      background:linear-gradient(165deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 48%, rgba(6,8,12,.25) 100%);
+      width:228px; flex:0 0 228px; height:204px; margin:0; padding:30px 24px 26px; border:none;
+      border-radius:32px;
       cursor:pointer; font-family:inherit;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
-      box-shadow:0 4px 20px rgba(0,0,0,.08);
-      transition:transform .55s cubic-bezier(.22,1,.36,1), box-shadow .55s ease, opacity .55s ease;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
+      box-shadow:0 8px 28px rgba(0,0,0,.12);
+      transition:transform .5s cubic-bezier(.22,1,.36,1), box-shadow .5s ease, opacity .5s ease;
     }
     .pets-card:hover {
-      transform:translateY(-3px);
-      box-shadow:0 12px 28px rgba(0,0,0,.1);
+      transform:translateY(-4px);
+      box-shadow:0 16px 36px rgba(0,0,0,.16);
     }
-    .pets-card:active { transform:translateY(0); opacity:.92; }
+    .pets-card:active { transform:translateY(-1px); opacity:.94; }
     .pets-card-title {
-      font-size:11px; font-weight:500; letter-spacing:.06em; text-transform:uppercase;
-      color:rgba(255,255,255,.32); line-height:1.4;
+      font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+      color:rgba(255,255,255,.45); line-height:1.4;
     }
     .pets-illust--preview {
-      width:88px; height:72px;
-      filter:drop-shadow(0 12px 24px rgba(0,0,0,.18));
+      width:92px; height:76px;
+      filter:drop-shadow(0 14px 28px rgba(0,0,0,.2));
     }
     .pets-illust { display:block; flex-shrink:0; overflow:visible; }
     .pets-illust--hero {
-      width:min(52vw,280px); height:min(52vw,280px); max-height:54vh;
-      opacity:0; transform:scale(.94) translateY(8px);
-      filter:drop-shadow(0 24px 48px rgba(0,0,0,.22));
-      transition:opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1);
+      width:min(54vw,300px); height:min(54vw,300px); max-height:56vh;
+      opacity:0; transform:scale(.92) translateY(10px);
+      filter:drop-shadow(0 28px 56px rgba(0,0,0,.28));
+      transition:opacity .75s cubic-bezier(.22,1,.36,1), transform .75s cubic-bezier(.22,1,.36,1);
     }
     .pets-illust--hero.pets-hero-in {
       opacity:1; transform:scale(1) translateY(0);
@@ -799,8 +799,8 @@
     }
     .pets-scene-hero {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      padding:0 12vw 10vh; pointer-events:none;
-      transform:translateY(-6%);
+      padding:0 10vw 12vh; pointer-events:none;
+      transform:translateY(-8%);
     }
     .pets-scene-hero .pets-illust--hero {
       filter:drop-shadow(0 24px 48px rgba(0,0,0,.1));
@@ -829,27 +829,35 @@
       background:rgba(255,255,255,.35);
       transition:width .5s cubic-bezier(.22,1,.36,1);
     }
-    .pets-drag-knob { display:none; }
     .pets-drag-label {
-      font-size:10px; font-weight:500; letter-spacing:.12em; text-transform:uppercase;
-      color:rgba(255,255,255,.28);
+      font-size:10px; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+      color:rgba(255,255,255,.32);
     }
     .pets-gen-pulse { display:none !important; }
     .pets-spotify-btn {
       display:inline-flex; align-items:center; justify-content:center;
-      padding:13px 26px; border-radius:999px; text-decoration:none;
-      font-family:inherit; font-size:13px; font-weight:600; letter-spacing:.02em;
-      color:rgba(255,255,255,.92);
-      background:rgba(255,255,255,.1);
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:none;
-      transition:background .4s ease, border-color .4s ease;
+      padding:14px 28px; border-radius:999px; text-decoration:none;
+      font-family:inherit; font-size:14px; font-weight:700; letter-spacing:.01em;
+      color:#fff;
+      background:rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.2);
+      box-shadow:0 8px 24px rgba(0,0,0,.12);
+      transition:background .35s ease, transform .35s ease, box-shadow .35s ease;
     }
     .pets-spotify-btn:hover {
-      background:rgba(255,255,255,.14);
-      border-color:rgba(255,255,255,.22);
-      transform:none; filter:none;
+      background:rgba(255,255,255,.2);
+      transform:translateY(-1px);
+      box-shadow:0 12px 28px rgba(0,0,0,.16);
     }
+    .pets-retry-btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:10px 20px; border-radius:999px; border:1px solid rgba(255,255,255,.16);
+      font-family:inherit; font-size:12px; font-weight:600; letter-spacing:.04em;
+      color:rgba(255,255,255,.55); background:rgba(255,255,255,.06); cursor:pointer;
+      transition:color .3s ease, background .3s ease;
+    }
+    .pets-retry-btn:hover { color:rgba(255,255,255,.85); background:rgba(255,255,255,.1); }
+    .pets-retry-btn[hidden] { display:none !important; }
     .pets-logout {
       position:absolute; top:max(18px, env(safe-area-inset-top)); right:max(18px, env(safe-area-inset-right));
       z-index:6; padding:8px 14px; border:none; border-radius:999px;
@@ -859,9 +867,8 @@
     }
     .pets-logout:hover { color:rgba(255,255,255,.6); background:rgba(255,255,255,.1); }
     @media (prefers-reduced-motion:reduce) {
-      .pets-illust--preview, .pets-guest-illust, .pets-load-dots span, .pets-drag-knob { animation:none !important; }
+      .pets-illust--preview, .pets-guest-illust, .pets-boot-line::after { animation:none !important; }
       .pets-card, .pets-home, .pets-scene, .pets-illust--hero { transition:none !important; }
-      .pets-cursor { display:none !important; }
       html[data-kw="app"] #appView.pets-shell,
       html[data-kw="guest"] .pets-guest { cursor:auto; }
     }
@@ -871,13 +878,13 @@
       padding:48px 28px; text-align:center; position:relative;
     }
     .pets-guest-illust {
-      width:min(42vw,140px); height:min(42vw,120px); margin:0 auto 36px;
-      filter:drop-shadow(0 16px 32px rgba(0,0,0,.22));
+      width:min(44vw,148px); height:min(44vw,128px); margin:0 auto 32px;
+      filter:drop-shadow(0 20px 40px rgba(0,0,0,.22));
     }
     .pets-guest-illust svg { width:100%; height:100%; }
     .pets-guest-title {
-      font-size:clamp(26px,5vw,36px); font-weight:600; letter-spacing:-.03em;
-      color:rgba(255,255,255,.88); margin-bottom:14px;
+      font-size:clamp(22px,4.5vw,32px); font-weight:700; letter-spacing:-.02em;
+      color:rgba(255,255,255,.72); margin-bottom:12px;
     }
     .pets-guest-tag {
       font-size:14px; font-weight:400; line-height:1.6; letter-spacing:.01em;
@@ -1143,11 +1150,7 @@
 </head>
 <body>
 <div id="bootSplash" class="kw-boot" aria-live="polite" aria-busy="true">
-  <div class="pets-load-dots" aria-hidden="true"><span></span><span></span><span></span></div>
-</div>
-<div id="petsCursor" class="pets-cursor" aria-hidden="true">
-  <div class="pets-cursor-ring" id="petsCursorRing"></div>
-  <div class="pets-cursor-dot" id="petsCursorDot"></div>
+  <div class="pets-boot-line" aria-hidden="true"></div>
 </div>
 
 <video id="cinema" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
@@ -1176,11 +1179,11 @@
       <div class="pets-drag-bar" id="petsDragBar" hidden>
         <div class="pets-drag-track">
           <div class="pets-drag-fill" id="petsDragFill"></div>
-          <div class="pets-drag-knob" id="petsDragKnob"></div>
         </div>
-        <span class="pets-drag-label" id="petsDragLabel">mixing your playlist</span>
+        <span class="pets-drag-label" id="petsDragLabel">building playlist</span>
       </div>
       <a id="petsSpotifyBtn" class="pets-spotify-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>Open in Spotify</a>
+      <button type="button" id="petsRetryBtn" class="pets-retry-btn" hidden>Try again</button>
       <p class="pets-scene-hint" id="petsSceneHint">tap to return</p>
     </div>
   </div>
@@ -1306,7 +1309,6 @@ function bootAuthedHome(){
   const cin=$('cinema');
   if(cin){ try{ cin.pause(); }catch(_){} cin.removeAttribute('src'); }
   initEmotionGridUI();
-  startSyncPolling();
   kwSetView('app');
 }
 
@@ -2692,6 +2694,7 @@ let _syncStartTime=null, _syncStartProgress=0, _syncIsIncremental=false;
 let _autoSyncTriggered=false;
 
 function startSyncPolling(){
+  if(document.body.classList.contains('pets-app')||kwIsAuthed()) return;
   _pollSync();
   _syncTimer=setInterval(_pollSync,7000);
 }

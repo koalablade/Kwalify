@@ -203,6 +203,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       typeof lengthRaw === "string" ? parseInt(lengthRaw, 10) : Number(lengthRaw);
 
     const varietyBoostRequested = rawBody.varietyBoost === true;
+    const moodSceneRaw =
+      typeof rawBody.sceneId === "string"
+        ? rawBody.sceneId.trim()
+        : typeof rawBody.filmScene === "string"
+          ? rawBody.filmScene.trim()
+          : "";
 
     const payload = {
       vibe: (typeof vibeRaw === "string" ? vibeRaw.trim() : String(vibeRaw).trim()) || "balanced",
@@ -210,6 +216,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       length: isNaN(parsedLength) || parsedLength <= 0 ? 25 : parsedLength,
       ...(referencePlaylistRaw ? { referencePlaylist: referencePlaylistRaw } : {}),
       ...(varietyBoostRequested ? { varietyBoost: true } : {}),
+      ...(moodSceneRaw ? { sceneId: moodSceneRaw } : {}),
     };
 
     const parsed = GeneratePlaylistBody.safeParse(payload);
@@ -219,7 +226,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const { vibe, mode, length, referencePlaylist, varietyBoost } = parsed.data;
+    const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId } = parsed.data;
+    const moodSceneId = sceneId?.trim() || null;
 
     const acquired = acquireGenerateSession(userId, { force: !!varietyBoost });
     if (!acquired) {
@@ -260,7 +268,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let sceneJourneyArc: ReturnType<typeof analyzeVibeWithContext>["journeyArc"] | null = null;
     let momentPipeline: ReturnType<typeof analyzeMomentPipeline> | null = null;
     try {
-      momentPipeline = analyzeMomentPipeline(vibe);
+      momentPipeline = analyzeMomentPipeline(vibe, { moodSceneId });
       emotionProfile = momentPipeline.profile;
       experienceScene = momentPipeline.experienceScene;
       sceneJourneyArc = momentPipeline.journeyArc;
