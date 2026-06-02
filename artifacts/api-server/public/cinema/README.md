@@ -1,36 +1,29 @@
-# Kwalify cinematic scenes (Moment Engine)
+# Kwalify cinematic scene library
 
-Single renderer: `getSceneFromInput()` → `renderScene(sceneId)`.
+Owned moment imagery: constitution, prompts, and assets — not third-party references.
 
-## Load order
+| Doc | Purpose |
+|-----|---------|
+| [VISUAL_STYLE.md](./VISUAL_STYLE.md) | Global visual rules (film still, natural light, grounded tone) |
+| [scenes.manifest.json](./scenes.manifest.json) | Per-scene generation prompts + `videoScenes` flags |
 
-1. `/cinema/{scene_id}.mp4`
-2. `/cinema/{scene_id}/base.mp4`
-3. `/cinema/{scene_id}/still.jpg` (or `.webp`, or `{scene_id}.jpg` at root)
-4. **Structured composite still** on `#cinemaFallback` (never a blank screen)
+## Runtime load order
 
-Pure gradient-only scenes are not used as the final layer when stills are missing — composites use horizon/road/light cues per archetype.
+1. `/cinema/{scene_id}/still.jpg` (required for production)
+2. Video **only** if still missing **and** scene ∈ `videoScenes` in manifest
+3. Emergency flat plate `#060608` (never gradient art)
 
-## Scene ids (filmScene payload)
+Scene changes: **350ms crossfade**.
 
-| id | vibe cues |
-|----|-----------|
-| `night_drive` | rain, lonely, night, drive, tunnel |
-| `petrol_station_2am` | petrol, gas station, 2am, forecourt |
-| `sunset_coast` | sunset, coast, beach |
-| `urban_midnight_walk` | city, london, neon, walk |
-| `train_journey` | train, leaving, journey |
-| `summer_afternoon_drift` | sun, summer, afternoon, happy |
-| `rainy_city_interior` | rain + window, apartment, interior |
-| `memory_road` | memory, nostalgic, country |
-| `club_exit_dawn` | club, afterparty, dawn |
-| `open_highway_daylight` | highway, motorway, open road (default) |
+## Add or replace assets
 
-## Deploy assets (recommended)
+1. Generate from manifest `prompt` (16:9, photorealistic, no text/watermark).
+2. Save as `cinema/{scene_id}/still.jpg` (1920×1080 recommended).
+3. Optional loop: `cinema/{scene_id}.mp4` or `cinema/{scene_id}/base.mp4` (video scenes only).
+4. Run `python scripts/validate_cinema_assets.py` from repo root.
 
-For each `scene_id`, add either:
+## Dev placeholder generator (non-production)
 
-- `{scene_id}.mp4` or `{scene_id}/base.mp4`
-- `{scene_id}/still.jpg` (1920×1080 cinematic still)
+`scripts/generate_cinema_stills.py` draws procedural placeholders for layout testing only. **Do not ship** those as final art — replace with manifest prompts.
 
-Optional: set `SCENE_SKIP_VIDEO=true` in `index.html` to skip video probes.
+See [docs/CINEMATIC_SCENE_LIBRARY.md](../../docs/CINEMATIC_SCENE_LIBRARY.md).

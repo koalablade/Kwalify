@@ -113,6 +113,9 @@ Attach PostgreSQL and set the environment variables above.
 
 ### Further docs
 
+- [Master design system](./docs/KWALIFY_DESIGN_SYSTEM.md) — product principles, 10 visual entities, UX model
+- [Pet Playlist principles for Kwalify](./docs/PET_PLAYLIST_PRINCIPLES_FOR_KWALIFY.md) — why it works + paste-ready Cursor prompt
+- [Simple moment product](./docs/SIMPLE_MOMENT_PRODUCT.md) — locked one-flow UX (input → playlist + scene)
 - [Product promise](./docs/PRODUCT_PROMISE.md) — what the engine is trying to honour
 - [Kwalify V2 capabilities](./docs/KWALIFY_V2.md) — rediscovery, chapters, surprise mix
 - [Genre intelligence](./docs/GENRE_INTELLIGENCE_STACK.md) — technical genre stack overview

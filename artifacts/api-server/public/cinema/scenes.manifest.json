@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "aspectRatio": "16:9",
+  "primaryAsset": "still.jpg",
+  "videoScenes": ["night_drive", "urban_midnight_walk", "rainy_city_interior"],
+  "scenes": {
+    "night_drive": {
+      "title": "Night Drive",
+      "emotion": "reflective solitude, quiet motion forward",
+      "videoAllowed": true,
+      "prompt": "Cinematic photo of a lone driver perspective at night on a motorway, wet asphalt reflecting sodium streetlights, distant tunnel glow ahead, dashboard softly illuminating foreground in warm amber and dim red, light rain on windshield, shallow depth of field, film still aesthetic, realistic lighting, 35mm lens, slightly desaturated, emotional tone: reflective solitude, quiet motion forward. 16:9, no text, no watermark."
+    },
+    "petrol_station_2am": {
+      "title": "Petrol Station 2am",
+      "emotion": "liminal stillness",
+      "videoAllowed": false,
+      "reference": true,
+      "prompt": "Empty petrol station at 2am, fluorescent canopy lights casting harsh white and green tones onto wet concrete, single parked car in distance, vending machine glow inside small shop, no people visible, slightly off-centre composition, cinematic realism, static wide shot, cold atmosphere, subtle film grain, emotional tone: liminal stillness. 16:9, no text, no watermark."
+    },
+    "sunset_coast": {
+      "title": "Sunset Coast",
+      "emotion": "emotional release and warmth",
+      "videoAllowed": false,
+      "prompt": "Wide cinematic shot of a quiet coastline at sunset, golden sun low on horizon reflecting across calm sea, long soft shadows on empty beach, warm orange and peach sky blending into soft blue, minimal human presence, stable composition, film still, 50mm lens, emotional tone: emotional release and warmth. 16:9, no text, no watermark."
+    },
+    "urban_midnight_walk": {
+      "title": "Urban Midnight Walk",
+      "emotion": "solitude within city density",
+      "videoAllowed": true,
+      "prompt": "Empty city street at midnight after rain, wet pavement reflecting neon signage and street lamps, distant blurred traffic bokeh, quiet atmosphere, cool blue and magenta tones, cinematic framing at eye level, slight haze in air, film still aesthetic, emotional tone: solitude within city density. 16:9, no text, no watermark."
+    },
+    "train_journey": {
+      "title": "Train Journey",
+      "emotion": "introspective movement",
+      "videoAllowed": false,
+      "prompt": "Interior view of a train carriage at night, window reflections layered over blurred passing lights outside, soft warm interior lighting contrasting cold exterior motion, subtle sense of travel and transition, cinematic framing through window, shallow depth of field, emotional tone: introspective movement. 16:9, no text, no watermark."
+    },
+    "summer_afternoon_drift": {
+      "title": "Summer Afternoon Drift",
+      "emotion": "nostalgic calm and drifting time",
+      "videoAllowed": false,
+      "prompt": "Suburban street in late summer afternoon, warm sunlight slightly overexposed, soft wind moving curtains in open windows, empty quiet road, heat haze in distance, natural colours slightly faded, cinematic still frame, emotional tone: nostalgic calm and drifting time. 16:9, no text, no watermark."
+    },
+    "rainy_city_interior": {
+      "title": "Rainy City Interior",
+      "emotion": "safe isolation and introspection",
+      "videoAllowed": true,
+      "prompt": "Interior of a quiet apartment at night during heavy rain, window covered in rain streaks, blurred city lights outside, warm table lamp illuminating room softly, deep blue shadows, intimate framing, cinematic realism, emotional tone: safe isolation and introspection. 16:9, no text, no watermark."
+    },
+    "memory_road": {
+      "title": "Memory Road",
+      "emotion": "nostalgia and reflection",
+      "videoAllowed": false,
+      "prompt": "Empty countryside road stretching into horizon at golden hour, soft fading sunlight, trees lining road slightly blurred by distance, subtle mist in air, warm muted colour palette, cinematic framing centered on vanishing point, emotional tone: nostalgia and reflection. 16:9, no text, no watermark."
+    },
+    "club_exit_dawn": {
+      "title": "Club Exit Dawn",
+      "emotion": "exhaustion and clarity",
+      "videoAllowed": false,
+      "prompt": "Early morning blue hour city street after nightlife, empty sidewalks, faint glow of club signs fading, soft sunrise beginning on horizon, cool blue tones with slight warm edge light, lone distant figures walking away, cinematic still, emotional tone: exhaustion and clarity. 16:9, no text, no watermark."
+    },
+    "open_highway_daylight": {
+      "title": "Open Highway Daylight",
+      "emotion": "freedom and forward momentum",
+      "videoAllowed": false,
+      "prompt": "Wide open highway under bright clear sky, endless road stretching toward horizon, minimal traffic, strong sunlight, crisp shadows, high clarity cinematic framing, centred composition, emotional tone: freedom and forward momentum. 16:9, no text, no watermark."
+    }
+  }
+}

@@ -528,194 +528,79 @@
       .presets { overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; }
     }
 
-    /* ── Cinematic Moment Engine (scene + one atmosphere layer) ── */
+    /* ── Scene background (still / optional video) — moment-app only ── */
     html, body { background:#060608; }
     #cinema, #cinemaStill, #cinemaFallback {
       position:fixed; inset:0; width:100%; height:100%; object-fit:cover;
+      object-position:center center; aspect-ratio:16/9;
       z-index:0; pointer-events:none; background:#060608;
     }
-    #cinema { opacity:0; transition:opacity .45s ease; }
-    #cinemaStill { opacity:0; transition:opacity .5s ease; }
-    #cinemaFallback { display:block; transition:opacity .5s ease; }
+    #cinema { opacity:0; transition:opacity .35s ease; }
+    #cinemaStill { opacity:0; transition:opacity .35s ease; }
+    #cinemaFallback { display:block; transition:opacity .35s ease; background:#060608; }
+    body.scene-crossfade-out #cinema,
+    body.scene-crossfade-out #cinemaStill,
+    body.scene-crossfade-out #cinemaFallback {
+      opacity:0 !important;
+      transition:opacity .35s ease !important;
+    }
     #cinemaFallback.hidden, #cinemaStill.hidden { display:none !important; opacity:0 !important; }
     body.scene-video #cinema { opacity:1 !important; }
     body.scene-still #cinemaStill { opacity:1 !important; display:block !important; }
     body.scene-still #cinemaFallback { opacity:0 !important; }
     body.scene-composite #cinemaFallback { opacity:1 !important; }
 
-    #cinema, #cinemaStill, #cinemaFallback {
-      filter:brightness(var(--scene-bright,1)) contrast(var(--scene-contrast,1.05)) saturate(var(--scene-sat,.98));
-    }
-    #cinema, #cinemaStill, #cinemaFallback {
-      transition:filter .35s ease, opacity .35s ease, transform .35s ease;
-    }
-    body.scene-camera-lock #cinema,
-    body.scene-camera-lock #cinemaStill,
-    body.scene-camera-lock #cinemaFallback {
+    .moment-app #cinema,
+    .moment-app #cinemaStill,
+    .moment-app #cinemaFallback {
       animation:none !important;
-      transform:scale(1.04);
+      transform:none !important;
+      filter:none !important;
+      transition:opacity .3s ease !important;
     }
-    body.moment-compose.scene-camera-drift #cinema,
-    body.moment-compose.scene-camera-drift #cinemaStill,
-    body.moment-compose.scene-camera-drift #cinemaFallback {
-      animation:cameraDrift 56s ease-in-out infinite;
-    }
-    body.moment-thinking #cinema,
-    body.moment-thinking #cinemaStill,
-    body.moment-thinking #cinemaFallback {
-      animation:none !important;
-      transform:scale(1.04);
-    }
-    body.moment-locked.scene-camera-zoom #cinema,
-    body.moment-locked.scene-camera-zoom #cinemaStill,
-    body.moment-locked.scene-camera-zoom #cinemaFallback {
-      animation:cameraZoom 52s ease-in-out infinite;
-    }
-    body.moment-locked.scene-camera-pan #cinema,
-    body.moment-locked.scene-camera-pan #cinemaStill,
-    body.moment-locked.scene-camera-pan #cinemaFallback {
-      animation:cameraPan 48s ease-in-out infinite;
-    }
-    @keyframes cameraDrift {
-      0%,100% { transform:scale(1.03) translate(0,0); }
-      50% { transform:scale(1.045) translate(-0.2%,0.1%); }
-    }
-    @keyframes cameraZoom {
-      0%,100% { transform:scale(1.04); }
-      50% { transform:scale(1.07); }
-    }
-    @keyframes cameraPan {
-      0%,100% { transform:scale(1.05) translate(0,0); }
-      50% { transform:scale(1.05) translate(-0.5%,0); }
+    /* Emergency only: flat plate when still + video are missing (no gradient blobs) */
+    body.scene-composite #cinemaFallback {
+      background:#060608 center/cover no-repeat;
     }
 
-    /* Structured still composites (only when no video/still asset) */
-    #cinemaFallback[data-scene="night_drive"] {
-      background:linear-gradient(180deg,#0a1020 0%,#060810 42%,#020306 100%),
-        radial-gradient(ellipse 140% 35% at 50% 88%,rgba(255,210,120,.22) 0%,transparent 50%),
-        radial-gradient(ellipse 80% 50% at 20% 40%,rgba(60,90,140,.25) 0%,transparent 70%);
-    }
-    #cinemaFallback[data-scene="petrol_station_2am"] {
-      background:linear-gradient(180deg,#12101a 0%,#08060c 55%,#030208 100%),
-        radial-gradient(circle at 72% 38%,rgba(255,80,40,.35) 0%,transparent 28%),
-        radial-gradient(circle at 28% 42%,rgba(40,180,255,.2) 0%,transparent 32%);
-    }
-    #cinemaFallback[data-scene="sunset_coast"] {
-      background:linear-gradient(180deg,#4a2810 0%,#1a1008 38%,#080604 100%),
-        radial-gradient(ellipse 100% 45% at 50% 18%,rgba(255,160,80,.45) 0%,transparent 55%);
-    }
-    #cinemaFallback[data-scene="urban_midnight_walk"] {
-      background:linear-gradient(180deg,#0c1018 0%,#06080e 50%,#020204 100%),
-        radial-gradient(ellipse 90% 30% at 50% 100%,rgba(120,160,255,.12) 0%,transparent 45%),
-        linear-gradient(90deg,transparent 0%,rgba(255,255,255,.06) 50%,transparent 100%);
-    }
-    #cinemaFallback[data-scene="train_journey"] {
-      background:linear-gradient(90deg,#0a0c12 0%,#141820 45%,#0a0c12 100%),
-        linear-gradient(180deg,rgba(255,255,255,.08) 0%,transparent 22%),
-        radial-gradient(ellipse 60% 80% at 18% 50%,rgba(180,200,220,.15) 0%,transparent 70%);
-    }
-    #cinemaFallback[data-scene="summer_afternoon_drift"] {
-      background:linear-gradient(180deg,#6a5020 0%,#2a1c08 40%,#100c06 100%),
-        radial-gradient(ellipse 90% 55% at 50% 25%,rgba(255,220,140,.35) 0%,transparent 60%);
-    }
-    #cinemaFallback[data-scene="rainy_city_interior"] {
-      background:linear-gradient(180deg,#10141c 0%,#080a10 55%,#040508 100%),
-        radial-gradient(ellipse 70% 40% at 80% 30%,rgba(100,200,255,.18) 0%,transparent 50%),
-        radial-gradient(ellipse 50% 60% at 15% 55%,rgba(255,255,255,.05) 0%,transparent 45%);
-    }
-    #cinemaFallback[data-scene="memory_road"] {
-      background:linear-gradient(180deg,#3a3020 0%,#1a140c 45%,#080604 100%),
-        radial-gradient(ellipse 100% 40% at 50% 70%,rgba(200,160,100,.2) 0%,transparent 55%);
-    }
-    #cinemaFallback[data-scene="club_exit_dawn"] {
-      background:linear-gradient(180deg,#283858 0%,#141820 48%,#060608 100%),
-        radial-gradient(ellipse 80% 35% at 50% 15%,rgba(140,180,255,.25) 0%,transparent 50%);
-    }
-    #cinemaFallback[data-scene="open_highway_daylight"] {
-      background:linear-gradient(180deg,#5a7a9a 0%,#2a3a4a 35%,#101418 100%),
-        radial-gradient(ellipse 120% 40% at 50% 100%,rgba(255,255,240,.15) 0%,transparent 48%);
-    }
-
-    :root {
-      --scene-bright:1; --scene-contrast:1.05; --scene-sat:.98;
-      --scene-vignette:.42; --scene-grain:.04;
-    }
-    #sceneAtmosphere {
-      position:fixed; inset:0; z-index:1; pointer-events:none;
-      opacity:1;
-    }
-    #sceneAtmosphere::before {
-      content:''; position:absolute; inset:0;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      background-size:160px 160px;
-      mix-blend-mode:overlay;
-      opacity:var(--scene-grain);
-    }
-    #sceneAtmosphere::after {
-      content:''; position:absolute; inset:0;
-      background:radial-gradient(ellipse 75% 65% at 50% 45%, transparent 35%, rgba(0,0,0,calc(var(--scene-vignette)*.55)) 100%);
-      opacity:.65;
-    }
-    #worldFocus, #sceneFrameHint, #worldPhysics { display:none !important; }
-
-    body.moment-compose .bg,
-    body.moment-thinking .bg,
-    body.moment-locked .bg,
-    body.moment-reveal .bg { opacity:0 !important; visibility:hidden !important; }
+    body.moment-home #cinema,
+    body.moment-home #cinemaStill,
+    body.moment-home #cinemaFallback { opacity:0 !important; transition:opacity .4s ease; }
+    body.moment-loading #cinema,
+    body.moment-loading #cinemaStill,
+    body.moment-loading #cinemaFallback { opacity:.5; transition:opacity .4s ease; }
+    body.moment-result #cinema,
+    body.moment-result #cinemaStill,
+    body.moment-result #cinemaFallback { opacity:1 !important; transition:opacity .4s ease; }
+    .moment-app .bg,
+    .moment-app .waves { display:none !important; }
 
     .moment-app .page, #appView.moment-app .moment-shell { position:relative; z-index:2; }
     .moment-shell, .compose-layer, .result-surface, .vibe-focus, .input-moment, .result-layer.visible .result-surface {
       filter:none !important;
       -webkit-font-smoothing:antialiased;
     }
-    body.moment-compose .compose-layer {
+    body.moment-home .compose-layer {
       opacity:1 !important; visibility:visible !important;
       pointer-events:auto !important; filter:none !important;
     }
-    body.moment-thinking .compose-layer {
-      opacity:.75 !important; filter:none !important;
+    body.moment-loading .compose-layer {
+      opacity:.82 !important; filter:none !important;
       pointer-events:none !important;
-      transition:opacity .3s ease !important;
+      transition:opacity .35s ease !important;
     }
-    body.moment-locked .compose-layer {
-      opacity:.65 !important; filter:none !important;
-      pointer-events:none !important;
-      transition:opacity .3s ease !important;
-    }
-    body.moment-reveal .compose-layer {
+    body.moment-loading .vibe-focus .vibe-input { opacity:.85; }
+    body.moment-result .compose-layer {
       opacity:0 !important; visibility:hidden !important;
       pointer-events:none !important;
-      transition:opacity .7s ease !important;
+      transition:opacity .4s ease !important;
     }
-    /* ── Master lock: moment UI ── */
-    .moment-app .waves { display:none; }
-    .moment-app .bg .orb { opacity:.1; filter:blur(130px); animation:none !important; }
-    .moment-app .page {
-      padding-bottom:16px;
-      position:relative;
-    }
-    .moment-app .page::before {
-      content:''; position:fixed; inset:0; z-index:1; pointer-events:none;
-      background:transparent;
-      transition:background 900ms cubic-bezier(0.17, 1, 0.32, 1);
-      transition-delay:65ms;
-    }
-    body.moment-compose .page::after,
-    body.moment-thinking .page::after,
-    body.moment-locked .page::after,
-    body.moment-reveal .page::after,
-    body.moment-compose .page::before,
-    body.moment-thinking .page::before,
-    body.moment-locked .page::before,
-    body.moment-reveal .page::before {
-      display:none !important;
-    }
+    .moment-app .page { padding-bottom:16px; position:relative; }
     .moment-app .inner { max-width:400px; }
-    .moment-app .header { opacity:.12; padding-top:10px; transition:opacity .75s var(--spring); }
+    .moment-app .header { opacity:.35; padding-top:12px; transition:opacity .4s ease; }
+    body.moment-result .header { opacity:.2; }
     .moment-app .header-menu-btn { opacity:.45 !important; }
-    .moment-app .btn { transition:transform .45s var(--spring), box-shadow .55s ease, background .45s ease, opacity .45s ease, color .45s ease; }
-    .moment-app .btn:hover:not(:disabled) { transform:translateY(-1px); }
-    .moment-app .btn:active:not(:disabled) { transform:scale(0.97) !important; transition-duration:.35s; }
+    .moment-app .btn { transition:opacity .3s ease, background .3s ease; }
     .moment-app .logo-mark { box-shadow:none; opacity:.85; }
     .moment-app .logo-name { color:var(--text-muted); }
     .moment-app .logo-name em { color:var(--text-muted); }
@@ -727,16 +612,12 @@
     }
     .compose-layer {
       width:100%; max-width:340px; margin:0 auto;
-      transition:opacity 1.05s cubic-bezier(0.14, 1, 0.26, 1), transform 1.1s cubic-bezier(0.16, 1, 0.3, 1), filter 1.15s ease;
+      transition:opacity .4s ease;
     }
-    body.moment-compose .vibe-focus .vibe-input {
-      transition:border-color .48s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .58s cubic-bezier(0.18, 1, 0.32, 1), transform .5s cubic-bezier(0.16, 1, 0.28, 1), color .4s ease;
-    }
-    body.moment-compose .btn-generate-full {
-      transition:transform .62s var(--spring), box-shadow .72s ease, opacity .65s ease, background .5s ease;
-    }
-    body.moment-compose .examples-whisper {
-      transition:opacity .95s ease .06s;
+    body.moment-home .vibe-focus .vibe-input,
+    body.moment-home .btn-generate-full,
+    body.moment-home .examples-whisper {
+      transition:opacity .35s ease, border-color .35s ease, color .35s ease;
     }
     .hero-moment { display:none; }
     .hero-tagline { display:none; }
@@ -761,20 +642,23 @@
       border-bottom-color:rgba(255,255,255,.55);
       box-shadow:0 12px 40px rgba(0,0,0,.2);
     }
-    .vibe-focus { margin:18vh 0 16vh; }
+    .moment-input-label {
+      display:block; font-size:13px; font-weight:500; letter-spacing:.02em;
+      color:rgba(255,255,255,.45); margin-bottom:14px;
+    }
+    .vibe-focus { margin:14vh 0 12vh; }
     .vibe-focus .vibe-input {
-      width:100%; font-size:clamp(24px,6vw,32px); font-weight:500; text-align:center;
-      padding:32px 12px 44px; border-radius:0; border:none;
+      width:100%; font-size:clamp(22px,5.5vw,30px); font-weight:500; text-align:center;
+      padding:28px 12px 36px; border-radius:0; border:none;
       border-bottom:1px solid rgba(255,255,255,.22);
-      background:transparent; color:#fff; letter-spacing:-.5px;
+      background:transparent; color:#fff; letter-spacing:-.4px;
       text-shadow:0 1px 18px rgba(0,0,0,.55);
-      transition:border-color .55s ease, box-shadow .65s var(--spring), transform .55s var(--spring), color .4s ease;
+      transition:opacity .35s ease, border-color .4s ease, color .35s ease;
     }
     .vibe-focus .vibe-input::placeholder { color:rgba(255,255,255,.32); font-weight:400; }
     .vibe-focus .vibe-input:focus {
-      outline:none; transform:scale(1.015);
-      border-bottom-color:rgba(255,255,255,.42);
-      box-shadow:0 0 56px rgba(255,255,255,.06), 0 16px 48px rgba(0,0,0,.22);
+      outline:none;
+      border-bottom-color:rgba(255,255,255,.38);
     }
     .vibe-counter { opacity:0; pointer-events:none; }
     .vibe-input:focus ~ .vibe-counter, .vibe-input:not(:placeholder-shown) ~ .vibe-counter { opacity:.15; }
@@ -784,7 +668,7 @@
       margin:0 auto 56px; box-shadow:0 2px 20px rgba(29,185,84,.18);
     }
     .trust-once { display:none; }
-    .examples-whisper { opacity:.11; margin-top:72px; transition:opacity .55s ease; }
+    .examples-whisper { opacity:.22; margin-top:40px; transition:opacity .4s ease; }
     .prompt-examples-label { display:none; }
     .prompt-examples { border:none !important; padding:0 !important; margin:0 !important; }
     .prompt-example-list { justify-content:center; gap:6px; }
@@ -805,21 +689,8 @@
     .settings-whisper .mode-tabs, .settings-whisper .ctrl-block, .settings-whisper .ref-field { border:none; background:transparent; box-shadow:none; }
     .settings-whisper .mode-tab { transition:background .45s ease, color .45s ease, border-color .45s ease; }
     .prog-wrap { display:none !important; }
-    .listen-overlay {
-      position:fixed; inset:0; z-index:15; display:flex; align-items:center; justify-content:center;
-      pointer-events:none; opacity:0;
-      transition:opacity .3s ease, background .3s ease;
-      background:rgba(4,5,10,.48); backdrop-filter:none;
-    }
-    .listen-overlay.visible { opacity:1; backdrop-filter:none; background:rgba(4,5,10,.12); }
-    body.moment-locked .listen-overlay.visible { opacity:.7; background:rgba(4,5,10,.08); }
-    .listen-overlay .listen-line {
-      font-size:15px; color:rgba(255,255,255,.28); font-weight:400; letter-spacing:.12em;
-      margin:0; transition:opacity .72s ease .1s;
-    }
-    .listen-overlay .spin { display:none; }
-    .moment-thinking .below-fold,
-    .moment-locked .below-fold { opacity:0; }
+    .listen-overlay { display:none !important; }
+    body.moment-loading .below-fold { opacity:0; }
     .result-layer {
       position:fixed; inset:0; z-index:25; display:flex; align-items:center; justify-content:center;
       padding:48px 24px;
@@ -833,96 +704,75 @@
       -webkit-backdrop-filter:none;
       background:transparent;
     }
-    .result-layer.visible.revealing { transition-duration:1100ms; }
-    .moment-reveal .compose-layer,
-    .moment-reveal .below-fold,
-    .moment-reveal .sync-whisper { opacity:0 !important; visibility:hidden !important; pointer-events:none !important; }
-    .moment-reveal .listen-overlay { opacity:0 !important; visibility:hidden !important; }
-    .moment-reveal .header { opacity:.12; transition:opacity .8s ease; }
+    .moment-result .below-fold,
+    .moment-result .sync-whisper { opacity:0 !important; visibility:hidden !important; pointer-events:none !important; }
+    .moment-result .header { opacity:.12; transition:opacity .4s ease; }
     .result-surface {
       width:100%; max-width:380px; text-align:center;
       position:relative; z-index:1;
     }
     .result-layer.glass { background:var(--bg); border:none; backdrop-filter:none; margin:0; box-shadow:none; }
     .result-top, .result-icon, .result-tag, .result-meta-txt, .mode-badge { display:none !important; }
-    body.moment-reveal .result-more,
-    body.moment-reveal #resultCacheNotice,
-    body.moment-reveal .moment-back { display:none !important; }
-    .result-surface:not(.result-revealed) .result-name-display,
-    .result-surface:not(.result-revealed) .result-reveal-part {
-      opacity:0;
-      transform:translateY(14px) scale(.98);
+    body.moment-result .result-more,
+    body.moment-result #resultCacheNotice,
+    body.moment-result #regenBtn,
+    body.moment-result .result-art-ambient { display:none !important; }
+    body.moment-result .result-surface:not(.result-ready) .moment-wow-part { opacity:0; }
+    body.moment-result .result-surface.result-ready .moment-wow-part {
+      opacity:1; transition:opacity .35s ease;
     }
-    .result-surface.result-revealed .result-name-display {
-      animation:emergeTitle 1.08s cubic-bezier(0.16, 1, 0.28, 1) var(--reveal-title, 0ms) both;
+    .moment-echo {
+      font-size:14px; font-weight:400; line-height:1.45;
+      color:rgba(255,255,255,.72); text-transform:lowercase;
+      margin:0 auto 20px; max-width:320px;
+      letter-spacing:.01em;
     }
-    .result-surface.result-revealed .result-summary {
-      animation:emergeMid 1.02s cubic-bezier(0.19, 1, 0.35, 1) var(--reveal-summary, 140ms) both;
+    .moment-title {
+      font-size:clamp(32px,8vw,44px) !important;
+      font-weight:600 !important;
+      letter-spacing:-.6px !important;
+      line-height:1.12 !important;
+      margin:0 auto 16px !important;
+      color:#fff !important;
+      text-transform:none !important;
+      text-shadow:0 2px 24px rgba(0,0,0,.45);
     }
-    .result-surface.result-revealed .result-actions {
-      animation:emergeMid 1.04s cubic-bezier(0.17, 1, 0.31, 1) var(--reveal-actions, 260ms) both;
+    .moment-micro {
+      font-size:14px !important;
+      color:rgba(255,255,255,.55) !important;
+      margin:0 auto 36px !important;
+      max-width:280px;
+      font-weight:400;
     }
-    .result-surface.result-revealed .result-actions .btn-green {
-      animation:emergeFore 1.1s cubic-bezier(0.15, 1, 0.27, 1) calc(var(--reveal-actions, 260ms) + 35ms) both;
+    body.moment-result .result-actions { max-width:300px; margin-bottom:8px; }
+    body.moment-result .result-actions .btn-green {
+      font-size:16px; padding:18px 24px; font-weight:600;
+      border-radius:9999px; box-shadow:0 8px 32px rgba(29,185,84,.28);
     }
-    .result-surface.result-revealed #regenBtn {
-      opacity:.72;
+    .moment-again {
+      display:inline-block; margin-top:28px; padding:10px 16px;
+      font-size:13px; color:rgba(255,255,255,.42); background:transparent;
+      border:none; font-family:inherit; cursor:pointer;
+      letter-spacing:.02em;
     }
-    .result-surface.result-revealed .result-art-ambient {
-      animation:emergeAmbient 1.25s cubic-bezier(0.13, 1, 0.24, 1) var(--reveal-art, 660ms) both;
-    }
-    .result-surface.result-revealed.result-stable .result-art-ambient {
-      opacity:.56;
-      transition:opacity 520ms cubic-bezier(0.16, 1, 0.3, 1) 80ms;
-    }
-    .result-surface.result-revealed .moment-back {
-      animation:emergeMid .92s cubic-bezier(0.2, 1, 0.36, 1) var(--reveal-back, 1100ms) both;
-    }
-    @keyframes emergeAmbient {
-      from { opacity:0; transform:translateY(10px) scale(.99); }
-      to { opacity:.42; transform:none; filter:none; }
-    }
-    @keyframes emergeTitle {
-      from { opacity:0; transform:translateY(20px) scale(.97); }
-      to { opacity:1; transform:none; filter:none; }
-    }
-    @keyframes emergeFore {
-      from { opacity:0; transform:translateY(10px) scale(.985); }
-      to { opacity:1; transform:none; }
-    }
-    @keyframes emergeMid {
-      from { opacity:0; transform:translateY(12px) scale(.98); }
-      to { opacity:.84; transform:none; }
-    }
+    .moment-again:hover { color:rgba(255,255,255,.65); }
     .result-art-grid.result-art-ambient {
       max-width:min(240px,72vw); margin:40px auto 0; border-radius:0; overflow:hidden;
       box-shadow:0 40px 100px rgba(0,0,0,.35);
       border:none;
     }
-    body.moment-reveal .result-art-grid.result-art-ambient {
-      position:fixed; inset:-8%; z-index:0; max-width:none; margin:0;
-      display:block !important; opacity:.1; filter:blur(20px) saturate(.85);
-      pointer-events:none; box-shadow:none;
+    body.moment-result .result-art-grid.result-art-ambient {
+      display:none !important;
     }
-    body.moment-reveal .result-art-grid.result-art-ambient img {
+    body.moment-result .result-art-grid.result-art-ambient img {
       width:100%; height:100%; object-fit:cover; aspect-ratio:auto;
     }
-    body.moment-reveal .result-surface { z-index:2; }
+    body.moment-result .result-surface { z-index:2; }
     .moment-app #resultCacheNotice,
     .moment-app .result-more { display:none !important; }
     .result-name-display {
       font-size:clamp(28px,6.5vw,38px); font-weight:800; letter-spacing:-.8px;
       margin-bottom:14px; color:#fff; line-height:1.08;
-    }
-    body.moment-reveal .result-name-display,
-    body.moment-reveal #resultName {
-      color:#fff;
-      font-size:clamp(13px,3.2vw,18px);
-      font-weight:600;
-      letter-spacing:.22em;
-      text-transform:uppercase;
-      line-height:1.5;
-      text-shadow:0 2px 16px rgba(0,0,0,.55);
     }
     .result-summary {
       border:none; background:transparent; padding:0; margin:0 auto 28px; max-width:300px;
@@ -930,9 +780,9 @@
       font-style:normal; letter-spacing:.01em;
       text-shadow:0 1px 14px rgba(0,0,0,.5);
     }
-    .result-surface.result-revealed.result-stable .result-summary {
+    .result-surface.result-ready .result-summary {
       color:rgba(255,255,255,.78);
-      transition:color .5s ease;
+      transition:opacity .35s ease;
     }
     .cache-tier1-notice {
       border:none; background:transparent; color:var(--text-faint); font-size:11px;
@@ -949,18 +799,19 @@
     .result-more { margin-top:16px; opacity:.22; }
     .result-tier-toggle { justify-content:center; font-size:10px; opacity:.35; border:none; color:var(--text-faint); }
     .result-tier-body { text-align:left; max-width:400px; margin:0 auto; }
-    .moment-back {
-      display:inline-block; margin-top:32px; font-size:10px; color:var(--text-faint); opacity:.22;
-      background:none; border:none; font-family:inherit; cursor:pointer;
-      text-decoration:none;
-    }
-    .moment-back:hover { color:var(--text-muted); opacity:.5; }
+    .moment-back { display:none !important; }
     .below-fold { margin-top:auto; padding-top:100px; opacity:.1; transition:opacity .7s ease; }
     .below-fold .section-title, .below-fold .section-sub { opacity:.8; }
     .below-fold .pl-row { border:none !important; background:transparent !important; backdrop-filter:none !important; }
-    body.moment-compose .below-fold,
-    body.moment-thinking .below-fold,
-    body.moment-reveal .below-fold { display:none !important; }
+    body.moment-home .below-fold,
+    body.moment-loading .below-fold,
+    body.moment-home .bg,
+    body.moment-loading .bg,
+    body.moment-result .bg,
+    body.moment-home .waves,
+    body.moment-loading .waves,
+    body.moment-result .waves { display:none !important; }
+    body.moment-result .below-fold { display:none !important; }
     .pending-card.visible {
       position:fixed; inset:0; z-index:20; display:flex !important; align-items:center; justify-content:center;
       margin:0; max-width:none; border:none; background:var(--bg);
@@ -977,7 +828,6 @@
     .length-slider::-webkit-slider-thumb { background:var(--green); }
     .ctrl-val { color:var(--green); }
     .disclosure-section.open .disclosure-chevron, .result-tier-toggle:hover { color:var(--text-muted); }
-    .moment-app .feedback-section, .moment-app .heard-card, .moment-app .stats-bar { opacity:.9; }
     @media (max-width:520px) {
       .moment-shell { padding:14vh 18px 18vh; min-height:76vh; }
       .vibe-focus { margin:12vh 0 10vh; }
@@ -990,8 +840,7 @@
 <video id="cinema" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
 <img id="cinemaStill" alt="" aria-hidden="true" />
 <div id="cinemaFallback" data-scene="open_highway_daylight" aria-hidden="true"></div>
-<div id="sceneAtmosphere" class="scene-atmosphere" aria-hidden="true"></div>
-<div class="bg">
+<div class="bg" aria-hidden="true">
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
   <div class="orb orb-3"></div>
@@ -1017,30 +866,27 @@
     <div id="loadOverlay"><div class="spin"></div></div>
 
     <!-- ── APP VIEW (logged in) ── -->
-    <div id="appView" class="moment-app moment-compose" style="display:none">
+    <div id="appView" class="moment-app moment-home" style="display:none">
 
-      <div class="moment-shell moment-compose" id="momentShell">
+      <div class="moment-shell moment-home" id="momentShell">
 
         <div class="sync-gate-moment" id="syncGateCard" style="display:none" aria-live="polite"></div>
-
-        <div class="listen-overlay" id="listenOverlay" aria-hidden="true">
-          <p class="listen-line" id="progLabel">Finding your sound…</p>
-        </div>
 
         <div class="compose-layer" id="composeLayer">
           <div id="libraryReadyPill" class="library-ready-pill sync-whisper" style="display:none" aria-live="polite"></div>
 
           <div class="input-moment" id="inputCard" style="display:none">
+            <label class="moment-input-label" for="vibeInput">Type a moment</label>
             <div class="vibe-focus">
               <div class="input-wrap">
                 <input class="vibe-input" id="vibeInput" type="text"
-                  placeholder="How does it feel?"
+                  placeholder="e.g. driving home at 2am after seeing someone"
                   maxlength="140" autocomplete="off" spellcheck="false"
-                  aria-label="How does it feel?" />
+                  aria-label="Type a moment" />
                 <span class="vibe-counter" id="vibeCounter" aria-hidden="true">0/140</span>
               </div>
             </div>
-            <button type="button" class="btn btn-green btn-generate-full" id="generateBtn" onclick="generate()">Go</button>
+            <button type="button" class="btn btn-green btn-generate-full" id="generateBtn" onclick="generate()">Make playlist →</button>
 
             <div class="prompt-examples examples-whisper" id="promptExamples">
               <div class="prompt-example-list" id="promptExampleList"></div>
@@ -1082,60 +928,16 @@
 
         <div class="result-layer" id="resultCard">
           <div class="result-surface" id="resultSurface">
-            <div class="result-name result-name-display" id="resultName">Kwalify Playlist</div>
+            <p class="moment-echo moment-wow-part" id="momentEcho" hidden></p>
+            <h1 class="moment-title result-name-display moment-wow-part" id="resultName">Your moment</h1>
             <div class="result-meta-txt" id="resultMeta" hidden>25 tracks</div>
-            <div id="resultSummary" class="result-summary result-reveal-part"></div>
-            <div class="result-actions result-reveal-part">
+            <p id="resultSummary" class="moment-micro result-summary moment-wow-part"></p>
+            <div class="result-actions moment-wow-part">
               <div id="spotifyActionArea" style="width:100%"></div>
-              <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same feeling, different flow">
-                Reshuffle
-              </button>
             </div>
-            <div id="resultArtGrid" class="result-art-grid result-art-ambient result-reveal-part"></div>
-            <div id="resultCacheNotice" class="cache-tier1-notice" hidden></div>
-            <div class="result-more result-reveal-part">
-              <button type="button" class="result-tier-toggle" id="tracksTierToggle" onclick="toggleResultTier('tracksTierBody','tracksTierToggle')">
-                <span>▶</span> View tracks
-              </button>
-              <div id="tracksTierBody" class="result-tier-body">
-                <div id="forgottenGems"></div>
-                <div class="tracks-label">Tracks</div>
-                <div class="track-list" id="trackList"></div>
-              </div>
-              <button type="button" class="result-tier-toggle" id="advancedTierToggle" onclick="toggleResultTier('advancedTierBody','advancedTierToggle')">
-                <span>▶</span> Insights
-              </button>
-              <div id="advancedTierBody" class="result-tier-body result-advanced">
-                <div id="cacheBanner"></div>
-                <div id="confidenceCard"></div>
-                <div id="kwalifyHeard"></div>
-                <div id="playlistStory"></div>
-                <div id="statsBar"></div>
-                <div id="emotionDetails">
-                  <div id="vibeInterpretation"></div>
-                  <div id="emotionBars"></div>
-                  <div id="sceneChips"></div>
-                </div>
-                <div id="feedbackSection" class="feedback-section">
-                  <div class="feedback-label">How was this playlist?</div>
-                  <div class="feedback-btns" id="feedbackBtns">
-                    <button type="button" class="feedback-btn" data-reaction="up" onclick="submitFeedback('up')">👍</button>
-                    <button type="button" class="feedback-btn" data-reaction="neutral" onclick="submitFeedback('neutral')">😐</button>
-                    <button type="button" class="feedback-btn" data-reaction="down" onclick="submitFeedback('down')">👎</button>
-                  </div>
-                  <div id="feedbackThanks" class="feedback-thanks" style="display:none">Thanks.</div>
-                </div>
-              </div>
-            </div>
-            <button type="button" class="moment-back result-reveal-part" onclick="returnToCompose()">← again</button>
+            <button type="button" class="moment-again moment-wow-part" onclick="returnToCompose()">Try another moment</button>
             <span class="mode-badge" id="modeBadge" style="display:none">balanced</span>
           </div>
-        </div>
-
-        <div class="prog-wrap" id="progWrap" hidden aria-hidden="true">
-          <span id="progPct" hidden></span>
-          <div class="prog-fill" id="progFill" hidden></div>
-          <ol id="djStages" hidden></ol>
         </div>
 
       </div><!-- /momentShell -->
@@ -1336,7 +1138,7 @@ async function init(){
 }
 
 function showLanding(){
-  ['compose','thinking','locked','reveal'].forEach(s=>document.body.classList.remove('moment-'+s));
+  ['home','loading','result'].forEach(s=>document.body.classList.remove('moment-'+s));
   _clearAtmosphere();
   $('loadOverlay').style.display='none';
   $('landingView').style.display='block';
@@ -1351,94 +1153,86 @@ function _isMomentExperience(){
   return !!$('appView')?.classList.contains('moment-app');
 }
 
+/** Only user-visible states: home → loading → result */
 function setMomentState(state){
   const av=$('appView');
   const shell=$('momentShell');
-  ['compose','thinking','locked','reveal'].forEach(s=>{
+  ['home','loading','result'].forEach(s=>{
     av&&av.classList.remove('moment-'+s);
     shell&&shell.classList.remove('moment-'+s);
     document.body.classList.remove('moment-'+s);
   });
-  document.body.classList.remove('scene-camera-drift','scene-camera-zoom','scene-camera-pan');
   if(state){
     av&&av.classList.add('moment-'+state);
     shell&&shell.classList.add('moment-'+state);
     document.body.classList.add('moment-'+state);
-    if(state==='compose'){
-      document.body.classList.add('scene-camera-drift');
-      document.body.classList.remove('scene-camera-lock');
-    }
-    if(state==='thinking'){
-      document.body.classList.remove('scene-camera-lock');
-    }
-    if(state==='locked'){
-      _applySceneCameraMotion(_currentSceneId);
-      document.body.classList.remove('scene-camera-lock');
-    }
-    if(state==='reveal'){
-      document.body.classList.add('scene-camera-lock');
-    }
   }
 }
 
-const RESULT_REVEAL_MS=900;
-const RESULT_STABLE_MS=400;
+const MOMENT_EMOTIONAL_TITLES={
+  night_drive:['Midnight Distance','Quiet Motorway','Tunnel Glow'],
+  petrol_station_2am:['Forecourt Stillness','Two AM Light','Empty Pump Glow'],
+  sunset_coast:['Golden Release','Horizon Warmth','Last Light'],
+  urban_midnight_walk:['Neon Solitude','Wet Street Quiet','City After Rain'],
+  train_journey:['Passing Light','Window Drift','Leaving Station'],
+  summer_afternoon_drift:['Slow Afternoon','Heat Haze','Suburban Sun'],
+  rainy_city_interior:['Safe Inside','Rain on Glass','Lamp Light'],
+  memory_road:['Fading Forward','Golden Recall','Old Road'],
+  club_exit_dawn:['Blue Hour Clarity','Morning After','Empty Sidewalk'],
+  open_highway_daylight:['Open Forward','Clear Horizon','Daylight Drive'],
+};
 
-function _physicsJitter(base){
-  return Math.max(0, (base|0)+Math.floor(Math.random()*81)-40);
+function _stablePick(pool, seed){
+  if(!pool||!pool.length) return 'Your moment';
+  let h=0;
+  const s=String(seed||'');
+  for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0;
+  return pool[Math.abs(h)%pool.length];
 }
 
-function _applyRevealTiming(surface){
-  if(!surface) return;
-  surface.style.setProperty('--reveal-title','0ms');
-  surface.style.setProperty('--reveal-summary','140ms');
-  surface.style.setProperty('--reveal-actions','280ms');
-  surface.style.setProperty('--reveal-art','420ms');
-  surface.style.setProperty('--reveal-back','0ms');
+function _emotionalTitleForMoment(vibe, sceneId){
+  const pool=MOMENT_EMOTIONAL_TITLES[sceneId]||MOMENT_EMOTIONAL_TITLES.open_highway_daylight;
+  return _stablePick(pool, vibe);
 }
 
-function presentMomentReveal(vibe, playlistTitle){
+function _momentEchoText(vibe){
+  return (vibe||'').trim().toLowerCase();
+}
+
+function showMomentResult(vibe){
   vibe=vibe||lastVibe||'';
-  const lo=$('listenOverlay');
-  const delay=Math.max(0, REVEAL_PAUSE_MS-(Date.now()-(_cinemaGoAt||Date.now()-REVEAL_PAUSE_MS)));
-  _clearMomentTimer();
-  _momentTimer=setTimeout(()=>{
-    if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
-    setMomentState('reveal');
-    if(resultName) resultName.textContent=_cinematicTitleFromVibe(vibe)||playlistTitle||'';
-    presentResultLayer();
-    document.body.classList.add('world-settled');
-  }, delay);
+  const sceneId=getSceneFromInput(vibe);
+  renderScene(sceneId);
+  const echo=$('momentEcho');
+  if(echo){
+    echo.textContent=_momentEchoText(vibe);
+    echo.hidden=!vibe.trim();
+  }
+  if(resultName) resultName.textContent=_emotionalTitleForMoment(vibe, sceneId);
+  const sum=$('resultSummary');
+  if(sum) sum.textContent='From your liked songs.';
+  setMomentState('result');
+  presentResultLayer();
 }
 
 function presentResultLayer(){
   const rc=$('resultCard');
   const surface=$('resultSurface');
   if(!rc) return;
-  rc.classList.remove('visible','revealing');
-  surface?.classList.remove('result-revealed','result-stable');
-  void rc.offsetWidth;
-  _applyRevealTiming(surface);
-  rc.classList.add('visible','revealing');
-  requestAnimationFrame(()=>{
-    surface?.classList.add('result-revealed');
-    setTimeout(()=>surface?.classList.add('result-stable'), RESULT_REVEAL_MS+RESULT_STABLE_MS);
-  });
+  surface?.classList.remove('result-ready');
+  rc.classList.add('visible');
+  requestAnimationFrame(()=> surface?.classList.add('result-ready'));
 }
 
 function returnToCompose(){
   const rc=$('resultCard');
-  if(rc) rc.classList.remove('visible','revealing');
-  $('resultSurface')?.classList.remove('result-revealed','result-stable');
+  if(rc) rc.classList.remove('visible');
+  $('resultSurface')?.classList.remove('result-ready');
   const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
-  const lo=$('listenOverlay');
-  if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
-  document.body.classList.remove('world-settled','scene-camera-lock');
-  _clearMomentTimer();
-  if(vibeInput?.value?.trim()) sceneCoreOnInput(vibeInput.value);
-  else renderScene(DEFAULT_SCENE);
-  setMomentState('compose');
-  if(generateBtn){ generateBtn.style.opacity=''; }
+  const echo=$('momentEcho');
+  if(echo){ echo.textContent=''; echo.hidden=true; }
+  setMomentState('home');
+  if(generateBtn){ generateBtn.disabled=false; generateBtn.textContent=_GEN_HTML; generateBtn.style.opacity=''; }
   vibeInput?.focus();
 }
 
@@ -1446,7 +1240,7 @@ function showApp(userData){
   $('loadOverlay').style.display='none';
   $('appView').style.display='flex';
   document.querySelector('.page')?.classList.add('moment-app');
-  setMomentState('compose');
+  setMomentState('home');
   sceneCoreInit();
 
   $('headerNav').innerHTML=`
@@ -1516,29 +1310,9 @@ function markHasGenerated(){
   if(el) el.style.display='none';
 }
 
-function _buildResultArtGrid(tracks){
-  const el=$('resultArtGrid');
-  if(!el) return;
-  if(_isMomentExperience()){
-    const art=(tracks||[]).find(t=>t.albumArt);
-    if(!art){ el.innerHTML=''; el.style.display='none'; return; }
-    el.style.display='block';
-    el.innerHTML=`<img src="${esc(art.albumArt)}" alt="" onerror="this.parentElement.style.display='none'">`;
-    return;
-  }
-  const arts=(tracks||[]).slice(0,4);
-  if(!arts.length){ el.innerHTML=''; el.style.display='none'; return; }
-  el.style.display='grid';
-  el.innerHTML=arts.map(t=>{
-    if(t.albumArt) return `<img src="${esc(t.albumArt)}" alt="" onerror="this.outerHTML='<span class=art-fb>🎵</span>'">`;
-    return '<span class="art-fb">🎵</span>';
-  }).join('');
-}
-
 /* ── State ── */
 const vibeInput=$('vibeInput'), generateBtn=$('generateBtn'), inputCard=$('inputCard');
-const progWrap=$('progWrap'), progFill=$('progFill'), progPct=$('progPct'), progLabel=$('progLabel');
-const skelCard=$('skelCard'), resultCard=$('resultCard');
+const resultCard=$('resultCard');
 const resultName=$('resultName'), resultMeta=$('resultMeta'), openBtn=$('openBtn');
 const copyBtn=$('copyBtn'), trackList=$('trackList'), modeBadge=$('modeBadge');
 const histSection=$('histSection'), hList=$('hList');
@@ -1551,11 +1325,12 @@ let _libSummaryCache=null, _libSummaryFetchedAt=0;
 const HIST_KEY='kwalah_v3', MAX_HIST=10;
 const ICONS=['🎵','🌙','💪','☁️','🌅','🎧','🔥','✨','🎶','🌊'];
 const EXAMPLE_VIBES=[
-  'late-night motorway drive',
-  'sunny afternoon, old car',
-  'songs that sound expensive',
+  'late night overthinking',
+  'sunset beach calm',
+  'post-breakup walk',
+  'empty motorway drive',
+  'summer nostalgia',
 ];
-let _genCompressed=false;
 let _lastSyncedAt=null, _lastSyncedTrackCount=0;
 
 function bindPromptButtons(root, autoRun){
@@ -1601,25 +1376,40 @@ const _AESTHETIC_CUES=[
   {re:/calm|quiet|peace|slow|soft|still/i, line:'Soft focus — unhurried, near, gentle.'},
 ];
 
-/* ── Cinematic Moment Engine ── */
+/* ── Scene backgrounds (still / optional video) ── */
 const SCENE_DEBUG=false;
 const SCENE_SKIP_VIDEO=false;
+/** Optional video loops — still always preferred (see cinema/scenes.manifest.json) */
+const SCENE_VIDEO_ALLOWED=new Set(['night_drive','urban_midnight_walk','rainy_city_interior']);
 const EMOTION_INPUT_DEBOUNCE_MS=140;
-const STATE_FADE_MS=300;
-const LOCK_TRANSITION_MS=300;
-const REVEAL_PAUSE_MS=750;
+const LOADER_MIN_MS=1000;
+const SCENE_CROSSFADE_MS=300;
 const DEFAULT_SCENE='open_highway_daylight';
 let _currentSceneId=DEFAULT_SCENE;
 let _emotionInputTimer=null;
-let _momentTimer=null;
+let _sceneFadeTimer=null;
 let _cinemaVideoOk=null;
-let _cinemaGoAt=0;
+let _sceneHasVisual=false;
 
-const CINEMATIC_SCENES=[
+/** Ten fixed visual entities — one dominant emotion each (see docs/KWALIFY_DESIGN_SYSTEM.md). */
+const MOMENT_SCENES=[
   'night_drive','petrol_station_2am','sunset_coast','urban_midnight_walk','train_journey',
   'summer_afternoon_drift','rainy_city_interior','memory_road','club_exit_dawn','open_highway_daylight',
 ];
+const SCENE_DOMINANT_EMOTION={
+  night_drive:'detached reflection',
+  petrol_station_2am:'liminal stillness',
+  sunset_coast:'emotional release',
+  urban_midnight_walk:'isolation in density',
+  train_journey:'introspection',
+  summer_afternoon_drift:'nostalgia',
+  rainy_city_interior:'safe isolation',
+  memory_road:'reflective nostalgia',
+  club_exit_dawn:'clarity after exhaustion',
+  open_highway_daylight:'freedom',
+};
 
+/** Weighted match: direct +3, emotion +2, context +1 — single winner, no blend. */
 const SCENE_SIGNALS={
   night_drive:{
     direct:['night drive','motorway','highway','tunnel','dashboard','rain','driving','drive home','lonely drive'],
@@ -1672,13 +1462,6 @@ const SCENE_SIGNALS={
     context:['sky','motorway','sun'],
   },
 };
-const SCENE_CAMERA_MOTION={
-  night_drive:'zoom', petrol_station_2am:'static', sunset_coast:'static',
-  urban_midnight_walk:'pan', train_journey:'pan', summer_afternoon_drift:'static',
-  rainy_city_interior:'static', memory_road:'zoom', club_exit_dawn:'static',
-  open_highway_daylight:'zoom',
-};
-
 function _scoreScene(text, sceneId){
   const cfg=SCENE_SIGNALS[sceneId];
   if(!cfg) return 0;
@@ -1692,7 +1475,7 @@ function _scoreScene(text, sceneId){
 function getSceneFromInput(text){
   const t=(text||'').toLowerCase().replace(/\s+/g,' ').trim();
   let best=DEFAULT_SCENE, top=0;
-  CINEMATIC_SCENES.forEach(id=>{
+  MOMENT_SCENES.forEach(id=>{
     const s=_scoreScene(t, id);
     if(s>top){ top=s; best=id; }
   });
@@ -1706,162 +1489,170 @@ function getSceneFromInput(text){
   return best;
 }
 
-function _applySceneCameraMotion(sceneId){
-  const motion=SCENE_CAMERA_MOTION[sceneId]||'static';
-  document.body.classList.remove('scene-camera-drift','scene-camera-zoom','scene-camera-pan','scene-camera-static');
-  if(motion==='zoom') document.body.classList.add('scene-camera-zoom');
-  else if(motion==='pan') document.body.classList.add('scene-camera-pan');
-}
-
-function getEmotionForce(text){
-  const t=(text||'').toLowerCase();
-  return {
-    warmth:t.includes('sun')||t.includes('happy')||t.includes('bright')?1:t.includes('rain')||t.includes('night')||t.includes('lonely')?-1:0,
-    motion:t.includes('drive')||t.includes('train')||t.includes('motion')?1:t.includes('calm')||t.includes('still')?-1:0,
-    intensity:t.includes('loud')||t.includes('chaos')||t.includes('fast')?1:t.includes('soft')||t.includes('quiet')?-1:0,
-  };
-}
-
-function applyWorldEmotion(force){
-  const f=force||{warmth:0,motion:0,intensity:0};
-  const root=document.documentElement;
-  const w=Number(f.warmth)||0;
-  const i=Number(f.intensity)||0;
-  root.style.setProperty('--scene-bright', String(1+w*0.04-Math.max(0,-i)*0.03));
-  root.style.setProperty('--scene-contrast', String(1.04+Math.abs(i)*0.03));
-  root.style.setProperty('--scene-sat', String(0.96+w*0.05));
-  root.style.setProperty('--scene-grain', String(Math.min(0.06,0.035+Math.abs(i)*0.01)));
-  root.style.setProperty('--scene-vignette', String(Math.min(0.5,0.4+Math.max(0,-w)*0.04)));
-}
-
-function _clearMomentTimer(){
-  if(_momentTimer){ clearTimeout(_momentTimer); _momentTimer=null; }
-}
-
 function _setSceneMode(mode){
   document.body.classList.remove('scene-video','scene-still','scene-composite');
   if(mode) document.body.classList.add(mode);
 }
 
+function _resetSceneLayers(){
+  const cinema=$('cinema');
+  const still=$('cinemaStill');
+  const fb=$('cinemaFallback');
+  if(cinema){
+    cinema.onloadeddata=null;
+    cinema.onerror=null;
+    cinema.pause?.();
+    cinema.removeAttribute('src');
+    cinema.style.opacity='0';
+  }
+  if(still){
+    still.onload=null;
+    still.onerror=null;
+    still.classList.add('hidden');
+    still.removeAttribute('src');
+  }
+  if(fb) fb.classList.add('hidden');
+  document.body.classList.remove('scene-video','scene-still','scene-composite');
+}
+
+function _markSceneVisible(){
+  document.body.classList.remove('scene-crossfade-out');
+  _sceneHasVisual=true;
+}
+
 function ensureCompositeScene(sceneId){
   sceneId=sceneId||DEFAULT_SCENE;
-  _currentSceneId=sceneId;
-  document.body.dataset.scene=sceneId;
   const fb=$('cinemaFallback');
   const still=$('cinemaStill');
   const cinema=$('cinema');
-  if(fb){ fb.dataset.scene=sceneId; fb.classList.remove('hidden'); }
   if(still){ still.classList.add('hidden'); still.removeAttribute('src'); }
   if(cinema){ cinema.style.opacity='0'; }
+  if(fb){
+    fb.dataset.scene=sceneId;
+    fb.classList.remove('hidden');
+    fb.style.backgroundImage='';
+  }
   _setSceneMode('scene-composite');
-  if(SCENE_DEBUG) console.log('Scene:', sceneId, 'composite still');
+  _markSceneVisible();
+  if(SCENE_DEBUG) console.warn('Scene:', sceneId, 'emergency flat fallback');
 }
 
-
-function renderScene(sceneId){
-  const cinema=$('cinema');
-  sceneId=sceneId||DEFAULT_SCENE;
-  _currentSceneId=sceneId;
-  document.body.dataset.scene=sceneId;
+function _showSceneStill(sceneId, src){
+  const still=$('cinemaStill');
   const fb=$('cinemaFallback');
-  if(fb) fb.dataset.scene=sceneId;
-
-  if(SCENE_SKIP_VIDEO||_cinemaVideoOk===false){
-    tryStillThenComposite(sceneId);
-    return;
-  }
-
-  if(!cinema){
-    tryStillThenComposite(sceneId);
-    return;
-  }
-
-  const videoSources=[
-    '/cinema/'+sceneId+'.mp4',
-    '/cinema/'+sceneId+'/base.mp4',
-  ];
-  let vi=0;
-  function tryVideo(){
-    if(vi>=videoSources.length){
-      tryStillThenComposite(sceneId);
-      return;
-    }
-    const src=videoSources[vi++];
-    cinema.onloadeddata=()=>{
-      _cinemaVideoOk=true;
-      _setSceneMode('scene-video');
-      if(fb) fb.classList.add('hidden');
-      $('cinemaStill')?.classList.add('hidden');
-      cinema.style.opacity='1';
-      cinema.play().catch(()=>{});
-      if(SCENE_DEBUG) console.log('Scene:', sceneId, 'video', src);
-    };
-    cinema.onerror=()=>tryVideo();
-    cinema.src=src;
-    cinema.load();
-  }
-  tryVideo();
+  const cinema=$('cinema');
+  if(!still) return;
+  _setSceneMode('scene-still');
+  if(fb) fb.classList.add('hidden');
+  if(cinema){ cinema.style.opacity='0'; cinema.pause?.(); }
+  still.classList.remove('hidden');
+  _markSceneVisible();
+  if(SCENE_DEBUG) console.log('Scene:', sceneId, 'still', src);
 }
 
-function tryStillThenComposite(sceneId){
+function _showSceneVideo(sceneId, src){
+  const cinema=$('cinema');
+  const fb=$('cinemaFallback');
+  if(!cinema) return;
+  _cinemaVideoOk=true;
+  _setSceneMode('scene-video');
+  if(fb) fb.classList.add('hidden');
+  $('cinemaStill')?.classList.add('hidden');
+  cinema.style.opacity='1';
+  cinema.play().catch(()=>{});
+  _markSceneVisible();
+  if(SCENE_DEBUG) console.log('Scene:', sceneId, 'video', src);
+}
+
+function _loadSceneAssets(sceneId){
   const stillSources=[
     '/cinema/'+sceneId+'/still.jpg',
     '/cinema/'+sceneId+'/still.webp',
     '/cinema/'+sceneId+'.jpg',
     '/cinema/'+sceneId+'.webp',
   ];
-  let si=0;
+  const videoSources=[
+    '/cinema/'+sceneId+'.mp4',
+    '/cinema/'+sceneId+'/base.mp4',
+  ];
   const still=$('cinemaStill');
-  const fb=$('cinemaFallback');
   const cinema=$('cinema');
-  if(!still){ ensureCompositeScene(sceneId); return; }
-  function tryNext(){
+  let si=0;
+  let vi=0;
+
+  function tryStill(){
+    if(!still){
+      tryVideo();
+      return;
+    }
     if(si>=stillSources.length){
-      _cinemaVideoOk=false;
-      ensureCompositeScene(sceneId);
+      tryVideo();
       return;
     }
     const src=stillSources[si++];
-    still.onload=()=>{
-      _setSceneMode('scene-still');
-      if(fb) fb.classList.add('hidden');
-      if(cinema) cinema.style.opacity='0';
-      still.classList.remove('hidden');
-      if(SCENE_DEBUG) console.log('Scene:', sceneId, 'still', src);
-    };
-    still.onerror=()=>tryNext();
+    still.onload=()=>_showSceneStill(sceneId, src);
+    still.onerror=()=>tryStill();
     still.src=src;
   }
-  tryNext();
+
+  function tryVideo(){
+    if(SCENE_SKIP_VIDEO||_cinemaVideoOk===false||!cinema||!SCENE_VIDEO_ALLOWED.has(sceneId)){
+      ensureCompositeScene(sceneId);
+      return;
+    }
+    if(vi>=videoSources.length){
+      if(_cinemaVideoOk!==true) _cinemaVideoOk=false;
+      ensureCompositeScene(sceneId);
+      return;
+    }
+    const src=videoSources[vi++];
+    cinema.onloadeddata=()=>_showSceneVideo(sceneId, src);
+    cinema.onerror=()=>tryVideo();
+    cinema.src=src;
+    cinema.load();
+  }
+
+  tryStill();
+}
+
+function _applyScene(sceneId){
+  sceneId=sceneId||DEFAULT_SCENE;
+  _currentSceneId=sceneId;
+  document.body.dataset.scene=sceneId;
+  const fb=$('cinemaFallback');
+  if(fb) fb.dataset.scene=sceneId;
+  _resetSceneLayers();
+  _loadSceneAssets(sceneId);
+}
+
+function renderScene(sceneId){
+  sceneId=sceneId||DEFAULT_SCENE;
+  const fb=$('cinemaFallback');
+  if(fb) fb.dataset.scene=sceneId;
+  const swap=()=>_applyScene(sceneId);
+  if(_isMomentExperience()||!_sceneHasVisual||_currentSceneId===sceneId){
+    swap();
+    return;
+  }
+  document.body.classList.add('scene-crossfade-out');
+  clearTimeout(_sceneFadeTimer);
+  _sceneFadeTimer=setTimeout(swap, SCENE_CROSSFADE_MS);
 }
 
 function sceneCoreOnInput(text){
+  if(!_isMomentExperience()) return;
   clearTimeout(_emotionInputTimer);
-  _emotionInputTimer=setTimeout(()=>applyWorldEmotion(getEmotionForce(text||'')), EMOTION_INPUT_DEBOUNCE_MS);
+  _emotionInputTimer=setTimeout(()=>{
+    const t=(text||'').trim();
+    if(t) renderScene(getSceneFromInput(t));
+  }, EMOTION_INPUT_DEBOUNCE_MS);
 }
 
-function sceneCoreInit(){
-  renderScene(DEFAULT_SCENE);
-  applyWorldEmotion({warmth:0,motion:0,intensity:0});
-  document.body.classList.remove('scene-camera-lock','scene-camera-zoom','scene-camera-pan');
-}
+function sceneCoreInit(){}
 
 function _clearAtmosphere(){
   clearTimeout(_emotionInputTimer);
-  _clearMomentTimer();
-  document.body.classList.remove('scene-camera-lock','scene-camera-zoom','scene-camera-pan','world-settled');
-  renderScene(DEFAULT_SCENE);
-  applyWorldEmotion({warmth:0,motion:0,intensity:0});
-}
-
-function _applyAtmosphere(vibe){
-  applyWorldEmotion(getEmotionForce(vibe||''));
-}
-
-function _cinematicTitleFromVibe(vibe){
-  const v=(vibe||'').trim();
-  if(!v) return '';
-  return v.toUpperCase();
+  setMomentState('home');
 }
 
 function _shortVibeSummary(vibe, ep, mu, expl, count){
@@ -1877,130 +1668,18 @@ function setMode(m){
   });
 }
 
-/* ── DJ progress stages ── */
-const PROG_PHASE_PCT={
-  starting:8, loading_library:20, building_profile:36, scoring:58, composing:74, spotify:88, saving:94, done:100,
-};
-const DJ_STAGES=[
-  {icon:'🎧', title:'Reading your library', phases:['starting','loading_library','building_profile'],
-    sub:(n)=>`From ${n>0?n.toLocaleString():'your'} liked songs`},
-  {icon:'🎚️', title:'Building your set', phases:['scoring','composing'],
-    sub:(n,v)=>v?`Matching “${String(v).slice(0,48)}${String(v).length>48?'…':''}”`:'Matching mood and flow'},
-  {icon:'🎵', title:'Creating playlist', phases:['spotify','saving','done'],
-    sub:()=>'Publishing to Spotify'},
-];
-const MIN_STAGE_MS=1400;
-const STAGE_AUTO_MS=1100;
-const MIN_PROGRESS_VISIBLE_MS=1200;
-let progTimer=null, progPollTimer=null, progStageTimer=null, progStageAutoTimer=null, progStartMs=0, _lastProgPhase='', _deployHintShown=false;
-let _visualStageIdx=0, _targetStageIdx=0, _lastStageAdvanceMs=0;
+/* ── Light loading (status poll only; no staged UI) ── */
+let progPollTimer=null, progStartMs=0, _deployHintShown=false;
 
-function _djStageIndex(phase){
-  for(let i=0;i<DJ_STAGES.length;i++){
-    if(DJ_STAGES[i].phases.includes(phase)) return i;
-  }
-  if(phase==='done') return DJ_STAGES.length-1;
-  return 0;
-}
-
-function _paintDjStages(markAllDone){
-  const el=$('djStages'); if(!el) return;
-  const n=_libTrackCount||0;
-  const v=_activeGenVibe||'';
-  const idx=Math.min(_visualStageIdx,DJ_STAGES.length-1);
-  let html='';
-  if(markAllDone){
-    for(let i=0;i<DJ_STAGES.length;i++){
-      const s=DJ_STAGES[i];
-      html+=`<li class="dj-stage done dj-stage-compact">
-        <span class="dj-stage-icon">${s.icon}</span>
-        <div class="dj-stage-body"><div class="dj-stage-title">Stage ${i+1} · ${esc(s.title)}</div></div>
-      </li>`;
-    }
-  } else {
-    for(let i=0;i<idx;i++){
-      const s=DJ_STAGES[i];
-      html+=`<li class="dj-stage done dj-stage-compact">
-        <span class="dj-stage-icon">${s.icon}</span>
-        <div class="dj-stage-body"><div class="dj-stage-title">Stage ${i+1} · ${esc(s.title)}</div></div>
-      </li>`;
-    }
-    const s=DJ_STAGES[idx];
-    const sub=s.sub(n,v);
-    html+=`<li class="dj-stage active">
-      <span class="dj-stage-icon">${s.icon}</span>
-      <div class="dj-stage-body">
-        <div class="dj-stage-title">${esc(s.title)}</div>
-        <div class="dj-stage-sub">${esc(sub)}</div>
-      </div>
-    </li>`;
-  }
-  el.innerHTML=html;
-  const st=DJ_STAGES[idx];
-  if(progLabel&&st&&!markAllDone) progLabel.textContent=st.title;
-}
-
-function _tickVisualStages(){
-  const now=Date.now();
-  const minMs=_genCompressed?500:MIN_STAGE_MS;
-  if(_visualStageIdx<_targetStageIdx&&now-_lastStageAdvanceMs>=minMs){
-    _visualStageIdx++;
-    _lastStageAdvanceMs=now;
-    _paintDjStages(false);
-  }
-  if(isGenerating){
-    const elapsed=Date.now()-progStartMs;
-    const elapsedIdx=_djStageIndex(_elapsedProgPhase(elapsed));
-    if(elapsedIdx>_targetStageIdx) _targetStageIdx=elapsedIdx;
-  }
-}
-
-function _elapsedProgPhase(elapsedMs){
-  if(_genCompressed){
-    if(elapsedMs<1200) return 'loading_library';
-    if(elapsedMs<2400) return 'composing';
-    return 'spotify';
-  }
-  if(elapsedMs<4000) return 'loading_library';
-  if(elapsedMs<12000) return 'scoring';
-  if(elapsedMs<20000) return 'composing';
-  return 'spotify';
-}
-
-function _setProgPhase(phase){
-  const idx=_djStageIndex(phase);
-  if(idx>_targetStageIdx) _targetStageIdx=idx;
-  const p=Math.min(92, Math.max(6, PROG_PHASE_PCT[phase]||PROG_PHASE_PCT.scoring));
-  if(phase!==_lastProgPhase){
-    _lastProgPhase=phase;
-    _tickVisualStages();
-  }
-  if(progFill) progFill.style.width=p+'%';
-  if(progPct) progPct.textContent=p+'%';
-}
-function _setProgPct(pct){
-  const p=Math.min(92,Math.max(6,Math.round(pct)));
-  if(progFill) progFill.style.width=p+'%';
-  if(progPct&&!_genCompressed) progPct.textContent=p+'%';
-}
-let _loaderCapTimer=null;
-const LOADER_CAP_MS=8000;
 function stopProgressTimers(){
-  clearInterval(progTimer);
   clearInterval(progPollTimer);
-  clearInterval(progStageTimer);
-  clearInterval(progStageAutoTimer);
-  clearTimeout(_loaderCapTimer);
   progPollTimer=null;
-  progStageTimer=null;
-  progStageAutoTimer=null;
-  _loaderCapTimer=null;
 }
+
 function startProgress(){
   stopProgressTimers();
   progStartMs=Date.now();
   _deployHintShown=false;
-  if(progLabel) progLabel.textContent='Finding your sound…';
   let progStatusInflight=false;
   progPollTimer=setInterval(()=>{
     if(!isGenerating||progStatusInflight) return;
@@ -2019,47 +1698,27 @@ function startProgress(){
       .finally(()=>{ progStatusInflight=false; });
   },2000);
 }
-function finishProgress(done){
-  stopProgressTimers();
-  const elapsed=Date.now()-progStartMs;
-  const wait=Math.max(0, 380 - elapsed);
-  setTimeout(()=>{ if(done) done(); }, wait);
-}
 
-const _GEN_HTML='Go';
-const _FINDING_SOUND='Finding your moment…';
+const _GEN_HTML='Make playlist →';
 
 function setLoading(on){
   if(!generateBtn) return;
   isGenerating=on;
   generateBtn.disabled=on;
-  generateBtn.textContent=_GEN_HTML;
-  generateBtn.style.opacity=on?'.42':'1';
+  generateBtn.textContent=on?'Making playlist…':_GEN_HTML;
+  generateBtn.style.opacity=on?'.55':'1';
   const pe=$('promptExamples');
-  if(pe) pe.style.opacity=on?'.08':'1';
-  const lo=$('listenOverlay');
-  if(lo){
-    lo.classList.toggle('visible',on);
-    lo.setAttribute('aria-hidden',on?'false':'true');
-  }
+  if(pe) pe.style.opacity=on?'.2':'1';
   if(on){
-    _cinemaGoAt=Date.now();
     const vibe=_activeGenVibe||vibeInput?.value||'';
-    const sceneId=getSceneFromInput(vibe);
-    applyWorldEmotion(getEmotionForce(vibe));
-    setMomentState('thinking');
-    renderScene(sceneId);
-    if(progLabel) progLabel.textContent='Finding your moment…';
-    _clearMomentTimer();
-    _momentTimer=setTimeout(()=>{
-      if(isGenerating) setMomentState('locked');
-    }, LOCK_TRANSITION_MS);
+    renderScene(getSceneFromInput(vibe));
+    setMomentState('loading');
     const rc=$('resultCard');
-    if(rc) rc.classList.remove('visible','revealing');
-    $('resultSurface')?.classList.remove('result-revealed','result-stable');
+    if(rc) rc.classList.remove('visible');
+    $('resultSurface')?.classList.remove('result-ready');
     startProgress();
   } else {
-    finishProgress(()=>{});
+    stopProgressTimers();
   }
 }
 
@@ -2272,30 +1931,29 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   const expl=genData.explanation;
   const libIntel=genData.libraryIntelligence;
   currentPlaylistId=playlistId; lastVibe=vibe;
-  _buildResultArtGrid(tracks);
+  const momentCredits=_isMomentExperience();
   const displayName = playlistName || `Kwalify • ${vibe}`;
-  if(resultName) resultName.textContent=displayName;
-  if(resultMeta) resultMeta.textContent=_isMomentExperience()?'':`${count||tracks.length||25} tracks · from your likes`;
+  if(!momentCredits&&resultName) resultName.textContent=displayName;
+  if(resultMeta) resultMeta.textContent=momentCredits?'':`${count||tracks.length||25} tracks · from your likes`;
   if(modeBadge) modeBadge.textContent=mode||currentMode;
   const cacheNotice=$('resultCacheNotice');
   if(cacheNotice){ cacheNotice.style.display='none'; cacheNotice.textContent=''; }
-  _applyAtmosphere(vibe, ep);
   const sumEl=$('resultSummary');
-  if(sumEl) sumEl.textContent=_shortVibeSummary(vibe,ep,mu,expl,count||tracks.length||25);
-  const tb=$('tracksTierBody'); const ab=$('advancedTierBody');
-  if(tb){ tb.classList.remove('open'); $('tracksTierToggle').innerHTML='<span>▶</span> View tracks'; }
-  if(ab){ ab.classList.remove('open'); $('advancedTierToggle').innerHTML='<span>▶</span> Insights'; }
-  const momentCredits=_isMomentExperience();
-
+  if(sumEl&&!momentCredits) sumEl.textContent=_shortVibeSummary(vibe,ep,mu,expl,count||tracks.length||25);
+  const tb=$('tracksTierBody'); const tt=$('tracksTierToggle');
+  const ab=$('advancedTierBody'); const at=$('advancedTierToggle');
+  if(tb&&tt){ tb.classList.remove('open'); tt.innerHTML='<span>▶</span> View tracks'; }
+  if(ab&&at){ ab.classList.remove('open'); at.innerHTML='<span>▶</span> Insights'; }
   const spotifyArea=$('spotifyActionArea');
   if(spotifyArea){
     if(spotifyPlaylistUrl){
-      spotifyArea.innerHTML=`<a class="btn btn-green btn-md" href="${esc(spotifyPlaylistUrl)}" target="_blank" rel="noopener" style="width:100%;justify-content:center;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-        Play
+      const playLabel=momentCredits?'Play on Spotify':'Play';
+      spotifyArea.innerHTML=`<a class="btn btn-green btn-md" href="${esc(spotifyPlaylistUrl)}" target="_blank" rel="noopener" style="width:100%;justify-content:center;gap:10px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        ${esc(playLabel)}
       </a>`;
     } else {
-      spotifyArea.innerHTML=`<span style="font-size:13px;color:var(--text-muted);padding:4px 0;">Saved here for now.</span>`;
+      spotifyArea.innerHTML=`<span style="font-size:13px;color:rgba(255,255,255,.5);padding:4px 0;">Saved in Kwalify — open from Gallery</span>`;
     }
   }
 
@@ -2398,9 +2056,9 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   }
 
   if(momentCredits){
-    presentMomentReveal(vibe, displayName);
+    showMomentResult(vibe);
   } else {
-    setMomentState('reveal');
+    setMomentState('result');
     presentResultLayer();
   }
   resetCopyBtn();
@@ -2468,7 +2126,7 @@ function showPendingPreview(pendingTracks, emotionProfile, playlistName, vibe){
 
   resultCard&&resultCard.classList.remove('visible');
   _clearAtmosphere();
-  setMomentState('compose');
+  setMomentState('home');
   card.classList.add('visible');
 }
 
@@ -2539,7 +2197,6 @@ function generate(){
   debTimer=setTimeout(()=>debTimer=null, 900);
   _activeGenVibe=vibe;
   const filmSceneId=getSceneFromInput(vibe);
-  _genCompressed=true;
   setLoading(true);
   resultCard&&resultCard.classList.remove('visible');
   const length=parseInt($('lenSlider')?.value)||25;
@@ -2570,12 +2227,9 @@ function generate(){
   })
   .then(async ({ok,status,d,parseFailed})=>{
     varietyBoostNext=false;
-    setLoading(false);
     function _restoreComposeMood(){
-      _clearAtmosphere();
-      setMomentState('compose');
-      if(vibeInput?.value?.trim()) sceneCoreOnInput(vibeInput.value);
-      else renderScene(DEFAULT_SCENE);
+      setLoading(false);
+      setMomentState('home');
     }
     if(status===409||d.code==='GENERATION_IN_PROGRESS'){
       _restoreComposeMood();
@@ -2619,6 +2273,7 @@ function generate(){
     }
     if(parseFailed&&ok){
       if(await _recoverLatestPlaylist(vibe, 180000)){
+        setLoading(false);
         _activeGenVibe='';
         return;
       }
@@ -2641,44 +2296,45 @@ function generate(){
     // Hide pending card on successful generation
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
     const trackCount=d.count||d.totalTracks||25;
-    try{
-      showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
-    }catch(renderErr){
-      console.error('showResult failed', renderErr);
-      if(await _recoverLatestPlaylist(vibe, 180000)){
-        _activeGenVibe='';
+    const revealResult=()=>{
+      try{
+        showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
+      }catch(renderErr){
+        console.error('showResult failed', renderErr);
+        _recoverLatestPlaylist(vibe, 180000).then(ok=>{
+          if(ok){ _activeGenVibe=''; return; }
+          _restoreComposeMood();
+          showToast('Playlist generated but the page could not display it. Check Gallery.','error',6500);
+          fetchAndRenderPlaylists();
+        });
         return;
       }
-      _restoreComposeMood();
-      showToast('Playlist generated but the page could not display it. Check Gallery.','error',6500);
+      _activeGenVibe='';
+      if(vibeInput) vibeInput.value='';
+      if($('vibeCounter')) $('vibeCounter').textContent='0/140';
+      if(d.librarySyncHint) showToast(d.librarySyncHint,'info',8000);
+      if(d.referencePlaylistWarning){
+        showToast(d.referencePlaylistWarning,'info',6000);
+      } else if(referencePlaylist && !d.referenceMatch){
+        showToast('Reference playlist could not be read — used text vibe only. Try a public playlist or log out and back in.','info',5000);
+      }
       fetchAndRenderPlaylists();
-      return;
-    }
-    _activeGenVibe='';
-    if(vibeInput) vibeInput.value='';
-    if($('vibeCounter')) $('vibeCounter').textContent='0/140';
-    if(d.librarySyncHint){
-      showToast(d.librarySyncHint,'info',8000);
-    }
-    if(d.referencePlaylistWarning){
-      showToast(d.referencePlaylistWarning,'info',6000);
-    } else if(referencePlaylist && !d.referenceMatch){
-      showToast('Reference playlist could not be read — used text vibe only. Try a public playlist or log out and back in.','info',5000);
-    }
-    fetchAndRenderPlaylists();
-    if(!d.cached){
-      const toastMsg = d.spotifyPlaylistUrl
-        ? `Playlist on Spotify — ${trackCount} tracks`
-        : `Saved to Kwalify — ${trackCount} tracks`;
-      showToast(toastMsg,'success',2800);
-    }
+      if(!d.cached){
+        const toastMsg = d.spotifyPlaylistUrl
+          ? `Playlist on Spotify — ${trackCount} tracks`
+          : `Saved to Kwalify — ${trackCount} tracks`;
+        showToast(toastMsg,'success',2800);
+      }
+    };
+    setTimeout(()=>{
+      setLoading(false);
+      revealResult();
+    }, Math.max(0, LOADER_MIN_MS-(Date.now()-progStartMs)));
+    return;
   })
   .catch(async err=>{
     setLoading(false);
-    _clearAtmosphere();
-    setMomentState('compose');
-    if(vibeInput?.value?.trim()) sceneCoreOnInput(vibeInput.value);
-    else renderScene(DEFAULT_SCENE);
+    setMomentState('home');
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
     if(err&&err.name==='AbortError'){
       if(await _recoverLatestPlaylist(vibe, 180000, 'Request timed out in the browser, but your playlist finished — loaded the latest from history.')){
