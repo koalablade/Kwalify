@@ -15,7 +15,8 @@ North Star wins on product conflicts. Illustration mode + assembly win on visual
 | Document | Role |
 |----------|------|
 | [EMOTION_GRID_UI_ENTRY.md](./EMOTION_GRID_UI_ENTRY.md) | **Code entry** — `#appView.pets-shell`, `PETS_ILLUST_DEFS` |
-| [KWALIFY_PETS_UI_STYLE_LOCKED.md](./KWALIFY_PETS_UI_STYLE_LOCKED.md) | **Strict Pets UI + illustration hybrid** |
+| [KWALIFY_STYLE_DNA.md](./KWALIFY_STYLE_DNA.md) | **Original brand + atmosphere (supreme visual)** |
+| [KWALIFY_PETS_UI_STYLE_LOCKED.md](./KWALIFY_PETS_UI_STYLE_LOCKED.md) | Strict 2-screen UI structure |
 | [KWALIFY_FINAL_UI_BLUEPRINT.md](./KWALIFY_FINAL_UI_BLUEPRINT.md) | **2-screen blueprint** |
 | [KWALIFY_HERO_OBJECTS_LOCKED.md](./KWALIFY_HERO_OBJECTS_LOCKED.md) | **5 illustrated heroes** |
 | [KWALIFY_PETROL_PUMP_SVG_LOCKED.md](./KWALIFY_PETROL_PUMP_SVG_LOCKED.md) | **Pump SVG layer assembly (locked)** |

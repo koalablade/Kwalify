@@ -9,7 +9,7 @@
 |-------|------|
 | Hero (export / Figma trace) | `artifacts/api-server/public/cinema/petrol_station_2am/fuel-pump-hero.svg` |
 | Silhouette @ 48px test | `artifacts/api-server/public/cinema/petrol_station_2am/fuel-pump-silhouette.svg` |
-| Live UI (grid + emotion) | `PETS_ILLUST_DEFS.pump` in `artifacts/api-server/public/index.html` |
+| Live UI (grid + emotion) | `PETS_ILLUST_DEFS.pump` in `artifacts/api-server/public/js/pets-ui.js` |
 
 ---
 
@@ -20,7 +20,7 @@ Strict SVG assembly for the **Night Refuel** petrol pump hero.
 Every valid pump MUST:
 
 - Read as **petrol pump** at **48px**
-- Feel **soft Pets-style illustration** — not mechanical, not UI icon
+- Feel **soft Kwalify illustration** — night forecourt object, not mechanical, not UI icon
 - Use **only** the six layers below — no detail creep
 
 ---

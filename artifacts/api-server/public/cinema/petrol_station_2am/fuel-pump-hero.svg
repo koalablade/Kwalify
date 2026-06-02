@@ -1,24 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 96" role="img" aria-label="Fuel pump hero">
-  <!-- LOCKED layer order · Spotify Pets chunkiness -->
+  <!-- LOCKED layer order · Kwalify night forecourt reference -->
   <defs>
-    <linearGradient id="pump-body" x1="40" y1="28" x2="40" y2="86" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F8FAFF"/><stop offset="1" stop-color="#A8BCD4"/>
+    <linearGradient id="pump-body" x1="38" y1="30" x2="42" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5a6478"/><stop offset="1" stop-color="#3a4254"/>
     </linearGradient>
-    <linearGradient id="pump-head" x1="40" y1="12" x2="40" y2="34" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F2F6FE"/><stop offset="1" stop-color="#C0D0E8"/>
+    <linearGradient id="pump-head" x1="38" y1="10" x2="42" y2="34" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6a7488"/><stop offset="1" stop-color="#484f60"/>
     </linearGradient>
-    <linearGradient id="pump-screen" x1="40" y1="38" x2="40" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B8E4FC"/><stop offset="1" stop-color="#78B8E0" stop-opacity=".6"/>
+    <linearGradient id="pump-screen" x1="38" y1="40" x2="42" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8ec4e0" stop-opacity=".55"/><stop offset="1" stop-color="#5a8aa8" stop-opacity=".25"/>
     </linearGradient>
-    <radialGradient id="pump-glow" cx="40" cy="49" r="16" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#88D0F8" stop-opacity=".38"/><stop offset="1" stop-color="#88D0F8" stop-opacity="0"/>
+    <radialGradient id="pump-glow" cx="38" cy="50" r="12" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a8d8f0" stop-opacity=".35"/><stop offset="1" stop-color="#a8d8f0" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <ellipse cx="40" cy="90" rx="26" ry="6" fill="rgba(15,40,60,.14)"/>
-  <rect x="14" y="28" width="52" height="62" rx="26" fill="url(#pump-body)"/>
-  <rect x="17" y="6" width="46" height="28" rx="18" fill="url(#pump-head)"/>
-  <rect x="22" y="38" width="36" height="22" rx="12" fill="url(#pump-screen)"/>
-  <path d="M60 76 Q78 68, 82 46" fill="none" stroke="#98AAC4" stroke-width="11" stroke-linecap="round"/>
-  <rect x="72" y="40" width="20" height="16" rx="10" fill="#88A0BC"/>
-  <ellipse cx="40" cy="49" rx="16" ry="12" fill="url(#pump-glow)"/>
+  <ellipse cx="38" cy="91" rx="24" ry="5" fill="rgba(0,0,0,.22)"/>
+  <rect x="15" y="29" width="46" height="60" rx="23" fill="url(#pump-body)"/>
+  <rect x="17" y="7" width="42" height="26" rx="15" fill="url(#pump-head)"/>
+  <rect x="22" y="40" width="32" height="19" rx="9" fill="url(#pump-screen)"/>
+  <path d="M57 75 Q76 66, 81 44" fill="none" stroke="#4a5568" stroke-width="10" stroke-linecap="round"/>
+  <rect x="71" y="38" width="18" height="14" rx="7" fill="#505868"/>
+  <ellipse cx="37" cy="50" rx="13" ry="9" fill="url(#pump-glow)"/>
 </svg>

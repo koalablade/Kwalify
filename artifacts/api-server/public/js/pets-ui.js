@@ -1,68 +1,68 @@
 /**
- * Kwalify Pets UI — Spotify Pet Playlists-inspired interactions.
+ * Kwalify object UI — emotional artifacts in quiet space.
+ * Style DNA: docs/KWALIFY_STYLE_DNA.md
  * Requires globals: $, esc, showToast, api (from index.html).
  */
 (function () {
   'use strict';
 
-  const SPOTIFY_PETS_BLUE = '#2779a7';
-
   const EMOTION_MOODS = [
-    { sceneId: 'petrol_station_2am', title: 'Night Refuel', illust: 'pump', bg: '#2779a7', vibe: 'petrol station 2am empty forecourt', cardTint: 'rgba(39,121,167,.45)' },
-    { sceneId: 'night_drive', title: 'Motorway Drive', illust: 'road', bg: '#2e6f9a', vibe: 'night drive motorway alone', cardTint: 'rgba(46,111,154,.42)' },
-    { sceneId: 'urban_midnight_walk', title: 'Late London Walk', illust: 'lamp', bg: '#245f88', vibe: 'midnight city walk london alone', cardTint: 'rgba(36,95,136,.42)' },
-    { sceneId: 'memory_road', title: 'Old Car Project', illust: 'car', bg: '#2a759f', vibe: 'nostalgic country road memory', cardTint: 'rgba(42,117,159,.42)' },
-    { sceneId: 'summer_afternoon_drift', title: 'End of Summer Drive', illust: 'horizon', bg: '#3a8fbf', vibe: 'summer afternoon drift warm haze', cardTint: 'rgba(58,143,191,.38)' },
+    { sceneId: 'petrol_station_2am', title: 'Night Refuel', illust: 'pump', bg: '#1a2438', vibe: 'petrol station 2am empty forecourt', cardTint: 'rgba(26,34,52,.35)' },
+    { sceneId: 'night_drive', title: 'Motorway Drive', illust: 'road', bg: '#161e2c', vibe: 'night drive motorway alone', cardTint: 'rgba(22,30,44,.32)' },
+    { sceneId: 'urban_midnight_walk', title: 'Late London Walk', illust: 'lamp', bg: '#1c2430', vibe: 'midnight city walk london alone', cardTint: 'rgba(24,32,48,.32)' },
+    { sceneId: 'memory_road', title: 'Old Car Project', illust: 'car', bg: '#182030', vibe: 'nostalgic country road memory', cardTint: 'rgba(20,28,42,.32)' },
+    { sceneId: 'summer_afternoon_drift', title: 'End of Summer Drive', illust: 'horizon', bg: '#222838', vibe: 'summer afternoon drift warm haze', cardTint: 'rgba(28,32,48,.28)' },
   ];
 
   const PETS_ILLUST_DEFS = {
+    /* Reference hero — docs/KWALIFY_PETROL_PUMP_SVG_LOCKED.md · night forecourt */
     pump: `<svg viewBox="0 0 80 96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs><linearGradient id="pg" x1="40" y1="28" x2="40" y2="86" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#F8FAFF"/><stop offset="1" stop-color="#A8BCD4"/></linearGradient>
-      <linearGradient id="ph" x1="40" y1="12" x2="40" y2="34" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#F2F6FE"/><stop offset="1" stop-color="#C0D0E8"/></linearGradient>
-      <linearGradient id="ps" x1="40" y1="38" x2="40" y2="56" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#B8E4FC"/><stop offset="1" stop-color="#78B8E0" stop-opacity=".6"/></linearGradient>
-      <radialGradient id="pgl" cx="40" cy="48" r="16" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#88D0F8" stop-opacity=".38"/><stop offset="1" stop-color="#88D0F8" stop-opacity="0"/></radialGradient></defs>
-      <ellipse cx="40" cy="90" rx="26" ry="6" fill="rgba(15,40,60,.14)"/>
-      <rect x="14" y="28" width="52" height="62" rx="26" fill="url(#pg)"/>
-      <rect x="17" y="6" width="46" height="28" rx="18" fill="url(#ph)"/>
-      <rect x="22" y="38" width="36" height="22" rx="12" fill="url(#ps)"/>
-      <path d="M60 76 Q78 68, 82 46" fill="none" stroke="#98AAC4" stroke-width="11" stroke-linecap="round"/>
-      <rect x="72" y="40" width="20" height="16" rx="10" fill="#88A0BC"/>
-      <ellipse cx="40" cy="49" rx="16" ry="12" fill="url(#pgl)"/>
+      <defs><linearGradient id="pg" x1="38" y1="30" x2="42" y2="88" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#5a6478"/><stop offset="1" stop-color="#3a4254"/></linearGradient>
+      <linearGradient id="ph" x1="38" y1="10" x2="42" y2="34" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#6a7488"/><stop offset="1" stop-color="#484f60"/></linearGradient>
+      <linearGradient id="ps" x1="38" y1="40" x2="42" y2="58" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#8ec4e0" stop-opacity=".55"/><stop offset="1" stop-color="#5a8aa8" stop-opacity=".25"/></linearGradient>
+      <radialGradient id="pgl" cx="38" cy="50" r="12" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#a8d8f0" stop-opacity=".35"/><stop offset="1" stop-color="#a8d8f0" stop-opacity="0"/></radialGradient></defs>
+      <ellipse cx="38" cy="91" rx="24" ry="5" fill="rgba(0,0,0,.22)"/>
+      <rect x="15" y="29" width="46" height="60" rx="23" fill="url(#pg)"/>
+      <rect x="17" y="7" width="42" height="26" rx="15" fill="url(#ph)"/>
+      <rect x="22" y="40" width="32" height="19" rx="9" fill="url(#ps)"/>
+      <path d="M57 75 Q76 66, 81 44" fill="none" stroke="#4a5568" stroke-width="10" stroke-linecap="round"/>
+      <rect x="71" y="38" width="18" height="14" rx="7" fill="#505868"/>
+      <ellipse cx="37" cy="50" rx="13" ry="9" fill="url(#pgl)"/>
     </svg>`,
     road: `<svg viewBox="0 0 96 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs><linearGradient id="rg" x1="4" y1="32" x2="92" y2="32" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#7ec8f0"/><stop offset=".45" stop-color="#e8f4fc"/><stop offset="1" stop-color="#6ab0e0"/></linearGradient></defs>
+        <stop stop-color="#2a3444"/><stop offset=".5" stop-color="#3a4658"/><stop offset="1" stop-color="#242c3a"/></linearGradient></defs>
       <path d="M6 46 C26 10 44 54 66 18 C76 6 90 26 90 26" stroke="url(#rg)" stroke-width="20" stroke-linecap="round" fill="none"/>
-      <path d="M10 50 C30 30 50 58 70 34" stroke="rgba(255,255,255,.32)" stroke-width="9" stroke-linecap="round" fill="none"/>
+      <path d="M10 50 C30 30 50 58 70 34" stroke="rgba(200,210,230,.12)" stroke-width="8" stroke-linecap="round" fill="none"/>
     </svg>`,
     lamp: `<svg viewBox="0 0 72 96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs><radialGradient id="lg" cx="36" cy="20" r="30" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#FFFCE8"/><stop offset=".4" stop-color="#F8E090"/><stop offset="1" stop-color="#E8B050" stop-opacity="0"/></radialGradient>
+      <defs><radialGradient id="lg" cx="36" cy="20" r="28" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#e8c878" stop-opacity=".35"/><stop offset=".45" stop-color="#c8a050" stop-opacity=".18"/><stop offset="1" stop-color="#c8a050" stop-opacity="0"/></radialGradient>
       <linearGradient id="lp" x1="36" y1="34" x2="36" y2="94" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#E4ECFA"/><stop offset="1" stop-color="#98A8C0"/></linearGradient></defs>
-      <ellipse cx="36" cy="90" rx="16" ry="5" fill="rgba(15,40,60,.12)"/>
-      <ellipse cx="36" cy="22" rx="32" ry="28" fill="url(#lg)"/>
-      <circle cx="36" cy="20" r="18" fill="#FFFCF0"/>
-      <rect x="26" y="34" width="20" height="58" rx="10" fill="url(#lp)"/>
+        <stop stop-color="#5a6478"/><stop offset="1" stop-color="#3a4254"/></linearGradient></defs>
+      <ellipse cx="36" cy="90" rx="16" ry="5" fill="rgba(0,0,0,.2)"/>
+      <ellipse cx="36" cy="22" rx="28" ry="24" fill="url(#lg)"/>
+      <circle cx="36" cy="20" r="14" fill="#d8c890" fill-opacity=".45"/>
+      <rect x="28" y="34" width="16" height="58" rx="8" fill="url(#lp)"/>
     </svg>`,
     car: `<svg viewBox="0 0 96 56" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs><linearGradient id="cg" x1="48" y1="6" x2="48" y2="46" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#F4F8FF"/><stop offset="1" stop-color="#A0B4CC"/></linearGradient></defs>
-      <ellipse cx="48" cy="50" rx="38" ry="6" fill="rgba(15,40,60,.12)"/>
+        <stop stop-color="#5a6478"/><stop offset="1" stop-color="#3a4254"/></linearGradient></defs>
+      <ellipse cx="48" cy="50" rx="38" ry="6" fill="rgba(0,0,0,.18)"/>
       <rect x="6" y="16" width="84" height="32" rx="22" fill="url(#cg)"/>
-      <rect x="24" y="6" width="48" height="22" rx="15" fill="rgba(255,255,255,.5)"/>
-      <circle cx="22" cy="46" r="13" fill="#90A4BC"/><circle cx="22" cy="46" r="7" fill="#E8F0FA"/>
-      <circle cx="74" cy="46" r="13" fill="#90A4BC"/><circle cx="74" cy="46" r="7" fill="#E8F0FA"/>
+      <rect x="24" y="6" width="48" height="22" rx="15" fill="rgba(255,255,255,.08)"/>
+      <circle cx="22" cy="46" r="13" fill="#404858"/><circle cx="22" cy="46" r="7" fill="#505868"/>
+      <circle cx="74" cy="46" r="13" fill="#404858"/><circle cx="74" cy="46" r="7" fill="#505868"/>
     </svg>`,
     horizon: `<svg viewBox="0 0 96 52" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs><linearGradient id="hg" x1="4" y1="22" x2="92" y2="22" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#FFE8C0" stop-opacity=".25"/><stop offset=".4" stop-color="#F0C880"/><stop offset=".65" stop-color="#E8A868"/><stop offset="1" stop-color="#F8D8B0" stop-opacity=".18"/></linearGradient>
+        <stop stop-color="#c89868" stop-opacity=".22"/><stop offset=".45" stop-color="#a87858" stop-opacity=".35"/><stop offset=".75" stop-color="#886848" stop-opacity=".2"/><stop offset="1" stop-color="#685038" stop-opacity=".12"/></linearGradient>
       <linearGradient id="hg2" x1="48" y1="34" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#A8C8E8" stop-opacity=".55"/><stop offset="1" stop-color="#5880A8" stop-opacity=".15"/></linearGradient></defs>
+        <stop stop-color="#3a4858" stop-opacity=".45"/><stop offset="1" stop-color="#1a2030" stop-opacity=".55"/></linearGradient></defs>
       <ellipse cx="48" cy="22" rx="46" ry="15" fill="url(#hg)"/>
       <ellipse cx="48" cy="40" rx="50" ry="11" fill="url(#hg2)"/>
     </svg>`,
@@ -72,7 +72,6 @@
   let _moodGenAbort = null;
   let _moodGenerating = false;
   let _activeMood = null;
-  let _cursorBound = false;
   let _dragAnim = null;
   let _dragProgress = 0;
 
@@ -94,7 +93,7 @@
   }
 
   function _emotionSceneBg(hex) {
-    return `radial-gradient(ellipse 85% 75% at 50% 36%, ${hex} 0%, ${hex}99 22%, #1a5080 55%, #0f2840 100%)`;
+    return `radial-gradient(ellipse 75% 65% at 50% 40%, ${hex}66 0%, ${hex}22 28%, #0c0e12 72%, #08090c 100%)`;
   }
 
   function _emotionPreviewHtml(illust) { return _petsIllustHtml(illust, 'preview'); }
@@ -104,19 +103,16 @@
     _stopDragBar();
     const bar = $('petsDragBar');
     const fill = $('petsDragFill');
-    const knob = $('petsDragKnob');
     const label = $('petsDragLabel');
-    if (!bar || !fill || !knob) return;
+    if (!bar || !fill) return;
     bar.hidden = false;
-    if (label) label.textContent = 'mixing your playlist';
-    _dragProgress = 0.08;
+    if (label) label.textContent = 'building playlist';
+    _dragProgress = 0.06;
     const tick = () => {
       if (!_moodGenerating) return;
-      _dragProgress += (0.92 - _dragProgress) * 0.018 + 0.002;
-      if (_dragProgress > 0.88) _dragProgress = 0.88 + Math.sin(Date.now() / 400) * 0.04;
-      const pct = Math.max(8, Math.min(92, _dragProgress * 100));
+      _dragProgress += (0.9 - _dragProgress) * 0.015 + 0.001;
+      const pct = Math.max(6, Math.min(88, _dragProgress * 100));
       fill.style.width = `${pct}%`;
-      knob.style.left = `${pct}%`;
       _dragAnim = requestAnimationFrame(tick);
     };
     _dragAnim = requestAnimationFrame(tick);
@@ -127,11 +123,7 @@
     _dragAnim = null;
     const bar = $('petsDragBar');
     const fill = $('petsDragFill');
-    const knob = $('petsDragKnob');
-    if (finish && fill && knob) {
-      fill.style.width = '100%';
-      knob.style.left = '100%';
-    }
+    if (finish && fill) fill.style.width = '100%';
     if (bar && !finish) bar.hidden = true;
   }
 
@@ -246,7 +238,7 @@
     if (!grid) return;
     grid.innerHTML = EMOTION_MOODS.map((m) => `
       <button type="button" class="pets-card" role="listitem" data-scene="${m.sceneId}"
-        style="background:linear-gradient(168deg, ${m.cardTint} 0%, rgba(255,255,255,.08) 40%, rgba(8,24,40,.4) 100%)">
+        style="background:linear-gradient(168deg, ${m.cardTint} 0%, rgba(255,255,255,.04) 38%, rgba(6,8,12,.42) 100%)">
         ${_emotionPreviewHtml(m.illust)}
         <span class="pets-card-title">${esc(m.title)}</span>
       </button>`).join('');
@@ -272,7 +264,7 @@
       if (!mood) return;
       scene?.setAttribute('aria-hidden', 'false');
       const bg = $('emotionSceneBg');
-      if (bg) bg.style.background = _emotionSceneBg(mood.bg || SPOTIFY_PETS_BLUE);
+      if (bg) bg.style.background = _emotionSceneBg(mood.bg);
       if (obj) {
         obj.innerHTML = _emotionHeroHtml(mood.illust);
         const hero = obj.querySelector('.pets-illust--hero');
@@ -297,74 +289,7 @@
     setEmotionUIState('grid');
   }
 
-  function _bindCursor() {
-    if (_cursorBound || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (!window.matchMedia('(pointer: fine)').matches) return;
-    const root = $('petsCursor');
-    const ring = $('petsCursorRing');
-    const dot = $('petsCursorDot');
-    if (!root || !ring || !dot) return;
-    _cursorBound = true;
-
-    let mx = 0; let my = 0;
-    let rx = 0; let ry = 0;
-    let dx = 0; let dy = 0;
-
-    const lerp = (a, b, t) => a + (b - a) * t;
-
-    document.addEventListener('mousemove', (e) => {
-      mx = e.clientX;
-      my = e.clientY;
-      dx = mx;
-      dy = my;
-    });
-
-    const hoverSel = '.pets-card, .pets-connect-btn, .pets-spotify-btn, .pets-logout, .pets-spotify-btn';
-    document.addEventListener('mouseover', (e) => {
-      if (e.target.closest(hoverSel)) ring.classList.add('is-hover');
-      else ring.classList.remove('is-hover');
-    });
-
-    const frame = () => {
-      rx = lerp(rx, mx, 0.18);
-      ry = lerp(ry, my, 0.18);
-      root.style.transform = `translate(${rx}px, ${ry}px)`;
-      dot.style.transform = `translate(${dx - rx}px, ${dy - ry}px)`;
-
-      const hero = document.querySelector('.pets-illust--hero.pets-hero-in');
-      if (hero && document.body.classList.contains('pets-scene-active')) {
-        const r = hero.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        const cy = r.top + r.height / 2;
-        const nx = (mx - cx) / (r.width * 0.55);
-        const ny = (my - cy) / (r.height * 0.55);
-        const clamp = (v) => Math.max(-1, Math.min(1, v));
-        const lx = clamp(nx) * 14;
-        const ly = clamp(ny) * 10;
-        const rot = clamp(nx) * 5;
-        hero.style.setProperty('--look-x', `${lx}px`);
-        hero.style.setProperty('--look-y', `${ly}px`);
-        hero.style.setProperty('--look-r', `${rot}deg`);
-        const inner = hero.querySelector('.pets-illust-inner');
-        if (inner) {
-          inner.style.transform = `rotateY(${clamp(nx) * 8}deg) rotateX(${clamp(-ny) * 6}deg)`;
-        }
-      }
-
-      document.querySelectorAll('.pets-card').forEach((card) => {
-        if (!document.body.classList.contains('pets-home-active')) return;
-        const r = card.getBoundingClientRect();
-        const nx = (mx - (r.left + r.width / 2)) / (r.width / 2);
-        const ny = (my - (r.top + r.height / 2)) / (r.height / 2);
-        const clamp = (v) => Math.max(-0.35, Math.min(0.35, v));
-        card.style.setProperty('--tilt-x', `${clamp(-ny) * 8}deg`);
-        card.style.setProperty('--tilt-y', `${clamp(nx) * 10}deg`);
-      });
-
-      requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
-  }
+  function initPetsChrome() { /* restraint — no custom cursor / card tilt */ }
 
   function _wireLogout() {
     const btn = $('petsLogout');
@@ -377,12 +302,7 @@
     });
   }
 
-  function initPetsChrome() {
-    _bindCursor();
-  }
-
   function initEmotionGridUI() {
-    initPetsChrome();
     renderEmotionGrid();
     setEmotionUIState('grid');
     if (_emotionGridWired) return;
@@ -397,10 +317,9 @@
   }
 
   function _mountGuestHero() {
-    initPetsChrome();
     const el = $('guestHeroIllust');
     if (!el || el.dataset.mounted) return;
-    el.innerHTML = _emotionPreviewHtml('horizon');
+    el.innerHTML = _emotionPreviewHtml('pump');
     el.dataset.mounted = '1';
   }
 
