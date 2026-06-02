@@ -72,7 +72,8 @@
     /* ─── Header ─── */
     .header { width:100%; max-width:660px; display:flex; align-items:center; justify-content:space-between; padding:22px 0 0; }
     .logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
-    .logo-mark { width:33px; height:33px; background:linear-gradient(135deg,#8250ff,#b47eff); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 0 18px rgba(130,80,255,.4); flex-shrink:0; }
+    .logo-mark { width:33px; height:33px; background:linear-gradient(145deg,#6b3fd4,#9d6bff); border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 14px rgba(130,80,255,.35); }
+    .logo-mark svg { display:block; }
     .logo-name { font-size:15px; font-weight:800; letter-spacing:-.3px; color:var(--text); }
     .logo-name em { color:var(--purple); font-style:normal; }
     .header-nav { display:flex; align-items:center; gap:8px; }
@@ -209,9 +210,10 @@
     /* Prompt examples */
     .prompt-examples { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
     .prompt-examples-label { font-size:10px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
-    .prompt-example-list { display:flex; flex-direction:column; gap:6px; }
-    .prompt-example-btn { text-align:left; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); color:var(--text-sub); padding:9px 12px; border-radius:10px; font-size:12.5px; line-height:1.45; cursor:pointer; font-family:inherit; transition:background .15s,border-color .15s,color .15s; }
+    .prompt-example-list { display:flex; flex-wrap:wrap; gap:6px; }
+    .prompt-example-btn { text-align:left; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); color:var(--text-sub); padding:7px 11px; border-radius:9999px; font-size:12px; line-height:1.35; cursor:pointer; font-family:inherit; transition:background .15s,border-color .15s,color .15s; max-width:100%; }
     .prompt-example-btn:hover { background:var(--purple-dim); border-color:rgba(130,80,255,.3); color:#d4b8ff; }
+    .prompt-examples-hint { font-size:11px; color:var(--text-faint); margin-top:6px; }
 
     /* Library health */
     .library-health-card { margin-top:14px; padding:16px 18px; display:none; }
@@ -330,9 +332,20 @@
 
     /* My Playlists */
     .my-playlists-section { margin-top:26px; }
-    .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .section-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; gap:12px; }
     .section-title { display:flex; align-items:center; gap:7px; font-size:10.5px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); }
-    .pl-list { display:flex; flex-direction:column; gap:8px; }
+    .section-sub { font-size:12px; color:var(--text-faint); margin-top:4px; line-height:1.45; }
+    .section-sub a { color:var(--text-sub); text-decoration:none; }
+    .section-sub a:hover { color:#c09fff; }
+    .pl-list { display:flex; flex-direction:column; gap:6px; }
+    .pl-row { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:12px; }
+    .pl-row-body { flex:1; min-width:0; cursor:pointer; }
+    .pl-row-vibe { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pl-row-meta { font-size:11px; color:var(--text-faint); margin-top:2px; }
+    .pl-row-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+    .pl-more-link { display:block; text-align:center; margin-top:10px; font-size:12px; color:var(--text-sub); text-decoration:none; }
+    .pl-more-link:hover { color:#c09fff; }
+    .library-stat-note { font-size:11px; color:var(--text-faint); margin-top:8px; line-height:1.45; }
     .pl-empty { text-align:center; padding:28px 0; font-size:13px; color:var(--text-faint); }
     .pl-card { border-radius:12px; overflow:hidden; transition:border-color .18s; }
     .pl-card-head { display:flex; align-items:center; gap:12px; padding:12px 16px; cursor:pointer; user-select:none; }
@@ -473,7 +486,7 @@
 
   <header class="header">
     <a class="logo" href="/">
-      <div class="logo-mark">🎧</div>
+      <div class="logo-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 4h5.2l2.8 5.2L17 4H22l-7.5 9.8V20h-5.1v-6.2L6 4z" fill="#fff"/></svg></div>
       <span class="logo-name">K<em>walify</em></span>
     </a>
     <nav class="header-nav" id="headerNav">
@@ -532,6 +545,7 @@
         <div class="prompt-examples" id="promptExamples">
           <div class="prompt-examples-label">Try one of these</div>
           <div class="prompt-example-list" id="promptExampleList"></div>
+          <div class="prompt-examples-hint">Tap to fill the box above, then hit Generate.</div>
         </div>
 
         <div class="presets">
@@ -682,12 +696,12 @@
         <div class="recent-mood-list" id="recentMoodList"></div>
       </div>
 
-      <!-- My Playlists -->
+      <!-- Recent playlists (compact; Gallery has full grid) -->
       <div class="my-playlists-section" id="myPlaylistsSection" style="display:none">
         <div class="section-header">
-          <div class="section-title">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-            My Playlists
+          <div>
+            <div class="section-title">Recent playlists</div>
+            <div class="section-sub">Quick reopen · full browse in <a href="/gallery">Gallery</a></div>
           </div>
         </div>
         <div class="pl-list" id="plList"></div>
@@ -826,6 +840,7 @@ function showToast(msg,type='info',ms=4000){
 /* ── Helpers ── */
 const $=id=>document.getElementById(id);
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s){ return esc(s); }
 
 /* ── API wrapper ── */
 async function api(path, opts={}){
@@ -871,7 +886,6 @@ function showApp(userData){
   $('headerNav').innerHTML=`
     ${avatarHtml}${nameHtml}
     <a href="/gallery" class="btn btn-ghost btn-sm">Gallery →</a>
-    <a href="/api/spotify/cache-status" class="btn btn-ghost btn-sm" target="_blank">Cache</a>
     <button class="btn btn-ghost btn-sm btn-logout" onclick="logout()">Log out</button>`;
 
   fetchAndRenderPlaylists();
@@ -912,12 +926,22 @@ const FIRST_GEN_PROMPTS=[
   'music for wandering around London at midnight',
 ];
 
+function bindPromptButtons(root, autoRun){
+  if(!root) return;
+  root.querySelectorAll('[data-prompt]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      applyPreset(btn.getAttribute('data-prompt')||'', autoRun);
+    });
+  });
+}
+
 function wirePromptExamples(){
   const list=$('promptExampleList');
   if(!list) return;
   list.innerHTML=FIRST_GEN_PROMPTS.map(p=>
-    `<button type="button" class="prompt-example-btn" onclick="applyPreset(${JSON.stringify(p)})">${esc(p)}</button>`
+    `<button type="button" class="prompt-example-btn" data-prompt="${escAttr(p)}">${esc(p)}</button>`
   ).join('');
+  bindPromptButtons(list, false);
 }
 
 function renderFirstGenCard(show){
@@ -928,10 +952,11 @@ function renderFirstGenCard(show){
   if(!show){ card.style.display='none'; return; }
   card.style.display='block';
   card.innerHTML=`<div class="first-gen-title">Your library is ready — try your first vibe</div>
-    <div class="first-gen-sub">Pick a moment below. <strong style="color:var(--text)">Only songs you already liked</strong> on Spotify — never new recommendations.</div>
+    <div class="first-gen-sub">Tap a moment, then Generate. Only songs you already liked on Spotify.</div>
     <div class="prompt-example-list">${FIRST_GEN_PROMPTS.map(p=>
-      `<button type="button" class="prompt-example-btn" onclick="applyPreset(${JSON.stringify(p)})">${esc(p)}</button>`
+      `<button type="button" class="prompt-example-btn" data-prompt="${escAttr(p)}">${esc(p)}</button>`
     ).join('')}</div>`;
+  bindPromptButtons(card, false);
 }
 
 /* ── Mode selector ── */
@@ -959,9 +984,10 @@ const DJ_STAGES=[
   {icon:'🎵', title:'Creating Spotify playlist', phases:['spotify','saving'],
     sub:()=>'Publishing a new playlist to your account'},
 ];
-const MIN_STAGE_MS=3000;
-const MIN_PROGRESS_VISIBLE_MS=2400;
-let progTimer=null, progPollTimer=null, progStageTimer=null, progStartMs=0, _lastProgPhase='', _deployHintShown=false;
+const MIN_STAGE_MS=2200;
+const STAGE_AUTO_MS=2000;
+const MIN_PROGRESS_VISIBLE_MS=2200;
+let progTimer=null, progPollTimer=null, progStageTimer=null, progStageAutoTimer=null, progStartMs=0, _lastProgPhase='', _deployHintShown=false;
 let _visualStageIdx=0, _targetStageIdx=0, _lastStageAdvanceMs=0;
 
 function _djStageIndex(phase){
@@ -1051,8 +1077,10 @@ function stopProgressTimers(){
   clearInterval(progTimer);
   clearInterval(progPollTimer);
   clearInterval(progStageTimer);
+  clearInterval(progStageAutoTimer);
   progPollTimer=null;
   progStageTimer=null;
+  progStageAutoTimer=null;
 }
 function startProgress(){
   stopProgressTimers();
@@ -1067,6 +1095,14 @@ function startProgress(){
   _setProgPct(6);
   let progStatusInflight=false;
   progStageTimer=setInterval(_tickVisualStages, 350);
+  progStageAutoTimer=setInterval(()=>{
+    if(!isGenerating) return;
+    const cap=DJ_STAGES.length-1;
+    if(_targetStageIdx<cap){
+      _targetStageIdx++;
+      _tickVisualStages();
+    }
+  }, STAGE_AUTO_MS);
   progPollTimer=setInterval(()=>{
     if(!isGenerating||progStatusInflight) return;
     if(typeof document!=='undefined'&&document.visibilityState==='hidden') return;
@@ -1096,7 +1132,8 @@ function startProgress(){
 function finishProgress(done){
   stopProgressTimers();
   const elapsed=Date.now()-progStartMs;
-  const wait=Math.max(0,MIN_PROGRESS_VISIBLE_MS-elapsed);
+  const wait=Math.max(0,Math.min(MIN_PROGRESS_VISIBLE_MS, elapsed<2500?1600:MIN_PROGRESS_VISIBLE_MS)-elapsed);
+  const stepMs=elapsed<3500?380:580;
   setTimeout(()=>{
     _targetStageIdx=DJ_STAGES.length-1;
     const step=()=>{
@@ -1104,7 +1141,7 @@ function finishProgress(done){
         _visualStageIdx++;
         _lastStageAdvanceMs=Date.now();
         _paintDjStages(false);
-        setTimeout(step, 650);
+        setTimeout(step, stepMs);
         return;
       }
       _paintDjStages(true);
@@ -1267,8 +1304,9 @@ function renderRecentMoods(playlists){
   if(vibes.length<2){ section.style.display='none'; return; }
   section.style.display='block';
   list.innerHTML=vibes.map(v=>
-    `<button type="button" class="recent-mood-btn" onclick="applyPreset(${JSON.stringify(v)})">"${esc(v)}"</button>`
+    `<button type="button" class="recent-mood-btn" data-prompt="${escAttr(v)}">"${esc(v)}"</button>`
   ).join('');
+  bindPromptButtons(list, false);
 }
 
 function _buildForgottenHtml(tracks){
@@ -1732,7 +1770,15 @@ function regenerate(){
   generate();
 }
 
-function applyPreset(v){ if(!vibeInput) return; vibeInput.value=v; generate(); }
+function applyPreset(v, runNow){
+  if(!vibeInput) return;
+  vibeInput.value=v;
+  vibeInput.dispatchEvent(new Event('input',{bubbles:true}));
+  vibeInput.focus();
+  inputCard?.classList.add('glow');
+  setTimeout(()=>inputCard?.classList.remove('glow'),900);
+  if(runNow!==false) generate();
+}
 
 /* ── Copy link ── */
 function resetCopyBtn(){
@@ -1818,59 +1864,29 @@ function renderPlaylists(items){
     list.innerHTML='<div class="pl-empty"><div style="font-size:15px;font-weight:600;margin-bottom:6px">🎵&nbsp;&nbsp;No playlists yet</div><div>Generate your first one above ↑</div></div>';
     return;
   }
-  list.innerHTML=items.map((p,idx)=>{
+  const recent=items.slice(0,5);
+  const more=items.length>5;
+  list.innerHTML=recent.map((p,idx)=>{
     const tracks=Array.isArray(p.tracks)?p.tracks:[];
     const trackCount=tracks.length;
     const date=p.createdAt?new Date(p.createdAt).toLocaleDateString([],{month:'short',day:'numeric'}):'';
-    const thumbs=tracks.slice(0,3).map(t=>
-      t.albumArt
-        ? `<img src="${esc(t.albumArt)}" alt="" class="pl-thumb" onerror="this.outerHTML='<span class=pl-thumb-fb>🎵</span>'">`
-        : '<span class="pl-thumb-fb">🎵</span>'
-    ).join('');
-    const trackRows=tracks.map((t,i)=>{
-      const artHtml=t.albumArt
-        ? `<img src="${esc(t.albumArt)}" alt="" class="pl-track-art" onerror="this.outerHTML='<span class=pl-track-art-fb>🎵</span>'">`
-        : '<span class="pl-track-art-fb">🎵</span>';
-      const link=t.trackId
-        ? `<a class="track-spotify" href="https://open.spotify.com/track/${esc(t.trackId)}" target="_blank" rel="noopener" title="Open in Spotify">▶</a>`
-        : '';
-      return `<div class="pl-track">
-        <span class="pl-track-num">${i+1}</span>
-        ${artHtml}
-        <div class="pl-track-info">
-          <div class="pl-track-name">${esc(t.trackName||'')}</div>
-          <div class="pl-track-artist">${esc(t.artistName||'')}</div>
-        </div>
-        ${link}
-      </div>`;
-    }).join('');
-    const ep=p.emotionProfile;
-    const tags=_moodTags(ep,null,null);
-    const tagHtml=tags.length?`<div class="pl-mood-tags">${tags.map(t=>`<span class="pl-mood-tag">${esc(t)}</span>`).join('')}</div>`:'';
-    const promptHtml=p.vibe?`<div class="pl-prompt">From: "${esc(p.vibe)}"</div>`:'';
+    const vibeLine=(p.vibe||p.name||'Playlist').trim();
     const spotifyBtn = p.spotifyUrl
-      ? `<a class="pl-spotify-btn" href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ Spotify</a>`
+      ? `<a class="pl-spotify-btn" href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener">Spotify</a>`
       : '';
-    const shareBtn = `<button class="pl-share-btn" onclick="event.stopPropagation();sharePlaylist(${p.id})" title="Copy share link">🔗 Share</button>`;
-    return `<div class="glass pl-card" id="plc-${p.id}" style="animation-delay:${idx*.04}s">
-      <div class="pl-card-head" onclick="togglePlaylist(${p.id})">
-        <div class="pl-thumbs">${thumbs||'<span class="pl-thumb-fb">🎵</span>'}</div>
-        <div class="pl-body">
-          <div class="pl-name">${esc(p.name)}</div>
-          <div class="pl-meta">${trackCount} track${trackCount!==1?'s':''}${date?' · '+date:''}</div>
-          ${tagHtml}
-          ${promptHtml}
-        </div>
-        <div class="pl-actions">
-          ${spotifyBtn}
-          ${shareBtn}
-          <button class="btn-del" onclick="event.stopPropagation();deletePlaylist(${p.id})" title="Delete playlist">🗑</button>
-          <span class="pl-chevron">▼</span>
-        </div>
+    const shareBtn = `<button class="pl-share-btn" onclick="sharePlaylist(${p.id})" title="Copy share link">Share</button>`;
+    return `<div class="glass pl-row" style="animation-delay:${idx*.04}s">
+      <div class="pl-row-body" onclick="window.location.href='/p/${p.id}'" title="Open share page">
+        <div class="pl-row-vibe">${esc(vibeLine)}</div>
+        <div class="pl-row-meta">${trackCount} track${trackCount!==1?'s':''}${date?' · '+date:''}</div>
       </div>
-      <div class="pl-track-list">${trackRows}</div>
+      <div class="pl-row-actions">
+        ${spotifyBtn}
+        ${shareBtn}
+        <button class="btn-del" onclick="deletePlaylist(${p.id})" title="Delete">🗑</button>
+      </div>
     </div>`;
-  }).join('');
+  }).join('')+(more?`<a class="pl-more-link" href="/gallery">View all ${items.length} in Gallery →</a>`:'');
 }
 
 function togglePlaylist(id){
@@ -2105,6 +2121,13 @@ async function fetchLibraryHealth(){
   }catch{ card.classList.remove('visible'); }
 }
 
+function _genreStatLabel(s){
+  const n=s.genreFamilyCount;
+  const total=s.genreRootsTotal||18;
+  if(n==null||n===undefined) return '—';
+  return `${n} / ${total}`;
+}
+
 function _renderLibraryHealth(s){
   const card=$('libraryHealthCard');
   if(!card||!s?.trackCount) return;
@@ -2122,18 +2145,20 @@ function _renderLibraryHealth(s){
     <div class="library-health-title" style="margin-top:14px">Your library</div>
     <div class="library-health-grid">
       <div><div class="library-stat-val">${(s.artistCount||0).toLocaleString()}</div><div class="library-stat-lbl">artists</div></div>
-      <div><div class="library-stat-val">${s.genreFamilyCount||'—'}</div><div class="library-stat-lbl">genre families</div></div>
+      <div><div class="library-stat-val">${_genreStatLabel(s)}</div><div class="library-stat-lbl">main genres spotted</div></div>
       <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(decade||'—')}</div><div class="library-stat-lbl">when you saved most likes</div></div>
       <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(span||'—')}</div><div class="library-stat-lbl">listening span</div></div>
-    </div>`;
+    </div>
+    <div class="library-stat-note">Broad categories from your library (pop, rock, soul, etc.) — not Spotify's thousands of micro-genres.</div>`;
   } else {
     card.innerHTML=`<div class="library-health-title">Your library</div>
     <div class="library-health-grid">
       <div><div class="library-stat-val">${n.toLocaleString()}</div><div class="library-stat-lbl">liked songs</div></div>
       <div><div class="library-stat-val">${(s.artistCount||0).toLocaleString()}</div><div class="library-stat-lbl">artists</div></div>
-      <div><div class="library-stat-val">${s.genreFamilyCount||'—'}</div><div class="library-stat-lbl">genre families</div></div>
+      <div><div class="library-stat-val">${_genreStatLabel(s)}</div><div class="library-stat-lbl">main genres spotted</div></div>
       <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(decade||span||'—')}</div><div class="library-stat-lbl">${decade&&span?esc(span):'listening span'}</div></div>
-    </div>`;
+    </div>
+    <div class="library-stat-note">Broad categories (pop, rock, soul…) — not Spotify's full genre list.</div>`;
   }
 }
 

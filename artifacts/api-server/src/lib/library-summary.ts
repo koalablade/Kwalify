@@ -2,12 +2,15 @@
  * Lightweight library stats for the UI health card (post-sync).
  */
 
-import { classifyTrack } from "./genre-taxonomy";
+import { ALL_ROOT_GENRES, classifyTrack } from "./genre-taxonomy";
 
 export interface LibrarySummary {
   trackCount: number;
   artistCount: number;
+  /** Distinct broad genre roots detected in the library (pop, rock, soul, etc.). */
   genreFamilyCount: number;
+  /** How many broad roots exist in Kwalify's taxonomy (for context in UI). */
+  genreRootsTotal: number;
   topDecade: string | null;
   oldestLikedYear: number | null;
   newestLikedYear: number | null;
@@ -55,18 +58,22 @@ export function computeLibrarySummary(rows: Row[]): LibrarySummary {
   }
 
   const families = new Set<string>();
-  const step = Math.max(1, Math.floor(rows.length / 280));
+  const sampleTarget = Math.min(rows.length, 900);
+  const step = Math.max(1, Math.floor(rows.length / sampleTarget));
   for (let i = 0; i < rows.length; i += step) {
     const r = rows[i]!;
     const c = classifyTrack(r);
-    if (c.genreFamily) families.add(c.genreFamily);
-    if (families.size >= 48) break;
+    const root = c.genreFamily;
+    if (root && root !== "unknown") families.add(root);
   }
+
+  const genreRootsTotal = ALL_ROOT_GENRES.filter((g) => g !== "unknown").length;
 
   return {
     trackCount,
     artistCount: artists.size,
     genreFamilyCount: families.size,
+    genreRootsTotal,
     topDecade,
     oldestLikedYear: oldest,
     newestLikedYear: newest,
