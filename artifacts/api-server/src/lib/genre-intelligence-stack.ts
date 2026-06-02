@@ -108,6 +108,8 @@ function buildMinimalGenreIntelligenceStack(
 }
 
 export function buildGenreIntelligenceStack(opts: {
+  /** When set, used for minimal-vs-full decision (generate passes library size, not empty tracks[]). */
+  librarySize?: number;
   tracks: {
     trackId: string;
     trackName: string;
@@ -125,7 +127,8 @@ export function buildGenreIntelligenceStack(opts: {
   vibe: string;
   recentPlaylistTrackIds?: string[][];
 }): GenreIntelligenceStack {
-  if (opts.tracks.length >= MINIMAL_STACK_THRESHOLD) {
+  const libSize = opts.librarySize ?? opts.tracks.length;
+  if (libSize >= MINIMAL_STACK_THRESHOLD) {
     return buildMinimalGenreIntelligenceStack(opts.userProfile, opts.vibe);
   }
 

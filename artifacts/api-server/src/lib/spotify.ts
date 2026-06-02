@@ -145,10 +145,17 @@ export async function exchangeCode(
 
   const data = response.data as any;
 
-  // Log the exact scopes Spotify included in the issued token.
-  // If playlist-modify-private / playlist-modify-public are absent here,
-  // Spotify is not granting write scopes to this app (requires Extended Quota).
-  console.log("[oauth-token-scopes] Spotify issued token with scopes:", data.scope ?? "NONE");
+  const scopeList =
+    typeof data.scope === "string"
+      ? data.scope.split(" ").filter(Boolean)
+      : [];
+  logger.info(
+    {
+      scopeCount: scopeList.length,
+      hasPlaylistModify: scopeList.some((s: string) => s.startsWith("playlist-modify")),
+    },
+    "[spotify] OAuth token issued"
+  );
 
   return {
     accessToken: data.access_token,
@@ -436,7 +443,13 @@ export async function createSpotifyPlaylist(
     /** Called once playlist shell exists (before track add) — for retry idempotency */
     onPlaylistCreated?: (playlistId: string) => void;
   }
-): Promise<{ id: string; url: string }> {
+): Promise<{
+  id: string;
+  url: string;
+  partial?: boolean;
+  tracksAdded?: number;
+  tracksRequested?: number;
+}> {
   const userKey = userId;
   let playlistId = opts?.existingPlaylistId;
   let playlistUrl = playlistId
@@ -475,8 +488,8 @@ export async function createSpotifyPlaylist(
       `https://open.spotify.com/playlist/${playlistId}`;
 
     logger.info(
-      { playlistId, playlistOwner: playlist.owner?.id, tokenUserId: userId },
-      "[spotify] Playlist created — owner vs token user check"
+      { playlistId, trackCount: trackUris.length },
+      "[spotify] Playlist shell created"
     );
 
     await new Promise((r) => setTimeout(r, 800));
@@ -486,9 +499,10 @@ export async function createSpotifyPlaylist(
   }
 
   const batchSize = 100;
+  let tracksAdded = 0;
   try {
     logger.info(
-      { playlistId, totalUris: trackUris.length, firstUri: trackUris[0] ?? null },
+      { playlistId, trackCount: trackUris.length },
       "[spotify] Adding tracks to playlist"
     );
     for (let i = 0; i < trackUris.length; i += batchSize) {
@@ -505,17 +519,28 @@ export async function createSpotifyPlaylist(
         },
         { userKey }
       );
+      tracksAdded += batch.length;
     }
   } catch (err: any) {
     logger.warn(
       {
         playlistId,
         status: err?.response?.status,
-        errorBody: err?.response?.data,
+        tracksAdded,
+        tracksRequested: trackUris.length,
         msg: err?.message,
       },
       "[spotify] Track add failed"
     );
+    if (playlistId) {
+      return {
+        id: playlistId,
+        url: playlistUrl,
+        partial: true,
+        tracksAdded,
+        tracksRequested: trackUris.length,
+      };
+    }
     if (!opts?.existingPlaylistId && playlistId) {
       try {
         await spotifyRequest(
@@ -536,5 +561,8 @@ export async function createSpotifyPlaylist(
   return {
     id: playlistId!,
     url: playlistUrl,
+    partial: tracksAdded < trackUris.length,
+    tracksAdded,
+    tracksRequested: trackUris.length,
   };
 }

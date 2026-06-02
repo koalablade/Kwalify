@@ -101,6 +101,26 @@ function staleGenerate(userId: string, requestId: string): boolean {
   return isGenerateCancelled(userId, requestId);
 }
 
+/** Cancelled/superseded session — always send a response so the client does not hang. */
+function respondIfStale(
+  res: import("express").Response,
+  userId: string,
+  requestId: string
+): boolean {
+  if (!staleGenerate(userId, requestId)) return false;
+  if (!res.headersSent) {
+    res.status(409).json({
+      success: false,
+      code: "GENERATION_CANCELLED",
+      error:
+        "This generation was superseded or cancelled. Try again if you need a new playlist.",
+      tracks: [],
+      spotifyUnavailable: true,
+    });
+  }
+  return true;
+}
+
 /** Consistent /generate failure payload (API shape unchanged). */
 function generateFail(
   res: import("express").Response,
@@ -210,6 +230,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     requestId = acquired;
     sessionUserId = userId;
     setGeneratePhase(userId, requestId, "starting");
+    req.log.info({ elapsedMs: 0, trackCount: 0, cacheHit: false }, "Generation started");
     heartbeatTimer = setInterval(() => {
       const progress = getGenerateProgress(userId);
       req.log.info(
@@ -240,12 +261,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       sceneJourneyArc = momentPipeline.journeyArc;
       req.log.info(
         {
-          emotionProfile,
-          experienceScene,
-          sceneJourneyArc,
-          mixedEmotions,
+          elapsedMs: Date.now() - startMs,
           canonicalScene: momentPipeline.canonicalScene?.sceneId,
           intent: momentPipeline.intent.intent,
+          hasExperienceScene: !!experienceScene,
+          journeyArc: sceneJourneyArc ?? null,
         },
         "Emotion profile computed"
       );
@@ -285,6 +305,49 @@ router.post("/generate", async (req, res): Promise<void> => {
           { status: refStatus, referencePlaylist },
           "Reference playlist load failed — continuing with text vibe only"
         );
+      }
+    }
+
+    const vibeKind = detectVibeKind(vibe, emotionProfile);
+    const budget = createRequestBudget(startMs);
+    const resultCacheKey = getGenerateCacheKey({
+      userId,
+      vibe,
+      vibeKind,
+      mode,
+      length,
+      referencePlaylist: !!referencePlaylist,
+    });
+
+    if (!varietyBoost) {
+      const cached = getCachedGenerateResult(resultCacheKey);
+      if (cached) {
+        if (respondIfStale(res, userId, requestId)) return;
+        setGeneratePhase(userId, requestId, "done");
+        req.log.info(
+          {
+            elapsedMs: Date.now() - startMs,
+            cacheHit: true,
+            trackCount: cached.finalTracks.length,
+          },
+          "Generation complete"
+        );
+        res.json({
+          success: true,
+          cached: true,
+          tracks: formatTracksForApi(cached.finalTracks),
+          playlistName: cached.playlistName,
+          name: cached.playlistName,
+          vibe: cached.vibe,
+          mode: cached.mode,
+          count: cached.finalTracks.length,
+          totalTracks: cached.finalTracks.length,
+          emotionProfile: cached.emotionProfile,
+          ...(cached.spotifyPlaylistUrl
+            ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
+            : { spotifyUnavailable: true as const }),
+        });
+        return;
       }
     }
 
@@ -332,19 +395,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       maxPerArtist: mode === "strict" ? 2 : mode === "balanced" ? 3 : 5,
     };
 
-    const vibeKind = detectVibeKind(vibe, emotionProfile);
-    const budget = createRequestBudget(startMs);
-    const resultCacheKey = getGenerateCacheKey({
-      userId,
-      vibe,
-      vibeKind,
-      mode,
-      length,
-      referencePlaylist: !!referencePlaylist,
-    });
-
     res.setTimeout(REQUEST_HARD_TIMEOUT_MS + 2000, () => {
-      if (res.headersSent || staleGenerate(userId, requestId)) return;
+      if (res.headersSent || staleGenerate(userId, requestId)) return; // timeout handler — no second body
       const ctx = (req as { _genCtx?: {
         likedSongs: typeof likedSongs;
         emotionProfile: EmotionProfile;
@@ -387,31 +439,6 @@ router.post("/generate", async (req, res): Promise<void> => {
         tracks: formatTracksForApi(pipeline.finalTracks),
       });
     });
-
-    if (!varietyBoost) {
-      const cached = getCachedGenerateResult(resultCacheKey);
-      if (cached) {
-        if (staleGenerate(userId, requestId)) return;
-        setGeneratePhase(userId, requestId, "done");
-        req.log.info({ userId, resultCacheKey }, "Generate result cache hit");
-        res.json({
-          success: true,
-          cached: true,
-          tracks: formatTracksForApi(cached.finalTracks),
-          playlistName: cached.playlistName,
-          name: cached.playlistName,
-          vibe: cached.vibe,
-          mode: cached.mode,
-          count: cached.finalTracks.length,
-          totalTracks: cached.finalTracks.length,
-          emotionProfile: cached.emotionProfile,
-          ...(cached.spotifyPlaylistUrl
-            ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
-            : { spotifyUnavailable: true as const }),
-        });
-        return;
-      }
-    }
 
     const promptConfidence = scorePromptConfidence(vibe, emotionProfile, {
       experienceSceneMatched: !!experienceScene,
@@ -523,7 +550,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       vibe
     );
     req.log.info(
-      { ms: Date.now() - t0, tracks: likedSongs.length, cacheHit },
+      { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
       "Genre profile built"
     );
 
@@ -554,8 +581,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     const stackFromCache = !!genreStack;
     if (!genreStack) {
       genreStack = buildGenreIntelligenceStack({
-        tracks:
-          likedSongs.length >= MINIMAL_GENRE_STACK_THRESHOLD ? [] : likedSongs,
+        librarySize: likedSongs.length,
+        tracks: likedSongs,
         userProfile: userGenreProfile,
         vibe,
         recentPlaylistTrackIds: recentTrackLists,
@@ -675,7 +702,14 @@ router.post("/generate", async (req, res): Promise<void> => {
       excluded: pipeline.hybridExcludedCount,
       finalTracks: finalTracks.length,
     });
-    req.log.info({ genreAudit, genreStack: genreStack.stats }, "Genre coverage enforcement");
+    req.log.info(
+      {
+        elapsedMs: Date.now() - startMs,
+        trackCount: finalTracks.length,
+        poolSize: scoringPool.hybridPoolSize,
+      },
+      "Playlist composed"
+    );
 
     const explanation = buildGenerationExplanation({
       profile: emotionProfile,
@@ -731,7 +765,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         finalTracks = rescue.finalTracks as PlaylistTrack[];
       } else {
         setGeneratePhase(userId, requestId, "error");
-        if (staleGenerate(userId, requestId)) return;
+        if (respondIfStale(res, userId, requestId)) return;
         generateFail(
           res,
           400,
@@ -745,7 +779,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
-    if (staleGenerate(userId, requestId)) return;
+    if (respondIfStale(res, userId, requestId)) return;
 
     const playlistName = generatePlaylistName(vibe, emotionProfile);
 
@@ -761,6 +795,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     let spotifyPlaylistUrl: string | null = null;
     const tSpotify = Date.now();
     req.log.info({ trackCount: finalTracks.length }, "Creating Spotify playlist");
+
+    let spotifyPartial = false;
+    let spotifyTracksAdded: number | undefined;
 
     if (!staleGenerate(userId, requestId)) {
       try {
@@ -786,8 +823,16 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
         clearPendingSpotifyPlaylist(userId, requestId);
         spotifyPlaylistUrl = spotifyResult.url;
+        spotifyPartial = !!spotifyResult.partial;
+        spotifyTracksAdded = spotifyResult.tracksAdded;
         req.log.info(
-          { spotifyPlaylistId: spotifyResult.id, userId, reused: !!pendingId },
+          {
+            elapsedMs: Date.now() - tSpotify,
+            partial: spotifyPartial,
+            tracksAdded: spotifyTracksAdded,
+            tracksRequested: finalTracks.length,
+            reused: !!pendingId,
+          },
           "Spotify playlist created"
         );
       } catch (spotifyErr: any) {
@@ -802,10 +847,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
-    req.log.info(
-      { ms: Date.now() - tSpotify, spotifyPlaylistUrl: !!spotifyPlaylistUrl },
-      "Spotify playlist step complete"
-    );
 
     setGeneratePhase(userId, requestId, "saving");
     const tSave = Date.now();
@@ -848,7 +889,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     const spotifyFields = spotifyPlaylistUrl
-      ? { spotifyPlaylistUrl }
+      ? {
+          spotifyPlaylistUrl,
+          ...(spotifyPartial
+            ? { spotifyPartial: true as const, spotifyTracksAdded: spotifyTracksAdded ?? 0 }
+            : {}),
+        }
       : { spotifyUnavailable: true as const };
 
     const totalDurationMs = finalTracks.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
@@ -892,7 +938,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     setGeneratePhase(userId, requestId, "done");
-    if (staleGenerate(userId, requestId)) return;
+    if (respondIfStale(res, userId, requestId)) return;
+
+    req.log.info(
+      {
+        elapsedMs: Date.now() - startMs,
+        cacheHit: false,
+        trackCount: finalTracks.length,
+        poolSize: scoringPool.hybridPoolSize,
+      },
+      "Generation complete"
+    );
 
     res.json({
       success: true,
