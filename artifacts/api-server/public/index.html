@@ -634,7 +634,9 @@
       position:relative; flex:1; display:flex; align-items:center; justify-content:center;
       min-height:min(84vh,800px); padding:20vh 24px 24vh; text-align:center;
     }
-    /* ══ Pets UI — logged-in only (2 screens: grid + fullscreen object) ══ */
+    /* ══ Pets UI — canonical: docs/EMOTION_GRID_UI_ENTRY.md · KWALIFY_OBJECT_CONSTRUCTION_MODE.md
+       ONLY 2 screens: (1) 5-card 3-col grid — preview + title (2) fullscreen one soft illustrated object
+       NOT dashboard / geometric icons / industrial / maps. Motion: fade + gentle scale, ease-out only. ══ */
     body.pets-app .page,
     body.pets-app .header,
     body.pets-app .bg,
@@ -643,7 +645,8 @@
     body.pets-app #cinemaStill,
     body.pets-app #cinemaFallback,
     body.pets-app #momentCanvasOverlay,
-    body.pets-app #loadOverlay { display:none !important; }
+    body.pets-app #loadOverlay,
+    body.pets-app video#cinema { display:none !important; visibility:hidden !important; }
     #appView.pets-shell {
       position:fixed; inset:0; z-index:100; display:none;
       background:#0e1018; overflow:hidden;
@@ -1180,6 +1183,7 @@ function _isMomentExperience(){
 
 /** Only user-visible states: home → loading → result */
 function setMomentState(state){
+  if(document.body.classList.contains('pets-app')) return;
   const av=$('appView');
   const shell=$('momentShell');
   ['home','loading','result'].forEach(s=>{
@@ -1247,12 +1251,15 @@ function returnToCompose(){
 
 function showApp(userData){
   document.querySelector('.page')?.classList.remove('moment-app');
-  document.body.classList.remove('moment-home','moment-loading','moment-result','world-grid','world-emotion','world-active');
+  document.body.classList.remove('moment-home','moment-loading','moment-result','moment-typing','world-grid','world-emotion','world-active');
+  ['home','loading','result'].forEach(s=>$('appView')?.classList.remove('moment-'+s));
   document.body.classList.add('pets-app','pets-home-active');
   document.body.classList.remove('pets-scene-active');
   $('landingView').style.display='none';
   const av=$('appView');
   if(av) av.hidden=false;
+  const cin=$('cinema');
+  if(cin){ try{ cin.pause(); }catch(_){} cin.removeAttribute('src'); }
   initEmotionGridUI();
   startSyncPolling();
 }
@@ -1498,7 +1505,12 @@ function setEmotionUIState(state, sceneId){
   }
 }
 
-function openEmotionScene(sceneId){ setEmotionUIState('scene', sceneId); }
+function openEmotionScene(sceneId){
+  document.body.classList.add('pets-transitioning');
+  setEmotionUIState('scene', sceneId);
+  clearTimeout(openEmotionScene._t);
+  openEmotionScene._t=setTimeout(()=>document.body.classList.remove('pets-transitioning'),560);
+}
 
 function closeEmotionScene(){ setEmotionUIState('grid'); }
 
@@ -1730,6 +1742,7 @@ function _applyScene(sceneId){
 }
 
 function renderScene(sceneId){
+  if(document.body.classList.contains('pets-app')) return;
   sceneId=sceneId||DEFAULT_SCENE;
   const fb=$('cinemaFallback');
   if(fb) fb.dataset.scene=sceneId;
