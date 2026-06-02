@@ -2,6 +2,8 @@
 
 Single renderer: `getSceneFromInput()` → `renderScene(sceneId)`.
 
+**Deployment:** MP4 files are optional. If none are present, the app probes once per session, then uses CSS gradients on `#cinemaFallback` (no blank screen). Set `SCENE_SKIP_VIDEO=true` in `index.html` to skip probes entirely.
+
 ## Video paths (tried in order)
 
 1. `/cinema/{scene_id}.mp4`

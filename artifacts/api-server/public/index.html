@@ -561,29 +561,32 @@
     /* ── Emotional Physics v1 (overlay only — does not replace SceneRendererCore) ── */
     :root {
       --warmth:0; --motion:0; --intensity:0;
-      --world-bright:1; --world-contrast:1.04; --world-sat:.92;
-      --world-blur:0px; --world-grain:.03; --world-vignette:.7;
+      --world-bright:1; --world-contrast:1.04; --world-sat:.96;
+      --world-blur:0px; --world-grain:.016; --world-vignette:.48;
       --focus-x:50%; --focus-y:50%;
       --depth-blur:0px; --depth-sat:1; --perception-exposure:1; --perception-contrast:1.04;
     }
+    /* Scene = full clarity; never gaussian-blur the substrate */
     #cinema, #cinemaFallback {
       transition:filter .55s ease, opacity .5s ease;
-      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(var(--perception-contrast)) saturate(calc(var(--world-sat)*var(--depth-sat))) blur(var(--depth-blur));
+      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(var(--perception-contrast)) saturate(calc(var(--world-sat)*var(--depth-sat)));
       opacity:1 !important;
     }
     #cinema.scene-fade { opacity:.88 !important; }
     body.perception-initial #cinema { opacity:0 !important; }
     body.perception-initial #cinemaFallback { opacity:1 !important; display:block !important; }
-    body.perception-depth #cinema { opacity:.9 !important; transition:opacity .5s ease, filter .65s ease; }
+    body.perception-depth #cinema { opacity:1 !important; transition:opacity .5s ease, filter .65s ease; }
     body.perception-lock #cinema,
     body.perception-stable #cinema { opacity:1 !important; }
     body.perception-depth #cinemaFallback,
-    body.perception-lock #cinemaFallback { filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(var(--perception-contrast)) saturate(calc(var(--world-sat)*var(--depth-sat))) blur(calc(var(--depth-blur)*.85)); }
+    body.perception-lock #cinemaFallback {
+      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(var(--perception-contrast)) saturate(calc(var(--world-sat)*var(--depth-sat)));
+    }
     body.perception-lock #cinema,
     body.perception-lock #cinemaFallback,
     body.perception-stable #cinema,
     body.perception-stable #cinemaFallback {
-      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(calc(var(--perception-contrast)*1.02)) saturate(calc(var(--world-sat)*var(--depth-sat))) blur(var(--depth-blur));
+      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(calc(var(--perception-contrast)*1.02)) saturate(calc(var(--world-sat)*var(--depth-sat)));
       transition:filter .85s ease, opacity .45s ease;
     }
     #worldPhysics {
@@ -600,18 +603,18 @@
     }
     #worldPhysics::after {
       content:''; position:absolute; inset:0;
-      background:radial-gradient(ellipse 72% 60% at var(--focus-x) var(--focus-y), transparent 0%, rgba(0,0,0,.5) 55%, rgba(0,0,0,var(--world-vignette)) 100%);
-      opacity:.9;
+      background:radial-gradient(ellipse 78% 68% at var(--focus-x) var(--focus-y), transparent 0%, rgba(0,0,0,.18) 62%, rgba(0,0,0,calc(var(--world-vignette)*.75)) 100%);
+      opacity:.5;
       transition:opacity .5s ease;
     }
     #worldFocus {
       position:fixed; inset:0; z-index:1; pointer-events:none;
-      background:radial-gradient(circle at var(--focus-x) var(--focus-y), rgba(255,255,255,0.04), rgba(0,0,0,0.85));
-      opacity:.82;
+      background:radial-gradient(circle at var(--focus-x) var(--focus-y), rgba(255,255,255,0.05) 0%, transparent 38%, rgba(0,0,0,0.38) 100%);
+      opacity:.38;
       transition:opacity .7s ease, background .85s ease;
     }
     body.perception-lock #worldFocus,
-    body.perception-stable #worldFocus { opacity:.88; }
+    body.perception-stable #worldFocus { opacity:.42; }
     #sceneFrameHint {
       position:fixed; inset:0; z-index:1; pointer-events:none; overflow:hidden;
     }
@@ -629,13 +632,13 @@
     body.moment-result #sceneFrameHint::before { opacity:.08; }
     body.perception-stable #sceneFrameHint::before { opacity:.07; }
     @keyframes atmosphereBreath {
-      0%,100%{ filter:blur(0) saturate(1); opacity:.88; }
-      50%{ filter:blur(.5px) saturate(1.04); opacity:1; }
+      0%,100%{ filter:none; opacity:.85; }
+      50%{ filter:none; opacity:.95; }
     }
     body.moment-listening {
-      --world-bright:.9; --world-grain:.042; --world-vignette:.82; --world-contrast:1.07;
+      --world-bright:.94; --world-grain:.02; --world-vignette:.54; --world-contrast:1.05;
     }
-    body.moment-listening #worldPhysics::after { opacity:.96; }
+    body.moment-listening #worldPhysics::after { opacity:.58; }
     body.moment-listening .compose-layer {
       opacity:.32 !important; filter:blur(3px) !important;
       pointer-events:none !important;
@@ -647,9 +650,12 @@
     }
     body.world-settled #cinema,
     body.world-settled #cinemaFallback {
-      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(calc(var(--perception-contrast)*1.01)) saturate(calc(var(--world-sat)*var(--depth-sat)*1.02)) blur(var(--depth-blur));
+      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(calc(var(--perception-contrast)*1.01)) saturate(calc(var(--world-sat)*var(--depth-sat)*1.02));
       transition:filter 1.2s ease;
     }
+    body.moment-compose .bg,
+    body.moment-listening .bg,
+    body.moment-result .bg { opacity:0 !important; visibility:hidden !important; }
     body.world-settled .result-surface .result-name-display,
     body.world-settled .result-surface .result-summary,
     body.world-settled .result-surface .result-actions .btn {
@@ -657,7 +663,10 @@
     }
 
     .moment-app .page, #appView.moment-app .moment-shell { position:relative; z-index:2; }
-    .moment-app .bg .orb { opacity:.05 !important; }
+    .moment-shell, .compose-layer, .result-surface, .vibe-focus, .input-moment, .result-layer.visible .result-surface {
+      filter:none !important;
+      -webkit-font-smoothing:antialiased;
+    }
     body.moment-compose .compose-layer {
       opacity:1 !important; visibility:visible !important;
       pointer-events:auto !important; filter:none !important; transform:none !important;
@@ -688,33 +697,20 @@
     body.moment-result.atmo-drive .moment-app .page::before { background:rgba(12,10,18,.12); }
     body.moment-result.atmo-memory .moment-app .page::before { background:rgba(28,18,10,.12); }
     body.moment-result.atmo-calm .moment-app .page::before { background:rgba(10,12,12,.1); }
-    .moment-app .page::after {
-      content:''; position:fixed; inset:0; z-index:2; pointer-events:none;
-      background:radial-gradient(ellipse 78% 68% at 50% 38%, rgba(14,16,20,.12) 0%, transparent 42%, rgba(2,2,4,.9) 100%);
-      opacity:1;
-      transition:opacity 900ms cubic-bezier(0.17, 1, 0.32, 1), background 900ms cubic-bezier(0.16, 1, 0.3, 1);
-      transition-delay:55ms;
+    body.moment-compose .page::after,
+    body.moment-listening .page::after,
+    body.moment-result .page::after {
+      content:''; position:fixed; inset:0; z-index:1; pointer-events:none;
+      background:radial-gradient(ellipse 70% 58% at 50% 40%, transparent 0%, transparent 55%, rgba(0,0,0,.22) 100%);
+      opacity:.22;
+      transition:opacity 900ms cubic-bezier(0.17, 1, 0.32, 1);
     }
-    body.moment-compose.atmo-sun .moment-app .page::after { opacity:.74; }
-    body.moment-compose.atmo-night .moment-app .page::after { opacity:.88; }
-    body.moment-compose.atmo-rain .moment-app .page::after { opacity:.86; }
-    body.moment-compose.atmo-drive .moment-app .page::after {
-      background:radial-gradient(ellipse 72% 58% at 50% 36%, rgba(18,16,24,.14) 0%, transparent 40%, rgba(2,2,4,.92) 100%);
-      opacity:.84;
-    }
-    body.moment-compose.atmo-memory .moment-app .page::after { opacity:.85; }
-    body.moment-compose.atmo-calm .moment-app .page::after { opacity:.8; }
-    body.moment-compose .moment-app .page::after { opacity:.38; }
-    body.moment-listening .moment-app .page::after {
-      background:radial-gradient(ellipse 70% 60% at 50% 42%, transparent 0%, rgba(1,1,3,.6) 55%, rgba(0,0,0,.82) 100%);
-      opacity:.5;
-      transition-delay:30ms;
-    }
-    body.moment-result .moment-app .page::after {
-      background:radial-gradient(ellipse 74% 64% at 50% 36%, rgba(255,255,255,.05) 0%, transparent 38%, rgba(2,2,4,.78) 100%);
-      opacity:.7;
-      transition-duration:950ms;
-      transition-delay:90ms;
+    body.moment-listening .page::after { opacity:.28; }
+    body.moment-result .page::after { opacity:.24; }
+    body.moment-compose .page::before,
+    body.moment-listening .page::before,
+    body.moment-result .page::before {
+      background:transparent !important;
     }
     .moment-app .inner { max-width:400px; }
     .moment-app .header { opacity:.12; padding-top:10px; transition:opacity .75s var(--spring); }
@@ -771,12 +767,12 @@
     .vibe-focus .vibe-input {
       width:100%; font-size:clamp(24px,6vw,32px); font-weight:500; text-align:center;
       padding:32px 12px 44px; border-radius:0; border:none;
-      border-bottom:1px solid rgba(255,255,255,.14);
+      border-bottom:1px solid rgba(255,255,255,.22);
       background:transparent; color:#fff; letter-spacing:-.5px;
-      text-shadow:0 0 48px rgba(255,255,255,.07);
+      text-shadow:0 1px 18px rgba(0,0,0,.55);
       transition:border-color .55s ease, box-shadow .65s var(--spring), transform .55s var(--spring), color .4s ease;
     }
-    .vibe-focus .vibe-input::placeholder { color:rgba(255,255,255,.18); font-weight:400; }
+    .vibe-focus .vibe-input::placeholder { color:rgba(255,255,255,.32); font-weight:400; }
     .vibe-focus .vibe-input:focus {
       outline:none; transform:scale(1.015);
       border-bottom-color:rgba(255,255,255,.42);
@@ -817,7 +813,7 @@
       transition:opacity 920ms cubic-bezier(0.14, 1, 0.26, 1), backdrop-filter 1000ms cubic-bezier(0.18, 1, 0.34, 1);
       background:rgba(4,5,10,.48); backdrop-filter:blur(0);
     }
-    .listen-overlay.visible { opacity:1; backdrop-filter:blur(6px) saturate(.95); background:rgba(4,5,10,.25); }
+    .listen-overlay.visible { opacity:1; backdrop-filter:none; background:rgba(4,5,10,.1); }
     .listen-overlay .listen-line {
       font-size:15px; color:rgba(255,255,255,.28); font-weight:400; letter-spacing:.12em;
       margin:0; transition:opacity .72s ease .1s;
@@ -833,14 +829,14 @@
     }
     .result-layer.visible {
       opacity:1; visibility:visible; pointer-events:auto;
-      backdrop-filter:blur(3px) saturate(.94);
-      -webkit-backdrop-filter:blur(3px) saturate(.94);
-      background:radial-gradient(circle at var(--focus-x) var(--focus-y), rgba(6,6,8,.08) 0%, transparent 42%, rgba(6,6,8,.12) 100%);
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+      background:radial-gradient(circle at var(--focus-x) var(--focus-y), rgba(6,6,8,.04) 0%, transparent 50%, rgba(6,6,8,.06) 100%);
     }
     body.world-settled.perception-lock .result-layer.visible,
     body.world-settled.perception-stable .result-layer.visible {
-      backdrop-filter:blur(2px) saturate(.96);
-      -webkit-backdrop-filter:blur(2px) saturate(.96);
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
     }
     .result-layer.visible.revealing { transition-duration:1100ms; }
     .moment-result .compose-layer,
@@ -888,11 +884,11 @@
       animation:emergeMid .92s cubic-bezier(0.2, 1, 0.36, 1) var(--reveal-back, 1100ms) both;
     }
     @keyframes emergeAmbient {
-      from { opacity:0; transform:translateY(10px) scale(.99); filter:blur(8px); }
-      to { opacity:.42; transform:none; filter:blur(0); }
+      from { opacity:0; transform:translateY(10px) scale(.99); }
+      to { opacity:.42; transform:none; filter:none; }
     }
     @keyframes emergeTitle {
-      from { opacity:0; transform:translateY(20px) scale(.97); filter:blur(5px); }
+      from { opacity:0; transform:translateY(20px) scale(.97); }
       to { opacity:1; transform:none; filter:none; }
     }
     @keyframes emergeFore {
@@ -910,7 +906,7 @@
     }
     body.moment-result .result-art-grid.result-art-ambient {
       position:fixed; inset:-8%; z-index:0; max-width:none; margin:0;
-      display:block !important; opacity:.14; filter:blur(32px) saturate(.75);
+      display:block !important; opacity:.1; filter:blur(20px) saturate(.85);
       pointer-events:none; box-shadow:none;
     }
     body.moment-result .result-art-grid.result-art-ambient img {
@@ -925,15 +921,17 @@
     }
     body.moment-result .result-name-display,
     body.moment-result #resultName {
-      text-shadow:0 0 30px rgba(255,255,255,.06), 0 0 80px rgba(255,255,255,.03);
+      color:#fff;
+      text-shadow:0 2px 20px rgba(0,0,0,.65);
     }
     .result-summary {
       border:none; background:transparent; padding:0; margin:0 auto 28px; max-width:300px;
-      font-size:15px; color:rgba(255,255,255,.38); line-height:1.55; text-align:center; font-weight:400;
+      font-size:15px; color:rgba(255,255,255,.72); line-height:1.55; text-align:center; font-weight:400;
       font-style:normal; letter-spacing:.01em;
+      text-shadow:0 1px 14px rgba(0,0,0,.5);
     }
     .result-surface.result-revealed.result-stable .result-summary {
-      color:rgba(255,255,255,.44);
+      color:rgba(255,255,255,.78);
       transition:color .5s ease;
     }
     .cache-tier1-notice {
@@ -1584,31 +1582,15 @@ const _AESTHETIC_CUES=[
   {re:/calm|quiet|peace|slow|soft|still/i, line:'Soft focus — unhurried, near, gentle.'},
 ];
 
-function _aestheticMomentLine(vibe, ep){
-  const t=(vibe||'').trim();
-  if(!t) return 'A mood taking shape.';
-  for(const c of _AESTHETIC_CUES){
-    if(c.re.test(t)) return c.line;
-  }
-  if(ep && typeof ep==='object'){
-    const val=Number(ep.valence);
-    const en=Number(ep.energy);
-    if(!Number.isNaN(val)&&!Number.isNaN(en)){
-      if(val>0.6&&en>0.5) return 'Sun energy — open, warm, bright.';
-      if(val<0.4&&en<0.45) return 'Soft focus — unhurried, near, gentle.';
-      if(en>0.65) return 'Cinematic movement — forward, wide, steady.';
-    }
-  }
-  return 'Light folding into the distance.';
-}
-
 /* ── SceneRendererCore ── */
-const SCENE_DEBUG=true;
+const SCENE_DEBUG=false;
+const SCENE_SKIP_VIDEO=false;
 const EMOTION_INPUT_DEBOUNCE_MS=140;
 const SCENE_ACK_MS=300;
 let _currentSceneId='abstract_light_field';
 let _emotionInputTimer=null;
 let _sceneAckTimer=null;
+let _cinemaVideoOk=null;
 
 function getSceneFromInput(text){
   const t=(text||'').toLowerCase();
@@ -1651,9 +1633,9 @@ function applyWorldEmotion(force){
   root.style.setProperty('--world-bright', String(1+w*0.05-Math.max(0,-i)*0.04));
   root.style.setProperty('--world-contrast', String(1.03+Math.abs(i)*0.04));
   root.style.setProperty('--world-sat', String(0.92+w*0.06));
-  root.style.setProperty('--world-blur', String(Math.max(0,m*0.4)+'px'));
-  root.style.setProperty('--world-grain', String(0.028+Math.abs(i)*0.015));
-  root.style.setProperty('--world-vignette', String(0.68+Math.max(0,-w)*0.08+Math.max(0,-m)*0.06));
+  root.style.setProperty('--world-blur', '0px');
+  root.style.setProperty('--world-grain', String(Math.min(0.028,0.016+Math.abs(i)*0.008)));
+  root.style.setProperty('--world-vignette', String(Math.min(0.58,0.48+Math.max(0,-w)*0.05+Math.max(0,-m)*0.04)));
   if(SCENE_DEBUG) console.log('Emotion force:', f);
 }
 
@@ -1712,18 +1694,18 @@ function applyScenePerception(sceneId, emotionForce){
   let exposure=1;
   let contrast=1.04;
   if(sceneId.includes('rain')||sceneId==='train_window_rain'||w<0){
-    depthBlur+=.85; depthSat-=.1;
+    depthSat-=.04;
   }
   if(sceneId==='golden_field_drift'||sceneId==='sun_flare_overexpose'||w>0){
-    depthBlur=Math.max(0,depthBlur-.35); exposure+=.07; depthSat+=.06;
+    exposure+=.07; depthSat+=.06;
   }
   if(sceneId.includes('night')||sceneId==='ocean_night_fog'||sceneId==='apartment_night_window'||sceneId==='club_afterglow_empty'){
     contrast+=.06;
   }
   if(sceneId==='memory_hallway'){
-    depthBlur+=.45; exposure+=.04; contrast-=.02;
+    exposure+=.04; contrast-=.02;
   }
-  depthBlur=Math.max(0,depthBlur+m*.25+i*.12);
+  depthBlur=0;
   depthSat=Math.max(.72,Math.min(1.14,depthSat+w*.05-Math.max(0,-i)*.04));
   contrast=Math.max(.98,Math.min(1.16,contrast+Math.abs(i)*.03));
   exposure=Math.max(.88,Math.min(1.14,exposure+w*.04-Math.max(0,i)*.03));
@@ -1810,7 +1792,10 @@ function renderScene(sceneId){
   document.body.dataset.scene=sceneId;
   const fb=$('cinemaFallback');
   if(fb) fb.dataset.scene=sceneId;
-  if(!cinema){ ensureFallbackScene(sceneId); return; }
+  if(!cinema||SCENE_SKIP_VIDEO||_cinemaVideoOk===false){
+    ensureFallbackScene(sceneId);
+    return;
+  }
   ensureFallbackScene(sceneId);
   const sources=[
     '/cinema/'+sceneId+'.mp4',
@@ -1821,12 +1806,14 @@ function renderScene(sceneId){
   let i=0;
   function tryLoad(){
     if(i>=sources.length){
+      _cinemaVideoOk=false;
       ensureFallbackScene(sceneId);
       return;
     }
     const src=sources[i++];
     if(SCENE_DEBUG) console.log('Scene:', sceneId, 'Trying:', src);
     cinema.onloadeddata=()=>{
+      _cinemaVideoOk=true;
       document.body.classList.remove('scene-css-fallback');
       if(fb) fb.classList.add('hidden');
       cinema.style.opacity='1';
@@ -1838,7 +1825,7 @@ function renderScene(sceneId){
     cinema.load();
   }
   tryLoad();
-  setTimeout(()=>{ if(cinema.readyState<2) ensureFallbackScene(sceneId); }, 1500);
+  setTimeout(()=>{ if(_cinemaVideoOk!==true&&cinema.readyState<2) ensureFallbackScene(sceneId); }, 1500);
 }
 
 function sceneCoreOnInput(text){
@@ -2510,12 +2497,38 @@ function wireReferencePlaylistInput(){
   });
 }
 
+async function _recoverLatestPlaylist(vibe, maxAgeMs, toastMsg){
+  try{
+    const pr=await fetch('/api/playlists',{credentials:'include'});
+    if(!pr.ok) return false;
+    const pd=await pr.json().catch(()=>null);
+    const list=pd&&pd.playlists||[];
+    const latest=list[0];
+    if(latest&&latest.createdAt){
+      const ageMs=Date.now()-new Date(latest.createdAt).getTime();
+      if(ageMs<maxAgeMs&&Array.isArray(latest.tracks)&&latest.tracks.length){
+        showResult(latest.id, latest.name, latest.vibe||vibe, latest.tracks, latest.tracks.length, latest.mode||currentMode, latest.emotionProfile, latest.spotifyUrl||null, !latest.spotifyUrl, null, null, {emotionProfile:latest.emotionProfile});
+        fetchAndRenderPlaylists();
+        if(toastMsg!==false) showToast(toastMsg||'Loaded your latest playlist from history.','info',7000);
+        return true;
+      }
+    }
+  }catch(_){}
+  return false;
+}
+
+function _isGenerateNetworkError(err){
+  if(!err) return false;
+  if(err.name==='AbortError') return false;
+  return err instanceof TypeError||/failed to fetch|networkerror|network error|load failed/i.test(String(err.message||''));
+}
+
 /* ── Generate ── */
 function generate(){
-  if(isGenerating) return;
-  if(debTimer) return;
+  if(isGenerating||debTimer) return;
   const vibe=(vibeInput?.value||'').trim();
   if(!vibe){ vibeInput?.focus(); showToast('Type a vibe first!','info',2200); return; }
+  isGenerating=true;
   debTimer=setTimeout(()=>debTimer=null, 900);
   _activeGenVibe=vibe;
   const filmSceneId=getSceneFromInput(vibe);
@@ -2543,8 +2556,12 @@ function generate(){
       ...(varietyBoostNext?{ varietyBoost:true }:{}),
     }),
   })
-  .then(r=>r.json().then(d=>({ok:r.ok,status:r.status,d})))
-  .then(({ok,status,d})=>{
+  .then(async r=>{
+    let d=null, parseFailed=false;
+    try{ d=await r.json(); }catch{ parseFailed=true; d={}; }
+    return {ok:r.ok, status:r.status, d:d||{}, parseFailed};
+  })
+  .then(async ({ok,status,d,parseFailed})=>{
     varietyBoostNext=false;
     setLoading(false);
     function _restoreComposeMood(){
@@ -2593,6 +2610,16 @@ function generate(){
       _restoreComposeMood();
       return;
     }
+    if(parseFailed&&ok){
+      if(await _recoverLatestPlaylist(vibe, 180000)){
+        _activeGenVibe='';
+        return;
+      }
+      _restoreComposeMood();
+      showToast('Got a response but could not read it. Check Recent Playlists or try again.','error',6500);
+      fetchAndRenderPlaylists();
+      return;
+    }
     if(!Array.isArray(d.tracks)||!d.tracks.length){
       _restoreComposeMood();
       showToast(d.error||'No tracks returned. Try syncing your library or regenerate.','error',6000);
@@ -2607,7 +2634,19 @@ function generate(){
     // Hide pending card on successful generation
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
     const trackCount=d.count||d.totalTracks||25;
-    showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
+    try{
+      showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
+    }catch(renderErr){
+      console.error('showResult failed', renderErr);
+      if(await _recoverLatestPlaylist(vibe, 180000)){
+        _activeGenVibe='';
+        return;
+      }
+      _restoreComposeMood();
+      showToast('Playlist generated but the page could not display it. Check Gallery.','error',6500);
+      fetchAndRenderPlaylists();
+      return;
+    }
     _activeGenVibe='';
     if(vibeInput) vibeInput.value='';
     if($('vibeCounter')) $('vibeCounter').textContent='0/140';
@@ -2628,40 +2667,25 @@ function generate(){
     }
   })
   .catch(async err=>{
-    clearTimeout(genTimeout);
     setLoading(false);
     _clearAtmosphere();
     setMomentState('compose');
     if(vibeInput?.value?.trim()) sceneCoreOnInput(vibeInput.value);
     else renderScene('abstract_light_field');
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
-    if(SCENE_DEBUG&&err) console.error('Generate failed:', err);
     if(err&&err.name==='AbortError'){
-      try{
-        const pr=await fetch('/api/playlists',{credentials:'include'});
-        if(pr.ok){
-          const pd=await pr.json();
-          const list=pd.playlists||[];
-          const latest=list[0];
-          if(latest&&latest.createdAt){
-            const ageMs=Date.now()-new Date(latest.createdAt).getTime();
-            if(ageMs<180000&&Array.isArray(latest.tracks)&&latest.tracks.length){
-              showResult(latest.id, latest.name, latest.vibe||vibe, latest.tracks, latest.tracks.length, latest.mode||currentMode, latest.emotionProfile, latest.spotifyUrl||null, !latest.spotifyUrl, null, null, {emotionProfile:latest.emotionProfile});
-              fetchAndRenderPlaylists();
-              showToast('Request timed out in the browser, but your playlist finished — loaded the latest from history.','info',7000);
-              return;
-            }
-          }
-        }
-      }catch(_){}
+      if(await _recoverLatestPlaylist(vibe, 180000, 'Request timed out in the browser, but your playlist finished — loaded the latest from history.')){
+        return;
+      }
       showToast('Generation timed out in the browser (server may still finish). Check Recent Playlists in ~30s, or try Balanced mode.','error',8000);
       fetchAndRenderPlaylists();
       return;
     }
-    const msg=err&&err.message&&/fetch|network|failed/i.test(String(err.message))
-      ? 'Connection failed. Check your internet and try again.'
-      : 'Something went wrong showing your playlist. Try Go again.';
-    showToast(msg,'error',6000);
+    if(_isGenerateNetworkError(err)){
+      showToast('Connection failed. Check your internet and try again.','error',6000);
+      return;
+    }
+    showToast('Something went wrong. Try again or check Recent Playlists.','error',6000);
   })
   .finally(()=>clearTimeout(genTimeout));
 }
