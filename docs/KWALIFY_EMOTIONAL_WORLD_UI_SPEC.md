@@ -1,6 +1,6 @@
 # UI spec — Emotional World Interface System
 
-**Status:** Design bible (target UI).  
+**Status:** Superseded for Page 2 by [KWALIFY_WORLD_LAYER_SPEC.md](./KWALIFY_WORLD_LAYER_SPEC.md). Keep for historical world-system notes only.
 **Supreme product direction:** [KWALIFY_CREATIVE_NORTH_STAR.md](./KWALIFY_CREATIVE_NORTH_STAR.md) — playlist first; visuals support feeling.  
 **Object / still art:** [KWALIFY_VISUAL_STYLE_TLDR.md](./KWALIFY_VISUAL_STYLE_TLDR.md) · Figma Phase 1: [PHASE1_FIGMA_PUMP_CHECKLIST.md](./PHASE1_FIGMA_PUMP_CHECKLIST.md)  
 **Current shipped loop:** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) (simpler; see §10 gap)

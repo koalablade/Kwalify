@@ -1,24 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 96" role="img" aria-label="Fuel pump hero">
-  <!-- LOCKED layer order · Spotify Pets chunkiness · Kwalify night reference -->
-  <defs>
-    <linearGradient id="pump-body" x1="39" y1="28" x2="41" y2="86" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F8FAFF"/><stop offset="1" stop-color="#A8BCD4"/>
-    </linearGradient>
-    <linearGradient id="pump-head" x1="39" y1="12" x2="41" y2="34" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F2F6FE"/><stop offset="1" stop-color="#C0D0E8"/>
-    </linearGradient>
-    <linearGradient id="pump-screen" x1="39" y1="38" x2="41" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B8E4FC"/><stop offset="1" stop-color="#78B8E0" stop-opacity=".65"/>
-    </linearGradient>
-    <radialGradient id="pump-glow" cx="39" cy="49" r="14" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#88D0F8" stop-opacity=".42"/><stop offset="1" stop-color="#88D0F8" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <ellipse cx="39" cy="90" rx="26" ry="6" fill="rgba(15,40,60,.16)"/>
-  <rect x="14" y="28" width="50" height="62" rx="26" fill="url(#pump-body)"/>
-  <rect x="16" y="6" width="46" height="28" rx="18" fill="url(#pump-head)"/>
-  <rect x="21" y="38" width="36" height="22" rx="12" fill="url(#pump-screen)"/>
-  <path d="M59 76 Q78 68, 82 46" fill="none" stroke="#98AAC4" stroke-width="11" stroke-linecap="round"/>
-  <rect x="72" y="40" width="20" height="16" rx="10" fill="#88A0BC"/>
-  <ellipse cx="39" cy="49" rx="15" ry="11" fill="url(#pump-glow)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 96" role="img" aria-label="Fuel pump — flat Pets picker style">
+  <!-- LOCKED layer order · flat fills · docs/KWALIFY_PETROL_PUMP_SVG_LOCKED.md -->
+  <ellipse cx="40" cy="91" rx="30" ry="6" fill="#14805A"/>
+  <rect x="15" y="30" width="50" height="58" rx="22" fill="#1ED760"/>
+  <rect x="18" y="8" width="44" height="26" rx="15" fill="#1DB954"/>
+  <rect x="23" y="40" width="34" height="20" rx="10" fill="#FFFFFF"/>
+  <rect x="27" y="46" width="26" height="8" rx="4" fill="#F57357"/>
+  <path d="M58 74 Q76 66, 80 48" stroke="#121212" stroke-width="10" stroke-linecap="round"/>
+  <rect x="72" y="40" width="20" height="16" rx="8" fill="#F57357"/>
 </svg>

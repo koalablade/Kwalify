@@ -1,7 +1,6 @@
 /**
- * Kwalify object UI — Spotify Pets-influenced illustration in night atmosphere.
- * Style DNA: docs/KWALIFY_STYLE_DNA.md
- * Requires globals: $, esc, showToast, api (from index.html).
+ * Kwalify object UI — flat Spotify Pets picker illustration style.
+ * Style DNA: docs/KWALIFY_STYLE_DNA.md · pump: docs/KWALIFY_PETROL_PUMP_SVG_LOCKED.md
  */
 (function () {
   'use strict';
@@ -14,57 +13,40 @@
     { sceneId: 'summer_afternoon_drift', title: 'End of Summer Drive', illust: 'horizon', bg: '#3a8fbf', vibe: 'summer afternoon drift warm haze', cardTint: 'rgba(58,143,191,.36)' },
   ];
 
+  /* Flat Pets picker palette — no gradients, oval shadows, bold rounded forms */
   const PETS_ILLUST_DEFS = {
-    /* Reference hero — Pets chunkiness + Kwalify night object */
     pump: `<svg viewBox="0 0 80 96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs><linearGradient id="pg" x1="39" y1="28" x2="41" y2="86" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#F8FAFF"/><stop offset="1" stop-color="#A8BCD4"/></linearGradient>
-      <linearGradient id="ph" x1="39" y1="12" x2="41" y2="34" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#F2F6FE"/><stop offset="1" stop-color="#C0D0E8"/></linearGradient>
-      <linearGradient id="ps" x1="39" y1="38" x2="41" y2="56" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#B8E4FC"/><stop offset="1" stop-color="#78B8E0" stop-opacity=".65"/></linearGradient>
-      <radialGradient id="pgl" cx="39" cy="49" r="14" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#88D0F8" stop-opacity=".42"/><stop offset="1" stop-color="#88D0F8" stop-opacity="0"/></radialGradient></defs>
-      <ellipse cx="39" cy="90" rx="26" ry="6" fill="rgba(15,40,60,.16)"/>
-      <rect x="14" y="28" width="50" height="62" rx="26" fill="url(#pg)"/>
-      <rect x="16" y="6" width="46" height="28" rx="18" fill="url(#ph)"/>
-      <rect x="21" y="38" width="36" height="22" rx="12" fill="url(#ps)"/>
-      <path d="M59 76 Q78 68, 82 46" fill="none" stroke="#98AAC4" stroke-width="11" stroke-linecap="round"/>
-      <rect x="72" y="40" width="20" height="16" rx="10" fill="#88A0BC"/>
-      <ellipse cx="39" cy="49" rx="15" ry="11" fill="url(#pgl)"/>
+      <ellipse cx="40" cy="91" rx="30" ry="6" fill="#14805A"/>
+      <rect x="15" y="30" width="50" height="58" rx="22" fill="#1ED760"/>
+      <rect x="18" y="8" width="44" height="26" rx="15" fill="#1DB954"/>
+      <rect x="23" y="40" width="34" height="20" rx="10" fill="#FFFFFF"/>
+      <rect x="27" y="46" width="26" height="8" rx="4" fill="#F57357"/>
+      <path d="M58 74 Q76 66, 80 48" stroke="#121212" stroke-width="10" stroke-linecap="round"/>
+      <rect x="72" y="40" width="20" height="16" rx="8" fill="#F57357"/>
     </svg>`,
     road: `<svg viewBox="0 0 96 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs><linearGradient id="rg" x1="4" y1="32" x2="92" y2="32" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#7ec8f0"/><stop offset=".45" stop-color="#e8f4fc"/><stop offset="1" stop-color="#6ab0e0"/></linearGradient></defs>
-      <path d="M6 46 C26 10 44 54 66 18 C76 6 90 26 90 26" stroke="url(#rg)" stroke-width="20" stroke-linecap="round" fill="none"/>
-      <path d="M10 50 C30 30 50 58 70 34" stroke="rgba(255,255,255,.35)" stroke-width="9" stroke-linecap="round" fill="none"/>
+      <ellipse cx="48" cy="58" rx="38" ry="5" fill="#14805A"/>
+      <path d="M4 44 C24 8 42 52 64 16 C74 4 92 24 92 24" stroke="#1ED760" stroke-width="18" stroke-linecap="round"/>
+      <path d="M10 46 C28 28 48 54 68 30" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-dasharray="10 12"/>
     </svg>`,
     lamp: `<svg viewBox="0 0 72 96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs><radialGradient id="lg" cx="36" cy="20" r="30" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#FFFCE8"/><stop offset=".4" stop-color="#F8E090"/><stop offset="1" stop-color="#E8B050" stop-opacity="0"/></radialGradient>
-      <linearGradient id="lp" x1="36" y1="34" x2="36" y2="94" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#E4ECFA"/><stop offset="1" stop-color="#98A8C0"/></linearGradient></defs>
-      <ellipse cx="36" cy="90" rx="16" ry="5" fill="rgba(15,40,60,.14)"/>
-      <ellipse cx="36" cy="22" rx="32" ry="28" fill="url(#lg)"/>
-      <circle cx="36" cy="20" r="18" fill="#FFFCF0"/>
-      <rect x="26" y="34" width="20" height="58" rx="10" fill="url(#lp)"/>
+      <ellipse cx="36" cy="91" rx="16" ry="5" fill="#14805A"/>
+      <circle cx="36" cy="22" r="24" fill="#F57357"/>
+      <circle cx="36" cy="22" r="15" fill="#FF8A70"/>
+      <rect x="28" y="38" width="16" height="54" rx="8" fill="#1ED760"/>
     </svg>`,
     car: `<svg viewBox="0 0 96 56" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs><linearGradient id="cg" x1="48" y1="6" x2="48" y2="46" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#F4F8FF"/><stop offset="1" stop-color="#A0B4CC"/></linearGradient></defs>
-      <ellipse cx="48" cy="50" rx="38" ry="6" fill="rgba(15,40,60,.14)"/>
-      <rect x="6" y="16" width="84" height="32" rx="22" fill="url(#cg)"/>
-      <rect x="24" y="6" width="48" height="22" rx="15" fill="rgba(255,255,255,.52)"/>
-      <circle cx="22" cy="46" r="13" fill="#90A4BC"/><circle cx="22" cy="46" r="7" fill="#E8F0FA"/>
-      <circle cx="74" cy="46" r="13" fill="#90A4BC"/><circle cx="74" cy="46" r="7" fill="#E8F0FA"/>
+      <ellipse cx="48" cy="52" rx="38" ry="5" fill="#14805A"/>
+      <rect x="6" y="18" width="84" height="30" rx="18" fill="#FFFFFF"/>
+      <ellipse cx="66" cy="26" rx="20" ry="14" fill="#F57357"/>
+      <rect x="22" y="6" width="50" height="20" rx="12" fill="#FFFFFF"/>
+      <circle cx="22" cy="46" r="12" fill="#121212"/><circle cx="22" cy="46" r="6" fill="#FFFFFF"/>
+      <circle cx="74" cy="46" r="12" fill="#121212"/><circle cx="74" cy="46" r="6" fill="#FFFFFF"/>
     </svg>`,
     horizon: `<svg viewBox="0 0 96 52" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs><linearGradient id="hg" x1="4" y1="22" x2="92" y2="22" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#FFE8C0" stop-opacity=".35"/><stop offset=".4" stop-color="#F0C880"/><stop offset=".65" stop-color="#E8A868"/><stop offset="1" stop-color="#F8D8B0" stop-opacity=".22"/></linearGradient>
-      <linearGradient id="hg2" x1="48" y1="34" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#A8C8E8" stop-opacity=".6"/><stop offset="1" stop-color="#5880A8" stop-opacity=".2"/></linearGradient></defs>
-      <ellipse cx="48" cy="22" rx="46" ry="15" fill="url(#hg)"/>
-      <ellipse cx="48" cy="40" rx="50" ry="11" fill="url(#hg2)"/>
+      <ellipse cx="48" cy="44" rx="46" ry="10" fill="#1ED760"/>
+      <ellipse cx="48" cy="20" rx="22" ry="18" fill="#F57357"/>
+      <ellipse cx="48" cy="24" rx="18" ry="12" fill="#FF8A70"/>
     </svg>`,
   };
 
@@ -74,7 +56,6 @@
   let _activeMood = null;
   let _dragAnim = null;
   let _dragProgress = 0;
-  let _lastGenError = false;
 
   function _uniquePetsSvg(svg, key) {
     const u = String(key).replace(/[^a-z0-9]/gi, '') || 'x';
@@ -160,7 +141,6 @@
       else if (state === 'error') hint.textContent = 'tap to return · or try again';
       else hint.textContent = 'tap to return';
     }
-    _lastGenError = state === 'error';
   }
 
   function _cancelMoodGenerate() {
@@ -177,7 +157,6 @@
     _cancelMoodGenerate();
     _activeMood = mood;
     _moodGenerating = true;
-    _lastGenError = false;
     _setGenUI('loading');
 
     const ctrl = new AbortController();
@@ -345,11 +324,8 @@
     const slots = [
       { illust: 'lamp', cls: 'tl' },
       { illust: 'car', cls: 'ml' },
-      { illust: 'pump', cls: 'bl' },
-      { illust: 'horizon', cls: 'tc' },
-      { illust: 'road', cls: 'tr' },
       { illust: 'pump', cls: 'mr' },
-      { illust: 'lamp', cls: 'br' },
+      { illust: 'road', cls: 'br' },
     ];
     edge.innerHTML = slots.map((s, i) =>
       `<span class="pets-guest-edge-item pets-guest-edge-item--${s.cls}">${_uniquePetsSvg(PETS_ILLUST_DEFS[s.illust] || PETS_ILLUST_DEFS.pump, 'guest-' + s.cls + i)}</span>`

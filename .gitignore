@@ -44,6 +44,12 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
+# Local design exports (not shipped)
+**/cinema/**/concepts/
+
+# Agent / scratch artifacts
+kwalify-api-transcript.md
+
 # Replit
 .cache/
 .local/
