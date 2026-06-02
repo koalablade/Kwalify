@@ -174,7 +174,27 @@
     .first-gen-card { margin-top:14px; padding:18px 20px; border-color:rgba(130,80,255,.22); }
     .first-gen-title { font-size:15px; font-weight:700; margin-bottom:6px; }
     .first-gen-sub { font-size:12.5px; color:var(--text-muted); margin-bottom:14px; line-height:1.5; }
-    .cache-banner { font-size:12.5px; color:#f0c060; padding:10px 14px; background:rgba(255,180,40,.08); border:1px solid rgba(255,180,40,.22); border-radius:10px; margin-bottom:14px; line-height:1.45; }
+    .cache-banner { font-size:13px; color:var(--text-sub); padding:14px 16px; background:rgba(255,180,40,.08); border:1px solid rgba(255,180,40,.28); border-radius:12px; margin-bottom:14px; line-height:1.5; }
+    .cache-banner strong { color:#f0c060; display:block; margin-bottom:6px; font-size:13.5px; }
+    .cache-banner .btn { margin-top:10px; width:100%; }
+    .confidence-card { margin-bottom:14px; padding:12px 14px; background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; font-size:12.5px; color:var(--text-sub); line-height:1.5; }
+    .confidence-card strong { color:var(--text); }
+    .track-why { font-size:10.5px; color:var(--text-muted); margin-top:4px; line-height:1.4; }
+    .track-why li { margin:2px 0 0 14px; }
+    .feedback-section { margin-top:18px; padding-top:16px; border-top:1px solid var(--border); text-align:center; }
+    .feedback-label { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px; }
+    .feedback-btns { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+    .feedback-btn { flex:1; min-width:100px; max-width:140px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text-sub); font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer; transition:background .15s,border-color .15s,color .15s; }
+    .feedback-btn:hover { background:var(--surface-hi); color:var(--text); border-color:var(--border-hi); }
+    .feedback-btn.selected { border-color:rgba(130,80,255,.45); background:var(--purple-dim); color:#d4b8ff; }
+    .feedback-thanks { font-size:12px; color:var(--green); margin-top:8px; }
+    .library-celebrate { margin-top:14px; padding:16px 18px; background:linear-gradient(135deg,rgba(130,80,255,.1),rgba(29,185,84,.08)); border:1px solid rgba(130,80,255,.25); border-radius:12px; }
+    .library-celebrate-title { font-size:16px; font-weight:800; margin-bottom:6px; }
+    .library-celebrate-body { font-size:13px; color:var(--text-sub); line-height:1.55; }
+    .recent-moods { margin-top:22px; }
+    .recent-mood-list { display:flex; flex-direction:column; gap:6px; }
+    .recent-mood-btn { text-align:left; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text-sub); font-size:12.5px; font-style:italic; cursor:pointer; font-family:inherit; transition:background .15s,border-color .15s; }
+    .recent-mood-btn:hover { background:var(--purple-dim); border-color:rgba(130,80,255,.3); color:#d4b8ff; }
     .dj-stage-icon { font-size:15px; line-height:1.2; flex-shrink:0; width:22px; text-align:center; }
     .dj-stage-body { flex:1; min-width:0; }
     .dj-stage-title { font-size:12.5px; font-weight:700; color:var(--text); margin-bottom:2px; }
@@ -587,6 +607,7 @@
           </div>
         </div>
         <div id="kwalifyHeard"></div>
+        <div id="confidenceCard"></div>
         <div id="playlistStory"></div>
         <div id="statsBar"></div>
         <div id="forgottenGems"></div>
@@ -598,11 +619,20 @@
           <div id="emotionBars"></div>
           <div id="sceneChips"></div>
         </div>
+        <div id="feedbackSection" class="feedback-section" style="display:none">
+          <div class="feedback-label">How was this playlist?</div>
+          <div class="feedback-btns" id="feedbackBtns">
+            <button type="button" class="feedback-btn" data-reaction="up" onclick="submitFeedback('up')">👍 Nailed it</button>
+            <button type="button" class="feedback-btn" data-reaction="neutral" onclick="submitFeedback('neutral')">😐 Close</button>
+            <button type="button" class="feedback-btn" data-reaction="down" onclick="submitFeedback('down')">👎 Missed the vibe</button>
+          </div>
+          <div id="feedbackThanks" class="feedback-thanks" style="display:none">Thanks — this helps Kwalify learn.</div>
+        </div>
         <div class="divider"></div>
         <div class="status-row">
           <div class="status-left">
             <div class="status-dot"></div>
-            <span>Saved to Kwalify · scored from your liked songs</span>
+            <span>Saved to Kwalify · only tracks you already liked</span>
           </div>
           <span class="mode-badge" id="modeBadge">balanced</span>
         </div>
@@ -636,6 +666,13 @@
       <!-- History (hidden — replaced by My Playlists) -->
       <div class="history-section" id="histSection" style="display:none">
         <div class="h-list" id="hList"></div>
+      </div>
+
+      <div class="recent-moods" id="recentMoodsSection" style="display:none">
+        <div class="section-header">
+          <div class="section-title">Your recent moods</div>
+        </div>
+        <div class="recent-mood-list" id="recentMoodList"></div>
       </div>
 
       <!-- My Playlists -->
@@ -1153,6 +1190,71 @@ function _buildStoryHtml(vibe, ep, mu, expl, libIntel){
   return `<div class="playlist-story">${esc(parts.join(' '))}</div>`;
 }
 
+function _buildConfidenceHtml(pc){
+  if(!pc||typeof pc!=='object') return '';
+  const tier={low:'Low',medium:'Medium',high:'High'}[pc.tier]||'Medium';
+  if(pc.tier==='high') return '';
+  const hint=pc.tier==='medium'
+    ? 'This vibe can mean different things to different people — we interpreted it as best we could.'
+    : (pc.hints&&pc.hints[0]?pc.hints[0]:'Try adding when, where, or what you are doing for a tighter match.');
+  return `<div class="confidence-card"><strong>Kwalify confidence: ${esc(tier)}</strong><br>${esc(hint)}</div>`;
+}
+
+function _buildCacheBannerHtml(){
+  return `<div class="cache-banner">
+    <strong>Using a recently generated version of this vibe</strong>
+    Same prompt and settings as a few minutes ago — nothing new was scored.
+    <div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Want something different?</div>
+    <button type="button" class="btn btn-purple btn-sm" onclick="regenerate()">Take me somewhere else</button>
+  </div>`;
+}
+
+function _trackWhyHtml(t,i){
+  if(i>=3||!Array.isArray(t.whyReasons)||!t.whyReasons.length) return '';
+  return `<ul class="track-why">${t.whyReasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>`;
+}
+
+async function submitFeedback(reaction){
+  if(!currentPlaylistId||!lastVibe) return;
+  const btns=document.querySelectorAll('.feedback-btn');
+  btns.forEach(b=>{ b.disabled=true; b.classList.toggle('selected', b.dataset.reaction===reaction); });
+  try{
+    const {ok}=await api(`/playlists/${currentPlaylistId}/feedback`,{
+      method:'POST',
+      body:JSON.stringify({reaction, vibe:lastVibe}),
+    });
+    const thanks=$('feedbackThanks');
+    if(thanks){
+      thanks.style.display='block';
+      thanks.textContent=ok?'Thanks — this helps Kwalify learn.':'Could not save feedback.';
+    }
+  }catch{
+    const thanks=$('feedbackThanks');
+    if(thanks){ thanks.style.display='block'; thanks.textContent='Could not save feedback.'; }
+    btns.forEach(b=>{ b.disabled=false; });
+  }
+}
+
+function renderRecentMoods(playlists){
+  const section=$('recentMoodsSection');
+  const list=$('recentMoodList');
+  if(!section||!list) return;
+  const vibes=[];
+  const seen=new Set();
+  for(const p of (playlists||[])){
+    const v=(p.vibe||'').trim();
+    if(!v||seen.has(v.toLowerCase())) continue;
+    seen.add(v.toLowerCase());
+    vibes.push(v);
+    if(vibes.length>=6) break;
+  }
+  if(vibes.length<2){ section.style.display='none'; return; }
+  section.style.display='block';
+  list.innerHTML=vibes.map(v=>
+    `<button type="button" class="recent-mood-btn" onclick="applyPreset(${JSON.stringify(v)})">"${esc(v)}"</button>`
+  ).join('');
+}
+
 function _buildForgottenHtml(tracks){
   const gems=(tracks||[]).filter(t=>(t.rediscoveryScore??0)>=0.45||(t.narrativeRole==='rediscovery'))
     .sort((a,b)=>(b.rediscoveryScore||0)-(a.rediscoveryScore||0)).slice(0,5);
@@ -1250,9 +1352,11 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   }
 
   const cacheEl=$('cacheBanner');
-  if(cacheEl) cacheEl.innerHTML=genData.cached
-    ? '<div class="cache-banner">We already built this vibe recently — showing your existing playlist.</div>'
-    : '';
+  if(cacheEl) cacheEl.innerHTML=genData.cached?_buildCacheBannerHtml():'';
+  const confEl=$('confidenceCard');
+  if(confEl) confEl.innerHTML=_buildConfidenceHtml(genData.promptConfidence);
+  const fb=$('feedbackSection');
+  if(fb){ fb.style.display='block'; $('feedbackThanks')&&($('feedbackThanks').style.display='none'); document.querySelectorAll('.feedback-btn').forEach(b=>{ b.disabled=false; b.classList.remove('selected'); }); }
   const likedEl=$('resultLikedOnly');
   if(likedEl){
     try{
@@ -1287,6 +1391,7 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
         <div class="track-info">
           <div class="track-name">${esc(t.name)}</div>
           <div class="track-artist">${esc(t.artist)}</div>
+          ${_trackWhyHtml(t,i)}
         </div>
         ${spotifyLink}
       </div>`;
@@ -1692,6 +1797,7 @@ function renderPlaylists(items){
   const list=$('plList');
   if(!section||!list) return;
   section.style.display='block';
+  renderRecentMoods(items);
   renderFirstGenCard(_syncState==='synced'&&(!items||!items.length));
   if(!items||!items.length){
     list.innerHTML='<div class="pl-empty"><div style="font-size:15px;font-weight:600;margin-bottom:6px">🎵&nbsp;&nbsp;No playlists yet</div><div>Generate your first one above ↑</div></div>';
@@ -1987,17 +2093,33 @@ async function fetchLibraryHealth(){
 function _renderLibraryHealth(s){
   const card=$('libraryHealthCard');
   if(!card||!s?.trackCount) return;
+  const n=s.trackCount;
+  const big=n>=3000;
   const decade=s.topDecade?`Most active decade: ${s.topDecade}`:'';
   const span=s.oldestLikedYear&&s.newestLikedYear
     ? `Likes from ${s.oldestLikedYear}–${s.newestLikedYear}`:'';
   card.classList.add('visible');
-  card.innerHTML=`<div class="library-health-title">Your library</div>
+  if(big){
+    card.innerHTML=`<div class="library-celebrate">
+      <div class="library-celebrate-title">${n.toLocaleString()} songs synced</div>
+      <div class="library-celebrate-body">That's a huge library. Kwalify can dig through years of favourites, forgotten gems, and deep cuts — only from tracks you already saved on Spotify.</div>
+    </div>
+    <div class="library-health-title" style="margin-top:14px">Your library</div>
     <div class="library-health-grid">
-      <div><div class="library-stat-val">${s.trackCount.toLocaleString()}</div><div class="library-stat-lbl">liked songs</div></div>
+      <div><div class="library-stat-val">${(s.artistCount||0).toLocaleString()}</div><div class="library-stat-lbl">artists</div></div>
+      <div><div class="library-stat-val">${s.genreFamilyCount||'—'}</div><div class="library-stat-lbl">genre families</div></div>
+      <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(decade||'—')}</div><div class="library-stat-lbl">when you saved most likes</div></div>
+      <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(span||'—')}</div><div class="library-stat-lbl">listening span</div></div>
+    </div>`;
+  } else {
+    card.innerHTML=`<div class="library-health-title">Your library</div>
+    <div class="library-health-grid">
+      <div><div class="library-stat-val">${n.toLocaleString()}</div><div class="library-stat-lbl">liked songs</div></div>
       <div><div class="library-stat-val">${(s.artistCount||0).toLocaleString()}</div><div class="library-stat-lbl">artists</div></div>
       <div><div class="library-stat-val">${s.genreFamilyCount||'—'}</div><div class="library-stat-lbl">genre families</div></div>
       <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(decade||span||'—')}</div><div class="library-stat-lbl">${decade&&span?esc(span):'listening span'}</div></div>
     </div>`;
+  }
 }
 
 async function _startFullSync(){

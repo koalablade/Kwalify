@@ -67,6 +67,17 @@ CREATE INDEX IF NOT EXISTS "IDX_saved_playlists_user" ON "saved_playlists" ("use
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "spotify_url" text;
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "vibe" text;
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "mode" text;
+
+CREATE TABLE IF NOT EXISTS "playlist_feedback" (
+  "id" serial PRIMARY KEY,
+  "playlist_id" integer NOT NULL,
+  "user_id" text NOT NULL,
+  "vibe" text NOT NULL,
+  "reaction" text NOT NULL,
+  "created_at" timestamp NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IDX_playlist_feedback_pl_user"
+  ON "playlist_feedback" ("playlist_id", "user_id");
 `;
 
 export async function runDbInit(rawPool: pg.Pool): Promise<void> {

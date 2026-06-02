@@ -1,6 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db } from "../db";
-import { likedSongsTable, playlistHistoryTable, savedPlaylistsTable } from "../db";
+import {
+  likedSongsTable,
+  playlistFeedbackTable,
+  playlistHistoryTable,
+  savedPlaylistsTable,
+} from "../db";
 import { createSpotifyPlaylist, getValidAccessToken } from "../lib/spotify";
 import {
   blendEmotionProfiles,
@@ -335,7 +340,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         res.json({
           success: true,
           cached: true,
-          tracks: formatTracksForApi(cached.finalTracks),
+          tracks: formatTracksForApi(cached.finalTracks, cached.emotionProfile),
           playlistName: cached.playlistName,
           name: cached.playlistName,
           vibe: cached.vibe,
@@ -436,7 +441,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         count: pipeline.finalTracks.length,
         totalTracks: pipeline.finalTracks.length,
         spotifyUnavailable: true,
-        tracks: formatTracksForApi(pipeline.finalTracks),
+        tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile),
       });
     });
 
@@ -852,12 +857,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     const tSave = Date.now();
     req.log.info("Saving playlist to database");
 
+    const profilePayload = {
+      ...emotionProfile,
+      journeyArc,
+      librarySize: likedSongs.length,
+    };
     const insertResult = await db
       .insert(savedPlaylistsTable)
       .values({
         userId,
         name: playlistName,
-        emotionProfile: { ...emotionProfile, journeyArc } as any,
+        emotionProfile: profilePayload as any,
         tracks: trackObjects as any,
         spotifyUrl: spotifyPlaylistUrl,
         vibe,
@@ -1037,7 +1047,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? "Could not read that reference playlist. If it is public, try the open.spotify.com link; if it is yours, log out and back in to refresh permissions. Generation used your text vibe only."
         : null,
       librarySyncHint,
-      tracks: formatTracksForApi(finalTracks),
+      tracks: formatTracksForApi(finalTracks, { ...emotionProfile, journeyArc }),
       ...(pipeline.scoringDiagnostics?.fastFallback
         ? { fastFallback: true }
         : {}),
@@ -1090,7 +1100,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           count: pipeline.finalTracks.length,
           totalTracks: pipeline.finalTracks.length,
           spotifyUnavailable: true,
-          tracks: formatTracksForApi(pipeline.finalTracks),
+          tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile),
         });
       } else {
         res.status(timedOut ? 504 : 500).json({
@@ -1156,18 +1166,85 @@ router.get("/share/:id", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Playlist not found." });
       return;
     }
+    const ep = (playlist.emotionProfile ?? {}) as {
+      journeyArc?: string;
+      librarySize?: number;
+      timeOfDay?: string | null;
+      environment?: string | null;
+      nostalgia?: number;
+      calm?: number;
+    };
     res.json({
       id: playlist.id,
       name: playlist.name,
       vibe: playlist.vibe ?? null,
+      mode: playlist.mode ?? null,
       emotionProfile: playlist.emotionProfile ?? null,
+      journeyArc: ep.journeyArc ?? null,
+      librarySize: ep.librarySize ?? null,
       tracks: playlist.tracks ?? [],
+      trackCount: Array.isArray(playlist.tracks) ? playlist.tracks.length : 0,
       spotifyUrl: playlist.spotifyUrl ?? null,
       createdAt: playlist.createdAt.toISOString(),
-      userId: playlist.userId,
     });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to fetch playlist." });
+  }
+});
+
+router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
+  if (!req.session.spotifyUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const userId = req.session.spotifyUserId;
+  const playlistId = parseInt(req.params.id, 10);
+  if (isNaN(playlistId)) {
+    res.status(400).json({ error: "Invalid playlist id." });
+    return;
+  }
+
+  const reaction = String(req.body?.reaction ?? "").trim();
+  if (!["up", "neutral", "down"].includes(reaction)) {
+    res.status(400).json({ error: "Invalid reaction. Use up, neutral, or down." });
+    return;
+  }
+
+  const vibe = String(req.body?.vibe ?? "").trim().slice(0, 200);
+  if (!vibe) {
+    res.status(400).json({ error: "Vibe is required for feedback." });
+    return;
+  }
+
+  try {
+    const owned = await db
+      .select({ id: savedPlaylistsTable.id })
+      .from(savedPlaylistsTable)
+      .where(
+        and(eq(savedPlaylistsTable.id, playlistId), eq(savedPlaylistsTable.userId, userId))
+      )
+      .limit(1);
+    if (!owned[0]) {
+      res.status(404).json({ error: "Playlist not found." });
+      return;
+    }
+
+    await db
+      .delete(playlistFeedbackTable)
+      .where(
+        and(
+          eq(playlistFeedbackTable.playlistId, playlistId),
+          eq(playlistFeedbackTable.userId, userId)
+        )
+      );
+    await db.insert(playlistFeedbackTable).values({ playlistId, userId, vibe, reaction });
+
+    req.log.info({ userId, playlistId, reaction }, "Playlist feedback recorded");
+    res.json({ success: true });
+  } catch (err: any) {
+    req.log.error({ err }, "Error saving playlist feedback");
+    res.status(500).json({ error: "Failed to save feedback." });
   }
 });
 

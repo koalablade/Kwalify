@@ -1,5 +1,6 @@
 import { buildFastFallbackPlaylist } from "./fast-fallback-playlist";
 import type { EmotionProfile } from "./emotion";
+import { buildTrackWhyReasons } from "./track-why-copy";
 import type { GenreAudit } from "./genre-audit";
 import type { BuildPlaylistPipelineResult } from "../core/playlist-pipeline";
 import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
@@ -111,7 +112,8 @@ export function formatTracksForApi(
     score?: number;
     rediscoveryScore?: number;
     narrativeRole?: string;
-  }>
+  }>,
+  profile?: EmotionProfile | null
 ) {
   return (tracks ?? [])
     .filter((t) => t?.trackId && t?.trackName && t?.artistName)
@@ -128,5 +130,6 @@ export function formatTracksForApi(
       score: Math.round((t.score ?? 0.7) * 100) / 100,
       rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
       narrativeRole: t.narrativeRole,
+      whyReasons: buildTrackWhyReasons(t, profile),
     }));
 }

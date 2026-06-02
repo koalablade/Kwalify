@@ -60,6 +60,15 @@ export const savedPlaylistsTable = pgTable("saved_playlists", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const playlistFeedbackTable = pgTable("playlist_feedback", {
+  id: serial("id").primaryKey(),
+  playlistId: integer("playlist_id").notNull(),
+  userId: text("user_id").notNull(),
+  vibe: text("vibe").notNull(),
+  reaction: text("reaction").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertLikedSongSchema = createInsertSchema(likedSongsTable).omit({ id: true, createdAt: true });
 export const insertPlaylistHistorySchema = createInsertSchema(playlistHistoryTable).omit({ id: true, createdAt: true });
 export const insertSyncStatusSchema = createInsertSchema(syncStatusTable).omit({ id: true });
