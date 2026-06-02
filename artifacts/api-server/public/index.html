@@ -664,9 +664,9 @@
     html[data-kw="guest"] .page {
       display:flex !important; flex-direction:column; align-items:stretch;
       min-height:100vh; padding:0; max-width:none;
-      background:#08090c;
+      background:#9dbfd0;
     }
-    html[data-kw="guest"] body { background:#08090c; }
+    html[data-kw="guest"] body { background:#9dbfd0; }
     html[data-kw="guest"] .inner { max-width:none; flex:1; display:flex; }
     html[data-kw="guest"] .header,
     html[data-kw="guest"] .bg,
@@ -729,6 +729,9 @@
     }
     body.pets-scene-active .pets-home {
       opacity:0; transform:scale(.97); pointer-events:none;
+    }
+    body.pets-world-active .pets-home {
+      opacity:0; pointer-events:none;
     }
     .pets-grid {
       display:flex; flex-wrap:wrap; justify-content:center; align-content:center;
@@ -867,74 +870,171 @@
       transition:color .3s ease, background .3s ease;
     }
     .pets-logout:hover { color:rgba(255,255,255,.6); background:rgba(255,255,255,.1); }
+    /* World layer — Page 2 cursor field (docs/KWALIFY_WORLD_LAYER_SPEC.md) */
+    .pets-world {
+      position:absolute; inset:0; z-index:3; cursor:pointer;
+      opacity:0; visibility:hidden; pointer-events:none;
+      transition:opacity .55s cubic-bezier(.22,1,.36,1), visibility 0s linear .55s;
+    }
+    body.pets-world-active .pets-world {
+      opacity:1; visibility:visible; pointer-events:auto;
+      transition:opacity .55s cubic-bezier(.22,1,.36,1), visibility 0s;
+    }
+    .pets-world-bg {
+      position:absolute; inset:0;
+      background:radial-gradient(ellipse 90% 75% at 50% 42%, #1a5080 0%, #122840 50%, #08090c 100%);
+    }
+    .pets-world-field {
+      position:absolute; inset:0; pointer-events:none;
+    }
+    .pets-world-object {
+      position:absolute; transform:translate(-50%,-50%) scale(var(--world-scale,1))
+        translate(var(--wx,0), var(--wy,0)) rotate(var(--wr,0deg));
+      width:min(18vw,100px); height:min(16vw,88px);
+      transition:filter .45s ease;
+      animation:worldBreath 7s ease-in-out infinite;
+    }
+    .pets-world-object-inner {
+      display:block; width:100%; height:100%;
+      filter:drop-shadow(0 16px 32px rgba(0,0,0,.22));
+    }
+    .pets-world-object-inner svg { width:100%; height:100%; }
+    .pets-world-object-glow {
+      position:absolute; inset:-20%; border-radius:50%; opacity:0;
+      background:radial-gradient(circle, rgba(136,208,248,.35) 0%, transparent 70%);
+      transition:opacity .5s ease; pointer-events:none;
+    }
+    .pets-world-object.is-near .pets-world-object-glow { opacity:.45; }
+    .pets-world-object.is-focus .pets-world-object-glow { opacity:.75; }
+    .pets-world-object.is-near .pets-world-object-inner { filter:drop-shadow(0 20px 40px rgba(0,0,0,.28)) brightness(1.06); }
+    .pets-world-object.is-focus { animation-play-state:paused; }
+    .pets-world-object.is-focus .pets-world-object-inner {
+      filter:drop-shadow(0 24px 48px rgba(0,0,0,.32)) brightness(1.1);
+    }
+    .pets-world-object[data-illust="lamp"].is-near .pets-world-object-glow,
+    .pets-world-object[data-illust="lamp"].is-focus .pets-world-object-glow {
+      background:radial-gradient(circle, rgba(248,224,144,.4) 0%, transparent 70%);
+    }
+    .pets-world-object[data-illust="horizon"].is-near .pets-world-object-inner,
+    .pets-world-object[data-illust="horizon"].is-focus .pets-world-object-inner {
+      filter:drop-shadow(0 20px 40px rgba(232,168,104,.2)) brightness(1.08);
+    }
+    @keyframes worldBreath {
+      0%, 100% { opacity:.92; }
+      50% { opacity:1; }
+    }
+    .pets-world-hint {
+      position:absolute; bottom:max(28px, env(safe-area-inset-bottom)); left:0; right:0;
+      text-align:center; margin:0; pointer-events:none;
+      font-size:10px; font-weight:500; letter-spacing:.1em; text-transform:uppercase;
+      color:rgba(255,255,255,.22);
+    }
+    .pets-world-enter {
+      position:absolute; bottom:max(24px, env(safe-area-inset-bottom)); left:50%;
+      transform:translateX(-50%);
+      padding:0; border:none; background:none; cursor:pointer;
+      font-family:inherit; font-size:10px; font-weight:600; letter-spacing:.12em;
+      text-transform:uppercase; color:rgba(255,255,255,.28);
+      transition:color .3s ease;
+    }
+    .pets-world-enter:hover { color:rgba(255,255,255,.5); }
     @media (prefers-reduced-motion:reduce) {
-      .pets-illust--preview, .pets-guest-hero, .pets-guest-edge-item, .pets-boot-line::after { animation:none !important; }
+      .pets-illust--preview, .pets-guest-edge-item, .pets-guest-title-mark, .pets-boot-line::after,
+      .pets-world-object { animation:none !important; }
       .pets-card, .pets-home, .pets-scene, .pets-illust--hero { transition:none !important; }
       html[data-kw="app"] #appView.pets-shell,
       html[data-kw="guest"] .pets-guest { cursor:auto; }
     }
-    /* Guest — Kwalify atmosphere landing (not Pets clone) */
+    /* Guest login — Pets-layout frame · Kwalify objects + name */
     .pets-guest {
       flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
       min-height:100vh; width:100%; text-align:center; position:relative;
-      overflow:hidden; padding:56px 24px 64px;
-      background:radial-gradient(ellipse 85% 70% at 50% 38%, #1a5080 0%, #122840 45%, #0c0e14 72%, #08090c 100%);
+      overflow:hidden; padding:72px 24px 88px;
+      background:#9dbfd0;
     }
-    .pets-guest-ambient {
-      position:absolute; left:50%; top:36%; width:min(70vw,420px); height:min(70vw,420px);
-      transform:translate(-50%,-50%); border-radius:50%; pointer-events:none;
-      background:radial-gradient(circle, rgba(39,121,167,.18) 0%, transparent 68%);
-      filter:blur(32px);
+    .pets-guest-top {
+      position:absolute; top:0; left:0; right:0; z-index:2;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:max(22px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right)) 0 max(28px, env(safe-area-inset-left));
     }
+    .pets-guest-logo {
+      display:inline-flex; align-items:center; gap:10px; text-decoration:none;
+      font-size:15px; font-weight:800; letter-spacing:-.02em; color:#0a0a0a;
+    }
+    .pets-guest-logo-mark {
+      width:28px; height:28px; border-radius:50%; background:#0a0a0a;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .pets-guest-logo-mark svg { width:16px; height:16px; }
+    .pets-guest-faq {
+      font-size:13px; font-weight:600; color:#0a0a0a; text-decoration:none; opacity:.85;
+    }
+    .pets-guest-faq:hover { opacity:1; text-decoration:underline; }
     .pets-guest-edge {
       position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0;
     }
     .pets-guest-edge-item {
-      position:absolute; display:block; opacity:.22;
-      filter:drop-shadow(0 16px 32px rgba(0,0,0,.25));
+      position:absolute; display:block;
+      filter:drop-shadow(0 8px 16px rgba(0,0,0,.08));
     }
     .pets-guest-edge-item svg { width:100%; height:100%; overflow:visible; }
-    .pets-guest-edge-item--ghost-l { bottom:12%; left:6%; width:min(22vw,96px); height:min(28vw,120px); }
-    .pets-guest-edge-item--ghost-r { top:14%; right:8%; width:min(28vw,120px); height:min(12vw,56px); }
+    .pets-guest-edge-item--tl { top:-2%; left:-2%; width:min(26vw,118px); height:min(32vw,148px); transform:rotate(-12deg); }
+    .pets-guest-edge-item--ml { top:32%; left:-11%; width:min(40vw,190px); height:min(26vw,118px); transform:rotate(5deg); }
+    .pets-guest-edge-item--bl { bottom:10%; left:0; width:min(22vw,100px); height:min(28vw,128px); transform:rotate(-6deg); }
+    .pets-guest-edge-item--tc { top:-5%; left:50%; width:min(34vw,200px); height:min(13vw,72px); transform:translateX(-50%); }
+    .pets-guest-edge-item--tr { top:5%; right:3%; width:min(16vw,78px); height:min(13vw,68px); transform:rotate(10deg); }
+    .pets-guest-edge-item--mr { top:36%; right:-9%; width:min(36vw,168px); height:min(44vw,200px); transform:rotate(-5deg); }
+    .pets-guest-edge-item--br { bottom:8%; right:-1%; width:min(24vw,112px); height:min(30vw,140px); transform:rotate(8deg); }
+    @media (max-width:639px) {
+      .pets-guest-edge-item--ml { left:-20%; }
+      .pets-guest-edge-item--mr { right:-18%; }
+    }
     .pets-guest-content {
-      position:relative; z-index:1; max-width:400px; padding:0 12px;
+      position:relative; z-index:1; max-width:560px; padding:0 16px;
+      flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
     }
-    .pets-guest-hero {
-      width:min(38vw,132px); height:min(46vw,158px); margin:0 auto 28px;
-      filter:drop-shadow(0 24px 48px rgba(0,0,0,.28));
-    }
-    .pets-guest-hero svg { width:100%; height:100%; }
     .pets-guest-title {
-      font-size:clamp(28px,6vw,40px); font-weight:700; letter-spacing:-.03em;
-      color:rgba(255,255,255,.88); line-height:1.1; margin:0 0 10px;
+      position:relative; font-size:clamp(56px,11vw,104px); font-weight:800; letter-spacing:-.045em;
+      color:#0a0a0a; line-height:.92; margin:0 0 24px;
     }
-    .pets-guest-lede {
-      font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
-      color:rgba(255,255,255,.32); margin:0 0 18px;
+    .pets-guest-title-mark {
+      position:absolute; top:-0.55em; left:50%; width:36px; height:42px;
+      transform:translateX(calc(-50% + 0.12em)); pointer-events:none;
     }
+    .pets-guest-title-mark svg { width:100%; height:100%; }
     .pets-guest-tag {
-      font-size:15px; font-weight:400; line-height:1.65;
-      letter-spacing:.01em; color:rgba(255,255,255,.42); max-width:320px; margin:0 auto 32px;
+      font-size:clamp(17px,2.6vw,22px); font-weight:500; line-height:1.45;
+      letter-spacing:-.01em; color:#0a0a0a; max-width:460px; margin:0 auto 40px;
     }
-    .pets-connect-btn {
-      display:inline-flex; align-items:center; justify-content:center; gap:8px;
-      padding:14px 28px; border-radius:999px;
-      border:1px solid rgba(255,255,255,.18); text-decoration:none;
-      font-family:inherit; font-size:13px; font-weight:600; letter-spacing:.02em;
-      color:rgba(255,255,255,.92);
-      background:rgba(255,255,255,.08);
-      transition:background .35s ease, border-color .35s ease;
+    .pets-guest .pets-connect-btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:16px 48px; border-radius:999px; border:none; text-decoration:none;
+      font-family:inherit; font-size:13px; font-weight:800; letter-spacing:.14em;
+      text-transform:uppercase; color:#fff;
+      background:#0a0a0a;
+      box-shadow:0 4px 0 rgba(0,0,0,.12);
+      transition:transform .22s ease, background .22s ease;
     }
-    .pets-connect-btn:hover {
-      background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.28);
+    .pets-guest .pets-connect-btn:hover {
+      background:#1a1a1a; transform:translateY(-2px);
     }
+    .pets-guest .pets-connect-btn:active { transform:translateY(0); }
     .pets-guest-foot {
-      position:absolute; bottom:max(22px, env(safe-area-inset-bottom)); left:0; right:0;
-      z-index:1; text-align:center; padding:0 16px;
+      position:absolute; bottom:max(18px, env(safe-area-inset-bottom)); left:0; right:0;
+      z-index:1; text-align:center; padding:0 20px;
     }
+    .pets-guest-foot-links {
+      display:flex; flex-wrap:wrap; justify-content:center; gap:4px 12px;
+      margin-bottom:10px;
+    }
+    .pets-guest-foot-links a {
+      font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+      color:#0a0a0a; text-decoration:none; opacity:.5;
+    }
+    .pets-guest-foot-links a:hover { opacity:.8; text-decoration:underline; }
     .pets-guest-foot-copy {
-      font-size:10px; font-weight:500; letter-spacing:.08em; text-transform:uppercase;
-      color:rgba(255,255,255,.2);
+      font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+      color:#0a0a0a; opacity:.4;
     }
 
     .compose-layer {
@@ -1201,7 +1301,13 @@
   <button type="button" class="pets-logout" id="petsLogout">Log out</button>
   <main id="emotionGridHome" class="pets-home">
     <div class="pets-grid" id="emotionMoodGrid" role="list"></div>
+    <button type="button" class="pets-world-enter" id="petsWorldEnter">Explore mood space</button>
   </main>
+  <div id="emotionWorld" class="pets-world" aria-hidden="true">
+    <div class="pets-world-bg" aria-hidden="true"></div>
+    <div class="pets-world-field" id="emotionWorldField"></div>
+    <p class="pets-world-hint">tap to return</p>
+  </div>
   <div id="emotionScene" class="pets-scene" aria-hidden="true">
     <div class="pets-scene-bg" id="emotionSceneBg"></div>
     <div class="pets-scene-ambient" aria-hidden="true"></div>
@@ -1237,19 +1343,32 @@
     <!-- ── Loading ── -->
     <div id="loadOverlay"><div class="spin"></div></div>
 
-    <!-- ── GUEST — atmosphere landing ── -->
+    <!-- ── GUEST — login (Pets-layout · Kwalify objects) ── -->
     <div id="landingView" class="pets-guest" style="display:none">
-      <div class="pets-guest-ambient" aria-hidden="true"></div>
+      <header class="pets-guest-top">
+        <a href="/" class="pets-guest-logo">
+          <span class="pets-guest-logo-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 4h5.2l2.8 5.2L17 4H22l-7.5 9.8V20h-5.1v-6.2L6 4z" fill="#fff"/></svg>
+          </span>
+          Kwalify
+        </a>
+        <a href="https://github.com/koalablade/Kwalify" class="pets-guest-faq" target="_blank" rel="noopener noreferrer">FAQ</a>
+      </header>
       <div class="pets-guest-edge" id="guestEdgeDecor" aria-hidden="true"></div>
       <div class="pets-guest-content">
-        <div class="pets-guest-hero" id="guestHeroIllust" aria-hidden="true"></div>
-        <h1 class="pets-guest-title">Kwalify</h1>
-        <p class="pets-guest-lede">Moods · vibes · atmospheres</p>
-        <p class="pets-guest-tag">Pick a moment. A playlist builds from the songs already in your library.</p>
-        <a href="/api/auth/login" class="pets-connect-btn">Connect Spotify</a>
+        <h1 class="pets-guest-title">
+          <span class="pets-guest-title-mark" id="guestTitleAccent" aria-hidden="true"></span>
+          Kwalify
+        </h1>
+        <p class="pets-guest-tag">Get a playlist for your mood based on music you love.</p>
+        <a href="/api/auth/login" class="pets-connect-btn">Let's go</a>
       </div>
       <footer class="pets-guest-foot">
-        <p class="pets-guest-foot-copy">From your liked songs only</p>
+        <div class="pets-guest-foot-links">
+          <a href="https://www.spotify.com/legal/end-user-agreement/" target="_blank" rel="noopener noreferrer">Legal</a>
+          <a href="https://www.spotify.com/legal/privacy-policy/" target="_blank" rel="noopener noreferrer">Privacy</a>
+        </div>
+        <p class="pets-guest-foot-copy">© Kwalify · Liked songs only</p>
       </footer>
     </div><!-- /landingView -->
 
@@ -1322,6 +1441,7 @@ async function api(path, opts={}){
 }
 </script>
 <script src="/js/pets-ui.js"></script>
+<script src="/js/world-layer.js"></script>
 <script>
 
 /* ══ BOOT — exactly 3 views: loading → guest OR app ══ */
@@ -1331,7 +1451,7 @@ function kwSetView(mode){
   if(splash) splash.setAttribute('aria-busy', mode==='loading'?'true':'false');
 }
 
-const _CONNECT_BTN=`<a href="/api/auth/login" class="pets-connect-btn">Connect Spotify</a>`;
+const _CONNECT_BTN=`<a href="/api/auth/login" class="pets-connect-btn">Let's go</a>`;
 
 function bootAuthedHome(){
   document.documentElement.classList.add('pets-font');

@@ -28,7 +28,8 @@ North Star wins on product conflicts. Illustration mode + assembly win on visual
 | [KWALIFY_VISUAL_STYLE_DNA.md](./KWALIFY_VISUAL_STYLE_DNA.md) | Colour, light, depth, motion |
 | [KWALIFY_VISUAL_STYLE_TLDR.md](./KWALIFY_VISUAL_STYLE_TLDR.md) | Pets system TL;DR (objects as characters) |
 | [KWALIFY_FIGMA_EMOTION_SCENE_UI.md](./KWALIFY_FIGMA_EMOTION_SCENE_UI.md) | Figma frames (illustration-led) |
-| [KWALIFY_EMOTIONAL_WORLD_UI_SPEC.md](./KWALIFY_EMOTIONAL_WORLD_UI_SPEC.md) | Earlier spec — defer to Final UI if conflict |
+| [KWALIFY_WORLD_LAYER_SPEC.md](./KWALIFY_WORLD_LAYER_SPEC.md) | **Page 2 — cursor micro-world (opt-in)** |
+| [KWALIFY_EMOTIONAL_WORLD_UI_SPEC.md](./KWALIFY_EMOTIONAL_WORLD_UI_SPEC.md) | Earlier spec — defer to World Layer + Final UI if conflict |
 | [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) | Legacy moment loop (not logged-in home) |
 
 ## Deprecated directions (do not reintroduce)

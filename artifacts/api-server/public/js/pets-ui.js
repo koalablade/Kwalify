@@ -258,6 +258,9 @@
   }
 
   function setEmotionUIState(state, sceneId) {
+    if (state !== 'world' && typeof window.closeEmotionWorld === 'function') {
+      window.closeEmotionWorld();
+    }
     document.body.classList.toggle('pets-home-active', state === 'grid');
     document.body.classList.toggle('pets-scene-active', state === 'scene');
     const scene = $('emotionScene');
@@ -328,22 +331,28 @@
       if (_activeMood) generateFromMood(_activeMood);
     });
     _wireLogout();
+    if (typeof window.initWorldLayer === 'function') window.initWorldLayer();
   }
 
   function _mountGuestHero() {
-    const hero = $('guestHeroIllust');
+    const accent = $('guestTitleAccent');
     const edge = $('guestEdgeDecor');
-    if (hero && !hero.dataset.mounted) {
-      hero.innerHTML = _emotionPreviewHtml('pump');
-      hero.dataset.mounted = '1';
+    if (accent && !accent.dataset.mounted) {
+      accent.innerHTML = _uniquePetsSvg(PETS_ILLUST_DEFS.pump, 'guest-accent');
+      accent.dataset.mounted = '1';
     }
     if (!edge || edge.dataset.mounted) return;
-    const ghosts = [
-      { illust: 'lamp', cls: 'ghost-l' },
-      { illust: 'horizon', cls: 'ghost-r' },
+    const slots = [
+      { illust: 'lamp', cls: 'tl' },
+      { illust: 'car', cls: 'ml' },
+      { illust: 'pump', cls: 'bl' },
+      { illust: 'horizon', cls: 'tc' },
+      { illust: 'road', cls: 'tr' },
+      { illust: 'pump', cls: 'mr' },
+      { illust: 'lamp', cls: 'br' },
     ];
-    edge.innerHTML = ghosts.map((s, i) =>
-      `<span class="pets-guest-edge-item pets-guest-edge-item--${s.cls}">${_uniquePetsSvg(PETS_ILLUST_DEFS[s.illust], 'guest-ghost-' + i)}</span>`
+    edge.innerHTML = slots.map((s, i) =>
+      `<span class="pets-guest-edge-item pets-guest-edge-item--${s.cls}">${_uniquePetsSvg(PETS_ILLUST_DEFS[s.illust] || PETS_ILLUST_DEFS.pump, 'guest-' + s.cls + i)}</span>`
     ).join('');
     edge.dataset.mounted = '1';
   }
@@ -354,4 +363,5 @@
   window.openEmotionScene = openEmotionScene;
   window.closeEmotionScene = closeEmotionScene;
   window.EMOTION_MOODS = EMOTION_MOODS;
+  window.KW_illustPreview = _emotionPreviewHtml;
 })();
