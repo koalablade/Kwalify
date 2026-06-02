@@ -1,10 +1,9 @@
-# Locked hero objects (first 5)
+# Locked hero objects (first 5) — Pets illustration
 
-**Industrial design for emotions** — not illustration, not environments.  
-**Build order:** [KWALIFY_OBJECT_CONSTRUCTION_MODE.md](./KWALIFY_OBJECT_CONSTRUCTION_MODE.md) (silhouette first)  
-**Style DNA:** [KWALIFY_VISUAL_STYLE_DNA.md](./KWALIFY_VISUAL_STYLE_DNA.md)  
-**Figma build:** [KWALIFY_FIGMA_EMOTION_SCENE_UI.md](./KWALIFY_FIGMA_EMOTION_SCENE_UI.md)  
-**Live CSS reference:** `artifacts/api-server/public/index.html` (`.hero-pump`, `.hero-road`, `.hero-lamp`, `.hero-car`, `.hero-horizon`)
+**Style:** Spotify Pets–inspired **soft illustrations** — friendly, rounded, simplified.  
+**Not:** industrial icons, geometric UI marks, technical diagrams.  
+**Build:** [KWALIFY_OBJECT_CONSTRUCTION_MODE.md](./KWALIFY_OBJECT_CONSTRUCTION_MODE.md)  
+**Live UI:** `artifacts/api-server/public/index.html` · `PETS_ILLUST_DEFS` · `EMOTION_MOODS`
 
 ---
 
@@ -12,120 +11,90 @@
 
 | Rule | Value |
 |------|--------|
-| Count | **One** hero object per screen |
-| Shape | Geometric / semi-geometric only |
-| Read | Silhouette in **1 second** |
-| Background | Abstract gradient field — no scenery |
-| Light | **Single** source; edge glow on hero only (10–40% opacity, 20–80px blur) |
-| Material | Matte + soft metal; **no** texture noise |
+| Count | **One** illustrated object per screen |
+| Feel | Soft, rounded, slightly exaggerated for readability |
+| Read | Instant “oh yeah, that’s a ___” at card and hero size |
+| Background | Soft gradient only — no scenery |
+| Light | Calm ambient, gentle shading on object |
+| Detail | Minimal — no micro-texture, no realism |
 
-**Non-negotiables:** NO environmental storytelling · NO multiple focal points · NO blob chaos.
-
----
-
-## 1. Petrol station (night refuel)
-
-**Scene id:** `petrol_station_2am` · **Hero key:** `pump`
-
-**Object:** Single fuel pump monolith.
-
-| Part | Form |
-|------|------|
-| Body | Tall rounded rectangle |
-| Display | One central glowing rectangle |
-| Hose | Smooth curved tube (not rope) |
-| Nozzle | Simplified block |
-
-**Forbidden:** canopy, station, cars, environment.
-
-**Emotion:** Pause, isolation, late-night stillness.
+**Non-negotiables:** NO environments · NO multiple focal points · NO mascot faces · NO industrial/CNC look
 
 ---
 
-## 2. Motorway drive (long distance flow)
+## 1. Night Refuel (`petrol_station_2am` · `pump`)
 
-**Scene id:** `night_drive` · **Hero key:** `road`
+**Object:** Soft friendly fuel pump illustration.
 
-**Object:** Floating ribbon-road segment.
+- Rounded tall body, soft display panel, gentle hose curve, simple nozzle blob  
+- Feels like a **character-like pump**, not a forecourt diagram  
 
-| Part | Form |
-|------|------|
-| Strip | One long curved ribbon |
-| Markers | Minimal repeating dashed lines |
-| Perspective | Wide front → narrow back |
+**Forbidden:** canopy, station, cars, realism, sharp metal edges  
 
-**Optional:** 2–3 tiny light nodes in strip (abstract passing cars).
-
-**Forbidden:** landscape, horizon line, sky.
-
-**Emotion:** Motion, flow, time slipping.
+**Emotion:** Pause, late-night stillness  
 
 ---
 
-## 3. Late London walk (urban light pole)
+## 2. Motorway Drive (`night_drive` · `road`)
 
-**Scene id:** `urban_midnight_walk` · **Hero key:** `lamp`
+**Object:** Flowing curved ribbon road.
 
-**Object:** Single streetlight monolith.
+- One thick soft stroke/path, gentle S-curve, subtle highlight along length  
+- Suggests motion without drawing a landscape  
 
-| Part | Form |
-|------|------|
-| Pole | Tall thin slightly tapered cylinder |
-| Head | Rounded rectangular cap |
-| Light | Soft cone beneath (subtle gradient only) |
+**Forbidden:** horizon line, sky, lane markings as technical diagram  
 
-**Forbidden:** buildings, streets, people.
-
-**Emotion:** Solitude, quiet observation, nighttime thinking.
+**Emotion:** Flow, distance, night drive  
 
 ---
 
-## 4. Old car project (garage lift core)
+## 3. Late London Walk (`urban_midnight_walk` · `lamp`)
 
-**Scene id:** `memory_road` (API placeholder until dedicated scene) · **Hero key:** `car`
+**Object:** Soft glowing streetlight.
 
-**Object:** Simplified lifted car silhouette.
+- Rounded lamp head, warm glow halo, simple rounded pole  
+- Light feels **warm and calm**, not street infrastructure CAD  
 
-| Part | Form |
-|------|------|
-| Body | Single smooth capsule |
-| Lift | Two minimal jack stands |
-| Wheels | Simple discs, no spokes |
+**Forbidden:** buildings, pavement, people  
 
-**Forbidden:** garage room, tools, clutter.
-
-**Detail:** Soft underside glow; edges slightly worn — no grain.
-
-**Emotion:** Unfinished work, mechanical intimacy, patience.
+**Emotion:** Solitude, quiet walk  
 
 ---
 
-## 5. End of summer drive (horizon light strip)
+## 4. Old Car Project (`memory_road` · `car`)
 
-**Scene id:** `summer_afternoon_drift` · **Hero key:** `horizon`
+**Object:** Simplified rounded car silhouette.
 
-**Object:** Thin horizon light band.
+- Inflated body capsule, soft cabin bump, simple disc wheels  
+- Garage **implied** by object only — no room  
 
-| Part | Form |
-|------|------|
-| Strip | Single horizontal glowing band |
-| Colour | Warm → cool along length |
-| Shape | Slight curve (atmospheric lens) |
+**Forbidden:** tools, lift machinery detail, photoreal car  
 
-**Forbidden:** sun disc, sky detail, clouds.
+**Emotion:** Patience, unfinished work  
 
-**Emotion:** Nostalgia, ending, calm drift.
+---
+
+## 5. End of Summer Drive (`summer_afternoon_drift` · `horizon`)
+
+**Object:** Soft gradient horizon band.
+
+- Warm elliptical glow + softer lower band  
+- Reads as **ending light**, not a technical chart  
+
+**Forbidden:** sun disc with rays, clouds, landscape strip  
+
+**Emotion:** Nostalgia, calm drift  
 
 ---
 
 ## Card → scene mapping
 
-| Card title | `hero` | `sceneId` |
-|------------|--------|-----------|
+| Card title | `illust` | `sceneId` |
+|------------|----------|-----------|
 | Night Refuel | `pump` | `petrol_station_2am` |
 | Motorway Drive | `road` | `night_drive` |
 | Late London Walk | `lamp` | `urban_midnight_walk` |
 | Old Car Project | `car` | `memory_road` |
 | End of Summer Drive | `horizon` | `summer_afternoon_drift` |
 
-Phase 2: add remaining five dream objects using **same** primitives — swap geometry only.
+Phase 2: add moods using the **same illustration discipline** — swap object only, keep soft language.

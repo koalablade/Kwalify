@@ -1,8 +1,11 @@
 # Cursor master prompt — Kwalify Pet-style rebuild
 
-Canonical agent instructions for the moment frontend. **Do not modify** `POST /api/generate`, Spotify backend, or server scene scoring.
+> **Shipped logged-in UI (canonical):** [EMOTION_GRID_UI_ENTRY.md](./EMOTION_GRID_UI_ENTRY.md) — 5-card Pets illustration grid + fullscreen object.  
+> **Docs:** [KWALIFY_OBJECT_CONSTRUCTION_MODE.md](./KWALIFY_OBJECT_CONSTRUCTION_MODE.md) · [KWALIFY_FINAL_UI_BLUEPRINT.md](./KWALIFY_FINAL_UI_BLUEPRINT.md)
 
-**Wireframe:** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) · **Unified visuals:** [UNIFIED_VISUAL_SYSTEM.md](./UNIFIED_VISUAL_SYSTEM.md) · **Prompts:** [SCENE_IMAGE_PROMPTS.md](./SCENE_IMAGE_PROMPTS.md)
+Legacy moment-compose wireframe below is **not** the logged-in homepage. **Do not modify** `POST /api/generate`, Spotify backend, or server scene scoring.
+
+**Wireframe (legacy):** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) · **Prompts:** [SCENE_IMAGE_PROMPTS.md](./SCENE_IMAGE_PROMPTS.md)
 
 ---
 

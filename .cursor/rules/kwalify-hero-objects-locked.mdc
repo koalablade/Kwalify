@@ -1,5 +1,5 @@
 ---
-description: Locked hero object geometry — prevents blob/scenery generation
+description: Locked hero illustrations — 5 soft Pets-style objects only
 globs:
   - artifacts/api-server/public/index.html
   - artifacts/api-server/public/cinema/**
@@ -9,18 +9,17 @@ alwaysApply: false
 
 # Locked hero objects (5)
 
-Read `docs/KWALIFY_VISUAL_STYLE_DNA.md` and `docs/KWALIFY_HERO_OBJECTS_LOCKED.md` before any hero, scene, or mood card work.
+Read `docs/KWALIFY_HERO_OBJECTS_LOCKED.md` and `docs/KWALIFY_OBJECT_CONSTRUCTION_MODE.md` before any hero or mood card work.
 
-Allowed heroes only: `pump` `road` `lamp` `car` `horizon`
+Allowed `illust` keys only: `pump` `road` `lamp` `car` `horizon`
 
 Each emotion screen:
-- ONE hero object (sharpest layer)
-- L1 abstract gradient only
-- L2 minimal ambient (optional)
-- NO environments, buildings, cars in scene (except car hero itself), canopy, sky, horizon lines unless hero IS horizon strip
+- ONE soft illustrated hero (centered)
+- Soft gradient background only
+- NO environments, extra objects, or dashboard chrome
 
-Figma: `docs/KWALIFY_FIGMA_EMOTION_SCENE_UI.md`
+Code: `PETS_ILLUST_DEFS` in `artifacts/api-server/public/index.html`
 
-FAILSAFE: If output is blobs, fog, or multi-focal scenery → STOP. Replace with geometric hero from locked spec.
+FAILSAFE: If industrial/diagram/icon UI or blob chaos → STOP. Replace with soft Pets-style illustration from locked spec.
 
-Do not add new hero types without updating the locked doc and WORLD_MOODS in index.html.
+Do not add heroes without updating locked doc + `EMOTION_MOODS`.

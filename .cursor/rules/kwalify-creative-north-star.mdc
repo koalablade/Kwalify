@@ -9,16 +9,17 @@ Before proposing or implementing any design, UI, scene, animation, or visual cha
 
 `docs/KWALIFY_CREATIVE_NORTH_STAR.md`
 
-Object construction (visuals): `docs/KWALIFY_OBJECT_CONSTRUCTION_MODE.md`  
+Illustration mode (visuals): `docs/KWALIFY_OBJECT_CONSTRUCTION_MODE.md` (Pets-style soft objects)  
 Scene assembly: `docs/KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md`  
+UI entry: `docs/EMOTION_GRID_UI_ENTRY.md` · Blueprint: `docs/KWALIFY_FINAL_UI_BLUEPRINT.md`  
 Style DNA: `docs/KWALIFY_VISUAL_STYLE_DNA.md` · Heroes: `docs/KWALIFY_HERO_OBJECTS_LOCKED.md`
 
 North Star overrides other docs when they conflict. See `docs/DOCUMENT_HIERARCHY.md`.
 
 Core checks:
-- Playlist is the primary product; visuals support feeling only
-- UX loop: HOME → TYPE MOMENT → MAKE PLAYLIST → RESULT (no interruptions)
-- Emotional Object Characters (Spotify Pets system, objects not animals) — soft geometric, silhouette-first, not cinematic realism
-- Phase 1 art: `petrol_station_2am` only until style is locked
-- Motion: fades/opacity only — no camera systems or staged loaders
+- Playlist is the primary product; mood visuals support feeling only
+- Logged-in home: 5-card Pets-style grid → fullscreen illustrated object (no dashboard chrome)
+- Spotify Pets **system** (clarity, one hero, soft illustration) — objects not animal mascots; no industrial/geometric icon UI
+- Phase 1 art: soft `pump` illustration until language locked
+- Motion: gentle fade/scale only — no bounce, camera systems, or staged loaders
 - If a feature does not improve 5-second clarity or 30-second "it gets me", do not prioritise it

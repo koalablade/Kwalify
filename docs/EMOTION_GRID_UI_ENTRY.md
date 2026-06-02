@@ -1,21 +1,26 @@
-# Emotion Grid — homepage entry (single source of truth)
+# Pets UI — homepage entry (single source of truth)
+
+**Visual language:** Spotify Pets–inspired soft illustrations — rounded, friendly, one object per mood. Not industrial/geometric UI.
+
+## Two screens only
+
+| Screen | DOM | Interaction |
+|--------|-----|-------------|
+| **Home** | `#emotionGridHome` → `#emotionMoodGrid` (5 × `.pets-card`) | Tap card |
+| **Emotion** | `#emotionScene` → `#emotionSceneObject` (one `.pets-illust--hero`) | Tap anywhere → home |
+
+## File & entry
 
 | Item | Location |
 |------|----------|
 | **File** | `artifacts/api-server/public/index.html` |
-| **Logged-in entry** | `showApp()` → `initEmotionGridUI()` |
-| **Home DOM** | `#emotionGridHome` + `#emotionMoodGrid` (5 `.mood-card` buttons) |
-| **Scene DOM** | `#emotionScene` + `#emotionSceneObject` (one geometric shape) |
-| **Data** | `EMOTION_MOODS` (exactly 5 items) |
-| **API stubs** | `#apiStubs` (hidden; playlist/generate only — not shown) |
+| **Shell** | `#appView.pets-shell` (root-level, not inside `.page`) |
+| **Logged-in** | `showApp()` → `body.pets-app` + `initEmotionGridUI()` |
+| **Logged-out** | `#landingView` inside `.page` |
+| **Data** | `EMOTION_MOODS` + `PETS_ILLUST_DEFS` (`pump`, `road`, `lamp`, `car`, `horizon`) |
+| **Motion** | Fade + gentle scale (`pets-scene-active`, `pets-hero-in`) |
+| **API stubs** | `#apiStubs` (hidden; playlist backend only) |
 
-## Removed from render tree
+## Hidden when logged in
 
-- Legacy moment compose (`#composeLayer`, vibe input UI)
-- World/map chrome (back button, make playlist, streaks, SVG pump heroes)
-- Duplicate `world-home` / `mood-grid` CSS blocks
-
-## Not homepage
-
-- `#landingView` — logged-out only
-- Cinema layers (`#cinema`, `#cinemaStill`) — hidden when `body.emotion-grid-active`
+Entire `.page` (header, landing, load overlay), cinema layers, moment/world legacy chrome.

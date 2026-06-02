@@ -1,155 +1,111 @@
-# Emotional Scene Interface — assembly system role
+# Emotional Scene Interface — assembly (Pets-style)
 
-**Phase 1 (objects):** [KWALIFY_OBJECT_CONSTRUCTION_MODE.md](./KWALIFY_OBJECT_CONSTRUCTION_MODE.md) — **ONLY instruction** until silhouette passes.  
-
-**Phase 2 (screens):** Use this doc for full emotion-screen assembly.  
-**Deep reference:** [KWALIFY_VISUAL_STYLE_DNA.md](./KWALIFY_VISUAL_STYLE_DNA.md) · [KWALIFY_HERO_OBJECTS_LOCKED.md](./KWALIFY_HERO_OBJECTS_LOCKED.md) · [KWALIFY_FINAL_UI_BLUEPRINT.md](./KWALIFY_FINAL_UI_BLUEPRINT.md)
+**Objects first:** [KWALIFY_OBJECT_CONSTRUCTION_MODE.md](./KWALIFY_OBJECT_CONSTRUCTION_MODE.md) (Pets illustration mode)  
+**Heros:** [KWALIFY_HERO_OBJECTS_LOCKED.md](./KWALIFY_HERO_OBJECTS_LOCKED.md)  
+**UI blueprint:** [KWALIFY_FINAL_UI_BLUEPRINT.md](./KWALIFY_FINAL_UI_BLUEPRINT.md) · [EMOTION_GRID_UI_ENTRY.md](./EMOTION_GRID_UI_ENTRY.md)
 
 ---
 
 ## System role
 
-You are generating UI for a high-end product called an **Emotional Scene Interface**.
+You are assembling a **two-screen Pets-inspired mood browser**:
 
-The system displays moods as isolated, cinematic **object-based** screens.
+1. **Home** — 5 mood cards, soft illustrated previews only  
+2. **Emotion** — fullscreen one large illustrated object, soft gradient background  
 
-Your job is **NOT** to design interfaces freely.
-
-Your job is to **strictly assemble** visuals using a fixed design language.
+You are **not** building dashboards, worlds, maps, or moment-compose chrome on the home path.
 
 ---
 
 ## Absolute rules (non-negotiable)
 
-If any rule is violated, output is **INVALID** and must be corrected.
-
 ### 1. Single hero object
 
-Each screen **MUST** contain exactly **ONE** hero object.
+Each emotion screen = **exactly ONE** illustrated object, centered.
 
 - No secondary focal objects  
-- No scenery competing with hero  
-- No background objects pretending to be detail  
+- No detailed environments  
+- No UI competing with the hero (no nav, grid, sidebars on emotion screen)
 
-### 2. No blobs / no organic chaos
+### 2. Illustration language only
 
-**Forbidden:** amorphous blobs · smoke shapes · fluid simulations · noisy abstract art · watercolor forms · generative texture fields  
+**Required:** soft rounded forms, friendly simplification, gentle gradients, calm spacing  
 
-If ambiguous → convert to **geometric structure**.
+**Forbidden:** industrial/mechanical look, sharp geometric icon art, technical diagrams, photoreal scenes, blob chaos, mascot faces
 
-### 3. Approved shape language only
+### 3. Background
 
-**Allowed:** rounded rectangles · capsules · cylinders · flat slabs · ribbon strips (motion) · simple extrusions  
+- Soft gradient field only (warm/cool per mood)  
+- Very subtle radial depth — **no** buildings, roads as environment, clutter  
+- Max **1–2** ultra-soft ambient glow shapes (optional)
 
-Everything must feel **manufacturable** (industrial design).
+### 4. Lighting
 
-### 4. Lighting (single source)
+- **Soft ambient** — single calm direction implied  
+- Gentle depth on the object — **no** harsh contrast, neon bloom, or studio product shots  
 
-Each scene: **ONE** directional light · soft shadows · subtle edge glow on hero only  
-
-**Forbidden:** multiple light directions · neon overload · bloom chaos · game-engine lighting  
-
-### 5. Depth (3 layers only)
+### 5. Depth (3 layers max)
 
 | Layer | Content |
 |-------|---------|
-| L1 Background | Gradient or soft light field only |
-| L2 Atmosphere | Max 1–2 blurred abstract light shapes |
-| L3 Hero | Fully defined, sharpest element |
+| L1 | Soft gradient background |
+| L2 | Optional faint ambient glow (max 2 shapes) |
+| L3 | One crisp **illustrated** hero (sharpest element) |
 
-No additional layers.
+### 6. Typography
 
-### 6. Colour
+- Card: small mood title under preview  
+- Emotion screen: **no** required chrome (title optional later; default = object only)  
+- One sans family, minimal hierarchy  
 
-Per scene: 1 dominant · 1 supporting · 1 neutral  
+### 7. Motion
 
-Low–mid saturation · no pure neon RGB unless explicit · cinematic desaturation preferred  
-
-### 7. Typography
-
-Single geometric sans · minimal hierarchy · no decorative or experimental type  
-
-### 8. Motion
-
-**Allowed:** slow zoom · soft ease-out · gentle hover float · ambient background drift  
-
-**Forbidden:** bounce · elastic overshoot · jitter · fast UI motion  
+- Card → emotion: smooth fade + gentle scale (~500–600ms, ease-out)  
+- Emotion → home: same, reversed  
+- **No** bounce, elastic overshoot, or aggressive animation  
 
 ---
 
 ## Output goal
 
-Every screen must feel like:
+> One soft illustrated object in a calm gradient space — feels like Spotify Pets applied to **objects**, not animals.
 
-> A single emotional object placed under controlled light in empty space.
-
-**Not** a scene. **Not** a world. **Not** an illustration.
+**Not** a dashboard. **Not** a world map. **Not** an industrial product render.
 
 ---
 
-## Failure detection (before finalising)
+## Failure detection
 
-Rebuild if **YES** to any:
+Rebuild if **yes** to any:
 
 - More than one focal object?  
-- Any blob / organic form?  
-- Background too detailed?  
-- Multiple lighting sources?  
-- Feels like “environment” instead of “object”?  
+- Reads as machine diagram or flat icon set?  
+- Background busy or environmental?  
+- Harsh realism or neon overload?  
+- Home shows extra UI (search, playlist, cinema stills, compose)?  
 
-### Correction rule
+### Correction
 
-1. Remove all secondary objects  
-2. Replace environment with gradient field  
-3. Reduce forms to geometric primitives  
+1. Remove extra UI and objects  
+2. Soften and round the hero  
+3. Simplify background to gradient  
 4. Increase negative space  
-5. Re-center on hero object  
+5. Re-center hero (optical center, slightly above mathematical center)
 
 ---
 
-## Design intent
-
-You are not creating UI screens.
-
-You are creating **emotionally isolated object cards with cinematic lighting**.
-
----
-
-## Optional enhancement (only if user asks)
-
-May add: slight material realism · micro bevels · lighting contrast  
-
-**Never** break core structure rules.
-
----
-
-## End state
-
-All outputs must be:
-
-- minimal  
-- geometric  
-- single-focus  
-- emotionally readable in **1 second**  
-- consistent across all scenes  
-
----
-
-## Copy-paste block (Cursor)
+## Copy-paste (Cursor)
 
 ```
-SYSTEM: Emotional Scene Interface — strict assembly only.
+ASSEMBLY: Pets-style Emotional Scene Interface — 2 screens only.
 
-ONE hero object per screen. No scenery, no secondary focal points.
-No blobs, smoke, watercolor, or generative texture fields — geometric only.
-Shapes: rounded rects, capsules, cylinders, slabs, ribbons, simple extrusions — manufacturable.
-Lighting: single directional source, soft shadows, subtle hero edge glow only.
-Depth: L1 gradient, L2 max 2 blurred light shapes, L3 crisp hero — no extra layers.
-Colour: dominant + supporting + neutral, low-mid saturation, desaturated cinematic.
-Type: one geometric sans, minimal hierarchy.
-Motion: slow ease-out zoom/hover/drift only — no bounce, elastic, jitter.
+HOME: 5 cards, 3-column grid, soft illustrated preview + title. Nothing else.
+EMOTION: fullscreen, ONE large soft illustrated object, soft gradient bg, tap to return.
 
-Output = one object under controlled light in empty space — not a scene or illustration.
+ONE hero per screen. Illustration language — rounded, friendly, simplified. NOT industrial/geometric/diagram.
 
-Before finish: failure check (multi-focal, blob, busy bg, multi-light, environment feel). If fail → simplify per correction rule.
+Bg = soft gradient only. Light = calm ambient. Depth = gradient + optional faint glow + hero.
+Motion = fade + gentle scale, ease-out — no bounce.
+
+If dashboard/technical/realistic → strip to 5 cards → 1 object per screen.
 ```

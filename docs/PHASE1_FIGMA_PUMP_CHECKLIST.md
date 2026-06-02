@@ -4,11 +4,11 @@
 **Locked pump spec:** [KWALIFY_HERO_OBJECTS_LOCKED.md](./KWALIFY_HERO_OBJECTS_LOCKED.md) §1 (no canopy, no environment).  
 **Figma frames:** [KWALIFY_FIGMA_EMOTION_SCENE_UI.md](./KWALIFY_FIGMA_EMOTION_SCENE_UI.md)
 
-**Goal:** Black silhouette @ 48px reads “petrol pump” — then add light/colour.
+**Goal:** Soft rounded pump illustration reads “petrol pump” at card (~64px) and hero (~240px) — friendly Pets-style, not industrial diagram.
 
 **Refs:** [KWALIFY_VISUAL_STYLE_TLDR.md](./KWALIFY_VISUAL_STYLE_TLDR.md)  
 **SVG source (5 shapes):** `artifacts/api-server/public/cinema/petrol_station_2am/fuel-pump-hero.svg`  
-**Silhouette test @ 48px:** `fuel-pump-silhouette.svg` · live: `.hero-pump-svg` in `index.html`
+**Silhouette test @ 48px:** `fuel-pump-silhouette.svg` (reference) · **live UI:** `PETS_ILLUST_DEFS.pump` in `index.html`
 
 ---
 

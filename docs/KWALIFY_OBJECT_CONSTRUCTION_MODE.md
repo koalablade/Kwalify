@@ -1,162 +1,120 @@
-# Cursor — strict object construction mode
+# Kwalify — Pets illustration mode (canonical)
 
-**Paste this as your ONLY instruction** when building or editing heroes, mood cards, or emotion-screen visuals.
+**Paste this as the ONLY instruction** when building or editing mood previews, emotion-screen heroes, or new mood art.
 
-**After objects pass silhouette test:** [KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md](./KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md) · [KWALIFY_VISUAL_STYLE_DNA.md](./KWALIFY_VISUAL_STYLE_DNA.md)
+**UI reference:** `artifacts/api-server/public/index.html` · `PETS_ILLUST_DEFS`  
+**Assembly (screens):** [KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md](./KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md)  
+**Hero definitions:** [KWALIFY_HERO_OBJECTS_LOCKED.md](./KWALIFY_HERO_OBJECTS_LOCKED.md)  
+**Style DNA:** [KWALIFY_VISUAL_STYLE_DNA.md](./KWALIFY_VISUAL_STYLE_DNA.md)
 
 ---
 
 ## System role
 
-You are building UI using a **Spotify Pets-style system**.
+You are building UI using a **Spotify Pets–inspired illustration system**.
 
-You are **NOT** designing mood, atmosphere, or scenes.
+This is **not** industrial design, **not** a geometric icon set, **not** technical diagram UI.
 
-You are **ONLY** constructing **recognisable objects**.
+Each mood is **one soft, simplified, character-like object** — friendly, rounded, readable at a glance.
 
 ---
 
-## Core rule (most important)
+## Core rule
 
-Every visual element must pass:
+Every object must pass:
 
-> **Is the object instantly recognisable in pure silhouette (no colour, no lighting, no background)?**
+> **Would a user instantly know what this is — and does it feel like a simplified illustration, not a machine diagram?**
 
-If **NO** → simplify until **YES**.
+If it reads as **technical, sharp, CNC, or flat UI icon** → soften, round, simplify.
+
+If it reads as **blob, mascot face, or Spotify cosplay** → simplify structure, remove personality gimmicks.
+
+---
+
+## Visual language (required)
+
+| Use | Avoid |
+|-----|--------|
+| Soft rounded forms | Sharp geometric / industrial precision |
+| Inflated / pill-like curves | Flat icon primitives as final art |
+| Gentle gradients for form | Harsh studio realism, neon bloom |
+| Slight proportional exaggeration | Photoreal textures, environments |
+| Calm, playful-minimal tone | Dashboard chrome, technical layouts |
+
+**One-line override:** *If it looks like a diagram or a machine, it is wrong. Make it softer, simpler, and more character-like.*
 
 ---
 
 ## Object rules
 
-- Simple geometric construction only  
-- **Max 3–6 shapes** per object  
-- Must read clearly at **48px** icon size  
-- Must work in **pure black silhouette**  
-- **No** facial features or mascot behaviour  
-- **No** environmental context inside the object  
+- **One** main object per mood (no scenery inside the object)
+- **Simplified** interpretation of a real thing (pump, road, lamp, car, horizon)
+- **Max ~6–10 soft shapes** — merged curves OK if silhouette stays clear
+- Must read on **card preview** (~64px tall) and **hero** (~240px)
+- **No** faces, eyes, mascot expressions, or Spotify Pet character copies
+- **No** buildings, landscapes, or multi-object scenes in the hero
 
 ### Forbidden
 
-- Blobs / organic shapes  
-- “Cinematic” styling during construction  
-- Emotional expression in the object itself  
-- Scenery or background details inside objects  
-- Gradients used to **define** shape  
-
----
-
-## Lighting rule (separate step only)
-
-Lighting is applied **AFTER** the object is correct.
-
-Lighting may only:
-
-- Change contrast  
-- Add soft shadow  
-- Add subtle glow  
-
-Lighting **cannot** change the shape language.
+- Industrial / mechanical design language  
+- Sharp geometric UI placeholders as shipped art  
+- Realistic 3D, HDR, photobashing  
+- Neon campaign skin, lime quiz energy on objects  
+- AI slop blobs with no readable structure  
 
 ---
 
 ## Order of operations
 
-1. Build raw geometric object (**no style**)  
-2. Test silhouette readability  
-3. Simplify until it works at small size  
-4. **Only then** apply lighting and colour  
-5. Place on flat gradient background  
+1. Choose the **one** object for the mood  
+2. Draw **soft silhouette** (rounded, friendly)  
+3. Test at **card size** — still readable?  
+4. Add **gentle gradients** and soft ambient depth  
+5. Place on **soft gradient background** (emotion screen only)  
+
+Never ship geometric construction marks as final user-facing art.
 
 ---
 
-## Hero objects (current set)
+## Locked heroes (first 5)
 
-Use these definitions strictly:
+| Mood | Illustrated object |
+|------|---------------------|
+| Night Refuel | Soft friendly fuel pump |
+| Motorway Drive | Flowing curved ribbon road |
+| Late London Walk | Glowing streetlight (rounded head + pole) |
+| Old Car Project | Simplified rounded car silhouette |
+| End of Summer Drive | Soft warm horizon light band |
 
-| Mood | Object |
-|------|--------|
-| Petrol Station | Single fuel pump monolith |
-| Motorway Drive | Single ribbon road strip |
-| London Walk | Single streetlamp pole |
-| Old Car Project | Simplified lifted car body |
-| Summer Drift | Single horizon light band |
-
-**No** extra objects. **No** scenery.
-
-Geometry detail: [KWALIFY_HERO_OBJECTS_LOCKED.md](./KWALIFY_HERO_OBJECTS_LOCKED.md)
-
----
-
-## Failure fix rule
-
-If output looks:
-
-- blurry  
-- like an illustration  
-- like a scene  
-- like a mascot  
-
-**STOP** and reduce complexity by **50%**.
+Detail: [KWALIFY_HERO_OBJECTS_LOCKED.md](./KWALIFY_HERO_OBJECTS_LOCKED.md)
 
 ---
 
 ## Output goal
 
-A system of clean, readable objects that feel like:
+> A minimal Spotify Pets–inspired mood browser where each mood is a **soft illustrated object** in calm space.
 
-> **Industrial design icons placed in empty space**
-
-**NOT** illustrations or moods.
-
----
-
-## What this fixes
-
-| Removes | Forces |
-|---------|--------|
-| Blob generation | Structure first |
-| Mascot drift | Style second |
-| Spotify cosplay | |
-| Emotional over-design | |
-| AI art behaviour | |
-
-**Never reverse:** structure → then style.
+**NOT:** industrial icons, diagram UI, technical rendering, or dashboard systems.
 
 ---
 
 ## Copy-paste (Cursor — ONLY instruction)
 
 ```
-CURSOR — STRICT OBJECT CONSTRUCTION MODE
+KWALIFY — PETS ILLUSTRATION MODE (canonical)
 
-You are building UI using a Spotify Pets-style system.
-You are NOT designing mood, atmosphere, or scenes.
-You are ONLY constructing recognisable objects.
+Spotify Pets–inspired ILLUSTRATION system — soft, friendly, rounded, simplified.
+NOT industrial design, NOT geometric icon UI, NOT technical diagrams.
 
-CORE RULE:
-Every visual must pass: instantly recognisable in pure black silhouette (no colour, light, or background)?
-If NO → simplify until YES.
+ONE soft illustrated object per mood. No scenery, no faces, no Spotify mascot copies.
 
-OBJECT RULES:
-- Geometric construction only, max 3–6 shapes per object
-- Readable at 48px, pure black silhouette
-- No faces, mascot behaviour, or environment inside the object
-FORBIDDEN: blobs, organic shapes, cinematic styling during construction, emotion in the object, scenery inside object, gradients that define shape
+STYLE: rounded forms, gentle curves, soft gradients, slight readable exaggeration, calm playful-minimal tone.
 
-LIGHTING (AFTER object is correct only):
-contrast, soft shadow, subtle glow — cannot change shape language
+HEROES: friendly pump · curved road ribbon · glowing lamp · rounded car · soft horizon band.
 
-ORDER: raw geometry → silhouette test → simplify → then lighting/colour → flat gradient background
+If diagram/machine → soften. If blob/cosplay → simplify structure.
 
-HEROES (strict):
-Petrol Station = fuel pump monolith
-Motorway Drive = ribbon road strip
-London Walk = streetlamp pole
-Old Car Project = lifted car body
-Summer Drift = horizon light band
-No extra objects. No scenery.
+ORDER: pick object → soft silhouette → card-size test → gentle gradients → soft bg on emotion screen.
 
-If blurry / illustration / scene / mascot → STOP, reduce complexity 50%.
-
-OUTPUT: industrial design icons in empty space — NOT illustrations or moods.
+OUTPUT: Pets-style simplified object illustrations — NOT industrial icons or flat UI marks.
 ```

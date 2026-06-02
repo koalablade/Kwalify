@@ -3,7 +3,9 @@
 **North Star:** [KWALIFY_CREATIVE_NORTH_STAR.md](./KWALIFY_CREATIVE_NORTH_STAR.md) · **Style DNA:** [KWALIFY_VISUAL_STYLE_DNA.md](./KWALIFY_VISUAL_STYLE_DNA.md) · **Objects:** [OBJECT_EXPLORATION.md](./OBJECT_EXPLORATION.md)  
 **Export:** `python scripts/export_scene_prompts.py --phase1` (fuel pump only)
 
-**Spotify Pets = emotional personality through animals. Kwalify = emotional personality through objects.** Same system, ownable identity — do not copy mascots literally.
+**Spotify Pets = emotional personality through animals. Kwalify = emotional personality through objects.** Same **illustration system**, ownable identity — do not copy mascots literally.
+
+**Canonical UI + docs:** soft Pets-style illustrations in `index.html` — see [EMOTION_GRID_UI_ENTRY.md](./EMOTION_GRID_UI_ENTRY.md). **Not** industrial icons or geometric placeholder UI.
 
 ---
 

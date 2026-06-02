@@ -89,43 +89,35 @@ Kwalify should achieve the same clarity.
 
 ---
 
-# Current UX Direction
+# Current UX Direction (shipped path)
 
-The ideal flow is:
+**Logged-in home (canonical):** Pets-style **mood grid only** — 5 cards → tap → fullscreen soft illustrated object. See [EMOTION_GRID_UI_ENTRY.md](./EMOTION_GRID_UI_ENTRY.md).
 
-HOME
-↓
-TYPE MOMENT
-↓
-MAKE PLAYLIST
-↓
-RESULT
+**Playlist path (backend, not on home):** moment text → generate → result — available via hidden API stubs; must not clutter the mood browser.
 
-Nothing should interrupt this loop.
+Avoid on the home/emotion path:
 
-Avoid:
-
-* multi-stage loading
-* progress systems
-* engine visualisation
-* cinematic sequences
-* unnecessary UI layers
+* dashboards, maps, compose chrome, cinema stills
+* multi-stage loaders, engine visualisation
+* industrial/geometric placeholder art as final UI
 
 ---
 
 # Visual Direction
 
-We are moving away from realistic cinematic photography.
+We are **not** using realistic cinematic photography or industrial product renders on the mood UI.
 
-We are moving toward:
+We are using:
 
-## Emotional Editorial Worlds
+## Spotify Pets–inspired object illustrations
 
-These are symbolic, simplified, emotional environments.
+Each mood = **one soft, simplified, character-like object** (pump, road ribbon, lamp, car, horizon band).
+
+The goal is **instant emotional recognition** through friendly illustration — not technical diagrams or machined icons.
 
 The goal is not realism.
 
-The goal is emotional recognition.
+The goal is: *“oh yeah, that’s a fuel pump / night road / lamp”* at a glance — same discipline Pets uses for animals, applied to **objects**.
 
 ---
 
@@ -212,23 +204,20 @@ not
 
 Target qualities:
 
-* editorial illustration
-* premium music-brand aesthetic
-* simplified forms
-* strong silhouettes
-* negative space
-* limited colour palettes
-* subtle texture
-* emotional atmosphere
+* soft rounded illustration (Pets-inspired system, objects not mascots)
+* premium, calm, minimal UI chrome
+* simplified friendly forms with clear silhouettes
+* generous negative space
+* soft gradients and gentle ambient light
+* limited palettes per mood
 
 Avoid:
 
-* hyper realism
-* HDR
-* photobashing
-* cyberpunk
-* excessive detail
-* visual noise
+* industrial / mechanical / CNC aesthetic
+* sharp geometric icon UI as final art
+* hyper realism, HDR, photobashing
+* Spotify Pet character cosplay (dogs, lime campaign skin)
+* blob AI slop without readable structure
 
 ---
 
@@ -236,18 +225,15 @@ Avoid:
 
 Phase 1
 
-Focus on ONE scene only:
+Focus on ONE illustrated hero:
 
-PETROL_STATION_2AM
+**Night Refuel — soft fuel pump**
 
-Generate:
+Refine in Figma/SVG until it passes the Pets-style read test at card + hero size.
 
-* 30–50 visual concepts
+Do NOT attempt all 10 scenes until pump illustration language is locked.
 
-Goal:
-discover the visual language
-
-Do NOT attempt all 10 scenes yet.
+Reject: industrial diagrams, geometric placeholders, AI mascot blobs.
 
 ---
 

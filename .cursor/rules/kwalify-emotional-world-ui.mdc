@@ -1,30 +1,26 @@
 ---
-description: Emotional World UI system — one hero object per screen, geometric 2.5D, Pets-like transitions
+description: Pets-style mood UI — 5 cards, one soft illustrated hero; superseded world/map spec
 globs:
   - artifacts/api-server/public/index.html
-  - artifacts/api-server/public/cinema/**
   - docs/**/*
 alwaysApply: false
 ---
 
-# Emotional World Interface System
+# Pets mood UI (canonical)
 
-Before UI, scene, or visual implementation, read:
+Read before UI work:
 
-`docs/KWALIFY_FINAL_UI_BLUEPRINT.md` (canonical) · `docs/KWALIFY_EMOTIONAL_WORLD_UI_SPEC.md`
+`docs/EMOTION_GRID_UI_ENTRY.md` · `docs/KWALIFY_FINAL_UI_BLUEPRINT.md` · `docs/KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md`
 
-Product promise still governed by `docs/KWALIFY_CREATIVE_NORTH_STAR.md` (playlist primary).
+Product: `docs/KWALIFY_CREATIVE_NORTH_STAR.md` (playlist primary).
 
 Hard rules:
-- One screen = one emotion = one hero object = one controlled environment
-- Geometric / semi-geometric shapes only; no blobs, watercolor, or cluttered scenes
-- 2.5D layers: hero → ambient hints → gradient field
-- Single soft light; edge glow on hero only
-- Silhouette readable in 1 second; hero grounded (shadow/glow)
-- Home: emotion nodes with mini vignettes; hover lift + glow; click zoom into world (0.6–1.2s), not hard cuts
-- Search: emotion interpretations, not keyword results
-- One geometric sans; controlled saturation per scene
+- Logged-in = 2 screens: 5-card grid → fullscreen one soft illustrated object
+- Spotify Pets–inspired illustration — rounded, friendly, simplified
+- NOT industrial icons, NOT geometric placeholder UI, NOT world/map/compose on home
+- Motion: fade + gentle scale, ease-out — no bounce
+- `body.pets-app` hides legacy page chrome
 
-If output looks like AI slop (amorphous shapes, HDR, multiple focal points), stop and replace with a clean geometric hero.
+Older `KWALIFY_EMOTIONAL_WORLD_UI_SPEC.md` (geometric world) is **deprecated** where it conflicts with Final UI.
 
-Still art: `docs/KWALIFY_VISUAL_STYLE_TLDR.md` and Phase 1 Figma checklist for fuel pump.
+Illustration: `docs/KWALIFY_OBJECT_CONSTRUCTION_MODE.md` · heroes: `docs/KWALIFY_HERO_OBJECTS_LOCKED.md`
