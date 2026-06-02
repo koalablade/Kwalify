@@ -528,55 +528,178 @@
       .presets { overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; }
     }
 
-    /* ── Cinematic + Endel session UI ── */
-    .hero-compact { padding:36px 0 16px; }
-    .hero-compact h1 { color:var(--text); background:none; -webkit-text-fill-color:unset; font-size:clamp(32px,8vw,44px); letter-spacing:-1.2px; }
-    .hero-tagline { font-size:15px; color:var(--text-sub); max-width:360px; margin:0 auto; line-height:1.5; }
-    .sync-status-line { text-align:center; margin-bottom:12px; min-height:28px; }
-    .library-ready-pill { margin:0; cursor:default; }
-    .library-ready-pill:hover { transform:none; box-shadow:none; }
-    .sync-detail-panel, .first-run-hint, .sync-banner, #syncDetailPanel { display:none !important; }
-    .session-core { padding:28px 24px 22px; border-color:rgba(255,255,255,.06); max-width:520px; margin:0 auto; }
-    .vibe-focus { margin-bottom:16px; }
-    .vibe-focus .vibe-input { font-size:17px; padding:16px 52px 16px 18px; border-radius:12px; border-color:rgba(255,255,255,.1); background:rgba(0,0,0,.45); }
-    .vibe-focus .vibe-input:focus { border-color:rgba(29,185,84,.4); box-shadow:0 0 0 3px rgba(29,185,84,.12); }
-    .input-card.glow { border-color:rgba(29,185,84,.35); box-shadow:0 0 0 3px rgba(29,185,84,.1),0 20px 48px rgba(0,0,0,.4); }
-    .btn-generate-full { width:100%; padding:15px 24px; font-size:15px; font-weight:700; border-radius:12px; margin-bottom:10px; }
-    .trust-once { font-size:11.5px; color:var(--text-faint); text-align:center; margin:0 0 18px; }
-    .session-core .field-label { display:none; }
-    .session-core .input-row { display:block; }
-    .session-core #generateBtn { display:none; }
-    .prompt-examples { margin-top:0; padding-top:16px; border-top:1px solid var(--border); }
-    .prompt-example-btn:hover { background:var(--green-dim); border-color:rgba(29,185,84,.3); color:#8fe8b0; }
-    .listening-wrap { text-align:center; padding:20px 0 8px; }
-    .listening-wrap .prog-head, .listening-wrap .prog-track, .listening-wrap .prog-pct, .listening-wrap .dj-stages { display:none !important; }
-    .listening-wrap .prog-label { justify-content:center; font-size:14px; color:var(--text-sub); font-weight:500; }
-    .listening-wrap .spin { width:22px; height:22px; border-top-color:var(--green); }
-    .listening-pulse { width:48px; height:48px; margin:0 auto 14px; border-radius:50%; border:1px solid rgba(29,185,84,.25); animation:listenPulse 2s ease-out infinite; }
-    @keyframes listenPulse { 0%,100%{ transform:scale(1); opacity:.5; } 50%{ transform:scale(1.06); opacity:1; } }
-    .spin { border-top-color:var(--green); }
-    .disclosure-toggle:hover { color:var(--text); }
-    .disclosure-section.open .disclosure-chevron, .result-tier-toggle:hover { color:var(--green); }
-    #advancedHomeSection .disclosure-toggle span:first-child { font-size:12px; }
-    .library-health-card { display:none !important; }
-    .my-playlists-section { margin-top:40px; opacity:.92; }
-    .my-playlists-section .section-header { margin-bottom:8px; }
-    .result-card { padding:26px 24px 22px; border-color:rgba(255,255,255,.07); }
+    /* ── Final polish: single moment, input = sun ── */
+    .moment-app .waves, .moment-app .orb { opacity:0; }
+    .moment-app .page { padding-bottom:24px; }
+    .moment-app .inner { max-width:440px; }
+    .moment-app .header { opacity:.32; padding-top:16px; }
+    .moment-app .logo-mark { box-shadow:none; opacity:.85; }
+    .moment-app .logo-name { color:var(--text-muted); }
+    .moment-app .logo-name em { color:var(--text-muted); }
+    .moment-app .header-menu-btn { opacity:.6; border-color:transparent; background:transparent; }
+    #appView.moment-app { display:flex !important; flex-direction:column; min-height:100vh; }
+    .moment-shell {
+      position:relative; flex:1; display:flex; align-items:center; justify-content:center;
+      min-height:min(78vh,720px); padding:14vh 24px 18vh; text-align:center;
+    }
+    .compose-layer {
+      width:100%; max-width:380px; margin:0 auto;
+      transition:opacity .6s ease-out, transform .6s var(--spring), filter .6s ease-out;
+    }
+    .hero-moment { padding:0 0 12px; }
+    .hero-moment h1 {
+      font-size:11px; font-weight:600; letter-spacing:.2em; text-transform:uppercase;
+      color:var(--text-faint); opacity:.4; margin-bottom:0;
+    }
+    .hero-tagline { display:none; }
+    .sync-whisper {
+      display:inline-flex; margin-bottom:0; font-size:10px; padding:0; border:none;
+      background:transparent; color:var(--text-faint); opacity:.22; font-weight:500;
+    }
+    .sync-whisper svg { opacity:.5; }
+    .sync-gate-moment {
+      position:absolute; inset:0; z-index:5; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:24px; text-align:center; background:rgba(6,6,8,.92);
+    }
+    .sync-gate-moment .sync-gate-title { font-size:20px; margin-bottom:12px; }
+    .sync-gate-moment .sync-gate-body { max-width:300px; margin-bottom:24px; }
+    .input-moment {
+      background:transparent !important; border:none !important; box-shadow:none !important;
+      backdrop-filter:none !important; padding:0 !important;
+    }
+    .input-moment.glow .vibe-input {
+      border-bottom-color:rgba(255,255,255,.55);
+      box-shadow:0 12px 40px rgba(0,0,0,.2);
+    }
+    .vibe-focus { margin:12vh 0 10vh; }
+    .vibe-focus .vibe-input {
+      width:100%; font-size:clamp(22px,5.5vw,28px); font-weight:500; text-align:center;
+      padding:28px 12px 40px; border-radius:0; border:none;
+      border-bottom:1px solid rgba(255,255,255,.18);
+      background:transparent; color:#fff; letter-spacing:-.4px;
+      text-shadow:0 0 40px rgba(255,255,255,.06);
+    }
+    .vibe-focus .vibe-input::placeholder { color:rgba(255,255,255,.22); font-weight:400; }
+    .vibe-focus .vibe-input:focus {
+      outline:none; border-bottom-color:rgba(255,255,255,.5);
+      box-shadow:0 8px 32px rgba(0,0,0,.15);
+    }
+    .vibe-counter { opacity:0; pointer-events:none; }
+    .vibe-input:focus ~ .vibe-counter, .vibe-input:not(:placeholder-shown) ~ .vibe-counter { opacity:.15; }
+    .btn-generate-full {
+      width:100%; max-width:260px; padding:15px 32px; font-size:13px; font-weight:700;
+      letter-spacing:.06em; text-transform:uppercase; border-radius:9999px;
+      margin:0 auto 48px; box-shadow:0 4px 24px var(--green-glow);
+    }
+    .trust-once { display:none; }
+    .examples-whisper { opacity:.18; margin-top:56px; transition:opacity .4s; }
+    .prompt-examples-label { display:none; }
+    .prompt-examples { border:none !important; padding:0 !important; margin:0 !important; }
+    .prompt-example-list { justify-content:center; gap:6px; }
+    .prompt-example-btn {
+      background:transparent; border:none; font-size:10px; color:var(--text-faint);
+      opacity:.85; padding:4px 8px;
+    }
+    .prompt-example-btn:hover { color:var(--text-muted); opacity:1; background:transparent; }
+    .settings-whisper { margin-top:40px; opacity:.14; }
+    .settings-whisper summary {
+      list-style:none; font-size:11px; color:var(--text-faint); cursor:pointer; padding:8px;
+      border:none; background:transparent; font-family:inherit;
+    }
+    .settings-whisper summary::-webkit-details-marker { display:none; }
+    .settings-whisper[open] { opacity:.75; }
+    .settings-whisper .disclosure-body { text-align:left; max-width:320px; margin:12px auto 0; padding:0; }
+    .settings-whisper .disclosure-toggle { display:none; }
+    .prog-wrap { display:none !important; }
+    .listen-overlay {
+      position:fixed; inset:0; z-index:15; display:flex; align-items:center; justify-content:center;
+      pointer-events:none; opacity:0; transition:opacity .65s ease-out;
+      background:rgba(6,6,8,.88);
+    }
+    .listen-overlay.visible { opacity:1; }
+    .listen-overlay .listen-line { font-size:14px; color:var(--text-faint); font-weight:400; letter-spacing:.04em; margin:0; }
+    .listen-overlay .spin { display:none; }
+    .moment-listening .compose-layer { opacity:.04; filter:blur(4px); transform:scale(.97); pointer-events:none; }
+    .moment-listening .below-fold { opacity:0; }
+    .result-layer {
+      position:fixed; inset:0; z-index:25; display:flex; align-items:center; justify-content:center;
+      padding:48px 24px; background:var(--bg);
+      opacity:0; visibility:hidden; pointer-events:none;
+      transition:opacity .65s ease-out, visibility .65s;
+    }
+    .result-layer.visible { opacity:1; visibility:visible; pointer-events:auto; }
+    .moment-result .compose-layer,
+    .moment-result .below-fold,
+    .moment-result .sync-whisper { opacity:0 !important; visibility:hidden !important; pointer-events:none !important; }
+    .moment-result .listen-overlay { opacity:0 !important; visibility:hidden !important; }
+    .moment-result .header { opacity:.2; }
+    .result-surface {
+      width:100%; max-width:400px; text-align:center;
+      animation:resultArrive .7s var(--spring) both;
+    }
+    @keyframes resultArrive { from{ opacity:0; transform:translateY(20px); } to{ opacity:1; transform:none; } }
+    .result-layer.glass { background:var(--bg); border:none; backdrop-filter:none; margin:0; box-shadow:none; }
     .result-top, .result-icon, .result-tag, .result-meta-txt, .mode-badge { display:none !important; }
-    .result-art-grid { max-width:100%; grid-template-columns:repeat(4,1fr); margin-bottom:20px; border-radius:14px; }
-    .result-name-display { font-size:clamp(22px,5vw,28px); font-weight:800; letter-spacing:-.5px; margin-bottom:12px; line-height:1.2; }
-    .result-summary { border-left-color:var(--green); margin-bottom:16px; font-size:14px; }
-    .cache-tier1-notice { background:var(--amber-dim); border-color:rgba(232,184,74,.35); color:var(--amber); }
-    .result-actions { margin-bottom:8px; }
-    .result-actions .btn-green { padding:14px 20px; font-size:15px; }
-    .result-tier-toggle { color:var(--text-muted); }
-    .sticky-generate .btn { background:var(--green); color:#000; box-shadow:0 4px 18px var(--green-glow); }
+    .result-art-grid {
+      max-width:min(320px,88vw); margin:0 auto 28px; border-radius:14px; overflow:hidden;
+      box-shadow:0 20px 60px rgba(0,0,0,.5);
+    }
+    .result-name-display {
+      font-size:clamp(26px,6vw,34px); font-weight:800; letter-spacing:-.7px;
+      margin-bottom:12px; color:#fff;
+    }
+    .result-summary {
+      border:none; background:transparent; padding:0; margin:0 auto 28px; max-width:320px;
+      font-size:13px; color:var(--text-muted); line-height:1.55; text-align:center;
+    }
+    .cache-tier1-notice {
+      border:none; background:transparent; color:var(--text-faint); font-size:11px;
+      opacity:.45; padding:0; margin-bottom:20px;
+    }
+    .result-actions { flex-direction:column; align-items:center; gap:12px; max-width:280px; margin:0 auto 16px; }
+    .result-actions > div { width:100%; }
+    .result-actions .btn-green { width:100%; border-radius:9999px; font-size:15px; padding:16px; }
+    #regenBtn {
+      width:100%; border:none; background:transparent; color:var(--text-faint);
+      font-size:12px; opacity:.5;
+    }
+    #regenBtn:hover { color:var(--text-muted); opacity:.7; background:transparent; }
+    .result-more { margin-top:16px; opacity:.22; }
+    .result-tier-toggle { justify-content:center; font-size:10px; opacity:.35; border:none; color:var(--text-faint); }
+    .result-tier-body { text-align:left; max-width:400px; margin:0 auto; }
+    .moment-back {
+      display:inline-block; margin-top:28px; font-size:10px; color:var(--text-faint); opacity:.3;
+      background:none; border:none; font-family:inherit; cursor:pointer;
+      text-decoration:none;
+    }
+    .moment-back:hover { color:var(--text-muted); opacity:.5; }
+    .below-fold { margin-top:auto; padding-top:80px; opacity:.18; transition:opacity .5s; }
+    .below-fold .section-title, .below-fold .section-sub { opacity:.8; }
+    .below-fold .pl-row { border:none !important; background:transparent !important; backdrop-filter:none !important; }
+    .moment-result .below-fold { display:none; }
+    .moment-listening .below-fold { opacity:.15; pointer-events:none; }
+    .pending-card.visible {
+      position:fixed; inset:0; z-index:20; display:flex !important; align-items:center; justify-content:center;
+      margin:0; max-width:none; border:none; background:var(--bg);
+    }
+    .site-footer { border:none; opacity:.35; margin-top:24px; }
+    .sticky-generate { display:none !important; }
+    .sync-detail-panel, .first-run-hint, .sync-banner, #syncDetailPanel { display:none !important; }
+    .library-health-card { display:none !important; }
     .lhero-examples { display:none !important; }
+    .spin { border-top-color:var(--green); }
     .toast-info { background:rgba(8,12,10,.93); border-color:rgba(29,185,84,.22); color:#8fe8b0; }
     .btn-purple, .btn-generating { background:var(--green) !important; color:#000 !important; box-shadow:0 4px 18px var(--green-glow) !important; animation:none !important; }
     .mode-tab.active { background:var(--green-dim); border-color:rgba(29,185,84,.35); color:#8fe8b0; }
-    .length-slider::-webkit-slider-thumb { background:var(--green); box-shadow:0 0 8px var(--green-glow); }
+    .length-slider::-webkit-slider-thumb { background:var(--green); }
     .ctrl-val { color:var(--green); }
+    .disclosure-section.open .disclosure-chevron, .result-tier-toggle:hover { color:var(--text-muted); }
+    .moment-app .feedback-section, .moment-app .heard-card, .moment-app .stats-bar { opacity:.9; }
+    @media (max-width:520px) {
+      .moment-shell { padding:10vh 18px 14vh; min-height:70vh; }
+      .vibe-focus { margin:8vh 0 7vh; }
+      .examples-whisper { margin-top:40px; }
+    }
   </style>
 </head>
 <body>
@@ -607,85 +730,135 @@
     <div id="loadOverlay"><div class="spin"></div></div>
 
     <!-- ── APP VIEW (logged in) ── -->
-    <div id="appView" style="display:none">
+    <div id="appView" class="moment-app moment-compose" style="display:none">
 
-      <section class="hero hero-compact">
-        <h1>Vibe DJ</h1>
-        <p class="hero-tagline">Type how you feel. Get a playlist from your liked songs.</p>
-      </section>
+      <div class="moment-shell moment-compose" id="momentShell">
 
-      <div class="glass sync-gate-card" id="syncGateCard" style="display:none" aria-live="polite"></div>
+        <div class="sync-gate-moment" id="syncGateCard" style="display:none" aria-live="polite"></div>
 
-      <div class="sync-status-line">
-        <div id="libraryReadyPill" class="library-ready-pill" style="display:none" aria-live="polite"></div>
-      </div>
-
-      <div class="glass input-card session-core glass-interactive" id="inputCard" style="display:none">
-        <div class="vibe-focus">
-          <div class="input-wrap">
-            <input class="vibe-input" id="vibeInput" type="text"
-              placeholder="Late-night drive, rainy window, slow focus…"
-              maxlength="140" autocomplete="off" spellcheck="false" />
-            <span class="vibe-counter" id="vibeCounter">0/140</span>
-          </div>
-        </div>
-        <button type="button" class="btn btn-green btn-generate-full" id="generateBtn" onclick="generate()">Generate playlist</button>
-        <p class="trust-once">Spotify liked songs only — not new recommendations.</p>
-
-        <div class="prompt-examples" id="promptExamples">
-          <div class="prompt-examples-label">Example vibes</div>
-          <div class="prompt-example-list" id="promptExampleList"></div>
+        <div class="listen-overlay" id="listenOverlay" aria-hidden="true">
+          <p class="listen-line" id="progLabel">Listening…</p>
         </div>
 
-        <div class="prog-wrap listening-wrap" id="progWrap" aria-live="polite">
-          <div class="listening-pulse" aria-hidden="true"></div>
-          <div class="prog-head">
-            <div class="prog-label"><div class="spin"></div><span id="progLabel">Listening to your library…</span></div>
-            <span class="prog-pct" id="progPct" hidden>0%</span>
-          </div>
-          <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
-          <ol class="dj-stages" id="djStages" hidden></ol>
-        </div>
+        <div class="compose-layer" id="composeLayer">
+          <div id="libraryReadyPill" class="library-ready-pill sync-whisper" style="display:none" aria-live="polite"></div>
 
-        <div class="disclosure-section" id="advancedHomeSection">
-          <button type="button" class="disclosure-toggle" onclick="toggleDisclosure('advancedHomeSection')">
-            <span>Settings</span>
-            <span class="disclosure-chevron">▼</span>
-          </button>
-          <div class="disclosure-body">
-            <div class="controls" style="margin-top:0">
-              <div class="ctrl-block grow">
-                <div class="ctrl-label">Length — <span class="ctrl-val" id="lenVal">25 tracks</span></div>
-                <input class="length-slider" id="lenSlider" type="range" min="10" max="100" step="5" value="25"
-                  oninput="document.getElementById('lenVal').textContent=this.value+' tracks'" />
+          <section class="hero-moment" aria-hidden="true">
+            <h1>Vibe DJ</h1>
+          </section>
+
+          <div class="input-moment input-card glass-interactive" id="inputCard" style="display:none">
+            <div class="vibe-focus">
+              <div class="input-wrap">
+                <input class="vibe-input" id="vibeInput" type="text"
+                  placeholder="Describe a moment…"
+                  maxlength="140" autocomplete="off" spellcheck="false"
+                  aria-label="Describe a moment for your playlist" />
+                <span class="vibe-counter" id="vibeCounter" aria-hidden="true">0/140</span>
               </div>
-              <div class="ctrl-block">
-                <div class="ctrl-label">Match mode</div>
-                <div class="mode-tabs">
-                  <button class="mode-tab" id="modeStrict" onclick="setMode('strict')"><span>Strict</span></button>
-                  <button class="mode-tab active" id="modeBalanced" onclick="setMode('balanced')"><span>Balanced</span></button>
-                  <button class="mode-tab" id="modeChaotic" onclick="setMode('chaotic')"><span>Chaotic</span></button>
+            </div>
+            <button type="button" class="btn btn-green btn-generate-full" id="generateBtn" onclick="generate()">Generate</button>
+
+            <div class="prompt-examples examples-whisper" id="promptExamples">
+              <div class="prompt-example-list" id="promptExampleList"></div>
+            </div>
+
+            <details class="settings-whisper" id="advancedHomeSection">
+              <summary>Settings</summary>
+              <div class="disclosure-body">
+                <div class="controls" style="margin-top:0">
+                  <div class="ctrl-block grow">
+                    <div class="ctrl-label">Length — <span class="ctrl-val" id="lenVal">25 tracks</span></div>
+                    <input class="length-slider" id="lenSlider" type="range" min="10" max="100" step="5" value="25"
+                      oninput="document.getElementById('lenVal').textContent=this.value+' tracks'" />
+                  </div>
+                  <div class="ctrl-block">
+                    <div class="ctrl-label">Match mode</div>
+                    <div class="mode-tabs">
+                      <button class="mode-tab" id="modeStrict" onclick="setMode('strict')"><span>Strict</span></button>
+                      <button class="mode-tab active" id="modeBalanced" onclick="setMode('balanced')"><span>Balanced</span></button>
+                      <button class="mode-tab" id="modeChaotic" onclick="setMode('chaotic')"><span>Chaotic</span></button>
+                    </div>
+                  </div>
+                </div>
+                <div class="ref-field" style="margin-top:14px">
+                  <div class="field-label">Reference playlist <span style="font-weight:400;text-transform:none;color:var(--text-faint)">(optional)</span></div>
+                  <input class="vibe-input" id="referencePlaylistInput" type="url"
+                    placeholder="Public Spotify playlist URL…"
+                    autocomplete="off" spellcheck="false" style="padding-right:16px;font-size:13px;text-align:left" />
+                  <p class="ref-hint" id="referencePlaylistHint" style="font-size:11px;color:var(--text-faint);margin:6px 0 0;line-height:1.45">
+                    Biases mood only.
+                    <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>
+                  </p>
+                </div>
+                <div id="libraryHealthCard" class="library-health-card"></div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="result-layer result-card glass" id="resultCard">
+          <div class="result-surface">
+            <div id="resultArtGrid" class="result-art-grid"></div>
+            <div class="result-name result-name-display" id="resultName">Kwalify Playlist</div>
+            <div class="result-meta-txt" id="resultMeta" hidden>25 tracks</div>
+            <div id="resultCacheNotice" class="cache-tier1-notice"></div>
+            <div id="resultSummary" class="result-summary"></div>
+            <div class="result-actions">
+              <div id="spotifyActionArea" style="width:100%"></div>
+              <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different picks">
+                Reshuffle for this vibe
+              </button>
+            </div>
+            <div class="result-more">
+              <button type="button" class="result-tier-toggle" id="tracksTierToggle" onclick="toggleResultTier('tracksTierBody','tracksTierToggle')">
+                <span>▶</span> View tracks
+              </button>
+              <div id="tracksTierBody" class="result-tier-body">
+                <div id="forgottenGems"></div>
+                <div class="tracks-label">Tracks</div>
+                <div class="track-list" id="trackList"></div>
+              </div>
+              <button type="button" class="result-tier-toggle" id="advancedTierToggle" onclick="toggleResultTier('advancedTierBody','advancedTierToggle')">
+                <span>▶</span> Insights
+              </button>
+              <div id="advancedTierBody" class="result-tier-body result-advanced">
+                <div id="cacheBanner"></div>
+                <div id="confidenceCard"></div>
+                <div id="kwalifyHeard"></div>
+                <div id="playlistStory"></div>
+                <div id="statsBar"></div>
+                <div id="emotionDetails">
+                  <div id="vibeInterpretation"></div>
+                  <div id="emotionBars"></div>
+                  <div id="sceneChips"></div>
+                </div>
+                <div id="feedbackSection" class="feedback-section">
+                  <div class="feedback-label">How was this playlist?</div>
+                  <div class="feedback-btns" id="feedbackBtns">
+                    <button type="button" class="feedback-btn" data-reaction="up" onclick="submitFeedback('up')">👍</button>
+                    <button type="button" class="feedback-btn" data-reaction="neutral" onclick="submitFeedback('neutral')">😐</button>
+                    <button type="button" class="feedback-btn" data-reaction="down" onclick="submitFeedback('down')">👎</button>
+                  </div>
+                  <div id="feedbackThanks" class="feedback-thanks" style="display:none">Thanks.</div>
                 </div>
               </div>
             </div>
-            <div class="ref-field" style="margin-top:14px">
-              <div class="field-label">Sound like a playlist <span style="font-weight:400;text-transform:none;color:var(--text-faint)">(optional)</span></div>
-              <input class="vibe-input" id="referencePlaylistInput" type="url"
-                placeholder="Public Spotify playlist URL…"
-                autocomplete="off" spellcheck="false" style="padding-right:16px;font-size:13px" />
-              <p class="ref-hint" id="referencePlaylistHint" style="font-size:11px;color:var(--text-faint);margin:6px 0 0;line-height:1.45">
-                Biases the mood only — always creates a new playlist.
-                <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>
-              </p>
-            </div>
-            <div id="libraryHealthCard" class="library-health-card" style="margin-top:14px;padding:12px 0 0"></div>
-            <div class="kbd-hint" style="justify-content:flex-start;margin-top:10px"><kbd>Enter</kbd> generate · <kbd>Ctrl K</kbd> focus</div>
+            <button type="button" class="moment-back" onclick="returnToCompose()">← New vibe</button>
+            <span class="mode-badge" id="modeBadge" style="display:none">balanced</span>
           </div>
         </div>
-      </div>
 
-      <!-- Skeleton (unused — progress only) -->
-      <div class="glass skel-card" id="skelCard">
+        <div class="prog-wrap" id="progWrap" hidden aria-hidden="true">
+          <span id="progPct" hidden></span>
+          <div class="prog-fill" id="progFill" hidden></div>
+          <ol id="djStages" hidden></ol>
+        </div>
+
+      </div><!-- /momentShell -->
+
+      <!-- Skeleton (unused) -->
+      <div class="glass skel-card" id="skelCard" style="display:none">
         <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px">
           <div class="skel" style="width:52px;height:52px;border-radius:13px;flex-shrink:0"></div>
           <div style="flex:1">
@@ -700,59 +873,6 @@
         <div class="skel skel-line" style="width:100%"></div>
         <div class="skel skel-line" style="width:84%;margin-top:6px"></div>
         <div class="skel skel-line" style="width:91%;margin-top:6px"></div>
-      </div>
-
-      <!-- Result card -->
-      <div class="glass result-card" id="resultCard">
-        <div id="resultArtGrid" class="result-art-grid"></div>
-        <div class="result-name result-name-display" id="resultName">Kwalify Playlist</div>
-        <div class="result-meta-txt" id="resultMeta" hidden>25 tracks</div>
-        <div id="resultCacheNotice" class="cache-tier1-notice"></div>
-        <div id="resultSummary" class="result-summary"></div>
-        <div class="result-actions">
-          <div id="spotifyActionArea" style="flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px;"></div>
-          <div style="display:flex;flex-direction:column;align-items:stretch;min-width:140px">
-            <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different picks from your likes">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-              Reshuffle for this vibe
-            </button>
-          </div>
-        </div>
-
-        <button type="button" class="result-tier-toggle" id="tracksTierToggle" onclick="toggleResultTier('tracksTierBody','tracksTierToggle')">
-          <span>▶</span> View tracks
-        </button>
-        <div id="tracksTierBody" class="result-tier-body">
-          <div id="forgottenGems"></div>
-          <div class="tracks-label">Tracks</div>
-          <div class="track-list" id="trackList"></div>
-        </div>
-
-        <button type="button" class="result-tier-toggle" id="advancedTierToggle" onclick="toggleResultTier('advancedTierBody','advancedTierToggle')">
-          <span>▶</span> Insights
-        </button>
-        <div id="advancedTierBody" class="result-tier-body result-advanced">
-          <div id="cacheBanner"></div>
-          <div id="confidenceCard"></div>
-          <div id="kwalifyHeard"></div>
-          <div id="playlistStory"></div>
-          <div id="statsBar"></div>
-          <div id="emotionDetails">
-            <div id="vibeInterpretation"></div>
-            <div id="emotionBars"></div>
-            <div id="sceneChips"></div>
-          </div>
-          <div id="feedbackSection" class="feedback-section">
-            <div class="feedback-label">How was this playlist?</div>
-            <div class="feedback-btns" id="feedbackBtns">
-              <button type="button" class="feedback-btn" data-reaction="up" onclick="submitFeedback('up')">👍 Nailed it</button>
-              <button type="button" class="feedback-btn" data-reaction="neutral" onclick="submitFeedback('neutral')">😐 Close</button>
-              <button type="button" class="feedback-btn" data-reaction="down" onclick="submitFeedback('down')">👎 Missed</button>
-            </div>
-            <div id="feedbackThanks" class="feedback-thanks" style="display:none">Thanks — this helps Kwalify learn.</div>
-          </div>
-        </div>
-        <span class="mode-badge" id="modeBadge" style="display:none">balanced</span>
       </div>
 
       <!-- Pending preview card (shown when Spotify playlist creation is blocked) -->
@@ -785,23 +905,19 @@
         <div class="h-list" id="hList"></div>
       </div>
 
-      <!-- Recent playlists (compact; Gallery has full grid) -->
-      <div class="my-playlists-section" id="myPlaylistsSection" style="display:none">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Recent playlists</div>
-            <div class="section-sub">Quick reopen here · <a href="/gallery" title="Full grid with cover art">Gallery</a> has every playlist</div>
+      <div class="below-fold" id="belowFold">
+        <div class="my-playlists-section" id="myPlaylistsSection" style="display:none">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Recent</div>
+              <div class="section-sub"><a href="/gallery">Gallery</a></div>
+            </div>
           </div>
+          <div class="pl-list" id="plList"></div>
         </div>
-        <div class="pl-list" id="plList"></div>
-      </div>
-
-      <footer class="site-footer">
-        Beta — <a href="https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform" target="_blank" rel="noopener">Send feedback</a>
-      </footer>
-
-      <div class="sticky-generate" id="stickyGenerate">
-        <button type="button" class="btn btn-green btn-md" onclick="generate()" style="width:100%">Generate playlist</button>
+        <footer class="site-footer">
+          Beta — <a href="https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform" target="_blank" rel="noopener">Feedback</a>
+        </footer>
       </div>
 
     </div><!-- /appView -->
@@ -946,9 +1062,33 @@ function showLanding(){
     </a>`;
 }
 
+function setMomentState(state){
+  const av=$('appView');
+  const shell=$('momentShell');
+  ['compose','listening','result'].forEach(s=>{
+    av&&av.classList.remove('moment-'+s);
+    shell&&shell.classList.remove('moment-'+s);
+  });
+  if(state){
+    av&&av.classList.add('moment-'+state);
+    shell&&shell.classList.add('moment-'+state);
+  }
+}
+
+function returnToCompose(){
+  resultCard&&resultCard.classList.remove('visible');
+  const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
+  const lo=$('listenOverlay');
+  if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
+  setMomentState('compose');
+  vibeInput?.focus();
+}
+
 function showApp(userData){
   $('loadOverlay').style.display='none';
-  $('appView').style.display='block';
+  $('appView').style.display='flex';
+  document.querySelector('.page')?.classList.add('moment-app');
+  setMomentState('compose');
 
   $('headerNav').innerHTML=`
     <div class="header-menu-wrap">
@@ -1046,10 +1186,8 @@ const HIST_KEY='kwalah_v3', MAX_HIST=10;
 const ICONS=['🎵','🌙','💪','☁️','🌅','🎧','🔥','✨','🎶','🌊'];
 const EXAMPLE_VIBES=[
   'late-night motorway drive',
-  'sunny afternoon working on an old car',
+  'sunny afternoon, old car',
   'songs that sound expensive',
-  'end of summer but not sad',
-  'music for wandering around London at midnight',
 ];
 let _genCompressed=false;
 let _lastSyncedAt=null, _lastSyncedTrackCount=0;
@@ -1088,13 +1226,11 @@ function toggleResultTier(bodyId, toggleId){
 }
 
 function _shortVibeSummary(vibe, ep, mu, expl, count){
-  const parts=[];
-  if(vibe) parts.push(`Built for “${vibe}” from your liked songs.`);
-  else parts.push('Built from your liked songs to match that feeling.');
-  const scene=mu?.where?.scene||'';
-  if(scene) parts[0]=`Built for “${vibe||'this moment'}” — ${scene} energy from your likes.`;
-  if(count) parts.push(`${count} tracks ready on Spotify.`);
-  return parts.slice(0,2).join(' ');
+  const n=count||'';
+  if(vibe&&n) return `“${vibe}” — ${n} tracks from your likes.`;
+  if(vibe) return `“${vibe}”`;
+  if(n) return `${n} tracks from your likes.`;
+  return 'From your liked songs.';
 }
 
 /* ── Mode selector ── */
@@ -1229,7 +1365,7 @@ function startProgress(){
   stopProgressTimers();
   progStartMs=Date.now();
   _deployHintShown=false;
-  if(progLabel) progLabel.textContent='Listening to your library…';
+  if(progLabel) progLabel.textContent='Listening…';
   let progStatusInflight=false;
   progPollTimer=setInterval(()=>{
     if(!isGenerating||progStatusInflight) return;
@@ -1258,26 +1394,28 @@ function finishProgress(done){
   }, wait);
 }
 
-const _GEN_HTML='Generate playlist';
-const _GEN_LOADING='<span class="spin"></span> Listening…';
+const _GEN_HTML='Generate';
+const _GEN_LOADING='Listening…';
 
 function setLoading(on){
   if(!generateBtn) return;
   isGenerating=on;
   generateBtn.disabled=on;
-  if(on){
-    generateBtn.innerHTML=_GEN_LOADING;
-  } else {
-    generateBtn.innerHTML=_GEN_HTML;
-  }
-  if(progWrap) progWrap.classList.toggle('visible',on);
+  generateBtn.textContent=on?_GEN_LOADING:_GEN_HTML;
   const pe=$('promptExamples');
-  if(pe) pe.style.opacity=on?'0.5':'1';
-  if(on){ resultCard&&resultCard.classList.remove('visible'); startProgress(); }
-  else  {
-    finishProgress(()=>{
-      setTimeout(()=>{ progWrap&&progWrap.classList.remove('visible'); },280);
-    });
+  if(pe) pe.style.opacity=on?'0.2':'1';
+  const lo=$('listenOverlay');
+  if(lo){
+    lo.classList.toggle('visible',on);
+    lo.setAttribute('aria-hidden',on?'false':'true');
+  }
+  if(on){
+    setMomentState('listening');
+    if(progLabel) progLabel.textContent='Listening…';
+    resultCard&&resultCard.classList.remove('visible');
+    startProgress();
+  } else {
+    finishProgress(()=>{});
   }
 }
 
@@ -1499,7 +1637,7 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   if(cacheNotice){
     if(genData.cached){
       cacheNotice.style.display='block';
-      cacheNotice.textContent='Same vibe as a few minutes ago — reopened your recent playlist from liked songs only.';
+      cacheNotice.textContent='Same vibe as earlier — reopened from your likes.';
     } else {
       cacheNotice.style.display='none';
       cacheNotice.textContent='';
@@ -1627,15 +1765,11 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
     }
   }
 
-  resultCard&&resultCard.classList.remove('result-flash');
+  const lo=$('listenOverlay');
+  if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
+  setMomentState('result');
   resultCard&&resultCard.classList.add('visible');
-  /* Trigger green flash */
-  void resultCard.offsetWidth;
-  resultCard&&resultCard.classList.add('result-flash');
-  setTimeout(()=>resultCard&&resultCard.classList.remove('result-flash'), 900);
-
   resetCopyBtn();
-  resultCard&&resultCard.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 /* ── Pending Preview (403 / dev-mode block) ── */
@@ -1698,10 +1832,9 @@ function showPendingPreview(pendingTracks, emotionProfile, playlistName, vibe){
     }
   }
 
-  // Hide normal result card, show pending card
   resultCard&&resultCard.classList.remove('visible');
+  setMomentState('result');
   card.classList.add('visible');
-  card.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
 function clearReferencePlaylist(){
@@ -1771,6 +1904,7 @@ function generate(){
   .then(({ok,status,d})=>{
     varietyBoostNext=false;
     setLoading(false);
+    setMomentState('compose');
     if(status===409||d.code==='GENERATION_IN_PROGRESS'){
       showToast(d.error||'Already generating — please wait.','info',4000);
       return;
@@ -1778,11 +1912,11 @@ function generate(){
     if(status===429){
       const retryAfter=(d&&d.retry_after)||60;
       let rem=retryAfter;
-      const updateBtn=()=>{ generateBtn.disabled=true; generateBtn.innerHTML=`Try again in ${rem}s…`; };
+      const updateBtn=()=>{ generateBtn.disabled=true; generateBtn.textContent=`Try again in ${rem}s…`; };
       updateBtn();
       const cd=setInterval(()=>{
         rem--;
-        if(rem<=0){ clearInterval(cd); generateBtn.disabled=false; generateBtn.innerHTML=_GEN_HTML; }
+        if(rem<=0){ clearInterval(cd); generateBtn.disabled=false; generateBtn.textContent=_GEN_HTML; }
         else { updateBtn(); }
       },1000);
       showToast(`Rate limited — try again in ${retryAfter}s`,'info',5000);
@@ -1841,6 +1975,7 @@ function generate(){
   })
   .catch(async err=>{
     setLoading(false);
+    setMomentState('compose');
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
     if(err&&err.name==='AbortError'){
       try{
@@ -2106,7 +2241,8 @@ function _updateSyncUI(d){
     if(pill){
       const n=d.totalTracks||0;
       pill.style.display='inline-flex';
-      pill.innerHTML=_SYNC_CHECK+`<span>Library ready — ${n.toLocaleString()} song${n!==1?'s':''}</span>`;
+      pill.className='library-ready-pill sync-whisper';
+      pill.innerHTML=_SYNC_CHECK+`<span>${n.toLocaleString()} songs</span>`;
     }
     if(ic){
       if(prevState&&prevState!=='synced'){
@@ -2141,14 +2277,12 @@ function _renderSyncGate(d){
   if(!gate) return;
   if(d.isSyncing){
     gate.innerHTML=`
-      <div class="spin" style="margin:0 auto 20px"></div>
-      <div class="sync-gate-title">Syncing your library…</div>
-      <div class="sync-gate-body">Usually 1–3 minutes. Keep this tab open.</div>`;
+      <div class="sync-gate-title">Syncing…</div>
+      <div class="sync-gate-body">Keep this tab open.</div>`;
   } else {
     gate.innerHTML=`
-      <div class="sync-gate-icon">🎵</div>
-      <div class="sync-gate-title">Sync your Spotify library to start</div>
-      <div class="sync-gate-body">We need your liked songs before you can type a vibe and get a playlist.</div>
+      <div class="sync-gate-title">Connect your likes</div>
+      <div class="sync-gate-body">One-time sync, then describe a moment.</div>
       <button class="btn btn-green btn-md" onclick="_startSync()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         Sync Now
