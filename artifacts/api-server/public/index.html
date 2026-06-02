@@ -164,6 +164,11 @@
     .dj-stage.active { background:rgba(130,80,255,.08); border-color:rgba(130,80,255,.22); }
     .dj-stage.done { opacity:.85; }
     .dj-stage.done .dj-stage-title { color:var(--text-sub); }
+    .dj-stage-compact { padding:5px 10px; opacity:.65; animation:none; }
+    .dj-stage-compact .dj-stage-sub { display:none; }
+    .dj-stage-compact .dj-stage-title { font-size:11.5px; margin:0; font-weight:600; }
+    .dj-stage-compact .dj-stage-title::before { content:'✓ '; color:var(--green); font-weight:700; }
+    .dj-stage-compact .dj-stage-icon { font-size:12px; width:18px; }
     .liked-only-callout { font-size:12.5px; color:var(--text-sub); line-height:1.55; padding:10px 14px; background:rgba(29,185,84,.06); border:1px solid rgba(29,185,84,.2); border-radius:10px; margin-bottom:14px; }
     .liked-only-callout strong { color:var(--green); font-weight:600; }
     .first-gen-card { margin-top:14px; padding:18px 20px; border-color:rgba(130,80,255,.22); }
@@ -910,7 +915,8 @@ const DJ_STAGES=[
   {icon:'🎵', title:'Creating Spotify playlist', phases:['spotify','saving'],
     sub:()=>'Publishing a new playlist to your account'},
 ];
-const MIN_STAGE_MS=2600;
+const MIN_STAGE_MS=3000;
+const MIN_PROGRESS_VISIBLE_MS=2400;
 let progTimer=null, progPollTimer=null, progStageTimer=null, progStartMs=0, _lastProgPhase='', _deployHintShown=false;
 let _visualStageIdx=0, _targetStageIdx=0, _lastStageAdvanceMs=0;
 
@@ -926,22 +932,36 @@ function _paintDjStages(markAllDone){
   const el=$('djStages'); if(!el) return;
   const n=_libTrackCount||0;
   const v=_activeGenVibe||'';
-  const showThrough=markAllDone?DJ_STAGES.length-1:_visualStageIdx;
+  const idx=Math.min(_visualStageIdx,DJ_STAGES.length-1);
   let html='';
-  for(let i=0;i<=showThrough&&i<DJ_STAGES.length;i++){
-    const s=DJ_STAGES[i];
-    const cls=markAllDone||i<_visualStageIdx?'done':i===_visualStageIdx?'active':'';
+  if(markAllDone){
+    for(let i=0;i<DJ_STAGES.length;i++){
+      const s=DJ_STAGES[i];
+      html+=`<li class="dj-stage done dj-stage-compact">
+        <span class="dj-stage-icon">${s.icon}</span>
+        <div class="dj-stage-body"><div class="dj-stage-title">Stage ${i+1} · ${esc(s.title)}</div></div>
+      </li>`;
+    }
+  } else {
+    for(let i=0;i<idx;i++){
+      const s=DJ_STAGES[i];
+      html+=`<li class="dj-stage done dj-stage-compact">
+        <span class="dj-stage-icon">${s.icon}</span>
+        <div class="dj-stage-body"><div class="dj-stage-title">Stage ${i+1} · ${esc(s.title)}</div></div>
+      </li>`;
+    }
+    const s=DJ_STAGES[idx];
     const sub=s.sub(n,v);
-    html+=`<li class="dj-stage ${cls}">
+    html+=`<li class="dj-stage active">
       <span class="dj-stage-icon">${s.icon}</span>
       <div class="dj-stage-body">
-        <div class="dj-stage-title">Stage ${i+1} · ${esc(s.title)}</div>
+        <div class="dj-stage-title">Stage ${idx+1} · ${esc(s.title)}</div>
         <div class="dj-stage-sub">${esc(sub)}</div>
       </div>
     </li>`;
   }
   el.innerHTML=html;
-  const st=DJ_STAGES[Math.min(_visualStageIdx,DJ_STAGES.length-1)];
+  const st=DJ_STAGES[idx];
   if(progLabel&&st&&!markAllDone) progLabel.textContent=st.title;
 }
 
@@ -1031,22 +1051,26 @@ function startProgress(){
 }
 function finishProgress(done){
   stopProgressTimers();
-  _targetStageIdx=DJ_STAGES.length-1;
-  const step=()=>{
-    if(_visualStageIdx<_targetStageIdx){
-      _visualStageIdx++;
-      _lastStageAdvanceMs=Date.now();
-      _paintDjStages(false);
-      setTimeout(step, 480);
-      return;
-    }
-    _paintDjStages(true);
-    if(progLabel) progLabel.textContent='Playlist ready';
-    if(progFill) progFill.style.width='100%';
-    if(progPct) progPct.textContent='100%';
-    if(done) done();
-  };
-  step();
+  const elapsed=Date.now()-progStartMs;
+  const wait=Math.max(0,MIN_PROGRESS_VISIBLE_MS-elapsed);
+  setTimeout(()=>{
+    _targetStageIdx=DJ_STAGES.length-1;
+    const step=()=>{
+      if(_visualStageIdx<_targetStageIdx){
+        _visualStageIdx++;
+        _lastStageAdvanceMs=Date.now();
+        _paintDjStages(false);
+        setTimeout(step, 650);
+        return;
+      }
+      _paintDjStages(true);
+      if(progLabel) progLabel.textContent='Playlist ready';
+      if(progFill) progFill.style.width='100%';
+      if(progPct) progPct.textContent='100%';
+      if(done) setTimeout(done, 400);
+    };
+    step();
+  }, wait);
 }
 
 const _GEN_HTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Generate`;
