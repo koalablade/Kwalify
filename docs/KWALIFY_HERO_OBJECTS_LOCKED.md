@@ -26,7 +26,10 @@
 
 **Object:** Soft friendly fuel pump illustration.
 
-- Rounded tall body, soft display panel, gentle hose curve, simple nozzle blob  
+**SVG construction (locked):** [KWALIFY_PETROL_PUMP_SVG_LOCKED.md](./KWALIFY_PETROL_PUMP_SVG_LOCKED.md)  
+**Assets:** `fuel-pump-hero.svg` · `fuel-pump-silhouette.svg` · `PETS_ILLUST_DEFS.pump`
+
+- Six layers only: body → head → screen → hose → nozzle → accent  
 - Feels like a **character-like pump**, not a forecourt diagram  
 
 **Forbidden:** canopy, station, cars, realism, sharp metal edges  

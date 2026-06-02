@@ -20,6 +20,6 @@ Core checks:
 - Playlist is the primary product; mood visuals support feeling only
 - Logged-in home: 5-card Pets-style grid → fullscreen illustrated object (no dashboard chrome)
 - Spotify Pets **system** (clarity, one hero, soft illustration) — objects not animal mascots; no industrial/geometric icon UI
-- Phase 1 art: soft `pump` illustration until language locked
+- Phase 1 art: soft `pump` illustration until language locked — [KWALIFY_PETROL_PUMP_SVG_LOCKED.md](docs/KWALIFY_PETROL_PUMP_SVG_LOCKED.md)
 - Motion: gentle fade/scale only — no bounce, camera systems, or staged loaders
 - If a feature does not improve 5-second clarity or 30-second "it gets me", do not prioritise it

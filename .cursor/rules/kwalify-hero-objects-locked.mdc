@@ -13,6 +13,8 @@ Read `docs/KWALIFY_HERO_OBJECTS_LOCKED.md` and `docs/KWALIFY_OBJECT_CONSTRUCTION
 
 Allowed `illust` keys only: `pump` `road` `lamp` `car` `horizon`
 
+Pump SVG: `docs/KWALIFY_PETROL_PUMP_SVG_LOCKED.md` (6 layers: body → head → screen → hose → nozzle → accent)
+
 Each emotion screen:
 - ONE soft illustrated hero (centered)
 - Soft gradient background only

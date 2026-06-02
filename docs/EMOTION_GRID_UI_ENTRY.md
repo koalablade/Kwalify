@@ -62,8 +62,9 @@ Data: `EMOTION_MOODS` · art: `PETS_ILLUST_DEFS`
 
 | Event | Function |
 |-------|----------|
-| Login | `showApp()` → `pets-app` + `initEmotionGridUI()` |
-| Logout / landing | `showLanding()` → hides `#appView` |
+| Login | `enterPetsHome()` → `showApp()` · `initEmotionGridUI()` |
+| Boot | Inline `boot-auth` on `<html>` — Emotion Grid mounts before `/auth/me` |
+| Logout / landing | `showLanding()` — hides `#appView`, shows `#landingView` only |
 
 Legacy moment/cinema: **disabled** while `pets-app` (`setMomentState` / `renderScene` no-op).
 
