@@ -534,8 +534,12 @@
       position:fixed; inset:0; width:100%; height:100%; object-fit:cover;
       z-index:0; opacity:1 !important; pointer-events:none;
       background:#060608;
-      transform:scale(1.02);
       transform-origin:center center;
+      animation:substrateDrift 16s ease-in-out infinite;
+    }
+    @keyframes substrateDrift {
+      0%,100%{ transform:scale(1.02) translate(0,0); }
+      50%{ transform:scale(1.03) translate(-0.25%,0.15%); }
     }
     #cinemaFallback {
       position:fixed; inset:0; z-index:0; pointer-events:none;
@@ -569,6 +573,7 @@
     }
     #cinema.scene-fade { opacity:.88 !important; }
     body.perception-initial #cinema { opacity:0 !important; }
+    body.perception-initial #cinemaFallback { opacity:1 !important; display:block !important; }
     body.perception-depth #cinema { opacity:.9 !important; transition:opacity .5s ease, filter .65s ease; }
     body.perception-lock #cinema,
     body.perception-stable #cinema { opacity:1 !important; }
@@ -587,7 +592,11 @@
       background-size:160px 160px;
       mix-blend-mode:overlay;
       opacity:var(--world-grain);
-      animation:atmosphereBreath 14s ease-in-out infinite;
+      animation:atmosphereBreath 14s ease-in-out infinite, grainDrift 24s linear infinite;
+    }
+    @keyframes grainDrift {
+      0%{ background-position:0 0; }
+      100%{ background-position:160px 72px; }
     }
     #worldPhysics::after {
       content:''; position:absolute; inset:0;
@@ -845,6 +854,9 @@
     }
     .result-layer.glass { background:var(--bg); border:none; backdrop-filter:none; margin:0; box-shadow:none; }
     .result-top, .result-icon, .result-tag, .result-meta-txt, .mode-badge { display:none !important; }
+    body.moment-result .result-more,
+    body.moment-result #resultCacheNotice,
+    body.moment-result .moment-back { display:none !important; }
     .result-surface:not(.result-revealed) .result-name-display,
     .result-surface:not(.result-revealed) .result-reveal-part {
       opacity:0;
@@ -896,6 +908,15 @@
       box-shadow:0 40px 100px rgba(0,0,0,.35);
       border:none;
     }
+    body.moment-result .result-art-grid.result-art-ambient {
+      position:fixed; inset:-8%; z-index:0; max-width:none; margin:0;
+      display:block !important; opacity:.14; filter:blur(32px) saturate(.75);
+      pointer-events:none; box-shadow:none;
+    }
+    body.moment-result .result-art-grid.result-art-ambient img {
+      width:100%; height:100%; object-fit:cover; aspect-ratio:auto;
+    }
+    body.moment-result .result-surface { z-index:2; }
     .moment-app #resultCacheNotice,
     .moment-app .result-more { display:none !important; }
     .result-name-display {
@@ -1329,6 +1350,10 @@ function showLanding(){
     </a>`;
 }
 
+function _isMomentExperience(){
+  return !!$('appView')?.classList.contains('moment-app');
+}
+
 function setMomentState(state){
   const av=$('appView');
   const shell=$('momentShell');
@@ -1344,9 +1369,12 @@ function setMomentState(state){
   }
 }
 
-const RESULT_PRE_MS=520;
+const RESULT_PRE_MS=180;
 const RESULT_REVEAL_MS=1000;
 const RESULT_STABLE_MS=480;
+const CINEMA_CREDITS_MS=1100;
+const EMOTION_SETTLE_MS=200;
+let _cinemaGoAt=0;
 
 function _physicsJitter(base){
   return Math.max(0, (base|0)+Math.floor(Math.random()*81)-40);
@@ -1474,6 +1502,13 @@ function markHasGenerated(){
 function _buildResultArtGrid(tracks){
   const el=$('resultArtGrid');
   if(!el) return;
+  if(_isMomentExperience()){
+    const art=(tracks||[]).find(t=>t.albumArt);
+    if(!art){ el.innerHTML=''; el.style.display='none'; return; }
+    el.style.display='block';
+    el.innerHTML=`<img src="${esc(art.albumArt)}" alt="" onerror="this.parentElement.style.display='none'">`;
+    return;
+  }
   const arts=(tracks||[]).slice(0,4);
   if(!arts.length){ el.innerHTML=''; el.style.display='none'; return; }
   el.style.display='grid';
@@ -1559,12 +1594,14 @@ let _sceneAckTimer=null;
 
 function getSceneFromInput(text){
   const t=(text||'').toLowerCase();
-  if(t.includes('rain')||t.includes('night')||t.includes('drive')) return 'rain_highway_pov';
+  if(t.includes('train')||t.includes('leaving')) return 'train_window_rain';
+  if(t.includes('apartment')||(t.includes('night')&&t.includes('window'))) return 'apartment_night_window';
   if(t.includes('city')||t.includes('london')||t.includes('neon')) return 'neon_city_walk';
-  if(t.includes('sun')||t.includes('happy')) return 'golden_field_drift';
-  if(t.includes('desert')||t.includes('cowboy')) return 'desert_wide_solo';
-  if(t.includes('memory')||t.includes('nostalgia')) return 'memory_hallway';
+  if(t.includes('sad')||t.includes('cowboy')||t.includes('desert')) return 'desert_wide_solo';
+  if(t.includes('memory')||t.includes('nostalg')) return 'memory_hallway';
   if(t.includes('calm')||t.includes('soft')) return 'ocean_night_fog';
+  if(t.includes('sun')||t.includes('happy')||t.includes('bright')) return 'golden_field_drift';
+  if(t.includes('rain')||t.includes('lonely')||t.includes('drive')||t.includes('night')) return 'rain_highway_pov';
   return 'abstract_light_field';
 }
 
@@ -1723,9 +1760,9 @@ function renderSceneAck(sceneId){
   }, SCENE_ACK_MS);
 }
 
-function presentResultWithSettle(){
+function presentResultWithSettle(vibe){
+  vibe=vibe||lastVibe||_activeGenVibe||'';
   document.body.classList.remove('world-settled');
-  const vibe=_activeGenVibe||vibeInput?.value||'';
   applyScenePerception(_currentSceneId, getEmotionForce(vibe));
   presentResultLayer();
   setTimeout(()=>document.body.classList.add('world-settled'), 300);
@@ -1994,13 +2031,16 @@ function setLoading(on){
     lo.setAttribute('aria-hidden',on?'false':'true');
   }
   if(on){
+    _cinemaGoAt=Date.now();
     setMomentState('listening');
     const vibe=_activeGenVibe||vibeInput?.value||'';
     const sceneId=getSceneFromInput(vibe);
     const emotion=getEmotionForce(vibe);
     applyWorldEmotion(emotion);
+    applyScenePerception(sceneId, emotion);
+    setTimeout(()=>applyWorldEmotion(emotion), EMOTION_SETTLE_MS);
     runPerceptionSequence(sceneId, emotion);
-    renderSceneAck(sceneId);
+    setTimeout(()=>renderSceneAck(sceneId), SCENE_ACK_MS);
     if(progLabel) progLabel.textContent=_FINDING_SOUND;
     const rc=$('resultCard');
     if(rc) rc.classList.remove('visible','revealing');
@@ -2223,7 +2263,7 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   _buildResultArtGrid(tracks);
   const displayName = playlistName || `Kwalify • ${vibe}`;
   if(resultName) resultName.textContent=displayName;
-  if(resultMeta) resultMeta.textContent=`${count||tracks.length||25} tracks · from your likes`;
+  if(resultMeta) resultMeta.textContent=_isMomentExperience()?'':`${count||tracks.length||25} tracks · from your likes`;
   if(modeBadge) modeBadge.textContent=mode||currentMode;
   const cacheNotice=$('resultCacheNotice');
   if(cacheNotice){ cacheNotice.style.display='none'; cacheNotice.textContent=''; }
@@ -2233,6 +2273,7 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   const tb=$('tracksTierBody'); const ab=$('advancedTierBody');
   if(tb){ tb.classList.remove('open'); $('tracksTierToggle').innerHTML='<span>▶</span> View tracks'; }
   if(ab){ ab.classList.remove('open'); $('advancedTierToggle').innerHTML='<span>▶</span> Insights'; }
+  const momentCredits=_isMomentExperience();
 
   const spotifyArea=$('spotifyActionArea');
   if(spotifyArea){
@@ -2249,15 +2290,22 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   const cacheEl=$('cacheBanner');
   if(cacheEl) cacheEl.innerHTML='';
   const confEl=$('confidenceCard');
-  if(confEl) confEl.innerHTML=_buildConfidenceHtml(genData.promptConfidence);
+  if(confEl) confEl.innerHTML=momentCredits?'':_buildConfidenceHtml(genData.promptConfidence);
   const fb=$('feedbackSection');
-  if(fb){ $('feedbackThanks')&&($('feedbackThanks').style.display='none'); document.querySelectorAll('.feedback-btn').forEach(b=>{ b.disabled=false; b.classList.remove('selected'); }); }
+  if(fb){
+    if(momentCredits){ fb.style.display='none'; }
+    else {
+      fb.style.display='';
+      $('feedbackThanks')&&($('feedbackThanks').style.display='none');
+      document.querySelectorAll('.feedback-btn').forEach(b=>{ b.disabled=false; b.classList.remove('selected'); });
+    }
+  }
   const heardEl=$('kwalifyHeard');
-  if(heardEl) heardEl.innerHTML=_buildHeardHtml(vibe,ep,mu,expl,libIntel);
+  if(heardEl) heardEl.innerHTML=momentCredits?'':_buildHeardHtml(vibe,ep,mu,expl,libIntel);
   const storyEl=$('playlistStory');
-  if(storyEl) storyEl.innerHTML=_buildStoryHtml(vibe,ep,mu,expl,libIntel);
+  if(storyEl) storyEl.innerHTML=momentCredits?'':_buildStoryHtml(vibe,ep,mu,expl,libIntel);
   const forgottenEl=$('forgottenGems');
-  if(forgottenEl) forgottenEl.innerHTML=_buildForgottenHtml(tracks);
+  if(forgottenEl) forgottenEl.innerHTML=momentCredits?'':_buildForgottenHtml(tracks);
   if(trackList){
     trackList.innerHTML=(tracks||[]).map((t,i)=>{
       const artHtml = t.albumArt
@@ -2279,24 +2327,27 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
     }).join('');
   }
 
-  /* Vibe interpretation line — shown above track list */
   const vibeInterpEl=$('vibeInterpretation');
-  if(vibeInterpEl){
-    const interp = emotionProfile && typeof emotionProfile==='object'
-      ? esc(_vibeInterpretation(emotionProfile))
-      : '';
-    const refLine = referenceMatch && referenceMatch.sampleCount
-      ? `<div class="vibe-interpretation" style="margin-top:8px;border-left-color:#1ed760">🎯 Matched audio fingerprint from your reference playlist (${referenceMatch.sampleCount} tracks · valence ${Math.round((referenceMatch.valence||0)*100)}% · energy ${Math.round((referenceMatch.energy||0)*100)}%)</div>`
-      : '';
-    vibeInterpEl.innerHTML = interp
-      ? `<div class="vibe-interpretation">${interp}</div>${refLine}`
-      : refLine;
-  }
-
-  /* Stats bar */
+  if(vibeInterpEl) vibeInterpEl.innerHTML='';
   const statsEl=$('statsBar');
-  if(statsEl){
-    if(stats && typeof stats==='object'){
+  if(statsEl) statsEl.innerHTML='';
+  const emotionEl=$('emotionBars');
+  if(emotionEl) emotionEl.innerHTML='';
+  const sceneEl=$('sceneChips');
+  if(sceneEl) sceneEl.innerHTML='';
+  if(!momentCredits){
+    if(vibeInterpEl){
+      const interp = emotionProfile && typeof emotionProfile==='object'
+        ? esc(_vibeInterpretation(emotionProfile))
+        : '';
+      const refLine = referenceMatch && referenceMatch.sampleCount
+        ? `<div class="vibe-interpretation" style="margin-top:8px;border-left-color:#1ed760">🎯 Matched audio fingerprint from your reference playlist (${referenceMatch.sampleCount} tracks · valence ${Math.round((referenceMatch.valence||0)*100)}% · energy ${Math.round((referenceMatch.energy||0)*100)}%)</div>`
+        : '';
+      vibeInterpEl.innerHTML = interp
+        ? `<div class="vibe-interpretation">${interp}</div>${refLine}`
+        : refLine;
+    }
+    if(statsEl && stats && typeof stats==='object'){
       const genSec=stats.generationMs>0?(stats.generationMs/1000).toFixed(1):'—';
       statsEl.innerHTML=`<div class="stats-bar">
         <span class="stat-pill">🎵 ${stats.trackCount||count} tracks</span>
@@ -2304,15 +2355,8 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
         <span class="stat-pill">🎤 ${stats.artistCount} artists</span>
         <span class="stat-pill">⚡ Generated in ${genSec}s</span>
       </div>`;
-    } else {
-      statsEl.innerHTML='';
     }
-  }
-
-  /* Emotion profile bars */
-  const emotionEl=$('emotionBars');
-  if(emotionEl){
-    if(emotionProfile && typeof emotionProfile==='object'){
+    if(emotionEl && emotionProfile && typeof emotionProfile==='object'){
       const dims=[
         {key:'energy',    label:'Energy'},
         {key:'valence',   label:'Valence'},
@@ -2332,27 +2376,21 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
           </div>`;
         }).join('')}
       </div>`;
-    } else {
-      emotionEl.innerHTML='';
     }
-  }
-
-  /* Scene chips — shown below emotion bars */
-  const sceneEl=$('sceneChips');
-  if(sceneEl){
-    if(emotionProfile && typeof emotionProfile==='object'){
+    if(sceneEl && emotionProfile && typeof emotionProfile==='object'){
       const chips=_buildSceneChips(emotionProfile);
       sceneEl.innerHTML = chips.length>0
         ? `<div class="scene-chips">${chips.map(c=>`<span class="scene-chip">${c}</span>`).join('')}</div>`
         : '';
-    } else {
-      sceneEl.innerHTML='';
     }
   }
 
   const lo=$('listenOverlay');
   if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
-  presentResultWithSettle();
+  const creditsDelay=momentCredits
+    ? Math.max(0, CINEMA_CREDITS_MS-(Date.now()-(_cinemaGoAt||Date.now()-CINEMA_CREDITS_MS)))
+    : 0;
+  setTimeout(()=>presentResultWithSettle(vibe), creditsDelay);
   resetCopyBtn();
 }
 
@@ -2550,11 +2588,11 @@ function generate(){
     }
     // Hide pending card on successful generation
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
+    const trackCount=d.count||d.totalTracks||25;
+    showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
+    _activeGenVibe='';
     if(vibeInput) vibeInput.value='';
     if($('vibeCounter')) $('vibeCounter').textContent='0/140';
-    const trackCount=d.count||d.totalTracks||25;
-    _activeGenVibe='';
-    showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
     if(d.librarySyncHint){
       showToast(d.librarySyncHint,'info',8000);
     }
