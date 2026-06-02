@@ -634,264 +634,75 @@
       position:relative; flex:1; display:flex; align-items:center; justify-content:center;
       min-height:min(84vh,800px); padding:20vh 24px 24vh; text-align:center;
     }
-    /* ── Emotional Scene Interface (docs/KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md, KWALIFY_FINAL_UI_BLUEPRINT.md) ── */
-    body.world-active .moment-shell { display:none !important; }
-    body.world-active #cinema,
-    body.world-active #cinemaStill,
-    body.world-active #cinemaFallback { opacity:0 !important; }
-    body.world-active #momentCanvasOverlay { background:rgba(6,6,8,.72); }
-
-    .world-home {
-      position:fixed; inset:0; z-index:4; overflow-y:auto;
-      padding:64px; pointer-events:auto;
+    /* ── Emotion Grid: sole logged-in homepage (initEmotionGridUI in index.html) ── */
+    body.emotion-grid-active .header,
+    body.emotion-grid-active .bg,
+    body.emotion-grid-active .waves,
+    body.emotion-grid-active #cinema,
+    body.emotion-grid-active #cinemaStill,
+    body.emotion-grid-active #cinemaFallback,
+    body.emotion-grid-active #momentCanvasOverlay,
+    body.emotion-grid-active #loadOverlay,
+    body.emotion-grid-active #apiStubs,
+    body.emotion-grid-active .page > .inner > *:not(#appView) { display:none !important; }
+    body.emotion-grid-active .page { padding:0; margin:0; animation:none; }
+    body.emotion-grid-active .inner { max-width:none; padding:0; margin:0; }
+    #appView {
+      position:fixed; inset:0; z-index:50; background:#060608; display:none;
     }
-    .world-home-inner { max-width:calc(240px * 3 + 24px * 2); margin:0 auto; }
-    .world-home h1 {
-      font-size:1.35rem; font-weight:500; color:var(--text);
-      margin:0 0 8px; letter-spacing:-.02em;
+    body.emotion-grid-active #appView { display:block !important; }
+    body.emotion-grid-scene #emotionGridHome { display:none !important; }
+    .emotion-grid-home {
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      padding:56px 72px; overflow:auto;
     }
-    .world-home .world-home-sub {
-      font-size:.9rem; color:var(--text-muted); margin:0 0 32px; font-weight:400;
+    .emotion-mood-grid {
+      display:grid; grid-template-columns:repeat(3, 240px); gap:28px;
+      justify-content:center; width:100%; max-width:816px;
     }
-    .mood-grid {
-      display:grid; grid-template-columns:repeat(3, 240px);
-      gap:24px; justify-content:center;
-    }
-    @media (max-width:820px) {
-      .mood-grid { grid-template-columns:repeat(2, min(240px, 100%)); }
-      .world-home { padding:32px 20px; }
+    @media (max-width:860px) {
+      .emotion-mood-grid { grid-template-columns:repeat(2, min(240px, 100%)); gap:24px; }
+      .emotion-grid-home { padding:40px 28px; }
     }
     .mood-card {
-      position:relative; width:240px; height:180px; border:none;
-      background:linear-gradient(145deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,.02) 100%);
-      border-radius:20px; padding:16px 14px 14px; cursor:pointer;
-      text-align:center; font-family:inherit; color:rgba(255,255,255,.88);
-      border:1px solid rgba(255,255,255,.08);
-      box-shadow:0 8px 28px rgba(0,0,0,.18);
-      transition:transform .5s cubic-bezier(.22,1,.36,1), box-shadow .5s ease, background .5s ease;
-    }
-    .mood-card::before {
-      content:''; position:absolute; inset:12px;
-      border-radius:12px; opacity:.35; pointer-events:none;
-      background:radial-gradient(ellipse 80% 70% at 50% 80%, var(--mood-glow, rgba(29,185,84,.25)), transparent 70%);
-      transition:opacity .45s ease;
+      width:240px; height:180px; margin:0; padding:0; border:1px solid rgba(255,255,255,.08);
+      border-radius:20px; background:rgba(255,255,255,.045); cursor:pointer;
+      font-family:inherit; color:rgba(255,255,255,.88);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px;
+      box-shadow:0 10px 36px rgba(0,0,0,.14);
+      transition:transform .55s cubic-bezier(.22,1,.36,1), box-shadow .55s ease, background .55s ease;
     }
     .mood-card:hover {
-      transform:translateY(-6px);
-      background:linear-gradient(145deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.04) 100%);
-      box-shadow:0 16px 48px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.1);
+      transform:translateY(-5px);
+      background:rgba(255,255,255,.065);
+      box-shadow:0 18px 44px rgba(0,0,0,.22);
     }
-    .mood-card:hover::before { opacity:.65; }
-    .mood-card-preview {
-      position:relative; height:72px; margin-bottom:14px;
-      display:flex; align-items:flex-end; justify-content:center;
+    .mood-card-title { font-size:15px; font-weight:500; letter-spacing:-.01em; }
+    .emotion-icon { display:block; }
+    .emotion-icon-square { width:28px; height:44px; border-radius:8px; background:rgba(255,255,255,.78); }
+    .emotion-icon-line { width:48px; height:4px; border-radius:2px; background:rgba(255,255,255,.72); }
+    .emotion-icon-circle { width:14px; height:14px; border-radius:50%; background:rgba(255,255,255,.8); }
+    .emotion-icon-lamp { display:flex; flex-direction:column; align-items:center; gap:8px; }
+    .emotion-icon-lamp .emotion-icon-line { width:4px; height:40px; }
+    .emotion-scene {
+      position:fixed; inset:0; z-index:60; cursor:pointer;
     }
-    .mood-card-title {
-      font-size:15px; font-weight:500; position:relative; z-index:1;
-      color:rgba(255,255,255,.82); letter-spacing:-.01em;
-    }
-
-    .world-emotion {
-      position:fixed; inset:0; z-index:5; display:flex; flex-direction:column;
-      pointer-events:auto; overflow:hidden;
-    }
-    .world-emotion[hidden] { display:none !important; }
-    .world-canvas { position:absolute; inset:0; overflow:hidden; }
-    .world-layer { position:absolute; inset:0; pointer-events:none; }
-    .world-layer-bg {
-      background:var(--mood-bg, linear-gradient(165deg, #1a2230 0%, #0c0e10 100%));
-      transition:opacity .7s ease-out, background .7s ease-out;
-    }
-    .world-layer-bg::after {
-      content:''; position:absolute; inset:0; pointer-events:none;
-      background:linear-gradient(var(--mood-light-dir, 125deg), rgba(255,255,255,.06) 0%, transparent 55%);
-      opacity:.85;
-    }
-    .world-layer-mid { opacity:.55; }
-    .world-streak {
-      position:absolute; border-radius:999px; filter:blur(40px);
-      background:rgba(255,200,120,.12);
-    }
-    .world-streak-1 { width:55%; height:18%; top:22%; left:-8%; transform:rotate(-8deg); }
-    .world-streak-2 { width:40%; height:12%; bottom:28%; right:-5%; transform:rotate(12deg); background:rgba(100,160,255,.1); }
-
-    .world-layer-hero {
-      display:flex; align-items:flex-start; justify-content:center;
-      padding-top:22vh;
-    }
-    .world-hero-light {
-      position:absolute; left:50%; top:48%; width:min(70vmin, 520px); height:min(70vmin, 520px);
-      transform:translate(-50%,-50%); border-radius:50%; pointer-events:none;
-      background:radial-gradient(circle, var(--hero-light, rgba(255,200,120,.14)) 0%, transparent 68%);
-      filter:blur(32px); opacity:.9;
-    }
-    body.world-zoom-in .world-layer-hero .world-hero-inner {
-      transform:scale(.12); opacity:0;
-    }
-    body.world-zoom-in.world-zoom-play .world-layer-hero .world-hero-inner {
-      transform:scale(1); opacity:1;
-      transition:transform .7s cubic-bezier(.22,1,.36,1), opacity .7s ease-in-out;
-    }
-    .world-hero-inner { transform:scale(1); opacity:1; will-change:transform; position:relative; z-index:1; }
-
-    /* Fuel pump — 5 shapes, docs/KWALIFY_OBJECT_CONSTRUCTION_MODE.md */
-    .hero-pump { display:flex; justify-content:center; }
-    .hero-pump-svg {
-      width:min(28vw, 140px); height:auto; overflow:visible;
-      filter:drop-shadow(0 4px 24px rgba(0,0,0,.35));
-    }
-    .hero-pump-svg .pump-body {
-      fill:#E8E8E4; stroke:#141414; stroke-width:3;
-    }
-    .hero-pump-svg .pump-screen {
-      fill:#1E3028;
-      filter:drop-shadow(0 0 14px rgba(80,160,130,.45));
-    }
-    .hero-pump-svg .pump-hose { fill:none; stroke:#141414; stroke-width:10; stroke-linecap:round; }
-    .hero-pump-svg .pump-nozzle, .hero-pump-svg .pump-base { fill:#141414; }
-    .hero-pump-svg .pump-base { opacity:.9; }
-    .hero-pump-ground {
-      width:min(32vw, 160px); height:10px; margin-top:6px; border-radius:50%;
-      background:rgba(0,0,0,.28); filter:blur(5px);
-    }
-
-    .hero-road { position:relative; width:min(88vw, 680px); height:100px; }
-    .hero-road-ribbon {
-      position:absolute; left:50%; top:50%; width:100%; height:44px;
-      transform:translate(-50%,-50%) perspective(500px) rotateX(36deg);
-      border-radius:14px;
-      background:linear-gradient(90deg, #252b38 0%, #3a4458 50%, #252b38 100%);
-      box-shadow:0 0 48px rgba(255,190,110,.18);
-      clip-path:polygon(8% 0, 92% 0, 72% 100%, 28% 100%);
-    }
-    .hero-road-ribbon::after {
-      content:''; position:absolute; left:50%; top:0; bottom:0; width:4px;
-      transform:translateX(-50%);
-      background:repeating-linear-gradient(180deg, #e8dcc0 0 12px, transparent 12px 24px);
-      opacity:.75;
-    }
-    .hero-road-node {
-      position:absolute; width:6px; height:6px; border-radius:50%;
-      background:rgba(255,220,160,.85); box-shadow:0 0 10px rgba(255,200,120,.6);
-    }
-    .hero-road-node-1 { left:22%; top:46%; }
-    .hero-road-node-2 { left:48%; top:44%; }
-    .hero-road-node-3 { left:70%; top:42%; }
-
-    .hero-lamp { position:relative; display:flex; flex-direction:column; align-items:center; }
-    .hero-lamp-pole {
-      width:10px; height:min(38vh, 280px);
-      background:linear-gradient(90deg, #2a2a2a, #3a3a3a 50%, #222);
-      border-radius:5px;
-      box-shadow:4px 0 16px rgba(0,0,0,.35);
-    }
-    .hero-lamp-head {
-      width:48px; height:22px; margin-bottom:-4px; border-radius:8px 8px 4px 4px;
-      background:#3a3a3a; box-shadow:0 0 24px rgba(255,220,150,.4);
-    }
-    .hero-lamp-cone {
-      position:absolute; top:min(38vh, 280px); left:50%; transform:translateX(-50%);
-      width:140px; height:120px;
-      background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,220,160,.22), transparent 72%);
+    .emotion-scene[hidden] { display:none !important; }
+    .emotion-scene-bg { position:absolute; inset:0; background:#0c0e12; transition:background .4s ease; }
+    .emotion-scene-object {
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       pointer-events:none;
     }
-    .hero-lamp-shadow {
-      position:absolute; bottom:-24px; width:80px; height:12px; border-radius:50%;
-      background:rgba(0,0,0,.25); filter:blur(6px);
+    .emotion-shape-square {
+      width:min(24vw,112px); height:min(36vw,168px); border-radius:16px;
+      background:#E8E8E4; box-shadow:0 0 0 3px #121212;
     }
-
-    .hero-car {
-      position:relative; width:220px; height:130px;
-      filter:drop-shadow(0 12px 40px rgba(80,160,200,.15));
-    }
-    .hero-car-body {
-      width:200px; height:72px; border-radius:36px 36px 28px 28px;
-      background:linear-gradient(180deg, #4a5060 0%, #323848 100%);
-      box-shadow:inset 0 -8px 20px rgba(100,180,220,.12), inset 0 0 0 2px #1a1e28;
-      transform:translateY(-18px);
-    }
-    .hero-car-glow {
-      position:absolute; left:50%; top:50%; width:160px; height:24px;
-      transform:translate(-50%, 12px);
-      background:radial-gradient(ellipse, rgba(140,200,230,.25), transparent 70%);
-      filter:blur(8px);
-    }
-    .hero-car-stand {
-      position:absolute; bottom:0; width:14px; height:28px; border-radius:3px; background:#2a3038;
-    }
-    .hero-car-stand-l { left:36px; }
-    .hero-car-stand-r { right:36px; }
-    .hero-car-wheel {
-      position:absolute; bottom:4px; width:32px; height:32px; border-radius:50%;
-      background:#1e2228; box-shadow:inset 0 0 0 4px #3a4048;
-    }
-    .hero-car-wheel-l { left:24px; }
-    .hero-car-wheel-r { right:24px; }
-
-    .hero-horizon { position:relative; width:min(92vw, 720px); height:80px; }
-    .hero-horizon-strip {
-      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-      width:100%; height:8px; border-radius:999px;
-      background:linear-gradient(90deg, #c87850 0%, #e8a878 35%, #a8b8d8 70%, #7888a8 100%);
-      box-shadow:0 0 40px rgba(255,180,140,.35), 0 0 80px rgba(160,180,220,.2);
-      transform:translate(-50%,-50%) perspective(400px) rotateX(8deg);
-    }
-    .hero-horizon-bloom {
-      position:absolute; inset:-30px -10%; border-radius:999px;
-      background:linear-gradient(90deg, transparent, rgba(255,200,160,.12) 50%, transparent);
-      filter:blur(24px);
-    }
-
-    .preview-pump, .preview-road, .preview-lamp, .preview-car, .preview-horizon {
-      opacity:.68; position:relative;
-    }
-    .preview-pump-svg { width:36px; height:auto; display:block; }
-    .preview-pump-svg .pump-body { fill:rgba(255,255,255,.75); stroke:#141414; stroke-width:2; }
-    .preview-pump-svg .pump-screen { fill:#1a3028; }
-    .preview-pump-svg .pump-hose { stroke:#141414; stroke-width:4; fill:none; stroke-linecap:round; }
-    .preview-pump-svg .pump-nozzle, .preview-pump-svg .pump-base { fill:#141414; }
-    .preview-road {
-      width:56px; height:10px; border-radius:4px;
-      background:linear-gradient(90deg, #3a4458, #4a5568);
-      clip-path:polygon(10% 0, 90% 0, 75% 100%, 25% 100%);
-    }
-    .preview-lamp { width:4px; height:48px; background:#333; border-radius:2px; }
-    .preview-lamp::before {
-      content:''; position:absolute; top:-6px; left:50%; width:14px; height:8px;
-      transform:translateX(-50%); background:#f0e0b0; border-radius:50%;
-      box-shadow:0 0 10px rgba(255,220,150,.5);
-    }
-    .preview-car {
-      width:36px; height:14px; border-radius:8px; background:#4a5060;
-      box-shadow:inset 0 0 0 1px #2a3038;
-    }
-    .preview-horizon {
-      width:56px; height:4px; border-radius:999px;
-      background:linear-gradient(90deg, #c87850, #a8b8d8);
-    }
-
-    .world-emotion-chrome {
-      position:relative; z-index:2; display:flex; flex-direction:column;
-      flex:1; pointer-events:none; padding:24px 28px 28px;
-    }
-    .world-back {
-      pointer-events:auto; align-self:flex-start;
-      background:transparent; border:none; color:var(--text-muted);
-      font:inherit; font-size:.85rem; cursor:pointer; padding:8px 0;
-    }
-    .world-back:hover { color:var(--text); }
-    .world-mood-title {
-      pointer-events:none; font-size:18px; font-weight:500;
-      letter-spacing:.02em; color:rgba(255,255,255,.78); margin:8px 0 auto;
-    }
-    .world-bottom {
-      pointer-events:auto; margin-top:auto; text-align:center;
-      opacity:0; transition:opacity .4s ease .35s;
-    }
-    body.world-emotion.world-zoom-play .world-bottom { opacity:1; }
-    .world-search-hint {
-      font-size:.8rem; color:var(--text-faint); margin:0 0 14px; font-weight:400;
-    }
+    .emotion-shape-car { border-radius:28px; width:min(40vw,188px); height:min(16vw,68px); }
+    .emotion-shape-line-h { width:min(64vw,400px); height:10px; border-radius:5px; background:#B4B4BC; }
+    .emotion-shape-horizon { width:min(72vw,480px); height:6px; border-radius:999px; background:#B8A898; }
+    .emotion-shape-lamp { display:flex; flex-direction:column; align-items:center; }
+    .emotion-shape-line-v { width:10px; height:min(36vh,240px); border-radius:5px; background:#2C2C2C; }
+    .emotion-shape-circle { width:40px; height:40px; border-radius:50%; background:#E6D6B4; margin-bottom:-6px; }
 
     .compose-layer {
       width:100%; max-width:340px; margin:0 auto;
@@ -1166,175 +977,44 @@
     <!-- ── Loading ── -->
     <div id="loadOverlay"><div class="spin"></div></div>
 
-    <!-- ── APP VIEW (logged in) ── -->
-    <div id="appView" class="moment-app moment-home" style="display:none">
+    <!-- ── APP VIEW: homepage = Emotion Grid only (see initEmotionGridUI) ── -->
+    <div id="appView" style="display:none">
 
-      <div id="worldHome" class="world-home" hidden>
-        <div class="world-home-inner">
-          <h1>What moment are you in?</h1>
-          <p class="world-home-sub">Pick a mood — one object, one feeling.</p>
-          <div class="mood-grid" id="moodGrid" role="list"></div>
-        </div>
+      <main id="emotionGridHome" class="emotion-grid-home">
+        <div class="emotion-mood-grid" id="emotionMoodGrid" role="list"></div>
+      </main>
+
+      <div id="emotionScene" class="emotion-scene" hidden>
+        <div class="emotion-scene-bg" id="emotionSceneBg"></div>
+        <div class="emotion-scene-object" id="emotionSceneObject"></div>
       </div>
 
-      <div id="worldEmotion" class="world-emotion" hidden>
-        <div class="world-canvas" aria-hidden="true">
-          <div class="world-layer world-layer-bg" id="worldLayerBg"></div>
-          <div class="world-layer world-layer-mid">
-            <div class="world-streak world-streak-1"></div>
-            <div class="world-streak world-streak-2"></div>
-          </div>
-          <div class="world-layer world-layer-hero">
-            <div class="world-hero-light" id="worldHeroLight" aria-hidden="true"></div>
-            <div class="world-hero-inner" id="worldHeroMount"></div>
-          </div>
-        </div>
-        <div class="world-emotion-chrome">
-          <button type="button" class="world-back" id="worldBackBtn">← All moods</button>
-          <p class="world-mood-title" id="worldMoodTitle"></p>
-          <div class="world-bottom">
-            <p class="world-search-hint" id="worldSearchHint">Or describe your moment below</p>
-            <button type="button" class="btn btn-green btn-generate-full" id="worldMakePlaylistBtn">Make playlist →</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="moment-shell moment-home" id="momentShell">
-
-        <div class="sync-gate-moment" id="syncGateCard" style="display:none" aria-live="polite"></div>
-
-        <div class="compose-layer" id="composeLayer">
-          <div id="libraryReadyPill" class="library-ready-pill sync-whisper" style="display:none" aria-live="polite"></div>
-
-          <div class="input-moment" id="inputCard" style="display:none">
-            <label class="moment-input-label" for="vibeInput">What moment are you in?</label>
-            <div class="vibe-focus">
-              <div class="input-wrap">
-                <input class="vibe-input" id="vibeInput" type="text"
-                  placeholder="late night driving"
-                  maxlength="140" autocomplete="off" spellcheck="false"
-                  aria-label="What moment are you in?" />
-                <span class="vibe-counter" id="vibeCounter" aria-hidden="true">0/140</span>
-              </div>
-            </div>
-            <button type="button" class="btn btn-green btn-generate-full" id="generateBtn" onclick="generate()">Make playlist →</button>
-
-            <div class="prompt-examples examples-whisper" id="promptExamples">
-              <div class="prompt-example-list" id="promptExampleList"></div>
-            </div>
-
-            <details class="settings-whisper" id="advancedHomeSection">
-              <summary>Tune</summary>
-              <div class="disclosure-body">
-                <div class="controls" style="margin-top:0">
-                  <div class="ctrl-block grow">
-                    <div class="ctrl-label">Length — <span class="ctrl-val" id="lenVal">25 tracks</span></div>
-                    <input class="length-slider" id="lenSlider" type="range" min="10" max="100" step="5" value="25"
-                      oninput="document.getElementById('lenVal').textContent=this.value+' tracks'" />
-                  </div>
-                  <div class="ctrl-block">
-                    <div class="ctrl-label">Match mode</div>
-                    <div class="mode-tabs">
-                      <button class="mode-tab" id="modeStrict" onclick="setMode('strict')"><span>Strict</span></button>
-                      <button class="mode-tab active" id="modeBalanced" onclick="setMode('balanced')"><span>Balanced</span></button>
-                      <button class="mode-tab" id="modeChaotic" onclick="setMode('chaotic')"><span>Chaotic</span></button>
-                    </div>
-                  </div>
-                </div>
-                <div class="ref-field" style="margin-top:14px">
-                  <div class="field-label">Reference playlist <span style="font-weight:400;text-transform:none;color:var(--text-faint)">(optional)</span></div>
-                  <input class="vibe-input" id="referencePlaylistInput" type="url"
-                    placeholder="Public Spotify playlist URL…"
-                    autocomplete="off" spellcheck="false" style="padding-right:16px;font-size:13px;text-align:left" />
-                  <p class="ref-hint" id="referencePlaylistHint" style="font-size:11px;color:var(--text-faint);margin:6px 0 0;line-height:1.45">
-                    Biases mood only.
-                    <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>
-                  </p>
-                </div>
-                <div id="libraryHealthCard" class="library-health-card"></div>
-              </div>
-            </details>
-          </div>
-        </div>
-
-        <div class="result-layer" id="resultCard">
-          <div class="result-surface" id="resultSurface">
-            <p class="moment-echo moment-wow-part" id="momentEcho" hidden></p>
-            <h1 class="moment-title result-name-display moment-wow-part" id="resultName">Your moment</h1>
-            <div class="result-meta-txt" id="resultMeta" hidden>25 tracks</div>
-            <div class="result-actions moment-wow-part">
-              <div id="spotifyActionArea" style="width:100%"></div>
-            </div>
-            <ol class="moment-preview moment-wow-part" id="momentPlaylistPreview" hidden></ol>
-            <p id="resultSummary" class="moment-micro result-summary moment-wow-part" hidden></p>
-            <button type="button" class="moment-again moment-wow-part" onclick="returnToCompose()">Try another moment</button>
-            <span class="mode-badge" id="modeBadge" style="display:none">balanced</span>
-          </div>
-        </div>
-
-      </div><!-- /momentShell -->
-
-      <!-- Skeleton (unused) -->
-      <div class="glass skel-card" id="skelCard" style="display:none">
-        <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px">
-          <div class="skel" style="width:52px;height:52px;border-radius:13px;flex-shrink:0"></div>
-          <div style="flex:1">
-            <div class="skel skel-line" style="width:38%;margin-bottom:8px"></div>
-            <div class="skel skel-line" style="width:66%"></div>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:18px">
-          <div class="skel" style="flex:1;height:44px;border-radius:10px"></div>
-          <div class="skel" style="width:120px;height:44px;border-radius:10px"></div>
-        </div>
-        <div class="skel skel-line" style="width:100%"></div>
-        <div class="skel skel-line" style="width:84%;margin-top:6px"></div>
-        <div class="skel skel-line" style="width:91%;margin-top:6px"></div>
-      </div>
-
-      <!-- Pending preview card (shown when Spotify playlist creation is blocked) -->
-      <div class="glass pending-card" id="pendingCard">
-        <div class="pending-banner">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>Playlist saved locally — Spotify creation is temporarily unavailable (Development Mode)</span>
-        </div>
-        <div class="pending-top">
-          <div class="pending-icon">🎵</div>
-          <div>
-            <div class="pending-title" id="pendingTitle">Your Playlist Preview</div>
-            <div class="pending-subtitle" id="pendingSubtitle">25 tracks · Preview only · not yet on Spotify</div>
-          </div>
-        </div>
-        <div class="tracks-label">Tracks selected for your vibe</div>
-        <div class="pending-track-list" id="pendingTrackList"></div>
-        <div id="pendingMore" class="pending-more"></div>
-        <div id="pendingEmotionBars"></div>
-        <div class="pending-actions">
-          <button class="btn btn-green btn-md" onclick="generate()" style="flex:1">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Try Again
-          </button>
-        </div>
-      </div>
-
-      <!-- History (hidden — replaced by My Playlists) -->
-      <div class="history-section" id="histSection" style="display:none">
-        <div class="h-list" id="hList"></div>
-      </div>
-
-      <div class="below-fold" id="belowFold">
-        <div class="my-playlists-section" id="myPlaylistsSection" style="display:none">
-          <div class="section-header">
-            <div>
-              <div class="section-title">Recent</div>
-              <div class="section-sub"><a href="/gallery">Gallery</a></div>
-            </div>
-          </div>
-          <div class="pl-list" id="plList"></div>
-        </div>
-        <footer class="site-footer">
-          Beta — <a href="https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform" target="_blank" rel="noopener">Feedback</a>
-        </footer>
+      <div id="apiStubs" hidden aria-hidden="true">
+        <div id="momentShell"></div>
+        <input type="text" id="vibeInput" value="" tabindex="-1" />
+        <button type="button" id="generateBtn" onclick="generate()"></button>
+        <div id="inputCard"></div>
+        <div id="composeLayer"></div>
+        <div id="syncGateCard"></div>
+        <div id="libraryReadyPill"></div>
+        <div id="promptExamples"><div id="promptExampleList"></div></div>
+        <details id="advancedHomeSection"></details>
+        <input id="lenSlider" type="range" value="25" min="10" max="100" />
+        <span id="lenVal"></span>
+        <button id="modeStrict"></button><button id="modeBalanced"></button><button id="modeChaotic"></button>
+        <input id="referencePlaylistInput" type="url" />
+        <p id="referencePlaylistHint"></p>
+        <div id="libraryHealthCard"></div>
+        <div id="resultCard"><div id="resultSurface">
+          <p id="momentEcho" hidden></p><h1 id="resultName"></h1><div id="resultMeta" hidden></div>
+          <div id="spotifyActionArea"></div><ol id="momentPlaylistPreview" hidden></ol>
+          <p id="resultSummary" hidden></p><span id="modeBadge" hidden></span>
+        </div></div>
+        <div id="pendingCard" hidden><div id="pendingTitle"></div><div id="pendingSubtitle"></div>
+          <div id="pendingTrackList"></div><div id="pendingMore"></div><div id="pendingEmotionBars"></div></div>
+        <div id="belowFold" hidden><div id="myPlaylistsSection"><div id="plList"></div></div></div>
+        <div id="histSection" hidden><div id="hList"></div></div>
+        <span id="vibeCounter" hidden></span>
       </div>
 
     </div><!-- /appView -->
@@ -1482,7 +1162,7 @@ function showLanding(){
 }
 
 function _isMomentExperience(){
-  return !!$('appView')?.classList.contains('moment-app');
+  return document.body.classList.contains('emotion-grid-active');
 }
 
 /** Only user-visible states: home → loading → result */
@@ -1549,51 +1229,16 @@ function presentResultLayer(){
 }
 
 function returnToCompose(){
-  const rc=$('resultCard');
-  if(rc) rc.classList.remove('visible');
-  $('resultSurface')?.classList.remove('result-ready');
-  const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
-  const echo=$('momentEcho');
-  if(echo){ echo.textContent=''; echo.hidden=true; }
-  _renderMomentPreview([]);
-  setMomentState('home');
-  worldInit();
-  updateMomentTypingState();
-  if(generateBtn){ generateBtn.disabled=false; generateBtn.textContent=_GEN_HTML; generateBtn.style.opacity=''; }
+  initEmotionGridUI();
 }
 
 function showApp(userData){
-  $('loadOverlay').style.display='none';
-  $('appView').style.display='flex';
-  document.querySelector('.page')?.classList.add('moment-app');
-  setMomentState('home');
-  sceneCoreInit();
-  worldInit();
-  updateMomentTypingState();
-
-  $('headerNav').innerHTML=`
-    <div class="header-menu-wrap">
-      <button type="button" class="btn btn-ghost btn-sm header-menu-btn" onclick="toggleHeaderMenu(event)" aria-label="Menu">☰</button>
-      <div id="headerMenuDropdown" class="header-menu-dropdown">
-        <a href="/gallery">Gallery — all playlists</a>
-        <button type="button" onclick="logout()">Log out</button>
-      </div>
-    </div>`;
-  if(!window._kwHeaderMenuBound){
-    window._kwHeaderMenuBound=true;
-    document.addEventListener('click',()=>{
-      const dd=$('headerMenuDropdown');
-      if(dd) dd.classList.remove('open');
-    });
-  }
-
-  fetchAndRenderPlaylists();
-  const refSaved=localStorage.getItem('kwalify_reference_playlist');
-  const refEl=$('referencePlaylistInput');
-  if(refEl&&refSaved) refEl.value=refSaved;
-  updateReferenceHint();
-  if($('vibeInput')) setTimeout(()=>$('vibeInput').focus(),180);
-  wirePromptExamples();
+  document.querySelector('.page')?.classList.remove('moment-app');
+  document.body.classList.remove('moment-home','moment-loading','moment-result','world-grid','world-emotion','world-active');
+  document.body.classList.add('emotion-grid-active');
+  const av=$('appView');
+  if(av) av.style.display='block';
+  initEmotionGridUI();
   startSyncPolling();
 }
 
@@ -1725,163 +1370,82 @@ const MOMENT_SCENES=[
   'summer_afternoon_drift','rainy_city_interior','memory_road','club_exit_dawn','open_highway_daylight',
 ];
 
-/** Locked 5 heroes — docs/KWALIFY_HERO_OBJECTS_LOCKED.md · palettes — KWALIFY_VISUAL_STYLE_DNA.md */
-const WORLD_MOODS=[
-  { sceneId:'petrol_station_2am', title:'Night Refuel', hint:'petrol station 2am', hero:'pump',
-    glow:'rgba(90,160,140,.2)', light:'rgba(80,140,120,.14)', lightDir:'135deg',
-    bg:'linear-gradient(165deg, #1a2428 0%, #24302e 45%, #0c0e10 100%)' },
-  { sceneId:'night_drive', title:'Motorway Drive', hint:'motorway drive at night', hero:'road',
-    glow:'rgba(200,160,100,.22)', light:'rgba(190,150,95,.12)', lightDir:'125deg',
-    bg:'linear-gradient(155deg, #1a2230 0%, #222c3a 50%, #08090c 100%)' },
-  { sceneId:'urban_midnight_walk', title:'Late London Walk', hint:'late night city walk', hero:'lamp',
-    glow:'rgba(210,180,120,.2)', light:'rgba(200,170,110,.11)', lightDir:'120deg',
-    bg:'linear-gradient(160deg, #141a24 0%, #1c2430 55%, #0a0c10 100%)' },
-  { sceneId:'memory_road', title:'Old Car Project', hint:'old car project garage', hero:'car',
-    glow:'rgba(120,170,200,.18)', light:'rgba(100,160,190,.12)', lightDir:'130deg',
-    bg:'linear-gradient(150deg, #1c2028 0%, #283038 48%, #0e1014 100%)' },
-  { sceneId:'summer_afternoon_drift', title:'End of Summer Drive', hint:'end of summer drive', hero:'horizon',
-    glow:'rgba(200,150,120,.2)', light:'rgba(190,140,110,.13)', lightDir:'140deg',
-    bg:'linear-gradient(180deg, #3a4458 0%, #5a6878 42%, #4a4038 100%)' },
+/** Homepage mood grid — single source (5 cards). sceneId used by playlist API only. */
+const EMOTION_MOODS=[
+  { sceneId:'petrol_station_2am', title:'Night Refuel', shape:'square', bg:'#121820' },
+  { sceneId:'night_drive', title:'Motorway Drive', shape:'line', bg:'#101820' },
+  { sceneId:'urban_midnight_walk', title:'Late London Walk', shape:'lamp', bg:'#0e1218' },
+  { sceneId:'memory_road', title:'Old Car Project', shape:'car', bg:'#141820' },
+  { sceneId:'summer_afternoon_drift', title:'End of Summer Drive', shape:'horizon', bg:'#1a2030' },
 ];
-let _worldMood=null;
 
-function renderWorldMoodGrid(){
-  const grid=$('moodGrid');
+function _emotionIconHtml(shape){
+  if(shape==='square') return '<span class="emotion-icon emotion-icon-square"></span>';
+  if(shape==='line') return '<span class="emotion-icon emotion-icon-line"></span>';
+  if(shape==='lamp') return '<span class="emotion-icon emotion-icon-lamp"><span class="emotion-icon-circle"></span><span class="emotion-icon-line"></span></span>';
+  if(shape==='car') return '<span class="emotion-icon emotion-icon-square" style="width:40px;height:18px;border-radius:9px"></span>';
+  if(shape==='horizon') return '<span class="emotion-icon emotion-icon-line" style="width:56px"></span>';
+  return '<span class="emotion-icon emotion-icon-circle"></span>';
+}
+
+function _emotionShapeHtml(shape){
+  if(shape==='square') return '<div class="emotion-shape emotion-shape-square"></div>';
+  if(shape==='line') return '<div class="emotion-shape emotion-shape-line-h"></div>';
+  if(shape==='lamp') return '<div class="emotion-shape emotion-shape-lamp"><span class="emotion-shape-circle"></span><span class="emotion-shape-line-v"></span></div>';
+  if(shape==='car') return '<div class="emotion-shape emotion-shape-square emotion-shape-car"></div>';
+  if(shape==='horizon') return '<div class="emotion-shape emotion-shape-line-h emotion-shape-horizon"></div>';
+  return '<div class="emotion-shape emotion-shape-circle" style="width:80px;height:80px;border-radius:50%"></div>';
+}
+
+function renderEmotionGrid(){
+  const grid=$('emotionMoodGrid');
   if(!grid) return;
-  grid.innerHTML=WORLD_MOODS.map(m=>{
-    const preview=m.hero==='pump'
-      ? _fuelPumpSvg('preview-pump-svg')
-      : `<span class="preview-${m.hero}" aria-hidden="true"></span>`;
-    return `<button type="button" class="mood-card" role="listitem" data-scene="${m.sceneId}" style="--mood-glow:${m.glow}">
-      <div class="mood-card-preview">${preview}</div>
+  grid.innerHTML=EMOTION_MOODS.map(m=>`
+    <button type="button" class="mood-card" role="listitem" data-scene="${m.sceneId}">
+      ${_emotionIconHtml(m.shape)}
       <span class="mood-card-title">${esc(m.title)}</span>
-    </button>`;
-  }).join('');
+    </button>`).join('');
   grid.querySelectorAll('.mood-card').forEach(btn=>{
-    btn.addEventListener('click',()=> openWorldEmotion(btn.dataset.scene));
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      openEmotionScene(btn.dataset.scene);
+    });
   });
 }
 
-function _fuelPumpSvg(className){
-  return `<svg class="${className}" viewBox="0 0 120 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <rect class="pump-body" x="24" y="16" width="72" height="168" rx="16"/>
-    <rect class="pump-screen" x="38" y="48" width="44" height="34" rx="6"/>
-    <path class="pump-hose" d="M82 78 C104 70, 110 94, 98 106"/>
-    <rect class="pump-nozzle" x="92" y="98" width="24" height="14" rx="4"/>
-    <rect class="pump-base" x="20" y="176" width="80" height="12" rx="4"/>
-  </svg>`;
-}
-
-function _worldHeroHtml(hero){
-  switch(hero){
-  case 'pump':
-    return `<div class="hero-pump" role="img" aria-label="Fuel pump">
-      ${_fuelPumpSvg('hero-pump-svg')}
-      <div class="hero-pump-ground" aria-hidden="true"></div>
-    </div>`;
-  case 'road':
-    return `<div class="hero-road" role="img" aria-label="Road ribbon">
-      <div class="hero-road-ribbon"></div>
-      <span class="hero-road-node hero-road-node-1"></span>
-      <span class="hero-road-node hero-road-node-2"></span>
-      <span class="hero-road-node hero-road-node-3"></span>
-    </div>`;
-  case 'lamp':
-    return `<div class="hero-lamp" role="img" aria-label="Streetlight">
-      <div class="hero-lamp-head"></div>
-      <div class="hero-lamp-pole"></div>
-      <div class="hero-lamp-cone"></div>
-      <div class="hero-lamp-shadow"></div>
-    </div>`;
-  case 'car':
-    return `<div class="hero-car" role="img" aria-label="Lifted car">
-      <div class="hero-car-glow"></div>
-      <div class="hero-car-body"></div>
-      <div class="hero-car-stand hero-car-stand-l"></div>
-      <div class="hero-car-stand hero-car-stand-r"></div>
-      <div class="hero-car-wheel hero-car-wheel-l"></div>
-      <div class="hero-car-wheel hero-car-wheel-r"></div>
-    </div>`;
-  case 'horizon':
-    return `<div class="hero-horizon" role="img" aria-label="Horizon light">
-      <div class="hero-horizon-bloom"></div>
-      <div class="hero-horizon-strip"></div>
-    </div>`;
-  default:
-    return '';
-  }
-}
-
-function mountWorldHero(mood){
-  const mount=$('worldHeroMount');
-  if(mount){
-    mount.innerHTML=_worldHeroHtml(mood.hero);
-    mount.className='world-hero-inner hero-'+mood.hero;
-  }
-  const bg=$('worldLayerBg');
-  if(bg){
-    bg.style.setProperty('--mood-bg', mood.bg);
-    bg.style.setProperty('--mood-light-dir', mood.lightDir||'125deg');
-  }
-  const light=$('worldHeroLight');
-  if(light) light.style.setProperty('--hero-light', mood.light||mood.glow);
-  const t=$('worldMoodTitle');
-  if(t) t.textContent=mood.title;
-}
-
-function setWorldState(state, sceneId){
-  const wh=$('worldHome'), we=$('worldEmotion');
-  document.body.classList.remove('world-grid','world-emotion','world-active','world-zoom-in','world-zoom-play');
+function setEmotionUIState(state, sceneId){
+  document.body.classList.toggle('emotion-grid-home', state==='grid');
+  document.body.classList.toggle('emotion-grid-scene', state==='scene');
+  const home=$('emotionGridHome'), scene=$('emotionScene');
   if(state==='grid'){
-    document.body.classList.add('world-grid','world-active');
-    if(wh) wh.hidden=false;
-    if(we) we.hidden=true;
-    _worldMood=null;
-    const ic=$('inputCard'); if(ic) ic.style.display='none';
-  } else if(state==='emotion'){
-    const mood=WORLD_MOODS.find(m=>m.sceneId===sceneId);
+    if(home) home.hidden=false;
+    if(scene) scene.hidden=true;
+  } else if(state==='scene'){
+    const mood=EMOTION_MOODS.find(m=>m.sceneId===sceneId);
     if(!mood) return;
-    _worldMood=mood;
-    document.body.classList.add('world-emotion','world-active','world-zoom-in');
-    if(wh) wh.hidden=true;
-    if(we) we.hidden=false;
-    mountWorldHero(mood);
-    requestAnimationFrame(()=> requestAnimationFrame(()=> document.body.classList.add('world-zoom-play')));
-    const ic=$('inputCard'); if(ic) ic.style.display='none';
-  } else {
-    if(wh) wh.hidden=true;
-    if(we) we.hidden=true;
+    if(home) home.hidden=true;
+    if(scene) scene.hidden=false;
+    const bg=$('emotionSceneBg');
+    if(bg) bg.style.background=mood.bg;
+    const obj=$('emotionSceneObject');
+    if(obj) obj.innerHTML=_emotionShapeHtml(mood.shape);
   }
 }
 
-function openWorldEmotion(sceneId){ setWorldState('emotion', sceneId); }
+function openEmotionScene(sceneId){ setEmotionUIState('scene', sceneId); }
 
-function closeWorldEmotion(){
-  document.body.classList.remove('world-zoom-play');
-  setWorldState('grid');
-}
+function closeEmotionScene(){ setEmotionUIState('grid'); }
 
-function worldStartPlaylist(){
-  if(!_worldMood) return;
-  if(vibeInput) vibeInput.value=_worldMood.hint;
-  setWorldState(null);
-  setMomentState('home');
-  renderScene(_worldMood.sceneId);
-  const ic=$('inputCard');
-  if(ic) ic.style.display='';
-  updateMomentTypingState();
-  vibeInput?.focus();
+let _emotionGridWired=false;
+/** Sole homepage entry after login — replaces legacy moment/world UI. */
+function initEmotionGridUI(){
+  renderEmotionGrid();
+  setEmotionUIState('grid');
+  if(_emotionGridWired) return;
+  _emotionGridWired=true;
+  $('emotionScene')?.addEventListener('click', closeEmotionScene);
 }
-
-let _worldUiWired=false;
-function worldInit(){
-  renderWorldMoodGrid();
-  setWorldState('grid');
-  if(_worldUiWired) return;
-  _worldUiWired=true;
-  $('worldBackBtn')?.addEventListener('click', closeWorldEmotion);
-  $('worldMakePlaylistBtn')?.addEventListener('click', worldStartPlaylist);
-}
+function worldInit(){ initEmotionGridUI(); }
 
 /** Weighted match: direct +3, emotion +2, context +1 — single winner, no blend. */
 const SCENE_SIGNALS={
@@ -2180,15 +1744,9 @@ function setLoading(on){
   if(!generateBtn) return;
   isGenerating=on;
   generateBtn.disabled=on;
-  generateBtn.textContent=on?'Making playlist…':_GEN_HTML;
-  generateBtn.style.opacity=on?'.55':'1';
-  const pe=$('promptExamples');
-  if(pe) pe.style.opacity=on?'.2':'1';
   if(on){
-    setWorldState(null);
     const vibe=_activeGenVibe||vibeInput?.value||'';
     renderScene(getSceneFromInput(vibe));
-    setMomentState('loading');
     const rc=$('resultCard');
     if(rc) rc.classList.remove('visible');
     $('resultSurface')?.classList.remove('result-ready');
@@ -3070,7 +2628,7 @@ function _updateSyncUI(d){
       pill.className='library-ready-pill sync-whisper';
       pill.innerHTML=_SYNC_CHECK;
     }
-    const onWorldGrid=document.body.classList.contains('world-grid');
+    const onWorldGrid=document.body.classList.contains('emotion-grid-home');
     if(ic){
       if(onWorldGrid){ ic.style.display='none'; }
       else if(prevState&&prevState!=='synced'){

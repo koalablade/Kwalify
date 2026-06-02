@@ -4,7 +4,7 @@
 **Assembly enforcement:** [KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md](./KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md)  
 **North Star (product):** [KWALIFY_CREATIVE_NORTH_STAR.md](./KWALIFY_CREATIVE_NORTH_STAR.md) — playlist remains primary.  
 **Hero stills / Figma:** [KWALIFY_VISUAL_STYLE_TLDR.md](./KWALIFY_VISUAL_STYLE_TLDR.md) · [PHASE1_FIGMA_PUMP_CHECKLIST.md](./PHASE1_FIGMA_PUMP_CHECKLIST.md)  
-**Implemented prototype:** `artifacts/api-server/public/index.html` — `#worldHome`, `#worldEmotion`
+**Implemented:** `artifacts/api-server/public/index.html` — see [EMOTION_GRID_UI_ENTRY.md](./EMOTION_GRID_UI_ENTRY.md)
 
 ---
 
