@@ -10,7 +10,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:           #090910;
+      --bg:           #060608;
       --surface:      rgba(255,255,255,0.04);
       --surface-hi:   rgba(255,255,255,0.07);
       --border:       rgba(255,255,255,0.08);
@@ -35,7 +35,7 @@
 
     .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
     .orb { position: absolute; border-radius: 50%; filter: blur(90px); animation: drift 22s ease-out infinite alternate; }
-    .orb-1 { width:700px;height:700px;top:-180px;left:-120px; background:radial-gradient(circle,rgba(130,80,255,.18),transparent 70%); animation-duration:26s; }
+    .orb-1 { display:none; }
     .orb-2 { width:520px;height:520px;bottom:-100px;right:-80px; background:radial-gradient(circle,rgba(29,185,84,.11),transparent 70%); animation-duration:20s;animation-delay:-10s; }
     @keyframes drift { 0%{transform:translate(0,0)} 50%{transform:translate(20px,-16px)} 100%{transform:translate(-12px,22px)} }
 
@@ -44,10 +44,10 @@
 
     .header { width: 100%; max-width: 960px; display: flex; align-items: center; justify-content: space-between; padding: 22px 0 0; }
     .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-    .logo-mark { width: 33px; height: 33px; background: linear-gradient(145deg,#6b3fd4,#9d6bff); border-radius: 9px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 14px rgba(130,80,255,.35); }
+    .logo-mark { width: 33px; height: 33px; background: linear-gradient(145deg,#128b3f,#1db954); border-radius: 9px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 14px var(--green-glow); }
     .logo-mark svg { display: block; }
     .logo-name { font-size: 15px; font-weight: 800; letter-spacing: -.3px; color: var(--text); }
-    .logo-name em { color: var(--purple); font-style: normal; }
+    .logo-name em { color: var(--green); font-style: normal; }
     .back-link { font-size: 13px; color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 5px; transition: color .15s; }
     .back-link:hover { color: var(--text-sub); }
 
@@ -72,7 +72,7 @@
     .card-vibe { font-size: 12px; color: var(--text-sub); font-style: italic; line-height: 1.45; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .card-meta { font-size: 11px; color: var(--text-muted); }
     .card-mood-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
-    .card-mood { font-size: 10px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--purple-dim); border: 1px solid rgba(130,80,255,.25); color: #c09fff; font-weight: 600; }
+    .card-mood { font-size: 10px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--green-dim); border: 1px solid rgba(29,185,84,.25); color: #8fe8b0; font-weight: 600; }
     .featured-vibes { margin-bottom: 28px; }
     .featured-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
     .featured-list { display: flex; flex-direction: column; gap: 8px; }

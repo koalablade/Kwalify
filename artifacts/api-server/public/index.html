@@ -17,19 +17,22 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:           #090910;
+      --bg:           #060608;
       --surface:      rgba(255,255,255,0.04);
       --surface-hi:   rgba(255,255,255,0.07);
       --border:       rgba(255,255,255,0.08);
       --border-hi:    rgba(255,255,255,0.14);
-      --border-focus: rgba(130,80,255,0.5);
+      --border-focus: rgba(29,185,84,0.45);
+      --accent:       #1db954;
       --green:        #1db954;
       --green-dim:    rgba(29,185,84,0.12);
       --green-glow:   rgba(29,185,84,0.28);
-      --purple:       #8250ff;
-      --purple-dim:   rgba(130,80,255,0.12);
-      --purple-mid:   rgba(130,80,255,0.2);
-      --purple-glow:  rgba(130,80,255,0.28);
+      --amber:        #e8b84a;
+      --amber-dim:    rgba(232,184,74,0.12);
+      --purple:       #a89bb8;
+      --purple-dim:   rgba(255,255,255,0.05);
+      --purple-mid:   rgba(255,255,255,0.08);
+      --purple-glow:  rgba(29,185,84,0.2);
       --text:         #ffffff;
       --text-sub:     rgba(255,255,255,0.58);
       --text-muted:   rgba(255,255,255,0.33);
@@ -52,19 +55,19 @@
       scroll-behavior: smooth;
     }
 
-    :focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; border-radius: 4px; }
+    :focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 4px; }
 
     /* ─── Background ─── */
     .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-    .orb { position: absolute; border-radius: 50%; filter: blur(90px); animation: drift 20s ease-out infinite alternate; }
-    .orb-1 { width:700px;height:700px;top:-200px;left:-150px; background:radial-gradient(circle,rgba(130,80,255,.20),transparent 70%); animation-duration:24s; }
-    .orb-2 { width:550px;height:550px;bottom:-120px;right:-100px; background:radial-gradient(circle,rgba(29,185,84,.13),transparent 70%); animation-duration:18s;animation-delay:-9s; }
-    .orb-3 { width:420px;height:420px;top:45%;left:50%;transform:translate(-50%,-50%); background:radial-gradient(circle,rgba(130,80,255,.08),transparent 70%); animation-duration:28s;animation-delay:-5s; }
+    .orb { position: absolute; border-radius: 50%; filter: blur(100px); animation: drift 28s ease-out infinite alternate; opacity:.55; }
+    .orb-1 { display:none; }
+    .orb-2 { width:480px;height:480px;bottom:-140px;right:-80px; background:radial-gradient(circle,rgba(29,185,84,.08),transparent 70%); animation-duration:22s; }
+    .orb-3 { width:360px;height:360px;top:20%;left:50%;transform:translate(-50%,-50%); background:radial-gradient(circle,rgba(232,184,74,.04),transparent 70%); animation-duration:32s; }
     @keyframes drift { 0%{transform:translate(0,0) scale(1)} 40%{transform:translate(28px,-22px) scale(1.04)} 70%{transform:translate(-18px,26px) scale(.97)} 100%{transform:translate(14px,-32px) scale(1.02)} }
 
     /* wave bars */
     .waves { position: fixed; bottom:0; left:50%; transform:translateX(-50%); display:flex; align-items:flex-end; gap:3px; height:55px; padding-bottom:6px; pointer-events:none; z-index:0; opacity:.10; }
-    .wb { width:3px; border-radius:3px; background:var(--purple); animation: wv 1.5s ease-out infinite alternate; }
+    .wb { width:3px; border-radius:3px; background:rgba(29,185,84,.35); animation: wv 1.5s ease-out infinite alternate; }
     @keyframes wv { from{height:3px} to{height:var(--h)} }
 
     /* ─── Layout ─── */
@@ -75,10 +78,10 @@
     /* ─── Header ─── */
     .header { width:100%; max-width:660px; display:flex; align-items:center; justify-content:space-between; padding:22px 0 0; }
     .logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
-    .logo-mark { width:33px; height:33px; background:linear-gradient(145deg,#6b3fd4,#9d6bff); border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 14px rgba(130,80,255,.35); }
+    .logo-mark { width:33px; height:33px; background:linear-gradient(145deg,#128b3f,#1db954); border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 14px var(--green-glow); }
     .logo-mark svg { display:block; }
     .logo-name { font-size:15px; font-weight:800; letter-spacing:-.3px; color:var(--text); }
-    .logo-name em { color:var(--purple); font-style:normal; }
+    .logo-name em { color:var(--green); font-style:normal; }
     .header-nav { display:flex; align-items:center; gap:8px; }
 
     /* ─── Buttons ─── */
@@ -524,6 +527,56 @@
       .kbd-hint { display:none; }
       .presets { overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; }
     }
+
+    /* ── Cinematic + Endel session UI ── */
+    .hero-compact { padding:36px 0 16px; }
+    .hero-compact h1 { color:var(--text); background:none; -webkit-text-fill-color:unset; font-size:clamp(32px,8vw,44px); letter-spacing:-1.2px; }
+    .hero-tagline { font-size:15px; color:var(--text-sub); max-width:360px; margin:0 auto; line-height:1.5; }
+    .sync-status-line { text-align:center; margin-bottom:12px; min-height:28px; }
+    .library-ready-pill { margin:0; cursor:default; }
+    .library-ready-pill:hover { transform:none; box-shadow:none; }
+    .sync-detail-panel, .first-run-hint, .sync-banner, #syncDetailPanel { display:none !important; }
+    .session-core { padding:28px 24px 22px; border-color:rgba(255,255,255,.06); max-width:520px; margin:0 auto; }
+    .vibe-focus { margin-bottom:16px; }
+    .vibe-focus .vibe-input { font-size:17px; padding:16px 52px 16px 18px; border-radius:12px; border-color:rgba(255,255,255,.1); background:rgba(0,0,0,.45); }
+    .vibe-focus .vibe-input:focus { border-color:rgba(29,185,84,.4); box-shadow:0 0 0 3px rgba(29,185,84,.12); }
+    .input-card.glow { border-color:rgba(29,185,84,.35); box-shadow:0 0 0 3px rgba(29,185,84,.1),0 20px 48px rgba(0,0,0,.4); }
+    .btn-generate-full { width:100%; padding:15px 24px; font-size:15px; font-weight:700; border-radius:12px; margin-bottom:10px; }
+    .trust-once { font-size:11.5px; color:var(--text-faint); text-align:center; margin:0 0 18px; }
+    .session-core .field-label { display:none; }
+    .session-core .input-row { display:block; }
+    .session-core #generateBtn { display:none; }
+    .prompt-examples { margin-top:0; padding-top:16px; border-top:1px solid var(--border); }
+    .prompt-example-btn:hover { background:var(--green-dim); border-color:rgba(29,185,84,.3); color:#8fe8b0; }
+    .listening-wrap { text-align:center; padding:20px 0 8px; }
+    .listening-wrap .prog-head, .listening-wrap .prog-track, .listening-wrap .prog-pct, .listening-wrap .dj-stages { display:none !important; }
+    .listening-wrap .prog-label { justify-content:center; font-size:14px; color:var(--text-sub); font-weight:500; }
+    .listening-wrap .spin { width:22px; height:22px; border-top-color:var(--green); }
+    .listening-pulse { width:48px; height:48px; margin:0 auto 14px; border-radius:50%; border:1px solid rgba(29,185,84,.25); animation:listenPulse 2s ease-out infinite; }
+    @keyframes listenPulse { 0%,100%{ transform:scale(1); opacity:.5; } 50%{ transform:scale(1.06); opacity:1; } }
+    .spin { border-top-color:var(--green); }
+    .disclosure-toggle:hover { color:var(--text); }
+    .disclosure-section.open .disclosure-chevron, .result-tier-toggle:hover { color:var(--green); }
+    #advancedHomeSection .disclosure-toggle span:first-child { font-size:12px; }
+    .library-health-card { display:none !important; }
+    .my-playlists-section { margin-top:40px; opacity:.92; }
+    .my-playlists-section .section-header { margin-bottom:8px; }
+    .result-card { padding:26px 24px 22px; border-color:rgba(255,255,255,.07); }
+    .result-top, .result-icon, .result-tag, .result-meta-txt, .mode-badge { display:none !important; }
+    .result-art-grid { max-width:100%; grid-template-columns:repeat(4,1fr); margin-bottom:20px; border-radius:14px; }
+    .result-name-display { font-size:clamp(22px,5vw,28px); font-weight:800; letter-spacing:-.5px; margin-bottom:12px; line-height:1.2; }
+    .result-summary { border-left-color:var(--green); margin-bottom:16px; font-size:14px; }
+    .cache-tier1-notice { background:var(--amber-dim); border-color:rgba(232,184,74,.35); color:var(--amber); }
+    .result-actions { margin-bottom:8px; }
+    .result-actions .btn-green { padding:14px 20px; font-size:15px; }
+    .result-tier-toggle { color:var(--text-muted); }
+    .sticky-generate .btn { background:var(--green); color:#000; box-shadow:0 4px 18px var(--green-glow); }
+    .lhero-examples { display:none !important; }
+    .toast-info { background:rgba(8,12,10,.93); border-color:rgba(29,185,84,.22); color:#8fe8b0; }
+    .btn-purple, .btn-generating { background:var(--green) !important; color:#000 !important; box-shadow:0 4px 18px var(--green-glow) !important; animation:none !important; }
+    .mode-tab.active { background:var(--green-dim); border-color:rgba(29,185,84,.35); color:#8fe8b0; }
+    .length-slider::-webkit-slider-thumb { background:var(--green); box-shadow:0 0 8px var(--green-glow); }
+    .ctrl-val { color:var(--green); }
   </style>
 </head>
 <body>
@@ -558,50 +611,45 @@
 
       <section class="hero hero-compact">
         <h1>Vibe DJ</h1>
-        <p>Type a vibe → get a playlist from your liked songs on Spotify.</p>
+        <p class="hero-tagline">Type how you feel. Get a playlist from your liked songs.</p>
       </section>
 
-      <div class="sync-pill-wrap">
-        <div id="libraryReadyPill" class="library-ready-pill" style="display:none" role="button" tabindex="0" aria-live="polite" onclick="toggleSyncDetail()" onkeydown="if(event.key==='Enter')toggleSyncDetail()"></div>
-        <div id="syncDetailPanel" class="glass sync-detail-panel" aria-hidden="true"></div>
-      </div>
-      <div id="syncBanner" class="sync-banner" style="display:none" aria-hidden="true"></div>
       <div class="glass sync-gate-card" id="syncGateCard" style="display:none" aria-live="polite"></div>
 
-      <div class="glass input-card glass-interactive" id="inputCard" style="display:none">
-        <div id="firstRunHint" class="first-run-hint">Try an example vibe below, then hit <strong>Generate</strong>.</div>
-        <div class="field-label">Your vibe</div>
-        <div class="input-row">
+      <div class="sync-status-line">
+        <div id="libraryReadyPill" class="library-ready-pill" style="display:none" aria-live="polite"></div>
+      </div>
+
+      <div class="glass input-card session-core glass-interactive" id="inputCard" style="display:none">
+        <div class="vibe-focus">
           <div class="input-wrap">
             <input class="vibe-input" id="vibeInput" type="text"
-              placeholder="Describe a moment — not a genre…"
+              placeholder="Late-night drive, rainy window, slow focus…"
               maxlength="140" autocomplete="off" spellcheck="false" />
             <span class="vibe-counter" id="vibeCounter">0/140</span>
           </div>
-          <button class="btn btn-purple" id="generateBtn" onclick="generate()" style="min-width:110px">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Generate
-          </button>
         </div>
-        <p class="generate-liked-hint">From your Spotify likes only — never new recommendations.</p>
+        <button type="button" class="btn btn-green btn-generate-full" id="generateBtn" onclick="generate()">Generate playlist</button>
+        <p class="trust-once">Spotify liked songs only — not new recommendations.</p>
 
-        <div class="prompt-examples" id="promptExamples" style="margin-top:12px;padding-top:0;border-top:none">
+        <div class="prompt-examples" id="promptExamples">
           <div class="prompt-examples-label">Example vibes</div>
           <div class="prompt-example-list" id="promptExampleList"></div>
         </div>
 
-        <div class="prog-wrap" id="progWrap">
+        <div class="prog-wrap listening-wrap" id="progWrap" aria-live="polite">
+          <div class="listening-pulse" aria-hidden="true"></div>
           <div class="prog-head">
-            <div class="prog-label"><div class="spin"></div><span id="progLabel">Building your set…</span></div>
-            <span class="prog-pct" id="progPct">0%</span>
+            <div class="prog-label"><div class="spin"></div><span id="progLabel">Listening to your library…</span></div>
+            <span class="prog-pct" id="progPct" hidden>0%</span>
           </div>
           <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
-          <ol class="dj-stages" id="djStages" aria-live="polite"></ol>
+          <ol class="dj-stages" id="djStages" hidden></ol>
         </div>
 
         <div class="disclosure-section" id="advancedHomeSection">
           <button type="button" class="disclosure-toggle" onclick="toggleDisclosure('advancedHomeSection')">
-            <span>Options &amp; library</span>
+            <span>Settings</span>
             <span class="disclosure-chevron">▼</span>
           </button>
           <div class="disclosure-body">
@@ -630,7 +678,7 @@
                 <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>
               </p>
             </div>
-            <div id="libraryHealthCard" class="library-health-card" style="margin-top:14px;padding:12px 0 0;display:block"></div>
+            <div id="libraryHealthCard" class="library-health-card" style="margin-top:14px;padding:12px 0 0"></div>
             <div class="kbd-hint" style="justify-content:flex-start;margin-top:10px"><kbd>Enter</kbd> generate · <kbd>Ctrl K</kbd> focus</div>
           </div>
         </div>
@@ -657,14 +705,8 @@
       <!-- Result card -->
       <div class="glass result-card" id="resultCard">
         <div id="resultArtGrid" class="result-art-grid"></div>
-        <div class="result-top">
-          <div class="result-icon">🎵</div>
-          <div class="result-info">
-            <div class="result-tag">Your set</div>
-            <div class="result-name" id="resultName">Kwalify Playlist</div>
-            <div class="result-meta-txt" id="resultMeta">25 tracks</div>
-          </div>
-        </div>
+        <div class="result-name result-name-display" id="resultName">Kwalify Playlist</div>
+        <div class="result-meta-txt" id="resultMeta" hidden>25 tracks</div>
         <div id="resultCacheNotice" class="cache-tier1-notice"></div>
         <div id="resultSummary" class="result-summary"></div>
         <div class="result-actions">
@@ -672,13 +714,13 @@
           <div style="display:flex;flex-direction:column;align-items:stretch;min-width:140px">
             <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different picks from your likes">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-              Shuffle my likes for this vibe
+              Reshuffle for this vibe
             </button>
           </div>
         </div>
 
         <button type="button" class="result-tier-toggle" id="tracksTierToggle" onclick="toggleResultTier('tracksTierBody','tracksTierToggle')">
-          <span>▶</span> See track list
+          <span>▶</span> View tracks
         </button>
         <div id="tracksTierBody" class="result-tier-body">
           <div id="forgottenGems"></div>
@@ -687,7 +729,7 @@
         </div>
 
         <button type="button" class="result-tier-toggle" id="advancedTierToggle" onclick="toggleResultTier('advancedTierBody','advancedTierToggle')">
-          <span>▶</span> Advanced insights
+          <span>▶</span> Insights
         </button>
         <div id="advancedTierBody" class="result-tier-body result-advanced">
           <div id="cacheBanner"></div>
@@ -731,7 +773,7 @@
         <div id="pendingMore" class="pending-more"></div>
         <div id="pendingEmotionBars"></div>
         <div class="pending-actions">
-          <button class="btn btn-purple btn-md" onclick="generate()" style="flex:1">
+          <button class="btn btn-green btn-md" onclick="generate()" style="flex:1">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             Try Again
           </button>
@@ -759,7 +801,7 @@
       </footer>
 
       <div class="sticky-generate" id="stickyGenerate">
-        <button type="button" class="btn btn-purple btn-md" onclick="generate()" style="width:100%">Generate playlist</button>
+        <button type="button" class="btn btn-green btn-md" onclick="generate()" style="width:100%">Generate playlist</button>
       </div>
 
     </div><!-- /appView -->
@@ -770,12 +812,7 @@
 
         <div class="lhero">
           <h1 style="font-size:clamp(32px,7vw,48px);font-weight:900;letter-spacing:-1.5px;margin-bottom:10px">Vibe DJ</h1>
-          <p style="font-size:17px;color:var(--text-sub);max-width:400px;margin:0 auto 20px;line-height:1.6">Type a vibe → get a playlist from your Spotify liked songs. Not Discover Weekly.</p>
-          <div class="lhero-examples">
-            <div class="lhero-example">"Late-night motorway drive"</div>
-            <div class="lhero-example">"Sunny afternoon working on an old car"</div>
-            <div class="lhero-example">"Songs that sound expensive"</div>
-          </div>
+          <p style="font-size:17px;color:var(--text-sub);max-width:400px;margin:0 auto 28px;line-height:1.6">Type how you feel. A playlist from songs you already loved — not Discover Weekly.</p>
           <div class="lhero-cta">
             <a href="/api/auth/login" class="btn btn-green" style="font-size:15px;padding:15px 32px;border-radius:9999px">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
@@ -937,7 +974,6 @@ function showApp(userData){
   if($('vibeInput')) setTimeout(()=>$('vibeInput').focus(),180);
   wirePromptExamples();
   startSyncPolling();
-  maybeShowFirstRunHint();
 }
 
 function toggleHeaderMenu(e){
@@ -1047,20 +1083,18 @@ function toggleResultTier(bodyId, toggleId){
   if(!body||!btn) return;
   const open=body.classList.toggle('open');
   const isTracks=bodyId==='tracksTierBody';
-  btn.innerHTML=`<span>${open?'▼':'▶'}</span> ${isTracks?'See track list':'Advanced insights'}`;
+  btn.innerHTML=`<span>${open?'▼':'▶'}</span> ${isTracks?'View tracks':'Insights'}`;
   if(bodyId==='advancedTierBody'&&open) fetchLibraryHealth();
 }
 
-function _shortVibeSummary(vibe, ep, mu, expl){
+function _shortVibeSummary(vibe, ep, mu, expl, count){
   const parts=[];
-  if(vibe) parts.push(`You asked for a moment like “${vibe}”.`);
+  if(vibe) parts.push(`Built for “${vibe}” from your liked songs.`);
+  else parts.push('Built from your liked songs to match that feeling.');
   const scene=mu?.where?.scene||'';
-  if(scene) parts.push(`Kwalify shaped a ${scene} vibe from your liked songs.`);
-  else parts.push('Kwalify picked from your Spotify likes to match that feeling.');
-  const arc=ep?.journeyArc||mu?.destination?.journeyArc;
-  if(arc&&ARC_LABELS[arc]) parts.push(`The set follows a ${ARC_LABELS[arc].toLowerCase()} flow.`);
-  else if(expl?.narrative) parts.push(expl.narrative.split('.')[0]+'.');
-  return parts.slice(0,3).join(' ');
+  if(scene) parts[0]=`Built for “${vibe||'this moment'}” — ${scene} energy from your likes.`;
+  if(count) parts.push(`${count} tracks ready on Spotify.`);
+  return parts.slice(0,2).join(' ');
 }
 
 /* ── Mode selector ── */
@@ -1194,28 +1228,9 @@ function stopProgressTimers(){
 function startProgress(){
   stopProgressTimers();
   progStartMs=Date.now();
-  _lastProgPhase='';
   _deployHintShown=false;
-  _visualStageIdx=0;
-  _targetStageIdx=0;
-  _lastStageAdvanceMs=Date.now();
-  const pw=$('progWrap');
-  if(pw) pw.classList.toggle('compact', !!_genCompressed);
-  const el=$('djStages'); if(el) el.innerHTML='';
-  _paintDjStages(false);
-  _setProgPct(6);
-  const stageMs=_genCompressed?700:STAGE_AUTO_MS;
-  const minStage=_genCompressed?500:MIN_STAGE_MS;
+  if(progLabel) progLabel.textContent='Listening to your library…';
   let progStatusInflight=false;
-  progStageTimer=setInterval(_tickVisualStages, 350);
-  progStageAutoTimer=setInterval(()=>{
-    if(!isGenerating) return;
-    const cap=DJ_STAGES.length-1;
-    if(_targetStageIdx<cap){
-      _targetStageIdx++;
-      _tickVisualStages();
-    }
-  }, stageMs);
   progPollTimer=setInterval(()=>{
     if(!isGenerating||progStatusInflight) return;
     if(typeof document!=='undefined'&&document.visibilityState==='hidden') return;
@@ -1224,57 +1239,27 @@ function startProgress(){
     fetch('/api/generate/status',{credentials:'include'})
       .then(r=>r.ok?r.json():null)
       .then(d=>{
-        if(d&&d.active&&d.phase&&d.phase!=='idle'&&d.phase!=='done') _setProgPhase(d.phase);
-        else if(isGenerating&&elapsed>12000&&!d?.active&&!_deployHintShown){
+        if(isGenerating&&elapsed>12000&&!d?.active&&!_deployHintShown){
           _deployHintShown=true;
-          showToast('Server may have restarted — if this stalls, refresh and check My Playlists.','info',7500);
-          _setProgPhase(_elapsedProgPhase(elapsed));
+          showToast('Still working — large libraries can take a minute.','info',5500);
         }
-        else if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed));
       })
-      .catch(()=>{ if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed)); })
+      .catch(()=>{})
       .finally(()=>{ progStatusInflight=false; });
-  },1500);
-  progTimer=setInterval(()=>{
-    const elapsed=Date.now()-progStartMs;
-    const bump=6+Math.min(86, elapsed/90000*86);
-    _setProgPct(bump);
-    _tickVisualStages();
-  },400);
-  _loaderCapTimer=setTimeout(()=>{
-    if(!isGenerating) return;
-    _targetStageIdx=DJ_STAGES.length-1;
-    _tickVisualStages();
-  }, LOADER_CAP_MS);
+  },2000);
 }
 function finishProgress(done){
   stopProgressTimers();
   const elapsed=Date.now()-progStartMs;
-  const minVis=_genCompressed?600:MIN_PROGRESS_VISIBLE_MS;
-  const wait=Math.max(0,minVis-elapsed);
-  const stepMs=_genCompressed?220:(elapsed<3500?380:580);
+  const wait=Math.max(0, 500 - elapsed);
   setTimeout(()=>{
-    _targetStageIdx=DJ_STAGES.length-1;
-    const step=()=>{
-      if(_visualStageIdx<_targetStageIdx){
-        _visualStageIdx++;
-        _lastStageAdvanceMs=Date.now();
-        _paintDjStages(false);
-        setTimeout(step, stepMs);
-        return;
-      }
-      _paintDjStages(true);
-      if(progLabel) progLabel.textContent='Playlist ready';
-      if(progFill) progFill.style.width='100%';
-      if(progPct) progPct.textContent='100%';
-      if(done) setTimeout(done, 400);
-    };
-    step();
+    if(progLabel) progLabel.textContent='Playlist ready';
+    if(done) setTimeout(done, 280);
   }, wait);
 }
 
-const _GEN_HTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Generate`;
-const _GEN_LOADING=`<span class="spin"></span> Generating…`;
+const _GEN_HTML='Generate playlist';
+const _GEN_LOADING='<span class="spin"></span> Listening…';
 
 function setLoading(on){
   if(!generateBtn) return;
@@ -1521,10 +1506,10 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
     }
   }
   const sumEl=$('resultSummary');
-  if(sumEl) sumEl.textContent=_shortVibeSummary(vibe,ep,mu,expl);
+  if(sumEl) sumEl.textContent=_shortVibeSummary(vibe,ep,mu,expl,count||tracks.length||25);
   const tb=$('tracksTierBody'); const ab=$('advancedTierBody');
-  if(tb){ tb.classList.remove('open'); $('tracksTierToggle').innerHTML='<span>▶</span> See track list'; }
-  if(ab){ ab.classList.remove('open'); $('advancedTierToggle').innerHTML='<span>▶</span> Advanced insights'; }
+  if(tb){ tb.classList.remove('open'); $('tracksTierToggle').innerHTML='<span>▶</span> View tracks'; }
+  if(ab){ ab.classList.remove('open'); $('advancedTierToggle').innerHTML='<span>▶</span> Insights'; }
 
   const spotifyArea=$('spotifyActionArea');
   if(spotifyArea){
@@ -1539,7 +1524,7 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   }
 
   const cacheEl=$('cacheBanner');
-  if(cacheEl) cacheEl.innerHTML=genData.cached?_buildCacheBannerHtml(spotifyPlaylistUrl):'';
+  if(cacheEl) cacheEl.innerHTML='';
   const confEl=$('confidenceCard');
   if(confEl) confEl.innerHTML=_buildConfidenceHtml(genData.promptConfidence);
   const fb=$('feedbackSection');
@@ -1759,9 +1744,7 @@ function generate(){
   if(!vibe){ vibeInput?.focus(); showToast('Type a vibe first!','info',2200); return; }
   debTimer=setTimeout(()=>debTimer=null, 900);
   _activeGenVibe=vibe;
-  const sameVibe=!!(lastVibe&&vibe.toLowerCase()===lastVibe.toLowerCase());
-  const hasGenerated=!!localStorage.getItem('kwalify_has_generated');
-  _genCompressed=hasGenerated&&sameVibe;
+  _genCompressed=true;
   setLoading(true);
   resultCard&&resultCard.classList.remove('visible');
   const length=parseInt($('lenSlider')?.value)||25;
@@ -1840,7 +1823,6 @@ function generate(){
     const trackCount=d.count||d.totalTracks||25;
     _activeGenVibe='';
     showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
-    markHasGenerated();
     if(d.librarySyncHint){
       showToast(d.librarySyncHint,'info',8000);
     }
@@ -2126,12 +2108,10 @@ function _updateSyncUI(d){
       pill.style.display='inline-flex';
       pill.innerHTML=_SYNC_CHECK+`<span>Library ready — ${n.toLocaleString()} song${n!==1?'s':''}</span>`;
     }
-    _fillSyncDetailPanel();
     if(ic){
       if(prevState&&prevState!=='synced'){
         ic.style.display=''; ic.style.animation='fsu .4s var(--spring) both';
         setTimeout(()=>{ if(ic) ic.style.animation=''; },500);
-        maybeShowFirstRunHint();
       } else { ic.style.display=''; }
     }
   } else {
