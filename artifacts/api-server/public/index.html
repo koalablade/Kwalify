@@ -528,8 +528,16 @@
       .presets { overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; }
     }
 
-    /* ── Scene background (still / optional video) — moment-app only ── */
+    /* ── Moment canvas: scene (0) → overlay (1) → UI (2) ── */
     html, body { background:#060608; }
+    #momentCanvasOverlay {
+      position:fixed; inset:0; z-index:1; pointer-events:none;
+      background:rgba(6,6,8,.5); transition:background .3s ease;
+    }
+    body.moment-home #momentCanvasOverlay { background:rgba(6,6,8,.55); }
+    body.moment-home.moment-typing #momentCanvasOverlay { background:rgba(6,6,8,.48); }
+    body.moment-loading #momentCanvasOverlay { background:rgba(6,6,8,.58); }
+    body.moment-result #momentCanvasOverlay { background:rgba(6,6,8,.4); }
     #cinema, #cinemaStill, #cinemaFallback {
       position:fixed; inset:0; width:100%; height:100%; object-fit:cover;
       object-position:center center; aspect-ratio:16/9;
@@ -565,17 +573,25 @@
 
     body.moment-home #cinema,
     body.moment-home #cinemaStill,
-    body.moment-home #cinemaFallback { opacity:0 !important; transition:opacity .4s ease; }
+    body.moment-home #cinemaFallback { opacity:.18 !important; transition:opacity .35s ease; }
+    body.moment-home.moment-typing #cinema,
+    body.moment-home.moment-typing #cinemaStill,
+    body.moment-home.moment-typing #cinemaFallback { opacity:.38 !important; }
     body.moment-loading #cinema,
     body.moment-loading #cinemaStill,
-    body.moment-loading #cinemaFallback { opacity:.5; transition:opacity .4s ease; }
+    body.moment-loading #cinemaFallback { opacity:.42; transition:opacity .35s ease; }
     body.moment-result #cinema,
     body.moment-result #cinemaStill,
-    body.moment-result #cinemaFallback { opacity:1 !important; transition:opacity .4s ease; }
+    body.moment-result #cinemaFallback { opacity:1 !important; transition:opacity .3s ease; }
     .moment-app .bg,
     .moment-app .waves { display:none !important; }
 
     .moment-app .page, #appView.moment-app .moment-shell { position:relative; z-index:2; }
+    .moment-app .page { animation:none; padding-top:0; }
+    .moment-app .header { display:none !important; }
+    .moment-app .settings-whisper { display:none !important; }
+    body.moment-home .below-fold,
+    body.moment-loading .below-fold { display:none !important; }
     .moment-shell, .compose-layer, .result-surface, .vibe-focus, .input-moment, .result-layer.visible .result-surface {
       filter:none !important;
       -webkit-font-smoothing:antialiased;
@@ -593,18 +609,11 @@
     body.moment-result .compose-layer {
       opacity:0 !important; visibility:hidden !important;
       pointer-events:none !important;
-      transition:opacity .4s ease !important;
+      transition:opacity .3s ease !important;
     }
     .moment-app .page { padding-bottom:16px; position:relative; }
     .moment-app .inner { max-width:400px; }
-    .moment-app .header { opacity:.35; padding-top:12px; transition:opacity .4s ease; }
-    body.moment-result .header { opacity:.2; }
-    .moment-app .header-menu-btn { opacity:.45 !important; }
     .moment-app .btn { transition:opacity .3s ease, background .3s ease; }
-    .moment-app .logo-mark { box-shadow:none; opacity:.85; }
-    .moment-app .logo-name { color:var(--text-muted); }
-    .moment-app .logo-name em { color:var(--text-muted); }
-    .moment-app .header-menu-btn { border-color:transparent; background:transparent; }
     #appView.moment-app { display:flex !important; flex-direction:column; min-height:100vh; }
     .moment-shell {
       position:relative; flex:1; display:flex; align-items:center; justify-content:center;
@@ -639,8 +648,7 @@
       backdrop-filter:none !important; padding:0 !important;
     }
     .input-moment.glow .vibe-input {
-      border-bottom-color:rgba(255,255,255,.55);
-      box-shadow:0 12px 40px rgba(0,0,0,.2);
+      border-bottom-color:rgba(255,255,255,.48);
     }
     .moment-input-label {
       display:block; font-size:13px; font-weight:500; letter-spacing:.02em;
@@ -671,10 +679,10 @@
     .examples-whisper { opacity:.22; margin-top:40px; transition:opacity .4s ease; }
     .prompt-examples-label { display:none; }
     .prompt-examples { border:none !important; padding:0 !important; margin:0 !important; }
-    .prompt-example-list { justify-content:center; gap:6px; }
+    .prompt-example-list { flex-direction:column; align-items:center; gap:10px; }
     .prompt-example-btn {
-      background:transparent; border:none; font-size:10px; color:var(--text-faint);
-      opacity:.9; padding:4px 10px; transition:color .5s ease, opacity .5s ease;
+      background:transparent; border:none; font-size:12px; color:var(--text-faint);
+      opacity:.85; padding:2px 8px; transition:opacity .3s ease, color .3s ease;
     }
     .prompt-example-btn:hover { color:var(--text-muted); opacity:.65; background:transparent; }
     .settings-whisper { margin-top:48px; opacity:.1; transition:opacity .5s ease; }
@@ -696,7 +704,7 @@
       padding:48px 24px;
       background:transparent;
       opacity:0; visibility:hidden; pointer-events:none;
-      transition:opacity .4s ease, visibility .4s ease;
+      transition:opacity .3s ease, visibility .3s ease;
     }
     .result-layer.visible {
       opacity:1; visibility:visible; pointer-events:auto;
@@ -728,14 +736,14 @@
       letter-spacing:.01em;
     }
     .moment-title {
-      font-size:clamp(32px,8vw,44px) !important;
-      font-weight:600 !important;
-      letter-spacing:-.6px !important;
-      line-height:1.12 !important;
-      margin:0 auto 16px !important;
-      color:#fff !important;
+      font-size:clamp(28px,7vw,40px) !important;
+      font-weight:500 !important;
+      letter-spacing:.04em !important;
+      line-height:1.2 !important;
+      margin:0 auto 20px !important;
+      color:rgba(255,255,255,.92) !important;
       text-transform:none !important;
-      text-shadow:0 2px 24px rgba(0,0,0,.45);
+      text-shadow:0 1px 20px rgba(0,0,0,.4);
     }
     .moment-micro {
       font-size:14px !important;
@@ -744,7 +752,25 @@
       max-width:280px;
       font-weight:400;
     }
-    body.moment-result .result-actions { max-width:300px; margin-bottom:8px; }
+    .moment-preview {
+      list-style:none; margin:0 auto 24px; padding:0; max-width:300px; text-align:left;
+    }
+    .moment-preview li {
+      display:flex; align-items:baseline; gap:8px; padding:6px 0;
+      font-size:13px; color:rgba(255,255,255,.72); border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .moment-preview li:last-child { border-bottom:none; }
+    .moment-preview .mp-num { width:18px; flex-shrink:0; font-size:11px; color:rgba(255,255,255,.35); }
+    .moment-preview .mp-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .moment-preview .mp-artist { flex-shrink:0; max-width:42%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      font-size:12px; color:rgba(255,255,255,.42); }
+    body.moment-result #resultSummary { display:none !important; }
+    body.moment-result .moment-echo { display:none !important; }
+    body.moment-result .result-actions { max-width:300px; margin:0 auto 20px; order:2; }
+    body.moment-result .moment-title { order:1; }
+    body.moment-result .moment-preview { order:3; }
+    body.moment-result .moment-again { order:4; }
+    .result-surface { display:flex; flex-direction:column; align-items:center; }
     body.moment-result .result-actions .btn-green {
       font-size:16px; padding:18px 24px; font-weight:600;
       border-radius:9999px; box-shadow:0 8px 32px rgba(29,185,84,.28);
@@ -840,6 +866,7 @@
 <video id="cinema" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
 <img id="cinemaStill" alt="" aria-hidden="true" />
 <div id="cinemaFallback" data-scene="open_highway_daylight" aria-hidden="true"></div>
+<div id="momentCanvasOverlay" aria-hidden="true"></div>
 <div class="bg" aria-hidden="true">
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
@@ -876,13 +903,13 @@
           <div id="libraryReadyPill" class="library-ready-pill sync-whisper" style="display:none" aria-live="polite"></div>
 
           <div class="input-moment" id="inputCard" style="display:none">
-            <label class="moment-input-label" for="vibeInput">Type a moment</label>
+            <label class="moment-input-label" for="vibeInput">What moment are you in?</label>
             <div class="vibe-focus">
               <div class="input-wrap">
                 <input class="vibe-input" id="vibeInput" type="text"
-                  placeholder="e.g. driving home at 2am after seeing someone"
+                  placeholder="late night driving"
                   maxlength="140" autocomplete="off" spellcheck="false"
-                  aria-label="Type a moment" />
+                  aria-label="What moment are you in?" />
                 <span class="vibe-counter" id="vibeCounter" aria-hidden="true">0/140</span>
               </div>
             </div>
@@ -931,10 +958,11 @@
             <p class="moment-echo moment-wow-part" id="momentEcho" hidden></p>
             <h1 class="moment-title result-name-display moment-wow-part" id="resultName">Your moment</h1>
             <div class="result-meta-txt" id="resultMeta" hidden>25 tracks</div>
-            <p id="resultSummary" class="moment-micro result-summary moment-wow-part"></p>
             <div class="result-actions moment-wow-part">
               <div id="spotifyActionArea" style="width:100%"></div>
             </div>
+            <ol class="moment-preview moment-wow-part" id="momentPlaylistPreview" hidden></ol>
+            <p id="resultSummary" class="moment-micro result-summary moment-wow-part" hidden></p>
             <button type="button" class="moment-again moment-wow-part" onclick="returnToCompose()">Try another moment</button>
             <span class="mode-badge" id="modeBadge" style="display:none">balanced</span>
           </div>
@@ -1169,49 +1197,41 @@ function setMomentState(state){
   }
 }
 
-const MOMENT_EMOTIONAL_TITLES={
-  night_drive:['Midnight Distance','Quiet Motorway','Tunnel Glow'],
-  petrol_station_2am:['Forecourt Stillness','Two AM Light','Empty Pump Glow'],
-  sunset_coast:['Golden Release','Horizon Warmth','Last Light'],
-  urban_midnight_walk:['Neon Solitude','Wet Street Quiet','City After Rain'],
-  train_journey:['Passing Light','Window Drift','Leaving Station'],
-  summer_afternoon_drift:['Slow Afternoon','Heat Haze','Suburban Sun'],
-  rainy_city_interior:['Safe Inside','Rain on Glass','Lamp Light'],
-  memory_road:['Fading Forward','Golden Recall','Old Road'],
-  club_exit_dawn:['Blue Hour Clarity','Morning After','Empty Sidewalk'],
-  open_highway_daylight:['Open Forward','Clear Horizon','Daylight Drive'],
-};
-
-function _stablePick(pool, seed){
-  if(!pool||!pool.length) return 'Your moment';
-  let h=0;
-  const s=String(seed||'');
-  for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0;
-  return pool[Math.abs(h)%pool.length];
+function _refinedMomentTitle(vibe){
+  const t=(vibe||'').trim().replace(/\s+/g,' ');
+  if(!t) return 'Your moment';
+  const out=t.charAt(0).toUpperCase()+t.slice(1);
+  return out.length>72?out.slice(0,69)+'…':out;
 }
 
-function _emotionalTitleForMoment(vibe, sceneId){
-  const pool=MOMENT_EMOTIONAL_TITLES[sceneId]||MOMENT_EMOTIONAL_TITLES.open_highway_daylight;
-  return _stablePick(pool, vibe);
+function updateMomentTypingState(){
+  const typing=!!(vibeInput?.value||'').trim();
+  document.body.classList.toggle('moment-typing', typing&&document.body.classList.contains('moment-home'));
 }
 
-function _momentEchoText(vibe){
-  return (vibe||'').trim().toLowerCase();
+function _renderMomentPreview(tracks){
+  const el=$('momentPlaylistPreview');
+  if(!el) return;
+  const rows=(tracks||[]).slice(0,5);
+  if(!rows.length){ el.hidden=true; el.innerHTML=''; return; }
+  el.hidden=false;
+  el.innerHTML=rows.map((t,i)=>`<li>
+    <span class="mp-num">${i+1}</span>
+    <span class="mp-name">${esc(t.name||'Track')}</span>
+    <span class="mp-artist">${esc(t.artist||'')}</span>
+  </li>`).join('');
 }
 
-function showMomentResult(vibe){
+function showMomentResult(vibe, tracks){
   vibe=vibe||lastVibe||'';
   const sceneId=getSceneFromInput(vibe);
   renderScene(sceneId);
   const echo=$('momentEcho');
-  if(echo){
-    echo.textContent=_momentEchoText(vibe);
-    echo.hidden=!vibe.trim();
-  }
-  if(resultName) resultName.textContent=_emotionalTitleForMoment(vibe, sceneId);
-  const sum=$('resultSummary');
-  if(sum) sum.textContent='From your liked songs.';
+  if(echo) echo.hidden=true;
+  if(resultName) resultName.textContent=_refinedMomentTitle(vibe);
+  _renderMomentPreview(tracks);
   setMomentState('result');
+  document.body.classList.remove('moment-typing');
   presentResultLayer();
 }
 
@@ -1231,7 +1251,10 @@ function returnToCompose(){
   const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
   const echo=$('momentEcho');
   if(echo){ echo.textContent=''; echo.hidden=true; }
+  _renderMomentPreview([]);
   setMomentState('home');
+  renderScene(DEFAULT_SCENE);
+  updateMomentTypingState();
   if(generateBtn){ generateBtn.disabled=false; generateBtn.textContent=_GEN_HTML; generateBtn.style.opacity=''; }
   vibeInput?.focus();
 }
@@ -1242,6 +1265,8 @@ function showApp(userData){
   document.querySelector('.page')?.classList.add('moment-app');
   setMomentState('home');
   sceneCoreInit();
+  renderScene(DEFAULT_SCENE);
+  updateMomentTypingState();
 
   $('headerNav').innerHTML=`
     <div class="header-menu-wrap">
@@ -1325,11 +1350,11 @@ let _libSummaryCache=null, _libSummaryFetchedAt=0;
 const HIST_KEY='kwalah_v3', MAX_HIST=10;
 const ICONS=['🎵','🌙','💪','☁️','🌅','🎧','🔥','✨','🎶','🌊'];
 const EXAMPLE_VIBES=[
-  'late night overthinking',
-  'sunset beach calm',
-  'post-breakup walk',
-  'empty motorway drive',
-  'summer nostalgia',
+  'petrol station 2am',
+  'late night driving',
+  'sunset walk alone',
+  'rain on the window',
+  'empty highway',
 ];
 let _lastSyncedAt=null, _lastSyncedTrackCount=0;
 
@@ -1382,7 +1407,7 @@ const SCENE_SKIP_VIDEO=false;
 /** Optional video loops — still always preferred (see cinema/scenes.manifest.json) */
 const SCENE_VIDEO_ALLOWED=new Set(['night_drive','urban_midnight_walk','rainy_city_interior']);
 const EMOTION_INPUT_DEBOUNCE_MS=140;
-const LOADER_MIN_MS=1000;
+const LOADER_MIN_MS=1200; /* pet-style: 1–1.5s max */
 const SCENE_CROSSFADE_MS=300;
 const DEFAULT_SCENE='open_highway_daylight';
 let _currentSceneId=DEFAULT_SCENE;
@@ -1641,10 +1666,11 @@ function renderScene(sceneId){
 
 function sceneCoreOnInput(text){
   if(!_isMomentExperience()) return;
+  updateMomentTypingState();
   clearTimeout(_emotionInputTimer);
   _emotionInputTimer=setTimeout(()=>{
     const t=(text||'').trim();
-    if(t) renderScene(getSceneFromInput(t));
+    renderScene(getSceneFromInput(t||''));
   }, EMOTION_INPUT_DEBOUNCE_MS);
 }
 
@@ -2056,7 +2082,7 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   }
 
   if(momentCredits){
-    showMomentResult(vibe);
+    showMomentResult(vibe, tracks);
   } else {
     setMomentState('result');
     presentResultLayer();

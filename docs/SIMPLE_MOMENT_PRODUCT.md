@@ -2,6 +2,7 @@
 
 Pet Playlist **structure**, not branding: one input → one emotional result.
 
+**UI wireframe (Step 1):** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) · **Visual system (Step 2):** [VISUAL_SYSTEM_GUIDE.md](./VISUAL_SYSTEM_GUIDE.md)  
 **Master design system (source of truth):** [KWALIFY_DESIGN_SYSTEM.md](./KWALIFY_DESIGN_SYSTEM.md)  
 **Why this shape works (analysis + full Cursor prompt):** [PET_PLAYLIST_PRINCIPLES_FOR_KWALIFY.md](./PET_PLAYLIST_PRINCIPLES_FOR_KWALIFY.md)  
 **Implementation checklist (Agent):** [REFACTOR_PET_PLAYLIST_UI.md](./REFACTOR_PET_PLAYLIST_UI.md)

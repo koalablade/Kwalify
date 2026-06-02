@@ -1,7 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "aspectRatio": "16:9",
   "primaryAsset": "still.jpg",
+  "brandRules": "Same lens family (35mm feel), wide static framing, soft realism grade, gently desaturated blacks, memory-like not documentary, one focal point, one atmosphere layer only, no HDR sharpness.",
   "videoScenes": ["night_drive", "urban_midnight_walk", "rainy_city_interior"],
   "scenes": {
     "night_drive": {

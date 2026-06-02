@@ -126,6 +126,11 @@ Not: *“This is an interesting system.”*
 
 ---
 
+## Build order
+
+1. **[MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md)** — single-screen loop (structure first)
+2. **[VISUAL_SYSTEM_GUIDE.md](./VISUAL_SYSTEM_GUIDE.md)** — one brand across 10 scene characters
+
 ## Related docs
 
 - [SIMPLE_MOMENT_PRODUCT.md](./SIMPLE_MOMENT_PRODUCT.md) — locked 3-state flow

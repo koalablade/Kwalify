@@ -1,6 +1,6 @@
 # Kwalify — Scene visual style (Emotional Editorial Symbolism)
 
-Source of truth for **moment** backgrounds: [KWALIFY_DESIGN_SYSTEM.md](../../../../docs/KWALIFY_DESIGN_SYSTEM.md).
+**Full 10-scene bible:** [VISUAL_SYSTEM_GUIDE.md](../../../../docs/VISUAL_SYSTEM_GUIDE.md) · **Wireframe:** [MOMENT_UI_WIREFRAME.md](../../../../docs/MOMENT_UI_WIREFRAME.md) · **Principles:** [KWALIFY_DESIGN_SYSTEM.md](../../../../docs/KWALIFY_DESIGN_SYSTEM.md).
 
 ## Intent
 

@@ -113,6 +113,9 @@ Attach PostgreSQL and set the environment variables above.
 
 ### Further docs
 
+- [Pet-style rebuild prompt](./docs/CURSOR_PET_STYLE_REBUILD.md) — master Cursor instructions for the moment UI
+- [Moment UI wireframe](./docs/MOMENT_UI_WIREFRAME.md) — single-screen loop (Step 1)
+- [Visual system guide](./docs/VISUAL_SYSTEM_GUIDE.md) — one brand across 10 scenes (Step 2)
 - [Master design system](./docs/KWALIFY_DESIGN_SYSTEM.md) — product principles, 10 visual entities, UX model
 - [Pet Playlist principles for Kwalify](./docs/PET_PLAYLIST_PRINCIPLES_FOR_KWALIFY.md) — why it works + paste-ready Cursor prompt
 - [Simple moment product](./docs/SIMPLE_MOMENT_PRODUCT.md) — locked one-flow UX (input → playlist + scene)
