@@ -148,16 +148,64 @@
     .kbd-hint { font-size:11px; color:var(--text-faint); display:flex; justify-content:flex-end; align-items:center; gap:4px; margin-top:12px; }
     kbd { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:4px; padding:2px 5px; font-size:10px; font-family:inherit; }
 
-    /* Progress */
+    /* Progress — DJ stages */
     .prog-wrap { margin-top:18px; display:none; }
     .prog-wrap.visible { display:block; }
     .prog-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
-    .prog-label { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-sub); font-weight:500; }
+    .prog-label { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-sub); font-weight:600; }
     .spin { width:20px; height:20px; border:2px solid rgba(255,255,255,0.15); border-top-color:var(--purple); border-radius:50%; animation:spin .65s linear infinite; flex-shrink:0; }
     @keyframes spin { to{transform:rotate(360deg)} }
     .prog-pct { font-size:11.5px; color:var(--text-muted); font-weight:600; font-variant-numeric:tabular-nums; }
-    .prog-track { height:3px; background:rgba(255,255,255,.06); border-radius:2px; overflow:hidden; }
+    .prog-track { height:3px; background:rgba(255,255,255,.06); border-radius:2px; overflow:hidden; margin-bottom:14px; }
     .prog-fill { height:100%; background:linear-gradient(90deg,#8250ff,#1db954); border-radius:2px; width:0; transition:width .5s ease-out; }
+    .dj-stages { list-style:none; display:flex; flex-direction:column; gap:8px; }
+    .dj-stage { display:flex; gap:10px; align-items:flex-start; padding:8px 10px; border-radius:10px; border:1px solid transparent; transition:background .2s,border-color .2s,opacity .2s; opacity:.38; }
+    .dj-stage.active { opacity:1; background:rgba(130,80,255,.08); border-color:rgba(130,80,255,.22); }
+    .dj-stage.done { opacity:.72; }
+    .dj-stage-icon { font-size:15px; line-height:1.2; flex-shrink:0; width:22px; text-align:center; }
+    .dj-stage-body { flex:1; min-width:0; }
+    .dj-stage-title { font-size:12.5px; font-weight:700; color:var(--text); margin-bottom:2px; }
+    .dj-stage-sub { font-size:11.5px; color:var(--text-muted); line-height:1.4; }
+
+    /* Prompt examples */
+    .prompt-examples { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+    .prompt-examples-label { font-size:10px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
+    .prompt-example-list { display:flex; flex-direction:column; gap:6px; }
+    .prompt-example-btn { text-align:left; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); color:var(--text-sub); padding:9px 12px; border-radius:10px; font-size:12.5px; line-height:1.45; cursor:pointer; font-family:inherit; transition:background .15s,border-color .15s,color .15s; }
+    .prompt-example-btn:hover { background:var(--purple-dim); border-color:rgba(130,80,255,.3); color:#d4b8ff; }
+
+    /* Library health */
+    .library-health-card { margin-top:14px; padding:16px 18px; display:none; }
+    .library-health-card.visible { display:block; animation:fsu .35s var(--spring) both; }
+    .library-health-title { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; }
+    .library-health-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px 16px; }
+    .library-stat-val { font-size:17px; font-weight:800; letter-spacing:-.3px; color:var(--text); }
+    .library-stat-lbl { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+    /* Kwalify heard + story */
+    .heard-card { margin-bottom:16px; padding:14px 16px; background:rgba(130,80,255,.06); border:1px solid rgba(130,80,255,.18); border-radius:12px; }
+    .heard-title { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#c09fff; margin-bottom:12px; }
+    .heard-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 14px; }
+    @media (max-width:520px){ .heard-grid { grid-template-columns:1fr; } }
+    .heard-item-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text-faint); margin-bottom:3px; }
+    .heard-item-val { font-size:13px; color:var(--text); line-height:1.4; font-weight:500; }
+    .heard-mood-row { display:flex; flex-wrap:wrap; gap:5px; margin-top:4px; }
+    .heard-mood { font-size:11px; padding:3px 9px; border-radius:var(--r-pill); background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--text-sub); }
+    .playlist-story { font-size:13.5px; color:var(--text-sub); line-height:1.65; margin-bottom:16px; padding:12px 14px; background:rgba(255,255,255,.03); border-radius:10px; border-left:2px solid var(--green); }
+    .forgotten-section { margin:16px 0; padding:14px 16px; background:rgba(29,185,84,.06); border:1px solid rgba(29,185,84,.18); border-radius:12px; }
+    .forgotten-title { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--green); margin-bottom:4px; }
+    .forgotten-sub { font-size:11px; color:var(--text-muted); margin-bottom:10px; }
+    .forgotten-track { display:flex; align-items:center; gap:10px; padding:6px 0; }
+    .forgotten-track + .forgotten-track { border-top:1px solid rgba(255,255,255,.05); }
+    .emotion-toggle { margin-top:12px; font-size:11px; color:var(--text-muted); cursor:pointer; background:none; border:none; font-family:inherit; padding:0; text-decoration:underline; text-underline-offset:3px; }
+    .emotion-toggle:hover { color:var(--text-sub); }
+    .emotion-collapsed { display:none; }
+    .pl-mood-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+    .pl-mood-tag { font-size:10px; padding:2px 8px; border-radius:var(--r-pill); background:var(--purple-dim); border:1px solid rgba(130,80,255,.25); color:#c09fff; font-weight:600; }
+    .pl-prompt { font-size:11px; color:var(--text-sub); margin-top:4px; line-height:1.4; }
+    .regen-sub { font-size:10px; color:var(--text-faint); text-align:center; margin-top:4px; width:100%; }
+    .lhero-examples { display:flex; flex-direction:column; gap:8px; margin:20px auto 0; max-width:420px; text-align:left; }
+    .lhero-example { font-size:13px; color:var(--text-sub); padding:10px 14px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:10px; font-style:italic; line-height:1.45; }
 
     /* Skeleton */
     .skel-card { margin-top:18px; padding:22px 24px; display:none; }
@@ -294,7 +342,7 @@
     /* Playlist card — Spotify link and vibe label */
     .pl-spotify-btn { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--green); text-decoration:none; padding:4px 8px; border-radius:6px; border:1px solid rgba(29,185,84,0.25); background:rgba(29,185,84,0.07); font-weight:600; white-space:nowrap; flex-shrink:0; transition:background .15s,border-color .15s; }
     .pl-spotify-btn:hover { background:rgba(29,185,84,0.14); border-color:rgba(29,185,84,0.4); }
-    .pl-vibe { font-size:11px; color:var(--text-faint); font-style:italic; margin-top:2px; }
+    .pl-vibe { font-size:11px; color:var(--text-faint); font-style:italic; margin-top:2px; display:none; }
 
     /* ════════ TOASTS ════════ */
     .toast-stack { position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column-reverse; gap:8px; z-index:200; pointer-events:none; }
@@ -405,10 +453,11 @@
       <section class="hero">
         <div class="badge"><span class="badge-dot"></span>Vibe DJ · From your liked songs</div>
         <h1>What's the vibe?</h1>
-        <p>Describe your mood, scene, or moment — we score your library and build a playlist only from songs you already saved.</p>
+        <p>Describe a moment — Kwalify builds a playlist from songs you already saved on Spotify.</p>
       </section>
 
       <div id="syncBanner" class="sync-banner" style="display:none" aria-live="polite"></div>
+      <div id="libraryHealthCard" class="glass library-health-card" aria-live="polite"></div>
 
       <!-- Sync onboarding gate card -->
       <div class="glass sync-gate-card" id="syncGateCard" style="display:none" aria-live="polite"></div>
@@ -418,7 +467,7 @@
         <div class="input-row">
           <div class="input-wrap">
             <input class="vibe-input" id="vibeInput" type="text"
-              placeholder="e.g. night drive alone in the rain…"
+              placeholder="Describe a moment — not a genre…"
               maxlength="140" autocomplete="off" spellcheck="false" />
             <span class="vibe-counter" id="vibeCounter">0/140</span>
           </div>
@@ -437,6 +486,17 @@
             Biases matching only — generate always creates a <em>new</em> playlist on your Spotify, not this link.
             <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>
           </p>
+        </div>
+
+        <div class="prompt-examples" id="promptExamples">
+          <div class="prompt-examples-label">Try asking for</div>
+          <div class="prompt-example-list">
+            <button type="button" class="prompt-example-btn" onclick="applyPreset('songs that feel like driving home after seeing old friends')">Songs that feel like driving home after seeing old friends</button>
+            <button type="button" class="prompt-example-btn" onclick="applyPreset('warm summer evening on the balcony with nowhere to be')">Warm summer evening on the balcony</button>
+            <button type="button" class="prompt-example-btn" onclick="applyPreset('music for fixing an old car in the garage on a Sunday')">Fixing an old car in the garage</button>
+            <button type="button" class="prompt-example-btn" onclick="applyPreset('rainy Sunday morning with coffee and nowhere to rush')">Rainy Sunday morning with coffee</button>
+            <button type="button" class="prompt-example-btn" onclick="applyPreset('songs that sound expensive and unbothered')">Songs that sound expensive</button>
+          </div>
         </div>
 
         <div class="presets">
@@ -468,10 +528,11 @@
 
         <div class="prog-wrap" id="progWrap">
           <div class="prog-head">
-            <div class="prog-label"><div class="spin"></div><span id="progLabel">Feeling the vibe…</span></div>
+            <div class="prog-label"><div class="spin"></div><span id="progLabel">Building your set…</span></div>
             <span class="prog-pct" id="progPct">0%</span>
           </div>
           <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+          <ol class="dj-stages" id="djStages" aria-live="polite"></ol>
         </div>
       </div>
 
@@ -505,17 +566,26 @@
         </div>
         <div class="result-actions">
           <div id="spotifyActionArea" style="flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px;"></div>
-          <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different songs">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            More variety
-          </button>
+          <div style="display:flex;flex-direction:column;align-items:stretch;min-width:140px">
+            <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different route through your library">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Take me somewhere else
+            </button>
+            <span class="regen-sub">Same vibe, different route</span>
+          </div>
         </div>
-        <div id="vibeInterpretation"></div>
+        <div id="kwalifyHeard"></div>
+        <div id="playlistStory"></div>
         <div id="statsBar"></div>
+        <div id="forgottenGems"></div>
         <div class="tracks-label">Top picks from your library</div>
         <div class="track-list" id="trackList"></div>
-        <div id="emotionBars"></div>
-        <div id="sceneChips"></div>
+        <button type="button" class="emotion-toggle" id="emotionToggle" style="display:none" onclick="toggleEmotionDetails()">Show vibe analysis details</button>
+        <div id="emotionDetails" class="emotion-collapsed">
+          <div id="vibeInterpretation"></div>
+          <div id="emotionBars"></div>
+          <div id="sceneChips"></div>
+        </div>
         <div class="divider"></div>
         <div class="status-row">
           <div class="status-left">
@@ -582,8 +652,13 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             Playlists from your liked songs
           </div>
-          <h1>Your vibe.<br/><span>Your playlist.</span></h1>
-          <p>Describe your mood. Get a playlist in seconds.</p>
+          <h1>Describe a moment.</h1>
+          <p>Kwalify builds a Spotify playlist from songs you already love — only your liked tracks, scored for the feeling you describe.</p>
+          <div class="lhero-examples">
+            <div class="lhero-example">"Late-night drive home after seeing old friends"</div>
+            <div class="lhero-example">"Sunny evening working on an old car in the garage"</div>
+            <div class="lhero-example">"Nostalgic but not sad"</div>
+          </div>
           <div class="lhero-cta">
             <a href="/api/auth/login" class="btn btn-green" style="font-size:15px;padding:15px 32px;border-radius:9999px">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
@@ -764,7 +839,8 @@ const histSection=$('histSection'), hList=$('hList');
 
 let currentUrl='', lastVibe='', currentMode='balanced';
 let isGenerating=false, debTimer=null, varietyBoostNext=false;
-let currentPlaylistId=null, _libTrackCount=0;
+let currentPlaylistId=null, _libTrackCount=0, _activeGenVibe='';
+let _libSummaryCache=null, _libSummaryFetchedAt=0;
 
 const HIST_KEY='kwalah_v3', MAX_HIST=10;
 const ICONS=['🎵','🌙','💪','☁️','🌅','🎧','🔥','✨','🎶','🌊'];
@@ -778,92 +854,85 @@ function setMode(m){
   });
 }
 
-/* ── Progress (server phase + rotating labels — never stalls at 90%) ── */
-const PROG_PHASE_MAP={
-  idle:{pct:5, labels:['Starting…']},
-  starting:{pct:8, labels:['Reading your vibe…','Tuning in to the moment…','Got it — one sec…','Parsing the mood you described…','Locking in intent…']},
-  loading_library:{pct:18, labels:['Loading your library…','Pulling your liked songs…','Checking your collection…','Scanning saved tracks…','Warming up your taste data…']},
-  building_profile:{pct:32, labels:['Mapping your taste…','Building your genre profile…','Learning what you save…','Studying your listening patterns…','Connecting genres to your vibe…']},
-  scoring:{pct:55, labels:['Scoring thousands of tracks…','Finding the best matches…','Ranking your library…','Comparing energy and mood…','Filtering tracks that miss the vibe…','Weighing nostalgia vs energy…','Digging for hidden gems in your likes…']},
-  composing:{pct:72, labels:['Shaping the flow…','Sequencing the set…','Picking the best flow…','Spacing artists for variety…','Smoothing transitions between tracks…']},
-  spotify:{pct:85, labels:['Creating Spotify playlist…','Saving to Spotify…','Publishing your playlist…','Writing tracks to a new playlist…','Almost ready to listen…']},
-  saving:{pct:92, labels:['Finalising…','Almost there…','Wrapping up…','Saving to your history…']},
-  done:{pct:100, labels:['Done']},
-  error:{pct:0, labels:['Something went wrong']},
+/* ── DJ progress stages ── */
+const PROG_PHASE_PCT={
+  starting:8, loading_library:20, building_profile:36, scoring:58, composing:74, spotify:88, saving:94, done:100,
 };
-const PROG_EXTRA_LABELS=[
-  'Still working — large libraries take a bit longer…',
-  'Matching audio features to your prompt…',
-  'Balancing discovery with songs you already love…',
-  'Keeping artist repeats low…',
-  'Tuning genre mix toward your vibe…',
+const DJ_STAGES=[
+  {icon:'🎧', title:'Reading your library', phases:['starting','loading_library'],
+    sub:(n,v)=>`Looking through ${n>0?n.toLocaleString():'your'} liked song${n===1?'':'s'}`},
+  {icon:'🧠', title:'Understanding the moment', phases:['building_profile'],
+    sub:(_n,v)=>v?`"${v.length>72?v.slice(0,72)+'…':v}"`:'Parsing mood, scene, and intent'},
+  {icon:'📀', title:'Digging for forgotten favourites', phases:['scoring'],
+    sub:()=>'Surfacing tracks you have not heard in a while'},
+  {icon:'🎚️', title:'Building the set', phases:['composing'],
+    sub:()=>'Shaping emotional flow and pacing'},
+  {icon:'🎵', title:'Creating Spotify playlist', phases:['spotify','saving'],
+    sub:()=>'Publishing a new playlist to your account'},
 ];
-const PROG_FLAT_LABELS=(()=>{
-  const seen=new Set();
-  Object.values(PROG_PHASE_MAP).forEach(p=>(p.labels||[]).forEach(l=>seen.add(l)));
-  PROG_EXTRA_LABELS.forEach(l=>seen.add(l));
-  return [...seen];
-})();
-const PROG_LABEL_ROTATE_MS=5200;
-let progTimer=null, progPollTimer=null, progLabelTimer=null, progStartMs=0, _lastProgPhase='', _lastProgLabel='', _deployHintShown=false;
+let progTimer=null, progPollTimer=null, progStartMs=0, _lastProgPhase='', _deployHintShown=false;
 
-function _pickProgLabel(phase){
-  const s=PROG_PHASE_MAP[phase]||PROG_PHASE_MAP.scoring;
-  const phaseList=s.labels||['Working…'];
-  const pool=phaseList.length>=6?phaseList:phaseList.concat(PROG_FLAT_LABELS);
-  let pick=pool[0];
-  for(let i=0;i<12;i++){
-    pick=pool[Math.floor(Math.random()*pool.length)];
-    if(pick!==_lastProgLabel) break;
+function _djStageIndex(phase){
+  for(let i=0;i<DJ_STAGES.length;i++){
+    if(DJ_STAGES[i].phases.includes(phase)) return i;
   }
-  _lastProgLabel=pick;
-  return pick;
+  if(phase==='done') return DJ_STAGES.length;
+  return 2;
+}
+
+function _renderDjStages(phase){
+  const el=$('djStages'); if(!el) return;
+  const activeIdx=_djStageIndex(phase);
+  const n=_libTrackCount||0;
+  const v=_activeGenVibe||'';
+  el.innerHTML=DJ_STAGES.map((s,i)=>{
+    const cls=i<activeIdx?'done':i===activeIdx?'active':'';
+    const sub=s.sub(n,v);
+    return `<li class="dj-stage ${cls}">
+      <span class="dj-stage-icon">${s.icon}</span>
+      <div class="dj-stage-body">
+        <div class="dj-stage-title">Stage ${i+1} · ${esc(s.title)}</div>
+        <div class="dj-stage-sub">${esc(sub)}</div>
+      </div>
+    </li>`;
+  }).join('');
 }
 
 function _elapsedProgPhase(elapsedMs){
-  if(elapsedMs<3500) return 'starting';
-  if(elapsedMs<11000) return 'building_profile';
-  if(elapsedMs<50000) return 'scoring';
-  if(elapsedMs<72000) return 'composing';
+  if(elapsedMs<4000) return 'loading_library';
+  if(elapsedMs<14000) return 'building_profile';
+  if(elapsedMs<52000) return 'scoring';
+  if(elapsedMs<75000) return 'composing';
   return 'spotify';
 }
 
-function _rotateProgLabel(){
-  if(!progLabel) return;
-  const phase=_lastProgPhase||'scoring';
-  progLabel.textContent=_pickProgLabel(phase);
-}
-
 function _setProgPhase(phase){
-  const s=PROG_PHASE_MAP[phase]||PROG_PHASE_MAP.scoring;
-  const p=Math.min(88, Math.max(4, s.pct));
+  const p=Math.min(92, Math.max(6, PROG_PHASE_PCT[phase]||PROG_PHASE_PCT.scoring));
   if(phase!==_lastProgPhase){
     _lastProgPhase=phase;
-    _rotateProgLabel();
+    const st=DJ_STAGES[_djStageIndex(phase)];
+    if(progLabel&&st) progLabel.textContent=st.title;
+    _renderDjStages(phase);
   }
   if(progFill) progFill.style.width=p+'%';
   if(progPct) progPct.textContent=p+'%';
 }
 function _setProgPct(pct){
-  const p=Math.min(88,Math.max(4,Math.round(pct)));
+  const p=Math.min(92,Math.max(6,Math.round(pct)));
   if(progFill) progFill.style.width=p+'%';
   if(progPct) progPct.textContent=p+'%';
 }
 function stopProgressTimers(){
   clearInterval(progTimer);
   clearInterval(progPollTimer);
-  clearInterval(progLabelTimer);
   progPollTimer=null;
-  progLabelTimer=null;
 }
 function startProgress(){
   stopProgressTimers();
   progStartMs=Date.now();
   _lastProgPhase='';
-  _lastProgLabel='';
   _deployHintShown=false;
   _setProgPhase('starting');
-  progLabelTimer=setInterval(_rotateProgLabel, PROG_LABEL_ROTATE_MS);
   let progStatusInflight=false;
   progPollTimer=setInterval(()=>{
     if(!isGenerating||progStatusInflight) return;
@@ -876,7 +945,7 @@ function startProgress(){
         if(d&&d.active&&d.phase&&d.phase!=='idle'&&d.phase!=='done') _setProgPhase(d.phase);
         else if(isGenerating&&elapsed>12000&&!d?.active&&!_deployHintShown){
           _deployHintShown=true;
-          showToast('Server may have restarted — if this stalls, refresh the page and check Recent Playlists.','info',7500);
+          showToast('Server may have restarted — if this stalls, refresh and check My Playlists.','info',7500);
           _setProgPhase(_elapsedProgPhase(elapsed));
         }
         else if(isGenerating) _setProgPhase(_elapsedProgPhase(elapsed));
@@ -886,13 +955,14 @@ function startProgress(){
   },1500);
   progTimer=setInterval(()=>{
     const elapsed=Date.now()-progStartMs;
-    const bump=4+Math.min(84, elapsed/90000*84);
+    const bump=6+Math.min(86, elapsed/90000*86);
     _setProgPct(bump);
   },400);
 }
 function finishProgress(){
   stopProgressTimers();
-  if(progLabel) progLabel.textContent='Done';
+  if(progLabel) progLabel.textContent='Playlist ready';
+  _renderDjStages('done');
   if(progFill) progFill.style.width='100%';
   if(progPct) progPct.textContent='100%';
 }
@@ -911,11 +981,91 @@ function setLoading(on){
   }
   if(progWrap) progWrap.classList.toggle('visible',on);
   if(skelCard) skelCard.classList.toggle('visible',on);
+  const pe=$('promptExamples');
+  if(pe) pe.style.opacity=on?'0.45':'1';
   if(on){ resultCard&&resultCard.classList.remove('visible'); startProgress(); }
   else  { finishProgress(); setTimeout(()=>{ progWrap&&progWrap.classList.remove('visible'); skelCard&&skelCard.classList.remove('visible'); },350); }
 }
 
-/* ── Vibe interpretation ── */
+const ARC_LABELS={
+  default:'Balanced arc', flat:'Steady mood', recovery:'Recovery arc', linear_rise:'Steady lift',
+  linear_fall:'Gentle wind-down', slow_burn:'Slow burn', peak_release:'Build & release', wave:'Ebb and flow',
+};
+function _arcLabel(arc){ return ARC_LABELS[arc]||ARC_LABELS.default; }
+
+function _moodTags(ep, mu, expl){
+  const tags=[];
+  if(mu?.where?.scene) tags.push(mu.where.scene);
+  else {
+    if(mu?.where?.time) tags.push(mu.where.time);
+    if(mu?.where?.place) tags.push(mu.where.place);
+  }
+  const mixed=mu?.feeling?.mixed||expl?.detected?.mixedEmotions||[];
+  mixed.slice(0,3).forEach(m=>tags.push(String(m)));
+  if(ep?.nostalgia>=0.55) tags.push('nostalgic');
+  if(ep?.calm>=0.6) tags.push('calm');
+  if(ep?.energy>=0.65) tags.push('energetic');
+  if(ep?.valence<0.4) tags.push('melancholic');
+  if(ep?.journeyArc||mu?.destination?.journeyArc) tags.push(_arcLabel(ep?.journeyArc||mu?.destination?.journeyArc));
+  return [...new Set(tags.filter(Boolean))].slice(0,5);
+}
+
+function _buildHeardHtml(vibe, ep, mu, expl, libIntel){
+  const scene=mu?.where?.scene||(ep?[_sceneLabel(ep.timeOfDay),_sceneLabel(ep.environment)].filter(Boolean).join(' · '):'')||vibe;
+  const moods=_moodTags(ep,mu,expl);
+  const arc=_arcLabel(ep?.journeyArc||mu?.destination?.journeyArc||expl?.journeyArc);
+  const avoided=(libIntel?.genreAudit?.adjustmentsApplied||[]).slice(0,2).join(' · ');
+  const leaning=(libIntel?.dominantGenres||[]).slice(0,3).map(g=>String(g).replace(/_/g,' ')).join(', ');
+  return `<div class="heard-card">
+    <div class="heard-title">Kwalify heard</div>
+    <div class="heard-grid">
+      <div><div class="heard-item-label">Scene</div><div class="heard-item-val">${esc(scene)}</div></div>
+      <div><div class="heard-item-label">Mood</div><div class="heard-item-val"><div class="heard-mood-row">${moods.map(m=>`<span class="heard-mood">${esc(m)}</span>`).join('')||'—'}</div></div></div>
+      <div><div class="heard-item-label">Energy arc</div><div class="heard-item-val">${esc(arc)}</div></div>
+      <div><div class="heard-item-label">${avoided?'Adjusted':'Leaning toward'}</div><div class="heard-item-val">${esc(avoided||leaning||'Your library mix')}</div></div>
+    </div>
+  </div>`;
+}
+function _sceneLabel(s){ return s?String(s).replace(/_/g,' '):''; }
+
+function _buildStoryHtml(vibe, ep, mu, expl, libIntel){
+  const genres=(libIntel?.dominantGenres||[]).slice(0,4).map(g=>String(g).replace(/_/g,' ')).join(', ');
+  const arc=_arcLabel(ep?.journeyArc||mu?.destination?.journeyArc||expl?.journeyArc).toLowerCase();
+  const parts=[];
+  if(vibe) parts.push(`You asked for "${vibe}".`);
+  parts.push(genres
+    ? `Kwalify focused on ${genres} from your liked songs`
+    : 'Kwalify curated from your liked songs');
+  const place=mu?.where?.scene||_sceneLabel(ep?.environment);
+  if(place) parts[parts.length-1]+=`, matching a ${place} mood`;
+  parts[parts.length-1]+=`. The set follows a ${arc} arc`;
+  if(expl?.narrative) parts.push(expl.narrative);
+  return `<div class="playlist-story">${esc(parts.join(' '))}</div>`;
+}
+
+function _buildForgottenHtml(tracks){
+  const gems=(tracks||[]).filter(t=>(t.rediscoveryScore??0)>=0.45||(t.narrativeRole==='rediscovery'))
+    .sort((a,b)=>(b.rediscoveryScore||0)-(a.rediscoveryScore||0)).slice(0,5);
+  if(!gems.length) return '';
+  const rows=gems.map(t=>{
+    const art=t.albumArt?`<img src="${esc(t.albumArt)}" alt="" class="track-art" style="width:32px;height:32px" onerror="this.outerHTML='🎵'">`:'🎵';
+    return `<div class="forgotten-track">${art}<div class="track-info"><div class="track-name">${esc(t.name)}</div><div class="track-artist">${esc(t.artist)}</div></div></div>`;
+  }).join('');
+  return `<div class="forgotten-section">
+    <div class="forgotten-title">Rediscovered</div>
+    <div class="forgotten-sub">Highlights from deep in your library — not surfaced in a Kwalify playlist lately</div>
+    ${rows}
+  </div>`;
+}
+
+function toggleEmotionDetails(){
+  const box=$('emotionDetails'), btn=$('emotionToggle');
+  if(!box||!btn) return;
+  const open=box.classList.toggle('emotion-collapsed');
+  btn.textContent=open?'Show vibe analysis details':'Hide vibe analysis details';
+}
+
+/* ── Vibe interpretation (details panel) ── */
 function _vibeInterpretation(ep){
   if(!ep) return "Balanced mix — curated from your full range of taste";
   const {energy=0.5, valence=0.5, calm=0.5, nostalgia=0.2, tension=0.3} = ep;
@@ -963,12 +1113,18 @@ function _fmtDuration(ms){
 }
 
 /* ── Show result ── */
-function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotionProfile, spotifyPlaylistUrl, spotifyUnavailable, stats, referenceMatch){
+function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotionProfile, spotifyPlaylistUrl, spotifyUnavailable, stats, referenceMatch, genData){
+  genData=genData||{};
+  const ep=emotionProfile||genData.emotionProfile;
+  const mu=genData.momentUnderstanding;
+  const expl=genData.explanation;
+  const libIntel=genData.libraryIntelligence;
   currentPlaylistId=playlistId; lastVibe=vibe;
   const displayName = playlistName || `Kwalify • ${vibe}`;
   if(resultName) resultName.textContent=displayName;
-  const spotifyLabel = spotifyPlaylistUrl ? ' + Spotify' : '';
-  if(resultMeta) resultMeta.textContent=`${count||tracks.length||25} tracks · Saved to Kwalify${spotifyLabel} · ${mode||currentMode}`;
+  const moodLine=_moodTags(ep,mu,expl).slice(0,3).join(' · ');
+  const spotifyLabel = spotifyPlaylistUrl ? ' · Spotify' : '';
+  if(resultMeta) resultMeta.textContent=`${count||tracks.length||25} tracks${moodLine?' · '+moodLine:''}${spotifyLabel}`;
   if(modeBadge)  modeBadge.textContent=mode||currentMode;
 
   const spotifyArea=$('spotifyActionArea');
@@ -976,12 +1132,23 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
     if(spotifyPlaylistUrl){
       spotifyArea.innerHTML=`<a class="btn btn-green btn-md" href="${esc(spotifyPlaylistUrl)}" target="_blank" rel="noopener" style="width:100%;justify-content:center;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-        ✓ Saved to Kwalify + Open Playlist on Spotify
+        Open Playlist on Spotify
       </a>`;
     } else {
       spotifyArea.innerHTML=`<span style="font-size:12px;color:var(--text-muted);padding:4px 0;">✓ Saved to Kwalify — Spotify playlist creation unavailable</span>`;
     }
   }
+
+  const heardEl=$('kwalifyHeard');
+  if(heardEl) heardEl.innerHTML=_buildHeardHtml(vibe,ep,mu,expl,libIntel);
+  const storyEl=$('playlistStory');
+  if(storyEl) storyEl.innerHTML=_buildStoryHtml(vibe,ep,mu,expl,libIntel);
+  const forgottenEl=$('forgottenGems');
+  if(forgottenEl) forgottenEl.innerHTML=_buildForgottenHtml(tracks);
+  const emToggle=$('emotionToggle');
+  const emDetails=$('emotionDetails');
+  if(emToggle){ emToggle.style.display=''; emToggle.textContent='Show vibe analysis details'; }
+  if(emDetails) emDetails.classList.add('emotion-collapsed');
 
   if(trackList){
     trackList.innerHTML=(tracks||[]).map((t,i)=>{
@@ -1190,6 +1357,7 @@ function generate(){
   const vibe=(vibeInput?.value||'').trim();
   if(!vibe){ vibeInput?.focus(); showToast('Type a vibe first!','info',2200); return; }
   debTimer=setTimeout(()=>debTimer=null, 900);
+  _activeGenVibe=vibe;
   setLoading(true);
   resultCard&&resultCard.classList.remove('visible');
   const length=parseInt($('lenSlider')?.value)||25;
@@ -1266,7 +1434,8 @@ function generate(){
     if(vibeInput) vibeInput.value='';
     if($('vibeCounter')) $('vibeCounter').textContent='0/140';
     const trackCount=d.count||d.totalTracks||25;
-    showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null);
+    _activeGenVibe='';
+    showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
     if(d.librarySyncHint){
       showToast(d.librarySyncHint,'info',8000);
     }
@@ -1294,7 +1463,7 @@ function generate(){
           if(latest&&latest.createdAt){
             const ageMs=Date.now()-new Date(latest.createdAt).getTime();
             if(ageMs<180000&&Array.isArray(latest.tracks)&&latest.tracks.length){
-              showResult(latest.id, latest.name, latest.vibe||vibe, latest.tracks, latest.tracks.length, latest.mode||currentMode, null, latest.spotifyUrl||null, !latest.spotifyUrl, null, null);
+              showResult(latest.id, latest.name, latest.vibe||vibe, latest.tracks, latest.tracks.length, latest.mode||currentMode, latest.emotionProfile, latest.spotifyUrl||null, !latest.spotifyUrl, null, null, {emotionProfile:latest.emotionProfile});
               fetchAndRenderPlaylists();
               showToast('Request timed out in the browser, but your playlist finished — loaded the latest from history.','info',7000);
               return;
@@ -1428,7 +1597,10 @@ function renderPlaylists(items){
         ${link}
       </div>`;
     }).join('');
-    const vibeLabel = p.vibe ? `<div class="pl-vibe">"${esc(p.vibe)}"</div>` : '';
+    const ep=p.emotionProfile;
+    const tags=_moodTags(ep,null,null);
+    const tagHtml=tags.length?`<div class="pl-mood-tags">${tags.map(t=>`<span class="pl-mood-tag">${esc(t)}</span>`).join('')}</div>`:'';
+    const promptHtml=p.vibe?`<div class="pl-prompt">From: "${esc(p.vibe)}"</div>`:'';
     const spotifyBtn = p.spotifyUrl
       ? `<a class="pl-spotify-btn" href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ Spotify</a>`
       : '';
@@ -1439,7 +1611,8 @@ function renderPlaylists(items){
         <div class="pl-body">
           <div class="pl-name">${esc(p.name)}</div>
           <div class="pl-meta">${trackCount} track${trackCount!==1?'s':''}${date?' · '+date:''}</div>
-          ${vibeLabel}
+          ${tagHtml}
+          ${promptHtml}
         </div>
         <div class="pl-actions">
           ${spotifyBtn}
@@ -1553,6 +1726,8 @@ function _updateSyncUI(d){
     clearInterval(_syncTimer); _syncTimer=setInterval(_pollSync,3000);
   } else if(!d.isSyncing&&prevState==='syncing'){
     _syncStartTime=null;
+    _libSummaryCache=null;
+    _libSummaryFetchedAt=0;
     clearInterval(_syncTimer); _syncTimer=setInterval(_pollSync,7000);
   }
 
@@ -1584,6 +1759,7 @@ function _updateSyncUI(d){
       }
       banner.style.display='flex';
     }
+    fetchLibraryHealth();
   } else {
     if(ic) ic.style.display='none';
     if(banner) banner.style.display='none';
@@ -1657,6 +1833,42 @@ async function _startSync(){
     await fetch('/api/spotify/sync',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:'{}'});
     _pollSync();
   } catch { showToast('Failed to start sync — try again.','error',4000); if(btn){ btn.disabled=false; btn.textContent='Sync Now'; } }
+}
+
+async function fetchLibraryHealth(){
+  const card=$('libraryHealthCard');
+  if(!card) return;
+  const now=Date.now();
+  if(_libSummaryCache&&now-_libSummaryFetchedAt<600000){
+    _renderLibraryHealth(_libSummaryCache);
+    return;
+  }
+  try{
+    const {ok,data}=await api('/library/summary');
+    if(ok&&data&&data.trackCount>0){
+      _libSummaryCache=data;
+      _libSummaryFetchedAt=now;
+      _renderLibraryHealth(data);
+    } else {
+      card.classList.remove('visible');
+    }
+  }catch{ card.classList.remove('visible'); }
+}
+
+function _renderLibraryHealth(s){
+  const card=$('libraryHealthCard');
+  if(!card||!s?.trackCount) return;
+  const decade=s.topDecade?`Most active decade: ${s.topDecade}`:'';
+  const span=s.oldestLikedYear&&s.newestLikedYear
+    ? `Likes from ${s.oldestLikedYear}–${s.newestLikedYear}`:'';
+  card.classList.add('visible');
+  card.innerHTML=`<div class="library-health-title">Your library</div>
+    <div class="library-health-grid">
+      <div><div class="library-stat-val">${s.trackCount.toLocaleString()}</div><div class="library-stat-lbl">liked songs</div></div>
+      <div><div class="library-stat-val">${(s.artistCount||0).toLocaleString()}</div><div class="library-stat-lbl">artists</div></div>
+      <div><div class="library-stat-val">${s.genreFamilyCount||'—'}</div><div class="library-stat-lbl">genre families</div></div>
+      <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(decade||span||'—')}</div><div class="library-stat-lbl">${decade&&span?esc(span):'listening span'}</div></div>
+    </div>`;
 }
 
 async function _startFullSync(){
