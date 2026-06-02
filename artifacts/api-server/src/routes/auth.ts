@@ -109,6 +109,10 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
 
     req.log.info({ spotifyUserId: user.id }, "Spotify OAuth successful");
 
+    const finishOAuth = (): void => {
+      res.redirect(getFrontendRedirect("/"));
+    };
+
     // Auto-sync on first login — fire and forget (don't await)
     try {
       const [syncStatus] = await db
@@ -138,7 +142,14 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
       req.log.warn({ err: autoSyncErr }, "Auto-sync check failed — continuing");
     }
 
-    res.redirect(getFrontendRedirect("/"));
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        req.log.error({ err: saveErr }, "Failed to save session after OAuth");
+        res.redirect(getFrontendRedirect("/?error=session_failed"));
+        return;
+      }
+      finishOAuth();
+    });
   } catch (err) {
     req.log.error({ err }, "Spotify OAuth callback failed");
     res.redirect(getFrontendRedirect("/?error=auth_failed"));
@@ -158,23 +169,27 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     return;
   }
 
+  // Best-effort refresh — boot must succeed when the session cookie is valid even if
+  // Spotify is briefly unreachable (otherwise the SPA falls back to guest landing).
   try {
-    const freshTokens = await getValidAccessToken(req.session.spotifyTokens);
+    const freshTokens = await getValidAccessToken(
+      req.session.spotifyTokens,
+      req.session.spotifyUserId,
+    );
     if (freshTokens.accessToken !== req.session.spotifyTokens.accessToken) {
       req.session.spotifyTokens = freshTokens;
     }
-
-    res.json({
-      id: req.session.spotifyUserId,
-      displayName: req.session.spotifyDisplayName,
-      email: req.session.spotifyEmail ?? null,
-      avatarUrl: req.session.spotifyAvatarUrl ?? null,
-      country: req.session.spotifyCountry ?? null,
-    });
   } catch (err) {
-    req.log.error({ err }, "Failed to get user");
-    res.status(401).json({ error: "Not authenticated" });
+    req.log.warn({ err, userId: req.session.spotifyUserId }, "Token refresh failed — serving session user");
   }
+
+  res.json({
+    id: req.session.spotifyUserId,
+    displayName: req.session.spotifyDisplayName,
+    email: req.session.spotifyEmail ?? null,
+    avatarUrl: req.session.spotifyAvatarUrl ?? null,
+    country: req.session.spotifyCountry ?? null,
+  });
 });
 
 export default router;

@@ -661,7 +661,8 @@
     body.pets-app video#cinema { display:none !important; visibility:hidden !important; }
     #appView.pets-shell {
       position:fixed; inset:0; z-index:100; display:none;
-      background:#0e1018; overflow:hidden;
+      background:radial-gradient(ellipse 120% 80% at 50% 20%, #1a1e28 0%, #101218 55%, #0c0e14 100%);
+      overflow:hidden;
     }
     html.boot-auth #appView.pets-shell,
     html.kwalify-authed #appView.pets-shell,
@@ -670,7 +671,7 @@
     #syncGateCard { display:none !important; visibility:hidden !important; pointer-events:none !important; }
     .pets-home {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      padding:56px 72px; overflow:auto;
+      padding:64px 80px; overflow:auto;
       opacity:1; transform:scale(1);
       transition:opacity .52s cubic-bezier(.22,1,.36,1), transform .52s cubic-bezier(.22,1,.36,1);
       pointer-events:auto;
@@ -679,35 +680,35 @@
       opacity:0; transform:scale(.97); pointer-events:none;
     }
     .pets-grid {
-      display:grid; grid-template-columns:repeat(3, 228px); gap:28px;
-      justify-content:center; width:100%; max-width:780px;
+      display:grid; grid-template-columns:repeat(3, 232px); gap:32px;
+      justify-content:center; width:100%; max-width:800px;
     }
     @media (max-width:780px) {
       .pets-grid { grid-template-columns:repeat(2, min(228px, 100%)); gap:24px; }
       .pets-home { padding:40px 24px; }
     }
     .pets-card {
-      width:228px; height:188px; margin:0; padding:20px 16px 18px; border:none;
-      border-radius:22px;
-      background:linear-gradient(168deg, rgba(255,255,255,.09) 0%, rgba(255,255,255,.03) 50%, rgba(18,22,34,.55) 100%);
+      width:232px; height:196px; margin:0; padding:22px 18px 20px; border:none;
+      border-radius:24px;
+      background:linear-gradient(165deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.035) 45%, rgba(14,18,28,.5) 100%);
       cursor:pointer; font-family:inherit;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
-      box-shadow:0 10px 36px rgba(0,0,0,.14);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+      box-shadow:0 8px 28px rgba(0,0,0,.1);
       transition:transform .5s cubic-bezier(.22,1,.36,1), box-shadow .5s ease, filter .5s ease;
     }
     .pets-card:hover {
-      transform:translateY(-4px);
-      filter:brightness(1.04);
-      box-shadow:0 16px 42px rgba(0,0,0,.18);
+      transform:translateY(-3px);
+      filter:brightness(1.03);
+      box-shadow:0 12px 32px rgba(0,0,0,.12);
     }
     .pets-card-title {
-      font-size:12px; font-weight:500; letter-spacing:.03em;
-      color:rgba(255,255,255,.5); line-height:1.25;
+      font-size:11px; font-weight:500; letter-spacing:.04em;
+      color:rgba(255,255,255,.42); line-height:1.3;
     }
     .pets-illust { display:block; flex-shrink:0; overflow:visible; }
-    .pets-illust--preview { width:80px; height:64px; }
+    .pets-illust--preview { width:84px; height:68px; }
     .pets-illust--hero {
-      width:min(48vw,260px); height:min(48vw,260px); max-height:54vh;
+      width:min(50vw,272px); height:min(50vw,272px); max-height:56vh;
       opacity:0; transform:scale(.9);
       transition:opacity .55s cubic-bezier(.22,1,.36,1), transform .55s cubic-bezier(.22,1,.36,1);
     }
@@ -729,11 +730,11 @@
     }
     .pets-scene-hero {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      padding:0 16vw 12vh; pointer-events:none;
-      transform:translateY(-4%);
+      padding:0 18vw 14vh; pointer-events:none;
+      transform:translateY(-5%);
     }
     .pets-scene-hero .pets-illust--hero {
-      filter:drop-shadow(0 20px 40px rgba(0,0,0,.18));
+      filter:drop-shadow(0 16px 32px rgba(0,0,0,.12));
     }
 
     .compose-layer {
@@ -1026,8 +1027,8 @@
       <div class="landing">
 
         <div class="lhero">
-          <h1 style="font-size:clamp(32px,7vw,48px);font-weight:900;letter-spacing:-1.5px;margin-bottom:10px">Vibe DJ</h1>
-          <p style="font-size:17px;color:var(--text-sub);max-width:400px;margin:0 auto 28px;line-height:1.6">Type how you feel. A playlist from songs you already loved — not Discover Weekly.</p>
+          <h1 style="font-size:clamp(32px,7vw,48px);font-weight:900;letter-spacing:-1.5px;margin-bottom:10px">Kwalify</h1>
+          <p style="font-size:17px;color:var(--text-sub);max-width:400px;margin:0 auto 28px;line-height:1.6">Connect Spotify to pick a mood and build playlists from songs you already love.</p>
           <div class="lhero-cta">
             <a href="/api/auth/login" class="btn btn-green" style="font-size:15px;padding:15px 32px;border-radius:9999px">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
@@ -1168,6 +1169,45 @@ async function api(path, opts={}){
   return {ok:res.ok, status:res.status, data: await res.json().catch(()=>({}))};
 }
 
+const _bootLog=(...a)=>{ if(location.hostname==='localhost'||location.search.includes('bootdebug')) console.info('[kwalify boot]',...a); };
+const _AUTH_ME_RETRIES=2;
+const _AUTH_ME_RETRY_MS=450;
+const _LOGIN_LOOP_KEY='kwalify_login_redirect_ts';
+
+async function _authMeWithRetry(){
+  let last={ok:false,status:0,data:{}};
+  for(let attempt=0; attempt<=_AUTH_ME_RETRIES; attempt++){
+    try{
+      last=await api('/auth/me');
+      if(last.ok||last.status===401||attempt===_AUTH_ME_RETRIES) return last;
+      if(last.status>=500||last.status===429){
+        await new Promise(r=>setTimeout(r,_AUTH_ME_RETRY_MS*(attempt+1)));
+        continue;
+      }
+      return last;
+    }catch(err){
+      _bootLog('auth/me network error',attempt,err);
+      if(attempt===_AUTH_ME_RETRIES) throw err;
+      await new Promise(r=>setTimeout(r,_AUTH_ME_RETRY_MS*(attempt+1)));
+    }
+  }
+  return last;
+}
+
+function _redirectToLogin(){
+  const now=Date.now();
+  const prev=Number(sessionStorage.getItem(_LOGIN_LOOP_KEY)||0);
+  if(prev&&now-prev<10000){
+    sessionStorage.removeItem(_LOGIN_LOOP_KEY);
+    _bootLog('login redirect loop guard — showing guest connect');
+    bootGuestLanding();
+    showToast('Could not complete login. Allow cookies for this site, then tap Connect again.','error',8000);
+    return;
+  }
+  sessionStorage.setItem(_LOGIN_LOOP_KEY,String(now));
+  location.replace('/api/auth/login');
+}
+
 /* ── Boot: auth first → Emotion Grid OR guest landing (never both) ── */
 function bootAuthedHome(){
   document.documentElement.classList.add('boot-auth','kwalify-authed');
@@ -1210,10 +1250,28 @@ async function init(){
   if(err){ showToast('Login failed: '+err,'error',5000); history.replaceState(null,'','/'); }
 
   try {
-    const {ok}=await api('/auth/me');
-    if(ok) bootAuthedHome();
-    else bootGuestLanding();
-  } catch {
+    const {ok, status}=await _authMeWithRetry();
+    if(ok){
+      sessionStorage.removeItem(_LOGIN_LOOP_KEY);
+      _bootLog('authed → emotion grid');
+      bootAuthedHome();
+      return;
+    }
+    _bootLog('auth/me failed',status);
+    if(status===401){
+      _redirectToLogin();
+      return;
+    }
+    if(status===503){
+      showToast('Spotify is not configured on this server.','error',6000);
+      bootGuestLanding();
+      return;
+    }
+    showToast('Could not verify login — try Connect again.','error',5000);
+    bootGuestLanding();
+  } catch (e) {
+    _bootLog('auth boot error',e);
+    showToast('Network error checking login — try Connect again.','error',5000);
     bootGuestLanding();
   }
 }
@@ -1497,7 +1555,7 @@ function _petsIllustHtml(illust, variant){
 }
 
 function _emotionSceneBg(hex){
-  return `radial-gradient(ellipse 80% 70% at 50% 38%, ${hex} 0%, #101218 68%, #0a0c12 100%)`;
+  return `radial-gradient(ellipse 75% 65% at 50% 36%, ${hex} 0%, #121620 62%, #0a0c12 100%)`;
 }
 
 function _emotionPreviewHtml(illust){ return _petsIllustHtml(illust,'preview'); }

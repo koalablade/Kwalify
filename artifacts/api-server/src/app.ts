@@ -94,9 +94,11 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       secret: env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
+      proxy: env.NODE_ENV === "production",
       cookie: {
         secure: env.NODE_ENV === "production",
         httpOnly: true,
+        path: "/",
         maxAge: 7 * 24 * 60 * 60 * 1000,
         // Same host (APP_URL on Render custom domain): lax. Split frontend/API: none.
         sameSite:
