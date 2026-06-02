@@ -1,40 +1,47 @@
-# Kwalify — Scene visual style (Emotional Editorial Symbolism)
+# Kwalify — Scene visual style
 
-**Full 10-scene bible:** [VISUAL_SYSTEM_GUIDE.md](../../../../docs/VISUAL_SYSTEM_GUIDE.md) · **Wireframe:** [MOMENT_UI_WIREFRAME.md](../../../../docs/MOMENT_UI_WIREFRAME.md) · **Principles:** [KWALIFY_DESIGN_SYSTEM.md](../../../../docs/KWALIFY_DESIGN_SYSTEM.md).
+**Creative North Star (supreme direction):** [KWALIFY_CREATIVE_NORTH_STAR.md](../../../../docs/KWALIFY_CREATIVE_NORTH_STAR.md)
 
-## Intent
+We are building **Emotional Editorial Worlds** — symbolic small worlds with a **dream object** anchor — not realistic cinematic photography.
 
-Each scene is an **emotional visual metaphor**, not a simulated world. One frame, one dominant feeling, readable in under half a second.
+**Enforcement:** [UNIFIED_VISUAL_SYSTEM.md](../../../../docs/UNIFIED_VISUAL_SYSTEM.md) · **Prompts:** [scenes.manifest.json](./scenes.manifest.json) · **Export:** `python scripts/export_scene_prompts.py`
 
-## Composition
+---
 
-- Single subject or one environmental focus
-- Centred or slightly off-centre
-- Strong negative space; no clutter
+## Dream object rule
 
-## Lighting & colour
+Each scene has one iconic object (fuel pump, dashboard glow, lighthouse, etc.). Environment supports the object. User should remember **“the fuel pump scene”**, not a stock photo.
 
-- One dominant light source; soft falloff
-- One dominant tone + at most one accent
-- Desaturated backgrounds preferred; subtle grade only
+---
 
-## Materials
+## Art direction
 
-- Soft matte / clay / editorial illustration feel
-- No hyperrealism, no noisy detail, no abstract gradient blobs
+- Editorial illustration · premium music-brand feel
+- Simplified forms · strong silhouettes · negative space
+- Limited palette · subtle texture · emotional atmosphere
 
-## Motion (optional video only)
+**Avoid:** hyper realism · HDR · photobashing · cyberpunk · visual noise
 
-- Almost none: subtle loop acceptable for `night_drive`, `urban_midnight_walk`, `rainy_city_interior`
-- No camera drift systems, no continuous animation layers on the UI
+---
+
+## Asset phases
+
+| Phase | Scope |
+|-------|--------|
+| **1** | `petrol_station_2am` only — 30–50 concepts to find the language |
+| **2** | Extract style guide from winners |
+| **3** | Remaining 9 scenes in locked style |
+
+Do not polish all 10 scenes before Phase 1 completes.
+
+---
 
 ## Delivery
 
 | Requirement | Value |
 |-------------|--------|
 | Aspect ratio | 16:9 |
-| Primary asset | `{scene_id}/still.jpg` (required) |
-| Optional video | `{scene_id}.mp4` or `{scene_id}/base.mp4` (three scenes above) |
-| Frontend load order | still → video (if allowed) → flat `#060608` emergency plate |
+| Primary asset | `{scene_id}/still.jpg` (1920×1080) |
+| Optional video | Only `night_drive`, `urban_midnight_walk`, `rainy_city_interior` until style lock |
 
-Per-scene prompts: `scenes.manifest.json`.
+Frontend: still → optional video → flat `#060608` emergency plate. UI stays neutral on top (glass on reality).

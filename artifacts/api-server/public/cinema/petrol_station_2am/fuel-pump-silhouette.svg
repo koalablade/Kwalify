@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Fuel pump silhouette test">
+  <g fill="#000000">
+    <rect x="10" y="4" width="28" height="38" rx="5"/>
+    <rect x="14" y="12" width="20" height="9" rx="2"/>
+    <path d="M34 18 C40 17, 42 22, 39 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+    <rect x="36" y="22" width="8" height="4" rx="1"/>
+  </g>
+</svg>

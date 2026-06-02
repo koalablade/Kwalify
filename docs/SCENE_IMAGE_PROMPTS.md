@@ -1,7 +1,9 @@
 # Kwalify — 10 scene image prompts (master brand set)
 
-**Enforcement:** [UNIFIED_VISUAL_SYSTEM.md](./UNIFIED_VISUAL_SYSTEM.md) · **Manifest:** [scenes.manifest.json](../artifacts/api-server/public/cinema/scenes.manifest.json)  
-**Export full prompts:** `python scripts/export_scene_prompts.py`  
+**North Star:** [KWALIFY_CREATIVE_NORTH_STAR.md](./KWALIFY_CREATIVE_NORTH_STAR.md) · **Visual TL;DR:** [KWALIFY_VISUAL_STYLE_TLDR.md](./KWALIFY_VISUAL_STYLE_TLDR.md) — **Phase 1: fuel pump only (30–50 concepts)** before other scenes.
+
+**Enforcement:** [UNIFIED_VISUAL_SYSTEM.md](./UNIFIED_VISUAL_SYSTEM.md) · **Manifest:** [scenes.manifest.json](../artifacts/api-server/public/cinema/scenes.manifest.json)
+**Export Phase 1:** `python scripts/export_scene_prompts.py --phase1` · **All scenes (after lock):** `python scripts/export_scene_prompts.py`
 **Publish stills:** `python scripts/publish_cinema_still.py <image> <scene_id>`  
 **Validate:** `python scripts/validate_cinema_assets.py`
 
@@ -9,9 +11,26 @@
 
 ## Global style prefix (every scene)
 
+From manifest — **editorial worlds**, not photographic realism:
+
 ```
-soft editorial cinematic photography, minimal composition, single subject focus, muted film color grading, shallow atmospheric detail, natural lighting, subtle grain, 35mm lens look, calm emotional tone, high clarity subject separation, not hyper-realistic, not HDR, not overly detailed, designed for UI background use
+premium editorial illustration inspired by Spotify Pet Playlists design philosophy but symbolic emotional object as character, one iconic object one mood one simple environment, simplified geometric forms, strong silhouette, object occupies 20 to 40 percent of frame, large negative space, soft matte finish, limited colour palette one dominant one accent neutral support, album-cover composition, instantly recognizable, emotionally expressive without realism, no photorealism no stock photo no hyper-detail no cyberpunk no Pixar no cartoon comedy
 ```
+
+## Dream objects (emotional anchor)
+
+| Scene | Object |
+|-------|--------|
+| `night_drive` | dashboard glow |
+| `petrol_station_2am` | **fuel pump** ← Phase 1 focus |
+| `train_journey` | train ticket |
+| `rainy_city_interior` | lamp beside window |
+| `urban_midnight_walk` | streetlight |
+| `sunset_coast` | lighthouse |
+| `memory_road` | road sign |
+| `summer_afternoon_drift` | garden chair |
+| `club_exit_dawn` | fading neon sign |
+| `open_highway_daylight` | mile marker |
 
 **Suffix (auto-appended in manifest export):** `16:9 aspect ratio, 1920x1080, no text, no watermark.`
 
@@ -40,13 +59,15 @@ Every image must feel like **different emotional states of the same world** — 
 driver perspective inside a car at night on an empty motorway, wet asphalt reflecting sodium street lights, dashboard glow softly illuminating hands on steering wheel, distant highway lights fading into darkness, calm isolation, centered composition, minimal distractions, soft rain streaks on windshield, deep blacks and warm orange highlights
 ```
 
-### 2. `petrol_station_2am` — liminal stillness
+### 2. `petrol_station_2am` — loneliness, liminal space (Phase 1 only)
 
-**Rule:** emptiness is the subject
+**Rule:** fuel pump is the emotional character; object ~20–40% of frame
 
 ```
-empty petrol station at 2am, wide static shot, fluorescent canopy lights glowing harsh white, wet concrete reflecting green and red signage, one empty parked car far in background, vending machine light glowing inside small shop, strong negative space, slightly off-centre composition, quiet liminal atmosphere
+a solitary fuel pump standing in darkness acting as an emotional character, simplified geometric forms, strong silhouette, large negative space, soft matte texture, limited colour palette of deep navy muted green and warm white, subtle atmospheric glow, modern music-brand aesthetic, emotionally symbolic, sophisticated and minimal, inspired by emotional storytelling rather than realism, simple dark forecourt environment that never competes with the pump
 ```
+
+Full concatenated prompt: `python scripts/export_scene_prompts.py --phase1`
 
 ### 3. `sunset_coast` — release
 

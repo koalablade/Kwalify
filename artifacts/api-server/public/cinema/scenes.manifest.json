@@ -1,6 +1,14 @@
 {
-  "version": 4,
-  "corePrinciple": "A single emotional moment frozen in time — not a location, cinematic shot, or stylistic experiment.",
+  "version": 7,
+  "creativeNorthStar": "docs/KWALIFY_CREATIVE_NORTH_STAR.md",
+  "visualStyleTldr": "docs/KWALIFY_VISUAL_STYLE_TLDR.md",
+  "corePrinciple": "Small emotional editorial world with one dream object anchor — not a photograph of a place.",
+  "assetPhases": {
+    "current": 1,
+    "focusScene": "petrol_station_2am",
+    "conceptsTarget": "30-50",
+    "note": "Do not finalise other scenes until Phase 2 style lock"
+  },
   "aspectRatio": "16:9",
   "output": {
     "width": 1920,
@@ -8,7 +16,11 @@
     "primaryAsset": "still.jpg",
     "pathPattern": "cinema/{scene_id}/still.jpg"
   },
-  "stylePrefix": "soft editorial cinematic photography, minimal composition, single subject focus, muted film color grading, shallow atmospheric detail, natural lighting, subtle grain, 35mm lens look, calm emotional tone, high clarity subject separation, not hyper-realistic, not HDR, not overly detailed, designed for UI background use",
+  "visualStyleDna": "docs/KWALIFY_VISUAL_STYLE_DNA.md",
+  "objectConstructionMode": "docs/KWALIFY_OBJECT_CONSTRUCTION_MODE.md",
+  "emotionalSceneAssembly": "docs/KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md",
+  "stylePrefix": "one physical object under one controlled light not a scene, injection-moulded form language rounded rectangles capsules cylinders ribbons only, single soft directional light plus low ambient behind hero edge emission on hero only, low-mid saturation cinematic palette dominant supporting neutral, matte plastic and soft anodised metal manufactured not photographed, three layers background gradient atmosphere blur hero crisp, large negative space object 40 to 70 percent visual attention, no blobs smoke fractals neon chaos game lighting photoreal texture",
+  "styleAvoid": "no photorealism no 3D render realism no busy environments no cinematic lighting no hyper detail no rust scratches grain noise no multiple focal points no complex backgrounds no humans no animals no storytelling scenes no cyberpunk no Pixar no cartoon comedy no stock photo",
   "brandConsistency": "Different emotional states of the same world — one lens, one grade, one softness.",
   "brandTest": "Show frame 1 second — emotion must be obvious or reject asset.",
   "avoid": [
@@ -20,12 +32,18 @@
     "multiple focal subjects",
     "extreme depth-of-field blur",
     "abstract procedural shapes",
-    "strong stylization differences between scenes"
+    "strong stylization differences between scenes",
+    "Pixar or cartoon comedy style",
+    "stock-photo look",
+    "object larger than 40 percent of frame",
+    "rainbow palettes and heavy gradients"
   ],
   "videoScenes": ["night_drive", "urban_midnight_walk", "rainy_city_interior"],
   "scenes": {
     "night_drive": {
       "title": "Night Drive",
+      "dreamObject": "dashboard glow",
+      "productionStatus": "pending_style_lock",
       "character": "detached calm",
       "emotion": "detached calm",
       "lighting": "sodium streetlights + dashboard glow",
@@ -37,18 +55,22 @@
     },
     "petrol_station_2am": {
       "title": "Petrol Station 2am",
+      "dreamObject": "fuel pump",
+      "productionStatus": "phase_1_exploration",
       "character": "liminal stillness",
-      "emotion": "liminal stillness",
-      "lighting": "harsh fluorescent white",
-      "composition": "empty wide negative space",
+      "emotion": "loneliness, liminal space",
+      "lighting": "soft atmospheric glow, mood-first not cinematic HDR",
+      "composition": "album-cover, object 20-40% frame, background supports mood",
       "atmosphere": "still dry air",
-      "keyRule": "emptiness is the subject",
+      "keyRule": "fuel pump is the emotional character",
       "videoAllowed": false,
       "reference": true,
-      "scenePrompt": "empty petrol station at 2am, wide static shot, fluorescent canopy lights glowing harsh white, wet concrete reflecting green and red signage, one empty parked car far in background, vending machine light glowing inside small shop, strong negative space, slightly off-centre composition, quiet liminal atmosphere"
+      "scenePrompt": "single petrol fuel pump flat vector illustration structurally faithful so it reads immediately as a real pump silhouette not a mascot, simplified soft geometry neutral deadpan no face no eyes no spots no playful campaign styling, muted desaturated blue-grey field vast negative space, loneliness through scale and emptiness only Matisse-calm quiet, flat colour blocks no gradients no photorealism, object 25 percent frame"
     },
     "sunset_coast": {
       "title": "Sunset Coast",
+      "dreamObject": "lighthouse",
+      "productionStatus": "pending_style_lock",
       "character": "release",
       "emotion": "release",
       "lighting": "warm golden horizon",
@@ -60,6 +82,8 @@
     },
     "urban_midnight_walk": {
       "title": "Urban Midnight Walk",
+      "dreamObject": "streetlight",
+      "productionStatus": "pending_style_lock",
       "character": "isolation in presence",
       "emotion": "isolation in presence",
       "lighting": "neon and sodium reflections",
@@ -71,6 +95,8 @@
     },
     "train_journey": {
       "title": "Train Journey",
+      "dreamObject": "train ticket",
+      "productionStatus": "pending_style_lock",
       "character": "transition",
       "emotion": "transition",
       "lighting": "interior tungsten vs exterior darkness",
@@ -82,6 +108,8 @@
     },
     "summer_afternoon_drift": {
       "title": "Summer Afternoon Drift",
+      "dreamObject": "garden chair",
+      "productionStatus": "pending_style_lock",
       "character": "nostalgic ease",
       "emotion": "nostalgic ease",
       "lighting": "soft overexposed daylight",
@@ -93,6 +121,8 @@
     },
     "rainy_city_interior": {
       "title": "Rainy City Interior",
+      "dreamObject": "lamp beside window",
+      "productionStatus": "pending_style_lock",
       "character": "safe isolation",
       "emotion": "safe isolation",
       "lighting": "warm interior vs cold exterior",
@@ -104,6 +134,8 @@
     },
     "memory_road": {
       "title": "Memory Road",
+      "dreamObject": "road sign",
+      "productionStatus": "pending_style_lock",
       "character": "reflection",
       "emotion": "reflection",
       "lighting": "fading golden hour",
@@ -115,6 +147,8 @@
     },
     "club_exit_dawn": {
       "title": "Club Exit Dawn",
+      "dreamObject": "fading neon sign",
+      "productionStatus": "pending_style_lock",
       "character": "exhaustion clarity",
       "emotion": "exhaustion clarity",
       "lighting": "blue hour with fading neon",
@@ -126,6 +160,8 @@
     },
     "open_highway_daylight": {
       "title": "Open Highway Daylight",
+      "dreamObject": "mile marker",
+      "productionStatus": "pending_style_lock",
       "character": "freedom",
       "emotion": "freedom",
       "lighting": "bright clear daylight",

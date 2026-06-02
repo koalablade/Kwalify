@@ -141,7 +141,7 @@ Night Drive:
 
 Petrol Station 2am:
 
-* fuel pump
+* fuel pump (see [OBJECT_EXPLORATION.md](./OBJECT_EXPLORATION.md) — 50 objects + concept variations)
 
 Train Journey:
 

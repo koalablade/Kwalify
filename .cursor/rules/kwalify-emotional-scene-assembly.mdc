@@ -1,0 +1,29 @@
+---
+description: Emotional Scene Interface — strict assembly system role (invalid if rules broken)
+alwaysApply: true
+---
+
+# Emotional Scene Interface (required)
+
+Hero/object work: `docs/KWALIFY_OBJECT_CONSTRUCTION_MODE.md` first (ONLY instruction until silhouette passes).
+
+Full screens: `docs/KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md`
+
+Supporting: `docs/KWALIFY_VISUAL_STYLE_DNA.md` · `docs/KWALIFY_HERO_OBJECTS_LOCKED.md` · `docs/KWALIFY_FINAL_UI_BLUEPRINT.md`
+
+You are **assembling** with a fixed language — not designing freely.
+
+Non-negotiable:
+- Exactly ONE hero object per screen
+- No blobs, organic chaos, smoke, watercolor, texture fields
+- Shapes: rounded rects, capsules, cylinders, slabs, ribbons only — manufacturable
+- One directional light; soft shadows; subtle hero edge glow only
+- 3 layers only: gradient bg → max 2 blurred atmosphere shapes → crisp hero
+- Colour: dominant + supporting + neutral; low-mid saturation
+- Motion: slow ease-out only — no bounce, elastic, jitter
+
+Output goal: one object under controlled light in empty space — NOT a scene, world, or illustration.
+
+Before finishing: run failure detection in the assembly doc. If invalid → correct immediately.
+
+Product/North Star: `docs/KWALIFY_CREATIVE_NORTH_STAR.md` (playlist primary).

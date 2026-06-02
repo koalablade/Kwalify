@@ -9,12 +9,16 @@ Before proposing or implementing any design, UI, scene, animation, or visual cha
 
 `docs/KWALIFY_CREATIVE_NORTH_STAR.md`
 
-That document overrides other docs when they conflict. See `docs/DOCUMENT_HIERARCHY.md`.
+Object construction (visuals): `docs/KWALIFY_OBJECT_CONSTRUCTION_MODE.md`  
+Scene assembly: `docs/KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md`  
+Style DNA: `docs/KWALIFY_VISUAL_STYLE_DNA.md` · Heroes: `docs/KWALIFY_HERO_OBJECTS_LOCKED.md`
+
+North Star overrides other docs when they conflict. See `docs/DOCUMENT_HIERARCHY.md`.
 
 Core checks:
 - Playlist is the primary product; visuals support feeling only
 - UX loop: HOME → TYPE MOMENT → MAKE PLAYLIST → RESULT (no interruptions)
-- Emotional Editorial Worlds with dream-object anchors — not cinematic realism
+- Emotional Object Characters (Spotify Pets system, objects not animals) — soft geometric, silhouette-first, not cinematic realism
 - Phase 1 art: `petrol_station_2am` only until style is locked
 - Motion: fades/opacity only — no camera systems or staged loaders
 - If a feature does not improve 5-second clarity or 30-second "it gets me", do not prioritise it

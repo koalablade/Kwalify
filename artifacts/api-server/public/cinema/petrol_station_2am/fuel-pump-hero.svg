@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" role="img" aria-label="Fuel pump">
+  <!-- 5 shapes: body, screen, hose, nozzle, base  KWALIFY_OBJECT_CONSTRUCTION_MODE -->
+  <rect x="24" y="16" width="72" height="168" rx="16" fill="#E8E8E4" stroke="#141414" stroke-width="3"/>
+  <rect x="38" y="48" width="44" height="34" rx="6" fill="#1E3028"/>
+  <path d="M82 78 C104 70, 110 94, 98 106" fill="none" stroke="#141414" stroke-width="10" stroke-linecap="round"/>
+  <rect x="92" y="98" width="24" height="14" rx="4" fill="#141414"/>
+  <rect x="20" y="176" width="80" height="12" rx="4" fill="#141414" opacity="0.9"/>
+</svg>

@@ -14,7 +14,9 @@ SUFFIX = "16:9 aspect ratio, 1920x1080, no text, no watermark."
 def full_prompt(manifest: dict, scene_id: str, scene: dict) -> str:
     prefix = manifest.get("stylePrefix", "").strip()
     body = scene.get("scenePrompt") or scene.get("prompt", "")
-    return f"{prefix}, {body.strip()}, {SUFFIX}"
+    avoid = (manifest.get("styleAvoid") or "").strip()
+    parts = [p for p in (prefix, body.strip(), avoid, SUFFIX) if p]
+    return ", ".join(parts)
 
 
 def main() -> None:
@@ -23,6 +25,15 @@ def main() -> None:
         sys.exit(1)
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
     scenes = data.get("scenes") or {}
+    phase1_only = "--phase1" in sys.argv
+    if phase1_only:
+        print("# Phase 1 — fuel pump only (30–50 experiments)\n")
+        print(f"See: {data.get('visualStyleTldr', 'docs/KWALIFY_VISUAL_STYLE_TLDR.md')}\n")
+        s = scenes.get("petrol_station_2am")
+        if not s:
+            sys.exit("petrol_station_2am missing from manifest")
+        print(full_prompt(data, "petrol_station_2am", s))
+        return
     order = [
         "night_drive",
         "petrol_station_2am",
@@ -44,6 +55,8 @@ def main() -> None:
             continue
         s = scenes[sid]
         print(f"## {sid}")
+        print(f"Dream object: {s.get('dreamObject', '')}")
+        print(f"Status: {s.get('productionStatus', '')}")
         print(f"Character: {s.get('character', s.get('emotion', ''))}")
         print(f"Lighting: {s.get('lighting', '')}")
         print(f"Composition: {s.get('composition', '')}")

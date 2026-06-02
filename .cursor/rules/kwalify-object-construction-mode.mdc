@@ -1,0 +1,28 @@
+---
+description: Strict object construction — silhouette first, structure then style (ONLY instruction for heroes/visuals)
+alwaysApply: true
+---
+
+# Strict object construction mode (required for visuals)
+
+When building or changing heroes, mood previews, emotion screens, or scene art, follow:
+
+`docs/KWALIFY_OBJECT_CONSTRUCTION_MODE.md`
+
+Paste that doc's copy-paste block as the **ONLY** construction instruction.
+
+You are NOT designing mood, atmosphere, or scenes — only recognisable objects.
+
+Core test: pure black silhouette — instant read at 48px? If no, simplify (max 3–6 shapes).
+
+Forbidden during construction: blobs, mascot faces, scenery inside object, gradients that define shape, cinematic styling before silhouette passes.
+
+Order: raw geometry → silhouette test → simplify → lighting/colour → flat gradient background. Never reverse.
+
+Locked heroes: pump monolith, ribbon road, streetlamp pole, lifted car body, horizon band — see doc.
+
+If blurry / illustration / scene / mascot → reduce complexity 50%.
+
+After objects pass: `docs/KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md` for full-screen assembly.
+
+Product: `docs/KWALIFY_CREATIVE_NORTH_STAR.md`.

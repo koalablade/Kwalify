@@ -2,6 +2,8 @@
 
 Single-screen product. No engine feel. **Type → click → receive playlist.**
 
+**Target UI bible:** [KWALIFY_FINAL_UI_BLUEPRINT.md](./KWALIFY_FINAL_UI_BLUEPRINT.md) — mood grid + emotion screen (live in `index.html`).
+
 **Visual system (10 scenes):** [VISUAL_SYSTEM_GUIDE.md](./VISUAL_SYSTEM_GUIDE.md) · **Principles:** [KWALIFY_DESIGN_SYSTEM.md](./KWALIFY_DESIGN_SYSTEM.md)
 
 ---
