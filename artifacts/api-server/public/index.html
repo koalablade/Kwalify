@@ -6,6 +6,9 @@
   <title>Kwalify — Vibe DJ for Spotify</title>
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#090910" />
+  <meta property="og:title" content="Kwalify — Vibe DJ for Spotify" />
+  <meta property="og:description" content="Type a vibe. Get a playlist from your Spotify liked songs only." />
+  <meta property="og:type" content="website" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -348,6 +351,34 @@
     .prog-wrap.compact .dj-stages { min-height:0; }
     .prog-wrap.compact .dj-stage-compact { display:none; }
     .skel-card { display:none !important; }
+    .sync-pill-wrap { text-align:center; margin-bottom:14px; }
+    .library-ready-pill { cursor:pointer; transition:transform .15s,box-shadow .15s; }
+    .library-ready-pill:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(29,185,84,.2); }
+    .sync-detail-panel { display:none; max-width:360px; margin:0 auto 16px; padding:14px 16px; font-size:12.5px; color:var(--text-sub); line-height:1.55; text-align:left; }
+    .sync-detail-panel.open { display:block; animation:fsu .3s var(--spring) both; }
+    .first-run-hint { display:none; margin:0 0 12px; padding:10px 14px; background:var(--purple-dim); border:1px solid rgba(130,80,255,.25); border-radius:10px; font-size:13px; color:#d4b8ff; line-height:1.5; }
+    .result-art-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; max-width:200px; margin-bottom:16px; border-radius:10px; overflow:hidden; }
+    .result-art-grid img { width:100%; aspect-ratio:1; object-fit:cover; display:block; }
+    .result-art-grid .art-fb { aspect-ratio:1; background:var(--purple-dim); display:flex; align-items:center; justify-content:center; font-size:18px; }
+    .cache-tier1-notice { display:none; margin-bottom:12px; padding:10px 14px; background:rgba(255,180,40,.1); border:1px solid rgba(255,180,40,.35); border-radius:10px; font-size:13px; color:#f0c870; line-height:1.45; }
+    .header-menu-wrap { position:relative; }
+    .header-menu-btn { padding:8px 12px; }
+    .header-menu-dropdown { display:none; position:absolute; right:0; top:calc(100% + 6px); min-width:200px; background:rgba(12,12,18,.98); border:1px solid var(--border-hi); border-radius:12px; padding:6px; z-index:50; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+    .header-menu-dropdown.open { display:flex; flex-direction:column; gap:2px; }
+    .header-menu-dropdown a, .header-menu-dropdown button { display:block; width:100%; text-align:left; padding:10px 12px; border:none; background:none; color:var(--text-sub); font-size:13px; font-family:inherit; border-radius:8px; cursor:pointer; text-decoration:none; }
+    .header-menu-dropdown a:hover, .header-menu-dropdown button:hover { background:var(--surface-hi); color:var(--text); }
+    .sticky-generate { display:none; }
+    .landing-more { margin-top:32px; }
+    .landing-more summary { cursor:pointer; font-size:14px; font-weight:700; color:var(--text-sub); padding:14px 0; list-style:none; }
+    .landing-more summary::-webkit-details-marker { display:none; }
+    .landing-more[open] summary { color:#c09fff; margin-bottom:16px; }
+    .prog-wrap.compact .prog-pct, .prog-wrap.compact .prog-track { display:none; }
+
+    @media (max-width:640px){
+      .sticky-generate { display:flex; position:fixed; bottom:0; left:0; right:0; padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:rgba(9,9,16,.92); border-top:1px solid var(--border); z-index:40; backdrop-filter:blur(12px); }
+      .sticky-generate .btn { flex:1; }
+      .page { padding-bottom:88px; }
+    }
 
     /* Track Spotify link */
     .track-spotify { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--green); text-decoration:none; opacity:.7; transition:opacity .15s; flex-shrink:0; padding:3px 6px; border-radius:4px; }
@@ -530,11 +561,15 @@
         <p>Type a vibe → get a playlist from your liked songs on Spotify.</p>
       </section>
 
-      <div id="libraryReadyPill" class="library-ready-pill" style="display:none" aria-live="polite"></div>
+      <div class="sync-pill-wrap">
+        <div id="libraryReadyPill" class="library-ready-pill" style="display:none" role="button" tabindex="0" aria-live="polite" onclick="toggleSyncDetail()" onkeydown="if(event.key==='Enter')toggleSyncDetail()"></div>
+        <div id="syncDetailPanel" class="glass sync-detail-panel" aria-hidden="true"></div>
+      </div>
       <div id="syncBanner" class="sync-banner" style="display:none" aria-hidden="true"></div>
       <div class="glass sync-gate-card" id="syncGateCard" style="display:none" aria-live="polite"></div>
 
       <div class="glass input-card glass-interactive" id="inputCard" style="display:none">
+        <div id="firstRunHint" class="first-run-hint">Try an example vibe below, then hit <strong>Generate</strong>.</div>
         <div class="field-label">Your vibe</div>
         <div class="input-row">
           <div class="input-wrap">
@@ -621,6 +656,7 @@
 
       <!-- Result card -->
       <div class="glass result-card" id="resultCard">
+        <div id="resultArtGrid" class="result-art-grid"></div>
         <div class="result-top">
           <div class="result-icon">🎵</div>
           <div class="result-info">
@@ -629,13 +665,14 @@
             <div class="result-meta-txt" id="resultMeta">25 tracks</div>
           </div>
         </div>
+        <div id="resultCacheNotice" class="cache-tier1-notice"></div>
         <div id="resultSummary" class="result-summary"></div>
         <div class="result-actions">
           <div id="spotifyActionArea" style="flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px;"></div>
           <div style="display:flex;flex-direction:column;align-items:stretch;min-width:140px">
-            <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different picks">
+            <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different picks from your likes">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-              Take me somewhere else
+              Shuffle my likes for this vibe
             </button>
           </div>
         </div>
@@ -711,7 +748,7 @@
         <div class="section-header">
           <div>
             <div class="section-title">Recent playlists</div>
-            <div class="section-sub">Quick reopen · full browse in <a href="/gallery">Gallery</a></div>
+            <div class="section-sub">Quick reopen here · <a href="/gallery" title="Full grid with cover art">Gallery</a> has every playlist</div>
           </div>
         </div>
         <div class="pl-list" id="plList"></div>
@@ -721,6 +758,10 @@
         Beta — <a href="https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform" target="_blank" rel="noopener">Send feedback</a>
       </footer>
 
+      <div class="sticky-generate" id="stickyGenerate">
+        <button type="button" class="btn btn-purple btn-md" onclick="generate()" style="width:100%">Generate playlist</button>
+      </div>
+
     </div><!-- /appView -->
 
     <!-- ── LANDING VIEW (logged out) ── -->
@@ -728,29 +769,24 @@
       <div class="landing">
 
         <div class="lhero">
-          <div class="lhero-badge">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Playlists from your liked songs
-          </div>
-          <h1>Describe a moment.</h1>
-          <p>Kwalify builds a Spotify playlist from songs you already love — only your liked tracks, matched to the feeling you describe.</p>
-          <div class="liked-only-callout" style="margin:16px auto 0;max-width:420px;text-align:left">
-            <strong>Not Discover Weekly.</strong> Every track is already in your Spotify likes — we do not recommend new music you have not saved.
-          </div>
+          <h1 style="font-size:clamp(32px,7vw,48px);font-weight:900;letter-spacing:-1.5px;margin-bottom:10px">Vibe DJ</h1>
+          <p style="font-size:17px;color:var(--text-sub);max-width:400px;margin:0 auto 20px;line-height:1.6">Type a vibe → get a playlist from your Spotify liked songs. Not Discover Weekly.</p>
           <div class="lhero-examples">
-            <div class="lhero-example">"Late-night drive home after seeing old friends"</div>
-            <div class="lhero-example">"Sunny evening working on an old car in the garage"</div>
-            <div class="lhero-example">"Nostalgic but not sad"</div>
+            <div class="lhero-example">"Late-night motorway drive"</div>
+            <div class="lhero-example">"Sunny afternoon working on an old car"</div>
+            <div class="lhero-example">"Songs that sound expensive"</div>
           </div>
           <div class="lhero-cta">
             <a href="/api/auth/login" class="btn btn-green" style="font-size:15px;padding:15px 32px;border-radius:9999px">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-              Connect with Spotify — it's free
+              Connect with Spotify — free
             </a>
           </div>
-          <p class="lhero-note">No credit card · No data stored · Private playlists only</p>
+          <p class="lhero-note">Private playlists · Your likes only</p>
         </div>
 
+        <details class="landing-more glass" style="padding:8px 20px 20px;border-radius:18px">
+          <summary>How Kwalify works</summary>
         <div class="features">
           <div class="glass feat-card">
             <div class="feat-icon">🧠</div>
@@ -807,14 +843,7 @@
           <div class="proof-stat"><div class="proof-num">0</div><div class="proof-lbl">Data stored on server</div></div>
         </div>
 
-        <div class="bottom-cta">
-          <h2>Ready to hear it?</h2>
-          <p>Connect your Spotify and describe your first vibe. Takes 10 seconds.</p>
-          <a href="/api/auth/login" class="btn btn-green" style="font-size:15px;padding:15px 32px;border-radius:9999px">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-            Get started free
-          </a>
-        </div>
+        </details>
 
       </div>
     </div><!-- /landingView -->
@@ -884,19 +913,21 @@ function showApp(userData){
   $('loadOverlay').style.display='none';
   $('appView').style.display='block';
 
-  const displayName = userData && userData.displayName ? userData.displayName : '';
-  const avatarUrl   = userData && userData.avatarUrl   ? userData.avatarUrl   : '';
-  const avatarHtml  = avatarUrl
-    ? `<img src="${esc(avatarUrl)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid var(--border-hi);" onerror="this.style.display='none'">`
-    : '';
-  const nameHtml = displayName
-    ? `<span style="font-size:13px;font-weight:600;color:var(--text-sub);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(displayName)}</span>`
-    : '';
-
   $('headerNav').innerHTML=`
-    ${avatarHtml}${nameHtml}
-    <a href="/gallery" class="btn btn-ghost btn-sm">Gallery →</a>
-    <button class="btn btn-ghost btn-sm btn-logout" onclick="logout()">Log out</button>`;
+    <div class="header-menu-wrap">
+      <button type="button" class="btn btn-ghost btn-sm header-menu-btn" onclick="toggleHeaderMenu(event)" aria-label="Menu">☰</button>
+      <div id="headerMenuDropdown" class="header-menu-dropdown">
+        <a href="/gallery">Gallery — all playlists</a>
+        <button type="button" onclick="logout()">Log out</button>
+      </div>
+    </div>`;
+  if(!window._kwHeaderMenuBound){
+    window._kwHeaderMenuBound=true;
+    document.addEventListener('click',()=>{
+      const dd=$('headerMenuDropdown');
+      if(dd) dd.classList.remove('open');
+    });
+  }
 
   fetchAndRenderPlaylists();
   const refSaved=localStorage.getItem('kwalify_reference_playlist');
@@ -906,11 +937,60 @@ function showApp(userData){
   if($('vibeInput')) setTimeout(()=>$('vibeInput').focus(),180);
   wirePromptExamples();
   startSyncPolling();
+  maybeShowFirstRunHint();
+}
+
+function toggleHeaderMenu(e){
+  e.stopPropagation();
+  const dd=$('headerMenuDropdown');
+  if(dd) dd.classList.toggle('open');
 }
 
 async function logout(){
   await api('/auth/logout',{method:'POST'});
   location.reload();
+}
+
+function _fillSyncDetailPanel(){
+  const panel=$('syncDetailPanel');
+  if(!panel) return;
+  const n=_libTrackCount||_lastSyncedTrackCount||0;
+  const when=_fmtSyncTime(_lastSyncedAt);
+  panel.innerHTML=`<div><strong>${n.toLocaleString()} liked songs</strong> ready to match.</div>
+    <div style="margin-top:8px">Last synced${when?' at '+esc(when):''} · Spotify read-only</div>
+    <div style="margin-top:10px;color:var(--text-muted);font-size:12px">Added new likes? Re-sync under <em>Options &amp; library</em>.</div>`;
+}
+
+function toggleSyncDetail(){
+  const panel=$('syncDetailPanel');
+  if(!panel) return;
+  const open=panel.classList.toggle('open');
+  panel.setAttribute('aria-hidden', open?'false':'true');
+  if(open) _fillSyncDetailPanel();
+}
+
+function maybeShowFirstRunHint(){
+  if(localStorage.getItem('kwalify_has_generated')) return;
+  const el=$('firstRunHint');
+  if(el) el.style.display='block';
+}
+
+function markHasGenerated(){
+  try{ localStorage.setItem('kwalify_has_generated','1'); }catch(_){}
+  const el=$('firstRunHint');
+  if(el) el.style.display='none';
+}
+
+function _buildResultArtGrid(tracks){
+  const el=$('resultArtGrid');
+  if(!el) return;
+  const arts=(tracks||[]).slice(0,4);
+  if(!arts.length){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display='grid';
+  el.innerHTML=arts.map(t=>{
+    if(t.albumArt) return `<img src="${esc(t.albumArt)}" alt="" onerror="this.outerHTML='<span class=art-fb>🎵</span>'">`;
+    return '<span class="art-fb">🎵</span>';
+  }).join('');
 }
 
 /* ── State ── */
@@ -936,6 +1016,7 @@ const EXAMPLE_VIBES=[
   'music for wandering around London at midnight',
 ];
 let _genCompressed=false;
+let _lastSyncedAt=null, _lastSyncedTrackCount=0;
 
 function bindPromptButtons(root, autoRun){
   if(!root) return;
@@ -999,7 +1080,7 @@ const DJ_STAGES=[
   {icon:'🎧', title:'Reading your library', phases:['starting','loading_library','building_profile'],
     sub:(n)=>`From ${n>0?n.toLocaleString():'your'} liked songs`},
   {icon:'🎚️', title:'Building your set', phases:['scoring','composing'],
-    sub:()=>'Matching mood and flow'},
+    sub:(n,v)=>v?`Matching “${String(v).slice(0,48)}${String(v).length>48?'…':''}”`:'Matching mood and flow'},
   {icon:'🎵', title:'Creating playlist', phases:['spotify','saving','done'],
     sub:()=>'Publishing to Spotify'},
 ];
@@ -1095,16 +1176,20 @@ function _setProgPhase(phase){
 function _setProgPct(pct){
   const p=Math.min(92,Math.max(6,Math.round(pct)));
   if(progFill) progFill.style.width=p+'%';
-  if(progPct) progPct.textContent=p+'%';
+  if(progPct&&!_genCompressed) progPct.textContent=p+'%';
 }
+let _loaderCapTimer=null;
+const LOADER_CAP_MS=8000;
 function stopProgressTimers(){
   clearInterval(progTimer);
   clearInterval(progPollTimer);
   clearInterval(progStageTimer);
   clearInterval(progStageAutoTimer);
+  clearTimeout(_loaderCapTimer);
   progPollTimer=null;
   progStageTimer=null;
   progStageAutoTimer=null;
+  _loaderCapTimer=null;
 }
 function startProgress(){
   stopProgressTimers();
@@ -1156,6 +1241,11 @@ function startProgress(){
     _setProgPct(bump);
     _tickVisualStages();
   },400);
+  _loaderCapTimer=setTimeout(()=>{
+    if(!isGenerating) return;
+    _targetStageIdx=DJ_STAGES.length-1;
+    _tickVisualStages();
+  }, LOADER_CAP_MS);
 }
 function finishProgress(done){
   stopProgressTimers();
@@ -1267,10 +1357,10 @@ function _buildConfidenceHtml(pc){
   const tier=pc.tier;
   if(tier==='high') return '';
   if(tier==='medium'){
-    return `<div class="confidence-card"><strong>Kwalify confidence: Medium</strong><br>This vibe can mean different things to different people.</div>`;
+    return `<div class="confidence-card"><strong>Medium confidence</strong><br>This vibe is a bit open-ended. Add when/where (e.g. “late-night drive”) or try <strong>Strict</strong> mode for a tighter match.</div>`;
   }
   if(tier==='low'){
-    return `<div class="confidence-card"><strong>Kwalify confidence: Low</strong><br>This prompt is highly open to interpretation.</div>`;
+    return `<div class="confidence-card"><strong>Low confidence</strong><br>Very abstract prompt — try a concrete scene, a reference playlist, or <strong>Chaotic</strong> for more variety from your likes.</div>`;
   }
   return '';
 }
@@ -1285,7 +1375,7 @@ function _buildCacheBannerHtml(spotifyUrl){
     <div class="cache-hero-trust">Only uses songs already in your Spotify liked songs.</div>
     <div class="cache-hero-actions">
       ${spotifyBtn}
-      <button type="button" class="btn btn-purple btn-md" onclick="regenerate()">Take me somewhere else</button>
+      <button type="button" class="btn btn-purple btn-md" onclick="regenerate()">Shuffle my likes for this vibe</button>
     </div>
   </div>`;
 }
@@ -1415,16 +1505,23 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   const expl=genData.explanation;
   const libIntel=genData.libraryIntelligence;
   currentPlaylistId=playlistId; lastVibe=vibe;
+  _buildResultArtGrid(tracks);
   const displayName = playlistName || `Kwalify • ${vibe}`;
   if(resultName) resultName.textContent=displayName;
   if(resultMeta) resultMeta.textContent=`${count||tracks.length||25} tracks · from your likes`;
   if(modeBadge) modeBadge.textContent=mode||currentMode;
-  const sumEl=$('resultSummary');
-  if(sumEl){
-    let summary=_shortVibeSummary(vibe,ep,mu,expl);
-    if(genData.cached) summary='Same vibe as a few minutes ago — your last playlist from liked songs. '+summary;
-    sumEl.textContent=summary;
+  const cacheNotice=$('resultCacheNotice');
+  if(cacheNotice){
+    if(genData.cached){
+      cacheNotice.style.display='block';
+      cacheNotice.textContent='Same vibe as a few minutes ago — reopened your recent playlist from liked songs only.';
+    } else {
+      cacheNotice.style.display='none';
+      cacheNotice.textContent='';
+    }
   }
+  const sumEl=$('resultSummary');
+  if(sumEl) sumEl.textContent=_shortVibeSummary(vibe,ep,mu,expl);
   const tb=$('tracksTierBody'); const ab=$('advancedTierBody');
   if(tb){ tb.classList.remove('open'); $('tracksTierToggle').innerHTML='<span>▶</span> See track list'; }
   if(ab){ ab.classList.remove('open'); $('advancedTierToggle').innerHTML='<span>▶</span> Advanced insights'; }
@@ -1662,7 +1759,9 @@ function generate(){
   if(!vibe){ vibeInput?.focus(); showToast('Type a vibe first!','info',2200); return; }
   debTimer=setTimeout(()=>debTimer=null, 900);
   _activeGenVibe=vibe;
-  _genCompressed=!!(lastVibe&&vibe.toLowerCase()===lastVibe.toLowerCase());
+  const sameVibe=!!(lastVibe&&vibe.toLowerCase()===lastVibe.toLowerCase());
+  const hasGenerated=!!localStorage.getItem('kwalify_has_generated');
+  _genCompressed=hasGenerated&&sameVibe;
   setLoading(true);
   resultCard&&resultCard.classList.remove('visible');
   const length=parseInt($('lenSlider')?.value)||25;
@@ -1741,7 +1840,7 @@ function generate(){
     const trackCount=d.count||d.totalTracks||25;
     _activeGenVibe='';
     showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
-    renderFirstGenCard(false);
+    markHasGenerated();
     if(d.librarySyncHint){
       showToast(d.librarySyncHint,'info',8000);
     }
@@ -1751,10 +1850,12 @@ function generate(){
       showToast('Reference playlist could not be read — used text vibe only. Try a public playlist or log out and back in.','info',5000);
     }
     fetchAndRenderPlaylists();
-    const toastMsg = d.spotifyPlaylistUrl
-      ? `✓ Playlist saved to Kwalify + Spotify — ${trackCount} tracks!`
-      : `✓ Playlist saved to Kwalify — ${trackCount} tracks matched your vibe!`;
-    showToast(toastMsg,'success',3500);
+    if(!d.cached){
+      const toastMsg = d.spotifyPlaylistUrl
+        ? `Playlist on Spotify — ${trackCount} tracks`
+        : `Saved to Kwalify — ${trackCount} tracks`;
+      showToast(toastMsg,'success',2800);
+    }
   })
   .catch(async err=>{
     setLoading(false);
@@ -1882,7 +1983,13 @@ function renderPlaylists(items){
   if(!section||!list) return;
   section.style.display='block';
   if(!items||!items.length){
-    list.innerHTML='<div class="pl-empty"><div style="font-size:15px;font-weight:600;margin-bottom:6px">🎵&nbsp;&nbsp;No playlists yet</div><div>Generate your first one above ↑</div></div>';
+    const ex=EXAMPLE_VIBES[0]||'late-night motorway drive';
+    list.innerHTML=`<div class="pl-empty">
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">🎵 No playlists yet</div>
+      <div style="margin-bottom:12px">Pick an example vibe above, then Generate.</div>
+      <button type="button" class="btn btn-subtle btn-sm" data-prompt="${escAttr(ex)}">Try “${esc(ex)}”</button>
+    </div>`;
+    bindPromptButtons(list, false);
     return;
   }
   const recent=items.slice(0,5);
@@ -2009,6 +2116,8 @@ function _updateSyncUI(d){
   }
 
   _libTrackCount=d.totalTracks||0;
+  if(d.lastSyncedAt) _lastSyncedAt=d.lastSyncedAt;
+  _lastSyncedTrackCount=d.totalTracks||0;
 
   if(_syncState==='synced'){
     if(gate) gate.style.display='none';
@@ -2017,10 +2126,12 @@ function _updateSyncUI(d){
       pill.style.display='inline-flex';
       pill.innerHTML=_SYNC_CHECK+`<span>Library ready — ${n.toLocaleString()} song${n!==1?'s':''}</span>`;
     }
+    _fillSyncDetailPanel();
     if(ic){
       if(prevState&&prevState!=='synced'){
         ic.style.display=''; ic.style.animation='fsu .4s var(--spring) both';
         setTimeout(()=>{ if(ic) ic.style.animation=''; },500);
+        maybeShowFirstRunHint();
       } else { ic.style.display=''; }
     }
   } else {

@@ -6,6 +6,10 @@
   <title>Kwalify Playlist</title>
   <meta name="description" content="A Spotify playlist built from songs you already love — made with Kwalify." />
   <meta name="theme-color" content="#090910" />
+  <meta property="og:title" content="Kwalify Playlist" />
+  <meta property="og:description" content="A playlist from Spotify liked songs only — made with Kwalify." />
+  <meta property="og:type" content="music.playlist" />
+  <meta property="og:image" id="ogImage" content="" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
@@ -32,6 +36,9 @@
     .glass{background:var(--surface);border:1px solid var(--border);border-radius:18px;backdrop-filter:blur(28px)}
     .hero-card{margin-top:24px;padding:28px 26px 24px;animation:fsu .4s var(--spring) both}
     @keyframes fsu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+    .preview-art{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-width:168px;margin-bottom:18px;border-radius:10px;overflow:hidden}
+    .preview-art img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+    .preview-art .art-fb{aspect-ratio:1;background:var(--purple-dim);display:flex;align-items:center;justify-content:center;font-size:16px}
     .pl-badge{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:8px}
     .pl-name{font-size:clamp(24px,5vw,32px);font-weight:900;letter-spacing:-.5px;line-height:1.15;margin-bottom:12px}
     .mood-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
@@ -41,9 +48,12 @@
     .prompt-text{font-size:15px;color:var(--text);font-style:italic;line-height:1.45}
     .meta-row{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:13px;color:var(--text-sub);margin-bottom:20px}
     .meta-row span{display:flex;align-items:center;gap:5px}
+    .cta-stack{display:flex;flex-direction:column;gap:10px;margin-top:4px}
     .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;font-family:inherit;font-weight:700;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .2s}
     .btn-green{background:var(--green);color:#000;border-radius:12px;padding:14px 24px;font-size:15px;width:100%;box-shadow:0 4px 20px var(--green-glow)}
     .btn-green:hover{transform:translateY(-1px);box-shadow:0 8px 28px var(--green-glow)}
+    .btn-ghost{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-sub);border-radius:12px;padding:12px 20px;font-size:14px;width:100%}
+    .btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.18)}
     .liked-note{font-size:11.5px;color:var(--text-muted);text-align:center;margin-top:12px;line-height:1.45}
     .share-trust-footer{font-size:11px;color:var(--text-muted);text-align:center;margin-top:28px;line-height:1.5;opacity:.85}
     .tracks-card{margin-top:14px;padding:18px 20px}
@@ -57,6 +67,7 @@
     .track-info{flex:1;min-width:0}
     .track-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .track-artist{font-size:12px;color:var(--text-muted)}
+    .tracks-more{font-size:12px;color:var(--text-muted);margin-top:10px;text-align:center}
     .cta{margin-top:20px;padding:24px;text-align:center}
     .cta h3{font-size:17px;margin-bottom:8px}
     .cta p{font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.55}
@@ -90,6 +101,37 @@ function moodTags(ep){
 const match=location.pathname.match(/\/p\/(\d+)/);
 const playlistId=match?match[1]:null;
 
+function setOg(d, tracks){
+  const title=(d.name||'Playlist')+' — Kwalify';
+  const desc=d.vibe
+    ? `"${d.vibe}" — ${tracks.length} tracks from Spotify liked songs only`
+    : `${tracks.length} tracks from Spotify liked songs only`;
+  document.querySelector('meta[property="og:title"]')?.setAttribute('content', title);
+  document.querySelector('meta[property="og:description"]')?.setAttribute('content', desc);
+  const art=tracks.find(t=>t.albumArt||t.album_art);
+  const img=art&&(art.albumArt||art.album_art);
+  if(img){
+    const og=document.getElementById('ogImage');
+    if(og) og.setAttribute('content', img);
+  }
+}
+
+function previewArtHtml(tracks){
+  const slice=(tracks||[]).slice(0,3);
+  if(!slice.length) return '';
+  return `<div class="preview-art">${slice.map(t=>{
+    const u=t.albumArt||t.album_art;
+    if(u) return `<img src="${esc(u)}" alt="" onerror="this.outerHTML='<span class=art-fb>🎵</span>'">`;
+    return '<span class="art-fb">🎵</span>';
+  }).join('')}</div>`;
+}
+
+function trackRow(t,i){
+  const art=(t.albumArt||t.album_art)?`<img class="track-art" src="${esc(t.albumArt||t.album_art)}" alt="" onerror="this.outerHTML='<span class=track-art-fb>🎵</span>'">`:'<span class="track-art-fb">🎵</span>';
+  const tid=t.trackId||t.track_id||t.id;
+  return `<div class="track-row"><span class="track-num">${i+1}</span>${art}<div class="track-info"><div class="track-name">${esc(t.trackName||t.name)}</div><div class="track-artist">${esc(t.artistName||t.artist)}</div></div>${tid?`<a href="https://open.spotify.com/track/${esc(tid)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--green)">▶</a>`:''}</div>`;
+}
+
 function renderPage(d){
   const tracks=Array.isArray(d.tracks)?d.tracks:[];
   const ep=d.emotionProfile||{};
@@ -97,35 +139,44 @@ function renderPage(d){
   const lib=d.librarySize?`${Number(d.librarySize).toLocaleString()} liked songs`:null;
   const count=d.trackCount||tracks.length;
   document.title=(d.name||'Playlist')+' — Kwalify';
-  const rows=tracks.map((t,i)=>{
-    const art=(t.albumArt||t.album_art)?`<img class="track-art" src="${esc(t.albumArt||t.album_art)}" alt="" onerror="this.outerHTML='<span class=track-art-fb>🎵</span>'">`:'<span class="track-art-fb">🎵</span>';
-    const tid=t.trackId||t.track_id||t.id;
-    return `<div class="track-row"><span class="track-num">${i+1}</span>${art}<div class="track-info"><div class="track-name">${esc(t.trackName||t.name)}</div><div class="track-artist">${esc(t.artistName||t.artist)}</div></div>${tid?`<a href="https://open.spotify.com/track/${esc(tid)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--green)">▶</a>`:''}</div>`;
-  }).join('');
+  setOg(d, tracks);
+  const preview=tracks.slice(0,3);
+  const rest=tracks.slice(3);
+  const previewRows=preview.map((t,i)=>trackRow(t,i)).join('');
+  const restRows=rest.map((t,i)=>trackRow(t,i+3)).join('');
+  const spotifyCta=d.spotifyUrl?`<a class="btn btn-green" href="${esc(d.spotifyUrl)}" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02z"/></svg>
+        Open on Spotify
+      </a>`:'';
   document.getElementById('main').innerHTML=`
     <div class="glass hero-card">
       <div class="pl-badge">Kwalify moment</div>
+      ${previewArtHtml(tracks)}
       <h1 class="pl-name">${esc(d.name)}</h1>
       ${tags.length?`<div class="mood-row">${tags.map(x=>`<span class="mood-chip">${esc(x)}</span>`).join('')}</div>`:''}
       ${d.vibe?`<div class="prompt-block"><div class="prompt-label">Generated from</div><div class="prompt-text">"${esc(d.vibe)}"</div></div>`:''}
       <div class="meta-row">
-        ${lib?`<span>🎧 Built from ${esc(lib)}</span>`:''}
         <span>🎵 ${count} tracks</span>
+        ${lib?`<span>🎧 From ${esc(lib)}</span>`:''}
         ${d.mode?`<span>· ${esc(d.mode)}</span>`:''}
       </div>
-      ${d.spotifyUrl?`<a class="btn btn-green" href="${esc(d.spotifyUrl)}" target="_blank" rel="noopener">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02z"/></svg>
-        Open on Spotify
-      </a>`:''}
-      <p class="liked-note">Built only from songs in your Spotify library.</p>
+      <div class="cta-stack">
+        ${spotifyCta}
+        <a href="/" class="btn btn-ghost">Make your own vibe playlist</a>
+      </div>
+      <p class="liked-note">Liked songs only — never new recommendations.</p>
     </div>
-    ${tracks.length?`<div class="glass tracks-card"><div class="tracks-label">Tracks</div><div class="track-list">${rows}</div></div>`:''}
+    ${tracks.length?`<div class="glass tracks-card">
+      <div class="tracks-label">Preview</div>
+      <div class="track-list">${previewRows}${rest.length?restRows:''}</div>
+      ${rest.length?`<div class="tracks-more">+ ${rest.length} more in Spotify</div>`:''}
+    </div>`:''}
     <div class="glass cta">
-      <h3>Describe your moment</h3>
-      <p>Build a playlist from your own liked songs — matched to the feeling you describe.</p>
-      <a href="/" class="btn btn-green" style="display:inline-flex;width:auto">Try Kwalify free</a>
+      <h3>Type a vibe. Get a playlist.</h3>
+      <p>Connect Spotify once — every track comes from songs you already liked.</p>
+      <a href="/api/auth/login" class="btn btn-green" style="display:inline-flex;width:auto">Try Kwalify free</a>
     </div>
-    <p class="share-trust-footer">This playlist was built only from your Spotify liked songs.</p>`;
+    <p class="share-trust-footer">Built only from Spotify liked songs · Not Discover Weekly</p>`;
 }
 
 function renderNotFound(){
