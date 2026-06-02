@@ -551,6 +551,73 @@
     #cinemaFallback[data-scene="memory_hallway"] { background:radial-gradient(ellipse 70% 90% at 50% 50%, #1e1814 0%, #0c0a0e 65%, #050508 100%); }
     #cinemaFallback[data-scene="ocean_night_fog"] { background:linear-gradient(180deg, #060a12 0%, #0a1420 40%, #040608 100%); }
     @keyframes sceneFallbackBreath { 0%,100%{ filter:brightness(.92) } 50%{ filter:brightness(1.06) } }
+
+    /* ── Emotional Physics v1 (overlay only — does not replace SceneRendererCore) ── */
+    :root {
+      --warmth:0; --motion:0; --intensity:0;
+      --world-bright:1; --world-contrast:1.04; --world-sat:.92;
+      --world-blur:0px; --world-grain:.03; --world-vignette:.7;
+      --focus-x:50%; --focus-y:45%;
+    }
+    #cinema, #cinemaFallback {
+      transition:filter .55s ease, opacity .4s ease;
+      filter:brightness(var(--world-bright)) contrast(var(--world-contrast)) saturate(var(--world-sat));
+      opacity:1 !important;
+    }
+    #cinema.scene-fade { opacity:.88 !important; }
+    body[data-scene="rain_highway_pov"] { --focus-x:50%; --focus-y:82%; }
+    body[data-scene="neon_city_walk"] { --focus-x:50%; --focus-y:72%; }
+    body[data-scene="golden_field_drift"] { --focus-x:50%; --focus-y:28%; }
+    body[data-scene="desert_wide_solo"] { --focus-x:50%; --focus-y:75%; }
+    body[data-scene="memory_hallway"] { --focus-x:48%; --focus-y:50%; }
+    body[data-scene="ocean_night_fog"] { --focus-x:50%; --focus-y:68%; }
+    #worldPhysics {
+      position:fixed; inset:0; z-index:1; pointer-events:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size:160px 160px;
+      mix-blend-mode:overlay;
+      opacity:var(--world-grain);
+      animation:atmosphereBreath 14s ease-in-out infinite;
+    }
+    #worldPhysics::after {
+      content:''; position:absolute; inset:0;
+      background:radial-gradient(ellipse 72% 60% at var(--focus-x) var(--focus-y), transparent 0%, rgba(0,0,0,.5) 55%, rgba(0,0,0,var(--world-vignette)) 100%);
+      opacity:.9;
+      transition:opacity .5s ease;
+    }
+    #worldFocus {
+      position:fixed; inset:0; z-index:1; pointer-events:none;
+      background:radial-gradient(ellipse 22% 14% at var(--focus-x) var(--focus-y), rgba(255,255,255,.05) 0%, transparent 58%);
+      opacity:.75;
+    }
+    @keyframes atmosphereBreath {
+      0%,100%{ filter:blur(0) saturate(1); opacity:.88; }
+      50%{ filter:blur(.5px) saturate(1.04); opacity:1; }
+    }
+    body.moment-listening {
+      --world-bright:.9; --world-grain:.042; --world-vignette:.82; --world-contrast:1.07;
+    }
+    body.moment-listening #worldPhysics::after { opacity:.96; }
+    body.moment-listening .compose-layer {
+      opacity:.32 !important; filter:blur(3px) !important;
+      pointer-events:none !important;
+      transition:opacity 1s ease, filter 1s ease !important;
+    }
+    body.moment-result .compose-layer {
+      opacity:.12 !important; filter:blur(8px) !important;
+      pointer-events:none !important;
+    }
+    body.world-settled #cinema,
+    body.world-settled #cinemaFallback {
+      filter:brightness(var(--world-bright)) contrast(1.05) saturate(1.05);
+      transition:filter 1.2s ease;
+    }
+    body.world-settled .result-surface .result-name-display,
+    body.world-settled .result-surface .result-summary,
+    body.world-settled .result-surface .result-actions .btn {
+      text-shadow:0 2px 24px rgba(0,0,0,.8);
+    }
+
     .moment-app .page, #appView.moment-app .moment-shell { position:relative; z-index:2; }
     .moment-app .bg .orb { opacity:.05 !important; }
     body.moment-compose .compose-layer {
@@ -718,10 +785,6 @@
       margin:0; transition:opacity .72s ease .1s;
     }
     .listen-overlay .spin { display:none; }
-    body.moment-listening .compose-layer {
-      opacity:.2; filter:blur(4px); transform:scale(.96); pointer-events:none;
-      transition:opacity 1.02s cubic-bezier(0.14, 1, 0.26, 1) .14s, transform 1.05s cubic-bezier(0.16, 1, 0.3, 1) .14s, filter 1.08s ease .14s;
-    }
     .moment-listening .below-fold { opacity:0; }
     .result-layer {
       position:fixed; inset:0; z-index:25; display:flex; align-items:center; justify-content:center;
@@ -867,6 +930,8 @@
 
 <video id="cinema" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
 <div id="cinemaFallback" data-scene="abstract_light_field" aria-hidden="true"></div>
+<div id="worldPhysics" class="world-physics" aria-hidden="true"></div>
+<div id="worldFocus" class="world-focus" aria-hidden="true"></div>
 <div class="bg">
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
@@ -1283,6 +1348,7 @@ function returnToCompose(){
   const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
   const lo=$('listenOverlay');
   if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
+  document.body.classList.remove('world-settled');
   if(vibeInput?.value?.trim()) sceneCoreOnInput(vibeInput.value);
   else renderScene('abstract_light_field');
   setMomentState('compose');
@@ -1444,7 +1510,11 @@ const _AESTHETIC_CUES=[
 
 /* ── SceneRendererCore ── */
 const SCENE_DEBUG=true;
+const EMOTION_INPUT_DEBOUNCE_MS=140;
+const SCENE_ACK_MS=300;
 let _currentSceneId='abstract_light_field';
+let _emotionInputTimer=null;
+let _sceneAckTimer=null;
 
 function getSceneFromInput(text){
   const t=(text||'').toLowerCase();
@@ -1455,6 +1525,63 @@ function getSceneFromInput(text){
   if(t.includes('memory')||t.includes('nostalgia')) return 'memory_hallway';
   if(t.includes('calm')||t.includes('soft')) return 'ocean_night_fog';
   return 'abstract_light_field';
+}
+
+/* ── Emotional Physics v1 (CSS variables only — safe overlay) ── */
+function getEmotionForce(text){
+  const t=(text||'').toLowerCase();
+  return {
+    warmth:
+      t.includes('sun')||t.includes('happy')||t.includes('bright')?1:
+      t.includes('rain')||t.includes('night')||t.includes('lonely')?-1:0,
+    motion:
+      t.includes('drive')||t.includes('train')||t.includes('motion')?1:
+      t.includes('calm')||t.includes('still')?-1:0,
+    intensity:
+      t.includes('loud')||t.includes('chaos')||t.includes('fast')?1:
+      t.includes('soft')||t.includes('quiet')?-1:0,
+  };
+}
+
+function applyWorldEmotion(force){
+  const f=force||{ warmth:0, motion:0, intensity:0 };
+  const root=document.documentElement;
+  const w=Number(f.warmth)||0;
+  const m=Number(f.motion)||0;
+  const i=Number(f.intensity)||0;
+  root.style.setProperty('--warmth', String(w));
+  root.style.setProperty('--motion', String(m));
+  root.style.setProperty('--intensity', String(i));
+  root.style.setProperty('--world-bright', String(1+w*0.05-Math.max(0,-i)*0.04));
+  root.style.setProperty('--world-contrast', String(1.03+Math.abs(i)*0.04));
+  root.style.setProperty('--world-sat', String(0.92+w*0.06));
+  root.style.setProperty('--world-blur', String(Math.max(0,m*0.4)+'px'));
+  root.style.setProperty('--world-grain', String(0.028+Math.abs(i)*0.015));
+  root.style.setProperty('--world-vignette', String(0.68+Math.max(0,-w)*0.08+Math.max(0,-m)*0.06));
+  if(SCENE_DEBUG) console.log('Emotion force:', f);
+}
+
+function renderSceneAck(sceneId){
+  sceneId=sceneId||'abstract_light_field';
+  if(sceneId===_currentSceneId){
+    renderScene(sceneId);
+    return;
+  }
+  clearTimeout(_sceneAckTimer);
+  const cinema=$('cinema');
+  const fb=$('cinemaFallback');
+  if(cinema) cinema.classList.add('scene-fade');
+  _sceneAckTimer=setTimeout(()=>{
+    renderScene(sceneId);
+    if(cinema) cinema.classList.remove('scene-fade');
+    if(fb&&!fb.classList.contains('hidden')) fb.classList.remove('scene-fade');
+  }, SCENE_ACK_MS);
+}
+
+function presentResultWithSettle(){
+  document.body.classList.remove('world-settled');
+  presentResultLayer();
+  setTimeout(()=>document.body.classList.add('world-settled'), 300);
 }
 
 function ensureFallbackScene(sceneId){
@@ -1508,19 +1635,27 @@ function renderScene(sceneId){
 }
 
 function sceneCoreOnInput(text){
-  renderScene(getSceneFromInput(text));
+  clearTimeout(_emotionInputTimer);
+  _emotionInputTimer=setTimeout(()=>{
+    applyWorldEmotion(getEmotionForce(text||''));
+  }, EMOTION_INPUT_DEBOUNCE_MS);
 }
 
 function sceneCoreInit(){
   renderScene('abstract_light_field');
+  applyWorldEmotion({ warmth:0, motion:0, intensity:0 });
 }
 
 function _clearAtmosphere(){
+  clearTimeout(_emotionInputTimer);
+  clearTimeout(_sceneAckTimer);
+  document.body.classList.remove('world-settled');
   renderScene('abstract_light_field');
+  applyWorldEmotion({ warmth:0, motion:0, intensity:0 });
 }
 
 function _applyAtmosphere(vibe){
-  renderScene(getSceneFromInput(vibe||''));
+  applyWorldEmotion(getEmotionForce(vibe||''));
 }
 
 function _shortVibeSummary(vibe, ep, mu, expl, count){
@@ -1703,7 +1838,8 @@ function setLoading(on){
   }
   if(on){
     setMomentState('listening');
-    renderScene(getSceneFromInput(_activeGenVibe||vibeInput?.value||''));
+    applyWorldEmotion(getEmotionForce(_activeGenVibe||vibeInput?.value||''));
+    renderSceneAck(getSceneFromInput(_activeGenVibe||vibeInput?.value||''));
     if(progLabel) progLabel.textContent=_FINDING_SOUND;
     const rc=$('resultCard');
     if(rc) rc.classList.remove('visible','revealing');
@@ -2055,7 +2191,7 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
 
   const lo=$('listenOverlay');
   if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
-  presentResultLayer();
+  presentResultWithSettle();
   resetCopyBtn();
 }
 
