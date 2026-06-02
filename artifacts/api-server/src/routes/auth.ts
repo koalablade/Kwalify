@@ -164,32 +164,33 @@ router.post("/auth/logout", (req, res): void => {
 
 router.get("/auth/me", async (req, res): Promise<void> => {
   if (!requireSpotify(res)) return;
-  if (!req.session.spotifyTokens || !req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+
+  // Session exists but tokens missing — still authenticated for UI boot
+  if (req.session.spotifyUserId) {
+    if (req.session.spotifyTokens) {
+      try {
+        const freshTokens = await getValidAccessToken(
+          req.session.spotifyTokens,
+          req.session.spotifyUserId,
+        );
+        if (freshTokens.accessToken !== req.session.spotifyTokens.accessToken) {
+          req.session.spotifyTokens = freshTokens;
+        }
+      } catch (err) {
+        req.log.warn({ err, userId: req.session.spotifyUserId }, "Token refresh failed — serving session user");
+      }
+    }
+    res.json({
+      id: req.session.spotifyUserId,
+      displayName: req.session.spotifyDisplayName,
+      email: req.session.spotifyEmail ?? null,
+      avatarUrl: req.session.spotifyAvatarUrl ?? null,
+      country: req.session.spotifyCountry ?? null,
+    });
     return;
   }
 
-  // Best-effort refresh — boot must succeed when the session cookie is valid even if
-  // Spotify is briefly unreachable (otherwise the SPA falls back to guest landing).
-  try {
-    const freshTokens = await getValidAccessToken(
-      req.session.spotifyTokens,
-      req.session.spotifyUserId,
-    );
-    if (freshTokens.accessToken !== req.session.spotifyTokens.accessToken) {
-      req.session.spotifyTokens = freshTokens;
-    }
-  } catch (err) {
-    req.log.warn({ err, userId: req.session.spotifyUserId }, "Token refresh failed — serving session user");
-  }
-
-  res.json({
-    id: req.session.spotifyUserId,
-    displayName: req.session.spotifyDisplayName,
-    email: req.session.spotifyEmail ?? null,
-    avatarUrl: req.session.spotifyAvatarUrl ?? null,
-    country: req.session.spotifyCountry ?? null,
-  });
+  res.status(401).json({ error: "Not authenticated" });
 });
 
 export default router;

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-kw="loading">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -634,19 +634,36 @@
       position:relative; flex:1; display:flex; align-items:center; justify-content:center;
       min-height:min(84vh,800px); padding:20vh 24px 24vh; text-align:center;
     }
-    html.boot-auth .page,
-    html.kwalify-authed .page,
-    body.pets-app .page { display:none !important; }
-    html.boot-auth #landingView,
-    html.kwalify-authed #landingView,
-    body.pets-app #landingView { display:none !important; }
-    html.kwalify-guest #appView.pets-shell { display:none !important; }
-    html.boot-auth .bg,
-    html.boot-auth .waves,
-    html.boot-auth #cinema,
-    html.boot-auth #cinemaStill,
-    html.boot-auth #cinemaFallback,
-    html.boot-auth #momentCanvasOverlay { display:none !important; }
+    /* ══ Boot views: loading | guest | app (one state only) ══ */
+    #bootSplash {
+      position:fixed; inset:0; z-index:200; display:none;
+      align-items:center; justify-content:center;
+      background:#0c0e14;
+    }
+    html[data-kw="loading"] #bootSplash { display:flex; }
+    html[data-kw="loading"] .page,
+    html[data-kw="loading"] #appView { display:none !important; }
+    html[data-kw="guest"] #appView { display:none !important; }
+    html[data-kw="guest"] #landingView { display:block !important; }
+    html[data-kw="guest"] .page { display:block !important; }
+    html[data-kw="app"] .page,
+    html[data-kw="app"] #landingView,
+    html[data-kw="app"] .header,
+    html[data-kw="app"] .bg,
+    html[data-kw="app"] .waves,
+    html[data-kw="app"] #cinema,
+    html[data-kw="app"] #cinemaStill,
+    html[data-kw="app"] #cinemaFallback,
+    html[data-kw="app"] #momentCanvasOverlay,
+    html[data-kw="app"] #loadOverlay { display:none !important; }
+    html[data-kw="app"] #appView.pets-shell { display:block !important; }
+    .kw-boot-spin {
+      width:28px; height:28px; border-radius:50%;
+      border:2px solid rgba(255,255,255,.12);
+      border-top-color:rgba(255,255,255,.55);
+      animation:kwSpin .7s linear infinite;
+    }
+    @keyframes kwSpin { to { transform:rotate(360deg); } }
     /* ══ Pets UI — canonical: docs/EMOTION_GRID_UI_ENTRY.md · KWALIFY_OBJECT_CONSTRUCTION_MODE.md
        ONLY 2 screens: (1) 5-card 3-col grid (2) fullscreen one soft illustrated object ══ */
     body.pets-app .page,
@@ -664,8 +681,7 @@
       background:radial-gradient(ellipse 120% 80% at 50% 20%, #1a1e28 0%, #101218 55%, #0c0e14 100%);
       overflow:hidden;
     }
-    html.boot-auth #appView.pets-shell,
-    html.kwalify-authed #appView.pets-shell,
+    html[data-kw="app"] #appView.pets-shell,
     body.pets-app #appView.pets-shell { display:block !important; }
     #apiStubs,
     #syncGateCard { display:none !important; visibility:hidden !important; pointer-events:none !important; }
@@ -980,7 +996,9 @@
   </style>
 </head>
 <body>
-<script>document.documentElement.classList.add('boot-auth');</script>
+<div id="bootSplash" class="kw-boot" aria-live="polite" aria-busy="true">
+  <div class="kw-boot-spin" aria-hidden="true"></div>
+</div>
 
 <video id="cinema" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
 <img id="cinemaStill" alt="" aria-hidden="true" />
@@ -1022,82 +1040,19 @@
     <!-- ── Loading ── -->
     <div id="loadOverlay"><div class="spin"></div></div>
 
-    <!-- ── LANDING VIEW (logged out) ── -->
+    <!-- ── GUEST (not logged in) ── -->
     <div id="landingView" style="display:none">
       <div class="landing">
-
         <div class="lhero">
           <h1 style="font-size:clamp(32px,7vw,48px);font-weight:900;letter-spacing:-1.5px;margin-bottom:10px">Kwalify</h1>
-          <p style="font-size:17px;color:var(--text-sub);max-width:400px;margin:0 auto 28px;line-height:1.6">Connect Spotify to pick a mood and build playlists from songs you already love.</p>
+          <p style="font-size:17px;color:var(--text-sub);max-width:400px;margin:0 auto 28px;line-height:1.6">Connect Spotify. Pick a mood. Build playlists from songs you already love.</p>
           <div class="lhero-cta">
             <a href="/api/auth/login" class="btn btn-green" style="font-size:15px;padding:15px 32px;border-radius:9999px">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-              Connect with Spotify — free
+              Connect with Spotify
             </a>
           </div>
-          <p class="lhero-note">Private playlists · Your likes only</p>
         </div>
-
-        <details class="landing-more glass" style="padding:8px 20px 20px;border-radius:18px">
-          <summary>How Kwalify works</summary>
-        <div class="features">
-          <div class="glass feat-card">
-            <div class="feat-icon">🧠</div>
-            <div class="feat-title">Moment-aware matching</div>
-            <div class="feat-desc">Parses your scene into location, time, mood, and motion — then matches tracks from your library.</div>
-          </div>
-          <div class="glass feat-card">
-            <div class="feat-icon">🎵</div>
-            <div class="feat-title">Matches your library</div>
-            <div class="feat-desc">Every liked song is matched on mood, energy, and listening history. Only songs you already love make the cut.</div>
-          </div>
-          <div class="glass feat-card">
-            <div class="feat-icon">🎲</div>
-            <div class="feat-title">Strict, Balanced, Chaotic</div>
-            <div class="feat-desc">Choose how closely tracks match your vibe. Balanced ensures artist variety and tempo diversity.</div>
-          </div>
-          <div class="glass feat-card">
-            <div class="feat-icon">⚡</div>
-            <div class="feat-title">One click, done</div>
-            <div class="feat-desc">Describe your mood, hit Generate. A private playlist appears in your Spotify in seconds.</div>
-          </div>
-        </div>
-
-        <div class="how">
-          <h2>How it works</h2>
-          <div class="steps">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-title">Connect Spotify</div>
-              <div class="step-desc">One-click OAuth — read-only access to your liked songs</div>
-            </div>
-            <div class="step">
-              <div class="step-num">2</div>
-              <div class="step-title">Describe your vibe</div>
-              <div class="step-desc">Type anything: "night drive alone" or hit a preset</div>
-            </div>
-            <div class="step">
-              <div class="step-num">3</div>
-              <div class="step-title">We match your library</div>
-              <div class="step-desc">Energy, valence, tempo, and more — matched on our servers from your likes only</div>
-            </div>
-            <div class="step">
-              <div class="step-num">4</div>
-              <div class="step-title">Playlist created</div>
-              <div class="step-desc">Opens in Spotify automatically — no manual steps</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="glass proof">
-          <div class="proof-stat"><div class="proof-num">5</div><div class="proof-lbl">Vibe dimensions matched</div></div>
-          <div class="proof-stat"><div class="proof-num">3</div><div class="proof-lbl">Matching layers</div></div>
-          <div class="proof-stat"><div class="proof-num">10–100</div><div class="proof-lbl">Tracks per playlist</div></div>
-          <div class="proof-stat"><div class="proof-num">0</div><div class="proof-lbl">Data stored on server</div></div>
-        </div>
-
-        </details>
-
       </div>
     </div><!-- /landingView -->
 
@@ -1169,116 +1124,65 @@ async function api(path, opts={}){
   return {ok:res.ok, status:res.status, data: await res.json().catch(()=>({}))};
 }
 
-const _bootLog=(...a)=>{ if(location.hostname==='localhost'||location.search.includes('bootdebug')) console.info('[kwalify boot]',...a); };
-const _AUTH_ME_RETRIES=2;
-const _AUTH_ME_RETRY_MS=450;
-const _LOGIN_LOOP_KEY='kwalify_login_redirect_ts';
-
-async function _authMeWithRetry(){
-  let last={ok:false,status:0,data:{}};
-  for(let attempt=0; attempt<=_AUTH_ME_RETRIES; attempt++){
-    try{
-      last=await api('/auth/me');
-      if(last.ok||last.status===401||attempt===_AUTH_ME_RETRIES) return last;
-      if(last.status>=500||last.status===429){
-        await new Promise(r=>setTimeout(r,_AUTH_ME_RETRY_MS*(attempt+1)));
-        continue;
-      }
-      return last;
-    }catch(err){
-      _bootLog('auth/me network error',attempt,err);
-      if(attempt===_AUTH_ME_RETRIES) throw err;
-      await new Promise(r=>setTimeout(r,_AUTH_ME_RETRY_MS*(attempt+1)));
-    }
-  }
-  return last;
+/* ══ BOOT — exactly 3 views: loading → guest OR app ══ */
+function kwSetView(mode){
+  document.documentElement.dataset.kw=mode;
+  const splash=$('bootSplash');
+  if(splash) splash.setAttribute('aria-busy', mode==='loading'?'true':'false');
 }
 
-function _redirectToLogin(){
-  const now=Date.now();
-  const prev=Number(sessionStorage.getItem(_LOGIN_LOOP_KEY)||0);
-  if(prev&&now-prev<10000){
-    sessionStorage.removeItem(_LOGIN_LOOP_KEY);
-    _bootLog('login redirect loop guard — showing guest connect');
-    bootGuestLanding();
-    showToast('Could not complete login. Allow cookies for this site, then tap Connect again.','error',8000);
-    return;
-  }
-  sessionStorage.setItem(_LOGIN_LOOP_KEY,String(now));
-  location.replace('/api/auth/login');
-}
+const _CONNECT_BTN=`<a href="/api/auth/login" class="btn btn-green btn-sm">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+  Connect
+</a>`;
 
-/* ── Boot: auth first → Emotion Grid OR guest landing (never both) ── */
 function bootAuthedHome(){
-  document.documentElement.classList.add('boot-auth','kwalify-authed');
-  document.documentElement.classList.remove('kwalify-guest');
   document.body.classList.add('pets-app','pets-home-active');
-  document.body.classList.remove('pets-scene-active','moment-home','moment-loading','moment-result','moment-typing');
-  ['home','loading','result'].forEach(s=>$('appView')?.classList.remove('moment-'+s));
-  const lv=$('landingView'); if(lv) lv.style.display='none';
-  $('loadOverlay').style.display='none';
-  const page=document.querySelector('.page'); if(page) page.style.display='none';
+  document.body.classList.remove('pets-scene-active');
   const av=$('appView');
-  if(av){ av.hidden=false; av.removeAttribute('hidden'); av.style.display=''; }
+  if(av){ av.hidden=false; av.removeAttribute('hidden'); }
   const cin=$('cinema');
   if(cin){ try{ cin.pause(); }catch(_){} cin.removeAttribute('src'); }
   initEmotionGridUI();
   startSyncPolling();
+  kwSetView('app');
 }
 
 function bootGuestLanding(){
-  document.documentElement.classList.remove('boot-auth','kwalify-authed');
-  document.documentElement.classList.add('kwalify-guest');
   document.body.classList.remove('pets-app','pets-home-active','pets-scene-active');
   const av=$('appView');
-  if(av){ av.hidden=true; av.style.display='none'; }
-  const page=document.querySelector('.page'); if(page) page.style.display='';
-  clearTimeout(_emotionInputTimer);
-  $('loadOverlay').style.display='none';
+  if(av){ av.hidden=true; av.setAttribute('hidden',''); }
   $('landingView').style.display='block';
-  $('headerNav').innerHTML=`
-    <a href="/api/auth/login" class="btn btn-green btn-sm">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-      Connect
-    </a>`;
+  $('headerNav').innerHTML=_CONNECT_BTN;
+  kwSetView('guest');
 }
 
 async function init(){
-  document.documentElement.classList.add('boot-auth');
+  kwSetView('loading');
   const params=new URLSearchParams(location.search);
   const err=params.get('error');
-  if(err){ showToast('Login failed: '+err,'error',5000); history.replaceState(null,'','/'); }
+  if(err){
+    showToast('Login failed: '+err,'error',5000);
+    history.replaceState(null,'','/');
+  }
 
   try {
-    const {ok, status}=await _authMeWithRetry();
+    const {ok, status}=await api('/auth/me');
     if(ok){
-      sessionStorage.removeItem(_LOGIN_LOOP_KEY);
-      _bootLog('authed → emotion grid');
       bootAuthedHome();
       return;
     }
-    _bootLog('auth/me failed',status);
-    if(status===401){
-      _redirectToLogin();
-      return;
-    }
-    if(status===503){
-      showToast('Spotify is not configured on this server.','error',6000);
-      bootGuestLanding();
-      return;
-    }
-    showToast('Could not verify login — try Connect again.','error',5000);
+    if(status===503) showToast('Spotify is not configured on this server.','error',6000);
     bootGuestLanding();
-  } catch (e) {
-    _bootLog('auth boot error',e);
-    showToast('Network error checking login — try Connect again.','error',5000);
+  } catch {
+    showToast('Could not reach the server — check your connection.','error',5000);
     bootGuestLanding();
   }
 }
 
 function showLanding(){ bootGuestLanding(); }
-
 function showApp(_userData){ bootAuthedHome(); }
+function kwIsAuthed(){ return document.documentElement.dataset.kw==='app'; }
 
 function _isMomentExperience(){
   return document.body.classList.contains('pets-app');
@@ -2772,7 +2676,7 @@ function _pollSync(){
 }
 
 function _showInputFallback(){
-  if(document.body.classList.contains('pets-app')||document.documentElement.classList.contains('kwalify-authed')) return;
+  if(document.body.classList.contains('pets-app')||kwIsAuthed()) return;
   const ic=$('inputCard');
   if(ic&&ic.style.display==='none') ic.style.display='';
 }
@@ -2790,7 +2694,7 @@ function _updateSyncUI(d){
   const prevState=_syncState;
   _syncState=d.isSyncing?'syncing':d.synced?'synced':'unsynced';
 
-  if(document.body.classList.contains('pets-app')||document.documentElement.classList.contains('kwalify-authed')){
+  if(document.body.classList.contains('pets-app')||kwIsAuthed()){
     if(gate) gate.style.display='none';
     if(pill) pill.style.display='none';
     if(ic) ic.style.display='none';
