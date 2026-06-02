@@ -1584,6 +1584,24 @@ const _AESTHETIC_CUES=[
   {re:/calm|quiet|peace|slow|soft|still/i, line:'Soft focus — unhurried, near, gentle.'},
 ];
 
+function _aestheticMomentLine(vibe, ep){
+  const t=(vibe||'').trim();
+  if(!t) return 'A mood taking shape.';
+  for(const c of _AESTHETIC_CUES){
+    if(c.re.test(t)) return c.line;
+  }
+  if(ep && typeof ep==='object'){
+    const val=Number(ep.valence);
+    const en=Number(ep.energy);
+    if(!Number.isNaN(val)&&!Number.isNaN(en)){
+      if(val>0.6&&en>0.5) return 'Sun energy — open, warm, bright.';
+      if(val<0.4&&en<0.45) return 'Soft focus — unhurried, near, gentle.';
+      if(en>0.65) return 'Cinematic movement — forward, wide, steady.';
+    }
+  }
+  return 'Light folding into the distance.';
+}
+
 /* ── SceneRendererCore ── */
 const SCENE_DEBUG=true;
 const EMOTION_INPUT_DEBOUNCE_MS=140;
@@ -2610,12 +2628,14 @@ function generate(){
     }
   })
   .catch(async err=>{
+    clearTimeout(genTimeout);
     setLoading(false);
     _clearAtmosphere();
     setMomentState('compose');
     if(vibeInput?.value?.trim()) sceneCoreOnInput(vibeInput.value);
     else renderScene('abstract_light_field');
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
+    if(SCENE_DEBUG&&err) console.error('Generate failed:', err);
     if(err&&err.name==='AbortError'){
       try{
         const pr=await fetch('/api/playlists',{credentials:'include'});
@@ -2638,7 +2658,10 @@ function generate(){
       fetchAndRenderPlaylists();
       return;
     }
-    showToast('Connection failed. Check your internet and try again.','error',6000);
+    const msg=err&&err.message&&/fetch|network|failed/i.test(String(err.message))
+      ? 'Connection failed. Check your internet and try again.'
+      : 'Something went wrong showing your playlist. Try Go again.';
+    showToast(msg,'error',6000);
   })
   .finally(()=>clearTimeout(genTimeout));
 }
