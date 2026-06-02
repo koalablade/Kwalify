@@ -1047,7 +1047,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? "Could not read that reference playlist. If it is public, try the open.spotify.com link; if it is yours, log out and back in to refresh permissions. Generation used your text vibe only."
         : null,
       librarySyncHint,
-      tracks: formatTracksForApi(finalTracks, { ...emotionProfile, journeyArc }),
+      tracks: formatTracksForApi(finalTracks, emotionProfile),
       ...(pipeline.scoringDiagnostics?.fastFallback
         ? { fastFallback: true }
         : {}),
