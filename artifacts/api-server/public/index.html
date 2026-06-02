@@ -528,139 +528,140 @@
       .presets { overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; }
     }
 
-    /* ── SceneRendererCore (single scene system) ── */
+    /* ── Cinematic Moment Engine (scene + one atmosphere layer) ── */
     html, body { background:#060608; }
-    #cinema {
+    #cinema, #cinemaStill, #cinemaFallback {
       position:fixed; inset:0; width:100%; height:100%; object-fit:cover;
-      z-index:0; opacity:1 !important; pointer-events:none;
-      background:#060608;
-      transform-origin:center center;
-      animation:substrateDrift 16s ease-in-out infinite;
+      z-index:0; pointer-events:none; background:#060608;
     }
-    @keyframes substrateDrift {
-      0%,100%{ transform:scale(1.02) translate(0,0); }
-      50%{ transform:scale(1.03) translate(-0.25%,0.15%); }
-    }
-    #cinemaFallback {
-      position:fixed; inset:0; z-index:0; pointer-events:none;
-      display:block;
-      background:radial-gradient(ellipse 92% 82% at 50% 45%, #16141c 0%, #0a0a12 55%, #060608 100%);
-      animation:sceneFallbackBreath 9s ease-in-out infinite;
-    }
-    #cinemaFallback.hidden { display:none; }
-    body.scene-css-fallback #cinema { opacity:0 !important; }
-    body.scene-css-fallback #cinemaFallback { display:block !important; opacity:1 !important; }
-    #cinemaFallback[data-scene="rain_highway_pov"] { background:linear-gradient(180deg, #0c1420 0%, #060a10 50%, #020306 100%); }
-    #cinemaFallback[data-scene="neon_city_walk"] { background:linear-gradient(180deg, #0a0e1a 0%, #04060e 55%, #020204 100%); }
-    #cinemaFallback[data-scene="golden_field_drift"] { background:radial-gradient(ellipse 100% 70% at 50% 22%, #4a3208 0%, #1a1006 50%, #060504 100%); }
-    #cinemaFallback[data-scene="desert_wide_solo"] { background:radial-gradient(ellipse 95% 55% at 50% 78%, #3d2810 0%, #140c06 48%, #050403 100%); }
-    #cinemaFallback[data-scene="memory_hallway"] { background:radial-gradient(ellipse 70% 90% at 50% 50%, #1e1814 0%, #0c0a0e 65%, #050508 100%); }
-    #cinemaFallback[data-scene="ocean_night_fog"] { background:linear-gradient(180deg, #060a12 0%, #0a1420 40%, #040608 100%); }
-    @keyframes sceneFallbackBreath { 0%,100%{ filter:brightness(.92) } 50%{ filter:brightness(1.06) } }
+    #cinema { opacity:0; transition:opacity .45s ease; }
+    #cinemaStill { opacity:0; transition:opacity .5s ease; }
+    #cinemaFallback { display:block; transition:opacity .5s ease; }
+    #cinemaFallback.hidden, #cinemaStill.hidden { display:none !important; opacity:0 !important; }
+    body.scene-video #cinema { opacity:1 !important; }
+    body.scene-still #cinemaStill { opacity:1 !important; display:block !important; }
+    body.scene-still #cinemaFallback { opacity:0 !important; }
+    body.scene-composite #cinemaFallback { opacity:1 !important; }
 
-    /* ── Emotional Physics v1 (overlay only — does not replace SceneRendererCore) ── */
+    #cinema, #cinemaStill, #cinemaFallback {
+      filter:brightness(var(--scene-bright,1)) contrast(var(--scene-contrast,1.05)) saturate(var(--scene-sat,.98));
+    }
+    #cinema, #cinemaStill, #cinemaFallback {
+      transition:filter .35s ease, opacity .35s ease, transform .35s ease;
+    }
+    body.scene-camera-lock #cinema,
+    body.scene-camera-lock #cinemaStill,
+    body.scene-camera-lock #cinemaFallback {
+      animation:none !important;
+      transform:scale(1.04);
+    }
+    body.moment-compose.scene-camera-drift #cinema,
+    body.moment-compose.scene-camera-drift #cinemaStill,
+    body.moment-compose.scene-camera-drift #cinemaFallback {
+      animation:cameraDrift 56s ease-in-out infinite;
+    }
+    body.moment-thinking #cinema,
+    body.moment-thinking #cinemaStill,
+    body.moment-thinking #cinemaFallback {
+      animation:none !important;
+      transform:scale(1.04);
+    }
+    body.moment-locked.scene-camera-zoom #cinema,
+    body.moment-locked.scene-camera-zoom #cinemaStill,
+    body.moment-locked.scene-camera-zoom #cinemaFallback {
+      animation:cameraZoom 52s ease-in-out infinite;
+    }
+    body.moment-locked.scene-camera-pan #cinema,
+    body.moment-locked.scene-camera-pan #cinemaStill,
+    body.moment-locked.scene-camera-pan #cinemaFallback {
+      animation:cameraPan 48s ease-in-out infinite;
+    }
+    @keyframes cameraDrift {
+      0%,100% { transform:scale(1.03) translate(0,0); }
+      50% { transform:scale(1.045) translate(-0.2%,0.1%); }
+    }
+    @keyframes cameraZoom {
+      0%,100% { transform:scale(1.04); }
+      50% { transform:scale(1.07); }
+    }
+    @keyframes cameraPan {
+      0%,100% { transform:scale(1.05) translate(0,0); }
+      50% { transform:scale(1.05) translate(-0.5%,0); }
+    }
+
+    /* Structured still composites (only when no video/still asset) */
+    #cinemaFallback[data-scene="night_drive"] {
+      background:linear-gradient(180deg,#0a1020 0%,#060810 42%,#020306 100%),
+        radial-gradient(ellipse 140% 35% at 50% 88%,rgba(255,210,120,.22) 0%,transparent 50%),
+        radial-gradient(ellipse 80% 50% at 20% 40%,rgba(60,90,140,.25) 0%,transparent 70%);
+    }
+    #cinemaFallback[data-scene="petrol_station_2am"] {
+      background:linear-gradient(180deg,#12101a 0%,#08060c 55%,#030208 100%),
+        radial-gradient(circle at 72% 38%,rgba(255,80,40,.35) 0%,transparent 28%),
+        radial-gradient(circle at 28% 42%,rgba(40,180,255,.2) 0%,transparent 32%);
+    }
+    #cinemaFallback[data-scene="sunset_coast"] {
+      background:linear-gradient(180deg,#4a2810 0%,#1a1008 38%,#080604 100%),
+        radial-gradient(ellipse 100% 45% at 50% 18%,rgba(255,160,80,.45) 0%,transparent 55%);
+    }
+    #cinemaFallback[data-scene="urban_midnight_walk"] {
+      background:linear-gradient(180deg,#0c1018 0%,#06080e 50%,#020204 100%),
+        radial-gradient(ellipse 90% 30% at 50% 100%,rgba(120,160,255,.12) 0%,transparent 45%),
+        linear-gradient(90deg,transparent 0%,rgba(255,255,255,.06) 50%,transparent 100%);
+    }
+    #cinemaFallback[data-scene="train_journey"] {
+      background:linear-gradient(90deg,#0a0c12 0%,#141820 45%,#0a0c12 100%),
+        linear-gradient(180deg,rgba(255,255,255,.08) 0%,transparent 22%),
+        radial-gradient(ellipse 60% 80% at 18% 50%,rgba(180,200,220,.15) 0%,transparent 70%);
+    }
+    #cinemaFallback[data-scene="summer_afternoon_drift"] {
+      background:linear-gradient(180deg,#6a5020 0%,#2a1c08 40%,#100c06 100%),
+        radial-gradient(ellipse 90% 55% at 50% 25%,rgba(255,220,140,.35) 0%,transparent 60%);
+    }
+    #cinemaFallback[data-scene="rainy_city_interior"] {
+      background:linear-gradient(180deg,#10141c 0%,#080a10 55%,#040508 100%),
+        radial-gradient(ellipse 70% 40% at 80% 30%,rgba(100,200,255,.18) 0%,transparent 50%),
+        radial-gradient(ellipse 50% 60% at 15% 55%,rgba(255,255,255,.05) 0%,transparent 45%);
+    }
+    #cinemaFallback[data-scene="memory_road"] {
+      background:linear-gradient(180deg,#3a3020 0%,#1a140c 45%,#080604 100%),
+        radial-gradient(ellipse 100% 40% at 50% 70%,rgba(200,160,100,.2) 0%,transparent 55%);
+    }
+    #cinemaFallback[data-scene="club_exit_dawn"] {
+      background:linear-gradient(180deg,#283858 0%,#141820 48%,#060608 100%),
+        radial-gradient(ellipse 80% 35% at 50% 15%,rgba(140,180,255,.25) 0%,transparent 50%);
+    }
+    #cinemaFallback[data-scene="open_highway_daylight"] {
+      background:linear-gradient(180deg,#5a7a9a 0%,#2a3a4a 35%,#101418 100%),
+        radial-gradient(ellipse 120% 40% at 50% 100%,rgba(255,255,240,.15) 0%,transparent 48%);
+    }
+
     :root {
-      --warmth:0; --motion:0; --intensity:0;
-      --world-bright:1; --world-contrast:1.04; --world-sat:.96;
-      --world-blur:0px; --world-grain:.016; --world-vignette:.48;
-      --focus-x:50%; --focus-y:50%;
-      --depth-blur:0px; --depth-sat:1; --perception-exposure:1; --perception-contrast:1.04;
+      --scene-bright:1; --scene-contrast:1.05; --scene-sat:.98;
+      --scene-vignette:.42; --scene-grain:.04;
     }
-    /* Scene = full clarity; never gaussian-blur the substrate */
-    #cinema, #cinemaFallback {
-      transition:filter .55s ease, opacity .5s ease;
-      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(var(--perception-contrast)) saturate(calc(var(--world-sat)*var(--depth-sat)));
-      opacity:1 !important;
-    }
-    #cinema.scene-fade { opacity:.88 !important; }
-    body.perception-initial #cinema { opacity:0 !important; }
-    body.perception-initial #cinemaFallback { opacity:1 !important; display:block !important; }
-    body.perception-depth #cinema { opacity:1 !important; transition:opacity .5s ease, filter .65s ease; }
-    body.perception-lock #cinema,
-    body.perception-stable #cinema { opacity:1 !important; }
-    body.perception-depth #cinemaFallback,
-    body.perception-lock #cinemaFallback {
-      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(var(--perception-contrast)) saturate(calc(var(--world-sat)*var(--depth-sat)));
-    }
-    body.perception-lock #cinema,
-    body.perception-lock #cinemaFallback,
-    body.perception-stable #cinema,
-    body.perception-stable #cinemaFallback {
-      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(calc(var(--perception-contrast)*1.02)) saturate(calc(var(--world-sat)*var(--depth-sat)));
-      transition:filter .85s ease, opacity .45s ease;
-    }
-    #worldPhysics {
+    #sceneAtmosphere {
       position:fixed; inset:0; z-index:1; pointer-events:none;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity:1;
+    }
+    #sceneAtmosphere::before {
+      content:''; position:absolute; inset:0;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       background-size:160px 160px;
       mix-blend-mode:overlay;
-      opacity:var(--world-grain);
-      animation:atmosphereBreath 14s ease-in-out infinite, grainDrift 24s linear infinite;
+      opacity:var(--scene-grain);
     }
-    @keyframes grainDrift {
-      0%{ background-position:0 0; }
-      100%{ background-position:160px 72px; }
-    }
-    #worldPhysics::after {
+    #sceneAtmosphere::after {
       content:''; position:absolute; inset:0;
-      background:radial-gradient(ellipse 78% 68% at var(--focus-x) var(--focus-y), transparent 0%, rgba(0,0,0,.18) 62%, rgba(0,0,0,calc(var(--world-vignette)*.75)) 100%);
-      opacity:.5;
-      transition:opacity .5s ease;
+      background:radial-gradient(ellipse 75% 65% at 50% 45%, transparent 35%, rgba(0,0,0,calc(var(--scene-vignette)*.55)) 100%);
+      opacity:.65;
     }
-    #worldFocus {
-      position:fixed; inset:0; z-index:1; pointer-events:none;
-      background:radial-gradient(circle at var(--focus-x) var(--focus-y), rgba(255,255,255,0.05) 0%, transparent 38%, rgba(0,0,0,0.38) 100%);
-      opacity:.38;
-      transition:opacity .7s ease, background .85s ease;
-    }
-    body.perception-lock #worldFocus,
-    body.perception-stable #worldFocus { opacity:.42; }
-    #sceneFrameHint {
-      position:fixed; inset:0; z-index:1; pointer-events:none; overflow:hidden;
-    }
-    #sceneFrameHint::before {
-      content:attr(data-perception);
-      position:absolute; left:50%; top:52%;
-      transform:translate(-50%,-50%) scale(1.08);
-      font-size:clamp(52px,14vw,128px); font-weight:800; letter-spacing:.42em;
-      text-transform:lowercase; color:rgba(255,255,255,.07);
-      filter:blur(14px); white-space:nowrap; max-width:140vw;
-      opacity:0; transition:opacity 2.8s ease;
-    }
-    body.perception-depth #sceneFrameHint::before { opacity:.06; }
-    body.perception-lock #sceneFrameHint::before,
-    body.moment-result #sceneFrameHint::before { opacity:.08; }
-    body.perception-stable #sceneFrameHint::before { opacity:.07; }
-    @keyframes atmosphereBreath {
-      0%,100%{ filter:none; opacity:.85; }
-      50%{ filter:none; opacity:.95; }
-    }
-    body.moment-listening {
-      --world-bright:.94; --world-grain:.02; --world-vignette:.54; --world-contrast:1.05;
-    }
-    body.moment-listening #worldPhysics::after { opacity:.58; }
-    body.moment-listening .compose-layer {
-      opacity:.32 !important; filter:blur(3px) !important;
-      pointer-events:none !important;
-      transition:opacity 1s ease, filter 1s ease !important;
-    }
-    body.moment-result .compose-layer {
-      opacity:.12 !important; filter:blur(8px) !important;
-      pointer-events:none !important;
-    }
-    body.world-settled #cinema,
-    body.world-settled #cinemaFallback {
-      filter:brightness(calc(var(--world-bright)*var(--perception-exposure))) contrast(calc(var(--perception-contrast)*1.01)) saturate(calc(var(--world-sat)*var(--depth-sat)*1.02));
-      transition:filter 1.2s ease;
-    }
+    #worldFocus, #sceneFrameHint, #worldPhysics { display:none !important; }
+
     body.moment-compose .bg,
-    body.moment-listening .bg,
-    body.moment-result .bg { opacity:0 !important; visibility:hidden !important; }
-    body.world-settled .result-surface .result-name-display,
-    body.world-settled .result-surface .result-summary,
-    body.world-settled .result-surface .result-actions .btn {
-      text-shadow:0 2px 24px rgba(0,0,0,.8);
-    }
+    body.moment-thinking .bg,
+    body.moment-locked .bg,
+    body.moment-reveal .bg { opacity:0 !important; visibility:hidden !important; }
 
     .moment-app .page, #appView.moment-app .moment-shell { position:relative; z-index:2; }
     .moment-shell, .compose-layer, .result-surface, .vibe-focus, .input-moment, .result-layer.visible .result-surface {
@@ -669,9 +670,23 @@
     }
     body.moment-compose .compose-layer {
       opacity:1 !important; visibility:visible !important;
-      pointer-events:auto !important; filter:none !important; transform:none !important;
+      pointer-events:auto !important; filter:none !important;
     }
-
+    body.moment-thinking .compose-layer {
+      opacity:.75 !important; filter:none !important;
+      pointer-events:none !important;
+      transition:opacity .3s ease !important;
+    }
+    body.moment-locked .compose-layer {
+      opacity:.65 !important; filter:none !important;
+      pointer-events:none !important;
+      transition:opacity .3s ease !important;
+    }
+    body.moment-reveal .compose-layer {
+      opacity:0 !important; visibility:hidden !important;
+      pointer-events:none !important;
+      transition:opacity .7s ease !important;
+    }
     /* ── Master lock: moment UI ── */
     .moment-app .waves { display:none; }
     .moment-app .bg .orb { opacity:.1; filter:blur(130px); animation:none !important; }
@@ -685,32 +700,15 @@
       transition:background 900ms cubic-bezier(0.17, 1, 0.32, 1);
       transition-delay:65ms;
     }
-    body.moment-listening .moment-app .page::before {
-      background:rgba(4,6,14,.35);
-    }
-    body.moment-result .moment-app .page::before {
-      background:rgba(8,6,4,.12);
-    }
-    body.moment-result.atmo-sun .moment-app .page::before { background:rgba(32,24,8,.1); }
-    body.moment-result.atmo-night .moment-app .page::before { background:rgba(6,8,18,.16); }
-    body.moment-result.atmo-rain .moment-app .page::before { background:rgba(10,14,20,.14); }
-    body.moment-result.atmo-drive .moment-app .page::before { background:rgba(12,10,18,.12); }
-    body.moment-result.atmo-memory .moment-app .page::before { background:rgba(28,18,10,.12); }
-    body.moment-result.atmo-calm .moment-app .page::before { background:rgba(10,12,12,.1); }
     body.moment-compose .page::after,
-    body.moment-listening .page::after,
-    body.moment-result .page::after {
-      content:''; position:fixed; inset:0; z-index:1; pointer-events:none;
-      background:radial-gradient(ellipse 70% 58% at 50% 40%, transparent 0%, transparent 55%, rgba(0,0,0,.22) 100%);
-      opacity:.22;
-      transition:opacity 900ms cubic-bezier(0.17, 1, 0.32, 1);
-    }
-    body.moment-listening .page::after { opacity:.28; }
-    body.moment-result .page::after { opacity:.24; }
+    body.moment-thinking .page::after,
+    body.moment-locked .page::after,
+    body.moment-reveal .page::after,
     body.moment-compose .page::before,
-    body.moment-listening .page::before,
-    body.moment-result .page::before {
-      background:transparent !important;
+    body.moment-thinking .page::before,
+    body.moment-locked .page::before,
+    body.moment-reveal .page::before {
+      display:none !important;
     }
     .moment-app .inner { max-width:400px; }
     .moment-app .header { opacity:.12; padding-top:10px; transition:opacity .75s var(--spring); }
@@ -810,49 +808,46 @@
     .listen-overlay {
       position:fixed; inset:0; z-index:15; display:flex; align-items:center; justify-content:center;
       pointer-events:none; opacity:0;
-      transition:opacity 920ms cubic-bezier(0.14, 1, 0.26, 1), backdrop-filter 1000ms cubic-bezier(0.18, 1, 0.34, 1);
-      background:rgba(4,5,10,.48); backdrop-filter:blur(0);
+      transition:opacity .3s ease, background .3s ease;
+      background:rgba(4,5,10,.48); backdrop-filter:none;
     }
-    .listen-overlay.visible { opacity:1; backdrop-filter:none; background:rgba(4,5,10,.1); }
+    .listen-overlay.visible { opacity:1; backdrop-filter:none; background:rgba(4,5,10,.12); }
+    body.moment-locked .listen-overlay.visible { opacity:.7; background:rgba(4,5,10,.08); }
     .listen-overlay .listen-line {
       font-size:15px; color:rgba(255,255,255,.28); font-weight:400; letter-spacing:.12em;
       margin:0; transition:opacity .72s ease .1s;
     }
     .listen-overlay .spin { display:none; }
-    .moment-listening .below-fold { opacity:0; }
+    .moment-thinking .below-fold,
+    .moment-locked .below-fold { opacity:0; }
     .result-layer {
       position:fixed; inset:0; z-index:25; display:flex; align-items:center; justify-content:center;
       padding:48px 24px;
       background:transparent;
       opacity:0; visibility:hidden; pointer-events:none;
-      transition:opacity 1000ms cubic-bezier(0.14, 1, 0.26, 1), visibility 1000ms cubic-bezier(0.16, 1, 0.3, 1), backdrop-filter 900ms ease;
+      transition:opacity .4s ease, visibility .4s ease;
     }
     .result-layer.visible {
       opacity:1; visibility:visible; pointer-events:auto;
       backdrop-filter:none;
       -webkit-backdrop-filter:none;
-      background:radial-gradient(circle at var(--focus-x) var(--focus-y), rgba(6,6,8,.04) 0%, transparent 50%, rgba(6,6,8,.06) 100%);
-    }
-    body.world-settled.perception-lock .result-layer.visible,
-    body.world-settled.perception-stable .result-layer.visible {
-      backdrop-filter:none;
-      -webkit-backdrop-filter:none;
+      background:transparent;
     }
     .result-layer.visible.revealing { transition-duration:1100ms; }
-    .moment-result .compose-layer,
-    .moment-result .below-fold,
-    .moment-result .sync-whisper { opacity:0 !important; visibility:hidden !important; pointer-events:none !important; }
-    .moment-result .listen-overlay { opacity:0 !important; visibility:hidden !important; }
-    .moment-result .header { opacity:.12; transition:opacity .8s ease; }
+    .moment-reveal .compose-layer,
+    .moment-reveal .below-fold,
+    .moment-reveal .sync-whisper { opacity:0 !important; visibility:hidden !important; pointer-events:none !important; }
+    .moment-reveal .listen-overlay { opacity:0 !important; visibility:hidden !important; }
+    .moment-reveal .header { opacity:.12; transition:opacity .8s ease; }
     .result-surface {
       width:100%; max-width:380px; text-align:center;
       position:relative; z-index:1;
     }
     .result-layer.glass { background:var(--bg); border:none; backdrop-filter:none; margin:0; box-shadow:none; }
     .result-top, .result-icon, .result-tag, .result-meta-txt, .mode-badge { display:none !important; }
-    body.moment-result .result-more,
-    body.moment-result #resultCacheNotice,
-    body.moment-result .moment-back { display:none !important; }
+    body.moment-reveal .result-more,
+    body.moment-reveal #resultCacheNotice,
+    body.moment-reveal .moment-back { display:none !important; }
     .result-surface:not(.result-revealed) .result-name-display,
     .result-surface:not(.result-revealed) .result-reveal-part {
       opacity:0;
@@ -904,25 +899,30 @@
       box-shadow:0 40px 100px rgba(0,0,0,.35);
       border:none;
     }
-    body.moment-result .result-art-grid.result-art-ambient {
+    body.moment-reveal .result-art-grid.result-art-ambient {
       position:fixed; inset:-8%; z-index:0; max-width:none; margin:0;
       display:block !important; opacity:.1; filter:blur(20px) saturate(.85);
       pointer-events:none; box-shadow:none;
     }
-    body.moment-result .result-art-grid.result-art-ambient img {
+    body.moment-reveal .result-art-grid.result-art-ambient img {
       width:100%; height:100%; object-fit:cover; aspect-ratio:auto;
     }
-    body.moment-result .result-surface { z-index:2; }
+    body.moment-reveal .result-surface { z-index:2; }
     .moment-app #resultCacheNotice,
     .moment-app .result-more { display:none !important; }
     .result-name-display {
       font-size:clamp(28px,6.5vw,38px); font-weight:800; letter-spacing:-.8px;
       margin-bottom:14px; color:#fff; line-height:1.08;
     }
-    body.moment-result .result-name-display,
-    body.moment-result #resultName {
+    body.moment-reveal .result-name-display,
+    body.moment-reveal #resultName {
       color:#fff;
-      text-shadow:0 2px 20px rgba(0,0,0,.65);
+      font-size:clamp(13px,3.2vw,18px);
+      font-weight:600;
+      letter-spacing:.22em;
+      text-transform:uppercase;
+      line-height:1.5;
+      text-shadow:0 2px 16px rgba(0,0,0,.55);
     }
     .result-summary {
       border:none; background:transparent; padding:0; margin:0 auto 28px; max-width:300px;
@@ -959,8 +959,8 @@
     .below-fold .section-title, .below-fold .section-sub { opacity:.8; }
     .below-fold .pl-row { border:none !important; background:transparent !important; backdrop-filter:none !important; }
     body.moment-compose .below-fold,
-    body.moment-listening .below-fold,
-    body.moment-result .below-fold { display:none !important; }
+    body.moment-thinking .below-fold,
+    body.moment-reveal .below-fold { display:none !important; }
     .pending-card.visible {
       position:fixed; inset:0; z-index:20; display:flex !important; align-items:center; justify-content:center;
       margin:0; max-width:none; border:none; background:var(--bg);
@@ -988,10 +988,9 @@
 <body>
 
 <video id="cinema" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
-<div id="cinemaFallback" data-scene="abstract_light_field" aria-hidden="true"></div>
-<div id="worldPhysics" class="world-physics" aria-hidden="true"></div>
-<div id="worldFocus" class="world-focus" aria-hidden="true"></div>
-<div id="sceneFrameHint" data-perception="" aria-hidden="true"></div>
+<img id="cinemaStill" alt="" aria-hidden="true" />
+<div id="cinemaFallback" data-scene="open_highway_daylight" aria-hidden="true"></div>
+<div id="sceneAtmosphere" class="scene-atmosphere" aria-hidden="true"></div>
 <div class="bg">
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
@@ -1337,7 +1336,7 @@ async function init(){
 }
 
 function showLanding(){
-  ['compose','listening','result'].forEach(s=>document.body.classList.remove('moment-'+s));
+  ['compose','thinking','locked','reveal'].forEach(s=>document.body.classList.remove('moment-'+s));
   _clearAtmosphere();
   $('loadOverlay').style.display='none';
   $('landingView').style.display='block';
@@ -1355,24 +1354,35 @@ function _isMomentExperience(){
 function setMomentState(state){
   const av=$('appView');
   const shell=$('momentShell');
-  ['compose','listening','result'].forEach(s=>{
+  ['compose','thinking','locked','reveal'].forEach(s=>{
     av&&av.classList.remove('moment-'+s);
     shell&&shell.classList.remove('moment-'+s);
     document.body.classList.remove('moment-'+s);
   });
+  document.body.classList.remove('scene-camera-drift','scene-camera-zoom','scene-camera-pan');
   if(state){
     av&&av.classList.add('moment-'+state);
     shell&&shell.classList.add('moment-'+state);
     document.body.classList.add('moment-'+state);
+    if(state==='compose'){
+      document.body.classList.add('scene-camera-drift');
+      document.body.classList.remove('scene-camera-lock');
+    }
+    if(state==='thinking'){
+      document.body.classList.remove('scene-camera-lock');
+    }
+    if(state==='locked'){
+      _applySceneCameraMotion(_currentSceneId);
+      document.body.classList.remove('scene-camera-lock');
+    }
+    if(state==='reveal'){
+      document.body.classList.add('scene-camera-lock');
+    }
   }
 }
 
-const RESULT_PRE_MS=180;
-const RESULT_REVEAL_MS=1000;
-const RESULT_STABLE_MS=480;
-const CINEMA_CREDITS_MS=1100;
-const EMOTION_SETTLE_MS=200;
-let _cinemaGoAt=0;
+const RESULT_REVEAL_MS=900;
+const RESULT_STABLE_MS=400;
 
 function _physicsJitter(base){
   return Math.max(0, (base|0)+Math.floor(Math.random()*81)-40);
@@ -1380,14 +1390,25 @@ function _physicsJitter(base){
 
 function _applyRevealTiming(surface){
   if(!surface) return;
-  const j1=Math.floor(Math.random()*81)-40;
-  const j2=Math.floor(Math.random()*81)-40;
-  const artBase=520+Math.floor(Math.random()*281);
   surface.style.setProperty('--reveal-title','0ms');
-  surface.style.setProperty('--reveal-summary',(140+j1)+'ms');
-  surface.style.setProperty('--reveal-actions',(260+j2)+'ms');
-  surface.style.setProperty('--reveal-art',_physicsJitter(artBase)+'ms');
-  surface.style.setProperty('--reveal-back',_physicsJitter(artBase+400)+'ms');
+  surface.style.setProperty('--reveal-summary','140ms');
+  surface.style.setProperty('--reveal-actions','280ms');
+  surface.style.setProperty('--reveal-art','420ms');
+  surface.style.setProperty('--reveal-back','0ms');
+}
+
+function presentMomentReveal(vibe, playlistTitle){
+  vibe=vibe||lastVibe||'';
+  const lo=$('listenOverlay');
+  const delay=Math.max(0, REVEAL_PAUSE_MS-(Date.now()-(_cinemaGoAt||Date.now()-REVEAL_PAUSE_MS)));
+  _clearMomentTimer();
+  _momentTimer=setTimeout(()=>{
+    if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
+    setMomentState('reveal');
+    if(resultName) resultName.textContent=_cinematicTitleFromVibe(vibe)||playlistTitle||'';
+    presentResultLayer();
+    document.body.classList.add('world-settled');
+  }, delay);
 }
 
 function presentResultLayer(){
@@ -1397,15 +1418,12 @@ function presentResultLayer(){
   rc.classList.remove('visible','revealing');
   surface?.classList.remove('result-revealed','result-stable');
   void rc.offsetWidth;
-  setMomentState('result');
-  setTimeout(()=>{
-    _applyRevealTiming(surface);
-    rc.classList.add('visible','revealing');
-    requestAnimationFrame(()=>{
-      surface?.classList.add('result-revealed');
-      setTimeout(()=>surface?.classList.add('result-stable'), RESULT_REVEAL_MS+RESULT_STABLE_MS);
-    });
-  }, RESULT_PRE_MS);
+  _applyRevealTiming(surface);
+  rc.classList.add('visible','revealing');
+  requestAnimationFrame(()=>{
+    surface?.classList.add('result-revealed');
+    setTimeout(()=>surface?.classList.add('result-stable'), RESULT_REVEAL_MS+RESULT_STABLE_MS);
+  });
 }
 
 function returnToCompose(){
@@ -1415,9 +1433,10 @@ function returnToCompose(){
   const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
   const lo=$('listenOverlay');
   if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
-  document.body.classList.remove('world-settled');
+  document.body.classList.remove('world-settled','scene-camera-lock');
+  _clearMomentTimer();
   if(vibeInput?.value?.trim()) sceneCoreOnInput(vibeInput.value);
-  else renderScene('abstract_light_field');
+  else renderScene(DEFAULT_SCENE);
   setMomentState('compose');
   if(generateBtn){ generateBtn.style.opacity=''; }
   vibeInput?.focus();
@@ -1582,279 +1601,267 @@ const _AESTHETIC_CUES=[
   {re:/calm|quiet|peace|slow|soft|still/i, line:'Soft focus — unhurried, near, gentle.'},
 ];
 
-/* ── SceneRendererCore ── */
+/* ── Cinematic Moment Engine ── */
 const SCENE_DEBUG=false;
 const SCENE_SKIP_VIDEO=false;
 const EMOTION_INPUT_DEBOUNCE_MS=140;
-const SCENE_ACK_MS=300;
-let _currentSceneId='abstract_light_field';
+const STATE_FADE_MS=300;
+const LOCK_TRANSITION_MS=300;
+const REVEAL_PAUSE_MS=750;
+const DEFAULT_SCENE='open_highway_daylight';
+let _currentSceneId=DEFAULT_SCENE;
 let _emotionInputTimer=null;
-let _sceneAckTimer=null;
+let _momentTimer=null;
 let _cinemaVideoOk=null;
+let _cinemaGoAt=0;
 
-function getSceneFromInput(text){
-  const t=(text||'').toLowerCase();
-  if(t.includes('train')||t.includes('leaving')) return 'train_window_rain';
-  if(t.includes('apartment')||(t.includes('night')&&t.includes('window'))) return 'apartment_night_window';
-  if(t.includes('city')||t.includes('london')||t.includes('neon')) return 'neon_city_walk';
-  if(t.includes('sad')||t.includes('cowboy')||t.includes('desert')) return 'desert_wide_solo';
-  if(t.includes('memory')||t.includes('nostalg')) return 'memory_hallway';
-  if(t.includes('calm')||t.includes('soft')) return 'ocean_night_fog';
-  if(t.includes('sun')||t.includes('happy')||t.includes('bright')) return 'golden_field_drift';
-  if(t.includes('rain')||t.includes('lonely')||t.includes('drive')||t.includes('night')) return 'rain_highway_pov';
-  return 'abstract_light_field';
+const CINEMATIC_SCENES=[
+  'night_drive','petrol_station_2am','sunset_coast','urban_midnight_walk','train_journey',
+  'summer_afternoon_drift','rainy_city_interior','memory_road','club_exit_dawn','open_highway_daylight',
+];
+
+const SCENE_SIGNALS={
+  night_drive:{
+    direct:['night drive','motorway','highway','tunnel','dashboard','rain','driving','drive home','lonely drive'],
+    emotion:['lonely','reflective','melancholy'],
+    context:['car','road','wet','lights'],
+  },
+  petrol_station_2am:{
+    direct:['petrol','gas station','forecourt','2am','2 am','fuel','pump'],
+    emotion:['still','empty','tired'],
+    context:['station','fluorescent','neon'],
+  },
+  sunset_coast:{
+    direct:['sunset','coast','beach','sea','ocean','horizon','golden hour'],
+    emotion:['warm','calm','peaceful'],
+    context:['sun','sand','waves'],
+  },
+  urban_midnight_walk:{
+    direct:['city walk','midnight','urban','london','neon','wet street','downtown','late night thinking'],
+    emotion:['lonely','reflective','solitude'],
+    context:['city','street','pavement'],
+  },
+  train_journey:{
+    direct:['train','rail','carriage','platform','leaving','journey'],
+    emotion:['nostalgic','reflective'],
+    context:['window','travel','commute'],
+  },
+  summer_afternoon_drift:{
+    direct:['summer','afternoon','suburb','haze','drift','warm day'],
+    emotion:['nostalgic','calm','happy'],
+    context:['sun','heat','lazy'],
+  },
+  rainy_city_interior:{
+    direct:['rain window','interior','apartment','condensation','inside','cabin'],
+    emotion:['calm','lonely','comfort'],
+    context:['rain','lamp','window','city'],
+  },
+  memory_road:{
+    direct:['memory','nostalgic','countryside','country road','childhood','used to'],
+    emotion:['nostalgic','bittersweet','reflective'],
+    context:['road','fields','past'],
+  },
+  club_exit_dawn:{
+    direct:['club','afterparty','dawn','afterglow','blue hour','exit'],
+    emotion:['euphoric','calm','clear'],
+    context:['street','morning','quiet'],
+  },
+  open_highway_daylight:{
+    direct:['highway','open road','daylight','freedom','bright sky','road trip'],
+    emotion:['hopeful','calm','free'],
+    context:['sky','motorway','sun'],
+  },
+};
+const SCENE_CAMERA_MOTION={
+  night_drive:'zoom', petrol_station_2am:'static', sunset_coast:'static',
+  urban_midnight_walk:'pan', train_journey:'pan', summer_afternoon_drift:'static',
+  rainy_city_interior:'static', memory_road:'zoom', club_exit_dawn:'static',
+  open_highway_daylight:'zoom',
+};
+
+function _scoreScene(text, sceneId){
+  const cfg=SCENE_SIGNALS[sceneId];
+  if(!cfg) return 0;
+  let score=0;
+  (cfg.direct||[]).forEach(phrase=>{ if(text.includes(phrase)) score+=3; });
+  (cfg.emotion||[]).forEach(w=>{ if(text.includes(w)) score+=2; });
+  (cfg.context||[]).forEach(w=>{ if(text.includes(w)) score+=1; });
+  return score;
 }
 
-/* ── Emotional Physics v1 (CSS variables only — safe overlay) ── */
+function getSceneFromInput(text){
+  const t=(text||'').toLowerCase().replace(/\s+/g,' ').trim();
+  let best=DEFAULT_SCENE, top=0;
+  CINEMATIC_SCENES.forEach(id=>{
+    const s=_scoreScene(t, id);
+    if(s>top){ top=s; best=id; }
+  });
+  if(top===0){
+    if(/sun|warm|golden|feel like sun|bright/.test(t)) return 'sunset_coast';
+    if(/summer|afternoon|haze/.test(t)) return 'summer_afternoon_drift';
+    if(/late night|thinking|3am|after hours|midnight/.test(t)) return 'urban_midnight_walk';
+    if(/drive|road|car|highway/.test(t)) return 'night_drive';
+    if(/rain|wet|storm/.test(t)) return 'rainy_city_interior';
+  }
+  return best;
+}
+
+function _applySceneCameraMotion(sceneId){
+  const motion=SCENE_CAMERA_MOTION[sceneId]||'static';
+  document.body.classList.remove('scene-camera-drift','scene-camera-zoom','scene-camera-pan','scene-camera-static');
+  if(motion==='zoom') document.body.classList.add('scene-camera-zoom');
+  else if(motion==='pan') document.body.classList.add('scene-camera-pan');
+}
+
 function getEmotionForce(text){
   const t=(text||'').toLowerCase();
   return {
-    warmth:
-      t.includes('sun')||t.includes('happy')||t.includes('bright')?1:
-      t.includes('rain')||t.includes('night')||t.includes('lonely')?-1:0,
-    motion:
-      t.includes('drive')||t.includes('train')||t.includes('motion')?1:
-      t.includes('calm')||t.includes('still')?-1:0,
-    intensity:
-      t.includes('loud')||t.includes('chaos')||t.includes('fast')?1:
-      t.includes('soft')||t.includes('quiet')?-1:0,
+    warmth:t.includes('sun')||t.includes('happy')||t.includes('bright')?1:t.includes('rain')||t.includes('night')||t.includes('lonely')?-1:0,
+    motion:t.includes('drive')||t.includes('train')||t.includes('motion')?1:t.includes('calm')||t.includes('still')?-1:0,
+    intensity:t.includes('loud')||t.includes('chaos')||t.includes('fast')?1:t.includes('soft')||t.includes('quiet')?-1:0,
   };
 }
 
 function applyWorldEmotion(force){
-  const f=force||{ warmth:0, motion:0, intensity:0 };
+  const f=force||{warmth:0,motion:0,intensity:0};
   const root=document.documentElement;
   const w=Number(f.warmth)||0;
-  const m=Number(f.motion)||0;
   const i=Number(f.intensity)||0;
-  root.style.setProperty('--warmth', String(w));
-  root.style.setProperty('--motion', String(m));
-  root.style.setProperty('--intensity', String(i));
-  root.style.setProperty('--world-bright', String(1+w*0.05-Math.max(0,-i)*0.04));
-  root.style.setProperty('--world-contrast', String(1.03+Math.abs(i)*0.04));
-  root.style.setProperty('--world-sat', String(0.92+w*0.06));
-  root.style.setProperty('--world-blur', '0px');
-  root.style.setProperty('--world-grain', String(Math.min(0.028,0.016+Math.abs(i)*0.008)));
-  root.style.setProperty('--world-vignette', String(Math.min(0.58,0.48+Math.max(0,-w)*0.05+Math.max(0,-m)*0.04)));
-  if(SCENE_DEBUG) console.log('Emotion force:', f);
+  root.style.setProperty('--scene-bright', String(1+w*0.04-Math.max(0,-i)*0.03));
+  root.style.setProperty('--scene-contrast', String(1.04+Math.abs(i)*0.03));
+  root.style.setProperty('--scene-sat', String(0.96+w*0.05));
+  root.style.setProperty('--scene-grain', String(Math.min(0.06,0.035+Math.abs(i)*0.01)));
+  root.style.setProperty('--scene-vignette', String(Math.min(0.5,0.4+Math.max(0,-w)*0.04)));
 }
 
-/* ── AWAARDS Perception Upgrade Layer v1 (cinematic framing — CSS vars only) ── */
-const SCENE_PERCEPTION_FOCUS={
-  rain_highway_pov:{x:'50%',y:'75%'},
-  neon_city_walk:{x:'60%',y:'50%'},
-  golden_field_drift:{x:'50%',y:'50%'},
-  desert_wide_solo:{x:'50%',y:'65%'},
-  memory_hallway:{x:'50%',y:'50%'},
-  ocean_night_fog:{x:'50%',y:'50%'},
-  train_window_rain:{x:'35%',y:'50%'},
-  apartment_night_window:{x:'70%',y:'30%'},
-  sun_flare_overexpose:{x:'50%',y:'50%'},
-  empty_motorway_aerial:{x:'50%',y:'40%'},
-  club_afterglow_empty:{x:'50%',y:'68%'},
-  abstract_light_field:{x:'50%',y:'50%'},
-};
-const SCENE_FRAME_PHRASES={
-  rain_highway_pov:'rain moving through distant lights',
-  neon_city_walk:'neon breathing between buildings',
-  golden_field_drift:'gold dust hanging in still air',
-  desert_wide_solo:'heat shimmer across open distance',
-  memory_hallway:'memory softening at the edges',
-  ocean_night_fog:'fog rolling over dark water',
-  train_window_rain:'glass streaked with passing rain',
-  apartment_night_window:'city glow through a narrow frame',
-  sun_flare_overexpose:'light bleeding past the lens',
-  empty_motorway_aerial:'road unspooling from above',
-  club_afterglow_empty:'afterglow settling in empty room',
-  abstract_light_field:'light folding into distance',
-};
-let _perceptionTimers=[];
-
-function _sceneFramePhrase(sceneId, force){
-  const base=SCENE_FRAME_PHRASES[sceneId]||SCENE_FRAME_PHRASES.abstract_light_field;
-  const w=Number(force?.warmth)||0;
-  const i=Number(force?.intensity)||0;
-  if(w>0) return base;
-  if(w<0&&sceneId.includes('rain')) return 'rain moving through distant lights';
-  if(i>0) return base;
-  if(i<0) return base;
-  return base;
+function _clearMomentTimer(){
+  if(_momentTimer){ clearTimeout(_momentTimer); _momentTimer=null; }
 }
 
-function applyScenePerception(sceneId, emotionForce){
-  sceneId=sceneId||'abstract_light_field';
-  const f=emotionForce||{warmth:0,motion:0,intensity:0};
-  const root=document.documentElement;
-  const focus=SCENE_PERCEPTION_FOCUS[sceneId]||SCENE_PERCEPTION_FOCUS.abstract_light_field;
-  const w=Number(f.warmth)||0;
-  const m=Number(f.motion)||0;
-  const i=Number(f.intensity)||0;
-  let depthBlur=0;
-  let depthSat=1;
-  let exposure=1;
-  let contrast=1.04;
-  if(sceneId.includes('rain')||sceneId==='train_window_rain'||w<0){
-    depthSat-=.04;
-  }
-  if(sceneId==='golden_field_drift'||sceneId==='sun_flare_overexpose'||w>0){
-    exposure+=.07; depthSat+=.06;
-  }
-  if(sceneId.includes('night')||sceneId==='ocean_night_fog'||sceneId==='apartment_night_window'||sceneId==='club_afterglow_empty'){
-    contrast+=.06;
-  }
-  if(sceneId==='memory_hallway'){
-    exposure+=.04; contrast-=.02;
-  }
-  depthBlur=0;
-  depthSat=Math.max(.72,Math.min(1.14,depthSat+w*.05-Math.max(0,-i)*.04));
-  contrast=Math.max(.98,Math.min(1.16,contrast+Math.abs(i)*.03));
-  exposure=Math.max(.88,Math.min(1.14,exposure+w*.04-Math.max(0,i)*.03));
-  root.style.setProperty('--focus-x',focus.x);
-  root.style.setProperty('--focus-y',focus.y);
-  root.style.setProperty('--depth-blur',depthBlur.toFixed(2)+'px');
-  root.style.setProperty('--depth-sat',depthSat.toFixed(3));
-  root.style.setProperty('--perception-exposure',exposure.toFixed(3));
-  root.style.setProperty('--perception-contrast',contrast.toFixed(3));
-  const hint=$('sceneFrameHint');
-  if(hint) hint.dataset.perception=_sceneFramePhrase(sceneId,f);
-  if(SCENE_DEBUG) console.log('Perception apply:', sceneId, f, focus);
+function _setSceneMode(mode){
+  document.body.classList.remove('scene-video','scene-still','scene-composite');
+  if(mode) document.body.classList.add(mode);
 }
 
-function _clearPerceptionTiming(){
-  _perceptionTimers.forEach(clearTimeout);
-  _perceptionTimers=[];
-  document.body.classList.remove('perception-initial','perception-depth','perception-lock','perception-stable');
-}
-
-function runPerceptionSequence(sceneId, emotionForce){
-  _clearPerceptionTiming();
-  applyScenePerception(sceneId, emotionForce);
-  document.body.classList.add('perception-initial');
-  _perceptionTimers.push(setTimeout(()=>{
-    document.body.classList.remove('perception-initial');
-    document.body.classList.add('perception-depth');
-  },200));
-  _perceptionTimers.push(setTimeout(()=>{
-    document.body.classList.add('perception-lock');
-  },700));
-  _perceptionTimers.push(setTimeout(()=>{
-    document.body.classList.remove('perception-depth');
-    document.body.classList.add('perception-stable');
-  },1200));
-}
-
-function renderSceneAck(sceneId){
-  sceneId=sceneId||'abstract_light_field';
-  if(sceneId===_currentSceneId){
-    renderScene(sceneId);
-    return;
-  }
-  clearTimeout(_sceneAckTimer);
-  const cinema=$('cinema');
-  const fb=$('cinemaFallback');
-  if(cinema) cinema.classList.add('scene-fade');
-  _sceneAckTimer=setTimeout(()=>{
-    renderScene(sceneId);
-    if(cinema) cinema.classList.remove('scene-fade');
-    if(fb&&!fb.classList.contains('hidden')) fb.classList.remove('scene-fade');
-  }, SCENE_ACK_MS);
-}
-
-function presentResultWithSettle(vibe){
-  vibe=vibe||lastVibe||_activeGenVibe||'';
-  document.body.classList.remove('world-settled');
-  applyScenePerception(_currentSceneId, getEmotionForce(vibe));
-  presentResultLayer();
-  setTimeout(()=>document.body.classList.add('world-settled'), 300);
-  setTimeout(()=>document.body.classList.add('perception-lock'), 700);
-  setTimeout(()=>{
-    document.body.classList.remove('perception-depth');
-    document.body.classList.add('perception-stable');
-  }, 1200);
-}
-
-function ensureFallbackScene(sceneId){
-  sceneId=sceneId||'abstract_light_field';
+function ensureCompositeScene(sceneId){
+  sceneId=sceneId||DEFAULT_SCENE;
   _currentSceneId=sceneId;
-  document.body.classList.add('scene-css-fallback');
   document.body.dataset.scene=sceneId;
   const fb=$('cinemaFallback');
-  if(fb){ fb.dataset.scene=sceneId; fb.classList.remove('hidden'); }
+  const still=$('cinemaStill');
   const cinema=$('cinema');
-  if(cinema) cinema.style.opacity='0';
-  if(SCENE_DEBUG) console.log('Scene:', sceneId, 'CSS fallback');
+  if(fb){ fb.dataset.scene=sceneId; fb.classList.remove('hidden'); }
+  if(still){ still.classList.add('hidden'); still.removeAttribute('src'); }
+  if(cinema){ cinema.style.opacity='0'; }
+  _setSceneMode('scene-composite');
+  if(SCENE_DEBUG) console.log('Scene:', sceneId, 'composite still');
 }
+
 
 function renderScene(sceneId){
   const cinema=$('cinema');
-  sceneId=sceneId||'abstract_light_field';
+  sceneId=sceneId||DEFAULT_SCENE;
   _currentSceneId=sceneId;
   document.body.dataset.scene=sceneId;
   const fb=$('cinemaFallback');
   if(fb) fb.dataset.scene=sceneId;
-  if(!cinema||SCENE_SKIP_VIDEO||_cinemaVideoOk===false){
-    ensureFallbackScene(sceneId);
+
+  if(SCENE_SKIP_VIDEO||_cinemaVideoOk===false){
+    tryStillThenComposite(sceneId);
     return;
   }
-  ensureFallbackScene(sceneId);
-  const sources=[
+
+  if(!cinema){
+    tryStillThenComposite(sceneId);
+    return;
+  }
+
+  const videoSources=[
     '/cinema/'+sceneId+'.mp4',
     '/cinema/'+sceneId+'/base.mp4',
-    '/cinema/abstract_light_field.mp4',
-    '/cinema/abstract_light_field/base.mp4',
   ];
-  let i=0;
-  function tryLoad(){
-    if(i>=sources.length){
-      _cinemaVideoOk=false;
-      ensureFallbackScene(sceneId);
+  let vi=0;
+  function tryVideo(){
+    if(vi>=videoSources.length){
+      tryStillThenComposite(sceneId);
       return;
     }
-    const src=sources[i++];
-    if(SCENE_DEBUG) console.log('Scene:', sceneId, 'Trying:', src);
+    const src=videoSources[vi++];
     cinema.onloadeddata=()=>{
       _cinemaVideoOk=true;
-      document.body.classList.remove('scene-css-fallback');
+      _setSceneMode('scene-video');
       if(fb) fb.classList.add('hidden');
+      $('cinemaStill')?.classList.add('hidden');
       cinema.style.opacity='1';
       cinema.play().catch(()=>{});
-      if(SCENE_DEBUG) console.log('Scene:', sceneId, 'Video src:', cinema.src);
+      if(SCENE_DEBUG) console.log('Scene:', sceneId, 'video', src);
     };
-    cinema.onerror=()=>{ tryLoad(); };
+    cinema.onerror=()=>tryVideo();
     cinema.src=src;
     cinema.load();
   }
-  tryLoad();
-  setTimeout(()=>{ if(_cinemaVideoOk!==true&&cinema.readyState<2) ensureFallbackScene(sceneId); }, 1500);
+  tryVideo();
+}
+
+function tryStillThenComposite(sceneId){
+  const stillSources=[
+    '/cinema/'+sceneId+'/still.jpg',
+    '/cinema/'+sceneId+'/still.webp',
+    '/cinema/'+sceneId+'.jpg',
+    '/cinema/'+sceneId+'.webp',
+  ];
+  let si=0;
+  const still=$('cinemaStill');
+  const fb=$('cinemaFallback');
+  const cinema=$('cinema');
+  if(!still){ ensureCompositeScene(sceneId); return; }
+  function tryNext(){
+    if(si>=stillSources.length){
+      _cinemaVideoOk=false;
+      ensureCompositeScene(sceneId);
+      return;
+    }
+    const src=stillSources[si++];
+    still.onload=()=>{
+      _setSceneMode('scene-still');
+      if(fb) fb.classList.add('hidden');
+      if(cinema) cinema.style.opacity='0';
+      still.classList.remove('hidden');
+      if(SCENE_DEBUG) console.log('Scene:', sceneId, 'still', src);
+    };
+    still.onerror=()=>tryNext();
+    still.src=src;
+  }
+  tryNext();
 }
 
 function sceneCoreOnInput(text){
   clearTimeout(_emotionInputTimer);
-  _emotionInputTimer=setTimeout(()=>{
-    const force=getEmotionForce(text||'');
-    applyWorldEmotion(force);
-    applyScenePerception(_currentSceneId, force);
-  }, EMOTION_INPUT_DEBOUNCE_MS);
+  _emotionInputTimer=setTimeout(()=>applyWorldEmotion(getEmotionForce(text||'')), EMOTION_INPUT_DEBOUNCE_MS);
 }
 
 function sceneCoreInit(){
-  renderScene('abstract_light_field');
-  applyWorldEmotion({ warmth:0, motion:0, intensity:0 });
-  applyScenePerception('abstract_light_field', { warmth:0, motion:0, intensity:0 });
+  renderScene(DEFAULT_SCENE);
+  applyWorldEmotion({warmth:0,motion:0,intensity:0});
+  document.body.classList.remove('scene-camera-lock','scene-camera-zoom','scene-camera-pan');
 }
 
 function _clearAtmosphere(){
   clearTimeout(_emotionInputTimer);
-  clearTimeout(_sceneAckTimer);
-  _clearPerceptionTiming();
-  document.body.classList.remove('world-settled');
-  renderScene('abstract_light_field');
-  applyWorldEmotion({ warmth:0, motion:0, intensity:0 });
-  applyScenePerception('abstract_light_field', { warmth:0, motion:0, intensity:0 });
+  _clearMomentTimer();
+  document.body.classList.remove('scene-camera-lock','scene-camera-zoom','scene-camera-pan','world-settled');
+  renderScene(DEFAULT_SCENE);
+  applyWorldEmotion({warmth:0,motion:0,intensity:0});
 }
 
 function _applyAtmosphere(vibe){
   applyWorldEmotion(getEmotionForce(vibe||''));
+}
+
+function _cinematicTitleFromVibe(vibe){
+  const v=(vibe||'').trim();
+  if(!v) return '';
+  return v.toUpperCase();
 }
 
 function _shortVibeSummary(vibe, ep, mu, expl, count){
@@ -2020,7 +2027,7 @@ function finishProgress(done){
 }
 
 const _GEN_HTML='Go';
-const _FINDING_SOUND='Finding your sound…';
+const _FINDING_SOUND='Finding your moment…';
 
 function setLoading(on){
   if(!generateBtn) return;
@@ -2037,16 +2044,16 @@ function setLoading(on){
   }
   if(on){
     _cinemaGoAt=Date.now();
-    setMomentState('listening');
     const vibe=_activeGenVibe||vibeInput?.value||'';
     const sceneId=getSceneFromInput(vibe);
-    const emotion=getEmotionForce(vibe);
-    applyWorldEmotion(emotion);
-    applyScenePerception(sceneId, emotion);
-    setTimeout(()=>applyWorldEmotion(emotion), EMOTION_SETTLE_MS);
-    runPerceptionSequence(sceneId, emotion);
-    setTimeout(()=>renderSceneAck(sceneId), SCENE_ACK_MS);
-    if(progLabel) progLabel.textContent=_FINDING_SOUND;
+    applyWorldEmotion(getEmotionForce(vibe));
+    setMomentState('thinking');
+    renderScene(sceneId);
+    if(progLabel) progLabel.textContent='Finding your moment…';
+    _clearMomentTimer();
+    _momentTimer=setTimeout(()=>{
+      if(isGenerating) setMomentState('locked');
+    }, LOCK_TRANSITION_MS);
     const rc=$('resultCard');
     if(rc) rc.classList.remove('visible','revealing');
     $('resultSurface')?.classList.remove('result-revealed','result-stable');
@@ -2390,12 +2397,12 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
     }
   }
 
-  const lo=$('listenOverlay');
-  if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
-  const creditsDelay=momentCredits
-    ? Math.max(0, CINEMA_CREDITS_MS-(Date.now()-(_cinemaGoAt||Date.now()-CINEMA_CREDITS_MS)))
-    : 0;
-  setTimeout(()=>presentResultWithSettle(vibe), creditsDelay);
+  if(momentCredits){
+    presentMomentReveal(vibe, displayName);
+  } else {
+    setMomentState('reveal');
+    presentResultLayer();
+  }
   resetCopyBtn();
 }
 
@@ -2461,7 +2468,7 @@ function showPendingPreview(pendingTracks, emotionProfile, playlistName, vibe){
 
   resultCard&&resultCard.classList.remove('visible');
   _clearAtmosphere();
-  setMomentState('result');
+  setMomentState('compose');
   card.classList.add('visible');
 }
 
@@ -2568,7 +2575,7 @@ function generate(){
       _clearAtmosphere();
       setMomentState('compose');
       if(vibeInput?.value?.trim()) sceneCoreOnInput(vibeInput.value);
-      else renderScene('abstract_light_field');
+      else renderScene(DEFAULT_SCENE);
     }
     if(status===409||d.code==='GENERATION_IN_PROGRESS'){
       _restoreComposeMood();
@@ -2671,7 +2678,7 @@ function generate(){
     _clearAtmosphere();
     setMomentState('compose');
     if(vibeInput?.value?.trim()) sceneCoreOnInput(vibeInput.value);
-    else renderScene('abstract_light_field');
+    else renderScene(DEFAULT_SCENE);
     const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
     if(err&&err.name==='AbortError'){
       if(await _recoverLatestPlaylist(vibe, 180000, 'Request timed out in the browser, but your playlist finished — loaded the latest from history.')){
