@@ -115,6 +115,8 @@ Attach PostgreSQL and set the environment variables above.
 
 - [Pet-style rebuild prompt](./docs/CURSOR_PET_STYLE_REBUILD.md) — master Cursor instructions for the moment UI
 - [Moment UI wireframe](./docs/MOMENT_UI_WIREFRAME.md) — single-screen loop (Step 1)
+- [Unified visual system](./docs/UNIFIED_VISUAL_SYSTEM.md) — enforced scene + UI + motion rules
+- [Scene image prompts](./docs/SCENE_IMAGE_PROMPTS.md) — master brand set for still generation
 - [Visual system guide](./docs/VISUAL_SYSTEM_GUIDE.md) — one brand across 10 scenes (Step 2)
 - [Master design system](./docs/KWALIFY_DESIGN_SYSTEM.md) — product principles, 10 visual entities, UX model
 - [Pet Playlist principles for Kwalify](./docs/PET_PLAYLIST_PRINCIPLES_FOR_KWALIFY.md) — why it works + paste-ready Cursor prompt

@@ -129,7 +129,8 @@ Not: *“This is an interesting system.”*
 ## Build order
 
 1. **[MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md)** — single-screen loop (structure first)
-2. **[VISUAL_SYSTEM_GUIDE.md](./VISUAL_SYSTEM_GUIDE.md)** — one brand across 10 scene characters
+2. **[UNIFIED_VISUAL_SYSTEM.md](./UNIFIED_VISUAL_SYSTEM.md)** — enforced rules (scenes + UI + motion)
+3. **[VISUAL_SYSTEM_GUIDE.md](./VISUAL_SYSTEM_GUIDE.md)** + **[SCENE_IMAGE_PROMPTS.md](./SCENE_IMAGE_PROMPTS.md)** — one brand across 10 scene characters
 
 ## Related docs
 

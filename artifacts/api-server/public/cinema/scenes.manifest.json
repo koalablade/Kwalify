@@ -1,70 +1,139 @@
 {
-  "version": 2,
+  "version": 4,
+  "corePrinciple": "A single emotional moment frozen in time — not a location, cinematic shot, or stylistic experiment.",
   "aspectRatio": "16:9",
-  "primaryAsset": "still.jpg",
-  "brandRules": "Same lens family (35mm feel), wide static framing, soft realism grade, gently desaturated blacks, memory-like not documentary, one focal point, one atmosphere layer only, no HDR sharpness.",
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "primaryAsset": "still.jpg",
+    "pathPattern": "cinema/{scene_id}/still.jpg"
+  },
+  "stylePrefix": "soft editorial cinematic photography, minimal composition, single subject focus, muted film color grading, shallow atmospheric detail, natural lighting, subtle grain, 35mm lens look, calm emotional tone, high clarity subject separation, not hyper-realistic, not HDR, not overly detailed, designed for UI background use",
+  "brandConsistency": "Different emotional states of the same world — one lens, one grade, one softness.",
+  "brandTest": "Show frame 1 second — emotion must be obvious or reject asset.",
+  "avoid": [
+    "hyper-detailed AI scenes",
+    "fantasy lighting",
+    "neon overload",
+    "cyberpunk visuals",
+    "busy compositions",
+    "multiple focal subjects",
+    "extreme depth-of-field blur",
+    "abstract procedural shapes",
+    "strong stylization differences between scenes"
+  ],
   "videoScenes": ["night_drive", "urban_midnight_walk", "rainy_city_interior"],
   "scenes": {
     "night_drive": {
       "title": "Night Drive",
-      "emotion": "reflective solitude, quiet motion forward",
+      "character": "detached calm",
+      "emotion": "detached calm",
+      "lighting": "sodium streetlights + dashboard glow",
+      "composition": "centered highway perspective",
+      "atmosphere": "light rain or dry night haze",
+      "keyRule": "only road + car + light",
       "videoAllowed": true,
-      "prompt": "Cinematic photo of a lone driver perspective at night on a motorway, wet asphalt reflecting sodium streetlights, distant tunnel glow ahead, dashboard softly illuminating foreground in warm amber and dim red, light rain on windshield, shallow depth of field, film still aesthetic, realistic lighting, 35mm lens, slightly desaturated, emotional tone: reflective solitude, quiet motion forward. 16:9, no text, no watermark."
+      "scenePrompt": "driver perspective inside a car at night on an empty motorway, wet asphalt reflecting sodium street lights, dashboard glow softly illuminating hands on steering wheel, distant highway lights fading into darkness, calm isolation, centered composition, minimal distractions, soft rain streaks on windshield, deep blacks and warm orange highlights"
     },
     "petrol_station_2am": {
       "title": "Petrol Station 2am",
+      "character": "liminal stillness",
       "emotion": "liminal stillness",
+      "lighting": "harsh fluorescent white",
+      "composition": "empty wide negative space",
+      "atmosphere": "still dry air",
+      "keyRule": "emptiness is the subject",
       "videoAllowed": false,
       "reference": true,
-      "prompt": "Empty petrol station at 2am, fluorescent canopy lights casting harsh white and green tones onto wet concrete, single parked car in distance, vending machine glow inside small shop, no people visible, slightly off-centre composition, cinematic realism, static wide shot, cold atmosphere, subtle film grain, emotional tone: liminal stillness. 16:9, no text, no watermark."
+      "scenePrompt": "empty petrol station at 2am, wide static shot, fluorescent canopy lights glowing harsh white, wet concrete reflecting green and red signage, one empty parked car far in background, vending machine light glowing inside small shop, strong negative space, slightly off-centre composition, quiet liminal atmosphere"
     },
     "sunset_coast": {
       "title": "Sunset Coast",
-      "emotion": "emotional release and warmth",
+      "character": "release",
+      "emotion": "release",
+      "lighting": "warm golden horizon",
+      "composition": "horizon-dominant framing",
+      "atmosphere": "clean dry air",
+      "keyRule": "horizon is everything",
       "videoAllowed": false,
-      "prompt": "Wide cinematic shot of a quiet coastline at sunset, golden sun low on horizon reflecting across calm sea, long soft shadows on empty beach, warm orange and peach sky blending into soft blue, minimal human presence, stable composition, film still, 50mm lens, emotional tone: emotional release and warmth. 16:9, no text, no watermark."
+      "scenePrompt": "quiet coastal road overlooking ocean at sunset, wide horizon dominating frame, soft waves reflecting orange and pink sky, no people, subtle sea mist, minimal foreground elements, cinematic still frame, warm fading light, calm expansive atmosphere, centered horizon composition"
     },
     "urban_midnight_walk": {
       "title": "Urban Midnight Walk",
-      "emotion": "solitude within city density",
+      "character": "isolation in presence",
+      "emotion": "isolation in presence",
+      "lighting": "neon and sodium reflections",
+      "composition": "corridor street geometry",
+      "atmosphere": "light mist",
+      "keyRule": "city feels alive but empty",
       "videoAllowed": true,
-      "prompt": "Empty city street at midnight after rain, wet pavement reflecting neon signage and street lamps, distant blurred traffic bokeh, quiet atmosphere, cool blue and magenta tones, cinematic framing at eye level, slight haze in air, film still aesthetic, emotional tone: solitude within city density. 16:9, no text, no watermark."
+      "scenePrompt": "empty city street at night, wet pavement reflecting neon signage and streetlights, distant blurred traffic bokeh, tall buildings framing a narrow corridor, subtle steam from vents, cool blue and magenta tones, human presence implied but not visible, eye-level perspective, symmetrical framing"
     },
     "train_journey": {
       "title": "Train Journey",
-      "emotion": "introspective movement",
+      "character": "transition",
+      "emotion": "transition",
+      "lighting": "interior tungsten vs exterior darkness",
+      "composition": "window frame dual-layer",
+      "atmosphere": "clean glass reflection",
+      "keyRule": "inside vs outside duality",
       "videoAllowed": false,
-      "prompt": "Interior view of a train carriage at night, window reflections layered over blurred passing lights outside, soft warm interior lighting contrasting cold exterior motion, subtle sense of travel and transition, cinematic framing through window, shallow depth of field, emotional tone: introspective movement. 16:9, no text, no watermark."
+      "scenePrompt": "train interior at night looking out window, layered reflections of empty seats and passing lights, blurred city streaks outside, warm tungsten cabin lighting contrasting cool exterior darkness, soft motion blur implied, calm introspective mood, window frame as natural composition border"
     },
     "summer_afternoon_drift": {
       "title": "Summer Afternoon Drift",
-      "emotion": "nostalgic calm and drifting time",
+      "character": "nostalgic ease",
+      "emotion": "nostalgic ease",
+      "lighting": "soft overexposed daylight",
+      "composition": "suburban openness",
+      "atmosphere": "subtle heat haze",
+      "keyRule": "warm emptiness",
       "videoAllowed": false,
-      "prompt": "Suburban street in late summer afternoon, warm sunlight slightly overexposed, soft wind moving curtains in open windows, empty quiet road, heat haze in distance, natural colours slightly faded, cinematic still frame, emotional tone: nostalgic calm and drifting time. 16:9, no text, no watermark."
+      "scenePrompt": "quiet suburban street in late summer afternoon, soft sunlight overexposing edges slightly, gentle heat haze, trees casting long soft shadows, open windows with curtains moving slightly, empty street, warm washed tones, nostalgic calm, static wide framing"
     },
     "rainy_city_interior": {
       "title": "Rainy City Interior",
-      "emotion": "safe isolation and introspection",
+      "character": "safe isolation",
+      "emotion": "safe isolation",
+      "lighting": "warm interior vs cold exterior",
+      "composition": "inside-out framing",
+      "atmosphere": "rain only",
+      "keyRule": "inside warmth vs outside chaos",
       "videoAllowed": true,
-      "prompt": "Interior of a quiet apartment at night during heavy rain, window covered in rain streaks, blurred city lights outside, warm table lamp illuminating room softly, deep blue shadows, intimate framing, cinematic realism, emotional tone: safe isolation and introspection. 16:9, no text, no watermark."
+      "scenePrompt": "interior room looking out through rain-covered window at blurred city lights, warm desk lamp glow inside, condensation on glass, heavy rain streaks running down window, deep blues outside contrasting amber interior light, still composition, intimate quiet mood, no visible people"
     },
     "memory_road": {
       "title": "Memory Road",
-      "emotion": "nostalgia and reflection",
+      "character": "reflection",
+      "emotion": "reflection",
+      "lighting": "fading golden hour",
+      "composition": "vanishing point centered road",
+      "atmosphere": "soft fog haze",
+      "keyRule": "vanishing point = emotion",
       "videoAllowed": false,
-      "prompt": "Empty countryside road stretching into horizon at golden hour, soft fading sunlight, trees lining road slightly blurred by distance, subtle mist in air, warm muted colour palette, cinematic framing centered on vanishing point, emotional tone: nostalgia and reflection. 16:9, no text, no watermark."
+      "scenePrompt": "long empty countryside road stretching into soft foggy distance, fading golden-hour light, muted green fields on both sides, subtle atmospheric haze, vanishing point centered composition, emotional softness, minimal detail, calm forward perspective, nostalgic tone"
     },
     "club_exit_dawn": {
       "title": "Club Exit Dawn",
-      "emotion": "exhaustion and clarity",
+      "character": "exhaustion clarity",
+      "emotion": "exhaustion clarity",
+      "lighting": "blue hour with fading neon",
+      "composition": "empty street symmetry",
+      "atmosphere": "still dry air",
+      "keyRule": "after-energy silence",
       "videoAllowed": false,
-      "prompt": "Early morning blue hour city street after nightlife, empty sidewalks, faint glow of club signs fading, soft sunrise beginning on horizon, cool blue tones with slight warm edge light, lone distant figures walking away, cinematic still, emotional tone: exhaustion and clarity. 16:9, no text, no watermark."
+      "scenePrompt": "empty city street at blue hour just before sunrise, faint neon signs still glowing, wet pavement reflecting fading nightlife, distant silhouettes barely visible, soft pale cyan sky transitioning to warm horizon, quiet post-night atmosphere, cinematic still framing, restrained lighting"
     },
     "open_highway_daylight": {
       "title": "Open Highway Daylight",
-      "emotion": "freedom and forward momentum",
+      "character": "freedom",
+      "emotion": "freedom",
+      "lighting": "bright clear daylight",
+      "composition": "strong centered symmetry",
+      "atmosphere": "clean sharp air",
+      "keyRule": "symmetry + openness",
       "videoAllowed": false,
-      "prompt": "Wide open highway under bright clear sky, endless road stretching toward horizon, minimal traffic, strong sunlight, crisp shadows, high clarity cinematic framing, centred composition, emotional tone: freedom and forward momentum. 16:9, no text, no watermark."
+      "scenePrompt": "endless open highway in bright daylight, centered symmetrical road leading into horizon, clear blue sky, minimal cars or none, strong sense of space and freedom, warm asphalt tones, crisp visibility, calm expansive composition, cinematic wide framing"
     }
   }
 }

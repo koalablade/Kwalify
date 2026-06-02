@@ -2,7 +2,7 @@
 
 Canonical agent instructions for the moment frontend. **Do not modify** `POST /api/generate`, Spotify backend, or server scene scoring.
 
-**Wireframe:** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) · **Visual system:** [VISUAL_SYSTEM_GUIDE.md](./VISUAL_SYSTEM_GUIDE.md) · **Principles:** [KWALIFY_DESIGN_SYSTEM.md](./KWALIFY_DESIGN_SYSTEM.md)
+**Wireframe:** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) · **Unified visuals:** [UNIFIED_VISUAL_SYSTEM.md](./UNIFIED_VISUAL_SYSTEM.md) · **Prompts:** [SCENE_IMAGE_PROMPTS.md](./SCENE_IMAGE_PROMPTS.md)
 
 ---
 

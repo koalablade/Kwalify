@@ -2,7 +2,7 @@
 
 Every scene must feel like **the same camera in different places** — not ten unrelated styles.
 
-**Wireframe:** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) · **Delivery:** [../artifacts/api-server/public/cinema/VISUAL_STYLE.md](../artifacts/api-server/public/cinema/VISUAL_STYLE.md) · **Prompts:** [../artifacts/api-server/public/cinema/scenes.manifest.json](../artifacts/api-server/public/cinema/scenes.manifest.json)
+**Wireframe:** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) · **Image prompts:** [SCENE_IMAGE_PROMPTS.md](./SCENE_IMAGE_PROMPTS.md) · **Manifest:** [../artifacts/api-server/public/cinema/scenes.manifest.json](../artifacts/api-server/public/cinema/scenes.manifest.json)
 
 ---
 

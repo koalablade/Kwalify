@@ -528,7 +528,8 @@
       .presets { overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; }
     }
 
-    /* ── Moment canvas: scene (0) → overlay (1) → UI (2) ── */
+    /* ── Moment: unified visual system (docs/UNIFIED_VISUAL_SYSTEM.md)
+       Scene z0 → overlay z1 → neutral UI z2. No per-scene chrome. Fades only 200–400ms. ── */
     html, body { background:#060608; }
     #momentCanvasOverlay {
       position:fixed; inset:0; z-index:1; pointer-events:none;
@@ -573,7 +574,7 @@
 
     body.moment-home #cinema,
     body.moment-home #cinemaStill,
-    body.moment-home #cinemaFallback { opacity:.18 !important; transition:opacity .35s ease; }
+    body.moment-home #cinemaFallback { opacity:.18 !important; transition:opacity .3s ease; }
     body.moment-home.moment-typing #cinema,
     body.moment-home.moment-typing #cinemaStill,
     body.moment-home.moment-typing #cinemaFallback { opacity:.38 !important; }
@@ -614,6 +615,14 @@
     .moment-app .page { padding-bottom:16px; position:relative; }
     .moment-app .inner { max-width:400px; }
     .moment-app .btn { transition:opacity .3s ease, background .3s ease; }
+    .moment-app .btn:active:not(:disabled),
+    .moment-app .btn:hover:not(:disabled),
+    .moment-app .btn-green:hover:not(:disabled) {
+      transform:none !important;
+      animation:none !important;
+    }
+    .moment-app .btn-generate-full { box-shadow:0 2px 20px rgba(29,185,84,.18) !important; }
+    .moment-app .prompt-example-btn:hover { transform:none; }
     #appView.moment-app { display:flex !important; flex-direction:column; min-height:100vh; }
     .moment-shell {
       position:relative; flex:1; display:flex; align-items:center; justify-content:center;
@@ -1416,23 +1425,11 @@ let _sceneFadeTimer=null;
 let _cinemaVideoOk=null;
 let _sceneHasVisual=false;
 
-/** Ten fixed visual entities — one dominant emotion each (see docs/KWALIFY_DESIGN_SYSTEM.md). */
+/** Ten emotional characters — one frozen moment each (docs/UNIFIED_VISUAL_SYSTEM.md). */
 const MOMENT_SCENES=[
   'night_drive','petrol_station_2am','sunset_coast','urban_midnight_walk','train_journey',
   'summer_afternoon_drift','rainy_city_interior','memory_road','club_exit_dawn','open_highway_daylight',
 ];
-const SCENE_DOMINANT_EMOTION={
-  night_drive:'detached reflection',
-  petrol_station_2am:'liminal stillness',
-  sunset_coast:'emotional release',
-  urban_midnight_walk:'isolation in density',
-  train_journey:'introspection',
-  summer_afternoon_drift:'nostalgia',
-  rainy_city_interior:'safe isolation',
-  memory_road:'reflective nostalgia',
-  club_exit_dawn:'clarity after exhaustion',
-  open_highway_daylight:'freedom',
-};
 
 /** Weighted match: direct +3, emotion +2, context +1 — single winner, no blend. */
 const SCENE_SIGNALS={
