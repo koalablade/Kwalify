@@ -1,8 +1,10 @@
 # Kwalify — Unified visual system (enforced)
 
-**One emotional brand world** across 10 scenes + moment UI. Not realism variety. Not a cinematic engine.
+**Highest priority:** [KWALIFY_CREATIVE_NORTH_STAR.md](./KWALIFY_CREATIVE_NORTH_STAR.md) — check before implementation; overrides this doc on conflict.
 
-**Product:** moment → playlist (Pet Playlist simplicity) · **Wireframe:** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) · **Prompts:** [SCENE_IMAGE_PROMPTS.md](./SCENE_IMAGE_PROMPTS.md) · **Principles:** [KWALIFY_DESIGN_SYSTEM.md](./KWALIFY_DESIGN_SYSTEM.md)
+**One emotional brand world** across 10 scenes + moment UI. Not a cinematic engine.
+
+**Product:** moment → playlist · **Wireframe:** [MOMENT_UI_WIREFRAME.md](./MOMENT_UI_WIREFRAME.md) · **Prompts:** [SCENE_IMAGE_PROMPTS.md](./SCENE_IMAGE_PROMPTS.md)
 
 ---
 

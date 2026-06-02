@@ -1,5 +1,9 @@
 # Kwalify — Master Design System (source of truth)
 
+**Highest priority:** [KWALIFY_CREATIVE_NORTH_STAR.md](./KWALIFY_CREATIVE_NORTH_STAR.md) — overrides this doc where they differ. Check North Star before implementation.
+
+**Hierarchy:** [DOCUMENT_HIERARCHY.md](./DOCUMENT_HIERARCHY.md)
+
 ## Product in one line
 
 Kwalify turns a human **moment** into a **playlist** + a **single emotional visual** that reflects how it feels.
@@ -40,7 +44,9 @@ We do not simulate environments. We use **emotional visual metaphors**.
 
 ---
 
-## Visual language — Emotional Editorial Symbolism
+## Visual language — Emotional Editorial Worlds
+
+See North Star for dream objects and Phase 1 (`petrol_station_2am`). Summary:
 
 | Rule | Guidance |
 |------|----------|

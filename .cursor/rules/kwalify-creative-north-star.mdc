@@ -1,0 +1,20 @@
+---
+description: Highest-priority Kwalify product direction — check before design, UI, scene, or visual work
+alwaysApply: true
+---
+
+# Kwalify Creative North Star (required)
+
+Before proposing or implementing any design, UI, scene, animation, or visual change, read and comply with:
+
+`docs/KWALIFY_CREATIVE_NORTH_STAR.md`
+
+That document overrides other docs when they conflict. See `docs/DOCUMENT_HIERARCHY.md`.
+
+Core checks:
+- Playlist is the primary product; visuals support feeling only
+- UX loop: HOME → TYPE MOMENT → MAKE PLAYLIST → RESULT (no interruptions)
+- Emotional Editorial Worlds with dream-object anchors — not cinematic realism
+- Phase 1 art: `petrol_station_2am` only until style is locked
+- Motion: fades/opacity only — no camera systems or staged loaders
+- If a feature does not improve 5-second clarity or 30-second "it gets me", do not prioritise it

@@ -113,8 +113,11 @@ Attach PostgreSQL and set the environment variables above.
 
 ### Further docs
 
+**Highest-priority product direction (read before design/UI/scene work):** [KWALIFY_CREATIVE_NORTH_STAR.md](./docs/KWALIFY_CREATIVE_NORTH_STAR.md) · [Document hierarchy](./docs/DOCUMENT_HIERARCHY.md)
+
 - [Pet-style rebuild prompt](./docs/CURSOR_PET_STYLE_REBUILD.md) — master Cursor instructions for the moment UI
 - [Moment UI wireframe](./docs/MOMENT_UI_WIREFRAME.md) — single-screen loop (Step 1)
+- [Creative North Star](./docs/KWALIFY_CREATIVE_NORTH_STAR.md) — product promise, editorial worlds, asset phases
 - [Unified visual system](./docs/UNIFIED_VISUAL_SYSTEM.md) — enforced scene + UI + motion rules
 - [Scene image prompts](./docs/SCENE_IMAGE_PROMPTS.md) — master brand set for still generation
 - [Visual system guide](./docs/VISUAL_SYSTEM_GUIDE.md) — one brand across 10 scenes (Step 2)
