@@ -45,6 +45,7 @@
     .btn-green{background:var(--green);color:#000;border-radius:12px;padding:14px 24px;font-size:15px;width:100%;box-shadow:0 4px 20px var(--green-glow)}
     .btn-green:hover{transform:translateY(-1px);box-shadow:0 8px 28px var(--green-glow)}
     .liked-note{font-size:11.5px;color:var(--text-muted);text-align:center;margin-top:12px;line-height:1.45}
+    .share-trust-footer{font-size:11px;color:var(--text-muted);text-align:center;margin-top:28px;line-height:1.5;opacity:.85}
     .tracks-card{margin-top:14px;padding:18px 20px}
     .tracks-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px}
     .track-list{max-height:360px;overflow-y:auto}
@@ -116,14 +117,15 @@ function renderPage(d){
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02z"/></svg>
         Open on Spotify
       </a>`:''}
-      <p class="liked-note">Every track was already in the creator's Spotify likes — not algorithmic new music.</p>
+      <p class="liked-note">Built only from songs in your Spotify library.</p>
     </div>
     ${tracks.length?`<div class="glass tracks-card"><div class="tracks-label">Tracks</div><div class="track-list">${rows}</div></div>`:''}
     <div class="glass cta">
       <h3>Describe your moment</h3>
-      <p>Build a playlist from your own liked songs — scored for the feeling you describe.</p>
+      <p>Build a playlist from your own liked songs — matched to the feeling you describe.</p>
       <a href="/" class="btn btn-green" style="display:inline-flex;width:auto">Try Kwalify free</a>
-    </div>`;
+    </div>
+    <p class="share-trust-footer">This playlist was built only from your Spotify liked songs.</p>`;
 }
 
 function renderNotFound(){

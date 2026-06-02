@@ -5,30 +5,32 @@ type TrackLike = {
   valence?: number | null;
   rediscoveryScore?: number;
   narrativeRole?: string;
-  score?: number;
 };
 
-/** Human-readable bullets for the first tracks in the result list. */
+const HUMAN_REASONS = [
+  "Matches your listening mood and energy",
+  "Fits the overall vibe of the playlist",
+  "Similar to tracks you've enjoyed recently",
+] as const;
+
+/** Human-readable bullets for the first tracks — no scoring or algorithm language. */
 export function buildTrackWhyReasons(
   track: TrackLike,
-  profile?: EmotionProfile | null
+  profile?: EmotionProfile | null,
+  trackIndex = 0
 ): string[] {
   const reasons: string[] = [];
   const energy = track.energy ?? 0.5;
-  const valence = track.valence ?? 0.5;
   const rediscovery = track.rediscoveryScore ?? 0;
 
   if (rediscovery >= 0.45 || track.narrativeRole === "rediscovery") {
-    reasons.push("Rarely surfaced in your Kwalify playlists lately");
+    reasons.push("A deep cut from your library that fits this moment");
   }
   if (profile?.timeOfDay === "late_night" && energy < 0.58) {
-    reasons.push("Matches a late-night atmosphere");
-  }
-  if ((profile?.nostalgia ?? 0) >= 0.45 && valence < 0.55) {
-    reasons.push("Strong nostalgia score for this vibe");
+    reasons.push("Matches a late-night atmosphere in your taste");
   }
   if (track.narrativeRole === "peak" || track.narrativeRole === "climax") {
-    reasons.push("Fits the emotional peak of the set");
+    reasons.push("Carries the emotional peak of the set");
   }
   if (track.narrativeRole === "opener" || track.narrativeRole === "intro") {
     reasons.push("Opens the set with the right mood");
@@ -36,11 +38,10 @@ export function buildTrackWhyReasons(
   if ((profile?.calm ?? 0) >= 0.55 && energy < 0.45) {
     reasons.push("Calm energy that matches your moment");
   }
-  if ((track.score ?? 0) >= 0.82 && reasons.length < 2) {
-    reasons.push("One of the strongest matches in your library");
-  }
-  if (reasons.length === 0) {
-    reasons.push("Strong emotional fit for your prompt");
-  }
-  return reasons.slice(0, 3);
+
+  const fallback = HUMAN_REASONS[trackIndex % HUMAN_REASONS.length];
+  if (reasons.length === 0) reasons.push(fallback);
+  else if (reasons.length === 1) reasons.push(fallback);
+
+  return reasons.slice(0, 2);
 }

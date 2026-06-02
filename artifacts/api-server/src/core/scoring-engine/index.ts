@@ -59,6 +59,11 @@ import type { ScoredLibraryTrack } from "./types";
 import { buildGenreForecastFromLibrary, type GenreForecast } from "../genre-intelligence/genre-forecast";
 
 import { resolveSceneGenreRouting } from "../scene-intelligence/scene-genre-routing";
+import {
+  mergeGenreRoutings,
+  promptHasExplicitGenreConstraint,
+  resolveVibeGenreBias,
+} from "../../lib/vibe-genre-bias";
 
 import { buildDynamicGenreGraph } from "../../shared/embeddings/dynamic-genre-graph";
 
@@ -263,12 +268,20 @@ export function runScoringPipeline<T extends {
 
   t = Date.now();
   const sceneCtx = resolveSceneContext(opts.vibe, opts.canonical, opts.emotionProfile, null);
-  const sceneRouting = resolveSceneGenreRouting({
+  const sceneRoutingBase = resolveSceneGenreRouting({
     vibe: opts.vibe,
     vibeKind: opts.vibeKind,
     sceneFamily: sceneCtx.primary,
   });
-  logScoringStage(log, "Scene routing resolved", t);
+  const vibeBias = promptHasExplicitGenreConstraint(opts.vibe)
+    ? null
+    : resolveVibeGenreBias({ vibe: opts.vibe, profile: opts.emotionProfile });
+  const sceneRouting = vibeBias
+    ? mergeGenreRoutings(sceneRoutingBase, vibeBias)
+    : sceneRoutingBase;
+  logScoringStage(log, "Scene routing resolved", t, {
+    vibeBiasApplied: !!vibeBias,
+  });
 
   t = Date.now();
   const genreForecast = buildGenreForecastFromLibrary({

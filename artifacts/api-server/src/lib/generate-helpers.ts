@@ -117,7 +117,7 @@ export function formatTracksForApi(
 ) {
   return (tracks ?? [])
     .filter((t) => t?.trackId && t?.trackName && t?.artistName)
-    .map((t) => ({
+    .map((t, i) => ({
       id: t.trackId,
       name: t.trackName,
       artist: t.artistName,
@@ -130,6 +130,6 @@ export function formatTracksForApi(
       score: Math.round((t.score ?? 0.7) * 100) / 100,
       rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
       narrativeRole: t.narrativeRole,
-      whyReasons: buildTrackWhyReasons(t, profile),
+      whyReasons: buildTrackWhyReasons(t, profile, i),
     }));
 }
