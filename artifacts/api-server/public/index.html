@@ -158,10 +158,18 @@
     .prog-pct { font-size:11.5px; color:var(--text-muted); font-weight:600; font-variant-numeric:tabular-nums; }
     .prog-track { height:3px; background:rgba(255,255,255,.06); border-radius:2px; overflow:hidden; margin-bottom:14px; }
     .prog-fill { height:100%; background:linear-gradient(90deg,#8250ff,#1db954); border-radius:2px; width:0; transition:width .5s ease-out; }
-    .dj-stages { list-style:none; display:flex; flex-direction:column; gap:8px; }
-    .dj-stage { display:flex; gap:10px; align-items:flex-start; padding:8px 10px; border-radius:10px; border:1px solid transparent; transition:background .2s,border-color .2s,opacity .2s; opacity:.38; }
-    .dj-stage.active { opacity:1; background:rgba(130,80,255,.08); border-color:rgba(130,80,255,.22); }
-    .dj-stage.done { opacity:.72; }
+    .dj-stages { list-style:none; display:flex; flex-direction:column; gap:8px; min-height:52px; }
+    .dj-stage { display:flex; gap:10px; align-items:flex-start; padding:8px 10px; border-radius:10px; border:1px solid transparent; transition:background .25s,border-color .25s; animation:stageIn .4s var(--spring) both; }
+    @keyframes stageIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+    .dj-stage.active { background:rgba(130,80,255,.08); border-color:rgba(130,80,255,.22); }
+    .dj-stage.done { opacity:.85; }
+    .dj-stage.done .dj-stage-title { color:var(--text-sub); }
+    .liked-only-callout { font-size:12.5px; color:var(--text-sub); line-height:1.55; padding:10px 14px; background:rgba(29,185,84,.06); border:1px solid rgba(29,185,84,.2); border-radius:10px; margin-bottom:14px; }
+    .liked-only-callout strong { color:var(--green); font-weight:600; }
+    .first-gen-card { margin-top:14px; padding:18px 20px; border-color:rgba(130,80,255,.22); }
+    .first-gen-title { font-size:15px; font-weight:700; margin-bottom:6px; }
+    .first-gen-sub { font-size:12.5px; color:var(--text-muted); margin-bottom:14px; line-height:1.5; }
+    .cache-banner { font-size:12.5px; color:#f0c060; padding:10px 14px; background:rgba(255,180,40,.08); border:1px solid rgba(255,180,40,.22); border-radius:10px; margin-bottom:14px; line-height:1.45; }
     .dj-stage-icon { font-size:15px; line-height:1.2; flex-shrink:0; width:22px; text-align:center; }
     .dj-stage-body { flex:1; min-width:0; }
     .dj-stage-title { font-size:12.5px; font-weight:700; color:var(--text); margin-bottom:2px; }
@@ -458,6 +466,7 @@
 
       <div id="syncBanner" class="sync-banner" style="display:none" aria-live="polite"></div>
       <div id="libraryHealthCard" class="glass library-health-card" aria-live="polite"></div>
+      <div id="firstGenCard" class="glass first-gen-card" style="display:none" aria-live="polite"></div>
 
       <!-- Sync onboarding gate card -->
       <div class="glass sync-gate-card" id="syncGateCard" style="display:none" aria-live="polite"></div>
@@ -489,14 +498,8 @@
         </div>
 
         <div class="prompt-examples" id="promptExamples">
-          <div class="prompt-examples-label">Try asking for</div>
-          <div class="prompt-example-list">
-            <button type="button" class="prompt-example-btn" onclick="applyPreset('songs that feel like driving home after seeing old friends')">Songs that feel like driving home after seeing old friends</button>
-            <button type="button" class="prompt-example-btn" onclick="applyPreset('warm summer evening on the balcony with nowhere to be')">Warm summer evening on the balcony</button>
-            <button type="button" class="prompt-example-btn" onclick="applyPreset('music for fixing an old car in the garage on a Sunday')">Fixing an old car in the garage</button>
-            <button type="button" class="prompt-example-btn" onclick="applyPreset('rainy Sunday morning with coffee and nowhere to rush')">Rainy Sunday morning with coffee</button>
-            <button type="button" class="prompt-example-btn" onclick="applyPreset('songs that sound expensive and unbothered')">Songs that sound expensive</button>
-          </div>
+          <div class="prompt-examples-label">Try one of these</div>
+          <div class="prompt-example-list" id="promptExampleList"></div>
         </div>
 
         <div class="presets">
@@ -556,6 +559,10 @@
 
       <!-- Result card -->
       <div class="glass result-card" id="resultCard">
+        <div id="cacheBanner"></div>
+        <div id="resultLikedOnly" class="liked-only-callout" style="display:none">
+          <strong>Only songs you already liked.</strong> Kwalify does not add new music to Spotify — it picks from your saved tracks.
+        </div>
         <div class="result-top">
           <div class="result-icon">🎵</div>
           <div class="result-info">
@@ -654,6 +661,9 @@
           </div>
           <h1>Describe a moment.</h1>
           <p>Kwalify builds a Spotify playlist from songs you already love — only your liked tracks, scored for the feeling you describe.</p>
+          <div class="liked-only-callout" style="margin:16px auto 0;max-width:420px;text-align:left">
+            <strong>Not Discover Weekly.</strong> Every track is already in your Spotify likes — we do not recommend new music you have not saved.
+          </div>
           <div class="lhero-examples">
             <div class="lhero-example">"Late-night drive home after seeing old friends"</div>
             <div class="lhero-example">"Sunny evening working on an old car in the garage"</div>
@@ -821,6 +831,7 @@ function showApp(userData){
   if(refEl&&refSaved) refEl.value=refSaved;
   updateReferenceHint();
   if($('vibeInput')) setTimeout(()=>$('vibeInput').focus(),180);
+  wirePromptExamples();
   startSyncPolling();
 }
 
@@ -844,6 +855,35 @@ let _libSummaryCache=null, _libSummaryFetchedAt=0;
 
 const HIST_KEY='kwalah_v3', MAX_HIST=10;
 const ICONS=['🎵','🌙','💪','☁️','🌅','🎧','🔥','✨','🎶','🌊'];
+const FIRST_GEN_PROMPTS=[
+  'late-night motorway drive',
+  'sunny afternoon working on an old car',
+  'songs that sound expensive',
+  'end of summer but not sad',
+  'music for wandering around London at midnight',
+];
+
+function wirePromptExamples(){
+  const list=$('promptExampleList');
+  if(!list) return;
+  list.innerHTML=FIRST_GEN_PROMPTS.map(p=>
+    `<button type="button" class="prompt-example-btn" onclick="applyPreset(${JSON.stringify(p)})">${esc(p)}</button>`
+  ).join('');
+}
+
+function renderFirstGenCard(show){
+  const card=$('firstGenCard');
+  const pe=$('promptExamples');
+  if(!card) return;
+  if(pe) pe.style.display=show?'none':'';
+  if(!show){ card.style.display='none'; return; }
+  card.style.display='block';
+  card.innerHTML=`<div class="first-gen-title">Your library is ready — try your first vibe</div>
+    <div class="first-gen-sub">Pick a moment below. <strong style="color:var(--text)">Only songs you already liked</strong> on Spotify — never new recommendations.</div>
+    <div class="prompt-example-list">${FIRST_GEN_PROMPTS.map(p=>
+      `<button type="button" class="prompt-example-btn" onclick="applyPreset(${JSON.stringify(p)})">${esc(p)}</button>`
+    ).join('')}</div>`;
+}
 
 /* ── Mode selector ── */
 function setMode(m){
@@ -870,49 +910,70 @@ const DJ_STAGES=[
   {icon:'🎵', title:'Creating Spotify playlist', phases:['spotify','saving'],
     sub:()=>'Publishing a new playlist to your account'},
 ];
-let progTimer=null, progPollTimer=null, progStartMs=0, _lastProgPhase='', _deployHintShown=false;
+const MIN_STAGE_MS=2600;
+let progTimer=null, progPollTimer=null, progStageTimer=null, progStartMs=0, _lastProgPhase='', _deployHintShown=false;
+let _visualStageIdx=0, _targetStageIdx=0, _lastStageAdvanceMs=0;
 
 function _djStageIndex(phase){
   for(let i=0;i<DJ_STAGES.length;i++){
     if(DJ_STAGES[i].phases.includes(phase)) return i;
   }
-  if(phase==='done') return DJ_STAGES.length;
-  return 2;
+  if(phase==='done') return DJ_STAGES.length-1;
+  return 0;
 }
 
-function _renderDjStages(phase){
+function _paintDjStages(markAllDone){
   const el=$('djStages'); if(!el) return;
-  const activeIdx=_djStageIndex(phase);
   const n=_libTrackCount||0;
   const v=_activeGenVibe||'';
-  el.innerHTML=DJ_STAGES.map((s,i)=>{
-    const cls=i<activeIdx?'done':i===activeIdx?'active':'';
+  const showThrough=markAllDone?DJ_STAGES.length-1:_visualStageIdx;
+  let html='';
+  for(let i=0;i<=showThrough&&i<DJ_STAGES.length;i++){
+    const s=DJ_STAGES[i];
+    const cls=markAllDone||i<_visualStageIdx?'done':i===_visualStageIdx?'active':'';
     const sub=s.sub(n,v);
-    return `<li class="dj-stage ${cls}">
+    html+=`<li class="dj-stage ${cls}">
       <span class="dj-stage-icon">${s.icon}</span>
       <div class="dj-stage-body">
         <div class="dj-stage-title">Stage ${i+1} · ${esc(s.title)}</div>
         <div class="dj-stage-sub">${esc(sub)}</div>
       </div>
     </li>`;
-  }).join('');
+  }
+  el.innerHTML=html;
+  const st=DJ_STAGES[Math.min(_visualStageIdx,DJ_STAGES.length-1)];
+  if(progLabel&&st&&!markAllDone) progLabel.textContent=st.title;
+}
+
+function _tickVisualStages(){
+  const now=Date.now();
+  if(_visualStageIdx<_targetStageIdx&&now-_lastStageAdvanceMs>=MIN_STAGE_MS){
+    _visualStageIdx++;
+    _lastStageAdvanceMs=now;
+    _paintDjStages(false);
+  }
+  if(isGenerating){
+    const elapsed=Date.now()-progStartMs;
+    const elapsedIdx=_djStageIndex(_elapsedProgPhase(elapsed));
+    if(elapsedIdx>_targetStageIdx) _targetStageIdx=elapsedIdx;
+  }
 }
 
 function _elapsedProgPhase(elapsedMs){
-  if(elapsedMs<4000) return 'loading_library';
-  if(elapsedMs<14000) return 'building_profile';
-  if(elapsedMs<52000) return 'scoring';
-  if(elapsedMs<75000) return 'composing';
+  if(elapsedMs<4500) return 'loading_library';
+  if(elapsedMs<15000) return 'building_profile';
+  if(elapsedMs<54000) return 'scoring';
+  if(elapsedMs<78000) return 'composing';
   return 'spotify';
 }
 
 function _setProgPhase(phase){
+  const idx=_djStageIndex(phase);
+  if(idx>_targetStageIdx) _targetStageIdx=idx;
   const p=Math.min(92, Math.max(6, PROG_PHASE_PCT[phase]||PROG_PHASE_PCT.scoring));
   if(phase!==_lastProgPhase){
     _lastProgPhase=phase;
-    const st=DJ_STAGES[_djStageIndex(phase)];
-    if(progLabel&&st) progLabel.textContent=st.title;
-    _renderDjStages(phase);
+    _tickVisualStages();
   }
   if(progFill) progFill.style.width=p+'%';
   if(progPct) progPct.textContent=p+'%';
@@ -925,15 +986,23 @@ function _setProgPct(pct){
 function stopProgressTimers(){
   clearInterval(progTimer);
   clearInterval(progPollTimer);
+  clearInterval(progStageTimer);
   progPollTimer=null;
+  progStageTimer=null;
 }
 function startProgress(){
   stopProgressTimers();
   progStartMs=Date.now();
   _lastProgPhase='';
   _deployHintShown=false;
-  _setProgPhase('starting');
+  _visualStageIdx=0;
+  _targetStageIdx=0;
+  _lastStageAdvanceMs=Date.now();
+  const el=$('djStages'); if(el) el.innerHTML='';
+  _paintDjStages(false);
+  _setProgPct(6);
   let progStatusInflight=false;
+  progStageTimer=setInterval(_tickVisualStages, 350);
   progPollTimer=setInterval(()=>{
     if(!isGenerating||progStatusInflight) return;
     if(typeof document!=='undefined'&&document.visibilityState==='hidden') return;
@@ -957,14 +1026,27 @@ function startProgress(){
     const elapsed=Date.now()-progStartMs;
     const bump=6+Math.min(86, elapsed/90000*86);
     _setProgPct(bump);
+    _tickVisualStages();
   },400);
 }
-function finishProgress(){
+function finishProgress(done){
   stopProgressTimers();
-  if(progLabel) progLabel.textContent='Playlist ready';
-  _renderDjStages('done');
-  if(progFill) progFill.style.width='100%';
-  if(progPct) progPct.textContent='100%';
+  _targetStageIdx=DJ_STAGES.length-1;
+  const step=()=>{
+    if(_visualStageIdx<_targetStageIdx){
+      _visualStageIdx++;
+      _lastStageAdvanceMs=Date.now();
+      _paintDjStages(false);
+      setTimeout(step, 480);
+      return;
+    }
+    _paintDjStages(true);
+    if(progLabel) progLabel.textContent='Playlist ready';
+    if(progFill) progFill.style.width='100%';
+    if(progPct) progPct.textContent='100%';
+    if(done) done();
+  };
+  step();
 }
 
 const _GEN_HTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Generate`;
@@ -984,7 +1066,11 @@ function setLoading(on){
   const pe=$('promptExamples');
   if(pe) pe.style.opacity=on?'0.45':'1';
   if(on){ resultCard&&resultCard.classList.remove('visible'); startProgress(); }
-  else  { finishProgress(); setTimeout(()=>{ progWrap&&progWrap.classList.remove('visible'); skelCard&&skelCard.classList.remove('visible'); },350); }
+  else  {
+    finishProgress(()=>{
+      setTimeout(()=>{ progWrap&&progWrap.classList.remove('visible'); skelCard&&skelCard.classList.remove('visible'); },280);
+    });
+  }
 }
 
 const ARC_LABELS={
@@ -1139,6 +1225,19 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
     }
   }
 
+  const cacheEl=$('cacheBanner');
+  if(cacheEl) cacheEl.innerHTML=genData.cached
+    ? '<div class="cache-banner">We already built this vibe recently — showing your existing playlist.</div>'
+    : '';
+  const likedEl=$('resultLikedOnly');
+  if(likedEl){
+    try{
+      if(!localStorage.getItem('kwalify_liked_explained')){
+        likedEl.style.display='block';
+        localStorage.setItem('kwalify_liked_explained','1');
+      }
+    }catch{ likedEl.style.display='block'; }
+  }
   const heardEl=$('kwalifyHeard');
   if(heardEl) heardEl.innerHTML=_buildHeardHtml(vibe,ep,mu,expl,libIntel);
   const storyEl=$('playlistStory');
@@ -1435,7 +1534,9 @@ function generate(){
     if($('vibeCounter')) $('vibeCounter').textContent='0/140';
     const trackCount=d.count||d.totalTracks||25;
     _activeGenVibe='';
+    if(d.cached) showToast('We already built this vibe recently — showing your existing playlist.','info',6500);
     showResult(d.playlistId, d.playlistName||d.name, vibe, d.tracks||[], trackCount, d.mode, d.emotionProfile, d.spotifyPlaylistUrl||null, !!d.spotifyUnavailable, d.stats||null, d.referenceMatch||null, d);
+    renderFirstGenCard(false);
     if(d.librarySyncHint){
       showToast(d.librarySyncHint,'info',8000);
     }
@@ -1567,6 +1668,7 @@ function renderPlaylists(items){
   const list=$('plList');
   if(!section||!list) return;
   section.style.display='block';
+  renderFirstGenCard(_syncState==='synced'&&(!items||!items.length));
   if(!items||!items.length){
     list.innerHTML='<div class="pl-empty"><div style="font-size:15px;font-weight:600;margin-bottom:6px">🎵&nbsp;&nbsp;No playlists yet</div><div>Generate your first one above ↑</div></div>';
     return;
@@ -1818,7 +1920,10 @@ function _renderSyncGate(d){
     gate.innerHTML=`
       <div class="sync-gate-icon">🎵</div>
       <div class="sync-gate-title">Sync your Spotify library</div>
-      <div class="sync-gate-body">We need to analyse your liked songs before generating playlists. This takes 1–3 minutes.</div>
+      <div class="liked-only-callout" style="margin:0 auto 16px;max-width:340px;text-align:left">
+        <strong>Only your liked songs.</strong> Kwalify never adds new tracks to Spotify — it builds playlists from music you already saved.
+      </div>
+      <div class="sync-gate-body">We download your liked songs so we can score them for your vibe. This takes 1–3 minutes.</div>
       <button class="btn btn-green btn-md" onclick="_startSync()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         Sync Now
