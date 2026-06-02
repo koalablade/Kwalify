@@ -118,6 +118,10 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   // __dirname = artifacts/api-server/dist at runtime → ../public = artifacts/api-server/public
   app.use(express.static(path.resolve(__dirname, "../public")));
 
+  // Named SPA routes served before the API router so Express doesn't 404 them.
+  app.get("/p/:id", (_req, res) => res.sendFile(path.resolve(__dirname, "../public/playlist.html")));
+  app.get("/gallery", (_req, res) => res.sendFile(path.resolve(__dirname, "../public/gallery.html")));
+
   app.use("/api", router);
 
   return app;
