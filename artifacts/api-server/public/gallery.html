@@ -200,11 +200,6 @@ function renderGallery(playlists){
     return;
   }
 
-  const featured = playlists.filter(p=>p.vibe).slice(0,5).map(p=>p.vibe);
-  const featuredHtml = featured.length
-    ? `<div class="featured-vibes"><div class="featured-label">Example prompts</div><div class="featured-list">${featured.map(v=>`<div class="featured-item">"${esc(v)}"</div>`).join('')}</div></div>`
-    : '';
-
   const cards = playlists.map((p, idx) => {
     const tracks = Array.isArray(p.tracks) ? p.tracks : [];
     const count = tracks.length;
@@ -231,7 +226,7 @@ function renderGallery(playlists){
     </div>`;
   }).join('');
 
-  main.innerHTML = `${featuredHtml}<div class="grid">${cards}</div>`;
+  main.innerHTML = `<div class="grid">${cards}</div>`;
 }
 
 function renderLogin(){

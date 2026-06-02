@@ -325,6 +325,29 @@
     .sync-prog-fill { height:100%; background:linear-gradient(90deg,#8250ff,#1db954); border-radius:4px; transition:width .5s ease-out; }
     .sync-track-count { font-size:12px; color:var(--text-muted); margin-bottom:8px; }
     .sync-time-hint { font-size:12px; color:var(--text-faint); margin-top:12px; }
+    .library-ready-pill { display:inline-flex; align-items:center; gap:6px; margin:0 auto 16px; padding:6px 14px; border-radius:9999px; font-size:12px; font-weight:600; color:var(--green); background:rgba(29,185,84,.1); border:1px solid rgba(29,185,84,.28); }
+    .library-ready-pill svg { flex-shrink:0; }
+    .hero-compact { padding:28px 0 20px; text-align:center; }
+    .hero-compact h1 { font-size:clamp(28px,6vw,42px); font-weight:900; letter-spacing:-1.5px; margin-bottom:8px; }
+    .hero-compact p { font-size:15px; color:var(--text-sub); max-width:400px; margin:0 auto; line-height:1.55; }
+    .disclosure-section { margin-top:12px; }
+    .disclosure-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,.02); color:var(--text-muted); font-size:12px; font-weight:600; font-family:inherit; cursor:pointer; transition:background .15s,border-color .15s; }
+    .disclosure-toggle:hover { background:var(--surface-hi); color:var(--text-sub); }
+    .disclosure-body { display:none; padding-top:14px; }
+    .disclosure-section.open .disclosure-body { display:block; }
+    .disclosure-chevron { font-size:10px; transition:transform .2s; }
+    .disclosure-section.open .disclosure-chevron { transform:rotate(180deg); }
+    .result-summary { font-size:14px; color:var(--text-sub); line-height:1.6; margin-bottom:18px; padding:12px 14px; background:rgba(255,255,255,.03); border-radius:10px; border-left:2px solid var(--green); }
+    .result-tier-toggle { margin:14px 0 0; font-size:12px; font-weight:600; color:var(--text-muted); cursor:pointer; background:none; border:none; font-family:inherit; padding:8px 0; display:flex; align-items:center; gap:6px; }
+    .result-tier-toggle:hover { color:#c09fff; }
+    .result-tier-body { display:none; margin-top:8px; }
+    .result-tier-body.open { display:block; }
+    .result-advanced { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+    .sync-banner { display:none !important; }
+    .first-gen-card, .recent-moods, .presets { display:none !important; }
+    .prog-wrap.compact .dj-stages { min-height:0; }
+    .prog-wrap.compact .dj-stage-compact { display:none; }
+    .skel-card { display:none !important; }
 
     /* Track Spotify link */
     .track-spotify { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--green); text-decoration:none; opacity:.7; transition:opacity .15s; flex-shrink:0; padding:3px 6px; border-radius:4px; }
@@ -502,21 +525,17 @@
     <!-- ── APP VIEW (logged in) ── -->
     <div id="appView" style="display:none">
 
-      <section class="hero">
-        <div class="badge"><span class="badge-dot"></span>Vibe DJ · From your liked songs</div>
-        <h1>What's the vibe?</h1>
-        <p>Describe a moment — Kwalify builds a playlist from songs you already saved on Spotify.</p>
+      <section class="hero hero-compact">
+        <h1>Vibe DJ</h1>
+        <p>Type a vibe → get a playlist from your liked songs on Spotify.</p>
       </section>
 
-      <div id="syncBanner" class="sync-banner" style="display:none" aria-live="polite"></div>
-      <div id="libraryHealthCard" class="glass library-health-card" aria-live="polite"></div>
-      <div id="firstGenCard" class="glass first-gen-card" style="display:none" aria-live="polite"></div>
-
-      <!-- Sync onboarding gate card -->
+      <div id="libraryReadyPill" class="library-ready-pill" style="display:none" aria-live="polite"></div>
+      <div id="syncBanner" class="sync-banner" style="display:none" aria-hidden="true"></div>
       <div class="glass sync-gate-card" id="syncGateCard" style="display:none" aria-live="polite"></div>
 
       <div class="glass input-card glass-interactive" id="inputCard" style="display:none">
-        <div class="field-label">Describe your vibe</div>
+        <div class="field-label">Your vibe</div>
         <div class="input-row">
           <div class="input-wrap">
             <input class="vibe-input" id="vibeInput" type="text"
@@ -529,51 +548,12 @@
             Generate
           </button>
         </div>
-        <p class="generate-liked-hint">Only uses songs already in your Spotify liked songs.</p>
+        <p class="generate-liked-hint">From your Spotify likes only — never new recommendations.</p>
 
-        <div class="ref-field" style="margin-top:14px">
-          <div class="field-label">Sound like this playlist <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint)">(optional mood hint)</span></div>
-          <input class="vibe-input" id="referencePlaylistInput" type="url"
-            placeholder="Paste a public Spotify playlist link to bias the vibe…"
-            autocomplete="off" spellcheck="false" style="padding-right:16px;font-size:13px" />
-          <p class="ref-hint" id="referencePlaylistHint" style="font-size:11px;color:var(--text-faint);margin:6px 0 0;line-height:1.45">
-            Biases matching only — generate always creates a <em>new</em> playlist on your Spotify, not this link.
-            <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>
-          </p>
-        </div>
-
-        <div class="prompt-examples" id="promptExamples">
-          <div class="prompt-examples-label">Try one of these</div>
+        <div class="prompt-examples" id="promptExamples" style="margin-top:12px;padding-top:0;border-top:none">
+          <div class="prompt-examples-label">Example vibes</div>
           <div class="prompt-example-list" id="promptExampleList"></div>
-          <div class="prompt-examples-hint">Tap to fill the box above, then hit Generate.</div>
         </div>
-
-        <div class="presets">
-          <span class="preset-label">Quick</span>
-          <button class="preset-btn" onclick="applyPreset('night drive alone on the motorway')">🌙 Night Drive</button>
-          <button class="preset-btn" onclick="applyPreset('gym rage villain arc training session')">💪 Gym</button>
-          <button class="preset-btn" onclick="applyPreset('chill evening at home relaxing')">☁️ Chill</button>
-          <button class="preset-btn" onclick="applyPreset('deep focus study session no distractions')">🧠 Focus</button>
-          <button class="preset-btn" onclick="applyPreset('summer sunset golden hour warm vibes')">🌅 Summer</button>
-        </div>
-
-        <div class="controls">
-          <div class="ctrl-block grow">
-            <div class="ctrl-label">Playlist length — <span class="ctrl-val" id="lenVal">25 tracks</span></div>
-            <input class="length-slider" id="lenSlider" type="range" min="10" max="100" step="5" value="25"
-              oninput="document.getElementById('lenVal').textContent=this.value+' tracks'" />
-          </div>
-          <div class="ctrl-block">
-            <div class="ctrl-label">Match mode</div>
-            <div class="mode-tabs">
-              <button class="mode-tab" id="modeStrict" onclick="setMode('strict')"><span>Strict</span><span class="mode-hint">Closest match</span></button>
-              <button class="mode-tab active" id="modeBalanced" onclick="setMode('balanced')"><span>Balanced</span><span class="mode-hint">Default mix</span></button>
-              <button class="mode-tab" id="modeChaotic" onclick="setMode('chaotic')"><span>Chaotic</span><span class="mode-hint">More surprises</span></button>
-            </div>
-          </div>
-        </div>
-
-        <div class="kbd-hint"><kbd>Enter</kbd> generate &nbsp;·&nbsp; <kbd>Ctrl K</kbd> focus</div>
 
         <div class="prog-wrap" id="progWrap">
           <div class="prog-head">
@@ -583,9 +563,45 @@
           <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
           <ol class="dj-stages" id="djStages" aria-live="polite"></ol>
         </div>
+
+        <div class="disclosure-section" id="advancedHomeSection">
+          <button type="button" class="disclosure-toggle" onclick="toggleDisclosure('advancedHomeSection')">
+            <span>Options &amp; library</span>
+            <span class="disclosure-chevron">▼</span>
+          </button>
+          <div class="disclosure-body">
+            <div class="controls" style="margin-top:0">
+              <div class="ctrl-block grow">
+                <div class="ctrl-label">Length — <span class="ctrl-val" id="lenVal">25 tracks</span></div>
+                <input class="length-slider" id="lenSlider" type="range" min="10" max="100" step="5" value="25"
+                  oninput="document.getElementById('lenVal').textContent=this.value+' tracks'" />
+              </div>
+              <div class="ctrl-block">
+                <div class="ctrl-label">Match mode</div>
+                <div class="mode-tabs">
+                  <button class="mode-tab" id="modeStrict" onclick="setMode('strict')"><span>Strict</span></button>
+                  <button class="mode-tab active" id="modeBalanced" onclick="setMode('balanced')"><span>Balanced</span></button>
+                  <button class="mode-tab" id="modeChaotic" onclick="setMode('chaotic')"><span>Chaotic</span></button>
+                </div>
+              </div>
+            </div>
+            <div class="ref-field" style="margin-top:14px">
+              <div class="field-label">Sound like a playlist <span style="font-weight:400;text-transform:none;color:var(--text-faint)">(optional)</span></div>
+              <input class="vibe-input" id="referencePlaylistInput" type="url"
+                placeholder="Public Spotify playlist URL…"
+                autocomplete="off" spellcheck="false" style="padding-right:16px;font-size:13px" />
+              <p class="ref-hint" id="referencePlaylistHint" style="font-size:11px;color:var(--text-faint);margin:6px 0 0;line-height:1.45">
+                Biases the mood only — always creates a new playlist.
+                <button type="button" class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;vertical-align:baseline" onclick="clearReferencePlaylist()">Clear</button>
+              </p>
+            </div>
+            <div id="libraryHealthCard" class="library-health-card" style="margin-top:14px;padding:12px 0 0;display:block"></div>
+            <div class="kbd-hint" style="justify-content:flex-start;margin-top:10px"><kbd>Enter</kbd> generate · <kbd>Ctrl K</kbd> focus</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Skeleton -->
+      <!-- Skeleton (unused — progress only) -->
       <div class="glass skel-card" id="skelCard">
         <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px">
           <div class="skel" style="width:52px;height:52px;border-radius:13px;flex-shrink:0"></div>
@@ -605,58 +621,59 @@
 
       <!-- Result card -->
       <div class="glass result-card" id="resultCard">
-        <div id="cacheBanner"></div>
-        <div id="resultLikedOnly" class="liked-only-callout" style="display:none">
-          <strong>Only songs you already liked.</strong> Kwalify does not add new music to Spotify — it picks from your saved tracks.
-        </div>
         <div class="result-top">
           <div class="result-icon">🎵</div>
           <div class="result-info">
-            <div class="result-tag">Playlist ready</div>
+            <div class="result-tag">Your set</div>
             <div class="result-name" id="resultName">Kwalify Playlist</div>
-            <div class="result-meta-txt" id="resultMeta">25 tracks · Private playlist</div>
+            <div class="result-meta-txt" id="resultMeta">25 tracks</div>
           </div>
         </div>
+        <div id="resultSummary" class="result-summary"></div>
         <div class="result-actions">
           <div id="spotifyActionArea" style="flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px;"></div>
           <div style="display:flex;flex-direction:column;align-items:stretch;min-width:140px">
-            <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different route through your library">
+            <button class="btn btn-subtle btn-md" id="regenBtn" onclick="regenerate()" title="Same vibe, different picks">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
               Take me somewhere else
             </button>
-            <span class="regen-sub">Same vibe, different route</span>
           </div>
         </div>
-        <div id="kwalifyHeard"></div>
-        <div id="confidenceCard"></div>
-        <div id="playlistStory"></div>
-        <div id="statsBar"></div>
-        <div id="forgottenGems"></div>
-        <div class="tracks-label">Top picks from your library</div>
-        <div class="track-list" id="trackList"></div>
-        <button type="button" class="emotion-toggle" id="emotionToggle" style="display:none" onclick="toggleEmotionDetails()">Show vibe analysis details</button>
-        <div id="emotionDetails" class="emotion-collapsed">
-          <div id="vibeInterpretation"></div>
-          <div id="emotionBars"></div>
-          <div id="sceneChips"></div>
+
+        <button type="button" class="result-tier-toggle" id="tracksTierToggle" onclick="toggleResultTier('tracksTierBody','tracksTierToggle')">
+          <span>▶</span> See track list
+        </button>
+        <div id="tracksTierBody" class="result-tier-body">
+          <div id="forgottenGems"></div>
+          <div class="tracks-label">Tracks</div>
+          <div class="track-list" id="trackList"></div>
         </div>
-        <div id="feedbackSection" class="feedback-section" style="display:none">
-          <div class="feedback-label">How was this playlist?</div>
-          <div class="feedback-btns" id="feedbackBtns">
-            <button type="button" class="feedback-btn" data-reaction="up" onclick="submitFeedback('up')">👍 Nailed it</button>
-            <button type="button" class="feedback-btn" data-reaction="neutral" onclick="submitFeedback('neutral')">😐 Close</button>
-            <button type="button" class="feedback-btn" data-reaction="down" onclick="submitFeedback('down')">👎 Missed the vibe</button>
+
+        <button type="button" class="result-tier-toggle" id="advancedTierToggle" onclick="toggleResultTier('advancedTierBody','advancedTierToggle')">
+          <span>▶</span> Advanced insights
+        </button>
+        <div id="advancedTierBody" class="result-tier-body result-advanced">
+          <div id="cacheBanner"></div>
+          <div id="confidenceCard"></div>
+          <div id="kwalifyHeard"></div>
+          <div id="playlistStory"></div>
+          <div id="statsBar"></div>
+          <div id="emotionDetails">
+            <div id="vibeInterpretation"></div>
+            <div id="emotionBars"></div>
+            <div id="sceneChips"></div>
           </div>
-          <div id="feedbackThanks" class="feedback-thanks" style="display:none">Thanks — this helps Kwalify learn.</div>
-        </div>
-        <div class="divider"></div>
-        <div class="status-row">
-          <div class="status-left">
-            <div class="status-dot"></div>
-            <span>Saved to Kwalify · only tracks you already liked</span>
+          <div id="feedbackSection" class="feedback-section">
+            <div class="feedback-label">How was this playlist?</div>
+            <div class="feedback-btns" id="feedbackBtns">
+              <button type="button" class="feedback-btn" data-reaction="up" onclick="submitFeedback('up')">👍 Nailed it</button>
+              <button type="button" class="feedback-btn" data-reaction="neutral" onclick="submitFeedback('neutral')">😐 Close</button>
+              <button type="button" class="feedback-btn" data-reaction="down" onclick="submitFeedback('down')">👎 Missed</button>
+            </div>
+            <div id="feedbackThanks" class="feedback-thanks" style="display:none">Thanks — this helps Kwalify learn.</div>
           </div>
-          <span class="mode-badge" id="modeBadge">balanced</span>
         </div>
+        <span class="mode-badge" id="modeBadge" style="display:none">balanced</span>
       </div>
 
       <!-- Pending preview card (shown when Spotify playlist creation is blocked) -->
@@ -687,13 +704,6 @@
       <!-- History (hidden — replaced by My Playlists) -->
       <div class="history-section" id="histSection" style="display:none">
         <div class="h-list" id="hList"></div>
-      </div>
-
-      <div class="recent-moods" id="recentMoodsSection" style="display:none">
-        <div class="section-header">
-          <div class="section-title">Your recent moods</div>
-        </div>
-        <div class="recent-mood-list" id="recentMoodList"></div>
       </div>
 
       <!-- Recent playlists (compact; Gallery has full grid) -->
@@ -918,13 +928,14 @@ let _libSummaryCache=null, _libSummaryFetchedAt=0;
 
 const HIST_KEY='kwalah_v3', MAX_HIST=10;
 const ICONS=['🎵','🌙','💪','☁️','🌅','🎧','🔥','✨','🎶','🌊'];
-const FIRST_GEN_PROMPTS=[
+const EXAMPLE_VIBES=[
   'late-night motorway drive',
   'sunny afternoon working on an old car',
   'songs that sound expensive',
   'end of summer but not sad',
   'music for wandering around London at midnight',
 ];
+let _genCompressed=false;
 
 function bindPromptButtons(root, autoRun){
   if(!root) return;
@@ -938,25 +949,37 @@ function bindPromptButtons(root, autoRun){
 function wirePromptExamples(){
   const list=$('promptExampleList');
   if(!list) return;
-  list.innerHTML=FIRST_GEN_PROMPTS.map(p=>
+  list.innerHTML=EXAMPLE_VIBES.map(p=>
     `<button type="button" class="prompt-example-btn" data-prompt="${escAttr(p)}">${esc(p)}</button>`
   ).join('');
   bindPromptButtons(list, false);
 }
 
-function renderFirstGenCard(show){
-  const card=$('firstGenCard');
-  const pe=$('promptExamples');
-  if(!card) return;
-  if(pe) pe.style.display=show?'none':'';
-  if(!show){ card.style.display='none'; return; }
-  card.style.display='block';
-  card.innerHTML=`<div class="first-gen-title">Your library is ready — try your first vibe</div>
-    <div class="first-gen-sub">Tap a moment, then Generate. Only songs you already liked on Spotify.</div>
-    <div class="prompt-example-list">${FIRST_GEN_PROMPTS.map(p=>
-      `<button type="button" class="prompt-example-btn" data-prompt="${escAttr(p)}">${esc(p)}</button>`
-    ).join('')}</div>`;
-  bindPromptButtons(card, false);
+function toggleDisclosure(id){
+  const el=$(id);
+  if(el) el.classList.toggle('open');
+}
+
+function toggleResultTier(bodyId, toggleId){
+  const body=$(bodyId);
+  const btn=$(toggleId);
+  if(!body||!btn) return;
+  const open=body.classList.toggle('open');
+  const isTracks=bodyId==='tracksTierBody';
+  btn.innerHTML=`<span>${open?'▼':'▶'}</span> ${isTracks?'See track list':'Advanced insights'}`;
+  if(bodyId==='advancedTierBody'&&open) fetchLibraryHealth();
+}
+
+function _shortVibeSummary(vibe, ep, mu, expl){
+  const parts=[];
+  if(vibe) parts.push(`You asked for a moment like “${vibe}”.`);
+  const scene=mu?.where?.scene||'';
+  if(scene) parts.push(`Kwalify shaped a ${scene} vibe from your liked songs.`);
+  else parts.push('Kwalify picked from your Spotify likes to match that feeling.');
+  const arc=ep?.journeyArc||mu?.destination?.journeyArc;
+  if(arc&&ARC_LABELS[arc]) parts.push(`The set follows a ${ARC_LABELS[arc].toLowerCase()} flow.`);
+  else if(expl?.narrative) parts.push(expl.narrative.split('.')[0]+'.');
+  return parts.slice(0,3).join(' ');
 }
 
 /* ── Mode selector ── */
@@ -973,20 +996,16 @@ const PROG_PHASE_PCT={
   starting:8, loading_library:20, building_profile:36, scoring:58, composing:74, spotify:88, saving:94, done:100,
 };
 const DJ_STAGES=[
-  {icon:'🎧', title:'Reading your library', phases:['starting','loading_library'],
-    sub:(n,v)=>`Looking through ${n>0?n.toLocaleString():'your'} liked song${n===1?'':'s'}`},
-  {icon:'🧠', title:'Understanding the moment', phases:['building_profile'],
-    sub:(_n,v)=>v?`"${v.length>72?v.slice(0,72)+'…':v}"`:'Parsing mood, scene, and intent'},
-  {icon:'📀', title:'Digging for forgotten favourites', phases:['scoring'],
-    sub:()=>'Surfacing tracks you have not heard in a while'},
-  {icon:'🎚️', title:'Building the set', phases:['composing'],
-    sub:()=>'Shaping emotional flow and pacing'},
-  {icon:'🎵', title:'Creating Spotify playlist', phases:['spotify','saving'],
-    sub:()=>'Publishing a new playlist to your account'},
+  {icon:'🎧', title:'Reading your library', phases:['starting','loading_library','building_profile'],
+    sub:(n)=>`From ${n>0?n.toLocaleString():'your'} liked songs`},
+  {icon:'🎚️', title:'Building your set', phases:['scoring','composing'],
+    sub:()=>'Matching mood and flow'},
+  {icon:'🎵', title:'Creating playlist', phases:['spotify','saving','done'],
+    sub:()=>'Publishing to Spotify'},
 ];
-const MIN_STAGE_MS=2200;
-const STAGE_AUTO_MS=2000;
-const MIN_PROGRESS_VISIBLE_MS=2200;
+const MIN_STAGE_MS=1400;
+const STAGE_AUTO_MS=1100;
+const MIN_PROGRESS_VISIBLE_MS=1200;
 let progTimer=null, progPollTimer=null, progStageTimer=null, progStageAutoTimer=null, progStartMs=0, _lastProgPhase='', _deployHintShown=false;
 let _visualStageIdx=0, _targetStageIdx=0, _lastStageAdvanceMs=0;
 
@@ -1025,7 +1044,7 @@ function _paintDjStages(markAllDone){
     html+=`<li class="dj-stage active">
       <span class="dj-stage-icon">${s.icon}</span>
       <div class="dj-stage-body">
-        <div class="dj-stage-title">Stage ${idx+1} · ${esc(s.title)}</div>
+        <div class="dj-stage-title">${esc(s.title)}</div>
         <div class="dj-stage-sub">${esc(sub)}</div>
       </div>
     </li>`;
@@ -1037,7 +1056,8 @@ function _paintDjStages(markAllDone){
 
 function _tickVisualStages(){
   const now=Date.now();
-  if(_visualStageIdx<_targetStageIdx&&now-_lastStageAdvanceMs>=MIN_STAGE_MS){
+  const minMs=_genCompressed?500:MIN_STAGE_MS;
+  if(_visualStageIdx<_targetStageIdx&&now-_lastStageAdvanceMs>=minMs){
     _visualStageIdx++;
     _lastStageAdvanceMs=now;
     _paintDjStages(false);
@@ -1050,10 +1070,14 @@ function _tickVisualStages(){
 }
 
 function _elapsedProgPhase(elapsedMs){
-  if(elapsedMs<4500) return 'loading_library';
-  if(elapsedMs<15000) return 'building_profile';
-  if(elapsedMs<54000) return 'scoring';
-  if(elapsedMs<78000) return 'composing';
+  if(_genCompressed){
+    if(elapsedMs<1200) return 'loading_library';
+    if(elapsedMs<2400) return 'composing';
+    return 'spotify';
+  }
+  if(elapsedMs<4000) return 'loading_library';
+  if(elapsedMs<12000) return 'scoring';
+  if(elapsedMs<20000) return 'composing';
   return 'spotify';
 }
 
@@ -1090,9 +1114,13 @@ function startProgress(){
   _visualStageIdx=0;
   _targetStageIdx=0;
   _lastStageAdvanceMs=Date.now();
+  const pw=$('progWrap');
+  if(pw) pw.classList.toggle('compact', !!_genCompressed);
   const el=$('djStages'); if(el) el.innerHTML='';
   _paintDjStages(false);
   _setProgPct(6);
+  const stageMs=_genCompressed?700:STAGE_AUTO_MS;
+  const minStage=_genCompressed?500:MIN_STAGE_MS;
   let progStatusInflight=false;
   progStageTimer=setInterval(_tickVisualStages, 350);
   progStageAutoTimer=setInterval(()=>{
@@ -1102,7 +1130,7 @@ function startProgress(){
       _targetStageIdx++;
       _tickVisualStages();
     }
-  }, STAGE_AUTO_MS);
+  }, stageMs);
   progPollTimer=setInterval(()=>{
     if(!isGenerating||progStatusInflight) return;
     if(typeof document!=='undefined'&&document.visibilityState==='hidden') return;
@@ -1132,8 +1160,9 @@ function startProgress(){
 function finishProgress(done){
   stopProgressTimers();
   const elapsed=Date.now()-progStartMs;
-  const wait=Math.max(0,Math.min(MIN_PROGRESS_VISIBLE_MS, elapsed<2500?1600:MIN_PROGRESS_VISIBLE_MS)-elapsed);
-  const stepMs=elapsed<3500?380:580;
+  const minVis=_genCompressed?600:MIN_PROGRESS_VISIBLE_MS;
+  const wait=Math.max(0,minVis-elapsed);
+  const stepMs=_genCompressed?220:(elapsed<3500?380:580);
   setTimeout(()=>{
     _targetStageIdx=DJ_STAGES.length-1;
     const step=()=>{
@@ -1167,13 +1196,12 @@ function setLoading(on){
     generateBtn.innerHTML=_GEN_HTML;
   }
   if(progWrap) progWrap.classList.toggle('visible',on);
-  if(skelCard) skelCard.classList.toggle('visible',on);
   const pe=$('promptExamples');
-  if(pe) pe.style.opacity=on?'0.45':'1';
+  if(pe) pe.style.opacity=on?'0.5':'1';
   if(on){ resultCard&&resultCard.classList.remove('visible'); startProgress(); }
   else  {
     finishProgress(()=>{
-      setTimeout(()=>{ progWrap&&progWrap.classList.remove('visible'); skelCard&&skelCard.classList.remove('visible'); },280);
+      setTimeout(()=>{ progWrap&&progWrap.classList.remove('visible'); },280);
     });
   }
 }
@@ -1289,6 +1317,7 @@ async function submitFeedback(reaction){
 }
 
 function renderRecentMoods(playlists){
+  return; /* hidden — use Gallery for history browsing */
   const section=$('recentMoodsSection');
   const list=$('recentMoodList');
   if(!section||!list) return;
@@ -1388,10 +1417,17 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   currentPlaylistId=playlistId; lastVibe=vibe;
   const displayName = playlistName || `Kwalify • ${vibe}`;
   if(resultName) resultName.textContent=displayName;
-  const moodLine=_moodTags(ep,mu,expl).slice(0,3).join(' · ');
-  const spotifyLabel = spotifyPlaylistUrl ? ' · Spotify' : '';
-  if(resultMeta) resultMeta.textContent=`${count||tracks.length||25} tracks${moodLine?' · '+moodLine:''}${spotifyLabel}`;
-  if(modeBadge)  modeBadge.textContent=mode||currentMode;
+  if(resultMeta) resultMeta.textContent=`${count||tracks.length||25} tracks · from your likes`;
+  if(modeBadge) modeBadge.textContent=mode||currentMode;
+  const sumEl=$('resultSummary');
+  if(sumEl){
+    let summary=_shortVibeSummary(vibe,ep,mu,expl);
+    if(genData.cached) summary='Same vibe as a few minutes ago — your last playlist from liked songs. '+summary;
+    sumEl.textContent=summary;
+  }
+  const tb=$('tracksTierBody'); const ab=$('advancedTierBody');
+  if(tb){ tb.classList.remove('open'); $('tracksTierToggle').innerHTML='<span>▶</span> See track list'; }
+  if(ab){ ab.classList.remove('open'); $('advancedTierToggle').innerHTML='<span>▶</span> Advanced insights'; }
 
   const spotifyArea=$('spotifyActionArea');
   if(spotifyArea){
@@ -1410,27 +1446,13 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
   const confEl=$('confidenceCard');
   if(confEl) confEl.innerHTML=_buildConfidenceHtml(genData.promptConfidence);
   const fb=$('feedbackSection');
-  if(fb){ fb.style.display='block'; $('feedbackThanks')&&($('feedbackThanks').style.display='none'); document.querySelectorAll('.feedback-btn').forEach(b=>{ b.disabled=false; b.classList.remove('selected'); }); }
-  const likedEl=$('resultLikedOnly');
-  if(likedEl){
-    try{
-      if(!localStorage.getItem('kwalify_liked_explained')){
-        likedEl.style.display='block';
-        localStorage.setItem('kwalify_liked_explained','1');
-      }
-    }catch{ likedEl.style.display='block'; }
-  }
+  if(fb){ $('feedbackThanks')&&($('feedbackThanks').style.display='none'); document.querySelectorAll('.feedback-btn').forEach(b=>{ b.disabled=false; b.classList.remove('selected'); }); }
   const heardEl=$('kwalifyHeard');
   if(heardEl) heardEl.innerHTML=_buildHeardHtml(vibe,ep,mu,expl,libIntel);
   const storyEl=$('playlistStory');
   if(storyEl) storyEl.innerHTML=_buildStoryHtml(vibe,ep,mu,expl,libIntel);
   const forgottenEl=$('forgottenGems');
   if(forgottenEl) forgottenEl.innerHTML=_buildForgottenHtml(tracks);
-  const emToggle=$('emotionToggle');
-  const emDetails=$('emotionDetails');
-  if(emToggle){ emToggle.style.display=''; emToggle.textContent='Show vibe analysis details'; }
-  if(emDetails) emDetails.classList.add('emotion-collapsed');
-
   if(trackList){
     trackList.innerHTML=(tracks||[]).map((t,i)=>{
       const artHtml = t.albumArt
@@ -1640,6 +1662,7 @@ function generate(){
   if(!vibe){ vibeInput?.focus(); showToast('Type a vibe first!','info',2200); return; }
   debTimer=setTimeout(()=>debTimer=null, 900);
   _activeGenVibe=vibe;
+  _genCompressed=!!(lastVibe&&vibe.toLowerCase()===lastVibe.toLowerCase());
   setLoading(true);
   resultCard&&resultCard.classList.remove('visible');
   const length=parseInt($('lenSlider')?.value)||25;
@@ -1858,8 +1881,6 @@ function renderPlaylists(items){
   const list=$('plList');
   if(!section||!list) return;
   section.style.display='block';
-  renderRecentMoods(items);
-  renderFirstGenCard(_syncState==='synced'&&(!items||!items.length));
   if(!items||!items.length){
     list.innerHTML='<div class="pl-empty"><div style="font-size:15px;font-weight:600;margin-bottom:6px">🎵&nbsp;&nbsp;No playlists yet</div><div>Generate your first one above ↑</div></div>';
     return;
@@ -1974,21 +1995,14 @@ function _showInputFallback(){
 
 function _updateSyncUI(d){
   const gate=$('syncGateCard');
-  const banner=$('syncBanner');
+  const pill=$('libraryReadyPill');
   const ic=$('inputCard');
   const prevState=_syncState;
   _syncState=d.isSyncing?'syncing':d.synced?'synced':'unsynced';
 
-  /* Tighten poll interval during active sync */
   if(d.isSyncing&&prevState!=='syncing'){
-    // Sync just started — record start time and baseline progress
-    _syncStartTime=Date.now();
-    _syncStartProgress=d.syncProgress||0;
-    // Incremental sync: syncTotal is very small relative to totalTracks
-    _syncIsIncremental = !!(d.syncTotal && d.totalTracks && d.syncTotal < d.totalTracks * 0.5);
     clearInterval(_syncTimer); _syncTimer=setInterval(_pollSync,3000);
   } else if(!d.isSyncing&&prevState==='syncing'){
-    _syncStartTime=null;
     _libSummaryCache=null;
     _libSummaryFetchedAt=0;
     clearInterval(_syncTimer); _syncTimer=setInterval(_pollSync,7000);
@@ -1998,37 +2012,21 @@ function _updateSyncUI(d){
 
   if(_syncState==='synced'){
     if(gate) gate.style.display='none';
+    if(pill){
+      const n=d.totalTracks||0;
+      pill.style.display='inline-flex';
+      pill.innerHTML=_SYNC_CHECK+`<span>Library ready — ${n.toLocaleString()} song${n!==1?'s':''}</span>`;
+    }
     if(ic){
       if(prevState&&prevState!=='synced'){
         ic.style.display=''; ic.style.animation='fsu .4s var(--spring) both';
         setTimeout(()=>{ if(ic) ic.style.animation=''; },500);
       } else { ic.style.display=''; }
     }
-    const t=_fmtSyncTime(d.lastSyncedAt);
-    const n=d.totalTracks||0;
-    if(banner){
-      if(d.suggestFullSync){
-        banner.className='sync-banner warn';
-        banner.innerHTML=`<span>Library may be missing older likes — run a full sync for your whole library.</span>
-          <span class="sync-banner-actions">
-            <button type="button" class="btn btn-green btn-sm" onclick="_startFullSync()">Full library sync</button>
-          </span>`;
-      } else {
-        banner.className='sync-banner done';
-        banner.innerHTML=_SYNC_CHECK+`<span>Library ready — ${n} track${n!==1?'s':''}${t?' · Last synced '+t:''}</span>
-          <span class="sync-banner-actions">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="_startFullSync()" title="Re-download all liked songs">Full sync</button>
-          </span>`;
-      }
-      banner.style.display='flex';
-    }
-    fetchLibraryHealth();
   } else {
+    if(pill) pill.style.display='none';
     if(ic) ic.style.display='none';
-    if(banner) banner.style.display='none';
     if(gate){ gate.style.display='block'; _renderSyncGate(d); }
-
-    // Fallback auto-sync: trigger automatically for brand-new users if backend didn't fire
     if(!d.isSyncing && !d.totalTracks && !_autoSyncTriggered){
       _autoSyncTriggered=true;
       _startSync();
@@ -2051,40 +2049,15 @@ function _renderSyncGate(d){
   const gate=$('syncGateCard');
   if(!gate) return;
   if(d.isSyncing){
-    const done=d.syncProgress||0, total=d.syncTotal||0;
-    const pct=total>0?Math.round(done/total*100):null;
-
-    let timeHint='This usually takes 1–3 minutes';
-    if(_syncStartTime&&done>_syncStartProgress){
-      const elapsed=Date.now()-_syncStartTime;
-      const hint=_fmtRemaining(elapsed, done-_syncStartProgress, (total||done*1.5)-_syncStartProgress);
-      if(hint) timeHint=hint;
-    }
-
-    const syncLabel=_syncIsIncremental
-      ? `Syncing ${done>0?done+' ':'' }new tracks…`
-      : 'Syncing your library…';
-
-    const countLabel=total>0
-      ? (_syncIsIncremental ? `${done} new track${done!==1?'s':''} found` : `${done} of ${total} tracks`)
-      : 'Scanning…';
-
     gate.innerHTML=`
       <div class="spin" style="margin:0 auto 20px"></div>
-      <div class="sync-gate-title">${syncLabel}</div>
-      <div class="sync-prog-track">
-        <div class="sync-prog-fill" style="width:${pct!==null?pct:35}%"></div>
-      </div>
-      <div class="sync-track-count">${countLabel}</div>
-      <div class="sync-time-hint">${timeHint}</div>`;
+      <div class="sync-gate-title">Syncing your library…</div>
+      <div class="sync-gate-body">Usually 1–3 minutes. Keep this tab open.</div>`;
   } else {
     gate.innerHTML=`
       <div class="sync-gate-icon">🎵</div>
-      <div class="sync-gate-title">Sync your Spotify library</div>
-      <div class="liked-only-callout" style="margin:0 auto 16px;max-width:340px;text-align:left">
-        <strong>Only your liked songs.</strong> Kwalify never adds new tracks to Spotify — it builds playlists from music you already saved.
-      </div>
-      <div class="sync-gate-body">We download your liked songs so we can match them to your vibe. This takes 1–3 minutes.</div>
+      <div class="sync-gate-title">Sync your Spotify library to start</div>
+      <div class="sync-gate-body">We need your liked songs before you can type a vibe and get a playlist.</div>
       <button class="btn btn-green btn-md" onclick="_startSync()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         Sync Now
@@ -2132,34 +2105,12 @@ function _renderLibraryHealth(s){
   const card=$('libraryHealthCard');
   if(!card||!s?.trackCount) return;
   const n=s.trackCount;
-  const big=n>=3000;
-  const decade=s.topDecade?`Most active decade: ${s.topDecade}`:'';
-  const span=s.oldestLikedYear&&s.newestLikedYear
-    ? `Likes from ${s.oldestLikedYear}–${s.newestLikedYear}`:'';
-  card.classList.add('visible');
-  if(big){
-    card.innerHTML=`<div class="library-celebrate">
-      <div class="library-celebrate-title">${n.toLocaleString()} songs synced</div>
-      <div class="library-celebrate-body">That's a huge library. Kwalify can dig through years of favourites, forgotten gems, and deep cuts — only from tracks you already saved on Spotify.</div>
-    </div>
-    <div class="library-health-title" style="margin-top:14px">Your library</div>
-    <div class="library-health-grid">
-      <div><div class="library-stat-val">${(s.artistCount||0).toLocaleString()}</div><div class="library-stat-lbl">artists</div></div>
-      <div><div class="library-stat-val">${_genreStatLabel(s)}</div><div class="library-stat-lbl">main genres spotted</div></div>
-      <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(decade||'—')}</div><div class="library-stat-lbl">when you saved most likes</div></div>
-      <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(span||'—')}</div><div class="library-stat-lbl">listening span</div></div>
-    </div>
-    <div class="library-stat-note">Broad categories from your library (pop, rock, soul, etc.) — not Spotify's thousands of micro-genres.</div>`;
-  } else {
-    card.innerHTML=`<div class="library-health-title">Your library</div>
-    <div class="library-health-grid">
-      <div><div class="library-stat-val">${n.toLocaleString()}</div><div class="library-stat-lbl">liked songs</div></div>
-      <div><div class="library-stat-val">${(s.artistCount||0).toLocaleString()}</div><div class="library-stat-lbl">artists</div></div>
-      <div><div class="library-stat-val">${_genreStatLabel(s)}</div><div class="library-stat-lbl">main genres spotted</div></div>
-      <div><div class="library-stat-val" style="font-size:14px;font-weight:700">${esc(decade||span||'—')}</div><div class="library-stat-lbl">${decade&&span?esc(span):'listening span'}</div></div>
-    </div>
-    <div class="library-stat-note">Broad categories (pop, rock, soul…) — not Spotify's full genre list.</div>`;
-  }
+  card.innerHTML=`<div class="library-health-title">Your library</div>
+    <p style="font-size:13px;color:var(--text-sub);line-height:1.5;margin-bottom:8px">
+      <strong style="color:var(--text)">${n.toLocaleString()}</strong> liked songs ·
+      <strong style="color:var(--text)">${(s.artistCount||0).toLocaleString()}</strong> artists
+    </p>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="_startFullSync()">Re-sync library</button>`;
 }
 
 async function _startFullSync(){
