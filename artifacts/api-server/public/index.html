@@ -528,20 +528,23 @@
       .presets { overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; }
     }
 
-    /* ── Mood Cinema Engine v1 (light as emotion) ── */
+    /* ── Mood Cinema + Physics v2 (3 layers: base / depth / haze) ── */
+    html { background:#060608; }
     body.moment-compose,
     body.moment-listening,
     body.moment-result {
-      transition: background 900ms cubic-bezier(0.16, 1, 0.3, 1),
-                  filter 900ms cubic-bezier(0.16, 1, 0.3, 1);
+      transition:
+        background 1200ms cubic-bezier(0.16, 1, 0.3, 1),
+        filter 1000ms cubic-bezier(0.22, 1, 0.36, 1);
     }
+    /* Layer A — base light field */
     body.atmo-neutral { background:#060608; }
-    body.atmo-sun { background:radial-gradient(circle at 50% 40%, #2a1f0a 0%, #060608 70%); }
-    body.atmo-night { background:radial-gradient(circle at 50% 45%, #0a0f1f 0%, #050508 75%); }
-    body.atmo-rain { background:radial-gradient(circle at 50% 50%, #0b1116 0%, #050508 80%); }
-    body.atmo-drive { background:radial-gradient(circle at 50% 50%, #111018 0%, #050508 80%); }
-    body.atmo-memory { background:radial-gradient(circle at 50% 45%, #1a1418 0%, #050508 75%); }
-    body.atmo-calm { background:radial-gradient(circle at 50% 50%, #0c0f0f 0%, #050508 80%); }
+    body.atmo-sun { background:radial-gradient(ellipse 90% 75% at 50% 38%, #2e220c 0%, #1a1408 38%, #060608 72%); }
+    body.atmo-night { background:radial-gradient(ellipse 82% 72% at 50% 46%, #0a0f1f 0%, #06060c 72%, #050508 100%); }
+    body.atmo-rain { background:radial-gradient(circle at 50% 52%, #0b1116 0%, #07090c 55%, #050508 82%); }
+    body.atmo-drive { background:radial-gradient(ellipse 95% 68% at 50% 36%, #14101c 0%, #0a0a10 55%, #050508 82%); }
+    body.atmo-memory { background:radial-gradient(ellipse 88% 78% at 50% 44%, #1a1418 0%, #0c0a0e 68%, #050508 100%); }
+    body.atmo-calm { background:radial-gradient(circle at 50% 50%, #0c0f0f 0%, #080a0a 60%, #050508 82%); }
     body.moment-compose.atmo-neutral { filter:blur(0) brightness(1) contrast(.94) saturate(.98); }
     body.moment-compose.atmo-sun { filter:blur(0) brightness(1.08) contrast(1.02) saturate(1.1); }
     body.moment-compose.atmo-night { filter:blur(0) brightness(.88) contrast(1.08) saturate(.9); }
@@ -564,37 +567,304 @@
     body.moment-result.atmo-memory { filter:blur(0) brightness(1.02) contrast(1.06) saturate(.96); }
     body.moment-result.atmo-calm { filter:blur(0) brightness(1.03) contrast(1.07) saturate(.92); }
 
-    /* ── Emotional density grain + depth (timing/opacity only) ── */
+    /* Layer C — atmospheric haze (grain; fastest layer) */
     body.moment-compose::before,
     body.moment-listening::before,
     body.moment-result::before {
       content:'';
       position:fixed; inset:0; z-index:0; pointer-events:none;
-      opacity:.035;
+      opacity:.034;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       background-size:180px 180px;
       mix-blend-mode:overlay;
-      transition:opacity 1.15s ease .08s;
+      transition:opacity 680ms cubic-bezier(0.2, 1, 0.38, 1), filter 900ms cubic-bezier(0.18, 1, 0.34, 1);
     }
-    body.moment-listening::before { opacity:.042; transition-duration:.78s; transition-delay:0s; }
-    body.moment-result::before { opacity:.038; transition-duration:.95s; }
+    body.moment-compose.atmo-sun::before { opacity:.028; filter:none; }
+    body.moment-compose.atmo-night::before { opacity:.038; }
+    body.moment-compose.atmo-rain::before { opacity:.042; filter:blur(.15px); }
+    body.moment-compose.atmo-drive::before { opacity:.032; }
+    body.moment-compose.atmo-memory::before { opacity:.036; filter:blur(.25px); }
+    body.moment-compose.atmo-calm::before { opacity:.03; }
+    body.moment-listening::before { opacity:.044; transition-duration:620ms; transition-delay:40ms; }
+    body.moment-listening.atmo-rain::before { opacity:.048; filter:blur(.35px); }
+    body.moment-listening.atmo-memory::before { opacity:.046; filter:blur(.4px); }
+    body.moment-result::before { opacity:.03; transition-duration:820ms; transition-delay:60ms; }
+    body.moment-result.atmo-sun::before { opacity:.026; }
+    body.moment-result.atmo-rain::before { opacity:.028; filter:blur(.1px); }
+    @keyframes hazeMemoryBreath {
+      0%, 100% { opacity:.034; }
+      50% { opacity:.042; }
+    }
+    body.moment-compose.atmo-memory::before,
+    body.moment-listening.atmo-memory::before {
+      animation:hazeMemoryBreath 12s ease-in-out infinite alternate;
+    }
+    @media (prefers-reduced-motion:reduce) {
+      body.moment-compose.atmo-memory::before,
+      body.moment-listening.atmo-memory::before { animation:none; }
+    }
+    /* Layer B — depth field (body vignette; medium speed) */
     body.moment-compose::after,
     body.moment-listening::after,
     body.moment-result::after {
       content:'';
       position:fixed; inset:0; z-index:0; pointer-events:none;
-      background:radial-gradient(circle at 50% 45%, rgba(255,255,255,.04) 0%, rgba(0,0,0,.82) 72%, rgba(0,0,0,.94) 100%);
-      transition:opacity 1s cubic-bezier(0.16, 1, 0.3, 1), background 1s cubic-bezier(0.18, 1, 0.32, 1);
+      background:radial-gradient(circle at 50% 45%, rgba(255,255,255,.035) 0%, rgba(0,0,0,.8) 68%, rgba(0,0,0,.94) 100%);
+      transition:opacity 900ms cubic-bezier(0.16, 1, 0.3, 1), background 900ms cubic-bezier(0.18, 1, 0.32, 1);
     }
+    body.moment-compose.atmo-sun::after {
+      background:radial-gradient(ellipse 88% 72% at 50% 38%, rgba(255,220,160,.04) 0%, rgba(0,0,0,.72) 62%, rgba(0,0,0,.9) 100%);
+      opacity:.78;
+    }
+    body.moment-compose.atmo-night::after {
+      background:radial-gradient(ellipse 70% 58% at 50% 44%, transparent 0%, rgba(0,0,0,.9) 58%, rgba(0,0,0,.97) 100%);
+      opacity:.9;
+    }
+    body.moment-compose.atmo-rain::after {
+      background:radial-gradient(circle at 50% 50%, rgba(180,200,220,.02) 0%, rgba(0,0,0,.85) 65%, rgba(0,0,0,.96) 100%);
+      opacity:.88;
+    }
+    body.moment-compose.atmo-drive::after {
+      background:radial-gradient(ellipse 90% 62% at 50% 34%, rgba(255,255,255,.03) 0%, rgba(0,0,0,.82) 60%, rgba(0,0,0,.94) 100%);
+      opacity:.84;
+    }
+    body.moment-compose.atmo-memory::after { opacity:.86; }
+    body.moment-compose.atmo-calm::after { opacity:.8; }
     body.moment-listening::after {
-      background:radial-gradient(circle at 50% 42%, rgba(255,255,255,.02) 0%, rgba(0,0,0,.88) 58%, rgba(0,0,0,.97) 100%);
-      opacity:.92;
-      transition-duration:.82s;
+      background:radial-gradient(ellipse 62% 52% at 50% 42%, transparent 0%, rgba(0,0,0,.9) 54%, rgba(0,0,0,.98) 100%);
+      opacity:.94;
+      transition-duration:820ms;
+      transition-delay:50ms;
     }
     body.moment-result::after {
-      background:radial-gradient(circle at 50% 40%, rgba(255,255,255,.06) 0%, rgba(0,0,0,.78) 65%, rgba(0,0,0,.9) 100%);
-      opacity:.9;
-      transition-duration:1.05s;
+      background:radial-gradient(ellipse 76% 66% at 50% 38%, rgba(255,255,255,.05) 0%, rgba(0,0,0,.76) 62%, rgba(0,0,0,.88) 100%);
+      opacity:.86;
+      transition-duration:1000ms;
+      transition-delay:80ms;
+    }
+    body.moment-result.atmo-sun::after { opacity:.8; }
+    body.moment-result.atmo-night::after { opacity:.84; }
+
+    /* ── Cinema Engine v2 — viewport = camera; mood physics = grade only ── */
+    body.cinema-active {
+      background:#030304 !important;
+      transition:filter 1s cubic-bezier(0.22,1,0.36,1);
+      filter:none !important;
+    }
+    body.cinema-active.moment-listening.atmo-rain { filter:brightness(.94) contrast(1.05) saturate(.88) !important; }
+    body.cinema-active.moment-listening.atmo-night { filter:brightness(.9) contrast(1.08) saturate(.86) !important; }
+    body.cinema-active.moment-listening.atmo-sun { filter:brightness(.98) contrast(1.04) saturate(1.02) !important; }
+    body.cinema-active.moment-listening.atmo-drive { filter:brightness(.93) contrast(1.06) saturate(.9) !important; }
+    body.cinema-active.moment-listening.atmo-memory { filter:brightness(.91) contrast(1.05) saturate(.9) !important; }
+    body.cinema-active.moment-listening.atmo-calm { filter:brightness(.95) contrast(1.02) saturate(.88) !important; }
+    body.cinema-active.moment-result { filter:brightness(.97) contrast(1.04) saturate(.96) !important; }
+    body.cinema-active::before { opacity:.028 !important; }
+    body.cinema-active::after { opacity:.72; transition-duration:900ms; }
+    body.cinema-entering #cinemaScene { opacity:0; }
+    body.cinema-active:not(.cinema-entering) #cinemaScene { opacity:1; visibility:visible; }
+    body.cinema-world .header,
+    body.cinema-world .listen-overlay,
+    body.cinema-world .compose-layer,
+    body.cinema-world .below-fold,
+    body.cinema-world .sync-whisper { opacity:0 !important; visibility:hidden !important; pointer-events:none !important; }
+    body.cinema-stabilize .listen-overlay.visible { opacity:.14 !important; backdrop-filter:blur(6px) !important; }
+    body.cinema-stabilize .listen-overlay .listen-line { opacity:.35; font-size:12px; }
+    body.cinema-ui-ready .header { opacity:.1; transition:opacity 1.2s ease .2s; }
+
+    /* ── Film Engine v3 — narrative, entry shot, embedded UI ── */
+    body.film-preview #cinemaScene { opacity:.38; visibility:visible; filter:saturate(.9) brightness(.88); }
+    body.film-preview .moment-shell { position:relative; z-index:4; }
+    body.film-preview .compose-layer { mix-blend-mode:normal; }
+    body.film-preview .vibe-focus .vibe-input {
+      color:rgba(255,255,255,.92);
+      text-shadow:0 2px 28px rgba(0,0,0,.75), 0 0 40px rgba(0,0,0,.5);
+      border-bottom-color:rgba(255,255,255,.22);
+    }
+    body.film-dissolve .compose-layer {
+      opacity:0 !important; pointer-events:none !important;
+      filter:blur(14px) !important;
+      transform:scale(1.05) translateY(-12px) !important;
+      transition:opacity 1.15s cubic-bezier(0.14,1,0.26,1), filter 1.2s ease, transform 1.15s cubic-bezier(0.16,1,0.3,1) !important;
+    }
+    #cinemaScene { --film-intensity:.5; --film-motion:1; }
+    #cinemaScene.cinema-reactive .cinema-px-front { opacity:calc(.32 + var(--film-intensity) * .38); }
+    #cinemaScene.cinema-reactive .cinema-px-mid { opacity:calc(.38 + var(--film-intensity) * .28); }
+    #cinemaScene.cinema-reactive .cinema-vid-live { filter:brightness(calc(.72 + var(--film-intensity) * .22)) contrast(calc(1.04 + var(--film-intensity) * .08)) saturate(calc(.88 + var(--film-intensity) * .14)); }
+    #cinemaScene.cinema-reactive[data-scene="rain_highway_pov"] .cinema-px-front { opacity:calc(.45 + var(--film-intensity) * .45); }
+    #cinemaScene.cinema-reactive[data-scene="rain_highway_pov"] .cinema-vid-overlay.cinema-vid-live { opacity:calc(.4 + var(--film-intensity) * .35); }
+    #cinemaScene.cinema-entry .cinema-parallax { animation:filmEntryReveal 800ms cubic-bezier(0.16,1,0.28,1) forwards; }
+    #cinemaScene.cinema-entry .cinema-subject { animation:filmEntrySubject 820ms cubic-bezier(0.18,1,0.32,1) forwards; }
+    #cinemaScene.cinema-entry[data-scene="rain_highway_pov"] .cinema-px-mid { animation:filmEntryRainLights 800ms ease-out forwards, cinemaLightSweep 5.5s linear 800ms infinite; }
+    #cinemaScene.cinema-entry[data-scene="neon_city_walk"] .cinema-px-mid { animation:filmEntryNeonResolve 800ms ease-out forwards; }
+    #cinemaScene.cinema-entry[data-scene="golden_field_drift"] .cinema-px-mid { animation:filmEntrySunBloom 800ms ease-out forwards; }
+    #cinemaScene.cinema-entry[data-scene="abstract_light_field"] .cinema-px-mid { animation:filmEntryFogBreath 800ms ease-out forwards; }
+    @keyframes filmEntryReveal { from{ opacity:0; transform:scale(1.18); filter:blur(8px) } to{ opacity:1; transform:scale(1.08); filter:blur(0) } }
+    @keyframes filmEntrySubject { from{ opacity:0 } 40%{ opacity:.2 } to{ opacity:1 } }
+    @keyframes filmEntryRainLights { from{ opacity:0; transform:translateX(-18%) } 50%{ opacity:.6 } to{ opacity:1; transform:translateX(0) } }
+    @keyframes filmEntryNeonResolve { from{ opacity:0; filter:blur(12px) } to{ opacity:1; filter:blur(0) } }
+    @keyframes filmEntrySunBloom { from{ opacity:0; transform:scale(1.25) } to{ opacity:1; transform:scale(1.04) } }
+    @keyframes filmEntryFogBreath { from{ opacity:0; transform:scale(1.12) } to{ opacity:1; transform:scale(1.06) } }
+    body.film-resolution .result-layer {
+      z-index:8; background:transparent !important;
+      padding:42vh 24px 18vh;
+    }
+    body.film-resolution .result-surface { max-width:360px; }
+    body.film-resolution .result-name-display,
+    body.film-resolution .result-summary,
+    body.film-resolution .result-actions .btn {
+      text-shadow:0 2px 32px rgba(0,0,0,.9), 0 0 48px rgba(0,0,0,.55);
+    }
+    body.film-resolution .result-summary { color:rgba(255,255,255,.72); }
+    body.film-resolution .result-art-ambient { opacity:.48 !important; box-shadow:0 24px 80px rgba(0,0,0,.5); }
+    body.film-resolution.cinema-active #cinemaScene .cinema-vignette { opacity:.68; }
+    body.film-resolution .listen-overlay.visible { opacity:0 !important; }
+
+    #cinemaScene {
+      position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+      opacity:0; visibility:hidden;
+      transition:opacity 300ms cubic-bezier(0.16,1,0.3,1), visibility 300ms;
+    }
+    body.cinema-active #cinemaScene { visibility:visible; }
+    body.cinema-active .bg .orb { opacity:.02; }
+    .cinema-subject {
+      position:absolute; inset:0; z-index:2; pointer-events:none; opacity:0;
+      transition:opacity 1.1s ease;
+    }
+    #cinemaScene.cinema-css-only .cinema-subject,
+    body.cinema-active .cinema-subject { opacity:1; }
+    .cinema-vid {
+      position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+      opacity:0; transition:opacity 1.4s cubic-bezier(0.16,1,0.3,1), transform 2.8s cubic-bezier(0.16,1,0.28,1), filter 1.2s ease;
+      transform:scale(1.08);
+      filter:brightness(.78) contrast(1.08) saturate(.92);
+    }
+    #cinemaScene[data-scene="rain_highway_pov"].cinema-listening .cinema-vid-live,
+    #cinemaScene[data-scene="rain_highway_pov"].cinema-listening.cinema-css-only .cinema-parallax,
+    #cinemaScene[data-scene="train_window_rain"].cinema-listening.cinema-css-only .cinema-parallax,
+    #cinemaScene[data-scene="empty_motorway_aerial"].cinema-listening .cinema-px-mid {
+      animation:cinemaCamShake 5.5s ease-in-out infinite;
+    }
+    @keyframes cinemaCamShake {
+      0%,100%{ transform:scale(1.08) translate(0,0) }
+      35%{ transform:scale(1.09) translate(.15%,-.12%) }
+      70%{ transform:scale(1.085) translate(-.1%,.08%) }
+    }
+    .cinema-vid.cinema-vid-live { opacity:1; }
+    .cinema-vid-overlay {
+      mix-blend-mode:screen; opacity:0;
+      transform:scale(1.02);
+      filter:brightness(1.1) contrast(1.02);
+    }
+    .cinema-vid-overlay.cinema-vid-live { opacity:.55; }
+    #cinemaScene.cinema-listening .cinema-vid-live {
+      transform:scale(1.1);
+      filter:brightness(.68) contrast(1.08) saturate(.82) blur(.4px);
+    }
+    #cinemaScene.cinema-stabilizing .cinema-vid-live {
+      transform:scale(1.03);
+      filter:brightness(.88) contrast(1.06) saturate(.94) blur(0);
+      transition-duration:1.8s, 2.4s, 1.6s;
+    }
+    #cinemaScene.cinema-stable .cinema-vid-live {
+      transform:scale(1);
+      filter:brightness(.96) contrast(1.04) saturate(.98) blur(0);
+    }
+    /* CSS parallax fallback — shown when clips missing or prefers-reduced-motion */
+    .cinema-parallax { position:absolute; inset:-8%; pointer-events:none; }
+    .cinema-px {
+      position:absolute; inset:0;
+      background-size:cover; background-position:center;
+      transition:opacity 1.2s ease, transform 3s cubic-bezier(0.16,1,0.28,1);
+    }
+    .cinema-px-back { opacity:.55; transform:scale(1.08); animation:cinemaDriftBack 18s ease-in-out infinite alternate; }
+    .cinema-px-mid { opacity:.42; transform:scale(1.04); animation:cinemaDriftMid 14s ease-in-out infinite alternate; mix-blend-mode:soft-light; }
+    .cinema-px-front { opacity:.28; transform:scale(1.02); animation:cinemaDriftFront 11s ease-in-out infinite alternate; }
+    @keyframes cinemaDriftBack { 0%{transform:scale(1.08) translate(0,0)} 100%{transform:scale(1.12) translate(-1.5%,1%) } }
+    @keyframes cinemaDriftMid { 0%{transform:scale(1.04) translate(0,0)} 100%{transform:scale(1.07) translate(1.2%,-.8%) } }
+    @keyframes cinemaDriftFront { 0%{transform:scale(1.02) translate(0,0)} 100%{transform:scale(1.05) translate(-.8%,1.2%) } }
+    #cinemaScene.cinema-css-only .cinema-parallax { opacity:1; }
+    #cinemaScene:not(.cinema-css-only) .cinema-parallax { opacity:0; }
+    #cinemaScene.cinema-css-only .cinema-vid { display:none; }
+    #cinemaScene.cinema-listening.cinema-css-only .cinema-px-back { filter:blur(1px) brightness(.82); }
+    #cinemaScene.cinema-stable.cinema-css-only .cinema-px-back { filter:blur(0) brightness(.95); transform:scale(1.02); }
+    .cinema-vignette {
+      position:absolute; inset:0;
+      background:radial-gradient(ellipse 78% 68% at 50% 42%, transparent 0%, rgba(0,0,0,.55) 68%, rgba(0,0,0,.88) 100%);
+      opacity:.92; transition:opacity 1.4s ease;
+    }
+    #cinemaScene.cinema-stable .cinema-vignette { opacity:.76; }
+    .cinema-narrative-read {
+      position:absolute; left:50%; bottom:12%; transform:translateX(-50%);
+      max-width:min(320px,88vw); margin:0; padding:0;
+      font-size:11px; letter-spacing:.14em; text-transform:lowercase;
+      color:rgba(255,255,255,0); text-align:center; pointer-events:none; z-index:4;
+      transition:opacity 1.4s ease, color 1.2s ease;
+    }
+    body.cinema-world .cinema-narrative-read,
+    body.cinema-stabilize .cinema-narrative-read { color:rgba(255,255,255,.14); opacity:1; }
+    body.film-resolution .cinema-narrative-read { opacity:0; }
+    /* Scene Pack v1 — 12 emotional micro-film worlds (CSS fallback when .mp4 absent) */
+    #cinemaScene[data-scene="rain_highway_pov"] .cinema-px-back { background:linear-gradient(180deg, #0c1420 0%, #060a10 42%, #020306 100%); }
+    #cinemaScene[data-scene="rain_highway_pov"] .cinema-px-mid { background:linear-gradient(90deg, transparent 0%, rgba(255,200,120,.08) 48%, rgba(80,140,255,.14) 52%, transparent 100%); animation:cinemaLightSweep 5.5s linear infinite; }
+    #cinemaScene[data-scene="rain_highway_pov"] .cinema-px-front { background:repeating-linear-gradient(102deg, transparent, transparent 2px, rgba(200,220,255,.05) 2px, rgba(200,220,255,.05) 3px); opacity:.58; }
+    #cinemaScene[data-scene="rain_highway_pov"] .cinema-subject { background:linear-gradient(180deg, transparent 36%, rgba(0,0,0,.55) 50%, #030508 70%), radial-gradient(ellipse 140% 38% at 50% 90%, rgba(255,180,90,.14) 0%, transparent 55%); }
+    #cinemaScene[data-scene="neon_city_walk"] .cinema-px-back { background:linear-gradient(180deg, #0a0e1a 0%, #04060e 50%, #020204 100%); }
+    #cinemaScene[data-scene="neon_city_walk"] .cinema-px-mid { background:linear-gradient(180deg, rgba(255,80,160,.07) 0%, transparent 35%, rgba(60,200,255,.1) 70%); animation:cinemaWalkSway 7s ease-in-out infinite alternate; }
+    #cinemaScene[data-scene="neon_city_walk"] .cinema-px-front { background:repeating-linear-gradient(90deg, transparent 0, transparent 36px, rgba(255,120,200,.05) 36px, rgba(80,180,255,.04) 37px); opacity:.52; }
+    #cinemaScene[data-scene="neon_city_walk"] .cinema-subject { background:linear-gradient(180deg, transparent 48%, rgba(0,0,0,.7) 58%, rgba(12,8,24,.92) 72%); }
+    #cinemaScene[data-scene="golden_field_drift"] .cinema-px-back { background:radial-gradient(ellipse 110% 70% at 50% 20%, #4a3208 0%, #1a1006 50%, #060504 100%); }
+    #cinemaScene[data-scene="golden_field_drift"] .cinema-px-mid { background:radial-gradient(circle at 50% 16%, rgba(255,230,160,.26) 0%, transparent 44%); animation:cinemaBloomPulse 7s ease-in-out infinite; }
+    #cinemaScene[data-scene="golden_field_drift"] .cinema-px-front { background:linear-gradient(180deg, rgba(255,240,200,.1) 0%, transparent 48%); animation:cinemaWindSway 12s ease-in-out infinite alternate; }
+    #cinemaScene[data-scene="golden_field_drift"] .cinema-subject { background:radial-gradient(ellipse 85% 40% at 50% 28%, rgba(255,220,140,.18) 0%, transparent 62%); }
+    #cinemaScene[data-scene="desert_wide_solo"] .cinema-px-back { background:radial-gradient(ellipse 95% 52% at 50% 80%, #3d2810 0%, #140c06 48%, #050403 100%); }
+    #cinemaScene[data-scene="desert_wide_solo"] .cinema-px-mid { background:linear-gradient(0deg, rgba(255,170,80,.12) 0%, transparent 40%); animation:cinemaHorizDrift 16s ease-in-out infinite alternate; }
+    #cinemaScene[data-scene="desert_wide_solo"] .cinema-px-front { background:radial-gradient(ellipse 55% 22% at 50% 100%, rgba(180,120,60,.1) 0%, transparent 72%); animation:cinemaDustDrift 14s ease-in-out infinite alternate; }
+    #cinemaScene[data-scene="desert_wide_solo"] .cinema-subject { background:linear-gradient(180deg, transparent 58%, rgba(20,12,6,.9) 70%), linear-gradient(90deg, transparent 44%, rgba(0,0,0,.8) 49%, rgba(0,0,0,.8) 51%, transparent 56%); mask-image:linear-gradient(180deg, transparent 64%, #000 74%); }
+    #cinemaScene[data-scene="memory_hallway"] .cinema-px-back { background:radial-gradient(ellipse 70% 90% at 50% 50%, #1e1814 0%, #0c0a0e 65%, #050508 100%); }
+    #cinemaScene[data-scene="memory_hallway"] .cinema-px-mid { background:linear-gradient(90deg, rgba(255,210,160,.1) 0%, transparent 30%, rgba(255,200,140,.08) 70%); filter:blur(.8px); animation:cinemaMemoryFlicker 4s ease-in-out infinite; }
+    #cinemaScene[data-scene="memory_hallway"] .cinema-px-front { background:linear-gradient(180deg, rgba(255,240,220,.06) 0%, transparent 55%); animation:cinemaMemoryDrift 9s ease-in-out infinite alternate; }
+    #cinemaScene[data-scene="ocean_night_fog"] .cinema-px-back { background:linear-gradient(180deg, #060a12 0%, #0a1420 38%, #040608 100%); }
+    #cinemaScene[data-scene="ocean_night_fog"] .cinema-px-mid { background:linear-gradient(0deg, rgba(80,120,160,.12) 0%, transparent 42%); animation:cinemaFogRoll 14s ease-in-out infinite alternate; }
+    #cinemaScene[data-scene="ocean_night_fog"] .cinema-px-front { background:radial-gradient(ellipse 100% 30% at 50% 72%, rgba(140,180,220,.08) 0%, transparent 65%); opacity:.45; }
+    #cinemaScene[data-scene="ocean_night_fog"] .cinema-subject { background:radial-gradient(ellipse 120% 25% at 50% 78%, rgba(20,40,60,.35) 0%, transparent 70%); }
+    #cinemaScene[data-scene="empty_motorway_aerial"] .cinema-px-back { background:linear-gradient(180deg, #080c14 0%, #101820 45%, #060810 100%); }
+    #cinemaScene[data-scene="empty_motorway_aerial"] .cinema-px-mid { background:linear-gradient(90deg, rgba(255,220,140,.04) 0%, rgba(255,255,255,.08) 50%, rgba(255,220,140,.04) 100%); animation:cinemaLightSweep 4s linear infinite; }
+    #cinemaScene[data-scene="empty_motorway_aerial"] .cinema-px-front { background:repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(255,255,255,.03) 18px, rgba(255,255,255,.03) 19px); opacity:.4; }
+    #cinemaScene[data-scene="apartment_night_window"] .cinema-px-back { background:linear-gradient(180deg, #0c0a10 0%, #141018 55%, #060608 100%); }
+    #cinemaScene[data-scene="apartment_night_window"] .cinema-px-mid { background:radial-gradient(ellipse 80% 50% at 50% 30%, rgba(60,80,140,.15) 0%, transparent 55%); }
+    #cinemaScene[data-scene="apartment_night_window"] .cinema-px-front { background:repeating-linear-gradient(100deg, transparent, transparent 3px, rgba(180,200,255,.04) 3px, rgba(180,200,255,.04) 4px); opacity:.42; animation:cinemaRainSlide 8s linear infinite; }
+    #cinemaScene[data-scene="apartment_night_window"] .cinema-subject { background:linear-gradient(180deg, rgba(0,0,0,.5) 0%, transparent 28%), linear-gradient(90deg, rgba(255,200,120,.06) 0%, transparent 18%); }
+    #cinemaScene[data-scene="sun_flare_overexpose"] .cinema-px-back { background:radial-gradient(ellipse 90% 80% at 50% 30%, #5a4010 0%, #2a1808 45%, #080604 100%); }
+    #cinemaScene[data-scene="sun_flare_overexpose"] .cinema-px-mid { background:radial-gradient(circle at 50% 22%, rgba(255,250,220,.35) 0%, transparent 38%); animation:cinemaBloomPulse 5s ease-in-out infinite; }
+    #cinemaScene[data-scene="sun_flare_overexpose"] .cinema-px-front { background:radial-gradient(circle at 48% 26%, rgba(255,255,255,.12) 0%, transparent 32%); animation:cinemaExposureBreath 6s ease-in-out infinite; }
+    #cinemaScene[data-scene="train_window_rain"] .cinema-px-back { background:linear-gradient(90deg, #0a1018 0%, #141820 50%, #0a1018 100%); animation:cinemaTrainPass 12s linear infinite; }
+    #cinemaScene[data-scene="train_window_rain"] .cinema-px-mid { background:linear-gradient(180deg, rgba(120,150,180,.1) 0%, transparent 50%); }
+    #cinemaScene[data-scene="train_window_rain"] .cinema-px-front { background:repeating-linear-gradient(95deg, transparent, transparent 2px, rgba(200,220,255,.05) 2px, rgba(200,220,255,.05) 3px); opacity:.5; }
+    #cinemaScene[data-scene="train_window_rain"] .cinema-subject { background:linear-gradient(90deg, rgba(0,0,0,.65) 0%, transparent 12%, transparent 88%, rgba(0,0,0,.65) 100%); }
+    #cinemaScene[data-scene="club_afterglow_empty"] .cinema-px-back { background:radial-gradient(ellipse 80% 70% at 50% 60%, #180818 0%, #08040c 55%, #030204 100%); }
+    #cinemaScene[data-scene="club_afterglow_empty"] .cinema-px-mid { background:radial-gradient(circle at 30% 40%, rgba(255,60,180,.08) 0%, transparent 40%), radial-gradient(circle at 70% 55%, rgba(80,200,255,.06) 0%, transparent 38%); animation:cinemaStrobeDecay 3.5s ease-in-out infinite; }
+    #cinemaScene[data-scene="club_afterglow_empty"] .cinema-px-front { background:linear-gradient(180deg, rgba(255,255,255,.04) 0%, transparent 60%); opacity:.35; }
+    #cinemaScene[data-scene="abstract_light_field"] .cinema-px-back { background:radial-gradient(ellipse 92% 82% at 50% 45%, #16141c 0%, #0a0a12 55%, #050508 100%); }
+    #cinemaScene[data-scene="abstract_light_field"] .cinema-px-mid { background:radial-gradient(circle at 42% 38%, rgba(180,160,240,.09) 0%, transparent 46%), radial-gradient(circle at 58% 58%, rgba(255,210,150,.07) 0%, transparent 42%); animation:cinemaBloomPulse 9s ease-in-out infinite; }
+    #cinemaScene[data-scene="abstract_light_field"] .cinema-px-front { background:radial-gradient(circle at 50% 48%, rgba(255,255,255,.05) 0%, transparent 35%); animation:cinemaFogRoll 11s ease-in-out infinite alternate; opacity:.4; }
+    @keyframes cinemaLightSweep { 0%{ transform:translateX(-8%) scale(1.04) } 100%{ transform:translateX(8%) scale(1.04) } }
+    @keyframes cinemaDustDrift { 0%{ opacity:.35; transform:translateX(-2%) } 100%{ opacity:.5; transform:translateX(3%) } }
+    @keyframes cinemaBloomPulse { 0%,100%{ opacity:.5; filter:blur(0) } 50%{ opacity:.78; filter:blur(1px) } }
+    @keyframes cinemaMemoryDrift { 0%{ transform:scale(1.04) translate(0,0) } 100%{ transform:scale(1.06) translate(1%,-.6%) } }
+    @keyframes cinemaWalkSway { 0%{ transform:translateX(-1.2%) scale(1.04) } 100%{ transform:translateX(1.2%) scale(1.05) } }
+    @keyframes cinemaWindSway { 0%{ transform:skewX(-1deg) scale(1.03) } 100%{ transform:skewX(1deg) scale(1.05) } }
+    @keyframes cinemaHorizDrift { 0%{ transform:translateX(-2%) scale(1.06) } 100%{ transform:translateX(2%) scale(1.08) } }
+    @keyframes cinemaFogRoll { 0%{ opacity:.35; transform:translateY(2%) } 100%{ opacity:.55; transform:translateY(-2%) } }
+    @keyframes cinemaRainSlide { 0%{ background-position:0 0 } 100%{ background-position:0 120px } }
+    @keyframes cinemaExposureBreath { 0%,100%{ opacity:.4 } 50%{ opacity:.75 } }
+    @keyframes cinemaTrainPass { 0%{ transform:translateX(0) } 100%{ transform:translateX(-6%) } }
+    @keyframes cinemaMemoryFlicker { 0%,100%{ opacity:.55 } 40%{ opacity:.72 } 55%{ opacity:.48 } }
+    @keyframes cinemaStrobeDecay { 0%,100%{ opacity:.4 } 25%{ opacity:.65 } 50%{ opacity:.35 } 75%{ opacity:.5 } }
+    @media (prefers-reduced-motion:reduce) {
+      #cinemaScene .cinema-vid { display:none !important; }
+      #cinemaScene .cinema-parallax { opacity:1 !important; }
+      #cinemaScene .cinema-px { animation:none !important; }
+      #cinemaScene.cinema-css-only .cinema-parallax { opacity:1; }
     }
 
     /* ── Master lock: one atmosphere, three moods ── */
@@ -607,7 +877,8 @@
     .moment-app .page::before {
       content:''; position:fixed; inset:0; z-index:1; pointer-events:none;
       background:transparent;
-      transition:background .9s var(--spring);
+      transition:background 900ms cubic-bezier(0.17, 1, 0.32, 1);
+      transition-delay:65ms;
     }
     body.moment-listening .moment-app .page::before {
       background:rgba(4,6,14,.35);
@@ -625,16 +896,29 @@
       content:''; position:fixed; inset:0; z-index:2; pointer-events:none;
       background:radial-gradient(ellipse 78% 68% at 50% 38%, rgba(14,16,20,.12) 0%, transparent 42%, rgba(2,2,4,.9) 100%);
       opacity:1;
-      transition:opacity .9s var(--spring), background .9s var(--spring);
+      transition:opacity 900ms cubic-bezier(0.17, 1, 0.32, 1), background 900ms cubic-bezier(0.16, 1, 0.3, 1);
+      transition-delay:55ms;
     }
+    body.moment-compose.atmo-sun .moment-app .page::after { opacity:.74; }
+    body.moment-compose.atmo-night .moment-app .page::after { opacity:.88; }
+    body.moment-compose.atmo-rain .moment-app .page::after { opacity:.86; }
+    body.moment-compose.atmo-drive .moment-app .page::after {
+      background:radial-gradient(ellipse 72% 58% at 50% 36%, rgba(18,16,24,.14) 0%, transparent 40%, rgba(2,2,4,.92) 100%);
+      opacity:.84;
+    }
+    body.moment-compose.atmo-memory .moment-app .page::after { opacity:.85; }
+    body.moment-compose.atmo-calm .moment-app .page::after { opacity:.8; }
     body.moment-compose .moment-app .page::after { opacity:.82; }
     body.moment-listening .moment-app .page::after {
-      background:radial-gradient(ellipse 64% 54% at 50% 40%, transparent 0%, rgba(1,1,3,.96) 100%);
-      opacity:.9;
+      background:radial-gradient(ellipse 58% 48% at 50% 42%, transparent 0%, rgba(1,1,3,.97) 52%, rgba(0,0,0,.99) 100%);
+      opacity:.94;
+      transition-delay:30ms;
     }
     body.moment-result .moment-app .page::after {
-      background:radial-gradient(ellipse 70% 60% at 50% 36%, rgba(255,255,255,.04) 0%, transparent 36%, rgba(2,2,4,.8) 100%);
-      opacity:.75;
+      background:radial-gradient(ellipse 74% 64% at 50% 36%, rgba(255,255,255,.05) 0%, transparent 38%, rgba(2,2,4,.78) 100%);
+      opacity:.7;
+      transition-duration:950ms;
+      transition-delay:90ms;
     }
     .moment-app .inner { max-width:400px; }
     .moment-app .header { opacity:.12; padding-top:10px; transition:opacity .75s var(--spring); }
@@ -734,10 +1018,10 @@
     .listen-overlay {
       position:fixed; inset:0; z-index:15; display:flex; align-items:center; justify-content:center;
       pointer-events:none; opacity:0;
-      transition:opacity .78s cubic-bezier(0.16, 1, 0.3, 1), backdrop-filter .88s cubic-bezier(0.18, 1, 0.32, 1);
-      background:rgba(4,5,10,.55); backdrop-filter:blur(0);
+      transition:opacity 920ms cubic-bezier(0.14, 1, 0.26, 1), backdrop-filter 1000ms cubic-bezier(0.18, 1, 0.34, 1);
+      background:rgba(4,5,10,.48); backdrop-filter:blur(0);
     }
-    .listen-overlay.visible { opacity:1; backdrop-filter:blur(14px); }
+    .listen-overlay.visible { opacity:1; backdrop-filter:blur(16px) saturate(.92); }
     .listen-overlay .listen-line {
       font-size:15px; color:rgba(255,255,255,.28); font-weight:400; letter-spacing:.12em;
       margin:0; transition:opacity .72s ease .1s;
@@ -753,10 +1037,10 @@
       padding:48px 24px;
       background:transparent;
       opacity:0; visibility:hidden; pointer-events:none;
-      transition:opacity .9s cubic-bezier(0.14, 1, 0.26, 1), visibility .9s cubic-bezier(0.16, 1, 0.3, 1);
+      transition:opacity 1000ms cubic-bezier(0.14, 1, 0.26, 1), visibility 1000ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     .result-layer.visible { opacity:1; visibility:visible; pointer-events:auto; }
-    .result-layer.visible.revealing { transition-duration:1.05s; }
+    .result-layer.visible.revealing { transition-duration:1100ms; }
     .moment-result .compose-layer,
     .moment-result .below-fold,
     .moment-result .sync-whisper { opacity:0 !important; visibility:hidden !important; pointer-events:none !important; }
@@ -773,26 +1057,26 @@
       transform:translateY(14px) scale(.98);
     }
     .result-surface.result-revealed .result-name-display {
-      animation:emergeTitle 1.05s cubic-bezier(0.16, 1, 0.28, 1) var(--reveal-title, 0ms) both;
+      animation:emergeTitle 1.08s cubic-bezier(0.16, 1, 0.28, 1) var(--reveal-title, 0ms) both;
     }
     .result-surface.result-revealed .result-summary {
-      animation:emergeMid 1s cubic-bezier(0.18, 1, 0.34, 1) var(--reveal-summary, 140ms) both;
+      animation:emergeMid 1.02s cubic-bezier(0.19, 1, 0.35, 1) var(--reveal-summary, 140ms) both;
     }
     .result-surface.result-revealed .result-actions {
-      animation:emergeMid 1.02s cubic-bezier(0.17, 1, 0.3, 1) var(--reveal-actions, 260ms) both;
+      animation:emergeMid 1.04s cubic-bezier(0.17, 1, 0.31, 1) var(--reveal-actions, 260ms) both;
     }
     .result-surface.result-revealed .result-actions .btn-green {
-      animation:emergeFore 1.08s cubic-bezier(0.16, 1, 0.28, 1) var(--reveal-actions, 260ms) both;
+      animation:emergeFore 1.1s cubic-bezier(0.15, 1, 0.27, 1) calc(var(--reveal-actions, 260ms) + 35ms) both;
     }
     .result-surface.result-revealed #regenBtn {
       opacity:.72;
     }
     .result-surface.result-revealed .result-art-ambient {
-      animation:emergeAmbient 1.2s cubic-bezier(0.14, 1, 0.26, 1) var(--reveal-art, 660ms) both;
+      animation:emergeAmbient 1.25s cubic-bezier(0.13, 1, 0.24, 1) var(--reveal-art, 660ms) both;
     }
     .result-surface.result-revealed.result-stable .result-art-ambient {
-      opacity:.58;
-      transition:opacity .48s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity:.56;
+      transition:opacity 520ms cubic-bezier(0.16, 1, 0.3, 1) 80ms;
     }
     .result-surface.result-revealed .moment-back {
       animation:emergeMid .92s cubic-bezier(0.2, 1, 0.36, 1) var(--reveal-back, 1100ms) both;
@@ -890,6 +1174,18 @@
 </head>
 <body>
 
+<div id="cinemaScene" class="cinema-scene" data-scene="abstract_light_field" aria-hidden="true">
+  <video id="cinemaVidPrimary" class="cinema-vid" muted loop playsinline preload="metadata"></video>
+  <video id="cinemaVidOverlay" class="cinema-vid cinema-vid-overlay" muted loop playsinline preload="metadata"></video>
+  <div class="cinema-parallax" id="cinemaParallax" aria-hidden="true">
+    <div class="cinema-px cinema-px-back"></div>
+    <div class="cinema-px cinema-px-mid"></div>
+    <div class="cinema-px cinema-px-front"></div>
+  </div>
+  <div class="cinema-subject" id="cinemaSubject" aria-hidden="true"></div>
+  <div class="cinema-vignette"></div>
+  <p class="cinema-narrative-read" id="cinemaNarrativeRead" aria-hidden="true"></p>
+</div>
 <div class="bg">
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
@@ -1261,34 +1557,24 @@ function setMomentState(state){
   }
 }
 
-const RESULT_PRE_MS=400;
-const RESULT_REVEAL_MS=900;
-const RESULT_STABLE_MS=420;
+const RESULT_PRE_MS=520;
+const RESULT_REVEAL_MS=1000;
+const RESULT_STABLE_MS=480;
 
-function _sessionRevealTiming(){
-  try{
-    let raw=sessionStorage.getItem('kw_reveal_timing');
-    if(!raw){
-      const jitter=40+Math.floor(Math.random()*41);
-      const artBase=520+Math.floor(Math.random()*281);
-      raw=JSON.stringify({jitter,artBase});
-      sessionStorage.setItem('kw_reveal_timing',raw);
-    }
-    return JSON.parse(raw);
-  }catch{
-    return {jitter:58,artBase:640};
-  }
+function _physicsJitter(base){
+  return Math.max(0, (base|0)+Math.floor(Math.random()*81)-40);
 }
 
 function _applyRevealTiming(surface){
   if(!surface) return;
-  const {jitter,artBase}=_sessionRevealTiming();
-  const j=jitter|0;
+  const j1=Math.floor(Math.random()*81)-40;
+  const j2=Math.floor(Math.random()*81)-40;
+  const artBase=520+Math.floor(Math.random()*281);
   surface.style.setProperty('--reveal-title','0ms');
-  surface.style.setProperty('--reveal-summary',(140+j)+'ms');
-  surface.style.setProperty('--reveal-actions',(260+j)+'ms');
-  surface.style.setProperty('--reveal-art',(artBase+Math.round(j*.35))+'ms');
-  surface.style.setProperty('--reveal-back',(artBase+380+j)+'ms');
+  surface.style.setProperty('--reveal-summary',(140+j1)+'ms');
+  surface.style.setProperty('--reveal-actions',(260+j2)+'ms');
+  surface.style.setProperty('--reveal-art',_physicsJitter(artBase)+'ms');
+  surface.style.setProperty('--reveal-back',_physicsJitter(artBase+400)+'ms');
 }
 
 function presentResultLayer(){
@@ -1298,6 +1584,8 @@ function presentResultLayer(){
   rc.classList.remove('visible','revealing');
   surface?.classList.remove('result-revealed','result-stable');
   void rc.offsetWidth;
+  document.body.classList.add('film-resolution');
+  document.body.classList.remove('film-dissolve');
   setMomentState('result');
   setTimeout(()=>{
     _applyRevealTiming(surface);
@@ -1314,8 +1602,10 @@ function returnToCompose(){
   if(rc) rc.classList.remove('visible','revealing');
   $('resultSurface')?.classList.remove('result-revealed','result-stable');
   const pc=$('pendingCard'); if(pc) pc.classList.remove('visible');
+  document.body.classList.remove('film-resolution','film-dissolve');
   const lo=$('listenOverlay');
   if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
+  stopCinemaScene();
   if(vibeInput?.value?.trim()) scheduleMoodCinemaFromInput(vibeInput.value);
   else setMoodCinema('neutral');
   setMomentState('compose');
@@ -1509,7 +1799,518 @@ function setMoodCinema(mood){
 
 function scheduleMoodCinemaFromInput(text){
   clearTimeout(_moodCinemaTimer);
-  _moodCinemaTimer=setTimeout(()=>setMoodCinema(detectMoodCinema(text)), 140);
+  const scene=translateScene(text);
+  setMoodCinema(scene.atmo||detectMoodCinema(text));
+  scheduleFilmPreviewFromInput(text);
+  _moodCinemaTimer=setTimeout(()=>setMoodCinema(translateScene(text).atmo), 70);
+}
+
+/* ── Film Engine v3 — narrative scene → world → music (Scene Pack v1) ── */
+const CINEMA_BASE='/cinema';
+const CINEMA_TIMELINE={ fadeMs:300, worldAloneMs:2200, revealMinMs:2500, entryShotMs:800 };
+const FILM_PREVIEW_MIN_CHARS=4;
+
+const SCENE_NARRATIVES={
+  rain_highway_pov:{
+    subject:'inside a car at night',
+    motionStory:'driving through rain on an empty highway',
+    emotionalRead:'lonely reflection — emotional drift',
+    lighting:'amber dash glow, passing headlight streaks',
+    entryShot:'windshield emerges from black, rain streaks, first lights pass',
+    tone:{ energy:.35, valence:.4, calm:.55 },
+  },
+  neon_city_walk:{
+    subject:'empty wet city street',
+    motionStory:'walking alone past neon reflections',
+    emotionalRead:'the city feels alive without you',
+    lighting:'magenta and cyan street reflections',
+    entryShot:'blurred lights resolve into wet pavement',
+    tone:{ energy:.4, valence:.42, calm:.45 },
+  },
+  golden_field_drift:{
+    subject:'open golden field in sunlight',
+    motionStory:'wind moving through grass under lens bloom',
+    emotionalRead:'everything is simple again for no reason',
+    lighting:'warm overexposed sun haze',
+    entryShot:'sun bloom expands into frame',
+    tone:{ energy:.62, valence:.78, calm:.5 },
+  },
+  desert_wide_solo:{
+    subject:'lone figure on a desert road',
+    motionStory:'slow walk through heat haze and dust',
+    emotionalRead:'you are small inside something infinite',
+    lighting:'low dusty sun, desaturated horizon',
+    entryShot:'horizon widens, silhouette appears',
+    tone:{ energy:.32, valence:.38, calm:.48 },
+  },
+  memory_hallway:{
+    subject:'blurred interior hallway',
+    motionStory:'remembering without full clarity',
+    emotionalRead:'something you feel deeply but cannot fully recall',
+    lighting:'warm overexposed amber blur',
+    entryShot:'soft focus hallway flickers into view',
+    tone:{ energy:.38, valence:.5, calm:.52 },
+  },
+  ocean_night_fog:{
+    subject:'dark ocean horizon at night',
+    motionStory:'fog rolling over slow waves',
+    emotionalRead:'quiet emotional weight — time moves slowly',
+    lighting:'minimal moon, cool fog',
+    entryShot:'horizon line appears through fog',
+    tone:{ energy:.28, valence:.45, calm:.72 },
+  },
+  empty_motorway_aerial:{
+    subject:'symmetrical motorway from above',
+    motionStory:'forward tracking over light streaks',
+    emotionalRead:'movement without destination',
+    lighting:'cool lane lines, car light trails',
+    entryShot:'lanes converge into forward motion',
+    tone:{ energy:.58, valence:.5, calm:.4 },
+  },
+  apartment_night_window:{
+    subject:'dim apartment, city beyond glass',
+    motionStory:'rain sliding on window while world stays outside',
+    emotionalRead:'you are inside; life is out there',
+    lighting:'interior dim, distant city glow',
+    entryShot:'window frame reveals city lights',
+    tone:{ energy:.3, valence:.4, calm:.58 },
+  },
+  sun_flare_overexpose:{
+    subject:'blinding warm light field',
+    motionStory:'exposure breathing with floating particles',
+    emotionalRead:'emotion too bright to describe',
+    lighting:'extreme lens flare and bloom',
+    entryShot:'flare blooms from white into warmth',
+    tone:{ energy:.7, valence:.82, calm:.35 },
+  },
+  train_window_rain:{
+    subject:'train window in rain',
+    motionStory:'countryside passing — leaving behind',
+    emotionalRead:'leaving something without naming it',
+    lighting:'grey soft interior, wet glass',
+    entryShot:'window frame, first rain streak slides',
+    tone:{ energy:.42, valence:.42, calm:.5 },
+  },
+  club_afterglow_empty:{
+    subject:'empty club floor after the night',
+    motionStory:'strobe decay and fading fog',
+    emotionalRead:'the moment after everything ended',
+    lighting:'dying neon, soft strobe remnants',
+    entryShot:'pulse fades into empty space',
+    tone:{ energy:.36, valence:.35, calm:.46 },
+  },
+  abstract_light_field:{
+    subject:'abstract fog and light',
+    motionStory:'slow drift before meaning forms',
+    emotionalRead:'a space before the feeling has words',
+    lighting:'breathing gradient blobs',
+    entryShot:'light breathes out of darkness',
+    tone:{ energy:.45, valence:.5, calm:.55 },
+  },
+};
+const CINEMA_SCENE_PACK_V1=[
+  'rain_highway_pov','neon_city_walk','golden_field_drift','desert_wide_solo',
+  'memory_hallway','ocean_night_fog','empty_motorway_aerial','apartment_night_window',
+  'sun_flare_overexpose','abstract_light_field','train_window_rain','club_afterglow_empty',
+];
+const _cinemaReducedMotion=typeof matchMedia!=='undefined'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const CINEMA_CLIP_MANIFEST={
+  rain_highway_pov:      { overlay:true },
+  neon_city_walk:        {},
+  golden_field_drift:    {},
+  desert_wide_solo:      {},
+  memory_hallway:        {},
+  ocean_night_fog:       {},
+  empty_motorway_aerial: {},
+  apartment_night_window:{},
+  sun_flare_overexpose:  {},
+  abstract_light_field:  {},
+  train_window_rain:     {},
+  club_afterglow_empty:  {},
+};
+
+const SCENE_TRANSLATION_RULES=[
+  {
+    id:'rain_highway_pov', atmo:'rain',
+    scene:'Rain highway POV', environment:'car interior windshield', lighting:'amber dash + passing lights',
+    motion:'forward drift', emotion:'lonely reflective drift',
+    strong:['2am drive','night drive','rain drive','motorway rain','highway rain','wet road','windshield','windscreen'],
+    medium:['rain','storm','wet','night','midnight','late','drive','motorway','highway','road','car','journey','thinking about'],
+    weak:['alone','lonely','cold','lights'],
+    combos:[['rain','drive'],['rain','night'],['night','drive'],['rain','road'],['rain','car']],
+  },
+  {
+    id:'neon_city_walk', atmo:'night',
+    scene:'Neon city walk', environment:'wet urban street', lighting:'neon reflections',
+    motion:'walking sway', emotion:'detached introspection',
+    strong:['neon city','london night','tokyo night','city walk','wet street neon'],
+    medium:['city','london','urban','neon','street','walking','night','metropolis','downtown','reflection'],
+    weak:['alone','late','rain'],
+    combos:[['city','night'],['neon','walk'],['london','rain']],
+  },
+  {
+    id:'golden_field_drift', atmo:'sun',
+    scene:'Golden field drift', environment:'wheat sun wind', lighting:'lens bloom flare',
+    motion:'wind sway', emotion:'warm free light',
+    strong:['feels like sun','golden field','golden hour','sun haze','sunny afternoon'],
+    medium:['sun','sunny','bright','happy','summer','warm','golden','grass','field','wheat','morning'],
+    weak:['glow','haze','free','light'],
+    combos:[['sun','happy'],['bright','summer'],['warm','field']],
+  },
+  {
+    id:'desert_wide_solo', atmo:'drive',
+    scene:'Desert wide solo', environment:'empty desert horizon', lighting:'dusty low sun',
+    motion:'slow horizontal drift', emotion:'small in infinite',
+    strong:['sad cowboy','cowboy','desert walk','western','badlands','lonesome cowboy'],
+    medium:['desert','western','dust','vast','horizon','heat','dry','silhouette','alone'],
+    weak:['sad','melancholy','lonely','heavy'],
+    combos:[['sad','cowboy'],['lonely','desert'],['desert','alone']],
+  },
+  {
+    id:'memory_hallway', atmo:'memory',
+    scene:'Memory hallway', environment:'blurred interior past', lighting:'warm overexposed',
+    motion:'micro blur flicker', emotion:'dreamlike nostalgia',
+    strong:['memory hallway','childhood memory','nostalgia trip','remember when','film grain memory'],
+    medium:['memory','nostalg','remember','past','childhood','hallway','polaroid','sepia','faded'],
+    weak:['warm','bittersweet','yearning','dream'],
+    combos:[['memory','night'],['remember','past'],['nostalgia','rain']],
+  },
+  {
+    id:'ocean_night_fog', atmo:'calm',
+    scene:'Ocean night fog', environment:'dark horizon sea', lighting:'minimal moon',
+    motion:'slow waves fog', emotion:'quiet emotional weight',
+    strong:['ocean night','sea fog','dark ocean','coastal fog'],
+    medium:['ocean','sea','wave','fog','coast','beach','calm','soft','still','quiet','heavy'],
+    weak:['night','mist','peace'],
+    combos:[['calm','ocean'],['soft','sea'],['quiet','night']],
+  },
+  {
+    id:'empty_motorway_aerial', atmo:'drive',
+    scene:'Empty motorway aerial', environment:'symmetrical highway', lighting:'light streaks',
+    motion:'forward tracking', emotion:'motion without destination',
+    strong:['aerial highway','motorway aerial','empty motorway','highway from above'],
+    medium:['motorway','highway','aerial','drive','motion','focus','road','lanes','travel'],
+    weak:['fast','forward','journey'],
+    combos:[['drive','highway'],['motorway','night'],['road','motion']],
+  },
+  {
+    id:'apartment_night_window', atmo:'night',
+    scene:'Apartment night window', environment:'interior looking out', lighting:'dim room city glow',
+    motion:'rain on glass', emotion:'inside while world outside',
+    strong:['apartment window','night window','rain on window','looking out window'],
+    medium:['apartment','window','inside','bedroom','lonely','night','city','rain','glass','still'],
+    weak:['introspective','quiet','home'],
+    combos:[['rain','window'],['night','alone'],['city','window']],
+  },
+  {
+    id:'sun_flare_overexpose', atmo:'sun',
+    scene:'Sun flare overexpose', environment:'blinding warm light', lighting:'extreme bloom',
+    motion:'exposure breathing', emotion:'joy overwhelm',
+    strong:['sun flare','overexposed sun','too bright','blinding sun','emotional overwhelm'],
+    medium:['overexpose','flare','bloom','bright','joy','warm','particles','glow','overwhelming'],
+    weak:['happy','light','summer'],
+    combos:[['sun','joy'],['bright','warm'],['happy','overwhelm']],
+  },
+  {
+    id:'train_window_rain', atmo:'rain',
+    scene:'Train window rain', environment:'passing countryside', lighting:'grey soft interior',
+    motion:'lateral blur', emotion:'leaving behind',
+    strong:['train window','train rain','leaving on a train','railway rain'],
+    medium:['train','rail','platform','carriage','rain','window','countryside','travel','nostalgia','leaving'],
+    weak:['melancholy','motion','grey'],
+    combos:[['train','rain'],['rain','window'],['leaving','behind']],
+  },
+  {
+    id:'club_afterglow_empty', atmo:'night',
+    scene:'Club afterglow empty', environment:'empty dance floor', lighting:'strobe decay',
+    motion:'fading pulses', emotion:'after everything ended',
+    strong:['after the club','empty club','afterparty','club afterglow','strobe decay'],
+    medium:['club','rave','party','after','empty','neon','fog','night','reflection','ended'],
+    weak:['lonely','hollow','late'],
+    combos:[['club','empty'],['after','party'],['night','club']],
+  },
+];
+
+function translateScene(text){
+  const t=(text||'').toLowerCase();
+  let bestId='abstract_light_field', bestScore=0, bestRule=null;
+  for(const rule of SCENE_TRANSLATION_RULES){
+    let s=0;
+    for(const w of rule.strong||[]) if(t.includes(w)) s+=3;
+    for(const w of rule.medium||[]) if(t.includes(w)) s+=1;
+    for(const w of rule.weak||[]) if(t.includes(w)) s+=.5;
+    for(const combo of rule.combos||[]){
+      if(combo.every(k=>t.includes(k))) s+=2;
+    }
+    if(s>bestScore){ bestScore=s; bestId=rule.id; bestRule=rule; }
+  }
+  const manifest=CINEMA_CLIP_MANIFEST[bestId]||CINEMA_CLIP_MANIFEST.abstract_light_field;
+  const clipKeys=['base'].concat(manifest.overlay?['overlay']:[]);
+  const narrative=SCENE_NARRATIVES[bestId]||SCENE_NARRATIVES.abstract_light_field;
+  const base={
+    id:bestId, clipKeys, score:bestScore,
+    subject:narrative.subject,
+    motionStory:narrative.motionStory,
+    emotionalRead:narrative.emotionalRead,
+    lighting:narrative.lighting,
+    entryShot:narrative.entryShot,
+    tone:narrative.tone,
+    scene:narrative.subject,
+    environment:narrative.motionStory,
+    motion:narrative.motionStory,
+    emotion:narrative.emotionalRead,
+    atmo:'neutral',
+  };
+  if(bestRule){
+    const n=SCENE_NARRATIVES[bestRule.id]||narrative;
+    return {
+      ...base,
+      id:bestRule.id, atmo:bestRule.atmo,
+      subject:n.subject, motionStory:n.motionStory, emotionalRead:n.emotionalRead,
+      lighting:n.lighting, entryShot:n.entryShot, tone:n.tone,
+      scene:bestRule.scene, environment:bestRule.environment,
+      motion:bestRule.motion, emotion:bestRule.emotion,
+    };
+  }
+  return base;
+}
+
+function _filmVibeIntensity(text, scene){
+  const len=Math.min(1,((text||'').trim().length)/90);
+  const sc=Math.min(1,(scene?.score||0)/6);
+  return Math.min(1, Math.max(.28, .32+len*.45+sc*.2));
+}
+
+function _filmApplyNarrative(scene){
+  const el=_cinemaSceneEl();
+  if(!el||!scene) return;
+  const read=$('cinemaNarrativeRead');
+  if(read) read.textContent=scene.emotionalRead||'';
+  el.dataset.subject=scene.subject||'';
+  el.dataset.motion=scene.motionStory||'';
+  const intensity=_filmVibeIntensity(_activeGenVibe||vibeInput?.value||'', scene);
+  el.style.setProperty('--film-intensity', String(intensity));
+  el.style.setProperty('--film-motion', String(.85+intensity*.35));
+}
+
+function previewFilmScene(text){
+  const t=(text||'').trim();
+  const el=_cinemaSceneEl();
+  if(!el||_cinemaState.mode!=='idle') return;
+  if(t.length<FILM_PREVIEW_MIN_CHARS){ stopFilmPreview(); return; }
+  const scene=translateScene(t);
+  document.body.classList.add('film-preview','cinema-active');
+  el.dataset.scene=scene.id;
+  el.classList.add('cinema-preview','cinema-css-only');
+  el.classList.remove('cinema-entry','cinema-reactive');
+  el.setAttribute('aria-hidden','false');
+  _filmApplyNarrative(scene);
+  setMoodCinema(scene.atmo||'neutral');
+  _cinemaState={ id:scene.id, mode:'preview', startedAt:0, stabilizeTimer:null, phaseTimers:[] };
+}
+
+function stopFilmPreview(){
+  if(_cinemaState.mode!=='preview') return;
+  document.body.classList.remove('film-preview');
+  _cinemaState={ id:null, mode:'idle', startedAt:0, stabilizeTimer:null, phaseTimers:[] };
+  if(!document.body.classList.contains('cinema-world')&&!document.body.classList.contains('moment-listening')){
+    stopCinemaScene();
+  }
+}
+
+let _filmPreviewTimer=null;
+function scheduleFilmPreviewFromInput(text){
+  clearTimeout(_filmPreviewTimer);
+  _filmPreviewTimer=setTimeout(()=>previewFilmScene(text), 120);
+}
+
+let _cinemaState={ id:null, mode:'idle', startedAt:0, stabilizeTimer:null, phaseTimers:[] };
+function _cinemaClearPhaseTimers(){
+  (_cinemaState.phaseTimers||[]).forEach(t=>clearTimeout(t));
+  _cinemaState.phaseTimers=[];
+}
+function _cinemaSchedulePhase(ms, fn){
+  const t=setTimeout(fn, ms);
+  _cinemaState.phaseTimers.push(t);
+  return t;
+}
+let _cinemaVideoOk=false;
+
+function _cinemaSceneEl(){ return $('cinemaScene'); }
+
+function _cinemaClipCandidates(sceneId, role){
+  const id=sceneId||'abstract_light_field';
+  if(role==='overlay'){
+    return [
+      CINEMA_BASE+'/'+id+'-overlay.mp4',
+      CINEMA_BASE+'/'+id+'/overlay.mp4',
+      CINEMA_BASE+'/'+id+'/rain-overlay.mp4',
+    ];
+  }
+  return [
+    CINEMA_BASE+'/'+id+'.mp4',
+    CINEMA_BASE+'/'+id+'/base.mp4',
+    CINEMA_BASE+'/'+id+'/loop.mp4',
+  ];
+}
+
+function _cinemaPosterCandidates(sceneId){
+  const id=sceneId||'abstract_light_field';
+  return [CINEMA_BASE+'/'+id+'.jpg', CINEMA_BASE+'/'+id+'/poster.jpg'];
+}
+
+function _cinemaApplyCssFallback(sceneId){
+  const el=_cinemaSceneEl();
+  if(!el) return;
+  el.classList.add('cinema-css-only');
+  el.dataset.scene=sceneId||'abstract_light_field';
+  _cinemaVideoOk=false;
+}
+
+function _cinemaLoadVideo(vid, sources, poster, onOk, onFail){
+  if(!vid){ onFail&&onFail(); return; }
+  const urls=Array.isArray(sources)?sources:[sources];
+  let idx=0, settled=false;
+  const cleanup=()=>{
+    vid.removeEventListener('canplay', onPlay);
+    vid.removeEventListener('error', onErr);
+  };
+  const done=(ok)=>{
+    if(settled) return;
+    settled=true;
+    cleanup();
+    ok?onOk&&onOk():onFail&&onFail();
+  };
+  const onPlay=()=>done(true);
+  const onErr=()=>{
+    idx++;
+    if(idx>=urls.length) done(false);
+    else trySrc(urls[idx]);
+  };
+  const trySrc=(src)=>{
+    if(poster) vid.poster=poster;
+    vid.src=src;
+    vid.load();
+    vid.play().catch(()=>{});
+  };
+  vid.addEventListener('canplay', onPlay);
+  vid.addEventListener('error', onErr);
+  trySrc(urls[0]);
+  setTimeout(()=>done(vid.readyState>=2), 2400);
+}
+
+function startCinemaScene(textOrScene){
+  const scene=typeof textOrScene==='object'&&textOrScene?.id?textOrScene:translateScene(textOrScene||'');
+  const el=_cinemaSceneEl();
+  const primary=$('cinemaVidPrimary');
+  const overlay=$('cinemaVidOverlay');
+  if(!el) return scene;
+  clearTimeout(_filmPreviewTimer);
+  document.body.classList.remove('film-preview');
+  _cinemaClearPhaseTimers();
+  clearTimeout(_cinemaState.stabilizeTimer);
+  const startedAt=Date.now();
+  _cinemaState={ id:scene.id, mode:'listening', startedAt, stabilizeTimer:null, phaseTimers:[] };
+  document.body.classList.remove('cinema-entering','cinema-world','cinema-stabilize','cinema-ui-ready');
+  document.body.classList.add('cinema-active','cinema-entering');
+  _filmApplyNarrative(scene);
+  el.classList.remove('cinema-preview','cinema-entry','cinema-reactive');
+  el.classList.add('cinema-entry','cinema-reactive');
+  _cinemaSchedulePhase(CINEMA_TIMELINE.entryShotMs, ()=>el.classList.remove('cinema-entry'));
+  _cinemaSchedulePhase(CINEMA_TIMELINE.fadeMs, ()=>{
+    document.body.classList.remove('cinema-entering');
+    document.body.classList.add('cinema-world');
+  });
+  _cinemaSchedulePhase(CINEMA_TIMELINE.worldAloneMs, ()=>{
+    document.body.classList.remove('cinema-world');
+    document.body.classList.add('cinema-stabilize');
+    el.classList.remove('cinema-listening');
+    el.classList.add('cinema-stabilizing');
+  });
+  _cinemaSchedulePhase(CINEMA_TIMELINE.revealMinMs, ()=>{
+    el.classList.add('cinema-stable');
+    _cinemaState.mode='stable';
+    document.body.classList.add('cinema-ui-ready');
+  });
+  el.dataset.scene=scene.id;
+  el.classList.remove('cinema-stabilizing','cinema-stable');
+  el.classList.add('cinema-listening');
+  el.setAttribute('aria-hidden','false');
+  setMoodCinema(scene.atmo||'neutral');
+  _filmApplyNarrative(scene);
+
+  if(_cinemaReducedMotion){
+    _cinemaApplyCssFallback(scene.id);
+    return scene;
+  }
+
+  const manifest=CINEMA_CLIP_MANIFEST[scene.id]||CINEMA_CLIP_MANIFEST.abstract_light_field;
+  const poster=_cinemaPosterCandidates(scene.id)[0];
+  el.classList.remove('cinema-css-only');
+
+  primary?.classList.remove('cinema-vid-live');
+  overlay?.classList.remove('cinema-vid-live');
+  if(primary){ primary.pause(); primary.removeAttribute('src'); }
+  if(overlay){ overlay.pause(); overlay.removeAttribute('src'); overlay.style.display=manifest.overlay?'':'none'; }
+
+  _cinemaLoadVideo(primary, _cinemaClipCandidates(scene.id, 'base'), poster, ()=>{
+    _cinemaVideoOk=true;
+    el.classList.remove('cinema-css-only');
+    primary.classList.add('cinema-vid-live');
+    primary.play().catch(()=>{});
+    if(manifest.overlay&&overlay){
+      overlay.style.display='';
+      _cinemaLoadVideo(overlay, _cinemaClipCandidates(scene.id, 'overlay'), null, ()=>{
+        overlay.classList.add('cinema-vid-live');
+        overlay.play().catch(()=>{});
+      }, ()=>{ overlay.style.display='none'; });
+    }
+  }, ()=>{
+    _cinemaApplyCssFallback(scene.id);
+    if(primary) primary.classList.add('cinema-vid-live');
+  });
+
+  return scene;
+}
+
+function stabilizeCinema(done){
+  if(_cinemaState.mode==='idle'){
+    done&&done();
+    return;
+  }
+  clearTimeout(_cinemaState.stabilizeTimer);
+  const elapsed=Date.now()-(_cinemaState.startedAt||0);
+  const wait=Math.max(0, CINEMA_TIMELINE.revealMinMs-elapsed);
+  _cinemaState.stabilizeTimer=setTimeout(()=>{ done&&done(); }, wait);
+}
+
+function stopCinemaScene(){
+  _cinemaClearPhaseTimers();
+  clearTimeout(_cinemaState.stabilizeTimer);
+  clearTimeout(_filmPreviewTimer);
+  _cinemaState={ id:null, mode:'idle', startedAt:0, stabilizeTimer:null, phaseTimers:[] };
+  document.body.classList.remove('cinema-active','cinema-entering','cinema-world','cinema-stabilize','cinema-ui-ready','film-preview','film-dissolve','film-resolution');
+  const el=_cinemaSceneEl();
+  if(el){
+    el.classList.remove('cinema-listening','cinema-stabilizing','cinema-stable','cinema-css-only','cinema-preview','cinema-entry','cinema-reactive');
+    el.dataset.scene='abstract_light_field';
+    el.removeAttribute('data-subject');
+    el.removeAttribute('data-motion');
+    el.style.removeProperty('--film-intensity');
+    el.style.removeProperty('--film-motion');
+    el.setAttribute('aria-hidden','true');
+    const read=$('cinemaNarrativeRead');
+    if(read) read.textContent='';
+  }
+  ['cinemaVidPrimary','cinemaVidOverlay'].forEach(id=>{
+    const v=$(id);
+    if(!v) return;
+    v.pause();
+    v.classList.remove('cinema-vid-live');
+    v.removeAttribute('src');
+  });
+  _cinemaVideoOk=false;
 }
 
 function _moodCinemaFromProfile(ep){
@@ -1523,17 +2324,21 @@ function _moodCinemaFromProfile(ep){
 }
 
 function _clearAtmosphere(){
+  stopCinemaScene();
   setMoodCinema('neutral');
 }
 
 function _applyAtmosphere(vibe, ep){
-  let mood=detectMoodCinema(vibe);
+  let scene=translateScene(vibe);
+  let mood=scene.atmo||detectMoodCinema(vibe);
   if(mood==='neutral') mood=_moodCinemaFromProfile(ep);
   setMoodCinema(mood);
 }
 
 function _aestheticMomentLine(vibe, ep){
   const t=vibe||'';
+  const film=translateScene(t);
+  if(film?.emotionalRead) return film.emotionalRead;
   for(const c of _AESTHETIC_CUES){
     if(c.re.test(t)) return c.line;
   }
@@ -1728,6 +2533,7 @@ function setLoading(on){
   }
   if(on){
     setMomentState('listening');
+    startCinemaScene(_activeGenVibe||vibeInput?.value||'');
     if(progLabel) progLabel.textContent=_FINDING_SOUND;
     const rc=$('resultCard');
     if(rc) rc.classList.remove('visible','revealing');
@@ -2079,7 +2885,7 @@ function showResult(playlistId, playlistName, vibe, tracks, count, mode, emotion
 
   const lo=$('listenOverlay');
   if(lo){ lo.classList.remove('visible'); lo.setAttribute('aria-hidden','true'); }
-  presentResultLayer();
+  stabilizeCinema(presentResultLayer);
   resetCopyBtn();
 }
 
@@ -2144,6 +2950,7 @@ function showPendingPreview(pendingTracks, emotionProfile, playlistName, vibe){
   }
 
   resultCard&&resultCard.classList.remove('visible');
+  stopCinemaScene();
   setMomentState('result');
   card.classList.add('visible');
 }
@@ -2188,7 +2995,9 @@ function generate(){
   if(!vibe){ vibeInput?.focus(); showToast('Type a vibe first!','info',2200); return; }
   debTimer=setTimeout(()=>debTimer=null, 900);
   _activeGenVibe=vibe;
+  const filmScene=translateScene(vibe);
   _genCompressed=true;
+  document.body.classList.add('film-dissolve');
   setLoading(true);
   resultCard&&resultCard.classList.remove('visible');
   const length=parseInt($('lenSlider')?.value)||25;
@@ -2207,6 +3016,9 @@ function generate(){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       vibe, length, mode:currentMode,
+      filmScene:filmScene.id,
+      filmSubject:filmScene.subject,
+      filmEmotion:filmScene.emotionalRead,
       ...(referencePlaylist?{ referencePlaylist }:{}),
       ...(varietyBoostNext?{ varietyBoost:true }:{}),
     }),
@@ -2216,6 +3028,7 @@ function generate(){
     varietyBoostNext=false;
     setLoading(false);
     function _restoreComposeMood(){
+      stopCinemaScene();
       setMomentState('compose');
       if(vibeInput?.value?.trim()) scheduleMoodCinemaFromInput(vibeInput.value);
       else setMoodCinema('neutral');
@@ -2296,6 +3109,7 @@ function generate(){
   })
   .catch(async err=>{
     setLoading(false);
+    stopCinemaScene();
     setMomentState('compose');
     if(vibeInput?.value?.trim()) scheduleMoodCinemaFromInput(vibeInput.value);
     else setMoodCinema('neutral');
