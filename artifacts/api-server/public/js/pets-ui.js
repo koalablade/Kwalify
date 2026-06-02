@@ -331,10 +331,21 @@
   }
 
   function _mountGuestHero() {
-    const el = $('guestHeroIllust');
-    if (!el || el.dataset.mounted) return;
-    el.innerHTML = _emotionPreviewHtml('pump');
-    el.dataset.mounted = '1';
+    const hero = $('guestHeroIllust');
+    const edge = $('guestEdgeDecor');
+    if (hero && !hero.dataset.mounted) {
+      hero.innerHTML = _emotionPreviewHtml('pump');
+      hero.dataset.mounted = '1';
+    }
+    if (!edge || edge.dataset.mounted) return;
+    const ghosts = [
+      { illust: 'lamp', cls: 'ghost-l' },
+      { illust: 'horizon', cls: 'ghost-r' },
+    ];
+    edge.innerHTML = ghosts.map((s, i) =>
+      `<span class="pets-guest-edge-item pets-guest-edge-item--${s.cls}">${_uniquePetsSvg(PETS_ILLUST_DEFS[s.illust], 'guest-ghost-' + i)}</span>`
+    ).join('');
+    edge.dataset.mounted = '1';
   }
 
   window.initEmotionGridUI = initEmotionGridUI;

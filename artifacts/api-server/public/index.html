@@ -664,8 +664,9 @@
     html[data-kw="guest"] .page {
       display:flex !important; flex-direction:column; align-items:stretch;
       min-height:100vh; padding:0; max-width:none;
-      background:#090a0e;
+      background:#08090c;
     }
+    html[data-kw="guest"] body { background:#08090c; }
     html[data-kw="guest"] .inner { max-width:none; flex:1; display:flex; }
     html[data-kw="guest"] .header,
     html[data-kw="guest"] .bg,
@@ -867,43 +868,73 @@
     }
     .pets-logout:hover { color:rgba(255,255,255,.6); background:rgba(255,255,255,.1); }
     @media (prefers-reduced-motion:reduce) {
-      .pets-illust--preview, .pets-guest-illust, .pets-boot-line::after { animation:none !important; }
+      .pets-illust--preview, .pets-guest-hero, .pets-guest-edge-item, .pets-boot-line::after { animation:none !important; }
       .pets-card, .pets-home, .pets-scene, .pets-illust--hero { transition:none !important; }
       html[data-kw="app"] #appView.pets-shell,
       html[data-kw="guest"] .pets-guest { cursor:auto; }
     }
-    /* Guest — same soft illustrated empty space as logged-in app */
+    /* Guest — Kwalify atmosphere landing (not Pets clone) */
     .pets-guest {
-      flex:1; display:flex; align-items:center; justify-content:center;
-      padding:48px 28px; text-align:center; position:relative;
+      flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      min-height:100vh; width:100%; text-align:center; position:relative;
+      overflow:hidden; padding:56px 24px 64px;
+      background:radial-gradient(ellipse 85% 70% at 50% 38%, #1a5080 0%, #122840 45%, #0c0e14 72%, #08090c 100%);
     }
-    .pets-guest-illust {
-      width:min(44vw,148px); height:min(44vw,128px); margin:0 auto 32px;
-      filter:drop-shadow(0 20px 40px rgba(0,0,0,.22));
+    .pets-guest-ambient {
+      position:absolute; left:50%; top:36%; width:min(70vw,420px); height:min(70vw,420px);
+      transform:translate(-50%,-50%); border-radius:50%; pointer-events:none;
+      background:radial-gradient(circle, rgba(39,121,167,.18) 0%, transparent 68%);
+      filter:blur(32px);
     }
-    .pets-guest-illust svg { width:100%; height:100%; }
+    .pets-guest-edge {
+      position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0;
+    }
+    .pets-guest-edge-item {
+      position:absolute; display:block; opacity:.22;
+      filter:drop-shadow(0 16px 32px rgba(0,0,0,.25));
+    }
+    .pets-guest-edge-item svg { width:100%; height:100%; overflow:visible; }
+    .pets-guest-edge-item--ghost-l { bottom:12%; left:6%; width:min(22vw,96px); height:min(28vw,120px); }
+    .pets-guest-edge-item--ghost-r { top:14%; right:8%; width:min(28vw,120px); height:min(12vw,56px); }
+    .pets-guest-content {
+      position:relative; z-index:1; max-width:400px; padding:0 12px;
+    }
+    .pets-guest-hero {
+      width:min(38vw,132px); height:min(46vw,158px); margin:0 auto 28px;
+      filter:drop-shadow(0 24px 48px rgba(0,0,0,.28));
+    }
+    .pets-guest-hero svg { width:100%; height:100%; }
     .pets-guest-title {
-      font-size:clamp(22px,4.5vw,32px); font-weight:700; letter-spacing:-.02em;
-      color:rgba(255,255,255,.72); margin-bottom:12px;
+      font-size:clamp(28px,6vw,40px); font-weight:700; letter-spacing:-.03em;
+      color:rgba(255,255,255,.88); line-height:1.1; margin:0 0 10px;
+    }
+    .pets-guest-lede {
+      font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+      color:rgba(255,255,255,.32); margin:0 0 18px;
     }
     .pets-guest-tag {
-      font-size:14px; font-weight:400; line-height:1.6; letter-spacing:.01em;
-      color:rgba(255,255,255,.36); max-width:300px; margin:0 auto 36px;
+      font-size:15px; font-weight:400; line-height:1.65;
+      letter-spacing:.01em; color:rgba(255,255,255,.42); max-width:320px; margin:0 auto 32px;
     }
     .pets-connect-btn {
-      display:inline-flex; align-items:center; justify-content:center; gap:10px;
-      padding:14px 32px; border-radius:999px; border:1px solid rgba(255,255,255,.16); text-decoration:none;
-      font-family:inherit; font-size:14px; font-weight:600; letter-spacing:.02em;
-      color:rgba(255,255,255,.9);
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding:14px 28px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.18); text-decoration:none;
+      font-family:inherit; font-size:13px; font-weight:600; letter-spacing:.02em;
+      color:rgba(255,255,255,.92);
       background:rgba(255,255,255,.08);
-      box-shadow:none;
-      transition:background .4s ease, border-color .4s ease;
+      transition:background .35s ease, border-color .35s ease;
     }
     .pets-connect-btn:hover {
-      background:rgba(255,255,255,.12);
-      border-color:rgba(255,255,255,.24);
-      transform:none; filter:none;
-      box-shadow:none;
+      background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.28);
+    }
+    .pets-guest-foot {
+      position:absolute; bottom:max(22px, env(safe-area-inset-bottom)); left:0; right:0;
+      z-index:1; text-align:center; padding:0 16px;
+    }
+    .pets-guest-foot-copy {
+      font-size:10px; font-weight:500; letter-spacing:.08em; text-transform:uppercase;
+      color:rgba(255,255,255,.2);
     }
 
     .compose-layer {
@@ -1206,17 +1237,20 @@
     <!-- ── Loading ── -->
     <div id="loadOverlay"><div class="spin"></div></div>
 
-    <!-- ── GUEST — Pets-style connect screen ── -->
+    <!-- ── GUEST — atmosphere landing ── -->
     <div id="landingView" class="pets-guest" style="display:none">
+      <div class="pets-guest-ambient" aria-hidden="true"></div>
+      <div class="pets-guest-edge" id="guestEdgeDecor" aria-hidden="true"></div>
       <div class="pets-guest-content">
-        <div class="pets-guest-illust" id="guestHeroIllust" aria-hidden="true"></div>
+        <div class="pets-guest-hero" id="guestHeroIllust" aria-hidden="true"></div>
         <h1 class="pets-guest-title">Kwalify</h1>
-          <p class="pets-guest-tag">Quiet objects for the moments between. Playlists from songs you already love.</p>
-        <a href="/api/auth/login" class="pets-connect-btn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-          Connect Spotify
-        </a>
+        <p class="pets-guest-lede">Moods · vibes · atmospheres</p>
+        <p class="pets-guest-tag">Pick a moment. A playlist builds from the songs already in your library.</p>
+        <a href="/api/auth/login" class="pets-connect-btn">Connect Spotify</a>
       </div>
+      <footer class="pets-guest-foot">
+        <p class="pets-guest-foot-copy">From your liked songs only</p>
+      </footer>
     </div><!-- /landingView -->
 
   </div><!-- /inner -->
@@ -1297,7 +1331,7 @@ function kwSetView(mode){
   if(splash) splash.setAttribute('aria-busy', mode==='loading'?'true':'false');
 }
 
-const _CONNECT_BTN=`<a href="/api/auth/login" class="pets-connect-btn" style="padding:10px 20px;font-size:13px">Connect</a>`;
+const _CONNECT_BTN=`<a href="/api/auth/login" class="pets-connect-btn">Connect Spotify</a>`;
 
 function bootAuthedHome(){
   document.documentElement.classList.add('pets-font');
