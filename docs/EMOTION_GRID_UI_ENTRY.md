@@ -62,9 +62,10 @@ Data: `EMOTION_MOODS` · art: `PETS_ILLUST_DEFS`
 
 | Event | Function |
 |-------|----------|
-| Login | `enterPetsHome()` → `showApp()` · `initEmotionGridUI()` |
-| Boot | Inline `boot-auth` on `<html>` — Emotion Grid mounts before `/auth/me` |
-| Logout / landing | `showLanding()` — hides `#appView`, shows `#landingView` only |
+| Login | `bootAuthedHome()` → `initEmotionGridUI()` only |
+| Boot | `init()` → `/auth/me` → authed: `bootAuthedHome()` · guest: `bootGuestLanding()` |
+| Logout / landing | `bootGuestLanding()` — never runs when session valid |
+| Legacy | `#apiStubs` outside `#appView`; sync gate permanently disabled |
 
 Legacy moment/cinema: **disabled** while `pets-app` (`setMomentState` / `renderScene` no-op).
 

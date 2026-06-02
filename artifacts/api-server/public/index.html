@@ -634,7 +634,13 @@
       position:relative; flex:1; display:flex; align-items:center; justify-content:center;
       min-height:min(84vh,800px); padding:20vh 24px 24vh; text-align:center;
     }
-    html.boot-auth .page { display:none !important; }
+    html.boot-auth .page,
+    html.kwalify-authed .page,
+    body.pets-app .page { display:none !important; }
+    html.boot-auth #landingView,
+    html.kwalify-authed #landingView,
+    body.pets-app #landingView { display:none !important; }
+    html.kwalify-guest #appView.pets-shell { display:none !important; }
     html.boot-auth .bg,
     html.boot-auth .waves,
     html.boot-auth #cinema,
@@ -658,8 +664,10 @@
       background:#0e1018; overflow:hidden;
     }
     html.boot-auth #appView.pets-shell,
+    html.kwalify-authed #appView.pets-shell,
     body.pets-app #appView.pets-shell { display:block !important; }
-    #apiStubs { display:none !important; }
+    #apiStubs,
+    #syncGateCard { display:none !important; visibility:hidden !important; pointer-events:none !important; }
     .pets-home {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       padding:56px 72px; overflow:auto;
@@ -971,7 +979,7 @@
   </style>
 </head>
 <body>
-<script>document.documentElement.classList.add('boot-auth');document.body.classList.add('pets-app','pets-home-active');</script>
+<script>document.documentElement.classList.add('boot-auth');</script>
 
 <video id="cinema" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>
 <img id="cinemaStill" alt="" aria-hidden="true" />
@@ -985,41 +993,14 @@
 <div class="waves" id="waveBars"></div>
 <div class="toast-stack" id="toastStack"></div>
 
-<!-- Logged-in: Pets mood browser only (grid → fullscreen object) -->
-<div id="appView" class="pets-shell">
+<!-- Logged-in: Emotion Grid ONLY (#appView = grid + scene, nothing else) -->
+<div id="appView" class="pets-shell" hidden>
   <main id="emotionGridHome" class="pets-home">
     <div class="pets-grid" id="emotionMoodGrid" role="list"></div>
   </main>
   <div id="emotionScene" class="pets-scene" aria-hidden="true">
     <div class="pets-scene-bg" id="emotionSceneBg"></div>
     <div class="pets-scene-hero" id="emotionSceneObject"></div>
-  </div>
-  <div id="apiStubs" hidden aria-hidden="true">
-    <div id="momentShell"></div>
-    <input type="text" id="vibeInput" value="" tabindex="-1" />
-    <button type="button" id="generateBtn" onclick="generate()"></button>
-    <div id="inputCard"></div>
-    <div id="composeLayer"></div>
-    <div id="syncGateCard"></div>
-    <div id="libraryReadyPill"></div>
-    <div id="promptExamples"><div id="promptExampleList"></div></div>
-    <details id="advancedHomeSection"></details>
-    <input id="lenSlider" type="range" value="25" min="10" max="100" />
-    <span id="lenVal"></span>
-    <button id="modeStrict"></button><button id="modeBalanced"></button><button id="modeChaotic"></button>
-    <input id="referencePlaylistInput" type="url" />
-    <p id="referencePlaylistHint"></p>
-    <div id="libraryHealthCard"></div>
-    <div id="resultCard"><div id="resultSurface">
-      <p id="momentEcho" hidden></p><h1 id="resultName"></h1><div id="resultMeta" hidden></div>
-      <div id="spotifyActionArea"></div><ol id="momentPlaylistPreview" hidden></ol>
-      <p id="resultSummary" hidden></p><span id="modeBadge" hidden></span>
-    </div></div>
-    <div id="pendingCard" hidden><div id="pendingTitle"></div><div id="pendingSubtitle"></div>
-      <div id="pendingTrackList"></div><div id="pendingMore"></div><div id="pendingEmotionBars"></div></div>
-    <div id="belowFold" hidden><div id="myPlaylistsSection"><div id="plList"></div></div></div>
-    <div id="histSection" hidden><div id="hList"></div></div>
-    <span id="vibeCounter" hidden></span>
   </div>
 </div>
 
@@ -1122,6 +1103,35 @@
   </div><!-- /inner -->
 </div><!-- /page -->
 
+<!-- Legacy API/generate stubs — never mounted in UI (logged-in home = Emotion Grid only) -->
+<div id="apiStubs" hidden aria-hidden="true">
+  <div id="momentShell"></div>
+  <input type="text" id="vibeInput" value="" tabindex="-1" />
+  <button type="button" id="generateBtn" onclick="generate()"></button>
+  <div id="inputCard"></div>
+  <div id="composeLayer"></div>
+  <div id="syncGateCard"></div>
+  <div id="libraryReadyPill"></div>
+  <div id="promptExamples"><div id="promptExampleList"></div></div>
+  <details id="advancedHomeSection"></details>
+  <input id="lenSlider" type="range" value="25" min="10" max="100" />
+  <span id="lenVal"></span>
+  <button id="modeStrict"></button><button id="modeBalanced"></button><button id="modeChaotic"></button>
+  <input id="referencePlaylistInput" type="url" />
+  <p id="referencePlaylistHint"></p>
+  <div id="libraryHealthCard"></div>
+  <div id="resultCard"><div id="resultSurface">
+    <p id="momentEcho" hidden></p><h1 id="resultName"></h1><div id="resultMeta" hidden></div>
+    <div id="spotifyActionArea"></div><ol id="momentPlaylistPreview" hidden></ol>
+    <p id="resultSummary" hidden></p><span id="modeBadge" hidden></span>
+  </div></div>
+  <div id="pendingCard" hidden><div id="pendingTitle"></div><div id="pendingSubtitle"></div>
+    <div id="pendingTrackList"></div><div id="pendingMore"></div><div id="pendingEmotionBars"></div></div>
+  <div id="belowFold" hidden><div id="myPlaylistsSection"><div id="plList"></div></div></div>
+  <div id="histSection" hidden><div id="hList"></div></div>
+  <span id="vibeCounter" hidden></span>
+</div>
+
 <script>
 /* ── Wave bars ── */
 (function(){
@@ -1158,39 +1168,31 @@ async function api(path, opts={}){
   return {ok:res.ok, status:res.status, data: await res.json().catch(()=>({}))};
 }
 
-/* ── Auth init — logged-in home is ALWAYS Emotion Grid (enterPetsHome) ── */
-function enterPetsHome(){
-  document.documentElement.classList.add('boot-auth');
+/* ── Boot: auth first → Emotion Grid OR guest landing (never both) ── */
+function bootAuthedHome(){
+  document.documentElement.classList.add('boot-auth','kwalify-authed');
+  document.documentElement.classList.remove('kwalify-guest');
   document.body.classList.add('pets-app','pets-home-active');
   document.body.classList.remove('pets-scene-active','moment-home','moment-loading','moment-result','moment-typing');
   ['home','loading','result'].forEach(s=>$('appView')?.classList.remove('moment-'+s));
-  $('landingView').style.display='none';
+  const lv=$('landingView'); if(lv) lv.style.display='none';
   $('loadOverlay').style.display='none';
+  const page=document.querySelector('.page'); if(page) page.style.display='none';
   const av=$('appView');
-  if(av){ av.hidden=false; av.style.display=''; }
+  if(av){ av.hidden=false; av.removeAttribute('hidden'); av.style.display=''; }
   const cin=$('cinema');
   if(cin){ try{ cin.pause(); }catch(_){} cin.removeAttribute('src'); }
   initEmotionGridUI();
+  startSyncPolling();
 }
 
-async function init(){
-  enterPetsHome();
-  const params = new URLSearchParams(location.search);
-  const err = params.get('error');
-  if(err){ showToast('Login failed: '+err,'error',5000); history.replaceState(null,'','/'); }
-
-  try {
-    const {ok, data} = await api('/auth/me');
-    if(ok){ showApp(data); } else { showLanding(); }
-  } catch { showLanding(); }
-}
-
-function showLanding(){
-  document.documentElement.classList.remove('boot-auth');
+function bootGuestLanding(){
+  document.documentElement.classList.remove('boot-auth','kwalify-authed');
+  document.documentElement.classList.add('kwalify-guest');
   document.body.classList.remove('pets-app','pets-home-active','pets-scene-active');
   const av=$('appView');
   if(av){ av.hidden=true; av.style.display='none'; }
-  ['home','loading','result'].forEach(s=>document.body.classList.remove('moment-'+s));
+  const page=document.querySelector('.page'); if(page) page.style.display='';
   clearTimeout(_emotionInputTimer);
   $('loadOverlay').style.display='none';
   $('landingView').style.display='block';
@@ -1200,6 +1202,25 @@ function showLanding(){
       Connect
     </a>`;
 }
+
+async function init(){
+  document.documentElement.classList.add('boot-auth');
+  const params=new URLSearchParams(location.search);
+  const err=params.get('error');
+  if(err){ showToast('Login failed: '+err,'error',5000); history.replaceState(null,'','/'); }
+
+  try {
+    const {ok}=await api('/auth/me');
+    if(ok) bootAuthedHome();
+    else bootGuestLanding();
+  } catch {
+    bootGuestLanding();
+  }
+}
+
+function showLanding(){ bootGuestLanding(); }
+
+function showApp(_userData){ bootAuthedHome(); }
 
 function _isMomentExperience(){
   return document.body.classList.contains('pets-app');
@@ -1270,14 +1291,7 @@ function presentResultLayer(){
 }
 
 function returnToCompose(){
-  initEmotionGridUI();
-}
-
-function showApp(userData){
-  document.querySelector('.page')?.classList.remove('moment-app');
-  document.body.classList.remove('world-grid','world-emotion','world-active');
-  enterPetsHome();
-  startSyncPolling();
+  bootAuthedHome();
 }
 
 function toggleHeaderMenu(e){
@@ -2700,19 +2714,25 @@ function _pollSync(){
 }
 
 function _showInputFallback(){
-  if(document.body.classList.contains('pets-app')) return;
+  if(document.body.classList.contains('pets-app')||document.documentElement.classList.contains('kwalify-authed')) return;
   const ic=$('inputCard');
   if(ic&&ic.style.display==='none') ic.style.display='';
 }
 
+function _renderSyncGate(_d){
+  const gate=$('syncGateCard');
+  if(gate){ gate.style.display='none'; gate.innerHTML=''; }
+}
+
 function _updateSyncUI(d){
+  _renderSyncGate(d);
   const gate=$('syncGateCard');
   const pill=$('libraryReadyPill');
   const ic=$('inputCard');
   const prevState=_syncState;
   _syncState=d.isSyncing?'syncing':d.synced?'synced':'unsynced';
 
-  if(document.body.classList.contains('pets-app')){
+  if(document.body.classList.contains('pets-app')||document.documentElement.classList.contains('kwalify-authed')){
     if(gate) gate.style.display='none';
     if(pill) pill.style.display='none';
     if(ic) ic.style.display='none';
@@ -2764,7 +2784,7 @@ function _updateSyncUI(d){
   } else {
     if(pill) pill.style.display='none';
     if(ic) ic.style.display='none';
-    if(gate){ gate.style.display='block'; _renderSyncGate(d); }
+    if(gate) gate.style.display='none';
     if(!d.isSyncing && !d.totalTracks && !_autoSyncTriggered){
       _autoSyncTriggered=true;
       _startSync();
@@ -2781,24 +2801,6 @@ function _fmtRemaining(elapsedMs, done, total){
   const remainSec=Math.ceil(remainMs/1000);
   if(remainSec<90) return `~${remainSec}s remaining`;
   return `~${Math.ceil(remainSec/60)}min remaining`;
-}
-
-function _renderSyncGate(d){
-  const gate=$('syncGateCard');
-  if(!gate) return;
-  if(d.isSyncing){
-    gate.innerHTML=`
-      <div class="sync-gate-title">Almost there…</div>
-      <div class="sync-gate-body">Stay with us.</div>`;
-  } else {
-    gate.innerHTML=`
-      <div class="sync-gate-title">Bring your songs</div>
-      <div class="sync-gate-body">Once. Then how does it feel?</div>
-      <button class="btn btn-green btn-md" onclick="_startSync()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        Connect
-      </button>`;
-  }
 }
 
 async function _startSync(){
