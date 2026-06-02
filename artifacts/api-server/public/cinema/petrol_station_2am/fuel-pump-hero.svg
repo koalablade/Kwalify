@@ -2,28 +2,23 @@
   <!-- LOCKED layer order: docs/KWALIFY_PETROL_PUMP_SVG_LOCKED.md -->
   <defs>
     <linearGradient id="pump-body" x1="40" y1="28" x2="40" y2="86" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F2F4FA"/><stop offset="1" stop-color="#B8C4D8"/>
+      <stop stop-color="#F6F8FE"/><stop offset="1" stop-color="#B0BECC"/>
     </linearGradient>
     <linearGradient id="pump-head" x1="40" y1="12" x2="40" y2="34" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#E8ECF4"/><stop offset="1" stop-color="#C8D0E0"/>
+      <stop stop-color="#F0F4FC"/><stop offset="1" stop-color="#C8D4E8"/>
     </linearGradient>
     <linearGradient id="pump-screen" x1="40" y1="38" x2="40" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B8E0F8"/><stop offset="1" stop-color="#88B8E0" stop-opacity=".45"/>
+      <stop stop-color="#C4E8FC"/><stop offset="1" stop-color="#90C0E8" stop-opacity=".55"/>
     </linearGradient>
-    <radialGradient id="pump-glow" cx="40" cy="47" r="14" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#A8D8F8" stop-opacity=".22"/><stop offset="1" stop-color="#A8D8F8" stop-opacity="0"/>
+    <radialGradient id="pump-glow" cx="40" cy="47" r="15" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B0E0FC" stop-opacity=".32"/><stop offset="1" stop-color="#B0E0FC" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <!-- 1 BODY -->
-  <rect x="18" y="28" width="44" height="58" rx="22" fill="url(#pump-body)"/>
-  <!-- 2 HEAD UNIT -->
-  <rect x="21" y="10" width="38" height="24" rx="14" fill="url(#pump-head)"/>
-  <!-- 3 SCREEN PANEL -->
-  <rect x="26" y="38" width="28" height="18" rx="8" fill="url(#pump-screen)"/>
-  <!-- 4 HOSE -->
-  <path d="M56 72 Q70 66, 74 50" fill="none" stroke="#B0BCD0" stroke-width="8" stroke-linecap="round"/>
-  <!-- 5 NOZZLE -->
-  <rect x="66" y="44" width="16" height="12" rx="6" fill="#A0B0C8"/>
-  <!-- 6 ACCENT -->
-  <ellipse cx="40" cy="47" rx="14" ry="10" fill="url(#pump-glow)"/>
+  <ellipse cx="40" cy="90" rx="24" ry="6" fill="rgba(0,0,0,.1)"/>
+  <rect x="16" y="28" width="48" height="60" rx="24" fill="url(#pump-body)"/>
+  <rect x="19" y="8" width="42" height="26" rx="16" fill="url(#pump-head)"/>
+  <rect x="24" y="38" width="32" height="20" rx="11" fill="url(#pump-screen)"/>
+  <path d="M58 74 Q74 66, 78 48" fill="none" stroke="#A8B8D0" stroke-width="10" stroke-linecap="round"/>
+  <rect x="68" y="42" width="18" height="14" rx="9" fill="#98A8C4"/>
+  <ellipse cx="40" cy="48" rx="15" ry="11" fill="url(#pump-glow)"/>
 </svg>

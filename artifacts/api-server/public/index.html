@@ -11,7 +11,9 @@
   <meta property="og:type" content="website" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="preload" href="/js/pets-ui.js" as="script" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -713,15 +715,23 @@
       opacity:0; transform:scale(.97); pointer-events:none;
     }
     .pets-grid {
-      display:grid; grid-template-columns:repeat(3, 240px); gap:36px;
-      justify-content:center; width:100%; max-width:820px;
+      display:flex; flex-wrap:wrap; justify-content:center; align-content:center;
+      gap:32px 36px; width:100%; max-width:780px;
     }
-    @media (max-width:820px) {
-      .pets-grid { grid-template-columns:repeat(2, min(240px, 44vw)); gap:28px; }
-      .pets-home { padding:48px 28px; }
+    @media (min-width:640px) {
+      .pets-grid::after { content:''; flex-basis:100%; height:0; order:2; }
+      .pets-card:nth-child(1) { order:0; }
+      .pets-card:nth-child(2) { order:1; }
+      .pets-card:nth-child(3) { order:3; }
+      .pets-card:nth-child(4) { order:4; }
+      .pets-card:nth-child(5) { order:5; }
+    }
+    @media (max-width:639px) {
+      .pets-grid { flex-direction:column; align-items:center; gap:24px; }
+      .pets-home { padding:40px 24px; }
     }
     .pets-card {
-      width:100%; max-width:240px; height:204px; margin:0; padding:26px 20px 22px; border:none;
+      width:228px; flex:0 0 228px; height:204px; margin:0; padding:26px 20px 22px; border:none;
       border-radius:28px;
       background:linear-gradient(168deg, rgba(255,255,255,.11) 0%, rgba(255,255,255,.04) 42%, rgba(12,16,26,.35) 100%);
       cursor:pointer; font-family:inherit;
@@ -790,9 +800,46 @@
       filter:drop-shadow(0 24px 48px rgba(0,0,0,.1));
     }
     .pets-scene-hint {
-      position:absolute; bottom:max(32px, env(safe-area-inset-bottom)); left:0; right:0;
+      position:relative; margin:0;
       text-align:center; font-size:11px; font-weight:600; letter-spacing:.06em;
-      color:rgba(255,255,255,.22); pointer-events:none;
+      color:rgba(255,255,255,.28); pointer-events:none;
+    }
+    .pets-scene-foot {
+      position:absolute; bottom:max(28px, env(safe-area-inset-bottom)); left:0; right:0;
+      display:flex; flex-direction:column; align-items:center; gap:18px; pointer-events:none; z-index:4;
+    }
+    .pets-scene-foot .pets-spotify-btn { pointer-events:auto; }
+    .pets-gen-pulse {
+      width:10px; height:10px; border-radius:50%;
+      background:rgba(30,215,96,.75);
+      box-shadow:0 0 20px rgba(30,215,96,.45);
+      animation:petsPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes petsPulse {
+      0%, 100% { opacity:.45; transform:scale(.9); }
+      50% { opacity:1; transform:scale(1.15); }
+    }
+    .pets-spotify-btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:14px 28px; border-radius:999px; text-decoration:none;
+      font-family:inherit; font-size:14px; font-weight:700; letter-spacing:.01em;
+      color:#0a0c10;
+      background:linear-gradient(165deg, #5ee89a 0%, #1ed760 55%, #1db954 100%);
+      box-shadow:0 10px 32px rgba(30,215,96,.25), inset 0 1px 0 rgba(255,255,255,.35);
+      transition:transform .4s cubic-bezier(.22,1,.36,1), filter .4s ease;
+    }
+    .pets-spotify-btn:hover { transform:translateY(-2px) scale(1.02); filter:brightness(1.05); }
+    .pets-logout {
+      position:absolute; top:max(18px, env(safe-area-inset-top)); right:max(18px, env(safe-area-inset-right));
+      z-index:6; padding:8px 14px; border:none; border-radius:999px;
+      font-family:inherit; font-size:11px; font-weight:600; letter-spacing:.04em;
+      color:rgba(255,255,255,.35); background:rgba(255,255,255,.06); cursor:pointer;
+      transition:color .3s ease, background .3s ease;
+    }
+    .pets-logout:hover { color:rgba(255,255,255,.6); background:rgba(255,255,255,.1); }
+    @media (prefers-reduced-motion:reduce) {
+      .pets-illust--preview, .pets-guest-illust, .pets-gen-pulse { animation:none !important; }
+      .pets-card, .pets-home, .pets-scene, .pets-illust--hero { transition:none !important; }
     }
     /* Guest — same soft illustrated empty space as logged-in app */
     .pets-guest {
@@ -1090,6 +1137,7 @@
 
 <!-- Logged-in: Emotion Grid ONLY (#appView = grid + scene, nothing else) -->
 <div id="appView" class="pets-shell" hidden>
+  <button type="button" class="pets-logout" id="petsLogout">Log out</button>
   <main id="emotionGridHome" class="pets-home">
     <div class="pets-grid" id="emotionMoodGrid" role="list"></div>
   </main>
@@ -1097,7 +1145,11 @@
     <div class="pets-scene-bg" id="emotionSceneBg"></div>
     <div class="pets-scene-ambient" aria-hidden="true"></div>
     <div class="pets-scene-hero" id="emotionSceneObject"></div>
-    <p class="pets-scene-hint">tap to return</p>
+    <div class="pets-scene-foot">
+      <div class="pets-gen-pulse" id="petsGenPulse" hidden aria-hidden="true"></div>
+      <a id="petsSpotifyBtn" class="pets-spotify-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>Open in Spotify</a>
+      <p class="pets-scene-hint" id="petsSceneHint">tap to return</p>
+    </div>
   </div>
 </div>
 
@@ -1198,6 +1250,9 @@ async function api(path, opts={}){
   const res = await fetch('/api'+path, {credentials:'include', headers:{'Content-Type':'application/json',...(opts.headers||{})}, ...opts});
   return {ok:res.ok, status:res.status, data: await res.json().catch(()=>({}))};
 }
+</script>
+<script src="/js/pets-ui.js"></script>
+<script>
 
 /* ══ BOOT — exactly 3 views: loading → guest OR app ══ */
 function kwSetView(mode){
@@ -1459,155 +1514,6 @@ const MOMENT_SCENES=[
   'night_drive','petrol_station_2am','sunset_coast','urban_midnight_walk','train_journey',
   'summer_afternoon_drift','rainy_city_interior','memory_road','club_exit_dawn','open_highway_daylight',
 ];
-
-/** Homepage mood grid — Pets-style soft illustrations (5 cards). sceneId = playlist API. */
-const EMOTION_MOODS=[
-  { sceneId:'petrol_station_2am', title:'Night Refuel', illust:'pump', bg:'#1c2438' },
-  { sceneId:'night_drive', title:'Motorway Drive', illust:'road', bg:'#182030' },
-  { sceneId:'urban_midnight_walk', title:'Late London Walk', illust:'lamp', bg:'#161c2a' },
-  { sceneId:'memory_road', title:'Old Car Project', illust:'car', bg:'#1a2234' },
-  { sceneId:'summer_afternoon_drift', title:'End of Summer Drive', illust:'horizon', bg:'#242838' },
-];
-
-const PETS_ILLUST_DEFS={
-  pump:`<svg viewBox="0 0 80 96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <defs><linearGradient id="pg" x1="40" y1="28" x2="40" y2="86" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F4F6FC"/><stop offset="1" stop-color="#C4D0E4"/></linearGradient>
-    <linearGradient id="ph" x1="40" y1="12" x2="40" y2="34" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#EEF2FA"/><stop offset="1" stop-color="#D0D8EA"/></linearGradient>
-    <linearGradient id="ps" x1="40" y1="38" x2="40" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#C8E8FC"/><stop offset="1" stop-color="#98C8E8" stop-opacity=".5"/></linearGradient>
-    <radialGradient id="pgl" cx="40" cy="47" r="14" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B8E4FC" stop-opacity=".28"/><stop offset="1" stop-color="#B8E4FC" stop-opacity="0"/></radialGradient></defs>
-    <ellipse cx="40" cy="88" rx="22" ry="5" fill="rgba(0,0,0,.12)"/>
-    <rect x="18" y="28" width="44" height="58" rx="22" fill="url(#pg)"/>
-    <rect x="21" y="10" width="38" height="24" rx="14" fill="url(#ph)"/>
-    <rect x="26" y="38" width="28" height="18" rx="10" fill="url(#ps)"/>
-    <path d="M56 72 Q70 66, 74 50" fill="none" stroke="#B8C4D8" stroke-width="9" stroke-linecap="round"/>
-    <rect x="66" y="44" width="16" height="12" rx="8" fill="#A8B8D0"/>
-    <ellipse cx="40" cy="47" rx="14" ry="10" fill="url(#pgl)"/>
-  </svg>`,
-  road:`<svg viewBox="0 0 96 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <defs><linearGradient id="rg" x1="4" y1="32" x2="92" y2="32" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#98C8F0"/><stop offset=".45" stop-color="#DCEAF8"/><stop offset="1" stop-color="#88B8E8"/></linearGradient></defs>
-    <path d="M6 46 C26 10 44 54 66 18 C76 6 90 26 90 26" stroke="url(#rg)" stroke-width="18" stroke-linecap="round" fill="none"/>
-    <path d="M10 50 C30 30 50 58 70 34" stroke="rgba(255,255,255,.28)" stroke-width="8" stroke-linecap="round" fill="none"/>
-  </svg>`,
-  lamp:`<svg viewBox="0 0 72 96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <defs><radialGradient id="lg" cx="36" cy="20" r="28" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFF8E8"/><stop offset=".45" stop-color="#F4D890"/><stop offset="1" stop-color="#E8B060" stop-opacity="0"/></radialGradient>
-    <linearGradient id="lp" x1="36" y1="34" x2="36" y2="94" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#DCE4F4"/><stop offset="1" stop-color="#A8B4C8"/></linearGradient></defs>
-    <ellipse cx="36" cy="90" rx="14" ry="4" fill="rgba(0,0,0,.1)"/>
-    <ellipse cx="36" cy="22" rx="30" ry="26" fill="url(#lg)"/>
-    <circle cx="36" cy="20" r="17" fill="#FFFCF4"/>
-    <rect x="27" y="34" width="18" height="56" rx="9" fill="url(#lp)"/>
-  </svg>`,
-  car:`<svg viewBox="0 0 96 56" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <defs><linearGradient id="cg" x1="48" y1="6" x2="48" y2="46" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F0F4FC"/><stop offset="1" stop-color="#B0BCD4"/></linearGradient></defs>
-    <ellipse cx="48" cy="50" rx="36" ry="5" fill="rgba(0,0,0,.1)"/>
-    <rect x="8" y="16" width="80" height="30" rx="20" fill="url(#cg)"/>
-    <rect x="26" y="8" width="44" height="20" rx="14" fill="rgba(255,255,255,.45)"/>
-    <circle cx="24" cy="46" r="12" fill="#98A8C0"/><circle cx="24" cy="46" r="6" fill="#E4ECF8"/>
-    <circle cx="72" cy="46" r="12" fill="#98A8C0"/><circle cx="72" cy="46" r="6" fill="#E4ECF8"/>
-  </svg>`,
-  horizon:`<svg viewBox="0 0 96 52" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <defs><linearGradient id="hg" x1="4" y1="22" x2="92" y2="22" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FCE0B8" stop-opacity=".2"/><stop offset=".35" stop-color="#F0C080"/><stop offset=".65" stop-color="#E8A868"/><stop offset="1" stop-color="#F8D8B0" stop-opacity=".15"/></linearGradient>
-    <linearGradient id="hg2" x1="48" y1="34" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#C0D0F0" stop-opacity=".5"/><stop offset="1" stop-color="#8090B0" stop-opacity=".12"/></linearGradient></defs>
-    <ellipse cx="48" cy="22" rx="44" ry="14" fill="url(#hg)"/>
-    <ellipse cx="48" cy="40" rx="48" ry="10" fill="url(#hg2)"/>
-  </svg>`,
-};
-
-function _uniquePetsSvg(svg, key){
-  const u=String(key).replace(/[^a-z0-9]/gi,'')||'x';
-  return svg
-    .replace(/\bid="([a-z0-9]+)"/gi,(_,id)=>`id="${id}-${u}"`)
-    .replace(/url\(#([a-z0-9]+)\)/gi,(_,id)=>`url(#${id}-${u})`);
-}
-
-function _petsIllustHtml(illust, variant){
-  const raw=PETS_ILLUST_DEFS[illust]||PETS_ILLUST_DEFS.pump;
-  const svg=_uniquePetsSvg(raw, illust+'-'+variant);
-  const cls=variant==='hero'?'pets-illust pets-illust--hero':'pets-illust pets-illust--preview';
-  return `<span class="${cls}">${svg}</span>`;
-}
-
-function _emotionSceneBg(hex){
-  return `radial-gradient(ellipse 80% 70% at 50% 38%, ${hex}88 0%, ${hex}44 28%, #141824 58%, #0a0c12 100%)`;
-}
-
-function _emotionPreviewHtml(illust){ return _petsIllustHtml(illust,'preview'); }
-function _emotionHeroHtml(illust){ return _petsIllustHtml(illust,'hero'); }
-
-function _mountGuestHero(){
-  const el=$('guestHeroIllust');
-  if(!el||el.dataset.mounted) return;
-  el.innerHTML=_emotionPreviewHtml('horizon');
-  el.dataset.mounted='1';
-}
-
-function renderEmotionGrid(){
-  const grid=$('emotionMoodGrid');
-  if(!grid) return;
-  grid.innerHTML=EMOTION_MOODS.map(m=>`
-    <button type="button" class="pets-card" role="listitem" data-scene="${m.sceneId}">
-      ${_emotionPreviewHtml(m.illust)}
-      <span class="pets-card-title">${esc(m.title)}</span>
-    </button>`).join('');
-  grid.querySelectorAll('.pets-card').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      openEmotionScene(btn.dataset.scene);
-    });
-  });
-}
-
-function setEmotionUIState(state, sceneId){
-  document.body.classList.toggle('pets-home-active', state==='grid');
-  document.body.classList.toggle('pets-scene-active', state==='scene');
-  const scene=$('emotionScene');
-  const obj=$('emotionSceneObject');
-  if(state==='grid'){
-    scene?.setAttribute('aria-hidden','true');
-    obj?.querySelector('.pets-illust--hero')?.classList.remove('pets-hero-in');
-  } else if(state==='scene'){
-    const mood=EMOTION_MOODS.find(m=>m.sceneId===sceneId);
-    if(!mood) return;
-    scene?.setAttribute('aria-hidden','false');
-    const bg=$('emotionSceneBg');
-    if(bg) bg.style.background=_emotionSceneBg(mood.bg);
-    if(obj){
-      obj.innerHTML=_emotionHeroHtml(m.illust);
-      const hero=obj.querySelector('.pets-illust--hero');
-      hero?.classList.remove('pets-hero-in');
-      requestAnimationFrame(()=> hero?.classList.add('pets-hero-in'));
-    }
-  }
-}
-
-function openEmotionScene(sceneId){
-  document.body.classList.add('pets-transitioning');
-  setEmotionUIState('scene', sceneId);
-  clearTimeout(openEmotionScene._t);
-  openEmotionScene._t=setTimeout(()=>document.body.classList.remove('pets-transitioning'),560);
-}
-
-function closeEmotionScene(){ setEmotionUIState('grid'); }
-
-let _emotionGridWired=false;
-/** Sole homepage entry after login — replaces legacy moment/world UI. */
-function initEmotionGridUI(){
-  renderEmotionGrid();
-  setEmotionUIState('grid');
-  if(_emotionGridWired) return;
-  _emotionGridWired=true;
-  $('emotionScene')?.addEventListener('click', closeEmotionScene);
-}
-function worldInit(){ initEmotionGridUI(); }
 
 /** Weighted match: direct +3, emotion +2, context +1 — single winner, no blend. */
 const SCENE_SIGNALS={
