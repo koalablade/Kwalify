@@ -1264,6 +1264,193 @@
       .vibe-focus { margin:12vh 0 10vh; }
       .examples-whisper { margin-top:48px; }
     }
+
+    /* Restore active Vibe DJ UI from the product screenshots. */
+    html[data-kw="guest"] body,
+    html[data-kw="guest"] .page,
+    html[data-kw="app"] body,
+    html[data-kw="app"] #appView {
+      background:
+        radial-gradient(ellipse 70% 46% at 22% 0%, rgba(130,80,255,.20), transparent 62%),
+        radial-gradient(ellipse 60% 42% at 80% 50%, rgba(29,185,84,.08), transparent 68%),
+        #07080c !important;
+    }
+    html[data-kw="guest"] .page {
+      display:flex !important;
+      align-items:center !important;
+      padding:0 16px 120px !important;
+      min-height:100vh !important;
+    }
+    html[data-kw="guest"] .inner {
+      max-width:1100px !important;
+      width:100% !important;
+      display:block !important;
+      margin:0 auto !important;
+    }
+    html[data-kw="guest"] .header {
+      display:flex !important;
+      max-width:1100px !important;
+      padding-top:24px !important;
+    }
+    html[data-kw="guest"] #landingView {
+      display:block !important;
+      width:100% !important;
+    }
+    html[data-kw="guest"] .features {
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      max-width:940px;
+      margin:0 auto 72px;
+      gap:24px;
+    }
+    html[data-kw="guest"] .feat-card {
+      min-height:170px;
+      padding:30px;
+      background:rgba(255,255,255,.055);
+      border-color:rgba(255,255,255,.10);
+    }
+    html[data-kw="guest"] .steps-section,
+    html[data-kw="guest"] .landing-final {
+      text-align:center;
+      margin:56px auto;
+    }
+    html[data-kw="guest"] .stats-row {
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:16px;
+      max-width:1060px;
+      margin:70px auto;
+      padding:34px 26px;
+      text-align:center;
+      background:rgba(255,255,255,.045);
+      border-color:rgba(255,255,255,.12);
+      border-radius:24px;
+    }
+    html[data-kw="guest"] .stats-row strong {
+      display:block;
+      font-size:clamp(30px,4vw,48px);
+      line-height:1;
+      margin-bottom:10px;
+    }
+    html[data-kw="guest"] .stats-row span,
+    html[data-kw="guest"] .landing-final p {
+      color:var(--text-sub);
+      font-size:18px;
+    }
+    html[data-kw="guest"] .landing-final h2 {
+      font-size:clamp(36px,6vw,54px);
+      margin-bottom:18px;
+      letter-spacing:-1.6px;
+    }
+    html[data-kw="app"] .page { display:none !important; }
+    html[data-kw="app"] #appView,
+    html[data-kw="app"] #appView.moment-app {
+      display:flex !important;
+      flex-direction:column;
+      min-height:100vh;
+      position:relative;
+      z-index:2;
+    }
+    html[data-kw="app"] #appView .page {
+      display:flex !important;
+      width:100%;
+      min-height:100vh;
+      padding:0 16px 80px;
+      background:transparent !important;
+    }
+    html[data-kw="app"] #appView .header {
+      display:flex !important;
+      max-width:920px;
+      padding-top:22px;
+    }
+    html[data-kw="app"] #appView .inner {
+      display:block !important;
+      width:100%;
+      max-width:760px;
+      margin:0 auto;
+    }
+    html[data-kw="app"] #inputCard {
+      display:block !important;
+      visibility:visible !important;
+      opacity:1 !important;
+      position:relative;
+      z-index:3;
+      max-width:760px;
+      margin:0 auto 28px;
+      background:rgba(255,255,255,.055);
+      border-color:rgba(255,255,255,.10);
+      border-radius:22px;
+    }
+    html[data-kw="app"] #inputCard .prompt-examples {
+      display:block !important;
+      margin-top:18px !important;
+      padding-top:18px !important;
+      border-top:1px solid rgba(255,255,255,.08) !important;
+    }
+    html[data-kw="app"] #inputCard .prompt-examples-label {
+      display:block !important;
+      margin-bottom:10px;
+      color:var(--text-muted);
+    }
+    html[data-kw="app"] #inputCard .prompt-example-list {
+      display:flex !important;
+      flex-direction:row !important;
+      flex-wrap:wrap;
+      align-items:center !important;
+      justify-content:flex-start;
+      gap:8px;
+    }
+    html[data-kw="app"] #inputCard .prompt-example-btn {
+      background:rgba(255,255,255,.055) !important;
+      border:1px solid rgba(255,255,255,.08) !important;
+      color:var(--text-sub) !important;
+      opacity:1 !important;
+      padding:7px 12px !important;
+      border-radius:9999px !important;
+      font-size:12.5px !important;
+      line-height:1.35 !important;
+    }
+    html[data-kw="app"] #inputCard .prompt-example-btn:hover {
+      background:rgba(130,80,255,.14) !important;
+      border-color:rgba(130,80,255,.35) !important;
+      color:#d7c4ff !important;
+    }
+    html[data-kw="app"] #inputCard .disclosure-section {
+      margin-top:18px;
+    }
+    html[data-kw="app"] #inputCard .disclosure-toggle {
+      background:rgba(255,255,255,.045);
+      border-color:rgba(255,255,255,.08);
+    }
+    html[data-kw="app"] #libraryHealthCard.visible,
+    html[data-kw="app"] #libraryHealthCard:not(:empty) {
+      display:block !important;
+      margin:0 auto 16px;
+      padding:22px 24px;
+      border-radius:18px;
+    }
+    html[data-kw="app"] .below-fold {
+      display:block !important;
+      opacity:1 !important;
+      margin-top:28px;
+      padding-top:0;
+    }
+    html[data-kw="app"] .below-fold .section-title,
+    html[data-kw="app"] .below-fold .section-sub {
+      opacity:1 !important;
+    }
+    html[data-kw="app"] .section-title { color:#fff; }
+    html[data-kw="app"] .section-sub { color:var(--text-muted); }
+    html[data-kw="app"] #plList {
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    @media (max-width:720px) {
+      html[data-kw="guest"] .features,
+      html[data-kw="guest"] .stats-row { grid-template-columns:1fr; }
+      html[data-kw="guest"] .lhero { padding-top:56px; }
+      html[data-kw="app"] #appView .header { max-width:760px; }
+    }
   </style>
 </head>
 <body>
@@ -1283,32 +1470,106 @@
 <div class="waves" id="waveBars"></div>
 <div class="toast-stack" id="toastStack"></div>
 
-<!-- Logged-in: Emotion Grid ONLY (#appView = grid + scene, nothing else) -->
-<div id="appView" class="pets-shell" hidden>
-  <button type="button" class="pets-logout" id="petsLogout">Log out</button>
-  <main id="emotionGridHome" class="pets-home">
-    <div class="pets-grid" id="emotionMoodGrid" role="list"></div>
-    <button type="button" class="pets-world-enter" id="petsWorldEnter">Explore mood space</button>
-  </main>
-  <div id="emotionWorld" class="pets-world" aria-hidden="true">
-    <div class="pets-world-bg" aria-hidden="true"></div>
-    <div class="pets-world-field" id="emotionWorldField"></div>
-    <p class="pets-world-hint">tap to return</p>
-  </div>
-  <div id="emotionScene" class="pets-scene" aria-hidden="true">
-    <div class="pets-scene-bg" id="emotionSceneBg"></div>
-    <div class="pets-scene-ambient" aria-hidden="true"></div>
-    <div class="pets-scene-hero" id="emotionSceneObject"></div>
-    <div class="pets-scene-foot">
-      <div class="pets-drag-bar" id="petsDragBar" hidden>
-        <div class="pets-drag-track">
-          <div class="pets-drag-fill" id="petsDragFill"></div>
+<!-- Logged-in: generator app -->
+<div id="appView" class="moment-app" hidden>
+  <div class="page">
+    <header class="header">
+      <a class="logo" href="/">
+        <div class="logo-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 4h5.2l2.8 5.2L17 4H22l-7.5 9.8V20h-5.1v-6.2L6 4z" fill="#fff"/></svg></div>
+        <span class="logo-name">K<em>walify</em></span>
+      </a>
+      <nav class="header-nav">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>
+      </nav>
+    </header>
+
+    <div class="inner">
+      <section class="hero">
+        <div class="badge"><span class="badge-dot"></span>Vibe DJ · from your liked songs</div>
+        <h1>What's the vibe?</h1>
+        <p>Describe a moment — Kwalify builds a playlist from songs you already saved on Spotify.</p>
+      </section>
+
+      <div id="libraryReadyPill" class="library-ready-pill" style="display:none"></div>
+
+      <section id="libraryHealthCard" class="library-health-card glass"></section>
+
+      <section id="inputCard" class="input-card glass">
+        <label class="field-label" for="vibeInput">Describe your vibe</label>
+        <div class="input-row">
+          <div class="input-wrap">
+            <input type="text" id="vibeInput" class="vibe-input" maxlength="140" autocomplete="off" placeholder="Describe a moment — not a genre..." />
+            <span id="vibeCounter" class="vibe-counter">0/140</span>
+          </div>
+          <button type="button" id="generateBtn" class="btn btn-purple" onclick="generate()">Generate</button>
         </div>
-        <span class="pets-drag-label" id="petsDragLabel">building playlist</span>
+        <p class="generate-liked-hint">Only uses songs already in your Spotify liked songs.</p>
+
+        <div id="promptExamples" class="prompt-examples">
+          <div class="prompt-examples-label">Try one of these</div>
+          <div id="promptExampleList" class="prompt-example-list"></div>
+        </div>
+
+        <div class="controls">
+          <div class="ctrl-block grow">
+            <label class="ctrl-label">Playlist length — <span id="lenVal" class="ctrl-val">25 tracks</span></label>
+            <input id="lenSlider" class="length-slider" type="range" value="25" min="10" max="100" />
+          </div>
+          <div class="ctrl-block">
+            <label class="ctrl-label">Match mode</label>
+            <div class="mode-tabs">
+              <button type="button" id="modeStrict" class="mode-tab" onclick="setMode('strict')">Strict</button>
+              <button type="button" id="modeBalanced" class="mode-tab active" onclick="setMode('balanced')">Balanced</button>
+              <button type="button" id="modeChaotic" class="mode-tab" onclick="setMode('chaotic')">Chaotic</button>
+            </div>
+          </div>
+        </div>
+
+        <details id="advancedHomeSection" class="disclosure-section">
+          <summary class="disclosure-toggle">Settings <span class="disclosure-chevron">▼</span></summary>
+          <div class="disclosure-body">
+            <label class="field-label" for="referencePlaylistInput">Sound like this playlist</label>
+            <input id="referencePlaylistInput" class="vibe-input" type="url" placeholder="Paste a public Spotify playlist link" />
+            <p id="referencePlaylistHint" class="prompt-examples-hint"></p>
+          </div>
+        </details>
+      </section>
+
+      <div class="prog-wrap" id="progWrap">
+        <div class="prog-head"><span class="prog-label"><span class="spin"></span><span id="progStage">Building playlist</span></span><span id="progPct" class="prog-pct">0%</span></div>
+        <div class="prog-track"><div id="progFill" class="prog-fill"></div></div>
+        <ol id="djStages" class="dj-stages"></ol>
       </div>
-      <a id="petsSpotifyBtn" class="pets-spotify-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>Open in Spotify</a>
-      <button type="button" id="petsRetryBtn" class="pets-retry-btn" hidden>Try again</button>
-      <p class="pets-scene-hint" id="petsSceneHint">tap to return</p>
+
+      <div id="resultCard" class="result-card">
+        <div id="resultSurface" class="result-surface glass">
+          <p id="momentEcho" hidden></p>
+          <h1 id="resultName"></h1>
+          <div id="resultMeta" hidden></div>
+          <div id="spotifyActionArea"></div>
+          <ol id="momentPlaylistPreview" hidden></ol>
+          <p id="resultSummary" hidden></p>
+          <span id="modeBadge" hidden></span>
+        </div>
+      </div>
+
+      <div id="pendingCard" class="pending-card" hidden>
+        <div id="pendingTitle"></div><div id="pendingSubtitle"></div>
+        <div id="pendingTrackList"></div><div id="pendingMore"></div><div id="pendingEmotionBars"></div>
+      </div>
+
+      <section id="belowFold" class="below-fold">
+        <div id="myPlaylistsSection" class="my-playlists-section">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Recent playlists</div>
+              <div class="section-sub">Quick reopen here · Gallery has every playlist</div>
+            </div>
+          </div>
+          <div id="plList"></div>
+        </div>
+      </section>
+      <div id="histSection" hidden><div id="hList"></div></div>
     </div>
   </div>
 </div>
@@ -1330,66 +1591,70 @@
     <!-- ── Loading ── -->
     <div id="loadOverlay"><div class="spin"></div></div>
 
-    <!-- ── GUEST — login (Pets-layout · Kwalify objects) ── -->
-    <div id="landingView" class="pets-guest" style="display:none">
-      <header class="pets-guest-top">
-        <a href="/" class="pets-guest-logo">
-          <span class="pets-guest-logo-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M6 4h5.2l2.8 5.2L17 4H22l-7.5 9.8V20h-5.1v-6.2L6 4z" fill="#fff"/></svg>
-          </span>
-          Kwalify
-        </a>
-        <a href="https://github.com/koalablade/Kwalify" class="pets-guest-faq" target="_blank" rel="noopener noreferrer">FAQ</a>
-      </header>
-      <div class="pets-guest-edge" id="guestEdgeDecor" aria-hidden="true"></div>
-      <div class="pets-guest-content">
-        <h1 class="pets-guest-title">
-          <span class="pets-guest-title-mark" id="guestTitleAccent" aria-hidden="true"></span>
-          Kwalify
-        </h1>
-        <p class="pets-guest-tag">Get a playlist for your mood based on music you love.</p>
-        <a href="/api/auth/login" class="pets-connect-btn">Let's go</a>
-      </div>
-      <footer class="pets-guest-foot">
-        <div class="pets-guest-foot-links">
-          <a href="https://www.spotify.com/legal/end-user-agreement/" target="_blank" rel="noopener noreferrer">Legal</a>
-          <a href="https://www.spotify.com/legal/privacy-policy/" target="_blank" rel="noopener noreferrer">Privacy</a>
+    <!-- ── GUEST — landing ── -->
+    <div id="landingView" class="landing" style="display:none">
+      <section class="lhero">
+        <div class="lhero-badge">▷ AI-powered playlist generation</div>
+        <h1>Your vibe.<br><span>Your playlist.</span></h1>
+        <p>Kwalify reads your Spotify library, analyses every song's energy and mood, then builds a perfectly-matched playlist from what you actually listen to.</p>
+        <div class="lhero-cta">
+          <a href="/api/auth/login" class="btn btn-green btn-lg">
+            <span aria-hidden="true">◉</span> Connect with Spotify — it's free
+          </a>
         </div>
-        <p class="pets-guest-foot-copy">© Kwalify · Liked songs only</p>
-      </footer>
+        <div class="lhero-note">No credit card · No data stored · Private playlists only</div>
+      </section>
+
+      <section class="features">
+        <article class="feat-card glass">
+          <div class="feat-icon">🧠</div>
+          <h3>3-Layer Vibe AI</h3>
+          <p>Parses your scene into location, time, mood, and motion — then maps it to exact audio fingerprints.</p>
+        </article>
+        <article class="feat-card glass">
+          <div class="feat-icon">🎵</div>
+          <h3>Scores your library</h3>
+          <p>Every liked song is scored against 5 audio dimensions. Only songs you already love make the cut.</p>
+        </article>
+        <article class="feat-card glass">
+          <div class="feat-icon">🎛️</div>
+          <h3>Strict, Balanced, Chaotic</h3>
+          <p>Choose how closely tracks match your vibe. Balanced ensures artist variety and tempo diversity.</p>
+        </article>
+        <article class="feat-card glass">
+          <div class="feat-icon">⚡</div>
+          <h3>One click, done</h3>
+          <p>Describe your mood, hit Generate. A private playlist appears in your Spotify in seconds.</p>
+        </article>
+      </section>
+
+      <section class="steps-section">
+        <h2>How it works</h2>
+        <div class="steps">
+          <div class="step"><span>1</span><h3>Connect Spotify</h3><p>One-click OAuth — read-only access to your liked songs.</p></div>
+          <div class="step"><span>2</span><h3>Describe your vibe</h3><p>Type anything: "night drive alone" or hit a preset.</p></div>
+          <div class="step"><span>3</span><h3>AI scores tracks</h3><p>Energy, valence, tempo, acousticness — all matched locally.</p></div>
+          <div class="step"><span>4</span><h3>Playlist created</h3><p>Opens in Spotify automatically — no manual steps.</p></div>
+        </div>
+      </section>
+
+      <section class="stats-row glass">
+        <div><strong>5</strong><span>Audio dimensions scored</span></div>
+        <div><strong>3</strong><span>AI pipeline layers</span></div>
+        <div><strong>10–100</strong><span>Tracks per playlist</span></div>
+        <div><strong>0</strong><span>Data stored on server</span></div>
+      </section>
+
+      <section class="landing-final">
+        <h2>Ready to hear it?</h2>
+        <p>Connect your Spotify and describe your first vibe. Takes 10 seconds.</p>
+        <a href="/api/auth/login" class="btn btn-green btn-lg">◉ Get started free</a>
+      </section>
     </div><!-- /landingView -->
 
   </div><!-- /inner -->
 </div><!-- /page -->
 
-<!-- Legacy API/generate stubs — never mounted in UI (logged-in home = Emotion Grid only) -->
-<div id="apiStubs" hidden aria-hidden="true">
-  <div id="momentShell"></div>
-  <input type="text" id="vibeInput" value="" tabindex="-1" />
-  <button type="button" id="generateBtn" onclick="generate()"></button>
-  <div id="inputCard"></div>
-  <div id="composeLayer"></div>
-  <div id="syncGateCard"></div>
-  <div id="libraryReadyPill"></div>
-  <div id="promptExamples"><div id="promptExampleList"></div></div>
-  <details id="advancedHomeSection"></details>
-  <input id="lenSlider" type="range" value="25" min="10" max="100" />
-  <span id="lenVal"></span>
-  <button id="modeStrict"></button><button id="modeBalanced"></button><button id="modeChaotic"></button>
-  <input id="referencePlaylistInput" type="url" />
-  <p id="referencePlaylistHint"></p>
-  <div id="libraryHealthCard"></div>
-  <div id="resultCard"><div id="resultSurface">
-    <p id="momentEcho" hidden></p><h1 id="resultName"></h1><div id="resultMeta" hidden></div>
-    <div id="spotifyActionArea"></div><ol id="momentPlaylistPreview" hidden></ol>
-    <p id="resultSummary" hidden></p><span id="modeBadge" hidden></span>
-  </div></div>
-  <div id="pendingCard" hidden><div id="pendingTitle"></div><div id="pendingSubtitle"></div>
-    <div id="pendingTrackList"></div><div id="pendingMore"></div><div id="pendingEmotionBars"></div></div>
-  <div id="belowFold" hidden><div id="myPlaylistsSection"><div id="plList"></div></div></div>
-  <div id="histSection" hidden><div id="hList"></div></div>
-  <span id="vibeCounter" hidden></span>
-</div>
 
 <script>
 /* ── Wave bars ── */
@@ -1438,29 +1703,36 @@ function kwSetView(mode){
   if(splash) splash.setAttribute('aria-busy', mode==='loading'?'true':'false');
 }
 
-const _CONNECT_BTN=`<a href="/api/auth/login" class="pets-connect-btn">Let's go</a>`;
+const _CONNECT_BTN=`<a href="/api/auth/login" class="btn btn-green btn-sm">Connect</a>`;
 
 function bootAuthedHome(){
-  document.documentElement.classList.add('pets-font');
-  initPetsChrome?.();
-  document.body.classList.add('pets-app','pets-home-active');
-  document.body.classList.remove('pets-scene-active');
+  document.documentElement.classList.remove('pets-font');
+  document.body.classList.remove('pets-app','pets-home-active','pets-scene-active','world-active');
+  document.body.classList.add('moment-home');
   const av=$('appView');
   if(av){ av.hidden=false; av.removeAttribute('hidden'); }
+  const lv=$('landingView');
+  if(lv) lv.style.display='none';
   const cin=$('cinema');
   if(cin){ try{ cin.pause(); }catch(_){} cin.removeAttribute('src'); }
-  initEmotionGridUI();
   kwSetView('app');
+  setMomentState('home');
+  setMode('balanced');
+  wirePromptExamples();
+  fetchLibraryHealth();
+  fetchAndRenderPlaylists();
+  startSyncPolling();
+  maybeShowFirstRunHint();
+  vibeInput?.focus();
 }
 
 function bootGuestLanding(){
-  document.documentElement.classList.add('pets-font');
-  document.body.classList.remove('pets-app','pets-home-active','pets-scene-active');
+  document.documentElement.classList.remove('pets-font');
+  document.body.classList.remove('pets-app','pets-home-active','pets-scene-active','moment-home','moment-loading','moment-result','world-active');
   const av=$('appView');
   if(av){ av.hidden=true; av.setAttribute('hidden',''); }
   const lv=$('landingView');
-  if(lv) lv.style.display='flex';
-  _mountGuestHero();
+  if(lv) lv.style.display='block';
   $('headerNav').innerHTML=_CONNECT_BTN;
   kwSetView('guest');
 }
@@ -2835,7 +3107,7 @@ let _syncStartTime=null, _syncStartProgress=0, _syncIsIncremental=false;
 let _autoSyncTriggered=false;
 
 function startSyncPolling(){
-  if(document.body.classList.contains('pets-app')||kwIsAuthed()) return;
+  if(document.body.classList.contains('pets-app')) return;
   _pollSync();
   _syncTimer=setInterval(_pollSync,7000);
 }
@@ -2850,7 +3122,7 @@ function _pollSync(){
 }
 
 function _showInputFallback(){
-  if(document.body.classList.contains('pets-app')||kwIsAuthed()) return;
+  if(document.body.classList.contains('pets-app')) return;
   const ic=$('inputCard');
   if(ic&&ic.style.display==='none') ic.style.display='';
 }
@@ -2868,7 +3140,7 @@ function _updateSyncUI(d){
   const prevState=_syncState;
   _syncState=d.isSyncing?'syncing':d.synced?'synced':'unsynced';
 
-  if(document.body.classList.contains('pets-app')||kwIsAuthed()){
+  if(document.body.classList.contains('pets-app')){
     if(gate) gate.style.display='none';
     if(pill) pill.style.display='none';
     if(ic) ic.style.display='none';
