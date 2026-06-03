@@ -1,6 +1,6 @@
 # Pets UI — canonical implementation (2 screens only)
 
-**Code:** `artifacts/api-server/public/index.html` · `#appView.pets-shell` · `body.pets-app`  
+**Code:** `frontend/public/index.html` · `#appView.pets-shell` · `body.pets-app`  
 **Illustration rules:** [KWALIFY_OBJECT_CONSTRUCTION_MODE.md](./KWALIFY_OBJECT_CONSTRUCTION_MODE.md)  
 **Assembly:** [KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md](./KWALIFY_EMOTIONAL_SCENE_ASSEMBLY.md)
 

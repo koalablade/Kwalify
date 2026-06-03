@@ -12,7 +12,7 @@ You are working on Kwalify — a Spotify app that builds playlists from a user's
 ### Non-negotiables
 - Do NOT remove or replace existing playlist generation, OAuth, sync, or Spotify routes.
 - Do NOT break `EmotionProfile` consumers — extend additively first.
-- Build on: `artifacts/api-server/src/lib/emotion.ts`, `vibe-keywords-extended.ts`, `vibe-keywords-extended-b.ts`, `vibe-keywords-context-c.ts`, `vibe-archetypes.ts`, `emotion-destination.ts`.
+- Build on: `backend/lib/emotion.ts`, `vibe-keywords-extended.ts`, `vibe-keywords-extended-b.ts`, `vibe-keywords-context-c.ts`, `vibe-archetypes.ts`, `emotion-destination.ts`.
 - Match existing patterns: `VibeKeyword` / `ExtendedVibeKeyword`, longest-phrase-first matching, diminishing strength on many hits (`analyzeVibe` in emotion.ts).
 - No external AI APIs — rule-based only.
 - Minimize diff scope per PR; prefer new keyword batch files over editing 2000-line emotion.ts.
@@ -113,7 +113,7 @@ Pitch: **Music for how life feels right now.**
 ## Repo map (quick)
 
 ```
-artifacts/api-server/src/lib/
+backend/lib/
   emotion.ts              # core engine — touch sparingly
   vibe-keywords-extended.ts # batch A
   vibe-keywords-extended-b.ts # batch B

@@ -75,9 +75,9 @@ Each maps to **one** dominant emotion. Scene selection uses weighted keyword mat
 | `club_exit_dawn` | Exhaustion → clarity | Blue-hour street, faint sunrise, quiet urban stillness |
 | `open_highway_daylight` | Freedom | Bright sky, centred road symmetry, minimal clutter |
 
-Implementation: `getSceneFromInput()` in `artifacts/api-server/public/index.html` (frontend mapping only). Playlist generation stays on the server (`POST /api/generate`) — do not change scoring backend when aligning UI.
+Implementation: `getSceneFromInput()` in `frontend/public/index.html` (frontend mapping only). Playlist generation stays on the server (`POST /api/generate`) — do not change scoring backend when aligning UI.
 
-Assets: `artifacts/api-server/public/cinema/{scene_id}/still.jpg` (+ optional loop video for three scenes). Style brief: [../artifacts/api-server/public/cinema/VISUAL_STYLE.md](../artifacts/api-server/public/cinema/VISUAL_STYLE.md).
+Assets: `frontend/public/cinema/{scene_id}/still.jpg` (+ optional loop video for three scenes). Style brief: [VISUAL_STYLE.md](../frontend/public/cinema/VISUAL_STYLE.md).
 
 ---
 

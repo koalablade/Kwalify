@@ -3,7 +3,7 @@
 **Style:** Spotify Pets–inspired **soft illustrations** — friendly, rounded, simplified.  
 **Not:** industrial icons, geometric UI marks, technical diagrams.  
 **Build:** [KWALIFY_OBJECT_CONSTRUCTION_MODE.md](./KWALIFY_OBJECT_CONSTRUCTION_MODE.md)  
-**Live UI:** `artifacts/api-server/public/index.html` · `PETS_ILLUST_DEFS` · `EMOTION_MOODS`
+**Live UI:** `frontend/public/index.html` · `PETS_ILLUST_DEFS` · `EMOTION_MOODS`
 
 ---
 
