@@ -6,7 +6,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc",
     "start": "node backend/dist/server.js",
     "typecheck": "tsc --noEmit"
   },
