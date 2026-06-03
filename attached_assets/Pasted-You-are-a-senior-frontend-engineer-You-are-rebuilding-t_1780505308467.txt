@@ -1,0 +1,91 @@
+You are a senior frontend engineer.
+
+You are rebuilding the frontend UI of this application from scratch.
+
+⚠️ CRITICAL RULE:
+There must be ONLY ONE UI system, ONE router, and ONE layout tree.
+
+Any duplicate UI layers, experimental screens, secondary dashboards, or parallel “views” must be completely removed.
+
+🧱 SOURCE OF TRUTH
+
+Use ONLY:
+
+Existing backend/API endpoints (must remain untouched)
+Current URL structure only if it is explicitly defined and stable
+Provided UI screenshots (if available)
+
+DO NOT reuse or preserve any existing frontend structure.
+
+🧨 HARD RESET REQUIREMENT
+
+Delete or fully remove:
+
+Any duplicate pages or dashboards
+Any “experimental UI”, “v2 UI”, “canvas UI”, “mood UI”, “world UI”, or alternate home screens
+Any secondary layout wrappers
+Any conditional rendering that switches between multiple homepages
+Any unused routes
+Any legacy components that are not directly used in the final render tree
+🧭 ARCHITECTURE RULE
+
+The app must follow this structure ONLY:
+
+App
+└── Single Router
+└── Single Layout
+└── Home Page (ONLY ENTRY POINT)
+└── Components
+
+There must NOT be:
+
+multiple App shells
+multiple layout systems
+multiple homepage variants
+split rendering logic for different “modes”
+🧑‍💻 NEW UI BUILD REQUIREMENTS
+
+Rebuild UI as a clean, modern SaaS landing page:
+
+HOME PAGE STRUCTURE
+Hero Section
+Clear headline
+URL input field
+Single primary CTA: “Analyse site”
+Trust strip (simple icons/text only)
+Example results preview (static mock UI is fine)
+How it works (3 steps max)
+Pricing (simple 3-tier layout)
+FAQ
+⚡ INTERACTION RULES
+One input → one result flow
+No multiple dashboards
+No switching UI states into different “pages” unless routed
+Results should render inside the SAME page flow (not a new app shell)
+🧠 STATE MANAGEMENT RULE
+
+All state must live in ONE place:
+
+single global store OR single page-level state
+no duplicated API fetch logic across components
+no parallel “result systems”
+🧹 CLEANUP REQUIREMENTS
+
+Before finishing:
+
+Ensure there is ONLY ONE homepage route
+Ensure there is ONLY ONE layout wrapper
+Ensure there is ONLY ONE result rendering system
+Remove all dead/unused components
+Remove all duplicate CSS frameworks or conflicting styling systems
+🎯 FINAL OUTPUT GOAL
+
+A single, clean, production-ready UI that:
+
+loads fast
+has one clear flow
+never duplicates screens
+never confuses user navigation
+feels like a focused SaaS tool (not a multi-app system)
+
+If anything conflicts, prioritise simplicity over features.
