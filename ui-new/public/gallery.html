@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kwalify - Gallery</title>
+  <meta name="theme-color" content="#05060a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/base.css">
+</head>
+<body>
+  <div class="kw-toast-zone" id="toastZone"></div>
+  <main class="kw-scene">
+    <div class="kw-wrap">
+      <header class="kw-top">
+        <a class="kw-brand kw-brand-green" href="/">
+          <span class="kw-mark">Y</span>
+          <span>K<em>walify</em></span>
+        </a>
+        <a class="kw-btn kw-btn-quiet" href="/">&lt;- Back to app</a>
+      </header>
+
+      <section class="kw-hero" style="text-align:left;padding-bottom:28px">
+        <h1 class="kw-title" style="font-size:clamp(42px,6vw,62px)">Recently generated vibes</h1>
+        <p class="kw-subtitle" style="margin-left:0">Moments people turned into playlists - only songs they already loved on Spotify.</p>
+      </section>
+
+      <section id="galleryRoot"><div class="kw-loader"></div></section>
+    </div>
+  </main>
+  <script type="module" src="/pages/gallery.js"></script>
+</body>
+</html>

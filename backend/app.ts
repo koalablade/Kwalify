@@ -120,9 +120,9 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Serve the static frontend from the repository-level frontend/public folder.
-  // __dirname = backend/dist at runtime -> ../../frontend/public
-  const frontendPublicDir = path.resolve(__dirname, "../../frontend/public");
+  // Serve the isolated rebuilt frontend from ui-new/public.
+  // __dirname = backend/dist at runtime -> ../../ui-new/public
+  const frontendPublicDir = path.resolve(__dirname, "../../ui-new/public");
   app.use(express.static(frontendPublicDir));
 
   // Named SPA routes served before the API router so Express doesn't 404 them.
