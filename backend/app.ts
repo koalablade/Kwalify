@@ -5,10 +5,12 @@ import connectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
 import pg from "pg";
 import path from "node:path";
-import router from "./routes";
+import router from "./routes/routes.index";
 import { logger } from "./lib/logger";
 import { type AppEnv } from "./lib/env";
 import "./lib/session";
+
+let appInstanceCreated = false;
 
 /**
  * Creates and returns the configured Express application.
@@ -25,6 +27,9 @@ import "./lib/session";
  * "app created without env validation" structurally impossible.
  */
 export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
+  if (appInstanceCreated) {
+    throw new Error("[architecture] createApp() may only be called once; backend/server.ts is the single entry point");
+  }
   if (!env?.DATABASE_URL || !env?.SESSION_SECRET || env?.PORT <= 0) {
     throw new Error(
       "[app] createApp() called with invalid env — ensure validateEnv() ran first",
@@ -35,6 +40,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       "[app] createApp() called without a pool — ensure initPool() ran first",
     );
   }
+  appInstanceCreated = true;
 
   const PgStore = connectPgSimple(session);
   const app: Express = express();
@@ -114,13 +120,14 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Serve the frontend from public/ directory.
-  // __dirname = artifacts/api-server/dist at runtime → ../public = artifacts/api-server/public
-  app.use(express.static(path.resolve(__dirname, "../public")));
+  // Serve the static frontend from the repository-level frontend/public folder.
+  // __dirname = backend/dist at runtime -> ../../frontend/public
+  const frontendPublicDir = path.resolve(__dirname, "../../frontend/public");
+  app.use(express.static(frontendPublicDir));
 
   // Named SPA routes served before the API router so Express doesn't 404 them.
-  app.get("/p/:id", (_req, res) => res.sendFile(path.resolve(__dirname, "../public/playlist.html")));
-  app.get("/gallery", (_req, res) => res.sendFile(path.resolve(__dirname, "../public/gallery.html")));
+  app.get("/p/:id", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "playlist.html")));
+  app.get("/gallery", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "gallery.html")));
 
   app.use("/api", router);
 

@@ -2,7 +2,7 @@
 
 This repo serves **both** from one Render web service:
 
-- UI: `/`, `/gallery`, `/p/:id` (files in `artifacts/api-server/public/`)
+- UI: `/`, `/gallery`, `/p/:id` (files in `frontend/public/`)
 - API: `/api/*`
 
 ## Production URL

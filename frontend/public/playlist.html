@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kwalify Playlist</title>
+  <meta name="description" content="A Spotify playlist built from songs you already love — made with Kwalify." />
+  <meta name="theme-color" content="#090910" />
+  <meta property="og:title" content="Kwalify Playlist" />
+  <meta property="og:description" content="A playlist from Spotify liked songs only — made with Kwalify." />
+  <meta property="og:type" content="music.playlist" />
+  <meta property="og:image" id="ogImage" content="" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#060608; --surface:rgba(255,255,255,.04); --border:rgba(255,255,255,.08);
+      --green:#1db954; --green-dim:rgba(29,185,84,.12); --green-glow:rgba(29,185,84,.28);
+      --text:#fff; --text-sub:rgba(255,255,255,.58); --text-muted:rgba(255,255,255,.33);
+      --spring:cubic-bezier(0.16,1,0.3,1);
+    }
+    html,body{min-height:100%;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+    .bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+    .orb{position:absolute;border-radius:50%;filter:blur(90px)}
+    .orb-1{display:none}
+    .orb-2{width:480px;height:480px;bottom:-80px;right:-60px;background:radial-gradient(circle,rgba(29,185,84,.08),transparent 70%)}
+    .page{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:0 16px 80px}
+    .inner{width:100%;max-width:560px}
+    .header{width:100%;max-width:560px;display:flex;align-items:center;justify-content:space-between;padding:22px 0 0}
+    .logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+    .logo-mark{width:33px;height:33px;background:linear-gradient(145deg,#128b3f,#1db954);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px}
+    .logo-name{font-size:15px;font-weight:800;color:var(--text)} .logo-name em{color:var(--green);font-style:normal}
+    .back-link{font-size:13px;color:var(--text-muted);text-decoration:none}
+    .glass{background:var(--surface);border:1px solid var(--border);border-radius:18px;backdrop-filter:blur(28px)}
+    .hero-card{margin-top:24px;padding:28px 26px 24px;animation:fsu .4s var(--spring) both}
+    @keyframes fsu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+    .preview-art{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:280px;margin-bottom:20px;border-radius:12px;overflow:hidden}
+    .preview-art img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+    .preview-art .art-fb{aspect-ratio:1;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:16px}
+    .pl-badge{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:8px;display:none}
+    .pl-name{font-size:clamp(24px,5vw,32px);font-weight:900;letter-spacing:-.5px;line-height:1.15;margin-bottom:12px}
+    .mood-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+    .mood-row{display:none}
+    .prompt-block{margin-bottom:16px;padding:14px 16px;background:rgba(255,255,255,.03);border-radius:12px;border-left:3px solid var(--green)}
+    .prompt-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:6px}
+    .prompt-text{font-size:15px;color:var(--text);font-style:italic;line-height:1.45}
+    .meta-row{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:13px;color:var(--text-sub);margin-bottom:20px}
+    .meta-row span{display:flex;align-items:center;gap:5px}
+    .cta-stack{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;font-family:inherit;font-weight:700;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .2s}
+    .btn-green{background:var(--green);color:#000;border-radius:12px;padding:14px 24px;font-size:15px;width:100%;box-shadow:0 4px 20px var(--green-glow)}
+    .btn-green:hover{transform:translateY(-1px);box-shadow:0 8px 28px var(--green-glow)}
+    .btn-ghost{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-sub);border-radius:12px;padding:12px 20px;font-size:14px;width:100%}
+    .btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.18)}
+    .liked-note{font-size:11.5px;color:var(--text-muted);text-align:center;margin-top:12px;line-height:1.45}
+    .share-trust-footer{font-size:11px;color:var(--text-muted);text-align:center;margin-top:28px;line-height:1.5;opacity:.85}
+    .tracks-card{margin-top:14px;padding:18px 20px}
+    .tracks-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px}
+    .track-list{max-height:360px;overflow-y:auto}
+    .track-row{display:flex;align-items:center;gap:12px;padding:8px 6px;border-radius:8px}
+    .track-row:hover{background:rgba(255,255,255,.04)}
+    .track-num{font-size:11px;color:var(--text-muted);width:18px;text-align:right}
+    .track-art{width:40px;height:40px;border-radius:8px;object-fit:cover}
+    .track-art-fb{width:40px;height:40px;border-radius:8px;background:var(--green-dim);display:flex;align-items:center;justify-content:center}
+    .track-info{flex:1;min-width:0}
+    .track-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .track-artist{font-size:12px;color:var(--text-muted)}
+    .tracks-more{font-size:12px;color:var(--text-muted);margin-top:10px;text-align:center}
+    .cta{display:none}
+    .error-card{margin-top:60px;text-align:center;padding:48px 28px}
+    .spin{width:28px;height:28px;border:2.5px solid rgba(255,255,255,.12);border-top-color:var(--green);border-radius:50%;animation:spin .65s linear infinite;margin:60px auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+<div class="bg"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+<div class="page">
+  <header class="header">
+    <a class="logo" href="/"><div class="logo-mark" aria-hidden="true" style="width:33px;height:33px;background:linear-gradient(145deg,#128b3f,#1db954);border-radius:9px;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 4h5.2l2.8 5.2L17 4H22l-7.5 9.8V20h-5.1v-6.2L6 4z" fill="#fff"/></svg></div><span class="logo-name">K<em>walify</em></span></a>
+    <a href="/" class="back-link">Make yours →</a>
+  </header>
+  <div class="inner" id="main"><div class="spin"></div></div>
+</div>
+<script>
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+const ARC={slow_burn:'Slow burn',linear_rise:'Steady lift',recovery:'Recovery',peak_release:'Build & release',wave:'Ebb & flow',default:'Balanced'};
+function moodTags(ep){
+  if(!ep||typeof ep!=='object') return [];
+  const t=[];
+  if(ep.timeOfDay) t.push(String(ep.timeOfDay).replace(/_/g,' '));
+  if(ep.environment) t.push(String(ep.environment).replace(/_/g,' '));
+  if(ep.journeyArc) t.push(ARC[ep.journeyArc]||ep.journeyArc);
+  if(ep.nostalgia>=0.5) t.push('nostalgic');
+  if(ep.calm>=0.6) t.push('calm');
+  return t.slice(0,4);
+}
+const match=location.pathname.match(/\/p\/(\d+)/);
+const playlistId=match?match[1]:null;
+
+function setOg(d, tracks){
+  const title=(d.name||'Playlist')+' — Kwalify';
+  const desc=d.vibe
+    ? `"${d.vibe}" — ${tracks.length} tracks from Spotify liked songs only`
+    : `${tracks.length} tracks from Spotify liked songs only`;
+  document.querySelector('meta[property="og:title"]')?.setAttribute('content', title);
+  document.querySelector('meta[property="og:description"]')?.setAttribute('content', desc);
+  const art=tracks.find(t=>t.albumArt||t.album_art);
+  const img=art&&(art.albumArt||art.album_art);
+  if(img){
+    const og=document.getElementById('ogImage');
+    if(og) og.setAttribute('content', img);
+  }
+}
+
+function previewArtHtml(tracks){
+  const slice=(tracks||[]).slice(0,3);
+  if(!slice.length) return '';
+  return `<div class="preview-art">${slice.map(t=>{
+    const u=t.albumArt||t.album_art;
+    if(u) return `<img src="${esc(u)}" alt="" onerror="this.outerHTML='<span class=art-fb>🎵</span>'">`;
+    return '<span class="art-fb">🎵</span>';
+  }).join('')}</div>`;
+}
+
+function trackRow(t,i){
+  const art=(t.albumArt||t.album_art)?`<img class="track-art" src="${esc(t.albumArt||t.album_art)}" alt="" onerror="this.outerHTML='<span class=track-art-fb>🎵</span>'">`:'<span class="track-art-fb">🎵</span>';
+  const tid=t.trackId||t.track_id||t.id;
+  return `<div class="track-row"><span class="track-num">${i+1}</span>${art}<div class="track-info"><div class="track-name">${esc(t.trackName||t.name)}</div><div class="track-artist">${esc(t.artistName||t.artist)}</div></div>${tid?`<a href="https://open.spotify.com/track/${esc(tid)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--green)">▶</a>`:''}</div>`;
+}
+
+function renderPage(d){
+  const tracks=Array.isArray(d.tracks)?d.tracks:[];
+  const ep=d.emotionProfile||{};
+  const tags=moodTags(ep);
+  const lib=d.librarySize?`${Number(d.librarySize).toLocaleString()} liked songs`:null;
+  const count=d.trackCount||tracks.length;
+  document.title=(d.name||'Playlist')+' — Kwalify';
+  setOg(d, tracks);
+  const preview=tracks.slice(0,3);
+  const rest=tracks.slice(3);
+  const previewRows=preview.map((t,i)=>trackRow(t,i)).join('');
+  const restRows=rest.map((t,i)=>trackRow(t,i+3)).join('');
+  const spotifyCta=d.spotifyUrl?`<a class="btn btn-green" href="${esc(d.spotifyUrl)}" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02z"/></svg>
+        Open on Spotify
+      </a>`:'';
+  document.getElementById('main').innerHTML=`
+    <div class="glass hero-card">
+      ${previewArtHtml(tracks)}
+      <h1 class="pl-name">${esc(d.name)}</h1>
+      ${d.vibe?`<div class="prompt-block"><div class="prompt-label">Vibe</div><div class="prompt-text">"${esc(d.vibe)}"</div></div>`:''}
+      <p class="meta-row" style="margin-bottom:16px">🎵 ${count} tracks · liked songs only</p>
+      <div class="cta-stack">
+        ${spotifyCta}
+        <a href="/api/auth/login" class="btn btn-ghost">Make your own on Kwalify</a>
+      </div>
+    </div>
+    ${tracks.length?`<div class="glass tracks-card">
+      <div class="tracks-label">Tracks</div>
+      <div class="track-list">${previewRows}${rest.length?restRows:''}</div>
+      ${rest.length?`<div class="tracks-more">+ ${rest.length} more on Spotify</div>`:''}
+    </div>`:''}
+    <p class="share-trust-footer">From Spotify liked songs only</p>`;
+}
+
+function renderNotFound(){
+  document.getElementById('main').innerHTML=`<div class="glass error-card"><div style="font-size:48px;margin-bottom:16px">🎵</div><h2 style="margin-bottom:10px">Playlist not found</h2><p style="color:var(--text-sub);margin-bottom:20px">This link may be old or the playlist was removed.</p><a href="/" class="back-link">← Back to Kwalify</a></div>`;
+}
+
+async function load(){
+  if(!playlistId){renderNotFound();return;}
+  try{
+    const r=await fetch('/api/share/'+playlistId);
+    if(r.status===404){renderNotFound();return;}
+    if(!r.ok) throw new Error('fail');
+    renderPage(await r.json());
+  }catch{renderNotFound();}
+}
+load();
+</script>
+</body>
+</html>

@@ -3,8 +3,8 @@
     "target": "ES2022",
     "module": "Node16",
     "moduleResolution": "node16",
-    "outDir": "./artifacts/api-server/dist",
-    "rootDir": "artifacts/api-server/src",
+    "outDir": "./backend/dist",
+    "rootDir": "backend",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -15,5 +15,6 @@
     "noImplicitReturns": true,
     "useUnknownInCatchVariables": true
   },
-  "include": ["artifacts/api-server/src/**/*"]
+  "include": ["backend/**/*.ts"],
+  "exclude": ["backend/src", "legacy", "artifacts", "frontend", "node_modules"]
 }

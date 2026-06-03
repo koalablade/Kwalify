@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 96" role="img" aria-label="Fuel pump — flat Pets picker style">
+  <!-- LOCKED layer order · flat fills · docs/KWALIFY_PETROL_PUMP_SVG_LOCKED.md -->
+  <ellipse cx="40" cy="91" rx="30" ry="6" fill="#14805A"/>
+  <rect x="15" y="30" width="50" height="58" rx="22" fill="#1ED760"/>
+  <rect x="18" y="8" width="44" height="26" rx="15" fill="#1DB954"/>
+  <rect x="23" y="40" width="34" height="20" rx="10" fill="#FFFFFF"/>
+  <rect x="27" y="46" width="26" height="8" rx="4" fill="#F57357"/>
+  <path d="M58 74 Q76 66, 80 48" stroke="#121212" stroke-width="10" stroke-linecap="round"/>
+  <rect x="72" y="40" width="20" height="16" rx="8" fill="#F57357"/>
+</svg>

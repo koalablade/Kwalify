@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node artifacts/api-server/dist/index.js",
+    "start": "node backend/dist/server.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

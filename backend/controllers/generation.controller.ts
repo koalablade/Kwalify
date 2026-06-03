@@ -86,6 +86,15 @@ import { checkRateLimit } from "../lib/rate-limit";
 import { getFeatures } from "../lib/env";
 import { publicUrl } from "../lib/public-url";
 
+const generationControllerLock = "__kwalifyGenerationControllerRegistered";
+const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
+if (globalArchitectureState[generationControllerLock]) {
+  throw new Error(
+    "[architecture] duplicate generation controller loaded; backend/controllers/generation.controller.ts is the single source of truth",
+  );
+}
+globalArchitectureState[generationControllerLock] = true;
+
 const router: IRouter = Router();
 
 const RATE_LIMIT_MAX = 5;
