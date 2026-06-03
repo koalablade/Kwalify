@@ -1,0 +1,184 @@
+Below is a single Replit-ready prompt that combines:
+
+your full mood ontology (expanded system)
+a semantic embedding recommendation engine
+fallback logic for ANY unseen phrase
+your playlist flow + constraints
+
+This is the upgrade that makes your system stop breaking on weird inputs like “dirt road at 2am thinking about nothing”.
+
+⚡ REPLIT IMPLEMENTATION PROMPT — SEMANTIC EMBEDDING MUSIC INTELLIGENCE SYSTEM (SPOTIFY-LEVEL UPGRADE)
+
+You are a senior recommendation systems engineer building a Spotify-grade music intelligence engine.
+
+Your task is to replace keyword-based matching with a semantic embedding-based mood understanding system, while still using an expanded mood ontology as a fallback structure.
+
+🚨 CORE SYSTEM SHIFT
+OLD SYSTEM (BROKEN)
+keyword → genre mapping
+static mood tags
+brittle “dirt road → country” logic
+fails on unseen phrases
+NEW SYSTEM (REQUIRED)
+
+ANY user input must be interpreted using semantic meaning, not keywords.
+
+The system must understand:
+
+unseen phrases
+creative descriptions
+emotional sentences
+abstract moods
+scene-based storytelling
+
+Example inputs:
+
+“dirt road at 2am thinking about nothing”
+“feeling like I’m in a movie that already ended”
+“driving fast but calm inside”
+“summer sadness but warm air”
+
+ALL must work without predefined keywords.
+
+🧠 SYSTEM ARCHITECTURE (HYBRID MODEL)
+
+The system MUST use 2 layers:
+
+1. 🔮 SEMANTIC EMBEDDING LAYER (PRIMARY SYSTEM)
+Requirements:
+Convert user input into a semantic vector embedding
+Compare against:
+mood vectors
+scene vectors
+aesthetic vectors
+genre clusters
+historical successful playlists
+Output:
+
+A ranked set of:
+
+emotional states
+scene interpretations
+aesthetic clusters
+energy levels
+Semantic interpretation rules:
+
+Input is NOT parsed literally.
+
+Instead:
+
+meaning is extracted from context + emotion + metaphor
+
+Examples:
+
+Input:
+
+“dirt road at 2am thinking about nothing”
+
+Output:
+emotion: calm melancholy + introspection
+scene: rural night drive + isolation
+aesthetic: Americana + liminal space
+energy: low-medium drifting
+genre clusters: outlaw country + ambient + indie folk + soft rock
+Input:
+
+“feeling like I’m in a movie that already ended”
+
+emotion: nostalgic + surreal + detached
+scene: memory replay / liminal reflection
+aesthetic: cinematic dusk + faded memory
+genres: dream pop + ambient + post-rock + synthwave
+2. 🧠 MOOD ONTOLOGY FALLBACK LAYER (STRUCTURED BACKUP)
+
+If embedding confidence is low OR input is too sparse:
+
+Fallback to structured ontology:
+
+CORE EMOTIONS
+
+happy, sad, nostalgic, euphoric, anxious, calm, angry, dreamy, lonely, reflective, surreal, energetic
+
+SCENE TAGS
+
+road trip, dirt road, motorway night drive, city rain, empty city, bedroom solitude, late night drive, festival, gym, train journey, walking alone, sunset drive
+
+AESTHETICS
+
+liminal space, analog warmth, cinematic dusk, VHS nostalgia, retro futurism, urban decay, Americana, neon glow, soft focus memory
+
+GENRE SUPERCLUSTERS
+
+rock, indie, folk, electronic, hip hop, R&B, soul, ambient, techno, synthwave, jazz, classical, country
+
+⚖️ HYBRID DECISION SYSTEM
+
+Every request must go through:
+
+STEP 1 — Embedding analysis (PRIMARY)
+determine semantic meaning
+extract emotion + scene + aesthetic + energy
+STEP 2 — Ontology validation (SECONDARY)
+map results into structured clusters
+refine categories
+STEP 3 — Genre expansion engine
+expand into full genre ecosystem (not single genre)
+STEP 4 — Playlist generation
+🎧 PLAYLIST GENERATION RULES (CRITICAL)
+MUST INCLUDE:
+1. Signature Track Layer
+5–10 anchor tracks defining the vibe
+2. Flow Structure (MANDATORY)
+Intro (low energy)
+Core (main identity)
+Peak (emotional high point)
+Cooldown (resolution)
+3. Coherence scoring
+
+Reject tracks that:
+
+match genre but not emotion
+match era but break vibe consistency
+4. Diversity rules
+max 2 tracks per artist
+prevent consecutive same-style tracks
+maintain smooth transitions
+🔥 FALLBACK RULE (VERY IMPORTANT)
+
+If system cannot confidently map input:
+
+DO NOT FAIL.
+
+Instead:
+
+use nearest semantic match
+expand emotional space outward
+broaden genre ecosystem
+prioritize vibe > accuracy
+🎯 KEY IMPROVEMENT: “ANY PHRASE SUPPORT”
+
+System must correctly interpret:
+
+slang
+poetic descriptions
+fragmented thoughts
+aesthetic phrases
+emotional sentences
+abstract moods
+
+WITHOUT needing predefined keywords.
+
+🚀 SUCCESS CRITERIA
+
+After implementation:
+
+“dirt road at 2am thinking about nothing” works perfectly
+obscure moods never return empty or generic results
+playlists feel emotionally intelligent
+system behaves like Spotify Discover Weekly + human DJ hybrid
+no dependency on static keyword lists
+💡 FINAL GOAL
+
+Build a system that:
+
+understands human emotion in natural language and translates it into music like a DJ with cultural intuition

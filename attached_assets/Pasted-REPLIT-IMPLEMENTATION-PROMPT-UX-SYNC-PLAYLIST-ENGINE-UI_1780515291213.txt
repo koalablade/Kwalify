@@ -1,0 +1,231 @@
+REPLIT IMPLEMENTATION PROMPT — UX + SYNC + PLAYLIST ENGINE + UI STATE FIXES
+
+You are a senior full-stack engineer improving an existing music playlist application.
+
+Your goal is to improve UX, fix state reactivity bugs, enhance recommendation quality, and optimise sync logic WITHOUT breaking existing architecture.
+
+🚨 NON-NEGOTIABLE RULES
+Do NOT create duplicate UI systems or second apps
+Do NOT rebuild routing or app structure
+Do NOT introduce multiple homepages or duplicate “gallery vs home” views
+Do NOT replace core playlist engine architecture — only extend it
+Maintain single source of truth for UI state and data
+Prioritise stability over new features if conflicts arise
+🌙 1. DARK MODE / LIGHT MODE TOGGLE
+Requirements:
+Add global theme toggle (dark / light mode)
+Place in top-right profile/settings menu
+Persist user preference (localStorage or DB)
+Auto-detect system theme on first load
+Rules:
+ONLY styling changes
+Must not affect playlist logic or API layer
+Must apply globally across all pages consistently
+🚪 2. MAKE LOGOUT MORE VISIBLE
+Requirements:
+Move logout into profile dropdown (top-right avatar menu)
+Clearly label as “Log out”
+Ensure it is always accessible in one click
+Rules:
+Do NOT hide inside settings pages
+Must not require navigation to find it
+🎧 3. ADD “NO LIBRARY MODE” (CRITICAL FEATURE)
+Purpose:
+
+Fix cold-start problem for users with no Spotify / liked song data.
+
+Add toggle:
+
+“No Library Mode (AI-only recommendations)”
+
+Behaviour:
+WHEN ENABLED:
+Ignore liked songs
+Ignore listening history
+Ignore sync data
+Generate playlists using ONLY:
+mood keywords
+era selection
+expanded vibe mapping system
+global seed dataset
+WHEN DISABLED:
+Use full personalization system (user library + history + sync data)
+Rules:
+Must never return empty or low-quality playlists
+Must gracefully fallback if data is insufficient
+🔄 4. FIX SYNC SYSTEM (DELTA SYNC REQUIRED)
+Current issue:
+
+System likely re-scans full library every sync → inefficient and slow.
+
+REQUIRED FIX:
+
+Implement incremental (delta) sync system
+
+Store:
+lastSyncTimestamp
+cachedTrackIds OR hash map of existing tracks
+On sync:
+
+ONLY fetch:
+
+newly added songs
+updated playlists
+recently played changes
+
+Then:
+
+merge new data into existing dataset
+re-run scoring ONLY on new/changed items
+Sync modes:
+1. FULL SYNC
+first login
+manual “refresh everything”
+2. DELTA SYNC (DEFAULT)
+only fetch changes since last sync
+fast + lightweight
+🎯 5. EXPAND KEYWORD → VIBE SYSTEM
+Problem:
+
+Current mapping is too narrow and literal.
+
+Solution:
+
+Upgrade to vibe cluster system (multi-genre mapping)
+
+Examples:
+
+“dirt road country” →
+
+outlaw country
+southern rock
+Americana
+acoustic folk storytelling
+
+“late night drive” →
+
+synthwave
+ambient pop
+chill R&B
+lo-fi electronica
+
+“rainy city” →
+
+jazzhop
+neo-soul
+downtempo electronic
+
+“gym rage” →
+
+trap metal
+aggressive hip-hop
+EDM bass
+hard techno
+Rule:
+
+Always map keywords → ecosystem of related genres
+NOT single genre outputs
+
+🧠 6. FAILSAFE RULE (QUALITY GUARANTEE)
+
+If playlist generation has insufficient matches:
+
+DO NOT:
+
+return short playlists
+stop early
+
+DO:
+
+expand using adjacent genres
+expand using adjacent eras
+expand using mood-compatible tracks
+Hard requirement:
+
+Minimum 40 tracks per playlist
+
+🎨 7. FIX FRONTEND STATE BUG (CRITICAL)
+Issue:
+
+This UI block is NOT reactive:
+
+Awaiting input…
+Energy: Low
+Nostalgia: High
+Melancholy: Med
+Movement: Low
+Warmth: Med
+Scene Tags: Late night, Urban, Solitude, Still
+Predicted Style: "Slow, atmospheric, late-night focused"
+Problem:
+
+Changing inputs (e.g. “solo drive with friends” → “solo drive”) does NOT update values.
+
+REQUIRED FIX:
+Make this component fully reactive:
+must recompute whenever:
+input text changes
+mood changes
+scene tag changes
+playlist seed changes
+Rules:
+NO cached static rendering
+MUST derive values from current state
+MUST re-run scoring function or selector on update
+Expected behaviour:
+
+Any text or mood change must instantly update:
+
+Energy
+Nostalgia
+Melancholy
+Movement
+Warmth
+Scene Tags
+Predicted Style
+📊 8. RECENT ACTIVITY CLEANUP
+Issue:
+
+“Recent activity” and “Recent playlists” appear duplicated from gallery/home page.
+
+REQUIRED FIX:
+Option A (preferred):
+Merge into ONE unified “Activity Feed”
+Remove duplicate gallery rendering
+Option B:
+Remove redundant “Recent playlists” block from home page entirely
+Keep only gallery view as source of truth
+Must include:
+Recent sync events
+recent prompts
+recent playlists (non-duplicated)
+📩 9. ADD FEEDBACK BUTTON
+
+Add a persistent feedback button linking to:
+
+https://docs.google.com/forms/d/1dRFIgqcbNGXXHYHZqaRQ3BhFHqsFmENdmLRCs_YtWhE/edit
+
+Requirements:
+visible but not intrusive
+accessible on all pages
+ideally bottom-right floating button or footer link
+🚀 FINAL SUCCESS CRITERIA
+
+After implementation:
+
+Theme system works globally (no layout shifts)
+Logout is obvious and accessible
+No-library mode prevents cold-start failures
+Sync system only fetches delta updates (faster performance)
+Keyword system produces richer, multi-genre playlists
+Frontend mood/energy panel is fully reactive (no stale UI)
+No duplicate “recent activity / gallery” rendering
+Feedback button is accessible everywhere
+App feels faster, cleaner, and more consistent
+🧠 PRIORITY ORDER
+Fix frontend state reactivity bug (highest priority)
+Remove duplicate UI sections
+Implement delta sync
+Add no-library mode
+Expand vibe system
+UI polish (dark mode, logout, feedback)

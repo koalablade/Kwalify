@@ -218,6 +218,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       typeof lengthRaw === "string" ? parseInt(lengthRaw, 10) : Number(lengthRaw);
 
     const varietyBoostRequested = rawBody.varietyBoost === true;
+    const noLibraryModeRequested = rawBody.noLibraryMode === true;
     const moodSceneRaw =
       typeof rawBody.sceneId === "string"
         ? rawBody.sceneId.trim()
@@ -232,6 +233,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ...(referencePlaylistRaw ? { referencePlaylist: referencePlaylistRaw } : {}),
       ...(varietyBoostRequested ? { varietyBoost: true } : {}),
       ...(moodSceneRaw ? { sceneId: moodSceneRaw } : {}),
+      ...(noLibraryModeRequested ? { noLibraryMode: true } : {}),
     };
 
     const parsed = GeneratePlaylistBody.safeParse(payload);
@@ -241,7 +243,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId } = parsed.data;
+    const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId, noLibraryMode } = parsed.data;
     const moodSceneId = sceneId?.trim() || null;
 
     const acquired = acquireGenerateSession(userId, { force: !!varietyBoost });
@@ -392,12 +394,21 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (likedSongs.length === 0) {
       setGeneratePhase(userId, requestId, "error");
-      generateFail(
-        res,
-        400,
-        "LIBRARY_EMPTY",
-        "No liked songs found. Please sync your Spotify library first."
-      );
+      if (noLibraryMode) {
+        generateFail(
+          res,
+          400,
+          "LIBRARY_EMPTY_NO_LIBRARY_MODE",
+          "No Library Mode requires at least a few liked songs to anchor vibe matching. Please sync your Spotify library first, then try again."
+        );
+      } else {
+        generateFail(
+          res,
+          400,
+          "LIBRARY_EMPTY",
+          "No liked songs found. Please sync your Spotify library first."
+        );
+      }
       return;
     }
 

@@ -1,7 +1,15 @@
 // ── Kwalify · Single app entry point ─────────────────────────────────────────
 const root = document.getElementById("appRoot");
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Theme bootstrap (runs before any render) ──────────────────────────────────
+(function initTheme() {
+  const saved = localStorage.getItem("kwalify-theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const theme = saved || (prefersDark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", theme);
+})();
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function esc(v) {
   return String(v ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
@@ -37,6 +45,77 @@ function spi() {
   return `<span class="spi"><svg width="11" height="11" viewBox="0 0 24 24" fill="#1db954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></span>`;
 }
 
+// ── Reactive mood analyzer ────────────────────────────────────────────────────
+function analyzeMoodFromText(text) {
+  const t = text.toLowerCase();
+
+  const energyPos = ['pump', 'intense', 'fast', 'driving fast', 'gym', 'party', 'hype', 'loud', 'metal', 'rave', 'dance', 'sprint', 'adrenaline', 'electric', 'fire', 'rage', 'rush', 'beat', 'bass', 'festival', 'crowd', 'power', 'speed', 'running', 'workout', 'club'];
+  const energyNeg = ['sleep', 'calm', 'quiet', 'still', 'slow', 'haze', 'foggy', 'drift', 'twilight', 'soft', 'gentle', 'lull', 'rest', 'meditat', 'float', 'silence', 'serene', 'peaceful', 'lazy', 'ambient', 'hazy', 'muted'];
+
+  const nostalgiaPos = ['old', 'classic', 'remember', 'childhood', 'past', 'back in', 'used to', 'miss', 'memories', 'nostalg', '80s', '90s', '2000s', '00s', 'retro', 'vintage', 'throwback', 'long ago', 'grew up', 'school days', 'young', 'simpler times', 'those days', 'back then', 'years ago'];
+
+  const melancholyPos = ['sad', 'alone', 'lonely', 'miss', 'cry', 'empty', 'hollow', 'lost', 'grief', 'heartbreak', 'goodbye', 'ending', 'melanchol', 'grey', 'rain', 'somber', 'heavy', 'broken', 'hurt', 'pain', 'fog', 'dusk', 'ache', 'longing', 'distant', 'bittersweet', 'wistful', 'numb', 'dark'];
+
+  const movementPos = ['drive', 'driving', 'walk', 'walking', 'road', 'highway', 'journey', 'wander', 'cruise', 'commute', 'train ride', 'bus', 'flight', 'moving', 'roam', 'miles', 'leaving', 'departure', 'going', 'pedal', 'cycling', 'run'];
+  const movementNeg = ['still', 'sitting', 'stay', 'bedroom', 'room', 'bed', 'couch', 'window', 'waiting', 'seated', 'parked', 'static', 'stuck'];
+
+  const warmthPos = ['warm', 'sunshine', 'summer', 'golden', 'cozy', 'comfort', 'love', 'together', 'friends', 'happy', 'joy', 'bright', 'glow', 'fireplace', 'home', 'family', 'afternoon', 'spring', 'laughter', 'beach', 'sunset', 'golden hour', 'sunlit'];
+  const warmthNeg = ['cold', 'winter', 'ice', 'freeze', 'dark', 'shadow', 'grey', 'alone', 'empty', 'frost', 'bleak', 'harsh', 'midnight', 'desolate'];
+
+  function scoreKeywords(pos, neg = []) {
+    const posHits = pos.filter(w => t.includes(w)).length;
+    const negHits = neg.filter(w => t.includes(w)).length;
+    const base = 0.38 + (posHits * 0.14) - (negHits * 0.11);
+    return Math.round(Math.max(5, Math.min(95, base * 100)));
+  }
+
+  const energy = scoreKeywords(energyPos, energyNeg);
+  const nostalgia = scoreKeywords(nostalgiaPos);
+  const melancholy = scoreKeywords(melancholyPos);
+  const movement = scoreKeywords(movementPos, movementNeg);
+  const warmth = scoreKeywords(warmthPos, warmthNeg);
+
+  const tagMap = {
+    "Late night": ["night", "midnight", "2am", "3am", "4am", "late", "after midnight", "insomnia", "1am", "dark hour"],
+    "Urban": ["city", "street", "urban", "downtown", "metro", "subway", "building", "neon", "alley", "concrete", "skyscraper"],
+    "Solitude": ["alone", "solo", "solitude", "lone", "myself", "quiet", "just me", "no one around", "by myself"],
+    "Moving": ["drive", "driving", "walk", "highway", "road", "journey", "commute", "wander", "on the move"],
+    "Nostalgic": ["remember", "memory", "past", "old", "miss", "used to", "childhood", "back when", "nostalg"],
+    "Melancholic": ["sad", "melanchol", "cry", "heartbreak", "grief", "empty", "hollow", "broken", "numb"],
+    "Euphoric": ["happy", "joy", "bliss", "ecstasy", "thrilled", "wonderful", "amazing", "elation"],
+    "Rainy": ["rain", "storm", "grey", "cloudy", "wet", "drizzle", "downpour"],
+    "Warm": ["warm", "golden", "sun", "summer", "bright", "sunshine", "cozy", "golden hour"],
+    "Still": ["still", "quiet", "silent", "calm", "serene", "peaceful", "haze", "drift"],
+  };
+
+  const tags = Object.entries(tagMap)
+    .filter(([, words]) => words.some(w => t.includes(w)))
+    .map(([tag]) => tag)
+    .slice(0, 5);
+
+  let style = "Balanced, atmospheric";
+  if (energy > 65 && movement > 55) style = "Fast-paced, driving, high momentum";
+  else if (energy < 35 && melancholy > 50) style = "Slow, introspective, emotionally deep";
+  else if (nostalgia > 55 && warmth > 50) style = "Warm, nostalgic, memory-soaked";
+  else if (energy > 65) style = "High-energy, intense, forward-moving";
+  else if (warmth > 62 && energy > 45) style = "Bright, feel-good, uplifting";
+  else if (melancholy > 58) style = "Melancholic, cinematic, emotionally heavy";
+  else if (energy < 30) style = "Soft, ambient, drifting";
+  else if (movement > 60) style = "Road trip, rhythmic, open road";
+  else if (nostalgia > 55) style = "Nostalgic, reminiscent, bittersweet";
+  else style = "Layered, multi-dimensional, mood-focused";
+
+  return {
+    energy,
+    nostalgia,
+    melancholy,
+    movement,
+    warmth,
+    tags: tags.length > 0 ? tags : ["Ambient"],
+    style: `"${style}"`,
+  };
+}
+
 // ── Single state store ────────────────────────────────────────────────────────
 const state = {
   user: null,
@@ -46,22 +125,37 @@ const state = {
   history: [],
   mode: "balanced",
   length: 40,
+  noLibraryMode: false,
   generating: false,
   lastResult: null,
   error: null,
   tasteOpen: false,
+  profileOpen: false,
 };
+
+function getTheme() {
+  return document.documentElement.getAttribute("data-theme") || "dark";
+}
+
+function toggleTheme() {
+  const next = getTheme() === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("kwalify-theme", next);
+  const icon = document.getElementById("themeIcon");
+  if (icon) icon.textContent = next === "dark" ? "☀️" : "🌙";
+}
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
 function navHtml(user) {
   const cs = state.cacheStatus;
   const syncing = cs?.isSyncing;
   const total = cs?.totalTracks || 0;
-  const syncLabel = total > 0 ? `${total.toLocaleString()} synced` : syncing ? "Syncing…" : "Sync library";
+  const syncLabel = syncing ? "Syncing…" : total > 0 ? `${total.toLocaleString()} synced` : "Sync";
   const initials = (user?.displayName || "U").charAt(0).toUpperCase();
   const avatar = user?.avatarUrl
     ? `<img src="${esc(user.avatarUrl)}" alt="">`
     : initials;
+  const isDark = getTheme() === "dark";
 
   return `
   <nav class="nav">
@@ -71,15 +165,33 @@ function navHtml(user) {
     </div>
     <div class="nav-right">
       <a href="/gallery" class="nav-link">Gallery <span class="nav-link-arrow">→</span></a>
-      <div class="nav-sync-chip">
+      <div class="nav-sync-chip" id="syncChip" style="cursor:pointer" title="Delta sync (new likes only)">
         <span class="sync-dot ${syncing ? "sync-dot--live" : ""}"></span>
         <span>${syncLabel}</span>
       </div>
-      <div class="nav-avatar-group">
-        <div class="nav-avatar">${avatar}</div>
-        <button id="logoutBtn" class="nav-logout" title="Log out">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <div class="nav-profile-wrap" id="profileWrap">
+        <button class="nav-avatar-btn" id="profileBtn" title="Account">
+          <div class="nav-avatar">${avatar}</div>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--muted-2)"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
+        <div class="profile-dropdown ${state.profileOpen ? "open" : ""}" id="profileDropdown">
+          <div class="profile-dropdown-header">
+            <span class="profile-dropdown-name">${esc(user?.displayName || "")}</span>
+          </div>
+          <button class="profile-dropdown-item" id="themeToggleBtn">
+            <span id="themeIcon">${isDark ? "☀️" : "🌙"}</span>
+            <span>${isDark ? "Light mode" : "Dark mode"}</span>
+          </button>
+          <a href="/gallery" class="profile-dropdown-item">
+            <span>🎵</span>
+            <span>My playlists</span>
+          </a>
+          <div class="profile-dropdown-divider"></div>
+          <button class="profile-dropdown-item profile-dropdown-logout" id="logoutBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>Log out</span>
+          </button>
+        </div>
       </div>
     </div>
   </nav>`;
@@ -206,13 +318,17 @@ const QUICK_MOMENTS = [
   "Rainy Sunday with nowhere to be",
 ];
 
-const MOOD_BARS = [
-  { label: "Energy",    value: 20, cls: "fill-blue",   id: "mb-energy" },
-  { label: "Nostalgia", value: 85, cls: "fill-purple",  id: "mb-nostalgia" },
-  { label: "Melancholy",value: 55, cls: "fill-indigo",  id: "mb-melancholy" },
-  { label: "Movement",  value: 15, cls: "fill-teal",    id: "mb-movement" },
-  { label: "Warmth",    value: 45, cls: "fill-amber",   id: "mb-warmth" },
+const MOOD_BAR_DEFS = [
+  { label: "Energy",    cls: "fill-blue",   id: "mb-energy",    key: "energy" },
+  { label: "Nostalgia", cls: "fill-purple",  id: "mb-nostalgia", key: "nostalgia" },
+  { label: "Melancholy",cls: "fill-indigo",  id: "mb-melancholy",key: "melancholy" },
+  { label: "Movement",  cls: "fill-teal",    id: "mb-movement",  key: "movement" },
+  { label: "Warmth",    cls: "fill-amber",   id: "mb-warmth",    key: "warmth" },
 ];
+
+function moodLevelLabel(v) {
+  return v > 70 ? "High" : v > 30 ? "Med" : "Low";
+}
 
 function renderApp() {
   const cs = state.cacheStatus;
@@ -227,38 +343,14 @@ function renderApp() {
     ? `<div class="alert alert-error">${esc(state.error)}</div>`
     : "";
 
-  // History items
-  const histItems = state.history.slice(0, 5).map((h) => `
-    <div class="phase-item">
-      <div class="phase-quote">"${esc(h.vibe)}"</div>
-      <div class="phase-meta">${fmtDate(h.createdAt || h.timestamp || "")}</div>
-    </div>`).join("") || `
-    <div class="phase-item"><div class="phase-quote">"driving through empty city streets while it rains"</div><div class="phase-meta">2 days ago</div></div>
-    <div class="phase-item"><div class="phase-quote">"late night highway with nowhere to be"</div><div class="phase-meta">4 days ago</div></div>`;
+  // Unified activity feed
+  const feedItems = buildActivityFeed();
 
-  // Playlist items
-  const plItems = state.playlists.length > 0
-    ? state.playlists.slice(0, 5).map((p) => {
-        const count = Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0);
-        return `
-        <div class="phase-item">
-          <div>
-            <div class="phase-quote" style="font-style:normal;font-weight:600">${esc(p.name)}</div>
-            <div class="phase-meta">${count} tracks · ${fmtDate(p.createdAt)}</div>
-          </div>
-          <div class="phase-item-actions">
-            ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="phase-open">${spi()}</a>` : ""}
-            <button class="delete-btn" data-id="${p.id}" title="Delete">✕</button>
-          </div>
-        </div>`;
-      }).join("")
-    : `<div class="phase-item"><div class="phase-quote" style="font-style:normal">No playlists yet — generate your first vibe.</div></div>`;
-
-  const moodBarsHtml = MOOD_BARS.map((b) => `
+  const moodBarsHtml = MOOD_BAR_DEFS.map((b) => `
     <div class="mood-bar-row">
       <div class="mood-bar-labels">
         <span>${b.label}</span>
-        <span class="mood-bar-level">${b.value > 70 ? "High" : b.value > 30 ? "Med" : "Low"}</span>
+        <span class="mood-bar-level" id="${b.id}-label">—</span>
       </div>
       <div class="mood-track">
         <div class="mood-fill ${b.cls}" id="${b.id}" style="width:0%"></div>
@@ -310,6 +402,16 @@ function renderApp() {
             <input type="range" class="length-slider" id="lengthSlider" min="20" max="60" step="5" value="${state.length}">
             <span class="length-val" id="lengthLabel">${state.length} tracks</span>
           </div>
+        </div>
+
+        <div class="no-library-row">
+          <label class="no-library-toggle" title="Generate using only vibe keywords — skips your personal library">
+            <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle"></div>
+            <div class="no-library-text">
+              <span class="no-library-label">No Library Mode</span>
+              <span class="no-library-sub">AI-only · ignores your liked songs</span>
+            </div>
+          </label>
         </div>
 
         <button id="generateBtn" class="gen-btn ${state.generating ? "loading" : ""}" ${state.generating ? "disabled" : ""}>
@@ -387,29 +489,22 @@ function renderApp() {
       </div>
     </div>
 
-    <!-- Recent history & playlists -->
+    <!-- Unified Activity Feed -->
     <div class="recent-section">
       <div class="section-head">
-        <h3 class="section-title">Recent activity</h3>
-        <button id="syncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""}>
-          ${cs?.isSyncing ? "Syncing…" : total > 0 ? "Full sync" : "Sync library"}
-        </button>
+        <h3 class="section-title">Activity</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="deltaSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Fetch only new liked songs since last sync">
+            ${cs?.isSyncing ? "Syncing…" : "↻ Sync new"}
+          </button>
+          <button id="fullSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Re-sync your entire library from scratch">
+            Full sync
+          </button>
+          <a href="/gallery" class="section-action">All playlists →</a>
+        </div>
       </div>
-      <div class="phases-grid">
-        <div class="phase-group">
-          <div class="phase-group-head phase-head-green">Recent moments</div>
-          <div class="phase-items">${histItems}</div>
-        </div>
-        <div class="phase-group">
-          <div class="phase-group-head phase-head-purple">Recent playlists</div>
-          <div class="phase-items">${plItems}</div>
-          ${state.playlists.length > 5 ? `
-          <div style="padding:10px 16px;border-top:1px solid var(--border)">
-            <a href="/gallery" style="font-size:13px;color:var(--muted);text-decoration:underline">
-              View all ${state.playlists.length} playlists in Gallery →
-            </a>
-          </div>` : ""}
-        </div>
+      <div class="activity-feed">
+        ${feedItems}
       </div>
     </div>
 
@@ -421,9 +516,91 @@ function renderApp() {
       <span class="badge badge-muted">Beta</span>
       <a href="mailto:feedback@kwalify.net" class="footer-link">Send feedback</a>
     </div>
-  </footer>`;
+  </footer>
+
+  <!-- Feedback floating button -->
+  <a
+    href="https://docs.google.com/forms/d/1dRFIgqcbNGXXHYHZqaRQ3BhFHqsFmENdmLRCs_YtWhE/edit"
+    target="_blank"
+    rel="noopener"
+    class="feedback-fab"
+    title="Send feedback"
+  >💬</a>`;
 
   wireAppEvents();
+}
+
+function buildActivityFeed() {
+  // Merge recent history + recent playlists into a single chronological feed
+  const items = [];
+
+  // History items (moments)
+  const histItems = state.history.slice(0, 5).map(h => ({
+    type: "moment",
+    label: h.vibe,
+    date: h.createdAt || h.timestamp || "",
+    extra: null,
+  }));
+
+  // Playlist items
+  const plItems = state.playlists.slice(0, 6).map(p => ({
+    type: "playlist",
+    label: p.name,
+    date: p.createdAt || "",
+    count: Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0),
+    spotifyUrl: p.spotifyUrl,
+    id: p.id,
+  }));
+
+  // Interleave both, sorted by date descending
+  const all = [...histItems, ...plItems]
+    .filter(i => i.date)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (all.length === 0) {
+    // Default placeholders
+    return `
+    <div class="activity-item">
+      <span class="activity-dot activity-dot--green"></span>
+      <div class="activity-body">
+        <div class="activity-label" style="font-style:italic">"driving through empty city streets"</div>
+        <div class="activity-meta">Example · 2 days ago</div>
+      </div>
+    </div>
+    <div class="activity-item">
+      <span class="activity-dot activity-dot--purple"></span>
+      <div class="activity-body">
+        <div class="activity-label">Late Night Highway</div>
+        <div class="activity-meta">Example playlist · 4 days ago</div>
+      </div>
+    </div>`;
+  }
+
+  return all.slice(0, 10).map(item => {
+    if (item.type === "moment") {
+      return `
+      <div class="activity-item">
+        <span class="activity-dot activity-dot--green"></span>
+        <div class="activity-body">
+          <div class="activity-label" style="font-style:italic">"${esc(item.label)}"</div>
+          <div class="activity-meta">Moment · ${fmtDate(item.date)}</div>
+        </div>
+      </div>`;
+    } else {
+      return `
+      <div class="activity-item">
+        <span class="activity-dot activity-dot--purple"></span>
+        <div class="activity-body">
+          <div class="activity-label">${esc(item.label)}</div>
+          <div class="activity-meta">${item.count} tracks · ${fmtDate(item.date)}</div>
+        </div>
+        <div class="activity-actions">
+          ${item.spotifyUrl ? `<a href="${esc(item.spotifyUrl)}" target="_blank" rel="noopener" class="phase-open">${spi()}</a>` : ""}
+          <button class="delete-btn" data-id="${item.id}" title="Delete">✕</button>
+        </div>
+      </div>`;
+    }
+  }).join("");
 }
 
 function generatingHtml() {
@@ -465,46 +642,97 @@ function resultHtml(result) {
   </div>`;
 }
 
+// ── Mood panel updater (reactive) ─────────────────────────────────────────────
+function updateMoodPanel(text) {
+  if (text.length <= 3) {
+    document.getElementById("moodGlow")?.classList.remove("active");
+    document.getElementById("moodStatus").textContent = "Awaiting input…";
+    MOOD_BAR_DEFS.forEach((b) => {
+      const el = document.getElementById(b.id);
+      const lb = document.getElementById(`${b.id}-label`);
+      if (el) el.style.width = "0%";
+      if (lb) lb.textContent = "—";
+    });
+    document.querySelectorAll(".mood-tag").forEach((t) => { t.style.opacity = "0.2"; });
+    const style = document.getElementById("moodStyleText");
+    if (style) { style.style.opacity = "0"; }
+    return;
+  }
+
+  document.getElementById("moodGlow")?.classList.add("active");
+  document.getElementById("moodStatus").textContent = "Reading the moment…";
+
+  const mood = analyzeMoodFromText(text);
+
+  MOOD_BAR_DEFS.forEach((b) => {
+    const val = mood[b.key];
+    const el = document.getElementById(b.id);
+    const lb = document.getElementById(`${b.id}-label`);
+    if (el) el.style.width = val + "%";
+    if (lb) lb.textContent = moodLevelLabel(val);
+  });
+
+  // Update scene tags
+  const tagsEl = document.getElementById("moodTags");
+  if (tagsEl) {
+    tagsEl.innerHTML = mood.tags.map((tag, i) =>
+      `<span class="mood-tag" style="opacity:1;transition:opacity 0.4s ${i * 0.07}s">${esc(tag)}</span>`
+    ).join("");
+  }
+
+  // Update predicted style
+  const styleEl = document.getElementById("moodStyleText");
+  if (styleEl) {
+    styleEl.textContent = mood.style;
+    styleEl.style.opacity = "1";
+  }
+
+  setTimeout(() => {
+    document.getElementById("moodStatus").textContent = "Moment analyzed";
+    document.getElementById("moodGlow")?.classList.remove("active");
+  }, 1200);
+}
+
 // ── Event wiring ──────────────────────────────────────────────────────────────
 function wireAppEvents() {
+  // Profile dropdown
+  document.getElementById("profileBtn")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    state.profileOpen = !state.profileOpen;
+    document.getElementById("profileDropdown")?.classList.toggle("open", state.profileOpen);
+  });
+  document.addEventListener("click", (e) => {
+    if (!document.getElementById("profileWrap")?.contains(e.target)) {
+      state.profileOpen = false;
+      document.getElementById("profileDropdown")?.classList.remove("open");
+    }
+  });
+
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
-  document.getElementById("syncBtn")?.addEventListener("click", triggerSync);
+  document.getElementById("themeToggleBtn")?.addEventListener("click", toggleTheme);
+
+  // Sync buttons
+  document.getElementById("syncChip")?.addEventListener("click", () => triggerSync(false));
+  document.getElementById("deltaSyncBtn")?.addEventListener("click", () => triggerSync(false));
+  document.getElementById("fullSyncBtn")?.addEventListener("click", () => triggerSync(true));
+
   document.getElementById("generateBtn")?.addEventListener("click", generate);
+
+  // No-library mode toggle
+  document.getElementById("noLibraryToggle")?.addEventListener("click", () => {
+    state.noLibraryMode = !state.noLibraryMode;
+    document.getElementById("noLibraryToggle")?.classList.toggle("on", state.noLibraryMode);
+  });
 
   const vibeInput = document.getElementById("vibeInput");
   const charCount = document.getElementById("charCount");
   let interpretTimer = null;
 
   vibeInput?.addEventListener("input", () => {
-    const len = vibeInput.value.length;
-    charCount.textContent = len;
+    const text = vibeInput.value;
+    charCount.textContent = text.length;
     clearTimeout(interpretTimer);
-
-    if (len > 5) {
-      document.getElementById("moodGlow")?.classList.add("active");
-      document.getElementById("moodStatus").textContent = "Reading the moment…";
-      MOOD_BARS.forEach((b) => {
-        const el = document.getElementById(b.id);
-        if (el) el.style.width = b.value + "%";
-      });
-      document.querySelectorAll(".mood-tag").forEach((t) => { t.style.opacity = "1"; });
-      const style = document.getElementById("moodStyleText");
-      if (style) style.style.opacity = "1";
-      interpretTimer = setTimeout(() => {
-        document.getElementById("moodStatus").textContent = "Moment analyzed";
-        document.getElementById("moodGlow")?.classList.remove("active");
-      }, 1400);
-    } else {
-      document.getElementById("moodGlow")?.classList.remove("active");
-      document.getElementById("moodStatus").textContent = "Awaiting input…";
-      MOOD_BARS.forEach((b) => {
-        const el = document.getElementById(b.id);
-        if (el) el.style.width = "0%";
-      });
-      document.querySelectorAll(".mood-tag").forEach((t) => { t.style.opacity = "0.2"; });
-      const style = document.getElementById("moodStyleText");
-      if (style) style.style.opacity = "0";
-    }
+    updateMoodPanel(text);
   });
 
   vibeInput?.addEventListener("keydown", (e) => {
@@ -529,7 +757,7 @@ function wireAppEvents() {
     chip.addEventListener("click", () => {
       vibeInput.value = chip.dataset.vibe;
       charCount.textContent = vibeInput.value.length;
-      vibeInput.dispatchEvent(new Event("input"));
+      updateMoodPanel(vibeInput.value);
       vibeInput.focus();
     });
   });
@@ -564,10 +792,12 @@ async function logout() {
   renderLanding();
 }
 
-async function triggerSync() {
-  const btn = document.getElementById("syncBtn");
+async function triggerSync(full = false) {
+  const btn = full
+    ? document.getElementById("fullSyncBtn")
+    : document.getElementById("deltaSyncBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Syncing…"; }
-  await api("/spotify/sync", { method: "POST", body: JSON.stringify({ full: true }) });
+  await api("/spotify/sync", { method: "POST", body: JSON.stringify({ full }) });
   setTimeout(pollStatus, 2000);
 }
 
@@ -616,7 +846,12 @@ async function generate() {
   try {
     const r = await api("/generate", {
       method: "POST",
-      body: JSON.stringify({ vibe, mode: state.mode, length: state.length }),
+      body: JSON.stringify({
+        vibe,
+        mode: state.mode,
+        length: state.length,
+        noLibraryMode: state.noLibraryMode,
+      }),
     });
 
     if (r.status === 401) { window.location.href = "/api/auth/login"; return; }
@@ -636,7 +871,7 @@ async function generate() {
     if (input) {
       input.value = savedVibe;
       document.getElementById("charCount").textContent = savedVibe.length;
-      input.dispatchEvent(new Event("input"));
+      updateMoodPanel(savedVibe);
     }
   }
 }

@@ -469,4 +469,131 @@ export const EXTENDED_VIBE_KEYWORDS: ExtendedVibeKeyword[] = [
     weights: { energy: 0.15, valence: 0.1, tension: 0.05, nostalgia: 0.48, calm: 0.0 },
     artistOrGenreCue: true,
   },
+
+  // ── Dirt road / country ecosystem ────────────────────────────────────────
+  {
+    terms: [
+      "dirt road country", "dirt road", "outlaw country", "southern rock",
+      "americana", "acoustic folk storytelling", "country gravel road",
+      "pickup truck country", "back porch", "front porch", "small town",
+      "heartland rock", "country blues", "red dirt country", "texas country",
+      "country honky tonk", "backroad", "back roads", "rural drive",
+    ],
+    weights: { energy: 0.05, valence: 0.12, tension: 0.08, nostalgia: 0.35, calm: 0.2 },
+    sceneHints: { environment: "nature", motionState: "driving" },
+    artistOrGenreCue: true,
+  },
+
+  // ── Late night drive ecosystem ────────────────────────────────────────────
+  {
+    terms: [
+      "late night drive", "night drive", "midnight drive", "driving at night",
+      "synthwave drive", "neon night drive", "empty highway at night",
+      "night commute", "driving home at 2am", "city lights driving",
+    ],
+    weights: { energy: 0.08, valence: 0.0, tension: 0.12, nostalgia: 0.18, calm: 0.28 },
+    sceneHints: { environment: "urban", timeOfDay: "late_night", motionState: "driving" },
+    artistOrGenreCue: true,
+  },
+
+  // ── Rainy city ecosystem ──────────────────────────────────────────────────
+  {
+    terms: [
+      "rainy city", "rain on the window", "rainy street", "walking in the rain",
+      "grey city", "overcast city", "jazzhop", "neo-soul rainy", "downtempo city",
+      "coffee shop rain", "rainy café", "jazz in the rain", "wet pavement",
+      "puddles on the street", "foggy city night",
+    ],
+    weights: { energy: -0.12, valence: -0.08, tension: 0.05, nostalgia: 0.22, calm: 0.3 },
+    sceneHints: { environment: "urban", timeOfDay: "evening" },
+    artistOrGenreCue: true,
+  },
+
+  // ── Gym rage / workout intensity ecosystem ────────────────────────────────
+  {
+    terms: [
+      "gym rage", "gym motivation", "workout rage", "heavy lifting",
+      "hard techno gym", "trap metal", "aggressive hip-hop", "edm bass gym",
+      "rage workout", "deadlift", "powerlifting session",
+      "peak performance workout", "beast mode", "no days off",
+    ],
+    weights: { energy: 0.48, valence: 0.1, tension: 0.38, nostalgia: -0.1, calm: -0.35 },
+    sceneHints: { motionState: "active" },
+    artistOrGenreCue: true,
+  },
+
+  // ── Soft focus morning ecosystem ──────────────────────────────────────────
+  {
+    terms: [
+      "slow morning", "soft morning", "lazy morning", "sunday morning slow",
+      "morning light", "gentle morning", "waking up slowly", "morning coffee",
+      "morning haze", "foggy morning", "misty morning", "dawn light",
+      "early morning quiet", "bedroom pop morning",
+    ],
+    weights: { energy: -0.2, valence: 0.15, tension: -0.15, nostalgia: 0.1, calm: 0.4 },
+    sceneHints: { timeOfDay: "morning" },
+    artistOrGenreCue: true,
+  },
+
+  // ── Ocean / beach / summer ecosystem ─────────────────────────────────────
+  {
+    terms: [
+      "beach drive", "summer afternoon", "golden hour beach", "surf rock",
+      "warm ocean breeze", "coastal summer", "seaside afternoon", "beach party",
+      "summer indie", "pool day", "sun-soaked", "mediterranean summer",
+      "carefree summer", "summer road trip", "beachside sunset",
+    ],
+    weights: { energy: 0.18, valence: 0.35, tension: -0.15, nostalgia: 0.12, calm: 0.15 },
+    sceneHints: { environment: "nature", timeOfDay: "afternoon" },
+    artistOrGenreCue: true,
+  },
+
+  // ── Deep focus / study ecosystem ──────────────────────────────────────────
+  {
+    terms: [
+      "deep focus", "study session", "coding session", "focus music",
+      "deep work", "late night studying", "flow state", "in the zone",
+      "concentration music", "reading focus", "library studying",
+      "lofi study", "ambient study", "study beats",
+    ],
+    weights: { energy: -0.15, valence: 0.05, tension: 0.08, nostalgia: 0.05, calm: 0.42 },
+    artistOrGenreCue: true,
+  },
+
+  // ── Heartbreak / emotional aftermath ecosystem ────────────────────────────
+  {
+    terms: [
+      "heartbreak", "post-breakup", "after the breakup", "still thinking about you",
+      "moving on", "can't stop thinking", "unrequited", "end of a relationship",
+      "alone after love", "emotional wreck", "crying in the car",
+      "sad banger", "sad pop", "indie heartbreak", "emotional indie",
+    ],
+    weights: { energy: -0.05, valence: -0.3, tension: 0.15, nostalgia: 0.28, calm: -0.05 },
+    artistOrGenreCue: true,
+  },
+
+  // ── Late night city glow / lo-fi urban ecosystem ──────────────────────────
+  {
+    terms: [
+      "city glow", "neon glow", "lo-fi city", "late night city vibes",
+      "urban night lo-fi", "city at 3am", "quiet city after rain",
+      "midnight city lights", "city after midnight", "neon rain",
+    ],
+    weights: { energy: -0.1, valence: 0.0, tension: 0.1, nostalgia: 0.2, calm: 0.3 },
+    sceneHints: { environment: "urban", timeOfDay: "late_night" },
+    artistOrGenreCue: true,
+  },
+
+  // ── Euphoric / festival / rave ecosystem ─────────────────────────────────
+  {
+    terms: [
+      "rave", "festival euphoria", "dancefloor", "club night", "euphoric drop",
+      "warehouse rave", "festival closing set", "peak hour dancefloor",
+      "dance until sunrise", "all night dancing", "techno rave", "hard trance",
+      "progressive house festival", "big room anthem",
+    ],
+    weights: { energy: 0.45, valence: 0.35, tension: 0.2, nostalgia: -0.05, calm: -0.4 },
+    sceneHints: { timeOfDay: "late_night" },
+    artistOrGenreCue: true,
+  },
 ];
