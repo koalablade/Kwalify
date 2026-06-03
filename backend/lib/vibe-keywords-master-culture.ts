@@ -5,12 +5,40 @@
 import { tagBatch, tagKw } from "./tag-keyword-helpers";
 import type { ExtendedVibeKeyword } from "./vibe-keywords-extended";
 
-const DECADES: ExtendedVibeKeyword[] = tagBatch(
-  ["1950s", "1960s", "1970s", "1980s", "1990s", "2000s", "2010s", "2020s", "50s", "60s", "70s", "80s", "90s", "00s"],
-  { nostalgia: 0.25, energy: 0.0 },
-  undefined,
-  true
-);
+// ── Per-decade sonic profiles — treat each decade as a cultural aesthetic universe ──
+const DECADES: ExtendedVibeKeyword[] = [
+  // 50s — warm, clean, acoustic, optimistic Americana
+  tagKw(["1950s", "50s"], { nostalgia: 0.45, valence: 0.25, energy: 0.05, calm: 0.15 }, undefined, true),
+  // 60s — psychedelic, idealistic, dynamic range, British invasion
+  tagKw(["1960s", "60s"], { nostalgia: 0.42, valence: 0.2, energy: 0.1, tension: 0.05 }, undefined, true),
+  // 70s — warm analogue, expansive, funk/soul/rock crossover
+  tagKw(["1970s", "70s"], { nostalgia: 0.4, valence: 0.12, energy: 0.08, calm: 0.1 }, undefined, true),
+  // 80s — synth-heavy, cinematic, neon-lit, surreal/unreal quality
+  tagKw(
+    ["1980s", "80s", "eighties"],
+    { nostalgia: 0.45, valence: 0.1, energy: 0.15, tension: 0.08, calm: -0.05 },
+    undefined,
+    true
+  ),
+  // 90s — raw, emotive, grunge/alt/rnb, bittersweet
+  tagKw(
+    ["1990s", "90s", "nineties"],
+    { nostalgia: 0.4, valence: 0.05, energy: 0.12, tension: 0.1 },
+    undefined,
+    true
+  ),
+  // 2000s / 00s — polished pop, rap crossover, bittersweet nostalgia
+  tagKw(
+    ["2000s", "00s", "noughties", "y2k"],
+    { nostalgia: 0.38, valence: 0.12, energy: 0.1 },
+    undefined,
+    true
+  ),
+  // 2010s — indie/electronic blooming, streaming era, wistful
+  tagKw(["2010s", "tens"], { nostalgia: 0.25, valence: 0.08, energy: 0.08 }, undefined, true),
+  // 2020s — contemporary, lo-fi adjacent, emotionally complex
+  tagKw(["2020s", "twenty twenties"], { nostalgia: 0.1, tension: 0.08, calm: 0.1 }, undefined, true),
+];
 
 const ERA_FEELINGS: ExtendedVibeKeyword[] = [
   ...tagBatch(
@@ -18,10 +46,8 @@ const ERA_FEELINGS: ExtendedVibeKeyword[] = [
       "golden oldies",
       "swinging sixties",
       "summer of love",
-      "disco era",
       "new wave era",
       "hair metal era",
-      "y2k",
       "myspace era",
       "indie sleaze",
       "tumblr era",
@@ -33,7 +59,27 @@ const ERA_FEELINGS: ExtendedVibeKeyword[] = [
     undefined,
     true
   ),
+  tagKw("disco era", { nostalgia: 0.38, valence: 0.2, energy: 0.18, calm: -0.05 }, undefined, true),
   tagKw("britpop era", { nostalgia: 0.35, valence: 0.1, energy: 0.08 }, undefined, true),
+  // Additional era-as-aesthetic entries
+  tagKw(
+    ["synth era", "synth age", "analog synth", "analogue synth"],
+    { nostalgia: 0.4, energy: 0.1, tension: 0.06, calm: -0.04 },
+    undefined,
+    true
+  ),
+  tagKw(
+    ["post-punk era", "new romanticism", "new romantics"],
+    { nostalgia: 0.38, tension: 0.1, energy: 0.08 },
+    undefined,
+    true
+  ),
+  tagKw(
+    ["grunge era", "alternative 90s", "alt rock 90s"],
+    { nostalgia: 0.38, tension: 0.15, energy: 0.12, valence: -0.05 },
+    undefined,
+    true
+  ),
 ];
 
 const GENRE_FAMILIES: ExtendedVibeKeyword[] = tagBatch(

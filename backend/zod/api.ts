@@ -73,8 +73,8 @@ export const SyncLikedSongsResponse = zod.object({
  */
 
 export const generatePlaylistBodyModeDefault = `balanced`;
-export const generatePlaylistBodyLengthDefault = 25;
-export const generatePlaylistBodyLengthMin = 10;
+export const generatePlaylistBodyLengthDefault = 40;
+export const generatePlaylistBodyLengthMin = 20;
 export const generatePlaylistBodyLengthMax = 100;
 
 

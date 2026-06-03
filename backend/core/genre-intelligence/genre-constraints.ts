@@ -19,10 +19,10 @@ export const GENRE_LIBRARY_FLOOR = 0.05;
 export const MAX_SCENE_SCORE_INFLUENCE = 0.38;
 
 export const SCORING_WEIGHTS = {
-  genre: 0.48,
-  scene: 0.28,
-  emotion: 0.14,
-  library: 0.1,
+  genre: 0.42,
+  scene: 0.25,
+  emotion: 0.22,
+  library: 0.11,
 } as const;
 
 const GENERIC_COLLAPSE_GENRES: RootGenre[] = ["indie", "pop"];

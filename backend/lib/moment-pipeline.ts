@@ -14,6 +14,7 @@
 
 import { analyzeVibe, type EmotionProfile } from "./emotion";
 import { parseEmotionalDestination, type JourneyArc } from "./emotion-destination";
+import { detectEra, hasEraSignal, type EraContext } from "./era-detection";
 import { propagateGraph, type GraphApplyResult } from "./knowledge-graph";
 import {
   resolveCanonicalSceneFull,
@@ -50,6 +51,7 @@ export interface MomentPipelineResult {
   intent: IntentDecodeResult;
   physics: EmotionalTrajectory;
   graph: GraphApplyResult;
+  eraContext: EraContext;
   pipelineSummary: Record<string, unknown>;
 }
 
@@ -110,6 +112,16 @@ export function analyzeMomentPipeline(
   // 9. Intent override (final profile nudge)
   applyIntentToProfile(profile, intent);
 
+  // 10. Era layer — treat decade keywords as sonic aesthetic universes, not date filters
+  const eraContext = detectEra(vibe);
+  if (hasEraSignal(eraContext)) {
+    profile = {
+      ...profile,
+      nostalgia: Math.min(1, profile.nostalgia + eraContext.nostalgiaBoost),
+      energy: Math.min(1, Math.max(0, profile.energy + eraContext.energyDelta * 0.5)),
+    };
+  }
+
   // Experience scene — secondary when canonical confidence high
   const experienceMatch =
     canonical && canonical.confidence >= 0.65
@@ -132,6 +144,9 @@ export function analyzeMomentPipeline(
     graphActive: graph.activeConcepts,
     graphHops: graph.propagationPath.slice(0, 8),
     usedKeywordSoup: !canonical || canonical.confidence < 0.62,
+    era: eraContext.decade
+      ? { decade: eraContext.decade, confidence: eraContext.eraConfidence, aesthetic: eraContext.sonicAesthetic }
+      : null,
   };
 
   return {
@@ -144,6 +159,7 @@ export function analyzeMomentPipeline(
     intent,
     physics,
     graph,
+    eraContext,
     pipelineSummary,
   };
 }

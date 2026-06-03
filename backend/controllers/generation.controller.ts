@@ -420,7 +420,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       length,
       mode,
       vibe,
-      maxPerArtist: mode === "strict" ? 2 : mode === "balanced" ? 3 : 5,
+      maxPerArtist: 2,
     };
 
     res.setTimeout(REQUEST_HARD_TIMEOUT_MS + 2000, () => {
@@ -623,7 +623,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ontologyEdges: genreStack.stats.ontologyEdges,
     });
 
-    const maxPerArtist = mode === "strict" ? 2 : mode === "balanced" ? 3 : 5;
+    const maxPerArtist = 2;
 
     const allowHolidaySeason =
       /\b(christmas|xmas|holiday|festive|winter holiday)\b/i.test(vibe) ||
@@ -1102,8 +1102,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         mode: string;
       } })._genCtx;
       if (timedOut && ctx?.likedSongs?.length) {
-        const maxPerArtist =
-          ctx.mode === "strict" ? 2 : ctx.mode === "balanced" ? 3 : 5;
+        const maxPerArtist = 2;
         const pipeline = buildFallbackPipelineResult({
           tracks: ctx.likedSongs as Parameters<typeof buildFallbackPipelineResult>[0]["tracks"],
           emotionProfile: ctx.emotionProfile,
