@@ -1,5 +1,11 @@
 /**
  * Playlist composition — selection and ordering only (no scoring formula changes).
+ *
+ * v2 additions:
+ *   - Signature Track Layer: 5–10 anchor tracks locked as backbone
+ *   - Cross-phase artist distribution: same artist never in consecutive phases
+ *   - Genre Bridge smoothing applied within each phase
+ *   - Discovery injection formalised at 10–15%
  */
 
 import type { EmotionProfile, VibeKind } from "../../lib/emotion";
@@ -13,7 +19,7 @@ import {
 } from "../../lib/emotion";
 import { applyRediscoveryPoolBias } from "../../lib/emotional-discovery";
 import { injectControlledSurprise } from "../../lib/controlled-surprise";
-import { assignNarrativeRoles, type TrackNarrativeRole } from "../../lib/narrative-roles";
+import { assignNarrativeRoles, type TrackNarrativeRole, type PlaylistPhase } from "../../lib/narrative-roles";
 import type { JourneyArc } from "../../lib/emotion-destination";
 import type { IntentDecodeResult } from "../../lib/intent-decoder";
 import type { HumanIntent } from "../../lib/intent-decoder";
@@ -23,6 +29,9 @@ import type { CanonicalSceneResult } from "../../lib/scene-canonicalizer";
 import { placeEmotionalPeak } from "./emotional-peak";
 import { applyEmotionalGradientFlow } from "./emotional-gradient-flow";
 import type { TrackGravityProfile } from "../scoring-engine/taste-gravity";
+import { selectSignatureTracks, signatureTrackIds } from "../../lib/signature-tracks";
+import { smoothGenreTransitions } from "../../lib/genre-bridge";
+import type { RootGenre } from "../../lib/genre-taxonomy";
 
 export interface ComposePlaylistInput<T extends {
   trackId: string;
@@ -67,7 +76,10 @@ type ComposePoolTrack = {
   stickiness?: number;
 };
 
-type ComposedTrack<T extends ComposePoolTrack> = T & { narrativeRole: TrackNarrativeRole };
+type ComposedTrack<T extends ComposePoolTrack> = T & {
+  narrativeRole: TrackNarrativeRole;
+  playlistPhase: PlaylistPhase;
+};
 
 export interface ComposePlaylistResult<T extends ComposePoolTrack> {
   finalTracks: ComposedTrack<T>[];
@@ -80,6 +92,111 @@ export interface ComposePlaylistResult<T extends ComposePoolTrack> {
   emotionalPeakTrackId: string | null;
   emotionalPeakIndex: number | null;
   gradientPhases: { start: number; explore: number; peak: number; resolve: number };
+  /** v2: IDs of the 5–10 backbone anchor tracks */
+  signatureTrackIds: Set<string>;
+}
+
+// ---------------------------------------------------------------------------
+// Cross-phase artist distribution (v2 spec)
+// Same artist must not appear in consecutive phases.
+// Applies a best-effort swap using remaining tracks from the pool.
+// ---------------------------------------------------------------------------
+function distributeArtistsAcrossPhases<T extends { trackId: string; artistName: string }>(
+  tracks: T[],
+  phases: { start: number; explore: number; peak: number; resolve: number },
+  fallbackPool: T[]
+): T[] {
+  const len = tracks.length;
+  if (len < 8) return tracks;
+
+  // Build inclusive index ranges per phase
+  const p1End = phases.start;
+  const p2End = p1End + phases.explore;
+  const p3End = p2End + phases.peak;
+  const phaseOf = (i: number): number => {
+    if (i < p1End) return 0;
+    if (i < p2End) return 1;
+    if (i < p3End) return 2;
+    return 3;
+  };
+
+  const result = [...tracks];
+  const usedIds = new Set(result.map((t) => t.trackId));
+
+  // Collect phase-artist occupancy
+  const phaseArtists: Set<string>[] = [new Set(), new Set(), new Set(), new Set()];
+  for (let i = 0; i < result.length; i++) {
+    const artist = (result[i]!.artistName ?? "").toLowerCase();
+    if (artist) phaseArtists[phaseOf(i)]!.add(artist);
+  }
+
+  // Find swappable replacement from fallback pool (not already in playlist)
+  const unusedPool = fallbackPool.filter((t) => !usedIds.has(t.trackId));
+
+  for (let i = 0; i < result.length; i++) {
+    const track = result[i]!;
+    const artist = (track.artistName ?? "").toLowerCase();
+    if (!artist) continue;
+
+    const myPhase = phaseOf(i);
+    const prevPhase = myPhase - 1;
+    const nextPhase = myPhase + 1;
+
+    const conflictsPrev = prevPhase >= 0 && phaseArtists[prevPhase]!.has(artist);
+    const conflictsNext = nextPhase <= 3 && phaseArtists[nextPhase]!.has(artist);
+
+    if (!conflictsPrev && !conflictsNext) continue;
+
+    // Try to find a swap candidate from unused pool that fits this phase
+    const swapIdx = unusedPool.findIndex((candidate) => {
+      const ca = (candidate.artistName ?? "").toLowerCase();
+      if (!ca) return false;
+      if (phaseArtists[myPhase]!.has(ca)) return false;
+      if (prevPhase >= 0 && phaseArtists[prevPhase]!.has(ca)) return false;
+      if (nextPhase <= 3 && phaseArtists[nextPhase]!.has(ca)) return false;
+      return true;
+    });
+
+    if (swapIdx >= 0) {
+      const swap = unusedPool.splice(swapIdx, 1)[0]!;
+      usedIds.add(swap.trackId);
+      phaseArtists[myPhase]!.delete(artist);
+      phaseArtists[myPhase]!.add((swap.artistName ?? "").toLowerCase());
+      result[i] = swap as T;
+    }
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Apply genre bridge smoothing within individual phases only.
+// Reordering is local to each phase so the macro emotional arc is preserved.
+// ---------------------------------------------------------------------------
+function smoothGenresWithinPhases<T extends { trackId: string }>(
+  tracks: T[],
+  phases: { start: number; explore: number; peak: number; resolve: number }
+): T[] {
+  const boundaries = [
+    0,
+    phases.start,
+    phases.start + phases.explore,
+    phases.start + phases.explore + phases.peak,
+    tracks.length,
+  ];
+
+  const result: T[] = [];
+  for (let p = 0; p < boundaries.length - 1; p++) {
+    const from = boundaries[p]!;
+    const to = boundaries[p + 1]!;
+    const segment = tracks.slice(from, to) as (T & { genrePrimary?: RootGenre })[];
+    if (segment.length <= 2) {
+      result.push(...segment);
+    } else {
+      result.push(...smoothGenreTransitions(segment) as T[]);
+    }
+  }
+  return result;
 }
 
 export function composePlaylistFromPool<T extends ComposePoolTrack>(
@@ -99,6 +216,16 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
     canonical,
     recentTrackPenalty,
   } = input;
+
+  // ── v2: Signature Track Layer ────────────────────────────────────────────
+  // Select 5–10 anchor tracks that define the playlist's sonic identity.
+  // Their IDs are locked and returned in the result for front-end highlighting.
+  const signatures = selectSignatureTracks(sortedPool, {
+    minCount: Math.min(5, sortedPool.length),
+    maxCount: Math.min(10, Math.floor(playlistLength * 0.2)),
+  });
+  const sigIds = signatureTrackIds(signatures);
+  // ────────────────────────────────────────────────────────────────────────
 
   const poolTarget = Math.max(Math.ceil(playlistLength * 3), 75);
   const deprioritized =
@@ -208,7 +335,17 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
         })
       : { tracks: finalTracks, phases: { start: 0, explore: 0, peak: 0, resolve: finalTracks.length } };
 
-  finalTracks = assignNarrativeRoles(gradient.tracks, journeyArc);
+  // ── v2: Cross-phase artist distribution ─────────────────────────────────
+  const crossPhased = distributeArtistsAcrossPhases(
+    gradient.tracks,
+    gradient.phases,
+    sortedPool.filter((t) => !new Set(gradient.tracks.map((x) => x.trackId)).has(t.trackId))
+  );
+
+  // ── v2: Genre bridge smoothing (within each phase, preserving macro arc) ─
+  const genreSmoothed = smoothGenresWithinPhases(crossPhased, gradient.phases);
+
+  finalTracks = assignNarrativeRoles(genreSmoothed, journeyArc);
 
   return {
     finalTracks,
@@ -221,5 +358,6 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
     emotionalPeakTrackId: peakPlacement.peakTrackId,
     emotionalPeakIndex: peakPlacement.peakIndex,
     gradientPhases: gradient.phases,
+    signatureTrackIds: sigIds,
   };
 }

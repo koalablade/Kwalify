@@ -219,6 +219,7 @@ export function buildPlaylistPipeline<T extends {
       emotionalPeakTrackId: composed.emotionalPeakTrackId,
       emotionalPeakIndex: composed.emotionalPeakIndex,
       gradientPhases: composed.gradientPhases,
+      ...(composed.signatureTrackIds && { signatureTrackIds: composed.signatureTrackIds }),
     },
   };
 }

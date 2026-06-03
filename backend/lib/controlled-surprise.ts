@@ -42,7 +42,10 @@ export function injectControlledSurprise<T extends ScoredTrack>(
 ): T[] {
   if (ordered.length < 8) return ordered;
 
-  const slots = Math.min(4, Math.max(1, Math.floor(length * mix.wildcardRatio)));
+  // v2 spec: discovery injection must be 10–15% of playlist length
+  // Clamp wildcardRatio between 0.10 and 0.15 so we always inject discovery tracks
+  const discoveryRatio = Math.min(0.15, Math.max(0.10, mix.wildcardRatio));
+  const slots = Math.min(Math.ceil(length * 0.15), Math.max(4, Math.floor(length * discoveryRatio)));
   const used = new Set(ordered.map((t) => t.trackId));
   const result = [...ordered];
   const replaceIdx: number[] = [];
