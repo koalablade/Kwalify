@@ -95,6 +95,11 @@ export interface BuildPlaylistPipelineOpts<T extends {
   varietyPenaltyScale?: number;
   referencePlaylist?: boolean;
   pipelineLog?: import("pino").Logger;
+  /**
+   * No-library mode: intent always overrides user history.
+   * Library affinity weight is zeroed out and redistributed to semantic.
+   */
+  noLibraryMode?: boolean;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -159,6 +164,7 @@ export function buildPlaylistPipeline<T extends {
     recentPlaylistTrackIds: opts.recentPlaylistTrackIds,
     varietyPenaltyScale: opts.varietyPenaltyScale,
     referencePlaylist: opts.referencePlaylist,
+    noLibraryMode: opts.noLibraryMode,
     postScore: {
       ...opts.postScore,
       emotionProfile: opts.emotionProfile,

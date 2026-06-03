@@ -105,6 +105,12 @@ export interface HybridScoringContext {
   truthAnchors?: TruthAnchorStore;
   /** Semantic scene resolution — drives primary ecosystem ranking signal */
   semanticResolution: SemanticSceneResolution;
+  /**
+   * No-library mode: pure scene-driven playlist.
+   * Library affinity weight is zeroed out; semantic ecosystem weight absorbs it.
+   * Intent always dominates — user history never influences the output.
+   */
+  noLibraryMode?: boolean;
 }
 
 export function buildHybridScoringContext(opts: {
@@ -120,6 +126,7 @@ export function buildHybridScoringContext(opts: {
   libraryTracks?: Parameters<typeof buildUserGenreProfile>[0];
   preScore?: PreScoreContext;
   truthAnchors?: TruthAnchorStore;
+  noLibraryMode?: boolean;
 }): HybridScoringContext {
   let prototype = opts.prototype;
   if (!prototype && opts.vibeKind === "sunny") {
@@ -170,6 +177,7 @@ export function buildHybridScoringContext(opts: {
     preScore: opts.preScore,
     truthAnchors: opts.truthAnchors,
     semanticResolution,
+    noLibraryMode: opts.noLibraryMode ?? false,
     hardFilter: {
       vibe: opts.vibe,
       intent: opts.intent.intent,
@@ -387,19 +395,34 @@ export function computeTriScores(
 export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): number {
   const sceneContrib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * SCORING_WEIGHTS.scene;
 
-  // Primary signal: semantic ecosystem match (scene-driven genre fit)
-  let final =
-    tri.semanticEcosystemScore * SCORING_WEIGHTS.semantic +
-    tri.emotionMatch * SCORING_WEIGHTS.emotion +
-    sceneContrib +
-    tri.aestheticScore * SCORING_WEIGHTS.aesthetic +
-    tri.libraryFitScore * SCORING_WEIGHTS.library +
-    tri.genreBalanceScore * SCORING_WEIGHTS.genre;
+  let final: number;
 
-  // Apply negative match penalty — anti-genre tracks are penalised multiplicatively
+  if (ctx.noLibraryMode) {
+    // No-library mode: pure scene / intent / emotion — library history is zeroed out.
+    // Library (10%) + Genre (5%) weight is redistributed to semantic (now 55%).
+    // This ensures "petrol station 2am" generates ambient/synthwave not user's rap history.
+    final =
+      tri.semanticEcosystemScore * (SCORING_WEIGHTS.semantic + SCORING_WEIGHTS.library + SCORING_WEIGHTS.genre) +
+      tri.emotionMatch * SCORING_WEIGHTS.emotion +
+      sceneContrib +
+      tri.aestheticScore * SCORING_WEIGHTS.aesthetic;
+  } else {
+    // Personalized mode: intent-first (40%) with library history as a refinement signal (15%).
+    // INTENT FIRST — personalization refines, never replaces the requested vibe.
+    final =
+      tri.semanticEcosystemScore * SCORING_WEIGHTS.semantic +
+      tri.emotionMatch * SCORING_WEIGHTS.emotion +
+      sceneContrib +
+      tri.aestheticScore * SCORING_WEIGHTS.aesthetic +
+      tri.libraryFitScore * SCORING_WEIGHTS.library +
+      tri.genreBalanceScore * SCORING_WEIGHTS.genre;
+  }
+
+  // Apply negative match penalty — anti-genre tracks are penalised multiplicatively.
+  // Penalty is now harsher (0.08 for high-confidence violations) — see computeNegativePenalty.
   final *= tri.negativePenalty;
 
-  if (ctx.intent.intent === "nostalgia") {
+  if (!ctx.noLibraryMode && ctx.intent.intent === "nostalgia") {
     final += tri.libraryFitScore * 0.04;
   }
   if (isGenreLocked(tri.classification)) {

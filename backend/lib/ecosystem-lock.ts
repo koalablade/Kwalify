@@ -16,7 +16,8 @@ import { classifyTrack } from "./genre-taxonomy";
 import type { SemanticSceneVector } from "./semantic-scene-engine";
 
 // Confidence threshold above which the ecosystem lock activates
-export const ECOSYSTEM_LOCK_THRESHOLD = 0.7;
+// Lowered from 0.7 → 0.55 so common scene prompts (outlaw country, dirt road, etc.) always lock
+export const ECOSYSTEM_LOCK_THRESHOLD = 0.55;
 
 // Composition targets (shares of final playlist)
 const PRIMARY_TARGET = 0.80;

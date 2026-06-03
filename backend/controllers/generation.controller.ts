@@ -681,6 +681,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       journeyArc,
       maxPerArtist,
       recentPlaylistTrackIds: recentTrackLists,
+      noLibraryMode: !!noLibraryMode,
       memoryByTrack: (trackId) => {
         const signal = librarySignals.tracks.get(trackId);
         if (!signal) return 0.35;
@@ -994,6 +995,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Generation complete"
     );
 
+    const debugMode = req.query.debug === "1";
+
     res.json({
       success: true,
       playlistId: savedPlaylistId,
@@ -1002,6 +1005,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       name: playlistName,
       vibe,
       mode,
+      noLibraryMode: !!noLibraryMode,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
       generationMs,
@@ -1084,6 +1088,24 @@ router.post("/generate", async (req, res): Promise<void> => {
       tracks: formatTracksForApi(finalTracks, emotionProfile),
       ...(pipeline.scoringDiagnostics?.fastFallback
         ? { fastFallback: true }
+        : {}),
+      ...(debugMode
+        ? {
+            _debug: {
+              noLibraryMode: !!noLibraryMode,
+              scoringWeights: "semantic:0.40_emotion:0.20_scene:0.15_aesthetic:0.10_library:0.10_genre:0.05",
+              noLibraryWeights: noLibraryMode ? "semantic:0.55_emotion:0.20_scene:0.15_aesthetic:0.10" : null,
+              scoringDiagnostics,
+              ecosystemDebug: pipeline.ecosystemDebug,
+              semanticScene: (scoringDiagnostics as Record<string, unknown>).semanticResolution ?? null,
+              poolInfo: {
+                librarySize: scoringPool.librarySize,
+                hybridPoolSize: scoringPool.hybridPoolSize,
+                poolCapped: scoringPool.poolCapped,
+              },
+              genreAudit,
+            },
+          }
         : {}),
     });
     } finally {

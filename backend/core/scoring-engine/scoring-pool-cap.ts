@@ -1,5 +1,10 @@
 /**
  * Cap hybrid scoring pool — full-library tri-score on 10k+ tracks is too slow for HTTP.
+ *
+ * Phase 3 — Retrieval Before Scoring:
+ * When a semantic scene is locked (confidence >= threshold), anti-genre tracks are
+ * pre-filtered from the candidate pool BEFORE the expensive tri-score runs.
+ * This ensures "outlaw country" never retrieves a rap-heavy pool regardless of library size.
  */
 
 import type { EmotionProfile, VibeKind } from "../../lib/emotion";
@@ -14,6 +19,8 @@ import {
   MINIMAL_GENRE_STACK_THRESHOLD,
   resolveHybridPoolCap,
 } from "../../lib/production-limits";
+import type { SemanticSceneVector } from "../../lib/semantic-scene-engine";
+import { isHardAntiGenre } from "../../lib/semantic-scene-engine";
 
 function seededJitter(trackId: string, seed: number): number {
   let h = seed;
@@ -53,6 +60,17 @@ export function capTracksForHybridScoring<T extends {
     recentTrackPenalty?: Map<string, number>;
     libraryEraMode?: LibraryEraMode;
     vibe?: string;
+    /**
+     * Phase 3 — Retrieval Before Scoring:
+     * When provided, tracks whose primary genre is a hard anti-genre for this
+     * scene are removed from the pool BEFORE scoring begins.
+     * The ecosystem filter only activates when we have enough ecosystem-matching
+     * tracks (at least 30% of the target cap) to fill the pool.
+     */
+    ecosystemPreFilter?: {
+      vector: SemanticSceneVector;
+      sceneConfidence: number;
+    };
   }
 ): {
   pool: T[];
@@ -69,22 +87,55 @@ export function capTracksForHybridScoring<T extends {
       vibeKind: opts.vibeKind,
       promptWordCount: opts.promptWordCount,
     });
-  if (originalCount <= max) {
+
+  // ── Phase 3: Retrieval Before Scoring (ecosystem pre-filter) ────────────────
+  // When a semantic scene is locked with sufficient confidence, remove hard
+  // anti-genre tracks BEFORE the expensive tri-score. This is the most
+  // impactful change: "outlaw country" with a rap-heavy library should never
+  // produce a rap playlist regardless of the pool cap heuristics.
+  let workingTracks = tracks;
+  if (opts.ecosystemPreFilter && opts.ecosystemPreFilter.sceneConfidence >= 0.55) {
+    const { vector } = opts.ecosystemPreFilter;
+    const classMap = opts.classifications;
+    const filtered = tracks.filter((t) => {
+      const c = classMap.get(t.trackId);
+      if (!c) return true; // no classification → keep
+      return !isHardAntiGenre(c, vector);
+    });
+    // Only apply the pre-filter if it leaves at least 30% of the requested cap
+    // (prevents empty pools for users whose libraries are 100% anti-genre)
+    if (filtered.length >= Math.max(Math.floor(max * 0.30), 15)) {
+      workingTracks = filtered;
+    }
+  }
+
+  if (workingTracks.length <= max) {
+    return { pool: workingTracks, originalCount, poolCapped: false, candidateCount: workingTracks.length };
+  }
+
+  // Swap to filtered list for the rest of the function
+  const tracksForRanking = workingTracks;
+
+  if (tracksForRanking.length === 0) {
+    return { pool: tracks.slice(0, max), originalCount, poolCapped: true, candidateCount: tracks.length };
+  }
+
+  if (originalCount <= max && workingTracks === tracks) {
     return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount };
   }
 
   // Fast path for 500+ libraries — skip era-balanced reshuffle (maps/sorts entire library).
-  if (originalCount >= MINIMAL_GENRE_STACK_THRESHOLD) {
-    let candidates = tracks;
+  if (tracksForRanking.length >= MINIMAL_GENRE_STACK_THRESHOLD) {
+    let candidates = tracksForRanking;
     if (opts.vibeKind === "sunny") {
-      const sunny = tracks.filter((t) =>
+      const sunny = tracksForRanking.filter((t) =>
         passesSunnyGate({
           valence: t.valence,
           energy: t.energy,
           acousticness: t.acousticness ?? null,
         })
       );
-      if (sunny.length >= Math.min(max, Math.floor(originalCount * 0.25))) {
+      if (sunny.length >= Math.min(max, Math.floor(tracksForRanking.length * 0.25))) {
         candidates = sunny;
       }
     }
@@ -106,16 +157,16 @@ export function capTracksForHybridScoring<T extends {
     };
   }
 
-  let candidates = tracks;
+  let candidates = tracksForRanking;
   if (opts.vibeKind === "sunny") {
-    const sunny = tracks.filter((t) =>
+    const sunny = tracksForRanking.filter((t) =>
       passesSunnyGate({
         valence: t.valence,
         energy: t.energy,
         acousticness: t.acousticness ?? null,
       })
     );
-    if (sunny.length >= Math.min(max, Math.floor(originalCount * 0.25))) {
+    if (sunny.length >= Math.min(max, Math.floor(tracksForRanking.length * 0.25))) {
       candidates = sunny;
     }
   }

@@ -105,6 +105,7 @@ import {
 } from "./taste-gravity";
 import { applyGravityBiasedSurprise } from "./gravity-surprise";
 import { capTracksForHybridScoring } from "./scoring-pool-cap";
+import { resolveSemanticScene } from "../../lib/semantic-scene-engine";
 import { buildRecentTrackPoolPenalty } from "../../lib/playlist-freshness";
 import type { Logger } from "pino";
 import { logScoringStage } from "../../lib/generate-stage-timer";
@@ -170,6 +171,12 @@ export interface RunScoringPipelineOpts<T extends {
   /** Request logger — stage timing for production stall diagnosis */
   pipelineLog?: Logger;
 
+  /**
+   * No-library mode: zero out library affinity weight; redistribute to semantic.
+   * Passed through to HybridScoringContext and combineTriScore.
+   */
+  noLibraryMode?: boolean;
+
 }
 
 
@@ -234,6 +241,9 @@ export function runScoringPipeline<T extends {
   let t = Date.now();
   log?.info({ librarySize: opts.tracks.length }, "Scoring: capping candidate pool");
 
+  // Resolve semantic scene early so Phase 3 pre-filter can use it
+  const earlySemanticResolution = resolveSemanticScene(opts.vibe, opts.emotionProfile);
+
   const poolCap = capTracksForHybridScoring(opts.tracks, {
     emotionProfile: opts.emotionProfile,
     vibeKind: opts.vibeKind,
@@ -249,6 +259,9 @@ export function runScoringPipeline<T extends {
           5,
           opts.varietyPenaltyScale ?? 1
         )
+      : undefined,
+    ecosystemPreFilter: earlySemanticResolution.vector
+      ? { vector: earlySemanticResolution.vector, sceneConfidence: earlySemanticResolution.confidence }
       : undefined,
   });
 
@@ -363,6 +376,7 @@ export function runScoringPipeline<T extends {
     userGenre: opts.userGenreProfile,
     preScore,
     truthAnchors,
+    noLibraryMode: opts.noLibraryMode,
   });
   logScoringStage(log, "Hybrid scoring context built", t);
 
