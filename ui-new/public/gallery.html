@@ -11,24 +11,19 @@
   <link rel="stylesheet" href="/styles/base.css">
 </head>
 <body>
-  <div class="kw-toast-zone" id="toastZone"></div>
-  <main class="kw-scene">
-    <div class="kw-wrap">
-      <header class="kw-top">
-        <a class="kw-brand kw-brand-green" href="/">
-          <span class="kw-mark">Y</span>
-          <span>K<em>walify</em></span>
-        </a>
-        <a class="kw-btn kw-btn-quiet" href="/">&lt;- Back to app</a>
+  <div id="toastLayer" class="toast-layer"></div>
+  <main class="app-root">
+    <section class="page page-wide">
+      <header class="topbar">
+        <a class="brand brand-green" href="/" aria-label="Kwalify home"><span class="brand-mark">Y</span><span>Kwalify</span></a>
+        <a class="nav-link" href="/">Back to app</a>
       </header>
-
-      <section class="kw-hero" style="text-align:left;padding-bottom:28px">
-        <h1 class="kw-title" style="font-size:clamp(42px,6vw,62px)">Recently generated vibes</h1>
-        <p class="kw-subtitle" style="margin-left:0">Moments people turned into playlists - only songs they already loved on Spotify.</p>
+      <section class="gallery-hero">
+        <h1>Recently generated vibes</h1>
+        <p>Moments people turned into playlists - only songs they already loved on Spotify</p>
       </section>
-
-      <section id="galleryRoot"><div class="kw-loader"></div></section>
-    </div>
+      <section id="galleryRoot"><div class="loader"></div></section>
+    </section>
   </main>
   <script type="module" src="/pages/gallery.js"></script>
 </body>

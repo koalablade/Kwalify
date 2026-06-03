@@ -1,17 +1,13 @@
-import { api } from "../components/api.js";
-import { byId, escapeHtml, formatDate, formatTime, songRows, toast } from "../components/dom.js";
-
-const root = byId("root");
-
+const root = document.getElementById("appRoot");
 const state = {
   mode: "balanced",
   length: 40,
   busy: false,
   lastVibe: "",
-  pollTimer: null,
+  syncTimer: null,
 };
 
-const exampleVibes = [
+const examples = [
   "late-night motorway drive",
   "sunny afternoon working on an old car",
   "songs that sound expensive",
@@ -19,7 +15,7 @@ const exampleVibes = [
   "music for wandering around London at midnight",
 ];
 
-const quickVibes = [
+const quick = [
   ["Night Drive", "night drive alone on the motorway"],
   ["Gym", "gym songs with focus and drive"],
   ["Chill", "soft chill songs for a slow afternoon"],
@@ -27,143 +23,233 @@ const quickVibes = [
   ["Summer", "end of summer but not sad"],
 ];
 
-function brand(kind = "purple") {
-  const green = kind === "green" ? " kw-brand-green" : "";
-  return `<a class="kw-brand${green}" href="/">
-    <span class="kw-mark">Y</span>
-    <span>K<em>walify</em></span>
-  </a>`;
+const featureCards = [
+  ["brain", "3-Layer Vibe AI", "Parses your scene into location, time, mood, and motion - then maps it to exact audio fingerprints."],
+  ["note", "Scores your library", "Every liked song is scored against 5 audio dimensions. Only songs you already love make the cut."],
+  ["dice", "Strict, Balanced, Chaotic", "Choose how closely tracks match your vibe. Balanced ensures artist variety and tempo diversity."],
+  ["bolt", "One click, done", "Describe your mood, hit Generate. A private playlist appears in your Spotify in seconds."],
+];
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  })[char]);
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(`/api${path}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  return {
+    ok: response.ok,
+    status: response.status,
+    data: await response.json().catch(() => ({})),
+  };
+}
+
+function byId(id) {
+  return document.getElementById(id);
 }
 
 function spotifyIcon() {
-  return `<span class="kw-spotify" aria-hidden="true"></span>`;
+  return `<span class="spotify-dot" aria-hidden="true"></span>`;
 }
 
-function guestView() {
-  root.innerHTML = `<div class="kw-wrap">
-    <header class="kw-top">
+function brand(kind = "purple") {
+  const variant = kind === "green" ? " brand-green" : "";
+  return `<a class="brand${variant}" href="/" aria-label="Kwalify home">
+    <span class="brand-mark">Y</span>
+    <span>Kwalify</span>
+  </a>`;
+}
+
+function toast(message, tone = "") {
+  const layer = byId("toastLayer");
+  if (!layer) return;
+  const node = document.createElement("div");
+  node.className = `toast ${tone}`;
+  node.textContent = message;
+  layer.appendChild(node);
+  window.setTimeout(() => node.remove(), 3300);
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
+function formatTime(value) {
+  if (!value) return "";
+  try {
+    const raw = String(value);
+    return new Date(raw.endsWith("Z") ? raw : `${raw}Z`).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+function guestPage() {
+  root.innerHTML = `<section class="page page-wide">
+    <header class="topbar">
       ${brand("green")}
-      <a class="kw-btn kw-btn-green" href="/api/auth/login">${spotifyIcon()}Connect</a>
+      <a class="button button-green button-small" href="/api/auth/login">${spotifyIcon()}Connect</a>
     </header>
 
-    <section class="kw-hero kw-guest-hero">
-      <h1 class="kw-title">Vibe DJ</h1>
-      <p class="kw-subtitle">Type how you feel. A playlist from songs you already loved - not Discover Weekly.</p>
-      <div class="kw-login-stack">
-        <a class="kw-btn kw-btn-green" href="/api/auth/login">${spotifyIcon()}Connect with Spotify - free</a>
-        <div class="kw-trust">Private playlists &middot; Your likes only</div>
+    <section class="guest-hero">
+      <div class="hero-pill">${spotifyIcon()} AI-powered playlist generation</div>
+      <h1>Your vibe.<span>Your playlist.</span></h1>
+      <p>Kwalify reads your Spotify library, analyses every song's energy and mood, then builds a perfectly-matched playlist from what you actually listen to.</p>
+      <a class="button button-green button-large" href="/api/auth/login">${spotifyIcon()}Connect with Spotify - it's free</a>
+      <div class="trust-line">No credit card · No data stored · Private playlists only</div>
+    </section>
+
+    <section class="feature-grid">
+      ${featureCards.map(([icon, title, body]) => `<article class="feature-card">
+        <span class="feature-icon ${icon}"></span>
+        <h2>${escapeHtml(title)}</h2>
+        <p>${escapeHtml(body)}</p>
+      </article>`).join("")}
+    </section>
+
+    <section class="steps-section">
+      <h2>How it works</h2>
+      <div class="steps">
+        ${step("1", "Connect Spotify", "One-click OAuth - read-only access to your liked songs")}
+        ${step("2", "Describe your vibe", "Type anything: \"night drive alone\" or hit a preset")}
+        ${step("3", "AI scores tracks", "Energy, valence, tempo, acousticness - all matched locally")}
+        ${step("4", "Playlist created", "Opens in Spotify automatically - no manual steps")}
       </div>
     </section>
 
-    <section class="kw-plain-note" aria-label="How Kwalify works">
-      Describe a moment. Kwalify scores your liked songs and creates a private playlist in Spotify.
+    <section class="stats-strip" aria-label="Kwalify stats">
+      ${stat("5", "Audio dimensions scored")}
+      ${stat("3", "AI pipeline layers")}
+      ${stat("10-100", "Tracks per playlist")}
+      ${stat("0", "Data stored on server")}
     </section>
-  </div>`;
+
+    <section class="final-cta">
+      <h2>Ready to hear it?</h2>
+      <p>Connect your Spotify and describe your first vibe. Takes 10 seconds.</p>
+      <a class="button button-green button-large" href="/api/auth/login">${spotifyIcon()}Get started free</a>
+    </section>
+  </section>`;
 }
 
-function appView(user) {
+function step(number, title, body) {
+  return `<article class="step">
+    <span>${number}</span>
+    <h3>${escapeHtml(title)}</h3>
+    <p>${escapeHtml(body)}</p>
+  </article>`;
+}
+
+function stat(number, label) {
+  return `<article><strong>${escapeHtml(number)}</strong><span>${escapeHtml(label)}</span></article>`;
+}
+
+function appPage(user) {
   const name = user?.displayName || user?.name || user?.spotifyUserId || "You";
   const avatar = user?.image || user?.avatar || user?.profileImage || "";
   const userChip = avatar
-    ? `<span class="kw-btn kw-btn-quiet"><img src="${escapeHtml(avatar)}" alt="" style="width:24px;height:24px;border-radius:50%;object-fit:cover">${escapeHtml(name)}</span>`
-    : `<span class="kw-btn kw-btn-quiet">${escapeHtml(name)}</span>`;
+    ? `<span class="user-chip"><img src="${escapeHtml(avatar)}" alt="">${escapeHtml(name)}</span>`
+    : `<span class="user-chip">${escapeHtml(name)}</span>`;
 
-  root.innerHTML = `<div class="kw-wrap kw-wrap-narrow">
-    <header class="kw-top">
-      ${brand("purple")}
-      <nav class="kw-actions" aria-label="Account actions">
+  root.innerHTML = `<section class="page page-app">
+    <header class="topbar">
+      ${brand()}
+      <nav class="nav-actions" aria-label="Account">
         ${userChip}
-        <button class="kw-btn kw-btn-quiet" type="button" id="cacheButton">Cache</button>
-        <a class="kw-btn kw-btn-quiet" href="/gallery">Gallery -></a>
-        <button class="kw-btn kw-btn-quiet" type="button" id="logoutButton">Log out</button>
+        <a class="button button-dark button-small" href="/gallery">Gallery</a>
+        <button class="button button-dark button-small" type="button" id="logoutButton">Log out</button>
       </nav>
     </header>
 
-    <section class="kw-hero">
-      <div class="kw-eyebrow">Vibe DJ &middot; from your liked songs</div>
-      <h1 class="kw-title">What's the vibe?</h1>
-      <p class="kw-subtitle">Describe a moment - Kwalify builds a playlist from songs you already saved on Spotify.</p>
+    <section class="generator-hero">
+      <div class="hero-pill">Vibe DJ · from your liked songs</div>
+      <h1>What's the vibe?</h1>
+      <p>Describe your mood, scene, or moment - the AI scores your entire library and builds the perfect playlist.</p>
+      <div class="library-pill" id="syncStatus">Checking library...</div>
     </section>
 
-    <section class="kw-status" id="syncStatus">Checking library...</section>
-
-    <section class="kw-compose" aria-label="Generate playlist">
-      <label class="kw-label" for="vibeInput">Describe your vibe</label>
-      <div class="kw-compose-main">
-        <span class="kw-input-shell">
-          <input class="kw-input" id="vibeInput" maxlength="140" autocomplete="off" placeholder="Describe a moment...">
-          <span class="kw-counter" id="vibeCounter">0/140</span>
+    <section class="compose-panel" aria-label="Playlist generator">
+      <label for="vibeInput">Describe your vibe</label>
+      <div class="input-row">
+        <span class="input-shell">
+          <input id="vibeInput" maxlength="140" autocomplete="off" placeholder="Late-night drive, rainy window, slow focus...">
+          <span id="counter">0/140</span>
         </span>
-        <button class="kw-btn kw-btn-purple" type="button" id="generateButton">Describe</button>
+        <button class="button button-purple generate-button" type="button" id="generateButton">Generate</button>
       </div>
-      <div class="kw-note">Only uses songs already in your Spotify liked songs.</div>
+      <p class="input-note">Spotify liked songs only - not new recommendations</p>
 
-      <label class="kw-label" for="referenceInput">Sound like the playlist</label>
-      <input class="kw-input" id="referenceInput" autocomplete="off" placeholder="Paste a public Spotify playlist link to act as the sonic direction...">
-
-      <div class="kw-divider"></div>
-
-      <div class="kw-presets">
-        <span class="kw-mini-label">Try one of these</span>
-        ${exampleVibes.map((vibe) => `<button class="kw-pill" type="button" data-vibe="${escapeHtml(vibe)}">${escapeHtml(vibe)}</button>`).join("")}
-      </div>
-      <div class="kw-presets">
-        <span class="kw-mini-label">Quick</span>
-        ${quickVibes.map(([label, vibe]) => `<button class="kw-pill" type="button" data-vibe="${escapeHtml(vibe)}">${escapeHtml(label)}</button>`).join("")}
+      <div class="preset-block">
+        <span>Example vibes</span>
+        <div>${examples.map((item) => `<button class="pill" type="button" data-vibe="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")}</div>
       </div>
 
-      <div class="kw-settings">
-        <div>
-          <div class="kw-label">Playlist length - <strong id="lengthText" style="color:var(--purple)">40 tracks</strong></div>
-          <input class="kw-range" id="lengthInput" type="range" min="10" max="100" step="5" value="40">
-        </div>
-        <div>
-          <div class="kw-label">Match mode</div>
-          <div class="kw-mode-set">
-            <button class="kw-mode" type="button" data-mode="strict">Strict</button>
-            <button class="kw-mode is-picked" type="button" data-mode="balanced">Balanced</button>
-            <button class="kw-mode" type="button" data-mode="chaotic">Chaotic</button>
+      <details class="settings" open>
+        <summary>Settings</summary>
+        <div class="settings-body">
+          <div>
+            <span class="setting-label">Playlist length - <strong id="lengthLabel">40 tracks</strong></span>
+            <input id="lengthInput" type="range" min="10" max="100" step="5" value="40">
+          </div>
+          <div>
+            <span class="setting-label">Match mode</span>
+            <div class="mode-row">
+              <button type="button" class="mode-button" data-mode="strict">Strict</button>
+              <button type="button" class="mode-button active" data-mode="balanced">Balanced</button>
+              <button type="button" class="mode-button" data-mode="chaotic">Chaotic</button>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="kw-keys"><kbd>Enter</kbd> generate &middot; <kbd>Ctrl K</kbd> focus</div>
+      </details>
     </section>
 
-    <section class="kw-working" id="working">
-      <div class="kw-working-row"><span>Building from your liked songs...</span><span>AI scoring tracks</span></div>
-      <div class="kw-progress"><span></span></div>
+    <section class="working" id="working">
+      <div><span>Building from your liked songs...</span><span>AI scoring tracks</span></div>
+      <i></i>
     </section>
-    <section class="kw-result" id="result"></section>
+    <section class="result-panel" id="result"></section>
 
-    <section class="kw-history">
-      <div class="kw-section-title">Your recent moods</div>
-      <div class="kw-vibe-list" id="recentVibes"></div>
-      <div class="kw-section-title" style="margin-top:18px">Recent playlists</div>
-      <div class="kw-section-sub">Quick reopen here &middot; Gallery has every playlist</div>
-      <div class="kw-playlist-list" id="recentPlaylists"></div>
-      <a class="kw-gallery-link" href="/gallery">View all in Gallery -></a>
+    <section class="recent-section">
+      <div class="section-title">Recent playlists</div>
+      <p>Quick reopen here · Gallery has every playlist</p>
+      <div class="recent-list" id="recentList"></div>
+      <a class="gallery-link" href="/gallery">View all in Gallery -></a>
     </section>
 
-    <footer class="kw-foot">Beta - <a href="mailto:feedback@kwalify.app">Send feedback</a></footer>
-  </div>`;
+    <footer class="footer">Beta - <a href="mailto:feedback@kwalify.app">Send feedback</a></footer>
+  </section>`;
 
   bindApp();
-  updateInput();
   pollSync();
-  state.pollTimer = window.setInterval(pollSync, 7000);
+  state.syncTimer = window.setInterval(pollSync, 7000);
   loadRecent();
-  byId("vibeInput")?.focus();
 }
 
 function bindApp() {
   byId("vibeInput").addEventListener("input", updateInput);
+  byId("generateButton").addEventListener("click", generate);
+  byId("logoutButton").addEventListener("click", logout);
   byId("lengthInput").addEventListener("input", () => {
     state.length = Number(byId("lengthInput").value) || 40;
-    byId("lengthText").textContent = `${state.length} tracks`;
+    byId("lengthLabel").textContent = `${state.length} tracks`;
   });
-  byId("generateButton").addEventListener("click", generate);
-  byId("cacheButton").addEventListener("click", () => pollSync(true));
-  byId("logoutButton").addEventListener("click", logout);
 
   document.querySelectorAll("[data-vibe]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -176,9 +262,7 @@ function bindApp() {
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       state.mode = button.dataset.mode || "balanced";
-      document.querySelectorAll("[data-mode]").forEach((node) => {
-        node.classList.toggle("is-picked", node === button);
-      });
+      document.querySelectorAll("[data-mode]").forEach((item) => item.classList.toggle("active", item === button));
     });
   });
 
@@ -190,19 +274,17 @@ function bindApp() {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
       byId("vibeInput").focus();
-      byId("vibeInput").select();
     }
   });
+
+  updateInput();
 }
 
 function updateInput() {
   const input = byId("vibeInput");
   const button = byId("generateButton");
-  if (!input || !button) return;
-
   const count = input.value.length;
-  byId("vibeCounter").textContent = `${count}/140`;
-
+  byId("counter").textContent = `${count}/140`;
   if (!state.busy) {
     button.disabled = count === 0;
     button.textContent = count ? "Generate" : "Describe";
@@ -211,7 +293,7 @@ function updateInput() {
 
 function setBusy(value) {
   state.busy = value;
-  byId("working").classList.toggle("is-visible", value);
+  byId("working").classList.toggle("visible", value);
   byId("generateButton").disabled = value;
   byId("generateButton").textContent = value ? "Building..." : "Generate";
   if (!value) updateInput();
@@ -236,8 +318,8 @@ async function pollSync(fromClick = false) {
     }
 
     if (data.synced || total) {
-      const syncedAt = data.lastSyncedAt ? ` - Last synced ${formatTime(data.lastSyncedAt)}` : "";
-      target.innerHTML = `<span>Library ready - ${total.toLocaleString()} tracks${syncedAt}</span><button type="button" id="fullSyncButton">Full sync</button>`;
+      const time = data.lastSyncedAt ? ` · Last synced ${formatTime(data.lastSyncedAt)}` : "";
+      target.innerHTML = `<span>Library ready - ${total.toLocaleString()} songs${time}</span><button type="button" id="fullSyncButton">Full sync</button>`;
       byId("fullSyncButton").addEventListener("click", () => startSync(true));
     } else {
       target.innerHTML = `<span>Library not synced yet</span><button type="button" id="startSyncButton">Start sync</button>`;
@@ -266,39 +348,36 @@ async function startSync(full) {
 }
 
 async function loadRecent() {
+  const target = byId("recentList");
+  if (!target) return;
+
   try {
     const response = await api("/playlists");
     if (!response.ok) return;
-
     const playlists = Array.isArray(response.data.playlists) ? response.data.playlists : [];
-    byId("recentVibes").innerHTML = playlists.slice(0, 5).map((playlist) => {
-      const vibe = playlist.vibe || playlist.name || "sunny afternoon working on an old car";
-      return `<div class="kw-vibe-line">"${escapeHtml(vibe)}"</div>`;
-    }).join("");
-
-    byId("recentPlaylists").innerHTML = playlists.slice(0, 5).map((playlist) => {
-      const count = Array.isArray(playlist.tracks) ? playlist.tracks.length : playlist.trackCount || 0;
-      const name = playlist.name || playlist.vibe || "Kwalify playlist";
-      const meta = [count ? `${count} tracks` : "", formatDate(playlist.createdAt)].filter(Boolean).join(" - ");
-      return `<div class="kw-playlist-line">
-        <span>
-          <span class="kw-list-name">${escapeHtml(name)}</span>
-          <span class="kw-list-meta">${escapeHtml(meta)}</span>
-        </span>
-        <span class="kw-row-actions">
-          ${playlist.spotifyUrl ? `<a class="kw-mini kw-mini-green" target="_blank" rel="noopener" href="${escapeHtml(playlist.spotifyUrl)}">Spotify</a>` : ""}
-          <button class="kw-mini" type="button" data-share-id="${Number(playlist.id)}">Share</button>
-          <a class="kw-mini" href="/p/${Number(playlist.id)}">Open</a>
-        </span>
-      </div>`;
-    }).join("");
-
-    document.querySelectorAll("[data-share-id]").forEach((button) => {
-      button.addEventListener("click", () => copyShare(button.dataset.shareId));
+    target.innerHTML = playlists.slice(0, 5).map(recentRow).join("");
+    target.querySelectorAll("[data-share]").forEach((button) => {
+      button.addEventListener("click", () => copyShare(button.dataset.share));
     });
   } catch {
     toast("Could not load recent playlists", "bad");
   }
+}
+
+function recentRow(playlist) {
+  const count = Array.isArray(playlist.tracks) ? playlist.tracks.length : playlist.trackCount || 0;
+  const name = playlist.name || playlist.vibe || "Kwalify playlist";
+  const meta = [count ? `${count} tracks` : "", formatDate(playlist.createdAt)].filter(Boolean).join(" · ");
+  return `<article class="recent-row">
+    <a href="/p/${Number(playlist.id)}">
+      <strong>${escapeHtml(name)}</strong>
+      <span>${escapeHtml(meta)}</span>
+    </a>
+    <span>
+      ${playlist.spotifyUrl ? `<a class="mini-button green" target="_blank" rel="noopener" href="${escapeHtml(playlist.spotifyUrl)}">Spotify</a>` : ""}
+      <button class="mini-button" type="button" data-share="${Number(playlist.id)}">Share</button>
+    </span>
+  </article>`;
 }
 
 async function generate() {
@@ -311,31 +390,19 @@ async function generate() {
 
   state.lastVibe = vibe;
   setBusy(true);
-  byId("result").classList.remove("is-visible");
+  byId("result").classList.remove("visible");
 
   try {
-    const body = {
-      vibe,
-      mode: state.mode,
-      length: state.length,
-    };
-
-    const reference = byId("referenceInput").value.trim();
-    if (reference) body.referencePlaylist = reference;
-
     const response = await api("/generate", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify({ vibe, mode: state.mode, length: state.length }),
     });
 
     if (response.status === 401) {
       window.location.href = "/api/auth/login";
       return;
     }
-
-    if (!response.ok || response.data.error) {
-      throw new Error(response.data.error || "Generation failed");
-    }
+    if (!response.ok || response.data.error) throw new Error(response.data.error || "Generation failed");
 
     const tracks = Array.isArray(response.data.tracks) ? response.data.tracks : [];
     if (!tracks.length) throw new Error("No tracks returned");
@@ -363,18 +430,29 @@ async function generate() {
 function renderResult(result) {
   const target = byId("result");
   target.innerHTML = `<h2>${escapeHtml(result.name)}</h2>
-    <div class="kw-result-meta">"${escapeHtml(result.vibe)}" - ${Number(result.count).toLocaleString()} tracks - from your likes</div>
-    <div class="kw-result-actions" style="margin-bottom:15px">
-      ${result.url ? `<a class="kw-btn kw-btn-green" target="_blank" rel="noopener" href="${escapeHtml(result.url)}">${spotifyIcon()}Open Spotify</a>` : ""}
-      ${result.id ? `<button class="kw-btn kw-btn-quiet" type="button" id="shareResultButton">Share</button>` : ""}
-      <button class="kw-btn kw-btn-quiet" type="button" id="againButton">Regenerate</button>
+    <p>"${escapeHtml(result.vibe)}" · ${Number(result.count).toLocaleString()} tracks · from your likes</p>
+    <div class="result-actions">
+      ${result.url ? `<a class="button button-green" target="_blank" rel="noopener" href="${escapeHtml(result.url)}">${spotifyIcon()}Open Spotify</a>` : ""}
+      ${result.id ? `<button class="button button-dark" type="button" id="shareResult">Share</button>` : ""}
+      <button class="button button-dark" type="button" id="againButton">Regenerate</button>
     </div>
-    <div class="kw-song-list">${songRows(result.tracks, 25)}</div>`;
-
-  target.classList.add("is-visible");
-  byId("shareResultButton")?.addEventListener("click", () => copyShare(result.id));
+    <div class="track-list">${trackRows(result.tracks, 25)}</div>`;
+  target.classList.add("visible");
+  byId("shareResult")?.addEventListener("click", () => copyShare(result.id));
   byId("againButton").addEventListener("click", regenerate);
-  target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function trackRows(tracks, limit) {
+  return tracks.slice(0, limit).map((track, index) => {
+    const art = track.albumArt || track.album_art || "";
+    const name = track.name || track.trackName || "Unknown track";
+    const artist = track.artist || track.artistName || "Unknown artist";
+    return `<article class="track-row">
+      <span>${index + 1}</span>
+      ${art ? `<img src="${escapeHtml(art)}" alt="">` : `<i></i>`}
+      <strong>${escapeHtml(name)}<small>${escapeHtml(artist)}</small></strong>
+    </article>`;
+  }).join("");
 }
 
 function regenerate() {
@@ -401,15 +479,15 @@ async function logout() {
 
 async function boot() {
   try {
-    const me = await api("/auth/me");
-    if (me.ok) {
-      appView(me.data.user || me.data);
+    const response = await api("/auth/me");
+    if (response.ok) {
+      appPage(response.data.user || response.data);
       return;
     }
   } catch {
-    // Fall through to guest state.
+    // Guest page is the fallback when auth state cannot be read.
   }
-  guestView();
+  guestPage();
 }
 
 boot();

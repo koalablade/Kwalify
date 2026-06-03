@@ -13,7 +13,7 @@ Required checks:
 - Use `backend/server.ts` as the only backend entry point.
 - Register API routes only through `backend/routes/routes.index.ts`.
 - Keep generation in `backend/controllers/generation.controller.ts`.
-- Keep active UI startup in `frontend/public/index.html`.
+- Keep active UI startup in `ui-new/public/index.html`.
 - Do not import, serve, bundle, or auto-execute code from `legacy/` or `artifacts/`.
 - Search for the existing implementation before creating a new route, controller, UI boot flow, state manager, or generation path.
 

@@ -1,7 +1,7 @@
 ---
 description: Pets-style mood UI — 5 cards, one soft illustrated hero; superseded world/map spec
 globs:
-  - frontend/public/index.html
+  - ui-new/public/index.html
   - docs/**/*
 alwaysApply: false
 ---

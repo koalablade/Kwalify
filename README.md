@@ -65,7 +65,7 @@ Feedback and bugs: use the in-app link or open an issue here.
 
 ## For developers
 
-This repo is the **Kwalify web app and API** (Node, Express, PostgreSQL, static UI in `frontend/public/`, backend in `backend/`).
+This repo is the **Kwalify web app and API** (Node, Express, PostgreSQL, static UI in `ui-new/public/`, backend in `backend/`).
 
 ### Local setup
 

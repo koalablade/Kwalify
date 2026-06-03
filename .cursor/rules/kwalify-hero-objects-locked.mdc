@@ -1,8 +1,8 @@
 ---
 description: Locked hero illustrations — 5 soft Pets-style objects only
 globs:
-  - frontend/public/index.html
-  - frontend/public/cinema/**
+  - ui-new/public/index.html
+  - ui-new/public/**
   - docs/**/*
 alwaysApply: false
 ---
@@ -20,7 +20,7 @@ Each emotion screen:
 - Soft gradient background only
 - NO environments, extra objects, or dashboard chrome
 
-Code: `PETS_ILLUST_DEFS` in `frontend/public/index.html`
+Code: active UI source in `ui-new/public/`
 
 FAILSAFE: If industrial/diagram/icon UI or blob chaos → STOP. Replace with soft Pets-style illustration from locked spec.
 
