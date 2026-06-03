@@ -18,7 +18,7 @@ Required checks:
 - Search for the existing implementation before creating a new route, controller, UI boot flow, state manager, or generation path.
 
 Forbidden:
-- Multiple UI systems running at once.
+- Multiple frontend systems running at once.
 - Duplicate route handlers for the same feature.
 - Duplicate generation pipelines.
-- Legacy UI scripts auto-loading on page load.
+- Legacy browser scripts auto-loading on page load.

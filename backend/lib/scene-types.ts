@@ -15,7 +15,7 @@ export interface SceneEntry {
   nostalgia: number;
   calm: number;
   journeyArc?: JourneyArc;
-  /** Tags for docs / future UI — introspection, liminality, decompression, etc. */
+  /** Descriptive tags — introspection, liminality, decompression, etc. */
   qualities?: string[];
   lifeSituation?: string;
   socialContext?: "alone" | "partner" | "friends" | "family" | "party" | "crowd";

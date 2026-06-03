@@ -60,7 +60,7 @@ export function getSceneJourneyArc(text: string, match: SceneMatch | null): Jour
   return null;
 }
 
-/** Summary for API / debug UI */
+/** Summary for API/debug consumers. */
 export function describeSceneMatch(match: SceneMatch | null): {
   sceneId: string;
   label: string;

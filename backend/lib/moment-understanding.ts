@@ -11,7 +11,7 @@ import type { RediscoveryMode } from "./forgotten-favourites";
 import type { GenerationExplanation } from "./vibe-explanation";
 
 export interface MomentUnderstanding {
-  /** One-line product promise (echo for UI/docs). */
+  /** One-line generation promise for API consumers. */
   promise: string;
   /** Where you are — time, place, scene. */
   where: {

@@ -8,7 +8,7 @@
   "theme_color": "#05060a",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%238957ff'/><text x='50' y='62' text-anchor='middle' font-size='46' font-family='Arial' font-weight='900' fill='white'>Y</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%238652ff'/><text x='50' y='62' text-anchor='middle' font-size='46' font-family='Arial' font-weight='900' fill='white'>Y</text></svg>",
       "sizes": "any",
       "type": "image/svg+xml"
     }

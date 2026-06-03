@@ -25,14 +25,12 @@ The old `artifacts/` tree is not an active runtime source. Active build and runt
 
 ## 3. Forbidden Patterns
 
-- Multiple UI systems running simultaneously.
-- Auto-loading legacy UI scripts such as old grid, world, cinema, or experimental UI layers.
-- More than one frontend boot initializer on page load.
+- Multiple frontend systems running simultaneously.
+- Auto-loading legacy browser scripts such as old grid, world, cinema, or experimental layers.
 - Duplicate route handlers for the same API responsibility.
 - Duplicate generation controllers or generation pipelines.
 - A second backend app/server entry point.
 - Reintroducing `backend/src` or `artifacts/api-server/src` as active TypeScript sources.
-- Creating a new state manager when the current UI state can be extended.
 - Creating a new service/controller before checking for an existing implementation.
 
 ## 4. Edit Rules For Future Dev
@@ -42,8 +40,7 @@ The old `artifacts/` tree is not an active runtime source. Active build and runt
 - Keep one source of truth per feature: one route group, one controller, one boot flow, one state manager.
 - Legacy code may remain for reference, but it must stay dormant and manually invoked only.
 - Do not import from `legacy/` or `artifacts/` into active runtime code.
-- Do not add external scripts to `ui-new/public/index.html` for inactive UI systems.
+- If frontend startup changes, keep the single boot call in `ui-new/public/index.html`.
 - If a feature needs a new route, register it once through `backend/routes/routes.index.ts`.
 - If generation behavior changes, change `backend/controllers/generation.controller.ts` and its existing helper modules, not a new controller.
-- If frontend startup changes, keep the single boot call in `ui-new/public/index.html`.
 - If unsure whether code is active, keep it dormant and document the uncertainty instead of duplicating behavior.

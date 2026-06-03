@@ -8,7 +8,7 @@ import { computeLibrarySummary } from "../lib/library-summary";
 
 const router: IRouter = Router();
 
-/** Aggregate stats for the library health card (cached client-side ~10 min). */
+/** Aggregate stats for synced library health. */
 router.get("/library/summary", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
     res.status(401).json({ error: "Not authenticated" });

@@ -1,5 +1,5 @@
 /**
- * Lightweight library stats for the UI health card (post-sync).
+ * Lightweight library stats for post-sync API consumers.
  */
 
 import { ALL_ROOT_GENRES, classifyTrack } from "./genre-taxonomy";
@@ -9,7 +9,7 @@ export interface LibrarySummary {
   artistCount: number;
   /** Distinct broad genre roots detected in the library (pop, rock, soul, etc.). */
   genreFamilyCount: number;
-  /** How many broad roots exist in Kwalify's taxonomy (for context in UI). */
+  /** How many broad roots exist in Kwalify's taxonomy. */
   genreRootsTotal: number;
   topDecade: string | null;
   oldestLikedYear: number | null;

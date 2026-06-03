@@ -106,7 +106,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
         httpOnly: true,
         path: "/",
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        // Same host (APP_URL on Render custom domain): lax. Split frontend/API: none.
+        // Same host (APP_URL on Render custom domain): lax. Split clients/API: none.
         sameSite:
           env.NODE_ENV === "production"
             ? env.APP_URL
@@ -120,12 +120,8 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Serve the active static frontend. Keep one mounted UI system at runtime.
-  // __dirname = backend/dist at runtime -> ../../ui-new/public
   const frontendPublicDir = path.resolve(__dirname, "../../ui-new/public");
   app.use(express.static(frontendPublicDir));
-
-  // Named SPA routes served before the API router so Express doesn't 404 them.
   app.get("/p/:id", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "playlist.html")));
   app.get("/gallery", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "gallery.html")));
 

@@ -1,32 +1,8 @@
 # Kwalify
 
-**An AI DJ that builds Spotify playlists from your liked songs — using your words, not Spotify’s recommendations.**
+**Backend/API service for generating Spotify playlists from liked songs.**
 
-Describe a moment in plain English. Kwalify reads your vibe, scores your library, and creates a playlist you can open in Spotify. Every track comes from songs you already saved.
-
-**Live app:** [kwalify.net](https://kwalify.net)
-
----
-
-## What it does
-
-Kwalify is built for real situations, not generic moods:
-
-- *“Late-night drive home after seeing old friends — nostalgic but I want calm, not sad.”*
-- *“Gym session, high energy, nothing sleepy.”*
-- *“Surface stuff I forgot I loved from my library.”*
-
-You type the vibe. Kwalify handles scene, emotion, pacing, genre balance, and rediscovery — then saves the playlist to your account (and to Spotify when the API allows).
-
----
-
-## How to use it
-
-1. **Log in with Spotify** and **sync your liked songs** (full sync works best for large libraries).
-2. **Describe your vibe** — a sentence beats a single word. Use a quick preset or write your own.
-3. **Choose length and mode** (Strict / Balanced / Chaotic), hit **Generate**, and open the playlist in Spotify.
-
-Optional: paste a **reference playlist** link to bias energy and feel without copying its tracks.
+The frontend has been removed. This repository currently exposes backend/API behavior only.
 
 ---
 
@@ -59,13 +35,13 @@ Kwalify is in **public beta**. Large libraries (thousands of likes) are supporte
 
 Spotify **Developer Mode** may limit who can log in until the app is fully approved — check the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) user allowlist if login fails for friends.
 
-Feedback and bugs: use the in-app link or open an issue here.
+Feedback and bugs: open an issue here.
 
 ---
 
 ## For developers
 
-This repo is the **Kwalify web app and API** (Node, Express, PostgreSQL, static UI in `ui-new/public/`, backend in `backend/`).
+This repo is the **Kwalify backend/API** (Node, Express, PostgreSQL, backend in `backend/`). No runtime frontend is currently present.
 
 ### Local setup
 
@@ -113,20 +89,9 @@ Attach PostgreSQL and set the environment variables above.
 
 ### Further docs
 
-**Highest-priority product direction (read before design/UI/scene work):** [KWALIFY_CREATIVE_NORTH_STAR.md](./docs/KWALIFY_CREATIVE_NORTH_STAR.md) · [Document hierarchy](./docs/DOCUMENT_HIERARCHY.md)
-
-- [Pet-style rebuild prompt](./docs/CURSOR_PET_STYLE_REBUILD.md) — master Cursor instructions for the moment UI
-- [Moment UI wireframe](./docs/MOMENT_UI_WIREFRAME.md) — single-screen loop (Step 1)
-- [Creative North Star](./docs/KWALIFY_CREATIVE_NORTH_STAR.md) — product promise, editorial worlds, asset phases
-- [Unified visual system](./docs/UNIFIED_VISUAL_SYSTEM.md) — enforced scene + UI + motion rules
-- [Scene image prompts](./docs/SCENE_IMAGE_PROMPTS.md) — master brand set for still generation
-- [Visual system guide](./docs/VISUAL_SYSTEM_GUIDE.md) — one brand across 10 scenes (Step 2)
-- [Master design system](./docs/KWALIFY_DESIGN_SYSTEM.md) — product principles, 10 visual entities, UX model
-- [Pet Playlist principles for Kwalify](./docs/PET_PLAYLIST_PRINCIPLES_FOR_KWALIFY.md) — why it works + paste-ready Cursor prompt
-- [Simple moment product](./docs/SIMPLE_MOMENT_PRODUCT.md) — locked one-flow UX (input → playlist + scene)
-- [Product promise](./docs/PRODUCT_PROMISE.md) — what the engine is trying to honour
-- [Kwalify V2 capabilities](./docs/KWALIFY_V2.md) — rediscovery, chapters, surprise mix
 - [Genre intelligence](./docs/GENRE_INTELLIGENCE_STACK.md) — technical genre stack overview
+- [Genre taxonomy](./docs/GENRE_TAXONOMY.md) — backend genre taxonomy notes
+- [Scoring hybrid](./docs/SCORING_HYBRID.md) — backend scoring notes
 
 ---
 

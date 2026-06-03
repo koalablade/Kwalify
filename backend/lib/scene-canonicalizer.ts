@@ -152,7 +152,7 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
   },
 ];
 
-/** UI mood cards → canonical scene (Emotion Grid in pets-ui.js). */
+/** Explicit mood ids mapped to canonical scenes. */
 export const MOOD_SCENE_ID_MAP: Record<string, string> = {
   petrol_station_2am: "petrol_2am_liminal",
   night_drive: "night_drive_alone_reflection",

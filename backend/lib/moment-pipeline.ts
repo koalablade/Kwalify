@@ -54,7 +54,7 @@ export interface MomentPipelineResult {
 }
 
 export interface MomentPipelineOptions {
-  /** When set (Emotion Grid tap), force canonical scene from UI mood id. */
+  /** When set, force canonical scene from an explicit mood id. */
   moodSceneId?: string | null;
 }
 
@@ -67,7 +67,7 @@ export function analyzeMomentPipeline(
   // 1. Intent (before everything else)
   const intent = decodeIntent(vibe);
 
-  // 2. Canonical scene — UI mood id wins over vibe text
+  // 2. Canonical scene — explicit mood id wins over vibe text
   const moodCanonical = opts?.moodSceneId ? resolveMoodSceneById(opts.moodSceneId) : null;
   const canonical = moodCanonical ?? resolveCanonicalSceneFull(text);
   const prototype = canonicalToPrototype(canonical);

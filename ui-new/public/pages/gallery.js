@@ -16,11 +16,7 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
-  return {
-    ok: response.ok,
-    status: response.status,
-    data: await response.json().catch(() => ({})),
-  };
+  return { ok: response.ok, status: response.status, data: await response.json().catch(() => ({})) };
 }
 
 function toast(message) {
@@ -51,33 +47,28 @@ function moodTags(profile = {}) {
   return tags.slice(0, 4);
 }
 
-function artGrid(tracks) {
-  const images = (tracks || [])
-    .map((track) => track.albumArt || track.album_art || "")
-    .filter(Boolean)
-    .slice(0, 4);
-
+function cover(tracks) {
+  const images = (tracks || []).map((track) => track.albumArt || track.album_art || "").filter(Boolean).slice(0, 4);
   if (!images.length) return `<div class="cover-empty">♪</div>`;
   return `<div class="cover-grid">${images.map((src) => `<img src="${escapeHtml(src)}" alt="">`).join("")}</div>`;
 }
 
-function playlistCard(playlist) {
+function release(playlist) {
   const tracks = Array.isArray(playlist.tracks) ? playlist.tracks : [];
   const tags = moodTags(playlist.emotionProfile);
   const count = playlist.trackCount || tracks.length || 0;
   const name = playlist.name || playlist.vibe || "Kwalify playlist";
   const meta = [count ? `${count} tracks` : "", formatDate(playlist.createdAt)].filter(Boolean).join(" · ");
-
-  return `<article class="gallery-card" data-open="${Number(playlist.id)}">
-    ${artGrid(tracks)}
-    <div class="gallery-card-body">
+  return `<article class="release" data-open="${Number(playlist.id)}">
+    ${cover(tracks)}
+    <div class="release-body">
       <h2>${escapeHtml(name)}</h2>
-      ${tags.length ? `<div class="tag-row">${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      ${tags.length ? `<div class="tags">${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
       ${playlist.vibe ? `<p>"${escapeHtml(playlist.vibe)}"</p>` : ""}
       <small>${escapeHtml(meta)}</small>
-      <div class="gallery-actions">
-        ${playlist.spotifyUrl ? `<a class="mini-button green" href="${escapeHtml(playlist.spotifyUrl)}" target="_blank" rel="noopener" data-stop>Spotify</a>` : ""}
-        <button class="mini-button" type="button" data-share="${Number(playlist.id)}">Share</button>
+      <div class="release-actions">
+        ${playlist.spotifyUrl ? `<a class="mini-btn mini-green" href="${escapeHtml(playlist.spotifyUrl)}" target="_blank" rel="noopener" data-stop>Spotify</a>` : ""}
+        <button class="mini-btn" type="button" data-share="${Number(playlist.id)}">Share</button>
       </div>
     </div>
   </article>`;
@@ -85,62 +76,34 @@ function playlistCard(playlist) {
 
 function render(playlists) {
   if (!playlists.length) {
-    root.innerHTML = `<section class="empty-state">
-      <h2>No playlists yet</h2>
-      <p>Generate your first playlist from the app - it will appear here.</p>
-      <a class="button button-green" href="/">Generate a playlist</a>
-    </section>`;
+    root.innerHTML = `<section class="empty-state"><h2>No playlists yet</h2><p>Generate your first playlist from the app and it will appear here.</p><a class="btn btn-green" href="/">Generate a playlist</a></section>`;
     return;
   }
-
-  root.innerHTML = `<div class="gallery-grid">${playlists.map(playlistCard).join("")}</div>`;
-
-  root.querySelectorAll("[data-open]").forEach((node) => {
-    node.addEventListener("click", () => {
-      window.location.href = `/p/${node.dataset.open}`;
-    });
-  });
-  root.querySelectorAll("[data-stop]").forEach((node) => {
-    node.addEventListener("click", (event) => event.stopPropagation());
-  });
-  root.querySelectorAll("[data-share]").forEach((node) => {
-    node.addEventListener("click", (event) => {
-      event.stopPropagation();
-      share(node.dataset.share);
-    });
-  });
-}
-
-function renderLogin() {
-  root.innerHTML = `<section class="empty-state">
-    <h2>Log in to see your gallery</h2>
-    <p>Connect your Spotify account to view every generated playlist.</p>
-    <a class="button button-green" href="/api/auth/login"><span class="spotify-dot"></span>Connect with Spotify</a>
-  </section>`;
+  root.innerHTML = `<div class="release-grid">${playlists.map(release).join("")}</div>`;
+  root.querySelectorAll("[data-open]").forEach((node) => node.addEventListener("click", () => { window.location.href = `/p/${node.dataset.open}`; }));
+  root.querySelectorAll("[data-stop]").forEach((node) => node.addEventListener("click", (event) => event.stopPropagation()));
+  root.querySelectorAll("[data-share]").forEach((node) => node.addEventListener("click", (event) => {
+    event.stopPropagation();
+    share(node.dataset.share);
+  }));
 }
 
 function share(id) {
   const url = `${window.location.origin}/p/${id}`;
-  navigator.clipboard?.writeText(url)
-    .then(() => toast("Link copied"))
-    .catch(() => toast(url));
+  navigator.clipboard?.writeText(url).then(() => toast("Link copied")).catch(() => toast(url));
 }
 
 async function boot() {
   try {
     const response = await api("/playlists");
     if (response.status === 401) {
-      renderLogin();
+      root.innerHTML = `<section class="empty-state"><h2>Log in to see your gallery</h2><p>Connect your Spotify account to view generated playlists.</p><a class="btn btn-green" href="/api/auth/login"><span class="spotify-dot"></span>Connect with Spotify</a></section>`;
       return;
     }
     if (!response.ok) throw new Error("Could not load gallery");
     render(Array.isArray(response.data.playlists) ? response.data.playlists : []);
   } catch (error) {
-    root.innerHTML = `<section class="empty-state">
-      <h2>Could not load gallery</h2>
-      <p>${escapeHtml(error.message || "Something went wrong.")}</p>
-      <a class="button button-dark" href="/">Back to app</a>
-    </section>`;
+    root.innerHTML = `<section class="empty-state"><h2>Could not load gallery</h2><p>${escapeHtml(error.message || "Something went wrong.")}</p><a class="btn" href="/">Back to app</a></section>`;
   }
 }
 

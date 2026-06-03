@@ -165,7 +165,7 @@ router.post("/auth/logout", (req, res): void => {
 router.get("/auth/me", async (req, res): Promise<void> => {
   if (!requireSpotify(res)) return;
 
-  // Session exists but tokens missing — still authenticated for UI boot
+  // Session exists but tokens missing — still authenticated for session checks.
   if (req.session.spotifyUserId) {
     if (req.session.spotifyTokens) {
       try {
