@@ -56,6 +56,13 @@ import {
   applyTruthAnchorGuard,
   getTruthAnchor,
 } from "../core/genre-intelligence/genre-truth-anchor";
+import {
+  resolveSemanticScene,
+  computeSemanticEcosystemScore,
+  computeNegativePenalty,
+  computeEnergyFit,
+  type SemanticSceneResolution,
+} from "./semantic-scene-engine";
 
 const GENRE_FLOOR_STRONG = 0.15;
 
@@ -96,6 +103,8 @@ export interface HybridScoringContext {
   sceneSeasonMode: "winter_holiday" | "summer" | "neutral";
   preScore?: PreScoreContext;
   truthAnchors?: TruthAnchorStore;
+  /** Semantic scene resolution — drives primary ecosystem ranking signal */
+  semanticResolution: SemanticSceneResolution;
 }
 
 export function buildHybridScoringContext(opts: {
@@ -141,6 +150,8 @@ export function buildHybridScoringContext(opts: {
     sceneSeasonMode = "summer";
   }
 
+  const semanticResolution = resolveSemanticScene(opts.vibe, opts.profile);
+
   return {
     vibe: opts.vibe,
     profile: opts.profile,
@@ -158,6 +169,7 @@ export function buildHybridScoringContext(opts: {
     sceneSeasonMode,
     preScore: opts.preScore,
     truthAnchors: opts.truthAnchors,
+    semanticResolution,
     hardFilter: {
       vibe: opts.vibe,
       intent: opts.intent.intent,
@@ -215,6 +227,12 @@ export interface TriScores {
   seasonalMatch: number;
   moodPurity: number;
   classification: TrackGenreClassification;
+  /** Semantic ecosystem match — scene-driven genre fit (primary signal) */
+  semanticEcosystemScore: number;
+  /** Instrumentation/aesthetic fit score */
+  aestheticScore: number;
+  /** Negative match multiplier (< 1 penalises anti-genre tracks) */
+  negativePenalty: number;
 }
 
 export function computeTriScores(
@@ -283,7 +301,7 @@ export function computeTriScores(
   libraryFit = libraryFit * 0.8 + memoryMatch * 0.12 + noveltyScore * 0.08;
   libraryFit += genreFallbackScore(classification, ctx.fallbackGenres, ctx.profile) * 0.08;
 
-  // Genre PRIMARY — not driven by scene blueprint
+  // Genre backbone — user's library affinity (now a minor signal at 5%)
   const userShare = ctx.userGenre.vector[classification.genrePrimary] ?? 0;
   let genreBalance =
     Math.min(1, userShare * 2.8) * 0.45 +
@@ -330,6 +348,28 @@ export function computeTriScores(
 
   let sceneScore = Math.min(sceneMoment, MAX_SCENE_SCORE_INFLUENCE);
 
+  // ── Semantic ecosystem scoring (PRIMARY signal at 40%) ────────────────────
+  const sv = ctx.semanticResolution.vector;
+  let semanticEcosystemScore: number;
+  let negativePenalty: number;
+
+  if (sv) {
+    // Scene detected — use canonical ecosystem weights
+    const rawSemantic = computeSemanticEcosystemScore(classification, sv);
+    const energyFit = computeEnergyFit(track.energy, sv);
+    semanticEcosystemScore = rawSemantic * 0.80 + energyFit * 0.20;
+    negativePenalty = computeNegativePenalty(classification, sv);
+  } else {
+    // No canonical scene — fall back to scene/genre balance as proxy
+    semanticEcosystemScore = genreBalance * 0.55 + sceneScore * 0.45;
+    negativePenalty = 1.0;
+  }
+
+  // ── Aesthetic score (instrumentation/signature fit) ────────────────────────
+  const aestheticScore = blueprint?.instrumentationBias
+    ? signatureSceneAffinity(signature, blueprint.instrumentationBias)
+    : signatureSceneAffinity(signature, { acoustic: 0.45, warmth: 0.5, storytelling: 0.4, synth: 0.3 });
+
   return {
     sceneScore,
     libraryFitScore: Math.min(1, libraryFit),
@@ -338,22 +378,33 @@ export function computeTriScores(
     seasonalMatch,
     moodPurity,
     classification,
+    semanticEcosystemScore: Math.min(1, semanticEcosystemScore),
+    aestheticScore: Math.min(1, aestheticScore),
+    negativePenalty,
   };
 }
 
 export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): number {
   const sceneContrib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * SCORING_WEIGHTS.scene;
+
+  // Primary signal: semantic ecosystem match (scene-driven genre fit)
   let final =
-    tri.genreBalanceScore * SCORING_WEIGHTS.genre +
-    sceneContrib +
+    tri.semanticEcosystemScore * SCORING_WEIGHTS.semantic +
     tri.emotionMatch * SCORING_WEIGHTS.emotion +
-    tri.libraryFitScore * SCORING_WEIGHTS.library;
+    sceneContrib +
+    tri.aestheticScore * SCORING_WEIGHTS.aesthetic +
+    tri.libraryFitScore * SCORING_WEIGHTS.library +
+    tri.genreBalanceScore * SCORING_WEIGHTS.genre;
+
+  // Apply negative match penalty — anti-genre tracks are penalised multiplicatively
+  final *= tri.negativePenalty;
 
   if (ctx.intent.intent === "nostalgia") {
     final += tri.libraryFitScore * 0.04;
   }
   if (isGenreLocked(tri.classification)) {
-    final = final * 0.82 + tri.genreBalanceScore * 0.18;
+    // Genre-locked tracks: ensure semantic score still leads but genre gets a floor
+    final = final * 0.85 + tri.semanticEcosystemScore * 0.15;
   }
 
   return Math.max(0, Math.min(1.25, final));
@@ -408,6 +459,8 @@ export function scoreLibraryHybrid<T extends {
   const sceneNorm = percentileNormalize(passed.map((p) => p.tri.sceneScore));
   const libNorm = percentileNormalize(passed.map((p) => p.tri.libraryFitScore));
   const genreNorm = percentileNormalize(passed.map((p) => p.tri.genreBalanceScore));
+  const semanticNorm = percentileNormalize(passed.map((p) => p.tri.semanticEcosystemScore));
+  const aestheticNorm = percentileNormalize(passed.map((p) => p.tri.aestheticScore));
 
   const results: HybridScoreResult<T>[] = passed.map((p, i) => {
     const tri: TriScores = {
@@ -415,6 +468,8 @@ export function scoreLibraryHybrid<T extends {
       sceneScore: sceneNorm[i] ?? p.tri.sceneScore,
       libraryFitScore: libNorm[i] ?? p.tri.libraryFitScore,
       genreBalanceScore: genreNorm[i] ?? p.tri.genreBalanceScore,
+      semanticEcosystemScore: semanticNorm[i] ?? p.tri.semanticEcosystemScore,
+      aestheticScore: aestheticNorm[i] ?? p.tri.aestheticScore,
     };
 
     const finalScore = combineTriScore(tri, ctx);
@@ -491,7 +546,10 @@ export function buildScoringDiagnostics(
     dominantGenres: ctx.userGenre.dominant,
     fallbackGenres: ctx.fallbackGenres,
     contrastAllowance: ctx.contrastAllowance,
-    scoringModel: "genre0.50_scene0.25_emotion0.15_library0.10",
+    scoringModel: "semantic0.40_emotion0.20_scene0.15_aesthetic0.10_library0.10_genre0.05",
+    semanticResolution: ctx.semanticResolution.matchedId
+      ? { sceneId: ctx.semanticResolution.matchedId, confidence: ctx.semanticResolution.confidence }
+      : null,
     sceneInfluenceCap: MAX_SCENE_SCORE_INFLUENCE,
     excludedCount: excluded.length,
     exclusionReasons: countBy(excluded.map((e) => e.excludedBy ?? "unknown")),

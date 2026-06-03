@@ -617,6 +617,57 @@ function generatingHtml() {
 function resultHtml(result) {
   const count = result.trackCount || (Array.isArray(result.tracks) ? result.tracks.length : 0);
   const name = esc(result.playlistName || result.name || "Playlist created");
+  const debug = new URLSearchParams(window.location.search).has("debug");
+
+  // ── Dynamic vibe tags from scoring response ────────────────────────────────
+  const DOT_COLORS = ["vd-purple", "vd-indigo", "vd-blue", "vd-green", "vd-orange"];
+  const vibeTags = (() => {
+    const tags = [];
+    const diag = result.scoringDiagnostics;
+    const sem = diag?.semanticResolution;
+    if (sem?.sceneId) tags.push(sem.sceneId.replace(/_/g, " "));
+    const dominant = diag?.dominantGenres || result.libraryIntelligence?.dominantGenres || [];
+    dominant.slice(0, 2).forEach(g => tags.push(g));
+    const traits = result.sonicTraits || [];
+    traits.slice(0, 2).forEach(t => tags.push(t));
+    if (!tags.length) tags.push("Curated", "Personal", "Atmospheric");
+    return tags.slice(0, 4);
+  })();
+  const vibeDotsHtml = vibeTags.map((t, i) =>
+    `<span class="vibe-dot ${DOT_COLORS[i % DOT_COLORS.length]}"></span><span>${esc(t)}</span>`
+  ).join("\n");
+
+  // ── Debug panel (shown when ?debug=1) ─────────────────────────────────────
+  const debugHtml = (() => {
+    if (!debug) return "";
+    const diag = result.scoringDiagnostics || {};
+    const sem = diag.semanticResolution;
+    const routing = diag.sceneRouting || {};
+    const top = (diag.topScored || []).slice(0, 5);
+    const dist = diag.predictedDistribution || {};
+    const distRows = Object.entries(dist)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([g, v]) => `<tr><td>${esc(g)}</td><td>${(v * 100).toFixed(1)}%</td></tr>`)
+      .join("");
+    const topRows = top.map(t =>
+      `<tr><td style="font-size:0.7rem;opacity:0.7">${esc(t.trackId || "")}</td><td>${typeof t.finalScore === "number" ? t.finalScore.toFixed(3) : "—"}</td></tr>`
+    ).join("");
+    return `
+    <details class="debug-panel" style="margin-top:12px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;font-size:0.78rem;line-height:1.6;opacity:0.85">
+      <summary style="cursor:pointer;font-weight:600;letter-spacing:0.04em">⚙ Scoring diagnostics</summary>
+      <div style="margin-top:8px;display:grid;gap:6px">
+        ${sem ? `<div><b>Scene:</b> ${esc(sem.sceneId)} · confidence ${(sem.confidence * 100).toFixed(0)}%</div>` : "<div><b>Scene:</b> none matched</div>"}
+        <div><b>Model:</b> <code style="font-size:0.72rem">${esc(diag.scoringModel || "—")}</code></div>
+        ${routing.boosted?.length ? `<div><b>Boosted genres:</b> ${routing.boosted.map(esc).join(", ")}</div>` : ""}
+        ${routing.suppressed?.length ? `<div><b>Suppressed genres:</b> ${routing.suppressed.map(esc).join(", ")}</div>` : ""}
+        ${distRows ? `<div><b>Genre distribution:</b><table style="margin-top:4px;border-collapse:collapse;width:100%">${distRows}</table></div>` : ""}
+        ${topRows ? `<div><b>Top scored tracks (pre-select):</b><table style="margin-top:4px;border-collapse:collapse;width:100%">${topRows}</table></div>` : ""}
+        <div><b>Excluded:</b> ${diag.excludedCount ?? "—"}</div>
+      </div>
+    </details>`;
+  })();
+
   return `
   <div class="result-card">
     <div class="result-art">
@@ -630,14 +681,13 @@ function resultHtml(result) {
       <h2 class="result-title">${name}</h2>
       <p class="result-insight">Curated from your liked songs to fit the moment.</p>
       <div class="result-vibes">
-        <span class="vibe-dot vd-purple"></span><span>Nostalgic</span>
-        <span class="vibe-dot vd-indigo"></span><span>Atmospheric</span>
-        <span class="vibe-dot vd-blue"></span><span>Low-energy</span>
+        ${vibeDotsHtml}
       </div>
       <div class="result-actions">
         ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
         ${result.savedPlaylistId ? `<a href="/p/${result.savedPlaylistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
       </div>
+      ${debugHtml}
     </div>
   </div>`;
 }

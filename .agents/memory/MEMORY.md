@@ -1,0 +1,2 @@
+- [Kwalify project overview](kwalify-overview.md) — Spotify playlist generator from liked songs; Node/Express backend, vanilla JS frontend, PostgreSQL DB.
+- [Semantic scoring engine](semantic-scoring.md) — semantic ecosystem score is PRIMARY ranking signal at 40% weight; 6-channel weight model; new SceneFamily types added.

@@ -15,15 +15,30 @@ export const MIN_DISTINCT_GENRES_IN_PLAYLIST = 6;
 export const GENRE_LIBRARY_FLOOR = 0.05;
 
 /** Scene layer may contribute at most this fraction of combined score influence */
-/** Scene cap — enough to feel directional, not enough to override genre */
-export const MAX_SCENE_SCORE_INFLUENCE = 0.38;
+/** Scene cap — raised so scene-driven ecosystem score can dominate */
+export const MAX_SCENE_SCORE_INFLUENCE = 0.55;
 
+/**
+ * Scoring weights — semantic interpretation is the primary signal.
+ *
+ * semantic (40%): genre ecosystem match driven by scene intent — not user library
+ * emotion  (20%): energy/valence/mood match
+ * scene    (15%): audio profile match (acousticness, energy, valence vs scene)
+ * aesthetic(10%): instrumentation/signature match
+ * library  (10%): personalisation — user's own listening history
+ * genre     (5%): user library genre affinity (minimal; popularity must not override intent)
+ */
 export const SCORING_WEIGHTS = {
-  genre: 0.42,
-  scene: 0.25,
-  emotion: 0.22,
-  library: 0.11,
+  semantic: 0.40,
+  emotion: 0.20,
+  scene: 0.15,
+  aesthetic: 0.10,
+  library: 0.10,
+  genre: 0.05,
 } as const;
+
+/** Minimum share of final playlist tracks from the dominant scene ecosystem */
+export const DOMINANT_ECOSYSTEM_FLOOR = 0.70;
 
 const GENERIC_COLLAPSE_GENRES: RootGenre[] = ["indie", "pop"];
 

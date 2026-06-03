@@ -76,6 +76,7 @@ export function buildTrackDecisionTrace(input: BuildTrackTraceInput): TrackDecis
     Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * SCORING_WEIGHTS.scene;
   const emotionContribution = tri.emotionMatch * SCORING_WEIGHTS.emotion;
   const libraryContribution = tri.libraryFitScore * SCORING_WEIGHTS.library;
+  // genre weight is now 0.05 (user library affinity — personalisation only)
   const baseGenreScore = tri.genreBalanceScore * SCORING_WEIGHTS.genre;
 
   const pre = input.preScore;
