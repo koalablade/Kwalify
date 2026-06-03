@@ -150,6 +150,96 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
       "afternoon drift warm haze",
     ],
   },
+
+  // ── New scenes for abstract / creative inputs ────────────────────────────
+  {
+    id: "dirt_road_2am_liminal",
+    prototypeId: "DRIVE_REFLECTION",
+    emotionalTone: "liminal_isolation",
+    aliases: [
+      "dirt road at 2am",
+      "dirt road at night",
+      "dirt road late night",
+      "country road 2am",
+      "country road at night",
+      "back road at midnight",
+      "gravel road at night",
+      "rural road at 2am",
+      "driving a dirt road at night",
+      "dirt road thinking",
+      "back roads late at night",
+    ],
+  },
+
+  {
+    id: "movie_that_already_ended",
+    prototypeId: "ARCHAEOLOGY_MEMORY",
+    emotionalTone: "cinematic_nostalgia",
+    aliases: [
+      "movie that already ended",
+      "film that already ended",
+      "feel like a movie",
+      "feeling like im in a movie",
+      "feeling like i'm in a movie",
+      "like the end credits",
+      "after the credits",
+      "credits are rolling",
+      "end credits feeling",
+      "life is a movie",
+      "like a film that ended",
+      "cinematic feeling",
+      "like living in a film",
+    ],
+  },
+
+  {
+    id: "driving_fast_calm_inside",
+    prototypeId: "DRIVE_REFLECTION",
+    emotionalTone: "paradox_calm",
+    aliases: [
+      "driving fast but calm",
+      "calm inside while driving fast",
+      "fast but calm",
+      "moving fast feeling calm",
+      "speed but peace",
+      "rushing but at peace",
+      "going fast but at peace",
+    ],
+  },
+
+  {
+    id: "summer_sadness_warm_air",
+    prototypeId: "SUN_DAY_DRIVE",
+    emotionalTone: "bittersweet_warmth",
+    aliases: [
+      "summer sadness",
+      "summer sadness but warm",
+      "summer sadness warm air",
+      "sad but summer",
+      "warm but sad",
+      "beautiful sadness summer",
+      "happy sad summer",
+      "bittersweet summer",
+      "warm melancholy",
+    ],
+  },
+
+  {
+    id: "liminal_highway_nowhere",
+    prototypeId: "DRIVE_REFLECTION",
+    emotionalTone: "liminal_drift",
+    aliases: [
+      "driving nowhere",
+      "driving to nowhere",
+      "going nowhere",
+      "aimless drive",
+      "driving with no destination",
+      "driving just to drive",
+      "no destination drive",
+      "driving for the sake of it",
+      "just driving",
+    ],
+  },
 ];
 
 /** Explicit mood ids mapped to canonical scenes. */

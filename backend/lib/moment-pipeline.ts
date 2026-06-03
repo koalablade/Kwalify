@@ -40,6 +40,7 @@ import {
   describeSceneMatch,
   getSceneJourneyArc,
 } from "./scene-intelligence";
+import { interpretSemantics, type SemanticInterpretation } from "./semantic-interpreter";
 
 export interface MomentPipelineResult {
   profile: EmotionProfile;
@@ -52,6 +53,7 @@ export interface MomentPipelineResult {
   physics: EmotionalTrajectory;
   graph: GraphApplyResult;
   eraContext: EraContext;
+  semanticInterpretation: SemanticInterpretation;
   pipelineSummary: Record<string, unknown>;
 }
 
@@ -60,23 +62,74 @@ export interface MomentPipelineOptions {
   moodSceneId?: string | null;
 }
 
+/** Blend semantic emotion delta into a base profile by weight (0–1). */
+function blendSemanticDelta(
+  base: EmotionProfile,
+  delta: Partial<EmotionProfile>,
+  weight: number
+): EmotionProfile {
+  const w = Math.min(weight, 0.55); // never let semantic fully override keyword layer
+  const lerp = (a: number, b: number) => a * (1 - w) + b * w;
+  return {
+    energy: lerp(base.energy, delta.energy ?? base.energy),
+    valence: lerp(base.valence, delta.valence ?? base.valence),
+    tension: lerp(base.tension, delta.tension ?? base.tension),
+    nostalgia: lerp(base.nostalgia, delta.nostalgia ?? base.nostalgia),
+    calm: lerp(base.calm, delta.calm ?? base.calm),
+    environment: delta.environment ?? base.environment,
+    timeOfDay: delta.timeOfDay ?? base.timeOfDay,
+    motionState: delta.motionState ?? base.motionState,
+  };
+}
+
 export function analyzeMomentPipeline(
   vibe: string,
   opts?: MomentPipelineOptions
 ): MomentPipelineResult {
   const text = vibe.toLowerCase().trim();
 
+  // 0. Semantic interpretation — handles ANY phrase including abstract/creative inputs
+  const semantic = interpretSemantics(vibe);
+
   // 1. Intent (before everything else)
   const intent = decodeIntent(vibe);
 
   // 2. Canonical scene — explicit mood id wins over vibe text
+  //    If semantic found a strong canonical suggestion and no alias matched, use semantic's suggestion
   const moodCanonical = opts?.moodSceneId ? resolveMoodSceneById(opts.moodSceneId) : null;
-  const canonical = moodCanonical ?? resolveCanonicalSceneFull(text);
+  let canonical = moodCanonical ?? resolveCanonicalSceneFull(text);
+
+  // If canonical is null or very weak AND semantic has high confidence + a canonical suggestion, use it
+  if ((!canonical || canonical.confidence < 0.55) && semantic.confidence > 0.35 && semantic.suggestedCanonical) {
+    const semanticCanonical = resolveMoodSceneById(semantic.suggestedCanonical)
+      ?? resolveCanonicalSceneFull(semantic.suggestedCanonical);
+    if (semanticCanonical) {
+      canonical = { ...semanticCanonical, confidence: Math.min(0.68, semantic.confidence) };
+    }
+  }
+
   const prototype = canonicalToPrototype(canonical);
 
   // 3. Base profile — keyword layer only when canonical is weak (anti tag-soup)
   const keywordProfile = analyzeVibe(vibe);
   let profile = profileFromCanonical(canonical, keywordProfile);
+
+  // 3b. Semantic blend — applies when canonical is weak or absent (handles ANY phrase)
+  const canonicalIsWeak = !canonical || canonical.confidence < 0.62;
+  if (canonicalIsWeak && semantic.confidence > 0.18) {
+    const blendWeight = semantic.confidence * 0.5;
+    profile = blendSemanticDelta(profile, semantic.emotionDelta, blendWeight);
+    // Fill scene context gaps from semantic
+    if (!profile.environment && semantic.sceneContext.environment) {
+      profile = { ...profile, environment: semantic.sceneContext.environment };
+    }
+    if (!profile.timeOfDay && semantic.sceneContext.timeOfDay) {
+      profile = { ...profile, timeOfDay: semantic.sceneContext.timeOfDay };
+    }
+    if (!profile.motionState && semantic.sceneContext.motionState) {
+      profile = { ...profile, motionState: semantic.sceneContext.motionState };
+    }
+  }
 
   // 4. Prototype structure on layers
   if (prototype) {
@@ -147,6 +200,16 @@ export function analyzeMomentPipeline(
     era: eraContext.decade
       ? { decade: eraContext.decade, confidence: eraContext.eraConfidence, aesthetic: eraContext.sonicAesthetic }
       : null,
+    semantic: {
+      primaryCluster: semantic.primaryCluster,
+      secondaryCluster: semantic.secondaryCluster,
+      confidence: semantic.confidence,
+      isAbstract: semantic.isAbstract,
+      hasContrast: semantic.hasContrast,
+      narrativeType: semantic.narrativeType,
+      aestheticTags: semantic.aestheticTags.slice(0, 6),
+      summary: semantic.summary,
+    },
   };
 
   return {
@@ -160,6 +223,7 @@ export function analyzeMomentPipeline(
     physics,
     graph,
     eraContext,
+    semanticInterpretation: semantic,
     pipelineSummary,
   };
 }
