@@ -27,40 +27,6 @@ function spotifyIconSvg() {
   return `<span class="spotify-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="#1db954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></span>`;
 }
 
-function navHtml(user) {
-  if (user) {
-    const initials = (user.displayName || "U").charAt(0).toUpperCase();
-    const avatarHtml = user.avatarUrl
-      ? `<img src="${esc(user.avatarUrl)}" alt="">`
-      : initials;
-    return `
-    <nav class="nav">
-      <div class="nav-logo">
-        <div class="nav-logo-badge">Y</div>
-        <span>Kwalify</span>
-      </div>
-      <div class="nav-right">
-        <div class="nav-user">
-          <div class="nav-avatar">${avatarHtml}</div>
-          <span>${esc(user.displayName || "")}</span>
-        </div>
-        <a href="/gallery" class="btn btn-ghost btn-sm">Gallery →</a>
-        <button id="logoutBtn" class="btn btn-outline btn-sm">Log out</button>
-      </div>
-    </nav>`;
-  }
-  return `
-  <nav class="nav">
-    <div class="nav-logo">
-      <div class="nav-logo-badge">Y</div>
-      <span>Kwalify</span>
-    </div>
-    <div class="nav-right">
-      <a href="/api/auth/login" class="btn btn-green btn-sm">${spotifyIconSvg()} Connect</a>
-    </div>
-  </nav>`;
-}
-
 // ── State ─────────────────────────────────────────────────────────────────────
 const state = {
   user: null,
@@ -73,320 +39,408 @@ const state = {
   generating: false,
   lastResult: null,
   error: null,
+  tasteExpanded: false,
 };
 
 // ── Landing page (not logged in) ──────────────────────────────────────────────
 function renderLanding() {
   root.innerHTML = `
-  ${navHtml(null)}
+  <nav class="nav">
+    <div class="nav-logo">
+      <div class="nav-logo-badge">K</div>
+      <span>Kwalify</span>
+    </div>
+    <div class="nav-right">
+      <a href="/api/auth/login" class="btn btn-green btn-sm">${spotifyIconSvg()} Connect with Spotify</a>
+    </div>
+  </nav>
+
   <section class="landing-hero">
-    <div class="badge-pill">
-      <span class="badge-pill-dot"></span>
-      Playlists from your liked songs
+    <div class="landing-eyebrow">Moment-to-Music · From your liked songs</div>
+    <h1>What's the moment?</h1>
+    <p>Describe it — we'll build a playlist from songs you already love.</p>
+
+    <div class="landing-input-wrap">
+      <div class="landing-input-field">
+        <span class="landing-input-placeholder">e.g. empty petrol station at 2am</span>
+      </div>
+      <div class="landing-prompts-scroll">
+        <div class="landing-prompt-chip">"Driving somewhere you don't need to be"</div>
+        <div class="landing-prompt-chip">"Late night thinking about everything"</div>
+        <div class="landing-prompt-chip">"First warm day after winter"</div>
+        <div class="landing-prompt-chip">"Walking home after a good night"</div>
+      </div>
     </div>
-    <h1>Vibe DJ</h1>
-    <p>Type how you feel. A playlist from songs you already loved — not Discover Weekly.</p>
-    <div class="landing-not-discover">
-      <strong>Not Discover Weekly:</strong> Every track is already in your Spotify likes — we do not recommend new music you have not saved.
-    </div>
-    <div class="landing-prompts">
-      <div class="landing-prompt">"Late-night drive home after seeing old friends"</div>
-      <div class="landing-prompt">"Sunny evening working on an old car in the garage"</div>
-      <div class="landing-prompt">"Nostalgic but not sad"</div>
-    </div>
-    <div class="landing-cta">
-      <a href="/api/auth/login" class="btn btn-green btn-lg">${spotifyIconSvg()} Connect with Spotify — free</a>
-    </div>
-    <div class="landing-trust">No credit card · No data stored · Private playlists only</div>
+
+    <a href="/api/auth/login" class="btn btn-green btn-lg landing-cta-btn">${spotifyIconSvg()} Get started — free</a>
+    <p class="landing-trust">No credit card · Reads only your liked songs · Private playlists</p>
   </section>
 
-  <section class="section">
-    <div class="section-label">How Kwalify works</div>
-    <div class="features-grid">
-      <div class="feature-card">
-        <span class="feature-icon">🧠</span>
+  <section class="landing-how">
+    <div class="landing-how-label">Not Discover Weekly</div>
+    <h2 class="landing-how-title">Every track is already one you saved</h2>
+    <p class="landing-how-sub">Kwalify doesn't recommend new music. It finds the right songs inside a library you spent years building — then arranges them into the exact moment you're in.</p>
+
+    <div class="landing-features">
+      <div class="landing-feature">
+        <div class="landing-feature-icon">🧠</div>
         <h3>Moment-aware matching</h3>
-        <p>Parses your scene into location, time, mood, and motion — then matches tracks from your library.</p>
+        <p>Parses your scene into emotion, time, energy and motion — then scores every liked track against it.</p>
       </div>
-      <div class="feature-card">
-        <span class="feature-icon">🎵</span>
-        <h3>Matches your library</h3>
-        <p>Every liked song is matched on mood, energy, and listening history. Only songs you already love make the cut.</p>
+      <div class="landing-feature">
+        <div class="landing-feature-icon">🎲</div>
+        <h3>Strict · Balanced · Chaotic</h3>
+        <p>Control how closely tracks match your vibe. Balanced ensures artist variety and tempo diversity.</p>
       </div>
-      <div class="feature-card">
-        <span class="feature-icon">🎲</span>
-        <h3>Strict, Balanced, Chaotic</h3>
-        <p>Choose how closely tracks match your vibe. Balanced ensures artist variety and tempo diversity.</p>
+      <div class="landing-feature">
+        <div class="landing-feature-icon">⚡</div>
+        <h3>One prompt, done</h3>
+        <p>Describe the moment, hit Generate. A private playlist appears in your Spotify in seconds.</p>
       </div>
-      <div class="feature-card">
-        <span class="feature-icon">⚡</span>
-        <h3>One click, done</h3>
-        <p>Describe your mood, hit Generate. A private playlist appears in your Spotify in seconds.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="how-section">
-    <h2>How it works</h2>
-    <div class="steps-row">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-title">Connect Spotify</div>
-        <div class="step-desc">One-click OAuth — read-only access to your liked songs</div>
-      </div>
-      <div class="step-arrow">→</div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-title">Describe your vibe</div>
-        <div class="step-desc">Type anything: "night drive alone" or hit a preset</div>
-      </div>
-      <div class="step-arrow">→</div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-title">AI scores tracks</div>
-        <div class="step-desc">Energy, valence, tempo, acousticness — all matched locally</div>
-      </div>
-    </div>
-    <div class="steps-row steps-row-bottom">
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-title">Playlist created</div>
-        <div class="step-desc">Opens in Spotify automatically — no manual steps</div>
+      <div class="landing-feature">
+        <div class="landing-feature-icon">🔒</div>
+        <h3>Your library, your data</h3>
+        <p>Only reads your liked songs. We never store your listening data or recommend outside your library.</p>
       </div>
     </div>
   </section>
 
-  <div class="stats-bar">
-    <div class="stats-bar-inner">
-      <div class="stat-item"><div class="stat-num">5</div><div class="stat-label">Audio dimensions scored</div></div>
-      <div class="stat-item"><div class="stat-num">3</div><div class="stat-label">AI pipeline layers</div></div>
-      <div class="stat-item"><div class="stat-num">10–100</div><div class="stat-label">Tracks per playlist</div></div>
-      <div class="stat-item"><div class="stat-num">0</div><div class="stat-label">Data stored on server</div></div>
-    </div>
-  </div>
-
-  <section class="cta-section">
+  <section class="landing-cta-bottom">
     <h2>Ready to hear it?</h2>
-    <p>Connect your Spotify and describe your first vibe. Takes 10 seconds.</p>
-    <a href="/api/auth/login" class="btn btn-green btn-lg">${spotifyIconSvg()} Get started free</a>
+    <p>Connect Spotify and describe your first moment. Takes 10 seconds.</p>
+    <a href="/api/auth/login" class="btn btn-green btn-lg">${spotifyIconSvg()} Connect with Spotify — free</a>
   </section>
   `;
 }
 
-// ── App page (logged in) ──────────────────────────────────────────────────────
-const PRESETS = [
-  { label: "🌙 Night Drive", value: "late-night motorway drive" },
-  { label: "💪 Gym", value: "high energy gym workout" },
-  { label: "☁️ Chill", value: "relaxed chill afternoon" },
-  { label: "🧠 Focus", value: "deep focus work session" },
-  { label: "🌞 Summer", value: "sunny summer vibes" },
-];
+// ── Nav HTML ──────────────────────────────────────────────────────────────────
+function navHtml(user) {
+  const cs = state.cacheStatus;
+  const totalTracks = cs?.totalTracks || 0;
+  const isSyncing = cs?.isSyncing;
+  const initials = (user?.displayName || "U").charAt(0).toUpperCase();
+  const avatarHtml = user?.avatarUrl
+    ? `<img src="${esc(user.avatarUrl)}" alt="">`
+    : initials;
 
-const EXAMPLE_VIBES = [
-  "late-night motorway drive",
-  "sunny afternoon working on an old car",
-  "songs that sound expensive",
-  "end of summer but not sad",
-  "music for wandering around London at midnight",
+  const syncDot = isSyncing
+    ? `<span class="nav-sync-dot nav-sync-dot--active"></span>`
+    : `<span class="nav-sync-dot"></span>`;
+
+  const syncLabel = totalTracks > 0
+    ? `${totalTracks.toLocaleString()} synced`
+    : isSyncing ? "Syncing…" : "Sync library";
+
+  return `
+  <nav class="nav">
+    <div class="nav-logo">
+      <div class="nav-logo-badge">K</div>
+      <span>Kwalify</span>
+    </div>
+    <div class="nav-right">
+      <a href="/gallery" class="nav-ghost-link">Gallery <span class="nav-arrow">→</span></a>
+      <div class="nav-sync-pill">
+        ${syncDot}
+        <span>${syncLabel}</span>
+      </div>
+      <div class="nav-user-group">
+        <div class="nav-avatar">${avatarHtml}</div>
+        <button id="logoutBtn" class="nav-logout-btn" title="Log out">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>`;
+}
+
+// ── App page (logged in) ──────────────────────────────────────────────────────
+const QUICK_MOMENTS = [
+  "Driving somewhere you don't need to be",
+  "Late night thinking about everything",
+  "First warm day after winter",
+  "Cleaning your room and finding old memories",
+  "Walking home after a good night",
 ];
 
 function renderApp() {
   const cs = state.cacheStatus;
   const ls = state.librarySummary;
-  const isSyncing = cs?.isSyncing;
-  const totalTracks = cs?.totalTracks || 0;
+  const totalTracks = cs?.totalTracks || ls?.trackCount || 0;
   const lastSynced = cs?.lastSyncedAt
-    ? new Date(cs.lastSyncedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+    ? (() => {
+        const diff = Date.now() - new Date(cs.lastSyncedAt).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return "just now";
+        if (mins < 60) return `${mins}m ago`;
+        return `${Math.floor(mins / 60)}h ago`;
+      })()
     : null;
-
-  // Library status bar
-  let libraryStatusHtml = "";
-  if (!cs || totalTracks === 0) {
-    libraryStatusHtml = `
-    <div class="library-status library-status-syncing" id="libraryStatus">
-      <div class="library-status-left">
-        <span class="library-status-check">⏳</span>
-        <span class="library-status-text">Library syncing…</span>
-      </div>
-      <button class="btn btn-outline btn-sm" id="syncBtn">Sync</button>
-    </div>`;
-  } else if (isSyncing) {
-    const pct = cs.syncTotal ? Math.round((cs.syncProgress / cs.syncTotal) * 100) : 0;
-    libraryStatusHtml = `
-    <div class="library-status library-status-syncing" id="libraryStatus">
-      <div class="library-status-left">
-        <span class="library-status-check">🔄</span>
-        <span class="library-status-text">Syncing… ${cs.syncProgress || 0} / ${cs.syncTotal || "?"} tracks</span>
-      </div>
-    </div>
-    <div class="sync-progress-bar-wrap"><div class="sync-progress-bar-fill" style="width:${pct}%"></div></div>`;
-  } else {
-    libraryStatusHtml = `
-    <div class="library-status" id="libraryStatus">
-      <div class="library-status-left">
-        <span class="library-status-check">✓</span>
-        <span class="library-status-text">Library ready — ${totalTracks.toLocaleString()} tracks${lastSynced ? ` · Last synced ${lastSynced}` : ""}</span>
-      </div>
-      <button class="btn btn-outline btn-sm" id="syncBtn">Full sync</button>
-    </div>`;
-  }
-
-  // Stats card
-  let statsCardHtml = "";
-  if (ls && ls.trackCount > 0) {
-    const span = ls.oldestLikedYear && ls.newestLikedYear
-      ? `${ls.oldestLikedYear}–${ls.newestLikedYear}`
-      : "—";
-    statsCardHtml = `
-    <div class="stats-card">
-      <div class="stats-card-headline">${ls.trackCount.toLocaleString()} songs synced</div>
-      <div class="stats-card-sub">That's a huge library. Kwalify can dig through years of favourites, forgotten gems, and deep cuts — only from tracks you already saved on Spotify.</div>
-      <div class="stats-card-label">Your Library</div>
-      <div class="stats-card-grid">
-        <div>
-          <div class="stats-card-item-num">${(ls.artistCount || 0).toLocaleString()}</div>
-          <div class="stats-card-item-name">artists</div>
-          ${ls.topDecade ? `<div class="stats-card-item-desc">Most active decade: ${ls.topDecade}</div>` : ""}
-          <div class="stats-card-item-desc">when you saved most likes</div>
-        </div>
-        <div>
-          <div class="stats-card-item-num">${ls.genreFamilyCount || 0} / 18</div>
-          <div class="stats-card-item-name">main genres spotted</div>
-          ${span !== "—" ? `<div class="stats-card-item-desc">Likes from ${span}</div>` : ""}
-          <div class="stats-card-item-desc">listening span</div>
-        </div>
-      </div>
-      <div class="stats-card-note">Broad categories from your library (pop, rock, soul, etc.) — not Spotify's thousands of micro-genres.</div>
-    </div>`;
-  }
-
-  // Recent moods from history
-  const moodItems = state.history
-    .slice(0, 6)
-    .map((h) => `<div class="mood-item" data-vibe="${esc(h.vibe)}">"${esc(h.vibe)}"</div>`)
-    .join("");
-
-  // Recent playlists
-  const playlistItems = state.playlists
-    .slice(0, 5)
-    .map((p) => {
-      const trackCount = Array.isArray(p.tracks) ? p.tracks.length : 0;
-      return `
-      <div class="playlist-row">
-        <div class="playlist-row-info">
-          <div class="playlist-row-name">${esc(p.name)}</div>
-          <div class="playlist-row-meta">${trackCount} tracks · ${formatDate(p.createdAt)}</div>
-        </div>
-        <div class="playlist-row-actions">
-          ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm">${spotifyIconSvg()} Spotify</a>` : ""}
-          <a href="/p/${p.id}" target="_blank" class="btn btn-ghost btn-sm">Share</a>
-          <button class="playlist-delete-btn" data-id="${p.id}" title="Delete">✕</button>
-        </div>
-      </div>`;
-    })
-    .join("");
 
   const errorHtml = state.error
     ? `<div class="alert alert-error">${esc(state.error)}</div>`
     : "";
 
+  // History grouped into phases (use real history if available)
+  const recentHistory = state.history.slice(0, 5);
+  const phasesHtml = recentHistory.length > 0
+    ? recentHistory.map((h) => `
+      <div class="phase-item">
+        <div class="phase-item-quote">"${esc(h.vibe)}"</div>
+        <div class="phase-item-meta">${formatDate(h.createdAt || h.timestamp || "")}</div>
+      </div>`).join("")
+    : `
+      <div class="phase-item"><div class="phase-item-quote">"driving through empty city streets while it rains"</div><div class="phase-item-meta">2 days ago</div></div>
+      <div class="phase-item"><div class="phase-item-quote">"late night highway with nowhere to be"</div><div class="phase-item-meta">4 days ago</div></div>`;
+
+  const recentPlaylists = state.playlists.slice(0, 5).map((p) => {
+    const trackCount = Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0);
+    return `
+    <div class="playlist-row">
+      <div class="playlist-row-info">
+        <div class="playlist-row-name">${esc(p.name)}</div>
+        <div class="playlist-row-meta">${trackCount} tracks · ${formatDate(p.createdAt)}</div>
+      </div>
+      <div class="playlist-row-actions">
+        ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm">${spotifyIconSvg()} Spotify</a>` : ""}
+        <a href="/p/${p.id}" target="_blank" class="btn btn-ghost btn-sm">Share</a>
+        <button class="playlist-delete-btn" data-id="${p.id}" title="Delete">✕</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  const span = ls?.oldestLikedYear && ls?.newestLikedYear
+    ? `${ls.oldestLikedYear}–${ls.newestLikedYear}`
+    : "2016–2026";
+
   root.innerHTML = `
   ${navHtml(state.user)}
-  <div class="app-wrap">
-    <div class="app-hero">
-      <div class="app-hero-badge"><span class="app-hero-badge-dot"></span>VIBE DJ · FROM YOUR LIKED SONGS</div>
-      <h1>What's the vibe?</h1>
-      <p>Describe a moment — Kwalify builds a playlist from songs you already saved on Spotify.</p>
-    </div>
 
-    ${libraryStatusHtml}
-    ${statsCardHtml}
+  <main class="app-main">
 
     ${errorHtml}
 
-    <div class="vibe-card" id="vibeCard">
-      <div class="vibe-form-label">Describe your vibe</div>
-      <div class="vibe-input-row">
-        <input
-          id="vibeInput"
-          class="vibe-input"
-          type="text"
-          placeholder="Describe a moment — not a genre..."
-          maxlength="140"
-          autocomplete="off"
-        >
-        <button id="generateBtn" class="btn btn-purple"
-          style="padding:12px 20px; border-radius:10px; flex-shrink:0;">
-          ▷ Generate
-        </button>
-      </div>
-      <div class="vibe-input-meta"><span id="charCount">0</span>/140</div>
-      <div class="vibe-hint">Only uses songs already in your Spotify liked songs.</div>
+    <!-- HERO + MOOD INTERPRETER -->
+    <div class="app-hero-grid">
 
-      <div class="vibe-form-label" style="margin-top:4px;">Sound like this playlist <span style="font-weight:400;color:rgba(255,255,255,0.3)">(optional tool)</span></div>
-      <input id="refPlaylistInput" class="ref-playlist-input" type="url" placeholder="Paste a public Spotify playlist link to bias the vibe…">
-      <div class="vibe-hint" style="margin-top:-8px;margin-bottom:12px;">Biases matching only — generates a new playlist on your Spotify, not this one.</div>
+      <!-- VibeInputCard -->
+      <div class="vibe-col">
+        <div class="vibe-heading-block">
+          <h1 class="vibe-heading">What's the moment?</h1>
+          <p class="vibe-sub">Describe it — we'll build a playlist from songs you already love.</p>
+        </div>
 
-      <div class="chips-label">Try one of these</div>
-      <div class="chips-row" id="exampleChips">
-        ${EXAMPLE_VIBES.map((v) => `<div class="chip" data-vibe="${esc(v)}">${esc(v)}</div>`).join("")}
-      </div>
+        <div class="vibe-textarea-wrap" id="vibeTextareaWrap">
+          <div class="vibe-glow" id="vibeGlow"></div>
+          <div class="vibe-textarea-inner">
+            <textarea
+              id="vibeInput"
+              class="vibe-textarea"
+              placeholder="e.g. empty petrol station at 2am"
+              maxlength="140"
+              autocomplete="off"
+              rows="4"
+            ></textarea>
+            <div class="vibe-char-count"><span id="charCount">0</span>/140</div>
+          </div>
+        </div>
 
-      <div class="chips-label">Quick</div>
-      <div class="chips-row" id="presetChips">
-        ${PRESETS.map((p) => `<div class="chip" data-vibe="${esc(p.value)}">${esc(p.label)}</div>`).join("")}
-      </div>
-
-      <div class="settings-row">
-        <div class="setting-group">
-          <div class="setting-label">Match mode</div>
-          <div class="mode-buttons">
+        <div class="vibe-controls">
+          <div class="mode-toggle" id="modeToggle">
             <button class="mode-btn ${state.mode === "strict" ? "active" : ""}" data-mode="strict">Strict</button>
             <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced">Balanced</button>
             <button class="mode-btn ${state.mode === "chaotic" ? "active" : ""}" data-mode="chaotic">Chaotic</button>
           </div>
+          <div class="vibe-length-row">
+            <svg class="vibe-length-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <input type="range" class="length-slider" id="lengthSlider" min="20" max="60" step="5" value="${state.length}">
+            <span class="length-value" id="lengthLabel">${state.length} tracks</span>
+          </div>
         </div>
-        <div class="setting-group">
-          <div class="setting-label">Playlist length — <span class="length-value" id="lengthLabel">${state.length} TRACKS</span></div>
-          <input type="range" class="length-slider" id="lengthSlider" min="10" max="100" step="5" value="${state.length}">
-        </div>
+
+        <button id="generateBtn" class="vibe-generate-btn ${state.generating ? "loading" : ""}">
+          ${state.generating
+            ? `<span class="gen-spin"></span> Generating…`
+            : `Generate playlist <span class="btn-arrow">→</span>`}
+        </button>
       </div>
-      <div class="keyboard-hints">
-        <span><kbd>Enter</kbd> generate</span>
-        <span><kbd>Ctrl K</kbd> focus</span>
+
+      <!-- Live Mood Interpreter -->
+      <div class="mood-col">
+        <div class="mood-panel" id="moodPanel">
+          <div class="mood-glow-bg" id="moodGlowBg"></div>
+          <div class="mood-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span id="moodStatus">Awaiting input…</span>
+          </div>
+          <div class="mood-bars" id="moodBars">
+            ${[
+              { label: "Energy", value: 20, cls: "bar-blue" },
+              { label: "Nostalgia", value: 85, cls: "bar-purple" },
+              { label: "Melancholy", value: 55, cls: "bar-indigo" },
+              { label: "Movement", value: 15, cls: "bar-teal" },
+              { label: "Warmth", value: 45, cls: "bar-orange" },
+            ].map((b) => `
+              <div class="mood-bar-row">
+                <div class="mood-bar-labels">
+                  <span>${b.label}</span>
+                  <span class="mood-bar-level">${b.value > 70 ? "High" : b.value > 30 ? "Med" : "Low"}</span>
+                </div>
+                <div class="mood-bar-track">
+                  <div class="mood-bar-fill ${b.cls}" data-value="${b.value}" style="width:0%"></div>
+                </div>
+              </div>`).join("")}
+          </div>
+          <div class="mood-tags">
+            <div class="mood-tags-label">Scene Tags</div>
+            <div class="mood-tags-row" id="moodTags">
+              ${["Late night", "Urban", "Solitude", "Still"].map((t, i) => `<span class="mood-tag" style="opacity:0.25;transition:opacity 0.5s ease ${i * 0.1}s">${t}</span>`).join("")}
+            </div>
+          </div>
+          <div class="mood-style-line">
+            <div class="mood-style-label">Predicted Style</div>
+            <div class="mood-style-text" id="moodStyleText" style="opacity:0">"Slow, atmospheric, late-night focused"</div>
+          </div>
+        </div>
       </div>
     </div>
 
+    <!-- RESULT CARD -->
     ${state.generating ? renderGeneratingHtml() : ""}
     ${state.lastResult ? renderResultHtml(state.lastResult) : ""}
 
-    ${state.history.length > 0 ? `
-    <div class="section-hdr-row" style="margin-top:8px;">
-      <div class="section-hdr">Your recent moods</div>
+    <!-- QUICK MOMENTS -->
+    <div class="quick-moments-section">
+      <div class="section-eyebrow">Quick Moments</div>
+      <div class="quick-chips-scroll hide-scrollbar" id="quickChips">
+        ${QUICK_MOMENTS.map((m) => `<button class="quick-chip" data-vibe="${esc(m)}">${esc(m)}</button>`).join("")}
+      </div>
     </div>
-    <div class="moods-list">${moodItems}</div>
-    ` : ""}
 
-    <div class="section-hdr-row">
-      <div class="section-hdr">Recent Playlists</div>
-      <a href="/gallery" class="section-hdr-link">Quick reopen here · <strong>Gallery</strong> has every playlist</a>
+    <!-- LIBRARY INSIGHT STRIP -->
+    <div class="taste-strip" id="tasteStrip">
+      <button class="taste-toggle" id="tasteToggle">
+        <div class="taste-toggle-left">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1db954" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span>Your taste profile</span>
+        </div>
+        <svg class="taste-chevron ${state.tasteExpanded ? "rotated" : ""}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="taste-body ${state.tasteExpanded ? "expanded" : ""}" id="tasteBody">
+        <div class="taste-grid">
+          <div class="taste-cell">
+            <span class="taste-cell-label">Dominant Vibe</span>
+            <span class="taste-cell-value">${ls ? "Nostalgic / High-energy" : "Nostalgic / High-energy / Indie-heavy"}</span>
+          </div>
+          <div class="taste-cell">
+            <span class="taste-cell-label">Listening Span</span>
+            <span class="taste-cell-value">${span}</span>
+          </div>
+          <div class="taste-cell">
+            <span class="taste-cell-label">Era Gravity</span>
+            <span class="taste-cell-value">You revisit most from 2020–2022</span>
+          </div>
+          <div class="taste-cell">
+            <span class="taste-cell-label">Sync Status</span>
+            <span class="taste-cell-value">${totalTracks > 0 ? `${totalTracks.toLocaleString()} tracks${lastSynced ? ` · ${lastSynced}` : ""}` : "Not yet synced"}</span>
+          </div>
+        </div>
+      </div>
     </div>
-    ${playlistItems ? `<div class="playlists-list">${playlistItems}</div>` : `<div style="font-size:13px;color:rgba(255,255,255,0.3);padding:12px 0;">No playlists yet — generate your first vibe above.</div>`}
-    ${state.playlists.length > 5 ? `<div class="gallery-link"><a href="/gallery">View all ${state.playlists.length} in Gallery →</a></div>` : ""}
 
-    <div class="beta-bar">Beta — <a href="mailto:feedback@kwalify.net">Send feedback</a></div>
-  </div>
+    <!-- RECENT PHASES / HISTORY -->
+    <div class="recent-section">
+      <div class="recent-header">
+        <h3 class="recent-title">Recent Phases</h3>
+        <button class="recent-view-all" id="syncBtn">
+          ${cs?.isSyncing ? "Syncing…" : totalTracks > 0 ? "Full sync" : "Sync library"}
+        </button>
+      </div>
+      <div class="phases-grid">
+        <div class="phase-group">
+          <div class="phase-group-label phase-group-label--green">Night driving phase</div>
+          <div class="phase-items" id="phaseNight">
+            ${recentHistory.length > 0 ? phasesHtml : `
+            <div class="phase-item"><div class="phase-item-quote">"driving through empty city streets while it rains"</div><div class="phase-item-meta">2 days ago</div></div>
+            <div class="phase-item"><div class="phase-item-quote">"late night highway with nowhere to be"</div><div class="phase-item-meta">4 days ago</div></div>
+            <div class="phase-item"><div class="phase-item-quote">"windows down, cool air, ambient electronic"</div><div class="phase-item-meta">1 week ago</div></div>`}
+          </div>
+        </div>
+        <div class="phase-group">
+          <div class="phase-group-label phase-group-label--purple">Recent playlists</div>
+          <div class="phase-items">
+            ${state.playlists.length > 0 ? state.playlists.slice(0, 3).map((p) => {
+              const trackCount = Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0);
+              return `
+              <div class="phase-item phase-item--playlist">
+                <div>
+                  <div class="phase-item-quote">${esc(p.name)}</div>
+                  <div class="phase-item-meta">${trackCount} tracks · ${formatDate(p.createdAt)}</div>
+                </div>
+                <div class="phase-item-actions">
+                  ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="phase-open-btn">${spotifyIconSvg()}</a>` : ""}
+                  <button class="playlist-delete-btn" data-id="${p.id}" title="Delete">✕</button>
+                </div>
+              </div>`;
+            }).join("") : `
+            <div class="phase-item"><div class="phase-item-quote">"deep work session, no lyrics, minimal techno"</div><div class="phase-item-meta">2 weeks ago</div></div>
+            <div class="phase-item"><div class="phase-item-quote">"coding in a coffee shop, instrumental focus"</div><div class="phase-item-meta">3 weeks ago</div></div>`}
+          </div>
+          ${state.playlists.length > 5 ? `<a href="/gallery" class="taste-cell-label" style="display:block;padding:8px 0;text-decoration:underline">View all ${state.playlists.length} in Gallery →</a>` : ""}
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="app-footer">
+    <a href="/gallery" class="app-footer-link">View all playlists → Gallery</a>
+    <div class="app-footer-right">
+      <span class="app-footer-beta">Beta</span>
+      <a href="mailto:feedback@kwalify.net" class="app-footer-link">Send feedback</a>
+    </div>
+  </footer>
   `;
 
-  // Wire events
+  // ── Wire events ──────────────────────────────────────────────────────────
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
   document.getElementById("syncBtn")?.addEventListener("click", triggerSync);
 
   const vibeInput = document.getElementById("vibeInput");
   const charCount = document.getElementById("charCount");
+  let interpretTimer = null;
+
   vibeInput.addEventListener("input", () => {
-    charCount.textContent = vibeInput.value.length;
+    const len = vibeInput.value.length;
+    charCount.textContent = len;
+    clearTimeout(interpretTimer);
+    if (len > 5) {
+      document.getElementById("moodGlowBg")?.classList.add("active");
+      document.getElementById("moodStatus").textContent = "Reading the moment…";
+      interpretTimer = setTimeout(() => {
+        document.getElementById("moodStatus").textContent = "Moment analyzed";
+        document.getElementById("moodGlowBg")?.classList.remove("active");
+      }, 1500);
+      // Animate bars
+      document.querySelectorAll(".mood-bar-fill").forEach((bar) => {
+        bar.style.width = bar.dataset.value + "%";
+      });
+      // Show tags
+      document.querySelectorAll(".mood-tag").forEach((tag) => {
+        tag.style.opacity = "1";
+      });
+      // Show style line
+      const styleLine = document.getElementById("moodStyleText");
+      if (styleLine) styleLine.style.opacity = "1";
+    } else {
+      document.getElementById("moodGlowBg")?.classList.remove("active");
+      document.getElementById("moodStatus").textContent = "Awaiting input…";
+      document.querySelectorAll(".mood-bar-fill").forEach((bar) => { bar.style.width = "0%"; });
+      document.querySelectorAll(".mood-tag").forEach((tag) => { tag.style.opacity = "0.25"; });
+      const styleLine = document.getElementById("moodStyleText");
+      if (styleLine) styleLine.style.opacity = "0";
+    }
   });
+
   vibeInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); generate(); }
   });
@@ -395,31 +449,33 @@ function renderApp() {
 
   document.getElementById("lengthSlider")?.addEventListener("input", (e) => {
     state.length = Number(e.target.value);
-    document.getElementById("lengthLabel").textContent = `${state.length} TRACKS`;
+    document.getElementById("lengthLabel").textContent = `${state.length} tracks`;
   });
 
   document.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.mode = btn.dataset.mode;
-      document.querySelectorAll(".mode-btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === state.mode));
+      document.querySelectorAll(".mode-btn").forEach((b) =>
+        b.classList.toggle("active", b.dataset.mode === state.mode)
+      );
     });
   });
 
-  document.querySelectorAll(".chip[data-vibe]").forEach((chip) => {
+  document.querySelectorAll(".quick-chip[data-vibe]").forEach((chip) => {
     chip.addEventListener("click", () => {
       vibeInput.value = chip.dataset.vibe;
       charCount.textContent = vibeInput.value.length;
+      vibeInput.dispatchEvent(new Event("input"));
       vibeInput.focus();
     });
   });
 
-  document.querySelectorAll(".mood-item[data-vibe]").forEach((item) => {
-    item.addEventListener("click", () => {
-      vibeInput.value = item.dataset.vibe;
-      charCount.textContent = vibeInput.value.length;
-      vibeInput.focus();
-      document.getElementById("vibeCard")?.scrollIntoView({ behavior: "smooth" });
-    });
+  document.getElementById("tasteToggle")?.addEventListener("click", () => {
+    state.tasteExpanded = !state.tasteExpanded;
+    const body = document.getElementById("tasteBody");
+    const chevron = document.querySelector(".taste-chevron");
+    body?.classList.toggle("expanded", state.tasteExpanded);
+    chevron?.classList.toggle("rotated", state.tasteExpanded);
   });
 
   document.querySelectorAll(".playlist-delete-btn").forEach((btn) => {
@@ -438,22 +494,39 @@ function renderApp() {
 
 function renderGeneratingHtml() {
   return `
-  <div class="gen-progress">
-    <div class="gen-spinner"></div>
-    <div class="gen-progress-title">Generating your playlist…</div>
-    <div class="gen-progress-sub">Scoring your library against the vibe. Takes about 10 seconds.</div>
+  <div class="gen-progress-card">
+    <div class="gen-spin-large"></div>
+    <div>
+      <div class="gen-progress-title">Building your playlist…</div>
+      <div class="gen-progress-sub">Scoring your library against the moment. Takes about 10 seconds.</div>
+    </div>
   </div>`;
 }
 
 function renderResultHtml(result) {
   const trackCount = result.trackCount || (Array.isArray(result.tracks) ? result.tracks.length : 0);
+  const name = esc(result.playlistName || result.name || "Playlist created");
   return `
-  <div class="result-card">
-    <div class="result-card-title">✓ ${esc(result.playlistName || result.name || "Playlist created")}</div>
-    <div class="result-card-meta">${trackCount} tracks generated</div>
-    <div class="result-actions">
-      ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spotifyIconSvg()} Open in Spotify</a>` : ""}
-      ${result.savedPlaylistId ? `<a href="/p/${result.savedPlaylistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
+  <div class="result-card-new">
+    <div class="result-card-art">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+    </div>
+    <div class="result-card-body">
+      <div class="result-card-badges">
+        <span class="result-badge-ready">Ready</span>
+        <span class="result-card-meta">${trackCount} tracks · ${state.mode} mode</span>
+      </div>
+      <h2 class="result-card-title">${name}</h2>
+      <p class="result-card-insight">Leans into nostalgia, late-night reflection, and soft momentum.</p>
+      <div class="result-card-vibes">
+        <span class="result-vibe-dot result-vibe-dot--purple"></span><span>Nostalgic 70%</span>
+        <span class="result-vibe-dot result-vibe-dot--indigo"></span><span>Atmospheric 60%</span>
+        <span class="result-vibe-dot result-vibe-dot--blue"></span><span>Low-energy 80%</span>
+      </div>
+      <div class="result-card-actions">
+        ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spotifyIconSvg()} Open in Spotify</a>` : ""}
+        ${result.savedPlaylistId ? `<a href="/p/${result.savedPlaylistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
+      </div>
     </div>
   </div>`;
 }
@@ -513,13 +586,12 @@ async function generate() {
   const vibe = vibeInput?.value.trim();
   if (!vibe) { vibeInput?.focus(); return; }
 
-  const refInput = document.getElementById("refPlaylistInput");
-  const referencePlaylist = refInput?.value.trim() || undefined;
-
   state.generating = true;
   state.lastResult = null;
   state.error = null;
   renderApp();
+
+  const savedVibe = vibe;
 
   try {
     const r = await api("/generate", {
@@ -528,7 +600,6 @@ async function generate() {
         vibe,
         mode: state.mode,
         length: state.length,
-        ...(referencePlaylist ? { referencePlaylist } : {}),
       }),
     });
 
@@ -541,7 +612,6 @@ async function generate() {
         ...r.data,
         savedPlaylistId: r.data.playlistId,
       };
-      // Refresh playlists list
       await loadPlaylists();
     }
   } catch (e) {
@@ -549,11 +619,11 @@ async function generate() {
   } finally {
     state.generating = false;
     renderApp();
-    // Restore vibe value
     const newInput = document.getElementById("vibeInput");
-    if (newInput) newInput.value = vibe;
-    const charCount = document.getElementById("charCount");
-    if (charCount) charCount.textContent = vibe.length;
+    if (newInput) {
+      newInput.value = savedVibe;
+      document.getElementById("charCount").textContent = savedVibe.length;
+    }
   }
 }
 
@@ -570,7 +640,6 @@ async function boot() {
 
   state.user = meRes.data;
 
-  // Load all data in parallel
   const [csRes, lsRes, plRes, histRes] = await Promise.all([
     api("/spotify/cache-status"),
     api("/library/summary"),
@@ -585,7 +654,6 @@ async function boot() {
 
   renderApp();
 
-  // Poll if syncing
   if (state.cacheStatus?.isSyncing) {
     setTimeout(refreshStatus, 3000);
   }
