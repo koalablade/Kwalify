@@ -120,7 +120,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  const frontendPublicDir = path.resolve(__dirname, "../../ui-new/public");
+  const frontendPublicDir = path.resolve(__dirname, "../../frontend/public");
   app.use(express.static(frontendPublicDir));
   app.get("/p/:id", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "playlist.html")));
   app.get("/gallery", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "gallery.html")));

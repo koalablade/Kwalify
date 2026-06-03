@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import authRouter from "./auth";
 import spotifyRouter from "./spotify";
 import generateRouter from "../controllers/generation.controller";
+import playlistCrudRouter from "../controllers/playlist-crud.controller";
 import historyRouter from "./history";
 import libraryRouter from "./library";
 
@@ -21,6 +22,7 @@ mountRouteGroup("health", healthRouter);
 mountRouteGroup("auth", authRouter);
 mountRouteGroup("spotify", spotifyRouter);
 mountRouteGroup("generate", generateRouter);
+mountRouteGroup("playlist-crud", playlistCrudRouter);
 mountRouteGroup("history", historyRouter);
 mountRouteGroup("library", libraryRouter);
 

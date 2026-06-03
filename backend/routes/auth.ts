@@ -1,3 +1,12 @@
+/**
+ * Purpose: Spotify OAuth routes — login, callback, logout, and session check.
+ * Responsibilities:
+ *   - GET /api/auth/login    — redirect to Spotify authorization page
+ *   - GET /api/auth/callback — exchange code for tokens, create session
+ *   - POST /api/auth/logout  — destroy session
+ *   - GET /api/auth/me       — return current authenticated user
+ * Dependencies: spotify lib, express-session
+ */
 import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
 import { getAuthUrl, exchangeCode, getSpotifyUser, getValidAccessToken } from "../lib/spotify";

@@ -1,3 +1,11 @@
+/**
+ * Purpose: Spotify API client — auth, user profile, library sync, playlist creation.
+ * Responsibilities:
+ *   - OAuth URL generation, token exchange, token refresh
+ *   - Fetching liked songs in paginated batches
+ *   - Creating and populating Spotify playlists
+ * Dependencies: axios, Spotify Web API
+ */
 import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 import { logger } from "./logger";
 

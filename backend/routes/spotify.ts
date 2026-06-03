@@ -1,3 +1,10 @@
+/**
+ * Purpose: Spotify library sync routes — cache status, incremental sync, full sync.
+ * Responsibilities:
+ *   - GET  /api/spotify/cache-status — report library sync state
+ *   - POST /api/spotify/sync         — incremental or full liked-songs sync
+ * Dependencies: spotify lib, drizzle-orm, pg (batch upserts)
+ */
 import { Router, type IRouter } from "express";
 import { db } from "../db";
 import { likedSongsTable, syncStatusTable } from "../db";
