@@ -39,7 +39,7 @@ function renderPlaylist(data) {
 
   setMeta(data, tracks);
 
-  byId("playlistRoot").innerHTML = `<section class="kw-panel kw-share-hero">
+  byId("playlistRoot").innerHTML = `<section class="kw-share-hero">
     ${tags.length ? `<div class="kw-tags">${tags.map((tag) => `<span class="kw-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     <h1 class="kw-share-title">${escapeHtml(data.name || "Kwalify playlist")}</h1>
     ${data.vibe ? `<div class="kw-share-prompt"><span>Vibe</span><strong>"${escapeHtml(data.vibe)}"</strong></div>` : ""}
@@ -50,7 +50,7 @@ function renderPlaylist(data) {
     </div>
   </section>
 
-  ${tracks.length ? `<section class="kw-panel kw-track-block">
+  ${tracks.length ? `<section class="kw-track-block">
     <div class="kw-section-title" style="margin-bottom:12px">Tracks</div>
     <div class="kw-song-list">${songRows(tracks, tracks.length)}</div>
   </section>` : ""}`;

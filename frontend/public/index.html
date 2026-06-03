@@ -29,34 +29,8 @@
         <a class="btn btn-green" href="/api/auth/login"><span class="spotify"></span>Connect with Spotify — free</a>
         <div class="privacy">Private playlists · Your likes only</div>
       </section>
-      <section class="info-panel">
-        <div class="panel-label">How Kwalify works</div>
-        <div class="feature-grid">
-          <article class="feature"><div class="feature-icon">🧠</div><h3>Moment-aware matching</h3><p>Parses your scene into location, time, mood, and motion — then matches tracks from your library.</p></article>
-          <article class="feature"><div class="feature-icon">🎵</div><h3>Matches your library</h3><p>Every liked song is matched on mood, energy, and listening history. Only songs you already love make the cut.</p></article>
-          <article class="feature"><div class="feature-icon">🎲</div><h3>Strict, Balanced, Chaotic</h3><p>Choose how closely tracks match your vibe. Balanced ensures artist variety and tempo diversity.</p></article>
-          <article class="feature"><div class="feature-icon">⚡</div><h3>One click, done</h3><p>Describe your mood, hit Generate. A private playlist appears in your Spotify in seconds.</p></article>
-        </div>
-        <div class="how">
-          <h2>How it works</h2>
-          <div class="steps">
-            <article class="step"><div class="step-num">1</div><h3>Connect Spotify</h3><p>One-click OAuth — read-only access to your liked songs</p></article>
-            <article class="step"><div class="step-num">2</div><h3>Describe your vibe</h3><p>Type anything: "night drive alone" or hit a preset</p></article>
-            <article class="step"><div class="step-num">3</div><h3>We match your library</h3><p>Energy, valence, tempo, and more — matched on our servers from your likes only</p></article>
-            <article class="step"><div class="step-num">4</div><h3>Playlist created</h3><p>Opens in Spotify automatically — no manual steps</p></article>
-          </div>
-        </div>
-        <div class="stats">
-          <div><strong>5</strong><span>Audio dimensions scored</span></div>
-          <div><strong>3</strong><span>AI pipeline layers</span></div>
-          <div><strong>10–100</strong><span>Tracks per playlist</span></div>
-          <div><strong>0</strong><span>Data stored on server</span></div>
-        </div>
-        <div class="final-cta">
-          <h2>Ready to hear it?</h2>
-          <p>Connect your Spotify and describe your first vibe. Takes 10 seconds.</p>
-          <a class="btn btn-green" href="/api/auth/login"><span class="spotify"></span>Get started free</a>
-        </div>
+      <section style="max-width:620px;margin:-52px auto 0;text-align:center;color:rgba(255,255,255,.5);font-size:16px;line-height:1.55">
+        Describe a moment. Kwalify scores your liked songs and creates a private playlist in Spotify.
       </section>
     </div>
   </main>
@@ -80,9 +54,8 @@
       </section>
 
       <section class="sync" id="sync">Checking library…</section>
-      <section class="library" id="library" hidden></section>
 
-      <section class="composer">
+      <section class="compose" style="padding:10px 0 0">
         <label class="field-label" for="vibe">Describe your vibe</label>
         <div class="main-input">
           <div class="input-wrap">
@@ -158,7 +131,7 @@
     function screen(name){document.documentElement.dataset.screen=name}
     function toast(msg,type=''){const n=document.createElement('div');n.className='toast '+type;n.textContent=msg;$('toasts').appendChild(n);setTimeout(()=>n.remove(),3500)}
     function fmtDate(d){try{return d?new Date(d).toLocaleDateString([],{month:'short',day:'numeric'}):''}catch{return''}}
-    async function init(){bind();try{const me=await api('/auth/me');if(me.ok){renderUser(me.data.user||me.data);screen('app');pollSync();state.timer=setInterval(pollSync,7000);librarySummary();recent();$('vibe').focus();return}}catch{}screen('guest')}
+    async function init(){bind();try{const me=await api('/auth/me');if(me.ok){renderUser(me.data.user||me.data);screen('app');pollSync();state.timer=setInterval(pollSync,7000);recent();$('vibe').focus();return}}catch{}screen('guest')}
     function bind(){
       $('vibe').addEventListener('input',updateInput);
       $('length').addEventListener('input',()=>{state.length=Number($('length').value)||40;$('lengthLabel').textContent=state.length+' tracks'});
@@ -178,7 +151,6 @@
     function syncTime(v){try{const s=String(v);return new Date(s.endsWith('Z')?s:s+'Z').toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}catch{return''}}
     async function startSync(){try{await fetch('/api/spotify/sync',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:'{}'});pollSync();toast('Sync started','good')}catch{toast('Could not start sync','bad')}}
     async function fullSync(){try{await fetch('/api/spotify/sync',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({full:true})});pollSync();toast('Full sync started','good')}catch{toast('Could not start full sync','bad')}}
-    async function librarySummary(){try{const r=await api('/library/summary');if(!r.ok||!r.data.trackCount)return;const s=r.data;const roots=s.genreFamilyCount??s.genreRootsCount??s.genreRootsSpotted??0;$('library').hidden=false;$('library').innerHTML=`<div class="library-hero"><h2>${Number(s.trackCount).toLocaleString()} songs synced</h2><p>That's a huge library. Kwalify can dig through years of favourites, forgotten gems, and deep cuts — only from tracks you already saved on Spotify.</p></div><div class="library-label">Your library</div><div class="library-grid"><div><strong>${Number(s.artistCount||0).toLocaleString()}</strong><span>artists</span></div><div><strong>${roots||'—'}${roots?' / 18':''}</strong><span>main genres spotted</span></div><div><strong>Most active decade: ${esc(s.mostActiveDecade||s.activeDecade||'2020s')}</strong><span>when you saved most likes</span></div><div><strong>${esc(s.librarySpan||s.listeningSpan||'Likes from Spotify')}</strong><span>listening span</span></div></div>`}catch{}}
     async function recent(){try{const r=await api('/playlists');if(!r.ok)return;const list=Array.isArray(r.data.playlists)?r.data.playlists:[];renderMoods(list.slice(0,5));renderPlaylists(list.slice(0,5))}catch{}}
     function renderMoods(list){$('moods').innerHTML=list.map(p=>`<div class="mood-row">"${esc(p.vibe||p.name||'sunny afternoon working on an old car')}"</div>`).join('')}
     function renderPlaylists(list){$('playlists').innerHTML=list.map(p=>{const n=Array.isArray(p.tracks)?p.tracks.length:p.trackCount||0;return`<div class="playlist-row"><div><strong>${esc(p.name||p.vibe||'Sunny afternoon working on an old car')}</strong><span>${n?n+' tracks':''}${p.createdAt?' · '+fmtDate(p.createdAt):''}</span></div><div class="mini-actions">${p.spotifyUrl?`<a class="mini spotify-btn" target="_blank" rel="noopener" href="${esc(p.spotifyUrl)}">Spotify</a>`:''}<button class="mini" onclick="copyShare(${Number(p.id)})">Share</button><a class="mini" href="/p/${Number(p.id)}">›</a></div></div>`}).join('')}

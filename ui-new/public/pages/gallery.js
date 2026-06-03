@@ -26,7 +26,7 @@ function releaseHtml(playlist) {
   const meta = [count ? `${count} tracks` : "", date].filter(Boolean).join(" - ");
   const name = playlist.name || playlist.vibe || "Kwalify playlist";
 
-  return `<article class="kw-release" data-open="${Number(playlist.id)}">
+  return `<article class="kw-release-row" data-open="${Number(playlist.id)}">
     ${coverHtml(tracks)}
     <div class="kw-release-body">
       <div class="kw-list-name">${escapeHtml(name)}</div>
@@ -54,7 +54,7 @@ function render(playlists) {
     return;
   }
 
-  root.innerHTML = `<div class="kw-gallery">${playlists.map(releaseHtml).join("")}</div>`;
+  root.innerHTML = `<div class="kw-gallery-list">${playlists.map(releaseHtml).join("")}</div>`;
 
   root.querySelectorAll("[data-open]").forEach((node) => {
     node.addEventListener("click", () => {

@@ -55,30 +55,8 @@ function guestView() {
       </div>
     </section>
 
-    <section class="kw-explain" aria-label="How Kwalify works">
-      <div class="kw-explain-title">How Kwalify works</div>
-      <div class="kw-tile-grid">
-        <section class="kw-tile">
-          <div class="kw-tile-icon">AI</div>
-          <h3>Moment-aware matching</h3>
-          <p>Parses your scene into location, time, mood, and motion, then matches tracks from your library.</p>
-        </section>
-        <section class="kw-tile">
-          <div class="kw-tile-icon">M</div>
-          <h3>Matches your library</h3>
-          <p>Every liked song is scored against energy, mood, and listening history. Only songs you love make the mix.</p>
-        </section>
-        <section class="kw-tile">
-          <div class="kw-tile-icon">3</div>
-          <h3>Strict, Balanced, Chaotic</h3>
-          <p>Choose how closely tracks match your vibe. Balanced keeps variety without losing the moment.</p>
-        </section>
-        <section class="kw-tile">
-          <div class="kw-tile-icon">GO</div>
-          <h3>One click, done</h3>
-          <p>Describe the feeling, hit Generate, and a private playlist appears in Spotify in seconds.</p>
-        </section>
-      </div>
+    <section class="kw-plain-note" aria-label="How Kwalify works">
+      Describe a moment. Kwalify scores your liked songs and creates a private playlist in Spotify.
     </section>
   </div>`;
 }
@@ -108,11 +86,10 @@ function appView(user) {
     </section>
 
     <section class="kw-status" id="syncStatus">Checking library...</section>
-    <section class="kw-panel kw-library" id="librarySummary"></section>
 
-    <section class="kw-command" aria-label="Generate playlist">
+    <section class="kw-compose" aria-label="Generate playlist">
       <label class="kw-label" for="vibeInput">Describe your vibe</label>
-      <div class="kw-command-main">
+      <div class="kw-compose-main">
         <span class="kw-input-shell">
           <input class="kw-input" id="vibeInput" maxlength="140" autocomplete="off" placeholder="Describe a moment...">
           <span class="kw-counter" id="vibeCounter">0/140</span>
@@ -152,11 +129,11 @@ function appView(user) {
       <div class="kw-keys"><kbd>Enter</kbd> generate &middot; <kbd>Ctrl K</kbd> focus</div>
     </section>
 
-    <section class="kw-panel kw-working" id="working">
+    <section class="kw-working" id="working">
       <div class="kw-working-row"><span>Building from your liked songs...</span><span>AI scoring tracks</span></div>
       <div class="kw-progress"><span></span></div>
     </section>
-    <section class="kw-panel kw-result" id="result"></section>
+    <section class="kw-result" id="result"></section>
 
     <section class="kw-history">
       <div class="kw-section-title">Your recent moods</div>
@@ -174,7 +151,6 @@ function appView(user) {
   updateInput();
   pollSync();
   state.pollTimer = window.setInterval(pollSync, 7000);
-  loadLibrarySummary();
   loadRecent();
   byId("vibeInput")?.focus();
 }
@@ -286,32 +262,6 @@ async function startSync(full) {
     toast(full ? "Full sync started" : "Sync started", "good");
   } catch {
     toast("Could not start sync", "bad");
-  }
-}
-
-async function loadLibrarySummary() {
-  const target = byId("librarySummary");
-  if (!target) return;
-
-  try {
-    const response = await api("/library/summary");
-    const data = response.data || {};
-    if (!response.ok || !data.trackCount) return;
-
-    const roots = data.genreFamilyCount ?? data.genreRootsCount ?? data.genreRootsSpotted ?? 0;
-    target.classList.add("is-visible");
-    target.innerHTML = `<div class="kw-library-lead">
-      <strong>${Number(data.trackCount).toLocaleString()} songs synced</strong>
-      <span>That's a huge library. Kwalify can dig through years of favourites, forgotten gems, and deep cuts - only from tracks you saved on Spotify.</span>
-    </div>
-    <div class="kw-library-facts">
-      <span><strong>${Number(data.artistCount || 0).toLocaleString()}</strong><span>artists</span></span>
-      <span><strong>${roots || "-"}${roots ? " / 18" : ""}</strong><span>main genres spotted</span></span>
-      <span><strong>${escapeHtml(data.mostActiveDecade || data.activeDecade || "2020s")}</strong><span>most active decade</span></span>
-      <span><strong>${escapeHtml(data.librarySpan || data.listeningSpan || "Spotify likes")}</strong><span>listening span</span></span>
-    </div>`;
-  } catch {
-    target.classList.remove("is-visible");
   }
 }
 
