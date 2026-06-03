@@ -1,6 +1,7 @@
 const root = document.getElementById("playlistRoot");
 const match = window.location.pathname.match(/\/p\/(\d+)/);
 const playlistId = match ? match[1] : null;
+let currentOutput = "";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -17,49 +18,52 @@ async function rawJson(path) {
   return { ok: response.ok, status: response.status, data: await response.json().catch(() => ({})) };
 }
 
-function spotifyIcon() {
-  return `<span class="spotify-dot" aria-hidden="true"></span>`;
-}
-
-function setMeta(data, tracks) {
+function setMeta(data) {
   const title = `${data.name || "Playlist"} - Kwalify`;
-  const description = data.vibe ? `"${data.vibe}" - from Spotify liked songs only.` : "A Spotify playlist built from songs you already love.";
-  const art = tracks.find((track) => track.albumArt || track.album_art);
   document.title = title;
-  document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
-  document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
-  if (art) document.getElementById("ogImage")?.setAttribute("content", art.albumArt || art.album_art);
 }
 
-function trackRows(tracks) {
-  return tracks.map((track, index) => {
-    const art = track.albumArt || track.album_art || "";
+function buildOutput(data, tracks) {
+  const lines = [
+    data.name || "Kwalify playlist",
+    `${Number(data.trackCount || tracks.length || 0).toLocaleString()} tracks`,
+  ];
+
+  if (data.spotifyUrl) lines.push(data.spotifyUrl);
+
+  tracks.forEach((track, index) => {
     const name = track.trackName || track.name || "Unknown track";
     const artist = track.artistName || track.artist || "Unknown artist";
-    const id = track.trackId || track.track_id || track.id || "";
-    return `<article class="track-row"><span>${index + 1}</span>${art ? `<img src="${escapeHtml(art)}" alt="">` : `<i></i>`}<strong>${escapeHtml(name)}<small>${escapeHtml(artist)}</small></strong>${id ? `<a href="https://open.spotify.com/track/${escapeHtml(id)}" target="_blank" rel="noopener">Play</a>` : ""}</article>`;
-  }).join("");
+    lines.push(`${index + 1}. ${name} - ${artist}`);
+  });
+
+  return lines.join("\n");
 }
 
 function notFound() {
-  root.innerHTML = `<section class="empty-state"><h1>Playlist not found</h1><p>This link may be old or the playlist was removed.</p><a class="btn" href="/">Back to Kwalify</a></section>`;
+  root.innerHTML = `<section>
+    <h1>Playlist not found</h1>
+    <p>This link may be old or the playlist was removed.</p>
+    <p><a href="/">Generate Again</a></p>
+  </section>`;
 }
 
 function render(data) {
   const tracks = Array.isArray(data.tracks) ? data.tracks : [];
-  const count = data.trackCount || tracks.length || 0;
-  setMeta(data, tracks);
-  root.innerHTML = `<section class="share-hero">
-    <div class="eyebrow">Kwalify playlist</div>
+  setMeta(data);
+  currentOutput = buildOutput(data, tracks);
+  root.innerHTML = `<section>
     <h1>${escapeHtml(data.name || "Kwalify playlist")}</h1>
-    ${data.vibe ? `<blockquote>"${escapeHtml(data.vibe)}"</blockquote>` : ""}
-    <p>${Number(count).toLocaleString()} tracks · liked songs only</p>
-    <div class="result-actions">
-      ${data.spotifyUrl ? `<a class="btn btn-green" target="_blank" rel="noopener" href="${escapeHtml(data.spotifyUrl)}">${spotifyIcon()}Open Spotify</a>` : ""}
-      <a class="btn" href="/api/auth/login">Make your own</a>
-    </div>
-  </section>
-  ${tracks.length ? `<section><div class="section-title" style="margin-bottom:12px">Tracks</div><div class="track-list">${trackRows(tracks)}</div></section>` : ""}`;
+    <h2>Generated Output</h2>
+    <pre>${escapeHtml(currentOutput)}</pre>
+    <button id="copyButton" type="button">Copy</button>
+    <button id="againButton" type="button">Generate Again</button>
+  </section>`;
+
+  document.getElementById("copyButton").addEventListener("click", () => navigator.clipboard?.writeText(currentOutput));
+  document.getElementById("againButton").addEventListener("click", () => {
+    window.location.href = "/";
+  });
 }
 
 async function boot() {
