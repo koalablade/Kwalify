@@ -95,6 +95,7 @@ export function buildFallbackPipelineResult<
       emotionalPeakIndex: null,
       gradientPhases: { start: 0, explore: 0, peak: 0, resolve: 0 },
     },
+    ecosystemDebug: null,
   };
 }
 
