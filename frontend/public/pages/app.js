@@ -131,6 +131,7 @@ const state = {
   error: null,
   tasteOpen: false,
   profileOpen: false,
+  showDebug: false,
 };
 
 function getTheme() {
@@ -637,36 +638,8 @@ function resultHtml(result) {
     `<span class="vibe-dot ${DOT_COLORS[i % DOT_COLORS.length]}"></span><span>${esc(t)}</span>`
   ).join("\n");
 
-  // ── Debug panel (shown when ?debug=1) ─────────────────────────────────────
-  const debugHtml = (() => {
-    if (!debug) return "";
-    const diag = result.scoringDiagnostics || {};
-    const sem = diag.semanticResolution;
-    const routing = diag.sceneRouting || {};
-    const top = (diag.topScored || []).slice(0, 5);
-    const dist = diag.predictedDistribution || {};
-    const distRows = Object.entries(dist)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([g, v]) => `<tr><td>${esc(g)}</td><td>${(v * 100).toFixed(1)}%</td></tr>`)
-      .join("");
-    const topRows = top.map(t =>
-      `<tr><td style="font-size:0.7rem;opacity:0.7">${esc(t.trackId || "")}</td><td>${typeof t.finalScore === "number" ? t.finalScore.toFixed(3) : "—"}</td></tr>`
-    ).join("");
-    return `
-    <details class="debug-panel" style="margin-top:12px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;font-size:0.78rem;line-height:1.6;opacity:0.85">
-      <summary style="cursor:pointer;font-weight:600;letter-spacing:0.04em">⚙ Scoring diagnostics</summary>
-      <div style="margin-top:8px;display:grid;gap:6px">
-        ${sem ? `<div><b>Scene:</b> ${esc(sem.sceneId)} · confidence ${(sem.confidence * 100).toFixed(0)}%</div>` : "<div><b>Scene:</b> none matched</div>"}
-        <div><b>Model:</b> <code style="font-size:0.72rem">${esc(diag.scoringModel || "—")}</code></div>
-        ${routing.boosted?.length ? `<div><b>Boosted genres:</b> ${routing.boosted.map(esc).join(", ")}</div>` : ""}
-        ${routing.suppressed?.length ? `<div><b>Suppressed genres:</b> ${routing.suppressed.map(esc).join(", ")}</div>` : ""}
-        ${distRows ? `<div><b>Genre distribution:</b><table style="margin-top:4px;border-collapse:collapse;width:100%">${distRows}</table></div>` : ""}
-        ${topRows ? `<div><b>Top scored tracks (pre-select):</b><table style="margin-top:4px;border-collapse:collapse;width:100%">${topRows}</table></div>` : ""}
-        <div><b>Excluded:</b> ${diag.excludedCount ?? "—"}</div>
-      </div>
-    </details>`;
-  })();
+  // ── Admin Debug Panel ──────────────────────────────────────────────────────
+  const debugHtml = buildDebugPanel(result);
 
   return `
   <div class="result-card">
@@ -687,9 +660,225 @@ function resultHtml(result) {
         ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
         ${result.savedPlaylistId ? `<a href="/p/${result.savedPlaylistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
       </div>
-      ${debugHtml}
     </div>
-  </div>`;
+  </div>
+  ${debugHtml}`;
+}
+
+// ── Admin Debug Panel ─────────────────────────────────────────────────────────
+function buildDebugPanel(result) {
+  const dbg = result._debug;
+  if (!dbg) return "";
+
+  const diag = dbg.scoringDiagnostics || {};
+  const sem = dbg.semanticScene || diag.semanticResolution || null;
+  const pool = dbg.poolInfo || {};
+  const topScored = (diag.topScored || []).slice(0, 20);
+  const domGenres = diag.dominantGenres || [];
+  const exclusionReasons = diag.exclusionReasons || {};
+  const ecoDebug = dbg.ecosystemDebug || {};
+  const genreAudit = dbg.genreAudit || {};
+  const open = state.showDebug;
+
+  // ── Scene card ────────────────────────────────────────────────────────────
+  const confPct = sem ? Math.round((sem.confidence || 0) * 100) : 0;
+  const confColor = confPct >= 80 ? "#1db954" : confPct >= 55 ? "#f59e0b" : "#ef4444";
+  const lockActive = confPct >= 55;
+
+  const sceneHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">🎯 Detected Scene</div>
+      ${sem ? `
+        <div class="dp-scene-name">${esc(sem.sceneId || "—").replace(/_/g," ")}</div>
+        <div class="dp-scene-meta">
+          <span class="dp-badge" style="background:${confColor}20;color:${confColor};border-color:${confColor}40">
+            ${confPct}% confidence
+          </span>
+          <span class="dp-badge ${lockActive ? "dp-badge--green" : "dp-badge--muted"}">
+            Ecosystem lock ${lockActive ? "active ✓" : "inactive"}
+          </span>
+          ${dbg.noLibraryMode ? '<span class="dp-badge dp-badge--purple">No Library Mode</span>' : ""}
+        </div>
+      ` : `<div class="dp-none">No scene matched — using generic mood scoring</div>`}
+    </div>`;
+
+  // ── Scoring weights card ──────────────────────────────────────────────────
+  const weights = dbg.noLibraryMode
+    ? { Semantic: 55, Emotion: 20, Scene: 15, Aesthetic: 10, Library: 0, Genre: 0 }
+    : { Semantic: 40, Emotion: 20, Scene: 15, Aesthetic: 10, Library: 10, Genre: 5 };
+
+  const weightBars = Object.entries(weights).map(([k, v]) => `
+    <div class="dp-weight-row">
+      <span class="dp-weight-label">${k}</span>
+      <div class="dp-weight-bar-wrap">
+        <div class="dp-weight-bar" style="width:${v * 1.8}%;background:${v >= 40 ? "#7c3aed" : v >= 20 ? "#1d4ed8" : v >= 10 ? "#0e7490" : "#374151"}"></div>
+      </div>
+      <span class="dp-weight-pct">${v}%</span>
+    </div>`).join("");
+
+  const weightsHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">⚖️ Scoring Weights</div>
+      <div class="dp-weights">${weightBars}</div>
+    </div>`;
+
+  // ── Pool breakdown card ───────────────────────────────────────────────────
+  const libSize = pool.librarySize || 0;
+  const hybridSize = pool.hybridPoolSize || 0;
+  const filteredOut = libSize - hybridSize;
+  const filteredPct = libSize > 0 ? Math.round((filteredOut / libSize) * 100) : 0;
+  const topExclusions = Object.entries(exclusionReasons)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const poolHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">🗂️ Candidate Pool</div>
+      <div class="dp-pool-grid">
+        <div class="dp-pool-stat">
+          <div class="dp-pool-num">${libSize.toLocaleString()}</div>
+          <div class="dp-pool-lbl">Library tracks</div>
+        </div>
+        <div class="dp-pool-arrow">→</div>
+        <div class="dp-pool-stat">
+          <div class="dp-pool-num" style="color:#1db954">${hybridSize.toLocaleString()}</div>
+          <div class="dp-pool-lbl">After pre-filter</div>
+        </div>
+        <div class="dp-pool-arrow">→</div>
+        <div class="dp-pool-stat">
+          <div class="dp-pool-num" style="color:#f59e0b">${filteredOut.toLocaleString()}</div>
+          <div class="dp-pool-lbl">Removed (${filteredPct}%)</div>
+        </div>
+      </div>
+      ${pool.poolCapped ? '<div class="dp-note">⚡ Pool was capped — anti-genre tracks pre-filtered before scoring</div>' : ""}
+      ${topExclusions.length ? `
+        <div class="dp-sub-title">Exclusion reasons</div>
+        <div class="dp-exclusions">
+          ${topExclusions.map(([reason, count]) =>
+            `<div class="dp-excl-row"><span>${esc(reason)}</span><span class="dp-excl-count">${count}</span></div>`
+          ).join("")}
+        </div>
+      ` : ""}
+    </div>`;
+
+  // ── Dominant genres card ──────────────────────────────────────────────────
+  const genreColors = {
+    country:"#d97706",folk:"#16a34a",indie:"#7c3aed",rock:"#dc2626",
+    electronic:"#0891b2",pop:"#db2777",jazz:"#9333ea",soul:"#ea580c",
+    rnb:"#0284c7",hip_hop:"#16a34a",blues:"#2563eb",metal:"#6b7280",
+    classical:"#b45309",reggae:"#15803d",latin:"#c2410c",
+  };
+
+  const genreBubbles = domGenres.slice(0, 8).map(g =>
+    `<span class="dp-genre-chip" style="background:${(genreColors[g]||"#4b5563")}20;color:${genreColors[g]||"#9ca3af"};border-color:${(genreColors[g]||"#4b5563")}40">${esc(g)}</span>`
+  ).join("");
+
+  const genresHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">🎵 Dominant Genres in Library</div>
+      <div class="dp-genre-chips">${genreBubbles || '<span class="dp-none">No data</span>'}</div>
+    </div>`;
+
+  // ── Top scored tracks table ───────────────────────────────────────────────
+  const bar = (v) => {
+    const pct = Math.round((v || 0) * 100);
+    const col = pct >= 70 ? "#1db954" : pct >= 40 ? "#f59e0b" : "#ef4444";
+    return `<div class="dp-score-bar-wrap" title="${pct}%"><div class="dp-score-bar" style="width:${pct}%;background:${col}"></div><span>${pct}</span></div>`;
+  };
+
+  const trackRows = topScored.map((t, i) => `
+    <tr class="dp-track-row ${i % 2 === 0 ? "dp-row-even" : ""}">
+      <td class="dp-track-num">${i + 1}</td>
+      <td class="dp-track-id">${esc(t.trackId || "").slice(-8)}</td>
+      <td class="dp-track-genre">
+        <span class="dp-genre-pill" style="background:${(genreColors[t.genrePrimary]||"#4b5563")}20;color:${genreColors[t.genrePrimary]||"#9ca3af"}">${esc(t.genrePrimary||"?")}</span>
+      </td>
+      <td>${bar(t.finalScore)}</td>
+      <td>${bar(t.sceneScore)}</td>
+      <td>${bar(t.emotionMatch)}</td>
+      <td>${bar(t.libraryFitScore)}</td>
+    </tr>`).join("");
+
+  const topTracksHtml = `
+    <div class="dp-card dp-card--wide">
+      <div class="dp-card-title">📊 Top Scored Tracks (pre-compose)</div>
+      <div class="dp-table-wrap">
+        <table class="dp-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Track ID</th><th>Genre</th>
+              <th>Final</th><th>Scene</th><th>Emotion</th><th>Library</th>
+            </tr>
+          </thead>
+          <tbody>${trackRows || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No data</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div class="dp-table-legend">Each bar = 0–100. Final score drives track selection.</div>
+    </div>`;
+
+  // ── Playlist genre composition ────────────────────────────────────────────
+  const finalTracks = result.tracks || [];
+  const genreCount = {};
+  finalTracks.forEach(t => {
+    const g = t.genrePrimary || "unknown";
+    genreCount[g] = (genreCount[g] || 0) + 1;
+  });
+  const total = finalTracks.length || 1;
+  const genreDist = Object.entries(genreCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  const compositionHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">🎼 Final Playlist Genre Composition</div>
+      ${genreDist.length ? `
+        <div class="dp-composition">
+          ${genreDist.map(([g, n]) => {
+            const pct = Math.round((n / total) * 100);
+            const col = genreColors[g] || "#4b5563";
+            return `
+            <div class="dp-comp-row">
+              <span class="dp-comp-genre" style="color:${col}">${esc(g)}</span>
+              <div class="dp-comp-bar-wrap">
+                <div class="dp-comp-bar" style="width:${pct}%;background:${col}"></div>
+              </div>
+              <span class="dp-comp-pct">${n} track${n !== 1 ? "s" : ""} · ${pct}%</span>
+            </div>`;
+          }).join("")}
+        </div>
+        ${sem && lockActive ? `
+          <div class="dp-note dp-note--${genreDist[0] && sem.sceneId && genreDist[0][0] !== "unknown" ? "green" : "amber"}">
+            Ecosystem target: ≥${Math.round((ecoDebug?.ecosystemFloor || 0.70) * 100)}% from scene genres
+          </div>
+        ` : ""}
+      ` : '<div class="dp-none">Tracks without genre data</div>'}
+    </div>`;
+
+  return `
+  <div class="dp-toggle-row">
+    <button class="dp-toggle-btn" id="debugToggleBtn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      ${open ? "Hide" : "Show"} Debug Info
+      <svg class="dp-chevron ${open ? "open" : ""}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <span class="dp-admin-badge">Admin Only</span>
+  </div>
+  ${open ? `
+  <div class="dp-panel">
+    <div class="dp-header">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span>Scoring Diagnostics</span>
+      <span class="dp-model-tag">${esc(diag.scoringModel || dbg.scoringWeights || "—")}</span>
+    </div>
+    <div class="dp-grid">
+      ${sceneHtml}
+      ${weightsHtml}
+      ${poolHtml}
+      ${genresHtml}
+    </div>
+    ${topTracksHtml}
+    ${compositionHtml}
+  </div>
+  ` : ""}`;
 }
 
 // ── Mood panel updater (reactive) ─────────────────────────────────────────────
@@ -822,6 +1011,35 @@ function wireAppEvents() {
     btn.addEventListener("click", () => deletePlaylist(Number(btn.dataset.id)));
   });
 
+  document.getElementById("debugToggleBtn")?.addEventListener("click", () => {
+    state.showDebug = !state.showDebug;
+    const panel = document.querySelector(".dp-panel");
+    const btn = document.getElementById("debugToggleBtn");
+    const chevron = btn?.querySelector(".dp-chevron");
+    const label = btn?.childNodes;
+    if (state.showDebug) {
+      if (btn) btn.innerHTML = btn.innerHTML.replace("Show", "Hide");
+      chevron?.classList.add("open");
+      if (!panel) {
+        const wrap = btn?.closest(".dp-toggle-row")?.parentElement;
+        if (wrap) {
+          const existing = wrap.querySelector(".dp-panel");
+          if (!existing && state.lastResult) {
+            const tmp = document.createElement("div");
+            tmp.innerHTML = buildDebugPanel(state.lastResult);
+            const newPanel = tmp.querySelector(".dp-panel");
+            if (newPanel) wrap.appendChild(newPanel);
+          }
+        }
+      }
+      document.querySelector(".dp-panel")?.style.setProperty("display", "block");
+    } else {
+      if (btn) btn.innerHTML = btn.innerHTML.replace("Hide", "Show");
+      chevron?.classList.remove("open");
+      document.querySelector(".dp-panel")?.style.setProperty("display", "none");
+    }
+  });
+
   // Ctrl/Cmd+K to focus input
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -894,7 +1112,7 @@ async function generate() {
   const savedVibe = vibe;
 
   try {
-    const r = await api("/generate", {
+    const r = await api("/generate?debug=1", {
       method: "POST",
       body: JSON.stringify({
         vibe,
