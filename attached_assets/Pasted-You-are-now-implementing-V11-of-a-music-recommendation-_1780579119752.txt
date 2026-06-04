@@ -1,0 +1,238 @@
+You are now implementing V11 of a music recommendation engine.
+
+This is NOT a scoring tweak system.
+
+This is a full shift to a retrieval + embedding + adaptive preference architecture.
+
+========================================================
+🚨 CORE PROBLEM WITH V10 (MUST FIX)
+========================================================
+
+V10 still relies too heavily on:
+- handcrafted weights
+- rule-based scene logic
+- deterministic scoring formulas
+
+This causes:
+- predictable outputs
+- genre drift under edge prompts
+- weak generalization to unseen prompts
+
+========================================================
+🎯 V11 OBJECTIVE
+========================================================
+
+Build a system that behaves like a modern recommender system:
+
+1. Understands meaning via embeddings
+2. Retrieves candidates based on similarity
+3. Re-ranks using soft signals (not hard rules)
+4. Learns from user behavior (implicit feedback)
+5. Maintains diversity via constraints AFTER ranking
+
+========================================================
+🧠 ARCHITECTURE OVERVIEW
+========================================================
+
+Replace pipeline with 4 stages:
+
+STAGE 1 — EMBEDDING UNDERSTANDING
+STAGE 2 — CANDIDATE RETRIEVAL (VECTOR SEARCH)
+STAGE 3 — SOFT RERANKING MODEL
+STAGE 4 — DIVERSITY + SESSION ADAPTATION
+
+========================================================
+🧠 STAGE 1 — EMBEDDING LAYER (NEW CORE)
+========================================================
+
+Replace all scene/genre keyword logic with embeddings.
+
+Create:
+
+trackEmbedding = f(track metadata + audio features + lyrics if available)
+queryEmbedding = f(user prompt)
+
+Use cosine similarity:
+
+similarity = cosine(queryEmbedding, trackEmbedding)
+
+IMPORTANT:
+- This replaces scene detection as PRIMARY signal
+- Scene becomes an interpretability layer only
+- Genre becomes metadata only (NOT scoring input)
+
+========================================================
+📦 STAGE 2 — CANDIDATE RETRIEVAL (VECTOR FIRST)
+========================================================
+
+Replace full pool scanning with retrieval:
+
+STEP:
+- retrieve TOP 200–500 nearest tracks by embedding similarity
+- this becomes the ONLY scoring pool
+
+DO NOT:
+- scan full library
+- pre-filter aggressively
+- remove genres early
+
+This fixes performance + diversity collapse.
+
+========================================================
+🧠 STAGE 3 — SOFT RERANKING MODEL
+========================================================
+
+Replace rigid scoring with weighted soft model:
+
+FINAL SCORE =
+
+0.60 × embeddingSimilarity
+0.15 × userTasteAffinity
+0.10 × noveltyScore
+0.10 × moodConsistency
+0.05 × diversityHint
+
+IMPORTANT:
+- NO hard genre penalties
+- NO hard scene gating
+- NO track deletion
+
+All signals are continuous, never binary.
+
+========================================================
+🧠 USER TASTE MEMORY (NEW SYSTEM)
+========================================================
+
+Introduce persistent vector:
+
+userTasteVector
+
+Updated after every session:
+
+userTasteVector =
+  decay(previousVector)
+  + average(playedTracksEmbedding)
+
+This enables:
+- personalization over time
+- “this feels like my vibe” adaptation
+- session continuity
+
+========================================================
+🔥 STAGE 4 — DIVERSITY ENGINE (POST-RANK ONLY)
+========================================================
+
+After ranking ONLY:
+
+Apply soft diversity reweighting:
+
+- genre cap: 35%
+- era cap: 40%
+- energy cap: 40%
+
+BUT:
+- never remove tracks
+- only adjust probability weights
+
+Use:
+
+diversityMultiplier = function(track, playlistSoFar)
+
+penalties:
+- repeated genre → -25%
+- repeated energy band → -15%
+- repeated artist → -50%
+
+========================================================
+🧠 NOVELTY MODEL (IMPORTANT)
+========================================================
+
+Add:
+
+noveltyScore =
+  distance(trackEmbedding, userTasteVector)
+
+This ensures:
+- discovery
+- avoids repetition loops
+- prevents “samey playlists”
+
+========================================================
+🎧 MOOD CONSISTENCY MODEL
+========================================================
+
+Instead of scene matching:
+
+moodConsistency =
+  similarity(trackEmbedding, sessionMoodVector)
+
+sessionMoodVector evolves during playlist generation:
+- starts from queryEmbedding
+- slowly shifts toward selected tracks
+
+This creates “flow”
+
+========================================================
+🧠 SCENE SYSTEM (REDUCED ROLE)
+========================================================
+
+Scene detection becomes:
+
+- interpretability only
+- NOT a filter
+- NOT a scoring gate
+
+Scene output:
+
+sceneLabel = nearestLabel(queryEmbedding)
+
+Used only for UI explanation.
+
+========================================================
+⚖️ HARD RULES (CRITICAL)
+========================================================
+
+DELETE ALL:
+
+❌ hard ecosystem filters
+❌ genre exclusion rules
+❌ pre-filtering logic
+❌ score-based deletion
+❌ scene gating
+❌ confidence thresholds removing tracks
+
+REPLACE WITH:
+
+✔ embedding retrieval
+✔ soft reranking
+✔ post-ranking diversity shaping
+
+========================================================
+📊 DEBUG OUTPUT (V11 REQUIRED)
+========================================================
+
+Return:
+
+- queryEmbedding summary
+- top 10 retrieval candidates (with similarity)
+- final ranking breakdown
+- diversity penalties applied (soft only)
+- novelty distribution
+- taste drift (session vs user vector)
+
+========================================================
+🚀 SUCCESS CRITERIA
+========================================================
+
+System is correct if:
+
+- “90s throwbacks” mixes multiple 90s subgenres naturally
+- “cowboy dirt roads” includes country, folk, indie folk, ambient Americana
+- “rave” includes techno, trance, house, breakbeat — not one cluster
+- results vary but remain coherent
+- no genre dominates unless query explicitly demands it
+- system adapts over time to user behavior
+
+========================================================
+END OF V11 SPEC — THIS IS A FULL RECOMMENDER REWRITE
+========================================================

@@ -1,0 +1,198 @@
+You are a senior backend engineer tasked with fixing a music playlist generation system.
+
+Your goal is NOT to tune weights.
+
+Your goal is to fix structural instability so the system works reliably for ALL inputs:
+- eras (90s, 80s, 2000s)
+- moods (chill, sad, energetic)
+- scenes (cowboy dirt roads, city nights, rave, study, nostalgia)
+- ambiguous or messy prompts
+
+========================================================
+🚨 CORE PROBLEM TO FIX
+========================================================
+
+The current system suffers from:
+
+1. Over-aggressive filtering BEFORE scoring → destroys diversity
+2. Scene detection collapsing to "no scene"
+3. Genre collapse into dominant cluster (often indie or one type)
+4. Hard gating logic removing too many tracks
+5. Overconfidence in single-scene routing
+6. Scoring instability between runs
+
+========================================================
+🎯 V10 ARCHITECTURE GOAL
+========================================================
+
+Replace brittle logic with a stable 3-layer system:
+
+LAYER 1 — SOFT UNDERSTANDING (NO DELETIONS)
+- NEVER remove tracks based on genre/scene early
+- Only tag + score metadata
+- Pool must remain intact (no 80–90% destruction)
+
+LAYER 2 — MULTI-SIGNAL SCORING (NO DOMINANCE)
+Compute score using balanced contributions:
+
+FINAL SCORE =
+  semantic (0.40)
++ emotion (0.25)
++ sceneAffinity (0.25)
++ diversityBonus (0.10)
+
+IMPORTANT:
+- NO aesthetic/library hard influence
+- NO genre hard weighting
+- genre only affects diversityBonus
+
+LAYER 3 — DIVERSITY SELECTION (POST-SCORING ONLY)
+Apply diversity AFTER ranking, not before:
+
+- enforce soft caps:
+  - max 35% same genre
+  - max 40% same “era cluster”
+  - max 40% same energy band
+
+- DO NOT delete tracks
+- only downweight selection probability
+
+========================================================
+🧠 SCENE SYSTEM FIX (CRITICAL)
+========================================================
+
+Replace single-scene output with MULTI-SCENE VECTOR:
+
+resolveScene(prompt) MUST return:
+
+[
+  { scene: "cowboy_dirt_roads", weight: 0.45 },
+  { scene: "nostalgia_warm", weight: 0.30 },
+  { scene: "road_trip_day", weight: 0.25 }
+]
+
+RULES:
+- ALWAYS return at least 3 scenes
+- weights must sum to 1.0
+- NEVER return "no scene"
+- fallback = generic blend (NOT empty or null)
+
+Fallback template:
+- nostalgia_warm: 0.4
+- indie_lofi: 0.3
+- reflective: 0.3
+
+========================================================
+🧱 REMOVE THESE FAILURE MODES COMPLETELY
+========================================================
+
+DELETE or DISABLE:
+
+❌ hard ecosystem filtering
+❌ pre-filter genre removal
+❌ confidence-based track deletion
+❌ "isEcosystemWhitelisted" gating
+❌ post-score global invariant filters
+❌ any step that removes >30% of pool
+❌ single-scene enforcement
+
+========================================================
+🎵 GENRE SYSTEM FIX (IMPORTANT)
+========================================================
+
+Replace genre dominance logic:
+
+OLD (bad):
+- genre = scoring + filtering
+
+NEW (correct):
+- genre = diversity signal ONLY
+
+Add:
+
+genreDistribution = soft tracking only
+NOT a scoring gate
+
+Rules:
+- no genre may exceed 35% final playlist
+- enforce via selection weighting only
+
+========================================================
+⚖️ DIVERSITY ENGINE (NEW CORE SYSTEM)
+========================================================
+
+After scoring, apply:
+
+function applyDiversityRanking(tracks):
+
+1. cluster tracks by:
+   - genre
+   - energy (low/mid/high)
+   - era (70s/80s/90s/00s/10s/modern)
+
+2. compute selection probability:
+
+probability =
+  normalizedScore
+  × diversityBoost
+  × antiRepetitionPenalty
+
+3. antiRepetitionPenalty:
+- same genre back-to-back → -30%
+- same era cluster > 3 consecutive → -20%
+
+DO NOT delete tracks.
+
+========================================================
+🧠 SCENE AFFINITY MODEL (NEW)
+========================================================
+
+Each track gets:
+
+sceneAffinityScore =
+  cosineSimilarity(trackFeatures, sceneVector)
+
+sceneVector is weighted blend of multiple scenes.
+
+NO binary matching.
+
+========================================================
+🔥 IMPORTANT STABILITY RULE
+========================================================
+
+System must be:
+
+- deterministic (same input ≈ same output)
+- non-destructive
+- multi-scene aware
+- diversity-preserving
+- robust to empty or vague prompts
+
+========================================================
+📊 DEBUG OUTPUT (REQUIRED)
+========================================================
+
+Return diagnostics:
+
+- sceneVector (full breakdown)
+- genre distribution (final)
+- diversity penalty applied
+- pool size before/after scoring (should NOT drop massively)
+- top 3 scene influences per track
+
+========================================================
+🚀 SUCCESS CRITERIA
+========================================================
+
+The system is considered fixed if:
+
+- “90s throwbacks” produces mixed 90s genres, not one cluster
+- “cowboy dirt roads” produces country + indie + folk + ambient blend
+- “rave” produces electronic diversity, not one subgenre
+- no prompt collapses into single genre dominance
+- pool reduction never exceeds 30% before scoring
+- outputs vary meaningfully but remain consistent in vibe
+
+========================================================
+END OF SPEC — IMPLEMENT CLEANLY, NO PARTIAL PATCHES
+========================================================
