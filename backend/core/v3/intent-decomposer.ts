@@ -153,6 +153,81 @@ const INFLUENCE_PATTERNS: Array<{
   },
 ];
 
+// ── Genre-specific force injection ────────────────────────────────────────
+// When the vibe IS a genre name (e.g. "AMERICAN COUNTRY", "jazz at midnight"),
+// inject a rich set of co-occurring influence forces so the lane generator has
+// enough signal. Without this, single-word genre prompts produce only 1 force
+// and fire the "unclear intent" fallback path, losing all genre specificity.
+
+const GENRE_FORCE_INJECTIONS: Array<{
+  pattern: RegExp;
+  forces: Partial<Record<InfluenceForce, number>>;
+}> = [
+  {
+    pattern: /\b(country|americana|western|cowboy|honky.?tonk|alt.?country|bluegrass|appalachian)\b/i,
+    forces: { rural: 0.8, acoustic: 0.7, warmth: 0.6, freedom: 0.5 },
+  },
+  {
+    pattern: /\b(jazz|bebop|swing|bossa.?nova|big.?band|latin.?jazz)\b/i,
+    forces: { calm: 0.7, introspective: 0.8, cinematic: 0.5, urban: 0.4 },
+  },
+  {
+    pattern: /\b(blues|delta.?blues|chicago.?blues|electric.?blues)\b/i,
+    forces: { melancholy: 0.8, acoustic: 0.6, introspective: 0.7 },
+  },
+  {
+    pattern: /\b(hip.?hop|rap|trap|drill|boom.?bap|r&b|rnb)\b/i,
+    forces: { rhythm: 0.9, urban: 0.7, energy: 0.6 },
+  },
+  {
+    pattern: /\b(edm|techno|house|trance|dubstep|drum.?n.?bass|dnb)\b/i,
+    forces: { electronic: 0.9, energy: 0.8, party: 0.5 },
+  },
+  {
+    pattern: /\b(classical|orchestral|symphony|concerto|chamber|baroque|neoclassical)\b/i,
+    forces: { cinematic: 0.9, calm: 0.7, introspective: 0.6 },
+  },
+  {
+    pattern: /\b(folk|indie.?folk|fingerpick|troubadour)\b/i,
+    forces: { acoustic: 0.9, introspective: 0.7, warmth: 0.5 },
+  },
+  {
+    pattern: /\b(metal|hard.?rock|punk|grunge|thrash|death.?metal|prog.?rock)\b/i,
+    forces: { energy: 0.9, dark: 0.6, freedom: 0.5 },
+  },
+  {
+    pattern: /\b(soul|motown|gospel|neo.?soul|funk.?soul)\b/i,
+    forces: { warmth: 0.9, romantic: 0.6, rhythm: 0.7 },
+  },
+  {
+    pattern: /\b(latin|salsa|reggaeton|cumbia|flamenco|bachata|merengue)\b/i,
+    forces: { rhythm: 0.9, energy: 0.7, warmth: 0.6, romantic: 0.5 },
+  },
+  {
+    pattern: /\b(reggae|ska|dub|dancehall|rocksteady)\b/i,
+    forces: { freedom: 0.8, warmth: 0.7, rhythm: 0.6 },
+  },
+  {
+    pattern: /\b(k.?pop|j.?pop|synth.?pop|art.?pop)\b/i,
+    forces: { energy: 0.7, hopeful: 0.6, electronic: 0.5 },
+  },
+];
+
+function injectGenreForces(
+  vibe: string,
+  raw: Partial<Record<InfluenceForce, number>>,
+): void {
+  for (const { pattern, forces } of GENRE_FORCE_INJECTIONS) {
+    if (pattern.test(vibe)) {
+      for (const [force, weight] of Object.entries(forces) as Array<[InfluenceForce, number]>) {
+        if ((raw[force] ?? 0) < weight) {
+          raw[force] = weight;
+        }
+      }
+    }
+  }
+}
+
 function detectInfluenceForces(vibe: string): SceneInfluenceMap {
   const raw: Partial<Record<InfluenceForce, number>> = {};
 
@@ -161,6 +236,10 @@ function detectInfluenceForces(vibe: string): SceneInfluenceMap {
       raw[force] = baseWeight;
     }
   }
+
+  // Inject genre-specific forces so that "AMERICAN COUNTRY", "jazz", etc.
+  // always produce at least 2 forces and bypass the unclear-intent fallback.
+  injectGenreForces(vibe, raw);
 
   const detected = Object.keys(raw);
 

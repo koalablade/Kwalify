@@ -177,7 +177,7 @@ export function buildPlaylistPipeline<T extends {
 
   let t = Date.now();
   const v3 = runV3Pipeline(
-    opts.likedSongs,
+    scoring.sorted as unknown as T[],
     opts.vibe,
     opts.emotionProfile,
     opts.playlistLength,
@@ -189,7 +189,7 @@ export function buildPlaylistPipeline<T extends {
     }
   );
   logScoringStage(opts.pipelineLog, "V3 multi-lane pipeline complete", t, {
-    poolSize: opts.likedSongs.length,
+    poolSize: scoring.sorted.length,
     selectedCount: v3.finalTracks.length,
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
   });

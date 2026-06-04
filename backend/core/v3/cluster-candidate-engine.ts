@@ -20,6 +20,7 @@
 
 import type { LaneScoredTrack, ScorerTrack } from "./lane-scorer";
 import type { EraBucket } from "../../lib/intent-parser";
+import { getGenreFamily } from "./global-diversity-controller";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -199,11 +200,16 @@ export function selectFromClusters<T extends ScorerTrack>(
   }
 
   // Max selection per cluster
-  const genreMax  = Math.max(1, Math.ceil(targetCount * 0.35));
-  const eraMax    = Math.max(1, Math.ceil(targetCount * 0.40));
-  const energyMax = Math.max(1, Math.ceil(targetCount * 0.50));
+  const genreMax   = Math.max(1, Math.ceil(targetCount * 0.35));
+  const eraMax     = Math.max(1, Math.ceil(targetCount * 0.40));
+  const energyMax  = Math.max(1, Math.ceil(targetCount * 0.50));
+  // Family-level cap: no genre family (e.g. all country subgenres combined)
+  // may exceed 40% of the selected tracks. Prevents "hidden collapse" where
+  // country, americana, outlaw_country each pass the per-cluster cap.
+  const familyMax  = Math.max(1, Math.ceil(targetCount * 0.40));
 
   const clusterPickCount = new Map<string, number>();
+  const familyPickCount  = new Map<string, number>();
   const usedIds = new Set<string>();
 
   type OutTrack = T & {
@@ -245,7 +251,11 @@ export function selectFromClusters<T extends ScorerTrack>(
     const eraViolation    = eraCid    && (clusterPickCount.get(eraCid)    ?? 0) >= eraMax;
     const energyViolation = energyCid && (clusterPickCount.get(energyCid) ?? 0) >= energyMax;
 
-    if (genreViolation || eraViolation || energyViolation) continue;
+    // Family-level cap: e.g. country + americana + outlaw_country share one budget
+    const genreFamily     = getGenreFamily(item.genrePrimary ?? "unknown");
+    const familyViolation = (familyPickCount.get(genreFamily) ?? 0) >= familyMax;
+
+    if (genreViolation || eraViolation || energyViolation || familyViolation) continue;
 
     selected.push({
       ...item.track,
@@ -258,6 +268,7 @@ export function selectFromClusters<T extends ScorerTrack>(
     for (const cid of cids) {
       clusterPickCount.set(cid, (clusterPickCount.get(cid) ?? 0) + 1);
     }
+    familyPickCount.set(genreFamily, (familyPickCount.get(genreFamily) ?? 0) + 1);
   }
 
   // ── Pass 2: backfill — relax constraints if short ───────────────────────

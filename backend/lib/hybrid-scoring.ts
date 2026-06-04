@@ -135,6 +135,8 @@ export function buildHybridScoringContext(opts: {
   preScore?: PreScoreContext;
   truthAnchors?: TruthAnchorStore;
   noLibraryMode?: boolean;
+  /** Pre-resolved semantic scene — avoids duplicate resolveSemanticScene() call per generation */
+  cachedSemanticResolution?: SemanticSceneResolution;
 }): HybridScoringContext {
   let prototype = opts.prototype;
   if (!prototype && opts.vibeKind === "sunny") {
@@ -165,7 +167,7 @@ export function buildHybridScoringContext(opts: {
     sceneSeasonMode = "summer";
   }
 
-  const semanticResolution = resolveSemanticScene(opts.vibe, opts.profile);
+  const semanticResolution = opts.cachedSemanticResolution ?? resolveSemanticScene(opts.vibe, opts.profile);
 
   return {
     vibe: opts.vibe,

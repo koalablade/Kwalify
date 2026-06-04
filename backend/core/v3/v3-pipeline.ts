@@ -118,10 +118,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       opts.genreByTrack ?? (() => "unknown"),
     );
 
-    // Headroom: 2× target so cluster selector has choices
+    // Headroom: 3× target so cluster selector has choices after Stage 6b reweights
     const laneTarget = Math.max(
-      Math.ceil(targetCount * lane.weight * 2),
-      Math.ceil(targetCount * lane.weight) + 5,
+      Math.ceil(targetCount * lane.weight * 3),
+      Math.ceil(targetCount * lane.weight) + 10,
     );
 
     // Stage 4: Build clusters from scored pool

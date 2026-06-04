@@ -1158,6 +1158,31 @@ router.post("/generate", async (req, res): Promise<void> => {
             ecosystemCompliance: pipeline.ecosystemDebug.ecosystemCompliance,
           }
         : null,
+      v3Diagnostics: (() => {
+        const v3 = pipeline.scoringDiagnostics?.v3Pipeline as Record<string, unknown> | null | undefined;
+        if (!v3 || typeof v3 !== "object") return null;
+        const intent = v3["intentDecomposition"] as Record<string, unknown> | undefined;
+        const lanes  = v3["lanes"] as Array<Record<string, unknown>> | undefined;
+        const post   = v3["postMetrics"] as Record<string, unknown> | undefined;
+        return {
+          pipelineVersion:  v3["pipelineVersion"] ?? "v3",
+          activePath:       v3["activePath"] ?? "adaptive",
+          sceneInfluenceMap: intent?.["sceneInfluenceMap"] ?? {},
+          contextAnchors:   intent?.["contextAnchors"] ?? {},
+          primary:          intent?.["primary"] ?? vibe,
+          lanes: (lanes ?? []).map((l) => ({
+            laneId:        l["laneId"],
+            type:          l["type"],
+            weight:        l["weight"],
+            scoredCount:   l["scoredCount"],
+            selectedCount: l["selectedCount"],
+          })),
+          genreConcentration:   post?.["genreConcentration"] ?? null,
+          explorationPressure:  post?.["explorationPressure"] ?? null,
+          dominantGenre:        post?.["dominantGenre"] ?? null,
+          dominantEra:          post?.["dominantEra"] ?? null,
+        };
+      })(),
       ...(pipeline.scoringDiagnostics?.fastFallback
         ? { fastFallback: true }
         : {}),

@@ -392,6 +392,7 @@ export function runScoringPipeline<T extends {
     preScore,
     truthAnchors,
     noLibraryMode: opts.noLibraryMode,
+    cachedSemanticResolution: earlySemanticResolution,
   });
   logScoringStage(log, "Hybrid scoring context built", t);
 

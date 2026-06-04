@@ -24,6 +24,75 @@
 
 import type { LaneScoredTrack, ScorerTrack } from "./lane-scorer";
 
+// ── Genre family map ─────────────────────────────────────────────────────────
+// Groups subgenres into coarse families so family-level concentration can be
+// capped independently of per-cluster caps. Without this, "country",
+// "americana", "outlaw_country" and "country_rock" each pass the 35% per-cluster
+// cap but together can dominate 80%+ of the playlist.
+
+export const GENRE_FAMILY_MAP: Record<string, string> = {
+  country:          "country",
+  americana:        "country",
+  outlaw_country:   "country",
+  country_rock:     "country",
+  bluegrass:        "country",
+  alt_country:      "country",
+  folk_country:     "country",
+  western:          "country",
+  honky_tonk:       "country",
+  rock:             "rock",
+  classic_rock:     "rock",
+  hard_rock:        "rock",
+  indie_rock:       "rock",
+  alternative:      "rock",
+  punk:             "rock",
+  pop_rock:         "rock",
+  grunge:           "rock",
+  prog_rock:        "rock",
+  hip_hop:          "hip_hop",
+  rap:              "hip_hop",
+  trap:             "hip_hop",
+  drill:            "hip_hop",
+  boom_bap:         "hip_hop",
+  rnb:              "rnb",
+  r_and_b:          "rnb",
+  neo_soul:         "rnb",
+  soul:             "rnb",
+  electronic:       "electronic",
+  edm:              "electronic",
+  house:            "electronic",
+  techno:           "electronic",
+  trance:           "electronic",
+  ambient:          "electronic",
+  folk:             "folk",
+  indie_folk:       "folk",
+  singer_songwriter:"folk",
+  acoustic:         "folk",
+  jazz:             "jazz",
+  bebop:            "jazz",
+  swing:            "jazz",
+  bossa_nova:       "jazz",
+  blues:            "blues",
+  delta_blues:      "blues",
+  pop:              "pop",
+  indie_pop:        "pop",
+  synth_pop:        "pop",
+  k_pop:            "pop",
+  metal:            "metal",
+  heavy_metal:      "metal",
+  death_metal:      "metal",
+  black_metal:      "metal",
+  thrash_metal:     "metal",
+  latin:            "latin",
+  salsa:            "latin",
+  reggaeton:        "latin",
+  cumbia:           "latin",
+};
+
+export function getGenreFamily(genre: string): string {
+  return GENRE_FAMILY_MAP[genre] ?? genre;
+}
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export interface DiversityWindow {
@@ -225,6 +294,15 @@ export function applyDiversityPenalties<T extends ScorerTrack>(
   let penaltiesApplied = 0;
   const penaltyReasons: string[] = [];
 
+  // Pre-compute genre family counts across the current diversity window so we
+  // can apply a family-level penalty in O(1) per track.
+  const familyCounts: Record<string, number> = {};
+  for (const g of window.genreWindow) {
+    const fam = getGenreFamily(g);
+    familyCounts[fam] = (familyCounts[fam] ?? 0) + 1;
+  }
+  const windowSize = Math.max(1, window.genreWindow.length);
+
   const adjusted = scored.map((item) => {
     const genre  = genreByTrack(item.track.trackId);
     const artist = item.track.artistName;
@@ -239,6 +317,18 @@ export function applyDiversityPenalties<T extends ScorerTrack>(
       penaltiesApplied++;
       if (!penaltyReasons.includes("genre_concentration")) {
         penaltyReasons.push("genre_concentration");
+      }
+    }
+
+    // Family-level concentration penalty: prevents "country", "americana",
+    // "outlaw_country" etc. collectively exceeding 40% of the window.
+    const genreFamily = getGenreFamily(genre);
+    const familyRatio = (familyCounts[genreFamily] ?? 0) / windowSize;
+    if (familyRatio > 0.40 && genreFamily !== genre) {
+      multiplier = Math.min(multiplier, 0.70);
+      penaltiesApplied++;
+      if (!penaltyReasons.includes("genre_family_concentration")) {
+        penaltyReasons.push("genre_family_concentration");
       }
     }
 
