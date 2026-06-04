@@ -1,0 +1,278 @@
+REPLIT IMPLEMENTATION PROMPT — UNIVERSAL PLAYLIST ENGINE v5 (HARD CONSTRAINT REWRITE)
+
+You are a senior-level music recommendation system engineer.
+
+Your task is to FIX the playlist engine so that:
+1. Scene detection is authoritative
+2. Genre leakage is structurally impossible (not just penalised)
+3. Semantic understanding works for ANY phrase (even unseen or abstract)
+4. No-Library mode is truly independent and robust
+5. Playlist coherence behaves like Spotify editorial + DJ curation
+
+────────────────────────────────────
+🚨 CRITICAL SYSTEM RULES (NON-NEGOTIABLE)
+────────────────────────────────────
+
+DO NOT:
+- Do NOT allow non-scene genres to appear in scene-locked playlists
+- Do NOT use soft penalties where hard filters are required
+- Do NOT let scoring override ecosystem locks
+- Do NOT allow fallback genres unless explicitly allowed by adjacency graph
+- Do NOT let semantic scoring override scene constraints
+
+DO:
+
+- Scene = HARD CONSTRAINT LAYER (absolute filter gate)
+- Genre = SECONDARY within allowed scene ecosystem ONLY
+- Semantic interpretation = ONLY used to select scene, NOT override it
+- Library fallback = ONLY used when scene pool is too small AFTER filtering
+
+────────────────────────────────────
+🧠 1. UNIVERSAL SEMANTIC UNDERSTANDING (FIX BROKEN INPUT HANDLING)
+────────────────────────────────────
+
+Replace current semantic parser with embedding-based intent resolver:
+
+It MUST map ANY input phrase into:
+
+{
+  scene,
+  emotionalTone,
+  energyLevel,
+  movementType,
+  environment,
+  timeOfDay,
+  narrativeContext
+}
+
+Examples:
+
+"dirt road with a dog"
+→ scene: DIRT_ROAD_SUNSET
+→ environment: rural open road
+→ narrative: companionship / solitude hybrid
+
+"late night crying in car"
+→ scene: NIGHT_DRIVE_ALONE
+→ emotion: melancholic + introspective
+
+"gym rage demon mode"
+→ scene: GYM_INTENSITY_HIGH
+→ energy: extreme
+
+IMPORTANT:
+- Never rely on keyword matching alone
+- Must use semantic similarity / embeddings fallback for unseen phrases
+
+────────────────────────────────────
+🌍 2. SCENE SYSTEM = PRIMARY FILTER (FIX MAIN ISSUE)
+────────────────────────────────────
+
+Scene detection MUST output:
+
+sceneId
+confidence
+allowedGenres[]
+blockedGenres[]
+energyRange
+eraBias (optional)
+
+AND MUST enforce:
+
+TRACK POOL RULE:
+
+filteredPool = ALL_TRACKS.filter(track =>
+  track.genre ∈ scene.allowedGenres
+)
+
+❌ NO EXCEPTIONS
+
+If a track is not in allowedGenres:
+→ it is removed BEFORE scoring
+
+NOT penalised
+NOT deprioritised
+REMOVED
+
+────────────────────────────────────
+🎧 3. SCENE → GENRE ECOSYSTEM GRAPH (CRITICAL FIX)
+────────────────────────────────────
+
+Build explicit ecosystem maps:
+
+DIRT_ROAD / COUNTRY_ROADS:
+- country
+- outlaw country
+- americana
+- southern rock
+- folk
+- classic rock (limited adjacency only)
+
+DO NOT INCLUDE:
+- indie (unless explicitly bridged)
+- hip hop
+- electronic
+- blues (unless tagged crossover)
+- random rock expansion
+
+Each scene must define:
+
+PRIMARY_GENRES (80–90% of output)
+SECONDARY_ADJACENCY (10–20%)
+FORBIDDEN_GENRES (0%)
+
+────────────────────────────────────
+⚡ 4. NO-LIBRARY MODE FIX (CURRENTLY TOO WEAK)
+────────────────────────────────────
+
+When noLibraryMode = true:
+
+DO NOT use user history at all
+
+Instead:
+
+- Use global curated seed dataset ONLY
+- Use scene ecosystem ONLY
+- Expand via adjacency graph ONLY
+
+AND enforce:
+
+NO LIBRARY PERSONALIZATION WEIGHT = 0
+
+Replace scoring weights:
+
+semantic: 0.55
+scene: 0.25
+emotion: 0.15
+genre: 0.05 (ecosystem only)
+
+────────────────────────────────────
+🎯 5. SCORING SYSTEM FIX (STOP GENRE OVERRIDE BUG)
+────────────────────────────────────
+
+Current bug: genre is influencing results too early.
+
+FIX:
+
+Step order MUST be:
+
+1. Scene Filter (hard gate)
+2. Energy filter (range clamp)
+3. Emotion alignment scoring
+4. Semantic similarity scoring
+5. Genre scoring LAST (tie-break only)
+
+Genre weight must NEVER exceed scene constraints
+
+────────────────────────────────────
+🧩 6. POOL BUILDING FIX (CRITICAL BUG)
+────────────────────────────────────
+
+Current issue:
+You build a pool of 1,000 BEFORE correct filtering.
+
+FIX:
+
+Pipeline must be:
+
+ALL_TRACKS
+→ Scene Filter (hard gate)
+→ Energy Filter
+→ Era Filter (optional)
+→ THEN cap pool (max 1000)
+
+NOT before filtering
+
+────────────────────────────────────
+🔥 7. CROSS-GENRE LEAK FIX
+────────────────────────────────────
+
+If ANY track is outside ecosystem:
+
+- Remove it
+- Do NOT score it
+- Do NOT fallback into it
+
+If pool < minimum size:
+
+ONLY then:
+expand using SECONDARY_ADJACENCY genres
+
+NOT global library expansion
+
+────────────────────────────────────
+🧠 8. EMBEDDING SYSTEM REQUIREMENT (FUTURE PROOF)
+────────────────────────────────────
+
+Implement semantic embeddings for:
+
+- user prompt
+- track metadata
+- scene definitions
+
+Similarity must be:
+
+cosine(prompt_embedding, scene_embedding)
+
+This allows:
+
+- unseen phrases
+- slang
+- creative inputs
+- poetic inputs
+
+WITHOUT keyword dependency
+
+────────────────────────────────────
+🎼 9. PLAYLIST FLOW ENGINE (SPOTIFY-LEVEL FIX)
+────────────────────────────────────
+
+Every playlist MUST be structured:
+
+1. Intro (low energy, scene warm-up)
+2. Core identity (primary ecosystem)
+3. Peak emotional moment (highest energy match)
+4. Cooldown (descending energy curve)
+
+Energy curve must be enforced, not optional.
+
+────────────────────────────────────
+⚠️ 10. FAILSAFE RULE
+────────────────────────────────────
+
+If system is uncertain:
+
+DO NOT broaden genres
+
+Instead:
+
+- reduce diversity
+- increase repetition of ecosystem-safe tracks
+- preserve coherence over variety
+
+────────────────────────────────────
+📊 11. DEBUG OUTPUT REQUIREMENTS
+────────────────────────────────────
+
+Must include:
+
+- sceneId + confidence
+- allowedGenres + blockedGenres
+- filteredPool size (AFTER filtering)
+- rejected genres count
+- adjacency expansions used (if any)
+- % compliance with ecosystem
+
+────────────────────────────────────
+🚀 SUCCESS CRITERIA
+
+After implementation:
+
+- "dirt road sunset" → 90%+ country / americana / outlaw country
+- NO indie leakage unless explicitly allowed
+- NO blues/random rock dilution
+- No-library mode feels consistent, not chaotic
+- Scene lock is visually and technically verifiable
+- Playlist feels like a curated DJ set, not algorithmic shuffle
+
+END OF PROMPT

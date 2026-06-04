@@ -270,6 +270,8 @@ export function runScoringPipeline<T extends {
     hybridPoolSize: poolCap.pool.length,
     poolCapped: poolCap.poolCapped,
     candidateCount: poolCap.candidateCount,
+    preFilterRejected: poolCap.preFilterRejectedCount,
+    adjacencyExpansionUsed: poolCap.adjacencyExpansionUsed,
   });
 
   t = Date.now();
@@ -644,6 +646,8 @@ export function runScoringPipeline<T extends {
         hybridPoolSize: poolCap.pool.length,
         poolCapped: poolCap.poolCapped,
         candidateCount: poolCap.candidateCount,
+        preFilterRejected: poolCap.preFilterRejectedCount,
+        adjacencyExpansionUsed: poolCap.adjacencyExpansionUsed,
       },
     },
     hybridExcludedCount: hybridExcluded.length,

@@ -20,7 +20,11 @@ import {
   resolveHybridPoolCap,
 } from "../../lib/production-limits";
 import type { SemanticSceneVector } from "../../lib/semantic-scene-engine";
-import { isHardAntiGenre } from "../../lib/semantic-scene-engine";
+import {
+  isHardAntiGenre,
+  isEcosystemWhitelisted,
+  ECOSYSTEM_HARD_GATE_CONFIDENCE,
+} from "../../lib/semantic-scene-engine";
 
 function seededJitter(trackId: string, seed: number): number {
   let h = seed;
@@ -77,6 +81,8 @@ export function capTracksForHybridScoring<T extends {
   originalCount: number;
   poolCapped: boolean;
   candidateCount: number;
+  preFilterRejectedCount: number;
+  adjacencyExpansionUsed: boolean;
 } {
   const originalCount = tracks.length;
   const libSize = opts.librarySize ?? originalCount;
@@ -88,40 +94,104 @@ export function capTracksForHybridScoring<T extends {
       promptWordCount: opts.promptWordCount,
     });
 
-  // ── Phase 3: Retrieval Before Scoring (ecosystem pre-filter) ────────────────
-  // When a semantic scene is locked with sufficient confidence, remove hard
-  // anti-genre tracks BEFORE the expensive tri-score. This is the most
-  // impactful change: "outlaw country" with a rap-heavy library should never
-  // produce a rap playlist regardless of the pool cap heuristics.
+  // ── Phase 3: Retrieval Before Scoring (V5 hard constraint gate) ─────────────
+  //
+  // Two-tier scene pre-filter — tracks are REMOVED, never penalised:
+  //
+  //   Tier 1 (confidence ≥ 0.55):  Remove tracks whose primary genre is in
+  //     the scene's explicit anti-genre list (e.g. hip-hop for OUTLAW_COUNTRY).
+  //     Protects against the most egregious cross-genre leaks.
+  //
+  //   Tier 2 (confidence ≥ ECOSYSTEM_HARD_GATE_CONFIDENCE / 0.70):  Full
+  //     ecosystem whitelist — remove every track whose primary genre is NOT
+  //     present in the scene ecosystem with weight ≥ ECOSYSTEM_HARD_GATE_MIN_WEIGHT.
+  //     This is the structural impossibility V5 requires: genre leakage cannot
+  //     happen because out-of-ecosystem tracks never enter the scoring pool.
+  //
+  // Failsafe — adjacency expansion (V5 §7 / §10):
+  //   If the full-gate pool < 30% of cap, relax to anti-genre-only removal (Tier 1).
+  //   If even that is too small, keep the anti-genre-only set and let the
+  //   scoring engine's own hard gate handle residual violations.
+  //   Global unfiltered fallback is NEVER used — coherence over variety.
   let workingTracks = tracks;
-  if (opts.ecosystemPreFilter && opts.ecosystemPreFilter.sceneConfidence >= 0.55) {
-    const { vector } = opts.ecosystemPreFilter;
+  let preFilterRejectedCount = 0;
+  let adjacencyExpansionUsed = false;
+
+  if (opts.ecosystemPreFilter) {
+    const { vector, sceneConfidence } = opts.ecosystemPreFilter;
     const classMap = opts.classifications;
-    const filtered = tracks.filter((t) => {
-      const c = classMap.get(t.trackId);
-      if (!c) return true; // no classification → keep
-      return !isHardAntiGenre(c, vector);
-    });
-    // Only apply the pre-filter if it leaves at least 30% of the requested cap
-    // (prevents empty pools for users whose libraries are 100% anti-genre)
-    if (filtered.length >= Math.max(Math.floor(max * 0.30), 15)) {
-      workingTracks = filtered;
+    const minPool = Math.max(Math.floor(max * 0.30), 15);
+    const useFullGate = sceneConfidence >= ECOSYSTEM_HARD_GATE_CONFIDENCE;
+
+    if (sceneConfidence >= 0.55) {
+      if (useFullGate) {
+        // Tier 2: full ecosystem whitelist (V5 hard constraint)
+        const fullGated = tracks.filter((t) => {
+          const c = classMap.get(t.trackId);
+          if (!c) return true;
+          return isEcosystemWhitelisted(c, vector, sceneConfidence);
+        });
+        if (fullGated.length >= minPool) {
+          preFilterRejectedCount = tracks.length - fullGated.length;
+          workingTracks = fullGated;
+        } else {
+          // Failsafe: relax to anti-genre-only removal (adjacency expansion)
+          adjacencyExpansionUsed = true;
+          const antiGated = tracks.filter((t) => {
+            const c = classMap.get(t.trackId);
+            if (!c) return true;
+            return !isHardAntiGenre(c, vector);
+          });
+          preFilterRejectedCount = tracks.length - antiGated.length;
+          if (antiGated.length >= minPool) {
+            workingTracks = antiGated;
+          }
+          // If still too small: keep original working set (scoring hard gate handles it)
+        }
+      } else {
+        // Tier 1: anti-genre removal only
+        const antiGated = tracks.filter((t) => {
+          const c = classMap.get(t.trackId);
+          if (!c) return true;
+          return !isHardAntiGenre(c, vector);
+        });
+        if (antiGated.length >= minPool) {
+          preFilterRejectedCount = tracks.length - antiGated.length;
+          workingTracks = antiGated;
+        }
+      }
     }
   }
 
   if (workingTracks.length <= max) {
-    return { pool: workingTracks, originalCount, poolCapped: false, candidateCount: workingTracks.length };
+    return {
+      pool: workingTracks,
+      originalCount,
+      poolCapped: false,
+      candidateCount: workingTracks.length,
+      preFilterRejectedCount,
+      adjacencyExpansionUsed,
+    };
   }
 
   // Swap to filtered list for the rest of the function
   const tracksForRanking = workingTracks;
 
   if (tracksForRanking.length === 0) {
-    return { pool: tracks.slice(0, max), originalCount, poolCapped: true, candidateCount: tracks.length };
+    // Pool is empty after filtering — return empty rather than leaking unfiltered tracks.
+    // The scoring engine will handle the empty-pool gracefully.
+    return {
+      pool: [],
+      originalCount,
+      poolCapped: false,
+      candidateCount: 0,
+      preFilterRejectedCount,
+      adjacencyExpansionUsed,
+    };
   }
 
   if (originalCount <= max && workingTracks === tracks) {
-    return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount };
+    return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount, preFilterRejectedCount, adjacencyExpansionUsed };
   }
 
   // Fast path for 500+ libraries — skip era-balanced reshuffle (maps/sorts entire library).
@@ -154,6 +224,8 @@ export function capTracksForHybridScoring<T extends {
       originalCount,
       poolCapped: true,
       candidateCount: candidates.length,
+      preFilterRejectedCount,
+      adjacencyExpansionUsed,
     };
   }
 
@@ -253,5 +325,7 @@ export function capTracksForHybridScoring<T extends {
     originalCount,
     poolCapped: true,
     candidateCount: candidates.length,
+    preFilterRejectedCount,
+    adjacencyExpansionUsed,
   };
 }

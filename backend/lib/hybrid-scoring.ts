@@ -400,14 +400,17 @@ export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): numb
   let final: number;
 
   if (ctx.noLibraryMode) {
-    // No-library mode: pure scene / intent / emotion — library history is zeroed out.
-    // Library (10%) + Genre (5%) weight is redistributed to semantic (now 55%).
-    // This ensures "petrol station 2am" generates ambient/synthwave not user's rap history.
+    // No-library mode — V5 spec weights (semantic:0.55, scene:0.25, emotion:0.15, genre:0.05).
+    // Scene raised from 0.15→0.25 so ecosystem lock dominates over user-history signals.
+    // Emotion lowered from 0.20→0.15 to prevent mood-matching from pulling cross-genre tracks.
+    // Genre at 0.05 acts as tie-breaker only — cannot override scene constraints.
+    // Library and aesthetic weights are zeroed out; user history has no influence.
+    const sceneContribNoLib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * 0.25;
     final =
-      tri.semanticEcosystemScore * (SCORING_WEIGHTS.semantic + SCORING_WEIGHTS.library + SCORING_WEIGHTS.genre) +
-      tri.emotionMatch * SCORING_WEIGHTS.emotion +
-      sceneContrib +
-      tri.aestheticScore * SCORING_WEIGHTS.aesthetic;
+      tri.semanticEcosystemScore * 0.55 +
+      tri.emotionMatch * 0.15 +
+      sceneContribNoLib +
+      tri.genreBalanceScore * 0.05;
   } else {
     // Personalized mode: intent-first (40%) with library history as a refinement signal (15%).
     // INTENT FIRST — personalization refines, never replaces the requested vibe.
