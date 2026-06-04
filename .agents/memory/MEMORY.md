@@ -1,3 +1,3 @@
 - [Kwalify project overview](kwalify-overview.md) — Spotify playlist generator from liked songs; Node/Express backend, vanilla JS frontend, PostgreSQL DB.
-- [Semantic scoring engine](semantic-scoring.md) — semantic ecosystem score is PRIMARY ranking signal at 40% weight; 6-channel weight model; new SceneFamily types added.
+- [V2 Final Architecture](v2-final-architecture.md) — triple-signal recommender R×0.45+V×0.35+C×0.20; 7 new files in backend/core/v2/ + backend/lib/intent-parser.ts; wired in playlist-pipeline.ts.
 - [V4 scene engine](v4-scene-engine.md) — 53 total scenes; resolveSemanticScene returns alternatives[]; new scene-fidelity.ts and genre-leak-detector.ts; live preview endpoint GET /generate/preview.
