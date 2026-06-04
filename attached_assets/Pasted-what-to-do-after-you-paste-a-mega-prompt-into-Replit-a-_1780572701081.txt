@@ -1,0 +1,199 @@
+what to do after you paste a mega prompt into Replit
+a proper “universal fix prompt” you can reuse forever (this is the important part)
+1) After you send the prompt to Replit — what next?
+
+Think of Replit like this:
+
+You paste prompt → it edits code
+then it either:
+auto-builds / runs
+or waits for you to click Run / Deploy
+then you test with real inputs again
+Your loop should be:
+Paste prompt
+Let it finish ALL actions
+Wait for build success
+Run 3–5 test playlists:
+country road
+rap club
+sad indie
+electronic gym
+random mixed vibe
+Open debug panel
+Check:
+scene detection
+genre composition
+pool cap
+ONLY then decide next change
+
+👉 Right now your issue is you’re iterating blind between runs too fast. You need “test batches”, not single prompts.
+
+2) The “Mega Prompt That Actually Fixes Everything” (universal version)
+
+This is the one you wanted — but written properly so it doesn’t keep breaking or overfitting country scenes.
+
+Copy this EXACTLY into Replit:
+
+🔧 UNIVERSAL PLAYLIST ENGINE STABILISATION PROMPT (V6)
+
+You are a senior music recommendation systems engineer.
+
+Your goal is to FIX the playlist engine so it works reliably across:
+
+ALL genres (country, hip hop, electronic, indie, rock, jazz, classical, pop, lo-fi, metal, etc.)
+ALL eras (70s → 2020s)
+ALL moods (happy, sad, aggressive, nostalgic, dreamy, energetic, calm)
+ALL scenes (driving, gym, studying, nightlife, sunrise, heartbreak, party, travel, work, etc.)
+🚨 CORE PROBLEMS TO FIX
+
+The system currently suffers from:
+
+1. Scene overfitting (critical)
+
+Detected scene is too dominant and collapses genre diversity.
+
+Fix:
+
+Scene must NEVER hard-lock a genre
+Scene = weighting signal, not a filter (except extreme confidence ≥ 0.85)
+2. Genre collapse (critical)
+
+Playlists collapse into 1 dominant genre (e.g. country-only or indie-only).
+
+Fix:
+
+Enforce genre diversity floor
+Max 35–45% from one genre unless explicitly requested
+Introduce soft genre entropy scoring
+3. Ecosystem lock too aggressive OR too loose depending on fallback
+
+Fix:
+
+Keep ecosystem system BUT:
+do NOT fully remove cross-genre bridges
+allow “adjacent genres” (rock ↔ country, pop ↔ indie, rap ↔ trap, etc.)
+4. Pool filtering bias
+
+Current pre-filter is over-removing or incorrectly classifying genres.
+
+Fix:
+
+Pre-filter must be:
+conservative (only remove true mismatches)
+never remove entire genre families unless explicitly blacklisted
+5. Debug output misleading
+
+Fix debug so it ALWAYS shows truth:
+
+Must include:
+
+detected scene
+confidence
+genre distribution BEFORE scoring
+genre distribution AFTER scoring
+top 3 reasons each track was selected
+pool reduction breakdown
+ecosystem rejection count
+adjacency fallback usage
+⚖️ NEW SCORING SYSTEM (GLOBAL FIX)
+
+Use this ALWAYS:
+
+semantic: 0.35–0.45 (adaptive)
+emotion: 0.20
+scene: 0.15 (max influence, NOT dominance)
+aesthetic: 0.10
+library: 0.10
+genre: 0.10–0.20 (adaptive for diversity control)
+
+Rules:
+
+scene weight decreases if confidence < 0.7
+genre weight increases if collapse detected
+🧠 SCENE SYSTEM FIX
+
+Scene detection must output:
+
+scene label
+confidence
+secondary scenes (top 2 alternatives)
+
+If confidence < 0.6:
+→ DO NOT lock ecosystem
+→ use blended multi-scene scoring
+
+🎧 GENRE BALANCE SYSTEM (NEW)
+
+Enforce:
+
+max 45% one genre
+min 3 genres per playlist
+introduce “soft rotation” every 5–7 tracks
+
+If violation:
+→ re-rank pool, not regenerate playlist
+
+🔁 FALLBACK RULES (IMPORTANT)
+
+If ecosystem filtering removes too much:
+
+DO NOT revert to full library.
+
+Instead:
+
+expand to adjacent genres only
+then relax scene constraint slightly
+never break genre blacklist rules
+📊 DEBUG REQUIREMENTS
+
+Add a visible panel showing:
+
+Scene detection + confidence
+Whether scene lock is active
+Genre distribution (pre + post)
+Pool size reduction %
+Ecosystem filter strictness level (1–3)
+Adjacency expansion used (true/false)
+Final genre entropy score
+🎯 OUTPUT GOAL
+
+Every playlist must:
+
+feel coherent
+not collapse into one genre
+still reflect scene mood
+remain musically diverse
+avoid “samey track loops”
+🚀 IMPORTANT
+
+Do NOT:
+
+overfit to country / indie / hip hop
+hard lock scenes into genres
+destroy diversity with strict filters
+overreact to single prompts
+
+DO:
+
+balance scene + genre + diversity
+use soft constraints over hard gates
+prioritise listening experience realism
+
+END.
+
+If you want the honest truth about your current system
+
+You’re actually VERY close.
+
+Your real issue isn’t “bad AI logic” anymore.
+
+It’s this:
+
+you’ve over-engineered the constraint system so it sometimes becomes more important than taste.
+
+That’s why you’re seeing:
+
+country dominance
+indie collapse
+weird “almost right but not quite” outputs
+If you want next step
