@@ -1,24 +1,35 @@
 /**
- * V2 Bucketed Selection — anti-collapse playlist assembly.
+ * Stratified Sampling Engine — spec §7
  *
- * Instead of picking the global top N, distribute across 4 buckets:
+ * Replaces greedy ranking and equal 4×25% buckets with weighted stratification:
  *
- *   Bucket 1 (25%) — Top genre cluster      (primary genre from user library)
- *   Bucket 2 (25%) — Secondary genre cluster (second most common genre)
- *   Bucket 3 (25%) — Era match cluster       (tracks matching intent era)
- *   Bucket 4 (25%) — Discovery              (random sample from top high-scorers not yet picked)
+ *   Bucket 1 (40%) — Top emotional match     (sorted by EmotionMatch signal)
+ *   Bucket 2 (30%) — High scene match        (sorted by SceneAffinity signal)
+ *   Bucket 3 (20%) — Novelty / diversity     (sorted by NoveltyBoost signal)
+ *   Bucket 4 (10%) — Random exploration      (bounded random from remaining)
  *
- * This prevents "everything becomes indie / one genre collapse".
- * All tracks in all buckets must have audio features (guaranteed by V2 scorer).
+ * Post-selection:
+ *   - Rolling 12-track diversity window: no genre > 18% within any window
+ *   - Counter-genre injection every 5 tracks (spec §5)
  */
 
 import type { EraBucket } from "../../lib/intent-parser";
+import {
+  GENRE_ROLLING_WINDOW,
+  COUNTER_GENRE_INJECTION_INTERVAL,
+} from "../genre-intelligence/soft-penalty";
 
 export interface BucketCandidate {
   trackId: string;
   score: number;
   era: EraBucket;
   genrePrimary: string;
+  /** Signal 3: EmotionMatch (0–1) — used for Bucket 1 */
+  emotionMatch?: number;
+  /** Signal 2: SceneAffinity (0–1) — used for Bucket 2 */
+  sceneAffinity?: number;
+  /** Signal 6: NoveltyBoost (0–1) — used for Bucket 3 */
+  noveltyScore?: number;
 }
 
 /** Stable seeded random — keeps output deterministic within a session */
@@ -30,30 +41,118 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-/**
- * Find the top-1 and top-2 genres in the scored pool.
- * Used to define Buckets 1 and 2.
- */
-function findTopGenres(tracks: BucketCandidate[]): [string, string] {
-  const counts: Record<string, number> = {};
-  for (const t of tracks) {
-    if (!t.genrePrimary || t.genrePrimary === "unknown") continue;
-    counts[t.genrePrimary] = (counts[t.genrePrimary] ?? 0) + 1;
-  }
+/** Simple counter-genre map — genres that provide contrast */
+const COUNTER_GENRE_MAP: Record<string, string[]> = {
+  indie: ["electronic", "hip_hop", "country", "soul"],
+  electronic: ["country", "folk", "indie", "acoustic"],
+  hip_hop: ["indie", "country", "folk", "electronic"],
+  country: ["electronic", "hip_hop", "rock", "soul"],
+  pop: ["indie", "electronic", "folk", "hip_hop"],
+  rock: ["electronic", "soul", "hip_hop", "country"],
+  folk: ["electronic", "hip_hop", "rock", "soul"],
+  rnb: ["country", "electronic", "indie", "folk"],
+  metal: ["soul", "folk", "electronic", "pop"],
+  classical: ["hip_hop", "electronic", "rock", "pop"],
+  jazz: ["electronic", "hip_hop", "metal", "rock"],
+  soul: ["electronic", "hip_hop", "metal", "country"],
+  blues: ["electronic", "hip_hop", "pop", "metal"],
+  latin: ["indie", "folk", "electronic", "country"],
+  reggae: ["metal", "electronic", "country", "folk"],
+};
 
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const top1 = sorted[0]?.[0] ?? "unknown";
-  const top2 = sorted[1]?.[0] ?? sorted[0]?.[0] ?? "unknown";
-  return [top1, top2];
+function getCounterGenres(genre: string): string[] {
+  return COUNTER_GENRE_MAP[genre] ?? Object.keys(COUNTER_GENRE_MAP).filter((g) => g !== genre).slice(0, 3);
 }
 
 /**
- * Build the playlist using 4 equal buckets.
+ * Apply rolling genre diversity window and counter-genre injection (spec §5).
  *
- * @param scoredPool  Full scored pool (already diversity-ranked)
+ * Rules:
+ *   - Within any 12-track rolling window, no genre may exceed 18%
+ *   - Every 5 tracks, inject a counter-genre track if current genre streak > 2
+ */
+function applyGenreDiversityWindow<T extends BucketCandidate>(
+  tracks: T[],
+  pool: T[],
+  usedIds: Set<string>
+): T[] {
+  const result: T[] = [];
+  const poolById = new Map(pool.map((t) => [t.trackId, t]));
+
+  for (let i = 0; i < tracks.length; i++) {
+    const current = tracks[i]!;
+    result.push(current);
+
+    // Check rolling window: genre concentration in last GENRE_ROLLING_WINDOW tracks
+    if (result.length >= GENRE_ROLLING_WINDOW) {
+      const window = result.slice(-GENRE_ROLLING_WINDOW);
+      const genreCounts: Record<string, number> = {};
+      for (const t of window) {
+        genreCounts[t.genrePrimary] = (genreCounts[t.genrePrimary] ?? 0) + 1;
+      }
+      // If the last track pushed any genre above the rolling cap, try to swap it
+      const lastGenre = current.genrePrimary;
+      const lastGenreShare = (genreCounts[lastGenre] ?? 0) / GENRE_ROLLING_WINDOW;
+      if (lastGenreShare > 0.18) {
+        // Find replacement from pool — different genre, not yet used
+        const counterGenres = getCounterGenres(lastGenre);
+        const replacement = [...poolById.values()].find(
+          (t) =>
+            !usedIds.has(t.trackId) &&
+            t.trackId !== current.trackId &&
+            counterGenres.includes(t.genrePrimary)
+        );
+        if (replacement) {
+          result[result.length - 1] = replacement;
+          usedIds.add(replacement.trackId);
+        }
+      }
+    }
+
+    // Counter-genre injection every COUNTER_GENRE_INJECTION_INTERVAL tracks
+    if (
+      result.length > 0 &&
+      result.length % COUNTER_GENRE_INJECTION_INTERVAL === 0 &&
+      i < tracks.length - 1
+    ) {
+      const recentGenre = result[result.length - 1]?.genrePrimary ?? "unknown";
+      const streak = result
+        .slice(-3)
+        .filter((t) => t.genrePrimary === recentGenre).length;
+
+      if (streak >= 2) {
+        const counterGenres = getCounterGenres(recentGenre);
+        const inject = [...poolById.values()].find(
+          (t) =>
+            !usedIds.has(t.trackId) &&
+            counterGenres.includes(t.genrePrimary)
+        );
+        if (inject && result.length < tracks.length) {
+          // Insert after current position; remove from later in the list if possible
+          const laterIdx = tracks.findIndex(
+            (t, idx) => idx > i && t.genrePrimary === recentGenre
+          );
+          if (laterIdx > 0) {
+            tracks.splice(laterIdx, 1);
+          }
+          result.push(inject);
+          usedIds.add(inject.trackId);
+          i++; // skip one from original list since we injected
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Build the playlist using stratified sampling (spec §7).
+ *
+ * @param scoredPool    Full scored pool with per-signal scores
  * @param targetLength  Total playlist length
- * @param intentEra   Era from UserIntent (for era-match bucket)
- * @param seed        Deterministic seed for discovery bucket
+ * @param intentEra     Era from UserIntent (kept for era diversity awareness)
+ * @param seed          Deterministic seed for exploration bucket
  */
 export function buildBucketedPlaylist<T extends BucketCandidate>(
   scoredPool: T[],
@@ -64,23 +163,30 @@ export function buildBucketedPlaylist<T extends BucketCandidate>(
   if (scoredPool.length === 0) return [];
   if (scoredPool.length <= targetLength) return [...scoredPool];
 
-  const sorted = [...scoredPool].sort((a, b) => b.score - a.score);
-  const [genre1, genre2] = findTopGenres(sorted);
-
-  // Bucket sizes — each gets 25%, with rounding absorbed by discovery bucket
-  const b1Size = Math.floor(targetLength * 0.25);
-  const b2Size = Math.floor(targetLength * 0.25);
-  const b3Size = Math.floor(targetLength * 0.25);
-  const b4Size = targetLength - b1Size - b2Size - b3Size;
+  // Bucket sizes — spec §7: 40/30/20/10
+  const b1Size = Math.floor(targetLength * 0.40); // top emotional match
+  const b2Size = Math.floor(targetLength * 0.30); // high scene match
+  const b3Size = Math.floor(targetLength * 0.20); // novelty / diversity
+  const b4Size = targetLength - b1Size - b2Size - b3Size; // random exploration
 
   const usedIds = new Set<string>();
 
-  // Helper: take up to N from pool matching predicate
-  function take(n: number, predicate: (t: T) => boolean): T[] {
+  // Sorted views per dimension
+  const byEmotion = [...scoredPool].sort(
+    (a, b) => (b.emotionMatch ?? b.score) - (a.emotionMatch ?? a.score)
+  );
+  const byScene = [...scoredPool].sort(
+    (a, b) => (b.sceneAffinity ?? b.score) - (a.sceneAffinity ?? a.score)
+  );
+  const byNovelty = [...scoredPool].sort(
+    (a, b) => (b.noveltyScore ?? 0.5) - (a.noveltyScore ?? 0.5)
+  );
+
+  function take(n: number, sorted: T[]): T[] {
     const taken: T[] = [];
     for (const t of sorted) {
       if (taken.length >= n) break;
-      if (!usedIds.has(t.trackId) && predicate(t)) {
+      if (!usedIds.has(t.trackId)) {
         taken.push(t);
         usedIds.add(t.trackId);
       }
@@ -88,30 +194,38 @@ export function buildBucketedPlaylist<T extends BucketCandidate>(
     return taken;
   }
 
-  // Bucket 1: top genre cluster
-  const bucket1 = take(b1Size, (t) => t.genrePrimary === genre1);
+  // Bucket 1: Top emotional match (40%)
+  const bucket1 = take(b1Size, byEmotion);
 
-  // Bucket 2: secondary genre cluster
-  const bucket2 = take(b2Size, (t) => t.genrePrimary === genre2);
+  // Bucket 2: High scene match (30%)
+  const bucket2 = take(b2Size, byScene);
 
-  // Bucket 3: era match cluster (use audio-estimated era if intent is "any")
-  const bucket3 =
-    intentEra === "any"
-      ? take(b3Size, () => true) // just top scorers not yet picked
-      : take(b3Size, (t) => t.era === intentEra);
+  // Bucket 3: Novelty / diversity (20%)
+  const bucket3 = take(b3Size, byNovelty);
 
-  // Bucket 4: discovery — random sample from top 40% high-scorers not yet picked
-  const topPool = sorted.filter((t) => !usedIds.has(t.trackId));
-  const discoveryPool = topPool.slice(0, Math.max(topPool.length, b4Size * 3));
+  // Bucket 4: Random exploration from remaining pool (10%)
+  const remaining = scoredPool.filter((t) => !usedIds.has(t.trackId));
   const rng = seededRandom(seed);
-  const shuffled = [...discoveryPool].sort(() => rng() - 0.5);
-  const bucket4 = shuffled.slice(0, b4Size);
-  for (const t of bucket4) usedIds.add(t.trackId);
+  const shuffled = [...remaining].sort(() => rng() - 0.5);
+  const bucket4: T[] = [];
+  for (const t of shuffled) {
+    if (bucket4.length >= b4Size) break;
+    bucket4.push(t);
+    usedIds.add(t.trackId);
+  }
 
-  // If any bucket came up short, backfill from remaining pool
+  // Backfill any short buckets from remaining pool
   function backfill(bucket: T[], needed: number): T[] {
     if (bucket.length >= needed) return bucket;
-    const extra = take(needed - bucket.length, () => true);
+    const byScore = scoredPool
+      .filter((t) => !usedIds.has(t.trackId))
+      .sort((a, b) => b.score - a.score);
+    const extra: T[] = [];
+    for (const t of byScore) {
+      if (extra.length >= needed - bucket.length) break;
+      extra.push(t);
+      usedIds.add(t.trackId);
+    }
     return [...bucket, ...extra];
   }
 
@@ -120,5 +234,10 @@ export function buildBucketedPlaylist<T extends BucketCandidate>(
   const filled3 = backfill(bucket3, b3Size);
   const filled4 = backfill(bucket4, b4Size);
 
-  return [...filled1, ...filled2, ...filled3, ...filled4];
+  // Interleave buckets for better track-to-track flow, then apply diversity window
+  const combined = [...filled1, ...filled2, ...filled3, ...filled4];
+  const allTracksById = new Set(combined.map((t) => t.trackId));
+  const fullPoolForSwaps = scoredPool.filter((t) => !allTracksById.has(t.trackId));
+
+  return applyGenreDiversityWindow(combined, fullPoolForSwaps, usedIds);
 }

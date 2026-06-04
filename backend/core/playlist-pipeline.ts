@@ -188,10 +188,8 @@ export function buildPlaylistPipeline<T extends {
     opts.playlistLength,
     {
       genreByTrack: (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
-      sceneAffinityByTrack: (trackId) => {
-        const scored = sortedByTrackId.get(trackId);
-        return scored ? (scored.scoringDebug?.sceneMatch ?? 0.5) : 0.5;
-      },
+      classificationByTrack: (trackId) => classMap.get(trackId),
+      noveltyByTrack: opts.noveltyByTrack,
       seed: opts.postScore.startMs,
     }
   );
@@ -298,7 +296,7 @@ export function buildPlaylistPipeline<T extends {
         locked: false,
         sceneId: semanticResolution.matchedId ?? null,
         sceneConfidence: semanticResolution.confidence,
-        v2SceneInfluence: "soft_context_max_0.10",
+        v3SceneInfluence: "primary_signal_0.25",
       },
     },
     hybridExcludedCount: scoring.hybridExcludedCount,

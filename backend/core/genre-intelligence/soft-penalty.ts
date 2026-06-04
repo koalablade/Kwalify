@@ -5,10 +5,16 @@
 import type { RootGenre } from "../../lib/genre-taxonomy";
 
 /** Soft target band — ideal max share per genre in playlist */
-export const SOFT_GENRE_TARGET = 0.28;
+export const SOFT_GENRE_TARGET = 0.14;
 
-/** Hard backstop — enforcement swaps still use this */
-export const HARD_GENRE_BACKSTOP = 0.35;
+/** Hard backstop — max 18% from any single genre (spec anti-collapse rule) */
+export const HARD_GENRE_BACKSTOP = 0.18;
+
+/** Rolling window size for genre diversity enforcement */
+export const GENRE_ROLLING_WINDOW = 12;
+
+/** Inject a counter-genre track every N tracks to prevent monoculture */
+export const COUNTER_GENRE_INJECTION_INTERVAL = 5;
 
 /**
  * Exponential penalty when genre share exceeds soft target.

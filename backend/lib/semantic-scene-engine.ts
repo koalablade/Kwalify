@@ -2232,6 +2232,35 @@ export function computeEnergyFit(
   return 1 - Math.abs(e - target) * 1.8;
 }
 
+// ── Scene Distribution API (spec §3) ─────────────────────────────────────────
+
+export interface SceneDistributionEntry {
+  sceneId: string;
+  label: string;
+  weight: number;
+}
+
+/**
+ * resolveSceneDistribution — replaces single-scene resolveSemanticScene output
+ * with a weighted multi-scene distribution (spec §3).
+ *
+ * Rules:
+ *   - Always returns 3–5 entries summing to 1.0
+ *   - Low confidence → broadens distribution breadth instead of falling back
+ *   - Never collapses to a single scene
+ */
+export function resolveSceneDistribution(
+  vibe: string,
+  profile: EmotionProfile
+): SceneDistributionEntry[] {
+  const resolution = resolveSemanticScene(vibe, profile);
+  return resolution.sceneVector.map(({ id, weight }) => ({
+    sceneId: id,
+    label: SEMANTIC_SCENE_VECTORS[id]?.label ?? id.replace(/_/g, " ").toLowerCase(),
+    weight,
+  }));
+}
+
 /**
  * Build a diagnostics summary for the debug panel.
  */

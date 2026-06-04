@@ -17,7 +17,7 @@ export type EraBucket =
 
 export type ActivityType =
   | "driving" | "working" | "party" | "chill" | "focus"
-  | "nostalgia" | "walking" | "unknown";
+  | "nostalgia" | "walking" | "studying" | "cleaning" | "unknown";
 
 export interface UserIntent {
   era: EraBucket;
@@ -127,6 +127,18 @@ const ACTIVITY_PATTERNS: Array<{ activity: ActivityType; patterns: RegExp[] }> =
       /\b(walk(ing)?|stroll(ing)?|morning.?run|commute|commuting|headphones)\b/i,
     ],
   },
+  {
+    activity: "studying",
+    patterns: [
+      /\b(study(ing)?|studying|revision|homework|reading|library|exam|learn(ing)?|academic)\b/i,
+    ],
+  },
+  {
+    activity: "cleaning",
+    patterns: [
+      /\b(clean(ing)?|tidy(ing)?|chores?|hoover(ing)?|vacuuming|housework|wash(ing)?\s+dishes|mop(ping)?)\b/i,
+    ],
+  },
 ];
 
 function detectActivity(vibe: string): ActivityType {
@@ -208,6 +220,8 @@ export function buildIntentEmbedding(intent: UserIntent): AudioVector {
     walking: 0.52,
     working: 0.40,
     nostalgia: 0.45,
+    studying: 0.32,
+    cleaning: 0.68,
     unknown: energy,
   };
   const resolvedEnergy = activityEnergy[intent.activity] ?? energy;
@@ -220,6 +234,8 @@ export function buildIntentEmbedding(intent: UserIntent): AudioVector {
     focus: 0.30,
     walking: 0.60,
     nostalgia: 0.50,
+    studying: 0.25,
+    cleaning: 0.72,
   };
   const danceability = activityDance[intent.activity] ?? Math.min(1, resolvedEnergy * 0.6 + 0.2);
 
@@ -281,6 +297,12 @@ export function computeActivityMatch(
       return 1 - Math.abs(e - 0.52) * 1.8;
     case "nostalgia":
       return 0.5 + v * 0.3 - Math.abs(e - 0.45) * 0.5;
+    case "studying":
+      // Low energy, low danceability — calm instrumental focus
+      return Math.max(0, 1 - Math.abs(e - 0.32) * 2.2 - d * 0.3);
+    case "cleaning":
+      // Upbeat and danceable — energetic but not intense
+      return (e * 0.45 + d * 0.45 + v * 0.1) * 1.2 - Math.abs(e - 0.68) * 0.5;
     default:
       return 0.5;
   }
