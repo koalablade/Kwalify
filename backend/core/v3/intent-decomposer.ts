@@ -84,7 +84,7 @@ const INFLUENCE_PATTERNS: Array<{
   {
     force: "warmth",
     baseWeight: 0.8,
-    patterns: [/\b(warm|cozy|cosy|golden|sunset|summer|sun|comfort|hearth|fireside|toasty)\b/i],
+    patterns: [/\b(warm|cozy|cosy|golden|sunset|summer(?:time|y)?|sun(?:ny|shine)?|comfort|hearth|fireside|toasty)\b/i],
   },
   {
     force: "urban",
@@ -211,6 +211,12 @@ const GENRE_FORCE_INJECTIONS: Array<{
     pattern: /\b(k.?pop|j.?pop|synth.?pop|art.?pop)\b/i,
     forces: { energy: 0.7, hopeful: 0.6, electronic: 0.5 },
   },
+  {
+    // "indie" prompts are common and produce zero text forces without this injection.
+    // Without it, isUnclearIntent fires and the adaptive lane generator is bypassed entirely.
+    pattern: /\b(indie|alternative|alt.?rock|indie.?rock|indie.?pop|dream.?pop|shoegaze|bedroom.?pop|lo.?fi|jangle.?pop)\b/i,
+    forces: { hopeful: 0.55, freedom: 0.50, acoustic: 0.35, energy: 0.30 },
+  },
 ];
 
 function injectGenreForces(
@@ -328,5 +334,10 @@ export function decomposeIntent(vibe: string, profile: EmotionProfile): Decompos
 export function isUnclearIntent(intent: DecomposedIntent): boolean {
   const forces = Object.keys(intent.sceneInfluenceMap);
   const topWeight = Math.max(...Object.values(intent.sceneInfluenceMap), 0);
+  // A rich multi-force map (≥4 forces) signals a well-specified intent even when no single
+  // force dominates (e.g. "Indie Summertime Drive" spreads across driving/warmth/hopeful/etc).
+  // The topWeight < 0.35 guard was designed for single-force vibes; it must not penalise
+  // multi-dimensional prompts that have legitimately distributed influence.
+  if (forces.length >= 4) return false;
   return forces.length < 2 || topWeight < 0.35;
 }

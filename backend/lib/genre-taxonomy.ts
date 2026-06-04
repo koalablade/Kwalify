@@ -246,8 +246,10 @@ function inferGenreFromAudioOnly(track: {
     root = "electronic";
     sub = "house";
   } else if (a > 0.55 && e < 0.5 && (track.valence ?? 0.5) < 0.55) {
-    root = "country";
-    sub = "folk_country";
+    // Extreme acousticness (>0.78) with no text/artist hits is more likely indie-folk
+    // or singer-songwriter than country. Country pairs acoustic with higher valence/danceability.
+    root = a > 0.78 ? "folk" : "country";
+    sub = a > 0.78 ? "singer_songwriter" : "folk_country";
   } else if (a > 0.5 && (track.valence ?? 0.5) >= 0.58) {
     root = "indie";
     sub = "indie_pop";
@@ -309,6 +311,12 @@ function applyAudioGenreHeuristics(
     if (sunnyAcoustic) {
       pushHit(hits, "indie", "indie_pop", 0.36, "bright acoustic indie");
       pushHit(hits, "folk", "singer_songwriter", 0.22, null);
+    } else if (a > 0.76) {
+      // Very high acousticness without sunny valence → singer-songwriter / folk, not country.
+      // Country artists typically pair acoustic with higher danceability and valence.
+      pushHit(hits, "folk", "singer_songwriter", 0.38, "deep acoustic folk");
+      pushHit(hits, "indie", "indie_folk", 0.22, null);
+      pushHit(hits, "country", "folk_country", 0.14, null);
     } else {
       pushHit(hits, "country", "folk_country", 0.38, "acoustic country lean");
       pushHit(hits, "folk", "singer_songwriter", 0.18, null);
