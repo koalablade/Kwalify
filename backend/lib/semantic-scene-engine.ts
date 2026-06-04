@@ -389,6 +389,235 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     antiGenres: ["country", "folk", "metal", "classical", "christmas", "reggae"],
     aesthetics: ["city pop", "retro futurism", "Japanese 80s", "breezy", "saxophone", "summer evening"],
   },
+
+  // ── Tokyo / Japan Night ────────────────────────────────────────────────────
+
+  TOKYO_NEON_NIGHT: {
+    id: "TOKYO_NEON_NIGHT",
+    label: "Tokyo neon night",
+    emotions: ["electric", "dreamy", "urban", "nostalgic", "cinematic"],
+    energy: { min: 0.35, max: 0.75, target: 0.55 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "pop", weight: 0.85 },
+      { genre: "rnb", weight: 0.75 },
+      { genre: "soul", weight: 0.65 },
+      { genre: "jazz", weight: 0.60 },
+      { genre: "indie", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.68,
+    antiGenres: ["country", "folk", "metal", "classical", "reggae", "christmas"],
+    aesthetics: ["neon", "tokyo", "shibuya", "urban japan", "night city", "retro future", "anime aesthetic"],
+  },
+
+  // ── Dreamy / Ethereal ─────────────────────────────────────────────────────
+
+  DREAMY_ETHEREAL: {
+    id: "DREAMY_ETHEREAL",
+    label: "Dreamy / ethereal",
+    emotions: ["ethereal", "dreamy", "floating", "liminal", "peaceful", "surreal"],
+    energy: { min: 0.08, max: 0.45, target: 0.25 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "indie", weight: 0.85 },
+      { genre: "folk", weight: 0.65 },
+      { genre: "pop", weight: 0.55 },
+      { genre: "jazz", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["metal", "hip_hop", "country", "latin", "reggae", "christmas"],
+    aesthetics: ["ambient", "shoegaze", "dream pop", "ethereal", "floating", "haze", "soft focus"],
+  },
+
+  // ── Workout / Intensity ───────────────────────────────────────────────────
+
+  WORKOUT_INTENSITY: {
+    id: "WORKOUT_INTENSITY",
+    label: "Workout / high-intensity training",
+    emotions: ["driven", "aggressive", "focused", "powerful", "adrenaline"],
+    energy: { min: 0.72, max: 1.0, target: 0.88 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "rock", weight: 0.90 },
+      { genre: "metal", weight: 0.80 },
+      { genre: "hip_hop", weight: 0.75 },
+      { genre: "pop", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.78,
+    antiGenres: ["folk", "country", "jazz", "classical", "reggae", "christmas"],
+    aesthetics: ["power", "energy", "sweat", "intensity", "beast mode", "adrenaline", "gym"],
+  },
+
+  // ── Party / Social ────────────────────────────────────────────────────────
+
+  PARTY_SOCIAL_NIGHT: {
+    id: "PARTY_SOCIAL_NIGHT",
+    label: "Party / social night out",
+    emotions: ["euphoric", "social", "free", "fun", "electric"],
+    energy: { min: 0.60, max: 0.95, target: 0.80 },
+    genreEcosystem: [
+      { genre: "pop", weight: 1.0 },
+      { genre: "electronic", weight: 0.90 },
+      { genre: "hip_hop", weight: 0.80 },
+      { genre: "rnb", weight: 0.70 },
+      { genre: "rock", weight: 0.50 },
+      { genre: "indie", weight: 0.40 },
+    ],
+    ecosystemFloor: 0.72,
+    antiGenres: ["folk", "country", "classical", "jazz", "christmas"],
+    aesthetics: ["party", "dance", "fun", "social", "night out", "drinks", "crowd", "dancing"],
+  },
+
+  // ── Beach / Coastal Summer ────────────────────────────────────────────────
+
+  BEACH_COASTAL_SUMMER: {
+    id: "BEACH_COASTAL_SUMMER",
+    label: "Beach / coastal summer",
+    emotions: ["free", "warm", "joyful", "carefree", "nostalgic"],
+    energy: { min: 0.35, max: 0.78, target: 0.58 },
+    genreEcosystem: [
+      { genre: "pop", weight: 1.0 },
+      { genre: "indie", weight: 0.85 },
+      { genre: "folk", weight: 0.70 },
+      { genre: "rock", weight: 0.65 },
+      { genre: "rnb", weight: 0.55 },
+      { genre: "reggae", weight: 0.50 },
+    ],
+    ecosystemFloor: 0.68,
+    antiGenres: ["metal", "hip_hop", "classical", "christmas"],
+    aesthetics: ["beach", "coastal", "summer", "sun", "waves", "warm breeze", "carefree", "poolside"],
+  },
+
+  // ── Small Town Americana ──────────────────────────────────────────────────
+
+  SMALL_TOWN_AMERICANA: {
+    id: "SMALL_TOWN_AMERICANA",
+    label: "Small town Americana",
+    emotions: ["warm", "nostalgic", "communal", "grounded", "simple"],
+    energy: { min: 0.25, max: 0.68, target: 0.48 },
+    genreEcosystem: [
+      { genre: "country", weight: 1.0 },
+      { genre: "folk", weight: 0.88 },
+      { genre: "rock", weight: 0.65 },
+      { genre: "blues", weight: 0.60 },
+      { genre: "indie", weight: 0.45 },
+      { genre: "soul", weight: 0.40 },
+    ],
+    ecosystemFloor: 0.72,
+    antiGenres: ["electronic", "metal", "hip_hop", "rnb", "latin", "reggae"],
+    aesthetics: ["small town", "front porch", "county fair", "americana", "heartland", "community", "bonfire"],
+  },
+
+  // ── Seasons ───────────────────────────────────────────────────────────────
+
+  WINTER_COLD: {
+    id: "WINTER_COLD",
+    label: "Winter / cold season",
+    emotions: ["introspective", "quiet", "still", "melancholic", "cosy"],
+    energy: { min: 0.12, max: 0.52, target: 0.30 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "folk", weight: 0.90 },
+      { genre: "classical", weight: 0.75 },
+      { genre: "jazz", weight: 0.68 },
+      { genre: "soul", weight: 0.60 },
+      { genre: "rock", weight: 0.50 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["electronic", "metal", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["winter", "snow", "cold", "frost", "quiet", "still", "bare trees", "ice"],
+  },
+
+  AUTUMN_MELANCHOLY: {
+    id: "AUTUMN_MELANCHOLY",
+    label: "Autumn melancholy",
+    emotions: ["melancholic", "reflective", "nostalgic", "bittersweet", "wistful"],
+    energy: { min: 0.15, max: 0.55, target: 0.33 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "folk", weight: 0.88 },
+      { genre: "rock", weight: 0.72 },
+      { genre: "soul", weight: 0.65 },
+      { genre: "jazz", weight: 0.55 },
+      { genre: "pop", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.68,
+    antiGenres: ["electronic", "metal", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["autumn", "leaves", "decay", "melancholy", "change", "season", "fading light"],
+  },
+
+  SPRING_FRESH: {
+    id: "SPRING_FRESH",
+    label: "Spring morning / fresh start",
+    emotions: ["hopeful", "fresh", "light", "optimistic", "peaceful"],
+    energy: { min: 0.28, max: 0.65, target: 0.45 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "folk", weight: 0.88 },
+      { genre: "pop", weight: 0.72 },
+      { genre: "rock", weight: 0.60 },
+      { genre: "soul", weight: 0.55 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["metal", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["spring", "fresh", "morning", "bloom", "new beginning", "light", "hopeful"],
+  },
+
+  // ── Road Trip / Adventure ─────────────────────────────────────────────────
+
+  ROAD_TRIP: {
+    id: "ROAD_TRIP",
+    label: "Road trip",
+    emotions: ["free", "adventurous", "euphoric", "nostalgic", "open"],
+    energy: { min: 0.40, max: 0.80, target: 0.60 },
+    genreEcosystem: [
+      { genre: "rock", weight: 1.0 },
+      { genre: "indie", weight: 0.88 },
+      { genre: "folk", weight: 0.72 },
+      { genre: "country", weight: 0.68 },
+      { genre: "pop", weight: 0.55 },
+      { genre: "electronic", weight: 0.42 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["metal", "classical", "christmas"],
+    aesthetics: ["road trip", "windows down", "freedom", "open road", "adventure", "singing along", "highway"],
+  },
+
+  EXPLORE_TRAVEL: {
+    id: "EXPLORE_TRAVEL",
+    label: "Travel / exploring new places",
+    emotions: ["adventurous", "curious", "excited", "free", "open"],
+    energy: { min: 0.35, max: 0.72, target: 0.52 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "pop", weight: 0.80 },
+      { genre: "electronic", weight: 0.68 },
+      { genre: "folk", weight: 0.65 },
+      { genre: "rock", weight: 0.60 },
+    ],
+    ecosystemFloor: 0.62,
+    antiGenres: ["metal", "classical", "christmas"],
+    aesthetics: ["travel", "explore", "new city", "adventure", "abroad", "discovery", "wanderlust"],
+  },
+
+  // ── Late Night Drive ──────────────────────────────────────────────────────
+
+  LATE_NIGHT_DRIVE: {
+    id: "LATE_NIGHT_DRIVE",
+    label: "Late night driving",
+    emotions: ["introspective", "focused", "free", "solitary", "calm"],
+    energy: { min: 0.28, max: 0.65, target: 0.45 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "indie", weight: 0.80 },
+      { genre: "rock", weight: 0.72 },
+      { genre: "pop", weight: 0.50 },
+      { genre: "soul", weight: 0.42 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["country", "folk", "classical", "latin", "reggae", "christmas"],
+    aesthetics: ["night drive", "headlights", "dark roads", "late night", "motion", "solo", "empty streets"],
+  },
 };
 
 const SCENE_DETECTION_PATTERNS: {
@@ -403,6 +632,12 @@ const SCENE_DETECTION_PATTERNS: {
       /\b(outlaw country|outlaw.{0,10}music|outlaw.{0,10}song)\b/i,
       /\b(tyler childers|zach bryan|jason isbell|chris stapleton|turnpike troubadour|sturgill simpson|colter wall)\b/i,
       /\b(honky.?tonk|western.{0,15}(swing|music)|nashville.{0,20}(grit|dark|real))\b/i,
+      /\b(western freedom|dusty boots|cowboy.{0,20}(sunset|sunrise|hat|boots|song))\b/i,
+      /\b(roadhouse|road house).{0,20}(bar|night|music|song)\b/i,
+      /\b(desert highway|wild west|old west|backcountry.{0,20}(ride|drive|adventure))\b/i,
+      /\b(small town outlaw|country rebel|renegade country|outlaw spirit)\b/i,
+      /\b(lonely saloon|bar.{0,15}(midnight|2am|late)|old cowboy|spaghetti western)\b/i,
+      /\b(truck stop.{0,20}(midnight|night|late)|late night.{0,20}truck stop)\b/i,
     ],
     confidence: 0.94,
   },
@@ -411,16 +646,21 @@ const SCENE_DETECTION_PATTERNS: {
     patterns: [
       /\b(dog.{0,25}(dirt road|road|field|country)|dirt road.{0,25}dog)\b/i,
       /\b(dog.{0,20}(morning|afternoon|sun|warm|grass|farm|field))\b/i,
+      /\b(dog riding shotgun|dog.{0,15}(truck|pickup|window))\b/i,
     ],
     confidence: 0.92,
   },
   {
     id: "DIRT_ROAD_SUNSET",
     patterns: [
-      /\b(dirt road|country road|dusty road|gravel road)\b/i,
+      /\b(dirt road|country road|dusty road|gravel road|back road|backroad)\b/i,
+      /\b(backroads|country roads|country lane.{0,20}(drive|ride|walk))\b/i,
       /\b(sunset|golden hour|dusk).{0,40}(road|drive|field|rural|country|farm)\b/i,
       /\b(rural|countryside|heartland|farmland|open road).{0,40}(sunset|dusk|golden|warm)\b/i,
       /\b(americana|southern.{0,15}rock)\b/i,
+      /\b(country (drive|cruise|ride|roads|sunset|sunrise|morning|evening|highway))\b/i,
+      /\b(southern (evening|summer|night|sunset|roads|countryside))\b/i,
+      /\b(empty country.{0,20}(highway|road|lane)|country.{0,20}heartbreak)\b/i,
     ],
     confidence: 0.92,
   },
@@ -429,8 +669,24 @@ const SCENE_DETECTION_PATTERNS: {
     patterns: [
       /\b(farm road|country lane|rural road|open road.{0,20}(country|rural|field|farm))\b/i,
       /\b(farmland|countryside|open fields|rural.{0,20}(drive|ride|walk))\b/i,
+      /\b(tractor.{0,15}(road|lane|field)|driving.{0,20}farmland)\b/i,
+      /\b(middle of nowhere|rural freedom|empty.{0,15}(country|rural|field|farmland))\b/i,
+      /\b(old pickup.{0,15}(truck|ute)|pickup truck|truck.{0,20}(sunset|field|road|farm))\b/i,
+      /\b(cornfield|corn field).{0,20}(sunset|evening|dusk|golden)\b/i,
+      /\b(fishing.{0,20}(dawn|morning|lake|river)|lake cabin|cabin.{0,20}(lake|woods|rural))\b/i,
+      /\b(whiskey.{0,20}(fire|campfire|night|bonfire)|bonfire.{0,20}(field|night|farm))\b/i,
     ],
     confidence: 0.85,
+  },
+  {
+    id: "SMALL_TOWN_AMERICANA",
+    patterns: [
+      /\b(small town.{0,20}(friday|saturday|night|evening|life|vibes))\b/i,
+      /\b(county fair|state fair|barn dance|front porch|porch.{0,15}(sitting|evening|song|guitar))\b/i,
+      /\b(small town|smalltown|hometown.{0,20}(pride|night|summer|friday))\b/i,
+      /\b(main street.{0,20}(town|small|friday|night)|friday night.{0,20}(town|lights|game))\b/i,
+    ],
+    confidence: 0.88,
   },
   {
     id: "COMING_HOME",
@@ -447,6 +703,7 @@ const SCENE_DETECTION_PATTERNS: {
     patterns: [
       /\b(petrol station|gas station).{0,30}(2am|3am|late night|midnight|night)\b/i,
       /\b(2am|3am).{0,30}(petrol|gas station|garage|forecourt)\b/i,
+      /\b(service station.{0,20}(midnight|night|late|2am)|late.{0,15}service station)\b/i,
     ],
     confidence: 0.95,
   },
@@ -456,8 +713,19 @@ const SCENE_DETECTION_PATTERNS: {
       /\b(empty motorway|empty highway|motorway at night|highway at night)\b/i,
       /\b(motorway|highway).{0,25}(midnight|2am|late night|empty|alone|dark)\b/i,
       /\b(night drive|driving at night|driving home.{0,20}night)\b/i,
+      /\b(night highway|highway.{0,20}night|driving.{0,20}(3am|midnight))\b/i,
     ],
     confidence: 0.88,
+  },
+  {
+    id: "LATE_NIGHT_DRIVE",
+    patterns: [
+      /\b(late night.{0,20}(driving|drive|road|cruise)|driving.{0,20}late night)\b/i,
+      /\b(headlights.{0,20}(rain|road|night|dark)|rain.{0,20}headlights)\b/i,
+      /\b(long road home|long drive home|long.{0,15}drive.{0,15}(home|back))\b/i,
+      /\b(solo.{0,15}drive|driving.{0,15}alone.{0,15}(night|dark|late))\b/i,
+    ],
+    confidence: 0.86,
   },
   {
     id: "RAINY_CITY_LIGHTS",
@@ -465,6 +733,10 @@ const SCENE_DETECTION_PATTERNS: {
       /\b(rainy city|rain.{0,15}city|city.{0,15}rain)\b/i,
       /\b(rain).{0,30}(lights|neon|street|window|glass|city)\b/i,
       /\b(jazzhop|neo soul|rainy.{0,15}day|city lights|wet streets)\b/i,
+      /\b(rain on (windows|glass|the window)|grey.{0,20}(afternoon|day|morning|sky))\b/i,
+      /\b(walking.{0,20}(in the rain|through rain)|rain.{0,20}walk)\b/i,
+      /\b(melancholy.{0,20}(evening|afternoon|day|night)|quiet.{0,15}(sadness|sorrow|grief))\b/i,
+      /\b(autumn rain|overcast.{0,20}(city|day|afternoon)|empty streets.{0,20}(rain|grey|city))\b/i,
     ],
     confidence: 0.85,
   },
@@ -474,6 +746,8 @@ const SCENE_DETECTION_PATTERNS: {
       /\b(city after midnight|walking.{0,20}city.{0,20}(midnight|night|late))\b/i,
       /\b(empty city|dead city|quiet city|city at.{0,10}(midnight|night|dawn))\b/i,
       /\b(after midnight).{0,30}(city|street|walk|urban)\b/i,
+      /\b(urban solitude|neon reflections|city.{0,20}(solitude|alone|quiet|empty))\b/i,
+      /\b(empty streets|deserted streets|quiet streets|streets.{0,15}(empty|quiet|alone|late))\b/i,
     ],
     confidence: 0.87,
   },
@@ -493,6 +767,8 @@ const SCENE_DETECTION_PATTERNS: {
       /\b(summer.{0,20}(field|meadow|grass|countryside|evening))\b/i,
       /\b(golden hour|golden light).{0,30}(summer|field|countryside|open)\b/i,
       /\b(festival sunset|indie folk|pastoral|open field)\b/i,
+      /\b(late july|mid july|july evening|july.{0,15}(night|sunset|evening|warm))\b/i,
+      /\b(carefree.{0,15}summer|summer.{0,15}(vibes|feeling|nostalgia|vacation|poolside))\b/i,
     ],
     confidence: 0.82,
   },
@@ -502,6 +778,8 @@ const SCENE_DETECTION_PATTERNS: {
       /\bdriving somewhere (you|i|we) don'?t need\b/i,
       /\b(aimless|nowhere to be|no destination|just driving|driving for the sake)\b/i,
       /\b(windows down).{0,25}(road|driving|cruise)\b/i,
+      /\bwindows down\b/i,
+      /\b(driving nowhere|driving.{0,15}nowhere|going nowhere.{0,15}drive)\b/i,
     ],
     confidence: 0.88,
   },
@@ -514,20 +792,87 @@ const SCENE_DETECTION_PATTERNS: {
     confidence: 0.83,
   },
 
-  // ── Travel ───────────────────────────────────────────────────────────────
+  // ── Seasons ──────────────────────────────────────────────────────────────
+  {
+    id: "AUTUMN_MELANCHOLY",
+    patterns: [
+      /\b(autumn.{0,20}(leaves|rain|evening|morning|walk|feeling|melancholy|mood))\b/i,
+      /\b(fall leaves|falling leaves|leaves.{0,20}(falling|changing|orange|brown))\b/i,
+      /\b(seasonal.{0,15}(change|shift)|end of summer|summer ending|october.{0,15}(rain|morning|evening))\b/i,
+    ],
+    confidence: 0.85,
+  },
+  {
+    id: "WINTER_COLD",
+    patterns: [
+      /\b(winter.{0,20}(evening|morning|night|day|cold|snow|feeling|vibes))\b/i,
+      /\b(snowfall|snowing|snow.{0,15}(morning|evening|night|outside|falling))\b/i,
+      /\b(cold morning|frosty.{0,20}(morning|sunrise|air|window)|frost.{0,15}(morning|air))\b/i,
+      /\b(freezing cold|bitter cold|icy.{0,15}(road|morning|air))\b/i,
+    ],
+    confidence: 0.85,
+  },
+  {
+    id: "SPRING_FRESH",
+    patterns: [
+      /\b(spring.{0,20}(morning|day|rain|flowers|evening|vibes|feeling))\b/i,
+      /\b(spring morning|early spring|first day of spring|spring has (come|arrived))\b/i,
+      /\b(blossom.{0,15}(morning|day|tree|walk)|cherry blossom)\b/i,
+    ],
+    confidence: 0.83,
+  },
+
+  // ── Beach / Summer ────────────────────────────────────────────────────────
+  {
+    id: "BEACH_COASTAL_SUMMER",
+    patterns: [
+      /\b(beach.{0,20}(sunset|morning|day|summer|walk|vibes|party))\b/i,
+      /\b(coastal.{0,20}(road|drive|walk|morning|evening)|coast.{0,15}(road|drive|sunset))\b/i,
+      /\b(poolside|pool.{0,15}(party|summer|day)|swimming.{0,15}(pool|hole|lake))\b/i,
+      /\b(summer.{0,15}(sunset|sunrise|beach|waves|swim|holiday|vacation))\b/i,
+      /\b(warm.{0,15}(air|breeze|evening|summer)|sea.{0,15}(breeze|air|swim|side))\b/i,
+      /\b(windows down.{0,20}(summer|heat|warm|hot)|summer.{0,20}windows down)\b/i,
+    ],
+    confidence: 0.84,
+  },
+
+  // ── Road Trip / Travel ────────────────────────────────────────────────────
+  {
+    id: "ROAD_TRIP",
+    patterns: [
+      /\b(road trip|roadtrip|road.?trip)\b/i,
+      /\b(summer road trip|cross.?country.{0,15}(drive|trip|road))\b/i,
+      /\b(long drive|long.{0,10}road.{0,10}(ahead|trip|journey)|miles of road)\b/i,
+      /\b(driving.{0,20}(across|through.{0,15}(country|state|america|europe)))\b/i,
+    ],
+    confidence: 0.88,
+  },
+  {
+    id: "EXPLORE_TRAVEL",
+    patterns: [
+      /\b(exploring.{0,20}(new city|city|place|country|abroad|world))\b/i,
+      /\b(flying.{0,15}(abroad|overseas|away)|travel.{0,15}(abroad|overseas|new place))\b/i,
+      /\b(mountain pass|mountain.{0,15}(drive|road|crossing|pass))\b/i,
+      /\b(coastal road|coast.{0,15}road|cliff.{0,15}(road|drive)|seaside.{0,15}(drive|road))\b/i,
+      /\b(wanderlust|travel.{0,15}(mood|vibes|feeling)|passport|departure)\b/i,
+    ],
+    confidence: 0.82,
+  },
   {
     id: "TRAIN_JOURNEY",
     patterns: [
       /\b(train journey|train ride|on a train|train window|watching.{0,15}pass.{0,15}train)\b/i,
       /\b(rail|railway|train station|platform.{0,20}(wait|depart|arrive))\b/i,
+      /\b(lonely.{0,10}train|train.{0,15}(alone|solo|journey|night|window))\b/i,
     ],
     confidence: 0.90,
   },
   {
     id: "AIRPORT_WAITING",
     patterns: [
-      /\b(airport.{0,20}(wait|lounge|terminal|gate|departure|morning|night))\b/i,
+      /\b(airport.{0,20}(wait|lounge|terminal|gate|departure|morning|night|sunrise))\b/i,
       /\b(waiting.{0,20}(airport|flight|departure|gate)|departure lounge)\b/i,
+      /\b(flying.{0,15}(abroad|overseas|away|early|morning))\b/i,
     ],
     confidence: 0.90,
   },
@@ -538,6 +883,13 @@ const SCENE_DETECTION_PATTERNS: {
     patterns: [
       /\b(heartbreak|heartbroken|broken heart|just broke.{0,10}up|breakup|break up|split up)\b/i,
       /\b(she left|he left|they left|missing (her|him|them)|can'?t stop thinking about)\b/i,
+      /\b(missing someone|heartache|lost love|lost.{0,10}(her|him|them|you))\b/i,
+      /\b(moving on.{0,20}(relationship|love|someone)|can'?t move on|trying to move on)\b/i,
+      /\b(relationship.{0,20}(ending|over|done|finished|failed)|end of.{0,10}relationship)\b/i,
+      /\b(looking at old photos|old photos|scrolling.{0,20}photos|late night.{0,20}memories)\b/i,
+      /\b(regret.{0,20}(love|her|him|them|us)|wishing.{0,20}(back|return|could))\b/i,
+      /\bregret\b/i,
+      /\b(moving on|trying to move on|learning to move on)\b/i,
     ],
     confidence: 0.90,
   },
@@ -546,6 +898,7 @@ const SCENE_DETECTION_PATTERNS: {
     patterns: [
       /\b(nostalgia|nostalgic|reminiscing|throwback|old times|when i was (young|a kid))\b/i,
       /\b(childhood memory|growing up|remember when|back in the day|used to listen)\b/i,
+      /\b(looking at old photos|old memories|memories.{0,15}(flood|rush|back|again))\b/i,
     ],
     confidence: 0.86,
   },
@@ -558,24 +911,87 @@ const SCENE_DETECTION_PATTERNS: {
     confidence: 0.82,
   },
 
-  // ── Subculture / Genre-specific ──────────────────────────────────────────
+  // ── Dreamy / Ethereal ─────────────────────────────────────────────────────
+  {
+    id: "DREAMY_ETHEREAL",
+    patterns: [
+      /\b(dreamy|dream.{0,15}(vibe|mood|state|world|like|feeling))\b/i,
+      /\b(ethereal|otherworldly|unreal.{0,15}(vibe|mood|feeling|sound))\b/i,
+      /\b(floating.{0,20}(through space|in space|away|feeling)|dream sequence)\b/i,
+      /\b(liminal.{0,20}(space|vibe|feeling|mood)|liminal$)\b/i,
+      /\b(sleepy.{0,15}(afternoon|morning|day|vibe)|golden haze|warm haze)\b/i,
+      /\b(sunlight.{0,20}(through curtains|through window|filtering|soft)|soft focus)\b/i,
+      /\b(ambient.{0,15}(dream|float|haze|space)|dream pop|shoegaze|hypnagogic)\b/i,
+      /\b(soft focus memory|waking dream|half asleep|drowsy)\b/i,
+      /\b(unreal.{0,20}(vibe|sound|feeling|place|world)|feels unreal|so unreal)\b/i,
+      /\bunreal\b/i,
+    ],
+    confidence: 0.84,
+  },
+
+  // ── Workout / Intensity ───────────────────────────────────────────────────
+  {
+    id: "WORKOUT_INTENSITY",
+    patterns: [
+      /\b(gym.{0,20}(rage|session|playlist|workout|music|energy)|gym rage)\b/i,
+      /\b(lifting.{0,15}(heavy|weights|hard)|weight.{0,15}(lifting|training))\b/i,
+      /\b(workout.{0,20}(motivation|playlist|energy|mode)|training.{0,15}(hard|session|intense))\b/i,
+      /\b(running.{0,15}(hard|fast|sprint|push)|sprinting|run.{0,15}(motivation|energy))\b/i,
+      /\b(fight mode|beast mode|full intensity|personal record|PR.{0,10}(lift|run|hit))\b/i,
+      /\b(aggressive.{0,15}(training|workout|energy|music)|adrenaline.{0,15}(rush|pump|hit))\b/i,
+      /\badrenaline\b/i,
+      /\b(high.?intensity|hiit|crossfit|powerlifting)\b/i,
+    ],
+    confidence: 0.92,
+  },
+
+  // ── Party / Social ────────────────────────────────────────────────────────
+  {
+    id: "PARTY_SOCIAL_NIGHT",
+    patterns: [
+      /\b(house party|flat party|house.{0,10}party|party.{0,10}(playlist|music|night|vibes))\b/i,
+      /\b(summer party|birthday party|garden party|rooftop party)\b/i,
+      /\b(pre.?drinks|pres|pregame|pre-game|before.{0,15}(going out|the club|party))\b/i,
+      /\b(friday night out|saturday night out|night.{0,10}out.{0,10}(playlist|music|vibe))\b/i,
+      /\b(dance floor|dancefloor|on the dancefloor|dancing.{0,15}(night|out|floor))\b/i,
+      /\b(nightclub|the club|clubbing|going.{0,10}(out|clubbing|to a club))\b/i,
+      /\b(afterparty|after.?party|3am.{0,15}(dancefloor|club|party)|2am.{0,15}(party|dance))\b/i,
+      /\b(festival crowd|festival.{0,15}(vibe|energy|music|stage)|festival season)\b/i,
+    ],
+    confidence: 0.88,
+  },
   {
     id: "RAVE_90S_UK",
     patterns: [
       /\b(90s.{0,10}(rave|uk rave|acid house|drum.{0,5}bass|gabber)|uk rave|acid house)\b/i,
       /\b(warehouse (rave|party)|rave culture|old skool rave|jungle music|old school rave)\b/i,
       /\b(breakbeat|happy hardcore|hardcore rave|gabba|supersaw)\b/i,
+      /\b(rave field|field rave|open air rave|outdoor rave)\b/i,
     ],
     confidence: 0.95,
   },
+
+  // ── City Pop / Japan ──────────────────────────────────────────────────────
   {
     id: "JAPANESE_CITY_POP",
     patterns: [
       /\b(japanese city pop|city pop|j-?pop.{0,20}(80s|retro|vintage)|japanese.{0,20}(80s|retro|funk|pop))\b/i,
       /\b(plastic love|tatsuro yamashita|mariya takeuchi|anri|miki matsubara)\b/i,
       /\b(city pop aesthetic|japanese 80s|retro futur.{0,10}japan)\b/i,
+      /\b(japan.{0,20}(summer evening|afternoon|breezy)|city pop sunset)\b/i,
     ],
     confidence: 0.95,
+  },
+  {
+    id: "TOKYO_NEON_NIGHT",
+    patterns: [
+      /\b(tokyo.{0,20}(at night|night|neon|lights|after dark))\b/i,
+      /\b(shibuya.{0,20}(night|neon|crossing|lights)|osaka.{0,20}(night|nightlife|neon))\b/i,
+      /\b(late night.{0,15}japan|japan.{0,20}(late night|midnight|neon))\b/i,
+      /\b(80s.{0,10}tokyo|retro.{0,10}japan|retro.{0,10}japanese)\b/i,
+      /\b(anime.{0,15}(aesthetic|vibe|nostalgia|music)|arcade.{0,20}(night|neon|80s))\b/i,
+    ],
+    confidence: 0.90,
   },
 ];
 
