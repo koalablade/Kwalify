@@ -32,6 +32,9 @@ import type { TrackGravityProfile } from "../scoring-engine/taste-gravity";
 import { selectSignatureTracks, signatureTrackIds } from "../../lib/signature-tracks";
 import { smoothGenreTransitions } from "../../lib/genre-bridge";
 import type { RootGenre } from "../../lib/genre-taxonomy";
+import type { SemanticSceneVector } from "../../lib/semantic-scene-engine";
+import { isHardAntiGenre } from "../../lib/semantic-scene-engine";
+import { classifyTrack } from "../../lib/genre-taxonomy";
 
 export interface ComposePlaylistInput<T extends {
   trackId: string;
@@ -58,6 +61,8 @@ export interface ComposePlaylistInput<T extends {
   canonical: CanonicalSceneResult | null;
   /** Tracks from recent playlists — deprioritized so back-to-back gens don't clone. */
   recentTrackPenalty?: Map<string, number>;
+  /** When scene lock is active, filter discovery pool to ecosystem-compliant tracks only */
+  ecosystemVector?: SemanticSceneVector;
 }
 
 type ComposePoolTrack = {
@@ -286,7 +291,15 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
     journeyArc
   );
 
-  const wildcardPool = sortedPool.slice(0, Math.min(sortedPool.length, poolTarget * 3));
+  // When ecosystem lock is active, restrict discovery pool to ecosystem-compliant tracks only.
+  // This prevents anti-genre tracks leaking in through the controlled-surprise injection path.
+  const rawWildcardPool = sortedPool.slice(0, Math.min(sortedPool.length, poolTarget * 3));
+  const wildcardPool = input.ecosystemVector
+    ? rawWildcardPool.filter((t) => {
+        const classification = classifyTrack(t as unknown as { trackId: string; trackName: string; artistName: string; albumName: string; energy: number | null; valence: number | null; tempo: number | null; danceability: number | null; acousticness: number | null });
+        return !isHardAntiGenre(classification, input.ecosystemVector!);
+      })
+    : rawWildcardPool;
   finalTracks = assignNarrativeRoles(
     injectControlledSurprise(
       finalTracks,
