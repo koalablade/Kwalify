@@ -953,7 +953,7 @@ function buildDebugPanel(result) {
     ${open ? buildUnifiedDebugPanel(result, result.debug) : ""}`;
   }
 
-  const dbg = result._debug;
+  const dbg = result.v3Diagnostics ?? result._debug;
   if (!dbg) return "";
 
   const diag = dbg.scoringDiagnostics || {};

@@ -142,6 +142,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     // Stage 5: Entropy-constrained selection across clusters
     const clusterResult = selectFromClusters(clusteredPool, laneTarget, lane.id);
 
+    // Capture window state BEFORE update — used for per-dimension penalty trace
+    const windowBeforeLane = diversityWindow;
+    const laneWindowMetrics = computeDiversityMetrics(windowBeforeLane);
+
     // Update diversity window for subsequent lanes
     for (const t of clusterResult.tracks.slice(0, 4)) {
       diversityWindow = updateDiversityWindow(diversityWindow, {
@@ -164,17 +168,38 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
         const rawScore  = rawScoreMap.get(item.track.trackId) ?? item.laneScore;
         const penScore  = item.laneScore;
         const sel       = selectedIdSet.has(item.track.trackId);
-        const penalty   = rawScore > 0 ? Math.max(0, 1 - penScore / rawScore) : 0;
+        const totalPenalty = rawScore > 0 ? Math.max(0, 1 - penScore / rawScore) : 0;
         const selTrack  = sel ? clusterResult.tracks.find((t) => t.trackId === item.track.trackId) : undefined;
+
+        // Per-dimension penalty breakdown (mirrors logic in applyDiversityPenalties)
+        const genre        = opts.genreByTrack?.(item.track.trackId) ?? "unknown";
+        const artistRepeats = windowBeforeLane.artistWindow.filter((a) => a === item.track.artistName).length;
+        const genrePenalty   = (laneWindowMetrics.dominantGenre === genre && laneWindowMetrics.genreConcentration > 0.20)
+          ? Math.round((1 - 0.65) * 1000) / 1000 : 0;
+        const eraPenalty     = (laneWindowMetrics.dominantEra === (item as unknown as Record<string, unknown>)["era"] && laneWindowMetrics.eraConcentration > 0.35)
+          ? Math.round((1 - 0.75) * 1000) / 1000 : 0;
+        const artistPenalty  = artistRepeats >= 2
+          ? Math.round((1 - 0.55) * 1000) / 1000 : 0;
+
+        const selectionReason = sel
+          ? (totalPenalty === 0 ? "high_lane_score_cluster_selected" : "penalised_but_cluster_selected")
+          : null;
+
         return {
-          trackId:         item.track.trackId,
-          enteredLane:     lane.id,
-          laneScore:       Math.round(penScore  * 1000) / 1000,
-          rawLaneScore:    Math.round(rawScore   * 1000) / 1000,
-          diversityPenalty: Math.round(penalty   * 1000) / 1000,
-          clusterId:       selTrack?.clusterIds[0] ?? null,
-          selected:        sel,
-          rejectionReason: sel ? null : "cluster_entropy_cap",
+          trackId:          item.track.trackId,
+          lane:             lane.id,
+          enteredLane:      lane.id,
+          laneScore:        Math.round(penScore  * 1000) / 1000,
+          rawLaneScore:     Math.round(rawScore   * 1000) / 1000,
+          diversityPenalty: Math.round(totalPenalty * 1000) / 1000,
+          genrePenalty,
+          artistPenalty,
+          eraPenalty,
+          clusterId:        selTrack?.clusterIds[0] ?? null,
+          clusterWeight:    selTrack ? (clusterResult.clusterSelectionRatios[selTrack.clusterIds[0] ?? ""] ?? null) : null,
+          selected:         sel,
+          selectionReason,
+          rejectionReason:  sel ? null : "cluster_entropy_cap",
         };
       });
 
@@ -242,6 +267,11 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     eraDist[t.laneEra] = (eraDist[t.laneEra] ?? 0) + 1;
   }
 
+  const artistDist: Record<string, number> = {};
+  for (const t of finalTracks) {
+    artistDist[t.artistName] = (artistDist[t.artistName] ?? 0) + 1;
+  }
+
   const genreValues = Object.values(genreDist);
   const totalGenre  = genreValues.reduce((s, v) => s + v, 0) || 1;
   const genreConcentration = Math.max(...genreValues, 0) / totalGenre;
@@ -263,6 +293,17 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     pipelineVersion: "v3.1_unified_routing",
     activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
     finalDecisionTrace,
+    selectionTrace: finalDecisionTrace,
+    clusters: laneDetails.map((ld) => ({
+      laneId: ld.laneId,
+      clusterSpread: ld.clusterSpread,
+      clusterSelectionRatios: ld.clusterSelectionRatios,
+    })),
+    finalDistribution: {
+      genres: genreDist,
+      eras: eraDist,
+      artists: artistDist,
+    },
     intentDecomposition: {
       primary: decomposed.primary,
       secondaryIntents: decomposed.secondaryIntents,

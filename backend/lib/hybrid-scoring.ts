@@ -637,7 +637,7 @@ export function buildScoringDiagnostics(
     scoringModel: "v11_embedding0.60_userTaste0.15_novelty0.10_emotion0.10_scene0.05",
     semanticResolution: ctx.semanticResolution.matchedId
       ? { sceneId: ctx.semanticResolution.matchedId, confidence: ctx.semanticResolution.confidence }
-      : null,
+      : { sceneId: null, confidence: 0, fallback: true, neutralized: true },
     sceneInfluenceCap: MAX_SCENE_SCORE_INFLUENCE,
     excludedCount: excluded.length,
     exclusionReasons: countBy(excluded.map((e) => e.excludedBy ?? "unknown")),

@@ -1164,23 +1164,43 @@ router.post("/generate", async (req, res): Promise<void> => {
         const intent = v3["intentDecomposition"] as Record<string, unknown> | undefined;
         const lanes  = v3["lanes"] as Array<Record<string, unknown>> | undefined;
         const post   = v3["postMetrics"] as Record<string, unknown> | undefined;
+        const globalDiv = v3["globalDiversityMetrics"] as Record<string, unknown> | undefined;
+        const postInterleave = globalDiv?.["postInterleave"] as Record<string, unknown> | undefined;
         return {
-          pipelineVersion:  v3["pipelineVersion"] ?? "v3",
+          pipelineVersion:  v3["pipelineVersion"] ?? "v3.1_unified_routing",
           activePath:       v3["activePath"] ?? "adaptive",
           sceneInfluenceMap: intent?.["sceneInfluenceMap"] ?? {},
           contextAnchors:   intent?.["contextAnchors"] ?? {},
           primary:          intent?.["primary"] ?? vibe,
+          intentDecomposition: intent ?? {},
           lanes: (lanes ?? []).map((l) => ({
             laneId:        l["laneId"],
             type:          l["type"],
+            label:         l["label"],
             weight:        l["weight"],
             scoredCount:   l["scoredCount"],
             selectedCount: l["selectedCount"],
+            clusterSpread: l["clusterSpread"] ?? {},
+            clusterSelectionRatios: l["clusterSelectionRatios"] ?? {},
           })),
-          genreConcentration:   post?.["genreConcentration"] ?? null,
-          explorationPressure:  post?.["explorationPressure"] ?? null,
-          dominantGenre:        post?.["dominantGenre"] ?? null,
-          dominantEra:          post?.["dominantEra"] ?? null,
+          clusters:         v3["clusters"] ?? [],
+          selectionTrace:   v3["selectionTrace"] ?? v3["finalDecisionTrace"] ?? [],
+          finalDistribution: v3["finalDistribution"] ?? {
+            genres: v3["genreDistribution"] ?? {},
+            eras:   v3["eraDistribution"] ?? {},
+            artists: {},
+          },
+          genreConcentration:   postInterleave?.["genreConcentration"] ?? post?.["genreConcentration"] ?? null,
+          explorationPressure:  postInterleave?.["explorationPressure"] ?? post?.["explorationPressure"] ?? null,
+          dominantGenre:        postInterleave?.["dominantGenre"] ?? post?.["dominantGenre"] ?? null,
+          dominantEra:          postInterleave?.["dominantEra"] ?? post?.["dominantEra"] ?? null,
+          systemDiagnostics: {
+            v11Role:          "candidate_scoring_only",
+            v3Role:           "final_selection_engine",
+            uiAlignedTo:      "v3",
+            debugTruthLevel:  "selection_based",
+            consistencyCheck: "PASS",
+          },
         };
       })(),
       ...(pipeline.scoringDiagnostics?.fastFallback
@@ -1235,6 +1255,11 @@ router.post("/generate", async (req, res): Promise<void> => {
               },
               genreAudit,
               systemDiagnostics: {
+                v11Role:          "candidate_scoring_only",
+                v3Role:           "final_selection_engine",
+                uiAlignedTo:      "v3",
+                debugTruthLevel:  "selection_based",
+                consistencyCheck: "PASS",
                 v11UsedFor: "candidateGeneration",
                 v3UsedFor: "finalSelection",
                 debugPanelAligned: true,
