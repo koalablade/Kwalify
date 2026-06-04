@@ -1,0 +1,131 @@
+1. Your AI prompt is too loose or too small
+
+If your prompt is like:
+
+“make a playlist for indie vibe”
+
+You’ll get generic Spotify sludge.
+
+What good looks like:
+
+You should be sending structured context like:
+
+genre
+mood
+BPM / energy
+era
+similar artists
+“avoid” list
+playlist length
+user intent (focus, gym, driving etc.)
+
+👉 If you don’t force structure, the model guesses.
+
+🎯 2. You’re not controlling “diversity vs repetition”
+
+Bad playlists usually come from:
+
+same artist repeated
+same sound cluster
+Spotify top hits bias
+Fix:
+
+You need explicit rules like:
+
+max 1 song per artist (or 2 max)
+enforce sub-genre variety
+include 20–40% “adjacent discovery” tracks
+⚙️ 3. Your ranking logic is probably weak (or missing)
+
+If you’re just doing:
+
+AI generates list → send to Spotify
+
+That’s fragile.
+
+Better pipeline:
+
+AI generates candidates (50–200 songs)
+You score them:
+relevance
+diversity penalty
+popularity cap (optional)
+energy curve fit
+then select final 30–50
+🔥 4. Spotify API mismatch problem (VERY common)
+
+Even if AI is good, Spotify search kills quality because:
+
+“song title mismatch”
+wrong artist versions
+explicit/clean swaps
+regional catalogue differences
+Fix:
+
+Always resolve like this:
+
+search query → take top 3 results
+match BOTH:
+track name similarity
+artist similarity
+reject weak matches
+🧩 5. You might be feeding bad inputs into the model
+
+If your user input is like:
+
+“something chill”
+“good vibes”
+“for working”
+
+Then your system needs a prompt expansion layer before playlist generation.
+
+📉 6. No feedback loop = no improvement
+
+If your system never learns from:
+
+skips
+replays
+likes/dislikes
+
+…it will stay “mid” forever.
+
+Even a simple score helps:
+
+track accepted vs rejected songs
+adjust weighting per user
+🚨 Quick diagnosis test (do this now)
+
+Answer these and I’ll pinpoint your issue fast:
+
+1.
+
+Are you generating:
+
+A) full playlist directly from AI
+B) AI → candidate pool → filtering step
+2.
+
+How many songs does your model generate before Spotify?
+
+3.
+
+Do you enforce:
+
+max artist repetition?
+genre constraints?
+energy curve?
+4.
+
+Paste your prompt (this is usually the smoking gun)
+
+💥 Most likely cause (based on what I’ve seen in your type of setup)
+
+If I had to bet:
+
+👉 You’re generating too directly from the model with not enough constraints + no scoring layer.
+
+That produces:
+
+repetitive artists
+generic Spotify top results
+weak mood matching
