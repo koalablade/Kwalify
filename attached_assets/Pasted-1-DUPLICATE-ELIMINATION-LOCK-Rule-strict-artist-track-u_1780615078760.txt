@@ -1,0 +1,159 @@
+1. DUPLICATE ELIMINATION LOCK
+Rule: strict artist + track uniqueness
+const seenArtists = new Set();
+const seenTracks = new Set();
+Enforcement:
+If artist already used → reject track
+If track already used → reject track
+If rejection happens → replace from same lane pool
+Optional soft mode:
+
+Allow max 2 appearances per artist ONLY if playlist > 30 tracks
+
+Why this matters
+
+Fixes:
+
+Nirvana duplication
+Dua Lipa duplication
+repetitive listening fatigue
+🔒 2. GENRE LANE ENFORCEMENT (critical for your indie issue)
+
+Each lane MUST define allowed genres:
+
+laneRules = {
+  core_indie: ["indie", "indie_rock", "indie_pop", "alt_indie"],
+  motion_high: ["indie", "rock", "alt_rock"],
+  warmth: ["indie", "folk", "acoustic"],
+  contrast: ["electronic_light", "indie", "alt_pop"]
+};
+Hard rule:
+if (!laneRules[lane].includes(track.genrePrimary)) reject
+
+No scoring override allowed.
+
+Why this matters
+
+Fixes:
+
+hip-hop leaking into indie playlists
+electronic “house” contamination
+country misplacement in indie flow
+🔒 3. HIP-HOP / GENRE EXCLUSION GUARD (for indie playlists)
+
+This is a context-aware filter, not global.
+
+If playlist prompt includes:
+
+“indie”
+“summertime”
+“folk”
+“alt”
+“acoustic”
+
+Then apply:
+
+excludedGenres = ["hip_hop", "trap", "rap", "drill"];
+Rule:
+
+If track.genrePrimary ∈ excludedGenres → reject
+
+Important nuance:
+
+Do NOT globally ban hip-hop — only per vibe context
+
+🔒 4. DIVERSITY ENFORCEMENT (anti-repetition engine)
+
+You need 3 constraints:
+
+A. Artist spread rule
+maxTracksPerArtist = Math.ceil(playlistSize * 0.12);
+
+Example:
+
+25 track playlist → max 3 tracks per artist
+B. Rolling window diversity
+
+No repeated artist in last:
+
+windowSize = 6 tracks;
+C. Genre entropy minimum
+
+Calculate:
+
+entropy = genreDistributionEntropy(finalPlaylist);
+
+If:
+
+entropy < 0.75 → reject lowest scoring repeated genres and refill
+🔒 5. FINAL RE-RANK + REPLACE LOOP (CRITICAL)
+
+This is what most systems miss.
+
+After filtering:
+
+while (playlist.length < targetSize) {
+   candidate = nextBestFromPool()
+
+   if (passesAllLocks(candidate)) {
+      playlist.push(candidate)
+   } else {
+      discard and continue
+   }
+}
+🔒 6. “VIBE CONSISTENCY CHECK” (last sanity gate)
+
+This is your final safety layer.
+
+Compute:
+
+playlistVibeVector = average(track.vibeVector)
+
+Compare against:
+
+targetVibeVector
+
+If deviation too high:
+
+if distance > threshold:
+    remove lowest-fit tracks
+    refill from correct lane
+🧠 SYSTEM BEHAVIOUR AFTER THIS LAYER
+
+You will eliminate:
+
+❌ duplicates
+artist repetition
+track repetition
+❌ genre bleed
+hip-hop in indie
+electronic in folk
+country contamination
+❌ weak diversity
+overrepresentation of 2–3 artists
+flat genre distribution
+❌ “almost good but wrong vibe” playlists
+🧩 WHY THIS WORKS (important insight)
+
+Your system already:
+
+scores correctly
+classifies fairly well
+builds decent lanes
+
+But before this layer:
+
+nothing enforces correctness at output time
+
+So errors survive until the final playlist.
+
+This layer changes that:
+
+“bad tracks cannot exit the system”
+
+🔥 FINAL ARCHITECTURE (clean mental model)
+Intent → Lanes → Scoring → Candidate Pool
+                                   ↓
+                        🔒 QUALITY LOCK LAYER
+                                   ↓
+                          FINAL PLAYLIST

@@ -3,4 +3,5 @@
 - [V3 multi-lane + V4 scene engine](v4-scene-engine.md) — V3 is the current hot path: multi-lane router, SceneInfluenceMap replaces resolveSemanticScene, 6 new files in backend/core/v3/.
 - [V3 pipeline bug fixes](v3-bug-fixes.md) — 6 targeted fixes applied: semanticResolution threading, lane headroom 3x, V3 pre-scored pool, genre force injection, family-level diversity caps, v3Diagnostics output.
 - [Pipeline audit — isUnclearIntent & genre taxonomy](pipeline-audit-2025.md) — 4 bugs found and fixed in intent-decomposer.ts and genre-taxonomy.ts.
+- [Quality Lock Layer](quality-lock-layer.md) — 6-gate post-interleave correctness layer; backend/core/v3/quality-lock.ts; integrated in v3-pipeline.ts stage 7.5.
 - [Git push in main agent](git-push-constraint.md) — Git write ops are fully blocked in main agent (even git add/fetch/push). Use delegation skill subagent for all git commits and pushes.

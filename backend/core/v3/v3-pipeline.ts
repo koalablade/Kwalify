@@ -31,6 +31,7 @@ import {
   computeAdjustedLaneWeights,
 } from "./global-diversity-controller";
 import { interleaveLanes } from "./interleaver";
+import { applyQualityLock, type QualityLockRecord } from "./quality-lock";
 import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { SampledLaneResult } from "./lane-sampler";
 
@@ -252,10 +253,53 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
   const interleaved = interleaveLanes(lanes, sampledResults, targetCount);
 
+  // ── Stage 7.5: Quality Lock Layer ────────────────────────────────────────
+  // Build a unified candidate pool from all lane outputs, excluding tracks
+  // already chosen by the interleaver. Pool is sorted by laneScore desc so the
+  // quality lock always refills with the highest-value available candidate.
+  const interleavedIds = new Set(interleaved.tracks.map((t) => t.trackId));
+  const poolMap = new Map<string, QualityLockRecord>();
+  for (const sl of sampledResults) {
+    for (const t of sl.tracks) {
+      if (interleavedIds.has(t.trackId)) continue;
+      const existing = poolMap.get(t.trackId);
+      if (!existing || existing.laneScore < t.laneScore) {
+        poolMap.set(t.trackId, {
+          trackId:      t.trackId,
+          artistName:   t.artistName,
+          energy:       t.energy,
+          valence:      t.valence,
+          laneScore:    t.laneScore,
+          genrePrimary: t.genrePrimary,
+        });
+      }
+    }
+  }
+  const qualityLockPool = [...poolMap.values()].sort((a, b) => b.laneScore - a.laneScore);
+
+  const lockResult = applyQualityLock(
+    interleaved.tracks.map((t) => ({
+      trackId:      t.trackId,
+      artistName:   t.artistName,
+      energy:       t.energy,
+      valence:      t.valence,
+      laneScore:    t.laneScore,
+      genrePrimary: t.genrePrimary,
+    })),
+    qualityLockPool,
+    {
+      targetCount,
+      vibe,
+      sceneInfluenceMap: decomposed.sceneInfluenceMap as Record<string, number>,
+      targetEnergy:  profile.energy  ?? 0.65,
+      targetValence: profile.valence ?? 0.70,
+    },
+  );
+
   // ── Map back to original track objects ───────────────────────────────────
   const trackById = new Map(tracks.map((t) => [t.trackId, t]));
-  const finalTracks = interleaved.tracks
-    .map((t) => trackById.get(t.trackId))
+  const finalTracks = lockResult.trackIds
+    .map((id) => trackById.get(id))
     .filter((t): t is T => t !== undefined);
 
   // ── Stage 8: Post-hoc global diversity audit ─────────────────────────────
@@ -391,6 +435,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const diagnostics: Record<string, unknown> = {
     pipelineVersion: "v3.1_unified_routing",
     activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
+    qualityLock: lockResult.diagnostics,
     playlistExplanation,
     finalDecisionTrace,
     selectionTrace: finalDecisionTrace,
