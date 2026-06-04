@@ -58,7 +58,7 @@ import type { ScoredLibraryTrack } from "./types";
 
 import { buildGenreForecastFromLibrary, type GenreForecast } from "../genre-intelligence/genre-forecast";
 
-import { resolveSceneGenreRouting } from "../scene-intelligence/scene-genre-routing";
+import { resolveSceneGenreRouting, buildRoutingFromVector } from "../scene-intelligence/scene-genre-routing";
 import {
   mergeGenreRoutings,
   promptHasExplicitGenreConstraint,
@@ -286,12 +286,22 @@ export function runScoringPipeline<T extends {
     vibeKind: opts.vibeKind,
     sceneFamily: sceneCtx.primary,
   });
+  // When a semantic scene resolves with sufficient confidence, merge its
+  // ecosystem-weight-derived routing on top of the regex-based routing.
+  // This ensures the scoring engine's pool multipliers reflect the exact
+  // scene ecosystem rather than generic keyword heuristics alone.
+  const vectorRouting = earlySemanticResolution.vector && earlySemanticResolution.confidence >= 0.55
+    ? buildRoutingFromVector(earlySemanticResolution.vector)
+    : null;
+  const sceneRoutingWithVector = vectorRouting
+    ? mergeGenreRoutings(sceneRoutingBase, vectorRouting)
+    : sceneRoutingBase;
   const vibeBias = promptHasExplicitGenreConstraint(opts.vibe)
     ? null
     : resolveVibeGenreBias({ vibe: opts.vibe, profile: opts.emotionProfile });
   const sceneRouting = vibeBias
-    ? mergeGenreRoutings(sceneRoutingBase, vibeBias)
-    : sceneRoutingBase;
+    ? mergeGenreRoutings(sceneRoutingWithVector, vibeBias)
+    : sceneRoutingWithVector;
   logScoringStage(log, "Scene routing resolved", t, {
     vibeBiasApplied: !!vibeBias,
   });
