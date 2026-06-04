@@ -218,6 +218,7 @@ export function buildPlaylistPipeline<T extends {
     vibe: opts.vibe,
     canonical: opts.canonical,
     recentTrackPenalty,
+    ecosystemVector: ecosystemLockActive ? semanticResolution.vector ?? undefined : undefined,
   });
   logScoringStage(opts.pipelineLog, "Playlist composed", t, {
     poolSize: sortedPool.length,
