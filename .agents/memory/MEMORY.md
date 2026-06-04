@@ -1,3 +1,5 @@
 - [Kwalify project overview](kwalify-overview.md) — Spotify playlist generator from liked songs; Node/Express backend, vanilla JS frontend, PostgreSQL DB.
 - [V2 Final Architecture](v2-final-architecture.md) — triple-signal recommender R×0.45+V×0.35+C×0.20; 7 new files in backend/core/v2/ + backend/lib/intent-parser.ts; wired in playlist-pipeline.ts.
 - [V3 multi-lane + V4 scene engine](v4-scene-engine.md) — V3 is the current hot path: multi-lane router, SceneInfluenceMap replaces resolveSemanticScene, 6 new files in backend/core/v3/.
+- [V3 pipeline bug fixes](v3-bug-fixes.md) — 6 targeted fixes applied: semanticResolution threading, lane headroom 3x, V3 pre-scored pool, genre force injection, family-level diversity caps, v3Diagnostics output.
+- [Git push in main agent](git-push-constraint.md) — Git write ops are fully blocked in main agent (even git add/fetch/push). Use delegation skill subagent for all git commits and pushes.
