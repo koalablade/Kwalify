@@ -1086,6 +1086,17 @@ router.post("/generate", async (req, res): Promise<void> => {
         : null,
       librarySyncHint,
       tracks: formatTracksForApi(finalTracks, emotionProfile),
+      sceneDetection: pipeline.ecosystemDebug
+        ? {
+            sceneId: pipeline.ecosystemDebug.sceneId,
+            sceneLabel: pipeline.ecosystemDebug.sceneLabel,
+            sceneConfidence: pipeline.ecosystemDebug.sceneConfidence,
+            locked: pipeline.ecosystemDebug.locked,
+            primaryEcosystem: pipeline.ecosystemDebug.primaryEcosystem,
+            flowPhases: pipeline.ecosystemDebug.flowPhases,
+            ecosystemCompliance: pipeline.ecosystemDebug.ecosystemCompliance,
+          }
+        : null,
       ...(pipeline.scoringDiagnostics?.fastFallback
         ? { fastFallback: true }
         : {}),
