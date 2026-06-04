@@ -443,6 +443,19 @@ function renderApp() {
             <div class="mood-style-label">Predicted Style</div>
             <div class="mood-style-text" id="moodStyleText" style="opacity:0">"Slow, atmospheric, late-night focused"</div>
           </div>
+          <!-- Server-detected scene panel (appears after server responds) -->
+          <div class="mood-scene-panel" id="moodScenePanel" style="display:none">
+            <div class="mood-scene-divider"></div>
+            <div class="mood-scene-row">
+              <div class="mood-scene-label">Detected Scene</div>
+              <div class="mood-scene-name" id="moodSceneName"></div>
+              <div class="mood-scene-badges" id="moodSceneBadges"></div>
+            </div>
+            <div class="mood-alts-row" id="moodAltsRow" style="display:none">
+              <div class="mood-alts-label">Also matches</div>
+              <div class="mood-alts" id="moodAlts"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -882,6 +895,8 @@ function buildDebugPanel(result) {
 }
 
 // ── Mood panel updater (reactive) ─────────────────────────────────────────────
+let _moodPreviewTimer = null;
+
 function updateMoodPanel(text) {
   if (text.length <= 3) {
     document.getElementById("moodGlow")?.classList.remove("active");
@@ -895,12 +910,17 @@ function updateMoodPanel(text) {
     document.querySelectorAll(".mood-tag").forEach((t) => { t.style.opacity = "0.2"; });
     const style = document.getElementById("moodStyleText");
     if (style) { style.style.opacity = "0"; }
+    // Hide scene panel when input is cleared
+    const scenePanel = document.getElementById("moodScenePanel");
+    if (scenePanel) scenePanel.style.display = "none";
+    clearTimeout(_moodPreviewTimer);
     return;
   }
 
   document.getElementById("moodGlow")?.classList.add("active");
   document.getElementById("moodStatus").textContent = "Reading the moment…";
 
+  // Instant client-side mood bars (no network round-trip)
   const mood = analyzeMoodFromText(text);
 
   MOOD_BAR_DEFS.forEach((b) => {
@@ -911,7 +931,6 @@ function updateMoodPanel(text) {
     if (lb) lb.textContent = moodLevelLabel(val);
   });
 
-  // Update scene tags
   const tagsEl = document.getElementById("moodTags");
   if (tagsEl) {
     tagsEl.innerHTML = mood.tags.map((tag, i) =>
@@ -919,17 +938,85 @@ function updateMoodPanel(text) {
     ).join("");
   }
 
-  // Update predicted style
   const styleEl = document.getElementById("moodStyleText");
   if (styleEl) {
     styleEl.textContent = mood.style;
     styleEl.style.opacity = "1";
   }
 
-  setTimeout(() => {
+  // Debounced server-side scene detection (400ms after user stops typing)
+  clearTimeout(_moodPreviewTimer);
+  _moodPreviewTimer = setTimeout(() => fetchScenePreview(text), 400);
+}
+
+async function fetchScenePreview(text) {
+  try {
+    const r = await api(`/generate/preview?vibe=${encodeURIComponent(text)}`);
+    if (r.ok && r.data) {
+      updateMoodPanelFromServer(r.data);
+    }
+  } catch (_) {
+    // Silently ignore preview errors — client-side mood bars remain
+  }
+}
+
+function updateMoodPanelFromServer(data) {
+  const scenePanel = document.getElementById("moodScenePanel");
+  const sceneName = document.getElementById("moodSceneName");
+  const sceneBadges = document.getElementById("moodSceneBadges");
+  const altsRow = document.getElementById("moodAltsRow");
+  const altsEl = document.getElementById("moodAlts");
+
+  if (!scenePanel) return;
+
+  if (!data.scene) {
+    // No scene detected — show generic status
     document.getElementById("moodStatus").textContent = "Moment analyzed";
     document.getElementById("moodGlow")?.classList.remove("active");
-  }, 1200);
+    scenePanel.style.display = "none";
+    return;
+  }
+
+  const confPct = Math.round((data.scene.confidence ?? 0) * 100);
+  const confColor = confPct >= 80 ? "#1db954" : confPct >= 60 ? "#f59e0b" : "#a78bfa";
+
+  // Update status line with scene name
+  const statusEl = document.getElementById("moodStatus");
+  if (statusEl) statusEl.textContent = data.scene.label || data.scene.id;
+
+  // Scene name (formatted)
+  if (sceneName) {
+    sceneName.textContent = data.scene.label || data.scene.id.replace(/_/g, " ");
+  }
+
+  // Badges: confidence + era (if detected)
+  if (sceneBadges) {
+    let badgesHtml = `<span class="mood-scene-badge" style="background:${confColor}18;color:${confColor};border:1px solid ${confColor}30">${confPct}% match</span>`;
+    if (data.era?.decade) {
+      badgesHtml += `<span class="mood-scene-badge mood-scene-badge--era">${data.era.decade}</span>`;
+    }
+    if (data.scene.primaryGenres?.length) {
+      badgesHtml += data.scene.primaryGenres.slice(0, 2).map((g) =>
+        `<span class="mood-scene-badge mood-scene-badge--genre">${esc(g)}</span>`
+      ).join("");
+    }
+    sceneBadges.innerHTML = badgesHtml;
+  }
+
+  // Alternative scenes
+  if (altsRow && altsEl && data.alternatives?.length) {
+    altsEl.innerHTML = data.alternatives.map((alt) => {
+      const altConf = Math.round((alt.confidence ?? 0) * 100);
+      return `<span class="mood-alt-chip" title="${altConf}% match">${esc(alt.label || alt.id.replace(/_/g," "))}</span>`;
+    }).join("");
+    altsRow.style.display = "block";
+  } else if (altsRow) {
+    altsRow.style.display = "none";
+  }
+
+  // Show the panel
+  scenePanel.style.display = "block";
+  document.getElementById("moodGlow")?.classList.remove("active");
 }
 
 // ── Event wiring ──────────────────────────────────────────────────────────────

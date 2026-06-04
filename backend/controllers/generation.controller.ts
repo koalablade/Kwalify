@@ -91,6 +91,8 @@ import { GeneratePlaylistBody } from "../zod/api";
 import { checkRateLimit } from "../lib/rate-limit";
 import { getFeatures } from "../lib/env";
 import { publicUrl } from "../lib/public-url";
+import { resolveSemanticScene } from "../lib/semantic-scene-engine";
+import { detectEra } from "../lib/era-detection";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
@@ -165,6 +167,65 @@ router.get("/generate/status", (req, res): void => {
     return;
   }
   res.json(getGenerateStatus(req.session.spotifyUserId));
+});
+
+/**
+ * GET /generate/preview?vibe=...
+ * Lightweight scene detection endpoint for the live preview panel.
+ * Returns scene, confidence, alternatives, era, and emotion profile
+ * without touching the library or Spotify — used while the user is typing.
+ */
+router.get("/generate/preview", (req, res): void => {
+  if (!req.session.spotifyUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const vibe = typeof req.query.vibe === "string" ? req.query.vibe.trim() : "";
+  if (!vibe || vibe.length < 3) {
+    res.json({ scene: null, confidence: 0, alternatives: [], era: null, emotion: null });
+    return;
+  }
+
+  try {
+    // Run scene detection + era detection synchronously (both are fast regex/rule-based)
+    const { profile, journeyArc } = analyzeVibeWithContext(vibe);
+    const sceneResolution = resolveSemanticScene(vibe, profile);
+    const eraCtx = detectEra(vibe);
+
+    // Build primary genre list from scene ecosystem (top 4 by weight)
+    const primaryGenres = sceneResolution.vector
+      ? sceneResolution.vector.genreEcosystem
+          .sort((a, b) => b.weight - a.weight)
+          .slice(0, 4)
+          .map((g) => g.genre)
+      : [];
+
+    res.json({
+      scene: sceneResolution.matchedId
+        ? {
+            id: sceneResolution.matchedId,
+            label: sceneResolution.vector?.label ?? sceneResolution.matchedId,
+            confidence: sceneResolution.confidence,
+            energy: sceneResolution.vector?.energy ?? null,
+            aesthetics: sceneResolution.vector?.aesthetics?.slice(0, 4) ?? [],
+            primaryGenres,
+          }
+        : null,
+      alternatives: sceneResolution.alternatives,
+      era: eraCtx.decade ? { decade: eraCtx.decade, confidence: eraCtx.eraConfidence } : null,
+      emotion: {
+        energy: profile.energy,
+        valence: profile.valence,
+        nostalgia: profile.nostalgia,
+        tension: profile.tension,
+        calm: profile.calm,
+      },
+      journeyArc: journeyArc ?? null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Preview analysis failed" });
+  }
 });
 
 router.post("/generate", async (req, res): Promise<void> => {

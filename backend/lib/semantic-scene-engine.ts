@@ -686,6 +686,487 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
     flowPhases: { intro: "headlights in dark", core: "solo night cruise", peak: "late night clarity", cooldown: "arriving home quiet" },
   },
+
+  // ── Study / Focus ──────────────────────────────────────────────────────────
+
+  STUDY_DEEP_FOCUS: {
+    id: "STUDY_DEEP_FOCUS",
+    label: "Deep focus / studying",
+    emotions: ["focused", "calm", "determined", "still", "absorbed"],
+    energy: { min: 0.08, max: 0.42, target: 0.25 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "classical", weight: 0.90 },
+      { genre: "jazz", weight: 0.80 },
+      { genre: "indie", weight: 0.60 },
+      { genre: "folk", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.68,
+    antiGenres: ["metal", "hip_hop", "latin", "reggae", "country", "christmas"],
+    aesthetics: ["ambient", "lo-fi", "focus", "study", "minimal", "clean", "concentration"],
+    compositionTarget: { primaryMin: 0.70, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "settling in", core: "deep work zone", peak: "flow state", cooldown: "winding down" },
+  },
+
+  // ── Space / Cosmos ─────────────────────────────────────────────────────────
+
+  SPACE_COSMOS: {
+    id: "SPACE_COSMOS",
+    label: "Space / floating in the cosmos",
+    emotions: ["ethereal", "vast", "awe", "serene", "existential"],
+    energy: { min: 0.05, max: 0.48, target: 0.22 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "classical", weight: 0.75 },
+      { genre: "indie", weight: 0.55 },
+      { genre: "folk", weight: 0.35 },
+    ],
+    ecosystemFloor: 0.72,
+    antiGenres: ["country", "folk", "metal", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["ambient", "space", "cosmos", "floating", "sci-fi", "zero gravity", "infinite"],
+    compositionTarget: { primaryMin: 0.74, adjacentMax: 0.20, otherMax: 0.06 },
+    flowPhases: { intro: "launch into orbit", core: "drifting through stars", peak: "cosmic vastness", cooldown: "floating back" },
+  },
+
+  // ── Cyberpunk / Future ─────────────────────────────────────────────────────
+
+  CYBERPUNK_URBAN: {
+    id: "CYBERPUNK_URBAN",
+    label: "Cyberpunk city",
+    emotions: ["electric", "tense", "futuristic", "urban", "cinematic"],
+    energy: { min: 0.45, max: 0.85, target: 0.65 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "rock", weight: 0.72 },
+      { genre: "metal", weight: 0.55 },
+      { genre: "hip_hop", weight: 0.50 },
+      { genre: "indie", weight: 0.40 },
+    ],
+    ecosystemFloor: 0.75,
+    antiGenres: ["country", "folk", "classical", "reggae", "latin", "christmas"],
+    aesthetics: ["cyberpunk", "synthwave", "neon", "dystopia", "future", "blade runner", "urban tech"],
+    compositionTarget: { primaryMin: 0.78, adjacentMax: 0.18, otherMax: 0.04 },
+    flowPhases: { intro: "chrome city approach", core: "neon megacity pulse", peak: "system override", cooldown: "rain on metal" },
+  },
+
+  // ── Luxury / Ambition ──────────────────────────────────────────────────────
+
+  LUXURY_AMBITION: {
+    id: "LUXURY_AMBITION",
+    label: "Luxury / ambition",
+    emotions: ["confident", "driven", "elevated", "ambitious", "focused"],
+    energy: { min: 0.35, max: 0.78, target: 0.58 },
+    genreEcosystem: [
+      { genre: "hip_hop", weight: 1.0 },
+      { genre: "rnb", weight: 0.90 },
+      { genre: "pop", weight: 0.72 },
+      { genre: "electronic", weight: 0.60 },
+      { genre: "soul", weight: 0.50 },
+      { genre: "jazz", weight: 0.40 },
+    ],
+    ecosystemFloor: 0.68,
+    antiGenres: ["country", "folk", "metal", "classical", "reggae", "christmas"],
+    aesthetics: ["luxury", "wealth", "ambition", "penthouse", "smooth", "polished", "cinematic wealth"],
+    compositionTarget: { primaryMin: 0.70, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "arrival energy", core: "peak ambition", peak: "victory moment", cooldown: "smooth satisfaction" },
+  },
+
+  // ── Adventure / Freedom ────────────────────────────────────────────────────
+
+  ADVENTURE_MOUNTAINS: {
+    id: "ADVENTURE_MOUNTAINS",
+    label: "Mountain adventure / open wilderness",
+    emotions: ["free", "adventurous", "awe", "alive", "expansive"],
+    energy: { min: 0.38, max: 0.78, target: 0.58 },
+    genreEcosystem: [
+      { genre: "rock", weight: 1.0 },
+      { genre: "folk", weight: 0.85 },
+      { genre: "indie", weight: 0.78 },
+      { genre: "country", weight: 0.65 },
+      { genre: "electronic", weight: 0.40 },
+    ],
+    ecosystemFloor: 0.68,
+    antiGenres: ["hip_hop", "rnb", "metal", "classical", "christmas"],
+    aesthetics: ["mountains", "wilderness", "peak", "open sky", "hiking", "summit", "vast landscape"],
+    compositionTarget: { primaryMin: 0.70, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "trailhead departure", core: "open mountain climb", peak: "summit arrival", cooldown: "descent and reflection" },
+  },
+
+  // ── Healing / Hope ─────────────────────────────────────────────────────────
+
+  HEALING_AFTER_PAIN: {
+    id: "HEALING_AFTER_PAIN",
+    label: "Healing after pain",
+    emotions: ["healing", "tender", "quiet hope", "fragile", "gentle"],
+    energy: { min: 0.10, max: 0.48, target: 0.28 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "folk", weight: 0.92 },
+      { genre: "soul", weight: 0.80 },
+      { genre: "pop", weight: 0.65 },
+      { genre: "rnb", weight: 0.55 },
+      { genre: "jazz", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["metal", "electronic", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["gentle", "healing", "soft light", "recovery", "tender", "quiet", "slow"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "first tender step", core: "gentle recovery", peak: "quiet realisation", cooldown: "soft peace" },
+  },
+
+  HOPE_NEW_CHAPTER: {
+    id: "HOPE_NEW_CHAPTER",
+    label: "Hope / new chapter beginning",
+    emotions: ["hopeful", "optimistic", "rising", "determined", "open"],
+    energy: { min: 0.32, max: 0.72, target: 0.52 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "pop", weight: 0.85 },
+      { genre: "folk", weight: 0.80 },
+      { genre: "rock", weight: 0.68 },
+      { genre: "soul", weight: 0.60 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["metal", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["sunrise", "new start", "optimism", "forward", "light", "open door", "fresh air"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "first morning light", core: "stepping forward", peak: "breakthrough moment", cooldown: "settling in" },
+  },
+
+  // ── Regret / Reflection ────────────────────────────────────────────────────
+
+  REGRET_REFLECTION: {
+    id: "REGRET_REFLECTION",
+    label: "Regret and reflection",
+    emotions: ["regretful", "wistful", "melancholic", "introspective", "heavy"],
+    energy: { min: 0.10, max: 0.45, target: 0.25 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "folk", weight: 0.88 },
+      { genre: "soul", weight: 0.78 },
+      { genre: "rock", weight: 0.62 },
+      { genre: "country", weight: 0.55 },
+      { genre: "jazz", weight: 0.48 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["metal", "electronic", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["regret", "what could have been", "past", "heavy", "honest", "quiet", "still"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "memory arrives", core: "sitting with regret", peak: "raw acknowledgment", cooldown: "quiet acceptance" },
+  },
+
+  // ── Life Is Changing ──────────────────────────────────────────────────────
+
+  LIFE_IS_CHANGING: {
+    id: "LIFE_IS_CHANGING",
+    label: "Life is changing",
+    emotions: ["bittersweet", "uncertain", "hopeful", "nostalgic", "transitional"],
+    energy: { min: 0.25, max: 0.65, target: 0.43 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "folk", weight: 0.88 },
+      { genre: "rock", weight: 0.72 },
+      { genre: "pop", weight: 0.65 },
+      { genre: "soul", weight: 0.60 },
+      { genre: "country", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.62,
+    antiGenres: ["metal", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["transition", "change", "bittersweet", "turning point", "moving forward", "uncertain future"],
+    compositionTarget: { primaryMin: 0.64, adjacentMax: 0.28, otherMax: 0.08 },
+    flowPhases: { intro: "sensing the shift", core: "in the middle of change", peak: "accepting the turn", cooldown: "walking into the new" },
+  },
+
+  // ── Life Moments ──────────────────────────────────────────────────────────
+
+  SUMMER_BEFORE_UNI: {
+    id: "SUMMER_BEFORE_UNI",
+    label: "Last summer of youth",
+    emotions: ["nostalgic", "bittersweet", "carefree", "anticipation", "warm"],
+    energy: { min: 0.30, max: 0.72, target: 0.50 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "pop", weight: 0.85 },
+      { genre: "rock", weight: 0.72 },
+      { genre: "folk", weight: 0.68 },
+      { genre: "rnb", weight: 0.50 },
+      { genre: "electronic", weight: 0.40 },
+    ],
+    ecosystemFloor: 0.62,
+    antiGenres: ["metal", "classical", "country", "reggae", "christmas"],
+    aesthetics: ["golden summer", "last summer", "youth", "pre-change", "carefree days", "late nights", "warm evenings"],
+    compositionTarget: { primaryMin: 0.64, adjacentMax: 0.28, otherMax: 0.08 },
+    flowPhases: { intro: "last day feeling", core: "golden summer days", peak: "everything still feels infinite", cooldown: "knowing it will change" },
+  },
+
+  DRIVING_HOME_BREAKUP: {
+    id: "DRIVING_HOME_BREAKUP",
+    label: "Driving home after a breakup",
+    emotions: ["raw", "numb", "processing", "alone", "broken"],
+    energy: { min: 0.18, max: 0.55, target: 0.34 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "rock", weight: 0.80 },
+      { genre: "folk", weight: 0.75 },
+      { genre: "soul", weight: 0.70 },
+      { genre: "pop", weight: 0.55 },
+      { genre: "country", weight: 0.50 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["electronic", "metal", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["raw", "driving alone", "breakup", "night", "streetlights", "numb", "empty road"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "just left", core: "alone with it", peak: "raw hit", cooldown: "arriving home empty" },
+  },
+
+  // ── Festival / Social ─────────────────────────────────────────────────────
+
+  FESTIVAL_SUMMER_FIELD: {
+    id: "FESTIVAL_SUMMER_FIELD",
+    label: "Summer music festival",
+    emotions: ["euphoric", "free", "communal", "electric", "alive"],
+    energy: { min: 0.55, max: 0.92, target: 0.75 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "rock", weight: 0.90 },
+      { genre: "pop", weight: 0.78 },
+      { genre: "electronic", weight: 0.68 },
+      { genre: "folk", weight: 0.55 },
+      { genre: "rnb", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.68,
+    antiGenres: ["metal", "country", "classical", "jazz", "christmas"],
+    aesthetics: ["festival", "field", "crowd", "main stage", "summer sun", "communal", "outdoor music"],
+    compositionTarget: { primaryMin: 0.70, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "arriving at the field", core: "in the crowd", peak: "headline moment", cooldown: "walking out after" },
+  },
+
+  AFTERPARTY_COMEDOWN: {
+    id: "AFTERPARTY_COMEDOWN",
+    label: "Afterparty / 4am comedown",
+    emotions: ["tired", "euphoric residue", "reflective", "still high", "tender"],
+    energy: { min: 0.12, max: 0.50, target: 0.28 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "rnb", weight: 0.80 },
+      { genre: "soul", weight: 0.72 },
+      { genre: "indie", weight: 0.65 },
+      { genre: "pop", weight: 0.50 },
+      { genre: "hip_hop", weight: 0.42 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["country", "folk", "classical", "metal", "reggae", "christmas"],
+    aesthetics: ["afterparty", "4am", "comedown", "soft light", "kitchen floor", "tired but alive", "gentle"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "the party is ending", core: "4am kitchen glow", peak: "quiet euphoria", cooldown: "sun coming up" },
+  },
+
+  // ── Roots / Rural ─────────────────────────────────────────────────────────
+
+  BLUEGRASS_MOUNTAIN: {
+    id: "BLUEGRASS_MOUNTAIN",
+    label: "Bluegrass / Appalachian mountain",
+    emotions: ["grounded", "free", "nostalgic", "communal", "rugged"],
+    energy: { min: 0.28, max: 0.72, target: 0.50 },
+    genreEcosystem: [
+      { genre: "country", weight: 1.0 },
+      { genre: "folk", weight: 0.95 },
+      { genre: "blues", weight: 0.70 },
+      { genre: "rock", weight: 0.50 },
+      { genre: "indie", weight: 0.35 },
+    ],
+    ecosystemFloor: 0.78,
+    antiGenres: ["electronic", "metal", "hip_hop", "rnb", "latin", "reggae", "pop", "classical"],
+    aesthetics: ["bluegrass", "banjo", "mountain", "Appalachian", "porch", "hollers", "roots music"],
+    compositionTarget: { primaryMin: 0.82, adjacentMax: 0.15, otherMax: 0.03 },
+    flowPhases: { intro: "morning mountain air", core: "roots picking session", peak: "foot stomping peak", cooldown: "porch evening quiet" },
+  },
+
+  SOUTHERN_ROCK_HIGHWAY: {
+    id: "SOUTHERN_ROCK_HIGHWAY",
+    label: "Southern rock highway",
+    emotions: ["defiant", "free", "rugged", "electric", "nostalgic"],
+    energy: { min: 0.42, max: 0.85, target: 0.65 },
+    genreEcosystem: [
+      { genre: "rock", weight: 1.0 },
+      { genre: "country", weight: 0.80 },
+      { genre: "blues", weight: 0.78 },
+      { genre: "folk", weight: 0.55 },
+      { genre: "indie", weight: 0.38 },
+    ],
+    ecosystemFloor: 0.74,
+    antiGenres: ["electronic", "hip_hop", "rnb", "latin", "reggae", "classical", "christmas"],
+    aesthetics: ["southern rock", "highway", "guitar riff", "dual guitars", "freedom", "heartland drive"],
+    compositionTarget: { primaryMin: 0.76, adjacentMax: 0.20, otherMax: 0.04 },
+    flowPhases: { intro: "open highway approach", core: "southern rock drive", peak: "guitar anthem peak", cooldown: "sunset cruise out" },
+  },
+
+  // ── Bedroom / Chill ───────────────────────────────────────────────────────
+
+  INDIE_BEDROOM_LOFI: {
+    id: "INDIE_BEDROOM_LOFI",
+    label: "Bedroom / lo-fi chill",
+    emotions: ["cosy", "introverted", "calm", "nostalgic", "gentle"],
+    energy: { min: 0.08, max: 0.40, target: 0.22 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "electronic", weight: 0.80 },
+      { genre: "folk", weight: 0.72 },
+      { genre: "pop", weight: 0.60 },
+      { genre: "jazz", weight: 0.50 },
+      { genre: "rnb", weight: 0.42 },
+    ],
+    ecosystemFloor: 0.62,
+    antiGenres: ["metal", "hip_hop", "country", "latin", "reggae", "classical", "christmas"],
+    aesthetics: ["bedroom", "lo-fi", "chill", "cosy", "bedroom pop", "lazy afternoon", "soft focus", "headphones"],
+    compositionTarget: { primaryMin: 0.64, adjacentMax: 0.28, otherMax: 0.08 },
+    flowPhases: { intro: "settling into the room", core: "bedroom afternoon drift", peak: "soft headphone moment", cooldown: "dozing off" },
+  },
+
+  LATE_NIGHT_THOUGHTS: {
+    id: "LATE_NIGHT_THOUGHTS",
+    label: "Late night thoughts / can't sleep",
+    emotions: ["introspective", "restless", "vulnerable", "honest", "quiet"],
+    energy: { min: 0.08, max: 0.40, target: 0.22 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "folk", weight: 0.85 },
+      { genre: "electronic", weight: 0.70 },
+      { genre: "soul", weight: 0.65 },
+      { genre: "pop", weight: 0.50 },
+      { genre: "jazz", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.62,
+    antiGenres: ["metal", "hip_hop", "latin", "reggae", "country", "christmas"],
+    aesthetics: ["late night", "darkness", "insomnia", "3am", "overthinking", "quiet", "honest thoughts"],
+    compositionTarget: { primaryMin: 0.64, adjacentMax: 0.28, otherMax: 0.08 },
+    flowPhases: { intro: "lights off, mind on", core: "3am spiral", peak: "raw honest moment", cooldown: "finally letting go" },
+  },
+
+  // ── Morning ───────────────────────────────────────────────────────────────
+
+  SLOW_MORNING_COFFEE: {
+    id: "SLOW_MORNING_COFFEE",
+    label: "Slow morning / coffee ritual",
+    emotions: ["peaceful", "gentle", "warm", "still", "grateful"],
+    energy: { min: 0.10, max: 0.42, target: 0.24 },
+    genreEcosystem: [
+      { genre: "jazz", weight: 1.0 },
+      { genre: "folk", weight: 0.88 },
+      { genre: "indie", weight: 0.80 },
+      { genre: "soul", weight: 0.72 },
+      { genre: "pop", weight: 0.50 },
+      { genre: "classical", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["metal", "hip_hop", "electronic", "latin", "reggae", "christmas"],
+    aesthetics: ["morning", "coffee", "gentle light", "slow", "calm", "warm mug", "quiet kitchen"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "first light", core: "morning calm", peak: "quiet contentment", cooldown: "day begins" },
+  },
+
+  MORNING_RUN_SUNRISE: {
+    id: "MORNING_RUN_SUNRISE",
+    label: "Morning run / sunrise energy",
+    emotions: ["energised", "alive", "clear", "determined", "free"],
+    energy: { min: 0.58, max: 0.90, target: 0.74 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "rock", weight: 0.85 },
+      { genre: "indie", weight: 0.75 },
+      { genre: "pop", weight: 0.65 },
+      { genre: "hip_hop", weight: 0.55 },
+    ],
+    ecosystemFloor: 0.70,
+    antiGenres: ["country", "folk", "classical", "jazz", "reggae", "christmas"],
+    aesthetics: ["sunrise", "morning run", "early", "fresh air", "momentum", "clear head", "moving"],
+    compositionTarget: { primaryMin: 0.72, adjacentMax: 0.22, otherMax: 0.06 },
+    flowPhases: { intro: "first steps out the door", core: "finding the pace", peak: "sunrise push", cooldown: "cool-down walk home" },
+  },
+
+  // ── Rain / Weather ────────────────────────────────────────────────────────
+
+  WALKING_RAIN_CITY: {
+    id: "WALKING_RAIN_CITY",
+    label: "Walking through a city in the rain",
+    emotions: ["melancholic", "cinematic", "reflective", "solitary", "alive"],
+    energy: { min: 0.18, max: 0.52, target: 0.33 },
+    genreEcosystem: [
+      { genre: "indie", weight: 1.0 },
+      { genre: "electronic", weight: 0.82 },
+      { genre: "jazz", weight: 0.78 },
+      { genre: "soul", weight: 0.70 },
+      { genre: "folk", weight: 0.60 },
+      { genre: "rnb", weight: 0.52 },
+    ],
+    ecosystemFloor: 0.65,
+    antiGenres: ["country", "metal", "hip_hop", "latin", "reggae", "christmas"],
+    aesthetics: ["rain", "wet street", "city walk", "umbrella", "puddles", "grey sky", "cinematic"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "first drops", core: "walking in the downpour", peak: "soaking through", cooldown: "shelter found" },
+  },
+
+  TOKYO_RAIN_WALK: {
+    id: "TOKYO_RAIN_WALK",
+    label: "Walking through Tokyo in the rain",
+    emotions: ["cinematic", "melancholic", "dreamy", "urban", "beautiful sadness"],
+    energy: { min: 0.18, max: 0.55, target: 0.35 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "pop", weight: 0.88 },
+      { genre: "jazz", weight: 0.80 },
+      { genre: "soul", weight: 0.72 },
+      { genre: "rnb", weight: 0.65 },
+      { genre: "indie", weight: 0.55 },
+    ],
+    ecosystemFloor: 0.68,
+    antiGenres: ["country", "folk", "metal", "reggae", "latin", "christmas"],
+    aesthetics: ["tokyo rain", "japan night", "neon reflection", "wet street", "city pop", "cinematic japan"],
+    compositionTarget: { primaryMin: 0.70, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "shibuya in the rain", core: "walking through neon reflections", peak: "beautiful melancholy", cooldown: "train home" },
+  },
+
+  // ── Cultural / Era ────────────────────────────────────────────────────────
+
+  EIGHTIES_UK_SYNTH: {
+    id: "EIGHTIES_UK_SYNTH",
+    label: "80s UK synth / new wave",
+    emotions: ["nostalgic", "electric", "melancholic", "yearning", "cinematic"],
+    energy: { min: 0.35, max: 0.80, target: 0.58 },
+    genreEcosystem: [
+      { genre: "electronic", weight: 1.0 },
+      { genre: "rock", weight: 0.80 },
+      { genre: "pop", weight: 0.75 },
+      { genre: "indie", weight: 0.55 },
+    ],
+    ecosystemFloor: 0.72,
+    antiGenres: ["country", "folk", "hip_hop", "metal", "reggae", "latin", "christmas"],
+    aesthetics: ["synth-pop", "new wave", "80s UK", "Depeche Mode", "The Cure", "Joy Division", "cold wave", "reverb"],
+    compositionTarget: { primaryMin: 0.74, adjacentMax: 0.20, otherMax: 0.06 },
+    flowPhases: { intro: "cold synth opener", core: "new wave heartbeat", peak: "anthemic 80s peak", cooldown: "fade to reverb" },
+  },
+
+  // ── Outdoors / Social ─────────────────────────────────────────────────────
+
+  CAMPFIRE_NIGHT: {
+    id: "CAMPFIRE_NIGHT",
+    label: "Campfire / bonfire night",
+    emotions: ["warm", "communal", "nostalgic", "content", "free"],
+    energy: { min: 0.22, max: 0.62, target: 0.42 },
+    genreEcosystem: [
+      { genre: "folk", weight: 1.0 },
+      { genre: "country", weight: 0.88 },
+      { genre: "indie", weight: 0.75 },
+      { genre: "rock", weight: 0.68 },
+      { genre: "blues", weight: 0.58 },
+      { genre: "soul", weight: 0.45 },
+    ],
+    ecosystemFloor: 0.68,
+    antiGenres: ["electronic", "metal", "hip_hop", "rnb", "latin", "christmas"],
+    aesthetics: ["campfire", "bonfire", "acoustic", "outdoor", "friends", "stars", "guitar around the fire"],
+    compositionTarget: { primaryMin: 0.70, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "fire starting", core: "songs around the campfire", peak: "communal warmth peak", cooldown: "embers going out" },
+  },
 };
 
 const SCENE_DETECTION_PATTERNS: {
@@ -1039,6 +1520,279 @@ const SCENE_DETECTION_PATTERNS: {
     confidence: 0.95,
   },
 
+  // ── Study / Focus ─────────────────────────────────────────────────────────
+  {
+    id: "STUDY_DEEP_FOCUS",
+    patterns: [
+      /\b(study|studying|revision|revising|deep.?focus|focus.{0,15}(music|playlist|session))\b/i,
+      /\b(coding.{0,15}(music|playlist|session)|programming.{0,15}(music|flow|playlist))\b/i,
+      /\b(reading.{0,15}(music|playlist|session)|concentration|focused.{0,15}(work|session))\b/i,
+      /\b(pomodoro|flow.?state|in.?the.?zone|work.{0,15}(playlist|session|music))\b/i,
+      /\b(library.{0,15}(session|music|vibe)|lo.?fi.{0,15}(study|focus|chill))\b/i,
+    ],
+    confidence: 0.88,
+  },
+
+  // ── Space / Cosmos ────────────────────────────────────────────────────────
+  {
+    id: "SPACE_COSMOS",
+    patterns: [
+      /\b(space.{0,20}(ambient|music|float|travel|journey|cosmos))\b/i,
+      /\b(cosmos|outer space|zero gravity|floating in space|drifting in space)\b/i,
+      /\b(sci.?fi.{0,15}(ambient|soundtrack|music)|interstellar|galaxy.{0,15}(music|vibes))\b/i,
+      /\b(orbital|satellite|astro.{0,15}(music|ambient|vibe)|star.{0,15}(field|gazing|music))\b/i,
+    ],
+    confidence: 0.88,
+  },
+
+  // ── Cyberpunk ─────────────────────────────────────────────────────────────
+  {
+    id: "CYBERPUNK_URBAN",
+    patterns: [
+      /\b(cyberpunk|blade runner|dystopia.{0,15}(music|city|vibe)|neo.?noir)\b/i,
+      /\b(synthwave.{0,15}(dark|cyber|future|noir)|dark.{0,15}synthwave)\b/i,
+      /\b(futuristic.{0,15}(city|urban|neon|music)|future.{0,15}(city|noir|dark))\b/i,
+      /\b(neon.{0,15}(rain|dystopia|future|noir)|tech.?noir|megacity)\b/i,
+    ],
+    confidence: 0.90,
+  },
+
+  // ── Luxury / Ambition ─────────────────────────────────────────────────────
+  {
+    id: "LUXURY_AMBITION",
+    patterns: [
+      /\b(luxury.{0,20}(vibes|music|drive|car|playlist))\b/i,
+      /\b(ambition|ambitious|success.{0,15}(drive|playlist|music)|boss.{0,15}(music|vibes))\b/i,
+      /\b(penthouse|yacht.{0,15}(music|vibes)|private jet|money.{0,15}(music|vibes))\b/i,
+      /\b(grind.{0,15}(music|playlist|session)|hustle.{0,15}(music|vibes|playlist))\b/i,
+      /\b(motivation.{0,15}(success|wealth|ambition)|driven.{0,15}(music|energy|vibe))\b/i,
+    ],
+    confidence: 0.82,
+  },
+
+  // ── Adventure ─────────────────────────────────────────────────────────────
+  {
+    id: "ADVENTURE_MOUNTAINS",
+    patterns: [
+      /\b(mountain.{0,20}(hike|hiking|drive|road|summit|trail|climb))\b/i,
+      /\b(hiking.{0,15}(music|playlist|trail)|trail.{0,15}(run|hike|music))\b/i,
+      /\b(wilderness.{0,15}(music|vibes|adventure)|open.{0,15}wilderness)\b/i,
+      /\b(summit|peak.{0,15}(music|vibes|adventure)|altitude.{0,15}(music|vibe))\b/i,
+      /\b(backpack.{0,15}(trip|adventure|hike)|trek.{0,15}(music|adventure|trail))\b/i,
+    ],
+    confidence: 0.85,
+  },
+
+  // ── Healing / Hope ────────────────────────────────────────────────────────
+  {
+    id: "HEALING_AFTER_PAIN",
+    patterns: [
+      /\b(healing.{0,20}(music|playlist|after|from|journey))\b/i,
+      /\b(recovering.{0,15}(from|after)|recovery.{0,15}(music|playlist|journey))\b/i,
+      /\b(getting.{0,15}(better|through|over it)|slowly.{0,15}(healing|better|getting better))\b/i,
+      /\b(tender.{0,15}(moment|music|feeling)|gentle.{0,15}(music|healing|time))\b/i,
+    ],
+    confidence: 0.82,
+  },
+  {
+    id: "HOPE_NEW_CHAPTER",
+    patterns: [
+      /\b(new.{0,15}(chapter|beginning|start|page)|fresh.{0,15}start)\b/i,
+      /\b(hope(ful)?|optimis(m|tic)|things (are|will).{0,15}(better|good))\b/i,
+      /\b(turning.{0,10}(point|corner)|new.{0,15}(direction|path|journey))\b/i,
+      /\b(starting over|starting again|beginning again|moving forward with hope)\b/i,
+    ],
+    confidence: 0.80,
+  },
+
+  // ── Regret ────────────────────────────────────────────────────────────────
+  {
+    id: "REGRET_REFLECTION",
+    patterns: [
+      /\b(regret.{0,20}(music|playlist|feeling|thinking|about))\b/i,
+      /\b(what.{0,15}(could have been|might have been|should have been))\b/i,
+      /\b(if only|wishing i|wish i (had|hadn't|could|didn't))\b/i,
+      /\b(missed.{0,15}(opportunity|chance|moment)|roads not taken)\b/i,
+    ],
+    confidence: 0.82,
+  },
+
+  // ── Life Changing ─────────────────────────────────────────────────────────
+  {
+    id: "LIFE_IS_CHANGING",
+    patterns: [
+      /\b(life.{0,20}(is changing|feels different|feels like it|changing|at a crossroads))\b/i,
+      /\b(music.{0,15}(feels like|that feels like).{0,20}life.{0,15}changing)\b/i,
+      /\b(everything.{0,15}(is changing|feels different|is different now))\b/i,
+      /\b(at a.{0,10}crossroads|pivotal.{0,10}moment|life.{0,10}transition)\b/i,
+      /\b(growing up|coming of age|milestone|things are shifting)\b/i,
+    ],
+    confidence: 0.80,
+  },
+
+  // ── Life Moments ──────────────────────────────────────────────────────────
+  {
+    id: "SUMMER_BEFORE_UNI",
+    patterns: [
+      /\b(summer before (uni|university|college|school|moving))\b/i,
+      /\b(last summer (of|before|as a).{0,20}(youth|young|school|teenager|high school))\b/i,
+      /\b(summer.{0,20}(before everything changed|before you leave|before it all changes))\b/i,
+      /\b(end of.{0,15}(school|summer|era|youth|chapter))\b/i,
+      /\b(18th|freshers|moving.{0,10}(away|out|to uni)).{0,20}(music|playlist|vibe)\b/i,
+    ],
+    confidence: 0.88,
+  },
+  {
+    id: "DRIVING_HOME_BREAKUP",
+    patterns: [
+      /\b(driving home.{0,20}(breakup|break.?up|split|after breaking up))\b/i,
+      /\b(after.{0,20}(breakup|break.?up|splitting up).{0,20}(drive|driving|car|home))\b/i,
+      /\b(driving.{0,20}after.{0,20}(she left|he left|they left|we broke up))\b/i,
+      /\b(alone.{0,20}(car|drive|driving).{0,20}(breakup|heartbreak|ended))\b/i,
+    ],
+    confidence: 0.90,
+  },
+
+  // ── Festival / Afterparty ─────────────────────────────────────────────────
+  {
+    id: "FESTIVAL_SUMMER_FIELD",
+    patterns: [
+      /\b(music festival|outdoor festival|festival.{0,15}(field|crowd|summer|music|vibes))\b/i,
+      /\b(glastonbury|reading festival|leeds festival|coachella|field.{0,15}(festival|stage))\b/i,
+      /\b(main stage|headline act|festival crowd|tent.{0,15}(stage|music))\b/i,
+      /\b(outdoor.{0,15}(music|gig|stage|crowd)|field.{0,15}(crowd|music|dancing))\b/i,
+    ],
+    confidence: 0.90,
+  },
+  {
+    id: "AFTERPARTY_COMEDOWN",
+    patterns: [
+      /\b(afterparty|after.?party|post.?club|4am.{0,20}(music|vibe|feeling|kitchen))\b/i,
+      /\b(after the (club|rave|party)|club.{0,15}(ended|over|done|finished))\b/i,
+      /\b(comedown.{0,15}(music|vibe|feeling)|post.?rave|rave.{0,10}after)\b/i,
+      /\b(5am.{0,20}(music|vibe|feeling)|dawn.{0,20}(music|vibe|after party))\b/i,
+      /\b(kitchen.{0,15}(4am|afterparty|floor|chat)|floor.{0,15}(4am|afterparty))\b/i,
+    ],
+    confidence: 0.90,
+  },
+
+  // ── Roots ─────────────────────────────────────────────────────────────────
+  {
+    id: "BLUEGRASS_MOUNTAIN",
+    patterns: [
+      /\b(bluegrass|appalachian.{0,15}(music|mountain|folk))\b/i,
+      /\b(banjo.{0,20}(music|song|tune|picking)|mountain.{0,15}(folk|music|picking))\b/i,
+      /\b(old.?timey|old time.{0,10}music|roots.{0,15}(music|americana|folk))\b/i,
+      /\b(string.?band|porch.{0,15}(music|picking|jam)|fiddle.{0,15}(music|tune|song))\b/i,
+    ],
+    confidence: 0.92,
+  },
+  {
+    id: "SOUTHERN_ROCK_HIGHWAY",
+    patterns: [
+      /\b(southern rock|southern.{0,15}(highway|rock|drive|road))\b/i,
+      /\b(lynyrd skynyrd|allman brothers|southern.{0,10}fried|dixie.{0,10}rock)\b/i,
+      /\b(dual.?guitar|guitar.{0,15}(highway|drive|road|riff)|highway.{0,15}(rock|guitar|riff))\b/i,
+      /\b(heartland.{0,15}(rock|drive|road|music)|southern.{0,10}blues.{0,10}rock)\b/i,
+    ],
+    confidence: 0.88,
+  },
+
+  // ── Bedroom / Lo-fi ───────────────────────────────────────────────────────
+  {
+    id: "INDIE_BEDROOM_LOFI",
+    patterns: [
+      /\b(bedroom.{0,20}(pop|music|vibes|chill|playlist))\b/i,
+      /\b(lo.?fi.{0,20}(chill|hip.?hop|vibes|music|playlist|study))\b/i,
+      /\b(lazy.{0,15}(afternoon|day|sunday|saturday).{0,15}(music|playlist|vibes))\b/i,
+      /\b(cosy.{0,15}(music|playlist|vibes|room|bedroom)|chill.{0,10}room|indoor.{0,10}(music|vibes))\b/i,
+      /\b(headphones?.{0,15}(music|vibes|chill|bedroom)|late.{0,10}afternoon.{0,10}(chill|room))\b/i,
+    ],
+    confidence: 0.82,
+  },
+  {
+    id: "LATE_NIGHT_THOUGHTS",
+    patterns: [
+      /\b(late night.{0,20}(thoughts|thinking|overthinking|spiral|feels))\b/i,
+      /\b(can'?t sleep|insomnia.{0,15}(music|playlist|vibes))\b/i,
+      /\b(3am.{0,20}(thoughts|thinking|feels|music|vibe)|midnight.{0,15}(thoughts|thinking|spiral))\b/i,
+      /\b(overthink.{0,15}(ing)?|lying.{0,15}awake|staring.{0,15}(at ceiling|ceiling))\b/i,
+      /\b(night.{0,15}thoughts|dark.{0,15}thoughts.{0,15}(music|night|quiet))\b/i,
+    ],
+    confidence: 0.84,
+  },
+
+  // ── Morning ───────────────────────────────────────────────────────────────
+  {
+    id: "SLOW_MORNING_COFFEE",
+    patterns: [
+      /\b(slow.{0,15}morning|morning.{0,15}coffee.{0,15}(music|playlist|vibe))\b/i,
+      /\b(coffee.{0,15}(morning|ritual|playlist|music)|morning.{0,15}ritual)\b/i,
+      /\b(lazy.{0,15}morning|gentle.{0,15}morning|quiet.{0,15}morning)\b/i,
+      /\b(sunday.{0,15}morning|saturday.{0,15}morning).{0,20}(coffee|quiet|slow|gentle)\b/i,
+      /\b(waking up slow|easing into the day|first cup|morning calm)\b/i,
+    ],
+    confidence: 0.84,
+  },
+  {
+    id: "MORNING_RUN_SUNRISE",
+    patterns: [
+      /\b(morning.{0,15}(run|jog|sprint|workout).{0,15}(music|playlist|energy))\b/i,
+      /\b(sunrise.{0,15}(run|jog|workout|music|energy)|running.{0,15}at sunrise)\b/i,
+      /\b(early.{0,15}(morning run|run|workout).{0,15}(music|playlist|energy))\b/i,
+      /\b(5am.{0,15}(run|workout|morning|energy)|6am.{0,15}(run|workout|energy))\b/i,
+    ],
+    confidence: 0.86,
+  },
+
+  // ── Rain / Walk ───────────────────────────────────────────────────────────
+  {
+    id: "WALKING_RAIN_CITY",
+    patterns: [
+      /\b(walking.{0,20}(in the rain|through rain|in rain|under rain))\b/i,
+      /\b(walk.{0,15}(in|through|under).{0,10}(rain|downpour|drizzle))\b/i,
+      /\b(rainy.{0,15}(walk|stroll|city|streets)|walking.{0,15}wet.{0,15}(streets|city))\b/i,
+      /\b(umbrella.{0,15}(walk|city|rain|music)|caught.{0,15}in.{0,10}rain)\b/i,
+    ],
+    confidence: 0.86,
+  },
+  {
+    id: "TOKYO_RAIN_WALK",
+    patterns: [
+      /\b(tokyo.{0,25}(rain|rainy|wet|walking|walk|in the rain))\b/i,
+      /\b(walking.{0,25}(tokyo|japan).{0,20}rain)\b/i,
+      /\b(japan.{0,25}(rain|rainy|wet street|walk))\b/i,
+      /\b(shibuya.{0,20}(rain|wet|walking)|osaka.{0,20}(rain|wet|walking))\b/i,
+    ],
+    confidence: 0.92,
+  },
+
+  // ── Cultural ──────────────────────────────────────────────────────────────
+  {
+    id: "EIGHTIES_UK_SYNTH",
+    patterns: [
+      /\b(80s.{0,15}(uk|british|synth.?pop|new wave|post.?punk))\b/i,
+      /\b(depeche.?mode|the cure|joy division|new order|echo.{0,5}bunnymen)\b/i,
+      /\b(synth.?pop|new wave|cold.?wave|post.?punk).{0,20}(80s|eighties|british|uk)\b/i,
+      /\b(80s.{0,10}(feel unreal|unreal feeling|ethereal|cinematic|atmospheric))\b/i,
+      /\b(eighties.{0,15}(uk|brit|synth|new wave)|british.{0,10}80s)\b/i,
+    ],
+    confidence: 0.88,
+  },
+
+  // ── Outdoors / Social ─────────────────────────────────────────────────────
+  {
+    id: "CAMPFIRE_NIGHT",
+    patterns: [
+      /\b(campfire.{0,20}(music|songs|night|vibes|playlist))\b/i,
+      /\b(bonfire.{0,20}(music|night|vibes|songs|playlist))\b/i,
+      /\b(around.{0,10}(campfire|the fire|bonfire)|songs.{0,15}(campfire|around the fire))\b/i,
+      /\b(camp.{0,10}(night|music|song|fire)|acoustic.{0,15}(campfire|outdoors|night))\b/i,
+      /\b(outdoor.{0,15}(night|fire|guitar|acoustic)|stargazing.{0,15}(music|songs|playlist))\b/i,
+    ],
+    confidence: 0.86,
+  },
+
   // ── City Pop / Japan ──────────────────────────────────────────────────────
   {
     id: "JAPANESE_CITY_POP",
@@ -1067,36 +1821,49 @@ export interface SemanticSceneResolution {
   vector: SemanticSceneVector | null;
   confidence: number;
   matchedId: string | null;
+  /** Up to 3 alternative scene matches ranked by confidence (excluding the primary) */
+  alternatives: Array<{ id: string; label: string; confidence: number }>;
 }
 
 /**
  * Detect which semantic scene vector applies to the vibe prompt.
- * Returns the best match with confidence, or null if no clear scene detected.
+ * Returns the best match with confidence plus up to 3 ranked alternatives.
  */
 export function resolveSemanticScene(
   vibe: string,
   profile: EmotionProfile
 ): SemanticSceneResolution {
-  let bestId: string | null = null;
-  let bestConf = 0;
+  // Collect all matches with their confidence scores
+  const matches: { id: string; confidence: number }[] = [];
 
   for (const entry of SCENE_DETECTION_PATTERNS) {
     if (entry.patterns.some((re) => re.test(vibe))) {
-      if (entry.confidence > bestConf) {
-        bestConf = entry.confidence;
-        bestId = entry.id;
-      }
+      matches.push({ id: entry.id, confidence: entry.confidence });
     }
   }
 
-  if (!bestId) {
-    return { vector: null, confidence: 0, matchedId: null };
+  if (matches.length === 0) {
+    return { vector: null, confidence: 0, matchedId: null, alternatives: [] };
   }
 
+  // Sort by confidence descending
+  matches.sort((a, b) => b.confidence - a.confidence);
+
+  const [primary, ...rest] = matches;
+
+  // Build alternatives list (up to 3, deduplicated, with label)
+  const alternatives = rest
+    .slice(0, 3)
+    .map(({ id, confidence }) => {
+      const v = SEMANTIC_SCENE_VECTORS[id];
+      return { id, label: v?.label ?? id.replace(/_/g, " "), confidence };
+    });
+
   return {
-    vector: SEMANTIC_SCENE_VECTORS[bestId] ?? null,
-    confidence: bestConf,
-    matchedId: bestId,
+    vector: SEMANTIC_SCENE_VECTORS[primary.id] ?? null,
+    confidence: primary.confidence,
+    matchedId: primary.id,
+    alternatives,
   };
 }
 

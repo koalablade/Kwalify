@@ -1081,6 +1081,91 @@ p { margin: 0; }
   transition: opacity 0.5s ease;
 }
 
+/* ── Live scene preview panel ──────────────────────────────────────────────── */
+.mood-scene-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0 12px;
+}
+
+.mood-scene-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+  margin-bottom: 6px;
+}
+
+.mood-scene-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.88);
+  margin-bottom: 7px;
+}
+
+.mood-scene-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.mood-scene-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.4px;
+}
+
+.mood-scene-badge--era {
+  background: rgba(167,139,250,0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(167,139,250,0.28);
+}
+
+.mood-scene-badge--genre {
+  background: rgba(29,185,84,0.10);
+  color: #1db954;
+  border: 1px solid rgba(29,185,84,0.24);
+}
+
+.mood-alts-row {
+  margin-top: 10px;
+}
+
+.mood-alts-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.22);
+  margin-bottom: 6px;
+}
+
+.mood-alts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.mood-alt-chip {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 99px;
+  padding: 2px 9px;
+  cursor: default;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.mood-alt-chip:hover {
+  color: rgba(255,255,255,0.7);
+  border-color: rgba(255,255,255,0.22);
+}
+
 /* Generating state */
 .generating-card {
   display: flex;
