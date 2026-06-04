@@ -292,6 +292,15 @@ export interface EcosystemDebug {
   swapsApplied: number;
   rejectedAndRegenerated: boolean;
   compositionSummary: string;
+  /** Narrative flow phases for the detected scene */
+  flowPhases: { intro: string; core: string; peak: string; cooldown: string };
+  /** Per-scene composition target + whether it was met */
+  ecosystemCompliance: {
+    targetPct: number;
+    actualPct: number;
+    passed: boolean;
+    compositionTarget: { primaryMin: number; adjacentMax: number; otherMax: number };
+  };
 }
 
 /**
@@ -350,6 +359,14 @@ export function buildEcosystemDebug<T extends {
     compositionParts.push(`${genre} ${pct}%`);
   }
 
+  const ct = vector.compositionTarget;
+  const ecosystemCompliance = {
+    targetPct: Math.round(ct.primaryMin * 100),
+    actualPct: Math.round(primaryShare * 100),
+    passed: primaryShare >= ct.primaryMin,
+    compositionTarget: ct,
+  };
+
   return {
     locked,
     sceneId: vector.id,
@@ -372,5 +389,7 @@ export function buildEcosystemDebug<T extends {
     swapsApplied,
     rejectedAndRegenerated,
     compositionSummary: compositionParts.join(", "),
+    flowPhases: vector.flowPhases,
+    ecosystemCompliance,
   };
 }
