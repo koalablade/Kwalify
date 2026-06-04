@@ -1183,6 +1183,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             clusterSpread: l["clusterSpread"] ?? {},
             clusterSelectionRatios: l["clusterSelectionRatios"] ?? {},
           })),
+          playlistExplanation: v3["playlistExplanation"] ?? null,
           clusters:         v3["clusters"] ?? [],
           selectionTrace:   v3["selectionTrace"] ?? v3["finalDecisionTrace"] ?? [],
           finalDistribution: v3["finalDistribution"] ?? {

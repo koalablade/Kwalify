@@ -54,6 +54,21 @@ export interface V3PipelineResult<T extends V3PipelineTrack> {
   diagnostics: Record<string, unknown>;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Shannon entropy normalised to [0,1] given the number of distinct keys. */
+function shannonEntropyNormalized(dist: Record<string, number>): number {
+  const total = Object.values(dist).reduce((s, v) => s + v, 0);
+  if (total === 0) return 0;
+  const n = Object.keys(dist).length;
+  if (n <= 1) return 0;
+  const raw = -Object.values(dist).reduce((s, v) => {
+    const p = v / total;
+    return s + (p > 0 ? p * Math.log2(p) : 0);
+  }, 0);
+  return Math.min(1, raw / Math.log2(n));
+}
+
 // ── Pipeline ─────────────────────────────────────────────────────────────────
 
 export function runV3Pipeline<T extends V3PipelineTrack>(
@@ -272,6 +287,90 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     artistDist[t.artistName] = (artistDist[t.artistName] ?? 0) + 1;
   }
 
+  // ── Build playlist explanation ────────────────────────────────────────────
+  const totalLaneSelected = laneDetails.reduce((s, ld) => s + ld.selectedCount, 0) || 1;
+  const totalTracesSelected = finalDecisionTrace.filter((t) => t.selected).length;
+  const totalTracesRejected = finalDecisionTrace.length - totalTracesSelected;
+  const rejectionCounts: Record<string, number> = {};
+  for (const t of finalDecisionTrace) {
+    if (!t.selected && t.rejectionReason) {
+      rejectionCounts[t.rejectionReason] = (rejectionCounts[t.rejectionReason] ?? 0) + 1;
+    }
+  }
+  const topRejectionReasons = Object.entries(rejectionCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([r]) => r);
+
+  const clusterMapAgg: Record<string, { trackCount: number; genres: string[]; weightContribution: number }> = {};
+  for (const ld of laneDetails) {
+    for (const [cid, ratio] of Object.entries(ld.clusterSelectionRatios)) {
+      if (!clusterMapAgg[cid]) clusterMapAgg[cid] = { trackCount: 0, genres: [], weightContribution: 0 };
+      clusterMapAgg[cid].weightContribution = Math.max(clusterMapAgg[cid].weightContribution, ratio as number);
+      if (cid.startsWith("genre:")) {
+        const g = cid.replace("genre:", "");
+        if (!clusterMapAgg[cid].genres.includes(g)) clusterMapAgg[cid].genres.push(g);
+      }
+    }
+    for (const [cid, count] of Object.entries(ld.clusterSpread)) {
+      if (clusterMapAgg[cid]) clusterMapAgg[cid].trackCount += count as number;
+    }
+  }
+
+  const playlistExplanation = {
+    intentSummary: {
+      primaryIntent: decomposed.primary,
+      secondaryIntents: decomposed.secondaryIntents as string[],
+      emotionVector: {
+        energy:    Math.round((profile.energy    ?? 0.5) * 100) / 100,
+        valence:   Math.round((profile.valence   ?? 0.5) * 100) / 100,
+        tension:   Math.round((profile.tension   ?? 0.3) * 100) / 100,
+        nostalgia: Math.round((profile.nostalgia ?? 0.2) * 100) / 100,
+        calm:      Math.round((profile.calm      ?? 0.5) * 100) / 100,
+      },
+      eraVector: eraDist,
+      sceneInfluenceMap: Object.fromEntries(
+        Object.entries(decomposed.sceneInfluenceMap as Record<string, number>)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5),
+      ),
+      activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
+    },
+    laneBreakdown: Object.fromEntries(
+      laneDetails.map((ld) => [ld.laneId, Math.round((ld.selectedCount / totalLaneSelected) * 100)]),
+    ),
+    laneDetails: laneDetails.map((ld) => ({
+      laneId:          ld.laneId,
+      label:           ld.label,
+      type:            ld.type,
+      weight:          ld.weight,
+      scoredCount:     ld.scoredCount,
+      selectedCount:   ld.selectedCount,
+      pctContribution: Math.round((ld.selectedCount / totalLaneSelected) * 100),
+    })),
+    clusterMap: clusterMapAgg,
+    diversityReport: {
+      genreEntropy:      Math.round(shannonEntropyNormalized(genreDist)  * 1000) / 1000,
+      artistEntropy:     Math.round(shannonEntropyNormalized(artistDist) * 1000) / 1000,
+      eraEntropy:        Math.round(shannonEntropyNormalized(eraDist)    * 1000) / 1000,
+      diversityPressure: Math.round(postMetrics.explorationPressure      * 1000) / 1000,
+      genreCount:   Object.keys(genreDist).length,
+      artistCount:  Object.keys(artistDist).length,
+      eraCount:     Object.keys(eraDist).length,
+      dominantGenre: postMetrics.dominantGenre,
+      dominantEra:   postMetrics.dominantEra,
+    },
+    selectionSummary: {
+      totalCandidates: finalDecisionTrace.length,
+      selected:        totalTracesSelected,
+      rejected:        totalTracesRejected,
+      topRejectionReasons,
+      selectionRate: finalDecisionTrace.length > 0
+        ? Math.round((totalTracesSelected / finalDecisionTrace.length) * 100)
+        : 100,
+    },
+  };
+
   const genreValues = Object.values(genreDist);
   const totalGenre  = genreValues.reduce((s, v) => s + v, 0) || 1;
   const genreConcentration = Math.max(...genreValues, 0) / totalGenre;
@@ -292,6 +391,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const diagnostics: Record<string, unknown> = {
     pipelineVersion: "v3.1_unified_routing",
     activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
+    playlistExplanation,
     finalDecisionTrace,
     selectionTrace: finalDecisionTrace,
     clusters: laneDetails.map((ld) => ({

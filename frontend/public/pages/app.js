@@ -132,6 +132,7 @@ const state = {
   tasteOpen: false,
   profileOpen: false,
   showDebug: false,
+  showExplain: false,
 };
 
 function getTheme() {
@@ -654,6 +655,21 @@ function resultHtml(result) {
   // ── Admin Debug Panel ──────────────────────────────────────────────────────
   const debugHtml = buildDebugPanel(result);
 
+  const hasExplain = !!(result.v3Diagnostics?.playlistExplanation);
+  const tabsHtml = hasExplain ? `
+  <div class="result-view-tabs">
+    <button class="result-tab-btn ${!state.showExplain ? "active" : ""}" id="tabPlaylist">
+      <i class="tab-icon">🎵</i>Playlist
+    </button>
+    <button class="result-tab-btn ${state.showExplain ? "active" : ""}" id="tabExplain">
+      <i class="tab-icon">🧠</i>Explain This Playlist
+    </button>
+  </div>` : "";
+
+  const explainContent = (hasExplain && state.showExplain)
+    ? renderPlaylistExplanation(result.v3Diagnostics.playlistExplanation)
+    : "";
+
   return `
   <div class="result-card">
     <div class="result-art">
@@ -673,9 +689,166 @@ function resultHtml(result) {
         ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
         ${result.savedPlaylistId ? `<a href="/p/${result.savedPlaylistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
       </div>
+      ${tabsHtml}
     </div>
   </div>
-  ${debugHtml}`;
+  ${explainContent}
+  ${!state.showExplain ? debugHtml : ""}`;
+}
+
+// ── Explain This Playlist ─────────────────────────────────────────────────────
+function renderPlaylistExplanation(expl) {
+  if (!expl) return `<div class="explain-card" style="text-align:center;color:var(--muted);padding:32px">No explanation data — regenerate with debug mode enabled.</div>`;
+
+  const intent   = expl.intentSummary    || {};
+  const laneList = expl.laneDetails      || [];
+  const clusters = expl.clusterMap       || {};
+  const div      = expl.diversityReport  || {};
+  const sel      = expl.selectionSummary || {};
+
+  const LANE_COLORS = { core:"#7c3aed", emotional:"#db2777", motion:"#0891b2", contrast:"#d97706", discovery:"#16a34a", fallback:"#6b7280", ambient:"#0e7490", high_energy:"#dc2626", low_energy:"#2563eb" };
+  const laneColor = (id) => LANE_COLORS[id] || LANE_COLORS[id?.split("_")[0]] || "#6b7280";
+
+  // ── 1. Intent ──────────────────────────────────────────────────────────────
+  const evec     = intent.emotionVector || {};
+  const evecKeys = ["energy","valence","calm","nostalgia","tension"];
+  const evecColors = { energy:"#f59e0b", valence:"#1db954", calm:"#38bdf8", nostalgia:"#a78bfa", tension:"#f87171" };
+  const eraVec   = intent.eraVector || {};
+  const topEras  = Object.entries(eraVec).sort((a,b) => b[1]-a[1]).slice(0,4);
+  const sceneMap = intent.sceneInfluenceMap || {};
+  const topScenes = Object.entries(sceneMap).filter(([,v]) => v > 0.05).slice(0,3);
+
+  const intentHtml = `
+  <div class="explain-card">
+    <div class="explain-card-title">🧠 Intent — What the system understood</div>
+    <div class="explain-intent-primary">${esc(String(intent.primaryIntent || "unknown")).replace(/_/g," ")}</div>
+    ${(intent.secondaryIntents||[]).length ? `<div class="explain-secondary-tags">${(intent.secondaryIntents||[]).slice(0,6).map(s=>`<span class="explain-tag">${esc(String(s).replace(/_/g," "))}</span>`).join("")}</div>` : ""}
+    <div class="explain-emotion-grid">
+      ${evecKeys.map(k => {
+        const v = evec[k] ?? 0;
+        const pct = Math.round(v*100);
+        const col = evecColors[k] || "#a78bfa";
+        return `<div class="explain-emotion-item">
+          <span class="explain-emotion-label">${k}</span>
+          <div class="explain-emotion-bar-wrap"><div class="explain-emotion-bar" style="width:${pct}%;background:${col}"></div></div>
+          <span class="explain-emotion-val">${pct}%</span>
+        </div>`;
+      }).join("")}
+    </div>
+    ${topEras.length ? `<div style="margin-top:10px;font-size:0.7rem;color:var(--muted)">Era focus: ${topEras.map(([e,c])=>`<span style="color:var(--text)">${esc(e)}</span> (${c})`).join(", ")}</div>` : ""}
+    ${topScenes.length ? `<div style="margin-top:6px;font-size:0.7rem;color:var(--muted)">Scene signals: ${topScenes.map(([s,v])=>`<span style="color:#c4b5fd">${esc(s.replace(/_/g," "))}</span> ${Math.round(v*100)}%`).join(", ")}</div>` : ""}
+    <div style="margin-top:8px;font-size:0.66rem;color:var(--muted-2)">Routing: <span style="color:${intent.activePath==="adaptive"?"#4ade80":"#f59e0b"}">${esc(String(intent.activePath||"adaptive").replace(/_/g," "))}</span></div>
+  </div>`;
+
+  // ── 2. Lane distribution ───────────────────────────────────────────────────
+  const laneSorted = [...laneList].sort((a,b) => b.pctContribution - a.pctContribution);
+  const laneHtml = `
+  <div class="explain-card">
+    <div class="explain-card-title">🎛️ Lane Distribution — How tracks were routed</div>
+    <div class="explain-lane-list">
+      ${laneSorted.map(l => {
+        const col = laneColor(l.laneId);
+        const pct = l.pctContribution || 0;
+        return `<div class="explain-lane-row">
+          <span class="explain-lane-label" title="${esc(l.laneId)}">${esc((l.label||l.laneId||"").replace(/_/g," "))}</span>
+          <div class="explain-lane-bar-wrap"><div class="explain-lane-bar" style="width:${pct}%;background:${col}"></div></div>
+          <span class="explain-lane-pct">${pct}%</span>
+          <span class="explain-lane-count">${l.selectedCount||0} / ${l.scoredCount||0}</span>
+        </div>`;
+      }).join("")}
+    </div>
+    <div style="margin-top:8px;font-size:0.66rem;color:var(--muted-2)">Format: selected / scored candidates per lane</div>
+  </div>`;
+
+  // ── 3. Cluster map ─────────────────────────────────────────────────────────
+  const clusterEntries = Object.entries(clusters)
+    .filter(([,v]) => (v.trackCount || 0) > 0 || (v.weightContribution || 0) > 0)
+    .sort((a,b) => (b[1].weightContribution||0) - (a[1].weightContribution||0))
+    .slice(0,8);
+
+  const clusterHtml = clusterEntries.length ? `
+  <div class="explain-card">
+    <div class="explain-card-title">🧬 Cluster Map — Why tracks grouped together</div>
+    <div class="explain-cluster-grid">
+      ${clusterEntries.map(([cid, cv]) => {
+        const label = cid.replace(/^genre:|^era:|^energy:/,"").replace(/_/g," ");
+        const wpct  = Math.round((cv.weightContribution||0)*100);
+        return `<div class="explain-cluster-row">
+          <span class="explain-cluster-id">${esc(label)}</span>
+          <span class="explain-cluster-genres">${cv.genres && cv.genres.length ? cv.genres.slice(0,3).map(g=>esc(g.replace(/_/g," "))).join(", ") : cid.split(":")[0]}</span>
+          <span class="explain-cluster-tracks">${cv.trackCount||0} tracks</span>
+          <span class="explain-cluster-weight" title="cluster weight contribution">${wpct}%</span>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>` : "";
+
+  // ── 4. Diversity layer ─────────────────────────────────────────────────────
+  const entropyRows = [
+    { name:"Genre variety",  val: div.genreEntropy||0,  count: div.genreCount||0,  unit:"genres",  col:"#7c3aed" },
+    { name:"Artist spread",  val: div.artistEntropy||0, count: div.artistCount||0, unit:"artists", col:"#0891b2" },
+    { name:"Era spread",     val: div.eraEntropy||0,    count: div.eraCount||0,    unit:"eras",    col:"#d97706" },
+    { name:"Diversity pressure", val: div.diversityPressure||0, count: null, unit:null, col:"#f87171" },
+  ];
+  const entropyNote = (v) => v >= 0.75 ? "high — broad selection" : v >= 0.45 ? "moderate" : "low — intentionally concentrated";
+
+  const diversityHtml = `
+  <div class="explain-card">
+    <div class="explain-card-title">🌐 Diversity Layer — Spread enforcement</div>
+    <div class="explain-entropy-list">
+      ${entropyRows.map(r => {
+        const pct = Math.round(r.val*100);
+        return `<div class="explain-entropy-row">
+          <div class="explain-entropy-header">
+            <span class="explain-entropy-name">${esc(r.name)}${r.count !== null ? ` <span style="color:var(--muted-2)">(${r.count} ${r.unit})</span>` : ""}</span>
+            <span class="explain-entropy-val">${pct}%</span>
+          </div>
+          <div class="explain-entropy-bar-wrap"><div class="explain-entropy-bar" style="width:${pct}%;background:${r.col}"></div></div>
+          <span class="explain-entropy-note">${entropyNote(r.val)}</span>
+        </div>`;
+      }).join("")}
+    </div>
+    ${div.dominantGenre ? `<div style="margin-top:8px;font-size:0.7rem;color:var(--muted)">Dominant genre: <strong style="color:var(--text)">${esc(div.dominantGenre.replace(/_/g," "))}</strong>${div.dominantEra?` · Era: <strong style="color:var(--text)">${esc(div.dominantEra)}</strong>`:""}</div>` : ""}
+  </div>`;
+
+  // ── 5. Selection summary ───────────────────────────────────────────────────
+  const selRate = sel.selectionRate ?? (sel.totalCandidates > 0 ? Math.round(sel.selected/sel.totalCandidates*100) : 0);
+  const rejReasons = (sel.topRejectionReasons||[]).map(r => r.replace(/_/g," "));
+
+  const selHtml = `
+  <div class="explain-card">
+    <div class="explain-card-title">🔥 Selection Summary — What got in, what didn't</div>
+    <div class="explain-sel-stats">
+      <div class="explain-sel-stat">
+        <div class="explain-sel-num">${sel.totalCandidates||0}</div>
+        <div class="explain-sel-lbl">Evaluated</div>
+      </div>
+      <div class="explain-sel-stat">
+        <div class="explain-sel-num" style="color:#4ade80">${sel.selected||0}</div>
+        <div class="explain-sel-lbl">Selected</div>
+      </div>
+      <div class="explain-sel-stat">
+        <div class="explain-sel-num" style="color:#f87171">${sel.rejected||0}</div>
+        <div class="explain-sel-lbl">Rejected</div>
+      </div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:4px">
+        <span style="color:var(--muted)">Selection rate</span>
+        <span style="color:${selRate>=50?"#4ade80":"#f59e0b"}">${selRate}%</span>
+      </div>
+      <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${selRate}%;background:${selRate>=50?"#1db954":"#f59e0b"};border-radius:3px;transition:width 0.6s"></div>
+      </div>
+    </div>
+    ${rejReasons.length ? `
+    <div style="font-size:0.7rem;color:var(--muted);margin-bottom:6px;font-weight:600">Top rejection reasons</div>
+    <div class="explain-rejection-list">
+      ${rejReasons.map(r=>`<div class="explain-rejection-item"><span class="explain-rejection-dot"></span>${esc(r)}</div>`).join("")}
+    </div>` : ""}
+  </div>`;
+
+  return `<div class="explain-panel">${intentHtml}${laneHtml}${clusterHtml}${diversityHtml}${selHtml}</div>`;
 }
 
 // ── Admin Debug Panel ─────────────────────────────────────────────────────────
@@ -1340,6 +1513,19 @@ function wireAppEvents() {
     }
   });
 
+  // ── Explain This Playlist tab toggle ──────────────────────────────────────
+  document.addEventListener("click", (e) => {
+    const tabPl = e.target.id === "tabPlaylist" || e.target.closest("#tabPlaylist");
+    const tabEx = e.target.id === "tabExplain"  || e.target.closest("#tabExplain");
+    if (tabPl && state.showExplain) {
+      state.showExplain = false;
+      renderApp();
+    } else if (tabEx && !state.showExplain) {
+      state.showExplain = true;
+      renderApp();
+    }
+  });
+
   // Ctrl/Cmd+K to focus input
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -1407,6 +1593,7 @@ async function generate() {
   state.generating = true;
   state.lastResult = null;
   state.error = null;
+  state.showExplain = false;
   renderApp();
 
   const savedVibe = vibe;
