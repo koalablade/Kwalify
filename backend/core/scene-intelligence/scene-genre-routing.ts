@@ -382,3 +382,34 @@ export function scenePoolMultiplier(
 ): number {
   return routing.genreMultipliers[genre] ?? 1;
 }
+
+/**
+ * Build a SceneGenreRouting directly from a SemanticSceneVector.
+ *
+ * When a semantic scene resolves with confidence >= threshold, use the
+ * vector's own ecosystem weights as multipliers instead of relying solely
+ * on the regex-based routing system. The two systems are then merged, with
+ * the vector-based routing taking precedence for ecosystem genres.
+ */
+export function buildRoutingFromVector(
+  vector: import("../../lib/semantic-scene-engine").SemanticSceneVector
+): SceneGenreRouting {
+  const multipliers: Partial<Record<RootGenre, number>> = {};
+  const boosted: RootGenre[] = [];
+  const suppressed: RootGenre[] = [];
+
+  // Map ecosystem weights to pool multipliers (weight 1.0 → 1.40, weight 0.30 → 0.85)
+  for (const { genre, weight } of vector.genreEcosystem) {
+    const multiplier = 0.65 + weight * 0.75;
+    multipliers[genre as RootGenre] = Math.min(1.40, multiplier);
+    if (weight >= 0.65) boosted.push(genre as RootGenre);
+  }
+
+  // Hard-suppress anti-genres (multiplier 0.08 — nearly excluded from pool)
+  for (const genre of vector.antiGenres) {
+    multipliers[genre as RootGenre] = 0.08;
+    suppressed.push(genre as RootGenre);
+  }
+
+  return { boostedGenres: boosted, suppressedGenres: suppressed, genreMultipliers: multipliers };
+}
