@@ -33,6 +33,17 @@ export interface GenreTaxon {
   artistHints?: RegExp;
 }
 
+export interface ClassificationDiagnostics {
+  /** True if at least one text pattern, micro-style, or artist hint matched */
+  taxonomyHit: boolean;
+  /** The artistHints regex source that matched for the winning taxon, if any */
+  artistHintMatched: string | null;
+  /** The first text pattern or micro-style that matched for the winning taxon, if any */
+  patternMatched: string | null;
+  /** True if the winning classification came from audio signals only (no text match) */
+  audioFallbackUsed: boolean;
+}
+
 export interface TrackGenreClassification {
   genrePrimary: RootGenre;
   genreSecondary: RootGenre | null;
@@ -44,6 +55,7 @@ export interface TrackGenreClassification {
   /** Primary subgenre id (not just family) */
   primarySubgenre: string;
   secondarySubgenre: string | null;
+  diagnostics?: ClassificationDiagnostics;
 }
 
 /** API alias per product spec */
@@ -132,21 +144,40 @@ export function classifyTrack(
   const blob = `${track.trackName} ${track.artistName} ${track.albumName}`;
   const hits: { taxon: GenreTaxon; score: number; micro: string | null }[] = [];
 
+  // Per-taxon diagnostic: first text pattern and artist hint that fired
+  const textDiag = new Map<GenreTaxon, { patternMatched: string | null; artistHintMatched: string | null }>();
+
   for (const taxon of TAXONOMY) {
     let score = 0;
     let micro: string | null = null;
+    let patternSrc: string | null = null;
+    let hintSrc: string | null = null;
+
     for (const p of taxon.patterns) {
-      if (p.test(blob)) score += 0.42;
+      if (p.test(blob)) {
+        score += 0.42;
+        if (!patternSrc) patternSrc = p.source;
+      }
     }
     for (const m of taxon.microStyles) {
       if (blob.toLowerCase().includes(m.toLowerCase())) {
         score += 0.34;
         micro = m;
+        if (!patternSrc) patternSrc = m;
       }
     }
-    if (taxon.artistHints?.test(blob)) score += 0.52;
-    if (score > 0) hits.push({ taxon, score, micro });
+    if (taxon.artistHints?.test(blob)) {
+      score += 0.52;
+      hintSrc = taxon.artistHints.source;
+    }
+    if (score > 0) {
+      hits.push({ taxon, score, micro });
+      textDiag.set(taxon, { patternMatched: patternSrc, artistHintMatched: hintSrc });
+    }
   }
+
+  // Record how many text hits existed before audio heuristics
+  const textHitCount = hits.length;
 
   for (const hint of vibeGenreHints ?? []) {
     const t = TAXONOMY.find((x) => x.root === hint || x.subgenre === hint);
@@ -163,6 +194,11 @@ export function classifyTrack(
     if (inferred) return inferred;
     return emptyClassification();
   }
+
+  const topTextDiag = textDiag.get(top.taxon);
+  const taxonomyHit = textHitCount > 0;
+  // audioFallbackUsed: winning taxon had no text component (came purely from audio heuristics or inferGenreFromAudioOnly)
+  const audioFallbackUsed = !textDiag.has(top.taxon);
 
   const confidence = Math.min(1, top.score / 1.15);
   const subGenres = [top.taxon.subgenre, ...(top.micro ? [top.micro] : [])];
@@ -181,6 +217,12 @@ export function classifyTrack(
     microStyle: top.micro,
     confidenceScore: confidence,
     holidayBound: top.taxon.root === "christmas",
+    diagnostics: {
+      taxonomyHit,
+      artistHintMatched: topTextDiag?.artistHintMatched ?? null,
+      patternMatched: topTextDiag?.patternMatched ?? null,
+      audioFallbackUsed,
+    },
   };
 }
 

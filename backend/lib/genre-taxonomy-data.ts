@@ -21,8 +21,8 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
   {
     family: "country",
     subgenres: [
-      { id: "modern_country", microStyles: ["bro-country", "stadium country"], patterns: ["modern country", "country radio"], artistHints: ["luke combs", "morgan wallen", "chris stapleton"] },
-      { id: "alt_country", microStyles: ["americana", "outlaw country"], patterns: ["alt country", "alt-country", "outlaw", "americana"], artistHints: ["sturgill simpson", "tyler childers", "jason isbell"] },
+      { id: "modern_country", microStyles: ["bro-country", "stadium country"], patterns: ["modern country", "country radio"], artistHints: ["luke combs", "morgan wallen", "chris stapleton", "zach bryan"] },
+      { id: "alt_country", microStyles: ["americana", "outlaw country"], patterns: ["alt country", "alt-country", "outlaw", "americana"], artistHints: ["sturgill simpson", "tyler childers", "jason isbell", "brandi carlile", "avett brothers"] },
       { id: "country_pop", microStyles: ["nashville pop"], patterns: ["country pop", "nashville"], artistHints: ["shania twain", "carrie underwood", "kacey musgraves"] },
       { id: "bluegrass", microStyles: ["newgrass"], patterns: ["bluegrass", "banjo pick"], artistHints: ["alison krauss", "billy strings"] },
       { id: "folk_country", microStyles: ["folk country", "southern folk"], patterns: ["folk country", "country folk", "honky tonk", "red dirt", "western swing"] },
@@ -119,15 +119,15 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
   {
     family: "folk",
     subgenres: [
-      { id: "indie_folk", microStyles: ["chamber folk"], patterns: ["indie folk", "folk indie"] },
-      { id: "singer_songwriter", microStyles: ["acoustic folk"], patterns: ["singer-songwriter", "singer songwriter", "acoustic folk"] },
+      { id: "indie_folk", microStyles: ["chamber folk"], patterns: ["indie folk", "folk indie"], artistHints: ["fleet foxes", "sufjan stevens", "avett brothers"] },
+      { id: "singer_songwriter", microStyles: ["acoustic folk"], patterns: ["singer-songwriter", "singer songwriter", "acoustic folk"], artistHints: ["gregory alan isakov", "iron.*wine"] },
       { id: "traditional_folk", microStyles: ["celtic folk"], patterns: ["traditional folk", "celtic folk", "irish folk"] },
     ],
   },
   {
     family: "indie",
     subgenres: [
-      { id: "indie_general", microStyles: ["indie", "alternative indie"], patterns: ["\\bindie\\b", "indie music"] },
+      { id: "indie_general", microStyles: ["indie", "alternative indie"], patterns: ["\\bindie\\b", "indie music"], artistHints: ["arctic monkeys", "the 1975", "bon iver", "phoebe bridgers", "the national", "beach house", "tame impala", "\\bmgmt\\b", "\\blorde\\b", "foster the people", "wallows", "\\bm83\\b", "the killers", "florence.*machine"] },
       { id: "lofi_indie", microStyles: ["lo-fi beats", "chillhop"], patterns: ["lo-fi", "lofi", "chillhop", "study beats"] },
     ],
   },
