@@ -72,12 +72,13 @@ export function buildTrackDecisionTrace(input: BuildTrackTraceInput): TrackDecis
     emotionMatch: input.hybridDebug?.emotionMatch ?? 0,
   };
 
+  // V10: 3-channel scoring — semantic 45%, emotion 25%, scene 30%
   const sceneContribution =
     Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * SCORING_WEIGHTS.scene;
   const emotionContribution = tri.emotionMatch * SCORING_WEIGHTS.emotion;
-  const libraryContribution = tri.libraryFitScore * SCORING_WEIGHTS.library;
-  // genre weight is now 0.05 (user library affinity — personalisation only)
-  const baseGenreScore = tri.genreBalanceScore * SCORING_WEIGHTS.genre;
+  // V10: library and genre are not scoring factors — reported as 0 in trace
+  const libraryContribution = 0;
+  const baseGenreScore = 0;
 
   const pre = input.preScore;
   const forecastBoost = pre?.forecastComponent ?? 0;

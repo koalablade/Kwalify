@@ -59,6 +59,7 @@ import {
 import {
   resolveSemanticScene,
   computeSemanticEcosystemScore,
+  computeMultiSceneEcosystemScore,
   computeNegativePenalty,
   computeEnergyFit,
   type SemanticSceneResolution,
@@ -393,51 +394,25 @@ export function computeTriScores(
 }
 
 export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): number {
-  // Adaptive scene weight: reduce scene influence when confidence is low
-  // so the scene shapes rather than dominates for ambiguous prompts
-  const sceneConf = ctx.semanticResolution.confidence;
-  const adaptiveSceneWeight = sceneConf < 0.70
-    ? SCORING_WEIGHTS.scene * (sceneConf / 0.70)
-    : SCORING_WEIGHTS.scene;
-  const redistributed = SCORING_WEIGHTS.scene - adaptiveSceneWeight;
-  const sceneContrib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * adaptiveSceneWeight;
+  // V10: 3-channel scoring — semantic (45%), emotion (25%), scene (30%).
+  // Scene score = multi-vector dot product across all active scenes (never single-scene gating).
+  // No adaptive weighting, no confidence thresholds switching logic paths.
+  const multiSceneScore = computeMultiSceneEcosystemScore(
+    tri.classification,
+    ctx.semanticResolution.sceneVector
+  );
 
-  let final: number;
+  let final =
+    tri.semanticEcosystemScore * SCORING_WEIGHTS.semantic +
+    tri.emotionMatch * SCORING_WEIGHTS.emotion +
+    multiSceneScore * SCORING_WEIGHTS.scene;
 
-  if (ctx.noLibraryMode) {
-    // No-library mode — semantic-driven with moderate scene influence.
-    // Scene weight scales with confidence; redistribution goes to semantic.
-    const noLibSceneWeight = sceneConf < 0.70
-      ? 0.20 * (sceneConf / 0.70)
-      : 0.20;
-    const noLibSceneContrib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * noLibSceneWeight;
-    const noLibRedistributed = 0.20 - noLibSceneWeight;
-    final =
-      tri.semanticEcosystemScore * (0.55 + noLibRedistributed) +
-      tri.emotionMatch * 0.15 +
-      noLibSceneContrib +
-      tri.genreBalanceScore * 0.10;
-  } else {
-    // Personalized mode: intent-first with library history as a refinement signal.
-    // When scene confidence is low, redistributed weight flows back to semantic.
-    final =
-      tri.semanticEcosystemScore * (SCORING_WEIGHTS.semantic + redistributed) +
-      tri.emotionMatch * SCORING_WEIGHTS.emotion +
-      sceneContrib +
-      tri.aestheticScore * SCORING_WEIGHTS.aesthetic +
-      tri.libraryFitScore * SCORING_WEIGHTS.library +
-      tri.genreBalanceScore * SCORING_WEIGHTS.genre;
-  }
-
-  // Apply negative match penalty — anti-genre tracks are penalised multiplicatively.
-  // Penalty is now harsher (0.08 for high-confidence violations) — see computeNegativePenalty.
+  // Apply negative match penalty — anti-genre tracks penalised multiplicatively.
+  // This is a soft rank adjustment, not a pool filter.
   final *= tri.negativePenalty;
 
-  if (!ctx.noLibraryMode && ctx.intent.intent === "nostalgia") {
-    final += tri.libraryFitScore * 0.04;
-  }
   if (isGenreLocked(tri.classification)) {
-    // Genre-locked tracks: ensure semantic score still leads but genre gets a floor
+    // Genre-locked tracks: semantic score still leads — blend for stability.
     final = final * 0.85 + tri.semanticEcosystemScore * 0.15;
   }
 

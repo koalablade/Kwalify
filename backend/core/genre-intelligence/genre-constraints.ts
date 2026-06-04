@@ -5,8 +5,8 @@
 import type { RootGenre, TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { UserGenreVector } from "../../lib/user-genre-profile";
 
-/** Max share any single genre may occupy in a final playlist (V9: 45%) */
-export const MAX_GENRE_DOMINANCE = 0.45;
+/** Max share any single genre may occupy in a final playlist (V10: 35%) */
+export const MAX_GENRE_DOMINANCE = 0.35;
 
 /** Min distinct genre families in playlist (V9: minimum 3 genres if available) */
 export const MIN_DISTINCT_GENRES_IN_PLAYLIST = 3;
@@ -19,22 +19,19 @@ export const GENRE_LIBRARY_FLOOR = 0.05;
 export const MAX_SCENE_SCORE_INFLUENCE = 0.45;
 
 /**
- * Scoring weights — V9 locked spec.
+ * Scoring weights — V10 locked spec.
  *
- * semantic (40%): semantic ecosystem match — PRIMARY ranking signal
- * emotion  (20%): energy/valence/mood match
- * scene    (15%): audio profile match — signal, not gate
- * aesthetic(10%): instrumentation/signature match
- * library  (10%): personalisation — user's own listening history
- * genre    (05%): soft preference signal only
+ * semantic (45%): semantic ecosystem match — PRIMARY ranking signal
+ * emotion  (25%): energy/valence/mood match
+ * scene    (30%): multi-vector scene similarity — dot product across all active scenes
+ *
+ * Genre, aesthetic, and library are NOT scoring factors.
+ * Diversity balance (genre max 35%, min 3 genres) applied post-ranking only.
  */
 export const SCORING_WEIGHTS = {
-  semantic: 0.40,
-  emotion: 0.20,
-  scene: 0.15,
-  aesthetic: 0.10,
-  library: 0.10,
-  genre: 0.05,
+  semantic: 0.45,
+  emotion: 0.25,
+  scene: 0.30,
 } as const;
 
 /** Minimum share of final playlist tracks from the dominant scene ecosystem */

@@ -1821,6 +1821,12 @@ export interface SemanticSceneResolution {
   vector: SemanticSceneVector | null;
   confidence: number;
   matchedId: string | null;
+  /**
+   * V10: weighted multi-scene vector, always 3–5 entries summing to 1.0.
+   * Used for `sceneScore = Σ(weight × ecosystemAffinity)` in the scoring engine.
+   * When input is weak (confidence < 0.5), entropy is spread across more scenes.
+   */
+  sceneVector: Array<{ id: string; weight: number }>;
   /** Up to 3 alternative scene matches ranked by confidence (excluding the primary) */
   alternatives: Array<{ id: string; label: string; confidence: number }>;
 }
@@ -1898,12 +1904,67 @@ const SCENE_CATEGORY_PRIORITY: Record<string, number> = {
 const PRIORITY_TIEBREAK_DELTA = 0.05;
 
 /**
- * Detect which semantic scene vector applies to the vibe prompt.
- * Returns the best match with confidence plus up to 3 ranked alternatives.
+ * V10 broad defaults — used when no scene matches or as padding to reach 3 scenes.
+ * Represent the most genre-neutral, broadly applicable scenes in the taxonomy.
+ * Priority: emotionally neutral first, then energy-based.
+ */
+const BROAD_DEFAULT_SCENES: Array<{ id: string; baseWeight: number }> = [
+  { id: "NOSTALGIA", baseWeight: 0.40 },
+  { id: "INDIE_BEDROOM_LOFI", baseWeight: 0.35 },
+  { id: "THINKING_ABOUT_LIFE", baseWeight: 0.25 },
+];
+
+/**
+ * Build the V10 scene vector from a sorted list of matches.
+ * Always produces 3–5 entries summing to 1.0.
  *
- * V9.1 / V9.2: deterministic, taxonomy-bound, single primary scene.
- * When confidence scores are within 0.05, V9.2 category priority resolves the tie:
- *   Road/Outdoor > Urban/Night > Nostalgia/Warm > Chill/Focus > Energy/Motion
+ * Entropy expansion rule (V10):
+ *   If primaryConfidence < 0.5, flatten the weight distribution so that
+ *   secondary/tertiary scenes get more influence — "more scenes, not fallback".
+ */
+function buildSceneVector(
+  sortedMatches: Array<{ id: string; confidence: number }>
+): Array<{ id: string; weight: number }> {
+  const primaryConf = sortedMatches[0]?.confidence ?? 0;
+  const isWeakInput = primaryConf < 0.5;
+
+  // Take up to 5 matches, assigning raw weights
+  const top = sortedMatches.slice(0, 5);
+  const rawEntries: Array<{ id: string; raw: number }> = top.map((m, i) => {
+    // Entropy expansion: flatten distribution for weak inputs
+    const base = isWeakInput
+      ? m.confidence * 0.55 + (1 / (i + 1)) * 0.45
+      : m.confidence;
+    return { id: m.id, raw: base };
+  });
+
+  // Pad to minimum 3 scenes with broad defaults
+  const existingIds = new Set(rawEntries.map((e) => e.id));
+  for (const def of BROAD_DEFAULT_SCENES) {
+    if (rawEntries.length >= 3) break;
+    if (!existingIds.has(def.id) && SEMANTIC_SCENE_VECTORS[def.id]) {
+      rawEntries.push({ id: def.id, raw: def.baseWeight * (isWeakInput ? 0.9 : 0.6) });
+      existingIds.add(def.id);
+    }
+  }
+
+  // Normalize to sum 1.0
+  const total = rawEntries.reduce((s, e) => s + e.raw, 0);
+  return rawEntries.map(({ id, raw }) => ({
+    id,
+    weight: total > 0 ? raw / total : 1 / rawEntries.length,
+  }));
+}
+
+/**
+ * Detect which semantic scenes apply to the vibe prompt.
+ *
+ * V9.2 / V10: Returns a deterministic primary scene PLUS a weighted multi-scene
+ * vector of 3–5 scenes summing to 1.0 for use in the V10 scoring engine.
+ *
+ * Tiebreak order (V9.2): Road/Outdoor > Urban/Night > Nostalgia/Warm > Chill/Focus > Energy/Motion
+ * Entropy expansion (V10): weak input (confidence < 0.5) spreads weight across more scenes.
+ * Zero-match (V10): returns broad default scene vector — NEVER returns "no scene".
  */
 export function resolveSemanticScene(
   vibe: string,
@@ -1918,12 +1979,23 @@ export function resolveSemanticScene(
     }
   }
 
+  // V10: Never return "no scene" — always produce a scene vector
   if (matches.length === 0) {
-    return { vector: null, confidence: 0, matchedId: null, alternatives: [] };
+    const defaultVector = BROAD_DEFAULT_SCENES
+      .filter((d) => SEMANTIC_SCENE_VECTORS[d.id])
+      .map((d) => ({ id: d.id, weight: d.baseWeight }));
+    const total = defaultVector.reduce((s, d) => s + d.weight, 0);
+    const sceneVector = defaultVector.map((d) => ({ ...d, weight: d.weight / total }));
+    return {
+      vector: null,
+      confidence: 0,
+      matchedId: null,
+      sceneVector,
+      alternatives: [],
+    };
   }
 
   // V9.2: Sort by confidence descending, then by category priority ascending (lower = higher priority).
-  // This means that within a 0.05 confidence band, the higher-priority category wins.
   matches.sort((a, b) => {
     const confDiff = b.confidence - a.confidence;
     if (Math.abs(confDiff) > PRIORITY_TIEBREAK_DELTA) return confDiff;
@@ -1934,6 +2006,9 @@ export function resolveSemanticScene(
   });
 
   const [primary, ...rest] = matches;
+
+  // V10: Build multi-scene vector (3-5 scenes, sum to 1.0)
+  const sceneVector = buildSceneVector(matches);
 
   // Build alternatives list (up to 3, deduplicated, with label)
   const alternatives = rest
@@ -1947,8 +2022,28 @@ export function resolveSemanticScene(
     vector: SEMANTIC_SCENE_VECTORS[primary.id] ?? null,
     confidence: primary.confidence,
     matchedId: primary.id,
+    sceneVector,
     alternatives,
   };
+}
+
+/**
+ * V10 multi-scene ecosystem score.
+ * Computes `sceneScore = Σ(sceneVector[i].weight × ecosystemAffinity[i])`.
+ * This is the scene channel (30%) in the V10 3-factor scoring formula.
+ */
+export function computeMultiSceneEcosystemScore(
+  classification: TrackGenreClassification,
+  sceneVector: Array<{ id: string; weight: number }>
+): number {
+  if (sceneVector.length === 0) return 0.5;
+  let score = 0;
+  for (const { id, weight } of sceneVector) {
+    const sv = SEMANTIC_SCENE_VECTORS[id];
+    if (!sv) continue;
+    score += weight * computeSemanticEcosystemScore(classification, sv);
+  }
+  return Math.min(1, score);
 }
 
 /**
