@@ -6,7 +6,7 @@ import type { RootGenre, TrackGenreClassification } from "../../lib/genre-taxono
 import type { UserGenreVector } from "../../lib/user-genre-profile";
 
 /** Max share any single genre may occupy in a final playlist */
-export const MAX_GENRE_DOMINANCE = 0.45;
+export const MAX_GENRE_DOMINANCE = 0.40;
 
 /** Min distinct genre families when library has enough variety */
 export const MIN_DISTINCT_GENRES_IN_PLAYLIST = 6;

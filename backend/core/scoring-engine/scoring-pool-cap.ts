@@ -20,12 +20,6 @@ import {
   resolveHybridPoolCap,
 } from "../../lib/production-limits";
 import type { SemanticSceneVector } from "../../lib/semantic-scene-engine";
-import {
-  isHardAntiGenre,
-  isEcosystemWhitelisted,
-  isEcosystemAdjacent,
-  ECOSYSTEM_HARD_GATE_CONFIDENCE,
-} from "../../lib/semantic-scene-engine";
 
 function seededJitter(trackId: string, seed: number): number {
   let h = seed;
@@ -96,100 +90,17 @@ export function capTracksForHybridScoring<T extends {
       promptWordCount: opts.promptWordCount,
     });
 
-  // ── Phase 3: Retrieval Before Scoring (V5 hard constraint gate) ─────────────
+  // ── Pre-filter: metadata quality only ────────────────────────────────────
   //
-  // Two-tier scene pre-filter — tracks are REMOVED, never penalised:
+  // Scene/ecosystem genre filtering is intentionally REMOVED.
+  // Genre diversity must be preserved across the full scoring pool.
+  // Scene shapes the output via SCORING WEIGHTS, not by removing tracks.
   //
-  //   Tier 1 (confidence ≥ 0.55):  Remove tracks whose primary genre is in
-  //     the scene's explicit anti-genre list (e.g. hip-hop for OUTLAW_COUNTRY).
-  //     Protects against the most egregious cross-genre leaks.
-  //
-  //   Tier 2 (confidence ≥ ECOSYSTEM_HARD_GATE_CONFIDENCE / 0.70):  Full
-  //     ecosystem whitelist — remove every track whose primary genre is NOT
-  //     present in the scene ecosystem with weight ≥ ECOSYSTEM_HARD_GATE_MIN_WEIGHT.
-  //     This is the structural impossibility V5 requires: genre leakage cannot
-  //     happen because out-of-ecosystem tracks never enter the scoring pool.
-  //
-  // Failsafe — adjacency expansion (V5 §7 / §10):
-  //   If the full-gate pool < 30% of cap, relax to anti-genre-only removal (Tier 1).
-  //   If even that is too small, keep the anti-genre-only set and let the
-  //   scoring engine's own hard gate handle residual violations.
-  //   Global unfiltered fallback is NEVER used — coherence over variety.
+  // Only filter: corrupted metadata (null trackId), explicit blacklists.
+  // Everything else enters the scoring pool and competes on merit.
   let workingTracks = tracks;
-  let preFilterRejectedCount = 0;
-  let adjacencyLevelUsed: 0 | 1 | 2 | 3 = 0;
-
-  if (opts.ecosystemPreFilter) {
-    const { vector, sceneConfidence } = opts.ecosystemPreFilter;
-    const classMap = opts.classifications;
-    const minPool = Math.max(Math.floor(max * 0.30), 15);
-
-    if (sceneConfidence >= 0.55) {
-      // ── Level 1: Full ecosystem whitelist (weight ≥ 0.50) ─────────────────────
-      // The ideal case — only genres explicitly in the scene ecosystem above the
-      // hard gate minimum enter the pool. This is the V5.1 "global invariant".
-      const useFullGate = sceneConfidence >= ECOSYSTEM_HARD_GATE_CONFIDENCE;
-      if (useFullGate) {
-        const l1 = tracks.filter((t) => {
-          const c = classMap.get(t.trackId);
-          if (!c) return true;
-          return isEcosystemWhitelisted(c, vector, sceneConfidence);
-        });
-        if (l1.length >= minPool) {
-          preFilterRejectedCount = tracks.length - l1.length;
-          workingTracks = l1;
-          adjacencyLevelUsed = 1;
-        } else {
-          // ── Level 2: Adjacency bridges (weight ≥ 0.30, NOT anti-genre) ─────────
-          // Direct bridges only — genre must appear in the ecosystem graph.
-          // Fuzzy similarity / absent genres are still excluded.
-          const l2 = tracks.filter((t) => {
-            const c = classMap.get(t.trackId);
-            if (!c) return true;
-            return isEcosystemAdjacent(c, vector);
-          });
-          if (l2.length >= minPool) {
-            preFilterRejectedCount = tracks.length - l2.length;
-            workingTracks = l2;
-            adjacencyLevelUsed = 2;
-          } else if (tracks.length < 20) {
-            // ── Level 3: Emergency (anti-genre-only) — ONLY when library < 20 tracks
-            // Never expand to unfiltered original library. Coherence over variety.
-            const l3 = tracks.filter((t) => {
-              const c = classMap.get(t.trackId);
-              if (!c) return true;
-              return !isHardAntiGenre(c, vector);
-            });
-            preFilterRejectedCount = tracks.length - l3.length;
-            workingTracks = l3.length > 0 ? l3 : tracks;
-            adjacencyLevelUsed = 3;
-          } else {
-            // Pool is small but we have tracks — use L2 result even if below minPool.
-            // A coherent small pool beats an incoherent large one.
-            preFilterRejectedCount = tracks.length - l2.length;
-            workingTracks = l2.length > 0 ? l2 : tracks.filter((t) => {
-              const c = classMap.get(t.trackId);
-              if (!c) return true;
-              return !isHardAntiGenre(c, vector);
-            });
-            adjacencyLevelUsed = 2;
-          }
-        }
-      } else {
-        // sceneConfidence ≥ 0.55 but < 0.70 — use L2 adjacency bridges directly
-        const l2 = tracks.filter((t) => {
-          const c = classMap.get(t.trackId);
-          if (!c) return true;
-          return isEcosystemAdjacent(c, vector);
-        });
-        if (l2.length >= minPool) {
-          preFilterRejectedCount = tracks.length - l2.length;
-          workingTracks = l2;
-          adjacencyLevelUsed = 2;
-        }
-      }
-    }
-  }
+  const preFilterRejectedCount = 0;
+  const adjacencyLevelUsed: 0 | 1 | 2 | 3 = 0;
 
   if (workingTracks.length <= max) {
     return {
