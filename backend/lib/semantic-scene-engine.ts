@@ -1937,7 +1937,9 @@ export function isHardAntiGenre(
  * At ≥ 0.70 confidence, only genres with weight ≥ ECOSYSTEM_HARD_GATE_MIN_WEIGHT
  * in the ecosystem may enter the scoring pool.
  */
-export const ECOSYSTEM_HARD_GATE_CONFIDENCE = 0.70;
+// Hard gate only activates at very high confidence (≥ 0.85)
+// Below this, scene shapes the pool via weights — it never hard-excludes tracks
+export const ECOSYSTEM_HARD_GATE_CONFIDENCE = 0.85;
 
 /**
  * Minimum ecosystem weight for a genre to pass the hard gate.

@@ -395,27 +395,35 @@ export function computeTriScores(
 }
 
 export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): number {
-  const sceneContrib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * SCORING_WEIGHTS.scene;
+  // Adaptive scene weight: reduce scene influence when confidence is low
+  // so the scene shapes rather than dominates for ambiguous prompts
+  const sceneConf = ctx.semanticResolution.confidence;
+  const adaptiveSceneWeight = sceneConf < 0.70
+    ? SCORING_WEIGHTS.scene * (sceneConf / 0.70)
+    : SCORING_WEIGHTS.scene;
+  const redistributed = SCORING_WEIGHTS.scene - adaptiveSceneWeight;
+  const sceneContrib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * adaptiveSceneWeight;
 
   let final: number;
 
   if (ctx.noLibraryMode) {
-    // No-library mode — V5 spec weights (semantic:0.55, scene:0.25, emotion:0.15, genre:0.05).
-    // Scene raised from 0.15→0.25 so ecosystem lock dominates over user-history signals.
-    // Emotion lowered from 0.20→0.15 to prevent mood-matching from pulling cross-genre tracks.
-    // Genre at 0.05 acts as tie-breaker only — cannot override scene constraints.
-    // Library and aesthetic weights are zeroed out; user history has no influence.
-    const sceneContribNoLib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * 0.25;
+    // No-library mode — semantic-driven with moderate scene influence.
+    // Scene weight scales with confidence; redistribution goes to semantic.
+    const noLibSceneWeight = sceneConf < 0.70
+      ? 0.20 * (sceneConf / 0.70)
+      : 0.20;
+    const noLibSceneContrib = Math.min(tri.sceneScore, MAX_SCENE_SCORE_INFLUENCE) * noLibSceneWeight;
+    const noLibRedistributed = 0.20 - noLibSceneWeight;
     final =
-      tri.semanticEcosystemScore * 0.55 +
+      tri.semanticEcosystemScore * (0.55 + noLibRedistributed) +
       tri.emotionMatch * 0.15 +
-      sceneContribNoLib +
-      tri.genreBalanceScore * 0.05;
+      noLibSceneContrib +
+      tri.genreBalanceScore * 0.10;
   } else {
-    // Personalized mode: intent-first (40%) with library history as a refinement signal (15%).
-    // INTENT FIRST — personalization refines, never replaces the requested vibe.
+    // Personalized mode: intent-first with library history as a refinement signal.
+    // When scene confidence is low, redistributed weight flows back to semantic.
     final =
-      tri.semanticEcosystemScore * SCORING_WEIGHTS.semantic +
+      tri.semanticEcosystemScore * (SCORING_WEIGHTS.semantic + redistributed) +
       tri.emotionMatch * SCORING_WEIGHTS.emotion +
       sceneContrib +
       tri.aestheticScore * SCORING_WEIGHTS.aesthetic +

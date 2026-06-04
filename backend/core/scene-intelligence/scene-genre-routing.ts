@@ -88,22 +88,22 @@ export function resolveSceneGenreRouting(opts: {
     if (mult < 0.85 && !suppressed.includes(g)) suppressed.push(g);
   };
 
-  // ── Outlaw Country (strictest lock — genre-specific request) ──────────────
+  // ── Outlaw Country (strong preference — not a hard lock) ──────────────────
   if (OUTLAW_COUNTRY_RE.test(lower)) {
     apply("country", 1.40);
     apply("folk", 1.25);
     apply("blues", 1.20);
     apply("rock", 1.12);
-    apply("indie", 0.55);
-    apply("electronic", 0.15);
-    apply("hip_hop", 0.12);
-    apply("rnb", 0.15);
-    apply("pop", 0.30);
-    apply("latin", 0.12);
-    apply("metal", 0.10);
-    apply("reggae", 0.12);
-    apply("classical", 0.20);
-    suppressed.push("electronic", "hip_hop", "metal", "rnb", "latin");
+    apply("indie", 0.70);
+    apply("electronic", 0.35);
+    apply("hip_hop", 0.30);
+    apply("rnb", 0.35);
+    apply("pop", 0.45);
+    apply("latin", 0.32);
+    apply("metal", 0.28);
+    apply("reggae", 0.32);
+    apply("classical", 0.40);
+    suppressed.push("electronic", "hip_hop", "metal");
   }
 
   // ── Rural / Dirt Road / Countryside ───────────────────────────────────────
@@ -114,15 +114,15 @@ export function resolveSceneGenreRouting(opts: {
     apply("rock", 1.08);
     apply("indie", 1.05);
     apply("soul", 0.88);
-    apply("electronic", 0.18);
-    apply("hip_hop", 0.15);
-    apply("rnb", 0.20);
-    apply("latin", 0.15);
-    apply("metal", 0.12);
-    apply("reggae", 0.15);
-    apply("classical", 0.28);
-    apply("pop", 0.58);
-    suppressed.push("electronic", "hip_hop", "metal", "rnb");
+    apply("electronic", 0.38);
+    apply("hip_hop", 0.32);
+    apply("rnb", 0.40);
+    apply("latin", 0.32);
+    apply("metal", 0.28);
+    apply("reggae", 0.32);
+    apply("classical", 0.45);
+    apply("pop", 0.65);
+    suppressed.push("electronic", "hip_hop", "metal");
   }
 
   // ── Explicit Country Scene ─────────────────────────────────────────────────
@@ -323,17 +323,17 @@ export function resolveSceneGenreRouting(opts: {
   // ── 90s UK Rave ────────────────────────────────────────────────────────────
   if (RAVE_90S_RE.test(lower)) {
     apply("electronic", 1.40);
-    apply("pop", 0.30);
-    apply("country", 0.08);
-    apply("folk", 0.08);
-    apply("classical", 0.08);
-    apply("jazz", 0.10);
-    apply("blues", 0.10);
-    apply("metal", 0.15);
-    apply("reggae", 0.12);
-    apply("latin", 0.12);
-    apply("hip_hop", 0.25);
-    suppressed.push("country", "folk", "classical", "jazz", "blues");
+    apply("pop", 0.45);
+    apply("country", 0.25);
+    apply("folk", 0.25);
+    apply("classical", 0.25);
+    apply("jazz", 0.30);
+    apply("blues", 0.30);
+    apply("metal", 0.35);
+    apply("reggae", 0.38);
+    apply("latin", 0.35);
+    apply("hip_hop", 0.55);
+    suppressed.push("country", "folk", "classical");
   }
 
   // ── Japanese City Pop ──────────────────────────────────────────────────────
@@ -405,9 +405,10 @@ export function buildRoutingFromVector(
     if (weight >= 0.65) boosted.push(genre as RootGenre);
   }
 
-  // Hard-suppress anti-genres (multiplier 0.08 — nearly excluded from pool)
+  // Soft-suppress anti-genres — these are weighting signals, not hard exclusions
+  // Using 0.40 preserves cross-genre bridges and adjacent fallback paths
   for (const genre of vector.antiGenres) {
-    multipliers[genre as RootGenre] = 0.08;
+    multipliers[genre as RootGenre] = 0.40;
     suppressed.push(genre as RootGenre);
   }
 

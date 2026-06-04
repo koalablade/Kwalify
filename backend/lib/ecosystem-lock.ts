@@ -16,13 +16,16 @@ import { classifyTrack } from "./genre-taxonomy";
 import type { SemanticSceneVector } from "./semantic-scene-engine";
 
 // Confidence threshold above which the ecosystem lock activates
-// Lowered from 0.7 → 0.55 so common scene prompts (outlaw country, dirt road, etc.) always lock
-export const ECOSYSTEM_LOCK_THRESHOLD = 0.55;
+// Set to 0.70 — scene must be clearly detected before locking occurs
+// Below this threshold, scene is a weighting signal, not a hard lock
+export const ECOSYSTEM_LOCK_THRESHOLD = 0.70;
 
 // Composition targets (shares of final playlist)
-const PRIMARY_TARGET = 0.80;
-const ADJACENT_TARGET = 0.20;
-const UNRELATED_MAX = 0.05;
+// PRIMARY_TARGET reduced so diverse adjacent genres still appear
+// UNRELATED_MAX raised to allow cross-genre bridges (adjacent expansion)
+const PRIMARY_TARGET = 0.65;
+const ADJACENT_TARGET = 0.25;
+const UNRELATED_MAX = 0.15;
 
 export type EcosystemTier = "primary" | "adjacent" | "unrelated" | "anti";
 
