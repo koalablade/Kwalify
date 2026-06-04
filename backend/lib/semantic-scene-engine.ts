@@ -27,6 +27,10 @@ export interface SemanticSceneVector {
   /** Genres that hard-violate the scene — receive a strong penalty */
   antiGenres: RootGenre[];
   aesthetics: string[];
+  /** Minimum primary-ecosystem share, max adjacent share, max other share */
+  compositionTarget: { primaryMin: number; adjacentMax: number; otherMax: number };
+  /** Narrative flow phase descriptions */
+  flowPhases: { intro: string; core: string; peak: string; cooldown: string };
 }
 
 export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
@@ -48,6 +52,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.72,
     antiGenres: ["electronic", "metal", "hip_hop", "rnb", "latin", "reggae"],
     aesthetics: ["golden hour", "dust", "warm air", "open landscape", "Americana", "analog warmth"],
+    compositionTarget: { primaryMin: 0.75, adjacentMax: 0.2, otherMax: 0.05 },
+    flowPhases: { intro: "warm acoustic opener", core: "dusty country roads", peak: "anthemic freedom", cooldown: "golden hour nostalgia" },
   },
 
   DOG_ON_DIRT_ROAD: {
@@ -66,6 +72,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.75,
     antiGenres: ["electronic", "metal", "hip_hop", "rnb", "latin", "reggae", "classical"],
     aesthetics: ["dirt road", "countryside", "dog", "lazy afternoon", "Americana", "porch"],
+    compositionTarget: { primaryMin: 0.78, adjacentMax: 0.18, otherMax: 0.04 },
+    flowPhases: { intro: "lazy morning country", core: "peaceful countryside", peak: "carefree warmth", cooldown: "porch sunset" },
   },
 
   OUTLAW_COUNTRY: {
@@ -83,6 +91,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.78,
     antiGenres: ["electronic", "metal", "hip_hop", "rnb", "latin", "reggae", "pop", "classical"],
     aesthetics: ["outlaw", "western", "grit", "honky tonk", "Americana", "heartland", "whiskey"],
+    compositionTarget: { primaryMin: 0.82, adjacentMax: 0.15, otherMax: 0.03 },
+    flowPhases: { intro: "whiskey and swagger", core: "outlaw spirit", peak: "defiant anthem", cooldown: "dusty highway fade" },
   },
 
   RURAL_FARM_ROAD: {
@@ -100,6 +110,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.74,
     antiGenres: ["electronic", "metal", "hip_hop", "rnb", "latin", "reggae"],
     aesthetics: ["farmland", "countryside", "fields", "Americana", "heartland", "pastoral"],
+    compositionTarget: { primaryMin: 0.76, adjacentMax: 0.19, otherMax: 0.05 },
+    flowPhases: { intro: "early morning farm", core: "pastoral countryside", peak: "open field anthem", cooldown: "evening fields" },
   },
 
   COMING_HOME: {
@@ -118,6 +130,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.68,
     antiGenres: ["electronic", "metal", "hip_hop", "latin", "reggae"],
     aesthetics: ["homecoming", "heartland", "familiar", "warm light", "front porch"],
+    compositionTarget: { primaryMin: 0.7, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "familiar road", core: "returning warmth", peak: "homecoming moment", cooldown: "front door peace" },
   },
 
   // ── Night / Urban ──────────────────────────────────────────────────────────
@@ -137,6 +151,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.68,
     antiGenres: ["country", "folk", "metal", "latin", "reggae", "classical"],
     aesthetics: ["neon", "fluorescent light", "concrete", "liminal space", "empty"],
+    compositionTarget: { primaryMin: 0.7, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "fluorescent stillness", core: "liminal night", peak: "late night clarity", cooldown: "empty road quiet" },
   },
 
   EMPTY_MOTORWAY_NIGHT: {
@@ -154,6 +170,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.68,
     antiGenres: ["country", "folk", "classical", "reggae", "latin", "christmas"],
     aesthetics: ["synthwave", "motorway", "night drive", "dark ambient", "motion"],
+    compositionTarget: { primaryMin: 0.7, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "headlights on dark road", core: "night highway pulse", peak: "full-speed momentum", cooldown: "motorway trance" },
   },
 
   RAINY_CITY_LIGHTS: {
@@ -172,6 +190,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.72,
     antiGenres: ["country", "folk", "metal", "latin", "reggae", "christmas"],
     aesthetics: ["jazzhop", "neo soul", "urban", "cinematic", "wet streets", "neon reflections"],
+    compositionTarget: { primaryMin: 0.74, adjacentMax: 0.2, otherMax: 0.06 },
+    flowPhases: { intro: "raindrops on window", core: "wet streets and jazz", peak: "cinematic swell", cooldown: "late night reflection" },
   },
 
   CITY_AFTER_MIDNIGHT: {
@@ -189,6 +209,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.68,
     antiGenres: ["country", "folk", "metal", "latin", "reggae", "christmas"],
     aesthetics: ["city at night", "urban", "liminal", "ambient", "lo-fi", "street lights"],
+    compositionTarget: { primaryMin: 0.7, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "empty intersection", core: "urban solitude", peak: "neon heartbeat", cooldown: "pre-dawn stillness" },
   },
 
   NEON_STREETS: {
@@ -206,6 +228,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.68,
     antiGenres: ["country", "folk", "classical", "reggae", "christmas"],
     aesthetics: ["neon", "synthwave", "cyberpunk", "urban night", "electric"],
+    compositionTarget: { primaryMin: 0.7, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "neon glow approach", core: "urban electric pulse", peak: "city night peak", cooldown: "fade to static" },
   },
 
   // ── Nature / Landscape ─────────────────────────────────────────────────────
@@ -225,6 +249,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.70,
     antiGenres: ["electronic", "metal", "hip_hop", "classical", "christmas"],
     aesthetics: ["golden hour", "open field", "warm air", "indie folk", "pastoral"],
+    compositionTarget: { primaryMin: 0.72, adjacentMax: 0.22, otherMax: 0.06 },
+    flowPhases: { intro: "afternoon warmth", core: "open field bliss", peak: "golden hour swell", cooldown: "dusk settle" },
   },
 
   DRIVING_SOMEWHERE_NOWHERE: {
@@ -242,6 +268,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.65,
     antiGenres: ["metal", "hip_hop", "classical", "christmas", "electronic"],
     aesthetics: ["open road", "wandering", "bittersweet", "indie rock", "drifting"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "leaving without a plan", core: "aimless road", peak: "windows down moment", cooldown: "nowhere in particular" },
   },
 
   SUNSET_FIELDS: {
@@ -259,6 +287,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.70,
     antiGenres: ["electronic", "metal", "hip_hop", "rnb", "latin"],
     aesthetics: ["sunset", "golden", "fields", "open sky", "pastoral", "warm"],
+    compositionTarget: { primaryMin: 0.72, adjacentMax: 0.22, otherMax: 0.06 },
+    flowPhases: { intro: "wide open horizon", core: "pastoral warmth", peak: "golden panorama", cooldown: "evening haze" },
   },
 
   // ── Travel ─────────────────────────────────────────────────────────────────
@@ -279,6 +309,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.67,
     antiGenres: ["metal", "hip_hop", "latin", "reggae", "christmas"],
     aesthetics: ["motion", "landscape", "window", "travel", "contemplative", "passing scenery"],
+    compositionTarget: { primaryMin: 0.69, adjacentMax: 0.25, otherMax: 0.06 },
+    flowPhases: { intro: "departure platform", core: "passing landscapes", peak: "motion clarity", cooldown: "arrival" },
   },
 
   AIRPORT_WAITING: {
@@ -297,6 +329,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.65,
     antiGenres: ["metal", "hip_hop", "country", "latin", "reggae", "christmas"],
     aesthetics: ["terminal", "ambient", "liminal", "departure", "quiet hum", "fluorescent"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "terminal quiet", core: "anticipation drift", peak: "departure gate energy", cooldown: "boarding stillness" },
   },
 
   // ── Reflection / Emotional ─────────────────────────────────────────────────
@@ -318,6 +352,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.65,
     antiGenres: ["metal", "electronic", "latin", "reggae", "christmas"],
     aesthetics: ["raw", "emotional", "bedroom", "tearful", "honest", "stripped"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "raw first feeling", core: "processing the loss", peak: "emotional climax", cooldown: "quiet acceptance" },
   },
 
   NOSTALGIA: {
@@ -337,6 +373,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.60,
     antiGenres: ["metal", "christmas"],
     aesthetics: ["retro", "warm", "memory", "faded", "analog", "childhood"],
+    compositionTarget: { primaryMin: 0.62, adjacentMax: 0.3, otherMax: 0.08 },
+    flowPhases: { intro: "memory trigger", core: "warm past glow", peak: "golden throwback", cooldown: "bittersweet present" },
   },
 
   THINKING_ABOUT_LIFE: {
@@ -355,6 +393,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.65,
     antiGenres: ["metal", "latin", "reggae", "christmas"],
     aesthetics: ["introspective", "quiet", "thoughtful", "melancholic", "honest"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "quiet contemplation", core: "deep introspection", peak: "revelation moment", cooldown: "settled resolve" },
   },
 
   // ── Subculture / Genre-specific ───────────────────────────────────────────
@@ -371,6 +411,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.85,
     antiGenres: ["country", "folk", "classical", "jazz", "blues", "metal", "reggae", "latin", "christmas"],
     aesthetics: ["rave", "warehouse", "strobe", "acid house", "gabber", "breakbeat", "drum and bass", "euphoria"],
+    compositionTarget: { primaryMin: 0.88, adjacentMax: 0.1, otherMax: 0.02 },
+    flowPhases: { intro: "warehouse arrival", core: "acid house floor", peak: "rave peak moment", cooldown: "after-hours comedown" },
   },
 
   JAPANESE_CITY_POP: {
@@ -388,6 +430,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.70,
     antiGenres: ["country", "folk", "metal", "classical", "christmas", "reggae"],
     aesthetics: ["city pop", "retro futurism", "Japanese 80s", "breezy", "saxophone", "summer evening"],
+    compositionTarget: { primaryMin: 0.72, adjacentMax: 0.22, otherMax: 0.06 },
+    flowPhases: { intro: "tokyo evening breeze", core: "city pop cruising", peak: "breezy summer peak", cooldown: "neon sunset fade" },
   },
 
   // ── Tokyo / Japan Night ────────────────────────────────────────────────────
@@ -408,6 +452,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.68,
     antiGenres: ["country", "folk", "metal", "classical", "reggae", "christmas"],
     aesthetics: ["neon", "tokyo", "shibuya", "urban japan", "night city", "retro future", "anime aesthetic"],
+    compositionTarget: { primaryMin: 0.7, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "shibuya crossing glow", core: "tokyo neon pulse", peak: "electric city peak", cooldown: "late night japan fade" },
   },
 
   // ── Dreamy / Ethereal ─────────────────────────────────────────────────────
@@ -427,6 +473,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.65,
     antiGenres: ["metal", "hip_hop", "country", "latin", "reggae", "christmas"],
     aesthetics: ["ambient", "shoegaze", "dream pop", "ethereal", "floating", "haze", "soft focus"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "half-asleep drift", core: "floating through haze", peak: "ethereal peak", cooldown: "soft focus dissolve" },
   },
 
   // ── Workout / Intensity ───────────────────────────────────────────────────
@@ -446,6 +494,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.78,
     antiGenres: ["folk", "country", "jazz", "classical", "reggae", "christmas"],
     aesthetics: ["power", "energy", "sweat", "intensity", "beast mode", "adrenaline", "gym"],
+    compositionTarget: { primaryMin: 0.8, adjacentMax: 0.16, otherMax: 0.04 },
+    flowPhases: { intro: "warm up intensity", core: "peak training zone", peak: "max effort push", cooldown: "post-workout wind down" },
   },
 
   // ── Party / Social ────────────────────────────────────────────────────────
@@ -466,6 +516,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.72,
     antiGenres: ["folk", "country", "classical", "jazz", "christmas"],
     aesthetics: ["party", "dance", "fun", "social", "night out", "drinks", "crowd", "dancing"],
+    compositionTarget: { primaryMin: 0.74, adjacentMax: 0.2, otherMax: 0.06 },
+    flowPhases: { intro: "pre-drinks hype", core: "dance floor energy", peak: "peak night moment", cooldown: "end of night wind down" },
   },
 
   // ── Beach / Coastal Summer ────────────────────────────────────────────────
@@ -486,6 +538,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.68,
     antiGenres: ["metal", "hip_hop", "classical", "christmas"],
     aesthetics: ["beach", "coastal", "summer", "sun", "waves", "warm breeze", "carefree", "poolside"],
+    compositionTarget: { primaryMin: 0.7, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "morning beach walk", core: "summer day sun", peak: "carefree peak", cooldown: "sunset on the water" },
   },
 
   // ── Small Town Americana ──────────────────────────────────────────────────
@@ -506,6 +560,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.72,
     antiGenres: ["electronic", "metal", "hip_hop", "rnb", "latin", "reggae"],
     aesthetics: ["small town", "front porch", "county fair", "americana", "heartland", "community", "bonfire"],
+    compositionTarget: { primaryMin: 0.74, adjacentMax: 0.2, otherMax: 0.06 },
+    flowPhases: { intro: "front porch warmth", core: "small town heart", peak: "community anthem", cooldown: "bonfire fadeout" },
   },
 
   // ── Seasons ───────────────────────────────────────────────────────────────
@@ -526,6 +582,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.65,
     antiGenres: ["electronic", "metal", "hip_hop", "latin", "reggae", "christmas"],
     aesthetics: ["winter", "snow", "cold", "frost", "quiet", "still", "bare trees", "ice"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "frost and stillness", core: "winter quiet", peak: "cold clarity peak", cooldown: "fireplace settle" },
   },
 
   AUTUMN_MELANCHOLY: {
@@ -544,6 +602,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.68,
     antiGenres: ["electronic", "metal", "hip_hop", "latin", "reggae", "christmas"],
     aesthetics: ["autumn", "leaves", "decay", "melancholy", "change", "season", "fading light"],
+    compositionTarget: { primaryMin: 0.7, adjacentMax: 0.24, otherMax: 0.06 },
+    flowPhases: { intro: "first autumn chill", core: "falling leaves mood", peak: "melancholic swell", cooldown: "end of season quiet" },
   },
 
   SPRING_FRESH: {
@@ -561,6 +621,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.65,
     antiGenres: ["metal", "hip_hop", "latin", "reggae", "christmas"],
     aesthetics: ["spring", "fresh", "morning", "bloom", "new beginning", "light", "hopeful"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "first morning light", core: "hopeful emergence", peak: "fresh bloom peak", cooldown: "gentle spring settle" },
   },
 
   // ── Road Trip / Adventure ─────────────────────────────────────────────────
@@ -581,6 +643,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.65,
     antiGenres: ["metal", "classical", "christmas"],
     aesthetics: ["road trip", "windows down", "freedom", "open road", "adventure", "singing along", "highway"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "hitting the road", core: "open highway cruise", peak: "anthemic road moment", cooldown: "arrival and reflection" },
   },
 
   EXPLORE_TRAVEL: {
@@ -598,6 +662,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.62,
     antiGenres: ["metal", "classical", "christmas"],
     aesthetics: ["travel", "explore", "new city", "adventure", "abroad", "discovery", "wanderlust"],
+    compositionTarget: { primaryMin: 0.64, adjacentMax: 0.28, otherMax: 0.08 },
+    flowPhases: { intro: "adventure begins", core: "new horizons", peak: "discovery moment", cooldown: "taking it all in" },
   },
 
   // ── Late Night Drive ──────────────────────────────────────────────────────
@@ -617,6 +683,8 @@ export const SEMANTIC_SCENE_VECTORS: Record<string, SemanticSceneVector> = {
     ecosystemFloor: 0.65,
     antiGenres: ["country", "folk", "classical", "latin", "reggae", "christmas"],
     aesthetics: ["night drive", "headlights", "dark roads", "late night", "motion", "solo", "empty streets"],
+    compositionTarget: { primaryMin: 0.67, adjacentMax: 0.26, otherMax: 0.07 },
+    flowPhases: { intro: "headlights in dark", core: "solo night cruise", peak: "late night clarity", cooldown: "arriving home quiet" },
   },
 };
 
