@@ -1,0 +1,173 @@
+RENDER PROMPT — “TRUTH-GRADE DEBUG PANEL FIX”
+⚠️ NON-NEGOTIABLE RULES
+DO NOT change V11 scoring logic
+DO NOT change V3.1 algorithm
+DO NOT create V4 / new architecture
+ONLY fix observability + wiring + explanation layer
+Keep backward compatibility
+🎯 GOAL
+
+Make the debug panel reflect:
+
+WHY each track was selected by V3.1
+
+NOT:
+
+how tracks were pre-scored by V11
+
+🧠 CORE FIX STRATEGY
+
+You are NOT replacing V11.
+
+You are adding a V3.1 “decision trace layer” and making it the UI source of truth.
+
+🛠️ REQUIRED CHANGES
+1. 🔥 FRONTEND FIX (MOST IMPORTANT)
+FILE:
+
+frontend/public/pages/app.js
+
+CHANGE:
+
+Replace:
+
+const dbg = result._debug;
+WITH:
+const dbg = result.v3Diagnostics ?? result._debug;
+2. 🧠 CREATE “TRUTH DEBUG OBJECT” (BACKEND)
+FILE:
+
+generation.controller.ts
+
+ADD THIS:
+result.debug = {
+  v11: pipeline.scoringDiagnostics,
+  v3: pipeline.scoringDiagnostics.v3Pipeline,
+  activePipeline: "v3.1_unified_routing",
+  truthLayer: "v3"
+};
+KEEP:
+result._debug (legacy only)
+result.v3Diagnostics (now primary)
+3. 🔥 BUILD V3.1 “SELECTION TRACE” (CRITICAL NEW FEATURE)
+FILE:
+
+core/v3/v3-pipeline.ts
+
+ADD PER TRACK TRACE:
+
+Each selected track MUST include:
+
+selectionTrace: {
+  trackId: string,
+
+  // Lane logic
+  lane: string,
+  laneScore: number,
+
+  // Cluster logic
+  clusterId: string,
+  clusterWeight: number,
+
+  // Diversity logic
+  genrePenalty: number,
+  artistPenalty: number,
+  eraPenalty: number,
+
+  // Final decision
+  selected: boolean,
+  selectionReason: string,
+
+  // If rejected
+  rejectionReason: string | null
+}
+4. 🧩 ADD GLOBAL V3.1 DECISION SUMMARY
+
+At end of pipeline:
+
+v3Diagnostics: {
+  pipelineVersion: "v3.1_unified_routing",
+
+  lanes: [...],
+
+  clusters: [...],
+
+  intentDecomposition: {...},
+
+  selectionTrace: [...],
+
+  finalDistribution: {
+    genres: Record<string, number>,
+    eras: Record<string, number>,
+    artists: Record<string, number>
+  }
+}
+5. 🚫 STOP V11 FROM BEING MISLEADING IN UI
+FILE:
+
+app.js
+
+CHANGE LABELS ONLY (NO LOGIC CHANGE):
+
+Replace UI labels:
+
+“Detected Scene” → “V11 Pre-Scoring Signal”
+“Top Scored Tracks” → “V11 Candidate Ranking”
+“Candidate Pool” → “V11 Filter Pool”
+6. 🧠 FIX “NO SCENE MATCHED” PROPAGATION BUG
+FILE:
+
+hybrid-scoring.ts
+
+Ensure fallback does NOT bias downstream:
+
+semanticResolution = {
+  sceneId: null,
+  confidence: 0,
+  fallback: true,
+  neutralized: true
+};
+7. 🔥 MAKE V3.1 THE ONLY DECISION AUTHORITY
+VERIFY IN CODE:
+
+V3.1 MUST:
+
+NOT rely on V11 ranking order
+ONLY use:
+scoring.sorted (unordered or lightly sorted pool)
+re-rank internally via lanes
+
+If any hidden dependency exists:
+👉 remove it
+
+8. 🧪 FINAL SYSTEM HEALTH CHECK
+
+Add:
+
+systemDiagnostics: {
+  v11Role: "candidate_scoring_only",
+  v3Role: "final_selection_engine",
+  uiAlignedTo: "v3",
+  debugTruthLevel: "selection_based",
+  consistencyCheck: "PASS"
+}
+🎯 FINAL RESULT (WHAT THIS FIX ACHIEVES)
+
+After this:
+
+UI WILL SHOW:
+
+✔ why tracks were selected (V3.1 lanes + clusters)
+✔ why tracks were rejected
+✔ how diversity changed output
+✔ real decision path per song
+
+V11 WILL ONLY SHOW:
+
+✔ candidate scoring
+✔ pre-routing signals
+❌ no decision authority
+
+🧠 ONE-LINE SUMMARY
+
+You are upgrading the system from “ranking explanation” to “selection explanation”.
