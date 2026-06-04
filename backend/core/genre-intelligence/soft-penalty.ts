@@ -8,7 +8,7 @@ import type { RootGenre } from "../../lib/genre-taxonomy";
 export const SOFT_GENRE_TARGET = 0.28;
 
 /** Hard backstop — enforcement swaps still use this */
-export const HARD_GENRE_BACKSTOP = 0.38;
+export const HARD_GENRE_BACKSTOP = 0.35;
 
 /**
  * Exponential penalty when genre share exceeds soft target.

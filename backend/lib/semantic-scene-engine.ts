@@ -2075,9 +2075,13 @@ export function computeSemanticEcosystemScore(
 }
 
 /**
- * Compute negative match penalty for tracks that violate the scene.
- * Anti-genre tracks receive a penalty multiplier < 1 applied to their final score.
- * Penalty is hard (0.08) when confidence is high — anti-genre tracks are nearly excluded.
+ * V11 soft negative match penalty.
+ *
+ * Anti-genre tracks receive a soft rank-down multiplier — they are NEVER removed.
+ * V11 spec: all penalties are continuous, not binary. No track may receive a
+ * multiplier below 0.35 (previously 0.08), preserving cross-genre diversity.
+ *
+ * The penalty shapes the ranking; the diversity engine handles final balance.
  */
 export function computeNegativePenalty(
   classification: TrackGenreClassification,
@@ -2089,11 +2093,12 @@ export function computeNegativePenalty(
   const primaryViolates = vector.antiGenres.includes(primary);
   const secondaryViolates = secondary ? vector.antiGenres.includes(secondary) : false;
 
-  // Hard penalty: high-confidence anti-genre tracks get near-zero multiplier
-  if (primaryViolates && classification.confidenceScore >= 0.6) return 0.08;
-  if (primaryViolates && classification.confidenceScore >= 0.4) return 0.18;
-  if (primaryViolates) return 0.35;
-  if (secondaryViolates) return 0.65;
+  // V11: Soft penalties only — floor raised from 0.08 to 0.35
+  // High-confidence anti-genre: soft rank-down, NOT near-exclusion
+  if (primaryViolates && classification.confidenceScore >= 0.6) return 0.35;
+  if (primaryViolates && classification.confidenceScore >= 0.4) return 0.50;
+  if (primaryViolates) return 0.65;
+  if (secondaryViolates) return 0.80;
   return 1.0;
 }
 
@@ -2116,9 +2121,9 @@ export function isHardAntiGenre(
  * At ≥ 0.70 confidence, only genres with weight ≥ ECOSYSTEM_HARD_GATE_MIN_WEIGHT
  * in the ecosystem may enter the scoring pool.
  */
-// Hard gate only activates at very high confidence (≥ 0.85)
-// Below this, scene shapes the pool via weights — it never hard-excludes tracks
-export const ECOSYSTEM_HARD_GATE_CONFIDENCE = 0.85;
+// V11: Hard gate PERMANENTLY DISABLED — scene is an interpretability signal only.
+// All tracks enter scoring; diversity enforced post-ranking via soft weighting.
+export const ECOSYSTEM_HARD_GATE_CONFIDENCE = 9999;
 
 /**
  * Minimum ecosystem weight for a genre to pass the hard gate.

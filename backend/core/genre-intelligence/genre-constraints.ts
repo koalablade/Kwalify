@@ -19,19 +19,25 @@ export const GENRE_LIBRARY_FLOOR = 0.05;
 export const MAX_SCENE_SCORE_INFLUENCE = 0.45;
 
 /**
- * Scoring weights — V10 locked spec.
+ * Scoring weights — V11 spec.
  *
- * semantic (45%): semantic ecosystem match — PRIMARY ranking signal
- * emotion  (25%): energy/valence/mood match
- * scene    (30%): multi-vector scene similarity — dot product across all active scenes
+ * semantic  (60%): embedding cosine similarity — audio-feature vector match (PRIMARY)
+ * userTaste (15%): library affinity / user genre preference
+ * novelty   (10%): distance from user taste centroid — discovery signal
+ * emotion   (10%): energy/valence/mood consistency
+ * scene     ( 5%): multi-scene diversity hint — genre affinity as soft diversity signal
  *
- * Genre, aesthetic, and library are NOT scoring factors.
- * Diversity balance (genre max 35%, min 3 genres) applied post-ranking only.
+ * V11 principles:
+ *   - NO hard genre penalties, NO scene gating, NO track deletion
+ *   - ALL signals are continuous (never binary)
+ *   - Diversity enforced POST-ranking via soft selection weighting only
  */
 export const SCORING_WEIGHTS = {
-  semantic: 0.45,
-  emotion: 0.25,
-  scene: 0.30,
+  semantic: 0.60,   // embeddingSimilarity channel (replaces rule-based ecosystem lookup)
+  userTaste: 0.15,  // library fit / user genre affinity
+  novelty: 0.10,    // noveltyScore — distance from user taste centroid
+  emotion: 0.10,    // moodConsistency — energy/valence match
+  scene: 0.05,      // diversityHint — scene affinity as post-ranking soft signal
 } as const;
 
 /** Minimum share of final playlist tracks from the dominant scene ecosystem */

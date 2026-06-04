@@ -64,6 +64,13 @@ import {
   computeEnergyFit,
   type SemanticSceneResolution,
 } from "./semantic-scene-engine";
+import {
+  buildTrackEmbedding,
+  buildQueryEmbedding,
+  buildUserTasteVector,
+  cosineSimilarity,
+  computeNoveltyScore,
+} from "../shared/embeddings/track-embeddings";
 
 const GENRE_FLOOR_STRONG = 0.15;
 
@@ -236,12 +243,24 @@ export interface TriScores {
   seasonalMatch: number;
   moodPurity: number;
   classification: TrackGenreClassification;
-  /** Semantic ecosystem match — scene-driven genre fit (primary signal) */
+  /** Semantic ecosystem match — scene-driven genre fit (legacy, still computed for diagnostics) */
   semanticEcosystemScore: number;
   /** Instrumentation/aesthetic fit score */
   aestheticScore: number;
-  /** Negative match multiplier (< 1 penalises anti-genre tracks) */
+  /** Soft negative match multiplier (< 1 penalises anti-genre tracks, floored at 0.35) */
   negativePenalty: number;
+  /**
+   * V11 PRIMARY SIGNAL: cosine similarity between track audio-feature embedding
+   * and the query embedding derived from the emotion profile + scene targets.
+   * Replaces the rule-based ecosystem lookup as the 60% scoring channel.
+   */
+  embeddingSimilarity: number;
+  /**
+   * V11 NOVELTY: how different this track is from the user's taste centroid.
+   * Returns 0–1 where 1 = maximally novel/surprising.
+   * Used at 10% weight to promote discovery without abandoning coherence.
+   */
+  noveltyHint: number;
 }
 
 export function computeTriScores(
@@ -261,7 +280,8 @@ export function computeTriScores(
   ctx: HybridScoringContext,
   mode: "strict" | "balanced" | "chaotic",
   memoryMatch: number,
-  noveltyScore: number
+  noveltyScore: number,
+  userTasteVector?: ReturnType<typeof buildUserTasteVector>
 ): TriScores {
   let classification = requireTrackClassification(
     track.trackId,
@@ -379,6 +399,40 @@ export function computeTriScores(
     ? signatureSceneAffinity(signature, blueprint.instrumentationBias)
     : signatureSceneAffinity(signature, { acoustic: 0.45, warmth: 0.5, storytelling: 0.4, synth: 0.3 });
 
+  // ── V11: Audio-feature embedding similarity (PRIMARY SIGNAL at 60%) ─────────
+  // Build track embedding and query embedding, then compute cosine similarity.
+  // The query embedding is derived from the emotion profile + scene energy target.
+  const trackEmbedding = buildTrackEmbedding(track);
+  const sceneVector = ctx.semanticResolution.vector;
+  const queryEmbedding = buildQueryEmbedding(ctx.profile, {
+    energyTarget: sceneVector?.energy.target,
+    // Acoustic scenes (country/folk) → high acousticness; electronic → low
+    acousticnessHint: sceneVector
+      ? (() => {
+          const topGenre = sceneVector.genreEcosystem[0]?.genre ?? "";
+          const acousticGenres = ["country", "folk", "blues", "classical", "jazz"];
+          const electronicGenres = ["electronic"];
+          if (acousticGenres.includes(topGenre)) return 0.70;
+          if (electronicGenres.includes(topGenre)) return 0.10;
+          return undefined;
+        })()
+      : undefined,
+    // Instrumental scenes → high instrumentalness
+    instrumentalnessHint: sceneVector?.aesthetics.some(
+      (a) => a.includes("instrumental") || a.includes("ambient")
+    )
+      ? 0.6
+      : undefined,
+  });
+  const embeddingSimilarity = cosineSimilarity(trackEmbedding, queryEmbedding);
+
+  // ── V11: Novelty hint ────────────────────────────────────────────────────────
+  // noveltyScore from caller (noveltyByTrack) is already in [0, 1].
+  // When a user taste vector is supplied, override with computed audio novelty.
+  const noveltyHint = userTasteVector
+    ? computeNoveltyScore(trackEmbedding, userTasteVector)
+    : Math.max(0.08, noveltyScore);
+
   return {
     sceneScore,
     libraryFitScore: Math.min(1, libraryFit),
@@ -390,31 +444,37 @@ export function computeTriScores(
     semanticEcosystemScore: Math.min(1, semanticEcosystemScore),
     aestheticScore: Math.min(1, aestheticScore),
     negativePenalty,
+    embeddingSimilarity: Math.min(1, embeddingSimilarity),
+    noveltyHint: Math.min(1, noveltyHint),
   };
 }
 
 export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): number {
-  // V10: 3-channel scoring — semantic (45%), emotion (25%), scene (30%).
-  // Scene score = multi-vector dot product across all active scenes (never single-scene gating).
-  // No adaptive weighting, no confidence thresholds switching logic paths.
-  const multiSceneScore = computeMultiSceneEcosystemScore(
+  // ── V11: 5-channel soft scoring ─────────────────────────────────────────────
+  //
+  //   embedding (60%): cosine(trackAudioVector, queryAudioVector) — PRIMARY signal
+  //   userTaste (15%): library genre affinity
+  //   novelty   (10%): distance from user taste centroid
+  //   mood      (10%): energy/valence consistency
+  //   diversity  (5%): multi-scene genre affinity (soft diversity hint only)
+  //
+  // All channels are continuous [0, 1]. No binary gates. No track deletion.
+  const diversityHint = computeMultiSceneEcosystemScore(
     tri.classification,
     ctx.semanticResolution.sceneVector
   );
 
   let final =
-    tri.semanticEcosystemScore * SCORING_WEIGHTS.semantic +
+    tri.embeddingSimilarity * SCORING_WEIGHTS.semantic +
+    tri.libraryFitScore * (SCORING_WEIGHTS as Record<string, number>)["userTaste"]! +
+    tri.noveltyHint * (SCORING_WEIGHTS as Record<string, number>)["novelty"]! +
     tri.emotionMatch * SCORING_WEIGHTS.emotion +
-    multiSceneScore * SCORING_WEIGHTS.scene;
+    diversityHint * SCORING_WEIGHTS.scene;
 
-  // Apply negative match penalty — anti-genre tracks penalised multiplicatively.
-  // This is a soft rank adjustment, not a pool filter.
-  final *= tri.negativePenalty;
-
-  if (isGenreLocked(tri.classification)) {
-    // Genre-locked tracks: semantic score still leads — blend for stability.
-    final = final * 0.85 + tri.semanticEcosystemScore * 0.15;
-  }
+  // V11: Soft negative penalty — floor raised to 0.35 (never near-excludes a track).
+  // Anti-genre tracks are rank-adjusted, not removed.
+  const softPenalty = Math.max(0.35, tri.negativePenalty);
+  final *= softPenalty;
 
   return Math.max(0, Math.min(1.25, final));
 }
@@ -448,8 +508,11 @@ export function scoreLibraryHybrid<T extends {
   const passed: { track: T; tri: TriScores }[] = [];
   const excluded: TrackScoringDebug[] = [];
 
-  // V9: ALL valid tracks enter scoring — NO filtering by genre, scene, or ecosystem.
-  // Scores influence ranking only. Scene is a signal, not a gate.
+  // V11: Compute user taste centroid from the pool once, used for novelty scoring.
+  const tasteCentroid = buildUserTasteVector(tracks);
+
+  // V11: ALL valid tracks enter scoring — NO filtering by genre, scene, or ecosystem.
+  // Scores influence ranking only. Hard filters (seasonal, explicit) still apply.
   for (const track of tracks) {
     const hard = applyHardFilters(track, ctx.hardFilter);
     if (!hard.pass) {
@@ -462,7 +525,8 @@ export function scoreLibraryHybrid<T extends {
       ctx,
       mode,
       memoryByTrack(track.trackId),
-      noveltyByTrack(track.trackId)
+      noveltyByTrack(track.trackId),
+      tasteCentroid
     );
     passed.push({ track, tri });
   }
@@ -472,6 +536,8 @@ export function scoreLibraryHybrid<T extends {
   const genreNorm = percentileNormalize(passed.map((p) => p.tri.genreBalanceScore));
   const semanticNorm = percentileNormalize(passed.map((p) => p.tri.semanticEcosystemScore));
   const aestheticNorm = percentileNormalize(passed.map((p) => p.tri.aestheticScore));
+  // V11: percentile-normalize the embedding similarity to reduce sensitivity to absolute values
+  const embeddingNorm = percentileNormalize(passed.map((p) => p.tri.embeddingSimilarity));
 
   const results: HybridScoreResult<T>[] = passed.map((p, i) => {
     const tri: TriScores = {
@@ -481,6 +547,8 @@ export function scoreLibraryHybrid<T extends {
       genreBalanceScore: genreNorm[i] ?? p.tri.genreBalanceScore,
       semanticEcosystemScore: semanticNorm[i] ?? p.tri.semanticEcosystemScore,
       aestheticScore: aestheticNorm[i] ?? p.tri.aestheticScore,
+      // V11: normalize embedding similarity for stable cross-track comparison
+      embeddingSimilarity: embeddingNorm[i] ?? p.tri.embeddingSimilarity,
     };
 
     const finalScore = combineTriScore(tri, ctx);
@@ -564,7 +632,7 @@ export function buildScoringDiagnostics(
     dominantGenres: ctx.userGenre.dominant,
     fallbackGenres: ctx.fallbackGenres,
     contrastAllowance: ctx.contrastAllowance,
-    scoringModel: "semantic0.40_emotion0.20_scene0.15_aesthetic0.10_library0.10_genre0.05",
+    scoringModel: "v11_embedding0.60_userTaste0.15_novelty0.10_emotion0.10_scene0.05",
     semanticResolution: ctx.semanticResolution.matchedId
       ? { sceneId: ctx.semanticResolution.matchedId, confidence: ctx.semanticResolution.confidence }
       : null,
