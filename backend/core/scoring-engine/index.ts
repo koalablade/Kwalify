@@ -105,7 +105,7 @@ import {
 } from "./taste-gravity";
 import { applyGravityBiasedSurprise } from "./gravity-surprise";
 import { capTracksForHybridScoring } from "./scoring-pool-cap";
-import { resolveSemanticScene } from "../../lib/semantic-scene-engine";
+import { resolveSemanticScene, ECOSYSTEM_HARD_GATE_CONFIDENCE } from "../../lib/semantic-scene-engine";
 import { buildRecentTrackPoolPenalty } from "../../lib/playlist-freshness";
 import type { Logger } from "pino";
 import { logScoringStage } from "../../lib/generate-stage-timer";
@@ -393,6 +393,33 @@ export function runScoringPipeline<T extends {
     scored: hybridResults.length,
     excluded: hybridExcluded.length,
   });
+
+  // ── Ecosystem gate debug validation ───────────────────────────────────────
+  const gateActive = !!(
+    earlySemanticResolution.vector &&
+    earlySemanticResolution.confidence >= ECOSYSTEM_HARD_GATE_CONFIDENCE
+  );
+  const gateRejected = hybridExcluded.filter((e) =>
+    e.excludedBy?.startsWith("ecosystem_hard_gate:")
+  );
+  const gateRejectedByGenre: Record<string, number> = {};
+  for (const e of gateRejected) {
+    const g = e.excludedBy?.split(":")[1] ?? "unknown";
+    gateRejectedByGenre[g] = (gateRejectedByGenre[g] ?? 0) + 1;
+  }
+  const finalCandidateGenres: Record<string, number> = {};
+  for (const r of hybridResults) {
+    const g = r.debug.genrePrimary;
+    finalCandidateGenres[g] = (finalCandidateGenres[g] ?? 0) + 1;
+  }
+  log?.info(
+    {
+      "GENRE FILTER APPLIED BEFORE SCORING": gateActive ? "YES" : "NO",
+      "REJECTED TRACKS BY GENRE": gateRejectedByGenre,
+      "FINAL CANDIDATE GENRES": finalCandidateGenres,
+    },
+    "Ecosystem hard gate result"
+  );
 
   const scoreBeforePost = new Map(
     hybridResults.map((r) => [r.track.trackId, r.score])

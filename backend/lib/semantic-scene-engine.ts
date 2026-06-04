@@ -682,6 +682,58 @@ export function isHardAntiGenre(
 }
 
 /**
+ * Scene confidence threshold above which the hard ecosystem gate activates.
+ * At ≥ 0.70 confidence, only genres with weight ≥ ECOSYSTEM_HARD_GATE_MIN_WEIGHT
+ * in the ecosystem may enter the scoring pool.
+ */
+export const ECOSYSTEM_HARD_GATE_CONFIDENCE = 0.70;
+
+/**
+ * Minimum ecosystem weight for a genre to pass the hard gate.
+ * Genres below this weight (e.g. "indie" at 0.35 in OUTLAW_COUNTRY) are excluded
+ * before scoring — they cannot win via high semantic similarity cross-genre.
+ */
+export const ECOSYSTEM_HARD_GATE_MIN_WEIGHT = 0.50;
+
+/**
+ * Hard ecosystem whitelist gate.
+ *
+ * When scene confidence ≥ ECOSYSTEM_HARD_GATE_CONFIDENCE, a track must have its
+ * primary genre (or genre family) present in the ecosystem with weight ≥
+ * ECOSYSTEM_HARD_GATE_MIN_WEIGHT. Tracks that fail this check receive score = 0
+ * and are excluded from the scoring pool entirely.
+ *
+ * Returns true  = track is eligible to be scored.
+ * Returns false = track must be excluded (zero eligibility — not a lower score).
+ *
+ * Examples for OUTLAW_COUNTRY (confidence 0.94):
+ *   country (1.00) → eligible
+ *   folk    (0.78) → eligible
+ *   blues   (0.70) → eligible
+ *   rock    (0.65) → eligible
+ *   indie   (0.35) → EXCLUDED — below min weight
+ *   hip_hop (anti) → EXCLUDED — not in ecosystem
+ */
+export function isEcosystemWhitelisted(
+  classification: TrackGenreClassification,
+  vector: SemanticSceneVector,
+  confidence: number,
+): boolean {
+  if (confidence < ECOSYSTEM_HARD_GATE_CONFIDENCE) return true;
+  if (classification.genrePrimary === "unknown") return true;
+
+  const genre = classification.genrePrimary;
+  const family = classification.genreFamily;
+
+  for (const { genre: g, weight } of vector.genreEcosystem) {
+    if ((g === genre || g === family) && weight >= ECOSYSTEM_HARD_GATE_MIN_WEIGHT) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Compute energy fit for a track against the scene's energy target.
  */
 export function computeEnergyFit(
