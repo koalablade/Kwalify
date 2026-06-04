@@ -23,7 +23,9 @@ import { isUnclearIntent } from "./intent-decomposer";
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export type LaneType = "core" | "emotional" | "motion" | "contrast"
-  | "mainstream" | "nostalgia" | "discovery" | "ambient";
+  | "mainstream" | "nostalgia" | "discovery" | "ambient"
+  | "motion_high" | "nostalgia_deep" | "emotional_split" | "exploration"
+  | "ambient_fallback" | "era_split";
 
 export interface LaneScoringBias {
   weights: { ES: number; SA: number; EM: number; Era: number; Act: number; Nov: number };
