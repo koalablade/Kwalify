@@ -1826,8 +1826,84 @@ export interface SemanticSceneResolution {
 }
 
 /**
+ * V9.2 — scene category priority for conflict resolution.
+ *
+ * When multiple scenes match the same prompt, this priority order decides
+ * the winner if confidence scores are tied (within 0.05).
+ * Priority: Road/Outdoor > Urban/Night > Nostalgia/Warm > Chill/Focus > Energy/Motion > Other
+ *
+ * V9.2 rules:
+ *   - Pick ONE dominant axis, never blend or average
+ *   - Decorative language (cinematic, aesthetic, vibes, dreamy) does NOT affect scene
+ *   - Modifiers (calm, chill, dark) only adjust confidence, NOT scene category
+ */
+const SCENE_CATEGORY_PRIORITY: Record<string, number> = {
+  // Road / Outdoor (priority 1 — highest)
+  DIRT_ROAD_SUNSET: 1,
+  DOG_ON_DIRT_ROAD: 1,
+  OUTLAW_COUNTRY: 1,
+  RURAL_FARM_ROAD: 1,
+  COMING_HOME: 1,
+  BACKROAD_HIGHWAY: 1,
+  BLUEGRASS_MOUNTAIN: 1,
+  SOUTHERN_ROCK_HIGHWAY: 1,
+  ADVENTURE_MOUNTAINS: 1,
+  DRIVING_SOMEWHERE_NOWHERE: 1,
+  SUNSET_FIELDS: 1,
+  SUMMER_FIELD_GOLDEN_HOUR: 1,
+  CAMPFIRE_NIGHT: 1,
+  // Urban / Night (priority 2)
+  PETROL_STATION_2AM: 2,
+  EMPTY_MOTORWAY_NIGHT: 2,
+  CITY_AFTER_MIDNIGHT: 2,
+  NEON_STREETS: 2,
+  RAINY_CITY_LIGHTS: 2,
+  TOKYO_NEON_NIGHT: 2,
+  CYBERPUNK_URBAN: 2,
+  WALKING_RAIN_CITY: 2,
+  TOKYO_RAIN_WALK: 2,
+  LATE_NIGHT_THOUGHTS: 2,
+  DRIVING_HOME_BREAKUP: 2,
+  // Nostalgia / Warm (priority 3)
+  NOSTALGIA: 3,
+  THINKING_ABOUT_LIFE: 3,
+  HEARTBREAK: 3,
+  SUMMER_BEFORE_UNI: 3,
+  JAPANESE_CITY_POP: 3,
+  REGRET_REFLECTION: 3,
+  LIFE_IS_CHANGING: 3,
+  HOPE_NEW_CHAPTER: 3,
+  HEALING_AFTER_PAIN: 3,
+  SLOW_MORNING_COFFEE: 3,
+  TRAIN_JOURNEY: 3,
+  AIRPORT_WAITING: 3,
+  // Chill / Focus (priority 4)
+  STUDY_DEEP_FOCUS: 4,
+  DREAMY_ETHEREAL: 4,
+  INDIE_BEDROOM_LOFI: 4,
+  SPACE_COSMOS: 4,
+  MORNING_RUN_SUNRISE: 4,
+  AFTERPARTY_COMEDOWN: 4,
+  // Energy / Motion (priority 5 — lowest tiebreaker)
+  WORKOUT_INTENSITY: 5,
+  PARTY_SOCIAL_NIGHT: 5,
+  RAVE_90S_UK: 5,
+  FESTIVAL_SUMMER_FIELD: 5,
+  EIGHTIES_UK_SYNTH: 5,
+  LUXURY_AMBITION: 5,
+  TOKYO_NEON_NIGHT_ENERGY: 5,
+};
+
+/** Confidence delta within which category priority is used as a tiebreaker (V9.2) */
+const PRIORITY_TIEBREAK_DELTA = 0.05;
+
+/**
  * Detect which semantic scene vector applies to the vibe prompt.
  * Returns the best match with confidence plus up to 3 ranked alternatives.
+ *
+ * V9.1 / V9.2: deterministic, taxonomy-bound, single primary scene.
+ * When confidence scores are within 0.05, V9.2 category priority resolves the tie:
+ *   Road/Outdoor > Urban/Night > Nostalgia/Warm > Chill/Focus > Energy/Motion
  */
 export function resolveSemanticScene(
   vibe: string,
@@ -1846,8 +1922,16 @@ export function resolveSemanticScene(
     return { vector: null, confidence: 0, matchedId: null, alternatives: [] };
   }
 
-  // Sort by confidence descending
-  matches.sort((a, b) => b.confidence - a.confidence);
+  // V9.2: Sort by confidence descending, then by category priority ascending (lower = higher priority).
+  // This means that within a 0.05 confidence band, the higher-priority category wins.
+  matches.sort((a, b) => {
+    const confDiff = b.confidence - a.confidence;
+    if (Math.abs(confDiff) > PRIORITY_TIEBREAK_DELTA) return confDiff;
+    const prioA = SCENE_CATEGORY_PRIORITY[a.id] ?? 6;
+    const prioB = SCENE_CATEGORY_PRIORITY[b.id] ?? 6;
+    if (prioA !== prioB) return prioA - prioB;
+    return confDiff;
+  });
 
   const [primary, ...rest] = matches;
 

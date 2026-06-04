@@ -27,15 +27,7 @@ import type { GenreAudit } from "../lib/genre-audit";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
 import { resolveSemanticScene } from "../lib/semantic-scene-engine";
-import {
-  ECOSYSTEM_LOCK_THRESHOLD,
-  classifyPoolByEcosystem,
-  selectAnchorTracks,
-  hoistAnchorTracksInPool,
-  enforceEcosystemFloor,
-  buildEcosystemDebug,
-  type EcosystemDebug,
-} from "../lib/ecosystem-lock";
+import type { EcosystemDebug } from "../lib/ecosystem-lock";
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -139,11 +131,8 @@ export function buildPlaylistPipeline<T extends {
 }>(
   opts: BuildPlaylistPipelineOpts<T>
 ): BuildPlaylistPipelineResult<T> {
-  // ── Resolve semantic scene for ecosystem locking ────────────────────────────
+  // V9: Resolve semantic scene as a soft scoring signal only — no ecosystem locking.
   const semanticResolution = resolveSemanticScene(opts.vibe, opts.emotionProfile);
-  const ecosystemLockActive =
-    !!semanticResolution.vector &&
-    semanticResolution.confidence >= ECOSYSTEM_LOCK_THRESHOLD;
 
   const scoring = runScoringPipeline({
     pipelineLog: opts.pipelineLog,
@@ -171,30 +160,8 @@ export function buildPlaylistPipeline<T extends {
     },
   });
 
-  // ── Ecosystem anchor hoisting ────────────────────────────────────────────────
-  // When the scene lock is active, identify the 10 strongest primary-ecosystem
-  // tracks and hoist them to the front of the scoring pool. The composer will
-  // then preferentially pick from these anchor slots first.
-  let sortedPool = scoring.sorted;
-  let anchorTrackIds: string[] = [];
-
-  if (ecosystemLockActive && semanticResolution.vector) {
-    const vector = semanticResolution.vector;
-    const poolWithScore = sortedPool.map((t) => ({ ...t, score: (t as unknown as { score: number }).score ?? 0 }));
-    const classified = classifyPoolByEcosystem(poolWithScore as (typeof poolWithScore[number] & { trackId: string; trackName: string; artistName: string; albumName: string; energy: number | null; valence: number | null; tempo: number | null; danceability: number | null; acousticness: number | null; score: number })[], vector);
-    const anchors = selectAnchorTracks(classified.primary as unknown as (typeof sortedPool[number] & { score: number })[], 10);
-    anchorTrackIds = anchors.map((a) => a.trackId);
-    sortedPool = hoistAnchorTracksInPool(sortedPool, anchors as unknown as typeof sortedPool);
-    logScoringStage(opts.pipelineLog, "Ecosystem anchor hoisting applied", Date.now(), {
-      locked: true,
-      sceneId: vector.id,
-      confidence: semanticResolution.confidence,
-      primaryPoolSize: classified.primary.length,
-      adjacentPoolSize: classified.adjacent.length,
-      antiPoolSize: classified.anti.length,
-      anchorsSelected: anchorTrackIds.length,
-    });
-  }
+  // V9: Sort by final score only — no anchor hoisting or ecosystem re-ordering.
+  const sortedPool = scoring.sorted;
 
   const recentTrackPenalty = opts.recentPlaylistTrackIds?.length
     ? buildRecentTrackPoolPenalty(
@@ -218,7 +185,7 @@ export function buildPlaylistPipeline<T extends {
     vibe: opts.vibe,
     canonical: opts.canonical,
     recentTrackPenalty,
-    ecosystemVector: ecosystemLockActive ? semanticResolution.vector ?? undefined : undefined,
+    ecosystemVector: undefined,
   });
   logScoringStage(opts.pipelineLog, "Playlist composed", t, {
     poolSize: sortedPool.length,
@@ -242,58 +209,18 @@ export function buildPlaylistPipeline<T extends {
     tracks: enforced.tracks.length,
   });
 
-  // ── Ecosystem floor enforcement ──────────────────────────────────────────────
-  // After composition, validate that the primary ecosystem meets the floor.
-  // If it doesn't, swap out the weakest non-primary tracks for primary candidates.
-  let ecosystemEnforcedTracks = enforced.tracks;
-  let swapsApplied = 0;
-  let rejectedAndRegenerated = false;
-  let ecosystemDebug: EcosystemDebug | null = null;
-
-  if (ecosystemLockActive && semanticResolution.vector) {
-    const vector = semanticResolution.vector;
-
-    const poolForEnforcement = (scoring.sorted as unknown as (T & { score: number })[]);
-    const tracksForEnforcement = (enforced.tracks as unknown as (T & { score: number })[]);
-
-    const result = enforceEcosystemFloor(
-      tracksForEnforcement,
-      poolForEnforcement,
-      vector,
-      1
-    );
-    ecosystemEnforcedTracks = result.tracks as unknown as typeof enforced.tracks;
-    swapsApplied = result.swapsApplied;
-    rejectedAndRegenerated = result.rejectedAndRegenerated;
-
-    ecosystemDebug = buildEcosystemDebug({
-      vector,
-      sceneConfidence: semanticResolution.confidence,
-      locked: ecosystemLockActive,
-      pool: poolForEnforcement,
-      finalTracks: result.tracks as unknown as (T & { score: number })[],
-      anchorTrackIds,
-      swapsApplied,
-      rejectedAndRegenerated,
-    });
-
-    logScoringStage(opts.pipelineLog, "Ecosystem floor enforcement complete", t, {
-      sceneId: vector.id,
-      primaryShare: result.primaryShare,
-      primaryFloor: vector.ecosystemFloor,
-      swapsApplied,
-      finalTracks: ecosystemEnforcedTracks.length,
-    });
-  }
+  // V9: No ecosystem floor enforcement — diversity balance applied by genre enforcement above.
+  // Genre cap: 45% max per genre, minimum 3 genres, no artist >20% (handled in composer/enforcer).
+  const ecosystemDebug: EcosystemDebug | null = null;
 
   const chaos = scoring.scoringDiagnostics.controlledChaos as Record<string, unknown> | undefined;
 
   return {
-    finalTracks: ecosystemEnforcedTracks,
+    finalTracks: enforced.tracks,
     sorted: scoring.sorted,
     scoringDiagnostics: {
       ...scoring.scoringDiagnostics,
-      ecosystemLock: ecosystemDebug ?? {
+      ecosystemLock: {
         locked: false,
         sceneId: semanticResolution.matchedId ?? null,
         sceneConfidence: semanticResolution.confidence,

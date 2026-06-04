@@ -61,8 +61,6 @@ import {
   computeSemanticEcosystemScore,
   computeNegativePenalty,
   computeEnergyFit,
-  isEcosystemWhitelisted,
-  ECOSYSTEM_HARD_GATE_CONFIDENCE,
   type SemanticSceneResolution,
 } from "./semantic-scene-engine";
 
@@ -475,34 +473,13 @@ export function scoreLibraryHybrid<T extends {
   const passed: { track: T; tri: TriScores }[] = [];
   const excluded: TrackScoringDebug[] = [];
 
-  const sv = ctx.semanticResolution.vector;
-  const sceneConf = ctx.semanticResolution.confidence;
-  const hardGateActive = !!(sv && sceneConf >= ECOSYSTEM_HARD_GATE_CONFIDENCE);
-
+  // V9: ALL valid tracks enter scoring — NO filtering by genre, scene, or ecosystem.
+  // Scores influence ranking only. Scene is a signal, not a gate.
   for (const track of tracks) {
     const hard = applyHardFilters(track, ctx.hardFilter);
     if (!hard.pass) {
       excluded.push(emptyDebug(track.trackId, hard.excludedBy));
       continue;
-    }
-
-    // ── HARD ECOSYSTEM GATE ───────────────────────────────────────────────────
-    // When scene confidence ≥ 0.70, only genres with ecosystem weight ≥ 0.50
-    // enter the scoring pool. This prevents low-weight members (e.g. "indie" at
-    // 0.35 in OUTLAW_COUNTRY) from winning via cross-genre semantic similarity.
-    // Tracks that fail get score = 0 — NOT a reduced score, zero eligibility.
-    if (hardGateActive && sv) {
-      const cls = requireTrackClassification(
-        track.trackId,
-        ctx.userGenre.trackClassifications,
-        () => classifyTrack(track)
-      );
-      const anchor = ctx.truthAnchors ? getTruthAnchor(ctx.truthAnchors, track.trackId) : undefined;
-      const finalCls = anchor ? applyTruthAnchorGuard(cls, anchor).classification : cls;
-      if (!isEcosystemWhitelisted(finalCls, sv, sceneConf)) {
-        excluded.push(emptyDebug(track.trackId, `ecosystem_hard_gate:${finalCls.genrePrimary}`));
-        continue;
-      }
     }
 
     const tri = computeTriScores(
@@ -598,17 +575,7 @@ export function buildScoringDiagnostics(
     .filter((e) => e.excludedBy?.includes("christmas") || e.excludedBy?.includes("seasonal"))
     .slice(0, 8);
 
-  // ── Ecosystem gate diagnostics ─────────────────────────────────────────────
-  const gateActive = !!(
-    ctx.semanticResolution.vector &&
-    ctx.semanticResolution.confidence >= ECOSYSTEM_HARD_GATE_CONFIDENCE
-  );
-  const gateExclusions = excluded.filter((e) => e.excludedBy?.startsWith("ecosystem_hard_gate:"));
-  const rejectedByGenre: Record<string, number> = {};
-  for (const e of gateExclusions) {
-    const genre = e.excludedBy?.split(":")[1] ?? "unknown";
-    rejectedByGenre[genre] = (rejectedByGenre[genre] ?? 0) + 1;
-  }
+  // V9: No ecosystem gate — all valid tracks scored, no pool caps by genre.
   const finalCandidateGenres: Record<string, number> = {};
   for (const r of results) {
     const g = r.debug.genrePrimary;
@@ -632,11 +599,11 @@ export function buildScoringDiagnostics(
     topScored: top.map((r) => r.debug),
     seasonalExclusionsSample: leakSamples,
     ecosystemGate: {
-      applied: gateActive,
+      applied: false,
       sceneId: ctx.semanticResolution.matchedId,
       sceneConfidence: ctx.semanticResolution.confidence,
-      rejectedCount: gateExclusions.length,
-      rejectedByGenre,
+      rejectedCount: 0,
+      rejectedByGenre: {},
       finalCandidateGenres,
     },
   };
