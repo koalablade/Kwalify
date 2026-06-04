@@ -679,7 +679,280 @@ function resultHtml(result) {
 }
 
 // ── Admin Debug Panel ─────────────────────────────────────────────────────────
+// ── Unified debug panel — V3.1 primary, V11 labeled as pre-processing ─────────
+function buildUnifiedDebugPanel(result, dbg) {
+  const v3  = dbg.v3  || {};
+  const v11 = dbg.v11 || {};
+  const sys = dbg.systemDiagnostics || {};
+  const pool = dbg.poolInfo || {};
+
+  const genreColors = {
+    country:"#d97706",folk:"#16a34a",indie:"#7c3aed",rock:"#dc2626",
+    electronic:"#0891b2",pop:"#db2777",jazz:"#9333ea",soul:"#ea580c",
+    rnb:"#0284c7",hip_hop:"#16a34a",blues:"#2563eb",metal:"#6b7280",
+    classical:"#b45309",reggae:"#15803d",latin:"#c2410c",
+  };
+  const laneColors = { core:"#7c3aed", emotional:"#db2777", motion:"#0891b2", contrast:"#d97706", discovery:"#16a34a", fallback:"#6b7280" };
+  const bar = (v) => {
+    const pct = Math.round((v || 0) * 100);
+    const col = pct >= 70 ? "#1db954" : pct >= 40 ? "#f59e0b" : "#ef4444";
+    return `<div class="dp-score-bar-wrap" title="${pct}%"><div class="dp-score-bar" style="width:${pct}%;background:${col}"></div><span>${pct}</span></div>`;
+  };
+
+  // ── System health ─────────────────────────────────────────────────────────
+  const sysHtml = `
+    <div class="dp-card" style="border-color:#334155">
+      <div class="dp-card-title" style="color:#94a3b8">⚙️ Pipeline Architecture</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <span class="dp-badge" style="background:#7c3aed20;color:#a78bfa;border-color:#7c3aed40">Active: ${esc(dbg.activePipeline || "v3.1_unified_routing")}</span>
+        <span class="dp-badge" style="background:#0284c720;color:#38bdf8;border-color:#0284c740">V11 → ${esc(sys.v11UsedFor || "candidateGeneration")}</span>
+        <span class="dp-badge" style="background:#16a34a20;color:#4ade80;border-color:#16a34a40">V3.1 → ${esc(sys.v3UsedFor || "finalSelection")}</span>
+        ${sys.debugPanelAligned ? '<span class="dp-badge" style="background:#16a34a20;color:#4ade80;border-color:#16a34a40">Panel Aligned ✓</span>' : ""}
+      </div>
+    </div>`;
+
+  // ── V3.1 Intent decomposition ─────────────────────────────────────────────
+  const intent = v3.intentDecomposition || {};
+  const sceneMap = Object.entries(intent.sceneInfluenceMap || {}).slice(0, 6);
+  const ctxAnchors = Object.entries(intent.contextAnchors || {}).slice(0, 4);
+  const intentHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">🧠 V3.1 Intent Decomposition</div>
+      <div style="margin-bottom:8px;font-size:13px">
+        <span style="opacity:0.6">Primary vibe: </span><strong>${esc(intent.primary || "—")}</strong>
+      </div>
+      ${sceneMap.length ? `
+        <div class="dp-sub-title">Scene Influence Map</div>
+        ${sceneMap.map(([scene, weight]) => {
+          const pct = Math.round((weight || 0) * 100);
+          return `<div class="dp-weight-row">
+            <span class="dp-weight-label">${esc(scene).replace(/_/g," ")}</span>
+            <div class="dp-weight-bar-wrap"><div class="dp-weight-bar" style="width:${Math.min(100,pct*1.5)}%;background:#7c3aed"></div></div>
+            <span class="dp-weight-pct">${pct}%</span>
+          </div>`;
+        }).join("")}
+      ` : ""}
+      ${ctxAnchors.length ? `
+        <div class="dp-sub-title" style="margin-top:8px">Context Anchors</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${ctxAnchors.map(([k,v]) => `<span class="dp-badge">${esc(k)}: ${esc(String(v))}</span>`).join("")}
+        </div>
+      ` : ""}
+    </div>`;
+
+  // ── V3.1 Global diversity ─────────────────────────────────────────────────
+  const gd = (v3.globalDiversityMetrics || {}).postInterleave || {};
+  const diversityHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">🌈 V3.1 Global Diversity (Post-Interleave)</div>
+      <div class="dp-pool-grid" style="grid-template-columns:repeat(3,1fr);gap:8px">
+        <div class="dp-pool-stat"><div class="dp-pool-num">${Math.round((gd.genreConcentration||0)*100)}%</div><div class="dp-pool-lbl">Genre conc.</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${Math.round((gd.eraConcentration||0)*100)}%</div><div class="dp-pool-lbl">Era conc.</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${Math.round((gd.artistRepeatIndex||0)*100)}%</div><div class="dp-pool-lbl">Artist repeat</div></div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        ${gd.driftState ? `<span class="dp-badge">Drift: ${esc(gd.driftState)}</span>` : ""}
+        ${gd.explorationPressure != null ? `<span class="dp-badge">Exploration: ${Math.round((gd.explorationPressure||0)*100)}%</span>` : ""}
+        ${gd.dominantGenre ? `<span class="dp-badge">Top genre: ${esc(gd.dominantGenre)}</span>` : ""}
+        ${gd.dominantEra   ? `<span class="dp-badge">Top era: ${esc(gd.dominantEra)}</span>` : ""}
+      </div>
+    </div>`;
+
+  // ── V3.1 Lane architecture ────────────────────────────────────────────────
+  const lanes = v3.lanes || [];
+  const lanesHtml = `
+    <div class="dp-card dp-card--wide">
+      <div class="dp-card-title">🛣️ V3.1 Lane Architecture <span style="font-weight:400;font-size:11px;opacity:0.6">(these lanes make the final selection)</span></div>
+      <div class="dp-table-wrap">
+        <table class="dp-table">
+          <thead><tr><th>Lane</th><th>Type</th><th>Weight</th><th>Scored</th><th>→ Selected</th><th>Genre clusters</th><th>Era clusters</th></tr></thead>
+          <tbody>
+            ${lanes.map(l => {
+              const col = laneColors[l.type] || "#4b5563";
+              const spread = l.clusterSpread || {};
+              const ratio = l.scoredCount > 0 ? Math.round((l.selectedCount / l.scoredCount) * 100) : 0;
+              return `<tr>
+                <td><span class="dp-genre-pill" style="background:${col}20;color:${col}">${esc(l.laneId)}</span></td>
+                <td style="opacity:0.7;font-size:11px">${esc(l.type)}</td>
+                <td><strong>${Math.round((l.weight||0)*100)}%</strong></td>
+                <td>${l.scoredCount}</td>
+                <td>${l.selectedCount} <span style="opacity:0.5;font-size:11px">(${ratio}%)</span></td>
+                <td>${spread.genreClusters ?? "—"}</td>
+                <td>${spread.eraClusters ?? "—"}</td>
+              </tr>`;
+            }).join("") || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No lane data</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // ── V3.1 Final decision trace ─────────────────────────────────────────────
+  const trace = (v3.finalDecisionTrace || []).slice(0, 40);
+  const traceHtml = `
+    <div class="dp-card dp-card--wide">
+      <div class="dp-card-title">✅ V3.1 Final Decision Trace <span style="font-weight:400;font-size:11px;opacity:0.6">(why each track was selected or rejected per lane)</span></div>
+      <div class="dp-table-wrap">
+        <table class="dp-table">
+          <thead><tr><th>#</th><th>Track</th><th>Lane</th><th>Raw Score</th><th>Div. Penalty</th><th>Cluster</th><th>Status</th></tr></thead>
+          <tbody>
+            ${trace.map((t, i) => {
+              const penPct   = Math.round((t.diversityPenalty || 0) * 100);
+              const rawPct   = Math.round((t.rawLaneScore || 0) * 100);
+              const laneKey  = (t.enteredLane || "").split("_")[0];
+              const laneCol  = laneColors[laneKey] || "#4b5563";
+              const selColor = t.selected ? "#1db954" : "#9ca3af";
+              const selLabel = t.selected ? "✓ Selected" : "✗ " + esc(t.rejectionReason || "rejected");
+              const clusterLabel = (t.clusterId || "—").replace(/^(genre|era|energy|mood):/, "");
+              return `<tr class="${i % 2 === 0 ? "dp-row-even" : ""}">
+                <td class="dp-track-num">${i + 1}</td>
+                <td class="dp-track-id">${esc(t.trackId || "").slice(-8)}</td>
+                <td><span class="dp-genre-pill" style="background:${laneCol}20;color:${laneCol}">${esc(t.enteredLane || "—")}</span></td>
+                <td>${bar(t.rawLaneScore)}</td>
+                <td style="color:${penPct > 20 ? "#ef4444" : penPct > 5 ? "#f59e0b" : "#6b7280"}">${penPct > 0 ? "-" + penPct + "%" : "—"}</td>
+                <td style="font-size:11px;opacity:0.7">${esc(clusterLabel)}</td>
+                <td><span style="color:${selColor};font-size:11px;font-weight:600">${selLabel}</span></td>
+              </tr>`;
+            }).join("") || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No trace — regenerate with ?debug=1</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+      <div class="dp-table-legend">Raw Score = pre-penalty lane affinity. Penalty from rolling diversity window. Rejection = cluster entropy constraint.</div>
+    </div>`;
+
+  // ── V11 section ───────────────────────────────────────────────────────────
+  const v11SectionHeader = `
+    <div style="margin:20px 0 10px;padding:8px 12px;background:rgba(0,0,0,0.2);border:1px solid #292524;border-radius:6px;font-size:11px;color:#78716c;letter-spacing:0.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px">
+      🔧 V11 Pre-Processing Layer — Candidate generation only · not the decision layer
+    </div>`;
+
+  const sem = v11.semanticResolution || {};
+  const confPct   = Math.round((sem.confidence || 0) * 100);
+  const confColor = confPct >= 80 ? "#1db954" : confPct >= 55 ? "#f59e0b" : "#ef4444";
+  const v11SceneHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">🔍 V11 Pre-Scene Signal <span style="font-weight:400;font-size:11px;opacity:0.5">(was "Detected Scene")</span></div>
+      ${sem.sceneId ? `
+        <div class="dp-scene-name">${esc(sem.sceneId).replace(/_/g," ")}</div>
+        <div class="dp-scene-meta">
+          <span class="dp-badge" style="background:${confColor}20;color:${confColor};border-color:${confColor}40">${confPct}% confidence</span>
+          ${sem.fallback ? '<span class="dp-badge dp-badge--muted">Fallback</span>' : ""}
+        </div>
+      ` : `<div class="dp-none">${sem.fallback ? "No scene — V11 fallback active" : "No scene matched"}</div>`}
+      <div style="margin-top:8px;font-size:11px;opacity:0.45">V11 uses this to weight candidates. V3.1 uses its own intent decomposition above.</div>
+    </div>`;
+
+  const libSize   = pool.librarySize   || 0;
+  const hybSize   = pool.hybridPoolSize || 0;
+  const removed   = libSize - hybSize;
+  const removePct = libSize > 0 ? Math.round((removed / libSize) * 100) : 0;
+  const topExcl   = Object.entries(v11.exclusionReasons || {}).sort((a,b) => b[1]-a[1]).slice(0, 5);
+  const v11PoolHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">🗂️ V11 Filtered Pool <span style="font-weight:400;font-size:11px;opacity:0.5">(was "Candidate Pool")</span></div>
+      <div class="dp-pool-grid">
+        <div class="dp-pool-stat"><div class="dp-pool-num">${libSize.toLocaleString()}</div><div class="dp-pool-lbl">Library tracks</div></div>
+        <div class="dp-pool-arrow">→</div>
+        <div class="dp-pool-stat"><div class="dp-pool-num" style="color:#1db954">${hybSize.toLocaleString()}</div><div class="dp-pool-lbl">After V11 filter</div></div>
+        <div class="dp-pool-arrow">→</div>
+        <div class="dp-pool-stat"><div class="dp-pool-num" style="color:#f59e0b">${removed.toLocaleString()}</div><div class="dp-pool-lbl">Removed (${removePct}%)</div></div>
+      </div>
+      ${topExcl.length ? `
+        <div class="dp-sub-title">Exclusion reasons</div>
+        <div class="dp-exclusions">
+          ${topExcl.map(([r,n]) => `<div class="dp-excl-row"><span>${esc(r)}</span><span class="dp-excl-count">${n}</span></div>`).join("")}
+        </div>
+      ` : ""}
+    </div>`;
+
+  const topCands = (v11.topRankedCandidates || []).slice(0, 15);
+  const v11CandidatesHtml = `
+    <div class="dp-card dp-card--wide">
+      <div class="dp-card-title">📋 V11 Ranked Candidates <span style="font-weight:400;font-size:11px;opacity:0.5">(was "Top Scored Tracks") — V3.1 selects from this pool using lane architecture, not V11 rank</span></div>
+      <div class="dp-table-wrap">
+        <table class="dp-table">
+          <thead><tr><th>#</th><th>Track</th><th>Genre</th><th>V11 Final</th><th>V11 Scene</th><th>V11 Emotion</th><th>V11 Library</th></tr></thead>
+          <tbody>
+            ${topCands.map((t, i) => `
+              <tr class="${i % 2 === 0 ? "dp-row-even" : ""}">
+                <td class="dp-track-num">${i + 1}</td>
+                <td class="dp-track-id">${esc(t.trackId || "").slice(-8)}</td>
+                <td><span class="dp-genre-pill" style="background:${(genreColors[t.genrePrimary]||"#4b5563")}20;color:${genreColors[t.genrePrimary]||"#9ca3af"}">${esc(t.genrePrimary||"?")}</span></td>
+                <td>${bar(t.finalScore)}</td>
+                <td>${bar(t.sceneScore)}</td>
+                <td>${bar(t.emotionMatch)}</td>
+                <td>${bar(t.libraryFitScore)}</td>
+              </tr>`).join("") || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No data</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+      <div class="dp-table-legend">These V11 scores order the pool V3.1 receives — they do not determine final selection. See Decision Trace above.</div>
+    </div>`;
+
+  // ── Final playlist genre composition ──────────────────────────────────────
+  const finalTracks = result.tracks || [];
+  const genreCount = {};
+  finalTracks.forEach(t => { const g = t.genrePrimary || "unknown"; genreCount[g] = (genreCount[g] || 0) + 1; });
+  const total = finalTracks.length || 1;
+  const genreDist = Object.entries(genreCount).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const compositionHtml = `
+    <div class="dp-card">
+      <div class="dp-card-title">🎼 Final Playlist Genre Composition</div>
+      ${genreDist.length ? `
+        <div class="dp-composition">
+          ${genreDist.map(([g,n]) => {
+            const pct = Math.round((n / total) * 100);
+            const col = genreColors[g] || "#4b5563";
+            return `<div class="dp-comp-row">
+              <span class="dp-comp-genre" style="color:${col}">${esc(g)}</span>
+              <div class="dp-comp-bar-wrap"><div class="dp-comp-bar" style="width:${pct}%;background:${col}"></div></div>
+              <span class="dp-comp-pct">${n} track${n !== 1 ? "s" : ""} · ${pct}%</span>
+            </div>`;
+          }).join("")}
+        </div>
+      ` : '<div class="dp-none">No genre data</div>'}
+    </div>`;
+
+  return `
+  <div class="dp-panel">
+    <div class="dp-header">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span>Scoring Diagnostics</span>
+      <span class="dp-model-tag">V3.1 Unified Routing</span>
+    </div>
+    <div class="dp-grid">
+      ${sysHtml}
+      ${intentHtml}
+      ${diversityHtml}
+    </div>
+    ${lanesHtml}
+    ${traceHtml}
+    ${v11SectionHeader}
+    <div class="dp-grid">
+      ${v11SceneHtml}
+      ${v11PoolHtml}
+    </div>
+    ${v11CandidatesHtml}
+    ${compositionHtml}
+  </div>`;
+}
+
+// ── Legacy debug panel (V11-only response shape) ──────────────────────────────
 function buildDebugPanel(result) {
+  // Dispatch to unified panel if new debug object is present
+  if (result.debug?.activePipeline) {
+    const open = state.showDebug;
+    return `
+    <div class="dp-toggle-row">
+      <button class="dp-toggle-btn" id="debugToggleBtn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        ${open ? "Hide" : "Show"} Debug Info
+        <svg class="dp-chevron ${open ? "open" : ""}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <span class="dp-admin-badge">Admin Only</span>
+    </div>
+    ${open ? buildUnifiedDebugPanel(result, result.debug) : ""}`;
+  }
+
   const dbg = result._debug;
   if (!dbg) return "";
 
@@ -690,10 +963,8 @@ function buildDebugPanel(result) {
   const domGenres = diag.dominantGenres || [];
   const exclusionReasons = diag.exclusionReasons || {};
   const ecoDebug = dbg.ecosystemDebug || {};
-  const genreAudit = dbg.genreAudit || {};
   const open = state.showDebug;
 
-  // ── Scene card ────────────────────────────────────────────────────────────
   const confPct = sem ? Math.round((sem.confidence || 0) * 100) : 0;
   const confColor = confPct >= 80 ? "#1db954" : confPct >= 55 ? "#f59e0b" : "#ef4444";
   const lockActive = confPct >= 55;
@@ -704,142 +975,87 @@ function buildDebugPanel(result) {
       ${sem ? `
         <div class="dp-scene-name">${esc(sem.sceneId || "—").replace(/_/g," ")}</div>
         <div class="dp-scene-meta">
-          <span class="dp-badge" style="background:${confColor}20;color:${confColor};border-color:${confColor}40">
-            ${confPct}% confidence
-          </span>
-          <span class="dp-badge ${lockActive ? "dp-badge--green" : "dp-badge--muted"}">
-            Ecosystem lock ${lockActive ? "active ✓" : "inactive"}
-          </span>
+          <span class="dp-badge" style="background:${confColor}20;color:${confColor};border-color:${confColor}40">${confPct}% confidence</span>
+          <span class="dp-badge ${lockActive ? "dp-badge--green" : "dp-badge--muted"}">Ecosystem lock ${lockActive ? "active ✓" : "inactive"}</span>
           ${dbg.noLibraryMode ? '<span class="dp-badge dp-badge--purple">No Library Mode</span>' : ""}
         </div>
       ` : `<div class="dp-none">No scene matched — using generic mood scoring</div>`}
     </div>`;
 
-  // ── Scoring weights card ──────────────────────────────────────────────────
   const weights = dbg.noLibraryMode
     ? { Semantic: 55, Emotion: 20, Scene: 15, Aesthetic: 10, Library: 0, Genre: 0 }
     : { Semantic: 40, Emotion: 20, Scene: 15, Aesthetic: 10, Library: 10, Genre: 5 };
-
   const weightBars = Object.entries(weights).map(([k, v]) => `
     <div class="dp-weight-row">
       <span class="dp-weight-label">${k}</span>
-      <div class="dp-weight-bar-wrap">
-        <div class="dp-weight-bar" style="width:${v * 1.8}%;background:${v >= 40 ? "#7c3aed" : v >= 20 ? "#1d4ed8" : v >= 10 ? "#0e7490" : "#374151"}"></div>
-      </div>
+      <div class="dp-weight-bar-wrap"><div class="dp-weight-bar" style="width:${v * 1.8}%;background:${v >= 40 ? "#7c3aed" : v >= 20 ? "#1d4ed8" : v >= 10 ? "#0e7490" : "#374151"}"></div></div>
       <span class="dp-weight-pct">${v}%</span>
     </div>`).join("");
-
   const weightsHtml = `
     <div class="dp-card">
       <div class="dp-card-title">⚖️ Scoring Weights</div>
       <div class="dp-weights">${weightBars}</div>
     </div>`;
 
-  // ── Pool breakdown card ───────────────────────────────────────────────────
   const libSize = pool.librarySize || 0;
   const hybridSize = pool.hybridPoolSize || 0;
   const filteredOut = libSize - hybridSize;
   const filteredPct = libSize > 0 ? Math.round((filteredOut / libSize) * 100) : 0;
-  const topExclusions = Object.entries(exclusionReasons)
-    .sort((a, b) => b[1] - a[1]).slice(0, 5);
-
+  const topExclusions = Object.entries(exclusionReasons).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const poolHtml = `
     <div class="dp-card">
       <div class="dp-card-title">🗂️ Candidate Pool</div>
       <div class="dp-pool-grid">
-        <div class="dp-pool-stat">
-          <div class="dp-pool-num">${libSize.toLocaleString()}</div>
-          <div class="dp-pool-lbl">Library tracks</div>
-        </div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${libSize.toLocaleString()}</div><div class="dp-pool-lbl">Library tracks</div></div>
         <div class="dp-pool-arrow">→</div>
-        <div class="dp-pool-stat">
-          <div class="dp-pool-num" style="color:#1db954">${hybridSize.toLocaleString()}</div>
-          <div class="dp-pool-lbl">After pre-filter</div>
-        </div>
+        <div class="dp-pool-stat"><div class="dp-pool-num" style="color:#1db954">${hybridSize.toLocaleString()}</div><div class="dp-pool-lbl">After pre-filter</div></div>
         <div class="dp-pool-arrow">→</div>
-        <div class="dp-pool-stat">
-          <div class="dp-pool-num" style="color:#f59e0b">${filteredOut.toLocaleString()}</div>
-          <div class="dp-pool-lbl">Removed (${filteredPct}%)</div>
-        </div>
+        <div class="dp-pool-stat"><div class="dp-pool-num" style="color:#f59e0b">${filteredOut.toLocaleString()}</div><div class="dp-pool-lbl">Removed (${filteredPct}%)</div></div>
       </div>
-      ${pool.poolCapped ? '<div class="dp-note">⚡ Pool was capped — anti-genre tracks pre-filtered before scoring</div>' : ""}
+      ${pool.poolCapped ? '<div class="dp-note">⚡ Pool was capped</div>' : ""}
       ${topExclusions.length ? `
         <div class="dp-sub-title">Exclusion reasons</div>
         <div class="dp-exclusions">
-          ${topExclusions.map(([reason, count]) =>
-            `<div class="dp-excl-row"><span>${esc(reason)}</span><span class="dp-excl-count">${count}</span></div>`
-          ).join("")}
+          ${topExclusions.map(([reason, count]) => `<div class="dp-excl-row"><span>${esc(reason)}</span><span class="dp-excl-count">${count}</span></div>`).join("")}
         </div>
       ` : ""}
     </div>`;
 
-  // ── Dominant genres card ──────────────────────────────────────────────────
-  const genreColors = {
-    country:"#d97706",folk:"#16a34a",indie:"#7c3aed",rock:"#dc2626",
-    electronic:"#0891b2",pop:"#db2777",jazz:"#9333ea",soul:"#ea580c",
-    rnb:"#0284c7",hip_hop:"#16a34a",blues:"#2563eb",metal:"#6b7280",
-    classical:"#b45309",reggae:"#15803d",latin:"#c2410c",
-  };
-
+  const genreColors = { country:"#d97706",folk:"#16a34a",indie:"#7c3aed",rock:"#dc2626",electronic:"#0891b2",pop:"#db2777",jazz:"#9333ea",soul:"#ea580c",rnb:"#0284c7",hip_hop:"#16a34a",blues:"#2563eb",metal:"#6b7280",classical:"#b45309",reggae:"#15803d",latin:"#c2410c" };
   const genreBubbles = domGenres.slice(0, 8).map(g =>
     `<span class="dp-genre-chip" style="background:${(genreColors[g]||"#4b5563")}20;color:${genreColors[g]||"#9ca3af"};border-color:${(genreColors[g]||"#4b5563")}40">${esc(g)}</span>`
   ).join("");
-
   const genresHtml = `
     <div class="dp-card">
       <div class="dp-card-title">🎵 Dominant Genres in Library</div>
       <div class="dp-genre-chips">${genreBubbles || '<span class="dp-none">No data</span>'}</div>
     </div>`;
 
-  // ── Top scored tracks table ───────────────────────────────────────────────
-  const bar = (v) => {
-    const pct = Math.round((v || 0) * 100);
-    const col = pct >= 70 ? "#1db954" : pct >= 40 ? "#f59e0b" : "#ef4444";
-    return `<div class="dp-score-bar-wrap" title="${pct}%"><div class="dp-score-bar" style="width:${pct}%;background:${col}"></div><span>${pct}</span></div>`;
-  };
-
+  const bar = (v) => { const pct = Math.round((v || 0) * 100); const col = pct >= 70 ? "#1db954" : pct >= 40 ? "#f59e0b" : "#ef4444"; return `<div class="dp-score-bar-wrap" title="${pct}%"><div class="dp-score-bar" style="width:${pct}%;background:${col}"></div><span>${pct}</span></div>`; };
   const trackRows = topScored.map((t, i) => `
     <tr class="dp-track-row ${i % 2 === 0 ? "dp-row-even" : ""}">
       <td class="dp-track-num">${i + 1}</td>
       <td class="dp-track-id">${esc(t.trackId || "").slice(-8)}</td>
-      <td class="dp-track-genre">
-        <span class="dp-genre-pill" style="background:${(genreColors[t.genrePrimary]||"#4b5563")}20;color:${genreColors[t.genrePrimary]||"#9ca3af"}">${esc(t.genrePrimary||"?")}</span>
-      </td>
-      <td>${bar(t.finalScore)}</td>
-      <td>${bar(t.sceneScore)}</td>
-      <td>${bar(t.emotionMatch)}</td>
-      <td>${bar(t.libraryFitScore)}</td>
+      <td class="dp-track-genre"><span class="dp-genre-pill" style="background:${(genreColors[t.genrePrimary]||"#4b5563")}20;color:${genreColors[t.genrePrimary]||"#9ca3af"}">${esc(t.genrePrimary||"?")}</span></td>
+      <td>${bar(t.finalScore)}</td><td>${bar(t.sceneScore)}</td><td>${bar(t.emotionMatch)}</td><td>${bar(t.libraryFitScore)}</td>
     </tr>`).join("");
-
   const topTracksHtml = `
     <div class="dp-card dp-card--wide">
       <div class="dp-card-title">📊 Top Scored Tracks (pre-compose)</div>
       <div class="dp-table-wrap">
         <table class="dp-table">
-          <thead>
-            <tr>
-              <th>#</th><th>Track ID</th><th>Genre</th>
-              <th>Final</th><th>Scene</th><th>Emotion</th><th>Library</th>
-            </tr>
-          </thead>
+          <thead><tr><th>#</th><th>Track ID</th><th>Genre</th><th>Final</th><th>Scene</th><th>Emotion</th><th>Library</th></tr></thead>
           <tbody>${trackRows || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No data</td></tr>'}</tbody>
         </table>
       </div>
       <div class="dp-table-legend">Each bar = 0–100. Final score drives track selection.</div>
     </div>`;
 
-  // ── Playlist genre composition ────────────────────────────────────────────
   const finalTracks = result.tracks || [];
   const genreCount = {};
-  finalTracks.forEach(t => {
-    const g = t.genrePrimary || "unknown";
-    genreCount[g] = (genreCount[g] || 0) + 1;
-  });
+  finalTracks.forEach(t => { const g = t.genrePrimary || "unknown"; genreCount[g] = (genreCount[g] || 0) + 1; });
   const total = finalTracks.length || 1;
-  const genreDist = Object.entries(genreCount)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
-
+  const genreDist = Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const compositionHtml = `
     <div class="dp-card">
       <div class="dp-card-title">🎼 Final Playlist Genre Composition</div>
@@ -848,12 +1064,9 @@ function buildDebugPanel(result) {
           ${genreDist.map(([g, n]) => {
             const pct = Math.round((n / total) * 100);
             const col = genreColors[g] || "#4b5563";
-            return `
-            <div class="dp-comp-row">
+            return `<div class="dp-comp-row">
               <span class="dp-comp-genre" style="color:${col}">${esc(g)}</span>
-              <div class="dp-comp-bar-wrap">
-                <div class="dp-comp-bar" style="width:${pct}%;background:${col}"></div>
-              </div>
+              <div class="dp-comp-bar-wrap"><div class="dp-comp-bar" style="width:${pct}%;background:${col}"></div></div>
               <span class="dp-comp-pct">${n} track${n !== 1 ? "s" : ""} · ${pct}%</span>
             </div>`;
           }).join("")}

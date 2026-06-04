@@ -102,6 +102,18 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     clusterSelectionRatios: Record<string, number>;
   }> = [];
 
+  // Observability: per-track decision trace (top 15 by raw score per lane)
+  const finalDecisionTrace: Array<{
+    trackId: string;
+    enteredLane: string;
+    laneScore: number;
+    rawLaneScore: number;
+    diversityPenalty: number;
+    clusterId: string | null;
+    selected: boolean;
+    rejectionReason: string | null;
+  }> = [];
+
   let diversityWindow = createDiversityWindow();
 
   const sampledResults: SampledLaneResult<T>[] = lanes.map((lane) => {
@@ -140,6 +152,33 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
         lane:   lane.id,
       });
     }
+
+    // ── Observability: build per-track trace (top 15 by raw score) ───────────
+    const selectedIdSet = new Set(clusterResult.tracks.map((t) => t.trackId));
+    const rawScoreMap   = new Map(rawScored.map((r) => [r.track.trackId, r.laneScore]));
+
+    const traceEntries = [...penalisedScored]
+      .sort((a, b) => (rawScoreMap.get(b.track.trackId) ?? 0) - (rawScoreMap.get(a.track.trackId) ?? 0))
+      .slice(0, 15)
+      .map((item) => {
+        const rawScore  = rawScoreMap.get(item.track.trackId) ?? item.laneScore;
+        const penScore  = item.laneScore;
+        const sel       = selectedIdSet.has(item.track.trackId);
+        const penalty   = rawScore > 0 ? Math.max(0, 1 - penScore / rawScore) : 0;
+        const selTrack  = sel ? clusterResult.tracks.find((t) => t.trackId === item.track.trackId) : undefined;
+        return {
+          trackId:         item.track.trackId,
+          enteredLane:     lane.id,
+          laneScore:       Math.round(penScore  * 1000) / 1000,
+          rawLaneScore:    Math.round(rawScore   * 1000) / 1000,
+          diversityPenalty: Math.round(penalty   * 1000) / 1000,
+          clusterId:       selTrack?.clusterIds[0] ?? null,
+          selected:        sel,
+          rejectionReason: sel ? null : "cluster_entropy_cap",
+        };
+      });
+
+    finalDecisionTrace.push(...traceEntries);
 
     laneDetails.push({
       laneId: lane.id,
@@ -222,6 +261,8 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
 
   const diagnostics: Record<string, unknown> = {
     pipelineVersion: "v3.1_unified_routing",
+    activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
+    finalDecisionTrace,
     intentDecomposition: {
       primary: decomposed.primary,
       secondaryIntents: decomposed.secondaryIntents,

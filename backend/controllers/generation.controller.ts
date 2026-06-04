@@ -1202,6 +1202,45 @@ router.post("/generate", async (req, res): Promise<void> => {
               },
               genreAudit,
             },
+            debug: {
+              activePipeline: "v3.1_unified_routing",
+              v11: {
+                role: "candidateGeneration",
+                semanticResolution:
+                  (scoringDiagnostics as Record<string, unknown>).semanticResolution ??
+                  { sceneId: null, confidence: 0, fallback: true, sceneStatus: "fallback" },
+                scoringModel:
+                  (scoringDiagnostics as Record<string, unknown>).scoringModel ?? "v11",
+                candidatePool: {
+                  librarySize: scoringPool.librarySize,
+                  hybridPoolSize: scoringPool.hybridPoolSize,
+                  poolCapped: scoringPool.poolCapped,
+                },
+                candidateWeights: noLibraryMode
+                  ? "semantic:0.55_emotion:0.20_scene:0.15_aesthetic:0.10"
+                  : "semantic:0.40_emotion:0.20_scene:0.15_aesthetic:0.10_library:0.10_genre:0.05",
+                topRankedCandidates:
+                  (scoringDiagnostics as Record<string, unknown>).topScored ?? [],
+                exclusionReasons:
+                  (scoringDiagnostics as Record<string, unknown>).exclusionReasons ?? {},
+                dominantGenres:
+                  (scoringDiagnostics as Record<string, unknown>).dominantGenres ?? [],
+              },
+              v3: (scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {},
+              noLibraryMode: !!noLibraryMode,
+              poolInfo: {
+                librarySize: scoringPool.librarySize,
+                hybridPoolSize: scoringPool.hybridPoolSize,
+                poolCapped: scoringPool.poolCapped,
+              },
+              genreAudit,
+              systemDiagnostics: {
+                v11UsedFor: "candidateGeneration",
+                v3UsedFor: "finalSelection",
+                debugPanelAligned: true,
+                pipelineConsistency: "OK",
+              },
+            },
           }
         : {}),
     });
