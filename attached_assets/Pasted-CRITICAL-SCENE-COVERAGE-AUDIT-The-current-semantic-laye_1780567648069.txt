@@ -1,0 +1,248 @@
+CRITICAL SCENE COVERAGE AUDIT
+
+The current semantic layer still misses too many real-world phrases.
+
+I want a comprehensive scene recognition system that understands natural language descriptions of places, moments, emotions, memories, activities, weather, culture, vehicles, environments, aesthetics, and life situations.
+
+Do NOT generate playlists.
+
+Do NOT modify scoring.
+
+Only audit and expand scene recognition coverage.
+
+For every phrase below, show:
+
+* detected scene
+* confidence
+* ecosystem
+* fallback used (yes/no)
+
+If any phrase falls back to generic mood scoring, add routing logic and aliases.
+
+=================================
+RURAL / COUNTRY
+===============
+
+country roads
+country lane
+back road
+backroads
+dirt road
+gravel road
+farm road
+country drive
+country sunset
+country sunrise
+southern evening
+southern summer
+old pickup truck
+truck at sunset
+dog riding shotgun
+small town friday night
+county fair
+front porch
+barn dance
+open fields
+cornfield sunset
+fishing at dawn
+lake cabin
+americana road trip
+rural freedom
+middle of nowhere
+tractor road
+country heartbreak
+whiskey by a fire
+bonfire in a field
+driving through farmland
+empty country highway
+
+=================================
+OUTLAW COUNTRY
+==============
+
+outlaw country
+western freedom
+dusty boots
+cowboy sunset
+roadhouse bar
+desert highway
+wild west nostalgia
+small town outlaw
+country rebel
+truck stop at midnight
+lonely saloon
+old cowboy movie
+backcountry adventure
+
+=================================
+NIGHT DRIVE
+===========
+
+night drive
+motorway alone
+empty motorway
+late night driving
+city lights through rain
+petrol station at 2am
+service station at midnight
+driving nowhere
+driving home alone
+neon reflections
+urban solitude
+night highway
+headlights in rain
+driving after heartbreak
+long road home
+
+=================================
+CITY POP / JAPAN
+================
+
+80s tokyo
+japanese city pop
+tokyo at night
+shibuya neon
+late night japan
+retro japan
+japan summer evening
+city pop sunset
+tokyo train ride
+osaka nightlife
+anime nostalgia
+arcade at night
+
+=================================
+RAIN / MELANCHOLY
+=================
+
+rainy city
+rain on windows
+grey afternoon
+empty streets
+walking in the rain
+melancholy evening
+quiet sadness
+nostalgic rain
+lonely train journey
+autumn rain
+overcast city
+
+=================================
+DREAMY
+======
+
+dreamy
+unreal
+ethereal
+floating through space
+liminal
+dream sequence
+sleepy afternoon
+golden haze
+nostalgic dream
+sunlight through curtains
+soft focus memory
+
+=================================
+SUMMER
+======
+
+summer evening
+summer road trip
+beach sunset
+windows down
+warm air
+festival season
+vacation nostalgia
+poolside summer
+late july evening
+carefree summer
+
+=================================
+PARTY
+=====
+
+house party
+summer party
+festival crowd
+dance floor
+nightclub
+pre-drinks
+friday night out
+rave field
+warehouse rave
+afterparty
+3am dancefloor
+
+=================================
+GYM
+===
+
+gym rage
+lifting heavy
+adrenaline
+workout motivation
+running hard
+fight mode
+full intensity
+personal record
+aggressive training
+
+=================================
+HEARTBREAK
+==========
+
+breakup
+missing someone
+regret
+late night memories
+heartache
+lost love
+moving on
+sad nostalgia
+relationship ending
+looking at old photos
+
+=================================
+SEASONS
+=======
+
+spring morning
+summer sunset
+autumn leaves
+winter evening
+snowfall
+cold morning
+frosty sunrise
+rainy spring day
+
+=================================
+TRAVEL
+======
+
+road trip
+flying abroad
+airport at sunrise
+train journey
+cross-country drive
+mountain pass
+coastal road
+exploring a new city
+
+=================================
+VALIDATION
+
+Generate a report showing:
+
+1. Total scenes available
+2. Total aliases available
+3. Coverage percentage
+4. Phrases that still fall back
+5. Missing scene recommendations
+6. Confidence distribution
+
+Goal:
+
+95%+ of natural-language prompts should resolve to a specific scene.
+
+Generic fallback should be extremely rare.
