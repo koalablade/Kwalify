@@ -5,7 +5,7 @@
 import { runScoringPipeline } from "./scoring-engine";
 import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
-import { runV2Pipeline } from "./v2/v2-pipeline";
+import { runV3Pipeline } from "./v3/v3-pipeline";
 import type { EmotionProfile, VibeKind } from "../lib/emotion";
 import type { IntentDecodeResult } from "../lib/intent-decoder";
 import type { CanonicalSceneResult } from "../lib/scene-canonicalizer";
@@ -27,8 +27,6 @@ import {
 import type { GenreAudit } from "../lib/genre-audit";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
-// Re-exported from scoring-engine but imported directly for local use
-import { resolveSemanticScene } from "../lib/semantic-scene-engine";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 
 export interface BuildPlaylistPipelineOpts<T extends {
@@ -133,9 +131,6 @@ export function buildPlaylistPipeline<T extends {
 }>(
   opts: BuildPlaylistPipelineOpts<T>
 ): BuildPlaylistPipelineResult<T> {
-  // V2: Scene detection is soft context only — no ecosystem locking.
-  const semanticResolution = resolveSemanticScene(opts.vibe, opts.emotionProfile);
-
   const scoring = runScoringPipeline({
     pipelineLog: opts.pipelineLog,
     tracks: opts.likedSongs,
@@ -165,54 +160,51 @@ export function buildPlaylistPipeline<T extends {
   const sortedPool = scoring.sorted;
 
   // ─────────────────────────────────────────────────────────────────────────
-  // V2 FINAL ARCHITECTURE: Replace compose + enforce with V2 pipeline.
+  // V3 MULTI-LANE ARCHITECTURE
   //
-  //   Step 1: Triple-signal re-scoring  (R×0.45 + V×0.35 + C×0.20)
-  //   Step 2: Greedy diversity selection (streak-based penalties)
-  //   Step 3: Bucketed selection         (25% × 4 anti-collapse buckets)
-  //   Step 4: Sequencer                  (flow-optimized ordering)
+  //   Step 1: Multi-axis intent decomposition → Scene Influence Map
+  //   Step 2: Router  → 2–5 independent lanes (core/emotional/motion/contrast)
+  //   Step 3: Per-lane scoring   (isolated signal weights per lane type)
+  //   Step 4: Per-lane sampling  (structural diversity: 35%/50%/60% hard caps)
+  //   Step 5: Cross-lane interleaving + stabilization pass
   //
-  // NO track removed due to genre/scene. ALL diversity is post-score only.
-  // Scene contributes at most 10% of C signal → ≤2% of final score.
+  // No global ranking — each lane is a mini recommender.
+  // Fallback is also multi-lane (spec §8) — never a generic mood.
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Build a fast lookups from the scored pool
   const sortedByTrackId = new Map(sortedPool.map((s) => [s.trackId, s]));
   const classMap = opts.userGenreProfile.trackClassifications;
 
   let t = Date.now();
-  const v2 = runV2Pipeline(
+  const v3 = runV3Pipeline(
     opts.likedSongs,
     opts.vibe,
     opts.emotionProfile,
     opts.playlistLength,
     {
-      genreByTrack: (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
+      genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
       classificationByTrack: (trackId) => classMap.get(trackId),
-      noveltyByTrack: opts.noveltyByTrack,
-      seed: opts.postScore.startMs,
+      noveltyByTrack:        opts.noveltyByTrack,
+      seed:                  opts.postScore.startMs,
     }
   );
-  logScoringStage(opts.pipelineLog, "V2 pipeline complete", t, {
+  logScoringStage(opts.pipelineLog, "V3 multi-lane pipeline complete", t, {
     poolSize: opts.likedSongs.length,
-    scoredCount: v2.scoredPool.length,
-    selectedCount: v2.finalTracks.length,
+    selectedCount: v3.finalTracks.length,
+    lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
   });
 
-  // Map V2 final tracks back to ScoredLibraryTrack<T> for genre enforcement compatibility.
-  // Replace score with V2 score; keep existing scoringDebug for debug tooling.
-  const v2ScoreMap = new Map(v2.scoredPool.map((s) => [s.trackId, s.v2Score]));
-  const v2FinalScored = v2.finalTracks
+  // Map V3 final tracks back to ScoredLibraryTrack<T>
+  const v3FinalScored = v3.finalTracks
     .map((track) => {
       const existing = sortedByTrackId.get(track.trackId);
       if (!existing) return null;
-      return { ...existing, score: v2ScoreMap.get(track.trackId) ?? existing.score } as ScoredLibraryTrack<T>;
+      return existing as ScoredLibraryTrack<T>;
     })
     .filter((s): s is ScoredLibraryTrack<T> => s !== null);
 
-  // Fallback: if V2 produced nothing (empty library / no audio features),
-  // fall back to compose from the existing scoring pool.
-  if (v2FinalScored.length === 0) {
+  // Last-resort fallback: V3 produced nothing (no audio features / empty lib)
+  if (v3FinalScored.length === 0) {
     const recentTrackPenalty = opts.recentPlaylistTrackIds?.length
       ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 5, opts.varietyPenaltyScale ?? 1)
       : undefined;
@@ -246,7 +238,7 @@ export function buildPlaylistPipeline<T extends {
     return {
       finalTracks: enforcedFallback.tracks,
       sorted: scoring.sorted,
-      scoringDiagnostics: { ...scoring.scoringDiagnostics, v2Pipeline: { fallback: true } },
+      scoringDiagnostics: { ...scoring.scoringDiagnostics, v3Pipeline: { fallback: true, reason: "empty_library" } },
       hybridExcludedCount: scoring.hybridExcludedCount,
       genreAudit: enforcedFallback.genreAudit,
       ecosystemDebug: null,
@@ -264,12 +256,11 @@ export function buildPlaylistPipeline<T extends {
     };
   }
 
-  // V2 genre enforcement — safety net for minimum genre diversity.
-  // V2 bucketed selection already enforces anti-collapse (3+ genres guaranteed when available).
-  // This pass adds audit metadata and enforces the 60% max dominance cap (V2 spec).
+  // Genre enforcement safety net — audit only; V3 structural diversity already
+  // prevents collapse inside each lane (35% genre / 50% energy / 60% era caps).
   t = Date.now();
   const enforced = enforceFinalPlaylistGenres({
-    finalTracks: v2FinalScored,
+    finalTracks: v3FinalScored,
     sortedPool: scoring.sorted,
     userGenreProfile: opts.userGenreProfile,
     genreStack: opts.genreStack,
@@ -277,10 +268,10 @@ export function buildPlaylistPipeline<T extends {
     suppressGenres: opts.genrePost.suppressGenres,
     coverageState: scoring.coverageState,
     genreForecast: scoring.genreForecast,
-    sceneInfluenceRatio: 0, // V2: scene has < 2% influence on final score
+    sceneInfluenceRatio: 0,
     stabilityDiagnostics: scoring.stabilityDiagnostics,
   });
-  logScoringStage(opts.pipelineLog, "V2 genre audit complete", t, {
+  logScoringStage(opts.pipelineLog, "V3 genre audit complete", t, {
     tracks: enforced.tracks.length,
   });
 
@@ -291,13 +282,7 @@ export function buildPlaylistPipeline<T extends {
     sorted: scoring.sorted,
     scoringDiagnostics: {
       ...scoring.scoringDiagnostics,
-      v2Pipeline: v2.diagnostics,
-      ecosystemLock: {
-        locked: false,
-        sceneId: semanticResolution.matchedId ?? null,
-        sceneConfidence: semanticResolution.confidence,
-        v3SceneInfluence: "primary_signal_0.25",
-      },
+      v3Pipeline: v3.diagnostics,
     },
     hybridExcludedCount: scoring.hybridExcludedCount,
     genreAudit: enforced.genreAudit,
