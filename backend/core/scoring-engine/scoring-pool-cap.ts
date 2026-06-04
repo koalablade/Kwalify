@@ -23,6 +23,7 @@ import type { SemanticSceneVector } from "../../lib/semantic-scene-engine";
 import {
   isHardAntiGenre,
   isEcosystemWhitelisted,
+  isEcosystemAdjacent,
   ECOSYSTEM_HARD_GATE_CONFIDENCE,
 } from "../../lib/semantic-scene-engine";
 
@@ -82,7 +83,8 @@ export function capTracksForHybridScoring<T extends {
   poolCapped: boolean;
   candidateCount: number;
   preFilterRejectedCount: number;
-  adjacencyExpansionUsed: boolean;
+  /** 0 = no scene, 1 = full gate (L1), 2 = adjacency bridges (L2), 3 = emergency anti-genre-only (L3) */
+  adjacencyLevelUsed: 0 | 1 | 2 | 3;
 } {
   const originalCount = tracks.length;
   const libSize = opts.librarySize ?? originalCount;
@@ -115,49 +117,75 @@ export function capTracksForHybridScoring<T extends {
   //   Global unfiltered fallback is NEVER used — coherence over variety.
   let workingTracks = tracks;
   let preFilterRejectedCount = 0;
-  let adjacencyExpansionUsed = false;
+  let adjacencyLevelUsed: 0 | 1 | 2 | 3 = 0;
 
   if (opts.ecosystemPreFilter) {
     const { vector, sceneConfidence } = opts.ecosystemPreFilter;
     const classMap = opts.classifications;
     const minPool = Math.max(Math.floor(max * 0.30), 15);
-    const useFullGate = sceneConfidence >= ECOSYSTEM_HARD_GATE_CONFIDENCE;
 
     if (sceneConfidence >= 0.55) {
+      // ── Level 1: Full ecosystem whitelist (weight ≥ 0.50) ─────────────────────
+      // The ideal case — only genres explicitly in the scene ecosystem above the
+      // hard gate minimum enter the pool. This is the V5.1 "global invariant".
+      const useFullGate = sceneConfidence >= ECOSYSTEM_HARD_GATE_CONFIDENCE;
       if (useFullGate) {
-        // Tier 2: full ecosystem whitelist (V5 hard constraint)
-        const fullGated = tracks.filter((t) => {
+        const l1 = tracks.filter((t) => {
           const c = classMap.get(t.trackId);
           if (!c) return true;
           return isEcosystemWhitelisted(c, vector, sceneConfidence);
         });
-        if (fullGated.length >= minPool) {
-          preFilterRejectedCount = tracks.length - fullGated.length;
-          workingTracks = fullGated;
+        if (l1.length >= minPool) {
+          preFilterRejectedCount = tracks.length - l1.length;
+          workingTracks = l1;
+          adjacencyLevelUsed = 1;
         } else {
-          // Failsafe: relax to anti-genre-only removal (adjacency expansion)
-          adjacencyExpansionUsed = true;
-          const antiGated = tracks.filter((t) => {
+          // ── Level 2: Adjacency bridges (weight ≥ 0.30, NOT anti-genre) ─────────
+          // Direct bridges only — genre must appear in the ecosystem graph.
+          // Fuzzy similarity / absent genres are still excluded.
+          const l2 = tracks.filter((t) => {
             const c = classMap.get(t.trackId);
             if (!c) return true;
-            return !isHardAntiGenre(c, vector);
+            return isEcosystemAdjacent(c, vector);
           });
-          preFilterRejectedCount = tracks.length - antiGated.length;
-          if (antiGated.length >= minPool) {
-            workingTracks = antiGated;
+          if (l2.length >= minPool) {
+            preFilterRejectedCount = tracks.length - l2.length;
+            workingTracks = l2;
+            adjacencyLevelUsed = 2;
+          } else if (tracks.length < 20) {
+            // ── Level 3: Emergency (anti-genre-only) — ONLY when library < 20 tracks
+            // Never expand to unfiltered original library. Coherence over variety.
+            const l3 = tracks.filter((t) => {
+              const c = classMap.get(t.trackId);
+              if (!c) return true;
+              return !isHardAntiGenre(c, vector);
+            });
+            preFilterRejectedCount = tracks.length - l3.length;
+            workingTracks = l3.length > 0 ? l3 : tracks;
+            adjacencyLevelUsed = 3;
+          } else {
+            // Pool is small but we have tracks — use L2 result even if below minPool.
+            // A coherent small pool beats an incoherent large one.
+            preFilterRejectedCount = tracks.length - l2.length;
+            workingTracks = l2.length > 0 ? l2 : tracks.filter((t) => {
+              const c = classMap.get(t.trackId);
+              if (!c) return true;
+              return !isHardAntiGenre(c, vector);
+            });
+            adjacencyLevelUsed = 2;
           }
-          // If still too small: keep original working set (scoring hard gate handles it)
         }
       } else {
-        // Tier 1: anti-genre removal only
-        const antiGated = tracks.filter((t) => {
+        // sceneConfidence ≥ 0.55 but < 0.70 — use L2 adjacency bridges directly
+        const l2 = tracks.filter((t) => {
           const c = classMap.get(t.trackId);
           if (!c) return true;
-          return !isHardAntiGenre(c, vector);
+          return isEcosystemAdjacent(c, vector);
         });
-        if (antiGated.length >= minPool) {
-          preFilterRejectedCount = tracks.length - antiGated.length;
-          workingTracks = antiGated;
+        if (l2.length >= minPool) {
+          preFilterRejectedCount = tracks.length - l2.length;
+          workingTracks = l2;
+          adjacencyLevelUsed = 2;
         }
       }
     }
@@ -170,7 +198,7 @@ export function capTracksForHybridScoring<T extends {
       poolCapped: false,
       candidateCount: workingTracks.length,
       preFilterRejectedCount,
-      adjacencyExpansionUsed,
+      adjacencyLevelUsed,
     };
   }
 
@@ -186,12 +214,12 @@ export function capTracksForHybridScoring<T extends {
       poolCapped: false,
       candidateCount: 0,
       preFilterRejectedCount,
-      adjacencyExpansionUsed,
+      adjacencyLevelUsed,
     };
   }
 
   if (originalCount <= max && workingTracks === tracks) {
-    return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount, preFilterRejectedCount, adjacencyExpansionUsed };
+    return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount, preFilterRejectedCount, adjacencyLevelUsed };
   }
 
   // Fast path for 500+ libraries — skip era-balanced reshuffle (maps/sorts entire library).
@@ -225,7 +253,7 @@ export function capTracksForHybridScoring<T extends {
       poolCapped: true,
       candidateCount: candidates.length,
       preFilterRejectedCount,
-      adjacencyExpansionUsed,
+      adjacencyLevelUsed,
     };
   }
 
@@ -326,6 +354,6 @@ export function capTracksForHybridScoring<T extends {
     poolCapped: true,
     candidateCount: candidates.length,
     preFilterRejectedCount,
-    adjacencyExpansionUsed,
+    adjacencyLevelUsed,
   };
 }

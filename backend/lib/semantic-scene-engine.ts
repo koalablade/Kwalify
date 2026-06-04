@@ -1985,6 +1985,52 @@ export function isEcosystemWhitelisted(
 }
 
 /**
+ * Minimum ecosystem weight for a genre to qualify as a Level-2 adjacency bridge.
+ * Genres at 0.30–0.49 are "direct bridges" — explicitly present in the ecosystem
+ * but below the hard gate minimum. Used only when Level-1 (full gate) leaves < 30%
+ * of the pool cap. Never used for genres absent from the ecosystem entirely.
+ */
+export const ECOSYSTEM_ADJACENCY_MIN_WEIGHT = 0.30;
+
+/**
+ * Level-2 adjacency bridge check.
+ *
+ * Returns true if the track's primary genre (or family) appears in the scene
+ * ecosystem with weight ≥ ECOSYSTEM_ADJACENCY_MIN_WEIGHT AND is NOT a hard
+ * anti-genre. Tracks that fail are excluded even during Level-2 expansion.
+ *
+ * This is strictly tighter than `!isHardAntiGenre`: a genre must be explicitly
+ * listed in the ecosystem graph to pass — fuzzy similarity is not enough.
+ *
+ * Examples for OUTLAW_COUNTRY:
+ *   country  (1.00) → bridge eligible
+ *   folk     (0.78) → bridge eligible
+ *   blues    (0.70) → bridge eligible
+ *   rock     (0.65) → bridge eligible
+ *   indie    (0.35) → bridge eligible (in ecosystem, above 0.30)
+ *   pop      (0.10) → NOT eligible (in ecosystem but below 0.30)
+ *   hip_hop  (anti) → NOT eligible (anti-genre, always blocked)
+ *   jazz     (none) → NOT eligible (absent from ecosystem entirely)
+ */
+export function isEcosystemAdjacent(
+  classification: TrackGenreClassification,
+  vector: SemanticSceneVector,
+): boolean {
+  if (classification.genrePrimary === "unknown") return true;
+  if (vector.antiGenres.includes(classification.genrePrimary)) return false;
+
+  const genre = classification.genrePrimary;
+  const family = classification.genreFamily;
+
+  for (const { genre: g, weight } of vector.genreEcosystem) {
+    if ((g === genre || g === family) && weight >= ECOSYSTEM_ADJACENCY_MIN_WEIGHT) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Compute energy fit for a track against the scene's energy target.
  */
 export function computeEnergyFit(

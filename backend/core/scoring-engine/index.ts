@@ -105,7 +105,13 @@ import {
 } from "./taste-gravity";
 import { applyGravityBiasedSurprise } from "./gravity-surprise";
 import { capTracksForHybridScoring } from "./scoring-pool-cap";
-import { resolveSemanticScene, ECOSYSTEM_HARD_GATE_CONFIDENCE } from "../../lib/semantic-scene-engine";
+import {
+  resolveSemanticScene,
+  ECOSYSTEM_HARD_GATE_CONFIDENCE,
+  isEcosystemWhitelisted,
+} from "../../lib/semantic-scene-engine";
+import { classifyTrack } from "../../lib/genre-taxonomy";
+import { requireTrackClassification } from "../genre-intelligence/genre-constraints";
 import { buildRecentTrackPoolPenalty } from "../../lib/playlist-freshness";
 import type { Logger } from "pino";
 import { logScoringStage } from "../../lib/generate-stage-timer";
@@ -271,7 +277,7 @@ export function runScoringPipeline<T extends {
     poolCapped: poolCap.poolCapped,
     candidateCount: poolCap.candidateCount,
     preFilterRejected: poolCap.preFilterRejectedCount,
-    adjacencyExpansionUsed: poolCap.adjacencyExpansionUsed,
+    adjacencyLevelUsed: poolCap.adjacencyLevelUsed,
   });
 
   t = Date.now();
@@ -539,7 +545,39 @@ export function runScoringPipeline<T extends {
     diversityScore: coverageState.diversityScore,
   });
 
-  const sorted = sortByScore(biased);
+  const rawSorted = sortByScore(biased);
+
+  // ── V5.1 §2/§4: Post-score global invariant filter ──────────────────────────
+  // Step 6 of the required pipeline — intentional duplication of the pre-filter.
+  // Any track that survived scoring despite being outside the ecosystem is removed
+  // here. This catches classification edge cases and scoring-phase artifacts.
+  // Applied AFTER all scoring adjustments (gravity, surprise, genre bias).
+  let postScoreFilteredCount = 0;
+  let sorted = rawSorted;
+  if (earlySemanticResolution.vector && earlySemanticResolution.confidence >= ECOSYSTEM_HARD_GATE_CONFIDENCE) {
+    const sv = earlySemanticResolution.vector;
+    const conf = earlySemanticResolution.confidence;
+    const postFiltered = rawSorted.filter((t) => {
+      const cls = requireTrackClassification(t.trackId, classMap, () => classifyTrack(t));
+      return isEcosystemWhitelisted(cls, sv, conf);
+    });
+    postScoreFilteredCount = rawSorted.length - postFiltered.length;
+    // Coherence over variety: use filtered set even if smaller than playlist length.
+    // An empty filtered set is better than leaking out-of-ecosystem tracks.
+    if (postFiltered.length > 0) {
+      sorted = postFiltered;
+    }
+    if (postScoreFilteredCount > 0) {
+      log?.info(
+        {
+          "POST-SCORE INVARIANT FILTER": "ACTIVE",
+          "filtered_out": postScoreFilteredCount,
+          "remaining": sorted.length,
+        },
+        "V5.1 post-score global invariant filter applied"
+      );
+    }
+  }
 
   const gravityDiagnostics = buildGravityDiagnostics(
     gravityProfiles,
@@ -647,7 +685,9 @@ export function runScoringPipeline<T extends {
         poolCapped: poolCap.poolCapped,
         candidateCount: poolCap.candidateCount,
         preFilterRejected: poolCap.preFilterRejectedCount,
-        adjacencyExpansionUsed: poolCap.adjacencyExpansionUsed,
+        adjacencyLevelUsed: poolCap.adjacencyLevelUsed,
+        postScoreFiltered: postScoreFilteredCount,
+        forbiddenRejectionCount: gateRejected.length,
       },
     },
     hybridExcludedCount: hybridExcluded.length,

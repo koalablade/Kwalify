@@ -1,0 +1,160 @@
+REPLIT FINAL PATCH — V5.1 ECOSYSTEM LOCK HARDENING
+
+You are fixing the final 20% of playlist engine instability.
+
+The system already has:
+✔ semantic scene detection
+✔ ecosystem whitelist
+✔ scoring engine
+✔ pool cap
+✔ adjacency graph
+
+BUT genre leakage is still occurring due to fallback and adjacency over-expansion.
+
+────────────────────────────────────
+🚨 CORE FIX PRINCIPLE
+────────────────────────────────────
+
+SCENE = ABSOLUTE CONSTRAINT SYSTEM
+
+NOT:
+- suggestion layer
+- scoring bias
+- pre-filter only
+
+BUT:
+👉 a global invariant applied at EVERY stage
+
+If a track violates scene.allowedGenres:
+→ IT MUST NEVER ENTER ANY STAGE OF PIPELINE
+
+────────────────────────────────────
+🔥 1. FIX ADJACENCY EXPANSION (ROOT CAUSE)
+────────────────────────────────────
+
+Replace current adjacency logic:
+
+OLD (bad):
+- expand into similar genres loosely
+
+NEW (strict graph traversal):
+
+adjacency is now:
+
+LEVEL 1: PRIMARY ECOSYSTEM ONLY (80–90%)
+LEVEL 2: DIRECT BRIDGES ONLY (10–15%)
+LEVEL 3: DISABLED unless pool < 20 tracks
+
+DIRECT BRIDGES must be explicitly defined per scene:
+
+Example:
+DIRT_ROAD_SCENE:
+  PRIMARY:
+    country
+    outlaw country
+    americana
+
+  BRIDGES (STRICT):
+    southern rock (only tagged crossover)
+    folk (acoustic only)
+
+  FORBIDDEN:
+    indie
+    blues (unless explicitly tagged country-blues crossover)
+    electronic
+    hip-hop
+
+NO FUZZY SIMILARITY ALLOWED FOR BRIDGES
+
+────────────────────────────────────
+🧱 2. GLOBAL INVARIANT FILTER (NEW REQUIRED LAYER)
+────────────────────────────────────
+
+Add final enforcement layer AFTER scoring:
+
+finalTracks = scoredTracks.filter(track =>
+  track.genre ∈ scene.allowedGenres
+)
+
+This is mandatory.
+
+Even top scoring tracks are rejected if they violate scene.
+
+────────────────────────────────────
+⚡ 3. REMOVE “DIVERSITY SAVE” FALLBACK
+────────────────────────────────────
+
+DELETE any logic that says:
+
+- "if pool too small → broaden genres"
+- "fallback to full library"
+- "relax ecosystem filter"
+
+Replace with:
+
+IF pool < minimum size:
+→ increase adjacency depth ONLY within allowedGenres graph
+→ NEVER expand outside ecosystem
+
+────────────────────────────────────
+🎧 4. REPLACE SCORING ORDER (FINAL FIX)
+────────────────────────────────────
+
+Correct pipeline order MUST be:
+
+1. Semantic → Scene detection
+2. Scene → HARD whitelist filter
+3. Energy filter
+4. Era filter
+5. Score candidates
+6. FINAL HARD FILTER (scene.allowedGenres AGAIN)
+7. Rank
+8. Compose playlist
+
+Yes — step 6 is intentional duplication
+
+This prevents leakage from scoring artifacts.
+
+────────────────────────────────────
+🧠 5. EMBEDDING SAFETY OVERRIDE (IMPORTANT)
+────────────────────────────────────
+
+If embeddings suggest a strong match outside ecosystem:
+
+DO NOT TRUST IT
+
+Instead:
+
+- clamp embedding similarity to zero for forbidden genres
+- re-map embedding similarity inside ecosystem-only vector space
+
+────────────────────────────────────
+🔥 6. DEBUG MUST SHOW TRUTH
+
+Add:
+
+- ecosystem_hard_enforced_count
+- post_score_filtered_count
+- adjacency_level_used (1/2/3)
+- forbidden_rejection_count
+
+────────────────────────────────────
+🚀 SUCCESS CRITERIA
+
+After this patch:
+
+For "dirt road sunset":
+
+EXPECTED OUTPUT:
+✔ 90–95% country / outlaw / americana
+✔ zero indie leakage
+✔ zero blues unless explicitly allowed crossover
+✔ zero rock unless tagged country-rock bridge
+✔ stable across 10+ regenerations
+
+NOT ACCEPTABLE:
+- any indie tracks
+- any non-ecosystem genres in top 20
+
+────────────────────────────────────
+END PATCH
