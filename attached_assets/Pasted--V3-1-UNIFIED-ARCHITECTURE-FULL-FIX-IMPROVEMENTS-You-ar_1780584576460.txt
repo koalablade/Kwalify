@@ -1,0 +1,268 @@
+🚀 V3.1+ UNIFIED ARCHITECTURE (FULL FIX + IMPROVEMENTS)
+
+You are upgrading the existing V3 playlist architecture to V3.1+ Unified Routing System.
+
+DO NOT delete V3.
+
+DO NOT replace pipeline structure.
+
+ONLY extend, correct, and add missing systems.
+
+🧠 CORE OBJECTIVE (UPDATED)
+
+Make the system:
+
+Adaptive (dynamic lanes based on intent)
+Context-aware (intent reshapes scoring + routing)
+Globally diverse (playlist-level entropy control)
+Anti-collapse (no single genre / era domination)
+Cluster-aware (selection happens across groups, not just ranking)
+Behaviourally stable across ANY input (90s, cowboy, gym, ambient, chaotic prompts)
+🔥 CRITICAL FIX (NEW — REQUIRED)
+❗ ADD: TRUE MULTI-STAGE DECISION PIPELINE
+
+Replace implicit “score → sort → pick” behaviour with:
+
+1. Intent decomposition
+2. Adaptive lane generation
+3. Candidate scoring per lane
+4. Cluster formation (NEW)
+5. Entropy-constrained selection (NEW CORE FIX)
+6. Interleaving
+7. Global diversity correction pass
+
+This is the missing layer in V3.
+
+1. ADD: Adaptive Lane Generator (V3.1)
+
+Create:
+
+generateAdaptiveLanes(intentVector)
+
+Rules:
+
+Always include CORE lane
+Dynamically add 2–4 lanes:
+
+If motion > high → MOTION_HIGH
+If nostalgia > 0.5 → NOSTALGIA_DEEP
+If emotion variance high → EMOTIONAL_SPLIT
+If genre ambiguity high → EXPLORATION
+If confidence < threshold → AMBIENT_FALLBACK
+If era split detected → ERA_SPLIT_LANE (NEW)
+
+Each lane must include:
+
+weight (sum = 1.0)
+scoring modifiers
+feature biases
+diversity pressure influence
+2. REPLACE: Lane Routing Logic
+
+Replace fixed routing:
+
+CORE / EMOTIONAL / MOTION / CONTRAST
+
+WITH:
+
+adaptiveLanes = generateAdaptiveLanes(intent)
+
+Routing must be:
+
+probabilistic (not deterministic)
+influenced by confidence + ambiguity
+allowed to shift mid-generation (dynamic reweighting)
+3. ADD: GLOBAL DIVERSITY CONTROLLER (UPGRADED)
+
+Create:
+
+global-diversity-controller.ts
+
+Tracks:
+
+last 30 tracks (not 25)
+genre distribution
+era distribution
+artist repetition map
+energy curve slope
+lane usage distribution (NEW)
+HARD THRESHOLDS (SOFT ENFORCEMENT ONLY)
+
+If exceeded:
+
+genre > 20%
+era > 35%
+artist repeat > 2 in last 12
+single lane > 55% usage
+
+Apply:
+
+soft_penalty_multiplier = 0.55–0.85
+
+AND:
+
+increase CONTRAST lane probability dynamically
+
+4. 🔥 NEW CORE SYSTEM: CLUSTER ENGINE (IMPORTANT FIX)
+ADD:
+
+cluster-candidate-engine.ts
+
+Before selection:
+
+Group tracks into clusters:
+
+Genre clusters
+Era clusters
+Energy clusters
+Mood clusters
+
+Each cluster gets:
+
+size
+avg score
+diversity contribution score
+WHY THIS FIX IS CRITICAL
+
+Your current system fails because:
+
+it selects top-ranked tracks individually
+
+This causes hidden collapse.
+
+This fixes it by:
+
+selecting across clusters instead of raw ranking
+
+5. ADD: ENTROPY-CONSTRAINED SELECTION (CORE FIX)
+
+Replace greedy selection with:
+
+selectFromClusters()
+
+Rules:
+
+Never pick more than 30–40% from one cluster
+Enforce minimum cluster spread:
+at least 3 genre clusters
+at least 2 era clusters
+at least 2 energy bands
+
+If cluster imbalance detected:
+
+→ downweight cluster probability (NOT remove tracks)
+
+6. MODIFY: INTERLEAVER (V3 UPGRADE)
+
+Replace strict round robin with:
+
+adaptive interleaver (cluster-aware)
+
+Rules:
+
+Interleave across:
+lanes
+clusters
+energy bands
+
+If repetition detected:
+→ boost CONTRAST lane
+
+If chaos detected:
+→ boost CORE lane
+
+If monotony detected:
+→ boost EXPLORATION lane
+
+7. ADD: ECOSYSTEM DRIFT STABILIZER (IMPROVED)
+
+Compute:
+
+genre entropy
+energy slope
+emotional variance
+cluster collapse index (NEW)
+
+If drift detected:
+
+DO NOT force tracks
+
+Instead:
+
+adjust lane weights
+adjust cluster probabilities
+slightly increase exploration weight
+8. MODIFY: FALLBACK SYSTEM (FIXED)
+
+Replace flat fallback with:
+
+fallback = {
+CORE: 0.35,
+MOST_UNDERREPRESENTED_CLUSTER: 0.35,
+EXPLORATION: 0.30
+}
+
+NEVER output:
+
+single mood fallback
+single genre fallback
+9. FIX: SCENE SYSTEM (IMPORTANT CORRECTION)
+
+Scene MUST NOT be decorative.
+
+If:
+
+scene confidence < threshold
+
+Then:
+
+expand cluster weighting
+NOT fallback to generic mood scoring
+
+Scene influences:
+
+cluster bias
+lane weighting
+energy shaping
+
+NOT just score weight.
+
+10. MODIFY: DEBUG OUTPUT (EXPANDED)
+
+Must include:
+
+adaptive lanes + weight shifts
+cluster distribution graph
+cluster selection ratio
+lane saturation over time
+entropy curve
+drift state
+genre concentration %
+era concentration %
+repetition index
+cluster collapse index
+exploration pressure score
+11. NON-NEGOTIABLE SYSTEM RULES (REINFORCED)
+NEVER collapse into single genre
+NEVER collapse into single cluster
+NEVER use hard filters for diversity
+NEVER remove tracks from pool
+ALWAYS use probabilistic weighting
+ALWAYS enforce entropy-aware selection
+SYSTEM MUST behave differently for different prompt types
+🧠 FINAL RESULT OF V3.1+
+
+This upgrade turns your system from:
+
+❌ V3 (lane-based ranking system)
+
+to:
+
+✅ V3.1+ (adaptive clustered probabilistic ecosystem engine)
+🔥 WHAT THIS ACTUALLY FIXES (REAL IMPACT)
+stops “country-only / indie-only collapse”
+fixes hidden genre dominance
+makes “cowboy / 90s / gym / chill” actually behave differently
+prevents scoring illusion (where weights lie)
+forces real diversity structurally
+makes playlists feel designed, not ranked
