@@ -1126,6 +1126,52 @@ function buildDebugPanel(result) {
     ${open ? buildUnifiedDebugPanel(result, result.debug) : ""}`;
   }
 
+  // Synthesize unified panel from v3Diagnostics (always present, no ?debug=1 needed)
+  if (result.v3Diagnostics?.intentDecomposition) {
+    const vd = result.v3Diagnostics;
+    const synthesized = {
+      activePipeline: vd.pipelineVersion || "v3.1_unified_routing",
+      v3: {
+        ...vd,
+        finalDecisionTrace: vd.selectionTrace || [],
+        globalDiversityMetrics: {
+          postInterleave: {
+            genreConcentration: vd.genreConcentration,
+            explorationPressure: vd.explorationPressure,
+            dominantGenre: vd.dominantGenre,
+            dominantEra: vd.dominantEra,
+          },
+        },
+      },
+      v11: {
+        role: "candidateGeneration",
+        semanticResolution: null,
+        candidatePool: { librarySize: 0, hybridPoolSize: 0, poolCapped: false },
+        topRankedCandidates: [],
+        exclusionReasons: {},
+        dominantGenres: (result.libraryIntelligence || {}).dominantGenres || [],
+        candidateWeights: "semantic:0.40_emotion:0.20_scene:0.15_aesthetic:0.10_library:0.10_genre:0.05",
+      },
+      systemDiagnostics: {
+        v11UsedFor: "candidateGeneration",
+        v3UsedFor: "finalSelection",
+        debugPanelAligned: true,
+      },
+      poolInfo: {},
+    };
+    const open = state.showDebug;
+    return `
+    <div class="dp-toggle-row">
+      <button class="dp-toggle-btn" id="debugToggleBtn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        ${open ? "Hide" : "Show"} Debug Info
+        <svg class="dp-chevron ${open ? "open" : ""}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <span class="dp-admin-badge">Admin Only</span>
+    </div>
+    ${open ? buildUnifiedDebugPanel(result, synthesized) : ""}`;
+  }
+
   const dbg = result.v3Diagnostics ?? result._debug;
   if (!dbg) return "";
 

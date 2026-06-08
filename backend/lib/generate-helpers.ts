@@ -113,6 +113,7 @@ export function formatTracksForApi(
     score?: number;
     rediscoveryScore?: number;
     narrativeRole?: string;
+    genrePrimary?: string;
   }>,
   profile?: EmotionProfile | null
 ) {
@@ -131,6 +132,7 @@ export function formatTracksForApi(
       score: Math.round((t.score ?? 0.7) * 100) / 100,
       rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
       narrativeRole: t.narrativeRole,
+      genrePrimary: t.genrePrimary ?? "unknown",
       whyReasons: buildTrackWhyReasons(t, profile, i),
     }));
 }

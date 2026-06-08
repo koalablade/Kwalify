@@ -1,0 +1,85 @@
+You are a senior staff engineer performing a forensic audit of the playlist generation system.
+
+DO NOT implement new features.
+DO NOT change scoring.
+DO NOT change taxonomy.
+DO NOT change lane weights.
+DO NOT redesign the architecture.
+
+Your task is to identify why the diagnostics panel and playlist pipeline are reporting contradictory states.
+
+Observed symptoms:
+
+* Primary vibe is blank
+* No lane data displayed
+* No final decision trace displayed
+* No detected scene displayed
+* Genre composition reports:
+  unknown = 100%
+* Yet:
+  candidate pool contains thousands of tracks
+  ranked candidates contain classified genres
+  a final playlist is generated
+
+These states should not coexist.
+
+AUDIT REQUIREMENTS
+
+For a single playlist generation request:
+
+Trace every stage from:
+
+prompt
+→ intent decomposition
+→ scene detection
+→ candidate generation
+→ genre classification
+→ lane construction
+→ lane scoring
+→ interleaver
+→ quality lock
+→ final playlist
+→ diagnostics output
+
+For every stage output:
+
+* exact function name
+* exact file name
+* input record count
+* output record count
+* sample IDs
+* sample genres
+* sample artists
+
+Additionally verify:
+
+1. Why Primary vibe is blank.
+2. Why lane diagnostics are empty.
+3. Why decision trace is empty.
+4. Why genre composition is 100% unknown.
+5. Whether classMap keys match final playlist track IDs.
+6. Whether diagnostics are reading the same playlist instance that is returned to the UI.
+7. Whether diagnostics are reading stale state, fallback state, or a different pipeline branch.
+8. Whether V11 and V3.1 are operating on the same track objects.
+9. Whether genre metadata is being lost between candidate generation and final playlist output.
+10. Whether quality lock replacements preserve genre metadata.
+
+DO NOT GUESS.
+
+Provide evidence for every finding.
+
+For every issue found:
+
+* severity
+* root cause
+* exact file
+* exact function
+* exact data field involved
+
+Then rank issues by likelihood of causing:
+
+"Genre composition = unknown 100%"
+"No lane data"
+"No decision trace"
+
+Only after root causes are proven should any fixes be proposed.

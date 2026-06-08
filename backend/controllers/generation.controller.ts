@@ -1058,6 +1058,13 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const debugMode = req.query.debug === "1";
 
+    const _genreMap = userGenreProfile.trackClassifications;
+    type TrackWithGenre = typeof finalTracks[number] & { genrePrimary: string };
+    const finalTracksWithGenre: TrackWithGenre[] = finalTracks.map((t) => ({
+      ...t,
+      genrePrimary: _genreMap.get(t.trackId)?.genrePrimary ?? "unknown",
+    }));
+
     res.json({
       success: true,
       playlistId: savedPlaylistId,
@@ -1146,7 +1153,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? "Could not read that reference playlist. If it is public, try the open.spotify.com link; if it is yours, log out and back in to refresh permissions. Generation used your text vibe only."
         : null,
       librarySyncHint,
-      tracks: formatTracksForApi(finalTracks, emotionProfile),
+      tracks: formatTracksForApi(finalTracksWithGenre, emotionProfile),
       sceneDetection: pipeline.ecosystemDebug
         ? {
             sceneId: pipeline.ecosystemDebug.sceneId,

@@ -4,4 +4,5 @@
 - [V3 pipeline bug fixes](v3-bug-fixes.md) — 6 targeted fixes applied: semanticResolution threading, lane headroom 3x, V3 pre-scored pool, genre force injection, family-level diversity caps, v3Diagnostics output.
 - [Pipeline audit — isUnclearIntent & genre taxonomy](pipeline-audit-2025.md) — 4 bugs found and fixed in intent-decomposer.ts and genre-taxonomy.ts.
 - [Quality Lock Layer](quality-lock-layer.md) — 6-gate post-interleave correctness layer; backend/core/v3/quality-lock.ts; integrated in v3-pipeline.ts stage 7.5.
+- [Diagnostics panel bugs](diagnostics-panel-bugs.md) — 3 root causes: genrePrimary missing from API tracks, unified panel gated to ?debug=1 only, selectionTrace/finalDecisionTrace key mismatch.
 - [Git push in main agent](git-push-constraint.md) — Git write ops are fully blocked in main agent (even git add/fetch/push). Use delegation skill subagent for all git commits and pushes.
