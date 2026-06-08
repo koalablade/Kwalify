@@ -13,7 +13,7 @@ export type CachedGeneratePayload = {
   playlistName: string;
   vibe: string;
   mode: string;
-  finalTracks: Array<{
+  finalTracks: Array<Record<string, unknown> & {
     trackId: string;
     trackName: string;
     artistName: string;
@@ -29,6 +29,8 @@ export type CachedGeneratePayload = {
     genrePrimary: string | null;
     sourceLane?: string | null;
     laneId?: string | null;
+    laneScore?: number | null;
+    laneEra?: string | null;
     clusterId?: string | null;
     clusterIds?: string[];
   }>;

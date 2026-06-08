@@ -172,7 +172,6 @@ export function buildPlaylistPipeline<T extends {
   // Fallback is also multi-lane (spec §8) — never a generic mood.
   // ─────────────────────────────────────────────────────────────────────────
 
-  const sortedByTrackId = new Map(sortedPool.map((s) => [s.trackId, s]));
   const classMap = opts.userGenreProfile.trackClassifications;
 
   let t = Date.now();
@@ -194,21 +193,12 @@ export function buildPlaylistPipeline<T extends {
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
   });
 
-  // Map V3 final tracks back to ScoredLibraryTrack<T>, preserving genrePrimary
-  // from the genre classification map so the field survives into the final result.
-  const v3FinalScored = v3.finalTracks
-    .map((track) => {
-      const existing = sortedByTrackId.get(track.trackId);
-      if (!existing) return null;
-      return {
-        ...existing,
-        genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? existing.genrePrimary,
-      } as ScoredLibraryTrack<T>;
-    })
-    .filter((s): s is ScoredLibraryTrack<T> => s !== null);
+  // V3 final tracks are authoritative; do not rehydrate from scored tracks here,
+  // or V3 metadata such as sourceLane/laneScore/clusterIds can be dropped.
+  const finalTracksList = v3.finalTracks as T[];
 
   // Last-resort fallback: V3 produced nothing (no audio features / empty lib)
-  if (v3FinalScored.length === 0) {
+  if (finalTracksList.length === 0) {
     const recentTrackPenalty = opts.recentPlaylistTrackIds?.length
       ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 5, opts.varietyPenaltyScale ?? 1)
       : undefined;
@@ -264,7 +254,7 @@ export function buildPlaylistPipeline<T extends {
   // prevents collapse inside each lane (35% genre / 50% energy / 60% era caps).
   t = Date.now();
   const enforced = enforceFinalPlaylistGenres({
-    finalTracks: v3FinalScored,
+    finalTracks: [...finalTracksList] as unknown as ScoredLibraryTrack<T>[],
     sortedPool: scoring.sorted,
     userGenreProfile: opts.userGenreProfile,
     genreStack: opts.genreStack,
@@ -276,10 +266,8 @@ export function buildPlaylistPipeline<T extends {
     stabilityDiagnostics: scoring.stabilityDiagnostics,
   });
   logScoringStage(opts.pipelineLog, "V3 genre audit complete", t, {
-    tracks: enforced.tracks.length,
+    tracks: finalTracksList.length,
   });
-
-  const finalTracksList = enforced.tracks as T[];
 
   return {
     finalTracks: finalTracksList,

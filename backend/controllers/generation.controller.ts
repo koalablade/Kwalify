@@ -886,6 +886,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       genrePrimary?: string;
       sourceLane?: string;
       laneId?: string;
+      laneScore?: number;
+      laneEra?: string;
       clusterId?: string | null;
       clusterIds?: string[];
     };
@@ -990,35 +992,6 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const playlistName = generatePlaylistName(vibe, emotionProfile);
 
-    const v3Trace = ((pipeline.scoringDiagnostics?.v3Pipeline as Record<string, unknown> | undefined)
-      ?.["selectionTrace"] ??
-      (pipeline.scoringDiagnostics?.v3Pipeline as Record<string, unknown> | undefined)?.["finalDecisionTrace"] ??
-      []) as Array<Record<string, unknown>>;
-    const v3TraceByTrack = new Map<string, Record<string, unknown>>();
-    for (const trace of v3Trace) {
-      const trackId = typeof trace["trackId"] === "string" ? trace["trackId"] : null;
-      if (!trackId) continue;
-      const existing = v3TraceByTrack.get(trackId);
-      if (!existing || trace["selected"] === true) {
-        v3TraceByTrack.set(trackId, trace);
-      }
-    }
-    finalTracks = finalTracks.map((track) => {
-      const trace = v3TraceByTrack.get(track.trackId);
-      const laneId =
-        typeof trace?.["enteredLane"] === "string"
-          ? trace["enteredLane"]
-          : typeof trace?.["lane"] === "string"
-            ? trace["lane"]
-            : undefined;
-      const clusterId = typeof trace?.["clusterId"] === "string" ? trace["clusterId"] : null;
-      return {
-        ...track,
-        ...(laneId ? { sourceLane: laneId, laneId } : {}),
-        ...(clusterId ? { clusterId, clusterIds: [clusterId] } : {}),
-      };
-    });
-
     const trackObjects = finalTracks.map((t) => ({
       trackId: t.trackId,
       trackName: t.trackName,
@@ -1027,6 +1000,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       albumArt: t.albumArt ?? null,
       genrePrimary: t.genrePrimary ?? null,
       laneId: t.laneId ?? t.sourceLane ?? null,
+      laneScore: t.laneScore ?? null,
+      laneEra: t.laneEra ?? null,
       clusterId: t.clusterId ?? null,
       clusterIds: t.clusterIds ?? [],
     }));
@@ -1172,6 +1147,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         vibe,
         mode,
         finalTracks: finalTracks.map((t) => ({
+          ...t,
           trackId: t.trackId,
           trackName: t.trackName,
           artistName: t.artistName,
@@ -1187,6 +1163,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           genrePrimary: t.genrePrimary ?? null,
           laneId: t.laneId ?? t.sourceLane ?? null,
           sourceLane: t.sourceLane ?? t.laneId ?? null,
+          laneScore: t.laneScore,
+          laneEra: t.laneEra,
           clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
           clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
         })),

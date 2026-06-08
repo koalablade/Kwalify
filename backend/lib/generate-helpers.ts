@@ -116,6 +116,8 @@ export function formatTracksForApi(
     genrePrimary?: string | null;
     sourceLane?: string | null;
     laneId?: string | null;
+    laneScore?: number | null;
+    laneEra?: string | null;
     clusterId?: string | null;
     clusterIds?: string[];
   }>,
@@ -139,6 +141,8 @@ export function formatTracksForApi(
       genrePrimary: t.genrePrimary ?? null,
       laneId: t.laneId ?? t.sourceLane ?? null,
       sourceLane: t.sourceLane ?? t.laneId ?? null,
+      laneScore: t.laneScore ?? null,
+      laneEra: t.laneEra ?? null,
       clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
       clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
       whyReasons: buildTrackWhyReasons(t, profile, i),
