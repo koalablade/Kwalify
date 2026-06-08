@@ -65,6 +65,11 @@ type V3SelectionCandidate<T extends V3PipelineTrack> = T & {
   clusterId?: string;
 };
 
+type ValidatedSampledLaneResult<T extends V3PipelineTrack> = {
+  laneId: string;
+  tracks: V3SelectionCandidate<T>[];
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Shannon entropy normalised to [0,1] given the number of distinct keys. */
@@ -168,7 +173,7 @@ function validateSelectionCandidates<T extends V3PipelineTrack>(
     noveltyByTrack?: (trackId: string) => number;
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
   },
-): { sampledResults: SampledLaneResult<T>[]; repairedCount: number; droppedCount: number } {
+): { sampledResults: ValidatedSampledLaneResult<T>[]; repairedCount: number; droppedCount: number } {
   const laneById = new Map(lanes.map((lane) => [lane.id, lane]));
   let repairedCount = 0;
   let droppedCount = 0;
@@ -177,7 +182,7 @@ function validateSelectionCandidates<T extends V3PipelineTrack>(
     const lane = laneById.get(sampled.laneId);
     if (!lane) {
       droppedCount += sampled.tracks.length;
-      return { ...sampled, tracks: [] };
+      return { laneId: sampled.laneId, tracks: [] };
     }
 
     const tracks: V3SelectionCandidate<T>[] = [];
@@ -201,7 +206,7 @@ function validateSelectionCandidates<T extends V3PipelineTrack>(
       }
     }
 
-    return { ...sampled, tracks };
+    return { laneId: sampled.laneId, tracks };
   });
 
   return { sampledResults: validated, repairedCount, droppedCount };

@@ -15,7 +15,6 @@
  */
 
 import type { Lane } from "./lane-router";
-import type { SampledLaneResult } from "./lane-sampler";
 import type { ScorerTrack } from "./lane-scorer";
 import type { EraBucket } from "../../lib/intent-parser";
 import { computeDiversityMetrics, createDiversityWindow, updateDiversityWindow } from "./global-diversity-controller";
@@ -41,6 +40,17 @@ export interface InterleavedResult<T extends ScorerTrack> {
     finalLaneUsageRatios: Record<string, number>;
     entropyAtCompletion: number;
   };
+}
+
+export interface InterleavableLaneResult<T extends ScorerTrack> {
+  laneId: string;
+  tracks: Array<T & {
+    sourceLane: string;
+    laneScore: number;
+    genrePrimary: string;
+    laneEra: EraBucket;
+    clusterIds: string[];
+  }>;
 }
 
 type EnergyBand = "low" | "mid" | "high";
@@ -176,7 +186,7 @@ function trailingRunLength<T extends { sourceLane?: string; genrePrimary?: strin
 
 export function interleaveLanes<T extends ScorerTrack>(
   lanes: Lane[],
-  sampledLanes: SampledLaneResult<T>[],
+  sampledLanes: InterleavableLaneResult<T>[],
   targetCount: number,
 ): InterleavedResult<T> {
   if (lanes.length === 0 || targetCount === 0) {

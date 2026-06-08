@@ -164,14 +164,15 @@ export function buildMockUserGenreProfile(
 
   for (const track of tracks) {
     const classification = classifyMockTrackGenre(track.trackName);
+    const family = getMockGenreForTrackName(track.trackName);
     trackClassifications.set(track.trackId, classification);
     genreProfiles.set(track.trackId, toGenreProfile(classification));
-    vector[classification.genrePrimary] = (vector[classification.genrePrimary] ?? 0) + 1;
+    vector[family] = (vector[family] ?? 0) + 1;
 
     const artistKey = track.artistName.toLowerCase().trim();
     const existing = artistBuckets.get(artistKey);
     artistBuckets.set(artistKey, {
-      family: existing?.family ?? classification.genrePrimary,
+      family: existing?.family ?? family,
       subgenre: existing?.subgenre ?? classification.primarySubgenre,
       count: (existing?.count ?? 0) + 1,
     });

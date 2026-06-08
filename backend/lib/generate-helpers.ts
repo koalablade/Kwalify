@@ -114,8 +114,8 @@ export function formatTracksForApi(
     rediscoveryScore?: number;
     narrativeRole?: string;
     genrePrimary?: string | null;
-    sourceLane?: string;
-    laneId?: string;
+    sourceLane?: string | null;
+    laneId?: string | null;
     clusterId?: string | null;
     clusterIds?: string[];
   }>,
