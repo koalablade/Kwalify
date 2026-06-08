@@ -18,7 +18,13 @@ import type { EraBucket } from "../../lib/intent-parser";
 
 export interface SampledLaneResult<T extends ScorerTrack> {
   laneId: string;
-  tracks: Array<T & { laneScore: number; genrePrimary: string; laneEra: EraBucket }>;
+  tracks: Array<T & {
+    sourceLane?: string;
+    laneScore: number;
+    genrePrimary: string;
+    laneEra: EraBucket;
+    clusterIds?: string[];
+  }>;
 }
 
 type EnergyBand = "low" | "mid" | "high";

@@ -22,12 +22,26 @@ import {
   warmGenreProfileCache,
 } from "../lib/genre-profile-cache";
 import { getFeatures } from "../lib/env";
+import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
 
 const router: IRouter = Router();
 
 export const activeSyncs = new Set<string>();
 
 router.get("/spotify/cache-status", async (req, res): Promise<void> => {
+  if (getFeatures().devMode.useMockSpotify) {
+    res.json({
+      synced: true,
+      totalTracks: generateMockSpotifyLibrary().length,
+      lastSyncedAt: new Date().toISOString(),
+      isSyncing: false,
+      syncProgress: null,
+      syncTotal: null,
+      suggestFullSync: false,
+      devMode: true,
+    });
+    return;
+  }
   // Guard: Spotify must be configured for any sync-related endpoint to work.
   if (!getFeatures().spotify.enabled) {
     res.status(503).json({ error: "Spotify is not configured on this server." });
@@ -89,6 +103,14 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
 });
 
 router.post("/spotify/sync", async (req, res): Promise<void> => {
+  if (getFeatures().devMode.useMockSpotify) {
+    res.json({
+      message: "Mock Spotify library is generated on demand in dev mode.",
+      started: false,
+      devMode: true,
+    });
+    return;
+  }
   if (!getFeatures().spotify.enabled) {
     res.status(503).json({ error: "Spotify is not configured on this server." });
     return;

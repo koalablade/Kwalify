@@ -28,9 +28,12 @@ export interface QualityLockRecord {
   artistName: string;
   energy: number | null;
   valence: number | null;
+  sourceLane: string;
   /** Composite lane score — used to rank candidates for refill. */
   laneScore: number;
   genrePrimary: string;
+  laneEra: string;
+  clusterIds: string[];
 }
 
 export interface QualityLockOpts {
@@ -53,6 +56,7 @@ export interface QualityLockDiagnostics {
   finalGenreEntropy: number;
   excludedGenres: string[];
   maxArtistRule: number;
+  intentLockApplied: boolean;
 }
 
 // ── Entropy helper ──────────────────────────────────────────────────────────
@@ -146,6 +150,19 @@ function buildArtistCounts(tracks: QualityLockRecord[]): Map<string, number> {
   return m;
 }
 
+function intentLockStrength(vibe: string, sceneMap: Record<string, number>): number {
+  const vl = vibe.toLowerCase();
+  const countryText =
+    /\b(country|americana|alt.?country|western|cowboy|honky.?tonk|bluegrass|appalachian|roots?)\b/.test(vl);
+  const ruralAcoustic =
+    (sceneMap["rural"] ?? 0) +
+    (sceneMap["acoustic"] ?? 0) +
+    (sceneMap["warmth"] ?? 0);
+  if (countryText && ruralAcoustic > 0.35) return 1;
+  if (countryText || ruralAcoustic > 0.48) return 0.75;
+  return 0;
+}
+
 // ── Vibe distance ────────────────────────────────────────────────────────────
 
 function vibeDist(
@@ -174,10 +191,16 @@ export function applyQualityLock(
 ): { trackIds: string[]; diagnostics: QualityLockDiagnostics } {
 
   const { targetCount, vibe, sceneInfluenceMap, targetEnergy, targetValence } = opts;
+  const lockStrength = intentLockStrength(vibe, sceneInfluenceMap);
+  const intentLocked = lockStrength >= 0.75;
 
   // For ≤30 tracks: max 1 appearance per artist (strict uniqueness).
   // For larger playlists: allow up to ceil(n × 0.12) per artist.
-  const maxPerArtist = targetCount <= 30 ? 1 : Math.ceil(targetCount * 0.12);
+  const maxPerArtist = intentLocked
+    ? Math.max(2, Math.ceil(targetCount * 0.16))
+    : targetCount <= 30
+      ? 1
+      : Math.ceil(targetCount * 0.12);
 
   const excluded = resolveExcludedGenres(vibe, sceneInfluenceMap);
 
@@ -191,6 +214,7 @@ export function applyQualityLock(
     finalGenreEntropy: 0,
     excludedGenres: [...excluded],
     maxArtistRule: maxPerArtist,
+    intentLockApplied: intentLocked,
   };
 
   let working = [...interleavedTracks];
@@ -267,7 +291,8 @@ export function applyQualityLock(
     const genreDist = buildDist(working);
     const currentEntropy = normEntropy(genreDist);
 
-    if (currentEntropy < 0.75 && working.length >= 6) {
+    const entropyFloor = intentLocked ? 0.42 : 0.62;
+    if (currentEntropy < entropyFloor && working.length >= 6) {
       diag.entropyRefillApplied = true;
 
       const total = working.length;
@@ -276,7 +301,7 @@ export function applyQualityLock(
 
       // Over-represented: more than 2× their fair share
       const overRep = Object.entries(genreDist)
-        .filter(([, n]) => n / total > idealShare * 2)
+        .filter(([, n]) => n / total > idealShare * (intentLocked ? 3.2 : 2.4))
         .sort((a, b) => b[1] - a[1])
         .slice(0, 2)
         .map(([g]) => g);
@@ -318,8 +343,8 @@ export function applyQualityLock(
   // Find up to 2 tracks that deviate significantly from the target
   // energy/valence centroid and swap them for closer-fitting candidates.
   {
-    const OUTLIER_THRESHOLD = 0.35;
-    const IMPROVEMENT_MIN   = 0.06; // candidate must be meaningfully better
+    const OUTLIER_THRESHOLD = intentLocked ? 0.46 : 0.38;
+    const IMPROVEMENT_MIN   = intentLocked ? 0.10 : 0.07; // candidate must be meaningfully better
 
     const ranked = working
       .map((t, idx) => ({ t, idx, dist: vibeDist(t, targetEnergy, targetValence) }))

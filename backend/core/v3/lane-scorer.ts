@@ -123,6 +123,50 @@ function computeInfluenceAffinity(
   return totalWeight > 0 ? Math.min(1, totalAffinity / totalWeight) : 0.50;
 }
 
+function isCountryAmericanaIntent(intent: DecomposedIntent): boolean {
+  const text = `${intent.primary} ${intent.secondaryIntents.join(" ")}`.toLowerCase();
+  const countryText =
+    /\b(country|americana|alt.?country|western|cowboy|honky.?tonk|bluegrass|appalachian|roots?)\b/.test(text);
+  const ruralAcoustic =
+    (intent.sceneInfluenceMap["rural"] ?? 0) +
+    (intent.sceneInfluenceMap["acoustic"] ?? 0) +
+    (intent.sceneInfluenceMap["warmth"] ?? 0) >
+    0.48;
+  return countryText || ruralAcoustic;
+}
+
+function countryAmericanaGenreModifier(genre: string): number {
+  switch (genre) {
+    case "country":
+    case "folk":
+    case "blues":
+      return 0.22;
+    case "rock":
+    case "indie":
+      return 0.08;
+    case "pop":
+      return -0.16;
+    case "electronic":
+    case "hip_hop":
+    case "rnb":
+    case "metal":
+    case "latin":
+      return -0.28;
+    default:
+      return -0.08;
+  }
+}
+
+function acousticContinuityBonus(track: ScorerTrack, intent: DecomposedIntent): number {
+  const acousticIntent =
+    (intent.sceneInfluenceMap["acoustic"] ?? 0) +
+    (intent.sceneInfluenceMap["rural"] ?? 0) +
+    (intent.sceneInfluenceMap["warmth"] ?? 0);
+  if (acousticIntent < 0.30) return 0;
+  const acousticness = track.acousticness ?? 0.35;
+  return Math.max(0, Math.min(0.10, (acousticness - 0.35) * 0.20));
+}
+
 // ── Main scorer ────────────────────────────────────────────────────────────
 
 export function scoreLane<T extends ScorerTrack>(
@@ -160,6 +204,9 @@ export function scoreLane<T extends ScorerTrack>(
       const genre = opts.genreByTrack?.(track.trackId) ?? "unknown";
 
       const genreBonus = bias.genreBonus[genre] ?? 0;
+      const intentGenreModifier = isCountryAmericanaIntent(intent)
+        ? countryAmericanaGenreModifier(genre)
+        : 0;
 
       const coreGenrePenalty =
         (bias.coreGenrePenalty?.includes(genre) && genre !== "unknown") ? -0.12 : 0;
@@ -178,6 +225,8 @@ export function scoreLane<T extends ScorerTrack>(
           Math.max(0, 1 - dist / bias.energyTarget.bandwidth) * 0.08;
       }
 
+      const acousticBonus = acousticContinuityBonus(track, intent);
+
       const rawScore =
         w.ES  * ES  +
         w.SA  * SA  +
@@ -187,13 +236,13 @@ export function scoreLane<T extends ScorerTrack>(
         w.Nov * Nov;
 
       const laneScore = Math.max(0, Math.min(1.5,
-        rawScore + genreBonus + coreGenrePenalty + eraBonus + energyBandBonus
+        rawScore + genreBonus + intentGenreModifier + coreGenrePenalty + eraBonus + energyBandBonus + acousticBonus
       ));
 
       return {
         track,
         laneScore,
-        signals: { ES, SA, EM, Era, Act, Nov, genreBonus, eraBonus, energyBandBonus, coreGenrePenalty },
+        signals: { ES, SA, EM, Era, Act, Nov, genreBonus: genreBonus + intentGenreModifier, eraBonus, energyBandBonus: energyBandBonus + acousticBonus, coreGenrePenalty },
         era,
         genrePrimary: genre,
       };

@@ -16,10 +16,10 @@
  *   laneWindow     — source lane (for lane saturation detection)
  *
  * Thresholds (soft):
- *   genre  > 20% of window → penalty 0.65
- *   era    > 35% of window → penalty 0.75
+ *   genre  > 55% of window → penalty 0.82
+ *   era    > 55% of window → penalty 0.88
  *   artist ≥ 2 in last 12  → penalty 0.55
- *   lane   > 55% of window → penalty 0.80 (adjusted lane weight suggestion)
+ *   lane   > 80% of window → adjusted lane weight suggestion
  */
 
 import type { LaneScoredTrack, ScorerTrack } from "./lane-scorer";
@@ -235,9 +235,9 @@ export function computeDiversityMetrics(window: DiversityWindow): DiversityMetri
   });
 
   const driftFlags = [
-    genreInfo.ratio > 0.20 ? "genre_drift"       : null,
-    eraInfo.ratio   > 0.35 ? "era_drift"          : null,
-    laneInfo.ratio  > 0.55 ? "lane_drift"         : null,
+    genreInfo.ratio > 0.55 ? "genre_drift"       : null,
+    eraInfo.ratio   > 0.55 ? "era_drift"          : null,
+    laneInfo.ratio  > 0.80 ? "lane_drift"         : null,
     artistIdx       > 0.30 ? "artist_collapse"    : null,
   ].filter(Boolean) as string[];
 
@@ -248,18 +248,18 @@ export function computeDiversityMetrics(window: DiversityWindow): DiversityMetri
   // Build lane boost suggestions when drift detected
   const suggestedLaneBoosts: Partial<Record<string, number>> = {};
 
-  if (genreInfo.ratio > 0.20 || laneInfo.ratio > 0.55) {
-    suggestedLaneBoosts["lane_contrast"]    = 0.25;
-    suggestedLaneBoosts["lane_exploration"] = 0.20;
+  if (genreInfo.ratio > 0.65 || laneInfo.ratio > 0.85) {
+    suggestedLaneBoosts["lane_contrast"]    = 0.08;
+    suggestedLaneBoosts["lane_exploration"] = 0.06;
   }
   if (artistIdx > 0.30) {
-    suggestedLaneBoosts["lane_exploration"] = (suggestedLaneBoosts["lane_exploration"] ?? 0) + 0.15;
+    suggestedLaneBoosts["lane_exploration"] = (suggestedLaneBoosts["lane_exploration"] ?? 0) + 0.10;
   }
   if (Math.abs(slope) > 0.15) {
     if (slope > 0) {
-      suggestedLaneBoosts["lane_ambient_fallback"] = 0.20;
+      suggestedLaneBoosts["lane_ambient_fallback"] = 0.10;
     } else {
-      suggestedLaneBoosts["lane_motion_high"] = 0.20;
+      suggestedLaneBoosts["lane_motion_high"] = 0.10;
     }
   }
 
@@ -311,21 +311,21 @@ export function applyDiversityPenalties<T extends ScorerTrack>(
     if (
       metrics.dominantGenre &&
       genre === metrics.dominantGenre &&
-      metrics.genreConcentration > 0.20
+      metrics.genreConcentration > 0.55
     ) {
-      multiplier = Math.min(multiplier, 0.65);
+      multiplier = Math.min(multiplier, 0.82);
       penaltiesApplied++;
       if (!penaltyReasons.includes("genre_concentration")) {
         penaltyReasons.push("genre_concentration");
       }
     }
 
-    // Family-level concentration penalty: prevents "country", "americana",
-    // "outlaw_country" etc. collectively exceeding 40% of the window.
+    // Family-level concentration penalty is intentionally gentle: a strong
+    // genre identity should persist unless the family fully collapses the set.
     const genreFamily = getGenreFamily(genre);
     const familyRatio = (familyCounts[genreFamily] ?? 0) / windowSize;
-    if (familyRatio > 0.40 && genreFamily !== genre) {
-      multiplier = Math.min(multiplier, 0.70);
+    if (familyRatio > 0.78 && genreFamily !== genre) {
+      multiplier = Math.min(multiplier, 0.88);
       penaltiesApplied++;
       if (!penaltyReasons.includes("genre_family_concentration")) {
         penaltyReasons.push("genre_family_concentration");
@@ -335,9 +335,9 @@ export function applyDiversityPenalties<T extends ScorerTrack>(
     if (
       metrics.dominantEra &&
       item.era === metrics.dominantEra &&
-      metrics.eraConcentration > 0.35
+      metrics.eraConcentration > 0.55
     ) {
-      multiplier = Math.min(multiplier, 0.75);
+      multiplier = Math.min(multiplier, 0.88);
       penaltiesApplied++;
       if (!penaltyReasons.includes("era_concentration")) {
         penaltyReasons.push("era_concentration");
@@ -379,14 +379,14 @@ export function computeAdjustedLaneWeights(
 
   for (const [laneId, boost] of Object.entries(metrics.suggestedLaneBoosts)) {
     if (adjusted[laneId] !== undefined && boost !== undefined) {
-      adjusted[laneId] = Math.min(0.60, adjusted[laneId]! + boost);
+      adjusted[laneId] = Math.min(0.80, adjusted[laneId]! + boost);
     }
   }
 
   const total = Object.values(adjusted).reduce((s, v) => s + v, 0);
   if (total > 0) {
     for (const key of Object.keys(adjusted)) {
-      adjusted[key] = Math.max(0.05, adjusted[key]! / total);
+      adjusted[key] = Math.max(0.03, adjusted[key]! / total);
     }
     const newTotal = Object.values(adjusted).reduce((s, v) => s + v, 0);
     for (const key of Object.keys(adjusted)) {

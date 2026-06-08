@@ -26,10 +26,15 @@ export type CachedGeneratePayload = {
     score: number;
     rediscoveryScore?: number;
     narrativeRole?: string;
-    genrePrimary: string;
+    genrePrimary: string | null;
+    sourceLane?: string | null;
+    laneId?: string | null;
+    clusterId?: string | null;
+    clusterIds?: string[];
   }>;
   emotionProfile: EmotionProfile & { journeyArc?: string };
   spotifyPlaylistUrl: string | null;
+  v3Diagnostics?: Record<string, unknown> | null;
   cachedAt: number;
 };
 

@@ -15,7 +15,7 @@
  *   ≥ 3 distinct genre clusters represented
  *   ≥ 2 distinct era clusters represented
  *   ≥ 2 distinct energy bands represented
- *   ≤ 30–40% from any single cluster
+ *   ≤ 55–75% from dominant musical clusters
  */
 
 import type { LaneScoredTrack, ScorerTrack } from "./lane-scorer";
@@ -180,9 +180,9 @@ export function buildClusters<T extends ScorerTrack>(
  *   ≥ 3 distinct genre clusters if pool has ≥ 3
  *   ≥ 2 distinct era clusters if pool has ≥ 2
  *   ≥ 2 distinct energy bands if pool has ≥ 2
- *   ≤ 35% from any single genre cluster
- *   ≤ 40% from any single era cluster
- *   ≤ 50% from any single energy band
+ *   ≤ 60% from any single genre cluster
+ *   ≤ 60% from any single era cluster
+ *   ≤ 65% from any single energy band
  */
 export function selectFromClusters<T extends ScorerTrack>(
   pool: ClusteredPool<T>,
@@ -200,13 +200,13 @@ export function selectFromClusters<T extends ScorerTrack>(
   }
 
   // Max selection per cluster
-  const genreMax   = Math.max(1, Math.ceil(targetCount * 0.35));
-  const eraMax     = Math.max(1, Math.ceil(targetCount * 0.40));
-  const energyMax  = Math.max(1, Math.ceil(targetCount * 0.50));
+  const genreMax   = Math.max(1, Math.ceil(targetCount * 0.60));
+  const eraMax     = Math.max(1, Math.ceil(targetCount * 0.60));
+  const energyMax  = Math.max(1, Math.ceil(targetCount * 0.65));
   // Family-level cap: no genre family (e.g. all country subgenres combined)
-  // may exceed 40% of the selected tracks. Prevents "hidden collapse" where
-  // country, americana, outlaw_country each pass the per-cluster cap.
-  const familyMax  = Math.max(1, Math.ceil(targetCount * 0.40));
+  // may exceed 75% of the selected tracks. This keeps some variation without
+  // breaking strong genre identity for country/Americana or similar prompts.
+  const familyMax  = Math.max(1, Math.ceil(targetCount * 0.75));
 
   const clusterPickCount = new Map<string, number>();
   const familyPickCount  = new Map<string, number>();
@@ -231,9 +231,9 @@ export function selectFromClusters<T extends ScorerTrack>(
       ...(trackToClusterIds.get(b.track.trackId) ?? [])
         .map((cid) => clusters.get(cid)?.diversityContributionScore ?? 0)
     );
-    // Blend: 60% lane score + 40% diversity pressure
-    const aBlend = a.laneScore * 0.60 + aContrib * 0.40;
-    const bBlend = b.laneScore * 0.60 + bContrib * 0.40;
+    // Blend: lane fit dominates; diversity pressure only nudges tie-breaks.
+    const aBlend = a.laneScore * 0.82 + aContrib * 0.18;
+    const bBlend = b.laneScore * 0.82 + bContrib * 0.18;
     return bBlend - aBlend;
   });
 
@@ -285,6 +285,11 @@ export function selectFromClusters<T extends ScorerTrack>(
         clusterIds: cids,
       });
       usedIds.add(item.track.trackId);
+      for (const cid of cids) {
+        clusterPickCount.set(cid, (clusterPickCount.get(cid) ?? 0) + 1);
+      }
+      const genreFamily = getGenreFamily(item.genrePrimary ?? "unknown");
+      familyPickCount.set(genreFamily, (familyPickCount.get(genreFamily) ?? 0) + 1);
     }
   }
 

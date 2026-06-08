@@ -114,7 +114,7 @@ function buildStandardLanes(intent: DecomposedIntent): Lane[] {
     weight: 0.40,
     targetInfluences: coreForces,
     scoringBias: {
-      weights: { ES: 0.25, SA: 0.30, EM: 0.20, Era: 0.12, Act: 0.08, Nov: 0.05 },
+      weights: { ES: 0.27, SA: 0.32, EM: 0.20, Era: 0.12, Act: 0.07, Nov: 0.02 },
       genreBonus: genreBonusFromForces(coreForces, 0.15),
       ...(intent.contextAnchors.era !== "any"
         ? { eraBonus: { preferBefore: (ERA_YEAR[intent.contextAnchors.era] ?? 2029) + 5, bonus: 0.08 } }
@@ -166,7 +166,7 @@ function buildStandardLanes(intent: DecomposedIntent): Lane[] {
       weight: 0.20,
       targetInfluences: mvForces,
       scoringBias: {
-        weights: { ES: 0.20, SA: 0.20, EM: 0.25, Era: 0.12, Act: 0.15, Nov: 0.08 },
+        weights: { ES: 0.22, SA: 0.23, EM: 0.25, Era: 0.12, Act: 0.13, Nov: 0.05 },
         genreBonus: genreBonusFromForces(mvForces, 0.10),
         energyTarget: { center: energyCenter, bandwidth: 0.28 },
       },
@@ -181,13 +181,13 @@ function buildStandardLanes(intent: DecomposedIntent): Lane[] {
     weight: 0.15,
     targetInfluences: ["acoustic", "cinematic", "calm", "introspective"],
     scoringBias: {
-      weights: { ES: 0.10, SA: 0.10, EM: 0.20, Era: 0.10, Act: 0.05, Nov: 0.45 },
+      weights: { ES: 0.16, SA: 0.18, EM: 0.26, Era: 0.12, Act: 0.06, Nov: 0.22 },
       genreBonus: {
         indie: 0.08, folk: 0.08, singer_songwriter: 0.07,
         acoustic: 0.09, alternative: 0.06,
       },
-      noveltyMultiplier: 2.5,
-      coreGenrePenalty: coreGenres.slice(0, 3),
+      noveltyMultiplier: 1.6,
+      coreGenrePenalty: coreGenres.slice(0, 2),
     },
   };
   lanes.push(contrastLane);
@@ -238,9 +238,9 @@ function buildFallbackLanes(): Lane[] {
       weight: 0.20,
       targetInfluences: ["acoustic", "introspective"],
       scoringBias: {
-        weights: { ES: 0.10, SA: 0.10, EM: 0.20, Era: 0.10, Act: 0.05, Nov: 0.45 },
+        weights: { ES: 0.14, SA: 0.16, EM: 0.24, Era: 0.12, Act: 0.06, Nov: 0.28 },
         genreBonus: {},
-        noveltyMultiplier: 2.8,
+        noveltyMultiplier: 1.6,
       },
     },
     {

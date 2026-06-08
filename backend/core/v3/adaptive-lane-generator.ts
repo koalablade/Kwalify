@@ -126,6 +126,17 @@ function computeConfidence(map: SceneInfluenceMap): number {
   return Math.min(1, top * 1.5 + (count >= 2 ? 0.15 : 0));
 }
 
+function isCountryAmericanaIntent(intent: DecomposedIntent): boolean {
+  const text = `${intent.primary} ${intent.secondaryIntents.join(" ")}`.toLowerCase();
+  return (
+    /\b(country|americana|alt.?country|western|cowboy|honky.?tonk|bluegrass|appalachian|roots?)\b/.test(text) ||
+    ((intent.sceneInfluenceMap["rural"] ?? 0) +
+      (intent.sceneInfluenceMap["acoustic"] ?? 0) +
+      (intent.sceneInfluenceMap["warmth"] ?? 0) >
+      0.48)
+  );
+}
+
 // ── Core lane builder ────────────────────────────────────────────────────────
 
 function buildCoreLane(
@@ -143,9 +154,12 @@ function buildCoreLane(
       EM: 0.20,
       Era: 0.12,
       Act: 0.08,
-      Nov: 0.05,
+      Nov: 0.02,
     },
-    genreBonus: genreBonusFromForces(top3, 0.14),
+    genreBonus: {
+      ...genreBonusFromForces(top3, isCountryAmericanaIntent(intent) ? 0.22 : 0.14),
+      ...(isCountryAmericanaIntent(intent) ? { country: 0.26, folk: 0.20, blues: 0.14, rock: 0.08 } : {}),
+    },
     ...(intent.contextAnchors.era !== "any"
       ? {
           eraBonus: {
@@ -166,7 +180,7 @@ function buildCoreLane(
     weight: coreWeight,
     targetInfluences: top3,
     scoringBias: bias,
-    diversityPressure: 0.30,
+    diversityPressure: isCountryAmericanaIntent(intent) ? 0.18 : 0.30,
     confidenceScore: confidence,
   };
 }
@@ -190,11 +204,11 @@ function buildMotionHighLane(
     weight,
     targetInfluences: mv,
     scoringBias: {
-      weights: { ES: 0.18, SA: 0.22, EM: 0.20, Era: 0.10, Act: 0.20, Nov: 0.10 },
+      weights: { ES: 0.20, SA: 0.24, EM: 0.20, Era: 0.12, Act: 0.18, Nov: 0.06 },
       genreBonus: genreBonusFromForces(mv, 0.12),
       energyTarget: { center: energyCenter, bandwidth: 0.22 },
     },
-    diversityPressure: 0.50,
+    diversityPressure: 0.35,
     confidenceScore: intent.contextAnchors.motionLevel,
   };
 }
@@ -214,11 +228,11 @@ function buildNostalgiaDeepLane(
     weight,
     targetInfluences: ["nostalgia", "warmth", "acoustic"],
     scoringBias: {
-      weights: { ES: 0.12, SA: 0.18, EM: 0.28, Era: 0.30, Act: 0.07, Nov: 0.05 },
+      weights: { ES: 0.13, SA: 0.20, EM: 0.28, Era: 0.30, Act: 0.06, Nov: 0.03 },
       genreBonus: { folk: 0.12, rock: 0.10, soul: 0.09, blues: 0.07, country: 0.08 },
       eraBonus: { preferBefore: cutoffYear, bonus: 0.15 },
     },
-    diversityPressure: 0.60,
+    diversityPressure: 0.40,
     confidenceScore: nostalgiaStrength,
   };
 }
@@ -240,10 +254,10 @@ function buildEmotionalSplitLane(
     weight,
     targetInfluences: splitForces,
     scoringBias: {
-      weights: { ES: 0.12, SA: 0.18, EM: 0.40, Era: 0.15, Act: 0.08, Nov: 0.07 },
+      weights: { ES: 0.14, SA: 0.20, EM: 0.40, Era: 0.15, Act: 0.07, Nov: 0.04 },
       genreBonus: genreBonusFromForces(splitForces, 0.10),
     },
-    diversityPressure: 0.70,
+    diversityPressure: 0.45,
     confidenceScore: 1 - emotionalForceVariance(intent.sceneInfluenceMap),
   };
 }
@@ -261,12 +275,12 @@ function buildExplorationLane(
     weight,
     targetInfluences: ["acoustic", "cinematic", "introspective", "electronic"],
     scoringBias: {
-      weights: { ES: 0.08, SA: 0.10, EM: 0.18, Era: 0.09, Act: 0.05, Nov: 0.50 },
+      weights: { ES: 0.14, SA: 0.16, EM: 0.24, Era: 0.12, Act: 0.06, Nov: 0.28 },
       genreBonus: {},
-      noveltyMultiplier: 2.8,
+      noveltyMultiplier: 1.6,
       coreGenrePenalty: coreGenres.slice(0, 3),
     },
-    diversityPressure: 0.90,
+    diversityPressure: 0.55,
     confidenceScore: 0.50,
   };
 }
@@ -334,15 +348,15 @@ function buildContrastLane(
     weight,
     targetInfluences: ["acoustic", "cinematic", "calm", "introspective"],
     scoringBias: {
-      weights: { ES: 0.10, SA: 0.10, EM: 0.20, Era: 0.10, Act: 0.05, Nov: 0.45 },
+      weights: { ES: 0.16, SA: 0.18, EM: 0.26, Era: 0.12, Act: 0.06, Nov: 0.22 },
       genreBonus: {
         indie: 0.08, folk: 0.08, singer_songwriter: 0.07,
         acoustic: 0.09, alternative: 0.06,
       },
-      noveltyMultiplier: 2.5,
-      coreGenrePenalty: coreGenres.slice(0, 3),
+      noveltyMultiplier: isCountryAmericanaIntent(intent) ? 1.2 : 1.6,
+      coreGenrePenalty: isCountryAmericanaIntent(intent) ? [] : coreGenres.slice(0, 2),
     },
-    diversityPressure: 0.85,
+    diversityPressure: isCountryAmericanaIntent(intent) ? 0.35 : 0.55,
     confidenceScore: 0.50,
   };
 }
@@ -360,8 +374,8 @@ function allocateWeights(
   confidenceMap: Record<AdaptiveLaneType, number>,
   overallConfidence: number,
 ): Record<AdaptiveLaneType, number> {
-  const coreShare   = 0.35 + overallConfidence * 0.20;
-  const contrastShare = 0.12 + (1 - overallConfidence) * 0.08;
+  const coreShare   = 0.42 + overallConfidence * 0.26;
+  const contrastShare = 0.08 + (1 - overallConfidence) * 0.06;
   const remaining   = Math.max(0, 1 - coreShare - contrastShare);
 
   const optionals = activeLaneTypes.filter(
@@ -410,6 +424,7 @@ export function generateAdaptiveLanes(
   intent: DecomposedIntent,
 ): AdaptiveLaneGeneratorResult {
   const map = intent.sceneInfluenceMap;
+  const countryAmericanaIntent = isCountryAmericanaIntent(intent);
   const motionLevel = intent.contextAnchors.motionLevel;
   const nostalgiaStrength = map["nostalgia"] ?? 0;
   const topForceWeight = Math.max(...Object.values(map), 0);
@@ -450,7 +465,7 @@ export function generateAdaptiveLanes(
     confidenceMap["emotional_split"] = 1 - emVariance;
   }
 
-  if (topForceWeight < 0.30) {
+  if (!countryAmericanaIntent && topForceWeight < 0.30) {
     activeLaneTypes.push("exploration");
     confidenceMap["exploration"] = 1 - topForceWeight;
   }
@@ -468,6 +483,15 @@ export function generateAdaptiveLanes(
   activeLaneTypes.push("contrast");
 
   const alloc = allocateWeights(activeLaneTypes, confidenceMap, confidence);
+
+  if (countryAmericanaIntent) {
+    alloc["core"] = Math.max(alloc["core"] ?? 0, 0.72);
+    alloc["contrast"] = Math.min(alloc["contrast"] ?? 0, 0.08);
+    const total = Object.values(alloc).reduce((s, v) => s + v, 0);
+    for (const key of Object.keys(alloc) as AdaptiveLaneType[]) {
+      alloc[key] = alloc[key]! / total;
+    }
+  }
 
   const lanes: AdaptiveLane[] = [];
 

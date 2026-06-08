@@ -1064,7 +1064,7 @@ function buildUnifiedDebugPanel(result, dbg) {
   // ── Final playlist genre composition ──────────────────────────────────────
   const finalTracks = result.tracks || [];
   const genreCount = {};
-  finalTracks.forEach(t => { const g = t.genrePrimary || "unknown"; genreCount[g] = (genreCount[g] || 0) + 1; });
+  finalTracks.forEach(t => { const g = t.genrePrimary || "(missing)"; genreCount[g] = (genreCount[g] || 0) + 1; });
   const total = finalTracks.length || 1;
   const genreDist = Object.entries(genreCount).sort((a,b) => b[1]-a[1]).slice(0, 10);
   const compositionHtml = `
@@ -1272,7 +1272,7 @@ function buildDebugPanel(result) {
 
   const finalTracks = result.tracks || [];
   const genreCount = {};
-  finalTracks.forEach(t => { const g = t.genrePrimary || "unknown"; genreCount[g] = (genreCount[g] || 0) + 1; });
+  finalTracks.forEach(t => { const g = t.genrePrimary || "(missing)"; genreCount[g] = (genreCount[g] || 0) + 1; });
   const total = finalTracks.length || 1;
   const genreDist = Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const compositionHtml = `

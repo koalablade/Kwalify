@@ -29,6 +29,9 @@ export interface AppEnv {
  * re-read process.env.
  */
 export type AppFeatures = {
+  devMode: {
+    useMockSpotify: boolean;
+  };
   spotify:
     | { enabled: true; clientId: string; clientSecret: string; redirectUri: string }
     | { enabled: false };
@@ -86,6 +89,9 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
   ).filter((k) => !process.env[k]);
 
   _features = {
+    devMode: {
+      useMockSpotify: process.env["USE_MOCK_SPOTIFY"] === "true",
+    },
     spotify:
       spotifyMissing.length === 0
         ? {

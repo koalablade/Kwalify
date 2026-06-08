@@ -264,7 +264,7 @@ export function enforceFinalPlaylistGenres<T extends { trackId: string; score: n
 
     input.userGenreProfile.vector,
 
-    3
+    1
 
   );
 

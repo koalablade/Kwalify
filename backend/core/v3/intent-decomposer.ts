@@ -34,6 +34,8 @@ export interface ContextAnchors {
 export interface DecomposedIntent {
   primary: string;
   secondaryIntents: string[];
+  moodTags: string[];
+  confidence: number;
   contextAnchors: ContextAnchors;
   sceneInfluenceMap: SceneInfluenceMap;
   baseIntent: UserIntent;
@@ -300,8 +302,9 @@ function detectMotionLevel(influences: SceneInfluenceMap): number {
 // ── Primary and secondary intent strings ──────────────────────────────────
 
 function extractPrimaryIntent(vibe: string): string {
-  const words = vibe.trim().split(/\s+/).filter((w) => w.length > 2);
-  return words.slice(0, 7).join(" ");
+  const normalized = normalizeVibe(vibe);
+  const words = normalized.split(/\s+/).filter((w) => w.length > 2);
+  return words.slice(0, 7).join(" ") || normalized;
 }
 
 function extractSecondaryIntents(influences: SceneInfluenceMap): string[] {
@@ -311,18 +314,43 @@ function extractSecondaryIntents(influences: SceneInfluenceMap): string[] {
     .map(([force]) => force);
 }
 
+function normalizeVibe(vibe: string): string {
+  const normalized = String(vibe ?? "").replace(/\s+/g, " ").trim();
+  return normalized || "balanced";
+}
+
+function computeIntentConfidence(influences: SceneInfluenceMap): number {
+  const forces = Object.keys(influences);
+  if (forces.length === 0) return 0.35;
+  const topWeight = Math.max(...Object.values(influences), 0);
+  const forceCoverage = Math.min(0.35, forces.length * 0.07);
+  return Math.round(Math.min(1, 0.35 + topWeight * 0.45 + forceCoverage) * 1000) / 1000;
+}
+
+function extractMoodTags(baseIntent: UserIntent, influences: SceneInfluenceMap): string[] {
+  return [
+    ...baseIntent.mood,
+    ...Object.entries(influences)
+      .filter(([, weight]) => weight >= 0.12)
+      .map(([force]) => force),
+  ].filter((tag, idx, arr) => tag && arr.indexOf(tag) === idx);
+}
+
 // ── Main decomposer ────────────────────────────────────────────────────────
 
 export function decomposeIntent(vibe: string, profile: EmotionProfile): DecomposedIntent {
-  const baseIntent = parseUserIntent(vibe, profile);
-  const sceneInfluenceMap = detectInfluenceForces(vibe);
+  const normalizedVibe = normalizeVibe(vibe);
+  const baseIntent = parseUserIntent(normalizedVibe, profile);
+  const sceneInfluenceMap = detectInfluenceForces(normalizedVibe);
 
   return {
-    primary: extractPrimaryIntent(vibe),
+    primary: extractPrimaryIntent(normalizedVibe),
     secondaryIntents: extractSecondaryIntents(sceneInfluenceMap),
+    moodTags: extractMoodTags(baseIntent, sceneInfluenceMap),
+    confidence: computeIntentConfidence(sceneInfluenceMap),
     contextAnchors: {
       era: baseIntent.era,
-      environment: detectEnvironment(vibe),
+      environment: detectEnvironment(normalizedVibe),
       motionLevel: detectMotionLevel(sceneInfluenceMap),
     },
     sceneInfluenceMap,

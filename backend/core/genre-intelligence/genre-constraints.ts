@@ -5,11 +5,11 @@
 import type { RootGenre, TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { UserGenreVector } from "../../lib/user-genre-profile";
 
-/** Max share any single genre may occupy in a final playlist (V10: 35%) */
-export const MAX_GENRE_DOMINANCE = 0.35;
+/** Max share any single genre may occupy before safety intervention. */
+export const MAX_GENRE_DOMINANCE = 0.80;
 
-/** Min distinct genre families in playlist (V9: minimum 3 genres if available) */
-export const MIN_DISTINCT_GENRES_IN_PLAYLIST = 3;
+/** Min distinct genre families in playlist; keep light variation without fragmenting identity. */
+export const MIN_DISTINCT_GENRES_IN_PLAYLIST = 2;
 
 /** Library share threshold — genre must appear in playlist if user has ≥ this share */
 export const GENRE_LIBRARY_FLOOR = 0.05;

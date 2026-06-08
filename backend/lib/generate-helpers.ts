@@ -113,7 +113,11 @@ export function formatTracksForApi(
     score?: number;
     rediscoveryScore?: number;
     narrativeRole?: string;
-    genrePrimary?: string;
+    genrePrimary?: string | null;
+    sourceLane?: string;
+    laneId?: string;
+    clusterId?: string | null;
+    clusterIds?: string[];
   }>,
   profile?: EmotionProfile | null
 ) {
@@ -132,7 +136,11 @@ export function formatTracksForApi(
       score: Math.round((t.score ?? 0.7) * 100) / 100,
       rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
       narrativeRole: t.narrativeRole,
-      genrePrimary: t.genrePrimary,
+      genrePrimary: t.genrePrimary ?? null,
+      laneId: t.laneId ?? t.sourceLane ?? null,
+      sourceLane: t.sourceLane ?? t.laneId ?? null,
+      clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
+      clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
       whyReasons: buildTrackWhyReasons(t, profile, i),
     }));
 }

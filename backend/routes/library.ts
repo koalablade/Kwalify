@@ -5,11 +5,22 @@ import { eq, sql } from "drizzle-orm";
 import { detectMusicChapters } from "../lib/music-life-chapters";
 import type { LikedSongRow } from "../lib/library-signals";
 import { computeLibrarySummary } from "../lib/library-summary";
+import { getFeatures } from "../lib/env";
+import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
 
 const router: IRouter = Router();
 
 /** Aggregate stats for synced library health. */
 router.get("/library/summary", async (req, res): Promise<void> => {
+  if (getFeatures().devMode.useMockSpotify) {
+    const sample = generateMockSpotifyLibrary();
+    const summary = computeLibrarySummary(sample);
+    summary.trackCount = sample.length;
+    summary.artistCount = new Set(sample.map((track) => track.artistName.toLowerCase())).size;
+    res.json({ ...summary, devMode: true });
+    return;
+  }
+
   if (!req.session.spotifyUserId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
@@ -99,6 +110,35 @@ router.get("/library/summary", async (req, res): Promise<void> => {
 
 /** Life chapters inferred from like-date clusters (no private labels). */
 router.get("/library/chapters", async (req, res): Promise<void> => {
+  if (getFeatures().devMode.useMockSpotify) {
+    const songs: LikedSongRow[] = generateMockSpotifyLibrary().map((r) => ({
+      trackId: r.trackId,
+      artistName: r.artistName,
+      albumName: r.albumName,
+      addedAt: r.addedAt,
+      energy: r.energy,
+      valence: r.valence,
+      acousticness: r.acousticness,
+      danceability: r.danceability,
+    }));
+    const chapters = detectMusicChapters(songs);
+    res.json({
+      chapters: chapters.map((c) => ({
+        id: c.id,
+        label: c.label,
+        description: c.description,
+        start: c.start.toISOString(),
+        end: c.end.toISOString(),
+        trackCount: c.trackIds.length,
+        dominantArtists: c.dominantArtists.slice(0, 5),
+        strength: Math.round(c.strength * 100) / 100,
+      })),
+      hint: 'Reference a chapter in your vibe: "take me back to 2019" or "my forgotten indie phase".',
+      devMode: true,
+    });
+    return;
+  }
+
   if (!req.session.spotifyUserId) {
     res.status(401).json({ error: "Not authenticated" });
     return;

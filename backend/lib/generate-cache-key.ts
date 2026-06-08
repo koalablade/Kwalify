@@ -17,6 +17,7 @@ export function buildGenerateCacheKey(parts: {
   length: number;
   varietyBoost?: boolean;
   referencePlaylist?: boolean;
+  mockMode?: boolean;
 }): string {
   const norm = normalizePrompt(parts.vibe);
   const raw = [
@@ -27,6 +28,7 @@ export function buildGenerateCacheKey(parts: {
     String(parts.length),
     parts.varietyBoost ? "v1" : "v0",
     parts.referencePlaylist ? "ref1" : "ref0",
+    parts.mockMode ? "mock1" : "mock0",
   ].join("|");
   return createHash("sha256").update(raw).digest("hex").slice(0, 40);
 }

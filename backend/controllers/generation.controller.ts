@@ -93,6 +93,11 @@ import { getFeatures } from "../lib/env";
 import { publicUrl } from "../lib/public-url";
 import { resolveSemanticScene } from "../lib/semantic-scene-engine";
 import { detectEra } from "../lib/era-detection";
+import {
+  MOCK_SPOTIFY_USER_ID,
+  buildMockUserGenreProfile,
+  generateMockSpotifyLibrary,
+} from "../lib/mock-spotify";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
@@ -121,6 +126,14 @@ const NEUTRAL_PROFILE: EmotionProfile = {
 
 function staleGenerate(userId: string, requestId: string): boolean {
   return isGenerateCancelled(userId, requestId);
+}
+
+function useMockSpotify(): boolean {
+  return getFeatures().devMode.useMockSpotify;
+}
+
+function currentGenerateUserId(req: import("express").Request): string | null {
+  return useMockSpotify() ? MOCK_SPOTIFY_USER_ID : req.session.spotifyUserId ?? null;
 }
 
 /** Cancelled/superseded session — always send a response so the client does not hang. */
@@ -161,12 +174,90 @@ function generateFail(
   });
 }
 
+function formatV3DiagnosticsForApi(
+  rawV3: unknown,
+  vibe: string
+): Record<string, unknown> | null {
+  const v3 = rawV3 as Record<string, unknown> | null | undefined;
+  if (!v3 || typeof v3 !== "object") return null;
+  const intent         = v3["intentDecomposition"] as Record<string, unknown> | undefined;
+  const lanes          = v3["lanes"] as Array<Record<string, unknown>> | undefined;
+  const globalDiv      = v3["globalDiversityMetrics"] as Record<string, unknown> | undefined;
+  const preInterleave  = globalDiv?.["preInterleave"]  as Record<string, unknown> | undefined;
+  const postInterleave = globalDiv?.["postInterleave"] as Record<string, unknown> | undefined;
+  const primary = typeof intent?.["primary"] === "string" && intent["primary"].trim()
+    ? intent["primary"]
+    : vibe;
+  return {
+    pipelineVersion:  v3["pipelineVersion"] ?? "v3.1_unified_routing",
+    activePath:       v3["activePath"] ?? "adaptive",
+    sceneInfluenceMap: intent?.["sceneInfluenceMap"] ?? {},
+    contextAnchors:   intent?.["contextAnchors"] ?? {},
+    primary,
+    intentDecomposition: {
+      ...(intent ?? {}),
+      primary,
+      secondaryIntents: Array.isArray(intent?.["secondaryIntents"]) ? intent["secondaryIntents"] : [],
+      moodTags: Array.isArray(intent?.["moodTags"]) ? intent["moodTags"] : [],
+      confidence: typeof intent?.["confidence"] === "number" ? intent["confidence"] : 0.35,
+    },
+    lanes: (lanes ?? []).map((l) => ({
+      laneId:        l["laneId"],
+      type:          l["type"],
+      label:         l["label"],
+      weight:        l["weight"],
+      scoredCount:   l["scoredCount"],
+      selectedCount: l["selectedCount"],
+      clusterSpread: l["clusterSpread"] ?? {},
+      clusterSelectionRatios: l["clusterSelectionRatios"] ?? {},
+    })),
+    playlistExplanation:    v3["playlistExplanation"] ?? null,
+    clusters:               v3["clusters"] ?? [],
+    selectionTrace:         v3["selectionTrace"] ?? v3["finalDecisionTrace"] ?? [],
+    finalDistribution:      v3["finalDistribution"] ?? {
+      genres:  v3["genreDistribution"] ?? {},
+      eras:    v3["eraDistribution"] ?? {},
+      artists: {},
+    },
+    qualityLock:              v3["qualityLock"] ?? null,
+    adaptiveLaneGenerator:    v3["adaptiveLaneGenerator"] ?? null,
+    interleaverDiagnostics:   v3["interleaverDiagnostics"] ?? null,
+    laneContributions:        v3["laneContributions"] ?? {},
+    fallback:                 v3["fallback"] ?? null,
+    clusterDistributionGraph: v3["clusterDistributionGraph"] ?? {},
+    aggregateClusterSpread:   v3["aggregateClusterSpread"] ?? {},
+    globalDiversityMetrics: {
+      preInterleave:  preInterleave  ?? null,
+      postInterleave: postInterleave ?? null,
+    },
+    genreConcentration:  postInterleave?.["genreConcentration"]  ?? null,
+    explorationPressure: postInterleave?.["explorationPressure"] ?? null,
+    dominantGenre:       postInterleave?.["dominantGenre"]       ?? null,
+    dominantEra:         postInterleave?.["dominantEra"]         ?? null,
+    systemDiagnostics: {
+      v11Role:          "candidate_scoring_only",
+      v3Role:           "final_selection_engine",
+      uiAlignedTo:      "v3",
+      debugTruthLevel:  "selection_based",
+      consistencyCheck: "PASS",
+    },
+  };
+}
+
+function hasValidCachedIntent(cached: { v3Diagnostics?: Record<string, unknown> | null }): boolean {
+  const diagnostics = cached.v3Diagnostics;
+  if (!diagnostics || typeof diagnostics !== "object") return false;
+  const intent = diagnostics["intentDecomposition"] as Record<string, unknown> | undefined;
+  return typeof intent?.["primary"] === "string" && intent["primary"].trim().length > 0;
+}
+
 router.get("/generate/status", (req, res): void => {
-  if (!req.session.spotifyUserId) {
+  const userId = currentGenerateUserId(req);
+  if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
-  res.json(getGenerateStatus(req.session.spotifyUserId));
+  res.json(getGenerateStatus(userId));
 });
 
 /**
@@ -176,7 +267,7 @@ router.get("/generate/status", (req, res): void => {
  * without touching the library or Spotify — used while the user is typing.
  */
 router.get("/generate/preview", (req, res): void => {
-  if (!req.session.spotifyUserId) {
+  if (!useMockSpotify() && !req.session.spotifyUserId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
@@ -234,11 +325,12 @@ router.post("/generate", async (req, res): Promise<void> => {
   let sessionUserId = "";
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   try {
-    if (!getFeatures().spotify.enabled) {
+    const devMode = useMockSpotify();
+    if (!devMode && !getFeatures().spotify.enabled) {
       generateFail(res, 503, "SPOTIFY_DISABLED", "Spotify is not configured on this server.");
       return;
     }
-    if (!req.session.spotifyTokens || !req.session.spotifyUserId) {
+    if (!devMode && (!req.session.spotifyTokens || !req.session.spotifyUserId)) {
       generateFail(res, 401, "NOT_AUTHENTICATED", "Not authenticated");
       return;
     }
@@ -253,7 +345,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const userId = req.session.spotifyUserId;
+    const userId = devMode ? MOCK_SPOTIFY_USER_ID : req.session.spotifyUserId!;
 
     const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!rateCheck.allowed) {
@@ -368,9 +460,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     let referenceFingerprint: ReferenceFingerprint | null = null;
     let referencePlaylistId: string | null = null;
 
-    if (referencePlaylist) {
+    if (referencePlaylist && !devMode) {
       try {
-        const tokens = await getValidAccessToken(req.session.spotifyTokens);
+        const tokens = await getValidAccessToken(req.session.spotifyTokens!);
         const loaded = await loadReferenceFingerprint(tokens.accessToken, referencePlaylist);
         if (loaded) {
           referenceFingerprint = loaded.fingerprint;
@@ -408,14 +500,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       mode,
       length,
       referencePlaylist: !!referencePlaylist,
+      mockMode: devMode,
     });
 
-    if (!varietyBoost) {
+    if (!varietyBoost && !devMode) {
       const cached = getCachedGenerateResult(resultCacheKey);
       // Only use cache entries that carry the v2 schema (genrePrimary per track).
       // Pre-v2 entries lack genrePrimary and are treated as cache misses so a
       // fresh generation populates the field correctly.
-      if (cached && cached.cacheVersion === "v2") {
+      if (cached && cached.cacheVersion === "v2" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         req.log.info(
@@ -437,6 +530,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           count: cached.finalTracks.length,
           totalTracks: cached.finalTracks.length,
           emotionProfile: cached.emotionProfile,
+          v3Diagnostics: cached.v3Diagnostics ?? null,
           ...(cached.spotifyPlaylistUrl
             ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
             : { spotifyUnavailable: true as const }),
@@ -446,10 +540,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     setGeneratePhase(userId, requestId, "loading_library");
-    const likedRowsRaw = await db
-      .select()
-      .from(likedSongsTable)
-      .where(eq(likedSongsTable.spotifyUserId, userId));
+    const likedRowsRaw = devMode
+      ? generateMockSpotifyLibrary()
+      : await db
+          .select()
+          .from(likedSongsTable)
+          .where(eq(likedSongsTable.spotifyUserId, userId));
 
     const { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
     if (droppedTracks > 0) {
@@ -647,11 +743,13 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     setGeneratePhase(userId, requestId, "building_profile");
     let t0 = Date.now();
-    const { profile: userGenreProfile, cacheHit } = getUserGenreProfileForGenerate(
-      userId,
-      likedSongs,
-      vibe
-    );
+    const { profile: userGenreProfile, cacheHit } = devMode
+      ? { profile: buildMockUserGenreProfile(likedSongs), cacheHit: false }
+      : getUserGenreProfileForGenerate(
+          userId,
+          likedSongs,
+          vibe
+        );
     req.log.info(
       { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
       "Genre profile built"
@@ -709,7 +807,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       tracks: likedSongs.length,
       stackFromCache,
     });
-    const useFastFallback = budget.shouldFastFallback() || budget.isExpired();
+    const useFastFallback = !devMode && (budget.shouldFastFallback() || budget.isExpired());
 
     let pipeline: ReturnType<typeof buildPlaylistPipeline>;
     if (useFastFallback) {
@@ -786,6 +884,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       rediscoveryScore?: number;
       narrativeRole?: string;
       genrePrimary?: string;
+      sourceLane?: string;
+      laneId?: string;
+      clusterId?: string | null;
+      clusterIds?: string[];
     };
     setGeneratePhase(userId, requestId, "composing");
     let finalTracks = pipeline.finalTracks as PlaylistTrack[];
@@ -888,23 +990,59 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const playlistName = generatePlaylistName(vibe, emotionProfile);
 
+    const v3Trace = ((pipeline.scoringDiagnostics?.v3Pipeline as Record<string, unknown> | undefined)
+      ?.["selectionTrace"] ??
+      (pipeline.scoringDiagnostics?.v3Pipeline as Record<string, unknown> | undefined)?.["finalDecisionTrace"] ??
+      []) as Array<Record<string, unknown>>;
+    const v3TraceByTrack = new Map<string, Record<string, unknown>>();
+    for (const trace of v3Trace) {
+      const trackId = typeof trace["trackId"] === "string" ? trace["trackId"] : null;
+      if (!trackId) continue;
+      const existing = v3TraceByTrack.get(trackId);
+      if (!existing || trace["selected"] === true) {
+        v3TraceByTrack.set(trackId, trace);
+      }
+    }
+    finalTracks = finalTracks.map((track) => {
+      const trace = v3TraceByTrack.get(track.trackId);
+      const laneId =
+        typeof trace?.["enteredLane"] === "string"
+          ? trace["enteredLane"]
+          : typeof trace?.["lane"] === "string"
+            ? trace["lane"]
+            : undefined;
+      const clusterId = typeof trace?.["clusterId"] === "string" ? trace["clusterId"] : null;
+      return {
+        ...track,
+        ...(laneId ? { sourceLane: laneId, laneId } : {}),
+        ...(clusterId ? { clusterId, clusterIds: [clusterId] } : {}),
+      };
+    });
+
     const trackObjects = finalTracks.map((t) => ({
       trackId: t.trackId,
       trackName: t.trackName,
       artistName: t.artistName,
       albumName: t.albumName,
       albumArt: t.albumArt ?? null,
+      genrePrimary: t.genrePrimary ?? null,
+      laneId: t.laneId ?? t.sourceLane ?? null,
+      clusterId: t.clusterId ?? null,
+      clusterIds: t.clusterIds ?? [],
     }));
 
     setGeneratePhase(userId, requestId, "spotify");
     let spotifyPlaylistUrl: string | null = null;
     const tSpotify = Date.now();
-    req.log.info({ trackCount: finalTracks.length }, "Creating Spotify playlist");
+    req.log.info(
+      { trackCount: finalTracks.length, devMode },
+      devMode ? "Skipping Spotify playlist creation in dev mode" : "Creating Spotify playlist"
+    );
 
     let spotifyPartial = false;
     let spotifyTracksAdded: number | undefined;
 
-    if (!staleGenerate(userId, requestId)) {
+    if (!devMode && !staleGenerate(userId, requestId)) {
       try {
         const freshTokens = await getValidAccessToken(
           req.session.spotifyTokens!,
@@ -1022,7 +1160,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? "Most cached likes look recently added. Run a full library sync from the app so older favourites are included."
         : null;
 
-    if (!varietyBoost) {
+    const v3Diagnostics = formatV3DiagnosticsForApi(
+      pipeline.scoringDiagnostics?.v3Pipeline,
+      vibe
+    );
+
+    if (!varietyBoost && !devMode) {
       setCachedGenerateResult(resultCacheKey, {
         cacheVersion: "v2",
         playlistName,
@@ -1041,10 +1184,15 @@ router.post("/generate", async (req, res): Promise<void> => {
           score: Math.round(t.score * 100) / 100,
           rediscoveryScore: t.rediscoveryScore,
           narrativeRole: t.narrativeRole,
-          genrePrimary: t.genrePrimary ?? "unknown",
+          genrePrimary: t.genrePrimary ?? null,
+          laneId: t.laneId ?? t.sourceLane ?? null,
+          sourceLane: t.sourceLane ?? t.laneId ?? null,
+          clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
+          clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
         })),
         emotionProfile: { ...emotionProfile, journeyArc },
         spotifyPlaylistUrl,
+        v3Diagnostics,
         cachedAt: Date.now(),
       });
     }
@@ -1073,6 +1221,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       vibe,
       mode,
       noLibraryMode: !!noLibraryMode,
+      devMode,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
       generationMs,
@@ -1164,65 +1313,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             ecosystemCompliance: pipeline.ecosystemDebug.ecosystemCompliance,
           }
         : null,
-      v3Diagnostics: (() => {
-        const v3 = pipeline.scoringDiagnostics?.v3Pipeline as Record<string, unknown> | null | undefined;
-        if (!v3 || typeof v3 !== "object") return null;
-        const intent         = v3["intentDecomposition"] as Record<string, unknown> | undefined;
-        const lanes          = v3["lanes"] as Array<Record<string, unknown>> | undefined;
-        const globalDiv      = v3["globalDiversityMetrics"] as Record<string, unknown> | undefined;
-        const preInterleave  = globalDiv?.["preInterleave"]  as Record<string, unknown> | undefined;
-        const postInterleave = globalDiv?.["postInterleave"] as Record<string, unknown> | undefined;
-        return {
-          pipelineVersion:  v3["pipelineVersion"] ?? "v3.1_unified_routing",
-          activePath:       v3["activePath"] ?? "adaptive",
-          sceneInfluenceMap: intent?.["sceneInfluenceMap"] ?? {},
-          contextAnchors:   intent?.["contextAnchors"] ?? {},
-          primary:          intent?.["primary"] ?? vibe,
-          intentDecomposition: intent ?? {},
-          lanes: (lanes ?? []).map((l) => ({
-            laneId:        l["laneId"],
-            type:          l["type"],
-            label:         l["label"],
-            weight:        l["weight"],
-            scoredCount:   l["scoredCount"],
-            selectedCount: l["selectedCount"],
-            clusterSpread: l["clusterSpread"] ?? {},
-            clusterSelectionRatios: l["clusterSelectionRatios"] ?? {},
-          })),
-          playlistExplanation:    v3["playlistExplanation"] ?? null,
-          clusters:               v3["clusters"] ?? [],
-          selectionTrace:         v3["selectionTrace"] ?? v3["finalDecisionTrace"] ?? [],
-          finalDistribution:      v3["finalDistribution"] ?? {
-            genres:  v3["genreDistribution"] ?? {},
-            eras:    v3["eraDistribution"] ?? {},
-            artists: {},
-          },
-          // Forwarded verbatim from pipeline — no field omissions
-          qualityLock:              v3["qualityLock"] ?? null,
-          adaptiveLaneGenerator:    v3["adaptiveLaneGenerator"] ?? null,
-          interleaverDiagnostics:   v3["interleaverDiagnostics"] ?? null,
-          laneContributions:        v3["laneContributions"] ?? {},
-          fallback:                 v3["fallback"] ?? null,
-          clusterDistributionGraph: v3["clusterDistributionGraph"] ?? {},
-          aggregateClusterSpread:   v3["aggregateClusterSpread"] ?? {},
-          globalDiversityMetrics: {
-            preInterleave:  preInterleave  ?? null,
-            postInterleave: postInterleave ?? null,
-          },
-          // Top-level convenience aliases (sourced from postInterleave only)
-          genreConcentration:  postInterleave?.["genreConcentration"]  ?? null,
-          explorationPressure: postInterleave?.["explorationPressure"] ?? null,
-          dominantGenre:       postInterleave?.["dominantGenre"]       ?? null,
-          dominantEra:         postInterleave?.["dominantEra"]         ?? null,
-          systemDiagnostics: {
-            v11Role:          "candidate_scoring_only",
-            v3Role:           "final_selection_engine",
-            uiAlignedTo:      "v3",
-            debugTruthLevel:  "selection_based",
-            consistencyCheck: "PASS",
-          },
-        };
-      })(),
+      v3Diagnostics,
       ...(pipeline.scoringDiagnostics?.fastFallback
         ? { fastFallback: true }
         : {}),

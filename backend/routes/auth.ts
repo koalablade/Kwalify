@@ -44,6 +44,10 @@ function getRedirectUri(): string {
 
 /** Returns false and sends 503 if Spotify credentials were not provided at startup. */
 function requireSpotify(res: any): boolean {
+  if (getFeatures().devMode.useMockSpotify) {
+    res.status(503).json({ error: "Spotify auth is disabled in mock dev mode." });
+    return false;
+  }
   if (!getFeatures().spotify.enabled) {
     res.status(503).json({ error: "Spotify is not configured on this server." });
     return false;
@@ -172,6 +176,10 @@ router.post("/auth/logout", (req, res): void => {
 });
 
 router.get("/auth/me", async (req, res): Promise<void> => {
+  if (getFeatures().devMode.useMockSpotify) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
   if (!requireSpotify(res)) return;
 
   // Session exists but tokens missing — still authenticated for session checks.
