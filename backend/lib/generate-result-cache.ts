@@ -8,6 +8,8 @@ import { GENERATE_RESULT_CACHE_TTL_MS } from "./production-limits";
 import { evictOldestEntries } from "./cache-eviction";
 
 export type CachedGeneratePayload = {
+  /** v2: adds genrePrimary per track. Entries without this field are treated as cache misses. */
+  cacheVersion: "v2";
   playlistName: string;
   vibe: string;
   mode: string;
@@ -24,6 +26,7 @@ export type CachedGeneratePayload = {
     score: number;
     rediscoveryScore?: number;
     narrativeRole?: string;
+    genrePrimary: string;
   }>;
   emotionProfile: EmotionProfile & { journeyArc?: string };
   spotifyPlaylistUrl: string | null;

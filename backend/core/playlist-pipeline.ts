@@ -194,12 +194,16 @@ export function buildPlaylistPipeline<T extends {
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
   });
 
-  // Map V3 final tracks back to ScoredLibraryTrack<T>
+  // Map V3 final tracks back to ScoredLibraryTrack<T>, preserving genrePrimary
+  // from the genre classification map so the field survives into the final result.
   const v3FinalScored = v3.finalTracks
     .map((track) => {
       const existing = sortedByTrackId.get(track.trackId);
       if (!existing) return null;
-      return existing as ScoredLibraryTrack<T>;
+      return {
+        ...existing,
+        genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? existing.genrePrimary,
+      } as ScoredLibraryTrack<T>;
     })
     .filter((s): s is ScoredLibraryTrack<T> => s !== null);
 

@@ -412,7 +412,10 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (!varietyBoost) {
       const cached = getCachedGenerateResult(resultCacheKey);
-      if (cached) {
+      // Only use cache entries that carry the v2 schema (genrePrimary per track).
+      // Pre-v2 entries lack genrePrimary and are treated as cache misses so a
+      // fresh generation populates the field correctly.
+      if (cached && cached.cacheVersion === "v2") {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         req.log.info(
@@ -782,6 +785,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       score: number;
       rediscoveryScore?: number;
       narrativeRole?: string;
+      genrePrimary?: string;
     };
     setGeneratePhase(userId, requestId, "composing");
     let finalTracks = pipeline.finalTracks as PlaylistTrack[];
@@ -1020,6 +1024,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (!varietyBoost) {
       setCachedGenerateResult(resultCacheKey, {
+        cacheVersion: "v2",
         playlistName,
         vibe,
         mode,
@@ -1036,6 +1041,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           score: Math.round(t.score * 100) / 100,
           rediscoveryScore: t.rediscoveryScore,
           narrativeRole: t.narrativeRole,
+          genrePrimary: t.genrePrimary ?? "unknown",
         })),
         emotionProfile: { ...emotionProfile, journeyArc },
         spotifyPlaylistUrl,
@@ -1057,13 +1063,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     const debugMode = req.query.debug === "1";
-
-    const _genreMap = userGenreProfile.trackClassifications;
-    type TrackWithGenre = typeof finalTracks[number] & { genrePrimary: string };
-    const finalTracksWithGenre: TrackWithGenre[] = finalTracks.map((t) => ({
-      ...t,
-      genrePrimary: _genreMap.get(t.trackId)?.genrePrimary ?? "unknown",
-    }));
 
     res.json({
       success: true,
@@ -1153,7 +1152,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? "Could not read that reference playlist. If it is public, try the open.spotify.com link; if it is yours, log out and back in to refresh permissions. Generation used your text vibe only."
         : null,
       librarySyncHint,
-      tracks: formatTracksForApi(finalTracksWithGenre, emotionProfile),
+      tracks: formatTracksForApi(finalTracks, emotionProfile),
       sceneDetection: pipeline.ecosystemDebug
         ? {
             sceneId: pipeline.ecosystemDebug.sceneId,
@@ -1168,10 +1167,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       v3Diagnostics: (() => {
         const v3 = pipeline.scoringDiagnostics?.v3Pipeline as Record<string, unknown> | null | undefined;
         if (!v3 || typeof v3 !== "object") return null;
-        const intent = v3["intentDecomposition"] as Record<string, unknown> | undefined;
-        const lanes  = v3["lanes"] as Array<Record<string, unknown>> | undefined;
-        const post   = v3["postMetrics"] as Record<string, unknown> | undefined;
-        const globalDiv = v3["globalDiversityMetrics"] as Record<string, unknown> | undefined;
+        const intent         = v3["intentDecomposition"] as Record<string, unknown> | undefined;
+        const lanes          = v3["lanes"] as Array<Record<string, unknown>> | undefined;
+        const globalDiv      = v3["globalDiversityMetrics"] as Record<string, unknown> | undefined;
+        const preInterleave  = globalDiv?.["preInterleave"]  as Record<string, unknown> | undefined;
         const postInterleave = globalDiv?.["postInterleave"] as Record<string, unknown> | undefined;
         return {
           pipelineVersion:  v3["pipelineVersion"] ?? "v3.1_unified_routing",
@@ -1190,18 +1189,31 @@ router.post("/generate", async (req, res): Promise<void> => {
             clusterSpread: l["clusterSpread"] ?? {},
             clusterSelectionRatios: l["clusterSelectionRatios"] ?? {},
           })),
-          playlistExplanation: v3["playlistExplanation"] ?? null,
-          clusters:         v3["clusters"] ?? [],
-          selectionTrace:   v3["selectionTrace"] ?? v3["finalDecisionTrace"] ?? [],
-          finalDistribution: v3["finalDistribution"] ?? {
-            genres: v3["genreDistribution"] ?? {},
-            eras:   v3["eraDistribution"] ?? {},
+          playlistExplanation:    v3["playlistExplanation"] ?? null,
+          clusters:               v3["clusters"] ?? [],
+          selectionTrace:         v3["selectionTrace"] ?? v3["finalDecisionTrace"] ?? [],
+          finalDistribution:      v3["finalDistribution"] ?? {
+            genres:  v3["genreDistribution"] ?? {},
+            eras:    v3["eraDistribution"] ?? {},
             artists: {},
           },
-          genreConcentration:   postInterleave?.["genreConcentration"] ?? post?.["genreConcentration"] ?? null,
-          explorationPressure:  postInterleave?.["explorationPressure"] ?? post?.["explorationPressure"] ?? null,
-          dominantGenre:        postInterleave?.["dominantGenre"] ?? post?.["dominantGenre"] ?? null,
-          dominantEra:          postInterleave?.["dominantEra"] ?? post?.["dominantEra"] ?? null,
+          // Forwarded verbatim from pipeline — no field omissions
+          qualityLock:              v3["qualityLock"] ?? null,
+          adaptiveLaneGenerator:    v3["adaptiveLaneGenerator"] ?? null,
+          interleaverDiagnostics:   v3["interleaverDiagnostics"] ?? null,
+          laneContributions:        v3["laneContributions"] ?? {},
+          fallback:                 v3["fallback"] ?? null,
+          clusterDistributionGraph: v3["clusterDistributionGraph"] ?? {},
+          aggregateClusterSpread:   v3["aggregateClusterSpread"] ?? {},
+          globalDiversityMetrics: {
+            preInterleave:  preInterleave  ?? null,
+            postInterleave: postInterleave ?? null,
+          },
+          // Top-level convenience aliases (sourced from postInterleave only)
+          genreConcentration:  postInterleave?.["genreConcentration"]  ?? null,
+          explorationPressure: postInterleave?.["explorationPressure"] ?? null,
+          dominantGenre:       postInterleave?.["dominantGenre"]       ?? null,
+          dominantEra:         postInterleave?.["dominantEra"]         ?? null,
           systemDiagnostics: {
             v11Role:          "candidate_scoring_only",
             v3Role:           "final_selection_engine",
