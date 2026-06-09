@@ -11,6 +11,7 @@ import type { V3TrackMetadata } from "./v3-track-contract";
 export type CachedGeneratePayload = {
   /** v2: adds genrePrimary per track. Entries without this field are treated as cache misses. */
   cacheVersion: "v2";
+  status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;
   mode: string;
@@ -48,6 +49,7 @@ export function getCachedGenerateResult(
 ): CachedGeneratePayload | null {
   const hit = cache.get(key);
   if (!hit) return null;
+  if (hit.status === "stale") return null;
   if (Date.now() - hit.cachedAt > GENERATE_RESULT_CACHE_TTL_MS) {
     cache.delete(key);
     return null;
@@ -59,7 +61,7 @@ export function setCachedGenerateResult(
   key: string,
   payload: CachedGeneratePayload
 ): void {
-  cache.set(key, payload);
+  cache.set(key, { ...payload, status: "fresh" });
   evictOldestEntries(cache, 400, 80);
 }
 
@@ -69,6 +71,9 @@ export function invalidateGenerateResultCache(_userId?: string, _contextHash?: s
   cache.clear();
 }
 
-export function markGenerateResultCacheStale(userId?: string, contextHash?: string): void {
-  invalidateGenerateResultCache(userId, contextHash);
+export function markGenerateResultCacheStale(_userId?: string, _contextHash?: string): void {
+  if (cache.size === 0) return;
+  for (const [key, payload] of cache) {
+    cache.set(key, { ...payload, status: "stale" });
+  }
 }
