@@ -2,7 +2,7 @@ import { buildFastFallbackPlaylist } from "./fast-fallback-playlist";
 import type { EmotionProfile } from "./emotion";
 import { buildTrackWhyReasons } from "./track-why-copy";
 import type { GenreAudit } from "./genre-audit";
-import type { BuildPlaylistPipelineResult } from "../core/playlist-pipeline";
+import type { BuildPlaylistPipelineResult } from "../core/output";
 import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
 import type { TrackScoringDebug } from "./hybrid-scoring";
 import type { V3TrackMetadata } from "./v3-track-contract";
@@ -57,11 +57,11 @@ export function buildFallbackPipelineResult<
     playlistLength: opts.playlistLength,
     maxPerArtist: opts.maxPerArtist,
   });
-  const fbScored: ScoredLibraryTrack<T>[] = fb.map((t) => ({
-    ...t,
-    score: 0.72,
-    rediscoveryScore: 0.35,
-    scoringDebug: fallbackScoringDebug(t.trackId),
+  const fbScored: Array<ScoredLibraryTrack<T> & V3TrackMetadata> = fb.map((t) => ({
+      ...t,
+      score: 0.72,
+      rediscoveryScore: 0.35,
+      scoringDebug: fallbackScoringDebug(t.trackId),
   }));
   return {
     finalTracks: fbScored,

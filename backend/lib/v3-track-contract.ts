@@ -75,3 +75,35 @@ export function warnIfV3MetadataLost<T extends object>(
     }
   }
 }
+
+export function warnIfFieldDropped<T extends object>(
+  field: keyof V3TrackMetadata,
+  before: readonly T[],
+  after: readonly T[],
+  context: string
+): void {
+  if (!isDevRuntime()) return;
+
+  const afterById = new Map<string, T>();
+  for (const track of after) {
+    const trackId = trackIdOf(track);
+    if (trackId) afterById.set(trackId, track);
+  }
+
+  for (const source of before) {
+    const trackId = trackIdOf(source);
+    if (!trackId) continue;
+    const target = afterById.get(trackId);
+    if (!target) continue;
+
+    const sourceMetadata = source as Partial<V3TrackMetadata>;
+    const targetMetadata = target as Partial<V3TrackMetadata>;
+    if (hasMetadataValue(sourceMetadata[field]) && !hasMetadataValue(targetMetadata[field])) {
+      console.warn("[v3-contract] metadata field dropped", {
+        stage: context,
+        trackId,
+        field,
+      });
+    }
+  }
+}

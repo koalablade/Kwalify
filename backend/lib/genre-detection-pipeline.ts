@@ -212,6 +212,7 @@ export function detectLibraryGenres(
   artistHistory: Map<string, ArtistGenreHistory>;
   userVector: UserGenreVector;
 } {
+  const t0 = Date.now();
   const vibeHints = extractVibeHints(vibe ?? "");
   const pass1 = new Map<string, TrackGenreClassification>();
   for (const t of tracks) {
@@ -238,6 +239,10 @@ export function detectLibraryGenres(
     );
   }
 
+  console.info("[generate-timing] detectLibraryGenres", {
+    ms: Date.now() - t0,
+    trackCount: tracks.length,
+  });
   return { classifications, artistHistory, userVector };
 }
 

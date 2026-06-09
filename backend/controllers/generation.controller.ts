@@ -73,7 +73,7 @@ import {
 } from "../lib/generate-helpers";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
-import { buildPlaylistPipeline } from "../core/playlist-pipeline";
+import { buildPlaylistPipeline } from "../core/output";
 import type { GenreAudit } from "../lib/genre-audit";
 import { summarizePipeline } from "../lib/scoring-explanation";
 import { scorePromptConfidence } from "../lib/prompt-confidence";
@@ -99,9 +99,14 @@ import {
   generateMockSpotifyLibrary,
 } from "../lib/mock-spotify";
 import {
+  warnIfFieldDropped,
   warnIfV3MetadataLost,
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
+import { buildLockedIntent as buildCsspLockedIntent } from "../core/v3/intent";
+import { scoreTracks as scoreCsspCandidates } from "../core/v3/v3-score";
+import { filterCandidates as filterCsspCandidates } from "../core/v3/constraint-filter";
+import { pickAndOrder as pickAndOrderCsspTracks } from "../core/v3/playlist-engine";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
@@ -127,6 +132,116 @@ const NEUTRAL_PROFILE: EmotionProfile = {
   timeOfDay: null,
   motionState: null,
 };
+
+type PreV3TimingBreakdown = {
+  cacheTimeMs: number;
+  dbTimeMs: number;
+  likedSongsQueryMs: number;
+  playlistHistoryQueryMs: number;
+  genreProfileTimeMs: number;
+  genreStackTimeMs: number;
+  freshnessTimeMs: number;
+  librarySignalTimeMs: number;
+  moodIntentTimeMs: number;
+  spotifyReferenceTimeMs: number;
+  totalBeforeV3Ms: number;
+  slowestStage: string | null;
+  slowestStageMs: number;
+};
+
+type QualitySignalContext = {
+  primary: string;
+  moodTags: string[];
+  activityTags: string[];
+  eraHints: string[];
+  genreHints: string[];
+  canonicalHints: string[];
+};
+
+type ConstraintLayer = {
+  hard: {
+    genres: string[];
+    excludedGenres: string[];
+    eraStart: number | null;
+    eraEnd: number | null;
+    strictLock: boolean;
+    allowMultiGenre: boolean;
+    allowBridge: boolean;
+  };
+  soft: {
+    moodTags: string[];
+    activityTags: string[];
+    energyTags: string[];
+    atmosphereTags: string[];
+  };
+  raw: {
+    explicitGenreTerms: string[];
+    explicitEraTerms: string[];
+    strictTerms: string[];
+    excludedTerms: string[];
+    multiGenreTerms: string[];
+  };
+};
+
+type LockedIntent = {
+  genreFamilies: string[];
+  eraRange: { start: number; end: number } | null;
+  energy: "low" | "medium" | "high" | null;
+  primaryGenres: string[];
+  eraStart: number | null;
+  eraEnd: number | null;
+  mood: string[];
+  activity: string | null;
+  energyLevel: "low" | "medium" | "high" | null;
+};
+
+type ConstraintTrack = V3MetadataTrack<{
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  energy: number | null;
+  valence: number | null;
+  tempo?: number | null;
+  danceability?: number | null;
+  acousticness?: number | null;
+  releaseYear?: number | null;
+  addedAt?: Date | null;
+}> & {
+  score: number;
+  rediscoveryScore?: number;
+  narrativeRole?: string;
+};
+
+function createPreV3Timing(): PreV3TimingBreakdown {
+  return {
+    cacheTimeMs: 0,
+    dbTimeMs: 0,
+    likedSongsQueryMs: 0,
+    playlistHistoryQueryMs: 0,
+    genreProfileTimeMs: 0,
+    genreStackTimeMs: 0,
+    freshnessTimeMs: 0,
+    librarySignalTimeMs: 0,
+    moodIntentTimeMs: 0,
+    spotifyReferenceTimeMs: 0,
+    totalBeforeV3Ms: 0,
+    slowestStage: null,
+    slowestStageMs: 0,
+  };
+}
+
+function recordPreV3Timing(
+  timing: PreV3TimingBreakdown,
+  key: keyof Omit<PreV3TimingBreakdown, "totalBeforeV3Ms" | "slowestStage" | "slowestStageMs">,
+  ms: number
+): void {
+  timing[key] += ms;
+  if (timing[key] > timing.slowestStageMs) {
+    timing.slowestStage = key;
+    timing.slowestStageMs = timing[key];
+  }
+}
 
 function staleGenerate(userId: string, requestId: string): boolean {
   return isGenerateCancelled(userId, requestId);
@@ -178,6 +293,775 @@ function generateFail(
   });
 }
 
+function deriveDiagnosticTags(vibe: string): {
+  moodTags: string[];
+  activityTags: string[];
+  eraHints: string[];
+  genreHints: string[];
+} {
+  const lower = vibe.toLowerCase();
+  const moodTags = [
+    /\b(nostalg|memory|retro|vintage)\b/.test(lower) ? "nostalgic" : null,
+    /\b(sunset|warm|golden|cozy|cosy)\b/.test(lower) ? "warm" : null,
+    /\b(solitude|alone|reflect|introspect)\b/.test(lower) ? "introspective" : null,
+    /\b(sad|melanchol|lonely|blue)\b/.test(lower) ? "melancholic" : null,
+  ].filter((tag): tag is string => !!tag);
+  const activityTags = [
+    /\b(driv|road|highway|cruise)\b/.test(lower) ? "driving" : null,
+    /\b(study|focus|work|coding)\b/.test(lower) ? "focus" : null,
+    /\b(party|club|dance)\b/.test(lower) ? "party" : null,
+    /\b(walk|commute)\b/.test(lower) ? "walking" : null,
+  ].filter((tag): tag is string => !!tag);
+  const eraHints = [
+    /\b(60s|1960s|sixties)\b/.test(lower) ? "60s" : null,
+    /\b(70s|1970s|seventies)\b/.test(lower) ? "70s" : null,
+    /\b(80s|1980s|eighties)\b/.test(lower) ? "80s" : null,
+    /\b(90s|1990s|nineties)\b/.test(lower) ? "90s" : null,
+    /\b(00s|2000s|y2k)\b/.test(lower) ? "00s" : null,
+    /\b(2010s|10s)\b/.test(lower) ? "10s" : null,
+    /\b(2020s|20s|modern)\b/.test(lower) ? "20s" : null,
+  ].filter((tag): tag is string => !!tag);
+  const genreHints = [
+    /\b(country|americana|western|bluegrass)\b/.test(lower) ? "country" : null,
+    /\b(folk|acoustic|singer-songwriter)\b/.test(lower) ? "folk" : null,
+    /\b(rock|grunge|punk|metal)\b/.test(lower) ? "rock" : null,
+    /\b(pop|radio)\b/.test(lower) ? "pop" : null,
+    /\b(jazz|blues|soul)\b/.test(lower) ? "jazz" : null,
+    /\b(hip.?hop|rap|rnb|r&b)\b/.test(lower) ? "hip_hop" : null,
+    /\b(electronic|house|techno|edm)\b/.test(lower) ? "electronic" : null,
+  ].filter((tag): tag is string => !!tag);
+
+  return {
+    moodTags: moodTags.length ? moodTags : ["neutral"],
+    activityTags: activityTags.length ? activityTags : ["listening"],
+    eraHints: eraHints.length ? eraHints : ["any"],
+    genreHints: genreHints.length ? genreHints : ["unknown"],
+  };
+}
+
+function topGenreHints(userGenreProfile: { vector: object; dominant: readonly string[] }): string[] {
+  const fromDominant = userGenreProfile.dominant.filter((genre) => genre && genre !== "unknown").slice(0, 3);
+  if (fromDominant.length > 0) return fromDominant;
+  return Object.entries(userGenreProfile.vector as Record<string, number | undefined>)
+    .filter(([genre, weight]) => genre !== "unknown" && (weight ?? 0) > 0)
+    .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+    .slice(0, 3)
+    .map(([genre]) => genre);
+}
+
+function recentEraHints(
+  playlists: Array<{ vibe: string; createdAt?: Date | string | null }>
+): string[] {
+  const counts = new Map<string, number>();
+  for (const playlist of playlists) {
+    const { eraHints } = deriveDiagnosticTags(playlist.vibe);
+    for (const era of eraHints) {
+      if (era === "any") continue;
+      counts.set(era, (counts.get(era) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([era]) => era);
+}
+
+function canonicalCrossGenreHints(vibe: string): string[] {
+  const lower = vibe.toLowerCase();
+  const hints = new Set<string>();
+  if (/\b(dirt.?road|country|cowboy|western|americana)\b/.test(lower)) {
+    ["country", "acoustic", "folk", "warm"].forEach((hint) => hints.add(hint));
+  }
+  if (/\b(techno|trance|90s|rave|warehouse)\b/.test(lower)) {
+    ["electronic", "trance", "early EDM", "high BPM"].forEach((hint) => hints.add(hint));
+  }
+  if (/\b(chill|study|lo.?fi|ambient|focus)\b/.test(lower)) {
+    ["ambient", "lo-fi", "soft electronic", "focus"].forEach((hint) => hints.add(hint));
+  }
+  if (/\b(gym|hype|workout|pump|beast.?mode)\b/.test(lower)) {
+    ["high BPM", "trap", "rock", "EDM"].forEach((hint) => hints.add(hint));
+  }
+  return [...hints];
+}
+
+function buildQualitySignalContext(opts: {
+  vibe: string;
+  emotionProfile: EmotionProfile;
+  userGenreProfile: { vector: object; dominant: readonly string[] };
+  recentPlaylists: Array<{ vibe: string; createdAt?: Date | string | null }>;
+}): QualitySignalContext {
+  const derived = deriveDiagnosticTags(opts.vibe);
+  const genreHints = topGenreHints(opts.userGenreProfile);
+  const eraHints = recentEraHints(opts.recentPlaylists);
+  const canonicalHints = canonicalCrossGenreHints(opts.vibe);
+  const primary = opts.vibe.trim() || [
+    ...canonicalHints,
+    ...genreHints,
+    opts.emotionProfile.energy >= 0.65 ? "energetic" : "balanced",
+  ].filter(Boolean).join(" ");
+
+  return {
+    primary,
+    moodTags: derived.moodTags.length ? derived.moodTags : ["neutral"],
+    activityTags: derived.activityTags.length ? derived.activityTags : ["listening"],
+    eraHints: derived.eraHints[0] !== "any" ? derived.eraHints : (eraHints.length ? eraHints : ["any"]),
+    genreHints: derived.genreHints[0] !== "unknown" ? derived.genreHints : (genreHints.length ? genreHints : ["unknown"]),
+    canonicalHints,
+  };
+}
+
+function normalizeVibeForPipeline(vibe: string, signals: QualitySignalContext): string {
+  if (vibe.trim()) return vibe;
+  const parts = [
+    signals.primary,
+    `mood:${signals.moodTags.join(",")}`,
+    `activity:${signals.activityTags.join(",")}`,
+    `era:${signals.eraHints.join(",")}`,
+    `genre:${signals.genreHints.join(",")}`,
+    signals.canonicalHints.length ? `adjacent:${signals.canonicalHints.join(",")}` : null,
+  ].filter((part): part is string => !!part && part.trim().length > 0);
+  return [...new Set(parts)].join(" ");
+}
+
+const GENRE_ALIASES: Array<{ root: string; terms: string[] }> = [
+  { root: "country", terms: ["country", "americana", "western", "bluegrass", "honky tonk", "alt country"] },
+  { root: "electronic", terms: ["electronic", "techno", "trance", "house", "edm", "rave", "dnb", "drum and bass", "dubstep", "ambient"] },
+  { root: "hip_hop", terms: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap"] },
+  { root: "rock", terms: ["rock", "grunge", "punk", "alt rock", "alternative rock", "classic rock"] },
+  { root: "metal", terms: ["metal", "metalcore", "thrash", "death metal"] },
+  { root: "jazz", terms: ["jazz", "bebop", "bossa nova", "swing"] },
+  { root: "blues", terms: ["blues", "delta blues", "chicago blues"] },
+  { root: "soul", terms: ["soul", "motown", "funk", "neo soul"] },
+  { root: "rnb", terms: ["r&b", "rnb", "classic r&b"] },
+  { root: "pop", terms: ["pop", "dance pop", "synth pop", "k-pop", "kpop"] },
+  { root: "folk", terms: ["folk", "singer songwriter", "singer-songwriter", "acoustic folk"] },
+  { root: "indie", terms: ["indie", "lo-fi", "lofi", "chillhop", "bedroom pop"] },
+  { root: "classical", terms: ["classical", "orchestral", "piano classical"] },
+  { root: "soundtrack", terms: ["soundtrack", "film score", "cinematic"] },
+  { root: "reggae", terms: ["reggae", "dub", "dancehall"] },
+  { root: "latin", terms: ["latin", "reggaeton", "salsa", "bachata"] },
+  { root: "world", terms: ["afrobeats", "afrobeat", "world"] },
+  { root: "christmas", terms: ["christmas", "xmas", "holiday", "festive"] },
+];
+
+function extractGenreTerms(text: string): { roots: string[]; terms: string[] } {
+  const lower = text.toLowerCase();
+  const roots = new Set<string>();
+  const terms = new Set<string>();
+  for (const alias of GENRE_ALIASES) {
+    for (const term of alias.terms) {
+      const pattern = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\b`, "i");
+      if (pattern.test(lower)) {
+        roots.add(alias.root);
+        terms.add(term);
+      }
+    }
+  }
+  return { roots: [...roots], terms: [...terms] };
+}
+
+function extractEraRange(vibe: string): { start: number | null; end: number | null; terms: string[] } {
+  const lower = vibe.toLowerCase();
+  const terms: string[] = [];
+  const decadeMatch = lower.match(/\b(60s|70s|80s|90s|00s|10s|20s|1960s|1970s|1980s|1990s|2000s|2010s|2020s)\b/);
+  if (decadeMatch?.[1]) {
+    const term = decadeMatch[1];
+    terms.push(term);
+    const start = term.length === 4
+      ? Number(term.slice(0, 3) + "0")
+      : term === "00s" ? 2000 : term === "10s" ? 2010 : term === "20s" ? 2020 : Number(`19${term.slice(0, 2)}`);
+    return { start, end: start + 9, terms };
+  }
+
+  const rangeMatch = lower.match(/\b(19\d{2}|20\d{2})\s*(?:-|to|through|until)\s*(19\d{2}|20\d{2})\b/);
+  if (rangeMatch?.[1] && rangeMatch[2]) {
+    const start = Number(rangeMatch[1]);
+    const end = Number(rangeMatch[2]);
+    terms.push(`${start}-${end}`);
+    return { start: Math.min(start, end), end: Math.max(start, end), terms };
+  }
+
+  const yearMatch = lower.match(/\b(19\d{2}|20\d{2})\b/);
+  if (yearMatch?.[1]) {
+    const year = Number(yearMatch[1]);
+    terms.push(String(year));
+    return { start: year, end: year, terms };
+  }
+
+  return { start: null, end: null, terms };
+}
+
+function extractConstraintLayer(vibe: string, signals: QualitySignalContext): ConstraintLayer {
+  const lower = vibe.toLowerCase();
+  const strictTerms = [
+    /\bonly\b/.test(lower) ? "only" : null,
+    /\bstrict(?:ly)?\b/.test(lower) ? "strict" : null,
+    /\bpure\b/.test(lower) ? "pure" : null,
+    /\bexclusively\b/.test(lower) ? "exclusively" : null,
+  ].filter((term): term is string => !!term);
+  const excludedText = lower.match(/\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&\-\s]{2,24})/g) ?? [];
+  const excludedGenreHits = extractGenreTerms(excludedText.join(" "));
+  const genreHits = extractGenreTerms(vibe);
+  const era = extractEraRange(vibe);
+  const multiGenreTerms = [
+    /\bmulti.?genre\b/.test(lower) ? "multi-genre" : null,
+    /\bgenre.?blend\b/.test(lower) ? "genre blend" : null,
+    /\beclectic\b/.test(lower) ? "eclectic" : null,
+    /\bcrossover\b/.test(lower) ? "crossover" : null,
+    /\bfusion\b/.test(lower) ? "fusion" : null,
+    /\bbridge\b/.test(lower) ? "bridge" : null,
+    genreHits.roots.length > 1 && /\b(and|with|\+|mix|blend)\b/.test(lower) ? "explicit multi-family" : null,
+  ].filter((term): term is string => !!term);
+
+  return {
+    hard: {
+      genres: genreHits.roots,
+      excludedGenres: excludedGenreHits.roots,
+      eraStart: era.start,
+      eraEnd: era.end,
+      strictLock: strictTerms.length > 0,
+      allowMultiGenre: multiGenreTerms.length > 0,
+      allowBridge: multiGenreTerms.some((term) => /bridge|blend|crossover|fusion|multi/i.test(term)),
+    },
+    soft: {
+      moodTags: signals.moodTags,
+      activityTags: signals.activityTags,
+      energyTags: signals.canonicalHints.filter((hint) => /\b(bpm|hype|energy|edm|rock)\b/i.test(hint)),
+      atmosphereTags: signals.canonicalHints.filter((hint) => /\b(ambient|lo-fi|soft|warm|acoustic)\b/i.test(hint)),
+    },
+    raw: {
+      explicitGenreTerms: genreHits.terms,
+      explicitEraTerms: era.terms,
+      strictTerms,
+      excludedTerms: excludedText,
+      multiGenreTerms,
+    },
+  };
+}
+
+function eraBucketRange(bucket: string | null | undefined): { start: number; end: number } | null {
+  if (!bucket || bucket === "any") return null;
+  const map: Record<string, { start: number; end: number }> = {
+    "60s": { start: 1960, end: 1969 },
+    "70s": { start: 1970, end: 1979 },
+    "80s": { start: 1980, end: 1989 },
+    "90s": { start: 1990, end: 1999 },
+    "00s": { start: 2000, end: 2009 },
+    "10s": { start: 2010, end: 2019 },
+    "20s": { start: 2020, end: 2029 },
+  };
+  return map[bucket] ?? null;
+}
+
+function trackYearEstimate(track: ConstraintTrack): number | null {
+  if (track.releaseYear) return track.releaseYear;
+  const laneEra = eraBucketRange(track.laneEra);
+  if (!laneEra) return null;
+  return Math.round((laneEra.start + laneEra.end) / 2);
+}
+
+function trackEraMatches(track: ConstraintTrack, constraints: ConstraintLayer): boolean {
+  if (constraints.hard.eraStart === null || constraints.hard.eraEnd === null) return true;
+  if (track.releaseYear) {
+    return track.releaseYear >= constraints.hard.eraStart - 15 && track.releaseYear <= constraints.hard.eraEnd + 15;
+  }
+  const laneEra = eraBucketRange(track.laneEra);
+  if (!laneEra) return !constraints.hard.strictLock;
+  return laneEra.end >= constraints.hard.eraStart - 15 && laneEra.start <= constraints.hard.eraEnd + 15;
+}
+
+function trackGenreTerms(track: ConstraintTrack, classMap: Map<string, {
+  genrePrimary: string;
+  genreFamily: string;
+  primarySubgenre: string;
+  secondarySubgenre: string | null;
+  subGenres: string[];
+}>): string[] {
+  const classification = classMap.get(track.trackId);
+  return [
+    track.genrePrimary,
+    classification?.genrePrimary,
+    classification?.genreFamily,
+    classification?.primarySubgenre,
+    classification?.secondarySubgenre,
+    ...(classification?.subGenres ?? []),
+    ...(track.clusterIds ?? []),
+  ]
+    .filter((term): term is string => !!term)
+    .map((term) => term.toLowerCase().replace(/^genre:/, ""));
+}
+
+function trackGenreFamily(track: ConstraintTrack, classMap: Map<string, {
+  genrePrimary: string;
+  genreFamily: string;
+  primarySubgenre: string;
+  secondarySubgenre: string | null;
+  subGenres: string[];
+}>): string {
+  const classification = classMap.get(track.trackId);
+  return (
+    classification?.genreFamily ??
+    classification?.genrePrimary ??
+    track.genrePrimary ??
+    "unknown"
+  ).toLowerCase();
+}
+
+function dominantGenreFamily(
+  tracks: ConstraintTrack[],
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): string | null {
+  const counts = new Map<string, number>();
+  for (const track of tracks) {
+    const family = trackGenreFamily(track, classMap);
+    if (family === "unknown") continue;
+    counts.set(family, (counts.get(family) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
+
+const ERA_COMPATIBLE_FAMILIES: Array<{
+  start: number;
+  end: number;
+  families: string[];
+}> = [
+  { start: 1970, end: 1979, families: ["rock", "soul", "pop", "blues", "folk", "jazz", "country", "rnb"] },
+  { start: 1980, end: 1989, families: ["pop", "electronic", "rock", "soul", "rnb", "hip_hop", "country", "folk", "jazz", "blues"] },
+  { start: 1990, end: 1999, families: ["rock", "hip_hop", "electronic", "rnb", "pop", "indie", "country", "folk", "jazz", "blues", "soul"] },
+  { start: 2000, end: 2009, families: ["rock", "pop", "rnb", "hip_hop", "electronic", "indie", "country", "folk", "jazz", "blues", "soul", "latin"] },
+  { start: 2010, end: 2029, families: ["pop", "hip_hop", "electronic", "rnb", "indie", "rock", "country", "latin", "world"] },
+];
+
+function eraGenreCompatible(family: string, intent: LockedIntent): boolean {
+  if (intent.eraStart === null || intent.eraEnd === null || family === "unknown") return true;
+  const compatible = ERA_COMPATIBLE_FAMILIES.find((era) =>
+    intent.eraStart! <= era.end && intent.eraEnd! >= era.start
+  );
+  return !compatible || compatible.families.includes(family);
+}
+
+function bridgeFamiliesForTrack(track: ConstraintTrack, classMap: Map<string, {
+  genrePrimary: string;
+  genreFamily: string;
+  primarySubgenre: string;
+  secondarySubgenre: string | null;
+  subGenres: string[];
+}>): string[] {
+  const terms = trackGenreTerms(track, classMap).join(" ");
+  if (/\b(chillwave|synthwave|indie_pop|indie pop|electropop|synth_pop|synth pop)\b/.test(terms)) {
+    return ["indie", "electronic", "pop"];
+  }
+  if (/\b(house|techno|trance|edm|rave)\b/.test(terms)) {
+    return ["electronic"];
+  }
+  if (/\b(alt_country|americana|folk_country|folk country|country folk)\b/.test(terms)) {
+    return ["country", "folk", "rock"];
+  }
+  if (/\b(soul jazz|neo_soul|neo soul|funk)\b/.test(terms)) {
+    return ["jazz", "soul", "rnb"];
+  }
+  return [];
+}
+
+function passesGenreGraphBoundary(
+  track: ConstraintTrack,
+  opts: {
+    lockedFamily: string | null;
+    constraints: ConstraintLayer;
+    lockedIntent: LockedIntent;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+    bridgeUsed: boolean;
+  }
+): { pass: boolean; bridge: boolean } {
+  const family = trackGenreFamily(track, opts.classMap);
+  if (!eraGenreCompatible(family, opts.lockedIntent)) return { pass: false, bridge: false };
+  if (!opts.lockedFamily || opts.constraints.hard.allowMultiGenre) return { pass: true, bridge: false };
+  if (family === opts.lockedFamily || family === "unknown") return { pass: true, bridge: false };
+  const bridgeFamilies = bridgeFamiliesForTrack(track, opts.classMap);
+  const bridge = opts.constraints.hard.allowBridge &&
+    !opts.bridgeUsed &&
+    bridgeFamilies.includes(opts.lockedFamily) &&
+    bridgeFamilies.includes(family);
+  return { pass: bridge, bridge };
+}
+
+function trackMatchesHardConstraints(
+  track: ConstraintTrack,
+  constraints: ConstraintLayer,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const terms = trackGenreTerms(track, classMap);
+  if (constraints.hard.excludedGenres.some((genre) => terms.includes(genre))) return false;
+  if (constraints.hard.genres.length > 0 && !constraints.hard.genres.some((genre) => terms.includes(genre))) {
+    return false;
+  }
+  if (constraints.hard.strictLock && constraints.raw.explicitGenreTerms.length > 0) {
+    const explicitMatch = constraints.raw.explicitGenreTerms.some((term) =>
+      terms.some((candidate) => candidate.includes(term.replace(/\s+/g, "_")) || candidate.includes(term))
+    );
+    if (!explicitMatch && constraints.hard.genres.length > 0) return false;
+  }
+  return trackEraMatches(track, constraints);
+}
+
+function genreEvidence(
+  track: ConstraintTrack,
+  intent: LockedIntent,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean | null {
+  if (intent.primaryGenres.length === 0) return null;
+  const terms = trackGenreTerms(track, classMap);
+  return intent.primaryGenres.some((genre) => terms.includes(genre));
+}
+
+function eraEvidence(track: ConstraintTrack, intent: LockedIntent): boolean | null {
+  if (intent.eraStart === null || intent.eraEnd === null) return null;
+  const year = trackYearEstimate(track);
+  if (!year) return null;
+  return year >= intent.eraStart && year <= intent.eraEnd;
+}
+
+function eraHardMismatch(track: ConstraintTrack, intent: LockedIntent): boolean {
+  if (intent.eraStart === null || intent.eraEnd === null) return false;
+  const year = trackYearEstimate(track);
+  if (!year) return false;
+  return year < intent.eraStart - 15 || year > intent.eraEnd + 15;
+}
+
+function moodEvidence(track: ConstraintTrack, intent: LockedIntent): boolean | null {
+  if (intent.mood.length === 0) return null;
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const acousticness = track.acousticness ?? 0.5;
+  const danceability = track.danceability ?? 0.5;
+  return intent.mood.some((mood) => {
+    if (mood === "melancholic") return valence <= 0.45;
+    if (mood === "warm") return valence >= 0.55 && acousticness >= 0.35;
+    if (mood === "introspective") return energy <= 0.6 && acousticness >= 0.35;
+    if (mood === "nostalgic") return track.laneEra !== "20s" || (track.sourceLane ?? "").includes("nostalgia");
+    if (mood === "energised") return energy >= 0.65 || danceability >= 0.65;
+    if (mood === "calm") return energy <= 0.45;
+    return false;
+  });
+}
+
+function activityEvidence(track: ConstraintTrack, intent: LockedIntent): boolean | null {
+  if (!intent.activity && !intent.energyLevel) return null;
+  const activity = intent.activity;
+  const energy = track.energy ?? 0.5;
+  const tempo = track.tempo ?? 110;
+  const danceability = track.danceability ?? 0.5;
+  const acousticness = track.acousticness ?? 0.5;
+  const activityMatch =
+    activity === "driving" ? energy >= 0.45 && tempo >= 85 :
+    activity === "focus" ? energy <= 0.6 && acousticness >= 0.25 :
+    activity === "party" ? energy >= 0.6 && danceability >= 0.55 :
+    activity === "walking" ? energy >= 0.35 && energy <= 0.75 :
+    activity === "relaxing" ? energy <= 0.45 :
+    null;
+  const energyMatch =
+    intent.energyLevel === "high" ? energy >= 0.62 || tempo >= 125 :
+    intent.energyLevel === "medium" ? energy >= 0.38 && energy <= 0.75 :
+    intent.energyLevel === "low" ? energy <= 0.5 :
+    null;
+  if (activityMatch === null) return energyMatch;
+  if (energyMatch === null) return activityMatch;
+  return activityMatch && energyMatch;
+}
+
+function lockedIntentMatchCount(
+  track: ConstraintTrack,
+  intent: LockedIntent,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): { count: number; explicitFields: number; genreMatch: boolean | null; eraMatch: boolean | null; moodMatch: boolean | null; activityMatch: boolean | null } {
+  const genreMatch = genreEvidence(track, intent, classMap);
+  const eraMatch = eraEvidence(track, intent);
+  const moodMatch = moodEvidence(track, intent);
+  const activityMatch = activityEvidence(track, intent);
+  const evidence = [genreMatch, eraMatch, moodMatch, activityMatch];
+  return {
+    count: evidence.filter((value) => value === true).length,
+    explicitFields: evidence.filter((value) => value !== null).length,
+    genreMatch,
+    eraMatch,
+    moodMatch,
+    activityMatch,
+  };
+}
+
+function trackPassesLockedIntent(
+  track: ConstraintTrack,
+  intent: LockedIntent,
+  constraints: ConstraintLayer,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const match = lockedIntentMatchCount(track, intent, classMap);
+  if (constraints.hard.genres.length > 0 && match.genreMatch === false) return false;
+  if (eraHardMismatch(track, intent)) return false;
+  const hasMoodOrActivityIntent = intent.mood.length > 0 || !!intent.activity || !!intent.energyLevel;
+  const moodOrActivityMatch =
+    !hasMoodOrActivityIntent ||
+    match.moodMatch === true ||
+    match.activityMatch === true;
+  return moodOrActivityMatch;
+}
+
+function orderForListeningFlow<T extends ConstraintTrack>(tracks: T[]): T[] {
+  return [...tracks].sort((a, b) => {
+    const genreCompare = (a.genrePrimary ?? "unknown").localeCompare(b.genrePrimary ?? "unknown");
+    if (genreCompare !== 0) return genreCompare;
+    const eraCompare = (trackYearEstimate(a) ?? 9999) - (trackYearEstimate(b) ?? 9999);
+    if (Math.abs(eraCompare) > 5) return eraCompare;
+    const energyCompare = (a.energy ?? 0.5) - (b.energy ?? 0.5);
+    if (Math.abs(energyCompare) > 0.08) return energyCompare;
+    return (a.tempo ?? 110) - (b.tempo ?? 110);
+  });
+}
+
+function hasHardConstraints(constraints: ConstraintLayer): boolean {
+  return constraints.hard.genres.length > 0 ||
+    constraints.hard.excludedGenres.length > 0 ||
+    constraints.hard.eraStart !== null ||
+    constraints.hard.strictLock;
+}
+
+function applyConstraintLayer<T extends ConstraintTrack>(opts: {
+  rankedCandidates: T[];
+  constraints: ConstraintLayer;
+  lockedIntent: LockedIntent;
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>;
+  targetCount: number;
+  seed: string;
+  log: import("pino").Logger;
+}): { tracks: T[]; filteredCount: number; diversityWarning: boolean } {
+  if (opts.rankedCandidates.length === 0) {
+    return { tracks: [], filteredCount: 0, diversityWarning: false };
+  }
+
+  const beforeCount = opts.rankedCandidates.length;
+  const lockedFamily =
+    opts.lockedIntent.primaryGenres[0] ??
+    dominantGenreFamily(opts.rankedCandidates, opts.classMap);
+  const csspCandidates = scoreCsspCandidates(
+    opts.rankedCandidates.map((track) => {
+      const classification = opts.classMap.get(track.trackId);
+      return {
+        ...track,
+        genreFamily: classification?.genreFamily ?? classification?.genrePrimary ?? track.genrePrimary ?? "unknown",
+        primarySubgenre: classification?.primarySubgenre ?? null,
+      };
+    })
+  );
+  const csspFilteredIds = new Set(
+    filterCsspCandidates(csspCandidates, { intent: opts.lockedIntent })
+      .map((candidate) => candidate.trackId)
+  );
+  let bridgeUsed = false;
+  const kept: T[] = [];
+  for (const track of opts.rankedCandidates) {
+    if (!csspFilteredIds.has(track.trackId)) continue;
+    const boundary = passesGenreGraphBoundary(track, {
+      lockedFamily,
+      constraints: opts.constraints,
+      lockedIntent: opts.lockedIntent,
+      classMap: opts.classMap,
+      bridgeUsed,
+    });
+    if (!boundary.pass) continue;
+    if (!trackMatchesHardConstraints(track, opts.constraints, opts.classMap)) continue;
+    if (!trackPassesLockedIntent(track, opts.lockedIntent, opts.constraints, opts.classMap)) continue;
+    kept.push(track);
+    if (boundary.bridge) bridgeUsed = true;
+  }
+  const minTarget = Math.min(opts.targetCount, 25);
+  const genreCount = new Set(kept.map((track) => track.genrePrimary ?? "unknown")).size;
+  const artistCount = new Set(kept.map((track) => track.artistName.toLowerCase())).size;
+  const keptIds = new Set(kept.map((track) => track.trackId));
+  const sampled = pickAndOrderCsspTracks(
+    csspCandidates.filter((candidate) => keptIds.has(candidate.trackId)),
+    {
+      diversityRatio: { core: 0.7, secondary: 0.2, exploration: 0.1 },
+      targetCount: opts.targetCount,
+      seed: opts.seed,
+    },
+    opts.lockedIntent
+  ).map((candidate) => candidate.track as T);
+  const diversityWarning = sampled.length < minTarget || genreCount <= 1 || artistCount < Math.min(sampled.length, 8);
+
+  if (sampled.length === 0) {
+    opts.log.warn(
+      { constraints: opts.constraints, beforeCount },
+      "Constraint layer filtered all tracks"
+    );
+    return { tracks: [], filteredCount: beforeCount, diversityWarning: true };
+  }
+
+  opts.log.info(
+    {
+      constraints: opts.constraints,
+      lockedFamily,
+      bridgeUsed,
+      beforeCount,
+      validPool: kept.length,
+      afterCount: sampled.length,
+      filteredCount: beforeCount - kept.length,
+      diversityWarning,
+    },
+    "Constraint layer applied"
+  );
+  return {
+    tracks: sampled,
+    filteredCount: beforeCount - kept.length,
+    diversityWarning,
+  };
+}
+
+function validateLockedIntentOutput(
+  tracks: ConstraintTrack[],
+  intent: LockedIntent,
+  constraints: ConstraintLayer,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): {
+  genreConsistency: "PASS" | "FAIL";
+  eraAlignment: "PASS" | "FAIL";
+  moodAlignment: "PASS" | "FAIL";
+  activityRelevance: "PASS" | "FAIL";
+} {
+  const requiresGenre = intent.primaryGenres.length > 0 || constraints.hard.genres.length > 0;
+  const requiresEra = intent.eraStart !== null && intent.eraEnd !== null;
+  const requiresMood = intent.mood.length > 0;
+  const requiresActivity = !!intent.activity || !!intent.energyLevel;
+  const families = new Set(tracks
+    .map((track) => trackGenreFamily(track, classMap))
+    .filter((family) => family !== "unknown"));
+  const lockedFamily = intent.primaryGenres[0] ?? dominantGenreFamily(tracks, classMap);
+  const offFamilyTracks = lockedFamily
+    ? tracks.filter((track) => {
+        const family = trackGenreFamily(track, classMap);
+        return family !== "unknown" && family !== lockedFamily;
+      })
+    : [];
+  const familyStable = constraints.hard.allowMultiGenre ||
+    families.size <= 1 ||
+    (constraints.hard.allowBridge &&
+      offFamilyTracks.length <= 1 &&
+      offFamilyTracks.every((track) => {
+        const family = trackGenreFamily(track, classMap);
+        const bridgeFamilies = bridgeFamiliesForTrack(track, classMap);
+        return !!lockedFamily && bridgeFamilies.includes(lockedFamily) && bridgeFamilies.includes(family);
+      }));
+
+  const genreConsistency = familyStable && (!requiresGenre || tracks.every((track) =>
+    genreEvidence(track, intent, classMap) !== false
+  )) ? "PASS" : "FAIL";
+  const knownYears = tracks
+    .map(trackYearEstimate)
+    .filter((year): year is number => typeof year === "number");
+  const eraSpanStable = knownYears.length < 2 || Math.max(...knownYears) - Math.min(...knownYears) <= 20;
+  const eraAlignment = eraSpanStable && (!requiresEra || tracks.every((track) =>
+    !eraHardMismatch(track, intent)
+  )) ? "PASS" : "FAIL";
+  const moodAlignment = !requiresMood || tracks.filter((track) =>
+    moodEvidence(track, intent) === true
+  ).length >= Math.ceil(tracks.length * 0.65) ? "PASS" : "FAIL";
+  const activityRelevance = !requiresActivity || tracks.filter((track) =>
+    activityEvidence(track, intent) === true
+  ).length >= Math.ceil(tracks.length * 0.65) ? "PASS" : "FAIL";
+
+  return { genreConsistency, eraAlignment, moodAlignment, activityRelevance };
+}
+
+function validationPassed(validation: Record<string, "PASS" | "FAIL">): boolean {
+  return Object.values(validation).every((value) => value === "PASS");
+}
+
+function assertQualityConsistency(
+  log: import("pino").Logger,
+  opts: {
+    tracks: Array<V3MetadataTrack<{ trackId: string }>>;
+    diagnostics: Record<string, unknown> | null;
+    fallbackUsed: boolean;
+  }
+): void {
+  const diagnostics = opts.diagnostics ?? {};
+  const lanes = diagnostics["lanes"] as unknown[] | undefined;
+  const intent = diagnostics["intentDecomposition"] as Record<string, unknown> | undefined;
+  const globalDiversity = diagnostics["globalDiversityMetrics"] as Record<string, unknown> | undefined;
+  const postInterleave = globalDiversity?.["postInterleave"] as Record<string, unknown> | undefined;
+  const warnings: string[] = [];
+
+  if (!Array.isArray(lanes) || lanes.length === 0) warnings.push("lanes_empty");
+  if (!opts.tracks.some((track) => !!track.genrePrimary)) warnings.push("missing_genrePrimary");
+  if (!opts.tracks.some((track) => !!track.clusterId || (track.clusterIds?.length ?? 0) > 0)) {
+    warnings.push("missing_clusterId");
+  }
+  if (!intent || typeof intent["primary"] !== "string" || !intent["primary"].trim()) {
+    warnings.push("intent_empty");
+  }
+  if (!postInterleave || Object.keys(postInterleave).length === 0) {
+    warnings.push("diversity_missing");
+  }
+
+  if (warnings.length > 0) {
+    log.warn(
+      {
+        warnings,
+        fallbackUsed: opts.fallbackUsed,
+        trackCount: opts.tracks.length,
+      },
+      "Quality consistency guard warning"
+    );
+  }
+}
+
 function formatV3DiagnosticsForApi(
   rawV3: unknown,
   vibe: string
@@ -189,9 +1073,11 @@ function formatV3DiagnosticsForApi(
   const globalDiv      = v3["globalDiversityMetrics"] as Record<string, unknown> | undefined;
   const preInterleave  = globalDiv?.["preInterleave"]  as Record<string, unknown> | undefined;
   const postInterleave = globalDiv?.["postInterleave"] as Record<string, unknown> | undefined;
-  const primary = typeof intent?.["primary"] === "string" && intent["primary"].trim()
-    ? intent["primary"]
+  const rawPrimary = typeof intent?.["primary"] === "string" ? intent["primary"].trim() : "";
+  const primary = rawPrimary && !/\b(mood|activity|era|genre|adjacent):/i.test(rawPrimary)
+    ? rawPrimary
     : vibe;
+  const derivedTags = deriveDiagnosticTags(vibe);
   return {
     pipelineVersion:  v3["pipelineVersion"] ?? "v3.1_unified_routing",
     activePath:       v3["activePath"] ?? "adaptive",
@@ -202,7 +1088,10 @@ function formatV3DiagnosticsForApi(
       ...(intent ?? {}),
       primary,
       secondaryIntents: Array.isArray(intent?.["secondaryIntents"]) ? intent["secondaryIntents"] : [],
-      moodTags: Array.isArray(intent?.["moodTags"]) ? intent["moodTags"] : [],
+      moodTags: Array.isArray(intent?.["moodTags"]) && intent["moodTags"].length > 0 ? intent["moodTags"] : derivedTags.moodTags,
+      activityTags: Array.isArray(intent?.["activityTags"]) && intent["activityTags"].length > 0 ? intent["activityTags"] : derivedTags.activityTags,
+      eraHints: Array.isArray(intent?.["eraHints"]) && intent["eraHints"].length > 0 ? intent["eraHints"] : derivedTags.eraHints,
+      genreHints: Array.isArray(intent?.["genreHints"]) && intent["genreHints"].length > 0 ? intent["genreHints"] : derivedTags.genreHints,
       confidence: typeof intent?.["confidence"] === "number" ? intent["confidence"] : 0.35,
     },
     lanes: (lanes ?? []).map((l) => ({
@@ -431,9 +1320,11 @@ router.post("/generate", async (req, res): Promise<void> => {
     }, 15_000);
 
     let genStageTimer: ReturnType<typeof createGenerateStageTimer> | null = null;
+    const preV3Timing = createPreV3Timing();
 
     try {
 
+    let tStage = Date.now();
     const mixedEmotions = detectMixedEmotions(vibe);
     const destParse = parseEmotionalDestination(vibe);
 
@@ -460,11 +1351,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       req.log.error({ err: emotionErr }, "Emotion engine failed — using neutral fallback");
       emotionProfile = { ...NEUTRAL_PROFILE };
     }
+    recordPreV3Timing(preV3Timing, "moodIntentTimeMs", Date.now() - tStage);
 
     let referenceFingerprint: ReferenceFingerprint | null = null;
     let referencePlaylistId: string | null = null;
 
     if (referencePlaylist && !devMode) {
+      tStage = Date.now();
       try {
         const tokens = await getValidAccessToken(req.session.spotifyTokens!);
         const loaded = await loadReferenceFingerprint(tokens.accessToken, referencePlaylist);
@@ -493,6 +1386,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           "Reference playlist load failed — continuing with text vibe only"
         );
       }
+      recordPreV3Timing(preV3Timing, "spotifyReferenceTimeMs", Date.now() - tStage);
     }
 
     const vibeKind = detectVibeKind(vibe, emotionProfile);
@@ -506,9 +1400,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       referencePlaylist: !!referencePlaylist,
       mockMode: devMode,
     });
+    const cacheConstraintLayer = extractConstraintLayer(vibe, {
+      primary: vibe,
+      ...deriveDiagnosticTags(vibe),
+      canonicalHints: canonicalCrossGenreHints(vibe),
+    });
 
-    if (!varietyBoost && !devMode) {
+    if (!varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
+      tStage = Date.now();
       const cached = getCachedGenerateResult(resultCacheKey);
+      recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries that carry the v2 schema (genrePrimary per track).
       // Pre-v2 entries lack genrePrimary and are treated as cache misses so a
       // fresh generation populates the field correctly.
@@ -544,12 +1445,16 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     setGeneratePhase(userId, requestId, "loading_library");
+    tStage = Date.now();
     const likedRowsRaw = devMode
       ? generateMockSpotifyLibrary()
       : await db
           .select()
           .from(likedSongsTable)
           .where(eq(likedSongsTable.spotifyUserId, userId));
+    const likedSongsQueryMs = Date.now() - tStage;
+    recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
+    recordPreV3Timing(preV3Timing, "dbTimeMs", likedSongsQueryMs);
 
     const { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
     if (droppedTracks > 0) {
@@ -632,6 +1537,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         success: true,
         fastFallback: true,
         code: "TIMEOUT_FALLBACK",
+        fallbackReason: {
+          stage: preV3Timing.slowestStage ?? "hard_timeout",
+          elapsedMs: preV3Timing.slowestStageMs,
+        },
         playlistName,
         name: playlistName,
         vibe: ctx.vibe,
@@ -650,13 +1559,18 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     req.log.info({ vibe, vibeKind, promptConfidence }, "Vibe kind detected");
 
+    tStage = Date.now();
     const recentPlaylists = await db
       .select()
       .from(playlistHistoryTable)
       .where(eq(playlistHistoryTable.spotifyUserId, userId))
       .orderBy(desc(playlistHistoryTable.createdAt))
       .limit(25);
+    const playlistHistoryQueryMs = Date.now() - tStage;
+    recordPreV3Timing(preV3Timing, "playlistHistoryQueryMs", playlistHistoryQueryMs);
+    recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);
 
+    tStage = Date.now();
     const freshnessStats = buildFreshnessStats(
       recentPlaylists.map((p) => ({
         vibe: p.vibe,
@@ -682,6 +1596,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       freshnessStats.recentSceneFingerprints,
       momentPipeline?.canonicalScene?.sceneId ?? experienceScene?.sceneId
     );
+    recordPreV3Timing(preV3Timing, "freshnessTimeMs", Date.now() - tStage);
 
     const humanIntent = momentPipeline?.intent ?? decodeIntent(vibe);
     const sonicProfile = momentPipeline?.sonicProfile ?? null;
@@ -716,6 +1631,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const musicChapters = detectMusicChapters(likedRows);
     const chapterMatch = matchChapterFromVibe(vibe, musicChapters, likedRows);
 
+    tStage = Date.now();
     const librarySignals = buildLibrarySignals(
       likedRows,
       recentPlaylists.map((p) => ({
@@ -725,6 +1641,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         createdAt: p.createdAt,
       }))
     );
+    recordPreV3Timing(preV3Timing, "librarySignalTimeMs", Date.now() - tStage);
 
     const surpriseMix = computeSurpriseMix({
       profile: emotionProfile,
@@ -754,6 +1671,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           likedSongs,
           vibe
         );
+    recordPreV3Timing(preV3Timing, "genreProfileTimeMs", Date.now() - t0);
     req.log.info(
       { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
       "Genre profile built"
@@ -784,6 +1702,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     let genreStack = getCachedGenreStack(stackCacheKey);
     const stackFromCache = !!genreStack;
+    tStage = Date.now();
     if (!genreStack) {
       genreStack = buildGenreIntelligenceStack({
         librarySize: likedSongs.length,
@@ -794,6 +1713,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       });
       setCachedGenreStack(stackCacheKey, genreStack);
     }
+    recordPreV3Timing(preV3Timing, "genreStackTimeMs", Date.now() - tStage);
     stageTimer.end("Genre stack built", {
       stackFromCache,
       microGenres: genreStack.stats.microGenreCount,
@@ -805,32 +1725,105 @@ router.post("/generate", async (req, res): Promise<void> => {
     const allowHolidaySeason =
       /\b(christmas|xmas|holiday|festive|winter holiday)\b/i.test(vibe) ||
       (humanIntent.intent === "nostalgia" && /\bchristmas|holiday\b/i.test(vibe));
+    const qualitySignalContext = buildQualitySignalContext({
+      vibe,
+      emotionProfile,
+      userGenreProfile,
+      recentPlaylists: recentPlaylists.map((p) => ({ vibe: p.vibe, createdAt: p.createdAt })),
+    });
+    const pipelineVibe = normalizeVibeForPipeline(vibe, qualitySignalContext);
+    const constraintLayer = extractConstraintLayer(vibe, qualitySignalContext);
+    const parsedCsspIntent = buildCsspLockedIntent(vibe);
+    const lockedIntent = {
+      genreFamilies: parsedCsspIntent.genreFamilies.length > 0
+        ? parsedCsspIntent.genreFamilies
+        : constraintLayer.hard.genres.slice(0, 3),
+      eraRange: parsedCsspIntent.eraRange ?? (
+        constraintLayer.hard.eraStart !== null && constraintLayer.hard.eraEnd !== null
+          ? { start: constraintLayer.hard.eraStart, end: constraintLayer.hard.eraEnd }
+          : null
+      ),
+      mood: parsedCsspIntent.mood.length > 0 ? parsedCsspIntent.mood : qualitySignalContext.moodTags.filter((tag) => tag !== "neutral").slice(0, 3),
+      activity: parsedCsspIntent.activity,
+      energy: parsedCsspIntent.energy,
+      primaryGenres: parsedCsspIntent.genreFamilies.length > 0
+        ? parsedCsspIntent.genreFamilies
+        : constraintLayer.hard.genres.slice(0, 3),
+      eraStart: parsedCsspIntent.eraRange?.start ?? constraintLayer.hard.eraStart,
+      eraEnd: parsedCsspIntent.eraRange?.end ?? constraintLayer.hard.eraEnd,
+      energyLevel: parsedCsspIntent.energy,
+    };
+    const fallbackLockedFamily =
+      lockedIntent.primaryGenres[0] ??
+      dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
+    let fallbackBridgeUsed = false;
+    const constrainedFallbackTracks = likedSongs.filter((track) => {
+      const candidate = { ...track, score: 0.7 } as ConstraintTrack;
+      const boundary = passesGenreGraphBoundary(candidate, {
+        lockedFamily: fallbackLockedFamily,
+        constraints: constraintLayer,
+        lockedIntent,
+        classMap: userGenreProfile.trackClassifications,
+        bridgeUsed: fallbackBridgeUsed,
+      });
+      if (!boundary.pass) return false;
+      if (!trackMatchesHardConstraints(candidate, constraintLayer, userGenreProfile.trackClassifications)) return false;
+      if (!trackPassesLockedIntent(candidate, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)) return false;
+      if (boundary.bridge) fallbackBridgeUsed = true;
+      return true;
+    });
+    req.log.info(
+      {
+        primary: qualitySignalContext.primary,
+        moodTags: qualitySignalContext.moodTags,
+        activityTags: qualitySignalContext.activityTags,
+        eraHints: qualitySignalContext.eraHints,
+        genreHints: qualitySignalContext.genreHints,
+        canonicalHints: qualitySignalContext.canonicalHints,
+        constraintLayer,
+        lockedIntent,
+      },
+      "Quality signal and constraint context prepared"
+    );
 
     setGeneratePhase(userId, requestId, "scoring");
     stageTimer.start("Running playlist pipeline (scoring + compose)", {
       tracks: likedSongs.length,
       stackFromCache,
     });
-    const useFastFallback = !devMode && (budget.shouldFastFallback() || budget.isExpired());
+    preV3Timing.totalBeforeV3Ms = Date.now() - startMs;
+    req.log.info({ ...preV3Timing }, "Pre-V3 timing breakdown");
+    const useFastFallback = !devMode && budget.isExpired();
 
     let pipeline: ReturnType<typeof buildPlaylistPipeline>;
+    let fallbackReason: { stage: string; elapsedMs: number } | null = null;
     if (useFastFallback) {
+      fallbackReason = {
+        stage: preV3Timing.slowestStage ?? "hard_timeout",
+        elapsedMs: preV3Timing.slowestStageMs,
+      };
       req.log.warn(
-        { ms: Date.now() - startMs, remainingMs: budget.remainingMs(), code: "FAST_FALLBACK" },
+        {
+          ms: Date.now() - startMs,
+          remainingMs: budget.remainingMs(),
+          code: "FAST_FALLBACK",
+          fallbackReason,
+          preV3Timing,
+        },
         "Time budget — fast fallback playlist"
       );
       pipeline = buildFallbackPipelineResult({
-        tracks: likedSongs,
+        tracks: constrainedFallbackTracks,
         emotionProfile,
         playlistLength: length,
         maxPerArtist,
-        librarySize: likedSongs.length,
+        librarySize: constrainedFallbackTracks.length,
       });
     } else {
       pipeline = buildPlaylistPipeline({
       pipelineLog: req.log,
       likedSongs,
-      vibe,
+      vibe: pipelineVibe,
       mode: mode as "strict" | "balanced" | "chaotic",
       playlistLength: length,
       referencePlaylist: !!referencePlaylist,
@@ -873,7 +1866,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           albumAppearances,
           globalCloneMultiplier: freshnessCloneMultiplier,
         },
-        vibe,
+        vibe: pipelineVibe,
       },
       varietyPenaltyScale: recentTrackPenaltyScale,
       genrePost: {
@@ -893,9 +1886,41 @@ router.post("/generate", async (req, res): Promise<void> => {
     warnIfV3MetadataLost(
       pipeline.finalTracks,
       finalTracks,
-      "playlist-pipeline-to-controller"
+      "create-playlist-to-controller"
     );
+    warnIfFieldDropped("laneScore", pipeline.finalTracks, finalTracks, "create-playlist-to-controller");
+    warnIfFieldDropped("clusterIds", pipeline.finalTracks, finalTracks, "create-playlist-to-controller");
     const sorted = pipeline.sorted;
+    let constraintResult = applyConstraintLayer({
+      rankedCandidates: sorted as PlaylistTrack[],
+      constraints: constraintLayer,
+      lockedIntent,
+      classMap: userGenreProfile.trackClassifications,
+      targetCount: length,
+      seed: `${userId}:${requestId}:${vibe}:${startMs}`,
+      log: req.log,
+    });
+    finalTracks = constraintResult.tracks as PlaylistTrack[];
+    let finalValidation = validateLockedIntentOutput(
+      finalTracks,
+      lockedIntent,
+      constraintLayer,
+      userGenreProfile.trackClassifications
+    );
+    if (!validationPassed(finalValidation)) {
+      req.log.warn(
+        { finalValidation, finalCount: finalTracks.length },
+        "Locked intent validation failed after hard filter"
+      );
+    }
+    req.log.info(
+      {
+        lockedIntent,
+        finalValidation,
+        validationPassed: validationPassed(finalValidation),
+      },
+      "Locked intent final validation"
+    );
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
     const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
@@ -963,31 +1988,19 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     if (finalTracks.length === 0) {
-      req.log.warn({ userId, code: "EMPTY_POOL" }, "Empty pipeline — trying fallback");
-      const rescue = buildFallbackPipelineResult({
-        tracks: likedSongs,
-        emotionProfile,
-        playlistLength: length,
-        maxPerArtist,
-        librarySize: likedSongs.length,
-      });
-      if (rescue.finalTracks.length > 0) {
-        pipeline = rescue;
-        finalTracks = rescue.finalTracks as PlaylistTrack[];
-      } else {
-        setGeneratePhase(userId, requestId, "error");
-        if (respondIfStale(res, userId, requestId)) return;
-        generateFail(
-          res,
-          400,
-          "EMPTY_PLAYLIST",
-          "Could not build a playlist — nothing matched this vibe with your current library. Try Balanced or Chaotic mode, a broader vibe, or wait a moment and regenerate.",
-          {
-            hint: "Sync more liked songs if your library is small. This is not a Spotify API limit.",
-          }
-        );
-        return;
-      }
+      req.log.warn({ userId, code: "EMPTY_POOL" }, "Hard filter graph removed all ranked candidates");
+      setGeneratePhase(userId, requestId, "error");
+      if (respondIfStale(res, userId, requestId)) return;
+      generateFail(
+        res,
+        400,
+        "EMPTY_PLAYLIST",
+        "Could not build a playlist — nothing matched this vibe with your current library. Try Balanced or Chaotic mode, a broader vibe, or wait a moment and regenerate.",
+        {
+          hint: "The hard filter graph removed all ranked candidates.",
+        }
+      );
+      return;
     }
 
     if (respondIfStale(res, userId, requestId)) return;
@@ -1142,6 +2155,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       pipeline.scoringDiagnostics?.v3Pipeline,
       vibe
     );
+    assertQualityConsistency(req.log, {
+      tracks: finalTracks,
+      diagnostics: v3Diagnostics,
+      fallbackUsed: !!pipeline.scoringDiagnostics?.fastFallback,
+    });
 
     if (!varietyBoost && !devMode) {
       const cachedFinalTracks = finalTracks.map((t) => ({
@@ -1171,6 +2189,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         cachedFinalTracks,
         "cache-write"
       );
+      warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
+      warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
         cacheVersion: "v2",
         playlistName,
@@ -1211,6 +2231,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       devMode,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
+      ...(fallbackReason ? { fallbackReason } : {}),
       generationMs,
       stats: {
         trackCount: finalTracks.length,
@@ -1322,6 +2343,20 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
             debug: {
               activePipeline: "v3.1_unified_routing",
+              timing: {
+                preV3Breakdown: preV3Timing,
+              },
+              qualitySignals: qualitySignalContext,
+              constraints: {
+                layer: constraintLayer,
+                lockedIntent,
+                finalValidation,
+                result: {
+                  filteredCount: constraintResult.filteredCount,
+                  diversityWarning: constraintResult.diversityWarning,
+                  finalCount: finalTracks.length,
+                },
+              },
               v11: {
                 role: "candidateGeneration",
                 semanticResolution:

@@ -13,7 +13,7 @@ export type ScoredLibraryTrack<T extends { trackId: string }> = T & {
   historicalAffinity?: number;
   explorationDistance?: number;
   resonanceStrength?: number;
-  /** V3 enrichment — populated by playlist-pipeline after V3 track mapping */
+  /** V3 enrichment — populated by create-playlist after V3 track mapping */
   genrePrimary?: string;
 };
 

@@ -127,9 +127,16 @@ export function buildGenreIntelligenceStack(opts: {
   vibe: string;
   recentPlaylistTrackIds?: string[][];
 }): GenreIntelligenceStack {
+  const t0 = Date.now();
   const libSize = opts.librarySize ?? opts.tracks.length;
   if (libSize >= MINIMAL_STACK_THRESHOLD) {
-    return buildMinimalGenreIntelligenceStack(opts.userProfile, opts.vibe);
+    const stack = buildMinimalGenreIntelligenceStack(opts.userProfile, opts.vibe);
+    console.info("[generate-timing] buildGenreIntelligenceStack", {
+      ms: Date.now() - t0,
+      trackCount: opts.tracks.length,
+      minimal: true,
+    });
+    return stack;
   }
 
   const trackInputs = new Map<string, TrackEmbeddingInput>();
@@ -170,7 +177,7 @@ export function buildGenreIntelligenceStack(opts: {
 
   const oStats = ontologyStats();
 
-  return {
+  const stack = {
     graph,
     microGenres,
     trackEmbeddings,
@@ -191,6 +198,12 @@ export function buildGenreIntelligenceStack(opts: {
       },
     },
   };
+  console.info("[generate-timing] buildGenreIntelligenceStack", {
+    ms: Date.now() - t0,
+    trackCount: opts.tracks.length,
+    minimal: false,
+  });
+  return stack;
 }
 
 export function applyStackToScoredPool<T extends { trackId: string; score: number }>(

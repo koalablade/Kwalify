@@ -29,6 +29,7 @@ import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import {
+  warnIfFieldDropped,
   warnIfV3MetadataLost,
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
@@ -275,8 +276,10 @@ export function buildPlaylistPipeline<T extends {
   warnIfV3MetadataLost(
     v3.finalTracks,
     finalTracksList,
-    "v3-output-to-playlist-pipeline"
+    "v3-output-to-create-playlist"
   );
+  warnIfFieldDropped("laneScore", v3.finalTracks, finalTracksList, "v3-output-to-create-playlist");
+  warnIfFieldDropped("clusterIds", v3.finalTracks, finalTracksList, "v3-output-to-create-playlist");
 
   return {
     finalTracks: finalTracksList,

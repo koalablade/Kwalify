@@ -39,7 +39,13 @@ export function getUserGenreProfileForGenerate(
     return { profile: entry.profile, cacheHit: true };
   }
 
+  const t0 = Date.now();
   const profile = buildUserGenreProfile(tracks, vibe);
+  console.info("[generate-timing] getUserGenreProfileForGenerate", {
+    ms: Date.now() - t0,
+    trackCount: tracks.length,
+    cacheHit: false,
+  });
   cache.set(key, { profile, trackCount: tracks.length, vibeKey, builtAt: now });
   evictOldestEntries(cache, 300, 40);
   return { profile, cacheHit: false };
