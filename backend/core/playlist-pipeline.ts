@@ -175,6 +175,59 @@ function genreFamilyForTrack<T extends { trackId: string; genrePrimary?: string 
   return normalized && normalized !== "unknown" ? normalized : null;
 }
 
+type PreV3TraceStage = {
+  stage: string;
+  before: number;
+  after: number;
+  removed: number;
+  percentRemoved: number;
+  rejectionReasons: Record<string, number>;
+  topReasons: Array<{ reason: string; count: number }>;
+};
+
+function topPreV3Reasons(reasons: Record<string, number>): Array<{ reason: string; count: number }> {
+  return Object.entries(reasons)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([reason, count]) => ({ reason, count }));
+}
+
+function preV3StageTrace(
+  stage: string,
+  before: number,
+  after: number,
+  reasons: Record<string, number> = {},
+): PreV3TraceStage {
+  const removed = Math.max(0, before - after);
+  return {
+    stage,
+    before,
+    after,
+    removed,
+    percentRemoved: before > 0 ? Math.round((removed / before) * 10000) / 100 : 0,
+    rejectionReasons: reasons,
+    topReasons: topPreV3Reasons(reasons),
+  };
+}
+
+function preV3Summary(
+  trace: PreV3TraceStage[],
+  survivingTracks: number,
+): {
+  firstMajorDrop: PreV3TraceStage | null;
+  largestDrop: PreV3TraceStage | null;
+  totalRemoved: number;
+  survivingTracks: number;
+} {
+  const drops = trace.filter((stage) => stage.removed > 0);
+  return {
+    firstMajorDrop: drops.find((stage) => stage.after === 0 || stage.percentRemoved >= 50) ?? drops[0] ?? null,
+    largestDrop: [...drops].sort((a, b) => b.removed - a.removed)[0] ?? null,
+    totalRemoved: drops.reduce((sum, stage) => sum + stage.removed, 0),
+    survivingTracks,
+  };
+}
+
 function topGenreFamiliesFromPool<T extends { trackId: string; genrePrimary?: string }>(
   tracks: T[],
   classMap: UserGenreProfile["trackClassifications"],
@@ -199,6 +252,35 @@ function hasLaneReadyEra(track: {
 }): boolean {
   if (track.releaseYear) return detectEraFromYear(track.releaseYear) !== "any";
   return estimateEraFromAudio(track) !== "any";
+}
+
+function genreFamilyRejectionReason<T extends { trackId: string; genrePrimary?: string }>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+): string | null {
+  const classification = classMap.get(track.trackId);
+  if (!classification) return "missingClassification";
+  if (!classification.genrePrimary && !track.genrePrimary) return "missingGenrePrimary";
+  if (!genreFamilyForTrack(track, classMap)) return "missingGenreFamily";
+  return null;
+}
+
+function laneReadinessReason<T extends {
+  trackId: string;
+  genrePrimary?: string;
+  energy: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+  releaseYear?: number | null;
+}>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+): string | null {
+  const genreReason = genreFamilyRejectionReason(track, classMap);
+  if (genreReason) return genreReason;
+  if (track.energy === null) return "missingEnergy";
+  if (!hasLaneReadyEra(track)) return "missingEra";
+  return null;
 }
 
 function isV3LaneReady<T extends {
@@ -235,6 +317,26 @@ function isV3LaneReadyForIntent<T extends {
   return lockedIntent.eraRange ? hasLaneReadyEra(track) : true;
 }
 
+function intentLaneReadinessReason<T extends {
+  trackId: string;
+  genrePrimary?: string;
+  energy: number | null;
+  valence: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+  releaseYear?: number | null;
+}>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+  lockedIntent: LockedIntent,
+): string | null {
+  const genreReason = genreFamilyRejectionReason(track, classMap);
+  if (genreReason) return genreReason;
+  if (track.energy === null && track.valence === null) return "missingEnergyAndValence";
+  if (lockedIntent.eraRange && !hasLaneReadyEra(track)) return "missingEra";
+  return null;
+}
+
 function trackMatchesLockedIntent<T extends {
   trackId: string;
   genrePrimary?: string;
@@ -256,6 +358,63 @@ function trackMatchesLockedIntent<T extends {
     genrePrimary: classification?.genrePrimary ?? track.genrePrimary,
     laneEra: track.releaseYear ? detectEraFromYear(track.releaseYear) : estimateEraFromAudio(track),
   }, lockedIntent);
+}
+
+function lockedIntentRejectionReason<T extends {
+  trackId: string;
+  genrePrimary?: string;
+  energy: number | null;
+  valence: number | null;
+  danceability: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+  releaseYear?: number | null;
+}>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+  lockedIntent: LockedIntent,
+): string | null {
+  const classification = classMap.get(track.trackId);
+  if (!classification) return "missingClassification";
+  if (!classification.genrePrimary && !track.genrePrimary) return "missingGenrePrimary";
+  const genreFamily = classification?.genreFamily ?? classification?.genrePrimary ?? track.genrePrimary;
+  const genrePrimary = classification?.genrePrimary ?? track.genrePrimary;
+  const laneEra = track.releaseYear ? detectEraFromYear(track.releaseYear) : estimateEraFromAudio(track);
+  const normalizedGenre = genreFamily ? getGenreFamily(genreFamily) : genrePrimary ? getGenreFamily(genrePrimary) : null;
+  if (!normalizedGenre || normalizedGenre === "unknown") return "missingGenreFamily";
+  if (lockedIntent.eraRange && laneEra === "any") return "missingEra";
+  if (lockedIntent.genreFamilies.length > 0 && normalizedGenre && !lockedIntent.genreFamilies.includes(normalizedGenre)) {
+    return "genreMismatch";
+  }
+  if (!trackMatchesConstraints({
+    ...track,
+    genreFamily,
+    genrePrimary,
+    laneEra,
+  }, lockedIntent)) return lockedIntent.eraRange ? "eraMismatch" : "lockedIntentFailure";
+  return null;
+}
+
+function countPreV3Reasons<T>(
+  tracks: T[],
+  reasonOf: (track: T) => string | null,
+): Record<string, number> {
+  const reasons: Record<string, number> = {};
+  for (const track of tracks) {
+    const reason = reasonOf(track);
+    if (reason) reasons[reason] = (reasons[reason] ?? 0) + 1;
+  }
+  return reasons;
+}
+
+function duplicateSuppressionReasons<T extends { trackId: string }>(tracks: T[]): Record<string, number> {
+  const seen = new Set<string>();
+  let duplicates = 0;
+  for (const track of tracks) {
+    if (seen.has(track.trackId)) duplicates++;
+    seen.add(track.trackId);
+  }
+  return duplicates > 0 ? { duplicateTrackId: duplicates } : {};
 }
 
 function familyCount<T extends { trackId: string; genrePrimary?: string }>(
@@ -427,13 +586,49 @@ function buildV3CandidatePool<T extends {
   classMap: UserGenreProfile["trackClassifications"],
   playlistLength: number,
   lockedIntent: LockedIntent,
+  logger?: import("pino").Logger,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
+  const forensicPreV3Trace: PreV3TraceStage[] = [];
+  forensicPreV3Trace.push(preV3StageTrace("initial scored track count", sorted.length, sorted.length));
+  const genreReady = sorted.filter((track) => !!genreFamilyForTrack(track, classMap));
+  forensicPreV3Trace.push(preV3StageTrace(
+    "genre family normalization",
+    sorted.length,
+    genreReady.length,
+    countPreV3Reasons(sorted, (track) => genreFamilyForTrack(track, classMap) ? null : "missingGenreFamily"),
+  ));
   const laneReady = sorted.filter((track) => isV3LaneReady(track, classMap));
+  forensicPreV3Trace.push(preV3StageTrace(
+    "lane readiness filter",
+    sorted.length,
+    laneReady.length,
+    countPreV3Reasons(sorted, (track) => laneReadinessReason(track, classMap)),
+  ));
   const intentLaneReady = sorted.filter((track) => isV3LaneReadyForIntent(track, classMap, lockedIntent));
+  forensicPreV3Trace.push(preV3StageTrace(
+    "metadata completeness filter",
+    sorted.length,
+    intentLaneReady.length,
+    countPreV3Reasons(sorted, (track) => intentLaneReadinessReason(track, classMap, lockedIntent)),
+  ));
+  forensicPreV3Trace.push(preV3StageTrace(
+    "era readiness filter",
+    intentLaneReady.length,
+    lockedIntent.eraRange ? laneReady.length : intentLaneReady.length,
+    lockedIntent.eraRange
+      ? countPreV3Reasons(intentLaneReady, (track) => hasLaneReadyEra(track) ? null : "missingEra")
+      : {},
+  ));
   const effectiveLaneReady = lockedIntent.eraRange ? laneReady : intentLaneReady;
   const intentReady = effectiveLaneReady.filter((track) =>
     trackMatchesLockedIntent(track, classMap, lockedIntent)
   );
+  forensicPreV3Trace.push(preV3StageTrace(
+    "intent readiness filter",
+    effectiveLaneReady.length,
+    intentReady.length,
+    countPreV3Reasons(effectiveLaneReady, (track) => lockedIntentRejectionReason(track, classMap, lockedIntent)),
+  ));
   const baseWindow = Math.min(intentReady.length, Math.max(playlistLength * 8, 75));
   let windowSize = baseWindow;
   while (windowSize < intentReady.length && familyCount(intentReady.slice(0, windowSize), classMap) < 3) {
@@ -451,6 +646,20 @@ function buildV3CandidatePool<T extends {
     playlistLength,
   );
   const tracks = uncollapsed.tracks;
+  forensicPreV3Trace.push(preV3StageTrace(
+    "duplicate suppression",
+    tracks.length,
+    new Set(tracks.map((track) => track.trackId)).size,
+    duplicateSuppressionReasons(tracks),
+  ));
+  forensicPreV3Trace.push(preV3StageTrace("final candidate pool count", intentReady.length, tracks.length));
+  const summary = preV3Summary(forensicPreV3Trace, tracks.length);
+  logger?.info({
+    initialScoredTracks: sorted.length,
+    finalCandidatePool: tracks.length,
+    forensicPreV3Trace,
+    preV3Summary: summary,
+  }, "Pre-V3 candidate pool diagnostics");
   return {
     tracks,
     diagnostics: {
@@ -462,6 +671,8 @@ function buildV3CandidatePool<T extends {
       candidateCount: tracks.length,
       genreFamilyClusters: familyCount(tracks, classMap),
       expandedForFamilySpread: windowSize > baseWindow,
+      forensicPreV3Trace,
+      preV3Summary: summary,
       v11Uncollapse: uncollapsed.diagnostics,
     },
   };
@@ -595,7 +806,13 @@ export function buildPlaylistPipeline<T extends {
     classMap,
     opts.playlistLength,
     v3LockedIntent,
+    opts.pipelineLog,
   );
+
+  opts.pipelineLog?.info({
+    preV3PoolSize: v3CandidatePool.tracks.length,
+    forensicPreV3Trace: v3CandidatePool.diagnostics["forensicPreV3Trace"],
+  }, "Pre-V3 candidate pool built");
 
   let t = Date.now();
   const v3 = runV3Pipeline(
