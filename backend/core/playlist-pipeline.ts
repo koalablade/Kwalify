@@ -147,6 +147,10 @@ function energyIntentFromProfile(profile: EmotionProfile): "low" | "medium" | "h
   return "medium";
 }
 
+function safeFeature(value: unknown, fallback = 0.5): number {
+  return typeof value === "number" && !Number.isNaN(value) ? value : fallback;
+}
+
 function moodFallbackFromProfile(profile: EmotionProfile): string[] {
   if ((profile.calm ?? 0) >= 0.6) return ["calm"];
   if ((profile.nostalgia ?? 0) >= 0.5) return ["nostalgic"];
@@ -810,6 +814,12 @@ export function buildPlaylistPipeline<T extends {
   );
 
   opts.pipelineLog?.info({
+    sampleTrack: scoring.sorted[0] ?? null,
+    hasEnergy: scoring.sorted.filter((track) => track.energy != null).length,
+    hasValence: scoring.sorted.filter((track) => track.valence != null).length,
+  }, "Spotify feature coverage before V3");
+
+  opts.pipelineLog?.info({
     preV3PoolSize: v3CandidatePool.tracks.length,
     forensicPreV3Trace: v3CandidatePool.diagnostics["forensicPreV3Trace"],
   }, "Pre-V3 candidate pool built");
@@ -852,9 +862,135 @@ export function buildPlaylistPipeline<T extends {
     functionName: "buildPlaylistPipeline",
   };
 
+  const lastResortPool: ScoredLibraryTrack<T>[] = scoring.sorted
+    .filter((track) => track.genrePrimary || track.energy != null || track.valence != null)
+    .slice(0, 50);
+  const emergencyScoredPool: ScoredLibraryTrack<T>[] = scoring.sorted
+    .filter((track) => typeof track.score === "number")
+    .slice(0, 50);
+
+  function resolveFinalTracks(
+    pool: ScoredLibraryTrack<T>[],
+    fallbackLabel: string,
+  ): BuildPlaylistPipelineResult<T> | null {
+    if (!pool.length) return null;
+
+    const resolvedPool = pool.slice(0, 50);
+    const enforcedResolved = enforceFinalPlaylistGenres({
+      finalTracks: resolvedPool,
+      sortedPool: scoring.sorted,
+      userGenreProfile: opts.userGenreProfile,
+      genreStack: opts.genreStack,
+      allowHoliday: opts.genrePost.allowHoliday,
+      suppressGenres: opts.genrePost.suppressGenres,
+      coverageState: scoring.coverageState,
+      genreForecast: scoring.genreForecast,
+      sceneInfluenceRatio: 0,
+      stabilityDiagnostics: scoring.stabilityDiagnostics,
+    });
+    const resolvedTracks = enforcedResolved.tracks.length > 0
+      ? enforcedResolved.tracks
+      : resolvedPool;
+    const resolvedMomentMemory = updateMomentMemory({
+      unifiedIntent: memoryAdjustedUnifiedIntent,
+      finalPlaylistEmbedding: buildPlaylistEmbedding(resolvedTracks).centroidVector,
+      memoryKey: opts.momentMemoryKey,
+    });
+
+    return {
+      finalTracks: resolvedTracks,
+      sorted: scoring.sorted,
+      scoringDiagnostics: {
+        ...scoring.scoringDiagnostics,
+        unifiedIntent: unifiedIntentDiagnostics,
+        momentMemory: {
+          recentStates: resolvedMomentMemory.recentStates.length,
+          decayWeight: Math.round(resolvedMomentMemory.aggregatedState.decayWeight * 1000) / 1000,
+        },
+        v3Pipeline: {
+          ...v3.diagnostics,
+          forensicPoolTrace: {
+            ...((v3.diagnostics["forensicPoolTrace"] as Record<string, unknown> | undefined) ?? {}),
+            finalHardFilterTrace,
+          },
+          fallback: fallbackLabel,
+          preV3Recovery: v3CandidatePool.diagnostics,
+        },
+      },
+      hybridExcludedCount: scoring.hybridExcludedCount,
+      genreAudit: enforcedResolved.genreAudit,
+      ecosystemDebug: null,
+      composeMeta: {
+        structured: resolvedTracks,
+        poolTarget: opts.playlistLength,
+        afterDeadZone: resolvedTracks,
+        afterSmoothing: resolvedTracks,
+        afterArtistSep: resolvedTracks,
+        afterArc: resolvedTracks,
+        emotionalPeakTrackId: null,
+        emotionalPeakIndex: null,
+        gradientPhases: { start: 0, explore: 0, peak: 0, resolve: resolvedTracks.length },
+      },
+    };
+  }
+
+  // GUARANTEE: playlist pipeline must NEVER return empty tracks.
+  // All filters must degrade gracefully, not eliminate entire pool.
   // Last-resort fallback: V3 produced nothing (no audio features / empty lib)
   if (finalTracksList.length === 0) {
-    const fallbackPool = v3CandidatePool.tracks as unknown as ScoredLibraryTrack<T>[];
+    const rawFallbackPool = (
+      v3CandidatePool.tracks.length > 0
+        ? v3CandidatePool.tracks
+        : scoring.sorted
+    ) as unknown as ScoredLibraryTrack<T>[];
+    const fallbackPool = rawFallbackPool
+      .filter((track) => !!track)
+      .map((track) => ({
+        ...track,
+        energy: safeFeature(track.energy),
+        valence: safeFeature(track.valence),
+        _featureQualityPenalty: (track as { _featureQualityPenalty?: number })._featureQualityPenalty ?? 0.4,
+      })) as unknown as ScoredLibraryTrack<T>[];
+    if (v3CandidatePool.tracks.length === 0) {
+      opts.pipelineLog?.warn({
+        code: "EMPTY_POOL_RECOVERY",
+        message: "Primary V3 pool empty — falling back safely",
+        v3CandidateCount: v3CandidatePool.tracks?.length ?? 0,
+        allTracks: scoring.sorted.length,
+      });
+    }
+    if (fallbackPool.length === 0) {
+      opts.pipelineLog?.error({
+        code: "EMPTY_POOL_FATAL",
+        message: "Even fallback pool is empty — returning safe global sample",
+      });
+      const safeGlobalTracks: ScoredLibraryTrack<T>[] = scoring.sorted.filter((track) => {
+        const featureAwareTrack = track as ScoredLibraryTrack<T> & { genres?: unknown };
+        const hasAudioFeatures =
+          typeof track.energy === "number" ||
+          typeof track.valence === "number";
+
+        const hasGenre = Array.isArray(featureAwareTrack.genres)
+          ? featureAwareTrack.genres.length > 0
+          : !!track.genrePrimary;
+
+        return hasAudioFeatures || hasGenre;
+      }).slice(0, 50);
+      const resolvedSafeGlobal = resolveFinalTracks(safeGlobalTracks, "global_sample_used");
+      if (resolvedSafeGlobal) return resolvedSafeGlobal;
+
+      const resolvedLastResort = resolveFinalTracks(lastResortPool, "last_resort_scored_sorted");
+      if (resolvedLastResort) return resolvedLastResort;
+
+      if (lastResortPool.length === 0) {
+        opts.pipelineLog?.error({
+          code: "EMPTY_POOL_FATAL",
+          message: "No usable tracks even after global fallback",
+        });
+      }
+      const resolvedEmergencyScored = resolveFinalTracks(emergencyScoredPool, "emergency_scored_pool");
+      if (resolvedEmergencyScored) return resolvedEmergencyScored;
+    }
     const recentTrackPenalty = opts.recentPlaylistTrackIds?.length
       ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 5, opts.varietyPenaltyScale ?? 1)
       : undefined;
@@ -885,6 +1021,11 @@ export function buildPlaylistPipeline<T extends {
       sceneInfluenceRatio: scoring.sceneInfluenceRatio,
       stabilityDiagnostics: scoring.stabilityDiagnostics,
     });
+    if (enforcedFallback.tracks.length === 0) {
+      const resolvedFallback = resolveFinalTracks(fallbackPool, "fallback_enforcement_empty") ??
+        resolveFinalTracks(lastResortPool, "last_resort_scored_sorted");
+      if (resolvedFallback) return resolvedFallback;
+    }
     const fallbackMomentMemory = updateMomentMemory({
       unifiedIntent: memoryAdjustedUnifiedIntent,
       finalPlaylistEmbedding: buildPlaylistEmbedding(enforcedFallback.tracks).centroidVector,
@@ -926,6 +1067,17 @@ export function buildPlaylistPipeline<T extends {
         gradientPhases: composed.gradientPhases,
       },
     };
+  }
+
+  if (!finalTracksList?.length) {
+    opts.pipelineLog?.error({
+      code: "CRITICAL_PIPELINE_BUG",
+      message: "All fallback layers failed",
+    });
+    const emergencyFallback = resolveFinalTracks(lastResortPool, "emergency_guard");
+    if (emergencyFallback) return emergencyFallback;
+    const emergencyScoredFallback = resolveFinalTracks(emergencyScoredPool, "emergency_scored_pool");
+    if (emergencyScoredFallback) return emergencyScoredFallback;
   }
 
   // Genre enforcement safety net — audit only; V3 structural diversity already

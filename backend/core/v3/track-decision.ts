@@ -20,12 +20,21 @@ export interface TrackDecision<T extends ScorerTrack> {
   readonly affinityScore: number;
 }
 
+function safeFeature(value: unknown, fallback = 0.5): number {
+  return typeof value === "number" && !Number.isNaN(value) ? value : fallback;
+}
+
 export function createTrackDecision<T extends ScorerTrack>(
   item: LaneScoredTrack<T>,
   laneId: string,
 ): TrackDecision<T> {
+  const track = {
+    ...item.track,
+    energy: safeFeature(item.track.energy),
+    valence: safeFeature(item.track.valence),
+  } as T;
   return {
-    track: item.track,
+    track,
     laneId,
     score: item.laneScore,
     genrePrimary: item.genrePrimary,

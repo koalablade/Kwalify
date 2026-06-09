@@ -18,6 +18,8 @@ export type ConstraintTrackLike = {
   instrumentalness?: number | null;
   speechiness?: number | null;
   activityTags?: string[];
+  _featureQualityPenalty?: number;
+  _lanePenalty?: number;
 };
 
 function candidateGenreFamily(track: ConstraintTrackLike): string | null {
@@ -188,7 +190,16 @@ export function computeSceneAlignmentScore(track: ConstraintTrackLike, scene: Sc
 
 export function trackMatchesConstraints(track: ConstraintTrackLike, intent: LockedIntent): boolean {
   if (!hasUsableGenreClassification(track)) return false;
-  if (!eraAllowed(track, intent)) return false;
+  if (!eraAllowed(track, intent)) {
+    track._lanePenalty = (track._lanePenalty ?? 0) + 0.3;
+    return true;
+  }
+  const hasEnergy = typeof track.energy === "number";
+  const hasValence = typeof track.valence === "number";
+  if (!hasEnergy || !hasValence) {
+    track._featureQualityPenalty = 0.4;
+    return true;
+  }
   return true;
 }
 
