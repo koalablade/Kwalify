@@ -34,16 +34,18 @@ import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
 import { buildLockedIntent, completeLockedIntent, normalizeLockedGenreFamily, type LockedIntent } from "./intent";
-import { trackMatchesConstraints } from "./constraint-filter";
+import { computeSceneAlignmentScore, trackMatchesConstraints } from "./constraint-filter";
+import { retrieveCandidatesByEmbedding, type RetrievedCandidate, type RetrievalTrackLike } from "./embedding-retrieval";
 import {
   createTrackDecision,
+  withDecisionAffinities,
   withDecisionValidity,
   type TrackDecision,
 } from "./track-decision";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export interface V3PipelineTrack {
+export interface V3PipelineTrack extends RetrievalTrackLike {
   trackId: string;
   artistName: string;
   energy: number | null;
@@ -116,6 +118,58 @@ function decisionIsLaneReady<T extends V3PipelineTrack>(
     decision.track.energy !== null;
 }
 
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+type ScoreCarrier = {
+  score?: number | null;
+  hybridScore?: number | null;
+};
+
+function normalizedExistingScore(track: ScoreCarrier): number | null {
+  const value = track.hybridScore ?? track.score;
+  return typeof value === "number" && Number.isFinite(value) ? clamp01(value) : null;
+}
+
+function attachHierarchicalAffinities<T extends V3PipelineTrack>(
+  decisions: Array<TrackDecision<T>>,
+  lockedIntent: LockedIntent,
+  opts: {
+    noveltyByTrack?: (trackId: string) => number;
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+    retrievalByTrack?: Map<string, RetrievedCandidate<T>>;
+  },
+): Array<TrackDecision<T>> {
+  return decisions.map((decision) => {
+    const classification = opts.classificationByTrack?.(decision.track.trackId);
+    const genreFamily = classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary;
+    const sceneAffinity = lockedIntent.sceneIntent
+      ? computeSceneAlignmentScore({
+          ...decision.track,
+          genreFamily,
+          genrePrimary: decision.genrePrimary,
+          laneEra: decision.laneEra,
+        }, lockedIntent.sceneIntent)
+      : 0.5;
+    const laneTaste = clamp01(decision.score / 1.5);
+    const existingScore = normalizedExistingScore(decision.track as ScoreCarrier);
+    const tasteAffinity = existingScore === null
+      ? laneTaste
+      : clamp01((laneTaste + existingScore) / 2);
+    const freshnessAffinity = clamp01(opts.noveltyByTrack?.(decision.track.trackId) ?? 0.5);
+    const retrieval = opts.retrievalByTrack?.get(decision.track.trackId);
+
+    return withDecisionAffinities(decision, {
+      sceneAffinity,
+      tasteAffinity,
+      freshnessAffinity,
+      embeddingAffinity: retrieval?.embeddingAffinity,
+      retrievalNeighborhood: retrieval?.retrievalNeighborhood,
+    });
+  });
+}
+
 // ── Pipeline ─────────────────────────────────────────────────────────────────
 
 export function runV3Pipeline<T extends V3PipelineTrack>(
@@ -136,6 +190,11 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const decomposed = decomposeIntent(vibe, profile);
   const lockedIntent = opts.lockedIntent ?? completeLockedIntent(buildLockedIntent(vibe));
   const fallbackTriggered = isUnclearIntent(decomposed);
+  const retrievalCloud = retrieveCandidatesByEmbedding(tracks, lockedIntent);
+  const retrievedTracks = retrievalCloud.tracks.map((candidate) => candidate.track);
+  const retrievalByTrack = new Map(
+    retrievalCloud.tracks.map((candidate) => [candidate.track.trackId, candidate])
+  );
 
   // ── Stage 2: Adaptive lane generation ───────────────────────────────────
   let lanes: ReturnType<typeof buildLanes>;
@@ -183,7 +242,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
 
   const sampledResults: SampledLaneResult<T>[] = lanes.map((lane) => {
     // Stage 3: Score every track for this lane
-    const rawScored = scoreLane(tracks, lane, decomposed, {
+    const rawScored = scoreLane(retrievedTracks, lane, decomposed, {
       genreByTrack: opts.genreByTrack,
       noveltyByTrack: opts.noveltyByTrack,
     });
@@ -200,6 +259,11 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
         })
       ))
       .filter((decision) => decision.valid);
+    const affinityDecisions = attachHierarchicalAffinities(validDecisions, lockedIntent, {
+      noveltyByTrack: opts.noveltyByTrack,
+      classificationByTrack: opts.classificationByTrack,
+      retrievalByTrack,
+    });
 
     // Headroom: 3× target so the sampler has enough valid choices.
     const laneTarget = Math.max(
@@ -208,7 +272,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     );
 
     // Stage 4: Build clusters from scored pool
-    const clusteredPool = buildClusters(validDecisions);
+    const clusteredPool = buildClusters(affinityDecisions);
 
     // Stage 5: Entropy-constrained selection across clusters
     const clusterResult = selectFromClusters(
@@ -519,6 +583,39 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       ),
     },
     adaptiveLaneGenerator: generatorDiagnostics,
+    embeddingRetrieval: {
+      mode: "session_multi_vector_retrieval",
+      totalCandidates: retrievalCloud.tracks.length,
+      neighborhoodCounts: retrievalCloud.neighborhoodCounts,
+      userTasteState: {
+        longTermTasteDims: retrievalCloud.userTasteState.longTermTasteVector.length,
+        sessionDims: retrievalCloud.userTasteState.shortTermSessionVector.length,
+        moodTrajectoryDims: retrievalCloud.userTasteState.moodTrajectoryVector.length,
+        scenePreferenceDims: retrievalCloud.userTasteState.scenePreferenceVector.length,
+      },
+      playlistEmbedding: {
+        centroidDims: retrievalCloud.playlistEmbedding.centroidVector.length,
+        energyCurveDims: retrievalCloud.playlistEmbedding.energyCurveVector.length,
+        diversitySpreadDims: retrievalCloud.playlistEmbedding.diversitySpreadVector.length,
+        emotionalArcDims: retrievalCloud.playlistEmbedding.emotionalArcVector.length,
+      },
+      memoryGraph: {
+        listenedTrackNodes: retrievalCloud.memoryGraph.listenedTracksEmbeddingGraph.length,
+        sessionTransitions: retrievalCloud.memoryGraph.sessionTransitions.length,
+        skippedClusterCount: Object.keys(retrievalCloud.memoryGraph.skippedClusters).length,
+        replayedClusterCount: Object.keys(retrievalCloud.memoryGraph.replayedClusters).length,
+      },
+      clusterEmbeddings: retrievalCloud.clusterEmbeddings.map((cluster) => ({
+        id: cluster.id,
+        size: cluster.size,
+        averageAffinity: Math.round(cluster.averageAffinity * 1000) / 1000,
+      })),
+      topCandidateAffinities: retrievalCloud.tracks.slice(0, 10).map((candidate) => ({
+        trackId: candidate.track.trackId,
+        embeddingAffinity: Math.round(candidate.embeddingAffinity * 1000) / 1000,
+        retrievalNeighborhood: candidate.retrievalNeighborhood,
+      })),
+    },
     candidateValidation: {
       repairedCount: 0,
       droppedCount: 0,

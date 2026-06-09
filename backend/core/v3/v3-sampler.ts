@@ -9,7 +9,7 @@ import type { EraBucket } from "../../lib/intent-parser";
 import type { ScorerTrack } from "./lane-scorer";
 import type { ClusteredPool } from "./cluster-candidate-engine";
 import { getGenreFamily } from "./global-diversity-controller";
-import { withDecisionWeight, type TrackDecision } from "./track-decision";
+import { withDecisionFinalScore, withDecisionWeight, type TrackDecision } from "./track-decision";
 
 export interface SampledLaneResult<T extends ScorerTrack> {
   laneId: string;
@@ -40,6 +40,15 @@ function seededUnit(value: string): number {
     h = Math.imul(h, 16777619);
   }
   return (h >>> 0) / 0xffffffff;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smoothstep(value: number): number {
+  const x = clamp01(value);
+  return x * x * (3 - 2 * x);
 }
 
 export function selectFromClusters<T extends ScorerTrack>(
@@ -90,7 +99,7 @@ export function selectFromClusters<T extends ScorerTrack>(
     return contributions.length > 0 ? Math.max(...contributions) : 0;
   }
 
-  function samplerWeight(decision: TrackDecision<T>, bucketName = "core"): number {
+  function behavioralModifier(decision: TrackDecision<T>, bucketName = "core"): number {
     const cids = trackToClusterIds.get(decision.track.trackId) ?? [];
     const energyBand = clusterValue(decision, "energy:");
     const moodCluster = clusterValue(decision, "mood:");
@@ -105,15 +114,53 @@ export function selectFromClusters<T extends ScorerTrack>(
     const genreRotation = genreCid ? 1 / (1 + (clusterPickCount.get(genreCid) ?? 0) * 0.18) : 1;
     const moodRotation = moodCluster ? 1 / (1 + (clusterPickCount.get(`mood:${moodCluster}`) ?? 0) * 0.12) : 1;
     const repetitionDampener = 1 / (1 + repeatedClusterPressure * 0.08);
-    return Math.max(
-      0.05,
-      clusterDiversityScore(decision) *
-        energyFit *
+    const diversityLift = 0.35 + clusterDiversityScore(decision);
+    const structuralControl = clamp01(
+      (energyFit *
         explorationLift *
         genreRotation *
         moodRotation *
-        repetitionDampener
+        repetitionDampener *
+        diversityLift) / 1.65
     );
+    return clamp01(structuralControl * 0.75 + decision.freshnessAffinity * 0.25);
+  }
+
+  function alignedTasteSignal(decision: TrackDecision<T>): number {
+    const sceneScore = decision.sceneAffinity;
+    const tasteScore = decision.tasteAffinity;
+    const conflict = Math.abs(sceneScore - tasteScore);
+    if (sceneScore >= 0.66 && conflict >= 0.28) {
+      return clamp01(sceneScore * 0.75 + tasteScore * 0.25);
+    }
+    if (tasteScore > sceneScore && conflict >= 0.24) {
+      return clamp01(sceneScore * 0.80 + tasteScore * 0.20);
+    }
+    return tasteScore;
+  }
+
+  function stabilisedDistributionScore(finalScore: number): number {
+    const stabilityFactor = 0.15;
+    return clamp01(finalScore * (1 - stabilityFactor) + smoothstep(finalScore) * stabilityFactor);
+  }
+
+  function hierarchicalFinalScore(decision: TrackDecision<T>, bucketName = "core"): number {
+    const rawScore = clamp01(
+      decision.embeddingAffinity * 0.70 +
+      alignedTasteSignal(decision) * 0.20 +
+      behavioralModifier(decision, bucketName) * 0.10
+    );
+    return stabilisedDistributionScore(rawScore);
+  }
+
+  function scoredDecision(decision: TrackDecision<T>, bucketName = "core"): TrackDecision<T> {
+    return withDecisionFinalScore(decision, hierarchicalFinalScore(decision, bucketName));
+  }
+
+  function softmaxWeight(decision: TrackDecision<T>, bucketName: string, maxScore: number): number {
+    const temperature = 8;
+    const finalScore = hierarchicalFinalScore(decision, bucketName);
+    return Math.exp((finalScore - maxScore) * temperature);
   }
 
   function sharesSelectedCluster(decision: TrackDecision<T>): boolean {
@@ -163,8 +210,9 @@ export function selectFromClusters<T extends ScorerTrack>(
     return true;
   }
 
-  function addSelected(decision: TrackDecision<T>): void {
-    const weightedDecision = withDecisionWeight(decision, samplerWeight(decision));
+  function addSelected(decision: TrackDecision<T>, bucketName = "core"): void {
+    const finalDecision = scoredDecision(decision, bucketName);
+    const weightedDecision = withDecisionWeight(finalDecision, finalDecision.finalScore);
     const cids = weightedDecision.clusterIds;
     selected.push({
       ...weightedDecision.track,
@@ -191,17 +239,47 @@ export function selectFromClusters<T extends ScorerTrack>(
 
     const sequenceSafe = available.filter(candidateFitsSequence);
     const pickable = sequenceSafe.length > 0 ? sequenceSafe : available;
-    const total = pickable.reduce((sum, item) => sum + samplerWeight(item, bucketName), 0);
+    const neighborhoodEntries = Array.from(
+      pickable.reduce((groups, item) => {
+        const key = item.retrievalNeighborhood || "scene";
+        const group = groups.get(key) ?? [];
+        group.push(item);
+        groups.set(key, group);
+        return groups;
+      }, new Map<string, Array<TrackDecision<T>>>())
+    ).map(([name, group]) => ({
+      name,
+      group,
+      score: group.reduce((sum, item) => sum + item.embeddingAffinity, 0) / Math.max(1, group.length),
+    }));
+    const maxNeighborhoodScore = Math.max(...neighborhoodEntries.map((entry) => entry.score));
+    const weightedNeighborhoods = neighborhoodEntries.map((entry) => ({
+      ...entry,
+      weight: Math.exp((entry.score - maxNeighborhoodScore) * 7),
+    }));
+    const neighborhoodTotal = weightedNeighborhoods.reduce((sum, entry) => sum + entry.weight, 0);
+    let neighborhoodCursor = seededUnit(`${seed}:${laneId}:${bucketName}:neighborhood:${selected.length}`) * neighborhoodTotal;
+    const selectedNeighborhood = weightedNeighborhoods.find((entry) => {
+      neighborhoodCursor -= entry.weight;
+      return neighborhoodCursor <= 0;
+    }) ?? weightedNeighborhoods[weightedNeighborhoods.length - 1];
+    const neighborhoodPickable = selectedNeighborhood?.group ?? pickable;
+    const maxScore = Math.max(...neighborhoodPickable.map((item) => hierarchicalFinalScore(item, bucketName)));
+    const weightedPickables = neighborhoodPickable.map((item) => ({
+      item,
+      weight: softmaxWeight(item, bucketName, maxScore),
+    }));
+    const total = weightedPickables.reduce((sum, item) => sum + item.weight, 0);
     let cursor = seededUnit(`${seed}:${laneId}:${bucketName}:${selected.length}`) * total;
-    for (const item of pickable) {
-      cursor -= samplerWeight(item, bucketName);
+    for (const { item, weight } of weightedPickables) {
+      cursor -= weight;
       if (cursor <= 0) return item;
     }
     return pickable[pickable.length - 1] ?? null;
   }
 
   const rankedCandidates = [...scoredTracks].sort((a, b) => {
-    return b.score - a.score;
+    return b.embeddingAffinity - a.embeddingAffinity;
   });
 
   const coreEnd = Math.max(1, Math.ceil(rankedCandidates.length * 0.35));
@@ -229,27 +307,18 @@ export function selectFromClusters<T extends ScorerTrack>(
         : bucket.pool;
       const pick = weightedPick(nearbyPool.length > 0 ? nearbyPool : bucket.pool, bucket.name);
       if (!pick) break;
-      addSelected(pick);
+      addSelected(pick, bucket.name);
       attempts++;
     }
   }
 
   if (selected.length < targetCount) {
-    for (const item of rankedCandidates) {
-      if (selected.length >= targetCount) break;
-      if (usedIds.has(item.track.trackId)) continue;
-      if (!candidateFitsClusterCaps(item) || !candidateFitsSequence(item)) continue;
-      addSelected(item);
-    }
-  }
-
-  if (selected.length < targetCount) {
-    for (const item of rankedCandidates) {
-      if (selected.length >= targetCount) break;
-      if (usedIds.has(item.track.trackId)) continue;
-      if (!candidateFitsClusterCaps(item)) continue;
-      if (!candidateFitsSequence(item)) continue;
-      addSelected(item);
+    let attempts = 0;
+    while (selected.length < targetCount && attempts < rankedCandidates.length * 3) {
+      const pick = weightedPick(rankedCandidates, "fallback");
+      if (!pick) break;
+      addSelected(pick, "fallback");
+      attempts++;
     }
   }
 
