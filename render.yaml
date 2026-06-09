@@ -16,15 +16,24 @@ services:
     region: frankfurt
     repo: https://github.com/koalablade/Kwalify
     branch: main
-    buildCommand: npm ci --include=dev --no-audit --fund=false && test -f node_modules/.bin/tsc || (echo "tsc missing - install failed" && exit 1) && ./node_modules/.bin/tsc -v && npm run build
+    buildCommand: |
+      set -e
+      npm ci --no-audit --prefer-offline --include=dev
+      node -e "console.log('tsc exists:', require.resolve('typescript'))"
+      test -f node_modules/.bin/tsc || (echo "tsc missing - install failed" && exit 1)
+      npm run build
     startCommand: npm start
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production
       - key: NPM_CONFIG_CACHE
-        value: /tmp/.npm
+        value: /tmp/npm-cache
       - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: NPM_CONFIG_PROGRESS
+        value: "false"
+      - key: NPM_CONFIG_FUND
         value: "false"
       - key: NPM_CONFIG_AUDIT
         value: "false"
