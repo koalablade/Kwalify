@@ -986,6 +986,10 @@ function formatV3DiagnosticsForApi(
     },
     qualityLock:              v3["qualityLock"] ?? null,
     adaptiveLaneGenerator:    v3["adaptiveLaneGenerator"] ?? null,
+    forensicPoolTrace:        v3["forensicPoolTrace"] ?? null,
+    retrievalRelaxation:      v3["retrievalRelaxation"] ?? null,
+    recommendationEngine:     v3["recommendationEngine"] ?? null,
+    embeddingRetrieval:       v3["embeddingRetrieval"] ?? null,
     interleaverDiagnostics:   v3["interleaverDiagnostics"] ?? null,
     laneContributions:        v3["laneContributions"] ?? {},
     fallback:                 v3["fallback"] ?? null,
@@ -1876,7 +1880,11 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     if (finalTracks.length === 0) {
-      req.log.warn({ userId, code: "EMPTY_POOL" }, "Hard filter graph removed all ranked candidates");
+      const forensicPoolTrace = (scoringDiagnostics.v3Pipeline as Record<string, unknown> | undefined)?.["forensicPoolTrace"];
+      req.log.warn(
+        { userId, code: "EMPTY_POOL", forensicPoolTrace },
+        "Hard filter graph removed all ranked candidates"
+      );
       setGeneratePhase(userId, requestId, "error");
       if (respondIfStale(res, userId, requestId)) return;
       generateFail(

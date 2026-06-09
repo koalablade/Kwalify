@@ -600,6 +600,17 @@ export function buildPlaylistPipeline<T extends {
   // V3 final tracks are authoritative; do not rehydrate from scored tracks here,
   // or V3 metadata such as sourceLane/laneScore/clusterIds can be dropped.
   const finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
+  const finalHardFilterTrace = {
+    stage: "final hard-filter count",
+    before: v3.finalTracks.length,
+    after: finalTracksList.length,
+    removed: Math.max(0, v3.finalTracks.length - finalTracksList.length),
+    topReasons: v3.finalTracks.length > finalTracksList.length
+      ? [{ reason: "v3_output_to_controller_drop", count: v3.finalTracks.length - finalTracksList.length }]
+      : [],
+    sourceFile: "backend/core/playlist-pipeline.ts",
+    functionName: "buildPlaylistPipeline",
+  };
 
   // Last-resort fallback: V3 produced nothing (no audio features / empty lib)
   if (finalTracksList.length === 0) {
@@ -650,6 +661,11 @@ export function buildPlaylistPipeline<T extends {
           decayWeight: Math.round(fallbackMomentMemory.aggregatedState.decayWeight * 1000) / 1000,
         },
         v3Pipeline: {
+          ...v3.diagnostics,
+          forensicPoolTrace: {
+            ...((v3.diagnostics["forensicPoolTrace"] as Record<string, unknown> | undefined) ?? {}),
+            finalHardFilterTrace,
+          },
           fallback: true,
           reason: "empty_library",
           preV3Recovery: v3CandidatePool.diagnostics,
@@ -715,6 +731,10 @@ export function buildPlaylistPipeline<T extends {
       },
       v3Pipeline: {
         ...v3.diagnostics,
+        forensicPoolTrace: {
+          ...((v3.diagnostics["forensicPoolTrace"] as Record<string, unknown> | undefined) ?? {}),
+          finalHardFilterTrace,
+        },
         preV3Recovery: v3CandidatePool.diagnostics,
       },
     },

@@ -31,6 +31,12 @@ export interface ClusterSelectionResult<T extends ScorerTrack> {
     moodQuadrants: number;
   };
   clusterSelectionRatios: Record<string, number>;
+  samplerDiagnostics: {
+    inputCount: number;
+    outputCount: number;
+    rejectionReasons: Record<string, number>;
+    topRejectionReasons: Array<{ reason: string; count: number }>;
+  };
 }
 
 function seededUnit(value: string): number {
@@ -59,6 +65,12 @@ export function selectFromClusters<T extends ScorerTrack>(
       tracks: [],
       clusterSpread: { genreClusters: 0, eraClusters: 0, energyBands: 0, moodQuadrants: 0 },
       clusterSelectionRatios: {},
+      samplerDiagnostics: {
+        inputCount: 0,
+        outputCount: 0,
+        rejectionReasons: { empty_sampler_input: 1 },
+        topRejectionReasons: [{ reason: "empty_sampler_input", count: 1 }],
+      },
     };
   }
 
@@ -70,9 +82,14 @@ export function selectFromClusters<T extends ScorerTrack>(
   const clusterPickCount = new Map<string, number>();
   const familyPickCount  = new Map<string, number>();
   const usedIds = new Set<string>();
+  const rejectionReasons: Record<string, number> = {};
 
   type OutTrack = ClusterSelectionResult<T>["tracks"][number];
   const selected: OutTrack[] = [];
+
+  function recordRejection(reason: string, count = 1): void {
+    rejectionReasons[reason] = (rejectionReasons[reason] ?? 0) + count;
+  }
 
   function clusterValue(decision: TrackDecision<T>, prefix: string): string | null {
     const cid = (trackToClusterIds.get(decision.track.trackId) ?? [])
@@ -149,7 +166,7 @@ export function selectFromClusters<T extends ScorerTrack>(
     );
   }
 
-  function candidateFitsClusterCaps(decision: TrackDecision<T>): boolean {
+  function clusterCapRejectionReason(decision: TrackDecision<T>): string | null {
     const cids = trackToClusterIds.get(decision.track.trackId) ?? [];
     const genreCid  = cids.find((c) => c.startsWith("genre:"));
     const eraCid    = cids.find((c) => c.startsWith("era:"));
@@ -162,7 +179,15 @@ export function selectFromClusters<T extends ScorerTrack>(
     const genreFamily     = getGenreFamily(decision.genrePrimary ?? "unknown");
     const familyViolation = (familyPickCount.get(genreFamily) ?? 0) >= familyMax;
 
-    return !(genreViolation || eraViolation || energyViolation || familyViolation);
+    if (genreViolation) return "sampler_genre_cap";
+    if (eraViolation) return "sampler_era_cap";
+    if (energyViolation) return "sampler_energy_cap";
+    if (familyViolation) return "sampler_family_cap";
+    return null;
+  }
+
+  function candidateFitsClusterCaps(decision: TrackDecision<T>): boolean {
+    return clusterCapRejectionReason(decision) === null;
   }
 
   function candidateFitsSequence(decision: TrackDecision<T>): boolean {
@@ -209,13 +234,28 @@ export function selectFromClusters<T extends ScorerTrack>(
   }
 
   function weightedPick(candidates: Array<TrackDecision<T>>, bucketName: string): TrackDecision<T> | null {
-    const available = candidates.filter((item) =>
-      !usedIds.has(item.track.trackId) &&
-      candidateFitsClusterCaps(item)
-    );
-    if (available.length === 0) return null;
+    const available: Array<TrackDecision<T>> = [];
+    for (const item of candidates) {
+      if (usedIds.has(item.track.trackId)) {
+        recordRejection("sampler_duplicate_track");
+        continue;
+      }
+      const capReason = clusterCapRejectionReason(item);
+      if (capReason) {
+        recordRejection(capReason);
+        continue;
+      }
+      available.push(item);
+    }
+    if (available.length === 0) {
+      recordRejection("sampler_no_available_candidates");
+      return null;
+    }
 
     const sequenceSafe = available.filter(candidateFitsSequence);
+    if (sequenceSafe.length < available.length) {
+      recordRejection("sampler_sequence_rule", available.length - sequenceSafe.length);
+    }
     const pickable = sequenceSafe.length > 0 ? sequenceSafe : available;
     const neighborhoodEntries = Array.from(
       pickable.reduce((groups, item) => {
@@ -284,7 +324,10 @@ export function selectFromClusters<T extends ScorerTrack>(
         ? bucket.pool.filter(sharesSelectedCluster)
         : bucket.pool;
       const pick = weightedPick(nearbyPool.length > 0 ? nearbyPool : bucket.pool, bucket.name);
-      if (!pick) break;
+      if (!pick) {
+        recordRejection(`sampler_${bucket.name}_pick_failed`);
+        break;
+      }
       addSelected(pick, bucket.name);
       attempts++;
     }
@@ -294,7 +337,10 @@ export function selectFromClusters<T extends ScorerTrack>(
     let attempts = 0;
     while (selected.length < targetCount && attempts < rankedCandidates.length * 3) {
       const pick = weightedPick(rankedCandidates, "fallback");
-      if (!pick) break;
+      if (!pick) {
+        recordRejection("sampler_fallback_pick_failed");
+        break;
+      }
       addSelected(pick, "fallback");
       attempts++;
     }
@@ -328,5 +374,14 @@ export function selectFromClusters<T extends ScorerTrack>(
       moodQuadrants:  seenMoods.size,
     },
     clusterSelectionRatios,
+    samplerDiagnostics: {
+      inputCount: scoredTracks.length,
+      outputCount: selected.length,
+      rejectionReasons,
+      topRejectionReasons: Object.entries(rejectionReasons)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([reason, count]) => ({ reason, count })),
+    },
   };
 }

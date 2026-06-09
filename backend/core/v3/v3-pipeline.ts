@@ -84,6 +84,16 @@ type V3SelectionCandidate<T extends V3PipelineTrack> = T & V3TrackMetadata & {
   clusterId?: string;
 };
 
+type ForensicStageTrace = {
+  stage: string;
+  before: number;
+  after: number;
+  removed: number;
+  topReasons: Array<{ reason: string; count: number }>;
+  sourceFile: string;
+  functionName: string;
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Shannon entropy normalised to [0,1] given the number of distinct keys. */
@@ -128,6 +138,46 @@ function decisionIsLaneReady<T extends V3PipelineTrack>(
   return !!genreFamily &&
     decision.laneEra !== "any" &&
     decision.track.energy !== null;
+}
+
+function laneReadinessRejectionReason<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): string | null {
+  const classification = opts.classificationByTrack?.(decision.track.trackId);
+  const genreFamily = normalizeLockedGenreFamily(
+    classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary
+  );
+  if (!genreFamily) return "missing genre";
+  if (decision.laneEra === "any") return "lane readiness fail: missing era";
+  if (decision.track.energy === null) return "lane readiness fail: missing energy";
+  return null;
+}
+
+function constraintRejectionReason<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  lockedIntent: LockedIntent,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): string | null {
+  const classification = opts.classificationByTrack?.(decision.track.trackId);
+  const track = {
+    ...decision.track,
+    genreFamily: classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary,
+    genrePrimary: decision.genrePrimary,
+    laneEra: decision.laneEra,
+  };
+  if (!normalizeLockedGenreFamily(track.genreFamily) && !normalizeLockedGenreFamily(track.genrePrimary)) {
+    return "missing genre";
+  }
+  if (lockedIntent.eraRange && !trackMatchesConstraints(track, lockedIntent)) {
+    return "era mismatch";
+  }
+  if (!trackMatchesConstraints(track, lockedIntent)) return "constraint mismatch";
+  return null;
 }
 
 function decisionHasBasicIdentity<T extends V3PipelineTrack>(decision: TrackDecision<T>): boolean {
@@ -210,6 +260,44 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
+function topReasons(reasons: Record<string, number>): Array<{ reason: string; count: number }> {
+  return Object.entries(reasons)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([reason, count]) => ({ reason, count }));
+}
+
+function countReasons<T>(
+  items: T[],
+  reasonOf: (item: T) => string | null,
+): Record<string, number> {
+  const reasons: Record<string, number> = {};
+  for (const item of items) {
+    const reason = reasonOf(item);
+    if (reason) reasons[reason] = (reasons[reason] ?? 0) + 1;
+  }
+  return reasons;
+}
+
+function stageTrace(
+  stage: string,
+  before: number,
+  after: number,
+  reasons: Record<string, number>,
+  sourceFile: string,
+  functionName: string,
+): ForensicStageTrace {
+  return {
+    stage,
+    before,
+    after,
+    removed: Math.max(0, before - after),
+    topReasons: topReasons(reasons),
+    sourceFile,
+    functionName,
+  };
+}
+
 type ScoreCarrier = {
   score?: number | null;
   hybridScore?: number | null;
@@ -290,6 +378,16 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     lockedIntent,
     unifiedIntentContext.unifiedIntent,
   );
+  const forensicTrace: ForensicStageTrace[] = [
+    stageTrace(
+      "retrieval result count",
+      tracks.length,
+      retrievalCloud.tracks.length,
+      retrievalCloud.tracks.length < tracks.length ? { retrieval_cloud_limit_or_filter: tracks.length - retrievalCloud.tracks.length } : {},
+      "backend/core/v3/embedding-retrieval.ts",
+      "retrieveCandidatesByEmbedding",
+    ),
+  ];
   const retrievedTracks = retrievalCloud.tracks.map((candidate) => candidate.track);
   const retrievalByTrack = new Map(
     retrievalCloud.tracks.map((candidate) => [candidate.track.trackId, candidate])
@@ -356,10 +454,48 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     });
 
     const scoredDecisions = rawScored.map((item) => createTrackDecision(item, lane.id));
+    forensicTrace.push(stageTrace(
+      `decision creation count:${lane.id}`,
+      rawScored.length,
+      scoredDecisions.length,
+      scoredDecisions.length < rawScored.length ? { decision_creation_failed: rawScored.length - scoredDecisions.length } : {},
+      "backend/core/v3/track-decision.ts",
+      "createTrackDecision",
+    ));
     const laneMinPoolSize = Math.max(
       8,
       Math.min(24, Math.ceil(targetCount * Math.max(0.5, lane.weight * 2))),
     );
+    const laneReadyDecisions = scoredDecisions.filter((decision) =>
+      decisionIsLaneReady(decision, {
+        classificationByTrack: opts.classificationByTrack,
+      })
+    );
+    forensicTrace.push(stageTrace(
+      `lane readiness count:${lane.id}`,
+      scoredDecisions.length,
+      laneReadyDecisions.length,
+      countReasons(scoredDecisions, (decision) => laneReadinessRejectionReason(decision, {
+        classificationByTrack: opts.classificationByTrack,
+      })),
+      "backend/core/v3/v3-pipeline.ts",
+      "decisionIsLaneReady",
+    ));
+    const constraintReadyDecisions = laneReadyDecisions.filter((decision) =>
+      decisionMatchesConstraints(decision, lockedIntent, {
+        classificationByTrack: opts.classificationByTrack,
+      })
+    );
+    forensicTrace.push(stageTrace(
+      `constraint filter count:${lane.id}`,
+      laneReadyDecisions.length,
+      constraintReadyDecisions.length,
+      countReasons(laneReadyDecisions, (decision) => constraintRejectionReason(decision, lockedIntent, {
+        classificationByTrack: opts.classificationByTrack,
+      })),
+      "backend/core/v3/constraint-filter.ts",
+      "trackMatchesConstraints",
+    ));
     const strictDecisions = scoredDecisions
       .map((decision) => withDecisionValidity(
         decision,
@@ -413,6 +549,14 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
 
     // Stage 4: Build clusters from scored pool
     const clusteredPool = buildClusters(engineResult.decisions);
+    forensicTrace.push(stageTrace(
+      `cluster creation count:${lane.id}`,
+      engineResult.decisions.length,
+      clusteredPool.scoredTracks.length,
+      clusteredPool.scoredTracks.length < engineResult.decisions.length ? { cluster_creation_drop: engineResult.decisions.length - clusteredPool.scoredTracks.length } : {},
+      "backend/core/v3/cluster-candidate-engine.ts",
+      "buildClusters",
+    ));
 
     // Stage 5: Entropy-constrained selection across clusters
     const clusterResult = selectFromClusters(
@@ -421,6 +565,14 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       lane.id,
       `${opts.seed ?? "v3"}:${lane.id}`,
     );
+    forensicTrace.push(stageTrace(
+      `sampler input count:${lane.id}`,
+      clusteredPool.scoredTracks.length,
+      clusterResult.tracks.length,
+      clusterResult.samplerDiagnostics.rejectionReasons,
+      "backend/core/v3/v3-sampler.ts",
+      "selectFromClusters",
+    ));
 
     // ── Observability: build per-track trace (top 15 by raw score) ───────────
     const selectedIdSet = new Set(clusterResult.tracks.map((t) => t.trackId));
@@ -477,7 +629,18 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   });
 
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
+  const interleaverInputCount = sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0);
   const interleaved = interleaveLanes(lanes, sampledResults, targetCount);
+  forensicTrace.push(stageTrace(
+    "interleaver input count",
+    interleaverInputCount,
+    interleaved.tracks.length,
+    interleaverInputCount > interleaved.tracks.length
+      ? { interleaver_target_cap_or_duplicate: interleaverInputCount - interleaved.tracks.length }
+      : {},
+    "backend/core/v3/interleaver.ts",
+    "interleaveLanes",
+  ));
   const finalTracks = interleaved.tracks.map((track) => ({
     ...track,
     clusterId: track.clusterIds[0],
@@ -676,6 +839,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const genreValues = Object.values(genreDist);
   const totalGenre  = genreValues.reduce((s, v) => s + v, 0) || 1;
   const genreConcentration = Math.max(...genreValues, 0) / totalGenre;
+  const firstZeroCollapse = forensicTrace.find((trace) => trace.before > 0 && trace.after === 0) ?? null;
+  const largestDrop = forensicTrace
+    .filter((trace) => trace.removed > 0)
+    .sort((a, b) => b.removed - a.removed)[0] ?? null;
 
   // Build cluster distribution graph (genre clusters only for brevity)
   const clusterDistributionGraph: Record<string, number> = {};
@@ -730,6 +897,11 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     },
     adaptiveLaneGenerator: generatorDiagnostics,
     unifiedIntent: unifiedIntentDiagnostics,
+    forensicPoolTrace: {
+      firstZeroCollapse,
+      largestDrop,
+      stages: forensicTrace,
+    },
     retrievalRelaxation: {
       minPoolPolicy: "per_lane_dynamic_minimum",
       ladder: RETRIEVAL_RELAXATION_LADDER,
