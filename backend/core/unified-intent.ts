@@ -382,22 +382,27 @@ export function unifiedIntentFromV11Intent(
 }
 
 export function unifiedIntentFromLockedIntent(intent: LockedIntent): UnifiedIntentSnapshot {
+  const genre = genreVector(intent.genreFamilies);
+  const scene = sceneVectorFromScene(intent.sceneIntent);
+  const emotion = normalizeVector([
+    intent.sceneIntent?.emotionVector.joy ?? 0.5,
+    intent.sceneIntent?.emotionVector.tension ?? 0.3,
+    intent.sceneIntent?.emotionVector.nostalgia ?? 0.2,
+    intent.sceneIntent?.emotionVector.restlessness ?? 0.2,
+    intent.sceneIntent?.emotionVector.calm ?? 0.5,
+  ]);
+  const energy = energyVector(intent.energy);
+  const time = timeOfDayVector(intent.sceneIntent?.contextWorld.time);
   return {
     source: "v3_locked",
     confidence: intent.sceneIntent?.sceneConfidence ?? 0.65,
-    intent: {
-      genreVector: genreVector(intent.genreFamilies),
-      sceneVector: sceneVectorFromScene(intent.sceneIntent),
-      emotionVector: normalizeVector([
-        intent.sceneIntent?.emotionVector.joy ?? 0.5,
-        intent.sceneIntent?.emotionVector.tension ?? 0.3,
-        intent.sceneIntent?.emotionVector.nostalgia ?? 0.2,
-        intent.sceneIntent?.emotionVector.restlessness ?? 0.2,
-        intent.sceneIntent?.emotionVector.calm ?? 0.5,
-      ]),
-      energyVector: energyVector(intent.energy),
-      timeOfDayVector: timeOfDayVector(intent.sceneIntent?.contextWorld.time),
-    },
+    intent: withMomentModel({
+      genreVector: genre,
+      sceneVector: scene,
+      emotionVector: emotion,
+      energyVector: energy,
+      timeOfDayVector: time,
+    }, defaultMomentCore(), defaultLatentContext(), activityVector(intent.activity)),
   };
 }
 

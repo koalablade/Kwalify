@@ -197,14 +197,15 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   if (!opts.unifiedIntentContext) {
     throw new Error("UnifiedIntent required — raw prompt parsing disabled");
   }
-  const decomposed = opts.unifiedIntentContext.decomposedIntent;
-  const lockedIntent = opts.lockedIntent ?? opts.unifiedIntentContext.lockedIntent;
-  const unifiedIntentDiagnostics = opts.unifiedIntentContext.diagnostics;
+  const unifiedIntentContext = opts.unifiedIntentContext;
+  const decomposed = unifiedIntentContext.decomposedIntent;
+  const lockedIntent = opts.lockedIntent ?? unifiedIntentContext.lockedIntent;
+  const unifiedIntentDiagnostics = unifiedIntentContext.diagnostics;
   const fallbackTriggered = isUnclearIntent(decomposed);
   const retrievalCloud = retrieveCandidatesByEmbedding(
     tracks,
     lockedIntent,
-    opts.unifiedIntentContext.unifiedIntent,
+    unifiedIntentContext.unifiedIntent,
   );
   const retrievedTracks = retrievalCloud.tracks.map((candidate) => candidate.track);
   const retrievalByTrack = new Map(
@@ -287,7 +288,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     });
     const engineResult = runRecommendationEngine({
       decisions: affinityDecisions,
-      unifiedIntent: opts.unifiedIntentContext.unifiedIntent,
+      unifiedIntent: unifiedIntentContext.unifiedIntent,
       memory: opts.momentMemory,
       classificationByTrack: opts.classificationByTrack,
     });
