@@ -273,9 +273,9 @@ export function buildPlaylistPipeline<T extends {
     tracks: finalTracksList.length,
   });
   warnIfV3MetadataLost(
-    "v3-output-to-playlist-pipeline",
-    v3.finalTracks as Array<Record<string, unknown>>,
-    finalTracksList as Array<Record<string, unknown>>
+    v3.finalTracks,
+    finalTracksList,
+    "v3-output-to-playlist-pipeline"
   );
 
   return {

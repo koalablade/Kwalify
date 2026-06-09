@@ -27,11 +27,10 @@ function isDevRuntime(): boolean {
   return process.env["NODE_ENV"] !== "production";
 }
 
-function trackIdOf(track: unknown): string | null {
-  if (!track || typeof track !== "object") return null;
-  const record = track as Record<string, unknown>;
-  if (typeof record["trackId"] === "string") return record["trackId"];
-  if (typeof record["id"] === "string") return record["id"];
+function trackIdOf<T extends object>(track: T): string | null {
+  const obj = track as Partial<{ trackId: string; id: string }>;
+  if (typeof obj.trackId === "string") return obj.trackId;
+  if (typeof obj.id === "string") return obj.id;
   return null;
 }
 
@@ -39,14 +38,14 @@ function hasMetadataValue(value: unknown): boolean {
   return Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "";
 }
 
-export function warnIfV3MetadataLost(
-  stage: string,
-  before: Array<Record<string, unknown>>,
-  after: Array<Record<string, unknown>>
+export function warnIfV3MetadataLost<T extends object>(
+  before: readonly T[],
+  after: readonly T[],
+  context: string
 ): void {
   if (!isDevRuntime()) return;
 
-  const afterById = new Map<string, Record<string, unknown>>();
+  const afterById = new Map<string, T>();
   for (const track of after) {
     const trackId = trackIdOf(track);
     if (trackId) afterById.set(trackId, track);
@@ -59,15 +58,17 @@ export function warnIfV3MetadataLost(
     if (!target) continue;
 
     const lostFields: RequiredV3MetadataField[] = [];
+    const sourceMetadata = source as Partial<V3TrackMetadata>;
+    const targetMetadata = target as Partial<V3TrackMetadata>;
     for (const field of REQUIRED_V3_METADATA_FIELDS) {
-      if (hasMetadataValue(source[field]) && !hasMetadataValue(target[field])) {
+      if (hasMetadataValue(sourceMetadata[field]) && !hasMetadataValue(targetMetadata[field])) {
         lostFields.push(field);
       }
     }
 
     if (lostFields.length > 0) {
       console.warn("[v3-contract] metadata lost", {
-        stage,
+        stage: context,
         trackId,
         fields: lostFields,
       });

@@ -891,9 +891,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGeneratePhase(userId, requestId, "composing");
     let finalTracks = pipeline.finalTracks as PlaylistTrack[];
     warnIfV3MetadataLost(
-      "playlist-pipeline-to-controller",
-      pipeline.finalTracks as Array<Record<string, unknown>>,
-      finalTracks as Array<Record<string, unknown>>
+      pipeline.finalTracks,
+      finalTracks,
+      "playlist-pipeline-to-controller"
     );
     const sorted = pipeline.sorted;
     const scoringDiagnostics = pipeline.scoringDiagnostics;
@@ -1167,9 +1167,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
       }));
       warnIfV3MetadataLost(
-        "cache-write",
-        finalTracks as Array<Record<string, unknown>>,
-        cachedFinalTracks as Array<Record<string, unknown>>
+        finalTracks,
+        cachedFinalTracks,
+        "cache-write"
       );
       setCachedGenerateResult(resultCacheKey, {
         cacheVersion: "v2",

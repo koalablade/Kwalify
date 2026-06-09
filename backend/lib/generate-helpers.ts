@@ -146,9 +146,9 @@ export function formatTracksForApi(
       whyReasons: buildTrackWhyReasons(t, profile, i),
     }));
   warnIfV3MetadataLost(
-    "api-formatting",
-    (tracks ?? []) as Array<Record<string, unknown>>,
-    formatted as Array<Record<string, unknown>>
+    tracks ?? [],
+    formatted,
+    "api-formatting"
   );
   return formatted;
 }
