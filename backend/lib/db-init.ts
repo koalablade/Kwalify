@@ -98,8 +98,15 @@ CREATE TABLE IF NOT EXISTS "user_feedback_memory" (
   "overplayed_tracks" jsonb NOT NULL DEFAULT '[]'::jsonb,
   "skip_count_by_track" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "save_count_by_track" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "artist_affinity_graph" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "album_affinity_graph" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "scene_embeddings" jsonb NOT NULL DEFAULT '[]'::jsonb,
   "updated_at" timestamp NOT NULL DEFAULT now()
 );
+ALTER TABLE "user_feedback_memory"
+  ADD COLUMN IF NOT EXISTS "artist_affinity_graph" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS "album_affinity_graph" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS "scene_embeddings" jsonb NOT NULL DEFAULT '[]'::jsonb;
 CREATE UNIQUE INDEX IF NOT EXISTS "IDX_user_feedback_memory_user"
   ON "user_feedback_memory" ("user_id");
 `;

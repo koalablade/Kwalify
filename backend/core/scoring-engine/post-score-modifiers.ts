@@ -163,6 +163,10 @@ export function applyPostScoreModifiers<T extends {
       const saveCount = input.feedbackMemory.saveCountByTrack[song.trackId] ?? 0;
       score -= Math.min(1.5, skipCount * 0.25);
       score += Math.min(0.8, saveCount * 0.12);
+      const artistAffinity = input.feedbackMemory.artistAffinityGraph[song.artistName]?.score ?? 0;
+      const albumAffinity = input.feedbackMemory.albumAffinityGraph[song.albumName]?.score ?? 0;
+      if (artistAffinity !== 0) score *= Math.max(0.55, Math.min(1.18, 1 + artistAffinity * 0.025));
+      if (albumAffinity !== 0) score *= Math.max(0.70, Math.min(1.10, 1 + albumAffinity * 0.018));
     }
     score *= modeScoreMultiplier(input.mode);
 

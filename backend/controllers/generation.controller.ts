@@ -1089,6 +1089,11 @@ router.get("/generate/preview", (req, res): void => {
   }
 });
 
+// SYSTEM GUARANTEE:
+// Backend generates candidates only.
+// Request layer performs evaluation, regeneration, and selection.
+// Frontend supplies behavioural feedback signals.
+// Long-term learning is driven by implicit + explicit feedback loops.
 router.post("/generate", async (req, res): Promise<void> => {
   const startMs = Date.now();
   let requestId = "";

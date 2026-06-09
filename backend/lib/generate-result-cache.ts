@@ -62,3 +62,13 @@ export function setCachedGenerateResult(
   cache.set(key, payload);
   evictOldestEntries(cache, 400, 80);
 }
+
+export function invalidateGenerateResultCache(_userId?: string, _contextHash?: string): void {
+  // Cache keys are hashed across prompt and user context, so feedback invalidates
+  // the in-memory result cache broadly to avoid replaying stale playlists.
+  cache.clear();
+}
+
+export function markGenerateResultCacheStale(userId?: string, contextHash?: string): void {
+  invalidateGenerateResultCache(userId, contextHash);
+}

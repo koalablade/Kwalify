@@ -9,6 +9,58 @@ function esc(v) {
   );
 }
 
+async function api(path, opts = {}) {
+  const r = await fetch(`/api${path}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+  return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+}
+
+const feedbackSessionId = `share_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+function feedbackTrackPayload(track) {
+  return {
+    trackId: track?.trackId || track?.id,
+    trackName: track?.trackName || track?.name || null,
+    artistName: track?.artistName || track?.artist || null,
+    albumName: track?.albumName || track?.album || null,
+    genrePrimary: track?.genrePrimary || null,
+    genres: Array.isArray(track?.genres) ? track.genres : null,
+    energy: typeof track?.energy === "number" ? track.energy : null,
+  };
+}
+
+async function sendFeedbackEvent(track, action, playlistId, context = {}) {
+  const payloadTrack = feedbackTrackPayload(track);
+  if (!payloadTrack.trackId) return;
+  await api("/feedback/track", {
+    method: "POST",
+    body: JSON.stringify({
+      trackId: payloadTrack.trackId,
+      action,
+      playlistId: String(playlistId || ""),
+      context,
+      track: payloadTrack,
+    }),
+  });
+}
+
+async function sendImplicitFeedback(track, playDuration, skipped) {
+  const payloadTrack = feedbackTrackPayload(track);
+  if (!payloadTrack.trackId) return;
+  await api("/feedback/implicit", {
+    method: "POST",
+    body: JSON.stringify({
+      ...payloadTrack,
+      playDuration,
+      skipped,
+      sessionId: feedbackSessionId,
+    }),
+  });
+}
+
 function fmtDate(iso) {
   try {
     return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -61,6 +113,12 @@ function render(data) {
         <div class="track-name">${esc(name)}</div>
         <div class="track-artist">${esc(artist)}</div>
       </div>
+      <div class="track-actions">
+        <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" title="Skip this track">Skip</button>
+        <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" title="Remove from future playlists">Remove</button>
+        <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" title="Like this track">Like</button>
+        <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" title="Thumbs down">Thumbs down</button>
+      </div>
     </div>`;
   }).join("");
 
@@ -100,6 +158,27 @@ function render(data) {
         setTimeout(() => { btn.textContent = "Copy tracklist"; }, 2000);
       }
     } catch {}
+  });
+
+  document.querySelectorAll(".feedback-track-btn[data-track-index]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const index = Number(btn.dataset.trackIndex);
+      const action = btn.dataset.action;
+      const track = tracks[index];
+      if (!track || !action) return;
+      btn.disabled = true;
+      btn.textContent = action === "like" ? "Liked" : "Sent";
+      try {
+        await sendFeedbackEvent(track, action, data.id, { vibe: data.vibe || "" });
+        if (action === "skip") await sendImplicitFeedback(track, 0, true);
+        if (action === "remove" || action === "dislike") {
+          btn.closest(".track-row")?.style.setProperty("opacity", "0.45");
+        }
+      } catch (_) {
+        btn.disabled = false;
+        btn.textContent = action;
+      }
+    });
   });
 }
 

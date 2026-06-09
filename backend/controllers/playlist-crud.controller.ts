@@ -15,6 +15,7 @@ import {
 } from "../db";
 import { eq, desc, and } from "drizzle-orm";
 import { onTrackRemoved, onTrackSave, onTrackSkip, type FeedbackTrack } from "../lib/feedback-memory";
+import { markGenerateResultCacheStale } from "../lib/generate-result-cache";
 
 const router: IRouter = Router();
 
@@ -167,6 +168,7 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
       for (const track of feedbackTracks(owned[0].tracks).slice(0, 50)) {
         await onTrackRemoved(userId, track, { mood: vibe });
       }
+      markGenerateResultCacheStale(userId, vibe);
     }
 
     req.log.info({ userId, playlistId, reaction }, "Playlist feedback recorded");
@@ -185,25 +187,82 @@ router.post("/feedback/track", async (req, res): Promise<void> => {
 
   const userId = req.session.spotifyUserId;
   const action = String(req.body?.action ?? "").trim();
-  const track = req.body?.track as FeedbackTrack | undefined;
-  if (!track?.trackId || !["remove", "skip", "save"].includes(action)) {
-    res.status(400).json({ error: "Expected action remove, skip, or save and a track payload." });
+  const bodyTrack = req.body?.track as FeedbackTrack | undefined;
+  const trackId = typeof req.body?.trackId === "string" ? req.body.trackId : bodyTrack?.trackId;
+  const track: FeedbackTrack | undefined = trackId
+    ? {
+        trackId,
+        trackName: bodyTrack?.trackName ?? (typeof req.body?.trackName === "string" ? req.body.trackName : null),
+        artistId: bodyTrack?.artistId ?? (typeof req.body?.artistId === "string" ? req.body.artistId : null),
+        artistName: bodyTrack?.artistName ?? (typeof req.body?.artistName === "string" ? req.body.artistName : null),
+        albumId: bodyTrack?.albumId ?? (typeof req.body?.albumId === "string" ? req.body.albumId : null),
+        albumName: bodyTrack?.albumName ?? (typeof req.body?.albumName === "string" ? req.body.albumName : null),
+        genrePrimary: bodyTrack?.genrePrimary ?? (typeof req.body?.genrePrimary === "string" ? req.body.genrePrimary : null),
+        genres: bodyTrack?.genres ?? (Array.isArray(req.body?.genres) ? req.body.genres : null),
+        energy: bodyTrack?.energy ?? (typeof req.body?.energy === "number" ? req.body.energy : null),
+      }
+    : undefined;
+  if (!track?.trackId || !["remove", "skip", "save", "like", "dislike"].includes(action)) {
+    res.status(400).json({ error: "Expected action skip, remove, save, like, or dislike and a track payload." });
     return;
   }
 
   try {
-    const memory = action === "save"
+    const memory = action === "save" || action === "like"
       ? await onTrackSave(userId, track)
       : action === "skip"
         ? await onTrackSkip(userId, track)
         : await onTrackRemoved(userId, track, {
-            mood: typeof req.body?.vibe === "string" ? req.body.vibe : null,
+            mood: typeof req.body?.vibe === "string"
+              ? req.body.vibe
+              : typeof req.body?.context?.vibe === "string"
+                ? req.body.context.vibe
+                : null,
             bridgeGenre: typeof req.body?.bridgeGenre === "string" ? req.body.bridgeGenre : null,
           });
+    markGenerateResultCacheStale(userId, typeof req.body?.playlistId === "string" ? req.body.playlistId : undefined);
     res.json({ success: true, feedbackMemory: memory });
   } catch (err: any) {
     req.log.error({ err }, "Error saving track feedback memory");
     res.status(500).json({ error: "Failed to save track feedback." });
+  }
+});
+
+router.post("/feedback/implicit", async (req, res): Promise<void> => {
+  if (!req.session.spotifyUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const userId = req.session.spotifyUserId;
+  const trackId = String(req.body?.trackId ?? "").trim();
+  const playDuration = Number(req.body?.playDuration ?? 0);
+  const skipped = !!req.body?.skipped || playDuration > 0 && playDuration < 30;
+  if (!trackId) {
+    res.status(400).json({ error: "trackId is required." });
+    return;
+  }
+
+  try {
+    const track: FeedbackTrack = {
+      trackId,
+      trackName: typeof req.body?.trackName === "string" ? req.body.trackName : null,
+      artistId: typeof req.body?.artistId === "string" ? req.body.artistId : null,
+      artistName: typeof req.body?.artistName === "string" ? req.body.artistName : null,
+      albumId: typeof req.body?.albumId === "string" ? req.body.albumId : null,
+      albumName: typeof req.body?.albumName === "string" ? req.body.albumName : null,
+      genrePrimary: typeof req.body?.genrePrimary === "string" ? req.body.genrePrimary : null,
+      genres: Array.isArray(req.body?.genres) ? req.body.genres : null,
+      energy: typeof req.body?.energy === "number" ? req.body.energy : null,
+    };
+    const memory = skipped
+      ? await onTrackSkip(userId, track, playDuration > 0 && playDuration < 30 ? 2 : 1)
+      : await onTrackSave(userId, track, 0.25);
+    markGenerateResultCacheStale(userId, typeof req.body?.sessionId === "string" ? req.body.sessionId : undefined);
+    res.json({ success: true, inferred: skipped ? "skip" : "listen", feedbackMemory: memory });
+  } catch (err: any) {
+    req.log.error({ err }, "Error saving implicit feedback");
+    res.status(500).json({ error: "Failed to save implicit feedback." });
   }
 });
 

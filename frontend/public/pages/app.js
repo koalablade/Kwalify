@@ -25,6 +25,49 @@ async function api(path, opts = {}) {
   return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
 }
 
+const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+function feedbackTrackPayload(track) {
+  return {
+    trackId: track?.trackId || track?.id,
+    trackName: track?.trackName || track?.name || null,
+    artistName: track?.artistName || track?.artist || null,
+    albumName: track?.albumName || track?.album || null,
+    genrePrimary: track?.genrePrimary || null,
+    genres: Array.isArray(track?.genres) ? track.genres : null,
+    energy: typeof track?.energy === "number" ? track.energy : null,
+  };
+}
+
+async function sendFeedbackEvent(track, action, playlistId = null, context = {}) {
+  const payloadTrack = feedbackTrackPayload(track);
+  if (!payloadTrack.trackId) return;
+  await api("/feedback/track", {
+    method: "POST",
+    body: JSON.stringify({
+      trackId: payloadTrack.trackId,
+      action,
+      playlistId: playlistId ? String(playlistId) : "",
+      context,
+      track: payloadTrack,
+    }),
+  });
+}
+
+async function sendImplicitFeedback(track, playDuration, skipped) {
+  const payloadTrack = feedbackTrackPayload(track);
+  if (!payloadTrack.trackId) return;
+  await api("/feedback/implicit", {
+    method: "POST",
+    body: JSON.stringify({
+      ...payloadTrack,
+      playDuration,
+      skipped,
+      sessionId: feedbackSessionId,
+    }),
+  });
+}
+
 function timeAgo(iso) {
   try {
     const diff = Date.now() - new Date(iso).getTime();
@@ -669,6 +712,31 @@ function resultHtml(result) {
   const explainContent = (hasExplain && state.showExplain)
     ? renderPlaylistExplanation(result.v3Diagnostics.playlistExplanation)
     : "";
+  const tracks = Array.isArray(result.tracks) ? result.tracks : [];
+  const playlistId = result.savedPlaylistId || "";
+  const tracksHtml = tracks.length ? `
+  <div class="tracks-list" id="resultTracksList">
+    ${tracks.map((t, i) => {
+      const title = t.trackName || t.name || "Unknown track";
+      const artist = t.artistName || t.artist || "Unknown artist";
+      const art = t.albumArt || t.album_art;
+      return `
+      <div class="track-row" data-track-index="${i}">
+        <span class="track-num">${i + 1}</span>
+        <div class="track-art">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
+        <div class="track-info">
+          <div class="track-name">${esc(title)}</div>
+          <div class="track-artist">${esc(artist)}</div>
+        </div>
+        <div class="track-actions">
+          <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" data-playlist-id="${playlistId}" title="Skip this track">Skip</button>
+          <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" data-playlist-id="${playlistId}" title="Remove from future playlists">Remove</button>
+          <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" data-playlist-id="${playlistId}" title="Like this track">Like</button>
+          <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" data-playlist-id="${playlistId}" title="Thumbs down">Thumbs down</button>
+        </div>
+      </div>`;
+    }).join("")}
+  </div>` : "";
 
   return `
   <div class="result-card">
@@ -693,6 +761,7 @@ function resultHtml(result) {
     </div>
   </div>
   ${explainContent}
+  ${!state.showExplain ? tracksHtml : ""}
   ${!state.showExplain ? debugHtml : ""}`;
 }
 
@@ -1528,6 +1597,28 @@ function wireAppEvents() {
 
   document.querySelectorAll(".delete-btn[data-id]").forEach((btn) => {
     btn.addEventListener("click", () => deletePlaylist(Number(btn.dataset.id)));
+  });
+
+  document.querySelectorAll(".feedback-track-btn[data-track-index]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const index = Number(btn.dataset.trackIndex);
+      const action = btn.dataset.action;
+      const track = state.lastResult?.tracks?.[index];
+      if (!track || !action) return;
+      btn.disabled = true;
+      btn.textContent = action === "like" ? "Liked" : "Sent";
+      const context = { vibe: document.getElementById("vibeInput")?.value || state.lastResult?.vibe || "" };
+      try {
+        await sendFeedbackEvent(track, action, btn.dataset.playlistId || null, context);
+        if (action === "skip") await sendImplicitFeedback(track, 0, true);
+        if (action === "remove" || action === "dislike") {
+          btn.closest(".track-row")?.style.setProperty("opacity", "0.45");
+        }
+      } catch (_) {
+        btn.disabled = false;
+        btn.textContent = action;
+      }
+    });
   });
 
   document.getElementById("debugToggleBtn")?.addEventListener("click", () => {

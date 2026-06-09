@@ -84,6 +84,9 @@ export const userFeedbackMemoryTable = pgTable("user_feedback_memory", {
   overplayedTracks: jsonb("overplayed_tracks").notNull().default([]),
   skipCountByTrack: jsonb("skip_count_by_track").notNull().default({}),
   saveCountByTrack: jsonb("save_count_by_track").notNull().default({}),
+  artistAffinityGraph: jsonb("artist_affinity_graph").notNull().default({}),
+  albumAffinityGraph: jsonb("album_affinity_graph").notNull().default({}),
+  sceneEmbeddings: jsonb("scene_embeddings").notNull().default([]),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
