@@ -68,6 +68,19 @@ async function sendImplicitFeedback(track, playDuration, skipped) {
   });
 }
 
+async function replacePlaylistTrack(playlistId, track, context = {}) {
+  const payloadTrack = feedbackTrackPayload(track);
+  if (!playlistId || !payloadTrack.trackId) return null;
+  const result = await api(`/playlists/${playlistId}/replace-track`, {
+    method: "POST",
+    body: JSON.stringify({
+      trackId: payloadTrack.trackId,
+      vibe: context.vibe || "",
+    }),
+  });
+  return result.ok ? result.data.replacement : null;
+}
+
 function timeAgo(iso) {
   try {
     const diff = Date.now() - new Date(iso).getTime();
@@ -713,15 +726,18 @@ function resultHtml(result) {
     ? renderPlaylistExplanation(result.v3Diagnostics.playlistExplanation)
     : "";
   const tracks = Array.isArray(result.tracks) ? result.tracks : [];
-  const playlistId = result.savedPlaylistId || "";
+  const playlistId = result.savedPlaylistId || result.playlistId || "";
   const tracksHtml = tracks.length ? `
   <div class="tracks-list" id="resultTracksList">
     ${tracks.map((t, i) => {
       const title = t.trackName || t.name || "Unknown track";
       const artist = t.artistName || t.artist || "Unknown artist";
       const art = t.albumArt || t.album_art;
+      const why = Array.isArray(t.whyReasons) && t.whyReasons.length
+        ? ` title="Why this song: ${esc(t.whyReasons.slice(0, 3).join(", "))}"`
+        : "";
       return `
-      <div class="track-row" data-track-index="${i}">
+      <div class="track-row" data-track-index="${i}"${why}>
         <span class="track-num">${i + 1}</span>
         <div class="track-art">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
         <div class="track-info">
@@ -731,6 +747,7 @@ function resultHtml(result) {
         <div class="track-actions">
           <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" data-playlist-id="${playlistId}" title="Skip this track">Skip</button>
           <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" data-playlist-id="${playlistId}" title="Remove from future playlists">Remove</button>
+          <button class="section-action feedback-track-btn" data-action="replace" data-track-index="${i}" data-playlist-id="${playlistId}" title="Replace with a nearby track">Replace</button>
           <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" data-playlist-id="${playlistId}" title="Like this track">Like</button>
           <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" data-playlist-id="${playlistId}" title="Thumbs down">Thumbs down</button>
         </div>
@@ -1606,9 +1623,17 @@ function wireAppEvents() {
       const track = state.lastResult?.tracks?.[index];
       if (!track || !action) return;
       btn.disabled = true;
-      btn.textContent = action === "like" ? "Liked" : "Sent";
+      btn.textContent = action === "like" ? "Liked" : action === "replace" ? "Replacing" : "Sent";
       const context = { vibe: document.getElementById("vibeInput")?.value || state.lastResult?.vibe || "" };
       try {
+        if (action === "replace") {
+          const replacement = await replacePlaylistTrack(btn.dataset.playlistId || null, track, context);
+          if (replacement && state.lastResult?.tracks) {
+            state.lastResult.tracks[index] = replacement;
+            renderApp();
+          }
+          return;
+        }
         await sendFeedbackEvent(track, action, btn.dataset.playlistId || null, context);
         if (action === "skip") await sendImplicitFeedback(track, 0, true);
         if (action === "remove" || action === "dislike") {

@@ -61,6 +61,19 @@ async function sendImplicitFeedback(track, playDuration, skipped) {
   });
 }
 
+async function replacePlaylistTrack(playlistId, track, context = {}) {
+  const payloadTrack = feedbackTrackPayload(track);
+  if (!playlistId || !payloadTrack.trackId) return null;
+  const result = await api(`/playlists/${playlistId}/replace-track`, {
+    method: "POST",
+    body: JSON.stringify({
+      trackId: payloadTrack.trackId,
+      vibe: context.vibe || "",
+    }),
+  });
+  return result.ok ? result.data.replacement : null;
+}
+
 function fmtDate(iso) {
   try {
     return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -105,8 +118,11 @@ function render(data) {
     const name = t.trackName || t.name || "Unknown";
     const artist = t.artistName || t.artist || "Unknown artist";
     const art = t.albumArt || t.album_art;
+    const why = Array.isArray(t.whyReasons) && t.whyReasons.length
+      ? ` title="Why this song: ${esc(t.whyReasons.slice(0, 3).join(", "))}"`
+      : "";
     return `
-    <div class="track-row">
+    <div class="track-row"${why}>
       <span class="track-num">${i + 1}</span>
       <div class="track-art">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
       <div class="track-info">
@@ -116,6 +132,7 @@ function render(data) {
       <div class="track-actions">
         <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" title="Skip this track">Skip</button>
         <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" title="Remove from future playlists">Remove</button>
+        <button class="section-action feedback-track-btn" data-action="replace" data-track-index="${i}" title="Replace with a nearby track">Replace</button>
         <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" title="Like this track">Like</button>
         <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" title="Thumbs down">Thumbs down</button>
       </div>
@@ -167,8 +184,16 @@ function render(data) {
       const track = tracks[index];
       if (!track || !action) return;
       btn.disabled = true;
-      btn.textContent = action === "like" ? "Liked" : "Sent";
+      btn.textContent = action === "like" ? "Liked" : action === "replace" ? "Replacing" : "Sent";
       try {
+        if (action === "replace") {
+          const replacement = await replacePlaylistTrack(data.id, track, { vibe: data.vibe || "" });
+          if (replacement) {
+            data.tracks[index] = replacement;
+            render(data);
+          }
+          return;
+        }
         await sendFeedbackEvent(track, action, data.id, { vibe: data.vibe || "" });
         if (action === "skip") await sendImplicitFeedback(track, 0, true);
         if (action === "remove" || action === "dislike") {

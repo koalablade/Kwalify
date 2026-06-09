@@ -44,6 +44,7 @@ import {
 } from "../lib/genre-stack-cache";
 import {
   getGenerateCacheKey,
+  getGenerateCacheEntryStatus,
   getCachedGenerateResult,
   setCachedGenerateResult,
 } from "../lib/generate-result-cache";
@@ -73,7 +74,7 @@ import {
 } from "../lib/generate-helpers";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
-import { buildPlaylistPipeline } from "../core/output";
+import type { BuildPlaylistPipelineResult } from "../core/output";
 import type { GenreAudit } from "../lib/genre-audit";
 import { summarizePipeline } from "../lib/scoring-explanation";
 import { scorePromptConfidence } from "../lib/prompt-confidence";
@@ -103,7 +104,8 @@ import {
   warnIfV3MetadataLost,
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
-import { getFeedbackMemory } from "../lib/feedback-memory";
+import { buildFeedbackDiagnostics, getFeedbackMemory } from "../lib/feedback-memory";
+import { runRequestLayerGeneration, type RequestGenerationOrchestration } from "../lib/request-generation-orchestrator";
 import {
   buildLockedIntent as buildCsspLockedIntent,
   completeLockedIntent as completeCsspLockedIntent,
@@ -994,6 +996,10 @@ function formatV3DiagnosticsForApi(
     interleaverDiagnostics:   v3["interleaverDiagnostics"] ?? null,
     laneContributions:        v3["laneContributions"] ?? {},
     fallback:                 v3["fallback"] ?? null,
+    intentContractGuard:      v3["intentContractGuard"] ?? null,
+    controlledGeneration:     v3["controlledGeneration"] ?? null,
+    playlistQuality:          v3["playlistQuality"] ?? null,
+    playlistCritic:           v3["playlistCritic"] ?? null,
     clusterDistributionGraph: v3["clusterDistributionGraph"] ?? {},
     aggregateClusterSpread:   v3["aggregateClusterSpread"] ?? {},
     globalDiversityMetrics: {
@@ -1011,6 +1017,28 @@ function formatV3DiagnosticsForApi(
       debugTruthLevel:  "selection_based",
       consistencyCheck: "PASS",
     },
+  };
+}
+
+function buildPromptDriftAudit(diagnostics: Record<string, unknown> | null): Record<string, unknown> {
+  const quality = diagnostics?.["playlistQuality"] as Record<string, unknown> | null | undefined;
+  const contractGuard = diagnostics?.["intentContractGuard"] as Record<string, unknown> | null | undefined;
+  const genrePurity = typeof quality?.["genrePurity"] === "number" ? quality["genrePurity"] : null;
+  const promptAlignment = typeof quality?.["promptAlignment"] === "number" ? quality["promptAlignment"] : null;
+  const guardedCount = typeof contractGuard?.["guardedCount"] === "number" ? contractGuard["guardedCount"] : null;
+  const inputCount = typeof contractGuard?.["inputCount"] === "number" ? contractGuard["inputCount"] : null;
+  const violations = [
+    genrePurity != null && genrePurity < 0.65 ? "genre_purity_below_threshold" : null,
+    promptAlignment != null && promptAlignment < 0.60 ? "prompt_alignment_below_threshold" : null,
+    inputCount != null && guardedCount === 0 ? "intent_contract_eliminated_pool" : null,
+  ].filter((value): value is string => !!value);
+  return {
+    pass: violations.length === 0,
+    violations,
+    genrePurity,
+    promptAlignment,
+    guardedCount,
+    inputCount,
   };
 }
 
@@ -1282,6 +1310,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       referencePlaylist: !!referencePlaylist,
       mockMode: devMode,
     });
+    const cacheEntryStatus = getGenerateCacheEntryStatus(resultCacheKey);
     const cacheConstraintLayer = extractConstraintLayer(vibe, {
       primary: vibe,
       ...deriveDiagnosticTags(vibe),
@@ -1317,6 +1346,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           count: cached.finalTracks.length,
           totalTracks: cached.finalTracks.length,
           emotionProfile: cached.emotionProfile,
+          cacheDiagnostics: { status: "fresh", staleBypassed: false },
           v3Diagnostics: cached.v3Diagnostics ?? null,
           ...(cached.spotifyPlaylistUrl
             ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
@@ -1704,7 +1734,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     req.log.info({ ...preV3Timing }, "Pre-V3 timing breakdown");
     const useFastFallback = !devMode && budget.isExpired();
 
-    let pipeline: ReturnType<typeof buildPlaylistPipeline>;
+    let pipeline: BuildPlaylistPipelineResult<(typeof likedSongs)[number]> & {
+      requestOrchestration?: RequestGenerationOrchestration;
+    };
     let fallbackReason: { stage: string; elapsedMs: number } | null = null;
     if (useFastFallback) {
       fallbackReason = {
@@ -1729,7 +1761,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         librarySize: constrainedFallbackTracks.length,
       });
     } else {
-      pipeline = buildPlaylistPipeline({
+      pipeline = runRequestLayerGeneration({
       pipelineLog: req.log,
       likedSongs,
       vibe: pipelineVibe,
@@ -2059,6 +2091,14 @@ router.post("/generate", async (req, res): Promise<void> => {
       pipeline.scoringDiagnostics?.v3Pipeline,
       vibe
     );
+    const promptDriftAudit = buildPromptDriftAudit(v3Diagnostics);
+    const feedbackDiagnostics = buildFeedbackDiagnostics(feedbackMemory, finalTracks);
+    if (promptDriftAudit["pass"] === false) {
+      req.log.warn(
+        { userId, vibe, promptDriftAudit, playlistQuality: v3Diagnostics?.["playlistQuality"] ?? null },
+        "Prompt drift audit warning"
+      );
+    }
     assertQualityConsistency(req.log, {
       tracks: finalTracks,
       diagnostics: v3Diagnostics,
@@ -2117,6 +2157,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         cacheHit: false,
         trackCount: finalTracks.length,
         poolSize: scoringPool.hybridPoolSize,
+        promptDriftAudit,
+        feedbackDiagnostics,
       },
       "Generation complete"
     );
@@ -2137,6 +2179,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       totalTracks: finalTracks.length,
       ...(fallbackReason ? { fallbackReason } : {}),
       generationMs,
+      cacheDiagnostics: {
+        status: cacheEntryStatus,
+        staleBypassed: cacheEntryStatus === "stale",
+      },
       stats: {
         trackCount: finalTracks.length,
         totalDurationMs,
@@ -2214,6 +2260,14 @@ router.post("/generate", async (req, res): Promise<void> => {
         : null,
       librarySyncHint,
       tracks: formatTracksForApi(finalTracks, emotionProfile),
+      feedbackDiagnostics,
+      promptDriftAudit,
+      requestOrchestration: pipeline.requestOrchestration ?? {
+        layer: "request",
+        candidateGenerator: fallbackReason ? "fast_fallback" : "v3",
+        selectionOwner: "request-layer",
+        repairOwner: "request-layer",
+      },
       sceneDetection: pipeline.ecosystemDebug
         ? {
             sceneId: pipeline.ecosystemDebug.sceneId,

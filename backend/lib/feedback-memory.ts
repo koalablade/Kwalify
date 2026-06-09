@@ -62,6 +62,22 @@ const EMPTY_FEEDBACK_MEMORY: FeedbackMemory = {
   sceneEmbeddings: [],
 };
 
+function emptyFeedbackMemory(): FeedbackMemory {
+  return {
+    badArtists: [],
+    badGenres: [],
+    badEnergyTypes: [],
+    badMoodMatches: [],
+    badBridges: [],
+    overplayedTracks: [],
+    skipCountByTrack: {},
+    saveCountByTrack: {},
+    artistAffinityGraph: {},
+    albumAffinityGraph: {},
+    sceneEmbeddings: [],
+  };
+}
+
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
@@ -198,6 +214,41 @@ function updateSceneEmbedding(
   memory.sceneEmbeddings = [scene, ...memory.sceneEmbeddings].slice(0, 120);
 }
 
+function decayCountMap(counts: Record<string, number>, factor: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [trackId, count] of Object.entries(counts)) {
+    const next = Math.round(count * factor * 100) / 100;
+    if (next >= 0.1) out[trackId] = next;
+  }
+  return out;
+}
+
+function decayMemory(memory: FeedbackMemory, daysElapsed: number): FeedbackMemory {
+  if (daysElapsed < 7) return memory;
+  const factor = Math.max(0.45, Math.pow(0.97, daysElapsed));
+  const decayed = {
+    ...memory,
+    skipCountByTrack: decayCountMap(memory.skipCountByTrack, factor),
+    saveCountByTrack: decayCountMap(memory.saveCountByTrack, factor),
+    artistAffinityGraph: { ...memory.artistAffinityGraph },
+    albumAffinityGraph: { ...memory.albumAffinityGraph },
+    sceneEmbeddings: memory.sceneEmbeddings.slice(0, 80),
+  };
+  for (const [key, node] of Object.entries(decayed.artistAffinityGraph)) {
+    decayed.artistAffinityGraph[key] = {
+      ...node,
+      score: clampAffinity(node.score * factor),
+    };
+  }
+  for (const [key, node] of Object.entries(decayed.albumAffinityGraph)) {
+    decayed.albumAffinityGraph[key] = {
+      ...node,
+      score: clampAffinity(node.score * factor),
+    };
+  }
+  return decayed;
+}
+
 function energyBucket(energy?: number | null): string | null {
   if (typeof energy !== "number") return null;
   if (energy <= 0.35) return "low";
@@ -206,7 +257,7 @@ function energyBucket(energy?: number | null): string | null {
 }
 
 function normalizeRow(row: typeof userFeedbackMemoryTable.$inferSelect | undefined): FeedbackMemory {
-  if (!row) return { ...EMPTY_FEEDBACK_MEMORY };
+  if (!row) return emptyFeedbackMemory();
   return {
     badArtists: asStringArray(row.badArtists),
     badGenres: asStringArray(row.badGenres),
@@ -228,7 +279,13 @@ export async function getFeedbackMemory(userId: string): Promise<FeedbackMemory>
     .from(userFeedbackMemoryTable)
     .where(eq(userFeedbackMemoryTable.userId, userId))
     .limit(1);
-  return normalizeRow(rows[0]);
+  const memory = normalizeRow(rows[0]);
+  const updatedAt = rows[0]?.updatedAt?.getTime?.() ?? Date.now();
+  const daysElapsed = Math.floor((Date.now() - updatedAt) / (24 * 60 * 60 * 1000));
+  if (rows[0] && daysElapsed >= 7) {
+    return saveFeedbackMemory(userId, decayMemory(memory, daysElapsed));
+  }
+  return memory;
 }
 
 async function saveFeedbackMemory(userId: string, memory: FeedbackMemory): Promise<FeedbackMemory> {
@@ -303,4 +360,40 @@ export async function onTrackSave(userId: string, track: FeedbackTrack, weight =
   updateAlbumAffinity(memory, track, 0.35 * weight);
   updateSceneEmbedding(memory, track);
   return saveFeedbackMemory(userId, memory);
+}
+
+export function buildFeedbackDiagnostics(
+  memory: FeedbackMemory | null,
+  tracks: Array<{ trackId: string; artistName?: string | null; albumName?: string | null }>,
+): Record<string, unknown> {
+  if (!memory) {
+    return { active: false, skippedTracksPenalized: 0, savedTracksBoosted: 0, artistsSuppressed: 0, artistsBoosted: 0 };
+  }
+  const skippedTracksPenalized = tracks.filter((track) => (memory.skipCountByTrack[track.trackId] ?? 0) > 0).length;
+  const savedTracksBoosted = tracks.filter((track) => (memory.saveCountByTrack[track.trackId] ?? 0) > 0).length;
+  const artistsSuppressed = tracks.filter((track) =>
+    !!track.artistName && (memory.artistAffinityGraph[track.artistName]?.score ?? 0) < 0
+  ).length;
+  const artistsBoosted = tracks.filter((track) =>
+    !!track.artistName && (memory.artistAffinityGraph[track.artistName]?.score ?? 0) > 0
+  ).length;
+  return {
+    active:
+      skippedTracksPenalized > 0 ||
+      savedTracksBoosted > 0 ||
+      artistsSuppressed > 0 ||
+      artistsBoosted > 0 ||
+      memory.badArtists.length > 0 ||
+      memory.overplayedTracks.length > 0,
+    skippedTracksPenalized,
+    savedTracksBoosted,
+    artistsSuppressed,
+    artistsBoosted,
+    badArtists: memory.badArtists.length,
+    badGenres: memory.badGenres.length,
+    overplayedTracks: memory.overplayedTracks.length,
+    artistAffinityNodes: Object.keys(memory.artistAffinityGraph).length,
+    albumAffinityNodes: Object.keys(memory.albumAffinityGraph).length,
+    sceneEmbeddingHints: memory.sceneEmbeddings.length,
+  };
 }

@@ -57,6 +57,14 @@ export function getCachedGenerateResult(
   return hit;
 }
 
+export function getGenerateCacheEntryStatus(key: string): "miss" | "fresh" | "stale" | "expired" {
+  const hit = cache.get(key);
+  if (!hit) return "miss";
+  if (hit.status === "stale") return "stale";
+  if (Date.now() - hit.cachedAt > GENERATE_RESULT_CACHE_TTL_MS) return "expired";
+  return "fresh";
+}
+
 export function setCachedGenerateResult(
   key: string,
   payload: CachedGeneratePayload
