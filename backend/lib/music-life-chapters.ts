@@ -25,12 +25,8 @@ const MS_DAY = 24 * 60 * 60 * 1000;
 
 function reservoirSample<T>(items: T[], k: number): T[] {
   if (items.length <= k) return items;
-  const out = items.slice(0, k);
-  for (let i = k; i < items.length; i++) {
-    const j = Math.floor(Math.random() * (i + 1));
-    if (j < k) out[j] = items[i]!;
-  }
-  return out;
+  const stride = items.length / k;
+  return Array.from({ length: k }, (_, idx) => items[Math.floor(idx * stride)]!);
 }
 
 function monthKey(d: Date): string {

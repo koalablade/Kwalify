@@ -257,11 +257,6 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
   );
 
   const pool = structured.slice(0, poolTarget);
-  const halfLen = Math.floor(pool.length / 2);
-  for (let i = halfLen - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]!];
-  }
   const shuffledStructured = [...pool, ...structured.slice(poolTarget)];
 
   const afterDeadZone = filterDeadZones(shuffledStructured, playlistLength);

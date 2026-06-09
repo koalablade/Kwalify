@@ -1,23 +1,13 @@
 /**
- * V3.1+ Adaptive Cluster-Aware Interleaver
+ * V3.1+ Cluster-Aware Interleaver
  *
- * Extends the V3 round-robin with cluster awareness and dynamic lane
- * reweighting during interleaving.
- *
- * Key upgrades over V3:
- *   - Interleaves across lanes AND clusters AND energy bands
- *   - Detects three mid-generation states and responds:
- *       repetition detected → boost CONTRAST lane probability
- *       chaos detected      → boost CORE lane probability
- *       monotony detected   → boost EXPLORATION lane probability
- *   - Allows short same-genre runs for musical flow; only breaks long runs
- *   - Cluster spread tracked — if single cluster dominates, inject from others
+ * Merges already-sampled lanes into a listening order. It does not rescore,
+ * filter, boost, or replace tracks selected by the sampler.
  */
 
 import type { Lane } from "./lane-router";
 import type { ScorerTrack } from "./lane-scorer";
 import type { EraBucket } from "../../lib/intent-parser";
-import { computeDiversityMetrics, createDiversityWindow, updateDiversityWindow } from "./global-diversity-controller";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -51,84 +41,6 @@ export interface InterleavableLaneResult<T extends ScorerTrack> {
     laneEra: EraBucket;
     clusterIds: string[];
   }>;
-}
-
-type EnergyBand = "low" | "mid" | "high";
-
-function energyBand(energy: number | null): EnergyBand {
-  const e = energy ?? 0.50;
-  if (e < 0.40) return "low";
-  if (e < 0.70) return "mid";
-  return "high";
-}
-
-// ── State detection ──────────────────────────────────────────────────────────
-
-type GenerationState = "stable" | "repetition" | "chaos" | "monotony";
-
-function detectGenerationState(
-  recent: Array<{ genre: string; energy: number | null; sourceLane: string }>,
-): GenerationState {
-  if (recent.length < 4) return "stable";
-
-  const genres  = recent.map((t) => t.genre);
-  const bands   = recent.map((t) => energyBand(t.energy));
-  const lanes   = recent.map((t) => t.sourceLane);
-
-  const uniqueGenres = new Set(genres).size;
-  const uniqueBands  = new Set(bands).size;
-  const uniqueLanes  = new Set(lanes).size;
-
-  const genreRatio = uniqueGenres / genres.length;
-  const laneRatio  = uniqueLanes  / lanes.length;
-
-  if (genreRatio < 0.22 && uniqueBands === 1) return "repetition";
-  if (genreRatio > 0.92 && uniqueBands === 3) return "chaos";
-  if (uniqueBands === 1 && laneRatio < 0.20)  return "monotony";
-  return "stable";
-}
-
-// ── Dynamic lane weight adjustment ──────────────────────────────────────────
-
-function applyStateBoost(
-  baseWeights: Record<string, number>,
-  state: GenerationState,
-  laneIds: string[],
-): { weights: Record<string, number>; boosted: string | null } {
-  if (state === "stable") return { weights: baseWeights, boosted: null };
-
-  const adjusted = { ...baseWeights };
-  let boosted: string | null = null;
-
-  const hasLane = (partial: string) => laneIds.find((id) => id.includes(partial));
-
-  if (state === "repetition") {
-    const targetId = hasLane("contrast") ?? hasLane("exploration");
-    if (targetId) {
-      adjusted[targetId] = Math.min(0.60, (adjusted[targetId] ?? 0) + 0.08);
-      boosted = targetId;
-    }
-  } else if (state === "chaos") {
-    const targetId = hasLane("core");
-    if (targetId) {
-      adjusted[targetId] = Math.min(0.70, (adjusted[targetId] ?? 0) + 0.12);
-      boosted = targetId;
-    }
-  } else if (state === "monotony") {
-    const targetId = hasLane("exploration") ?? hasLane("contrast");
-    if (targetId) {
-      adjusted[targetId] = Math.min(0.60, (adjusted[targetId] ?? 0) + 0.08);
-      boosted = targetId;
-    }
-  }
-
-  // Re-normalise
-  const total = Object.values(adjusted).reduce((s, v) => s + v, 0);
-  if (total > 0) {
-    for (const k of Object.keys(adjusted)) adjusted[k] = adjusted[k]! / total;
-  }
-
-  return { weights: adjusted, boosted };
 }
 
 // ── Slot allocation ──────────────────────────────────────────────────────────
@@ -168,20 +80,6 @@ function shannonEntropy(arr: string[]): number {
   return -Object.values(counts).reduce((s, c) => s + (c / n) * Math.log2(c / n), 0);
 }
 
-function trailingRunLength<T extends { sourceLane?: string; genrePrimary?: string }>(
-  tracks: T[],
-  key: "sourceLane" | "genrePrimary",
-): number {
-  const last = tracks[tracks.length - 1]?.[key];
-  if (!last) return 0;
-  let count = 0;
-  for (let i = tracks.length - 1; i >= 0; i--) {
-    if (tracks[i]?.[key] !== last) break;
-    count++;
-  }
-  return count;
-}
-
 // ── Main interleaver ─────────────────────────────────────────────────────────
 
 export function interleaveLanes<T extends ScorerTrack>(
@@ -203,8 +101,8 @@ export function interleaveLanes<T extends ScorerTrack>(
   type OutTrack = T & InterleavedTrack<T>;
 
   const laneIds = lanes.map((l) => l.id);
-  let currentWeights: Record<string, number> = {};
-  for (const l of lanes) currentWeights[l.id] = l.weight;
+  const laneWeights: Record<string, number> = {};
+  for (const l of lanes) laneWeights[l.id] = l.weight;
 
   const queues = new Map<string, Array<T & {
     laneScore: number;
@@ -217,60 +115,17 @@ export function interleaveLanes<T extends ScorerTrack>(
   }
 
   const debt = new Map<string, number>();
-  const initialSlots = allocateSlots(lanes, currentWeights, targetCount);
+  const initialSlots = allocateSlots(lanes, laneWeights, targetCount);
   for (const [id, slots] of Object.entries(initialSlots)) debt.set(id, slots);
 
   const usedIds = new Set<string>();
   const result: OutTrack[] = [];
-  const divWindow = createDiversityWindow();
-  let diversityWindowState = divWindow;
-
-  // Diagnostic counters
-  let repetitionEvents = 0;
-  let chaosEvents      = 0;
-  let monotonyEvents   = 0;
-  const laneBoostEvents: Record<string, number> = {};
 
   let round = 0;
   let stuckGuard = 0;
-  const WINDOW_SIZE = 6;
 
   while (result.length < targetCount && stuckGuard < targetCount * laneIds.length * 3) {
     stuckGuard++;
-
-    // Every 6 tracks: check generation state and possibly reweight
-    if (result.length > 0 && result.length % WINDOW_SIZE === 0) {
-      const recent = result.slice(-WINDOW_SIZE).map((t) => ({
-        genre: t.genrePrimary,
-        energy: t.energy,
-        sourceLane: t.sourceLane,
-      }));
-      const state = detectGenerationState(recent);
-
-      if (state !== "stable") {
-        const { weights: newWeights, boosted } = applyStateBoost(
-          currentWeights, state, laneIds,
-        );
-        currentWeights = newWeights;
-
-        if (state === "repetition") repetitionEvents++;
-        if (state === "chaos")      chaosEvents++;
-        if (state === "monotony")   monotonyEvents++;
-
-        if (boosted) {
-          laneBoostEvents[boosted] = (laneBoostEvents[boosted] ?? 0) + 1;
-          // Redistribute remaining debt based on new weights
-          const remainingSlots = targetCount - result.length;
-          const newDebt = allocateSlots(lanes, currentWeights, remainingSlots);
-          // Only update lanes that still have tracks available
-          for (const [id, newSlot] of Object.entries(newDebt)) {
-            if ((queues.get(id)?.length ?? 0) > 0) {
-              debt.set(id, newSlot);
-            }
-          }
-        }
-      }
-    }
 
     let found = false;
     for (let attempt = 0; attempt < laneIds.length; attempt++) {
@@ -281,26 +136,9 @@ export function interleaveLanes<T extends ScorerTrack>(
       const queue = queues.get(laneId) ?? [];
       let picked: (T & { laneScore: number; genrePrimary: string; laneEra: EraBucket; clusterIds: string[] }) | null = null;
 
-      // Skip candidate if it would worsen a bad state
-      const metrics = computeDiversityMetrics(diversityWindowState);
-
       for (let q = 0; q < queue.length; q++) {
         const candidate = queue[q]!;
         if (usedIds.has(candidate.trackId)) continue;
-
-        // Soft skip — if artist already appeared twice in window, prefer others
-        const artistCount = diversityWindowState.artistWindow.filter(
-          (a) => a === candidate.artistName,
-        ).length;
-        if (artistCount >= 2 && queue.length > 4) continue;
-
-        // Soft skip — if dominant genre still at saturation, prefer others
-        if (
-          metrics.genreConcentration > 0.62 &&
-          metrics.dominantGenre &&
-          candidate.genrePrimary === metrics.dominantGenre &&
-          queue.length > 3
-        ) continue;
 
         picked = candidate;
         queue.splice(q, 1);
@@ -335,21 +173,7 @@ export function interleaveLanes<T extends ScorerTrack>(
 
       usedIds.add(picked.trackId);
       debt.set(laneId, remaining - 1);
-
-      diversityWindowState = updateDiversityWindow(diversityWindowState, {
-        genre:  picked.genrePrimary,
-        era:    picked.laneEra,
-        artist: picked.artistName,
-        energy: picked.energy ?? 0.50,
-        lane:   laneId,
-      });
-
-      const laneRun = trailingRunLength(result, "sourceLane");
-      const dominantLaneWeight = currentWeights[laneId] ?? 0;
-      round =
-        dominantLaneWeight >= 0.55 && laneRun < 4
-          ? (round + attempt) % laneIds.length
-          : (round + attempt + 1) % laneIds.length;
+      round = (round + attempt + 1) % laneIds.length;
       found = true;
       break;
     }
@@ -357,56 +181,29 @@ export function interleaveLanes<T extends ScorerTrack>(
     if (!found) break;
   }
 
-  const stabilized = stabilizeGenreRuns(result);
-
   const laneContributions: Record<string, number> = {};
-  for (const t of stabilized) {
+  for (const t of result) {
     laneContributions[t.sourceLane] = (laneContributions[t.sourceLane] ?? 0) + 1;
   }
 
   const finalLaneUsageRatios: Record<string, number> = {};
-  const total = stabilized.length || 1;
+  const total = result.length || 1;
   for (const [id, count] of Object.entries(laneContributions)) {
     finalLaneUsageRatios[id] = Math.round((count / total) * 1000) / 1000;
   }
 
-  const genreEntropy = shannonEntropy(stabilized.map((t) => t.genrePrimary));
+  const genreEntropy = shannonEntropy(result.map((t) => t.genrePrimary));
 
   return {
-    tracks: stabilized,
+    tracks: result,
     laneContributions,
     interleaverDiagnostics: {
-      repetitionEvents,
-      chaosEvents,
-      monotonyEvents,
-      laneBoostEvents,
+      repetitionEvents: 0,
+      chaosEvents: 0,
+      monotonyEvents: 0,
+      laneBoostEvents: {},
       finalLaneUsageRatios,
       entropyAtCompletion: Math.round(genreEntropy * 1000) / 1000,
     },
   };
-}
-
-// ── Genre-run stabilisation (max 2 consecutive same genre) ──────────────────
-
-function stabilizeGenreRuns<T extends { trackId: string; genrePrimary: string; sourceLane: string }>(
-  tracks: T[],
-): T[] {
-  if (tracks.length < 5) return tracks;
-  const result = [...tracks];
-  const maxRun = 4;
-  for (let idx = maxRun; idx < result.length; idx++) {
-    const current = result[idx]?.genrePrimary;
-    const isLongRun =
-      !!current &&
-      result.slice(idx - maxRun, idx + 1).every((t) => t.genrePrimary === current);
-    if (isLongRun) {
-      const swapIdx = result.findIndex((t, j) => j > idx && t.genrePrimary !== current);
-      if (swapIdx > idx) {
-        const tmp = result[idx]!;
-        result[idx] = result[swapIdx]!;
-        result[swapIdx] = tmp;
-      }
-    }
-  }
-  return result;
 }

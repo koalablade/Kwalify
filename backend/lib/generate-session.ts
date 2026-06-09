@@ -27,6 +27,7 @@ type SessionState = {
 
 const sessions = new Map<string, SessionState>();
 const MAX_SESSIONS = 500;
+let requestSequence = 0;
 
 const ACTIVE_PHASES = new Set<GeneratePhase>([
   "starting",
@@ -50,6 +51,11 @@ function evictIfNeeded(): void {
   for (let i = 0; i < 50; i++) sessions.delete(sorted[i]![0]);
 }
 
+function nextRequestId(userId: string): string {
+  requestSequence = (requestSequence + 1) % Number.MAX_SAFE_INTEGER;
+  return `${Date.now().toString(36)}-${requestSequence.toString(36)}-${userId.length.toString(36)}`;
+}
+
 /**
  * Start a generate session. Returns null if another generate is in flight (unless force).
  */
@@ -63,7 +69,7 @@ export function acquireGenerateSession(
   }
   if (existing) existing.cancelled = true;
 
-  const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const requestId = nextRequestId(userId);
   sessions.set(userId, {
     requestId,
     startedAt: Date.now(),

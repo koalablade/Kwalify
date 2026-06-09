@@ -1,12 +1,7 @@
 /**
  * V3.1+ Global Diversity Controller
  *
- * Tracks a rolling window of the last 30 selected tracks and applies
- * soft score penalties when diversity thresholds are exceeded.
- *
- * This is SOFT enforcement only — tracks are never removed from the pool.
- * When thresholds are breached a penalty multiplier (0.55–0.85) is applied
- * to the laneScore of similar candidates, making diverse choices more likely.
+ * Tracks a rolling window of selected tracks for diagnostics only.
  *
  * Tracked dimensions:
  *   genreWindow    — genre of last 30 tracks
@@ -15,14 +10,7 @@
  *   energyWindow   — energy value (for curve slope calculation)
  *   laneWindow     — source lane (for lane saturation detection)
  *
- * Thresholds (soft):
- *   genre  > 55% of window → penalty 0.82
- *   era    > 55% of window → penalty 0.88
- *   artist ≥ 2 in last 12  → penalty 0.55
- *   lane   > 80% of window → adjusted lane weight suggestion
  */
-
-import type { LaneScoredTrack, ScorerTrack } from "./lane-scorer";
 
 // ── Genre family map ─────────────────────────────────────────────────────────
 // Groups subgenres into coarse families so family-level concentration can be
@@ -115,13 +103,6 @@ export interface DiversityMetrics {
   clusterCollapseIndex: number;
   explorationPressure:  number;
   driftState:           "stable" | "genre_drift" | "era_drift" | "lane_drift" | "artist_collapse" | "multi_drift";
-  suggestedLaneBoosts:  Partial<Record<string, number>>;
-}
-
-export interface DiversityPenaltyResult<T extends ScorerTrack> {
-  scoredTracks: LaneScoredTrack<T>[];
-  penaltiesApplied: number;
-  penaltyReasons: string[];
 }
 
 const WINDOW_SIZE        = 30;
@@ -245,24 +226,6 @@ export function computeDiversityMetrics(window: DiversityWindow): DiversityMetri
   if (driftFlags.length >= 2)         driftState = "multi_drift";
   else if (driftFlags[0])             driftState = driftFlags[0] as DiversityMetrics["driftState"];
 
-  // Build lane boost suggestions when drift detected
-  const suggestedLaneBoosts: Partial<Record<string, number>> = {};
-
-  if (genreInfo.ratio > 0.65 || laneInfo.ratio > 0.85) {
-    suggestedLaneBoosts["lane_contrast"]    = 0.08;
-    suggestedLaneBoosts["lane_exploration"] = 0.06;
-  }
-  if (artistIdx > 0.30) {
-    suggestedLaneBoosts["lane_exploration"] = (suggestedLaneBoosts["lane_exploration"] ?? 0) + 0.10;
-  }
-  if (Math.abs(slope) > 0.15) {
-    if (slope > 0) {
-      suggestedLaneBoosts["lane_ambient_fallback"] = 0.10;
-    } else {
-      suggestedLaneBoosts["lane_motion_high"] = 0.10;
-    }
-  }
-
   return {
     genreConcentration:   Math.round(genreInfo.ratio  * 1000) / 1000,
     eraConcentration:     Math.round(eraInfo.ratio    * 1000) / 1000,
@@ -275,124 +238,5 @@ export function computeDiversityMetrics(window: DiversityWindow): DiversityMetri
     clusterCollapseIndex: Math.round(collapseIdx      * 1000) / 1000,
     explorationPressure:  Math.round(explorationP     * 1000) / 1000,
     driftState,
-    suggestedLaneBoosts,
   };
-}
-
-// ── Penalty application ──────────────────────────────────────────────────────
-
-/**
- * Apply soft score penalties to candidates that would worsen diversity.
- * NEVER removes tracks — only multiplies scores downward.
- */
-export function applyDiversityPenalties<T extends ScorerTrack>(
-  scored: LaneScoredTrack<T>[],
-  window: DiversityWindow,
-  genreByTrack: (trackId: string) => string,
-): DiversityPenaltyResult<T> {
-  const metrics = computeDiversityMetrics(window);
-  let penaltiesApplied = 0;
-  const penaltyReasons: string[] = [];
-
-  // Pre-compute genre family counts across the current diversity window so we
-  // can apply a family-level penalty in O(1) per track.
-  const familyCounts: Record<string, number> = {};
-  for (const g of window.genreWindow) {
-    const fam = getGenreFamily(g);
-    familyCounts[fam] = (familyCounts[fam] ?? 0) + 1;
-  }
-  const windowSize = Math.max(1, window.genreWindow.length);
-
-  const adjusted = scored.map((item) => {
-    const genre  = genreByTrack(item.track.trackId);
-    const artist = item.track.artistName;
-    let multiplier = 1.0;
-
-    if (
-      metrics.dominantGenre &&
-      genre === metrics.dominantGenre &&
-      metrics.genreConcentration > 0.55
-    ) {
-      multiplier = Math.min(multiplier, 0.82);
-      penaltiesApplied++;
-      if (!penaltyReasons.includes("genre_concentration")) {
-        penaltyReasons.push("genre_concentration");
-      }
-    }
-
-    // Family-level concentration penalty is intentionally gentle: a strong
-    // genre identity should persist unless the family fully collapses the set.
-    const genreFamily = getGenreFamily(genre);
-    const familyRatio = (familyCounts[genreFamily] ?? 0) / windowSize;
-    if (familyRatio > 0.78 && genreFamily !== genre) {
-      multiplier = Math.min(multiplier, 0.88);
-      penaltiesApplied++;
-      if (!penaltyReasons.includes("genre_family_concentration")) {
-        penaltyReasons.push("genre_family_concentration");
-      }
-    }
-
-    if (
-      metrics.dominantEra &&
-      item.era === metrics.dominantEra &&
-      metrics.eraConcentration > 0.55
-    ) {
-      multiplier = Math.min(multiplier, 0.88);
-      penaltiesApplied++;
-      if (!penaltyReasons.includes("era_concentration")) {
-        penaltyReasons.push("era_concentration");
-      }
-    }
-
-    const artistCountInWindow = window.artistWindow.filter((a) => a === artist).length;
-    if (artistCountInWindow >= 2) {
-      multiplier = Math.min(multiplier, 0.55);
-      penaltiesApplied++;
-      if (!penaltyReasons.includes("artist_repeat")) {
-        penaltyReasons.push("artist_repeat");
-      }
-    }
-
-    if (multiplier < 1.0) {
-      return { ...item, laneScore: Math.max(0, item.laneScore * multiplier) };
-    }
-    return item;
-  });
-
-  return { scoredTracks: adjusted, penaltiesApplied, penaltyReasons };
-}
-
-// ── Lane weight correction ────────────────────────────────────────────────────
-
-/**
- * Returns adjusted lane weights based on current diversity state.
- * This is the "dynamic reweighting" the spec requires.
- * Never reduces any lane below 5% — always returns normalised weights.
- */
-export function computeAdjustedLaneWeights(
-  laneWeights: Record<string, number>,
-  metrics: DiversityMetrics,
-): Record<string, number> {
-  if (metrics.driftState === "stable") return laneWeights;
-
-  const adjusted = { ...laneWeights };
-
-  for (const [laneId, boost] of Object.entries(metrics.suggestedLaneBoosts)) {
-    if (adjusted[laneId] !== undefined && boost !== undefined) {
-      adjusted[laneId] = Math.min(0.80, adjusted[laneId]! + boost);
-    }
-  }
-
-  const total = Object.values(adjusted).reduce((s, v) => s + v, 0);
-  if (total > 0) {
-    for (const key of Object.keys(adjusted)) {
-      adjusted[key] = Math.max(0.03, adjusted[key]! / total);
-    }
-    const newTotal = Object.values(adjusted).reduce((s, v) => s + v, 0);
-    for (const key of Object.keys(adjusted)) {
-      adjusted[key] = adjusted[key]! / newTotal;
-    }
-  }
-
-  return adjusted;
 }

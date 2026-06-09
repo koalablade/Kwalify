@@ -102,12 +102,9 @@ function topLabels(labels: string[]): string[] {
 }
 
 function reservoirSample<T>(arr: T[], k: number): T[] {
-  const result = arr.slice(0, k);
-  for (let i = k; i < arr.length; i++) {
-    const j = Math.floor(Math.random() * (i + 1));
-    if (j < k) result[j] = arr[i]!;
-  }
-  return result;
+  if (arr.length <= k) return arr;
+  const stride = arr.length / k;
+  return Array.from({ length: k }, (_, idx) => arr[Math.floor(idx * stride)]!);
 }
 
 /** No single micro-cluster > cap% of playlist */

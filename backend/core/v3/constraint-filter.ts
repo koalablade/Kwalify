@@ -1,4 +1,4 @@
-import type { LockedIntent } from "./intent";
+import { eraRangeFromBucket, normalizeLockedGenreFamily, type LockedIntent } from "./intent";
 import type { ScoredTrack } from "./v3-score";
 
 export interface FilterContext {
@@ -33,6 +33,27 @@ function eraFromBucket(bucket?: string | null): number | null {
     "20s": 2025,
   };
   return bucket ? ranges[bucket] ?? null : null;
+}
+
+function genreFamilyAllowed(track: ConstraintTrackLike, intent: LockedIntent): boolean {
+  const lockedFamilies = intent.genreFamilies
+    .map(normalizeLockedGenreFamily)
+    .filter((family): family is string => !!family);
+  if (lockedFamilies.length === 0) return true;
+  const candidateFamily =
+    normalizeLockedGenreFamily(track.genreFamily) ??
+    normalizeLockedGenreFamily(track.genrePrimary);
+  return !!candidateFamily && lockedFamilies.includes(candidateFamily);
+}
+
+function eraAllowed(track: ConstraintTrackLike, intent: LockedIntent): boolean {
+  if (!intent.eraRange) return true;
+  if (track.releaseYear !== null && track.releaseYear !== undefined) {
+    return track.releaseYear >= intent.eraRange.start && track.releaseYear <= intent.eraRange.end;
+  }
+  const bucketRange = eraRangeFromBucket(track.laneEra);
+  if (!bucketRange) return true;
+  return bucketRange.end >= intent.eraRange.start && bucketRange.start <= intent.eraRange.end;
 }
 
 function moodCompatible(track: ConstraintTrackLike, mood: string[]): boolean {
@@ -73,23 +94,24 @@ function activityCompatible(track: ConstraintTrackLike, intent: LockedIntent): b
   return activityMatch && energyMatch;
 }
 
+export function trackMatchesConstraints(track: ConstraintTrackLike, intent: LockedIntent): boolean {
+  const center = eraCenter(intent);
+  if (!genreFamilyAllowed(track, intent)) return false;
+  if (!eraAllowed(track, intent)) return false;
+
+  if (center !== null) {
+    const year = track.releaseYear ?? eraFromBucket(track.laneEra);
+    if (year !== null && Math.abs(year - center) > 15) return false;
+  }
+
+  if (!moodCompatible(track, intent.mood)) return false;
+  if (!activityCompatible(track, intent)) return false;
+  return true;
+}
+
 export function filterCandidates<TTrack extends ConstraintTrackLike>(
   tracks: Array<ScoredTrack<TTrack>>,
   ctx: FilterContext
 ): Array<ScoredTrack<TTrack>> {
-  const primaryFamily = ctx.intent.genreFamilies[0] ?? null;
-  const center = eraCenter(ctx.intent);
-  return tracks.filter(({ track }) => {
-    const family = track.genreFamily ?? track.genrePrimary ?? null;
-    if (primaryFamily && family !== primaryFamily) return false;
-
-    if (center !== null) {
-      const year = track.releaseYear ?? eraFromBucket(track.laneEra);
-      if (year !== null && Math.abs(year - center) > 15) return false;
-    }
-
-    if (!moodCompatible(track, ctx.intent.mood)) return false;
-    if (!activityCompatible(track, ctx.intent)) return false;
-    return true;
-  });
+  return tracks.filter(({ track }) => trackMatchesConstraints(track, ctx.intent));
 }

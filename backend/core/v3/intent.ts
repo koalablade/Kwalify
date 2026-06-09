@@ -1,3 +1,5 @@
+import { getGenreFamily } from "./global-diversity-controller";
+
 export interface LockedIntent {
   genreFamilies: string[];
   eraRange: { start: number; end: number } | null;
@@ -18,6 +20,16 @@ const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "soul", terms: ["soul", "funk", "motown"] },
   { family: "latin", terms: ["latin", "reggaeton", "salsa", "bachata"] },
 ];
+
+const ERA_BUCKET_RANGES: Record<string, { start: number; end: number }> = {
+  "60s": { start: 1960, end: 1969 },
+  "70s": { start: 1970, end: 1979 },
+  "80s": { start: 1980, end: 1989 },
+  "90s": { start: 1990, end: 1999 },
+  "00s": { start: 2000, end: 2009 },
+  "10s": { start: 2010, end: 2019 },
+  "20s": { start: 2020, end: 2029 },
+};
 
 function matchesTerm(input: string, term: string): boolean {
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
@@ -42,6 +54,15 @@ function parseEra(input: string): { start: number; end: number } | null {
 
   const year = input.match(/\b(19\d{2}|20\d{2})\b/)?.[1];
   return year ? { start: Number(year), end: Number(year) } : null;
+}
+
+export function eraRangeFromBucket(bucket?: string | null): { start: number; end: number } | null {
+  return bucket ? ERA_BUCKET_RANGES[bucket] ?? null : null;
+}
+
+export function normalizeLockedGenreFamily(value?: string | null): string | null {
+  if (!value || value === "unknown") return null;
+  return getGenreFamily(value.toLowerCase());
 }
 
 export function buildLockedIntent(input: string): LockedIntent {

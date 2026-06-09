@@ -104,9 +104,6 @@ import {
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
 import { buildLockedIntent as buildCsspLockedIntent } from "../core/v3/intent";
-import { scoreTracks as scoreCsspCandidates } from "../core/v3/v3-score";
-import { filterCandidates as filterCsspCandidates } from "../core/v3/constraint-filter";
-import { pickAndOrder as pickAndOrderCsspTracks } from "../core/v3/playlist-engine";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
@@ -842,120 +839,11 @@ function trackPassesLockedIntent(
   return moodOrActivityMatch;
 }
 
-function orderForListeningFlow<T extends ConstraintTrack>(tracks: T[]): T[] {
-  return [...tracks].sort((a, b) => {
-    const genreCompare = (a.genrePrimary ?? "unknown").localeCompare(b.genrePrimary ?? "unknown");
-    if (genreCompare !== 0) return genreCompare;
-    const eraCompare = (trackYearEstimate(a) ?? 9999) - (trackYearEstimate(b) ?? 9999);
-    if (Math.abs(eraCompare) > 5) return eraCompare;
-    const energyCompare = (a.energy ?? 0.5) - (b.energy ?? 0.5);
-    if (Math.abs(energyCompare) > 0.08) return energyCompare;
-    return (a.tempo ?? 110) - (b.tempo ?? 110);
-  });
-}
-
 function hasHardConstraints(constraints: ConstraintLayer): boolean {
   return constraints.hard.genres.length > 0 ||
     constraints.hard.excludedGenres.length > 0 ||
     constraints.hard.eraStart !== null ||
     constraints.hard.strictLock;
-}
-
-function applyConstraintLayer<T extends ConstraintTrack>(opts: {
-  rankedCandidates: T[];
-  constraints: ConstraintLayer;
-  lockedIntent: LockedIntent;
-  classMap: Map<string, {
-    genrePrimary: string;
-    genreFamily: string;
-    primarySubgenre: string;
-    secondarySubgenre: string | null;
-    subGenres: string[];
-  }>;
-  targetCount: number;
-  seed: string;
-  log: import("pino").Logger;
-}): { tracks: T[]; filteredCount: number; diversityWarning: boolean } {
-  if (opts.rankedCandidates.length === 0) {
-    return { tracks: [], filteredCount: 0, diversityWarning: false };
-  }
-
-  const beforeCount = opts.rankedCandidates.length;
-  const lockedFamily =
-    opts.lockedIntent.primaryGenres[0] ??
-    dominantGenreFamily(opts.rankedCandidates, opts.classMap);
-  const csspCandidates = scoreCsspCandidates(
-    opts.rankedCandidates.map((track) => {
-      const classification = opts.classMap.get(track.trackId);
-      return {
-        ...track,
-        genreFamily: classification?.genreFamily ?? classification?.genrePrimary ?? track.genrePrimary ?? "unknown",
-        primarySubgenre: classification?.primarySubgenre ?? null,
-      };
-    })
-  );
-  const csspFilteredIds = new Set(
-    filterCsspCandidates(csspCandidates, { intent: opts.lockedIntent })
-      .map((candidate) => candidate.trackId)
-  );
-  let bridgeUsed = false;
-  const kept: T[] = [];
-  for (const track of opts.rankedCandidates) {
-    if (!csspFilteredIds.has(track.trackId)) continue;
-    const boundary = passesGenreGraphBoundary(track, {
-      lockedFamily,
-      constraints: opts.constraints,
-      lockedIntent: opts.lockedIntent,
-      classMap: opts.classMap,
-      bridgeUsed,
-    });
-    if (!boundary.pass) continue;
-    if (!trackMatchesHardConstraints(track, opts.constraints, opts.classMap)) continue;
-    if (!trackPassesLockedIntent(track, opts.lockedIntent, opts.constraints, opts.classMap)) continue;
-    kept.push(track);
-    if (boundary.bridge) bridgeUsed = true;
-  }
-  const minTarget = Math.min(opts.targetCount, 25);
-  const genreCount = new Set(kept.map((track) => track.genrePrimary ?? "unknown")).size;
-  const artistCount = new Set(kept.map((track) => track.artistName.toLowerCase())).size;
-  const keptIds = new Set(kept.map((track) => track.trackId));
-  const sampled = pickAndOrderCsspTracks(
-    csspCandidates.filter((candidate) => keptIds.has(candidate.trackId)),
-    {
-      diversityRatio: { core: 0.7, secondary: 0.2, exploration: 0.1 },
-      targetCount: opts.targetCount,
-      seed: opts.seed,
-    },
-    opts.lockedIntent
-  ).map((candidate) => candidate.track as T);
-  const diversityWarning = sampled.length < minTarget || genreCount <= 1 || artistCount < Math.min(sampled.length, 8);
-
-  if (sampled.length === 0) {
-    opts.log.warn(
-      { constraints: opts.constraints, beforeCount },
-      "Constraint layer filtered all tracks"
-    );
-    return { tracks: [], filteredCount: beforeCount, diversityWarning: true };
-  }
-
-  opts.log.info(
-    {
-      constraints: opts.constraints,
-      lockedFamily,
-      bridgeUsed,
-      beforeCount,
-      validPool: kept.length,
-      afterCount: sampled.length,
-      filteredCount: beforeCount - kept.length,
-      diversityWarning,
-    },
-    "Constraint layer applied"
-  );
-  return {
-    tracks: sampled,
-    filteredCount: beforeCount - kept.length,
-    diversityWarning,
-  };
 }
 
 function validateLockedIntentOutput(
@@ -1890,17 +1778,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     warnIfFieldDropped("laneScore", pipeline.finalTracks, finalTracks, "create-playlist-to-controller");
     warnIfFieldDropped("clusterIds", pipeline.finalTracks, finalTracks, "create-playlist-to-controller");
-    const sorted = pipeline.sorted;
-    let constraintResult = applyConstraintLayer({
-      rankedCandidates: sorted as PlaylistTrack[],
-      constraints: constraintLayer,
-      lockedIntent,
-      classMap: userGenreProfile.trackClassifications,
-      targetCount: length,
-      seed: `${userId}:${requestId}:${vibe}:${startMs}`,
-      log: req.log,
-    });
-    finalTracks = constraintResult.tracks as PlaylistTrack[];
     let finalValidation = validateLockedIntentOutput(
       finalTracks,
       lockedIntent,
@@ -2352,8 +2229,8 @@ router.post("/generate", async (req, res): Promise<void> => {
                 lockedIntent,
                 finalValidation,
                 result: {
-                  filteredCount: constraintResult.filteredCount,
-                  diversityWarning: constraintResult.diversityWarning,
+                  filteredCount: 0,
+                  diversityWarning: false,
                   finalCount: finalTracks.length,
                 },
               },

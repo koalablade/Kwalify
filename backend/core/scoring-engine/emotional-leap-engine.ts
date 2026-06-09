@@ -1,5 +1,5 @@
 /**
- * Emotional leap — controlled chaos (5–12% of playlist) via small score nudges.
+ * Emotional leap metadata — identifies possible bridge moments without changing scores.
  */
 
 import type { RootGenre, TrackGenreClassification } from "../../lib/genre-taxonomy";
@@ -45,15 +45,6 @@ export interface EmotionalLeapContext {
   leapProbability: number;
   playlistLength: number;
   seed: number;
-}
-
-const LEAP_NUDGE_MIN = 0.05;
-const LEAP_NUDGE_MAX = 0.1;
-
-function seededUnit(seed: string, salt: number): number {
-  let h = salt;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
-  return ((h & 0xffff) / 0xffff);
 }
 
 function isGenreAllowedForLeap(
@@ -105,8 +96,7 @@ function pickLeapType(
     return { type: "adjacent_genre_bridge", reason: `${anchorFam}_to_${fam}` };
   }
 
-  const r = seededUnit(track.trackId, ctx.seed);
-  if (r > 0.7 && sceneFit > 0.5) {
+  if ((ctx.emotionProfile.nostalgia ?? 0) > 0.35 && sceneFit > 0.5) {
     return { type: "nostalgia_injection", reason: "nostalgia_adjacent" };
   }
 
@@ -146,7 +136,7 @@ export function applyEmotionalLeaps<T extends {
     if (!isGenreAllowedForLeap(fam, anchorFam, ctx.sceneRouting)) continue;
 
     const sceneFit = sceneMatchScore(sceneCtx, ctx.emotionProfile, toSceneAudioTrack(track));
-    const priority = sceneFit * 0.6 + seededUnit(track.trackId, ctx.seed + 7) * 0.4;
+    const priority = sceneFit;
     candidates.push({ track, leap, priority });
   }
 
@@ -156,16 +146,13 @@ export function applyEmotionalLeaps<T extends {
   const out = tracks.map((t) => {
     const sel = selected.find((s) => s.track.trackId === t.trackId);
     if (!sel) return t;
-    const nudge =
-      LEAP_NUDGE_MIN +
-      (LEAP_NUDGE_MAX - LEAP_NUDGE_MIN) * seededUnit(t.trackId, ctx.seed + 13);
     leaps.push({
       trackId: t.trackId,
       leapType: sel.leap.type,
-      scoreNudge: Math.round(nudge * 1000) / 1000,
+      scoreNudge: 0,
       reason: sel.leap.reason,
     });
-    return { ...t, score: t.score + nudge };
+    return t;
   });
 
   return { tracks: out, leaps };
