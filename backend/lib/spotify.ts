@@ -24,6 +24,7 @@ export interface SpotifyTrack {
   popularity?: number;
   artists: Array<{ id?: string; name: string }>;
   album: {
+    id?: string;
     name: string;
     release_date?: string;
     genres?: string[];
@@ -39,6 +40,11 @@ export type EnrichedTrack = SpotifyTrack & {
   albumGenres?: string[];
   popularity?: number;
   releaseYear?: number | null;
+};
+
+export type AlbumMetadata = {
+  genres: string[];
+  releaseYear: number | null;
 };
 
 function releaseYearFromDate(value?: string): number | null {
@@ -72,19 +78,51 @@ export async function fetchArtistGenres(
   return out;
 }
 
+export async function fetchAlbumMetadata(
+  accessToken: string,
+  albumIds: string[],
+  opts?: { userKey?: string }
+): Promise<Map<string, AlbumMetadata>> {
+  const out = new Map<string, AlbumMetadata>();
+  const uniqueIds = [...new Set(albumIds.filter(Boolean))];
+  for (let i = 0; i < uniqueIds.length; i += 20) {
+    const batch = uniqueIds.slice(i, i + 20);
+    const response = await spotifyRequest<any>(
+      {
+        method: "GET",
+        url: `${SPOTIFY_API_BASE}/albums`,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: { ids: batch.join(","), market: "from_token" },
+      },
+      { userKey: opts?.userKey }
+    );
+    for (const album of response.data.albums ?? []) {
+      if (!album?.id) continue;
+      out.set(album.id, {
+        genres: Array.isArray(album.genres) ? album.genres : [],
+        releaseYear: releaseYearFromDate(album.release_date),
+      });
+    }
+    if (i + 20 < uniqueIds.length) await new Promise((r) => setTimeout(r, 80));
+  }
+  return out;
+}
+
 export function enrichTrackMetadata(
   track: SpotifyTrack,
-  artistGenreMap = new Map<string, string[]>()
+  artistGenreMap = new Map<string, string[]>(),
+  albumMetadataMap = new Map<string, AlbumMetadata>()
 ): EnrichedTrack {
   const spotifyArtistGenres = [
     ...new Set(track.artists.flatMap((artist) => artist.id ? artistGenreMap.get(artist.id) ?? [] : [])),
   ];
+  const albumMetadata = track.album.id ? albumMetadataMap.get(track.album.id) : undefined;
   return {
     ...track,
     spotifyArtistGenres,
-    albumGenres: Array.isArray(track.album.genres) ? track.album.genres : [],
+    albumGenres: albumMetadata?.genres ?? (Array.isArray(track.album.genres) ? track.album.genres : []),
     popularity: track.popularity,
-    releaseYear: releaseYearFromDate(track.album.release_date),
+    releaseYear: albumMetadata?.releaseYear ?? releaseYearFromDate(track.album.release_date),
   };
 }
 

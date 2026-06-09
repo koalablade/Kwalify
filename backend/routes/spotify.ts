@@ -12,6 +12,7 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import {
   fetchLikedSongs,
   fetchAudioFeatures,
+  fetchAlbumMetadata,
   fetchArtistGenres,
   enrichTrackMetadata,
   getValidAccessToken,
@@ -310,6 +311,7 @@ export async function runSync(
 
     if (newTracks.length > 0) {
       let artistGenreMap = new Map<string, string[]>();
+      let albumMetadataMap = new Map<string, { genres: string[]; releaseYear: number | null }>();
       try {
         artistGenreMap = await fetchArtistGenres(
           accessToken,
@@ -319,11 +321,20 @@ export async function runSync(
       } catch (err: any) {
         req.log.warn({ err: err?.message }, "Artist genre enrichment failed; continuing sync");
       }
+      try {
+        albumMetadataMap = await fetchAlbumMetadata(
+          accessToken,
+          newTracks.map((track) => track.album.id).filter((id): id is string => !!id),
+          { userKey: userId }
+        );
+      } catch (err: any) {
+        req.log.warn({ err: err?.message }, "Album metadata enrichment failed; continuing sync");
+      }
       const batchSize = 200;
       for (let i = 0; i < newTracks.length; i += batchSize) {
         const batch = newTracks.slice(i, i + batchSize);
         const rows = batch.map((track) => {
-          const enriched = enrichTrackMetadata(track, artistGenreMap);
+          const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
           const features = featuresMap.get(track.id);
           return {
             spotifyUserId: userId,
