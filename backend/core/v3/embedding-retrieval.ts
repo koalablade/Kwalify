@@ -72,6 +72,21 @@ export interface RetrievalCloud<T extends RetrievalTrackLike> {
   neighborhoodCounts: Record<string, number>;
 }
 
+export type RetrievalStrictness = "strict" | "semi_relaxed" | "embedding_first" | "fallback_explore";
+
+export const RETRIEVAL_RELAXATION_LADDER: RetrievalStrictness[] = [
+  "strict",
+  "semi_relaxed",
+  "embedding_first",
+  "fallback_explore",
+];
+
+export function getRelaxationLevel(candidateCount: number, minPoolSize: number): RetrievalStrictness {
+  if (candidateCount >= minPoolSize) return "strict";
+  if (candidateCount > 0) return "semi_relaxed";
+  return "embedding_first";
+}
+
 const VECTOR_DIMS = 10;
 
 function clamp01(value: number): number {

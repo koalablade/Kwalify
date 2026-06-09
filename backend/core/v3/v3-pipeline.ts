@@ -35,7 +35,14 @@ import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
 import { normalizeLockedGenreFamily, type LockedIntent } from "./intent";
 import { computeSceneAlignmentScore, trackMatchesConstraints } from "./constraint-filter";
-import { retrieveCandidatesByEmbedding, type RetrievedCandidate, type RetrievalTrackLike } from "./embedding-retrieval";
+import {
+  getRelaxationLevel,
+  RETRIEVAL_RELAXATION_LADDER,
+  retrieveCandidatesByEmbedding,
+  type RetrievalStrictness,
+  type RetrievedCandidate,
+  type RetrievalTrackLike,
+} from "./embedding-retrieval";
 import { runRecommendationEngine } from "../engine/recommendation-engine";
 import type { MomentMemory } from "../memory/moment-memory";
 import {
@@ -121,6 +128,82 @@ function decisionIsLaneReady<T extends V3PipelineTrack>(
   return !!genreFamily &&
     decision.laneEra !== "any" &&
     decision.track.energy !== null;
+}
+
+function decisionHasBasicIdentity<T extends V3PipelineTrack>(decision: TrackDecision<T>): boolean {
+  return !!decision.track.trackId &&
+    !!decision.track.artistName;
+}
+
+function decisionHasUsableMetadata<T extends V3PipelineTrack>(decision: TrackDecision<T>): boolean {
+  return decisionHasBasicIdentity(decision) &&
+    decision.track.energy !== null &&
+    decision.track.valence !== null;
+}
+
+function decisionHasUsableGenre<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): boolean {
+  const classification = opts.classificationByTrack?.(decision.track.trackId);
+  return !!normalizeLockedGenreFamily(
+    classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary
+  );
+}
+
+function eraAllowedWithDrift<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  lockedIntent: LockedIntent,
+): boolean {
+  if (!lockedIntent.eraRange) return true;
+  if (decision.track.releaseYear === null || decision.track.releaseYear === undefined) {
+    return decision.laneEra === "any";
+  }
+  const driftYears = 8;
+  return decision.track.releaseYear >= lockedIntent.eraRange.start - driftYears &&
+    decision.track.releaseYear <= lockedIntent.eraRange.end + driftYears;
+}
+
+function retrievalFloor(level: RetrievalStrictness): number {
+  switch (level) {
+    case "strict":
+      return 0;
+    case "semi_relaxed":
+      return 0.42;
+    case "embedding_first":
+      return 0.34;
+    case "fallback_explore":
+      return 0;
+  }
+}
+
+function decisionMatchesRelaxationLevel<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  lockedIntent: LockedIntent,
+  level: RetrievalStrictness,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): boolean {
+  if (level === "strict") {
+    return decisionIsLaneReady(decision, opts) &&
+      decisionMatchesConstraints(decision, lockedIntent, opts);
+  }
+  if (level === "fallback_explore") {
+    return decisionHasBasicIdentity(decision);
+  }
+  if (!decisionHasUsableMetadata(decision)) return false;
+  if (decision.embeddingAffinity < retrievalFloor(level)) return false;
+  if (level === "semi_relaxed") {
+    return decisionHasUsableGenre(decision, opts) &&
+      eraAllowedWithDrift(decision, lockedIntent);
+  }
+  if (level === "embedding_first") {
+    return true;
+  }
+  return true;
 }
 
 function clamp01(value: number): number {
@@ -236,6 +319,9 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     label: string;
     weight: number;
     scoredCount: number;
+    strictCandidateCount: number;
+    relaxedCandidateCount: number;
+    retrievalStrictness: RetrievalStrictness;
     selectedCount: number;
     clusterSpread: Record<string, number>;
     clusterSelectionRatios: Record<string, number>;
@@ -270,17 +356,37 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     });
 
     const scoredDecisions = rawScored.map((item) => createTrackDecision(item, lane.id));
-    const validDecisions = scoredDecisions
+    const laneMinPoolSize = Math.max(
+      8,
+      Math.min(24, Math.ceil(targetCount * Math.max(0.5, lane.weight * 2))),
+    );
+    const strictDecisions = scoredDecisions
       .map((decision) => withDecisionValidity(
         decision,
-        decisionIsLaneReady(decision, {
-          classificationByTrack: opts.classificationByTrack,
-        }) &&
-        decisionMatchesConstraints(decision, lockedIntent, {
+        decisionMatchesRelaxationLevel(decision, lockedIntent, "strict", {
           classificationByTrack: opts.classificationByTrack,
         })
       ))
       .filter((decision) => decision.valid);
+    const initialRelaxationLevel = getRelaxationLevel(strictDecisions.length, laneMinPoolSize);
+    let appliedRelaxationLevel: RetrievalStrictness = initialRelaxationLevel;
+    let validDecisions = strictDecisions;
+    if (strictDecisions.length < laneMinPoolSize) {
+      for (const level of RETRIEVAL_RELAXATION_LADDER.slice(1)) {
+        const relaxedDecisions = scoredDecisions
+          .map((decision) => withDecisionValidity(
+            decision,
+            decisionMatchesRelaxationLevel(decision, lockedIntent, level, {
+              classificationByTrack: opts.classificationByTrack,
+            })
+          ))
+          .filter((decision) => decision.valid)
+          .sort((a, b) => b.embeddingAffinity - a.embeddingAffinity);
+        validDecisions = relaxedDecisions;
+        appliedRelaxationLevel = level;
+        if (validDecisions.length >= laneMinPoolSize || level === "fallback_explore") break;
+      }
+    }
     const affinityDecisions = attachHierarchicalAffinities(validDecisions, lockedIntent, {
       noveltyByTrack: opts.noveltyByTrack,
       classificationByTrack: opts.classificationByTrack,
@@ -356,6 +462,9 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       label: lane.label,
       weight: lane.weight,
       scoredCount: rawScored.length,
+      strictCandidateCount: strictDecisions.length,
+      relaxedCandidateCount: validDecisions.length,
+      retrievalStrictness: appliedRelaxationLevel,
       selectedCount: clusterResult.tracks.length,
       clusterSpread: clusterResult.clusterSpread as unknown as Record<string, number>,
       clusterSelectionRatios: clusterResult.clusterSelectionRatios,
@@ -535,6 +644,9 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       type:            ld.type,
       weight:          ld.weight,
       scoredCount:     ld.scoredCount,
+      strictCandidateCount: ld.strictCandidateCount,
+      relaxedCandidateCount: ld.relaxedCandidateCount,
+      retrievalStrictness: ld.retrievalStrictness,
       selectedCount:   ld.selectedCount,
       pctContribution: Math.round((ld.selectedCount / totalLaneSelected) * 100),
     })),
@@ -618,6 +730,16 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     },
     adaptiveLaneGenerator: generatorDiagnostics,
     unifiedIntent: unifiedIntentDiagnostics,
+    retrievalRelaxation: {
+      minPoolPolicy: "per_lane_dynamic_minimum",
+      ladder: RETRIEVAL_RELAXATION_LADDER,
+      lanes: diagnosticLaneDetails.map((ld) => ({
+        laneId: ld.laneId,
+        strictCandidateCount: ld.strictCandidateCount,
+        relaxedCandidateCount: ld.relaxedCandidateCount,
+        appliedLevel: ld.retrievalStrictness,
+      })),
+    },
     recommendationEngine: {
       mode: "single_decision_engine",
       normalisation: "per_lane_signal_domain",
