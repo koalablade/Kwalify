@@ -5,6 +5,10 @@ import type { GenreAudit } from "./genre-audit";
 import type { BuildPlaylistPipelineResult } from "../core/playlist-pipeline";
 import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
 import type { TrackScoringDebug } from "./hybrid-scoring";
+import {
+  warnIfV3MetadataLost,
+  type V3TrackMetadata,
+} from "./v3-track-contract";
 
 function fallbackScoringDebug(trackId: string): TrackScoringDebug {
   return {
@@ -100,7 +104,7 @@ export function buildFallbackPipelineResult<
 }
 
 export function formatTracksForApi(
-  tracks: Array<{
+  tracks: Array<V3TrackMetadata & {
     trackId: string;
     trackName: string;
     artistName: string;
@@ -113,17 +117,10 @@ export function formatTracksForApi(
     score?: number;
     rediscoveryScore?: number;
     narrativeRole?: string;
-    genrePrimary?: string | null;
-    sourceLane?: string | null;
-    laneId?: string | null;
-    laneScore?: number | null;
-    laneEra?: string | null;
-    clusterId?: string | null;
-    clusterIds?: string[];
   }>,
   profile?: EmotionProfile | null
 ) {
-  return (tracks ?? [])
+  const formatted = (tracks ?? [])
     .filter((t) => t?.trackId && t?.trackName && t?.artistName)
     .map((t, i) => ({
       id: t.trackId,
@@ -145,6 +142,13 @@ export function formatTracksForApi(
       laneEra: t.laneEra ?? null,
       clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
       clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
+      selectedByV3: t.selectedByV3 === true ? true : undefined,
       whyReasons: buildTrackWhyReasons(t, profile, i),
     }));
+  warnIfV3MetadataLost(
+    "api-formatting",
+    (tracks ?? []) as Array<Record<string, unknown>>,
+    formatted as Array<Record<string, unknown>>
+  );
+  return formatted;
 }

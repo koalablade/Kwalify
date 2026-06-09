@@ -6,6 +6,7 @@ import type { EmotionProfile } from "./emotion";
 import { buildGenerateCacheKey } from "./generate-cache-key";
 import { GENERATE_RESULT_CACHE_TTL_MS } from "./production-limits";
 import { evictOldestEntries } from "./cache-eviction";
+import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
   /** v2: adds genrePrimary per track. Entries without this field are treated as cache misses. */
@@ -13,7 +14,7 @@ export type CachedGeneratePayload = {
   playlistName: string;
   vibe: string;
   mode: string;
-  finalTracks: Array<Record<string, unknown> & {
+  finalTracks: Array<Record<string, unknown> & V3TrackMetadata & {
     trackId: string;
     trackName: string;
     artistName: string;
@@ -27,12 +28,6 @@ export type CachedGeneratePayload = {
     rediscoveryScore?: number;
     narrativeRole?: string;
     genrePrimary: string | null;
-    sourceLane?: string | null;
-    laneId?: string | null;
-    laneScore?: number | null;
-    laneEra?: string | null;
-    clusterId?: string | null;
-    clusterIds?: string[];
   }>;
   emotionProfile: EmotionProfile & { journeyArc?: string };
   spotifyPlaylistUrl: string | null;

@@ -98,6 +98,10 @@ import {
   buildMockUserGenreProfile,
   generateMockSpotifyLibrary,
 } from "../lib/mock-spotify";
+import {
+  warnIfV3MetadataLost,
+  type V3MetadataTrack,
+} from "../lib/v3-track-contract";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
@@ -879,20 +883,18 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     }
 
-    type PlaylistTrack = (typeof likedSongs)[number] & {
+    type PlaylistTrack = V3MetadataTrack<(typeof likedSongs)[number]> & {
       score: number;
       rediscoveryScore?: number;
       narrativeRole?: string;
-      genrePrimary?: string;
-      sourceLane?: string;
-      laneId?: string;
-      laneScore?: number;
-      laneEra?: string;
-      clusterId?: string | null;
-      clusterIds?: string[];
     };
     setGeneratePhase(userId, requestId, "composing");
     let finalTracks = pipeline.finalTracks as PlaylistTrack[];
+    warnIfV3MetadataLost(
+      "playlist-pipeline-to-controller",
+      pipeline.finalTracks as Array<Record<string, unknown>>,
+      finalTracks as Array<Record<string, unknown>>
+    );
     const sorted = pipeline.sorted;
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
@@ -993,6 +995,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const playlistName = generatePlaylistName(vibe, emotionProfile);
 
     const trackObjects = finalTracks.map((t) => ({
+      ...t,
       trackId: t.trackId,
       trackName: t.trackName,
       artistName: t.artistName,
@@ -1141,33 +1144,39 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     if (!varietyBoost && !devMode) {
+      const cachedFinalTracks = finalTracks.map((t) => ({
+        ...t,
+        trackId: t.trackId,
+        trackName: t.trackName,
+        artistName: t.artistName,
+        albumName: t.albumName,
+        albumArt: t.albumArt ?? null,
+        durationMs: t.durationMs ?? null,
+        energy: t.energy ?? null,
+        valence: t.valence ?? null,
+        tempo: t.tempo ?? null,
+        score: Math.round(t.score * 100) / 100,
+        rediscoveryScore: t.rediscoveryScore,
+        narrativeRole: t.narrativeRole,
+        genrePrimary: t.genrePrimary ?? null,
+        laneId: t.laneId ?? t.sourceLane ?? null,
+        sourceLane: t.sourceLane ?? t.laneId ?? null,
+        laneScore: t.laneScore,
+        laneEra: t.laneEra,
+        clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
+        clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
+      }));
+      warnIfV3MetadataLost(
+        "cache-write",
+        finalTracks as Array<Record<string, unknown>>,
+        cachedFinalTracks as Array<Record<string, unknown>>
+      );
       setCachedGenerateResult(resultCacheKey, {
         cacheVersion: "v2",
         playlistName,
         vibe,
         mode,
-        finalTracks: finalTracks.map((t) => ({
-          ...t,
-          trackId: t.trackId,
-          trackName: t.trackName,
-          artistName: t.artistName,
-          albumName: t.albumName,
-          albumArt: t.albumArt ?? null,
-          durationMs: t.durationMs ?? null,
-          energy: t.energy ?? null,
-          valence: t.valence ?? null,
-          tempo: t.tempo ?? null,
-          score: Math.round(t.score * 100) / 100,
-          rediscoveryScore: t.rediscoveryScore,
-          narrativeRole: t.narrativeRole,
-          genrePrimary: t.genrePrimary ?? null,
-          laneId: t.laneId ?? t.sourceLane ?? null,
-          sourceLane: t.sourceLane ?? t.laneId ?? null,
-          laneScore: t.laneScore,
-          laneEra: t.laneEra,
-          clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
-          clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
-        })),
+        finalTracks: cachedFinalTracks,
         emotionProfile: { ...emotionProfile, journeyArc },
         spotifyPlaylistUrl,
         v3Diagnostics,

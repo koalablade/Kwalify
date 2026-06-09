@@ -35,6 +35,7 @@ import { applyQualityLock, type QualityLockRecord } from "./quality-lock";
 import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { SampledLaneResult } from "./lane-sampler";
 import type { EraBucket } from "../../lib/intent-parser";
+import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -52,11 +53,11 @@ export interface V3PipelineTrack {
 }
 
 export interface V3PipelineResult<T extends V3PipelineTrack> {
-  finalTracks: T[];
+  finalTracks: Array<V3MetadataTrack<T>>;
   diagnostics: Record<string, unknown>;
 }
 
-type V3SelectionCandidate<T extends V3PipelineTrack> = T & {
+type V3SelectionCandidate<T extends V3PipelineTrack> = T & V3TrackMetadata & {
   sourceLane: string;
   laneScore: number;
   genrePrimary: string;

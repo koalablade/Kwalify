@@ -28,6 +28,10 @@ import type { GenreAudit } from "../lib/genre-audit";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
+import {
+  warnIfV3MetadataLost,
+  type V3MetadataTrack,
+} from "../lib/v3-track-contract";
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -195,7 +199,7 @@ export function buildPlaylistPipeline<T extends {
 
   // V3 final tracks are authoritative; do not rehydrate from scored tracks here,
   // or V3 metadata such as sourceLane/laneScore/clusterIds can be dropped.
-  const finalTracksList = v3.finalTracks as T[];
+  const finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
 
   // Last-resort fallback: V3 produced nothing (no audio features / empty lib)
   if (finalTracksList.length === 0) {
@@ -268,6 +272,11 @@ export function buildPlaylistPipeline<T extends {
   logScoringStage(opts.pipelineLog, "V3 genre audit complete", t, {
     tracks: finalTracksList.length,
   });
+  warnIfV3MetadataLost(
+    "v3-output-to-playlist-pipeline",
+    v3.finalTracks as Array<Record<string, unknown>>,
+    finalTracksList as Array<Record<string, unknown>>
+  );
 
   return {
     finalTracks: finalTracksList,
