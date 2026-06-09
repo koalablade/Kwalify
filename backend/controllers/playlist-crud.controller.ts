@@ -93,24 +93,24 @@ async function isOwnedPlaylist(userId: string, playlistId: string | undefined): 
 
 function feedbackTracks(value: unknown): FeedbackTrack[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((track) => {
-      if (!track || typeof track !== "object") return null;
-      const t = track as Record<string, unknown>;
-      const trackId = typeof t["trackId"] === "string"
-        ? t["trackId"]
-        : typeof t["id"] === "string"
-          ? t["id"]
-          : null;
-      if (!trackId) return null;
-      return {
-        trackId,
-        artistName: typeof t["artistName"] === "string" ? t["artistName"] : typeof t["artist"] === "string" ? t["artist"] : null,
-        genrePrimary: typeof t["genrePrimary"] === "string" ? t["genrePrimary"] : null,
-        energy: typeof t["energy"] === "number" ? t["energy"] : null,
-      };
-    })
-    .filter((track): track is FeedbackTrack => !!track);
+  const tracks: FeedbackTrack[] = [];
+  for (const track of value) {
+    if (!track || typeof track !== "object") continue;
+    const t = track as Record<string, unknown>;
+    const trackId = typeof t["trackId"] === "string"
+      ? t["trackId"]
+      : typeof t["id"] === "string"
+        ? t["id"]
+        : null;
+    if (!trackId) continue;
+    tracks.push({
+      trackId,
+      artistName: typeof t["artistName"] === "string" ? t["artistName"] : typeof t["artist"] === "string" ? t["artist"] : null,
+      genrePrimary: typeof t["genrePrimary"] === "string" ? t["genrePrimary"] : null,
+      energy: typeof t["energy"] === "number" ? t["energy"] : null,
+    });
+  }
+  return tracks;
 }
 
 function trackGenreTerms(track: Record<string, unknown>): string[] {

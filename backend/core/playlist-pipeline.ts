@@ -20,6 +20,7 @@ import type { ArchaeologyIntent } from "../lib/library-archaeology";
 import type { ChapterMatch } from "../lib/music-life-chapters";
 import type { SurpriseMix } from "../lib/human-surprise";
 import type { JourneyArc } from "../lib/emotion-destination";
+import type { FeedbackMemory } from "../lib/feedback-memory";
 import {
   buildRecentTrackPoolPenalty,
   type FreshnessStats,
@@ -232,15 +233,6 @@ type PlaylistScore = {
   transitionSmoothness: number;
   culturalCoherence: number;
   genericnessPenalty: number;
-};
-
-type FeedbackMemory = {
-  badArtists: string[];
-  badGenres: string[];
-  badEnergyTypes: string[];
-  badMoodMatches: string[];
-  badBridges: string[];
-  overplayedTracks: string[];
 };
 
 type IntentContractDiagnostics = {
@@ -628,9 +620,16 @@ function evaluatePlaylistQuality<T extends IntentContractTrack & { genrePrimary?
   const transitionSmoothness = energyDeltas.length === 0
     ? 1
     : 1 - Math.min(1, energyDeltas.reduce((sum, delta) => sum + Math.max(0, delta - 0.35), 0) / energyDeltas.length);
+  const fixedEnergyArc: "low" | "medium" | "high" | null =
+    intent.energyArc && intent.energyArc !== "dynamic" && intent.energyArc !== "progressive"
+      ? intent.energyArc
+      : null;
   const energyFlow = intent.energyArc === "progressive"
     ? ((playlist.at(-1)?.energy ?? 0.5) >= (playlist[0]?.energy ?? 0.5) ? 0.9 : 0.45)
-    : playlist.filter((track) => !intent.energyArc || intent.energyArc === "dynamic" || contractEnergyMatch(track, intent.energyArc)).length / playlist.length;
+    : playlist.filter((track) => {
+        if (!fixedEnergyArc) return true;
+        return contractEnergyMatch(track, fixedEnergyArc);
+      }).length / playlist.length;
   const culturalCoherence = (genrePurity + tonalConsistency + transitionSmoothness) / 3;
   const genericnessPenalty = Math.max(0, 1 - promptAlignment) * 0.35;
   const overall = criticClamp01(

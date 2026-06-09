@@ -126,23 +126,22 @@ function asAlbumAffinityGraph(value: unknown): Record<string, AlbumAffinityNode>
 
 function asSceneEmbeddings(value: unknown): SceneEmbedding[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const scene = item as Record<string, unknown>;
-      const genreCluster = typeof scene.genreCluster === "string" ? scene.genreCluster : "";
-      if (!genreCluster) return null;
-      return {
-        genreCluster,
-        eraCluster: typeof scene.eraCluster === "string" ? scene.eraCluster : undefined,
-        moodCluster: typeof scene.moodCluster === "string" ? scene.moodCluster : undefined,
-        vectorHint: Array.isArray(scene.vectorHint)
-          ? scene.vectorHint.filter((value): value is number => typeof value === "number")
-          : undefined,
-      };
-    })
-    .filter((scene): scene is SceneEmbedding => !!scene)
-    .slice(0, 120);
+  const out: SceneEmbedding[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const scene = item as Record<string, unknown>;
+    const genreCluster = typeof scene.genreCluster === "string" ? scene.genreCluster : "";
+    if (!genreCluster) continue;
+    const parsed: SceneEmbedding = { genreCluster };
+    if (typeof scene.eraCluster === "string") parsed.eraCluster = scene.eraCluster;
+    if (typeof scene.moodCluster === "string") parsed.moodCluster = scene.moodCluster;
+    if (Array.isArray(scene.vectorHint)) {
+      parsed.vectorHint = scene.vectorHint.filter((value): value is number => typeof value === "number");
+    }
+    out.push(parsed);
+    if (out.length >= 120) break;
+  }
+  return out;
 }
 
 function uniquePush(values: string[], value: string | null | undefined, max = 200): string[] {

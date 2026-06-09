@@ -319,7 +319,7 @@ export async function runSync(
           { userKey: userId }
         );
       } catch (err: any) {
-        req.log.warn({ err: err?.message }, "Artist genre enrichment failed; continuing sync");
+        logger.warn({ err: err?.message }, "Artist genre enrichment failed; continuing sync");
       }
       try {
         albumMetadataMap = await fetchAlbumMetadata(
@@ -328,7 +328,7 @@ export async function runSync(
           { userKey: userId }
         );
       } catch (err: any) {
-        req.log.warn({ err: err?.message }, "Album metadata enrichment failed; continuing sync");
+        logger.warn({ err: err?.message }, "Album metadata enrichment failed; continuing sync");
       }
       const batchSize = 200;
       for (let i = 0; i < newTracks.length; i += batchSize) {

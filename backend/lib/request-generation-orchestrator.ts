@@ -11,7 +11,21 @@ export type RequestGenerationOrchestration = {
   repairOwner: "request-layer";
 };
 
-export function runRequestLayerGeneration<T extends { trackId: string }>(
+type RequestGenerationTrack = {
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  energy: number | null;
+  valence: number | null;
+  tempo: number | null;
+  danceability: number | null;
+  acousticness: number | null;
+  instrumentalness?: number | null;
+  speechiness?: number | null;
+};
+
+export function runRequestLayerGeneration<T extends RequestGenerationTrack>(
   opts: BuildPlaylistPipelineOpts<T>,
 ): BuildPlaylistPipelineResult<T> & { requestOrchestration: RequestGenerationOrchestration } {
   const pipeline = buildPlaylistPipeline(opts);

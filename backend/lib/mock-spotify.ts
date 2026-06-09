@@ -120,6 +120,7 @@ export function generateMockSpotifyLibrary(count = 160, seedValue = "kwalify-dev
   return Array.from({ length: total }, (_, index) => {
     const genre = pick(FALLBACK_GENRES, index);
     const parts = TITLE_PARTS[genre];
+    const rule = KEYWORD_RULES.find((candidate) => candidate.genre === genre)!;
     const keyword = pick(parts.keywords, index + Math.floor(index / FALLBACK_GENRES.length));
     const noun = pick(parts.nouns, index * 3 + 1);
     const artistName = pick(parts.artists, index * 5 + 2);
@@ -148,6 +149,10 @@ export function generateMockSpotifyLibrary(count = 160, seedValue = "kwalify-dev
       instrumentalness: genre === "indie" ? (seed % 18) / 100 : (seed % 6) / 100,
       loudness: -13 + (seed % 9),
       speechiness: genre === "pop" ? 0.07 : 0.04 + (seed % 7) / 100,
+      spotifyArtistGenres: [genre, rule.subgenre],
+      albumGenres: [genre],
+      popularity: 42 + (seed % 45),
+      releaseYear: 1980 + (seed % 44),
       addedAt: new Date(baseTime - index * 36 * 60 * 60 * 1000),
       createdAt: new Date(baseTime - index * 36 * 60 * 60 * 1000),
     };
