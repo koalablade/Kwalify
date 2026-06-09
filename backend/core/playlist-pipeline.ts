@@ -217,6 +217,22 @@ function isV3LaneReady<T extends {
     hasLaneReadyEra(track);
 }
 
+function isV3LaneReadyForIntent<T extends {
+  trackId: string;
+  genrePrimary?: string;
+  energy: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+  releaseYear?: number | null;
+}>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+  lockedIntent: LockedIntent,
+): boolean {
+  if (!genreFamilyForTrack(track, classMap) || track.energy === null) return false;
+  return lockedIntent.eraRange ? hasLaneReadyEra(track) : true;
+}
+
 function trackMatchesLockedIntent<T extends {
   trackId: string;
   genrePrimary?: string;
@@ -411,7 +427,9 @@ function buildV3CandidatePool<T extends {
   lockedIntent: LockedIntent,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
   const laneReady = sorted.filter((track) => isV3LaneReady(track, classMap));
-  const intentReady = laneReady.filter((track) =>
+  const intentLaneReady = sorted.filter((track) => isV3LaneReadyForIntent(track, classMap, lockedIntent));
+  const effectiveLaneReady = lockedIntent.eraRange ? laneReady : intentLaneReady;
+  const intentReady = effectiveLaneReady.filter((track) =>
     trackMatchesLockedIntent(track, classMap, lockedIntent)
   );
   const baseWindow = Math.min(intentReady.length, Math.max(playlistLength * 8, 75));
@@ -436,6 +454,8 @@ function buildV3CandidatePool<T extends {
     diagnostics: {
       inputCount: sorted.length,
       laneReadyCount: laneReady.length,
+      intentLaneReadyCount: intentLaneReady.length,
+      laneReadinessEraRelaxed: !lockedIntent.eraRange,
       intentReadyCount: intentReady.length,
       candidateCount: tracks.length,
       genreFamilyClusters: familyCount(tracks, classMap),
