@@ -106,6 +106,7 @@ import {
 import {
   buildLockedIntent as buildCsspLockedIntent,
   completeLockedIntent as completeCsspLockedIntent,
+  GENRE_ALIASES,
 } from "../core/v3/intent";
 import { trackMatchesConstraints as trackMatchesV3Constraints } from "../core/v3/constraint-filter";
 
@@ -424,27 +425,6 @@ function normalizeVibeForPipeline(vibe: string, signals: QualitySignalContext): 
   return [...new Set(parts)].join(" ");
 }
 
-const GENRE_ALIASES: Array<{ root: string; terms: string[] }> = [
-  { root: "country", terms: ["country", "americana", "western", "bluegrass", "honky tonk", "alt country"] },
-  { root: "electronic", terms: ["electronic", "techno", "trance", "house", "edm", "rave", "dnb", "drum and bass", "dubstep", "ambient"] },
-  { root: "hip_hop", terms: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap"] },
-  { root: "rock", terms: ["rock", "grunge", "punk", "alt rock", "alternative rock", "classic rock"] },
-  { root: "metal", terms: ["metal", "metalcore", "thrash", "death metal"] },
-  { root: "jazz", terms: ["jazz", "bebop", "bossa nova", "swing"] },
-  { root: "blues", terms: ["blues", "delta blues", "chicago blues"] },
-  { root: "soul", terms: ["soul", "motown", "funk", "neo soul"] },
-  { root: "rnb", terms: ["r&b", "rnb", "classic r&b"] },
-  { root: "pop", terms: ["pop", "dance pop", "synth pop", "k-pop", "kpop"] },
-  { root: "folk", terms: ["folk", "singer songwriter", "singer-songwriter", "acoustic folk"] },
-  { root: "indie", terms: ["indie", "lo-fi", "lofi", "chillhop", "bedroom pop"] },
-  { root: "classical", terms: ["classical", "orchestral", "piano classical"] },
-  { root: "soundtrack", terms: ["soundtrack", "film score", "cinematic"] },
-  { root: "reggae", terms: ["reggae", "dub", "dancehall"] },
-  { root: "latin", terms: ["latin", "reggaeton", "salsa", "bachata"] },
-  { root: "world", terms: ["afrobeats", "afrobeat", "world"] },
-  { root: "christmas", terms: ["christmas", "xmas", "holiday", "festive"] },
-];
-
 function extractGenreTerms(text: string): { roots: string[]; terms: string[] } {
   const lower = text.toLowerCase();
   const roots = new Set<string>();
@@ -453,7 +433,7 @@ function extractGenreTerms(text: string): { roots: string[]; terms: string[] } {
     for (const term of alias.terms) {
       const pattern = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\b`, "i");
       if (pattern.test(lower)) {
-        roots.add(alias.root);
+        roots.add(alias.family);
         terms.add(term);
       }
     }

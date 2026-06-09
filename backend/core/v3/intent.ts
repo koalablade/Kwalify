@@ -16,17 +16,48 @@ export interface LockedIntentFallbacks {
   energy?: "low" | "medium" | "high" | null;
 }
 
-const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
-  { family: "country", terms: ["country", "americana", "alt-country", "alt country", "bluegrass"] },
-  { family: "rock", terms: ["rock", "indie rock", "alt rock", "alternative rock", "classic rock", "grunge", "punk"] },
-  { family: "electronic", terms: ["electronic", "house", "techno", "trance", "edm", "dnb", "drum and bass", "rave"] },
-  { family: "hip_hop", terms: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap"] },
-  { family: "pop", terms: ["pop", "indie pop", "synthpop", "synth pop"] },
-  { family: "jazz", terms: ["jazz", "soul jazz", "lo-fi jazz", "lofi jazz"] },
-  { family: "folk", terms: ["folk", "singer-songwriter", "singer songwriter"] },
-  { family: "rnb", terms: ["r&b", "rnb"] },
-  { family: "soul", terms: ["soul", "funk", "motown"] },
-  { family: "latin", terms: ["latin", "reggaeton", "salsa", "bachata"] },
+export const ROOT_GENRE_FAMILIES = [
+  "country",
+  "hip_hop",
+  "rock",
+  "electronic",
+  "jazz",
+  "pop",
+  "folk",
+  "soul",
+  "metal",
+  "classical",
+  "christmas",
+  "indie",
+  "blues",
+  "rnb",
+  "reggae",
+  "latin",
+  "soundtrack",
+  "world",
+] as const;
+
+const ROOT_GENRE_FAMILY_SET = new Set<string>(ROOT_GENRE_FAMILIES);
+
+export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
+  { family: "country", terms: ["country", "americana", "alt-country", "alt country", "bluegrass", "western", "honky tonk", "outlaw", "outlaw country", "red dirt", "nashville", "country pop", "classic country"] },
+  { family: "hip_hop", terms: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "boom-bap", "old school rap", "g-funk", "melodic rap", "emo rap"] },
+  { family: "rock", terms: ["rock", "indie rock", "indie-rock", "alt rock", "alternative rock", "classic rock", "grunge", "punk", "punk rock", "hard rock", "post-rock", "post rock", "emo", "shoegaze"] },
+  { family: "electronic", terms: ["electronic", "house", "house music", "techno", "trance", "edm", "dnb", "drum and bass", "drum & bass", "rave", "dubstep", "ambient", "synthwave", "retrowave", "jungle"] },
+  { family: "jazz", terms: ["jazz", "soul jazz", "lo-fi jazz", "lofi jazz", "bebop", "bossa nova", "swing", "smooth jazz", "vocal jazz", "latin jazz"] },
+  { family: "pop", terms: ["pop", "dance pop", "dance-pop", "indie pop", "synthpop", "synth pop", "synth-pop", "k-pop", "kpop", "teen pop", "boy band", "girl group"] },
+  { family: "folk", terms: ["folk", "singer-songwriter", "singer songwriter", "acoustic folk", "traditional folk", "celtic folk", "irish folk"] },
+  { family: "soul", terms: ["soul", "funk", "motown", "neo soul", "neo-soul", "detroit soul", "gospel"] },
+  { family: "metal", terms: ["metal", "metalcore", "heavy metal", "death metal", "black metal", "thrash", "thrash metal", "nu metal", "nu-metal", "deathcore"] },
+  { family: "classical", terms: ["classical", "orchestral", "piano classical", "symphony", "concerto", "nocturne", "sonata", "opera", "chamber", "baroque"] },
+  { family: "christmas", terms: ["christmas", "xmas", "holiday", "holiday song", "festive", "noel", "santa", "jingle bells", "winter wonderland"] },
+  { family: "indie", terms: ["indie", "indie music", "lo-fi", "lofi", "chillhop", "bedroom pop", "alternative indie", "study beats"] },
+  { family: "blues", terms: ["blues", "delta blues", "chicago blues", "electric blues", "acoustic blues", "blues rock", "blues-rock"] },
+  { family: "rnb", terms: ["r&b", "rnb", "classic r&b", "contemporary r&b", "alternative r&b", "alt rnb", "new jack swing"] },
+  { family: "reggae", terms: ["reggae", "roots reggae", "dub", "dancehall", "rocksteady", "ragga"] },
+  { family: "latin", terms: ["latin", "reggaeton", "salsa", "bachata", "merengue", "cumbia", "latin pop", "latin trap", "spanish pop"] },
+  { family: "soundtrack", terms: ["soundtrack", "film score", "cinematic", "tv soundtrack", "series ost", "game soundtrack", "original motion picture"] },
+  { family: "world", terms: ["world", "world music", "afrobeats", "afrobeat", "afropop", "amapiano", "highlife", "middle eastern", "arabic pop", "turkish pop"] },
 ];
 
 const GENRE_EXCLUSION_RE = /\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&\-\s]{2,28})/gi;
@@ -44,6 +75,12 @@ const ERA_BUCKET_RANGES: Record<string, { start: number; end: number }> = {
 function matchesTerm(input: string, term: string): boolean {
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
   return new RegExp(`\\b${escaped}\\b`, "i").test(input);
+}
+
+function termMatchIndex(input: string, term: string): number {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  const match = new RegExp(`\\b${escaped}\\b`, "i").exec(input);
+  return match?.index ?? -1;
 }
 
 function parseEra(input: string): { start: number; end: number } | null {
@@ -77,7 +114,9 @@ export function eraRangeFromBucket(bucket?: string | null): { start: number; end
 
 export function normalizeLockedGenreFamily(value?: string | null): string | null {
   if (!value || value === "unknown") return null;
-  return getGenreFamily(value.toLowerCase());
+  const normalized = value.toLowerCase();
+  if (ROOT_GENRE_FAMILY_SET.has(normalized)) return normalized;
+  return getGenreFamily(normalized);
 }
 
 function uniqueGenreFamilies(values: string[]): string[] {
@@ -88,7 +127,6 @@ function uniqueGenreFamilies(values: string[]): string[] {
     if (!family || seen.has(family)) continue;
     seen.add(family);
     out.push(family);
-    if (out.length >= 3) break;
   }
   return out;
 }
@@ -112,21 +150,23 @@ function parseGenreFamilies(input: string): string[] {
     .map(({ family, terms }) => {
       const hitCount = terms.filter((term) => matchesTerm(input, term)).length;
       const directFamilyHit = matchesTerm(input, family) ? 2 : 0;
-      return { family, confidence: hitCount + directFamilyHit };
+      const hitIndexes = [
+        ...terms.map((term) => termMatchIndex(input, term)),
+        termMatchIndex(input, family),
+      ].filter((index) => index >= 0);
+      const firstTermIndex = hitIndexes.length > 0
+        ? Math.min(...hitIndexes)
+        : Number.MAX_SAFE_INTEGER;
+      return {
+        family,
+        confidence: hitCount + directFamilyHit,
+        firstIndex: firstTermIndex,
+      };
     })
     .filter(({ family, confidence }) => confidence > 0 && !excluded.has(family))
-    .sort((a, b) => b.confidence - a.confidence);
+    .sort((a, b) => b.confidence - a.confidence || a.firstIndex - b.firstIndex);
 
-  const primary = matches[0];
-  if (!primary) return [];
-
-  const families = [primary.family];
-  const secondary = matches.find((match) =>
-    match.family !== primary.family &&
-    match.confidence >= Math.max(1, primary.confidence * 0.5)
-  );
-  if (secondary) families.push(secondary.family);
-  return families;
+  return matches.map((match) => match.family);
 }
 
 function excludedMoodTags(input: string): Set<string> {
