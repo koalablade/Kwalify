@@ -29,7 +29,7 @@ import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
-import { completeLockedIntent, type LockedIntent } from "./v3/intent";
+import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
 import { trackMatchesConstraints } from "./v3/constraint-filter";
 import { getGenreFamily } from "./v3/global-diversity-controller";
 import {
@@ -177,6 +177,26 @@ function genreFamilyForTrack<T extends { trackId: string; genrePrimary?: string 
   const family = classification?.genreFamily ?? classification?.genrePrimary ?? track.genrePrimary;
   const normalized = family ? getGenreFamily(family) : null;
   return normalized && normalized !== "unknown" ? normalized : null;
+}
+
+function trackMatchesGenreFamilies<T extends { trackId: string; genrePrimary?: string }>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+  genreFamilies: string[],
+): boolean {
+  if (genreFamilies.length === 0) return true;
+  const family = genreFamilyForTrack(track, classMap);
+  return !!family && genreFamilies.includes(family);
+}
+
+function constrainPoolToGenreIntent<T extends { trackId: string; genrePrimary?: string }>(
+  pool: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+  genreFamilies: string[],
+): T[] {
+  if (genreFamilies.length === 0) return pool;
+  const matching = pool.filter((track) => trackMatchesGenreFamilies(track, classMap, genreFamilies));
+  return matching.length > 0 ? matching : pool;
 }
 
 type PreV3TraceStage = {
@@ -614,6 +634,7 @@ function trackMatchesLockedIntent<T extends {
   classMap: UserGenreProfile["trackClassifications"],
   lockedIntent: LockedIntent,
 ): boolean {
+  if (!trackMatchesGenreFamilies(track, classMap, lockedIntent.genreFamilies)) return false;
   const classification = classMap.get(track.trackId);
   return trackMatchesConstraints({
     ...track,
@@ -951,12 +972,15 @@ function buildV3LockedIntent<T extends {
   profile: EmotionProfile,
   candidatePool: T[],
   classMap: UserGenreProfile["trackClassifications"],
+  explicitGenreFamilies: string[],
 ): LockedIntent {
   const poolGenreFamilies = topGenreFamiliesFromPool(candidatePool, classMap);
   return completeLockedIntent(unifiedIntentContext.lockedIntent, {
-    genreFamilies: poolGenreFamilies.length > 0
-      ? poolGenreFamilies
-      : previousUnifiedIntentContext?.lockedIntent.genreFamilies,
+    genreFamilies: explicitGenreFamilies.length > 0
+      ? explicitGenreFamilies
+      : poolGenreFamilies.length > 0
+        ? poolGenreFamilies
+        : previousUnifiedIntentContext?.lockedIntent.genreFamilies,
     eraRange: eraRangeFromCandidatePool(candidatePool) ?? previousUnifiedIntentContext?.lockedIntent.eraRange,
     mood: previousUnifiedIntentContext?.lockedIntent.mood.length ? previousUnifiedIntentContext.lockedIntent.mood : moodFallbackFromProfile(profile),
     activity: previousUnifiedIntentContext?.lockedIntent.activity ?? "listening",
@@ -1052,12 +1076,14 @@ export function buildPlaylistPipeline<T extends {
   const previousUnifiedIntentContext = opts.lastSuccessfulVibe?.trim()
     ? buildUnifiedIntentContext(opts.lastSuccessfulVibe, opts.emotionProfile)
     : null;
+  const explicitPromptGenreFamilies = buildLockedIntent(opts.vibe).genreFamilies;
   const v3LockedIntent = buildV3LockedIntent(
     unifiedIntentContextWithMemory,
     previousUnifiedIntentContext,
     opts.emotionProfile,
     v3IntentSourcePool,
     classMap,
+    explicitPromptGenreFamilies,
   );
   const unifiedIntentDiagnostics = resolveUnifiedIntent([
     ...unifiedIntentContextWithMemory.diagnostics.snapshots,
@@ -1104,6 +1130,9 @@ export function buildPlaylistPipeline<T extends {
     selectedCount: v3.finalTracks.length,
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
     preV3Recovery: v3CandidatePool.diagnostics,
+    genreGuard: {
+      explicitPromptGenreFamilies,
+    },
   });
 
   // V3 final tracks are authoritative; do not rehydrate from scored tracks here,
@@ -1121,10 +1150,22 @@ export function buildPlaylistPipeline<T extends {
     functionName: "buildPlaylistPipeline",
   };
 
-  const lastResortPool: ScoredLibraryTrack<T>[] = scoring.sorted
+  const genreGuardedScoredPool = constrainPoolToGenreIntent(
+    scoring.sorted,
+    classMap,
+    explicitPromptGenreFamilies,
+  );
+  const genreGuardDiagnostics = {
+    explicitPromptGenreFamilies,
+    inputCount: scoring.sorted.length,
+    guardedCount: genreGuardedScoredPool.length,
+    active: explicitPromptGenreFamilies.length > 0 && genreGuardedScoredPool.length < scoring.sorted.length,
+  };
+
+  const lastResortPool: ScoredLibraryTrack<T>[] = genreGuardedScoredPool
     .filter((track) => track.genrePrimary || track.energy != null || track.valence != null)
     .slice(0, 50);
-  const emergencyScoredPool: ScoredLibraryTrack<T>[] = scoring.sorted
+  const emergencyScoredPool: ScoredLibraryTrack<T>[] = genreGuardedScoredPool
     .filter((track) => typeof track.score === "number")
     .slice(0, 50);
 
@@ -1137,7 +1178,7 @@ export function buildPlaylistPipeline<T extends {
     const resolvedPool = pool.slice(0, 50);
     const enforcedResolved = enforceFinalPlaylistGenres({
       finalTracks: resolvedPool,
-      sortedPool: scoring.sorted,
+      sortedPool: genreGuardedScoredPool,
       userGenreProfile: opts.userGenreProfile,
       genreStack: opts.genreStack,
       allowHoliday: opts.genrePost.allowHoliday,
@@ -1174,6 +1215,7 @@ export function buildPlaylistPipeline<T extends {
           },
           fallback: fallbackLabel,
           preV3Recovery: v3CandidatePool.diagnostics,
+          genreGuard: genreGuardDiagnostics,
         },
       },
       hybridExcludedCount: scoring.hybridExcludedCount,
@@ -1200,7 +1242,7 @@ export function buildPlaylistPipeline<T extends {
     const rawFallbackPool = (
       v3CandidatePool.tracks.length > 0
         ? v3CandidatePool.tracks
-        : scoring.sorted
+        : genreGuardedScoredPool
     ) as unknown as ScoredLibraryTrack<T>[];
     const fallbackPool = rawFallbackPool
       .filter((track) => !!track)
@@ -1223,7 +1265,7 @@ export function buildPlaylistPipeline<T extends {
         code: "EMPTY_POOL_FATAL",
         message: "Even fallback pool is empty — returning safe global sample",
       });
-      const safeGlobalTracks: ScoredLibraryTrack<T>[] = scoring.sorted.filter((track) => {
+      const safeGlobalTracks: ScoredLibraryTrack<T>[] = genreGuardedScoredPool.filter((track) => {
         const featureAwareTrack = track as ScoredLibraryTrack<T> & { genres?: unknown };
         const hasAudioFeatures =
           typeof track.energy === "number" ||
@@ -1309,6 +1351,7 @@ export function buildPlaylistPipeline<T extends {
           fallback: true,
           reason: "empty_library",
           preV3Recovery: v3CandidatePool.diagnostics,
+          genreGuard: genreGuardDiagnostics,
         },
       },
       hybridExcludedCount: scoring.hybridExcludedCount,
@@ -1341,7 +1384,7 @@ export function buildPlaylistPipeline<T extends {
 
   const playlistCritic = repairPlaylistWithCritic(
     finalTracksList as T[],
-    scoring.sorted,
+    genreGuardedScoredPool,
     classMap,
     opts.maxPerArtist,
     opts.playlistLength,
@@ -1353,7 +1396,7 @@ export function buildPlaylistPipeline<T extends {
   t = Date.now();
   const enforced = enforceFinalPlaylistGenres({
     finalTracks: [...criticFinalTracks] as unknown as ScoredLibraryTrack<T>[],
-    sortedPool: scoring.sorted,
+    sortedPool: genreGuardedScoredPool,
     userGenreProfile: opts.userGenreProfile,
     genreStack: opts.genreStack,
     allowHoliday: opts.genrePost.allowHoliday,
@@ -1402,6 +1445,7 @@ export function buildPlaylistPipeline<T extends {
           finalHardFilterTrace,
         },
         preV3Recovery: v3CandidatePool.diagnostics,
+        genreGuard: genreGuardDiagnostics,
         playlistCritic: playlistCritic.diagnostics,
       },
     },
