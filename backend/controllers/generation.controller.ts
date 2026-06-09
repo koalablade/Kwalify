@@ -103,7 +103,11 @@ import {
   warnIfV3MetadataLost,
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
-import { buildLockedIntent as buildCsspLockedIntent } from "../core/v3/intent";
+import {
+  buildLockedIntent as buildCsspLockedIntent,
+  completeLockedIntent as completeCsspLockedIntent,
+} from "../core/v3/intent";
+import { trackMatchesConstraints as trackMatchesV3Constraints } from "../core/v3/constraint-filter";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
@@ -1395,6 +1399,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (res.headersSent || staleGenerate(userId, requestId)) return; // timeout handler — no second body
       const ctx = (req as { _genCtx?: {
         likedSongs: typeof likedSongs;
+        constrainedFallbackTracks?: typeof likedSongs;
         emotionProfile: EmotionProfile;
         length: number;
         maxPerArtist?: number;
@@ -1413,12 +1418,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
       const maxPerArtist =
         ctx.mode === "strict" ? 2 : ctx.mode === "balanced" ? 3 : 5;
+      const fallbackTracks = ctx.constrainedFallbackTracks?.length
+        ? ctx.constrainedFallbackTracks
+        : ctx.likedSongs;
       const pipeline = buildFallbackPipelineResult({
-        tracks: ctx.likedSongs,
+        tracks: fallbackTracks,
         emotionProfile: ctx.emotionProfile,
         playlistLength: ctx.length,
         maxPerArtist,
-        librarySize: ctx.likedSongs.length,
+        librarySize: fallbackTracks.length,
       });
       const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
       res.json({
@@ -1644,6 +1652,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
       dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
+    const v3FallbackIntent = completeCsspLockedIntent(parsedCsspIntent, {
+      genreFamilies: lockedIntent.genreFamilies.length > 0
+        ? lockedIntent.genreFamilies
+        : fallbackLockedFamily
+          ? [fallbackLockedFamily]
+          : [],
+      eraRange: lockedIntent.eraRange,
+      mood: lockedIntent.mood,
+      activity: lockedIntent.activity,
+      energy: lockedIntent.energy,
+    });
     let fallbackBridgeUsed = false;
     const constrainedFallbackTracks = likedSongs.filter((track) => {
       const candidate = { ...track, score: 0.7 } as ConstraintTrack;
@@ -1657,9 +1676,20 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (!boundary.pass) return false;
       if (!trackMatchesHardConstraints(candidate, constraintLayer, userGenreProfile.trackClassifications)) return false;
       if (!trackPassesLockedIntent(candidate, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)) return false;
+      const classification = userGenreProfile.trackClassifications.get(track.trackId);
+      if (!trackMatchesV3Constraints({
+        ...candidate,
+        genreFamily: classification?.genreFamily ?? classification?.genrePrimary ?? candidate.genrePrimary,
+        genrePrimary: classification?.genrePrimary ?? candidate.genrePrimary,
+        laneEra: candidate.laneEra,
+      }, v3FallbackIntent)) return false;
       if (boundary.bridge) fallbackBridgeUsed = true;
       return true;
     });
+    const genCtx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
+    if (genCtx) {
+      genCtx["constrainedFallbackTracks"] = constrainedFallbackTracks;
+    }
     req.log.info(
       {
         primary: qualitySignalContext.primary,
@@ -1728,6 +1758,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       journeyArc,
       maxPerArtist,
       recentPlaylistTrackIds: recentTrackLists,
+      lastSuccessfulVibe: recentPlaylists[0]?.vibe ?? null,
       noLibraryMode: !!noLibraryMode,
       memoryByTrack: (trackId) => {
         const signal = librarySignals.tracks.get(trackId);
@@ -2300,6 +2331,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const timedOut = Date.now() - startMs >= REQUEST_HARD_TIMEOUT_MS - 1000;
       const ctx = (req as { _genCtx?: {
         likedSongs: { trackId: string; trackName: string; artistName: string; albumName: string }[];
+        constrainedFallbackTracks?: { trackId: string; trackName: string; artistName: string; albumName: string }[];
         emotionProfile: EmotionProfile;
         length: number;
         vibe: string;
@@ -2307,12 +2339,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       } })._genCtx;
       if (timedOut && ctx?.likedSongs?.length) {
         const maxPerArtist = 2;
+        const fallbackTracks = ctx.constrainedFallbackTracks?.length
+          ? ctx.constrainedFallbackTracks
+          : ctx.likedSongs;
         const pipeline = buildFallbackPipelineResult({
-          tracks: ctx.likedSongs as Parameters<typeof buildFallbackPipelineResult>[0]["tracks"],
+          tracks: fallbackTracks as Parameters<typeof buildFallbackPipelineResult>[0]["tracks"],
           emotionProfile: ctx.emotionProfile,
           playlistLength: ctx.length,
           maxPerArtist,
-          librarySize: ctx.likedSongs.length,
+          librarySize: fallbackTracks.length,
         });
         const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
         res.json({

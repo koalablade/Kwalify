@@ -252,12 +252,15 @@ function detectInfluenceForces(vibe: string): SceneInfluenceMap {
   const detected = Object.keys(raw);
 
   if (detected.length === 0) {
-    return { calm: 0.50, introspective: 0.30, nostalgia: 0.20 };
+    return { calm: 1.0 };
   }
 
-  const total = Object.values(raw).reduce((s, v) => s + (v ?? 0), 0);
+  const focused = Object.entries(raw)
+    .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+    .slice(0, 3) as Array<[InfluenceForce, number]>;
+  const total = focused.reduce((s, [, v]) => s + (v ?? 0), 0);
   const normalized: SceneInfluenceMap = {};
-  for (const [force, weight] of Object.entries(raw) as Array<[InfluenceForce, number]>) {
+  for (const [force, weight] of focused) {
     normalized[force] = Math.round((weight / total) * 1000) / 1000;
   }
   return normalized;
@@ -310,7 +313,7 @@ function extractPrimaryIntent(vibe: string): string {
 function extractSecondaryIntents(influences: SceneInfluenceMap): string[] {
   return Object.entries(influences)
     .sort((a, b) => b[1] - a[1])
-    .slice(1, 5)
+    .slice(1, 3)
     .map(([force]) => force);
 }
 
@@ -328,12 +331,23 @@ function computeIntentConfidence(influences: SceneInfluenceMap): number {
 }
 
 function extractMoodTags(baseIntent: UserIntent, influences: SceneInfluenceMap): string[] {
+  const moodForces = new Set([
+    "nostalgia",
+    "melancholy",
+    "calm",
+    "warmth",
+    "euphoric",
+    "dark",
+    "romantic",
+    "hopeful",
+    "introspective",
+  ]);
   return [
     ...baseIntent.mood,
     ...Object.entries(influences)
-      .filter(([, weight]) => weight >= 0.12)
+      .filter(([force, weight]) => moodForces.has(force) && weight >= 0.20)
       .map(([force]) => force),
-  ].filter((tag, idx, arr) => tag && arr.indexOf(tag) === idx);
+  ].filter((tag, idx, arr) => tag && arr.indexOf(tag) === idx).slice(0, 2);
 }
 
 // ── Main decomposer ────────────────────────────────────────────────────────

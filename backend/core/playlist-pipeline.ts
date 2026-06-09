@@ -28,6 +28,10 @@ import type { GenreAudit } from "../lib/genre-audit";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
+import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
+import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
+import { trackMatchesConstraints } from "./v3/constraint-filter";
+import { getGenreFamily } from "./v3/global-diversity-controller";
 import {
   warnIfFieldDropped,
   warnIfV3MetadataLost,
@@ -92,6 +96,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
   varietyPenaltyScale?: number;
   referencePlaylist?: boolean;
   pipelineLog?: import("pino").Logger;
+  lastSuccessfulVibe?: string | null;
   /**
    * No-library mode: intent always overrides user history.
    * Library affinity weight is zeroed out and redistributed to semantic.
@@ -117,6 +122,338 @@ export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
     emotionalPeakIndex: number | null;
     gradientPhases: { start: number; explore: number; peak: number; resolve: number };
   };
+}
+
+function energyIntentFromProfile(profile: EmotionProfile): "low" | "medium" | "high" {
+  const energy = profile.energy ?? 0.5;
+  if (energy >= 0.64) return "high";
+  if (energy <= 0.38) return "low";
+  return "medium";
+}
+
+function moodFallbackFromProfile(profile: EmotionProfile): string[] {
+  if ((profile.calm ?? 0) >= 0.6) return ["calm"];
+  if ((profile.nostalgia ?? 0) >= 0.5) return ["nostalgic"];
+  if ((profile.valence ?? 0.5) <= 0.42) return ["melancholic"];
+  if ((profile.energy ?? 0.5) >= 0.65) return ["energised"];
+  return ["balanced"];
+}
+
+function eraRangeFromCandidatePool<T extends { releaseYear?: number | null }>(
+  tracks: T[],
+): { start: number; end: number } | null {
+  const years = tracks
+    .map((track) => track.releaseYear)
+    .filter((year): year is number => typeof year === "number" && year >= 1900);
+  if (years.length === 0) return null;
+  return { start: Math.min(...years), end: Math.max(...years) };
+}
+
+function genreFamilyForTrack<T extends { trackId: string; genrePrimary?: string }>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+): string | null {
+  const classification = classMap.get(track.trackId);
+  const family = classification?.genreFamily ?? classification?.genrePrimary ?? track.genrePrimary;
+  const normalized = family ? getGenreFamily(family) : null;
+  return normalized && normalized !== "unknown" ? normalized : null;
+}
+
+function topGenreFamiliesFromPool<T extends { trackId: string; genrePrimary?: string }>(
+  tracks: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+): string[] {
+  const counts = new Map<string, number>();
+  for (const track of tracks) {
+    const family = genreFamilyForTrack(track, classMap);
+    if (!family) continue;
+    counts.set(family, (counts.get(family) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([family]) => family);
+}
+
+function hasLaneReadyEra(track: {
+  releaseYear?: number | null;
+  energy: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+}): boolean {
+  if (track.releaseYear) return detectEraFromYear(track.releaseYear) !== "any";
+  return estimateEraFromAudio(track) !== "any";
+}
+
+function isV3LaneReady<T extends {
+  trackId: string;
+  genrePrimary?: string;
+  energy: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+  releaseYear?: number | null;
+}>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+): boolean {
+  return !!genreFamilyForTrack(track, classMap) &&
+    track.energy !== null &&
+    hasLaneReadyEra(track);
+}
+
+function trackMatchesLockedIntent<T extends {
+  trackId: string;
+  genrePrimary?: string;
+  energy: number | null;
+  valence: number | null;
+  danceability: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+  releaseYear?: number | null;
+}>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+  lockedIntent: LockedIntent,
+): boolean {
+  const classification = classMap.get(track.trackId);
+  return trackMatchesConstraints({
+    ...track,
+    genreFamily: classification?.genreFamily ?? classification?.genrePrimary ?? track.genrePrimary,
+    genrePrimary: classification?.genrePrimary ?? track.genrePrimary,
+    laneEra: track.releaseYear ? detectEraFromYear(track.releaseYear) : estimateEraFromAudio(track),
+  }, lockedIntent);
+}
+
+function familyCount<T extends { trackId: string; genrePrimary?: string }>(
+  tracks: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+): number {
+  return new Set(
+    tracks
+      .map((track) => genreFamilyForTrack(track, classMap))
+      .filter((family): family is string => !!family)
+  ).size;
+}
+
+function familyDistribution<T extends { trackId: string; genrePrimary?: string }>(
+  tracks: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+): Record<string, number> {
+  const distribution: Record<string, number> = {};
+  for (const track of tracks) {
+    const family = genreFamilyForTrack(track, classMap);
+    if (!family) continue;
+    distribution[family] = (distribution[family] ?? 0) + 1;
+  }
+  return distribution;
+}
+
+function dominantFamilyShare(distribution: Record<string, number>): {
+  family: string | null;
+  share: number;
+} {
+  const total = Object.values(distribution).reduce((sum, count) => sum + count, 0);
+  if (total === 0) return { family: null, share: 0 };
+  const [family, count] = Object.entries(distribution)
+    .sort((a, b) => b[1] - a[1])[0] ?? [null, 0];
+  return { family, share: count / total };
+}
+
+function adjacentGenreFamilies(family: string | null): string[] {
+  switch (family) {
+    case "indie":
+      return ["rock", "folk", "pop", "electronic"];
+    case "rock":
+      return ["indie", "folk", "blues", "pop"];
+    case "country":
+      return ["folk", "blues", "rock"];
+    case "electronic":
+      return ["pop", "hip_hop", "rnb", "indie"];
+    case "hip_hop":
+      return ["rnb", "soul", "electronic", "pop"];
+    case "rnb":
+      return ["soul", "hip_hop", "pop", "jazz"];
+    case "jazz":
+      return ["soul", "blues", "rnb"];
+    case "folk":
+      return ["country", "indie", "rock"];
+    case "pop":
+      return ["indie", "electronic", "rnb", "rock"];
+    default:
+      return [];
+  }
+}
+
+function uncollapseV11CandidatePool<T extends {
+  trackId: string;
+  genrePrimary?: string;
+}>(
+  initialPool: T[],
+  expandedPool: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+  playlistLength: number,
+): { tracks: T[]; diagnostics: Record<string, unknown> } {
+  const availableFamilyCount = familyCount(expandedPool, classMap);
+  const initialDistribution = familyDistribution(initialPool, classMap);
+  const initialDominant = dominantFamilyShare(initialDistribution);
+  const collapseDetected =
+    initialDominant.share > 0.70 ||
+    familyCount(initialPool, classMap) < Math.min(3, availableFamilyCount);
+
+  if (!collapseDetected || availableFamilyCount < 2) {
+    return {
+      tracks: initialPool,
+      diagnostics: {
+        collapseDetected,
+        availableFamilyCount,
+        dominantFamily: initialDominant.family,
+        dominantShare: Math.round(initialDominant.share * 1000) / 1000,
+        uncollapseApplied: false,
+      },
+    };
+  }
+
+  const targetFamilyCount = Math.min(3, availableFamilyCount);
+  const targetSize = Math.max(initialPool.length, Math.min(expandedPool.length, Math.max(playlistLength * 10, 90)));
+  const usedIds = new Set(initialPool.map((track) => track.trackId));
+  const out = [...initialPool];
+  const allFamilies = topGenreFamiliesFromPool(expandedPool, classMap);
+  const preferredFamilies = [
+    ...adjacentGenreFamilies(initialDominant.family),
+    ...allFamilies,
+  ].filter((family, index, families) =>
+    family !== initialDominant.family && families.indexOf(family) === index
+  );
+
+  function addFirstFromFamily(family: string): void {
+    const candidate = expandedPool.find((track) =>
+      !usedIds.has(track.trackId) &&
+      genreFamilyForTrack(track, classMap) === family
+    );
+    if (!candidate) return;
+    usedIds.add(candidate.trackId);
+    out.push(candidate);
+  }
+
+  function diversityTargetMet(): boolean {
+    return familyCount(out, classMap) >= targetFamilyCount &&
+      dominantFamilyShare(familyDistribution(out, classMap)).share <= 0.70;
+  }
+
+  for (const family of preferredFamilies) {
+    if (familyCount(out, classMap) >= targetFamilyCount) break;
+    addFirstFromFamily(family);
+  }
+
+  for (const track of expandedPool) {
+    if (out.length >= targetSize && diversityTargetMet()) break;
+    if (usedIds.has(track.trackId)) continue;
+    const family = genreFamilyForTrack(track, classMap);
+    if (!family || family === initialDominant.family) continue;
+    usedIds.add(track.trackId);
+    out.push(track);
+  }
+
+  for (const track of expandedPool) {
+    if (out.length >= targetSize && diversityTargetMet()) break;
+    if (usedIds.has(track.trackId)) continue;
+    usedIds.add(track.trackId);
+    out.push(track);
+  }
+
+  const finalDistribution = familyDistribution(out, classMap);
+  const finalDominant = dominantFamilyShare(finalDistribution);
+
+  return {
+    tracks: out,
+    diagnostics: {
+      collapseDetected,
+      availableFamilyCount,
+      dominantFamily: initialDominant.family,
+      dominantShare: Math.round(initialDominant.share * 1000) / 1000,
+      finalDominantFamily: finalDominant.family,
+      finalDominantShare: Math.round(finalDominant.share * 1000) / 1000,
+      uncollapseApplied: true,
+      targetFamilyCount,
+    },
+  };
+}
+
+function buildV3CandidatePool<T extends {
+  trackId: string;
+  genrePrimary?: string;
+  energy: number | null;
+  valence: number | null;
+  danceability: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+  releaseYear?: number | null;
+}>(
+  sorted: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+  playlistLength: number,
+  lockedIntent: LockedIntent,
+): { tracks: T[]; diagnostics: Record<string, unknown> } {
+  const laneReady = sorted.filter((track) => isV3LaneReady(track, classMap));
+  const intentReady = laneReady.filter((track) =>
+    trackMatchesLockedIntent(track, classMap, lockedIntent)
+  );
+  const baseWindow = Math.min(intentReady.length, Math.max(playlistLength * 8, 75));
+  let windowSize = baseWindow;
+  while (windowSize < intentReady.length && familyCount(intentReady.slice(0, windowSize), classMap) < 3) {
+    windowSize = Math.min(intentReady.length, windowSize + Math.max(playlistLength * 4, 25));
+  }
+  const initialTracks = intentReady.slice(0, windowSize);
+  const expandedWindowSize = Math.min(
+    intentReady.length,
+    Math.max(windowSize, Math.max(playlistLength * 12, 120))
+  );
+  const uncollapsed = uncollapseV11CandidatePool(
+    initialTracks,
+    intentReady.slice(0, expandedWindowSize),
+    classMap,
+    playlistLength,
+  );
+  const tracks = uncollapsed.tracks;
+  return {
+    tracks,
+    diagnostics: {
+      inputCount: sorted.length,
+      laneReadyCount: laneReady.length,
+      intentReadyCount: intentReady.length,
+      candidateCount: tracks.length,
+      genreFamilyClusters: familyCount(tracks, classMap),
+      expandedForFamilySpread: windowSize > baseWindow,
+      v11Uncollapse: uncollapsed.diagnostics,
+    },
+  };
+}
+
+function buildV3LockedIntent<T extends {
+  trackId: string;
+  genrePrimary?: string;
+  releaseYear?: number | null;
+}>(
+  vibe: string,
+  lastSuccessfulVibe: string | null | undefined,
+  profile: EmotionProfile,
+  candidatePool: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+): LockedIntent {
+  const parsedIntent = buildLockedIntent(vibe.trim());
+  const previousIntent = lastSuccessfulVibe?.trim()
+    ? buildLockedIntent(lastSuccessfulVibe)
+    : null;
+  const poolGenreFamilies = topGenreFamiliesFromPool(candidatePool, classMap);
+  return completeLockedIntent(parsedIntent, {
+    genreFamilies: poolGenreFamilies.length > 0
+      ? poolGenreFamilies
+      : previousIntent?.genreFamilies,
+    eraRange: eraRangeFromCandidatePool(candidatePool) ?? previousIntent?.eraRange,
+    mood: previousIntent?.mood.length ? previousIntent.mood : moodFallbackFromProfile(profile),
+    activity: previousIntent?.activity ?? "listening",
+    energy: energyIntentFromProfile(profile),
+  });
 }
 
 export function buildPlaylistPipeline<T extends {
@@ -178,10 +515,24 @@ export function buildPlaylistPipeline<T extends {
   // ─────────────────────────────────────────────────────────────────────────
 
   const classMap = opts.userGenreProfile.trackClassifications;
+  const v3IntentSourcePool = scoring.sorted as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
+  const v3LockedIntent = buildV3LockedIntent(
+    opts.vibe,
+    opts.lastSuccessfulVibe,
+    opts.emotionProfile,
+    v3IntentSourcePool,
+    classMap,
+  );
+  const v3CandidatePool = buildV3CandidatePool(
+    scoring.sorted as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
+    classMap,
+    opts.playlistLength,
+    v3LockedIntent,
+  );
 
   let t = Date.now();
   const v3 = runV3Pipeline(
-    scoring.sorted as unknown as T[],
+    v3CandidatePool.tracks as unknown as T[],
     opts.vibe,
     opts.emotionProfile,
     opts.playlistLength,
@@ -190,10 +541,11 @@ export function buildPlaylistPipeline<T extends {
       classificationByTrack: (trackId) => classMap.get(trackId),
       noveltyByTrack:        opts.noveltyByTrack,
       seed:                  opts.postScore.startMs,
+      lockedIntent:          v3LockedIntent,
     }
   );
   logScoringStage(opts.pipelineLog, "V3 multi-lane pipeline complete", t, {
-    poolSize: scoring.sorted.length,
+    poolSize: v3CandidatePool.tracks.length,
     selectedCount: v3.finalTracks.length,
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
   });
@@ -204,11 +556,12 @@ export function buildPlaylistPipeline<T extends {
 
   // Last-resort fallback: V3 produced nothing (no audio features / empty lib)
   if (finalTracksList.length === 0) {
+    const fallbackPool = v3CandidatePool.tracks as unknown as ScoredLibraryTrack<T>[];
     const recentTrackPenalty = opts.recentPlaylistTrackIds?.length
       ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 5, opts.varietyPenaltyScale ?? 1)
       : undefined;
     const composed = composePlaylistFromPool({
-      sortedPool,
+      sortedPool: fallbackPool,
       playlistLength: opts.playlistLength,
       mode: opts.mode,
       maxPerArtist: opts.maxPerArtist,
@@ -224,7 +577,7 @@ export function buildPlaylistPipeline<T extends {
     });
     const enforcedFallback = enforceFinalPlaylistGenres({
       finalTracks: composed.finalTracks,
-      sortedPool: scoring.sorted,
+      sortedPool: fallbackPool,
       userGenreProfile: opts.userGenreProfile,
       genreStack: opts.genreStack,
       allowHoliday: opts.genrePost.allowHoliday,
@@ -237,7 +590,14 @@ export function buildPlaylistPipeline<T extends {
     return {
       finalTracks: enforcedFallback.tracks,
       sorted: scoring.sorted,
-      scoringDiagnostics: { ...scoring.scoringDiagnostics, v3Pipeline: { fallback: true, reason: "empty_library" } },
+      scoringDiagnostics: {
+        ...scoring.scoringDiagnostics,
+        v3Pipeline: {
+          fallback: true,
+          reason: "empty_library",
+          preV3Recovery: v3CandidatePool.diagnostics,
+        },
+      },
       hybridExcludedCount: scoring.hybridExcludedCount,
       genreAudit: enforcedFallback.genreAudit,
       ecosystemDebug: null,
@@ -286,7 +646,10 @@ export function buildPlaylistPipeline<T extends {
     sorted: scoring.sorted,
     scoringDiagnostics: {
       ...scoring.scoringDiagnostics,
-      v3Pipeline: v3.diagnostics,
+      v3Pipeline: {
+        ...v3.diagnostics,
+        preV3Recovery: v3CandidatePool.diagnostics,
+      },
     },
     hybridExcludedCount: scoring.hybridExcludedCount,
     genreAudit: enforced.genreAudit,

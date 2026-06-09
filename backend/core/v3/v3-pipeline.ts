@@ -33,7 +33,7 @@ import { interleaveLanes } from "./interleaver";
 import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
-import { buildLockedIntent, type LockedIntent } from "./intent";
+import { buildLockedIntent, completeLockedIntent, normalizeLockedGenreFamily, type LockedIntent } from "./intent";
 import { trackMatchesConstraints } from "./constraint-filter";
 import {
   createTrackDecision,
@@ -101,6 +101,21 @@ function decisionMatchesConstraints<T extends V3PipelineTrack>(
   }, lockedIntent);
 }
 
+function decisionIsLaneReady<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): boolean {
+  const classification = opts.classificationByTrack?.(decision.track.trackId);
+  const genreFamily = normalizeLockedGenreFamily(
+    classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary
+  );
+  return !!genreFamily &&
+    decision.laneEra !== "any" &&
+    decision.track.energy !== null;
+}
+
 // ── Pipeline ─────────────────────────────────────────────────────────────────
 
 export function runV3Pipeline<T extends V3PipelineTrack>(
@@ -113,12 +128,13 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     noveltyByTrack?: (trackId: string) => number;
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
     seed?: number;
+    lockedIntent?: LockedIntent;
   } = {},
 ): V3PipelineResult<T> {
 
   // ── Stage 1: Multi-axis intent decomposition ─────────────────────────────
   const decomposed = decomposeIntent(vibe, profile);
-  const lockedIntent = buildLockedIntent(vibe);
+  const lockedIntent = opts.lockedIntent ?? completeLockedIntent(buildLockedIntent(vibe));
   const fallbackTriggered = isUnclearIntent(decomposed);
 
   // ── Stage 2: Adaptive lane generation ───────────────────────────────────
@@ -165,8 +181,6 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     rejectionReason: string | null;
   }> = [];
 
-  let diversityWindow = createDiversityWindow();
-
   const sampledResults: SampledLaneResult<T>[] = lanes.map((lane) => {
     // Stage 3: Score every track for this lane
     const rawScored = scoreLane(tracks, lane, decomposed, {
@@ -178,6 +192,9 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     const validDecisions = scoredDecisions
       .map((decision) => withDecisionValidity(
         decision,
+        decisionIsLaneReady(decision, {
+          classificationByTrack: opts.classificationByTrack,
+        }) &&
         decisionMatchesConstraints(decision, lockedIntent, {
           classificationByTrack: opts.classificationByTrack,
         })
@@ -200,17 +217,6 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       lane.id,
       `${opts.seed ?? "v3"}:${lane.id}`,
     );
-
-    // Update diversity window for subsequent lanes
-    for (const t of clusterResult.tracks.slice(0, 4)) {
-      diversityWindow = updateDiversityWindow(diversityWindow, {
-        genre:  t.genrePrimary,
-        era:    t.laneEra,
-        artist: t.artistName,
-        energy: t.energy ?? 0.50,
-        lane:   lane.id,
-      });
-    }
 
     // ── Observability: build per-track trace (top 15 by raw score) ───────────
     const selectedIdSet = new Set(clusterResult.tracks.map((t) => t.trackId));
@@ -262,9 +268,6 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       tracks: clusterResult.tracks,
     };
   });
-
-  // ── Stage 6b: Compute diversity metrics for diagnostics only ─────────────
-  const preDiversityMetrics = computeDiversityMetrics(diversityWindow);
 
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
   const interleaved = interleaveLanes(lanes, sampledResults, targetCount);
@@ -548,14 +551,15 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
 
     // Global diversity layer
     globalDiversityMetrics: {
+      // Legacy field shape retained; values are final-selection metrics only.
       preInterleave: {
-        genreConcentration:   preDiversityMetrics.genreConcentration,
-        eraConcentration:     preDiversityMetrics.eraConcentration,
-        artistRepeatIndex:    preDiversityMetrics.artistRepeatIndex,
-        laneSaturation:       preDiversityMetrics.laneSaturation,
-        driftState:           preDiversityMetrics.driftState,
-        clusterCollapseIndex: preDiversityMetrics.clusterCollapseIndex,
-        explorationPressure:  preDiversityMetrics.explorationPressure,
+        genreConcentration:   postMetrics.genreConcentration,
+        eraConcentration:     postMetrics.eraConcentration,
+        artistRepeatIndex:    postMetrics.artistRepeatIndex,
+        laneSaturation:       postMetrics.laneSaturation,
+        driftState:           postMetrics.driftState,
+        clusterCollapseIndex: postMetrics.clusterCollapseIndex,
+        explorationPressure:  postMetrics.explorationPressure,
       },
       postInterleave: {
         genreConcentration:   postMetrics.genreConcentration,

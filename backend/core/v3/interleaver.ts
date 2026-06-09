@@ -8,6 +8,7 @@
 import type { Lane } from "./lane-router";
 import type { ScorerTrack } from "./lane-scorer";
 import type { EraBucket } from "../../lib/intent-parser";
+import { getGenreFamily } from "./global-diversity-controller";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,313 @@ function shannonEntropy(arr: string[]): number {
   for (const v of arr) counts[v] = (counts[v] ?? 0) + 1;
   const n = arr.length;
   return -Object.values(counts).reduce((s, c) => s + (c / n) * Math.log2(c / n), 0);
+}
+
+// ── Lightweight emotional arc ordering ──────────────────────────────────────
+
+type ArcSection = "intro" | "build" | "peak" | "release";
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function sectionAt(position: number, total: number): ArcSection {
+  if (total <= 3) return position === total - 1 ? "release" : "build";
+  const t = position / Math.max(1, total - 1);
+  if (t < 0.22) return "intro";
+  if (t < 0.58) return "build";
+  if (t < 0.80) return "peak";
+  return "release";
+}
+
+function targetEnergyAt(position: number, total: number): number {
+  if (total <= 1) return 0.5;
+  const t = position / (total - 1);
+
+  // Four-part emotional arc: settle, rise, peak, resolve.
+  if (t < 0.22) return 0.36 + (t / 0.22) * 0.12;
+  if (t < 0.58) return 0.48 + ((t - 0.22) / 0.36) * 0.20;
+  if (t < 0.80) return 0.68 + ((t - 0.58) / 0.22) * 0.17;
+  return 0.70 - ((t - 0.80) / 0.20) * 0.22;
+}
+
+function intensityOf(track: ScorerTrack): number {
+  const energy = track.energy ?? 0.5;
+  const danceability = track.danceability ?? 0.5;
+  const tempo = Math.min(1, Math.max(0, (track.tempo ?? 115) / 200));
+  return energy * 0.60 + danceability * 0.25 + tempo * 0.15;
+}
+
+function complexityOf(track: ScorerTrack): number {
+  const danceability = track.danceability ?? 0.5;
+  const tempo = Math.min(1, Math.max(0, (track.tempo ?? 115) / 200));
+  const acousticness = track.acousticness ?? 0.5;
+  return clamp01(danceability * 0.35 + tempo * 0.35 + (1 - acousticness) * 0.30);
+}
+
+function energyLevel(track: ScorerTrack): number {
+  const intensity = intensityOf(track);
+  if (intensity < 0.45) return 0;
+  if (intensity < 0.68) return 1;
+  return 2;
+}
+
+function clusterFamilies(track: InterleavedTrack<ScorerTrack>): Set<string> {
+  return new Set(
+    track.clusterIds
+      .filter((id) => id.startsWith("genre:"))
+      .map((id) => getGenreFamily(id.replace("genre:", "")))
+  );
+}
+
+function primaryFamily(track: InterleavedTrack<ScorerTrack>): string {
+  return getGenreFamily(track.genrePrimary);
+}
+
+function clusterValue(track: InterleavedTrack<ScorerTrack>, prefix: string): string | null {
+  const cluster = track.clusterIds.find((id) => id.startsWith(prefix));
+  return cluster ? cluster.slice(prefix.length) : null;
+}
+
+function subclusterOf(track: InterleavedTrack<ScorerTrack>): string {
+  return clusterValue(track, "genre:") ??
+    clusterValue(track, "mood:") ??
+    primaryFamily(track);
+}
+
+function hasSharedClusterFamily(
+  a: InterleavedTrack<ScorerTrack>,
+  b: InterleavedTrack<ScorerTrack>,
+): boolean {
+  const aFamilies = clusterFamilies(a);
+  if (aFamilies.size === 0) return primaryFamily(a) === primaryFamily(b);
+  for (const family of clusterFamilies(b)) {
+    if (aFamilies.has(family)) return true;
+  }
+  return primaryFamily(a) === primaryFamily(b);
+}
+
+function transitionCost(
+  candidate: InterleavedTrack<ScorerTrack>,
+  previous: InterleavedTrack<ScorerTrack> | null,
+  recentlyUsedArtists: ReadonlySet<string>,
+  recentFamilies: ReadonlySet<string>,
+  sectionSubclusters: ReadonlySet<string>,
+  remainingSubclusters: ReadonlySet<string>,
+  position: number,
+  total: number,
+  originalOffset: number,
+): number {
+  const candidateEnergy = candidate.energy ?? 0.5;
+  const candidateFamily = primaryFamily(candidate);
+  const section = sectionAt(position, total);
+  const candidateIntensity = intensityOf(candidate);
+  let cost = Math.abs(candidateEnergy - targetEnergyAt(position, total)) * 0.9;
+  cost += Math.abs(candidateIntensity - targetEnergyAt(position, total)) * 0.45;
+
+  if (section === "intro") {
+    cost += complexityOf(candidate) * 0.35;
+  }
+  if (section === "peak") {
+    cost -= candidateIntensity * 0.22;
+  }
+  if (section === "release") {
+    cost += Math.max(0, candidateIntensity - 0.62) * 0.65;
+    cost -= (candidate.valence ?? 0.5) >= 0.45 ? 0.04 : 0;
+    cost -= clusterValue(candidate, "mood:") === "nostalgic" ? 0.06 : 0;
+  }
+
+  if (previous) {
+    const energyJump = Math.abs(candidateEnergy - (previous.energy ?? 0.5));
+    const intensityJump = Math.abs(intensityOf(candidate) - intensityOf(previous));
+    const sameArtist = candidate.artistName === previous.artistName;
+    const nearbyFamily = hasSharedClusterFamily(candidate, previous);
+    const sameEnergyBand =
+      clusterValue(candidate, "energy:") !== null &&
+      clusterValue(candidate, "energy:") === clusterValue(previous, "energy:");
+    const sameMoodCluster =
+      clusterValue(candidate, "mood:") !== null &&
+      clusterValue(candidate, "mood:") === clusterValue(previous, "mood:");
+    const harshGenreCollision = !nearbyFamily && energyJump > 0.38;
+
+    cost += Math.max(0, energyJump - 0.18) * 1.8;
+    cost += energyJump > 0.48 ? 1.2 : 0;
+    cost += energyLevel(candidate) - energyLevel(previous) > 1 ? 2.0 : 0;
+    cost += Math.max(0, intensityJump - 0.22) * 1.0;
+    cost += harshGenreCollision ? 0.45 : nearbyFamily ? -0.03 : 0.06;
+    cost += sameEnergyBand ? -0.025 : 0;
+    cost += sameMoodCluster ? -0.025 : 0;
+    cost += sameArtist ? 4.0 : 0;
+  }
+
+  if (recentlyUsedArtists.has(candidate.artistName)) {
+    cost += 0.35;
+  }
+  if (recentFamilies.has(candidateFamily)) {
+    cost += 0.08;
+  }
+  if (
+    sectionSubclusters.has(subclusterOf(candidate)) &&
+    remainingSubclusters.size > sectionSubclusters.size
+  ) {
+    cost += 0.18;
+  }
+
+  // Keep the sampler/interleaver character visible; ordering should shape, not dominate.
+  return cost + originalOffset * 0.018;
+}
+
+function anchorPositions(total: number): Partial<Record<ArcSection, number>> {
+  if (total <= 2) return {};
+  const releasePosition = total > 10 ? Math.max(0, total - 2) : total - 1;
+  return {
+    intro: 0,
+    build: Math.min(total - 1, Math.max(1, Math.floor(total * 0.38))),
+    peak: Math.min(total - 1, Math.max(2, Math.floor(total * 0.68))),
+    release: releasePosition,
+  };
+}
+
+function anchorFitness(track: InterleavedTrack<ScorerTrack>, section: ArcSection): number {
+  const intensity = intensityOf(track);
+  const score = clamp01(track.laneScore);
+  if (section === "intro") {
+    return (1 - Math.abs(intensity - 0.42)) * 0.62 + score * 0.23 + (1 - complexityOf(track)) * 0.15;
+  }
+  if (section === "build") {
+    return (1 - Math.abs(intensity - 0.58)) * 0.68 + score * 0.22 + (track.danceability ?? 0.5) * 0.10;
+  }
+  if (section === "peak") {
+    return intensity * 0.66 + score * 0.24 + (track.danceability ?? 0.5) * 0.10;
+  }
+  return (1 - Math.abs(intensity - 0.48)) * 0.58 +
+    score * 0.18 +
+    ((track.valence ?? 0.5) >= 0.45 ? 0.12 : 0) +
+    (clusterValue(track, "mood:") === "nostalgic" ? 0.12 : 0);
+}
+
+function chooseArcAnchors<T extends ScorerTrack>(
+  tracks: Array<T & InterleavedTrack<T>>,
+): Map<number, string> {
+  const positions = anchorPositions(tracks.length);
+  const usedIds = new Set<string>();
+  const anchors = new Map<number, string>();
+  const orderedSections: ArcSection[] = ["peak", "intro", "build", "release"];
+  const peakArtist = tracks
+    .filter((track) => !usedIds.has(track.trackId))
+    .sort((a, b) => anchorFitness(b, "peak") - anchorFitness(a, "peak"))[0]?.artistName;
+
+  for (const section of orderedSections) {
+    const position = positions[section];
+    if (position === undefined) continue;
+    const candidates = tracks
+      .filter((track) => !usedIds.has(track.trackId))
+      .filter((track) => section !== "intro" || tracks.length <= 4 || track.artistName !== peakArtist);
+    const pool = candidates.length > 0 ? candidates : tracks.filter((track) => !usedIds.has(track.trackId));
+    const anchor = pool.sort((a, b) => anchorFitness(b, section) - anchorFitness(a, section))[0];
+    if (!anchor) continue;
+    usedIds.add(anchor.trackId);
+    anchors.set(position, anchor.trackId);
+  }
+  return anchors;
+}
+
+function positionIsPeakEarned(
+  candidate: InterleavedTrack<ScorerTrack>,
+  ordered: Array<InterleavedTrack<ScorerTrack>>,
+  position: number,
+  total: number,
+): boolean {
+  if (sectionAt(position, total) !== "peak" || energyLevel(candidate) < 2 || ordered.length < 2) {
+    return true;
+  }
+  const previousTwo = ordered.slice(-2);
+  return previousTwo.every((track, idx) => energyLevel(track) >= idx);
+}
+
+function hasUsableAlternative<T extends ScorerTrack>(
+  remaining: Array<T & InterleavedTrack<T>>,
+  rejectedTrackId: string,
+  predicate: (track: T & InterleavedTrack<T>) => boolean,
+): boolean {
+  return remaining.some((track) => track.trackId !== rejectedTrackId && predicate(track));
+}
+
+export function orderTracksForEmotionalFlow<T extends ScorerTrack>(
+  selectedTracks: Array<T & InterleavedTrack<T>>,
+): Array<T & InterleavedTrack<T>> {
+  type OutTrack = T & InterleavedTrack<T>;
+  if (selectedTracks.length <= 2) return [...selectedTracks];
+
+  const remaining = [...selectedTracks];
+  const ordered: OutTrack[] = [];
+  const recentArtists: string[] = [];
+  const preferredAnchors = chooseArcAnchors(selectedTracks);
+  const sectionSubclusters = new Map<ArcSection, Set<string>>();
+
+  while (remaining.length > 0) {
+    const previous = ordered[ordered.length - 1] ?? null;
+    const recentlyUsedArtists = new Set(recentArtists.slice(-3));
+    const recentFamilies = new Set(
+      ordered.slice(-4).map((track) => primaryFamily(track))
+    );
+    const position = ordered.length;
+    const section = sectionAt(position, selectedTracks.length);
+    const usedSubclusters = sectionSubclusters.get(section) ?? new Set<string>();
+    const remainingSubclusters = new Set(remaining.map((track) => subclusterOf(track)));
+    const preferredAnchorId = preferredAnchors.get(position);
+    let bestIndex = 0;
+    let lowestCost = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const candidate = remaining[i]!;
+      if (!positionIsPeakEarned(candidate, ordered, position, selectedTracks.length)) {
+        continue;
+      }
+      if (
+        previous?.artistName === candidate.artistName &&
+        hasUsableAlternative(remaining, candidate.trackId, (track) => track.artistName !== previous.artistName)
+      ) {
+        continue;
+      }
+      if (
+        previous &&
+        energyLevel(candidate) - energyLevel(previous) > 1 &&
+        hasUsableAlternative(remaining, candidate.trackId, (track) => energyLevel(track) - energyLevel(previous) <= 1)
+      ) {
+        continue;
+      }
+      const cost = transitionCost(
+        candidate,
+        previous,
+        recentlyUsedArtists,
+        recentFamilies,
+        usedSubclusters,
+        remainingSubclusters,
+        position,
+        selectedTracks.length,
+        i,
+      ) - (candidate.trackId === preferredAnchorId ? 0.35 : 0);
+      if (cost < lowestCost) {
+        lowestCost = cost;
+        bestIndex = i;
+      }
+    }
+
+    if (!Number.isFinite(lowestCost)) {
+      bestIndex = 0;
+    }
+
+    const [next] = remaining.splice(bestIndex, 1);
+    if (!next) break;
+    ordered.push(next);
+    recentArtists.push(next.artistName);
+    const updatedSubclusters = sectionSubclusters.get(section) ?? new Set<string>();
+    updatedSubclusters.add(subclusterOf(next));
+    sectionSubclusters.set(section, updatedSubclusters);
+  }
+
+  return ordered;
 }
 
 // ── Main interleaver ─────────────────────────────────────────────────────────
@@ -192,10 +500,11 @@ export function interleaveLanes<T extends ScorerTrack>(
     finalLaneUsageRatios[id] = Math.round((count / total) * 1000) / 1000;
   }
 
-  const genreEntropy = shannonEntropy(result.map((t) => t.genrePrimary));
+  const orderedTracks = orderTracksForEmotionalFlow(result);
+  const genreEntropy = shannonEntropy(orderedTracks.map((t) => t.genrePrimary));
 
   return {
-    tracks: result,
+    tracks: orderedTracks,
     laneContributions,
     interleaverDiagnostics: {
       repetitionEvents: 0,

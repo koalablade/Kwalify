@@ -164,9 +164,18 @@ const MOOD_PATTERNS: Array<{ tag: string; pattern: RegExp }> = [
 ];
 
 function extractMoodTags(vibe: string): string[] {
+  const excluded = new Set<string>();
+  const lower = vibe.toLowerCase();
+  if (/\b(?:not|no|without)\s+(?:sad|melanchol|lonely|blue|heartbreak)\b/.test(lower)) excluded.add("melancholic");
+  if (/\b(?:not|no|without)\s+(?:hype|energ|intense|power)\b/.test(lower)) excluded.add("energised");
+  if (/\b(?:not|no|without)\s+(?:calm|peace|quiet|still)\b/.test(lower)) excluded.add("calm");
+  if (/\b(?:not|no|without)\s+(?:nostalg|throwback|old)\b/.test(lower)) excluded.add("nostalgic");
+
   return MOOD_PATTERNS
     .filter(({ pattern }) => pattern.test(vibe))
-    .map(({ tag }) => tag);
+    .map(({ tag }) => tag)
+    .filter((tag) => !excluded.has(tag))
+    .slice(0, 2);
 }
 
 // ─── Vibe tag extraction ─────────────────────────────────────────────────────
@@ -183,11 +192,23 @@ function extractVibeTags(vibe: string): string[] {
  * The emotion profile provides the energy/valence baseline from the existing pipeline.
  */
 export function parseUserIntent(vibe: string, profile: EmotionProfile): UserIntent {
+  const activity = detectActivity(vibe);
+  const activityEnergy: Partial<Record<ActivityType, number>> = {
+    party: 0.85,
+    driving: 0.62,
+    chill: 0.28,
+    focus: 0.35,
+    walking: 0.52,
+    working: 0.40,
+    nostalgia: 0.45,
+    studying: 0.32,
+    cleaning: 0.68,
+  };
   return {
     era: detectEra(vibe),
-    energy: profile.energy,
+    energy: activityEnergy[activity] ?? profile.energy,
     mood: extractMoodTags(vibe),
-    activity: detectActivity(vibe),
+    activity,
     vibeTags: extractVibeTags(vibe),
   };
 }

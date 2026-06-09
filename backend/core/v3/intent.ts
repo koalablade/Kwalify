@@ -8,6 +8,14 @@ export interface LockedIntent {
   energy: "low" | "medium" | "high" | null;
 }
 
+export interface LockedIntentFallbacks {
+  genreFamilies?: string[];
+  eraRange?: { start: number; end: number } | null;
+  mood?: string[];
+  activity?: string | null;
+  energy?: "low" | "medium" | "high" | null;
+}
+
 const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "country", terms: ["country", "americana", "alt-country", "alt country", "bluegrass"] },
   { family: "rock", terms: ["rock", "indie rock", "alt rock", "alternative rock", "classic rock", "grunge", "punk"] },
@@ -20,6 +28,8 @@ const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "soul", terms: ["soul", "funk", "motown"] },
   { family: "latin", terms: ["latin", "reggaeton", "salsa", "bachata"] },
 ];
+
+const GENRE_EXCLUSION_RE = /\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&\-\s]{2,28})/gi;
 
 const ERA_BUCKET_RANGES: Record<string, { start: number; end: number }> = {
   "60s": { start: 1960, end: 1969 },
@@ -49,7 +59,12 @@ function parseEra(input: string): { start: number; end: number } | null {
   if (range?.[1] && range[2]) {
     const a = Number(range[1]);
     const b = Number(range[2]);
-    return { start: Math.min(a, b), end: Math.max(a, b) };
+    const start = Math.min(a, b);
+    const end = Math.max(a, b);
+    if (end - start <= 19) return { start, end };
+    const midpoint = Math.round((start + end) / 2);
+    const decadeStart = Math.floor(midpoint / 10) * 10;
+    return { start: decadeStart - 10, end: decadeStart + 9 };
   }
 
   const year = input.match(/\b(19\d{2}|20\d{2})\b/)?.[1];
@@ -65,20 +80,103 @@ export function normalizeLockedGenreFamily(value?: string | null): string | null
   return getGenreFamily(value.toLowerCase());
 }
 
+function uniqueGenreFamilies(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const family = normalizeLockedGenreFamily(value);
+    if (!family || seen.has(family)) continue;
+    seen.add(family);
+    out.push(family);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+function excludedGenreFamilies(input: string): Set<string> {
+  const excluded = new Set<string>();
+  for (const match of input.matchAll(GENRE_EXCLUSION_RE)) {
+    const phrase = match[1] ?? "";
+    for (const { family, terms } of GENRE_ALIASES) {
+      if (terms.some((term) => matchesTerm(phrase, term))) {
+        excluded.add(family);
+      }
+    }
+  }
+  return excluded;
+}
+
+function parseGenreFamilies(input: string): string[] {
+  const excluded = excludedGenreFamilies(input);
+  const matches = GENRE_ALIASES
+    .map(({ family, terms }) => {
+      const hitCount = terms.filter((term) => matchesTerm(input, term)).length;
+      const directFamilyHit = matchesTerm(input, family) ? 2 : 0;
+      return { family, confidence: hitCount + directFamilyHit };
+    })
+    .filter(({ family, confidence }) => confidence > 0 && !excluded.has(family))
+    .sort((a, b) => b.confidence - a.confidence);
+
+  const primary = matches[0];
+  if (!primary) return [];
+
+  const families = [primary.family];
+  const secondary = matches.find((match) =>
+    match.family !== primary.family &&
+    match.confidence >= Math.max(1, primary.confidence * 0.5)
+  );
+  if (secondary) families.push(secondary.family);
+  return families;
+}
+
+function excludedMoodTags(input: string): Set<string> {
+  const excluded = new Set<string>();
+  const rules: Array<{ tag: string; pattern: RegExp }> = [
+    { tag: "melancholic", pattern: /\b(?:not|no|without)\s+(?:sad|melanchol|lonely|blue|heartbreak)\b/i },
+    { tag: "calm", pattern: /\b(?:not|no|without)\s+(?:calm|chill|relax|soft|peaceful)\b/i },
+    { tag: "nostalgic", pattern: /\b(?:not|no|without)\s+(?:nostalg|throwback|retro|memory)\b/i },
+    { tag: "warm", pattern: /\b(?:not|no|without)\s+(?:warm|cozy|cosy|golden)\b/i },
+    { tag: "energised", pattern: /\b(?:not|no|without)\s+(?:hype|energ|intense|pump)\b/i },
+  ];
+  for (const rule of rules) {
+    if (rule.pattern.test(input)) excluded.add(rule.tag);
+  }
+  return excluded;
+}
+
+export function completeLockedIntent(
+  intent: LockedIntent,
+  fallbacks: LockedIntentFallbacks = {},
+): LockedIntent {
+  const genreFamilies = uniqueGenreFamilies(
+    intent.genreFamilies.length > 0
+      ? intent.genreFamilies
+      : fallbacks.genreFamilies ?? []
+  );
+
+  return {
+    genreFamilies: genreFamilies.length > 0 ? genreFamilies : ["pop"],
+    eraRange: intent.eraRange ?? fallbacks.eraRange ?? { start: 1960, end: 2029 },
+    mood: intent.mood.length > 0 ? intent.mood.slice(0, 3) : (fallbacks.mood?.slice(0, 3) ?? ["balanced"]),
+    activity: intent.activity ?? fallbacks.activity ?? "listening",
+    energy: intent.energy ?? fallbacks.energy ?? "medium",
+  };
+}
+
 export function buildLockedIntent(input: string): LockedIntent {
   const lower = input.toLowerCase();
-  const genreFamilies = GENRE_ALIASES
-    .filter(({ terms }) => terms.some((term) => matchesTerm(lower, term)))
-    .map(({ family }) => family)
-    .slice(0, 3);
+  const genreFamilies = parseGenreFamilies(lower);
 
+  const excludedMoods = excludedMoodTags(lower);
   const mood = [
     /\b(sad|melanchol|lonely|blue|heartbreak)\b/.test(lower) ? "melancholic" : null,
     /\b(calm|chill|relax|soft|peaceful)\b/.test(lower) ? "calm" : null,
     /\b(nostalg|throwback|retro|memory)\b/.test(lower) ? "nostalgic" : null,
     /\b(warm|sunset|cozy|cosy|golden)\b/.test(lower) ? "warm" : null,
     /\b(hype|energ|intense|pump)\b/.test(lower) ? "energised" : null,
-  ].filter((tag): tag is string => !!tag).slice(0, 3);
+  ]
+    .filter((tag): tag is string => !!tag && !excludedMoods.has(tag))
+    .slice(0, 2);
 
   const activity =
     /\b(driv|road|cruise|highway)\b/.test(lower) ? "driving" :

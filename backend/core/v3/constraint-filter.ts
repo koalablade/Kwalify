@@ -18,28 +18,11 @@ export type ConstraintTrackLike = {
   activityTags?: string[];
 };
 
-function eraCenter(intent: LockedIntent): number | null {
-  return intent.eraRange ? Math.round((intent.eraRange.start + intent.eraRange.end) / 2) : null;
-}
-
-function eraFromBucket(bucket?: string | null): number | null {
-  const ranges: Record<string, number> = {
-    "60s": 1965,
-    "70s": 1975,
-    "80s": 1985,
-    "90s": 1995,
-    "00s": 2005,
-    "10s": 2015,
-    "20s": 2025,
-  };
-  return bucket ? ranges[bucket] ?? null : null;
-}
-
 function genreFamilyAllowed(track: ConstraintTrackLike, intent: LockedIntent): boolean {
   const lockedFamilies = intent.genreFamilies
     .map(normalizeLockedGenreFamily)
     .filter((family): family is string => !!family);
-  if (lockedFamilies.length === 0) return true;
+  if (lockedFamilies.length === 0) return false;
   const candidateFamily =
     normalizeLockedGenreFamily(track.genreFamily) ??
     normalizeLockedGenreFamily(track.genrePrimary);
@@ -52,23 +35,24 @@ function eraAllowed(track: ConstraintTrackLike, intent: LockedIntent): boolean {
     return track.releaseYear >= intent.eraRange.start && track.releaseYear <= intent.eraRange.end;
   }
   const bucketRange = eraRangeFromBucket(track.laneEra);
-  if (!bucketRange) return true;
+  if (!bucketRange) return false;
   return bucketRange.end >= intent.eraRange.start && bucketRange.start <= intent.eraRange.end;
 }
 
 function moodCompatible(track: ConstraintTrackLike, mood: string[]): boolean {
-  if (mood.length === 0) return true;
+  const activeMood = mood.filter((tag) => tag !== "balanced");
+  if (activeMood.length === 0) return true;
   const energy = track.energy ?? 0.5;
   const valence = track.valence ?? 0.5;
   const acousticness = track.acousticness ?? 0.5;
   const danceability = track.danceability ?? 0.5;
-  return mood.some((tag) => {
+  return activeMood.some((tag) => {
     if (tag === "melancholic") return valence <= 0.45;
     if (tag === "calm") return energy <= 0.5;
     if (tag === "nostalgic") return track.laneEra !== "20s";
     if (tag === "warm") return valence >= 0.55 && acousticness >= 0.3;
     if (tag === "energised") return energy >= 0.62 || danceability >= 0.62;
-    return true;
+    return false;
   });
 }
 
@@ -85,7 +69,8 @@ function activityCompatible(track: ConstraintTrackLike, intent: LockedIntent): b
     intent.activity === "gym" ? energy >= 0.62 || tempo >= 125 :
     intent.activity === "party" ? energy >= 0.6 && danceability >= 0.55 :
     intent.activity === "relaxing" ? energy <= 0.45 :
-    true;
+    intent.activity === "listening" ? true :
+    false;
   const energyMatch =
     intent.energy === "high" ? energy >= 0.62 || tempo >= 125 :
     intent.energy === "medium" ? energy >= 0.38 && energy <= 0.75 :
@@ -95,15 +80,8 @@ function activityCompatible(track: ConstraintTrackLike, intent: LockedIntent): b
 }
 
 export function trackMatchesConstraints(track: ConstraintTrackLike, intent: LockedIntent): boolean {
-  const center = eraCenter(intent);
   if (!genreFamilyAllowed(track, intent)) return false;
   if (!eraAllowed(track, intent)) return false;
-
-  if (center !== null) {
-    const year = track.releaseYear ?? eraFromBucket(track.laneEra);
-    if (year !== null && Math.abs(year - center) > 15) return false;
-  }
-
   if (!moodCompatible(track, intent.mood)) return false;
   if (!activityCompatible(track, intent)) return false;
   return true;

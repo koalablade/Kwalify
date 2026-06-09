@@ -70,14 +70,50 @@ export function selectFromClusters<T extends ScorerTrack>(
   type OutTrack = ClusterSelectionResult<T>["tracks"][number];
   const selected: OutTrack[] = [];
 
+  function clusterValue(decision: TrackDecision<T>, prefix: string): string | null {
+    const cid = (trackToClusterIds.get(decision.track.trackId) ?? [])
+      .find((cluster) => cluster.startsWith(prefix));
+    return cid ? cid.slice(prefix.length) : null;
+  }
+
+  function targetEnergyBandAt(position: number): string {
+    const ratio = targetCount <= 1 ? 0 : position / Math.max(1, targetCount - 1);
+    if (ratio < 0.18) return "low";
+    if (ratio < 0.55) return "mid";
+    if (ratio < 0.78) return "high";
+    return "mid";
+  }
+
   function clusterDiversityScore(decision: TrackDecision<T>): number {
     const contributions = (trackToClusterIds.get(decision.track.trackId) ?? [])
       .map((cid) => clusters.get(cid)?.diversityContributionScore ?? 0);
     return contributions.length > 0 ? Math.max(...contributions) : 0;
   }
 
-  function samplerWeight(decision: TrackDecision<T>): number {
-    return Math.max(0.05, clusterDiversityScore(decision));
+  function samplerWeight(decision: TrackDecision<T>, bucketName = "core"): number {
+    const cids = trackToClusterIds.get(decision.track.trackId) ?? [];
+    const energyBand = clusterValue(decision, "energy:");
+    const moodCluster = clusterValue(decision, "mood:");
+    const genreCid = cids.find((cid) => cid.startsWith("genre:"));
+    const targetEnergyBand = targetEnergyBandAt(selected.length);
+    const repeatedClusterPressure = cids.reduce(
+      (pressure, cid) => pressure + (clusterPickCount.get(cid) ?? 0),
+      0
+    );
+    const energyFit = energyBand && energyBand === targetEnergyBand ? 1.18 : 0.92;
+    const explorationLift = bucketName === "exploration" ? 1.18 : bucketName === "variation" ? 1.08 : 1;
+    const genreRotation = genreCid ? 1 / (1 + (clusterPickCount.get(genreCid) ?? 0) * 0.18) : 1;
+    const moodRotation = moodCluster ? 1 / (1 + (clusterPickCount.get(`mood:${moodCluster}`) ?? 0) * 0.12) : 1;
+    const repetitionDampener = 1 / (1 + repeatedClusterPressure * 0.08);
+    return Math.max(
+      0.05,
+      clusterDiversityScore(decision) *
+        energyFit *
+        explorationLift *
+        genreRotation *
+        moodRotation *
+        repetitionDampener
+    );
   }
 
   function sharesSelectedCluster(decision: TrackDecision<T>): boolean {
@@ -102,6 +138,29 @@ export function selectFromClusters<T extends ScorerTrack>(
     const familyViolation = (familyPickCount.get(genreFamily) ?? 0) >= familyMax;
 
     return !(genreViolation || eraViolation || energyViolation || familyViolation);
+  }
+
+  function candidateFitsSequence(decision: TrackDecision<T>): boolean {
+    const previous = selected[selected.length - 1];
+    if (previous && previous.artistName === decision.track.artistName) return false;
+
+    const candidateClusters = trackToClusterIds.get(decision.track.trackId) ?? [];
+    const recent = selected.slice(-2);
+    for (const cid of candidateClusters) {
+      if (recent.length === 2 && recent.every((track) => track.clusterIds.includes(cid))) {
+        return false;
+      }
+    }
+
+    const energyBand = clusterValue(decision, "energy:");
+    if (energyBand && recent.length === 2) {
+      const recentEnergy = recent.map((track) =>
+        track.clusterIds.find((cid) => cid.startsWith("energy:"))?.replace("energy:", "")
+      );
+      if (recentEnergy[0] === energyBand && recentEnergy[1] === energyBand) return false;
+    }
+
+    return true;
   }
 
   function addSelected(decision: TrackDecision<T>): void {
@@ -130,13 +189,15 @@ export function selectFromClusters<T extends ScorerTrack>(
     );
     if (available.length === 0) return null;
 
-    const total = available.reduce((sum, item) => sum + samplerWeight(item), 0);
+    const sequenceSafe = available.filter(candidateFitsSequence);
+    const pickable = sequenceSafe.length > 0 ? sequenceSafe : available;
+    const total = pickable.reduce((sum, item) => sum + samplerWeight(item, bucketName), 0);
     let cursor = seededUnit(`${seed}:${laneId}:${bucketName}:${selected.length}`) * total;
-    for (const item of available) {
-      cursor -= samplerWeight(item);
+    for (const item of pickable) {
+      cursor -= samplerWeight(item, bucketName);
       if (cursor <= 0) return item;
     }
-    return available[available.length - 1] ?? null;
+    return pickable[pickable.length - 1] ?? null;
   }
 
   const rankedCandidates = [...scoredTracks].sort((a, b) => {
@@ -177,6 +238,17 @@ export function selectFromClusters<T extends ScorerTrack>(
     for (const item of rankedCandidates) {
       if (selected.length >= targetCount) break;
       if (usedIds.has(item.track.trackId)) continue;
+      if (!candidateFitsClusterCaps(item) || !candidateFitsSequence(item)) continue;
+      addSelected(item);
+    }
+  }
+
+  if (selected.length < targetCount) {
+    for (const item of rankedCandidates) {
+      if (selected.length >= targetCount) break;
+      if (usedIds.has(item.track.trackId)) continue;
+      if (!candidateFitsClusterCaps(item)) continue;
+      if (!candidateFitsSequence(item)) continue;
       addSelected(item);
     }
   }
