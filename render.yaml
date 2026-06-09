@@ -18,7 +18,9 @@ services:
     branch: main
     buildCommand: |
       set -e
-      npm ci --no-audit --prefer-offline --include=dev
+      rm -rf node_modules
+      npm cache clean --force
+      npm ci --include=dev --cache /tmp/npm-cache --prefer-online
       node -e "console.log('tsc exists:', require.resolve('typescript'))"
       test -f node_modules/.bin/tsc || (echo "tsc missing - install failed" && exit 1)
       npm run build

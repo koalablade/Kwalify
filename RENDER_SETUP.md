@@ -49,7 +49,7 @@ Follow these steps in order. Each step takes about 2–5 minutes.
 | **Name** | `kwalify-api` (your URL will be `https://kwalify-api.onrender.com`) |
 | **Region** | Closest to you |
 | **Runtime** | **Node** |
-| **Build Command** | `npm install && npm run build` |
+| **Build Command** | `rm -rf node_modules && npm cache clean --force && npm ci --include=dev --cache /tmp/npm-cache --prefer-online && npm run build` |
 | **Start Command** | `npm start` |
 | **Plan** | Free |
 
@@ -121,7 +121,7 @@ Use the **External** Database URL from Render if running from your machine (not 
 
 | Problem | Fix |
 |---------|-----|
-| Build fails / pnpm | Build must be `npm install && npm run build` — no pnpm |
+| Build fails / pnpm | Build must be `rm -rf node_modules && npm cache clean --force && npm ci --include=dev --cache /tmp/npm-cache --prefer-online && npm run build` — no pnpm/yarn |
 | `SESSION_SECRET` / `DATABASE_URL` required | Add env vars and redeploy |
 | Spotify redirect error | `SPOTIFY_REDIRECT_URI` must match Spotify dashboard character-for-character |
 | Login works but sync/generate fails | Run `drizzle-kit push` (Part 5) |
