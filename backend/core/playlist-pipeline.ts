@@ -29,7 +29,7 @@ import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
-import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
+import { completeLockedIntent, type LockedIntent } from "./v3/intent";
 import { trackMatchesConstraints } from "./v3/constraint-filter";
 import { getGenreFamily } from "./v3/global-diversity-controller";
 import {
@@ -37,6 +37,21 @@ import {
   warnIfV3MetadataLost,
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
+import {
+  buildUnifiedIntentContext,
+  resolveUnifiedIntent,
+  unifiedIntentFromControllerIntent,
+  unifiedIntentFromLockedIntent,
+  unifiedIntentFromSceneIntent,
+  unifiedIntentFromV11Intent,
+  type UnifiedIntentContext,
+} from "./unified-intent";
+import {
+  getMomentMemory,
+  injectMomentContext,
+  updateMomentMemory,
+} from "./memory/moment-memory";
+import { buildPlaylistEmbedding } from "./v3/embedding-retrieval";
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -97,6 +112,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
   referencePlaylist?: boolean;
   pipelineLog?: import("pino").Logger;
   lastSuccessfulVibe?: string | null;
+  momentMemoryKey?: string;
   /**
    * No-library mode: intent always overrides user history.
    * Library affinity weight is zeroed out and redistributed to semantic.
@@ -434,24 +450,20 @@ function buildV3LockedIntent<T extends {
   genrePrimary?: string;
   releaseYear?: number | null;
 }>(
-  vibe: string,
-  lastSuccessfulVibe: string | null | undefined,
+  unifiedIntentContext: UnifiedIntentContext,
+  previousUnifiedIntentContext: UnifiedIntentContext | null,
   profile: EmotionProfile,
   candidatePool: T[],
   classMap: UserGenreProfile["trackClassifications"],
 ): LockedIntent {
-  const parsedIntent = buildLockedIntent(vibe.trim());
-  const previousIntent = lastSuccessfulVibe?.trim()
-    ? buildLockedIntent(lastSuccessfulVibe)
-    : null;
   const poolGenreFamilies = topGenreFamiliesFromPool(candidatePool, classMap);
-  return completeLockedIntent(parsedIntent, {
+  return completeLockedIntent(unifiedIntentContext.lockedIntent, {
     genreFamilies: poolGenreFamilies.length > 0
       ? poolGenreFamilies
-      : previousIntent?.genreFamilies,
-    eraRange: eraRangeFromCandidatePool(candidatePool) ?? previousIntent?.eraRange,
-    mood: previousIntent?.mood.length ? previousIntent.mood : moodFallbackFromProfile(profile),
-    activity: previousIntent?.activity ?? "listening",
+      : previousUnifiedIntentContext?.lockedIntent.genreFamilies,
+    eraRange: eraRangeFromCandidatePool(candidatePool) ?? previousUnifiedIntentContext?.lockedIntent.eraRange,
+    mood: previousUnifiedIntentContext?.lockedIntent.mood.length ? previousUnifiedIntentContext.lockedIntent.mood : moodFallbackFromProfile(profile),
+    activity: previousUnifiedIntentContext?.lockedIntent.activity ?? "listening",
     energy: energyIntentFromProfile(profile),
   });
 }
@@ -516,13 +528,46 @@ export function buildPlaylistPipeline<T extends {
 
   const classMap = opts.userGenreProfile.trackClassifications;
   const v3IntentSourcePool = scoring.sorted as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
-  const v3LockedIntent = buildV3LockedIntent(
+  const unifiedIntentContext = buildUnifiedIntentContext(
     opts.vibe,
-    opts.lastSuccessfulVibe,
+    opts.emotionProfile,
+    {},
+    [
+      unifiedIntentFromControllerIntent(opts.humanIntent, opts.emotionProfile),
+      unifiedIntentFromV11Intent(opts.intent, opts.emotionProfile),
+    ],
+  );
+  const preGenerationMomentMemory = getMomentMemory(opts.momentMemoryKey);
+  const memoryAdjustedUnifiedIntent = injectMomentContext(
+    unifiedIntentContext.unifiedIntent,
+    preGenerationMomentMemory,
+  );
+  const unifiedIntentContextWithMemory: UnifiedIntentContext = {
+    ...unifiedIntentContext,
+    unifiedIntent: memoryAdjustedUnifiedIntent,
+    diagnostics: {
+      ...unifiedIntentContext.diagnostics,
+      resolver: {
+        ...unifiedIntentContext.diagnostics.resolver,
+        intent: memoryAdjustedUnifiedIntent,
+      },
+    },
+  };
+  const previousUnifiedIntentContext = opts.lastSuccessfulVibe?.trim()
+    ? buildUnifiedIntentContext(opts.lastSuccessfulVibe, opts.emotionProfile)
+    : null;
+  const v3LockedIntent = buildV3LockedIntent(
+    unifiedIntentContextWithMemory,
+    previousUnifiedIntentContext,
     opts.emotionProfile,
     v3IntentSourcePool,
     classMap,
   );
+  const unifiedIntentDiagnostics = resolveUnifiedIntent([
+    ...unifiedIntentContextWithMemory.diagnostics.snapshots,
+    unifiedIntentFromLockedIntent(v3LockedIntent),
+    unifiedIntentFromSceneIntent(v3LockedIntent.sceneIntent),
+  ]);
   const v3CandidatePool = buildV3CandidatePool(
     scoring.sorted as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
     classMap,
@@ -542,6 +587,8 @@ export function buildPlaylistPipeline<T extends {
       noveltyByTrack:        opts.noveltyByTrack,
       seed:                  opts.postScore.startMs,
       lockedIntent:          v3LockedIntent,
+      unifiedIntentContext:   unifiedIntentContextWithMemory,
+      momentMemory:           preGenerationMomentMemory,
     }
   );
   logScoringStage(opts.pipelineLog, "V3 multi-lane pipeline complete", t, {
@@ -587,11 +634,21 @@ export function buildPlaylistPipeline<T extends {
       sceneInfluenceRatio: scoring.sceneInfluenceRatio,
       stabilityDiagnostics: scoring.stabilityDiagnostics,
     });
+    const fallbackMomentMemory = updateMomentMemory({
+      unifiedIntent: memoryAdjustedUnifiedIntent,
+      finalPlaylistEmbedding: buildPlaylistEmbedding(enforcedFallback.tracks).centroidVector,
+      memoryKey: opts.momentMemoryKey,
+    });
     return {
       finalTracks: enforcedFallback.tracks,
       sorted: scoring.sorted,
       scoringDiagnostics: {
         ...scoring.scoringDiagnostics,
+        unifiedIntent: unifiedIntentDiagnostics,
+        momentMemory: {
+          recentStates: fallbackMomentMemory.recentStates.length,
+          decayWeight: Math.round(fallbackMomentMemory.aggregatedState.decayWeight * 1000) / 1000,
+        },
         v3Pipeline: {
           fallback: true,
           reason: "empty_library",
@@ -640,12 +697,22 @@ export function buildPlaylistPipeline<T extends {
   );
   warnIfFieldDropped("laneScore", v3.finalTracks, finalTracksList, "v3-output-to-create-playlist");
   warnIfFieldDropped("clusterIds", v3.finalTracks, finalTracksList, "v3-output-to-create-playlist");
+  const updatedMomentMemory = updateMomentMemory({
+    unifiedIntent: memoryAdjustedUnifiedIntent,
+    finalPlaylistEmbedding: buildPlaylistEmbedding(finalTracksList).centroidVector,
+    memoryKey: opts.momentMemoryKey,
+  });
 
   return {
     finalTracks: finalTracksList,
     sorted: scoring.sorted,
     scoringDiagnostics: {
       ...scoring.scoringDiagnostics,
+      unifiedIntent: unifiedIntentDiagnostics,
+      momentMemory: {
+        recentStates: updatedMomentMemory.recentStates.length,
+        decayWeight: Math.round(updatedMomentMemory.aggregatedState.decayWeight * 1000) / 1000,
+      },
       v3Pipeline: {
         ...v3.diagnostics,
         preV3Recovery: v3CandidatePool.diagnostics,

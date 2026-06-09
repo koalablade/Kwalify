@@ -18,7 +18,7 @@
  */
 
 import type { EmotionProfile } from "../../lib/emotion";
-import { decomposeIntent, isUnclearIntent } from "./intent-decomposer";
+import { isUnclearIntent } from "./intent-decomposer";
 import { buildLanes } from "./lane-router";
 import { generateAdaptiveLanes } from "./adaptive-lane-generator";
 import { scoreLane } from "./lane-scorer";
@@ -33,15 +33,20 @@ import { interleaveLanes } from "./interleaver";
 import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
-import { buildLockedIntent, completeLockedIntent, normalizeLockedGenreFamily, type LockedIntent } from "./intent";
+import { normalizeLockedGenreFamily, type LockedIntent } from "./intent";
 import { computeSceneAlignmentScore, trackMatchesConstraints } from "./constraint-filter";
 import { retrieveCandidatesByEmbedding, type RetrievedCandidate, type RetrievalTrackLike } from "./embedding-retrieval";
+import { runRecommendationEngine } from "../engine/recommendation-engine";
+import type { MomentMemory } from "../memory/moment-memory";
 import {
   createTrackDecision,
   withDecisionAffinities,
   withDecisionValidity,
   type TrackDecision,
 } from "./track-decision";
+import {
+  type UnifiedIntentContext,
+} from "../unified-intent";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -183,14 +188,24 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
     seed?: number;
     lockedIntent?: LockedIntent;
+    unifiedIntentContext?: UnifiedIntentContext;
+    momentMemory?: MomentMemory | null;
   } = {},
 ): V3PipelineResult<T> {
 
-  // ── Stage 1: Multi-axis intent decomposition ─────────────────────────────
-  const decomposed = decomposeIntent(vibe, profile);
-  const lockedIntent = opts.lockedIntent ?? completeLockedIntent(buildLockedIntent(vibe));
+  // ── Stage 1: Unified intent consumption ──────────────────────────────────
+  if (!opts.unifiedIntentContext) {
+    throw new Error("UnifiedIntent required — raw prompt parsing disabled");
+  }
+  const decomposed = opts.unifiedIntentContext.decomposedIntent;
+  const lockedIntent = opts.lockedIntent ?? opts.unifiedIntentContext.lockedIntent;
+  const unifiedIntentDiagnostics = opts.unifiedIntentContext.diagnostics;
   const fallbackTriggered = isUnclearIntent(decomposed);
-  const retrievalCloud = retrieveCandidatesByEmbedding(tracks, lockedIntent);
+  const retrievalCloud = retrieveCandidatesByEmbedding(
+    tracks,
+    lockedIntent,
+    opts.unifiedIntentContext.unifiedIntent,
+  );
   const retrievedTracks = retrievalCloud.tracks.map((candidate) => candidate.track);
   const retrievalByTrack = new Map(
     retrievalCloud.tracks.map((candidate) => [candidate.track.trackId, candidate])
@@ -239,6 +254,12 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     selectionReason?: string | null;
     rejectionReason: string | null;
   }> = [];
+  const recommendationEngineDiagnostics: Array<{
+    laneId: string;
+    signalCount: number;
+    weights: Record<string, number>;
+    topDecisions: unknown[];
+  }> = [];
 
   const sampledResults: SampledLaneResult<T>[] = lanes.map((lane) => {
     // Stage 3: Score every track for this lane
@@ -264,6 +285,18 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       classificationByTrack: opts.classificationByTrack,
       retrievalByTrack,
     });
+    const engineResult = runRecommendationEngine({
+      decisions: affinityDecisions,
+      unifiedIntent: opts.unifiedIntentContext.unifiedIntent,
+      memory: opts.momentMemory,
+      classificationByTrack: opts.classificationByTrack,
+    });
+    recommendationEngineDiagnostics.push({
+      laneId: lane.id,
+      signalCount: engineResult.diagnostics.signalCount,
+      weights: engineResult.diagnostics.weights,
+      topDecisions: engineResult.diagnostics.topDecisions,
+    });
 
     // Headroom: 3× target so the sampler has enough valid choices.
     const laneTarget = Math.max(
@@ -272,7 +305,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     );
 
     // Stage 4: Build clusters from scored pool
-    const clusteredPool = buildClusters(affinityDecisions);
+    const clusteredPool = buildClusters(engineResult.decisions);
 
     // Stage 5: Entropy-constrained selection across clusters
     const clusterResult = selectFromClusters(
@@ -583,6 +616,12 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       ),
     },
     adaptiveLaneGenerator: generatorDiagnostics,
+    unifiedIntent: unifiedIntentDiagnostics,
+    recommendationEngine: {
+      mode: "single_decision_engine",
+      normalisation: "per_lane_signal_domain",
+      lanes: recommendationEngineDiagnostics,
+    },
     embeddingRetrieval: {
       mode: "session_multi_vector_retrieval",
       totalCandidates: retrievalCloud.tracks.length,

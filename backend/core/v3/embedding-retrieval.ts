@@ -1,4 +1,5 @@
 import type { LockedIntent, SceneLatentVector } from "./intent";
+import type { UnifiedIntent } from "../unified-intent";
 
 export interface SessionEmbeddingState {
   tasteVector: number[];
@@ -315,15 +316,17 @@ export function buildUserMemoryGraph<T extends RetrievalTrackLike>(
 export function buildSessionEmbeddingState<T extends RetrievalTrackLike>(
   tracks: T[],
   intent: LockedIntent,
+  unifiedIntent?: UnifiedIntent,
 ): SessionEmbeddingState {
   const trackCentroid = centroid(tracks.map(trackToEmbedding));
-  const sceneVector = sceneLatentToVector(intent.sceneIntent?.stableVibeVector ?? intent.sceneIntent?.sceneVector ?? null);
+  const sceneVector = unifiedIntent?.sceneVector ??
+    sceneLatentToVector(intent.sceneIntent?.stableVibeVector ?? intent.sceneIntent?.sceneVector ?? null);
   const tasteVector = blendVectors([
     { vector: trackCentroid, weight: 0.65 },
     { vector: sceneVector, weight: 0.35 },
   ]);
-  const mood = moodVector(intent);
-  const energy = energyVector(intent);
+  const mood = unifiedIntent?.emotionVector ?? moodVector(intent);
+  const energy = unifiedIntent?.energyVector ?? energyVector(intent);
   const driftSeed = blendVectors([
     { vector: sceneVector, weight: 0.50 },
     { vector: trackCentroid, weight: 0.50 },
@@ -346,14 +349,15 @@ function neighborhoodOf(componentAffinities: RetrievedCandidate<RetrievalTrackLi
     ["mood", componentAffinities.mood],
     ["energy", componentAffinities.energy],
   ] as const;
-  return entries.sort((a, b) => b[1] - a[1])[0]?.[0] ?? "scene";
+  return [...entries].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "scene";
 }
 
 export function retrieveCandidatesByEmbedding<T extends RetrievalTrackLike>(
   tracks: T[],
   intent: LockedIntent,
+  unifiedIntent?: UnifiedIntent,
 ): RetrievalCloud<T> {
-  const sessionState = buildSessionEmbeddingState(tracks, intent);
+  const sessionState = buildSessionEmbeddingState(tracks, intent, unifiedIntent);
   const playlistEmbedding = buildPlaylistEmbedding(tracks);
   const userTasteState = buildUserTasteState(sessionState, playlistEmbedding);
   const memoryGraph = buildUserMemoryGraph(tracks, sessionState);

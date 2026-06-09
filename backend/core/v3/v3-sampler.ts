@@ -9,7 +9,7 @@ import type { EraBucket } from "../../lib/intent-parser";
 import type { ScorerTrack } from "./lane-scorer";
 import type { ClusteredPool } from "./cluster-candidate-engine";
 import { getGenreFamily } from "./global-diversity-controller";
-import { withDecisionFinalScore, withDecisionWeight, type TrackDecision } from "./track-decision";
+import { withDecisionWeight, type TrackDecision } from "./track-decision";
 
 export interface SampledLaneResult<T extends ScorerTrack> {
   laneId: string;
@@ -44,11 +44,6 @@ function seededUnit(value: string): number {
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
-}
-
-function smoothstep(value: number): number {
-  const x = clamp01(value);
-  return x * x * (3 - 2 * x);
 }
 
 export function selectFromClusters<T extends ScorerTrack>(
@@ -126,40 +121,23 @@ export function selectFromClusters<T extends ScorerTrack>(
     return clamp01(structuralControl * 0.75 + decision.freshnessAffinity * 0.25);
   }
 
-  function alignedTasteSignal(decision: TrackDecision<T>): number {
-    const sceneScore = decision.sceneAffinity;
-    const tasteScore = decision.tasteAffinity;
-    const conflict = Math.abs(sceneScore - tasteScore);
-    if (sceneScore >= 0.66 && conflict >= 0.28) {
-      return clamp01(sceneScore * 0.75 + tasteScore * 0.25);
-    }
-    if (tasteScore > sceneScore && conflict >= 0.24) {
-      return clamp01(sceneScore * 0.80 + tasteScore * 0.20);
-    }
-    return tasteScore;
-  }
-
-  function stabilisedDistributionScore(finalScore: number): number {
-    const stabilityFactor = 0.15;
-    return clamp01(finalScore * (1 - stabilityFactor) + smoothstep(finalScore) * stabilityFactor);
-  }
-
-  function hierarchicalFinalScore(decision: TrackDecision<T>, bucketName = "core"): number {
-    const rawScore = clamp01(
-      decision.embeddingAffinity * 0.70 +
-      alignedTasteSignal(decision) * 0.20 +
-      behavioralModifier(decision, bucketName) * 0.10
-    );
-    return stabilisedDistributionScore(rawScore);
+  function distributionScore(decision: TrackDecision<T>, bucketName = "core"): number {
+    const explorationAdjustment = behavioralModifier(decision, bucketName);
+    return clamp01(decision.finalScore * 0.94 + explorationAdjustment * 0.06);
   }
 
   function scoredDecision(decision: TrackDecision<T>, bucketName = "core"): TrackDecision<T> {
-    return withDecisionFinalScore(decision, hierarchicalFinalScore(decision, bucketName));
+    return {
+      ...decision,
+      finalScore: distributionScore(decision, bucketName),
+      relevanceScore: decision.finalScore,
+      affinityScore: decision.finalScore,
+    };
   }
 
   function softmaxWeight(decision: TrackDecision<T>, bucketName: string, maxScore: number): number {
     const temperature = 8;
-    const finalScore = hierarchicalFinalScore(decision, bucketName);
+    const finalScore = distributionScore(decision, bucketName);
     return Math.exp((finalScore - maxScore) * temperature);
   }
 
@@ -264,7 +242,7 @@ export function selectFromClusters<T extends ScorerTrack>(
       return neighborhoodCursor <= 0;
     }) ?? weightedNeighborhoods[weightedNeighborhoods.length - 1];
     const neighborhoodPickable = selectedNeighborhood?.group ?? pickable;
-    const maxScore = Math.max(...neighborhoodPickable.map((item) => hierarchicalFinalScore(item, bucketName)));
+    const maxScore = Math.max(...neighborhoodPickable.map((item) => distributionScore(item, bucketName)));
     const weightedPickables = neighborhoodPickable.map((item) => ({
       item,
       weight: softmaxWeight(item, bucketName, maxScore),
@@ -279,7 +257,7 @@ export function selectFromClusters<T extends ScorerTrack>(
   }
 
   const rankedCandidates = [...scoredTracks].sort((a, b) => {
-    return b.embeddingAffinity - a.embeddingAffinity;
+    return b.finalScore - a.finalScore;
   });
 
   const coreEnd = Math.max(1, Math.ceil(rankedCandidates.length * 0.35));
