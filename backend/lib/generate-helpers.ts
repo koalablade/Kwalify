@@ -5,10 +5,7 @@ import type { GenreAudit } from "./genre-audit";
 import type { BuildPlaylistPipelineResult } from "../core/playlist-pipeline";
 import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
 import type { TrackScoringDebug } from "./hybrid-scoring";
-import {
-  warnIfV3MetadataLost,
-  type V3TrackMetadata,
-} from "./v3-track-contract";
+import type { V3TrackMetadata } from "./v3-track-contract";
 
 function fallbackScoringDebug(trackId: string): TrackScoringDebug {
   return {
@@ -145,10 +142,5 @@ export function formatTracksForApi(
       selectedByV3: t.selectedByV3 === true ? true : undefined,
       whyReasons: buildTrackWhyReasons(t, profile, i),
     }));
-  warnIfV3MetadataLost(
-    tracks ?? [],
-    formatted,
-    "api-formatting"
-  );
   return formatted;
 }
