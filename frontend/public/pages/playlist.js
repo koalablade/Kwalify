@@ -47,7 +47,7 @@ async function sendFeedbackEvent(track, action, playlistId, context = {}) {
   });
 }
 
-async function sendImplicitFeedback(track, playDuration, skipped) {
+async function sendImplicitFeedback(track, playDuration, skipped, eventType = null) {
   const payloadTrack = feedbackTrackPayload(track);
   if (!payloadTrack.trackId) return;
   await api("/feedback/implicit", {
@@ -56,6 +56,7 @@ async function sendImplicitFeedback(track, playDuration, skipped) {
       ...payloadTrack,
       playDuration,
       skipped,
+      eventType,
       sessionId: feedbackSessionId,
     }),
   });
@@ -130,11 +131,12 @@ function render(data) {
         <div class="track-artist">${esc(artist)}</div>
       </div>
       <div class="track-actions">
-        <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" title="Skip this track">Skip</button>
-        <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" title="Remove from future playlists">Remove</button>
-        <button class="section-action feedback-track-btn" data-action="replace" data-track-index="${i}" title="Replace with a nearby track">Replace</button>
-        <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" title="Like this track">Like</button>
-        <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" title="Thumbs down">Thumbs down</button>
+        <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" title="Skip this track" aria-label="Skip this track">⏭</button>
+        <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" title="Remove from future playlists" aria-label="Remove from future playlists">−</button>
+        <button class="section-action feedback-track-btn" data-action="replace" data-track-index="${i}" title="Replace with a nearby track" aria-label="Replace with a nearby track">↻</button>
+        <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" title="Like this track" aria-label="Like this track">♥</button>
+        <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" title="Thumbs down" aria-label="Thumbs down">↓</button>
+        <button class="section-action feedback-track-btn undo-feedback-btn" data-action="undo" data-track-index="${i}" title="Undo last feedback" aria-label="Undo last feedback" style="display:none">Undo</button>
       </div>
     </div>`;
   }).join("");
@@ -184,8 +186,16 @@ function render(data) {
       const track = tracks[index];
       if (!track || !action) return;
       btn.disabled = true;
-      btn.textContent = action === "like" ? "Liked" : action === "replace" ? "Replacing" : "Sent";
+      const originalText = btn.textContent;
+      btn.textContent = action === "like" ? "♥" : action === "replace" ? "…" : action === "undo" ? "Undo" : "✓";
       try {
+        if (action === "undo") {
+          await sendFeedbackEvent(track, "undo", data.id, { vibe: data.vibe || "" });
+          btn.closest(".track-row")?.style.setProperty("opacity", "1");
+          btn.style.display = "none";
+          btn.disabled = false;
+          return;
+        }
         if (action === "replace") {
           const replacement = await replacePlaylistTrack(data.id, track, { vibe: data.vibe || "" });
           if (replacement) {
@@ -195,13 +205,17 @@ function render(data) {
           return;
         }
         await sendFeedbackEvent(track, action, data.id, { vibe: data.vibe || "" });
-        if (action === "skip") await sendImplicitFeedback(track, 0, true);
+        if (action === "skip") await sendImplicitFeedback(track, 0, true, "skip");
+        if (action === "like") await sendImplicitFeedback(track, track.durationMs || 0, false, "manual_save");
         if (action === "remove" || action === "dislike") {
-          btn.closest(".track-row")?.style.setProperty("opacity", "0.45");
+          const row = btn.closest(".track-row");
+          row?.style.setProperty("opacity", "0.45");
+          const undo = row?.querySelector(".undo-feedback-btn");
+          if (undo) undo.style.display = "inline-flex";
         }
       } catch (_) {
         btn.disabled = false;
-        btn.textContent = action;
+        btn.textContent = originalText;
       }
     });
   });

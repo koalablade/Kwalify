@@ -16,7 +16,7 @@ import {
 } from "../db";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
-import { onTrackRemoved, onTrackSave, onTrackSkip, type FeedbackTrack } from "../lib/feedback-memory";
+import { onTrackRemoved, onTrackSave, onTrackSkip, onTrackUndoFeedback, type FeedbackMemory, type FeedbackTrack } from "../lib/feedback-memory";
 import { markGenerateResultCacheStale } from "../lib/generate-result-cache";
 
 const router: IRouter = Router();
@@ -35,7 +35,7 @@ const FeedbackTrackSchema = z.object({
 
 const TrackFeedbackBodySchema = z.object({
   trackId: z.string().min(1).optional(),
-  action: z.enum(["skip", "remove", "save", "like", "dislike"]),
+  action: z.enum(["skip", "remove", "save", "like", "dislike", "undo"]),
   playlistId: z.string().optional(),
   context: z.object({ vibe: z.string().optional() }).passthrough().optional(),
   vibe: z.string().optional(),
@@ -47,6 +47,8 @@ const ImplicitFeedbackBodySchema = z.object({
   trackId: z.string().min(1),
   playDuration: z.number().min(0).max(60 * 60 * 6).default(0),
   skipped: z.boolean().optional(),
+  eventType: z.enum(["listen", "skip", "replay", "session_dropoff", "manual_save"]).optional(),
+  replayCount: z.number().min(0).max(100).optional(),
   sessionId: z.string().min(1).max(120),
   trackName: z.string().nullable().optional(),
   artistId: z.string().nullable().optional(),
@@ -326,18 +328,23 @@ router.post("/feedback/track", async (req, res): Promise<void> => {
   }
 
   try {
-    const memory = action === "save" || action === "like"
-      ? await onTrackSave(userId, track)
-      : action === "skip"
-        ? await onTrackSkip(userId, track)
-        : await onTrackRemoved(userId, track, {
-            mood: typeof req.body?.vibe === "string"
-              ? req.body.vibe
-              : typeof parsed.data.context?.vibe === "string"
-                ? parsed.data.context.vibe
-                : null,
-            bridgeGenre: parsed.data.bridgeGenre ?? null,
-          });
+    let memory: FeedbackMemory;
+    if (action === "undo") {
+      memory = await onTrackUndoFeedback(userId, track);
+    } else if (action === "save" || action === "like") {
+      memory = await onTrackSave(userId, track);
+    } else if (action === "skip") {
+      memory = await onTrackSkip(userId, track);
+    } else {
+      memory = await onTrackRemoved(userId, track, {
+        mood: typeof req.body?.vibe === "string"
+          ? req.body.vibe
+          : typeof parsed.data.context?.vibe === "string"
+            ? parsed.data.context.vibe
+            : null,
+        bridgeGenre: parsed.data.bridgeGenre ?? null,
+      });
+    }
     markGenerateResultCacheStale(userId, parsed.data.playlistId);
     res.json({ success: true, feedbackMemory: memory });
   } catch (err: any) {
@@ -359,15 +366,21 @@ router.post("/feedback/implicit", async (req, res): Promise<void> => {
     return;
   }
   const playDuration = parsed.data.playDuration;
-  const skipped = parsed.data.skipped === true || playDuration > 0 && playDuration < 30;
+  const skipped = parsed.data.skipped === true || parsed.data.eventType === "skip" || playDuration > 0 && playDuration < 30;
 
   try {
     const track = trackFromPayload(parsed.data.trackId, parsed.data as Record<string, unknown>, parsed.data);
-    const memory = skipped
-      ? await onTrackSkip(userId, track, playDuration > 0 && playDuration < 30 ? 2 : 1)
-      : await onTrackSave(userId, track, 0.25);
+    const memory = parsed.data.eventType === "replay"
+      ? await onTrackSave(userId, track, Math.max(1.5, parsed.data.replayCount ?? 1.5))
+      : parsed.data.eventType === "manual_save"
+        ? await onTrackSave(userId, track, 2)
+        : parsed.data.eventType === "session_dropoff"
+          ? await onTrackSkip(userId, track, 1.25)
+          : skipped
+            ? await onTrackSkip(userId, track, playDuration > 0 && playDuration < 30 ? 2 : 1)
+            : await onTrackSave(userId, track, 0.25);
     markGenerateResultCacheStale(userId, parsed.data.sessionId);
-    res.json({ success: true, inferred: skipped ? "skip" : "listen", feedbackMemory: memory });
+    res.json({ success: true, inferred: parsed.data.eventType ?? (skipped ? "skip" : "listen"), feedbackMemory: memory });
   } catch (err: any) {
     req.log.error({ err }, "Error saving implicit feedback");
     res.status(500).json({ error: "Failed to save implicit feedback." });

@@ -54,7 +54,7 @@ async function sendFeedbackEvent(track, action, playlistId = null, context = {})
   });
 }
 
-async function sendImplicitFeedback(track, playDuration, skipped) {
+async function sendImplicitFeedback(track, playDuration, skipped, eventType = null) {
   const payloadTrack = feedbackTrackPayload(track);
   if (!payloadTrack.trackId) return;
   await api("/feedback/implicit", {
@@ -63,6 +63,7 @@ async function sendImplicitFeedback(track, playDuration, skipped) {
       ...payloadTrack,
       playDuration,
       skipped,
+      eventType,
       sessionId: feedbackSessionId,
     }),
   });
@@ -745,11 +746,12 @@ function resultHtml(result) {
           <div class="track-artist">${esc(artist)}</div>
         </div>
         <div class="track-actions">
-          <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" data-playlist-id="${playlistId}" title="Skip this track">Skip</button>
-          <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" data-playlist-id="${playlistId}" title="Remove from future playlists">Remove</button>
-          <button class="section-action feedback-track-btn" data-action="replace" data-track-index="${i}" data-playlist-id="${playlistId}" title="Replace with a nearby track">Replace</button>
-          <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" data-playlist-id="${playlistId}" title="Like this track">Like</button>
-          <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" data-playlist-id="${playlistId}" title="Thumbs down">Thumbs down</button>
+          <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" data-playlist-id="${playlistId}" title="Skip this track" aria-label="Skip this track">⏭</button>
+          <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" data-playlist-id="${playlistId}" title="Remove from future playlists" aria-label="Remove from future playlists">−</button>
+          <button class="section-action feedback-track-btn" data-action="replace" data-track-index="${i}" data-playlist-id="${playlistId}" title="Replace with a nearby track" aria-label="Replace with a nearby track">↻</button>
+          <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" data-playlist-id="${playlistId}" title="Like this track" aria-label="Like this track">♥</button>
+          <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" data-playlist-id="${playlistId}" title="Thumbs down" aria-label="Thumbs down">↓</button>
+          <button class="section-action feedback-track-btn undo-feedback-btn" data-action="undo" data-track-index="${i}" data-playlist-id="${playlistId}" title="Undo last feedback" aria-label="Undo last feedback" style="display:none">Undo</button>
         </div>
       </div>`;
     }).join("")}
@@ -772,7 +774,7 @@ function resultHtml(result) {
       </div>
       <div class="result-actions">
         ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
-        ${result.savedPlaylistId ? `<a href="/p/${result.savedPlaylistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
+        ${playlistId ? `<a href="/p/${playlistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
       </div>
       ${tabsHtml}
     </div>
@@ -1623,9 +1625,17 @@ function wireAppEvents() {
       const track = state.lastResult?.tracks?.[index];
       if (!track || !action) return;
       btn.disabled = true;
-      btn.textContent = action === "like" ? "Liked" : action === "replace" ? "Replacing" : "Sent";
+      const originalText = btn.textContent;
+      btn.textContent = action === "like" ? "♥" : action === "replace" ? "…" : action === "undo" ? "Undo" : "✓";
       const context = { vibe: document.getElementById("vibeInput")?.value || state.lastResult?.vibe || "" };
       try {
+        if (action === "undo") {
+          await sendFeedbackEvent(track, "undo", btn.dataset.playlistId || null, context);
+          btn.closest(".track-row")?.style.setProperty("opacity", "1");
+          btn.style.display = "none";
+          btn.disabled = false;
+          return;
+        }
         if (action === "replace") {
           const replacement = await replacePlaylistTrack(btn.dataset.playlistId || null, track, context);
           if (replacement && state.lastResult?.tracks) {
@@ -1635,13 +1645,17 @@ function wireAppEvents() {
           return;
         }
         await sendFeedbackEvent(track, action, btn.dataset.playlistId || null, context);
-        if (action === "skip") await sendImplicitFeedback(track, 0, true);
+        if (action === "skip") await sendImplicitFeedback(track, 0, true, "skip");
+        if (action === "like") await sendImplicitFeedback(track, track.durationMs || 0, false, "manual_save");
         if (action === "remove" || action === "dislike") {
-          btn.closest(".track-row")?.style.setProperty("opacity", "0.45");
+          const row = btn.closest(".track-row");
+          row?.style.setProperty("opacity", "0.45");
+          const undo = row?.querySelector(".undo-feedback-btn");
+          if (undo) undo.style.display = "inline-flex";
         }
       } catch (_) {
         btn.disabled = false;
-        btn.textContent = action;
+        btn.textContent = originalText;
       }
     });
   });

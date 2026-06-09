@@ -362,6 +362,22 @@ export async function onTrackSave(userId: string, track: FeedbackTrack, weight =
   return saveFeedbackMemory(userId, memory);
 }
 
+export async function onTrackUndoFeedback(userId: string, track: FeedbackTrack): Promise<FeedbackMemory> {
+  const memory = await getFeedbackMemory(userId);
+  memory.badArtists = memory.badArtists.filter((artist) => artist !== track.artistName);
+  memory.badGenres = memory.badGenres.filter((genre) => genre !== track.genrePrimary);
+  memory.badEnergyTypes = memory.badEnergyTypes.filter((bucket) => bucket !== energyBucket(track.energy));
+  memory.overplayedTracks = memory.overplayedTracks.filter((trackId) => trackId !== track.trackId);
+  if (memory.skipCountByTrack[track.trackId] != null) {
+    const nextSkip = Math.max(0, memory.skipCountByTrack[track.trackId] - 1);
+    if (nextSkip > 0) memory.skipCountByTrack[track.trackId] = nextSkip;
+    else delete memory.skipCountByTrack[track.trackId];
+  }
+  updateArtistAffinity(memory, track, 0.65);
+  updateAlbumAffinity(memory, track, 0.35);
+  return saveFeedbackMemory(userId, memory);
+}
+
 export function buildFeedbackDiagnostics(
   memory: FeedbackMemory | null,
   tracks: Array<{ trackId: string; artistName?: string | null; albumName?: string | null }>,
@@ -396,4 +412,34 @@ export function buildFeedbackDiagnostics(
     albumAffinityNodes: Object.keys(memory.albumAffinityGraph).length,
     sceneEmbeddingHints: memory.sceneEmbeddings.length,
   };
+}
+
+export async function decayAllFeedbackMemory(): Promise<{ scanned: number; decayed: number }> {
+  const rows = await db.select().from(userFeedbackMemoryTable);
+  let decayed = 0;
+  for (const row of rows) {
+    const updatedAt = row.updatedAt?.getTime?.() ?? Date.now();
+    const daysElapsed = Math.floor((Date.now() - updatedAt) / (24 * 60 * 60 * 1000));
+    if (daysElapsed < 7) continue;
+    await saveFeedbackMemory(row.userId, decayMemory(normalizeRow(row), daysElapsed));
+    decayed += 1;
+  }
+  return { scanned: rows.length, decayed };
+}
+
+export function startFeedbackMemoryDecayJob(
+  log: { info: (obj: Record<string, unknown>, msg: string) => void; warn: (obj: Record<string, unknown>, msg: string) => void },
+): ReturnType<typeof setInterval> {
+  const run = async (): Promise<void> => {
+    try {
+      const result = await decayAllFeedbackMemory();
+      if (result.decayed > 0) log.info(result, "Feedback memory decay job completed");
+    } catch (err) {
+      log.warn({ err }, "Feedback memory decay job failed");
+    }
+  };
+  void run();
+  const interval = setInterval(() => { void run(); }, 24 * 60 * 60 * 1000);
+  interval.unref?.();
+  return interval;
 }

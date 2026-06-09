@@ -8,6 +8,7 @@ import { logger } from "./lib/logger";
 import { runDbInit } from "./lib/db-init";
 import { beginGracefulShutdown } from "./lib/shutdown";
 import { warmGenreOntologyAtBoot } from "./lib/warm-genre-ontology";
+import { startFeedbackMemoryDecayJob } from "./lib/feedback-memory";
 
 /**
  * Startup health verification.
@@ -122,6 +123,7 @@ async function bootstrap(): Promise<void> {
         }
 
         process.on("SIGTERM", () => beginGracefulShutdown(logger));
+        startFeedbackMemoryDecayJob(logger);
 
         resolve();
       })
