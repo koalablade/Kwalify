@@ -52,6 +52,12 @@ import {
   updateMomentMemory,
 } from "./memory/moment-memory";
 import { buildPlaylistEmbedding } from "./v3/embedding-retrieval";
+import {
+  EXPANDED_EVENT_TERMS,
+  EXPANDED_PLACE_TERMS,
+  EXPANDED_TIME_TERMS,
+  termRegex,
+} from "../lib/expanded-intent-vocabulary";
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -260,19 +266,20 @@ type IntentContractTrack = {
 function parseIntentContract(input: string, parsed: LockedIntent): IntentContract {
   const lower = input.toLowerCase();
   const timeOfDay: IntentContract["timeOfDay"] = [
-    /\b(morning|sunrise|breakfast)\b/.test(lower) ? "morning" : null,
-    /\b(afternoon|midday|daytime)\b/.test(lower) ? "afternoon" : null,
-    /\b(evening|sunset|golden hour|dusk)\b/.test(lower) ? "evening" : null,
-    /\b(late night|late-night|midnight|night drive|after dark|2am|3am)\b/.test(lower) ? "late_night" : null,
+    termRegex(EXPANDED_TIME_TERMS.morning).test(lower) ? "morning" : null,
+    termRegex(EXPANDED_TIME_TERMS.afternoon).test(lower) ? "afternoon" : null,
+    termRegex(EXPANDED_TIME_TERMS.evening).test(lower) ? "evening" : null,
+    termRegex(EXPANDED_TIME_TERMS.late_night).test(lower) ? "late_night" : null,
   ].filter((value): value is IntentContract["timeOfDay"][number] => !!value);
   const places: IntentContract["places"] = [
-    /\b(rural|country road|small town|cowboy|western|red dirt|farm|fields?)\b/.test(lower) ? "rural" : null,
-    /\b(outdoors|outside|forest|mountain|campfire|trail|open air)\b/.test(lower) ? "outdoors" : null,
-    /\b(city|urban|downtown|subway|street|nightclub)\b/.test(lower) ? "city" : null,
-    /\b(beach|coast|island|summer|poolside)\b/.test(lower) ? "beach" : null,
-    /\b(bedroom|room|alone|private|diary)\b/.test(lower) ? "bedroom" : null,
-    /\b(car|drive|driving|road trip|highway|cruise)\b/.test(lower) ? "car" : null,
+    termRegex(EXPANDED_PLACE_TERMS.rural).test(lower) ? "rural" : null,
+    termRegex(EXPANDED_PLACE_TERMS.outdoors).test(lower) ? "outdoors" : null,
+    termRegex(EXPANDED_PLACE_TERMS.city).test(lower) ? "city" : null,
+    termRegex(EXPANDED_PLACE_TERMS.beach).test(lower) ? "beach" : null,
+    termRegex(EXPANDED_PLACE_TERMS.bedroom).test(lower) ? "bedroom" : null,
+    termRegex(EXPANDED_PLACE_TERMS.car).test(lower) ? "car" : null,
   ].filter((value): value is IntentContract["places"][number] => !!value);
+  const hasEvent = termRegex(EXPANDED_EVENT_TERMS).test(lower);
   const explicitDimensions = [
     parsed.genreFamilies.length > 0 ? "genre" : null,
     parsed.eraRange ? "era" : null,
@@ -281,6 +288,7 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
     parsed.energy ? "energy" : null,
     timeOfDay.length > 0 ? "timeOfDay" : null,
     places.length > 0 ? "place" : null,
+    hasEvent ? "event" : null,
   ].filter((value): value is string => !!value);
   return {
     genres: parsed.genreFamilies,
@@ -331,6 +339,12 @@ function contractMoodMatch(track: IntentContractTrack, mood: string): boolean {
       return valence >= 0.42 && (acousticness >= 0.22 || energy <= 0.70);
     case "energised":
       return energy >= 0.55;
+    case "dark":
+      return valence <= 0.50 || energy <= 0.46;
+    case "euphoric":
+      return valence >= 0.58 && energy >= 0.48;
+    case "angry":
+      return energy >= 0.58 && valence <= 0.62;
     default:
       return true;
   }
@@ -353,6 +367,12 @@ function contractActivityMatch(track: IntentContractTrack, activity: string | nu
       return energy <= 0.55 || acousticness >= 0.35;
     case "party":
       return energy >= 0.58 || danceability >= 0.62;
+    case "cleaning":
+      return energy >= 0.35 && energy <= 0.78;
+    case "sleep":
+      return energy <= 0.42 || acousticness >= 0.45;
+    case "travel":
+      return energy >= 0.30 && tempo >= 70;
     default:
       return true;
   }

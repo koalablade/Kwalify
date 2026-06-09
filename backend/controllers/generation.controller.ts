@@ -112,6 +112,13 @@ import {
   GENRE_ALIASES,
 } from "../core/v3/intent";
 import { trackMatchesConstraints as trackMatchesV3Constraints } from "../core/v3/constraint-filter";
+import {
+  EXPANDED_ACTIVITY_TERMS,
+  EXPANDED_ERA_TERMS,
+  EXPANDED_GENRE_ALIASES,
+  EXPANDED_MOOD_TERMS,
+  termRegex,
+} from "../lib/expanded-intent-vocabulary";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
@@ -305,18 +312,34 @@ function deriveDiagnosticTags(vibe: string): {
   genreHints: string[];
 } {
   const lower = vibe.toLowerCase();
+  const expandedMoods = Object.entries(EXPANDED_MOOD_TERMS)
+    .filter(([, terms]) => termRegex(terms).test(lower))
+    .map(([tag]) => tag);
+  const expandedActivities = Object.entries(EXPANDED_ACTIVITY_TERMS)
+    .filter(([, terms]) => termRegex(terms).test(lower))
+    .map(([tag]) => tag);
+  const expandedEras = EXPANDED_ERA_TERMS
+    .filter((era) => termRegex(era.terms).test(lower))
+    .map((era) => era.label);
+  const expandedGenres = EXPANDED_GENRE_ALIASES
+    .filter((alias) => termRegex(alias.terms).test(lower))
+    .map((alias) => alias.family);
   const moodTags = [
     /\b(nostalg|memory|retro|vintage)\b/.test(lower) ? "nostalgic" : null,
     /\b(sunset|warm|golden|cozy|cosy)\b/.test(lower) ? "warm" : null,
     /\b(solitude|alone|reflect|introspect)\b/.test(lower) ? "introspective" : null,
     /\b(sad|melanchol|lonely|blue)\b/.test(lower) ? "melancholic" : null,
-  ].filter((tag): tag is string => !!tag);
+    ...expandedMoods,
+  ].filter((tag): tag is string => !!tag)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
   const activityTags = [
     /\b(driv|road|highway|cruise)\b/.test(lower) ? "driving" : null,
     /\b(study|focus|work|coding)\b/.test(lower) ? "focus" : null,
     /\b(party|club|dance)\b/.test(lower) ? "party" : null,
     /\b(walk|commute)\b/.test(lower) ? "walking" : null,
-  ].filter((tag): tag is string => !!tag);
+    ...expandedActivities,
+  ].filter((tag): tag is string => !!tag)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
   const eraHints = [
     /\b(60s|1960s|sixties)\b/.test(lower) ? "60s" : null,
     /\b(70s|1970s|seventies)\b/.test(lower) ? "70s" : null,
@@ -325,7 +348,9 @@ function deriveDiagnosticTags(vibe: string): {
     /\b(00s|2000s|y2k)\b/.test(lower) ? "00s" : null,
     /\b(2010s|10s)\b/.test(lower) ? "10s" : null,
     /\b(2020s|20s|modern)\b/.test(lower) ? "20s" : null,
-  ].filter((tag): tag is string => !!tag);
+    ...expandedEras,
+  ].filter((tag): tag is string => !!tag)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
   const genreHints = [
     /\b(country|americana|western|bluegrass)\b/.test(lower) ? "country" : null,
     /\b(folk|acoustic|singer-songwriter)\b/.test(lower) ? "folk" : null,
@@ -334,7 +359,9 @@ function deriveDiagnosticTags(vibe: string): {
     /\b(jazz|blues|soul)\b/.test(lower) ? "jazz" : null,
     /\b(hip.?hop|rap|rnb|r&b)\b/.test(lower) ? "hip_hop" : null,
     /\b(electronic|house|techno|edm)\b/.test(lower) ? "electronic" : null,
-  ].filter((tag): tag is string => !!tag);
+    ...expandedGenres,
+  ].filter((tag): tag is string => !!tag)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
 
   return {
     moodTags: moodTags.length ? moodTags : ["neutral"],
@@ -749,6 +776,9 @@ function moodEvidence(track: ConstraintTrack, intent: LockedIntent): boolean | n
     if (mood === "nostalgic") return track.laneEra !== "20s" || (track.sourceLane ?? "").includes("nostalgia");
     if (mood === "energised") return energy >= 0.65 || danceability >= 0.65;
     if (mood === "calm") return energy <= 0.45;
+    if (mood === "dark") return valence <= 0.50 || energy <= 0.48;
+    if (mood === "euphoric") return valence >= 0.58 && energy >= 0.48;
+    if (mood === "angry") return energy >= 0.58 && valence <= 0.62;
     return false;
   });
 }
@@ -765,6 +795,9 @@ function activityEvidence(track: ConstraintTrack, intent: LockedIntent): boolean
     activity === "focus" ? energy <= 0.6 && acousticness >= 0.25 :
     activity === "party" ? energy >= 0.6 && danceability >= 0.55 :
     activity === "walking" ? energy >= 0.35 && energy <= 0.75 :
+    activity === "cleaning" ? energy >= 0.35 && energy <= 0.78 :
+    activity === "sleep" ? energy <= 0.42 || acousticness >= 0.45 :
+    activity === "travel" ? energy >= 0.30 && tempo >= 70 :
     activity === "relaxing" ? energy <= 0.45 :
     null;
   const energyMatch =

@@ -9,6 +9,8 @@
  * adjust the adjacent-era tolerance, and surface culturally coherent tracks.
  */
 
+import { EXPANDED_ERA_TERMS, termRegex } from "./expanded-intent-vocabulary";
+
 export interface EraContext {
   /** Primary detected decade label, e.g. "80s". Null if no era keyword found. */
   decade: string | null;
@@ -136,6 +138,20 @@ const NULL_ERA: EraContext = {
  */
 export function detectEra(vibe: string): EraContext {
   if (!vibe?.trim()) return NULL_ERA;
+
+  for (const era of EXPANDED_ERA_TERMS) {
+    if (!termRegex(era.terms).test(vibe)) continue;
+    const distance = Math.max(0, 2026 - era.end);
+    const nostalgiaBoost = Math.max(0.08, Math.min(0.36, distance / 90));
+    return {
+      decade: era.label,
+      eraConfidence: /\b(strict|only|pure|classic|specific|exact)\b/i.test(vibe) ? 0.86 : 0.68,
+      nostalgiaBoost,
+      energyDelta: era.label === "80s" ? 0.12 : era.label === "00s" || era.label === "10s" ? 0.06 : 0.03,
+      adjacentEraWindow: /\b(strict|only|pure|specific|exact)\b/i.test(vibe) ? 0 : 1,
+      sonicAesthetic: era.aesthetic,
+    };
+  }
 
   for (const profile of DECADE_PROFILES) {
     for (const pattern of profile.patterns) {

@@ -1,4 +1,11 @@
 import { getGenreFamily } from "./global-diversity-controller";
+import {
+  EXPANDED_ACTIVITY_TERMS,
+  EXPANDED_ERA_TERMS,
+  EXPANDED_GENRE_ALIASES,
+  EXPANDED_MOOD_TERMS,
+  termRegex,
+} from "../../lib/expanded-intent-vocabulary";
 
 export interface LockedIntent {
   genreFamilies: string[];
@@ -117,7 +124,13 @@ export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "latin", terms: ["latin", "reggaeton", "salsa", "bachata", "merengue", "cumbia", "latin pop", "latin trap", "spanish pop"] },
   { family: "soundtrack", terms: ["soundtrack", "film score", "cinematic", "tv soundtrack", "series ost", "game soundtrack", "original motion picture"] },
   { family: "world", terms: ["world", "world music", "afrobeats", "afrobeat", "afropop", "amapiano", "highlife", "middle eastern", "arabic pop", "turkish pop"] },
-];
+].map((alias) => ({
+  ...alias,
+  terms: [
+    ...alias.terms,
+    ...(EXPANDED_GENRE_ALIASES.find((extra) => extra.family === alias.family)?.terms ?? []),
+  ],
+}));
 
 const GENRE_EXCLUSION_RE = /\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&\-\s]{2,28})/gi;
 
@@ -143,6 +156,9 @@ function termMatchIndex(input: string, term: string): number {
 }
 
 function parseEra(input: string): { start: number; end: number } | null {
+  for (const era of EXPANDED_ERA_TERMS) {
+    if (termRegex(era.terms).test(input)) return { start: era.start, end: era.end };
+  }
   const decade = input.match(/\b(60s|70s|80s|90s|00s|10s|20s|1960s|1970s|1980s|1990s|2000s|2010s|2020s)\b/i)?.[1];
   if (decade) {
     const start = decade.length === 4
@@ -165,6 +181,21 @@ function parseEra(input: string): { start: number; end: number } | null {
 
   const year = input.match(/\b(19\d{2}|20\d{2})\b/)?.[1];
   return year ? { start: Number(year), end: Number(year) } : null;
+}
+
+function expandedMoodTerms(input: string): string[] {
+  return Object.entries(EXPANDED_MOOD_TERMS)
+    .filter(([, terms]) => termRegex(terms).test(input))
+    .map(([mood]) => mood);
+}
+
+function expandedActivity(input: string): string | null {
+  const hit = Object.entries(EXPANDED_ACTIVITY_TERMS)
+    .find(([, terms]) => termRegex(terms).test(input))?.[0] ?? null;
+  if (hit === "workout") return "gym";
+  if (hit === "travel") return "walking";
+  if (hit === "sleep") return "relaxing";
+  return hit;
 }
 
 export function eraRangeFromBucket(bucket?: string | null): { start: number; end: number } | null {
@@ -840,17 +871,20 @@ export function buildLockedIntent(input: string): LockedIntent {
     /\b(nostalg|throwback|retro|memory)\b/.test(lower) ? "nostalgic" : null,
     /\b(warm|sunset|cozy|cosy|golden)\b/.test(lower) ? "warm" : null,
     /\b(hype|energ|intense|pump)\b/.test(lower) ? "energised" : null,
+    ...expandedMoodTerms(lower),
   ]
     .filter((tag): tag is string => !!tag && !excludedMoods.has(tag))
-    .slice(0, 2);
+    .filter((tag, index, tags) => tags.indexOf(tag) === index)
+    .slice(0, 4);
 
-  const activity =
+  const activity = expandedActivity(lower) ?? (
     /\b(driv|road|cruise|highway)\b/.test(lower) ? "driving" :
-    /\b(study|focus|coding|work|deep work)\b/.test(lower) ? "focus" :
-    /\b(gym|workout|run|running)\b/.test(lower) ? "gym" :
-    /\b(relax|sleep|unwind)\b/.test(lower) ? "relaxing" :
-    /\b(party|club|dance)\b/.test(lower) ? "party" :
-    null;
+      /\b(study|focus|coding|work|deep work)\b/.test(lower) ? "focus" :
+        /\b(gym|workout|run|running)\b/.test(lower) ? "gym" :
+          /\b(relax|sleep|unwind)\b/.test(lower) ? "relaxing" :
+            /\b(party|club|dance)\b/.test(lower) ? "party" :
+              null
+  );
 
   const energy =
     /\b(gym|workout|hype|high energy|intense|party|rave|run|running)\b/.test(lower) ? "high" :
