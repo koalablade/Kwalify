@@ -14,8 +14,31 @@ import {
   savedPlaylistsTable,
 } from "../db";
 import { eq, desc, and } from "drizzle-orm";
+import { onTrackRemoved, onTrackSave, onTrackSkip, type FeedbackTrack } from "../lib/feedback-memory";
 
 const router: IRouter = Router();
+
+function feedbackTracks(value: unknown): FeedbackTrack[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((track) => {
+      if (!track || typeof track !== "object") return null;
+      const t = track as Record<string, unknown>;
+      const trackId = typeof t["trackId"] === "string"
+        ? t["trackId"]
+        : typeof t["id"] === "string"
+          ? t["id"]
+          : null;
+      if (!trackId) return null;
+      return {
+        trackId,
+        artistName: typeof t["artistName"] === "string" ? t["artistName"] : typeof t["artist"] === "string" ? t["artist"] : null,
+        genrePrimary: typeof t["genrePrimary"] === "string" ? t["genrePrimary"] : null,
+        energy: typeof t["energy"] === "number" ? t["energy"] : null,
+      };
+    })
+    .filter((track): track is FeedbackTrack => !!track);
+}
 
 router.get("/playlists", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
@@ -120,7 +143,7 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
 
   try {
     const owned = await db
-      .select({ id: savedPlaylistsTable.id })
+      .select({ id: savedPlaylistsTable.id, tracks: savedPlaylistsTable.tracks })
       .from(savedPlaylistsTable)
       .where(
         and(eq(savedPlaylistsTable.id, playlistId), eq(savedPlaylistsTable.userId, userId))
@@ -140,12 +163,47 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
         )
       );
     await db.insert(playlistFeedbackTable).values({ playlistId, userId, vibe, reaction });
+    if (reaction === "down") {
+      for (const track of feedbackTracks(owned[0].tracks).slice(0, 50)) {
+        await onTrackRemoved(userId, track, { mood: vibe });
+      }
+    }
 
     req.log.info({ userId, playlistId, reaction }, "Playlist feedback recorded");
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "Error saving playlist feedback");
     res.status(500).json({ error: "Failed to save feedback." });
+  }
+});
+
+router.post("/feedback/track", async (req, res): Promise<void> => {
+  if (!req.session.spotifyUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const userId = req.session.spotifyUserId;
+  const action = String(req.body?.action ?? "").trim();
+  const track = req.body?.track as FeedbackTrack | undefined;
+  if (!track?.trackId || !["remove", "skip", "save"].includes(action)) {
+    res.status(400).json({ error: "Expected action remove, skip, or save and a track payload." });
+    return;
+  }
+
+  try {
+    const memory = action === "save"
+      ? await onTrackSave(userId, track)
+      : action === "skip"
+        ? await onTrackSkip(userId, track)
+        : await onTrackRemoved(userId, track, {
+            mood: typeof req.body?.vibe === "string" ? req.body.vibe : null,
+            bridgeGenre: typeof req.body?.bridgeGenre === "string" ? req.body.bridgeGenre : null,
+          });
+    res.json({ success: true, feedbackMemory: memory });
+  } catch (err: any) {
+    req.log.error({ err }, "Error saving track feedback memory");
+    res.status(500).json({ error: "Failed to save track feedback." });
   }
 });
 

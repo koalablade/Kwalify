@@ -21,14 +21,71 @@ export interface SpotifyTokens {
 export interface SpotifyTrack {
   id: string;
   name: string;
-  artists: Array<{ name: string }>;
+  popularity?: number;
+  artists: Array<{ id?: string; name: string }>;
   album: {
     name: string;
+    release_date?: string;
+    genres?: string[];
     images: Array<{ url: string; width: number; height: number }>;
   };
   duration_ms: number;
   /** ISO-8601 timestamp from the liked-songs `added_at` field */
   addedAt?: string;
+}
+
+export type EnrichedTrack = SpotifyTrack & {
+  spotifyArtistGenres?: string[];
+  albumGenres?: string[];
+  popularity?: number;
+  releaseYear?: number | null;
+};
+
+function releaseYearFromDate(value?: string): number | null {
+  const year = value?.match(/^\d{4}/)?.[0];
+  return year ? Number(year) : null;
+}
+
+export async function fetchArtistGenres(
+  accessToken: string,
+  artistIds: string[],
+  opts?: { userKey?: string }
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  const uniqueIds = [...new Set(artistIds.filter(Boolean))];
+  for (let i = 0; i < uniqueIds.length; i += 50) {
+    const batch = uniqueIds.slice(i, i + 50);
+    const response = await spotifyRequest<any>(
+      {
+        method: "GET",
+        url: `${SPOTIFY_API_BASE}/artists`,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: { ids: batch.join(",") },
+      },
+      { userKey: opts?.userKey }
+    );
+    for (const artist of response.data.artists ?? []) {
+      if (artist?.id) out.set(artist.id, Array.isArray(artist.genres) ? artist.genres : []);
+    }
+    if (i + 50 < uniqueIds.length) await new Promise((r) => setTimeout(r, 80));
+  }
+  return out;
+}
+
+export function enrichTrackMetadata(
+  track: SpotifyTrack,
+  artistGenreMap = new Map<string, string[]>()
+): EnrichedTrack {
+  const spotifyArtistGenres = [
+    ...new Set(track.artists.flatMap((artist) => artist.id ? artistGenreMap.get(artist.id) ?? [] : [])),
+  ];
+  return {
+    ...track,
+    spotifyArtistGenres,
+    albumGenres: Array.isArray(track.album.genres) ? track.album.genres : [],
+    popularity: track.popularity,
+    releaseYear: releaseYearFromDate(track.album.release_date),
+  };
 }
 
 export interface SpotifyAudioFeatures {

@@ -19,6 +19,10 @@ export const likedSongsTable = pgTable("liked_songs", {
   instrumentalness: real("instrumentalness"),
   loudness: real("loudness"),
   speechiness: real("speechiness"),
+  spotifyArtistGenres: jsonb("spotify_artist_genres"),
+  albumGenres: jsonb("album_genres"),
+  popularity: integer("popularity"),
+  releaseYear: integer("release_year"),
   addedAt: timestamp("added_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -69,6 +73,20 @@ export const playlistFeedbackTable = pgTable("playlist_feedback", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const userFeedbackMemoryTable = pgTable("user_feedback_memory", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().unique(),
+  badArtists: jsonb("bad_artists").notNull().default([]),
+  badGenres: jsonb("bad_genres").notNull().default([]),
+  badEnergyTypes: jsonb("bad_energy_types").notNull().default([]),
+  badMoodMatches: jsonb("bad_mood_matches").notNull().default([]),
+  badBridges: jsonb("bad_bridges").notNull().default([]),
+  overplayedTracks: jsonb("overplayed_tracks").notNull().default([]),
+  skipCountByTrack: jsonb("skip_count_by_track").notNull().default({}),
+  saveCountByTrack: jsonb("save_count_by_track").notNull().default({}),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertLikedSongSchema = createInsertSchema(likedSongsTable).omit({ id: true, createdAt: true });
 export const insertPlaylistHistorySchema = createInsertSchema(playlistHistoryTable).omit({ id: true, createdAt: true });
 export const insertSyncStatusSchema = createInsertSchema(syncStatusTable).omit({ id: true });
@@ -78,3 +96,4 @@ export type InsertLikedSong = z.infer<typeof insertLikedSongSchema>;
 export type PlaylistHistory = typeof playlistHistoryTable.$inferSelect;
 export type SyncStatus = typeof syncStatusTable.$inferSelect;
 export type SavedPlaylist = typeof savedPlaylistsTable.$inferSelect;
+export type UserFeedbackMemory = typeof userFeedbackMemoryTable.$inferSelect;

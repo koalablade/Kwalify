@@ -103,6 +103,7 @@ import {
   warnIfV3MetadataLost,
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
+import { getFeedbackMemory } from "../lib/feedback-memory";
 import {
   buildLockedIntent as buildCsspLockedIntent,
   completeLockedIntent as completeCsspLockedIntent,
@@ -1446,6 +1447,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       .where(eq(playlistHistoryTable.spotifyUserId, userId))
       .orderBy(desc(playlistHistoryTable.createdAt))
       .limit(25);
+    const feedbackMemory = await getFeedbackMemory(userId);
     const playlistHistoryQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "playlistHistoryQueryMs", playlistHistoryQueryMs);
     recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);
@@ -1760,6 +1762,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         rediscoveryMode,
         archaeology,
         chapterMatch,
+        feedbackMemory,
         startMs,
         promptConfidenceMultiplier: promptConfidence.qualityBoost,
         journeyArcMultiplier,

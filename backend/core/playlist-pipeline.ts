@@ -92,6 +92,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
     rediscoveryMode: RediscoveryMode;
     archaeology: ArchaeologyIntent | null;
     chapterMatch: ChapterMatch | null;
+    feedbackMemory?: FeedbackMemory | null;
     startMs: number;
     promptConfidenceMultiplier: number;
     journeyArcMultiplier: number;
@@ -1514,7 +1515,7 @@ export function buildPlaylistPipeline<T extends {
     scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
     intentContract,
     classMap,
-    null,
+    opts.postScore.feedbackMemory ?? null,
   );
   const pooledCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
   const contractSafePool = enforceIntentContract(
@@ -1541,44 +1542,112 @@ export function buildPlaylistPipeline<T extends {
     unifiedIntentFromLockedIntent(v3LockedIntent),
     unifiedIntentFromSceneIntent(v3LockedIntent.sceneIntent),
   ]);
-  const v3CandidatePool = buildV3CandidatePool(
-    contractGuardedScoredPool as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
-    classMap,
-    opts.playlistLength,
-    v3LockedIntent,
-    opts.pipelineLog,
-  );
-
   opts.pipelineLog?.info({
     sampleTrack: scoring.sorted[0] ?? null,
     hasEnergy: scoring.sorted.filter((track) => track.energy != null).length,
     hasValence: scoring.sorted.filter((track) => track.valence != null).length,
   }, "Spotify feature coverage before V3");
 
+  let t = Date.now();
+  // GUARANTEE:
+  // Playlist quality is determined by multi-candidate evaluation.
+  // No single-pass generation is allowed to directly return final output.
+  // All playlists must be scored and optionally repaired before return.
+  const candidateInputs: Array<{ label: string; pool: ScoredLibraryTrack<T>[]; seedOffset: number }> = [
+    {
+      label: "strict_intent",
+      pool: flattenRetrievalPools({
+        core: retrieval.core,
+        anchor: retrieval.anchor,
+        adjacent: [],
+        bridge: [],
+        energyArc: retrieval.energyArc,
+        discovery: [],
+      }) as ScoredLibraryTrack<T>[],
+      seedOffset: 0,
+    },
+    {
+      label: "adjacent_bridge",
+      pool: flattenRetrievalPools({
+        core: retrieval.core.slice(0, 80),
+        anchor: retrieval.anchor.slice(0, 40),
+        adjacent: retrieval.adjacent,
+        bridge: retrieval.bridge,
+        energyArc: retrieval.energyArc,
+        discovery: [],
+      }) as ScoredLibraryTrack<T>[],
+      seedOffset: 9973,
+    },
+    {
+      label: "discovery_energy_arc",
+      pool: flattenRetrievalPools({
+        core: retrieval.core.slice(0, 80),
+        anchor: retrieval.anchor.slice(0, 40),
+        adjacent: retrieval.adjacent.slice(0, 60),
+        bridge: retrieval.bridge.slice(0, 60),
+        energyArc: retrieval.energyArc,
+        discovery: retrieval.discovery,
+      }) as ScoredLibraryTrack<T>[],
+      seedOffset: 19937,
+    },
+  ];
+  const candidateAttempts = candidateInputs.map((candidate) => {
+    const candidatePool = buildV3CandidatePool(
+      (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
+      classMap,
+      opts.playlistLength,
+      v3LockedIntent,
+      opts.pipelineLog,
+    );
+    const result = runV3Pipeline(
+      candidatePool.tracks as unknown as T[],
+      opts.vibe,
+      opts.emotionProfile,
+      opts.playlistLength,
+      {
+        genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
+        classificationByTrack: (trackId) => classMap.get(trackId),
+        noveltyByTrack:        opts.noveltyByTrack,
+        seed:                  opts.postScore.startMs + candidate.seedOffset,
+        lockedIntent:          v3LockedIntent,
+        unifiedIntentContext:   unifiedIntentContextWithMemory,
+        momentMemory:           preGenerationMomentMemory,
+      }
+    );
+    const quality = evaluatePlaylistQuality(
+      result.finalTracks as unknown as IntentContractTrack[],
+      intentContract,
+      classMap,
+    );
+    return {
+      label: candidate.label,
+      candidatePool,
+      result,
+      quality,
+      total: quality.overall + Math.min(0.1, result.finalTracks.length / Math.max(1, opts.playlistLength) * 0.1),
+    };
+  });
+  const selectedCandidate = [...candidateAttempts].sort((a, b) => b.total - a.total)[0] ?? candidateAttempts[0];
+  const v3CandidatePool = selectedCandidate.candidatePool;
+  const v3 = selectedCandidate.result;
+  const controlledGenerationDiagnostics = {
+    selectedCandidate: selectedCandidate.label,
+    candidateScores: candidateAttempts.map((candidate) => ({
+      label: candidate.label,
+      selectedCount: candidate.result.finalTracks.length,
+      total: round3(candidate.total),
+      quality: candidate.quality,
+    })),
+  };
   opts.pipelineLog?.info({
     preV3PoolSize: v3CandidatePool.tracks.length,
     forensicPreV3Trace: v3CandidatePool.diagnostics["forensicPreV3Trace"],
+    ...controlledGenerationDiagnostics,
   }, "Pre-V3 candidate pool built");
-
-  let t = Date.now();
-  const v3 = runV3Pipeline(
-    v3CandidatePool.tracks as unknown as T[],
-    opts.vibe,
-    opts.emotionProfile,
-    opts.playlistLength,
-    {
-      genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
-      classificationByTrack: (trackId) => classMap.get(trackId),
-      noveltyByTrack:        opts.noveltyByTrack,
-      seed:                  opts.postScore.startMs,
-      lockedIntent:          v3LockedIntent,
-      unifiedIntentContext:   unifiedIntentContextWithMemory,
-      momentMemory:           preGenerationMomentMemory,
-    }
-  );
   logScoringStage(opts.pipelineLog, "V3 multi-lane pipeline complete", t, {
     poolSize: v3CandidatePool.tracks.length,
     selectedCount: v3.finalTracks.length,
+    ...controlledGenerationDiagnostics,
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
     preV3Recovery: v3CandidatePool.diagnostics,
     intentContractGuard: contractGuard.diagnostics,
@@ -1661,6 +1730,7 @@ export function buildPlaylistPipeline<T extends {
           fallback: fallbackLabel,
           preV3Recovery: v3CandidatePool.diagnostics,
           intentContractGuard: contractGuard.diagnostics,
+          controlledGeneration: controlledGenerationDiagnostics,
           retrievalPools: {
             core: retrieval.core.length,
             anchor: retrieval.anchor.length,
@@ -1805,6 +1875,7 @@ export function buildPlaylistPipeline<T extends {
           reason: "empty_library",
           preV3Recovery: v3CandidatePool.diagnostics,
           intentContractGuard: contractGuard.diagnostics,
+          controlledGeneration: controlledGenerationDiagnostics,
           retrievalPools: {
             core: retrieval.core.length,
             anchor: retrieval.anchor.length,
@@ -1912,6 +1983,7 @@ export function buildPlaylistPipeline<T extends {
         },
         preV3Recovery: v3CandidatePool.diagnostics,
         intentContractGuard: contractGuard.diagnostics,
+        controlledGeneration: controlledGenerationDiagnostics,
         retrievalPools: {
           core: retrieval.core.length,
           anchor: retrieval.anchor.length,

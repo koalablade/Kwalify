@@ -12,6 +12,8 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import {
   fetchLikedSongs,
   fetchAudioFeatures,
+  fetchArtistGenres,
+  enrichTrackMetadata,
   getValidAccessToken,
   getClientCredentialsToken,
   type SpotifyTrack,
@@ -307,19 +309,30 @@ export async function runSync(
     }
 
     if (newTracks.length > 0) {
+      let artistGenreMap = new Map<string, string[]>();
+      try {
+        artistGenreMap = await fetchArtistGenres(
+          accessToken,
+          newTracks.flatMap((track) => track.artists.map((artist) => artist.id).filter((id): id is string => !!id)),
+          { userKey: userId }
+        );
+      } catch (err: any) {
+        req.log.warn({ err: err?.message }, "Artist genre enrichment failed; continuing sync");
+      }
       const batchSize = 200;
       for (let i = 0; i < newTracks.length; i += batchSize) {
         const batch = newTracks.slice(i, i + batchSize);
         const rows = batch.map((track) => {
+          const enriched = enrichTrackMetadata(track, artistGenreMap);
           const features = featuresMap.get(track.id);
           return {
             spotifyUserId: userId,
-            trackId: track.id,
-            trackName: track.name,
-            artistName: track.artists[0]?.name ?? "Unknown",
-            albumName: track.album.name,
-            albumArt: track.album.images[0]?.url ?? null,
-            durationMs: track.duration_ms,
+            trackId: enriched.id,
+            trackName: enriched.name,
+            artistName: enriched.artists[0]?.name ?? "Unknown",
+            albumName: enriched.album.name,
+            albumArt: enriched.album.images[0]?.url ?? null,
+            durationMs: enriched.duration_ms,
             energy: features?.energy ?? null,
             valence: features?.valence ?? null,
             tempo: features?.tempo ?? null,
@@ -328,7 +341,11 @@ export async function runSync(
             instrumentalness: features?.instrumentalness ?? null,
             loudness: features?.loudness ?? null,
             speechiness: features?.speechiness ?? null,
-            addedAt: track.addedAt ? new Date(track.addedAt) : new Date(),
+            spotifyArtistGenres: enriched.spotifyArtistGenres,
+            albumGenres: enriched.albumGenres,
+            popularity: enriched.popularity ?? null,
+            releaseYear: enriched.releaseYear ?? null,
+            addedAt: enriched.addedAt ? new Date(enriched.addedAt) : new Date(),
           };
         });
 
