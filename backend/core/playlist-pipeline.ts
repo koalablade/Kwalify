@@ -221,6 +221,7 @@ function isV3LaneReadyForIntent<T extends {
   trackId: string;
   genrePrimary?: string;
   energy: number | null;
+  valence: number | null;
   acousticness: number | null;
   tempo: number | null;
   releaseYear?: number | null;
@@ -229,7 +230,8 @@ function isV3LaneReadyForIntent<T extends {
   classMap: UserGenreProfile["trackClassifications"],
   lockedIntent: LockedIntent,
 ): boolean {
-  if (!genreFamilyForTrack(track, classMap) || track.energy === null) return false;
+  if (!genreFamilyForTrack(track, classMap)) return false;
+  if (track.energy === null && track.valence === null) return false;
   return lockedIntent.eraRange ? hasLaneReadyEra(track) : true;
 }
 
@@ -615,6 +617,7 @@ export function buildPlaylistPipeline<T extends {
     poolSize: v3CandidatePool.tracks.length,
     selectedCount: v3.finalTracks.length,
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
+    preV3Recovery: v3CandidatePool.diagnostics,
   });
 
   // V3 final tracks are authoritative; do not rehydrate from scored tracks here,
