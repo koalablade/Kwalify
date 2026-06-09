@@ -248,6 +248,265 @@ function topGenreFamiliesFromPool<T extends { trackId: string; genrePrimary?: st
     .map(([family]) => family);
 }
 
+type PlaylistCriticIssue = {
+  index: number;
+  trackId: string;
+  reason: string;
+  severity: number;
+};
+
+type PlaylistCriticDiagnostics = {
+  beforeQuality: number;
+  afterQuality: number;
+  repairedCount: number;
+  qualityGatePassed: boolean;
+  issues: PlaylistCriticIssue[];
+  replacements: Array<{
+    index: number;
+    fromTrackId: string;
+    toTrackId: string;
+    reason: string;
+    scoreLift: number;
+  }>;
+};
+
+type CriticTrackShape = {
+  trackId: string;
+  artistName?: string;
+  albumName?: string;
+  energy?: number | null;
+  valence?: number | null;
+  genrePrimary?: string;
+  genres?: unknown;
+  score?: number;
+  laneScore?: number | null;
+  _featureQualityPenalty?: number;
+  _lanePenalty?: number;
+};
+
+function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+function criticClamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function criticTrackMeta<T extends { trackId: string }>(
+  track: T,
+  scoreByTrack: Map<string, ScoredLibraryTrack<T>>,
+): CriticTrackShape {
+  const scored = scoreByTrack.get(track.trackId) as CriticTrackShape | undefined;
+  const current = track as CriticTrackShape;
+  return {
+    ...scored,
+    ...current,
+    energy: current.energy ?? scored?.energy ?? null,
+    valence: current.valence ?? scored?.valence ?? null,
+    genrePrimary: current.genrePrimary ?? scored?.genrePrimary,
+    score: current.score ?? scored?.score,
+    laneScore: current.laneScore ?? scored?.laneScore,
+    _featureQualityPenalty: current._featureQualityPenalty ?? scored?._featureQualityPenalty,
+    _lanePenalty: current._lanePenalty ?? scored?._lanePenalty,
+  };
+}
+
+function criticGenreFamily<T extends { trackId: string }>(
+  track: T,
+  scoreByTrack: Map<string, ScoredLibraryTrack<T>>,
+  classMap: UserGenreProfile["trackClassifications"],
+): string | null {
+  const meta = criticTrackMeta(track, scoreByTrack);
+  return genreFamilyForTrack(
+    { trackId: track.trackId, genrePrimary: meta.genrePrimary },
+    classMap,
+  ) ?? meta.genrePrimary ?? null;
+}
+
+function criticBaseScore<T extends { trackId: string }>(
+  track: T,
+  scoreByTrack: Map<string, ScoredLibraryTrack<T>>,
+): number {
+  const meta = criticTrackMeta(track, scoreByTrack);
+  const score = typeof meta.score === "number"
+    ? meta.score
+    : typeof meta.laneScore === "number"
+      ? meta.laneScore
+      : 0.5;
+  return criticClamp01(score);
+}
+
+function criticTrackQuality<T extends { trackId: string }>(
+  track: T,
+  scoreByTrack: Map<string, ScoredLibraryTrack<T>>,
+): number {
+  const meta = criticTrackMeta(track, scoreByTrack);
+  const hasAudio = typeof meta.energy === "number" || typeof meta.valence === "number";
+  const featurePenalty = hasAudio ? 0 : 0.10;
+  return criticClamp01(
+    criticBaseScore(track, scoreByTrack) -
+    ((meta._featureQualityPenalty ?? 0) * 0.18) -
+    ((meta._lanePenalty ?? 0) * 0.16) -
+    featurePenalty,
+  );
+}
+
+function evaluatePlaylistCritic<T extends { trackId: string }>(
+  tracks: T[],
+  scoreByTrack: Map<string, ScoredLibraryTrack<T>>,
+  classMap: UserGenreProfile["trackClassifications"],
+  maxPerArtist: number,
+): { quality: number; issues: PlaylistCriticIssue[] } {
+  if (tracks.length === 0) return { quality: 0, issues: [] };
+
+  const issues: PlaylistCriticIssue[] = [];
+  const artistCounts = new Map<string, number>();
+  for (const track of tracks) {
+    const artist = criticTrackMeta(track, scoreByTrack).artistName;
+    if (artist) artistCounts.set(artist, (artistCounts.get(artist) ?? 0) + 1);
+  }
+
+  for (let index = 0; index < tracks.length; index++) {
+    const track = tracks[index];
+    const meta = criticTrackMeta(track, scoreByTrack);
+    const quality = criticTrackQuality(track, scoreByTrack);
+    if (quality < 0.46) {
+      issues.push({ index, trackId: track.trackId, reason: "low_track_quality", severity: round3(0.46 - quality) });
+    }
+    if ((meta._featureQualityPenalty ?? 0) > 0) {
+      issues.push({ index, trackId: track.trackId, reason: "feature_fallback_pick", severity: round3((meta._featureQualityPenalty ?? 0) * 0.35) });
+    }
+    if ((meta._lanePenalty ?? 0) > 0) {
+      issues.push({ index, trackId: track.trackId, reason: "lane_relaxation_pick", severity: round3((meta._lanePenalty ?? 0) * 0.30) });
+    }
+
+    const previous = tracks[index - 1];
+    const next = tracks[index + 1];
+    const artist = meta.artistName;
+    if (artist && previous && criticTrackMeta(previous, scoreByTrack).artistName === artist) {
+      issues.push({ index, trackId: track.trackId, reason: "adjacent_artist_repeat", severity: 0.34 });
+    }
+    if (artist && (artistCounts.get(artist) ?? 0) > maxPerArtist) {
+      issues.push({ index, trackId: track.trackId, reason: "artist_over_cap", severity: 0.28 });
+    }
+
+    const genre = criticGenreFamily(track, scoreByTrack, classMap);
+    if (
+      genre &&
+      previous &&
+      next &&
+      criticGenreFamily(previous, scoreByTrack, classMap) === genre &&
+      criticGenreFamily(next, scoreByTrack, classMap) === genre
+    ) {
+      issues.push({ index, trackId: track.trackId, reason: "genre_run", severity: 0.20 });
+    }
+
+    if (typeof meta.energy === "number" && previous) {
+      const previousEnergy = criticTrackMeta(previous, scoreByTrack).energy;
+      if (typeof previousEnergy === "number" && Math.abs(meta.energy - previousEnergy) >= 0.48) {
+        issues.push({ index, trackId: track.trackId, reason: "harsh_energy_jump", severity: 0.22 });
+      }
+    }
+  }
+
+  const averageQuality = tracks.reduce(
+    (sum, track) => sum + criticTrackQuality(track, scoreByTrack),
+    0,
+  ) / tracks.length;
+  const issuePenalty = Math.min(0.35, issues.reduce((sum, issue) => sum + issue.severity, 0) / Math.max(8, tracks.length * 3));
+  return {
+    quality: round3(criticClamp01(averageQuality - issuePenalty)),
+    issues: issues.sort((a, b) => b.severity - a.severity).slice(0, 12),
+  };
+}
+
+function repairPlaylistWithCritic<T extends { trackId: string }>(
+  tracks: T[],
+  candidatePool: ScoredLibraryTrack<T>[],
+  classMap: UserGenreProfile["trackClassifications"],
+  maxPerArtist: number,
+  playlistLength: number,
+): { tracks: T[]; diagnostics: PlaylistCriticDiagnostics } {
+  const scoreByTrack = new Map(candidatePool.map((track) => [track.trackId, track]));
+  const before = evaluatePlaylistCritic(tracks, scoreByTrack, classMap, maxPerArtist);
+  const repaired = [...tracks];
+  const replacements: PlaylistCriticDiagnostics["replacements"] = [];
+  const usedTrackIds = new Set(repaired.map((track) => track.trackId));
+  const repairBudget = Math.min(6, Math.max(1, Math.floor(playlistLength * 0.25)));
+  const repairTargets = before.issues
+    .filter((issue) => issue.severity >= 0.18)
+    .sort((a, b) => b.severity - a.severity)
+    .slice(0, repairBudget);
+
+  for (const issue of repairTargets) {
+    const current = repaired[issue.index];
+    if (!current) continue;
+    const currentQuality = criticTrackQuality(current, scoreByTrack);
+    const previous = repaired[issue.index - 1];
+    const next = repaired[issue.index + 1];
+    const artistCounts = new Map<string, number>();
+    for (const track of repaired) {
+      const artist = criticTrackMeta(track, scoreByTrack).artistName;
+      if (artist) artistCounts.set(artist, (artistCounts.get(artist) ?? 0) + 1);
+    }
+
+    const replacement = candidatePool
+      .filter((candidate) => !usedTrackIds.has(candidate.trackId))
+      .map((candidate) => {
+        const meta = criticTrackMeta(candidate, scoreByTrack);
+        const artist = meta.artistName;
+        const genre = criticGenreFamily(candidate, scoreByTrack, classMap);
+        const previousMeta = previous ? criticTrackMeta(previous, scoreByTrack) : null;
+        const nextMeta = next ? criticTrackMeta(next, scoreByTrack) : null;
+        const artistPenalty =
+          (artist && (artistCounts.get(artist) ?? 0) >= maxPerArtist ? 0.25 : 0) +
+          (artist && previousMeta?.artistName === artist ? 0.25 : 0) +
+          (artist && nextMeta?.artistName === artist ? 0.18 : 0);
+        const genrePenalty = genre && previous && next &&
+          criticGenreFamily(previous, scoreByTrack, classMap) === genre &&
+          criticGenreFamily(next, scoreByTrack, classMap) === genre
+          ? 0.16
+          : 0;
+        const energyPenalty = typeof meta.energy === "number"
+          ? Math.max(
+            previousMeta && typeof previousMeta.energy === "number" ? Math.max(0, Math.abs(meta.energy - previousMeta.energy) - 0.40) * 0.35 : 0,
+            nextMeta && typeof nextMeta.energy === "number" ? Math.max(0, Math.abs(meta.energy - nextMeta.energy) - 0.40) * 0.25 : 0,
+          )
+          : 0.08;
+        return {
+          candidate,
+          replacementScore: criticTrackQuality(candidate, scoreByTrack) - artistPenalty - genrePenalty - energyPenalty,
+        };
+      })
+      .sort((a, b) => b.replacementScore - a.replacementScore)[0];
+
+    if (!replacement || replacement.replacementScore < currentQuality + 0.04) continue;
+    repaired[issue.index] = replacement.candidate as unknown as T;
+    usedTrackIds.delete(current.trackId);
+    usedTrackIds.add(replacement.candidate.trackId);
+    replacements.push({
+      index: issue.index,
+      fromTrackId: current.trackId,
+      toTrackId: replacement.candidate.trackId,
+      reason: issue.reason,
+      scoreLift: round3(replacement.replacementScore - currentQuality),
+    });
+  }
+
+  const after = evaluatePlaylistCritic(repaired, scoreByTrack, classMap, maxPerArtist);
+  return {
+    tracks: repaired,
+    diagnostics: {
+      beforeQuality: before.quality,
+      afterQuality: after.quality,
+      repairedCount: replacements.length,
+      qualityGatePassed: after.quality >= 0.58 || replacements.length === 0,
+      issues: after.issues,
+      replacements,
+    },
+  };
+}
+
 function hasLaneReadyEra(track: {
   releaseYear?: number | null;
   energy: number | null;
@@ -1080,11 +1339,20 @@ export function buildPlaylistPipeline<T extends {
     if (emergencyScoredFallback) return emergencyScoredFallback;
   }
 
+  const playlistCritic = repairPlaylistWithCritic(
+    finalTracksList as T[],
+    scoring.sorted,
+    classMap,
+    opts.maxPerArtist,
+    opts.playlistLength,
+  );
+  const criticFinalTracks = playlistCritic.tracks;
+
   // Genre enforcement safety net — audit only; V3 structural diversity already
   // prevents collapse inside each lane (35% genre / 50% energy / 60% era caps).
   t = Date.now();
   const enforced = enforceFinalPlaylistGenres({
-    finalTracks: [...finalTracksList] as unknown as ScoredLibraryTrack<T>[],
+    finalTracks: [...criticFinalTracks] as unknown as ScoredLibraryTrack<T>[],
     sortedPool: scoring.sorted,
     userGenreProfile: opts.userGenreProfile,
     genreStack: opts.genreStack,
@@ -1096,23 +1364,29 @@ export function buildPlaylistPipeline<T extends {
     stabilityDiagnostics: scoring.stabilityDiagnostics,
   });
   logScoringStage(opts.pipelineLog, "V3 genre audit complete", t, {
-    tracks: finalTracksList.length,
+    tracks: criticFinalTracks.length,
+    criticQualityBefore: playlistCritic.diagnostics.beforeQuality,
+    criticQualityAfter: playlistCritic.diagnostics.afterQuality,
+    criticRepairs: playlistCritic.diagnostics.repairedCount,
   });
+  const finalTracksForReturn = enforced.tracks.length > 0
+    ? enforced.tracks as unknown as T[]
+    : criticFinalTracks;
   warnIfV3MetadataLost(
     v3.finalTracks,
-    finalTracksList,
+    finalTracksForReturn,
     "v3-output-to-create-playlist"
   );
-  warnIfFieldDropped("laneScore", v3.finalTracks, finalTracksList, "v3-output-to-create-playlist");
-  warnIfFieldDropped("clusterIds", v3.finalTracks, finalTracksList, "v3-output-to-create-playlist");
+  warnIfFieldDropped("laneScore", v3.finalTracks, finalTracksForReturn, "v3-output-to-create-playlist");
+  warnIfFieldDropped("clusterIds", v3.finalTracks, finalTracksForReturn, "v3-output-to-create-playlist");
   const updatedMomentMemory = updateMomentMemory({
     unifiedIntent: memoryAdjustedUnifiedIntent,
-    finalPlaylistEmbedding: buildPlaylistEmbedding(finalTracksList).centroidVector,
+    finalPlaylistEmbedding: buildPlaylistEmbedding(finalTracksForReturn).centroidVector,
     memoryKey: opts.momentMemoryKey,
   });
 
   return {
-    finalTracks: finalTracksList,
+    finalTracks: finalTracksForReturn,
     sorted: scoring.sorted,
     scoringDiagnostics: {
       ...scoring.scoringDiagnostics,
@@ -1128,18 +1402,19 @@ export function buildPlaylistPipeline<T extends {
           finalHardFilterTrace,
         },
         preV3Recovery: v3CandidatePool.diagnostics,
+        playlistCritic: playlistCritic.diagnostics,
       },
     },
     hybridExcludedCount: scoring.hybridExcludedCount,
     genreAudit: enforced.genreAudit,
     ecosystemDebug: null,
     composeMeta: {
-      structured: finalTracksList,
+      structured: finalTracksForReturn,
       poolTarget: opts.playlistLength,
-      afterDeadZone: finalTracksList,
-      afterSmoothing: finalTracksList,
-      afterArtistSep: finalTracksList,
-      afterArc: finalTracksList,
+      afterDeadZone: finalTracksForReturn,
+      afterSmoothing: finalTracksForReturn,
+      afterArtistSep: finalTracksForReturn,
+      afterArc: finalTracksForReturn,
       emotionalPeakTrackId: null,
       emotionalPeakIndex: null,
       gradientPhases: { start: 0.10, explore: 0.35, peak: 0.65, resolve: 0.85 },
