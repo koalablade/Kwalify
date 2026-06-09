@@ -16,7 +16,7 @@ services:
     region: frankfurt
     repo: https://github.com/koalablade/Kwalify
     branch: main
-    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
+    buildCommand: npm cache clean --force && npm ci --include=dev --cache /tmp/npm-cache --prefer-online && npm run build
     startCommand: npm start
     healthCheckPath: /api/healthz
     envVars:
