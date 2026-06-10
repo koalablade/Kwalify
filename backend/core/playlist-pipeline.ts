@@ -580,7 +580,12 @@ function constrainPoolToIntentContract<T extends IntentContractTrack>(
   const relaxed = strict.length > 0
     ? strict
     : scored.filter(({ fit }) => fit.requiredPassed && fit.score >= 0.34);
-  const selected = relaxed.length > 0 ? relaxed.map(({ track }) => track) : pool;
+  const hasRequiredContract = contract.genreFamilies.length > 0 || !!contract.eraRange;
+  const selected = relaxed.length > 0
+    ? relaxed.map(({ track }) => track)
+    : hasRequiredContract
+      ? []
+      : pool;
   const averageFit = scored.length > 0
     ? scored.reduce((sum, item) => sum + item.fit.score, 0) / scored.length
     : 0;
@@ -1595,6 +1600,16 @@ function buildV3CandidatePool<T extends {
     countPreV3Reasons(sorted, (track) => laneReadinessReason(track, classMap)),
   ));
   const intentLaneReady = sorted.filter((track) => isV3LaneReadyForIntent(track, classMap, lockedIntent));
+  const eraReady = lockedIntent.eraRange
+    ? intentLaneReady.filter((track) => {
+        if (typeof track.releaseYear === "number") {
+          return track.releaseYear >= lockedIntent.eraRange!.start &&
+            track.releaseYear <= lockedIntent.eraRange!.end;
+        }
+        return false;
+      })
+    : intentLaneReady;
+  const eraReadyIds = new Set(eraReady.map((track) => track.trackId));
   forensicPreV3Trace.push(preV3StageTrace(
     "metadata completeness filter",
     sorted.length,
@@ -1604,12 +1619,15 @@ function buildV3CandidatePool<T extends {
   forensicPreV3Trace.push(preV3StageTrace(
     "era readiness filter",
     intentLaneReady.length,
-    lockedIntent.eraRange ? laneReady.length : intentLaneReady.length,
+    eraReady.length,
     lockedIntent.eraRange
-      ? countPreV3Reasons(intentLaneReady, (track) => hasLaneReadyEra(track) ? null : "missingEra")
+      ? countPreV3Reasons(intentLaneReady, (track) => {
+          if (!hasLaneReadyEra(track)) return "missingEra";
+          return eraReadyIds.has(track.trackId) ? null : "eraMismatch";
+        })
       : {},
   ));
-  const effectiveLaneReady = lockedIntent.eraRange ? laneReady : intentLaneReady;
+  const effectiveLaneReady = lockedIntent.eraRange ? eraReady : intentLaneReady;
   const intentReady = effectiveLaneReady.filter((track) =>
     trackMatchesLockedIntent(track, classMap, lockedIntent)
   );

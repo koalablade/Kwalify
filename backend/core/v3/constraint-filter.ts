@@ -1,4 +1,4 @@
-import { eraRangeFromBucket, normalizeLockedGenreFamily, type LockedIntent, type SceneIntent, type SceneLatentVector } from "./intent";
+import { normalizeLockedGenreFamily, type LockedIntent, type SceneIntent, type SceneLatentVector } from "./intent";
 import type { ScoredTrack } from "./v3-score";
 
 export interface FilterContext {
@@ -36,9 +36,7 @@ function eraAllowed(track: ConstraintTrackLike, intent: LockedIntent): boolean {
   if (track.releaseYear !== null && track.releaseYear !== undefined) {
     return track.releaseYear >= intent.eraRange.start && track.releaseYear <= intent.eraRange.end;
   }
-  const bucketRange = eraRangeFromBucket(track.laneEra);
-  if (!bucketRange) return false;
-  return bucketRange.end >= intent.eraRange.start && bucketRange.start <= intent.eraRange.end;
+  return false;
 }
 
 function clamp01(value: number): number {
@@ -192,7 +190,7 @@ export function trackMatchesConstraints(track: ConstraintTrackLike, intent: Lock
   if (!hasUsableGenreClassification(track)) return false;
   if (!eraAllowed(track, intent)) {
     track._lanePenalty = (track._lanePenalty ?? 0) + 0.3;
-    return true;
+    return false;
   }
   const hasEnergy = typeof track.energy === "number";
   const hasValence = typeof track.valence === "number";

@@ -9,6 +9,7 @@ import type { EraBucket } from "../../lib/intent-parser";
 import type { ScorerTrack } from "./lane-scorer";
 import type { ClusteredPool } from "./cluster-candidate-engine";
 import { getGenreFamily } from "./global-diversity-controller";
+import type { LockedIntent } from "./intent";
 import { withDecisionWeight, type TrackDecision } from "./track-decision";
 
 export interface SampledLaneResult<T extends ScorerTrack> {
@@ -57,6 +58,7 @@ export function selectFromClusters<T extends ScorerTrack>(
   targetCount: number,
   laneId: string,
   seed = "v3-selection",
+  opts: { lockedIntent?: LockedIntent } = {},
 ): ClusterSelectionResult<T> {
   const { scoredTracks, trackToClusterIds, clusters } = pool;
 
@@ -74,10 +76,16 @@ export function selectFromClusters<T extends ScorerTrack>(
     };
   }
 
-  const genreMax   = Math.max(1, Math.ceil(targetCount * 0.60));
-  const eraMax     = Math.max(1, Math.ceil(targetCount * 0.60));
+  const genreMax   = opts.lockedIntent?.genreFamilies.length
+    ? Number.POSITIVE_INFINITY
+    : Math.max(1, Math.ceil(targetCount * 0.60));
+  const eraMax     = opts.lockedIntent?.eraRange
+    ? Number.POSITIVE_INFINITY
+    : Math.max(1, Math.ceil(targetCount * 0.60));
   const energyMax  = Math.max(1, Math.ceil(targetCount * 0.65));
-  const familyMax  = Math.max(1, Math.ceil(targetCount * 0.75));
+  const familyMax  = opts.lockedIntent?.genreFamilies.length
+    ? Number.POSITIVE_INFINITY
+    : Math.max(1, Math.ceil(targetCount * 0.75));
 
   const clusterPickCount = new Map<string, number>();
   const familyPickCount  = new Map<string, number>();

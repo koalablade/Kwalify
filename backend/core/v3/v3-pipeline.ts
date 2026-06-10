@@ -205,11 +205,10 @@ function eraAllowedWithDrift<T extends V3PipelineTrack>(
 ): boolean {
   if (!lockedIntent.eraRange) return true;
   if (decision.track.releaseYear === null || decision.track.releaseYear === undefined) {
-    return decision.laneEra === "any";
+    return false;
   }
-  const driftYears = 8;
-  return decision.track.releaseYear >= lockedIntent.eraRange.start - driftYears &&
-    decision.track.releaseYear <= lockedIntent.eraRange.end + driftYears;
+  return decision.track.releaseYear >= lockedIntent.eraRange.start &&
+    decision.track.releaseYear <= lockedIntent.eraRange.end;
 }
 
 function retrievalFloor(level: RetrievalStrictness): number {
@@ -560,6 +559,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       laneTarget,
       lane.id,
       `${opts.seed ?? "v3"}:${lane.id}`,
+      { lockedIntent },
     );
     forensicTrace.push(stageTrace(
       `sampler input count:${lane.id}`,
