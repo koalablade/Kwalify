@@ -861,6 +861,9 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     pipelineVersion: "v3.1_unified_routing",
     activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
     qualityLock: {
+      active: false,
+      implemented: false,
+      reason: "quality_lock_module_missing",
       trackDuplicatesRemoved: 0,
       genreExclusionsApplied: 0,
       artistDuplicatesRemoved: 0,
