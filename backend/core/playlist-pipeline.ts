@@ -567,11 +567,12 @@ function constrainPoolToIntentContract<T extends IntentContractTrack>(
 function enforceIntentContract<T extends ScoredLibraryTrack<IntentContractTrack>>(
   tracks: T[],
   intent: IntentContract,
+  classMap?: UserGenreProfile["trackClassifications"],
 ): Array<T & { contractFitScore: number }> {
   return tracks
     .map((track) => {
       let contractFitScore = 0;
-      const family = track.genrePrimary ? getGenreFamily(track.genrePrimary) : null;
+      const family = classMap ? genreFamilyForTrack(track, classMap) : track.genrePrimary ? getGenreFamily(track.genrePrimary) : null;
       if (intent.genres.length > 0 && family && intent.genres.includes(family)) contractFitScore += 3;
       if (
         intent.era &&
@@ -612,7 +613,7 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
   classMap: UserGenreProfile["trackClassifications"],
   feedback: FeedbackMemory | null = null,
 ): RetrievalPools<T> {
-  const contractRanked = enforceIntentContract(tracks, contract)
+  const contractRanked = enforceIntentContract(tracks, contract, classMap)
     .map((track) => ({
       track,
       adjustedScore: (track.contractFitScore * 0.20) + (track.score ?? 0) - feedbackPenalty(track, feedback),
@@ -1717,6 +1718,7 @@ export function buildPlaylistPipeline<T extends {
   const contractSafePool = enforceIntentContract(
     pooledCandidates as unknown as Array<ScoredLibraryTrack<IntentContractTrack>>,
     intentContract,
+    classMap,
   ) as unknown as ScoredLibraryTrack<T>[];
   // GUARANTEE:
   // Playlist output MUST remain inside Intent Contract bounds
@@ -1729,12 +1731,26 @@ export function buildPlaylistPipeline<T extends {
   const positiveEvidenceRejectedCount = intentContract.genreFamilies.length > 0
     ? contractGuard.pool.filter((track) => !hasPositiveExplicitGenreEvidence(track, classMap, intentContract.genreFamilies)).length
     : 0;
-  const contractGuardedScoredPool = intentContract.genreFamilies.length > 0
-    ? contractGuard.pool.filter((track) =>
+  const explicitGenreScoredPool = intentContract.genreFamilies.length > 0
+    ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) =>
         !contradictsExplicitGenreTruth(track, intentContract.genreFamilies) &&
         hasPositiveExplicitGenreEvidence(track, classMap, intentContract.genreFamilies)
       )
+    : [];
+  const contractEvidencePool = intentContract.genreFamilies.length > 0
+    ? contractGuard.pool.filter((track) =>
+        !contradictsExplicitGenreTruth(track, intentContract.genreFamilies) &&
+        hasPositiveExplicitGenreEvidence(track, classMap, intentContract.genreFamilies)
+      ) as ScoredLibraryTrack<T>[]
+    : [];
+  const contractGuardedScoredPool = intentContract.genreFamilies.length > 0
+    ? contractEvidencePool.length > 0
+        ? contractEvidencePool
+        : explicitGenreScoredPool
     : contractGuard.pool;
+  const explicitGenreRecoveryUsed = intentContract.genreFamilies.length > 0 &&
+    contractEvidencePool.length === 0 &&
+    explicitGenreScoredPool.length > 0;
   const explicitPromptGenreFamilies = intentContract.genreFamilies;
   const v3LockedIntent = buildV3LockedIntent(
     unifiedIntentContextWithMemory,
@@ -1857,7 +1873,11 @@ export function buildPlaylistPipeline<T extends {
     ...controlledGenerationDiagnostics,
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
     preV3Recovery: v3CandidatePool.diagnostics,
-    intentContractGuard: contractGuard.diagnostics,
+    intentContractGuard: {
+      ...contractGuard.diagnostics,
+      explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
+      explicitGenreRecoveryUsed,
+    },
     retrievalPools: {
       core: retrieval.core.length,
       anchor: retrieval.anchor.length,
@@ -1936,7 +1956,11 @@ export function buildPlaylistPipeline<T extends {
           },
           fallback: fallbackLabel,
           preV3Recovery: v3CandidatePool.diagnostics,
-          intentContractGuard: contractGuard.diagnostics,
+          intentContractGuard: {
+            ...contractGuard.diagnostics,
+            explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
+            explicitGenreRecoveryUsed,
+          },
           controlledGeneration: controlledGenerationDiagnostics,
           retrievalPools: {
             core: retrieval.core.length,
@@ -2081,7 +2105,11 @@ export function buildPlaylistPipeline<T extends {
           fallback: true,
           reason: "empty_library",
           preV3Recovery: v3CandidatePool.diagnostics,
-          intentContractGuard: contractGuard.diagnostics,
+          intentContractGuard: {
+            ...contractGuard.diagnostics,
+            explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
+            explicitGenreRecoveryUsed,
+          },
           controlledGeneration: controlledGenerationDiagnostics,
           retrievalPools: {
             core: retrieval.core.length,
@@ -2197,7 +2225,11 @@ export function buildPlaylistPipeline<T extends {
           finalHardFilterTrace,
         },
         preV3Recovery: v3CandidatePool.diagnostics,
-        intentContractGuard: contractGuard.diagnostics,
+        intentContractGuard: {
+          ...contractGuard.diagnostics,
+          explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
+          explicitGenreRecoveryUsed,
+        },
         explicitGenreTruthGuard: {
           active: intentContract.genreFamilies.length > 0,
           rejectedCount: truthContradictedCount,
