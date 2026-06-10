@@ -61,6 +61,7 @@ import {
   EXPANDED_TIME_TERMS,
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
+import { compilePersonalPlaylist, type PersonalCompilerTrack } from "./personal-playlist-compiler";
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -2386,7 +2387,16 @@ export function buildPlaylistPipeline<T extends {
     classMap,
     opts.playlistLength,
   );
-  const finalTracksForReturn = explicitIntentRepair.tracks as unknown as T[];
+  const repairedTracksForReturn = explicitIntentRepair.tracks as unknown as T[];
+  const personalCompilation = compilePersonalPlaylist({
+    seedTracks: repairedTracksForReturn as unknown as Array<T & PersonalCompilerTrack>,
+    candidatePool: contractGuardedScoredPool as unknown as Array<T & PersonalCompilerTrack>,
+    intent: v3LockedIntent,
+    userGenreProfile: opts.userGenreProfile,
+    playlistLength: opts.playlistLength,
+    maxPerArtist: opts.maxPerArtist,
+  });
+  const finalTracksForReturn = personalCompilation.tracks as unknown as T[];
   const playlistQuality = evaluatePlaylistQuality(
     finalTracksForReturn as unknown as IntentContractTrack[],
     intentContract,
@@ -2456,6 +2466,7 @@ export function buildPlaylistPipeline<T extends {
         playlistQuality,
         playlistCritic: playlistCritic.diagnostics,
         explicitIntentRepair: explicitIntentRepair.diagnostics,
+        personalCompiler: personalCompilation.diagnostics,
       },
     },
     hybridExcludedCount: scoring.hybridExcludedCount,
