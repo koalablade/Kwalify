@@ -183,7 +183,6 @@ export function scoreLane<T extends ScorerTrack>(
   const w = bias.weights;
 
   return tracks
-    .filter((t) => t.energy !== null || t.valence !== null)
     .map((track) => {
       const embedding = buildTrackEmbedding(track);
 

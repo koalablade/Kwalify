@@ -1242,7 +1242,6 @@ function laneReadinessReason<T extends {
 ): string | null {
   const genreReason = genreFamilyRejectionReason(track, classMap);
   if (genreReason) return genreReason;
-  if (track.energy === null) return "missingEnergy";
   if (!hasLaneReadyEra(track)) return "missingEra";
   return null;
 }
@@ -1259,7 +1258,6 @@ function isV3LaneReady<T extends {
   classMap: UserGenreProfile["trackClassifications"],
 ): boolean {
   return !!genreFamilyForTrack(track, classMap) &&
-    track.energy !== null &&
     hasLaneReadyEra(track);
 }
 
@@ -1277,7 +1275,6 @@ function isV3LaneReadyForIntent<T extends {
   lockedIntent: LockedIntent,
 ): boolean {
   if (!genreFamilyForTrack(track, classMap)) return false;
-  if (track.energy === null && track.valence === null) return false;
   return lockedIntent.eraRange ? hasLaneReadyEra(track) : true;
 }
 
@@ -1296,7 +1293,6 @@ function intentLaneReadinessReason<T extends {
 ): string | null {
   const genreReason = genreFamilyRejectionReason(track, classMap);
   if (genreReason) return genreReason;
-  if (track.energy === null && track.valence === null) return "missingEnergyAndValence";
   if (lockedIntent.eraRange && !hasLaneReadyEra(track)) return "missingEra";
   return null;
 }

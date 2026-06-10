@@ -393,6 +393,8 @@ export async function runSync(
         trackName: s.trackName,
         artistName: s.artistName,
         albumName: s.albumName,
+        spotifyArtistGenres: s.spotifyArtistGenres,
+        albumGenres: s.albumGenres,
         energy: s.energy,
         valence: s.valence,
         acousticness: s.acousticness,

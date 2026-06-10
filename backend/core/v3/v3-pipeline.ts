@@ -136,8 +136,7 @@ function decisionIsLaneReady<T extends V3PipelineTrack>(
     classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary
   );
   return !!genreFamily &&
-    decision.laneEra !== "any" &&
-    decision.track.energy !== null;
+    decision.laneEra !== "any";
 }
 
 function laneReadinessRejectionReason<T extends V3PipelineTrack>(
@@ -152,7 +151,6 @@ function laneReadinessRejectionReason<T extends V3PipelineTrack>(
   );
   if (!genreFamily) return "missing genre";
   if (decision.laneEra === "any") return "lane readiness fail: missing era";
-  if (decision.track.energy === null) return "lane readiness fail: missing energy";
   return null;
 }
 
@@ -186,9 +184,7 @@ function decisionHasBasicIdentity<T extends V3PipelineTrack>(decision: TrackDeci
 }
 
 function decisionHasUsableMetadata<T extends V3PipelineTrack>(decision: TrackDecision<T>): boolean {
-  return decisionHasBasicIdentity(decision) &&
-    decision.track.energy !== null &&
-    decision.track.valence !== null;
+  return decisionHasBasicIdentity(decision);
 }
 
 function decisionHasUsableGenre<T extends V3PipelineTrack>(
