@@ -1598,12 +1598,7 @@ function buildV3CandidatePool<T extends {
   ));
   const intentLaneReady = sorted.filter((track) => isV3LaneReadyForIntent(track, classMap, lockedIntent));
   const eraReady = lockedIntent.eraRange
-    ? (() => {
-        const verified = intentLaneReady.filter((track) => trackHasEraEvidence(track, lockedIntent.eraRange!));
-        const minimumVerifiedWindow = Math.min(intentLaneReady.length, Math.max(playlistLength * 2, 24));
-        if (verified.length >= minimumVerifiedWindow) return verified;
-        return intentLaneReady.filter((track) => !trackHasKnownEraMismatch(track, lockedIntent.eraRange!));
-      })()
+    ? intentLaneReady.filter((track) => trackHasEraEvidence(track, lockedIntent.eraRange!))
     : intentLaneReady;
   const eraReadyIds = new Set(eraReady.map((track) => track.trackId));
   forensicPreV3Trace.push(preV3StageTrace(

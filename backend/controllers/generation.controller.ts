@@ -1634,7 +1634,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v4" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v5" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2448,9 +2448,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     })();
     if (
       strictEraEvidenceDiagnostics.active &&
-      strictEraEvidenceDiagnostics.finalCount > 0 &&
-      strictEraEvidenceDiagnostics.verifiedCount === 0 &&
-      strictEraEvidenceDiagnostics.unknownCount === 0
+      strictEraEvidenceDiagnostics.verifiedCount === 0
     ) {
       req.log.warn(
         {
@@ -2470,7 +2468,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         res,
         409,
         "INSUFFICIENT_VERIFIED_ERA_EVIDENCE",
-        `I could not find any tracks compatible with ${strictEraEvidenceDiagnostics.eraRange?.start}-${strictEraEvidenceDiagnostics.eraRange?.end} after removing known wrong-era songs.`,
+        `I could not find any verified ${strictEraEvidenceDiagnostics.eraRange?.start}-${strictEraEvidenceDiagnostics.eraRange?.end} tracks after removing unknown or wrong-era songs.`,
         {
           hint: "Try a broader decade prompt, add a genre, or regenerate after syncing tracks with release years.",
           strictEraEvidence: {
@@ -2483,11 +2481,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
     if (strictEraEvidenceDiagnostics.active) {
-      const verifiedFinalCount = strictEraEvidenceDiagnostics.verifiedCount;
-      const verifiedPublishFloor = Math.min(length, Math.max(12, Math.ceil(length * 0.55)));
-      const nextFinalTracks = verifiedFinalCount >= verifiedPublishFloor
-        ? strictEraEvidenceDiagnostics.verified
-        : strictEraEvidenceDiagnostics.compatible;
+      const nextFinalTracks = strictEraEvidenceDiagnostics.verified;
       if (nextFinalTracks.length !== finalTracks.length) {
         finalTracks = nextFinalTracks as PlaylistTrack[];
         finalValidation = validateLockedIntentOutput(
@@ -2498,6 +2492,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
       }
     }
+    const strictEraEvidencePublic = {
+      ...strictEraEvidenceDiagnostics,
+      verified: undefined,
+      compatible: undefined,
+      publishedCount: finalTracks.length,
+      publishMode: strictEraEvidenceDiagnostics.active ? "verified_only" : "inactive",
+    };
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
     const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
@@ -2813,7 +2814,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v4",
+        cacheVersion: "v5",
         playlistName,
         vibe,
         mode,
@@ -2893,11 +2894,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         ...strictGenreEvidenceDiagnostics,
         verified: undefined,
       },
-      strictEraEvidence: {
-        ...strictEraEvidenceDiagnostics,
-        verified: undefined,
-        compatible: undefined,
-      },
+      strictEraEvidence: strictEraEvidencePublic,
       playlistQuality: v3Diagnostics?.playlistQuality ?? null,
       explicitIntentRepair: ((v3Diagnostics ?? {}) as Record<string, unknown>)["explicitIntentRepair"] ?? null,
       feedbackDiagnostics,
@@ -3009,11 +3006,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         ...strictGenreEvidenceDiagnostics,
         verified: undefined,
       },
-      strictEraEvidence: {
-        ...strictEraEvidenceDiagnostics,
-        verified: undefined,
-        compatible: undefined,
-      },
+      strictEraEvidence: strictEraEvidencePublic,
       generationAuditSnapshot,
       requestOrchestration: pipeline.requestOrchestration ?? {
         layer: "request",
@@ -3062,6 +3055,7 @@ router.post("/generate", async (req, res): Promise<void> => {
                 layer: constraintLayer,
                 lockedIntent,
                 finalValidation,
+                strictEraEvidence: strictEraEvidencePublic,
                 result: {
                   filteredCount: 0,
                   diversityWarning: false,
