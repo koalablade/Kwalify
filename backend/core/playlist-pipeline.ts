@@ -203,6 +203,7 @@ const KNOWN_ARTIST_GENRE_TRUTH: Array<{ pattern: RegExp; family: string }> = [
   { pattern: /\bbob\s+marley\b/i, family: "reggae" },
   { pattern: /\bthe\s+doors\b/i, family: "rock" },
   { pattern: /\bblondie\b/i, family: "rock" },
+  { pattern: /\btame\s+impala\b/i, family: "indie" },
   { pattern: /\beminem\b/i, family: "hip_hop" },
   { pattern: /\brockwell\b/i, family: "pop" },
 ];
@@ -213,6 +214,7 @@ const SPOTIFY_TRUTH_TERMS: Record<string, string[]> = {
   rock: ["rock", "new wave", "post-punk", "punk", "grunge", "psychedelic", "album rock"],
   reggae: ["reggae", "dancehall", "dub", "rocksteady"],
   pop: ["pop", "dance pop", "synthpop"],
+  indie: ["indie", "alternative indie", "neo-psychedelic", "pov: indie"],
   electronic: ["electronic", "edm", "house", "techno", "trance", "dubstep"],
   rnb: ["r&b", "rnb", "neo soul"],
   soul: ["soul", "funk", "motown"],
@@ -248,6 +250,32 @@ function contradictsExplicitGenreTruth(
   if (explicitFamilies.length === 0) return false;
   const truth = truthGenreFamily(track);
   return !!truth && !explicitFamilies.includes(truth);
+}
+
+function hasPositiveExplicitGenreEvidence(
+  track: {
+    trackId: string;
+    artistName?: string | null;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
+    genrePrimary?: string | null;
+  },
+  classMap: UserGenreProfile["trackClassifications"],
+  explicitFamilies: string[],
+): boolean {
+  if (explicitFamilies.length === 0) return true;
+  const truth = truthGenreFamily(track);
+  if (truth) return explicitFamilies.includes(truth);
+
+  const classification = classMap.get(track.trackId);
+  const family = genreFamilyForTrack(track, classMap);
+  if (!classification || !family || !explicitFamilies.includes(family)) return false;
+
+  const diagnostics = classification.diagnostics;
+  const hasTextEvidence = diagnostics?.taxonomyHit === true &&
+    diagnostics.audioFallbackUsed !== true &&
+    (!!diagnostics.artistHintMatched || !!diagnostics.patternMatched);
+  return hasTextEvidence;
 }
 
 type IntentContract = {
@@ -1698,8 +1726,14 @@ export function buildPlaylistPipeline<T extends {
   const truthContradictedCount = intentContract.genreFamilies.length > 0
     ? contractGuard.pool.filter((track) => contradictsExplicitGenreTruth(track, intentContract.genreFamilies)).length
     : 0;
+  const positiveEvidenceRejectedCount = intentContract.genreFamilies.length > 0
+    ? contractGuard.pool.filter((track) => !hasPositiveExplicitGenreEvidence(track, classMap, intentContract.genreFamilies)).length
+    : 0;
   const contractGuardedScoredPool = intentContract.genreFamilies.length > 0
-    ? contractGuard.pool.filter((track) => !contradictsExplicitGenreTruth(track, intentContract.genreFamilies))
+    ? contractGuard.pool.filter((track) =>
+        !contradictsExplicitGenreTruth(track, intentContract.genreFamilies) &&
+        hasPositiveExplicitGenreEvidence(track, classMap, intentContract.genreFamilies)
+      )
     : contractGuard.pool;
   const explicitPromptGenreFamilies = intentContract.genreFamilies;
   const v3LockedIntent = buildV3LockedIntent(
@@ -2167,6 +2201,8 @@ export function buildPlaylistPipeline<T extends {
         explicitGenreTruthGuard: {
           active: intentContract.genreFamilies.length > 0,
           rejectedCount: truthContradictedCount,
+          rejectedForMissingPositiveEvidence: positiveEvidenceRejectedCount,
+          remainingAfterGuard: contractGuardedScoredPool.length,
           expectedFamilies: intentContract.genreFamilies,
         },
         controlledGeneration: controlledGenerationDiagnostics,
