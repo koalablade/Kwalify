@@ -2048,13 +2048,15 @@ router.post("/generate", async (req, res): Promise<void> => {
         hasFinalGenreEvidence(track, userGenreProfile.trackClassifications, expectedFamilies)
       );
       const requiredCount = Math.min(
-        finalTracks.length,
-        Math.max(10, Math.ceil(finalTracks.length * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
+        length,
+        Math.max(10, Math.ceil(length * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
       );
       return {
         active: true,
         expectedFamilies,
         requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
+        requestedCount: length,
+        finalCount: finalTracks.length,
         verifiedCount: verified.length,
         rejectedCount: finalTracks.length - verified.length,
         requiredCount,

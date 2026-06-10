@@ -1779,7 +1779,7 @@ function nameFromUserVibe(vibe: string): string | null {
 
   const wordCount = trimmed.split(/\s+/).length;
   const isDescriptive =
-    wordCount >= 3 ||
+    wordCount >= 2 ||
     SPECIFIC_SCENE_PATTERN.test(trimmed) ||
     /\b(at|while|during|after|before|alone|empty|quiet)\b/i.test(trimmed);
 

@@ -14,9 +14,10 @@ type CacheEntry = {
 
 const cache = new Map<string, CacheEntry>();
 const TTL_MS = 6 * 60 * 60 * 1000;
+const GENRE_PROFILE_CACHE_VERSION = "genre-profile-v3-country-evidence";
 
 function profileCacheKey(userId: string): string {
-  return userId;
+  return `${GENRE_PROFILE_CACHE_VERSION}:${userId}`;
 }
 
 export function getUserGenreProfileForGenerate(
@@ -49,7 +50,7 @@ export function getUserGenreProfileForGenerate(
 
 export function invalidateGenreProfileCache(userId: string): void {
   for (const k of cache.keys()) {
-    if (k.startsWith(`${userId}:`)) cache.delete(k);
+    if (k === profileCacheKey(userId) || k.endsWith(`:${userId}`)) cache.delete(k);
   }
 }
 
