@@ -1086,7 +1086,7 @@ function hasValidCachedIntent(cached: {
   const hasIntent = typeof intent?.["primary"] === "string" && intent["primary"].trim().length > 0;
   if (!hasIntent) return false;
   const tracks = cached.finalTracks ?? [];
-  if (tracks.length === 0) return true;
+  if (tracks.length === 0) return false;
   const genrePresent = tracks.filter((track) => !!track.genrePrimary).length;
   return genrePresent / tracks.length >= 0.75;
 }
@@ -1190,6 +1190,35 @@ function hasFinalGenreEvidence(
   return expectedFamilies.some((family) =>
     (FINAL_GUARD_GENRE_TERMS[family] ?? []).some((term) => blob.includes(term))
   );
+}
+
+function explicitGenreFallbackFailure(opts: {
+  vibe: string;
+  requestedCount: number;
+  finalCount: number;
+  hasGenreAwarePool: boolean;
+}): { code: string; error: string; details: Record<string, unknown> } | null {
+  const expectedFamilies = buildCsspLockedIntent(opts.vibe).genreFamilies;
+  if (expectedFamilies.length === 0) return null;
+
+  const requiredCount = Math.min(
+    opts.requestedCount,
+    Math.max(10, Math.ceil(opts.requestedCount * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
+  );
+  if (opts.hasGenreAwarePool && opts.finalCount >= requiredCount) return null;
+
+  return {
+    code: "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
+    error: `I could not find enough verified ${expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
+    details: {
+      expectedFamilies,
+      requestedCount: opts.requestedCount,
+      finalCount: opts.finalCount,
+      requiredCount,
+      requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
+      fallbackBlocked: true,
+    },
+  };
 }
 
 router.get("/generate/status", (req, res): void => {
@@ -1597,6 +1626,22 @@ router.post("/generate", async (req, res): Promise<void> => {
         librarySize: fallbackTracks.length,
         genreByTrack: ctx.genreByTrack,
       });
+      const strictFallbackFailure = explicitGenreFallbackFailure({
+        vibe: ctx.vibe,
+        requestedCount: ctx.length,
+        finalCount: pipeline.finalTracks.length,
+        hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
+      });
+      if (strictFallbackFailure) {
+        res.status(409).json({
+          success: false,
+          error: strictFallbackFailure.error,
+          code: strictFallbackFailure.code,
+          strictGenreEvidence: strictFallbackFailure.details,
+          tracks: [],
+        });
+        return;
+      }
       const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
       res.json({
         success: true,
@@ -2706,6 +2751,22 @@ router.post("/generate", async (req, res): Promise<void> => {
           librarySize: fallbackTracks.length,
           genreByTrack: ctx.genreByTrack,
         });
+        const strictFallbackFailure = explicitGenreFallbackFailure({
+          vibe: ctx.vibe,
+          requestedCount: ctx.length,
+          finalCount: pipeline.finalTracks.length,
+          hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
+        });
+        if (strictFallbackFailure) {
+          res.status(409).json({
+            success: false,
+            error: strictFallbackFailure.error,
+            code: strictFallbackFailure.code,
+            strictGenreEvidence: strictFallbackFailure.details,
+            tracks: [],
+          });
+          return;
+        }
         const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
         res.json({
           success: true,
