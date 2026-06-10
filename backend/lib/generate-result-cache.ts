@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v5: explicit decade prompts publish verified era matches only. */
-  cacheVersion: "v5";
+  /** v6: non-era prompts stay era-free and debug uses stable era summaries. */
+  cacheVersion: "v6";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;

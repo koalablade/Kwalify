@@ -1129,6 +1129,18 @@ function moodBucket(energy: number | null | undefined, valence: number | null | 
   return "balanced";
 }
 
+function eraDiagnosticSample<T extends {
+  trackName?: string | null;
+  artistName?: string | null;
+  releaseYear?: number | null;
+}>(tracks: T[]) {
+  return tracks.slice(0, 12).map((track) => ({
+    trackName: track.trackName ?? null,
+    artistName: track.artistName ?? null,
+    releaseYear: track.releaseYear ?? null,
+  }));
+}
+
 const FINAL_GUARD_GENRE_TERMS: Record<string, string[]> = {
   country: ["country", "americana", "red dirt", "outlaw country", "honky tonk", "bluegrass", "nashville", "country road"],
   hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap"],
@@ -1634,7 +1646,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v5" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v6" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2442,6 +2454,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         unknownCount: compatible.length - verified.length,
         rejectedCount: knownMismatches.length,
         requiredCount,
+        verifiedSample: eraDiagnosticSample(verified),
+        unknownSample: eraDiagnosticSample(compatible.filter((track) => !trackHasEraEvidence(track, eraRange))),
+        rejectedSample: eraDiagnosticSample(knownMismatches),
         verified,
         compatible,
       };
@@ -2814,7 +2829,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v5",
+        cacheVersion: "v6",
         playlistName,
         vibe,
         mode,

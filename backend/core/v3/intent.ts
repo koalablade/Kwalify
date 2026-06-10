@@ -824,7 +824,7 @@ export function completeLockedIntent(
 
   return {
     genreFamilies: genreFamilies.length > 0 ? genreFamilies : ["pop"],
-    eraRange: intent.eraRange ?? fallbacks.eraRange ?? { start: 1960, end: 2029 },
+    eraRange: intent.eraRange ?? fallbacks.eraRange ?? null,
     mood: intent.mood.length > 0 ? intent.mood.slice(0, 3) : (fallbacks.mood?.slice(0, 3) ?? ["balanced"]),
     activity: intent.activity ?? fallbacks.activity ?? "listening",
     energy: intent.energy ?? fallbacks.energy ?? "medium",

@@ -5,6 +5,11 @@ export type EraEvidenceTrack = {
   trackName?: string | null;
   artistName?: string | null;
   albumName?: string | null;
+  genrePrimary?: string | null;
+  genreFamily?: string | null;
+  genres?: string[] | null;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
 };
 
 export type EraEvidenceStatus = "match" | "mismatch" | "unknown";
@@ -24,8 +29,20 @@ const CLASSIC_ERA_ARTIST_RANGES: Array<{ pattern: RegExp; range: EraRange }> = [
   { pattern: /\b(?:def\s+leppard|journey|foreigner)\b/i, range: { start: 1978, end: 1989 } },
   { pattern: /\b(?:duran\s+duran|tears\s+for\s+fears|eurythmics)\b/i, range: { start: 1981, end: 1989 } },
   { pattern: /\b(?:the\s+cure|depeche\s+mode|new\s+order)\b/i, range: { start: 1980, end: 1993 } },
-  { pattern: /\b(?:oasis|blur|pulp|nirvana|pearl\s+jam|radiohead|r\.?e\.?m\.?|smashing\s+pumpkins|alanis\s+morissette|the\s+cranberries)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:oasis|blur|pulp|suede|the\s+verve|the\s+stone\s+roses|supergrass|the\s+charlatans|manic\s+street\s+preachers)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:nirvana|pearl\s+jam|soundgarden|alice\s+in\s+chains|smashing\s+pumpkins|hole|nine\s+inch\s+nails)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:radiohead|r\.?e\.?m\.?|beck|weezer|pixies|foo\s+fighters|green\s+day|offspring|red\s+hot\s+chili\s+peppers)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:alanis\s+morissette|the\s+cranberries|garbage|no\s+doubt|sheryl\s+crow|tori\s+amos|fiona\s+apple)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:2pac|tupac|notorious\s+b\.?i\.?g\.?|biggie|wu-?tang\s+clan|dr\.?\s*dre|snoop\s+dogg|lauryn\s+hill|fugees|outkast)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:massive\s+attack|portishead|the\s+chemical\s+brothers|the\s+prodigy|fatboy\s+slim|underworld|daft\s+punk)\b/i, range: { start: 1990, end: 1999 } },
   { pattern: /\b(?:arctic\s+monkeys|the\s+killers|queens?\s+of\s+the\s+stone\s+age|kendrick\s+lamar|xxxtentacion|future|beyonc[eé]|sampha|khalid|dave|burna\s+boy)\b/i, range: { start: 2000, end: 2029 } },
+];
+
+const ERA_TAG_RANGES: Array<{ pattern: RegExp; range: EraRange }> = [
+  { pattern: /\b(?:80s|1980s|eighties|new\s+wave|synthpop|synth\s+pop|hair\s+metal|mtv|post[-\s]?punk)\b/i, range: { start: 1980, end: 1989 } },
+  { pattern: /\b(?:90s|1990s|nineties|britpop|grunge|madchester|shoegaze|trip[-\s]?hop|new\s+jack\s+swing|g[-\s]?funk|boom\s+bap|alternative\s+rock|alt\s+rock)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:00s|2000s|noughties|y2k|post[-\s]?punk\s+revival|garage\s+rock\s+revival|indie\s+sleaze)\b/i, range: { start: 2000, end: 2009 } },
+  { pattern: /\b(?:2010s|10s|twenty\s+tens|tumblr|edm|trap|drill|bedroom\s+pop)\b/i, range: { start: 2010, end: 2019 } },
 ];
 
 function validYear(value: unknown): number | null {
@@ -52,12 +69,34 @@ function localTextYear(track: EraEvidenceTrack): number | null {
   return null;
 }
 
+function metadataText(track: EraEvidenceTrack): string {
+  const arrays = [
+    track.genres,
+    Array.isArray(track.spotifyArtistGenres) ? track.spotifyArtistGenres : [],
+    Array.isArray(track.albumGenres) ? track.albumGenres : [],
+  ];
+  return [
+    track.genrePrimary,
+    track.genreFamily,
+    ...arrays.flat().filter((value): value is string => typeof value === "string"),
+  ].join(" ");
+}
+
+function metadataEraRange(track: EraEvidenceTrack): EraRange | null {
+  const text = metadataText(track);
+  if (!text.trim()) return null;
+  return ERA_TAG_RANGES.find((entry) => entry.pattern.test(text))?.range ?? null;
+}
+
 export function eraEvidenceYearForRange(track: EraEvidenceTrack, range: EraRange): number | null {
   const releaseYear = validYear(track.releaseYear);
   if (releaseYear) return rangeContains(range, releaseYear) ? releaseYear : null;
 
   const textYear = localTextYear(track);
   if (textYear) return rangeContains(range, textYear) ? textYear : null;
+
+  const tagRange = metadataEraRange(track);
+  if (tagRange) return rangesOverlap(tagRange, range) ? Math.max(range.start, tagRange.start) : null;
 
   const artist = track.artistName ?? "";
   const anchor = CLASSIC_ERA_ARTIST_RANGES.find((entry) => entry.pattern.test(artist));
@@ -72,6 +111,9 @@ export function eraEvidenceStatusForRange(track: EraEvidenceTrack, range: EraRan
 
   const textYear = localTextYear(track);
   if (textYear) return rangeContains(range, textYear) ? "match" : "mismatch";
+
+  const tagRange = metadataEraRange(track);
+  if (tagRange) return rangesOverlap(tagRange, range) ? "match" : "mismatch";
 
   const artist = track.artistName ?? "";
   const anchor = CLASSIC_ERA_ARTIST_RANGES.find((entry) => entry.pattern.test(artist));

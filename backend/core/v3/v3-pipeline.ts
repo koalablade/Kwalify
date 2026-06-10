@@ -63,6 +63,11 @@ export interface V3PipelineTrack extends RetrievalTrackLike {
   trackName?: string | null;
   artistName: string;
   albumName?: string | null;
+  genrePrimary?: string | null;
+  genreFamily?: string | null;
+  genres?: string[] | null;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
   energy: number | null;
   valence: number | null;
   danceability: number | null;
