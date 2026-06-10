@@ -48,6 +48,17 @@ function finalGenreDistributionEntries(result) {
   return Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
 }
 
+function backendDistributionEntries(result, field) {
+  const diagnosticDistribution =
+    result?.[field] ||
+    result?.generationAuditSnapshot?.[field];
+  if (!diagnosticDistribution || typeof diagnosticDistribution !== "object") return [];
+  return Object.entries(diagnosticDistribution)
+    .filter(([label, count]) => label && typeof count === "number" && count > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+}
+
 async function api(path, opts = {}) {
   const r = await fetch(`/api${path}`, {
     credentials: "include",
@@ -1221,6 +1232,28 @@ function buildUnifiedDebugPanel(result, dbg) {
         </div>
       ` : '<div class="dp-none">No genre data</div>'}
     </div>`;
+  const distributionCard = (title, entries) => `
+    <div class="dp-card">
+      <div class="dp-card-title">${esc(title)}</div>
+      ${entries.length ? `
+        <div class="dp-composition">
+          ${entries.map(([label, count]) => {
+            const pct = Math.round((count / total) * 100);
+            return `<div class="dp-comp-row">
+              <span class="dp-comp-genre">${esc(label)}</span>
+              <div class="dp-comp-bar-wrap"><div class="dp-comp-bar" style="width:${pct}%;background:#4b5563"></div></div>
+              <span class="dp-comp-pct">${count} · ${pct}%</span>
+            </div>`;
+          }).join("")}
+        </div>
+      ` : '<div class="dp-none">No backend data</div>'}
+    </div>`;
+  const backendDistributionsHtml = `
+    <div class="dp-grid">
+      ${distributionCard("Final Era Distribution", backendDistributionEntries(result, "finalEraDistribution"))}
+      ${distributionCard("Final Mood Distribution", backendDistributionEntries(result, "finalMoodDistribution"))}
+      ${distributionCard("Final Energy Distribution", backendDistributionEntries(result, "finalEnergyDistribution"))}
+    </div>`;
 
   return `
   <div class="dp-panel">
@@ -1244,6 +1277,7 @@ function buildUnifiedDebugPanel(result, dbg) {
     </div>
     ${v11CandidatesHtml}
     ${compositionHtml}
+    ${backendDistributionsHtml}
   </div>`;
 }
 
@@ -1433,6 +1467,28 @@ function buildDebugPanel(result) {
         ` : ""}
       ` : '<div class="dp-none">Tracks without genre data</div>'}
     </div>`;
+  const distributionCard = (title, entries) => `
+    <div class="dp-card">
+      <div class="dp-card-title">${esc(title)}</div>
+      ${entries.length ? `
+        <div class="dp-composition">
+          ${entries.map(([label, count]) => {
+            const pct = Math.round((count / total) * 100);
+            return `<div class="dp-comp-row">
+              <span class="dp-comp-genre">${esc(label)}</span>
+              <div class="dp-comp-bar-wrap"><div class="dp-comp-bar" style="width:${pct}%;background:#4b5563"></div></div>
+              <span class="dp-comp-pct">${count} · ${pct}%</span>
+            </div>`;
+          }).join("")}
+        </div>
+      ` : '<div class="dp-none">No backend data</div>'}
+    </div>`;
+  const backendDistributionsHtml = `
+    <div class="dp-grid">
+      ${distributionCard("Final Era Distribution", backendDistributionEntries(result, "finalEraDistribution"))}
+      ${distributionCard("Final Mood Distribution", backendDistributionEntries(result, "finalMoodDistribution"))}
+      ${distributionCard("Final Energy Distribution", backendDistributionEntries(result, "finalEnergyDistribution"))}
+    </div>`;
 
   return `
   <div class="dp-toggle-row">
@@ -1458,6 +1514,7 @@ function buildDebugPanel(result) {
     </div>
     ${topTracksHtml}
     ${compositionHtml}
+    ${backendDistributionsHtml}
   </div>
   ` : ""}`;
 }

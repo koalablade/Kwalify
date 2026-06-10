@@ -303,6 +303,10 @@ type RetrievalPools<T> = {
   anchor: T[];
   discovery: T[];
   energyArc: T[];
+  diagnostics?: {
+    inputCount: number;
+    contractRankedCount: number;
+  };
 };
 
 type PlaylistScore = {
@@ -607,6 +611,47 @@ function feedbackPenalty<T extends IntentContractTrack & { artistName?: string; 
   return penalty;
 }
 
+function diagnosticTrack<T extends { trackId: string; trackName?: string; artistName?: string; genrePrimary?: string | null }>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+): Record<string, unknown> {
+  const rich = track as T & {
+    score?: number;
+    contractFitScore?: number;
+    genreFamily?: string | null;
+    genres?: unknown;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
+    releaseYear?: number | null;
+    energy?: number | null;
+    valence?: number | null;
+    scoringDebug?: { genrePrimary?: string | null };
+  };
+  const classification = classMap.get(track.trackId);
+  return {
+    trackId: track.trackId,
+    trackName: rich.trackName ?? null,
+    artistName: rich.artistName ?? null,
+    score: typeof rich.score === "number" ? Math.round(rich.score * 1000) / 1000 : null,
+    genrePrimary: rich.genrePrimary ?? classification?.genrePrimary ?? rich.scoringDebug?.genrePrimary ?? null,
+    genreFamily: rich.genreFamily ?? classification?.genreFamily ?? classification?.genrePrimary ?? null,
+    spotifyArtistGenres: Array.isArray(rich.spotifyArtistGenres) ? rich.spotifyArtistGenres : [],
+    albumGenres: Array.isArray(rich.albumGenres) ? rich.albumGenres : [],
+    releaseYear: rich.releaseYear ?? null,
+    energy: rich.energy ?? null,
+    valence: rich.valence ?? null,
+    contractFitScore: typeof rich.contractFitScore === "number" ? rich.contractFitScore : null,
+  };
+}
+
+function diagnosticPool<T extends { trackId: string; trackName?: string; artistName?: string; genrePrimary?: string | null }>(
+  tracks: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+  limit: number,
+): Array<Record<string, unknown>> {
+  return tracks.slice(0, limit).map((track) => diagnosticTrack(track, classMap));
+}
+
 function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>(
   tracks: T[],
   contract: IntentContract,
@@ -658,6 +703,10 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
     bridge: takeUnique([...adjacent, ...contractRanked], 80),
     energyArc: takeUnique(energyArc, 80),
     discovery: takeUnique(discovery.length > 0 ? discovery : contractRanked.slice().reverse(), 80),
+    diagnostics: {
+      inputCount: tracks.length,
+      contractRankedCount: contractRanked.length,
+    },
   };
 }
 
@@ -1815,8 +1864,9 @@ export function buildPlaylistPipeline<T extends {
     },
   ];
   const candidateAttempts = candidateInputs.map((candidate) => {
+    const inputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
     const candidatePool = buildV3CandidatePool(
-      (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
+      inputPool,
       classMap,
       opts.playlistLength,
       v3LockedIntent,
@@ -1844,6 +1894,7 @@ export function buildPlaylistPipeline<T extends {
     );
     return {
       label: candidate.label,
+      inputPool,
       candidatePool,
       result,
       quality,
@@ -1853,6 +1904,90 @@ export function buildPlaylistPipeline<T extends {
   const selectedCandidate = [...candidateAttempts].sort((a, b) => b.total - a.total)[0] ?? candidateAttempts[0];
   const v3CandidatePool = selectedCandidate.candidatePool;
   const v3 = selectedCandidate.result;
+  const retrievalPoolDiagnostics = {
+    core: {
+      count: retrieval.core.length,
+      top20: diagnosticPool(retrieval.core, classMap, 20),
+    },
+    anchor: {
+      count: retrieval.anchor.length,
+      top20: diagnosticPool(retrieval.anchor, classMap, 20),
+    },
+    adjacent: {
+      count: retrieval.adjacent.length,
+      top20: diagnosticPool(retrieval.adjacent, classMap, 20),
+    },
+    bridge: {
+      count: retrieval.bridge.length,
+      top20: diagnosticPool(retrieval.bridge, classMap, 20),
+    },
+    discovery: {
+      count: retrieval.discovery.length,
+      top20: diagnosticPool(retrieval.discovery, classMap, 20),
+    },
+    energyArc: {
+      count: retrieval.energyArc.length,
+      top20: diagnosticPool(retrieval.energyArc, classMap, 20),
+    },
+  };
+  const baseWaterfall = {
+    libraryCount: opts.likedSongs.length,
+    retrievalCount: pooledCandidates.length,
+    scoredCount: scoring.sorted.length,
+    contractCount: contractGuardedScoredPool.length,
+    constraintCount: v3CandidatePool.diagnostics["intentReadyCount"] ?? 0,
+    laneCount: v3CandidatePool.tracks.length,
+    samplerCount: v3.finalTracks.length,
+    repairCount: v3.finalTracks.length,
+    finalCount: v3.finalTracks.length,
+  };
+  const removalReasons = [
+    {
+      stage: "contract",
+      before: retrieval.diagnostics?.inputCount ?? scoring.sorted.length,
+      after: retrieval.diagnostics?.contractRankedCount ?? pooledCandidates.length,
+      removed: Math.max(0, (retrieval.diagnostics?.inputCount ?? scoring.sorted.length) - (retrieval.diagnostics?.contractRankedCount ?? pooledCandidates.length)),
+      topReasons: {},
+    },
+    {
+      stage: "contract_guard",
+      before: contractSafePool.length,
+      after: contractGuardedScoredPool.length,
+      removed: Math.max(0, contractSafePool.length - contractGuardedScoredPool.length),
+      topReasons: {
+        truthContradicted: truthContradictedCount,
+        missingPositiveGenreEvidence: positiveEvidenceRejectedCount,
+      },
+    },
+    ...((v3CandidatePool.diagnostics["forensicPreV3Trace"] as unknown[]) ?? []),
+    ...((((v3.diagnostics["forensicPoolTrace"] as Record<string, unknown> | undefined)?.["stages"] as unknown[]) ?? [])),
+  ];
+  const fallbackActivations = [
+    explicitGenreRecoveryUsed
+      ? {
+          name: "explicit_genre_scored_pool_recovery",
+          triggerReason: "contract_evidence_pool_empty",
+          tracksBefore: contractEvidencePool.length,
+          tracksAfter: explicitGenreScoredPool.length,
+        }
+      : null,
+    v3CandidatePool.tracks.length === 0
+      ? {
+          name: "empty_v3_candidate_pool_recovery",
+          triggerReason: "pre_v3_pool_empty",
+          tracksBefore: v3CandidatePool.tracks.length,
+          tracksAfter: contractGuardedScoredPool.length,
+        }
+      : null,
+    v3.finalTracks.length === 0
+      ? {
+          name: "empty_v3_final_tracks_recovery",
+          triggerReason: "v3_selected_zero_tracks",
+          tracksBefore: v3.finalTracks.length,
+          tracksAfter: contractGuardedScoredPool.length,
+        }
+      : null,
+  ].filter((entry): entry is { name: string; triggerReason: string; tracksBefore: number; tracksAfter: number } => !!entry);
   const controlledGenerationDiagnostics = {
     selectedCandidate: selectedCandidate.label,
     candidateScores: candidateAttempts.map((candidate) => ({
@@ -1873,6 +2008,12 @@ export function buildPlaylistPipeline<T extends {
     ...controlledGenerationDiagnostics,
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
     preV3Recovery: v3CandidatePool.diagnostics,
+    preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 200),
+    waterfall: baseWaterfall,
+    removalReasons,
+    retrievalPoolsDetailed: retrievalPoolDiagnostics,
+    intentContract,
+    fallbacks: fallbackActivations,
     intentContractGuard: {
       ...contractGuard.diagnostics,
       explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
@@ -1956,6 +2097,24 @@ export function buildPlaylistPipeline<T extends {
           },
           fallback: fallbackLabel,
           preV3Recovery: v3CandidatePool.diagnostics,
+          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 200),
+          waterfall: {
+            ...baseWaterfall,
+            repairCount: resolvedTracks.length,
+            finalCount: resolvedTracks.length,
+          },
+          removalReasons,
+          retrievalPoolsDetailed: retrievalPoolDiagnostics,
+          intentContract,
+          fallbacks: [
+            ...fallbackActivations,
+            {
+              name: fallbackLabel,
+              triggerReason: "resolve_final_tracks_called",
+              tracksBefore: pool.length,
+              tracksAfter: resolvedTracks.length,
+            },
+          ],
           intentContractGuard: {
             ...contractGuard.diagnostics,
             explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
@@ -2105,6 +2264,24 @@ export function buildPlaylistPipeline<T extends {
           fallback: true,
           reason: "empty_library",
           preV3Recovery: v3CandidatePool.diagnostics,
+          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 200),
+          waterfall: {
+            ...baseWaterfall,
+            repairCount: enforcedFallback.tracks.length,
+            finalCount: enforcedFallback.tracks.length,
+          },
+          removalReasons,
+          retrievalPoolsDetailed: retrievalPoolDiagnostics,
+          intentContract,
+          fallbacks: [
+            ...fallbackActivations,
+            {
+              name: "empty_library",
+              triggerReason: "v3_final_tracks_empty",
+              tracksBefore: v3.finalTracks.length,
+              tracksAfter: enforcedFallback.tracks.length,
+            },
+          ],
           intentContractGuard: {
             ...contractGuard.diagnostics,
             explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
@@ -2225,6 +2402,16 @@ export function buildPlaylistPipeline<T extends {
           finalHardFilterTrace,
         },
         preV3Recovery: v3CandidatePool.diagnostics,
+          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 200),
+          waterfall: {
+            ...baseWaterfall,
+            repairCount: finalTracksForReturn.length,
+            finalCount: finalTracksForReturn.length,
+          },
+          removalReasons,
+          retrievalPoolsDetailed: retrievalPoolDiagnostics,
+          intentContract,
+          fallbacks: fallbackActivations,
         intentContractGuard: {
           ...contractGuard.diagnostics,
           explicitGenreScoredPoolCount: explicitGenreScoredPool.length,

@@ -1099,6 +1099,33 @@ function hasValidCachedIntent(cached: {
   return genrePresent / tracks.length >= 0.75;
 }
 
+function incrementDistribution(acc: Record<string, number>, key: string | null | undefined): Record<string, number> {
+  const label = key || "(missing)";
+  acc[label] = (acc[label] ?? 0) + 1;
+  return acc;
+}
+
+function eraBucket(releaseYear: number | null | undefined): string {
+  if (!releaseYear || releaseYear < 1900) return "unknown";
+  return `${Math.floor(releaseYear / 10) * 10}s`;
+}
+
+function energyBucket(energy: number | null | undefined): string {
+  if (typeof energy !== "number") return "unknown";
+  if (energy < 0.33) return "low";
+  if (energy < 0.66) return "medium";
+  return "high";
+}
+
+function moodBucket(energy: number | null | undefined, valence: number | null | undefined): string {
+  if (typeof energy !== "number" || typeof valence !== "number") return "unknown";
+  if (energy >= 0.66 && valence >= 0.55) return "upbeat";
+  if (energy >= 0.66 && valence < 0.45) return "intense";
+  if (energy < 0.4 && valence >= 0.55) return "warm";
+  if (energy < 0.4 && valence < 0.45) return "melancholic";
+  return "balanced";
+}
+
 const FINAL_GUARD_GENRE_TERMS: Record<string, string[]> = {
   country: ["country", "americana", "red dirt", "outlaw country", "honky tonk", "bluegrass", "nashville", "country road"],
   hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap"],
@@ -1614,6 +1641,23 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (cached && cached.cacheVersion === "v2" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
+        const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
+        const cachedFinalGenreDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
+          {},
+        );
+        const cachedFinalEraDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, eraBucket(track.releaseYear)),
+          {},
+        );
+        const cachedFinalMoodDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, moodBucket(track.energy, track.valence)),
+          {},
+        );
+        const cachedFinalEnergyDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, energyBucket(track.energy)),
+          {},
+        );
         req.log.info(
           {
             elapsedMs: Date.now() - startMs,
@@ -1625,7 +1669,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         res.json({
           success: true,
           cached: true,
-          tracks: formatTracksForApi(cached.finalTracks, cached.emotionProfile),
+          tracks: cachedApiTracks,
           playlistName: cached.playlistName,
           name: cached.playlistName,
           vibe: cached.vibe,
@@ -1635,6 +1679,10 @@ router.post("/generate", async (req, res): Promise<void> => {
           totalTracks: cached.finalTracks.length,
           emotionProfile: cached.emotionProfile,
           cacheDiagnostics: { status: "fresh", staleBypassed: false },
+          finalGenreDistribution: cachedFinalGenreDistribution,
+          finalEraDistribution: cachedFinalEraDistribution,
+          finalMoodDistribution: cachedFinalMoodDistribution,
+          finalEnergyDistribution: cachedFinalEnergyDistribution,
           v3Diagnostics: cached.v3Diagnostics ?? null,
           ...(cached.spotifyPlaylistUrl
             ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
@@ -2708,11 +2756,23 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const debugMode = req.query.debug === "1";
     const finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
-    const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>((acc, track) => {
-      const genre = track.genrePrimary ?? track.genreFamily ?? track.genres?.[0] ?? "(missing)";
-      acc[genre] = (acc[genre] ?? 0) + 1;
-      return acc;
-    }, {});
+    const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>(
+      (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
+      {},
+    );
+    const finalEraDistribution = finalApiTracks.reduce<Record<string, number>>(
+      (acc, track) => incrementDistribution(acc, eraBucket(track.releaseYear)),
+      {},
+    );
+    const finalMoodDistribution = finalApiTracks.reduce<Record<string, number>>(
+      (acc, track) => incrementDistribution(acc, moodBucket(track.energy, track.valence)),
+      {},
+    );
+    const finalEnergyDistribution = finalApiTracks.reduce<Record<string, number>>(
+      (acc, track) => incrementDistribution(acc, energyBucket(track.energy)),
+      {},
+    );
+    const v3DiagnosticPayload = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
     const noLibrarySpotifyDiagnostics = noLibraryMode
       ? {
           searched: noLibraryExplicitFamilies.length > 0,
@@ -2738,6 +2798,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         poolCapped: scoringPool.poolCapped,
       },
       finalGenreDistribution,
+      finalEraDistribution,
+      finalMoodDistribution,
+      finalEnergyDistribution,
       promptDriftAudit,
       noLibrarySpotify: noLibrarySpotifyDiagnostics,
       strictGenreEvidence: {
@@ -2846,6 +2909,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       librarySyncHint,
       tracks: finalApiTracks,
       finalGenreDistribution,
+      finalEraDistribution,
+      finalMoodDistribution,
+      finalEnergyDistribution,
       feedbackDiagnostics,
       promptDriftAudit,
       strictGenreEvidence: {
@@ -2923,12 +2989,19 @@ router.post("/generate", async (req, res): Promise<void> => {
                   : "semantic:0.40_emotion:0.20_scene:0.15_aesthetic:0.10_library:0.10_genre:0.05",
                 topRankedCandidates:
                   (scoringDiagnostics as Record<string, unknown>).topScored ?? [],
+                preV3TopCandidates:
+                  v3DiagnosticPayload["preV3TopCandidates"] ?? [],
                 exclusionReasons:
                   (scoringDiagnostics as Record<string, unknown>).exclusionReasons ?? {},
                 dominantGenres:
                   (scoringDiagnostics as Record<string, unknown>).dominantGenres ?? [],
               },
               v3: (scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {},
+              waterfall: v3DiagnosticPayload["waterfall"] ?? null,
+              removalReasons: v3DiagnosticPayload["removalReasons"] ?? [],
+              retrievalPools: v3DiagnosticPayload["retrievalPoolsDetailed"] ?? null,
+              intentContract: v3DiagnosticPayload["intentContract"] ?? null,
+              fallbacks: v3DiagnosticPayload["fallbacks"] ?? [],
               noLibraryMode: !!noLibraryMode,
               poolInfo: {
                 librarySize: scoringPool.librarySize,
