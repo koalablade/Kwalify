@@ -197,6 +197,59 @@ function trackMatchesGenreFamilies<T extends { trackId: string; genrePrimary?: s
   return !!family && genreFamilies.includes(family);
 }
 
+const KNOWN_ARTIST_GENRE_TRUTH: Array<{ pattern: RegExp; family: string }> = [
+  { pattern: /\bnas\b/i, family: "hip_hop" },
+  { pattern: /\bxxxtentacion\b/i, family: "hip_hop" },
+  { pattern: /\bbob\s+marley\b/i, family: "reggae" },
+  { pattern: /\bthe\s+doors\b/i, family: "rock" },
+  { pattern: /\bblondie\b/i, family: "rock" },
+  { pattern: /\beminem\b/i, family: "hip_hop" },
+  { pattern: /\brockwell\b/i, family: "pop" },
+];
+
+const SPOTIFY_TRUTH_TERMS: Record<string, string[]> = {
+  country: ["country", "americana", "red dirt", "outlaw country", "bluegrass"],
+  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap"],
+  rock: ["rock", "new wave", "post-punk", "punk", "grunge", "psychedelic", "album rock"],
+  reggae: ["reggae", "dancehall", "dub", "rocksteady"],
+  pop: ["pop", "dance pop", "synthpop"],
+  electronic: ["electronic", "edm", "house", "techno", "trance", "dubstep"],
+  rnb: ["r&b", "rnb", "neo soul"],
+  soul: ["soul", "funk", "motown"],
+  latin: ["latin", "reggaeton", "salsa", "bachata"],
+  jazz: ["jazz", "bebop", "swing"],
+  metal: ["metal", "metalcore", "thrash"],
+};
+
+function truthGenreFamily(track: {
+  artistName?: string | null;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
+}): string | null {
+  const artist = track.artistName ?? "";
+  const known = KNOWN_ARTIST_GENRE_TRUTH.find((entry) => entry.pattern.test(artist));
+  if (known) return known.family;
+  const metadata = [
+    ...(Array.isArray(track.spotifyArtistGenres) ? track.spotifyArtistGenres : []),
+    ...(Array.isArray(track.albumGenres) ? track.albumGenres : []),
+  ].filter((value): value is string => typeof value === "string").map((value) => value.toLowerCase());
+  for (const [family, terms] of Object.entries(SPOTIFY_TRUTH_TERMS)) {
+    if (metadata.some((value) => terms.some((term) => value.includes(term)))) {
+      return family;
+    }
+  }
+  return null;
+}
+
+function contradictsExplicitGenreTruth(
+  track: { artistName?: string | null; spotifyArtistGenres?: unknown; albumGenres?: unknown },
+  explicitFamilies: string[],
+): boolean {
+  if (explicitFamilies.length === 0) return false;
+  const truth = truthGenreFamily(track);
+  return !!truth && !explicitFamilies.includes(truth);
+}
+
 type IntentContract = {
   genres: string[];
   era?: { start?: number; end?: number } | null;
@@ -1642,7 +1695,12 @@ export function buildPlaylistPipeline<T extends {
   // before ANY widening or fallback logic is applied.
   // No fallback stage may violate genre/mood/era/context intent.
   const contractGuard = constrainPoolToIntentContract(contractSafePool, classMap, intentContract);
-  const contractGuardedScoredPool = contractGuard.pool;
+  const truthContradictedCount = intentContract.genreFamilies.length > 0
+    ? contractGuard.pool.filter((track) => contradictsExplicitGenreTruth(track, intentContract.genreFamilies)).length
+    : 0;
+  const contractGuardedScoredPool = intentContract.genreFamilies.length > 0
+    ? contractGuard.pool.filter((track) => !contradictsExplicitGenreTruth(track, intentContract.genreFamilies))
+    : contractGuard.pool;
   const explicitPromptGenreFamilies = intentContract.genreFamilies;
   const v3LockedIntent = buildV3LockedIntent(
     unifiedIntentContextWithMemory,
@@ -2106,6 +2164,11 @@ export function buildPlaylistPipeline<T extends {
         },
         preV3Recovery: v3CandidatePool.diagnostics,
         intentContractGuard: contractGuard.diagnostics,
+        explicitGenreTruthGuard: {
+          active: intentContract.genreFamilies.length > 0,
+          rejectedCount: truthContradictedCount,
+          expectedFamilies: intentContract.genreFamilies,
+        },
         controlledGeneration: controlledGenerationDiagnostics,
         retrievalPools: {
           core: retrieval.core.length,

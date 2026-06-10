@@ -4,21 +4,19 @@
 
 import type { UserGenreProfile } from "./user-genre-profile";
 import { buildUserGenreProfile } from "./user-genre-profile";
-import { normalizePrompt } from "./generate-cache-key";
 import { evictOldestEntries } from "./cache-eviction";
 
 type CacheEntry = {
   profile: UserGenreProfile;
   trackCount: number;
-  vibeKey: string;
   builtAt: number;
 };
 
 const cache = new Map<string, CacheEntry>();
 const TTL_MS = 6 * 60 * 60 * 1000;
 
-function profileCacheKey(userId: string, vibe?: string): string {
-  return `${userId}:${normalizePrompt(vibe ?? "")}`;
+function profileCacheKey(userId: string): string {
+  return userId;
 }
 
 export function getUserGenreProfileForGenerate(
@@ -26,27 +24,25 @@ export function getUserGenreProfileForGenerate(
   tracks: Parameters<typeof buildUserGenreProfile>[0],
   vibe?: string
 ): { profile: UserGenreProfile; cacheHit: boolean } {
-  const vibeKey = normalizePrompt(vibe ?? "");
-  const key = profileCacheKey(userId, vibe);
+  const key = profileCacheKey(userId);
   const entry = cache.get(key);
   const now = Date.now();
   if (
     entry &&
     entry.trackCount === tracks.length &&
-    entry.vibeKey === vibeKey &&
     now - entry.builtAt < TTL_MS
   ) {
     return { profile: entry.profile, cacheHit: true };
   }
 
   const t0 = Date.now();
-  const profile = buildUserGenreProfile(tracks, vibe);
+  const profile = buildUserGenreProfile(tracks);
   console.info("[generate-timing] getUserGenreProfileForGenerate", {
     ms: Date.now() - t0,
     trackCount: tracks.length,
     cacheHit: false,
   });
-  cache.set(key, { profile, trackCount: tracks.length, vibeKey, builtAt: now });
+  cache.set(key, { profile, trackCount: tracks.length, builtAt: now });
   evictOldestEntries(cache, 300, 40);
   return { profile, cacheHit: false };
 }
@@ -64,11 +60,10 @@ export function warmGenreProfileCache(
 ): void {
   if (!tracks.length) return;
   const profile = buildUserGenreProfile(tracks);
-  const key = profileCacheKey(userId, "");
+  const key = profileCacheKey(userId);
   cache.set(key, {
     profile,
     trackCount: tracks.length,
-    vibeKey: "",
     builtAt: Date.now(),
   });
 }

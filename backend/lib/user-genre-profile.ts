@@ -32,6 +32,8 @@ export function buildUserGenreProfile(
     trackName: string;
     artistName: string;
     albumName: string;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
     energy: number | null;
     valence: number | null;
     acousticness: number | null;

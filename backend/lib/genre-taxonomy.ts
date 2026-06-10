@@ -126,11 +126,78 @@ export function toGenreProfile(c: TrackGenreClassification): TrackGenreProfile {
   };
 }
 
+const SPOTIFY_GENRE_ROOT_TERMS: Record<RootGenre, string[]> = {
+  country: ["country", "americana", "red dirt", "outlaw country", "honky tonk", "bluegrass", "nashville"],
+  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "g-funk", "emo rap"],
+  rock: ["rock", "new wave", "post-punk", "punk", "grunge", "psychedelic", "album rock"],
+  electronic: ["electronic", "edm", "house", "techno", "trance", "dnb", "drum and bass", "dubstep"],
+  jazz: ["jazz", "bebop", "swing", "bossa nova"],
+  pop: ["pop", "dance pop", "synthpop", "new wave pop"],
+  folk: ["folk", "singer-songwriter", "singer songwriter"],
+  soul: ["soul", "funk", "motown"],
+  metal: ["metal", "metalcore", "deathcore", "thrash"],
+  classical: ["classical", "orchestral", "opera", "baroque"],
+  christmas: ["christmas", "holiday"],
+  indie: ["indie", "lo-fi", "bedroom pop", "alternative indie"],
+  blues: ["blues"],
+  rnb: ["r&b", "rnb", "neo soul"],
+  reggae: ["reggae", "dancehall", "dub", "rocksteady"],
+  latin: ["latin", "reggaeton", "salsa", "bachata", "cumbia"],
+  soundtrack: ["soundtrack", "score", "ost", "film score"],
+  world: ["afrobeats", "afrobeat", "amapiano", "world", "k-pop", "bollywood"],
+  unknown: [],
+};
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function spotifyGenreRoot(track: {
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
+}): RootGenre | null {
+  const values = [...stringArray(track.spotifyArtistGenres), ...stringArray(track.albumGenres)]
+    .map((value) => value.toLowerCase());
+  if (values.length === 0) return null;
+  for (const [root, terms] of Object.entries(SPOTIFY_GENRE_ROOT_TERMS) as [RootGenre, string[]][]) {
+    if (root === "unknown") continue;
+    if (values.some((value) => terms.some((term) => value.includes(term)))) {
+      return root;
+    }
+  }
+  return null;
+}
+
+function classificationFromRoot(root: RootGenre): TrackGenreClassification {
+  const taxon = TAXONOMY.find((item) => item.root === root);
+  return {
+    genrePrimary: root,
+    genreFamily: root,
+    genreSecondary: null,
+    primarySubgenre: taxon?.subgenre ?? root,
+    secondarySubgenre: null,
+    subGenres: [taxon?.subgenre ?? root],
+    microStyle: taxon?.microStyles[0] ?? null,
+    confidenceScore: 0.96,
+    holidayBound: root === "christmas",
+    diagnostics: {
+      taxonomyHit: true,
+      artistHintMatched: null,
+      patternMatched: "spotify_genre_metadata",
+      audioFallbackUsed: false,
+    },
+  };
+}
+
 export function classifyTrack(
   track: {
     trackName: string;
     artistName: string;
     albumName: string;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
     energy?: number | null;
     valence?: number | null;
     acousticness?: number | null;
@@ -141,6 +208,11 @@ export function classifyTrack(
   },
   vibeGenreHints?: string[]
 ): TrackGenreClassification {
+  const spotifyRoot = spotifyGenreRoot(track);
+  if (spotifyRoot) {
+    return classificationFromRoot(spotifyRoot);
+  }
+
   const blob = `${track.trackName} ${track.artistName} ${track.albumName}`;
   const hits: { taxon: GenreTaxon; score: number; micro: string | null }[] = [];
 
