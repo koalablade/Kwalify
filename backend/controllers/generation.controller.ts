@@ -1307,6 +1307,7 @@ function explicitGenreFallbackFailure(opts: {
   requestedCount: number;
   finalCount: number;
   hasGenreAwarePool: boolean;
+  noLibraryMode?: boolean;
 }): { code: string; error: string; details: Record<string, unknown> } | null {
   const expectedFamilies = buildCsspLockedIntent(opts.vibe).genreFamilies;
   if (expectedFamilies.length === 0) return null;
@@ -1319,7 +1320,9 @@ function explicitGenreFallbackFailure(opts: {
 
   return {
     code: "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
-    error: `I could not find enough verified ${expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
+    error: opts.noLibraryMode
+      ? `I could not find enough verified ${expectedFamilies.join("/")} tracks from Spotify search to make this playlist without guessing.`
+      : `I could not find enough verified ${expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
     details: {
       expectedFamilies,
       requestedCount: opts.requestedCount,
@@ -1327,6 +1330,7 @@ function explicitGenreFallbackFailure(opts: {
       requiredCount,
       requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
       fallbackBlocked: true,
+      noLibraryMode: !!opts.noLibraryMode,
     },
   };
 }
@@ -1626,6 +1630,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           name: cached.playlistName,
           vibe: cached.vibe,
           mode: cached.mode,
+          noLibraryMode: !!noLibraryMode,
           count: cached.finalTracks.length,
           totalTracks: cached.finalTracks.length,
           emotionProfile: cached.emotionProfile,
@@ -1658,6 +1663,8 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const noLibraryExplicitFamilies = noLibraryMode ? buildCsspLockedIntent(vibe).genreFamilies : [];
     let noLibrarySpotifyCandidateCount = 0;
+    let noLibrarySpotifyVerifiedCount = 0;
+    let noLibrarySpotifyFallbackReason: string | null = null;
     if (!devMode && noLibraryMode && noLibraryExplicitFamilies.length > 0) {
       try {
         const freshTokens = await getValidAccessToken(req.session.spotifyTokens!, userId);
@@ -1671,16 +1678,57 @@ router.post("/generate", async (req, res): Promise<void> => {
           length,
           families: noLibraryExplicitFamilies,
         });
-        if (spotifyCandidates.length >= Math.min(20, length)) {
+        noLibrarySpotifyCandidateCount = spotifyCandidates.length;
+        const verifiedSpotifyCandidates = spotifyCandidates.filter((track) =>
+          hasFinalGenreEvidence(track, new Map(), noLibraryExplicitFamilies)
+        );
+        noLibrarySpotifyVerifiedCount = verifiedSpotifyCandidates.length;
+        const requiredVerifiedCandidates = Math.min(
+          length,
+          Math.max(10, Math.ceil(length * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
+        );
+        if (verifiedSpotifyCandidates.length >= requiredVerifiedCandidates) {
+          likedSongs = verifiedSpotifyCandidates;
+          noLibrarySpotifyFallbackReason = null;
+          req.log.info(
+            {
+              vibe,
+              families: noLibraryExplicitFamilies,
+              spotifyCandidateCount: spotifyCandidates.length,
+              verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
+              requiredVerifiedCandidates,
+            },
+            "No Library Mode using verified Spotify search candidates"
+          );
+        } else if (spotifyCandidates.length >= Math.min(20, length)) {
           likedSongs = spotifyCandidates;
           noLibrarySpotifyCandidateCount = spotifyCandidates.length;
-        } else {
+          noLibrarySpotifyFallbackReason = "spotify_search_candidates_below_verified_threshold";
           req.log.warn(
-            { vibe, families: noLibraryExplicitFamilies, spotifyCandidateCount: spotifyCandidates.length },
+            {
+              vibe,
+              families: noLibraryExplicitFamilies,
+              spotifyCandidateCount: spotifyCandidates.length,
+              verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
+              requiredVerifiedCandidates,
+            },
+            "No Library Mode using unverified Spotify search pool; final guard will enforce genre evidence"
+          );
+        } else {
+          noLibrarySpotifyFallbackReason = "spotify_search_too_few_candidates";
+          req.log.warn(
+            {
+              vibe,
+              families: noLibraryExplicitFamilies,
+              spotifyCandidateCount: spotifyCandidates.length,
+              verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
+              requiredVerifiedCandidates,
+            },
             "No Library Mode Spotify search returned too few candidates; falling back to synced library"
           );
         }
       } catch (searchErr: any) {
+        noLibrarySpotifyFallbackReason = "spotify_search_failed";
         req.log.warn(
           { err: searchErr?.message, vibe, families: noLibraryExplicitFamilies },
           "No Library Mode Spotify search failed; falling back to synced library"
@@ -1695,7 +1743,9 @@ router.post("/generate", async (req, res): Promise<void> => {
           res,
           400,
           "LIBRARY_EMPTY_NO_LIBRARY_MODE",
-          "No Library Mode requires at least a few liked songs to anchor vibe matching. Please sync your Spotify library first, then try again."
+          noLibraryExplicitFamilies.length > 0
+            ? "No Library Mode could not find usable Spotify-wide candidates for this prompt. Try a broader genre phrase or regenerate in a moment."
+            : "No Library Mode needs a clear genre prompt or a synced library fallback. Try a genre like country, rock, or UK garage."
         );
       } else {
         generateFail(
@@ -1713,8 +1763,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       generateFail(
         res,
         400,
-        "LIBRARY_TOO_SMALL",
-        "Library is too small to generate. Sync more liked songs from Spotify first."
+        noLibraryMode ? "NO_LIBRARY_CANDIDATE_POOL_TOO_SMALL" : "LIBRARY_TOO_SMALL",
+        noLibraryMode
+          ? "No Library Mode could not build a large enough candidate pool. Try a broader genre prompt or turn off No Library Mode."
+          : "Library is too small to generate. Sync more liked songs from Spotify first."
       );
       return;
     }
@@ -1729,6 +1781,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       vibe,
       maxPerArtist: 2,
       noLibrarySpotifyCandidateCount,
+      noLibrarySpotifyVerifiedCount,
+      noLibrarySpotifyFallbackReason,
+      noLibraryMode,
     };
 
     res.setTimeout(REQUEST_HARD_TIMEOUT_MS + 2000, () => {
@@ -1741,6 +1796,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         maxPerArtist?: number;
         vibe: string;
         mode: string;
+        noLibraryMode?: boolean;
         genreByTrack?: (trackId: string) => {
           genrePrimary?: string | null;
           genreFamily?: string | null;
@@ -1775,6 +1831,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         requestedCount: ctx.length,
         finalCount: pipeline.finalTracks.length,
         hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
+        noLibraryMode: !!ctx.noLibraryMode,
       });
       if (strictFallbackFailure) {
         res.status(409).json({
@@ -2273,13 +2330,24 @@ router.post("/generate", async (req, res): Promise<void> => {
         res,
         409,
         "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
-        `I could not find enough verified ${strictGenreEvidenceDiagnostics.expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
+        noLibraryMode
+          ? `I could not find enough verified ${strictGenreEvidenceDiagnostics.expectedFamilies.join("/")} tracks from Spotify search to make this playlist without guessing.`
+          : `I could not find enough verified ${strictGenreEvidenceDiagnostics.expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
         {
-          hint: "Run a fresh Spotify library sync so artist genres are updated, or broaden the prompt.",
+          hint: noLibraryMode
+            ? "Try a broader genre phrase, turn off No Library Mode to use your saved tracks, or regenerate in a moment."
+            : "Run a fresh Spotify library sync so artist genres are updated, or broaden the prompt.",
           strictGenreEvidence: {
             ...strictGenreEvidenceDiagnostics,
             verified: undefined,
           },
+          noLibrarySpotify: noLibraryMode
+            ? {
+                candidateCount: noLibrarySpotifyCandidateCount,
+                verifiedCandidateCount: noLibrarySpotifyVerifiedCount,
+                fallbackReason: noLibrarySpotifyFallbackReason,
+              }
+            : undefined,
         }
       );
       return;
@@ -2532,7 +2600,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? datedLikes.filter((s) => s.addedAt!.getTime() > recentCutoff).length / datedLikes.length
         : 0;
     const librarySyncHint =
-      datedLikes.length >= 200 && recentLikeShare > 0.85
+      !noLibraryMode && datedLikes.length >= 200 && recentLikeShare > 0.85
         ? "Most cached likes look recently added. Run a full library sync from the app so older favourites are included."
         : null;
 
@@ -2625,9 +2693,19 @@ router.post("/generate", async (req, res): Promise<void> => {
       acc[genre] = (acc[genre] ?? 0) + 1;
       return acc;
     }, {});
+    const noLibrarySpotifyDiagnostics = noLibraryMode
+      ? {
+          searched: noLibraryExplicitFamilies.length > 0,
+          expectedFamilies: noLibraryExplicitFamilies,
+          candidateCount: noLibrarySpotifyCandidateCount,
+          verifiedCandidateCount: noLibrarySpotifyVerifiedCount,
+          fallbackReason: noLibrarySpotifyFallbackReason,
+        }
+      : null;
     const generationAuditSnapshot = {
       prompt: vibe,
       mode,
+      noLibraryMode: !!noLibraryMode,
       playlistId: savedPlaylistId,
       trackCount: finalTracks.length,
       cacheDiagnostics: {
@@ -2641,6 +2719,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       finalGenreDistribution,
       promptDriftAudit,
+      noLibrarySpotify: noLibrarySpotifyDiagnostics,
       strictGenreEvidence: {
         ...strictGenreEvidenceDiagnostics,
         verified: undefined,
@@ -2659,6 +2738,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       vibe,
       mode,
       noLibraryMode: !!noLibraryMode,
+      noLibrarySpotify: noLibrarySpotifyDiagnostics,
       devMode,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
@@ -2876,6 +2956,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         length: number;
         vibe: string;
         mode: string;
+        noLibraryMode?: boolean;
         genreByTrack?: (trackId: string) => {
           genrePrimary?: string | null;
           genreFamily?: string | null;
@@ -2900,6 +2981,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           requestedCount: ctx.length,
           finalCount: pipeline.finalTracks.length,
           hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
+          noLibraryMode: !!ctx.noLibraryMode,
         });
         if (strictFallbackFailure) {
           res.status(409).json({
