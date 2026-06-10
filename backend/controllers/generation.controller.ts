@@ -57,7 +57,7 @@ import {
   getCachedGenerateResult,
   setCachedGenerateResult,
 } from "../lib/generate-result-cache";
-import { trackHasEraEvidence } from "../lib/era-evidence";
+import { trackHasEraEvidence, trackHasKnownEraMismatch } from "../lib/era-evidence";
 import { createRequestBudget } from "../lib/request-budget";
 import {
   REQUEST_HARD_TIMEOUT_MS,
@@ -2418,12 +2418,16 @@ router.post("/generate", async (req, res): Promise<void> => {
           requestedCount: length,
           finalCount: finalTracks.length,
           verifiedCount: finalTracks.length,
+          unknownCount: 0,
           rejectedCount: 0,
           requiredCount: 0,
           verified: finalTracks,
+          compatible: finalTracks,
         };
       }
       const verified = finalTracks.filter((track) => trackHasEraEvidence(track, eraRange));
+      const knownMismatches = finalTracks.filter((track) => trackHasKnownEraMismatch(track, eraRange));
+      const compatible = finalTracks.filter((track) => !trackHasKnownEraMismatch(track, eraRange));
       const requiredCount = Math.min(
         length,
         Math.max(10, Math.ceil(length * STRICT_EXPLICIT_ERA_EVIDENCE_RATIO))
@@ -2435,14 +2439,18 @@ router.post("/generate", async (req, res): Promise<void> => {
         requestedCount: length,
         finalCount: finalTracks.length,
         verifiedCount: verified.length,
-        rejectedCount: finalTracks.length - verified.length,
+        unknownCount: compatible.length - verified.length,
+        rejectedCount: knownMismatches.length,
         requiredCount,
         verified,
+        compatible,
       };
     })();
     if (
       strictEraEvidenceDiagnostics.active &&
-      strictEraEvidenceDiagnostics.verifiedCount < strictEraEvidenceDiagnostics.requiredCount
+      strictEraEvidenceDiagnostics.finalCount > 0 &&
+      strictEraEvidenceDiagnostics.verifiedCount === 0 &&
+      strictEraEvidenceDiagnostics.unknownCount === 0
     ) {
       req.log.warn(
         {
@@ -2451,6 +2459,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           strictEraEvidenceDiagnostics: {
             ...strictEraEvidenceDiagnostics,
             verified: undefined,
+            compatible: undefined,
           },
         },
         "Explicit era evidence guard blocked weak playlist"
@@ -2461,12 +2470,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         res,
         409,
         "INSUFFICIENT_VERIFIED_ERA_EVIDENCE",
-        `I could not find enough verified ${strictEraEvidenceDiagnostics.eraRange?.start}-${strictEraEvidenceDiagnostics.eraRange?.end} tracks to make this playlist without guessing.`,
+        `I could not find any tracks compatible with ${strictEraEvidenceDiagnostics.eraRange?.start}-${strictEraEvidenceDiagnostics.eraRange?.end} after removing known wrong-era songs.`,
         {
           hint: "Try a broader decade prompt, add a genre, or regenerate after syncing tracks with release years.",
           strictEraEvidence: {
             ...strictEraEvidenceDiagnostics,
             verified: undefined,
+            compatible: undefined,
           },
         }
       );
@@ -2476,7 +2486,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictEraEvidenceDiagnostics.active &&
       strictEraEvidenceDiagnostics.rejectedCount > 0
     ) {
-      finalTracks = strictEraEvidenceDiagnostics.verified as PlaylistTrack[];
+      finalTracks = strictEraEvidenceDiagnostics.compatible as PlaylistTrack[];
       finalValidation = validateLockedIntentOutput(
         finalTracks,
         lockedIntent,
@@ -2882,6 +2892,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictEraEvidence: {
         ...strictEraEvidenceDiagnostics,
         verified: undefined,
+        compatible: undefined,
       },
       playlistQuality: v3Diagnostics?.playlistQuality ?? null,
       explicitIntentRepair: ((v3Diagnostics ?? {}) as Record<string, unknown>)["explicitIntentRepair"] ?? null,
@@ -2997,6 +3008,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictEraEvidence: {
         ...strictEraEvidenceDiagnostics,
         verified: undefined,
+        compatible: undefined,
       },
       generationAuditSnapshot,
       requestOrchestration: pipeline.requestOrchestration ?? {

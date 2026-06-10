@@ -7,6 +7,8 @@ export type EraEvidenceTrack = {
   albumName?: string | null;
 };
 
+export type EraEvidenceStatus = "match" | "mismatch" | "unknown";
+
 const MIN_REASONABLE_YEAR = 1950;
 const MAX_REASONABLE_YEAR = 2029;
 
@@ -59,6 +61,23 @@ export function eraEvidenceYearForRange(track: EraEvidenceTrack, range: EraRange
   return Math.max(range.start, anchor.range.start);
 }
 
+export function eraEvidenceStatusForRange(track: EraEvidenceTrack, range: EraRange): EraEvidenceStatus {
+  const releaseYear = validYear(track.releaseYear);
+  if (releaseYear) return rangeContains(range, releaseYear) ? "match" : "mismatch";
+
+  const textYear = localTextYear(track);
+  if (textYear) return rangeContains(range, textYear) ? "match" : "mismatch";
+
+  const artist = track.artistName ?? "";
+  const anchor = CLASSIC_ERA_ARTIST_RANGES.find((entry) => entry.pattern.test(artist));
+  if (!anchor) return "unknown";
+  return rangesOverlap(anchor.range, range) ? "match" : "mismatch";
+}
+
 export function trackHasEraEvidence(track: EraEvidenceTrack, range: EraRange): boolean {
-  return eraEvidenceYearForRange(track, range) !== null;
+  return eraEvidenceStatusForRange(track, range) === "match";
+}
+
+export function trackHasKnownEraMismatch(track: EraEvidenceTrack, range: EraRange): boolean {
+  return eraEvidenceStatusForRange(track, range) === "mismatch";
 }

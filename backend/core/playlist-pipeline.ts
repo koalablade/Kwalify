@@ -39,7 +39,7 @@ import {
   warnIfV3MetadataLost,
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
-import { trackHasEraEvidence } from "../lib/era-evidence";
+import { trackHasEraEvidence, trackHasKnownEraMismatch } from "../lib/era-evidence";
 import {
   buildUnifiedIntentContext,
   resolveUnifiedIntent,
@@ -549,7 +549,7 @@ function intentContractFit<T extends IntentContractTrack>(
   };
 
   add(contract.genreFamilies.length > 0, trackMatchesGenreFamilies(track, classMap, contract.genreFamilies), true);
-  add(!!contract.eraRange, !!contract.eraRange && trackHasEraEvidence(track, contract.eraRange), true);
+  add(!!contract.eraRange, !!contract.eraRange && !trackHasKnownEraMismatch(track, contract.eraRange), true);
   add(!!contract.energy, contractEnergyMatch(track, contract.energy));
   for (const mood of contract.mood) add(true, contractMoodMatch(track, mood));
   add(!!contract.activity, contractActivityMatch(track, contract.activity));
@@ -837,7 +837,7 @@ function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName
   const minGenrePurity = genreActive ? 0.78 : 0;
   const minEraFit = eraActive ? 0.55 : 0;
   const eraFit = eraRange
-    ? playlist.filter((track) => trackHasEraEvidence(track, eraRange)).length / Math.max(1, playlist.length)
+    ? playlist.filter((track) => !trackHasKnownEraMismatch(track, eraRange)).length / Math.max(1, playlist.length)
     : 1;
   if ((!genreActive || before.genrePurity >= minGenrePurity) && (!eraActive || eraFit >= minEraFit)) {
     return { tracks: playlist, diagnostics: { active: false, repairedCount: 0, beforeQuality: before, afterQuality: before, eraFit: round3(eraFit) } };
@@ -862,7 +862,7 @@ function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName
       const fit = intentContractFit(track, classMap, intent);
       const reasons = [
         genreActive && !trackMatchesGenreFamilies(track, classMap, intent.genres) ? "genre" : null,
-        eraRange && !trackHasEraEvidence(track, eraRange) ? "era" : null,
+        eraRange && trackHasKnownEraMismatch(track, eraRange) ? "era" : null,
         !fit.requiredPassed || fit.score < 0.50 ? "intent_fit" : null,
       ].filter((reason): reason is string => !!reason);
       return { track, index, fit, reasons };
@@ -1306,7 +1306,7 @@ function isV3LaneReadyForIntent<T extends {
   lockedIntent: LockedIntent,
 ): boolean {
   if (!genreFamilyForTrack(track, classMap)) return false;
-  return lockedIntent.eraRange ? trackHasEraEvidence(track, lockedIntent.eraRange) : true;
+  return lockedIntent.eraRange ? !trackHasKnownEraMismatch(track, lockedIntent.eraRange) : true;
 }
 
 function intentLaneReadinessReason<T extends {
@@ -1324,7 +1324,7 @@ function intentLaneReadinessReason<T extends {
 ): string | null {
   const genreReason = genreFamilyRejectionReason(track, classMap);
   if (genreReason) return genreReason;
-  if (lockedIntent.eraRange && !trackHasEraEvidence(track, lockedIntent.eraRange)) return "missingEra";
+  if (lockedIntent.eraRange && trackHasKnownEraMismatch(track, lockedIntent.eraRange)) return "eraMismatch";
   return null;
 }
 
@@ -1374,7 +1374,7 @@ function lockedIntentRejectionReason<T extends {
   const laneEra = track.releaseYear ? detectEraFromYear(track.releaseYear) : estimateEraFromAudio(track);
   const normalizedGenre = genreFamily ? getGenreFamily(genreFamily) : genrePrimary ? getGenreFamily(genrePrimary) : null;
   if (!normalizedGenre || normalizedGenre === "unknown") return "missingGenreFamily";
-  if (lockedIntent.eraRange && !trackHasEraEvidence(track, lockedIntent.eraRange)) return "missingEra";
+  if (lockedIntent.eraRange && trackHasKnownEraMismatch(track, lockedIntent.eraRange)) return "eraMismatch";
   if (lockedIntent.genreFamilies.length > 0 && normalizedGenre && !lockedIntent.genreFamilies.includes(normalizedGenre)) {
     return "genreMismatch";
   }
@@ -1598,7 +1598,7 @@ function buildV3CandidatePool<T extends {
   ));
   const intentLaneReady = sorted.filter((track) => isV3LaneReadyForIntent(track, classMap, lockedIntent));
   const eraReady = lockedIntent.eraRange
-    ? intentLaneReady.filter((track) => trackHasEraEvidence(track, lockedIntent.eraRange!))
+    ? intentLaneReady.filter((track) => !trackHasKnownEraMismatch(track, lockedIntent.eraRange!))
     : intentLaneReady;
   const eraReadyIds = new Set(eraReady.map((track) => track.trackId));
   forensicPreV3Trace.push(preV3StageTrace(
@@ -1613,7 +1613,8 @@ function buildV3CandidatePool<T extends {
     eraReady.length,
     lockedIntent.eraRange
       ? countPreV3Reasons(intentLaneReady, (track) => {
-          if (!hasLaneReadyEra(track)) return "missingEra";
+          if (trackHasKnownEraMismatch(track, lockedIntent.eraRange!)) return "eraMismatch";
+          if (!hasLaneReadyEra(track)) return "unknownEra";
           return eraReadyIds.has(track.trackId) ? null : "eraMismatch";
         })
       : {},

@@ -1,6 +1,6 @@
 import { normalizeLockedGenreFamily, type LockedIntent, type SceneIntent, type SceneLatentVector } from "./intent";
 import type { ScoredTrack } from "./v3-score";
-import { trackHasEraEvidence } from "../../lib/era-evidence";
+import { trackHasKnownEraMismatch } from "../../lib/era-evidence";
 
 export interface FilterContext {
   intent: LockedIntent;
@@ -37,7 +37,7 @@ function hasUsableGenreClassification(track: ConstraintTrackLike): boolean {
 
 function eraAllowed(track: ConstraintTrackLike, intent: LockedIntent): boolean {
   if (!intent.eraRange) return true;
-  return trackHasEraEvidence(track, intent.eraRange);
+  return !trackHasKnownEraMismatch(track, intent.eraRange);
 }
 
 function clamp01(value: number): number {

@@ -33,7 +33,7 @@ import { interleaveLanes } from "./interleaver";
 import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
-import { trackHasEraEvidence } from "../../lib/era-evidence";
+import { trackHasKnownEraMismatch } from "../../lib/era-evidence";
 import { normalizeLockedGenreFamily, type LockedIntent } from "./intent";
 import { computeSceneAlignmentScore, trackMatchesConstraints } from "./constraint-filter";
 import {
@@ -207,7 +207,7 @@ function eraAllowedWithDrift<T extends V3PipelineTrack>(
   lockedIntent: LockedIntent,
 ): boolean {
   if (!lockedIntent.eraRange) return true;
-  return trackHasEraEvidence(decision.track, lockedIntent.eraRange);
+  return !trackHasKnownEraMismatch(decision.track, lockedIntent.eraRange);
 }
 
 function retrievalFloor(level: RetrievalStrictness): number {
