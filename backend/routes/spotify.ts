@@ -92,6 +92,16 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
     const total = Number(totalRow?.count ?? 0);
     const recent = Number(recentRow?.count ?? 0);
     if (total > 0 && recent / total > 0.85) suggestFullSync = true;
+    const [metadataRow] = await db
+      .select({
+        withFeatures: sql<number>`count(*) filter (where energy is not null and valence is not null)::int`,
+        withSpotifyGenres: sql<number>`count(*) filter (where spotify_artist_genres is not null)::int`,
+      })
+      .from(likedSongsTable)
+      .where(eq(likedSongsTable.spotifyUserId, userId));
+    const featureCoverage = total > 0 ? Number(metadataRow?.withFeatures ?? 0) / total : 0;
+    const spotifyGenreCoverage = total > 0 ? Number(metadataRow?.withSpotifyGenres ?? 0) / total : 0;
+    if (featureCoverage < 0.35 || spotifyGenreCoverage < 0.35) suggestFullSync = true;
   }
 
   res.json({
@@ -141,9 +151,21 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
     existingStatus?.lastSyncedAt &&
     (existingStatus.totalTracks ?? 0) >= 500
   ) {
+    const [metadataRow] = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        withFeatures: sql<number>`count(*) filter (where energy is not null and valence is not null)::int`,
+        withSpotifyGenres: sql<number>`count(*) filter (where spotify_artist_genres is not null)::int`,
+      })
+      .from(likedSongsTable)
+      .where(eq(likedSongsTable.spotifyUserId, userId));
+    const total = Number(metadataRow?.total ?? 0);
+    const featureCoverage = total > 0 ? Number(metadataRow?.withFeatures ?? 0) / total : 0;
+    const spotifyGenreCoverage = total > 0 ? Number(metadataRow?.withSpotifyGenres ?? 0) / total : 0;
+    const metadataRepairNeeded = featureCoverage < 0.35 || spotifyGenreCoverage < 0.35;
     const hoursSince =
       (Date.now() - existingStatus.lastSyncedAt.getTime()) / (60 * 60 * 1000);
-    if (hoursSince < 6) {
+    if (hoursSince < 6 && !metadataRepairNeeded) {
       res.json({
         message:
           "Library was synced recently. Use normal sync for new likes, or wait a few hours before another full sync.",
