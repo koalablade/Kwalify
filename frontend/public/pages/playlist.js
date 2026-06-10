@@ -27,6 +27,7 @@ function feedbackTrackPayload(track) {
     artistName: track?.artistName || track?.artist || null,
     albumName: track?.albumName || track?.album || null,
     genrePrimary: track?.genrePrimary || null,
+    genreFamily: track?.genreFamily || null,
     genres: Array.isArray(track?.genres) ? track.genres : null,
     energy: typeof track?.energy === "number" ? track.energy : null,
   };

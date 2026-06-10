@@ -43,6 +43,9 @@ export function buildFallbackPipelineResult<
     acousticness?: number | null;
     score?: number;
     rediscoveryScore?: number;
+    genrePrimary?: string | null;
+    genreFamily?: string | null;
+    genres?: string[] | null;
   }
 >(opts: {
   tracks: T[];
@@ -50,6 +53,11 @@ export function buildFallbackPipelineResult<
   playlistLength: number;
   maxPerArtist: number;
   librarySize: number;
+  genreByTrack?: (trackId: string) => {
+    genrePrimary?: string | null;
+    genreFamily?: string | null;
+    genres?: string[] | null;
+  } | null | undefined;
 }): BuildPlaylistPipelineResult<T> {
   const fb = buildFastFallbackPlaylist({
     tracks: opts.tracks,
@@ -57,12 +65,23 @@ export function buildFallbackPipelineResult<
     playlistLength: opts.playlistLength,
     maxPerArtist: opts.maxPerArtist,
   });
-  const fbScored: Array<ScoredLibraryTrack<T> & V3TrackMetadata> = fb.map((t) => ({
+  const fbScored: Array<ScoredLibraryTrack<T> & V3TrackMetadata> = fb.map((t) => {
+    const genre = opts.genreByTrack?.(t.trackId);
+    const genrePrimary = t.genrePrimary ?? genre?.genrePrimary ?? null;
+    return {
       ...t,
+      genrePrimary,
+      genreFamily: t.genreFamily ?? genre?.genreFamily ?? genrePrimary,
+      genres: t.genres ?? genre?.genres ?? (genrePrimary ? [genrePrimary] : []),
       score: 0.72,
       rediscoveryScore: 0.35,
-      scoringDebug: fallbackScoringDebug(t.trackId),
-  }));
+      scoringDebug: {
+        ...fallbackScoringDebug(t.trackId),
+        genrePrimary: genrePrimary ?? "unknown",
+        genreConfidence: genrePrimary ? 0.7 : 0,
+      },
+    };
+  });
   return {
     finalTracks: fbScored,
     sorted: fbScored,
@@ -114,33 +133,56 @@ export function formatTracksForApi(
     score?: number;
     rediscoveryScore?: number;
     narrativeRole?: string;
+    scoringDebug?: TrackScoringDebug;
+    genreFamily?: string | null;
+    genres?: string[] | null;
   }>,
   profile?: EmotionProfile | null
 ) {
   const formatted = (tracks ?? [])
     .filter((t) => t?.trackId && t?.trackName && t?.artistName)
-    .map((t, i) => ({
-      id: t.trackId,
-      name: t.trackName,
-      artist: t.artistName,
-      album: t.albumName ?? "",
-      albumArt: t.albumArt ?? null,
-      durationMs: t.durationMs ?? null,
-      energy: t.energy ?? null,
-      valence: t.valence ?? null,
-      tempo: t.tempo ?? null,
-      score: Math.round((t.score ?? 0.7) * 100) / 100,
-      rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
-      narrativeRole: t.narrativeRole,
-      genrePrimary: t.genrePrimary ?? null,
-      laneId: t.laneId ?? t.sourceLane ?? null,
-      sourceLane: t.sourceLane ?? t.laneId ?? null,
-      laneScore: t.laneScore ?? null,
-      laneEra: t.laneEra ?? null,
-      clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
-      clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
-      selectedByV3: t.selectedByV3 === true ? true : undefined,
-      whyReasons: buildTrackWhyReasons(t, profile, i),
-    }));
+    .map((t, i) => {
+      const genreFromCluster = t.clusterIds
+        ?.find((cluster) => cluster.startsWith("genre:"))
+        ?.replace("genre:", "");
+      const genrePrimary =
+        t.genrePrimary ??
+        (t.scoringDebug?.genrePrimary && t.scoringDebug.genrePrimary !== "unknown"
+          ? t.scoringDebug.genrePrimary
+          : null) ??
+        genreFromCluster ??
+        null;
+      const genreFamily = t.genreFamily ?? genrePrimary;
+      const genres = Array.isArray(t.genres) && t.genres.length > 0
+        ? t.genres
+        : genrePrimary
+          ? [genrePrimary]
+          : [];
+      return {
+        id: t.trackId,
+        name: t.trackName,
+        artist: t.artistName,
+        album: t.albumName ?? "",
+        albumArt: t.albumArt ?? null,
+        durationMs: t.durationMs ?? null,
+        energy: t.energy ?? null,
+        valence: t.valence ?? null,
+        tempo: t.tempo ?? null,
+        score: Math.round((t.score ?? 0.7) * 100) / 100,
+        rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
+        narrativeRole: t.narrativeRole,
+        genrePrimary,
+        genreFamily,
+        genres,
+        laneId: t.laneId ?? t.sourceLane ?? null,
+        sourceLane: t.sourceLane ?? t.laneId ?? null,
+        laneScore: t.laneScore ?? null,
+        laneEra: t.laneEra ?? null,
+        clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
+        clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
+        selectedByV3: t.selectedByV3 === true ? true : undefined,
+        whyReasons: buildTrackWhyReasons(t, profile, i),
+      };
+    });
   return formatted;
 }

@@ -275,6 +275,7 @@ export function runScoringPipeline<T extends {
     candidateCount: poolCap.candidateCount,
     preFilterRejected: poolCap.preFilterRejectedCount,
     adjacencyLevelUsed: poolCap.adjacencyLevelUsed,
+    intentPreservedCount: poolCap.intentPreservedCount,
   });
 
   t = Date.now();
@@ -659,6 +660,7 @@ export function runScoringPipeline<T extends {
         candidateCount: poolCap.candidateCount,
         preFilterRejected: poolCap.preFilterRejectedCount,
         adjacencyLevelUsed: poolCap.adjacencyLevelUsed,
+        intentPreservedCount: poolCap.intentPreservedCount,
         postScoreFiltered: postScoreFilteredCount,
         forbiddenRejectionCount: gateRejected.length,
       },

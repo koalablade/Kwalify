@@ -20,6 +20,32 @@ import {
   resolveHybridPoolCap,
 } from "../../lib/production-limits";
 import type { SemanticSceneVector } from "../../lib/semantic-scene-engine";
+import {
+  EXPANDED_ERA_TERMS,
+  EXPANDED_GENRE_ALIASES,
+  termRegex,
+} from "../../lib/expanded-intent-vocabulary";
+
+const ROOT_GENRE_TERMS: Record<string, string[]> = {
+  country: ["country", "americana", "cowboy", "red dirt"],
+  hip_hop: ["hip hop", "hip-hop", "rap"],
+  rnb: ["r&b", "rnb", "r n b", "rhythm and blues"],
+  electronic: ["electronic", "edm", "dance"],
+  rock: ["rock"],
+  pop: ["pop"],
+  indie: ["indie"],
+  folk: ["folk"],
+  jazz: ["jazz"],
+  soul: ["soul", "funk"],
+  blues: ["blues"],
+  metal: ["metal"],
+  reggae: ["reggae", "dancehall"],
+  latin: ["latin"],
+  classical: ["classical"],
+  soundtrack: ["soundtrack", "score", "ost"],
+  world: ["world"],
+  christmas: ["christmas", "holiday"],
+};
 
 function seededJitter(trackId: string, seed: number): number {
   let h = seed;
@@ -39,12 +65,70 @@ function quickEmotionFit(
   );
 }
 
+function explicitGenreFamilies(vibe: string | undefined): Set<string> {
+  const normalized = vibe ?? "";
+  const families = new Set<string>();
+  for (const group of EXPANDED_GENRE_ALIASES) {
+    const terms = [
+      group.family.replace(/_/g, " "),
+      group.family,
+      ...(ROOT_GENRE_TERMS[group.family] ?? []),
+      ...group.terms,
+    ];
+    if (termRegex(terms).test(normalized)) {
+      families.add(group.family);
+    }
+  }
+  return families;
+}
+
+function matchesExplicitFamily(
+  classification: TrackGenreClassification | undefined,
+  families: Set<string>
+): boolean {
+  if (families.size === 0 || !classification) return false;
+  const candidates = [
+    classification.genreFamily,
+    classification.genrePrimary,
+    classification.primarySubgenre,
+    classification.secondarySubgenre,
+    ...(classification.subGenres ?? []),
+  ].filter((value): value is string => !!value);
+  return candidates.some((genre) => families.has(genre));
+}
+
+function explicitEraRange(vibe: string | undefined): { start: number; end: number } | null {
+  const normalized = vibe ?? "";
+  for (const era of EXPANDED_ERA_TERMS) {
+    if (termRegex(era.terms).test(normalized)) {
+      return { start: era.start, end: era.end };
+    }
+  }
+  const yearMatch = normalized.match(/\b(19[4-9]\d|20[0-2]\d)\b/);
+  if (yearMatch?.[1]) {
+    const year = Number(yearMatch[1]);
+    return { start: year - 2, end: year + 2 };
+  }
+  return null;
+}
+
+function matchesExplicitEra(
+  track: { releaseYear?: number | null },
+  era: { start: number; end: number } | null
+): boolean {
+  return !!era &&
+    typeof track.releaseYear === "number" &&
+    track.releaseYear >= era.start &&
+    track.releaseYear <= era.end;
+}
+
 export function capTracksForHybridScoring<T extends {
   trackId: string;
   energy: number | null;
   valence: number | null;
   acousticness?: number | null;
   addedAt?: Date | null;
+  releaseYear?: number | null;
 }>(
   tracks: T[],
   opts: {
@@ -79,6 +163,7 @@ export function capTracksForHybridScoring<T extends {
   preFilterRejectedCount: number;
   /** 0 = no scene, 1 = full gate (L1), 2 = adjacency bridges (L2), 3 = emergency anti-genre-only (L3) */
   adjacencyLevelUsed: 0 | 1 | 2 | 3;
+  intentPreservedCount: number;
 } {
   const originalCount = tracks.length;
   const libSize = opts.librarySize ?? originalCount;
@@ -101,6 +186,8 @@ export function capTracksForHybridScoring<T extends {
   let workingTracks = tracks;
   const preFilterRejectedCount = 0;
   const adjacencyLevelUsed: 0 | 1 | 2 | 3 = 0;
+  const explicitFamilies = explicitGenreFamilies(opts.vibe);
+  const explicitEra = explicitEraRange(opts.vibe);
 
   if (workingTracks.length <= max) {
     return {
@@ -110,6 +197,7 @@ export function capTracksForHybridScoring<T extends {
       candidateCount: workingTracks.length,
       preFilterRejectedCount,
       adjacencyLevelUsed,
+      intentPreservedCount: 0,
     };
   }
 
@@ -126,11 +214,12 @@ export function capTracksForHybridScoring<T extends {
       candidateCount: 0,
       preFilterRejectedCount,
       adjacencyLevelUsed,
+      intentPreservedCount: 0,
     };
   }
 
   if (originalCount <= max && workingTracks === tracks) {
-    return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount, preFilterRejectedCount, adjacencyLevelUsed };
+    return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount, preFilterRejectedCount, adjacencyLevelUsed, intentPreservedCount: 0 };
   }
 
   // Fast path for 500+ libraries — skip era-balanced reshuffle (maps/sorts entire library).
@@ -152,19 +241,55 @@ export function capTracksForHybridScoring<T extends {
     const ranked = candidates
       .map((t) => {
         const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
+        const explicitBoost = matchesExplicitFamily(
+          opts.classifications.get(t.trackId),
+          explicitFamilies
+        ) ? 0.35 : 0;
+        const eraBoost = matchesExplicitEra(t, explicitEra) ? 0.25 : 0;
         return {
           t,
-          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05 - recentPen,
+          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05 - recentPen + explicitBoost + eraBoost,
         };
       })
       .sort((a, b) => b.fit - a.fit);
+    const explicitRanked = ranked.filter((item) =>
+      matchesExplicitFamily(opts.classifications.get(item.t.trackId), explicitFamilies)
+    );
+    const reserveTarget = explicitRanked.length > 0
+      ? Math.min(explicitRanked.length, Math.max(24, Math.floor(max * 0.35)))
+      : 0;
+    const eraRanked = explicitEra
+      ? ranked.filter((item) => matchesExplicitEra(item.t, explicitEra))
+      : [];
+    const eraReserveTarget = eraRanked.length > 0
+      ? Math.min(eraRanked.length, Math.max(12, Math.floor(max * 0.20)))
+      : 0;
+    const picked: T[] = [];
+    const seen = new Set<string>();
+    for (const item of explicitRanked.slice(0, reserveTarget)) {
+      seen.add(item.t.trackId);
+      picked.push(item.t);
+    }
+    for (const item of eraRanked.slice(0, eraReserveTarget)) {
+      if (picked.length >= max) break;
+      if (seen.has(item.t.trackId)) continue;
+      seen.add(item.t.trackId);
+      picked.push(item.t);
+    }
+    for (const item of ranked) {
+      if (picked.length >= max) break;
+      if (seen.has(item.t.trackId)) continue;
+      seen.add(item.t.trackId);
+      picked.push(item.t);
+    }
     return {
-      pool: ranked.slice(0, max).map((x) => x.t),
+      pool: picked,
       originalCount,
       poolCapped: true,
       candidateCount: candidates.length,
       preFilterRejectedCount,
       adjacencyLevelUsed,
+      intentPreservedCount: reserveTarget + eraReserveTarget,
     };
   }
 
@@ -188,13 +313,20 @@ export function capTracksForHybridScoring<T extends {
   const ranked = candidates.map((t) => {
     const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
     const eraBoost = libraryEraScoreBoost(t.addedAt ?? null, eraMode);
+    const explicitBoost = matchesExplicitFamily(
+      opts.classifications.get(t.trackId),
+      explicitFamilies
+    ) ? 0.25 : 0;
+    const explicitEraBoost = matchesExplicitEra(t, explicitEra) ? 0.20 : 0;
     return {
       t,
       fit:
         quickEmotionFit(t, opts.emotionProfile) +
         seededJitter(t.trackId, seed) * 0.05 -
         recentPen +
-        eraBoost,
+        eraBoost +
+        explicitBoost +
+        explicitEraBoost,
     };
   });
   ranked.sort((a, b) => b.fit - a.fit);
@@ -266,5 +398,8 @@ export function capTracksForHybridScoring<T extends {
     candidateCount: candidates.length,
     preFilterRejectedCount,
     adjacencyLevelUsed,
+    intentPreservedCount: picked.filter((track) =>
+      matchesExplicitFamily(opts.classifications.get(track.trackId), explicitFamilies)
+    ).length,
   };
 }

@@ -51,11 +51,49 @@ export const PLAYLIST_EVAL_PROMPTS: PlaylistEvalPrompt[] = [
     minMoodFit: 0.58,
   },
   {
+    id: "90s-rnb-slow-jams",
+    prompt: "90s r&b slow jams late night",
+    expectedGenres: ["rnb", "r&b", "soul", "quiet storm"],
+    expectedEra: { start: 1988, end: 2004 },
+    expectedMood: ["late night", "soft", "romantic"],
+    minGenrePurity: 0.66,
+    minPromptAlignment: 0.72,
+    minMoodFit: 0.55,
+  },
+  {
+    id: "70s-disco-party",
+    prompt: "70s disco party dancefloor",
+    expectedGenres: ["disco", "soul", "funk", "dance", "pop"],
+    expectedEra: { start: 1970, end: 1982 },
+    expectedMood: ["party", "high energy", "happy"],
+    minGenrePurity: 0.62,
+    minPromptAlignment: 0.70,
+    minMoodFit: 0.58,
+  },
+  {
     id: "pop-punk-gym",
     prompt: "2000s pop punk gym",
     expectedGenres: ["pop punk", "punk", "rock"],
     expectedEra: { start: 1998, end: 2012 },
     expectedMood: ["gym", "high energy"],
+    minGenrePurity: 0.62,
+    minPromptAlignment: 0.70,
+    minMoodFit: 0.58,
+  },
+  {
+    id: "ambient-focus-morning",
+    prompt: "calm ambient morning focus coding",
+    expectedGenres: ["ambient", "electronic", "classical", "instrumental"],
+    expectedMood: ["calm", "low energy"],
+    minGenrePurity: 0.55,
+    minPromptAlignment: 0.66,
+    minMoodFit: 0.62,
+  },
+  {
+    id: "latin-summer-beach",
+    prompt: "latin summer beach party",
+    expectedGenres: ["latin", "reggaeton", "salsa", "bachata", "tropical"],
+    expectedMood: ["party", "happy", "high energy"],
     minGenrePurity: 0.62,
     minPromptAlignment: 0.70,
     minMoodFit: 0.58,
@@ -94,6 +132,7 @@ export function auditPlaylistAgainstPrompt(
     return { pass: false, genrePurity: 0, eraFit: 0, moodFit: 0, promptAlignment: 0, noObviousDrift: false, violations: ["empty_playlist"] };
   }
   const expectedGenres = lowerTerms(prompt.expectedGenres ?? []);
+  const genreMetadataPresent = tracks.filter((track) => trackGenreTerms(track).length > 0).length / tracks.length;
   const genreHits = expectedGenres.length === 0
     ? tracks.length
     : tracks.filter((track) => trackGenreTerms(track).some((genre) =>
@@ -117,8 +156,10 @@ export function auditPlaylistAgainstPrompt(
   const promptAlignment = Math.round(((genrePurity * 0.55) + (eraFit * 0.20) + (moodFit * 0.25)) * 1000) / 1000;
   const noObviousDrift = genrePurity >= Math.max(0.45, prompt.minGenrePurity - 0.15) &&
     moodFit >= (prompt.minMoodFit ?? 0.45) - 0.15 &&
-    (!prompt.expectedEra || eraFit >= 0.35);
+    (!prompt.expectedEra || eraFit >= 0.35) &&
+    genreMetadataPresent >= 0.85;
   const violations = [
+    genreMetadataPresent < 0.85 ? "genre_metadata_missing" : null,
     genrePurity < prompt.minGenrePurity ? "genre_purity_below_eval_threshold" : null,
     moodFit < (prompt.minMoodFit ?? 0.45) ? "mood_fit_below_eval_threshold" : null,
     promptAlignment < prompt.minPromptAlignment ? "prompt_alignment_below_eval_threshold" : null,
@@ -128,6 +169,7 @@ export function auditPlaylistAgainstPrompt(
   return {
     pass: violations.length === 0,
     promptId: prompt.id,
+    genreMetadataPresent: Math.round(genreMetadataPresent * 1000) / 1000,
     genrePurity: Math.round(genrePurity * 1000) / 1000,
     eraFit: Math.round(eraFit * 1000) / 1000,
     moodFit: Math.round(moodFit * 1000) / 1000,

@@ -653,6 +653,88 @@ function evaluatePlaylistQuality<T extends IntentContractTrack & { genrePrimary?
   };
 }
 
+function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName?: string; score?: number }>(
+  playlist: T[],
+  candidatePool: Array<ScoredLibraryTrack<T>>,
+  intent: IntentContract,
+  classMap: UserGenreProfile["trackClassifications"],
+  playlistLength: number,
+): { tracks: T[]; diagnostics: Record<string, unknown> } {
+  const before = evaluatePlaylistQuality(playlist, intent, classMap);
+  const genreActive = intent.genres.length > 0;
+  const eraActive = !!intent.era;
+  if (!genreActive && !eraActive) {
+    return { tracks: playlist, diagnostics: { active: false, repairedCount: 0, beforeQuality: before, afterQuality: before } };
+  }
+
+  const minGenrePurity = genreActive ? 0.78 : 0;
+  const minEraFit = eraActive ? 0.55 : 0;
+  const eraFit = eraActive
+    ? playlist.filter((track) =>
+        typeof track.releaseYear === "number" &&
+        track.releaseYear >= intent.era!.start &&
+        track.releaseYear <= intent.era!.end
+      ).length / Math.max(1, playlist.length)
+    : 1;
+  if ((!genreActive || before.genrePurity >= minGenrePurity) && (!eraActive || eraFit >= minEraFit)) {
+    return { tracks: playlist, diagnostics: { active: false, repairedCount: 0, beforeQuality: before, afterQuality: before, eraFit: round3(eraFit) } };
+  }
+
+  const repaired = [...playlist];
+  const used = new Set(repaired.map((track) => track.trackId));
+  const artistCounts = new Map<string, number>();
+  for (const track of repaired) {
+    if (track.artistName) artistCounts.set(track.artistName, (artistCounts.get(track.artistName) ?? 0) + 1);
+  }
+
+  const candidateRank = candidatePool
+    .filter((track) => !used.has(track.trackId))
+    .map((track) => ({ track, fit: intentContractFit(track, classMap, intent) }))
+    .filter(({ fit }) => fit.requiredPassed && fit.score >= 0.50)
+    .sort((a, b) => (b.fit.score + (b.track.score ?? 0) * 0.10) - (a.fit.score + (a.track.score ?? 0) * 0.10));
+
+  const repairBudget = Math.min(Math.max(4, Math.floor(playlistLength * 0.35)), candidateRank.length);
+  const targets = repaired
+    .map((track, index) => ({ track, index, fit: intentContractFit(track, classMap, intent) }))
+    .filter(({ fit }) => !fit.requiredPassed || fit.score < 0.50)
+    .sort((a, b) => a.fit.score - b.fit.score)
+    .slice(0, repairBudget);
+
+  let repairedCount = 0;
+  for (const target of targets) {
+    const replacementIndex = candidateRank.findIndex(({ track }) => {
+      if (used.has(track.trackId)) return false;
+      if (track.artistName && (artistCounts.get(track.artistName) ?? 0) >= 2) return false;
+      return true;
+    });
+    if (replacementIndex < 0) break;
+    const [{ track: replacement }] = candidateRank.splice(replacementIndex, 1);
+    const removed = repaired[target.index];
+    if (removed?.artistName) {
+      artistCounts.set(removed.artistName, Math.max(0, (artistCounts.get(removed.artistName) ?? 1) - 1));
+    }
+    repaired[target.index] = replacement;
+    used.add(replacement.trackId);
+    if (replacement.artistName) artistCounts.set(replacement.artistName, (artistCounts.get(replacement.artistName) ?? 0) + 1);
+    repairedCount++;
+  }
+
+  const after = evaluatePlaylistQuality(repaired, intent, classMap);
+  return {
+    tracks: after.overall >= before.overall || after.genrePurity >= before.genrePurity ? repaired : playlist,
+    diagnostics: {
+      active: true,
+      repairedCount,
+      beforeQuality: before,
+      afterQuality: after,
+      minGenrePurity,
+      minEraFit,
+      eraFit: round3(eraFit),
+      candidateCount: candidateRank.length,
+    },
+  };
+}
+
 type PreV3TraceStage = {
   stage: string;
   before: number;
@@ -1942,8 +2024,8 @@ export function buildPlaylistPipeline<T extends {
   );
   const criticFinalTracks = playlistCritic.tracks;
 
-  // Genre enforcement safety net — audit only; V3 structural diversity already
-  // prevents collapse inside each lane (35% genre / 50% energy / 60% era caps).
+  // Genre enforcement safety net — this is applied to the returned playlist,
+  // after the critic repair loop, so explicit genre drift is corrected before serialization.
   t = Date.now();
   const enforced = enforceFinalPlaylistGenres({
     finalTracks: [...criticFinalTracks] as unknown as ScoredLibraryTrack<T>[],
@@ -1963,9 +2045,17 @@ export function buildPlaylistPipeline<T extends {
     criticQualityAfter: playlistCritic.diagnostics.afterQuality,
     criticRepairs: playlistCritic.diagnostics.repairedCount,
   });
-  const finalTracksForReturn = enforced.tracks.length > 0
+  const genreEnforcedTracks = enforced.tracks.length > 0
     ? enforced.tracks as unknown as T[]
     : criticFinalTracks;
+  const explicitIntentRepair = repairExplicitIntentPurity(
+    genreEnforcedTracks as unknown as IntentContractTrack[],
+    contractGuardedScoredPool as unknown as Array<ScoredLibraryTrack<IntentContractTrack>>,
+    intentContract,
+    classMap,
+    opts.playlistLength,
+  );
+  const finalTracksForReturn = explicitIntentRepair.tracks as unknown as T[];
   const playlistQuality = evaluatePlaylistQuality(
     finalTracksForReturn as unknown as IntentContractTrack[],
     intentContract,
@@ -2013,6 +2103,7 @@ export function buildPlaylistPipeline<T extends {
         },
         playlistQuality,
         playlistCritic: playlistCritic.diagnostics,
+        explicitIntentRepair: explicitIntentRepair.diagnostics,
       },
     },
     hybridExcludedCount: scoring.hybridExcludedCount,

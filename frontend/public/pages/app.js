@@ -16,6 +16,13 @@ function esc(v) {
   );
 }
 
+function trackGenreLabel(track) {
+  return track?.genrePrimary ||
+    track?.genreFamily ||
+    (Array.isArray(track?.genres) && track.genres.length ? track.genres[0] : null) ||
+    "(missing)";
+}
+
 async function api(path, opts = {}) {
   const r = await fetch(`/api${path}`, {
     credentials: "include",
@@ -34,6 +41,7 @@ function feedbackTrackPayload(track) {
     artistName: track?.artistName || track?.artist || null,
     albumName: track?.albumName || track?.album || null,
     genrePrimary: track?.genrePrimary || null,
+    genreFamily: track?.genreFamily || null,
     genres: Array.isArray(track?.genres) ? track.genres : null,
     energy: typeof track?.energy === "number" ? track.energy : null,
   };
@@ -1152,7 +1160,7 @@ function buildUnifiedDebugPanel(result, dbg) {
   // ── Final playlist genre composition ──────────────────────────────────────
   const finalTracks = result.tracks || [];
   const genreCount = {};
-  finalTracks.forEach(t => { const g = t.genrePrimary || "(missing)"; genreCount[g] = (genreCount[g] || 0) + 1; });
+  finalTracks.forEach(t => { const g = trackGenreLabel(t); genreCount[g] = (genreCount[g] || 0) + 1; });
   const total = finalTracks.length || 1;
   const genreDist = Object.entries(genreCount).sort((a,b) => b[1]-a[1]).slice(0, 10);
   const compositionHtml = `
@@ -1360,7 +1368,7 @@ function buildDebugPanel(result) {
 
   const finalTracks = result.tracks || [];
   const genreCount = {};
-  finalTracks.forEach(t => { const g = t.genrePrimary || "(missing)"; genreCount[g] = (genreCount[g] || 0) + 1; });
+  finalTracks.forEach(t => { const g = trackGenreLabel(t); genreCount[g] = (genreCount[g] || 0) + 1; });
   const total = finalTracks.length || 1;
   const genreDist = Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const compositionHtml = `

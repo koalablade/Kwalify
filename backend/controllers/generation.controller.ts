@@ -1075,11 +1075,19 @@ function buildPromptDriftAudit(diagnostics: Record<string, unknown> | null): Rec
   };
 }
 
-function hasValidCachedIntent(cached: { v3Diagnostics?: Record<string, unknown> | null }): boolean {
+function hasValidCachedIntent(cached: {
+  v3Diagnostics?: Record<string, unknown> | null;
+  finalTracks?: Array<{ genrePrimary?: string | null }>;
+}): boolean {
   const diagnostics = cached.v3Diagnostics;
   if (!diagnostics || typeof diagnostics !== "object") return false;
   const intent = diagnostics["intentDecomposition"] as Record<string, unknown> | undefined;
-  return typeof intent?.["primary"] === "string" && intent["primary"].trim().length > 0;
+  const hasIntent = typeof intent?.["primary"] === "string" && intent["primary"].trim().length > 0;
+  if (!hasIntent) return false;
+  const tracks = cached.finalTracks ?? [];
+  if (tracks.length === 0) return true;
+  const genrePresent = tracks.filter((track) => !!track.genrePrimary).length;
+  return genrePresent / tracks.length >= 0.75;
 }
 
 router.get("/generate/status", (req, res): void => {
@@ -1458,6 +1466,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         maxPerArtist?: number;
         vibe: string;
         mode: string;
+        genreByTrack?: (trackId: string) => {
+          genrePrimary?: string | null;
+          genreFamily?: string | null;
+          genres?: string[] | null;
+        } | null;
       } })._genCtx;
       req.log.error({ userId, requestId, code: "TIMEOUT" }, "Generate hard timeout — emergency fallback");
       if (!ctx?.likedSongs?.length) {
@@ -1480,6 +1493,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistLength: ctx.length,
         maxPerArtist,
         librarySize: fallbackTracks.length,
+        genreByTrack: ctx.genreByTrack,
       });
       const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
       res.json({
@@ -1626,6 +1640,37 @@ router.post("/generate", async (req, res): Promise<void> => {
       { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
       "Genre profile built"
     );
+    const genreByTrack = (trackId: string) => {
+      const classification = userGenreProfile.trackClassifications.get(trackId);
+      if (!classification) return null;
+      const genres = [
+        classification.primarySubgenre,
+        classification.secondarySubgenre,
+        ...(classification.subGenres ?? []),
+        classification.genrePrimary,
+        classification.genreFamily,
+      ].filter((value): value is string => !!value);
+      return {
+        genrePrimary: classification.genrePrimary ?? classification.genreFamily ?? null,
+        genreFamily: classification.genreFamily ?? classification.genrePrimary ?? null,
+        genres: [...new Set(genres)],
+      };
+    };
+    const hydrateTrackGenre = <T extends { trackId: string; genrePrimary?: string | null; genreFamily?: string | null; genres?: string[] | null }>(
+      track: T
+    ): T => {
+      const genre = genreByTrack(track.trackId);
+      if (!genre) return track;
+      const genrePrimary = track.genrePrimary ?? genre.genrePrimary ?? null;
+      return {
+        ...track,
+        genrePrimary,
+        genreFamily: track.genreFamily ?? genre.genreFamily ?? genrePrimary,
+        genres: Array.isArray(track.genres) && track.genres.length > 0
+          ? track.genres
+          : genre.genres ?? (genrePrimary ? [genrePrimary] : []),
+      };
+    };
 
     genStageTimer = createGenerateStageTimer(req.log, { requestId, userId });
     const stageTimer = genStageTimer;
@@ -1743,6 +1788,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const genCtx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
     if (genCtx) {
       genCtx["constrainedFallbackTracks"] = constrainedFallbackTracks;
+      genCtx["genreByTrack"] = genreByTrack;
     }
     req.log.info(
       {
@@ -1792,6 +1838,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistLength: length,
         maxPerArtist,
         librarySize: constrainedFallbackTracks.length,
+        genreByTrack,
       });
     } else {
       pipeline = runRequestLayerGeneration({
@@ -1856,9 +1903,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       score: number;
       rediscoveryScore?: number;
       narrativeRole?: string;
+      genreFamily?: string | null;
+      genres?: string[] | null;
     };
     setGeneratePhase(userId, requestId, "composing");
-    let finalTracks = pipeline.finalTracks as PlaylistTrack[];
+    let finalTracks = (pipeline.finalTracks as PlaylistTrack[]).map(hydrateTrackGenre);
     warnIfV3MetadataLost(
       pipeline.finalTracks,
       finalTracks,
@@ -1984,6 +2033,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       albumName: t.albumName,
       albumArt: t.albumArt ?? null,
       genrePrimary: t.genrePrimary ?? null,
+      genreFamily: t.genreFamily ?? t.genrePrimary ?? null,
+      genres: Array.isArray(t.genres) && t.genres.length > 0
+        ? t.genres
+        : t.genrePrimary
+          ? [t.genrePrimary]
+          : [],
       laneId: t.laneId ?? t.sourceLane ?? null,
       laneScore: t.laneScore ?? null,
       laneEra: t.laneEra ?? null,
@@ -2154,6 +2209,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         rediscoveryScore: t.rediscoveryScore,
         narrativeRole: t.narrativeRole,
         genrePrimary: t.genrePrimary ?? null,
+        genreFamily: t.genreFamily ?? t.genrePrimary ?? null,
+        genres: Array.isArray(t.genres) && t.genres.length > 0
+          ? t.genres
+          : t.genrePrimary
+            ? [t.genrePrimary]
+            : [],
         laneId: t.laneId ?? t.sourceLane ?? null,
         sourceLane: t.sourceLane ?? t.laneId ?? null,
         laneScore: t.laneScore,
@@ -2419,6 +2480,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         length: number;
         vibe: string;
         mode: string;
+        genreByTrack?: (trackId: string) => {
+          genrePrimary?: string | null;
+          genreFamily?: string | null;
+          genres?: string[] | null;
+        } | null;
       } })._genCtx;
       if (timedOut && ctx?.likedSongs?.length) {
         const maxPerArtist = 2;
@@ -2431,6 +2497,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           playlistLength: ctx.length,
           maxPerArtist,
           librarySize: fallbackTracks.length,
+          genreByTrack: ctx.genreByTrack,
         });
         const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
         res.json({
