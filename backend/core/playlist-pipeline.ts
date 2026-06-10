@@ -390,7 +390,11 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
     parsed.energy ? "energy" : null,
     timeOfDay.length > 0 ? "timeOfDay" : null,
     places.length > 0 ? "place" : null,
-    hasEvent ? "event" : null,
+    // Events are interpreted by the emotion/scene stack, but this contract has no
+    // event-specific track matcher. Do not make event-only prompts hard-filter.
+    hasEvent && (parsed.mood.length > 0 || parsed.activity || parsed.energy || places.length > 0)
+      ? "event"
+      : null,
   ].filter((value): value is string => !!value);
   return {
     genres: parsed.genreFamilies,
