@@ -1,11 +1,15 @@
 import { normalizeLockedGenreFamily, type LockedIntent, type SceneIntent, type SceneLatentVector } from "./intent";
 import type { ScoredTrack } from "./v3-score";
+import { trackHasEraEvidence } from "../../lib/era-evidence";
 
 export interface FilterContext {
   intent: LockedIntent;
 }
 
 export type ConstraintTrackLike = {
+  trackName?: string | null;
+  artistName?: string | null;
+  albumName?: string | null;
   genreFamily?: string | null;
   genrePrimary?: string | null;
   releaseYear?: number | null;
@@ -33,10 +37,7 @@ function hasUsableGenreClassification(track: ConstraintTrackLike): boolean {
 
 function eraAllowed(track: ConstraintTrackLike, intent: LockedIntent): boolean {
   if (!intent.eraRange) return true;
-  if (track.releaseYear !== null && track.releaseYear !== undefined) {
-    return track.releaseYear >= intent.eraRange.start && track.releaseYear <= intent.eraRange.end;
-  }
-  return false;
+  return trackHasEraEvidence(track, intent.eraRange);
 }
 
 function clamp01(value: number): number {

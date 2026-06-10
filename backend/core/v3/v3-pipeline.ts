@@ -33,6 +33,7 @@ import { interleaveLanes } from "./interleaver";
 import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
+import { trackHasEraEvidence } from "../../lib/era-evidence";
 import { normalizeLockedGenreFamily, type LockedIntent } from "./intent";
 import { computeSceneAlignmentScore, trackMatchesConstraints } from "./constraint-filter";
 import {
@@ -59,7 +60,9 @@ import {
 
 export interface V3PipelineTrack extends RetrievalTrackLike {
   trackId: string;
+  trackName?: string | null;
   artistName: string;
+  albumName?: string | null;
   energy: number | null;
   valence: number | null;
   danceability: number | null;
@@ -204,11 +207,7 @@ function eraAllowedWithDrift<T extends V3PipelineTrack>(
   lockedIntent: LockedIntent,
 ): boolean {
   if (!lockedIntent.eraRange) return true;
-  if (decision.track.releaseYear === null || decision.track.releaseYear === undefined) {
-    return false;
-  }
-  return decision.track.releaseYear >= lockedIntent.eraRange.start &&
-    decision.track.releaseYear <= lockedIntent.eraRange.end;
+  return trackHasEraEvidence(decision.track, lockedIntent.eraRange);
 }
 
 function retrievalFloor(level: RetrievalStrictness): number {

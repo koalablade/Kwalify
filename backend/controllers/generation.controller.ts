@@ -57,6 +57,7 @@ import {
   getCachedGenerateResult,
   setCachedGenerateResult,
 } from "../lib/generate-result-cache";
+import { trackHasEraEvidence } from "../lib/era-evidence";
 import { createRequestBudget } from "../lib/request-budget";
 import {
   REQUEST_HARD_TIMEOUT_MS,
@@ -2422,11 +2423,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           verified: finalTracks,
         };
       }
-      const verified = finalTracks.filter((track) =>
-        typeof track.releaseYear === "number" &&
-        track.releaseYear >= eraRange.start &&
-        track.releaseYear <= eraRange.end
-      );
+      const verified = finalTracks.filter((track) => trackHasEraEvidence(track, eraRange));
       const requiredCount = Math.min(
         length,
         Math.max(10, Math.ceil(length * STRICT_EXPLICIT_ERA_EVIDENCE_RATIO))

@@ -25,6 +25,7 @@ import {
   EXPANDED_GENRE_ALIASES,
   termRegex,
 } from "../../lib/expanded-intent-vocabulary";
+import { trackHasEraEvidence } from "../../lib/era-evidence";
 
 const ROOT_GENRE_TERMS: Record<string, string[]> = {
   country: ["country", "americana", "cowboy", "red dirt"],
@@ -121,17 +122,17 @@ function explicitEraRange(vibe: string | undefined): { start: number; end: numbe
 }
 
 function matchesExplicitEra(
-  track: { releaseYear?: number | null },
+  track: { releaseYear?: number | null; trackName?: string | null; artistName?: string | null; albumName?: string | null },
   era: { start: number; end: number } | null
 ): boolean {
-  return !!era &&
-    typeof track.releaseYear === "number" &&
-    track.releaseYear >= era.start &&
-    track.releaseYear <= era.end;
+  return !!era && trackHasEraEvidence(track, era);
 }
 
 export function capTracksForHybridScoring<T extends {
   trackId: string;
+  trackName?: string | null;
+  artistName?: string | null;
+  albumName?: string | null;
   energy: number | null;
   valence: number | null;
   acousticness?: number | null;

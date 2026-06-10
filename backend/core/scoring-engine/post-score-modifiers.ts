@@ -24,6 +24,7 @@ import {
 } from "../../lib/playlist-freshness";
 import { applyVibeMatchGuards, modeScoreMultiplier } from "../../lib/vibe-match-guards";
 import { refineSongScore } from "../../lib/emotion";
+import { trackHasEraEvidence } from "../../lib/era-evidence";
 import type { ScoredLibraryTrack } from "./types";
 import type { HybridScoreResult } from "../../lib/hybrid-scoring";
 import type { FeedbackMemory } from "../../lib/feedback-memory";
@@ -146,7 +147,7 @@ export function applyPostScoreModifiers<T extends {
       score += Math.max(0, popularityBalance) * 0.035;
     }
     const era = promptEraYear(input.vibe);
-    if (era && typeof enriched.releaseYear === "number" && enriched.releaseYear >= era.start && enriched.releaseYear <= era.end) {
+    if (era && trackHasEraEvidence(enriched, era)) {
       score += 0.12;
     }
     if (input.feedbackMemory) {
