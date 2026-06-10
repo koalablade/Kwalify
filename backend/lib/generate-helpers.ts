@@ -130,6 +130,14 @@ export function formatTracksForApi(
     energy?: number | null;
     valence?: number | null;
     tempo?: number | null;
+    danceability?: number | null;
+    acousticness?: number | null;
+    instrumentalness?: number | null;
+    speechiness?: number | null;
+    releaseYear?: number | null;
+    popularity?: number | null;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
     score?: number;
     rediscoveryScore?: number;
     narrativeRole?: string;
@@ -168,6 +176,14 @@ export function formatTracksForApi(
         energy: t.energy ?? null,
         valence: t.valence ?? null,
         tempo: t.tempo ?? null,
+        danceability: t.danceability ?? null,
+        acousticness: t.acousticness ?? null,
+        instrumentalness: t.instrumentalness ?? null,
+        speechiness: t.speechiness ?? null,
+        releaseYear: t.releaseYear ?? null,
+        popularity: t.popularity ?? null,
+        spotifyArtistGenres: Array.isArray(t.spotifyArtistGenres) ? t.spotifyArtistGenres : [],
+        albumGenres: Array.isArray(t.albumGenres) ? t.albumGenres : [],
         score: Math.round((t.score ?? 0.7) * 100) / 100,
         rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
         narrativeRole: t.narrativeRole,
