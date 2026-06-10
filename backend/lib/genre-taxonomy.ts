@@ -68,6 +68,7 @@ export interface TrackGenreProfile {
   genrePrimary: RootGenre;
   genreSecondary: RootGenre | null;
   holidayBound: boolean;
+  diagnostics?: ClassificationDiagnostics;
 }
 
 function buildTaxonomy(): GenreTaxon[] {
@@ -123,6 +124,7 @@ export function toGenreProfile(c: TrackGenreClassification): TrackGenreProfile {
     genrePrimary: c.genrePrimary,
     genreSecondary: c.genreSecondary,
     holidayBound: c.holidayBound,
+    diagnostics: c.diagnostics,
   };
 }
 
@@ -305,6 +307,15 @@ function inferGenreFromAudioOnly(track: {
   danceability?: number | null;
   speechiness?: number | null;
 }): TrackGenreClassification | null {
+  const presentAudioFields = [
+    track.energy,
+    track.valence,
+    track.acousticness,
+    track.danceability,
+    track.speechiness,
+  ].filter((value) => typeof value === "number").length;
+  if (presentAudioFields < 3) return null;
+
   const a = track.acousticness ?? 0.5;
   const e = track.energy ?? 0.5;
   const d = track.danceability ?? 0.5;
@@ -342,6 +353,12 @@ function inferGenreFromAudioOnly(track: {
     microStyle: null,
     confidenceScore: 0.38,
     holidayBound: false,
+    diagnostics: {
+      taxonomyHit: false,
+      artistHintMatched: null,
+      patternMatched: null,
+      audioFallbackUsed: true,
+    },
   };
 }
 
@@ -370,6 +387,12 @@ function applyAudioGenreHeuristics(
   },
   hits: { taxon: GenreTaxon; score: number; micro: string | null }[]
 ): void {
+  const hasA = typeof track.acousticness === "number";
+  const hasE = typeof track.energy === "number";
+  const hasD = typeof track.danceability === "number";
+  const hasSp = typeof track.speechiness === "number";
+  const hasInst = typeof track.instrumentalness === "number";
+  const hasV = typeof track.valence === "number";
   const a = track.acousticness ?? 0.5;
   const e = track.energy ?? 0.5;
   const d = track.danceability ?? 0.5;
@@ -377,9 +400,9 @@ function applyAudioGenreHeuristics(
   const inst = track.instrumentalness ?? 0.1;
 
   const v = track.valence ?? 0.5;
-  const sunnyAcoustic = v >= 0.58 && a > 0.45 && e >= 0.35 && e <= 0.78;
+  const sunnyAcoustic = hasV && hasA && hasE && v >= 0.58 && a > 0.45 && e >= 0.35 && e <= 0.78;
 
-  if (a > 0.58 && e < 0.55 && d < 0.6) {
+  if (hasA && hasE && hasD && a > 0.58 && e < 0.55 && d < 0.6) {
     if (sunnyAcoustic) {
       pushHit(hits, "indie", "indie_pop", 0.36, "bright acoustic indie");
       pushHit(hits, "folk", "singer_songwriter", 0.22, null);
@@ -395,11 +418,13 @@ function applyAudioGenreHeuristics(
     }
   }
   if (
+    hasA &&
+    hasE &&
     a > 0.52 &&
     a < 0.88 &&
     e >= 0.35 &&
     e <= 0.72 &&
-    (track.speechiness ?? 0.2) < 0.28
+    (!hasSp || sp < 0.28)
   ) {
     if (sunnyAcoustic) {
       pushHit(hits, "indie", "indie_folk", 0.3, "warm acoustic indie");
@@ -409,14 +434,14 @@ function applyAudioGenreHeuristics(
       pushHit(hits, "country", "modern_country", 0.24, null);
     }
   }
-  if (sp > 0.38 && e > 0.42) pushHit(hits, "hip_hop", "trap", 0.34, null);
-  if (d > 0.72 && e > 0.62) {
+  if (hasSp && hasE && sp > 0.38 && e > 0.42) pushHit(hits, "hip_hop", "trap", 0.34, null);
+  if (hasD && hasE && d > 0.72 && e > 0.62) {
     pushHit(hits, "electronic", "house", 0.28, null);
     pushHit(hits, "pop", "dance_pop", 0.2, null);
   }
-  if (e < 0.32 && a > 0.45) pushHit(hits, "jazz", "smooth_jazz", 0.22, null);
-  if (inst > 0.55 && e < 0.45) pushHit(hits, "electronic", "ambient", 0.25, null);
-  if (e > 0.78 && (track.valence ?? 0.5) < 0.4) pushHit(hits, "metal", "metalcore", 0.28, null);
+  if (hasE && hasA && e < 0.32 && a > 0.45) pushHit(hits, "jazz", "smooth_jazz", 0.22, null);
+  if (hasInst && hasE && inst > 0.55 && e < 0.45) pushHit(hits, "electronic", "ambient", 0.25, null);
+  if (hasE && hasV && e > 0.78 && v < 0.4) pushHit(hits, "metal", "metalcore", 0.28, null);
 }
 
 function pushHit(
@@ -453,6 +478,7 @@ export function profileToClassification(p: TrackGenreProfile): TrackGenreClassif
     microStyle: p.subGenres[1] ?? null,
     confidenceScore: p.confidence,
     holidayBound: p.holidayBound,
+    diagnostics: p.diagnostics,
   };
 }
 

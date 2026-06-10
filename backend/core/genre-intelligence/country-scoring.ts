@@ -36,6 +36,11 @@ export interface CountryScoreBreakdown {
 
 export function computeCountryScore(track: CountryScoreInput): CountryScoreBreakdown {
   const blob = `${track.trackName} ${track.artistName} ${track.albumName}`;
+  const hasAcousticness = typeof track.acousticness === "number";
+  const hasEnergy = typeof track.energy === "number";
+  const hasDanceability = typeof track.danceability === "number";
+  const hasSpeechiness = typeof track.speechiness === "number";
+  const hasTempo = typeof track.tempo === "number";
   const a = track.acousticness ?? 0.5;
   const e = track.energy ?? 0.5;
   const d = track.danceability ?? 0.5;
@@ -44,11 +49,11 @@ export function computeCountryScore(track: CountryScoreInput): CountryScoreBreak
 
   let storytelling = 0;
   if (COUNTRY_TEXT_RE.test(blob)) storytelling += 0.45;
-  if (sp > 0.22 && sp < 0.42) storytelling += 0.12;
+  if (hasSpeechiness && sp > 0.22 && sp < 0.42) storytelling += 0.12;
 
   let acousticGuitar = 0;
-  if (a > 0.45 && a < 0.92) acousticGuitar += 0.35;
-  if (e > 0.3 && e < 0.72) acousticGuitar += 0.1;
+  if (hasAcousticness && a > 0.45 && a < 0.92) acousticGuitar += 0.35;
+  if (hasEnergy && e > 0.3 && e < 0.72) acousticGuitar += 0.1;
 
   let ruralImagery = RURAL_RE.test(blob) ? 0.4 : 0;
   if (/\b(story|stories|heartland|dust|gravel|whiskey|beer|neon diner)\b/i.test(blob)) {
@@ -56,12 +61,12 @@ export function computeCountryScore(track: CountryScoreInput): CountryScoreBreak
   }
 
   let twangFeatures = 0;
-  if (a > 0.5 && d < 0.68 && sp < 0.35) twangFeatures += 0.25;
+  if (hasAcousticness && hasDanceability && hasSpeechiness && a > 0.5 && d < 0.68 && sp < 0.35) twangFeatures += 0.25;
   if (/\b(twang|steel guitar|banjo|fiddle|pedal steel)\b/i.test(blob)) twangFeatures += 0.35;
 
   let bpmFit = 0;
-  if (tempo >= 80 && tempo <= 140) bpmFit += 0.3;
-  else if (tempo >= 70 && tempo <= 155) bpmFit += 0.12;
+  if (hasTempo && tempo >= 80 && tempo <= 140) bpmFit += 0.3;
+  else if (hasTempo && tempo >= 70 && tempo <= 155) bpmFit += 0.12;
 
   let folkPenalty = FOLK_INDIE_RE.test(blob) && !COUNTRY_TEXT_RE.test(blob) ? 0.35 : 0;
   let indiePenalty =

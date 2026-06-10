@@ -98,6 +98,16 @@ function topKey(rec: Record<string, number>): string | null {
 }
 
 function scoreAudioFamily(track: TrackInput, family: RootGenre): number {
+  const presentAudioFields = [
+    track.acousticness,
+    track.energy,
+    track.danceability,
+    track.speechiness,
+    track.instrumentalness,
+    track.valence,
+  ].filter((value) => typeof value === "number").length;
+  if (presentAudioFields < 2) return 0;
+
   const a = track.acousticness ?? 0.5;
   const e = track.energy ?? 0.5;
   const d = track.danceability ?? 0.5;

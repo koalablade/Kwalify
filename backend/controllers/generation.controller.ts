@@ -45,6 +45,7 @@ import { detectArchaeologyIntent } from "../lib/library-archaeology";
 import { computeSurpriseMix } from "../lib/human-surprise";
 import { analyzeMomentPipeline } from "../lib/moment-pipeline";
 import { getUserGenreProfileForGenerate } from "../lib/genre-profile-cache";
+import { classifyTrack } from "../lib/genre-taxonomy";
 import { buildGenreIntelligenceStack } from "../lib/genre-intelligence-stack";
 import {
   getCachedGenreStack,
@@ -1179,12 +1180,6 @@ const NO_LIBRARY_GENRE_SEARCH_TERMS: Record<string, string[]> = {
   metal: ["metal", "metalcore", "thrash"],
 };
 
-function finalGuardStrings(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    : [];
-}
-
 function noLibrarySearchQueries(vibe: string, families: string[]): string[] {
   const cleanedVibe = vibe.trim();
   const queries = new Set<string>();
@@ -1265,25 +1260,6 @@ async function buildNoLibrarySpotifyCandidates(opts: {
   });
 }
 
-function finalGuardTruthFamily(track: {
-  artistName?: string | null;
-  spotifyArtistGenres?: unknown;
-  albumGenres?: unknown;
-}): string | null {
-  const known = FINAL_GUARD_KNOWN_ARTISTS.find((entry) => entry.pattern.test(track.artistName ?? ""));
-  if (known) return known.family;
-  const metadata = [
-    ...finalGuardStrings(track.spotifyArtistGenres),
-    ...finalGuardStrings(track.albumGenres),
-  ].map((value) => value.toLowerCase());
-  for (const [family, terms] of Object.entries(FINAL_GUARD_GENRE_TERMS)) {
-    if (metadata.some((value) => terms.some((term) => value.includes(term)))) {
-      return family;
-    }
-  }
-  return null;
-}
-
 function hasFinalGenreEvidence(
   track: {
     trackId: string;
@@ -1309,15 +1285,35 @@ function hasFinalGenreEvidence(
   expectedFamilies: string[],
 ): boolean {
   if (expectedFamilies.length === 0) return true;
-  const truth = finalGuardTruthFamily(track);
-  if (truth) return expectedFamilies.includes(truth);
-
   const classification = classMap.get(track.trackId);
-  if (!classification || !expectedFamilies.includes(classification.genreFamily)) return false;
-  const diagnostics = classification.diagnostics;
+  const localClassification = classifyTrack({
+    trackName: track.trackName ?? "",
+    artistName: track.artistName ?? "",
+    albumName: track.albumName ?? "",
+    energy: null,
+    valence: null,
+  });
+  const cachedDiagnostics = classification?.diagnostics;
+  const cachedHasLocalEvidence =
+    !!classification &&
+    expectedFamilies.includes(classification.genreFamily) &&
+    cachedDiagnostics?.taxonomyHit === true &&
+    cachedDiagnostics.audioFallbackUsed !== true &&
+    cachedDiagnostics.patternMatched !== "spotify_genre_metadata" &&
+    (!!cachedDiagnostics.artistHintMatched || !!cachedDiagnostics.patternMatched);
+  const candidateClassification =
+    cachedHasLocalEvidence
+      ? classification
+      : localClassification;
+  if (!candidateClassification || !expectedFamilies.includes(candidateClassification.genreFamily)) {
+    const known = FINAL_GUARD_KNOWN_ARTISTS.find((entry) => entry.pattern.test(track.artistName ?? ""));
+    return !!known && expectedFamilies.includes(known.family);
+  }
+  const diagnostics = candidateClassification.diagnostics;
   if (
     diagnostics?.taxonomyHit === true &&
     diagnostics.audioFallbackUsed !== true &&
+    diagnostics.patternMatched !== "spotify_genre_metadata" &&
     (!!diagnostics.artistHintMatched || !!diagnostics.patternMatched)
   ) {
     return true;

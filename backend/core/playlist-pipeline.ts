@@ -26,6 +26,7 @@ import {
   type FreshnessStats,
 } from "../lib/playlist-freshness";
 import type { GenreAudit } from "../lib/genre-audit";
+import { classifyTrack } from "../lib/genre-taxonomy";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
@@ -255,7 +256,9 @@ function contradictsExplicitGenreTruth(
 function hasPositiveExplicitGenreEvidence(
   track: {
     trackId: string;
+    trackName?: string | null;
     artistName?: string | null;
+    albumName?: string | null;
     spotifyArtistGenres?: unknown;
     albumGenres?: unknown;
     genrePrimary?: string | null;
@@ -264,16 +267,38 @@ function hasPositiveExplicitGenreEvidence(
   explicitFamilies: string[],
 ): boolean {
   if (explicitFamilies.length === 0) return true;
-  const truth = truthGenreFamily(track);
-  if (truth) return explicitFamilies.includes(truth);
 
   const classification = classMap.get(track.trackId);
   const family = genreFamilyForTrack(track, classMap);
-  if (!classification || !family || !explicitFamilies.includes(family)) return false;
+  const localClassification = classifyTrack({
+    trackName: track.trackName ?? "",
+    artistName: track.artistName ?? "",
+    albumName: track.albumName ?? "",
+    energy: null,
+    valence: null,
+  });
+  const cachedDiagnostics = classification?.diagnostics;
+  const cachedHasLocalEvidence =
+    !!classification &&
+    !!family &&
+    explicitFamilies.includes(family) &&
+    cachedDiagnostics?.taxonomyHit === true &&
+    cachedDiagnostics.audioFallbackUsed !== true &&
+    cachedDiagnostics.patternMatched !== "spotify_genre_metadata" &&
+    (!!cachedDiagnostics.artistHintMatched || !!cachedDiagnostics.patternMatched);
+  const candidateClassification =
+    cachedHasLocalEvidence
+      ? classification
+      : localClassification;
+  const candidateFamily = getGenreFamily(
+    candidateClassification.genreFamily ?? candidateClassification.genrePrimary
+  );
+  if (!candidateFamily || !explicitFamilies.includes(candidateFamily)) return false;
 
-  const diagnostics = classification.diagnostics;
+  const diagnostics = candidateClassification.diagnostics;
   const hasTextEvidence = diagnostics?.taxonomyHit === true &&
     diagnostics.audioFallbackUsed !== true &&
+    diagnostics.patternMatched !== "spotify_genre_metadata" &&
     (!!diagnostics.artistHintMatched || !!diagnostics.patternMatched);
   return hasTextEvidence;
 }
