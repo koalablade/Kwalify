@@ -1090,6 +1090,102 @@ function hasValidCachedIntent(cached: {
   return genrePresent / tracks.length >= 0.75;
 }
 
+const FINAL_GUARD_GENRE_TERMS: Record<string, string[]> = {
+  country: ["country", "americana", "red dirt", "outlaw country", "honky tonk", "bluegrass", "nashville", "country road"],
+  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap"],
+  rock: ["rock", "new wave", "post-punk", "punk", "grunge", "psychedelic", "album rock"],
+  reggae: ["reggae", "dancehall", "dub", "rocksteady"],
+  pop: ["pop", "dance pop", "synthpop"],
+  indie: ["indie", "alternative indie", "neo-psychedelic", "pov: indie"],
+  electronic: ["electronic", "edm", "house", "techno", "trance", "dubstep"],
+  rnb: ["r&b", "rnb", "neo soul"],
+  soul: ["soul", "funk", "motown"],
+  latin: ["latin", "reggaeton", "salsa", "bachata"],
+  jazz: ["jazz", "bebop", "swing"],
+  metal: ["metal", "metalcore", "thrash"],
+};
+
+const FINAL_GUARD_KNOWN_ARTISTS: Array<{ pattern: RegExp; family: string }> = [
+  { pattern: /\bnas\b/i, family: "hip_hop" },
+  { pattern: /\bxxxtentacion\b/i, family: "hip_hop" },
+  { pattern: /\bbob\s+marley\b/i, family: "reggae" },
+  { pattern: /\bthe\s+doors\b/i, family: "rock" },
+  { pattern: /\bblondie\b/i, family: "rock" },
+  { pattern: /\btame\s+impala\b/i, family: "indie" },
+  { pattern: /\beminem\b/i, family: "hip_hop" },
+  { pattern: /\brockwell\b/i, family: "pop" },
+];
+
+function finalGuardStrings(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function finalGuardTruthFamily(track: {
+  artistName?: string | null;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
+}): string | null {
+  const known = FINAL_GUARD_KNOWN_ARTISTS.find((entry) => entry.pattern.test(track.artistName ?? ""));
+  if (known) return known.family;
+  const metadata = [
+    ...finalGuardStrings(track.spotifyArtistGenres),
+    ...finalGuardStrings(track.albumGenres),
+  ].map((value) => value.toLowerCase());
+  for (const [family, terms] of Object.entries(FINAL_GUARD_GENRE_TERMS)) {
+    if (metadata.some((value) => terms.some((term) => value.includes(term)))) {
+      return family;
+    }
+  }
+  return null;
+}
+
+function hasFinalGenreEvidence(
+  track: {
+    trackId: string;
+    trackName?: string | null;
+    artistName?: string | null;
+    albumName?: string | null;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
+  },
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+    diagnostics?: {
+      taxonomyHit?: boolean;
+      artistHintMatched?: string | null;
+      patternMatched?: string | null;
+      audioFallbackUsed?: boolean;
+    };
+  }>,
+  expectedFamilies: string[],
+): boolean {
+  if (expectedFamilies.length === 0) return true;
+  const truth = finalGuardTruthFamily(track);
+  if (truth) return expectedFamilies.includes(truth);
+
+  const classification = classMap.get(track.trackId);
+  if (!classification || !expectedFamilies.includes(classification.genreFamily)) return false;
+  const diagnostics = classification.diagnostics;
+  if (
+    diagnostics?.taxonomyHit === true &&
+    diagnostics.audioFallbackUsed !== true &&
+    (!!diagnostics.artistHintMatched || !!diagnostics.patternMatched)
+  ) {
+    return true;
+  }
+
+  const blob = `${track.trackName ?? ""} ${track.artistName ?? ""} ${track.albumName ?? ""}`.toLowerCase();
+  return expectedFamilies.some((family) =>
+    (FINAL_GUARD_GENRE_TERMS[family] ?? []).some((term) => blob.includes(term))
+  );
+}
+
 router.get("/generate/status", (req, res): void => {
   const userId = currentGenerateUserId(req);
   if (!userId) {
@@ -1935,6 +2031,73 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Locked intent final validation"
     );
+    const strictGenreEvidenceDiagnostics = (() => {
+      const expectedFamilies = lockedIntent.primaryGenres.length > 0
+        ? lockedIntent.primaryGenres
+        : lockedIntent.genreFamilies;
+      if (expectedFamilies.length === 0) {
+        return { active: false, expectedFamilies: [], verifiedCount: finalTracks.length, rejectedCount: 0, requiredCount: 0, verified: finalTracks };
+      }
+      const verified = finalTracks.filter((track) =>
+        hasFinalGenreEvidence(track, userGenreProfile.trackClassifications, expectedFamilies)
+      );
+      const requiredCount = Math.min(
+        finalTracks.length,
+        Math.max(10, Math.ceil(finalTracks.length * 0.60))
+      );
+      return {
+        active: true,
+        expectedFamilies,
+        verifiedCount: verified.length,
+        rejectedCount: finalTracks.length - verified.length,
+        requiredCount,
+        verified,
+      };
+    })();
+    if (
+      strictGenreEvidenceDiagnostics.active &&
+      strictGenreEvidenceDiagnostics.verifiedCount < strictGenreEvidenceDiagnostics.requiredCount
+    ) {
+      req.log.warn(
+        {
+          userId,
+          vibe,
+          strictGenreEvidenceDiagnostics: {
+            ...strictGenreEvidenceDiagnostics,
+            verified: undefined,
+          },
+        },
+        "Explicit genre evidence guard blocked weak playlist"
+      );
+      setGeneratePhase(userId, requestId, "error");
+      if (respondIfStale(res, userId, requestId)) return;
+      generateFail(
+        res,
+        409,
+        "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
+        `I could not find enough verified ${strictGenreEvidenceDiagnostics.expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
+        {
+          hint: "Run a fresh Spotify library sync so artist genres are updated, or broaden the prompt.",
+          strictGenreEvidence: {
+            ...strictGenreEvidenceDiagnostics,
+            verified: undefined,
+          },
+        }
+      );
+      return;
+    }
+    if (
+      strictGenreEvidenceDiagnostics.active &&
+      strictGenreEvidenceDiagnostics.rejectedCount > 0
+    ) {
+      finalTracks = strictGenreEvidenceDiagnostics.verified as PlaylistTrack[];
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+    }
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
     const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
@@ -2280,6 +2443,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       finalGenreDistribution,
       promptDriftAudit,
+      strictGenreEvidence: {
+        ...strictGenreEvidenceDiagnostics,
+        verified: undefined,
+      },
       playlistQuality: v3Diagnostics?.playlistQuality ?? null,
       explicitIntentRepair: ((v3Diagnostics ?? {}) as Record<string, unknown>)["explicitIntentRepair"] ?? null,
       feedbackDiagnostics,
@@ -2382,6 +2549,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       tracks: finalApiTracks,
       feedbackDiagnostics,
       promptDriftAudit,
+      strictGenreEvidence: {
+        ...strictGenreEvidenceDiagnostics,
+        verified: undefined,
+      },
       generationAuditSnapshot,
       requestOrchestration: pipeline.requestOrchestration ?? {
         layer: "request",
