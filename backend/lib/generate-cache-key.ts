@@ -17,6 +17,8 @@ export function buildGenerateCacheKey(parts: {
   length: number;
   varietyBoost?: boolean;
   referencePlaylist?: boolean;
+  referencePlaylistKey?: string | null;
+  sceneId?: string | null;
   noLibraryMode?: boolean;
   mockMode?: boolean;
 }): string {
@@ -29,6 +31,8 @@ export function buildGenerateCacheKey(parts: {
     String(parts.length),
     parts.varietyBoost ? "v1" : "v0",
     parts.referencePlaylist ? "ref1" : "ref0",
+    parts.referencePlaylistKey ? `ref:${normalizePrompt(parts.referencePlaylistKey)}` : "ref:none",
+    parts.sceneId ? `scene:${normalizePrompt(parts.sceneId)}` : "scene:none",
     parts.noLibraryMode ? "nolib1" : "nolib0",
     parts.mockMode ? "mock1" : "mock0",
   ].join("|");

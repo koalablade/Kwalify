@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v7: genre prompts stay genre-only and decade proof excludes artist-only matches. */
-  cacheVersion: "v7";
+  /** v8: cache includes reference/scene identity and hard final validation. */
+  cacheVersion: "v8";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;

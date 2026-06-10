@@ -1645,6 +1645,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const vibeKind = detectVibeKind(vibe, emotionProfile);
     const budget = createRequestBudget(startMs);
+    const debugMode = req.query.debug === "1";
     const resultCacheKey = getGenerateCacheKey({
       userId,
       vibe,
@@ -1652,6 +1653,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       mode,
       length,
       referencePlaylist: !!referencePlaylist,
+      referencePlaylistKey: referencePlaylist ?? null,
+      sceneId: moodSceneId,
       noLibraryMode: !!noLibraryMode,
       mockMode: devMode,
     });
@@ -1662,12 +1665,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       canonicalHints: canonicalCrossGenreHints(vibe),
     });
 
-    if (!varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
+    if (!debugMode && !varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
       tStage = Date.now();
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v7" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v8" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2537,6 +2540,36 @@ router.post("/generate", async (req, res): Promise<void> => {
       publishedCount: finalTracks.length,
       publishMode: strictEraEvidenceDiagnostics.active ? "verified_only" : "inactive",
     };
+    const hardValidationFailures = [
+      (lockedIntent.primaryGenres.length > 0 || constraintLayer.hard.genres.length > 0) &&
+        finalValidation.genreConsistency === "FAIL" ? "genreConsistency" : null,
+      (lockedIntent.eraStart !== null || constraintLayer.hard.eraStart !== null) &&
+        finalValidation.eraAlignment === "FAIL" ? "eraAlignment" : null,
+    ].filter((failure): failure is string => !!failure);
+    if (finalTracks.length > 0 && hardValidationFailures.length > 0) {
+      req.log.warn(
+        { userId, vibe, finalValidation, hardValidationFailures, finalCount: finalTracks.length },
+        "Hard locked intent validation blocked playlist"
+      );
+      setGeneratePhase(userId, requestId, "error");
+      if (respondIfStale(res, userId, requestId)) return;
+      generateFail(
+        res,
+        409,
+        "LOCKED_INTENT_VALIDATION_FAILED",
+        "I could not make this playlist without breaking the explicit genre or era request.",
+        {
+          finalValidation,
+          hardValidationFailures,
+          strictGenreEvidence: {
+            ...strictGenreEvidenceDiagnostics,
+            verified: undefined,
+          },
+          strictEraEvidence: strictEraEvidencePublic,
+        }
+      );
+      return;
+    }
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
     const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
@@ -2852,7 +2885,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v7",
+        cacheVersion: "v8",
         playlistName,
         vibe,
         mode,
@@ -2879,7 +2912,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Generation complete"
     );
 
-    const debugMode = req.query.debug === "1";
     const finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
     const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>(
       (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),

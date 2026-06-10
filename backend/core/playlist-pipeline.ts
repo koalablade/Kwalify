@@ -1674,7 +1674,6 @@ function buildV3LockedIntent<T extends {
   releaseYear?: number | null;
 }>(
   unifiedIntentContext: UnifiedIntentContext,
-  previousUnifiedIntentContext: UnifiedIntentContext | null,
   profile: EmotionProfile,
   candidatePool: T[],
   classMap: UserGenreProfile["trackClassifications"],
@@ -1686,10 +1685,10 @@ function buildV3LockedIntent<T extends {
       ? explicitGenreFamilies
       : poolGenreFamilies.length > 0
         ? poolGenreFamilies
-        : previousUnifiedIntentContext?.lockedIntent.genreFamilies,
-    eraRange: unifiedIntentContext.lockedIntent.eraRange ?? previousUnifiedIntentContext?.lockedIntent.eraRange ?? null,
-    mood: previousUnifiedIntentContext?.lockedIntent.mood.length ? previousUnifiedIntentContext.lockedIntent.mood : moodFallbackFromProfile(profile),
-    activity: previousUnifiedIntentContext?.lockedIntent.activity ?? "listening",
+        : undefined,
+    eraRange: unifiedIntentContext.lockedIntent.eraRange ?? null,
+    mood: moodFallbackFromProfile(profile),
+    activity: "listening",
     energy: energyIntentFromProfile(profile),
   });
 }
@@ -1778,9 +1777,6 @@ export function buildPlaylistPipeline<T extends {
       },
     },
   };
-  const previousUnifiedIntentContext = opts.lastSuccessfulVibe?.trim()
-    ? buildUnifiedIntentContext(opts.lastSuccessfulVibe, opts.emotionProfile)
-    : null;
   const intentContract = buildIntentContract(opts.vibe);
   const retrieval = buildRetrievalPools(
     scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
@@ -1828,7 +1824,6 @@ export function buildPlaylistPipeline<T extends {
   const explicitPromptGenreFamilies = intentContract.genreFamilies;
   const v3LockedIntent = buildV3LockedIntent(
     unifiedIntentContextWithMemory,
-    previousUnifiedIntentContext,
     opts.emotionProfile,
     contractGuardedScoredPool as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
     classMap,
