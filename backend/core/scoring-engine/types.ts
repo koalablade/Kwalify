@@ -14,7 +14,7 @@ export type ScoredLibraryTrack<T extends { trackId: string }> = T & {
   explorationDistance?: number;
   resonanceStrength?: number;
   /** V3 enrichment — populated by create-playlist after V3 track mapping */
-  genrePrimary?: string | null;
+  genrePrimary?: string;
 };
 
 export type { TrackScoringDebug, HybridScoringContext, HybridScoreResult } from "../../lib/hybrid-scoring";

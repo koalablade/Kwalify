@@ -2280,8 +2280,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       finalGenreDistribution,
       promptDriftAudit,
-      playlistQuality: v3Diagnostics.playlistQuality ?? null,
-      explicitIntentRepair: (v3Diagnostics as Record<string, unknown>)["explicitIntentRepair"] ?? null,
+      playlistQuality: v3Diagnostics?.playlistQuality ?? null,
+      explicitIntentRepair: ((v3Diagnostics ?? {}) as Record<string, unknown>)["explicitIntentRepair"] ?? null,
       feedbackDiagnostics,
     };
 

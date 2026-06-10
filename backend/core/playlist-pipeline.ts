@@ -177,7 +177,7 @@ function eraRangeFromCandidatePool<T extends { releaseYear?: number | null }>(
   return { start: Math.min(...years), end: Math.max(...years) };
 }
 
-function genreFamilyForTrack<T extends { trackId: string; genrePrimary?: string }>(
+function genreFamilyForTrack<T extends { trackId: string; genrePrimary?: string | null }>(
   track: T,
   classMap: UserGenreProfile["trackClassifications"],
 ): string | null {
@@ -187,7 +187,7 @@ function genreFamilyForTrack<T extends { trackId: string; genrePrimary?: string 
   return normalized && normalized !== "unknown" ? normalized : null;
 }
 
-function trackMatchesGenreFamilies<T extends { trackId: string; genrePrimary?: string }>(
+function trackMatchesGenreFamilies<T extends { trackId: string; genrePrimary?: string | null }>(
   track: T,
   classMap: UserGenreProfile["trackClassifications"],
   genreFamilies: string[],
@@ -246,7 +246,7 @@ type IntentContractDiagnostics = {
 
 type IntentContractTrack = {
   trackId: string;
-  genrePrimary?: string;
+  genrePrimary?: string | null;
   releaseYear?: number | null;
   energy: number | null;
   valence: number | null;
@@ -662,7 +662,7 @@ function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
   const before = evaluatePlaylistQuality(playlist, intent, classMap);
   const genreActive = intent.genres.length > 0;
-  const eraRange = intent.era;
+  const eraRange = intent.eraRange;
   const eraActive = !!eraRange;
   if (!genreActive && !eraActive) {
     return { tracks: playlist, diagnostics: { active: false, repairedCount: 0, beforeQuality: before, afterQuality: before } };

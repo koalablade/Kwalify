@@ -67,7 +67,7 @@ export function buildFallbackPipelineResult<
   });
   const fbScored: Array<ScoredLibraryTrack<T> & V3TrackMetadata> = fb.map((t) => {
     const genre = opts.genreByTrack?.(t.trackId);
-    const genrePrimary = t.genrePrimary ?? genre?.genrePrimary ?? null;
+    const genrePrimary = t.genrePrimary ?? genre?.genrePrimary ?? undefined;
     return {
       ...t,
       genrePrimary,
