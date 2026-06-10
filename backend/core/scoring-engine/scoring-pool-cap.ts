@@ -97,6 +97,14 @@ function matchesExplicitFamily(
   return candidates.some((genre) => families.has(genre));
 }
 
+function explicitFamilyPenalty(
+  classification: TrackGenreClassification | undefined,
+  families: Set<string>
+): number {
+  if (families.size === 0 || !classification) return 0;
+  return matchesExplicitFamily(classification, families) ? 0 : 0.45;
+}
+
 function explicitEraRange(vibe: string | undefined): { start: number; end: number } | null {
   const normalized = vibe ?? "";
   for (const era of EXPANDED_ERA_TERMS) {
@@ -241,14 +249,13 @@ export function capTracksForHybridScoring<T extends {
     const ranked = candidates
       .map((t) => {
         const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
-        const explicitBoost = matchesExplicitFamily(
-          opts.classifications.get(t.trackId),
-          explicitFamilies
-        ) ? 0.35 : 0;
+        const classification = opts.classifications.get(t.trackId);
+        const explicitBoost = matchesExplicitFamily(classification, explicitFamilies) ? 0.35 : 0;
+        const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
         const eraBoost = matchesExplicitEra(t, explicitEra) ? 0.25 : 0;
         return {
           t,
-          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05 - recentPen + explicitBoost + eraBoost,
+          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05 - recentPen + explicitBoost + eraBoost - antiGenrePenalty,
         };
       })
       .sort((a, b) => b.fit - a.fit);
@@ -313,10 +320,9 @@ export function capTracksForHybridScoring<T extends {
   const ranked = candidates.map((t) => {
     const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
     const eraBoost = libraryEraScoreBoost(t.addedAt ?? null, eraMode);
-    const explicitBoost = matchesExplicitFamily(
-      opts.classifications.get(t.trackId),
-      explicitFamilies
-    ) ? 0.25 : 0;
+    const classification = opts.classifications.get(t.trackId);
+    const explicitBoost = matchesExplicitFamily(classification, explicitFamilies) ? 0.25 : 0;
+    const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
     const explicitEraBoost = matchesExplicitEra(t, explicitEra) ? 0.20 : 0;
     return {
       t,
@@ -326,7 +332,8 @@ export function capTracksForHybridScoring<T extends {
         recentPen +
         eraBoost +
         explicitBoost +
-        explicitEraBoost,
+        explicitEraBoost -
+        antiGenrePenalty,
     };
   });
   ranked.sort((a, b) => b.fit - a.fit);

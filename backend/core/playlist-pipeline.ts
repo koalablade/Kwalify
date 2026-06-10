@@ -696,12 +696,21 @@ function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName
 
   const repairBudget = Math.min(Math.max(4, Math.floor(playlistLength * 0.35)), candidateRank.length);
   const targets = repaired
-    .map((track, index) => ({ track, index, fit: intentContractFit(track, classMap, intent) }))
+    .map((track, index) => {
+      const fit = intentContractFit(track, classMap, intent);
+      const reasons = [
+        genreActive && !trackMatchesGenreFamilies(track, classMap, intent.genres) ? "genre" : null,
+        eraRange && !(typeof track.releaseYear === "number" && track.releaseYear >= eraRange.start && track.releaseYear <= eraRange.end) ? "era" : null,
+        !fit.requiredPassed || fit.score < 0.50 ? "intent_fit" : null,
+      ].filter((reason): reason is string => !!reason);
+      return { track, index, fit, reasons };
+    })
     .filter(({ fit }) => !fit.requiredPassed || fit.score < 0.50)
     .sort((a, b) => a.fit.score - b.fit.score)
     .slice(0, repairBudget);
 
   let repairedCount = 0;
+  const repairReasons: Record<string, number> = {};
   for (const target of targets) {
     const replacementIndex = candidateRank.findIndex(({ track }) => {
       if (used.has(track.trackId)) return false;
@@ -717,6 +726,9 @@ function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName
     repaired[target.index] = replacement;
     used.add(replacement.trackId);
     if (replacement.artistName) artistCounts.set(replacement.artistName, (artistCounts.get(replacement.artistName) ?? 0) + 1);
+    for (const reason of target.reasons) {
+      repairReasons[reason] = (repairReasons[reason] ?? 0) + 1;
+    }
     repairedCount++;
   }
 
@@ -732,6 +744,7 @@ function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName
       minEraFit,
       eraFit: round3(eraFit),
       candidateCount: candidateRank.length,
+      repairReasons,
     },
   };
 }

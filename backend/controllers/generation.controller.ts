@@ -2258,6 +2258,32 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     const debugMode = req.query.debug === "1";
+    const finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
+    const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>((acc, track) => {
+      const genre = track.genrePrimary ?? track.genreFamily ?? track.genres?.[0] ?? "(missing)";
+      acc[genre] = (acc[genre] ?? 0) + 1;
+      return acc;
+    }, {});
+    const generationAuditSnapshot = {
+      prompt: vibe,
+      mode,
+      playlistId: savedPlaylistId,
+      trackCount: finalTracks.length,
+      cacheDiagnostics: {
+        status: cacheEntryStatus,
+        staleBypassed: cacheEntryStatus === "stale",
+      },
+      pool: {
+        librarySize: scoringPool.librarySize,
+        hybridPoolSize: scoringPool.hybridPoolSize,
+        poolCapped: scoringPool.poolCapped,
+      },
+      finalGenreDistribution,
+      promptDriftAudit,
+      playlistQuality: v3Diagnostics.playlistQuality ?? null,
+      explicitIntentRepair: (v3Diagnostics as Record<string, unknown>)["explicitIntentRepair"] ?? null,
+      feedbackDiagnostics,
+    };
 
     res.json({
       success: true,
@@ -2353,9 +2379,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? "Could not read that reference playlist. If it is public, try the open.spotify.com link; if it is yours, log out and back in to refresh permissions. Generation used your text vibe only."
         : null,
       librarySyncHint,
-      tracks: formatTracksForApi(finalTracks, emotionProfile),
+      tracks: finalApiTracks,
       feedbackDiagnostics,
       promptDriftAudit,
+      generationAuditSnapshot,
       requestOrchestration: pipeline.requestOrchestration ?? {
         layer: "request",
         candidateGenerator: fallbackReason ? "fast_fallback" : "v3",

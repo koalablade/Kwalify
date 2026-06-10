@@ -907,6 +907,24 @@ function renderPlaylistExplanation(expl) {
     ${div.dominantGenre ? `<div style="margin-top:8px;font-size:0.7rem;color:var(--muted)">Dominant genre: <strong style="color:var(--text)">${esc(div.dominantGenre.replace(/_/g," "))}</strong>${div.dominantEra?` · Era: <strong style="color:var(--text)">${esc(div.dominantEra)}</strong>`:""}</div>` : ""}
   </div>`;
 
+  const quality = v3.playlistQuality || result.generationAuditSnapshot?.playlistQuality || {};
+  const repair = v3.explicitIntentRepair || result.generationAuditSnapshot?.explicitIntentRepair || {};
+  const cache = result.cacheDiagnostics || result.generationAuditSnapshot?.cacheDiagnostics || {};
+  const qPct = (value) => typeof value === "number" ? `${Math.round(value * 100)}%` : "—";
+  const qualityHtml = `
+  <div class="explain-card">
+    <div class="explain-card-title">✅ Playlist Quality Report</div>
+    <div class="dp-pool-grid">
+      <div class="dp-pool-stat"><div class="dp-pool-num">${qPct(quality.genrePurity)}</div><div class="dp-pool-lbl">Genre purity</div></div>
+      <div class="dp-pool-stat"><div class="dp-pool-num">${qPct(quality.promptAlignment)}</div><div class="dp-pool-lbl">Prompt fit</div></div>
+      <div class="dp-pool-stat"><div class="dp-pool-num">${repair.repairedCount ?? 0}</div><div class="dp-pool-lbl">Final repairs</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:0.72rem;color:var(--muted)">
+      Cache: <strong style="color:var(--text)">${esc(cache.status || "fresh")}</strong>
+      ${repair.active ? ` · repair reasons: <strong style="color:var(--text)">${esc(Object.entries(repair.repairReasons || {}).map(([k,v]) => `${k}:${v}`).join(", ") || "intent")}</strong>` : ""}
+    </div>
+  </div>`;
+
   // ── 5. Selection summary ───────────────────────────────────────────────────
   const selRate = sel.selectionRate ?? (sel.totalCandidates > 0 ? Math.round(sel.selected/sel.totalCandidates*100) : 0);
   const rejReasons = (sel.topRejectionReasons||[]).map(r => r.replace(/_/g," "));
@@ -1192,6 +1210,7 @@ function buildUnifiedDebugPanel(result, dbg) {
       ${sysHtml}
       ${intentHtml}
       ${diversityHtml}
+      ${qualityHtml}
     </div>
     ${lanesHtml}
     ${traceHtml}
