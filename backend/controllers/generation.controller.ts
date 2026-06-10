@@ -131,6 +131,7 @@ import {
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO = 0.85;
+const STRICT_EXPLICIT_ERA_EVIDENCE_RATIO = 0.85;
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
 if (globalArchitectureState[generationControllerLock]) {
   throw new Error(
@@ -1631,10 +1632,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       tStage = Date.now();
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
-      // Only use cache entries that carry the v2 schema (genrePrimary per track).
-      // Pre-v2 entries lack genrePrimary and are treated as cache misses so a
-      // fresh generation populates the field correctly.
-      if (cached && cached.cacheVersion === "v2" && hasValidCachedIntent(cached)) {
+      // Only use cache entries generated after strict final genre/era validation.
+      if (cached && cached.cacheVersion === "v3" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2408,6 +2407,86 @@ router.post("/generate", async (req, res): Promise<void> => {
         userGenreProfile.trackClassifications
       );
     }
+    const strictEraEvidenceDiagnostics = (() => {
+      const eraRange = lockedIntent.eraRange;
+      if (!eraRange) {
+        return {
+          active: false,
+          eraRange: null,
+          requiredRatio: STRICT_EXPLICIT_ERA_EVIDENCE_RATIO,
+          requestedCount: length,
+          finalCount: finalTracks.length,
+          verifiedCount: finalTracks.length,
+          rejectedCount: 0,
+          requiredCount: 0,
+          verified: finalTracks,
+        };
+      }
+      const verified = finalTracks.filter((track) =>
+        typeof track.releaseYear === "number" &&
+        track.releaseYear >= eraRange.start &&
+        track.releaseYear <= eraRange.end
+      );
+      const requiredCount = Math.min(
+        length,
+        Math.max(10, Math.ceil(length * STRICT_EXPLICIT_ERA_EVIDENCE_RATIO))
+      );
+      return {
+        active: true,
+        eraRange,
+        requiredRatio: STRICT_EXPLICIT_ERA_EVIDENCE_RATIO,
+        requestedCount: length,
+        finalCount: finalTracks.length,
+        verifiedCount: verified.length,
+        rejectedCount: finalTracks.length - verified.length,
+        requiredCount,
+        verified,
+      };
+    })();
+    if (
+      strictEraEvidenceDiagnostics.active &&
+      strictEraEvidenceDiagnostics.verifiedCount < strictEraEvidenceDiagnostics.requiredCount
+    ) {
+      req.log.warn(
+        {
+          userId,
+          vibe,
+          strictEraEvidenceDiagnostics: {
+            ...strictEraEvidenceDiagnostics,
+            verified: undefined,
+          },
+        },
+        "Explicit era evidence guard blocked weak playlist"
+      );
+      setGeneratePhase(userId, requestId, "error");
+      if (respondIfStale(res, userId, requestId)) return;
+      generateFail(
+        res,
+        409,
+        "INSUFFICIENT_VERIFIED_ERA_EVIDENCE",
+        `I could not find enough verified ${strictEraEvidenceDiagnostics.eraRange?.start}-${strictEraEvidenceDiagnostics.eraRange?.end} tracks to make this playlist without guessing.`,
+        {
+          hint: "Try a broader decade prompt, add a genre, or regenerate after syncing tracks with release years.",
+          strictEraEvidence: {
+            ...strictEraEvidenceDiagnostics,
+            verified: undefined,
+          },
+        }
+      );
+      return;
+    }
+    if (
+      strictEraEvidenceDiagnostics.active &&
+      strictEraEvidenceDiagnostics.rejectedCount > 0
+    ) {
+      finalTracks = strictEraEvidenceDiagnostics.verified as PlaylistTrack[];
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+    }
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
     const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
@@ -2723,7 +2802,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v2",
+        cacheVersion: "v3",
         playlistName,
         vibe,
         mode,
@@ -2801,6 +2880,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       noLibrarySpotify: noLibrarySpotifyDiagnostics,
       strictGenreEvidence: {
         ...strictGenreEvidenceDiagnostics,
+        verified: undefined,
+      },
+      strictEraEvidence: {
+        ...strictEraEvidenceDiagnostics,
         verified: undefined,
       },
       playlistQuality: v3Diagnostics?.playlistQuality ?? null,
@@ -2912,6 +2995,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       promptDriftAudit,
       strictGenreEvidence: {
         ...strictGenreEvidenceDiagnostics,
+        verified: undefined,
+      },
+      strictEraEvidence: {
+        ...strictEraEvidenceDiagnostics,
         verified: undefined,
       },
       generationAuditSnapshot,
