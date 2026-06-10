@@ -63,6 +63,11 @@ function localTextYear(track: EraEvidenceTrack): number | null {
   const text = `${track.trackName ?? ""} ${track.albumName ?? ""}`;
   const matches = text.match(/\b(19[5-9]\d|20[0-2]\d)\b/g) ?? [];
   for (const match of matches) {
+    const index = text.indexOf(match);
+    const context = text.slice(Math.max(0, index - 18), index + match.length + 18);
+    if (/\b(?:remaster(?:ed)?|re-?master(?:ed)?|reissue|deluxe|anniversary)\b/i.test(context)) {
+      continue;
+    }
     const year = validYear(Number(match));
     if (year) return year;
   }
@@ -98,11 +103,7 @@ export function eraEvidenceYearForRange(track: EraEvidenceTrack, range: EraRange
   const tagRange = metadataEraRange(track);
   if (tagRange) return rangesOverlap(tagRange, range) ? Math.max(range.start, tagRange.start) : null;
 
-  const artist = track.artistName ?? "";
-  const anchor = CLASSIC_ERA_ARTIST_RANGES.find((entry) => entry.pattern.test(artist));
-  if (!anchor || !rangesOverlap(anchor.range, range)) return null;
-
-  return Math.max(range.start, anchor.range.start);
+  return null;
 }
 
 export function eraEvidenceStatusForRange(track: EraEvidenceTrack, range: EraRange): EraEvidenceStatus {
@@ -118,7 +119,7 @@ export function eraEvidenceStatusForRange(track: EraEvidenceTrack, range: EraRan
   const artist = track.artistName ?? "";
   const anchor = CLASSIC_ERA_ARTIST_RANGES.find((entry) => entry.pattern.test(artist));
   if (!anchor) return "unknown";
-  return rangesOverlap(anchor.range, range) ? "match" : "mismatch";
+  return rangesOverlap(anchor.range, range) ? "unknown" : "mismatch";
 }
 
 export function trackHasEraEvidence(track: EraEvidenceTrack, range: EraRange): boolean {

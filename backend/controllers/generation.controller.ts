@@ -1311,14 +1311,18 @@ function hasFinalGenreEvidence(
   const cachedHasLocalEvidence =
     !!classification &&
     expectedFamilies.includes(classification.genreFamily) &&
-    cachedDiagnostics?.taxonomyHit === true &&
-    cachedDiagnostics.audioFallbackUsed !== true &&
-    cachedDiagnostics.patternMatched !== "spotify_genre_metadata" &&
-    (!!cachedDiagnostics.artistHintMatched || !!cachedDiagnostics.patternMatched);
+    cachedDiagnostics?.audioFallbackUsed !== true &&
+    cachedDiagnostics?.patternMatched !== "spotify_genre_metadata";
+  const cachedHasExpectedFamily =
+    !!classification &&
+    expectedFamilies.includes(classification.genreFamily) &&
+    cachedDiagnostics?.audioFallbackUsed !== true &&
+    cachedDiagnostics?.patternMatched !== "spotify_genre_metadata";
   const candidateClassification =
     cachedHasLocalEvidence
       ? classification
       : localClassification;
+  if (cachedHasExpectedFamily) return true;
   if (!candidateClassification || !expectedFamilies.includes(candidateClassification.genreFamily)) {
     const known = FINAL_GUARD_KNOWN_ARTISTS.find((entry) => entry.pattern.test(track.artistName ?? ""));
     return !!known && expectedFamilies.includes(known.family);
@@ -1348,10 +1352,27 @@ function explicitGenreFallbackFailure(opts: {
 }): { code: string; error: string; details: Record<string, unknown> } | null {
   const expectedFamilies = buildCsspLockedIntent(opts.vibe).genreFamilies;
   if (expectedFamilies.length === 0) return null;
+  if (opts.finalCount <= 0) {
+    return {
+      code: "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
+      error: opts.noLibraryMode
+        ? `I could not find enough verified ${expectedFamilies.join("/")} tracks from Spotify search to make this playlist without guessing.`
+        : `I could not find enough verified ${expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
+      details: {
+        expectedFamilies,
+        requestedCount: opts.requestedCount,
+        finalCount: opts.finalCount,
+        requiredCount: 1,
+        requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
+        fallbackBlocked: true,
+        noLibraryMode: !!opts.noLibraryMode,
+      },
+    };
+  }
 
   const requiredCount = Math.min(
-    opts.requestedCount,
-    Math.max(10, Math.ceil(opts.requestedCount * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
+    opts.finalCount,
+    Math.max(1, Math.ceil(opts.finalCount * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
   );
   if (opts.hasGenreAwarePool && opts.finalCount >= requiredCount) return null;
 
@@ -1646,7 +1667,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v6" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v7" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2349,9 +2370,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       const verified = finalTracks.filter((track) =>
         hasFinalGenreEvidence(track, userGenreProfile.trackClassifications, expectedFamilies)
       );
+      const evidenceBasisCount = finalTracks.length;
       const requiredCount = Math.min(
-        length,
-        Math.max(10, Math.ceil(length * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
+        evidenceBasisCount,
+        Math.max(1, Math.ceil(evidenceBasisCount * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
       );
       return {
         active: true,
@@ -2359,6 +2381,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
         requestedCount: length,
         finalCount: finalTracks.length,
+        evidenceBasisCount,
         verifiedCount: verified.length,
         rejectedCount: finalTracks.length - verified.length,
         requiredCount,
@@ -2829,7 +2852,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v6",
+        cacheVersion: "v7",
         playlistName,
         vibe,
         mode,

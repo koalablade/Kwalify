@@ -169,16 +169,6 @@ function moodFallbackFromProfile(profile: EmotionProfile): string[] {
   return ["balanced"];
 }
 
-function eraRangeFromCandidatePool<T extends { releaseYear?: number | null }>(
-  tracks: T[],
-): { start: number; end: number } | null {
-  const years = tracks
-    .map((track) => track.releaseYear)
-    .filter((year): year is number => typeof year === "number" && year >= 1900);
-  if (years.length === 0) return null;
-  return { start: Math.min(...years), end: Math.max(...years) };
-}
-
 function genreFamilyForTrack<T extends { trackId: string; genrePrimary?: string | null }>(
   track: T,
   classMap: UserGenreProfile["trackClassifications"],
@@ -1697,7 +1687,7 @@ function buildV3LockedIntent<T extends {
       : poolGenreFamilies.length > 0
         ? poolGenreFamilies
         : previousUnifiedIntentContext?.lockedIntent.genreFamilies,
-    eraRange: eraRangeFromCandidatePool(candidatePool) ?? previousUnifiedIntentContext?.lockedIntent.eraRange,
+    eraRange: unifiedIntentContext.lockedIntent.eraRange ?? previousUnifiedIntentContext?.lockedIntent.eraRange ?? null,
     mood: previousUnifiedIntentContext?.lockedIntent.mood.length ? previousUnifiedIntentContext.lockedIntent.mood : moodFallbackFromProfile(profile),
     activity: previousUnifiedIntentContext?.lockedIntent.activity ?? "listening",
     energy: energyIntentFromProfile(profile),
