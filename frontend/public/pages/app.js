@@ -20,7 +20,32 @@ function trackGenreLabel(track) {
   return track?.genrePrimary ||
     track?.genreFamily ||
     (Array.isArray(track?.genres) && track.genres.length ? track.genres[0] : null) ||
+    (track?.scoringDebug?.genrePrimary && track.scoringDebug.genrePrimary !== "unknown" ? track.scoringDebug.genrePrimary : null) ||
+    (Array.isArray(track?.clusterIds)
+      ? track.clusterIds.find((cluster) => typeof cluster === "string" && cluster.startsWith("genre:"))?.replace("genre:", "")
+      : null) ||
     "(missing)";
+}
+
+function finalGenreDistributionEntries(result) {
+  const diagnosticDistribution =
+    result?.finalGenreDistribution ||
+    result?.generationAuditSnapshot?.finalGenreDistribution;
+  if (diagnosticDistribution && typeof diagnosticDistribution === "object") {
+    const entries = Object.entries(diagnosticDistribution)
+      .filter(([genre, count]) => genre && typeof count === "number" && count > 0)
+      .sort((a, b) => b[1] - a[1]);
+    const knownEntries = entries.filter(([genre]) => genre !== "(missing)" && genre !== "unknown");
+    if (knownEntries.length) return knownEntries.slice(0, 10);
+    if (entries.length) return entries.slice(0, 10);
+  }
+
+  const genreCount = {};
+  (result?.tracks || []).forEach((track) => {
+    const genre = trackGenreLabel(track);
+    genreCount[genre] = (genreCount[genre] || 0) + 1;
+  });
+  return Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
 }
 
 async function api(path, opts = {}) {
@@ -1177,10 +1202,8 @@ function buildUnifiedDebugPanel(result, dbg) {
 
   // ── Final playlist genre composition ──────────────────────────────────────
   const finalTracks = result.tracks || [];
-  const genreCount = {};
-  finalTracks.forEach(t => { const g = trackGenreLabel(t); genreCount[g] = (genreCount[g] || 0) + 1; });
   const total = finalTracks.length || 1;
-  const genreDist = Object.entries(genreCount).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const genreDist = finalGenreDistributionEntries(result);
   const compositionHtml = `
     <div class="dp-card">
       <div class="dp-card-title">🎼 Final Playlist Genre Composition</div>
@@ -1386,10 +1409,8 @@ function buildDebugPanel(result) {
     </div>`;
 
   const finalTracks = result.tracks || [];
-  const genreCount = {};
-  finalTracks.forEach(t => { const g = trackGenreLabel(t); genreCount[g] = (genreCount[g] || 0) + 1; });
   const total = finalTracks.length || 1;
-  const genreDist = Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const genreDist = finalGenreDistributionEntries(result);
   const compositionHtml = `
     <div class="dp-card">
       <div class="dp-card-title">🎼 Final Playlist Genre Composition</div>

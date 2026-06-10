@@ -2825,6 +2825,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         : null,
       librarySyncHint,
       tracks: finalApiTracks,
+      finalGenreDistribution,
       feedbackDiagnostics,
       promptDriftAudit,
       strictGenreEvidence: {
