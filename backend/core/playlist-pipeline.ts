@@ -598,7 +598,7 @@ function flattenRetrievalPools<T>(retrieval: RetrievalPools<T>): T[] {
   return out;
 }
 
-function evaluatePlaylistQuality<T extends IntentContractTrack & { genrePrimary?: string }>(
+function evaluatePlaylistQuality<T extends IntentContractTrack & { genrePrimary?: string | null }>(
   playlist: T[],
   intent: IntentContract,
   classMap: UserGenreProfile["trackClassifications"],
