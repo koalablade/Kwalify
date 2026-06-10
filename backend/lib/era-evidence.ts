@@ -100,9 +100,6 @@ export function eraEvidenceYearForRange(track: EraEvidenceTrack, range: EraRange
   const textYear = localTextYear(track);
   if (textYear) return rangeContains(range, textYear) ? textYear : null;
 
-  const tagRange = metadataEraRange(track);
-  if (tagRange) return rangesOverlap(tagRange, range) ? Math.max(range.start, tagRange.start) : null;
-
   return null;
 }
 
@@ -114,7 +111,7 @@ export function eraEvidenceStatusForRange(track: EraEvidenceTrack, range: EraRan
   if (textYear) return rangeContains(range, textYear) ? "match" : "mismatch";
 
   const tagRange = metadataEraRange(track);
-  if (tagRange) return rangesOverlap(tagRange, range) ? "match" : "mismatch";
+  if (tagRange) return rangesOverlap(tagRange, range) ? "unknown" : "mismatch";
 
   const artist = track.artistName ?? "";
   const anchor = CLASSIC_ERA_ARTIST_RANGES.find((entry) => entry.pattern.test(artist));

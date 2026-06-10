@@ -95,11 +95,11 @@ export const EXPANDED_EVENT_TERMS = [
 export const EXPANDED_ERA_TERMS: Array<{ label: string; start: number; end: number; terms: string[]; aesthetic: string }> = [
   { label: "40s", start: 1940, end: 1949, terms: ["1940s", "40s", "forties", "wartime", "big band era"], aesthetic: "wartime big band, crooners, early jazz-pop warmth" },
   { label: "50s", start: 1950, end: 1959, terms: ["1950s", "50s", "fifties", "rock and roll era", "doo wop era"], aesthetic: "doo-wop, early rock and roll, jukebox Americana" },
-  { label: "60s", start: 1960, end: 1969, terms: ["1960s", "60s", "sixties", "british invasion", "psychedelic era", "mod era"], aesthetic: "psychedelia, folk-rock, British invasion, bright analogue" },
-  { label: "70s", start: 1970, end: 1979, terms: ["1970s", "70s", "seventies", "disco era", "classic rock era", "punk era"], aesthetic: "warm funk, disco, punk, expansive analogue rock" },
-  { label: "80s", start: 1980, end: 1989, terms: ["1980s", "80s", "eighties", "new wave era", "hair metal era", "synth era", "mtv era"], aesthetic: "neon synths, new wave, gated drums, cinematic gloss" },
-  { label: "90s", start: 1990, end: 1999, terms: ["1990s", "90s", "nineties", "grunge era", "britpop era", "golden age hip hop"], aesthetic: "grunge, alt-rock, boom bap, neo-soul, raw crossover emotion" },
-  { label: "00s", start: 2000, end: 2009, terms: ["2000s", "00s", "noughties", "naughties", "aughts", "y2k", "myspace era", "ipod era"], aesthetic: "Y2K gloss, pop punk, emo, ringtone rap, post-punk revival" },
+  { label: "60s", start: 1960, end: 1969, terms: ["1960s", "1960's", "60s", "60's", "sixties", "british invasion", "psychedelic era", "mod era"], aesthetic: "psychedelia, folk-rock, British invasion, bright analogue" },
+  { label: "70s", start: 1970, end: 1979, terms: ["1970s", "1970's", "70s", "70's", "seventies", "disco era", "classic rock era", "punk era"], aesthetic: "warm funk, disco, punk, expansive analogue rock" },
+  { label: "80s", start: 1980, end: 1989, terms: ["1980s", "1980's", "80s", "80's", "eighties", "new wave era", "hair metal era", "synth era", "mtv era"], aesthetic: "neon synths, new wave, gated drums, cinematic gloss" },
+  { label: "90s", start: 1990, end: 1999, terms: ["1990s", "1990's", "90s", "90's", "nineties", "grunge era", "britpop era", "golden age hip hop"], aesthetic: "grunge, alt-rock, boom bap, neo-soul, raw crossover emotion" },
+  { label: "00s", start: 2000, end: 2009, terms: ["2000s", "2000's", "00s", "00's", "noughties", "naughties", "aughts", "y2k", "myspace era", "ipod era"], aesthetic: "Y2K gloss, pop punk, emo, ringtone rap, post-punk revival" },
   { label: "10s", start: 2010, end: 2019, terms: ["2010s", "twenty tens", "tens", "tumblr era", "bloghouse revival", "edm era"], aesthetic: "streaming-era indie, EDM crossover, tumblr pop, trap bloom" },
   { label: "20s", start: 2020, end: 2029, terms: ["2020s", "twenty twenties", "twenties", "pandemic era", "tiktok era"], aesthetic: "hyperpop-adjacent, genre-fluid, lo-fi and emotionally complex" },
 ];

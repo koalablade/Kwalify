@@ -39,7 +39,7 @@ function metadataGenreMatch(genres: unknown, vibe: string): number {
 
 function promptEraYear(vibe: string): { start: number; end: number } | null {
   const lower = vibe.toLowerCase();
-  const decade = lower.match(/\b(60s|70s|80s|90s|00s|10s|20s|1960s|1970s|1980s|1990s|2000s|2010s|2020s)\b/)?.[1];
+  const decade = lower.match(/\b(60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\b/)?.[1]?.replace("'", "");
   if (!decade) return null;
   const start = decade.length === 4
     ? Number(`${decade.slice(0, 3)}0`)

@@ -353,11 +353,11 @@ function deriveDiagnosticTags(vibe: string): {
   ].filter((tag): tag is string => !!tag)
     .filter((tag, index, tags) => tags.indexOf(tag) === index);
   const eraHints = [
-    /\b(60s|1960s|sixties)\b/.test(lower) ? "60s" : null,
-    /\b(70s|1970s|seventies)\b/.test(lower) ? "70s" : null,
-    /\b(80s|1980s|eighties)\b/.test(lower) ? "80s" : null,
-    /\b(90s|1990s|nineties)\b/.test(lower) ? "90s" : null,
-    /\b(00s|2000s|y2k)\b/.test(lower) ? "00s" : null,
+    /\b(60'?s|1960'?s|sixties)\b/.test(lower) ? "60s" : null,
+    /\b(70'?s|1970'?s|seventies)\b/.test(lower) ? "70s" : null,
+    /\b(80'?s|1980'?s|eighties)\b/.test(lower) ? "80s" : null,
+    /\b(90'?s|1990'?s|nineties)\b/.test(lower) ? "90s" : null,
+    /\b(00'?s|2000'?s|y2k)\b/.test(lower) ? "00s" : null,
     /\b(2010s|10s)\b/.test(lower) ? "10s" : null,
     /\b(2020s|20s|modern)\b/.test(lower) ? "20s" : null,
     ...expandedEras,
@@ -416,7 +416,7 @@ function canonicalCrossGenreHints(vibe: string): string[] {
   if (/\b(dirt.?road|country|cowboy|western|americana)\b/.test(lower)) {
     ["country", "acoustic", "folk", "warm"].forEach((hint) => hints.add(hint));
   }
-  if (/\b(techno|trance|90s|rave|warehouse)\b/.test(lower)) {
+  if (/\b(techno|trance|90'?s|rave|warehouse)\b/.test(lower)) {
     ["electronic", "trance", "early EDM", "high BPM"].forEach((hint) => hints.add(hint));
   }
   if (/\b(chill|study|lo.?fi|ambient|focus)\b/.test(lower)) {
@@ -486,9 +486,9 @@ function extractGenreTerms(text: string): { roots: string[]; terms: string[] } {
 function extractEraRange(vibe: string): { start: number | null; end: number | null; terms: string[] } {
   const lower = vibe.toLowerCase();
   const terms: string[] = [];
-  const decadeMatch = lower.match(/\b(60s|70s|80s|90s|00s|10s|20s|1960s|1970s|1980s|1990s|2000s|2010s|2020s)\b/);
+  const decadeMatch = lower.match(/\b(60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\b/);
   if (decadeMatch?.[1]) {
-    const term = decadeMatch[1];
+    const term = decadeMatch[1].replace("'", "");
     terms.push(term);
     const start = term.length === 4
       ? Number(term.slice(0, 3) + "0")
@@ -1670,7 +1670,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v9" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v10" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2885,7 +2885,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v9",
+        cacheVersion: "v10",
         playlistName,
         vibe,
         mode,

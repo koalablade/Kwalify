@@ -54,7 +54,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
     sonicAesthetic: "warm analogue, doo-wop, clean electric, Americana",
   },
   {
-    patterns: [/\b(1960s|60s|sixties)\b/i],
+    patterns: [/\b(1960'?s|60'?s|sixties)\b/i],
     label: "60s",
     nostalgiaBoost: 0.33,
     energyDelta: 0.05,
@@ -62,7 +62,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
     sonicAesthetic: "psychedelic, British invasion, folk-rock, idealistic brightness",
   },
   {
-    patterns: [/\b(1970s|70s|seventies)\b/i],
+    patterns: [/\b(1970'?s|70'?s|seventies)\b/i],
     label: "70s",
     nostalgiaBoost: 0.32,
     energyDelta: 0.04,
@@ -70,7 +70,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
     sonicAesthetic: "warm funk, soul, expansive rock, analogue warmth, groove",
   },
   {
-    patterns: [/\b(1980s|80s|eighties)\b/i],
+    patterns: [/\b(1980'?s|80'?s|eighties)\b/i],
     label: "80s",
     nostalgiaBoost: 0.35,
     energyDelta: 0.12,
@@ -79,7 +79,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
       "synth-pop, neon-lit cinematic, new wave, reverb-drenched, surreal and unreal, gated drums",
   },
   {
-    patterns: [/\b(1990s|90s|nineties)\b/i],
+    patterns: [/\b(1990'?s|90'?s|nineties)\b/i],
     label: "90s",
     nostalgiaBoost: 0.32,
     energyDelta: 0.08,
@@ -87,7 +87,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
     sonicAesthetic: "grunge, alt-rock, neo-soul, R&B crossover, bittersweet raw emotion",
   },
   {
-    patterns: [/\b(2000s|00s|noughties|y2k)\b/i],
+    patterns: [/\b(2000'?s|00'?s|noughties|y2k)\b/i],
     label: "00s",
     nostalgiaBoost: 0.28,
     energyDelta: 0.06,
