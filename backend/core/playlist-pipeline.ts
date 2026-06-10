@@ -662,18 +662,19 @@ function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
   const before = evaluatePlaylistQuality(playlist, intent, classMap);
   const genreActive = intent.genres.length > 0;
-  const eraActive = !!intent.era;
+  const eraRange = intent.era;
+  const eraActive = !!eraRange;
   if (!genreActive && !eraActive) {
     return { tracks: playlist, diagnostics: { active: false, repairedCount: 0, beforeQuality: before, afterQuality: before } };
   }
 
   const minGenrePurity = genreActive ? 0.78 : 0;
   const minEraFit = eraActive ? 0.55 : 0;
-  const eraFit = eraActive
+  const eraFit = eraRange
     ? playlist.filter((track) =>
         typeof track.releaseYear === "number" &&
-        track.releaseYear >= intent.era!.start &&
-        track.releaseYear <= intent.era!.end
+        track.releaseYear >= eraRange.start &&
+        track.releaseYear <= eraRange.end
       ).length / Math.max(1, playlist.length)
     : 1;
   if ((!genreActive || before.genrePurity >= minGenrePurity) && (!eraActive || eraFit >= minEraFit)) {
