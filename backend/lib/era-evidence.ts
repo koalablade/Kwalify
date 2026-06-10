@@ -13,6 +13,9 @@ const MIN_REASONABLE_YEAR = 1950;
 const MAX_REASONABLE_YEAR = 2029;
 
 const CLASSIC_ERA_ARTIST_RANGES: Array<{ pattern: RegExp; range: EraRange }> = [
+  { pattern: /\b(?:led\s+zeppelin|fleetwood\s+mac|kate\s+bush|ac\/?dc)\b/i, range: { start: 1969, end: 1989 } },
+  { pattern: /\b(?:queen|david\s+bowie|abba|the\s+police|billy\s+joel)\b/i, range: { start: 1970, end: 1989 } },
+  { pattern: /\b(?:prince|madonna|michael\s+jackson|george\s+michael|a-?ha|inxs|simple\s+minds|billy\s+idol|cyndi\s+lauper)\b/i, range: { start: 1980, end: 1989 } },
   { pattern: /\bmeat\s*loaf\b/i, range: { start: 1977, end: 1995 } },
   { pattern: /\bblondie\b/i, range: { start: 1976, end: 1982 } },
   { pattern: /\bpat\s+benatar\b/i, range: { start: 1979, end: 1988 } },
@@ -21,6 +24,8 @@ const CLASSIC_ERA_ARTIST_RANGES: Array<{ pattern: RegExp; range: EraRange }> = [
   { pattern: /\b(?:def\s+leppard|journey|foreigner)\b/i, range: { start: 1978, end: 1989 } },
   { pattern: /\b(?:duran\s+duran|tears\s+for\s+fears|eurythmics)\b/i, range: { start: 1981, end: 1989 } },
   { pattern: /\b(?:the\s+cure|depeche\s+mode|new\s+order)\b/i, range: { start: 1980, end: 1993 } },
+  { pattern: /\b(?:oasis|blur|pulp|nirvana|pearl\s+jam|radiohead|r\.?e\.?m\.?|smashing\s+pumpkins|alanis\s+morissette|the\s+cranberries)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:arctic\s+monkeys|the\s+killers|queens?\s+of\s+the\s+stone\s+age|kendrick\s+lamar|xxxtentacion|future|beyonc[eé]|sampha|khalid|dave|burna\s+boy)\b/i, range: { start: 2000, end: 2029 } },
 ];
 
 function validYear(value: unknown): number | null {

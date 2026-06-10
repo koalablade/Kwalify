@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v3: includes strict final era/genre validation-safe track metadata. */
-  cacheVersion: "v3";
+  /** v4: uses verified-era-first generation and rejects known wrong-era anchors. */
+  cacheVersion: "v4";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;

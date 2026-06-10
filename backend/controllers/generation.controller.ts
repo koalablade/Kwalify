@@ -1634,7 +1634,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v3" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v4" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2482,17 +2482,21 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       return;
     }
-    if (
-      strictEraEvidenceDiagnostics.active &&
-      strictEraEvidenceDiagnostics.rejectedCount > 0
-    ) {
-      finalTracks = strictEraEvidenceDiagnostics.compatible as PlaylistTrack[];
-      finalValidation = validateLockedIntentOutput(
-        finalTracks,
-        lockedIntent,
-        constraintLayer,
-        userGenreProfile.trackClassifications
-      );
+    if (strictEraEvidenceDiagnostics.active) {
+      const verifiedFinalCount = strictEraEvidenceDiagnostics.verifiedCount;
+      const verifiedPublishFloor = Math.min(length, Math.max(12, Math.ceil(length * 0.55)));
+      const nextFinalTracks = verifiedFinalCount >= verifiedPublishFloor
+        ? strictEraEvidenceDiagnostics.verified
+        : strictEraEvidenceDiagnostics.compatible;
+      if (nextFinalTracks.length !== finalTracks.length) {
+        finalTracks = nextFinalTracks as PlaylistTrack[];
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+      }
     }
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
@@ -2809,7 +2813,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v3",
+        cacheVersion: "v4",
         playlistName,
         vibe,
         mode,
