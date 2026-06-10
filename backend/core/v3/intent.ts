@@ -145,13 +145,11 @@ const ERA_BUCKET_RANGES: Record<string, { start: number; end: number }> = {
 };
 
 function matchesTerm(input: string, term: string): boolean {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  return new RegExp(`\\b${escaped}\\b`, "i").test(input);
+  return termRegex([term]).test(input);
 }
 
 function termMatchIndex(input: string, term: string): number {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  const match = new RegExp(`\\b${escaped}\\b`, "i").exec(input);
+  const match = termRegex([term]).exec(input);
   return match?.index ?? -1;
 }
 
@@ -196,6 +194,19 @@ function expandedActivity(input: string): string | null {
   if (hit === "travel") return "walking";
   if (hit === "sleep") return "relaxing";
   return hit;
+}
+
+function parseEnergy(input: string): LockedIntent["energy"] {
+  if (termRegex(["gym", "workout", "high energy", "intense", "party", "rave", "running", "buzzing", "gassed", "pres", "pre drinks", "night out", "five a side"]).test(input)) {
+    return "high";
+  }
+  if (termRegex(["chill", "relax", "sleep", "ambient", "calm", "study", "focus", "soft", "low energy", "chilled", "peaceful"]).test(input)) {
+    return "low";
+  }
+  if (termRegex(["driving", "walking", "commute", "medium energy", "steady", "motorway", "train", "tube"]).test(input)) {
+    return "medium";
+  }
+  return null;
 }
 
 export function eraRangeFromBucket(bucket?: string | null): { start: number; end: number } | null {
@@ -886,11 +897,7 @@ export function buildLockedIntent(input: string): LockedIntent {
               null
   );
 
-  const energy =
-    /\b(gym|workout|hype|high energy|intense|party|rave|run|running)\b/.test(lower) ? "high" :
-    /\b(chill|relax|sleep|ambient|calm|study|focus|soft|low energy)\b/.test(lower) ? "low" :
-    /\b(driving|walk|walking|commute|medium energy|steady)\b/.test(lower) ? "medium" :
-    null;
+  const energy = parseEnergy(lower);
 
   return {
     genreFamilies,

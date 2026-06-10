@@ -121,6 +121,7 @@ import {
 } from "../lib/expanded-intent-vocabulary";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
+const STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO = 0.85;
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
 if (globalArchitectureState[generationControllerLock]) {
   throw new Error(
@@ -1106,6 +1107,11 @@ const FINAL_GUARD_GENRE_TERMS: Record<string, string[]> = {
 };
 
 const FINAL_GUARD_KNOWN_ARTISTS: Array<{ pattern: RegExp; family: string }> = [
+  { pattern: /\b(?:luke\s+combs|morgan\s+wallen|chris\s+stapleton|zach\s+bryan|bailey\s+zimmerman|lainey\s+wilson|hardy|jelly\s+roll)\b/i, family: "country" },
+  { pattern: /\b(?:tyler\s+childers|sturgill\s+simpson|jason\s+isbell|colter\s+wall|charley\s+crockett|turnpike\s+troubadours|whiskey\s+myers|flatland\s+cavalry)\b/i, family: "country" },
+  { pattern: /\b(?:cody\s+johnson|cody\s+jinks|george\s+strait|johnny\s+cash|willie\s+nelson|dolly\s+parton|merle\s+haggard|waylon\s+jennings)\b/i, family: "country" },
+  { pattern: /\b(?:kacey\s+musgraves|shania\s+twain|carrie\s+underwood|alan\s+jackson|garth\s+brooks|brooks\s*&\s*dunn|reba\s+mcentire|toby\s+keith)\b/i, family: "country" },
+  { pattern: /\b(?:billy\s+strings|alison\s+krauss|sierra\s+ferrell|red\s+clay\s+strays|treaty\s+oak\s+revival|49\s+winchester|sam\s+barber)\b/i, family: "country" },
   { pattern: /\bnas\b/i, family: "hip_hop" },
   { pattern: /\bxxxtentacion\b/i, family: "hip_hop" },
   { pattern: /\bbob\s+marley\b/i, family: "reggae" },
@@ -2043,11 +2049,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       const requiredCount = Math.min(
         finalTracks.length,
-        Math.max(10, Math.ceil(finalTracks.length * 0.60))
+        Math.max(10, Math.ceil(finalTracks.length * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
       );
       return {
         active: true,
         expectedFamilies,
+        requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
         verifiedCount: verified.length,
         rejectedCount: finalTracks.length - verified.length,
         requiredCount,

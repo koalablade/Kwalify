@@ -21,12 +21,12 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
   {
     family: "country",
     subgenres: [
-      { id: "modern_country", microStyles: ["bro-country", "stadium country"], patterns: ["modern country", "country radio"], artistHints: ["luke combs", "morgan wallen", "chris stapleton", "zach bryan"] },
-      { id: "alt_country", microStyles: ["americana", "outlaw country"], patterns: ["alt country", "alt-country", "outlaw", "americana"], artistHints: ["sturgill simpson", "tyler childers", "jason isbell", "brandi carlile", "avett brothers"] },
-      { id: "country_pop", microStyles: ["nashville pop"], patterns: ["country pop", "nashville"], artistHints: ["shania twain", "carrie underwood", "kacey musgraves"] },
-      { id: "bluegrass", microStyles: ["newgrass"], patterns: ["bluegrass", "banjo pick"], artistHints: ["alison krauss", "billy strings"] },
-      { id: "folk_country", microStyles: ["folk country", "southern folk"], patterns: ["folk country", "country folk", "honky tonk", "red dirt", "western swing"] },
-      { id: "classic_country", microStyles: ["traditional country"], patterns: ["classic country", "country legend"], artistHints: ["johnny cash", "willie nelson", "dolly parton", "george strait", "merle haggard"] },
+      { id: "modern_country", microStyles: ["bro-country", "stadium country"], patterns: ["modern country", "country radio"], artistHints: ["luke combs", "morgan wallen", "chris stapleton", "zach bryan", "bailey zimmerman", "jordan davis", "parker mccollum", "riley green", "lainey wilson", "hardy", "jelly roll"] },
+      { id: "alt_country", microStyles: ["americana", "outlaw country"], patterns: ["alt country", "alt-country", "outlaw", "americana"], artistHints: ["sturgill simpson", "tyler childers", "jason isbell", "brandi carlile", "avett brothers", "colter wall", "charley crockett", "turnpike troubadours", "whiskey myers", "flatland cavalry", "cody johnson", "cody jinks", "randall king", "kaitlin butts", "muscadine bloodline"] },
+      { id: "country_pop", microStyles: ["nashville pop"], patterns: ["country pop", "nashville"], artistHints: ["shania twain", "carrie underwood", "kacey musgraves", "taylor swift", "thomas rhett", "dan \\+ shay", "kelsea ballerini", "maren morris"] },
+      { id: "bluegrass", microStyles: ["newgrass"], patterns: ["bluegrass", "banjo pick"], artistHints: ["alison krauss", "billy strings", "molly tuttle", "trampled by turtles"] },
+      { id: "folk_country", microStyles: ["folk country", "southern folk"], patterns: ["folk country", "country folk", "honky tonk", "red dirt", "western swing"], artistHints: ["sierra ferrell", "ian munsick", "49 winchester", "treaty oak revival", "red clay strays", "sam barber"] },
+      { id: "classic_country", microStyles: ["traditional country"], patterns: ["classic country", "country legend"], artistHints: ["johnny cash", "willie nelson", "dolly parton", "george strait", "merle haggard", "waylon jennings", "hank williams", "patsy cline", "alan jackson", "garth brooks", "brooks & dunn", "reba mcentire", "toby keith", "tim mcgraw", "kenny chesney"] },
     ],
   },
   {
