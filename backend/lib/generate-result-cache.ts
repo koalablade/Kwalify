@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v11: explicit decade evidence can use local text/artist-era proof without Spotify-only genre metadata. */
-  cacheVersion: "v11";
+  /** v12: Americana-style prompts allow verified country/folk/rock bridge evidence. */
+  cacheVersion: "v12";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;

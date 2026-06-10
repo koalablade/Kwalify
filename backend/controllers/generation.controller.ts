@@ -514,6 +514,10 @@ function extractEraRange(vibe: string): { start: number | null; end: number | nu
   return { start: null, end: null, terms };
 }
 
+function isAmericanaBridgePrompt(lower: string): boolean {
+  return /\b(?:americana|americarna|americanna|americanana|alt[-\s]?country|roots\s+country|country\s+folk|folk\s+country|country\s+rock)\b/i.test(lower);
+}
+
 function extractConstraintLayer(vibe: string, signals: QualitySignalContext): ConstraintLayer {
   const lower = vibe.toLowerCase();
   const strictTerms = [
@@ -526,6 +530,7 @@ function extractConstraintLayer(vibe: string, signals: QualitySignalContext): Co
   const excludedGenreHits = extractGenreTerms(excludedText.join(" "));
   const genreHits = extractGenreTerms(vibe);
   const era = extractEraRange(vibe);
+  const americanaBridgePrompt = isAmericanaBridgePrompt(lower);
   const multiGenreTerms = [
     /\bmulti.?genre\b/.test(lower) ? "multi-genre" : null,
     /\bgenre.?blend\b/.test(lower) ? "genre blend" : null,
@@ -544,7 +549,7 @@ function extractConstraintLayer(vibe: string, signals: QualitySignalContext): Co
       eraEnd: era.end,
       strictLock: strictTerms.length > 0,
       allowMultiGenre: multiGenreTerms.length > 0,
-      allowBridge: multiGenreTerms.some((term) => /bridge|blend|crossover|fusion|multi/i.test(term)),
+      allowBridge: americanaBridgePrompt || multiGenreTerms.some((term) => /bridge|blend|crossover|fusion|multi/i.test(term)),
     },
     soft: {
       moodTags: signals.moodTags,
@@ -714,7 +719,6 @@ function passesGenreGraphBoundary(
   if (family === opts.lockedFamily || family === "unknown") return { pass: true, bridge: false };
   const bridgeFamilies = bridgeFamiliesForTrack(track, opts.classMap);
   const bridge = opts.constraints.hard.allowBridge &&
-    !opts.bridgeUsed &&
     bridgeFamilies.includes(opts.lockedFamily) &&
     bridgeFamilies.includes(family);
   return { pass: bridge, bridge };
@@ -733,7 +737,11 @@ function trackMatchesHardConstraints(
 ): boolean {
   const terms = trackGenreTerms(track, classMap);
   if (constraints.hard.excludedGenres.some((genre) => terms.includes(genre))) return false;
-  if (constraints.hard.genres.length > 0 && !constraints.hard.genres.some((genre) => terms.includes(genre))) {
+  const bridgeFamilies = constraints.hard.allowBridge ? bridgeFamiliesForTrack(track, classMap) : [];
+  if (
+    constraints.hard.genres.length > 0 &&
+    !constraints.hard.genres.some((genre) => terms.includes(genre) || bridgeFamilies.includes(genre))
+  ) {
     return false;
   }
   if (constraints.hard.strictLock && constraints.raw.explicitGenreTerms.length > 0) {
@@ -758,7 +766,8 @@ function genreEvidence(
 ): boolean | null {
   if (intent.primaryGenres.length === 0) return null;
   const terms = trackGenreTerms(track, classMap);
-  return intent.primaryGenres.some((genre) => terms.includes(genre));
+  const bridgeFamilies = bridgeFamiliesForTrack(track, classMap);
+  return intent.primaryGenres.some((genre) => terms.includes(genre) || bridgeFamilies.includes(genre));
 }
 
 function eraEvidence(track: ConstraintTrack, intent: LockedIntent): boolean | null {
@@ -912,11 +921,9 @@ function validateLockedIntentOutput(
   const familyStable = constraints.hard.allowMultiGenre ||
     families.size <= 1 ||
     (constraints.hard.allowBridge &&
-      offFamilyTracks.length <= 1 &&
       offFamilyTracks.every((track) => {
-        const family = trackGenreFamily(track, classMap);
         const bridgeFamilies = bridgeFamiliesForTrack(track, classMap);
-        return !!lockedFamily && bridgeFamilies.includes(lockedFamily) && bridgeFamilies.includes(family);
+        return !!lockedFamily && bridgeFamilies.includes(lockedFamily);
       }));
 
   const genreConsistency = familyStable && (!requiresGenre || tracks.every((track) =>
@@ -1670,7 +1677,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v11" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v12" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2885,7 +2892,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v11",
+        cacheVersion: "v12",
         playlistName,
         vibe,
         mode,
