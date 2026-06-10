@@ -404,6 +404,48 @@ export async function fetchLikedSongs(
   } while (offset < total);
 }
 
+export async function searchSpotifyTracks(
+  accessToken: string,
+  queries: string[],
+  maxTracks = 100,
+  opts?: { userKey?: string }
+): Promise<SpotifyTrack[]> {
+  const out: SpotifyTrack[] = [];
+  const seen = new Set<string>();
+
+  for (const query of queries) {
+    if (out.length >= maxTracks) break;
+    const q = query.trim();
+    if (!q) continue;
+
+    const response = await spotifyRequest<any>(
+      {
+        method: "GET",
+        url: `${SPOTIFY_API_BASE}/search`,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: {
+          q,
+          type: "track",
+          limit: Math.min(50, maxTracks - out.length),
+          market: "from_token",
+        },
+      },
+      { userKey: opts?.userKey }
+    );
+
+    for (const track of response.data.tracks?.items ?? []) {
+      if (!track?.id || track.is_local || seen.has(track.id)) continue;
+      seen.add(track.id);
+      out.push(track as SpotifyTrack);
+      if (out.length >= maxTracks) break;
+    }
+
+    if (out.length < maxTracks) await new Promise((r) => setTimeout(r, 80));
+  }
+
+  return out;
+}
+
 /** Extract playlist ID from a Spotify URL or raw 22-char id. */
 export function parseSpotifyPlaylistId(input: string): string | null {
   const trimmed = input.trim();

@@ -472,11 +472,11 @@ function renderApp() {
         </div>
 
         <div class="no-library-row">
-          <label class="no-library-toggle" title="Generate using only vibe keywords — skips your personal library">
+          <label class="no-library-toggle" title="Use Spotify-wide search for clear genre prompts, with your library only as fallback">
             <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle"></div>
             <div class="no-library-text">
               <span class="no-library-label">No Library Mode</span>
-              <span class="no-library-sub">AI-only · ignores your liked songs</span>
+              <span class="no-library-sub">Spotify-wide genre search · library fallback</span>
             </div>
           </label>
         </div>

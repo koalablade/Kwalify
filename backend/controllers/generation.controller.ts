@@ -12,7 +12,15 @@ import {
   playlistHistoryTable,
   savedPlaylistsTable,
 } from "../db";
-import { createSpotifyPlaylist, getValidAccessToken } from "../lib/spotify";
+import {
+  createSpotifyPlaylist,
+  enrichTrackMetadata,
+  fetchAlbumMetadata,
+  fetchArtistGenres,
+  fetchAudioFeatures,
+  getValidAccessToken,
+  searchSpotifyTracks,
+} from "../lib/spotify";
 import {
   blendEmotionProfiles,
   fingerprintToEmotionProfile,
@@ -1122,10 +1130,112 @@ const FINAL_GUARD_KNOWN_ARTISTS: Array<{ pattern: RegExp; family: string }> = [
   { pattern: /\brockwell\b/i, family: "pop" },
 ];
 
+const NO_LIBRARY_GENRE_SEARCH_TERMS: Record<string, string[]> = {
+  country: [
+    "genre:country",
+    "country",
+    "americana",
+    "red dirt country",
+    "outlaw country",
+    "bluegrass",
+    "zach bryan",
+    "johnny cash",
+  ],
+  hip_hop: ["genre:hip-hop", "hip hop", "rap", "trap", "drill"],
+  rock: ["genre:rock", "rock", "classic rock", "alternative rock", "indie rock"],
+  electronic: ["genre:electronic", "electronic", "house", "techno", "uk garage"],
+  rnb: ["r&b", "rnb", "neo soul", "slow jams"],
+  pop: ["genre:pop", "pop", "dance pop"],
+  reggae: ["reggae", "dancehall", "dub"],
+  jazz: ["jazz", "bebop", "swing"],
+  latin: ["latin", "reggaeton", "salsa"],
+  metal: ["metal", "metalcore", "thrash"],
+};
+
 function finalGuardStrings(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : [];
+}
+
+function noLibrarySearchQueries(vibe: string, families: string[]): string[] {
+  const cleanedVibe = vibe.trim();
+  const queries = new Set<string>();
+  if (cleanedVibe) queries.add(cleanedVibe);
+  for (const family of families) {
+    for (const term of NO_LIBRARY_GENRE_SEARCH_TERMS[family] ?? [family.replace(/_/g, " ")]) {
+      queries.add(term);
+      if (cleanedVibe && !cleanedVibe.toLowerCase().includes(term.toLowerCase())) {
+        queries.add(`${cleanedVibe} ${term}`);
+      }
+    }
+  }
+  return [...queries].slice(0, 18);
+}
+
+async function buildNoLibrarySpotifyCandidates(opts: {
+  accessToken: string;
+  userId: string;
+  vibe: string;
+  length: number;
+  families: string[];
+}): Promise<Array<typeof likedSongsTable.$inferSelect>> {
+  const rawTracks = await searchSpotifyTracks(
+    opts.accessToken,
+    noLibrarySearchQueries(opts.vibe, opts.families),
+    Math.max(80, opts.length * 3),
+    { userKey: opts.userId }
+  );
+  if (rawTracks.length === 0) return [];
+
+  const [artistGenreMap, albumMetadataMap, audioFeatures] = await Promise.all([
+    fetchArtistGenres(
+      opts.accessToken,
+      rawTracks.flatMap((track) => track.artists.map((artist) => artist.id).filter((id): id is string => !!id)),
+      { userKey: opts.userId }
+    ).catch(() => new Map<string, string[]>()),
+    fetchAlbumMetadata(
+      opts.accessToken,
+      rawTracks.map((track) => track.album.id).filter((id): id is string => !!id),
+      { userKey: opts.userId }
+    ).catch(() => new Map()),
+    fetchAudioFeatures(
+      opts.accessToken,
+      rawTracks.map((track) => track.id),
+      { userKey: opts.userId }
+    ).catch(() => []),
+  ]);
+  const featuresById = new Map(audioFeatures.map((features) => [features.id, features]));
+  const now = new Date();
+
+  return rawTracks.map((track, index) => {
+    const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
+    const features = featuresById.get(track.id);
+    return {
+      id: -1 - index,
+      spotifyUserId: opts.userId,
+      trackId: enriched.id,
+      trackName: enriched.name,
+      artistName: enriched.artists[0]?.name ?? "Unknown",
+      albumName: enriched.album.name,
+      albumArt: enriched.album.images[0]?.url ?? null,
+      durationMs: enriched.duration_ms,
+      energy: features?.energy ?? null,
+      valence: features?.valence ?? null,
+      tempo: features?.tempo ?? null,
+      danceability: features?.danceability ?? null,
+      acousticness: features?.acousticness ?? null,
+      instrumentalness: features?.instrumentalness ?? null,
+      loudness: features?.loudness ?? null,
+      speechiness: features?.speechiness ?? null,
+      spotifyArtistGenres: enriched.spotifyArtistGenres,
+      albumGenres: enriched.albumGenres,
+      popularity: enriched.popularity ?? null,
+      releaseYear: enriched.releaseYear ?? null,
+      addedAt: now,
+      createdAt: now,
+    };
+  });
 }
 
 function finalGuardTruthFamily(track: {
@@ -1480,6 +1590,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       mode,
       length,
       referencePlaylist: !!referencePlaylist,
+      noLibraryMode: !!noLibraryMode,
       mockMode: devMode,
     });
     const cacheEntryStatus = getGenerateCacheEntryStatus(resultCacheKey);
@@ -1540,9 +1651,41 @@ router.post("/generate", async (req, res): Promise<void> => {
     recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
     recordPreV3Timing(preV3Timing, "dbTimeMs", likedSongsQueryMs);
 
-    const { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
+    let { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
     if (droppedTracks > 0) {
       req.log.warn({ droppedTracks, userId }, "Dropped invalid liked-song rows");
+    }
+
+    const noLibraryExplicitFamilies = noLibraryMode ? buildCsspLockedIntent(vibe).genreFamilies : [];
+    let noLibrarySpotifyCandidateCount = 0;
+    if (!devMode && noLibraryMode && noLibraryExplicitFamilies.length > 0) {
+      try {
+        const freshTokens = await getValidAccessToken(req.session.spotifyTokens!, userId);
+        if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
+          req.session.spotifyTokens = freshTokens;
+        }
+        const spotifyCandidates = await buildNoLibrarySpotifyCandidates({
+          accessToken: freshTokens.accessToken,
+          userId,
+          vibe,
+          length,
+          families: noLibraryExplicitFamilies,
+        });
+        if (spotifyCandidates.length >= Math.min(20, length)) {
+          likedSongs = spotifyCandidates;
+          noLibrarySpotifyCandidateCount = spotifyCandidates.length;
+        } else {
+          req.log.warn(
+            { vibe, families: noLibraryExplicitFamilies, spotifyCandidateCount: spotifyCandidates.length },
+            "No Library Mode Spotify search returned too few candidates; falling back to synced library"
+          );
+        }
+      } catch (searchErr: any) {
+        req.log.warn(
+          { err: searchErr?.message, vibe, families: noLibraryExplicitFamilies },
+          "No Library Mode Spotify search failed; falling back to synced library"
+        );
+      }
     }
 
     if (likedSongs.length === 0) {
@@ -1585,6 +1728,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       mode,
       vibe,
       maxPerArtist: 2,
+      noLibrarySpotifyCandidateCount,
     };
 
     res.setTimeout(REQUEST_HARD_TIMEOUT_MS + 2000, () => {
