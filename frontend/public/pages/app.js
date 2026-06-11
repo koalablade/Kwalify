@@ -230,6 +230,7 @@ const state = {
   noLibraryMode: false,
   generating: false,
   generationProgress: null,
+  partialPreviewStartedAt: null,
   lastResult: null,
   error: null,
   tasteOpen: false,
@@ -237,6 +238,10 @@ const state = {
   showDebug: false,
   showExplain: false,
 };
+
+function debugModeEnabled() {
+  return new URLSearchParams(window.location.search).has("debug");
+}
 
 function getTheme() {
   return document.documentElement.getAttribute("data-theme") || "dark";
@@ -445,11 +450,12 @@ function renderApp() {
     : "—";
 
   const errorHtml = state.error
-    ? `<div class="alert alert-error">${esc(state.error)}</div>`
+    ? `<div class="alert alert-error">
+        <strong>Couldn’t finish that exact set.</strong>
+        <span>${esc(state.error)}</span>
+        <small>Try a broader phrase or Balanced mode — the DJ will keep the playlist inside your library.</small>
+      </div>`
     : "";
-
-  // Unified activity feed
-  const feedItems = buildActivityFeed();
 
   const moodBarsHtml = MOOD_BAR_DEFS.map((b) => `
     <div class="mood-bar-row">
@@ -607,22 +613,19 @@ function renderApp() {
       </div>
     </div>
 
-    <!-- Unified Activity Feed -->
-    <div class="recent-section">
-      <div class="section-head">
-        <h3 class="section-title">Activity</h3>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button id="deltaSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Fetch only new liked songs since last sync">
-            ${cs?.isSyncing ? "Syncing…" : "↻ Sync new"}
-          </button>
-          <button id="fullSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Re-sync your entire library from scratch">
-            Full sync
-          </button>
-          <a href="/gallery" class="section-action">All playlists →</a>
-        </div>
+    <div class="home-utility-row">
+      <div>
+        <div class="home-utility-title">Library controls</div>
+        <div class="home-utility-sub">${total.toLocaleString()} tracks synced${lastSynced ? ` · updated ${lastSynced}` : ""}</div>
       </div>
-      <div class="activity-feed">
-        ${feedItems}
+      <div class="home-utility-actions">
+        <button id="deltaSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Fetch only new liked songs since last sync">
+          ${cs?.isSyncing ? "Syncing…" : "Sync new"}
+        </button>
+        <button id="fullSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Re-sync your entire library from scratch">
+          Full sync
+        </button>
+        <a href="/gallery" class="section-action">Recent playlists →</a>
       </div>
     </div>
 
@@ -725,23 +728,46 @@ const GENERATION_STAGES = ["Scanning library", "Finding matches", "Ranking track
 const GENERATION_BUILD_LABELS = ["Scanning library", "Matching vibe", "Ranking tracks", "Building flow", "Finalising playlist"];
 const GENERATION_PHASES = ["starting", "loading_library", "building_profile", "scoring", "composing", "spotify", "saving"];
 const GENERATION_PHASE_COPY = {
-  "Scanning library": ["Scanning library", "Checking every eligible liked song before narrowing the pool."],
-  "Finding matches": ["Finding matches", "Collecting tracks that fit the prompt and your taste."],
-  "Ranking tracks": ["Ranking tracks", "Scoring candidates against genre, energy, era, and mood."],
-  "Building flow": ["Building flow", "Sequencing the first tracks while smoothing the playlist arc."],
-  "Finalising playlist": ["Finalising playlist", "Saving the playlist and adding the final track order."],
+  "Scanning library": [
+    "Looking through your taste profile…",
+    "Scanning liked tracks…",
+    "Mapping your music DNA…",
+  ],
+  "Finding matches": [
+    "Finding songs that fit your mood…",
+    "Aligning with your intent…",
+    "Filtering out obvious wrong turns…",
+  ],
+  "Ranking tracks": [
+    "Scoring emotional fit…",
+    "Balancing taste and discovery…",
+    "Comparing energy, era, and genre fit…",
+  ],
+  "Building flow": [
+    "Arranging transitions…",
+    "Smoothing energy curve…",
+    "Sequencing the set like a DJ would…",
+  ],
+  "Finalising playlist": [
+    "Polishing sequence…",
+    "Optimising listening flow…",
+    "Saving the playlist safely…",
+  ],
 };
 
 function generationProgressInfo() {
   const phase = state.generationProgress?.phase || "starting";
   const stage = state.generationProgress?.stage || null;
-  const copy = GENERATION_PHASE_COPY[stage] || GENERATION_PHASE_COPY[GENERATION_STAGES[Math.max(0, GENERATION_PHASES.indexOf(phase) - 1)] || "Scanning library"];
+  const stageLabel = stage || GENERATION_STAGES[Math.max(0, GENERATION_PHASES.indexOf(phase) - 1)] || "Scanning library";
+  const subtexts = GENERATION_PHASE_COPY[stageLabel] || GENERATION_PHASE_COPY["Scanning library"];
   const index = typeof state.generationProgress?.stageIndex === "number"
     ? state.generationProgress.stageIndex
     : Math.max(0, Math.min(GENERATION_STAGES.length - 1, GENERATION_PHASES.indexOf(phase) - 1));
   const count = state.generationProgress?.stageCount || GENERATION_STAGES.length;
   const pct = Math.max(10, Math.min(96, Math.round(((index + 1) / count) * 100)));
-  return { title: copy[0], sub: copy[1], pct, index, count };
+  const startedAt = state.generationProgress?.startedAt || Date.now();
+  const subIndex = Math.floor((Date.now() - startedAt) / 1800) % subtexts.length;
+  return { title: stageLabel, sub: subtexts[subIndex], pct, index, count };
 }
 
 function generatingHtml() {
@@ -760,10 +786,19 @@ function generatingHtml() {
   const partialTracks = Array.isArray(state.generationProgress?.partialTracks)
     ? state.generationProgress.partialTracks
     : [];
-  const partialHtml = partialTracks.length ? `
+  const elapsedSincePreview = state.partialPreviewStartedAt ? Date.now() - state.partialPreviewStartedAt : 0;
+  const visiblePartialCount = partialTracks.length <= 5
+    ? partialTracks.length
+    : Math.min(partialTracks.length, 5 + Math.floor(elapsedSincePreview / 1400) * 4);
+  const visiblePartialTracks = partialTracks.slice(0, visiblePartialCount);
+  const addingTracks = partialTracks.length > visiblePartialTracks.length;
+  const partialHtml = visiblePartialTracks.length ? `
       <div class="generating-partials">
-        <div class="generating-partials-head">Previewing ${partialTracks.length} track${partialTracks.length === 1 ? "" : "s"}</div>
-        ${partialTracks.map((track, i) => `
+        <div class="generating-partials-head">
+          Previewing ${visiblePartialTracks.length} track${visiblePartialTracks.length === 1 ? "" : "s"}
+          ${addingTracks ? `<span class="adding-tracks">adding tracks…</span>` : ""}
+        </div>
+        ${visiblePartialTracks.map((track, i) => `
           <div class="generating-track">
             <span class="generating-track-num">${i + 1}</span>
             <div class="generating-track-art">${track.albumArt ? `<img src="${esc(track.albumArt)}" alt="" loading="lazy">` : ""}</div>
@@ -781,6 +816,7 @@ function generatingHtml() {
       <div class="generating-title">${esc(progress.title)}</div>
       <div class="generating-sub">${esc(progress.sub)}</div>
       ${buildBarHtml}
+      <div class="generation-safety-chip">Excluded: Christmas / holiday tracks unless requested</div>
       <div class="generating-progress" aria-hidden="true">
         <div class="generating-progress-fill" style="width:${progress.pct}%"></div>
       </div>
@@ -792,7 +828,6 @@ function generatingHtml() {
 function resultHtml(result) {
   const count = result.trackCount || (Array.isArray(result.tracks) ? result.tracks.length : 0);
   const name = esc(result.playlistName || result.name || "Playlist created");
-  const debug = new URLSearchParams(window.location.search).has("debug");
 
   // ── Dynamic vibe tags from scoring response ────────────────────────────────
   const DOT_COLORS = ["vd-purple", "vd-indigo", "vd-blue", "vd-green", "vd-orange"];
@@ -813,7 +848,7 @@ function resultHtml(result) {
   ).join("\n");
 
   // ── Admin Debug Panel ──────────────────────────────────────────────────────
-  const debugHtml = buildDebugPanel(result);
+  const debugHtml = debugModeEnabled() ? buildDebugPanel(result) : "";
 
   const hasExplain = !!(result.v3Diagnostics?.playlistExplanation);
   const tabsHtml = hasExplain ? `
@@ -874,6 +909,10 @@ function resultHtml(result) {
       <p class="result-insight">Curated from your liked songs to fit the moment.</p>
       <div class="result-vibes">
         ${vibeDotsHtml}
+      </div>
+      <div class="result-safety-row">
+        <span>Safety filter active</span>
+        <strong>Christmas / holiday tracks excluded unless requested</strong>
       </div>
       <div class="result-actions">
         ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
@@ -1938,13 +1977,18 @@ function startGenerationStatusPolling() {
     try {
       const r = await api("/generate/status");
       if (r.ok && r.data?.active) {
+        const nextPartialTracks = Array.isArray(r.data.partialTracks) ? r.data.partialTracks : [];
+        if (nextPartialTracks.length > 0 && !state.partialPreviewStartedAt) {
+          state.partialPreviewStartedAt = Date.now();
+        }
         state.generationProgress = {
           phase: r.data.phase || "starting",
           stage: r.data.stage || null,
           stageIndex: typeof r.data.stageIndex === "number" ? r.data.stageIndex : 0,
           stageCount: typeof r.data.stageCount === "number" ? r.data.stageCount : GENERATION_STAGES.length,
           requestId: r.data.requestId || null,
-          partialTracks: Array.isArray(r.data.partialTracks) ? r.data.partialTracks : [],
+          startedAt: typeof r.data.startedAt === "number" ? r.data.startedAt : Date.now(),
+          partialTracks: nextPartialTracks,
         };
         renderApp();
       }
@@ -1964,7 +2008,8 @@ async function generate() {
   if (state.generating) return;
 
   state.generating = true;
-  state.generationProgress = { phase: "starting", stage: "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, requestId: null, partialTracks: [] };
+  state.partialPreviewStartedAt = null;
+  state.generationProgress = { phase: "starting", stage: "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, requestId: null, startedAt: Date.now(), partialTracks: [] };
   state.lastResult = null;
   state.error = null;
   state.showExplain = false;
@@ -1974,7 +2019,7 @@ async function generate() {
   const savedVibe = vibe;
 
   try {
-    const r = await api("/generate?debug=1", {
+    const r = await api(debugModeEnabled() ? "/generate?debug=1" : "/generate", {
       method: "POST",
       body: JSON.stringify({
         vibe,
@@ -1998,6 +2043,7 @@ async function generate() {
     stopGenerationStatusPolling();
     state.generating = false;
     state.generationProgress = null;
+    state.partialPreviewStartedAt = null;
     renderApp();
     const input = document.getElementById("vibeInput");
     if (input) {
