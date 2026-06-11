@@ -3324,6 +3324,20 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const recentTrackLists = recentPlaylists.map((p) => (p.trackIds as string[]) ?? []);
     const sessionMemory = buildSessionMemory(recentTrackLists, trackIdToArtist);
+    const playlistArtistSet = new Map<string, Set<string>>();
+    recentPlaylists.forEach((playlist, index) => {
+      const artists = new Set<string>();
+      for (const trackId of ((playlist.trackIds as string[]) ?? [])) {
+        const artist = trackIdToArtist.get(trackId)?.trim().toLowerCase();
+        if (artist) artists.add(artist);
+      }
+      playlistArtistSet.set(String(playlist.playlistId ?? index), artists);
+    });
+    const sessionArtistMemory = {
+      artistCount: artistAppearances,
+      playlistArtistSet,
+      maxArtistAppearances: 2,
+    };
     const recentTrackPenaltyScale = varietyBoost ? 2.75 : 1.85;
     const freshnessCloneMultiplier = varietyBoost
       ? cloneMultiplier * 0.88
@@ -3515,6 +3529,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       journeyArc,
       maxPerArtist,
       recentPlaylistTrackIds: recentTrackLists,
+      sessionArtistMemory,
       lastSuccessfulVibe: recentPlaylists[0]?.vibe ?? null,
       noLibraryMode: !!noLibraryMode,
       memoryByTrack: (trackId) => {
@@ -4088,6 +4103,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       poolCapped?: boolean;
     };
     const v3PipelineDiagnostics = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+    const v3GenerationDebug = (v3PipelineDiagnostics["generationDebug"] ?? {}) as Record<string, unknown>;
     const waterfallDiagnostics = (v3PipelineDiagnostics["waterfall"] ?? {}) as Record<string, unknown>;
     const removalReasonDiagnostics = Array.isArray(v3PipelineDiagnostics["removalReasons"])
       ? v3PipelineDiagnostics["removalReasons"] as Array<Record<string, unknown>>
@@ -4146,6 +4162,21 @@ router.post("/generate", async (req, res): Promise<void> => {
       largestDrop,
       removalReasons: removalReasonDiagnostics.slice(0, 12),
       recoveryRelaxations,
+      generationDebug: v3GenerationDebug,
+      relaxationSteps: Array.isArray(v3GenerationDebug["relaxationSteps"])
+        ? v3GenerationDebug["relaxationSteps"]
+        : [],
+      finalRelaxedConstraints: v3GenerationDebug["finalRelaxedConstraints"] ?? null,
+      constraintFailures: Array.isArray(v3GenerationDebug["constraintFailures"])
+        ? v3GenerationDebug["constraintFailures"]
+        : [],
+      dominantCluster: v3GenerationDebug["dominantCluster"] ?? null,
+      clusterPurity: typeof v3GenerationDebug["clusterPurity"] === "number"
+        ? v3GenerationDebug["clusterPurity"]
+        : null,
+      artistReuseRate: typeof v3GenerationDebug["artistReuseRate"] === "number"
+        ? v3GenerationDebug["artistReuseRate"]
+        : null,
       fallbackTriggered: !!fallbackReason || !!finalization.diagnostics.fallbackMode,
       identityType: curatorIdentity.type,
       identitySummary: curatorIdentity.summary,

@@ -17,6 +17,7 @@ export type EvaluationReportPayload = {
     concurrency: number;
     delayMs: number;
     allowSpotifyCreate: boolean;
+    allowDbWrites: boolean;
     durationMs: number;
   };
   rawResults: GenerationEvaluationResult[];
@@ -267,6 +268,8 @@ function summaryMarkdown(report: EvaluationReportPayload): string {
     `Generated: ${report.generatedAt}`,
     `Mode: ${report.run.mode}`,
     `Prompts: ${report.run.promptCount}`,
+    `Spotify writes enabled: ${report.run.allowSpotifyCreate}`,
+    `DB writes enabled: ${report.run.allowDbWrites}`,
     `Duration: ${Math.round(report.run.durationMs / 1000)}s`,
     `Spotify requests: ${report.spotifyApiMetrics.totalSpotifyRequests} (${report.spotifyApiMetrics.requestsPerPlaylist} per playlist)`,
     `Cache: ${report.spotifyApiMetrics.cacheHitPercent}% hit, ${report.spotifyApiMetrics.cacheMissPercent}% miss`,

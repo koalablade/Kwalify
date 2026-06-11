@@ -55,6 +55,12 @@ import {
 import {
   type UnifiedIntentContext,
 } from "../unified-intent";
+import {
+  artistExceedsSessionCap,
+  artistMemoryPenalty,
+  sessionArtistMemoryDiagnostics,
+  type SessionArtistMemory,
+} from "./constraint-relaxation";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -314,6 +320,7 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
     noveltyByTrack?: (trackId: string) => number;
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
     retrievalByTrack?: Map<string, RetrievedCandidate<T>>;
+    sessionArtistMemory?: SessionArtistMemory;
   },
 ): Array<TrackDecision<T>> {
   return decisions.map((decision) => {
@@ -334,11 +341,13 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
       : clamp01((laneTaste + existingScore) / 2);
     const freshnessAffinity = clamp01(opts.noveltyByTrack?.(decision.track.trackId) ?? 0.5);
     const retrieval = opts.retrievalByTrack?.get(decision.track.trackId);
+    const sessionPenalty = artistMemoryPenalty(opts.sessionArtistMemory, decision.track.artistName);
+    const sessionCapped = artistExceedsSessionCap(opts.sessionArtistMemory, decision.track.artistName);
 
     return withDecisionAffinities(decision, {
       sceneAffinity,
-      tasteAffinity,
-      freshnessAffinity,
+      tasteAffinity: clamp01(tasteAffinity * sessionPenalty * (sessionCapped ? 0.45 : 1)),
+      freshnessAffinity: clamp01(freshnessAffinity * sessionPenalty * (sessionCapped ? 0.35 : 1)),
       embeddingAffinity: retrieval?.embeddingAffinity,
       retrievalNeighborhood: retrieval?.retrievalNeighborhood,
     });
@@ -360,6 +369,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     lockedIntent?: LockedIntent;
     unifiedIntentContext?: UnifiedIntentContext;
     momentMemory?: MomentMemory | null;
+    sessionArtistMemory?: SessionArtistMemory;
   } = {},
 ): V3PipelineResult<T> {
 
@@ -422,6 +432,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     selectedCount: number;
     clusterSpread: Record<string, number>;
     clusterSelectionRatios: Record<string, number>;
+    dominantCluster?: string | null;
+    clusterPurity?: number;
+    secondaryClusterAllowed?: boolean;
+    secondaryClusterReason?: string | null;
   }> = [];
 
   // Observability: per-track decision trace (top 15 by raw score per lane)
@@ -526,6 +540,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       noveltyByTrack: opts.noveltyByTrack,
       classificationByTrack: opts.classificationByTrack,
       retrievalByTrack,
+      sessionArtistMemory: opts.sessionArtistMemory,
     });
     const engineResult = runRecommendationEngine({
       decisions: affinityDecisions,
@@ -563,7 +578,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       laneTarget,
       lane.id,
       `${opts.seed ?? "v3"}:${lane.id}`,
-      { lockedIntent },
+      { lockedIntent, sessionArtistMemory: opts.sessionArtistMemory },
     );
     forensicTrace.push(stageTrace(
       `sampler input count:${lane.id}`,
@@ -620,6 +635,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       selectedCount: clusterResult.tracks.length,
       clusterSpread: clusterResult.clusterSpread as unknown as Record<string, number>,
       clusterSelectionRatios: clusterResult.clusterSelectionRatios,
+      dominantCluster: clusterResult.samplerDiagnostics.dominantCluster,
+      clusterPurity: clusterResult.samplerDiagnostics.clusterPurity,
+      secondaryClusterAllowed: clusterResult.samplerDiagnostics.secondaryClusterAllowed,
+      secondaryClusterReason: clusterResult.samplerDiagnostics.secondaryClusterReason,
     });
 
     return {
@@ -811,6 +830,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       relaxedCandidateCount: ld.relaxedCandidateCount,
       retrievalStrictness: ld.retrievalStrictness,
       selectedCount:   ld.selectedCount,
+      dominantCluster: ld.dominantCluster,
+      clusterPurity: ld.clusterPurity,
+      secondaryClusterAllowed: ld.secondaryClusterAllowed,
+      secondaryClusterReason: ld.secondaryClusterReason,
       pctContribution: Math.round((ld.selectedCount / totalLaneSelected) * 100),
     })),
     clusterMap: clusterMapAgg,
@@ -856,6 +879,19 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       }
     }
   }
+  const finalClusterCounts: Record<string, number> = {};
+  for (const track of finalTracks) {
+    const cid = track.clusterIds[0] ?? "unknown";
+    finalClusterCounts[cid] = (finalClusterCounts[cid] ?? 0) + 1;
+  }
+  const [dominantCluster, dominantClusterCount] = Object.entries(finalClusterCounts)
+    .sort((a, b) => b[1] - a[1])[0] ?? ["unknown", 0];
+  const clusterPurity = finalTracks.length > 0
+    ? Math.round((dominantClusterCount / finalTracks.length) * 1000) / 1000
+    : 0;
+  const artistReuseRate = finalTracks.length > 0
+    ? Math.round((1 - Object.keys(artistDist).length / finalTracks.length) * 1000) / 1000
+    : 0;
 
   const diagnostics: Record<string, unknown> = {
     pipelineVersion: "v3.1_unified_routing",
@@ -957,6 +993,16 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       repairedCount: 0,
       droppedCount: 0,
     },
+    generationDebug: {
+      emptyPlaylistReason: finalTracks.length === 0 ? "no_tracks_after_v3_selection" : undefined,
+      relaxationSteps: [],
+      dominantCluster,
+      clusterPurity,
+      artistReuseRate,
+      fallbackTriggered,
+      constraintFailures: finalTracks.length === 0 ? ["v3_final_selection_empty"] : [],
+    },
+    sessionArtistMemory: sessionArtistMemoryDiagnostics(opts.sessionArtistMemory),
     lanes: diagnosticLaneDetails,
     laneContributions: finalLaneContributions,
     fallback: {

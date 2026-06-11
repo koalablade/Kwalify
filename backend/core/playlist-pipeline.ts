@@ -63,6 +63,12 @@ import {
 } from "../lib/expanded-intent-vocabulary";
 import { compilePersonalPlaylist, type PersonalCompilerTrack } from "./personal-playlist-compiler";
 import { buildCoherentPlaylist } from "./playlist-coherence-engine";
+import {
+  buildConstraintRelaxationPlan,
+  relaxedIntentForProfile,
+  sessionArtistMemoryDiagnostics,
+  type SessionArtistMemory,
+} from "./v3/constraint-relaxation";
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -95,6 +101,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
   memoryByTrack: (trackId: string) => number;
   noveltyByTrack: (trackId: string) => number;
   recentPlaylistTrackIds?: string[][];
+  sessionArtistMemory?: SessionArtistMemory;
   postScore: {
     referenceFingerprint: ReferenceFingerprint | null;
     memoryWeight: number;
@@ -1571,9 +1578,17 @@ function buildV3CandidatePool<T extends {
   classMap: UserGenreProfile["trackClassifications"],
   playlistLength: number,
   lockedIntent: LockedIntent,
+  opts: {
+    minimumFillRatio?: number;
+  } = {},
   logger?: import("pino").Logger,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
   const forensicPreV3Trace: PreV3TraceStage[] = [];
+  const relaxationPlan = buildConstraintRelaxationPlan(lockedIntent);
+  const minimumCandidateCount = Math.max(
+    Math.ceil(playlistLength * (opts.minimumFillRatio ?? 0.8)),
+    Math.min(12, playlistLength),
+  );
   forensicPreV3Trace.push(preV3StageTrace("initial scored track count", sorted.length, sorted.length));
   const genreReady = sorted.filter((track) => !!genreFamilyForTrack(track, classMap));
   forensicPreV3Trace.push(preV3StageTrace(
@@ -1612,15 +1627,37 @@ function buildV3CandidatePool<T extends {
         })
       : {},
   ));
-  const effectiveLaneReady = lockedIntent.eraRange ? eraReady : intentLaneReady;
-  const intentReady = effectiveLaneReady.filter((track) =>
-    trackMatchesLockedIntent(track, classMap, lockedIntent)
-  );
+  const strictEffectiveLaneReady = lockedIntent.eraRange ? eraReady : intentLaneReady;
+  const relaxationAttempts = relaxationPlan.map((step) => {
+    const relaxedIntent = relaxedIntentForProfile(lockedIntent, step.profile);
+    const sourcePool = step.profile.genre === "strict"
+      ? intentLaneReady
+      : step.profile.mood === "relaxed"
+        ? laneReady
+        : genreReady;
+    const tracks = sourcePool.filter((track) =>
+      trackMatchesLockedIntent(track, classMap, relaxedIntent)
+    );
+    return {
+      step: step.label,
+      profile: step.profile,
+      candidateCount: tracks.length,
+      tracks,
+    };
+  });
+  const selectedRelaxation = relaxationAttempts.find((attempt) => attempt.candidateCount >= minimumCandidateCount)
+    ?? relaxationAttempts.find((attempt) => attempt.candidateCount > 0)
+    ?? relaxationAttempts[0];
+  const effectiveLaneReady = selectedRelaxation?.step === "strict_constraints" ? strictEffectiveLaneReady : selectedRelaxation?.tracks ?? [];
+  const intentReady = selectedRelaxation?.tracks ?? [];
   forensicPreV3Trace.push(preV3StageTrace(
     "intent readiness filter",
-    effectiveLaneReady.length,
+    selectedRelaxation?.step === "strict_constraints" ? effectiveLaneReady.length : sorted.length,
     intentReady.length,
-    countPreV3Reasons(effectiveLaneReady, (track) => lockedIntentRejectionReason(track, classMap, lockedIntent)),
+    countPreV3Reasons(
+      selectedRelaxation?.step === "strict_constraints" ? effectiveLaneReady : sorted,
+      (track) => lockedIntentRejectionReason(track, classMap, lockedIntent),
+    ),
   ));
   const baseWindow = Math.min(intentReady.length, Math.max(playlistLength * 8, 75));
   let windowSize = baseWindow;
@@ -1662,6 +1699,18 @@ function buildV3CandidatePool<T extends {
       laneReadinessEraRelaxed: !lockedIntent.eraRange,
       intentReadyCount: intentReady.length,
       candidateCount: tracks.length,
+      relaxationSteps: relaxationAttempts
+        .filter((attempt) => attempt.step === selectedRelaxation?.step || attempt.candidateCount < minimumCandidateCount)
+        .map((attempt) => attempt.step),
+      finalRelaxedConstraints: selectedRelaxation?.profile ?? relaxationPlan[0]?.profile,
+      constraintFailures: selectedRelaxation && selectedRelaxation.candidateCount < minimumCandidateCount
+        ? ["candidate_pool_below_minimum_after_relaxation"]
+        : [],
+      relaxationAttempts: relaxationAttempts.map((attempt) => ({
+        step: attempt.step,
+        candidateCount: attempt.candidateCount,
+        selected: attempt.step === selectedRelaxation?.step,
+      })),
       genreFamilyClusters: familyCount(tracks, classMap),
       expandedForFamilySpread: windowSize > baseWindow,
       forensicPreV3Trace,
@@ -1913,6 +1962,7 @@ export async function buildPlaylistPipeline<T extends {
       classMap,
       opts.playlistLength,
       v3LockedIntent,
+      { minimumFillRatio: candidate.label === "strict_intent" ? 0.8 : 0.65 },
       opts.pipelineLog,
     );
     const result = runV3Pipeline(
@@ -1928,6 +1978,7 @@ export async function buildPlaylistPipeline<T extends {
         lockedIntent:          v3LockedIntent,
         unifiedIntentContext:   unifiedIntentContextWithMemory,
         momentMemory:           preGenerationMomentMemory,
+        sessionArtistMemory:     opts.sessionArtistMemory,
       }
     );
     const quality = evaluatePlaylistQuality(
@@ -2035,12 +2086,18 @@ export async function buildPlaylistPipeline<T extends {
   ].filter((entry): entry is { name: string; triggerReason: string; tracksBefore: number; tracksAfter: number } => !!entry);
   const controlledGenerationDiagnostics = {
     selectedCandidate: selectedCandidate.label,
+    selectedRelaxation: selectedCandidate.candidatePool.diagnostics["finalRelaxedConstraints"] ?? null,
+    relaxationSteps: selectedCandidate.candidatePool.diagnostics["relaxationSteps"] ?? [],
+    constraintFailures: selectedCandidate.candidatePool.diagnostics["constraintFailures"] ?? [],
     candidateScores: candidateAttempts.map((candidate) => ({
       label: candidate.label,
       selectedCount: candidate.result.finalTracks.length,
       total: round3(candidate.total),
       quality: candidate.quality,
+      relaxationSteps: candidate.candidatePool.diagnostics["relaxationSteps"] ?? [],
+      finalRelaxedConstraints: candidate.candidatePool.diagnostics["finalRelaxedConstraints"] ?? null,
     })),
+    sessionArtistMemory: sessionArtistMemoryDiagnostics(opts.sessionArtistMemory),
   };
   opts.pipelineLog?.info({
     preV3PoolSize: v3CandidatePool.tracks.length,
@@ -2137,6 +2194,13 @@ export async function buildPlaylistPipeline<T extends {
         },
         v3Pipeline: {
           ...v3.diagnostics,
+          generationDebug: {
+            ...((v3.diagnostics["generationDebug"] as Record<string, unknown> | undefined) ?? {}),
+            relaxationSteps: controlledGenerationDiagnostics.relaxationSteps,
+            finalRelaxedConstraints: controlledGenerationDiagnostics.selectedRelaxation,
+            constraintFailures: controlledGenerationDiagnostics.constraintFailures,
+            fallbackTriggered: true,
+          },
           forensicPoolTrace: {
             ...((v3.diagnostics["forensicPoolTrace"] as Record<string, unknown> | undefined) ?? {}),
             finalHardFilterTrace,
@@ -2304,6 +2368,13 @@ export async function buildPlaylistPipeline<T extends {
         },
         v3Pipeline: {
           ...v3.diagnostics,
+          generationDebug: {
+            ...((v3.diagnostics["generationDebug"] as Record<string, unknown> | undefined) ?? {}),
+            relaxationSteps: controlledGenerationDiagnostics.relaxationSteps,
+            finalRelaxedConstraints: controlledGenerationDiagnostics.selectedRelaxation,
+            constraintFailures: controlledGenerationDiagnostics.constraintFailures,
+            fallbackTriggered: true,
+          },
           forensicPoolTrace: {
             ...((v3.diagnostics["forensicPoolTrace"] as Record<string, unknown> | undefined) ?? {}),
             finalHardFilterTrace,
@@ -2463,6 +2534,13 @@ export async function buildPlaylistPipeline<T extends {
       },
       v3Pipeline: {
         ...v3.diagnostics,
+        generationDebug: {
+          ...((v3.diagnostics["generationDebug"] as Record<string, unknown> | undefined) ?? {}),
+          relaxationSteps: controlledGenerationDiagnostics.relaxationSteps,
+          finalRelaxedConstraints: controlledGenerationDiagnostics.selectedRelaxation,
+          constraintFailures: controlledGenerationDiagnostics.constraintFailures,
+          fallbackTriggered: fallbackActivations.length > 0,
+        },
         forensicPoolTrace: {
           ...((v3.diagnostics["forensicPoolTrace"] as Record<string, unknown> | undefined) ?? {}),
           finalHardFilterTrace,

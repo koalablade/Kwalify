@@ -221,9 +221,12 @@ export function computePlaylistMetrics(
 ): PlaylistMetrics {
   const tracks = result.tracks;
   const gen = responseObj(result.response, "generationDiagnostics");
+  const debug = responseObj(gen, "generationDebug");
   const confidence = responseObj(result.response, "playlistConfidence");
   const diversity = responseObj(result.response, "artistDiversity");
   const cluster = dominantShare(tracks.map(clusterKey));
+  const debugDominantCluster = text(gen["dominantCluster"]) ?? text(debug["dominantCluster"]);
+  const debugClusterPurity = num(gen["clusterPurity"], num(debug["clusterPurity"], cluster.share));
   const humanCoherence = num(gen["humanCoherenceScore"], num(responseObj(result.response, "v3Diagnostics")["avg_transition_score"], 0));
   const fallbackUsed = !!(
     result.response?.["fastFallback"] ||
@@ -241,7 +244,7 @@ export function computePlaylistMetrics(
     category: result.benchmark.category,
     playlistTitle: text(result.response?.["playlistName"]) ?? text(result.response?.["name"]) ?? "(no title)",
     persona: text(gen["identityType"]),
-    dominantCluster: cluster.key,
+    dominantCluster: debugDominantCluster ?? cluster.key,
     trackCount: tracks.length,
     requestedLength: result.benchmark.length,
     underfilledBy: Math.max(0, result.benchmark.length - tracks.length),
@@ -253,7 +256,7 @@ export function computePlaylistMetrics(
     eraDrift: eraDrift(result.benchmark, tracks),
     fallbackUsed,
     recoveryUsed,
-    clusterPurity: cluster.share,
+    clusterPurity: debugClusterPurity,
     personaAdherence: round(Math.max(0, Math.min(1, (humanCoherence || 0.5) * 0.45 + energyFit(result.benchmark, tracks) * 0.35 + valenceFit(result.benchmark, tracks) * 0.20 - (fallbackUsed ? 0.10 : 0)))),
     humanCoherenceScore: round(humanCoherence),
     playlistUniqueness: round(1 - duplicateRatio(tracks.map(trackId))),

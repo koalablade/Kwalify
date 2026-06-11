@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { PLAYLIST_BENCHMARK_PROMPTS, type PlaylistBenchmarkPrompt } from "../lib/playlist-evaluation/benchmark-prompts";
 import { writeEvaluationReports } from "../lib/playlist-evaluation/report";
 import type { EvaluationTrack, GenerationEvaluationResult } from "../lib/playlist-evaluation/metrics";
@@ -10,6 +11,8 @@ type HarnessConfig = {
   token: string | null;
   liveApi: boolean;
   allowSpotifyCreate: boolean;
+  allowDbWrites: boolean;
+  expectedDeploymentVersion: string | null;
   concurrency: number;
   delayMs: number;
   limit: number | null;
@@ -32,6 +35,8 @@ function usage(): never {
     "  --token TOKEN               PLAYLIST_EVAL_TOKEN value (default env PLAYLIST_EVAL_TOKEN)",
     "  --live-api                  Use authenticated live API mode instead of audit mode",
     "  --allow-spotify-create      In live API mode, allow real Spotify playlist creation",
+    "  --allow-db-writes           In live API mode, allow DB history/saved-playlist writes",
+    "  --expected-deployment-version SHA  Expected deployed git SHA (default env or local git HEAD)",
     "  --concurrency N             Low concurrency limit (default 1, max 3)",
     "  --delay-ms N                Delay between requests per worker (default 1200)",
     "  --limit N                   Run only first N prompts",
@@ -73,6 +78,8 @@ function parseConfig(args: string[]): HarnessConfig {
     token: argValue(args, "--token") ?? process.env["PLAYLIST_EVAL_TOKEN"] ?? null,
     liveApi,
     allowSpotifyCreate: args.includes("--allow-spotify-create"),
+    allowDbWrites: args.includes("--allow-db-writes"),
+    expectedDeploymentVersion: argValue(args, "--expected-deployment-version") ?? process.env["PLAYLIST_EVAL_EXPECTED_VERSION"] ?? process.env["EXPECTED_DEPLOYMENT_VERSION"] ?? null,
     concurrency: Math.max(1, Math.min(3, parseIntArg(args, "--concurrency", 1))),
     delayMs: parseIntArg(args, "--delay-ms", 1200),
     limit: argValue(args, "--limit") ? parseIntArg(args, "--limit", 0) : null,
@@ -85,15 +92,33 @@ function parseConfig(args: string[]): HarnessConfig {
   if (!config.baseUrl) {
     throw new Error("API_BASE_URL is required. Set API_BASE_URL or pass --base-url.");
   }
+  if (!config.token) {
+    throw new Error("PLAYLIST_EVAL_TOKEN is required. Set PLAYLIST_EVAL_TOKEN or pass --token.");
+  }
+  if (!config.spotifyUserId) {
+    throw new Error("SPOTIFY_USER_ID is required. Set SPOTIFY_USER_ID or pass --spotify-user-id.");
+  }
   if (config.dryRun) return config;
+  if (config.allowSpotifyCreate && !config.liveApi) {
+    throw new Error("--allow-spotify-create can only be used with --live-api.");
+  }
+  if (config.allowDbWrites && !config.liveApi) {
+    throw new Error("--allow-db-writes can only be used with --live-api.");
+  }
+  if (config.liveApi && config.allowSpotifyCreate && !config.allowDbWrites) {
+    throw new Error("--allow-spotify-create requires --allow-db-writes because the current production path writes saved playlist/history rows.");
+  }
+  if (config.liveApi && config.allowDbWrites && !config.allowSpotifyCreate) {
+    throw new Error("--allow-db-writes requires --allow-spotify-create so live mode side effects are explicit as a pair.");
+  }
   if (config.liveApi && config.allowSpotifyCreate && !config.authCookie) {
-    throw new Error("--allow-spotify-create requires --auth-cookie so the API runs exactly as an authenticated user");
+    throw new Error("--live-api --allow-spotify-create requires --auth-cookie so Spotify creation runs exactly as an authenticated user.");
   }
-  if (!config.liveApi && !config.authCookie && (!config.token || !config.spotifyUserId)) {
-    throw new Error("Audit mode requires either --auth-cookie or both --token/PLAYLIST_EVAL_TOKEN and --spotify-user-id");
+  if (!config.liveApi && config.authCookie) {
+    throw new Error("Audit-only mode must use PLAYLIST_EVAL_TOKEN + SPOTIFY_USER_ID, not a session cookie. Omit --auth-cookie or use --live-api.");
   }
-  if (config.liveApi && !config.authCookie && !config.token) {
-    throw new Error("Live API mode requires --auth-cookie, or token-authorized audit fallback without Spotify creation");
+  if (config.liveApi && !config.allowSpotifyCreate && config.authCookie) {
+    throw new Error("--live-api without explicit write flags still runs audit-only. Omit --auth-cookie unless enabling writes.");
   }
   return config;
 }
@@ -121,13 +146,97 @@ function sanitizedBaseUrl(value: string): string {
 }
 
 function logStartup(config: HarnessConfig, promptCount: number): void {
-  const auditOnly = !config.liveApi || !config.allowSpotifyCreate;
+  const auditOnly = !liveWritesEnabled(config);
   console.error("[evaluation] startup");
   console.error(`[evaluation] Active mode: ${auditOnly ? "audit-only" : "live-api"}`);
   console.error(`[evaluation] Spotify writes: ${config.allowSpotifyCreate ? "enabled" : "disabled"}`);
-  console.error(`[evaluation] DB writes: ${auditOnly ? "disabled" : "production API path"}`);
+  console.error(`[evaluation] DB writes: ${config.allowDbWrites ? "enabled" : "disabled"}`);
   console.error(`[evaluation] API_BASE_URL: ${sanitizedBaseUrl(config.baseUrl)}`);
   console.error(`[evaluation] prompts: ${promptCount}, concurrency: ${config.concurrency}, delayMs: ${config.delayMs}, maxHttpRetries: ${config.maxHttpRetries}`);
+  console.error("[evaluation] preflight: deployment reachable=false, eval route deployed=false, token accepted=false, commit=unknown");
+}
+
+function liveWritesEnabled(config: HarnessConfig): boolean {
+  return config.liveApi && config.allowSpotifyCreate && config.allowDbWrites;
+}
+
+function localGitHead(): string | null {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function versionsMatch(expected: string, actual: string): boolean {
+  const cleanExpected = expected.trim();
+  const cleanActual = actual.trim();
+  return cleanExpected.length > 0 &&
+    cleanActual.length > 0 &&
+    cleanActual !== "unknown" &&
+    (cleanExpected === cleanActual || cleanExpected.startsWith(cleanActual) || cleanActual.startsWith(cleanExpected));
+}
+
+async function preflight(config: HarnessConfig): Promise<Record<string, unknown>> {
+  const expectedVersion = config.expectedDeploymentVersion ?? localGitHead();
+  if (!expectedVersion) {
+    throw new Error("Could not determine expected deployment version. Pass --expected-deployment-version or set PLAYLIST_EVAL_EXPECTED_VERSION.");
+  }
+  let deploymentData: Record<string, unknown>;
+  try {
+    const deploymentResponse = await fetch(`${config.baseUrl}/api/eval/ping`, {
+      method: "GET",
+    });
+    deploymentData = await deploymentResponse.json().catch(() => ({})) as Record<string, unknown>;
+    if (!deploymentResponse.ok || deploymentData["status"] !== "ok" || deploymentData["deployed"] !== true) {
+      console.error(`[evaluation] preflight: deployment reachable=${deploymentResponse.ok}, eval route deployed=false, token accepted=false, commit=${String(deploymentData["commit"] ?? "unknown")}`);
+      throw new Error(`Preflight failed: deployment not reachable or route missing. GET /api/eval/ping returned ${deploymentResponse.status}.`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Preflight failed:")) throw err;
+    throw new Error(`Preflight failed: deployment not reachable or route missing. ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const commit = typeof deploymentData["commit"] === "string" ? deploymentData["commit"] : "unknown";
+  console.error(`[evaluation] preflight: deployment reachable=true, eval route deployed=true, token accepted=false, commit=${commit}`);
+
+  if (!versionsMatch(expectedVersion, commit)) {
+    throw new Error(`Preflight failed: deployed commit ${commit} does not match expected ${expectedVersion}. Deploy the current commit or pass the correct --expected-deployment-version.`);
+  }
+
+  const authResponse = await fetch(`${config.baseUrl}/api/eval/ping`, {
+    method: "POST",
+    headers: {
+      "x-eval-token": config.token!,
+    },
+  });
+  const authData = await authResponse.json().catch(() => ({})) as Record<string, unknown>;
+  const authCommit = typeof authData["commit"] === "string" ? authData["commit"] : commit;
+  if (!authResponse.ok) {
+    console.error(`[evaluation] preflight: deployment reachable=true, eval route deployed=true, token accepted=false, commit=${authCommit}`);
+    throw new Error(`Preflight failed: deployment OK, eval auth broken. POST /api/eval/ping returned ${authResponse.status}. ${String(authData["reason"] ?? authData["error"] ?? authResponse.statusText)}`);
+  }
+  if (authData["evalEnabled"] !== true) {
+    console.error(`[evaluation] preflight: deployment reachable=true, eval route deployed=true, token accepted=false, commit=${authCommit}`);
+    throw new Error("Preflight failed: deployment OK, eval auth broken. evalEnabled is not true on the deployed API.");
+  }
+  if (authData["tokenAccepted"] !== true) {
+    console.error(`[evaluation] preflight: deployment reachable=true, eval route deployed=true, token accepted=false, commit=${authCommit}`);
+    throw new Error("Preflight failed: deployment OK, eval auth broken. Evaluation token was not accepted by the deployed API.");
+  }
+  if (authData["mode"] !== "evaluation") {
+    console.error(`[evaluation] preflight: deployment reachable=true, eval route deployed=true, token accepted=true, commit=${authCommit}`);
+    throw new Error(`Preflight failed: deployment OK, eval auth broken. Authenticated ping did not report evaluation mode; got ${String(authData["mode"] ?? "missing")}.`);
+  }
+  if (!versionsMatch(expectedVersion, authCommit)) {
+    throw new Error(`Preflight failed: authenticated eval commit ${authCommit} does not match expected ${expectedVersion}. Deploy the current commit or pass the correct --expected-deployment-version.`);
+  }
+  console.error(`[evaluation] preflight: deployment reachable=true, eval route deployed=true, token accepted=true, commit=${authCommit}`);
+  return authData;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -150,7 +259,7 @@ function retryAfterMs(response: Response, attempt: number): number {
 
 async function postGenerate(config: HarnessConfig, benchmark: PlaylistBenchmarkPrompt): Promise<GenerationEvaluationResult> {
   const started = Date.now();
-  const auditMode = !config.liveApi || !config.allowSpotifyCreate;
+  const auditMode = !liveWritesEnabled(config);
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (config.authCookie) headers["Cookie"] = config.authCookie;
   if (config.token) headers["x-kwalify-evaluation-token"] = config.token;
@@ -252,12 +361,13 @@ async function main(): Promise<void> {
       outDir: config.outDir,
       generatedAt: new Date().toISOString(),
       run: {
-        mode: config.liveApi && config.allowSpotifyCreate ? "live-api" : "audit",
+        mode: liveWritesEnabled(config) ? "live-api" : "audit",
         baseUrl: config.baseUrl,
         promptCount: prompts.length,
         concurrency: config.concurrency,
         delayMs: config.delayMs,
         allowSpotifyCreate: config.allowSpotifyCreate,
+        allowDbWrites: config.allowDbWrites,
         durationMs: Date.now() - started,
       },
       results: dryResults,
@@ -265,6 +375,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({ dryRun: true, outDir: config.outDir, prompts: prompts.length, reportFiles: Object.keys(report) }, null, 2));
     return;
   }
+  await preflight(config);
   const results = await runLimited(prompts, config.concurrency, config.delayMs, async (benchmark, index) => {
     console.error(`[evaluation] ${index + 1}/${prompts.length} ${benchmark.id}: ${benchmark.prompt}`);
     return postGenerate(config, benchmark);
@@ -273,22 +384,33 @@ async function main(): Promise<void> {
     outDir: config.outDir,
     generatedAt: new Date().toISOString(),
     run: {
-      mode: config.liveApi && config.allowSpotifyCreate ? "live-api" : "audit",
+      mode: liveWritesEnabled(config) ? "live-api" : "audit",
       baseUrl: config.baseUrl,
       promptCount: prompts.length,
       concurrency: config.concurrency,
       delayMs: config.delayMs,
       allowSpotifyCreate: config.allowSpotifyCreate,
+      allowDbWrites: config.allowDbWrites,
       durationMs: Date.now() - started,
     },
     results,
   });
   const failed = results.filter((result) => !result.ok);
+  const success = results.length - failed.length;
+  const playlistMetrics = report.summary.playlists;
+  const average = (values: number[]): number => values.length
+    ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 1000) / 1000
+    : 0;
   console.log(JSON.stringify({
     pass: failed.length === 0,
     outDir: config.outDir,
     prompts: prompts.length,
+    succeeded: success,
     failed: failed.length,
+    latency: {
+      averageMs: report.spotifyApiMetrics.averageGenerationTimeMs,
+      p95Ms: report.spotifyApiMetrics.p95GenerationTimeMs,
+    },
     spotifyApi: {
       totalRequests: report.spotifyApiMetrics.totalSpotifyRequests,
       requestsPerPlaylist: report.spotifyApiMetrics.requestsPerPlaylist,
@@ -298,6 +420,17 @@ async function main(): Promise<void> {
       rateLimitEvents: report.spotifyApiMetrics.rateLimitEvents,
       averageGenerationTimeMs: report.spotifyApiMetrics.averageGenerationTimeMs,
       p95GenerationTimeMs: report.spotifyApiMetrics.p95GenerationTimeMs,
+    },
+    quality: {
+      cacheHitRatePercent: report.spotifyApiMetrics.cacheHitPercent,
+      averageArtistRepetition: average(playlistMetrics.map((row) => row.artistRepetition)),
+      averageTrackRepetition: average(playlistMetrics.map((row) => row.trackRepetition)),
+      averageCrossPlaylistOverlap: average(playlistMetrics.map((row) => row.crossPlaylistOverlap)),
+      topFailureModes: report.summary.failureModes.slice(0, 10).map((row) => ({
+        mode: row.mode,
+        count: row.count,
+        promptIds: row.promptIds.slice(0, 8),
+      })),
     },
     benchmarkSizeReports: report.benchmarkSizeReports,
     worst: report.worstPlaylists.slice(0, 5).map((row) => ({ promptId: row.promptId, qualityScore: row.qualityScore, likelyCause: row.likelyCause })),
