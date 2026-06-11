@@ -1761,9 +1761,6 @@ function pickFromList(list: string[], seed: string): string {
   return list[idx]!;
 }
 
-const GENERIC_VIBE_PRESETS =
-  /^(chill|gym|focus|happy|sad|night drive|summer|balanced|workout)$/i;
-
 function titleCaseVibe(vibe: string): string {
   return vibe
     .trim()
@@ -1775,16 +1772,15 @@ function titleCaseVibe(vibe: string): string {
 /** Use the user's own words when they typed a real scene, not a one-word preset. */
 function nameFromUserVibe(vibe: string): string | null {
   const trimmed = vibe.trim();
-  if (trimmed.length < 4 || GENERIC_VIBE_PRESETS.test(trimmed)) return null;
-  if (/^vibes?$/i.test(trimmed)) return titleCaseVibe(trimmed);
+  if (trimmed.length < 3) return null;
 
   const wordCount = trimmed.split(/\s+/).length;
   const isDescriptive =
-    wordCount >= 2 ||
+    wordCount <= 6 ||
     SPECIFIC_SCENE_PATTERN.test(trimmed) ||
     /\b(at|while|during|after|before|alone|empty|quiet)\b/i.test(trimmed);
 
-  if (!isDescriptive && wordCount < 2) return null;
+  if (!isDescriptive) return null;
 
   const title = titleCaseVibe(trimmed);
   return title.length > 64 ? title.slice(0, 61) + "…" : title;

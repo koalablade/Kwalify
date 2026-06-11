@@ -237,6 +237,7 @@ const state = {
   profileOpen: false,
   showDebug: false,
   showExplain: false,
+  progressExpanded: false,
 };
 
 function debugModeEnabled() {
@@ -732,6 +733,21 @@ function generationProgressInfo() {
 
 function generatingHtml() {
   const progress = generationProgressInfo();
+  const progressState = state.generationProgress || {};
+  const elapsedMs = typeof progressState.elapsedMs === "number"
+    ? progressState.elapsedMs
+    : Date.now() - (progressState.startedAt || Date.now());
+  const elapsedText = `${Math.max(0, Math.round(elapsedMs / 1000))}s elapsed`;
+  const fallbackText = progressState.fallbackEligibleAt
+    ? (Date.now() >= progressState.fallbackEligibleAt ? "Fast fallback is available if needed" : "Still building the best match")
+    : "Working normally";
+  const progressDetailsHtml = state.progressExpanded ? `
+      <div class="generation-details-panel">
+        <div><strong>Current work</strong><span>${esc(progress.sub)}</span></div>
+        <div><strong>Phase</strong><span>${esc(progressState.phase || "starting")} · ${progress.index + 1}/${progress.count}</span></div>
+        <div><strong>Timing</strong><span>${esc(elapsedText)} · ${esc(fallbackText)}</span></div>
+        <div><strong>Preview</strong><span>${progressState.partialTracks?.length ? `${progressState.partialTracks.length} likely tracks ready` : "Waiting for first safe tracks"}</span></div>
+      </div>` : "";
   const buildBarHtml = `
       <div class="dj-live-stage" aria-live="polite">
         <span class="dj-live-icon">▶</span>
@@ -771,6 +787,10 @@ function generatingHtml() {
       <div class="generating-title">${esc(progress.title)}</div>
       <div class="generating-sub">${esc(progress.sub)}</div>
       ${buildBarHtml}
+      <button class="generation-details-toggle" id="progressDetailsToggle" type="button">
+        ${state.progressExpanded ? "Hide details" : "Show what is happening"}
+      </button>
+      ${progressDetailsHtml}
       ${debugModeEnabled() ? `<div class="generation-safety-chip">Excluded: Christmas / holiday tracks unless requested</div>` : ""}
       <div class="generating-progress" aria-hidden="true">
         <div class="generating-progress-fill" style="width:${progress.pct}%"></div>
@@ -855,7 +875,7 @@ function resultHtml(result) {
           <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" data-playlist-id="${playlistId}" title="Remove from future playlists" aria-label="Remove from future playlists">−</button>
           <button class="section-action feedback-track-btn" data-action="replace" data-track-index="${i}" data-playlist-id="${playlistId}" title="Replace with a nearby track" aria-label="Replace with a nearby track">↻</button>
           <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" data-playlist-id="${playlistId}" title="Like this track" aria-label="Like this track">♥</button>
-          <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" data-playlist-id="${playlistId}" title="Thumbs down" aria-label="Thumbs down">↓</button>
+          <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" data-playlist-id="${playlistId}" title="Thumbs down - reduces similar future picks" aria-label="Thumbs down - reduces similar future picks">↓</button>
           <button class="section-action feedback-track-btn undo-feedback-btn" data-action="undo" data-track-index="${i}" data-playlist-id="${playlistId}" title="Undo last feedback" aria-label="Undo last feedback" style="display:none">Undo</button>
         </div>
       </div>`;
@@ -1781,6 +1801,10 @@ function wireAppEvents() {
   document.getElementById("fullSyncBtn")?.addEventListener("click", () => triggerSync(true));
 
   document.getElementById("generateBtn")?.addEventListener("click", generate);
+  document.getElementById("progressDetailsToggle")?.addEventListener("click", () => {
+    state.progressExpanded = !state.progressExpanded;
+    renderApp();
+  });
 
   // No-library mode toggle
   document.getElementById("noLibraryToggle")?.addEventListener("click", () => {
@@ -1893,16 +1917,17 @@ function wireAppEvents() {
   });
 
   // ── Explain This Playlist tab toggle ──────────────────────────────────────
-  document.addEventListener("click", (e) => {
-    const tabPl = e.target.id === "tabPlaylist" || e.target.closest("#tabPlaylist");
-    const tabEx = e.target.id === "tabExplain"  || e.target.closest("#tabExplain");
-    if (tabPl && state.showExplain) {
-      state.showExplain = false;
-      renderApp();
-    } else if (tabEx && !state.showExplain) {
-      state.showExplain = true;
-      renderApp();
-    }
+  document.getElementById("tabPlaylist")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!state.showExplain) return;
+    state.showExplain = false;
+    renderApp();
+  });
+  document.getElementById("tabExplain")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (state.showExplain) return;
+    state.showExplain = true;
+    renderApp();
   });
 
   // Ctrl/Cmd+K to focus input
@@ -2016,6 +2041,7 @@ async function generate() {
   state.error = null;
   state.errorDetails = null;
   state.showExplain = false;
+  state.progressExpanded = false;
   renderApp();
   startGenerationStatusPolling();
 

@@ -141,6 +141,25 @@ function getTags(p) {
   return tags.slice(0, 4);
 }
 
+function generatorNote(p) {
+  const summary = p.emotionProfile?.generationSummary;
+  if (!summary) return "";
+  const confidence = summary.confidence;
+  const diagnostics = summary.generationDiagnostics || {};
+  const bits = [];
+  if (confidence?.label && typeof confidence.percent === "number") {
+    bits.push(`${confidence.label} ${confidence.percent}%`);
+  }
+  if (diagnostics.fallbackTriggered) bits.push("fallback used");
+  if (Array.isArray(diagnostics.recoveryRelaxations) && diagnostics.recoveryRelaxations.length) {
+    bits.push("relaxed checks");
+  }
+  if (diagnostics.largestDrop?.stage) {
+    bits.push(`biggest drop: ${diagnostics.largestDrop.stage}`);
+  }
+  return bits.length ? bits.slice(0, 3).join(" · ") : "";
+}
+
 function getArts(p) {
   const tracks = Array.isArray(p.tracks) ? p.tracks : [];
   const arts = [];
@@ -271,6 +290,7 @@ function renderCards(playlists) {
     ${playlists.map((p) => {
       const arts = getArts(p);
       const tags = getTags(p);
+      const note = generatorNote(p);
       const count = Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0);
       const selected = selectedPlaylistIds.has(Number(p.id));
       return `
@@ -281,6 +301,7 @@ function renderCards(playlists) {
           <div class="gallery-card-name" title="${esc(p.name)}">${esc(p.name)}</div>
           ${tags.length ? `<div class="gallery-tags">${tags.map((t) => `<span class="gallery-tag">${esc(t)}</span>`).join("")}</div>` : ""}
           ${p.vibe ? `<div class="gallery-card-quote">"${esc(p.vibe)}"</div>` : ""}
+          ${note ? `<div class="gallery-generator-note">${esc(note)}</div>` : ""}
           <div class="gallery-card-meta">${count} tracks · ${fmtDate(p.createdAt)}</div>
           ${deleteMode ? "" : `<div class="gallery-card-actions">
             ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm">${spi()} Spotify</a>` : ""}

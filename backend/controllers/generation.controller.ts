@@ -1007,16 +1007,53 @@ function isUpbeatSocialPrompt(vibe: string, intent: LockedIntent): boolean {
   return /\b(?:hype|high\s+energy|energ(?:y|ised|ized))\b/.test(lower);
 }
 
+function isGymWorkoutPrompt(vibe: string, intent: LockedIntent): boolean {
+  return intent.activity === "gym" ||
+    /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/i.test(vibe);
+}
+
+function trackIsGymWorkoutSafe(track: ConstraintTrack): boolean {
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const tempo = track.tempo ?? 110;
+  const danceability = track.danceability ?? 0.5;
+  const acousticness = track.acousticness ?? 0.5;
+  if (energy < 0.58) return false;
+  if (tempo < 98 && danceability < 0.58) return false;
+  if (valence < 0.32) return false;
+  if (acousticness > 0.76 && energy < 0.70) return false;
+  return true;
+}
+
+function isFocusStudyPrompt(vibe: string, intent: LockedIntent): boolean {
+  return intent.activity === "focus" ||
+    /\b(?:focus|study|studying|deep\s+work|homework|work\s+from\s+home|coding|no\s+distractions?)\b/i.test(vibe);
+}
+
+function trackIsFocusStudySafe(track: ConstraintTrack): boolean {
+  const energy = track.energy ?? 0.5;
+  const tempo = track.tempo ?? 110;
+  const danceability = track.danceability ?? 0.5;
+  const speechiness = track.speechiness ?? 0.1;
+  const valence = track.valence ?? 0.5;
+  if (energy > 0.58) return false;
+  if (tempo > 138 || tempo < 55) return false;
+  if (danceability > 0.74 && energy > 0.48) return false;
+  if (speechiness > 0.34) return false;
+  if (valence < 0.18 && energy < 0.42) return false;
+  return true;
+}
+
 function trackIsUpbeatSocialSafe(track: ConstraintTrack): boolean {
   const energy = track.energy ?? 0.5;
   const valence = track.valence ?? 0.5;
   const tempo = track.tempo ?? 110;
   const acousticness = track.acousticness ?? 0.5;
-  if (energy < 0.34) return false;
-  if (tempo < 76) return false;
-  if (valence < 0.30) return false;
-  if (valence < 0.38 && energy < 0.58) return false;
-  if (acousticness > 0.88 && energy < 0.48) return false;
+  if (energy < 0.42) return false;
+  if (tempo < 82) return false;
+  if (valence < 0.34) return false;
+  if (valence < 0.40 && energy < 0.60) return false;
+  if (acousticness > 0.82 && energy < 0.54) return false;
   return true;
 }
 
@@ -1268,6 +1305,8 @@ function finalTrackIsSafe(
   if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
   if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
+  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) return false;
+  if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) return false;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
   if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
@@ -2636,6 +2675,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     req.log.info({ vibe, vibeKind, promptConfidence }, "Vibe kind detected");
 
+    setGeneratePhase(userId, requestId, "building_profile");
+    setGenerateStageDetail(userId, requestId, "Loading recent playlist memory and feedback");
     tStage = Date.now();
     const recentPlaylists = await db
       .select()
@@ -2740,7 +2781,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
-    setGeneratePhase(userId, requestId, "building_profile");
     setGenerateStageDetail(userId, requestId, `Building taste profile from ${likedSongs.length.toLocaleString()} tracks`);
     let t0 = Date.now();
     const { profile: userGenreProfile, cacheHit } = devMode
@@ -2800,7 +2840,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
 
     const recentTrackLists = recentPlaylists.map((p) => (p.trackIds as string[]) ?? []);
-    const recentTrackPenaltyScale = varietyBoost ? 1.75 : 1;
+    const recentTrackPenaltyScale = varietyBoost ? 2.75 : 1.85;
     const freshnessCloneMultiplier = varietyBoost
       ? cloneMultiplier * 0.88
       : cloneMultiplier;
@@ -3928,6 +3968,30 @@ router.post("/generate", async (req, res): Promise<void> => {
       recoveryUsed: generationDiagnostics.recoveryRelaxations.length > 0,
       fallbackUsed: generationDiagnostics.fallbackTriggered,
     };
+    try {
+      await db
+        .update(savedPlaylistsTable)
+        .set({
+          emotionProfile: {
+            ...(profilePayload as Record<string, unknown>),
+            generationSummary: {
+              confidence: playlistConfidence,
+              generationDiagnostics: {
+                initialLibrarySize: generationDiagnostics.initialLibrarySize,
+                candidatesSampled: generationDiagnostics.candidatesSampled,
+                candidatesFinal: generationDiagnostics.candidatesFinal,
+                largestDrop: generationDiagnostics.largestDrop,
+                recoveryRelaxations: generationDiagnostics.recoveryRelaxations,
+                fallbackTriggered: generationDiagnostics.fallbackTriggered,
+              },
+              artistDiversity,
+            },
+          } as any,
+        })
+        .where(eq(savedPlaylistsTable.id, savedPlaylistId));
+    } catch (err) {
+      req.log.warn({ err, savedPlaylistId }, "Failed to persist generation summary for gallery");
+    }
     const v3DiagnosticPayload = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
     const noLibrarySpotifyDiagnostics = noLibraryMode
       ? {
