@@ -83,7 +83,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   if (env.APP_URL && env.NODE_ENV === "production") {
     const canonical = new URL(env.APP_URL);
     app.use((req, res, next) => {
-      if (req.path === "/api/healthz" || req.path === "/api/health") return next();
+      if (req.path === "/api/healthz" || req.path === "/api/health" || req.path === "/api/eval/ping") return next();
       if (req.hostname === "localhost" || req.hostname === canonical.hostname) return next();
       return res.redirect(301, `${canonical.origin}${req.originalUrl}`);
     });

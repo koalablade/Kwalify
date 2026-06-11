@@ -6,6 +6,7 @@ import generateRouter from "../controllers/generation.controller";
 import playlistCrudRouter from "../controllers/playlist-crud.controller";
 import historyRouter from "./history";
 import libraryRouter from "./library";
+import evalRouter from "./eval";
 
 const router: IRouter = Router();
 const mountedRouteGroups = new Set<string>();
@@ -25,5 +26,6 @@ mountRouteGroup("generate", generateRouter);
 mountRouteGroup("playlist-crud", playlistCrudRouter);
 mountRouteGroup("history", historyRouter);
 mountRouteGroup("library", libraryRouter);
+mountRouteGroup("eval", evalRouter);
 
 export default router;
