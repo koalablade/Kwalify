@@ -70,6 +70,7 @@ async function api(path, opts = {}) {
 
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 let generationStatusTimer = null;
+let generationUiTimer = null;
 
 function feedbackTrackPayload(track) {
   return {
@@ -259,9 +260,11 @@ function toggleTheme() {
 // ── Nav ───────────────────────────────────────────────────────────────────────
 function navHtml(user) {
   const cs = state.cacheStatus;
+  const ls = state.librarySummary;
   const syncing = cs?.isSyncing;
-  const total = cs?.totalTracks || 0;
-  const syncLabel = syncing ? "Syncing…" : total > 0 ? `${total.toLocaleString()} synced` : "Sync";
+  const total = cs?.totalTracks || ls?.trackCount || 0;
+  const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
+  const syncLabel = syncing ? "Syncing…" : total > 0 ? `${total.toLocaleString()} tracks` : "Library";
   const initials = (user?.displayName || "U").charAt(0).toUpperCase();
   const avatar = user?.avatarUrl
     ? `<img src="${esc(user.avatarUrl)}" alt="">`
@@ -276,9 +279,16 @@ function navHtml(user) {
     </div>
     <div class="nav-right">
       <a href="/gallery" class="nav-link">Gallery <span class="nav-link-arrow">→</span></a>
-      <div class="nav-sync-chip" id="syncChip" style="cursor:pointer" title="Delta sync (new likes only)">
-        <span class="sync-dot ${syncing ? "sync-dot--live" : ""}"></span>
-        <span>${syncLabel}</span>
+      <div class="nav-library-panel">
+        <button class="nav-sync-chip" id="syncChip" type="button" title="Delta sync (new likes only)">
+          <span class="sync-dot ${syncing ? "sync-dot--live" : ""}"></span>
+          <span>${syncLabel}</span>
+          ${lastSynced ? `<small>updated ${esc(lastSynced)}</small>` : ""}
+        </button>
+        <div class="nav-library-actions">
+          <button id="deltaSyncBtn" class="section-action nav-sync-action" ${syncing ? "disabled" : ""}>${syncing ? "Syncing…" : "Sync new"}</button>
+          <button id="fullSyncBtn" class="section-action nav-sync-action" ${syncing ? "disabled" : ""}>Full sync</button>
+        </div>
       </div>
       <div class="nav-profile-wrap" id="profileWrap">
         <button class="nav-avatar-btn" id="profileBtn" title="Account">
@@ -567,21 +577,6 @@ function renderApp() {
             ? `<span class="spinner spinner--sm"></span> Generating…`
             : `Generate playlist <span class="btn-arrow">→</span>`}
         </button>
-
-        <div class="home-utility-row home-utility-row--compact">
-          <div>
-            <div class="home-utility-title">Library</div>
-            <div class="home-utility-sub">${total.toLocaleString()} tracks synced${lastSynced ? ` · updated ${lastSynced}` : ""}</div>
-          </div>
-          <div class="home-utility-actions">
-            <button id="deltaSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Fetch only new liked songs since last sync">
-              ${cs?.isSyncing ? "Syncing…" : "Sync new"}
-            </button>
-            <button id="fullSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Re-sync your entire library from scratch">
-              Full sync
-            </button>
-          </div>
-        </div>
       </div>
 
       ${debugMoodPanelHtml}
@@ -724,11 +719,18 @@ function generationProgressInfo() {
     ? state.generationProgress.stageIndex
     : Math.max(0, Math.min(GENERATION_STAGES.length - 1, GENERATION_PHASES.indexOf(phase) - 1));
   const count = state.generationProgress?.stageCount || GENERATION_STAGES.length;
-  const pct = Math.max(10, Math.min(96, Math.round(((index + 1) / count) * 100)));
   const startedAt = state.generationProgress?.startedAt || Date.now();
+  const elapsedMs = Date.now() - startedAt;
+  const localStep = Math.min(
+    count - 1,
+    Math.floor(elapsedMs / 4500)
+  );
+  const displayIndex = Math.max(index, state.generationProgress?.partialTracks?.length ? 3 : 0, localStep);
+  const pct = Math.max(10, Math.min(96, Math.round(((displayIndex + 1) / count) * 100)));
   const subIndex = Math.floor((Date.now() - startedAt) / 1800) % subtexts.length;
   const detail = state.generationProgress?.stageDetail || subtexts[subIndex];
-  return { title: stageLabel, sub: detail, pct, index, count };
+  const displayTitle = GENERATION_STAGES[displayIndex] || stageLabel;
+  return { title: displayTitle, serverTitle: stageLabel, sub: detail, pct, index: displayIndex, serverIndex: index, count };
 }
 
 function generatingHtml() {
@@ -743,16 +745,16 @@ function generatingHtml() {
     : "Working normally";
   const progressDetailsHtml = state.progressExpanded ? `
       <div class="generation-details-panel">
-        <div><strong>Current work</strong><span>${esc(progress.sub)}</span></div>
-        <div><strong>Phase</strong><span>${esc(progressState.phase || "starting")} · ${progress.index + 1}/${progress.count}</span></div>
-        <div><strong>Timing</strong><span>${esc(elapsedText)} · ${esc(fallbackText)}</span></div>
-        <div><strong>Preview</strong><span>${progressState.partialTracks?.length ? `${progressState.partialTracks.length} likely tracks ready` : "Waiting for first safe tracks"}</span></div>
+        <div><strong>Current work</strong><span id="generationDetailWork">${esc(progress.sub)}</span></div>
+        <div><strong>Phase</strong><span id="generationDetailPhase">${esc(progressState.phase || "starting")} · backend ${progress.serverIndex + 1}/${progress.count}</span></div>
+        <div><strong>Timing</strong><span id="generationDetailTiming">${esc(elapsedText)} · ${esc(fallbackText)}</span></div>
+        <div><strong>Preview</strong><span id="generationDetailPreview">${progressState.partialTracks?.length ? `${progressState.partialTracks.length} likely tracks ready` : "Waiting for first safe tracks"}</span></div>
       </div>` : "";
   const buildBarHtml = `
       <div class="dj-live-stage" aria-live="polite">
         <span class="dj-live-icon">▶</span>
-        <span class="dj-live-label">${esc(progress.title)}</span>
-        <span class="dj-live-count">${Math.min(progress.index + 1, progress.count)} / ${progress.count}</span>
+        <span class="dj-live-label" id="generationStageLabel">${esc(progress.title)}</span>
+        <span class="dj-live-count" id="generationStageCount">${Math.min(progress.index + 1, progress.count)} / ${progress.count}</span>
       </div>`;
   const partialTracks = Array.isArray(state.generationProgress?.partialTracks)
     ? state.generationProgress.partialTracks
@@ -784,8 +786,8 @@ function generatingHtml() {
   <div class="generating-card">
     <span class="spinner spinner--purple"></span>
     <div class="generating-body">
-      <div class="generating-title">${esc(progress.title)}</div>
-      <div class="generating-sub">${esc(progress.sub)}</div>
+      <div class="generating-title" id="generationTitle">${esc(progress.title)}</div>
+      <div class="generating-sub" id="generationSub">${esc(progress.sub)}</div>
       ${buildBarHtml}
       <button class="generation-details-toggle" id="progressDetailsToggle" type="button">
         ${state.progressExpanded ? "Hide details" : "Show what is happening"}
@@ -793,11 +795,41 @@ function generatingHtml() {
       ${progressDetailsHtml}
       ${debugModeEnabled() ? `<div class="generation-safety-chip">Excluded: Christmas / holiday tracks unless requested</div>` : ""}
       <div class="generating-progress" aria-hidden="true">
-        <div class="generating-progress-fill" style="width:${progress.pct}%"></div>
+        <div class="generating-progress-fill" id="generationProgressFill" style="width:${progress.pct}%"></div>
       </div>
       ${partialHtml}
     </div>
   </div>`;
+}
+
+function refreshGenerationProgressDom() {
+  if (!state.generating || !state.generationProgress) return;
+  const progress = generationProgressInfo();
+  const progressState = state.generationProgress || {};
+  const elapsedMs = typeof progressState.elapsedMs === "number"
+    ? Math.max(progressState.elapsedMs, Date.now() - (progressState.startedAt || Date.now()))
+    : Date.now() - (progressState.startedAt || Date.now());
+  const elapsedText = `${Math.max(0, Math.round(elapsedMs / 1000))}s elapsed`;
+  const fallbackText = progressState.fallbackEligibleAt
+    ? (Date.now() >= progressState.fallbackEligibleAt ? "Fast fallback is available if needed" : "Still building the best match")
+    : "Working normally";
+  const previewText = progressState.partialTracks?.length
+    ? `${progressState.partialTracks.length} likely tracks ready`
+    : "Waiting for first safe tracks";
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  setText("generationTitle", progress.title);
+  setText("generationSub", progress.sub);
+  setText("generationStageLabel", progress.title);
+  setText("generationStageCount", `${Math.min(progress.index + 1, progress.count)} / ${progress.count}`);
+  setText("generationDetailWork", progress.sub);
+  setText("generationDetailPhase", `${progressState.phase || "starting"} · backend ${progress.serverIndex + 1}/${progress.count}`);
+  setText("generationDetailTiming", `${elapsedText} · ${fallbackText}`);
+  setText("generationDetailPreview", previewText);
+  const fill = document.getElementById("generationProgressFill");
+  if (fill) fill.style.width = `${progress.pct}%`;
 }
 
 function resultHtml(result) {
@@ -1993,10 +2025,18 @@ function stopGenerationStatusPolling() {
     clearTimeout(generationStatusTimer);
     generationStatusTimer = null;
   }
+  if (generationUiTimer) {
+    clearInterval(generationUiTimer);
+    generationUiTimer = null;
+  }
 }
 
 function startGenerationStatusPolling() {
   stopGenerationStatusPolling();
+  generationUiTimer = setInterval(() => {
+    if (!state.generating) return;
+    refreshGenerationProgressDom();
+  }, 1000);
   const tick = async () => {
     if (!state.generating) return;
     try {
@@ -2022,10 +2062,10 @@ function startGenerationStatusPolling() {
     } catch {
       // Progress is best-effort; the generate request still owns success/failure.
     } finally {
-      if (state.generating) generationStatusTimer = setTimeout(tick, 1200);
+      if (state.generating) generationStatusTimer = setTimeout(tick, 600);
     }
   };
-  generationStatusTimer = setTimeout(tick, 350);
+  generationStatusTimer = setTimeout(tick, 150);
 }
 
 async function generate() {

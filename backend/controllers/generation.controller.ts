@@ -1013,15 +1013,15 @@ function isGymWorkoutPrompt(vibe: string, intent: LockedIntent): boolean {
 }
 
 function trackIsGymWorkoutSafe(track: ConstraintTrack): boolean {
-  const energy = track.energy ?? 0.5;
-  const valence = track.valence ?? 0.5;
-  const tempo = track.tempo ?? 110;
-  const danceability = track.danceability ?? 0.5;
-  const acousticness = track.acousticness ?? 0.5;
-  if (energy < 0.58) return false;
-  if (tempo < 98 && danceability < 0.58) return false;
-  if (valence < 0.32) return false;
-  if (acousticness > 0.76 && energy < 0.70) return false;
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const valence = typeof track.valence === "number" ? track.valence : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
+  if (energy !== null && energy < 0.48) return false;
+  if (tempo !== null && tempo < 90 && (danceability ?? 0.5) < 0.56) return false;
+  if (valence !== null && valence < 0.28) return false;
+  if (acousticness !== null && acousticness > 0.82 && (energy ?? 0.6) < 0.66) return false;
   return true;
 }
 
@@ -1031,16 +1031,16 @@ function isFocusStudyPrompt(vibe: string, intent: LockedIntent): boolean {
 }
 
 function trackIsFocusStudySafe(track: ConstraintTrack): boolean {
-  const energy = track.energy ?? 0.5;
-  const tempo = track.tempo ?? 110;
-  const danceability = track.danceability ?? 0.5;
-  const speechiness = track.speechiness ?? 0.1;
-  const valence = track.valence ?? 0.5;
-  if (energy > 0.58) return false;
-  if (tempo > 138 || tempo < 55) return false;
-  if (danceability > 0.74 && energy > 0.48) return false;
-  if (speechiness > 0.34) return false;
-  if (valence < 0.18 && energy < 0.42) return false;
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const speechiness = typeof track.speechiness === "number" ? track.speechiness : null;
+  const valence = typeof track.valence === "number" ? track.valence : null;
+  if (energy !== null && energy > 0.58) return false;
+  if (tempo !== null && (tempo > 138 || tempo < 55)) return false;
+  if (danceability !== null && danceability > 0.74 && (energy ?? 0.5) > 0.48) return false;
+  if (speechiness !== null && speechiness > 0.34) return false;
+  if (valence !== null && valence < 0.18 && (energy ?? 0.5) < 0.42) return false;
   return true;
 }
 
@@ -1318,6 +1318,49 @@ function finalTrackIsSafe(
 
 type PlaylistFinalizationDiagnostics = Record<string, number | boolean | string | null>;
 
+function cohesionFamilyLimit(vibe: string, intent: LockedIntent, constraints: ConstraintLayer): number | null {
+  if (constraints.hard.genres.length > 0) return null;
+  if (isFocusStudyPrompt(vibe, intent)) return 1;
+  if (isGymWorkoutPrompt(vibe, intent)) return 2;
+  if (isUpbeatSocialPrompt(vibe, intent)) return 2;
+  return null;
+}
+
+function preferredCohesionFamilies<T extends ConstraintTrack>(
+  tracks: T[],
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+  }
+): Set<string> {
+  const limit = cohesionFamilyLimit(opts.vibe, opts.intent, opts.constraints);
+  if (!limit) return new Set();
+  const counts = new Map<string, number>();
+  const scores = new Map<string, number>();
+  for (const track of tracks.slice(0, Math.max(40, limit * 30))) {
+    if (!finalTrackIsSafe(track, opts)) continue;
+    const family = trackGenreFamily(track, opts.classMap);
+    if (!family || family === "unknown") continue;
+    counts.set(family, (counts.get(family) ?? 0) + 1);
+    scores.set(family, (scores.get(family) ?? 0) + Math.max(0, track.score ?? 0));
+  }
+  return new Set(
+    [...counts.entries()]
+      .filter(([, count]) => count >= 4)
+      .sort((a, b) => (scores.get(b[0]) ?? 0) - (scores.get(a[0]) ?? 0) || b[1] - a[1])
+      .slice(0, limit)
+      .map(([family]) => family)
+  );
+}
+
 function hasExplicitArtistRequest(vibe: string): boolean {
   return /\b(?:songs?\s+by|tracks?\s+by|only\s+[a-z0-9&'.\-\s]{2,40}\s+(?:songs?|tracks?)|playlist\s+of\s+)\b/i.test(vibe);
 }
@@ -1420,10 +1463,17 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   let duplicateSignatureDropped = 0;
   let artistLimitSkipped = 0;
   let albumLimitSkipped = 0;
+  let cohesionSkipped = 0;
   let relaxedArtistFillUsed = false;
   let relaxedAlbumFillUsed = false;
 
   const out: T[] = [];
+  const rankedCandidates = opts.candidates
+    .map(sanitizePlaylistTrack)
+    .filter((track): track is T => !!track)
+    .sort((a, b) => b.score - a.score);
+  const preferredFamilies = preferredCohesionFamilies(rankedCandidates, opts);
+  const outOfFamilyReserve = Math.max(2, Math.ceil(opts.requestedLength * 0.12));
   const tryAdd = (track: T, artistLimit: number | null, albumLimit: number | null, enforceRepeatSignature: boolean): void => {
     if (out.length >= opts.requestedLength) return;
     const sanitized = sanitizePlaylistTrack(track);
@@ -1442,6 +1492,16 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
     if (!finalTrackIsSafe(sanitized, opts)) {
       unsafeDropped++;
+      return;
+    }
+    const family = trackGenreFamily(sanitized, opts.classMap);
+    if (
+      preferredFamilies.size > 0 &&
+      family !== "unknown" &&
+      !preferredFamilies.has(family) &&
+      out.length < opts.requestedLength - outOfFamilyReserve
+    ) {
+      cohesionSkipped++;
       return;
     }
     const artistKey = sanitized.artistName.toLowerCase().trim();
@@ -1463,10 +1523,6 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     out.push(sanitized);
   };
 
-  const rankedCandidates = opts.candidates
-    .map(sanitizePlaylistTrack)
-    .filter((track): track is T => !!track)
-    .sort((a, b) => b.score - a.score);
   const primaryArtistLimit = Number.isFinite(opts.maxPerArtist) ? opts.maxPerArtist : null;
   const emergencyArtistLimit = relaxedEmergencyArtistCap(opts.requestedLength, opts.maxPerArtist);
   const primaryAlbumLimit = finalAlbumCap(opts.requestedLength);
@@ -1491,6 +1547,8 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       duplicateSignatureDropped,
       artistLimitSkipped,
       albumLimitSkipped,
+      cohesionSkipped,
+      cohesionFamilies: preferredFamilies.size ? [...preferredFamilies].join(",") : null,
       artistLimitRelaxed: relaxedArtistFillUsed,
       artistLimitRelaxedTo: relaxedArtistFillUsed ? emergencyArtistLimit : null,
       albumLimitRelaxed: relaxedAlbumFillUsed,

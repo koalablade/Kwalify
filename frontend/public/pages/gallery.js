@@ -154,7 +154,7 @@ function generatorNote(p) {
   if (Array.isArray(diagnostics.recoveryRelaxations) && diagnostics.recoveryRelaxations.length) {
     bits.push("relaxed checks");
   }
-  if (diagnostics.largestDrop?.stage) {
+  if (diagnostics.largestDrop?.stage && diagnostics.largestDrop.stage !== "Sampled") {
     bits.push(`biggest drop: ${diagnostics.largestDrop.stage}`);
   }
   return bits.length ? bits.slice(0, 3).join(" · ") : "";
