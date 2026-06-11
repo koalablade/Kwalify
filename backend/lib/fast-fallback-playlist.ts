@@ -40,21 +40,25 @@ export function buildFastFallbackPlaylist<
 
   const maxPerArtist = opts.maxPerArtist ?? 4;
   const artistCount = new Map<string, number>();
+  const usedTrackIds = new Set<string>();
   const out: T[] = [];
 
   for (const { t } of ranked) {
     if (out.length >= opts.playlistLength) break;
+    if (usedTrackIds.has(t.trackId)) continue;
     const key = t.artistName.toLowerCase().trim();
     const n = artistCount.get(key) ?? 0;
     if (n >= maxPerArtist) continue;
     artistCount.set(key, n + 1);
+    usedTrackIds.add(t.trackId);
     out.push(t);
   }
 
   if (out.length < opts.playlistLength) {
     for (const { t } of ranked) {
       if (out.length >= opts.playlistLength) break;
-      if (out.includes(t)) continue;
+      if (usedTrackIds.has(t.trackId)) continue;
+      usedTrackIds.add(t.trackId);
       out.push(t);
     }
   }

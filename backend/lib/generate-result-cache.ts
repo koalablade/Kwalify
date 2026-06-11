@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v14: final playlist invariants plus acoustic/rainy/summer prompt locks. */
-  cacheVersion: "v14";
+  /** v15: final playlist replenishment runs before strict evidence guards. */
+  cacheVersion: "v15";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;

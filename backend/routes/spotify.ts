@@ -24,6 +24,7 @@ import {
   invalidateGenreProfileCache,
   warmGenreProfileCache,
 } from "../lib/genre-profile-cache";
+import { invalidateGenerateResultCache } from "../lib/generate-result-cache";
 import { getFeatures } from "../lib/env";
 import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
 
@@ -403,6 +404,7 @@ export async function runSync(
       .where(eq(syncStatusTable.spotifyUserId, userId));
 
     invalidateGenreProfileCache(userId);
+    invalidateGenerateResultCache(userId);
 
     const allRows = await db
       .select()

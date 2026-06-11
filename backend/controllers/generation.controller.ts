@@ -1358,6 +1358,28 @@ function eraDiagnosticSample<T extends {
   }));
 }
 
+function libraryFingerprint(tracks: Array<{
+  trackId: string;
+  createdAt?: Date | string | null;
+  addedAt?: Date | string | null;
+}>): string {
+  let newest = 0;
+  const ids: string[] = [];
+  for (const track of tracks) {
+    ids.push(track.trackId);
+    const createdMs = track.createdAt ? new Date(track.createdAt).getTime() : 0;
+    const addedMs = track.addedAt ? new Date(track.addedAt).getTime() : 0;
+    newest = Math.max(newest, Number.isFinite(createdMs) ? createdMs : 0, Number.isFinite(addedMs) ? addedMs : 0);
+  }
+  ids.sort();
+  const sample = [
+    ...ids.slice(0, 8),
+    ...ids.slice(Math.max(0, Math.floor(ids.length / 2) - 4), Math.floor(ids.length / 2) + 4),
+    ...ids.slice(-8),
+  ].join(",");
+  return `${tracks.length}:${newest}:${sample}`;
+}
+
 const FINAL_GUARD_GENRE_TERMS: Record<string, string[]> = {
   country: ["country", "americana", "red dirt", "outlaw country", "honky tonk", "bluegrass", "nashville", "country road"],
   hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap"],
@@ -1887,7 +1909,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v14" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v15" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -1924,8 +1946,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           vibe: cached.vibe,
           mode: cached.mode,
           noLibraryMode: !!noLibraryMode,
-          count: cached.finalTracks.length,
-          totalTracks: cached.finalTracks.length,
+          count: cachedApiTracks.length,
+          totalTracks: cachedApiTracks.length,
           emotionProfile: cached.emotionProfile,
           cacheDiagnostics: { status: "fresh", staleBypassed: false },
           finalGenreDistribution: cachedFinalGenreDistribution,
@@ -2355,7 +2377,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const freshnessCloneMultiplier = varietyBoost
       ? cloneMultiplier * 0.88
       : cloneMultiplier;
-    const stackCacheKey = `${resultCacheKey}:${likedSongs.length}`;
+    const stackCacheKey = `${resultCacheKey}:${libraryFingerprint(likedSongs)}`;
 
     stageTimer.start("Building genre stack", {
       tracks: likedSongs.length,
@@ -2620,6 +2642,29 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Locked intent final validation"
     );
+    let finalization = finalizePlaylistTracks({
+      initial: finalTracks,
+      candidates: buildFinalCandidatePool(),
+      requestedLength: length,
+      vibe,
+      intent: lockedIntent,
+      constraints: constraintLayer,
+      classMap: userGenreProfile.trackClassifications,
+      maxPerArtist,
+    });
+    if (finalization.tracks.length !== finalTracks.length) {
+      req.log.info(
+        { userId, vibe, finalization: finalization.diagnostics },
+        "Final playlist invariants repaired track list before evidence guards"
+      );
+      finalTracks = finalization.tracks;
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+    }
     const strictGenreEvidenceDiagnostics = (() => {
       const expectedFamilies = lockedIntent.primaryGenres.length > 0
         ? lockedIntent.primaryGenres
@@ -2790,7 +2835,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
       }
     }
-    const finalization = finalizePlaylistTracks({
+    finalization = finalizePlaylistTracks({
       initial: finalTracks,
       candidates: buildFinalCandidatePool(),
       requestedLength: length,
@@ -3165,7 +3210,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v14",
+        cacheVersion: "v15",
         playlistName,
         vibe,
         mode,
