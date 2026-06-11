@@ -233,7 +233,6 @@ const state = {
   partialPreviewStartedAt: null,
   lastResult: null,
   error: null,
-  tasteOpen: false,
   profileOpen: false,
   showDebug: false,
   showExplain: false,
@@ -292,10 +291,6 @@ function navHtml(user) {
             <span id="themeIcon">${isDark ? "☀️" : "🌙"}</span>
             <span>${isDark ? "Light mode" : "Dark mode"}</span>
           </button>
-          <a href="/gallery" class="profile-dropdown-item">
-            <span>🎵</span>
-            <span>My playlists</span>
-          </a>
           <div class="profile-dropdown-divider"></div>
           <button class="profile-dropdown-item profile-dropdown-logout" id="logoutBtn">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -329,7 +324,7 @@ function renderLanding() {
         From your liked songs only
       </div>
       <h1>What's the <em>moment</em>?</h1>
-      <p class="hero-sub">Describe a feeling — we'll build a playlist entirely from songs you already love.</p>
+      <p class="hero-sub">Describe a feeling and get a playlist entirely from songs you already love.</p>
 
       <div class="hero-demo">
         <div class="hero-demo-box">
@@ -417,17 +412,6 @@ function renderLanding() {
   </div>`;
 }
 
-// ── App page (logged in) ──────────────────────────────────────────────────────
-const QUICK_MOMENTS = [
-  "Driving somewhere you don't need to be",
-  "Late night thinking about everything",
-  "First warm day after winter",
-  "Cleaning your room and finding old memories",
-  "Walking home after a good night",
-  "Empty streets at golden hour",
-  "Rainy Sunday with nowhere to be",
-];
-
 const MOOD_BAR_DEFS = [
   { label: "Energy",    cls: "fill-blue",   id: "mb-energy",    key: "energy" },
   { label: "Nostalgia", cls: "fill-purple",  id: "mb-nostalgia", key: "nostalgia" },
@@ -445,9 +429,6 @@ function renderApp() {
   const ls = state.librarySummary;
   const total = cs?.totalTracks || ls?.trackCount || 0;
   const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
-  const span = ls?.oldestLikedYear && ls?.newestLikedYear
-    ? `${ls.oldestLikedYear}–${ls.newestLikedYear}`
-    : "—";
 
   const errorHtml = state.error
     ? `<div class="alert alert-error">
@@ -467,6 +448,42 @@ function renderApp() {
         <div class="mood-fill ${b.cls}" id="${b.id}" style="width:0%"></div>
       </div>
     </div>`).join("");
+  const debugMoodPanelHtml = debugModeEnabled() ? `
+      <!-- Debug-only live mood interpreter -->
+      <div class="mood-col">
+        <div class="mood-panel">
+          <div class="mood-glow" id="moodGlow"></div>
+          <div class="mood-head">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span id="moodStatus">Awaiting input…</span>
+          </div>
+          <div class="mood-bars">${moodBarsHtml}</div>
+          <div class="mood-tags-wrap">
+            <div class="mood-tags-label">Scene Tags</div>
+            <div class="mood-tags-row" id="moodTags">
+              ${["Late night","Urban","Solitude","Still"].map((t, i) =>
+                `<span class="mood-tag" style="opacity:0.2;transition:opacity 0.5s ${i * 0.1}s">${t}</span>`
+              ).join("")}
+            </div>
+          </div>
+          <div class="mood-style">
+            <div class="mood-style-label">Predicted Style</div>
+            <div class="mood-style-text" id="moodStyleText" style="opacity:0">"Slow, atmospheric, late-night focused"</div>
+          </div>
+          <div class="mood-scene-panel" id="moodScenePanel" style="display:none">
+            <div class="mood-scene-divider"></div>
+            <div class="mood-scene-row">
+              <div class="mood-scene-label">Detected Scene</div>
+              <div class="mood-scene-name" id="moodSceneName"></div>
+              <div class="mood-scene-badges" id="moodSceneBadges"></div>
+            </div>
+            <div class="mood-alts-row" id="moodAltsRow" style="display:none">
+              <div class="mood-alts-label">Also matches</div>
+              <div class="mood-alts" id="moodAlts"></div>
+            </div>
+          </div>
+        </div>
+      </div>` : "";
 
   root.innerHTML = `
   ${navHtml(state.user)}
@@ -475,13 +492,13 @@ function renderApp() {
 
     ${errorHtml}
 
-    <div class="input-grid">
+    <div class="input-grid ${debugModeEnabled() ? "" : "input-grid--single"}">
 
       <!-- Vibe input -->
       <div class="vibe-col">
         <div>
           <h1 class="vibe-heading">What's the moment?</h1>
-          <p class="vibe-sub">Describe it — we'll build a playlist from songs you already love.</p>
+          <p class="vibe-sub">Describe it and get a playlist from songs you already love.</p>
         </div>
 
         <div class="vibe-input-wrap">
@@ -500,6 +517,15 @@ function renderApp() {
               <span class="vibe-count"><span id="charCount">0</span>/140</span>
             </div>
           </div>
+        </div>
+
+        <div class="prompt-guide" aria-label="Prompt guidance">
+          <span class="prompt-guide-label">Better prompts:</span>
+          <span class="prompt-guide-chip">place</span>
+          <span class="prompt-guide-chip">energy</span>
+          <span class="prompt-guide-chip">era</span>
+          <span class="prompt-guide-chip">who it's for</span>
+          <span class="prompt-guide-example">e.g. garage with mates, upbeat 2000s, Saturday night</span>
         </div>
 
         <div class="controls-row">
@@ -530,109 +556,33 @@ function renderApp() {
             ? `<span class="spinner spinner--sm"></span> Generating…`
             : `Generate playlist <span class="btn-arrow">→</span>`}
         </button>
-      </div>
 
-      <!-- Live mood interpreter -->
-      <div class="mood-col">
-        <div class="mood-panel">
-          <div class="mood-glow" id="moodGlow"></div>
-          <div class="mood-head">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span id="moodStatus">Awaiting input…</span>
+        <div class="home-utility-row home-utility-row--compact">
+          <div>
+            <div class="home-utility-title">Library</div>
+            <div class="home-utility-sub">${total.toLocaleString()} tracks synced${lastSynced ? ` · updated ${lastSynced}` : ""}</div>
           </div>
-          <div class="mood-bars">${moodBarsHtml}</div>
-          <div class="mood-tags-wrap">
-            <div class="mood-tags-label">Scene Tags</div>
-            <div class="mood-tags-row" id="moodTags">
-              ${["Late night","Urban","Solitude","Still"].map((t, i) =>
-                `<span class="mood-tag" style="opacity:0.2;transition:opacity 0.5s ${i * 0.1}s">${t}</span>`
-              ).join("")}
-            </div>
-          </div>
-          <div class="mood-style">
-            <div class="mood-style-label">Predicted Style</div>
-            <div class="mood-style-text" id="moodStyleText" style="opacity:0">"Slow, atmospheric, late-night focused"</div>
-          </div>
-          <!-- Server-detected scene panel (appears after server responds) -->
-          <div class="mood-scene-panel" id="moodScenePanel" style="display:none">
-            <div class="mood-scene-divider"></div>
-            <div class="mood-scene-row">
-              <div class="mood-scene-label">Detected Scene</div>
-              <div class="mood-scene-name" id="moodSceneName"></div>
-              <div class="mood-scene-badges" id="moodSceneBadges"></div>
-            </div>
-            <div class="mood-alts-row" id="moodAltsRow" style="display:none">
-              <div class="mood-alts-label">Also matches</div>
-              <div class="mood-alts" id="moodAlts"></div>
-            </div>
+          <div class="home-utility-actions">
+            <button id="deltaSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Fetch only new liked songs since last sync">
+              ${cs?.isSyncing ? "Syncing…" : "Sync new"}
+            </button>
+            <button id="fullSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Re-sync your entire library from scratch">
+              Full sync
+            </button>
           </div>
         </div>
       </div>
+
+      ${debugMoodPanelHtml}
     </div>
 
     <!-- Generation progress / Result -->
     ${state.generating ? generatingHtml() : ""}
     ${state.lastResult ? resultHtml(state.lastResult) : ""}
 
-    <!-- Quick moments -->
-    <div class="quick-section">
-      <div class="label">Quick Moments</div>
-      <div class="chips-row hide-scrollbar" id="quickChips">
-        ${QUICK_MOMENTS.map((m) => `<button class="quick-chip" data-vibe="${esc(m)}">${esc(m)}</button>`).join("")}
-      </div>
-    </div>
-
-    <!-- Taste profile -->
-    <div class="taste-strip">
-      <button class="taste-toggle" id="tasteToggle">
-        <div class="taste-toggle-left">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${"#1db954"}" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          Your taste profile
-        </div>
-        <svg class="taste-chevron ${state.tasteOpen ? "open" : ""}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-      <div class="taste-body ${state.tasteOpen ? "open" : ""}" id="tasteBody">
-        <div class="taste-grid">
-          <div class="taste-cell">
-            <span class="taste-cell-label">Dominant vibe</span>
-            <span class="taste-cell-value">Nostalgic / High-energy</span>
-          </div>
-          <div class="taste-cell">
-            <span class="taste-cell-label">Listening span</span>
-            <span class="taste-cell-value">${span}</span>
-          </div>
-          <div class="taste-cell">
-            <span class="taste-cell-label">Era gravity</span>
-            <span class="taste-cell-value">Revisit most: 2020–2022</span>
-          </div>
-          <div class="taste-cell">
-            <span class="taste-cell-label">Sync status</span>
-            <span class="taste-cell-value">${total > 0 ? `${total.toLocaleString()} tracks${lastSynced ? ` · ${lastSynced}` : ""}` : "Not yet synced"}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="home-utility-row">
-      <div>
-        <div class="home-utility-title">Library controls</div>
-        <div class="home-utility-sub">${total.toLocaleString()} tracks synced${lastSynced ? ` · updated ${lastSynced}` : ""}</div>
-      </div>
-      <div class="home-utility-actions">
-        <button id="deltaSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Fetch only new liked songs since last sync">
-          ${cs?.isSyncing ? "Syncing…" : "Sync new"}
-        </button>
-        <button id="fullSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Re-sync your entire library from scratch">
-          Full sync
-        </button>
-        <a href="/gallery" class="section-action">Recent playlists →</a>
-      </div>
-    </div>
-
   </div>
 
   <footer class="app-footer">
-    <a href="/gallery" class="footer-link">Gallery →</a>
     <div class="footer-right">
       <span class="badge badge-muted">Beta</span>
       <a href="mailto:feedback@kwalify.net" class="footer-link">Send feedback</a>
@@ -816,7 +766,7 @@ function generatingHtml() {
       <div class="generating-title">${esc(progress.title)}</div>
       <div class="generating-sub">${esc(progress.sub)}</div>
       ${buildBarHtml}
-      <div class="generation-safety-chip">Excluded: Christmas / holiday tracks unless requested</div>
+      ${debugModeEnabled() ? `<div class="generation-safety-chip">Excluded: Christmas / holiday tracks unless requested</div>` : ""}
       <div class="generating-progress" aria-hidden="true">
         <div class="generating-progress-fill" style="width:${progress.pct}%"></div>
       </div>
@@ -910,10 +860,10 @@ function resultHtml(result) {
       <div class="result-vibes">
         ${vibeDotsHtml}
       </div>
-      <div class="result-safety-row">
+      ${debugModeEnabled() ? `<div class="result-safety-row">
         <span>Safety filter active</span>
         <strong>Christmas / holiday tracks excluded unless requested</strong>
-      </div>
+      </div>` : ""}
       <div class="result-actions">
         ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
         ${playlistId ? `<a href="/p/${playlistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
@@ -1621,9 +1571,12 @@ function buildDebugPanel(result) {
 let _moodPreviewTimer = null;
 
 function updateMoodPanel(text) {
+  const statusEl = document.getElementById("moodStatus");
+  if (!statusEl) return;
+
   if (text.length <= 3) {
     document.getElementById("moodGlow")?.classList.remove("active");
-    document.getElementById("moodStatus").textContent = "Awaiting input…";
+    statusEl.textContent = "Awaiting input…";
     MOOD_BAR_DEFS.forEach((b) => {
       const el = document.getElementById(b.id);
       const lb = document.getElementById(`${b.id}-label`);
@@ -1641,7 +1594,7 @@ function updateMoodPanel(text) {
   }
 
   document.getElementById("moodGlow")?.classList.add("active");
-  document.getElementById("moodStatus").textContent = "Reading the moment…";
+  statusEl.textContent = "Reading the moment…";
 
   // Instant client-side mood bars (no network round-trip)
   const mood = analyzeMoodFromText(text);
@@ -1694,7 +1647,8 @@ function updateMoodPanelFromServer(data) {
 
   if (!data.scene) {
     // No scene detected — show generic status
-    document.getElementById("moodStatus").textContent = "Moment analyzed";
+    const statusEl = document.getElementById("moodStatus");
+    if (statusEl) statusEl.textContent = "Moment analyzed";
     document.getElementById("moodGlow")?.classList.remove("active");
     scenePanel.style.display = "none";
     return;
@@ -1800,21 +1754,6 @@ function wireAppEvents() {
         b.classList.toggle("active", b.dataset.mode === state.mode)
       );
     });
-  });
-
-  document.querySelectorAll(".quick-chip[data-vibe]").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      vibeInput.value = chip.dataset.vibe;
-      charCount.textContent = vibeInput.value.length;
-      updateMoodPanel(vibeInput.value);
-      vibeInput.focus();
-    });
-  });
-
-  document.getElementById("tasteToggle")?.addEventListener("click", () => {
-    state.tasteOpen = !state.tasteOpen;
-    document.getElementById("tasteBody")?.classList.toggle("open", state.tasteOpen);
-    document.querySelector(".taste-chevron")?.classList.toggle("open", state.tasteOpen);
   });
 
   document.querySelectorAll(".delete-btn[data-id]").forEach((btn) => {

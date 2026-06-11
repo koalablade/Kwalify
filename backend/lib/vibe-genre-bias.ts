@@ -25,6 +25,15 @@ const NIGHT_DRIVE_RE =
 const GYM_RE =
   /\b(gym|workout|training\s+session|lifting|leg\s+day|villain\s+arc|pr\s+day|hype\s+set|beast\s+mode)\b/i;
 
+const GARAGE_MUSIC_RE =
+  /\b(?:garage\s+music|uk\s+garage|ukg|2-step|two\s+step|two-step|speed\s+garage|future\s+garage|garage\s+rock)\b/i;
+
+const GARAGE_PHYSICAL_RE =
+  /\bgarage\b/i;
+
+const GARAGE_CONTEXT_RE =
+  /\b(?:friends?|mates?|cars?|working|workshop|tools?|toolbox|fixing|welding|volvo|motorcycles?|motorbikes?|under\s+the\s+hood|saturday\s+night|hanging\s+out|talking\s+rubbish)\b/i;
+
 function emptyRouting(): SceneGenreRouting {
   return { boostedGenres: [], suppressedGenres: [], genreMultipliers: {} };
 }
@@ -46,7 +55,10 @@ function applyMult(
 export function promptHasExplicitGenreConstraint(vibe: string): boolean {
   const t = vibe.trim();
   if (!t) return false;
-  if (GENRE_WORDS_RE.test(t)) return true;
+  const genreText = GARAGE_PHYSICAL_RE.test(t) && GARAGE_CONTEXT_RE.test(t) && !GARAGE_MUSIC_RE.test(t)
+    ? t.replace(/\bgarage\b/gi, "")
+    : t;
+  if (GENRE_WORDS_RE.test(genreText)) return true;
   if (DECADE_RE.test(t)) return true;
   if (ARTIST_HINT_RE.test(t)) return true;
   return false;

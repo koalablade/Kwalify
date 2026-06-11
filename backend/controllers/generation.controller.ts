@@ -660,7 +660,7 @@ function trackIsChristmasTrack(track: ConstraintTrack, classMap: Map<string, {
   const genreTerms = trackGenreTerms(track, classMap).join(" ");
   if (/\b(?:christmas|xmas|holiday|carol|festive|noel|santa|jingle\s+bells|winter\s+wonderland)\b/i.test(genreTerms)) return true;
   const text = `${track.trackName ?? ""} ${track.albumName ?? ""}`.toLowerCase();
-  return /\b(?:christmas|xmas|holiday|festive|noel|santa|jingle\s+bells|winter\s+wonderland)\b/i.test(text);
+  return /\b(?:christmas|xmas|holiday|festive|noel|santa|jingle\s+bells|winter\s+wonderland|mistletoe|snowman|sleigh|merry\s+christmas|christmastime|rudolph|frosty|feliz\s+navidad|baby\s+it'?s\s+cold\s+outside)\b/i.test(text);
 }
 
 function hasExplicitHolidayIntent(vibe: string): boolean {
@@ -990,6 +990,35 @@ function trackIsBroadDrivingSafe(track: ConstraintTrack): boolean {
   return true;
 }
 
+function isGarageHangoutPrompt(vibe: string): boolean {
+  return /\bgarage\b/i.test(vibe) &&
+    /\b(?:friends?|mates?|saturday|night|cars?|working|workshop|tools?|fixing|hang(?:ing)?\s*out)\b/i.test(vibe) &&
+    !isUkGaragePrompt(vibe);
+}
+
+function isUpbeatSocialPrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  if (isGarageHangoutPrompt(vibe)) return true;
+  if (intent.activity === "party" || intent.activity === "gym") return true;
+  if (/\b(?:party|all\s+night|chaos|workout|gym|friends?|mates?|saturday\s+night)\b/.test(lower)) return true;
+  if (intent.mood.includes("melancholic")) return false;
+  if (intent.mood.includes("energised") || intent.energy === "high" || intent.energyLevel === "high") return true;
+  return /\b(?:hype|high\s+energy|energ(?:y|ised|ized))\b/.test(lower);
+}
+
+function trackIsUpbeatSocialSafe(track: ConstraintTrack): boolean {
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const tempo = track.tempo ?? 110;
+  const acousticness = track.acousticness ?? 0.5;
+  if (energy < 0.34) return false;
+  if (tempo < 76) return false;
+  if (valence < 0.30) return false;
+  if (valence < 0.38 && energy < 0.58) return false;
+  if (acousticness > 0.88 && energy < 0.48) return false;
+  return true;
+}
+
 function trackIsEuphoricSummerSafe(
   track: ConstraintTrack,
   explicitGenreLocked: boolean,
@@ -1239,6 +1268,7 @@ function finalTrackIsSafe(
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
   if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
+  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
   const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
   if (isEuphoricSummerPrompt(opts.vibe, opts.intent) && !trackIsEuphoricSummerSafe(track, explicitGenreLocked, opts.classMap)) return false;
@@ -1359,7 +1389,14 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
   }>;
   maxPerArtist: number;
 }): { tracks: T[]; diagnostics: PlaylistFinalizationDiagnostics; intent: LockedIntent } | null {
-  if (opts.intent.interpretationBudget?.complexity !== "low") return null;
+  const broadUnconstrainedPrompt =
+    opts.intent.genreFamilies.length === 0 &&
+    opts.intent.primaryGenres.length === 0 &&
+    opts.constraints.hard.genres.length === 0 &&
+    opts.constraints.hard.eraStart === null &&
+    opts.constraints.hard.eraEnd === null &&
+    opts.constraints.hard.excludedGenres.length === 0;
+  if (opts.intent.interpretationBudget?.complexity !== "low" && !broadUnconstrainedPrompt) return null;
 
   const base = {
     requestedLength: opts.requestedLength,
@@ -1415,6 +1452,7 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
           ...finalization.diagnostics,
           fallbackMode: "broad_energy_recovery",
           recoveryStage: attempt.stage,
+          recoveryScope: opts.intent.interpretationBudget?.complexity === "low" ? "low_complexity" : "broad_unconstrained",
           originalFinalCount: opts.initial.length,
           fullLibraryCandidates: opts.fullLibrary.length,
         },
@@ -2972,7 +3010,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       publishPartialTracks(finalTracks);
       req.log.info(
         { userId, vibe, finalization: finalization.diagnostics },
-        "LOW complexity broad energy recovery produced playlist"
+        "Broad energy recovery produced playlist"
       );
       return true;
     };

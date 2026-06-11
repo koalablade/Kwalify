@@ -118,7 +118,7 @@ function detectContradictionBoost(text: string): number {
     /bittersweet/i,
     /love-hate/i,
     /mixed feelings/i,
-    /don't know how (i|to) feel/i,
+    /don'?t know (?:how|what) (?:i|you|to) feel/i,
   ];
   let boost = 0;
   for (const phrase of contradictionPhrases) {
@@ -567,7 +567,7 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
     weights: { energy: -0.2, valence: 0.1, tension: -0.15, nostalgia: 0.15, calm: 0.3 },
   },
   {
-    terms: ["bittersweet", "bittersweetness", "mixed feelings", "happy sad", "sad happy", "beautiful sadness"],
+    terms: ["bittersweet", "bittersweetness", "mixed feelings", "happy sad", "sad happy", "beautiful sadness", "don't know what you feel", "dont know what you feel"],
     weights: { energy: -0.05, valence: 0.0, tension: 0.1, nostalgia: 0.3, calm: 0.05 },
   },
   {
@@ -1762,7 +1762,7 @@ function pickFromList(list: string[], seed: string): string {
 }
 
 const GENERIC_VIBE_PRESETS =
-  /^(chill|gym|focus|happy|sad|night drive|summer|balanced|workout|vibes?)$/i;
+  /^(chill|gym|focus|happy|sad|night drive|summer|balanced|workout)$/i;
 
 function titleCaseVibe(vibe: string): string {
   return vibe
@@ -1776,6 +1776,7 @@ function titleCaseVibe(vibe: string): string {
 function nameFromUserVibe(vibe: string): string | null {
   const trimmed = vibe.trim();
   if (trimmed.length < 4 || GENERIC_VIBE_PRESETS.test(trimmed)) return null;
+  if (/^vibes?$/i.test(trimmed)) return titleCaseVibe(trimmed);
 
   const wordCount = trimmed.split(/\s+/).length;
   const isDescriptive =
