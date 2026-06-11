@@ -3,6 +3,13 @@ const root = document.getElementById("playlistRoot");
 const match = window.location.pathname.match(/\/p\/(\d+)/);
 const playlistId = match ? match[1] : null;
 
+(function initTheme() {
+  const saved = localStorage.getItem("kwalify-theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const theme = saved || (prefersDark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", theme);
+})();
+
 function esc(v) {
   return String(v ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]

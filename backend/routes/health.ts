@@ -15,4 +15,13 @@ router.get("/healthz", async (_req, res) => {
   }
 });
 
+router.get("/readyz", async (_req, res) => {
+  try {
+    await db.execute(sql`select 1`);
+    res.json({ status: "ready", database: "ok" });
+  } catch {
+    res.status(503).json({ status: "not_ready", database: "error" });
+  }
+});
+
 export default router;

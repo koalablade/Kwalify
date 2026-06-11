@@ -9,6 +9,7 @@
     "build": "node scripts/prepare-dist.mjs && node node_modules/typescript/bin/tsc",
     "start": "node backend/dist/server.js",
     "typecheck": "tsc --noEmit",
+    "smoke:static": "node scripts/smoke-static.mjs",
     "quality:eval": "npm run build && node backend/dist/scripts/playlist-quality-eval.js",
     "quality:stress": "npm run build && node backend/dist/scripts/playlist-stress-report.js",
     "smoke:deploy": "npm run build && node backend/dist/scripts/deploy-smoke.js"

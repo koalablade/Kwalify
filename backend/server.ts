@@ -103,8 +103,7 @@ async function bootstrap(): Promise<void> {
 
   // ── 8. Listen ───────────────────────────────────────────────────────────────
   await new Promise<void>((resolve, reject) => {
-    app
-      .listen(env.PORT, () => {
+    const server = app.listen(env.PORT, () => {
         // Single consolidated startup success log — logged exactly once.
         logger.info(
           {
@@ -126,8 +125,11 @@ async function bootstrap(): Promise<void> {
         startFeedbackMemoryDecayJob(logger);
 
         resolve();
-      })
-      .on("error", reject);
+      });
+    server.requestTimeout = 95_000;
+    server.headersTimeout = 100_000;
+    server.keepAliveTimeout = 65_000;
+    server.on("error", reject);
   });
 }
 

@@ -23,6 +23,10 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 input, textarea { font: inherit; }
 h1, h2, h3, h4 { margin: 0; }
 p { margin: 0; }
+:focus-visible {
+  outline: 2px solid rgba(29,185,84,0.85);
+  outline-offset: 3px;
+}
 
 /* ── Design tokens ────────────────────────────────────────────────────────── */
 :root {

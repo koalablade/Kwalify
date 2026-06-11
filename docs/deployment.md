@@ -57,9 +57,7 @@ When deployed, the `SPOTIFY_REDIRECT_URI` must be set to `https://your-repl-name
 
 ## Health Check
 
-`GET /api/healthz` returns `{"status":"ok"}` with HTTP 200. This endpoint is unauthenticated and has no external dependencies (it does not query the database). Use this for uptime monitoring or load balancer health checks.
-
-If deeper health checking (database connectivity) is required, a query must be added to this handler.
+`GET /api/healthz` returns `{"status":"ok"}` with HTTP 200 only after a lightweight database check succeeds. `GET /api/readyz` returns dependency readiness details. Both endpoints are unauthenticated and are suitable for deploy checks/load balancers.
 
 ## Schema Migrations
 

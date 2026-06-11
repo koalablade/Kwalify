@@ -573,9 +573,9 @@ function renderApp() {
 
         <div class="controls-row">
           <div class="mode-group">
-            <button class="mode-btn ${state.mode === "strict"   ? "active" : ""}" data-mode="strict" title="Closest match, least drift">Strict</button>
-            <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced" title="Best quality and variety">Balanced</button>
-            <button class="mode-btn ${state.mode === "chaotic"  ? "active" : ""}" data-mode="chaotic" title="More surprise, still safety-checked">Chaotic</button>
+            <button class="mode-btn ${state.mode === "strict"   ? "active" : ""}" data-mode="strict" title="Closest match, least drift" aria-pressed="${state.mode === "strict"}">Strict</button>
+            <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced" title="Best quality and variety" aria-pressed="${state.mode === "balanced"}">Balanced</button>
+            <button class="mode-btn ${state.mode === "chaotic"  ? "active" : ""}" data-mode="chaotic" title="More surprise, still safety-checked" aria-pressed="${state.mode === "chaotic"}">Chaotic</button>
           </div>
           <div class="length-row">
             <svg class="length-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -587,7 +587,7 @@ function renderApp() {
 
         <div class="no-library-row">
           <label class="no-library-toggle" title="Use Spotify-wide search for clear genre prompts, with your library only as fallback">
-            <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle"></div>
+            <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle" role="switch" tabindex="0" aria-checked="${state.noLibraryMode}" aria-label="No Library Mode"></div>
             <div class="no-library-text">
               <span class="no-library-label">No Library Mode</span>
               <span class="no-library-sub">Spotify-wide search for clear genre prompts · may use your library as fallback</span>
@@ -1928,6 +1928,14 @@ function wireAppEvents() {
   document.getElementById("noLibraryToggle")?.addEventListener("click", () => {
     state.noLibraryMode = !state.noLibraryMode;
     document.getElementById("noLibraryToggle")?.classList.toggle("on", state.noLibraryMode);
+    document.getElementById("noLibraryToggle")?.setAttribute("aria-checked", String(state.noLibraryMode));
+  });
+  document.getElementById("noLibraryToggle")?.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    state.noLibraryMode = !state.noLibraryMode;
+    document.getElementById("noLibraryToggle")?.classList.toggle("on", state.noLibraryMode);
+    document.getElementById("noLibraryToggle")?.setAttribute("aria-checked", String(state.noLibraryMode));
   });
 
   const vibeInput = document.getElementById("vibeInput");

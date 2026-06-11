@@ -2765,9 +2765,42 @@ router.post("/generate", async (req, res): Promise<void> => {
           },
           "Generation complete"
         );
+        let cachedSavedPlaylistId: number | null = null;
+        try {
+          const [saved] = await db
+            .insert(savedPlaylistsTable)
+            .values({
+              userId,
+              name: cached.playlistName,
+              emotionProfile: cached.emotionProfile as any,
+              tracks: cached.finalTracks as any,
+              spotifyUrl: cached.spotifyPlaylistUrl,
+              vibe: cached.vibe,
+              mode: cached.mode,
+            })
+            .returning({ id: savedPlaylistsTable.id });
+          cachedSavedPlaylistId = saved?.id ?? null;
+          if (cachedSavedPlaylistId) {
+            await db.insert(playlistHistoryTable).values({
+              spotifyUserId: userId,
+              playlistId: cached.spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${cachedSavedPlaylistId}`,
+              playlistUrl: cached.spotifyPlaylistUrl ?? publicUrl(`/p/${cachedSavedPlaylistId}`),
+              name: cached.playlistName,
+              vibe: cached.vibe,
+              mode: cached.mode,
+              trackCount: cachedApiTracks.length,
+              emotionProfile: cached.emotionProfile as any,
+              trackIds: cached.finalTracks.map((track) => track.trackId),
+            });
+          }
+        } catch (cacheSaveErr) {
+          req.log.warn({ err: cacheSaveErr, userId }, "Cached generation could not create local saved playlist");
+        }
         res.json({
           success: true,
           cached: true,
+          playlistId: cachedSavedPlaylistId,
+          savedPlaylistId: cachedSavedPlaylistId,
           tracks: cachedApiTracks,
           playlistName: cached.playlistName,
           name: cached.playlistName,
