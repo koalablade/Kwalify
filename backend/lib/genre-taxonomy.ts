@@ -215,7 +215,8 @@ export function classifyTrack(
     return classificationFromRoot(spotifyRoot);
   }
 
-  const blob = `${track.trackName} ${track.artistName} ${track.albumName}`;
+  const textBlob = `${track.trackName} ${track.albumName}`;
+  const artistBlob = track.artistName;
   const hits: { taxon: GenreTaxon; score: number; micro: string | null }[] = [];
 
   // Per-taxon diagnostic: first text pattern and artist hint that fired
@@ -228,19 +229,19 @@ export function classifyTrack(
     let hintSrc: string | null = null;
 
     for (const p of taxon.patterns) {
-      if (p.test(blob)) {
+      if (p.test(textBlob)) {
         score += 0.42;
         if (!patternSrc) patternSrc = p.source;
       }
     }
     for (const m of taxon.microStyles) {
-      if (blob.toLowerCase().includes(m.toLowerCase())) {
+      if (textBlob.toLowerCase().includes(m.toLowerCase())) {
         score += 0.34;
         micro = m;
         if (!patternSrc) patternSrc = m;
       }
     }
-    if (taxon.artistHints?.test(blob)) {
+    if (taxon.artistHints?.test(artistBlob)) {
       score += 0.52;
       hintSrc = taxon.artistHints.source;
     }
