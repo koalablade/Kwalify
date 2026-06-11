@@ -36,6 +36,7 @@ type SessionState = {
   phase: GeneratePhase;
   stage: GenerateStage;
   stageIndex: number;
+  stageDetail: string | null;
   partialTracks: GenerateProgressTrack[];
   cancelled: boolean;
   /** Playlist created but track-add may retry */
@@ -105,6 +106,7 @@ export function acquireGenerateSession(
     startedAt: Date.now(),
     phase: "starting",
     ...PHASE_STAGE.starting,
+    stageDetail: null,
     partialTracks: [],
     cancelled: false,
   });
@@ -141,6 +143,16 @@ export function setGeneratePartialTracks(
   s.partialTracks = tracks.slice(0, 60);
 }
 
+export function setGenerateStageDetail(
+  userId: string,
+  requestId: string,
+  stageDetail: string | null
+): void {
+  const s = sessions.get(userId);
+  if (s?.requestId !== requestId || s.cancelled) return;
+  s.stageDetail = stageDetail ? stageDetail.slice(0, 120) : null;
+}
+
 export function isGenerateCancelled(userId: string, requestId: string): boolean {
   const s = sessions.get(userId);
   return !s || s.requestId !== requestId || s.cancelled;
@@ -151,6 +163,7 @@ export function getGenerateProgress(userId: string): {
   stage: GenerateStage;
   stageIndex: number;
   stageCount: number;
+  stageDetail: string | null;
   requestId: string;
   startedAt: number;
   partialTracks: GenerateProgressTrack[];
@@ -166,6 +179,7 @@ export function getGenerateProgress(userId: string): {
     stage: s.stage,
     stageIndex: s.stageIndex,
     stageCount: 5,
+    stageDetail: s.stageDetail,
     requestId: s.requestId,
     startedAt: s.startedAt,
     partialTracks: s.partialTracks,
@@ -178,19 +192,21 @@ export function getGenerateStatus(userId: string): {
   stage: GenerateStage | null;
   stageIndex: number;
   stageCount: number;
+  stageDetail: string | null;
   requestId: string | null;
   active: boolean;
   partialTracks: GenerateProgressTrack[];
 } {
   const progress = getGenerateProgress(userId);
   if (!progress) {
-    return { phase: "idle", stage: null, stageIndex: 0, stageCount: 5, requestId: null, active: false, partialTracks: [] };
+    return { phase: "idle", stage: null, stageIndex: 0, stageCount: 5, stageDetail: null, requestId: null, active: false, partialTracks: [] };
   }
   return {
     phase: progress.phase,
     stage: progress.stage,
     stageIndex: progress.stageIndex,
     stageCount: progress.stageCount,
+    stageDetail: progress.stageDetail,
     requestId: progress.requestId,
     active: true,
     partialTracks: progress.partialTracks,

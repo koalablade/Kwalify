@@ -43,23 +43,38 @@ export function buildFastFallbackPlaylist<
   const usedTrackIds = new Set<string>();
   const out: T[] = [];
 
-  for (const { t } of ranked) {
-    if (out.length >= opts.playlistLength) break;
-    if (usedTrackIds.has(t.trackId)) continue;
+  const tryAdd = (t: T, artistLimit: number | null): boolean => {
+    if (out.length >= opts.playlistLength) return false;
+    if (usedTrackIds.has(t.trackId)) return false;
     const key = t.artistName.toLowerCase().trim();
     const n = artistCount.get(key) ?? 0;
-    if (n >= maxPerArtist) continue;
+    if (artistLimit !== null && n >= artistLimit) return false;
     artistCount.set(key, n + 1);
     usedTrackIds.add(t.trackId);
     out.push(t);
+    return true;
+  };
+
+  for (const { t } of ranked) {
+    if (out.length >= opts.playlistLength) break;
+    tryAdd(t, maxPerArtist);
   }
 
   if (out.length < opts.playlistLength) {
+    const relaxedMaxPerArtist = Number.isFinite(maxPerArtist) ? maxPerArtist + 1 : maxPerArtist;
     for (const { t } of ranked) {
       if (out.length >= opts.playlistLength) break;
-      if (usedTrackIds.has(t.trackId)) continue;
-      usedTrackIds.add(t.trackId);
-      out.push(t);
+      tryAdd(t, relaxedMaxPerArtist);
+    }
+  }
+
+  if (out.length < opts.playlistLength) {
+    const emergencyMaxPerArtist = Number.isFinite(maxPerArtist)
+      ? maxPerArtist + Math.max(1, Math.ceil(opts.playlistLength * 0.05))
+      : maxPerArtist;
+    for (const { t } of ranked) {
+      if (out.length >= opts.playlistLength) break;
+      tryAdd(t, emergencyMaxPerArtist);
     }
   }
 

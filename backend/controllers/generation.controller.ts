@@ -68,6 +68,7 @@ import {
   acquireGenerateSession,
   endGenerateSession,
   setGeneratePhase,
+  setGenerateStageDetail,
   isGenerateCancelled,
   getPendingSpotifyPlaylistId,
   setPendingSpotifyPlaylistId,
@@ -1278,6 +1279,51 @@ function finalTrackIsSafe(
 
 type PlaylistFinalizationDiagnostics = Record<string, number | boolean | string | null>;
 
+function hasExplicitArtistRequest(vibe: string): boolean {
+  return /\b(?:songs?\s+by|tracks?\s+by|only\s+[a-z0-9&'.\-\s]{2,40}\s+(?:songs?|tracks?)|playlist\s+of\s+)\b/i.test(vibe);
+}
+
+function artistDiversityCap(playlistSize: number, vibe: string): number {
+  if (hasExplicitArtistRequest(vibe)) return Number.MAX_SAFE_INTEGER;
+  if (playlistSize < 25) return 2;
+  if (playlistSize <= 50) return 3;
+  return 4;
+}
+
+function relaxedEmergencyArtistCap(playlistSize: number, maxPerArtist: number): number | null {
+  if (!Number.isFinite(maxPerArtist) || maxPerArtist >= Number.MAX_SAFE_INTEGER / 2) return null;
+  return maxPerArtist + Math.max(1, Math.ceil(playlistSize * 0.05));
+}
+
+function artistDiversityDiagnostics<T extends { artistName?: string | null }>(
+  tracks: T[],
+  maxPerArtist: number
+): {
+  uniqueArtists: number;
+  repeatedArtists: number;
+  cappedTracks: number;
+  maxPerArtist: number | null;
+} {
+  const counts = new Map<string, number>();
+  for (const track of tracks) {
+    const artist = (track.artistName ?? "").toLowerCase().trim();
+    if (!artist) continue;
+    counts.set(artist, (counts.get(artist) ?? 0) + 1);
+  }
+  const capped = Number.isFinite(maxPerArtist) ? maxPerArtist : Number.MAX_SAFE_INTEGER;
+  return {
+    uniqueArtists: counts.size,
+    repeatedArtists: [...counts.values()].filter((count) => count > 1).length,
+    cappedTracks: [...counts.values()].reduce((sum, count) => sum + Math.max(0, count - capped), 0),
+    maxPerArtist: capped === Number.MAX_SAFE_INTEGER ? null : capped,
+  };
+}
+
+function trackListChanged<T extends { trackId: string }>(before: T[], after: T[]): boolean {
+  if (before.length !== after.length) return true;
+  return before.some((track, index) => track.trackId !== after[index]?.trackId);
+}
+
 function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   initial: T[];
   candidates: T[];
@@ -1300,9 +1346,11 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   let malformedDropped = 0;
   let unsafeDropped = 0;
   let duplicateDropped = 0;
+  let artistLimitSkipped = 0;
+  let relaxedArtistFillUsed = false;
 
   const out: T[] = [];
-  const tryAdd = (track: T, enforceArtistLimit: boolean): void => {
+  const tryAdd = (track: T, artistLimit: number | null): void => {
     if (out.length >= opts.requestedLength) return;
     const sanitized = sanitizePlaylistTrack(track);
     if (!sanitized) {
@@ -1319,7 +1367,10 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
     const artistKey = sanitized.artistName.toLowerCase().trim();
     const artistCount = artistCounts.get(artistKey) ?? 0;
-    if (enforceArtistLimit && artistCount >= opts.maxPerArtist) return;
+    if (artistLimit !== null && artistCount >= artistLimit) {
+      artistLimitSkipped++;
+      return;
+    }
     seen.add(sanitized.trackId);
     artistCounts.set(artistKey, artistCount + 1);
     out.push(sanitized);
@@ -1329,10 +1380,15 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     .map(sanitizePlaylistTrack)
     .filter((track): track is T => !!track)
     .sort((a, b) => b.score - a.score);
+  const primaryArtistLimit = Number.isFinite(opts.maxPerArtist) ? opts.maxPerArtist : null;
+  const emergencyArtistLimit = relaxedEmergencyArtistCap(opts.requestedLength, opts.maxPerArtist);
 
-  for (const track of opts.initial) tryAdd(track, true);
-  for (const track of rankedCandidates) tryAdd(track, true);
-  for (const track of rankedCandidates) tryAdd(track, false);
+  for (const track of opts.initial) tryAdd(track, primaryArtistLimit);
+  for (const track of rankedCandidates) tryAdd(track, primaryArtistLimit);
+  if (out.length < opts.requestedLength) {
+    relaxedArtistFillUsed = emergencyArtistLimit !== null;
+    for (const track of rankedCandidates) tryAdd(track, emergencyArtistLimit);
+  }
 
   return {
     tracks: out,
@@ -1342,8 +1398,15 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       malformedDropped,
       unsafeDropped,
       duplicateDropped,
+      artistLimitSkipped,
+      artistLimitRelaxed: relaxedArtistFillUsed,
+      artistLimitRelaxedTo: relaxedArtistFillUsed ? emergencyArtistLimit : null,
+      artistLimitBypassed: false,
       replenished: out.length > opts.initial.length,
       sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
+      artistDiversityUniqueArtists: artistDiversityDiagnostics(out, opts.maxPerArtist).uniqueArtists,
+      artistDiversityRepeatedArtists: artistDiversityDiagnostics(out, opts.maxPerArtist).repeatedArtists,
+      artistDiversityCappedTracks: artistDiversityDiagnostics(out, opts.maxPerArtist).cappedTracks,
       fallbackMode: null,
     },
   };
@@ -2212,7 +2275,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v24" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v25" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2258,6 +2321,9 @@ router.post("/generate", async (req, res): Promise<void> => {
           finalMoodDistribution: cachedFinalMoodDistribution,
           finalEnergyDistribution: cachedFinalEnergyDistribution,
           v3Diagnostics: cached.v3Diagnostics ?? null,
+          generationDiagnostics: cached.generationDiagnostics ?? null,
+          artistDiversity: cached.artistDiversity ?? null,
+          playlistConfidence: cached.playlistConfidence ?? null,
           ...(cached.spotifyPlaylistUrl
             ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
             : { spotifyUnavailable: true as const }),
@@ -2267,6 +2333,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     setGeneratePhase(userId, requestId, "loading_library");
+    setGenerateStageDetail(userId, requestId, "Scanning your liked songs...");
     tStage = Date.now();
     const likedRowsRaw = devMode
       ? generateMockSpotifyLibrary()
@@ -2358,6 +2425,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
+    setGenerateStageDetail(userId, requestId, `Analysing ${likedSongs.length.toLocaleString()} liked songs`);
+
     if (likedSongs.length === 0) {
       setGeneratePhase(userId, requestId, "error");
       if (noLibraryMode) {
@@ -2401,7 +2470,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       length,
       mode,
       vibe,
-      maxPerArtist: 2,
+      maxPerArtist: artistDiversityCap(length, vibe),
       noLibrarySpotifyCandidateCount,
       noLibrarySpotifyVerifiedCount,
       noLibrarySpotifyFallbackReason,
@@ -2444,8 +2513,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         });
         return;
       }
-      const maxPerArtist =
-        ctx.mode === "strict" ? 2 : ctx.mode === "balanced" ? 3 : 5;
+      const maxPerArtist = ctx.maxPerArtist ?? artistDiversityCap(ctx.length, ctx.vibe);
       const fallbackTracks = ctx.constrainedFallbackTracks?.length
         ? ctx.constrainedFallbackTracks
         : ctx.likedSongs;
@@ -2618,6 +2686,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
     setGeneratePhase(userId, requestId, "building_profile");
+    setGenerateStageDetail(userId, requestId, `Building taste profile from ${likedSongs.length.toLocaleString()} tracks`);
     let t0 = Date.now();
     const { profile: userGenreProfile, cacheHit } = devMode
       ? { profile: buildMockUserGenreProfile(likedSongs), cacheHit: false }
@@ -2706,7 +2775,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ontologyEdges: genreStack.stats.ontologyEdges,
     });
 
-    const maxPerArtist = 2;
+    const maxPerArtist = artistDiversityCap(length, vibe);
 
     const allowHolidaySeason = hasExplicitHolidayIntent(vibe);
     const qualitySignalContext = buildQualitySignalContext({
@@ -2805,6 +2874,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
 
     setGeneratePhase(userId, requestId, "scoring");
+    setGenerateStageDetail(userId, requestId, `Ranking matches from ${likedSongs.length.toLocaleString()} liked songs`);
     stageTimer.start("Running playlist pipeline (scoring + compose)", {
       tracks: likedSongs.length,
       stackFromCache,
@@ -2923,6 +2993,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ].map(hydrateTrackGenre);
     };
     setGeneratePhase(userId, requestId, "composing");
+    setGenerateStageDetail(userId, requestId, `Building playlist flow from ${pipeline.finalTracks.length.toLocaleString()} candidates`);
     let finalTracks = (pipeline.finalTracks as PlaylistTrack[]).map(hydrateTrackGenre);
     const publishPartialTracks = (tracks: PlaylistTrack[], limit = tracks.length): void => {
       const partialTracks = formatTracksForApi(tracks.slice(0, limit), emotionProfile).map((track) => ({
@@ -3014,7 +3085,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       return true;
     };
-    if (finalization.tracks.length !== finalTracks.length) {
+    if (trackListChanged(finalTracks, finalization.tracks)) {
       req.log.info(
         { userId, vibe, finalization: finalization.diagnostics },
         "Final playlist invariants repaired track list before evidence guards"
@@ -3219,7 +3290,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       classMap: userGenreProfile.trackClassifications,
       maxPerArtist,
     });
-    if (finalization.tracks.length !== finalTracks.length) {
+    if (trackListChanged(finalTracks, finalization.tracks)) {
       req.log.info(
         { userId, vibe, finalization: finalization.diagnostics },
         "Final playlist invariants repaired track list"
@@ -3279,6 +3350,71 @@ router.post("/generate", async (req, res): Promise<void> => {
       hybridPoolSize?: number;
       poolCapped?: boolean;
     };
+    const v3PipelineDiagnostics = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+    const waterfallDiagnostics = (v3PipelineDiagnostics["waterfall"] ?? {}) as Record<string, unknown>;
+    const removalReasonDiagnostics = Array.isArray(v3PipelineDiagnostics["removalReasons"])
+      ? v3PipelineDiagnostics["removalReasons"] as Array<Record<string, unknown>>
+      : [];
+    const numberFromWaterfall = (key: string, fallback: number): number => {
+      const value = waterfallDiagnostics[key];
+      return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+    };
+    const afterForStage = (matcher: RegExp, fallback: number): number => {
+      const stage = removalReasonDiagnostics.find((entry) => matcher.test(String(entry["stage"] ?? "")));
+      const after = stage?.["after"];
+      return typeof after === "number" && Number.isFinite(after) ? after : fallback;
+    };
+    const stageWaterfall = [
+      { stage: "Library Size", count: likedSongs.length },
+      { stage: "Sampled", count: numberFromWaterfall("retrievalCount", scoringPool.hybridPoolSize ?? pipeline.sorted.length) },
+      { stage: "Classified", count: afterForStage(/genre family normalization|metadata completeness/i, numberFromWaterfall("scoredCount", pipeline.sorted.length)) },
+      { stage: "Intent Match", count: numberFromWaterfall("contractCount", likedSongs.length) },
+      { stage: "Era Match", count: afterForStage(/era readiness/i, numberFromWaterfall("constraintCount", pipeline.sorted.length)) },
+      { stage: "Mood Match", count: afterForStage(/constraint filter|intent readiness/i, numberFromWaterfall("constraintCount", pipeline.sorted.length)) },
+      { stage: "Ranking", count: numberFromWaterfall("laneCount", scoringPool.hybridPoolSize ?? pipeline.sorted.length) },
+      { stage: "Repair", count: finalization.tracks.length },
+      { stage: "Coherence", count: numberFromWaterfall("finalCount", finalTracks.length) },
+      { stage: "Final Playlist", count: finalTracks.length },
+    ].map((entry, index, entries) => {
+      const before = index === 0 ? entry.count : entries[index - 1].count;
+      return {
+        ...entry,
+        before,
+        removed: Math.max(0, before - entry.count),
+      };
+    });
+    const largestDrop = [...stageWaterfall]
+      .filter((stage) => stage.removed > 0)
+      .sort((a, b) => b.removed - a.removed)[0] ?? null;
+    const recoveryRelaxations = [
+      typeof finalization.diagnostics["recoveryStage"] === "string" ? finalization.diagnostics["recoveryStage"] : null,
+      finalization.diagnostics["artistLimitRelaxed"] ? "artist_limit_relaxed" : null,
+    ].filter((entry): entry is string => !!entry);
+    const generationDiagnostics = {
+      initialLibrarySize: likedSongs.length,
+      candidatesSampled: numberFromWaterfall("retrievalCount", scoringPool.hybridPoolSize ?? pipeline.sorted.length),
+      candidatesClassified: afterForStage(/genre family normalization|metadata completeness/i, numberFromWaterfall("scoredCount", pipeline.sorted.length)),
+      candidatesAfterIntent: Number(waterfallDiagnostics["contractCount"] ?? likedSongs.length),
+      candidatesAfterEra: afterForStage(/era readiness/i, Number(waterfallDiagnostics["constraintCount"] ?? pipeline.sorted.length)),
+      candidatesAfterMood: afterForStage(/constraint filter|intent readiness/i, Number(waterfallDiagnostics["constraintCount"] ?? pipeline.sorted.length)),
+      candidatesAfterConstraints: Number(waterfallDiagnostics["constraintCount"] ?? scoringPool.hybridPoolSize ?? pipeline.sorted.length),
+      candidatesAfterRanking: Number(scoringPool.hybridPoolSize ?? pipeline.sorted.length),
+      candidatesAfterDiversity: afterArtistSep.length,
+      candidatesAfterRepair: finalization.tracks.length,
+      candidatesAfterCoherence: Number(waterfallDiagnostics["finalCount"] ?? finalTracks.length),
+      candidatesFinal: finalTracks.length,
+      waterfall: stageWaterfall,
+      largestDrop,
+      removalReasons: removalReasonDiagnostics.slice(0, 12),
+      recoveryRelaxations,
+      fallbackTriggered: !!fallbackReason || !!finalization.diagnostics.fallbackMode,
+      failureReason: finalTracks.length === 0 ? "no_final_tracks_after_filters" : null,
+    };
+    setGenerateStageDetail(
+      userId,
+      requestId,
+      `Found ${(scoringPool.hybridPoolSize ?? pipeline.sorted.length).toLocaleString()} matching tracks`
+    );
     stageTimer.end("Playlist pipeline complete", {
       totalMs: Date.now() - startMs,
       totalSongs: likedSongs.length,
@@ -3335,9 +3471,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Quality engine pipeline complete"
     );
+    setGenerateStageDetail(userId, requestId, `Applying diversity rules to ${finalTracks.length.toLocaleString()} tracks`);
 
     publishPartialTracks(finalTracks);
     applyLowComplexityRecovery("pre_empty_playlist_error");
+    generationDiagnostics.candidatesFinal = finalTracks.length;
+    generationDiagnostics.fallbackTriggered = generationDiagnostics.fallbackTriggered || !!finalization.diagnostics.fallbackMode;
+    generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
     if (finalTracks.length === 0) {
       const forensicPoolTrace = (scoringDiagnostics.v3Pipeline as Record<string, unknown> | undefined)?.["forensicPoolTrace"];
       req.log.warn(
@@ -3350,9 +3490,15 @@ router.post("/generate", async (req, res): Promise<void> => {
         res,
         400,
         "EMPTY_PLAYLIST",
-        "Could not build a playlist — nothing matched this vibe with your current library. Try Balanced or Chaotic mode, a broader vibe, or wait a moment and regenerate.",
+        `I found ${generationDiagnostics.candidatesAfterConstraints.toLocaleString()} possible matches, but none survived the final playlist checks. Try broadening the prompt, using Balanced mode, or removing strict era words.`,
         {
-          hint: "The hard filter graph removed all ranked candidates.",
+          hint: "The final filter graph removed all ranked candidates.",
+          generationDiagnostics,
+          suggestions: [
+            "Broaden the prompt",
+            "Use Balanced mode",
+            "Remove strict era constraints",
+          ],
         }
       );
       return;
@@ -3396,6 +3542,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }));
 
     setGeneratePhase(userId, requestId, "spotify");
+    setGenerateStageDetail(userId, requestId, `Finalising ${finalTracks.length.toLocaleString()} tracks`);
     let spotifyPlaylistUrl: string | null = null;
     const tSpotify = Date.now();
     req.log.info(
@@ -3456,6 +3603,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
 
     setGeneratePhase(userId, requestId, "saving");
+    setGenerateStageDetail(userId, requestId, "Saving playlist");
     const tSave = Date.now();
     req.log.info("Saving playlist to database");
 
@@ -3586,17 +3734,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
-      setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v24",
-        playlistName,
-        vibe,
-        mode,
-        finalTracks: cachedFinalTracks,
-        emotionProfile: { ...emotionProfile, journeyArc },
-        spotifyPlaylistUrl,
-        v3Diagnostics,
-        cachedAt: Date.now(),
-      });
     }
 
     setGeneratePhase(userId, requestId, "done");
@@ -3631,6 +3768,37 @@ router.post("/generate", async (req, res): Promise<void> => {
       (acc, track) => incrementDistribution(acc, energyBucket(track.energy)),
       {},
     );
+    const artistDiversity = artistDiversityDiagnostics(finalTracks, maxPerArtist);
+    const playlistQuality = (v3Diagnostics?.playlistQuality ?? null) as Record<string, unknown> | null;
+    const qualitySignals = [
+      typeof playlistQuality?.["overall"] === "number" ? playlistQuality["overall"] as number : null,
+      typeof playlistQuality?.["promptAlignment"] === "number" ? playlistQuality["promptAlignment"] as number : null,
+      typeof playlistQuality?.["genrePurity"] === "number" ? playlistQuality["genrePurity"] as number : null,
+      typeof playlistQuality?.["eraAlignment"] === "number" ? playlistQuality["eraAlignment"] as number : null,
+    ].filter((value): value is number => value !== null && Number.isFinite(value));
+    const recoveryPenalty = generationDiagnostics.recoveryRelaxations.length > 0 ? 0.10 : 0;
+    const fallbackPenalty = generationDiagnostics.fallbackTriggered ? 0.12 : 0;
+    const fillRatio = Math.min(1, finalTracks.length / Math.max(1, length));
+    const confidenceScore = Math.max(
+      0.05,
+      Math.min(
+        0.99,
+        (qualitySignals.length
+          ? qualitySignals.reduce((sum, value) => sum + value, 0) / qualitySignals.length
+          : fillRatio * 0.72 + 0.18) - recoveryPenalty - fallbackPenalty
+      )
+    );
+    const playlistConfidence = {
+      score: Math.round(confidenceScore * 100) / 100,
+      percent: Math.round(confidenceScore * 100),
+      label: confidenceScore >= 0.78
+        ? "Strong match"
+        : confidenceScore >= 0.58
+          ? "Good match"
+          : "Best available match",
+      recoveryUsed: generationDiagnostics.recoveryRelaxations.length > 0,
+      fallbackUsed: generationDiagnostics.fallbackTriggered,
+    };
     const v3DiagnosticPayload = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
     const noLibrarySpotifyDiagnostics = noLibraryMode
       ? {
@@ -3661,6 +3829,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalMoodDistribution,
       finalEnergyDistribution,
       promptDriftAudit,
+      generationDiagnostics,
+      artistDiversity,
+      playlistConfidence,
       noLibrarySpotify: noLibrarySpotifyDiagnostics,
       strictGenreEvidence: {
         ...strictGenreEvidenceDiagnostics,
@@ -3673,6 +3844,23 @@ router.post("/generate", async (req, res): Promise<void> => {
       feedbackDiagnostics,
     };
 
+    if (!varietyBoost && !devMode) {
+      setCachedGenerateResult(resultCacheKey, {
+        cacheVersion: "v25",
+        playlistName,
+        vibe,
+        mode,
+        finalTracks: trackObjects as any,
+        emotionProfile: { ...emotionProfile, journeyArc },
+        spotifyPlaylistUrl,
+        v3Diagnostics,
+        generationDiagnostics,
+        artistDiversity,
+        playlistConfidence,
+        cachedAt: Date.now(),
+      });
+    }
+
     res.json({
       success: true,
       playlistId: savedPlaylistId,
@@ -3684,6 +3872,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       noLibraryMode: !!noLibraryMode,
       noLibrarySpotify: noLibrarySpotifyDiagnostics,
       devMode,
+      playlistConfidence,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
       ...(fallbackReason ? { fallbackReason } : {}),
@@ -3773,6 +3962,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalEraDistribution,
       finalMoodDistribution,
       finalEnergyDistribution,
+      generationDiagnostics,
+      artistDiversity,
       feedbackDiagnostics,
       promptDriftAudit,
       strictGenreEvidence: {
@@ -3911,6 +4102,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         constrainedFallbackTracks?: { trackId: string; trackName: string; artistName: string; albumName: string }[];
         emotionProfile: EmotionProfile;
         length: number;
+        maxPerArtist?: number;
         vibe: string;
         mode: string;
         noLibraryMode?: boolean;
@@ -3930,7 +4122,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         } | null;
       } })._genCtx;
       if (timedOut && ctx?.likedSongs?.length) {
-        const maxPerArtist = 2;
+        const maxPerArtist = ctx.maxPerArtist ?? artistDiversityCap(ctx.length, ctx.vibe);
         const fallbackTracks = ctx.constrainedFallbackTracks?.length
           ? ctx.constrainedFallbackTracks
           : ctx.likedSongs;

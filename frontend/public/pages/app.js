@@ -233,6 +233,7 @@ const state = {
   partialPreviewStartedAt: null,
   lastResult: null,
   error: null,
+  errorDetails: null,
   profileOpen: false,
   showDebug: false,
   showExplain: false,
@@ -430,13 +431,22 @@ function renderApp() {
   const total = cs?.totalTracks || ls?.trackCount || 0;
   const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
 
-  const errorHtml = state.error
-    ? `<div class="alert alert-error">
+  const errorHtml = state.error ? (() => {
+    const diagnostics = state.errorDetails?.generationDiagnostics || null;
+    const suggestions = Array.isArray(state.errorDetails?.suggestions) ? state.errorDetails.suggestions : [];
+    const diagHtml = diagnostics ? `
+      <div class="error-diagnostics">
+        <span>Library: ${Number(diagnostics.initialLibrarySize || 0).toLocaleString()}</span>
+        <span>After filters: ${Number(diagnostics.candidatesAfterConstraints || 0).toLocaleString()}</span>
+        <span>Final: ${Number(diagnostics.candidatesFinal || 0).toLocaleString()}</span>
+      </div>` : "";
+    return `<div class="alert alert-error">
         <strong>Couldn’t finish that exact set.</strong>
         <span>${esc(state.error)}</span>
-        <small>Try a broader phrase or Balanced mode — the DJ will keep the playlist inside your library.</small>
-      </div>`
-    : "";
+        ${diagHtml}
+        ${suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>Try a broader phrase or Balanced mode — the DJ will keep the playlist inside your library.</small>`}
+      </div>`;
+  })() : "";
 
   const moodBarsHtml = MOOD_BAR_DEFS.map((b) => `
     <div class="mood-bar-row">
@@ -675,7 +685,6 @@ function buildActivityFeed() {
 }
 
 const GENERATION_STAGES = ["Scanning library", "Finding matches", "Ranking tracks", "Building flow", "Finalising playlist"];
-const GENERATION_BUILD_LABELS = ["Scanning library", "Matching vibe", "Ranking tracks", "Building flow", "Finalising playlist"];
 const GENERATION_PHASES = ["starting", "loading_library", "building_profile", "scoring", "composing", "spotify", "saving"];
 const GENERATION_PHASE_COPY = {
   "Scanning library": [
@@ -717,21 +726,17 @@ function generationProgressInfo() {
   const pct = Math.max(10, Math.min(96, Math.round(((index + 1) / count) * 100)));
   const startedAt = state.generationProgress?.startedAt || Date.now();
   const subIndex = Math.floor((Date.now() - startedAt) / 1800) % subtexts.length;
-  return { title: stageLabel, sub: subtexts[subIndex], pct, index, count };
+  const detail = state.generationProgress?.stageDetail || subtexts[subIndex];
+  return { title: stageLabel, sub: detail, pct, index, count };
 }
 
 function generatingHtml() {
   const progress = generationProgressInfo();
   const buildBarHtml = `
-      <div class="dj-build-bar" aria-label="Playlist generation progress">
-        ${GENERATION_BUILD_LABELS.map((label, i) => {
-          const stateClass = i < progress.index ? "done" : i === progress.index ? "active" : "pending";
-          const icon = i < progress.index ? "✓" : i === progress.index ? "▶" : "•";
-          return `<div class="dj-build-step ${stateClass}">
-            <span class="dj-build-icon">${icon}</span>
-            <span class="dj-build-label">${esc(label)}</span>
-          </div>`;
-        }).join("")}
+      <div class="dj-live-stage" aria-live="polite">
+        <span class="dj-live-icon">▶</span>
+        <span class="dj-live-label">${esc(progress.title)}</span>
+        <span class="dj-live-count">${Math.min(progress.index + 1, progress.count)} / ${progress.count}</span>
       </div>`;
   const partialTracks = Array.isArray(state.generationProgress?.partialTracks)
     ? state.generationProgress.partialTracks
@@ -799,6 +804,13 @@ function resultHtml(result) {
 
   // ── Admin Debug Panel ──────────────────────────────────────────────────────
   const debugHtml = debugModeEnabled() ? buildDebugPanel(result) : "";
+  const confidence = result.playlistConfidence || {};
+  const confidencePercent = typeof confidence.percent === "number" ? confidence.percent : null;
+  const confidenceHtml = confidencePercent !== null ? `
+      <div class="result-confidence ${confidence.recoveryUsed || confidence.fallbackUsed ? "result-confidence--recovered" : ""}">
+        <span>${esc(confidence.label || "Playlist confidence")}</span>
+        <strong>${confidencePercent}%</strong>
+      </div>` : "";
 
   const hasExplain = !!(result.v3Diagnostics?.playlistExplanation);
   const tabsHtml = hasExplain ? `
@@ -857,6 +869,7 @@ function resultHtml(result) {
       </div>
       <h2 class="result-title">${name}</h2>
       <p class="result-insight">Curated from your liked songs to fit the moment.</p>
+      ${confidenceHtml}
       <div class="result-vibes">
         ${vibeDotsHtml}
       </div>
@@ -1056,6 +1069,10 @@ function buildUnifiedDebugPanel(result, dbg) {
   const v11 = dbg.v11 || {};
   const sys = dbg.systemDiagnostics || {};
   const pool = dbg.poolInfo || {};
+  const gen = result.generationDiagnostics || result.generationAuditSnapshot?.generationDiagnostics || {};
+  const artistDiv = result.artistDiversity || result.generationAuditSnapshot?.artistDiversity || {};
+  const confidence = result.playlistConfidence || result.generationAuditSnapshot?.playlistConfidence || {};
+  const waterfall = Array.isArray(gen.waterfall) ? gen.waterfall : [];
 
   const genreColors = {
     country:"#d97706",folk:"#16a34a",indie:"#7c3aed",rock:"#dc2626",
@@ -1069,6 +1086,37 @@ function buildUnifiedDebugPanel(result, dbg) {
     const col = pct >= 70 ? "#1db954" : pct >= 40 ? "#f59e0b" : "#ef4444";
     return `<div class="dp-score-bar-wrap" title="${pct}%"><div class="dp-score-bar" style="width:${pct}%;background:${col}"></div><span>${pct}</span></div>`;
   };
+
+  const basicDebugHtml = `
+    <div class="dp-card dp-card--wide">
+      <div class="dp-card-title">Basic Debug</div>
+      <div class="dp-pool-grid" style="grid-template-columns:repeat(5,1fr);gap:8px">
+        <div class="dp-pool-stat"><div class="dp-pool-num">${(gen.initialLibrarySize ?? pool.librarySize ?? 0).toLocaleString()}</div><div class="dp-pool-lbl">Library scanned</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${(gen.candidatesAfterConstraints ?? pool.hybridPoolSize ?? 0).toLocaleString()}</div><div class="dp-pool-lbl">Candidates found</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${(gen.candidatesFinal ?? result.totalTracks ?? result.count ?? 0).toLocaleString()}</div><div class="dp-pool-lbl">Playlist size</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${Math.round(result.generationMs || 0)}ms</div><div class="dp-pool-lbl">Generation time</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${gen.fallbackTriggered ? "Yes" : "No"}</div><div class="dp-pool-lbl">Fallback used</div></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        ${typeof confidence.percent === "number" ? `<span class="dp-badge dp-badge--green">Confidence: ${confidence.percent}%</span>` : ""}
+        <span class="dp-badge">Artists: ${artistDiv.uniqueArtists ?? "—"}</span>
+        <span class="dp-badge">Repeated: ${artistDiv.repeatedArtists ?? "—"}</span>
+        <span class="dp-badge">Over cap: ${artistDiv.cappedTracks ?? "—"}</span>
+        ${artistDiv.maxPerArtist ? `<span class="dp-badge">Max / artist: ${artistDiv.maxPerArtist}</span>` : ""}
+        ${gen.largestDrop?.stage ? `<span class="dp-badge dp-badge--amber">Biggest drop: ${esc(gen.largestDrop.stage)} −${(gen.largestDrop.removed || 0).toLocaleString()}</span>` : ""}
+        ${Array.isArray(gen.recoveryRelaxations) && gen.recoveryRelaxations.length ? `<span class="dp-badge dp-badge--amber">Relaxed: ${esc(gen.recoveryRelaxations.join(", "))}</span>` : ""}
+        ${gen.failureReason ? `<span class="dp-badge dp-badge--amber">Failure: ${esc(gen.failureReason)}</span>` : ""}
+      </div>
+      ${waterfall.length ? `
+        <div class="debug-waterfall">
+          ${waterfall.map((stage) => `
+            <div class="debug-waterfall-step">
+              <span>${esc(stage.stage || "Stage")}</span>
+              <strong>${Number(stage.count || 0).toLocaleString()}</strong>
+            </div>
+          `).join("")}
+        </div>` : ""}
+    </div>`;
 
   // ── System health ─────────────────────────────────────────────────────────
   const sysHtml = `
@@ -1310,6 +1358,8 @@ function buildUnifiedDebugPanel(result, dbg) {
       <span>Scoring Diagnostics</span>
       <span class="dp-model-tag">V3.1 Unified Routing</span>
     </div>
+    ${basicDebugHtml}
+    <div class="dp-sub-title">Advanced Debug</div>
     <div class="dp-grid">
       ${sysHtml}
       ${intentHtml}
@@ -1925,6 +1975,7 @@ function startGenerationStatusPolling() {
           stage: r.data.stage || null,
           stageIndex: typeof r.data.stageIndex === "number" ? r.data.stageIndex : 0,
           stageCount: typeof r.data.stageCount === "number" ? r.data.stageCount : GENERATION_STAGES.length,
+          stageDetail: r.data.stageDetail || null,
           requestId: r.data.requestId || null,
           startedAt: typeof r.data.startedAt === "number" ? r.data.startedAt : Date.now(),
           partialTracks: nextPartialTracks,
@@ -1948,9 +1999,10 @@ async function generate() {
 
   state.generating = true;
   state.partialPreviewStartedAt = null;
-  state.generationProgress = { phase: "starting", stage: "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, requestId: null, startedAt: Date.now(), partialTracks: [] };
+  state.generationProgress = { phase: "starting", stage: "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), partialTracks: [] };
   state.lastResult = null;
   state.error = null;
+  state.errorDetails = null;
   state.showExplain = false;
   renderApp();
   startGenerationStatusPolling();
@@ -1972,12 +2024,14 @@ async function generate() {
 
     if (!r.ok) {
       state.error = r.data?.error || r.data?.message || "Generation failed. Please try again.";
+      state.errorDetails = r.data || null;
     } else {
       state.lastResult = { ...r.data, savedPlaylistId: r.data.playlistId };
       await loadPlaylists();
     }
   } catch (e) {
     state.error = e.message || "Generation failed. Please try again.";
+    state.errorDetails = null;
   } finally {
     stopGenerationStatusPolling();
     state.generating = false;

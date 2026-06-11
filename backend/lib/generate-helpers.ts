@@ -7,6 +7,8 @@ import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
 import type { TrackScoringDebug } from "./hybrid-scoring";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
+const FAST_FALLBACK_SCAN_MAX = 600;
+
 function fallbackScoringDebug(trackId: string): TrackScoringDebug {
   return {
     trackId,
@@ -82,6 +84,12 @@ export function buildFallbackPipelineResult<
       },
     };
   });
+  const artistCounts = fb.reduce<Record<string, number>>((acc, track) => {
+    const key = track.artistName.toLowerCase().trim();
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+  const artistCountValues = Object.values(artistCounts);
   return {
     finalTracks: fbScored,
     sorted: fbScored,
@@ -91,7 +99,12 @@ export function buildFallbackPipelineResult<
       scoringPool: {
         poolCapped: true,
         originalCount: opts.librarySize,
+        scannedCount: Math.min(opts.tracks.length, FAST_FALLBACK_SCAN_MAX),
         candidateCount: fb.length,
+        maxPerArtist: opts.maxPerArtist,
+        uniqueArtists: artistCountValues.length,
+        repeatedArtists: artistCountValues.filter((count) => count > 1).length,
+        cappedTracks: artistCountValues.reduce((sum, count) => sum + Math.max(0, count - opts.maxPerArtist), 0),
       },
     },
     hybridExcludedCount: 0,

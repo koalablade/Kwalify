@@ -47,16 +47,16 @@ p { margin: 0; }
 }
 
 [data-theme="light"] {
-  --bg: #f4f4f8;
-  --bg-body: #f4f4f8;
-  --bg-1: rgba(0,0,0,0.04);
-  --bg-2: rgba(0,0,0,0.08);
-  --border: rgba(0,0,0,0.10);
-  --border-2: rgba(0,0,0,0.18);
-  --muted: rgba(0,0,0,0.52);
-  --muted-2: rgba(0,0,0,0.32);
-  --text: #0d0d14;
-  --nav-bg: rgba(244,244,248,0.92);
+  --bg: #ffffff;
+  --bg-body: #f6f7fb;
+  --bg-1: rgba(8,10,18,0.055);
+  --bg-2: rgba(8,10,18,0.10);
+  --border: rgba(8,10,18,0.15);
+  --border-2: rgba(8,10,18,0.25);
+  --muted: rgba(8,10,18,0.68);
+  --muted-2: rgba(8,10,18,0.48);
+  --text: #080a12;
+  --nav-bg: rgba(255,255,255,0.94);
 }
 
 [data-theme="light"] .spinner {
@@ -85,6 +85,17 @@ p { margin: 0; }
 }
 [data-theme="light"] .result-safety-row strong,
 [data-theme="light"] .generation-safety-chip {
+  color: var(--muted);
+}
+[data-theme="light"] .result-card,
+[data-theme="light"] .dp-card,
+[data-theme="light"] .debug-waterfall-step {
+  background-color: rgba(255,255,255,0.74);
+  border-color: rgba(8,10,18,0.18);
+}
+[data-theme="light"] .result-vibes,
+[data-theme="light"] .dp-badge,
+[data-theme="light"] .gallery-filter-meta {
   color: var(--muted);
 }
 
@@ -490,6 +501,20 @@ p { margin: 0; }
 }
 .alert-error { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; }
 .alert-success { background: rgba(29,185,84,0.08); border: 1px solid rgba(29,185,84,0.2); color: #6ee7b7; }
+.error-diagnostics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 7px 0 2px;
+}
+.error-diagnostics span {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(239,68,68,0.10);
+  border: 1px solid rgba(239,68,68,0.18);
+  color: var(--text);
+  font-size: 12px;
+}
 
 .badge {
   display: inline-flex;
@@ -1237,6 +1262,34 @@ p { margin: 0; }
 .generating-body { flex: 1; min-width: 0; }
 .generating-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 .generating-sub { font-size: 13px; color: var(--muted); }
+.dj-live-stage {
+  margin-top: 13px;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(124,58,237,0.12);
+  border: 1px solid rgba(124,58,237,0.20);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+.dj-live-icon {
+  color: #1db954;
+  animation: pulse 1.1s ease-in-out infinite;
+}
+.dj-live-label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dj-live-count {
+  color: var(--muted);
+  font-weight: 600;
+}
 .dj-build-bar {
   margin-top: 13px;
   display: grid;
@@ -1410,6 +1463,30 @@ p { margin: 0; }
 }
 
 .result-insight { font-size: 13px; color: var(--muted); }
+
+.result-confidence {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(29,185,84,0.28);
+  background: rgba(29,185,84,0.10);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+.result-confidence strong {
+  color: #6ee7b7;
+}
+.result-confidence--recovered {
+  border-color: rgba(245,158,11,0.34);
+  background: rgba(245,158,11,0.12);
+}
+.result-confidence--recovered strong {
+  color: #fbbf24;
+}
 
 .result-vibes {
   display: flex;
@@ -2141,6 +2218,37 @@ p { margin: 0; }
   background: rgba(124,58,237,0.15);
   color: #a78bfa;
   border-color: rgba(124,58,237,0.3);
+}
+.dp-badge--amber {
+  background: rgba(245,158,11,0.14);
+  color: #f59e0b;
+  border-color: rgba(245,158,11,0.32);
+}
+
+.debug-waterfall {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.debug-waterfall-step {
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.04);
+}
+.debug-waterfall-step span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.debug-waterfall-step strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 15px;
 }
 
 .dp-none {
