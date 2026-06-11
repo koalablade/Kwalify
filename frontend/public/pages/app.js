@@ -68,10 +68,19 @@ async function api(path, opts = {}) {
   return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
 }
 
+function userFacingApiError(result, fallback = "Something went wrong. Please try again.") {
+  if (result?.status === 401) return "Spotify session expired. Please reconnect Spotify.";
+  if (result?.status === 503) return "Service is temporarily unavailable. Please try again in a moment.";
+  return result?.data?.error || result?.data?.message || fallback;
+}
+
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1dRFIgqcbNGXXHYHZqaRQ3BhFHqsFmENdmLRCs_YtWhE/edit";
 let generationStatusTimer = null;
 let generationUiTimer = null;
+let moodPreviewRequestId = 0;
+let moodPreviewAbort = null;
+let globalAppListenersWired = false;
 
 function feedbackTrackPayload(track) {
   return {
@@ -448,6 +457,11 @@ function renderApp() {
   const ls = state.librarySummary;
   const total = cs?.totalTracks || ls?.trackCount || 0;
   const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
+  const modeCopy = {
+    strict: "Strict: closest match, least drift.",
+    balanced: "Balanced: best quality and variety.",
+    chaotic: "Chaotic: more surprise, still safety-checked.",
+  }[state.mode] || "Balanced: best quality and variety.";
 
   const errorHtml = state.error ? (() => {
     const diagnostics = state.errorDetails?.generationDiagnostics || null;
@@ -559,9 +573,9 @@ function renderApp() {
 
         <div class="controls-row">
           <div class="mode-group">
-            <button class="mode-btn ${state.mode === "strict"   ? "active" : ""}" data-mode="strict">Strict</button>
-            <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced">Balanced</button>
-            <button class="mode-btn ${state.mode === "chaotic"  ? "active" : ""}" data-mode="chaotic">Chaotic</button>
+            <button class="mode-btn ${state.mode === "strict"   ? "active" : ""}" data-mode="strict" title="Closest match, least drift">Strict</button>
+            <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced" title="Best quality and variety">Balanced</button>
+            <button class="mode-btn ${state.mode === "chaotic"  ? "active" : ""}" data-mode="chaotic" title="More surprise, still safety-checked">Chaotic</button>
           </div>
           <div class="length-row">
             <svg class="length-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -569,13 +583,14 @@ function renderApp() {
             <span class="length-val" id="lengthLabel">${state.length} tracks</span>
           </div>
         </div>
+        <div class="mode-helper">${esc(modeCopy)}</div>
 
         <div class="no-library-row">
           <label class="no-library-toggle" title="Use Spotify-wide search for clear genre prompts, with your library only as fallback">
             <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle"></div>
             <div class="no-library-text">
               <span class="no-library-label">No Library Mode</span>
-              <span class="no-library-sub">Spotify-wide genre search · library fallback</span>
+              <span class="no-library-sub">Spotify-wide search for clear genre prompts · may use your library as fallback</span>
             </div>
           </label>
         </div>
@@ -886,6 +901,8 @@ function resultHtml(result) {
       : null;
   const fallbackNotice = degradedSpotifyNotice
     ? degradedSpotifyNotice
+    : count > 0 && count < Math.max(8, Math.floor(state.length * 0.4))
+      ? `Only ${count} strong tracks survived the safety checks. Try a broader prompt or Balanced mode for a fuller playlist.`
     : result.fastFallback || result.code === "TIMEOUT_FALLBACK"
     ? "Quick backup playlist built because the full generator was taking too long."
     : confidence.recoveryUsed
@@ -1790,12 +1807,20 @@ function updateMoodPanel(text) {
 }
 
 async function fetchScenePreview(text) {
+  const requestId = ++moodPreviewRequestId;
+  if (moodPreviewAbort) moodPreviewAbort.abort();
+  moodPreviewAbort = new AbortController();
   try {
-    const r = await api(`/generate/preview?vibe=${encodeURIComponent(text)}`);
+    const r = await api(`/generate/preview?vibe=${encodeURIComponent(text)}`, {
+      signal: moodPreviewAbort.signal,
+    });
+    const currentText = document.getElementById("vibeInput")?.value.trim() || "";
+    if (requestId !== moodPreviewRequestId || currentText !== text.trim()) return;
     if (r.ok && r.data) {
       updateMoodPanelFromServer(r.data);
     }
-  } catch (_) {
+  } catch (err) {
+    if (err?.name === "AbortError") return;
     // Silently ignore preview errors — client-side mood bars remain
   }
 }
@@ -1868,12 +1893,22 @@ function wireAppEvents() {
     state.profileOpen = !state.profileOpen;
     document.getElementById("profileDropdown")?.classList.toggle("open", state.profileOpen);
   });
-  document.addEventListener("click", (e) => {
-    if (!document.getElementById("profileWrap")?.contains(e.target)) {
-      state.profileOpen = false;
-      document.getElementById("profileDropdown")?.classList.remove("open");
-    }
-  });
+  if (!globalAppListenersWired) {
+    document.addEventListener("click", (e) => {
+      if (!document.getElementById("profileWrap")?.contains(e.target)) {
+        state.profileOpen = false;
+        document.getElementById("profileDropdown")?.classList.remove("open");
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        document.getElementById("vibeInput")?.focus();
+        document.getElementById("vibeInput")?.select();
+      }
+    });
+    globalAppListenersWired = true;
+  }
 
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
   document.getElementById("themeToggleBtn")?.addEventListener("click", toggleTheme);
@@ -1957,8 +1992,19 @@ function wireAppEvents() {
         await sendFeedbackEvent(track, action, btn.dataset.playlistId || null, context);
         if (action === "skip") await sendImplicitFeedback(track, 0, true, "skip");
         if (action === "like") await sendImplicitFeedback(track, track.durationMs || 0, false, "manual_save");
+        const row = btn.closest(".track-row");
+        const message = action === "like"
+          ? "Liked - more like this"
+          : action === "skip"
+            ? "Skipped - less like this"
+            : action === "dislike"
+              ? "Thumbs down - similar picks reduced"
+              : action === "remove"
+                ? "Removed from future playlists"
+                : "Feedback saved";
+        row?.setAttribute("data-feedback-note", message);
+        btn.title = message;
         if (action === "remove" || action === "dislike") {
-          const row = btn.closest(".track-row");
           row?.style.setProperty("opacity", "0.45");
           const undo = row?.querySelector(".undo-feedback-btn");
           if (undo) undo.style.display = "inline-flex";
@@ -2013,14 +2059,6 @@ function wireAppEvents() {
     renderApp();
   });
 
-  // Ctrl/Cmd+K to focus input
-  document.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-      e.preventDefault();
-      vibeInput?.focus();
-      vibeInput?.select();
-    }
-  });
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -2038,8 +2076,14 @@ async function triggerSync(full = false) {
     ? document.getElementById("fullSyncBtn")
     : document.getElementById("deltaSyncBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Syncing…"; }
-  await api("/spotify/sync", { method: "POST", body: JSON.stringify({ full }) });
-  await pollStatus();
+  const result = await api("/spotify/sync", { method: "POST", body: JSON.stringify({ full }) });
+  if (!result.ok) {
+    state.error = userFacingApiError(result, "Could not start sync. Please try again.");
+    renderApp();
+  } else {
+    state.error = null;
+    await pollStatus();
+  }
 }
 
 async function pollStatus() {
@@ -2124,6 +2168,10 @@ async function generate() {
   const vibe = vibeInput?.value.trim();
   if (!vibe) { vibeInput?.focus(); return; }
   if (state.generating) return;
+  const previousResult = state.lastResult;
+  const samePromptRegenerate =
+    !!previousResult &&
+    String(previousResult.vibe || previousResult.prompt || "").trim().toLowerCase() === vibe.toLowerCase();
 
   state.generating = true;
   state.partialPreviewStartedAt = null;
@@ -2146,13 +2194,14 @@ async function generate() {
         mode: state.mode,
         length: state.length,
         noLibraryMode: state.noLibraryMode,
+        varietyBoost: samePromptRegenerate,
       }),
     });
 
     if (r.status === 401) { window.location.href = "/api/auth/login"; return; }
 
     if (!r.ok) {
-      state.error = r.data?.error || r.data?.message || "Generation failed. Please try again.";
+      state.error = userFacingApiError(r, "Generation failed. Please try a broader prompt or Balanced mode.");
       state.errorDetails = r.data || null;
     } else {
       state.lastResult = { ...r.data, savedPlaylistId: r.data.playlistId };
@@ -2180,7 +2229,13 @@ async function generate() {
 async function boot() {
   root.innerHTML = `<div class="loading-shell"><div class="spinner"></div><span>Loading…</span></div>`;
 
-  const meRes = await api("/auth/me");
+  let meRes;
+  try {
+    meRes = await api("/auth/me");
+  } catch (err) {
+    root.innerHTML = `<div class="loading-shell"><span>Could not reach Kwalify. Check your connection and refresh.</span></div>`;
+    return;
+  }
 
   if (meRes.status === 401 || !meRes.ok) {
     renderLanding();
@@ -2190,16 +2245,19 @@ async function boot() {
   state.user = meRes.data;
 
   const [csRes, lsRes, plRes, histRes] = await Promise.all([
-    api("/spotify/cache-status"),
-    api("/library/summary"),
-    api("/playlists"),
-    api("/history"),
+    api("/spotify/cache-status").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/library/summary").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/playlists").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/history").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
   ]);
 
   if (csRes.ok) state.cacheStatus = csRes.data;
   if (lsRes.ok) state.librarySummary = lsRes.data;
   if (plRes.ok) state.playlists = plRes.data.playlists || [];
   if (histRes.ok) state.history = Array.isArray(histRes.data) ? histRes.data : [];
+  if (!csRes.ok || !lsRes.ok || !plRes.ok || !histRes.ok) {
+    state.error = "Some account data could not load. You can still try generating, or refresh if things look stale.";
+  }
 
   renderApp();
 

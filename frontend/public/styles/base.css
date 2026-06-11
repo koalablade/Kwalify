@@ -1019,6 +1019,11 @@ p { margin: 0; }
 
 .mode-btn:hover { color: var(--text); background: var(--bg-1); }
 .mode-btn.active { background: rgba(124,58,237,0.15); color: #a78bfa; }
+.mode-helper {
+  margin: -6px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
 
 .length-row {
   display: flex;
@@ -2165,6 +2170,13 @@ p { margin: 0; }
   transition: background 0.12s;
 }
 .track-row:hover { background: var(--bg-1); }
+.track-row[data-feedback-note]::after {
+  content: attr(data-feedback-note);
+  color: var(--muted);
+  font-size: 11px;
+  margin-left: auto;
+  white-space: nowrap;
+}
 
 .track-num { font-size: 12px; color: rgba(255,255,255,0.2); width: 20px; text-align: right; flex-shrink: 0; }
 

@@ -110,6 +110,19 @@ function renderNotFound() {
   </div>`;
 }
 
+function renderLoadError(message = "Could not load this playlist. Please refresh and try again.") {
+  document.title = "Playlist unavailable — Kwalify";
+  root.innerHTML = `
+  ${navHtml()}
+  <div class="not-found">
+    <h2>Playlist unavailable</h2>
+    <p>${esc(message)}</p>
+    <button id="retryPlaylistBtn" class="btn btn-green" style="display:inline-flex;margin-top:20px;">Retry</button>
+    <a href="/" class="btn btn-ghost" style="display:inline-flex;margin-top:20px;">Back to app</a>
+  </div>`;
+  document.getElementById("retryPlaylistBtn")?.addEventListener("click", boot);
+}
+
 function render(data) {
   document.title = `${data.name || "Playlist"} — Kwalify`;
 
@@ -177,7 +190,13 @@ function render(data) {
         btn.textContent = "Copied!";
         setTimeout(() => { btn.textContent = "Copy tracklist"; }, 2000);
       }
-    } catch {}
+    } catch {
+      const btn = document.getElementById("copyBtn");
+      if (btn) {
+        btn.textContent = "Copy failed";
+        setTimeout(() => { btn.textContent = "Copy tracklist"; }, 2000);
+      }
+    }
   });
 
   document.querySelectorAll(".feedback-track-btn[data-track-index]").forEach((btn) => {
@@ -229,10 +248,11 @@ async function boot() {
 
   try {
     const r = await fetch(`/api/share/${playlistId}`, { credentials: "include" });
-    if (!r.ok) { renderNotFound(); return; }
+    if (r.status === 404) { renderNotFound(); return; }
+    if (!r.ok) { renderLoadError("The server could not load this playlist right now."); return; }
     render(await r.json());
   } catch {
-    renderNotFound();
+    renderLoadError("Network error while loading this playlist.");
   }
 }
 

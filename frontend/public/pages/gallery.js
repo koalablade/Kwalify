@@ -40,6 +40,8 @@ let galleryFilter = "all";
 let gallerySearch = "";
 let gallerySort = "newest";
 let restoreGallerySearchFocus = false;
+let galleryLoadError = null;
+let galleryGlobalListenersWired = false;
 
 function getTheme() {
   return document.documentElement.getAttribute("data-theme") || "dark";
@@ -110,12 +112,15 @@ function wireNavEvents() {
     profileOpen = !profileOpen;
     document.getElementById("galleryProfileDropdown")?.classList.toggle("open", profileOpen);
   });
-  document.addEventListener("click", (e) => {
-    if (!document.getElementById("galleryProfileWrap")?.contains(e.target)) {
-      profileOpen = false;
-      document.getElementById("galleryProfileDropdown")?.classList.remove("open");
-    }
-  });
+  if (!galleryGlobalListenersWired) {
+    document.addEventListener("click", (e) => {
+      if (!document.getElementById("galleryProfileWrap")?.contains(e.target)) {
+        profileOpen = false;
+        document.getElementById("galleryProfileDropdown")?.classList.remove("open");
+      }
+    });
+    galleryGlobalListenersWired = true;
+  }
   document.getElementById("galleryThemeToggleBtn")?.addEventListener("click", toggleTheme);
   document.getElementById("galleryLogoutBtn")?.addEventListener("click", async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -151,6 +156,10 @@ function generatorNote(p) {
     bits.push(`${confidence.label} ${confidence.percent}%`);
   }
   if (diagnostics.fallbackTriggered) bits.push("fallback used");
+  if (diagnostics.identityType) bits.push(String(diagnostics.identityType).replace(/_/g, " "));
+  if (typeof diagnostics.humanCoherenceScore === "number") {
+    bits.push(`coherence ${Math.round(diagnostics.humanCoherenceScore * 100)}%`);
+  }
   if (Array.isArray(diagnostics.recoveryRelaxations) && diagnostics.recoveryRelaxations.length) {
     bits.push("relaxed checks");
   }
@@ -280,6 +289,9 @@ function renderGalleryActions(playlists) {
 }
 
 function renderCards(playlists) {
+  if (galleryLoadError) {
+    return `<div class="empty-state"><h3>Could not load playlists</h3><p>${esc(galleryLoadError)}</p><button class="btn btn-green btn-sm" id="galleryRetryBtn">Retry</button></div>`;
+  }
   if (!playlists.length) {
     return galleryPlaylists.length
       ? `<div class="empty-state"><h3>No matches</h3><p>Try clearing the search or switching back to All.</p></div>`
@@ -387,6 +399,7 @@ function wireGalleryEvents() {
     renderGallery();
   });
   document.getElementById("deleteSelectedPlaylistsBtn")?.addEventListener("click", deleteSelectedPlaylists);
+  document.getElementById("galleryRetryBtn")?.addEventListener("click", boot);
   document.querySelectorAll("[data-gallery-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
       galleryFilter = btn.dataset.galleryFilter || "all";
@@ -419,15 +432,22 @@ async function boot() {
 
   root.innerHTML = navHtml() + `<div class="loading-shell"><div class="spinner"></div><span>Loading…</span></div>`;
 
-  const meRes = await api("/auth/me");
+  const meRes = await api("/auth/me").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (meRes.status === 401 || !meRes.ok) {
-    window.location.href = "/";
+    if (meRes.status === 401) window.location.href = "/";
+    else root.innerHTML = navHtml() + `<div class="empty-state"><h3>Could not load gallery</h3><p>Check your connection and refresh.</p></div>`;
     return;
   }
   galleryUser = meRes.data;
 
-  const plRes = await api("/playlists");
-  galleryPlaylists = plRes.ok ? (plRes.data.playlists || []) : [];
+  const plRes = await api("/playlists").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
+  if (plRes.ok) {
+    galleryLoadError = null;
+    galleryPlaylists = plRes.data.playlists || [];
+  } else {
+    galleryLoadError = plRes.data?.error || plRes.data?.message || "Refresh and try again.";
+    galleryPlaylists = [];
+  }
   renderGallery();
 }
 
