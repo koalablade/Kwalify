@@ -21,6 +21,7 @@ export type SessionArtistMemory = {
   artistCount: Map<string, number>;
   playlistArtistSet: Map<string, Set<string>>;
   maxArtistAppearances: number;
+  diversityPressure?: number;
 };
 
 function priorityForActivity(activity: string | null): ConstraintDimension[] {
@@ -80,13 +81,28 @@ export function artistMemoryCount(memory: SessionArtistMemory | undefined, artis
 
 export function artistMemoryPenalty(memory: SessionArtistMemory | undefined, artistName: string | null | undefined): number {
   const count = artistMemoryCount(memory, artistName);
-  return count > 0 ? Math.pow(0.2, count) : 1;
+  const pressure = Math.max(0, Math.min(1, memory?.diversityPressure ?? 1));
+  return count > 0 && pressure > 0 ? Math.pow(0.2, count * pressure) : 1;
 }
 
 export function artistExceedsSessionCap(memory: SessionArtistMemory | undefined, artistName: string | null | undefined): boolean {
   const artist = normalizeArtist(artistName);
   if (!artist || !memory) return false;
-  return (memory.artistCount.get(artist) ?? 0) >= memory.maxArtistAppearances;
+  const pressure = Math.max(0, Math.min(1, memory.diversityPressure ?? 1));
+  if (pressure < 0.5) return false;
+  const effectiveCap = Math.max(memory.maxArtistAppearances, Math.ceil(memory.maxArtistAppearances / Math.max(0.5, pressure)));
+  return (memory.artistCount.get(artist) ?? 0) >= effectiveCap;
+}
+
+export function withSessionDiversityPressure(
+  memory: SessionArtistMemory | undefined,
+  diversityPressure: number,
+): SessionArtistMemory | undefined {
+  if (!memory) return undefined;
+  return {
+    ...memory,
+    diversityPressure: Math.max(0, Math.min(1, diversityPressure)),
+  };
 }
 
 export function sessionArtistMemoryDiagnostics(memory: SessionArtistMemory | undefined): Record<string, unknown> {
@@ -101,6 +117,7 @@ export function sessionArtistMemoryDiagnostics(memory: SessionArtistMemory | und
   return {
     enabled: true,
     maxArtistAppearances: memory.maxArtistAppearances,
+    diversityPressure: memory.diversityPressure ?? 1,
     rememberedArtists: memory.artistCount.size,
     playlistCount: memory.playlistArtistSet.size,
     topArtists: [...memory.artistCount.entries()]

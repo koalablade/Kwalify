@@ -69,6 +69,7 @@ import {
   relaxedIntentForProfile,
   sessionArtistMemoryDiagnostics,
   type SessionArtistMemory,
+  withSessionDiversityPressure,
 } from "./v3/constraint-relaxation";
 
 export interface BuildPlaylistPipelineOpts<T extends {
@@ -753,6 +754,32 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
       contractRankedCount: contractRanked.length,
     },
   };
+}
+
+function activityPromptKind(vibe: string, profile: EmotionProfile): "gym" | "party" | null {
+  const lower = vibe.toLowerCase();
+  if (profile.environment === "gym" || /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/.test(lower)) {
+    return "gym";
+  }
+  if (profile.environment === "party" || /\b(?:party|club|dancefloor|pre\s*drinks|night\s*out|rave)\b/.test(lower)) {
+    return "party";
+  }
+  return null;
+}
+
+function diversityPressureForViablePool(kind: "gym" | "party" | null, viablePoolSize: number): number {
+  if (kind === "gym") {
+    if (viablePoolSize < 50) return 0.12;
+    if (viablePoolSize < 100) return 0.28;
+    if (viablePoolSize < 180) return 0.55;
+    return 1;
+  }
+  if (kind === "party") {
+    if (viablePoolSize < 50) return 0.35;
+    if (viablePoolSize < 120) return 0.65;
+    return 1;
+  }
+  return 1;
 }
 
 function flattenRetrievalPools<T>(retrieval: RetrievalPools<T>): T[] {
@@ -1850,8 +1877,25 @@ export async function buildPlaylistPipeline<T extends {
     },
   };
   const intentContract = buildIntentContract(opts.vibe);
+  const unpenalizedRetrieval = buildRetrievalPools(
+    scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
+    intentContract,
+    classMap,
+    opts.postScore.feedbackMemory ?? null,
+  );
+  const unpenalizedPooledCandidates = flattenRetrievalPools(unpenalizedRetrieval) as ScoredLibraryTrack<T>[];
+  const unpenalizedViablePoolSize = unpenalizedPooledCandidates.length;
+  const activityKind = activityPromptKind(opts.vibe, opts.emotionProfile);
+  const effectiveDiversityPressure = Math.min(
+    opts.sessionArtistMemory?.diversityPressure ?? 1,
+    diversityPressureForViablePool(activityKind, unpenalizedViablePoolSize),
+  );
+  const effectiveSessionArtistMemory = withSessionDiversityPressure(
+    opts.sessionArtistMemory,
+    effectiveDiversityPressure,
+  );
   const upstreamRecentTrackPenalty = opts.recentPlaylistTrackIds?.length
-    ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 20, opts.varietyPenaltyScale ?? 1)
+    ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 20, (opts.varietyPenaltyScale ?? 1) * effectiveDiversityPressure)
     : undefined;
   const retrieval = buildRetrievalPools(
     scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
@@ -1860,7 +1904,7 @@ export async function buildPlaylistPipeline<T extends {
     opts.postScore.feedbackMemory ?? null,
     {
       recentTrackPenalty: upstreamRecentTrackPenalty,
-      sessionArtistMemory: opts.sessionArtistMemory,
+      sessionArtistMemory: effectiveSessionArtistMemory,
     },
   );
   const pooledCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
@@ -1995,7 +2039,7 @@ export async function buildPlaylistPipeline<T extends {
         lockedIntent:          v3LockedIntent,
         unifiedIntentContext:   unifiedIntentContextWithMemory,
         momentMemory:           preGenerationMomentMemory,
-        sessionArtistMemory:     opts.sessionArtistMemory,
+        sessionArtistMemory:     effectiveSessionArtistMemory,
       }
     );
     const quality = evaluatePlaylistQuality(
@@ -2114,7 +2158,13 @@ export async function buildPlaylistPipeline<T extends {
       relaxationSteps: candidate.candidatePool.diagnostics["relaxationSteps"] ?? [],
       finalRelaxedConstraints: candidate.candidatePool.diagnostics["finalRelaxedConstraints"] ?? null,
     })),
-    sessionArtistMemory: sessionArtistMemoryDiagnostics(opts.sessionArtistMemory),
+    diversityPressure: {
+      activityKind,
+      unpenalizedViablePoolSize,
+      effectiveDiversityPressure,
+      baseDiversityPressure: opts.sessionArtistMemory?.diversityPressure ?? 1,
+    },
+    sessionArtistMemory: sessionArtistMemoryDiagnostics(effectiveSessionArtistMemory),
   };
   opts.pipelineLog?.info({
     preV3PoolSize: v3CandidatePool.tracks.length,
@@ -2273,6 +2323,27 @@ export async function buildPlaylistPipeline<T extends {
         gradientPhases: { start: 0, explore: 0, peak: 0, resolve: resolvedTracks.length },
       },
     };
+  }
+
+  const gymMinimumTrackCount = activityKind === "gym"
+    ? Math.min(opts.playlistLength, Math.max(25, Math.floor(opts.playlistLength * 0.6)))
+    : 0;
+  if (gymMinimumTrackCount > 0 && finalTracksList.length < gymMinimumTrackCount) {
+    const existingIds = new Set(finalTracksList.map((track) => track.trackId));
+    const gymRefillPool = unpenalizedPooledCandidates.filter((track) => {
+      if (existingIds.has(track.trackId)) return false;
+      const energySafe = typeof track.energy === "number" ? track.energy >= 0.52 : true;
+      const tempoSafe = typeof track.tempo === "number" ? track.tempo >= 105 : true;
+      const acousticSafe = typeof track.acousticness === "number" ? track.acousticness <= 0.75 : true;
+      return energySafe && tempoSafe && acousticSafe;
+    });
+    const resolvedGymRefill = resolveFinalTracks(
+      [...(finalTracksList as unknown as ScoredLibraryTrack<T>[]), ...gymRefillPool].slice(0, fallbackResolveLimit),
+      "gym_minimum_viable_pool_refill",
+    );
+    if (resolvedGymRefill && resolvedGymRefill.finalTracks.length >= Math.min(gymMinimumTrackCount, opts.playlistLength)) {
+      return resolvedGymRefill;
+    }
   }
 
   // GUARANTEE: playlist pipeline must NEVER return empty tracks.

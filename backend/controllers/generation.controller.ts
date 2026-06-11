@@ -1693,6 +1693,22 @@ function evaluationSessionTrackLists(rawBody: Record<string, unknown>, auditMode
     .slice(0, 20);
 }
 
+function evaluationDiversityPressure(
+  vibe: string,
+  profile: EmotionProfile,
+  evaluationMemoryCount: number
+): number {
+  if (evaluationMemoryCount <= 0) return 1;
+  const lower = vibe.toLowerCase();
+  if (profile.environment === "gym" || /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/.test(lower)) {
+    return 0.35;
+  }
+  if (profile.environment === "party" || /\b(?:party|club|dancefloor|pre\s*drinks|night\s*out|rave)\b/.test(lower)) {
+    return 0.65;
+  }
+  return 1;
+}
+
 function buildSessionMemory(
   recentPlaylistTrackIds: string[][],
   trackIdToArtist: Map<string, string>,
@@ -3218,13 +3234,15 @@ router.post("/generate", async (req, res): Promise<void> => {
     recordPreV3Timing(preV3Timing, "playlistHistoryQueryMs", playlistHistoryQueryMs);
     recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);
     const evaluationRecentTrackLists = evaluationSessionTrackLists(rawBody as Record<string, unknown>, sideEffectPolicy.mode === "audit");
+    const auditDiversityPressure = evaluationDiversityPressure(vibe, emotionProfile, evaluationRecentTrackLists.length);
+    const persistentMemoryPlaylistRows = recentPlaylists.map((p) => ({
+      vibe: p.vibe,
+      trackIds: (p.trackIds as string[]) ?? [],
+      emotionProfile: p.emotionProfile as EmotionProfile | null,
+      createdAt: p.createdAt,
+    }));
     const memoryPlaylistRows = [
-      ...recentPlaylists.map((p) => ({
-        vibe: p.vibe,
-        trackIds: (p.trackIds as string[]) ?? [],
-        emotionProfile: p.emotionProfile as EmotionProfile | null,
-        createdAt: p.createdAt,
-      })),
+      ...persistentMemoryPlaylistRows,
       ...evaluationRecentTrackLists.map((trackIds, index) => ({
         vibe: `evaluation-session-${index + 1}`,
         trackIds,
@@ -3232,20 +3250,27 @@ router.post("/generate", async (req, res): Promise<void> => {
         createdAt: new Date(),
       })),
     ];
+    const scoringMemoryPlaylistRows = auditDiversityPressure < 0.5
+      ? persistentMemoryPlaylistRows
+      : memoryPlaylistRows;
 
     tStage = Date.now();
     const freshnessStats = buildFreshnessStats(
-      memoryPlaylistRows
+      scoringMemoryPlaylistRows
     );
 
     const trackIdToArtist = new Map(likedSongs.map((s) => [s.trackId, s.artistName]));
     const trackIdToAlbum = new Map(likedSongs.map((s) => [s.trackId, s.albumName]));
-    const artistAppearances = buildArtistAppearanceMap(
+    const scoringArtistAppearances = buildArtistAppearanceMap(
+      scoringMemoryPlaylistRows,
+      trackIdToArtist
+    );
+    const sessionArtistAppearances = buildArtistAppearanceMap(
       memoryPlaylistRows,
       trackIdToArtist
     );
     const albumAppearances = buildAlbumAppearanceMap(
-      memoryPlaylistRows,
+      scoringMemoryPlaylistRows,
       trackIdToAlbum
     );
 
@@ -3382,11 +3407,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       playlistArtistSet.set(String(index), artists);
     });
     const sessionArtistMemory = {
-      artistCount: artistAppearances,
+      artistCount: sessionArtistAppearances,
       playlistArtistSet,
       maxArtistAppearances: 2,
+      diversityPressure: auditDiversityPressure,
     };
-    const recentTrackPenaltyScale = varietyBoost ? 2.75 : 1.85;
+    const recentTrackPenaltyScale = (varietyBoost ? 2.75 : 1.85) * auditDiversityPressure;
     const freshnessCloneMultiplier = varietyBoost
       ? cloneMultiplier * 0.88
       : cloneMultiplier;
@@ -3602,7 +3628,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         journeyArcMultiplier,
         freshness: {
           stats: freshnessStats,
-          artistAppearances,
+          artistAppearances: scoringArtistAppearances,
           albumAppearances,
           globalCloneMultiplier: freshnessCloneMultiplier,
         },
