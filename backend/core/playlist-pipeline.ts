@@ -64,6 +64,7 @@ import {
 import { compilePersonalPlaylist, type PersonalCompilerTrack } from "./personal-playlist-compiler";
 import { buildCoherentPlaylist } from "./playlist-coherence-engine";
 import {
+  artistMemoryPenalty,
   buildConstraintRelaxationPlan,
   relaxedIntentForProfile,
   sessionArtistMemoryDiagnostics,
@@ -692,12 +693,21 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
   contract: IntentContract,
   classMap: UserGenreProfile["trackClassifications"],
   feedback: FeedbackMemory | null = null,
+  opts: {
+    recentTrackPenalty?: Map<string, number>;
+    sessionArtistMemory?: SessionArtistMemory;
+  } = {},
 ): RetrievalPools<T> {
   const contractRanked = enforceIntentContract(tracks, contract, classMap)
-    .map((track) => ({
-      track,
-      adjustedScore: (track.contractFitScore * 0.20) + (track.score ?? 0) - feedbackPenalty(track, feedback),
-    }))
+    .map((track) => {
+      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) - feedbackPenalty(track, feedback);
+      const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
+      const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
+      return {
+        track,
+        adjustedScore: Math.max(0, baseScore - trackPenalty) * artistPenalty,
+      };
+    })
     .sort((a, b) => b.adjustedScore - a.adjustedScore)
     .map(({ track }) => track as T);
   const seen = new Set<string>();
@@ -1840,11 +1850,18 @@ export async function buildPlaylistPipeline<T extends {
     },
   };
   const intentContract = buildIntentContract(opts.vibe);
+  const upstreamRecentTrackPenalty = opts.recentPlaylistTrackIds?.length
+    ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 20, opts.varietyPenaltyScale ?? 1)
+    : undefined;
   const retrieval = buildRetrievalPools(
     scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
     intentContract,
     classMap,
     opts.postScore.feedbackMemory ?? null,
+    {
+      recentTrackPenalty: upstreamRecentTrackPenalty,
+      sessionArtistMemory: opts.sessionArtistMemory,
+    },
   );
   const pooledCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
   const contractSafePool = enforceIntentContract(
@@ -2316,9 +2333,7 @@ export async function buildPlaylistPipeline<T extends {
       const resolvedEmergencyScored = resolveFinalTracks(emergencyScoredPool, "emergency_scored_pool");
       if (resolvedEmergencyScored) return resolvedEmergencyScored;
     }
-    const recentTrackPenalty = opts.recentPlaylistTrackIds?.length
-      ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 5, opts.varietyPenaltyScale ?? 1)
-      : undefined;
+    const recentTrackPenalty = upstreamRecentTrackPenalty;
     const composed = composePlaylistFromPool({
       sortedPool: fallbackPool,
       playlistLength: opts.playlistLength,

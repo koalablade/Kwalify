@@ -257,7 +257,11 @@ function retryAfterMs(response: Response, attempt: number): number {
   return Math.min(60_000, base);
 }
 
-async function postGenerate(config: HarnessConfig, benchmark: PlaylistBenchmarkPrompt): Promise<GenerationEvaluationResult> {
+async function postGenerate(
+  config: HarnessConfig,
+  benchmark: PlaylistBenchmarkPrompt,
+  runMemory?: BenchmarkRunMemory,
+): Promise<GenerationEvaluationResult> {
   const started = Date.now();
   const auditMode = !liveWritesEnabled(config);
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -272,6 +276,11 @@ async function postGenerate(config: HarnessConfig, benchmark: PlaylistBenchmarkP
   if (auditMode) {
     body.auditMode = true;
     if (config.spotifyUserId) body.spotifyUserId = config.spotifyUserId;
+    if (runMemory && runMemory.previousTrackLists.length > 0) {
+      body.evaluationSessionMemory = {
+        previousTrackIds: [...runMemory.previousTrackLists].reverse().slice(0, 20),
+      };
+    }
   }
   let httpRetries = 0;
   let lastStatus: number | undefined;
@@ -322,6 +331,22 @@ async function postGenerate(config: HarnessConfig, benchmark: PlaylistBenchmarkP
     tracks: [],
     elapsedMs: Date.now() - started,
   };
+}
+
+type BenchmarkRunMemory = {
+  previousTrackLists: string[][];
+};
+
+function trackIdFromEvaluationTrack(track: EvaluationTrack): string | null {
+  const id = track.trackId || track.id;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+}
+
+function updateBenchmarkRunMemory(memory: BenchmarkRunMemory, result: GenerationEvaluationResult): void {
+  const ids = result.tracks
+    .map(trackIdFromEvaluationTrack)
+    .filter((id): id is string => !!id);
+  if (ids.length > 0) memory.previousTrackLists.push(ids);
 }
 
 async function runLimited<T, R>(
@@ -376,9 +401,12 @@ async function main(): Promise<void> {
     return;
   }
   await preflight(config);
+  const runMemory: BenchmarkRunMemory = { previousTrackLists: [] };
   const results = await runLimited(prompts, config.concurrency, config.delayMs, async (benchmark, index) => {
     console.error(`[evaluation] ${index + 1}/${prompts.length} ${benchmark.id}: ${benchmark.prompt}`);
-    return postGenerate(config, benchmark);
+    const result = await postGenerate(config, benchmark, runMemory);
+    updateBenchmarkRunMemory(runMemory, result);
+    return result;
   });
   const report = await writeEvaluationReports({
     outDir: config.outDir,

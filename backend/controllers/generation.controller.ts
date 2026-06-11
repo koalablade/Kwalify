@@ -1676,6 +1676,23 @@ function artistDiversityDiagnostics<T extends { artistName?: string | null }>(
   };
 }
 
+function evaluationSessionTrackLists(rawBody: Record<string, unknown>, auditMode: boolean): string[][] {
+  if (!auditMode) return [];
+  const memory = rawBody["evaluationSessionMemory"];
+  if (!memory || typeof memory !== "object" || Array.isArray(memory)) return [];
+  const previousTrackIds = (memory as Record<string, unknown>)["previousTrackIds"];
+  if (!Array.isArray(previousTrackIds)) return [];
+  return previousTrackIds
+    .filter((entry): entry is unknown[] => Array.isArray(entry))
+    .map((entry) => entry
+      .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+      .map((id) => id.trim())
+      .slice(0, 100)
+    )
+    .filter((entry) => entry.length > 0)
+    .slice(0, 20);
+}
+
 function buildSessionMemory(
   recentPlaylistTrackIds: string[][],
   trackIdToArtist: Map<string, string>,
@@ -1966,7 +1983,8 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
     opts.constraints.hard.eraStart === null &&
     opts.constraints.hard.eraEnd === null &&
     opts.constraints.hard.excludedGenres.length === 0;
-  if (opts.intent.interpretationBudget?.complexity !== "low" && !broadUnconstrainedPrompt) return null;
+  const activityRecoveryPrompt = isGymWorkoutPrompt(opts.vibe, opts.intent) || isUpbeatSocialPrompt(opts.vibe, opts.intent);
+  if (opts.intent.interpretationBudget?.complexity !== "low" && !broadUnconstrainedPrompt && !activityRecoveryPrompt) return null;
 
   const base = {
     requestedLength: opts.requestedLength,
@@ -1976,7 +1994,23 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
     classMap: opts.classMap,
     maxPerArtist: opts.maxPerArtist,
   };
-  const attempts: Array<{ stage: string; intent: LockedIntent; candidates: T[] }> = [];
+  const activityRelaxedConstraints: ConstraintLayer = {
+    ...opts.constraints,
+    hard: {
+      ...opts.constraints.hard,
+      genres: [],
+      eraStart: null,
+      eraEnd: null,
+      strictLock: false,
+    },
+    raw: {
+      ...opts.constraints.raw,
+      explicitGenreTerms: [],
+      explicitEraTerms: [],
+      strictTerms: [],
+    },
+  };
+  const attempts: Array<{ stage: string; intent: LockedIntent; candidates: T[]; constraints?: ConstraintLayer }> = [];
 
   if (opts.intent.activity) {
     attempts.push({
@@ -2003,13 +2037,25 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
     .sort((a, b) => b.score - a.score) as T[];
   attempts.push({
     stage: "energy_recovery",
-    intent: { ...opts.intent, activity: null, mood: [], energy: null, energyLevel: null },
+    intent: activityRecoveryPrompt
+      ? {
+          ...opts.intent,
+          genreFamilies: [],
+          primaryGenres: [],
+          eraRange: null,
+          eraStart: null,
+          eraEnd: null,
+          mood: [],
+        }
+      : { ...opts.intent, activity: null, mood: [], energy: null, energyLevel: null },
     candidates: broadEnergyCandidates,
+    constraints: activityRecoveryPrompt ? activityRelaxedConstraints : undefined,
   });
 
   for (const attempt of attempts) {
     const finalization = finalizePlaylistTracks({
       ...base,
+      constraints: attempt.constraints ?? base.constraints,
       initial: attempt.stage === "energy_recovery" ? [] : opts.initial,
       candidates: attempt.candidates,
       intent: attempt.intent,
@@ -3171,24 +3217,35 @@ router.post("/generate", async (req, res): Promise<void> => {
     const playlistHistoryQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "playlistHistoryQueryMs", playlistHistoryQueryMs);
     recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);
-
-    tStage = Date.now();
-    const freshnessStats = buildFreshnessStats(
-      recentPlaylists.map((p) => ({
+    const evaluationRecentTrackLists = evaluationSessionTrackLists(rawBody as Record<string, unknown>, sideEffectPolicy.mode === "audit");
+    const memoryPlaylistRows = [
+      ...recentPlaylists.map((p) => ({
         vibe: p.vibe,
         trackIds: (p.trackIds as string[]) ?? [],
         emotionProfile: p.emotionProfile as EmotionProfile | null,
-      }))
+        createdAt: p.createdAt,
+      })),
+      ...evaluationRecentTrackLists.map((trackIds, index) => ({
+        vibe: `evaluation-session-${index + 1}`,
+        trackIds,
+        emotionProfile: null,
+        createdAt: new Date(),
+      })),
+    ];
+
+    tStage = Date.now();
+    const freshnessStats = buildFreshnessStats(
+      memoryPlaylistRows
     );
 
     const trackIdToArtist = new Map(likedSongs.map((s) => [s.trackId, s.artistName]));
     const trackIdToAlbum = new Map(likedSongs.map((s) => [s.trackId, s.albumName]));
     const artistAppearances = buildArtistAppearanceMap(
-      recentPlaylists.map((p) => ({ vibe: p.vibe, trackIds: (p.trackIds as string[]) ?? [] })),
+      memoryPlaylistRows,
       trackIdToArtist
     );
     const albumAppearances = buildAlbumAppearanceMap(
-      recentPlaylists.map((p) => ({ vibe: p.vibe, trackIds: (p.trackIds as string[]) ?? [] })),
+      memoryPlaylistRows,
       trackIdToAlbum
     );
 
@@ -3236,12 +3293,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     tStage = Date.now();
     const librarySignals = buildLibrarySignals(
       likedRows,
-      recentPlaylists.map((p) => ({
-        vibe: p.vibe,
-        trackIds: (p.trackIds as string[]) ?? [],
-        emotionProfile: p.emotionProfile as EmotionProfile | null,
-        createdAt: p.createdAt,
-      }))
+      memoryPlaylistRows
     );
     recordPreV3Timing(preV3Timing, "librarySignalTimeMs", Date.now() - tStage);
 
@@ -3255,11 +3307,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
 
     const arcRepeatCount = countRecentJourneyArc(
-      recentPlaylists.map((p) => ({
-        vibe: p.vibe,
-        trackIds: (p.trackIds as string[]) ?? [],
-        emotionProfile: p.emotionProfile as EmotionProfile | null,
-      })),
+      memoryPlaylistRows,
       journeyArc
     );
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
@@ -3322,16 +3370,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       hybridCap,
     });
 
-    const recentTrackLists = recentPlaylists.map((p) => (p.trackIds as string[]) ?? []);
+    const recentTrackLists = memoryPlaylistRows.map((p) => p.trackIds);
     const sessionMemory = buildSessionMemory(recentTrackLists, trackIdToArtist);
     const playlistArtistSet = new Map<string, Set<string>>();
-    recentPlaylists.forEach((playlist, index) => {
+    memoryPlaylistRows.forEach((playlist, index) => {
       const artists = new Set<string>();
-      for (const trackId of ((playlist.trackIds as string[]) ?? [])) {
+      for (const trackId of playlist.trackIds) {
         const artist = trackIdToArtist.get(trackId)?.trim().toLowerCase();
         if (artist) artists.add(artist);
       }
-      playlistArtistSet.set(String(playlist.playlistId ?? index), artists);
+      playlistArtistSet.set(String(index), artists);
     });
     const sessionArtistMemory = {
       artistCount: artistAppearances,
@@ -3916,6 +3964,26 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
           },
           "Explicit era evidence guard relaxed to compatible unknown-era playlist"
+        );
+      } else if (
+        (isGymWorkoutPrompt(vibe, lockedIntent) || isUpbeatSocialPrompt(vibe, lockedIntent)) &&
+        finalTracks.length >= minBestAvailableCount
+      ) {
+        strictEraEvidenceRelaxed = true;
+        evidenceRelaxations.push("era_evidence_relaxed_for_activity_recovery");
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            finalCount: finalTracks.length,
+            minBestAvailableCount,
+            strictEraEvidenceDiagnostics: {
+              ...strictEraEvidenceDiagnostics,
+              verified: undefined,
+              compatible: undefined,
+            },
+          },
+          "Explicit era evidence guard kept activity-safe recovery playlist"
         );
       } else {
       req.log.warn(
