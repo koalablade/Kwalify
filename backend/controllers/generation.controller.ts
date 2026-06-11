@@ -895,8 +895,16 @@ function isBreakupRainDrivePrompt(vibe: string, intent: LockedIntent): boolean {
   return breakupRain && drive;
 }
 
+function hasExplicitGenreIntent(intent: LockedIntent, constraints: ConstraintLayer): boolean {
+  return intent.primaryGenres.length > 0 ||
+    intent.genreFamilies.length > 0 ||
+    constraints.hard.genres.length > 0 ||
+    constraints.raw.explicitGenreTerms.length > 0;
+}
+
 function trackIsBreakupRainDriveSafe(
   track: ConstraintTrack,
+  explicitGenreLocked: boolean,
   classMap: Map<string, {
     genrePrimary: string;
     genreFamily: string;
@@ -906,14 +914,47 @@ function trackIsBreakupRainDriveSafe(
   }>
 ): boolean {
   const family = trackGenreFamily(track, classMap);
-  if (family === "hip_hop" || family === "metal") return false;
+  if (!explicitGenreLocked && (family === "hip_hop" || family === "metal" || family === "soundtrack" || family === "classical")) return false;
   const terms = trackGenreTerms(track, classMap).join(" ");
-  if (/\b(?:punk|thrash|metalcore|deathcore|hardcore)\b/.test(terms)) return false;
+  if (!explicitGenreLocked && /\b(?:punk|thrash|metalcore|deathcore|hardcore)\b/.test(terms)) return false;
+  if (/\b(?:physical)\b/i.test(track.trackName ?? "") && /\bolivia\s+newton-?john\b/i.test(track.artistName ?? "")) return false;
+  if (/\b(?:mobb\s+deep|big\s+l|gza|rza|ghostface|wu-?tang|kendrick\s+lamar|black\s+sabbath|destructo\s+disk|stephen\s+schwartz)\b/i.test(track.artistName ?? "")) {
+    return false;
+  }
   if (typeof track.energy === "number" && track.energy > 0.74) return false;
-  if (typeof track.valence === "number" && track.valence > 0.68) return false;
+  if (typeof track.valence === "number" && track.valence > 0.62) return false;
   if (typeof track.tempo === "number" && track.tempo > 138) return false;
   if (typeof track.loudness === "number" && track.loudness > -4.5) return false;
   if (typeof track.speechiness === "number" && track.speechiness > 0.34) return false;
+  return true;
+}
+
+function isEuphoricSummerPrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  return intent.mood.includes("euphoric") &&
+    /\b(?:summer|beach|sunset|sunny|sunshine|coast|seaside|poolside)\b/.test(lower);
+}
+
+function trackIsEuphoricSummerSafe(
+  track: ConstraintTrack,
+  explicitGenreLocked: boolean,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (!explicitGenreLocked && (family === "hip_hop" || family === "metal" || family === "classical" || family === "soundtrack")) return false;
+  const terms = trackGenreTerms(track, classMap).join(" ");
+  if (!explicitGenreLocked && /\b(?:punk|hardcore|dark|doom|sad|melanchol|slowcore)\b/.test(terms)) return false;
+  if (/\b(?:gza|rza|ghostface|wu-?tang|bon\s+iver|destructo\s+disk)\b/i.test(track.artistName ?? "")) return false;
+  if (typeof track.valence === "number" && track.valence < 0.52) return false;
+  if (typeof track.energy === "number" && track.energy < 0.34) return false;
+  if (typeof track.acousticness === "number" && track.acousticness > 0.86 && (track.energy ?? 0.5) < 0.48) return false;
+  if (typeof track.speechiness === "number" && track.speechiness > 0.32) return false;
   return true;
 }
 
@@ -1141,7 +1182,9 @@ function finalTrackIsSafe(
   if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
-  if (isBreakupRainDrivePrompt(opts.vibe, opts.intent) && !trackIsBreakupRainDriveSafe(track, opts.classMap)) return false;
+  const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
+  if (isEuphoricSummerPrompt(opts.vibe, opts.intent) && !trackIsEuphoricSummerSafe(track, explicitGenreLocked, opts.classMap)) return false;
+  if (isBreakupRainDrivePrompt(opts.vibe, opts.intent) && !trackIsBreakupRainDriveSafe(track, explicitGenreLocked, opts.classMap)) return false;
   return true;
 }
 
@@ -1963,7 +2006,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v16" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v17" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -3264,7 +3307,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v16",
+        cacheVersion: "v17",
         playlistName,
         vibe,
         mode,

@@ -31,12 +31,13 @@ const CLASSIC_ERA_ARTIST_RANGES: Array<{ pattern: RegExp; range: EraRange }> = [
   { pattern: /\b(?:the\s+cure|depeche\s+mode|new\s+order)\b/i, range: { start: 1980, end: 1993 } },
   { pattern: /\b(?:oasis|blur|pulp|suede|the\s+verve|the\s+stone\s+roses|supergrass|the\s+charlatans|manic\s+street\s+preachers)\b/i, range: { start: 1990, end: 1999 } },
   { pattern: /\b(?:nirvana|pearl\s+jam|soundgarden|alice\s+in\s+chains|smashing\s+pumpkins|hole|nine\s+inch\s+nails)\b/i, range: { start: 1990, end: 1999 } },
-  { pattern: /\b(?:radiohead|r\.?e\.?m\.?|beck|weezer|pixies|foo\s+fighters|green\s+day|offspring|red\s+hot\s+chili\s+peppers)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:radiohead|r\.?e\.?m\.?|beck|pixies|foo\s+fighters|offspring|red\s+hot\s+chili\s+peppers)\b/i, range: { start: 1990, end: 1999 } },
+  { pattern: /\b(?:green\s+day|weezer)\b/i, range: { start: 1990, end: 2009 } },
   { pattern: /\b(?:alanis\s+morissette|the\s+cranberries|garbage|no\s+doubt|sheryl\s+crow|tori\s+amos|fiona\s+apple)\b/i, range: { start: 1990, end: 1999 } },
   { pattern: /\b(?:2pac|tupac|notorious\s+b\.?i\.?g\.?|biggie|wu-?tang\s+clan|dr\.?\s*dre|snoop\s+dogg|lauryn\s+hill|fugees|outkast|nas|jay-?z|mobb\s+deep|a\s+tribe\s+called\s+quest|de\s+la\s+soul|gang\s+starr|big\s+l|krs-?one|mos\s+def|talib\s+kweli|common|rakim)\b/i, range: { start: 1990, end: 1999 } },
   { pattern: /\b(?:massive\s+attack|portishead|the\s+chemical\s+brothers|the\s+prodigy|fatboy\s+slim|underworld|daft\s+punk)\b/i, range: { start: 1990, end: 1999 } },
   { pattern: /\b(?:garth\s+brooks|brooks\s*&\s*dunn|alan\s+jackson|shania\s+twain|reba\s+mcentire|tim\s+mcgraw|faith\s+hill|trisha\s+yearwood|dwight\s+yoakam|vince\s+gill|clint\s+black|pam\s+tillis|patty\s+loveless|martina\s+mcbride|joe\s+diffie|toby\s+keith|kenny\s+chesney|george\s+strait|dixie\s+chicks|the\s+chicks)\b/i, range: { start: 1990, end: 1999 } },
-  { pattern: /\b(?:blink-?182|sum\s+41|good\s+charlotte|simple\s+plan|new\s+found\s+glory|jimmy\s+eat\s+world|yellowcard|fall\s+out\s+boy|my\s+chemical\s+romance|paramore|panic!?\s+at\s+the\s+disco|avril\s+lavigne|bowling\s+for\s+soup|all\s+time\s+low)\b/i, range: { start: 2000, end: 2009 } },
+  { pattern: /\b(?:blink-?182|sum\s+41|good\s+charlotte|simple\s+plan|new\s+found\s+glory|jimmy\s+eat\s+world|yellowcard|fall\s+out\s+boy|my\s+chemical\s+romance|paramore|panic!?\s+at\s+the\s+disco|avril\s+lavigne|bowling\s+for\s+soup|all\s+time\s+low|the\s+all-?american\s+rejects|taking\s+back\s+sunday|the\s+used|story\s+of\s+the\s+year|mayday\s+parade|boys\s+like\s+girls|we\s+the\s+kings|cartel|motion\s+city\s+soundtrack|the\s+starting\s+line|saves\s+the\s+day|sugarcult|cute\s+is\s+what\s+we\s+aim\s+for|dashboard\s+confessional|senses\s+fail|brand\s+new)\b/i, range: { start: 2000, end: 2009 } },
   { pattern: /\b(?:the\s+1975|lorde|lana\s+del\s+rey|halsey|troye\s+sivan|marina(?:\s+and\s+the\s+diamonds)?|melanie\s+martinez|the\s+neighbourhood|clairo|billie\s+eilish|phoebe\s+bridgers|girl\s+in\s+red|tame\s+impala|m83|beach\s+house|charli\s+xcx|sky\s+ferreira)\b/i, range: { start: 2010, end: 2019 } },
   { pattern: /\b(?:arctic\s+monkeys|the\s+killers|queens?\s+of\s+the\s+stone\s+age|calvin\s+harris|kendrick\s+lamar|xxxtentacion|future|beyonc[eé]|sampha|khalid|dave|burna\s+boy|zach\s+bryan|morgan\s+wallen|luke\s+combs|bailey\s+zimmerman|jordan\s+davis|parker\s+mccollum|riley\s+green|lainey\s+wilson|hardy|jelly\s+roll|tyler\s+childers|sturgill\s+simpson|chris\s+stapleton|the\s+jungle\s+giants|jake\s+bugg|destructo\s+disk)\b/i, range: { start: 2010, end: 2029 } },
 ];
@@ -103,7 +104,7 @@ function metadataEraRange(track: EraEvidenceTrack): EraRange | null {
 }
 
 function localEraTextRange(track: EraEvidenceTrack): EraRange | null {
-  const text = `${track.trackName ?? ""} ${track.albumName ?? ""}`;
+  const text = track.albumName ?? "";
   if (!text.trim()) return null;
   return LOCAL_ERA_TEXT_RANGES.find((entry) => entry.pattern.test(text))?.range ?? null;
 }

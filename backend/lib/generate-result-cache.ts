@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v16: prompt-specific era anchors and scene safety guards. */
-  cacheVersion: "v16";
+  /** v17: stricter title-era proof, garage ambiguity, and mood safety guards. */
+  cacheVersion: "v17";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;
