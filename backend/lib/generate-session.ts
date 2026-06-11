@@ -25,9 +25,9 @@ export type GenerateProgressTrack = {
 
 export type GenerateStage =
   | "Scanning library"
-  | "Finding matches"
-  | "Ranking tracks"
-  | "Building flow"
+  | "Scoring candidates"
+  | "Building playlist"
+  | "Final cohesion pass"
   | "Finalising playlist";
 
 type SessionState = {
@@ -62,9 +62,9 @@ const PHASE_STAGE: Record<GeneratePhase, { stage: GenerateStage; stageIndex: num
   idle: { stage: "Scanning library", stageIndex: 0 },
   starting: { stage: "Scanning library", stageIndex: 0 },
   loading_library: { stage: "Scanning library", stageIndex: 0 },
-  building_profile: { stage: "Finding matches", stageIndex: 1 },
-  scoring: { stage: "Ranking tracks", stageIndex: 2 },
-  composing: { stage: "Building flow", stageIndex: 3 },
+  building_profile: { stage: "Scoring candidates", stageIndex: 1 },
+  scoring: { stage: "Building playlist", stageIndex: 2 },
+  composing: { stage: "Final cohesion pass", stageIndex: 3 },
   spotify: { stage: "Finalising playlist", stageIndex: 4 },
   saving: { stage: "Finalising playlist", stageIndex: 4 },
   done: { stage: "Finalising playlist", stageIndex: 4 },

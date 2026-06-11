@@ -1018,10 +1018,12 @@ function trackIsGymWorkoutSafe(track: ConstraintTrack): boolean {
   const tempo = typeof track.tempo === "number" ? track.tempo : null;
   const danceability = typeof track.danceability === "number" ? track.danceability : null;
   const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
-  if (energy !== null && energy < 0.48) return false;
-  if (tempo !== null && tempo < 90 && (danceability ?? 0.5) < 0.56) return false;
+  const loudness = typeof track.loudness === "number" ? track.loudness : null;
+  if (energy !== null && energy < 0.55) return false;
+  if (tempo !== null && tempo < 100 && (danceability ?? 0.5) < 0.60) return false;
   if (valence !== null && valence < 0.28) return false;
-  if (acousticness !== null && acousticness > 0.82 && (energy ?? 0.6) < 0.66) return false;
+  if (acousticness !== null && acousticness > 0.66 && (energy ?? 0.6) < 0.72) return false;
+  if (loudness !== null && loudness < -13 && (energy ?? 0.6) < 0.70) return false;
   return true;
 }
 
@@ -1036,24 +1038,26 @@ function trackIsFocusStudySafe(track: ConstraintTrack): boolean {
   const danceability = typeof track.danceability === "number" ? track.danceability : null;
   const speechiness = typeof track.speechiness === "number" ? track.speechiness : null;
   const valence = typeof track.valence === "number" ? track.valence : null;
-  if (energy !== null && energy > 0.58) return false;
-  if (tempo !== null && (tempo > 138 || tempo < 55)) return false;
-  if (danceability !== null && danceability > 0.74 && (energy ?? 0.5) > 0.48) return false;
-  if (speechiness !== null && speechiness > 0.34) return false;
+  if (energy !== null && energy > 0.52) return false;
+  if (tempo !== null && (tempo > 130 || tempo < 58)) return false;
+  if (danceability !== null && danceability > 0.68 && (energy ?? 0.5) > 0.44) return false;
+  if (speechiness !== null && speechiness > 0.24) return false;
   if (valence !== null && valence < 0.18 && (energy ?? 0.5) < 0.42) return false;
   return true;
 }
 
 function trackIsUpbeatSocialSafe(track: ConstraintTrack): boolean {
-  const energy = track.energy ?? 0.5;
-  const valence = track.valence ?? 0.5;
-  const tempo = track.tempo ?? 110;
-  const acousticness = track.acousticness ?? 0.5;
-  if (energy < 0.42) return false;
-  if (tempo < 82) return false;
-  if (valence < 0.34) return false;
-  if (valence < 0.40 && energy < 0.60) return false;
-  if (acousticness > 0.82 && energy < 0.54) return false;
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const valence = typeof track.valence === "number" ? track.valence : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
+  if (energy !== null && energy < 0.48) return false;
+  if (tempo !== null && tempo < 86 && (danceability ?? 0.5) < 0.56) return false;
+  if (danceability !== null && danceability < 0.44 && (energy ?? 0.5) < 0.62) return false;
+  if (valence !== null && valence < 0.36) return false;
+  if (valence !== null && valence < 0.44 && (energy ?? 0.5) < 0.62) return false;
+  if (acousticness !== null && acousticness > 0.74 && (energy ?? 0.5) < 0.62) return false;
   return true;
 }
 
@@ -1359,6 +1363,163 @@ function preferredCohesionFamilies<T extends ConstraintTrack>(
       .slice(0, limit)
       .map(([family]) => family)
   );
+}
+
+function vibeClusterKey(track: ConstraintTrack, classMap: Map<string, {
+  genrePrimary: string;
+  genreFamily: string;
+  primarySubgenre: string;
+  secondarySubgenre: string | null;
+  subGenres: string[];
+}>): string {
+  const family = trackGenreFamily(track, classMap);
+  const energy = typeof track.energy === "number"
+    ? track.energy >= 0.66 ? "high" : track.energy <= 0.40 ? "low" : "mid"
+    : "energy_unknown";
+  const texture = typeof track.acousticness === "number"
+    ? track.acousticness >= 0.62 ? "acoustic" : track.acousticness <= 0.22 ? "electric" : "mixed"
+    : "texture_unknown";
+  const vocal = typeof track.speechiness === "number"
+    ? track.speechiness >= 0.24 ? "spoken" : "sung"
+    : "vocal_unknown";
+  return [family || "unknown", energy, texture, vocal].join(":");
+}
+
+function clusterLabel(clusterId: string): string {
+  const [family, energy, texture, vocal] = clusterId.split(":");
+  return [family, energy, texture, vocal].filter(Boolean).join(" / ");
+}
+
+function shouldUseClusterCuration(vibe: string, intent: LockedIntent, constraints: ConstraintLayer): boolean {
+  if (constraints.hard.genres.length > 0) return false;
+  return isFocusStudyPrompt(vibe, intent) || isGymWorkoutPrompt(vibe, intent) || isUpbeatSocialPrompt(vibe, intent);
+}
+
+function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
+  initial: T[],
+  candidates: T[],
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+    requestedLength: number;
+  }
+): {
+  initial: T[];
+  candidates: T[];
+  diagnostics: {
+    active: boolean;
+    selectedCluster: string | null;
+    selectedClusterLabel: string | null;
+    selectedClusterCount: number;
+    clusterConfidence: number;
+    fallbackCandidatePercent: number;
+    outlierReserve: number;
+    majorExclusions: string[];
+  };
+} {
+  const fallbackCandidateCount = candidates.filter((track) => Boolean((track as Record<string, unknown>)["_fallbackCandidate"])).length;
+  const fallbackCandidatePercent = candidates.length
+    ? Math.round((fallbackCandidateCount / candidates.length) * 100)
+    : 0;
+  if (!shouldUseClusterCuration(opts.vibe, opts.intent, opts.constraints)) {
+    return {
+      initial,
+      candidates,
+      diagnostics: {
+        active: false,
+        selectedCluster: null,
+        selectedClusterLabel: null,
+        selectedClusterCount: 0,
+        clusterConfidence: 0,
+        fallbackCandidatePercent,
+        outlierReserve: 0,
+        majorExclusions: [],
+      },
+    };
+  }
+
+  const safePrimaryCandidates = candidates
+    .filter((track) => !Boolean((track as Record<string, unknown>)["_fallbackCandidate"]))
+    .filter((track) => finalTrackIsSafe(track, {
+      vibe: opts.vibe,
+      intent: opts.intent,
+      constraints: opts.constraints,
+      classMap: opts.classMap,
+    }))
+    .slice(0, Math.max(80, opts.requestedLength * 4));
+  const clusters = new Map<string, { count: number; score: number }>();
+  for (const track of safePrimaryCandidates) {
+    const key = vibeClusterKey(track, opts.classMap);
+    const current = clusters.get(key) ?? { count: 0, score: 0 };
+    current.count += 1;
+    current.score += Math.max(0, track.score ?? 0);
+    clusters.set(key, current);
+  }
+  const selected = [...clusters.entries()]
+    .filter(([, value]) => value.count >= Math.min(6, Math.max(3, Math.ceil(opts.requestedLength * 0.12))))
+    .sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? null;
+  if (!selected) {
+    return {
+      initial,
+      candidates,
+      diagnostics: {
+        active: true,
+        selectedCluster: null,
+        selectedClusterLabel: null,
+        selectedClusterCount: 0,
+        clusterConfidence: 0,
+        fallbackCandidatePercent,
+        outlierReserve: Math.max(2, Math.ceil(opts.requestedLength * 0.12)),
+        majorExclusions: ["no_stable_cluster_found"],
+      },
+    };
+  }
+
+  const [selectedCluster, selectedStats] = selected;
+  const clusterConfidence = Math.min(1, selectedStats.count / Math.max(1, opts.requestedLength));
+  const outlierReserve = clusterConfidence < 0.45
+    ? Math.ceil(opts.requestedLength * 0.35)
+    : Math.max(2, Math.ceil(opts.requestedLength * 0.10));
+  const inCluster = (track: T): boolean => vibeClusterKey(track, opts.classMap) === selectedCluster;
+  const initialCluster = initial.filter(inCluster);
+  const initialReserve = initial
+    .filter((track) => !inCluster(track) && !Boolean((track as Record<string, unknown>)["_fallbackCandidate"]))
+    .slice(0, outlierReserve);
+  const candidateCluster = candidates.filter(inCluster);
+  const candidateReserve = candidates
+    .filter((track) => !inCluster(track))
+    .map((track) => ({
+      ...track,
+      score: Math.max(0, (track.score ?? 0) - (Boolean((track as Record<string, unknown>)["_fallbackCandidate"]) ? 0.38 : 0.18)),
+    } as T))
+    .slice(0, outlierReserve);
+  const majorExclusions = [
+    `cluster_outliers:${Math.max(0, candidates.length - candidateCluster.length)}`,
+    fallbackCandidatePercent > 20 ? `fallback_candidates:${fallbackCandidatePercent}%` : null,
+  ].filter((value): value is string => !!value);
+
+  return {
+    initial: [...initialCluster, ...initialReserve],
+    candidates: [...candidateCluster, ...candidateReserve],
+    diagnostics: {
+      active: true,
+      selectedCluster,
+      selectedClusterLabel: clusterLabel(selectedCluster),
+      selectedClusterCount: selectedStats.count,
+      clusterConfidence: Math.round(clusterConfidence * 100) / 100,
+      fallbackCandidatePercent,
+      outlierReserve,
+      majorExclusions,
+    },
+  };
 }
 
 function hasExplicitArtistRequest(vibe: string): boolean {
@@ -3064,7 +3225,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         genreByTrack,
       });
     } else {
-      pipeline = runRequestLayerGeneration({
+      pipeline = await runRequestLayerGeneration({
       pipelineLog: req.log,
       likedSongs,
       vibe: pipelineVibe,
@@ -3119,6 +3280,18 @@ router.post("/generate", async (req, res): Promise<void> => {
         allowHoliday: allowHolidaySeason,
         suppressGenres: allowHolidaySeason ? [] : ["christmas"],
       },
+      progress: (stage, detail) => {
+        if (stage === "scoring") {
+          setGeneratePhase(userId, requestId, "building_profile");
+        } else if (stage === "retrieval" || stage === "lanes" || stage === "sampling") {
+          setGeneratePhase(userId, requestId, "scoring");
+        } else if (stage === "fallback") {
+          setGeneratePhase(userId, requestId, "composing");
+        } else if (stage === "coherence") {
+          setGeneratePhase(userId, requestId, "composing");
+        }
+        setGenerateStageDetail(userId, requestId, detail);
+      },
     });
     }
 
@@ -3132,7 +3305,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     const buildFinalCandidatePool = (): PlaylistTrack[] => {
       const scoredFallbackTracks = constrainedFallbackTracks.map((track) => ({
         ...track,
-        score: 0.68,
+        score: 0.42,
+        _fallbackCandidate: true,
       } as PlaylistTrack));
       const scoredLibraryTracks = likedSongs.map((track) => ({
         ...track,
@@ -3185,9 +3359,22 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Locked intent final validation"
     );
+    setGenerateStageDetail(userId, requestId, "Selecting dominant vibe cluster before final checks");
+    const finalCandidatePool = buildFinalCandidatePool();
+    const clusterCuration = curateCandidatesByVibeCluster(
+      finalTracks,
+      finalCandidatePool,
+      {
+        vibe,
+        intent: lockedIntent,
+        constraints: constraintLayer,
+        classMap: userGenreProfile.trackClassifications,
+        requestedLength: length,
+      }
+    );
     let finalization = finalizePlaylistTracks({
-      initial: finalTracks,
-      candidates: buildFinalCandidatePool(),
+      initial: clusterCuration.initial,
+      candidates: clusterCuration.candidates,
       requestedLength: length,
       vibe,
       intent: lockedIntent,
@@ -3207,7 +3394,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       const recovered = recoverLowComplexityPlaylist({
         initial: finalTracks,
         fullLibrary: buildBroadRecoveryLibrary(),
-        candidates: buildFinalCandidatePool(),
+        candidates: clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
+          ? clusterCuration.candidates
+          : buildFinalCandidatePool(),
         requestedLength: length,
         vibe,
         intent: lockedIntent,
@@ -3484,7 +3673,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     finalization = finalizePlaylistTracks({
       initial: finalTracks,
-      candidates: buildFinalCandidatePool(),
+      candidates: clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
+        ? clusterCuration.candidates
+        : buildFinalCandidatePool(),
       requestedLength: length,
       vibe,
       intent: lockedIntent,
@@ -3625,6 +3816,14 @@ router.post("/generate", async (req, res): Promise<void> => {
       removalReasons: removalReasonDiagnostics.slice(0, 12),
       recoveryRelaxations,
       fallbackTriggered: !!fallbackReason || !!finalization.diagnostics.fallbackMode,
+      selectedCluster: clusterCuration.diagnostics.selectedClusterLabel,
+      selectedClusterId: clusterCuration.diagnostics.selectedCluster,
+      clusterConfidence: clusterCuration.diagnostics.clusterConfidence,
+      fallbackCandidatePercent: clusterCuration.diagnostics.fallbackCandidatePercent,
+      majorExclusions: clusterCuration.diagnostics.majorExclusions,
+      cohesionScore: typeof finalization.diagnostics["cohesionSkipped"] === "number"
+        ? Math.max(0, Math.min(1, 1 - (finalization.diagnostics["cohesionSkipped"] as number) / Math.max(1, finalization.tracks.length + (finalization.diagnostics["cohesionSkipped"] as number))))
+        : null,
       failureReason: finalTracks.length === 0 ? "no_final_tracks_after_filters" : null,
     };
     setGenerateStageDetail(

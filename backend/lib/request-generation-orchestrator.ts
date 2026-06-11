@@ -25,10 +25,10 @@ type RequestGenerationTrack = {
   speechiness?: number | null;
 };
 
-export function runRequestLayerGeneration<T extends RequestGenerationTrack>(
+export async function runRequestLayerGeneration<T extends RequestGenerationTrack>(
   opts: BuildPlaylistPipelineOpts<T>,
-): BuildPlaylistPipelineResult<T> & { requestOrchestration: RequestGenerationOrchestration } {
-  const pipeline = buildPlaylistPipeline(opts);
+): Promise<BuildPlaylistPipelineResult<T> & { requestOrchestration: RequestGenerationOrchestration }> {
+  const pipeline = await buildPlaylistPipeline(opts);
   return {
     ...pipeline,
     requestOrchestration: {

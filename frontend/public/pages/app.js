@@ -508,6 +508,7 @@ function renderApp() {
 
   root.innerHTML = `
   ${navHtml(state.user)}
+  ${state.generating ? `<div class="generation-top-wrap">${generatingHtml()}</div>` : ""}
 
   <div class="app-wrap">
 
@@ -582,8 +583,7 @@ function renderApp() {
       ${debugMoodPanelHtml}
     </div>
 
-    <!-- Generation progress / Result -->
-    ${state.generating ? generatingHtml() : ""}
+    <!-- Result -->
     ${state.lastResult ? resultHtml(state.lastResult) : ""}
 
   </div>
@@ -680,7 +680,7 @@ function buildActivityFeed() {
   }).join("");
 }
 
-const GENERATION_STAGES = ["Scanning library", "Finding matches", "Ranking tracks", "Building flow", "Finalising playlist"];
+const GENERATION_STAGES = ["Scanning library", "Scoring candidates", "Building playlist", "Final cohesion pass", "Finalising playlist"];
 const GENERATION_PHASES = ["starting", "loading_library", "building_profile", "scoring", "composing", "spotify", "saving"];
 const GENERATION_PHASE_COPY = {
   "Scanning library": [
@@ -688,17 +688,17 @@ const GENERATION_PHASE_COPY = {
     "Scanning liked tracks…",
     "Mapping your music DNA…",
   ],
-  "Finding matches": [
+  "Scoring candidates": [
     "Finding songs that fit your mood…",
     "Aligning with your intent…",
     "Filtering out obvious wrong turns…",
   ],
-  "Ranking tracks": [
+  "Building playlist": [
     "Scoring emotional fit…",
     "Balancing taste and discovery…",
     "Comparing energy, era, and genre fit…",
   ],
-  "Building flow": [
+  "Final cohesion pass": [
     "Arranging transitions…",
     "Smoothing energy curve…",
     "Sequencing the set like a DJ would…",
@@ -743,12 +743,19 @@ function generatingHtml() {
   const fallbackText = progressState.fallbackEligibleAt
     ? (Date.now() >= progressState.fallbackEligibleAt ? "Fast fallback is available if needed" : "Still building the best match")
     : "Working normally";
+  const previewWaitingCopy = [
+    "Scanning library evidence",
+    "Counting safe candidates",
+    "Scoring likely fits",
+    "Choosing a vibe cluster",
+  ];
+  const previewWaitingText = previewWaitingCopy[Math.floor(elapsedMs / 1000) % previewWaitingCopy.length];
   const progressDetailsHtml = state.progressExpanded ? `
       <div class="generation-details-panel">
         <div><strong>Current work</strong><span id="generationDetailWork">${esc(progress.sub)}</span></div>
         <div><strong>Phase</strong><span id="generationDetailPhase">${esc(progressState.phase || "starting")} · backend ${progress.serverIndex + 1}/${progress.count}</span></div>
         <div><strong>Timing</strong><span id="generationDetailTiming">${esc(elapsedText)} · ${esc(fallbackText)}</span></div>
-        <div><strong>Preview</strong><span id="generationDetailPreview">${progressState.partialTracks?.length ? `${progressState.partialTracks.length} likely tracks ready` : "Waiting for first safe tracks"}</span></div>
+        <div><strong>Preview</strong><span id="generationDetailPreview">${progressState.partialTracks?.length ? `${progressState.partialTracks.length} likely tracks ready` : previewWaitingText}</span></div>
       </div>` : "";
   const buildBarHtml = `
       <div class="dj-live-stage" aria-live="polite">
@@ -813,9 +820,16 @@ function refreshGenerationProgressDom() {
   const fallbackText = progressState.fallbackEligibleAt
     ? (Date.now() >= progressState.fallbackEligibleAt ? "Fast fallback is available if needed" : "Still building the best match")
     : "Working normally";
+  const previewWaitingCopy = [
+    "Scanning library evidence",
+    "Counting safe candidates",
+    "Scoring likely fits",
+    "Choosing a vibe cluster",
+  ];
+  const previewWaitingText = previewWaitingCopy[Math.floor(elapsedMs / 1000) % previewWaitingCopy.length];
   const previewText = progressState.partialTracks?.length
     ? `${progressState.partialTracks.length} likely tracks ready`
-    : "Waiting for first safe tracks";
+    : previewWaitingText;
   const setText = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
@@ -1163,10 +1177,15 @@ function buildUnifiedDebugPanel(result, dbg) {
         <span class="dp-badge">Over cap: ${artistDiv.cappedTracks ?? "—"}</span>
         ${artistDiv.maxPerArtist ? `<span class="dp-badge">Max / artist: ${artistDiv.maxPerArtist}</span>` : ""}
         ${artistDiv.topRepeatedArtist ? `<span class="dp-badge">Top repeat: ${esc(artistDiv.topRepeatedArtist)} ×${artistDiv.topRepeatedArtistCount ?? "?"}</span>` : ""}
+        ${gen.selectedCluster ? `<span class="dp-badge dp-badge--green">Cluster: ${esc(gen.selectedCluster)}</span>` : ""}
+        ${typeof gen.clusterConfidence === "number" ? `<span class="dp-badge">Cluster confidence: ${Math.round(gen.clusterConfidence * 100)}%</span>` : ""}
+        ${typeof gen.fallbackCandidatePercent === "number" ? `<span class="dp-badge ${gen.fallbackCandidatePercent > 20 ? "dp-badge--amber" : ""}">Fallback pool: ${gen.fallbackCandidatePercent}%</span>` : ""}
+        ${typeof gen.cohesionScore === "number" ? `<span class="dp-badge">Final cohesion: ${Math.round(gen.cohesionScore * 100)}%</span>` : ""}
         ${typeof coherence.avg_transition_score === "number" ? `<span class="dp-badge">Coherence: ${Math.round(coherence.avg_transition_score * 100)}%</span>` : ""}
         ${typeof coherence.avg_position_shift === "number" ? `<span class="dp-badge">Avg move: ${coherence.avg_position_shift}</span>` : ""}
         ${typeof coherence.adjacent_artist_repeats === "number" ? `<span class="dp-badge">Adjacent repeats: ${coherence.adjacent_artist_repeats}</span>` : ""}
         ${gen.largestDrop?.stage ? `<span class="dp-badge dp-badge--amber">Biggest drop: ${esc(gen.largestDrop.stage)} −${(gen.largestDrop.removed || 0).toLocaleString()}</span>` : ""}
+        ${Array.isArray(gen.majorExclusions) && gen.majorExclusions.length ? `<span class="dp-badge dp-badge--amber">Excluded: ${esc(gen.majorExclusions.join(", "))}</span>` : ""}
         ${Array.isArray(gen.recoveryRelaxations) && gen.recoveryRelaxations.length ? `<span class="dp-badge dp-badge--amber">Relaxed: ${esc(gen.recoveryRelaxations.join(", "))}</span>` : ""}
         ${gen.failureReason ? `<span class="dp-badge dp-badge--amber">Failure: ${esc(gen.failureReason)}</span>` : ""}
       </div>

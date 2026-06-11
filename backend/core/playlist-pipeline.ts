@@ -130,6 +130,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
    * Library affinity weight is zeroed out and redistributed to semantic.
    */
   noLibraryMode?: boolean;
+  progress?: (stage: "scoring" | "retrieval" | "lanes" | "sampling" | "fallback" | "coherence", detail: string) => void | Promise<void>;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -1692,7 +1693,18 @@ function buildV3LockedIntent<T extends {
   });
 }
 
-export function buildPlaylistPipeline<T extends {
+type PlaylistProgressStage = "scoring" | "retrieval" | "lanes" | "sampling" | "fallback" | "coherence";
+
+async function emitProgress(
+  opts: { progress?: (stage: PlaylistProgressStage, detail: string) => void | Promise<void> },
+  stage: PlaylistProgressStage,
+  detail: string
+): Promise<void> {
+  await opts.progress?.(stage, detail);
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+export async function buildPlaylistPipeline<T extends {
   trackId: string;
   trackName: string;
   artistName: string;
@@ -1708,7 +1720,8 @@ export function buildPlaylistPipeline<T extends {
   rediscoveryScore?: number;
 }>(
   opts: BuildPlaylistPipelineOpts<T>
-): BuildPlaylistPipelineResult<T> {
+): Promise<BuildPlaylistPipelineResult<T>> {
+  await emitProgress(opts, "scoring", `Scoring ${opts.likedSongs.length.toLocaleString()} liked songs`);
   const scoring = runScoringPipeline({
     pipelineLog: opts.pipelineLog,
     tracks: opts.likedSongs,
@@ -1736,6 +1749,7 @@ export function buildPlaylistPipeline<T extends {
   });
 
   const sortedPool = scoring.sorted;
+  await emitProgress(opts, "retrieval", `Building candidate pools from ${sortedPool.length.toLocaleString()} scored tracks`);
 
   // ─────────────────────────────────────────────────────────────────────────
   // V3 MULTI-LANE ARCHITECTURE
@@ -1817,6 +1831,7 @@ export function buildPlaylistPipeline<T extends {
         ? contractEvidencePool
         : explicitGenreScoredPool
     : contractGuard.pool;
+  await emitProgress(opts, "lanes", `Routing ${contractGuardedScoredPool.length.toLocaleString()} candidates into playlist lanes`);
   const explicitGenreRecoveryUsed = intentContract.genreFamilies.length > 0 &&
     contractEvidencePool.length === 0 &&
     explicitGenreScoredPool.length > 0;
@@ -1882,7 +1897,16 @@ export function buildPlaylistPipeline<T extends {
       seedOffset: 19937,
     },
   ];
-  const candidateAttempts = candidateInputs.map((candidate) => {
+  const candidateAttempts: Array<{
+    label: string;
+    inputPool: Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
+    candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
+    result: ReturnType<typeof runV3Pipeline<T>>;
+    quality: ReturnType<typeof evaluatePlaylistQuality>;
+    total: number;
+  }> = [];
+  for (const candidate of candidateInputs) {
+    await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
     const inputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
     const candidatePool = buildV3CandidatePool(
       inputPool,
@@ -1913,15 +1937,15 @@ export function buildPlaylistPipeline<T extends {
     );
     const countRatio = result.finalTracks.length / Math.max(1, opts.playlistLength);
     const starvationPenalty = Math.max(0, 1 - countRatio) * 0.35;
-    return {
+    candidateAttempts.push({
       label: candidate.label,
       inputPool,
       candidatePool,
       result,
       quality,
       total: quality.overall + Math.min(0.18, countRatio * 0.18) - starvationPenalty,
-    };
-  });
+    });
+  }
   const selectedCandidate = [...candidateAttempts].sort((a, b) => b.total - a.total)[0] ?? candidateAttempts[0];
   const v3CandidatePool = selectedCandidate.candidatePool;
   const v3 = selectedCandidate.result;
@@ -2174,6 +2198,7 @@ export function buildPlaylistPipeline<T extends {
   // All filters must degrade gracefully, not eliminate entire pool.
   // Last-resort fallback: V3 produced nothing (no audio features / empty lib)
   if (finalTracksList.length === 0) {
+    await emitProgress(opts, "fallback", "Primary lanes returned no tracks; using constrained recovery pool");
     const rawFallbackPool = (
       v3CandidatePool.tracks.length > 0
         ? v3CandidatePool.tracks
@@ -2402,6 +2427,7 @@ export function buildPlaylistPipeline<T extends {
     v3LockedIntent,
   );
   const finalTracksForReturn = coherence.reorderedTracks as unknown as T[];
+  await emitProgress(opts, "coherence", `Final cohesion pass on ${finalTracksForReturn.length.toLocaleString()} tracks`);
   opts.pipelineLog?.info({
     coherence_fallback_used: coherence.diagnostics.coherence_fallback_used,
     avg_transition_score: coherence.diagnostics.avg_transition_score,

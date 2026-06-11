@@ -1281,6 +1281,14 @@ p { margin: 0; }
 }
 
 /* Generating state */
+.generation-top-wrap {
+  position: sticky;
+  top: 62px;
+  z-index: 120;
+  max-width: 760px;
+  margin: 14px auto 0;
+  padding: 0 18px;
+}
 .generating-card {
   display: flex;
   align-items: center;
@@ -1290,6 +1298,8 @@ p { margin: 0; }
   border-radius: var(--radius-lg);
   padding: 22px 26px;
   animation: fadein 0.3s ease;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.22);
+  backdrop-filter: blur(14px);
 }
 
 .generating-body { flex: 1; min-width: 0; }
