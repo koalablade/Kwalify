@@ -1773,15 +1773,6 @@ function titleCaseVibe(vibe: string): string {
 function nameFromUserVibe(vibe: string): string | null {
   const trimmed = vibe.trim();
   if (trimmed.length < 3) return null;
-
-  const wordCount = trimmed.split(/\s+/).length;
-  const isDescriptive =
-    wordCount <= 6 ||
-    SPECIFIC_SCENE_PATTERN.test(trimmed) ||
-    /\b(at|while|during|after|before|alone|empty|quiet)\b/i.test(trimmed);
-
-  if (!isDescriptive) return null;
-
   const title = titleCaseVibe(trimmed);
   return title.length > 64 ? title.slice(0, 61) + "…" : title;
 }

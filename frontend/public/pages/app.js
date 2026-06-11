@@ -69,6 +69,7 @@ async function api(path, opts = {}) {
 }
 
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1dRFIgqcbNGXXHYHZqaRQ3BhFHqsFmENdmLRCs_YtWhE/edit";
 let generationStatusTimer = null;
 let generationUiTimer = null;
 
@@ -264,7 +265,12 @@ function navHtml(user) {
   const syncing = cs?.isSyncing;
   const total = cs?.totalTracks || ls?.trackCount || 0;
   const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
-  const syncLabel = syncing ? "Syncing…" : total > 0 ? `${total.toLocaleString()} tracks` : "Library";
+  const syncPct = cs?.syncTotal && cs.syncProgress !== null && cs.syncProgress !== undefined
+    ? Math.max(0, Math.min(100, Math.round((Number(cs.syncProgress) / Math.max(1, Number(cs.syncTotal))) * 100)))
+    : null;
+  const syncLabel = syncing
+    ? `Syncing${syncPct !== null ? ` ${syncPct}%` : "…"}`
+    : total > 0 ? `${total.toLocaleString()} tracks` : "Library";
   const initials = (user?.displayName || "U").charAt(0).toUpperCase();
   const avatar = user?.avatarUrl
     ? `<img src="${esc(user.avatarUrl)}" alt="">`
@@ -284,6 +290,7 @@ function navHtml(user) {
           <span class="sync-dot ${syncing ? "sync-dot--live" : ""}"></span>
           <span>${syncLabel}</span>
           ${lastSynced ? `<small>updated ${esc(lastSynced)}</small>` : ""}
+          ${syncing && syncPct !== null ? `<span class="nav-sync-progress"><span style="width:${syncPct}%"></span></span>` : ""}
         </button>
         <div class="nav-library-actions">
           <button id="deltaSyncBtn" class="section-action nav-sync-action" ${syncing ? "disabled" : ""}>${syncing ? "Syncing…" : "Sync new"}</button>
@@ -591,13 +598,13 @@ function renderApp() {
   <footer class="app-footer">
     <div class="footer-right">
       <span class="badge badge-muted">Beta</span>
-      <a href="mailto:feedback@kwalify.net" class="footer-link">Send feedback</a>
+      <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">Send feedback</a>
     </div>
   </footer>
 
   <!-- Feedback floating button -->
   <a
-    href="https://docs.google.com/forms/d/1dRFIgqcbNGXXHYHZqaRQ3BhFHqsFmENdmLRCs_YtWhE/edit"
+    href="${FEEDBACK_FORM_URL}"
     target="_blank"
     rel="noopener"
     class="feedback-fab"
@@ -883,7 +890,7 @@ function resultHtml(result) {
         <strong>${confidencePercent}%</strong>
       </div>` : "";
 
-  const hasExplain = !!(result.v3Diagnostics?.playlistExplanation);
+  const hasExplain = debugModeEnabled() && !!(result.v3Diagnostics?.playlistExplanation);
   const tabsHtml = hasExplain ? `
   <div class="result-view-tabs">
     <button class="result-tab-btn ${!state.showExplain ? "active" : ""}" id="tabPlaylist">
@@ -2007,7 +2014,7 @@ async function triggerSync(full = false) {
     : document.getElementById("deltaSyncBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Syncing…"; }
   await api("/spotify/sync", { method: "POST", body: JSON.stringify({ full }) });
-  setTimeout(pollStatus, 2000);
+  await pollStatus();
 }
 
 async function pollStatus() {
@@ -2018,7 +2025,7 @@ async function pollStatus() {
   if (csRes.ok) state.cacheStatus = csRes.data;
   if (lsRes.ok) state.librarySummary = lsRes.data;
   renderApp();
-  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 3000);
+  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
 }
 
 async function loadPlaylists() {
@@ -2171,7 +2178,7 @@ async function boot() {
 
   renderApp();
 
-  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 3000);
+  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
 }
 
 boot();

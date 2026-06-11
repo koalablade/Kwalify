@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v28: Spotify timeouts, freshness floor, and progress fallback timing. */
-  cacheVersion: "v28";
+  /** v29: preserve prompt names, stricter duplicate suppression, and broader vibe clusters. */
+  cacheVersion: "v29";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;

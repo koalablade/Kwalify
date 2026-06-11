@@ -1376,18 +1376,12 @@ function vibeClusterKey(track: ConstraintTrack, classMap: Map<string, {
   const energy = typeof track.energy === "number"
     ? track.energy >= 0.66 ? "high" : track.energy <= 0.40 ? "low" : "mid"
     : "energy_unknown";
-  const texture = typeof track.acousticness === "number"
-    ? track.acousticness >= 0.62 ? "acoustic" : track.acousticness <= 0.22 ? "electric" : "mixed"
-    : "texture_unknown";
-  const vocal = typeof track.speechiness === "number"
-    ? track.speechiness >= 0.24 ? "spoken" : "sung"
-    : "vocal_unknown";
-  return [family || "unknown", energy, texture, vocal].join(":");
+  return [family || "unknown", energy].join(":");
 }
 
 function clusterLabel(clusterId: string): string {
-  const [family, energy, texture, vocal] = clusterId.split(":");
-  return [family, energy, texture, vocal].filter(Boolean).join(" / ");
+  const [family, energy] = clusterId.split(":");
+  return [family, energy].filter(Boolean).join(" / ");
 }
 
 function shouldUseClusterCuration(vibe: string, intent: LockedIntent, constraints: ConstraintLayer): boolean {
@@ -1454,7 +1448,7 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
       constraints: opts.constraints,
       classMap: opts.classMap,
     }))
-    .slice(0, Math.max(80, opts.requestedLength * 4));
+    .slice(0, Math.max(160, opts.requestedLength * 6));
   const clusters = new Map<string, { count: number; score: number }>();
   for (const track of safePrimaryCandidates) {
     const key = vibeClusterKey(track, opts.classMap);
@@ -1464,7 +1458,7 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
     clusters.set(key, current);
   }
   const selected = [...clusters.entries()]
-    .filter(([, value]) => value.count >= Math.min(6, Math.max(3, Math.ceil(opts.requestedLength * 0.12))))
+    .filter(([, value]) => value.count >= Math.min(4, Math.max(2, Math.ceil(opts.requestedLength * 0.08))))
     .sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? null;
   if (!selected) {
     return {
@@ -1486,8 +1480,8 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
   const [selectedCluster, selectedStats] = selected;
   const clusterConfidence = Math.min(1, selectedStats.count / Math.max(1, opts.requestedLength));
   const outlierReserve = clusterConfidence < 0.45
-    ? Math.ceil(opts.requestedLength * 0.35)
-    : Math.max(2, Math.ceil(opts.requestedLength * 0.10));
+    ? Math.ceil(opts.requestedLength * 0.22)
+    : Math.max(1, Math.ceil(opts.requestedLength * 0.06));
   const inCluster = (track: T): boolean => vibeClusterKey(track, opts.classMap) === selectedCluster;
   const initialCluster = initial.filter(inCluster);
   const initialReserve = initial
@@ -1694,7 +1688,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   if (out.length < opts.requestedLength) {
     relaxedArtistFillUsed = emergencyArtistLimit !== null;
     relaxedAlbumFillUsed = true;
-    for (const track of rankedCandidates) tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, false);
+    for (const track of rankedCandidates) tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, true);
   }
 
   return {
@@ -2588,7 +2582,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v28" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v29" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -4297,7 +4291,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (!varietyBoost && !devMode) {
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v28",
+        cacheVersion: "v29",
         playlistName,
         vibe,
         mode,
