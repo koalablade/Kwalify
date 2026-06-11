@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v22: playlist coherence layer reorders final tracks after ranking. */
-  cacheVersion: "v22";
+  /** v24: global Christmas/holiday track exclusion unless explicitly requested. */
+  cacheVersion: "v24";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;

@@ -74,6 +74,7 @@ import {
   clearPendingSpotifyPlaylist,
   getGenerateProgress,
   getGenerateStatus,
+  setGeneratePartialTracks,
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
@@ -648,6 +649,24 @@ function trackGenreFamily(track: ConstraintTrack, classMap: Map<string, {
   ).toLowerCase();
 }
 
+function trackIsChristmasTrack(track: ConstraintTrack, classMap: Map<string, {
+  genrePrimary: string;
+  genreFamily: string;
+  primarySubgenre: string;
+  secondarySubgenre: string | null;
+  subGenres: string[];
+}>): boolean {
+  if (trackGenreFamily(track, classMap) === "christmas") return true;
+  const genreTerms = trackGenreTerms(track, classMap).join(" ");
+  if (/\b(?:christmas|xmas|holiday|carol|festive|noel|santa|jingle\s+bells|winter\s+wonderland)\b/i.test(genreTerms)) return true;
+  const text = `${track.trackName ?? ""} ${track.albumName ?? ""}`.toLowerCase();
+  return /\b(?:christmas|xmas|holiday|festive|noel|santa|jingle\s+bells|winter\s+wonderland)\b/i.test(text);
+}
+
+function hasExplicitHolidayIntent(vibe: string): boolean {
+  return /\b(?:christmas|xmas|holiday|festive)\b/i.test(vibe);
+}
+
 function dominantGenreFamily(
   tracks: ConstraintTrack[],
   classMap: Map<string, {
@@ -890,7 +909,7 @@ function trackIsSleepSafe(track: ConstraintTrack): boolean {
 }
 
 function isUkGaragePrompt(vibe: string): boolean {
-  return /\b(?:uk\s+garage|ukg|2-step|two\s+step\s+garage|speed\s+garage)\b/i.test(vibe);
+  return /\b(?:uk\s+garage|ukg|2-step|two\s+step\s+garage|speed\s+garage|garage\s+music)\b/i.test(vibe);
 }
 
 function isKnownNonUkGarageTrack(track: ConstraintTrack): boolean {
@@ -899,9 +918,18 @@ function isKnownNonUkGarageTrack(track: ConstraintTrack): boolean {
 
 function isBreakupRainDrivePrompt(vibe: string, intent: LockedIntent): boolean {
   const lower = vibe.toLowerCase();
-  const breakupRain = /\b(?:breakup|break\s+up|heartbreak|heartbroken|sad|rain|rainy)\b/.test(lower);
+  const breakupRain = hasSadDriveQualifier(vibe);
   const drive = intent.activity === "driving" || /\b(?:drive|driving|road|home)\b/.test(lower);
   return breakupRain && drive;
+}
+
+function hasSadDriveQualifier(vibe: string): boolean {
+  return /\b(?:sad|breakup|break\s+up|heartbreak|heartbroken|night|rain|rainy|lonely)\b/i.test(vibe);
+}
+
+function isNeutralDrivingPrompt(vibe: string, intent: Pick<LockedIntent, "activity">): boolean {
+  return (intent.activity === "driving" || /\b(?:music\s+for\s+driving|driving|drive|road|highway|cruise)\b/i.test(vibe)) &&
+    !hasSadDriveQualifier(vibe);
 }
 
 function hasExplicitGenreIntent(intent: LockedIntent, constraints: ConstraintLayer): boolean {
@@ -942,6 +970,24 @@ function isEuphoricSummerPrompt(vibe: string, intent: LockedIntent): boolean {
   const lower = vibe.toLowerCase();
   return intent.mood.includes("euphoric") &&
     /\b(?:summer|beach|sunset|sunny|sunshine|coast|seaside|poolside)\b/.test(lower);
+}
+
+function isBroadDrivingPrompt(vibe: string, intent: LockedIntent): boolean {
+  if (intent.genreFamilies.length > 0 || intent.primaryGenres.length > 0 || intent.mood.includes("melancholic")) return false;
+  return isNeutralDrivingPrompt(vibe, intent);
+}
+
+function trackIsBroadDrivingSafe(track: ConstraintTrack): boolean {
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const tempo = track.tempo ?? 110;
+  const acousticness = track.acousticness ?? 0.5;
+  if (energy < 0.30) return false;
+  if (tempo < 72) return false;
+  if (valence < 0.34 && energy < 0.58) return false;
+  if (valence < 0.28) return false;
+  if (acousticness > 0.86 && energy < 0.45) return false;
+  return true;
 }
 
 function trackIsEuphoricSummerSafe(
@@ -1170,6 +1216,7 @@ function finalTrackIsSafe(
     vibe: string;
     intent: LockedIntent;
     constraints: ConstraintLayer;
+    allowHolidaySeason?: boolean;
     classMap: Map<string, {
       genrePrimary: string;
       genreFamily: string;
@@ -1190,12 +1237,16 @@ function finalTrackIsSafe(
   if (!lockedIntentSafe && !isBroadMoodPlacePrompt(opts.vibe, opts.intent, opts.constraints)) return false;
   if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
+  if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
+  if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
   const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
   if (isEuphoricSummerPrompt(opts.vibe, opts.intent) && !trackIsEuphoricSummerSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isBreakupRainDrivePrompt(opts.vibe, opts.intent) && !trackIsBreakupRainDriveSafe(track, explicitGenreLocked, opts.classMap)) return false;
   return true;
 }
+
+type PlaylistFinalizationDiagnostics = Record<string, number | boolean | string | null>;
 
 function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   initial: T[];
@@ -1204,6 +1255,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   vibe: string;
   intent: LockedIntent;
   constraints: ConstraintLayer;
+  allowHolidaySeason?: boolean;
   classMap: Map<string, {
     genrePrimary: string;
     genreFamily: string;
@@ -1212,7 +1264,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     subGenres: string[];
   }>;
   maxPerArtist: number;
-}): { tracks: T[]; diagnostics: Record<string, number | boolean> } {
+}): { tracks: T[]; diagnostics: PlaylistFinalizationDiagnostics } {
   const seen = new Set<string>();
   const artistCounts = new Map<string, number>();
   let malformedDropped = 0;
@@ -1262,8 +1314,115 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       duplicateDropped,
       replenished: out.length > opts.initial.length,
       sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
+      fallbackMode: null,
     },
   };
+}
+
+function broadEnergyRecoveryScore(track: ConstraintTrack, intent: LockedIntent, vibe: string): number {
+  const lower = vibe.toLowerCase();
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const tempo = track.tempo ?? 110;
+  const danceability = track.danceability ?? 0.5;
+  const highEnergyPrompt =
+    intent.energy === "high" ||
+    intent.energyLevel === "high" ||
+    intent.mood.includes("energised") ||
+    /\b(?:party|hype|dance|club|rave|workout|gym)\b/i.test(lower);
+  const targetEnergy = highEnergyPrompt ? 0.76 : intent.energy === "low" || intent.energyLevel === "low" ? 0.34 : 0.55;
+  const targetValence = intent.mood.includes("melancholic") ? 0.38 : highEnergyPrompt ? 0.62 : 0.50;
+  const tempoLift = tempo >= 95 && tempo <= 145 ? 0.08 : tempo > 145 ? 0.03 : 0;
+  return (
+    1 - Math.abs(energy - targetEnergy) * 0.55 -
+    Math.abs(valence - targetValence) * 0.25 +
+    danceability * 0.16 +
+    tempoLift
+  );
+}
+
+function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
+  initial: T[];
+  fullLibrary: T[];
+  candidates: T[];
+  requestedLength: number;
+  vibe: string;
+  intent: LockedIntent;
+  constraints: ConstraintLayer;
+  allowHolidaySeason: boolean;
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>;
+  maxPerArtist: number;
+}): { tracks: T[]; diagnostics: PlaylistFinalizationDiagnostics; intent: LockedIntent } | null {
+  if (opts.intent.interpretationBudget?.complexity !== "low") return null;
+
+  const base = {
+    requestedLength: opts.requestedLength,
+    vibe: opts.vibe,
+    constraints: opts.constraints,
+    allowHolidaySeason: opts.allowHolidaySeason,
+    classMap: opts.classMap,
+    maxPerArtist: opts.maxPerArtist,
+  };
+  const attempts: Array<{ stage: string; intent: LockedIntent; candidates: T[] }> = [];
+
+  if (opts.intent.activity) {
+    attempts.push({
+      stage: "activity_relaxed",
+      intent: { ...opts.intent, activity: null },
+      candidates: opts.candidates,
+    });
+  }
+
+  if (opts.intent.mood.length > 0) {
+    attempts.push({
+      stage: "mood_relaxed",
+      intent: { ...opts.intent, activity: null, mood: [] },
+      candidates: opts.candidates,
+    });
+  }
+
+  const broadEnergyCandidates = opts.fullLibrary
+    .filter((track) => !!track)
+    .map((track) => ({
+      ...track,
+      score: broadEnergyRecoveryScore(track, opts.intent, opts.vibe),
+    }))
+    .sort((a, b) => b.score - a.score) as T[];
+  attempts.push({
+    stage: "energy_recovery",
+    intent: { ...opts.intent, activity: null, mood: [], energy: null, energyLevel: null },
+    candidates: broadEnergyCandidates,
+  });
+
+  for (const attempt of attempts) {
+    const finalization = finalizePlaylistTracks({
+      ...base,
+      initial: attempt.stage === "energy_recovery" ? [] : opts.initial,
+      candidates: attempt.candidates,
+      intent: attempt.intent,
+    });
+    if (finalization.tracks.length > 0) {
+      return {
+        tracks: finalization.tracks,
+        intent: attempt.intent,
+        diagnostics: {
+          ...finalization.diagnostics,
+          fallbackMode: "broad_energy_recovery",
+          recoveryStage: attempt.stage,
+          originalFinalCount: opts.initial.length,
+          fullLibraryCandidates: opts.fullLibrary.length,
+        },
+      };
+    }
+  }
+
+  return null;
 }
 
 function assertQualityConsistency(
@@ -2015,7 +2174,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v22" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v24" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2511,9 +2670,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const maxPerArtist = 2;
 
-    const allowHolidaySeason =
-      /\b(christmas|xmas|holiday|festive|winter holiday)\b/i.test(vibe) ||
-      (humanIntent.intent === "nostalgia" && /\bchristmas|holiday\b/i.test(vibe));
+    const allowHolidaySeason = hasExplicitHolidayIntent(vibe);
     const qualitySignalContext = buildQualitySignalContext({
       vibe,
       emotionProfile,
@@ -2523,6 +2680,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     const pipelineVibe = normalizeVibeForPipeline(vibe, qualitySignalContext);
     const constraintLayer = extractConstraintLayer(vibe, qualitySignalContext);
     const parsedCsspIntent = buildCsspLockedIntent(vibe);
+    const neutralDrivingPrompt = isNeutralDrivingPrompt(vibe, parsedCsspIntent);
+    const resolvedMoodTags = (parsedCsspIntent.mood.length > 0
+      ? parsedCsspIntent.mood
+      : qualitySignalContext.moodTags.filter((tag) => tag !== "neutral").slice(0, 3))
+      .filter((tag) => !(neutralDrivingPrompt && (tag === "melancholic" || tag === "dark")));
+    const resolvedEnergy = parsedCsspIntent.energy ?? (neutralDrivingPrompt ? "medium" : null);
     const lockedIntent = {
       genreFamilies: parsedCsspIntent.genreFamilies.length > 0
         ? parsedCsspIntent.genreFamilies
@@ -2532,15 +2695,15 @@ router.post("/generate", async (req, res): Promise<void> => {
           ? { start: constraintLayer.hard.eraStart, end: constraintLayer.hard.eraEnd }
           : null
       ),
-      mood: parsedCsspIntent.mood.length > 0 ? parsedCsspIntent.mood : qualitySignalContext.moodTags.filter((tag) => tag !== "neutral").slice(0, 3),
+      mood: resolvedMoodTags,
       activity: parsedCsspIntent.activity,
-      energy: parsedCsspIntent.energy,
+      energy: resolvedEnergy,
       primaryGenres: parsedCsspIntent.genreFamilies.length > 0
         ? parsedCsspIntent.genreFamilies
         : constraintLayer.hard.genres.slice(0, 3),
       eraStart: parsedCsspIntent.eraRange?.start ?? constraintLayer.hard.eraStart,
       eraEnd: parsedCsspIntent.eraRange?.end ?? constraintLayer.hard.eraEnd,
-      energyLevel: parsedCsspIntent.energy,
+      energyLevel: resolvedEnergy,
       interpretationBudget: parsedCsspIntent.interpretationBudget,
     };
     const fallbackLockedFamily =
@@ -2723,6 +2886,16 @@ router.post("/generate", async (req, res): Promise<void> => {
     };
     setGeneratePhase(userId, requestId, "composing");
     let finalTracks = (pipeline.finalTracks as PlaylistTrack[]).map(hydrateTrackGenre);
+    const publishPartialTracks = (tracks: PlaylistTrack[], limit = tracks.length): void => {
+      const partialTracks = formatTracksForApi(tracks.slice(0, limit), emotionProfile).map((track) => ({
+        trackId: track.id,
+        trackName: track.name,
+        artistName: track.artist,
+        albumArt: track.albumArt ?? null,
+      }));
+      setGeneratePartialTracks(userId, requestId, partialTracks);
+    };
+    publishPartialTracks(finalTracks, 5);
     warnIfV3MetadataLost(
       pipeline.finalTracks,
       finalTracks,
@@ -2757,9 +2930,52 @@ router.post("/generate", async (req, res): Promise<void> => {
       vibe,
       intent: lockedIntent,
       constraints: constraintLayer,
+      allowHolidaySeason,
       classMap: userGenreProfile.trackClassifications,
       maxPerArtist,
     });
+    const buildBroadRecoveryLibrary = (): PlaylistTrack[] => likedSongs
+      .map((track) => ({
+        ...track,
+        score: 0.55,
+      } as PlaylistTrack))
+      .map(hydrateTrackGenre);
+    const applyLowComplexityRecovery = (triggerStage: string): boolean => {
+      if (finalTracks.length > 0) return false;
+      const recovered = recoverLowComplexityPlaylist({
+        initial: finalTracks,
+        fullLibrary: buildBroadRecoveryLibrary(),
+        candidates: buildFinalCandidatePool(),
+        requestedLength: length,
+        vibe,
+        intent: lockedIntent,
+        constraints: constraintLayer,
+        allowHolidaySeason,
+        classMap: userGenreProfile.trackClassifications,
+        maxPerArtist,
+      });
+      if (!recovered) return false;
+      finalTracks = recovered.tracks;
+      finalization = {
+        tracks: recovered.tracks,
+        diagnostics: {
+          ...recovered.diagnostics,
+          recoveryTrigger: triggerStage,
+        },
+      };
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+      publishPartialTracks(finalTracks);
+      req.log.info(
+        { userId, vibe, finalization: finalization.diagnostics },
+        "LOW complexity broad energy recovery produced playlist"
+      );
+      return true;
+    };
     if (finalization.tracks.length !== finalTracks.length) {
       req.log.info(
         { userId, vibe, finalization: finalization.diagnostics },
@@ -2773,6 +2989,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         userGenreProfile.trackClassifications
       );
     }
+    applyLowComplexityRecovery("pre_evidence_finalization_empty");
     const strictGenreEvidenceDiagnostics = (() => {
       const expectedFamilies = lockedIntent.primaryGenres.length > 0
         ? lockedIntent.primaryGenres
@@ -2869,6 +3086,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           unknownCount: 0,
           rejectedCount: 0,
           requiredCount: 0,
+          compatibleFallbackUsed: false,
           verified: finalTracks,
           compatible: finalTracks,
         };
@@ -2880,6 +3098,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         length,
         Math.max(10, Math.ceil(length * STRICT_EXPLICIT_ERA_EVIDENCE_RATIO))
       );
+      const compatibleFallbackUsed =
+        verified.length === 0 &&
+        lockedIntent.genreFamilies.length > 0 &&
+        knownMismatches.length === 0 &&
+        compatible.length >= Math.min(length, Math.max(8, Math.ceil(length * 0.50)));
       return {
         active: true,
         eraRange,
@@ -2893,13 +3116,15 @@ router.post("/generate", async (req, res): Promise<void> => {
         verifiedSample: eraDiagnosticSample(verified),
         unknownSample: eraDiagnosticSample(compatible.filter((track) => !trackHasEraEvidence(track, eraRange))),
         rejectedSample: eraDiagnosticSample(knownMismatches),
+        compatibleFallbackUsed,
         verified,
         compatible,
       };
     })();
     if (
       strictEraEvidenceDiagnostics.active &&
-      strictEraEvidenceDiagnostics.verifiedCount === 0
+      strictEraEvidenceDiagnostics.verifiedCount === 0 &&
+      !strictEraEvidenceDiagnostics.compatibleFallbackUsed
     ) {
       req.log.warn(
         {
@@ -2932,7 +3157,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
     if (strictEraEvidenceDiagnostics.active) {
-      const nextFinalTracks = strictEraEvidenceDiagnostics.verified;
+      const nextFinalTracks = strictEraEvidenceDiagnostics.verified.length > 0
+        ? strictEraEvidenceDiagnostics.verified
+        : strictEraEvidenceDiagnostics.compatible;
       if (nextFinalTracks.length !== finalTracks.length) {
         finalTracks = nextFinalTracks as PlaylistTrack[];
         finalValidation = validateLockedIntentOutput(
@@ -2950,6 +3177,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       vibe,
       intent: lockedIntent,
       constraints: constraintLayer,
+      allowHolidaySeason,
       classMap: userGenreProfile.trackClassifications,
       maxPerArtist,
     });
@@ -2966,6 +3194,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         userGenreProfile.trackClassifications
       );
     }
+    applyLowComplexityRecovery("post_evidence_finalization_empty");
     const strictEraEvidencePublic = {
       ...strictEraEvidenceDiagnostics,
       verified: undefined,
@@ -3069,6 +3298,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Quality engine pipeline complete"
     );
 
+    publishPartialTracks(finalTracks);
+    applyLowComplexityRecovery("pre_empty_playlist_error");
     if (finalTracks.length === 0) {
       const forensicPoolTrace = (scoringDiagnostics.v3Pipeline as Record<string, unknown> | undefined)?.["forensicPoolTrace"];
       req.log.warn(
@@ -3318,7 +3549,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v22",
+        cacheVersion: "v24",
         playlistName,
         vibe,
         mode,

@@ -222,12 +222,22 @@ function expandedMoodTerms(input: string): string[] {
 }
 
 function expandedActivity(input: string): string | null {
+  if (hasGarageToken(input) && !hasGarageMusicContext(input)) return "focus";
   const hit = Object.entries(EXPANDED_ACTIVITY_TERMS)
     .find(([, terms]) => termRegex(terms).test(input))?.[0] ?? null;
   if (hit === "workout") return "gym";
   if (hit === "travel") return "walking";
   if (hit === "sleep") return "relaxing";
   return hit;
+}
+
+function hasDrivingIntent(input: string): boolean {
+  return termRegex(EXPANDED_ACTIVITY_TERMS.driving).test(input) ||
+    /\b(driv|road|cruise|highway)\b/.test(input);
+}
+
+function hasSadDriveQualifier(input: string): boolean {
+  return /\b(?:sad|breakup|break\s+up|heartbreak|heartbroken|night|rain|rainy|lonely)\b/i.test(input);
 }
 
 function parseEnergy(input: string): LockedIntent["energy"] {
@@ -241,6 +251,9 @@ function parseEnergy(input: string): LockedIntent["energy"] {
     return "low";
   }
   if (termRegex(["medium energy", "steady"]).test(input)) {
+    return "medium";
+  }
+  if (hasDrivingIntent(input) && !hasSadDriveQualifier(input)) {
     return "medium";
   }
   return null;
@@ -305,6 +318,8 @@ function applyInterpretationBudget(
   const rawAvailable = dimensionNames(raw);
   const complexity: PromptComplexity = rawAvailable.length >= 3
     ? "high"
+    : classified.complexity === "low" && raw.activity === "driving" && raw.energy === "medium"
+      ? "medium"
     : classified.complexity === "low" && tokens.length >= 3 && rawAvailable.length > 1
       ? "medium"
       : classified.complexity;
@@ -334,7 +349,7 @@ function applyInterpretationBudget(
   };
 
   const priority = complexity === "low"
-    ? ["genre", "activity", "mood", "era", "energy"]
+    ? ["genre", "mood", "activity", "era", "energy"]
     : ["genre", "era", "mood", "activity", "energy"];
 
   if (complexity === "low" && out.eraRange && !explicitEra) drop("era");
@@ -415,6 +430,20 @@ function excludedGenreFamilies(input: string): Set<string> {
   return excluded;
 }
 
+function hasGarageToken(input: string): boolean {
+  return /\bgarage\b/i.test(input);
+}
+
+function hasGarageMusicContext(input: string): boolean {
+  return hasGarageToken(input) &&
+    /\b(?:music|ukg|uk\s+garage|2-step|two\s+step|two-step)\b/i.test(input);
+}
+
+function hasGaragePhysicalContext(input: string): boolean {
+  return hasGarageToken(input) &&
+    /\b(?:car|cars|working|fixing|friends|tools|toolbox|workshop|welding|volvo|motorcycle|motorcycles|motorbike|motorbikes|under\s+the\s+hood)\b/i.test(input);
+}
+
 function parseGenreFamilies(input: string): string[] {
   const excluded = excludedGenreFamilies(input);
   const matches = GENRE_ALIASES
@@ -437,7 +466,11 @@ function parseGenreFamilies(input: string): string[] {
     .filter(({ family, confidence }) => confidence > 0 && !excluded.has(family))
     .sort((a, b) => b.confidence - a.confidence || a.firstIndex - b.firstIndex);
 
-  return matches.map((match) => match.family);
+  const families = matches.map((match) => match.family);
+  if (hasGarageMusicContext(input) && !excluded.has("electronic") && !families.includes("electronic")) {
+    families.unshift("electronic");
+  }
+  return families;
 }
 
 function parseMatchedGenreTerms(input: string): string[] {
@@ -449,6 +482,9 @@ function parseMatchedGenreTerms(input: string): string[] {
       seen.add(term);
       terms.push(term);
     }
+  }
+  if (hasGarageMusicContext(input) && !seen.has("uk garage")) {
+    terms.push("uk garage");
   }
   return terms.sort((a, b) => termMatchIndex(input, a) - termMatchIndex(input, b));
 }
@@ -1113,7 +1149,7 @@ export function buildLockedIntent(input: string): LockedIntent {
 
   const excludedMoods = excludedMoodTags(lower);
   const rawMood = [
-    /\b(sad|melanchol|lonely|blue|heartbreak|crying|fight|argument|rainy|rain)\b/.test(lower) ? "melancholic" : null,
+    /\b(sad|melanchol|lonely|blue|heartbreak|heartbroken|breakup|break\s+up|crying|fight|argument|rainy|rain)\b/.test(lower) ? "melancholic" : null,
     /\b(calm|calmly|chill|relax|soft|peaceful|winter|snowy|snow)\b/.test(lower) ? "calm" : null,
     /\b(nostalg|throwback|retro|memory)\b/.test(lower) ? "nostalgic" : null,
     /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq|winter|snowy|snow)\b/.test(lower) ? "warm" : null,

@@ -16,10 +16,27 @@ export type GeneratePhase =
   | "done"
   | "error";
 
+export type GenerateProgressTrack = {
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumArt?: string | null;
+};
+
+export type GenerateStage =
+  | "Scanning library"
+  | "Finding matches"
+  | "Ranking tracks"
+  | "Building flow"
+  | "Finalising playlist";
+
 type SessionState = {
   requestId: string;
   startedAt: number;
   phase: GeneratePhase;
+  stage: GenerateStage;
+  stageIndex: number;
+  partialTracks: GenerateProgressTrack[];
   cancelled: boolean;
   /** Playlist created but track-add may retry */
   pendingSpotifyPlaylistId?: string;
@@ -38,6 +55,19 @@ const ACTIVE_PHASES = new Set<GeneratePhase>([
   "spotify",
   "saving",
 ]);
+
+const PHASE_STAGE: Record<GeneratePhase, { stage: GenerateStage; stageIndex: number }> = {
+  idle: { stage: "Scanning library", stageIndex: 0 },
+  starting: { stage: "Scanning library", stageIndex: 0 },
+  loading_library: { stage: "Scanning library", stageIndex: 0 },
+  building_profile: { stage: "Finding matches", stageIndex: 1 },
+  scoring: { stage: "Ranking tracks", stageIndex: 2 },
+  composing: { stage: "Building flow", stageIndex: 3 },
+  spotify: { stage: "Finalising playlist", stageIndex: 4 },
+  saving: { stage: "Finalising playlist", stageIndex: 4 },
+  done: { stage: "Finalising playlist", stageIndex: 4 },
+  error: { stage: "Finalising playlist", stageIndex: 4 },
+};
 
 function isActiveSession(s: SessionState): boolean {
   if (s.cancelled) return false;
@@ -74,6 +104,8 @@ export function acquireGenerateSession(
     requestId,
     startedAt: Date.now(),
     phase: "starting",
+    ...PHASE_STAGE.starting,
+    partialTracks: [],
     cancelled: false,
   });
   evictIfNeeded();
@@ -91,7 +123,22 @@ export function setGeneratePhase(
   phase: GeneratePhase
 ): void {
   const s = sessions.get(userId);
-  if (s?.requestId === requestId && !s.cancelled) s.phase = phase;
+  if (s?.requestId === requestId && !s.cancelled) {
+    s.phase = phase;
+    const stage = PHASE_STAGE[phase];
+    s.stage = stage.stage;
+    s.stageIndex = stage.stageIndex;
+  }
+}
+
+export function setGeneratePartialTracks(
+  userId: string,
+  requestId: string,
+  tracks: GenerateProgressTrack[]
+): void {
+  const s = sessions.get(userId);
+  if (s?.requestId !== requestId || s.cancelled) return;
+  s.partialTracks = tracks.slice(0, 60);
 }
 
 export function isGenerateCancelled(userId: string, requestId: string): boolean {
@@ -101,8 +148,12 @@ export function isGenerateCancelled(userId: string, requestId: string): boolean 
 
 export function getGenerateProgress(userId: string): {
   phase: GeneratePhase;
+  stage: GenerateStage;
+  stageIndex: number;
+  stageCount: number;
   requestId: string;
   startedAt: number;
+  partialTracks: GenerateProgressTrack[];
 } | null {
   const s = sessions.get(userId);
   if (!s || s.cancelled) return null;
@@ -110,23 +161,39 @@ export function getGenerateProgress(userId: string): {
     sessions.delete(userId);
     return null;
   }
-  return { phase: s.phase, requestId: s.requestId, startedAt: s.startedAt };
+  return {
+    phase: s.phase,
+    stage: s.stage,
+    stageIndex: s.stageIndex,
+    stageCount: 5,
+    requestId: s.requestId,
+    startedAt: s.startedAt,
+    partialTracks: s.partialTracks,
+  };
 }
 
 /** Status polling — never report active after timeout or terminal phase. */
 export function getGenerateStatus(userId: string): {
   phase: GeneratePhase;
+  stage: GenerateStage | null;
+  stageIndex: number;
+  stageCount: number;
   requestId: string | null;
   active: boolean;
+  partialTracks: GenerateProgressTrack[];
 } {
   const progress = getGenerateProgress(userId);
   if (!progress) {
-    return { phase: "idle", requestId: null, active: false };
+    return { phase: "idle", stage: null, stageIndex: 0, stageCount: 5, requestId: null, active: false, partialTracks: [] };
   }
   return {
     phase: progress.phase,
+    stage: progress.stage,
+    stageIndex: progress.stageIndex,
+    stageCount: progress.stageCount,
     requestId: progress.requestId,
     active: true,
+    partialTracks: progress.partialTracks,
   };
 }
 

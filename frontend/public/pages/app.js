@@ -69,6 +69,7 @@ async function api(path, opts = {}) {
 }
 
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+let generationStatusTimer = null;
 
 function feedbackTrackPayload(track) {
   return {
@@ -228,6 +229,7 @@ const state = {
   length: 40,
   noLibraryMode: false,
   generating: false,
+  generationProgress: null,
   lastResult: null,
   error: null,
   tasteOpen: false,
@@ -719,13 +721,70 @@ function buildActivityFeed() {
   }).join("");
 }
 
+const GENERATION_STAGES = ["Scanning library", "Finding matches", "Ranking tracks", "Building flow", "Finalising playlist"];
+const GENERATION_BUILD_LABELS = ["Scanning library", "Matching vibe", "Ranking tracks", "Building flow", "Finalising playlist"];
+const GENERATION_PHASES = ["starting", "loading_library", "building_profile", "scoring", "composing", "spotify", "saving"];
+const GENERATION_PHASE_COPY = {
+  "Scanning library": ["Scanning library", "Checking every eligible liked song before narrowing the pool."],
+  "Finding matches": ["Finding matches", "Collecting tracks that fit the prompt and your taste."],
+  "Ranking tracks": ["Ranking tracks", "Scoring candidates against genre, energy, era, and mood."],
+  "Building flow": ["Building flow", "Sequencing the first tracks while smoothing the playlist arc."],
+  "Finalising playlist": ["Finalising playlist", "Saving the playlist and adding the final track order."],
+};
+
+function generationProgressInfo() {
+  const phase = state.generationProgress?.phase || "starting";
+  const stage = state.generationProgress?.stage || null;
+  const copy = GENERATION_PHASE_COPY[stage] || GENERATION_PHASE_COPY[GENERATION_STAGES[Math.max(0, GENERATION_PHASES.indexOf(phase) - 1)] || "Scanning library"];
+  const index = typeof state.generationProgress?.stageIndex === "number"
+    ? state.generationProgress.stageIndex
+    : Math.max(0, Math.min(GENERATION_STAGES.length - 1, GENERATION_PHASES.indexOf(phase) - 1));
+  const count = state.generationProgress?.stageCount || GENERATION_STAGES.length;
+  const pct = Math.max(10, Math.min(96, Math.round(((index + 1) / count) * 100)));
+  return { title: copy[0], sub: copy[1], pct, index, count };
+}
+
 function generatingHtml() {
+  const progress = generationProgressInfo();
+  const buildBarHtml = `
+      <div class="dj-build-bar" aria-label="Playlist generation progress">
+        ${GENERATION_BUILD_LABELS.map((label, i) => {
+          const stateClass = i < progress.index ? "done" : i === progress.index ? "active" : "pending";
+          const icon = i < progress.index ? "✓" : i === progress.index ? "▶" : "•";
+          return `<div class="dj-build-step ${stateClass}">
+            <span class="dj-build-icon">${icon}</span>
+            <span class="dj-build-label">${esc(label)}</span>
+          </div>`;
+        }).join("")}
+      </div>`;
+  const partialTracks = Array.isArray(state.generationProgress?.partialTracks)
+    ? state.generationProgress.partialTracks
+    : [];
+  const partialHtml = partialTracks.length ? `
+      <div class="generating-partials">
+        <div class="generating-partials-head">Previewing ${partialTracks.length} track${partialTracks.length === 1 ? "" : "s"}</div>
+        ${partialTracks.map((track, i) => `
+          <div class="generating-track">
+            <span class="generating-track-num">${i + 1}</span>
+            <div class="generating-track-art">${track.albumArt ? `<img src="${esc(track.albumArt)}" alt="" loading="lazy">` : ""}</div>
+            <div class="generating-track-meta">
+              <div class="generating-track-name">${esc(track.trackName || "Unknown track")}</div>
+              <div class="generating-track-artist">${esc(track.artistName || "Unknown artist")}</div>
+            </div>
+          </div>
+        `).join("")}
+      </div>` : "";
   return `
   <div class="generating-card">
     <span class="spinner spinner--purple"></span>
-    <div>
-      <div class="generating-title">Building your playlist…</div>
-      <div class="generating-sub">Scoring your library against the moment. Takes about 10 seconds.</div>
+    <div class="generating-body">
+      <div class="generating-title">${esc(progress.title)}</div>
+      <div class="generating-sub">${esc(progress.sub)}</div>
+      ${buildBarHtml}
+      <div class="generating-progress" aria-hidden="true">
+        <div class="generating-progress-fill" style="width:${progress.pct}%"></div>
+      </div>
+      ${partialHtml}
     </div>
   </div>`;
 }
@@ -1865,6 +1924,39 @@ async function deletePlaylist(id) {
   }
 }
 
+function stopGenerationStatusPolling() {
+  if (generationStatusTimer) {
+    clearTimeout(generationStatusTimer);
+    generationStatusTimer = null;
+  }
+}
+
+function startGenerationStatusPolling() {
+  stopGenerationStatusPolling();
+  const tick = async () => {
+    if (!state.generating) return;
+    try {
+      const r = await api("/generate/status");
+      if (r.ok && r.data?.active) {
+        state.generationProgress = {
+          phase: r.data.phase || "starting",
+          stage: r.data.stage || null,
+          stageIndex: typeof r.data.stageIndex === "number" ? r.data.stageIndex : 0,
+          stageCount: typeof r.data.stageCount === "number" ? r.data.stageCount : GENERATION_STAGES.length,
+          requestId: r.data.requestId || null,
+          partialTracks: Array.isArray(r.data.partialTracks) ? r.data.partialTracks : [],
+        };
+        renderApp();
+      }
+    } catch {
+      // Progress is best-effort; the generate request still owns success/failure.
+    } finally {
+      if (state.generating) generationStatusTimer = setTimeout(tick, 1200);
+    }
+  };
+  generationStatusTimer = setTimeout(tick, 350);
+}
+
 async function generate() {
   const vibeInput = document.getElementById("vibeInput");
   const vibe = vibeInput?.value.trim();
@@ -1872,10 +1964,12 @@ async function generate() {
   if (state.generating) return;
 
   state.generating = true;
+  state.generationProgress = { phase: "starting", stage: "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, requestId: null, partialTracks: [] };
   state.lastResult = null;
   state.error = null;
   state.showExplain = false;
   renderApp();
+  startGenerationStatusPolling();
 
   const savedVibe = vibe;
 
@@ -1901,7 +1995,9 @@ async function generate() {
   } catch (e) {
     state.error = e.message || "Generation failed. Please try again.";
   } finally {
+    stopGenerationStatusPolling();
     state.generating = false;
+    state.generationProgress = null;
     renderApp();
     const input = document.getElementById("vibeInput");
     if (input) {
