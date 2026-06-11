@@ -8,6 +8,7 @@
  */
 import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 import { logger } from "./logger";
+import { recordSpotifyApiRequest, spotifyEndpointLabel } from "./spotify-api-audit";
 
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 const SPOTIFY_AUTH_BASE = "https://accounts.spotify.com";
@@ -170,14 +171,31 @@ async function spotifyRequest<T = unknown>(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     await awaitSpotifySlot(opts.userKey);
+    const endpoint = spotifyEndpointLabel(config.method, config.url);
+    const started = Date.now();
     try {
-      return await axios.request<T>({
+      const response = await axios.request<T>({
         timeout: SPOTIFY_REQUEST_TIMEOUT_MS,
         ...config,
       });
+      recordSpotifyApiRequest({
+        endpoint,
+        durationMs: Date.now() - started,
+        attempt,
+        status: response.status,
+        failed: false,
+      });
+      return response;
     } catch (err: any) {
       lastErr = err;
       const status = err?.response?.status;
+      recordSpotifyApiRequest({
+        endpoint,
+        durationMs: Date.now() - started,
+        attempt,
+        status,
+        failed: true,
+      });
 
       if (status === 429) {
         const retryAfter = parseInt(err.response?.headers?.["retry-after"] ?? "2", 10);

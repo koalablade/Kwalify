@@ -5,7 +5,7 @@
  *   - GET  /generate/status — return the current generation phase for the user
  * Dependencies: emotion engine, genre intelligence stack, playlist pipeline, Spotify API, drizzle-orm
  */
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db } from "../db";
 import {
   likedSongsTable,
@@ -139,6 +139,7 @@ import {
   EXPANDED_MOOD_TERMS,
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
+import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify-api-audit";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO = 0.85;
@@ -155,6 +156,50 @@ const router: IRouter = Router();
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60_000;
+
+type GenerationSideEffectPolicy = {
+  mode: "production" | "audit";
+  allowSpotifyPlaylistCreate: boolean;
+  allowSavedPlaylistWrites: boolean;
+  allowHistoryWrites: boolean;
+  allowFeedbackWrites: boolean;
+  allowAnalyticsWrites: boolean;
+  allowResultCacheWrites: boolean;
+  bypassRateLimit: boolean;
+};
+
+const PRODUCTION_SIDE_EFFECT_POLICY: GenerationSideEffectPolicy = {
+  mode: "production",
+  allowSpotifyPlaylistCreate: true,
+  allowSavedPlaylistWrites: true,
+  allowHistoryWrites: true,
+  allowFeedbackWrites: true,
+  allowAnalyticsWrites: true,
+  allowResultCacheWrites: true,
+  bypassRateLimit: false,
+};
+
+const AUDIT_SIDE_EFFECT_POLICY: GenerationSideEffectPolicy = {
+  mode: "audit",
+  allowSpotifyPlaylistCreate: false,
+  allowSavedPlaylistWrites: false,
+  allowHistoryWrites: false,
+  allowFeedbackWrites: false,
+  allowAnalyticsWrites: false,
+  allowResultCacheWrites: false,
+  bypassRateLimit: true,
+};
+
+function requestHeader(req: Request, name: string): string | null {
+  const value = req.headers[name.toLowerCase()];
+  return Array.isArray(value) ? value[0] ?? null : typeof value === "string" ? value : null;
+}
+
+function generationAuditTokenAuthorized(req: Request): boolean {
+  const expected = process.env["PLAYLIST_EVAL_TOKEN"]?.trim();
+  if (!expected) return false;
+  return requestHeader(req, "x-kwalify-evaluation-token") === expected;
+}
 
 const NEUTRAL_PROFILE: EmotionProfile = {
   energy: 0.5,
@@ -2540,12 +2585,43 @@ router.post("/generate", async (req, res): Promise<void> => {
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   try {
     const devMode = useMockSpotify();
-    if (!devMode && !getFeatures().spotify.enabled) {
+    const rawBody = req.body ?? {};
+    const auditModeRequested = rawBody.auditMode === true || req.query.audit === "1";
+    const auditTokenAuthorized = auditModeRequested && generationAuditTokenAuthorized(req);
+    const auditSessionAuthorized = auditModeRequested && !!req.session.spotifyUserId;
+    const auditMode = auditModeRequested && (auditTokenAuthorized || auditSessionAuthorized);
+    const sideEffectPolicy = auditMode ? AUDIT_SIDE_EFFECT_POLICY : PRODUCTION_SIDE_EFFECT_POLICY;
+    if (auditMode) beginSpotifyApiAudit();
+    const auditUserIdRaw = typeof rawBody.spotifyUserId === "string"
+      ? rawBody.spotifyUserId.trim()
+      : typeof rawBody.auditSpotifyUserId === "string"
+        ? rawBody.auditSpotifyUserId.trim()
+        : "";
+
+    if (auditModeRequested && !auditMode) {
+      generateFail(
+        res,
+        403,
+        "AUDIT_MODE_NOT_AUTHORIZED",
+        "Playlist evaluation audit mode requires an authenticated session or PLAYLIST_EVAL_TOKEN.",
+      );
+      return;
+    }
+    if (!devMode && !auditMode && !getFeatures().spotify.enabled) {
       generateFail(res, 503, "SPOTIFY_DISABLED", "Spotify is not configured on this server.");
       return;
     }
-    if (!devMode && (!req.session.spotifyTokens || !req.session.spotifyUserId)) {
+    if (!devMode && !auditMode && (!req.session.spotifyTokens || !req.session.spotifyUserId)) {
       generateFail(res, 401, "NOT_AUTHENTICATED", "Not authenticated");
+      return;
+    }
+    if (!devMode && auditTokenAuthorized && !auditUserIdRaw) {
+      generateFail(
+        res,
+        400,
+        "AUDIT_USER_REQUIRED",
+        "Audit mode with PLAYLIST_EVAL_TOKEN requires spotifyUserId in the request body.",
+      );
       return;
     }
 
@@ -2559,23 +2635,28 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const userId = devMode ? MOCK_SPOTIFY_USER_ID : req.session.spotifyUserId!;
+    const userId = devMode
+      ? MOCK_SPOTIFY_USER_ID
+      : auditTokenAuthorized
+        ? auditUserIdRaw
+        : req.session.spotifyUserId!;
 
-    const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
-    if (!rateCheck.allowed) {
-      const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
-      res.setHeader("Retry-After", String(retryAfterSec));
-      generateFail(
-        res,
-        429,
-        "RATE_LIMITED",
-        `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
-        { retry_after: retryAfterSec }
-      );
-      return;
+    if (!sideEffectPolicy.bypassRateLimit) {
+      const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+      if (!rateCheck.allowed) {
+        const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
+        res.setHeader("Retry-After", String(retryAfterSec));
+        generateFail(
+          res,
+          429,
+          "RATE_LIMITED",
+          `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
+          { retry_after: retryAfterSec }
+        );
+        return;
+      }
     }
 
-    const rawBody = req.body ?? {};
     const vibeRaw = rawBody.vibe ?? "";
     const modeRaw = rawBody.mode ?? "balanced";
     const lengthRaw = rawBody.length ?? 25;
@@ -2677,7 +2758,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let referenceFingerprint: ReferenceFingerprint | null = null;
     let referencePlaylistId: string | null = null;
 
-    if (referencePlaylist && !devMode) {
+    if (referencePlaylist && !devMode && req.session.spotifyTokens) {
       tStage = Date.now();
       try {
         const tokens = await getValidAccessToken(req.session.spotifyTokens!);
@@ -2732,7 +2813,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       canonicalHints: canonicalCrossGenreHints(vibe),
     });
 
-    if (!debugMode && !varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
+    if (sideEffectPolicy.mode === "production" && !debugMode && !varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
       tStage = Date.now();
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
@@ -4182,6 +4263,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         {
           hint: "The final filter graph removed all ranked candidates.",
           generationDiagnostics,
+          spotifyApiAudit: sideEffectPolicy.mode === "audit" ? getSpotifyApiAuditSnapshot() : undefined,
           suggestions: [
             "Broaden the prompt",
             "Use Balanced mode",
@@ -4241,7 +4323,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let spotifyPartial = false;
     let spotifyTracksAdded: number | undefined;
 
-    if (!devMode && !staleGenerate(userId, requestId)) {
+    if (sideEffectPolicy.allowSpotifyPlaylistCreate && !devMode && !staleGenerate(userId, requestId)) {
       try {
         const freshTokens = await getValidAccessToken(
           req.session.spotifyTokens!,
@@ -4303,36 +4385,42 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
 
-    setGeneratePhase(userId, requestId, "saving");
-    setGenerateStageDetail(userId, requestId, "Saving playlist");
+    setGeneratePhase(userId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "saving" : "done");
+    setGenerateStageDetail(userId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist" : "Audit mode: skipping playlist writes");
     const tSave = Date.now();
-    req.log.info("Saving playlist to database");
+    req.log.info(
+      { auditMode: sideEffectPolicy.mode === "audit" },
+      sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist to database" : "Skipping playlist database writes",
+    );
 
     const profilePayload = {
       ...emotionProfile,
       journeyArc,
       librarySize: likedSongs.length,
     };
-    const insertResult = await db
-      .insert(savedPlaylistsTable)
-      .values({
-        userId,
-        name: playlistName,
-        emotionProfile: profilePayload as any,
-        tracks: trackObjects as any,
-        spotifyUrl: spotifyPlaylistUrl,
-        vibe,
-        mode,
-      })
-      .returning({ id: savedPlaylistsTable.id });
-
-    const savedPlaylistId = insertResult[0]?.id ?? 0;
+    let savedPlaylistId = 0;
+    if (sideEffectPolicy.allowSavedPlaylistWrites) {
+      const insertResult = await db
+        .insert(savedPlaylistsTable)
+        .values({
+          userId,
+          name: playlistName,
+          emotionProfile: profilePayload as any,
+          tracks: trackObjects as any,
+          spotifyUrl: spotifyPlaylistUrl,
+          vibe,
+          mode,
+        })
+        .returning({ id: savedPlaylistsTable.id });
+      savedPlaylistId = insertResult[0]?.id ?? 0;
+    }
 
     req.log.info(
       { ms: Date.now() - tSave, userId, playlistId: savedPlaylistId, trackCount: finalTracks.length },
       "Playlist saved to DB"
     );
 
+    if (sideEffectPolicy.allowHistoryWrites) {
     try {
       await db.insert(playlistHistoryTable).values({
         spotifyUserId: userId,
@@ -4347,6 +4435,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       });
     } catch (histErr) {
       req.log.warn({ err: histErr }, "playlist_history insert failed");
+    }
     }
 
     const spotifyFields = spotifyPlaylistUrl
@@ -4510,6 +4599,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       recoveryUsed: generationDiagnostics.recoveryRelaxations.length > 0,
       fallbackUsed: generationDiagnostics.fallbackTriggered,
     };
+    if (sideEffectPolicy.allowSavedPlaylistWrites && savedPlaylistId > 0) {
     try {
       await db
         .update(savedPlaylistsTable)
@@ -4533,6 +4623,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         .where(eq(savedPlaylistsTable.id, savedPlaylistId));
     } catch (err) {
       req.log.warn({ err, savedPlaylistId }, "Failed to persist generation summary for gallery");
+    }
     }
     const v3DiagnosticPayload = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
     const noLibrarySpotifyDiagnostics = noLibraryMode
@@ -4580,7 +4671,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       feedbackDiagnostics,
     };
 
-    if (!varietyBoost && !devMode && spotifyPlaylistUrl) {
+    if (sideEffectPolicy.allowResultCacheWrites && !varietyBoost && !devMode && spotifyPlaylistUrl) {
       setCachedGenerateResult(resultCacheKey, {
         cacheVersion: "v30",
         playlistName,
@@ -4600,6 +4691,18 @@ router.post("/generate", async (req, res): Promise<void> => {
     res.json({
       success: true,
       playlistId: savedPlaylistId,
+      auditMode: sideEffectPolicy.mode === "audit",
+      spotifyApiAudit: sideEffectPolicy.mode === "audit" ? getSpotifyApiAuditSnapshot() : undefined,
+      sideEffects: sideEffectPolicy.mode === "audit"
+        ? {
+            spotifyPlaylistCreate: "skipped",
+            savedPlaylistWrites: "skipped",
+            historyWrites: "skipped",
+            feedbackWrites: "skipped",
+            analyticsWrites: "skipped",
+            resultCacheWrites: "skipped",
+          }
+        : undefined,
       ...spotifyFields,
       playlistName,
       name: playlistName,
