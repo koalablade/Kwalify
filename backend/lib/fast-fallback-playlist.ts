@@ -5,7 +5,7 @@
 import type { EmotionProfile } from "./emotion";
 import { sampleTracksForProfile } from "./library-sample";
 
-const FAST_SCAN_MAX = 600;
+export const FAST_SCAN_MAX = 1200;
 
 function emotionFit(
   track: { energy: number | null; valence: number | null },
@@ -31,7 +31,7 @@ export function buildFastFallbackPlaylist<
 }): T[] {
   const pool =
     opts.tracks.length > FAST_SCAN_MAX
-      ? sampleTracksForProfile(opts.tracks, FAST_SCAN_MAX, Date.now())
+      ? sampleTracksForProfile(opts.tracks, FAST_SCAN_MAX)
       : opts.tracks;
 
   const ranked = pool

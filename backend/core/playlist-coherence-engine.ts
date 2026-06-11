@@ -7,6 +7,7 @@ type CoherenceTrack = {
   tempo: number | null;
   danceability: number | null;
   acousticness: number | null;
+  artistName?: string | null;
   genrePrimary?: string | null;
   score?: number;
   rediscoveryScore?: number;
@@ -17,6 +18,10 @@ export type PlaylistCoherenceDiagnostics = {
   avg_transition_score: number | null;
   coherence_fallback_used: boolean;
   fallback_reason: string | null;
+  avg_position_shift: number;
+  max_position_shift: number;
+  top_five_preserved: number;
+  adjacent_artist_repeats: number;
 };
 
 export type PlaylistCoherenceResult<T extends CoherenceTrack> = {
@@ -109,7 +114,29 @@ function metadataReliability(tracks: CoherenceTrack[]): number {
   return usable / tracks.length;
 }
 
+function movementDiagnostics<T extends CoherenceTrack>(
+  original: T[],
+  reordered: T[],
+): Pick<PlaylistCoherenceDiagnostics, "avg_position_shift" | "max_position_shift" | "top_five_preserved" | "adjacent_artist_repeats"> {
+  const originalIndex = new Map(original.map((track, index) => [track.trackId, index]));
+  const shifts = reordered.map((track, index) => Math.abs((originalIndex.get(track.trackId) ?? index) - index));
+  const avgShift = shifts.length ? shifts.reduce((sum, shift) => sum + shift, 0) / shifts.length : 0;
+  const topFive = new Set(original.slice(0, 5).map((track) => track.trackId));
+  const adjacentRepeats = reordered.slice(1).filter((track, index) => {
+    const artist = track.artistName?.toLowerCase().trim();
+    const previousArtist = reordered[index].artistName?.toLowerCase().trim();
+    return !!artist && artist === previousArtist;
+  }).length;
+  return {
+    avg_position_shift: Math.round(avgShift * 100) / 100,
+    max_position_shift: Math.max(0, ...shifts),
+    top_five_preserved: reordered.slice(0, 5).filter((track) => topFive.has(track.trackId)).length,
+    adjacent_artist_repeats: adjacentRepeats,
+  };
+}
+
 function diagnosticsFor<T extends CoherenceTrack>(
+  originalTracks: T[],
   tracks: T[],
   coherence_fallback_used: boolean,
   fallback_reason: string | null,
@@ -123,6 +150,7 @@ function diagnosticsFor<T extends CoherenceTrack>(
     avg_transition_score: avg === null ? null : Math.round(avg * 1000) / 1000,
     coherence_fallback_used,
     fallback_reason,
+    ...movementDiagnostics(originalTracks, tracks),
   };
 }
 
@@ -146,14 +174,14 @@ export function buildCoherentPlaylist<T extends CoherenceTrack>(
   if (rankedTracks.length <= 2) {
     return {
       reorderedTracks: rankedTracks,
-      diagnostics: diagnosticsFor(rankedTracks, true, "too_few_tracks"),
+      diagnostics: diagnosticsFor(rankedTracks, rankedTracks, true, "too_few_tracks"),
     };
   }
 
   if (metadataReliability(rankedTracks) < 0.45) {
     return {
       reorderedTracks: rankedTracks,
-      diagnostics: diagnosticsFor(rankedTracks, true, "insufficient_metadata"),
+      diagnostics: diagnosticsFor(rankedTracks, rankedTracks, true, "insufficient_metadata"),
     };
   }
 
@@ -190,12 +218,12 @@ export function buildCoherentPlaylist<T extends CoherenceTrack>(
   if (!sameTrackSet(rankedTracks, path)) {
     return {
       reorderedTracks: rankedTracks,
-      diagnostics: diagnosticsFor(rankedTracks, true, "track_set_mismatch"),
+      diagnostics: diagnosticsFor(rankedTracks, rankedTracks, true, "track_set_mismatch"),
     };
   }
 
   return {
     reorderedTracks: path,
-    diagnostics: diagnosticsFor(path, false, null),
+    diagnostics: diagnosticsFor(rankedTracks, path, false, null),
   };
 }

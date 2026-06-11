@@ -1295,6 +1295,29 @@ function relaxedEmergencyArtistCap(playlistSize: number, maxPerArtist: number): 
   return maxPerArtist + Math.max(1, Math.ceil(playlistSize * 0.05));
 }
 
+function finalAlbumCap(playlistSize: number): number {
+  if (playlistSize < 25) return 2;
+  if (playlistSize <= 50) return 3;
+  return 4;
+}
+
+function normalizeRepeatToken(value: string | null | undefined): string {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/\b(?:remaster(?:ed)?|deluxe|expanded|anniversary|radio edit|single edit|edit|live|mono|stereo|version|mix)\b/g, "")
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function trackRepeatSignature(track: { trackName?: string | null; artistName?: string | null }): string | null {
+  const title = normalizeRepeatToken(track.trackName);
+  const artist = normalizeRepeatToken(track.artistName);
+  if (!title || !artist) return null;
+  return `${artist}:${title}`;
+}
+
 function artistDiversityDiagnostics<T extends { artistName?: string | null }>(
   tracks: T[],
   maxPerArtist: number
@@ -1342,15 +1365,20 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   maxPerArtist: number;
 }): { tracks: T[]; diagnostics: PlaylistFinalizationDiagnostics } {
   const seen = new Set<string>();
+  const repeatSignatures = new Set<string>();
   const artistCounts = new Map<string, number>();
+  const albumCounts = new Map<string, number>();
   let malformedDropped = 0;
   let unsafeDropped = 0;
   let duplicateDropped = 0;
+  let duplicateSignatureDropped = 0;
   let artistLimitSkipped = 0;
+  let albumLimitSkipped = 0;
   let relaxedArtistFillUsed = false;
+  let relaxedAlbumFillUsed = false;
 
   const out: T[] = [];
-  const tryAdd = (track: T, artistLimit: number | null): void => {
+  const tryAdd = (track: T, artistLimit: number | null, albumLimit: number | null, enforceRepeatSignature: boolean): void => {
     if (out.length >= opts.requestedLength) return;
     const sanitized = sanitizePlaylistTrack(track);
     if (!sanitized) {
@@ -1359,6 +1387,11 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
     if (seen.has(sanitized.trackId)) {
       duplicateDropped++;
+      return;
+    }
+    const repeatSignature = trackRepeatSignature(sanitized);
+    if (enforceRepeatSignature && repeatSignature && repeatSignatures.has(repeatSignature)) {
+      duplicateSignatureDropped++;
       return;
     }
     if (!finalTrackIsSafe(sanitized, opts)) {
@@ -1371,8 +1404,16 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       artistLimitSkipped++;
       return;
     }
+    const albumKey = normalizeRepeatToken(sanitized.albumName);
+    const albumCount = albumKey ? albumCounts.get(albumKey) ?? 0 : 0;
+    if (albumLimit !== null && albumKey && albumCount >= albumLimit) {
+      albumLimitSkipped++;
+      return;
+    }
     seen.add(sanitized.trackId);
+    if (repeatSignature) repeatSignatures.add(repeatSignature);
     artistCounts.set(artistKey, artistCount + 1);
+    if (albumKey) albumCounts.set(albumKey, albumCount + 1);
     out.push(sanitized);
   };
 
@@ -1382,12 +1423,15 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     .sort((a, b) => b.score - a.score);
   const primaryArtistLimit = Number.isFinite(opts.maxPerArtist) ? opts.maxPerArtist : null;
   const emergencyArtistLimit = relaxedEmergencyArtistCap(opts.requestedLength, opts.maxPerArtist);
+  const primaryAlbumLimit = finalAlbumCap(opts.requestedLength);
+  const emergencyAlbumLimit = primaryAlbumLimit + Math.max(1, Math.ceil(opts.requestedLength * 0.05));
 
-  for (const track of opts.initial) tryAdd(track, primaryArtistLimit);
-  for (const track of rankedCandidates) tryAdd(track, primaryArtistLimit);
+  for (const track of opts.initial) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
+  for (const track of rankedCandidates) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
   if (out.length < opts.requestedLength) {
     relaxedArtistFillUsed = emergencyArtistLimit !== null;
-    for (const track of rankedCandidates) tryAdd(track, emergencyArtistLimit);
+    relaxedAlbumFillUsed = true;
+    for (const track of rankedCandidates) tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, false);
   }
 
   return {
@@ -1398,9 +1442,13 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       malformedDropped,
       unsafeDropped,
       duplicateDropped,
+      duplicateSignatureDropped,
       artistLimitSkipped,
+      albumLimitSkipped,
       artistLimitRelaxed: relaxedArtistFillUsed,
       artistLimitRelaxedTo: relaxedArtistFillUsed ? emergencyArtistLimit : null,
+      albumLimitRelaxed: relaxedAlbumFillUsed,
+      albumLimitRelaxedTo: relaxedAlbumFillUsed ? emergencyAlbumLimit : null,
       artistLimitBypassed: false,
       replenished: out.length > opts.initial.length,
       sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
@@ -2275,7 +2323,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v25" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v26" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -3770,14 +3818,24 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const artistDiversity = artistDiversityDiagnostics(finalTracks, maxPerArtist);
     const playlistQuality = (v3Diagnostics?.playlistQuality ?? null) as Record<string, unknown> | null;
+    const coherenceDiagnostics = (v3Diagnostics?.playlistCoherence ?? null) as Record<string, unknown> | null;
     const qualitySignals = [
       typeof playlistQuality?.["overall"] === "number" ? playlistQuality["overall"] as number : null,
       typeof playlistQuality?.["promptAlignment"] === "number" ? playlistQuality["promptAlignment"] as number : null,
       typeof playlistQuality?.["genrePurity"] === "number" ? playlistQuality["genrePurity"] as number : null,
       typeof playlistQuality?.["eraAlignment"] === "number" ? playlistQuality["eraAlignment"] as number : null,
+      typeof coherenceDiagnostics?.["avg_transition_score"] === "number" ? coherenceDiagnostics["avg_transition_score"] as number : null,
     ].filter((value): value is number => value !== null && Number.isFinite(value));
     const recoveryPenalty = generationDiagnostics.recoveryRelaxations.length > 0 ? 0.10 : 0;
     const fallbackPenalty = generationDiagnostics.fallbackTriggered ? 0.12 : 0;
+    const underfilledPenalty = finalTracks.length < length ? Math.min(0.20, (length - finalTracks.length) / Math.max(1, length) * 0.5) : 0;
+    const diversityPenalty = (artistDiversity.cappedTracks > 0 ? 0.10 : 0) +
+      (finalization.diagnostics["artistLimitRelaxed"] ? 0.04 : 0) +
+      (finalization.diagnostics["albumLimitRelaxed"] ? 0.03 : 0);
+    const coherencePenalty = typeof coherenceDiagnostics?.["avg_position_shift"] === "number" &&
+      (coherenceDiagnostics["avg_position_shift"] as number) > Math.max(8, length * 0.35)
+      ? 0.05
+      : 0;
     const fillRatio = Math.min(1, finalTracks.length / Math.max(1, length));
     const confidenceScore = Math.max(
       0.05,
@@ -3785,7 +3843,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         0.99,
         (qualitySignals.length
           ? qualitySignals.reduce((sum, value) => sum + value, 0) / qualitySignals.length
-          : fillRatio * 0.72 + 0.18) - recoveryPenalty - fallbackPenalty
+          : fillRatio * 0.72 + 0.18) - recoveryPenalty - fallbackPenalty - underfilledPenalty - diversityPenalty - coherencePenalty
       )
     );
     const playlistConfidence = {
@@ -3846,7 +3904,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (!varietyBoost && !devMode) {
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v25",
+        cacheVersion: "v26",
         playlistName,
         vibe,
         mode,

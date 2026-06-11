@@ -1073,6 +1073,7 @@ function buildUnifiedDebugPanel(result, dbg) {
   const artistDiv = result.artistDiversity || result.generationAuditSnapshot?.artistDiversity || {};
   const confidence = result.playlistConfidence || result.generationAuditSnapshot?.playlistConfidence || {};
   const waterfall = Array.isArray(gen.waterfall) ? gen.waterfall : [];
+  const coherence = v3.playlistCoherence || result.v3Diagnostics?.playlistCoherence || {};
 
   const genreColors = {
     country:"#d97706",folk:"#16a34a",indie:"#7c3aed",rock:"#dc2626",
@@ -1103,6 +1104,9 @@ function buildUnifiedDebugPanel(result, dbg) {
         <span class="dp-badge">Repeated: ${artistDiv.repeatedArtists ?? "—"}</span>
         <span class="dp-badge">Over cap: ${artistDiv.cappedTracks ?? "—"}</span>
         ${artistDiv.maxPerArtist ? `<span class="dp-badge">Max / artist: ${artistDiv.maxPerArtist}</span>` : ""}
+        ${typeof coherence.avg_transition_score === "number" ? `<span class="dp-badge">Coherence: ${Math.round(coherence.avg_transition_score * 100)}%</span>` : ""}
+        ${typeof coherence.avg_position_shift === "number" ? `<span class="dp-badge">Avg move: ${coherence.avg_position_shift}</span>` : ""}
+        ${typeof coherence.adjacent_artist_repeats === "number" ? `<span class="dp-badge">Adjacent repeats: ${coherence.adjacent_artist_repeats}</span>` : ""}
         ${gen.largestDrop?.stage ? `<span class="dp-badge dp-badge--amber">Biggest drop: ${esc(gen.largestDrop.stage)} −${(gen.largestDrop.removed || 0).toLocaleString()}</span>` : ""}
         ${Array.isArray(gen.recoveryRelaxations) && gen.recoveryRelaxations.length ? `<span class="dp-badge dp-badge--amber">Relaxed: ${esc(gen.recoveryRelaxations.join(", "))}</span>` : ""}
         ${gen.failureReason ? `<span class="dp-badge dp-badge--amber">Failure: ${esc(gen.failureReason)}</span>` : ""}

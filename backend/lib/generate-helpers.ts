@@ -1,4 +1,4 @@
-import { buildFastFallbackPlaylist } from "./fast-fallback-playlist";
+import { buildFastFallbackPlaylist, FAST_SCAN_MAX } from "./fast-fallback-playlist";
 import type { EmotionProfile } from "./emotion";
 import { buildTrackWhyReasons } from "./track-why-copy";
 import type { GenreAudit } from "./genre-audit";
@@ -6,8 +6,6 @@ import type { BuildPlaylistPipelineResult } from "../core/output";
 import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
 import type { TrackScoringDebug } from "./hybrid-scoring";
 import type { V3TrackMetadata } from "./v3-track-contract";
-
-const FAST_FALLBACK_SCAN_MAX = 600;
 
 function fallbackScoringDebug(trackId: string): TrackScoringDebug {
   return {
@@ -99,7 +97,7 @@ export function buildFallbackPipelineResult<
       scoringPool: {
         poolCapped: true,
         originalCount: opts.librarySize,
-        scannedCount: Math.min(opts.tracks.length, FAST_FALLBACK_SCAN_MAX),
+        scannedCount: Math.min(opts.tracks.length, FAST_SCAN_MAX),
         candidateCount: fb.length,
         maxPerArtist: opts.maxPerArtist,
         uniqueArtists: artistCountValues.length,

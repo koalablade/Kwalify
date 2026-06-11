@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v25: launch stability diagnostics and bounded emergency artist diversity. */
-  cacheVersion: "v25";
+  /** v26: large-library starvation fixes, duplicate controls, and confidence accuracy. */
+  cacheVersion: "v26";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;

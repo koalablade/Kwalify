@@ -33,6 +33,7 @@ export type GenerateStage =
 type SessionState = {
   requestId: string;
   startedAt: number;
+  updatedAt: number;
   phase: GeneratePhase;
   stage: GenerateStage;
   stageIndex: number;
@@ -104,6 +105,7 @@ export function acquireGenerateSession(
   sessions.set(userId, {
     requestId,
     startedAt: Date.now(),
+    updatedAt: Date.now(),
     phase: "starting",
     ...PHASE_STAGE.starting,
     stageDetail: null,
@@ -127,6 +129,7 @@ export function setGeneratePhase(
   const s = sessions.get(userId);
   if (s?.requestId === requestId && !s.cancelled) {
     s.phase = phase;
+    s.updatedAt = Date.now();
     const stage = PHASE_STAGE[phase];
     s.stage = stage.stage;
     s.stageIndex = stage.stageIndex;
@@ -141,6 +144,7 @@ export function setGeneratePartialTracks(
   const s = sessions.get(userId);
   if (s?.requestId !== requestId || s.cancelled) return;
   s.partialTracks = tracks.slice(0, 60);
+  s.updatedAt = Date.now();
 }
 
 export function setGenerateStageDetail(
@@ -151,6 +155,7 @@ export function setGenerateStageDetail(
   const s = sessions.get(userId);
   if (s?.requestId !== requestId || s.cancelled) return;
   s.stageDetail = stageDetail ? stageDetail.slice(0, 120) : null;
+  s.updatedAt = Date.now();
 }
 
 export function isGenerateCancelled(userId: string, requestId: string): boolean {
@@ -166,6 +171,8 @@ export function getGenerateProgress(userId: string): {
   stageDetail: string | null;
   requestId: string;
   startedAt: number;
+  elapsedMs: number;
+  lastUpdatedAt: number;
   partialTracks: GenerateProgressTrack[];
 } | null {
   const s = sessions.get(userId);
@@ -182,6 +189,8 @@ export function getGenerateProgress(userId: string): {
     stageDetail: s.stageDetail,
     requestId: s.requestId,
     startedAt: s.startedAt,
+    elapsedMs: Date.now() - s.startedAt,
+    lastUpdatedAt: s.updatedAt,
     partialTracks: s.partialTracks,
   };
 }
@@ -194,12 +203,15 @@ export function getGenerateStatus(userId: string): {
   stageCount: number;
   stageDetail: string | null;
   requestId: string | null;
+  startedAt: number | null;
+  elapsedMs: number;
+  lastUpdatedAt: number | null;
   active: boolean;
   partialTracks: GenerateProgressTrack[];
 } {
   const progress = getGenerateProgress(userId);
   if (!progress) {
-    return { phase: "idle", stage: null, stageIndex: 0, stageCount: 5, stageDetail: null, requestId: null, active: false, partialTracks: [] };
+    return { phase: "idle", stage: null, stageIndex: 0, stageCount: 5, stageDetail: null, requestId: null, startedAt: null, elapsedMs: 0, lastUpdatedAt: null, active: false, partialTracks: [] };
   }
   return {
     phase: progress.phase,
@@ -208,6 +220,9 @@ export function getGenerateStatus(userId: string): {
     stageCount: progress.stageCount,
     stageDetail: progress.stageDetail,
     requestId: progress.requestId,
+    startedAt: progress.startedAt,
+    elapsedMs: progress.elapsedMs,
+    lastUpdatedAt: progress.lastUpdatedAt,
     active: true,
     partialTracks: progress.partialTracks,
   };

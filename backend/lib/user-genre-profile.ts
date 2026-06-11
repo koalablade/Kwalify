@@ -3,6 +3,7 @@
  */
 
 import {
+  classifyTrack,
   profileToClassification,
   type RootGenre,
   type TrackGenreClassification,
@@ -53,6 +54,11 @@ export function buildUserGenreProfile(
   const trackClassifications = new Map<string, TrackGenreClassification>();
   for (const [id, profile] of classifications) {
     trackClassifications.set(id, profileToClassification(profile));
+  }
+  for (const track of tracks) {
+    if (!trackClassifications.has(track.trackId)) {
+      trackClassifications.set(track.trackId, classifyTrack(track));
+    }
   }
 
   const dominant = (Object.keys(userVector) as RootGenre[])
