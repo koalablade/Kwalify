@@ -879,11 +879,26 @@ function resultHtml(result) {
   const debugHtml = debugModeEnabled() ? buildDebugPanel(result) : "";
   const confidence = result.playlistConfidence || {};
   const confidencePercent = typeof confidence.percent === "number" ? confidence.percent : null;
-  const fallbackNotice = result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+  const degradedSpotifyNotice = result.spotifyUnavailable
+    ? "Playlist built, but Spotify creation failed. You can still review and share it here."
+    : result.spotifyPartial
+      ? `Spotify playlist created with ${result.spotifyTracksAdded ?? "some"} of ${count} tracks.`
+      : null;
+  const fallbackNotice = degradedSpotifyNotice
+    ? degradedSpotifyNotice
+    : result.fastFallback || result.code === "TIMEOUT_FALLBACK"
     ? "Quick backup playlist built because the full generator was taking too long."
     : confidence.recoveryUsed
       ? "Best available playlist built after relaxing non-critical checks."
       : null;
+  const resultBadge = result.spotifyUnavailable
+    ? "Review ready"
+    : result.spotifyPartial || result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+      ? "Best available"
+      : "Ready";
+  const resultBadgeClass = result.spotifyUnavailable || result.spotifyPartial || result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+    ? "badge badge-amber"
+    : "badge badge-green";
   const confidenceHtml = confidencePercent !== null ? `
       <div class="result-confidence ${confidence.recoveryUsed || confidence.fallbackUsed ? "result-confidence--recovered" : ""}">
         <span>${esc(confidence.label || "Playlist confidence")}</span>
@@ -942,7 +957,7 @@ function resultHtml(result) {
     </div>
     <div class="result-body">
       <div class="result-top">
-        <span class="badge badge-green">Ready</span>
+        <span class="${resultBadgeClass}">${esc(resultBadge)}</span>
         <span class="result-meta">${count} tracks · ${state.mode} mode</span>
       </div>
       <h2 class="result-title">${name}</h2>
@@ -1185,8 +1200,12 @@ function buildUnifiedDebugPanel(result, dbg) {
         ${artistDiv.maxPerArtist ? `<span class="dp-badge">Max / artist: ${artistDiv.maxPerArtist}</span>` : ""}
         ${artistDiv.topRepeatedArtist ? `<span class="dp-badge">Top repeat: ${esc(artistDiv.topRepeatedArtist)} ×${artistDiv.topRepeatedArtistCount ?? "?"}</span>` : ""}
         ${gen.selectedCluster ? `<span class="dp-badge dp-badge--green">Cluster: ${esc(gen.selectedCluster)}</span>` : ""}
+        ${gen.secondaryCluster ? `<span class="dp-badge">Secondary: ${esc(gen.secondaryCluster)}</span>` : ""}
+        ${gen.identityType ? `<span class="dp-badge dp-badge--green">Identity: ${esc(gen.identityType).replace(/_/g," ")}</span>` : ""}
         ${typeof gen.clusterConfidence === "number" ? `<span class="dp-badge">Cluster confidence: ${Math.round(gen.clusterConfidence * 100)}%</span>` : ""}
         ${typeof gen.fallbackCandidatePercent === "number" ? `<span class="dp-badge ${gen.fallbackCandidatePercent > 20 ? "dp-badge--amber" : ""}">Fallback pool: ${gen.fallbackCandidatePercent}%</span>` : ""}
+        ${typeof gen.humanCoherenceScore === "number" ? `<span class="dp-badge ${gen.humanCoherenceScore >= 0.62 ? "dp-badge--green" : "dp-badge--amber"}">Human coherence: ${Math.round(gen.humanCoherenceScore * 100)}%</span>` : ""}
+        ${gen.humanCoherenceRepairUsed ? `<span class="dp-badge dp-badge--green">Coherence repaired</span>` : ""}
         ${typeof gen.cohesionScore === "number" ? `<span class="dp-badge">Final cohesion: ${Math.round(gen.cohesionScore * 100)}%</span>` : ""}
         ${typeof coherence.avg_transition_score === "number" ? `<span class="dp-badge">Coherence: ${Math.round(coherence.avg_transition_score * 100)}%</span>` : ""}
         ${typeof coherence.avg_position_shift === "number" ? `<span class="dp-badge">Avg move: ${coherence.avg_position_shift}</span>` : ""}
@@ -1196,6 +1215,12 @@ function buildUnifiedDebugPanel(result, dbg) {
         ${Array.isArray(gen.recoveryRelaxations) && gen.recoveryRelaxations.length ? `<span class="dp-badge dp-badge--amber">Relaxed: ${esc(gen.recoveryRelaxations.join(", "))}</span>` : ""}
         ${gen.failureReason ? `<span class="dp-badge dp-badge--amber">Failure: ${esc(gen.failureReason)}</span>` : ""}
       </div>
+      ${gen.identitySummary ? `
+        <div style="margin-top:10px;font-size:0.78rem;color:var(--muted);line-height:1.45">
+          <strong style="color:var(--text)">Identity summary:</strong> ${esc(gen.identitySummary)}
+          ${gen.curatorIdentity?.forbiddenPatterns?.length ? `<div style="margin-top:4px">Forbidden patterns: ${esc(gen.curatorIdentity.forbiddenPatterns.join(", "))}</div>` : ""}
+          ${gen.humanCoherenceComponents ? `<div style="margin-top:4px">Coherence: energy ${Math.round((gen.humanCoherenceComponents.energyConsistency || 0) * 100)}%, transitions ${Math.round((gen.humanCoherenceComponents.transitionSmoothness || 0) * 100)}%, emotion ${Math.round((gen.humanCoherenceComponents.emotionalStability || 0) * 100)}%</div>` : ""}
+        </div>` : ""}
       ${waterfall.length ? `
         <div class="debug-waterfall">
           ${waterfall.map((stage) => `

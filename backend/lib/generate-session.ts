@@ -237,6 +237,15 @@ export function endGenerateSession(userId: string, requestId: string): void {
   if (s?.requestId === requestId) sessions.delete(userId);
 }
 
+export function cancelGenerateSession(userId: string, requestId: string): void {
+  const s = sessions.get(userId);
+  if (s?.requestId === requestId) {
+    s.cancelled = true;
+    s.phase = "error";
+    s.updatedAt = Date.now();
+  }
+}
+
 export function getPendingSpotifyPlaylistId(userId: string): string | undefined {
   return sessions.get(userId)?.pendingSpotifyPlaylistId;
 }

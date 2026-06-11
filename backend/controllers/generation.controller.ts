@@ -76,6 +76,7 @@ import {
   getGenerateProgress,
   getGenerateStatus,
   setGeneratePartialTracks,
+  cancelGenerateSession,
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
@@ -117,6 +118,13 @@ import {
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
 import { buildFeedbackDiagnostics, getFeedbackMemory } from "../lib/feedback-memory";
+import {
+  buildCuratorIdentity,
+  buildIdentityDebugView,
+  scoreTrackForIdentity,
+  type CuratorIdentity,
+  type IdentitySessionMemory,
+} from "../lib/curator-identity";
 import { runRequestLayerGeneration, type RequestGenerationOrchestration } from "../lib/request-generation-orchestrator";
 import {
   buildLockedIntent as buildCsspLockedIntent,
@@ -1384,8 +1392,23 @@ function clusterLabel(clusterId: string): string {
   return [family, energy].filter(Boolean).join(" / ");
 }
 
-function shouldUseClusterCuration(vibe: string, intent: LockedIntent, constraints: ConstraintLayer): boolean {
+function clusterEnergyBand(clusterId: string): number {
+  const energy = clusterId.split(":")[1] ?? "mid";
+  if (energy === "low") return 0;
+  if (energy === "mid") return 1;
+  if (energy === "high") return 2;
+  return 1;
+}
+
+function clustersHaveEnergyOverlap(primaryCluster: string, secondaryCluster: string, identity: CuratorIdentity): boolean {
+  const distance = Math.abs(clusterEnergyBand(primaryCluster) - clusterEnergyBand(secondaryCluster));
+  if (distance === 0) return true;
+  return distance === 1 && identity.chaosAllowance >= 0.08;
+}
+
+function shouldUseClusterCuration(vibe: string, intent: LockedIntent, constraints: ConstraintLayer, identity?: CuratorIdentity): boolean {
   if (constraints.hard.genres.length > 0) return false;
+  if (identity && identity.type !== "balanced_curator") return true;
   return isFocusStudyPrompt(vibe, intent) || isGymWorkoutPrompt(vibe, intent) || isUpbeatSocialPrompt(vibe, intent);
 }
 
@@ -1404,6 +1427,7 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
       subGenres: string[];
     }>;
     requestedLength: number;
+    identity?: CuratorIdentity;
   }
 ): {
   initial: T[];
@@ -1416,6 +1440,8 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
     clusterConfidence: number;
     fallbackCandidatePercent: number;
     outlierReserve: number;
+    secondaryCluster: string | null;
+    secondaryClusterLabel: string | null;
     majorExclusions: string[];
   };
 } {
@@ -1423,7 +1449,7 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
   const fallbackCandidatePercent = candidates.length
     ? Math.round((fallbackCandidateCount / candidates.length) * 100)
     : 0;
-  if (!shouldUseClusterCuration(opts.vibe, opts.intent, opts.constraints)) {
+  if (!shouldUseClusterCuration(opts.vibe, opts.intent, opts.constraints, opts.identity)) {
     return {
       initial,
       candidates,
@@ -1435,6 +1461,8 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
         clusterConfidence: 0,
         fallbackCandidatePercent,
         outlierReserve: 0,
+        secondaryCluster: null,
+        secondaryClusterLabel: null,
         majorExclusions: [],
       },
     };
@@ -1472,6 +1500,8 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
         clusterConfidence: 0,
         fallbackCandidatePercent,
         outlierReserve: Math.max(2, Math.ceil(opts.requestedLength * 0.12)),
+        secondaryCluster: null,
+        secondaryClusterLabel: null,
         majorExclusions: ["no_stable_cluster_found"],
       },
     };
@@ -1479,10 +1509,22 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
 
   const [selectedCluster, selectedStats] = selected;
   const clusterConfidence = Math.min(1, selectedStats.count / Math.max(1, opts.requestedLength));
+  const identityChaos = opts.identity?.chaosAllowance ?? 0.08;
   const outlierReserve = clusterConfidence < 0.45
-    ? Math.ceil(opts.requestedLength * 0.22)
-    : Math.max(1, Math.ceil(opts.requestedLength * 0.06));
-  const inCluster = (track: T): boolean => vibeClusterKey(track, opts.classMap) === selectedCluster;
+    ? Math.ceil(opts.requestedLength * Math.max(0.12, identityChaos * 2))
+    : Math.max(1, Math.ceil(opts.requestedLength * identityChaos));
+  const secondary = [...clusters.entries()]
+    .filter(([clusterId, value]) =>
+      clusterId !== selectedCluster &&
+      value.count >= Math.min(3, Math.max(2, Math.ceil(opts.requestedLength * 0.06))) &&
+      (!opts.identity || clustersHaveEnergyOverlap(selectedCluster, clusterId, opts.identity))
+    )
+    .sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? null;
+  const secondaryCluster = secondary?.[0] ?? null;
+  const inCluster = (track: T): boolean => {
+    const cluster = vibeClusterKey(track, opts.classMap);
+    return cluster === selectedCluster || (secondaryCluster !== null && cluster === secondaryCluster);
+  };
   const initialCluster = initial.filter(inCluster);
   const initialReserve = initial
     .filter((track) => !inCluster(track) && !Boolean((track as Record<string, unknown>)["_fallbackCandidate"]))
@@ -1497,6 +1539,7 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
     .slice(0, outlierReserve);
   const majorExclusions = [
     `cluster_outliers:${Math.max(0, candidates.length - candidateCluster.length)}`,
+    secondaryCluster ? `secondary_cluster:${clusterLabel(secondaryCluster)}` : null,
     fallbackCandidatePercent > 20 ? `fallback_candidates:${fallbackCandidatePercent}%` : null,
   ].filter((value): value is string => !!value);
 
@@ -1511,6 +1554,8 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
       clusterConfidence: Math.round(clusterConfidence * 100) / 100,
       fallbackCandidatePercent,
       outlierReserve,
+      secondaryCluster,
+      secondaryClusterLabel: secondaryCluster ? clusterLabel(secondaryCluster) : null,
       majorExclusions,
     },
   };
@@ -1583,6 +1628,116 @@ function artistDiversityDiagnostics<T extends { artistName?: string | null }>(
     maxPerArtist: capped === Number.MAX_SAFE_INTEGER ? null : capped,
     topRepeatedArtist: topRepeated && topRepeated[1] > 1 ? displayNames.get(topRepeated[0]) ?? topRepeated[0] : null,
     topRepeatedArtistCount: topRepeated?.[1] ?? 0,
+  };
+}
+
+function buildSessionMemory(
+  recentPlaylistTrackIds: string[][],
+  trackIdToArtist: Map<string, string>,
+  maxPlaylists = 8
+): IdentitySessionMemory {
+  const usedArtists = new Set<string>();
+  const usedTracks = new Set<string>();
+  const artistFrequencyMap: Record<string, number> = {};
+  for (const ids of recentPlaylistTrackIds.slice(0, maxPlaylists)) {
+    const artistsInPlaylist = new Set<string>();
+    for (const id of ids) {
+      usedTracks.add(id);
+      const artist = trackIdToArtist.get(id)?.toLowerCase().trim();
+      if (artist) artistsInPlaylist.add(artist);
+    }
+    for (const artist of artistsInPlaylist) {
+      usedArtists.add(artist);
+      artistFrequencyMap[artist] = (artistFrequencyMap[artist] ?? 0) + 1;
+    }
+  }
+  return { usedArtists, usedTracks, artistFrequencyMap };
+}
+
+function sessionReusePenalty(track: { trackId: string; artistName?: string | null }, memory: IdentitySessionMemory, identity: CuratorIdentity): number {
+  let penalty = 0;
+  if (memory.usedTracks.has(track.trackId)) penalty += 0.34 + identity.repetitionPenalty;
+  const artist = track.artistName?.toLowerCase().trim();
+  if (artist) {
+    const appearances = memory.artistFrequencyMap[artist] ?? 0;
+    if (appearances > 0) {
+      const overTolerance = Math.max(0, appearances - identity.repetitionTolerance * 4);
+      penalty += Math.min(0.56, appearances * identity.repetitionPenalty + overTolerance * 0.12);
+    }
+  }
+  return penalty;
+}
+
+function applyCuratorIdentityScoring<T extends ConstraintTrack>(
+  tracks: T[],
+  identity: CuratorIdentity,
+  memory: IdentitySessionMemory
+): T[] {
+  return tracks
+    .map((track) => {
+      const identityFit = scoreTrackForIdentity(track, identity);
+      const reusePenalty = sessionReusePenalty(track, memory, identity);
+      const isFallbackCandidate = Boolean((track as Record<string, unknown>)["_fallbackCandidate"]);
+      const fallbackPenalty = isFallbackCandidate
+        ? 0.26 + (memory.usedTracks.has(track.trackId) ? 0.32 : 0)
+        : 0;
+      const identityBias = (identityFit - 0.5) * 0.40;
+      return {
+        ...track,
+        score: Math.max(0, (track.score ?? 0) + identityBias - reusePenalty - fallbackPenalty),
+        _identityFit: Math.round(identityFit * 100) / 100,
+        _identityBias: Math.round(identityBias * 100) / 100,
+        _sessionReusePenalty: Math.round(reusePenalty * 100) / 100,
+      } as T;
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
+function average(values: number[]): number {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function humanCoherenceScore<T extends ConstraintTrack>(
+  tracks: T[],
+  identity: CuratorIdentity
+): { score: number; components: Record<string, number>; reasons: string[] } {
+  if (tracks.length === 0) {
+    return { score: 0, components: {}, reasons: ["empty_playlist"] };
+  }
+  const energies = tracks.map((track) => track.energy ?? 0.5);
+  const energyMean = average(energies);
+  const energyVariance = average(energies.map((energy) => Math.abs(energy - energyMean)));
+  const energyConsistency = Math.max(0, 1 - energyVariance * (identity.chaosAllowance <= 0.05 ? 3.2 : 2.6));
+  const valences = tracks.map((track) => track.valence ?? 0.5);
+  const valenceMean = average(valences);
+  const emotionalVariance = average(valences.map((valence) => Math.abs(valence - valenceMean)));
+  const emotionalStability = Math.max(0, 1 - emotionalVariance * 2.4);
+  const transitionPenalties: number[] = [];
+  for (let i = 1; i < tracks.length; i++) {
+    const prev = tracks[i - 1]!;
+    const cur = tracks[i]!;
+    const energyJump = Math.abs((prev.energy ?? 0.5) - (cur.energy ?? 0.5));
+    const valenceJump = Math.abs((prev.valence ?? 0.5) - (cur.valence ?? 0.5));
+    transitionPenalties.push(Math.max(0, energyJump - 0.24) + Math.max(0, valenceJump - 0.30));
+  }
+  const transitionSmoothness = Math.max(0, 1 - average(transitionPenalties) * 1.8);
+  const score =
+    energyConsistency * 0.40 +
+    transitionSmoothness * 0.30 +
+    emotionalStability * 0.30;
+  const reasons = [
+    energyConsistency < 0.58 ? "low_energy_consistency" : null,
+    transitionSmoothness < 0.58 ? "jumpy_transitions" : null,
+    emotionalStability < 0.58 ? "unstable_emotional_flow" : null,
+  ].filter((reason): reason is string => !!reason);
+  return {
+    score: Math.round(score * 100) / 100,
+    components: {
+      energyConsistency: Math.round(energyConsistency * 100) / 100,
+      transitionSmoothness: Math.round(transitionSmoothness * 100) / 100,
+      emotionalStability: Math.round(emotionalStability * 100) / 100,
+    },
+    reasons,
   };
 }
 
@@ -2582,7 +2737,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v29" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v30" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2786,6 +2941,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     res.setTimeout(REQUEST_HARD_TIMEOUT_MS + 2000, () => {
       if (res.headersSent || staleGenerate(userId, requestId)) return; // timeout handler — no second body
+      cancelGenerateSession(userId, requestId);
       const ctx = (req as { _genCtx?: {
         likedSongs: typeof likedSongs;
         constrainedFallbackTracks?: typeof likedSongs;
@@ -3053,6 +3209,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
 
     const recentTrackLists = recentPlaylists.map((p) => (p.trackIds as string[]) ?? []);
+    const sessionMemory = buildSessionMemory(recentTrackLists, trackIdToArtist);
     const recentTrackPenaltyScale = varietyBoost ? 2.75 : 1.85;
     const freshnessCloneMultiplier = varietyBoost
       ? cloneMultiplier * 0.88
@@ -3121,6 +3278,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       energyLevel: resolvedEnergy,
       interpretationBudget: parsedCsspIntent.interpretationBudget,
     };
+    const curatorIdentity = buildCuratorIdentity({
+      prompt: vibe,
+      intent: lockedIntent,
+      emotionProfile,
+    });
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
       dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
@@ -3189,7 +3351,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     preV3Timing.totalBeforeV3Ms = Date.now() - startMs;
     req.log.info({ ...preV3Timing }, "Pre-V3 timing breakdown");
-    const useFastFallback = !devMode && budget.isExpired();
+    const useFastFallback = !devMode && budget.shouldFastFallback();
 
     let pipeline: BuildPlaylistPipelineResult<(typeof likedSongs)[number]> & {
       requestOrchestration?: RequestGenerationOrchestration;
@@ -3353,10 +3515,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Locked intent final validation"
     );
+    setGenerateStageDetail(userId, requestId, `Applying ${curatorIdentity.type.replace(/_/g, " ")} curator identity`);
+    const identityInitialTracks = applyCuratorIdentityScoring(finalTracks, curatorIdentity, sessionMemory);
+    const finalCandidatePool = applyCuratorIdentityScoring(buildFinalCandidatePool(), curatorIdentity, sessionMemory);
     setGenerateStageDetail(userId, requestId, "Selecting dominant vibe cluster before final checks");
-    const finalCandidatePool = buildFinalCandidatePool();
     const clusterCuration = curateCandidatesByVibeCluster(
-      finalTracks,
+      identityInitialTracks,
       finalCandidatePool,
       {
         vibe,
@@ -3364,6 +3528,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         constraints: constraintLayer,
         classMap: userGenreProfile.trackClassifications,
         requestedLength: length,
+        identity: curatorIdentity,
       }
     );
     let finalization = finalizePlaylistTracks({
@@ -3377,12 +3542,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       classMap: userGenreProfile.trackClassifications,
       maxPerArtist,
     });
-    const buildBroadRecoveryLibrary = (): PlaylistTrack[] => likedSongs
-      .map((track) => ({
-        ...track,
-        score: 0.55,
-      } as PlaylistTrack))
-      .map(hydrateTrackGenre);
+    const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
+      likedSongs
+        .map((track) => ({
+          ...track,
+          score: 0.55,
+        } as PlaylistTrack))
+        .map(hydrateTrackGenre),
+      curatorIdentity,
+      sessionMemory
+    );
     const applyLowComplexityRecovery = (triggerStage: string): boolean => {
       if (finalTracks.length > 0) return false;
       const recovered = recoverLowComplexityPlaylist({
@@ -3390,7 +3559,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         fullLibrary: buildBroadRecoveryLibrary(),
         candidates: clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
           ? clusterCuration.candidates
-          : buildFinalCandidatePool(),
+          : finalCandidatePool,
         requestedLength: length,
         vibe,
         intent: lockedIntent,
@@ -3669,7 +3838,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       initial: finalTracks,
       candidates: clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
         ? clusterCuration.candidates
-        : buildFinalCandidatePool(),
+        : finalCandidatePool,
       requestedLength: length,
       vibe,
       intent: lockedIntent,
@@ -3741,6 +3910,60 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
       }
     }
+    let humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
+    let humanCoherenceRepairUsed = false;
+    if (finalTracks.length > 0 && humanCoherence.score < 0.56) {
+      const repairCandidates = finalCandidatePool.filter((track) => {
+        const identityFit = (track as unknown as Record<string, unknown>)["_identityFit"];
+        const fit = typeof identityFit === "number" ? identityFit : scoreTrackForIdentity(track, curatorIdentity);
+        const cluster = vibeClusterKey(track, userGenreProfile.trackClassifications);
+        const allowedCluster = clusterCuration.diagnostics.selectedCluster
+          ? cluster === clusterCuration.diagnostics.selectedCluster ||
+            (clusterCuration.diagnostics.secondaryCluster !== null && cluster === clusterCuration.diagnostics.secondaryCluster)
+          : true;
+        return fit >= 0.48 && allowedCluster;
+      });
+      const repaired = finalizePlaylistTracks({
+        initial: repairCandidates.slice(0, length),
+        candidates: repairCandidates,
+        requestedLength: length,
+        vibe,
+        intent: lockedIntent,
+        constraints: constraintLayer,
+        allowHolidaySeason,
+        classMap: userGenreProfile.trackClassifications,
+        maxPerArtist,
+      });
+      const repairedCoherence = humanCoherenceScore(repaired.tracks, curatorIdentity);
+      if (
+        repaired.tracks.length >= Math.min(length, Math.max(6, Math.ceil(length * 0.60))) &&
+        repairedCoherence.score >= humanCoherence.score + 0.06
+      ) {
+        finalTracks = repaired.tracks;
+        finalization = {
+          tracks: repaired.tracks,
+          diagnostics: {
+            ...repaired.diagnostics,
+            humanCoherenceRepair: true,
+          },
+        };
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+        humanCoherence = repairedCoherence;
+        humanCoherenceRepairUsed = true;
+        evidenceRelaxations.push("human_coherence_repaired");
+        req.log.info(
+          { userId, vibe, curatorIdentity: curatorIdentity.type, humanCoherence },
+          "Human coherence repair rebuilt playlist"
+        );
+      } else if (humanCoherence.score < 0.46 && finalTracks.length < minBestAvailableCount) {
+        evidenceRelaxations.push("human_coherence_low_best_available");
+      }
+    }
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
     const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
@@ -3810,11 +4033,23 @@ router.post("/generate", async (req, res): Promise<void> => {
       removalReasons: removalReasonDiagnostics.slice(0, 12),
       recoveryRelaxations,
       fallbackTriggered: !!fallbackReason || !!finalization.diagnostics.fallbackMode,
+      identityType: curatorIdentity.type,
+      identitySummary: curatorIdentity.summary,
+      curatorIdentity: buildIdentityDebugView(curatorIdentity),
       selectedCluster: clusterCuration.diagnostics.selectedClusterLabel,
       selectedClusterId: clusterCuration.diagnostics.selectedCluster,
+      secondaryCluster: clusterCuration.diagnostics.secondaryClusterLabel,
+      secondaryClusterId: clusterCuration.diagnostics.secondaryCluster,
       clusterConfidence: clusterCuration.diagnostics.clusterConfidence,
       fallbackCandidatePercent: clusterCuration.diagnostics.fallbackCandidatePercent,
-      majorExclusions: clusterCuration.diagnostics.majorExclusions,
+      humanCoherenceScore: humanCoherence.score,
+      humanCoherenceComponents: humanCoherence.components,
+      humanCoherenceReasons: humanCoherence.reasons,
+      humanCoherenceRepairUsed,
+      majorExclusions: [
+        ...clusterCuration.diagnostics.majorExclusions,
+        ...humanCoherence.reasons,
+      ],
       cohesionScore: typeof finalization.diagnostics["cohesionSkipped"] === "number"
         ? Math.max(0, Math.min(1, 1 - (finalization.diagnostics["cohesionSkipped"] as number) / Math.max(1, finalization.tracks.length + (finalization.diagnostics["cohesionSkipped"] as number))))
         : null,
@@ -3884,7 +4119,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGenerateStageDetail(userId, requestId, `Applying diversity rules to ${finalTracks.length.toLocaleString()} tracks`);
 
     publishPartialTracks(finalTracks);
-    applyLowComplexityRecovery("pre_empty_playlist_error");
+    const recoveredBeforeEmptyCheck = applyLowComplexityRecovery("pre_empty_playlist_error");
+    if (recoveredBeforeEmptyCheck) {
+      humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
+      generationDiagnostics.humanCoherenceScore = humanCoherence.score;
+      generationDiagnostics.humanCoherenceComponents = humanCoherence.components;
+      generationDiagnostics.humanCoherenceReasons = humanCoherence.reasons;
+      generationDiagnostics.majorExclusions = [
+        ...clusterCuration.diagnostics.majorExclusions,
+        ...humanCoherence.reasons,
+      ];
+    }
     generationDiagnostics.candidatesFinal = finalTracks.length;
     generationDiagnostics.fallbackTriggered = generationDiagnostics.fallbackTriggered || !!finalization.diagnostics.fallbackMode;
     generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
@@ -3985,10 +4230,23 @@ router.post("/generate", async (req, res): Promise<void> => {
               setPendingSpotifyPlaylistId(userId, requestId, id),
           }
         );
-        clearPendingSpotifyPlaylist(userId, requestId);
-        spotifyPlaylistUrl = spotifyResult.url;
         spotifyPartial = !!spotifyResult.partial;
         spotifyTracksAdded = spotifyResult.tracksAdded;
+        if (spotifyPartial && (spotifyTracksAdded ?? 0) === 0) {
+          spotifyPlaylistUrl = null;
+          req.log.warn(
+            {
+              elapsedMs: Date.now() - tSpotify,
+              playlistId: spotifyResult.id,
+              tracksRequested: finalTracks.length,
+              reused: !!pendingId,
+            },
+            "Spotify playlist shell created but no tracks were added"
+          );
+        } else {
+          clearPendingSpotifyPlaylist(userId, requestId);
+          spotifyPlaylistUrl = spotifyResult.url;
+        }
         req.log.info(
           {
             elapsedMs: Date.now() - tSpotify,
@@ -4289,9 +4547,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       feedbackDiagnostics,
     };
 
-    if (!varietyBoost && !devMode) {
+    if (!varietyBoost && !devMode && spotifyPlaylistUrl) {
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v29",
+        cacheVersion: "v30",
         playlistName,
         vibe,
         mode,

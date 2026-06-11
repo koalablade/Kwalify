@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, real, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, real, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -25,7 +25,9 @@ export const likedSongsTable = pgTable("liked_songs", {
   releaseYear: integer("release_year"),
   addedAt: timestamp("added_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  userTrackUnique: uniqueIndex("IDX_liked_songs_user_track").on(table.spotifyUserId, table.trackId),
+}));
 
 export const playlistHistoryTable = pgTable("playlist_history", {
   id: serial("id").primaryKey(),

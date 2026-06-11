@@ -579,6 +579,7 @@ p { margin: 0; }
   text-transform: uppercase;
 }
 .badge-green { background: rgba(29,185,84,0.15); color: var(--green); }
+.badge-amber { background: rgba(245,158,11,0.16); color: #f59e0b; }
 .badge-purple { background: rgba(124,58,237,0.15); color: #c4b5fd; }
 .badge-muted { background: var(--bg-2); color: var(--muted); }
 

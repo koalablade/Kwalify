@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS "liked_songs" (
   "created_at" timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "IDX_liked_songs_user" ON "liked_songs" ("spotify_user_id");
+DELETE FROM "liked_songs" newer
+USING "liked_songs" older
+WHERE newer."spotify_user_id" = older."spotify_user_id"
+  AND newer."track_id" = older."track_id"
+  AND newer."id" > older."id";
+CREATE UNIQUE INDEX IF NOT EXISTS "IDX_liked_songs_user_track"
+  ON "liked_songs" ("spotify_user_id", "track_id");
 ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "spotify_artist_genres" jsonb;
 ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "album_genres" jsonb;
 ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "popularity" integer;

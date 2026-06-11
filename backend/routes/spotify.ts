@@ -8,7 +8,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "../db";
 import { likedSongsTable, syncStatusTable } from "../db";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import {
   fetchLikedSongs,
   fetchAudioFeatures,
@@ -31,6 +31,7 @@ import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
 const router: IRouter = Router();
 
 export const activeSyncs = new Set<string>();
+const STALE_SYNC_MS = 45 * 60 * 1000;
 
 router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   if (getFeatures().devMode.useMockSpotify) {
@@ -61,6 +62,19 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
     .select()
     .from(syncStatusTable)
     .where(eq(syncStatusTable.spotifyUserId, userId));
+
+  if (
+    status?.isSyncing === 1 &&
+    !activeSyncs.has(userId) &&
+    Date.now() - status.updatedAt.getTime() > STALE_SYNC_MS
+  ) {
+    await db
+      .update(syncStatusTable)
+      .set({ isSyncing: 0, updatedAt: new Date() })
+      .where(eq(syncStatusTable.spotifyUserId, userId));
+    status.isSyncing = 0;
+    logger.warn({ userId }, "Cleared stale Spotify sync flag");
+  }
 
   if (!status) {
     res.json({
@@ -256,6 +270,7 @@ export async function runSync(
         `[sync] Incremental sync: found ${newTracks.length} new tracks since lastSyncedAt`
       );
     }
+    newTracks = [...new Map(newTracks.map((track) => [track.id, track])).values()];
 
     // Preserve audio features from DB before full sync wipe (Spotify often 403s bulk audio-features).
     const preservedFeatures = new Map<
@@ -327,11 +342,7 @@ export async function runSync(
       }
     }
 
-    if (!isIncremental) {
-      // Full sync: wipe and re-insert everything
-      await db.delete(likedSongsTable).where(eq(likedSongsTable.spotifyUserId, userId));
-    }
-
+    const rowsToInsert: Array<typeof likedSongsTable.$inferInsert> = [];
     if (newTracks.length > 0) {
       let artistGenreMap = new Map<string, string[]>();
       let albumMetadataMap = new Map<string, { genres: string[]; releaseYear: number | null }>();
@@ -353,55 +364,75 @@ export async function runSync(
       } catch (err: any) {
         logger.warn({ err: err?.message }, "Album metadata enrichment failed; continuing sync");
       }
-      const batchSize = 200;
-      for (let i = 0; i < newTracks.length; i += batchSize) {
-        const batch = newTracks.slice(i, i + batchSize);
-        const rows = batch.map((track) => {
-          const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
-          const features = featuresMap.get(track.id);
-          return {
-            spotifyUserId: userId,
-            trackId: enriched.id,
-            trackName: enriched.name,
-            artistName: enriched.artists[0]?.name ?? "Unknown",
-            albumName: enriched.album.name,
-            albumArt: enriched.album.images[0]?.url ?? null,
-            durationMs: enriched.duration_ms,
-            energy: features?.energy ?? null,
-            valence: features?.valence ?? null,
-            tempo: features?.tempo ?? null,
-            danceability: features?.danceability ?? null,
-            acousticness: features?.acousticness ?? null,
-            instrumentalness: features?.instrumentalness ?? null,
-            loudness: features?.loudness ?? null,
-            speechiness: features?.speechiness ?? null,
-            spotifyArtistGenres: enriched.spotifyArtistGenres,
-            albumGenres: enriched.albumGenres,
-            popularity: enriched.popularity ?? null,
-            releaseYear: enriched.releaseYear ?? null,
-            addedAt: enriched.addedAt ? new Date(enriched.addedAt) : new Date(),
-          };
+      for (const track of newTracks) {
+        const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
+        const features = featuresMap.get(track.id);
+        rowsToInsert.push({
+          spotifyUserId: userId,
+          trackId: enriched.id,
+          trackName: enriched.name,
+          artistName: enriched.artists[0]?.name ?? "Unknown",
+          albumName: enriched.album.name,
+          albumArt: enriched.album.images[0]?.url ?? null,
+          durationMs: enriched.duration_ms,
+          energy: features?.energy ?? null,
+          valence: features?.valence ?? null,
+          tempo: features?.tempo ?? null,
+          danceability: features?.danceability ?? null,
+          acousticness: features?.acousticness ?? null,
+          instrumentalness: features?.instrumentalness ?? null,
+          loudness: features?.loudness ?? null,
+          speechiness: features?.speechiness ?? null,
+          spotifyArtistGenres: enriched.spotifyArtistGenres,
+          albumGenres: enriched.albumGenres,
+          popularity: enriched.popularity ?? null,
+          releaseYear: enriched.releaseYear ?? null,
+          addedAt: enriched.addedAt ? new Date(enriched.addedAt) : new Date(),
         });
-
-        await db.insert(likedSongsTable).values(rows);
       }
     }
 
-    const finalTotalTracks = isIncremental
-      ? (existingStatus?.totalTracks ?? 0) + newTracks.length
-      : newTracks.length;
+    await db.transaction(async (tx) => {
+      if (!isIncremental) {
+        await tx.delete(likedSongsTable).where(eq(likedSongsTable.spotifyUserId, userId));
+      } else if (rowsToInsert.length > 0) {
+        const trackIds = rowsToInsert.map((row) => row.trackId);
+        const deleteBatchSize = 500;
+        for (let i = 0; i < trackIds.length; i += deleteBatchSize) {
+          await tx
+            .delete(likedSongsTable)
+            .where(
+              and(
+                eq(likedSongsTable.spotifyUserId, userId),
+                inArray(likedSongsTable.trackId, trackIds.slice(i, i + deleteBatchSize))
+              )
+            );
+        }
+      }
 
-    await db
-      .update(syncStatusTable)
-      .set({
-        isSyncing: 0,
-        totalTracks: finalTotalTracks,
-        lastSyncedAt: new Date(),
-        syncProgress: newTracks.length,
-        syncTotal: grandTotal,
-        updatedAt: new Date(),
-      })
-      .where(eq(syncStatusTable.spotifyUserId, userId));
+      const batchSize = 200;
+      for (let i = 0; i < rowsToInsert.length; i += batchSize) {
+        await tx.insert(likedSongsTable).values(rowsToInsert.slice(i, i + batchSize));
+      }
+
+      const [totalRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(likedSongsTable)
+        .where(eq(likedSongsTable.spotifyUserId, userId));
+      const finalTotalTracks = Number(totalRow?.count ?? rowsToInsert.length);
+
+      await tx
+        .update(syncStatusTable)
+        .set({
+          isSyncing: 0,
+          totalTracks: finalTotalTracks,
+          lastSyncedAt: new Date(),
+          syncProgress: newTracks.length,
+          syncTotal: grandTotal,
+          updatedAt: new Date(),
+        })
+        .where(eq(syncStatusTable.spotifyUserId, userId));
+    });
 
     invalidateGenreProfileCache(userId);
     invalidateGenerateResultCache(userId);
@@ -444,7 +475,7 @@ export async function runSync(
     logger.info(
       {
         userId,
-        totalTracks: finalTotalTracks,
+        totalTracks: allRows.length,
         newTracks: newTracks.length,
         isIncremental,
         featureCoverage: Math.round(featureCoverage * 1000) / 1000,
