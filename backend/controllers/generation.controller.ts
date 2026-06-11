@@ -204,6 +204,7 @@ type ConstraintLayer = {
     strictTerms: string[];
     excludedTerms: string[];
     multiGenreTerms: string[];
+    americanaBridgePrompt: boolean;
   };
 };
 
@@ -229,6 +230,8 @@ type ConstraintTrack = V3MetadataTrack<{
   tempo?: number | null;
   danceability?: number | null;
   acousticness?: number | null;
+  loudness?: number | null;
+  speechiness?: number | null;
   releaseYear?: number | null;
   addedAt?: Date | null;
 }> & {
@@ -338,16 +341,16 @@ function deriveDiagnosticTags(vibe: string): {
     .map((alias) => alias.family);
   const moodTags = [
     /\b(nostalg|memory|retro|vintage)\b/.test(lower) ? "nostalgic" : null,
-    /\b(sunset|warm|golden|cozy|cosy)\b/.test(lower) ? "warm" : null,
+    /\b(sunset|warm|golden|cozy|cosy|summer|barbecue|bbq)\b/.test(lower) ? "warm" : null,
     /\b(solitude|alone|reflect|introspect)\b/.test(lower) ? "introspective" : null,
-    /\b(sad|melanchol|lonely|blue)\b/.test(lower) ? "melancholic" : null,
+    /\b(sad|melanchol|lonely|blue|rainy|rain)\b/.test(lower) ? "melancholic" : null,
     ...expandedMoods,
   ].filter((tag): tag is string => !!tag)
     .filter((tag, index, tags) => tags.indexOf(tag) === index);
   const activityTags = [
     /\b(driv|road|highway|cruise)\b/.test(lower) ? "driving" : null,
     /\b(study|focus|work|coding)\b/.test(lower) ? "focus" : null,
-    /\b(party|club|dance)\b/.test(lower) ? "party" : null,
+    /\b(party|club|dance|barbecue|bbq|cookout)\b/.test(lower) ? "party" : null,
     /\b(walk|commute)\b/.test(lower) ? "walking" : null,
     ...expandedActivities,
   ].filter((tag): tag is string => !!tag)
@@ -563,6 +566,7 @@ function extractConstraintLayer(vibe: string, signals: QualitySignalContext): Co
       strictTerms,
       excludedTerms: excludedText,
       multiGenreTerms,
+      americanaBridgePrompt,
     },
   };
 }
@@ -697,6 +701,22 @@ function bridgeFamiliesForTrack(track: ConstraintTrack, classMap: Map<string, {
   return [];
 }
 
+function isAmericanaCompatibleTrack(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (family === "country" || family === "folk" || family === "blues") return true;
+  const bridgeFamilies = bridgeFamiliesForTrack(track, classMap);
+  return family === "rock" && bridgeFamilies.includes("country");
+}
+
 function passesGenreGraphBoundary(
   track: ConstraintTrack,
   opts: {
@@ -717,6 +737,13 @@ function passesGenreGraphBoundary(
   if (!eraGenreCompatible(family, opts.lockedIntent)) return { pass: false, bridge: false };
   if (!opts.lockedFamily || opts.constraints.hard.allowMultiGenre) return { pass: true, bridge: false };
   if (family === opts.lockedFamily || family === "unknown") return { pass: true, bridge: false };
+  if (
+    opts.constraints.raw.americanaBridgePrompt &&
+    opts.lockedFamily === "country" &&
+    isAmericanaCompatibleTrack(track, opts.classMap)
+  ) {
+    return { pass: true, bridge: true };
+  }
   const bridgeFamilies = bridgeFamiliesForTrack(track, opts.classMap);
   const bridge = opts.constraints.hard.allowBridge &&
     bridgeFamilies.includes(opts.lockedFamily) &&
@@ -740,7 +767,11 @@ function trackMatchesHardConstraints(
   const bridgeFamilies = constraints.hard.allowBridge ? bridgeFamiliesForTrack(track, classMap) : [];
   if (
     constraints.hard.genres.length > 0 &&
-    !constraints.hard.genres.some((genre) => terms.includes(genre) || bridgeFamilies.includes(genre))
+    !constraints.hard.genres.some((genre) =>
+      terms.includes(genre) ||
+      bridgeFamilies.includes(genre) ||
+      (constraints.raw.americanaBridgePrompt && genre === "country" && isAmericanaCompatibleTrack(track, classMap))
+    )
   ) {
     return false;
   }
@@ -829,6 +860,24 @@ function activityEvidence(track: ConstraintTrack, intent: LockedIntent): boolean
   if (activityMatch === null) return energyMatch;
   if (energyMatch === null) return activityMatch;
   return activityMatch && energyMatch;
+}
+
+function isSleepSafetyPrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  if (/\b(?:drive|driving|gym|workout|party|club|dancefloor|rave)\b/.test(lower)) return false;
+  return intent.activity === "relaxing" ||
+    intent.energyLevel === "low" ||
+    intent.mood.includes("calm") ||
+    /\b(?:sleep|bedtime|bed\s*time|night|slow|easy|relax|relaxing|chill|chilled|soft)\b/.test(lower);
+}
+
+function trackIsSleepSafe(track: ConstraintTrack): boolean {
+  if (typeof track.energy === "number" && track.energy > 0.56) return false;
+  if (typeof track.tempo === "number" && track.tempo > 118) return false;
+  if (typeof track.danceability === "number" && track.danceability > 0.68) return false;
+  if (typeof track.loudness === "number" && track.loudness > -5.5) return false;
+  if (typeof track.speechiness === "number" && track.speechiness > 0.38) return false;
+  return true;
 }
 
 function lockedIntentMatchCount(
@@ -922,12 +971,20 @@ function validateLockedIntentOutput(
     families.size <= 1 ||
     (constraints.hard.allowBridge &&
       offFamilyTracks.every((track) => {
+        if (
+          constraints.raw.americanaBridgePrompt &&
+          lockedFamily === "country" &&
+          isAmericanaCompatibleTrack(track, classMap)
+        ) {
+          return true;
+        }
         const bridgeFamilies = bridgeFamiliesForTrack(track, classMap);
         return !!lockedFamily && bridgeFamilies.includes(lockedFamily);
       }));
 
   const genreConsistency = familyStable && (!requiresGenre || tracks.every((track) =>
-    genreEvidence(track, intent, classMap) !== false
+    genreEvidence(track, intent, classMap) !== false ||
+    (constraints.raw.americanaBridgePrompt && lockedFamily === "country" && isAmericanaCompatibleTrack(track, classMap))
   )) ? "PASS" : "FAIL";
   const knownYears = tracks
     .map(trackYearEstimate)
@@ -948,6 +1005,159 @@ function validateLockedIntentOutput(
 
 function validationPassed(validation: Record<string, "PASS" | "FAIL">): boolean {
   return Object.values(validation).every((value) => value === "PASS");
+}
+
+function validSpotifyTrackShape(track: {
+  trackId?: unknown;
+  trackName?: unknown;
+  artistName?: unknown;
+  albumName?: unknown;
+}): boolean {
+  return typeof track.trackId === "string" &&
+    track.trackId.trim().length > 0 &&
+    typeof track.trackName === "string" &&
+    track.trackName.trim().length > 0 &&
+    typeof track.artistName === "string" &&
+    track.artistName.trim().length > 0 &&
+    typeof track.albumName === "string";
+}
+
+function sanitizePlaylistTrack<T extends ConstraintTrack>(track: T): T | null {
+  if (!validSpotifyTrackShape(track)) return null;
+  const score = typeof track.score === "number" && Number.isFinite(track.score) ? track.score : 0.7;
+  return {
+    ...track,
+    trackId: track.trackId.trim(),
+    trackName: track.trackName.trim(),
+    artistName: track.artistName.trim(),
+    albumName: track.albumName ?? "",
+    score,
+    energy: typeof track.energy === "number" && Number.isFinite(track.energy) ? track.energy : null,
+    valence: typeof track.valence === "number" && Number.isFinite(track.valence) ? track.valence : null,
+    tempo: typeof track.tempo === "number" && Number.isFinite(track.tempo) ? track.tempo : null,
+    danceability: typeof track.danceability === "number" && Number.isFinite(track.danceability) ? track.danceability : null,
+    acousticness: typeof track.acousticness === "number" && Number.isFinite(track.acousticness) ? track.acousticness : null,
+    loudness: typeof track.loudness === "number" && Number.isFinite(track.loudness) ? track.loudness : null,
+    speechiness: typeof track.speechiness === "number" && Number.isFinite(track.speechiness) ? track.speechiness : null,
+  };
+}
+
+function finalTrackMatchesExplicitGenre(
+  track: ConstraintTrack,
+  intent: LockedIntent,
+  constraints: ConstraintLayer,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const expectedFamilies = intent.primaryGenres.length > 0 ? intent.primaryGenres : intent.genreFamilies;
+  if (expectedFamilies.length === 0 && constraints.hard.genres.length === 0) return true;
+  const families = expectedFamilies.length > 0 ? expectedFamilies : constraints.hard.genres;
+  return families.some((family) =>
+    hasFinalGenreEvidence(track, classMap, [family]) ||
+    (constraints.raw.americanaBridgePrompt && family === "country" && isAmericanaCompatibleTrack(track, classMap))
+  );
+}
+
+function finalTrackMatchesExplicitEra(track: ConstraintTrack, intent: LockedIntent): boolean {
+  if (!intent.eraRange) return true;
+  return trackHasEraEvidence(track, intent.eraRange);
+}
+
+function finalTrackIsSafe(
+  track: ConstraintTrack,
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+  }
+): boolean {
+  if (!trackMatchesHardConstraints(track, opts.constraints, opts.classMap)) return false;
+  if (!trackPassesLockedIntent(track, opts.intent, opts.constraints, opts.classMap)) return false;
+  if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
+  if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
+  if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
+  return true;
+}
+
+function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
+  initial: T[];
+  candidates: T[];
+  requestedLength: number;
+  vibe: string;
+  intent: LockedIntent;
+  constraints: ConstraintLayer;
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>;
+  maxPerArtist: number;
+}): { tracks: T[]; diagnostics: Record<string, number | boolean> } {
+  const seen = new Set<string>();
+  const artistCounts = new Map<string, number>();
+  let malformedDropped = 0;
+  let unsafeDropped = 0;
+  let duplicateDropped = 0;
+
+  const out: T[] = [];
+  const tryAdd = (track: T, enforceArtistLimit: boolean): void => {
+    if (out.length >= opts.requestedLength) return;
+    const sanitized = sanitizePlaylistTrack(track);
+    if (!sanitized) {
+      malformedDropped++;
+      return;
+    }
+    if (seen.has(sanitized.trackId)) {
+      duplicateDropped++;
+      return;
+    }
+    if (!finalTrackIsSafe(sanitized, opts)) {
+      unsafeDropped++;
+      return;
+    }
+    const artistKey = sanitized.artistName.toLowerCase().trim();
+    const artistCount = artistCounts.get(artistKey) ?? 0;
+    if (enforceArtistLimit && artistCount >= opts.maxPerArtist) return;
+    seen.add(sanitized.trackId);
+    artistCounts.set(artistKey, artistCount + 1);
+    out.push(sanitized);
+  };
+
+  const rankedCandidates = opts.candidates
+    .map(sanitizePlaylistTrack)
+    .filter((track): track is T => !!track)
+    .sort((a, b) => b.score - a.score);
+
+  for (const track of opts.initial) tryAdd(track, true);
+  for (const track of rankedCandidates) tryAdd(track, true);
+  for (const track of rankedCandidates) tryAdd(track, false);
+
+  return {
+    tracks: out,
+    diagnostics: {
+      requestedLength: opts.requestedLength,
+      finalCount: out.length,
+      malformedDropped,
+      unsafeDropped,
+      duplicateDropped,
+      replenished: out.length > opts.initial.length,
+      sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
+    },
+  };
 }
 
 function assertQualityConsistency(
@@ -1677,7 +1887,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v12" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v14" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -1884,6 +2094,15 @@ router.post("/generate", async (req, res): Promise<void> => {
         vibe: string;
         mode: string;
         noLibraryMode?: boolean;
+        lockedIntent?: LockedIntent;
+        constraintLayer?: ConstraintLayer;
+        classMap?: Map<string, {
+          genrePrimary: string;
+          genreFamily: string;
+          primarySubgenre: string;
+          secondarySubgenre: string | null;
+          subGenres: string[];
+        }>;
         genreByTrack?: (trackId: string) => {
           genrePrimary?: string | null;
           genreFamily?: string | null;
@@ -1913,14 +2132,26 @@ router.post("/generate", async (req, res): Promise<void> => {
         librarySize: fallbackTracks.length,
         genreByTrack: ctx.genreByTrack,
       });
+      const finalizedFallback = ctx.lockedIntent && ctx.constraintLayer && ctx.classMap
+        ? finalizePlaylistTracks({
+            initial: pipeline.finalTracks as unknown as ConstraintTrack[],
+            candidates: fallbackTracks.map((track) => ({ ...track, score: 0.6 } as ConstraintTrack)),
+            requestedLength: ctx.length,
+            vibe: ctx.vibe,
+            intent: ctx.lockedIntent,
+            constraints: ctx.constraintLayer,
+            classMap: ctx.classMap,
+            maxPerArtist,
+          }).tracks
+        : pipeline.finalTracks;
       const strictFallbackFailure = explicitGenreFallbackFailure({
         vibe: ctx.vibe,
         requestedCount: ctx.length,
-        finalCount: pipeline.finalTracks.length,
+        finalCount: finalizedFallback.length,
         hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
         noLibraryMode: !!ctx.noLibraryMode,
       });
-      if (strictFallbackFailure) {
+      if (strictFallbackFailure && finalizedFallback.length === 0) {
         res.status(409).json({
           success: false,
           error: strictFallbackFailure.error,
@@ -1943,10 +2174,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         name: playlistName,
         vibe: ctx.vibe,
         mode: ctx.mode,
-        count: pipeline.finalTracks.length,
-        totalTracks: pipeline.finalTracks.length,
+        count: finalizedFallback.length,
+        totalTracks: finalizedFallback.length,
         spotifyUnavailable: true,
-        tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile),
+        tracks: formatTracksForApi(finalizedFallback, ctx.emotionProfile),
       });
     });
 
@@ -2224,6 +2455,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (genCtx) {
       genCtx["constrainedFallbackTracks"] = constrainedFallbackTracks;
       genCtx["genreByTrack"] = genreByTrack;
+      genCtx["lockedIntent"] = lockedIntent;
+      genCtx["constraintLayer"] = constraintLayer;
+      genCtx["classMap"] = userGenreProfile.trackClassifications;
     }
     req.log.info(
       {
@@ -2340,6 +2574,22 @@ router.post("/generate", async (req, res): Promise<void> => {
       narrativeRole?: string;
       genreFamily?: string | null;
       genres?: string[] | null;
+    };
+    const buildFinalCandidatePool = (): PlaylistTrack[] => {
+      const scoredFallbackTracks = constrainedFallbackTracks.map((track) => ({
+        ...track,
+        score: 0.68,
+      } as PlaylistTrack));
+      const scoredLibraryTracks = likedSongs.map((track) => ({
+        ...track,
+        score: 0.55,
+      } as PlaylistTrack));
+      return [
+        ...(pipeline.finalTracks as PlaylistTrack[]),
+        ...(pipeline.sorted as PlaylistTrack[]),
+        ...scoredFallbackTracks,
+        ...scoredLibraryTracks,
+      ].map(hydrateTrackGenre);
     };
     setGeneratePhase(userId, requestId, "composing");
     let finalTracks = (pipeline.finalTracks as PlaylistTrack[]).map(hydrateTrackGenre);
@@ -2539,6 +2789,29 @@ router.post("/generate", async (req, res): Promise<void> => {
           userGenreProfile.trackClassifications
         );
       }
+    }
+    const finalization = finalizePlaylistTracks({
+      initial: finalTracks,
+      candidates: buildFinalCandidatePool(),
+      requestedLength: length,
+      vibe,
+      intent: lockedIntent,
+      constraints: constraintLayer,
+      classMap: userGenreProfile.trackClassifications,
+      maxPerArtist,
+    });
+    if (finalization.tracks.length !== finalTracks.length) {
+      req.log.info(
+        { userId, vibe, finalization: finalization.diagnostics },
+        "Final playlist invariants repaired track list"
+      );
+      finalTracks = finalization.tracks;
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
     }
     const strictEraEvidencePublic = {
       ...strictEraEvidenceDiagnostics,
@@ -2892,7 +3165,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v12",
+        cacheVersion: "v14",
         playlistName,
         vibe,
         mode,
@@ -2972,6 +3245,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         verified: undefined,
       },
       strictEraEvidence: strictEraEvidencePublic,
+      finalization: finalization.diagnostics,
       playlistQuality: v3Diagnostics?.playlistQuality ?? null,
       explicitIntentRepair: ((v3Diagnostics ?? {}) as Record<string, unknown>)["explicitIntentRepair"] ?? null,
       feedbackDiagnostics,
@@ -3218,6 +3492,15 @@ router.post("/generate", async (req, res): Promise<void> => {
         vibe: string;
         mode: string;
         noLibraryMode?: boolean;
+        lockedIntent?: LockedIntent;
+        constraintLayer?: ConstraintLayer;
+        classMap?: Map<string, {
+          genrePrimary: string;
+          genreFamily: string;
+          primarySubgenre: string;
+          secondarySubgenre: string | null;
+          subGenres: string[];
+        }>;
         genreByTrack?: (trackId: string) => {
           genrePrimary?: string | null;
           genreFamily?: string | null;
@@ -3237,14 +3520,26 @@ router.post("/generate", async (req, res): Promise<void> => {
           librarySize: fallbackTracks.length,
           genreByTrack: ctx.genreByTrack,
         });
+        const finalizedFallback = ctx.lockedIntent && ctx.constraintLayer && ctx.classMap
+          ? finalizePlaylistTracks({
+              initial: pipeline.finalTracks as ConstraintTrack[],
+              candidates: fallbackTracks.map((track) => ({ ...track, score: 0.6 } as ConstraintTrack)),
+              requestedLength: ctx.length,
+              vibe: ctx.vibe,
+              intent: ctx.lockedIntent,
+              constraints: ctx.constraintLayer,
+              classMap: ctx.classMap,
+              maxPerArtist,
+            }).tracks
+          : pipeline.finalTracks;
         const strictFallbackFailure = explicitGenreFallbackFailure({
           vibe: ctx.vibe,
           requestedCount: ctx.length,
-          finalCount: pipeline.finalTracks.length,
+          finalCount: finalizedFallback.length,
           hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
           noLibraryMode: !!ctx.noLibraryMode,
         });
-        if (strictFallbackFailure) {
+        if (strictFallbackFailure && finalizedFallback.length === 0) {
           res.status(409).json({
             success: false,
             error: strictFallbackFailure.error,
@@ -3263,10 +3558,10 @@ router.post("/generate", async (req, res): Promise<void> => {
           name: playlistName,
           vibe: ctx.vibe,
           mode: ctx.mode,
-          count: pipeline.finalTracks.length,
-          totalTracks: pipeline.finalTracks.length,
+          count: finalizedFallback.length,
+          totalTracks: finalizedFallback.length,
           spotifyUnavailable: true,
-          tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile),
+          tracks: formatTracksForApi(finalizedFallback, ctx.emotionProfile),
         });
       } else {
         res.status(timedOut ? 504 : 500).json({

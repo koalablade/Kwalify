@@ -112,7 +112,7 @@ export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "electronic", terms: ["electronic", "house", "house music", "techno", "trance", "edm", "dnb", "drum and bass", "drum & bass", "rave", "dubstep", "ambient", "synthwave", "retrowave", "jungle"] },
   { family: "jazz", terms: ["jazz", "soul jazz", "lo-fi jazz", "lofi jazz", "bebop", "bossa nova", "swing", "smooth jazz", "vocal jazz", "latin jazz"] },
   { family: "pop", terms: ["pop", "dance pop", "dance-pop", "indie pop", "synthpop", "synth pop", "synth-pop", "k-pop", "kpop", "teen pop", "boy band", "girl group"] },
-  { family: "folk", terms: ["folk", "singer-songwriter", "singer songwriter", "acoustic folk", "traditional folk", "celtic folk", "irish folk"] },
+  { family: "folk", terms: ["folk", "acoustic", "singer-songwriter", "singer songwriter", "acoustic folk", "traditional folk", "celtic folk", "irish folk"] },
   { family: "soul", terms: ["soul", "funk", "motown", "neo soul", "neo-soul", "detroit soul", "gospel"] },
   { family: "metal", terms: ["metal", "metalcore", "heavy metal", "death metal", "black metal", "thrash", "thrash metal", "nu metal", "nu-metal", "deathcore"] },
   { family: "classical", terms: ["classical", "orchestral", "piano classical", "symphony", "concerto", "nocturne", "sonata", "opera", "chamber", "baroque"] },
@@ -877,10 +877,10 @@ export function buildLockedIntent(input: string): LockedIntent {
 
   const excludedMoods = excludedMoodTags(lower);
   const mood = [
-    /\b(sad|melanchol|lonely|blue|heartbreak)\b/.test(lower) ? "melancholic" : null,
+    /\b(sad|melanchol|lonely|blue|heartbreak|rainy|rain)\b/.test(lower) ? "melancholic" : null,
     /\b(calm|chill|relax|soft|peaceful)\b/.test(lower) ? "calm" : null,
     /\b(nostalg|throwback|retro|memory)\b/.test(lower) ? "nostalgic" : null,
-    /\b(warm|sunset|cozy|cosy|golden)\b/.test(lower) ? "warm" : null,
+    /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq)\b/.test(lower) ? "warm" : null,
     /\b(hype|energ|intense|pump)\b/.test(lower) ? "energised" : null,
     ...expandedMoodTerms(lower),
   ]
@@ -893,7 +893,7 @@ export function buildLockedIntent(input: string): LockedIntent {
       /\b(study|focus|coding|work|deep work)\b/.test(lower) ? "focus" :
         /\b(gym|workout|run|running)\b/.test(lower) ? "gym" :
           /\b(relax|sleep|unwind)\b/.test(lower) ? "relaxing" :
-            /\b(party|club|dance)\b/.test(lower) ? "party" :
+            /\b(party|club|dance|barbecue|bbq|cookout)\b/.test(lower) ? "party" :
               null
   );
 

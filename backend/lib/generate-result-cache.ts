@@ -9,8 +9,8 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v12: Americana-style prompts allow verified country/folk/rock bridge evidence. */
-  cacheVersion: "v12";
+  /** v14: final playlist invariants plus acoustic/rainy/summer prompt locks. */
+  cacheVersion: "v14";
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;
