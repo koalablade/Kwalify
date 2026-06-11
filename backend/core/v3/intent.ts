@@ -115,7 +115,7 @@ export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "folk", terms: ["folk", "acoustic", "singer-songwriter", "singer songwriter", "acoustic folk", "traditional folk", "celtic folk", "irish folk"] },
   { family: "soul", terms: ["soul", "funk", "motown", "neo soul", "neo-soul", "detroit soul", "gospel"] },
   { family: "metal", terms: ["metal", "metalcore", "heavy metal", "death metal", "black metal", "thrash", "thrash metal", "nu metal", "nu-metal", "deathcore"] },
-  { family: "classical", terms: ["classical", "orchestral", "piano classical", "symphony", "concerto", "nocturne", "sonata", "opera", "chamber", "baroque"] },
+  { family: "classical", terms: ["classical", "orchestral", "piano", "solo piano", "piano classical", "symphony", "concerto", "nocturne", "sonata", "opera", "chamber", "baroque"] },
   { family: "christmas", terms: ["christmas", "xmas", "holiday", "holiday song", "festive", "noel", "santa", "jingle bells", "winter wonderland"] },
   { family: "indie", terms: ["indie", "indie music", "lo-fi", "lofi", "chillhop", "bedroom pop", "alternative indie", "study beats"] },
   { family: "blues", terms: ["blues", "delta blues", "chicago blues", "electric blues", "acoustic blues", "blues rock", "blues-rock"] },
@@ -878,9 +878,9 @@ export function buildLockedIntent(input: string): LockedIntent {
   const excludedMoods = excludedMoodTags(lower);
   const mood = [
     /\b(sad|melanchol|lonely|blue|heartbreak|rainy|rain)\b/.test(lower) ? "melancholic" : null,
-    /\b(calm|chill|relax|soft|peaceful)\b/.test(lower) ? "calm" : null,
+    /\b(calm|chill|relax|soft|peaceful|winter|snowy|snow)\b/.test(lower) ? "calm" : null,
     /\b(nostalg|throwback|retro|memory)\b/.test(lower) ? "nostalgic" : null,
-    /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq)\b/.test(lower) ? "warm" : null,
+    /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq|winter|snowy|snow)\b/.test(lower) ? "warm" : null,
     /\b(hype|energ|intense|pump)\b/.test(lower) ? "energised" : null,
     ...expandedMoodTerms(lower),
   ]

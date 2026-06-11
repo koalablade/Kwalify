@@ -49,11 +49,11 @@ export const EXPANDED_GENRE_ALIASES: GenreAliasGroup[] = [
 
 export const EXPANDED_MOOD_TERMS: Record<string, string[]> = {
   melancholic: ["sad", "melancholy", "melancholic", "blue", "lonely", "heartbroken", "heartbreak", "grief", "crying", "tearful", "wistful", "bittersweet", "yearning", "longing", "empty", "hollow", "aching", "devastated", "gutted", "proper sad", "down bad", "mardy", "fed up"],
-  warm: ["warm", "cozy", "cosy", "golden", "sunny", "comforting", "comfort", "tender", "soft", "gentle", "glowing", "homey", "homely", "safe", "romantic", "sweet", "lovely", "wholesome"],
+  warm: ["warm", "cozy", "cosy", "golden", "sunny", "winter", "snowy", "snow", "comforting", "comfort", "tender", "soft", "gentle", "glowing", "homey", "homely", "safe", "romantic", "sweet", "lovely", "wholesome"],
   introspective: ["introspective", "reflective", "thinking", "overthinking", "pensive", "contemplative", "diary", "private", "alone", "solitude", "existential", "spiral", "processing", "in my head", "head full", "over it"],
   nostalgic: ["nostalgic", "nostalgia", "throwback", "retro", "vintage", "old memories", "childhood", "teenage", "school days", "uni days", "sixth form", "remember", "reminiscent", "memory lane"],
   energised: ["hype", "hyped", "energised", "energized", "adrenaline", "pump up", "pumped", "intense", "explosive", "fired up", "buzzing", "gassed", "party", "rave", "mosh", "gym", "workout"],
-  calm: ["calm", "peaceful", "serene", "relaxed", "sleepy", "sleep", "quiet", "still", "meditative", "ambient", "floating", "drifting", "soft focus", "chilled", "chill", "chillout", "easy", "easygoing"],
+  calm: ["calm", "peaceful", "serene", "relaxed", "sleepy", "sleep", "quiet", "still", "winter", "snowy", "snow", "meditative", "ambient", "floating", "drifting", "soft focus", "chilled", "chill", "chillout", "easy", "easygoing"],
   dark: ["dark", "gothic", "noir", "ominous", "haunting", "eerie", "shadowy", "brooding", "menacing", "sinister", "moody", "grim"],
   euphoric: ["euphoric", "ecstatic", "bliss", "joyful", "triumphant", "uplifting", "celebratory", "victorious", "hands in the air", "buzzing", "on top of the world"],
   angry: ["angry", "rage", "furious", "aggressive", "vengeful", "pissed", "pissed off", "fuming", "wound up", "livid", "resentful", "defiant", "rebellious"],
@@ -62,7 +62,7 @@ export const EXPANDED_MOOD_TERMS: Record<string, string[]> = {
 export const EXPANDED_ACTIVITY_TERMS: Record<string, string[]> = {
   driving: ["drive", "driving", "road trip", "highway", "motorway", "freeway", "cruise", "night drive", "dirt road", "backroads", "car ride", "m25", "a road", "b road"],
   workout: ["gym", "workout", "running", "run", "jogging", "lifting", "weights", "cardio", "sprint", "cycling", "boxing", "training", "five a side", "5 a side", "football training", "netball", "rugby training"],
-  focus: ["study", "studying", "focus", "coding", "deep work", "writing", "reading", "homework", "revision", "revising", "coursework", "concentration"],
+  focus: ["study", "studying", "focus", "coding", "deep work", "writing", "reading", "homework", "revision", "revising", "coursework", "concentration", "working in the garage", "garage day", "fixing my car", "fixing cars", "fixing my volvo", "working on cars", "working on my car", "working on motorcycles", "working on motorbikes", "welding", "workshop"],
   party: ["party", "pregame", "pre game", "pres", "pre drinks", "pre-drinks", "sesh", "session", "club", "nightclub", "dancefloor", "festival", "rave", "house party", "celebration", "night out", "pub", "pub night", "beer garden"],
   sleep: ["sleep", "bedtime", "nap", "insomnia", "fall asleep", "wind down", "lullaby", "kip"],
   cleaning: ["cleaning", "clean room", "laundry", "washing", "chores", "tidying", "tidy", "reset day"],
@@ -82,7 +82,7 @@ export const EXPANDED_PLACE_TERMS: Record<"rural" | "outdoors" | "city" | "beach
   city: ["city", "urban", "downtown", "town centre", "city centre", "subway", "street", "nightclub", "skyscraper", "neon", "alley", "rooftop", "warehouse", "london", "manchester", "birmingham", "leeds", "glasgow", "bristol", "liverpool", "newcastle", "cardiff", "edinburgh", "nottingham", "sheffield"],
   beach: ["beach", "coast", "coastal", "seaside", "pier", "island", "summer", "poolside", "ocean", "sea", "surf", "tropical", "brighton", "cornwall", "devon"],
   bedroom: ["bedroom", "room", "alone", "private", "diary", "window", "floor", "flat", "apartment", "uni room", "halls", "dorm"],
-  car: ["car", "drive", "driving", "road trip", "motorway", "highway", "cruise", "backseat", "passenger seat", "passenger princess"],
+  car: ["car", "cars", "volvo", "motorcycle", "motorcycles", "motorbike", "motorbikes", "bike shed", "garage", "workshop", "drive", "driving", "road trip", "motorway", "highway", "cruise", "backseat", "passenger seat", "passenger princess", "fixing cars", "under the hood", "welding"],
 };
 
 export const EXPANDED_EVENT_TERMS = [
@@ -98,10 +98,10 @@ export const EXPANDED_ERA_TERMS: Array<{ label: string; start: number; end: numb
   { label: "60s", start: 1960, end: 1969, terms: ["1960s", "1960's", "60s", "60's", "sixties", "british invasion", "psychedelic era", "mod era"], aesthetic: "psychedelia, folk-rock, British invasion, bright analogue" },
   { label: "70s", start: 1970, end: 1979, terms: ["1970s", "1970's", "70s", "70's", "seventies", "disco era", "classic rock era", "punk era"], aesthetic: "warm funk, disco, punk, expansive analogue rock" },
   { label: "80s", start: 1980, end: 1989, terms: ["1980s", "1980's", "80s", "80's", "eighties", "new wave era", "hair metal era", "synth era", "mtv era"], aesthetic: "neon synths, new wave, gated drums, cinematic gloss" },
-  { label: "90s", start: 1990, end: 1999, terms: ["1990s", "1990's", "90s", "90's", "nineties", "grunge era", "britpop era", "golden age hip hop"], aesthetic: "grunge, alt-rock, boom bap, neo-soul, raw crossover emotion" },
+  { label: "90s", start: 1990, end: 1999, terms: ["1990s", "1990's", "90s", "90's", "nineties", "grunge era", "britpop era", "madchester", "madchester era", "golden age hip hop"], aesthetic: "grunge, alt-rock, boom bap, neo-soul, raw crossover emotion" },
   { label: "00s", start: 2000, end: 2009, terms: ["2000s", "2000's", "00s", "00's", "noughties", "naughties", "aughts", "y2k", "myspace era", "ipod era"], aesthetic: "Y2K gloss, pop punk, emo, ringtone rap, post-punk revival" },
   { label: "10s", start: 2010, end: 2019, terms: ["2010s", "twenty tens", "tens", "tumblr era", "bloghouse revival", "edm era"], aesthetic: "streaming-era indie, EDM crossover, tumblr pop, trap bloom" },
-  { label: "20s", start: 2020, end: 2029, terms: ["2020s", "twenty twenties", "twenties", "pandemic era", "tiktok era"], aesthetic: "hyperpop-adjacent, genre-fluid, lo-fi and emotionally complex" },
+  { label: "20s", start: 2020, end: 2029, terms: ["2020s", "twenty twenties", "twenties", "modern", "current", "today", "new music", "pandemic era", "tiktok era"], aesthetic: "hyperpop-adjacent, genre-fluid, lo-fi and emotionally complex" },
 ];
 
 export function termRegex(terms: string[]): RegExp {
