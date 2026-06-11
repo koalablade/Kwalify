@@ -1911,13 +1911,15 @@ export function buildPlaylistPipeline<T extends {
       intentContract,
       classMap,
     );
+    const countRatio = result.finalTracks.length / Math.max(1, opts.playlistLength);
+    const starvationPenalty = Math.max(0, 1 - countRatio) * 0.35;
     return {
       label: candidate.label,
       inputPool,
       candidatePool,
       result,
       quality,
-      total: quality.overall + Math.min(0.1, result.finalTracks.length / Math.max(1, opts.playlistLength) * 0.1),
+      total: quality.overall + Math.min(0.18, countRatio * 0.18) - starvationPenalty,
     };
   });
   const selectedCandidate = [...candidateAttempts].sort((a, b) => b.total - a.total)[0] ?? candidateAttempts[0];
@@ -2063,12 +2065,13 @@ export function buildPlaylistPipeline<T extends {
     functionName: "buildPlaylistPipeline",
   };
 
+  const fallbackResolveLimit = Math.max(50, opts.playlistLength * 3);
   const lastResortPool: ScoredLibraryTrack<T>[] = contractGuardedScoredPool
     .filter((track) => track.genrePrimary || track.energy != null || track.valence != null)
-    .slice(0, 50);
+    .slice(0, fallbackResolveLimit);
   const emergencyScoredPool: ScoredLibraryTrack<T>[] = contractGuardedScoredPool
     .filter((track) => typeof track.score === "number")
-    .slice(0, 50);
+    .slice(0, fallbackResolveLimit);
 
   function resolveFinalTracks(
     pool: ScoredLibraryTrack<T>[],
@@ -2076,7 +2079,7 @@ export function buildPlaylistPipeline<T extends {
   ): BuildPlaylistPipelineResult<T> | null {
     if (!pool.length) return null;
 
-    const resolvedPool = pool.slice(0, 50);
+    const resolvedPool = pool.slice(0, fallbackResolveLimit);
     const enforcedResolved = enforceFinalPlaylistGenres({
       finalTracks: resolvedPool,
       sortedPool: contractGuardedScoredPool,
@@ -2208,7 +2211,7 @@ export function buildPlaylistPipeline<T extends {
           : !!track.genrePrimary;
 
         return hasAudioFeatures || hasGenre;
-      }).slice(0, 50);
+      }).slice(0, fallbackResolveLimit);
       const resolvedSafeGlobal = resolveFinalTracks(safeGlobalTracks, "global_sample_used");
       if (resolvedSafeGlobal) return resolvedSafeGlobal;
 

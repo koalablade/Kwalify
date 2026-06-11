@@ -806,6 +806,11 @@ function resultHtml(result) {
   const debugHtml = debugModeEnabled() ? buildDebugPanel(result) : "";
   const confidence = result.playlistConfidence || {};
   const confidencePercent = typeof confidence.percent === "number" ? confidence.percent : null;
+  const fallbackNotice = result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+    ? "Quick backup playlist built because the full generator was taking too long."
+    : confidence.recoveryUsed
+      ? "Best available playlist built after relaxing non-critical checks."
+      : null;
   const confidenceHtml = confidencePercent !== null ? `
       <div class="result-confidence ${confidence.recoveryUsed || confidence.fallbackUsed ? "result-confidence--recovered" : ""}">
         <span>${esc(confidence.label || "Playlist confidence")}</span>
@@ -869,6 +874,7 @@ function resultHtml(result) {
       </div>
       <h2 class="result-title">${name}</h2>
       <p class="result-insight">Curated from your liked songs to fit the moment.</p>
+      ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
       ${confidenceHtml}
       <div class="result-vibes">
         ${vibeDotsHtml}
@@ -1104,6 +1110,7 @@ function buildUnifiedDebugPanel(result, dbg) {
         <span class="dp-badge">Repeated: ${artistDiv.repeatedArtists ?? "—"}</span>
         <span class="dp-badge">Over cap: ${artistDiv.cappedTracks ?? "—"}</span>
         ${artistDiv.maxPerArtist ? `<span class="dp-badge">Max / artist: ${artistDiv.maxPerArtist}</span>` : ""}
+        ${artistDiv.topRepeatedArtist ? `<span class="dp-badge">Top repeat: ${esc(artistDiv.topRepeatedArtist)} ×${artistDiv.topRepeatedArtistCount ?? "?"}</span>` : ""}
         ${typeof coherence.avg_transition_score === "number" ? `<span class="dp-badge">Coherence: ${Math.round(coherence.avg_transition_score * 100)}%</span>` : ""}
         ${typeof coherence.avg_position_shift === "number" ? `<span class="dp-badge">Avg move: ${coherence.avg_position_shift}</span>` : ""}
         ${typeof coherence.adjacent_artist_repeats === "number" ? `<span class="dp-badge">Adjacent repeats: ${coherence.adjacent_artist_repeats}</span>` : ""}

@@ -16,6 +16,35 @@ function emotionFit(
   return 1 - (Math.abs(e - profile.energy) + Math.abs(v - profile.valence)) / 2;
 }
 
+function fallbackTransitionCost(
+  a: { energy: number | null; valence: number | null },
+  b: { energy: number | null; valence: number | null }
+): number {
+  return Math.abs((a.energy ?? 0.5) - (b.energy ?? 0.5)) * 0.65 +
+    Math.abs((a.valence ?? 0.5) - (b.valence ?? 0.5)) * 0.35;
+}
+
+function orderFallbackCoherently<T extends { energy: number | null; valence: number | null }>(tracks: T[]): T[] {
+  if (tracks.length <= 2) return tracks;
+  const remaining = [...tracks];
+  const first = remaining.shift()!;
+  const ordered = [first];
+  while (remaining.length > 0) {
+    const current = ordered[ordered.length - 1];
+    let bestIndex = 0;
+    let bestCost = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < remaining.length; index++) {
+      const cost = fallbackTransitionCost(current, remaining[index]) + index * 0.006;
+      if (cost < bestCost) {
+        bestCost = cost;
+        bestIndex = index;
+      }
+    }
+    ordered.push(remaining.splice(bestIndex, 1)[0]);
+  }
+  return ordered;
+}
+
 export function buildFastFallbackPlaylist<
   T extends {
     trackId: string;
@@ -78,5 +107,5 @@ export function buildFastFallbackPlaylist<
     }
   }
 
-  return out;
+  return orderFallbackCoherently(out);
 }

@@ -1326,19 +1326,26 @@ function artistDiversityDiagnostics<T extends { artistName?: string | null }>(
   repeatedArtists: number;
   cappedTracks: number;
   maxPerArtist: number | null;
+  topRepeatedArtist: string | null;
+  topRepeatedArtistCount: number;
 } {
   const counts = new Map<string, number>();
+  const displayNames = new Map<string, string>();
   for (const track of tracks) {
     const artist = (track.artistName ?? "").toLowerCase().trim();
     if (!artist) continue;
     counts.set(artist, (counts.get(artist) ?? 0) + 1);
+    displayNames.set(artist, track.artistName ?? artist);
   }
   const capped = Number.isFinite(maxPerArtist) ? maxPerArtist : Number.MAX_SAFE_INTEGER;
+  const topRepeated = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
   return {
     uniqueArtists: counts.size,
     repeatedArtists: [...counts.values()].filter((count) => count > 1).length,
     cappedTracks: [...counts.values()].reduce((sum, count) => sum + Math.max(0, count - capped), 0),
     maxPerArtist: capped === Number.MAX_SAFE_INTEGER ? null : capped,
+    topRepeatedArtist: topRepeated && topRepeated[1] > 1 ? displayNames.get(topRepeated[0]) ?? topRepeated[0] : null,
+    topRepeatedArtistCount: topRepeated?.[1] ?? 0,
   };
 }
 
@@ -2323,7 +2330,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v26" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v27" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -3147,6 +3154,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
     }
     applyLowComplexityRecovery("pre_evidence_finalization_empty");
+    const minBestAvailableCount = Math.min(length, Math.max(5, Math.ceil(length * 0.40)));
+    const evidenceRelaxations: string[] = [];
+    let strictGenreEvidenceRelaxed = false;
+    let strictEraEvidenceRelaxed = false;
+    let hardValidationRelaxed = false;
     const strictGenreEvidenceDiagnostics = (() => {
       const expectedFamilies = lockedIntent.primaryGenres.length > 0
         ? lockedIntent.primaryGenres
@@ -3179,6 +3191,23 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictGenreEvidenceDiagnostics.active &&
       strictGenreEvidenceDiagnostics.verifiedCount < strictGenreEvidenceDiagnostics.requiredCount
     ) {
+      if (finalTracks.length >= minBestAvailableCount) {
+        strictGenreEvidenceRelaxed = true;
+        evidenceRelaxations.push("genre_evidence_relaxed_best_available");
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            finalCount: finalTracks.length,
+            minBestAvailableCount,
+            strictGenreEvidenceDiagnostics: {
+              ...strictGenreEvidenceDiagnostics,
+              verified: undefined,
+            },
+          },
+          "Explicit genre evidence guard relaxed to best available playlist"
+        );
+      } else {
       req.log.warn(
         {
           userId,
@@ -3217,10 +3246,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         }
       );
       return;
+      }
     }
     if (
       strictGenreEvidenceDiagnostics.active &&
-      strictGenreEvidenceDiagnostics.rejectedCount > 0
+      strictGenreEvidenceDiagnostics.rejectedCount > 0 &&
+      !strictGenreEvidenceRelaxed
     ) {
       finalTracks = strictGenreEvidenceDiagnostics.verified as PlaylistTrack[];
       finalValidation = validateLockedIntentOutput(
@@ -3283,6 +3314,31 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictEraEvidenceDiagnostics.verifiedCount === 0 &&
       !strictEraEvidenceDiagnostics.compatibleFallbackUsed
     ) {
+      if (strictEraEvidenceDiagnostics.compatible.length >= minBestAvailableCount) {
+        strictEraEvidenceRelaxed = true;
+        evidenceRelaxations.push("era_evidence_relaxed_to_compatible_unknowns");
+        finalTracks = strictEraEvidenceDiagnostics.compatible as PlaylistTrack[];
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            finalCount: finalTracks.length,
+            minBestAvailableCount,
+            strictEraEvidenceDiagnostics: {
+              ...strictEraEvidenceDiagnostics,
+              verified: undefined,
+              compatible: undefined,
+            },
+          },
+          "Explicit era evidence guard relaxed to compatible unknown-era playlist"
+        );
+      } else {
       req.log.warn(
         {
           userId,
@@ -3312,8 +3368,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         }
       );
       return;
+      }
     }
-    if (strictEraEvidenceDiagnostics.active) {
+    if (strictEraEvidenceDiagnostics.active && !strictEraEvidenceRelaxed) {
       const nextFinalTracks = strictEraEvidenceDiagnostics.verified.length > 0
         ? strictEraEvidenceDiagnostics.verified
         : strictEraEvidenceDiagnostics.compatible;
@@ -3357,7 +3414,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       verified: undefined,
       compatible: undefined,
       publishedCount: finalTracks.length,
-      publishMode: strictEraEvidenceDiagnostics.active ? "verified_only" : "inactive",
+      publishMode: strictEraEvidenceRelaxed
+        ? "compatible_unknowns_relaxed"
+        : strictEraEvidenceDiagnostics.active ? "verified_only" : "inactive",
+      relaxed: strictEraEvidenceRelaxed,
     };
     const hardValidationFailures = [
       (lockedIntent.primaryGenres.length > 0 || constraintLayer.hard.genres.length > 0) &&
@@ -3366,6 +3426,14 @@ router.post("/generate", async (req, res): Promise<void> => {
         finalValidation.eraAlignment === "FAIL" ? "eraAlignment" : null,
     ].filter((failure): failure is string => !!failure);
     if (finalTracks.length > 0 && hardValidationFailures.length > 0) {
+      if (finalTracks.length >= minBestAvailableCount) {
+        hardValidationRelaxed = true;
+        evidenceRelaxations.push("locked_intent_validation_relaxed_best_available");
+        req.log.warn(
+          { userId, vibe, finalValidation, hardValidationFailures, finalCount: finalTracks.length, minBestAvailableCount },
+          "Hard locked intent validation relaxed to best available playlist"
+        );
+      } else {
       req.log.warn(
         { userId, vibe, finalValidation, hardValidationFailures, finalCount: finalTracks.length },
         "Hard locked intent validation blocked playlist"
@@ -3388,6 +3456,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         }
       );
       return;
+      }
     }
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
@@ -3437,6 +3506,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     const recoveryRelaxations = [
       typeof finalization.diagnostics["recoveryStage"] === "string" ? finalization.diagnostics["recoveryStage"] : null,
       finalization.diagnostics["artistLimitRelaxed"] ? "artist_limit_relaxed" : null,
+      finalization.diagnostics["albumLimitRelaxed"] ? "album_limit_relaxed" : null,
+      ...evidenceRelaxations,
     ].filter((entry): entry is string => !!entry);
     const generationDiagnostics = {
       initialLibrarySize: likedSongs.length,
@@ -3894,6 +3965,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictGenreEvidence: {
         ...strictGenreEvidenceDiagnostics,
         verified: undefined,
+        relaxed: strictGenreEvidenceRelaxed,
       },
       strictEraEvidence: strictEraEvidencePublic,
       finalization: finalization.diagnostics,
@@ -3904,7 +3976,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (!varietyBoost && !devMode) {
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v26",
+        cacheVersion: "v27",
         playlistName,
         vibe,
         mode,
@@ -4027,6 +4099,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictGenreEvidence: {
         ...strictGenreEvidenceDiagnostics,
         verified: undefined,
+        relaxed: strictGenreEvidenceRelaxed,
       },
       strictEraEvidence: strictEraEvidencePublic,
       generationAuditSnapshot,
