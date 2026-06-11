@@ -14,6 +14,19 @@ export interface LockedIntent {
   activity: string | null;
   energy: "low" | "medium" | "high" | null;
   sceneIntent?: SceneIntent | null;
+  interpretationBudget?: InterpretationBudget;
+}
+
+export type PromptComplexity = "low" | "medium" | "high";
+
+export interface InterpretationBudget {
+  complexity: PromptComplexity;
+  complexityScore: number;
+  maxDimensions: number;
+  inferredDimensionsUsed: number;
+  inferredDimensionsAvailable: number;
+  appliedDimensions: string[];
+  droppedDimensions: string[];
 }
 
 export interface SceneLatentVector {
@@ -116,7 +129,7 @@ export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "soul", terms: ["soul", "funk", "motown", "neo soul", "neo-soul", "detroit soul", "gospel"] },
   { family: "metal", terms: ["metal", "metalcore", "heavy metal", "death metal", "black metal", "thrash", "thrash metal", "nu metal", "nu-metal", "deathcore"] },
   { family: "classical", terms: ["classical", "orchestral", "piano", "solo piano", "piano classical", "symphony", "concerto", "nocturne", "sonata", "opera", "chamber", "baroque"] },
-  { family: "christmas", terms: ["christmas", "xmas", "holiday", "holiday song", "festive", "noel", "santa", "jingle bells", "winter wonderland"] },
+  { family: "christmas", terms: ["christmas", "xmas", "christmas holiday", "holiday song", "holiday classics", "festive", "noel", "santa", "jingle bells", "winter wonderland"] },
   { family: "indie", terms: ["indie", "indie music", "lo-fi", "lofi", "chillhop", "bedroom pop", "alternative indie", "study beats"] },
   { family: "blues", terms: ["blues", "delta blues", "chicago blues", "electric blues", "acoustic blues", "blues rock", "blues-rock"] },
   { family: "rnb", terms: ["r&b", "rnb", "classic r&b", "contemporary r&b", "alternative r&b", "alt rnb", "new jack swing"] },
@@ -154,6 +167,27 @@ function termMatchIndex(input: string, term: string): number {
 }
 
 function parseEra(input: string): { start: number; end: number } | null {
+  if (/\bmadchester\b/i.test(input)) return { start: 1988, end: 1992 };
+
+  const relativeDecade = input.match(/\b(early|mid|late|post)\s+(60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s|20\d{2})\b/i);
+  if (relativeDecade?.[1] && relativeDecade[2]) {
+    const qualifier = relativeDecade[1].toLowerCase();
+    const raw = relativeDecade[2].replace("'", "").toLowerCase();
+    const start = raw.length === 5 && raw.endsWith("s")
+      ? Number(raw.slice(0, 4))
+      : raw === "00s" ? 2000
+        : raw === "10s" ? 2010
+          : raw === "20s" ? 2020
+            : /^(60|70|80|90)s$/.test(raw) ? Number(`19${raw.slice(0, 2)}`)
+              : Number(raw);
+    if (Number.isFinite(start)) {
+      if (qualifier === "early") return { start, end: start + 3 };
+      if (qualifier === "mid") return { start: start + 3, end: start + 6 };
+      if (qualifier === "late") return { start: start + 7, end: start + 9 };
+      if (qualifier === "post") return { start: start + 1, end: start + 9 };
+    }
+  }
+
   for (const era of EXPANDED_ERA_TERMS) {
     if (termRegex(era.terms).test(input)) return { start: era.start, end: era.end };
   }
@@ -197,16 +231,152 @@ function expandedActivity(input: string): string | null {
 }
 
 function parseEnergy(input: string): LockedIntent["energy"] {
-  if (termRegex(["gym", "workout", "high energy", "intense", "party", "rave", "running", "buzzing", "gassed", "pres", "pre drinks", "night out", "five a side"]).test(input)) {
+  if (termRegex(["gym", "workout", "high energy", "intense", "running", "buzzing", "gassed", "five a side"]).test(input)) {
     return "high";
+  }
+  if (/\bnot\s+too\s+(?:chill|chilled|relaxed|relaxing|slow|sleepy|soft|calm)\b/i.test(input)) {
+    return null;
   }
   if (termRegex(["chill", "relax", "sleep", "ambient", "calm", "study", "focus", "soft", "low energy", "chilled", "peaceful"]).test(input)) {
     return "low";
   }
-  if (termRegex(["driving", "walking", "commute", "medium energy", "steady", "motorway", "train", "tube"]).test(input)) {
+  if (termRegex(["medium energy", "steady"]).test(input)) {
     return "medium";
   }
   return null;
+}
+
+function promptTokens(input: string): string[] {
+  return input.toLowerCase().match(/[a-z0-9']+/g) ?? [];
+}
+
+function hasExplicitEraText(input: string): boolean {
+  return /\b(?:early|mid|late|post)?\s*(?:60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|19\d0'?s|20\d0'?s|19\d{2}|20\d{2})\b/i.test(input) ||
+    /\b(19\d{2}|20\d{2})\s*(?:-|to|through|until)\s*(19\d{2}|20\d{2})\b/i.test(input);
+}
+
+function classifyPromptComplexity(input: string): { complexity: PromptComplexity; score: number } {
+  const tokens = promptTokens(input);
+  const lower = input.toLowerCase();
+  const connectors = (lower.match(/\b(?:and|with|while|but|or|when|because|after|before|without)\b|\+|,/g) ?? []).length;
+  const sentenceSignals = /\b(?:i|me|my|you|your|feels?|feeling|make|want|need|don't|dont|can't|cant|nothing|everything|normally|remember|like)\b/i.test(lower);
+  const abstractSignals = /\b(?:existential|crisis|nostalgic but modern|feeling nothing|don't know|dont know|normally skip|thinking about)\b/i.test(lower);
+  let score = 0;
+  score += Math.min(tokens.length, 10) / 10;
+  score += Math.min(connectors, 3) * 0.18;
+  if (sentenceSignals) score += 0.22;
+  if (abstractSignals) score += 0.24;
+  if (hasExplicitEraText(lower)) score += 0.10;
+  const complexityScore = clamp01(score);
+  if (tokens.length <= 2 && connectors === 0 && !sentenceSignals && !abstractSignals) {
+    return { complexity: "low", score: Math.min(complexityScore, 0.32) };
+  }
+  if (complexityScore >= 0.72 || tokens.length >= 7 || connectors >= 2 || abstractSignals) {
+    return { complexity: "high", score: complexityScore };
+  }
+  if (tokens.length <= 4 && connectors === 0 && !sentenceSignals) {
+    return { complexity: "low", score: Math.min(complexityScore, 0.45) };
+  }
+  return { complexity: "medium", score: complexityScore };
+}
+
+function budgetLimitFor(complexity: PromptComplexity): number {
+  if (complexity === "low") return 1;
+  if (complexity === "medium") return 2;
+  return 5;
+}
+
+function dimensionNames(intent: Pick<LockedIntent, "genreFamilies" | "eraRange" | "mood" | "activity" | "energy">): string[] {
+  return [
+    intent.genreFamilies.length > 0 ? "genre" : null,
+    intent.eraRange ? "era" : null,
+    intent.mood.length > 0 ? "mood" : null,
+    intent.activity ? "activity" : null,
+    intent.energy ? "energy" : null,
+  ].filter((dimension): dimension is string => !!dimension);
+}
+
+function applyInterpretationBudget(
+  input: string,
+  raw: Pick<LockedIntent, "genreFamilies" | "eraRange" | "mood" | "activity" | "energy">,
+): Pick<LockedIntent, "genreFamilies" | "eraRange" | "mood" | "activity" | "energy"> & { budget: InterpretationBudget } {
+  const classified = classifyPromptComplexity(input);
+  const tokens = promptTokens(input);
+  const rawAvailable = dimensionNames(raw);
+  const complexity: PromptComplexity = rawAvailable.length >= 3
+    ? "high"
+    : classified.complexity === "low" && tokens.length >= 3 && rawAvailable.length > 1
+      ? "medium"
+      : classified.complexity;
+  const score = classified.score;
+  const maxDimensions = budgetLimitFor(complexity);
+  const available = rawAvailable;
+  const explicitEra = hasExplicitEraText(input);
+  const kept: string[] = [];
+  const dropped: string[] = [];
+  const out = {
+    genreFamilies: raw.genreFamilies,
+    eraRange: raw.eraRange,
+    mood: raw.mood,
+    activity: raw.activity,
+    energy: raw.energy,
+  };
+  const drop = (dimension: string): void => {
+    if (!dropped.includes(dimension)) dropped.push(dimension);
+    if (dimension === "genre") out.genreFamilies = [];
+    if (dimension === "era") out.eraRange = null;
+    if (dimension === "mood") out.mood = [];
+    if (dimension === "activity") out.activity = null;
+    if (dimension === "energy") out.energy = null;
+  };
+  const keep = (dimension: string): void => {
+    if (!kept.includes(dimension)) kept.push(dimension);
+  };
+
+  const priority = complexity === "low"
+    ? ["genre", "activity", "mood", "era", "energy"]
+    : ["genre", "era", "mood", "activity", "energy"];
+
+  if (complexity === "low" && out.eraRange && !explicitEra) drop("era");
+  if (complexity === "medium" && out.eraRange && !explicitEra && out.genreFamilies.length === 0) drop("era");
+
+  for (const dimension of priority) {
+    const active =
+      (dimension === "genre" && out.genreFamilies.length > 0) ||
+      (dimension === "era" && !!out.eraRange) ||
+      (dimension === "mood" && out.mood.length > 0) ||
+      (dimension === "activity" && !!out.activity) ||
+      (dimension === "energy" && !!out.energy);
+    if (!active) continue;
+    if (kept.length < maxDimensions) {
+      keep(dimension);
+    } else {
+      drop(dimension);
+    }
+  }
+
+  for (const dimension of available) {
+    const active =
+      (dimension === "genre" && out.genreFamilies.length > 0) ||
+      (dimension === "era" && !!out.eraRange) ||
+      (dimension === "mood" && out.mood.length > 0) ||
+      (dimension === "activity" && !!out.activity) ||
+      (dimension === "energy" && !!out.energy);
+    if (!active && !dropped.includes(dimension)) dropped.push(dimension);
+  }
+
+  return {
+    ...out,
+    budget: {
+      complexity,
+      complexityScore: score,
+      maxDimensions,
+      inferredDimensionsUsed: dimensionNames(out).length,
+      inferredDimensionsAvailable: available.length,
+      appliedDimensions: dimensionNames(out),
+      droppedDimensions: dropped,
+    },
+  };
 }
 
 export function eraRangeFromBucket(bucket?: string | null): { start: number; end: number } | null {
@@ -391,17 +561,20 @@ const TOKEN_CONTRIBUTIONS: Array<{ pattern: RegExp; weight: number; vector: Part
   { pattern: /\b(petrol station|gas station|service station)\b/, weight: 1.0, vector: { motion: 0.30, introspection: 0.35, darkness: 0.24, tension: 0.22, energy: -0.08, socialness: -0.18 } },
   { pattern: /\b(2\s?am|3\s?am|4\s?am|late.?night|midnight|after.?dark)\b/, weight: 1.0, vector: { darkness: 0.58, introspection: 0.34, energy: -0.22, tension: 0.22, socialness: -0.20, clarity: -0.12 } },
   { pattern: /\b(existential crisis|existential|crisis|spiral|overthinking|thinking about everything)\b/, weight: 1.0, vector: { tension: 0.52, introspection: 0.52, valence: -0.32, clarity: -0.26, darkness: 0.24 } },
+  { pattern: /\b(garage|workshop|welding|under the hood|fixing (?:my )?(?:car|cars|volvo)|working on (?:my )?(?:car|cars|motorcycles|motorbikes))\b/, weight: 1.0, vector: { clarity: 0.36, motion: 0.18, energy: 0.08, socialness: -0.04 } },
   { pattern: /\b(drive|driving|road|highway|dirt.?road|cruise|car)\b/, weight: 1.0, vector: { motion: 0.58, energy: 0.12, introspection: 0.12, clarity: 0.06 } },
   { pattern: /\b(nowhere|aimless|no destination|don't need to be|dont need to be)\b/, weight: 1.0, vector: { motion: 0.26, introspection: 0.42, tension: 0.18, clarity: -0.20, socialness: -0.12 } },
   { pattern: /\b(rain|rainy|storm|thunder|wet road|drizzle)\b/, weight: 1.0, vector: { introspection: 0.28, darkness: 0.26, tension: 0.14, warmth: -0.12, valence: -0.10 } },
   { pattern: /\b(memory|memories|nostalg|remember|throwback|old photos?)\b/, weight: 1.0, vector: { nostalgia: 0.62, introspection: 0.32, warmth: 0.20, valence: -0.06 } },
   { pattern: /\b(cleaning|clean room|bedroom|room|laundry)\b/, weight: 0.9, vector: { clarity: 0.26, introspection: 0.24, motion: 0.12, socialness: -0.14 } },
   { pattern: /\b(first warm day|after winter|spring|sun comes back|golden|sunrise)\b/, weight: 1.0, vector: { warmth: 0.58, valence: 0.38, energy: 0.18, darkness: -0.28, clarity: 0.20 } },
-  { pattern: /\b(sad|sadness|lonely|alone|heartbreak|blue|melanchol)\b/, weight: 1.0, vector: { valence: -0.34, introspection: 0.32, tension: 0.24, socialness: -0.20, darkness: 0.22 } },
-  { pattern: /\b(calm|chill|soft|peaceful|ambient|sleep|relax)\b/, weight: 1.0, vector: { energy: -0.24, tension: -0.22, clarity: 0.14, warmth: 0.12, valence: 0.08 } },
-  { pattern: /\b(hype|energ|intense|workout|gym|run|party|rave|dance)\b/, weight: 1.0, vector: { energy: 0.44, motion: 0.28, socialness: 0.36, tension: 0.12, introspection: -0.20 } },
+  { pattern: /\b(sad|sadness|lonely|alone|heartbreak|crying|fight|argument|blue|melanchol)\b/, weight: 1.0, vector: { valence: -0.34, introspection: 0.32, tension: 0.24, socialness: -0.20, darkness: 0.22 } },
+  { pattern: /\b(calm|calmly|chill|soft|peaceful|ambient|sleep|relax)\b/, weight: 1.0, vector: { energy: -0.24, tension: -0.22, clarity: 0.14, warmth: 0.12, valence: 0.08 } },
+  { pattern: /\b(happy|upbeat|hype|energ|intense|workout|gym|run|party|rave|dance)\b/, weight: 1.0, vector: { energy: 0.44, motion: 0.28, socialness: 0.36, tension: 0.12, introspection: -0.20, valence: 0.18 } },
   { pattern: /\b(study|focus|coding|work|deep work)\b/, weight: 1.0, vector: { clarity: 0.46, introspection: 0.22, energy: -0.08, socialness: -0.24, tension: -0.08 } },
   { pattern: /\b(warm|cozy|cosy|comfort|soft light)\b/, weight: 0.9, vector: { warmth: 0.42, valence: 0.16, tension: -0.12, darkness: -0.10 } },
+  { pattern: /\b(discover|new-to-me|new to me|like my liked songs|my taste|normally skip|different genres|older)\b/, weight: 0.9, vector: { nostalgia: 0.26, clarity: 0.20, introspection: 0.12, socialness: -0.08 } },
+  { pattern: /\b(gta|loading screen|video game|game soundtrack)\b/, weight: 0.9, vector: { energy: 0.18, motion: 0.22, tension: 0.18, darkness: 0.14, socialness: 0.10 } },
 ];
 
 function emptyLatentVector(): SceneLatentVector {
@@ -517,6 +690,47 @@ function sceneConfidence(sceneVector: SceneLatentVector, mixture: VibeMixture): 
     ? 1
     : mixture.vectors.reduce((sum, vector) => sum + latentCosine(sceneVector, vector), 0) / mixture.vectors.length;
   return clamp01(prototypeConfidence * 0.65 + mixtureAgreement * 0.35);
+}
+
+function explicitDimensionCount(
+  genreFamilies: string[],
+  mood: string[],
+  activity: string | null,
+  energy: "low" | "medium" | "high" | null,
+  eraRange?: { start: number; end: number } | null,
+): number {
+  return [
+    genreFamilies.length > 0,
+    mood.length > 0,
+    !!activity,
+    !!energy,
+    !!eraRange,
+  ].filter(Boolean).length;
+}
+
+function ambiguityDampenedConfidence(
+  confidence: number,
+  explicitCount: number,
+  input: string,
+  genreFamilies: string[] = [],
+  mood: string[] = [],
+  eraRange: { start: number; end: number } | null = null,
+  budget?: InterpretationBudget | null,
+): number {
+  const lower = input.toLowerCase();
+  const vague = /\b(?:music|songs|vibes?|something|whatever|don[’']?t know|not sure|what you want|feeling nothing)\b/.test(lower);
+  const tokenCount = lower.split(/\s+/).filter(Boolean).length;
+  const mixedMood = mood.length > 1;
+  const ambiguousModernEra = !!eraRange && mood.length > 0 && /\b(?:modern|current|today|new music)\b/.test(lower);
+  if (budget?.complexity === "low") return Math.min(confidence, 0.58);
+  if (budget?.complexity === "medium" && budget.inferredDimensionsUsed >= 2) return Math.min(confidence, 0.66);
+  if (explicitCount <= 0) return Math.min(confidence, 0.48);
+  if (genreFamilies.length === 0 && (mixedMood || ambiguousModernEra) && explicitCount <= 2) return Math.min(confidence, 0.58);
+  if (genreFamilies.length === 0 && tokenCount <= 2 && explicitCount === 2) return Math.min(confidence, 0.58);
+  if (genreFamilies.length === 0 && vague && explicitCount === 2) return Math.min(confidence, 0.58);
+  if (explicitCount === 1 && vague) return Math.min(confidence, 0.58);
+  if (explicitCount === 1) return Math.min(confidence, 0.66);
+  return confidence;
 }
 
 function hasMultiVibeAmbiguity(sceneVector: SceneLatentVector, mixture: VibeMixture): boolean {
@@ -679,6 +893,8 @@ function buildSceneIntent(
   mood: string[],
   activity: string | null,
   energy: "low" | "medium" | "high" | null,
+  eraRange: { start: number; end: number } | null = null,
+  budget: InterpretationBudget | null = null,
 ): SceneIntent | null {
   const matchedTerms = parseMatchedGenreTerms(input);
   const styleTerms = matchedTerms.filter((term) =>
@@ -693,7 +909,16 @@ function buildSceneIntent(
   const fusedVector = fuseVibeMixture(vibeMixture);
   const stableVibeVector = temporalSmooth(fusedVector, 0.4);
   const recenteredVector = recenterSceneVector(stableVibeVector);
-  const confidence = sceneConfidence(recenteredVector, vibeMixture);
+  const explicitCount = explicitDimensionCount(genreFamilies, mood, activity, energy, eraRange);
+  const confidence = ambiguityDampenedConfidence(
+    sceneConfidence(recenteredVector, vibeMixture),
+    explicitCount,
+    input,
+    genreFamilies,
+    mood,
+    eraRange,
+    budget,
+  );
   const fallbackMode: SceneIntent["fallbackMode"] =
     confidence < 0.62 || hasMultiVibeAmbiguity(recenteredVector, vibeMixture)
       ? "balanced_latent_centroid"
@@ -716,7 +941,7 @@ function buildSceneIntent(
     contextWorld,
     intentDriver,
     genreRoles: {
-      anchor: primaryAnchor ?? genreFamilies[0] ?? "pop",
+      anchor: primaryAnchor ?? genreFamilies[0] ?? "unspecified",
       satellites,
     },
     sceneVector,
@@ -737,6 +962,7 @@ function completeSceneIntent(
   mood: string[],
   activity: string | null,
   energy: "low" | "medium" | "high" | null,
+  eraRange: { start: number; end: number } | null = null,
 ): SceneIntent | null {
   if (!sceneIntent) return null;
   const maybeScene = sceneIntent as Partial<SceneIntent>;
@@ -759,7 +985,15 @@ function completeSceneIntent(
   const baseVector = maybeScene.sceneVector ?? fuseVibeMixture(vibeMixture);
   const stableVibeVector = maybeScene.stableVibeVector ?? temporalSmooth(baseVector, 0.4);
   const recenteredVector = recenterSceneVector(stableVibeVector);
-  const confidence = maybeScene.sceneConfidence ?? sceneConfidence(recenteredVector, vibeMixture);
+  const explicitCount = explicitDimensionCount(genreFamilies, mood, activity, energy, eraRange);
+  const confidence = ambiguityDampenedConfidence(
+    maybeScene.sceneConfidence ?? sceneConfidence(recenteredVector, vibeMixture),
+    explicitCount,
+    genreFamilies.join(" "),
+    genreFamilies,
+    mood,
+    eraRange,
+  );
   const fallbackMode: SceneIntent["fallbackMode"] = maybeScene.fallbackMode ??
     (confidence < 0.62 ? "balanced_latent_centroid" : "latent");
   const sceneVector = fallbackMode === "balanced_latent_centroid"
@@ -775,7 +1009,7 @@ function completeSceneIntent(
     contextWorld: maybeScene.contextWorld ?? latentToContextWorld(sceneVector),
     intentDriver: maybeScene.intentDriver ?? latentToIntentDriver(sceneVector),
     genreRoles: maybeScene.genreRoles ?? {
-      anchor: genreFamilies[0] ?? "pop",
+      anchor: genreFamilies[0] ?? "unspecified",
       satellites: genreFamilies.slice(1),
     },
     sceneVector,
@@ -817,17 +1051,19 @@ export function completeLockedIntent(
   const completedSceneIntent = completeSceneIntent(
     intent.sceneIntent ?? fallbacks.sceneIntent ?? null,
     genreFamilies,
-    intent.mood.length > 0 ? intent.mood : fallbacks.mood ?? ["balanced"],
-    intent.activity ?? fallbacks.activity ?? "listening",
-    intent.energy ?? fallbacks.energy ?? "medium",
+    intent.mood.length > 0 ? intent.mood : fallbacks.mood ?? [],
+    intent.activity ?? fallbacks.activity ?? null,
+    intent.energy ?? fallbacks.energy ?? null,
+    intent.eraRange ?? fallbacks.eraRange ?? null,
   );
 
   return {
-    genreFamilies: genreFamilies.length > 0 ? genreFamilies : ["pop"],
+    genreFamilies,
     eraRange: intent.eraRange ?? fallbacks.eraRange ?? null,
-    mood: intent.mood.length > 0 ? intent.mood.slice(0, 3) : (fallbacks.mood?.slice(0, 3) ?? ["balanced"]),
-    activity: intent.activity ?? fallbacks.activity ?? "listening",
-    energy: intent.energy ?? fallbacks.energy ?? "medium",
+    mood: intent.mood.length > 0 ? intent.mood.slice(0, 3) : (fallbacks.mood?.slice(0, 3) ?? []),
+    activity: intent.activity ?? fallbacks.activity ?? null,
+    energy: intent.energy ?? fallbacks.energy ?? null,
+    interpretationBudget: intent.interpretationBudget,
     sceneIntent: completedSceneIntent ?? (
       genreFamilies.length > 1
         ? (() => {
@@ -852,7 +1088,7 @@ export function completeLockedIntent(
             contextWorld: latentToContextWorld(sceneVector),
             intentDriver: latentToIntentDriver(sceneVector),
             genreRoles: {
-              anchor: genreFamilies[0] ?? "pop",
+              anchor: genreFamilies[0] ?? "unspecified",
               satellites: genreFamilies.slice(1),
             },
             sceneVector,
@@ -873,15 +1109,15 @@ export function completeLockedIntent(
 
 export function buildLockedIntent(input: string): LockedIntent {
   const lower = input.toLowerCase();
-  const genreFamilies = parseGenreFamilies(lower);
+  const rawGenreFamilies = parseGenreFamilies(lower);
 
   const excludedMoods = excludedMoodTags(lower);
-  const mood = [
-    /\b(sad|melanchol|lonely|blue|heartbreak|rainy|rain)\b/.test(lower) ? "melancholic" : null,
-    /\b(calm|chill|relax|soft|peaceful|winter|snowy|snow)\b/.test(lower) ? "calm" : null,
+  const rawMood = [
+    /\b(sad|melanchol|lonely|blue|heartbreak|crying|fight|argument|rainy|rain)\b/.test(lower) ? "melancholic" : null,
+    /\b(calm|calmly|chill|relax|soft|peaceful|winter|snowy|snow)\b/.test(lower) ? "calm" : null,
     /\b(nostalg|throwback|retro|memory)\b/.test(lower) ? "nostalgic" : null,
     /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq|winter|snowy|snow)\b/.test(lower) ? "warm" : null,
-    /\b(hype|energ|intense|pump)\b/.test(lower) ? "energised" : null,
+    /\b(happy|upbeat|hype|energ|intense|pump)\b/.test(lower) ? "energised" : null,
     ...expandedMoodTerms(lower),
   ]
     .filter((tag): tag is string => !!tag && !excludedMoods.has(tag))
@@ -897,14 +1133,31 @@ export function buildLockedIntent(input: string): LockedIntent {
               null
   );
 
-  const energy = parseEnergy(lower);
+  const rawEnergy = parseEnergy(lower);
+  const rawEraRange = parseEra(lower);
+  const budgeted = applyInterpretationBudget(lower, {
+    genreFamilies: rawGenreFamilies,
+    eraRange: rawEraRange,
+    mood: rawMood,
+    activity,
+    energy: rawEnergy,
+  });
 
   return {
-    genreFamilies,
-    eraRange: parseEra(lower),
-    mood,
-    activity,
-    energy,
-    sceneIntent: buildSceneIntent(lower, genreFamilies, mood, activity, energy),
+    genreFamilies: budgeted.genreFamilies,
+    eraRange: budgeted.eraRange,
+    mood: budgeted.mood,
+    activity: budgeted.activity,
+    energy: budgeted.energy,
+    interpretationBudget: budgeted.budget,
+    sceneIntent: buildSceneIntent(
+      lower,
+      budgeted.genreFamilies,
+      budgeted.mood,
+      budgeted.activity,
+      budgeted.energy,
+      budgeted.eraRange,
+      budgeted.budget,
+    ),
   };
 }

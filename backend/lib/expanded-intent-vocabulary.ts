@@ -23,7 +23,7 @@ const COMMON_MISSPELLINGS: Record<string, string[]> = {
   valentine: ["valentines", "valentines day", "valentine's"],
 };
 
-const FUZZY_TOKEN_MIN_LENGTH = 5;
+const FUZZY_TOKEN_MIN_LENGTH = 6;
 const FUZZY_TOKEN_MAX_LENGTH = 18;
 
 export const EXPANDED_GENRE_ALIASES: GenreAliasGroup[] = [
@@ -49,11 +49,11 @@ export const EXPANDED_GENRE_ALIASES: GenreAliasGroup[] = [
 
 export const EXPANDED_MOOD_TERMS: Record<string, string[]> = {
   melancholic: ["sad", "melancholy", "melancholic", "blue", "lonely", "heartbroken", "heartbreak", "grief", "crying", "tearful", "wistful", "bittersweet", "yearning", "longing", "empty", "hollow", "aching", "devastated", "gutted", "proper sad", "down bad", "mardy", "fed up"],
-  warm: ["warm", "cozy", "cosy", "golden", "sunny", "winter", "snowy", "snow", "comforting", "comfort", "tender", "soft", "gentle", "glowing", "homey", "homely", "safe", "romantic", "sweet", "lovely", "wholesome"],
+  warm: ["warm", "cozy", "cosy", "golden", "sunny", "happy", "winter", "snowy", "snow", "comforting", "comfort", "tender", "soft", "gentle", "glowing", "homey", "homely", "safe", "romantic", "sweet", "lovely", "wholesome"],
   introspective: ["introspective", "reflective", "thinking", "overthinking", "pensive", "contemplative", "diary", "private", "alone", "solitude", "existential", "spiral", "processing", "in my head", "head full", "over it"],
   nostalgic: ["nostalgic", "nostalgia", "throwback", "retro", "vintage", "old memories", "childhood", "teenage", "school days", "uni days", "sixth form", "remember", "reminiscent", "memory lane"],
-  energised: ["hype", "hyped", "energised", "energized", "adrenaline", "pump up", "pumped", "intense", "explosive", "fired up", "buzzing", "gassed", "party", "rave", "mosh", "gym", "workout"],
-  calm: ["calm", "peaceful", "serene", "relaxed", "sleepy", "sleep", "quiet", "still", "winter", "snowy", "snow", "meditative", "ambient", "floating", "drifting", "soft focus", "chilled", "chill", "chillout", "easy", "easygoing"],
+  energised: ["hype", "hyped", "happy", "upbeat", "energised", "energized", "adrenaline", "pump up", "pumped", "intense", "explosive", "fired up", "buzzing", "gassed", "party", "rave", "mosh", "gym", "workout"],
+  calm: ["calm", "calmly", "peaceful", "serene", "relaxed", "sleepy", "sleep", "quiet", "still", "winter", "snowy", "snow", "meditative", "ambient", "floating", "drifting", "soft focus", "chilled", "chill", "chillout", "easy", "easygoing"],
   dark: ["dark", "gothic", "noir", "ominous", "haunting", "eerie", "shadowy", "brooding", "menacing", "sinister", "moody", "grim"],
   euphoric: ["euphoric", "ecstatic", "bliss", "joyful", "triumphant", "uplifting", "celebratory", "victorious", "hands in the air", "buzzing", "on top of the world"],
   angry: ["angry", "rage", "furious", "aggressive", "vengeful", "pissed", "pissed off", "fuming", "wound up", "livid", "resentful", "defiant", "rebellious"],
@@ -88,7 +88,7 @@ export const EXPANDED_PLACE_TERMS: Record<"rural" | "outdoors" | "city" | "beach
 export const EXPANDED_EVENT_TERMS = [
   "wedding", "breakup", "divorce", "first date", "date night", "graduation", "prom", "freshers", "freshers week", "homecoming",
   "funeral", "wake", "birthday", "house party", "festival", "afterparty", "pre game", "pregame", "pres", "pre drinks",
-  "christmas", "xmas", "chrimbo", "new year", "new year's", "halloween", "bonfire night", "guy fawkes", "valentine", "summer holiday", "holiday", "vacation",
+  "christmas", "xmas", "chrimbo", "new year", "new year's", "halloween", "bonfire night", "guy fawkes", "valentine", "summer holiday", "vacation",
   "road trip", "moving house", "leaving home", "coming home", "exam season", "finals", "revision", "results day", "game day", "football", "match day", "bank holiday", "boxing day", "easter", "eurovision",
 ];
 

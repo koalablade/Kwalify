@@ -218,6 +218,15 @@ type LockedIntent = {
   mood: string[];
   activity: string | null;
   energyLevel: "low" | "medium" | "high" | null;
+  interpretationBudget?: {
+    complexity: "low" | "medium" | "high";
+    complexityScore: number;
+    maxDimensions: number;
+    inferredDimensionsUsed: number;
+    inferredDimensionsAvailable: number;
+    appliedDimensions: string[];
+    droppedDimensions: string[];
+  };
 };
 
 type ConstraintTrack = V3MetadataTrack<{
@@ -2006,7 +2015,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v18" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v22" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -2532,6 +2541,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       eraStart: parsedCsspIntent.eraRange?.start ?? constraintLayer.hard.eraStart,
       eraEnd: parsedCsspIntent.eraRange?.end ?? constraintLayer.hard.eraEnd,
       energyLevel: parsedCsspIntent.energy,
+      interpretationBudget: parsedCsspIntent.interpretationBudget,
     };
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
@@ -2588,6 +2598,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         canonicalHints: qualitySignalContext.canonicalHints,
         constraintLayer,
         lockedIntent,
+        interpretationBudget: lockedIntent.interpretationBudget,
       },
       "Quality signal and constraint context prepared"
     );
@@ -3307,7 +3318,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v18",
+        cacheVersion: "v22",
         playlistName,
         vibe,
         mode,

@@ -62,6 +62,7 @@ import {
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
 import { compilePersonalPlaylist, type PersonalCompilerTrack } from "./personal-playlist-compiler";
+import { buildCoherentPlaylist } from "./playlist-coherence-engine";
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -1680,17 +1681,14 @@ function buildV3LockedIntent<T extends {
   classMap: UserGenreProfile["trackClassifications"],
   explicitGenreFamilies: string[],
 ): LockedIntent {
-  const poolGenreFamilies = topGenreFamiliesFromPool(candidatePool, classMap);
   return completeLockedIntent(unifiedIntentContext.lockedIntent, {
     genreFamilies: explicitGenreFamilies.length > 0
       ? explicitGenreFamilies
-      : poolGenreFamilies.length > 0
-        ? poolGenreFamilies
-        : undefined,
+      : undefined,
     eraRange: unifiedIntentContext.lockedIntent.eraRange ?? null,
-    mood: moodFallbackFromProfile(profile),
-    activity: "listening",
-    energy: energyIntentFromProfile(profile),
+    mood: undefined,
+    activity: undefined,
+    energy: undefined,
   });
 }
 
@@ -2396,7 +2394,16 @@ export function buildPlaylistPipeline<T extends {
     playlistLength: opts.playlistLength,
     maxPerArtist: opts.maxPerArtist,
   });
-  const finalTracksForReturn = personalCompilation.tracks as unknown as T[];
+  const coherence = buildCoherentPlaylist(
+    personalCompilation.tracks as unknown as T[],
+    v3LockedIntent,
+  );
+  const finalTracksForReturn = coherence.reorderedTracks as unknown as T[];
+  opts.pipelineLog?.info({
+    coherence_fallback_used: coherence.diagnostics.coherence_fallback_used,
+    avg_transition_score: coherence.diagnostics.avg_transition_score,
+    energy_curve: coherence.diagnostics.energy_curve,
+  }, "Playlist coherence layer complete");
   const playlistQuality = evaluatePlaylistQuality(
     finalTracksForReturn as unknown as IntentContractTrack[],
     intentContract,
@@ -2467,6 +2474,7 @@ export function buildPlaylistPipeline<T extends {
         playlistCritic: playlistCritic.diagnostics,
         explicitIntentRepair: explicitIntentRepair.diagnostics,
         personalCompiler: personalCompilation.diagnostics,
+        playlistCoherence: coherence.diagnostics,
       },
     },
     hybridExcludedCount: scoring.hybridExcludedCount,
