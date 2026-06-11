@@ -2330,7 +2330,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v27" && hasValidCachedIntent(cached)) {
+      if (cached && cached.cacheVersion === "v28" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
@@ -3976,7 +3976,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (!varietyBoost && !devMode) {
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v27",
+        cacheVersion: "v28",
         playlistName,
         vibe,
         mode,

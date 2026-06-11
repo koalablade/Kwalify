@@ -2,7 +2,7 @@
  * Per-user generate session — single active request, phase tracking, Spotify idempotency.
  */
 
-import { REQUEST_HARD_TIMEOUT_MS } from "./production-limits";
+import { REQUEST_FAST_FALLBACK_MS, REQUEST_HARD_TIMEOUT_MS } from "./production-limits";
 
 export type GeneratePhase =
   | "idle"
@@ -173,6 +173,7 @@ export function getGenerateProgress(userId: string): {
   startedAt: number;
   elapsedMs: number;
   lastUpdatedAt: number;
+  fallbackEligibleAt: number;
   partialTracks: GenerateProgressTrack[];
 } | null {
   const s = sessions.get(userId);
@@ -191,6 +192,7 @@ export function getGenerateProgress(userId: string): {
     startedAt: s.startedAt,
     elapsedMs: Date.now() - s.startedAt,
     lastUpdatedAt: s.updatedAt,
+    fallbackEligibleAt: s.startedAt + REQUEST_FAST_FALLBACK_MS,
     partialTracks: s.partialTracks,
   };
 }
@@ -206,12 +208,13 @@ export function getGenerateStatus(userId: string): {
   startedAt: number | null;
   elapsedMs: number;
   lastUpdatedAt: number | null;
+  fallbackEligibleAt: number | null;
   active: boolean;
   partialTracks: GenerateProgressTrack[];
 } {
   const progress = getGenerateProgress(userId);
   if (!progress) {
-    return { phase: "idle", stage: null, stageIndex: 0, stageCount: 5, stageDetail: null, requestId: null, startedAt: null, elapsedMs: 0, lastUpdatedAt: null, active: false, partialTracks: [] };
+    return { phase: "idle", stage: null, stageIndex: 0, stageCount: 5, stageDetail: null, requestId: null, startedAt: null, elapsedMs: 0, lastUpdatedAt: null, fallbackEligibleAt: null, active: false, partialTracks: [] };
   }
   return {
     phase: progress.phase,
@@ -223,6 +226,7 @@ export function getGenerateStatus(userId: string): {
     startedAt: progress.startedAt,
     elapsedMs: progress.elapsedMs,
     lastUpdatedAt: progress.lastUpdatedAt,
+    fallbackEligibleAt: progress.fallbackEligibleAt,
     active: true,
     partialTracks: progress.partialTracks,
   };

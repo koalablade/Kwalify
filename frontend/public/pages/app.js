@@ -750,7 +750,7 @@ function generatingHtml() {
   const partialHtml = visiblePartialTracks.length ? `
       <div class="generating-partials">
         <div class="generating-partials-head">
-          Previewing ${visiblePartialTracks.length} track${visiblePartialTracks.length === 1 ? "" : "s"}
+          Previewing ${visiblePartialTracks.length} likely track${visiblePartialTracks.length === 1 ? "" : "s"}
           ${addingTracks ? `<span class="adding-tracks">adding tracks…</span>` : ""}
         </div>
         ${visiblePartialTracks.map((track, i) => `
@@ -1989,6 +1989,7 @@ function startGenerationStatusPolling() {
           stageDetail: r.data.stageDetail || null,
           requestId: r.data.requestId || null,
           startedAt: typeof r.data.startedAt === "number" ? r.data.startedAt : Date.now(),
+          fallbackEligibleAt: typeof r.data.fallbackEligibleAt === "number" ? r.data.fallbackEligibleAt : null,
           partialTracks: nextPartialTracks,
         };
         renderApp();
@@ -2010,7 +2011,7 @@ async function generate() {
 
   state.generating = true;
   state.partialPreviewStartedAt = null;
-  state.generationProgress = { phase: "starting", stage: "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), partialTracks: [] };
+  state.generationProgress = { phase: "starting", stage: "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), fallbackEligibleAt: null, partialTracks: [] };
   state.lastResult = null;
   state.error = null;
   state.errorDetails = null;

@@ -139,6 +139,7 @@ export interface SpotifyAudioFeatures {
 }
 
 const MIN_SPOTIFY_GAP_MS = 110;
+const SPOTIFY_REQUEST_TIMEOUT_MS = 12_000;
 const sessionThrottle = new Map<string, Promise<void>>();
 
 async function awaitSpotifySlot(userKey?: string): Promise<void> {
@@ -170,7 +171,10 @@ async function spotifyRequest<T = unknown>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     await awaitSpotifySlot(opts.userKey);
     try {
-      return await axios.request<T>(config);
+      return await axios.request<T>({
+        timeout: SPOTIFY_REQUEST_TIMEOUT_MS,
+        ...config,
+      });
     } catch (err: any) {
       lastErr = err;
       const status = err?.response?.status;
