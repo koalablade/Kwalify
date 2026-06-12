@@ -12,6 +12,13 @@ import { getGenreFamily } from "./global-diversity-controller";
 import type { LockedIntent } from "./intent";
 import { withDecisionWeight, type TrackDecision } from "./track-decision";
 import { artistExceedsSessionCap, type SessionArtistMemory } from "./constraint-relaxation";
+import {
+  boundedClusterSaturationPenalty,
+  boundedFamilySaturationPenalty,
+  boundedTrackReusePenalty,
+  buildDiversityTraceComponents,
+  type DiversityTraceComponents,
+} from "./diversity-pressure";
 
 export interface SampledLaneResult<T extends ScorerTrack> {
   laneId: string;
@@ -21,6 +28,7 @@ export interface SampledLaneResult<T extends ScorerTrack> {
     genrePrimary: string;
     laneEra: EraBucket;
     clusterIds: string[];
+    diversity: DiversityTraceComponents | null;
   }>;
 }
 
@@ -63,7 +71,11 @@ export function selectFromClusters<T extends ScorerTrack>(
   targetCount: number,
   laneId: string,
   seed = "v3-selection",
-  opts: { lockedIntent?: LockedIntent; sessionArtistMemory?: SessionArtistMemory } = {},
+  opts: {
+    lockedIntent?: LockedIntent;
+    sessionArtistMemory?: SessionArtistMemory;
+    recentTrackPenalty?: Map<string, number>;
+  } = {},
 ): ClusterSelectionResult<T> {
   const { scoredTracks, trackToClusterIds, clusters } = pool;
 
@@ -124,6 +136,35 @@ export function selectFromClusters<T extends ScorerTrack>(
     return contributions.length > 0 ? Math.max(...contributions) : 0;
   }
 
+  function candidateDiversity(decision: TrackDecision<T>): DiversityTraceComponents {
+    const cids = trackToClusterIds.get(decision.track.trackId) ?? [];
+    const clusterSaturationPenalty = boundedClusterSaturationPenalty(
+      cids.reduce((sum, cid) => sum + (clusterPickCount.get(cid) ?? 0), 0)
+    );
+    const family = getGenreFamily(decision.genrePrimary ?? "unknown");
+    const familySaturationPenalty = boundedFamilySaturationPenalty(familyPickCount.get(family) ?? 0);
+    const recentTrackPenalty = opts.recentTrackPenalty?.get(decision.track.trackId) ?? decision.diversity?.recentTrackPenalty ?? 0;
+    const trackReusePenalty = boundedTrackReusePenalty(recentTrackPenalty);
+
+    return buildDiversityTraceComponents({
+      artistMemoryMultiplier: 1 - (decision.diversity?.artistMemoryPenalty ?? 0),
+      recentTrackPenalty,
+      trackReusePenalty,
+      clusterSaturationPenalty,
+      familySaturationPenalty,
+      artistGravity: decision.diversity?.artistGravity ?? 0,
+    });
+  }
+
+  function diversityTieBreak(a: TrackDecision<T>, b: TrackDecision<T>): number {
+    const da = candidateDiversity(a);
+    const db = candidateDiversity(b);
+    return da.recentTrackPenalty - db.recentTrackPenalty ||
+      da.artistGravity - db.artistGravity ||
+      da.clusterSaturationPenalty - db.clusterSaturationPenalty ||
+      da.familySaturationPenalty - db.familySaturationPenalty;
+  }
+
   function behavioralModifier(decision: TrackDecision<T>, bucketName = "core"): number {
     const cids = trackToClusterIds.get(decision.track.trackId) ?? [];
     const energyBand = clusterValue(decision, "energy:");
@@ -153,15 +194,18 @@ export function selectFromClusters<T extends ScorerTrack>(
 
   function distributionScore(decision: TrackDecision<T>, bucketName = "core"): number {
     const explorationAdjustment = behavioralModifier(decision, bucketName);
-    return clamp01(decision.finalScore * 0.94 + explorationAdjustment * 0.06);
+    const diversity = candidateDiversity(decision);
+    return clamp01((decision.finalScore * 0.94 + explorationAdjustment * 0.06) * (1 - diversity.trackReusePenalty));
   }
 
   function scoredDecision(decision: TrackDecision<T>, bucketName = "core"): TrackDecision<T> {
+    const diversity = candidateDiversity(decision);
     return {
       ...decision,
       finalScore: distributionScore(decision, bucketName),
       relevanceScore: decision.finalScore,
       affinityScore: decision.finalScore,
+      diversity,
     };
   }
 
@@ -237,6 +281,7 @@ export function selectFromClusters<T extends ScorerTrack>(
       genrePrimary: weightedDecision.genrePrimary,
       laneEra: weightedDecision.laneEra,
       clusterIds: cids,
+      diversity: weightedDecision.diversity,
     });
     usedIds.add(weightedDecision.track.trackId);
     for (const cid of cids) {
@@ -301,7 +346,10 @@ export function selectFromClusters<T extends ScorerTrack>(
       neighborhoodCursor -= entry.weight;
       return neighborhoodCursor <= 0;
     }) ?? weightedNeighborhoods[weightedNeighborhoods.length - 1];
-    const neighborhoodPickable = selectedNeighborhood?.group ?? pickable;
+    const neighborhoodPickable = [...(selectedNeighborhood?.group ?? pickable)].sort((a, b) => {
+      const scoreDelta = distributionScore(b, bucketName) - distributionScore(a, bucketName);
+      return Math.abs(scoreDelta) > 0.005 ? scoreDelta : diversityTieBreak(a, b);
+    });
     const maxScore = Math.max(...neighborhoodPickable.map((item) => distributionScore(item, bucketName)));
     const weightedPickables = neighborhoodPickable.map((item) => ({
       item,
@@ -317,7 +365,8 @@ export function selectFromClusters<T extends ScorerTrack>(
   }
 
   const rankedCandidates = [...scoredTracks].sort((a, b) => {
-    return b.finalScore - a.finalScore;
+    const scoreDelta = b.finalScore - a.finalScore;
+    return Math.abs(scoreDelta) > 0.005 ? scoreDelta : diversityTieBreak(a, b);
   });
   const genreClusterCounts = new Map<string, number>();
   for (const decision of rankedCandidates.slice(0, Math.max(targetCount * 4, 40))) {

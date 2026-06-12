@@ -2153,6 +2153,7 @@ export async function buildPlaylistPipeline<T extends {
         unifiedIntentContext:   unifiedIntentContextWithMemory,
         momentMemory:           preGenerationMomentMemory,
         sessionArtistMemory:     effectiveSessionArtistMemory,
+        trackReusePenalty:       upstreamRecentTrackPenalty,
       }
     );
     const quality = evaluatePlaylistQuality(

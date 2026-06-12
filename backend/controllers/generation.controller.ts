@@ -33,10 +33,12 @@ import {
   buildAlbumAppearanceMap,
   buildArtistAppearanceMap,
   buildFreshnessStats,
+  buildRecentTrackPoolPenalty,
   countRecentJourneyArc,
   journeyArcCooldownMultiplier,
   sceneClonePenalty,
 } from "../lib/playlist-freshness";
+import { boundedTrackReusePenalty } from "../core/v3/diversity-pressure";
 import { rediscoveryJitter } from "../lib/rediscovery";
 import { buildLibrarySignals, type LikedSongRow } from "../lib/library-signals";
 import { detectRediscoveryMode, type RediscoveryMode } from "../lib/forgotten-favourites";
@@ -1897,6 +1899,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     subGenres: string[];
   }>;
   maxPerArtist: number;
+  trackReusePenalty?: Map<string, number>;
 }): { tracks: T[]; diagnostics: PlaylistFinalizationDiagnostics } {
   const seen = new Set<string>();
   const repeatSignatures = new Set<string>();
@@ -1987,7 +1990,8 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     const albumPressure = albumKey ? albumCounts.get(albumKey) ?? 0 : 0;
     const family = trackGenreFamily(track, opts.classMap);
     const familyBonus = preferredFamilies.size === 0 || family === "unknown" || preferredFamilies.has(family) ? 0.08 : 0;
-    return (track.score ?? 0) + familyBonus - artistPressure * 0.42 - albumPressure * 0.22;
+    const reusePenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
+    return (track.score ?? 0) + familyBonus - artistPressure * 0.42 - albumPressure * 0.22 - reusePenalty;
   };
   const hardSafeCandidates = (tracks: T[]): T[] =>
     tracks
@@ -2152,6 +2156,7 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
     subGenres: string[];
   }>;
   maxPerArtist: number;
+  trackReusePenalty?: Map<string, number>;
 }): { tracks: T[]; diagnostics: PlaylistFinalizationDiagnostics; intent: LockedIntent } | null {
   const broadUnconstrainedPrompt =
     opts.intent.genreFamilies.length === 0 &&
@@ -2170,6 +2175,7 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
     allowHolidaySeason: opts.allowHolidaySeason,
     classMap: opts.classMap,
     maxPerArtist: opts.maxPerArtist,
+    trackReusePenalty: opts.trackReusePenalty,
   };
   const activityRelaxedConstraints: ConstraintLayer = {
     ...opts.constraints,
@@ -3313,6 +3319,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           genreFamily?: string | null;
           genres?: string[] | null;
         } | null;
+        trackReusePenalty?: Map<string, number>;
       } })._genCtx;
       req.log.error({ userId, requestId, code: "TIMEOUT" }, "Generate hard timeout — emergency fallback");
       if (!ctx?.likedSongs?.length) {
@@ -3346,6 +3353,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             constraints: ctx.constraintLayer,
             classMap: ctx.classMap,
             maxPerArtist,
+            trackReusePenalty: ctx.trackReusePenalty,
           }).tracks
         : pipeline.finalTracks;
       const strictFallbackFailure = explicitGenreFallbackFailure({
@@ -3585,6 +3593,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       diversityPressure: auditDiversityPressure,
     };
     const recentTrackPenaltyScale = (varietyBoost ? 2.75 : 1.85) * auditDiversityPressure;
+    const finalizationReusePenalty = recentTrackLists.length
+      ? buildRecentTrackPoolPenalty(recentTrackLists, 20, recentTrackPenaltyScale)
+      : undefined;
     const freshnessCloneMultiplier = varietyBoost
       ? cloneMultiplier * 0.88
       : cloneMultiplier;
@@ -3701,6 +3712,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       genCtx["lockedIntent"] = lockedIntent;
       genCtx["constraintLayer"] = constraintLayer;
       genCtx["classMap"] = userGenreProfile.trackClassifications;
+      genCtx["trackReusePenalty"] = finalizationReusePenalty;
     }
     req.log.info(
       {
@@ -3916,6 +3928,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       allowHolidaySeason,
       classMap: userGenreProfile.trackClassifications,
       maxPerArtist,
+      trackReusePenalty: finalizationReusePenalty,
     });
     const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
       likedSongs
@@ -3942,6 +3955,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         allowHolidaySeason,
         classMap: userGenreProfile.trackClassifications,
         maxPerArtist,
+        trackReusePenalty: finalizationReusePenalty,
       });
       if (!recovered) return false;
       finalTracks = recovered.tracks;
@@ -4241,6 +4255,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       allowHolidaySeason,
       classMap: userGenreProfile.trackClassifications,
       maxPerArtist,
+      trackReusePenalty: finalizationReusePenalty,
     });
     if (trackListChanged(finalTracks, finalization.tracks)) {
       req.log.info(
@@ -4328,6 +4343,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         allowHolidaySeason,
         classMap: userGenreProfile.trackClassifications,
         maxPerArtist,
+        trackReusePenalty: finalizationReusePenalty,
       });
       const repairedCoherence = humanCoherenceScore(repaired.tracks, curatorIdentity);
       if (
@@ -5341,6 +5357,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           genreFamily?: string | null;
           genres?: string[] | null;
         } | null;
+        trackReusePenalty?: Map<string, number>;
       } })._genCtx;
       if (timedOut && ctx?.likedSongs?.length) {
         const maxPerArtist = ctx.maxPerArtist ?? artistDiversityCap(ctx.length, ctx.vibe);
@@ -5365,6 +5382,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               constraints: ctx.constraintLayer,
               classMap: ctx.classMap,
               maxPerArtist,
+              trackReusePenalty: ctx.trackReusePenalty,
             }).tracks
           : pipeline.finalTracks;
         const strictFallbackFailure = explicitGenreFallbackFailure({

@@ -1,5 +1,6 @@
 import type { EraBucket } from "../../lib/intent-parser";
 import type { LaneScoredTrack, ScorerTrack } from "./lane-scorer";
+import type { DiversityTraceComponents } from "./diversity-pressure";
 
 export interface TrackDecision<T extends ScorerTrack> {
   readonly track: T;
@@ -15,6 +16,7 @@ export interface TrackDecision<T extends ScorerTrack> {
   readonly sceneAffinity: number;
   readonly tasteAffinity: number;
   readonly freshnessAffinity: number;
+  readonly diversity: DiversityTraceComponents | null;
   readonly finalScore: number;
   readonly relevanceScore: number;
   readonly affinityScore: number;
@@ -47,6 +49,7 @@ export function createTrackDecision<T extends ScorerTrack>(
     sceneAffinity: 0.5,
     tasteAffinity: item.laneScore,
     freshnessAffinity: 0.5,
+    diversity: null,
     finalScore: 0,
     relevanceScore: item.laneScore,
     affinityScore: item.laneScore,
@@ -82,6 +85,7 @@ export function withDecisionAffinities<T extends ScorerTrack>(
     freshnessAffinity?: number;
     embeddingAffinity?: number;
     retrievalNeighborhood?: string;
+    diversity?: DiversityTraceComponents | null;
   },
 ): TrackDecision<T> {
   return {
@@ -91,6 +95,7 @@ export function withDecisionAffinities<T extends ScorerTrack>(
     freshnessAffinity: affinities.freshnessAffinity ?? decision.freshnessAffinity,
     embeddingAffinity: affinities.embeddingAffinity ?? decision.embeddingAffinity,
     retrievalNeighborhood: affinities.retrievalNeighborhood ?? decision.retrievalNeighborhood,
+    diversity: affinities.diversity ?? decision.diversity,
   };
 }
 

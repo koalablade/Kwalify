@@ -47,6 +47,12 @@ import {
 import { runRecommendationEngine } from "../engine/recommendation-engine";
 import type { MomentMemory } from "../memory/moment-memory";
 import {
+  boundedTrackReusePenalty,
+  buildDiversityTraceComponents,
+  emptyDiversityTraceComponents,
+  type DiversityTraceComponents,
+} from "./diversity-pressure";
+import {
   createTrackDecision,
   withDecisionAffinities,
   withDecisionValidity,
@@ -57,6 +63,7 @@ import {
 } from "../unified-intent";
 import {
   artistExceedsSessionCap,
+  artistMemoryCount,
   artistMemoryPenalty,
   sessionArtistMemoryDiagnostics,
   type SessionArtistMemory,
@@ -95,6 +102,7 @@ type V3SelectionCandidate<T extends V3PipelineTrack> = T & V3TrackMetadata & {
   genrePrimary: string;
   laneEra: EraBucket;
   clusterIds: string[];
+  diversity?: DiversityTraceComponents | null;
   clusterId?: string;
 };
 
@@ -356,6 +364,7 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
     retrievalByTrack?: Map<string, RetrievedCandidate<T>>;
     sessionArtistMemory?: SessionArtistMemory;
+    trackReusePenalty?: Map<string, number>;
   },
 ): Array<TrackDecision<T>> {
   return decisions.map((decision) => {
@@ -381,13 +390,25 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
     const retrieval = opts.retrievalByTrack?.get(decision.track.trackId);
     const sessionPenalty = artistMemoryPenalty(opts.sessionArtistMemory, decision.track.artistName);
     const sessionCapped = artistExceedsSessionCap(opts.sessionArtistMemory, decision.track.artistName);
+    const recentTrackPenalty = opts.trackReusePenalty?.get(decision.track.trackId) ?? 0;
+    const trackReusePenalty = boundedTrackReusePenalty(recentTrackPenalty);
+    const trackReuseMultiplier = 1 - trackReusePenalty;
+    const artistGravity = opts.sessionArtistMemory?.maxArtistAppearances
+      ? artistMemoryCount(opts.sessionArtistMemory, decision.track.artistName) / opts.sessionArtistMemory.maxArtistAppearances
+      : 0;
 
     return withDecisionAffinities(decision, {
       sceneAffinity,
-      tasteAffinity: clamp01(tasteAffinity * sessionPenalty * (sessionCapped ? 0.45 : 1)),
-      freshnessAffinity: clamp01(freshnessAffinity * sessionPenalty * (sessionCapped ? 0.35 : 1)),
+      tasteAffinity: clamp01(tasteAffinity * sessionPenalty * (sessionCapped ? 0.45 : 1) * trackReuseMultiplier),
+      freshnessAffinity: clamp01(freshnessAffinity * sessionPenalty * (sessionCapped ? 0.35 : 1) * trackReuseMultiplier),
       embeddingAffinity: retrieval?.embeddingAffinity,
       retrievalNeighborhood: retrieval?.retrievalNeighborhood,
+      diversity: buildDiversityTraceComponents({
+        artistMemoryMultiplier: sessionPenalty,
+        recentTrackPenalty,
+        trackReusePenalty,
+        artistGravity,
+      }),
     });
   });
 }
@@ -408,6 +429,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     unifiedIntentContext?: UnifiedIntentContext;
     momentMemory?: MomentMemory | null;
     sessionArtistMemory?: SessionArtistMemory;
+    trackReusePenalty?: Map<string, number>;
   } = {},
 ): V3PipelineResult<T> {
 
@@ -484,6 +506,13 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     laneScore: number;
     rawLaneScore: number;
     diversityPenalty: number;
+    artistMemoryPenalty: number;
+    recentTrackPenalty: number;
+    trackReusePenalty: number;
+    clusterSaturationPenalty: number;
+    familySaturationPenalty: number;
+    diversityMultiplier: number;
+    artistGravity: number;
     clusterId: string | null;
     clusterWeight?: number | null;
     selected: boolean;
@@ -579,6 +608,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       classificationByTrack: opts.classificationByTrack,
       retrievalByTrack,
       sessionArtistMemory: opts.sessionArtistMemory,
+      trackReusePenalty: opts.trackReusePenalty,
     });
     const engineResult = runRecommendationEngine({
       decisions: affinityDecisions,
@@ -616,7 +646,11 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       laneTarget,
       lane.id,
       `${opts.seed ?? "v3"}:${lane.id}`,
-      { lockedIntent, sessionArtistMemory: opts.sessionArtistMemory },
+      {
+        lockedIntent,
+        sessionArtistMemory: opts.sessionArtistMemory,
+        recentTrackPenalty: opts.trackReusePenalty,
+      },
     );
     forensicTrace.push(stageTrace(
       `sampler input count:${lane.id}`,
@@ -630,6 +664,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     // ── Observability: build per-track trace (top 15 by raw score) ───────────
     const selectedIdSet = new Set(clusterResult.tracks.map((t) => t.trackId));
     const rawScoreMap   = new Map(rawScored.map((r) => [r.track.trackId, r.laneScore]));
+    const engineDecisionByTrack = new Map(engineResult.decisions.map((decision) => [decision.track.trackId, decision]));
 
     const traceEntries = [...rawScored]
       .sort((a, b) => (rawScoreMap.get(b.track.trackId) ?? 0) - (rawScoreMap.get(a.track.trackId) ?? 0))
@@ -639,6 +674,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
         const selectedScore = item.laneScore;
         const sel       = selectedIdSet.has(item.track.trackId);
         const selTrack  = sel ? clusterResult.tracks.find((t) => t.trackId === item.track.trackId) : undefined;
+        const decisionDiversity = (selTrack?.diversity ?? engineDecisionByTrack.get(item.track.trackId)?.diversity ?? emptyDiversityTraceComponents()) as DiversityTraceComponents;
 
         const selectionReason = sel
           ? "sampler_selected"
@@ -650,7 +686,14 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
           enteredLane:      lane.id,
           laneScore:        Math.round(selectedScore  * 1000) / 1000,
           rawLaneScore:     Math.round(rawScore   * 1000) / 1000,
-          diversityPenalty: 0,
+          diversityPenalty: decisionDiversity.totalPenalty,
+          artistMemoryPenalty: decisionDiversity.artistMemoryPenalty,
+          recentTrackPenalty: decisionDiversity.recentTrackPenalty,
+          trackReusePenalty: decisionDiversity.trackReusePenalty,
+          clusterSaturationPenalty: decisionDiversity.clusterSaturationPenalty,
+          familySaturationPenalty: decisionDiversity.familySaturationPenalty,
+          diversityMultiplier: decisionDiversity.finalMultiplier,
+          artistGravity: decisionDiversity.artistGravity,
           clusterId:        selTrack?.clusterIds[0] ?? null,
           clusterWeight:    selTrack ? (clusterResult.clusterSelectionRatios[selTrack.clusterIds[0] ?? ""] ?? null) : null,
           selected:         sel,
@@ -708,6 +751,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     genrePrimary: string;
     laneEra: EraBucket;
     clusterIds: string[];
+    diversity: DiversityTraceComponents | null;
   }>();
   for (const t of finalTracks) {
     finalSelectionMeta.set(t.trackId, {
@@ -716,6 +760,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       genrePrimary: t.genrePrimary,
       laneEra: t.laneEra,
       clusterIds: t.clusterIds,
+      diversity: t.diversity ?? null,
     });
   }
 
@@ -744,6 +789,15 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
         trace.enteredLane = meta.laneId;
         trace.laneScore = Math.round(meta.laneScore * 1000) / 1000;
         trace.clusterId = meta.clusterIds[0] ?? trace.clusterId;
+        const diversity = meta.diversity ?? emptyDiversityTraceComponents();
+        trace.diversityPenalty = diversity.totalPenalty;
+        trace.artistMemoryPenalty = diversity.artistMemoryPenalty;
+        trace.recentTrackPenalty = diversity.recentTrackPenalty;
+        trace.trackReusePenalty = diversity.trackReusePenalty;
+        trace.clusterSaturationPenalty = diversity.clusterSaturationPenalty;
+        trace.familySaturationPenalty = diversity.familySaturationPenalty;
+        trace.diversityMultiplier = diversity.finalMultiplier;
+        trace.artistGravity = diversity.artistGravity;
       }
       trace.selected = true;
       trace.selectionReason = trace.selectionReason ?? "interleaver_final";
@@ -759,13 +813,21 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   for (const id of finalTrackIds) {
     if (tracedIds.has(id)) continue;
     const meta = finalSelectionMeta.get(id)!;
+    const diversity = meta.diversity ?? emptyDiversityTraceComponents();
     finalDecisionTrace.push({
       trackId: id,
       lane: meta.laneId,
       enteredLane: meta.laneId,
       laneScore: Math.round(meta.laneScore * 1000) / 1000,
       rawLaneScore: Math.round(meta.laneScore * 1000) / 1000,
-      diversityPenalty: 0,
+      diversityPenalty: diversity.totalPenalty,
+      artistMemoryPenalty: diversity.artistMemoryPenalty,
+      recentTrackPenalty: diversity.recentTrackPenalty,
+      trackReusePenalty: diversity.trackReusePenalty,
+      clusterSaturationPenalty: diversity.clusterSaturationPenalty,
+      familySaturationPenalty: diversity.familySaturationPenalty,
+      diversityMultiplier: diversity.finalMultiplier,
+      artistGravity: diversity.artistGravity,
       clusterId: meta.clusterIds[0] ?? null,
       clusterWeight: null,
       selected: true,
