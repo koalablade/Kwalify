@@ -16,12 +16,29 @@ services:
     region: frankfurt
     repo: https://github.com/koalablade/Kwalify
     branch: main
-    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
+    buildCommand: |
+      set -e
+      rm -rf node_modules
+      npm cache clean --force
+      npm ci --include=dev --cache /tmp/npm-cache --prefer-online
+      node -e "console.log('tsc exists:', require.resolve('typescript'))"
+      test -f node_modules/.bin/tsc || (echo "tsc missing - install failed" && exit 1)
+      npm run build
     startCommand: npm start
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NPM_CONFIG_CACHE
+        value: /tmp/npm-cache
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: NPM_CONFIG_PROGRESS
+        value: "false"
+      - key: NPM_CONFIG_FUND
+        value: "false"
+      - key: NPM_CONFIG_AUDIT
+        value: "false"
       - key: DATABASE_URL
         fromDatabase:
           name: kwalify-db

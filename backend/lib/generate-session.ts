@@ -2,7 +2,7 @@
  * Per-user generate session — single active request, phase tracking, Spotify idempotency.
  */
 
-import { REQUEST_HARD_TIMEOUT_MS } from "./production-limits";
+import { REQUEST_FAST_FALLBACK_MS, REQUEST_HARD_TIMEOUT_MS } from "./production-limits";
 
 export type GeneratePhase =
   | "idle"
@@ -16,10 +16,29 @@ export type GeneratePhase =
   | "done"
   | "error";
 
+export type GenerateProgressTrack = {
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumArt?: string | null;
+};
+
+export type GenerateStage =
+  | "Scanning library"
+  | "Scoring candidates"
+  | "Building playlist"
+  | "Final cohesion pass"
+  | "Finalising playlist";
+
 type SessionState = {
   requestId: string;
   startedAt: number;
+  updatedAt: number;
   phase: GeneratePhase;
+  stage: GenerateStage;
+  stageIndex: number;
+  stageDetail: string | null;
+  partialTracks: GenerateProgressTrack[];
   cancelled: boolean;
   /** Playlist created but track-add may retry */
   pendingSpotifyPlaylistId?: string;
@@ -38,6 +57,19 @@ const ACTIVE_PHASES = new Set<GeneratePhase>([
   "spotify",
   "saving",
 ]);
+
+const PHASE_STAGE: Record<GeneratePhase, { stage: GenerateStage; stageIndex: number }> = {
+  idle: { stage: "Scanning library", stageIndex: 0 },
+  starting: { stage: "Scanning library", stageIndex: 0 },
+  loading_library: { stage: "Scanning library", stageIndex: 0 },
+  building_profile: { stage: "Scoring candidates", stageIndex: 1 },
+  scoring: { stage: "Building playlist", stageIndex: 2 },
+  composing: { stage: "Final cohesion pass", stageIndex: 3 },
+  spotify: { stage: "Finalising playlist", stageIndex: 4 },
+  saving: { stage: "Finalising playlist", stageIndex: 4 },
+  done: { stage: "Finalising playlist", stageIndex: 4 },
+  error: { stage: "Finalising playlist", stageIndex: 4 },
+};
 
 function isActiveSession(s: SessionState): boolean {
   if (s.cancelled) return false;
@@ -73,7 +105,11 @@ export function acquireGenerateSession(
   sessions.set(userId, {
     requestId,
     startedAt: Date.now(),
+    updatedAt: Date.now(),
     phase: "starting",
+    ...PHASE_STAGE.starting,
+    stageDetail: null,
+    partialTracks: [],
     cancelled: false,
   });
   evictIfNeeded();
@@ -91,7 +127,35 @@ export function setGeneratePhase(
   phase: GeneratePhase
 ): void {
   const s = sessions.get(userId);
-  if (s?.requestId === requestId && !s.cancelled) s.phase = phase;
+  if (s?.requestId === requestId && !s.cancelled) {
+    s.phase = phase;
+    s.updatedAt = Date.now();
+    const stage = PHASE_STAGE[phase];
+    s.stage = stage.stage;
+    s.stageIndex = stage.stageIndex;
+  }
+}
+
+export function setGeneratePartialTracks(
+  userId: string,
+  requestId: string,
+  tracks: GenerateProgressTrack[]
+): void {
+  const s = sessions.get(userId);
+  if (s?.requestId !== requestId || s.cancelled) return;
+  s.partialTracks = tracks.slice(0, 60);
+  s.updatedAt = Date.now();
+}
+
+export function setGenerateStageDetail(
+  userId: string,
+  requestId: string,
+  stageDetail: string | null
+): void {
+  const s = sessions.get(userId);
+  if (s?.requestId !== requestId || s.cancelled) return;
+  s.stageDetail = stageDetail ? stageDetail.slice(0, 120) : null;
+  s.updatedAt = Date.now();
 }
 
 export function isGenerateCancelled(userId: string, requestId: string): boolean {
@@ -101,8 +165,16 @@ export function isGenerateCancelled(userId: string, requestId: string): boolean 
 
 export function getGenerateProgress(userId: string): {
   phase: GeneratePhase;
+  stage: GenerateStage;
+  stageIndex: number;
+  stageCount: number;
+  stageDetail: string | null;
   requestId: string;
   startedAt: number;
+  elapsedMs: number;
+  lastUpdatedAt: number;
+  fallbackEligibleAt: number;
+  partialTracks: GenerateProgressTrack[];
 } | null {
   const s = sessions.get(userId);
   if (!s || s.cancelled) return null;
@@ -110,29 +182,68 @@ export function getGenerateProgress(userId: string): {
     sessions.delete(userId);
     return null;
   }
-  return { phase: s.phase, requestId: s.requestId, startedAt: s.startedAt };
+  return {
+    phase: s.phase,
+    stage: s.stage,
+    stageIndex: s.stageIndex,
+    stageCount: 5,
+    stageDetail: s.stageDetail,
+    requestId: s.requestId,
+    startedAt: s.startedAt,
+    elapsedMs: Date.now() - s.startedAt,
+    lastUpdatedAt: s.updatedAt,
+    fallbackEligibleAt: s.startedAt + REQUEST_FAST_FALLBACK_MS,
+    partialTracks: s.partialTracks,
+  };
 }
 
 /** Status polling — never report active after timeout or terminal phase. */
 export function getGenerateStatus(userId: string): {
   phase: GeneratePhase;
+  stage: GenerateStage | null;
+  stageIndex: number;
+  stageCount: number;
+  stageDetail: string | null;
   requestId: string | null;
+  startedAt: number | null;
+  elapsedMs: number;
+  lastUpdatedAt: number | null;
+  fallbackEligibleAt: number | null;
   active: boolean;
+  partialTracks: GenerateProgressTrack[];
 } {
   const progress = getGenerateProgress(userId);
   if (!progress) {
-    return { phase: "idle", requestId: null, active: false };
+    return { phase: "idle", stage: null, stageIndex: 0, stageCount: 5, stageDetail: null, requestId: null, startedAt: null, elapsedMs: 0, lastUpdatedAt: null, fallbackEligibleAt: null, active: false, partialTracks: [] };
   }
   return {
     phase: progress.phase,
+    stage: progress.stage,
+    stageIndex: progress.stageIndex,
+    stageCount: progress.stageCount,
+    stageDetail: progress.stageDetail,
     requestId: progress.requestId,
+    startedAt: progress.startedAt,
+    elapsedMs: progress.elapsedMs,
+    lastUpdatedAt: progress.lastUpdatedAt,
+    fallbackEligibleAt: progress.fallbackEligibleAt,
     active: true,
+    partialTracks: progress.partialTracks,
   };
 }
 
 export function endGenerateSession(userId: string, requestId: string): void {
   const s = sessions.get(userId);
   if (s?.requestId === requestId) sessions.delete(userId);
+}
+
+export function cancelGenerateSession(userId: string, requestId: string): void {
+  const s = sessions.get(userId);
+  if (s?.requestId === requestId) {
+    s.cancelled = true;
+    s.phase = "error";
+    s.updatedAt = Date.now();
+  }
 }
 
 export function getPendingSpotifyPlaylistId(userId: string): string | undefined {

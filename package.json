@@ -6,10 +6,14 @@
     "node": "20.x"
   },
   "scripts": {
-    "build": "node node_modules/typescript/bin/tsc",
+    "build": "node scripts/prepare-dist.mjs && node node_modules/typescript/bin/tsc",
     "start": "node backend/dist/server.js",
     "typecheck": "tsc --noEmit",
-    "evaluation:playlists": "npm run build && node backend/dist/scripts/playlist-evaluation-harness.js"
+    "smoke:static": "node scripts/smoke-static.mjs",
+    "evaluation:playlists": "npm run build && node backend/dist/scripts/playlist-evaluation-harness.js",
+    "quality:eval": "npm run build && node backend/dist/scripts/playlist-quality-eval.js",
+    "quality:stress": "npm run build && node backend/dist/scripts/playlist-stress-report.js",
+    "smoke:deploy": "npm run build && node backend/dist/scripts/deploy-smoke.js"
   },
   "dependencies": {
     "@types/connect-pg-simple": "^7.0.3",
@@ -29,10 +33,10 @@
     "pino": "^9.14.0",
     "pino-http": "^10.5.0",
     "pino-pretty": "^13.1.3",
-    "typescript": "^5.9.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^5.9.3"
   }
 }

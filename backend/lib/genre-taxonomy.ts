@@ -68,6 +68,7 @@ export interface TrackGenreProfile {
   genrePrimary: RootGenre;
   genreSecondary: RootGenre | null;
   holidayBound: boolean;
+  diagnostics?: ClassificationDiagnostics;
 }
 
 function buildTaxonomy(): GenreTaxon[] {
@@ -123,6 +124,72 @@ export function toGenreProfile(c: TrackGenreClassification): TrackGenreProfile {
     genrePrimary: c.genrePrimary,
     genreSecondary: c.genreSecondary,
     holidayBound: c.holidayBound,
+    diagnostics: c.diagnostics,
+  };
+}
+
+const SPOTIFY_GENRE_ROOT_TERMS: Record<RootGenre, string[]> = {
+  country: ["country", "americana", "red dirt", "outlaw country", "honky tonk", "bluegrass", "nashville"],
+  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "g-funk", "emo rap"],
+  rock: ["rock", "new wave", "post-punk", "punk", "grunge", "psychedelic", "album rock"],
+  electronic: ["electronic", "edm", "house", "techno", "trance", "dnb", "drum and bass", "dubstep"],
+  jazz: ["jazz", "bebop", "swing", "bossa nova"],
+  pop: ["pop", "dance pop", "synthpop", "new wave pop"],
+  folk: ["folk", "singer-songwriter", "singer songwriter"],
+  soul: ["soul", "funk", "motown"],
+  metal: ["metal", "metalcore", "deathcore", "thrash"],
+  classical: ["classical", "orchestral", "opera", "baroque"],
+  christmas: ["christmas", "holiday"],
+  indie: ["indie", "lo-fi", "bedroom pop", "alternative indie"],
+  blues: ["blues"],
+  rnb: ["r&b", "rnb", "neo soul"],
+  reggae: ["reggae", "dancehall", "dub", "rocksteady"],
+  latin: ["latin", "reggaeton", "salsa", "bachata", "cumbia"],
+  soundtrack: ["soundtrack", "score", "ost", "film score"],
+  world: ["afrobeats", "afrobeat", "amapiano", "world", "k-pop", "bollywood"],
+  unknown: [],
+};
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function spotifyGenreRoot(track: {
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
+}): RootGenre | null {
+  const values = [...stringArray(track.spotifyArtistGenres), ...stringArray(track.albumGenres)]
+    .map((value) => value.toLowerCase());
+  if (values.length === 0) return null;
+  for (const [root, terms] of Object.entries(SPOTIFY_GENRE_ROOT_TERMS) as [RootGenre, string[]][]) {
+    if (root === "unknown") continue;
+    if (values.some((value) => terms.some((term) => value.includes(term)))) {
+      return root;
+    }
+  }
+  return null;
+}
+
+function classificationFromRoot(root: RootGenre): TrackGenreClassification {
+  const taxon = TAXONOMY.find((item) => item.root === root);
+  return {
+    genrePrimary: root,
+    genreFamily: root,
+    genreSecondary: null,
+    primarySubgenre: taxon?.subgenre ?? root,
+    secondarySubgenre: null,
+    subGenres: [taxon?.subgenre ?? root],
+    microStyle: taxon?.microStyles[0] ?? null,
+    confidenceScore: 0.96,
+    holidayBound: root === "christmas",
+    diagnostics: {
+      taxonomyHit: true,
+      artistHintMatched: null,
+      patternMatched: "spotify_genre_metadata",
+      audioFallbackUsed: false,
+    },
   };
 }
 
@@ -131,6 +198,8 @@ export function classifyTrack(
     trackName: string;
     artistName: string;
     albumName: string;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
     energy?: number | null;
     valence?: number | null;
     acousticness?: number | null;
@@ -141,7 +210,13 @@ export function classifyTrack(
   },
   vibeGenreHints?: string[]
 ): TrackGenreClassification {
-  const blob = `${track.trackName} ${track.artistName} ${track.albumName}`;
+  const spotifyRoot = spotifyGenreRoot(track);
+  if (spotifyRoot) {
+    return classificationFromRoot(spotifyRoot);
+  }
+
+  const textBlob = `${track.trackName} ${track.albumName}`;
+  const artistBlob = track.artistName;
   const hits: { taxon: GenreTaxon; score: number; micro: string | null }[] = [];
 
   // Per-taxon diagnostic: first text pattern and artist hint that fired
@@ -154,19 +229,19 @@ export function classifyTrack(
     let hintSrc: string | null = null;
 
     for (const p of taxon.patterns) {
-      if (p.test(blob)) {
+      if (p.test(textBlob)) {
         score += 0.42;
         if (!patternSrc) patternSrc = p.source;
       }
     }
     for (const m of taxon.microStyles) {
-      if (blob.toLowerCase().includes(m.toLowerCase())) {
+      if (textBlob.toLowerCase().includes(m.toLowerCase())) {
         score += 0.34;
         micro = m;
         if (!patternSrc) patternSrc = m;
       }
     }
-    if (taxon.artistHints?.test(blob)) {
+    if (taxon.artistHints?.test(artistBlob)) {
       score += 0.52;
       hintSrc = taxon.artistHints.source;
     }
@@ -233,6 +308,15 @@ function inferGenreFromAudioOnly(track: {
   danceability?: number | null;
   speechiness?: number | null;
 }): TrackGenreClassification | null {
+  const presentAudioFields = [
+    track.energy,
+    track.valence,
+    track.acousticness,
+    track.danceability,
+    track.speechiness,
+  ].filter((value) => typeof value === "number").length;
+  if (presentAudioFields < 3) return null;
+
   const a = track.acousticness ?? 0.5;
   const e = track.energy ?? 0.5;
   const d = track.danceability ?? 0.5;
@@ -270,6 +354,12 @@ function inferGenreFromAudioOnly(track: {
     microStyle: null,
     confidenceScore: 0.38,
     holidayBound: false,
+    diagnostics: {
+      taxonomyHit: false,
+      artistHintMatched: null,
+      patternMatched: null,
+      audioFallbackUsed: true,
+    },
   };
 }
 
@@ -298,6 +388,12 @@ function applyAudioGenreHeuristics(
   },
   hits: { taxon: GenreTaxon; score: number; micro: string | null }[]
 ): void {
+  const hasA = typeof track.acousticness === "number";
+  const hasE = typeof track.energy === "number";
+  const hasD = typeof track.danceability === "number";
+  const hasSp = typeof track.speechiness === "number";
+  const hasInst = typeof track.instrumentalness === "number";
+  const hasV = typeof track.valence === "number";
   const a = track.acousticness ?? 0.5;
   const e = track.energy ?? 0.5;
   const d = track.danceability ?? 0.5;
@@ -305,9 +401,9 @@ function applyAudioGenreHeuristics(
   const inst = track.instrumentalness ?? 0.1;
 
   const v = track.valence ?? 0.5;
-  const sunnyAcoustic = v >= 0.58 && a > 0.45 && e >= 0.35 && e <= 0.78;
+  const sunnyAcoustic = hasV && hasA && hasE && v >= 0.58 && a > 0.45 && e >= 0.35 && e <= 0.78;
 
-  if (a > 0.58 && e < 0.55 && d < 0.6) {
+  if (hasA && hasE && hasD && a > 0.58 && e < 0.55 && d < 0.6) {
     if (sunnyAcoustic) {
       pushHit(hits, "indie", "indie_pop", 0.36, "bright acoustic indie");
       pushHit(hits, "folk", "singer_songwriter", 0.22, null);
@@ -323,11 +419,13 @@ function applyAudioGenreHeuristics(
     }
   }
   if (
+    hasA &&
+    hasE &&
     a > 0.52 &&
     a < 0.88 &&
     e >= 0.35 &&
     e <= 0.72 &&
-    (track.speechiness ?? 0.2) < 0.28
+    (!hasSp || sp < 0.28)
   ) {
     if (sunnyAcoustic) {
       pushHit(hits, "indie", "indie_folk", 0.3, "warm acoustic indie");
@@ -337,14 +435,14 @@ function applyAudioGenreHeuristics(
       pushHit(hits, "country", "modern_country", 0.24, null);
     }
   }
-  if (sp > 0.38 && e > 0.42) pushHit(hits, "hip_hop", "trap", 0.34, null);
-  if (d > 0.72 && e > 0.62) {
+  if (hasSp && hasE && sp > 0.38 && e > 0.42) pushHit(hits, "hip_hop", "trap", 0.34, null);
+  if (hasD && hasE && d > 0.72 && e > 0.62) {
     pushHit(hits, "electronic", "house", 0.28, null);
     pushHit(hits, "pop", "dance_pop", 0.2, null);
   }
-  if (e < 0.32 && a > 0.45) pushHit(hits, "jazz", "smooth_jazz", 0.22, null);
-  if (inst > 0.55 && e < 0.45) pushHit(hits, "electronic", "ambient", 0.25, null);
-  if (e > 0.78 && (track.valence ?? 0.5) < 0.4) pushHit(hits, "metal", "metalcore", 0.28, null);
+  if (hasE && hasA && e < 0.32 && a > 0.45) pushHit(hits, "jazz", "smooth_jazz", 0.22, null);
+  if (hasInst && hasE && inst > 0.55 && e < 0.45) pushHit(hits, "electronic", "ambient", 0.25, null);
+  if (hasE && hasV && e > 0.78 && v < 0.4) pushHit(hits, "metal", "metalcore", 0.28, null);
 }
 
 function pushHit(
@@ -381,6 +479,7 @@ export function profileToClassification(p: TrackGenreProfile): TrackGenreClassif
     microStyle: p.subGenres[1] ?? null,
     confidenceScore: p.confidence,
     holidayBound: p.holidayBound,
+    diagnostics: p.diagnostics,
   };
 }
 

@@ -21,22 +21,22 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
   {
     family: "country",
     subgenres: [
-      { id: "modern_country", microStyles: ["bro-country", "stadium country"], patterns: ["modern country", "country radio"], artistHints: ["luke combs", "morgan wallen", "chris stapleton", "zach bryan"] },
-      { id: "alt_country", microStyles: ["americana", "outlaw country"], patterns: ["alt country", "alt-country", "outlaw", "americana"], artistHints: ["sturgill simpson", "tyler childers", "jason isbell", "brandi carlile", "avett brothers"] },
-      { id: "country_pop", microStyles: ["nashville pop"], patterns: ["country pop", "nashville"], artistHints: ["shania twain", "carrie underwood", "kacey musgraves"] },
-      { id: "bluegrass", microStyles: ["newgrass"], patterns: ["bluegrass", "banjo pick"], artistHints: ["alison krauss", "billy strings"] },
-      { id: "folk_country", microStyles: ["folk country", "southern folk"], patterns: ["folk country", "country folk", "honky tonk", "red dirt", "western swing"] },
-      { id: "classic_country", microStyles: ["traditional country"], patterns: ["classic country", "country legend"], artistHints: ["johnny cash", "willie nelson", "dolly parton", "george strait", "merle haggard"] },
+      { id: "modern_country", microStyles: ["bro-country", "stadium country"], patterns: ["modern country", "country radio"], artistHints: ["luke combs", "morgan wallen", "chris stapleton", "zach bryan", "bailey zimmerman", "jordan davis", "parker mccollum", "riley green", "lainey wilson", "hardy", "jelly roll"] },
+      { id: "alt_country", microStyles: ["americana", "outlaw country"], patterns: ["alt country", "alt-country", "outlaw", "americana"], artistHints: ["sturgill simpson", "tyler childers", "jason isbell", "brandi carlile", "avett brothers", "colter wall", "charley crockett", "turnpike troubadours", "whiskey myers", "flatland cavalry", "cody johnson", "cody jinks", "randall king", "kaitlin butts", "muscadine bloodline"] },
+      { id: "country_pop", microStyles: ["nashville pop"], patterns: ["country pop", "nashville"], artistHints: ["shania twain", "carrie underwood", "kacey musgraves", "taylor swift", "thomas rhett", "dan \\+ shay", "kelsea ballerini", "maren morris"] },
+      { id: "bluegrass", microStyles: ["newgrass"], patterns: ["bluegrass", "banjo pick"], artistHints: ["alison krauss", "billy strings", "molly tuttle", "trampled by turtles"] },
+      { id: "folk_country", microStyles: ["folk country", "southern folk"], patterns: ["folk country", "country folk", "honky tonk", "red dirt", "western swing"], artistHints: ["sierra ferrell", "ian munsick", "49 winchester", "treaty oak revival", "red clay strays", "sam barber"] },
+      { id: "classic_country", microStyles: ["traditional country"], patterns: ["classic country", "country legend"], artistHints: ["johnny cash", "willie nelson", "dolly parton", "george strait", "merle haggard", "waylon jennings", "hank williams", "patsy cline", "alan jackson", "garth brooks", "brooks & dunn", "reba mcentire", "toby keith", "tim mcgraw", "kenny chesney"] },
     ],
   },
   {
     family: "hip_hop",
     subgenres: [
-      { id: "boom_bap", microStyles: ["east coast hip hop", "90s rap"], patterns: ["boom bap", "boom-bap", "golden age hip hop"] },
+      { id: "boom_bap", microStyles: ["east coast hip hop", "90s rap"], patterns: ["boom bap", "boom-bap", "golden age hip hop"], artistHints: ["nas", "mobb deep", "a tribe called quest", "de la soul", "gang starr", "big l", "krs-one", "mos def", "talib kweli", "common"] },
       { id: "trap", microStyles: ["atlanta trap", "melodic trap"], patterns: ["trap music", "trap beat", "\\btrap\\b"], artistHints: ["future", "young thug", "migos"] },
       { id: "drill", microStyles: ["uk drill", "chicago drill", "ny drill"], patterns: ["\\bdrill\\b", "uk drill", "chicago drill"] },
       { id: "conscious_rap", microStyles: ["political rap", "storytelling rap"], patterns: ["conscious rap", "conscious hip hop", "lyrical rap"] },
-      { id: "melodic_rap", microStyles: ["emo rap", "sad rap"], patterns: ["melodic rap", "emo rap", "sing rap"] },
+      { id: "melodic_rap", microStyles: ["emo rap", "sad rap"], patterns: ["melodic rap", "emo rap", "sing rap"], artistHints: ["xxxtentacion"] },
       { id: "old_school", microStyles: ["old school hip hop", "80s rap"], patterns: ["old school hip hop", "old school rap", "g-funk"], artistHints: ["tupac", "notorious b.i.g", "nas", "jay-z"] },
       { id: "west_coast", microStyles: ["g-funk", "hyphy"], patterns: ["west coast rap", "g-funk", "hyphy"], artistHints: ["dr dre", "snoop dogg", "kendrick lamar"] },
     ],
@@ -46,8 +46,8 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
     subgenres: [
       { id: "indie_rock", microStyles: ["garage rock", "lo-fi rock"], patterns: ["indie rock", "indie-rock"] },
       { id: "alt_rock", microStyles: ["alternative rock", "90s alt"], patterns: ["alt rock", "alternative rock", "grunge", "shoegaze"] },
-      { id: "classic_rock", microStyles: ["arena rock", "70s rock"], patterns: ["classic rock", "rock legend", "hard rock classic"], artistHints: ["led zeppelin", "queen", "ac/dc", "fleetwood mac"] },
-      { id: "punk", microStyles: ["pop punk", "post-punk"], patterns: ["punk rock", "\\bpunk\\b", "pop punk", "post-punk"] },
+      { id: "classic_rock", microStyles: ["arena rock", "70s rock"], patterns: ["classic rock", "rock legend", "hard rock classic"], artistHints: ["led zeppelin", "queen", "ac/dc", "fleetwood mac", "the doors", "guns n roses", "guns n' roses", "men at work"] },
+      { id: "punk", microStyles: ["pop punk", "post-punk"], patterns: ["punk rock", "\\bpunk\\b", "pop punk", "post-punk"], artistHints: ["blondie", "destructo disk"] },
       { id: "post_rock", microStyles: ["instrumental rock"], patterns: ["post-rock", "post rock", "crescendo rock"] },
       { id: "emo", microStyles: ["emo pop", "screamo"], patterns: ["\\bemo\\b", "emo pop", "midwest emo"] },
     ],
@@ -55,7 +55,7 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
   {
     family: "metal",
     subgenres: [
-      { id: "heavy_metal", microStyles: ["traditional metal"], patterns: ["heavy metal", "classic metal"] },
+      { id: "heavy_metal", microStyles: ["traditional metal"], patterns: ["heavy metal", "classic metal"], artistHints: ["black sabbath", "iron maiden", "judas priest"] },
       { id: "metalcore", microStyles: ["melodic metalcore"], patterns: ["metalcore", "deathcore"] },
       { id: "death_metal", microStyles: ["technical death"], patterns: ["death metal", "brutal death"] },
       { id: "black_metal", microStyles: ["atmospheric black"], patterns: ["black metal", "symphonic black"] },
@@ -73,6 +73,7 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
       { id: "ambient", microStyles: ["dark ambient", "ambient electronic"], patterns: ["\\bambient\\b", "dark ambient", "soundscape"] },
       { id: "dubstep", microStyles: ["brostep", "riddim"], patterns: ["dubstep", "riddim", "brostep"] },
       { id: "synthwave", microStyles: ["retrowave", "outrun"], patterns: ["synthwave", "retrowave", "outrun"] },
+      { id: "uk_garage", microStyles: ["uk garage", "2-step", "speed garage"], patterns: ["uk garage", "\\bukg\\b", "2-step", "two step garage", "speed garage", "garage beat"], artistHints: ["dj ez", "mj cole", "artful dodger", "so solid crew", "kurupt fm", "korrupt fm", "conducta", "todd edwards", "sweet female attitude", "craig david"] },
     ],
   },
   {
@@ -127,7 +128,7 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
   {
     family: "indie",
     subgenres: [
-      { id: "indie_general", microStyles: ["indie", "alternative indie"], patterns: ["\\bindie\\b", "indie music"], artistHints: ["arctic monkeys", "the 1975", "bon iver", "phoebe bridgers", "the national", "beach house", "tame impala", "\\bmgmt\\b", "\\blorde\\b", "foster the people", "wallows", "\\bm83\\b", "the killers", "florence.*machine"] },
+      { id: "indie_general", microStyles: ["indie", "alternative indie"], patterns: ["\\bindie\\b", "indie music"], artistHints: ["arctic monkeys", "the 1975", "bon iver", "phoebe bridgers", "the national", "beach house", "tame impala", "\\bmgmt\\b", "\\blorde\\b", "foster the people", "wallows", "\\bm83\\b", "the killers", "florence.*machine", "the jungle giants", "jake bugg"] },
       { id: "lofi_indie", microStyles: ["lo-fi beats", "chillhop"], patterns: ["lo-fi", "lofi", "chillhop", "study beats"] },
     ],
   },

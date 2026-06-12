@@ -248,20 +248,18 @@ function anchorPositions(total: number): Partial<Record<ArcSection, number>> {
 
 function anchorFitness(track: InterleavedTrack<ScorerTrack>, section: ArcSection): number {
   const intensity = intensityOf(track);
-  const score = clamp01(track.laneScore);
   if (section === "intro") {
-    return (1 - Math.abs(intensity - 0.42)) * 0.62 + score * 0.23 + (1 - complexityOf(track)) * 0.15;
+    return (1 - Math.abs(intensity - 0.42)) * 0.72 + (1 - complexityOf(track)) * 0.28;
   }
   if (section === "build") {
-    return (1 - Math.abs(intensity - 0.58)) * 0.68 + score * 0.22 + (track.danceability ?? 0.5) * 0.10;
+    return (1 - Math.abs(intensity - 0.58)) * 0.78 + (track.danceability ?? 0.5) * 0.22;
   }
   if (section === "peak") {
-    return intensity * 0.66 + score * 0.24 + (track.danceability ?? 0.5) * 0.10;
+    return intensity * 0.78 + (track.danceability ?? 0.5) * 0.22;
   }
   return (1 - Math.abs(intensity - 0.48)) * 0.58 +
-    score * 0.18 +
-    ((track.valence ?? 0.5) >= 0.45 ? 0.12 : 0) +
-    (clusterValue(track, "mood:") === "nostalgic" ? 0.12 : 0);
+    ((track.valence ?? 0.5) >= 0.45 ? 0.20 : 0) +
+    (clusterValue(track, "mood:") === "nostalgic" ? 0.22 : 0);
 }
 
 function chooseArcAnchors<T extends ScorerTrack>(

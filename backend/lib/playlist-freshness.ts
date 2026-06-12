@@ -200,5 +200,6 @@ export function applyFreshnessToScore(
   const albumMult = albumCooldownMultiplier(
     opts.albumAppearances.get(opts.albumName.toLowerCase()) ?? 0
   );
-  return baseScore * trackMult * artistMult * albumMult * opts.globalCloneMultiplier;
+  const broadTasteMultiplier = artistMult * albumMult * opts.globalCloneMultiplier;
+  return baseScore * trackMult * Math.max(0.72, broadTasteMultiplier);
 }

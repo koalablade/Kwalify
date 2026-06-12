@@ -12,7 +12,15 @@ import {
   playlistHistoryTable,
   savedPlaylistsTable,
 } from "../db";
-import { createSpotifyPlaylist, getValidAccessToken } from "../lib/spotify";
+import {
+  createSpotifyPlaylist,
+  enrichTrackMetadata,
+  fetchAlbumMetadata,
+  fetchArtistGenres,
+  fetchAudioFeatures,
+  getValidAccessToken,
+  searchSpotifyTracks,
+} from "../lib/spotify";
 import {
   blendEmotionProfiles,
   fingerprintToEmotionProfile,
@@ -37,6 +45,7 @@ import { detectArchaeologyIntent } from "../lib/library-archaeology";
 import { computeSurpriseMix } from "../lib/human-surprise";
 import { analyzeMomentPipeline } from "../lib/moment-pipeline";
 import { getUserGenreProfileForGenerate } from "../lib/genre-profile-cache";
+import { classifyTrack } from "../lib/genre-taxonomy";
 import { buildGenreIntelligenceStack } from "../lib/genre-intelligence-stack";
 import {
   getCachedGenreStack,
@@ -44,9 +53,11 @@ import {
 } from "../lib/genre-stack-cache";
 import {
   getGenerateCacheKey,
+  getGenerateCacheEntryStatus,
   getCachedGenerateResult,
   setCachedGenerateResult,
 } from "../lib/generate-result-cache";
+import { trackHasEraEvidence, trackHasKnownEraMismatch } from "../lib/era-evidence";
 import { createRequestBudget } from "../lib/request-budget";
 import {
   REQUEST_HARD_TIMEOUT_MS,
@@ -57,12 +68,15 @@ import {
   acquireGenerateSession,
   endGenerateSession,
   setGeneratePhase,
+  setGenerateStageDetail,
   isGenerateCancelled,
   getPendingSpotifyPlaylistId,
   setPendingSpotifyPlaylistId,
   clearPendingSpotifyPlaylist,
   getGenerateProgress,
   getGenerateStatus,
+  setGeneratePartialTracks,
+  cancelGenerateSession,
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
@@ -73,7 +87,7 @@ import {
 } from "../lib/generate-helpers";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
-import { buildPlaylistPipeline } from "../core/output";
+import type { BuildPlaylistPipelineResult } from "../core/output";
 import type { GenreAudit } from "../lib/genre-audit";
 import { summarizePipeline } from "../lib/scoring-explanation";
 import { scorePromptConfidence } from "../lib/prompt-confidence";
@@ -103,13 +117,33 @@ import {
   warnIfV3MetadataLost,
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
+import { buildFeedbackDiagnostics, getFeedbackMemory } from "../lib/feedback-memory";
+import {
+  buildCuratorIdentity,
+  buildIdentityDebugView,
+  scoreTrackForIdentity,
+  type CuratorIdentity,
+  type IdentitySessionMemory,
+} from "../lib/curator-identity";
+import { runRequestLayerGeneration, type RequestGenerationOrchestration } from "../lib/request-generation-orchestrator";
 import {
   buildLockedIntent as buildCsspLockedIntent,
   completeLockedIntent as completeCsspLockedIntent,
+  GENRE_ALIASES,
 } from "../core/v3/intent";
 import { trackMatchesConstraints as trackMatchesV3Constraints } from "../core/v3/constraint-filter";
+import {
+  EXPANDED_ACTIVITY_TERMS,
+  EXPANDED_ERA_TERMS,
+  EXPANDED_GENRE_ALIASES,
+  EXPANDED_MOOD_TERMS,
+  termRegex,
+} from "../lib/expanded-intent-vocabulary";
+import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify-api-audit";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
+const STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO = 0.85;
+const STRICT_EXPLICIT_ERA_EVIDENCE_RATIO = 0.85;
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
 if (globalArchitectureState[generationControllerLock]) {
   throw new Error(
@@ -122,6 +156,50 @@ const router: IRouter = Router();
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60_000;
+
+type GenerationSideEffectPolicy = {
+  mode: "production" | "audit";
+  allowSpotifyPlaylistCreate: boolean;
+  allowSavedPlaylistWrites: boolean;
+  allowHistoryWrites: boolean;
+  allowFeedbackWrites: boolean;
+  allowAnalyticsWrites: boolean;
+  allowResultCacheWrites: boolean;
+  bypassRateLimit: boolean;
+};
+
+const PRODUCTION_SIDE_EFFECT_POLICY: GenerationSideEffectPolicy = {
+  mode: "production",
+  allowSpotifyPlaylistCreate: true,
+  allowSavedPlaylistWrites: true,
+  allowHistoryWrites: true,
+  allowFeedbackWrites: true,
+  allowAnalyticsWrites: true,
+  allowResultCacheWrites: true,
+  bypassRateLimit: false,
+};
+
+const AUDIT_SIDE_EFFECT_POLICY: GenerationSideEffectPolicy = {
+  mode: "audit",
+  allowSpotifyPlaylistCreate: false,
+  allowSavedPlaylistWrites: false,
+  allowHistoryWrites: false,
+  allowFeedbackWrites: false,
+  allowAnalyticsWrites: false,
+  allowResultCacheWrites: false,
+  bypassRateLimit: true,
+};
+
+function requestHeader(req: Request, name: string): string | null {
+  const value = req.headers[name.toLowerCase()];
+  return Array.isArray(value) ? value[0] ?? null : typeof value === "string" ? value : null;
+}
+
+function generationAuditTokenAuthorized(req: Request): boolean {
+  const expected = process.env["PLAYLIST_EVAL_TOKEN"]?.trim();
+  if (!expected) return false;
+  return requestHeader(req, "x-kwalify-evaluation-token") === expected;
+}
 
 const NEUTRAL_PROFILE: EmotionProfile = {
   energy: 0.5,
@@ -181,6 +259,7 @@ type ConstraintLayer = {
     strictTerms: string[];
     excludedTerms: string[];
     multiGenreTerms: string[];
+    americanaBridgePrompt: boolean;
   };
 };
 
@@ -194,6 +273,15 @@ type LockedIntent = {
   mood: string[];
   activity: string | null;
   energyLevel: "low" | "medium" | "high" | null;
+  interpretationBudget?: {
+    complexity: "low" | "medium" | "high";
+    complexityScore: number;
+    maxDimensions: number;
+    inferredDimensionsUsed: number;
+    inferredDimensionsAvailable: number;
+    appliedDimensions: string[];
+    droppedDimensions: string[];
+  };
 };
 
 type ConstraintTrack = V3MetadataTrack<{
@@ -206,6 +294,8 @@ type ConstraintTrack = V3MetadataTrack<{
   tempo?: number | null;
   danceability?: number | null;
   acousticness?: number | null;
+  loudness?: number | null;
+  speechiness?: number | null;
   releaseYear?: number | null;
   addedAt?: Date | null;
 }> & {
@@ -252,19 +342,8 @@ function useMockSpotify(): boolean {
   return getFeatures().devMode.useMockSpotify;
 }
 
-function currentGenerateUserId(req: Request): string | null {
+function currentGenerateUserId(req: import("express").Request): string | null {
   return useMockSpotify() ? MOCK_SPOTIFY_USER_ID : req.session.spotifyUserId ?? null;
-}
-
-function requestHeader(req: Request, name: string): string | null {
-  const value = req.headers[name.toLowerCase()];
-  return Array.isArray(value) ? value[0] ?? null : typeof value === "string" ? value : null;
-}
-
-function generationAuditTokenAuthorized(req: Request): boolean {
-  const expected = process.env["PLAYLIST_EVAL_TOKEN"]?.trim();
-  if (!expected) return false;
-  return requestHeader(req, "x-kwalify-evaluation-token") === expected;
 }
 
 /** Cancelled/superseded session — always send a response so the client does not hang. */
@@ -312,27 +391,45 @@ function deriveDiagnosticTags(vibe: string): {
   genreHints: string[];
 } {
   const lower = vibe.toLowerCase();
+  const expandedMoods = Object.entries(EXPANDED_MOOD_TERMS)
+    .filter(([, terms]) => termRegex(terms).test(lower))
+    .map(([tag]) => tag);
+  const expandedActivities = Object.entries(EXPANDED_ACTIVITY_TERMS)
+    .filter(([, terms]) => termRegex(terms).test(lower))
+    .map(([tag]) => tag);
+  const expandedEras = EXPANDED_ERA_TERMS
+    .filter((era) => termRegex(era.terms).test(lower))
+    .map((era) => era.label);
+  const expandedGenres = EXPANDED_GENRE_ALIASES
+    .filter((alias) => termRegex(alias.terms).test(lower))
+    .map((alias) => alias.family);
   const moodTags = [
     /\b(nostalg|memory|retro|vintage)\b/.test(lower) ? "nostalgic" : null,
-    /\b(sunset|warm|golden|cozy|cosy)\b/.test(lower) ? "warm" : null,
+    /\b(sunset|warm|golden|cozy|cosy|summer|barbecue|bbq)\b/.test(lower) ? "warm" : null,
     /\b(solitude|alone|reflect|introspect)\b/.test(lower) ? "introspective" : null,
-    /\b(sad|melanchol|lonely|blue)\b/.test(lower) ? "melancholic" : null,
-  ].filter((tag): tag is string => !!tag);
+    /\b(sad|melanchol|lonely|blue|rainy|rain)\b/.test(lower) ? "melancholic" : null,
+    ...expandedMoods,
+  ].filter((tag): tag is string => !!tag)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
   const activityTags = [
     /\b(driv|road|highway|cruise)\b/.test(lower) ? "driving" : null,
     /\b(study|focus|work|coding)\b/.test(lower) ? "focus" : null,
-    /\b(party|club|dance)\b/.test(lower) ? "party" : null,
+    /\b(party|club|dance|barbecue|bbq|cookout)\b/.test(lower) ? "party" : null,
     /\b(walk|commute)\b/.test(lower) ? "walking" : null,
-  ].filter((tag): tag is string => !!tag);
+    ...expandedActivities,
+  ].filter((tag): tag is string => !!tag)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
   const eraHints = [
-    /\b(60s|1960s|sixties)\b/.test(lower) ? "60s" : null,
-    /\b(70s|1970s|seventies)\b/.test(lower) ? "70s" : null,
-    /\b(80s|1980s|eighties)\b/.test(lower) ? "80s" : null,
-    /\b(90s|1990s|nineties)\b/.test(lower) ? "90s" : null,
-    /\b(00s|2000s|y2k)\b/.test(lower) ? "00s" : null,
+    /\b(60'?s|1960'?s|sixties)\b/.test(lower) ? "60s" : null,
+    /\b(70'?s|1970'?s|seventies)\b/.test(lower) ? "70s" : null,
+    /\b(80'?s|1980'?s|eighties)\b/.test(lower) ? "80s" : null,
+    /\b(90'?s|1990'?s|nineties)\b/.test(lower) ? "90s" : null,
+    /\b(00'?s|2000'?s|y2k)\b/.test(lower) ? "00s" : null,
     /\b(2010s|10s)\b/.test(lower) ? "10s" : null,
     /\b(2020s|20s|modern)\b/.test(lower) ? "20s" : null,
-  ].filter((tag): tag is string => !!tag);
+    ...expandedEras,
+  ].filter((tag): tag is string => !!tag)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
   const genreHints = [
     /\b(country|americana|western|bluegrass)\b/.test(lower) ? "country" : null,
     /\b(folk|acoustic|singer-songwriter)\b/.test(lower) ? "folk" : null,
@@ -341,7 +438,9 @@ function deriveDiagnosticTags(vibe: string): {
     /\b(jazz|blues|soul)\b/.test(lower) ? "jazz" : null,
     /\b(hip.?hop|rap|rnb|r&b)\b/.test(lower) ? "hip_hop" : null,
     /\b(electronic|house|techno|edm)\b/.test(lower) ? "electronic" : null,
-  ].filter((tag): tag is string => !!tag);
+    ...expandedGenres,
+  ].filter((tag): tag is string => !!tag)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
 
   return {
     moodTags: moodTags.length ? moodTags : ["neutral"],
@@ -384,7 +483,7 @@ function canonicalCrossGenreHints(vibe: string): string[] {
   if (/\b(dirt.?road|country|cowboy|western|americana)\b/.test(lower)) {
     ["country", "acoustic", "folk", "warm"].forEach((hint) => hints.add(hint));
   }
-  if (/\b(techno|trance|90s|rave|warehouse)\b/.test(lower)) {
+  if (/\b(techno|trance|90'?s|rave|warehouse)\b/.test(lower)) {
     ["electronic", "trance", "early EDM", "high BPM"].forEach((hint) => hints.add(hint));
   }
   if (/\b(chill|study|lo.?fi|ambient|focus)\b/.test(lower)) {
@@ -435,27 +534,6 @@ function normalizeVibeForPipeline(vibe: string, signals: QualitySignalContext): 
   return [...new Set(parts)].join(" ");
 }
 
-const GENRE_ALIASES: Array<{ root: string; terms: string[] }> = [
-  { root: "country", terms: ["country", "americana", "western", "bluegrass", "honky tonk", "alt country"] },
-  { root: "electronic", terms: ["electronic", "techno", "trance", "house", "edm", "rave", "dnb", "drum and bass", "dubstep", "ambient"] },
-  { root: "hip_hop", terms: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap"] },
-  { root: "rock", terms: ["rock", "grunge", "punk", "alt rock", "alternative rock", "classic rock"] },
-  { root: "metal", terms: ["metal", "metalcore", "thrash", "death metal"] },
-  { root: "jazz", terms: ["jazz", "bebop", "bossa nova", "swing"] },
-  { root: "blues", terms: ["blues", "delta blues", "chicago blues"] },
-  { root: "soul", terms: ["soul", "motown", "funk", "neo soul"] },
-  { root: "rnb", terms: ["r&b", "rnb", "classic r&b"] },
-  { root: "pop", terms: ["pop", "dance pop", "synth pop", "k-pop", "kpop"] },
-  { root: "folk", terms: ["folk", "singer songwriter", "singer-songwriter", "acoustic folk"] },
-  { root: "indie", terms: ["indie", "lo-fi", "lofi", "chillhop", "bedroom pop"] },
-  { root: "classical", terms: ["classical", "orchestral", "piano classical"] },
-  { root: "soundtrack", terms: ["soundtrack", "film score", "cinematic"] },
-  { root: "reggae", terms: ["reggae", "dub", "dancehall"] },
-  { root: "latin", terms: ["latin", "reggaeton", "salsa", "bachata"] },
-  { root: "world", terms: ["afrobeats", "afrobeat", "world"] },
-  { root: "christmas", terms: ["christmas", "xmas", "holiday", "festive"] },
-];
-
 function extractGenreTerms(text: string): { roots: string[]; terms: string[] } {
   const lower = text.toLowerCase();
   const roots = new Set<string>();
@@ -464,7 +542,7 @@ function extractGenreTerms(text: string): { roots: string[]; terms: string[] } {
     for (const term of alias.terms) {
       const pattern = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\b`, "i");
       if (pattern.test(lower)) {
-        roots.add(alias.root);
+        roots.add(alias.family);
         terms.add(term);
       }
     }
@@ -475,9 +553,9 @@ function extractGenreTerms(text: string): { roots: string[]; terms: string[] } {
 function extractEraRange(vibe: string): { start: number | null; end: number | null; terms: string[] } {
   const lower = vibe.toLowerCase();
   const terms: string[] = [];
-  const decadeMatch = lower.match(/\b(60s|70s|80s|90s|00s|10s|20s|1960s|1970s|1980s|1990s|2000s|2010s|2020s)\b/);
+  const decadeMatch = lower.match(/\b(60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\b/);
   if (decadeMatch?.[1]) {
-    const term = decadeMatch[1];
+    const term = decadeMatch[1].replace("'", "");
     terms.push(term);
     const start = term.length === 4
       ? Number(term.slice(0, 3) + "0")
@@ -503,6 +581,10 @@ function extractEraRange(vibe: string): { start: number | null; end: number | nu
   return { start: null, end: null, terms };
 }
 
+function isAmericanaBridgePrompt(lower: string): boolean {
+  return /\b(?:americana|americarna|americanna|americanana|alt[-\s]?country|roots\s+country|country\s+folk|folk\s+country|country\s+rock)\b/i.test(lower);
+}
+
 function extractConstraintLayer(vibe: string, signals: QualitySignalContext): ConstraintLayer {
   const lower = vibe.toLowerCase();
   const strictTerms = [
@@ -515,6 +597,7 @@ function extractConstraintLayer(vibe: string, signals: QualitySignalContext): Co
   const excludedGenreHits = extractGenreTerms(excludedText.join(" "));
   const genreHits = extractGenreTerms(vibe);
   const era = extractEraRange(vibe);
+  const americanaBridgePrompt = isAmericanaBridgePrompt(lower);
   const multiGenreTerms = [
     /\bmulti.?genre\b/.test(lower) ? "multi-genre" : null,
     /\bgenre.?blend\b/.test(lower) ? "genre blend" : null,
@@ -533,7 +616,7 @@ function extractConstraintLayer(vibe: string, signals: QualitySignalContext): Co
       eraEnd: era.end,
       strictLock: strictTerms.length > 0,
       allowMultiGenre: multiGenreTerms.length > 0,
-      allowBridge: multiGenreTerms.some((term) => /bridge|blend|crossover|fusion|multi/i.test(term)),
+      allowBridge: americanaBridgePrompt || multiGenreTerms.some((term) => /bridge|blend|crossover|fusion|multi/i.test(term)),
     },
     soft: {
       moodTags: signals.moodTags,
@@ -547,6 +630,7 @@ function extractConstraintLayer(vibe: string, signals: QualitySignalContext): Co
       strictTerms,
       excludedTerms: excludedText,
       multiGenreTerms,
+      americanaBridgePrompt,
     },
   };
 }
@@ -619,6 +703,24 @@ function trackGenreFamily(track: ConstraintTrack, classMap: Map<string, {
   ).toLowerCase();
 }
 
+function trackIsChristmasTrack(track: ConstraintTrack, classMap: Map<string, {
+  genrePrimary: string;
+  genreFamily: string;
+  primarySubgenre: string;
+  secondarySubgenre: string | null;
+  subGenres: string[];
+}>): boolean {
+  if (trackGenreFamily(track, classMap) === "christmas") return true;
+  const genreTerms = trackGenreTerms(track, classMap).join(" ");
+  if (/\b(?:christmas|xmas|holiday|carol|festive|noel|santa|jingle\s+bells|winter\s+wonderland)\b/i.test(genreTerms)) return true;
+  const text = `${track.trackName ?? ""} ${track.albumName ?? ""}`.toLowerCase();
+  return /\b(?:christmas|xmas|holiday|festive|noel|santa|jingle\s+bells|winter\s+wonderland|mistletoe|snowman|sleigh|merry\s+christmas|christmastime|rudolph|frosty|feliz\s+navidad|baby\s+it'?s\s+cold\s+outside)\b/i.test(text);
+}
+
+function hasExplicitHolidayIntent(vibe: string): boolean {
+  return /\b(?:christmas|xmas|holiday|festive)\b/i.test(vibe);
+}
+
 function dominantGenreFamily(
   tracks: ConstraintTrack[],
   classMap: Map<string, {
@@ -681,6 +783,22 @@ function bridgeFamiliesForTrack(track: ConstraintTrack, classMap: Map<string, {
   return [];
 }
 
+function isAmericanaCompatibleTrack(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (family === "country" || family === "folk" || family === "blues") return true;
+  const bridgeFamilies = bridgeFamiliesForTrack(track, classMap);
+  return family === "rock" && bridgeFamilies.includes("country");
+}
+
 function passesGenreGraphBoundary(
   track: ConstraintTrack,
   opts: {
@@ -701,9 +819,15 @@ function passesGenreGraphBoundary(
   if (!eraGenreCompatible(family, opts.lockedIntent)) return { pass: false, bridge: false };
   if (!opts.lockedFamily || opts.constraints.hard.allowMultiGenre) return { pass: true, bridge: false };
   if (family === opts.lockedFamily || family === "unknown") return { pass: true, bridge: false };
+  if (
+    opts.constraints.raw.americanaBridgePrompt &&
+    opts.lockedFamily === "country" &&
+    isAmericanaCompatibleTrack(track, opts.classMap)
+  ) {
+    return { pass: true, bridge: true };
+  }
   const bridgeFamilies = bridgeFamiliesForTrack(track, opts.classMap);
   const bridge = opts.constraints.hard.allowBridge &&
-    !opts.bridgeUsed &&
     bridgeFamilies.includes(opts.lockedFamily) &&
     bridgeFamilies.includes(family);
   return { pass: bridge, bridge };
@@ -722,7 +846,15 @@ function trackMatchesHardConstraints(
 ): boolean {
   const terms = trackGenreTerms(track, classMap);
   if (constraints.hard.excludedGenres.some((genre) => terms.includes(genre))) return false;
-  if (constraints.hard.genres.length > 0 && !constraints.hard.genres.some((genre) => terms.includes(genre))) {
+  const bridgeFamilies = constraints.hard.allowBridge ? bridgeFamiliesForTrack(track, classMap) : [];
+  if (
+    constraints.hard.genres.length > 0 &&
+    !constraints.hard.genres.some((genre) =>
+      terms.includes(genre) ||
+      bridgeFamilies.includes(genre) ||
+      (constraints.raw.americanaBridgePrompt && genre === "country" && isAmericanaCompatibleTrack(track, classMap))
+    )
+  ) {
     return false;
   }
   if (constraints.hard.strictLock && constraints.raw.explicitGenreTerms.length > 0) {
@@ -747,7 +879,8 @@ function genreEvidence(
 ): boolean | null {
   if (intent.primaryGenres.length === 0) return null;
   const terms = trackGenreTerms(track, classMap);
-  return intent.primaryGenres.some((genre) => terms.includes(genre));
+  const bridgeFamilies = bridgeFamiliesForTrack(track, classMap);
+  return intent.primaryGenres.some((genre) => terms.includes(genre) || bridgeFamilies.includes(genre));
 }
 
 function eraEvidence(track: ConstraintTrack, intent: LockedIntent): boolean | null {
@@ -777,6 +910,9 @@ function moodEvidence(track: ConstraintTrack, intent: LockedIntent): boolean | n
     if (mood === "nostalgic") return track.laneEra !== "20s" || (track.sourceLane ?? "").includes("nostalgia");
     if (mood === "energised") return energy >= 0.65 || danceability >= 0.65;
     if (mood === "calm") return energy <= 0.45;
+    if (mood === "dark") return valence <= 0.50 || energy <= 0.48;
+    if (mood === "euphoric") return valence >= 0.58 && energy >= 0.48;
+    if (mood === "angry") return energy >= 0.58 && valence <= 0.62;
     return false;
   });
 }
@@ -793,6 +929,9 @@ function activityEvidence(track: ConstraintTrack, intent: LockedIntent): boolean
     activity === "focus" ? energy <= 0.6 && acousticness >= 0.25 :
     activity === "party" ? energy >= 0.6 && danceability >= 0.55 :
     activity === "walking" ? energy >= 0.35 && energy <= 0.75 :
+    activity === "cleaning" ? energy >= 0.35 && energy <= 0.78 :
+    activity === "sleep" ? energy <= 0.42 || acousticness >= 0.45 :
+    activity === "travel" ? energy >= 0.30 && tempo >= 70 :
     activity === "relaxing" ? energy <= 0.45 :
     null;
   const energyMatch =
@@ -803,6 +942,208 @@ function activityEvidence(track: ConstraintTrack, intent: LockedIntent): boolean
   if (activityMatch === null) return energyMatch;
   if (energyMatch === null) return activityMatch;
   return activityMatch && energyMatch;
+}
+
+function isSleepSafetyPrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  if (/\b(?:drive|driving|gym|workout|party|club|dancefloor|rave)\b/.test(lower)) return false;
+  return intent.activity === "relaxing" ||
+    intent.energyLevel === "low" ||
+    intent.mood.includes("calm") ||
+    /\b(?:sleep|bedtime|bed\s*time|night|slow|easy|relax|relaxing|chill|chilled|soft)\b/.test(lower);
+}
+
+function trackIsSleepSafe(track: ConstraintTrack): boolean {
+  if (typeof track.energy === "number" && track.energy > 0.56) return false;
+  if (typeof track.tempo === "number" && track.tempo > 118) return false;
+  if (typeof track.danceability === "number" && track.danceability > 0.68) return false;
+  if (typeof track.loudness === "number" && track.loudness > -5.5) return false;
+  if (typeof track.speechiness === "number" && track.speechiness > 0.38) return false;
+  return true;
+}
+
+function isUkGaragePrompt(vibe: string): boolean {
+  return /\b(?:uk\s+garage|ukg|2-step|two\s+step\s+garage|speed\s+garage|garage\s+music)\b/i.test(vibe);
+}
+
+function isKnownNonUkGarageTrack(track: ConstraintTrack): boolean {
+  return /\b(?:guns\s+n['’]?\s+roses|guns\s+n\s+roses|the\s+jungle\s+giants|jungle\s+giants)\b/i.test(track.artistName ?? "");
+}
+
+function isBreakupRainDrivePrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  const breakupRain = hasSadDriveQualifier(vibe);
+  const drive = intent.activity === "driving" || /\b(?:drive|driving|road|home)\b/.test(lower);
+  return breakupRain && drive;
+}
+
+function hasSadDriveQualifier(vibe: string): boolean {
+  return /\b(?:sad|breakup|break\s+up|heartbreak|heartbroken|night|rain|rainy|lonely)\b/i.test(vibe);
+}
+
+function isNeutralDrivingPrompt(vibe: string, intent: Pick<LockedIntent, "activity">): boolean {
+  return (intent.activity === "driving" || /\b(?:music\s+for\s+driving|driving|drive|road|highway|cruise)\b/i.test(vibe)) &&
+    !hasSadDriveQualifier(vibe);
+}
+
+function hasExplicitGenreIntent(intent: LockedIntent, constraints: ConstraintLayer): boolean {
+  return intent.primaryGenres.length > 0 ||
+    intent.genreFamilies.length > 0 ||
+    constraints.hard.genres.length > 0 ||
+    constraints.raw.explicitGenreTerms.length > 0;
+}
+
+function trackIsBreakupRainDriveSafe(
+  track: ConstraintTrack,
+  explicitGenreLocked: boolean,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (!explicitGenreLocked && (family === "hip_hop" || family === "metal" || family === "soundtrack" || family === "classical")) return false;
+  const terms = trackGenreTerms(track, classMap).join(" ");
+  if (!explicitGenreLocked && /\b(?:punk|thrash|metalcore|deathcore|hardcore)\b/.test(terms)) return false;
+  if (/\b(?:physical)\b/i.test(track.trackName ?? "") && /\bolivia\s+newton-?john\b/i.test(track.artistName ?? "")) return false;
+  if (/\b(?:mobb\s+deep|big\s+l|gza|rza|ghostface|wu-?tang|kendrick\s+lamar|black\s+sabbath|destructo\s+disk|stephen\s+schwartz)\b/i.test(track.artistName ?? "")) {
+    return false;
+  }
+  if (typeof track.energy === "number" && track.energy > 0.74) return false;
+  if (typeof track.valence === "number" && track.valence > 0.62) return false;
+  if (typeof track.tempo === "number" && track.tempo > 138) return false;
+  if (typeof track.loudness === "number" && track.loudness > -4.5) return false;
+  if (typeof track.speechiness === "number" && track.speechiness > 0.34) return false;
+  return true;
+}
+
+function isEuphoricSummerPrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  return intent.mood.includes("euphoric") &&
+    /\b(?:summer|beach|sunset|sunny|sunshine|coast|seaside|poolside)\b/.test(lower);
+}
+
+function isBroadDrivingPrompt(vibe: string, intent: LockedIntent): boolean {
+  if (intent.genreFamilies.length > 0 || intent.primaryGenres.length > 0 || intent.mood.includes("melancholic")) return false;
+  return isNeutralDrivingPrompt(vibe, intent);
+}
+
+function trackIsBroadDrivingSafe(track: ConstraintTrack): boolean {
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const tempo = track.tempo ?? 110;
+  const acousticness = track.acousticness ?? 0.5;
+  if (energy < 0.30) return false;
+  if (tempo < 72) return false;
+  if (valence < 0.34 && energy < 0.58) return false;
+  if (valence < 0.28) return false;
+  if (acousticness > 0.86 && energy < 0.45) return false;
+  return true;
+}
+
+function isGarageHangoutPrompt(vibe: string): boolean {
+  return /\bgarage\b/i.test(vibe) &&
+    /\b(?:friends?|mates?|saturday|night|cars?|working|workshop|tools?|fixing|hang(?:ing)?\s*out)\b/i.test(vibe) &&
+    !isUkGaragePrompt(vibe);
+}
+
+function isUpbeatSocialPrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  if (isGarageHangoutPrompt(vibe)) return true;
+  if (intent.activity === "party" || intent.activity === "gym") return true;
+  if (/\b(?:party|all\s+night|chaos|workout|gym|friends?|mates?|saturday\s+night)\b/.test(lower)) return true;
+  if (intent.mood.includes("melancholic")) return false;
+  if (intent.mood.includes("energised") || intent.energy === "high" || intent.energyLevel === "high") return true;
+  return /\b(?:hype|high\s+energy|energ(?:y|ised|ized))\b/.test(lower);
+}
+
+function isGymWorkoutPrompt(vibe: string, intent: LockedIntent): boolean {
+  return intent.activity === "gym" ||
+    /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/i.test(vibe);
+}
+
+function trackIsGymWorkoutSafe(track: ConstraintTrack): boolean {
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const valence = typeof track.valence === "number" ? track.valence : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
+  const loudness = typeof track.loudness === "number" ? track.loudness : null;
+  if (energy !== null && energy < 0.55) return false;
+  if (tempo !== null && tempo < 100 && (danceability ?? 0.5) < 0.60) return false;
+  if (valence !== null && valence < 0.28) return false;
+  if (acousticness !== null && acousticness > 0.66 && (energy ?? 0.6) < 0.72) return false;
+  if (loudness !== null && loudness < -13 && (energy ?? 0.6) < 0.70) return false;
+  return true;
+}
+
+function isFocusStudyPrompt(vibe: string, intent: LockedIntent): boolean {
+  return intent.activity === "focus" ||
+    /\b(?:focus|study|studying|deep\s+work|homework|work\s+from\s+home|coding|no\s+distractions?)\b/i.test(vibe);
+}
+
+function trackIsFocusStudySafe(track: ConstraintTrack): boolean {
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const speechiness = typeof track.speechiness === "number" ? track.speechiness : null;
+  const valence = typeof track.valence === "number" ? track.valence : null;
+  if (energy !== null && energy > 0.52) return false;
+  if (tempo !== null && (tempo > 130 || tempo < 58)) return false;
+  if (danceability !== null && danceability > 0.68 && (energy ?? 0.5) > 0.44) return false;
+  if (speechiness !== null && speechiness > 0.24) return false;
+  if (valence !== null && valence < 0.18 && (energy ?? 0.5) < 0.42) return false;
+  return true;
+}
+
+function trackIsUpbeatSocialSafe(track: ConstraintTrack): boolean {
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const valence = typeof track.valence === "number" ? track.valence : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
+  if (energy !== null && energy < 0.48) return false;
+  if (tempo !== null && tempo < 86 && (danceability ?? 0.5) < 0.56) return false;
+  if (danceability !== null && danceability < 0.44 && (energy ?? 0.5) < 0.62) return false;
+  if (valence !== null && valence < 0.36) return false;
+  if (valence !== null && valence < 0.44 && (energy ?? 0.5) < 0.62) return false;
+  if (acousticness !== null && acousticness > 0.74 && (energy ?? 0.5) < 0.62) return false;
+  return true;
+}
+
+function trackIsEuphoricSummerSafe(
+  track: ConstraintTrack,
+  explicitGenreLocked: boolean,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (!explicitGenreLocked && (family === "hip_hop" || family === "metal" || family === "classical" || family === "soundtrack")) return false;
+  const terms = trackGenreTerms(track, classMap).join(" ");
+  if (!explicitGenreLocked && /\b(?:punk|hardcore|dark|doom|sad|melanchol|slowcore)\b/.test(terms)) return false;
+  if (/\b(?:gza|rza|ghostface|wu-?tang|bon\s+iver|destructo\s+disk)\b/i.test(track.artistName ?? "")) return false;
+  if (typeof track.valence === "number" && track.valence < 0.52) return false;
+  if (typeof track.energy === "number" && track.energy < 0.34) return false;
+  if (typeof track.acousticness === "number" && track.acousticness > 0.86 && (track.energy ?? 0.5) < 0.48) return false;
+  if (typeof track.speechiness === "number" && track.speechiness > 0.32) return false;
+  return true;
+}
+
+function isBroadMoodPlacePrompt(vibe: string, intent: LockedIntent, constraints: ConstraintLayer): boolean {
+  if (constraints.hard.genres.length > 0 || constraints.hard.eraStart !== null || constraints.hard.excludedGenres.length > 0) {
+    return false;
+  }
+  const lower = vibe.toLowerCase();
+  return intent.mood.includes("euphoric") ||
+    /\b(?:summer|beach|sunset|sunny|sunshine|barbecue|bbq|euphoric|uplifting)\b/.test(lower);
 }
 
 function lockedIntentMatchCount(
@@ -895,15 +1236,21 @@ function validateLockedIntentOutput(
   const familyStable = constraints.hard.allowMultiGenre ||
     families.size <= 1 ||
     (constraints.hard.allowBridge &&
-      offFamilyTracks.length <= 1 &&
       offFamilyTracks.every((track) => {
-        const family = trackGenreFamily(track, classMap);
+        if (
+          constraints.raw.americanaBridgePrompt &&
+          lockedFamily === "country" &&
+          isAmericanaCompatibleTrack(track, classMap)
+        ) {
+          return true;
+        }
         const bridgeFamilies = bridgeFamiliesForTrack(track, classMap);
-        return !!lockedFamily && bridgeFamilies.includes(lockedFamily) && bridgeFamilies.includes(family);
+        return !!lockedFamily && bridgeFamilies.includes(lockedFamily);
       }));
 
   const genreConsistency = familyStable && (!requiresGenre || tracks.every((track) =>
-    genreEvidence(track, intent, classMap) !== false
+    genreEvidence(track, intent, classMap) !== false ||
+    (constraints.raw.americanaBridgePrompt && lockedFamily === "country" && isAmericanaCompatibleTrack(track, classMap))
   )) ? "PASS" : "FAIL";
   const knownYears = tracks
     .map(trackYearEstimate)
@@ -924,6 +1271,828 @@ function validateLockedIntentOutput(
 
 function validationPassed(validation: Record<string, "PASS" | "FAIL">): boolean {
   return Object.values(validation).every((value) => value === "PASS");
+}
+
+function validSpotifyTrackShape(track: {
+  trackId?: unknown;
+  trackName?: unknown;
+  artistName?: unknown;
+  albumName?: unknown;
+}): boolean {
+  return typeof track.trackId === "string" &&
+    track.trackId.trim().length > 0 &&
+    typeof track.trackName === "string" &&
+    track.trackName.trim().length > 0 &&
+    typeof track.artistName === "string" &&
+    track.artistName.trim().length > 0 &&
+    typeof track.albumName === "string";
+}
+
+function sanitizePlaylistTrack<T extends ConstraintTrack>(track: T): T | null {
+  if (!validSpotifyTrackShape(track)) return null;
+  const score = typeof track.score === "number" && Number.isFinite(track.score) ? track.score : 0.7;
+  return {
+    ...track,
+    trackId: track.trackId.trim(),
+    trackName: track.trackName.trim(),
+    artistName: track.artistName.trim(),
+    albumName: track.albumName ?? "",
+    score,
+    energy: typeof track.energy === "number" && Number.isFinite(track.energy) ? track.energy : null,
+    valence: typeof track.valence === "number" && Number.isFinite(track.valence) ? track.valence : null,
+    tempo: typeof track.tempo === "number" && Number.isFinite(track.tempo) ? track.tempo : null,
+    danceability: typeof track.danceability === "number" && Number.isFinite(track.danceability) ? track.danceability : null,
+    acousticness: typeof track.acousticness === "number" && Number.isFinite(track.acousticness) ? track.acousticness : null,
+    loudness: typeof track.loudness === "number" && Number.isFinite(track.loudness) ? track.loudness : null,
+    speechiness: typeof track.speechiness === "number" && Number.isFinite(track.speechiness) ? track.speechiness : null,
+  };
+}
+
+function finalTrackMatchesExplicitGenre(
+  track: ConstraintTrack,
+  intent: LockedIntent,
+  constraints: ConstraintLayer,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const expectedFamilies = intent.primaryGenres.length > 0 ? intent.primaryGenres : intent.genreFamilies;
+  if (expectedFamilies.length === 0 && constraints.hard.genres.length === 0) return true;
+  const families = expectedFamilies.length > 0 ? expectedFamilies : constraints.hard.genres;
+  return families.some((family) =>
+    hasFinalGenreEvidence(track, classMap, [family]) ||
+    (constraints.raw.americanaBridgePrompt && family === "country" && isAmericanaCompatibleTrack(track, classMap))
+  );
+}
+
+function finalTrackMatchesExplicitEra(track: ConstraintTrack, intent: LockedIntent): boolean {
+  if (!intent.eraRange) return true;
+  return trackHasEraEvidence(track, intent.eraRange);
+}
+
+function finalTrackIsSafe(
+  track: ConstraintTrack,
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    allowHolidaySeason?: boolean;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+  }
+): boolean {
+  if (!trackMatchesHardConstraints(track, opts.constraints, opts.classMap)) return false;
+  if (
+    isUkGaragePrompt(opts.vibe) &&
+    (trackGenreFamily(track, opts.classMap) !== "electronic" || isKnownNonUkGarageTrack(track))
+  ) {
+    return false;
+  }
+  const lockedIntentSafe = trackPassesLockedIntent(track, opts.intent, opts.constraints, opts.classMap);
+  if (!lockedIntentSafe && !isBroadMoodPlacePrompt(opts.vibe, opts.intent, opts.constraints)) return false;
+  if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
+  if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
+  if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
+  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) return false;
+  if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) return false;
+  if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
+  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
+  if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
+  const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
+  if (isEuphoricSummerPrompt(opts.vibe, opts.intent) && !trackIsEuphoricSummerSafe(track, explicitGenreLocked, opts.classMap)) return false;
+  if (isBreakupRainDrivePrompt(opts.vibe, opts.intent) && !trackIsBreakupRainDriveSafe(track, explicitGenreLocked, opts.classMap)) return false;
+  return true;
+}
+
+type PlaylistFinalizationDiagnostics = Record<string, number | boolean | string | null>;
+
+function cohesionFamilyLimit(vibe: string, intent: LockedIntent, constraints: ConstraintLayer): number | null {
+  if (constraints.hard.genres.length > 0) return null;
+  if (isFocusStudyPrompt(vibe, intent)) return 1;
+  if (isGymWorkoutPrompt(vibe, intent)) return 2;
+  if (isUpbeatSocialPrompt(vibe, intent)) return 2;
+  return null;
+}
+
+function preferredCohesionFamilies<T extends ConstraintTrack>(
+  tracks: T[],
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+  }
+): Set<string> {
+  const limit = cohesionFamilyLimit(opts.vibe, opts.intent, opts.constraints);
+  if (!limit) return new Set();
+  const counts = new Map<string, number>();
+  const scores = new Map<string, number>();
+  for (const track of tracks.slice(0, Math.max(40, limit * 30))) {
+    if (!finalTrackIsSafe(track, opts)) continue;
+    const family = trackGenreFamily(track, opts.classMap);
+    if (!family || family === "unknown") continue;
+    counts.set(family, (counts.get(family) ?? 0) + 1);
+    scores.set(family, (scores.get(family) ?? 0) + Math.max(0, track.score ?? 0));
+  }
+  return new Set(
+    [...counts.entries()]
+      .filter(([, count]) => count >= 4)
+      .sort((a, b) => (scores.get(b[0]) ?? 0) - (scores.get(a[0]) ?? 0) || b[1] - a[1])
+      .slice(0, limit)
+      .map(([family]) => family)
+  );
+}
+
+function vibeClusterKey(track: ConstraintTrack, classMap: Map<string, {
+  genrePrimary: string;
+  genreFamily: string;
+  primarySubgenre: string;
+  secondarySubgenre: string | null;
+  subGenres: string[];
+}>): string {
+  const family = trackGenreFamily(track, classMap);
+  const energy = typeof track.energy === "number"
+    ? track.energy >= 0.66 ? "high" : track.energy <= 0.40 ? "low" : "mid"
+    : "energy_unknown";
+  return [family || "unknown", energy].join(":");
+}
+
+function clusterLabel(clusterId: string): string {
+  const [family, energy] = clusterId.split(":");
+  return [family, energy].filter(Boolean).join(" / ");
+}
+
+function clusterEnergyBand(clusterId: string): number {
+  const energy = clusterId.split(":")[1] ?? "mid";
+  if (energy === "low") return 0;
+  if (energy === "mid") return 1;
+  if (energy === "high") return 2;
+  return 1;
+}
+
+function clustersHaveEnergyOverlap(primaryCluster: string, secondaryCluster: string, identity: CuratorIdentity): boolean {
+  const distance = Math.abs(clusterEnergyBand(primaryCluster) - clusterEnergyBand(secondaryCluster));
+  if (distance === 0) return true;
+  return distance === 1 && identity.chaosAllowance >= 0.08;
+}
+
+function shouldUseClusterCuration(vibe: string, intent: LockedIntent, constraints: ConstraintLayer, identity?: CuratorIdentity): boolean {
+  if (constraints.hard.genres.length > 0) return false;
+  if (identity && identity.type !== "balanced_curator") return true;
+  return isFocusStudyPrompt(vibe, intent) || isGymWorkoutPrompt(vibe, intent) || isUpbeatSocialPrompt(vibe, intent);
+}
+
+function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
+  initial: T[],
+  candidates: T[],
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+    requestedLength: number;
+    identity?: CuratorIdentity;
+  }
+): {
+  initial: T[];
+  candidates: T[];
+  diagnostics: {
+    active: boolean;
+    selectedCluster: string | null;
+    selectedClusterLabel: string | null;
+    selectedClusterCount: number;
+    clusterConfidence: number;
+    fallbackCandidatePercent: number;
+    outlierReserve: number;
+    secondaryCluster: string | null;
+    secondaryClusterLabel: string | null;
+    majorExclusions: string[];
+  };
+} {
+  const fallbackCandidateCount = candidates.filter((track) => Boolean((track as Record<string, unknown>)["_fallbackCandidate"])).length;
+  const fallbackCandidatePercent = candidates.length
+    ? Math.round((fallbackCandidateCount / candidates.length) * 100)
+    : 0;
+  if (!shouldUseClusterCuration(opts.vibe, opts.intent, opts.constraints, opts.identity)) {
+    return {
+      initial,
+      candidates,
+      diagnostics: {
+        active: false,
+        selectedCluster: null,
+        selectedClusterLabel: null,
+        selectedClusterCount: 0,
+        clusterConfidence: 0,
+        fallbackCandidatePercent,
+        outlierReserve: 0,
+        secondaryCluster: null,
+        secondaryClusterLabel: null,
+        majorExclusions: [],
+      },
+    };
+  }
+
+  const safePrimaryCandidates = candidates
+    .filter((track) => !Boolean((track as Record<string, unknown>)["_fallbackCandidate"]))
+    .filter((track) => finalTrackIsSafe(track, {
+      vibe: opts.vibe,
+      intent: opts.intent,
+      constraints: opts.constraints,
+      classMap: opts.classMap,
+    }))
+    .slice(0, Math.max(160, opts.requestedLength * 6));
+  const clusters = new Map<string, { count: number; score: number }>();
+  for (const track of safePrimaryCandidates) {
+    const key = vibeClusterKey(track, opts.classMap);
+    const current = clusters.get(key) ?? { count: 0, score: 0 };
+    current.count += 1;
+    current.score += Math.max(0, track.score ?? 0);
+    clusters.set(key, current);
+  }
+  const selected = [...clusters.entries()]
+    .filter(([, value]) => value.count >= Math.min(4, Math.max(2, Math.ceil(opts.requestedLength * 0.08))))
+    .sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? null;
+  if (!selected) {
+    return {
+      initial,
+      candidates,
+      diagnostics: {
+        active: true,
+        selectedCluster: null,
+        selectedClusterLabel: null,
+        selectedClusterCount: 0,
+        clusterConfidence: 0,
+        fallbackCandidatePercent,
+        outlierReserve: Math.max(2, Math.ceil(opts.requestedLength * 0.12)),
+        secondaryCluster: null,
+        secondaryClusterLabel: null,
+        majorExclusions: ["no_stable_cluster_found"],
+      },
+    };
+  }
+
+  const [selectedCluster, selectedStats] = selected;
+  const clusterConfidence = Math.min(1, selectedStats.count / Math.max(1, opts.requestedLength));
+  const identityChaos = opts.identity?.chaosAllowance ?? 0.08;
+  const outlierReserve = clusterConfidence < 0.45
+    ? Math.ceil(opts.requestedLength * Math.max(0.12, identityChaos * 2))
+    : Math.max(1, Math.ceil(opts.requestedLength * identityChaos));
+  const secondary = [...clusters.entries()]
+    .filter(([clusterId, value]) =>
+      clusterId !== selectedCluster &&
+      value.count >= Math.min(3, Math.max(2, Math.ceil(opts.requestedLength * 0.06))) &&
+      (!opts.identity || clustersHaveEnergyOverlap(selectedCluster, clusterId, opts.identity))
+    )
+    .sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? null;
+  const secondaryCluster = secondary?.[0] ?? null;
+  const inCluster = (track: T): boolean => {
+    const cluster = vibeClusterKey(track, opts.classMap);
+    return cluster === selectedCluster || (secondaryCluster !== null && cluster === secondaryCluster);
+  };
+  const initialCluster = initial.filter(inCluster);
+  const initialReserve = initial
+    .filter((track) => !inCluster(track) && !Boolean((track as Record<string, unknown>)["_fallbackCandidate"]))
+    .slice(0, outlierReserve);
+  const candidateCluster = candidates.filter(inCluster);
+  const candidateReserve = candidates
+    .filter((track) => !inCluster(track))
+    .map((track) => ({
+      ...track,
+      score: Math.max(0, (track.score ?? 0) - (Boolean((track as Record<string, unknown>)["_fallbackCandidate"]) ? 0.38 : 0.18)),
+    } as T))
+    .slice(0, outlierReserve);
+  const majorExclusions = [
+    `cluster_outliers:${Math.max(0, candidates.length - candidateCluster.length)}`,
+    secondaryCluster ? `secondary_cluster:${clusterLabel(secondaryCluster)}` : null,
+    fallbackCandidatePercent > 20 ? `fallback_candidates:${fallbackCandidatePercent}%` : null,
+  ].filter((value): value is string => !!value);
+
+  return {
+    initial: [...initialCluster, ...initialReserve],
+    candidates: [...candidateCluster, ...candidateReserve],
+    diagnostics: {
+      active: true,
+      selectedCluster,
+      selectedClusterLabel: clusterLabel(selectedCluster),
+      selectedClusterCount: selectedStats.count,
+      clusterConfidence: Math.round(clusterConfidence * 100) / 100,
+      fallbackCandidatePercent,
+      outlierReserve,
+      secondaryCluster,
+      secondaryClusterLabel: secondaryCluster ? clusterLabel(secondaryCluster) : null,
+      majorExclusions,
+    },
+  };
+}
+
+function hasExplicitArtistRequest(vibe: string): boolean {
+  return /\b(?:songs?\s+by|tracks?\s+by|only\s+[a-z0-9&'.\-\s]{2,40}\s+(?:songs?|tracks?)|playlist\s+of\s+)\b/i.test(vibe);
+}
+
+function artistDiversityCap(playlistSize: number, vibe: string): number {
+  if (hasExplicitArtistRequest(vibe)) return Number.MAX_SAFE_INTEGER;
+  if (playlistSize < 25) return 2;
+  if (playlistSize <= 50) return 3;
+  return 4;
+}
+
+function relaxedEmergencyArtistCap(playlistSize: number, maxPerArtist: number): number | null {
+  if (!Number.isFinite(maxPerArtist) || maxPerArtist >= Number.MAX_SAFE_INTEGER / 2) return null;
+  return maxPerArtist + Math.max(1, Math.ceil(playlistSize * 0.05));
+}
+
+function finalAlbumCap(playlistSize: number): number {
+  if (playlistSize < 25) return 2;
+  if (playlistSize <= 50) return 3;
+  return 4;
+}
+
+function normalizeRepeatToken(value: string | null | undefined): string {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/\b(?:remaster(?:ed)?|deluxe|expanded|anniversary|radio edit|single edit|edit|live|mono|stereo|version|mix)\b/g, "")
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function trackRepeatSignature(track: { trackName?: string | null; artistName?: string | null }): string | null {
+  const title = normalizeRepeatToken(track.trackName);
+  const artist = normalizeRepeatToken(track.artistName);
+  if (!title || !artist) return null;
+  return `${artist}:${title}`;
+}
+
+function artistDiversityDiagnostics<T extends { artistName?: string | null }>(
+  tracks: T[],
+  maxPerArtist: number
+): {
+  uniqueArtists: number;
+  repeatedArtists: number;
+  cappedTracks: number;
+  maxPerArtist: number | null;
+  topRepeatedArtist: string | null;
+  topRepeatedArtistCount: number;
+} {
+  const counts = new Map<string, number>();
+  const displayNames = new Map<string, string>();
+  for (const track of tracks) {
+    const artist = (track.artistName ?? "").toLowerCase().trim();
+    if (!artist) continue;
+    counts.set(artist, (counts.get(artist) ?? 0) + 1);
+    displayNames.set(artist, track.artistName ?? artist);
+  }
+  const capped = Number.isFinite(maxPerArtist) ? maxPerArtist : Number.MAX_SAFE_INTEGER;
+  const topRepeated = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
+  return {
+    uniqueArtists: counts.size,
+    repeatedArtists: [...counts.values()].filter((count) => count > 1).length,
+    cappedTracks: [...counts.values()].reduce((sum, count) => sum + Math.max(0, count - capped), 0),
+    maxPerArtist: capped === Number.MAX_SAFE_INTEGER ? null : capped,
+    topRepeatedArtist: topRepeated && topRepeated[1] > 1 ? displayNames.get(topRepeated[0]) ?? topRepeated[0] : null,
+    topRepeatedArtistCount: topRepeated?.[1] ?? 0,
+  };
+}
+
+function evaluationSessionTrackLists(rawBody: Record<string, unknown>, auditMode: boolean): string[][] {
+  if (!auditMode) return [];
+  const memory = rawBody["evaluationSessionMemory"];
+  if (!memory || typeof memory !== "object" || Array.isArray(memory)) return [];
+  const previousTrackIds = (memory as Record<string, unknown>)["previousTrackIds"];
+  if (!Array.isArray(previousTrackIds)) return [];
+  return previousTrackIds
+    .filter((entry): entry is unknown[] => Array.isArray(entry))
+    .map((entry) => entry
+      .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+      .map((id) => id.trim())
+      .slice(0, 100)
+    )
+    .filter((entry) => entry.length > 0)
+    .slice(0, 20);
+}
+
+function evaluationDiversityPressure(
+  vibe: string,
+  profile: EmotionProfile,
+  evaluationMemoryCount: number
+): number {
+  if (evaluationMemoryCount <= 0) return 1;
+  const lower = vibe.toLowerCase();
+  if (profile.environment === "gym" || /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/.test(lower)) {
+    return 0.35;
+  }
+  if (profile.environment === "party" || /\b(?:party|club|dancefloor|pre\s*drinks|night\s*out|rave)\b/.test(lower)) {
+    return 0.65;
+  }
+  return 1;
+}
+
+function buildSessionMemory(
+  recentPlaylistTrackIds: string[][],
+  trackIdToArtist: Map<string, string>,
+  maxPlaylists = 8
+): IdentitySessionMemory {
+  const usedArtists = new Set<string>();
+  const usedTracks = new Set<string>();
+  const artistFrequencyMap: Record<string, number> = {};
+  for (const ids of recentPlaylistTrackIds.slice(0, maxPlaylists)) {
+    const artistsInPlaylist = new Set<string>();
+    for (const id of ids) {
+      usedTracks.add(id);
+      const artist = trackIdToArtist.get(id)?.toLowerCase().trim();
+      if (artist) artistsInPlaylist.add(artist);
+    }
+    for (const artist of artistsInPlaylist) {
+      usedArtists.add(artist);
+      artistFrequencyMap[artist] = (artistFrequencyMap[artist] ?? 0) + 1;
+    }
+  }
+  return { usedArtists, usedTracks, artistFrequencyMap };
+}
+
+function sessionReusePenalty(track: { trackId: string; artistName?: string | null }, memory: IdentitySessionMemory, identity: CuratorIdentity): number {
+  let penalty = 0;
+  if (memory.usedTracks.has(track.trackId)) penalty += 0.34 + identity.repetitionPenalty;
+  const artist = track.artistName?.toLowerCase().trim();
+  if (artist) {
+    const appearances = memory.artistFrequencyMap[artist] ?? 0;
+    if (appearances > 0) {
+      const overTolerance = Math.max(0, appearances - identity.repetitionTolerance * 4);
+      penalty += Math.min(0.56, appearances * identity.repetitionPenalty + overTolerance * 0.12);
+    }
+  }
+  return penalty;
+}
+
+function applyCuratorIdentityScoring<T extends ConstraintTrack>(
+  tracks: T[],
+  identity: CuratorIdentity,
+  memory: IdentitySessionMemory
+): T[] {
+  return tracks
+    .map((track) => {
+      const identityFit = scoreTrackForIdentity(track, identity);
+      const reusePenalty = sessionReusePenalty(track, memory, identity);
+      const isFallbackCandidate = Boolean((track as Record<string, unknown>)["_fallbackCandidate"]);
+      const fallbackPenalty = isFallbackCandidate
+        ? 0.26 + (memory.usedTracks.has(track.trackId) ? 0.32 : 0)
+        : 0;
+      const identityBias = (identityFit - 0.5) * 0.40;
+      return {
+        ...track,
+        score: Math.max(0, (track.score ?? 0) + identityBias - reusePenalty - fallbackPenalty),
+        _identityFit: Math.round(identityFit * 100) / 100,
+        _identityBias: Math.round(identityBias * 100) / 100,
+        _sessionReusePenalty: Math.round(reusePenalty * 100) / 100,
+      } as T;
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
+function average(values: number[]): number {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function humanCoherenceScore<T extends ConstraintTrack>(
+  tracks: T[],
+  identity: CuratorIdentity
+): { score: number; components: Record<string, number>; reasons: string[] } {
+  if (tracks.length === 0) {
+    return { score: 0, components: {}, reasons: ["empty_playlist"] };
+  }
+  const energies = tracks.map((track) => track.energy ?? 0.5);
+  const energyMean = average(energies);
+  const energyVariance = average(energies.map((energy) => Math.abs(energy - energyMean)));
+  const energyConsistency = Math.max(0, 1 - energyVariance * (identity.chaosAllowance <= 0.05 ? 3.2 : 2.6));
+  const valences = tracks.map((track) => track.valence ?? 0.5);
+  const valenceMean = average(valences);
+  const emotionalVariance = average(valences.map((valence) => Math.abs(valence - valenceMean)));
+  const emotionalStability = Math.max(0, 1 - emotionalVariance * 2.4);
+  const transitionPenalties: number[] = [];
+  for (let i = 1; i < tracks.length; i++) {
+    const prev = tracks[i - 1]!;
+    const cur = tracks[i]!;
+    const energyJump = Math.abs((prev.energy ?? 0.5) - (cur.energy ?? 0.5));
+    const valenceJump = Math.abs((prev.valence ?? 0.5) - (cur.valence ?? 0.5));
+    transitionPenalties.push(Math.max(0, energyJump - 0.24) + Math.max(0, valenceJump - 0.30));
+  }
+  const transitionSmoothness = Math.max(0, 1 - average(transitionPenalties) * 1.8);
+  const score =
+    energyConsistency * 0.40 +
+    transitionSmoothness * 0.30 +
+    emotionalStability * 0.30;
+  const reasons = [
+    energyConsistency < 0.58 ? "low_energy_consistency" : null,
+    transitionSmoothness < 0.58 ? "jumpy_transitions" : null,
+    emotionalStability < 0.58 ? "unstable_emotional_flow" : null,
+  ].filter((reason): reason is string => !!reason);
+  return {
+    score: Math.round(score * 100) / 100,
+    components: {
+      energyConsistency: Math.round(energyConsistency * 100) / 100,
+      transitionSmoothness: Math.round(transitionSmoothness * 100) / 100,
+      emotionalStability: Math.round(emotionalStability * 100) / 100,
+    },
+    reasons,
+  };
+}
+
+function trackListChanged<T extends { trackId: string }>(before: T[], after: T[]): boolean {
+  if (before.length !== after.length) return true;
+  return before.some((track, index) => track.trackId !== after[index]?.trackId);
+}
+
+function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
+  initial: T[];
+  candidates: T[];
+  requestedLength: number;
+  vibe: string;
+  intent: LockedIntent;
+  constraints: ConstraintLayer;
+  allowHolidaySeason?: boolean;
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>;
+  maxPerArtist: number;
+}): { tracks: T[]; diagnostics: PlaylistFinalizationDiagnostics } {
+  const seen = new Set<string>();
+  const repeatSignatures = new Set<string>();
+  const artistCounts = new Map<string, number>();
+  const albumCounts = new Map<string, number>();
+  let malformedDropped = 0;
+  let unsafeDropped = 0;
+  let duplicateDropped = 0;
+  let duplicateSignatureDropped = 0;
+  let artistLimitSkipped = 0;
+  let albumLimitSkipped = 0;
+  let cohesionSkipped = 0;
+  let relaxedArtistFillUsed = false;
+  let relaxedAlbumFillUsed = false;
+
+  const out: T[] = [];
+  const rankedCandidates = opts.candidates
+    .map(sanitizePlaylistTrack)
+    .filter((track): track is T => !!track)
+    .sort((a, b) => b.score - a.score);
+  const preferredFamilies = preferredCohesionFamilies(rankedCandidates, opts);
+  const outOfFamilyReserve = Math.max(2, Math.ceil(opts.requestedLength * 0.12));
+  const tryAdd = (track: T, artistLimit: number | null, albumLimit: number | null, enforceRepeatSignature: boolean): void => {
+    if (out.length >= opts.requestedLength) return;
+    const sanitized = sanitizePlaylistTrack(track);
+    if (!sanitized) {
+      malformedDropped++;
+      return;
+    }
+    if (seen.has(sanitized.trackId)) {
+      duplicateDropped++;
+      return;
+    }
+    const repeatSignature = trackRepeatSignature(sanitized);
+    if (enforceRepeatSignature && repeatSignature && repeatSignatures.has(repeatSignature)) {
+      duplicateSignatureDropped++;
+      return;
+    }
+    if (!finalTrackIsSafe(sanitized, opts)) {
+      unsafeDropped++;
+      return;
+    }
+    const family = trackGenreFamily(sanitized, opts.classMap);
+    if (
+      preferredFamilies.size > 0 &&
+      family !== "unknown" &&
+      !preferredFamilies.has(family) &&
+      out.length < opts.requestedLength - outOfFamilyReserve
+    ) {
+      cohesionSkipped++;
+      return;
+    }
+    const artistKey = sanitized.artistName.toLowerCase().trim();
+    const artistCount = artistCounts.get(artistKey) ?? 0;
+    if (artistLimit !== null && artistCount >= artistLimit) {
+      artistLimitSkipped++;
+      return;
+    }
+    const albumKey = normalizeRepeatToken(sanitized.albumName);
+    const albumCount = albumKey ? albumCounts.get(albumKey) ?? 0 : 0;
+    if (albumLimit !== null && albumKey && albumCount >= albumLimit) {
+      albumLimitSkipped++;
+      return;
+    }
+    seen.add(sanitized.trackId);
+    if (repeatSignature) repeatSignatures.add(repeatSignature);
+    artistCounts.set(artistKey, artistCount + 1);
+    if (albumKey) albumCounts.set(albumKey, albumCount + 1);
+    out.push(sanitized);
+  };
+
+  const primaryArtistLimit = Number.isFinite(opts.maxPerArtist) ? opts.maxPerArtist : null;
+  const emergencyArtistLimit = relaxedEmergencyArtistCap(opts.requestedLength, opts.maxPerArtist);
+  const primaryAlbumLimit = finalAlbumCap(opts.requestedLength);
+  const emergencyAlbumLimit = primaryAlbumLimit + Math.max(1, Math.ceil(opts.requestedLength * 0.05));
+
+  for (const track of opts.initial) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
+  for (const track of rankedCandidates) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
+  if (out.length < opts.requestedLength) {
+    relaxedArtistFillUsed = emergencyArtistLimit !== null;
+    relaxedAlbumFillUsed = true;
+    for (const track of rankedCandidates) tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, true);
+  }
+
+  return {
+    tracks: out,
+    diagnostics: {
+      requestedLength: opts.requestedLength,
+      finalCount: out.length,
+      malformedDropped,
+      unsafeDropped,
+      duplicateDropped,
+      duplicateSignatureDropped,
+      artistLimitSkipped,
+      albumLimitSkipped,
+      cohesionSkipped,
+      cohesionFamilies: preferredFamilies.size ? [...preferredFamilies].join(",") : null,
+      artistLimitRelaxed: relaxedArtistFillUsed,
+      artistLimitRelaxedTo: relaxedArtistFillUsed ? emergencyArtistLimit : null,
+      albumLimitRelaxed: relaxedAlbumFillUsed,
+      albumLimitRelaxedTo: relaxedAlbumFillUsed ? emergencyAlbumLimit : null,
+      artistLimitBypassed: false,
+      replenished: out.length > opts.initial.length,
+      sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
+      artistDiversityUniqueArtists: artistDiversityDiagnostics(out, opts.maxPerArtist).uniqueArtists,
+      artistDiversityRepeatedArtists: artistDiversityDiagnostics(out, opts.maxPerArtist).repeatedArtists,
+      artistDiversityCappedTracks: artistDiversityDiagnostics(out, opts.maxPerArtist).cappedTracks,
+      fallbackMode: null,
+    },
+  };
+}
+
+function broadEnergyRecoveryScore(track: ConstraintTrack, intent: LockedIntent, vibe: string): number {
+  const lower = vibe.toLowerCase();
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const tempo = track.tempo ?? 110;
+  const danceability = track.danceability ?? 0.5;
+  const highEnergyPrompt =
+    intent.energy === "high" ||
+    intent.energyLevel === "high" ||
+    intent.mood.includes("energised") ||
+    /\b(?:party|hype|dance|club|rave|workout|gym)\b/i.test(lower);
+  const targetEnergy = highEnergyPrompt ? 0.76 : intent.energy === "low" || intent.energyLevel === "low" ? 0.34 : 0.55;
+  const targetValence = intent.mood.includes("melancholic") ? 0.38 : highEnergyPrompt ? 0.62 : 0.50;
+  const tempoLift = tempo >= 95 && tempo <= 145 ? 0.08 : tempo > 145 ? 0.03 : 0;
+  return (
+    1 - Math.abs(energy - targetEnergy) * 0.55 -
+    Math.abs(valence - targetValence) * 0.25 +
+    danceability * 0.16 +
+    tempoLift
+  );
+}
+
+function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
+  initial: T[];
+  fullLibrary: T[];
+  candidates: T[];
+  requestedLength: number;
+  vibe: string;
+  intent: LockedIntent;
+  constraints: ConstraintLayer;
+  allowHolidaySeason: boolean;
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>;
+  maxPerArtist: number;
+}): { tracks: T[]; diagnostics: PlaylistFinalizationDiagnostics; intent: LockedIntent } | null {
+  const broadUnconstrainedPrompt =
+    opts.intent.genreFamilies.length === 0 &&
+    opts.intent.primaryGenres.length === 0 &&
+    opts.constraints.hard.genres.length === 0 &&
+    opts.constraints.hard.eraStart === null &&
+    opts.constraints.hard.eraEnd === null &&
+    opts.constraints.hard.excludedGenres.length === 0;
+  const activityRecoveryPrompt = isGymWorkoutPrompt(opts.vibe, opts.intent) || isUpbeatSocialPrompt(opts.vibe, opts.intent);
+  if (opts.intent.interpretationBudget?.complexity !== "low" && !broadUnconstrainedPrompt && !activityRecoveryPrompt) return null;
+
+  const base = {
+    requestedLength: opts.requestedLength,
+    vibe: opts.vibe,
+    constraints: opts.constraints,
+    allowHolidaySeason: opts.allowHolidaySeason,
+    classMap: opts.classMap,
+    maxPerArtist: opts.maxPerArtist,
+  };
+  const activityRelaxedConstraints: ConstraintLayer = {
+    ...opts.constraints,
+    hard: {
+      ...opts.constraints.hard,
+      genres: [],
+      eraStart: null,
+      eraEnd: null,
+      strictLock: false,
+    },
+    raw: {
+      ...opts.constraints.raw,
+      explicitGenreTerms: [],
+      explicitEraTerms: [],
+      strictTerms: [],
+    },
+  };
+  const attempts: Array<{ stage: string; intent: LockedIntent; candidates: T[]; constraints?: ConstraintLayer }> = [];
+
+  if (opts.intent.activity) {
+    attempts.push({
+      stage: "activity_relaxed",
+      intent: { ...opts.intent, activity: null },
+      candidates: opts.candidates,
+    });
+  }
+
+  if (opts.intent.mood.length > 0) {
+    attempts.push({
+      stage: "mood_relaxed",
+      intent: { ...opts.intent, activity: null, mood: [] },
+      candidates: opts.candidates,
+    });
+  }
+
+  const broadEnergyCandidates = opts.fullLibrary
+    .filter((track) => !!track)
+    .map((track) => ({
+      ...track,
+      score: broadEnergyRecoveryScore(track, opts.intent, opts.vibe),
+    }))
+    .sort((a, b) => b.score - a.score) as T[];
+  attempts.push({
+    stage: "energy_recovery",
+    intent: activityRecoveryPrompt
+      ? {
+          ...opts.intent,
+          genreFamilies: [],
+          primaryGenres: [],
+          eraRange: null,
+          eraStart: null,
+          eraEnd: null,
+          mood: [],
+        }
+      : { ...opts.intent, activity: null, mood: [], energy: null, energyLevel: null },
+    candidates: broadEnergyCandidates,
+    constraints: activityRecoveryPrompt ? activityRelaxedConstraints : undefined,
+  });
+
+  for (const attempt of attempts) {
+    const finalization = finalizePlaylistTracks({
+      ...base,
+      constraints: attempt.constraints ?? base.constraints,
+      initial: attempt.stage === "energy_recovery" ? [] : opts.initial,
+      candidates: attempt.candidates,
+      intent: attempt.intent,
+    });
+    if (finalization.tracks.length > 0) {
+      return {
+        tracks: finalization.tracks,
+        intent: attempt.intent,
+        diagnostics: {
+          ...finalization.diagnostics,
+          fallbackMode: "broad_energy_recovery",
+          recoveryStage: attempt.stage,
+          recoveryScope: opts.intent.interpretationBudget?.complexity === "low" ? "low_complexity" : "broad_unconstrained",
+          originalFinalCount: opts.initial.length,
+          fullLibraryCandidates: opts.fullLibrary.length,
+        },
+      };
+    }
+  }
+
+  return null;
 }
 
 function assertQualityConsistency(
@@ -1010,7 +2179,6 @@ function formatV3DiagnosticsForApi(
     playlistExplanation:    v3["playlistExplanation"] ?? null,
     clusters:               v3["clusters"] ?? [],
     selectionTrace:         v3["selectionTrace"] ?? v3["finalDecisionTrace"] ?? [],
-    finalDecisionTrace:     v3["finalDecisionTrace"] ?? v3["selectionTrace"] ?? [],
     finalDistribution:      v3["finalDistribution"] ?? {
       genres:  v3["genreDistribution"] ?? {},
       eras:    v3["eraDistribution"] ?? {},
@@ -1018,11 +2186,17 @@ function formatV3DiagnosticsForApi(
     },
     qualityLock:              v3["qualityLock"] ?? null,
     adaptiveLaneGenerator:    v3["adaptiveLaneGenerator"] ?? null,
+    forensicPoolTrace:        v3["forensicPoolTrace"] ?? null,
+    retrievalRelaxation:      v3["retrievalRelaxation"] ?? null,
+    recommendationEngine:     v3["recommendationEngine"] ?? null,
+    embeddingRetrieval:       v3["embeddingRetrieval"] ?? null,
     interleaverDiagnostics:   v3["interleaverDiagnostics"] ?? null,
     laneContributions:        v3["laneContributions"] ?? {},
-    rejectionDiagnostics:     v3["rejectionDiagnostics"] ?? null,
-    preV3Recovery:            v3["preV3Recovery"] ?? null,
     fallback:                 v3["fallback"] ?? null,
+    intentContractGuard:      v3["intentContractGuard"] ?? null,
+    controlledGeneration:     v3["controlledGeneration"] ?? null,
+    playlistQuality:          v3["playlistQuality"] ?? null,
+    playlistCritic:           v3["playlistCritic"] ?? null,
     clusterDistributionGraph: v3["clusterDistributionGraph"] ?? {},
     aggregateClusterSpread:   v3["aggregateClusterSpread"] ?? {},
     globalDiversityMetrics: {
@@ -1043,27 +2217,354 @@ function formatV3DiagnosticsForApi(
   };
 }
 
+function buildPromptDriftAudit(diagnostics: Record<string, unknown> | null): Record<string, unknown> {
+  const quality = diagnostics?.["playlistQuality"] as Record<string, unknown> | null | undefined;
+  const contractGuard = diagnostics?.["intentContractGuard"] as Record<string, unknown> | null | undefined;
+  const genrePurity = typeof quality?.["genrePurity"] === "number" ? quality["genrePurity"] : null;
+  const promptAlignment = typeof quality?.["promptAlignment"] === "number" ? quality["promptAlignment"] : null;
+  const guardedCount = typeof contractGuard?.["guardedCount"] === "number" ? contractGuard["guardedCount"] : null;
+  const inputCount = typeof contractGuard?.["inputCount"] === "number" ? contractGuard["inputCount"] : null;
+  const violations = [
+    genrePurity != null && genrePurity < 0.65 ? "genre_purity_below_threshold" : null,
+    promptAlignment != null && promptAlignment < 0.60 ? "prompt_alignment_below_threshold" : null,
+    inputCount != null && guardedCount === 0 ? "intent_contract_eliminated_pool" : null,
+  ].filter((value): value is string => !!value);
+  return {
+    pass: violations.length === 0,
+    violations,
+    genrePurity,
+    promptAlignment,
+    guardedCount,
+    inputCount,
+  };
+}
+
 function hasValidCachedIntent(cached: {
   v3Diagnostics?: Record<string, unknown> | null;
-  finalTracks?: Array<Record<string, unknown>>;
+  finalTracks?: Array<{ genrePrimary?: string | null }>;
 }): boolean {
   const diagnostics = cached.v3Diagnostics;
   if (!diagnostics || typeof diagnostics !== "object") return false;
   const intent = diagnostics["intentDecomposition"] as Record<string, unknown> | undefined;
-  const hasIntent =
-    typeof intent?.["primary"] === "string" &&
-    intent["primary"].trim().length > 0 &&
-    Array.isArray(intent["moodTags"]) &&
-    typeof intent["confidence"] === "number";
+  const hasIntent = typeof intent?.["primary"] === "string" && intent["primary"].trim().length > 0;
   if (!hasIntent) return false;
   const tracks = cached.finalTracks ?? [];
-  return tracks.length > 0 && tracks.every((track) =>
-    typeof track["genrePrimary"] === "string" &&
-    track["genrePrimary"] !== "unknown" &&
-    (typeof track["sourceLane"] === "string" || typeof track["laneId"] === "string") &&
-    (typeof track["clusterId"] === "string" ||
-      (Array.isArray(track["clusterIds"]) && track["clusterIds"].length > 0))
+  if (tracks.length === 0) return false;
+  const genrePresent = tracks.filter((track) => !!track.genrePrimary).length;
+  return genrePresent / tracks.length >= 0.75;
+}
+
+function incrementDistribution(acc: Record<string, number>, key: string | null | undefined): Record<string, number> {
+  const label = key || "(missing)";
+  acc[label] = (acc[label] ?? 0) + 1;
+  return acc;
+}
+
+function eraBucket(releaseYear: number | null | undefined): string {
+  if (!releaseYear || releaseYear < 1900) return "unknown";
+  return `${Math.floor(releaseYear / 10) * 10}s`;
+}
+
+function energyBucket(energy: number | null | undefined): string {
+  if (typeof energy !== "number") return "unknown";
+  if (energy < 0.33) return "low";
+  if (energy < 0.66) return "medium";
+  return "high";
+}
+
+function moodBucket(energy: number | null | undefined, valence: number | null | undefined): string {
+  if (typeof energy !== "number" || typeof valence !== "number") return "unknown";
+  if (energy >= 0.66 && valence >= 0.55) return "upbeat";
+  if (energy >= 0.66 && valence < 0.45) return "intense";
+  if (energy < 0.4 && valence >= 0.55) return "warm";
+  if (energy < 0.4 && valence < 0.45) return "melancholic";
+  return "balanced";
+}
+
+function eraDiagnosticSample<T extends {
+  trackName?: string | null;
+  artistName?: string | null;
+  releaseYear?: number | null;
+}>(tracks: T[]) {
+  return tracks.slice(0, 12).map((track) => ({
+    trackName: track.trackName ?? null,
+    artistName: track.artistName ?? null,
+    releaseYear: track.releaseYear ?? null,
+  }));
+}
+
+function libraryFingerprint(tracks: Array<{
+  trackId: string;
+  createdAt?: Date | string | null;
+  addedAt?: Date | string | null;
+}>): string {
+  let newest = 0;
+  const ids: string[] = [];
+  for (const track of tracks) {
+    ids.push(track.trackId);
+    const createdMs = track.createdAt ? new Date(track.createdAt).getTime() : 0;
+    const addedMs = track.addedAt ? new Date(track.addedAt).getTime() : 0;
+    newest = Math.max(newest, Number.isFinite(createdMs) ? createdMs : 0, Number.isFinite(addedMs) ? addedMs : 0);
+  }
+  ids.sort();
+  const sample = [
+    ...ids.slice(0, 8),
+    ...ids.slice(Math.max(0, Math.floor(ids.length / 2) - 4), Math.floor(ids.length / 2) + 4),
+    ...ids.slice(-8),
+  ].join(",");
+  return `${tracks.length}:${newest}:${sample}`;
+}
+
+const FINAL_GUARD_GENRE_TERMS: Record<string, string[]> = {
+  country: ["country", "americana", "red dirt", "outlaw country", "honky tonk", "bluegrass", "nashville", "country road"],
+  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap"],
+  rock: ["rock", "new wave", "post-punk", "punk", "grunge", "psychedelic", "album rock"],
+  reggae: ["reggae", "dancehall", "dub", "rocksteady"],
+  pop: ["pop", "dance pop", "synthpop"],
+  indie: ["indie", "alternative indie", "neo-psychedelic", "pov: indie"],
+  electronic: ["electronic", "edm", "house", "techno", "trance", "dubstep"],
+  rnb: ["r&b", "rnb", "neo soul"],
+  soul: ["soul", "funk", "motown"],
+  latin: ["latin", "reggaeton", "salsa", "bachata"],
+  jazz: ["jazz", "bebop", "swing"],
+  metal: ["metal", "metalcore", "thrash"],
+};
+
+const FINAL_GUARD_KNOWN_ARTISTS: Array<{ pattern: RegExp; family: string }> = [
+  { pattern: /\b(?:luke\s+combs|morgan\s+wallen|chris\s+stapleton|zach\s+bryan|bailey\s+zimmerman|lainey\s+wilson|hardy|jelly\s+roll)\b/i, family: "country" },
+  { pattern: /\b(?:tyler\s+childers|sturgill\s+simpson|jason\s+isbell|colter\s+wall|charley\s+crockett|turnpike\s+troubadours|whiskey\s+myers|flatland\s+cavalry)\b/i, family: "country" },
+  { pattern: /\b(?:cody\s+johnson|cody\s+jinks|george\s+strait|johnny\s+cash|willie\s+nelson|dolly\s+parton|merle\s+haggard|waylon\s+jennings)\b/i, family: "country" },
+  { pattern: /\b(?:kacey\s+musgraves|shania\s+twain|carrie\s+underwood|alan\s+jackson|garth\s+brooks|brooks\s*&\s*dunn|reba\s+mcentire|toby\s+keith)\b/i, family: "country" },
+  { pattern: /\b(?:billy\s+strings|alison\s+krauss|sierra\s+ferrell|red\s+clay\s+strays|treaty\s+oak\s+revival|49\s+winchester|sam\s+barber)\b/i, family: "country" },
+  { pattern: /\bnas\b/i, family: "hip_hop" },
+  { pattern: /\bxxxtentacion\b/i, family: "hip_hop" },
+  { pattern: /\bbob\s+marley\b/i, family: "reggae" },
+  { pattern: /\bthe\s+doors\b/i, family: "rock" },
+  { pattern: /\bblondie\b/i, family: "rock" },
+  { pattern: /\btame\s+impala\b/i, family: "indie" },
+  { pattern: /\beminem\b/i, family: "hip_hop" },
+  { pattern: /\brockwell\b/i, family: "pop" },
+];
+
+const NO_LIBRARY_GENRE_SEARCH_TERMS: Record<string, string[]> = {
+  country: [
+    "genre:country",
+    "country",
+    "americana",
+    "red dirt country",
+    "outlaw country",
+    "bluegrass",
+    "zach bryan",
+    "johnny cash",
+  ],
+  hip_hop: ["genre:hip-hop", "hip hop", "rap", "trap", "drill"],
+  rock: ["genre:rock", "rock", "classic rock", "alternative rock", "indie rock"],
+  electronic: ["genre:electronic", "electronic", "house", "techno", "uk garage"],
+  rnb: ["r&b", "rnb", "neo soul", "slow jams"],
+  pop: ["genre:pop", "pop", "dance pop"],
+  reggae: ["reggae", "dancehall", "dub"],
+  jazz: ["jazz", "bebop", "swing"],
+  latin: ["latin", "reggaeton", "salsa"],
+  metal: ["metal", "metalcore", "thrash"],
+};
+
+function noLibrarySearchQueries(vibe: string, families: string[]): string[] {
+  const cleanedVibe = vibe.trim();
+  const queries = new Set<string>();
+  if (cleanedVibe) queries.add(cleanedVibe);
+  for (const family of families) {
+    for (const term of NO_LIBRARY_GENRE_SEARCH_TERMS[family] ?? [family.replace(/_/g, " ")]) {
+      queries.add(term);
+      if (cleanedVibe && !cleanedVibe.toLowerCase().includes(term.toLowerCase())) {
+        queries.add(`${cleanedVibe} ${term}`);
+      }
+    }
+  }
+  return [...queries].slice(0, 18);
+}
+
+async function buildNoLibrarySpotifyCandidates(opts: {
+  accessToken: string;
+  userId: string;
+  vibe: string;
+  length: number;
+  families: string[];
+}): Promise<Array<typeof likedSongsTable.$inferSelect>> {
+  const rawTracks = await searchSpotifyTracks(
+    opts.accessToken,
+    noLibrarySearchQueries(opts.vibe, opts.families),
+    Math.max(80, opts.length * 3),
+    { userKey: opts.userId }
   );
+  if (rawTracks.length === 0) return [];
+
+  const [artistGenreMap, albumMetadataMap, audioFeatures] = await Promise.all([
+    fetchArtistGenres(
+      opts.accessToken,
+      rawTracks.flatMap((track) => track.artists.map((artist) => artist.id).filter((id): id is string => !!id)),
+      { userKey: opts.userId }
+    ).catch(() => new Map<string, string[]>()),
+    fetchAlbumMetadata(
+      opts.accessToken,
+      rawTracks.map((track) => track.album.id).filter((id): id is string => !!id),
+      { userKey: opts.userId }
+    ).catch(() => new Map()),
+    fetchAudioFeatures(
+      opts.accessToken,
+      rawTracks.map((track) => track.id),
+      { userKey: opts.userId }
+    ).catch(() => []),
+  ]);
+  const featuresById = new Map(audioFeatures.map((features) => [features.id, features]));
+  const now = new Date();
+
+  return rawTracks.map((track, index) => {
+    const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
+    const features = featuresById.get(track.id);
+    return {
+      id: -1 - index,
+      spotifyUserId: opts.userId,
+      trackId: enriched.id,
+      trackName: enriched.name,
+      artistName: enriched.artists[0]?.name ?? "Unknown",
+      albumName: enriched.album.name,
+      albumArt: enriched.album.images[0]?.url ?? null,
+      durationMs: enriched.duration_ms,
+      energy: features?.energy ?? null,
+      valence: features?.valence ?? null,
+      tempo: features?.tempo ?? null,
+      danceability: features?.danceability ?? null,
+      acousticness: features?.acousticness ?? null,
+      instrumentalness: features?.instrumentalness ?? null,
+      loudness: features?.loudness ?? null,
+      speechiness: features?.speechiness ?? null,
+      spotifyArtistGenres: enriched.spotifyArtistGenres,
+      albumGenres: enriched.albumGenres,
+      popularity: enriched.popularity ?? null,
+      releaseYear: enriched.releaseYear ?? null,
+      addedAt: now,
+      createdAt: now,
+    };
+  });
+}
+
+function hasFinalGenreEvidence(
+  track: {
+    trackId: string;
+    trackName?: string | null;
+    artistName?: string | null;
+    albumName?: string | null;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
+  },
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+    diagnostics?: {
+      taxonomyHit?: boolean;
+      artistHintMatched?: string | null;
+      patternMatched?: string | null;
+      audioFallbackUsed?: boolean;
+    };
+  }>,
+  expectedFamilies: string[],
+): boolean {
+  if (expectedFamilies.length === 0) return true;
+  const classification = classMap.get(track.trackId);
+  const localClassification = classifyTrack({
+    trackName: track.trackName ?? "",
+    artistName: track.artistName ?? "",
+    albumName: track.albumName ?? "",
+    energy: null,
+    valence: null,
+  });
+  const cachedDiagnostics = classification?.diagnostics;
+  const cachedHasLocalEvidence =
+    !!classification &&
+    expectedFamilies.includes(classification.genreFamily) &&
+    cachedDiagnostics?.audioFallbackUsed !== true &&
+    cachedDiagnostics?.patternMatched !== "spotify_genre_metadata";
+  const cachedHasExpectedFamily =
+    !!classification &&
+    expectedFamilies.includes(classification.genreFamily) &&
+    cachedDiagnostics?.audioFallbackUsed !== true &&
+    cachedDiagnostics?.patternMatched !== "spotify_genre_metadata";
+  const candidateClassification =
+    cachedHasLocalEvidence
+      ? classification
+      : localClassification;
+  if (cachedHasExpectedFamily) return true;
+  if (!candidateClassification || !expectedFamilies.includes(candidateClassification.genreFamily)) {
+    const known = FINAL_GUARD_KNOWN_ARTISTS.find((entry) => entry.pattern.test(track.artistName ?? ""));
+    return !!known && expectedFamilies.includes(known.family);
+  }
+  const diagnostics = candidateClassification.diagnostics;
+  if (
+    diagnostics?.taxonomyHit === true &&
+    diagnostics.audioFallbackUsed !== true &&
+    diagnostics.patternMatched !== "spotify_genre_metadata" &&
+    (!!diagnostics.artistHintMatched || !!diagnostics.patternMatched)
+  ) {
+    return true;
+  }
+
+  const blob = `${track.trackName ?? ""} ${track.artistName ?? ""} ${track.albumName ?? ""}`.toLowerCase();
+  return expectedFamilies.some((family) =>
+    (FINAL_GUARD_GENRE_TERMS[family] ?? []).some((term) => blob.includes(term))
+  );
+}
+
+function explicitGenreFallbackFailure(opts: {
+  vibe: string;
+  requestedCount: number;
+  finalCount: number;
+  hasGenreAwarePool: boolean;
+  noLibraryMode?: boolean;
+}): { code: string; error: string; details: Record<string, unknown> } | null {
+  const expectedFamilies = buildCsspLockedIntent(opts.vibe).genreFamilies;
+  if (expectedFamilies.length === 0) return null;
+  if (opts.finalCount <= 0) {
+    return {
+      code: "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
+      error: opts.noLibraryMode
+        ? `I could not find enough verified ${expectedFamilies.join("/")} tracks from Spotify search to make this playlist without guessing.`
+        : `I could not find enough verified ${expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
+      details: {
+        expectedFamilies,
+        requestedCount: opts.requestedCount,
+        finalCount: opts.finalCount,
+        requiredCount: 1,
+        requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
+        fallbackBlocked: true,
+        noLibraryMode: !!opts.noLibraryMode,
+      },
+    };
+  }
+
+  const requiredCount = Math.min(
+    opts.finalCount,
+    Math.max(1, Math.ceil(opts.finalCount * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
+  );
+  if (opts.hasGenreAwarePool && opts.finalCount >= requiredCount) return null;
+
+  return {
+    code: "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
+    error: opts.noLibraryMode
+      ? `I could not find enough verified ${expectedFamilies.join("/")} tracks from Spotify search to make this playlist without guessing.`
+      : `I could not find enough verified ${expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
+    details: {
+      expectedFamilies,
+      requestedCount: opts.requestedCount,
+      finalCount: opts.finalCount,
+      requiredCount,
+      requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
+      fallbackBlocked: true,
+      noLibraryMode: !!opts.noLibraryMode,
+    },
+  };
 }
 
 router.get("/generate/status", (req, res): void => {
@@ -1134,6 +2635,11 @@ router.get("/generate/preview", (req, res): void => {
   }
 });
 
+// SYSTEM GUARANTEE:
+// Backend generates candidates only.
+// Request layer performs evaluation, regeneration, and selection.
+// Frontend supplies behavioural feedback signals.
+// Long-term learning is driven by implicit + explicit feedback loops.
 router.post("/generate", async (req, res): Promise<void> => {
   const startMs = Date.now();
   let requestId = "";
@@ -1144,27 +2650,30 @@ router.post("/generate", async (req, res): Promise<void> => {
     const rawBody = req.body ?? {};
     const auditModeRequested = rawBody.auditMode === true || req.query.audit === "1";
     const auditTokenAuthorized = auditModeRequested && generationAuditTokenAuthorized(req);
-    const auditUserIdRaw =
-      typeof rawBody.spotifyUserId === "string"
-        ? rawBody.spotifyUserId.trim()
-        : typeof rawBody.auditSpotifyUserId === "string"
-          ? rawBody.auditSpotifyUserId.trim()
-          : "";
+    const auditSessionAuthorized = auditModeRequested && !!req.session.spotifyUserId;
+    const auditMode = auditModeRequested && (auditTokenAuthorized || auditSessionAuthorized);
+    const sideEffectPolicy = auditMode ? AUDIT_SIDE_EFFECT_POLICY : PRODUCTION_SIDE_EFFECT_POLICY;
+    if (auditMode) beginSpotifyApiAudit();
+    const auditUserIdRaw = typeof rawBody.spotifyUserId === "string"
+      ? rawBody.spotifyUserId.trim()
+      : typeof rawBody.auditSpotifyUserId === "string"
+        ? rawBody.auditSpotifyUserId.trim()
+        : "";
 
-    if (auditModeRequested && !auditTokenAuthorized) {
+    if (auditModeRequested && !auditMode) {
       generateFail(
         res,
         403,
         "AUDIT_MODE_NOT_AUTHORIZED",
-        "Playlist evaluation audit mode requires PLAYLIST_EVAL_TOKEN.",
+        "Playlist evaluation audit mode requires an authenticated session or PLAYLIST_EVAL_TOKEN.",
       );
       return;
     }
-    if (!devMode && !auditTokenAuthorized && !getFeatures().spotify.enabled) {
+    if (!devMode && !auditMode && !getFeatures().spotify.enabled) {
       generateFail(res, 503, "SPOTIFY_DISABLED", "Spotify is not configured on this server.");
       return;
     }
-    if (!devMode && !auditTokenAuthorized && (!req.session.spotifyTokens || !req.session.spotifyUserId)) {
+    if (!devMode && !auditMode && (!req.session.spotifyTokens || !req.session.spotifyUserId)) {
       generateFail(res, 401, "NOT_AUTHENTICATED", "Not authenticated");
       return;
     }
@@ -1188,21 +2697,26 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const auditMode = auditTokenAuthorized;
-    const userId = devMode ? MOCK_SPOTIFY_USER_ID : auditMode ? auditUserIdRaw : req.session.spotifyUserId!;
+    const userId = devMode
+      ? MOCK_SPOTIFY_USER_ID
+      : auditTokenAuthorized
+        ? auditUserIdRaw
+        : req.session.spotifyUserId!;
 
-    const rateCheck = auditMode ? { allowed: true, resetInMs: 0 } : checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
-    if (!rateCheck.allowed) {
-      const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
-      res.setHeader("Retry-After", String(retryAfterSec));
-      generateFail(
-        res,
-        429,
-        "RATE_LIMITED",
-        `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
-        { retry_after: retryAfterSec }
-      );
-      return;
+    if (!sideEffectPolicy.bypassRateLimit) {
+      const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+      if (!rateCheck.allowed) {
+        const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
+        res.setHeader("Retry-After", String(retryAfterSec));
+        generateFail(
+          res,
+          429,
+          "RATE_LIMITED",
+          `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
+          { retry_after: retryAfterSec }
+        );
+        return;
+      }
     }
 
     const vibeRaw = rawBody.vibe ?? "";
@@ -1306,7 +2820,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let referenceFingerprint: ReferenceFingerprint | null = null;
     let referencePlaylistId: string | null = null;
 
-    if (referencePlaylist && !devMode) {
+    if (referencePlaylist && !devMode && req.session.spotifyTokens) {
       tStage = Date.now();
       try {
         const tokens = await getValidAccessToken(req.session.spotifyTokens!);
@@ -1341,6 +2855,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const vibeKind = detectVibeKind(vibe, emotionProfile);
     const budget = createRequestBudget(startMs);
+    const debugMode = req.query.debug === "1";
     const resultCacheKey = getGenerateCacheKey({
       userId,
       vibe,
@@ -1348,27 +2863,43 @@ router.post("/generate", async (req, res): Promise<void> => {
       mode,
       length,
       referencePlaylist: !!referencePlaylist,
-      referencePlaylistId: referencePlaylist ?? null,
+      referencePlaylistKey: referencePlaylist ?? null,
       sceneId: moodSceneId,
       noLibraryMode: !!noLibraryMode,
       mockMode: devMode,
     });
+    const cacheEntryStatus = getGenerateCacheEntryStatus(resultCacheKey);
     const cacheConstraintLayer = extractConstraintLayer(vibe, {
       primary: vibe,
       ...deriveDiagnosticTags(vibe),
       canonicalHints: canonicalCrossGenreHints(vibe),
     });
 
-    if (!varietyBoost && !devMode && !auditMode && !hasHardConstraints(cacheConstraintLayer)) {
+    if (sideEffectPolicy.mode === "production" && !debugMode && !varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
       tStage = Date.now();
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
-      // Only use cache entries that carry the v2 schema (genrePrimary per track).
-      // Pre-v2 entries lack genrePrimary and are treated as cache misses so a
-      // fresh generation populates the field correctly.
-      if (cached && cached.cacheVersion === "v2" && hasValidCachedIntent(cached)) {
+      // Only use cache entries generated after strict final genre/era validation.
+      if (cached && cached.cacheVersion === "v30" && hasValidCachedIntent(cached)) {
         if (respondIfStale(res, userId, requestId)) return;
         setGeneratePhase(userId, requestId, "done");
+        const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
+        const cachedFinalGenreDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
+          {},
+        );
+        const cachedFinalEraDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, eraBucket(track.releaseYear)),
+          {},
+        );
+        const cachedFinalMoodDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, moodBucket(track.energy, track.valence)),
+          {},
+        );
+        const cachedFinalEnergyDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, energyBucket(track.energy)),
+          {},
+        );
         req.log.info(
           {
             elapsedMs: Date.now() - startMs,
@@ -1377,18 +2908,60 @@ router.post("/generate", async (req, res): Promise<void> => {
           },
           "Generation complete"
         );
+        let cachedSavedPlaylistId: number | null = null;
+        try {
+          const [saved] = await db
+            .insert(savedPlaylistsTable)
+            .values({
+              userId,
+              name: cached.playlistName,
+              emotionProfile: cached.emotionProfile as any,
+              tracks: cached.finalTracks as any,
+              spotifyUrl: cached.spotifyPlaylistUrl,
+              vibe: cached.vibe,
+              mode: cached.mode,
+            })
+            .returning({ id: savedPlaylistsTable.id });
+          cachedSavedPlaylistId = saved?.id ?? null;
+          if (cachedSavedPlaylistId) {
+            await db.insert(playlistHistoryTable).values({
+              spotifyUserId: userId,
+              playlistId: cached.spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${cachedSavedPlaylistId}`,
+              playlistUrl: cached.spotifyPlaylistUrl ?? publicUrl(`/p/${cachedSavedPlaylistId}`),
+              name: cached.playlistName,
+              vibe: cached.vibe,
+              mode: cached.mode,
+              trackCount: cachedApiTracks.length,
+              emotionProfile: cached.emotionProfile as any,
+              trackIds: cached.finalTracks.map((track) => track.trackId),
+            });
+          }
+        } catch (cacheSaveErr) {
+          req.log.warn({ err: cacheSaveErr, userId }, "Cached generation could not create local saved playlist");
+        }
         res.json({
           success: true,
           cached: true,
-          tracks: formatTracksForApi(cached.finalTracks, cached.emotionProfile),
+          playlistId: cachedSavedPlaylistId,
+          savedPlaylistId: cachedSavedPlaylistId,
+          tracks: cachedApiTracks,
           playlistName: cached.playlistName,
           name: cached.playlistName,
           vibe: cached.vibe,
           mode: cached.mode,
-          count: cached.finalTracks.length,
-          totalTracks: cached.finalTracks.length,
+          noLibraryMode: !!noLibraryMode,
+          count: cachedApiTracks.length,
+          totalTracks: cachedApiTracks.length,
           emotionProfile: cached.emotionProfile,
+          cacheDiagnostics: { status: "fresh", staleBypassed: false },
+          finalGenreDistribution: cachedFinalGenreDistribution,
+          finalEraDistribution: cachedFinalEraDistribution,
+          finalMoodDistribution: cachedFinalMoodDistribution,
+          finalEnergyDistribution: cachedFinalEnergyDistribution,
           v3Diagnostics: cached.v3Diagnostics ?? null,
+          generationDiagnostics: cached.generationDiagnostics ?? null,
+          artistDiversity: cached.artistDiversity ?? null,
+          playlistConfidence: cached.playlistConfidence ?? null,
           ...(cached.spotifyPlaylistUrl
             ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
             : { spotifyUnavailable: true as const }),
@@ -1398,6 +2971,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     setGeneratePhase(userId, requestId, "loading_library");
+    setGenerateStageDetail(userId, requestId, "Scanning your liked songs...");
     tStage = Date.now();
     const likedRowsRaw = devMode
       ? generateMockSpotifyLibrary()
@@ -1409,10 +2983,87 @@ router.post("/generate", async (req, res): Promise<void> => {
     recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
     recordPreV3Timing(preV3Timing, "dbTimeMs", likedSongsQueryMs);
 
-    const { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
+    let { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
     if (droppedTracks > 0) {
       req.log.warn({ droppedTracks, userId }, "Dropped invalid liked-song rows");
     }
+
+    const noLibraryExplicitFamilies = noLibraryMode ? buildCsspLockedIntent(vibe).genreFamilies : [];
+    let noLibrarySpotifyCandidateCount = 0;
+    let noLibrarySpotifyVerifiedCount = 0;
+    let noLibrarySpotifyFallbackReason: string | null = null;
+    if (!devMode && noLibraryMode && noLibraryExplicitFamilies.length > 0) {
+      try {
+        const freshTokens = await getValidAccessToken(req.session.spotifyTokens!, userId);
+        if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
+          req.session.spotifyTokens = freshTokens;
+        }
+        const spotifyCandidates = await buildNoLibrarySpotifyCandidates({
+          accessToken: freshTokens.accessToken,
+          userId,
+          vibe,
+          length,
+          families: noLibraryExplicitFamilies,
+        });
+        noLibrarySpotifyCandidateCount = spotifyCandidates.length;
+        const verifiedSpotifyCandidates = spotifyCandidates.filter((track) =>
+          hasFinalGenreEvidence(track, new Map(), noLibraryExplicitFamilies)
+        );
+        noLibrarySpotifyVerifiedCount = verifiedSpotifyCandidates.length;
+        const requiredVerifiedCandidates = Math.min(
+          length,
+          Math.max(10, Math.ceil(length * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
+        );
+        if (verifiedSpotifyCandidates.length >= requiredVerifiedCandidates) {
+          likedSongs = verifiedSpotifyCandidates;
+          noLibrarySpotifyFallbackReason = null;
+          req.log.info(
+            {
+              vibe,
+              families: noLibraryExplicitFamilies,
+              spotifyCandidateCount: spotifyCandidates.length,
+              verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
+              requiredVerifiedCandidates,
+            },
+            "No Library Mode using verified Spotify search candidates"
+          );
+        } else if (spotifyCandidates.length >= Math.min(20, length)) {
+          likedSongs = spotifyCandidates;
+          noLibrarySpotifyCandidateCount = spotifyCandidates.length;
+          noLibrarySpotifyFallbackReason = "spotify_search_candidates_below_verified_threshold";
+          req.log.warn(
+            {
+              vibe,
+              families: noLibraryExplicitFamilies,
+              spotifyCandidateCount: spotifyCandidates.length,
+              verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
+              requiredVerifiedCandidates,
+            },
+            "No Library Mode using unverified Spotify search pool; final guard will enforce genre evidence"
+          );
+        } else {
+          noLibrarySpotifyFallbackReason = "spotify_search_too_few_candidates";
+          req.log.warn(
+            {
+              vibe,
+              families: noLibraryExplicitFamilies,
+              spotifyCandidateCount: spotifyCandidates.length,
+              verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
+              requiredVerifiedCandidates,
+            },
+            "No Library Mode Spotify search returned too few candidates; falling back to synced library"
+          );
+        }
+      } catch (searchErr: any) {
+        noLibrarySpotifyFallbackReason = "spotify_search_failed";
+        req.log.warn(
+          { err: searchErr?.message, vibe, families: noLibraryExplicitFamilies },
+          "No Library Mode Spotify search failed; falling back to synced library"
+        );
+      }
+    }
+
+    setGenerateStageDetail(userId, requestId, `Analysing ${likedSongs.length.toLocaleString()} liked songs`);
 
     if (likedSongs.length === 0) {
       setGeneratePhase(userId, requestId, "error");
@@ -1421,7 +3072,9 @@ router.post("/generate", async (req, res): Promise<void> => {
           res,
           400,
           "LIBRARY_EMPTY_NO_LIBRARY_MODE",
-          "No Library Mode requires at least a few liked songs to anchor vibe matching. Please sync your Spotify library first, then try again."
+          noLibraryExplicitFamilies.length > 0
+            ? "No Library Mode could not find usable Spotify-wide candidates for this prompt. Try a broader genre phrase or regenerate in a moment."
+            : "No Library Mode needs a clear genre prompt or a synced library fallback. Try a genre like country, rock, or UK garage."
         );
       } else {
         generateFail(
@@ -1439,8 +3092,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       generateFail(
         res,
         400,
-        "LIBRARY_TOO_SMALL",
-        "Library is too small to generate. Sync more liked songs from Spotify first."
+        noLibraryMode ? "NO_LIBRARY_CANDIDATE_POOL_TOO_SMALL" : "LIBRARY_TOO_SMALL",
+        noLibraryMode
+          ? "No Library Mode could not build a large enough candidate pool. Try a broader genre prompt or turn off No Library Mode."
+          : "Library is too small to generate. Sync more liked songs from Spotify first."
       );
       return;
     }
@@ -1453,11 +3108,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       length,
       mode,
       vibe,
-      maxPerArtist: 2,
+      maxPerArtist: artistDiversityCap(length, vibe),
+      noLibrarySpotifyCandidateCount,
+      noLibrarySpotifyVerifiedCount,
+      noLibrarySpotifyFallbackReason,
+      noLibraryMode,
     };
 
     res.setTimeout(REQUEST_HARD_TIMEOUT_MS + 2000, () => {
       if (res.headersSent || staleGenerate(userId, requestId)) return; // timeout handler — no second body
+      cancelGenerateSession(userId, requestId);
       const ctx = (req as { _genCtx?: {
         likedSongs: typeof likedSongs;
         constrainedFallbackTracks?: typeof likedSongs;
@@ -1466,6 +3126,21 @@ router.post("/generate", async (req, res): Promise<void> => {
         maxPerArtist?: number;
         vibe: string;
         mode: string;
+        noLibraryMode?: boolean;
+        lockedIntent?: LockedIntent;
+        constraintLayer?: ConstraintLayer;
+        classMap?: Map<string, {
+          genrePrimary: string;
+          genreFamily: string;
+          primarySubgenre: string;
+          secondarySubgenre: string | null;
+          subGenres: string[];
+        }>;
+        genreByTrack?: (trackId: string) => {
+          genrePrimary?: string | null;
+          genreFamily?: string | null;
+          genres?: string[] | null;
+        } | null;
       } })._genCtx;
       req.log.error({ userId, requestId, code: "TIMEOUT" }, "Generate hard timeout — emergency fallback");
       if (!ctx?.likedSongs?.length) {
@@ -1477,8 +3152,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         });
         return;
       }
-      const maxPerArtist =
-        ctx.mode === "strict" ? 2 : ctx.mode === "balanced" ? 3 : 5;
+      const maxPerArtist = ctx.maxPerArtist ?? artistDiversityCap(ctx.length, ctx.vibe);
       const fallbackTracks = ctx.constrainedFallbackTracks?.length
         ? ctx.constrainedFallbackTracks
         : ctx.likedSongs;
@@ -1488,7 +3162,37 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistLength: ctx.length,
         maxPerArtist,
         librarySize: fallbackTracks.length,
+        genreByTrack: ctx.genreByTrack,
       });
+      const finalizedFallback = ctx.lockedIntent && ctx.constraintLayer && ctx.classMap
+        ? finalizePlaylistTracks({
+            initial: pipeline.finalTracks as unknown as ConstraintTrack[],
+            candidates: fallbackTracks.map((track) => ({ ...track, score: 0.6 } as ConstraintTrack)),
+            requestedLength: ctx.length,
+            vibe: ctx.vibe,
+            intent: ctx.lockedIntent,
+            constraints: ctx.constraintLayer,
+            classMap: ctx.classMap,
+            maxPerArtist,
+          }).tracks
+        : pipeline.finalTracks;
+      const strictFallbackFailure = explicitGenreFallbackFailure({
+        vibe: ctx.vibe,
+        requestedCount: ctx.length,
+        finalCount: finalizedFallback.length,
+        hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
+        noLibraryMode: !!ctx.noLibraryMode,
+      });
+      if (strictFallbackFailure && finalizedFallback.length === 0) {
+        res.status(409).json({
+          success: false,
+          error: strictFallbackFailure.error,
+          code: strictFallbackFailure.code,
+          strictGenreEvidence: strictFallbackFailure.details,
+          tracks: [],
+        });
+        return;
+      }
       const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
       res.json({
         success: true,
@@ -1502,10 +3206,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         name: playlistName,
         vibe: ctx.vibe,
         mode: ctx.mode,
-        count: pipeline.finalTracks.length,
-        totalTracks: pipeline.finalTracks.length,
+        count: finalizedFallback.length,
+        totalTracks: finalizedFallback.length,
         spotifyUnavailable: true,
-        tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile),
+        tracks: formatTracksForApi(finalizedFallback, ctx.emotionProfile),
       });
     });
 
@@ -1516,6 +3220,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     req.log.info({ vibe, vibeKind, promptConfidence }, "Vibe kind detected");
 
+    setGeneratePhase(userId, requestId, "building_profile");
+    setGenerateStageDetail(userId, requestId, "Loading recent playlist memory and feedback");
     tStage = Date.now();
     const recentPlaylists = await db
       .select()
@@ -1523,27 +3229,48 @@ router.post("/generate", async (req, res): Promise<void> => {
       .where(eq(playlistHistoryTable.spotifyUserId, userId))
       .orderBy(desc(playlistHistoryTable.createdAt))
       .limit(25);
+    const feedbackMemory = await getFeedbackMemory(userId);
     const playlistHistoryQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "playlistHistoryQueryMs", playlistHistoryQueryMs);
     recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);
+    const evaluationRecentTrackLists = evaluationSessionTrackLists(rawBody as Record<string, unknown>, sideEffectPolicy.mode === "audit");
+    const auditDiversityPressure = evaluationDiversityPressure(vibe, emotionProfile, evaluationRecentTrackLists.length);
+    const persistentMemoryPlaylistRows = recentPlaylists.map((p) => ({
+      vibe: p.vibe,
+      trackIds: (p.trackIds as string[]) ?? [],
+      emotionProfile: p.emotionProfile as EmotionProfile | null,
+      createdAt: p.createdAt,
+    }));
+    const memoryPlaylistRows = [
+      ...persistentMemoryPlaylistRows,
+      ...evaluationRecentTrackLists.map((trackIds, index) => ({
+        vibe: `evaluation-session-${index + 1}`,
+        trackIds,
+        emotionProfile: null,
+        createdAt: new Date(),
+      })),
+    ];
+    const scoringMemoryPlaylistRows = auditDiversityPressure < 0.5
+      ? persistentMemoryPlaylistRows
+      : memoryPlaylistRows;
 
     tStage = Date.now();
     const freshnessStats = buildFreshnessStats(
-      recentPlaylists.map((p) => ({
-        vibe: p.vibe,
-        trackIds: (p.trackIds as string[]) ?? [],
-        emotionProfile: p.emotionProfile as EmotionProfile | null,
-      }))
+      scoringMemoryPlaylistRows
     );
 
     const trackIdToArtist = new Map(likedSongs.map((s) => [s.trackId, s.artistName]));
     const trackIdToAlbum = new Map(likedSongs.map((s) => [s.trackId, s.albumName]));
-    const artistAppearances = buildArtistAppearanceMap(
-      recentPlaylists.map((p) => ({ vibe: p.vibe, trackIds: (p.trackIds as string[]) ?? [] })),
+    const scoringArtistAppearances = buildArtistAppearanceMap(
+      scoringMemoryPlaylistRows,
+      trackIdToArtist
+    );
+    const sessionArtistAppearances = buildArtistAppearanceMap(
+      memoryPlaylistRows,
       trackIdToArtist
     );
     const albumAppearances = buildAlbumAppearanceMap(
-      recentPlaylists.map((p) => ({ vibe: p.vibe, trackIds: (p.trackIds as string[]) ?? [] })),
+      scoringMemoryPlaylistRows,
       trackIdToAlbum
     );
 
@@ -1591,12 +3318,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     tStage = Date.now();
     const librarySignals = buildLibrarySignals(
       likedRows,
-      recentPlaylists.map((p) => ({
-        vibe: p.vibe,
-        trackIds: (p.trackIds as string[]) ?? [],
-        emotionProfile: p.emotionProfile as EmotionProfile | null,
-        createdAt: p.createdAt,
-      }))
+      memoryPlaylistRows
     );
     recordPreV3Timing(preV3Timing, "librarySignalTimeMs", Date.now() - tStage);
 
@@ -1610,16 +3332,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
 
     const arcRepeatCount = countRecentJourneyArc(
-      recentPlaylists.map((p) => ({
-        vibe: p.vibe,
-        trackIds: (p.trackIds as string[]) ?? [],
-        emotionProfile: p.emotionProfile as EmotionProfile | null,
-      })),
+      memoryPlaylistRows,
       journeyArc
     );
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
-    setGeneratePhase(userId, requestId, "building_profile");
+    setGenerateStageDetail(userId, requestId, `Building taste profile from ${likedSongs.length.toLocaleString()} tracks`);
     let t0 = Date.now();
     const { profile: userGenreProfile, cacheHit } = devMode
       ? { profile: buildMockUserGenreProfile(likedSongs), cacheHit: false }
@@ -1633,6 +3351,37 @@ router.post("/generate", async (req, res): Promise<void> => {
       { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
       "Genre profile built"
     );
+    const genreByTrack = (trackId: string) => {
+      const classification = userGenreProfile.trackClassifications.get(trackId);
+      if (!classification) return null;
+      const genres = [
+        classification.primarySubgenre,
+        classification.secondarySubgenre,
+        ...(classification.subGenres ?? []),
+        classification.genrePrimary,
+        classification.genreFamily,
+      ].filter((value): value is string => !!value);
+      return {
+        genrePrimary: classification.genrePrimary ?? classification.genreFamily ?? null,
+        genreFamily: classification.genreFamily ?? classification.genrePrimary ?? null,
+        genres: [...new Set(genres)],
+      };
+    };
+    const hydrateTrackGenre = <T extends { trackId: string; genrePrimary?: string | null; genreFamily?: string | null; genres?: string[] | null }>(
+      track: T
+    ): T => {
+      const genre = genreByTrack(track.trackId);
+      if (!genre) return track;
+      const genrePrimary = track.genrePrimary ?? genre.genrePrimary ?? null;
+      return {
+        ...track,
+        genrePrimary,
+        genreFamily: track.genreFamily ?? genre.genreFamily ?? genrePrimary,
+        genres: Array.isArray(track.genres) && track.genres.length > 0
+          ? track.genres
+          : genre.genres ?? (genrePrimary ? [genrePrimary] : []),
+      };
+    };
 
     genStageTimer = createGenerateStageTimer(req.log, { requestId, userId });
     const stageTimer = genStageTimer;
@@ -1646,12 +3395,28 @@ router.post("/generate", async (req, res): Promise<void> => {
       hybridCap,
     });
 
-    const recentTrackLists = recentPlaylists.map((p) => (p.trackIds as string[]) ?? []);
-    const recentTrackPenaltyScale = varietyBoost ? 1.75 : 1;
+    const recentTrackLists = memoryPlaylistRows.map((p) => p.trackIds);
+    const sessionMemory = buildSessionMemory(recentTrackLists, trackIdToArtist);
+    const playlistArtistSet = new Map<string, Set<string>>();
+    memoryPlaylistRows.forEach((playlist, index) => {
+      const artists = new Set<string>();
+      for (const trackId of playlist.trackIds) {
+        const artist = trackIdToArtist.get(trackId)?.trim().toLowerCase();
+        if (artist) artists.add(artist);
+      }
+      playlistArtistSet.set(String(index), artists);
+    });
+    const sessionArtistMemory = {
+      artistCount: sessionArtistAppearances,
+      playlistArtistSet,
+      maxArtistAppearances: 2,
+      diversityPressure: auditDiversityPressure,
+    };
+    const recentTrackPenaltyScale = (varietyBoost ? 2.75 : 1.85) * auditDiversityPressure;
     const freshnessCloneMultiplier = varietyBoost
       ? cloneMultiplier * 0.88
       : cloneMultiplier;
-    const stackCacheKey = `${resultCacheKey}:${likedSongs.length}`;
+    const stackCacheKey = `${resultCacheKey}:${libraryFingerprint(likedSongs)}`;
 
     stageTimer.start("Building genre stack", {
       tracks: likedSongs.length,
@@ -1677,11 +3442,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       ontologyEdges: genreStack.stats.ontologyEdges,
     });
 
-    const maxPerArtist = 2;
+    const maxPerArtist = artistDiversityCap(length, vibe);
 
-    const allowHolidaySeason =
-      /\b(christmas|xmas|holiday|festive|winter holiday)\b/i.test(vibe) ||
-      (humanIntent.intent === "nostalgia" && /\bchristmas|holiday\b/i.test(vibe));
+    const allowHolidaySeason = hasExplicitHolidayIntent(vibe);
     const qualitySignalContext = buildQualitySignalContext({
       vibe,
       emotionProfile,
@@ -1691,6 +3454,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     const pipelineVibe = normalizeVibeForPipeline(vibe, qualitySignalContext);
     const constraintLayer = extractConstraintLayer(vibe, qualitySignalContext);
     const parsedCsspIntent = buildCsspLockedIntent(vibe);
+    const neutralDrivingPrompt = isNeutralDrivingPrompt(vibe, parsedCsspIntent);
+    const resolvedMoodTags = (parsedCsspIntent.mood.length > 0
+      ? parsedCsspIntent.mood
+      : qualitySignalContext.moodTags.filter((tag) => tag !== "neutral").slice(0, 3))
+      .filter((tag) => !(neutralDrivingPrompt && (tag === "melancholic" || tag === "dark")));
+    const resolvedEnergy = parsedCsspIntent.energy ?? (neutralDrivingPrompt ? "medium" : null);
     const lockedIntent = {
       genreFamilies: parsedCsspIntent.genreFamilies.length > 0
         ? parsedCsspIntent.genreFamilies
@@ -1700,16 +3469,22 @@ router.post("/generate", async (req, res): Promise<void> => {
           ? { start: constraintLayer.hard.eraStart, end: constraintLayer.hard.eraEnd }
           : null
       ),
-      mood: parsedCsspIntent.mood.length > 0 ? parsedCsspIntent.mood : qualitySignalContext.moodTags.filter((tag) => tag !== "neutral").slice(0, 3),
+      mood: resolvedMoodTags,
       activity: parsedCsspIntent.activity,
-      energy: parsedCsspIntent.energy,
+      energy: resolvedEnergy,
       primaryGenres: parsedCsspIntent.genreFamilies.length > 0
         ? parsedCsspIntent.genreFamilies
         : constraintLayer.hard.genres.slice(0, 3),
       eraStart: parsedCsspIntent.eraRange?.start ?? constraintLayer.hard.eraStart,
       eraEnd: parsedCsspIntent.eraRange?.end ?? constraintLayer.hard.eraEnd,
-      energyLevel: parsedCsspIntent.energy,
+      energyLevel: resolvedEnergy,
+      interpretationBudget: parsedCsspIntent.interpretationBudget,
     };
+    const curatorIdentity = buildCuratorIdentity({
+      prompt: vibe,
+      intent: lockedIntent,
+      emotionProfile,
+    });
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
       dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
@@ -1750,6 +3525,10 @@ router.post("/generate", async (req, res): Promise<void> => {
     const genCtx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
     if (genCtx) {
       genCtx["constrainedFallbackTracks"] = constrainedFallbackTracks;
+      genCtx["genreByTrack"] = genreByTrack;
+      genCtx["lockedIntent"] = lockedIntent;
+      genCtx["constraintLayer"] = constraintLayer;
+      genCtx["classMap"] = userGenreProfile.trackClassifications;
     }
     req.log.info(
       {
@@ -1761,20 +3540,24 @@ router.post("/generate", async (req, res): Promise<void> => {
         canonicalHints: qualitySignalContext.canonicalHints,
         constraintLayer,
         lockedIntent,
+        interpretationBudget: lockedIntent.interpretationBudget,
       },
       "Quality signal and constraint context prepared"
     );
 
     setGeneratePhase(userId, requestId, "scoring");
+    setGenerateStageDetail(userId, requestId, `Ranking matches from ${likedSongs.length.toLocaleString()} liked songs`);
     stageTimer.start("Running playlist pipeline (scoring + compose)", {
       tracks: likedSongs.length,
       stackFromCache,
     });
     preV3Timing.totalBeforeV3Ms = Date.now() - startMs;
     req.log.info({ ...preV3Timing }, "Pre-V3 timing breakdown");
-    const useFastFallback = !devMode && budget.isExpired();
+    const useFastFallback = !devMode && budget.shouldFastFallback();
 
-    let pipeline: ReturnType<typeof buildPlaylistPipeline>;
+    let pipeline: BuildPlaylistPipelineResult<(typeof likedSongs)[number]> & {
+      requestOrchestration?: RequestGenerationOrchestration;
+    };
     let fallbackReason: { stage: string; elapsedMs: number } | null = null;
     if (useFastFallback) {
       fallbackReason = {
@@ -1797,9 +3580,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistLength: length,
         maxPerArtist,
         librarySize: constrainedFallbackTracks.length,
+        genreByTrack,
       });
     } else {
-      pipeline = buildPlaylistPipeline({
+      pipeline = await runRequestLayerGeneration({
       pipelineLog: req.log,
       likedSongs,
       vibe: pipelineVibe,
@@ -1819,6 +3603,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       journeyArc,
       maxPerArtist,
       recentPlaylistTrackIds: recentTrackLists,
+      sessionArtistMemory,
       lastSuccessfulVibe: recentPlaylists[0]?.vibe ?? null,
       noLibraryMode: !!noLibraryMode,
       memoryByTrack: (trackId) => {
@@ -1837,12 +3622,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         rediscoveryMode,
         archaeology,
         chapterMatch,
+        feedbackMemory,
         startMs,
         promptConfidenceMultiplier: promptConfidence.qualityBoost,
         journeyArcMultiplier,
         freshness: {
           stats: freshnessStats,
-          artistAppearances,
+          artistAppearances: scoringArtistAppearances,
           albumAppearances,
           globalCloneMultiplier: freshnessCloneMultiplier,
         },
@@ -1853,6 +3639,18 @@ router.post("/generate", async (req, res): Promise<void> => {
         allowHoliday: allowHolidaySeason,
         suppressGenres: allowHolidaySeason ? [] : ["christmas"],
       },
+      progress: (stage, detail) => {
+        if (stage === "scoring") {
+          setGeneratePhase(userId, requestId, "building_profile");
+        } else if (stage === "retrieval" || stage === "lanes" || stage === "sampling") {
+          setGeneratePhase(userId, requestId, "scoring");
+        } else if (stage === "fallback") {
+          setGeneratePhase(userId, requestId, "composing");
+        } else if (stage === "coherence") {
+          setGeneratePhase(userId, requestId, "composing");
+        }
+        setGenerateStageDetail(userId, requestId, detail);
+      },
     });
     }
 
@@ -1860,9 +3658,39 @@ router.post("/generate", async (req, res): Promise<void> => {
       score: number;
       rediscoveryScore?: number;
       narrativeRole?: string;
+      genreFamily?: string | null;
+      genres?: string[] | null;
+    };
+    const buildFinalCandidatePool = (): PlaylistTrack[] => {
+      const scoredFallbackTracks = constrainedFallbackTracks.map((track) => ({
+        ...track,
+        score: 0.42,
+        _fallbackCandidate: true,
+      } as PlaylistTrack));
+      const scoredLibraryTracks = likedSongs.map((track) => ({
+        ...track,
+        score: 0.55,
+      } as PlaylistTrack));
+      return [
+        ...(pipeline.finalTracks as PlaylistTrack[]),
+        ...(pipeline.sorted as PlaylistTrack[]),
+        ...scoredFallbackTracks,
+        ...scoredLibraryTracks,
+      ].map(hydrateTrackGenre);
     };
     setGeneratePhase(userId, requestId, "composing");
-    let finalTracks = pipeline.finalTracks as PlaylistTrack[];
+    setGenerateStageDetail(userId, requestId, `Building playlist flow from ${pipeline.finalTracks.length.toLocaleString()} candidates`);
+    let finalTracks = (pipeline.finalTracks as PlaylistTrack[]).map(hydrateTrackGenre);
+    const publishPartialTracks = (tracks: PlaylistTrack[], limit = tracks.length): void => {
+      const partialTracks = formatTracksForApi(tracks.slice(0, limit), emotionProfile).map((track) => ({
+        trackId: track.id,
+        trackName: track.name,
+        artistName: track.artist,
+        albumArt: track.albumArt ?? null,
+      }));
+      setGeneratePartialTracks(userId, requestId, partialTracks);
+    };
+    publishPartialTracks(finalTracks, 5);
     warnIfV3MetadataLost(
       pipeline.finalTracks,
       finalTracks,
@@ -1890,6 +3718,475 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Locked intent final validation"
     );
+    setGenerateStageDetail(userId, requestId, `Applying ${curatorIdentity.type.replace(/_/g, " ")} curator identity`);
+    const identityInitialTracks = applyCuratorIdentityScoring(finalTracks, curatorIdentity, sessionMemory);
+    const finalCandidatePool = applyCuratorIdentityScoring(buildFinalCandidatePool(), curatorIdentity, sessionMemory);
+    setGenerateStageDetail(userId, requestId, "Selecting dominant vibe cluster before final checks");
+    const clusterCuration = curateCandidatesByVibeCluster(
+      identityInitialTracks,
+      finalCandidatePool,
+      {
+        vibe,
+        intent: lockedIntent,
+        constraints: constraintLayer,
+        classMap: userGenreProfile.trackClassifications,
+        requestedLength: length,
+        identity: curatorIdentity,
+      }
+    );
+    let finalization = finalizePlaylistTracks({
+      initial: clusterCuration.initial,
+      candidates: clusterCuration.candidates,
+      requestedLength: length,
+      vibe,
+      intent: lockedIntent,
+      constraints: constraintLayer,
+      allowHolidaySeason,
+      classMap: userGenreProfile.trackClassifications,
+      maxPerArtist,
+    });
+    const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
+      likedSongs
+        .map((track) => ({
+          ...track,
+          score: 0.55,
+        } as PlaylistTrack))
+        .map(hydrateTrackGenre),
+      curatorIdentity,
+      sessionMemory
+    );
+    const applyLowComplexityRecovery = (triggerStage: string): boolean => {
+      if (finalTracks.length > 0) return false;
+      const recovered = recoverLowComplexityPlaylist({
+        initial: finalTracks,
+        fullLibrary: buildBroadRecoveryLibrary(),
+        candidates: clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
+          ? clusterCuration.candidates
+          : finalCandidatePool,
+        requestedLength: length,
+        vibe,
+        intent: lockedIntent,
+        constraints: constraintLayer,
+        allowHolidaySeason,
+        classMap: userGenreProfile.trackClassifications,
+        maxPerArtist,
+      });
+      if (!recovered) return false;
+      finalTracks = recovered.tracks;
+      finalization = {
+        tracks: recovered.tracks,
+        diagnostics: {
+          ...recovered.diagnostics,
+          recoveryTrigger: triggerStage,
+        },
+      };
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+      publishPartialTracks(finalTracks);
+      req.log.info(
+        { userId, vibe, finalization: finalization.diagnostics },
+        "Broad energy recovery produced playlist"
+      );
+      return true;
+    };
+    if (trackListChanged(finalTracks, finalization.tracks)) {
+      req.log.info(
+        { userId, vibe, finalization: finalization.diagnostics },
+        "Final playlist invariants repaired track list before evidence guards"
+      );
+      finalTracks = finalization.tracks;
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+    }
+    applyLowComplexityRecovery("pre_evidence_finalization_empty");
+    const minBestAvailableCount = Math.min(length, Math.max(5, Math.ceil(length * 0.40)));
+    const evidenceRelaxations: string[] = [];
+    let strictGenreEvidenceRelaxed = false;
+    let strictEraEvidenceRelaxed = false;
+    let hardValidationRelaxed = false;
+    const strictGenreEvidenceDiagnostics = (() => {
+      const expectedFamilies = lockedIntent.primaryGenres.length > 0
+        ? lockedIntent.primaryGenres
+        : lockedIntent.genreFamilies;
+      if (expectedFamilies.length === 0) {
+        return { active: false, expectedFamilies: [], verifiedCount: finalTracks.length, rejectedCount: 0, requiredCount: 0, verified: finalTracks };
+      }
+      const verified = finalTracks.filter((track) =>
+        hasFinalGenreEvidence(track, userGenreProfile.trackClassifications, expectedFamilies)
+      );
+      const evidenceBasisCount = finalTracks.length;
+      const requiredCount = Math.min(
+        evidenceBasisCount,
+        Math.max(1, Math.ceil(evidenceBasisCount * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
+      );
+      return {
+        active: true,
+        expectedFamilies,
+        requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
+        requestedCount: length,
+        finalCount: finalTracks.length,
+        evidenceBasisCount,
+        verifiedCount: verified.length,
+        rejectedCount: finalTracks.length - verified.length,
+        requiredCount,
+        verified,
+      };
+    })();
+    if (
+      strictGenreEvidenceDiagnostics.active &&
+      strictGenreEvidenceDiagnostics.verifiedCount < strictGenreEvidenceDiagnostics.requiredCount
+    ) {
+      if (finalTracks.length >= minBestAvailableCount) {
+        strictGenreEvidenceRelaxed = true;
+        evidenceRelaxations.push("genre_evidence_relaxed_best_available");
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            finalCount: finalTracks.length,
+            minBestAvailableCount,
+            strictGenreEvidenceDiagnostics: {
+              ...strictGenreEvidenceDiagnostics,
+              verified: undefined,
+            },
+          },
+          "Explicit genre evidence guard relaxed to best available playlist"
+        );
+      } else {
+      req.log.warn(
+        {
+          userId,
+          vibe,
+          strictGenreEvidenceDiagnostics: {
+            ...strictGenreEvidenceDiagnostics,
+            verified: undefined,
+          },
+        },
+        "Explicit genre evidence guard blocked weak playlist"
+      );
+      setGeneratePhase(userId, requestId, "error");
+      if (respondIfStale(res, userId, requestId)) return;
+      generateFail(
+        res,
+        409,
+        "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
+        noLibraryMode
+          ? `I could not find enough verified ${strictGenreEvidenceDiagnostics.expectedFamilies.join("/")} tracks from Spotify search to make this playlist without guessing.`
+          : `I could not find enough verified ${strictGenreEvidenceDiagnostics.expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
+        {
+          hint: noLibraryMode
+            ? "Try a broader genre phrase, turn off No Library Mode to use your saved tracks, or regenerate in a moment."
+            : "Run a fresh Spotify library sync so artist genres are updated, or broaden the prompt.",
+          strictGenreEvidence: {
+            ...strictGenreEvidenceDiagnostics,
+            verified: undefined,
+          },
+          noLibrarySpotify: noLibraryMode
+            ? {
+                candidateCount: noLibrarySpotifyCandidateCount,
+                verifiedCandidateCount: noLibrarySpotifyVerifiedCount,
+                fallbackReason: noLibrarySpotifyFallbackReason,
+              }
+            : undefined,
+        }
+      );
+      return;
+      }
+    }
+    if (
+      strictGenreEvidenceDiagnostics.active &&
+      strictGenreEvidenceDiagnostics.rejectedCount > 0 &&
+      !strictGenreEvidenceRelaxed
+    ) {
+      finalTracks = strictGenreEvidenceDiagnostics.verified as PlaylistTrack[];
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+    }
+    const strictEraEvidenceDiagnostics = (() => {
+      const eraRange = lockedIntent.eraRange;
+      if (!eraRange) {
+        return {
+          active: false,
+          eraRange: null,
+          requiredRatio: STRICT_EXPLICIT_ERA_EVIDENCE_RATIO,
+          requestedCount: length,
+          finalCount: finalTracks.length,
+          verifiedCount: finalTracks.length,
+          unknownCount: 0,
+          rejectedCount: 0,
+          requiredCount: 0,
+          compatibleFallbackUsed: false,
+          verified: finalTracks,
+          compatible: finalTracks,
+        };
+      }
+      const verified = finalTracks.filter((track) => trackHasEraEvidence(track, eraRange));
+      const knownMismatches = finalTracks.filter((track) => trackHasKnownEraMismatch(track, eraRange));
+      const compatible = finalTracks.filter((track) => !trackHasKnownEraMismatch(track, eraRange));
+      const requiredCount = Math.min(
+        length,
+        Math.max(10, Math.ceil(length * STRICT_EXPLICIT_ERA_EVIDENCE_RATIO))
+      );
+      const compatibleFallbackUsed =
+        verified.length === 0 &&
+        lockedIntent.genreFamilies.length > 0 &&
+        knownMismatches.length === 0 &&
+        compatible.length >= Math.min(length, Math.max(8, Math.ceil(length * 0.50)));
+      return {
+        active: true,
+        eraRange,
+        requiredRatio: STRICT_EXPLICIT_ERA_EVIDENCE_RATIO,
+        requestedCount: length,
+        finalCount: finalTracks.length,
+        verifiedCount: verified.length,
+        unknownCount: compatible.length - verified.length,
+        rejectedCount: knownMismatches.length,
+        requiredCount,
+        verifiedSample: eraDiagnosticSample(verified),
+        unknownSample: eraDiagnosticSample(compatible.filter((track) => !trackHasEraEvidence(track, eraRange))),
+        rejectedSample: eraDiagnosticSample(knownMismatches),
+        compatibleFallbackUsed,
+        verified,
+        compatible,
+      };
+    })();
+    if (
+      strictEraEvidenceDiagnostics.active &&
+      strictEraEvidenceDiagnostics.verifiedCount === 0 &&
+      !strictEraEvidenceDiagnostics.compatibleFallbackUsed
+    ) {
+      if (strictEraEvidenceDiagnostics.compatible.length >= minBestAvailableCount) {
+        strictEraEvidenceRelaxed = true;
+        evidenceRelaxations.push("era_evidence_relaxed_to_compatible_unknowns");
+        finalTracks = strictEraEvidenceDiagnostics.compatible as PlaylistTrack[];
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            finalCount: finalTracks.length,
+            minBestAvailableCount,
+            strictEraEvidenceDiagnostics: {
+              ...strictEraEvidenceDiagnostics,
+              verified: undefined,
+              compatible: undefined,
+            },
+          },
+          "Explicit era evidence guard relaxed to compatible unknown-era playlist"
+        );
+      } else if (
+        (isGymWorkoutPrompt(vibe, lockedIntent) || isUpbeatSocialPrompt(vibe, lockedIntent)) &&
+        finalTracks.length >= minBestAvailableCount
+      ) {
+        strictEraEvidenceRelaxed = true;
+        evidenceRelaxations.push("era_evidence_relaxed_for_activity_recovery");
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            finalCount: finalTracks.length,
+            minBestAvailableCount,
+            strictEraEvidenceDiagnostics: {
+              ...strictEraEvidenceDiagnostics,
+              verified: undefined,
+              compatible: undefined,
+            },
+          },
+          "Explicit era evidence guard kept activity-safe recovery playlist"
+        );
+      } else {
+      req.log.warn(
+        {
+          userId,
+          vibe,
+          strictEraEvidenceDiagnostics: {
+            ...strictEraEvidenceDiagnostics,
+            verified: undefined,
+            compatible: undefined,
+          },
+        },
+        "Explicit era evidence guard blocked weak playlist"
+      );
+      setGeneratePhase(userId, requestId, "error");
+      if (respondIfStale(res, userId, requestId)) return;
+      generateFail(
+        res,
+        409,
+        "INSUFFICIENT_VERIFIED_ERA_EVIDENCE",
+        `I could not find any verified ${strictEraEvidenceDiagnostics.eraRange?.start}-${strictEraEvidenceDiagnostics.eraRange?.end} tracks after removing unknown or wrong-era songs.`,
+        {
+          hint: "Try a broader decade prompt, add a genre, or regenerate after syncing tracks with release years.",
+          strictEraEvidence: {
+            ...strictEraEvidenceDiagnostics,
+            verified: undefined,
+            compatible: undefined,
+          },
+        }
+      );
+      return;
+      }
+    }
+    if (strictEraEvidenceDiagnostics.active && !strictEraEvidenceRelaxed) {
+      const nextFinalTracks = strictEraEvidenceDiagnostics.verified.length > 0
+        ? strictEraEvidenceDiagnostics.verified
+        : strictEraEvidenceDiagnostics.compatible;
+      if (nextFinalTracks.length !== finalTracks.length) {
+        finalTracks = nextFinalTracks as PlaylistTrack[];
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+      }
+    }
+    finalization = finalizePlaylistTracks({
+      initial: finalTracks,
+      candidates: clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
+        ? clusterCuration.candidates
+        : finalCandidatePool,
+      requestedLength: length,
+      vibe,
+      intent: lockedIntent,
+      constraints: constraintLayer,
+      allowHolidaySeason,
+      classMap: userGenreProfile.trackClassifications,
+      maxPerArtist,
+    });
+    if (trackListChanged(finalTracks, finalization.tracks)) {
+      req.log.info(
+        { userId, vibe, finalization: finalization.diagnostics },
+        "Final playlist invariants repaired track list"
+      );
+      finalTracks = finalization.tracks;
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+    }
+    applyLowComplexityRecovery("post_evidence_finalization_empty");
+    const strictEraEvidencePublic = {
+      ...strictEraEvidenceDiagnostics,
+      verified: undefined,
+      compatible: undefined,
+      publishedCount: finalTracks.length,
+      publishMode: strictEraEvidenceRelaxed
+        ? "compatible_unknowns_relaxed"
+        : strictEraEvidenceDiagnostics.active ? "verified_only" : "inactive",
+      relaxed: strictEraEvidenceRelaxed,
+    };
+    const hardValidationFailures = [
+      (lockedIntent.primaryGenres.length > 0 || constraintLayer.hard.genres.length > 0) &&
+        finalValidation.genreConsistency === "FAIL" ? "genreConsistency" : null,
+      (lockedIntent.eraStart !== null || constraintLayer.hard.eraStart !== null) &&
+        finalValidation.eraAlignment === "FAIL" ? "eraAlignment" : null,
+    ].filter((failure): failure is string => !!failure);
+    if (finalTracks.length > 0 && hardValidationFailures.length > 0) {
+      if (finalTracks.length >= minBestAvailableCount) {
+        hardValidationRelaxed = true;
+        evidenceRelaxations.push("locked_intent_validation_relaxed_best_available");
+        req.log.warn(
+          { userId, vibe, finalValidation, hardValidationFailures, finalCount: finalTracks.length, minBestAvailableCount },
+          "Hard locked intent validation relaxed to best available playlist"
+        );
+      } else {
+      req.log.warn(
+        { userId, vibe, finalValidation, hardValidationFailures, finalCount: finalTracks.length },
+        "Hard locked intent validation blocked playlist"
+      );
+      setGeneratePhase(userId, requestId, "error");
+      if (respondIfStale(res, userId, requestId)) return;
+      generateFail(
+        res,
+        409,
+        "LOCKED_INTENT_VALIDATION_FAILED",
+        "I could not make this playlist without breaking the explicit genre or era request.",
+        {
+          finalValidation,
+          hardValidationFailures,
+          strictGenreEvidence: {
+            ...strictGenreEvidenceDiagnostics,
+            verified: undefined,
+          },
+          strictEraEvidence: strictEraEvidencePublic,
+        }
+      );
+      return;
+      }
+    }
+    let humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
+    let humanCoherenceRepairUsed = false;
+    if (finalTracks.length > 0 && humanCoherence.score < 0.56) {
+      const repairCandidates = finalCandidatePool.filter((track) => {
+        const identityFit = (track as unknown as Record<string, unknown>)["_identityFit"];
+        const fit = typeof identityFit === "number" ? identityFit : scoreTrackForIdentity(track, curatorIdentity);
+        const cluster = vibeClusterKey(track, userGenreProfile.trackClassifications);
+        const allowedCluster = clusterCuration.diagnostics.selectedCluster
+          ? cluster === clusterCuration.diagnostics.selectedCluster ||
+            (clusterCuration.diagnostics.secondaryCluster !== null && cluster === clusterCuration.diagnostics.secondaryCluster)
+          : true;
+        return fit >= 0.48 && allowedCluster;
+      });
+      const repaired = finalizePlaylistTracks({
+        initial: repairCandidates.slice(0, length),
+        candidates: repairCandidates,
+        requestedLength: length,
+        vibe,
+        intent: lockedIntent,
+        constraints: constraintLayer,
+        allowHolidaySeason,
+        classMap: userGenreProfile.trackClassifications,
+        maxPerArtist,
+      });
+      const repairedCoherence = humanCoherenceScore(repaired.tracks, curatorIdentity);
+      if (
+        repaired.tracks.length >= Math.min(length, Math.max(6, Math.ceil(length * 0.60))) &&
+        repairedCoherence.score >= humanCoherence.score + 0.06
+      ) {
+        finalTracks = repaired.tracks;
+        finalization = {
+          tracks: repaired.tracks,
+          diagnostics: {
+            ...repaired.diagnostics,
+            humanCoherenceRepair: true,
+          },
+        };
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+        humanCoherence = repairedCoherence;
+        humanCoherenceRepairUsed = true;
+        evidenceRelaxations.push("human_coherence_repaired");
+        req.log.info(
+          { userId, vibe, curatorIdentity: curatorIdentity.type, humanCoherence },
+          "Human coherence repair rebuilt playlist"
+        );
+      } else if (humanCoherence.score < 0.46 && finalTracks.length < minBestAvailableCount) {
+        evidenceRelaxations.push("human_coherence_low_best_available");
+      }
+    }
     const scoringDiagnostics = pipeline.scoringDiagnostics;
     const genreAudit: GenreAudit = pipeline.genreAudit;
     const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
@@ -1899,6 +4196,109 @@ router.post("/generate", async (req, res): Promise<void> => {
       hybridPoolSize?: number;
       poolCapped?: boolean;
     };
+    const v3PipelineDiagnostics = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+    const v3GenerationDebug = (v3PipelineDiagnostics["generationDebug"] ?? {}) as Record<string, unknown>;
+    const waterfallDiagnostics = (v3PipelineDiagnostics["waterfall"] ?? {}) as Record<string, unknown>;
+    const removalReasonDiagnostics = Array.isArray(v3PipelineDiagnostics["removalReasons"])
+      ? v3PipelineDiagnostics["removalReasons"] as Array<Record<string, unknown>>
+      : [];
+    const numberFromWaterfall = (key: string, fallback: number): number => {
+      const value = waterfallDiagnostics[key];
+      return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+    };
+    const afterForStage = (matcher: RegExp, fallback: number): number => {
+      const stage = removalReasonDiagnostics.find((entry) => matcher.test(String(entry["stage"] ?? "")));
+      const after = stage?.["after"];
+      return typeof after === "number" && Number.isFinite(after) ? after : fallback;
+    };
+    const stageWaterfall = [
+      { stage: "Library Size", count: likedSongs.length },
+      { stage: "Sampled", count: numberFromWaterfall("retrievalCount", scoringPool.hybridPoolSize ?? pipeline.sorted.length) },
+      { stage: "Classified", count: afterForStage(/genre family normalization|metadata completeness/i, numberFromWaterfall("scoredCount", pipeline.sorted.length)) },
+      { stage: "Intent Match", count: numberFromWaterfall("contractCount", likedSongs.length) },
+      { stage: "Era Match", count: afterForStage(/era readiness/i, numberFromWaterfall("constraintCount", pipeline.sorted.length)) },
+      { stage: "Mood Match", count: afterForStage(/constraint filter|intent readiness/i, numberFromWaterfall("constraintCount", pipeline.sorted.length)) },
+      { stage: "Ranking", count: numberFromWaterfall("laneCount", scoringPool.hybridPoolSize ?? pipeline.sorted.length) },
+      { stage: "Repair", count: finalization.tracks.length },
+      { stage: "Coherence", count: numberFromWaterfall("finalCount", finalTracks.length) },
+      { stage: "Final Playlist", count: finalTracks.length },
+    ].map((entry, index, entries) => {
+      const before = index === 0 ? entry.count : entries[index - 1].count;
+      return {
+        ...entry,
+        before,
+        removed: Math.max(0, before - entry.count),
+      };
+    });
+    const largestDrop = [...stageWaterfall]
+      .filter((stage) => stage.removed > 0)
+      .sort((a, b) => b.removed - a.removed)[0] ?? null;
+    const recoveryRelaxations = [
+      typeof finalization.diagnostics["recoveryStage"] === "string" ? finalization.diagnostics["recoveryStage"] : null,
+      finalization.diagnostics["artistLimitRelaxed"] ? "artist_limit_relaxed" : null,
+      finalization.diagnostics["albumLimitRelaxed"] ? "album_limit_relaxed" : null,
+      ...evidenceRelaxations,
+    ].filter((entry): entry is string => !!entry);
+    const generationDiagnostics = {
+      initialLibrarySize: likedSongs.length,
+      candidatesSampled: numberFromWaterfall("retrievalCount", scoringPool.hybridPoolSize ?? pipeline.sorted.length),
+      candidatesClassified: afterForStage(/genre family normalization|metadata completeness/i, numberFromWaterfall("scoredCount", pipeline.sorted.length)),
+      candidatesAfterIntent: Number(waterfallDiagnostics["contractCount"] ?? likedSongs.length),
+      candidatesAfterEra: afterForStage(/era readiness/i, Number(waterfallDiagnostics["constraintCount"] ?? pipeline.sorted.length)),
+      candidatesAfterMood: afterForStage(/constraint filter|intent readiness/i, Number(waterfallDiagnostics["constraintCount"] ?? pipeline.sorted.length)),
+      candidatesAfterConstraints: Number(waterfallDiagnostics["constraintCount"] ?? scoringPool.hybridPoolSize ?? pipeline.sorted.length),
+      candidatesAfterRanking: Number(scoringPool.hybridPoolSize ?? pipeline.sorted.length),
+      candidatesAfterDiversity: afterArtistSep.length,
+      candidatesAfterRepair: finalization.tracks.length,
+      candidatesAfterCoherence: Number(waterfallDiagnostics["finalCount"] ?? finalTracks.length),
+      candidatesFinal: finalTracks.length,
+      waterfall: stageWaterfall,
+      largestDrop,
+      removalReasons: removalReasonDiagnostics.slice(0, 12),
+      recoveryRelaxations,
+      generationDebug: v3GenerationDebug,
+      relaxationSteps: Array.isArray(v3GenerationDebug["relaxationSteps"])
+        ? v3GenerationDebug["relaxationSteps"]
+        : [],
+      finalRelaxedConstraints: v3GenerationDebug["finalRelaxedConstraints"] ?? null,
+      constraintFailures: Array.isArray(v3GenerationDebug["constraintFailures"])
+        ? v3GenerationDebug["constraintFailures"]
+        : [],
+      dominantCluster: v3GenerationDebug["dominantCluster"] ?? null,
+      clusterPurity: typeof v3GenerationDebug["clusterPurity"] === "number"
+        ? v3GenerationDebug["clusterPurity"]
+        : null,
+      artistReuseRate: typeof v3GenerationDebug["artistReuseRate"] === "number"
+        ? v3GenerationDebug["artistReuseRate"]
+        : null,
+      fallbackTriggered: !!fallbackReason || !!finalization.diagnostics.fallbackMode,
+      identityType: curatorIdentity.type,
+      identitySummary: curatorIdentity.summary,
+      curatorIdentity: buildIdentityDebugView(curatorIdentity),
+      selectedCluster: clusterCuration.diagnostics.selectedClusterLabel,
+      selectedClusterId: clusterCuration.diagnostics.selectedCluster,
+      secondaryCluster: clusterCuration.diagnostics.secondaryClusterLabel,
+      secondaryClusterId: clusterCuration.diagnostics.secondaryCluster,
+      clusterConfidence: clusterCuration.diagnostics.clusterConfidence,
+      fallbackCandidatePercent: clusterCuration.diagnostics.fallbackCandidatePercent,
+      humanCoherenceScore: humanCoherence.score,
+      humanCoherenceComponents: humanCoherence.components,
+      humanCoherenceReasons: humanCoherence.reasons,
+      humanCoherenceRepairUsed,
+      majorExclusions: [
+        ...clusterCuration.diagnostics.majorExclusions,
+        ...humanCoherence.reasons,
+      ],
+      cohesionScore: typeof finalization.diagnostics["cohesionSkipped"] === "number"
+        ? Math.max(0, Math.min(1, 1 - (finalization.diagnostics["cohesionSkipped"] as number) / Math.max(1, finalization.tracks.length + (finalization.diagnostics["cohesionSkipped"] as number))))
+        : null,
+      failureReason: finalTracks.length === 0 ? "no_final_tracks_after_filters" : null,
+    };
+    setGenerateStageDetail(
+      userId,
+      requestId,
+      `Found ${(scoringPool.hybridPoolSize ?? pipeline.sorted.length).toLocaleString()} matching tracks`
+    );
     stageTimer.end("Playlist pipeline complete", {
       totalMs: Date.now() - startMs,
       totalSongs: likedSongs.length,
@@ -1955,18 +4355,45 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Quality engine pipeline complete"
     );
+    setGenerateStageDetail(userId, requestId, `Applying diversity rules to ${finalTracks.length.toLocaleString()} tracks`);
 
+    publishPartialTracks(finalTracks);
+    const recoveredBeforeEmptyCheck = applyLowComplexityRecovery("pre_empty_playlist_error");
+    if (recoveredBeforeEmptyCheck) {
+      humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
+      generationDiagnostics.humanCoherenceScore = humanCoherence.score;
+      generationDiagnostics.humanCoherenceComponents = humanCoherence.components;
+      generationDiagnostics.humanCoherenceReasons = humanCoherence.reasons;
+      generationDiagnostics.majorExclusions = [
+        ...clusterCuration.diagnostics.majorExclusions,
+        ...humanCoherence.reasons,
+      ];
+    }
+    generationDiagnostics.candidatesFinal = finalTracks.length;
+    generationDiagnostics.fallbackTriggered = generationDiagnostics.fallbackTriggered || !!finalization.diagnostics.fallbackMode;
+    generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
     if (finalTracks.length === 0) {
-      req.log.warn({ userId, code: "EMPTY_POOL" }, "Hard filter graph removed all ranked candidates");
+      const forensicPoolTrace = (scoringDiagnostics.v3Pipeline as Record<string, unknown> | undefined)?.["forensicPoolTrace"];
+      req.log.warn(
+        { userId, code: "EMPTY_POOL", forensicPoolTrace },
+        "Hard filter graph removed all ranked candidates"
+      );
       setGeneratePhase(userId, requestId, "error");
       if (respondIfStale(res, userId, requestId)) return;
       generateFail(
         res,
         400,
         "EMPTY_PLAYLIST",
-        "Could not build a playlist — nothing matched this vibe with your current library. Try Balanced or Chaotic mode, a broader vibe, or wait a moment and regenerate.",
+        `I found ${generationDiagnostics.candidatesAfterConstraints.toLocaleString()} possible matches, but none survived the final playlist checks. Try broadening the prompt, using Balanced mode, or removing strict era words.`,
         {
-          hint: "The hard filter graph removed all ranked candidates.",
+          hint: "The final filter graph removed all ranked candidates.",
+          generationDiagnostics,
+          spotifyApiAudit: sideEffectPolicy.mode === "audit" ? getSpotifyApiAuditSnapshot() : undefined,
+          suggestions: [
+            "Broaden the prompt",
+            "Use Balanced mode",
+            "Remove strict era constraints",
+          ],
         }
       );
       return;
@@ -1983,7 +4410,25 @@ router.post("/generate", async (req, res): Promise<void> => {
       artistName: t.artistName,
       albumName: t.albumName,
       albumArt: t.albumArt ?? null,
+      durationMs: t.durationMs ?? null,
+      energy: t.energy ?? null,
+      valence: t.valence ?? null,
+      tempo: t.tempo ?? null,
+      danceability: t.danceability ?? null,
+      acousticness: t.acousticness ?? null,
+      instrumentalness: t.instrumentalness ?? null,
+      speechiness: t.speechiness ?? null,
+      releaseYear: t.releaseYear ?? null,
+      popularity: t.popularity ?? null,
+      spotifyArtistGenres: Array.isArray(t.spotifyArtistGenres) ? t.spotifyArtistGenres : [],
+      albumGenres: Array.isArray(t.albumGenres) ? t.albumGenres : [],
       genrePrimary: t.genrePrimary ?? null,
+      genreFamily: t.genreFamily ?? t.genrePrimary ?? null,
+      genres: Array.isArray(t.genres) && t.genres.length > 0
+        ? t.genres
+        : t.genrePrimary
+          ? [t.genrePrimary]
+          : [],
       laneId: t.laneId ?? t.sourceLane ?? null,
       laneScore: t.laneScore ?? null,
       laneEra: t.laneEra ?? null,
@@ -1992,6 +4437,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }));
 
     setGeneratePhase(userId, requestId, "spotify");
+    setGenerateStageDetail(userId, requestId, `Finalising ${finalTracks.length.toLocaleString()} tracks`);
     let spotifyPlaylistUrl: string | null = null;
     const tSpotify = Date.now();
     req.log.info(
@@ -2002,7 +4448,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let spotifyPartial = false;
     let spotifyTracksAdded: number | undefined;
 
-    if (!devMode && !auditMode && !staleGenerate(userId, requestId)) {
+    if (sideEffectPolicy.allowSpotifyPlaylistCreate && !devMode && !staleGenerate(userId, requestId)) {
       try {
         const freshTokens = await getValidAccessToken(
           req.session.spotifyTokens!,
@@ -2024,10 +4470,23 @@ router.post("/generate", async (req, res): Promise<void> => {
               setPendingSpotifyPlaylistId(userId, requestId, id),
           }
         );
-        clearPendingSpotifyPlaylist(userId, requestId);
-        spotifyPlaylistUrl = spotifyResult.url;
         spotifyPartial = !!spotifyResult.partial;
         spotifyTracksAdded = spotifyResult.tracksAdded;
+        if (spotifyPartial && (spotifyTracksAdded ?? 0) === 0) {
+          spotifyPlaylistUrl = null;
+          req.log.warn(
+            {
+              elapsedMs: Date.now() - tSpotify,
+              playlistId: spotifyResult.id,
+              tracksRequested: finalTracks.length,
+              reused: !!pendingId,
+            },
+            "Spotify playlist shell created but no tracks were added"
+          );
+        } else {
+          clearPendingSpotifyPlaylist(userId, requestId);
+          spotifyPlaylistUrl = spotifyResult.url;
+        }
         req.log.info(
           {
             elapsedMs: Date.now() - tSpotify,
@@ -2051,53 +4510,57 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
 
-    setGeneratePhase(userId, requestId, "saving");
+    setGeneratePhase(userId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "saving" : "done");
+    setGenerateStageDetail(userId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist" : "Audit mode: skipping playlist writes");
     const tSave = Date.now();
-    req.log.info(auditMode ? "Skipping playlist database save in audit mode" : "Saving playlist to database");
+    req.log.info(
+      { auditMode: sideEffectPolicy.mode === "audit" },
+      sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist to database" : "Skipping playlist database writes",
+    );
 
     const profilePayload = {
       ...emotionProfile,
       journeyArc,
       librarySize: likedSongs.length,
     };
-    const insertResult = auditMode
-      ? []
-      : await db
-          .insert(savedPlaylistsTable)
-          .values({
-            userId,
-            name: playlistName,
-            emotionProfile: profilePayload as any,
-            tracks: trackObjects as any,
-            spotifyUrl: spotifyPlaylistUrl,
-            vibe,
-            mode,
-          })
-          .returning({ id: savedPlaylistsTable.id });
-
-    const savedPlaylistId = insertResult[0]?.id ?? 0;
+    let savedPlaylistId = 0;
+    if (sideEffectPolicy.allowSavedPlaylistWrites) {
+      const insertResult = await db
+        .insert(savedPlaylistsTable)
+        .values({
+          userId,
+          name: playlistName,
+          emotionProfile: profilePayload as any,
+          tracks: trackObjects as any,
+          spotifyUrl: spotifyPlaylistUrl,
+          vibe,
+          mode,
+        })
+        .returning({ id: savedPlaylistsTable.id });
+      savedPlaylistId = insertResult[0]?.id ?? 0;
+    }
 
     req.log.info(
       { ms: Date.now() - tSave, userId, playlistId: savedPlaylistId, trackCount: finalTracks.length },
-      auditMode ? "Playlist DB save skipped" : "Playlist saved to DB"
+      "Playlist saved to DB"
     );
 
-    if (!auditMode) {
-      try {
-        await db.insert(playlistHistoryTable).values({
-          spotifyUserId: userId,
-          playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
-          playlistUrl: spotifyPlaylistUrl ?? publicUrl(`/p/${savedPlaylistId}`),
-          name: playlistName,
-          vibe,
-          mode,
-          trackCount: finalTracks.length,
-          emotionProfile: { ...emotionProfile, journeyArc } as any,
-          trackIds: finalTracks.map((t) => t.trackId) as any,
-        });
-      } catch (histErr) {
-        req.log.warn({ err: histErr }, "playlist_history insert failed");
-      }
+    if (sideEffectPolicy.allowHistoryWrites) {
+    try {
+      await db.insert(playlistHistoryTable).values({
+        spotifyUserId: userId,
+        playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
+        playlistUrl: spotifyPlaylistUrl ?? publicUrl(`/p/${savedPlaylistId}`),
+        name: playlistName,
+        vibe,
+        mode,
+        trackCount: finalTracks.length,
+        emotionProfile: { ...emotionProfile, journeyArc } as any,
+        trackIds: finalTracks.map((t) => t.trackId) as any,
+      });
+    } catch (histErr) {
+      req.log.warn({ err: histErr }, "playlist_history insert failed");
+    }
     }
 
     const spotifyFields = spotifyPlaylistUrl
@@ -2120,7 +4583,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? datedLikes.filter((s) => s.addedAt!.getTime() > recentCutoff).length / datedLikes.length
         : 0;
     const librarySyncHint =
-      datedLikes.length >= 200 && recentLikeShare > 0.85
+      !noLibraryMode && datedLikes.length >= 200 && recentLikeShare > 0.85
         ? "Most cached likes look recently added. Run a full library sync from the app so older favourites are included."
         : null;
 
@@ -2128,13 +4591,21 @@ router.post("/generate", async (req, res): Promise<void> => {
       pipeline.scoringDiagnostics?.v3Pipeline,
       vibe
     );
+    const promptDriftAudit = buildPromptDriftAudit(v3Diagnostics);
+    const feedbackDiagnostics = buildFeedbackDiagnostics(feedbackMemory, finalTracks);
+    if (promptDriftAudit["pass"] === false) {
+      req.log.warn(
+        { userId, vibe, promptDriftAudit, playlistQuality: v3Diagnostics?.["playlistQuality"] ?? null },
+        "Prompt drift audit warning"
+      );
+    }
     assertQualityConsistency(req.log, {
       tracks: finalTracks,
       diagnostics: v3Diagnostics,
       fallbackUsed: !!pipeline.scoringDiagnostics?.fastFallback,
     });
 
-    if (!varietyBoost && !devMode && !auditMode) {
+    if (!varietyBoost && !devMode) {
       const cachedFinalTracks = finalTracks.map((t) => ({
         ...t,
         trackId: t.trackId,
@@ -2146,10 +4617,24 @@ router.post("/generate", async (req, res): Promise<void> => {
         energy: t.energy ?? null,
         valence: t.valence ?? null,
         tempo: t.tempo ?? null,
+        danceability: t.danceability ?? null,
+        acousticness: t.acousticness ?? null,
+        instrumentalness: t.instrumentalness ?? null,
+        speechiness: t.speechiness ?? null,
+        releaseYear: t.releaseYear ?? null,
+        popularity: t.popularity ?? null,
+        spotifyArtistGenres: Array.isArray(t.spotifyArtistGenres) ? t.spotifyArtistGenres : [],
+        albumGenres: Array.isArray(t.albumGenres) ? t.albumGenres : [],
         score: Math.round(t.score * 100) / 100,
         rediscoveryScore: t.rediscoveryScore,
         narrativeRole: t.narrativeRole,
         genrePrimary: t.genrePrimary ?? null,
+        genreFamily: t.genreFamily ?? t.genrePrimary ?? null,
+        genres: Array.isArray(t.genres) && t.genres.length > 0
+          ? t.genres
+          : t.genrePrimary
+            ? [t.genrePrimary]
+            : [],
         laneId: t.laneId ?? t.sourceLane ?? null,
         sourceLane: t.sourceLane ?? t.laneId ?? null,
         laneScore: t.laneScore,
@@ -2164,17 +4649,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       warnIfFieldDropped("laneScore", finalTracks, cachedFinalTracks, "cache-write");
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
-      setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v2",
-        playlistName,
-        vibe,
-        mode,
-        finalTracks: cachedFinalTracks,
-        emotionProfile: { ...emotionProfile, journeyArc },
-        spotifyPlaylistUrl,
-        v3Diagnostics,
-        cachedAt: Date.now(),
-      });
     }
 
     setGeneratePhase(userId, requestId, "done");
@@ -2186,26 +4660,191 @@ router.post("/generate", async (req, res): Promise<void> => {
         cacheHit: false,
         trackCount: finalTracks.length,
         poolSize: scoringPool.hybridPoolSize,
+        promptDriftAudit,
+        feedbackDiagnostics,
       },
       "Generation complete"
     );
 
-    const debugMode = req.query.debug === "1";
+    const finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
+    const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>(
+      (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
+      {},
+    );
+    const finalEraDistribution = finalApiTracks.reduce<Record<string, number>>(
+      (acc, track) => incrementDistribution(acc, eraBucket(track.releaseYear)),
+      {},
+    );
+    const finalMoodDistribution = finalApiTracks.reduce<Record<string, number>>(
+      (acc, track) => incrementDistribution(acc, moodBucket(track.energy, track.valence)),
+      {},
+    );
+    const finalEnergyDistribution = finalApiTracks.reduce<Record<string, number>>(
+      (acc, track) => incrementDistribution(acc, energyBucket(track.energy)),
+      {},
+    );
+    const artistDiversity = artistDiversityDiagnostics(finalTracks, maxPerArtist);
+    const playlistQuality = (v3Diagnostics?.playlistQuality ?? null) as Record<string, unknown> | null;
+    const coherenceDiagnostics = (v3Diagnostics?.playlistCoherence ?? null) as Record<string, unknown> | null;
+    const qualitySignals = [
+      typeof playlistQuality?.["overall"] === "number" ? playlistQuality["overall"] as number : null,
+      typeof playlistQuality?.["promptAlignment"] === "number" ? playlistQuality["promptAlignment"] as number : null,
+      typeof playlistQuality?.["genrePurity"] === "number" ? playlistQuality["genrePurity"] as number : null,
+      typeof playlistQuality?.["eraAlignment"] === "number" ? playlistQuality["eraAlignment"] as number : null,
+      typeof coherenceDiagnostics?.["avg_transition_score"] === "number" ? coherenceDiagnostics["avg_transition_score"] as number : null,
+    ].filter((value): value is number => value !== null && Number.isFinite(value));
+    const recoveryPenalty = generationDiagnostics.recoveryRelaxations.length > 0 ? 0.10 : 0;
+    const fallbackPenalty = generationDiagnostics.fallbackTriggered ? 0.12 : 0;
+    const underfilledPenalty = finalTracks.length < length ? Math.min(0.20, (length - finalTracks.length) / Math.max(1, length) * 0.5) : 0;
+    const diversityPenalty = (artistDiversity.cappedTracks > 0 ? 0.10 : 0) +
+      (finalization.diagnostics["artistLimitRelaxed"] ? 0.04 : 0) +
+      (finalization.diagnostics["albumLimitRelaxed"] ? 0.03 : 0);
+    const coherencePenalty = typeof coherenceDiagnostics?.["avg_position_shift"] === "number" &&
+      (coherenceDiagnostics["avg_position_shift"] as number) > Math.max(8, length * 0.35)
+      ? 0.05
+      : 0;
+    const fillRatio = Math.min(1, finalTracks.length / Math.max(1, length));
+    const confidenceScore = Math.max(
+      0.05,
+      Math.min(
+        0.99,
+        (qualitySignals.length
+          ? qualitySignals.reduce((sum, value) => sum + value, 0) / qualitySignals.length
+          : fillRatio * 0.72 + 0.18) - recoveryPenalty - fallbackPenalty - underfilledPenalty - diversityPenalty - coherencePenalty
+      )
+    );
+    const playlistConfidence = {
+      score: Math.round(confidenceScore * 100) / 100,
+      percent: Math.round(confidenceScore * 100),
+      label: confidenceScore >= 0.78
+        ? "Strong match"
+        : confidenceScore >= 0.58
+          ? "Good match"
+          : "Best available match",
+      recoveryUsed: generationDiagnostics.recoveryRelaxations.length > 0,
+      fallbackUsed: generationDiagnostics.fallbackTriggered,
+    };
+    if (sideEffectPolicy.allowSavedPlaylistWrites && savedPlaylistId > 0) {
+    try {
+      await db
+        .update(savedPlaylistsTable)
+        .set({
+          emotionProfile: {
+            ...(profilePayload as Record<string, unknown>),
+            generationSummary: {
+              confidence: playlistConfidence,
+              generationDiagnostics: {
+                initialLibrarySize: generationDiagnostics.initialLibrarySize,
+                candidatesSampled: generationDiagnostics.candidatesSampled,
+                candidatesFinal: generationDiagnostics.candidatesFinal,
+                largestDrop: generationDiagnostics.largestDrop,
+                recoveryRelaxations: generationDiagnostics.recoveryRelaxations,
+                fallbackTriggered: generationDiagnostics.fallbackTriggered,
+              },
+              artistDiversity,
+            },
+          } as any,
+        })
+        .where(eq(savedPlaylistsTable.id, savedPlaylistId));
+    } catch (err) {
+      req.log.warn({ err, savedPlaylistId }, "Failed to persist generation summary for gallery");
+    }
+    }
+    const v3DiagnosticPayload = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+    const noLibrarySpotifyDiagnostics = noLibraryMode
+      ? {
+          searched: noLibraryExplicitFamilies.length > 0,
+          expectedFamilies: noLibraryExplicitFamilies,
+          candidateCount: noLibrarySpotifyCandidateCount,
+          verifiedCandidateCount: noLibrarySpotifyVerifiedCount,
+          fallbackReason: noLibrarySpotifyFallbackReason,
+        }
+      : null;
+    const generationAuditSnapshot = {
+      prompt: vibe,
+      mode,
+      noLibraryMode: !!noLibraryMode,
+      playlistId: savedPlaylistId,
+      trackCount: finalTracks.length,
+      cacheDiagnostics: {
+        status: cacheEntryStatus,
+        staleBypassed: cacheEntryStatus === "stale",
+      },
+      pool: {
+        librarySize: scoringPool.librarySize,
+        hybridPoolSize: scoringPool.hybridPoolSize,
+        poolCapped: scoringPool.poolCapped,
+      },
+      finalGenreDistribution,
+      finalEraDistribution,
+      finalMoodDistribution,
+      finalEnergyDistribution,
+      promptDriftAudit,
+      generationDiagnostics,
+      artistDiversity,
+      playlistConfidence,
+      noLibrarySpotify: noLibrarySpotifyDiagnostics,
+      strictGenreEvidence: {
+        ...strictGenreEvidenceDiagnostics,
+        verified: undefined,
+        relaxed: strictGenreEvidenceRelaxed,
+      },
+      strictEraEvidence: strictEraEvidencePublic,
+      finalization: finalization.diagnostics,
+      playlistQuality: v3Diagnostics?.playlistQuality ?? null,
+      explicitIntentRepair: ((v3Diagnostics ?? {}) as Record<string, unknown>)["explicitIntentRepair"] ?? null,
+      feedbackDiagnostics,
+    };
+
+    if (sideEffectPolicy.allowResultCacheWrites && !varietyBoost && !devMode && spotifyPlaylistUrl) {
+      setCachedGenerateResult(resultCacheKey, {
+        cacheVersion: "v30",
+        playlistName,
+        vibe,
+        mode,
+        finalTracks: trackObjects as any,
+        emotionProfile: { ...emotionProfile, journeyArc },
+        spotifyPlaylistUrl,
+        v3Diagnostics,
+        generationDiagnostics,
+        artistDiversity,
+        playlistConfidence,
+        cachedAt: Date.now(),
+      });
+    }
 
     res.json({
       success: true,
       playlistId: savedPlaylistId,
+      auditMode: sideEffectPolicy.mode === "audit",
+      spotifyApiAudit: sideEffectPolicy.mode === "audit" ? getSpotifyApiAuditSnapshot() : undefined,
+      sideEffects: sideEffectPolicy.mode === "audit"
+        ? {
+            spotifyPlaylistCreate: "skipped",
+            savedPlaylistWrites: "skipped",
+            historyWrites: "skipped",
+            feedbackWrites: "skipped",
+            analyticsWrites: "skipped",
+            resultCacheWrites: "skipped",
+          }
+        : undefined,
       ...spotifyFields,
       playlistName,
       name: playlistName,
       vibe,
       mode,
       noLibraryMode: !!noLibraryMode,
+      noLibrarySpotify: noLibrarySpotifyDiagnostics,
       devMode,
+      playlistConfidence,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
       ...(fallbackReason ? { fallbackReason } : {}),
       generationMs,
+      cacheDiagnostics: {
+        status: cacheEntryStatus,
+        staleBypassed: cacheEntryStatus === "stale",
+      },
       stats: {
         trackCount: finalTracks.length,
         totalDurationMs,
@@ -2282,7 +4921,28 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? "Could not read that reference playlist. If it is public, try the open.spotify.com link; if it is yours, log out and back in to refresh permissions. Generation used your text vibe only."
         : null,
       librarySyncHint,
-      tracks: formatTracksForApi(finalTracks, emotionProfile),
+      tracks: finalApiTracks,
+      finalGenreDistribution,
+      finalEraDistribution,
+      finalMoodDistribution,
+      finalEnergyDistribution,
+      generationDiagnostics,
+      artistDiversity,
+      feedbackDiagnostics,
+      promptDriftAudit,
+      strictGenreEvidence: {
+        ...strictGenreEvidenceDiagnostics,
+        verified: undefined,
+        relaxed: strictGenreEvidenceRelaxed,
+      },
+      strictEraEvidence: strictEraEvidencePublic,
+      generationAuditSnapshot,
+      requestOrchestration: pipeline.requestOrchestration ?? {
+        layer: "request",
+        candidateGenerator: fallbackReason ? "fast_fallback" : "v3",
+        selectionOwner: "request-layer",
+        repairOwner: "request-layer",
+      },
       sceneDetection: pipeline.ecosystemDebug
         ? {
             sceneId: pipeline.ecosystemDebug.sceneId,
@@ -2324,6 +4984,7 @@ router.post("/generate", async (req, res): Promise<void> => {
                 layer: constraintLayer,
                 lockedIntent,
                 finalValidation,
+                strictEraEvidence: strictEraEvidencePublic,
                 result: {
                   filteredCount: 0,
                   diversityWarning: false,
@@ -2347,12 +5008,19 @@ router.post("/generate", async (req, res): Promise<void> => {
                   : "semantic:0.40_emotion:0.20_scene:0.15_aesthetic:0.10_library:0.10_genre:0.05",
                 topRankedCandidates:
                   (scoringDiagnostics as Record<string, unknown>).topScored ?? [],
+                preV3TopCandidates:
+                  v3DiagnosticPayload["preV3TopCandidates"] ?? [],
                 exclusionReasons:
                   (scoringDiagnostics as Record<string, unknown>).exclusionReasons ?? {},
                 dominantGenres:
                   (scoringDiagnostics as Record<string, unknown>).dominantGenres ?? [],
               },
               v3: (scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {},
+              waterfall: v3DiagnosticPayload["waterfall"] ?? null,
+              removalReasons: v3DiagnosticPayload["removalReasons"] ?? [],
+              retrievalPools: v3DiagnosticPayload["retrievalPoolsDetailed"] ?? null,
+              intentContract: v3DiagnosticPayload["intentContract"] ?? null,
+              fallbacks: v3DiagnosticPayload["fallbacks"] ?? [],
               noLibraryMode: !!noLibraryMode,
               poolInfo: {
                 librarySize: scoringPool.librarySize,
@@ -2399,11 +5067,27 @@ router.post("/generate", async (req, res): Promise<void> => {
         constrainedFallbackTracks?: { trackId: string; trackName: string; artistName: string; albumName: string }[];
         emotionProfile: EmotionProfile;
         length: number;
+        maxPerArtist?: number;
         vibe: string;
         mode: string;
+        noLibraryMode?: boolean;
+        lockedIntent?: LockedIntent;
+        constraintLayer?: ConstraintLayer;
+        classMap?: Map<string, {
+          genrePrimary: string;
+          genreFamily: string;
+          primarySubgenre: string;
+          secondarySubgenre: string | null;
+          subGenres: string[];
+        }>;
+        genreByTrack?: (trackId: string) => {
+          genrePrimary?: string | null;
+          genreFamily?: string | null;
+          genres?: string[] | null;
+        } | null;
       } })._genCtx;
       if (timedOut && ctx?.likedSongs?.length) {
-        const maxPerArtist = 2;
+        const maxPerArtist = ctx.maxPerArtist ?? artistDiversityCap(ctx.length, ctx.vibe);
         const fallbackTracks = ctx.constrainedFallbackTracks?.length
           ? ctx.constrainedFallbackTracks
           : ctx.likedSongs;
@@ -2413,7 +5097,37 @@ router.post("/generate", async (req, res): Promise<void> => {
           playlistLength: ctx.length,
           maxPerArtist,
           librarySize: fallbackTracks.length,
+          genreByTrack: ctx.genreByTrack,
         });
+        const finalizedFallback = ctx.lockedIntent && ctx.constraintLayer && ctx.classMap
+          ? finalizePlaylistTracks({
+              initial: pipeline.finalTracks as ConstraintTrack[],
+              candidates: fallbackTracks.map((track) => ({ ...track, score: 0.6 } as ConstraintTrack)),
+              requestedLength: ctx.length,
+              vibe: ctx.vibe,
+              intent: ctx.lockedIntent,
+              constraints: ctx.constraintLayer,
+              classMap: ctx.classMap,
+              maxPerArtist,
+            }).tracks
+          : pipeline.finalTracks;
+        const strictFallbackFailure = explicitGenreFallbackFailure({
+          vibe: ctx.vibe,
+          requestedCount: ctx.length,
+          finalCount: finalizedFallback.length,
+          hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
+          noLibraryMode: !!ctx.noLibraryMode,
+        });
+        if (strictFallbackFailure && finalizedFallback.length === 0) {
+          res.status(409).json({
+            success: false,
+            error: strictFallbackFailure.error,
+            code: strictFallbackFailure.code,
+            strictGenreEvidence: strictFallbackFailure.details,
+            tracks: [],
+          });
+          return;
+        }
         const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
         res.json({
           success: true,
@@ -2423,10 +5137,10 @@ router.post("/generate", async (req, res): Promise<void> => {
           name: playlistName,
           vibe: ctx.vibe,
           mode: ctx.mode,
-          count: pipeline.finalTracks.length,
-          totalTracks: pipeline.finalTracks.length,
+          count: finalizedFallback.length,
+          totalTracks: finalizedFallback.length,
           spotifyUnavailable: true,
-          tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile),
+          tracks: formatTracksForApi(finalizedFallback, ctx.emotionProfile),
         });
       } else {
         res.status(timedOut ? 504 : 500).json({

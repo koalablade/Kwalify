@@ -8,6 +8,7 @@
  */
 import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 import { logger } from "./logger";
+import { recordSpotifyApiRequest, spotifyEndpointLabel } from "./spotify-api-audit";
 
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 const SPOTIFY_AUTH_BASE = "https://accounts.spotify.com";
@@ -21,14 +22,109 @@ export interface SpotifyTokens {
 export interface SpotifyTrack {
   id: string;
   name: string;
-  artists: Array<{ name: string }>;
+  popularity?: number;
+  artists: Array<{ id?: string; name: string }>;
   album: {
+    id?: string;
     name: string;
+    release_date?: string;
+    genres?: string[];
     images: Array<{ url: string; width: number; height: number }>;
   };
   duration_ms: number;
   /** ISO-8601 timestamp from the liked-songs `added_at` field */
   addedAt?: string;
+}
+
+export type EnrichedTrack = SpotifyTrack & {
+  spotifyArtistGenres?: string[];
+  albumGenres?: string[];
+  popularity?: number;
+  releaseYear?: number | null;
+};
+
+export type AlbumMetadata = {
+  genres: string[];
+  releaseYear: number | null;
+};
+
+function releaseYearFromDate(value?: string): number | null {
+  const year = value?.match(/^\d{4}/)?.[0];
+  return year ? Number(year) : null;
+}
+
+export async function fetchArtistGenres(
+  accessToken: string,
+  artistIds: string[],
+  opts?: { userKey?: string }
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  const uniqueIds = [...new Set(artistIds.filter(Boolean))];
+  for (let i = 0; i < uniqueIds.length; i += 50) {
+    const batch = uniqueIds.slice(i, i + 50);
+    const response = await spotifyRequest<any>(
+      {
+        method: "GET",
+        url: `${SPOTIFY_API_BASE}/artists`,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: { ids: batch.join(",") },
+      },
+      { userKey: opts?.userKey }
+    );
+    for (const artist of response.data.artists ?? []) {
+      if (artist?.id) out.set(artist.id, Array.isArray(artist.genres) ? artist.genres : []);
+    }
+    if (i + 50 < uniqueIds.length) await new Promise((r) => setTimeout(r, 80));
+  }
+  return out;
+}
+
+export async function fetchAlbumMetadata(
+  accessToken: string,
+  albumIds: string[],
+  opts?: { userKey?: string }
+): Promise<Map<string, AlbumMetadata>> {
+  const out = new Map<string, AlbumMetadata>();
+  const uniqueIds = [...new Set(albumIds.filter(Boolean))];
+  for (let i = 0; i < uniqueIds.length; i += 20) {
+    const batch = uniqueIds.slice(i, i + 20);
+    const response = await spotifyRequest<any>(
+      {
+        method: "GET",
+        url: `${SPOTIFY_API_BASE}/albums`,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: { ids: batch.join(","), market: "from_token" },
+      },
+      { userKey: opts?.userKey }
+    );
+    for (const album of response.data.albums ?? []) {
+      if (!album?.id) continue;
+      out.set(album.id, {
+        genres: Array.isArray(album.genres) ? album.genres : [],
+        releaseYear: releaseYearFromDate(album.release_date),
+      });
+    }
+    if (i + 20 < uniqueIds.length) await new Promise((r) => setTimeout(r, 80));
+  }
+  return out;
+}
+
+export function enrichTrackMetadata(
+  track: SpotifyTrack,
+  artistGenreMap = new Map<string, string[]>(),
+  albumMetadataMap = new Map<string, AlbumMetadata>()
+): EnrichedTrack {
+  const spotifyArtistGenres = [
+    ...new Set(track.artists.flatMap((artist) => artist.id ? artistGenreMap.get(artist.id) ?? [] : [])),
+  ];
+  const albumMetadata = track.album.id ? albumMetadataMap.get(track.album.id) : undefined;
+  return {
+    ...track,
+    spotifyArtistGenres,
+    albumGenres: albumMetadata?.genres ?? (Array.isArray(track.album.genres) ? track.album.genres : []),
+    popularity: track.popularity,
+    releaseYear: albumMetadata?.releaseYear ?? releaseYearFromDate(track.album.release_date),
+  };
 }
 
 export interface SpotifyAudioFeatures {
@@ -44,6 +140,7 @@ export interface SpotifyAudioFeatures {
 }
 
 const MIN_SPOTIFY_GAP_MS = 110;
+const SPOTIFY_REQUEST_TIMEOUT_MS = 12_000;
 const sessionThrottle = new Map<string, Promise<void>>();
 
 async function awaitSpotifySlot(userKey?: string): Promise<void> {
@@ -74,11 +171,31 @@ async function spotifyRequest<T = unknown>(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     await awaitSpotifySlot(opts.userKey);
+    const endpoint = spotifyEndpointLabel(config.method, config.url);
+    const started = Date.now();
     try {
-      return await axios.request<T>(config);
+      const response = await axios.request<T>({
+        timeout: SPOTIFY_REQUEST_TIMEOUT_MS,
+        ...config,
+      });
+      recordSpotifyApiRequest({
+        endpoint,
+        durationMs: Date.now() - started,
+        attempt,
+        status: response.status,
+        failed: false,
+      });
+      return response;
     } catch (err: any) {
       lastErr = err;
       const status = err?.response?.status;
+      recordSpotifyApiRequest({
+        endpoint,
+        durationMs: Date.now() - started,
+        attempt,
+        status,
+        failed: true,
+      });
 
       if (status === 429) {
         const retryAfter = parseInt(err.response?.headers?.["retry-after"] ?? "2", 10);
@@ -307,6 +424,48 @@ export async function fetchLikedSongs(
       await new Promise((r) => setTimeout(r, 100));
     }
   } while (offset < total);
+}
+
+export async function searchSpotifyTracks(
+  accessToken: string,
+  queries: string[],
+  maxTracks = 100,
+  opts?: { userKey?: string }
+): Promise<SpotifyTrack[]> {
+  const out: SpotifyTrack[] = [];
+  const seen = new Set<string>();
+
+  for (const query of queries) {
+    if (out.length >= maxTracks) break;
+    const q = query.trim();
+    if (!q) continue;
+
+    const response = await spotifyRequest<any>(
+      {
+        method: "GET",
+        url: `${SPOTIFY_API_BASE}/search`,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: {
+          q,
+          type: "track",
+          limit: Math.min(50, maxTracks - out.length),
+          market: "from_token",
+        },
+      },
+      { userKey: opts?.userKey }
+    );
+
+    for (const track of response.data.tracks?.items ?? []) {
+      if (!track?.id || track.is_local || seen.has(track.id)) continue;
+      seen.add(track.id);
+      out.push(track as SpotifyTrack);
+      if (out.length >= maxTracks) break;
+    }
+
+    if (out.length < maxTracks) await new Promise((r) => setTimeout(r, 80));
+  }
+
+  return out;
 }
 
 /** Extract playlist ID from a Spotify URL or raw 22-char id. */

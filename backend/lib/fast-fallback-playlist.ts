@@ -5,7 +5,7 @@
 import type { EmotionProfile } from "./emotion";
 import { sampleTracksForProfile } from "./library-sample";
 
-const FAST_SCAN_MAX = 600;
+export const FAST_SCAN_MAX = 1200;
 
 function emotionFit(
   track: { energy: number | null; valence: number | null },
@@ -14,6 +14,35 @@ function emotionFit(
   const e = track.energy ?? 0.5;
   const v = track.valence ?? 0.5;
   return 1 - (Math.abs(e - profile.energy) + Math.abs(v - profile.valence)) / 2;
+}
+
+function fallbackTransitionCost(
+  a: { energy: number | null; valence: number | null },
+  b: { energy: number | null; valence: number | null }
+): number {
+  return Math.abs((a.energy ?? 0.5) - (b.energy ?? 0.5)) * 0.65 +
+    Math.abs((a.valence ?? 0.5) - (b.valence ?? 0.5)) * 0.35;
+}
+
+function orderFallbackCoherently<T extends { energy: number | null; valence: number | null }>(tracks: T[]): T[] {
+  if (tracks.length <= 2) return tracks;
+  const remaining = [...tracks];
+  const first = remaining.shift()!;
+  const ordered = [first];
+  while (remaining.length > 0) {
+    const current = ordered[ordered.length - 1];
+    let bestIndex = 0;
+    let bestCost = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < remaining.length; index++) {
+      const cost = fallbackTransitionCost(current, remaining[index]) + index * 0.006;
+      if (cost < bestCost) {
+        bestCost = cost;
+        bestIndex = index;
+      }
+    }
+    ordered.push(remaining.splice(bestIndex, 1)[0]);
+  }
+  return ordered;
 }
 
 export function buildFastFallbackPlaylist<
@@ -31,7 +60,7 @@ export function buildFastFallbackPlaylist<
 }): T[] {
   const pool =
     opts.tracks.length > FAST_SCAN_MAX
-      ? sampleTracksForProfile(opts.tracks, FAST_SCAN_MAX, Date.now())
+      ? sampleTracksForProfile(opts.tracks, FAST_SCAN_MAX)
       : opts.tracks;
 
   const ranked = pool
@@ -40,24 +69,43 @@ export function buildFastFallbackPlaylist<
 
   const maxPerArtist = opts.maxPerArtist ?? 4;
   const artistCount = new Map<string, number>();
+  const usedTrackIds = new Set<string>();
   const out: T[] = [];
+
+  const tryAdd = (t: T, artistLimit: number | null): boolean => {
+    if (out.length >= opts.playlistLength) return false;
+    if (usedTrackIds.has(t.trackId)) return false;
+    const key = t.artistName.toLowerCase().trim();
+    const n = artistCount.get(key) ?? 0;
+    if (artistLimit !== null && n >= artistLimit) return false;
+    artistCount.set(key, n + 1);
+    usedTrackIds.add(t.trackId);
+    out.push(t);
+    return true;
+  };
 
   for (const { t } of ranked) {
     if (out.length >= opts.playlistLength) break;
-    const key = t.artistName.toLowerCase().trim();
-    const n = artistCount.get(key) ?? 0;
-    if (n >= maxPerArtist) continue;
-    artistCount.set(key, n + 1);
-    out.push(t);
+    tryAdd(t, maxPerArtist);
   }
 
   if (out.length < opts.playlistLength) {
+    const relaxedMaxPerArtist = Number.isFinite(maxPerArtist) ? maxPerArtist + 1 : maxPerArtist;
     for (const { t } of ranked) {
       if (out.length >= opts.playlistLength) break;
-      if (out.includes(t)) continue;
-      out.push(t);
+      tryAdd(t, relaxedMaxPerArtist);
     }
   }
 
-  return out;
+  if (out.length < opts.playlistLength) {
+    const emergencyMaxPerArtist = Number.isFinite(maxPerArtist)
+      ? maxPerArtist + Math.max(1, Math.ceil(opts.playlistLength * 0.05))
+      : maxPerArtist;
+    for (const { t } of ranked) {
+      if (out.length >= opts.playlistLength) break;
+      tryAdd(t, emergencyMaxPerArtist);
+    }
+  }
+
+  return orderFallbackCoherently(out);
 }

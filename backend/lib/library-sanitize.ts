@@ -10,6 +10,7 @@ export function sanitizeLikedSongs<
   }
 >(rows: T[]): { valid: T[]; dropped: number } {
   const valid: T[] = [];
+  const seenTrackIds = new Set<string>();
   let dropped = 0;
   for (const t of rows) {
     if (
@@ -24,6 +25,12 @@ export function sanitizeLikedSongs<
       dropped++;
       continue;
     }
+    const trackId = t.trackId.trim();
+    if (seenTrackIds.has(trackId)) {
+      dropped++;
+      continue;
+    }
+    seenTrackIds.add(trackId);
     valid.push(t);
   }
   return { valid, dropped };

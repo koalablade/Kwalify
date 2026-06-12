@@ -18,7 +18,7 @@
  */
 
 import type { EmotionProfile } from "../../lib/emotion";
-import { decomposeIntent, isUnclearIntent } from "./intent-decomposer";
+import { isUnclearIntent } from "./intent-decomposer";
 import { buildLanes } from "./lane-router";
 import { generateAdaptiveLanes } from "./adaptive-lane-generator";
 import { scoreLane } from "./lane-scorer";
@@ -30,23 +30,50 @@ import {
   computeDiversityMetrics,
 } from "./global-diversity-controller";
 import { interleaveLanes } from "./interleaver";
-import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
-import { classifyTrack } from "../../lib/genre-taxonomy";
+import { classifyTrack, type TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
-import { buildLockedIntent, completeLockedIntent, normalizeLockedGenreFamily, type LockedIntent } from "./intent";
-import { constraintRejectionReasons } from "./constraint-filter";
+import { trackHasKnownEraMismatch } from "../../lib/era-evidence";
+import { normalizeLockedGenreFamily, type LockedIntent } from "./intent";
+import { computeSceneAlignmentScore, trackMatchesConstraints } from "./constraint-filter";
+import {
+  getRelaxationLevel,
+  RETRIEVAL_RELAXATION_LADDER,
+  retrieveCandidatesByEmbedding,
+  type RetrievalStrictness,
+  type RetrievedCandidate,
+  type RetrievalTrackLike,
+} from "./embedding-retrieval";
+import { runRecommendationEngine } from "../engine/recommendation-engine";
+import type { MomentMemory } from "../memory/moment-memory";
 import {
   createTrackDecision,
+  withDecisionAffinities,
   withDecisionValidity,
   type TrackDecision,
 } from "./track-decision";
+import {
+  type UnifiedIntentContext,
+} from "../unified-intent";
+import {
+  artistExceedsSessionCap,
+  artistMemoryPenalty,
+  sessionArtistMemoryDiagnostics,
+  type SessionArtistMemory,
+} from "./constraint-relaxation";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export interface V3PipelineTrack {
+export interface V3PipelineTrack extends RetrievalTrackLike {
   trackId: string;
+  trackName?: string | null;
   artistName: string;
+  albumName?: string | null;
+  genrePrimary?: string | null;
+  genreFamily?: string | null;
+  genres?: string[] | null;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
   energy: number | null;
   valence: number | null;
   danceability: number | null;
@@ -71,6 +98,16 @@ type V3SelectionCandidate<T extends V3PipelineTrack> = T & V3TrackMetadata & {
   clusterId?: string;
 };
 
+type ForensicStageTrace = {
+  stage: string;
+  before: number;
+  after: number;
+  removed: number;
+  topReasons: Array<{ reason: string; count: number }>;
+  sourceFile: string;
+  functionName: string;
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Shannon entropy normalised to [0,1] given the number of distinct keys. */
@@ -86,20 +123,6 @@ function shannonEntropyNormalized(dist: Record<string, number>): number {
   return Math.min(1, raw / Math.log2(n));
 }
 
-function laneReadinessRejectionReasons<T extends V3PipelineTrack>(
-  decision: TrackDecision<T>,
-  opts: {
-    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
-  },
-): string[] {
-  const genreFamily = resolvedDecisionGenreFamily(decision, opts);
-  const reasons: string[] = [];
-  if (!genreFamily) reasons.push("missingGenreFamily");
-  if (decision.laneEra === "any") reasons.push("unknownEra");
-  if (decision.track.energy === null) reasons.push("missingEnergy");
-  return reasons;
-}
-
 function resolvedDecisionGenreFamily<T extends V3PipelineTrack>(
   decision: TrackDecision<T>,
   opts: {
@@ -107,51 +130,266 @@ function resolvedDecisionGenreFamily<T extends V3PipelineTrack>(
   },
 ): string | null {
   const classification = opts.classificationByTrack?.(decision.track.trackId);
-  const direct = normalizeLockedGenreFamily(
-    classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary
-  );
-  if (direct) return direct;
-  const track = decision.track as T & {
-    trackName?: string;
-    albumName?: string;
-  };
-  if (!track.trackName || !track.artistName || !track.albumName) return null;
-  const inferred = classifyTrack({
-    trackName: track.trackName,
-    artistName: track.artistName,
-    albumName: track.albumName,
-    energy: track.energy,
-    valence: track.valence,
-    acousticness: track.acousticness,
-    danceability: track.danceability,
-    instrumentalness: track.instrumentalness,
-    speechiness: track.speechiness,
-    tempo: track.tempo,
-  });
-  return normalizeLockedGenreFamily(inferred.genreFamily ?? inferred.genrePrimary);
+  const metadataGenres = [
+    ...(Array.isArray(decision.track.spotifyArtistGenres) ? decision.track.spotifyArtistGenres : []),
+    ...(Array.isArray(decision.track.albumGenres) ? decision.track.albumGenres : []),
+    ...(Array.isArray(decision.track.genres) ? decision.track.genres : []),
+  ].filter((value): value is string => typeof value === "string");
+  const directSignals = [
+    classification?.genreFamily,
+    classification?.genrePrimary,
+    decision.track.genreFamily,
+    decision.track.genrePrimary,
+    decision.genrePrimary,
+    ...metadataGenres,
+  ];
+  for (const signal of directSignals) {
+    const normalized = normalizeLockedGenreFamily(signal);
+    if (normalized) return normalized;
+  }
+  if (decision.track.trackName && decision.track.artistName) {
+    const inferred = classifyTrack({
+      trackName: decision.track.trackName,
+      artistName: decision.track.artistName,
+      albumName: decision.track.albumName ?? "",
+      energy: decision.track.energy,
+      valence: decision.track.valence,
+      acousticness: decision.track.acousticness,
+      danceability: decision.track.danceability,
+      instrumentalness: decision.track.instrumentalness,
+      speechiness: decision.track.speechiness,
+      tempo: decision.track.tempo,
+    });
+    return normalizeLockedGenreFamily(inferred.genreFamily ?? inferred.genrePrimary);
+  }
+  return null;
 }
 
-function lockedIntentRejectionReasons<T extends V3PipelineTrack>(
+function decisionMatchesConstraints<T extends V3PipelineTrack>(
   decision: TrackDecision<T>,
   lockedIntent: LockedIntent,
   opts: {
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
   },
-): string[] {
+): boolean {
   const classification = opts.classificationByTrack?.(decision.track.trackId);
-  const resolvedFamily = resolvedDecisionGenreFamily(decision, opts);
-  return constraintRejectionReasons({
+  const genreFamily = resolvedDecisionGenreFamily(decision, opts);
+  return trackMatchesConstraints({
     ...decision.track,
-    genreFamily: resolvedFamily ?? classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary,
+    genreFamily: genreFamily ?? classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary,
     genrePrimary: decision.genrePrimary,
     laneEra: decision.laneEra,
   }, lockedIntent);
 }
 
-function incrementReasons(target: Record<string, number>, reasons: string[]): void {
-  for (const reason of reasons.length > 0 ? reasons : ["unknown"]) {
-    target[reason] = (target[reason] ?? 0) + 1;
+function decisionIsLaneReady<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): boolean {
+  const genreFamily = resolvedDecisionGenreFamily(decision, opts);
+  return !!genreFamily &&
+    decision.laneEra !== "any";
+}
+
+function laneReadinessRejectionReason<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): string | null {
+  const genreFamily = resolvedDecisionGenreFamily(decision, opts);
+  if (!genreFamily) return "missing genre";
+  if (decision.laneEra === "any") return "lane readiness fail: missing era";
+  return null;
+}
+
+function constraintRejectionReason<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  lockedIntent: LockedIntent,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): string | null {
+  const classification = opts.classificationByTrack?.(decision.track.trackId);
+  const genreFamily = resolvedDecisionGenreFamily(decision, opts);
+  const track = {
+    ...decision.track,
+    genreFamily: genreFamily ?? classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary,
+    genrePrimary: decision.genrePrimary,
+    laneEra: decision.laneEra,
+  };
+  if (!normalizeLockedGenreFamily(track.genreFamily) && !normalizeLockedGenreFamily(track.genrePrimary)) {
+    return "missing genre";
   }
+  if (lockedIntent.eraRange && !trackMatchesConstraints(track, lockedIntent)) {
+    return "era mismatch";
+  }
+  if (!trackMatchesConstraints(track, lockedIntent)) return "constraint mismatch";
+  return null;
+}
+
+function decisionHasBasicIdentity<T extends V3PipelineTrack>(decision: TrackDecision<T>): boolean {
+  return !!decision.track.trackId &&
+    !!decision.track.artistName;
+}
+
+function decisionHasUsableMetadata<T extends V3PipelineTrack>(decision: TrackDecision<T>): boolean {
+  return decisionHasBasicIdentity(decision);
+}
+
+function decisionHasUsableGenre<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): boolean {
+  return !!resolvedDecisionGenreFamily(decision, opts);
+}
+
+function eraAllowedWithDrift<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  lockedIntent: LockedIntent,
+): boolean {
+  if (!lockedIntent.eraRange) return true;
+  return !trackHasKnownEraMismatch(decision.track, lockedIntent.eraRange);
+}
+
+function retrievalFloor(level: RetrievalStrictness): number {
+  switch (level) {
+    case "strict":
+      return 0;
+    case "semi_relaxed":
+      return 0.42;
+    case "embedding_first":
+      return 0.34;
+    case "fallback_explore":
+      return 0;
+  }
+}
+
+function decisionMatchesRelaxationLevel<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  lockedIntent: LockedIntent,
+  level: RetrievalStrictness,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): boolean {
+  if (level === "strict") {
+    return decisionIsLaneReady(decision, opts) &&
+      decisionMatchesConstraints(decision, lockedIntent, opts);
+  }
+  if (level === "fallback_explore") {
+    return decisionHasBasicIdentity(decision);
+  }
+  if (!decisionHasUsableMetadata(decision)) return false;
+  if (decision.embeddingAffinity < retrievalFloor(level)) return false;
+  if (level === "semi_relaxed") {
+    return decisionHasUsableGenre(decision, opts) &&
+      eraAllowedWithDrift(decision, lockedIntent);
+  }
+  if (level === "embedding_first") {
+    return true;
+  }
+  return true;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function topReasons(reasons: Record<string, number>): Array<{ reason: string; count: number }> {
+  return Object.entries(reasons)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([reason, count]) => ({ reason, count }));
+}
+
+function countReasons<T>(
+  items: T[],
+  reasonOf: (item: T) => string | null,
+): Record<string, number> {
+  const reasons: Record<string, number> = {};
+  for (const item of items) {
+    const reason = reasonOf(item);
+    if (reason) reasons[reason] = (reasons[reason] ?? 0) + 1;
+  }
+  return reasons;
+}
+
+function stageTrace(
+  stage: string,
+  before: number,
+  after: number,
+  reasons: Record<string, number>,
+  sourceFile: string,
+  functionName: string,
+): ForensicStageTrace {
+  return {
+    stage,
+    before,
+    after,
+    removed: Math.max(0, before - after),
+    topReasons: topReasons(reasons),
+    sourceFile,
+    functionName,
+  };
+}
+
+type ScoreCarrier = {
+  score?: number | null;
+  hybridScore?: number | null;
+};
+
+function normalizedExistingScore(track: ScoreCarrier): number | null {
+  const value = track.hybridScore ?? track.score;
+  return typeof value === "number" && Number.isFinite(value) ? clamp01(value) : null;
+}
+
+function attachHierarchicalAffinities<T extends V3PipelineTrack>(
+  decisions: Array<TrackDecision<T>>,
+  lockedIntent: LockedIntent,
+  opts: {
+    noveltyByTrack?: (trackId: string) => number;
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+    retrievalByTrack?: Map<string, RetrievedCandidate<T>>;
+    sessionArtistMemory?: SessionArtistMemory;
+  },
+): Array<TrackDecision<T>> {
+  return decisions.map((decision) => {
+    const classification = opts.classificationByTrack?.(decision.track.trackId);
+    const genreFamily = resolvedDecisionGenreFamily(decision, opts) ??
+      classification?.genreFamily ??
+      classification?.genrePrimary ??
+      decision.genrePrimary;
+    const sceneAffinity = lockedIntent.sceneIntent
+      ? computeSceneAlignmentScore({
+          ...decision.track,
+          genreFamily,
+          genrePrimary: decision.genrePrimary,
+          laneEra: decision.laneEra,
+        }, lockedIntent.sceneIntent)
+      : 0.5;
+    const laneTaste = clamp01(decision.score / 1.5);
+    const existingScore = normalizedExistingScore(decision.track as ScoreCarrier);
+    const tasteAffinity = existingScore === null
+      ? laneTaste
+      : clamp01((laneTaste + existingScore) / 2);
+    const freshnessAffinity = clamp01(opts.noveltyByTrack?.(decision.track.trackId) ?? 0.5);
+    const retrieval = opts.retrievalByTrack?.get(decision.track.trackId);
+    const sessionPenalty = artistMemoryPenalty(opts.sessionArtistMemory, decision.track.artistName);
+    const sessionCapped = artistExceedsSessionCap(opts.sessionArtistMemory, decision.track.artistName);
+
+    return withDecisionAffinities(decision, {
+      sceneAffinity,
+      tasteAffinity: clamp01(tasteAffinity * sessionPenalty * (sessionCapped ? 0.45 : 1)),
+      freshnessAffinity: clamp01(freshnessAffinity * sessionPenalty * (sessionCapped ? 0.35 : 1)),
+      embeddingAffinity: retrieval?.embeddingAffinity,
+      retrievalNeighborhood: retrieval?.retrievalNeighborhood,
+    });
+  });
 }
 
 // ── Pipeline ─────────────────────────────────────────────────────────────────
@@ -167,13 +405,40 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
     seed?: number;
     lockedIntent?: LockedIntent;
+    unifiedIntentContext?: UnifiedIntentContext;
+    momentMemory?: MomentMemory | null;
+    sessionArtistMemory?: SessionArtistMemory;
   } = {},
 ): V3PipelineResult<T> {
 
-  // ── Stage 1: Multi-axis intent decomposition ─────────────────────────────
-  const decomposed = decomposeIntent(vibe, profile);
-  const lockedIntent = opts.lockedIntent ?? completeLockedIntent(buildLockedIntent(vibe));
+  // ── Stage 1: Unified intent consumption ──────────────────────────────────
+  if (!opts.unifiedIntentContext) {
+    throw new Error("UnifiedIntent required — raw prompt parsing disabled");
+  }
+  const unifiedIntentContext = opts.unifiedIntentContext;
+  const decomposed = unifiedIntentContext.decomposedIntent;
+  const lockedIntent = opts.lockedIntent ?? unifiedIntentContext.lockedIntent;
+  const unifiedIntentDiagnostics = unifiedIntentContext.diagnostics;
   const fallbackTriggered = isUnclearIntent(decomposed);
+  const retrievalCloud = retrieveCandidatesByEmbedding(
+    tracks,
+    lockedIntent,
+    unifiedIntentContext.unifiedIntent,
+  );
+  const forensicTrace: ForensicStageTrace[] = [
+    stageTrace(
+      "retrieval result count",
+      tracks.length,
+      retrievalCloud.tracks.length,
+      retrievalCloud.tracks.length < tracks.length ? { retrieval_cloud_limit_or_filter: tracks.length - retrievalCloud.tracks.length } : {},
+      "backend/core/v3/embedding-retrieval.ts",
+      "retrieveCandidatesByEmbedding",
+    ),
+  ];
+  const retrievedTracks = retrievalCloud.tracks.map((candidate) => candidate.track);
+  const retrievalByTrack = new Map(
+    retrievalCloud.tracks.map((candidate) => [candidate.track.trackId, candidate])
+  );
 
   // ── Stage 2: Adaptive lane generation ───────────────────────────────────
   let lanes: ReturnType<typeof buildLanes>;
@@ -199,15 +464,17 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     label: string;
     weight: number;
     scoredCount: number;
+    strictCandidateCount: number;
+    relaxedCandidateCount: number;
+    retrievalStrictness: RetrievalStrictness;
     selectedCount: number;
     clusterSpread: Record<string, number>;
     clusterSelectionRatios: Record<string, number>;
-    rejectionCounts: Record<string, number>;
-    laneReadyCount: number;
-    intentReadyCount: number;
+    dominantCluster?: string | null;
+    clusterPurity?: number;
+    secondaryClusterAllowed?: boolean;
+    secondaryClusterReason?: string | null;
   }> = [];
-  const aggregateLaneReadinessRejections: Record<string, number> = {};
-  const aggregateIntentRejections: Record<string, number> = {};
 
   // Observability: per-track decision trace (top 15 by raw score per lane)
   const finalDecisionTrace: Array<{
@@ -223,40 +490,108 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     selectionReason?: string | null;
     rejectionReason: string | null;
   }> = [];
+  const recommendationEngineDiagnostics: Array<{
+    laneId: string;
+    signalCount: number;
+    weights: Record<string, number>;
+    topDecisions: unknown[];
+  }> = [];
 
   const sampledResults: SampledLaneResult<T>[] = lanes.map((lane) => {
     // Stage 3: Score every track for this lane
-    const rawScored = scoreLane(tracks, lane, decomposed, {
+    const rawScored = scoreLane(retrievedTracks, lane, decomposed, {
       genreByTrack: opts.genreByTrack,
       noveltyByTrack: opts.noveltyByTrack,
     });
 
     const scoredDecisions = rawScored.map((item) => createTrackDecision(item, lane.id));
-    const laneRejections: Record<string, number> = {};
-    const intentRejections: Record<string, number> = {};
-    let laneRejectedCount = 0;
-    const validDecisions = scoredDecisions
-      .map((decision) => {
-        const laneReasons = laneReadinessRejectionReasons(decision, {
-          classificationByTrack: opts.classificationByTrack,
-        });
-        if (laneReasons.length > 0) {
-          laneRejectedCount++;
-          incrementReasons(laneRejections, laneReasons);
-          incrementReasons(aggregateLaneReadinessRejections, laneReasons);
-          return withDecisionValidity(decision, false);
-        }
-        const intentReasons = lockedIntentRejectionReasons(decision, lockedIntent, {
-          classificationByTrack: opts.classificationByTrack,
-        });
-        if (intentReasons.length > 0) {
-          incrementReasons(intentRejections, intentReasons);
-          incrementReasons(aggregateIntentRejections, intentReasons);
-          return withDecisionValidity(decision, false);
-        }
-        return withDecisionValidity(decision, true);
+    forensicTrace.push(stageTrace(
+      `decision creation count:${lane.id}`,
+      rawScored.length,
+      scoredDecisions.length,
+      scoredDecisions.length < rawScored.length ? { decision_creation_failed: rawScored.length - scoredDecisions.length } : {},
+      "backend/core/v3/track-decision.ts",
+      "createTrackDecision",
+    ));
+    const laneMinPoolSize = Math.max(
+      8,
+      Math.min(24, Math.ceil(targetCount * Math.max(0.5, lane.weight * 2))),
+    );
+    const laneReadyDecisions = scoredDecisions.filter((decision) =>
+      decisionIsLaneReady(decision, {
+        classificationByTrack: opts.classificationByTrack,
       })
+    );
+    forensicTrace.push(stageTrace(
+      `lane readiness count:${lane.id}`,
+      scoredDecisions.length,
+      laneReadyDecisions.length,
+      countReasons(scoredDecisions, (decision) => laneReadinessRejectionReason(decision, {
+        classificationByTrack: opts.classificationByTrack,
+      })),
+      "backend/core/v3/v3-pipeline.ts",
+      "decisionIsLaneReady",
+    ));
+    const constraintReadyDecisions = laneReadyDecisions.filter((decision) =>
+      decisionMatchesConstraints(decision, lockedIntent, {
+        classificationByTrack: opts.classificationByTrack,
+      })
+    );
+    forensicTrace.push(stageTrace(
+      `constraint filter count:${lane.id}`,
+      laneReadyDecisions.length,
+      constraintReadyDecisions.length,
+      countReasons(laneReadyDecisions, (decision) => constraintRejectionReason(decision, lockedIntent, {
+        classificationByTrack: opts.classificationByTrack,
+      })),
+      "backend/core/v3/constraint-filter.ts",
+      "trackMatchesConstraints",
+    ));
+    const strictDecisions = scoredDecisions
+      .map((decision) => withDecisionValidity(
+        decision,
+        decisionMatchesRelaxationLevel(decision, lockedIntent, "strict", {
+          classificationByTrack: opts.classificationByTrack,
+        })
+      ))
       .filter((decision) => decision.valid);
+    const initialRelaxationLevel = getRelaxationLevel(strictDecisions.length, laneMinPoolSize);
+    let appliedRelaxationLevel: RetrievalStrictness = initialRelaxationLevel;
+    let validDecisions = strictDecisions;
+    if (strictDecisions.length < laneMinPoolSize) {
+      for (const level of RETRIEVAL_RELAXATION_LADDER.slice(1)) {
+        const relaxedDecisions = scoredDecisions
+          .map((decision) => withDecisionValidity(
+            decision,
+            decisionMatchesRelaxationLevel(decision, lockedIntent, level, {
+              classificationByTrack: opts.classificationByTrack,
+            })
+          ))
+          .filter((decision) => decision.valid)
+          .sort((a, b) => b.embeddingAffinity - a.embeddingAffinity);
+        validDecisions = relaxedDecisions;
+        appliedRelaxationLevel = level;
+        if (validDecisions.length >= laneMinPoolSize || level === "fallback_explore") break;
+      }
+    }
+    const affinityDecisions = attachHierarchicalAffinities(validDecisions, lockedIntent, {
+      noveltyByTrack: opts.noveltyByTrack,
+      classificationByTrack: opts.classificationByTrack,
+      retrievalByTrack,
+      sessionArtistMemory: opts.sessionArtistMemory,
+    });
+    const engineResult = runRecommendationEngine({
+      decisions: affinityDecisions,
+      unifiedIntent: unifiedIntentContext.unifiedIntent,
+      memory: opts.momentMemory,
+      classificationByTrack: opts.classificationByTrack,
+    });
+    recommendationEngineDiagnostics.push({
+      laneId: lane.id,
+      signalCount: engineResult.diagnostics.signalCount,
+      weights: engineResult.diagnostics.weights,
+      topDecisions: engineResult.diagnostics.topDecisions,
+    });
 
     // Headroom: 3× target so the sampler has enough valid choices.
     const laneTarget = Math.max(
@@ -265,7 +600,15 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     );
 
     // Stage 4: Build clusters from scored pool
-    const clusteredPool = buildClusters(validDecisions);
+    const clusteredPool = buildClusters(engineResult.decisions);
+    forensicTrace.push(stageTrace(
+      `cluster creation count:${lane.id}`,
+      engineResult.decisions.length,
+      clusteredPool.scoredTracks.length,
+      clusteredPool.scoredTracks.length < engineResult.decisions.length ? { cluster_creation_drop: engineResult.decisions.length - clusteredPool.scoredTracks.length } : {},
+      "backend/core/v3/cluster-candidate-engine.ts",
+      "buildClusters",
+    ));
 
     // Stage 5: Entropy-constrained selection across clusters
     const clusterResult = selectFromClusters(
@@ -273,7 +616,16 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       laneTarget,
       lane.id,
       `${opts.seed ?? "v3"}:${lane.id}`,
+      { lockedIntent, sessionArtistMemory: opts.sessionArtistMemory },
     );
+    forensicTrace.push(stageTrace(
+      `sampler input count:${lane.id}`,
+      clusteredPool.scoredTracks.length,
+      clusterResult.tracks.length,
+      clusterResult.samplerDiagnostics.rejectionReasons,
+      "backend/core/v3/v3-sampler.ts",
+      "selectFromClusters",
+    ));
 
     // ── Observability: build per-track trace (top 15 by raw score) ───────────
     const selectedIdSet = new Set(clusterResult.tracks.map((t) => t.trackId));
@@ -315,15 +667,16 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       label: lane.label,
       weight: lane.weight,
       scoredCount: rawScored.length,
+      strictCandidateCount: strictDecisions.length,
+      relaxedCandidateCount: validDecisions.length,
+      retrievalStrictness: appliedRelaxationLevel,
       selectedCount: clusterResult.tracks.length,
       clusterSpread: clusterResult.clusterSpread as unknown as Record<string, number>,
       clusterSelectionRatios: clusterResult.clusterSelectionRatios,
-      rejectionCounts: {
-        ...Object.fromEntries(Object.entries(laneRejections).map(([k, v]) => [`laneReady:${k}`, v])),
-        ...Object.fromEntries(Object.entries(intentRejections).map(([k, v]) => [`intent:${k}`, v])),
-      },
-      laneReadyCount: rawScored.length - laneRejectedCount,
-      intentReadyCount: validDecisions.length,
+      dominantCluster: clusterResult.samplerDiagnostics.dominantCluster,
+      clusterPurity: clusterResult.samplerDiagnostics.clusterPurity,
+      secondaryClusterAllowed: clusterResult.samplerDiagnostics.secondaryClusterAllowed,
+      secondaryClusterReason: clusterResult.samplerDiagnostics.secondaryClusterReason,
     });
 
     return {
@@ -333,22 +686,22 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   });
 
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
+  const interleaverInputCount = sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0);
   const interleaved = interleaveLanes(lanes, sampledResults, targetCount);
+  forensicTrace.push(stageTrace(
+    "interleaver input count",
+    interleaverInputCount,
+    interleaved.tracks.length,
+    interleaverInputCount > interleaved.tracks.length
+      ? { interleaver_target_cap_or_duplicate: interleaverInputCount - interleaved.tracks.length }
+      : {},
+    "backend/core/v3/interleaver.ts",
+    "interleaveLanes",
+  ));
   const finalTracks = interleaved.tracks.map((track) => ({
     ...track,
     clusterId: track.clusterIds[0],
   })) as Array<T & V3SelectionCandidate<T>>;
-  const invalidFinalTrack = finalTracks.find((track) =>
-    !track.sourceLane ||
-    typeof track.laneScore !== "number" ||
-    !track.genrePrimary ||
-    track.genrePrimary === "unknown" ||
-    !Array.isArray(track.clusterIds) ||
-    track.clusterIds.length === 0
-  );
-  if (invalidFinalTrack) {
-    throw new Error(`V3 final track missing required selection metadata: ${invalidFinalTrack.trackId}`);
-  }
   const finalSelectionMeta = new Map<string, {
     laneId: string;
     laneScore: number;
@@ -439,7 +792,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const genreDist: Record<string, number> = {};
   const eraDist: Record<string, number>   = {};
   for (const t of finalTracks) {
-    const g = t.genrePrimary;
+    const g = opts.genreByTrack?.(t.trackId) ?? "unknown";
     genreDist[g] = (genreDist[g] ?? 0) + 1;
   }
   for (const t of finalTracks) {
@@ -511,7 +864,14 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       type:            ld.type,
       weight:          ld.weight,
       scoredCount:     ld.scoredCount,
+      strictCandidateCount: ld.strictCandidateCount,
+      relaxedCandidateCount: ld.relaxedCandidateCount,
+      retrievalStrictness: ld.retrievalStrictness,
       selectedCount:   ld.selectedCount,
+      dominantCluster: ld.dominantCluster,
+      clusterPurity: ld.clusterPurity,
+      secondaryClusterAllowed: ld.secondaryClusterAllowed,
+      secondaryClusterReason: ld.secondaryClusterReason,
       pctContribution: Math.round((ld.selectedCount / totalLaneSelected) * 100),
     })),
     clusterMap: clusterMapAgg,
@@ -540,6 +900,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const genreValues = Object.values(genreDist);
   const totalGenre  = genreValues.reduce((s, v) => s + v, 0) || 1;
   const genreConcentration = Math.max(...genreValues, 0) / totalGenre;
+  const firstZeroCollapse = forensicTrace.find((trace) => trace.before > 0 && trace.after === 0) ?? null;
+  const largestDrop = forensicTrace
+    .filter((trace) => trace.removed > 0)
+    .sort((a, b) => b.removed - a.removed)[0] ?? null;
 
   // Build cluster distribution graph (genre clusters only for brevity)
   const clusterDistributionGraph: Record<string, number> = {};
@@ -553,11 +917,27 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       }
     }
   }
+  const finalClusterCounts: Record<string, number> = {};
+  for (const track of finalTracks) {
+    const cid = track.clusterIds[0] ?? "unknown";
+    finalClusterCounts[cid] = (finalClusterCounts[cid] ?? 0) + 1;
+  }
+  const [dominantCluster, dominantClusterCount] = Object.entries(finalClusterCounts)
+    .sort((a, b) => b[1] - a[1])[0] ?? ["unknown", 0];
+  const clusterPurity = finalTracks.length > 0
+    ? Math.round((dominantClusterCount / finalTracks.length) * 1000) / 1000
+    : 0;
+  const artistReuseRate = finalTracks.length > 0
+    ? Math.round((1 - Object.keys(artistDist).length / finalTracks.length) * 1000) / 1000
+    : 0;
 
   const diagnostics: Record<string, unknown> = {
     pipelineVersion: "v3.1_unified_routing",
     activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
     qualityLock: {
+      active: false,
+      implemented: false,
+      reason: "quality_lock_module_missing",
       trackDuplicatesRemoved: 0,
       genreExclusionsApplied: 0,
       artistDuplicatesRemoved: 0,
@@ -593,19 +973,74 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       ),
     },
     adaptiveLaneGenerator: generatorDiagnostics,
+    unifiedIntent: unifiedIntentDiagnostics,
+    forensicPoolTrace: {
+      firstZeroCollapse,
+      largestDrop,
+      stages: forensicTrace,
+    },
+    retrievalRelaxation: {
+      minPoolPolicy: "per_lane_dynamic_minimum",
+      ladder: RETRIEVAL_RELAXATION_LADDER,
+      lanes: diagnosticLaneDetails.map((ld) => ({
+        laneId: ld.laneId,
+        strictCandidateCount: ld.strictCandidateCount,
+        relaxedCandidateCount: ld.relaxedCandidateCount,
+        appliedLevel: ld.retrievalStrictness,
+      })),
+    },
+    recommendationEngine: {
+      mode: "single_decision_engine",
+      normalisation: "per_lane_signal_domain",
+      lanes: recommendationEngineDiagnostics,
+    },
+    embeddingRetrieval: {
+      mode: "session_multi_vector_retrieval",
+      totalCandidates: retrievalCloud.tracks.length,
+      neighborhoodCounts: retrievalCloud.neighborhoodCounts,
+      userTasteState: {
+        longTermTasteDims: retrievalCloud.userTasteState.longTermTasteVector.length,
+        sessionDims: retrievalCloud.userTasteState.shortTermSessionVector.length,
+        moodTrajectoryDims: retrievalCloud.userTasteState.moodTrajectoryVector.length,
+        scenePreferenceDims: retrievalCloud.userTasteState.scenePreferenceVector.length,
+      },
+      playlistEmbedding: {
+        centroidDims: retrievalCloud.playlistEmbedding.centroidVector.length,
+        energyCurveDims: retrievalCloud.playlistEmbedding.energyCurveVector.length,
+        diversitySpreadDims: retrievalCloud.playlistEmbedding.diversitySpreadVector.length,
+        emotionalArcDims: retrievalCloud.playlistEmbedding.emotionalArcVector.length,
+      },
+      memoryGraph: {
+        listenedTrackNodes: retrievalCloud.memoryGraph.listenedTracksEmbeddingGraph.length,
+        sessionTransitions: retrievalCloud.memoryGraph.sessionTransitions.length,
+        skippedClusterCount: Object.keys(retrievalCloud.memoryGraph.skippedClusters).length,
+        replayedClusterCount: Object.keys(retrievalCloud.memoryGraph.replayedClusters).length,
+      },
+      clusterEmbeddings: retrievalCloud.clusterEmbeddings.map((cluster) => ({
+        id: cluster.id,
+        size: cluster.size,
+        averageAffinity: Math.round(cluster.averageAffinity * 1000) / 1000,
+      })),
+      topCandidateAffinities: retrievalCloud.tracks.slice(0, 10).map((candidate) => ({
+        trackId: candidate.track.trackId,
+        embeddingAffinity: Math.round(candidate.embeddingAffinity * 1000) / 1000,
+        retrievalNeighborhood: candidate.retrievalNeighborhood,
+      })),
+    },
     candidateValidation: {
       repairedCount: 0,
       droppedCount: 0,
     },
-    rejectionDiagnostics: {
-      laneReadiness: aggregateLaneReadinessRejections,
-      lockedIntent: aggregateIntentRejections,
-      rawScoredCount: laneDetails.reduce((sum, lane) => sum + lane.scoredCount, 0),
-      laneReadyCount: laneDetails.reduce((sum, lane) => sum + lane.laneReadyCount, 0),
-      intentReadyCount: laneDetails.reduce((sum, lane) => sum + lane.intentReadyCount, 0),
-      sampledCount: sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0),
-      interleavedCount: finalTracks.length,
+    generationDebug: {
+      emptyPlaylistReason: finalTracks.length === 0 ? "no_tracks_after_v3_selection" : undefined,
+      relaxationSteps: [],
+      dominantCluster,
+      clusterPurity,
+      artistReuseRate,
+      fallbackTriggered,
+      constraintFailures: finalTracks.length === 0 ? ["v3_final_selection_empty"] : [],
     },
+    sessionArtistMemory: sessionArtistMemoryDiagnostics(opts.sessionArtistMemory),
     lanes: diagnosticLaneDetails,
     laneContributions: finalLaneContributions,
     fallback: {

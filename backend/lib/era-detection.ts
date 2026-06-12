@@ -9,6 +9,8 @@
  * adjust the adjacent-era tolerance, and surface culturally coherent tracks.
  */
 
+import { EXPANDED_ERA_TERMS, termRegex } from "./expanded-intent-vocabulary";
+
 export interface EraContext {
   /** Primary detected decade label, e.g. "80s". Null if no era keyword found. */
   decade: string | null;
@@ -52,7 +54,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
     sonicAesthetic: "warm analogue, doo-wop, clean electric, Americana",
   },
   {
-    patterns: [/\b(1960s|60s|sixties)\b/i],
+    patterns: [/\b(1960'?s|60'?s|sixties)\b/i],
     label: "60s",
     nostalgiaBoost: 0.33,
     energyDelta: 0.05,
@@ -60,7 +62,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
     sonicAesthetic: "psychedelic, British invasion, folk-rock, idealistic brightness",
   },
   {
-    patterns: [/\b(1970s|70s|seventies)\b/i],
+    patterns: [/\b(1970'?s|70'?s|seventies)\b/i],
     label: "70s",
     nostalgiaBoost: 0.32,
     energyDelta: 0.04,
@@ -68,7 +70,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
     sonicAesthetic: "warm funk, soul, expansive rock, analogue warmth, groove",
   },
   {
-    patterns: [/\b(1980s|80s|eighties)\b/i],
+    patterns: [/\b(1980'?s|80'?s|eighties)\b/i],
     label: "80s",
     nostalgiaBoost: 0.35,
     energyDelta: 0.12,
@@ -77,7 +79,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
       "synth-pop, neon-lit cinematic, new wave, reverb-drenched, surreal and unreal, gated drums",
   },
   {
-    patterns: [/\b(1990s|90s|nineties)\b/i],
+    patterns: [/\b(1990'?s|90'?s|nineties)\b/i],
     label: "90s",
     nostalgiaBoost: 0.32,
     energyDelta: 0.08,
@@ -85,7 +87,7 @@ const DECADE_PROFILES: DecadeProfile[] = [
     sonicAesthetic: "grunge, alt-rock, neo-soul, R&B crossover, bittersweet raw emotion",
   },
   {
-    patterns: [/\b(2000s|00s|noughties|y2k)\b/i],
+    patterns: [/\b(2000'?s|00'?s|noughties|y2k)\b/i],
     label: "00s",
     nostalgiaBoost: 0.28,
     energyDelta: 0.06,
@@ -136,6 +138,20 @@ const NULL_ERA: EraContext = {
  */
 export function detectEra(vibe: string): EraContext {
   if (!vibe?.trim()) return NULL_ERA;
+
+  for (const era of EXPANDED_ERA_TERMS) {
+    if (!termRegex(era.terms).test(vibe)) continue;
+    const distance = Math.max(0, 2026 - era.end);
+    const nostalgiaBoost = Math.max(0.08, Math.min(0.36, distance / 90));
+    return {
+      decade: era.label,
+      eraConfidence: /\b(strict|only|pure|classic|specific|exact)\b/i.test(vibe) ? 0.86 : 0.68,
+      nostalgiaBoost,
+      energyDelta: era.label === "80s" ? 0.12 : era.label === "00s" || era.label === "10s" ? 0.06 : 0.03,
+      adjacentEraWindow: /\b(strict|only|pure|specific|exact)\b/i.test(vibe) ? 0 : 1,
+      sonicAesthetic: era.aesthetic,
+    };
+  }
 
   for (const profile of DECADE_PROFILES) {
     for (const pattern of profile.patterns) {

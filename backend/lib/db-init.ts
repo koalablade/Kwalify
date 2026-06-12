@@ -19,10 +19,25 @@ CREATE TABLE IF NOT EXISTS "liked_songs" (
   "instrumentalness" real,
   "loudness" real,
   "speechiness" real,
+  "spotify_artist_genres" jsonb,
+  "album_genres" jsonb,
+  "popularity" integer,
+  "release_year" integer,
   "added_at" timestamp,
   "created_at" timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "IDX_liked_songs_user" ON "liked_songs" ("spotify_user_id");
+DELETE FROM "liked_songs" newer
+USING "liked_songs" older
+WHERE newer."spotify_user_id" = older."spotify_user_id"
+  AND newer."track_id" = older."track_id"
+  AND newer."id" > older."id";
+CREATE UNIQUE INDEX IF NOT EXISTS "IDX_liked_songs_user_track"
+  ON "liked_songs" ("spotify_user_id", "track_id");
+ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "spotify_artist_genres" jsonb;
+ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "album_genres" jsonb;
+ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "popularity" integer;
+ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "release_year" integer;
 
 CREATE TABLE IF NOT EXISTS "sync_status" (
   "id" serial PRIMARY KEY,
@@ -78,6 +93,29 @@ CREATE TABLE IF NOT EXISTS "playlist_feedback" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IDX_playlist_feedback_pl_user"
   ON "playlist_feedback" ("playlist_id", "user_id");
+
+CREATE TABLE IF NOT EXISTS "user_feedback_memory" (
+  "id" serial PRIMARY KEY,
+  "user_id" text NOT NULL UNIQUE,
+  "bad_artists" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "bad_genres" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "bad_energy_types" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "bad_mood_matches" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "bad_bridges" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "overplayed_tracks" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "skip_count_by_track" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "save_count_by_track" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "artist_affinity_graph" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "album_affinity_graph" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "scene_embeddings" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "updated_at" timestamp NOT NULL DEFAULT now()
+);
+ALTER TABLE "user_feedback_memory"
+  ADD COLUMN IF NOT EXISTS "artist_affinity_graph" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS "album_affinity_graph" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS "scene_embeddings" jsonb NOT NULL DEFAULT '[]'::jsonb;
+CREATE UNIQUE INDEX IF NOT EXISTS "IDX_user_feedback_memory_user"
+  ON "user_feedback_memory" ("user_id");
 `;
 
 export async function runDbInit(rawPool: pg.Pool): Promise<void> {

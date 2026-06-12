@@ -40,6 +40,8 @@ type TrackInput = {
   trackName: string;
   artistName: string;
   albumName: string;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
   energy: number | null;
   valence: number | null;
   acousticness: number | null;
@@ -96,6 +98,16 @@ function topKey(rec: Record<string, number>): string | null {
 }
 
 function scoreAudioFamily(track: TrackInput, family: RootGenre): number {
+  const presentAudioFields = [
+    track.acousticness,
+    track.energy,
+    track.danceability,
+    track.speechiness,
+    track.instrumentalness,
+    track.valence,
+  ].filter((value) => typeof value === "number").length;
+  if (presentAudioFields < 2) return 0;
+
   const a = track.acousticness ?? 0.5;
   const e = track.energy ?? 0.5;
   const d = track.danceability ?? 0.5;
@@ -213,7 +225,10 @@ export function detectLibraryGenres(
   userVector: UserGenreVector;
 } {
   const t0 = Date.now();
-  const vibeHints = extractVibeHints(vibe ?? "");
+  // Library genre profiles must describe tracks, not the current prompt.
+  // Prompt hints are applied later during retrieval/scoring; using them here
+  // can relabel unrelated artists as the requested genre.
+  const vibeHints: string[] = [];
   const pass1 = new Map<string, TrackGenreClassification>();
   for (const t of tracks) {
     pass1.set(t.trackId, classifyTrack(t, vibeHints));

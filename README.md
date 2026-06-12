@@ -80,7 +80,7 @@ Use the same value for `SPOTIFY_REDIRECT_URI`. Custom domain setup: [CUSTOM_DOMA
 
 | Setting | Value |
 |---------|--------|
-| **Build command** | `NPM_CONFIG_PRODUCTION=false npm install && npm run build` |
+| **Build command** | `rm -rf node_modules && npm cache clean --force && npm ci --include=dev --cache /tmp/npm-cache --prefer-online && npm run build` |
 | **Start command** | `npm start` |
 
 Attach PostgreSQL and set the environment variables above.

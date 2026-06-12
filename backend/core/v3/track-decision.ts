@@ -10,14 +10,31 @@ export interface TrackDecision<T extends ScorerTrack> {
   readonly valid: boolean;
   readonly weight: number;
   readonly clusterIds: string[];
+  readonly embeddingAffinity: number;
+  readonly retrievalNeighborhood: string;
+  readonly sceneAffinity: number;
+  readonly tasteAffinity: number;
+  readonly freshnessAffinity: number;
+  readonly finalScore: number;
+  readonly relevanceScore: number;
+  readonly affinityScore: number;
+}
+
+function safeFeature(value: unknown, fallback = 0.5): number {
+  return typeof value === "number" && !Number.isNaN(value) ? value : fallback;
 }
 
 export function createTrackDecision<T extends ScorerTrack>(
   item: LaneScoredTrack<T>,
   laneId: string,
 ): TrackDecision<T> {
+  const track = {
+    ...item.track,
+    energy: safeFeature(item.track.energy),
+    valence: safeFeature(item.track.valence),
+  } as T;
   return {
-    track: item.track,
+    track,
     laneId,
     score: item.laneScore,
     genrePrimary: item.genrePrimary,
@@ -25,6 +42,14 @@ export function createTrackDecision<T extends ScorerTrack>(
     valid: false,
     weight: 0,
     clusterIds: [],
+    embeddingAffinity: 0.5,
+    retrievalNeighborhood: "scene",
+    sceneAffinity: 0.5,
+    tasteAffinity: item.laneScore,
+    freshnessAffinity: 0.5,
+    finalScore: 0,
+    relevanceScore: item.laneScore,
+    affinityScore: item.laneScore,
   };
 }
 
@@ -47,4 +72,36 @@ export function withDecisionWeight<T extends ScorerTrack>(
   weight: number,
 ): TrackDecision<T> {
   return { ...decision, weight };
+}
+
+export function withDecisionAffinities<T extends ScorerTrack>(
+  decision: TrackDecision<T>,
+  affinities: {
+    sceneAffinity: number;
+    tasteAffinity: number;
+    freshnessAffinity?: number;
+    embeddingAffinity?: number;
+    retrievalNeighborhood?: string;
+  },
+): TrackDecision<T> {
+  return {
+    ...decision,
+    sceneAffinity: affinities.sceneAffinity,
+    tasteAffinity: affinities.tasteAffinity,
+    freshnessAffinity: affinities.freshnessAffinity ?? decision.freshnessAffinity,
+    embeddingAffinity: affinities.embeddingAffinity ?? decision.embeddingAffinity,
+    retrievalNeighborhood: affinities.retrievalNeighborhood ?? decision.retrievalNeighborhood,
+  };
+}
+
+export function withDecisionFinalScore<T extends ScorerTrack>(
+  decision: TrackDecision<T>,
+  finalScore: number,
+): TrackDecision<T> {
+  return {
+    ...decision,
+    finalScore,
+    relevanceScore: finalScore,
+    affinityScore: finalScore,
+  };
 }

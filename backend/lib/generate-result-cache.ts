@@ -9,8 +9,9 @@ import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export type CachedGeneratePayload = {
-  /** v2: adds genrePrimary per track. Entries without this field are treated as cache misses. */
-  cacheVersion: "v2";
+  /** v30: curator identity bias, session reuse penalties, and simplified human coherence. */
+  cacheVersion: "v30";
+  status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;
   mode: string;
@@ -32,6 +33,9 @@ export type CachedGeneratePayload = {
   emotionProfile: EmotionProfile & { journeyArc?: string };
   spotifyPlaylistUrl: string | null;
   v3Diagnostics?: Record<string, unknown> | null;
+  generationDiagnostics?: Record<string, unknown> | null;
+  artistDiversity?: Record<string, unknown> | null;
+  playlistConfidence?: Record<string, unknown> | null;
   cachedAt: number;
 };
 
@@ -48,6 +52,7 @@ export function getCachedGenerateResult(
 ): CachedGeneratePayload | null {
   const hit = cache.get(key);
   if (!hit) return null;
+  if (hit.status === "stale") return null;
   if (Date.now() - hit.cachedAt > GENERATE_RESULT_CACHE_TTL_MS) {
     cache.delete(key);
     return null;
@@ -55,10 +60,31 @@ export function getCachedGenerateResult(
   return hit;
 }
 
+export function getGenerateCacheEntryStatus(key: string): "miss" | "fresh" | "stale" | "expired" {
+  const hit = cache.get(key);
+  if (!hit) return "miss";
+  if (hit.status === "stale") return "stale";
+  if (Date.now() - hit.cachedAt > GENERATE_RESULT_CACHE_TTL_MS) return "expired";
+  return "fresh";
+}
+
 export function setCachedGenerateResult(
   key: string,
   payload: CachedGeneratePayload
 ): void {
-  cache.set(key, payload);
+  cache.set(key, { ...payload, status: "fresh" });
   evictOldestEntries(cache, 400, 80);
+}
+
+export function invalidateGenerateResultCache(_userId?: string, _contextHash?: string): void {
+  // Cache keys are hashed across prompt and user context, so feedback invalidates
+  // the in-memory result cache broadly to avoid replaying stale playlists.
+  cache.clear();
+}
+
+export function markGenerateResultCacheStale(_userId?: string, _contextHash?: string): void {
+  if (cache.size === 0) return;
+  for (const [key, payload] of cache) {
+    cache.set(key, { ...payload, status: "stale" });
+  }
 }

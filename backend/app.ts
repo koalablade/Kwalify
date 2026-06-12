@@ -76,7 +76,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
     }
   }
   const allowedOrigins: string | string[] | boolean =
-    corsOrigins.size > 0 ? [...corsOrigins] : true;
+    corsOrigins.size > 0 ? [...corsOrigins] : env.NODE_ENV === "production" ? false : true;
 
   app.use(cors({ origin: allowedOrigins, credentials: true }));
 

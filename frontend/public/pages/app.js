@@ -16,6 +16,49 @@ function esc(v) {
   );
 }
 
+function trackGenreLabel(track) {
+  return track?.genrePrimary ||
+    track?.genreFamily ||
+    (Array.isArray(track?.genres) && track.genres.length ? track.genres[0] : null) ||
+    (track?.scoringDebug?.genrePrimary && track.scoringDebug.genrePrimary !== "unknown" ? track.scoringDebug.genrePrimary : null) ||
+    (Array.isArray(track?.clusterIds)
+      ? track.clusterIds.find((cluster) => typeof cluster === "string" && cluster.startsWith("genre:"))?.replace("genre:", "")
+      : null) ||
+    "(missing)";
+}
+
+function finalGenreDistributionEntries(result) {
+  const diagnosticDistribution =
+    result?.finalGenreDistribution ||
+    result?.generationAuditSnapshot?.finalGenreDistribution;
+  if (diagnosticDistribution && typeof diagnosticDistribution === "object") {
+    const entries = Object.entries(diagnosticDistribution)
+      .filter(([genre, count]) => genre && typeof count === "number" && count > 0)
+      .sort((a, b) => b[1] - a[1]);
+    const knownEntries = entries.filter(([genre]) => genre !== "(missing)" && genre !== "unknown");
+    if (knownEntries.length) return knownEntries.slice(0, 10);
+    if (entries.length) return entries.slice(0, 10);
+  }
+
+  const genreCount = {};
+  (result?.tracks || []).forEach((track) => {
+    const genre = trackGenreLabel(track);
+    genreCount[genre] = (genreCount[genre] || 0) + 1;
+  });
+  return Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+}
+
+function backendDistributionEntries(result, field) {
+  const diagnosticDistribution =
+    result?.[field] ||
+    result?.generationAuditSnapshot?.[field];
+  if (!diagnosticDistribution || typeof diagnosticDistribution !== "object") return [];
+  return Object.entries(diagnosticDistribution)
+    .filter(([label, count]) => label && typeof count === "number" && count > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+}
+
 async function api(path, opts = {}) {
   const r = await fetch(`/api${path}`, {
     credentials: "include",
@@ -23,6 +66,76 @@ async function api(path, opts = {}) {
     ...opts,
   });
   return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+}
+
+function userFacingApiError(result, fallback = "Something went wrong. Please try again.") {
+  if (result?.status === 401) return "Spotify session expired. Please reconnect Spotify.";
+  if (result?.status === 503) return "Service is temporarily unavailable. Please try again in a moment.";
+  return result?.data?.error || result?.data?.message || fallback;
+}
+
+const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1dRFIgqcbNGXXHYHZqaRQ3BhFHqsFmENdmLRCs_YtWhE/edit";
+let generationStatusTimer = null;
+let generationUiTimer = null;
+let moodPreviewRequestId = 0;
+let moodPreviewAbort = null;
+let globalAppListenersWired = false;
+
+function feedbackTrackPayload(track) {
+  return {
+    trackId: track?.trackId || track?.id,
+    trackName: track?.trackName || track?.name || null,
+    artistName: track?.artistName || track?.artist || null,
+    albumName: track?.albumName || track?.album || null,
+    genrePrimary: track?.genrePrimary || null,
+    genreFamily: track?.genreFamily || null,
+    genres: Array.isArray(track?.genres) ? track.genres : null,
+    energy: typeof track?.energy === "number" ? track.energy : null,
+  };
+}
+
+async function sendFeedbackEvent(track, action, playlistId = null, context = {}) {
+  const payloadTrack = feedbackTrackPayload(track);
+  if (!payloadTrack.trackId) return;
+  await api("/feedback/track", {
+    method: "POST",
+    body: JSON.stringify({
+      trackId: payloadTrack.trackId,
+      action,
+      playlistId: playlistId ? String(playlistId) : "",
+      context,
+      track: payloadTrack,
+    }),
+  });
+}
+
+async function sendImplicitFeedback(track, playDuration, skipped, eventType = null) {
+  const payloadTrack = feedbackTrackPayload(track);
+  if (!payloadTrack.trackId) return;
+  await api("/feedback/implicit", {
+    method: "POST",
+    body: JSON.stringify({
+      ...payloadTrack,
+      playDuration,
+      skipped,
+      eventType,
+      sessionId: feedbackSessionId,
+    }),
+  });
+}
+
+async function replacePlaylistTrack(playlistId, track, context = {}) {
+  const payloadTrack = feedbackTrackPayload(track);
+  if (!playlistId || !payloadTrack.trackId) return null;
+  const result = await api(`/playlists/${playlistId}/replace-track`, {
+    method: "POST",
+    body: JSON.stringify({
+      trackId: payloadTrack.trackId,
+      vibe: context.vibe || "",
+    }),
+  });
+  return result.ok ? result.data.replacement : null;
 }
 
 function timeAgo(iso) {
@@ -127,13 +240,20 @@ const state = {
   length: 40,
   noLibraryMode: false,
   generating: false,
+  generationProgress: null,
+  partialPreviewStartedAt: null,
   lastResult: null,
   error: null,
-  tasteOpen: false,
+  errorDetails: null,
   profileOpen: false,
   showDebug: false,
   showExplain: false,
+  progressExpanded: false,
 };
+
+function debugModeEnabled() {
+  return new URLSearchParams(window.location.search).has("debug");
+}
 
 function getTheme() {
   return document.documentElement.getAttribute("data-theme") || "dark";
@@ -150,9 +270,16 @@ function toggleTheme() {
 // ── Nav ───────────────────────────────────────────────────────────────────────
 function navHtml(user) {
   const cs = state.cacheStatus;
+  const ls = state.librarySummary;
   const syncing = cs?.isSyncing;
-  const total = cs?.totalTracks || 0;
-  const syncLabel = syncing ? "Syncing…" : total > 0 ? `${total.toLocaleString()} synced` : "Sync";
+  const total = cs?.totalTracks || ls?.trackCount || 0;
+  const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
+  const syncPct = cs?.syncTotal && cs.syncProgress !== null && cs.syncProgress !== undefined
+    ? Math.max(0, Math.min(100, Math.round((Number(cs.syncProgress) / Math.max(1, Number(cs.syncTotal))) * 100)))
+    : null;
+  const syncLabel = syncing
+    ? `Syncing${syncPct !== null ? ` ${syncPct}%` : "…"}`
+    : total > 0 ? `${total.toLocaleString()} tracks` : "Library";
   const initials = (user?.displayName || "U").charAt(0).toUpperCase();
   const avatar = user?.avatarUrl
     ? `<img src="${esc(user.avatarUrl)}" alt="">`
@@ -167,9 +294,17 @@ function navHtml(user) {
     </div>
     <div class="nav-right">
       <a href="/gallery" class="nav-link">Gallery <span class="nav-link-arrow">→</span></a>
-      <div class="nav-sync-chip" id="syncChip" style="cursor:pointer" title="Delta sync (new likes only)">
-        <span class="sync-dot ${syncing ? "sync-dot--live" : ""}"></span>
-        <span>${syncLabel}</span>
+      <div class="nav-library-panel">
+        <button class="nav-sync-chip" id="syncChip" type="button" title="Delta sync (new likes only)">
+          <span class="sync-dot ${syncing ? "sync-dot--live" : ""}"></span>
+          <span>${syncLabel}</span>
+          ${lastSynced ? `<small>updated ${esc(lastSynced)}</small>` : ""}
+          ${syncing && syncPct !== null ? `<span class="nav-sync-progress"><span style="width:${syncPct}%"></span></span>` : ""}
+        </button>
+        <div class="nav-library-actions">
+          <button id="deltaSyncBtn" class="section-action nav-sync-action" ${syncing ? "disabled" : ""}>${syncing ? "Syncing…" : "Sync new"}</button>
+          <button id="fullSyncBtn" class="section-action nav-sync-action" ${syncing ? "disabled" : ""}>Full sync</button>
+        </div>
       </div>
       <div class="nav-profile-wrap" id="profileWrap">
         <button class="nav-avatar-btn" id="profileBtn" title="Account">
@@ -184,10 +319,6 @@ function navHtml(user) {
             <span id="themeIcon">${isDark ? "☀️" : "🌙"}</span>
             <span>${isDark ? "Light mode" : "Dark mode"}</span>
           </button>
-          <a href="/gallery" class="profile-dropdown-item">
-            <span>🎵</span>
-            <span>My playlists</span>
-          </a>
           <div class="profile-dropdown-divider"></div>
           <button class="profile-dropdown-item profile-dropdown-logout" id="logoutBtn">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -221,7 +352,7 @@ function renderLanding() {
         From your liked songs only
       </div>
       <h1>What's the <em>moment</em>?</h1>
-      <p class="hero-sub">Describe a feeling — we'll build a playlist entirely from songs you already love.</p>
+      <p class="hero-sub">Describe a feeling and get a playlist entirely from songs you already love.</p>
 
       <div class="hero-demo">
         <div class="hero-demo-box">
@@ -309,17 +440,6 @@ function renderLanding() {
   </div>`;
 }
 
-// ── App page (logged in) ──────────────────────────────────────────────────────
-const QUICK_MOMENTS = [
-  "Driving somewhere you don't need to be",
-  "Late night thinking about everything",
-  "First warm day after winter",
-  "Cleaning your room and finding old memories",
-  "Walking home after a good night",
-  "Empty streets at golden hour",
-  "Rainy Sunday with nowhere to be",
-];
-
 const MOOD_BAR_DEFS = [
   { label: "Energy",    cls: "fill-blue",   id: "mb-energy",    key: "energy" },
   { label: "Nostalgia", cls: "fill-purple",  id: "mb-nostalgia", key: "nostalgia" },
@@ -337,16 +457,28 @@ function renderApp() {
   const ls = state.librarySummary;
   const total = cs?.totalTracks || ls?.trackCount || 0;
   const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
-  const span = ls?.oldestLikedYear && ls?.newestLikedYear
-    ? `${ls.oldestLikedYear}–${ls.newestLikedYear}`
-    : "—";
+  const modeCopy = {
+    strict: "Strict: closest match, least drift.",
+    balanced: "Balanced: best quality and variety.",
+    chaotic: "Chaotic: more surprise, still safety-checked.",
+  }[state.mode] || "Balanced: best quality and variety.";
 
-  const errorHtml = state.error
-    ? `<div class="alert alert-error">${esc(state.error)}</div>`
-    : "";
-
-  // Unified activity feed
-  const feedItems = buildActivityFeed();
+  const errorHtml = state.error ? (() => {
+    const diagnostics = state.errorDetails?.generationDiagnostics || null;
+    const suggestions = Array.isArray(state.errorDetails?.suggestions) ? state.errorDetails.suggestions : [];
+    const diagHtml = diagnostics ? `
+      <div class="error-diagnostics">
+        <span>Library: ${Number(diagnostics.initialLibrarySize || 0).toLocaleString()}</span>
+        <span>After filters: ${Number(diagnostics.candidatesAfterConstraints || 0).toLocaleString()}</span>
+        <span>Final: ${Number(diagnostics.candidatesFinal || 0).toLocaleString()}</span>
+      </div>` : "";
+    return `<div class="alert alert-error">
+        <strong>Couldn’t finish that exact set.</strong>
+        <span>${esc(state.error)}</span>
+        ${diagHtml}
+        ${suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>Try a broader phrase or Balanced mode — the DJ will keep the playlist inside your library.</small>`}
+      </div>`;
+  })() : "";
 
   const moodBarsHtml = MOOD_BAR_DEFS.map((b) => `
     <div class="mood-bar-row">
@@ -358,72 +490,8 @@ function renderApp() {
         <div class="mood-fill ${b.cls}" id="${b.id}" style="width:0%"></div>
       </div>
     </div>`).join("");
-
-  root.innerHTML = `
-  ${navHtml(state.user)}
-
-  <div class="app-wrap">
-
-    ${errorHtml}
-
-    <div class="input-grid">
-
-      <!-- Vibe input -->
-      <div class="vibe-col">
-        <div>
-          <h1 class="vibe-heading">What's the moment?</h1>
-          <p class="vibe-sub">Describe it — we'll build a playlist from songs you already love.</p>
-        </div>
-
-        <div class="vibe-input-wrap">
-          <div class="vibe-glow"></div>
-          <div class="vibe-inner">
-            <textarea
-              id="vibeInput"
-              class="vibe-textarea"
-              placeholder="e.g. empty petrol station at 2am"
-              maxlength="140"
-              autocomplete="off"
-              rows="4"
-            ></textarea>
-            <div class="vibe-footer">
-              <span class="vibe-hint">Enter ↵ to generate</span>
-              <span class="vibe-count"><span id="charCount">0</span>/140</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="controls-row">
-          <div class="mode-group">
-            <button class="mode-btn ${state.mode === "strict"   ? "active" : ""}" data-mode="strict">Strict</button>
-            <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced">Balanced</button>
-            <button class="mode-btn ${state.mode === "chaotic"  ? "active" : ""}" data-mode="chaotic">Chaotic</button>
-          </div>
-          <div class="length-row">
-            <svg class="length-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <input type="range" class="length-slider" id="lengthSlider" min="20" max="60" step="5" value="${state.length}">
-            <span class="length-val" id="lengthLabel">${state.length} tracks</span>
-          </div>
-        </div>
-
-        <div class="no-library-row">
-          <label class="no-library-toggle" title="Generate using only vibe keywords — skips your personal library">
-            <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle"></div>
-            <div class="no-library-text">
-              <span class="no-library-label">No Library Mode</span>
-              <span class="no-library-sub">AI-only · ignores your liked songs</span>
-            </div>
-          </label>
-        </div>
-
-        <button id="generateBtn" class="gen-btn ${state.generating ? "loading" : ""}" ${state.generating ? "disabled" : ""}>
-          ${state.generating
-            ? `<span class="spinner spinner--sm"></span> Generating…`
-            : `Generate playlist <span class="btn-arrow">→</span>`}
-        </button>
-      </div>
-
-      <!-- Live mood interpreter -->
+  const debugMoodPanelHtml = debugModeEnabled() ? `
+      <!-- Debug-only live mood interpreter -->
       <div class="mood-col">
         <div class="mood-panel">
           <div class="mood-glow" id="moodGlow"></div>
@@ -444,7 +512,6 @@ function renderApp() {
             <div class="mood-style-label">Predicted Style</div>
             <div class="mood-style-text" id="moodStyleText" style="opacity:0">"Slow, atmospheric, late-night focused"</div>
           </div>
-          <!-- Server-detected scene panel (appears after server responds) -->
           <div class="mood-scene-panel" id="moodScenePanel" style="display:none">
             <div class="mood-scene-divider"></div>
             <div class="mood-scene-row">
@@ -458,84 +525,101 @@ function renderApp() {
             </div>
           </div>
         </div>
+      </div>` : "";
+
+  root.innerHTML = `
+  ${navHtml(state.user)}
+  ${state.generating ? `<div class="generation-top-wrap">${generatingHtml()}</div>` : ""}
+
+  <div class="app-wrap">
+
+    ${errorHtml}
+
+    <div class="input-grid ${debugModeEnabled() ? "" : "input-grid--single"}">
+
+      <!-- Vibe input -->
+      <div class="vibe-col">
+        <div>
+          <h1 class="vibe-heading">What's the moment?</h1>
+          <p class="vibe-sub">Describe it and get a playlist from songs you already love.</p>
+        </div>
+
+        <div class="vibe-input-wrap">
+          <div class="vibe-glow"></div>
+          <div class="vibe-inner">
+            <textarea
+              id="vibeInput"
+              class="vibe-textarea"
+              placeholder="e.g. empty petrol station at 2am"
+              maxlength="140"
+              autocomplete="off"
+              rows="4"
+            ></textarea>
+            <div class="vibe-footer">
+              <span class="vibe-hint">Enter ↵ to generate</span>
+              <span class="vibe-count"><span id="charCount">0</span>/140</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="prompt-guide" aria-label="Prompt guidance">
+          <span class="prompt-guide-label">Better prompts:</span>
+          <span class="prompt-guide-chip">place</span>
+          <span class="prompt-guide-chip">energy</span>
+          <span class="prompt-guide-chip">era</span>
+          <span class="prompt-guide-chip">who it's for</span>
+          <span class="prompt-guide-example">e.g. garage with mates, upbeat 2000s, Saturday night</span>
+        </div>
+
+        <div class="controls-row">
+          <div class="mode-group">
+            <button class="mode-btn ${state.mode === "strict"   ? "active" : ""}" data-mode="strict" title="Closest match, least drift" aria-pressed="${state.mode === "strict"}">Strict</button>
+            <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced" title="Best quality and variety" aria-pressed="${state.mode === "balanced"}">Balanced</button>
+            <button class="mode-btn ${state.mode === "chaotic"  ? "active" : ""}" data-mode="chaotic" title="More surprise, still safety-checked" aria-pressed="${state.mode === "chaotic"}">Chaotic</button>
+          </div>
+          <div class="length-row">
+            <svg class="length-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <input type="range" class="length-slider" id="lengthSlider" min="20" max="60" step="5" value="${state.length}">
+            <span class="length-val" id="lengthLabel">${state.length} tracks</span>
+          </div>
+        </div>
+        <div class="mode-helper">${esc(modeCopy)}</div>
+
+        <div class="no-library-row">
+          <label class="no-library-toggle" title="Use Spotify-wide search for clear genre prompts, with your library only as fallback">
+            <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle" role="switch" tabindex="0" aria-checked="${state.noLibraryMode}" aria-label="No Library Mode"></div>
+            <div class="no-library-text">
+              <span class="no-library-label">No Library Mode</span>
+              <span class="no-library-sub">Spotify-wide search for clear genre prompts · may use your library as fallback</span>
+            </div>
+          </label>
+        </div>
+
+        <button id="generateBtn" class="gen-btn ${state.generating ? "loading" : ""}" ${state.generating ? "disabled" : ""}>
+          ${state.generating
+            ? `<span class="spinner spinner--sm"></span> Generating…`
+            : `Generate playlist <span class="btn-arrow">→</span>`}
+        </button>
       </div>
+
+      ${debugMoodPanelHtml}
     </div>
 
-    <!-- Generation progress / Result -->
-    ${state.generating ? generatingHtml() : ""}
+    <!-- Result -->
     ${state.lastResult ? resultHtml(state.lastResult) : ""}
-
-    <!-- Quick moments -->
-    <div class="quick-section">
-      <div class="label">Quick Moments</div>
-      <div class="chips-row hide-scrollbar" id="quickChips">
-        ${QUICK_MOMENTS.map((m) => `<button class="quick-chip" data-vibe="${esc(m)}">${esc(m)}</button>`).join("")}
-      </div>
-    </div>
-
-    <!-- Taste profile -->
-    <div class="taste-strip">
-      <button class="taste-toggle" id="tasteToggle">
-        <div class="taste-toggle-left">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${"#1db954"}" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          Your taste profile
-        </div>
-        <svg class="taste-chevron ${state.tasteOpen ? "open" : ""}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-      <div class="taste-body ${state.tasteOpen ? "open" : ""}" id="tasteBody">
-        <div class="taste-grid">
-          <div class="taste-cell">
-            <span class="taste-cell-label">Dominant vibe</span>
-            <span class="taste-cell-value">Nostalgic / High-energy</span>
-          </div>
-          <div class="taste-cell">
-            <span class="taste-cell-label">Listening span</span>
-            <span class="taste-cell-value">${span}</span>
-          </div>
-          <div class="taste-cell">
-            <span class="taste-cell-label">Era gravity</span>
-            <span class="taste-cell-value">Revisit most: 2020–2022</span>
-          </div>
-          <div class="taste-cell">
-            <span class="taste-cell-label">Sync status</span>
-            <span class="taste-cell-value">${total > 0 ? `${total.toLocaleString()} tracks${lastSynced ? ` · ${lastSynced}` : ""}` : "Not yet synced"}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Unified Activity Feed -->
-    <div class="recent-section">
-      <div class="section-head">
-        <h3 class="section-title">Activity</h3>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button id="deltaSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Fetch only new liked songs since last sync">
-            ${cs?.isSyncing ? "Syncing…" : "↻ Sync new"}
-          </button>
-          <button id="fullSyncBtn" class="section-action" ${cs?.isSyncing ? "disabled" : ""} title="Re-sync your entire library from scratch">
-            Full sync
-          </button>
-          <a href="/gallery" class="section-action">All playlists →</a>
-        </div>
-      </div>
-      <div class="activity-feed">
-        ${feedItems}
-      </div>
-    </div>
 
   </div>
 
   <footer class="app-footer">
-    <a href="/gallery" class="footer-link">Gallery →</a>
     <div class="footer-right">
       <span class="badge badge-muted">Beta</span>
-      <a href="mailto:feedback@kwalify.net" class="footer-link">Send feedback</a>
+      <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">Send feedback</a>
     </div>
   </footer>
 
   <!-- Feedback floating button -->
   <a
-    href="https://docs.google.com/forms/d/1dRFIgqcbNGXXHYHZqaRQ3BhFHqsFmENdmLRCs_YtWhE/edit"
+    href="${FEEDBACK_FORM_URL}"
     target="_blank"
     rel="noopener"
     class="feedback-fab"
@@ -618,21 +702,175 @@ function buildActivityFeed() {
   }).join("");
 }
 
+const GENERATION_STAGES = ["Scanning library", "Scoring candidates", "Building playlist", "Final cohesion pass", "Finalising playlist"];
+const GENERATION_PHASES = ["starting", "loading_library", "building_profile", "scoring", "composing", "spotify", "saving"];
+const GENERATION_PHASE_COPY = {
+  "Scanning library": [
+    "Looking through your taste profile…",
+    "Scanning liked tracks…",
+    "Mapping your music DNA…",
+  ],
+  "Scoring candidates": [
+    "Finding songs that fit your mood…",
+    "Aligning with your intent…",
+    "Filtering out obvious wrong turns…",
+  ],
+  "Building playlist": [
+    "Scoring emotional fit…",
+    "Balancing taste and discovery…",
+    "Comparing energy, era, and genre fit…",
+  ],
+  "Final cohesion pass": [
+    "Arranging transitions…",
+    "Smoothing energy curve…",
+    "Sequencing the set like a DJ would…",
+  ],
+  "Finalising playlist": [
+    "Polishing sequence…",
+    "Optimising listening flow…",
+    "Saving the playlist safely…",
+  ],
+};
+
+function generationProgressInfo() {
+  const phase = state.generationProgress?.phase || "starting";
+  const stage = state.generationProgress?.stage || null;
+  const stageLabel = stage || GENERATION_STAGES[Math.max(0, GENERATION_PHASES.indexOf(phase) - 1)] || "Scanning library";
+  const subtexts = GENERATION_PHASE_COPY[stageLabel] || GENERATION_PHASE_COPY["Scanning library"];
+  const index = typeof state.generationProgress?.stageIndex === "number"
+    ? state.generationProgress.stageIndex
+    : Math.max(0, Math.min(GENERATION_STAGES.length - 1, GENERATION_PHASES.indexOf(phase) - 1));
+  const count = state.generationProgress?.stageCount || GENERATION_STAGES.length;
+  const startedAt = state.generationProgress?.startedAt || Date.now();
+  const elapsedMs = Date.now() - startedAt;
+  const localStep = Math.min(
+    count - 1,
+    Math.floor(elapsedMs / 4500)
+  );
+  const displayIndex = Math.max(index, state.generationProgress?.partialTracks?.length ? 3 : 0, localStep);
+  const pct = Math.max(10, Math.min(96, Math.round(((displayIndex + 1) / count) * 100)));
+  const subIndex = Math.floor((Date.now() - startedAt) / 1800) % subtexts.length;
+  const detail = state.generationProgress?.stageDetail || subtexts[subIndex];
+  const displayTitle = GENERATION_STAGES[displayIndex] || stageLabel;
+  return { title: displayTitle, serverTitle: stageLabel, sub: detail, pct, index: displayIndex, serverIndex: index, count };
+}
+
 function generatingHtml() {
+  const progress = generationProgressInfo();
+  const progressState = state.generationProgress || {};
+  const elapsedMs = typeof progressState.elapsedMs === "number"
+    ? progressState.elapsedMs
+    : Date.now() - (progressState.startedAt || Date.now());
+  const elapsedText = `${Math.max(0, Math.round(elapsedMs / 1000))}s elapsed`;
+  const fallbackText = progressState.fallbackEligibleAt
+    ? (Date.now() >= progressState.fallbackEligibleAt ? "Fast fallback is available if needed" : "Still building the best match")
+    : "Working normally";
+  const previewWaitingCopy = [
+    "Scanning library evidence",
+    "Counting safe candidates",
+    "Scoring likely fits",
+    "Choosing a vibe cluster",
+  ];
+  const previewWaitingText = previewWaitingCopy[Math.floor(elapsedMs / 1000) % previewWaitingCopy.length];
+  const progressDetailsHtml = state.progressExpanded ? `
+      <div class="generation-details-panel">
+        <div><strong>Current work</strong><span id="generationDetailWork">${esc(progress.sub)}</span></div>
+        <div><strong>Phase</strong><span id="generationDetailPhase">${esc(progressState.phase || "starting")} · backend ${progress.serverIndex + 1}/${progress.count}</span></div>
+        <div><strong>Timing</strong><span id="generationDetailTiming">${esc(elapsedText)} · ${esc(fallbackText)}</span></div>
+        <div><strong>Preview</strong><span id="generationDetailPreview">${progressState.partialTracks?.length ? `${progressState.partialTracks.length} likely tracks ready` : previewWaitingText}</span></div>
+      </div>` : "";
+  const buildBarHtml = `
+      <div class="dj-live-stage" aria-live="polite">
+        <span class="dj-live-icon">▶</span>
+        <span class="dj-live-label" id="generationStageLabel">${esc(progress.title)}</span>
+        <span class="dj-live-count" id="generationStageCount">${Math.min(progress.index + 1, progress.count)} / ${progress.count}</span>
+      </div>`;
+  const partialTracks = Array.isArray(state.generationProgress?.partialTracks)
+    ? state.generationProgress.partialTracks
+    : [];
+  const elapsedSincePreview = state.partialPreviewStartedAt ? Date.now() - state.partialPreviewStartedAt : 0;
+  const visiblePartialCount = partialTracks.length <= 5
+    ? partialTracks.length
+    : Math.min(partialTracks.length, 5 + Math.floor(elapsedSincePreview / 1400) * 4);
+  const visiblePartialTracks = partialTracks.slice(0, visiblePartialCount);
+  const addingTracks = partialTracks.length > visiblePartialTracks.length;
+  const partialHtml = visiblePartialTracks.length ? `
+      <div class="generating-partials">
+        <div class="generating-partials-head">
+          Previewing ${visiblePartialTracks.length} likely track${visiblePartialTracks.length === 1 ? "" : "s"}
+          ${addingTracks ? `<span class="adding-tracks">adding tracks…</span>` : ""}
+        </div>
+        ${visiblePartialTracks.map((track, i) => `
+          <div class="generating-track">
+            <span class="generating-track-num">${i + 1}</span>
+            <div class="generating-track-art">${track.albumArt ? `<img src="${esc(track.albumArt)}" alt="" loading="lazy">` : ""}</div>
+            <div class="generating-track-meta">
+              <div class="generating-track-name">${esc(track.trackName || "Unknown track")}</div>
+              <div class="generating-track-artist">${esc(track.artistName || "Unknown artist")}</div>
+            </div>
+          </div>
+        `).join("")}
+      </div>` : "";
   return `
   <div class="generating-card">
     <span class="spinner spinner--purple"></span>
-    <div>
-      <div class="generating-title">Building your playlist…</div>
-      <div class="generating-sub">Scoring your library against the moment. Takes about 10 seconds.</div>
+    <div class="generating-body">
+      <div class="generating-title" id="generationTitle">${esc(progress.title)}</div>
+      <div class="generating-sub" id="generationSub">${esc(progress.sub)}</div>
+      ${buildBarHtml}
+      <button class="generation-details-toggle" id="progressDetailsToggle" type="button">
+        ${state.progressExpanded ? "Hide details" : "Show what is happening"}
+      </button>
+      ${progressDetailsHtml}
+      ${debugModeEnabled() ? `<div class="generation-safety-chip">Excluded: Christmas / holiday tracks unless requested</div>` : ""}
+      <div class="generating-progress" aria-hidden="true">
+        <div class="generating-progress-fill" id="generationProgressFill" style="width:${progress.pct}%"></div>
+      </div>
+      ${partialHtml}
     </div>
   </div>`;
+}
+
+function refreshGenerationProgressDom() {
+  if (!state.generating || !state.generationProgress) return;
+  const progress = generationProgressInfo();
+  const progressState = state.generationProgress || {};
+  const elapsedMs = typeof progressState.elapsedMs === "number"
+    ? Math.max(progressState.elapsedMs, Date.now() - (progressState.startedAt || Date.now()))
+    : Date.now() - (progressState.startedAt || Date.now());
+  const elapsedText = `${Math.max(0, Math.round(elapsedMs / 1000))}s elapsed`;
+  const fallbackText = progressState.fallbackEligibleAt
+    ? (Date.now() >= progressState.fallbackEligibleAt ? "Fast fallback is available if needed" : "Still building the best match")
+    : "Working normally";
+  const previewWaitingCopy = [
+    "Scanning library evidence",
+    "Counting safe candidates",
+    "Scoring likely fits",
+    "Choosing a vibe cluster",
+  ];
+  const previewWaitingText = previewWaitingCopy[Math.floor(elapsedMs / 1000) % previewWaitingCopy.length];
+  const previewText = progressState.partialTracks?.length
+    ? `${progressState.partialTracks.length} likely tracks ready`
+    : previewWaitingText;
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  setText("generationTitle", progress.title);
+  setText("generationSub", progress.sub);
+  setText("generationStageLabel", progress.title);
+  setText("generationStageCount", `${Math.min(progress.index + 1, progress.count)} / ${progress.count}`);
+  setText("generationDetailWork", progress.sub);
+  setText("generationDetailPhase", `${progressState.phase || "starting"} · backend ${progress.serverIndex + 1}/${progress.count}`);
+  setText("generationDetailTiming", `${elapsedText} · ${fallbackText}`);
+  setText("generationDetailPreview", previewText);
+  const fill = document.getElementById("generationProgressFill");
+  if (fill) fill.style.width = `${progress.pct}%`;
 }
 
 function resultHtml(result) {
   const count = result.trackCount || (Array.isArray(result.tracks) ? result.tracks.length : 0);
   const name = esc(result.playlistName || result.name || "Playlist created");
-  const debug = new URLSearchParams(window.location.search).has("debug");
 
   // ── Dynamic vibe tags from scoring response ────────────────────────────────
   const DOT_COLORS = ["vd-purple", "vd-indigo", "vd-blue", "vd-green", "vd-orange"];
@@ -653,9 +891,38 @@ function resultHtml(result) {
   ).join("\n");
 
   // ── Admin Debug Panel ──────────────────────────────────────────────────────
-  const debugHtml = buildDebugPanel(result);
+  const debugHtml = debugModeEnabled() ? buildDebugPanel(result) : "";
+  const confidence = result.playlistConfidence || {};
+  const confidencePercent = typeof confidence.percent === "number" ? confidence.percent : null;
+  const degradedSpotifyNotice = result.spotifyUnavailable
+    ? "Playlist built, but Spotify creation failed. You can still review and share it here."
+    : result.spotifyPartial
+      ? `Spotify playlist created with ${result.spotifyTracksAdded ?? "some"} of ${count} tracks.`
+      : null;
+  const fallbackNotice = degradedSpotifyNotice
+    ? degradedSpotifyNotice
+    : count > 0 && count < Math.max(8, Math.floor(state.length * 0.4))
+      ? `Only ${count} strong tracks survived the safety checks. Try a broader prompt or Balanced mode for a fuller playlist.`
+    : result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+    ? "Quick backup playlist built because the full generator was taking too long."
+    : confidence.recoveryUsed
+      ? "Best available playlist built after relaxing non-critical checks."
+      : null;
+  const resultBadge = result.spotifyUnavailable
+    ? "Review ready"
+    : result.spotifyPartial || result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+      ? "Best available"
+      : "Ready";
+  const resultBadgeClass = result.spotifyUnavailable || result.spotifyPartial || result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+    ? "badge badge-amber"
+    : "badge badge-green";
+  const confidenceHtml = confidencePercent !== null ? `
+      <div class="result-confidence ${confidence.recoveryUsed || confidence.fallbackUsed ? "result-confidence--recovered" : ""}">
+        <span>${esc(confidence.label || "Playlist confidence")}</span>
+        <strong>${confidencePercent}%</strong>
+      </div>` : "";
 
-  const hasExplain = !!(result.v3Diagnostics?.playlistExplanation);
+  const hasExplain = debugModeEnabled() && !!(result.v3Diagnostics?.playlistExplanation);
   const tabsHtml = hasExplain ? `
   <div class="result-view-tabs">
     <button class="result-tab-btn ${!state.showExplain ? "active" : ""}" id="tabPlaylist">
@@ -669,6 +936,36 @@ function resultHtml(result) {
   const explainContent = (hasExplain && state.showExplain)
     ? renderPlaylistExplanation(result.v3Diagnostics.playlistExplanation)
     : "";
+  const tracks = Array.isArray(result.tracks) ? result.tracks : [];
+  const playlistId = result.savedPlaylistId || result.playlistId || "";
+  const tracksHtml = tracks.length ? `
+  <div class="tracks-list" id="resultTracksList">
+    ${tracks.map((t, i) => {
+      const title = t.trackName || t.name || "Unknown track";
+      const artist = t.artistName || t.artist || "Unknown artist";
+      const art = t.albumArt || t.album_art;
+      const why = Array.isArray(t.whyReasons) && t.whyReasons.length
+        ? ` title="Why this song: ${esc(t.whyReasons.slice(0, 3).join(", "))}"`
+        : "";
+      return `
+      <div class="track-row" data-track-index="${i}"${why}>
+        <span class="track-num">${i + 1}</span>
+        <div class="track-art">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
+        <div class="track-info">
+          <div class="track-name">${esc(title)}</div>
+          <div class="track-artist">${esc(artist)}</div>
+        </div>
+        <div class="track-actions">
+          <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" data-playlist-id="${playlistId}" title="Skip this track" aria-label="Skip this track">⏭</button>
+          <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" data-playlist-id="${playlistId}" title="Remove from future playlists" aria-label="Remove from future playlists">−</button>
+          <button class="section-action feedback-track-btn" data-action="replace" data-track-index="${i}" data-playlist-id="${playlistId}" title="Replace with a nearby track" aria-label="Replace with a nearby track">↻</button>
+          <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" data-playlist-id="${playlistId}" title="Like this track" aria-label="Like this track">♥</button>
+          <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" data-playlist-id="${playlistId}" title="Thumbs down - reduces similar future picks" aria-label="Thumbs down - reduces similar future picks">↓</button>
+          <button class="section-action feedback-track-btn undo-feedback-btn" data-action="undo" data-track-index="${i}" data-playlist-id="${playlistId}" title="Undo last feedback" aria-label="Undo last feedback" style="display:none">Undo</button>
+        </div>
+      </div>`;
+    }).join("")}
+  </div>` : "";
 
   return `
   <div class="result-card">
@@ -677,22 +974,29 @@ function resultHtml(result) {
     </div>
     <div class="result-body">
       <div class="result-top">
-        <span class="badge badge-green">Ready</span>
+        <span class="${resultBadgeClass}">${esc(resultBadge)}</span>
         <span class="result-meta">${count} tracks · ${state.mode} mode</span>
       </div>
       <h2 class="result-title">${name}</h2>
       <p class="result-insight">Curated from your liked songs to fit the moment.</p>
+      ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
+      ${confidenceHtml}
       <div class="result-vibes">
         ${vibeDotsHtml}
       </div>
+      ${debugModeEnabled() ? `<div class="result-safety-row">
+        <span>Safety filter active</span>
+        <strong>Christmas / holiday tracks excluded unless requested</strong>
+      </div>` : ""}
       <div class="result-actions">
         ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
-        ${result.savedPlaylistId ? `<a href="/p/${result.savedPlaylistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
+        ${playlistId ? `<a href="/p/${playlistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
       </div>
       ${tabsHtml}
     </div>
   </div>
   ${explainContent}
+  ${!state.showExplain ? tracksHtml : ""}
   ${!state.showExplain ? debugHtml : ""}`;
 }
 
@@ -811,6 +1115,24 @@ function renderPlaylistExplanation(expl) {
     ${div.dominantGenre ? `<div style="margin-top:8px;font-size:0.7rem;color:var(--muted)">Dominant genre: <strong style="color:var(--text)">${esc(div.dominantGenre.replace(/_/g," "))}</strong>${div.dominantEra?` · Era: <strong style="color:var(--text)">${esc(div.dominantEra)}</strong>`:""}</div>` : ""}
   </div>`;
 
+  const quality = v3.playlistQuality || result.generationAuditSnapshot?.playlistQuality || {};
+  const repair = v3.explicitIntentRepair || result.generationAuditSnapshot?.explicitIntentRepair || {};
+  const cache = result.cacheDiagnostics || result.generationAuditSnapshot?.cacheDiagnostics || {};
+  const qPct = (value) => typeof value === "number" ? `${Math.round(value * 100)}%` : "—";
+  const qualityHtml = `
+  <div class="explain-card">
+    <div class="explain-card-title">✅ Playlist Quality Report</div>
+    <div class="dp-pool-grid">
+      <div class="dp-pool-stat"><div class="dp-pool-num">${qPct(quality.genrePurity)}</div><div class="dp-pool-lbl">Genre purity</div></div>
+      <div class="dp-pool-stat"><div class="dp-pool-num">${qPct(quality.promptAlignment)}</div><div class="dp-pool-lbl">Prompt fit</div></div>
+      <div class="dp-pool-stat"><div class="dp-pool-num">${repair.repairedCount ?? 0}</div><div class="dp-pool-lbl">Final repairs</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:0.72rem;color:var(--muted)">
+      Cache: <strong style="color:var(--text)">${esc(cache.status || "fresh")}</strong>
+      ${repair.active ? ` · repair reasons: <strong style="color:var(--text)">${esc(Object.entries(repair.repairReasons || {}).map(([k,v]) => `${k}:${v}`).join(", ") || "intent")}</strong>` : ""}
+    </div>
+  </div>`;
+
   // ── 5. Selection summary ───────────────────────────────────────────────────
   const selRate = sel.selectionRate ?? (sel.totalCandidates > 0 ? Math.round(sel.selected/sel.totalCandidates*100) : 0);
   const rejReasons = (sel.topRejectionReasons||[]).map(r => r.replace(/_/g," "));
@@ -858,6 +1180,11 @@ function buildUnifiedDebugPanel(result, dbg) {
   const v11 = dbg.v11 || {};
   const sys = dbg.systemDiagnostics || {};
   const pool = dbg.poolInfo || {};
+  const gen = result.generationDiagnostics || result.generationAuditSnapshot?.generationDiagnostics || {};
+  const artistDiv = result.artistDiversity || result.generationAuditSnapshot?.artistDiversity || {};
+  const confidence = result.playlistConfidence || result.generationAuditSnapshot?.playlistConfidence || {};
+  const waterfall = Array.isArray(gen.waterfall) ? gen.waterfall : [];
+  const coherence = v3.playlistCoherence || result.v3Diagnostics?.playlistCoherence || {};
 
   const genreColors = {
     country:"#d97706",folk:"#16a34a",indie:"#7c3aed",rock:"#dc2626",
@@ -871,6 +1198,56 @@ function buildUnifiedDebugPanel(result, dbg) {
     const col = pct >= 70 ? "#1db954" : pct >= 40 ? "#f59e0b" : "#ef4444";
     return `<div class="dp-score-bar-wrap" title="${pct}%"><div class="dp-score-bar" style="width:${pct}%;background:${col}"></div><span>${pct}</span></div>`;
   };
+
+  const basicDebugHtml = `
+    <div class="dp-card dp-card--wide">
+      <div class="dp-card-title">Basic Debug</div>
+      <div class="dp-pool-grid" style="grid-template-columns:repeat(5,1fr);gap:8px">
+        <div class="dp-pool-stat"><div class="dp-pool-num">${(gen.initialLibrarySize ?? pool.librarySize ?? 0).toLocaleString()}</div><div class="dp-pool-lbl">Library scanned</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${(gen.candidatesAfterConstraints ?? pool.hybridPoolSize ?? 0).toLocaleString()}</div><div class="dp-pool-lbl">Candidates found</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${(gen.candidatesFinal ?? result.totalTracks ?? result.count ?? 0).toLocaleString()}</div><div class="dp-pool-lbl">Playlist size</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${Math.round(result.generationMs || 0)}ms</div><div class="dp-pool-lbl">Generation time</div></div>
+        <div class="dp-pool-stat"><div class="dp-pool-num">${gen.fallbackTriggered ? "Yes" : "No"}</div><div class="dp-pool-lbl">Fallback used</div></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        ${typeof confidence.percent === "number" ? `<span class="dp-badge dp-badge--green">Confidence: ${confidence.percent}%</span>` : ""}
+        <span class="dp-badge">Artists: ${artistDiv.uniqueArtists ?? "—"}</span>
+        <span class="dp-badge">Repeated: ${artistDiv.repeatedArtists ?? "—"}</span>
+        <span class="dp-badge">Over cap: ${artistDiv.cappedTracks ?? "—"}</span>
+        ${artistDiv.maxPerArtist ? `<span class="dp-badge">Max / artist: ${artistDiv.maxPerArtist}</span>` : ""}
+        ${artistDiv.topRepeatedArtist ? `<span class="dp-badge">Top repeat: ${esc(artistDiv.topRepeatedArtist)} ×${artistDiv.topRepeatedArtistCount ?? "?"}</span>` : ""}
+        ${gen.selectedCluster ? `<span class="dp-badge dp-badge--green">Cluster: ${esc(gen.selectedCluster)}</span>` : ""}
+        ${gen.secondaryCluster ? `<span class="dp-badge">Secondary: ${esc(gen.secondaryCluster)}</span>` : ""}
+        ${gen.identityType ? `<span class="dp-badge dp-badge--green">Identity: ${esc(gen.identityType).replace(/_/g," ")}</span>` : ""}
+        ${typeof gen.clusterConfidence === "number" ? `<span class="dp-badge">Cluster confidence: ${Math.round(gen.clusterConfidence * 100)}%</span>` : ""}
+        ${typeof gen.fallbackCandidatePercent === "number" ? `<span class="dp-badge ${gen.fallbackCandidatePercent > 20 ? "dp-badge--amber" : ""}">Fallback pool: ${gen.fallbackCandidatePercent}%</span>` : ""}
+        ${typeof gen.humanCoherenceScore === "number" ? `<span class="dp-badge ${gen.humanCoherenceScore >= 0.62 ? "dp-badge--green" : "dp-badge--amber"}">Human coherence: ${Math.round(gen.humanCoherenceScore * 100)}%</span>` : ""}
+        ${gen.humanCoherenceRepairUsed ? `<span class="dp-badge dp-badge--green">Coherence repaired</span>` : ""}
+        ${typeof gen.cohesionScore === "number" ? `<span class="dp-badge">Final cohesion: ${Math.round(gen.cohesionScore * 100)}%</span>` : ""}
+        ${typeof coherence.avg_transition_score === "number" ? `<span class="dp-badge">Coherence: ${Math.round(coherence.avg_transition_score * 100)}%</span>` : ""}
+        ${typeof coherence.avg_position_shift === "number" ? `<span class="dp-badge">Avg move: ${coherence.avg_position_shift}</span>` : ""}
+        ${typeof coherence.adjacent_artist_repeats === "number" ? `<span class="dp-badge">Adjacent repeats: ${coherence.adjacent_artist_repeats}</span>` : ""}
+        ${gen.largestDrop?.stage ? `<span class="dp-badge dp-badge--amber">Biggest drop: ${esc(gen.largestDrop.stage)} −${(gen.largestDrop.removed || 0).toLocaleString()}</span>` : ""}
+        ${Array.isArray(gen.majorExclusions) && gen.majorExclusions.length ? `<span class="dp-badge dp-badge--amber">Excluded: ${esc(gen.majorExclusions.join(", "))}</span>` : ""}
+        ${Array.isArray(gen.recoveryRelaxations) && gen.recoveryRelaxations.length ? `<span class="dp-badge dp-badge--amber">Relaxed: ${esc(gen.recoveryRelaxations.join(", "))}</span>` : ""}
+        ${gen.failureReason ? `<span class="dp-badge dp-badge--amber">Failure: ${esc(gen.failureReason)}</span>` : ""}
+      </div>
+      ${gen.identitySummary ? `
+        <div style="margin-top:10px;font-size:0.78rem;color:var(--muted);line-height:1.45">
+          <strong style="color:var(--text)">Identity summary:</strong> ${esc(gen.identitySummary)}
+          ${gen.curatorIdentity?.forbiddenPatterns?.length ? `<div style="margin-top:4px">Forbidden patterns: ${esc(gen.curatorIdentity.forbiddenPatterns.join(", "))}</div>` : ""}
+          ${gen.humanCoherenceComponents ? `<div style="margin-top:4px">Coherence: energy ${Math.round((gen.humanCoherenceComponents.energyConsistency || 0) * 100)}%, transitions ${Math.round((gen.humanCoherenceComponents.transitionSmoothness || 0) * 100)}%, emotion ${Math.round((gen.humanCoherenceComponents.emotionalStability || 0) * 100)}%</div>` : ""}
+        </div>` : ""}
+      ${waterfall.length ? `
+        <div class="debug-waterfall">
+          ${waterfall.map((stage) => `
+            <div class="debug-waterfall-step">
+              <span>${esc(stage.stage || "Stage")}</span>
+              <strong>${Number(stage.count || 0).toLocaleString()}</strong>
+            </div>
+          `).join("")}
+        </div>` : ""}
+    </div>`;
 
   // ── System health ─────────────────────────────────────────────────────────
   const sysHtml = `
@@ -1063,10 +1440,8 @@ function buildUnifiedDebugPanel(result, dbg) {
 
   // ── Final playlist genre composition ──────────────────────────────────────
   const finalTracks = result.tracks || [];
-  const genreCount = {};
-  finalTracks.forEach(t => { const g = t.genrePrimary || "(missing)"; genreCount[g] = (genreCount[g] || 0) + 1; });
   const total = finalTracks.length || 1;
-  const genreDist = Object.entries(genreCount).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const genreDist = finalGenreDistributionEntries(result);
   const compositionHtml = `
     <div class="dp-card">
       <div class="dp-card-title">🎼 Final Playlist Genre Composition</div>
@@ -1084,6 +1459,28 @@ function buildUnifiedDebugPanel(result, dbg) {
         </div>
       ` : '<div class="dp-none">No genre data</div>'}
     </div>`;
+  const distributionCard = (title, entries) => `
+    <div class="dp-card">
+      <div class="dp-card-title">${esc(title)}</div>
+      ${entries.length ? `
+        <div class="dp-composition">
+          ${entries.map(([label, count]) => {
+            const pct = Math.round((count / total) * 100);
+            return `<div class="dp-comp-row">
+              <span class="dp-comp-genre">${esc(label)}</span>
+              <div class="dp-comp-bar-wrap"><div class="dp-comp-bar" style="width:${pct}%;background:#4b5563"></div></div>
+              <span class="dp-comp-pct">${count} · ${pct}%</span>
+            </div>`;
+          }).join("")}
+        </div>
+      ` : '<div class="dp-none">No backend data</div>'}
+    </div>`;
+  const backendDistributionsHtml = `
+    <div class="dp-grid">
+      ${distributionCard("Final Era Distribution", backendDistributionEntries(result, "finalEraDistribution"))}
+      ${distributionCard("Final Mood Distribution", backendDistributionEntries(result, "finalMoodDistribution"))}
+      ${distributionCard("Final Energy Distribution", backendDistributionEntries(result, "finalEnergyDistribution"))}
+    </div>`;
 
   return `
   <div class="dp-panel">
@@ -1092,10 +1489,13 @@ function buildUnifiedDebugPanel(result, dbg) {
       <span>Scoring Diagnostics</span>
       <span class="dp-model-tag">V3.1 Unified Routing</span>
     </div>
+    ${basicDebugHtml}
+    <div class="dp-sub-title">Advanced Debug</div>
     <div class="dp-grid">
       ${sysHtml}
       ${intentHtml}
       ${diversityHtml}
+      ${qualityHtml}
     </div>
     ${lanesHtml}
     ${traceHtml}
@@ -1106,6 +1506,7 @@ function buildUnifiedDebugPanel(result, dbg) {
     </div>
     ${v11CandidatesHtml}
     ${compositionHtml}
+    ${backendDistributionsHtml}
   </div>`;
 }
 
@@ -1271,10 +1672,8 @@ function buildDebugPanel(result) {
     </div>`;
 
   const finalTracks = result.tracks || [];
-  const genreCount = {};
-  finalTracks.forEach(t => { const g = t.genrePrimary || "(missing)"; genreCount[g] = (genreCount[g] || 0) + 1; });
   const total = finalTracks.length || 1;
-  const genreDist = Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const genreDist = finalGenreDistributionEntries(result);
   const compositionHtml = `
     <div class="dp-card">
       <div class="dp-card-title">🎼 Final Playlist Genre Composition</div>
@@ -1296,6 +1695,28 @@ function buildDebugPanel(result) {
           </div>
         ` : ""}
       ` : '<div class="dp-none">Tracks without genre data</div>'}
+    </div>`;
+  const distributionCard = (title, entries) => `
+    <div class="dp-card">
+      <div class="dp-card-title">${esc(title)}</div>
+      ${entries.length ? `
+        <div class="dp-composition">
+          ${entries.map(([label, count]) => {
+            const pct = Math.round((count / total) * 100);
+            return `<div class="dp-comp-row">
+              <span class="dp-comp-genre">${esc(label)}</span>
+              <div class="dp-comp-bar-wrap"><div class="dp-comp-bar" style="width:${pct}%;background:#4b5563"></div></div>
+              <span class="dp-comp-pct">${count} · ${pct}%</span>
+            </div>`;
+          }).join("")}
+        </div>
+      ` : '<div class="dp-none">No backend data</div>'}
+    </div>`;
+  const backendDistributionsHtml = `
+    <div class="dp-grid">
+      ${distributionCard("Final Era Distribution", backendDistributionEntries(result, "finalEraDistribution"))}
+      ${distributionCard("Final Mood Distribution", backendDistributionEntries(result, "finalMoodDistribution"))}
+      ${distributionCard("Final Energy Distribution", backendDistributionEntries(result, "finalEnergyDistribution"))}
     </div>`;
 
   return `
@@ -1322,6 +1743,7 @@ function buildDebugPanel(result) {
     </div>
     ${topTracksHtml}
     ${compositionHtml}
+    ${backendDistributionsHtml}
   </div>
   ` : ""}`;
 }
@@ -1330,9 +1752,12 @@ function buildDebugPanel(result) {
 let _moodPreviewTimer = null;
 
 function updateMoodPanel(text) {
+  const statusEl = document.getElementById("moodStatus");
+  if (!statusEl) return;
+
   if (text.length <= 3) {
     document.getElementById("moodGlow")?.classList.remove("active");
-    document.getElementById("moodStatus").textContent = "Awaiting input…";
+    statusEl.textContent = "Awaiting input…";
     MOOD_BAR_DEFS.forEach((b) => {
       const el = document.getElementById(b.id);
       const lb = document.getElementById(`${b.id}-label`);
@@ -1350,7 +1775,7 @@ function updateMoodPanel(text) {
   }
 
   document.getElementById("moodGlow")?.classList.add("active");
-  document.getElementById("moodStatus").textContent = "Reading the moment…";
+  statusEl.textContent = "Reading the moment…";
 
   // Instant client-side mood bars (no network round-trip)
   const mood = analyzeMoodFromText(text);
@@ -1382,12 +1807,20 @@ function updateMoodPanel(text) {
 }
 
 async function fetchScenePreview(text) {
+  const requestId = ++moodPreviewRequestId;
+  if (moodPreviewAbort) moodPreviewAbort.abort();
+  moodPreviewAbort = new AbortController();
   try {
-    const r = await api(`/generate/preview?vibe=${encodeURIComponent(text)}`);
+    const r = await api(`/generate/preview?vibe=${encodeURIComponent(text)}`, {
+      signal: moodPreviewAbort.signal,
+    });
+    const currentText = document.getElementById("vibeInput")?.value.trim() || "";
+    if (requestId !== moodPreviewRequestId || currentText !== text.trim()) return;
     if (r.ok && r.data) {
       updateMoodPanelFromServer(r.data);
     }
-  } catch (_) {
+  } catch (err) {
+    if (err?.name === "AbortError") return;
     // Silently ignore preview errors — client-side mood bars remain
   }
 }
@@ -1403,7 +1836,8 @@ function updateMoodPanelFromServer(data) {
 
   if (!data.scene) {
     // No scene detected — show generic status
-    document.getElementById("moodStatus").textContent = "Moment analyzed";
+    const statusEl = document.getElementById("moodStatus");
+    if (statusEl) statusEl.textContent = "Moment analyzed";
     document.getElementById("moodGlow")?.classList.remove("active");
     scenePanel.style.display = "none";
     return;
@@ -1459,12 +1893,22 @@ function wireAppEvents() {
     state.profileOpen = !state.profileOpen;
     document.getElementById("profileDropdown")?.classList.toggle("open", state.profileOpen);
   });
-  document.addEventListener("click", (e) => {
-    if (!document.getElementById("profileWrap")?.contains(e.target)) {
-      state.profileOpen = false;
-      document.getElementById("profileDropdown")?.classList.remove("open");
-    }
-  });
+  if (!globalAppListenersWired) {
+    document.addEventListener("click", (e) => {
+      if (!document.getElementById("profileWrap")?.contains(e.target)) {
+        state.profileOpen = false;
+        document.getElementById("profileDropdown")?.classList.remove("open");
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        document.getElementById("vibeInput")?.focus();
+        document.getElementById("vibeInput")?.select();
+      }
+    });
+    globalAppListenersWired = true;
+  }
 
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
   document.getElementById("themeToggleBtn")?.addEventListener("click", toggleTheme);
@@ -1475,11 +1919,23 @@ function wireAppEvents() {
   document.getElementById("fullSyncBtn")?.addEventListener("click", () => triggerSync(true));
 
   document.getElementById("generateBtn")?.addEventListener("click", generate);
+  document.getElementById("progressDetailsToggle")?.addEventListener("click", () => {
+    state.progressExpanded = !state.progressExpanded;
+    renderApp();
+  });
 
   // No-library mode toggle
   document.getElementById("noLibraryToggle")?.addEventListener("click", () => {
     state.noLibraryMode = !state.noLibraryMode;
     document.getElementById("noLibraryToggle")?.classList.toggle("on", state.noLibraryMode);
+    document.getElementById("noLibraryToggle")?.setAttribute("aria-checked", String(state.noLibraryMode));
+  });
+  document.getElementById("noLibraryToggle")?.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    state.noLibraryMode = !state.noLibraryMode;
+    document.getElementById("noLibraryToggle")?.classList.toggle("on", state.noLibraryMode);
+    document.getElementById("noLibraryToggle")?.setAttribute("aria-checked", String(state.noLibraryMode));
   });
 
   const vibeInput = document.getElementById("vibeInput");
@@ -1511,23 +1967,61 @@ function wireAppEvents() {
     });
   });
 
-  document.querySelectorAll(".quick-chip[data-vibe]").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      vibeInput.value = chip.dataset.vibe;
-      charCount.textContent = vibeInput.value.length;
-      updateMoodPanel(vibeInput.value);
-      vibeInput.focus();
-    });
-  });
-
-  document.getElementById("tasteToggle")?.addEventListener("click", () => {
-    state.tasteOpen = !state.tasteOpen;
-    document.getElementById("tasteBody")?.classList.toggle("open", state.tasteOpen);
-    document.querySelector(".taste-chevron")?.classList.toggle("open", state.tasteOpen);
-  });
-
   document.querySelectorAll(".delete-btn[data-id]").forEach((btn) => {
     btn.addEventListener("click", () => deletePlaylist(Number(btn.dataset.id)));
+  });
+
+  document.querySelectorAll(".feedback-track-btn[data-track-index]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const index = Number(btn.dataset.trackIndex);
+      const action = btn.dataset.action;
+      const track = state.lastResult?.tracks?.[index];
+      if (!track || !action) return;
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = action === "like" ? "♥" : action === "replace" ? "…" : action === "undo" ? "Undo" : "✓";
+      const context = { vibe: document.getElementById("vibeInput")?.value || state.lastResult?.vibe || "" };
+      try {
+        if (action === "undo") {
+          await sendFeedbackEvent(track, "undo", btn.dataset.playlistId || null, context);
+          btn.closest(".track-row")?.style.setProperty("opacity", "1");
+          btn.style.display = "none";
+          btn.disabled = false;
+          return;
+        }
+        if (action === "replace") {
+          const replacement = await replacePlaylistTrack(btn.dataset.playlistId || null, track, context);
+          if (replacement && state.lastResult?.tracks) {
+            state.lastResult.tracks[index] = replacement;
+            renderApp();
+          }
+          return;
+        }
+        await sendFeedbackEvent(track, action, btn.dataset.playlistId || null, context);
+        if (action === "skip") await sendImplicitFeedback(track, 0, true, "skip");
+        if (action === "like") await sendImplicitFeedback(track, track.durationMs || 0, false, "manual_save");
+        const row = btn.closest(".track-row");
+        const message = action === "like"
+          ? "Liked - more like this"
+          : action === "skip"
+            ? "Skipped - less like this"
+            : action === "dislike"
+              ? "Thumbs down - similar picks reduced"
+              : action === "remove"
+                ? "Removed from future playlists"
+                : "Feedback saved";
+        row?.setAttribute("data-feedback-note", message);
+        btn.title = message;
+        if (action === "remove" || action === "dislike") {
+          row?.style.setProperty("opacity", "0.45");
+          const undo = row?.querySelector(".undo-feedback-btn");
+          if (undo) undo.style.display = "inline-flex";
+        }
+      } catch (_) {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    });
   });
 
   document.getElementById("debugToggleBtn")?.addEventListener("click", () => {
@@ -1560,26 +2054,19 @@ function wireAppEvents() {
   });
 
   // ── Explain This Playlist tab toggle ──────────────────────────────────────
-  document.addEventListener("click", (e) => {
-    const tabPl = e.target.id === "tabPlaylist" || e.target.closest("#tabPlaylist");
-    const tabEx = e.target.id === "tabExplain"  || e.target.closest("#tabExplain");
-    if (tabPl && state.showExplain) {
-      state.showExplain = false;
-      renderApp();
-    } else if (tabEx && !state.showExplain) {
-      state.showExplain = true;
-      renderApp();
-    }
+  document.getElementById("tabPlaylist")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!state.showExplain) return;
+    state.showExplain = false;
+    renderApp();
+  });
+  document.getElementById("tabExplain")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (state.showExplain) return;
+    state.showExplain = true;
+    renderApp();
   });
 
-  // Ctrl/Cmd+K to focus input
-  document.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-      e.preventDefault();
-      vibeInput?.focus();
-      vibeInput?.select();
-    }
-  });
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -1597,8 +2084,14 @@ async function triggerSync(full = false) {
     ? document.getElementById("fullSyncBtn")
     : document.getElementById("deltaSyncBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Syncing…"; }
-  await api("/spotify/sync", { method: "POST", body: JSON.stringify({ full }) });
-  setTimeout(pollStatus, 2000);
+  const result = await api("/spotify/sync", { method: "POST", body: JSON.stringify({ full }) });
+  if (!result.ok) {
+    state.error = userFacingApiError(result, "Could not start sync. Please try again.");
+    renderApp();
+  } else {
+    state.error = null;
+    await pollStatus();
+  }
 }
 
 async function pollStatus() {
@@ -1609,7 +2102,7 @@ async function pollStatus() {
   if (csRes.ok) state.cacheStatus = csRes.data;
   if (lsRes.ok) state.librarySummary = lsRes.data;
   renderApp();
-  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 3000);
+  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
 }
 
 async function loadPlaylists() {
@@ -1630,43 +2123,106 @@ async function deletePlaylist(id) {
   }
 }
 
+function stopGenerationStatusPolling() {
+  if (generationStatusTimer) {
+    clearTimeout(generationStatusTimer);
+    generationStatusTimer = null;
+  }
+  if (generationUiTimer) {
+    clearInterval(generationUiTimer);
+    generationUiTimer = null;
+  }
+}
+
+function startGenerationStatusPolling() {
+  stopGenerationStatusPolling();
+  generationUiTimer = setInterval(() => {
+    if (!state.generating) return;
+    refreshGenerationProgressDom();
+  }, 1000);
+  const tick = async () => {
+    if (!state.generating) return;
+    try {
+      const r = await api("/generate/status");
+      if (r.ok && r.data?.active) {
+        const nextPartialTracks = Array.isArray(r.data.partialTracks) ? r.data.partialTracks : [];
+        if (nextPartialTracks.length > 0 && !state.partialPreviewStartedAt) {
+          state.partialPreviewStartedAt = Date.now();
+        }
+        state.generationProgress = {
+          phase: r.data.phase || "starting",
+          stage: r.data.stage || null,
+          stageIndex: typeof r.data.stageIndex === "number" ? r.data.stageIndex : 0,
+          stageCount: typeof r.data.stageCount === "number" ? r.data.stageCount : GENERATION_STAGES.length,
+          stageDetail: r.data.stageDetail || null,
+          requestId: r.data.requestId || null,
+          startedAt: typeof r.data.startedAt === "number" ? r.data.startedAt : Date.now(),
+          fallbackEligibleAt: typeof r.data.fallbackEligibleAt === "number" ? r.data.fallbackEligibleAt : null,
+          partialTracks: nextPartialTracks,
+        };
+        renderApp();
+      }
+    } catch {
+      // Progress is best-effort; the generate request still owns success/failure.
+    } finally {
+      if (state.generating) generationStatusTimer = setTimeout(tick, 600);
+    }
+  };
+  generationStatusTimer = setTimeout(tick, 150);
+}
+
 async function generate() {
   const vibeInput = document.getElementById("vibeInput");
   const vibe = vibeInput?.value.trim();
   if (!vibe) { vibeInput?.focus(); return; }
   if (state.generating) return;
+  const previousResult = state.lastResult;
+  const samePromptRegenerate =
+    !!previousResult &&
+    String(previousResult.vibe || previousResult.prompt || "").trim().toLowerCase() === vibe.toLowerCase();
 
   state.generating = true;
+  state.partialPreviewStartedAt = null;
+  state.generationProgress = { phase: "starting", stage: "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), fallbackEligibleAt: null, partialTracks: [] };
   state.lastResult = null;
   state.error = null;
+  state.errorDetails = null;
   state.showExplain = false;
+  state.progressExpanded = false;
   renderApp();
+  startGenerationStatusPolling();
 
   const savedVibe = vibe;
 
   try {
-    const r = await api("/generate?debug=1", {
+    const r = await api(debugModeEnabled() ? "/generate?debug=1" : "/generate", {
       method: "POST",
       body: JSON.stringify({
         vibe,
         mode: state.mode,
         length: state.length,
         noLibraryMode: state.noLibraryMode,
+        varietyBoost: samePromptRegenerate,
       }),
     });
 
     if (r.status === 401) { window.location.href = "/api/auth/login"; return; }
 
     if (!r.ok) {
-      state.error = r.data?.error || r.data?.message || "Generation failed. Please try again.";
+      state.error = userFacingApiError(r, "Generation failed. Please try a broader prompt or Balanced mode.");
+      state.errorDetails = r.data || null;
     } else {
       state.lastResult = { ...r.data, savedPlaylistId: r.data.playlistId };
       await loadPlaylists();
     }
   } catch (e) {
     state.error = e.message || "Generation failed. Please try again.";
+    state.errorDetails = null;
   } finally {
+    stopGenerationStatusPolling();
     state.generating = false;
+    state.generationProgress = null;
+    state.partialPreviewStartedAt = null;
     renderApp();
     const input = document.getElementById("vibeInput");
     if (input) {
@@ -1681,7 +2237,13 @@ async function generate() {
 async function boot() {
   root.innerHTML = `<div class="loading-shell"><div class="spinner"></div><span>Loading…</span></div>`;
 
-  const meRes = await api("/auth/me");
+  let meRes;
+  try {
+    meRes = await api("/auth/me");
+  } catch (err) {
+    root.innerHTML = `<div class="loading-shell"><span>Could not reach Kwalify. Check your connection and refresh.</span></div>`;
+    return;
+  }
 
   if (meRes.status === 401 || !meRes.ok) {
     renderLanding();
@@ -1691,20 +2253,23 @@ async function boot() {
   state.user = meRes.data;
 
   const [csRes, lsRes, plRes, histRes] = await Promise.all([
-    api("/spotify/cache-status"),
-    api("/library/summary"),
-    api("/playlists"),
-    api("/history"),
+    api("/spotify/cache-status").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/library/summary").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/playlists").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/history").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
   ]);
 
   if (csRes.ok) state.cacheStatus = csRes.data;
   if (lsRes.ok) state.librarySummary = lsRes.data;
   if (plRes.ok) state.playlists = plRes.data.playlists || [];
   if (histRes.ok) state.history = Array.isArray(histRes.data) ? histRes.data : [];
+  if (!csRes.ok || !lsRes.ok || !plRes.ok || !histRes.ok) {
+    state.error = "Some account data could not load. You can still try generating, or refresh if things look stale.";
+  }
 
   renderApp();
 
-  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 3000);
+  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
 }
 
 boot();

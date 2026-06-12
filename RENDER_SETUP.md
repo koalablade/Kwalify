@@ -49,11 +49,11 @@ Follow these steps in order. Each step takes about 2–5 minutes.
 | **Name** | `kwalify-api` (your URL will be `https://kwalify-api.onrender.com`) |
 | **Region** | Closest to you |
 | **Runtime** | **Node** |
-| **Build Command** | `npm install && npm run build` |
+| **Build Command** | `rm -rf node_modules && npm cache clean --force && npm ci --include=dev --cache /tmp/npm-cache --prefer-online && npm run build` |
 | **Start Command** | `npm start` |
 | **Plan** | Free |
 
-4. **Advanced** → **Health Check Path**: `/api/health`
+4. **Advanced** → **Health Check Path**: `/api/healthz`
 
 ---
 
@@ -110,8 +110,9 @@ Use the **External** Database URL from Render if running from your machine (not 
 
 1. Click **Manual Deploy** → **Deploy latest commit** (or wait for auto-deploy).
 2. Wait until status is **Live**.
-3. Open: `https://YOUR-SERVICE-NAME.onrender.com/api/health`  
+3. Open: `https://YOUR-SERVICE-NAME.onrender.com/api/healthz`  
    You should see a healthy JSON response.
+   For dependency readiness, open `/api/readyz`.
 4. Test login: `https://YOUR-SERVICE-NAME.onrender.com/api/auth/login`  
    Should redirect to Spotify.
 
@@ -121,7 +122,7 @@ Use the **External** Database URL from Render if running from your machine (not 
 
 | Problem | Fix |
 |---------|-----|
-| Build fails / pnpm | Build must be `npm install && npm run build` — no pnpm |
+| Build fails / pnpm | Build must be `rm -rf node_modules && npm cache clean --force && npm ci --include=dev --cache /tmp/npm-cache --prefer-online && npm run build` — no pnpm/yarn |
 | `SESSION_SECRET` / `DATABASE_URL` required | Add env vars and redeploy |
 | Spotify redirect error | `SPOTIFY_REDIRECT_URI` must match Spotify dashboard character-for-character |
 | Login works but sync/generate fails | Run `drizzle-kit push` (Part 5) |
@@ -137,7 +138,7 @@ Use the **External** Database URL from Render if running from your machine (not 
 - [ ] All env vars set
 - [ ] Spotify redirect URI added
 - [ ] `drizzle-kit push` completed
-- [ ] `/api/health` works
+- [ ] `/api/healthz` works
 - [ ] `/api/auth/login` redirects to Spotify
 
 ---
