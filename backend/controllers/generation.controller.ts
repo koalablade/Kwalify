@@ -3743,6 +3743,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       requestOrchestration?: RequestGenerationOrchestration;
     };
     let fallbackReason: { stage: string; elapsedMs: number } | null = null;
+    let playlistPipelineTimeMs = 0;
+    const playlistPipelineStartedAt = Date.now();
     if (useFastFallback) {
       fallbackReason = {
         stage: preV3Timing.slowestStage ?? "hard_timeout",
@@ -3837,6 +3839,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
     });
     }
+    playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
 
     type PlaylistTrack = V3MetadataTrack<(typeof likedSongs)[number]> & {
       score: number;
@@ -3918,6 +3921,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         identity: curatorIdentity,
       }
     );
+    let repairTimeMs = 0;
+    let finalizationTimeMs = 0;
+    tStage = Date.now();
     let finalization = finalizePlaylistTracks({
       initial: clusterCuration.initial,
       candidates: clusterCuration.candidates,
@@ -3930,6 +3936,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       maxPerArtist,
       trackReusePenalty: finalizationReusePenalty,
     });
+    finalizationTimeMs += Date.now() - tStage;
     const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
       likedSongs
         .map((track) => ({
@@ -3942,6 +3949,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const applyLowComplexityRecovery = (triggerStage: string): boolean => {
       if (finalTracks.length > 0) return false;
+      const recoveryStartedAt = Date.now();
       const recovered = recoverLowComplexityPlaylist({
         initial: finalTracks,
         fullLibrary: buildBroadRecoveryLibrary(),
@@ -3958,6 +3966,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         trackReusePenalty: finalizationReusePenalty,
       });
       if (!recovered) return false;
+      repairTimeMs += Date.now() - recoveryStartedAt;
       finalTracks = recovered.tracks;
       finalization = {
         tracks: recovered.tracks,
@@ -4243,6 +4252,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
       }
     }
+    tStage = Date.now();
     finalization = finalizePlaylistTracks({
       initial: finalTracks,
       candidates: clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
@@ -4257,6 +4267,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       maxPerArtist,
       trackReusePenalty: finalizationReusePenalty,
     });
+    finalizationTimeMs += Date.now() - tStage;
     if (trackListChanged(finalTracks, finalization.tracks)) {
       req.log.info(
         { userId, vibe, finalization: finalization.diagnostics },
@@ -4323,6 +4334,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
     let humanCoherenceRepairUsed = false;
     if (finalTracks.length > 0 && humanCoherence.score < 0.56) {
+      const repairStartedAt = Date.now();
       const repairCandidates = finalCandidatePool.filter((track) => {
         const identityFit = (track as unknown as Record<string, unknown>)["_identityFit"];
         const fit = typeof identityFit === "number" ? identityFit : scoreTrackForIdentity(track, curatorIdentity);
@@ -4346,6 +4358,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         trackReusePenalty: finalizationReusePenalty,
       });
       const repairedCoherence = humanCoherenceScore(repaired.tracks, curatorIdentity);
+      repairTimeMs += Date.now() - repairStartedAt;
       if (
         repaired.tracks.length >= Math.min(length, Math.max(6, Math.ceil(length * 0.60))) &&
         repairedCoherence.score >= humanCoherence.score + 0.06
@@ -4428,6 +4441,29 @@ router.post("/generate", async (req, res): Promise<void> => {
       ...evidenceRelaxations,
     ].filter((entry): entry is string => !!entry);
     const fallbackLevel = fallbackLevelFromFinalization(finalization.diagnostics);
+    const pipelineTiming = (v3PipelineDiagnostics["timingMs"] ?? null) as Record<string, unknown> | null;
+    const requestTimingMs = {
+      total: Date.now() - startMs,
+      preV3: preV3Timing,
+      playlistPipeline: playlistPipelineTimeMs,
+      retrieval: typeof pipelineTiming?.["retrieval"] === "number" ? pipelineTiming["retrieval"] : null,
+      candidateGeneration: typeof pipelineTiming?.["candidateGeneration"] === "number" ? pipelineTiming["candidateGeneration"] : null,
+      v3Scoring: typeof pipelineTiming?.["scoring"] === "number" ? pipelineTiming["scoring"] : null,
+      sampler: typeof pipelineTiming?.["sampler"] === "number" ? pipelineTiming["sampler"] : null,
+      repair: repairTimeMs,
+      finalization: finalizationTimeMs,
+      v3Pipeline: pipelineTiming,
+    };
+    const slowestRequestStage = Object.entries({
+      preV3: preV3Timing.totalBeforeV3Ms,
+      playlistPipeline: playlistPipelineTimeMs,
+      retrieval: typeof pipelineTiming?.["retrieval"] === "number" ? pipelineTiming["retrieval"] as number : 0,
+      candidateGeneration: typeof pipelineTiming?.["candidateGeneration"] === "number" ? pipelineTiming["candidateGeneration"] as number : 0,
+      v3Scoring: typeof pipelineTiming?.["scoring"] === "number" ? pipelineTiming["scoring"] as number : 0,
+      sampler: typeof pipelineTiming?.["sampler"] === "number" ? pipelineTiming["sampler"] as number : 0,
+      repair: repairTimeMs,
+      finalization: finalizationTimeMs,
+    }).sort((a, b) => b[1] - a[1])[0] ?? null;
     const generationDiagnostics = {
       initialLibrarySize: likedSongs.length,
       candidatesSampled: numberFromWaterfall("retrievalCount", scoringPool.hybridPoolSize ?? pipeline.sorted.length),
@@ -4444,6 +4480,24 @@ router.post("/generate", async (req, res): Promise<void> => {
       waterfall: stageWaterfall,
       largestDrop,
       removalReasons: removalReasonDiagnostics.slice(0, 12),
+      timingMs: {
+        ...requestTimingMs,
+        slowestStage: slowestRequestStage?.[0] ?? null,
+        slowestStageMs: slowestRequestStage?.[1] ?? 0,
+        stagesOver30s: Object.entries({
+          total: requestTimingMs.total,
+          preV3: preV3Timing.totalBeforeV3Ms,
+          playlistPipeline: playlistPipelineTimeMs,
+          retrieval: typeof requestTimingMs.retrieval === "number" ? requestTimingMs.retrieval : 0,
+          candidateGeneration: typeof requestTimingMs.candidateGeneration === "number" ? requestTimingMs.candidateGeneration : 0,
+          v3Scoring: typeof requestTimingMs.v3Scoring === "number" ? requestTimingMs.v3Scoring : 0,
+          sampler: typeof requestTimingMs.sampler === "number" ? requestTimingMs.sampler : 0,
+          repair: repairTimeMs,
+          finalization: finalizationTimeMs,
+        })
+          .filter(([, ms]) => ms >= 30_000)
+          .map(([stage, ms]) => ({ stage, ms })),
+      },
       recoveryRelaxations,
       recoveryTriggered: fallbackLevel !== "none" || recoveryRelaxations.length > 0,
       fallbackLevel,

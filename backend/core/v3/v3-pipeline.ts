@@ -432,6 +432,19 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     trackReusePenalty?: Map<string, number>;
   } = {},
 ): V3PipelineResult<T> {
+  const pipelineStartedAt = Date.now();
+  const timingMs: Record<string, number> = {
+    retrieval: 0,
+    laneGeneration: 0,
+    scoring: 0,
+    candidateGeneration: 0,
+    sampler: 0,
+    interleaver: 0,
+    total: 0,
+  };
+  const recordTiming = (key: keyof typeof timingMs, startedAt: number): void => {
+    timingMs[key] += Date.now() - startedAt;
+  };
 
   // ── Stage 1: Unified intent consumption ──────────────────────────────────
   if (!opts.unifiedIntentContext) {
@@ -442,11 +455,13 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const lockedIntent = opts.lockedIntent ?? unifiedIntentContext.lockedIntent;
   const unifiedIntentDiagnostics = unifiedIntentContext.diagnostics;
   const fallbackTriggered = isUnclearIntent(decomposed);
+  let stageStartedAt = Date.now();
   const retrievalCloud = retrieveCandidatesByEmbedding(
     tracks,
     lockedIntent,
     unifiedIntentContext.unifiedIntent,
   );
+  recordTiming("retrieval", stageStartedAt);
   const forensicTrace: ForensicStageTrace[] = [
     stageTrace(
       "retrieval result count",
@@ -465,6 +480,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   // ── Stage 2: Adaptive lane generation ───────────────────────────────────
   let lanes: ReturnType<typeof buildLanes>;
   let generatorDiagnostics: Record<string, unknown> = {};
+  stageStartedAt = Date.now();
 
   if (fallbackTriggered) {
     lanes = buildLanes(decomposed);
@@ -478,6 +494,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       ...genResult.generatorDiagnostics,
     };
   }
+  recordTiming("laneGeneration", stageStartedAt);
 
   // ── Stage 3 + 4 + 5: Per-lane scoring → cluster formation → cluster selection ──
   const laneDetails: Array<{
@@ -528,6 +545,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
 
   const sampledResults: SampledLaneResult<T>[] = lanes.map((lane) => {
     // Stage 3: Score every track for this lane
+    let laneStageStartedAt = Date.now();
     const rawScored = scoreLane(retrievedTracks, lane, decomposed, {
       genreByTrack: opts.genreByTrack,
       noveltyByTrack: opts.noveltyByTrack,
@@ -616,6 +634,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       memory: opts.momentMemory,
       classificationByTrack: opts.classificationByTrack,
     });
+    recordTiming("scoring", laneStageStartedAt);
     recommendationEngineDiagnostics.push({
       laneId: lane.id,
       signalCount: engineResult.diagnostics.signalCount,
@@ -630,7 +649,9 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     );
 
     // Stage 4: Build clusters from scored pool
+    laneStageStartedAt = Date.now();
     const clusteredPool = buildClusters(engineResult.decisions);
+    recordTiming("candidateGeneration", laneStageStartedAt);
     forensicTrace.push(stageTrace(
       `cluster creation count:${lane.id}`,
       engineResult.decisions.length,
@@ -641,6 +662,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     ));
 
     // Stage 5: Entropy-constrained selection across clusters
+    laneStageStartedAt = Date.now();
     const clusterResult = selectFromClusters(
       clusteredPool,
       laneTarget,
@@ -652,6 +674,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
         recentTrackPenalty: opts.trackReusePenalty,
       },
     );
+    recordTiming("sampler", laneStageStartedAt);
     forensicTrace.push(stageTrace(
       `sampler input count:${lane.id}`,
       clusteredPool.scoredTracks.length,
@@ -730,7 +753,9 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
 
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
   const interleaverInputCount = sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0);
+  stageStartedAt = Date.now();
   const interleaved = interleaveLanes(lanes, sampledResults, targetCount);
+  recordTiming("interleaver", stageStartedAt);
   forensicTrace.push(stageTrace(
     "interleaver input count",
     interleaverInputCount,
@@ -992,9 +1017,18 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const artistReuseRate = finalTracks.length > 0
     ? Math.round((1 - Object.keys(artistDist).length / finalTracks.length) * 1000) / 1000
     : 0;
+  timingMs.total = Date.now() - pipelineStartedAt;
+  const slowestTiming = Object.entries(timingMs)
+    .filter(([key]) => key !== "total")
+    .sort((a, b) => b[1] - a[1])[0] ?? null;
 
   const diagnostics: Record<string, unknown> = {
     pipelineVersion: "v3.1_unified_routing",
+    timingMs: {
+      ...timingMs,
+      slowestStage: slowestTiming?.[0] ?? null,
+      slowestStageMs: slowestTiming?.[1] ?? 0,
+    },
     activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
     qualityLock: {
       active: false,

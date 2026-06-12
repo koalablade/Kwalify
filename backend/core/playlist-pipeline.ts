@@ -1920,7 +1920,32 @@ export async function buildPlaylistPipeline<T extends {
 }>(
   opts: BuildPlaylistPipelineOpts<T>
 ): Promise<BuildPlaylistPipelineResult<T>> {
+  const pipelineStartedAt = Date.now();
+  const timingMs: Record<string, number> = {
+    scoring: 0,
+    retrieval: 0,
+    candidateGeneration: 0,
+    v3ScoringAndSampling: 0,
+    repair: 0,
+    finalization: 0,
+    total: 0,
+  };
+  const recordTiming = (key: keyof typeof timingMs, startedAt: number): void => {
+    timingMs[key] += Date.now() - startedAt;
+  };
+  const buildTimingMs = (): Record<string, unknown> => {
+    timingMs.total = Date.now() - pipelineStartedAt;
+    const slowest = Object.entries(timingMs)
+      .filter(([key]) => key !== "total")
+      .sort((a, b) => b[1] - a[1])[0] ?? null;
+    return {
+      ...timingMs,
+      slowestStage: slowest?.[0] ?? null,
+      slowestStageMs: slowest?.[1] ?? 0,
+    };
+  };
   await emitProgress(opts, "scoring", `Scoring ${opts.likedSongs.length.toLocaleString()} liked songs`);
+  let stageStartedAt = Date.now();
   const scoring = runScoringPipeline({
     pipelineLog: opts.pipelineLog,
     tracks: opts.likedSongs,
@@ -1946,9 +1971,11 @@ export async function buildPlaylistPipeline<T extends {
       emotionProfile: opts.emotionProfile,
     },
   });
+  recordTiming("scoring", stageStartedAt);
 
   const sortedPool = scoring.sorted;
   await emitProgress(opts, "retrieval", `Building candidate pools from ${sortedPool.length.toLocaleString()} scored tracks`);
+  stageStartedAt = Date.now();
 
   // ─────────────────────────────────────────────────────────────────────────
   // V3 MULTI-LANE ARCHITECTURE
@@ -2020,6 +2047,7 @@ export async function buildPlaylistPipeline<T extends {
       sessionArtistMemory: effectiveSessionArtistMemory,
     },
   );
+  recordTiming("retrieval", stageStartedAt);
   const pooledCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
   const contractSafePool = enforceIntentContract(
     pooledCandidates as unknown as Array<ScoredLibraryTrack<IntentContractTrack>>,
@@ -2131,6 +2159,7 @@ export async function buildPlaylistPipeline<T extends {
   for (const candidate of candidateInputs) {
     await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
     const inputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
+    stageStartedAt = Date.now();
     const candidatePool = buildV3CandidatePool(
       inputPool,
       classMap,
@@ -2139,6 +2168,8 @@ export async function buildPlaylistPipeline<T extends {
       { minimumFillRatio: candidate.label === "strict_intent" ? 0.8 : 0.65 },
       opts.pipelineLog,
     );
+    recordTiming("candidateGeneration", stageStartedAt);
+    stageStartedAt = Date.now();
     const result = runV3Pipeline(
       candidatePool.tracks as unknown as T[],
       opts.vibe,
@@ -2156,6 +2187,7 @@ export async function buildPlaylistPipeline<T extends {
         trackReusePenalty:       upstreamRecentTrackPenalty,
       }
     );
+    recordTiming("v3ScoringAndSampling", stageStartedAt);
     const quality = evaluatePlaylistQuality(
       result.finalTracks as unknown as IntentContractTrack[],
       intentContract,
@@ -2412,6 +2444,7 @@ export async function buildPlaylistPipeline<T extends {
             explicitGenreRecoveryUsed,
           },
           controlledGeneration: controlledGenerationDiagnostics,
+          timingMs: buildTimingMs(),
           retrievalPools: {
             core: retrieval.core.length,
             anchor: retrieval.anchor.length,
@@ -2606,6 +2639,7 @@ export async function buildPlaylistPipeline<T extends {
             explicitGenreRecoveryUsed,
           },
           controlledGeneration: controlledGenerationDiagnostics,
+          timingMs: buildTimingMs(),
           retrievalPools: {
             core: retrieval.core.length,
             anchor: retrieval.anchor.length,
@@ -2644,6 +2678,7 @@ export async function buildPlaylistPipeline<T extends {
     if (emergencyScoredFallback) return emergencyScoredFallback;
   }
 
+  const repairStartedAt = Date.now();
   const playlistCritic = repairPlaylistWithCritic(
     finalTracksList as T[],
     contractGuardedScoredPool,
@@ -2674,6 +2709,7 @@ export async function buildPlaylistPipeline<T extends {
     criticQualityAfter: playlistCritic.diagnostics.afterQuality,
     criticRepairs: playlistCritic.diagnostics.repairedCount,
   });
+  recordTiming("finalization", t);
   const genreEnforcedTracks = enforced.tracks.length > 0
     ? enforced.tracks as unknown as T[]
     : criticFinalTracks;
@@ -2698,6 +2734,7 @@ export async function buildPlaylistPipeline<T extends {
     v3LockedIntent,
   );
   const finalTracksForReturn = coherence.reorderedTracks as unknown as T[];
+  recordTiming("repair", repairStartedAt);
   await emitProgress(opts, "coherence", `Final cohesion pass on ${finalTracksForReturn.length.toLocaleString()} tracks`);
   opts.pipelineLog?.info({
     coherence_fallback_used: coherence.diagnostics.coherence_fallback_used,
@@ -2769,6 +2806,7 @@ export async function buildPlaylistPipeline<T extends {
           expectedFamilies: intentContract.genreFamilies,
         },
         controlledGeneration: controlledGenerationDiagnostics,
+        timingMs: buildTimingMs(),
         retrievalPools: {
           core: retrieval.core.length,
           anchor: retrieval.anchor.length,
