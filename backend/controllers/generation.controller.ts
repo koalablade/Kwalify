@@ -2645,6 +2645,7 @@ router.post("/generate", async (req, res): Promise<void> => {
   let requestId = "";
   let sessionUserId = "";
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  let requestHardTimeoutMs = REQUEST_HARD_TIMEOUT_MS;
   try {
     const devMode = useMockSpotify();
     const rawBody = req.body ?? {};
@@ -2653,6 +2654,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const auditSessionAuthorized = auditModeRequested && !!req.session.spotifyUserId;
     const auditMode = auditModeRequested && (auditTokenAuthorized || auditSessionAuthorized);
     const sideEffectPolicy = auditMode ? AUDIT_SIDE_EFFECT_POLICY : PRODUCTION_SIDE_EFFECT_POLICY;
+    requestHardTimeoutMs = auditMode ? 220_000 : REQUEST_HARD_TIMEOUT_MS;
     if (auditMode) beginSpotifyApiAudit();
     const auditUserIdRaw = typeof rawBody.spotifyUserId === "string"
       ? rawBody.spotifyUserId.trim()
@@ -2702,6 +2704,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       : auditTokenAuthorized
         ? auditUserIdRaw
         : req.session.spotifyUserId!;
+    const generateSessionUserId = auditMode
+      ? `${userId}:audit:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`
+      : userId;
 
     if (!sideEffectPolicy.bypassRateLimit) {
       const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
@@ -2756,7 +2761,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId, noLibraryMode } = parsed.data;
     const moodSceneId = sceneId?.trim() || null;
 
-    const acquired = acquireGenerateSession(userId, { force: !!varietyBoost });
+    const acquired = acquireGenerateSession(generateSessionUserId, {
+      force: !auditMode && !!varietyBoost,
+    });
     if (!acquired) {
       req.log.info({ userId, code: "GENERATION_IN_PROGRESS" }, "Rejected duplicate generate");
       generateFail(
@@ -2768,11 +2775,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
     requestId = acquired;
-    sessionUserId = userId;
-    setGeneratePhase(userId, requestId, "starting");
+    sessionUserId = generateSessionUserId;
+    setGeneratePhase(generateSessionUserId, requestId, "starting");
     req.log.info({ elapsedMs: 0, trackCount: 0, cacheHit: false }, "Generation started");
     heartbeatTimer = setInterval(() => {
-      const progress = getGenerateProgress(userId);
+      const progress = getGenerateProgress(generateSessionUserId);
       req.log.info(
         {
           requestId,
@@ -2881,8 +2888,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
       // Only use cache entries generated after strict final genre/era validation.
       if (cached && cached.cacheVersion === "v30" && hasValidCachedIntent(cached)) {
-        if (respondIfStale(res, userId, requestId)) return;
-        setGeneratePhase(userId, requestId, "done");
+        if (respondIfStale(res, generateSessionUserId, requestId)) return;
+        setGeneratePhase(generateSessionUserId, requestId, "done");
         const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
         const cachedFinalGenreDistribution = cachedApiTracks.reduce<Record<string, number>>(
           (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
@@ -2970,8 +2977,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
-    setGeneratePhase(userId, requestId, "loading_library");
-    setGenerateStageDetail(userId, requestId, "Scanning your liked songs...");
+    setGeneratePhase(generateSessionUserId, requestId, "loading_library");
+    setGenerateStageDetail(generateSessionUserId, requestId, "Scanning your liked songs...");
     tStage = Date.now();
     const likedRowsRaw = devMode
       ? generateMockSpotifyLibrary()
@@ -3063,10 +3070,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
-    setGenerateStageDetail(userId, requestId, `Analysing ${likedSongs.length.toLocaleString()} liked songs`);
+    setGenerateStageDetail(generateSessionUserId, requestId, `Analysing ${likedSongs.length.toLocaleString()} liked songs`);
 
     if (likedSongs.length === 0) {
-      setGeneratePhase(userId, requestId, "error");
+      setGeneratePhase(generateSessionUserId, requestId, "error");
       if (noLibraryMode) {
         generateFail(
           res,
@@ -3088,7 +3095,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     if (likedSongs.length < 12) {
-      setGeneratePhase(userId, requestId, "error");
+      setGeneratePhase(generateSessionUserId, requestId, "error");
       generateFail(
         res,
         400,
@@ -3115,9 +3122,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       noLibraryMode,
     };
 
-    res.setTimeout(REQUEST_HARD_TIMEOUT_MS + 2000, () => {
-      if (res.headersSent || staleGenerate(userId, requestId)) return; // timeout handler — no second body
-      cancelGenerateSession(userId, requestId);
+    res.setTimeout(requestHardTimeoutMs + 2_000, () => {
+      if (res.headersSent || staleGenerate(generateSessionUserId, requestId)) return; // timeout handler — no second body
+      if (!auditMode) cancelGenerateSession(generateSessionUserId, requestId);
       const ctx = (req as { _genCtx?: {
         likedSongs: typeof likedSongs;
         constrainedFallbackTracks?: typeof likedSongs;
@@ -3220,8 +3227,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     req.log.info({ vibe, vibeKind, promptConfidence }, "Vibe kind detected");
 
-    setGeneratePhase(userId, requestId, "building_profile");
-    setGenerateStageDetail(userId, requestId, "Loading recent playlist memory and feedback");
+    setGeneratePhase(generateSessionUserId, requestId, "building_profile");
+    setGenerateStageDetail(generateSessionUserId, requestId, "Loading recent playlist memory and feedback");
     tStage = Date.now();
     const recentPlaylists = await db
       .select()
@@ -3337,7 +3344,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
 
-    setGenerateStageDetail(userId, requestId, `Building taste profile from ${likedSongs.length.toLocaleString()} tracks`);
+    setGenerateStageDetail(generateSessionUserId, requestId, `Building taste profile from ${likedSongs.length.toLocaleString()} tracks`);
     let t0 = Date.now();
     const { profile: userGenreProfile, cacheHit } = devMode
       ? { profile: buildMockUserGenreProfile(likedSongs), cacheHit: false }
@@ -3545,8 +3552,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Quality signal and constraint context prepared"
     );
 
-    setGeneratePhase(userId, requestId, "scoring");
-    setGenerateStageDetail(userId, requestId, `Ranking matches from ${likedSongs.length.toLocaleString()} liked songs`);
+    setGeneratePhase(generateSessionUserId, requestId, "scoring");
+    setGenerateStageDetail(generateSessionUserId, requestId, `Ranking matches from ${likedSongs.length.toLocaleString()} liked songs`);
     stageTimer.start("Running playlist pipeline (scoring + compose)", {
       tracks: likedSongs.length,
       stackFromCache,
@@ -3641,15 +3648,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       progress: (stage, detail) => {
         if (stage === "scoring") {
-          setGeneratePhase(userId, requestId, "building_profile");
+          setGeneratePhase(generateSessionUserId, requestId, "building_profile");
         } else if (stage === "retrieval" || stage === "lanes" || stage === "sampling") {
-          setGeneratePhase(userId, requestId, "scoring");
+          setGeneratePhase(generateSessionUserId, requestId, "scoring");
         } else if (stage === "fallback") {
-          setGeneratePhase(userId, requestId, "composing");
+          setGeneratePhase(generateSessionUserId, requestId, "composing");
         } else if (stage === "coherence") {
-          setGeneratePhase(userId, requestId, "composing");
+          setGeneratePhase(generateSessionUserId, requestId, "composing");
         }
-        setGenerateStageDetail(userId, requestId, detail);
+        setGenerateStageDetail(generateSessionUserId, requestId, detail);
       },
     });
     }
@@ -3678,8 +3685,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         ...scoredLibraryTracks,
       ].map(hydrateTrackGenre);
     };
-    setGeneratePhase(userId, requestId, "composing");
-    setGenerateStageDetail(userId, requestId, `Building playlist flow from ${pipeline.finalTracks.length.toLocaleString()} candidates`);
+    setGeneratePhase(generateSessionUserId, requestId, "composing");
+    setGenerateStageDetail(generateSessionUserId, requestId, `Building playlist flow from ${pipeline.finalTracks.length.toLocaleString()} candidates`);
     let finalTracks = (pipeline.finalTracks as PlaylistTrack[]).map(hydrateTrackGenre);
     const publishPartialTracks = (tracks: PlaylistTrack[], limit = tracks.length): void => {
       const partialTracks = formatTracksForApi(tracks.slice(0, limit), emotionProfile).map((track) => ({
@@ -3688,7 +3695,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         artistName: track.artist,
         albumArt: track.albumArt ?? null,
       }));
-      setGeneratePartialTracks(userId, requestId, partialTracks);
+      setGeneratePartialTracks(generateSessionUserId, requestId, partialTracks);
     };
     publishPartialTracks(finalTracks, 5);
     warnIfV3MetadataLost(
@@ -3718,10 +3725,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Locked intent final validation"
     );
-    setGenerateStageDetail(userId, requestId, `Applying ${curatorIdentity.type.replace(/_/g, " ")} curator identity`);
+    setGenerateStageDetail(generateSessionUserId, requestId, `Applying ${curatorIdentity.type.replace(/_/g, " ")} curator identity`);
     const identityInitialTracks = applyCuratorIdentityScoring(finalTracks, curatorIdentity, sessionMemory);
     const finalCandidatePool = applyCuratorIdentityScoring(buildFinalCandidatePool(), curatorIdentity, sessionMemory);
-    setGenerateStageDetail(userId, requestId, "Selecting dominant vibe cluster before final checks");
+    setGenerateStageDetail(generateSessionUserId, requestId, "Selecting dominant vibe cluster before final checks");
     const clusterCuration = curateCandidatesByVibeCluster(
       identityInitialTracks,
       finalCandidatePool,
@@ -3872,8 +3879,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
         "Explicit genre evidence guard blocked weak playlist"
       );
-      setGeneratePhase(userId, requestId, "error");
-      if (respondIfStale(res, userId, requestId)) return;
+      setGeneratePhase(generateSessionUserId, requestId, "error");
+      if (respondIfStale(res, generateSessionUserId, requestId)) return;
       generateFail(
         res,
         409,
@@ -4024,8 +4031,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
         "Explicit era evidence guard blocked weak playlist"
       );
-      setGeneratePhase(userId, requestId, "error");
-      if (respondIfStale(res, userId, requestId)) return;
+      setGeneratePhase(generateSessionUserId, requestId, "error");
+      if (respondIfStale(res, generateSessionUserId, requestId)) return;
       generateFail(
         res,
         409,
@@ -4113,8 +4120,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         { userId, vibe, finalValidation, hardValidationFailures, finalCount: finalTracks.length },
         "Hard locked intent validation blocked playlist"
       );
-      setGeneratePhase(userId, requestId, "error");
-      if (respondIfStale(res, userId, requestId)) return;
+      setGeneratePhase(generateSessionUserId, requestId, "error");
+      if (respondIfStale(res, generateSessionUserId, requestId)) return;
       generateFail(
         res,
         409,
@@ -4355,7 +4362,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Quality engine pipeline complete"
     );
-    setGenerateStageDetail(userId, requestId, `Applying diversity rules to ${finalTracks.length.toLocaleString()} tracks`);
+    setGenerateStageDetail(generateSessionUserId, requestId, `Applying diversity rules to ${finalTracks.length.toLocaleString()} tracks`);
 
     publishPartialTracks(finalTracks);
     const recoveredBeforeEmptyCheck = applyLowComplexityRecovery("pre_empty_playlist_error");
@@ -4378,8 +4385,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         { userId, code: "EMPTY_POOL", forensicPoolTrace },
         "Hard filter graph removed all ranked candidates"
       );
-      setGeneratePhase(userId, requestId, "error");
-      if (respondIfStale(res, userId, requestId)) return;
+      setGeneratePhase(generateSessionUserId, requestId, "error");
+      if (respondIfStale(res, generateSessionUserId, requestId)) return;
       generateFail(
         res,
         400,
@@ -4399,7 +4406,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    if (respondIfStale(res, userId, requestId)) return;
+    if (respondIfStale(res, generateSessionUserId, requestId)) return;
 
     const playlistName = generatePlaylistName(vibe, emotionProfile);
 
@@ -4436,8 +4443,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       clusterIds: t.clusterIds ?? [],
     }));
 
-    setGeneratePhase(userId, requestId, "spotify");
-    setGenerateStageDetail(userId, requestId, `Finalising ${finalTracks.length.toLocaleString()} tracks`);
+    setGeneratePhase(generateSessionUserId, requestId, "spotify");
+    setGenerateStageDetail(generateSessionUserId, requestId, `Finalising ${finalTracks.length.toLocaleString()} tracks`);
     let spotifyPlaylistUrl: string | null = null;
     const tSpotify = Date.now();
     req.log.info(
@@ -4448,7 +4455,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let spotifyPartial = false;
     let spotifyTracksAdded: number | undefined;
 
-    if (sideEffectPolicy.allowSpotifyPlaylistCreate && !devMode && !staleGenerate(userId, requestId)) {
+    if (sideEffectPolicy.allowSpotifyPlaylistCreate && !devMode && !staleGenerate(generateSessionUserId, requestId)) {
       try {
         const freshTokens = await getValidAccessToken(
           req.session.spotifyTokens!,
@@ -4467,7 +4474,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           {
             existingPlaylistId: pendingId,
             onPlaylistCreated: (id) =>
-              setPendingSpotifyPlaylistId(userId, requestId, id),
+              setPendingSpotifyPlaylistId(generateSessionUserId, requestId, id),
           }
         );
         spotifyPartial = !!spotifyResult.partial;
@@ -4484,7 +4491,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             "Spotify playlist shell created but no tracks were added"
           );
         } else {
-          clearPendingSpotifyPlaylist(userId, requestId);
+          clearPendingSpotifyPlaylist(generateSessionUserId, requestId);
           spotifyPlaylistUrl = spotifyResult.url;
         }
         req.log.info(
@@ -4510,8 +4517,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
 
-    setGeneratePhase(userId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "saving" : "done");
-    setGenerateStageDetail(userId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist" : "Audit mode: skipping playlist writes");
+    setGeneratePhase(generateSessionUserId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "saving" : "done");
+    setGenerateStageDetail(generateSessionUserId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist" : "Audit mode: skipping playlist writes");
     const tSave = Date.now();
     req.log.info(
       { auditMode: sideEffectPolicy.mode === "audit" },
@@ -4651,8 +4658,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("clusterIds", finalTracks, cachedFinalTracks, "cache-write");
     }
 
-    setGeneratePhase(userId, requestId, "done");
-    if (respondIfStale(res, userId, requestId)) return;
+    setGeneratePhase(generateSessionUserId, requestId, "done");
+    if (respondIfStale(res, generateSessionUserId, requestId)) return;
 
     req.log.info(
       {
@@ -5061,7 +5068,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       endGenerateSession(sessionUserId, requestId);
     }
     if (!res.headersSent && !staleGenerate(sessionUserId, requestId)) {
-      const timedOut = Date.now() - startMs >= REQUEST_HARD_TIMEOUT_MS - 1000;
+      const timedOut = Date.now() - startMs >= requestHardTimeoutMs - 1000;
       const ctx = (req as { _genCtx?: {
         likedSongs: { trackId: string; trackName: string; artistName: string; albumName: string }[];
         constrainedFallbackTracks?: { trackId: string; trackName: string; artistName: string; albumName: string }[];
