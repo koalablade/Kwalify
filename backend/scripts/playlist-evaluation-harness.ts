@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PLAYLIST_BENCHMARK_PROMPTS, type PlaylistBenchmarkPrompt } from "../lib/playlist-evaluation/benchmark-prompts";
-import { writeEvaluationReports } from "../lib/playlist-evaluation/report";
-import type { EvaluationTrack, GenerationEvaluationResult } from "../lib/playlist-evaluation/metrics";
+import { writeEvaluationReports, type EvaluationReportPayload } from "../lib/playlist-evaluation/report";
+import type { EvaluationTrack, GenerationEvaluationResult, PlaylistMetrics } from "../lib/playlist-evaluation/metrics";
 
 type HarnessConfig = {
   baseUrl: string;
@@ -42,6 +42,12 @@ type EvaluationRunState = {
 };
 
 const RUN_STATE_FILE = path.join("reports", "playlist-evaluation", "run-state.json");
+const PREVIOUS_BASELINE = {
+  successCount: 11,
+  benchmarkSize: 20,
+  overlap: 0.241,
+  trackRepetition: 0,
+};
 
 function usage(): never {
   console.error([
@@ -310,6 +316,192 @@ async function checkpointRun(input: {
   return report;
 }
 
+function round(value: number, digits = 1): number {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+function formatPercent(value: number): string {
+  return `${round(value * 100, 1)}%`;
+}
+
+function formatSeconds(ms: number): string {
+  return `${round(ms / 1000, 1)}s`;
+}
+
+function formatDuration(ms: number): string {
+  const safeMs = Math.max(0, Math.round(ms));
+  const totalSeconds = Math.round(safeMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) return `${seconds}s`;
+  return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+}
+
+function average(values: number[]): number {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function failureReason(result: GenerationEvaluationResult, metrics: PlaylistMetrics | undefined): string {
+  if (result.ok) return "none";
+  return result.error ?? metrics?.likelyCause ?? "unknown_failure";
+}
+
+function failureModeCounts(report: EvaluationReportPayload): Record<string, number> {
+  return Object.fromEntries(report.summary.failureModes.map((row) => [row.mode, row.count]));
+}
+
+function runningAverages(rows: PlaylistMetrics[]): {
+  overlap: number;
+  trackRepetition: number;
+  artistRepetition: number;
+} {
+  return {
+    overlap: average(rows.map((row) => row.crossPlaylistOverlap)),
+    trackRepetition: average(rows.map((row) => row.trackRepetition)),
+    artistRepetition: average(rows.map((row) => row.artistRepetition)),
+  };
+}
+
+function etaRemainingMs(results: GenerationEvaluationResult[], remainingCount: number, delayMs: number): number {
+  if (results.length === 0 || remainingCount <= 0) return 0;
+  return average(results.map((result) => result.elapsedMs)) * remainingCount + Math.max(0, remainingCount - 1) * delayMs;
+}
+
+function liveSummary(input: {
+  config: HarnessConfig;
+  prompts: PlaylistBenchmarkPrompt[];
+  started: number;
+  results: GenerationEvaluationResult[];
+  report: EvaluationReportPayload;
+}): Record<string, unknown> {
+  const failed = input.results.filter((result) => !result.ok);
+  const succeeded = input.results.length - failed.length;
+  const averages = runningAverages(input.report.summary.playlists);
+  const remainingCount = Math.max(0, input.prompts.length - input.results.length);
+  return {
+    generatedAt: new Date().toISOString(),
+    outDir: input.config.outDir,
+    totalPrompts: input.prompts.length,
+    completed: input.results.length,
+    remaining: remainingCount,
+    succeeded,
+    failed: failed.length,
+    passRate: input.results.length ? succeeded / input.results.length : 0,
+    runningOverlap: averages.overlap,
+    runningTrackRepetition: averages.trackRepetition,
+    runningArtistRepetition: averages.artistRepetition,
+    averageGenerationTimeMs: input.report.spotifyApiMetrics.averageGenerationTimeMs,
+    p95GenerationTimeMs: input.report.spotifyApiMetrics.p95GenerationTimeMs,
+    elapsedMs: Date.now() - input.started,
+    etaRemainingMs: etaRemainingMs(input.results, remainingCount, input.config.delayMs),
+    failureModes: failureModeCounts(input.report),
+    latest: input.results.at(-1)
+      ? {
+          promptId: input.results.at(-1)!.benchmark.id,
+          status: input.results.at(-1)!.ok ? "PASS" : "FAIL",
+          tracks: input.results.at(-1)!.tracks.length,
+          generationTimeMs: input.results.at(-1)!.elapsedMs,
+        }
+      : null,
+  };
+}
+
+function liveSummaryMarkdown(summary: Record<string, unknown>): string {
+  const failureModes = summary["failureModes"] && typeof summary["failureModes"] === "object"
+    ? Object.entries(summary["failureModes"] as Record<string, number>)
+    : [];
+  return [
+    "# Live Playlist Evaluation Summary",
+    "",
+    `Updated: ${String(summary["generatedAt"])}`,
+    `Progress: ${summary["completed"]}/${summary["totalPrompts"]} completed`,
+    `Pass rate: ${summary["succeeded"]}/${summary["completed"]} (${formatPercent(Number(summary["passRate"] ?? 0))})`,
+    `Running overlap: ${formatPercent(Number(summary["runningOverlap"] ?? 0))}`,
+    `Track repetition: ${formatPercent(Number(summary["runningTrackRepetition"] ?? 0))}`,
+    `Artist repetition: ${formatPercent(Number(summary["runningArtistRepetition"] ?? 0))}`,
+    `Average generation time: ${formatSeconds(Number(summary["averageGenerationTimeMs"] ?? 0))}`,
+    `P95 generation time: ${formatSeconds(Number(summary["p95GenerationTimeMs"] ?? 0))}`,
+    `ETA remaining: ${formatDuration(Number(summary["etaRemainingMs"] ?? 0))}`,
+    "",
+    "## Failure Modes",
+    ...(failureModes.length ? failureModes.map(([mode, count]) => `- ${mode}: ${count}`) : ["- none"]),
+    "",
+  ].join("\n");
+}
+
+async function writeLiveSummaryFiles(input: {
+  config: HarnessConfig;
+  prompts: PlaylistBenchmarkPrompt[];
+  started: number;
+  results: GenerationEvaluationResult[];
+  report: EvaluationReportPayload;
+}): Promise<void> {
+  const summary = liveSummary(input);
+  await writeJsonAtomic(path.join(input.config.outDir, "live-summary.json"), summary);
+  await writeFile(path.join(input.config.outDir, "live-summary.md"), liveSummaryMarkdown(summary));
+}
+
+function printLiveProgress(input: {
+  config: HarnessConfig;
+  prompts: PlaylistBenchmarkPrompt[];
+  index: number;
+  result: GenerationEvaluationResult;
+  results: GenerationEvaluationResult[];
+  report: EvaluationReportPayload;
+}): void {
+  const metrics = input.report.summary.playlists.find((row) => row.promptId === input.result.benchmark.id);
+  const failed = input.results.filter((result) => !result.ok);
+  const succeeded = input.results.length - failed.length;
+  const remainingCount = Math.max(0, input.prompts.length - input.results.length);
+  const averages = runningAverages(input.report.summary.playlists);
+  const failureModes = input.report.summary.failureModes;
+  console.error("");
+  console.error(`[${input.index + 1}/${input.prompts.length}] ${input.result.benchmark.id}`);
+  console.error(`Status: ${input.result.ok ? "PASS" : "FAIL"}`);
+  if (!input.result.ok) console.error(`Reason: ${failureReason(input.result, metrics)}`);
+  console.error(`Tracks: ${input.result.tracks.length}`);
+  console.error(`Confidence: ${round(metrics?.confidenceScore ?? 0, 2)}`);
+  console.error(`Overlap (running avg): ${formatPercent(averages.overlap)}`);
+  console.error(`Generation time: ${formatSeconds(input.result.elapsedMs)}`);
+  console.error(`ETA remaining: ${formatDuration(etaRemainingMs(input.results, remainingCount, input.config.delayMs))}`);
+  console.error("");
+  console.error(`Current pass rate: ${succeeded}/${input.results.length} (${formatPercent(input.results.length ? succeeded / input.results.length : 0)})`);
+  console.error(`Running overlap: ${formatPercent(averages.overlap)}`);
+  console.error(`Running repetition: ${formatPercent(averages.trackRepetition)}`);
+  console.error(`Average generation time: ${formatSeconds(input.report.spotifyApiMetrics.averageGenerationTimeMs)}`);
+  console.error(`Estimated finish time: ${formatDuration(etaRemainingMs(input.results, remainingCount, input.config.delayMs))} remaining`);
+  console.error("Failure Modes:");
+  if (failureModes.length === 0) {
+    console.error("none");
+  } else {
+    for (const mode of failureModes.slice(0, 10)) console.error(`${mode.mode}: ${mode.count}`);
+  }
+  console.error("");
+}
+
+async function withStallWarning<T>(input: {
+  prompt: PlaylistBenchmarkPrompt;
+  started: number;
+  task: Promise<T>;
+}): Promise<T> {
+  let lastWarningAt = input.started;
+  const interval = setInterval(() => {
+    const now = Date.now();
+    if (now - lastWarningAt < 90_000) return;
+    lastWarningAt = now;
+    console.error("WARNING: No completed playlist for 90s");
+    console.error(`Current prompt: ${input.prompt.id}`);
+    console.error("Current stage: server /api/generate request in progress (server sub-stage is not streamed to the harness)");
+    console.error(`Elapsed in stage: ${formatDuration(now - input.started)}`);
+  }, 10_000);
+  try {
+    return await input.task;
+  } finally {
+    clearInterval(interval);
+  }
+}
+
 async function preflight(config: HarnessConfig): Promise<Record<string, unknown>> {
   const expectedVersion = config.expectedDeploymentVersion ?? localGitHead();
   if (!expectedVersion) {
@@ -547,7 +739,7 @@ async function main(): Promise<void> {
   const runMemory: BenchmarkRunMemory = { previousTrackLists: [] };
   for (const result of results) updateBenchmarkRunMemory(runMemory, result);
   if (results.length > 0) {
-    await checkpointRun({
+    const report = await checkpointRun({
       runId,
       commitHash: deployedCommit,
       config,
@@ -555,13 +747,19 @@ async function main(): Promise<void> {
       started,
       results,
     });
+    await writeLiveSummaryFiles({ config, prompts, started, results, report });
     console.error(`[evaluation] resumed ${results.length}/${prompts.length} completed playlists from ${config.outDir}`);
   }
   for (let index = 0; index < prompts.length; index++) {
     const benchmark = prompts[index]!;
     if (completed.has(benchmark.id)) continue;
     console.error(`[evaluation] ${index + 1}/${prompts.length} ${benchmark.id}: ${benchmark.prompt}`);
-    const result = await postGenerate(config, benchmark, runMemory);
+    const promptStarted = Date.now();
+    const result = await withStallWarning({
+      prompt: benchmark,
+      started: promptStarted,
+      task: postGenerate(config, benchmark, runMemory),
+    });
     resultByPrompt.set(benchmark.id, result);
     completed.add(benchmark.id);
     updateBenchmarkRunMemory(runMemory, result);
@@ -569,7 +767,7 @@ async function main(): Promise<void> {
       .map((prompt) => resultByPrompt.get(prompt.id))
       .filter((row): row is GenerationEvaluationResult => !!row);
     results.splice(0, results.length, ...orderedResults);
-    await checkpointRun({
+    const report = await checkpointRun({
       runId,
       commitHash: deployedCommit,
       config,
@@ -578,6 +776,8 @@ async function main(): Promise<void> {
       results,
       latestResult: result,
     });
+    await writeLiveSummaryFiles({ config, prompts, started, results, report });
+    printLiveProgress({ config, prompts, index, result, results, report });
     if (config.delayMs > 0 && prompts.slice(index + 1).some((prompt) => !completed.has(prompt.id))) {
       await sleep(config.delayMs);
     }
@@ -590,6 +790,7 @@ async function main(): Promise<void> {
     started,
     results,
   });
+  await writeLiveSummaryFiles({ config, prompts, started, results, report });
   const failed = results.filter((result) => !result.ok);
   const success = results.length - failed.length;
   const playlistMetrics = report.summary.playlists;
@@ -626,6 +827,17 @@ async function main(): Promise<void> {
         count: row.count,
         promptIds: row.promptIds.slice(0, 8),
       })),
+    },
+    improvementVsPreviousBaseline: {
+      baselineSuccess: `${PREVIOUS_BASELINE.successCount}/${PREVIOUS_BASELINE.benchmarkSize}`,
+      currentSuccess: `${success}/${prompts.length}`,
+      successDelta: prompts.length === PREVIOUS_BASELINE.benchmarkSize
+        ? success - PREVIOUS_BASELINE.successCount
+        : null,
+      baselineOverlap: PREVIOUS_BASELINE.overlap,
+      currentOverlap: average(playlistMetrics.map((row) => row.crossPlaylistOverlap)),
+      baselineTrackRepetition: PREVIOUS_BASELINE.trackRepetition,
+      currentTrackRepetition: average(playlistMetrics.map((row) => row.trackRepetition)),
     },
     benchmarkSizeReports: report.benchmarkSizeReports,
     worst: report.worstPlaylists.slice(0, 5).map((row) => ({ promptId: row.promptId, qualityScore: row.qualityScore, likelyCause: row.likelyCause })),
