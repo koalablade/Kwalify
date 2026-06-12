@@ -51,6 +51,13 @@ Thumbs.db
 kwalify-api-transcript.md
 reports/
 
+# Local privacy-sensitive exports and temporary audits
+*.csv
+taste-profile.json
+taste-profile-summary.md
+overlap-root-cause-audit.md
+diversity-activation-audit.md
+
 # Replit
 .cache/
 .local/

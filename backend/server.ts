@@ -10,6 +10,26 @@ import { beginGracefulShutdown } from "./lib/shutdown";
 import { warmGenreOntologyAtBoot } from "./lib/warm-genre-ontology";
 import { startFeedbackMemoryDecayJob } from "./lib/feedback-memory";
 
+const BOOT_DB_TIMEOUT_MS = 15_000;
+
+async function withBootTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs = BOOT_DB_TIMEOUT_MS,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 /**
  * Startup health verification.
  *
@@ -26,7 +46,7 @@ async function verifyStartupHealth(
   env: AppEnv,
 ): Promise<void> {
   try {
-    await rawPool.query("SELECT 1");
+    await withBootTimeout(rawPool.query("SELECT 1"), "startup database health check");
   } catch (err) {
     throw new Error(
       `[boot] Database health check failed: ${(err as Error).message}`,
@@ -74,7 +94,7 @@ async function bootstrap(): Promise<void> {
 
   // ── 4. Schema bootstrap (idempotent DDL) ────────────────────────────────────
   try {
-    await rawPool.query(SESSION_TABLE_DDL);
+    await withBootTimeout(rawPool.query(SESSION_TABLE_DDL), "session table bootstrap");
   } catch (err) {
     throw new Error(
       `[boot] Session table DDL failed: ${(err as Error).message}`,
@@ -83,7 +103,7 @@ async function bootstrap(): Promise<void> {
 
   // ── 4b. Application schema bootstrap ──────────────────────────────────────
   try {
-    await runDbInit(rawPool);
+    await withBootTimeout(runDbInit(rawPool), "app schema bootstrap", 20_000);
   } catch (err) {
     throw new Error(`[boot] App schema bootstrap failed: ${(err as Error).message}`);
   }
