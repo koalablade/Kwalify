@@ -1909,11 +1909,14 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   let artistLimitSkipped = 0;
   let albumLimitSkipped = 0;
   let cohesionSkipped = 0;
+  let cohesionRelaxedFillUsed = false;
+  let cohesionRelaxedFillAdded = 0;
   let relaxedArtistFillUsed = false;
   let relaxedAlbumFillUsed = false;
   let hardSafeFillUsed = false;
   let hardSafeFillAdded = 0;
   let hardSafeSkipped = 0;
+  let hardSafeDiversitySkipped = 0;
 
   const out: T[] = [];
   const rankedCandidates = opts.candidates
@@ -1922,7 +1925,13 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     .sort((a, b) => b.score - a.score);
   const preferredFamilies = preferredCohesionFamilies(rankedCandidates, opts);
   const outOfFamilyReserve = Math.max(2, Math.ceil(opts.requestedLength * 0.12));
-  const tryAdd = (track: T, artistLimit: number | null, albumLimit: number | null, enforceRepeatSignature: boolean): void => {
+  const tryAdd = (
+    track: T,
+    artistLimit: number | null,
+    albumLimit: number | null,
+    enforceRepeatSignature: boolean,
+    enforceCohesion = true
+  ): void => {
     if (out.length >= opts.requestedLength) return;
     const sanitized = sanitizePlaylistTrack(track);
     if (!sanitized) {
@@ -1944,6 +1953,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
     const family = trackGenreFamily(sanitized, opts.classMap);
     if (
+      enforceCohesion &&
       preferredFamilies.size > 0 &&
       family !== "unknown" &&
       !preferredFamilies.has(family) &&
@@ -1970,7 +1980,26 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     if (albumKey) albumCounts.set(albumKey, albumCount + 1);
     out.push(sanitized);
   };
-  const tryAddHardSafe = (track: T, enforceRepeatSignature: boolean): void => {
+  const hardSafeCandidateScore = (track: T): number => {
+    const artistKey = track.artistName.toLowerCase().trim();
+    const albumKey = normalizeRepeatToken(track.albumName);
+    const artistPressure = artistCounts.get(artistKey) ?? 0;
+    const albumPressure = albumKey ? albumCounts.get(albumKey) ?? 0 : 0;
+    const family = trackGenreFamily(track, opts.classMap);
+    const familyBonus = preferredFamilies.size === 0 || family === "unknown" || preferredFamilies.has(family) ? 0.08 : 0;
+    return (track.score ?? 0) + familyBonus - artistPressure * 0.42 - albumPressure * 0.22;
+  };
+  const hardSafeCandidates = (tracks: T[]): T[] =>
+    tracks
+      .map(sanitizePlaylistTrack)
+      .filter((track): track is T => !!track)
+      .sort((a, b) => hardSafeCandidateScore(b) - hardSafeCandidateScore(a));
+  const tryAddHardSafe = (
+    track: T,
+    enforceRepeatSignature: boolean,
+    artistLimit: number | null,
+    albumLimit: number | null
+  ): void => {
     if (out.length >= opts.requestedLength) return;
     const sanitized = sanitizePlaylistTrack(track);
     if (!sanitized) {
@@ -1992,10 +2021,20 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
     const artistKey = sanitized.artistName.toLowerCase().trim();
     const albumKey = normalizeRepeatToken(sanitized.albumName);
+    const artistCount = artistCounts.get(artistKey) ?? 0;
+    const albumCount = albumKey ? albumCounts.get(albumKey) ?? 0 : 0;
+    if (artistLimit !== null && artistCount >= artistLimit) {
+      hardSafeDiversitySkipped++;
+      return;
+    }
+    if (albumLimit !== null && albumKey && albumCount >= albumLimit) {
+      hardSafeDiversitySkipped++;
+      return;
+    }
     seen.add(sanitized.trackId);
     if (repeatSignature) repeatSignatures.add(repeatSignature);
-    artistCounts.set(artistKey, (artistCounts.get(artistKey) ?? 0) + 1);
-    if (albumKey) albumCounts.set(albumKey, (albumCounts.get(albumKey) ?? 0) + 1);
+    artistCounts.set(artistKey, artistCount + 1);
+    if (albumKey) albumCounts.set(albumKey, albumCount + 1);
     out.push(sanitized);
     hardSafeFillAdded++;
   };
@@ -2014,10 +2053,29 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   }
   const minimumReturnCount = Math.min(opts.requestedLength, Math.max(8, Math.ceil(opts.requestedLength * 0.40)));
   if (out.length < minimumReturnCount) {
+    cohesionRelaxedFillUsed = preferredFamilies.size > 0;
+    for (const track of rankedCandidates) {
+      const before = out.length;
+      tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, true, false);
+      if (out.length > before) cohesionRelaxedFillAdded++;
+    }
+  }
+  if (out.length < minimumReturnCount) {
     hardSafeFillUsed = true;
-    for (const track of [...opts.initial, ...rankedCandidates]) tryAddHardSafe(track, true);
+    const strictHardSafeArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
+    const strictHardSafeAlbumLimit = primaryAlbumLimit;
+    for (const track of hardSafeCandidates([...opts.initial, ...rankedCandidates])) {
+      tryAddHardSafe(track, true, strictHardSafeArtistLimit, strictHardSafeAlbumLimit);
+    }
     if (out.length < minimumReturnCount) {
-      for (const track of rankedCandidates) tryAddHardSafe(track, false);
+      for (const track of hardSafeCandidates(rankedCandidates)) {
+        tryAddHardSafe(track, false, emergencyArtistLimit, emergencyAlbumLimit);
+      }
+    }
+    if (out.length < minimumReturnCount) {
+      for (const track of hardSafeCandidates(rankedCandidates)) {
+        tryAddHardSafe(track, false, null, null);
+      }
     }
   }
 
@@ -2034,6 +2092,8 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       albumLimitSkipped,
       cohesionSkipped,
       cohesionFamilies: preferredFamilies.size ? [...preferredFamilies].join(",") : null,
+      cohesionRelaxedFillUsed,
+      cohesionRelaxedFillAdded,
       artistLimitRelaxed: relaxedArtistFillUsed,
       artistLimitRelaxedTo: relaxedArtistFillUsed ? emergencyArtistLimit : null,
       albumLimitRelaxed: relaxedAlbumFillUsed,
@@ -2042,6 +2102,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       hardSafeFillUsed,
       hardSafeFillAdded,
       hardSafeSkipped,
+      hardSafeDiversitySkipped,
       replenished: out.length > opts.initial.length,
       sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
       artistDiversityUniqueArtists: artistDiversityDiagnostics(out, opts.maxPerArtist).uniqueArtists,
