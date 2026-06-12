@@ -11,6 +11,7 @@ import evalRouter from "./routes/eval";
 import { logger } from "./lib/logger";
 import { type AppEnv } from "./lib/env";
 import { getRuntimeReadiness, isRuntimeReady } from "./lib/runtime-readiness";
+import { getGenerateOverloadState, releaseGenerateSlot, tryAcquireGenerateSlot } from "./lib/runtime-overload";
 import "./lib/session";
 
 let appInstanceCreated = false;
@@ -109,6 +110,34 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       readiness: readiness.state,
       retryAfterSeconds: 5,
     });
+  });
+
+  app.use((req, res, next) => {
+    if (req.method !== "POST" || req.path !== "/api/generate") return next();
+    if (!tryAcquireGenerateSlot()) {
+      const overload = getGenerateOverloadState();
+      res.setHeader("Retry-After", "10");
+      res.status(503).json({
+        success: false,
+        code: "SERVER_BUSY",
+        error: "Playlist generation is currently busy. Please retry shortly.",
+        activeGenerateRequests: overload.active,
+        generateConcurrencyLimit: overload.limit,
+        retryAfterSeconds: 10,
+      });
+      return;
+    }
+
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      releaseGenerateSlot();
+    };
+
+    res.once("finish", release);
+    res.once("close", release);
+    next();
   });
 
   app.use(
