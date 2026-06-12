@@ -18,6 +18,7 @@ Primary reason it is not higher: `/api/generate` now has better structured timeo
 
 2. **Deployment health checks depended on an unbounded database check.**
    - Hardened `/api/healthz` and `/api/readyz` with a 3s DB check timeout and structured JSON error payloads.
+   - Mounted health and eval ping routes before session middleware so deployment checks do not depend on the database-backed session store.
 
 3. **Pre-library `/api/generate` work still needs operational observation.**
    - The route has structured errors and hard timeout/fallback once generation context is populated.
@@ -44,6 +45,10 @@ Primary reason it is not higher: `/api/generate` now has better structured timeo
 - `backend/routes/health.ts`
   - Startup/deployment health.
   - Now bounded with a short database timeout.
+
+- `backend/app.ts`
+  - Route/middleware ordering.
+  - Health and eval ping are now mounted before session middleware to keep deploy checks responsive during session-store contention.
 
 ## Slowest Stages To Watch
 
@@ -117,6 +122,12 @@ Expected likely slow paths based on code structure:
   - `/api/healthz`
   - `/api/readyz`
   - Both now return within a bounded DB health timeout.
+
+- Hardened deployment verification routes:
+  - `/api/eval/ping`
+  - `/api/healthz`
+  - `/api/readyz`
+  - These now bypass session middleware before the main API router.
 
 ## Exact Remaining Work Before Public Testing
 

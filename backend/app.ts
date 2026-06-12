@@ -6,6 +6,8 @@ import pinoHttp from "pino-http";
 import pg from "pg";
 import path from "node:path";
 import router from "./routes/routes.index";
+import healthRouter from "./routes/health";
+import evalRouter from "./routes/eval";
 import { logger } from "./lib/logger";
 import { type AppEnv } from "./lib/env";
 import "./lib/session";
@@ -88,6 +90,11 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       return res.redirect(301, `${canonical.origin}${req.originalUrl}`);
     });
   }
+
+  // Keep deployment and eval pings independent from the database-backed session
+  // store, so health checks still return during session-store contention.
+  app.use("/api", healthRouter);
+  app.use("/api", evalRouter);
 
   app.use(
     session({
