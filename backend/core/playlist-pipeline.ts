@@ -61,12 +61,6 @@ import {
   EXPANDED_TIME_TERMS,
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
-import {
-  loadTasteProfilePrior,
-  promptKindForTastePrior,
-  tasteProfileDiagnostics,
-  type TasteProfilePrior,
-} from "../lib/taste-profile-prior";
 import { compilePersonalPlaylist, type PersonalCompilerTrack } from "./personal-playlist-compiler";
 import { buildCoherentPlaylist } from "./playlist-coherence-engine";
 import {
@@ -423,8 +417,6 @@ type IntentContractDiagnostics = {
 
 type IntentContractTrack = {
   trackId: string;
-  trackName?: string | null;
-  artistName?: string | null;
   genrePrimary?: string | null;
   releaseYear?: number | null;
   energy: number | null;
@@ -755,7 +747,7 @@ function diagnosticPool<T extends { trackId: string; trackName?: string; artistN
   return tracks.slice(0, limit).map((track) => diagnosticTrack(track, classMap));
 }
 
-function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> & { artistName?: string; trackName?: string }>(
+function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>(
   tracks: T[],
   contract: IntentContract,
   classMap: UserGenreProfile["trackClassifications"],
@@ -922,7 +914,7 @@ function evaluatePlaylistQuality<T extends IntentContractTrack & { genrePrimary?
   };
 }
 
-function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName?: string | null; score?: number }>(
+function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName?: string; score?: number }>(
   playlist: T[],
   candidatePool: Array<ScoredLibraryTrack<T>>,
   intent: IntentContract,
@@ -1998,10 +1990,8 @@ export async function buildPlaylistPipeline<T extends {
     },
   };
   const intentContract = buildIntentContract(opts.vibe);
-  const tasteProfilePrior = loadTasteProfilePrior();
-  const tastePromptKind = promptKindForTastePrior(opts.vibe);
   const unpenalizedRetrieval = buildRetrievalPools(
-    scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string; trackName?: string }>,
+    scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
     intentContract,
     classMap,
     opts.postScore.feedbackMemory ?? null,
@@ -2021,7 +2011,7 @@ export async function buildPlaylistPipeline<T extends {
     ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 20, (opts.varietyPenaltyScale ?? 1) * effectiveDiversityPressure)
     : undefined;
   const retrieval = buildRetrievalPools(
-    scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string; trackName?: string }>,
+    scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
     intentContract,
     classMap,
     opts.postScore.feedbackMemory ?? null,
@@ -2164,8 +2154,6 @@ export async function buildPlaylistPipeline<T extends {
         momentMemory:           preGenerationMomentMemory,
         sessionArtistMemory:     effectiveSessionArtistMemory,
         trackReusePenalty:       upstreamRecentTrackPenalty,
-        tasteProfilePrior,
-        tastePromptKind,
       }
     );
     const quality = evaluatePlaylistQuality(
@@ -2289,10 +2277,6 @@ export async function buildPlaylistPipeline<T extends {
       unpenalizedViablePoolSize,
       effectiveDiversityPressure,
       baseDiversityPressure: opts.sessionArtistMemory?.diversityPressure ?? 1,
-    },
-    tasteProfilePrior: {
-      ...tasteProfileDiagnostics(tasteProfilePrior),
-      promptKind: tastePromptKind,
     },
     sessionArtistMemory: sessionArtistMemoryDiagnostics(effectiveSessionArtistMemory),
   };

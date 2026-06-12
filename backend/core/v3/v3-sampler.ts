@@ -50,10 +50,6 @@ export interface ClusterSelectionResult<T extends ScorerTrack> {
     clusterPurity?: number;
     secondaryClusterAllowed?: boolean;
     secondaryClusterReason?: string | null;
-    trackReusePenaltyApplied?: number;
-    artistReusePenaltyApplied?: number;
-    clusterPenaltyApplied?: number;
-    familyPenaltyApplied?: number;
   };
 }
 
@@ -115,13 +111,6 @@ export function selectFromClusters<T extends ScorerTrack>(
 
   type OutTrack = ClusterSelectionResult<T>["tracks"][number];
   const selected: OutTrack[] = [];
-  const recentTrackPenaltyById = new Map<string, number>();
-  const trackReusePenaltyById = new Map<string, number>();
-  for (const decision of scoredTracks) {
-    const recentTrackPenalty = opts.recentTrackPenalty?.get(decision.track.trackId) ?? decision.diversity?.recentTrackPenalty ?? 0;
-    recentTrackPenaltyById.set(decision.track.trackId, recentTrackPenalty);
-    trackReusePenaltyById.set(decision.track.trackId, boundedTrackReusePenalty(recentTrackPenalty));
-  }
 
   function recordRejection(reason: string, count = 1): void {
     rejectionReasons[reason] = (rejectionReasons[reason] ?? 0) + count;
@@ -154,8 +143,8 @@ export function selectFromClusters<T extends ScorerTrack>(
     );
     const family = getGenreFamily(decision.genrePrimary ?? "unknown");
     const familySaturationPenalty = boundedFamilySaturationPenalty(familyPickCount.get(family) ?? 0);
-    const recentTrackPenalty = recentTrackPenaltyById.get(decision.track.trackId) ?? 0;
-    const trackReusePenalty = trackReusePenaltyById.get(decision.track.trackId) ?? 0;
+    const recentTrackPenalty = opts.recentTrackPenalty?.get(decision.track.trackId) ?? decision.diversity?.recentTrackPenalty ?? 0;
+    const trackReusePenalty = boundedTrackReusePenalty(recentTrackPenalty);
 
     return buildDiversityTraceComponents({
       artistMemoryMultiplier: 1 - (decision.diversity?.artistMemoryPenalty ?? 0),
@@ -168,13 +157,11 @@ export function selectFromClusters<T extends ScorerTrack>(
   }
 
   function diversityTieBreak(a: TrackDecision<T>, b: TrackDecision<T>): number {
-    const recentDelta = (recentTrackPenaltyById.get(a.track.trackId) ?? 0) - (recentTrackPenaltyById.get(b.track.trackId) ?? 0);
-    if (recentDelta !== 0) return recentDelta;
-    const artistGravityDelta = (a.diversity?.artistGravity ?? 0) - (b.diversity?.artistGravity ?? 0);
-    if (artistGravityDelta !== 0) return artistGravityDelta;
     const da = candidateDiversity(a);
     const db = candidateDiversity(b);
-    return da.clusterSaturationPenalty - db.clusterSaturationPenalty ||
+    return da.recentTrackPenalty - db.recentTrackPenalty ||
+      da.artistGravity - db.artistGravity ||
+      da.clusterSaturationPenalty - db.clusterSaturationPenalty ||
       da.familySaturationPenalty - db.familySaturationPenalty;
   }
 
@@ -207,8 +194,8 @@ export function selectFromClusters<T extends ScorerTrack>(
 
   function distributionScore(decision: TrackDecision<T>, bucketName = "core"): number {
     const explorationAdjustment = behavioralModifier(decision, bucketName);
-    const trackReusePenalty = trackReusePenaltyById.get(decision.track.trackId) ?? 0;
-    return clamp01((decision.finalScore * 0.94 + explorationAdjustment * 0.06) * (1 - trackReusePenalty));
+    const diversity = candidateDiversity(decision);
+    return clamp01((decision.finalScore * 0.94 + explorationAdjustment * 0.06) * (1 - diversity.trackReusePenalty));
   }
 
   function scoredDecision(decision: TrackDecision<T>, bucketName = "core"): TrackDecision<T> {
@@ -379,9 +366,7 @@ export function selectFromClusters<T extends ScorerTrack>(
 
   const rankedCandidates = [...scoredTracks].sort((a, b) => {
     const scoreDelta = b.finalScore - a.finalScore;
-    return Math.abs(scoreDelta) > 0.005
-      ? scoreDelta
-      : diversityTieBreak(a, b);
+    return Math.abs(scoreDelta) > 0.005 ? scoreDelta : diversityTieBreak(a, b);
   });
   const genreClusterCounts = new Map<string, number>();
   for (const decision of rankedCandidates.slice(0, Math.max(targetCount * 4, 40))) {
@@ -474,7 +459,6 @@ export function selectFromClusters<T extends ScorerTrack>(
   const clusterPurity = selected.length > 0
     ? Math.round((dominantSelectedCount / selected.length) * 1000) / 1000
     : 0;
-  const selectedDiversity = selected.map((track) => track.diversity).filter((diversity): diversity is DiversityTraceComponents => !!diversity);
 
   return {
     tracks: selected,
@@ -497,10 +481,6 @@ export function selectFromClusters<T extends ScorerTrack>(
       clusterPurity,
       secondaryClusterAllowed,
       secondaryClusterReason,
-      trackReusePenaltyApplied: selectedDiversity.filter((diversity) => diversity.trackReusePenalty > 0).length,
-      artistReusePenaltyApplied: selectedDiversity.filter((diversity) => diversity.artistMemoryPenalty > 0 || diversity.artistGravity > 0).length,
-      clusterPenaltyApplied: selectedDiversity.filter((diversity) => diversity.clusterSaturationPenalty > 0).length,
-      familyPenaltyApplied: selectedDiversity.filter((diversity) => diversity.familySaturationPenalty > 0).length,
     },
   };
 }
