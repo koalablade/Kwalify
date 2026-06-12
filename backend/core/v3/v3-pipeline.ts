@@ -670,8 +670,6 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
         lockedIntent,
         sessionArtistMemory: opts.sessionArtistMemory,
         recentTrackPenalty: opts.trackReusePenalty,
-        tasteProfilePrior: opts.tasteProfilePrior,
-        tastePromptKind: opts.tastePromptKind,
       },
     );
     forensicTrace.push(stageTrace(

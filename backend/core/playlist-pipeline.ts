@@ -65,8 +65,6 @@ import {
   loadTasteProfilePrior,
   promptKindForTastePrior,
   tasteProfileDiagnostics,
-  tasteProfileScoreMultiplier,
-  tasteProfileTieBreak,
   type TasteProfilePrior,
 } from "../lib/taste-profile-prior";
 import { compilePersonalPlaylist, type PersonalCompilerTrack } from "./personal-playlist-compiler";
@@ -765,8 +763,6 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
   opts: {
     recentTrackPenalty?: Map<string, number>;
     sessionArtistMemory?: SessionArtistMemory;
-    tasteProfilePrior?: TasteProfilePrior;
-    promptKind?: ReturnType<typeof promptKindForTastePrior>;
   } = {},
 ): RetrievalPools<T> {
   const contractRanked = enforceIntentContract(tracks, contract, classMap)
@@ -774,16 +770,12 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
       const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) - feedbackPenalty(track, feedback);
       const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
       const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
-      const tasteProfileMultiplier = tasteProfileScoreMultiplier(opts.tasteProfilePrior, opts.promptKind ?? null, track);
       return {
         track,
-        adjustedScore: Math.max(0, baseScore - trackPenalty) * artistPenalty * tasteProfileMultiplier,
+        adjustedScore: Math.max(0, baseScore - trackPenalty) * artistPenalty,
       };
     })
-    .sort((a, b) =>
-      b.adjustedScore - a.adjustedScore ||
-      tasteProfileTieBreak(opts.tasteProfilePrior, a.track, b.track)
-    )
+    .sort((a, b) => b.adjustedScore - a.adjustedScore)
     .map(({ track }) => track as T);
   const seen = new Set<string>();
   const takeUnique = (items: T[], limit: number) => {
@@ -2013,10 +2005,6 @@ export async function buildPlaylistPipeline<T extends {
     intentContract,
     classMap,
     opts.postScore.feedbackMemory ?? null,
-    {
-      tasteProfilePrior,
-      promptKind: tastePromptKind,
-    },
   );
   const unpenalizedPooledCandidates = flattenRetrievalPools(unpenalizedRetrieval) as ScoredLibraryTrack<T>[];
   const unpenalizedViablePoolSize = unpenalizedPooledCandidates.length;
@@ -2040,8 +2028,6 @@ export async function buildPlaylistPipeline<T extends {
     {
       recentTrackPenalty: upstreamRecentTrackPenalty,
       sessionArtistMemory: effectiveSessionArtistMemory,
-      tasteProfilePrior,
-      promptKind: tastePromptKind,
     },
   );
   const pooledCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
