@@ -2067,12 +2067,12 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     for (const track of hardSafeCandidates([...opts.initial, ...rankedCandidates])) {
       tryAddHardSafe(track, true, strictHardSafeArtistLimit, strictHardSafeAlbumLimit);
     }
-    if (out.length < minimumReturnCount) {
+    if (out.length < opts.requestedLength) {
       for (const track of hardSafeCandidates(rankedCandidates)) {
         tryAddHardSafe(track, false, emergencyArtistLimit, emergencyAlbumLimit);
       }
     }
-    if (out.length < minimumReturnCount) {
+    if (out.length < opts.requestedLength) {
       for (const track of hardSafeCandidates(rankedCandidates)) {
         tryAddHardSafe(track, false, null, null);
       }
