@@ -361,6 +361,11 @@ function respondIfStale(
         "This generation was superseded or cancelled. Try again if you need a new playlist.",
       tracks: [],
       spotifyUnavailable: true,
+      generationDiagnostics: {
+        recoveryTriggered: false,
+        fallbackLevel: "none",
+        sessionCancelled: true,
+      },
     });
   }
   return true;
@@ -382,6 +387,23 @@ function generateFail(
     spotifyUnavailable: true,
     ...extra,
   });
+}
+
+function fallbackLevelFromFinalization(
+  diagnostics: Record<string, number | boolean | string | null>
+): "none" | "soft" | "hardSafe" {
+  if (diagnostics["hardSafeFillUsed"] === true || Number(diagnostics["hardSafeFillAdded"] ?? 0) > 0) {
+    return "hardSafe";
+  }
+  if (
+    typeof diagnostics["fallbackMode"] === "string" ||
+    typeof diagnostics["recoveryStage"] === "string" ||
+    diagnostics["artistLimitRelaxed"] === true ||
+    diagnostics["albumLimitRelaxed"] === true
+  ) {
+    return "soft";
+  }
+  return "none";
 }
 
 function deriveDiagnosticTags(vibe: string): {
@@ -2839,9 +2861,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId, noLibraryMode } = parsed.data;
     const moodSceneId = sceneId?.trim() || null;
 
-    const acquired = acquireGenerateSession(generateSessionUserId, {
-      force: !auditMode && !!varietyBoost,
-    });
+    const acquired = acquireGenerateSession(generateSessionUserId);
     if (!acquired) {
       req.log.info({ userId, code: "GENERATION_IN_PROGRESS" }, "Rejected duplicate generate");
       generateFail(
@@ -3044,7 +3064,12 @@ router.post("/generate", async (req, res): Promise<void> => {
           finalMoodDistribution: cachedFinalMoodDistribution,
           finalEnergyDistribution: cachedFinalEnergyDistribution,
           v3Diagnostics: cached.v3Diagnostics ?? null,
-          generationDiagnostics: cached.generationDiagnostics ?? null,
+          generationDiagnostics: {
+            recoveryTriggered: false,
+            fallbackLevel: "none",
+            sessionCancelled: false,
+            ...(cached.generationDiagnostics ?? {}),
+          },
           artistDiversity: cached.artistDiversity ?? null,
           playlistConfidence: cached.playlistConfidence ?? null,
           ...(cached.spotifyPlaylistUrl
@@ -3201,7 +3226,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     };
 
     res.setTimeout(requestHardTimeoutMs + 2_000, () => {
-      if (res.headersSent || staleGenerate(generateSessionUserId, requestId)) return; // timeout handler — no second body
+      if (res.headersSent) return; // timeout handler — no second body
+      if (respondIfStale(res, generateSessionUserId, requestId)) return;
       if (!auditMode) cancelGenerateSession(generateSessionUserId, requestId);
       const ctx = (req as { _genCtx?: {
         likedSongs: typeof likedSongs;
@@ -4324,6 +4350,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalization.diagnostics["albumLimitRelaxed"] ? "album_limit_relaxed" : null,
       ...evidenceRelaxations,
     ].filter((entry): entry is string => !!entry);
+    const fallbackLevel = fallbackLevelFromFinalization(finalization.diagnostics);
     const generationDiagnostics = {
       initialLibrarySize: likedSongs.length,
       candidatesSampled: numberFromWaterfall("retrievalCount", scoringPool.hybridPoolSize ?? pipeline.sorted.length),
@@ -4341,6 +4368,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       largestDrop,
       removalReasons: removalReasonDiagnostics.slice(0, 12),
       recoveryRelaxations,
+      recoveryTriggered: fallbackLevel !== "none" || recoveryRelaxations.length > 0,
+      fallbackLevel,
+      sessionCancelled: false,
       generationDebug: v3GenerationDebug,
       relaxationSteps: Array.isArray(v3GenerationDebug["relaxationSteps"])
         ? v3GenerationDebug["relaxationSteps"]
@@ -4456,6 +4486,10 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     generationDiagnostics.candidatesFinal = finalTracks.length;
     generationDiagnostics.fallbackTriggered = generationDiagnostics.fallbackTriggered || !!finalization.diagnostics.fallbackMode;
+    generationDiagnostics.fallbackLevel = fallbackLevelFromFinalization(finalization.diagnostics);
+    generationDiagnostics.recoveryTriggered =
+      generationDiagnostics.fallbackLevel !== "none" ||
+      generationDiagnostics.recoveryRelaxations.length > 0;
     generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
     if (finalTracks.length === 0) {
       const emergencyPool = applyCuratorIdentityScoring(
@@ -4499,6 +4533,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           ...generationDiagnostics.recoveryRelaxations,
           "emergency_hard_safe_return",
         ];
+        generationDiagnostics.fallbackLevel = fallbackLevelFromFinalization(finalization.diagnostics);
+        generationDiagnostics.recoveryTriggered = true;
         generationDiagnostics.humanCoherenceScore = humanCoherence.score;
         generationDiagnostics.humanCoherenceComponents = humanCoherence.components;
         generationDiagnostics.humanCoherenceReasons = humanCoherence.reasons;
@@ -4858,7 +4894,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         : confidenceScore >= 0.58
           ? "Good match"
           : "Best available match",
-      recoveryUsed: generationDiagnostics.recoveryRelaxations.length > 0,
+      recoveryUsed: generationDiagnostics.recoveryTriggered,
       fallbackUsed: generationDiagnostics.fallbackTriggered,
     };
     if (sideEffectPolicy.allowSavedPlaylistWrites && savedPlaylistId > 0) {
@@ -4876,6 +4912,9 @@ router.post("/generate", async (req, res): Promise<void> => {
                 candidatesFinal: generationDiagnostics.candidatesFinal,
                 largestDrop: generationDiagnostics.largestDrop,
                 recoveryRelaxations: generationDiagnostics.recoveryRelaxations,
+                recoveryTriggered: generationDiagnostics.recoveryTriggered,
+                fallbackLevel: generationDiagnostics.fallbackLevel,
+                sessionCancelled: generationDiagnostics.sessionCancelled,
                 fallbackTriggered: generationDiagnostics.fallbackTriggered,
               },
               artistDiversity,
@@ -5193,11 +5232,30 @@ router.post("/generate", async (req, res): Promise<void> => {
       { err: fatalErr?.message, code: "INTERNAL_ERROR", userId: sessionUserId },
       "Unhandled error in /generate"
     );
+    const sessionWasCancelled = sessionUserId && requestId
+      ? staleGenerate(sessionUserId, requestId)
+      : false;
     if (sessionUserId && requestId) {
       setGeneratePhase(sessionUserId, requestId, "error");
       endGenerateSession(sessionUserId, requestId);
     }
-    if (!res.headersSent && !staleGenerate(sessionUserId, requestId)) {
+    if (!res.headersSent) {
+      if (sessionWasCancelled) {
+        generateFail(
+          res,
+          409,
+          "GENERATION_CANCELLED",
+          "This generation was superseded or cancelled. Try again if you need a new playlist.",
+          {
+            generationDiagnostics: {
+              recoveryTriggered: false,
+              fallbackLevel: "none",
+              sessionCancelled: true,
+            },
+          }
+        );
+        return;
+      }
       const timedOut = Date.now() - startMs >= requestHardTimeoutMs - 1000;
       const ctx = (req as { _genCtx?: {
         likedSongs: { trackId: string; trackName: string; artistName: string; albumName: string }[];
@@ -5277,6 +5335,11 @@ router.post("/generate", async (req, res): Promise<void> => {
           count: finalizedFallback.length,
           totalTracks: finalizedFallback.length,
           spotifyUnavailable: true,
+          generationDiagnostics: {
+            recoveryTriggered: true,
+            fallbackLevel: "soft",
+            sessionCancelled: false,
+          },
           tracks: formatTracksForApi(finalizedFallback, ctx.emotionProfile),
         });
       } else {
@@ -5287,6 +5350,11 @@ router.post("/generate", async (req, res): Promise<void> => {
             : "An unexpected error occurred. Please try again.",
           code: timedOut ? "TIMEOUT" : "INTERNAL_ERROR",
           tracks: [],
+          generationDiagnostics: {
+            recoveryTriggered: false,
+            fallbackLevel: "none",
+            sessionCancelled: false,
+          },
         });
       }
     }
