@@ -10,6 +10,7 @@ import healthRouter from "./routes/health";
 import evalRouter from "./routes/eval";
 import { logger } from "./lib/logger";
 import { type AppEnv } from "./lib/env";
+import { getRuntimeReadiness, isRuntimeReady } from "./lib/runtime-readiness";
 import "./lib/session";
 
 let appInstanceCreated = false;
@@ -95,6 +96,20 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   // store, so health checks still return during session-store contention.
   app.use("/api", healthRouter);
   app.use("/api", evalRouter);
+
+  app.use((req, res, next) => {
+    if (!req.path.startsWith("/api") || isRuntimeReady()) return next();
+    const readiness = getRuntimeReadiness();
+    res.status(503).json({
+      success: false,
+      code: "SERVER_STARTING",
+      error: readiness.state === "failed"
+        ? "Server startup failed. Please try again shortly."
+        : "Server is starting. Please try again shortly.",
+      readiness: readiness.state,
+      retryAfterSeconds: 5,
+    });
+  });
 
   app.use(
     session({

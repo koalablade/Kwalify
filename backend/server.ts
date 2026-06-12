@@ -9,6 +9,7 @@ import { runDbInit } from "./lib/db-init";
 import { beginGracefulShutdown } from "./lib/shutdown";
 import { warmGenreOntologyAtBoot } from "./lib/warm-genre-ontology";
 import { startFeedbackMemoryDecayJob } from "./lib/feedback-memory";
+import { setRuntimeFailed, setRuntimeInitializing, setRuntimeReady } from "./lib/runtime-readiness";
 
 const BOOT_DB_TIMEOUT_MS = 15_000;
 
@@ -33,9 +34,8 @@ async function withBootTimeout<T>(
 /**
  * Startup health verification.
  *
- * Runs ALL checks before the server is allowed to listen or markBootComplete()
- * is called. If any check fails the error propagates up to bootstrap(), which
- * exits the process. The server NEVER reaches app.listen() with a broken state.
+ * Runs bounded DB readiness checks after the liveness server is already bound.
+ * If any check fails, /readyz reports failed and API routes stay gated.
  *
  * Checks performed:
  *   - SELECT 1  → DB is reachable and accepting queries
@@ -58,22 +58,44 @@ async function verifyStartupHealth(
   }
 }
 
+async function finishRuntimeInitialization(rawPool: pg.Pool, env: AppEnv): Promise<void> {
+  setRuntimeInitializing();
+
+  try {
+    await withBootTimeout(rawPool.query(SESSION_TABLE_DDL), "session table bootstrap");
+  } catch (err) {
+    throw new Error(
+      `[boot] Session table DDL failed: ${(err as Error).message}`,
+    );
+  }
+
+  try {
+    await withBootTimeout(runDbInit(rawPool), "app schema bootstrap", 20_000);
+  } catch (err) {
+    throw new Error(`[boot] App schema bootstrap failed: ${(err as Error).message}`);
+  }
+
+  await verifyStartupHealth(rawPool, env);
+
+  warmGenreOntologyAtBoot();
+  setRuntimeReady();
+}
+
 /**
  * Explicit bootstrap function — the single lifecycle gate for the entire process.
  *
- * Initialization order is enforced by function call sequence; each step depends
- * on all previous steps completing without error. Any failure is fatal: bootstrap
- * throws, the process exits, and app.listen() is NEVER reached.
+ * The HTTP listener is opened before DB/schema initialization so /healthz and
+ * /api/eval/ping are always responsive during deploys. API routes are gated
+ * until background initialization marks runtime readiness.
  *
  * Phases:
  *   1. validateEnv        — fast-fail on missing config; returns {env, features}
  *   2. initPool           — create singleton pg.Pool; no connection opened yet
  *   3. initDb             — wrap raw pool in Drizzle; dep guard enforces pool exists
- *   4. DDL                — idempotent session table creation; first real DB connection
- *   5. Health check       — SELECT 1 + env integrity; all checks must pass
- *   6. createApp          — build Express + middleware; takes explicit env + rawPool
- *   7. markBootComplete   — unlock all consumer proxies and getters
- *   8. listen             — bind port; process accepts traffic only at this point
+ *   4. markBootComplete   — unlock route dependencies; API remains readiness-gated
+ *   5. createApp          — build Express + middleware; takes explicit env + rawPool
+ *   6. listen             — bind port immediately for health/eval pings
+ *   7. background init    — schema + DB health; marks /readyz ready or failed
  */
 async function bootstrap(): Promise<void> {
   // ── 1. Environment ──────────────────────────────────────────────────────────
@@ -92,47 +114,24 @@ async function bootstrap(): Promise<void> {
   // making "db initialized without pool" structurally impossible.
   initDb(rawPool);
 
-  // ── 4. Schema bootstrap (idempotent DDL) ────────────────────────────────────
-  try {
-    await withBootTimeout(rawPool.query(SESSION_TABLE_DDL), "session table bootstrap");
-  } catch (err) {
-    throw new Error(
-      `[boot] Session table DDL failed: ${(err as Error).message}`,
-    );
-  }
-
-  // ── 4b. Application schema bootstrap ──────────────────────────────────────
-  try {
-    await withBootTimeout(runDbInit(rawPool), "app schema bootstrap", 20_000);
-  } catch (err) {
-    throw new Error(`[boot] App schema bootstrap failed: ${(err as Error).message}`);
-  }
-
-  // ── 5. Health verification — must pass before any listener is opened ─────────
-  await verifyStartupHealth(rawPool, env);
-
-  warmGenreOntologyAtBoot();
-
-  // ── 6. App ──────────────────────────────────────────────────────────────────
-  const app = createApp(env, rawPool);
-
-  // ── 7. Mark boot complete — unlocks all consumer proxies and getters ─────────
+  // ── 4. Mark boot complete — unlocks route proxies; API is still readiness gated.
   // After this line: db, pool (proxy), getEnv(), getFeatures() are all accessible.
-  // Before this line: any consumer access would have thrown [boot] errors.
   markBootComplete();
 
-  // ── 8. Listen ───────────────────────────────────────────────────────────────
+  // ── 5. App ──────────────────────────────────────────────────────────────────
+  const app = createApp(env, rawPool);
+
+  // ── 6. Listen immediately for health/eval pings ────────────────────────────
   await new Promise<void>((resolve, reject) => {
     const server = app.listen(env.PORT, () => {
-        // Single consolidated startup success log — logged exactly once.
+        // Listener is open; readiness is finalized by background initialization.
         logger.info(
           {
             port: env.PORT,
             NODE_ENV: env.NODE_ENV,
-            db: "connected",
             spotify: features.spotify.enabled ? "enabled" : "disabled",
           },
-          "Server ready",
+          "Server listening; runtime initialization in progress",
         );
 
         if (!features.spotify.enabled) {
@@ -142,7 +141,6 @@ async function bootstrap(): Promise<void> {
         }
 
         process.on("SIGTERM", () => beginGracefulShutdown(logger));
-        startFeedbackMemoryDecayJob(logger);
 
         resolve();
       });
@@ -151,6 +149,17 @@ async function bootstrap(): Promise<void> {
     server.keepAliveTimeout = 65_000;
     server.on("error", reject);
   });
+
+  // ── 7. Background readiness initialization ─────────────────────────────────
+  finishRuntimeInitialization(rawPool, env)
+    .then(() => {
+      logger.info({ db: "connected" }, "Server ready");
+      startFeedbackMemoryDecayJob(logger);
+    })
+    .catch((err) => {
+      setRuntimeFailed(err);
+      logger.error({ err }, "[boot] Runtime initialization failed");
+    });
 }
 
 bootstrap().catch((err) => {
