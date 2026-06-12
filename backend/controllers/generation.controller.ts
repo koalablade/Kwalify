@@ -1331,7 +1331,7 @@ function finalTrackMatchesExplicitGenre(
 
 function finalTrackMatchesExplicitEra(track: ConstraintTrack, intent: LockedIntent): boolean {
   if (!intent.eraRange) return true;
-  return trackHasEraEvidence(track, intent.eraRange);
+  return !trackHasKnownEraMismatch(track, intent.eraRange);
 }
 
 function finalTrackIsSafe(
@@ -1370,6 +1370,41 @@ function finalTrackIsSafe(
   const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
   if (isEuphoricSummerPrompt(opts.vibe, opts.intent) && !trackIsEuphoricSummerSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isBreakupRainDrivePrompt(opts.vibe, opts.intent) && !trackIsBreakupRainDriveSafe(track, explicitGenreLocked, opts.classMap)) return false;
+  return true;
+}
+
+function finalTrackIsHardSafe(
+  track: ConstraintTrack,
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    allowHolidaySeason?: boolean;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+  }
+): boolean {
+  if (!trackMatchesHardConstraints(track, opts.constraints, opts.classMap)) return false;
+  if (
+    isUkGaragePrompt(opts.vibe) &&
+    (trackGenreFamily(track, opts.classMap) !== "electronic" || isKnownNonUkGarageTrack(track))
+  ) {
+    return false;
+  }
+  if (eraHardMismatch(track, opts.intent)) return false;
+  if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
+  if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
+  if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
+  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) return false;
+  if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) return false;
+  if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
+  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
+  if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
   return true;
 }
 
@@ -1854,6 +1889,9 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   let cohesionSkipped = 0;
   let relaxedArtistFillUsed = false;
   let relaxedAlbumFillUsed = false;
+  let hardSafeFillUsed = false;
+  let hardSafeFillAdded = 0;
+  let hardSafeSkipped = 0;
 
   const out: T[] = [];
   const rankedCandidates = opts.candidates
@@ -1910,6 +1948,35 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     if (albumKey) albumCounts.set(albumKey, albumCount + 1);
     out.push(sanitized);
   };
+  const tryAddHardSafe = (track: T, enforceRepeatSignature: boolean): void => {
+    if (out.length >= opts.requestedLength) return;
+    const sanitized = sanitizePlaylistTrack(track);
+    if (!sanitized) {
+      malformedDropped++;
+      return;
+    }
+    if (seen.has(sanitized.trackId)) {
+      duplicateDropped++;
+      return;
+    }
+    const repeatSignature = trackRepeatSignature(sanitized);
+    if (enforceRepeatSignature && repeatSignature && repeatSignatures.has(repeatSignature)) {
+      duplicateSignatureDropped++;
+      return;
+    }
+    if (!finalTrackIsHardSafe(sanitized, opts)) {
+      hardSafeSkipped++;
+      return;
+    }
+    const artistKey = sanitized.artistName.toLowerCase().trim();
+    const albumKey = normalizeRepeatToken(sanitized.albumName);
+    seen.add(sanitized.trackId);
+    if (repeatSignature) repeatSignatures.add(repeatSignature);
+    artistCounts.set(artistKey, (artistCounts.get(artistKey) ?? 0) + 1);
+    if (albumKey) albumCounts.set(albumKey, (albumCounts.get(albumKey) ?? 0) + 1);
+    out.push(sanitized);
+    hardSafeFillAdded++;
+  };
 
   const primaryArtistLimit = Number.isFinite(opts.maxPerArtist) ? opts.maxPerArtist : null;
   const emergencyArtistLimit = relaxedEmergencyArtistCap(opts.requestedLength, opts.maxPerArtist);
@@ -1922,6 +1989,14 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     relaxedArtistFillUsed = emergencyArtistLimit !== null;
     relaxedAlbumFillUsed = true;
     for (const track of rankedCandidates) tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, true);
+  }
+  const minimumReturnCount = Math.min(opts.requestedLength, Math.max(8, Math.ceil(opts.requestedLength * 0.40)));
+  if (out.length < minimumReturnCount) {
+    hardSafeFillUsed = true;
+    for (const track of [...opts.initial, ...rankedCandidates]) tryAddHardSafe(track, true);
+    if (out.length < minimumReturnCount) {
+      for (const track of rankedCandidates) tryAddHardSafe(track, false);
+    }
   }
 
   return {
@@ -1942,6 +2017,9 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       albumLimitRelaxed: relaxedAlbumFillUsed,
       albumLimitRelaxedTo: relaxedAlbumFillUsed ? emergencyAlbumLimit : null,
       artistLimitBypassed: false,
+      hardSafeFillUsed,
+      hardSafeFillAdded,
+      hardSafeSkipped,
       replenished: out.length > opts.initial.length,
       sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
       artistDiversityUniqueArtists: artistDiversityDiagnostics(out, opts.maxPerArtist).uniqueArtists,
@@ -4302,7 +4380,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       failureReason: finalTracks.length === 0 ? "no_final_tracks_after_filters" : null,
     };
     setGenerateStageDetail(
-      userId,
+      generateSessionUserId,
       requestId,
       `Found ${(scoringPool.hybridPoolSize ?? pipeline.sorted.length).toLocaleString()} matching tracks`
     );
@@ -4379,6 +4457,58 @@ router.post("/generate", async (req, res): Promise<void> => {
     generationDiagnostics.candidatesFinal = finalTracks.length;
     generationDiagnostics.fallbackTriggered = generationDiagnostics.fallbackTriggered || !!finalization.diagnostics.fallbackMode;
     generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
+    if (finalTracks.length === 0) {
+      const emergencyPool = applyCuratorIdentityScoring(
+        [...finalCandidatePool, ...buildBroadRecoveryLibrary()],
+        curatorIdentity,
+        sessionMemory
+      );
+      const emergencyFinalization = finalizePlaylistTracks({
+        initial: [],
+        candidates: emergencyPool,
+        requestedLength: length,
+        vibe,
+        intent: lockedIntent,
+        constraints: constraintLayer,
+        allowHolidaySeason,
+        classMap: userGenreProfile.trackClassifications,
+        maxPerArtist,
+      });
+      if (emergencyFinalization.tracks.length > 0) {
+        finalTracks = emergencyFinalization.tracks;
+        finalization = {
+          tracks: emergencyFinalization.tracks,
+          diagnostics: {
+            ...emergencyFinalization.diagnostics,
+            fallbackMode: emergencyFinalization.diagnostics.fallbackMode ?? "emergency_hard_safe_return",
+            recoveryTrigger: "pre_empty_playlist_error",
+          },
+        };
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+        humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
+        generationDiagnostics.candidatesAfterRepair = finalization.tracks.length;
+        generationDiagnostics.candidatesFinal = finalTracks.length;
+        generationDiagnostics.fallbackTriggered = true;
+        generationDiagnostics.failureReason = null;
+        generationDiagnostics.recoveryRelaxations = [
+          ...generationDiagnostics.recoveryRelaxations,
+          "emergency_hard_safe_return",
+        ];
+        generationDiagnostics.humanCoherenceScore = humanCoherence.score;
+        generationDiagnostics.humanCoherenceComponents = humanCoherence.components;
+        generationDiagnostics.humanCoherenceReasons = humanCoherence.reasons;
+        publishPartialTracks(finalTracks);
+        req.log.warn(
+          { userId, vibe, finalCount: finalTracks.length, finalization: finalization.diagnostics },
+          "Emergency hard-safe recovery prevented empty playlist"
+        );
+      }
+    }
     if (finalTracks.length === 0) {
       const forensicPoolTrace = (scoringDiagnostics.v3Pipeline as Record<string, unknown> | undefined)?.["forensicPoolTrace"];
       req.log.warn(
