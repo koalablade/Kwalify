@@ -87,7 +87,16 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   if (env.APP_URL && env.NODE_ENV === "production") {
     const canonical = new URL(env.APP_URL);
     app.use((req, res, next) => {
-      if (req.path === "/api/healthz" || req.path === "/api/health" || req.path === "/api/eval/ping") return next();
+      if (
+        req.path === "/healthz" ||
+        req.path === "/readyz" ||
+        req.path === "/api/healthz" ||
+        req.path === "/api/readyz" ||
+        req.path === "/api/health" ||
+        req.path === "/api/eval/ping"
+      ) {
+        return next();
+      }
       if (req.hostname === "localhost" || req.hostname === canonical.hostname) return next();
       return res.redirect(301, `${canonical.origin}${req.originalUrl}`);
     });
@@ -95,6 +104,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
 
   // Keep deployment and eval pings independent from the database-backed session
   // store, so health checks still return during session-store contention.
+  app.use("/", healthRouter);
   app.use("/api", healthRouter);
   app.use("/api", evalRouter);
 
