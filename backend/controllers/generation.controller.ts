@@ -1920,12 +1920,19 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   let hardSafeFillAdded = 0;
   let hardSafeSkipped = 0;
   let hardSafeDiversitySkipped = 0;
+  let recoveryPenaltyApplied = 0;
 
   const out: T[] = [];
+  const finalizationTieBreak = (a: T, b: T): number => {
+    const scoreDelta = (b.score ?? 0) - (a.score ?? 0);
+    if (Math.abs(scoreDelta) > 0.005) return scoreDelta;
+    return boundedTrackReusePenalty(opts.trackReusePenalty?.get(a.trackId)) -
+      boundedTrackReusePenalty(opts.trackReusePenalty?.get(b.trackId));
+  };
   const rankedCandidates = opts.candidates
     .map(sanitizePlaylistTrack)
     .filter((track): track is T => !!track)
-    .sort((a, b) => b.score - a.score);
+    .sort(finalizationTieBreak);
   const preferredFamilies = preferredCohesionFamilies(rankedCandidates, opts);
   const outOfFamilyReserve = Math.max(2, Math.ceil(opts.requestedLength * 0.12));
   const tryAdd = (
@@ -2035,6 +2042,9 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       hardSafeDiversitySkipped++;
       return;
     }
+    if (boundedTrackReusePenalty(opts.trackReusePenalty?.get(sanitized.trackId)) > 0) {
+      recoveryPenaltyApplied++;
+    }
     seen.add(sanitized.trackId);
     if (repeatSignature) repeatSignatures.add(repeatSignature);
     artistCounts.set(artistKey, artistCount + 1);
@@ -2107,6 +2117,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       hardSafeFillAdded,
       hardSafeSkipped,
       hardSafeDiversitySkipped,
+      recoveryPenaltyApplied,
       replenished: out.length > opts.initial.length,
       sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
       artistDiversityUniqueArtists: artistDiversityDiagnostics(out, opts.maxPerArtist).uniqueArtists,
@@ -4446,6 +4457,20 @@ router.post("/generate", async (req, res): Promise<void> => {
       removalReasons: removalReasonDiagnostics.slice(0, 12),
       recoveryRelaxations,
       recoveryTriggered: fallbackLevel !== "none" || recoveryRelaxations.length > 0,
+      diversityControls: {
+        trackReusePenaltyApplied: typeof (v3PipelineDiagnostics["diversityTraceSummary"] as Record<string, unknown> | undefined)?.["trackReusePenaltyApplied"] === "number"
+          ? (v3PipelineDiagnostics["diversityTraceSummary"] as Record<string, number>)["trackReusePenaltyApplied"]
+          : 0,
+        artistReusePenaltyApplied: typeof (v3PipelineDiagnostics["diversityTraceSummary"] as Record<string, unknown> | undefined)?.["artistReusePenaltyApplied"] === "number"
+          ? (v3PipelineDiagnostics["diversityTraceSummary"] as Record<string, number>)["artistReusePenaltyApplied"]
+          : 0,
+        clusterPenaltyApplied: typeof (v3PipelineDiagnostics["diversityTraceSummary"] as Record<string, unknown> | undefined)?.["clusterPenaltyApplied"] === "number"
+          ? (v3PipelineDiagnostics["diversityTraceSummary"] as Record<string, number>)["clusterPenaltyApplied"]
+          : 0,
+        recoveryPenaltyApplied: typeof finalization.diagnostics["recoveryPenaltyApplied"] === "number"
+          ? finalization.diagnostics["recoveryPenaltyApplied"]
+          : 0,
+      },
       fallbackLevel,
       sessionCancelled: false,
       generationDebug: v3GenerationDebug,

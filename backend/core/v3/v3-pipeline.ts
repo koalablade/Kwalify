@@ -53,6 +53,11 @@ import {
   type DiversityTraceComponents,
 } from "./diversity-pressure";
 import {
+  tasteProfileScoreMultiplier,
+  type PromptKind,
+  type TasteProfilePrior,
+} from "../../lib/taste-profile-prior";
+import {
   createTrackDecision,
   withDecisionAffinities,
   withDecisionValidity,
@@ -365,6 +370,8 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
     retrievalByTrack?: Map<string, RetrievedCandidate<T>>;
     sessionArtistMemory?: SessionArtistMemory;
     trackReusePenalty?: Map<string, number>;
+    tasteProfilePrior?: TasteProfilePrior;
+    tastePromptKind?: PromptKind | null;
   },
 ): Array<TrackDecision<T>> {
   return decisions.map((decision) => {
@@ -396,10 +403,15 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
     const artistGravity = opts.sessionArtistMemory?.maxArtistAppearances
       ? artistMemoryCount(opts.sessionArtistMemory, decision.track.artistName) / opts.sessionArtistMemory.maxArtistAppearances
       : 0;
+    const tasteProfileMultiplier = tasteProfileScoreMultiplier(
+      opts.tasteProfilePrior,
+      opts.tastePromptKind ?? null,
+      decision.track,
+    );
 
     return withDecisionAffinities(decision, {
       sceneAffinity,
-      tasteAffinity: clamp01(tasteAffinity * sessionPenalty * (sessionCapped ? 0.45 : 1) * trackReuseMultiplier),
+      tasteAffinity: clamp01(tasteAffinity * sessionPenalty * (sessionCapped ? 0.45 : 1) * tasteProfileMultiplier * trackReuseMultiplier),
       freshnessAffinity: clamp01(freshnessAffinity * sessionPenalty * (sessionCapped ? 0.35 : 1) * trackReuseMultiplier),
       embeddingAffinity: retrieval?.embeddingAffinity,
       retrievalNeighborhood: retrieval?.retrievalNeighborhood,
@@ -430,6 +442,8 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     momentMemory?: MomentMemory | null;
     sessionArtistMemory?: SessionArtistMemory;
     trackReusePenalty?: Map<string, number>;
+    tasteProfilePrior?: TasteProfilePrior;
+    tastePromptKind?: PromptKind | null;
   } = {},
 ): V3PipelineResult<T> {
 
@@ -496,6 +510,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     clusterPurity?: number;
     secondaryClusterAllowed?: boolean;
     secondaryClusterReason?: string | null;
+    trackReusePenaltyApplied?: number;
+    artistReusePenaltyApplied?: number;
+    clusterPenaltyApplied?: number;
+    familyPenaltyApplied?: number;
   }> = [];
 
   // Observability: per-track decision trace (top 15 by raw score per lane)
@@ -609,6 +627,8 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       retrievalByTrack,
       sessionArtistMemory: opts.sessionArtistMemory,
       trackReusePenalty: opts.trackReusePenalty,
+      tasteProfilePrior: opts.tasteProfilePrior,
+      tastePromptKind: opts.tastePromptKind,
     });
     const engineResult = runRecommendationEngine({
       decisions: affinityDecisions,
@@ -650,6 +670,8 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
         lockedIntent,
         sessionArtistMemory: opts.sessionArtistMemory,
         recentTrackPenalty: opts.trackReusePenalty,
+        tasteProfilePrior: opts.tasteProfilePrior,
+        tastePromptKind: opts.tastePromptKind,
       },
     );
     forensicTrace.push(stageTrace(
@@ -720,6 +742,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       clusterPurity: clusterResult.samplerDiagnostics.clusterPurity,
       secondaryClusterAllowed: clusterResult.samplerDiagnostics.secondaryClusterAllowed,
       secondaryClusterReason: clusterResult.samplerDiagnostics.secondaryClusterReason,
+      trackReusePenaltyApplied: clusterResult.samplerDiagnostics.trackReusePenaltyApplied,
+      artistReusePenaltyApplied: clusterResult.samplerDiagnostics.artistReusePenaltyApplied,
+      clusterPenaltyApplied: clusterResult.samplerDiagnostics.clusterPenaltyApplied,
+      familyPenaltyApplied: clusterResult.samplerDiagnostics.familyPenaltyApplied,
     });
 
     return {
@@ -880,6 +906,18 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([r]) => r);
+  const selectedDiversityTraces = finalDecisionTrace.filter((trace) => trace.selected);
+  const diversityTraceSummary = {
+    trackReusePenaltyApplied: selectedDiversityTraces.filter((trace) => trace.trackReusePenalty > 0).length,
+    artistReusePenaltyApplied: selectedDiversityTraces.filter((trace) => trace.artistMemoryPenalty > 0 || trace.artistGravity > 0).length,
+    clusterPenaltyApplied: selectedDiversityTraces.filter((trace) => trace.clusterSaturationPenalty > 0).length,
+    familyPenaltyApplied: selectedDiversityTraces.filter((trace) => trace.familySaturationPenalty > 0).length,
+    selectedWithAnyPenalty: selectedDiversityTraces.filter((trace) => trace.diversityPenalty > 0 || trace.artistMemoryPenalty > 0).length,
+    totalDiversityPenalty: Math.round(selectedDiversityTraces.reduce((sum, trace) => sum + trace.diversityPenalty, 0) * 1000) / 1000,
+    avgDiversityPenalty: selectedDiversityTraces.length > 0
+      ? Math.round((selectedDiversityTraces.reduce((sum, trace) => sum + trace.diversityPenalty, 0) / selectedDiversityTraces.length) * 1000) / 1000
+      : 0,
+  };
 
   const clusterMapAgg: Record<string, { trackCount: number; genres: string[]; weightContribution: number }> = {};
   for (const ld of diagnosticLaneDetails) {
@@ -934,6 +972,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       clusterPurity: ld.clusterPurity,
       secondaryClusterAllowed: ld.secondaryClusterAllowed,
       secondaryClusterReason: ld.secondaryClusterReason,
+      trackReusePenaltyApplied: ld.trackReusePenaltyApplied,
+      artistReusePenaltyApplied: ld.artistReusePenaltyApplied,
+      clusterPenaltyApplied: ld.clusterPenaltyApplied,
+      familyPenaltyApplied: ld.familyPenaltyApplied,
       pctContribution: Math.round((ld.selectedCount / totalLaneSelected) * 100),
     })),
     clusterMap: clusterMapAgg,
@@ -942,6 +984,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       artistEntropy:     Math.round(shannonEntropyNormalized(artistDist) * 1000) / 1000,
       eraEntropy:        Math.round(shannonEntropyNormalized(eraDist)    * 1000) / 1000,
       diversityPressure: Math.round(postMetrics.explorationPressure      * 1000) / 1000,
+      ...diversityTraceSummary,
       genreCount:   Object.keys(genreDist).length,
       artistCount:  Object.keys(artistDist).length,
       eraCount:     Object.keys(eraDist).length,
@@ -953,6 +996,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       selected:        totalTracesSelected,
       rejected:        totalTracesRejected,
       topRejectionReasons,
+      diversityTraceSummary,
       selectionRate: finalDecisionTrace.length > 0
         ? Math.round((totalTracesSelected / finalDecisionTrace.length) * 100)
         : 100,
@@ -1012,6 +1056,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       intentLockApplied: lockedIntent.genreFamilies.length > 0 || !!lockedIntent.eraRange,
     },
     playlistExplanation,
+    diversityTraceSummary,
     finalDecisionTrace,
     selectionTrace: finalDecisionTrace,
     clusters: diagnosticLaneDetails.map((ld) => ({
