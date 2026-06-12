@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { appendFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { PLAYLIST_BENCHMARK_PROMPTS, type PlaylistBenchmarkPrompt } from "../lib/playlist-evaluation/benchmark-prompts";
 import { writeEvaluationReports } from "../lib/playlist-evaluation/report";
 import type { EvaluationTrack, GenerationEvaluationResult } from "../lib/playlist-evaluation/metrics";
@@ -21,7 +24,24 @@ type HarnessConfig = {
   requestTimeoutMs: number;
   dryRun: boolean;
   maxHttpRetries: number;
+  resume: boolean;
+  fresh: boolean;
 };
+
+type EvaluationRunState = {
+  runId: string;
+  commitHash: string;
+  baseUrl: string;
+  outDir: string;
+  totalPrompts: number;
+  completedIndices: number[];
+  failedIndices: number[];
+  lastSuccessfulPlaylist: string | null;
+  promptIds: string[];
+  updatedAt: string;
+};
+
+const RUN_STATE_FILE = path.join("reports", "playlist-evaluation", "run-state.json");
 
 function usage(): never {
   console.error([
@@ -44,6 +64,8 @@ function usage(): never {
     "  --category NAME             Run one benchmark category",
     "  --timeout-ms N              Per-request timeout (default 90000)",
     "  --max-http-retries N        Harness API retries for 429/5xx (default 3)",
+    "  --resume                    Resume from reports/playlist-evaluation/run-state.json",
+    "  --fresh                     Ignore existing run state and start from scratch",
     "  --dry-run                   Do not call API; emit prompt list only",
   ].join("\n"));
   process.exit(2);
@@ -88,7 +110,12 @@ function parseConfig(args: string[]): HarnessConfig {
     requestTimeoutMs: parseIntArg(args, "--timeout-ms", 90_000),
     dryRun: args.includes("--dry-run"),
     maxHttpRetries: parseIntArg(args, "--max-http-retries", 3),
+    resume: args.includes("--resume"),
+    fresh: args.includes("--fresh"),
   };
+  if (config.resume && config.fresh) {
+    throw new Error("--resume and --fresh cannot be used together.");
+  }
   if (!config.baseUrl) {
     throw new Error("API_BASE_URL is required. Set API_BASE_URL or pass --base-url.");
   }
@@ -179,6 +206,108 @@ function versionsMatch(expected: string, actual: string): boolean {
     cleanActual.length > 0 &&
     cleanActual !== "unknown" &&
     (cleanExpected === cleanActual || cleanExpected.startsWith(cleanActual) || cleanActual.startsWith(cleanExpected));
+}
+
+async function readJsonFile<T>(filePath: string): Promise<T | null> {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8")) as T;
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === "ENOENT") return null;
+    throw err;
+  }
+}
+
+async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  await writeFile(tmpPath, JSON.stringify(value, null, 2));
+  await rename(tmpPath, filePath);
+}
+
+function resultIndexByPrompt(prompts: PlaylistBenchmarkPrompt[], result: GenerationEvaluationResult): number {
+  return prompts.findIndex((prompt) => prompt.id === result.benchmark.id);
+}
+
+async function loadPreviousResults(outDir: string): Promise<GenerationEvaluationResult[]> {
+  const report = await readJsonFile<{ rawResults?: GenerationEvaluationResult[] }>(
+    path.join(outDir, "evaluation-report.json"),
+  );
+  if (Array.isArray(report?.rawResults) && report.rawResults.length > 0) return report.rawResults;
+  try {
+    const lines = (await readFile(path.join(outDir, "evaluation-results.jsonl"), "utf8"))
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0);
+    return lines.map((line) => JSON.parse(line) as GenerationEvaluationResult);
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === "ENOENT") return [];
+    throw err;
+  }
+}
+
+function runStateFromResults(input: {
+  runId: string;
+  commitHash: string;
+  config: HarnessConfig;
+  prompts: PlaylistBenchmarkPrompt[];
+  results: GenerationEvaluationResult[];
+}): EvaluationRunState {
+  const completedIndices = input.results
+    .map((result) => resultIndexByPrompt(input.prompts, result))
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b);
+  const failedIndices = input.results
+    .filter((result) => !result.ok)
+    .map((result) => resultIndexByPrompt(input.prompts, result))
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b);
+  const lastSuccessful = [...input.results].reverse().find((result) => result.ok);
+  return {
+    runId: input.runId,
+    commitHash: input.commitHash,
+    baseUrl: input.config.baseUrl,
+    outDir: input.config.outDir,
+    totalPrompts: input.prompts.length,
+    completedIndices,
+    failedIndices,
+    lastSuccessfulPlaylist: lastSuccessful?.benchmark.id ?? null,
+    promptIds: input.prompts.map((prompt) => prompt.id),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function checkpointRun(input: {
+  runId: string;
+  commitHash: string;
+  config: HarnessConfig;
+  prompts: PlaylistBenchmarkPrompt[];
+  started: number;
+  results: GenerationEvaluationResult[];
+  latestResult?: GenerationEvaluationResult;
+}): Promise<Awaited<ReturnType<typeof writeEvaluationReports>>> {
+  if (input.latestResult) {
+    await mkdir(input.config.outDir, { recursive: true });
+    await appendFile(
+      path.join(input.config.outDir, "evaluation-results.jsonl"),
+      `${JSON.stringify(input.latestResult)}\n`,
+    );
+  }
+  const report = await writeEvaluationReports({
+    outDir: input.config.outDir,
+    generatedAt: new Date().toISOString(),
+    run: {
+      mode: liveWritesEnabled(input.config) ? "live-api" : "audit",
+      baseUrl: input.config.baseUrl,
+      promptCount: input.prompts.length,
+      concurrency: input.config.concurrency,
+      delayMs: input.config.delayMs,
+      allowSpotifyCreate: input.config.allowSpotifyCreate,
+      allowDbWrites: input.config.allowDbWrites,
+      durationMs: Date.now() - input.started,
+    },
+    results: input.results,
+  });
+  await writeJsonAtomic(RUN_STATE_FILE, runStateFromResults(input));
+  return report;
 }
 
 async function preflight(config: HarnessConfig): Promise<Record<string, unknown>> {
@@ -349,25 +478,6 @@ function updateBenchmarkRunMemory(memory: BenchmarkRunMemory, result: Generation
   if (ids.length > 0) memory.previousTrackLists.push(ids);
 }
 
-async function runLimited<T, R>(
-  items: T[],
-  concurrency: number,
-  delayMs: number,
-  worker: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let cursor = 0;
-  async function runWorker(): Promise<void> {
-    while (cursor < items.length) {
-      const index = cursor++;
-      results[index] = await worker(items[index]!, index);
-      if (delayMs > 0 && cursor < items.length) await sleep(delayMs);
-    }
-  }
-  await Promise.all(Array.from({ length: concurrency }, () => runWorker()));
-  return results;
-}
-
 async function main(): Promise<void> {
   const config = parseConfig(process.argv.slice(2));
   const prompts = selectPrompts(config);
@@ -400,27 +510,84 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({ dryRun: true, outDir: config.outDir, prompts: prompts.length, reportFiles: Object.keys(report) }, null, 2));
     return;
   }
-  await preflight(config);
+  const preflightData = await preflight(config);
+  const deployedCommit = typeof preflightData["commit"] === "string"
+    ? preflightData["commit"]
+    : config.expectedDeploymentVersion ?? localGitHead() ?? "unknown";
+  const savedState = config.resume ? await readJsonFile<EvaluationRunState>(RUN_STATE_FILE) : null;
+  if (config.resume && !savedState) {
+    throw new Error(`Cannot resume: ${RUN_STATE_FILE} does not exist. Run without --resume or pass --fresh.`);
+  }
+  if (savedState) {
+    const promptIds = prompts.map((prompt) => prompt.id);
+    if (savedState.baseUrl !== config.baseUrl) {
+      throw new Error(`Cannot resume: saved base URL ${savedState.baseUrl} differs from ${config.baseUrl}. Pass --fresh to start over.`);
+    }
+    if (!versionsMatch(savedState.commitHash, deployedCommit)) {
+      throw new Error(`Cannot resume: saved commit ${savedState.commitHash} differs from deployed commit ${deployedCommit}. Pass --fresh to start over.`);
+    }
+    if (savedState.totalPrompts !== prompts.length || savedState.promptIds.join("\n") !== promptIds.join("\n")) {
+      throw new Error("Cannot resume: saved prompt selection differs from current prompt selection. Pass --fresh to start over.");
+    }
+    if (savedState.outDir !== config.outDir) {
+      throw new Error(`Cannot resume: saved outDir ${savedState.outDir} differs from ${config.outDir}. Pass the same --out or use --fresh.`);
+    }
+  }
+  if (!config.resume) {
+    await rm(RUN_STATE_FILE, { force: true });
+    await rm(path.join(config.outDir, "evaluation-results.jsonl"), { force: true });
+  }
+  const runId = savedState?.runId ?? randomUUID();
+  const previousResults = config.resume ? await loadPreviousResults(config.outDir) : [];
+  const resultByPrompt = new Map(previousResults.map((result) => [result.benchmark.id, result]));
+  const results: GenerationEvaluationResult[] = prompts
+    .map((prompt) => resultByPrompt.get(prompt.id))
+    .filter((result): result is GenerationEvaluationResult => !!result);
+  const completed = new Set(results.map((result) => result.benchmark.id));
   const runMemory: BenchmarkRunMemory = { previousTrackLists: [] };
-  const results = await runLimited(prompts, config.concurrency, config.delayMs, async (benchmark, index) => {
+  for (const result of results) updateBenchmarkRunMemory(runMemory, result);
+  if (results.length > 0) {
+    await checkpointRun({
+      runId,
+      commitHash: deployedCommit,
+      config,
+      prompts,
+      started,
+      results,
+    });
+    console.error(`[evaluation] resumed ${results.length}/${prompts.length} completed playlists from ${config.outDir}`);
+  }
+  for (let index = 0; index < prompts.length; index++) {
+    const benchmark = prompts[index]!;
+    if (completed.has(benchmark.id)) continue;
     console.error(`[evaluation] ${index + 1}/${prompts.length} ${benchmark.id}: ${benchmark.prompt}`);
     const result = await postGenerate(config, benchmark, runMemory);
+    resultByPrompt.set(benchmark.id, result);
+    completed.add(benchmark.id);
     updateBenchmarkRunMemory(runMemory, result);
-    return result;
-  });
-  const report = await writeEvaluationReports({
-    outDir: config.outDir,
-    generatedAt: new Date().toISOString(),
-    run: {
-      mode: liveWritesEnabled(config) ? "live-api" : "audit",
-      baseUrl: config.baseUrl,
-      promptCount: prompts.length,
-      concurrency: config.concurrency,
-      delayMs: config.delayMs,
-      allowSpotifyCreate: config.allowSpotifyCreate,
-      allowDbWrites: config.allowDbWrites,
-      durationMs: Date.now() - started,
-    },
+    const orderedResults = prompts
+      .map((prompt) => resultByPrompt.get(prompt.id))
+      .filter((row): row is GenerationEvaluationResult => !!row);
+    results.splice(0, results.length, ...orderedResults);
+    await checkpointRun({
+      runId,
+      commitHash: deployedCommit,
+      config,
+      prompts,
+      started,
+      results,
+      latestResult: result,
+    });
+    if (config.delayMs > 0 && prompts.slice(index + 1).some((prompt) => !completed.has(prompt.id))) {
+      await sleep(config.delayMs);
+    }
+  }
+  const report = await checkpointRun({
+    runId,
+    commitHash: deployedCommit,
+    config,
+    prompts,
+    started,
     results,
   });
   const failed = results.filter((result) => !result.ok);
