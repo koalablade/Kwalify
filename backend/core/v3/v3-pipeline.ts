@@ -33,8 +33,8 @@ import { interleaveLanes } from "./interleaver";
 import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
-import { buildLockedIntent, type LockedIntent } from "./intent";
-import { trackMatchesConstraints } from "./constraint-filter";
+import { buildLockedIntent, completeLockedIntent, normalizeLockedGenreFamily, type LockedIntent } from "./intent";
+import { constraintRejectionReasons } from "./constraint-filter";
 import {
   createTrackDecision,
   withDecisionValidity,
@@ -85,20 +85,43 @@ function shannonEntropyNormalized(dist: Record<string, number>): number {
   return Math.min(1, raw / Math.log2(n));
 }
 
-function decisionMatchesConstraints<T extends V3PipelineTrack>(
+function laneReadinessRejectionReasons<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): string[] {
+  const classification = opts.classificationByTrack?.(decision.track.trackId);
+  const genreFamily = normalizeLockedGenreFamily(
+    classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary
+  );
+  const reasons: string[] = [];
+  if (!genreFamily) reasons.push("missingGenreFamily");
+  if (decision.laneEra === "any") reasons.push("unknownEra");
+  if (decision.track.energy === null) reasons.push("missingEnergy");
+  return reasons;
+}
+
+function lockedIntentRejectionReasons<T extends V3PipelineTrack>(
   decision: TrackDecision<T>,
   lockedIntent: LockedIntent,
   opts: {
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
   },
-): boolean {
+): string[] {
   const classification = opts.classificationByTrack?.(decision.track.trackId);
-  return trackMatchesConstraints({
+  return constraintRejectionReasons({
     ...decision.track,
     genreFamily: classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary,
     genrePrimary: decision.genrePrimary,
     laneEra: decision.laneEra,
   }, lockedIntent);
+}
+
+function incrementReasons(target: Record<string, number>, reasons: string[]): void {
+  for (const reason of reasons.length > 0 ? reasons : ["unknown"]) {
+    target[reason] = (target[reason] ?? 0) + 1;
+  }
 }
 
 // ── Pipeline ─────────────────────────────────────────────────────────────────
@@ -113,12 +136,13 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     noveltyByTrack?: (trackId: string) => number;
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
     seed?: number;
+    lockedIntent?: LockedIntent;
   } = {},
 ): V3PipelineResult<T> {
 
   // ── Stage 1: Multi-axis intent decomposition ─────────────────────────────
   const decomposed = decomposeIntent(vibe, profile);
-  const lockedIntent = buildLockedIntent(vibe);
+  const lockedIntent = opts.lockedIntent ?? completeLockedIntent(buildLockedIntent(vibe));
   const fallbackTriggered = isUnclearIntent(decomposed);
 
   // ── Stage 2: Adaptive lane generation ───────────────────────────────────
@@ -148,7 +172,12 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     selectedCount: number;
     clusterSpread: Record<string, number>;
     clusterSelectionRatios: Record<string, number>;
+    rejectionCounts: Record<string, number>;
+    laneReadyCount: number;
+    intentReadyCount: number;
   }> = [];
+  const aggregateLaneReadinessRejections: Record<string, number> = {};
+  const aggregateIntentRejections: Record<string, number> = {};
 
   // Observability: per-track decision trace (top 15 by raw score per lane)
   const finalDecisionTrace: Array<{
@@ -165,8 +194,6 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     rejectionReason: string | null;
   }> = [];
 
-  let diversityWindow = createDiversityWindow();
-
   const sampledResults: SampledLaneResult<T>[] = lanes.map((lane) => {
     // Stage 3: Score every track for this lane
     const rawScored = scoreLane(tracks, lane, decomposed, {
@@ -175,13 +202,30 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     });
 
     const scoredDecisions = rawScored.map((item) => createTrackDecision(item, lane.id));
+    const laneRejections: Record<string, number> = {};
+    const intentRejections: Record<string, number> = {};
+    let laneRejectedCount = 0;
     const validDecisions = scoredDecisions
-      .map((decision) => withDecisionValidity(
-        decision,
-        decisionMatchesConstraints(decision, lockedIntent, {
+      .map((decision) => {
+        const laneReasons = laneReadinessRejectionReasons(decision, {
           classificationByTrack: opts.classificationByTrack,
-        })
-      ))
+        });
+        if (laneReasons.length > 0) {
+          laneRejectedCount++;
+          incrementReasons(laneRejections, laneReasons);
+          incrementReasons(aggregateLaneReadinessRejections, laneReasons);
+          return withDecisionValidity(decision, false);
+        }
+        const intentReasons = lockedIntentRejectionReasons(decision, lockedIntent, {
+          classificationByTrack: opts.classificationByTrack,
+        });
+        if (intentReasons.length > 0) {
+          incrementReasons(intentRejections, intentReasons);
+          incrementReasons(aggregateIntentRejections, intentReasons);
+          return withDecisionValidity(decision, false);
+        }
+        return withDecisionValidity(decision, true);
+      })
       .filter((decision) => decision.valid);
 
     // Headroom: 3× target so the sampler has enough valid choices.
@@ -200,17 +244,6 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       lane.id,
       `${opts.seed ?? "v3"}:${lane.id}`,
     );
-
-    // Update diversity window for subsequent lanes
-    for (const t of clusterResult.tracks.slice(0, 4)) {
-      diversityWindow = updateDiversityWindow(diversityWindow, {
-        genre:  t.genrePrimary,
-        era:    t.laneEra,
-        artist: t.artistName,
-        energy: t.energy ?? 0.50,
-        lane:   lane.id,
-      });
-    }
 
     // ── Observability: build per-track trace (top 15 by raw score) ───────────
     const selectedIdSet = new Set(clusterResult.tracks.map((t) => t.trackId));
@@ -255,6 +288,12 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       selectedCount: clusterResult.tracks.length,
       clusterSpread: clusterResult.clusterSpread as unknown as Record<string, number>,
       clusterSelectionRatios: clusterResult.clusterSelectionRatios,
+      rejectionCounts: {
+        ...Object.fromEntries(Object.entries(laneRejections).map(([k, v]) => [`laneReady:${k}`, v])),
+        ...Object.fromEntries(Object.entries(intentRejections).map(([k, v]) => [`intent:${k}`, v])),
+      },
+      laneReadyCount: rawScored.length - laneRejectedCount,
+      intentReadyCount: validDecisions.length,
     });
 
     return {
@@ -263,15 +302,23 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     };
   });
 
-  // ── Stage 6b: Compute diversity metrics for diagnostics only ─────────────
-  const preDiversityMetrics = computeDiversityMetrics(diversityWindow);
-
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
   const interleaved = interleaveLanes(lanes, sampledResults, targetCount);
   const finalTracks = interleaved.tracks.map((track) => ({
     ...track,
     clusterId: track.clusterIds[0],
   })) as Array<T & V3SelectionCandidate<T>>;
+  const invalidFinalTrack = finalTracks.find((track) =>
+    !track.sourceLane ||
+    typeof track.laneScore !== "number" ||
+    !track.genrePrimary ||
+    track.genrePrimary === "unknown" ||
+    !Array.isArray(track.clusterIds) ||
+    track.clusterIds.length === 0
+  );
+  if (invalidFinalTrack) {
+    throw new Error(`V3 final track missing required selection metadata: ${invalidFinalTrack.trackId}`);
+  }
   const finalSelectionMeta = new Map<string, {
     laneId: string;
     laneScore: number;
@@ -362,7 +409,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const genreDist: Record<string, number> = {};
   const eraDist: Record<string, number>   = {};
   for (const t of finalTracks) {
-    const g = opts.genreByTrack?.(t.trackId) ?? "unknown";
+    const g = t.genrePrimary;
     genreDist[g] = (genreDist[g] ?? 0) + 1;
   }
   for (const t of finalTracks) {
@@ -520,6 +567,15 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       repairedCount: 0,
       droppedCount: 0,
     },
+    rejectionDiagnostics: {
+      laneReadiness: aggregateLaneReadinessRejections,
+      lockedIntent: aggregateIntentRejections,
+      rawScoredCount: laneDetails.reduce((sum, lane) => sum + lane.scoredCount, 0),
+      laneReadyCount: laneDetails.reduce((sum, lane) => sum + lane.laneReadyCount, 0),
+      intentReadyCount: laneDetails.reduce((sum, lane) => sum + lane.intentReadyCount, 0),
+      sampledCount: sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0),
+      interleavedCount: finalTracks.length,
+    },
     lanes: diagnosticLaneDetails,
     laneContributions: finalLaneContributions,
     fallback: {
@@ -548,14 +604,15 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
 
     // Global diversity layer
     globalDiversityMetrics: {
+      // Legacy field shape retained; values are final-selection metrics only.
       preInterleave: {
-        genreConcentration:   preDiversityMetrics.genreConcentration,
-        eraConcentration:     preDiversityMetrics.eraConcentration,
-        artistRepeatIndex:    preDiversityMetrics.artistRepeatIndex,
-        laneSaturation:       preDiversityMetrics.laneSaturation,
-        driftState:           preDiversityMetrics.driftState,
-        clusterCollapseIndex: preDiversityMetrics.clusterCollapseIndex,
-        explorationPressure:  preDiversityMetrics.explorationPressure,
+        genreConcentration:   postMetrics.genreConcentration,
+        eraConcentration:     postMetrics.eraConcentration,
+        artistRepeatIndex:    postMetrics.artistRepeatIndex,
+        laneSaturation:       postMetrics.laneSaturation,
+        driftState:           postMetrics.driftState,
+        clusterCollapseIndex: postMetrics.clusterCollapseIndex,
+        explorationPressure:  postMetrics.explorationPressure,
       },
       postInterleave: {
         genreConcentration:   postMetrics.genreConcentration,

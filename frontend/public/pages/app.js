@@ -721,7 +721,7 @@ function renderPlaylistExplanation(expl) {
   const intentHtml = `
   <div class="explain-card">
     <div class="explain-card-title">🧠 Intent — What the system understood</div>
-    <div class="explain-intent-primary">${esc(String(intent.primaryIntent || "unknown")).replace(/_/g," ")}</div>
+    <div class="explain-intent-primary">${esc(String(intent.primaryIntent || "(missing intent)")).replace(/_/g," ")}</div>
     ${(intent.secondaryIntents||[]).length ? `<div class="explain-secondary-tags">${(intent.secondaryIntents||[]).slice(0,6).map(s=>`<span class="explain-tag">${esc(String(s).replace(/_/g," "))}</span>`).join("")}</div>` : ""}
     <div class="explain-emotion-grid">
       ${evecKeys.map(k => {
@@ -953,7 +953,7 @@ function buildUnifiedDebugPanel(result, dbg) {
                 <td>${spread.genreClusters ?? "—"}</td>
                 <td>${spread.eraClusters ?? "—"}</td>
               </tr>`;
-            }).join("") || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No lane data</td></tr>'}
+            }).join("") || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No V3 lane diagnostics returned</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -985,7 +985,7 @@ function buildUnifiedDebugPanel(result, dbg) {
                 <td style="font-size:11px;opacity:0.7">${esc(clusterLabel)}</td>
                 <td><span style="color:${selColor};font-size:11px;font-weight:600">${selLabel}</span></td>
               </tr>`;
-            }).join("") || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No trace — regenerate with ?debug=1</td></tr>'}
+            }).join("") || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No V3 decision trace returned</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -1054,7 +1054,7 @@ function buildUnifiedDebugPanel(result, dbg) {
                 <td>${bar(t.sceneScore)}</td>
                 <td>${bar(t.emotionMatch)}</td>
                 <td>${bar(t.libraryFitScore)}</td>
-              </tr>`).join("") || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No data</td></tr>'}
+              </tr>`).join("") || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No V11 candidate diagnostics returned</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -1247,7 +1247,7 @@ function buildDebugPanel(result) {
   const genresHtml = `
     <div class="dp-card">
       <div class="dp-card-title">🎵 Dominant Genres in Library</div>
-      <div class="dp-genre-chips">${genreBubbles || '<span class="dp-none">No data</span>'}</div>
+      <div class="dp-genre-chips">${genreBubbles || '<span class="dp-none">No library genre diagnostics returned</span>'}</div>
     </div>`;
 
   const bar = (v) => { const pct = Math.round((v || 0) * 100); const col = pct >= 70 ? "#1db954" : pct >= 40 ? "#f59e0b" : "#ef4444"; return `<div class="dp-score-bar-wrap" title="${pct}%"><div class="dp-score-bar" style="width:${pct}%;background:${col}"></div><span>${pct}</span></div>`; };
@@ -1255,7 +1255,7 @@ function buildDebugPanel(result) {
     <tr class="dp-track-row ${i % 2 === 0 ? "dp-row-even" : ""}">
       <td class="dp-track-num">${i + 1}</td>
       <td class="dp-track-id">${esc(t.trackId || "").slice(-8)}</td>
-      <td class="dp-track-genre"><span class="dp-genre-pill" style="background:${(genreColors[t.genrePrimary]||"#4b5563")}20;color:${genreColors[t.genrePrimary]||"#9ca3af"}">${esc(t.genrePrimary||"?")}</span></td>
+      <td class="dp-track-genre"><span class="dp-genre-pill" style="background:${(genreColors[t.genrePrimary]||"#4b5563")}20;color:${genreColors[t.genrePrimary]||"#9ca3af"}">${esc(t.genrePrimary||"(missing)")}</span></td>
       <td>${bar(t.finalScore)}</td><td>${bar(t.sceneScore)}</td><td>${bar(t.emotionMatch)}</td><td>${bar(t.libraryFitScore)}</td>
     </tr>`).join("");
   const topTracksHtml = `
@@ -1264,7 +1264,7 @@ function buildDebugPanel(result) {
       <div class="dp-table-wrap">
         <table class="dp-table">
           <thead><tr><th>#</th><th>Track ID</th><th>Genre</th><th>Final</th><th>Scene</th><th>Emotion</th><th>Library</th></tr></thead>
-          <tbody>${trackRows || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No data</td></tr>'}</tbody>
+          <tbody>${trackRows || '<tr><td colspan="7" style="text-align:center;opacity:0.5">No pre-compose track diagnostics returned</td></tr>'}</tbody>
         </table>
       </div>
       <div class="dp-table-legend">Each bar = 0–100. Final score drives track selection.</div>
@@ -1291,7 +1291,7 @@ function buildDebugPanel(result) {
           }).join("")}
         </div>
         ${sem && lockActive ? `
-          <div class="dp-note dp-note--${genreDist[0] && sem.sceneId && genreDist[0][0] !== "unknown" ? "green" : "amber"}">
+          <div class="dp-note dp-note--${genreDist[0] && sem.sceneId && genreDist[0][0] !== "(missing)" ? "green" : "amber"}">
             Ecosystem target: ≥${Math.round((ecoDebug?.ecosystemFloor || 0.70) * 100)}% from scene genres
           </div>
         ` : ""}
