@@ -5,7 +5,7 @@
  *   - GET  /generate/status — return the current generation phase for the user
  * Dependencies: emotion engine, genre intelligence stack, playlist pipeline, Spotify API, drizzle-orm
  */
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db } from "../db";
 import {
   likedSongsTable,
@@ -252,8 +252,19 @@ function useMockSpotify(): boolean {
   return getFeatures().devMode.useMockSpotify;
 }
 
-function currentGenerateUserId(req: import("express").Request): string | null {
+function currentGenerateUserId(req: Request): string | null {
   return useMockSpotify() ? MOCK_SPOTIFY_USER_ID : req.session.spotifyUserId ?? null;
+}
+
+function requestHeader(req: Request, name: string): string | null {
+  const value = req.headers[name.toLowerCase()];
+  return Array.isArray(value) ? value[0] ?? null : typeof value === "string" ? value : null;
+}
+
+function generationAuditTokenAuthorized(req: Request): boolean {
+  const expected = process.env["PLAYLIST_EVAL_TOKEN"]?.trim();
+  if (!expected) return false;
+  return requestHeader(req, "x-kwalify-evaluation-token") === expected;
 }
 
 /** Cancelled/superseded session — always send a response so the client does not hang. */
@@ -1130,12 +1141,40 @@ router.post("/generate", async (req, res): Promise<void> => {
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   try {
     const devMode = useMockSpotify();
-    if (!devMode && !getFeatures().spotify.enabled) {
+    const rawBody = req.body ?? {};
+    const auditModeRequested = rawBody.auditMode === true || req.query.audit === "1";
+    const auditTokenAuthorized = auditModeRequested && generationAuditTokenAuthorized(req);
+    const auditUserIdRaw =
+      typeof rawBody.spotifyUserId === "string"
+        ? rawBody.spotifyUserId.trim()
+        : typeof rawBody.auditSpotifyUserId === "string"
+          ? rawBody.auditSpotifyUserId.trim()
+          : "";
+
+    if (auditModeRequested && !auditTokenAuthorized) {
+      generateFail(
+        res,
+        403,
+        "AUDIT_MODE_NOT_AUTHORIZED",
+        "Playlist evaluation audit mode requires PLAYLIST_EVAL_TOKEN.",
+      );
+      return;
+    }
+    if (!devMode && !auditTokenAuthorized && !getFeatures().spotify.enabled) {
       generateFail(res, 503, "SPOTIFY_DISABLED", "Spotify is not configured on this server.");
       return;
     }
-    if (!devMode && (!req.session.spotifyTokens || !req.session.spotifyUserId)) {
+    if (!devMode && !auditTokenAuthorized && (!req.session.spotifyTokens || !req.session.spotifyUserId)) {
       generateFail(res, 401, "NOT_AUTHENTICATED", "Not authenticated");
+      return;
+    }
+    if (!devMode && auditTokenAuthorized && !auditUserIdRaw) {
+      generateFail(
+        res,
+        400,
+        "AUDIT_USER_REQUIRED",
+        "Audit mode with PLAYLIST_EVAL_TOKEN requires spotifyUserId in the request body.",
+      );
       return;
     }
 
@@ -1149,9 +1188,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const userId = devMode ? MOCK_SPOTIFY_USER_ID : req.session.spotifyUserId!;
+    const auditMode = auditTokenAuthorized;
+    const userId = devMode ? MOCK_SPOTIFY_USER_ID : auditMode ? auditUserIdRaw : req.session.spotifyUserId!;
 
-    const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    const rateCheck = auditMode ? { allowed: true, resetInMs: 0 } : checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!rateCheck.allowed) {
       const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
       res.setHeader("Retry-After", String(retryAfterSec));
@@ -1165,7 +1205,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const rawBody = req.body ?? {};
     const vibeRaw = rawBody.vibe ?? "";
     const modeRaw = rawBody.mode ?? "balanced";
     const lengthRaw = rawBody.length ?? 25;
@@ -1320,7 +1359,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       canonicalHints: canonicalCrossGenreHints(vibe),
     });
 
-    if (!varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
+    if (!varietyBoost && !devMode && !auditMode && !hasHardConstraints(cacheConstraintLayer)) {
       tStage = Date.now();
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
@@ -1963,7 +2002,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let spotifyPartial = false;
     let spotifyTracksAdded: number | undefined;
 
-    if (!devMode && !staleGenerate(userId, requestId)) {
+    if (!devMode && !auditMode && !staleGenerate(userId, requestId)) {
       try {
         const freshTokens = await getValidAccessToken(
           req.session.spotifyTokens!,
@@ -2014,47 +2053,51 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     setGeneratePhase(userId, requestId, "saving");
     const tSave = Date.now();
-    req.log.info("Saving playlist to database");
+    req.log.info(auditMode ? "Skipping playlist database save in audit mode" : "Saving playlist to database");
 
     const profilePayload = {
       ...emotionProfile,
       journeyArc,
       librarySize: likedSongs.length,
     };
-    const insertResult = await db
-      .insert(savedPlaylistsTable)
-      .values({
-        userId,
-        name: playlistName,
-        emotionProfile: profilePayload as any,
-        tracks: trackObjects as any,
-        spotifyUrl: spotifyPlaylistUrl,
-        vibe,
-        mode,
-      })
-      .returning({ id: savedPlaylistsTable.id });
+    const insertResult = auditMode
+      ? []
+      : await db
+          .insert(savedPlaylistsTable)
+          .values({
+            userId,
+            name: playlistName,
+            emotionProfile: profilePayload as any,
+            tracks: trackObjects as any,
+            spotifyUrl: spotifyPlaylistUrl,
+            vibe,
+            mode,
+          })
+          .returning({ id: savedPlaylistsTable.id });
 
     const savedPlaylistId = insertResult[0]?.id ?? 0;
 
     req.log.info(
       { ms: Date.now() - tSave, userId, playlistId: savedPlaylistId, trackCount: finalTracks.length },
-      "Playlist saved to DB"
+      auditMode ? "Playlist DB save skipped" : "Playlist saved to DB"
     );
 
-    try {
-      await db.insert(playlistHistoryTable).values({
-        spotifyUserId: userId,
-        playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
-        playlistUrl: spotifyPlaylistUrl ?? publicUrl(`/p/${savedPlaylistId}`),
-        name: playlistName,
-        vibe,
-        mode,
-        trackCount: finalTracks.length,
-        emotionProfile: { ...emotionProfile, journeyArc } as any,
-        trackIds: finalTracks.map((t) => t.trackId) as any,
-      });
-    } catch (histErr) {
-      req.log.warn({ err: histErr }, "playlist_history insert failed");
+    if (!auditMode) {
+      try {
+        await db.insert(playlistHistoryTable).values({
+          spotifyUserId: userId,
+          playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
+          playlistUrl: spotifyPlaylistUrl ?? publicUrl(`/p/${savedPlaylistId}`),
+          name: playlistName,
+          vibe,
+          mode,
+          trackCount: finalTracks.length,
+          emotionProfile: { ...emotionProfile, journeyArc } as any,
+          trackIds: finalTracks.map((t) => t.trackId) as any,
+        });
+      } catch (histErr) {
+        req.log.warn({ err: histErr }, "playlist_history insert failed");
+      }
     }
 
     const spotifyFields = spotifyPlaylistUrl
@@ -2091,7 +2134,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       fallbackUsed: !!pipeline.scoringDiagnostics?.fastFallback,
     });
 
-    if (!varietyBoost && !devMode) {
+    if (!varietyBoost && !devMode && !auditMode) {
       const cachedFinalTracks = finalTracks.map((t) => ({
         ...t,
         trackId: t.trackId,

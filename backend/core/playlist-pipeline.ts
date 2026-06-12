@@ -25,17 +25,19 @@ import {
   type FreshnessStats,
 } from "../lib/playlist-freshness";
 import type { GenreAudit } from "../lib/genre-audit";
+import { classifyTrack } from "../lib/genre-taxonomy";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
-import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
+import { buildLockedIntent, completeLockedIntent, eraRangeFromBucket, type LockedIntent } from "./v3/intent";
 import { constraintRejectionReasons, trackMatchesConstraints } from "./v3/constraint-filter";
 import { getGenreFamily } from "./v3/global-diversity-controller";
 import {
   warnIfFieldDropped,
   warnIfV3MetadataLost,
   type V3MetadataTrack,
+  type V3TrackMetadata,
 } from "../lib/v3-track-contract";
 
 export interface BuildPlaylistPipelineOpts<T extends {
@@ -139,17 +141,220 @@ function moodFallbackFromProfile(profile: EmotionProfile): string[] {
   return ["balanced"];
 }
 
-function genreFamilyForTrack<T extends { trackId: string; genrePrimary?: string }>(
+function normalizeGenreSignal(value?: string | null): string | null {
+  if (!value || value === "unknown") return null;
+  const normalized = value.toLowerCase().trim().replace(/&/g, "and").replace(/[\s-]+/g, "_");
+  const family = getGenreFamily(normalized);
+  return family && family !== "unknown" ? family : null;
+}
+
+function genreFamilyForTrack<T extends {
+  trackId: string;
+  trackName?: string;
+  artistName?: string;
+  albumName?: string;
+  genrePrimary?: string | null;
+  genreFamily?: string | null;
+  genres?: string[] | null;
+  spotifyArtistGenres?: string[] | null;
+  albumGenres?: string[] | null;
+  clusterId?: string | null;
+  clusterIds?: string[] | null;
+  energy?: number | null;
+  valence?: number | null;
+  acousticness?: number | null;
+  danceability?: number | null;
+  instrumentalness?: number | null;
+  speechiness?: number | null;
+  tempo?: number | null;
+}>(
   track: T,
   classMap: UserGenreProfile["trackClassifications"],
 ): string | null {
   const classification = classMap.get(track.trackId);
-  const family = classification?.genreFamily ?? classification?.genrePrimary ?? track.genrePrimary;
-  const normalized = family ? getGenreFamily(family) : null;
-  return normalized && normalized !== "unknown" ? normalized : null;
+  const directSignals = [
+    classification?.genreFamily,
+    classification?.genrePrimary,
+    track.genreFamily,
+    track.genrePrimary,
+    ...(track.spotifyArtistGenres ?? []),
+    ...(track.albumGenres ?? []),
+    ...(track.genres ?? []),
+    track.clusterId?.replace(/^genre:/, ""),
+    ...(track.clusterIds ?? []).map((id) => id.replace(/^genre:/, "")),
+  ];
+  for (const signal of directSignals) {
+    const family = normalizeGenreSignal(signal);
+    if (family) return family;
+  }
+  if (track.trackName && track.artistName && track.albumName) {
+    const inferred = classifyTrack({
+      trackName: track.trackName,
+      artistName: track.artistName,
+      albumName: track.albumName,
+      energy: track.energy,
+      valence: track.valence,
+      acousticness: track.acousticness,
+      danceability: track.danceability,
+      instrumentalness: track.instrumentalness,
+      speechiness: track.speechiness,
+      tempo: track.tempo,
+    });
+    return normalizeGenreSignal(inferred.genreFamily ?? inferred.genrePrimary);
+  }
+  return null;
 }
 
-function topGenreFamiliesFromPool<T extends { trackId: string; genrePrimary?: string }>(
+function trackEraRange<T extends {
+  releaseYear?: number | null;
+  laneEra?: string | null;
+  energy: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+}>(track: T): { start: number; end: number } | null {
+  if (track.releaseYear !== null && track.releaseYear !== undefined) {
+    return { start: track.releaseYear, end: track.releaseYear };
+  }
+  const laneEra = eraRangeFromBucket(track.laneEra);
+  if (laneEra) return laneEra;
+  return eraRangeFromBucket(estimateEraFromAudio(track));
+}
+
+function hardFinalRejectionReasons<T extends {
+  trackId: string;
+  genrePrimary?: string | null;
+  releaseYear?: number | null;
+  laneEra?: string | null;
+  energy: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+}>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+  lockedIntent: LockedIntent,
+  suppressGenres: string[],
+): string[] {
+  const reasons: string[] = [];
+  const family = genreFamilyForTrack(track, classMap);
+  if (family && suppressGenres.map((g) => getGenreFamily(g)).includes(family)) {
+    reasons.push("excludedGenre");
+  }
+  if (lockedIntent.eraRange) {
+    const range = trackEraRange(track);
+    if (!range) {
+      reasons.push("unknownStrictEra");
+    } else if (range.end < lockedIntent.eraRange.start || range.start > lockedIntent.eraRange.end) {
+      reasons.push("strictEraMismatch");
+    }
+  }
+  return reasons;
+}
+
+function hardValidFinalPool<T extends {
+  trackId: string;
+  genrePrimary?: string | null;
+  releaseYear?: number | null;
+  laneEra?: string | null;
+  energy: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+}>(
+  tracks: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+  lockedIntent: LockedIntent,
+  suppressGenres: string[],
+): { tracks: T[]; rejected: Record<string, number> } {
+  const rejected: Record<string, number> = {};
+  const hardValid = tracks.filter((track) => {
+    const reasons = hardFinalRejectionReasons(track, classMap, lockedIntent, suppressGenres);
+    if (reasons.length > 0) incrementReasons(rejected, reasons);
+    return reasons.length === 0;
+  });
+  return { tracks: hardValid, rejected };
+}
+
+function fillFromHardValidPool<T extends { trackId: string }>(
+  selected: T[],
+  pool: T[],
+  targetCount: number,
+): { tracks: T[]; addedCount: number } {
+  if (selected.length >= targetCount) {
+    return { tracks: selected.slice(0, targetCount), addedCount: 0 };
+  }
+  const used = new Set(selected.map((track) => track.trackId));
+  const filled = [...selected];
+  for (const candidate of pool) {
+    if (filled.length >= targetCount) break;
+    if (used.has(candidate.trackId)) continue;
+    filled.push(candidate);
+    used.add(candidate.trackId);
+  }
+  return { tracks: filled, addedCount: filled.length - selected.length };
+}
+
+function mergeUniqueByTrackId<T extends { trackId: string }>(primary: T[], secondary: T[]): T[] {
+  const used = new Set<string>();
+  const out: T[] = [];
+  for (const track of [...primary, ...secondary]) {
+    if (used.has(track.trackId)) continue;
+    used.add(track.trackId);
+    out.push(track);
+  }
+  return out;
+}
+
+function minimumViablePlaylistSize(requestedLength: number): number {
+  return Math.min(10, requestedLength);
+}
+
+const SOFT_CONSTRAINT_DEGRADATION_ORDER = [
+  "artist_cap",
+  "album_cap",
+  "cluster_purity",
+  "mood_audio_strictness",
+] as const;
+
+function withSoftFallbackMetadata<T extends {
+  trackId: string;
+  genrePrimary?: string | null;
+  releaseYear?: number | null;
+  energy: number | null;
+  acousticness: number | null;
+  tempo: number | null;
+}>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+): V3MetadataTrack<T> {
+  const classification = classMap.get(track.trackId);
+  const genrePrimary = classification?.genrePrimary ??
+    classification?.genreFamily ??
+    track.genrePrimary ??
+    "unknown";
+  const genreFamily = genreFamilyForTrack(track, classMap) ?? getGenreFamily(genrePrimary) ?? "unknown";
+  const laneEra = track.releaseYear ? detectEraFromYear(track.releaseYear) : estimateEraFromAudio(track);
+  const trackWithScores = track as unknown as { laneScore?: unknown; score?: unknown };
+  const laneScore = typeof trackWithScores.laneScore === "number"
+    ? trackWithScores.laneScore
+    : typeof trackWithScores.score === "number"
+      ? trackWithScores.score
+      : 0;
+
+  return {
+    ...track,
+    genrePrimary,
+    sourceLane: (track as V3TrackMetadata).sourceLane ?? "soft_fallback",
+    laneId: (track as V3TrackMetadata).laneId ?? (track as V3TrackMetadata).sourceLane ?? "soft_fallback",
+    laneScore,
+    laneEra,
+    clusterId: (track as V3TrackMetadata).clusterId ?? `genre:${genreFamily}`,
+    clusterIds: (track as V3TrackMetadata).clusterIds?.length
+      ? (track as V3TrackMetadata).clusterIds
+      : [`genre:${genreFamily}`],
+    selectedByV3: (track as V3TrackMetadata).selectedByV3 ?? false,
+  };
+}
+
+function topGenreFamiliesFromPool<T extends { trackId: string; genrePrimary?: string | null }>(
   tracks: T[],
   classMap: UserGenreProfile["trackClassifications"],
 ): string[] {
@@ -177,7 +382,7 @@ function hasLaneReadyEra(track: {
 
 function isV3LaneReady<T extends {
   trackId: string;
-  genrePrimary?: string;
+  genrePrimary?: string | null;
   energy: number | null;
   acousticness: number | null;
   tempo: number | null;
@@ -193,7 +398,7 @@ function isV3LaneReady<T extends {
 
 function v3LaneReadinessRejectionReasons<T extends {
   trackId: string;
-  genrePrimary?: string;
+  genrePrimary?: string | null;
   energy: number | null;
   acousticness: number | null;
   tempo: number | null;
@@ -211,7 +416,7 @@ function v3LaneReadinessRejectionReasons<T extends {
 
 function trackMatchesLockedIntent<T extends {
   trackId: string;
-  genrePrimary?: string;
+  genrePrimary?: string | null;
   energy: number | null;
   valence: number | null;
   danceability: number | null;
@@ -234,7 +439,7 @@ function trackMatchesLockedIntent<T extends {
 
 function lockedIntentRejectionReasons<T extends {
   trackId: string;
-  genrePrimary?: string;
+  genrePrimary?: string | null;
   energy: number | null;
   valence: number | null;
   danceability: number | null;
@@ -261,7 +466,7 @@ function incrementReasons(target: Record<string, number>, reasons: string[]): vo
   }
 }
 
-function familyCount<T extends { trackId: string; genrePrimary?: string }>(
+function familyCount<T extends { trackId: string; genrePrimary?: string | null }>(
   tracks: T[],
   classMap: UserGenreProfile["trackClassifications"],
 ): number {
@@ -272,7 +477,7 @@ function familyCount<T extends { trackId: string; genrePrimary?: string }>(
   ).size;
 }
 
-function familyDistribution<T extends { trackId: string; genrePrimary?: string }>(
+function familyDistribution<T extends { trackId: string; genrePrimary?: string | null }>(
   tracks: T[],
   classMap: UserGenreProfile["trackClassifications"],
 ): Record<string, number> {
@@ -323,7 +528,7 @@ function adjacentGenreFamilies(family: string | null): string[] {
 
 function uncollapseV11CandidatePool<T extends {
   trackId: string;
-  genrePrimary?: string;
+  genrePrimary?: string | null;
 }>(
   initialPool: T[],
   expandedPool: T[],
@@ -623,15 +828,34 @@ export function buildPlaylistPipeline<T extends {
   // V3 final tracks are authoritative; do not rehydrate from scored tracks here,
   // or V3 metadata such as sourceLane/laneScore/clusterIds can be dropped.
   const finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
+  const fallbackPool = v3CandidatePool.tracks as unknown as ScoredLibraryTrack<T>[];
+  const hardFallbackPool = hardValidFinalPool(
+    fallbackPool,
+    classMap,
+    v3LockedIntent,
+    opts.genrePost.suppressGenres,
+  );
+  const expandedHardFallbackPool = hardValidFinalPool(
+    scoring.sorted,
+    classMap,
+    v3LockedIntent,
+    opts.genrePost.suppressGenres,
+  );
+  const softFallbackPool = mergeUniqueByTrackId(
+    hardFallbackPool.tracks,
+    expandedHardFallbackPool.tracks,
+  ).map((track) =>
+    withSoftFallbackMetadata(track, classMap)
+  );
+  const minPlaylistSize = minimumViablePlaylistSize(opts.playlistLength);
 
   // Last-resort fallback: V3 produced nothing (no audio features / empty lib)
   if (finalTracksList.length === 0) {
-    const fallbackPool = v3CandidatePool.tracks as unknown as ScoredLibraryTrack<T>[];
     const recentTrackPenalty = opts.recentPlaylistTrackIds?.length
       ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 5, opts.varietyPenaltyScale ?? 1)
       : undefined;
     const composed = composePlaylistFromPool({
-      sortedPool: fallbackPool,
+      sortedPool: hardFallbackPool.tracks,
       playlistLength: opts.playlistLength,
       mode: opts.mode,
       maxPerArtist: opts.maxPerArtist,
@@ -647,7 +871,7 @@ export function buildPlaylistPipeline<T extends {
     });
     const enforcedFallback = enforceFinalPlaylistGenres({
       finalTracks: composed.finalTracks,
-      sortedPool: fallbackPool,
+      sortedPool: hardFallbackPool.tracks,
       userGenreProfile: opts.userGenreProfile,
       genreStack: opts.genreStack,
       allowHoliday: opts.genrePost.allowHoliday,
@@ -657,8 +881,20 @@ export function buildPlaylistPipeline<T extends {
       sceneInfluenceRatio: scoring.sceneInfluenceRatio,
       stabilityDiagnostics: scoring.stabilityDiagnostics,
     });
+    const preRepairTracks = composed.finalTracks.map((track) =>
+      withSoftFallbackMetadata(track, classMap)
+    );
+    const repairTracks = enforcedFallback.tracks.map((track) =>
+      withSoftFallbackMetadata(track, classMap)
+    );
+    const repairPreservedTracks = repairTracks.length > 0 ? repairTracks : preRepairTracks;
+    const softFilled = fillFromHardValidPool(
+      repairPreservedTracks,
+      softFallbackPool,
+      opts.playlistLength,
+    );
     return {
-      finalTracks: enforcedFallback.tracks,
+      finalTracks: softFilled.tracks,
       sorted: scoring.sorted,
       scoringDiagnostics: {
         ...scoring.scoringDiagnostics,
@@ -666,18 +902,47 @@ export function buildPlaylistPipeline<T extends {
           fallback: true,
           reason: v3EmptyReason(v3CandidatePool.diagnostics),
           preV3Recovery: v3CandidatePool.diagnostics,
+          finalValidation: {
+            mode: "hard_only",
+            hardConstraints: {
+              strictEra: !!v3LockedIntent.eraRange,
+              suppressGenres: opts.genrePost.suppressGenres,
+            },
+            hardRejected: hardFallbackPool.rejected,
+            expandedHardRejected: expandedHardFallbackPool.rejected,
+            hardValidFallbackCount: hardFallbackPool.tracks.length,
+            expandedHardValidFallbackCount: expandedHardFallbackPool.tracks.length,
+            minPlaylistSize,
+            repair: {
+              inputCount: preRepairTracks.length,
+              outputCount: repairTracks.length,
+              preservedPreRepair: repairTracks.length === 0 && preRepairTracks.length > 0,
+            },
+            softFallback: {
+              trigger: `playlist_size_below_${minPlaylistSize}`,
+              applied: softFilled.addedCount > 0 ||
+                repairPreservedTracks.length < minPlaylistSize ||
+                (repairTracks.length === 0 && preRepairTracks.length > 0),
+              addedCount: softFilled.addedCount,
+              sourceCount: softFallbackPool.length,
+              sourceOrder: ["preRepairViablePool", "expandedScoredPool"],
+              degradationOrder: SOFT_CONSTRAINT_DEGRADATION_ORDER,
+              confidenceBlocksReturn: false,
+            },
+            finalCount: softFilled.tracks.length,
+          },
         },
       },
       hybridExcludedCount: scoring.hybridExcludedCount,
       genreAudit: enforcedFallback.genreAudit,
       ecosystemDebug: null,
       composeMeta: {
-        structured: enforcedFallback.tracks,
+        structured: softFilled.tracks,
         poolTarget: opts.playlistLength,
-        afterDeadZone: enforcedFallback.tracks,
-        afterSmoothing: enforcedFallback.tracks,
-        afterArtistSep: enforcedFallback.tracks,
-        afterArc: enforcedFallback.tracks,
+        afterDeadZone: softFilled.tracks,
+        afterSmoothing: softFilled.tracks,
+        afterArtistSep: softFilled.tracks,
+        afterArc: softFilled.tracks,
         emotionalPeakTrackId: composed.emotionalPeakTrackId,
         emotionalPeakIndex: composed.emotionalPeakIndex,
         gradientPhases: composed.gradientPhases,
@@ -700,37 +965,81 @@ export function buildPlaylistPipeline<T extends {
     sceneInfluenceRatio: 0,
     stabilityDiagnostics: scoring.stabilityDiagnostics,
   });
+  const hardSelected = hardValidFinalPool(
+    finalTracksList,
+    classMap,
+    v3LockedIntent,
+    opts.genrePost.suppressGenres,
+  );
+  const hardOnlyFilled = fillFromHardValidPool(
+    hardSelected.tracks,
+    softFallbackPool,
+    opts.playlistLength,
+  );
+  const finalTracksForReturn = hardOnlyFilled.tracks as V3MetadataTrack<T>[];
   logScoringStage(opts.pipelineLog, "V3 genre audit complete", t, {
-    tracks: finalTracksList.length,
+    tracks: finalTracksForReturn.length,
   });
   warnIfV3MetadataLost(
     v3.finalTracks,
-    finalTracksList,
+    finalTracksForReturn,
     "v3-output-to-create-playlist"
   );
-  warnIfFieldDropped("laneScore", v3.finalTracks, finalTracksList, "v3-output-to-create-playlist");
-  warnIfFieldDropped("clusterIds", v3.finalTracks, finalTracksList, "v3-output-to-create-playlist");
+  warnIfFieldDropped("laneScore", v3.finalTracks, finalTracksForReturn, "v3-output-to-create-playlist");
+  warnIfFieldDropped("clusterIds", v3.finalTracks, finalTracksForReturn, "v3-output-to-create-playlist");
 
   return {
-    finalTracks: finalTracksList,
+    finalTracks: finalTracksForReturn,
     sorted: scoring.sorted,
     scoringDiagnostics: {
       ...scoring.scoringDiagnostics,
       v3Pipeline: {
         ...v3.diagnostics,
         preV3Recovery: v3CandidatePool.diagnostics,
+        finalValidation: {
+          mode: "hard_only",
+          hardConstraints: {
+            strictEra: !!v3LockedIntent.eraRange,
+            suppressGenres: opts.genrePost.suppressGenres,
+          },
+          hardRejected: {
+            selected: hardSelected.rejected,
+            fallbackPool: hardFallbackPool.rejected,
+            expandedFallbackPool: expandedHardFallbackPool.rejected,
+          },
+          selectedBeforeHardValidation: finalTracksList.length,
+          selectedAfterHardValidation: hardSelected.tracks.length,
+          hardValidFallbackCount: hardFallbackPool.tracks.length,
+          expandedHardValidFallbackCount: expandedHardFallbackPool.tracks.length,
+          minPlaylistSize,
+          repair: {
+            inputCount: finalTracksList.length,
+            outputCount: finalTracksList.length,
+            preservedPreRepair: false,
+          },
+          softFallback: {
+            trigger: `playlist_size_below_${minPlaylistSize}`,
+            applied: hardOnlyFilled.addedCount > 0 || hardSelected.tracks.length < minPlaylistSize,
+            addedCount: hardOnlyFilled.addedCount,
+            sourceCount: softFallbackPool.length,
+            sourceOrder: ["preRepairViablePool", "expandedScoredPool"],
+            degradationOrder: SOFT_CONSTRAINT_DEGRADATION_ORDER,
+            confidenceBlocksReturn: false,
+          },
+          finalCount: finalTracksForReturn.length,
+        },
       },
     },
     hybridExcludedCount: scoring.hybridExcludedCount,
     genreAudit: enforced.genreAudit,
     ecosystemDebug: null,
     composeMeta: {
-      structured: finalTracksList,
+      structured: finalTracksForReturn,
       poolTarget: opts.playlistLength,
-      afterDeadZone: finalTracksList,
-      afterSmoothing: finalTracksList,
-      afterArtistSep: finalTracksList,
-      afterArc: finalTracksList,
+      afterDeadZone: finalTracksForReturn,
+      afterSmoothing: finalTracksForReturn,
+      afterArtistSep: finalTracksForReturn,
+      afterArc: finalTracksForReturn,
       emotionalPeakTrackId: null,
       emotionalPeakIndex: null,
       gradientPhases: { start: 0.10, explore: 0.35, peak: 0.65, resolve: 0.85 },

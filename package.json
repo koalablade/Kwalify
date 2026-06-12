@@ -6,9 +6,10 @@
     "node": "20.x"
   },
   "scripts": {
-    "build": "./node_modules/.bin/tsc",
+    "build": "node node_modules/typescript/bin/tsc",
     "start": "node backend/dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "evaluation:playlists": "npm run build && node backend/dist/scripts/playlist-evaluation-harness.js"
   },
   "dependencies": {
     "@types/connect-pg-simple": "^7.0.3",

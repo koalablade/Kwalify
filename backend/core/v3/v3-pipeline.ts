@@ -31,6 +31,7 @@ import {
 } from "./global-diversity-controller";
 import { interleaveLanes } from "./interleaver";
 import type { TrackGenreClassification } from "../../lib/genre-taxonomy";
+import { classifyTrack } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
 import { buildLockedIntent, completeLockedIntent, normalizeLockedGenreFamily, type LockedIntent } from "./intent";
@@ -91,15 +92,43 @@ function laneReadinessRejectionReasons<T extends V3PipelineTrack>(
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
   },
 ): string[] {
-  const classification = opts.classificationByTrack?.(decision.track.trackId);
-  const genreFamily = normalizeLockedGenreFamily(
-    classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary
-  );
+  const genreFamily = resolvedDecisionGenreFamily(decision, opts);
   const reasons: string[] = [];
   if (!genreFamily) reasons.push("missingGenreFamily");
   if (decision.laneEra === "any") reasons.push("unknownEra");
   if (decision.track.energy === null) reasons.push("missingEnergy");
   return reasons;
+}
+
+function resolvedDecisionGenreFamily<T extends V3PipelineTrack>(
+  decision: TrackDecision<T>,
+  opts: {
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+): string | null {
+  const classification = opts.classificationByTrack?.(decision.track.trackId);
+  const direct = normalizeLockedGenreFamily(
+    classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary
+  );
+  if (direct) return direct;
+  const track = decision.track as T & {
+    trackName?: string;
+    albumName?: string;
+  };
+  if (!track.trackName || !track.artistName || !track.albumName) return null;
+  const inferred = classifyTrack({
+    trackName: track.trackName,
+    artistName: track.artistName,
+    albumName: track.albumName,
+    energy: track.energy,
+    valence: track.valence,
+    acousticness: track.acousticness,
+    danceability: track.danceability,
+    instrumentalness: track.instrumentalness,
+    speechiness: track.speechiness,
+    tempo: track.tempo,
+  });
+  return normalizeLockedGenreFamily(inferred.genreFamily ?? inferred.genrePrimary);
 }
 
 function lockedIntentRejectionReasons<T extends V3PipelineTrack>(
@@ -110,9 +139,10 @@ function lockedIntentRejectionReasons<T extends V3PipelineTrack>(
   },
 ): string[] {
   const classification = opts.classificationByTrack?.(decision.track.trackId);
+  const resolvedFamily = resolvedDecisionGenreFamily(decision, opts);
   return constraintRejectionReasons({
     ...decision.track,
-    genreFamily: classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary,
+    genreFamily: resolvedFamily ?? classification?.genreFamily ?? classification?.genrePrimary ?? decision.genrePrimary,
     genrePrimary: decision.genrePrimary,
     laneEra: decision.laneEra,
   }, lockedIntent);
