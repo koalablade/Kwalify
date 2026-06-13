@@ -23,12 +23,14 @@ function profileCacheKey(userId: string): string {
 export function getUserGenreProfileForGenerate(
   userId: string,
   tracks: Parameters<typeof buildUserGenreProfile>[0],
-  vibe?: string
+  vibe?: string,
+  opts: { bypassCache?: boolean } = {},
 ): { profile: UserGenreProfile; cacheHit: boolean } {
   const key = profileCacheKey(userId);
   const entry = cache.get(key);
   const now = Date.now();
   if (
+    !opts.bypassCache &&
     entry &&
     entry.trackCount === tracks.length &&
     now - entry.builtAt < TTL_MS
@@ -43,8 +45,10 @@ export function getUserGenreProfileForGenerate(
     trackCount: tracks.length,
     cacheHit: false,
   });
-  cache.set(key, { profile, trackCount: tracks.length, builtAt: now });
-  evictOldestEntries(cache, 300, 40);
+  if (!opts.bypassCache) {
+    cache.set(key, { profile, trackCount: tracks.length, builtAt: now });
+    evictOldestEntries(cache, 300, 40);
+  }
   return { profile, cacheHit: false };
 }
 

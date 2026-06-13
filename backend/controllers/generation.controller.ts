@@ -582,9 +582,7 @@ function extractEraRange(vibe: string): { start: number | null; end: number | nu
   if (decadeMatch?.[1]) {
     const term = decadeMatch[1].replace("'", "");
     terms.push(term);
-    const start = term.length === 4
-      ? Number(term.slice(0, 3) + "0")
-      : term === "00s" ? 2000 : term === "10s" ? 2010 : term === "20s" ? 2020 : Number(`19${term.slice(0, 2)}`);
+    const start = fullDecadeStart(term);
     return { start, end: start + 9, terms };
   }
 
@@ -604,6 +602,17 @@ function extractEraRange(vibe: string): { start: number | null; end: number | nu
   }
 
   return { start: null, end: null, terms };
+}
+
+function fullDecadeStart(term: string): number {
+  const normalized = term.toLowerCase().replace("'", "");
+  if (/^(1960|1970|1980|1990|2000|2010|2020)s$/.test(normalized)) {
+    return Number(normalized.slice(0, 4));
+  }
+  if (normalized === "00s") return 2000;
+  if (normalized === "10s") return 2010;
+  if (normalized === "20s") return 2020;
+  return Number(`19${normalized.slice(0, 2)}`);
 }
 
 function isAmericanaBridgePrompt(lower: string): boolean {
@@ -684,11 +693,11 @@ function trackYearEstimate(track: ConstraintTrack): number | null {
 function trackEraMatches(track: ConstraintTrack, constraints: ConstraintLayer): boolean {
   if (constraints.hard.eraStart === null || constraints.hard.eraEnd === null) return true;
   if (track.releaseYear) {
-    return track.releaseYear >= constraints.hard.eraStart - 15 && track.releaseYear <= constraints.hard.eraEnd + 15;
+    return track.releaseYear >= constraints.hard.eraStart && track.releaseYear <= constraints.hard.eraEnd;
   }
   const laneEra = eraBucketRange(track.laneEra);
   if (!laneEra) return !constraints.hard.strictLock;
-  return laneEra.end >= constraints.hard.eraStart - 15 && laneEra.start <= constraints.hard.eraEnd + 15;
+  return laneEra.end >= constraints.hard.eraStart && laneEra.start <= constraints.hard.eraEnd;
 }
 
 function trackGenreTerms(track: ConstraintTrack, classMap: Map<string, {
@@ -2586,6 +2595,7 @@ const NO_LIBRARY_GENRE_SEARCH_TERMS: Record<string, string[]> = {
 
 function noLibrarySearchQueries(vibe: string, families: string[]): string[] {
   const cleanedVibe = vibe.trim();
+  const eraTerms = extractEraRange(vibe).terms;
   const queries = new Set<string>();
   if (cleanedVibe) queries.add(cleanedVibe);
   for (const family of families) {
@@ -2593,6 +2603,9 @@ function noLibrarySearchQueries(vibe: string, families: string[]): string[] {
       queries.add(term);
       if (cleanedVibe && !cleanedVibe.toLowerCase().includes(term.toLowerCase())) {
         queries.add(`${cleanedVibe} ${term}`);
+      }
+      for (const era of eraTerms) {
+        queries.add(`${era} ${term}`);
       }
     }
   }
@@ -2975,6 +2988,24 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId, noLibraryMode } = parsed.data;
     const moodSceneId = sceneId?.trim() || null;
+    const noLibraryExplicitFamilies = noLibraryMode ? buildCsspLockedIntent(vibe).genreFamilies : [];
+    if (noLibraryMode && noLibraryExplicitFamilies.length === 0) {
+      generateFail(
+        res,
+        400,
+        "NO_LIBRARY_REQUIRES_GENRE",
+        "No Library Mode needs a clear genre prompt so Spotify-wide search can stay on target. Try adding a genre like pop punk, country, UK garage, house, or indie rock.",
+        {
+          hint: "Use normal mode for mood-only prompts, or keep No Library Mode on and add a genre.",
+          noLibrarySpotify: {
+            searched: false,
+            fallbackUsed: false,
+            fallbackReason: "missing_explicit_genre",
+          },
+        }
+      );
+      return;
+    }
 
     const acquired = acquireGenerateSession(generateSessionUserId);
     if (!acquired) {
@@ -3216,12 +3247,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       req.log.warn({ droppedTracks, userId }, "Dropped invalid liked-song rows");
     }
 
-    const noLibraryExplicitFamilies = noLibraryMode ? buildCsspLockedIntent(vibe).genreFamilies : [];
     let noLibrarySpotifyCandidateCount = 0;
     let noLibrarySpotifyVerifiedCount = 0;
     let noLibrarySpotifyFallbackReason: string | null = null;
     if (!devMode && noLibraryMode && noLibraryExplicitFamilies.length > 0) {
       try {
+        setGenerateStageDetail(generateSessionUserId, requestId, "Searching Spotify-wide candidates...");
         const freshTokens = await getValidAccessToken(req.session.spotifyTokens!, userId);
         if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
           req.session.spotifyTokens = freshTokens;
@@ -3279,19 +3310,61 @@ router.post("/generate", async (req, res): Promise<void> => {
               verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
               requiredVerifiedCandidates,
             },
-            "No Library Mode Spotify search returned too few candidates; falling back to synced library"
+            "No Library Mode Spotify search returned too few candidates"
           );
+          setGeneratePhase(generateSessionUserId, requestId, "error");
+          generateFail(
+            res,
+            409,
+            "NO_LIBRARY_SPOTIFY_POOL_TOO_SMALL",
+            "No Library Mode could not find enough Spotify-wide tracks for this prompt. Try a broader genre phrase or turn off No Library Mode.",
+            {
+              noLibrarySpotify: {
+                searched: true,
+                fallbackUsed: false,
+                fallbackReason: noLibrarySpotifyFallbackReason,
+                candidateCount: noLibrarySpotifyCandidateCount,
+                verifiedCount: noLibrarySpotifyVerifiedCount,
+                expectedFamilies: noLibraryExplicitFamilies,
+              },
+            }
+          );
+          return;
         }
       } catch (searchErr: any) {
         noLibrarySpotifyFallbackReason = "spotify_search_failed";
         req.log.warn(
           { err: searchErr?.message, vibe, families: noLibraryExplicitFamilies },
-          "No Library Mode Spotify search failed; falling back to synced library"
+          "No Library Mode Spotify search failed"
         );
+        setGeneratePhase(generateSessionUserId, requestId, "error");
+        generateFail(
+          res,
+          503,
+          "NO_LIBRARY_SPOTIFY_SEARCH_FAILED",
+          "Spotify-wide search failed before No Library Mode could build a playlist. Please regenerate in a moment or turn off No Library Mode.",
+          {
+            noLibrarySpotify: {
+              searched: true,
+              fallbackUsed: false,
+              fallbackReason: noLibrarySpotifyFallbackReason,
+              candidateCount: noLibrarySpotifyCandidateCount,
+              verifiedCount: noLibrarySpotifyVerifiedCount,
+              expectedFamilies: noLibraryExplicitFamilies,
+            },
+          }
+        );
+        return;
       }
     }
 
-    setGenerateStageDetail(generateSessionUserId, requestId, `Analysing ${likedSongs.length.toLocaleString()} liked songs`);
+    setGenerateStageDetail(
+      generateSessionUserId,
+      requestId,
+      noLibraryMode
+        ? `Analysing ${likedSongs.length.toLocaleString()} Spotify-wide candidates`
+        : `Analysing ${likedSongs.length.toLocaleString()} liked songs`
+    );
 
     if (likedSongs.length === 0) {
       setGeneratePhase(generateSessionUserId, requestId, "error");
@@ -3579,7 +3652,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       : getUserGenreProfileForGenerate(
           userId,
           likedSongs,
-          vibe
+          vibe,
+          { bypassCache: !!noLibraryMode }
         );
     recordPreV3Timing(preV3Timing, "genreProfileTimeMs", Date.now() - t0);
     req.log.info(

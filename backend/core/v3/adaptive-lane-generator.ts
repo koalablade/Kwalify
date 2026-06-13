@@ -57,6 +57,23 @@ const ERA_PATTERNS: Array<{ pattern: RegExp; year: number }> = [
   { pattern: /\b(20s|2020s)\b/i,           year: 2029 },
 ];
 
+const ERA_ANCHOR_YEAR: Record<string, number> = {
+  "60s": 1969,
+  "1960s": 1969,
+  "70s": 1979,
+  "1970s": 1979,
+  "80s": 1989,
+  "1980s": 1989,
+  "90s": 1999,
+  "1990s": 1999,
+  "00s": 2009,
+  "2000s": 2009,
+  "10s": 2019,
+  "2010s": 2019,
+  "20s": 2029,
+  "2020s": 2029,
+};
+
 const INFLUENCE_GENRES: Record<string, string[]> = {
   rural:         ["country", "folk", "blues", "rock"],
   freedom:       ["country", "folk", "rock", "indie"],
@@ -163,9 +180,7 @@ function buildCoreLane(
     ...(intent.contextAnchors.era !== "any"
       ? {
           eraBonus: {
-            preferBefore: (ERA_PATTERNS.find((e) =>
-              intent.contextAnchors.era.startsWith(e.year.toString().slice(0, 2))
-            )?.year ?? 2029) + 5,
+            preferBefore: (ERA_ANCHOR_YEAR[intent.contextAnchors.era] ?? 2029) + 5,
             bonus: 0.08,
           },
         }

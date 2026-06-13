@@ -49,16 +49,6 @@ const ERA_TAG_RANGES: Array<{ pattern: RegExp; range: EraRange }> = [
   { pattern: /\b(?:2010'?s|10'?s|twenty\s+tens|tumblr|edm|trap|drill|bedroom\s+pop)\b/i, range: { start: 2010, end: 2019 } },
 ];
 
-const LOCAL_ERA_TEXT_RANGES: Array<{ pattern: RegExp; range: EraRange }> = [
-  { pattern: /\b(?:60'?s|1960'?s|sixties)\b/i, range: { start: 1960, end: 1969 } },
-  { pattern: /\b(?:70'?s|1970'?s|seventies)\b/i, range: { start: 1970, end: 1979 } },
-  { pattern: /\b(?:80'?s|1980'?s|eighties)\b/i, range: { start: 1980, end: 1989 } },
-  { pattern: /\b(?:90'?s|1990'?s|nineties)\b/i, range: { start: 1990, end: 1999 } },
-  { pattern: /\b(?:00'?s|2000'?s|noughties|aughts|y2k)\b/i, range: { start: 2000, end: 2009 } },
-  { pattern: /\b(?:2010'?s|10'?s|twenty\s+tens)\b/i, range: { start: 2010, end: 2019 } },
-  { pattern: /\b(?:2020'?s|20'?s|twenty\s+twenties)\b/i, range: { start: 2020, end: 2029 } },
-];
-
 function validYear(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isInteger(value)) return null;
   if (value < MIN_REASONABLE_YEAR || value > MAX_REASONABLE_YEAR) return null;
@@ -74,17 +64,9 @@ function rangesOverlap(a: EraRange, b: EraRange): boolean {
 }
 
 function localTextYear(track: EraEvidenceTrack): number | null {
-  const text = `${track.trackName ?? ""} ${track.albumName ?? ""}`;
-  const matches = text.match(/\b(19[5-9]\d|20[0-2]\d)\b/g) ?? [];
-  for (const match of matches) {
-    const index = text.indexOf(match);
-    const context = text.slice(Math.max(0, index - 18), index + match.length + 18);
-    if (/\b(?:remaster(?:ed)?|re-?master(?:ed)?|reissue|deluxe|anniversary)\b/i.test(context)) {
-      continue;
-    }
-    const year = validYear(Number(match));
-    if (year) return year;
-  }
+  void track;
+  // Numbers in titles/albums are often names, editions, remasters, labels, or artist
+  // branding. Treat releaseYear as the only numeric source of truth.
   return null;
 }
 
@@ -104,9 +86,10 @@ function metadataEraRange(track: EraEvidenceTrack): EraRange | null {
 }
 
 function localEraTextRange(track: EraEvidenceTrack): EraRange | null {
-  const text = track.albumName ?? "";
-  if (!text.trim()) return null;
-  return LOCAL_ERA_TEXT_RANGES.find((entry) => entry.pattern.test(text))?.range ?? null;
+  void track;
+  // Album/title text such as "90s mix", "2000", or anniversary editions is not
+  // reliable release-date evidence. Keep era matching tied to Spotify releaseYear.
+  return null;
 }
 
 function artistEraRange(track: EraEvidenceTrack): EraRange | null {

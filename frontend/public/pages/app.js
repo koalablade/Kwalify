@@ -522,7 +522,7 @@ function renderApp() {
         <strong>Couldn’t finish that exact set.</strong>
         <span>${esc(state.error)}</span>
         ${diagHtml}
-        ${suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>Try a broader phrase or Balanced mode — the DJ will keep the playlist inside your library.</small>`}
+        ${suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>${state.noLibraryMode ? "Try adding a clearer genre, or turn off No Library Mode for mood-only prompts." : "Try a broader phrase or Balanced mode — the DJ will keep the playlist inside your library."}</small>`}
       </div>`;
   })() : "";
 
@@ -632,11 +632,11 @@ function renderApp() {
         <div class="mode-helper">${esc(modeCopy)}</div>
 
         <div class="no-library-row">
-          <label class="no-library-toggle" title="Use Spotify-wide search for clear genre prompts, with your library only as fallback">
+          <label class="no-library-toggle" title="Use Spotify-wide search for clear genre prompts">
             <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle" role="switch" tabindex="0" aria-checked="${state.noLibraryMode}" aria-label="No Library Mode"></div>
             <div class="no-library-text">
               <span class="no-library-label">No Library Mode</span>
-              <span class="no-library-sub">Spotify-wide search for clear genre prompts · may use your library as fallback</span>
+              <span class="no-library-sub">Spotify-wide search for clear genre prompts · does not use your liked songs</span>
             </div>
           </label>
         </div>
@@ -773,7 +773,6 @@ function generationProgressInfo() {
   const phase = state.generationProgress?.phase || "starting";
   const stage = state.generationProgress?.stage || null;
   const stageLabel = stage || GENERATION_STAGES[Math.max(0, GENERATION_PHASES.indexOf(phase) - 1)] || "Scanning library";
-  const subtexts = GENERATION_PHASE_COPY[stageLabel] || GENERATION_PHASE_COPY["Scanning library"];
   const index = typeof state.generationProgress?.stageIndex === "number"
     ? state.generationProgress.stageIndex
     : Math.max(0, Math.min(GENERATION_STAGES.length - 1, GENERATION_PHASES.indexOf(phase) - 1));
@@ -786,9 +785,12 @@ function generationProgressInfo() {
   );
   const displayIndex = Math.max(index, state.generationProgress?.partialTracks?.length ? 3 : 0, localStep);
   const pct = Math.max(10, Math.min(96, Math.round(((displayIndex + 1) / count) * 100)));
+  const displayTitle = state.noLibraryMode && displayIndex === 0 ? "Searching Spotify" : GENERATION_STAGES[displayIndex] || stageLabel;
+  const subtexts = state.noLibraryMode && displayIndex === 0
+    ? ["Searching Spotify-wide matches…", "Checking genre and era evidence…", "Building a fresh candidate pool…"]
+    : GENERATION_PHASE_COPY[displayTitle] || GENERATION_PHASE_COPY[stageLabel] || GENERATION_PHASE_COPY["Scanning library"];
   const subIndex = Math.floor((Date.now() - startedAt) / 1800) % subtexts.length;
   const detail = state.generationProgress?.stageDetail || subtexts[subIndex];
-  const displayTitle = GENERATION_STAGES[displayIndex] || stageLabel;
   return { title: displayTitle, serverTitle: stageLabel, sub: detail, pct, index: displayIndex, serverIndex: index, count };
 }
 
@@ -812,7 +814,7 @@ function generatingHtml() {
   const progressDetailsHtml = state.progressExpanded ? `
       <div class="generation-details-panel">
         <div><strong>Current work</strong><span id="generationDetailWork">${esc(progress.sub)}</span></div>
-        <div><strong>Phase</strong><span id="generationDetailPhase">${esc(progressState.phase || "starting")} · backend ${progress.serverIndex + 1}/${progress.count}</span></div>
+        <div><strong>Phase</strong><span id="generationDetailPhase">${esc(progressState.phase || "starting")} · step ${Math.min(progress.index + 1, progress.count)}/${progress.count}</span></div>
         <div><strong>Timing</strong><span id="generationDetailTiming">${esc(elapsedText)} · ${esc(fallbackText)}</span></div>
         <div><strong>Preview</strong><span id="generationDetailPreview">${progressState.partialTracks?.length ? `${progressState.partialTracks.length} likely tracks ready` : previewWaitingText}</span></div>
       </div>` : "";
@@ -879,12 +881,9 @@ function refreshGenerationProgressDom() {
   const fallbackText = progressState.fallbackEligibleAt
     ? (Date.now() >= progressState.fallbackEligibleAt ? "Fast fallback is available if needed" : "Still building the best match")
     : "Working normally";
-  const previewWaitingCopy = [
-    "Scanning library evidence",
-    "Counting safe candidates",
-    "Scoring likely fits",
-    "Choosing a vibe cluster",
-  ];
+  const previewWaitingCopy = state.noLibraryMode
+    ? ["Searching Spotify-wide matches", "Checking genre evidence", "Checking era evidence", "Scoring likely fits"]
+    : ["Scanning library evidence", "Counting safe candidates", "Scoring likely fits", "Choosing a vibe cluster"];
   const previewWaitingText = previewWaitingCopy[Math.floor(elapsedMs / 1000) % previewWaitingCopy.length];
   const previewText = progressState.partialTracks?.length
     ? `${progressState.partialTracks.length} likely tracks ready`
@@ -898,7 +897,7 @@ function refreshGenerationProgressDom() {
   setText("generationStageLabel", progress.title);
   setText("generationStageCount", `${Math.min(progress.index + 1, progress.count)} / ${progress.count}`);
   setText("generationDetailWork", progress.sub);
-  setText("generationDetailPhase", `${progressState.phase || "starting"} · backend ${progress.serverIndex + 1}/${progress.count}`);
+  setText("generationDetailPhase", `${progressState.phase || "starting"} · step ${Math.min(progress.index + 1, progress.count)}/${progress.count}`);
   setText("generationDetailTiming", `${elapsedText} · ${fallbackText}`);
   setText("generationDetailPreview", previewText);
   const fill = document.getElementById("generationProgressFill");
@@ -1015,7 +1014,7 @@ function resultHtml(result) {
         <span class="result-meta">${count} tracks · ${state.mode} mode</span>
       </div>
       <h2 class="result-title">${name}</h2>
-      <p class="result-insight">Curated from your liked songs to fit the moment.</p>
+      <p class="result-insight">${result.noLibraryMode ? "Curated from Spotify-wide search to fit the moment." : "Curated from your liked songs to fit the moment."}</p>
       ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
       ${confidenceHtml}
       <div class="result-vibes">
@@ -2228,7 +2227,7 @@ async function generate() {
 
   state.generating = true;
   state.partialPreviewStartedAt = null;
-  state.generationProgress = { phase: "starting", stage: "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), fallbackEligibleAt: null, partialTracks: [] };
+  state.generationProgress = { phase: "starting", stage: state.noLibraryMode ? "Searching Spotify" : "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), fallbackEligibleAt: null, partialTracks: [] };
   state.lastResult = null;
   state.error = null;
   state.errorDetails = null;

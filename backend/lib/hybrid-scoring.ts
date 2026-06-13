@@ -466,9 +466,16 @@ export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): numb
     ctx.semanticResolution.sceneVector
   );
 
+  const userTasteWeight = ctx.noLibraryMode
+    ? 0
+    : (SCORING_WEIGHTS as Record<string, number>)["userTaste"]!;
+  const semanticWeight = ctx.noLibraryMode
+    ? SCORING_WEIGHTS.semantic + (SCORING_WEIGHTS as Record<string, number>)["userTaste"]!
+    : SCORING_WEIGHTS.semantic;
+
   let final =
-    tri.embeddingSimilarity * SCORING_WEIGHTS.semantic +
-    tri.libraryFitScore * (SCORING_WEIGHTS as Record<string, number>)["userTaste"]! +
+    tri.embeddingSimilarity * semanticWeight +
+    tri.libraryFitScore * userTasteWeight +
     tri.noveltyHint * (SCORING_WEIGHTS as Record<string, number>)["novelty"]! +
     tri.emotionMatch * SCORING_WEIGHTS.emotion +
     diversityHint * SCORING_WEIGHTS.scene;
@@ -627,6 +634,10 @@ export function buildScoringDiagnostics(
     finalCandidateGenres[g] = (finalCandidateGenres[g] ?? 0) + 1;
   }
 
+  const scoringModel = ctx.noLibraryMode
+    ? "v11_embedding0.75_userTaste0.00_novelty0.10_emotion0.10_scene0.05"
+    : "v11_embedding0.60_userTaste0.15_novelty0.10_emotion0.10_scene0.05";
+
   return {
     sceneFamily: ctx.scene.primary,
     sceneSeasonMode: ctx.sceneSeasonMode,
@@ -634,7 +645,8 @@ export function buildScoringDiagnostics(
     dominantGenres: ctx.userGenre.dominant,
     fallbackGenres: ctx.fallbackGenres,
     contrastAllowance: ctx.contrastAllowance,
-    scoringModel: "v11_embedding0.60_userTaste0.15_novelty0.10_emotion0.10_scene0.05",
+    scoringModel,
+    noLibraryMode: ctx.noLibraryMode,
     semanticResolution: ctx.semanticResolution.matchedId
       ? { sceneId: ctx.semanticResolution.matchedId, confidence: ctx.semanticResolution.confidence }
       : { sceneId: null, confidence: 0, fallback: true, neutralized: true },
