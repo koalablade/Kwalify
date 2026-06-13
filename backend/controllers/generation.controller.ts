@@ -2083,6 +2083,13 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   const emergencyArtistLimit = relaxedEmergencyArtistCap(opts.requestedLength, opts.maxPerArtist);
   const primaryAlbumLimit = finalAlbumCap(opts.requestedLength);
   const emergencyAlbumLimit = primaryAlbumLimit + Math.max(1, Math.ceil(opts.requestedLength * 0.05));
+  const shouldCompleteActivityPlaylist =
+    isGymWorkoutPrompt(opts.vibe, opts.intent) ||
+    isBroadDrivingPrompt(opts.vibe, opts.intent) ||
+    isUpbeatSocialPrompt(opts.vibe, opts.intent);
+  const completionTarget = shouldCompleteActivityPlaylist
+    ? opts.requestedLength
+    : Math.min(opts.requestedLength, Math.max(8, Math.ceil(opts.requestedLength * 0.40)));
 
   for (const track of opts.initial) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
   for (const track of rankedCandidates) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
@@ -2092,8 +2099,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     relaxedArtistFillUsed = emergencyArtistLimit !== null && out.length > beforeRelaxedFill;
     relaxedAlbumFillUsed = out.length > beforeRelaxedFill;
   }
-  const minimumReturnCount = Math.min(opts.requestedLength, Math.max(8, Math.ceil(opts.requestedLength * 0.40)));
-  if (out.length < minimumReturnCount) {
+  if (out.length < completionTarget) {
     cohesionRelaxedFillUsed = preferredFamilies.size > 0;
     for (const track of rankedCandidates) {
       const before = out.length;
@@ -2101,7 +2107,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       if (out.length > before) cohesionRelaxedFillAdded++;
     }
   }
-  if (out.length < minimumReturnCount) {
+  if (out.length < completionTarget) {
     hardSafeFillUsed = true;
     const strictHardSafeArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
     const strictHardSafeAlbumLimit = primaryAlbumLimit;
@@ -2133,6 +2139,8 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       albumLimitSkipped,
       cohesionSkipped,
       cohesionFamilies: preferredFamilies.size ? [...preferredFamilies].join(",") : null,
+      completionTarget,
+      activityCompletionTarget: shouldCompleteActivityPlaylist,
       cohesionRelaxedFillUsed,
       cohesionRelaxedFillAdded,
       artistLimitRelaxed: relaxedArtistFillUsed,
