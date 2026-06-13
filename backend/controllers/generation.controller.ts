@@ -1939,9 +1939,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   const out: T[] = [];
   const candidateFinalizationScore = (track: T): number => {
     const trackPenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
-    const artistKey = track.artistName.toLowerCase().trim();
-    const artistPenalty = Math.max(0, Math.min(0.34, opts.artistReusePenalty?.get(artistKey) ?? 0));
-    return (track.score ?? 0) - trackPenalty - artistPenalty;
+    return (track.score ?? 0) - trackPenalty;
   };
   const rankedCandidates = opts.candidates
     .map(sanitizePlaylistTrack)
@@ -2072,12 +2070,6 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
 
   for (const track of opts.initial) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
   for (const track of rankedCandidates) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
-  if (out.length < opts.requestedLength) {
-    hardSafeFillUsed = true;
-    for (const track of hardSafeCandidates(rankedCandidates)) {
-      tryAddHardSafe(track, true, primaryArtistLimit, primaryAlbumLimit);
-    }
-  }
   if (out.length < opts.requestedLength) {
     const beforeRelaxedFill = out.length;
     for (const track of rankedCandidates) tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, true);
