@@ -172,13 +172,18 @@ router.get("/playlists", async (req, res): Promise<void> => {
   }
 
   const userId = req.session.spotifyUserId;
+  const requestedLimit = Number.parseInt(String(req.query.limit ?? ""), 10);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(100, requestedLimit))
+    : 12;
 
   try {
     const playlists = await db
       .select()
       .from(savedPlaylistsTable)
       .where(eq(savedPlaylistsTable.userId, userId))
-      .orderBy(desc(savedPlaylistsTable.createdAt));
+      .orderBy(desc(savedPlaylistsTable.createdAt))
+      .limit(limit);
 
     res.json({
       playlists: playlists.map((p) => ({

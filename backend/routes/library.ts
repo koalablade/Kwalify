@@ -7,6 +7,7 @@ import type { LikedSongRow } from "../lib/library-signals";
 import { computeLibrarySummary } from "../lib/library-summary";
 import { getFeatures } from "../lib/env";
 import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
+import { getCachedLikedSongs, setCachedLikedSongs } from "../lib/liked-songs-cache";
 
 const router: IRouter = Router();
 
@@ -27,14 +28,87 @@ router.get("/library/summary", async (req, res): Promise<void> => {
   }
 
   const userId = req.session.spotifyUserId;
+  const cachedRows = getCachedLikedSongs(userId);
+  if (cachedRows) {
+    const trackCount = cachedRows.length;
+    if (trackCount === 0) {
+      res.json({
+        trackCount: 0,
+        artistCount: 0,
+        genreFamilyCount: 0,
+        topDecade: null,
+        oldestLikedYear: null,
+        newestLikedYear: null,
+      });
+      return;
+    }
+
+    const sample = cachedRows.slice(0, Math.min(400, trackCount));
+    const summary = computeLibrarySummary(sample);
+    summary.trackCount = trackCount;
+    summary.artistCount = new Set(cachedRows.map((row) => row.artistName.trim().toLowerCase()).filter(Boolean)).size;
+
+    const decades = new Map<string, number>();
+    let oldest: number | null = null;
+    let newest: number | null = null;
+    for (const { addedAt } of cachedRows) {
+      if (!addedAt) continue;
+      const y = addedAt.getFullYear();
+      if (oldest === null || y < oldest) oldest = y;
+      if (newest === null || y > newest) newest = y;
+      const decade = `${Math.floor(y / 10) * 10}s`;
+      decades.set(decade, (decades.get(decade) ?? 0) + 1);
+    }
+    let topDecade: string | null = null;
+    let topCount = 0;
+    for (const [d, c] of decades) {
+      if (c > topCount) {
+        topCount = c;
+        topDecade = d;
+      }
+    }
+    summary.topDecade = topDecade;
+    summary.oldestLikedYear = oldest;
+    summary.newestLikedYear = newest;
+
+    res.json(summary);
+    return;
+  }
+
   const whereUser = eq(likedSongsTable.spotifyUserId, userId);
+  const [statsRows, dated, sample] = await Promise.all([
+    db
+      .select({
+        trackCount: sql<number>`count(*)::int`,
+        artistCount: sql<number>`count(distinct lower(${likedSongsTable.artistName}))::int`,
+      })
+      .from(likedSongsTable)
+      .where(whereUser),
+    db
+      .select({ addedAt: likedSongsTable.addedAt })
+      .from(likedSongsTable)
+      .where(whereUser),
+    db
+      .select({
+        trackName: likedSongsTable.trackName,
+        artistName: likedSongsTable.artistName,
+        albumName: likedSongsTable.albumName,
+        addedAt: likedSongsTable.addedAt,
+        energy: likedSongsTable.energy,
+        valence: likedSongsTable.valence,
+        acousticness: likedSongsTable.acousticness,
+        danceability: likedSongsTable.danceability,
+        instrumentalness: likedSongsTable.instrumentalness,
+        speechiness: likedSongsTable.speechiness,
+        tempo: likedSongsTable.tempo,
+      })
+      .from(likedSongsTable)
+      .where(whereUser)
+      .limit(400),
+  ]);
 
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(likedSongsTable)
-    .where(whereUser);
-
-  const trackCount = Number(countRow?.count ?? 0);
+  const stats = statsRows[0];
+  const trackCount = Number(stats?.trackCount ?? 0);
   if (trackCount === 0) {
     res.json({
       trackCount: 0,
@@ -47,40 +121,9 @@ router.get("/library/summary", async (req, res): Promise<void> => {
     return;
   }
 
-  const [artistRow] = await db
-    .select({
-      count: sql<number>`count(distinct lower(${likedSongsTable.artistName}))::int`,
-    })
-    .from(likedSongsTable)
-    .where(whereUser);
-
-  const dated = await db
-    .select({ addedAt: likedSongsTable.addedAt })
-    .from(likedSongsTable)
-    .where(whereUser);
-
-  const sampleSize = Math.min(400, trackCount);
-  const sample = await db
-    .select({
-      trackName: likedSongsTable.trackName,
-      artistName: likedSongsTable.artistName,
-      albumName: likedSongsTable.albumName,
-      addedAt: likedSongsTable.addedAt,
-      energy: likedSongsTable.energy,
-      valence: likedSongsTable.valence,
-      acousticness: likedSongsTable.acousticness,
-      danceability: likedSongsTable.danceability,
-      instrumentalness: likedSongsTable.instrumentalness,
-      speechiness: likedSongsTable.speechiness,
-      tempo: likedSongsTable.tempo,
-    })
-    .from(likedSongsTable)
-    .where(whereUser)
-    .limit(sampleSize);
-
   const summary = computeLibrarySummary(sample);
   summary.trackCount = trackCount;
-  summary.artistCount = Number(artistRow?.count ?? summary.artistCount);
+  summary.artistCount = Number(stats?.artistCount ?? summary.artistCount);
 
   const decades = new Map<string, number>();
   let oldest: number | null = null;
@@ -145,10 +188,12 @@ router.get("/library/chapters", async (req, res): Promise<void> => {
   }
 
   const userId = req.session.spotifyUserId;
-  const rows = await db
+  const cachedRows = getCachedLikedSongs(userId);
+  const rows = cachedRows ?? await db
     .select()
     .from(likedSongsTable)
     .where(eq(likedSongsTable.spotifyUserId, userId));
+  if (!cachedRows) setCachedLikedSongs(userId, rows);
 
   const songs: LikedSongRow[] = rows.map((r) => ({
     trackId: r.trackId,

@@ -440,7 +440,7 @@ async function boot() {
   }
   galleryUser = meRes.data;
 
-  const plRes = await api("/playlists").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
+  const plRes = await api("/playlists?limit=100").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (plRes.ok) {
     galleryLoadError = null;
     galleryPlaylists = plRes.data.playlists || [];

@@ -2107,7 +2107,7 @@ async function pollStatus() {
 
 async function loadPlaylists() {
   const [plRes, histRes] = await Promise.all([
-    api("/playlists"),
+    api("/playlists?limit=6"),
     api("/history"),
   ]);
   if (plRes.ok) state.playlists = plRes.data.playlists || [];
@@ -2255,7 +2255,7 @@ async function boot() {
   const [csRes, lsRes, plRes, histRes] = await Promise.all([
     api("/spotify/cache-status").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
     api("/library/summary").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
-    api("/playlists").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/playlists?limit=6").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
     api("/history").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
   ]);
 
