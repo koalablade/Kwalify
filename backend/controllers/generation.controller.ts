@@ -1761,7 +1761,7 @@ function evaluationDiversityPressure(
   if (evaluationMemoryCount <= 0) return 1;
   const lower = vibe.toLowerCase();
   if (profile.environment === "gym" || /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/.test(lower)) {
-    return 0.35;
+    return 0.75;
   }
   if (profile.environment === "party" || /\b(?:party|club|dancefloor|pre\s*drinks|night\s*out|rave)\b/.test(lower)) {
     return 0.65;
