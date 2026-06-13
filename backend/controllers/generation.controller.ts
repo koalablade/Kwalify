@@ -2241,8 +2241,9 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
     },
   };
   const attempts: Array<{ stage: string; intent: LockedIntent; candidates: T[]; constraints?: ConstraintLayer }> = [];
+  const partialActivityTopUp = activityRecoveryPrompt && opts.initial.length > 0;
 
-  if (opts.intent.activity) {
+  if (!partialActivityTopUp && opts.intent.activity) {
     attempts.push({
       stage: "activity_relaxed",
       intent: { ...opts.intent, activity: null },
@@ -2250,7 +2251,7 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
     });
   }
 
-  if (opts.intent.mood.length > 0) {
+  if (!partialActivityTopUp && opts.intent.mood.length > 0) {
     attempts.push({
       stage: "mood_relaxed",
       intent: { ...opts.intent, activity: null, mood: [] },
