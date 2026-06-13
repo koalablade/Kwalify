@@ -339,13 +339,7 @@ function renderGallery() {
     ${renderCards(visiblePlaylists)}
   </div>
 
-  <a
-    href="https://docs.google.com/forms/d/1dRFIgqcbNGXXHYHZqaRQ3BhFHqsFmENdmLRCs_YtWhE/edit"
-    target="_blank"
-    rel="noopener"
-    class="feedback-fab"
-    title="Send feedback"
-  >💬</a>`;
+  `;
 
   wireNavEvents();
   wireGalleryEvents();

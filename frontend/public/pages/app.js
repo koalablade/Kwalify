@@ -75,7 +75,7 @@ function userFacingApiError(result, fallback = "Something went wrong. Please try
 }
 
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1dRFIgqcbNGXXHYHZqaRQ3BhFHqsFmENdmLRCs_YtWhE/edit";
+const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/edit?pli=1";
 let generationStatusTimer = null;
 let generationUiTimer = null;
 let moodPreviewRequestId = 0;
@@ -615,16 +615,7 @@ function renderApp() {
       <span class="badge badge-muted">Beta</span>
       <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">Send feedback</a>
     </div>
-  </footer>
-
-  <!-- Feedback floating button -->
-  <a
-    href="${FEEDBACK_FORM_URL}"
-    target="_blank"
-    rel="noopener"
-    class="feedback-fab"
-    title="Send feedback"
-  >💬</a>`;
+  </footer>`;
 
   wireAppEvents();
 }

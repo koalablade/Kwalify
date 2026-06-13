@@ -33,6 +33,7 @@ const router: IRouter = Router();
 
 export const activeSyncs = new Set<string>();
 const STALE_SYNC_MS = 45 * 60 * 1000;
+const FULL_SYNC_COOLDOWN_HOURS = 6;
 
 router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   if (getFeatures().devMode.useMockSpotify) {
@@ -162,11 +163,7 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
     .from(syncStatusTable)
     .where(eq(syncStatusTable.spotifyUserId, userId));
 
-  if (
-    forceFull &&
-    existingStatus?.lastSyncedAt &&
-    (existingStatus.totalTracks ?? 0) >= 500
-  ) {
+  if (forceFull && existingStatus?.lastSyncedAt) {
     const [metadataRow] = await db
       .select({
         total: sql<number>`count(*)::int`,
@@ -181,13 +178,14 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
     const metadataRepairNeeded = featureCoverage < 0.35 || spotifyGenreCoverage < 0.35;
     const hoursSince =
       (Date.now() - existingStatus.lastSyncedAt.getTime()) / (60 * 60 * 1000);
-    if (hoursSince < 6 && !metadataRepairNeeded) {
+    if (hoursSince < FULL_SYNC_COOLDOWN_HOURS && !metadataRepairNeeded) {
       res.json({
         message:
-          "Library was synced recently. Use normal sync for new likes, or wait a few hours before another full sync.",
+          `Library was synced recently. Use normal sync for new likes, or wait ${FULL_SYNC_COOLDOWN_HOURS} hours between full syncs.`,
         started: false,
         skipped: true,
         reason: "FULL_SYNC_COOLDOWN",
+        retryAfterHours: Math.max(0, Math.ceil(FULL_SYNC_COOLDOWN_HOURS - hoursSince)),
       });
       return;
     }
