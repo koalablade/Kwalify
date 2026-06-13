@@ -3,7 +3,12 @@ const root = document.getElementById("appRoot");
 
 // ── Theme bootstrap (runs before any render) ──────────────────────────────────
 (function initTheme() {
-  const saved = localStorage.getItem("kwalify-theme");
+  let saved = null;
+  try {
+    saved = localStorage.getItem("kwalify-theme");
+  } catch {
+    saved = null;
+  }
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const theme = saved || (prefersDark ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", theme);
@@ -59,16 +64,39 @@ function backendDistributionEntries(result, field) {
     .slice(0, 10);
 }
 
+function apiTimeoutForPath(path) {
+  if (path.startsWith("/generate?") || path === "/generate") return 135_000;
+  if (path.startsWith("/generate/status")) return 10_000;
+  if (path.startsWith("/spotify/sync")) return 30_000;
+  return 20_000;
+}
+
 async function api(path, opts = {}) {
-  const r = await fetch(`/api${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-    ...opts,
-  });
-  return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? apiTimeoutForPath(path));
+  const externalSignal = opts.signal;
+  const abortFromExternal = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener("abort", abortFromExternal, { once: true });
+  }
+  const { timeoutMs: _timeoutMs, signal: _signal, ...fetchOpts } = opts;
+  try {
+    const r = await fetch(`/api${path}`, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+      ...fetchOpts,
+      signal: controller.signal,
+    });
+    return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+  } finally {
+    clearTimeout(timeout);
+    if (externalSignal) externalSignal.removeEventListener("abort", abortFromExternal);
+  }
 }
 
 function userFacingApiError(result, fallback = "Something went wrong. Please try again.") {
+  if (result?.status === 0) return "Network connection dropped. Please check your connection and try again.";
   if (result?.status === 401) return "Spotify session expired. Please reconnect Spotify.";
   if (result?.status === 503) return "Service is temporarily unavailable. Please try again in a moment.";
   return result?.data?.error || result?.data?.message || fallback;
@@ -262,7 +290,11 @@ function getTheme() {
 function toggleTheme() {
   const next = getTheme() === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
-  localStorage.setItem("kwalify-theme", next);
+  try {
+    localStorage.setItem("kwalify-theme", next);
+  } catch {
+    // Theme still changes for this page even if storage is unavailable.
+  }
   const icon = document.getElementById("themeIcon");
   if (icon) icon.textContent = next === "dark" ? "☀️" : "🌙";
 }
@@ -331,8 +363,21 @@ function navHtml(user) {
 }
 
 // ── Landing page ──────────────────────────────────────────────────────────────
+function authErrorMessage() {
+  const error = new URLSearchParams(window.location.search).get("error");
+  if (!error) return null;
+  const messages = {
+    access_denied: "Spotify login was cancelled. Connect again when you're ready.",
+    no_code: "Spotify did not finish login. Please try connecting again.",
+    session_failed: "Kwalify could not save your login session. Please try again.",
+    auth_failed: "Spotify login failed. Please try again in a moment.",
+  };
+  return messages[error] || "Spotify login could not be completed. Please try again.";
+}
+
 function renderLanding() {
   document.title = "Kwalify — Moment-to-Music from your liked songs";
+  const loginError = authErrorMessage();
   root.innerHTML = `
   <nav class="nav">
     <div class="nav-logo">
@@ -366,6 +411,7 @@ function renderLanding() {
         </div>
       </div>
 
+      ${loginError ? `<div class="alert alert-error landing-auth-alert">${esc(loginError)}</div>` : ""}
       <a href="/api/auth/login" class="btn btn-green btn-lg hero-cta">${spi()} Get started — free</a>
       <div class="hero-trust">
         <span>No credit card</span>
@@ -2062,7 +2108,7 @@ function wireAppEvents() {
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 async function logout() {
-  await api("/auth/logout", { method: "POST" });
+  await api("/auth/logout", { method: "POST" }).catch(() => null);
   Object.assign(state, {
     user: null, cacheStatus: null, librarySummary: null,
     playlists: [], history: [], lastResult: null, error: null,
@@ -2075,7 +2121,8 @@ async function triggerSync(full = false) {
     ? document.getElementById("fullSyncBtn")
     : document.getElementById("deltaSyncBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Syncing…"; }
-  const result = await api("/spotify/sync", { method: "POST", body: JSON.stringify({ full }) });
+  const result = await api("/spotify/sync", { method: "POST", body: JSON.stringify({ full }) })
+    .catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (!result.ok) {
     state.error = userFacingApiError(result, "Could not start sync. Please try again.");
     renderApp();
@@ -2087,19 +2134,22 @@ async function triggerSync(full = false) {
 
 async function pollStatus() {
   const [csRes, lsRes] = await Promise.all([
-    api("/spotify/cache-status"),
-    api("/library/summary"),
+    api("/spotify/cache-status").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/library/summary").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
   ]);
   if (csRes.ok) state.cacheStatus = csRes.data;
   if (lsRes.ok) state.librarySummary = lsRes.data;
+  if (!csRes.ok || !lsRes.ok) {
+    state.error = "Could not refresh library status. Please refresh if this persists.";
+  }
   renderApp();
   if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
 }
 
 async function loadPlaylists() {
   const [plRes, histRes] = await Promise.all([
-    api("/playlists?limit=6"),
-    api("/history"),
+    api("/playlists?limit=6").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/history").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
   ]);
   if (plRes.ok) state.playlists = plRes.data.playlists || [];
   if (histRes.ok) state.history = Array.isArray(histRes.data) ? histRes.data : [];
@@ -2107,9 +2157,13 @@ async function loadPlaylists() {
 
 async function deletePlaylist(id) {
   if (!confirm("Delete this playlist?")) return;
-  const r = await api(`/playlists/${id}`, { method: "DELETE" });
+  const r = await api(`/playlists/${id}`, { method: "DELETE" })
+    .catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (r.ok) {
     state.playlists = state.playlists.filter((p) => p.id !== id);
+    renderApp();
+  } else {
+    state.error = userFacingApiError(r, "Could not delete that playlist. Please try again.");
     renderApp();
   }
 }
@@ -2207,7 +2261,9 @@ async function generate() {
       await loadPlaylists();
     }
   } catch (e) {
-    state.error = e.message || "Generation failed. Please try again.";
+    state.error = e?.name === "AbortError"
+      ? "Generation timed out. Please try again with a broader prompt."
+      : "Generation failed. Please check your connection and try again.";
     state.errorDetails = null;
   } finally {
     stopGenerationStatusPolling();

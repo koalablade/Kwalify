@@ -3,7 +3,12 @@ const root = document.getElementById("galleryRoot");
 
 // ── Theme bootstrap ───────────────────────────────────────────────────────────
 (function initTheme() {
-  const saved = localStorage.getItem("kwalify-theme");
+  let saved = null;
+  try {
+    saved = localStorage.getItem("kwalify-theme");
+  } catch {
+    saved = null;
+  }
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const theme = saved || (prefersDark ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", theme);
@@ -16,8 +21,19 @@ function esc(v) {
 }
 
 async function api(path, opts = {}) {
-  const r = await fetch(`/api${path}`, { credentials: "include", ...opts });
-  return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? 20_000);
+  const { timeoutMs: _timeoutMs, ...fetchOpts } = opts;
+  try {
+    const r = await fetch(`/api${path}`, {
+      credentials: "include",
+      ...fetchOpts,
+      signal: controller.signal,
+    });
+    return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function fmtDate(iso) {
@@ -50,7 +66,11 @@ function getTheme() {
 function toggleTheme() {
   const next = getTheme() === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
-  localStorage.setItem("kwalify-theme", next);
+  try {
+    localStorage.setItem("kwalify-theme", next);
+  } catch {
+    // Theme still changes for this page even if storage is unavailable.
+  }
   const icon = document.getElementById("galleryThemeIcon");
   if (icon) icon.textContent = next === "dark" ? "☀️" : "🌙";
 }
@@ -123,7 +143,7 @@ function wireNavEvents() {
   }
   document.getElementById("galleryThemeToggleBtn")?.addEventListener("click", toggleTheme);
   document.getElementById("galleryLogoutBtn")?.addEventListener("click", async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => null);
     window.location.href = "/";
   });
 }
@@ -363,10 +383,20 @@ async function deleteSelectedPlaylists() {
   if (!confirm(`Delete ${ids.length} playlist${ids.length === 1 ? "" : "s"}?`)) return;
   deletingPlaylists = true;
   renderGallery();
-  await Promise.all(ids.map((id) => api(`/playlists/${id}`, { method: "DELETE" })));
-  galleryPlaylists = galleryPlaylists.filter((p) => !selectedPlaylistIds.has(Number(p.id)));
-  selectedPlaylistIds = new Set();
-  deleteMode = false;
+  const results = await Promise.all(
+    ids.map((id) => api(`/playlists/${id}`, { method: "DELETE" }).catch((err) => ({
+      ok: false,
+      status: 0,
+      data: { error: err.message },
+    })))
+  );
+  const deletedIds = new Set(ids.filter((_, index) => results[index]?.ok));
+  galleryPlaylists = galleryPlaylists.filter((p) => !deletedIds.has(Number(p.id)));
+  selectedPlaylistIds = new Set(ids.filter((id) => !deletedIds.has(id)));
+  deleteMode = selectedPlaylistIds.size > 0;
+  galleryLoadError = selectedPlaylistIds.size > 0
+    ? "Some playlists could not be deleted. Please try again."
+    : null;
   deletingPlaylists = false;
   renderGallery();
 }

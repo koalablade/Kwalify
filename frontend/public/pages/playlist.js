@@ -4,7 +4,12 @@ const match = window.location.pathname.match(/\/p\/(\d+)/);
 const playlistId = match ? match[1] : null;
 
 (function initTheme() {
-  const saved = localStorage.getItem("kwalify-theme");
+  let saved = null;
+  try {
+    saved = localStorage.getItem("kwalify-theme");
+  } catch {
+    saved = null;
+  }
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const theme = saved || (prefersDark ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", theme);
@@ -17,12 +22,20 @@ function esc(v) {
 }
 
 async function api(path, opts = {}) {
-  const r = await fetch(`/api${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-    ...opts,
-  });
-  return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? 20_000);
+  const { timeoutMs: _timeoutMs, ...fetchOpts } = opts;
+  try {
+    const r = await fetch(`/api${path}`, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+      ...fetchOpts,
+      signal: controller.signal,
+    });
+    return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 const feedbackSessionId = `share_${Date.now()}_${Math.random().toString(36).slice(2)}`;
