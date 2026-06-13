@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS "liked_songs" (
   "created_at" timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "IDX_liked_songs_user" ON "liked_songs" ("spotify_user_id");
+CREATE INDEX IF NOT EXISTS "IDX_liked_songs_user_added"
+  ON "liked_songs" ("spotify_user_id", "added_at" DESC);
 DELETE FROM "liked_songs" newer
 USING "liked_songs" older
 WHERE newer."spotify_user_id" = older."spotify_user_id"
@@ -65,6 +67,8 @@ CREATE TABLE IF NOT EXISTS "playlist_history" (
   "created_at" timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "IDX_playlist_history_user" ON "playlist_history" ("spotify_user_id");
+CREATE INDEX IF NOT EXISTS "IDX_playlist_history_user_created"
+  ON "playlist_history" ("spotify_user_id", "created_at" DESC);
 
 CREATE TABLE IF NOT EXISTS "saved_playlists" (
   "id" serial PRIMARY KEY,
@@ -78,6 +82,8 @@ CREATE TABLE IF NOT EXISTS "saved_playlists" (
   "created_at" timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "IDX_saved_playlists_user" ON "saved_playlists" ("user_id");
+CREATE INDEX IF NOT EXISTS "IDX_saved_playlists_user_created"
+  ON "saved_playlists" ("user_id", "created_at" DESC);
 
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "spotify_url" text;
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "vibe" text;

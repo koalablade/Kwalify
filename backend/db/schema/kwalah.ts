@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, real, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, real, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -26,6 +26,7 @@ export const likedSongsTable = pgTable("liked_songs", {
   addedAt: timestamp("added_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
+  userAddedIndex: index("IDX_liked_songs_user_added").on(table.spotifyUserId, table.addedAt),
   userTrackUnique: uniqueIndex("IDX_liked_songs_user_track").on(table.spotifyUserId, table.trackId),
 }));
 
@@ -41,7 +42,9 @@ export const playlistHistoryTable = pgTable("playlist_history", {
   emotionProfile: jsonb("emotion_profile"),
   trackIds: jsonb("track_ids"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  userCreatedIndex: index("IDX_playlist_history_user_created").on(table.spotifyUserId, table.createdAt),
+}));
 
 export const syncStatusTable = pgTable("sync_status", {
   id: serial("id").primaryKey(),
@@ -64,7 +67,9 @@ export const savedPlaylistsTable = pgTable("saved_playlists", {
   vibe: text("vibe"),
   mode: text("mode"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  userCreatedIndex: index("IDX_saved_playlists_user_created").on(table.userId, table.createdAt),
+}));
 
 export const playlistFeedbackTable = pgTable("playlist_feedback", {
   id: serial("id").primaryKey(),

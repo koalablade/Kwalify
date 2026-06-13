@@ -47,6 +47,7 @@ import { detectArchaeologyIntent } from "../lib/library-archaeology";
 import { computeSurpriseMix } from "../lib/human-surprise";
 import { analyzeMomentPipeline } from "../lib/moment-pipeline";
 import { getUserGenreProfileForGenerate } from "../lib/genre-profile-cache";
+import { getCachedLikedSongs, setCachedLikedSongs } from "../lib/liked-songs-cache";
 import { classifyTrack } from "../lib/genre-taxonomy";
 import { buildGenreIntelligenceStack } from "../lib/genre-intelligence-stack";
 import {
@@ -3150,12 +3151,15 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGeneratePhase(generateSessionUserId, requestId, "loading_library");
     setGenerateStageDetail(generateSessionUserId, requestId, "Scanning your liked songs...");
     tStage = Date.now();
+    const cachedLikedRows = devMode ? null : getCachedLikedSongs(userId);
     const likedRowsRaw = devMode
       ? generateMockSpotifyLibrary()
-      : await db
+      : cachedLikedRows ??
+        await db
           .select()
           .from(likedSongsTable)
           .where(eq(likedSongsTable.spotifyUserId, userId));
+    if (!devMode && !cachedLikedRows) setCachedLikedSongs(userId, likedRowsRaw);
     const likedSongsQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
     recordPreV3Timing(preV3Timing, "dbTimeMs", likedSongsQueryMs);
@@ -3403,13 +3407,15 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGeneratePhase(generateSessionUserId, requestId, "building_profile");
     setGenerateStageDetail(generateSessionUserId, requestId, "Loading recent playlist memory and feedback");
     tStage = Date.now();
-    const recentPlaylists = await db
-      .select()
-      .from(playlistHistoryTable)
-      .where(eq(playlistHistoryTable.spotifyUserId, userId))
-      .orderBy(desc(playlistHistoryTable.createdAt))
-      .limit(25);
-    const feedbackMemory = await getFeedbackMemory(userId);
+    const [recentPlaylists, feedbackMemory] = await Promise.all([
+      db
+        .select()
+        .from(playlistHistoryTable)
+        .where(eq(playlistHistoryTable.spotifyUserId, userId))
+        .orderBy(desc(playlistHistoryTable.createdAt))
+        .limit(25),
+      getFeedbackMemory(userId),
+    ]);
     const playlistHistoryQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "playlistHistoryQueryMs", playlistHistoryQueryMs);
     recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);

@@ -24,6 +24,7 @@ import {
   invalidateGenreProfileCache,
   warmGenreProfileCache,
 } from "../lib/genre-profile-cache";
+import { invalidateLikedSongsCache, setCachedLikedSongs } from "../lib/liked-songs-cache";
 import { invalidateGenerateResultCache } from "../lib/generate-result-cache";
 import { getFeatures } from "../lib/env";
 import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
@@ -435,12 +436,14 @@ export async function runSync(
     });
 
     invalidateGenreProfileCache(userId);
+    invalidateLikedSongsCache(userId);
     invalidateGenerateResultCache(userId);
 
     const allRows = await db
       .select()
       .from(likedSongsTable)
       .where(eq(likedSongsTable.spotifyUserId, userId));
+    setCachedLikedSongs(userId, allRows);
     warmGenreProfileCache(
       userId,
       allRows.map((s) => ({
