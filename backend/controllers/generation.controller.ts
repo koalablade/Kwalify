@@ -1630,21 +1630,37 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
     const cluster = vibeClusterKey(track, opts.classMap);
     return cluster === selectedCluster || (secondaryCluster !== null && cluster === secondaryCluster);
   };
+  const isFinalSafe = (track: T): boolean => finalTrackIsSafe(track, {
+    vibe: opts.vibe,
+    intent: opts.intent,
+    constraints: opts.constraints,
+    classMap: opts.classMap,
+  });
+  const safeClusterCount = candidates.filter((track) => inCluster(track) && isFinalSafe(track)).length;
+  const targetCuratedSafeCount = Math.ceil(opts.requestedLength * (isGymWorkoutPrompt(opts.vibe, opts.intent) ? 2.4 : 1.8));
+  const reserveCap = Math.ceil(opts.requestedLength * (isGymWorkoutPrompt(opts.vibe, opts.intent) ? 1.1 : 0.65));
+  const expandedReserve = Math.min(
+    reserveCap,
+    Math.max(outlierReserve, targetCuratedSafeCount - safeClusterCount),
+  );
   const initialCluster = initial.filter(inCluster);
   const initialReserve = initial
     .filter((track) => !inCluster(track) && !Boolean((track as Record<string, unknown>)["_fallbackCandidate"]))
-    .slice(0, outlierReserve);
+    .filter(isFinalSafe)
+    .slice(0, expandedReserve);
   const candidateCluster = candidates.filter(inCluster);
   const candidateReserve = candidates
     .filter((track) => !inCluster(track))
+    .filter(isFinalSafe)
     .map((track) => ({
       ...track,
       score: Math.max(0, (track.score ?? 0) - (Boolean((track as Record<string, unknown>)["_fallbackCandidate"]) ? 0.38 : 0.18)),
     } as T))
-    .slice(0, outlierReserve);
+    .slice(0, expandedReserve);
   const majorExclusions = [
     `cluster_outliers:${Math.max(0, candidates.length - candidateCluster.length)}`,
     secondaryCluster ? `secondary_cluster:${clusterLabel(secondaryCluster)}` : null,
+    expandedReserve > outlierReserve ? `expanded_safe_reserve:${expandedReserve}` : null,
     fallbackCandidatePercent > 20 ? `fallback_candidates:${fallbackCandidatePercent}%` : null,
   ].filter((value): value is string => !!value);
 
@@ -1658,7 +1674,7 @@ function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
       selectedClusterCount: selectedStats.count,
       clusterConfidence: Math.round(clusterConfidence * 100) / 100,
       fallbackCandidatePercent,
-      outlierReserve,
+      outlierReserve: expandedReserve,
       secondaryCluster,
       secondaryClusterLabel: secondaryCluster ? clusterLabel(secondaryCluster) : null,
       majorExclusions,
