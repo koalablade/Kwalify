@@ -2264,7 +2264,8 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
       ...track,
       score: broadEnergyRecoveryScore(track, opts.intent, opts.vibe),
     }))
-    .sort((a, b) => b.score - a.score) as T[];
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.max(240, opts.requestedLength * 12)) as T[];
   attempts.push({
     stage: "energy_recovery",
     intent: activityRecoveryPrompt
