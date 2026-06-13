@@ -2286,11 +2286,11 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
     const finalization = finalizePlaylistTracks({
       ...base,
       constraints: attempt.constraints ?? base.constraints,
-      initial: attempt.stage === "energy_recovery" ? [] : opts.initial,
+      initial: opts.initial,
       candidates: attempt.candidates,
       intent: attempt.intent,
     });
-    if (finalization.tracks.length > 0) {
+    if (finalization.tracks.length > opts.initial.length || finalization.tracks.length >= opts.requestedLength) {
       return {
         tracks: finalization.tracks,
         intent: attempt.intent,
@@ -4005,7 +4005,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       sessionMemory
     );
     const applyLowComplexityRecovery = (triggerStage: string): boolean => {
-      if (finalTracks.length > 0) return false;
+      if (finalTracks.length >= length) return false;
       const recoveryStartedAt = Date.now();
       const recovered = recoverLowComplexityPlaylist({
         initial: finalTracks,
