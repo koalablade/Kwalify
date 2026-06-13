@@ -2867,8 +2867,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const rawBody = req.body ?? {};
     const auditModeRequested = rawBody.auditMode === true || req.query.audit === "1";
     const auditTokenAuthorized = auditModeRequested && generationAuditTokenAuthorized(req);
-    const auditSessionAuthorized = auditModeRequested && !!req.session.spotifyUserId;
-    const auditMode = auditModeRequested && (auditTokenAuthorized || auditSessionAuthorized);
+    const auditMode = auditModeRequested && auditTokenAuthorized;
     const sideEffectPolicy = auditMode ? AUDIT_SIDE_EFFECT_POLICY : PRODUCTION_SIDE_EFFECT_POLICY;
     requestHardTimeoutMs = auditMode ? 220_000 : REQUEST_HARD_TIMEOUT_MS;
     if (auditMode) beginSpotifyApiAudit();
@@ -2883,7 +2882,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         res,
         403,
         "AUDIT_MODE_NOT_AUTHORIZED",
-        "Playlist evaluation audit mode requires an authenticated session or PLAYLIST_EVAL_TOKEN.",
+        "Playlist evaluation audit mode requires PLAYLIST_EVAL_TOKEN.",
       );
       return;
     }

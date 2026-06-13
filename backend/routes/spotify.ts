@@ -191,15 +191,24 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
     }
   }
 
-  activeSyncs.add(userId);
-
-  await db
-    .insert(syncStatusTable)
-    .values({ spotifyUserId: userId, isSyncing: 1, totalTracks: 0 })
-    .onConflictDoUpdate({
-      target: syncStatusTable.spotifyUserId,
-      set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
+  try {
+    activeSyncs.add(userId);
+    await db
+      .insert(syncStatusTable)
+      .values({ spotifyUserId: userId, isSyncing: 1, totalTracks: 0 })
+      .onConflictDoUpdate({
+        target: syncStatusTable.spotifyUserId,
+        set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
+      });
+  } catch (err) {
+    activeSyncs.delete(userId);
+    logger.error({ err, userId }, "Failed to start Spotify sync");
+    res.status(500).json({
+      error: "Failed to start sync. Please try again shortly.",
+      started: false,
     });
+    return;
+  }
 
   res.json({
     message: forceFull ? "Full sync started" : "Sync started",

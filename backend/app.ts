@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type ErrorRequestHandler, type Express } from "express";
 import cors from "cors";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -187,6 +187,30 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.get("/gallery", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "gallery.html")));
 
   app.use("/api", router);
+
+  const apiErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
+    if (!req.path.startsWith("/api")) {
+      next(err);
+      return;
+    }
+    if (res.headersSent) {
+      next(err);
+      return;
+    }
+    const status = typeof err?.status === "number" && err.status >= 400 && err.status < 600
+      ? err.status
+      : 500;
+    req.log.error(
+      { err, status, path: req.path, method: req.method },
+      "Unhandled API route error"
+    );
+    res.status(status).json({
+      success: false,
+      code: status === 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
+      error: status === 500 ? "Unexpected server error." : "Request failed.",
+    });
+  };
+  app.use(apiErrorHandler);
 
   return app;
 }
