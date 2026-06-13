@@ -8,6 +8,17 @@ export const logger = pino({
     "req.headers.authorization",
     "req.headers.cookie",
     "res.headers['set-cookie']",
+    "err.config.headers.authorization",
+    "err.config.headers.Authorization",
+    "err.response.config.headers.authorization",
+    "err.response.config.headers.Authorization",
+    "err.request._header",
+    "req.session.spotifyTokens.accessToken",
+    "req.session.spotifyTokens.refreshToken",
+    "spotifyTokens.accessToken",
+    "spotifyTokens.refreshToken",
+    "tokens.accessToken",
+    "tokens.refreshToken",
   ],
   ...(isProduction
     ? {}

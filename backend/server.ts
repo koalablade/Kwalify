@@ -12,6 +12,20 @@ import { startFeedbackMemoryDecayJob } from "./lib/feedback-memory";
 import { setRuntimeFailed, setRuntimeInitializing, setRuntimeReady } from "./lib/runtime-readiness";
 
 const BOOT_DB_TIMEOUT_MS = 15_000;
+let processSafetyHandlersInstalled = false;
+
+function installProcessSafetyHandlers(): void {
+  if (processSafetyHandlersInstalled) return;
+  processSafetyHandlersInstalled = true;
+  process.on("unhandledRejection", (reason) => {
+    logger.error({ err: reason }, "[process] Unhandled promise rejection — exiting");
+    process.exit(1);
+  });
+  process.on("uncaughtException", (err) => {
+    logger.fatal({ err }, "[process] Uncaught exception — exiting");
+    process.exit(1);
+  });
+}
 
 async function withBootTimeout<T>(
   promise: Promise<T>,
@@ -140,7 +154,19 @@ async function bootstrap(): Promise<void> {
           );
         }
 
-        process.on("SIGTERM", () => beginGracefulShutdown(logger));
+        const shutdown = () => beginGracefulShutdown(logger, {
+          cleanup: async () => {
+            await new Promise<void>((cleanupResolve, cleanupReject) => {
+              server.close((err) => {
+                if (err) cleanupReject(err);
+                else cleanupResolve();
+              });
+            });
+            await rawPool.end();
+          },
+        });
+        process.once("SIGTERM", shutdown);
+        process.once("SIGINT", shutdown);
 
         resolve();
       });
@@ -162,6 +188,7 @@ async function bootstrap(): Promise<void> {
     });
 }
 
+installProcessSafetyHandlers();
 bootstrap().catch((err) => {
   logger.error({ err }, "[boot] Fatal startup error — process exiting");
   process.exit(1);
