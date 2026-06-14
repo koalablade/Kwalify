@@ -56,7 +56,7 @@ function releaseYearFromDate(value?: string): number | null {
 export async function fetchArtistGenres(
   accessToken: string,
   artistIds: string[],
-  opts?: { userKey?: string }
+  opts?: { userKey?: string; maxRetries?: number; requestTimeoutMs?: number }
 ): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
   const uniqueIds = [...new Set(artistIds.filter(Boolean))];
@@ -69,7 +69,7 @@ export async function fetchArtistGenres(
         headers: { Authorization: `Bearer ${accessToken}` },
         params: { ids: batch.join(",") },
       },
-      { userKey: opts?.userKey }
+      { userKey: opts?.userKey, maxRetries: opts?.maxRetries, requestTimeoutMs: opts?.requestTimeoutMs }
     );
     for (const artist of response.data.artists ?? []) {
       if (artist?.id) out.set(artist.id, Array.isArray(artist.genres) ? artist.genres : []);
@@ -82,7 +82,7 @@ export async function fetchArtistGenres(
 export async function fetchAlbumMetadata(
   accessToken: string,
   albumIds: string[],
-  opts?: { userKey?: string }
+  opts?: { userKey?: string; maxRetries?: number; requestTimeoutMs?: number }
 ): Promise<Map<string, AlbumMetadata>> {
   const out = new Map<string, AlbumMetadata>();
   const uniqueIds = [...new Set(albumIds.filter(Boolean))];
@@ -95,7 +95,7 @@ export async function fetchAlbumMetadata(
         headers: { Authorization: `Bearer ${accessToken}` },
         params: { ids: batch.join(","), market: "from_token" },
       },
-      { userKey: opts?.userKey }
+      { userKey: opts?.userKey, maxRetries: opts?.maxRetries, requestTimeoutMs: opts?.requestTimeoutMs }
     );
     for (const album of response.data.albums ?? []) {
       if (!album?.id) continue;
@@ -160,6 +160,7 @@ export type SpotifyRequestOpts = {
   /** Per-user session throttle (Spotify user id). */
   userKey?: string;
   maxRetries?: number;
+  requestTimeoutMs?: number;
 };
 
 async function spotifyRequest<T = unknown>(
@@ -175,7 +176,7 @@ async function spotifyRequest<T = unknown>(
     const started = Date.now();
     try {
       const response = await axios.request<T>({
-        timeout: SPOTIFY_REQUEST_TIMEOUT_MS,
+        timeout: opts.requestTimeoutMs ?? SPOTIFY_REQUEST_TIMEOUT_MS,
         ...config,
       });
       recordSpotifyApiRequest({
@@ -430,36 +431,59 @@ export async function searchSpotifyTracks(
   accessToken: string,
   queries: string[],
   maxTracks = 100,
-  opts?: { userKey?: string }
+  opts?: {
+    userKey?: string;
+    bestEffort?: boolean;
+    minTracks?: number;
+    maxElapsedMs?: number;
+    maxRetries?: number;
+    requestTimeoutMs?: number;
+  }
 ): Promise<SpotifyTrack[]> {
   const out: SpotifyTrack[] = [];
   const seen = new Set<string>();
+  const startedAt = Date.now();
+  const minTracks = Math.min(maxTracks, opts?.minTracks ?? maxTracks);
 
   for (const query of queries) {
     if (out.length >= maxTracks) break;
+    if (opts?.maxElapsedMs && out.length >= minTracks && Date.now() - startedAt >= opts.maxElapsedMs) break;
+    if (opts?.maxElapsedMs && Date.now() - startedAt >= opts.maxElapsedMs && opts.bestEffort) break;
     const q = query.trim();
     if (!q) continue;
 
-    const response = await spotifyRequest<any>(
-      {
-        method: "GET",
-        url: `${SPOTIFY_API_BASE}/search`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: {
-          q,
-          type: "track",
-          limit: Math.min(50, maxTracks - out.length),
-          market: "from_token",
+    try {
+      const response = await spotifyRequest<any>(
+        {
+          method: "GET",
+          url: `${SPOTIFY_API_BASE}/search`,
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: {
+            q,
+            type: "track",
+            limit: Math.min(50, maxTracks - out.length),
+            market: "from_token",
+          },
         },
-      },
-      { userKey: opts?.userKey }
-    );
+        {
+          userKey: opts?.userKey,
+          maxRetries: opts?.maxRetries,
+          requestTimeoutMs: opts?.requestTimeoutMs,
+        }
+      );
 
-    for (const track of response.data.tracks?.items ?? []) {
-      if (!track?.id || track.is_local || seen.has(track.id)) continue;
-      seen.add(track.id);
-      out.push(track as SpotifyTrack);
-      if (out.length >= maxTracks) break;
+      for (const track of response.data.tracks?.items ?? []) {
+        if (!track?.id || track.is_local || seen.has(track.id)) continue;
+        seen.add(track.id);
+        out.push(track as SpotifyTrack);
+        if (out.length >= maxTracks) break;
+      }
+    } catch (err: any) {
+      if (!opts?.bestEffort) throw err;
+      logger.warn(
+        { query: q, err: err?.message, status: err?.response?.status, collected: out.length },
+        "Spotify search query failed during best-effort retrieval — skipping query"
+      );
     }
 
     if (out.length < maxTracks) await new Promise((r) => setTimeout(r, 80));
@@ -533,7 +557,7 @@ export async function fetchPlaylistTrackIds(
 export async function fetchAudioFeatures(
   accessToken: string,
   trackIds: string[],
-  opts?: { fallbackToken?: string; userKey?: string }
+  opts?: { fallbackToken?: string; userKey?: string; maxRetries?: number; requestTimeoutMs?: number }
 ): Promise<SpotifyAudioFeatures[]> {
   if (!trackIds.length) return [];
 
@@ -556,7 +580,7 @@ export async function fetchAudioFeatures(
           headers: { Authorization: `Bearer ${token}` },
           params: { ids: batch.join(",") },
         },
-        { userKey: opts?.userKey }
+        { userKey: opts?.userKey, maxRetries: opts?.maxRetries, requestTimeoutMs: opts?.requestTimeoutMs }
       );
 
       const features = response.data.audio_features?.filter(Boolean) ?? [];

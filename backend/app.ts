@@ -147,6 +147,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
 
     res.once("finish", release);
     res.once("close", release);
+    req.once("aborted", release);
     next();
   });
 

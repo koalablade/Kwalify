@@ -352,7 +352,7 @@ function staleGenerate(userId: string, requestId: string): boolean {
 }
 
 function responseFinished(res: import("express").Response): boolean {
-  return res.headersSent || res.writableEnded;
+  return res.headersSent || res.writableEnded || res.destroyed;
 }
 
 function useMockSpotify(): boolean {
@@ -396,6 +396,7 @@ function generateFail(
   error: string,
   extra?: Record<string, unknown>
 ): void {
+  if (res.headersSent || res.writableEnded || res.destroyed) return;
   res.status(status).json({
     success: false,
     code,
@@ -2927,6 +2928,71 @@ function noLibrarySearchQueries(vibe: string, families: string[], subgenreTerms:
   return [...priorityQueries, ...expandedQueries].slice(0, 24);
 }
 
+type RetrievalCompletionDiagnostics = {
+  retrievalBlockingReason: string | null;
+  unresolvedProviders: string[];
+  retrievalWaitTimePerSource: Record<string, number>;
+  usedPartialRetrieval: boolean;
+  retrievalPartialCompletion: boolean;
+  candidatePoolSizeAtUnblock: number;
+  minViablePool: number;
+};
+
+type TimedRetrievalSource<T> = {
+  value: T;
+  elapsedMs: number;
+  timedOut: boolean;
+  failed: boolean;
+};
+
+function defaultRetrievalCompletionDiagnostics(minViablePool: number): RetrievalCompletionDiagnostics {
+  return {
+    retrievalBlockingReason: null,
+    unresolvedProviders: [],
+    retrievalWaitTimePerSource: {},
+    usedPartialRetrieval: false,
+    retrievalPartialCompletion: false,
+    candidatePoolSizeAtUnblock: 0,
+    minViablePool,
+  };
+}
+
+async function timeboxRetrievalSource<T>(
+  source: string,
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallback: T,
+): Promise<TimedRetrievalSource<T>> {
+  const startedAt = Date.now();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const guarded = promise
+    .then((value) => ({
+      value,
+      elapsedMs: Date.now() - startedAt,
+      timedOut: false,
+      failed: false,
+    }))
+    .catch(() => ({
+      value: fallback,
+      elapsedMs: Date.now() - startedAt,
+      timedOut: false,
+      failed: true,
+    }));
+  const timeout = new Promise<TimedRetrievalSource<T>>((resolve) => {
+    timer = setTimeout(() => {
+      resolve({
+        value: fallback,
+        elapsedMs: Date.now() - startedAt,
+        timedOut: true,
+        failed: false,
+      });
+    }, timeoutMs);
+  });
+  const result = await Promise.race([guarded, timeout]);
+  if (timer) clearTimeout(timer);
+  return result;
+}
+
 async function buildNoLibrarySpotifyCandidates(opts: {
   accessToken: string;
   userId: string;
@@ -2934,36 +3000,101 @@ async function buildNoLibrarySpotifyCandidates(opts: {
   length: number;
   families: string[];
   subgenreTerms?: string[];
-}): Promise<Array<typeof likedSongsTable.$inferSelect>> {
-  const rawTracks = await searchSpotifyTracks(
-    opts.accessToken,
-    noLibrarySearchQueries(opts.vibe, opts.families, opts.subgenreTerms),
-    Math.max(80, opts.length * 3),
-    { userKey: opts.userId }
+}): Promise<{
+  tracks: Array<typeof likedSongsTable.$inferSelect>;
+  diagnostics: RetrievalCompletionDiagnostics;
+}> {
+  const minViablePool = Math.min(120, Math.max(50, opts.length * 2));
+  const diagnostics = defaultRetrievalCompletionDiagnostics(minViablePool);
+  const maxTracks = Math.max(80, opts.length * 3);
+  const searchResult = await timeboxRetrievalSource(
+    "spotifySearch",
+    searchSpotifyTracks(
+      opts.accessToken,
+      noLibrarySearchQueries(opts.vibe, opts.families, opts.subgenreTerms),
+      maxTracks,
+      {
+        userKey: opts.userId,
+        bestEffort: true,
+        minTracks: minViablePool,
+        maxElapsedMs: 5_000,
+        maxRetries: 0,
+        requestTimeoutMs: 2_500,
+      }
+    ),
+    6_000,
+    []
   );
-  if (rawTracks.length === 0) return [];
+  diagnostics.retrievalWaitTimePerSource.spotifySearch = searchResult.elapsedMs;
+  const rawTracks = searchResult.value;
+  const searchWindowElapsed = searchResult.elapsedMs >= 4_900 && rawTracks.length < maxTracks;
+  if (searchResult.timedOut || searchResult.failed || searchWindowElapsed) {
+    diagnostics.unresolvedProviders.push("spotifySearch");
+  }
+  diagnostics.candidatePoolSizeAtUnblock = rawTracks.length;
+  if (rawTracks.length === 0) {
+    diagnostics.retrievalBlockingReason = "empty_candidate_pool_after_timeboxed_retrieval";
+    diagnostics.usedPartialRetrieval = searchResult.timedOut || searchResult.failed;
+    diagnostics.retrievalPartialCompletion = diagnostics.usedPartialRetrieval;
+    return { tracks: [], diagnostics };
+  }
+  if (rawTracks.length >= minViablePool && (searchResult.timedOut || searchResult.failed || searchWindowElapsed)) {
+    diagnostics.retrievalBlockingReason = "min_viable_pool_reached_before_all_sources_completed";
+  } else if (rawTracks.length < minViablePool) {
+    diagnostics.retrievalBlockingReason = "retrieval_timebox_elapsed_below_min_viable_pool";
+  }
 
-  const [artistGenreMap, albumMetadataMap, audioFeatures] = await Promise.all([
-    fetchArtistGenres(
-      opts.accessToken,
-      rawTracks.flatMap((track) => track.artists.map((artist) => artist.id).filter((id): id is string => !!id)),
-      { userKey: opts.userId }
-    ).catch(() => new Map<string, string[]>()),
-    fetchAlbumMetadata(
-      opts.accessToken,
-      rawTracks.map((track) => track.album.id).filter((id): id is string => !!id),
-      { userKey: opts.userId }
-    ).catch(() => new Map()),
-    fetchAudioFeatures(
-      opts.accessToken,
-      rawTracks.map((track) => track.id),
-      { userKey: opts.userId }
-    ).catch(() => []),
+  const [artistGenreResult, albumMetadataResult, audioFeaturesResult] = await Promise.all([
+    timeboxRetrievalSource(
+      "artistGenres",
+      fetchArtistGenres(
+        opts.accessToken,
+        rawTracks.flatMap((track) => track.artists.map((artist) => artist.id).filter((id): id is string => !!id)),
+        { userKey: opts.userId, maxRetries: 0, requestTimeoutMs: 2_500 }
+      ),
+      3_500,
+      new Map<string, string[]>()
+    ),
+    timeboxRetrievalSource(
+      "albumMetadata",
+      fetchAlbumMetadata(
+        opts.accessToken,
+        rawTracks.map((track) => track.album.id).filter((id): id is string => !!id),
+        { userKey: opts.userId, maxRetries: 0, requestTimeoutMs: 2_500 }
+      ),
+      3_500,
+      new Map()
+    ),
+    timeboxRetrievalSource(
+      "audioFeatures",
+      fetchAudioFeatures(
+        opts.accessToken,
+        rawTracks.map((track) => track.id),
+        { userKey: opts.userId, maxRetries: 0, requestTimeoutMs: 2_500 }
+      ),
+      3_500,
+      []
+    ),
   ]);
+  diagnostics.retrievalWaitTimePerSource.artistGenres = artistGenreResult.elapsedMs;
+  diagnostics.retrievalWaitTimePerSource.albumMetadata = albumMetadataResult.elapsedMs;
+  diagnostics.retrievalWaitTimePerSource.audioFeatures = audioFeaturesResult.elapsedMs;
+  for (const [source, result] of [
+    ["artistGenres", artistGenreResult],
+    ["albumMetadata", albumMetadataResult],
+    ["audioFeatures", audioFeaturesResult],
+  ] as const) {
+    if (result.timedOut || result.failed) diagnostics.unresolvedProviders.push(source);
+  }
+  diagnostics.usedPartialRetrieval = diagnostics.unresolvedProviders.length > 0 || rawTracks.length < minViablePool;
+  diagnostics.retrievalPartialCompletion = diagnostics.usedPartialRetrieval;
+  const artistGenreMap = artistGenreResult.value;
+  const albumMetadataMap = albumMetadataResult.value;
+  const audioFeatures = audioFeaturesResult.value;
   const featuresById = new Map(audioFeatures.map((features) => [features.id, features]));
   const now = new Date();
 
-  return rawTracks.map((track, index) => {
+  const tracks = rawTracks.map((track, index) => {
     const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
     const features = featuresById.get(track.id);
     return {
@@ -2991,6 +3122,7 @@ async function buildNoLibrarySpotifyCandidates(opts: {
       createdAt: now,
     };
   });
+  return { tracks, diagnostics };
 }
 
 function hasFinalGenreEvidence(
@@ -3206,6 +3338,9 @@ router.post("/generate", async (req, res): Promise<void> => {
   let requestId = "";
   let sessionUserId = "";
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  let hardTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+  let clientDisconnected = false;
+  let cleanupClientDisconnectListeners: (() => void) | null = null;
   let requestHardTimeoutMs = REQUEST_HARD_TIMEOUT_MS;
   try {
     const devMode = useMockSpotify();
@@ -3214,7 +3349,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const auditTokenAuthorized = auditModeRequested && generationAuditTokenAuthorized(req);
     const auditMode = auditModeRequested && auditTokenAuthorized;
     const sideEffectPolicy = auditMode ? AUDIT_SIDE_EFFECT_POLICY : PRODUCTION_SIDE_EFFECT_POLICY;
-    requestHardTimeoutMs = auditMode ? 220_000 : REQUEST_HARD_TIMEOUT_MS;
+    requestHardTimeoutMs = REQUEST_HARD_TIMEOUT_MS;
     if (auditMode) beginSpotifyApiAudit();
     const auditUserIdRaw = typeof rawBody.spotifyUserId === "string"
       ? rawBody.spotifyUserId.trim()
@@ -3353,6 +3488,57 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     requestId = acquired;
     sessionUserId = generateSessionUserId;
+    const deadlineAt = startMs + requestHardTimeoutMs;
+    const markClientDisconnected = (): void => {
+      if (clientDisconnected) return;
+      clientDisconnected = true;
+      cancelGenerateSession(generateSessionUserId, requestId);
+      req.log.warn({ userId, requestId }, "Generate request client disconnected — cancelling session");
+    };
+    const onRequestAborted = (): void => markClientDisconnected();
+    const onResponseClose = (): void => {
+      if (!res.writableEnded) markClientDisconnected();
+    };
+    req.once("aborted", onRequestAborted);
+    res.once("close", onResponseClose);
+    cleanupClientDisconnectListeners = () => {
+      req.off("aborted", onRequestAborted);
+      res.off("close", onResponseClose);
+    };
+    const timeoutAfterMs = Math.max(1, deadlineAt - Date.now());
+    hardTimeoutTimer = setTimeout(() => {
+      if (responseFinished(res)) return;
+      const progressBeforeCancel = getGenerateProgress(generateSessionUserId);
+      cancelGenerateSession(generateSessionUserId, requestId);
+      req.log.error(
+        {
+          userId,
+          requestId,
+          elapsedMs: Date.now() - startMs,
+          phase: progressBeforeCancel?.phase ?? "unknown",
+          stage: progressBeforeCancel?.stage ?? null,
+          code: "TIMEOUT",
+        },
+        "Generate absolute watchdog timeout"
+      );
+      res.status(504).json({
+        success: false,
+        error: "Generation took too long before a safe playlist could be built. Try again with a slightly broader prompt, or sync your Spotify library and retry.",
+        code: "TIMEOUT",
+        tracks: [],
+        generationDiagnostics: {
+          recoveryTriggered: false,
+          fallbackLevel: "none",
+          sessionCancelled: true,
+          failureReason: "absolute_watchdog_timeout_before_safe_fallback",
+          requestId,
+          elapsedMs: Date.now() - startMs,
+          lastPhase: progressBeforeCancel?.phase ?? null,
+          lastStage: progressBeforeCancel?.stage ?? null,
+        },
+      });
+    }, timeoutAfterMs);
+    hardTimeoutTimer.unref?.();
     setGeneratePhase(generateSessionUserId, requestId, "starting");
     req.log.info({ elapsedMs: 0, trackCount: 0, cacheHit: false }, "Generation started");
     heartbeatTimer = setInterval(() => {
@@ -3484,6 +3670,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let noLibrarySpotifyCandidateCount = 0;
     let noLibrarySpotifyVerifiedCount = 0;
     let noLibrarySpotifyFallbackReason: string | null = null;
+    let noLibraryRetrievalDiagnostics: RetrievalCompletionDiagnostics | null = null;
     if (!devMode && noLibraryMode && noLibraryExplicitFamilies.length > 0) {
       try {
         setGenerateStageDetail(generateSessionUserId, requestId, "Searching Spotify-wide candidates...");
@@ -3491,7 +3678,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
           req.session.spotifyTokens = freshTokens;
         }
-        const spotifyCandidates = await buildNoLibrarySpotifyCandidates({
+        const spotifyCandidateResult = await buildNoLibrarySpotifyCandidates({
           accessToken: freshTokens.accessToken,
           userId,
           vibe,
@@ -3499,6 +3686,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           families: noLibraryExplicitFamilies,
           subgenreTerms: noLibraryParsedIntent?.subgenreTerms ?? [],
         });
+        const spotifyCandidates = spotifyCandidateResult.tracks;
+        noLibraryRetrievalDiagnostics = spotifyCandidateResult.diagnostics;
         noLibrarySpotifyCandidateCount = spotifyCandidates.length;
         const verifiedSpotifyCandidates = spotifyCandidates.filter((track) =>
           hasFinalGenreEvidence(track, new Map(), noLibraryExplicitFamilies, { allowSpotifyMetadataEvidence: true })
@@ -3518,6 +3707,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               spotifyCandidateCount: spotifyCandidates.length,
               verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
               requiredVerifiedCandidates,
+              retrievalCompletion: noLibraryRetrievalDiagnostics,
             },
             "No Library Mode using verified Spotify search candidates"
           );
@@ -3532,6 +3722,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               spotifyCandidateCount: spotifyCandidates.length,
               verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
               requiredVerifiedCandidates,
+              retrievalCompletion: noLibraryRetrievalDiagnostics,
             },
             "No Library Mode using unverified Spotify search pool; final guard will enforce genre evidence"
           );
@@ -3544,6 +3735,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               spotifyCandidateCount: spotifyCandidates.length,
               verifiedSpotifyCandidateCount: verifiedSpotifyCandidates.length,
               requiredVerifiedCandidates,
+              retrievalCompletion: noLibraryRetrievalDiagnostics,
             },
             "No Library Mode Spotify search returned too few candidates"
           );
@@ -3561,6 +3753,7 @@ router.post("/generate", async (req, res): Promise<void> => {
                 candidateCount: noLibrarySpotifyCandidateCount,
                 verifiedCount: noLibrarySpotifyVerifiedCount,
                 expectedFamilies: noLibraryExplicitFamilies,
+                retrievalCompletion: noLibraryRetrievalDiagnostics,
               },
             }
           );
@@ -3586,6 +3779,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               candidateCount: noLibrarySpotifyCandidateCount,
               verifiedCount: noLibrarySpotifyVerifiedCount,
               expectedFamilies: noLibraryExplicitFamilies,
+              retrievalCompletion: noLibraryRetrievalDiagnostics,
             },
           }
         );
@@ -3775,13 +3969,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       noLibrarySpotifyCandidateCount,
       noLibrarySpotifyVerifiedCount,
       noLibrarySpotifyFallbackReason,
+      noLibraryRetrievalDiagnostics,
       noLibraryMode,
     };
 
-    res.setTimeout(requestHardTimeoutMs + 2_000, () => {
+    if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    res.setTimeout(Math.max(1_000, deadlineAt - Date.now() + 2_000), () => {
       if (responseFinished(res)) return; // timeout handler — no second body
       if (respondIfStale(res, generateSessionUserId, requestId)) return;
-      if (!auditMode) cancelGenerateSession(generateSessionUserId, requestId);
+      cancelGenerateSession(generateSessionUserId, requestId);
       const ctx = (req as { _genCtx?: {
         likedSongs: typeof likedSongs;
         constrainedFallbackTracks?: typeof likedSongs;
@@ -4343,13 +4539,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         } else if (stage === "coherence") {
           phaseAccepted = setGeneratePhase(generateSessionUserId, requestId, "composing");
         }
-        if (!phaseAccepted && staleGenerate(generateSessionUserId, requestId)) return;
+        if (!phaseAccepted && (clientDisconnected || staleGenerate(generateSessionUserId, requestId))) return;
         setGenerateStageDetail(generateSessionUserId, requestId, detail);
       },
     });
     }
     playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
-    if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
 
     type PlaylistTrack = V3MetadataTrack<(typeof likedSongs)[number]> & {
       score: number;
@@ -4416,7 +4612,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Locked intent final validation"
     );
     setGenerateStageDetail(generateSessionUserId, requestId, `Applying ${curatorIdentity.type.replace(/_/g, " ")} curator identity`);
-    if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const identityInitialTracks = applyCuratorIdentityScoring(finalTracks, curatorIdentity, sessionMemory);
     const finalCandidatePool = applyCuratorIdentityScoring(buildFinalCandidatePool(), curatorIdentity, sessionMemory);
     setGenerateStageDetail(generateSessionUserId, requestId, "Selecting dominant vibe cluster before final checks");
@@ -4449,7 +4645,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       artistReusePenalty: finalizationArtistReusePenalty,
     });
     finalizationTimeMs += Date.now() - tStage;
-    if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
       likedSongs
         .map((track) => ({
@@ -4604,6 +4800,7 @@ router.post("/generate", async (req, res): Promise<void> => {
                 candidateCount: noLibrarySpotifyCandidateCount,
                 verifiedCandidateCount: noLibrarySpotifyVerifiedCount,
                 fallbackReason: noLibrarySpotifyFallbackReason,
+                retrievalCompletion: noLibraryRetrievalDiagnostics,
               }
             : undefined,
         }
@@ -5584,6 +5781,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           candidateCount: noLibrarySpotifyCandidateCount,
           verifiedCandidateCount: noLibrarySpotifyVerifiedCount,
           fallbackReason: noLibrarySpotifyFallbackReason,
+          retrievalCompletion: noLibraryRetrievalDiagnostics,
         }
       : null;
     const generationAuditSnapshot = {
@@ -5871,12 +6069,16 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     } finally {
       genStageTimer?.dispose();
+      cleanupClientDisconnectListeners?.();
+      if (hardTimeoutTimer) clearTimeout(hardTimeoutTimer);
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (sessionUserId && requestId) {
         endGenerateSession(sessionUserId, requestId);
       }
     }
   } catch (fatalErr: any) {
+    cleanupClientDisconnectListeners?.();
+    if (hardTimeoutTimer) clearTimeout(hardTimeoutTimer);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     req.log.error(
       { err: fatalErr?.message, code: "INTERNAL_ERROR", userId: sessionUserId },

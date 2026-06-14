@@ -2603,6 +2603,17 @@ export async function buildPlaylistPipeline<T extends {
       },
     }, "Retrieval starvation safety expansion applied");
   }
+  const fallbackLevelRank: Record<"none" | "family" | "adjacent" | "global", number> = {
+    none: 0,
+    family: 1,
+    adjacent: 2,
+    global: 3,
+  };
+  const retrievalFallbackLevelUsed = retrieval.diagnostics?.fallbackLevelUsed ?? "none";
+  const effectiveFallbackLevelUsed =
+    fallbackLevelRank[retrievalFallbackLevelUsed] > fallbackLevelRank[finalFallbackLevelUsed]
+      ? retrievalFallbackLevelUsed
+      : finalFallbackLevelUsed;
   await emitProgress(opts, "lanes", `Routing ${contractGuardedScoredPool.length.toLocaleString()} candidates into playlist lanes`);
   const explicitGenreRecoveryUsed = intentContract.genreFamilies.length > 0 &&
     contractEvidencePool.length === 0 &&
@@ -2857,7 +2868,7 @@ export async function buildPlaylistPipeline<T extends {
       active: retrievalSafetyExpanded,
       retrievalElapsedMs: timingMs.retrieval,
       candidateAttemptCount: candidateInputs.length,
-      fallbackLevelUsed: finalFallbackLevelUsed,
+      fallbackLevelUsed: effectiveFallbackLevelUsed,
       starvationTriggerReason,
       layeredSafetyPoolSize: layeredSafetyPool.length,
     },
@@ -2895,7 +2906,7 @@ export async function buildPlaylistPipeline<T extends {
       retrievalExpansionReason: contractGuard.pool.length === 0 && contractSafePool.length > 0
         ? "contract_guard_empty_using_contract_safe_pool"
         : null,
-      fallbackLevelUsed: finalFallbackLevelUsed,
+      fallbackLevelUsed: effectiveFallbackLevelUsed,
       starvationTriggerReason,
       candidateCountPerStage: {
         retrieval: pooledCandidates.length,
