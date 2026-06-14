@@ -13,6 +13,7 @@ export const HYBRID_POOL_SIMPLE = 800;
 export const HYBRID_POOL_STANDARD = 1000;
 export const HYBRID_POOL_COMPLEX = 1500;
 export const HYBRID_POOL_ABSOLUTE_MAX = 2000;
+export const LARGE_LIBRARY_HYBRID_POOL_MAX = 1500;
 
 export const MINIMAL_GENRE_STACK_THRESHOLD = 500;
 
@@ -40,23 +41,21 @@ export function resolveHybridPoolCap(
   librarySize: number,
   opts: { referencePlaylist?: boolean; vibeKind?: VibeKind; promptWordCount?: number }
 ): number {
-  // Spec §6: Never reduce by more than 40%. Preserve at least 60% of library.
-  const minRetained = minPoolAfterPreFilter(librarySize);
-
   if (librarySize <= LARGE_LIBRARY_THRESHOLD) {
+    // Spec §6: for small/medium libraries, preserve at least 60% of the source pool.
+    const minRetained = minPoolAfterPreFilter(librarySize);
     return Math.max(minRetained, librarySize <= 1500 ? HYBRID_POOL_STANDARD : HYBRID_POOL_COMPLEX);
   }
-  // Large libraries: honour 40%-reduction rule with a performance ceiling.
-  if (librarySize > 5000) {
-    // Absolute performance ceiling: 5000 tracks max; still respects 40% rule
-    // unless library is so large the minimum would exceed it.
-    return Math.min(5000, Math.max(minRetained, HYBRID_POOL_ABSOLUTE_MAX));
-  }
-  let cap = HYBRID_POOL_COMPLEX;
+
+  // Large libraries must use a true HTTP-safe ceiling. Preserving 60% of a
+  // 9k+ library pushes thousands of tracks through synchronous hybrid/V3
+  // scoring and can block the event loop long enough for watchdog timers to
+  // miss their response window.
+  let cap = LARGE_LIBRARY_HYBRID_POOL_MAX;
   if (opts.referencePlaylist) cap = Math.min(cap + 100, HYBRID_POOL_ABSOLUTE_MAX);
-  if ((opts.promptWordCount ?? 0) >= 12) cap = HYBRID_POOL_ABSOLUTE_MAX;
+  if ((opts.promptWordCount ?? 0) >= 12) cap = Math.min(HYBRID_POOL_ABSOLUTE_MAX, cap + 300);
   if (opts.vibeKind === "sunny" || opts.vibeKind === "late_night") {
     cap = Math.min(cap + 100, HYBRID_POOL_ABSOLUTE_MAX);
   }
-  return Math.max(minRetained, Math.min(cap, HYBRID_POOL_ABSOLUTE_MAX));
+  return Math.min(cap, HYBRID_POOL_ABSOLUTE_MAX);
 }
