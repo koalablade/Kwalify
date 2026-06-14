@@ -98,6 +98,7 @@ async function api(path, opts = {}) {
 function userFacingApiError(result, fallback = "Something went wrong. Please try again.") {
   if (result?.status === 0) return "Network connection dropped. Please check your connection and try again.";
   if (result?.status === 401) return "Spotify session expired. Please reconnect Spotify.";
+  if (result?.status === 504) return "Generation took too long. Try a slightly broader prompt, then generate again.";
   if (result?.status === 503) return "Service is temporarily unavailable. Please try again in a moment.";
   const raw = result?.data?.error || result?.data?.message || fallback;
   const text = String(raw || fallback);

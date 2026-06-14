@@ -78,6 +78,9 @@ function isActiveSession(s: SessionState): boolean {
 }
 
 function evictIfNeeded(): void {
+  for (const [userId, session] of sessions.entries()) {
+    if (!isActiveSession(session)) sessions.delete(userId);
+  }
   if (sessions.size <= MAX_SESSIONS) return;
   const sorted = [...sessions.entries()].sort((a, b) => a[1].startedAt - b[1].startedAt);
   for (let i = 0; i < 50; i++) sessions.delete(sorted[i]![0]);

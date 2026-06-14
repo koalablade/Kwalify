@@ -49,6 +49,7 @@ import { analyzeMomentPipeline } from "../lib/moment-pipeline";
 import { getUserGenreProfileForGenerate } from "../lib/genre-profile-cache";
 import { getCachedLikedSongs, setCachedLikedSongs } from "../lib/liked-songs-cache";
 import { classifyTrack } from "../lib/genre-taxonomy";
+import { getGenreFamily } from "../core/v3/global-diversity-controller";
 import { buildGenreIntelligenceStack } from "../lib/genre-intelligence-stack";
 import {
   getCachedGenreStack,
@@ -350,6 +351,10 @@ function staleGenerate(userId: string, requestId: string): boolean {
   return isGenerateCancelled(userId, requestId);
 }
 
+function responseFinished(res: import("express").Response): boolean {
+  return res.headersSent || res.writableEnded;
+}
+
 function useMockSpotify(): boolean {
   return getFeatures().devMode.useMockSpotify;
 }
@@ -365,7 +370,7 @@ function respondIfStale(
   requestId: string
 ): boolean {
   if (!staleGenerate(userId, requestId)) return false;
-  if (!res.headersSent) {
+  if (!responseFinished(res)) {
     res.status(409).json({
       success: false,
       code: "GENERATION_CANCELLED",
@@ -2885,31 +2890,41 @@ const NO_LIBRARY_GENRE_SEARCH_TERMS: Record<string, string[]> = {
 function noLibrarySearchQueries(vibe: string, families: string[], subgenreTerms: string[] = []): string[] {
   const cleanedVibe = vibe.trim();
   const eraTerms = extractEraRange(vibe).terms;
-  const queries = new Set<string>();
-  if (cleanedVibe) queries.add(cleanedVibe);
-  for (const subgenre of subgenreTerms) {
+  const priorityQueries = new Set<string>();
+  const expandedQueries = new Set<string>();
+  const lower = cleanedVibe.toLowerCase();
+  const controlledAliases = new Set<string>();
+  const aliasSource = `${lower} ${subgenreTerms.join(" ").toLowerCase().replace(/_/g, " ")}`;
+  if (/\b(?:tekk|tekno|schranz|hardgroove|industrial techno)\b/.test(aliasSource)) {
+    ["hard techno", "schranz", "tekno", "techno"].forEach((term) => controlledAliases.add(term));
+  }
+  if (/\b(?:d\s*&\s*b|dnb|drum and bass|rollers?|liquid dnb|liquid drum and bass)\b/.test(aliasSource)) {
+    ["dnb rollers", "drum and bass rollers", "liquid drum and bass", "drum and bass", "jungle rollers"].forEach((term) => controlledAliases.add(term));
+  }
+  if (cleanedVibe) priorityQueries.add(cleanedVibe);
+  for (const subgenre of [...subgenreTerms, ...controlledAliases]) {
     const term = subgenre.replace(/_/g, " ").trim();
     if (!term) continue;
-    queries.add(term);
+    priorityQueries.add(term);
     if (cleanedVibe && !cleanedVibe.toLowerCase().includes(term.toLowerCase())) {
-      queries.add(`${cleanedVibe} ${term}`);
+      expandedQueries.add(`${cleanedVibe} ${term}`);
     }
     for (const era of eraTerms) {
-      queries.add(`${era} ${term}`);
+      expandedQueries.add(`${era} ${term}`);
     }
   }
   for (const family of families) {
     for (const term of NO_LIBRARY_GENRE_SEARCH_TERMS[family] ?? [family.replace(/_/g, " ")]) {
-      queries.add(term);
+      priorityQueries.add(term);
       if (cleanedVibe && !cleanedVibe.toLowerCase().includes(term.toLowerCase())) {
-        queries.add(`${cleanedVibe} ${term}`);
+        expandedQueries.add(`${cleanedVibe} ${term}`);
       }
       for (const era of eraTerms) {
-        queries.add(`${era} ${term}`);
+        expandedQueries.add(`${era} ${term}`);
       }
     }
   }
-  return [...queries].slice(0, 18);
+  return [...priorityQueries, ...expandedQueries].slice(0, 24);
 }
 
 async function buildNoLibrarySpotifyCandidates(opts: {
@@ -3001,6 +3016,7 @@ function hasFinalGenreEvidence(
     };
   }>,
   expectedFamilies: string[],
+  opts: { allowSpotifyMetadataEvidence?: boolean } = {},
 ): boolean {
   if (expectedFamilies.length === 0) return true;
   const classification = classMap.get(track.trackId);
@@ -3027,6 +3043,18 @@ function hasFinalGenreEvidence(
       ? classification
       : localClassification;
   if (cachedHasExpectedFamily) return true;
+  if (opts.allowSpotifyMetadataEvidence) {
+    const metadataGenres = [
+      ...(Array.isArray(track.spotifyArtistGenres) ? track.spotifyArtistGenres : []),
+      ...(Array.isArray(track.albumGenres) ? track.albumGenres : []),
+    ].filter((value): value is string => typeof value === "string");
+    if (metadataGenres.some((genre) => {
+      const family = getGenreFamily(genre.toLowerCase().trim().replace(/&/g, "and").replace(/[\s-]+/g, "_"));
+      return !!family && expectedFamilies.includes(family);
+    })) {
+      return true;
+    }
+  }
   if (!candidateClassification || !expectedFamilies.includes(candidateClassification.genreFamily)) {
     const known = FINAL_GUARD_KNOWN_ARTISTS.find((entry) => entry.pattern.test(track.artistName ?? ""));
     return !!known && expectedFamilies.includes(known.family);
@@ -3412,7 +3440,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const vibeKind = detectVibeKind(vibe, emotionProfile);
     const budget = createRequestBudget(startMs);
     const debugMode = req.query.debug === "1";
-    const resultCacheKey = getGenerateCacheKey({
+    const resultCacheBaseKey = getGenerateCacheKey({
       userId,
       vibe,
       vibeKind,
@@ -3424,112 +3452,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       noLibraryMode: !!noLibraryMode,
       mockMode: devMode,
     });
-    const cacheEntryStatus = getGenerateCacheEntryStatus(resultCacheKey);
+    let resultCacheKey = resultCacheBaseKey;
+    let cacheEntryStatus = getGenerateCacheEntryStatus(resultCacheKey);
     const cacheConstraintLayer = extractConstraintLayer(vibe, {
       primary: vibe,
       ...deriveDiagnosticTags(vibe),
       canonicalHints: canonicalCrossGenreHints(vibe),
     });
-
-    if (sideEffectPolicy.mode === "production" && !debugMode && !varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
-      tStage = Date.now();
-      const cached = getCachedGenerateResult(resultCacheKey);
-      recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
-      // Only use cache entries generated after strict final genre/era validation.
-      if (cached && cached.cacheVersion === "v30" && hasValidCachedIntent(cached)) {
-        if (respondIfStale(res, generateSessionUserId, requestId)) return;
-        setGeneratePhase(generateSessionUserId, requestId, "done");
-        const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
-        const cachedFinalGenreDistribution = cachedApiTracks.reduce<Record<string, number>>(
-          (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
-          {},
-        );
-        const cachedFinalEraDistribution = cachedApiTracks.reduce<Record<string, number>>(
-          (acc, track) => incrementDistribution(acc, eraBucket(track.releaseYear)),
-          {},
-        );
-        const cachedFinalMoodDistribution = cachedApiTracks.reduce<Record<string, number>>(
-          (acc, track) => incrementDistribution(acc, moodBucket(track.energy, track.valence)),
-          {},
-        );
-        const cachedFinalEnergyDistribution = cachedApiTracks.reduce<Record<string, number>>(
-          (acc, track) => incrementDistribution(acc, energyBucket(track.energy)),
-          {},
-        );
-        req.log.info(
-          {
-            elapsedMs: Date.now() - startMs,
-            cacheHit: true,
-            trackCount: cached.finalTracks.length,
-          },
-          "Generation complete"
-        );
-        let cachedSavedPlaylistId: number | null = null;
-        try {
-          const [saved] = await db
-            .insert(savedPlaylistsTable)
-            .values({
-              userId,
-              name: cached.playlistName,
-              emotionProfile: cached.emotionProfile as any,
-              tracks: cached.finalTracks as any,
-              spotifyUrl: cached.spotifyPlaylistUrl,
-              vibe: cached.vibe,
-              mode: cached.mode,
-            })
-            .returning({ id: savedPlaylistsTable.id });
-          cachedSavedPlaylistId = saved?.id ?? null;
-          if (cachedSavedPlaylistId) {
-            await db.insert(playlistHistoryTable).values({
-              spotifyUserId: userId,
-              playlistId: cached.spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${cachedSavedPlaylistId}`,
-              playlistUrl: cached.spotifyPlaylistUrl ?? publicUrl(`/p/${cachedSavedPlaylistId}`),
-              name: cached.playlistName,
-              vibe: cached.vibe,
-              mode: cached.mode,
-              trackCount: cachedApiTracks.length,
-              emotionProfile: cached.emotionProfile as any,
-              trackIds: cached.finalTracks.map((track) => track.trackId),
-            });
-          }
-        } catch (cacheSaveErr) {
-          req.log.warn({ err: cacheSaveErr, userId }, "Cached generation could not create local saved playlist");
-        }
-        res.json({
-          success: true,
-          cached: true,
-          playlistId: cachedSavedPlaylistId,
-          savedPlaylistId: cachedSavedPlaylistId,
-          tracks: cachedApiTracks,
-          playlistName: cached.playlistName,
-          name: cached.playlistName,
-          vibe: cached.vibe,
-          mode: cached.mode,
-          noLibraryMode: !!noLibraryMode,
-          count: cachedApiTracks.length,
-          totalTracks: cachedApiTracks.length,
-          emotionProfile: cached.emotionProfile,
-          cacheDiagnostics: { status: "fresh", staleBypassed: false },
-          finalGenreDistribution: cachedFinalGenreDistribution,
-          finalEraDistribution: cachedFinalEraDistribution,
-          finalMoodDistribution: cachedFinalMoodDistribution,
-          finalEnergyDistribution: cachedFinalEnergyDistribution,
-          v3Diagnostics: cached.v3Diagnostics ?? null,
-          generationDiagnostics: {
-            recoveryTriggered: false,
-            fallbackLevel: "none",
-            sessionCancelled: false,
-            ...(cached.generationDiagnostics ?? {}),
-          },
-          artistDiversity: cached.artistDiversity ?? null,
-          playlistConfidence: cached.playlistConfidence ?? null,
-          ...(cached.spotifyPlaylistUrl
-            ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
-            : { spotifyUnavailable: true as const }),
-        });
-        return;
-      }
-    }
 
     setGeneratePhase(generateSessionUserId, requestId, "loading_library");
     setGenerateStageDetail(generateSessionUserId, requestId, "Scanning your liked songs...");
@@ -3572,7 +3501,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         });
         noLibrarySpotifyCandidateCount = spotifyCandidates.length;
         const verifiedSpotifyCandidates = spotifyCandidates.filter((track) =>
-          hasFinalGenreEvidence(track, new Map(), noLibraryExplicitFamilies)
+          hasFinalGenreEvidence(track, new Map(), noLibraryExplicitFamilies, { allowSpotifyMetadataEvidence: true })
         );
         noLibrarySpotifyVerifiedCount = verifiedSpotifyCandidates.length;
         const requiredVerifiedCandidates = Math.min(
@@ -3707,6 +3636,133 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
+    resultCacheKey = `${resultCacheBaseKey}:${libraryFingerprint(likedSongs)}`;
+    cacheEntryStatus = getGenerateCacheEntryStatus(resultCacheKey);
+    if (sideEffectPolicy.mode === "production" && !debugMode && !varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
+      tStage = Date.now();
+      const cached = getCachedGenerateResult(resultCacheKey);
+      recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
+      const currentTrackIds = new Set(likedSongs.map((track) => track.trackId));
+      const cacheInvalidReason = !cached
+        ? null
+        : cached.cacheVersion !== "v30"
+          ? "cache_version_mismatch"
+          : !hasValidCachedIntent(cached)
+            ? "invalid_cached_intent"
+            : !cached.finalTracks.length
+              ? "empty_cached_tracks"
+              : cached.finalTracks.some((track) => !track.trackId || !track.trackName || !track.artistName)
+                ? "invalid_cached_track_payload"
+                : cached.finalTracks.some((track) => !currentTrackIds.has(track.trackId))
+                  ? "cached_track_missing_from_current_library"
+                  : null;
+      // Only use cache entries generated after strict validation and scoped to the current candidate library.
+      if (cached && !cacheInvalidReason) {
+        if (respondIfStale(res, generateSessionUserId, requestId)) return;
+        setGeneratePhase(generateSessionUserId, requestId, "done");
+        const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
+        const cachedFinalGenreDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
+          {},
+        );
+        const cachedFinalEraDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, eraBucket(track.releaseYear)),
+          {},
+        );
+        const cachedFinalMoodDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, moodBucket(track.energy, track.valence)),
+          {},
+        );
+        const cachedFinalEnergyDistribution = cachedApiTracks.reduce<Record<string, number>>(
+          (acc, track) => incrementDistribution(acc, energyBucket(track.energy)),
+          {},
+        );
+        req.log.info(
+          {
+            elapsedMs: Date.now() - startMs,
+            cacheHit: true,
+            cacheHitValid: true,
+            cacheInvalidReason: null,
+            trackCount: cached.finalTracks.length,
+          },
+          "Generation complete"
+        );
+        let cachedSavedPlaylistId: number | null = null;
+        try {
+          const [saved] = await db
+            .insert(savedPlaylistsTable)
+            .values({
+              userId,
+              name: cached.playlistName,
+              emotionProfile: cached.emotionProfile as any,
+              tracks: cached.finalTracks as any,
+              spotifyUrl: cached.spotifyPlaylistUrl,
+              vibe: cached.vibe,
+              mode: cached.mode,
+            })
+            .returning({ id: savedPlaylistsTable.id });
+          cachedSavedPlaylistId = saved?.id ?? null;
+          if (cachedSavedPlaylistId) {
+            await db.insert(playlistHistoryTable).values({
+              spotifyUserId: userId,
+              playlistId: cached.spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${cachedSavedPlaylistId}`,
+              playlistUrl: cached.spotifyPlaylistUrl ?? publicUrl(`/p/${cachedSavedPlaylistId}`),
+              name: cached.playlistName,
+              vibe: cached.vibe,
+              mode: cached.mode,
+              trackCount: cachedApiTracks.length,
+              emotionProfile: cached.emotionProfile as any,
+              trackIds: cached.finalTracks.map((track) => track.trackId),
+            });
+          }
+        } catch (cacheSaveErr) {
+          req.log.warn({ err: cacheSaveErr, userId }, "Cached generation could not create local saved playlist");
+        }
+        res.json({
+          success: true,
+          cached: true,
+          playlistId: cachedSavedPlaylistId,
+          savedPlaylistId: cachedSavedPlaylistId,
+          tracks: cachedApiTracks,
+          playlistName: cached.playlistName,
+          name: cached.playlistName,
+          vibe: cached.vibe,
+          mode: cached.mode,
+          noLibraryMode: !!noLibraryMode,
+          count: cachedApiTracks.length,
+          totalTracks: cachedApiTracks.length,
+          emotionProfile: cached.emotionProfile,
+          cacheDiagnostics: { status: "fresh", staleBypassed: false, cacheHitValid: true, invalidReason: null },
+          finalGenreDistribution: cachedFinalGenreDistribution,
+          finalEraDistribution: cachedFinalEraDistribution,
+          finalMoodDistribution: cachedFinalMoodDistribution,
+          finalEnergyDistribution: cachedFinalEnergyDistribution,
+          v3Diagnostics: cached.v3Diagnostics ?? null,
+          generationDiagnostics: {
+            recoveryTriggered: false,
+            fallbackLevel: "none",
+            sessionCancelled: false,
+            ...(cached.generationDiagnostics ?? {}),
+          },
+          artistDiversity: cached.artistDiversity ?? null,
+          playlistConfidence: cached.playlistConfidence ?? null,
+          ...(cached.spotifyPlaylistUrl
+            ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
+            : { spotifyUnavailable: true as const }),
+        });
+        return;
+      }
+      if (cached && cacheInvalidReason) {
+        cacheEntryStatus = "stale";
+        req.log.info({
+          userId,
+          vibe,
+          cacheHitValid: false,
+          cacheInvalidReason,
+        }, "Generate result cache bypassed");
+      }
+    }
+
     (req as { _genCtx?: Record<string, unknown> })._genCtx = {
       requestId,
       userId,
@@ -3723,7 +3779,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     };
 
     res.setTimeout(requestHardTimeoutMs + 2_000, () => {
-      if (res.headersSent) return; // timeout handler — no second body
+      if (responseFinished(res)) return; // timeout handler — no second body
       if (respondIfStale(res, generateSessionUserId, requestId)) return;
       if (!auditMode) cancelGenerateSession(generateSessionUserId, requestId);
       const ctx = (req as { _genCtx?: {
@@ -3756,9 +3812,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (!ctx?.likedSongs?.length) {
         res.status(504).json({
           success: false,
-          error: "Generation timed out. Please try again.",
+          error: "Generation took too long before a safe playlist could be built. Try again with a slightly broader prompt, or sync your Spotify library and retry.",
           code: "TIMEOUT",
           tracks: [],
+          generationDiagnostics: {
+            recoveryTriggered: false,
+            fallbackLevel: "none",
+            sessionCancelled: true,
+            failureReason: "hard_timeout_before_safe_fallback",
+          },
         });
         return;
       }
@@ -4035,7 +4097,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const freshnessCloneMultiplier = varietyBoost
       ? cloneMultiplier * 0.88
       : cloneMultiplier;
-    const stackCacheKey = `${resultCacheKey}:${libraryFingerprint(likedSongs)}`;
+    const stackCacheKey = resultCacheKey;
 
     stageTimer.start("Building genre stack", {
       tracks: likedSongs.length,
@@ -4281,12 +4343,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         } else if (stage === "coherence") {
           phaseAccepted = setGeneratePhase(generateSessionUserId, requestId, "composing");
         }
-        if (!phaseAccepted) return;
+        if (!phaseAccepted && staleGenerate(generateSessionUserId, requestId)) return;
         setGenerateStageDetail(generateSessionUserId, requestId, detail);
       },
     });
     }
     playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
+    if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
 
     type PlaylistTrack = V3MetadataTrack<(typeof likedSongs)[number]> & {
       score: number;
@@ -4353,6 +4416,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Locked intent final validation"
     );
     setGenerateStageDetail(generateSessionUserId, requestId, `Applying ${curatorIdentity.type.replace(/_/g, " ")} curator identity`);
+    if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const identityInitialTracks = applyCuratorIdentityScoring(finalTracks, curatorIdentity, sessionMemory);
     const finalCandidatePool = applyCuratorIdentityScoring(buildFinalCandidatePool(), curatorIdentity, sessionMemory);
     setGenerateStageDetail(generateSessionUserId, requestId, "Selecting dominant vibe cluster before final checks");
@@ -4385,6 +4449,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       artistReusePenalty: finalizationArtistReusePenalty,
     });
     finalizationTimeMs += Date.now() - tStage;
+    if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
       likedSongs
         .map((track) => ({
@@ -5824,7 +5889,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       setGeneratePhase(sessionUserId, requestId, "error");
       endGenerateSession(sessionUserId, requestId);
     }
-    if (!res.headersSent) {
+    if (!responseFinished(res)) {
       if (sessionWasCancelled) {
         generateFail(
           res,
