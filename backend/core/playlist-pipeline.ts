@@ -2405,6 +2405,52 @@ export async function buildPlaylistPipeline<T extends {
   });
   recordTiming("scoring", stageStartedAt);
 
+  if (scoring.sorted.length === 0 && opts.likedSongs.length > 0) {
+    const fallbackScored = opts.likedSongs.map((track) => ({
+      ...track,
+      score: 0.5,
+      rediscoveryScore: 0,
+      scoringDebug: {
+        trackId: track.trackId,
+        sceneScore: 0.5,
+        libraryFitScore: 0.5,
+        genreBalanceScore: 0.5,
+        sceneMatch: 0.5,
+        emotionMatch: 0.5,
+        genreMatch: 0.5,
+        memoryMatch: 0.5,
+        noveltyScore: 0,
+        seasonalMatch: 0.5,
+        moodPurity: 0.5,
+        genrePrimary: "unknown",
+        genreConfidence: 0,
+        genreLocked: false,
+        excludedBy: null,
+        finalScore: 0.5,
+      },
+    } as ScoredLibraryTrack<T>));
+    scoring.sorted = fallbackScored;
+    scoring.scored = fallbackScored;
+    scoring.scoringDiagnostics = {
+      ...scoring.scoringDiagnostics,
+      retrievalCompletionSafety: {
+        emptyPoolDetectedAtStage: "scoring_output",
+        fallbackDepthReached: 1,
+        fallbackExpansionPath: [`input_fallback:${fallbackScored.length}`],
+        finalPoolSizeAtScoringEntry: fallbackScored.length,
+        retrievalFatalEmptyPool: true,
+      },
+    };
+    opts.pipelineLog?.warn(
+      {
+        emptyPoolDetectedAtStage: "scoring_output",
+        finalPoolSizeAtScoringEntry: fallbackScored.length,
+        retrievalFatalEmptyPool: true,
+      },
+      "Scoring returned empty pool; using synchronous input fallback before retrieval"
+    );
+  }
+
   const sortedPool = scoring.sorted;
   await emitProgress(opts, "retrieval", `Building candidate pools from ${sortedPool.length.toLocaleString()} scored tracks`);
   stageStartedAt = Date.now();
@@ -2543,56 +2589,77 @@ export async function buildPlaylistPipeline<T extends {
     : intentScopedPool;
   let finalFallbackLevelUsed: "none" | "family" | "adjacent" | "global" = "none";
   let starvationTriggerReason: string | null = null;
+  let emptyPoolDetectedAtStage: string | null = contractGuardedScoredPool.length === 0 ? "pre_scoring_candidate_pool" : null;
+  let fallbackDepthReached = 0;
+  const fallbackExpansionPath: string[] = [];
+  let retrievalFatalEmptyPool = false;
   const minSafePreRankingPool = Math.min(80, Math.max(opts.playlistLength * 2, 30));
-  if (contractGuardedScoredPool.length < minSafePreRankingPool) {
-    const existingIds = new Set(contractGuardedScoredPool.map((track) => track.trackId));
-    const appendUnique = (base: ScoredLibraryTrack<T>[], extra: ScoredLibraryTrack<T>[], limit: number): ScoredLibraryTrack<T>[] => {
-      const out = [...base];
-      for (const track of extra) {
-        if (existingIds.has(track.trackId)) continue;
-        existingIds.add(track.trackId);
-        out.push(track);
-        if (out.length >= limit) break;
-      }
-      return out;
-    };
-    const sameFamilyExpansion = intentContract.genreFamilies.length > 0
-      ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) =>
-          !contradictsExplicitGenreTruth(track, intentContract.genreFamilies) &&
-          trackMatchesGenreFamilies(track, classMap, intentContract.genreFamilies)
-        )
-      : [];
-    const adjacentFamilies = new Set(intentContract.genreFamilies.flatMap((genre) => adjacentGenreFamilies(genre)));
-    const adjacentExpansion = intentContract.genreFamilies.length > 0
-      ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) => {
-          const family = genreFamilyForTrack(track, classMap);
-          return !!family && adjacentFamilies.has(family);
-        })
-      : [];
-    const globalExpansion = scoring.sorted as ScoredLibraryTrack<T>[];
-    const beforeExpansion = contractGuardedScoredPool.length;
-    if (sameFamilyExpansion.length > 0) {
-      contractGuardedScoredPool = appendUnique(contractGuardedScoredPool, sameFamilyExpansion, minSafePreRankingPool);
-      finalFallbackLevelUsed = "family";
+  const existingIds = new Set(contractGuardedScoredPool.map((track) => track.trackId));
+  const appendUnique = (base: ScoredLibraryTrack<T>[], extra: ScoredLibraryTrack<T>[], limit: number): ScoredLibraryTrack<T>[] => {
+    const out = [...base];
+    for (const track of extra) {
+      if (existingIds.has(track.trackId)) continue;
+      existingIds.add(track.trackId);
+      out.push(track);
+      if (out.length >= limit) break;
     }
-    if (contractGuardedScoredPool.length < minSafePreRankingPool && adjacentExpansion.length > 0) {
-      contractGuardedScoredPool = appendUnique(contractGuardedScoredPool, adjacentExpansion, minSafePreRankingPool);
-      finalFallbackLevelUsed = "adjacent";
+    return out;
+  };
+  const sameFamilyExpansion = intentContract.genreFamilies.length > 0
+    ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) =>
+        !contradictsExplicitGenreTruth(track, intentContract.genreFamilies) &&
+        trackMatchesGenreFamilies(track, classMap, intentContract.genreFamilies)
+      )
+    : [];
+  const adjacentFamilies = new Set(intentContract.genreFamilies.flatMap((genre) => adjacentGenreFamilies(genre)));
+  const adjacentExpansion = intentContract.genreFamilies.length > 0
+    ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) => {
+        const family = genreFamilyForTrack(track, classMap);
+        return !!family && adjacentFamilies.has(family);
+      })
+    : [];
+  const globalExpansion = scoring.sorted as ScoredLibraryTrack<T>[];
+  const fallbackSteps: Array<{
+    level: "family" | "adjacent" | "global";
+    pool: ScoredLibraryTrack<T>[];
+  }> = [
+    { level: "family", pool: sameFamilyExpansion },
+    { level: "adjacent", pool: adjacentExpansion },
+    { level: "global", pool: globalExpansion },
+  ];
+  const beforeExpansion = contractGuardedScoredPool.length;
+  while (contractGuardedScoredPool.length < minSafePreRankingPool && fallbackDepthReached < fallbackSteps.length) {
+    const step = fallbackSteps[fallbackDepthReached];
+    fallbackDepthReached += 1;
+    if (!step || step.pool.length === 0) {
+      if (step) fallbackExpansionPath.push(`${step.level}:empty`);
+      continue;
     }
-    if (contractGuardedScoredPool.length < minSafePreRankingPool && globalExpansion.length > 0) {
-      contractGuardedScoredPool = appendUnique(contractGuardedScoredPool, globalExpansion, minSafePreRankingPool);
-      finalFallbackLevelUsed = "global";
-    }
-    if (contractGuardedScoredPool.length > beforeExpansion) {
-      starvationTriggerReason = beforeExpansion === 0
-        ? "pre_ranking_pool_empty"
-        : "pre_ranking_pool_below_min_safe_pool";
-    }
+    contractGuardedScoredPool = appendUnique(contractGuardedScoredPool, step.pool, minSafePreRankingPool);
+    finalFallbackLevelUsed = step.level;
+    fallbackExpansionPath.push(`${step.level}:${contractGuardedScoredPool.length}`);
+  }
+  if (contractGuardedScoredPool.length === 0 && globalExpansion.length > 0) {
+    retrievalFatalEmptyPool = true;
+    emptyPoolDetectedAtStage = emptyPoolDetectedAtStage ?? "pre_v3_scoring_entry";
+    contractGuardedScoredPool = appendUnique(contractGuardedScoredPool, globalExpansion, minSafePreRankingPool);
+    finalFallbackLevelUsed = "global";
+    fallbackExpansionPath.push(`fatal_global:${contractGuardedScoredPool.length}`);
+  }
+  if (contractGuardedScoredPool.length > beforeExpansion) {
+    starvationTriggerReason = beforeExpansion === 0
+      ? "pre_ranking_pool_empty"
+      : "pre_ranking_pool_below_min_safe_pool";
   }
   if (starvationTriggerReason) {
     opts.pipelineLog?.warn({
       fallbackLevelUsed: finalFallbackLevelUsed,
       starvationTriggerReason,
+      emptyPoolDetectedAtStage,
+      fallbackDepthReached,
+      fallbackExpansionPath,
+      finalPoolSizeAtScoringEntry: contractGuardedScoredPool.length,
+      retrievalFatalEmptyPool,
       candidateCountPerStage: {
         retrieval: pooledCandidates.length,
         contractSafe: contractSafePool.length,
@@ -2872,6 +2939,13 @@ export async function buildPlaylistPipeline<T extends {
       starvationTriggerReason,
       layeredSafetyPoolSize: layeredSafetyPool.length,
     },
+    retrievalCompletionSafety: {
+      emptyPoolDetectedAtStage,
+      fallbackDepthReached,
+      fallbackExpansionPath,
+      finalPoolSizeAtScoringEntry: contractGuardedScoredPool.length,
+      retrievalFatalEmptyPool,
+    },
   };
   opts.pipelineLog?.info({
     preV3PoolSize: v3CandidatePool.tracks.length,
@@ -2908,6 +2982,11 @@ export async function buildPlaylistPipeline<T extends {
         : null,
       fallbackLevelUsed: effectiveFallbackLevelUsed,
       starvationTriggerReason,
+      emptyPoolDetectedAtStage,
+      fallbackDepthReached,
+      fallbackExpansionPath,
+      finalPoolSizeAtScoringEntry: contractGuardedScoredPool.length,
+      retrievalFatalEmptyPool,
       candidateCountPerStage: {
         retrieval: pooledCandidates.length,
         contractSafe: contractSafePool.length,

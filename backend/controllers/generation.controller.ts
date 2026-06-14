@@ -2936,6 +2936,11 @@ type RetrievalCompletionDiagnostics = {
   retrievalPartialCompletion: boolean;
   candidatePoolSizeAtUnblock: number;
   minViablePool: number;
+  emptyPoolDetectedAtStage?: string | null;
+  fallbackDepthReached?: number;
+  fallbackExpansionPath?: string[];
+  finalPoolSizeAtScoringEntry?: number;
+  retrievalFatalEmptyPool?: boolean;
 };
 
 type TimedRetrievalSource<T> = {
@@ -2954,6 +2959,11 @@ function defaultRetrievalCompletionDiagnostics(minViablePool: number): Retrieval
     retrievalPartialCompletion: false,
     candidatePoolSizeAtUnblock: 0,
     minViablePool,
+    emptyPoolDetectedAtStage: null,
+    fallbackDepthReached: 0,
+    fallbackExpansionPath: [],
+    finalPoolSizeAtScoringEntry: 0,
+    retrievalFatalEmptyPool: false,
   };
 }
 
@@ -3026,16 +3036,76 @@ async function buildNoLibrarySpotifyCandidates(opts: {
     []
   );
   diagnostics.retrievalWaitTimePerSource.spotifySearch = searchResult.elapsedMs;
-  const rawTracks = searchResult.value;
+  let rawTracks = searchResult.value;
   const searchWindowElapsed = searchResult.elapsedMs >= 4_900 && rawTracks.length < maxTracks;
   if (searchResult.timedOut || searchResult.failed || searchWindowElapsed) {
     diagnostics.unresolvedProviders.push("spotifySearch");
   }
+  if (rawTracks.length === 0 && (opts.subgenreTerms?.length ?? 0) > 0) {
+    diagnostics.emptyPoolDetectedAtStage = "spotify_search_strict";
+    diagnostics.fallbackDepthReached = 1;
+    const familySearchResult = await timeboxRetrievalSource(
+      "spotifyFamilySearch",
+      searchSpotifyTracks(
+        opts.accessToken,
+        noLibrarySearchQueries(opts.vibe, opts.families, []),
+        maxTracks,
+        {
+          userKey: opts.userId,
+          bestEffort: true,
+          minTracks: minViablePool,
+          maxElapsedMs: 5_000,
+          maxRetries: 0,
+          requestTimeoutMs: 2_500,
+        }
+      ),
+      6_000,
+      []
+    );
+    diagnostics.retrievalWaitTimePerSource.spotifyFamilySearch = familySearchResult.elapsedMs;
+    if (familySearchResult.timedOut || familySearchResult.failed) diagnostics.unresolvedProviders.push("spotifyFamilySearch");
+    rawTracks = familySearchResult.value;
+    diagnostics.fallbackExpansionPath?.push(`family:${rawTracks.length}`);
+  }
+  if (rawTracks.length === 0) {
+    diagnostics.emptyPoolDetectedAtStage = diagnostics.emptyPoolDetectedAtStage ?? "spotify_search_family";
+    diagnostics.fallbackDepthReached = Math.max(diagnostics.fallbackDepthReached ?? 0, 2);
+    const broadQueries = [
+      ...opts.families.map((family) => family.replace(/_/g, " ")),
+      ...opts.families.map((family) => `popular ${family.replace(/_/g, " ")}`),
+      "popular music",
+    ];
+    const broadSearchResult = await timeboxRetrievalSource(
+      "spotifyBroadSearch",
+      searchSpotifyTracks(
+        opts.accessToken,
+        broadQueries,
+        maxTracks,
+        {
+          userKey: opts.userId,
+          bestEffort: true,
+          minTracks: minViablePool,
+          maxElapsedMs: 5_000,
+          maxRetries: 0,
+          requestTimeoutMs: 2_500,
+        }
+      ),
+      6_000,
+      []
+    );
+    diagnostics.retrievalWaitTimePerSource.spotifyBroadSearch = broadSearchResult.elapsedMs;
+    if (broadSearchResult.timedOut || broadSearchResult.failed) diagnostics.unresolvedProviders.push("spotifyBroadSearch");
+    rawTracks = broadSearchResult.value;
+    diagnostics.fallbackExpansionPath?.push(`global:${rawTracks.length}`);
+  }
   diagnostics.candidatePoolSizeAtUnblock = rawTracks.length;
+  diagnostics.finalPoolSizeAtScoringEntry = rawTracks.length;
   if (rawTracks.length === 0) {
     diagnostics.retrievalBlockingReason = "empty_candidate_pool_after_timeboxed_retrieval";
     diagnostics.usedPartialRetrieval = searchResult.timedOut || searchResult.failed;
     diagnostics.retrievalPartialCompletion = diagnostics.usedPartialRetrieval;
+    diagnostics.emptyPoolDetectedAtStage = diagnostics.emptyPoolDetectedAtStage ?? "spotify_search";
+    diagnostics.retrievalFatalEmptyPool = true;
     return { tracks: [], diagnostics };
   }
   if (rawTracks.length >= minViablePool && (searchResult.timedOut || searchResult.failed || searchWindowElapsed)) {
@@ -3739,25 +3809,37 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
             "No Library Mode Spotify search returned too few candidates"
           );
-          setGeneratePhase(generateSessionUserId, requestId, "error");
-          generateFail(
-            res,
-            409,
-            "NO_LIBRARY_SPOTIFY_POOL_TOO_SMALL",
-            "No Library Mode could not find enough Spotify-wide tracks for this prompt. Try a broader genre phrase or turn off No Library Mode.",
-            {
-              noLibrarySpotify: {
-                searched: true,
-                fallbackUsed: false,
-                fallbackReason: noLibrarySpotifyFallbackReason,
-                candidateCount: noLibrarySpotifyCandidateCount,
-                verifiedCount: noLibrarySpotifyVerifiedCount,
-                expectedFamilies: noLibraryExplicitFamilies,
-                retrievalCompletion: noLibraryRetrievalDiagnostics,
-              },
-            }
-          );
-          return;
+          if (spotifyCandidates.length > 0) {
+            likedSongs = spotifyCandidates;
+          } else if (likedSongs.length > 0) {
+            noLibrarySpotifyFallbackReason = "spotify_search_empty_using_synced_library_fallback";
+            noLibraryRetrievalDiagnostics = {
+              ...(noLibraryRetrievalDiagnostics ?? defaultRetrievalCompletionDiagnostics(Math.min(120, Math.max(50, length * 2)))),
+              emptyPoolDetectedAtStage: noLibraryRetrievalDiagnostics?.emptyPoolDetectedAtStage ?? "spotify_search_final",
+              finalPoolSizeAtScoringEntry: likedSongs.length,
+              retrievalFatalEmptyPool: true,
+            };
+          } else {
+            setGeneratePhase(generateSessionUserId, requestId, "error");
+            generateFail(
+              res,
+              409,
+              "NO_LIBRARY_SPOTIFY_POOL_EMPTY",
+              "No Library Mode could not find usable Spotify-wide candidates for this prompt. Try a broader genre phrase or turn off No Library Mode.",
+              {
+                noLibrarySpotify: {
+                  searched: true,
+                  fallbackUsed: false,
+                  fallbackReason: noLibrarySpotifyFallbackReason,
+                  candidateCount: noLibrarySpotifyCandidateCount,
+                  verifiedCount: noLibrarySpotifyVerifiedCount,
+                  expectedFamilies: noLibraryExplicitFamilies,
+                  retrievalCompletion: noLibraryRetrievalDiagnostics,
+                },
+              }
+            );
+            return;
+          }
         }
       } catch (searchErr: any) {
         noLibrarySpotifyFallbackReason = "spotify_search_failed";
@@ -3817,15 +3899,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    if (likedSongs.length < 12) {
+    if (!noLibraryMode && likedSongs.length < 12) {
       setGeneratePhase(generateSessionUserId, requestId, "error");
       generateFail(
         res,
         400,
-        noLibraryMode ? "NO_LIBRARY_CANDIDATE_POOL_TOO_SMALL" : "LIBRARY_TOO_SMALL",
-        noLibraryMode
-          ? "No Library Mode could not build a large enough candidate pool. Try a broader genre prompt or turn off No Library Mode."
-          : "Library is too small to generate. Sync more liked songs from Spotify first."
+        "LIBRARY_TOO_SMALL",
+        "Library is too small to generate. Sync more liked songs from Spotify first."
       );
       return;
     }
