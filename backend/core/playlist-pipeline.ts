@@ -75,6 +75,10 @@ import {
   withSessionDiversityPressure,
 } from "./v3/constraint-relaxation";
 
+const V3_SAFETY_INPUT_MIN = 180;
+const V3_SAFETY_INPUT_PER_TRACK = 12;
+const V3_SAFETY_INPUT_MAX = 360;
+
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
   trackName: string;
@@ -2722,11 +2726,17 @@ export async function buildPlaylistPipeline<T extends {
     energyArc: retrieval.energyArc,
     discovery: retrieval.discovery,
   }) as ScoredLibraryTrack<T>[];
+  const v3SafetyInputCap = Math.min(
+    V3_SAFETY_INPUT_MAX,
+    Math.max(V3_SAFETY_INPUT_MIN, opts.playlistLength * V3_SAFETY_INPUT_PER_TRACK)
+  );
+  const capV3SafetyPool = (pool: ScoredLibraryTrack<T>[]): ScoredLibraryTrack<T>[] =>
+    pool.length > v3SafetyInputCap ? pool.slice(0, v3SafetyInputCap) : pool;
   const candidateInputs: Array<{ label: string; pool: ScoredLibraryTrack<T>[]; seedOffset: number }> = retrievalSafetyExpanded
     ? [
         {
           label: "layered_safety_pool",
-          pool: layeredSafetyPool.length > 0 ? layeredSafetyPool : contractGuardedScoredPool,
+          pool: capV3SafetyPool(layeredSafetyPool.length > 0 ? layeredSafetyPool : contractGuardedScoredPool),
           seedOffset: 0,
         },
       ]

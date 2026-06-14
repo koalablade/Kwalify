@@ -2902,8 +2902,8 @@ function noLibrarySearchQueries(vibe: string, families: string[], subgenreTerms:
   if (/\b(?:tekk|tekno|schranz|hardgroove|industrial techno)\b/.test(aliasSource)) {
     ["hard techno", "schranz", "tekno", "techno"].forEach((term) => controlledAliases.add(term));
   }
-  if (/\b(?:d\s*&\s*b|dnb|drum and bass|rollers?|liquid dnb|liquid drum and bass)\b/.test(aliasSource)) {
-    ["dnb rollers", "drum and bass rollers", "liquid drum and bass", "drum and bass", "jungle rollers"].forEach((term) => controlledAliases.add(term));
+  if (/\b(?:d\s*&\s*b|dnb|drum and bass|rollers?|liquid dnb|liquid drum and bass|jungle|old\s*skool jungle|old\s*school jungle|breakbeat hardcore)\b/.test(aliasSource)) {
+    ["dnb rollers", "drum and bass rollers", "liquid drum and bass", "drum and bass", "jungle", "old school jungle", "jungle rollers", "breakbeat hardcore"].forEach((term) => controlledAliases.add(term));
   }
   if (cleanedVibe) priorityQueries.add(cleanedVibe);
   for (const subgenre of [...subgenreTerms, ...controlledAliases]) {
