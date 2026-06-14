@@ -48,6 +48,9 @@ const ROOT_GENRE_TERMS: Record<string, string[]> = {
   christmas: ["christmas", "holiday"],
 };
 
+const TECHNO_IDENTITY_PROMPT_RE = /\b(?:hard\s+techno|hardgroove|hard\s+groove|schranz|tekk|tekno|industrial\s+techno|warehouse\s+techno|rave\s+techno|hard\s+trance|techno|rave)\b/i;
+const TECHNO_COMPATIBLE_SUBGENRES = new Set(["techno", "hard_techno", "rave", "trance"]);
+
 function seededJitter(trackId: string, seed: number): number {
   let h = seed;
   for (let i = 0; i < trackId.length; i++) h = (h * 31 + trackId.charCodeAt(i)) | 0;
@@ -81,6 +84,19 @@ function explicitGenreFamilies(vibe: string | undefined): Set<string> {
     }
   }
   return families;
+}
+
+function hasTechnoIdentityPrompt(vibe: string | undefined): boolean {
+  return TECHNO_IDENTITY_PROMPT_RE.test(vibe ?? "");
+}
+
+function matchesTechnoIdentity(
+  classification: TrackGenreClassification | undefined
+): boolean {
+  if (!classification || classification.genreFamily !== "electronic") return false;
+  return TECHNO_COMPATIBLE_SUBGENRES.has(classification.primarySubgenre) ||
+    (classification.secondarySubgenre ? TECHNO_COMPATIBLE_SUBGENRES.has(classification.secondarySubgenre) : false) ||
+    classification.subGenres.some((subgenre) => TECHNO_COMPATIBLE_SUBGENRES.has(subgenre));
 }
 
 function matchesExplicitFamily(
@@ -197,6 +213,7 @@ export function capTracksForHybridScoring<T extends {
   const adjacencyLevelUsed: 0 | 1 | 2 | 3 = 0;
   const explicitFamilies = explicitGenreFamilies(opts.vibe);
   const explicitEra = explicitEraRange(opts.vibe);
+  const technoIdentityActive = hasTechnoIdentityPrompt(opts.vibe);
 
   if (workingTracks.length <= max) {
     return {
@@ -252,14 +269,21 @@ export function capTracksForHybridScoring<T extends {
         const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
         const classification = opts.classifications.get(t.trackId);
         const explicitBoost = matchesExplicitFamily(classification, explicitFamilies) ? 0.35 : 0;
+        const technoIdentityBoost = technoIdentityActive && matchesTechnoIdentity(classification) ? 0.28 : 0;
         const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
         const eraBoost = matchesExplicitEra(t, explicitEra) ? 0.25 : 0;
         return {
           t,
-          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05 - recentPen + explicitBoost + eraBoost - antiGenrePenalty,
+          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05 - recentPen + explicitBoost + technoIdentityBoost + eraBoost - antiGenrePenalty,
         };
       })
       .sort((a, b) => b.fit - a.fit);
+    const technoIdentityRanked = technoIdentityActive
+      ? ranked.filter((item) => matchesTechnoIdentity(opts.classifications.get(item.t.trackId)))
+      : [];
+    const technoIdentityReserveTarget = technoIdentityRanked.length > 0
+      ? Math.min(technoIdentityRanked.length, Math.max(24, Math.floor(max * 0.40)))
+      : 0;
     const explicitRanked = ranked.filter((item) =>
       matchesExplicitFamily(opts.classifications.get(item.t.trackId), explicitFamilies)
     );
@@ -274,7 +298,12 @@ export function capTracksForHybridScoring<T extends {
       : 0;
     const picked: T[] = [];
     const seen = new Set<string>();
+    for (const item of technoIdentityRanked.slice(0, technoIdentityReserveTarget)) {
+      seen.add(item.t.trackId);
+      picked.push(item.t);
+    }
     for (const item of explicitRanked.slice(0, reserveTarget)) {
+      if (seen.has(item.t.trackId)) continue;
       seen.add(item.t.trackId);
       picked.push(item.t);
     }
@@ -297,7 +326,7 @@ export function capTracksForHybridScoring<T extends {
       candidateCount: candidates.length,
       preFilterRejectedCount,
       adjacencyLevelUsed,
-      intentPreservedCount: reserveTarget + eraReserveTarget,
+      intentPreservedCount: technoIdentityReserveTarget + reserveTarget + eraReserveTarget,
     };
   }
 
@@ -323,6 +352,7 @@ export function capTracksForHybridScoring<T extends {
     const eraBoost = libraryEraScoreBoost(t.addedAt ?? null, eraMode);
     const classification = opts.classifications.get(t.trackId);
     const explicitBoost = matchesExplicitFamily(classification, explicitFamilies) ? 0.25 : 0;
+    const technoIdentityBoost = technoIdentityActive && matchesTechnoIdentity(classification) ? 0.24 : 0;
     const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
     const explicitEraBoost = matchesExplicitEra(t, explicitEra) ? 0.20 : 0;
     return {
@@ -333,6 +363,7 @@ export function capTracksForHybridScoring<T extends {
         recentPen +
         eraBoost +
         explicitBoost +
+        technoIdentityBoost +
         explicitEraBoost -
         antiGenrePenalty,
     };
@@ -377,6 +408,17 @@ export function capTracksForHybridScoring<T extends {
   const picked: T[] = [];
   const seen = new Set<string>();
   const families = [...byFamily.keys()].filter((f) => f !== "unknown");
+  if (technoIdentityActive) {
+    const identityReserve = ranked
+      .filter((item) => matchesTechnoIdentity(opts.classifications.get(item.t.trackId)))
+      .slice(0, Math.min(max, Math.max(12, Math.floor(max * 0.30))));
+    for (const item of identityReserve) {
+      if (seen.has(item.t.trackId)) continue;
+      seen.add(item.t.trackId);
+      picked.push(item.t);
+      if (picked.length >= max) break;
+    }
+  }
 
   while (picked.length < max && families.some((f) => (byFamily.get(f)?.length ?? 0) > 0)) {
     for (const fam of families) {

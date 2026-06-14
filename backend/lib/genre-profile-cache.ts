@@ -5,6 +5,7 @@
 import type { UserGenreProfile } from "./user-genre-profile";
 import { buildUserGenreProfile } from "./user-genre-profile";
 import { evictOldestEntries } from "./cache-eviction";
+import { logger } from "./logger";
 
 type CacheEntry = {
   profile: UserGenreProfile;
@@ -24,13 +25,13 @@ export function getUserGenreProfileForGenerate(
   userId: string,
   tracks: Parameters<typeof buildUserGenreProfile>[0],
   vibe?: string,
-  opts: { bypassCache?: boolean } = {},
+  opts?: { bypassCache?: boolean }
 ): { profile: UserGenreProfile; cacheHit: boolean } {
   const key = profileCacheKey(userId);
   const entry = cache.get(key);
   const now = Date.now();
   if (
-    !opts.bypassCache &&
+    !opts?.bypassCache &&
     entry &&
     entry.trackCount === tracks.length &&
     now - entry.builtAt < TTL_MS
@@ -40,12 +41,12 @@ export function getUserGenreProfileForGenerate(
 
   const t0 = Date.now();
   const profile = buildUserGenreProfile(tracks);
-  console.info("[generate-timing] getUserGenreProfileForGenerate", {
+  logger.debug({
     ms: Date.now() - t0,
     trackCount: tracks.length,
     cacheHit: false,
-  });
-  if (!opts.bypassCache) {
+  }, "[generate-timing] getUserGenreProfileForGenerate");
+  if (!opts?.bypassCache) {
     cache.set(key, { profile, trackCount: tracks.length, builtAt: now });
     evictOldestEntries(cache, 300, 40);
   }

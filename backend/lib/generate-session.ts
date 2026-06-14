@@ -24,11 +24,11 @@ export type GenerateProgressTrack = {
 };
 
 export type GenerateStage =
-  | "Scanning library"
-  | "Scoring candidates"
-  | "Building playlist"
-  | "Final cohesion pass"
-  | "Finalising playlist";
+  | "Initializing"
+  | "Retrieving candidates"
+  | "Ranking matches"
+  | "Diversity check"
+  | "Finalizing playlist";
 
 type SessionState = {
   requestId: string;
@@ -59,16 +59,16 @@ const ACTIVE_PHASES = new Set<GeneratePhase>([
 ]);
 
 const PHASE_STAGE: Record<GeneratePhase, { stage: GenerateStage; stageIndex: number }> = {
-  idle: { stage: "Scanning library", stageIndex: 0 },
-  starting: { stage: "Scanning library", stageIndex: 0 },
-  loading_library: { stage: "Scanning library", stageIndex: 0 },
-  building_profile: { stage: "Scoring candidates", stageIndex: 1 },
-  scoring: { stage: "Building playlist", stageIndex: 2 },
-  composing: { stage: "Final cohesion pass", stageIndex: 3 },
-  spotify: { stage: "Finalising playlist", stageIndex: 4 },
-  saving: { stage: "Finalising playlist", stageIndex: 4 },
-  done: { stage: "Finalising playlist", stageIndex: 4 },
-  error: { stage: "Finalising playlist", stageIndex: 4 },
+  idle: { stage: "Initializing", stageIndex: 0 },
+  starting: { stage: "Initializing", stageIndex: 0 },
+  loading_library: { stage: "Retrieving candidates", stageIndex: 1 },
+  building_profile: { stage: "Retrieving candidates", stageIndex: 1 },
+  scoring: { stage: "Ranking matches", stageIndex: 2 },
+  composing: { stage: "Diversity check", stageIndex: 3 },
+  spotify: { stage: "Finalizing playlist", stageIndex: 4 },
+  saving: { stage: "Finalizing playlist", stageIndex: 4 },
+  done: { stage: "Finalizing playlist", stageIndex: 4 },
+  error: { stage: "Finalizing playlist", stageIndex: 4 },
 };
 
 function isActiveSession(s: SessionState): boolean {
@@ -125,15 +125,18 @@ export function setGeneratePhase(
   userId: string,
   requestId: string,
   phase: GeneratePhase
-): void {
+): boolean {
   const s = sessions.get(userId);
   if (s?.requestId === requestId && !s.cancelled) {
+    const stage = PHASE_STAGE[phase];
+    if (stage.stageIndex < s.stageIndex) return false;
     s.phase = phase;
     s.updatedAt = Date.now();
-    const stage = PHASE_STAGE[phase];
     s.stage = stage.stage;
     s.stageIndex = stage.stageIndex;
+    return true;
   }
+  return false;
 }
 
 export function setGeneratePartialTracks(

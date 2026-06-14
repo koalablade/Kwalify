@@ -172,6 +172,29 @@ function spotifyGenreRoot(track: {
   return null;
 }
 
+function classificationFromTaxon(
+  taxon: GenreTaxon,
+  opts: { patternMatched: string; confidence?: number }
+): TrackGenreClassification {
+  return {
+    genrePrimary: taxon.root,
+    genreFamily: taxon.root,
+    genreSecondary: null,
+    primarySubgenre: taxon.subgenre,
+    secondarySubgenre: null,
+    subGenres: [taxon.subgenre, ...taxon.microStyles],
+    microStyle: taxon.microStyles[0] ?? null,
+    confidenceScore: opts.confidence ?? 0.98,
+    holidayBound: taxon.root === "christmas",
+    diagnostics: {
+      taxonomyHit: true,
+      artistHintMatched: null,
+      patternMatched: opts.patternMatched,
+      audioFallbackUsed: false,
+    },
+  };
+}
+
 function classificationFromRoot(root: RootGenre): TrackGenreClassification {
   const taxon = TAXONOMY.find((item) => item.root === root);
   return {
@@ -193,6 +216,41 @@ function classificationFromRoot(root: RootGenre): TrackGenreClassification {
   };
 }
 
+function spotifyGenreTaxon(track: {
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
+}): TrackGenreClassification | null {
+  const values = [...stringArray(track.spotifyArtistGenres), ...stringArray(track.albumGenres)]
+    .map((value) => value.toLowerCase());
+  if (values.length === 0) return null;
+  const text = values.join(" ");
+  const hits: Array<{ taxon: GenreTaxon; score: number; patternMatched: string }> = [];
+  for (const taxon of TAXONOMY) {
+    let score = 0;
+    let patternMatched: string | null = null;
+    for (const pattern of taxon.patterns) {
+      if (pattern.test(text)) {
+        score += 0.60;
+        patternMatched ??= pattern.source;
+      }
+    }
+    for (const microStyle of taxon.microStyles) {
+      if (text.includes(microStyle.toLowerCase())) {
+        score += 0.42;
+        patternMatched ??= microStyle;
+      }
+    }
+    if (score > 0 && patternMatched) hits.push({ taxon, score, patternMatched });
+  }
+  const best = hits.sort((a, b) => b.score - a.score)[0];
+  return best
+    ? classificationFromTaxon(best.taxon, {
+        patternMatched: `spotify_genre_metadata:${best.patternMatched}`,
+        confidence: 0.98,
+      })
+    : null;
+}
+
 export function classifyTrack(
   track: {
     trackName: string;
@@ -210,6 +268,9 @@ export function classifyTrack(
   },
   vibeGenreHints?: string[]
 ): TrackGenreClassification {
+  const spotifyTaxon = spotifyGenreTaxon(track);
+  if (spotifyTaxon) return spotifyTaxon;
+
   const spotifyRoot = spotifyGenreRoot(track);
   if (spotifyRoot) {
     return classificationFromRoot(spotifyRoot);

@@ -56,7 +56,10 @@ import {
 } from "./memory/moment-memory";
 import { buildPlaylistEmbedding } from "./v3/embedding-retrieval";
 import {
+  EXPANDED_ACTIVITY_TERMS,
   EXPANDED_EVENT_TERMS,
+  EXPANDED_GENRE_ALIASES,
+  EXPANDED_MOOD_TERMS,
   EXPANDED_PLACE_TERMS,
   EXPANDED_TIME_TERMS,
   termRegex,
@@ -259,6 +262,73 @@ function trackMatchesGenreFamilies<T extends { trackId: string; genrePrimary?: s
   return !!family && genreFamilies.includes(family);
 }
 
+function structuredSubgenreIntentTerms(contract: IntentContract): string[] {
+  const broadTerms = new Set(
+    [
+      ...contract.genreFamilies,
+      contract.primaryGenre,
+      contract.secondarySubgenre,
+      "electronic",
+      "rock",
+      "metal",
+      "techno",
+      "trance",
+      "house",
+      "dnb",
+      "drum and bass",
+      "hip hop",
+    ]
+      .filter((term): term is string => !!term)
+      .map(normalizeIdentityTerm)
+  );
+  const terms = [
+    contract.primarySubgenre,
+    ...contract.subgenreTerms,
+  ]
+    .filter((term): term is string => !!term)
+    .map(normalizeIdentityTerm)
+    .filter((term) => term.length >= 3 && !broadTerms.has(term))
+    .filter((term, index, all) => all.indexOf(term) === index);
+  if (terms.length === 0 && contract.primarySubgenre) {
+    terms.push(normalizeIdentityTerm(contract.primarySubgenre));
+  }
+  return terms;
+}
+
+function trackMatchesStructuredSubgenre<T extends IntentContractTrack>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+  contract: IntentContract,
+): boolean {
+  const terms = structuredSubgenreIntentTerms(contract);
+  if (terms.length === 0) return true;
+  const classification = classMap.get(track.trackId);
+  const structuredTrackTerms = [
+    classification?.primarySubgenre,
+    classification?.secondarySubgenre,
+    ...(classification?.subGenres ?? []),
+  ]
+    .filter((term): term is string => !!term)
+    .map(normalizeIdentityTerm);
+  if (terms.some((term) => structuredTrackTerms.includes(term))) return true;
+  return terms.some((term) => trackIdentityText(track, classMap).includes(term));
+}
+
+function sufficientStructuredSubgenreEvidence<T extends IntentContractTrack>(
+  tracks: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+  contract: IntentContract,
+  minimum = 12,
+): T[] {
+  if (!contract.primarySubgenre) return [];
+  const matched = tracks.filter((track) => trackMatchesStructuredSubgenre(track, classMap, contract));
+  const threshold = Math.min(
+    Math.max(4, minimum),
+    Math.max(4, Math.ceil(tracks.length * 0.04)),
+  );
+  return matched.length >= threshold ? matched : [];
+}
+
 const KNOWN_ARTIST_GENRE_TRUTH: Array<{ pattern: RegExp; family: string }> = [
   { pattern: /\bnas\b/i, family: "hip_hop" },
   { pattern: /\bxxxtentacion\b/i, family: "hip_hop" },
@@ -366,6 +436,10 @@ function hasPositiveExplicitGenreEvidence(
 
 type IntentContract = {
   genres: string[];
+  primaryGenre: string | null;
+  primarySubgenre: string | null;
+  secondarySubgenre: string | null;
+  subgenreTerms: string[];
   era?: { start?: number; end?: number } | null;
   moods: string[];
   context?: string;
@@ -379,6 +453,7 @@ type IntentContract = {
   energy: "low" | "medium" | "high" | null;
   timeOfDay: Array<"morning" | "afternoon" | "evening" | "late_night">;
   places: Array<"rural" | "outdoors" | "city" | "beach" | "bedroom" | "car">;
+  identityTerms: string[];
   explicitDimensions: string[];
 };
 
@@ -424,7 +499,78 @@ type IntentContractTrack = {
   danceability: number | null;
   acousticness: number | null;
   tempo: number | null;
+  trackName?: string | null;
+  artistName?: string | null;
+  albumName?: string | null;
+  genres?: string[] | null;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
 };
+
+const IDENTITY_STOPWORDS = new Set([
+  "music",
+  "songs",
+  "playlist",
+  "tracks",
+  "track",
+  "for",
+  "with",
+  "and",
+  "the",
+  "that",
+  "feel",
+  "feels",
+  "vibe",
+  "vibes",
+  "make",
+  "made",
+  "good",
+  "best",
+]);
+
+function normalizeIdentityTerm(value: string): string {
+  return value.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function pushIdentityTerm(out: string[], seen: Set<string>, value: string): void {
+  const term = normalizeIdentityTerm(value);
+  if (term.length < 3 || seen.has(term) || IDENTITY_STOPWORDS.has(term)) return;
+  seen.add(term);
+  out.push(term);
+}
+
+function extractIdentityTerms(input: string, parsed: LockedIntent): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const addMatched = (terms: string[]): void => {
+    for (const term of terms) {
+      if (termRegex([term]).test(input)) pushIdentityTerm(out, seen, term);
+    }
+  };
+
+  for (const group of EXPANDED_GENRE_ALIASES) addMatched(group.terms);
+  for (const terms of Object.values(EXPANDED_MOOD_TERMS)) addMatched(terms);
+  for (const terms of Object.values(EXPANDED_ACTIVITY_TERMS)) addMatched(terms);
+  for (const terms of Object.values(EXPANDED_PLACE_TERMS)) addMatched(terms);
+  for (const terms of Object.values(EXPANDED_TIME_TERMS)) addMatched(terms);
+  addMatched(EXPANDED_EVENT_TERMS);
+
+  for (const family of parsed.genreFamilies) pushIdentityTerm(out, seen, family);
+  if (parsed.primaryGenre) pushIdentityTerm(out, seen, parsed.primaryGenre);
+  if (parsed.primarySubgenre) pushIdentityTerm(out, seen, parsed.primarySubgenre);
+  if (parsed.secondarySubgenre) pushIdentityTerm(out, seen, parsed.secondarySubgenre);
+  for (const term of parsed.subgenreTerms) pushIdentityTerm(out, seen, term);
+  for (const mood of parsed.mood) pushIdentityTerm(out, seen, mood);
+  if (parsed.activity) pushIdentityTerm(out, seen, parsed.activity);
+  if (parsed.energy) pushIdentityTerm(out, seen, parsed.energy);
+
+  const rawTokens = normalizeIdentityTerm(input)
+    .split(/\s+/)
+    .filter((token) => token.length >= 4 && !IDENTITY_STOPWORDS.has(token));
+  for (const token of rawTokens) pushIdentityTerm(out, seen, token);
+
+  return out.slice(0, 16);
+}
 
 function parseIntentContract(input: string, parsed: LockedIntent): IntentContract {
   const lower = input.toLowerCase();
@@ -445,6 +591,7 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
   const hasEvent = termRegex(EXPANDED_EVENT_TERMS).test(lower);
   const explicitDimensions = [
     parsed.genreFamilies.length > 0 ? "genre" : null,
+    parsed.primarySubgenre ? "subgenre" : null,
     parsed.eraRange ? "era" : null,
     parsed.mood.length > 0 ? "mood" : null,
     parsed.activity ? "activity" : null,
@@ -459,6 +606,10 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
   ].filter((value): value is string => !!value);
   return {
     genres: parsed.genreFamilies,
+    primaryGenre: parsed.primaryGenre,
+    primarySubgenre: parsed.primarySubgenre,
+    secondarySubgenre: parsed.secondarySubgenre,
+    subgenreTerms: parsed.subgenreTerms,
     era: parsed.eraRange,
     moods: parsed.mood,
     context: places[0] ?? parsed.activity ?? undefined,
@@ -476,6 +627,7 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
     energy: parsed.energy,
     timeOfDay,
     places,
+    identityTerms: extractIdentityTerms(input, parsed),
     explicitDimensions,
   };
 }
@@ -609,6 +761,7 @@ function intentContractFit<T extends IntentContractTrack>(
   };
 
   add(contract.genreFamilies.length > 0, trackMatchesGenreFamilies(track, classMap, contract.genreFamilies), true);
+  add(!!contract.primarySubgenre, trackMatchesStructuredSubgenre(track, classMap, contract));
   add(!!contract.eraRange, !!contract.eraRange && !trackHasKnownEraMismatch(track, contract.eraRange), true);
   add(!!contract.energy, contractEnergyMatch(track, contract.energy));
   for (const mood of contract.mood) add(true, contractMoodMatch(track, mood));
@@ -673,6 +826,7 @@ function enforceIntentContract<T extends ScoredLibraryTrack<IntentContractTrack>
       let contractFitScore = 0;
       const family = classMap ? genreFamilyForTrack(track, classMap) : track.genrePrimary ? getGenreFamily(track.genrePrimary) : null;
       if (intent.genres.length > 0 && family && intent.genres.includes(family)) contractFitScore += 3;
+      if (classMap && intent.primarySubgenre && trackMatchesStructuredSubgenre(track, classMap, intent)) contractFitScore += 3;
       if (
         intent.era &&
         intent.era.start != null &&
@@ -690,7 +844,7 @@ function enforceIntentContract<T extends ScoredLibraryTrack<IntentContractTrack>
     .sort((a, b) => b.contractFitScore - a.contractFitScore);
 }
 
-function feedbackPenalty<T extends IntentContractTrack & { artistName?: string; genrePrimary?: string }>(
+function feedbackPenalty<T extends IntentContractTrack & { artistName?: string | null; genrePrimary?: string | null }>(
   track: T,
   feedback: FeedbackMemory | null,
 ): number {
@@ -706,7 +860,128 @@ function feedbackPenalty<T extends IntentContractTrack & { artistName?: string; 
   return penalty;
 }
 
-function diagnosticTrack<T extends { trackId: string; trackName?: string; artistName?: string; genrePrimary?: string | null }>(
+function stableUnitHash(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return ((hash >>> 0) % 10000) / 10000;
+}
+
+function trackIdentityText<T extends IntentContractTrack>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+): string {
+  const classification = classMap.get(track.trackId);
+  const metadata = [
+    track.trackName,
+    track.artistName,
+    track.albumName,
+    track.genrePrimary,
+    genreFamilyForTrack(track, classMap),
+    classification?.genrePrimary,
+    classification?.genreFamily,
+    classification?.primarySubgenre,
+    classification?.secondarySubgenre,
+    ...(classification?.subGenres ?? []),
+    ...(Array.isArray(track.genres) ? track.genres : []),
+    ...(Array.isArray(track.spotifyArtistGenres) ? track.spotifyArtistGenres : []),
+    ...(Array.isArray(track.albumGenres) ? track.albumGenres : []),
+  ].filter((value): value is string => typeof value === "string");
+  return normalizeIdentityTerm(metadata.join(" "));
+}
+
+function identityTermScore<T extends IntentContractTrack>(
+  track: T,
+  contract: IntentContract,
+  classMap: UserGenreProfile["trackClassifications"],
+): number {
+  const identityText = trackIdentityText(track, classMap);
+  const structuredSubgenres = [
+    contract.primarySubgenre,
+    contract.secondarySubgenre,
+    ...contract.subgenreTerms,
+  ]
+    .filter((term): term is string => !!term)
+    .map(normalizeIdentityTerm)
+    .filter((term, index, terms) => terms.indexOf(term) === index);
+  const structuredMatches = structuredSubgenres.filter((term) => identityText.includes(term));
+  const structuredScore = structuredMatches.length > 0
+    ? Math.min(0.18, structuredMatches.length * 0.075)
+    : structuredSubgenres.length > 0 && contract.primaryGenre && identityText.includes(normalizeIdentityTerm(contract.primaryGenre))
+      ? -0.10
+      : 0;
+
+  if (contract.identityTerms.length === 0) return structuredScore;
+  if (!identityText) return -0.04;
+  const matched = contract.identityTerms.filter((term) => identityText.includes(term));
+  const requiredSpecificity = contract.identityTerms.length >= 2 ? 2 : 1;
+  if (matched.length >= requiredSpecificity) return structuredScore + Math.min(0.16, matched.length * 0.055);
+  if (matched.length > 0) return structuredScore + 0.035;
+  const hasSpecificGenreIntent = contract.genreFamilies.length > 0 && contract.identityTerms.some((term) =>
+    !contract.genreFamilies.includes(term)
+  );
+  return structuredScore + (hasSpecificGenreIntent ? -0.12 : -0.04);
+}
+
+function promptOrderingBias<T extends IntentContractTrack>(
+  track: T,
+  contract: IntentContract,
+  classMap: UserGenreProfile["trackClassifications"],
+  promptKey?: string,
+): number {
+  if (!promptKey) return 0;
+  const fit = intentContractFit(track, classMap, contract).score;
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const danceability = track.danceability ?? 0.5;
+  const acousticness = track.acousticness ?? 0.4;
+  const promptHash = stableUnitHash(`${promptKey}:${track.trackId}`);
+  const activityLift =
+    contract.activity === "gym" ? Math.max(0, energy - 0.58) * 0.10 :
+    contract.activity === "party" ? Math.max(0, Math.max(energy, danceability) - 0.55) * 0.09 :
+    contract.activity === "focus" ? Math.max(0, 0.68 - Math.max(energy, danceability)) * 0.08 :
+    contract.activity === "relaxing" || contract.activity === "sleep" ? Math.max(0, acousticness - 0.25) * 0.08 :
+    0;
+  const moodLift =
+    contract.mood.includes("euphoric") ? Math.max(0, valence - 0.52) * 0.06 :
+    contract.mood.includes("melancholic") || contract.mood.includes("dark") ? Math.max(0, 0.55 - valence) * 0.06 :
+    contract.mood.includes("calm") ? Math.max(0, 0.62 - energy) * 0.05 :
+    0;
+  const fitLift = contract.explicitDimensions.length > 0 ? fit * 0.10 : 0;
+  return fitLift + activityLift + moodLift + identityTermScore(track, contract, classMap) + promptHash * 0.035;
+}
+
+function earlyDiversityRank<T extends IntentContractTrack & { artistName?: string | null }>(
+  entries: Array<{ track: T; adjustedScore: number }>,
+  classMap: UserGenreProfile["trackClassifications"],
+  contract: IntentContract,
+): Array<{ track: T; adjustedScore: number }> {
+  const artistCounts = new Map<string, number>();
+  const familyCounts = new Map<string, number>();
+  const explicitGenre = contract.genreFamilies.length > 0;
+  return [...entries]
+    .sort((a, b) => b.adjustedScore - a.adjustedScore)
+    .map((entry, index) => {
+      const artist = entry.track.artistName?.toLowerCase().trim();
+      const family = genreFamilyForTrack(entry.track, classMap);
+      const artistSeen = artist ? artistCounts.get(artist) ?? 0 : 0;
+      const familySeen = family ? familyCounts.get(family) ?? 0 : 0;
+      if (artist) artistCounts.set(artist, artistSeen + 1);
+      if (family) familyCounts.set(family, familySeen + 1);
+      const artistSpacingPenalty = artistSeen * 0.11;
+      const familySpacingPenalty = explicitGenre ? 0 : familySeen * 0.012;
+      const rankPreservation = Math.max(0, 0.02 - index * 0.00002);
+      return {
+        ...entry,
+        adjustedScore: entry.adjustedScore + rankPreservation - artistSpacingPenalty - familySpacingPenalty,
+      };
+    })
+    .sort((a, b) => b.adjustedScore - a.adjustedScore);
+}
+
+function diagnosticTrack<T extends { trackId: string; trackName?: string | null; artistName?: string | null; genrePrimary?: string | null }>(
   track: T,
   classMap: UserGenreProfile["trackClassifications"],
 ): Record<string, unknown> {
@@ -739,7 +1014,7 @@ function diagnosticTrack<T extends { trackId: string; trackName?: string; artist
   };
 }
 
-function diagnosticPool<T extends { trackId: string; trackName?: string; artistName?: string; genrePrimary?: string | null }>(
+function diagnosticPool<T extends { trackId: string; trackName?: string | null; artistName?: string | null; genrePrimary?: string | null }>(
   tracks: T[],
   classMap: UserGenreProfile["trackClassifications"],
   limit: number,
@@ -747,7 +1022,7 @@ function diagnosticPool<T extends { trackId: string; trackName?: string; artistN
   return tracks.slice(0, limit).map((track) => diagnosticTrack(track, classMap));
 }
 
-function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>(
+function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> & { artistName?: string | null }>(
   tracks: T[],
   contract: IntentContract,
   classMap: UserGenreProfile["trackClassifications"],
@@ -755,19 +1030,23 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
   opts: {
     recentTrackPenalty?: Map<string, number>;
     sessionArtistMemory?: SessionArtistMemory;
+    promptKey?: string;
   } = {},
 ): RetrievalPools<T> {
-  const contractRanked = enforceIntentContract(tracks, contract, classMap)
+  const contractRanked = earlyDiversityRank(
+    enforceIntentContract(tracks, contract, classMap)
     .map((track) => {
       const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) - feedbackPenalty(track, feedback);
       const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
       const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
       return {
         track,
-        adjustedScore: Math.max(0, baseScore - trackPenalty) * artistPenalty,
+        adjustedScore: Math.max(0, baseScore + promptOrderingBias(track, contract, classMap, opts.promptKey) - trackPenalty) * artistPenalty,
       };
-    })
-    .sort((a, b) => b.adjustedScore - a.adjustedScore)
+    }),
+    classMap,
+    contract,
+  )
     .map(({ track }) => track as T);
   const seen = new Set<string>();
   const takeUnique = (items: T[], limit: number) => {
@@ -780,7 +1059,13 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
     }
     return out;
   };
+  const subgenreMatched = sufficientStructuredSubgenreEvidence(contractRanked, classMap, contract);
   const genreMatched = contractRanked.filter((track) => trackMatchesGenreFamilies(track, classMap, contract.genres));
+  const coreSource = subgenreMatched.length > 0
+    ? subgenreMatched
+    : genreMatched.length > 0
+      ? genreMatched
+      : contractRanked;
   const adjacentFamilies = new Set(contract.genres.flatMap((genre) => adjacentGenreFamilies(genre)));
   const adjacent = contractRanked.filter((track) => {
     const family = genreFamilyForTrack(track, classMap);
@@ -801,7 +1086,7 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
     (track as T & { explorationDistance?: number }).explorationDistance != null
   );
   return {
-    core: takeUnique(genreMatched.length > 0 ? genreMatched : contractRanked, 160),
+    core: takeUnique(coreSource, 160),
     anchor: takeUnique(anchor, 80),
     adjacent: takeUnique(adjacent, 100),
     bridge: takeUnique([...adjacent, ...contractRanked], 80),
@@ -827,14 +1112,14 @@ function activityPromptKind(vibe: string, profile: EmotionProfile): "gym" | "par
 
 function diversityPressureForViablePool(kind: "gym" | "party" | null, viablePoolSize: number): number {
   if (kind === "gym") {
-    if (viablePoolSize < 50) return 0.12;
-    if (viablePoolSize < 100) return 0.28;
-    if (viablePoolSize < 180) return 0.55;
+    if (viablePoolSize < 50) return 0.35;
+    if (viablePoolSize < 100) return 0.55;
+    if (viablePoolSize < 180) return 0.75;
     return 1;
   }
   if (kind === "party") {
-    if (viablePoolSize < 50) return 0.35;
-    if (viablePoolSize < 120) return 0.65;
+    if (viablePoolSize < 50) return 0.50;
+    if (viablePoolSize < 120) return 0.75;
     return 1;
   }
   return 1;
@@ -914,7 +1199,7 @@ function evaluatePlaylistQuality<T extends IntentContractTrack & { genrePrimary?
   };
 }
 
-function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName?: string; score?: number }>(
+function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName?: string | null; score?: number }>(
   playlist: T[],
   candidatePool: Array<ScoredLibraryTrack<T>>,
   intent: IntentContract,
@@ -1886,9 +2171,9 @@ function buildV3LockedIntent<T extends {
       ? explicitGenreFamilies
       : undefined,
     eraRange: unifiedIntentContext.lockedIntent.eraRange ?? null,
-    mood: undefined,
-    activity: undefined,
-    energy: undefined,
+    mood: unifiedIntentContext.lockedIntent.mood,
+    activity: unifiedIntentContext.lockedIntent.activity,
+    energy: unifiedIntentContext.lockedIntent.energy ?? energyIntentFromProfile(profile),
   });
 }
 
@@ -2022,6 +2307,9 @@ export async function buildPlaylistPipeline<T extends {
     intentContract,
     classMap,
     opts.postScore.feedbackMemory ?? null,
+    {
+      promptKey: opts.noLibraryMode ? undefined : opts.vibe,
+    },
   );
   const unpenalizedPooledCandidates = flattenRetrievalPools(unpenalizedRetrieval) as ScoredLibraryTrack<T>[];
   const unpenalizedViablePoolSize = unpenalizedPooledCandidates.length;
@@ -2045,6 +2333,7 @@ export async function buildPlaylistPipeline<T extends {
     {
       recentTrackPenalty: upstreamRecentTrackPenalty,
       sessionArtistMemory: effectiveSessionArtistMemory,
+      promptKey: opts.noLibraryMode ? undefined : opts.vibe,
     },
   );
   recordTiming("retrieval", stageStartedAt);
@@ -2059,11 +2348,21 @@ export async function buildPlaylistPipeline<T extends {
   // before ANY widening or fallback logic is applied.
   // No fallback stage may violate genre/mood/era/context intent.
   const contractGuard = constrainPoolToIntentContract(contractSafePool, classMap, intentContract);
+  const subgenreEvidencePool = sufficientStructuredSubgenreEvidence(
+    contractGuard.pool,
+    classMap,
+    intentContract,
+    Math.max(8, Math.ceil(opts.playlistLength * 0.60)),
+  ) as ScoredLibraryTrack<T>[];
+  const subgenreGuardActive = subgenreEvidencePool.length > 0;
+  const intentScopedPool = subgenreGuardActive
+    ? subgenreEvidencePool
+    : contractGuard.pool;
   const truthContradictedCount = intentContract.genreFamilies.length > 0
-    ? contractGuard.pool.filter((track) => contradictsExplicitGenreTruth(track, intentContract.genreFamilies)).length
+    ? intentScopedPool.filter((track) => contradictsExplicitGenreTruth(track, intentContract.genreFamilies)).length
     : 0;
   const positiveEvidenceRejectedCount = intentContract.genreFamilies.length > 0
-    ? contractGuard.pool.filter((track) => !hasPositiveExplicitGenreEvidence(track, classMap, intentContract.genreFamilies)).length
+    ? intentScopedPool.filter((track) => !hasPositiveExplicitGenreEvidence(track, classMap, intentContract.genreFamilies)).length
     : 0;
   const explicitGenreScoredPool = intentContract.genreFamilies.length > 0
     ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) =>
@@ -2072,7 +2371,7 @@ export async function buildPlaylistPipeline<T extends {
       )
     : [];
   const contractEvidencePool = intentContract.genreFamilies.length > 0
-    ? contractGuard.pool.filter((track) =>
+    ? intentScopedPool.filter((track) =>
         !contradictsExplicitGenreTruth(track, intentContract.genreFamilies) &&
         hasPositiveExplicitGenreEvidence(track, classMap, intentContract.genreFamilies)
       ) as ScoredLibraryTrack<T>[]
@@ -2081,7 +2380,7 @@ export async function buildPlaylistPipeline<T extends {
     ? contractEvidencePool.length > 0
         ? contractEvidencePool
         : explicitGenreScoredPool
-    : contractGuard.pool;
+    : intentScopedPool;
   await emitProgress(opts, "lanes", `Routing ${contractGuardedScoredPool.length.toLocaleString()} candidates into playlist lanes`);
   const explicitGenreRecoveryUsed = intentContract.genreFamilies.length > 0 &&
     contractEvidencePool.length === 0 &&
@@ -2331,6 +2630,8 @@ export async function buildPlaylistPipeline<T extends {
     fallbacks: fallbackActivations,
     intentContractGuard: {
       ...contractGuard.diagnostics,
+      subgenreGuardActive,
+      subgenreEvidencePoolCount: subgenreEvidencePool.length,
       explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
       explicitGenreRecoveryUsed,
     },
@@ -2440,6 +2741,8 @@ export async function buildPlaylistPipeline<T extends {
           ],
           intentContractGuard: {
             ...contractGuard.diagnostics,
+            subgenreGuardActive,
+            subgenreEvidencePoolCount: subgenreEvidencePool.length,
             explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
             explicitGenreRecoveryUsed,
           },
@@ -2635,6 +2938,8 @@ export async function buildPlaylistPipeline<T extends {
           ],
           intentContractGuard: {
             ...contractGuard.diagnostics,
+            subgenreGuardActive,
+            subgenreEvidencePoolCount: subgenreEvidencePool.length,
             explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
             explicitGenreRecoveryUsed,
           },
@@ -2795,6 +3100,8 @@ export async function buildPlaylistPipeline<T extends {
           fallbacks: fallbackActivations,
         intentContractGuard: {
           ...contractGuard.diagnostics,
+          subgenreGuardActive,
+          subgenreEvidencePoolCount: subgenreEvidencePool.length,
           explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
           explicitGenreRecoveryUsed,
         },

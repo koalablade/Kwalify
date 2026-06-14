@@ -138,8 +138,11 @@ import { trackMatchesConstraints as trackMatchesV3Constraints } from "../core/v3
 import {
   EXPANDED_ACTIVITY_TERMS,
   EXPANDED_ERA_TERMS,
+  EXPANDED_EVENT_TERMS,
   EXPANDED_GENRE_ALIASES,
   EXPANDED_MOOD_TERMS,
+  EXPANDED_PLACE_TERMS,
+  EXPANDED_TIME_TERMS,
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
 import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify-api-audit";
@@ -271,6 +274,10 @@ type LockedIntent = {
   eraRange: { start: number; end: number } | null;
   energy: "low" | "medium" | "high" | null;
   primaryGenres: string[];
+  primaryGenre: string | null;
+  primarySubgenre: string | null;
+  secondarySubgenre: string | null;
+  subgenreTerms: string[];
   eraStart: number | null;
   eraEnd: number | null;
   mood: string[];
@@ -301,6 +308,8 @@ type ConstraintTrack = V3MetadataTrack<{
   speechiness?: number | null;
   releaseYear?: number | null;
   addedAt?: Date | null;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
 }> & {
   score: number;
   rediscoveryScore?: number;
@@ -395,14 +404,23 @@ function generateFail(
 function fallbackLevelFromFinalization(
   diagnostics: Record<string, number | boolean | string | null>
 ): "none" | "soft" | "hardSafe" {
-  if (diagnostics["hardSafeFillUsed"] === true || Number(diagnostics["hardSafeFillAdded"] ?? 0) > 0) {
+  const requestedLength = Number(diagnostics["requestedLength"] ?? 0);
+  const finalCount = Number(diagnostics["finalCount"] ?? 0);
+  const seriouslyUnderfilled =
+    Number.isFinite(requestedLength) &&
+    Number.isFinite(finalCount) &&
+    requestedLength > 0 &&
+    finalCount < recoveryActivationThreshold(requestedLength);
+  if (
+    seriouslyUnderfilled &&
+    (diagnostics["hardSafeFillUsed"] === true || Number(diagnostics["hardSafeFillAdded"] ?? 0) > 0)
+  ) {
     return "hardSafe";
   }
   if (
     typeof diagnostics["fallbackMode"] === "string" ||
     typeof diagnostics["recoveryStage"] === "string" ||
-    diagnostics["artistLimitRelaxed"] === true ||
-    diagnostics["albumLimitRelaxed"] === true
+    (seriouslyUnderfilled && (diagnostics["artistLimitRelaxed"] === true || diagnostics["albumLimitRelaxed"] === true))
   ) {
     return "soft";
   }
@@ -1004,6 +1022,61 @@ function isKnownNonUkGarageTrack(track: ConstraintTrack): boolean {
   return /\b(?:guns\s+n['’]?\s+roses|guns\s+n\s+roses|the\s+jungle\s+giants|jungle\s+giants)\b/i.test(track.artistName ?? "");
 }
 
+const TECHNO_IDENTITY_PROMPT_RE = /\b(?:hard\s+techno|hardgroove|hard\s+groove|schranz|tekk|tekno|industrial\s+techno|warehouse\s+techno|rave\s+techno|hard\s+trance|techno|rave)\b/i;
+const TECHNO_IDENTITY_EVIDENCE_RE = /\b(?:hard\s+techno|hardgroove|hard\s+groove|schranz|tekk|tekno|industrial\s+techno|warehouse\s+techno|rave\s+techno|hard\s+trance|techno|trance|rave|gabber|hardstyle|hardcore\s+techno|berghain)\b/i;
+const TECHNO_COMPATIBLE_SUBGENRES = new Set(["techno", "hard_techno", "rave", "trance"]);
+
+function stringValues(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function isTechnoIdentityPrompt(vibe: string): boolean {
+  return TECHNO_IDENTITY_PROMPT_RE.test(vibe);
+}
+
+function trackMatchesTechnoIdentity(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (family !== "electronic") return false;
+
+  const classification = classMap.get(track.trackId);
+  if (
+    classification &&
+    (
+      TECHNO_COMPATIBLE_SUBGENRES.has(classification.primarySubgenre) ||
+      (classification.secondarySubgenre ? TECHNO_COMPATIBLE_SUBGENRES.has(classification.secondarySubgenre) : false) ||
+      classification.subGenres.some((subgenre) => TECHNO_COMPATIBLE_SUBGENRES.has(subgenre))
+    )
+  ) {
+    return true;
+  }
+
+  const evidenceText = [
+    ...trackGenreTerms(track, classMap),
+    ...stringValues(track.spotifyArtistGenres),
+    ...stringValues(track.albumGenres),
+    track.trackName,
+    track.albumName,
+  ].filter((value): value is string => typeof value === "string").join(" ");
+  if (TECHNO_IDENTITY_EVIDENCE_RE.test(evidenceText)) return true;
+
+  const energy = track.energy ?? 0.5;
+  const danceability = track.danceability ?? 0.5;
+  const tempo = track.tempo ?? 110;
+  const acousticness = track.acousticness ?? 0.5;
+  return energy >= 0.58 && danceability >= 0.52 && tempo >= 118 && acousticness <= 0.55;
+}
+
 function isBreakupRainDrivePrompt(vibe: string, intent: LockedIntent): boolean {
   const lower = vibe.toLowerCase();
   const breakupRain = hasSadDriveQualifier(vibe);
@@ -1391,6 +1464,7 @@ function finalTrackIsSafe(
   ) {
     return false;
   }
+  if (isTechnoIdentityPrompt(opts.vibe) && !trackMatchesTechnoIdentity(track, opts.classMap)) return false;
   const lockedIntentSafe = trackPassesLockedIntent(track, opts.intent, opts.constraints, opts.classMap);
   if (!lockedIntentSafe && !isBroadMoodPlacePrompt(opts.vibe, opts.intent, opts.constraints)) return false;
   if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
@@ -1430,6 +1504,7 @@ function finalTrackIsHardSafe(
   ) {
     return false;
   }
+  if (isTechnoIdentityPrompt(opts.vibe) && !trackMatchesTechnoIdentity(track, opts.classMap)) return false;
   if (eraHardMismatch(track, opts.intent)) return false;
   if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
@@ -1440,6 +1515,212 @@ function finalTrackIsHardSafe(
   if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
   return true;
+}
+
+const UNIVERSAL_IDENTITY_STOPWORDS = new Set([
+  "music",
+  "songs",
+  "playlist",
+  "tracks",
+  "track",
+  "with",
+  "that",
+  "feel",
+  "feels",
+  "vibe",
+  "vibes",
+  "make",
+  "made",
+  "good",
+  "best",
+]);
+
+function normalizeUniversalIdentityTerm(value: string): string {
+  return value.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function pushUniversalIdentityTerm(out: string[], seen: Set<string>, value: string): void {
+  const term = normalizeUniversalIdentityTerm(value);
+  if (term.length < 3 || seen.has(term) || UNIVERSAL_IDENTITY_STOPWORDS.has(term)) return;
+  seen.add(term);
+  out.push(term);
+}
+
+function universalIdentityTerms(vibe: string, intent: LockedIntent, constraints: ConstraintLayer): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const addMatched = (terms: string[]): void => {
+    for (const term of terms) {
+      if (termRegex([term]).test(vibe)) pushUniversalIdentityTerm(out, seen, term);
+    }
+  };
+
+  for (const group of [...GENRE_ALIASES, ...EXPANDED_GENRE_ALIASES]) addMatched(group.terms);
+  for (const terms of Object.values(EXPANDED_MOOD_TERMS)) addMatched(terms);
+  for (const terms of Object.values(EXPANDED_ACTIVITY_TERMS)) addMatched(terms);
+  for (const terms of Object.values(EXPANDED_PLACE_TERMS)) addMatched(terms);
+  for (const terms of Object.values(EXPANDED_TIME_TERMS)) addMatched(terms);
+  for (const era of EXPANDED_ERA_TERMS) addMatched(era.terms);
+  addMatched(EXPANDED_EVENT_TERMS);
+
+  for (const family of [...intent.primaryGenres, ...intent.genreFamilies, ...constraints.hard.genres]) {
+    pushUniversalIdentityTerm(out, seen, family);
+  }
+  if (intent.primaryGenre) pushUniversalIdentityTerm(out, seen, intent.primaryGenre);
+  if (intent.primarySubgenre) pushUniversalIdentityTerm(out, seen, intent.primarySubgenre);
+  if (intent.secondarySubgenre) pushUniversalIdentityTerm(out, seen, intent.secondarySubgenre);
+  for (const subgenre of intent.subgenreTerms) pushUniversalIdentityTerm(out, seen, subgenre);
+  for (const mood of intent.mood) pushUniversalIdentityTerm(out, seen, mood);
+  if (intent.activity) pushUniversalIdentityTerm(out, seen, intent.activity);
+  if (intent.energyLevel) pushUniversalIdentityTerm(out, seen, intent.energyLevel);
+
+  const rawTokens = normalizeUniversalIdentityTerm(vibe)
+    .split(/\s+/)
+    .filter((token) => token.length >= 4 && !UNIVERSAL_IDENTITY_STOPWORDS.has(token));
+  for (const token of rawTokens) pushUniversalIdentityTerm(out, seen, token);
+
+  return out.slice(0, 18);
+}
+
+function trackUniversalIdentityText(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): string {
+  const classification = classMap.get(track.trackId);
+  const metadata = [
+    track.trackName,
+    track.artistName,
+    track.albumName,
+    track.genrePrimary,
+    trackGenreFamily(track, classMap),
+    classification?.genrePrimary,
+    classification?.genreFamily,
+    classification?.primarySubgenre,
+    classification?.secondarySubgenre,
+    ...(classification?.subGenres ?? []),
+    ...(Array.isArray(track.spotifyArtistGenres) ? track.spotifyArtistGenres : []),
+    ...(Array.isArray(track.albumGenres) ? track.albumGenres : []),
+  ].filter((value): value is string => typeof value === "string");
+  return normalizeUniversalIdentityTerm(metadata.join(" "));
+}
+
+function intentCoherenceScore(
+  track: ConstraintTrack,
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+  },
+  preferredFamilies: Set<string> = new Set(),
+  identityTerms = universalIdentityTerms(opts.vibe, opts.intent, opts.constraints)
+): number {
+  let score = 0;
+  let violations = 0;
+  const expectedFamilies = opts.intent.primaryGenres.length > 0
+    ? opts.intent.primaryGenres
+    : opts.intent.genreFamilies.length > 0
+      ? opts.intent.genreFamilies
+      : opts.constraints.hard.genres;
+  const family = trackGenreFamily(track, opts.classMap);
+  const identityText = trackUniversalIdentityText(track, opts.classMap);
+
+  if (expectedFamilies.length > 0) {
+    if (hasFinalGenreEvidence(track, opts.classMap, expectedFamilies)) {
+      score += 0.16;
+    } else if (family !== "unknown" && !expectedFamilies.includes(family)) {
+      score -= 0.28;
+      violations++;
+    } else {
+      score -= 0.08;
+    }
+  } else if (preferredFamilies.size > 0 && family !== "unknown") {
+    if (preferredFamilies.has(family)) {
+      score += 0.08;
+    } else {
+      score -= 0.16;
+      violations++;
+    }
+  }
+
+  const structuredSubgenres = [
+    opts.intent.primarySubgenre,
+    opts.intent.secondarySubgenre,
+    ...opts.intent.subgenreTerms,
+  ]
+    .filter((term): term is string => !!term)
+    .map(normalizeUniversalIdentityTerm)
+    .filter((term, index, terms) => terms.indexOf(term) === index);
+  if (structuredSubgenres.length > 0) {
+    const matchedSubgenres = structuredSubgenres.filter((term) => identityText.includes(term));
+    if (matchedSubgenres.length > 0) {
+      score += Math.min(0.20, matchedSubgenres.length * 0.075);
+    } else if (opts.intent.primaryGenre && family === opts.intent.primaryGenre) {
+      score -= 0.12;
+      violations++;
+    }
+  }
+
+  if (identityTerms.length > 0) {
+    const matchedTerms = identityTerms.filter((term) => identityText.includes(term));
+    const specificIdentityActive = identityTerms.some((term) => !expectedFamilies.includes(term));
+    if (matchedTerms.length >= Math.min(2, identityTerms.length)) {
+      score += Math.min(0.18, matchedTerms.length * 0.05);
+    } else if (matchedTerms.length === 1) {
+      score += 0.04;
+    } else if (specificIdentityActive) {
+      score -= 0.18;
+      violations++;
+    }
+  }
+
+  if (opts.intent.eraRange) {
+    if (trackHasKnownEraMismatch(track, opts.intent.eraRange)) {
+      score -= 0.26;
+      violations++;
+    } else if (trackHasEraEvidence(track, opts.intent.eraRange)) {
+      score += 0.10;
+    }
+  }
+
+  if (opts.intent.mood.length > 0) {
+    if (moodEvidence(track, opts.intent) === true) {
+      score += 0.10;
+    } else {
+      score -= 0.12;
+      violations++;
+    }
+  }
+
+  if (opts.intent.activity || opts.intent.energyLevel) {
+    if (activityEvidence(track, opts.intent) === true) {
+      score += 0.12;
+    } else {
+      score -= 0.16;
+      violations++;
+    }
+  }
+
+  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) score -= 0.22;
+  if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) score -= 0.22;
+  if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) score -= 0.18;
+  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) score -= 0.18;
+  if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) score -= 0.26;
+  if (violations >= 2) score -= Math.min(0.30, violations * 0.10);
+
+  return score;
 }
 
 type PlaylistFinalizationDiagnostics = Record<string, number | boolean | string | null>;
@@ -1704,7 +1985,11 @@ function artistDiversityCap(playlistSize: number, vibe: string): number {
 
 function relaxedEmergencyArtistCap(playlistSize: number, maxPerArtist: number): number | null {
   if (!Number.isFinite(maxPerArtist) || maxPerArtist >= Number.MAX_SAFE_INTEGER / 2) return null;
-  return maxPerArtist + Math.max(1, Math.ceil(playlistSize * 0.05));
+  return maxPerArtist + 1;
+}
+
+function recoveryActivationThreshold(playlistSize: number): number {
+  return Math.min(20, Math.max(8, Math.ceil(playlistSize * 0.70)));
 }
 
 function finalAlbumCap(playlistSize: number): number {
@@ -1960,17 +2245,23 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   let hardSafeFillAdded = 0;
   let hardSafeSkipped = 0;
   let hardSafeDiversitySkipped = 0;
+  let coherenceDownranked = 0;
 
   const out: T[] = [];
-  const candidateFinalizationScore = (track: T): number => {
+  const identityTerms = universalIdentityTerms(opts.vibe, opts.intent, opts.constraints);
+  const candidateFinalizationScore = (track: T, preferredFamilies: Set<string> = new Set()): number => {
     const trackPenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
-    return (track.score ?? 0) - trackPenalty;
+    const coherence = intentCoherenceScore(track, opts, preferredFamilies, identityTerms);
+    return (track.score ?? 0) + coherence - trackPenalty;
   };
   const rankedCandidates = opts.candidates
     .map(sanitizePlaylistTrack)
     .filter((track): track is T => !!track)
     .sort((a, b) => candidateFinalizationScore(b) - candidateFinalizationScore(a));
   const preferredFamilies = preferredCohesionFamilies(rankedCandidates, opts);
+  coherenceDownranked = rankedCandidates.filter((track) => intentCoherenceScore(track, opts, preferredFamilies, identityTerms) < 0).length;
+  const coherentRankedCandidates = [...rankedCandidates]
+    .sort((a, b) => candidateFinalizationScore(b, preferredFamilies) - candidateFinalizationScore(a, preferredFamilies));
   const outOfFamilyReserve = Math.max(2, Math.ceil(opts.requestedLength * 0.12));
   const tryAdd = (
     track: T,
@@ -2036,7 +2327,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     const familyBonus = preferredFamilies.size === 0 || family === "unknown" || preferredFamilies.has(family) ? 0.08 : 0;
     const reusePenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
     const artistReusePenalty = Math.max(0, Math.min(0.34, opts.artistReusePenalty?.get(artistKey) ?? 0));
-    return (track.score ?? 0) + familyBonus - artistPressure * 0.42 - albumPressure * 0.22 - reusePenalty - artistReusePenalty;
+    return (track.score ?? 0) + familyBonus + intentCoherenceScore(track, opts, preferredFamilies, identityTerms) - artistPressure * 0.42 - albumPressure * 0.22 - reusePenalty - artistReusePenalty;
   };
   const hardSafeCandidates = (tracks: T[]): T[] =>
     tracks
@@ -2098,19 +2389,19 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     isUpbeatSocialPrompt(opts.vibe, opts.intent);
   const completionTarget = shouldCompleteActivityPlaylist
     ? opts.requestedLength
-    : Math.min(opts.requestedLength, Math.max(8, Math.ceil(opts.requestedLength * 0.40)));
+    : Math.min(opts.requestedLength, recoveryActivationThreshold(opts.requestedLength));
 
   for (const track of opts.initial) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
-  for (const track of rankedCandidates) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
-  if (out.length < opts.requestedLength) {
+  for (const track of coherentRankedCandidates) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
+  if (out.length < recoveryActivationThreshold(opts.requestedLength)) {
     const beforeRelaxedFill = out.length;
-    for (const track of rankedCandidates) tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, true);
+    for (const track of coherentRankedCandidates) tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, true);
     relaxedArtistFillUsed = emergencyArtistLimit !== null && out.length > beforeRelaxedFill;
     relaxedAlbumFillUsed = out.length > beforeRelaxedFill;
   }
   if (out.length < completionTarget) {
     cohesionRelaxedFillUsed = preferredFamilies.size > 0;
-    for (const track of rankedCandidates) {
+    for (const track of coherentRankedCandidates) {
       const before = out.length;
       tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, true, false);
       if (out.length > before) cohesionRelaxedFillAdded++;
@@ -2120,16 +2411,16 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     hardSafeFillUsed = true;
     const strictHardSafeArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
     const strictHardSafeAlbumLimit = primaryAlbumLimit;
-    for (const track of hardSafeCandidates([...opts.initial, ...rankedCandidates])) {
+    for (const track of hardSafeCandidates([...opts.initial, ...coherentRankedCandidates])) {
       tryAddHardSafe(track, true, strictHardSafeArtistLimit, strictHardSafeAlbumLimit);
     }
     if (out.length < opts.requestedLength) {
-      for (const track of hardSafeCandidates(rankedCandidates)) {
+      for (const track of hardSafeCandidates(coherentRankedCandidates)) {
         tryAddHardSafe(track, false, emergencyArtistLimit, emergencyAlbumLimit);
       }
     }
-    if (out.length < opts.requestedLength) {
-      for (const track of hardSafeCandidates(rankedCandidates)) {
+    if (out.length < recoveryActivationThreshold(opts.requestedLength)) {
+      for (const track of hardSafeCandidates(coherentRankedCandidates)) {
         tryAddHardSafe(track, false, null, null);
       }
     }
@@ -2148,6 +2439,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       albumLimitSkipped,
       cohesionSkipped,
       cohesionFamilies: preferredFamilies.size ? [...preferredFamilies].join(",") : null,
+      intentCoherenceDownranked: coherenceDownranked,
       completionTarget,
       activityCompletionTarget: shouldCompleteActivityPlaylist,
       cohesionRelaxedFillUsed,
@@ -2268,29 +2560,26 @@ function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
     });
   }
 
+  const recoveryIdentityTerms = universalIdentityTerms(opts.vibe, opts.intent, opts.constraints);
   const broadEnergyCandidates = opts.fullLibrary
     .filter((track) => !!track)
     .map((track) => ({
       ...track,
-      score: broadEnergyRecoveryScore(track, opts.intent, opts.vibe),
+      score: broadEnergyRecoveryScore(track, opts.intent, opts.vibe) +
+        intentCoherenceScore(track, {
+          vibe: opts.vibe,
+          intent: opts.intent,
+          constraints: opts.constraints,
+          classMap: opts.classMap,
+        }, new Set(), recoveryIdentityTerms) * 0.8,
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.max(240, opts.requestedLength * 12)) as T[];
   attempts.push({
     stage: "energy_recovery",
-    intent: activityRecoveryPrompt
-      ? {
-          ...opts.intent,
-          genreFamilies: [],
-          primaryGenres: [],
-          eraRange: null,
-          eraStart: null,
-          eraEnd: null,
-          mood: [],
-        }
-      : { ...opts.intent, activity: null, mood: [], energy: null, energyLevel: null },
+    intent: activityRecoveryPrompt ? opts.intent : { ...opts.intent, activity: null, mood: [], energy: null, energyLevel: null },
     candidates: broadEnergyCandidates,
-    constraints: activityRecoveryPrompt ? activityRelaxedConstraints : undefined,
+    constraints: activityRecoveryPrompt && broadUnconstrainedPrompt ? activityRelaxedConstraints : undefined,
   });
 
   for (const attempt of attempts) {
@@ -2593,11 +2882,22 @@ const NO_LIBRARY_GENRE_SEARCH_TERMS: Record<string, string[]> = {
   metal: ["metal", "metalcore", "thrash"],
 };
 
-function noLibrarySearchQueries(vibe: string, families: string[]): string[] {
+function noLibrarySearchQueries(vibe: string, families: string[], subgenreTerms: string[] = []): string[] {
   const cleanedVibe = vibe.trim();
   const eraTerms = extractEraRange(vibe).terms;
   const queries = new Set<string>();
   if (cleanedVibe) queries.add(cleanedVibe);
+  for (const subgenre of subgenreTerms) {
+    const term = subgenre.replace(/_/g, " ").trim();
+    if (!term) continue;
+    queries.add(term);
+    if (cleanedVibe && !cleanedVibe.toLowerCase().includes(term.toLowerCase())) {
+      queries.add(`${cleanedVibe} ${term}`);
+    }
+    for (const era of eraTerms) {
+      queries.add(`${era} ${term}`);
+    }
+  }
   for (const family of families) {
     for (const term of NO_LIBRARY_GENRE_SEARCH_TERMS[family] ?? [family.replace(/_/g, " ")]) {
       queries.add(term);
@@ -2618,10 +2918,11 @@ async function buildNoLibrarySpotifyCandidates(opts: {
   vibe: string;
   length: number;
   families: string[];
+  subgenreTerms?: string[];
 }): Promise<Array<typeof likedSongsTable.$inferSelect>> {
   const rawTracks = await searchSpotifyTracks(
     opts.accessToken,
-    noLibrarySearchQueries(opts.vibe, opts.families),
+    noLibrarySearchQueries(opts.vibe, opts.families, opts.subgenreTerms),
     Math.max(80, opts.length * 3),
     { userKey: opts.userId }
   );
@@ -2802,6 +3103,9 @@ router.get("/generate/status", (req, res): void => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
   res.json(getGenerateStatus(userId));
 });
 
@@ -2988,7 +3292,8 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId, noLibraryMode } = parsed.data;
     const moodSceneId = sceneId?.trim() || null;
-    const noLibraryExplicitFamilies = noLibraryMode ? buildCsspLockedIntent(vibe).genreFamilies : [];
+    const noLibraryParsedIntent = noLibraryMode ? buildCsspLockedIntent(vibe) : null;
+    const noLibraryExplicitFamilies = noLibraryParsedIntent?.genreFamilies ?? [];
     if (noLibraryMode && noLibraryExplicitFamilies.length === 0) {
       generateFail(
         res,
@@ -3263,6 +3568,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           vibe,
           length,
           families: noLibraryExplicitFamilies,
+          subgenreTerms: noLibraryParsedIntent?.subgenreTerms ?? [],
         });
         noLibrarySpotifyCandidateCount = spotifyCandidates.length;
         const verifiedSpotifyCandidates = spotifyCandidates.filter((track) =>
@@ -3788,6 +4094,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       primaryGenres: parsedCsspIntent.genreFamilies.length > 0
         ? parsedCsspIntent.genreFamilies
         : constraintLayer.hard.genres.slice(0, 3),
+      primaryGenre: parsedCsspIntent.primaryGenre ?? parsedCsspIntent.genreFamilies[0] ?? constraintLayer.hard.genres[0] ?? null,
+      primarySubgenre: parsedCsspIntent.primarySubgenre,
+      secondarySubgenre: parsedCsspIntent.secondarySubgenre,
+      subgenreTerms: parsedCsspIntent.subgenreTerms,
       eraStart: parsedCsspIntent.eraRange?.start ?? constraintLayer.hard.eraStart,
       eraEnd: parsedCsspIntent.eraRange?.end ?? constraintLayer.hard.eraEnd,
       energyLevel: resolvedEnergy,
@@ -3811,6 +4121,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       mood: lockedIntent.mood,
       activity: lockedIntent.activity,
       energy: lockedIntent.energy,
+      primaryGenre: lockedIntent.primaryGenre,
+      primarySubgenre: lockedIntent.primarySubgenre,
+      secondarySubgenre: lockedIntent.secondarySubgenre,
+      subgenreTerms: lockedIntent.subgenreTerms,
     });
     let fallbackBridgeUsed = false;
     const constrainedFallbackTracks = likedSongs.filter((track) => {
@@ -3957,15 +4271,17 @@ router.post("/generate", async (req, res): Promise<void> => {
         suppressGenres: allowHolidaySeason ? [] : ["christmas"],
       },
       progress: (stage, detail) => {
+        let phaseAccepted = true;
         if (stage === "scoring") {
-          setGeneratePhase(generateSessionUserId, requestId, "building_profile");
+          phaseAccepted = setGeneratePhase(generateSessionUserId, requestId, "scoring");
         } else if (stage === "retrieval" || stage === "lanes" || stage === "sampling") {
-          setGeneratePhase(generateSessionUserId, requestId, "scoring");
+          phaseAccepted = setGeneratePhase(generateSessionUserId, requestId, "loading_library");
         } else if (stage === "fallback") {
-          setGeneratePhase(generateSessionUserId, requestId, "composing");
+          phaseAccepted = setGeneratePhase(generateSessionUserId, requestId, "composing");
         } else if (stage === "coherence") {
-          setGeneratePhase(generateSessionUserId, requestId, "composing");
+          phaseAccepted = setGeneratePhase(generateSessionUserId, requestId, "composing");
         }
+        if (!phaseAccepted) return;
         setGenerateStageDetail(generateSessionUserId, requestId, detail);
       },
     });
@@ -4081,6 +4397,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const applyLowComplexityRecovery = (triggerStage: string): boolean => {
       if (finalTracks.length >= length) return false;
+      if (finalTracks.length >= recoveryActivationThreshold(length)) return false;
       const recoveryStartedAt = Date.now();
       const recovered = recoverLowComplexityPlaylist({
         initial: finalTracks,
@@ -4569,10 +4886,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     const largestDrop = [...stageWaterfall]
       .filter((stage) => stage.removed > 0)
       .sort((a, b) => b.removed - a.removed)[0] ?? null;
+    const finalizationSeriouslyUnderfilled =
+      finalTracks.length < recoveryActivationThreshold(length);
     const recoveryRelaxations = [
       typeof finalization.diagnostics["recoveryStage"] === "string" ? finalization.diagnostics["recoveryStage"] : null,
-      finalization.diagnostics["artistLimitRelaxed"] ? "artist_limit_relaxed" : null,
-      finalization.diagnostics["albumLimitRelaxed"] ? "album_limit_relaxed" : null,
+      finalizationSeriouslyUnderfilled && finalization.diagnostics["artistLimitRelaxed"] ? "artist_limit_relaxed" : null,
+      finalizationSeriouslyUnderfilled && finalization.diagnostics["albumLimitRelaxed"] ? "album_limit_relaxed" : null,
       ...evidenceRelaxations,
     ].filter((entry): entry is string => !!entry);
     const fallbackLevel = fallbackLevelFromFinalization(finalization.diagnostics);

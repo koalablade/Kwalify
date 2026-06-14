@@ -99,7 +99,12 @@ function userFacingApiError(result, fallback = "Something went wrong. Please try
   if (result?.status === 0) return "Network connection dropped. Please check your connection and try again.";
   if (result?.status === 401) return "Spotify session expired. Please reconnect Spotify.";
   if (result?.status === 503) return "Service is temporarily unavailable. Please try again in a moment.";
-  return result?.data?.error || result?.data?.message || fallback;
+  const raw = result?.data?.error || result?.data?.message || fallback;
+  const text = String(raw || fallback);
+  if (/[{}[\]]/.test(text) || /stack|trace|zod|payload|undefined|null/i.test(text)) {
+    return fallback;
+  }
+  return text;
 }
 
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -636,7 +641,7 @@ function renderApp() {
             <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle" role="switch" tabindex="0" aria-checked="${state.noLibraryMode}" aria-label="No Library Mode"></div>
             <div class="no-library-text">
               <span class="no-library-label">No Library Mode</span>
-              <span class="no-library-sub">Spotify-wide search for clear genre prompts · does not use your liked songs</span>
+              <span class="no-library-sub">Searches Spotify broadly for clear genre prompts · less personalized than your liked songs</span>
             </div>
           </label>
         </div>
@@ -739,71 +744,100 @@ function buildActivityFeed() {
   }).join("");
 }
 
-const GENERATION_STAGES = ["Scanning library", "Scoring candidates", "Building playlist", "Final cohesion pass", "Finalising playlist"];
+const GENERATION_STAGES = ["Initializing", "Retrieving candidates", "Ranking matches", "Diversity check", "Finalizing playlist"];
 const GENERATION_PHASES = ["starting", "loading_library", "building_profile", "scoring", "composing", "spotify", "saving"];
 const GENERATION_PHASE_COPY = {
-  "Scanning library": [
-    "Looking through your taste profile…",
-    "Scanning liked tracks…",
-    "Mapping your music DNA…",
+  "Initializing": [
+    "Starting the generator…",
+    "Reading the prompt…",
+    "Preparing the request…",
   ],
-  "Scoring candidates": [
-    "Finding songs that fit your mood…",
-    "Aligning with your intent…",
+  "Retrieving candidates": [
+    "Searching your library…",
+    "Finding matching tracks…",
+    "Checking genre and era evidence…",
+  ],
+  "Ranking matches": [
+    "Ranking the strongest matches…",
+    "Comparing energy, era, and genre fit…",
     "Filtering out obvious wrong turns…",
   ],
-  "Building playlist": [
-    "Scoring emotional fit…",
-    "Balancing taste and discovery…",
-    "Comparing energy, era, and genre fit…",
+  "Diversity check": [
+    "Checking artist spread…",
+    "Smoothing the playlist flow…",
+    "Applying quality checks…",
   ],
-  "Final cohesion pass": [
-    "Arranging transitions…",
-    "Smoothing energy curve…",
-    "Sequencing the set like a DJ would…",
-  ],
-  "Finalising playlist": [
+  "Finalizing playlist": [
     "Polishing sequence…",
     "Optimising listening flow…",
     "Saving the playlist safely…",
   ],
 };
+const GENERATION_LONG_RUNNING_COPY = [
+  "Searching your library carefully…",
+  "Finding tracks that match the prompt…",
+  "Building the final playlist…",
+  "Applying quality checks…",
+  "Saving the strongest version…",
+];
+
+function generationElapsedMs(progressState = state.generationProgress || {}) {
+  const startedAt = progressState.startedAt || Date.now();
+  const clientStartedAt = progressState.clientStartedAt || startedAt;
+  const serverElapsedMs = typeof progressState.elapsedMs === "number" ? progressState.elapsedMs : 0;
+  return Math.max(
+    serverElapsedMs,
+    Date.now() - startedAt,
+    Date.now() - clientStartedAt
+  );
+}
+
+function generationTimingMessage(progressState, elapsedMs) {
+  if (elapsedMs >= 30000) return "Still working. Larger libraries and precise prompts can take a little longer.";
+  if (progressState?.fallbackEligibleAt && Date.now() >= progressState.fallbackEligibleAt) {
+    return "Quality checks are taking longer than usual.";
+  }
+  return "Working normally.";
+}
 
 function generationProgressInfo() {
   const phase = state.generationProgress?.phase || "starting";
   const stage = state.generationProgress?.stage || null;
-  const stageLabel = stage || GENERATION_STAGES[Math.max(0, GENERATION_PHASES.indexOf(phase) - 1)] || "Scanning library";
+  const stageLabel = stage || GENERATION_STAGES[Math.max(0, GENERATION_PHASES.indexOf(phase))] || "Initializing";
   const index = typeof state.generationProgress?.stageIndex === "number"
     ? state.generationProgress.stageIndex
-    : Math.max(0, Math.min(GENERATION_STAGES.length - 1, GENERATION_PHASES.indexOf(phase) - 1));
+    : Math.max(0, Math.min(GENERATION_STAGES.length - 1, GENERATION_PHASES.indexOf(phase)));
   const count = state.generationProgress?.stageCount || GENERATION_STAGES.length;
   const startedAt = state.generationProgress?.startedAt || Date.now();
-  const elapsedMs = Date.now() - startedAt;
+  const elapsedMs = generationElapsedMs(state.generationProgress || {});
   const localStep = Math.min(
     count - 1,
     Math.floor(elapsedMs / 4500)
   );
-  const displayIndex = Math.max(index, state.generationProgress?.partialTracks?.length ? 3 : 0, localStep);
+  const previousDisplayIndex = typeof state.generationProgress?.displayIndex === "number"
+    ? state.generationProgress.displayIndex
+    : 0;
+  const displayIndex = Math.max(index, previousDisplayIndex, state.generationProgress?.partialTracks?.length ? 3 : 0, localStep);
+  if (state.generationProgress) state.generationProgress.displayIndex = displayIndex;
   const pct = Math.max(10, Math.min(96, Math.round(((displayIndex + 1) / count) * 100)));
   const displayTitle = state.noLibraryMode && displayIndex === 0 ? "Searching Spotify" : GENERATION_STAGES[displayIndex] || stageLabel;
   const subtexts = state.noLibraryMode && displayIndex === 0
     ? ["Searching Spotify-wide matches…", "Checking genre and era evidence…", "Building a fresh candidate pool…"]
-    : GENERATION_PHASE_COPY[displayTitle] || GENERATION_PHASE_COPY[stageLabel] || GENERATION_PHASE_COPY["Scanning library"];
+    : GENERATION_PHASE_COPY[displayTitle] || GENERATION_PHASE_COPY[stageLabel] || GENERATION_PHASE_COPY["Initializing"];
   const subIndex = Math.floor((Date.now() - startedAt) / 1800) % subtexts.length;
-  const detail = state.generationProgress?.stageDetail || subtexts[subIndex];
+  const longRunDetail = elapsedMs >= 30000
+    ? GENERATION_LONG_RUNNING_COPY[Math.floor(elapsedMs / 6000) % GENERATION_LONG_RUNNING_COPY.length]
+    : null;
+  const detail = longRunDetail || state.generationProgress?.stageDetail || subtexts[subIndex];
   return { title: displayTitle, serverTitle: stageLabel, sub: detail, pct, index: displayIndex, serverIndex: index, count };
 }
 
 function generatingHtml() {
   const progress = generationProgressInfo();
   const progressState = state.generationProgress || {};
-  const elapsedMs = typeof progressState.elapsedMs === "number"
-    ? progressState.elapsedMs
-    : Date.now() - (progressState.startedAt || Date.now());
+  const elapsedMs = generationElapsedMs(progressState);
   const elapsedText = `${Math.max(0, Math.round(elapsedMs / 1000))}s elapsed`;
-  const fallbackText = progressState.fallbackEligibleAt
-    ? (Date.now() >= progressState.fallbackEligibleAt ? "Fast fallback is available if needed" : "Still building the best match")
-    : "Working normally";
+  const timingText = generationTimingMessage(progressState, elapsedMs);
   const previewWaitingCopy = [
     "Scanning library evidence",
     "Counting safe candidates",
@@ -814,8 +848,8 @@ function generatingHtml() {
   const progressDetailsHtml = state.progressExpanded ? `
       <div class="generation-details-panel">
         <div><strong>Current work</strong><span id="generationDetailWork">${esc(progress.sub)}</span></div>
-        <div><strong>Phase</strong><span id="generationDetailPhase">${esc(progressState.phase || "starting")} · step ${Math.min(progress.index + 1, progress.count)}/${progress.count}</span></div>
-        <div><strong>Timing</strong><span id="generationDetailTiming">${esc(elapsedText)} · ${esc(fallbackText)}</span></div>
+        <div><strong>Step</strong><span id="generationDetailPhase">${esc(progress.title)} · ${Math.min(progress.index + 1, progress.count)}/${progress.count}</span></div>
+        <div><strong>Timing</strong><span id="generationDetailTiming">${esc(elapsedText)} · ${esc(timingText)}</span></div>
         <div><strong>Preview</strong><span id="generationDetailPreview">${progressState.partialTracks?.length ? `${progressState.partialTracks.length} likely tracks ready` : previewWaitingText}</span></div>
       </div>` : "";
   const buildBarHtml = `
@@ -874,13 +908,9 @@ function refreshGenerationProgressDom() {
   if (!state.generating || !state.generationProgress) return;
   const progress = generationProgressInfo();
   const progressState = state.generationProgress || {};
-  const elapsedMs = typeof progressState.elapsedMs === "number"
-    ? Math.max(progressState.elapsedMs, Date.now() - (progressState.startedAt || Date.now()))
-    : Date.now() - (progressState.startedAt || Date.now());
+  const elapsedMs = generationElapsedMs(progressState);
   const elapsedText = `${Math.max(0, Math.round(elapsedMs / 1000))}s elapsed`;
-  const fallbackText = progressState.fallbackEligibleAt
-    ? (Date.now() >= progressState.fallbackEligibleAt ? "Fast fallback is available if needed" : "Still building the best match")
-    : "Working normally";
+  const timingText = generationTimingMessage(progressState, elapsedMs);
   const previewWaitingCopy = state.noLibraryMode
     ? ["Searching Spotify-wide matches", "Checking genre evidence", "Checking era evidence", "Scoring likely fits"]
     : ["Scanning library evidence", "Counting safe candidates", "Scoring likely fits", "Choosing a vibe cluster"];
@@ -897,8 +927,8 @@ function refreshGenerationProgressDom() {
   setText("generationStageLabel", progress.title);
   setText("generationStageCount", `${Math.min(progress.index + 1, progress.count)} / ${progress.count}`);
   setText("generationDetailWork", progress.sub);
-  setText("generationDetailPhase", `${progressState.phase || "starting"} · step ${Math.min(progress.index + 1, progress.count)}/${progress.count}`);
-  setText("generationDetailTiming", `${elapsedText} · ${fallbackText}`);
+  setText("generationDetailPhase", `${progress.title} · ${Math.min(progress.index + 1, progress.count)}/${progress.count}`);
+  setText("generationDetailTiming", `${elapsedText} · ${timingText}`);
   setText("generationDetailPreview", previewText);
   const fill = document.getElementById("generationProgressFill");
   if (fill) fill.style.width = `${progress.pct}%`;
@@ -957,6 +987,18 @@ function resultHtml(result) {
         <span>${esc(confidence.label || "Playlist confidence")}</span>
         <strong>${confidencePercent}%</strong>
       </div>` : "";
+  const trustChips = [
+    confidencePercent !== null
+      ? (confidencePercent >= 78 ? "Strong Prompt Match" : confidencePercent >= 58 ? "Good Prompt Match" : "Best Available Match")
+      : "Prompt Matched",
+    result.noLibraryMode ? "Built from Spotify Discovery" : "Built from Your Library",
+    confidence.recoveryUsed || confidence.fallbackUsed || result.fastFallback || result.code === "TIMEOUT_FALLBACK" ? "Recovery Assisted" : null,
+    result.spotifyUnavailable ? "Review Copy Available" : result.spotifyPartial ? "Spotify Partially Saved" : null,
+  ].filter(Boolean);
+  const trustChipsHtml = trustChips.length ? `
+      <div class="result-trust-chips">
+        ${trustChips.map((chip) => `<span>${esc(chip)}</span>`).join("")}
+      </div>` : "";
 
   const hasExplain = debugModeEnabled() && !!(result.v3Diagnostics?.playlistExplanation);
   const tabsHtml = hasExplain ? `
@@ -1014,8 +1056,9 @@ function resultHtml(result) {
         <span class="result-meta">${count} tracks · ${state.mode} mode</span>
       </div>
       <h2 class="result-title">${name}</h2>
-      <p class="result-insight">${result.noLibraryMode ? "Curated from Spotify-wide search to fit the moment." : "Curated from your liked songs to fit the moment."}</p>
+      <p class="result-insight">${result.noLibraryMode ? "Curated from Spotify-wide search to fit the moment. Less personalized than your liked songs." : "Curated from your liked songs to fit the moment."}</p>
       ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
+      ${trustChipsHtml}
       ${confidenceHtml}
       <div class="result-vibes">
         ${vibeDotsHtml}
@@ -2187,20 +2230,32 @@ function startGenerationStatusPolling() {
   const tick = async () => {
     if (!state.generating) return;
     try {
-      const r = await api("/generate/status");
+      const r = await api(`/generate/status?t=${Date.now()}`, { cache: "no-store" });
       if (r.ok && r.data?.active) {
         const nextPartialTracks = Array.isArray(r.data.partialTracks) ? r.data.partialTracks : [];
         if (nextPartialTracks.length > 0 && !state.partialPreviewStartedAt) {
           state.partialPreviewStartedAt = Date.now();
         }
+        const previousStageIndex = typeof state.generationProgress?.stageIndex === "number"
+          ? state.generationProgress.stageIndex
+          : 0;
+        const incomingStageIndex = typeof r.data.stageIndex === "number" ? r.data.stageIndex : 0;
+        const nextStageIndex = Math.max(previousStageIndex, incomingStageIndex);
+        const staleStagePayload = incomingStageIndex < previousStageIndex;
         state.generationProgress = {
-          phase: r.data.phase || "starting",
-          stage: r.data.stage || null,
-          stageIndex: typeof r.data.stageIndex === "number" ? r.data.stageIndex : 0,
+          phase: staleStagePayload ? state.generationProgress?.phase || "starting" : r.data.phase || "starting",
+          stage: staleStagePayload
+            ? state.generationProgress?.stage || GENERATION_STAGES[nextStageIndex] || null
+            : r.data.stage || GENERATION_STAGES[nextStageIndex] || null,
+          stageIndex: nextStageIndex,
           stageCount: typeof r.data.stageCount === "number" ? r.data.stageCount : GENERATION_STAGES.length,
-          stageDetail: r.data.stageDetail || null,
+          stageDetail: staleStagePayload ? state.generationProgress?.stageDetail || null : r.data.stageDetail || null,
           requestId: r.data.requestId || null,
           startedAt: typeof r.data.startedAt === "number" ? r.data.startedAt : Date.now(),
+          clientStartedAt: state.generationProgress?.clientStartedAt || Date.now(),
+          elapsedMs: typeof r.data.elapsedMs === "number" ? r.data.elapsedMs : null,
+          lastUpdatedAt: typeof r.data.lastUpdatedAt === "number" ? r.data.lastUpdatedAt : null,
+          displayIndex: typeof state.generationProgress?.displayIndex === "number" ? state.generationProgress.displayIndex : 0,
           fallbackEligibleAt: typeof r.data.fallbackEligibleAt === "number" ? r.data.fallbackEligibleAt : null,
           partialTracks: nextPartialTracks,
         };
@@ -2227,7 +2282,7 @@ async function generate() {
 
   state.generating = true;
   state.partialPreviewStartedAt = null;
-  state.generationProgress = { phase: "starting", stage: state.noLibraryMode ? "Searching Spotify" : "Scanning library", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), fallbackEligibleAt: null, partialTracks: [] };
+  state.generationProgress = { phase: "starting", stage: "Initializing", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), clientStartedAt: Date.now(), elapsedMs: 0, lastUpdatedAt: null, displayIndex: 0, fallbackEligibleAt: null, partialTracks: [] };
   state.lastResult = null;
   state.error = null;
   state.errorDetails = null;

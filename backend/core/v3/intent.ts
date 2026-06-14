@@ -6,9 +6,14 @@ import {
   EXPANDED_MOOD_TERMS,
   termRegex,
 } from "../../lib/expanded-intent-vocabulary";
+import { GENRE_FAMILIES } from "../../lib/genre-taxonomy-data";
 
 export interface LockedIntent {
   genreFamilies: string[];
+  primaryGenre: string | null;
+  primarySubgenre: string | null;
+  secondarySubgenre: string | null;
+  subgenreTerms: string[];
   eraRange: { start: number; end: number } | null;
   mood: string[];
   activity: string | null;
@@ -87,6 +92,10 @@ export interface SceneIntent {
 
 export interface LockedIntentFallbacks {
   genreFamilies?: string[];
+  primaryGenre?: string | null;
+  primarySubgenre?: string | null;
+  secondarySubgenre?: string | null;
+  subgenreTerms?: string[];
   eraRange?: { start: number; end: number } | null;
   mood?: string[];
   activity?: string | null;
@@ -122,7 +131,7 @@ export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "country", terms: ["country", "americana", "alt-country", "alt country", "bluegrass", "western", "honky tonk", "outlaw", "outlaw country", "red dirt", "nashville", "country pop", "classic country"] },
   { family: "hip_hop", terms: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "boom-bap", "old school rap", "g-funk", "melodic rap", "emo rap"] },
   { family: "rock", terms: ["rock", "indie rock", "indie-rock", "alt rock", "alternative rock", "classic rock", "grunge", "punk", "punk rock", "hard rock", "post-rock", "post rock", "emo", "shoegaze"] },
-  { family: "electronic", terms: ["electronic", "house", "house music", "techno", "trance", "edm", "dnb", "drum and bass", "drum & bass", "rave", "dubstep", "ambient", "synthwave", "retrowave", "jungle"] },
+  { family: "electronic", terms: ["electronic", "house", "house music", "techno", "hard techno", "hardgroove", "hard groove", "schranz", "tekk", "tekno", "industrial techno", "warehouse techno", "rave techno", "hard trance", "trance", "edm", "dnb", "drum and bass", "drum & bass", "rave", "dubstep", "ambient", "synthwave", "retrowave", "jungle"] },
   { family: "jazz", terms: ["jazz", "soul jazz", "lo-fi jazz", "lofi jazz", "bebop", "bossa nova", "swing", "smooth jazz", "vocal jazz", "latin jazz"] },
   { family: "pop", terms: ["pop", "dance pop", "dance-pop", "indie pop", "synthpop", "synth pop", "synth-pop", "k-pop", "kpop", "teen pop", "boy band", "girl group"] },
   { family: "folk", terms: ["folk", "acoustic", "singer-songwriter", "singer songwriter", "acoustic folk", "traditional folk", "celtic folk", "irish folk"] },
@@ -487,6 +496,79 @@ function parseMatchedGenreTerms(input: string): string[] {
     terms.push("uk garage");
   }
   return terms.sort((a, b) => termMatchIndex(input, a) - termMatchIndex(input, b));
+}
+
+type SubgenreIntentMatch = {
+  family: string;
+  id: string;
+  terms: string[];
+  confidence: number;
+  firstIndex: number;
+};
+
+function normalizedSubgenreLabel(value: string): string {
+  return value.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function patternMatchIndex(input: string, pattern: string): number {
+  const match = new RegExp(pattern, "i").exec(input);
+  return match?.index ?? -1;
+}
+
+function parseSubgenreIntent(input: string): {
+  primaryGenre: string | null;
+  primarySubgenre: string | null;
+  secondarySubgenre: string | null;
+  subgenreTerms: string[];
+} {
+  const matches: SubgenreIntentMatch[] = [];
+  for (const familyDef of GENRE_FAMILIES) {
+    for (const subgenre of familyDef.subgenres) {
+      const plainTerms = [
+        subgenre.id.replace(/_/g, " "),
+        ...subgenre.microStyles,
+      ];
+      const matchedPatternIndexes = subgenre.patterns
+        .map((pattern) => patternMatchIndex(input, pattern))
+        .filter((index) => index >= 0);
+      const matchedPlainTerms = plainTerms.filter((term) => matchesTerm(input, term));
+      const matchedPlainIndexes = matchedPlainTerms
+        .map((term) => termMatchIndex(input, term))
+        .filter((index) => index >= 0);
+      if (matchedPatternIndexes.length === 0 && matchedPlainTerms.length === 0) continue;
+
+      const firstIndex = Math.min(...matchedPatternIndexes, ...matchedPlainIndexes);
+      const specificityBoost = normalizedSubgenreLabel(subgenre.id) === String(familyDef.family)
+        ? 0
+        : Math.min(1.5, subgenre.id.split("_").length * 0.35);
+      matches.push({
+        family: familyDef.family,
+        id: subgenre.id,
+        terms: [subgenre.id, ...matchedPlainTerms],
+        confidence: matchedPatternIndexes.length * 2 + matchedPlainTerms.length + specificityBoost,
+        firstIndex,
+      });
+    }
+  }
+
+  const ranked = matches
+    .filter((match, index, all) =>
+      all.findIndex((other) => other.id === match.id && other.family === match.family) === index
+    )
+    .sort((a, b) =>
+      b.confidence - a.confidence ||
+      b.id.length - a.id.length ||
+      a.firstIndex - b.firstIndex
+    );
+  const primary = ranked[0] ?? null;
+  const secondary = ranked.find((match) => match.id !== primary?.id) ?? null;
+  const subgenreTerms = ranked.flatMap((match) => match.terms).filter((term, index, terms) => terms.indexOf(term) === index);
+  return {
+    primaryGenre: primary?.family ?? null,
+    primarySubgenre: primary?.id ?? null,
+    secondarySubgenre: secondary?.id ?? null,
+    subgenreTerms: subgenreTerms.slice(0, 8),
+  };
 }
 
 function clamp01(value: number): number {
@@ -1085,6 +1167,14 @@ export function completeLockedIntent(
       ? intent.genreFamilies
       : fallbacks.genreFamilies ?? []
   );
+  const primaryGenre = intent.primaryGenre ?? fallbacks.primaryGenre ?? genreFamilies[0] ?? null;
+  const primarySubgenre = intent.primarySubgenre ?? fallbacks.primarySubgenre ?? null;
+  const secondarySubgenre = intent.secondarySubgenre ?? fallbacks.secondarySubgenre ?? null;
+  const subgenreTerms = [
+    ...(intent.subgenreTerms.length > 0 ? intent.subgenreTerms : fallbacks.subgenreTerms ?? []),
+    ...(primarySubgenre ? [primarySubgenre] : []),
+    ...(secondarySubgenre ? [secondarySubgenre] : []),
+  ].filter((term, index, terms) => terms.indexOf(term) === index).slice(0, 8);
   const completedSceneIntent = completeSceneIntent(
     intent.sceneIntent ?? fallbacks.sceneIntent ?? null,
     genreFamilies,
@@ -1096,6 +1186,10 @@ export function completeLockedIntent(
 
   return {
     genreFamilies,
+    primaryGenre,
+    primarySubgenre,
+    secondarySubgenre,
+    subgenreTerms,
     eraRange: intent.eraRange ?? fallbacks.eraRange ?? null,
     mood: intent.mood.length > 0 ? intent.mood.slice(0, 3) : (fallbacks.mood?.slice(0, 3) ?? []),
     activity: intent.activity ?? fallbacks.activity ?? null,
@@ -1146,7 +1240,11 @@ export function completeLockedIntent(
 
 export function buildLockedIntent(input: string): LockedIntent {
   const lower = input.toLowerCase();
-  const rawGenreFamilies = parseGenreFamilies(lower);
+  const rawSubgenreIntent = parseSubgenreIntent(lower);
+  const rawGenreFamilies = uniqueGenreFamilies([
+    ...parseGenreFamilies(lower),
+    ...(rawSubgenreIntent.primaryGenre ? [rawSubgenreIntent.primaryGenre] : []),
+  ]);
 
   const excludedMoods = excludedMoodTags(lower);
   const rawMood = [
@@ -1182,6 +1280,10 @@ export function buildLockedIntent(input: string): LockedIntent {
 
   return {
     genreFamilies: budgeted.genreFamilies,
+    primaryGenre: rawSubgenreIntent.primaryGenre ?? budgeted.genreFamilies[0] ?? null,
+    primarySubgenre: rawSubgenreIntent.primarySubgenre,
+    secondarySubgenre: rawSubgenreIntent.secondarySubgenre,
+    subgenreTerms: rawSubgenreIntent.subgenreTerms,
     eraRange: budgeted.eraRange,
     mood: budgeted.mood,
     activity: budgeted.activity,

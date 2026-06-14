@@ -23,6 +23,7 @@ import { profileToClassification } from "./genre-taxonomy";
 import { parentEdges, similarityBridgeEdges, mergeEdges } from "./genre-graph-edges";
 import { VectorStore } from "./genre-vector-store";
 import { embeddingForOntologyNode, buildGenreCentroids } from "./genre-embeddings";
+import { logger } from "./logger";
 
 export interface GenreIntelligenceStack {
   graph: GenreGraph;
@@ -131,11 +132,11 @@ export function buildGenreIntelligenceStack(opts: {
   const libSize = opts.librarySize ?? opts.tracks.length;
   if (libSize >= MINIMAL_STACK_THRESHOLD) {
     const stack = buildMinimalGenreIntelligenceStack(opts.userProfile, opts.vibe);
-    console.info("[generate-timing] buildGenreIntelligenceStack", {
+    logger.debug({
       ms: Date.now() - t0,
       trackCount: opts.tracks.length,
       minimal: true,
-    });
+    }, "[generate-timing] buildGenreIntelligenceStack");
     return stack;
   }
 
@@ -198,11 +199,11 @@ export function buildGenreIntelligenceStack(opts: {
       },
     },
   };
-  console.info("[generate-timing] buildGenreIntelligenceStack", {
+  logger.debug({
     ms: Date.now() - t0,
     trackCount: opts.tracks.length,
     minimal: false,
-  });
+  }, "[generate-timing] buildGenreIntelligenceStack");
   return stack;
 }
 

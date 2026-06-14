@@ -13,6 +13,7 @@ import {
 } from "./genre-taxonomy";
 import type { UserGenreVector } from "./user-genre-profile";
 import { applyCountryClassificationBias } from "../core/genre-intelligence/country-scoring";
+import { logger } from "./logger";
 
 const WEIGHTS = {
   metadata: 0.35,
@@ -254,10 +255,10 @@ export function detectLibraryGenres(
     );
   }
 
-  console.info("[generate-timing] detectLibraryGenres", {
+  logger.debug({
     ms: Date.now() - t0,
     trackCount: tracks.length,
-  });
+  }, "[generate-timing] detectLibraryGenres");
   return { classifications, artistHistory, userVector };
 }
 
