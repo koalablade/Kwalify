@@ -163,6 +163,9 @@ const router: IRouter = Router();
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60_000;
+const FINALIZATION_POOL_MIN = 240;
+const FINALIZATION_POOL_PER_TRACK = 20;
+const FINALIZATION_POOL_MAX = 600;
 
 type GenerationSideEffectPolicy = {
   mode: "production" | "audit";
@@ -4634,19 +4637,23 @@ router.post("/generate", async (req, res): Promise<void> => {
       genreFamily?: string | null;
       genres?: string[] | null;
     };
+    const finalizationPoolCap = Math.min(
+      FINALIZATION_POOL_MAX,
+      Math.max(FINALIZATION_POOL_MIN, length * FINALIZATION_POOL_PER_TRACK)
+    );
     const buildFinalCandidatePool = (): PlaylistTrack[] => {
-      const scoredFallbackTracks = constrainedFallbackTracks.map((track) => ({
+      const scoredFallbackTracks = constrainedFallbackTracks.slice(0, finalizationPoolCap).map((track) => ({
         ...track,
         score: 0.42,
         _fallbackCandidate: true,
       } as PlaylistTrack));
-      const scoredLibraryTracks = likedSongs.map((track) => ({
+      const scoredLibraryTracks = likedSongs.slice(0, finalizationPoolCap).map((track) => ({
         ...track,
         score: 0.55,
       } as PlaylistTrack));
       return [
         ...(pipeline.finalTracks as PlaylistTrack[]),
-        ...(pipeline.sorted as PlaylistTrack[]),
+        ...(pipeline.sorted as PlaylistTrack[]).slice(0, finalizationPoolCap),
         ...scoredFallbackTracks,
         ...scoredLibraryTracks,
       ].map(hydrateTrackGenre);
@@ -4728,6 +4735,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
       likedSongs
+        .slice(0, finalizationPoolCap)
         .map((track) => ({
           ...track,
           score: 0.55,
