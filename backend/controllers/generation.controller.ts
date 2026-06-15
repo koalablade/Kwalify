@@ -147,6 +147,7 @@ import {
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
 import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify-api-audit";
+import { buildIntentSurvivalDiagnostics } from "../lib/intent-survival-diagnostics";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO = 0.85;
@@ -1097,6 +1098,49 @@ function hasSadDriveQualifier(vibe: string): boolean {
   return /\b(?:sad|breakup|break\s+up|heartbreak|heartbroken|night|rain|rainy|lonely)\b/i.test(vibe);
 }
 
+function isChillCalmPrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  if (isGymWorkoutPrompt(vibe, intent) || isUpbeatSocialPrompt(vibe, intent)) return false;
+  if (/\b(?:rave|warehouse|industrial|hard\s+techno|hardgroove|tekk|breakcore|workout|gym|party|club)\b/.test(lower)) {
+    return false;
+  }
+  return intent.energyLevel === "low" ||
+    intent.energy === "low" ||
+    intent.mood.includes("calm") ||
+    intent.activity === "relaxing" ||
+    /\b(?:chill|chilled|calm|soft|relax(?:ed|ing)?|rainy\s+night|rainy\s+walk|night\s+walk|sad\s+walk)\b/.test(lower);
+}
+
+function trackIsChillCalmSafe(
+  track: ConstraintTrack,
+  explicitGenreLocked: boolean,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (!explicitGenreLocked && (family === "metal" || family === "punk")) return false;
+  const terms = trackGenreTerms(track, classMap).join(" ");
+  if (/\b(?:hardcore|metalcore|deathcore|thrash|gabber|hardstyle|industrial)\b/.test(terms)) return false;
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const valence = typeof track.valence === "number" ? track.valence : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const loudness = typeof track.loudness === "number" ? track.loudness : null;
+  const speechiness = typeof track.speechiness === "number" ? track.speechiness : null;
+  if (energy !== null && energy > 0.62) return false;
+  if (tempo !== null && tempo > 132 && (energy ?? 0.5) > 0.48) return false;
+  if (danceability !== null && danceability > 0.78 && (energy ?? 0.5) > 0.50) return false;
+  if (loudness !== null && loudness > -4.8 && (energy ?? 0.5) > 0.50) return false;
+  if (speechiness !== null && speechiness > 0.30) return false;
+  if (valence !== null && valence < 0.24 && (energy ?? 0.5) > 0.42) return false;
+  return true;
+}
+
 function isNeutralDrivingPrompt(vibe: string, intent: Pick<LockedIntent, "activity">): boolean {
   return (intent.activity === "driving" || /\b(?:music\s+for\s+driving|driving|drive|road|highway|cruise)\b/i.test(vibe)) &&
     !hasSadDriveQualifier(vibe);
@@ -1133,6 +1177,46 @@ function trackIsBreakupRainDriveSafe(
   if (typeof track.tempo === "number" && track.tempo > 138) return false;
   if (typeof track.loudness === "number" && track.loudness > -4.5) return false;
   if (typeof track.speechiness === "number" && track.speechiness > 0.34) return false;
+  return true;
+}
+
+function isLateNightDrivingPrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  const drive = intent.activity === "driving" || /\b(?:drive|driving|road|highway|cruise)\b/.test(lower);
+  if (!drive) return false;
+  return /\b(?:late\s+night|night\s+drive|night\s+driving|midnight|2am|3am|rainy\s+drive|rain\s+drive)\b/.test(lower);
+}
+
+function trackIsLateNightDrivingSafe(
+  track: ConstraintTrack,
+  explicitGenreLocked: boolean,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (!explicitGenreLocked && (family === "metal" || family === "classical" || family === "soundtrack")) return false;
+  const terms = trackGenreTerms(track, classMap).join(" ");
+  if (!explicitGenreLocked && /\b(?:punk|hardcore|thrash|metalcore|deathcore|show\s+tunes?|musical)\b/.test(terms)) return false;
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const valence = typeof track.valence === "number" ? track.valence : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
+  const loudness = typeof track.loudness === "number" ? track.loudness : null;
+  const speechiness = typeof track.speechiness === "number" ? track.speechiness : null;
+  if (energy !== null && (energy < 0.30 || energy > 0.76)) return false;
+  if (tempo !== null && (tempo < 74 || tempo > 142)) return false;
+  if (valence !== null && valence > 0.78 && (energy ?? 0.5) > 0.55) return false;
+  if (valence !== null && valence < 0.22 && (energy ?? 0.5) > 0.52) return false;
+  if (danceability !== null && danceability < 0.30 && (energy ?? 0.5) < 0.45) return false;
+  if (acousticness !== null && acousticness > 0.88 && (energy ?? 0.5) < 0.46) return false;
+  if (loudness !== null && loudness > -4.2 && (energy ?? 0.5) > 0.58) return false;
+  if (speechiness !== null && speechiness > 0.36) return false;
   return true;
 }
 
@@ -1447,7 +1531,7 @@ function finalTrackMatchesExplicitGenre(
 
 function finalTrackMatchesExplicitEra(track: ConstraintTrack, intent: LockedIntent): boolean {
   if (!intent.eraRange) return true;
-  return !trackHasKnownEraMismatch(track, intent.eraRange);
+  return trackHasEraEvidence(track, intent.eraRange);
 }
 
 function finalTrackIsSafe(
@@ -1479,12 +1563,14 @@ function finalTrackIsSafe(
   if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
   if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
+  const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
   if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) return false;
   if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) return false;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
+  if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
-  const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
+  if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isEuphoricSummerPrompt(opts.vibe, opts.intent) && !trackIsEuphoricSummerSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isBreakupRainDrivePrompt(opts.vibe, opts.intent) && !trackIsBreakupRainDriveSafe(track, explicitGenreLocked, opts.classMap)) return false;
   return true;
@@ -1518,11 +1604,14 @@ function finalTrackIsHardSafe(
   if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
   if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
+  const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
   if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) return false;
   if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) return false;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
+  if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
+  if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) return false;
   return true;
 }
 
@@ -1722,11 +1811,14 @@ function intentCoherenceScore(
     }
   }
 
+  const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
   if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) score -= 0.22;
   if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) score -= 0.22;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) score -= 0.18;
+  if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.22;
   if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) score -= 0.18;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) score -= 0.26;
+  if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.24;
   if (violations >= 2) score -= Math.min(0.30, violations * 0.10);
 
   return score;
@@ -5872,6 +5964,34 @@ router.post("/generate", async (req, res): Promise<void> => {
           retrievalCompletion: noLibraryRetrievalDiagnostics,
         }
       : null;
+    const strictGenreEvidencePublic = {
+      ...strictGenreEvidenceDiagnostics,
+      verified: undefined,
+      relaxed: strictGenreEvidenceRelaxed,
+    };
+    const intentSurvivalDiagnostics = buildIntentSurvivalDiagnostics({
+      prompt: vibe,
+      lockedIntent,
+      constraintLayer,
+      emotionProfile,
+      finalTracks,
+      classMap: userGenreProfile.trackClassifications,
+      v3Diagnostics,
+      generationDiagnostics: generationDiagnostics as Record<string, unknown>,
+      finalizationDiagnostics: finalization.diagnostics as Record<string, unknown>,
+      finalValidation: finalValidation as unknown as Record<string, "PASS" | "FAIL">,
+      strictGenreEvidence: strictGenreEvidencePublic,
+      strictEraEvidence: strictEraEvidencePublic,
+      noLibrarySpotify: noLibrarySpotifyDiagnostics,
+      finalGenreDistribution,
+      finalEraDistribution,
+      finalMoodDistribution,
+      finalEnergyDistribution,
+    });
+    const v3DiagnosticsWithIntentSurvival = {
+      ...(v3Diagnostics ?? {}),
+      intentSurvival: intentSurvivalDiagnostics,
+    };
     const generationAuditSnapshot = {
       prompt: vibe,
       mode,
@@ -5896,16 +6016,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       artistDiversity,
       playlistConfidence,
       noLibrarySpotify: noLibrarySpotifyDiagnostics,
-      strictGenreEvidence: {
-        ...strictGenreEvidenceDiagnostics,
-        verified: undefined,
-        relaxed: strictGenreEvidenceRelaxed,
-      },
+      strictGenreEvidence: strictGenreEvidencePublic,
       strictEraEvidence: strictEraEvidencePublic,
       finalization: finalization.diagnostics,
       playlistQuality: v3Diagnostics?.playlistQuality ?? null,
       explicitIntentRepair: ((v3Diagnostics ?? {}) as Record<string, unknown>)["explicitIntentRepair"] ?? null,
       feedbackDiagnostics,
+      intentSurvival: intentSurvivalDiagnostics,
     };
 
     if (sideEffectPolicy.allowResultCacheWrites && !varietyBoost && !devMode && spotifyPlaylistUrl) {
@@ -5917,7 +6034,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         finalTracks: trackObjects as any,
         emotionProfile: { ...emotionProfile, journeyArc },
         spotifyPlaylistUrl,
-        v3Diagnostics,
+        v3Diagnostics: v3DiagnosticsWithIntentSurvival,
         generationDiagnostics,
         artistDiversity,
         playlistConfidence,
@@ -6042,12 +6159,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       artistDiversity,
       feedbackDiagnostics,
       promptDriftAudit,
-      strictGenreEvidence: {
-        ...strictGenreEvidenceDiagnostics,
-        verified: undefined,
-        relaxed: strictGenreEvidenceRelaxed,
-      },
+      strictGenreEvidence: strictGenreEvidencePublic,
       strictEraEvidence: strictEraEvidencePublic,
+      intentSurvival: intentSurvivalDiagnostics,
       generationAuditSnapshot,
       requestOrchestration: pipeline.requestOrchestration ?? {
         layer: "request",
@@ -6066,7 +6180,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             ecosystemCompliance: pipeline.ecosystemDebug.ecosystemCompliance,
           }
         : null,
-      v3Diagnostics,
+      v3Diagnostics: v3DiagnosticsWithIntentSurvival,
       ...(pipeline.scoringDiagnostics?.fastFallback
         ? { fastFallback: true }
         : {}),
@@ -6085,6 +6199,7 @@ router.post("/generate", async (req, res): Promise<void> => {
                 poolCapped: scoringPool.poolCapped,
               },
               genreAudit,
+              intentSurvival: intentSurvivalDiagnostics,
             },
             debug: {
               activePipeline: "v3.1_unified_routing",
@@ -6128,6 +6243,7 @@ router.post("/generate", async (req, res): Promise<void> => {
                   (scoringDiagnostics as Record<string, unknown>).dominantGenres ?? [],
               },
               v3: (scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {},
+              intentSurvival: intentSurvivalDiagnostics,
               waterfall: v3DiagnosticPayload["waterfall"] ?? null,
               removalReasons: v3DiagnosticPayload["removalReasons"] ?? [],
               retrievalPools: v3DiagnosticPayload["retrievalPoolsDetailed"] ?? null,
