@@ -57,6 +57,7 @@ import {
 import { buildPlaylistEmbedding } from "./v3/embedding-retrieval";
 import {
   EXPANDED_ACTIVITY_TERMS,
+  EXPANDED_ERA_TERMS,
   EXPANDED_EVENT_TERMS,
   EXPANDED_GENRE_ALIASES,
   EXPANDED_MOOD_TERMS,
@@ -345,10 +346,20 @@ function sufficientStructuredSubgenreEvidence<T extends IntentContractTrack>(
   if (!contract.primarySubgenre) return [];
   const matched = tracks.filter((track) => trackMatchesStructuredSubgenre(track, classMap, contract));
   const threshold = Math.min(
-    Math.max(4, minimum),
-    Math.max(4, Math.ceil(tracks.length * 0.04)),
+    Math.max(3, minimum),
+    Math.max(3, Math.ceil(tracks.length * 0.03)),
   );
   return matched.length >= threshold ? matched : [];
+}
+
+function adaptiveStructuredSubgenreMinimum(
+  availableCount: number,
+  requestedMinimum: number,
+  floor: number,
+  ratio: number,
+): number {
+  if (availableCount <= 0) return requestedMinimum;
+  return Math.min(requestedMinimum, Math.max(floor, Math.ceil(availableCount * ratio)));
 }
 
 function structuredRetrievalScope<T extends IntentContractTrack>(
@@ -365,10 +376,15 @@ function structuredRetrievalScope<T extends IntentContractTrack>(
   primaryCount: number;
   relatedCount: number;
   familyCount: number;
+  strictMinimum: number;
+  relatedMinimum: number;
 } {
   const familyPool = contract.genreFamilies.length > 0
     ? tracks.filter((track) => trackMatchesGenreFamilies(track, classMap, contract.genreFamilies))
     : tracks;
+  const evidenceBasisCount = familyPool.length > 0 ? familyPool.length : tracks.length;
+  const strictMinimum = adaptiveStructuredSubgenreMinimum(evidenceBasisCount, opts.strictMinimum, 4, 0.12);
+  const relatedMinimum = adaptiveStructuredSubgenreMinimum(evidenceBasisCount, opts.relatedMinimum, 6, 0.18);
   if (!contract.primarySubgenre) {
     return {
       pool: familyPool,
@@ -376,26 +392,32 @@ function structuredRetrievalScope<T extends IntentContractTrack>(
       primaryCount: 0,
       relatedCount: 0,
       familyCount: familyPool.length,
+      strictMinimum,
+      relatedMinimum,
     };
   }
   const primaryPool = tracks.filter((track) => trackMatchesPrimarySubgenre(track, classMap, contract));
   const relatedPool = tracks.filter((track) => trackMatchesStructuredSubgenre(track, classMap, contract));
-  if (primaryPool.length >= opts.strictMinimum) {
+  if (primaryPool.length >= strictMinimum) {
     return {
       pool: primaryPool,
       mode: "primary_subgenre",
       primaryCount: primaryPool.length,
       relatedCount: relatedPool.length,
       familyCount: familyPool.length,
+      strictMinimum,
+      relatedMinimum,
     };
   }
-  if (relatedPool.length >= opts.relatedMinimum) {
+  if (relatedPool.length >= relatedMinimum) {
     return {
       pool: relatedPool,
       mode: "related_subgenre",
       primaryCount: primaryPool.length,
       relatedCount: relatedPool.length,
       familyCount: familyPool.length,
+      strictMinimum,
+      relatedMinimum,
     };
   }
   return {
@@ -404,6 +426,8 @@ function structuredRetrievalScope<T extends IntentContractTrack>(
     primaryCount: primaryPool.length,
     relatedCount: relatedPool.length,
     familyCount: familyPool.length,
+    strictMinimum,
+    relatedMinimum,
   };
 }
 
@@ -549,9 +573,34 @@ type RetrievalPools<T> = {
     subgenrePrimaryCount?: number;
     subgenreRelatedCount?: number;
     subgenreFamilyCount?: number;
+    subgenreStrictMinimum?: number;
+    subgenreRelatedMinimum?: number;
     subgenrePoolTooSmall?: boolean;
     retrievalExpandedDueToStarvation?: boolean;
     retrievalExpansionReason?: string | null;
+    retrievalSignalCoverage?: {
+      hasSubgenreSignal: boolean;
+      hasFamilySignal: boolean;
+      hasTextSignal: boolean;
+      subgenreMatchCount: number;
+      familyMatchCount: number;
+      textMatchCount: number;
+      signalCoverageScore: number;
+    };
+    retrievalSignalMapping?: {
+      queryCanonicalization: string;
+      mappedSubgenreKeys: string[];
+      mappedFamilyKeys: string[];
+      mappedTextAnchors: string[];
+      ontologyHitRate: number;
+      embeddingFallbackUsed: boolean;
+      retrievalSignalSourceBreakdown: {
+        ontologyMatch: number;
+        embeddingMatch: number;
+        hybridMatch: number;
+        fallbackOnly: number;
+      };
+    };
     fallbackLevelUsed?: "none" | "family" | "adjacent" | "global";
     familyFallbackEmpty?: boolean;
   };
@@ -572,6 +621,8 @@ type IntentContractDiagnostics = {
   contract: IntentContract;
   inputCount: number;
   guardedCount: number;
+  strictCount?: number;
+  relaxedCount?: number;
   active: boolean;
   relaxed: boolean;
   averageFit: number;
@@ -617,6 +668,41 @@ const IDENTITY_STOPWORDS = new Set([
 
 function normalizeIdentityTerm(value: string): string {
   return value.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function uniqueNormalizedTerms(values: Array<string | null | undefined>): string[] {
+  return values
+    .map((value) => value ? normalizeIdentityTerm(value) : "")
+    .filter((value) => value.length >= 2)
+    .filter((value, index, values) => values.indexOf(value) === index);
+}
+
+function ontologyTermTokens(): Set<string> {
+  const ontologyTerms = [
+    ...EXPANDED_GENRE_ALIASES.flatMap((group) => [group.family, ...group.terms]),
+    ...EXPANDED_ERA_TERMS.flatMap((era) => [era.label, ...era.terms]),
+    ...Object.values(EXPANDED_MOOD_TERMS).flat(),
+    ...Object.values(EXPANDED_ACTIVITY_TERMS).flat(),
+    ...Object.values(EXPANDED_PLACE_TERMS).flat(),
+    ...Object.values(EXPANDED_TIME_TERMS).flat(),
+    ...EXPANDED_EVENT_TERMS,
+  ];
+  return new Set(
+    ontologyTerms
+      .flatMap((term) => normalizeIdentityTerm(term).split(/\s+/))
+      .filter((token) => token.length >= 2 && !IDENTITY_STOPWORDS.has(token))
+  );
+}
+
+const ONTOLOGY_TERM_TOKEN_SET = ontologyTermTokens();
+
+function ontologyHitRateForPrompt(queryCanonicalization: string): number {
+  const queryTokens = queryCanonicalization
+    .split(/\s+/)
+    .filter((token) => token.length >= 2 && !IDENTITY_STOPWORDS.has(token));
+  if (queryTokens.length === 0) return 0;
+  const matched = queryTokens.filter((token) => ONTOLOGY_TERM_TOKEN_SET.has(token)).length;
+  return Math.round((matched / queryTokens.length) * 1000) / 10;
 }
 
 function pushIdentityTerm(out: string[], seen: Set<string>, value: string): void {
@@ -862,6 +948,24 @@ function intentContractFit<T extends IntentContractTrack>(
   };
 }
 
+function trackCompatibleWithHardIntentContract<T extends IntentContractTrack>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+  contract: IntentContract,
+): boolean {
+  if (
+    contract.genreFamilies.length > 0 &&
+    contradictsExplicitGenreTruth(track, contract.genreFamilies)
+  ) {
+    return false;
+  }
+  if (contract.eraRange && trackHasKnownEraMismatch(track, contract.eraRange)) return false;
+  const family = genreFamilyForTrack(track, classMap);
+  return contract.genreFamilies.length === 0 ||
+    family === "unknown" ||
+    trackMatchesGenreFamilies(track, classMap, contract.genreFamilies);
+}
+
 function constrainPoolToIntentContract<T extends IntentContractTrack>(
   pool: T[],
   classMap: UserGenreProfile["trackClassifications"],
@@ -878,15 +982,32 @@ function constrainPoolToIntentContract<T extends IntentContractTrack>(
     fit: intentContractFit(track, classMap, contract),
   }));
   const strict = scored.filter(({ fit }) => fit.requiredPassed && fit.score >= 0.50);
-  const relaxed = strict.length > 0
+  const rareSubgenreFloor = contract.primarySubgenre
+    ? Math.min(12, Math.max(4, Math.ceil(pool.length * 0.08)))
+    : 0;
+  const strictEnoughForNicheSubgenre = !contract.primarySubgenre || strict.length >= rareSubgenreFloor;
+  const relaxed = strict.length > 0 && strictEnoughForNicheSubgenre
     ? strict
     : scored.filter(({ fit }) => fit.requiredPassed && fit.score >= 0.34);
   const hasRequiredContract = contract.genreFamilies.length > 0 || !!contract.eraRange;
-  const selected = relaxed.length > 0
+  const safeMinimum = hasRequiredContract
+    ? Math.min(pool.length, Math.max(12, Math.ceil(pool.length * 0.10)))
+    : 0;
+  const compatibleFallback = hasRequiredContract && relaxed.length < safeMinimum
+    ? scored
+        .filter(({ track }) => trackCompatibleWithHardIntentContract(track, classMap, contract))
+        .sort((a, b) => b.fit.score - a.fit.score)
+    : [];
+  const selectedBase = relaxed.length > 0
     ? relaxed.map(({ track }) => track)
     : hasRequiredContract
       ? []
       : pool;
+  const selected = compatibleFallback.length > 0 && selectedBase.length < safeMinimum
+    ? [...selectedBase, ...compatibleFallback.map(({ track }) => track)]
+        .filter((track, index, tracks) => tracks.findIndex((candidate) => candidate.trackId === track.trackId) === index)
+        .slice(0, Math.max(safeMinimum, selectedBase.length))
+    : selectedBase;
   const averageFit = scored.length > 0
     ? scored.reduce((sum, item) => sum + item.fit.score, 0) / scored.length
     : 0;
@@ -896,8 +1017,11 @@ function constrainPoolToIntentContract<T extends IntentContractTrack>(
       contract,
       inputCount: pool.length,
       guardedCount: selected.length,
+      strictCount: strict.length,
+      relaxedCount: relaxed.length,
       active: selected.length < pool.length,
-      relaxed: strict.length === 0 && relaxed.length > 0,
+      relaxed: ((!strictEnoughForNicheSubgenre || strict.length === 0) && relaxed.length > 0) ||
+        compatibleFallback.length > 0,
       averageFit: round3(averageFit),
     },
   };
@@ -927,7 +1051,11 @@ function enforceIntentContract<T extends ScoredLibraryTrack<IntentContractTrack>
       if (intent.emotionalTone?.some((tone) => contractMoodMatch(track, tone))) contractFitScore += 2;
       return { ...track, contractFitScore };
     })
-    .filter((track) => intent.explicitDimensions.length === 0 || track.contractFitScore > 0)
+    .filter((track) => {
+      if (intent.explicitDimensions.length === 0 || track.contractFitScore > 0) return true;
+      if (!classMap || (intent.genreFamilies.length === 0 && !intent.eraRange)) return false;
+      return trackCompatibleWithHardIntentContract(track, classMap, intent);
+    })
     .sort((a, b) => b.contractFitScore - a.contractFitScore);
 }
 
@@ -1010,6 +1138,54 @@ function identityTermScore<T extends IntentContractTrack>(
     !contract.genreFamilies.includes(term)
   );
   return structuredScore + (hasSpecificGenreIntent ? -0.12 : -0.04);
+}
+
+function sceneIdentityCoherenceScore<T extends IntentContractTrack>(
+  track: T,
+  contract: IntentContract,
+  classMap: UserGenreProfile["trackClassifications"],
+  origin: "subgenre" | "family" | "text" | "fallback",
+): number {
+  const identityScore = identityTermScore(track, contract, classMap);
+  const subgenreAligned = !!contract.primarySubgenre && (
+    trackMatchesPrimarySubgenre(track, classMap, contract) ||
+    trackMatchesStructuredSubgenre(track, classMap, contract)
+  );
+  const familyAligned = trackMatchesGenreFamilies(track, classMap, contract.genreFamilies);
+  const eraAligned = !!contract.eraRange && trackHasEraEvidence(track, contract.eraRange);
+  const eraCompatible = !!contract.eraRange && !trackHasKnownEraMismatch(track, contract.eraRange);
+  const moodAligned = contract.mood.some((mood) => contractMoodMatch(track, mood));
+  const activityAligned = contractActivityMatch(track, contract.activity) && !!contract.activity;
+  const textAligned = identityScore > 0;
+  const signalCount = [
+    subgenreAligned,
+    familyAligned,
+    eraAligned,
+    moodAligned,
+    activityAligned,
+    textAligned,
+  ].filter(Boolean).length;
+
+  const specificityLift =
+    (subgenreAligned ? 0.10 : 0) +
+    (familyAligned && eraAligned ? 0.055 : 0) +
+    (familyAligned && moodAligned ? 0.035 : 0) +
+    (textAligned ? Math.min(0.055, Math.max(0, identityScore) * 0.35) : 0) +
+    (signalCount >= 3 ? 0.045 : signalCount >= 2 ? 0.025 : 0) +
+    (eraAligned && textAligned ? 0.03 : 0);
+
+  const weakFallbackPenalty = origin === "fallback" &&
+    !subgenreAligned &&
+    !familyAligned &&
+    !textAligned &&
+    (!contract.eraRange || !eraAligned) &&
+    !moodAligned
+    ? -0.055
+    : origin === "fallback" && !textAligned && !eraAligned && !eraCompatible
+      ? -0.025
+      : 0;
+
+  return Math.max(-0.06, Math.min(0.18, specificityLift + weakFallbackPenalty));
 }
 
 function promptOrderingBias<T extends IntentContractTrack>(
@@ -1122,6 +1298,67 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
 ): RetrievalPools<T> {
   const MIN_BROAD_RETRIEVAL_POOL = 120;
   const contractSafeTracks = enforceIntentContract(tracks, contract, classMap);
+  const retrievalSignalCoverageTracks = contractSafeTracks;
+  const subgenreMatchCount = contract.primarySubgenre
+    ? retrievalSignalCoverageTracks.filter((track) => trackMatchesStructuredSubgenre(track, classMap, contract)).length
+    : 0;
+  const familyMatchCount = contract.genres.length > 0
+    ? retrievalSignalCoverageTracks.filter((track) => trackMatchesGenreFamilies(track, classMap, contract.genres)).length
+    : 0;
+  const textMatchCount = retrievalSignalCoverageTracks.filter((track) =>
+    identityTermScore(track, contract, classMap) > 0
+  ).length;
+  const hasSubgenreSignal = subgenreMatchCount > 0;
+  const hasFamilySignal = familyMatchCount > 0;
+  const hasTextSignal = textMatchCount > 0;
+  const signalCoverageScore = Math.round((
+    (hasSubgenreSignal ? 0.50 : 0) +
+    (hasFamilySignal ? 0.30 : 0) +
+    (hasTextSignal ? 0.20 : 0)
+  ) * 1000) / 10;
+  const queryCanonicalization = normalizeIdentityTerm(contract.rawPrompt);
+  const mappedSubgenreKeys = uniqueNormalizedTerms([
+    contract.primarySubgenre,
+    contract.secondarySubgenre,
+    ...contract.subgenreTerms,
+  ]);
+  const mappedFamilyKeys = uniqueNormalizedTerms([
+    ...contract.genreFamilies,
+    ...contract.genres,
+    contract.primaryGenre,
+  ]);
+  const mappedTextAnchors = uniqueNormalizedTerms(contract.identityTerms);
+  const ontologyHitRate = ontologyHitRateForPrompt(queryCanonicalization);
+  const sourceBreakdown = retrievalSignalCoverageTracks.reduce(
+    (acc, track) => {
+      const ontologyMatched =
+        (
+          contract.primarySubgenre &&
+          (
+            trackMatchesPrimarySubgenre(track, classMap, contract) ||
+            trackMatchesStructuredSubgenre(track, classMap, contract)
+          )
+        ) ||
+        trackMatchesGenreFamilies(track, classMap, contract.genreFamilies) ||
+        identityTermScore(track, contract, classMap) > 0;
+      const embeddingMatched =
+        (track.score ?? 0) >= 0.72 ||
+        (track.rediscoveryScore ?? 0) >= 0.68 ||
+        (track as T & { explorationDistance?: number }).explorationDistance != null;
+      if (ontologyMatched && embeddingMatched) {
+        acc.hybridMatch += 1;
+      } else if (ontologyMatched) {
+        acc.ontologyMatch += 1;
+      } else if (embeddingMatched) {
+        acc.embeddingMatch += 1;
+      } else {
+        acc.fallbackOnly += 1;
+      }
+      return acc;
+    },
+    { ontologyMatch: 0, embeddingMatch: 0, hybridMatch: 0, fallbackOnly: 0 }
+  );
+  const embeddingFallbackUsed = sourceBreakdown.embeddingMatch > 0 || sourceBreakdown.hybridMatch > 0;
   const familyExpansionTracks = contract.genres.length > 0
     ? tracks.filter((track) => trackMatchesGenreFamilies(track, classMap, contract.genres))
     : tracks;
@@ -1204,7 +1441,11 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
     retrievalScope.mode === "family" &&
     (retrievalScope.primaryCount > 0 || retrievalScope.relatedCount > 0);
   const familyFallbackEmpty = retrievalScope.mode === "family" && retrievalScope.familyCount === 0;
-  const coreSource = genreMatched.length > 0 ? genreMatched : contractRanked;
+  const coreSource = retrievalScope.pool.length > 0
+    ? retrievalScope.pool
+    : genreMatched.length > 0
+      ? genreMatched
+      : contractRanked;
   const adjacent = contractRanked.filter((track) => {
     const family = genreFamilyForTrack(track, classMap);
     return !!family && adjacentFamilies.has(family);
@@ -1237,6 +1478,8 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
       subgenrePrimaryCount: retrievalScope.primaryCount,
       subgenreRelatedCount: retrievalScope.relatedCount,
       subgenreFamilyCount: retrievalScope.familyCount,
+      subgenreStrictMinimum: retrievalScope.strictMinimum,
+      subgenreRelatedMinimum: retrievalScope.relatedMinimum,
       subgenrePoolTooSmall,
       retrievalExpandedDueToStarvation,
       retrievalExpansionReason: retrievalExpandedDueToStarvation
@@ -1244,6 +1487,24 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
         : subgenrePoolTooSmall
           ? "subgenre_pool_below_threshold_using_family_weighted_pool"
           : null,
+      retrievalSignalCoverage: {
+        hasSubgenreSignal,
+        hasFamilySignal,
+        hasTextSignal,
+        subgenreMatchCount,
+        familyMatchCount,
+        textMatchCount,
+        signalCoverageScore,
+      },
+      retrievalSignalMapping: {
+        queryCanonicalization,
+        mappedSubgenreKeys,
+        mappedFamilyKeys,
+        mappedTextAnchors,
+        ontologyHitRate,
+        embeddingFallbackUsed,
+        retrievalSignalSourceBreakdown: sourceBreakdown,
+      },
       fallbackLevelUsed,
       familyFallbackEmpty,
     },
@@ -1384,21 +1645,25 @@ function repairExplicitIntentPurity<T extends IntentContractTrack & { artistName
   const candidateRank = candidatePool
     .filter((track) => !used.has(track.trackId))
     .map((track) => ({ track, fit: intentContractFit(track, classMap, intent) }))
-    .filter(({ fit }) => fit.requiredPassed && fit.score >= 0.50)
+    .filter(({ track, fit }) =>
+      (fit.requiredPassed && fit.score >= 0.50) ||
+      (trackCompatibleWithHardIntentContract(track, classMap, intent) && fit.score >= 0.34)
+    )
     .sort((a, b) => (b.fit.score + (b.track.score ?? 0) * 0.10) - (a.fit.score + (a.track.score ?? 0) * 0.10));
 
   const repairBudget = Math.min(Math.max(4, Math.floor(playlistLength * 0.35)), candidateRank.length);
   const targets = repaired
     .map((track, index) => {
       const fit = intentContractFit(track, classMap, intent);
+      const hardCompatible = trackCompatibleWithHardIntentContract(track, classMap, intent);
       const reasons = [
-        genreActive && !trackMatchesGenreFamilies(track, classMap, intent.genres) ? "genre" : null,
+        genreActive && !hardCompatible ? "genre" : null,
         eraRange && trackHasKnownEraMismatch(track, eraRange) ? "era" : null,
-        !fit.requiredPassed || fit.score < 0.50 ? "intent_fit" : null,
+        !hardCompatible || fit.score < 0.34 ? "intent_fit" : null,
       ].filter((reason): reason is string => !!reason);
       return { track, index, fit, reasons };
     })
-    .filter(({ fit }) => !fit.requiredPassed || fit.score < 0.50)
+    .filter(({ reasons }) => reasons.length > 0)
     .sort((a, b) => a.fit.score - b.fit.score)
     .slice(0, repairBudget);
 
@@ -2527,7 +2792,7 @@ export async function buildPlaylistPipeline<T extends {
     : buildRetrievalPools(
         scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
         intentContract,
-        classMap,
+    classMap,
         opts.postScore.feedbackMemory ?? null,
         {
           recentTrackPenalty: upstreamRecentTrackPenalty,
@@ -2547,8 +2812,60 @@ export async function buildPlaylistPipeline<T extends {
   // before ANY widening or fallback logic is applied.
   // No fallback stage may violate genre/mood/era/context intent.
   const contractGuard = constrainPoolToIntentContract(contractSafePool, classMap, intentContract);
+  const minContractGuardFloor = Math.min(
+    contractSafePool.length,
+    Math.max(27, Math.ceil(opts.playlistLength * 0.90)),
+  );
+  const contractGuardSoftFallback = contractSafePool
+    .filter((track) => trackCompatibleWithHardIntentContract(track, classMap, intentContract))
+    .map((track) => {
+      const subgenreRank = intentContract.primarySubgenre
+        ? trackMatchesPrimarySubgenre(track, classMap, intentContract)
+          ? 4
+          : trackMatchesStructuredSubgenre(track, classMap, intentContract)
+            ? 3
+            : 0
+        : 0;
+      const familyRank = trackMatchesGenreFamilies(track, classMap, intentContract.genreFamilies) ? 2 : 0;
+      const textRank = identityTermScore(track, intentContract, classMap) > 0 ? 1 : 0;
+      return {
+        track,
+        rank: subgenreRank || familyRank || textRank,
+        fit: intentContractFit(track, classMap, intentContract).score,
+      };
+    })
+    .sort((a, b) => (b.rank - a.rank) || (b.fit - a.fit) || ((b.track.score ?? 0) - (a.track.score ?? 0)))
+    .map(({ track }) => track);
+  const contractGuardPool = contractGuard.pool.length >= minContractGuardFloor
+    ? contractGuard.pool
+    : [...contractGuard.pool, ...contractGuardSoftFallback]
+        .filter((track, index, pool) => pool.findIndex((candidate) => candidate.trackId === track.trackId) === index)
+        .slice(0, minContractGuardFloor);
+  const strictContractGuardIds = new Set(contractGuard.pool.map((track) => track.trackId));
+  const softGuardFloorIds = new Set(
+    contractGuardPool
+      .filter((track) => !strictContractGuardIds.has(track.trackId))
+      .map((track) => track.trackId)
+  );
+  const softGuardOriginFor = (track: ScoredLibraryTrack<T>): "subgenre" | "family" | "text" | "fallback" => {
+    if (
+      intentContract.primarySubgenre &&
+      (
+        trackMatchesPrimarySubgenre(track, classMap, intentContract) ||
+        trackMatchesStructuredSubgenre(track, classMap, intentContract)
+      )
+    ) {
+      return "subgenre";
+    }
+    if (trackMatchesGenreFamilies(track, classMap, intentContract.genreFamilies)) return "family";
+    if (identityTermScore(track, intentContract, classMap) > 0) return "text";
+    return "fallback";
+  };
+  const structuredScopeSource = contractGuardPool.length > 0
+    ? contractGuardPool
+    : contractSafePool;
   const preV3SubgenreScope = structuredRetrievalScope(
-    contractGuard.pool,
+    structuredScopeSource,
     classMap,
     intentContract,
     {
@@ -2556,10 +2873,35 @@ export async function buildPlaylistPipeline<T extends {
       relatedMinimum: Math.max(8, Math.ceil(opts.playlistLength * 0.60)),
     },
   );
-  const subgenreEvidencePool = preV3SubgenreScope.pool as ScoredLibraryTrack<T>[];
+  const contractSafeSubgenreScope = structuredScopeSource === contractSafePool
+    ? preV3SubgenreScope
+    : structuredRetrievalScope(
+        contractSafePool,
+        classMap,
+        intentContract,
+        {
+          strictMinimum: Math.max(30, opts.playlistLength + 5),
+          relatedMinimum: Math.max(8, Math.ceil(opts.playlistLength * 0.60)),
+        },
+      );
+  const rescuedSubgenreScope = preV3SubgenreScope.mode === "family" && contractSafeSubgenreScope.mode !== "family"
+    ? contractSafeSubgenreScope
+    : preV3SubgenreScope;
+  const rawSubgenreEvidencePool = rescuedSubgenreScope.pool as ScoredLibraryTrack<T>[];
+  const subgenreEvidencePool = rawSubgenreEvidencePool.filter((track) => {
+    if (
+      intentContract.genreFamilies.length > 0 &&
+      contradictsExplicitGenreTruth(track, intentContract.genreFamilies)
+    ) {
+      return false;
+    }
+    if (intentContract.eraRange && trackHasKnownEraMismatch(track, intentContract.eraRange)) return false;
+    return true;
+  });
   const subgenreGuardActive = false;
-  const intentScopedPool = contractGuard.pool.length > 0
-    ? contractGuard.pool
+  const subgenreRescueUsed = rescuedSubgenreScope !== preV3SubgenreScope;
+  const intentScopedPool = contractGuardPool.length > 0
+    ? contractGuardPool
     : contractSafePool;
   const truthContradictedCount = intentContract.genreFamilies.length > 0
     ? intentScopedPool.filter((track) => contradictsExplicitGenreTruth(track, intentContract.genreFamilies)).length
@@ -2582,6 +2924,10 @@ export async function buildPlaylistPipeline<T extends {
   const familyFallbackEvidencePool = intentContract.genreFamilies.length > 0
     ? intentScopedPool.filter((track) => !contradictsExplicitGenreTruth(track, intentContract.genreFamilies)) as ScoredLibraryTrack<T>[]
     : [];
+  const minSafePreRankingPool = Math.min(80, Math.max(opts.playlistLength * 2, 30));
+  const hardCompatibleScoredPool = (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) =>
+    trackCompatibleWithHardIntentContract(track, classMap, intentContract)
+  );
   let contractGuardedScoredPool = intentContract.genreFamilies.length > 0
     ? contractEvidencePool.length > 0
         ? contractEvidencePool
@@ -2591,13 +2937,24 @@ export async function buildPlaylistPipeline<T extends {
             ? familyFallbackEvidencePool
             : intentScopedPool
     : intentScopedPool;
+  if (
+    intentContract.primarySubgenre &&
+    subgenreEvidencePool.length > 0 &&
+    (rescuedSubgenreScope.mode !== "family" || contractGuardedScoredPool.length < minSafePreRankingPool)
+  ) {
+    const seenSubgenreRescueIds = new Set<string>();
+    contractGuardedScoredPool = [...subgenreEvidencePool, ...contractGuardedScoredPool].filter((track) => {
+      if (seenSubgenreRescueIds.has(track.trackId)) return false;
+      seenSubgenreRescueIds.add(track.trackId);
+      return true;
+    });
+  }
   let finalFallbackLevelUsed: "none" | "family" | "adjacent" | "global" = "none";
   let starvationTriggerReason: string | null = null;
   let emptyPoolDetectedAtStage: string | null = contractGuardedScoredPool.length === 0 ? "pre_scoring_candidate_pool" : null;
   let fallbackDepthReached = 0;
   const fallbackExpansionPath: string[] = [];
   let retrievalFatalEmptyPool = false;
-  const minSafePreRankingPool = Math.min(80, Math.max(opts.playlistLength * 2, 30));
   const existingIds = new Set(contractGuardedScoredPool.map((track) => track.trackId));
   const appendUnique = (base: ScoredLibraryTrack<T>[], extra: ScoredLibraryTrack<T>[], limit: number): ScoredLibraryTrack<T>[] => {
     const out = [...base];
@@ -2611,18 +2968,21 @@ export async function buildPlaylistPipeline<T extends {
   };
   const sameFamilyExpansion = intentContract.genreFamilies.length > 0
     ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) =>
-        !contradictsExplicitGenreTruth(track, intentContract.genreFamilies) &&
+        trackCompatibleWithHardIntentContract(track, classMap, intentContract) &&
         trackMatchesGenreFamilies(track, classMap, intentContract.genreFamilies)
       )
     : [];
   const adjacentFamilies = new Set(intentContract.genreFamilies.flatMap((genre) => adjacentGenreFamilies(genre)));
   const adjacentExpansion = intentContract.genreFamilies.length > 0
     ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) => {
+        if (!trackCompatibleWithHardIntentContract(track, classMap, intentContract)) return false;
         const family = genreFamilyForTrack(track, classMap);
         return !!family && adjacentFamilies.has(family);
       })
     : [];
-  const globalExpansion = scoring.sorted as ScoredLibraryTrack<T>[];
+  const globalExpansion = hardCompatibleScoredPool.length > 0
+    ? hardCompatibleScoredPool
+    : scoring.sorted as ScoredLibraryTrack<T>[];
   const fallbackSteps: Array<{
     level: "family" | "adjacent" | "global";
     pool: ScoredLibraryTrack<T>[];
@@ -2655,6 +3015,29 @@ export async function buildPlaylistPipeline<T extends {
       ? "pre_ranking_pool_empty"
       : "pre_ranking_pool_below_min_safe_pool";
   }
+  const originScoreBoost = (origin: "subgenre" | "family" | "text" | "fallback"): number => {
+    switch (origin) {
+      case "subgenre":
+        return 0.40;
+      case "family":
+        return 0.14;
+      case "text":
+        return 0.06;
+      case "fallback":
+        return 0;
+    }
+  };
+  contractGuardedScoredPool = contractGuardedScoredPool
+    .map((track) => {
+      const origin = softGuardOriginFor(track);
+      return {
+        ...track,
+        score: (track.score ?? 0) +
+          originScoreBoost(origin) +
+          sceneIdentityCoherenceScore(track, intentContract, classMap, origin),
+      };
+    })
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   if (starvationTriggerReason) {
     opts.pipelineLog?.warn({
       fallbackLevelUsed: finalFallbackLevelUsed,
@@ -2667,13 +3050,38 @@ export async function buildPlaylistPipeline<T extends {
       candidateCountPerStage: {
         retrieval: pooledCandidates.length,
         contractSafe: contractSafePool.length,
-        contractGuard: contractGuard.pool.length,
+        contractGuard: contractGuardPool.length,
         contractEvidence: contractEvidencePool.length,
         explicitGenre: explicitGenreScoredPool.length,
         preRanking: contractGuardedScoredPool.length,
       },
     }, "Retrieval starvation safety expansion applied");
   }
+  const softGuardRankTrace = contractGuardedScoredPool.map((track, index) => ({
+    trackId: track.trackId,
+    origin: softGuardOriginFor(track),
+    finalRankPosition: index + 1,
+    atRiskOfFiltering: !strictContractGuardIds.has(track.trackId),
+    rescuedBySoftGuardFloor: softGuardFloorIds.has(track.trackId),
+  }));
+  const softGuardOriginCounts = softGuardRankTrace.reduce<Record<"subgenre" | "family" | "text" | "fallback", number>>(
+    (acc, entry) => {
+      acc[entry.origin] += 1;
+      return acc;
+    },
+    { subgenre: 0, family: 0, text: 0, fallback: 0 }
+  );
+  opts.pipelineLog?.info({
+    poolSizes: {
+      retrieval: pooledCandidates.length,
+      structured: subgenreEvidencePool.length,
+      contractGuard: contractGuardPool.length,
+      finalScoringInput: contractGuardedScoredPool.length,
+    },
+    originCounts: softGuardOriginCounts,
+    rescuedBySoftGuardFloor: softGuardRankTrace.filter((entry) => entry.rescuedBySoftGuardFloor).length,
+    trace: softGuardRankTrace.slice(0, Math.max(50, opts.playlistLength * 2)),
+  }, "Soft guard final scoring origin trace");
   const fallbackLevelRank: Record<"none" | "family" | "adjacent" | "global", number> = {
     none: 0,
     family: 1,
@@ -2690,6 +3098,75 @@ export async function buildPlaylistPipeline<T extends {
     contractEvidencePool.length === 0 &&
     explicitGenreScoredPool.length > 0;
   const explicitPromptGenreFamilies = intentContract.genreFamilies;
+  const firstCollapseReason = (() => {
+    if (pooledCandidates.length === 0) return "retrieval_empty";
+    if (
+      intentContract.primarySubgenre &&
+      rescuedSubgenreScope.mode === "family" &&
+      (rescuedSubgenreScope.primaryCount > 0 || rescuedSubgenreScope.relatedCount > 0)
+    ) {
+      return "structured_subgenre_below_adaptive_threshold";
+    }
+    if (contractSafePool.length === 0) return "enforce_intent_contract_empty";
+    if (contractGuardPool.length === 0) return "contract_filter_empty";
+    if (contractGuardedScoredPool.length < minSafePreRankingPool) return "pre_ranking_pool_below_min_safe_pool";
+    return null;
+  })();
+  const promptSurvivability = {
+    preFilterPoolSize: pooledCandidates.length,
+    postStructuredRetrievalSize: subgenreEvidencePool.length,
+    postContractFilterSize: contractGuardPool.length,
+    postFinalizationSize: null,
+    firstCollapseReason,
+    structuredRetrieval: {
+      source: structuredScopeSource === contractSafePool ? "contract_safe_pool" : "contract_guard_pool",
+      rescueUsed: subgenreRescueUsed,
+      mode: rescuedSubgenreScope.mode,
+      primaryCount: rescuedSubgenreScope.primaryCount,
+      relatedCount: rescuedSubgenreScope.relatedCount,
+      familyCount: rescuedSubgenreScope.familyCount,
+      strictMinimum: rescuedSubgenreScope.strictMinimum,
+      relatedMinimum: rescuedSubgenreScope.relatedMinimum,
+    },
+  };
+  const intentContractGuardDiagnostics = {
+    ...contractGuard.diagnostics,
+    subgenreGuardActive,
+    subgenreEvidencePoolCount: subgenreEvidencePool.length,
+    subgenreFallbackMode: rescuedSubgenreScope.mode,
+    subgenrePrimaryCount: rescuedSubgenreScope.primaryCount,
+    subgenreRelatedCount: rescuedSubgenreScope.relatedCount,
+    subgenreFamilyCount: rescuedSubgenreScope.familyCount,
+    subgenreStrictMinimum: rescuedSubgenreScope.strictMinimum,
+    subgenreRelatedMinimum: rescuedSubgenreScope.relatedMinimum,
+    subgenreRescueUsed,
+    subgenrePoolTooSmall: !!intentContract.primarySubgenre &&
+      rescuedSubgenreScope.mode === "family" &&
+      (rescuedSubgenreScope.primaryCount > 0 || rescuedSubgenreScope.relatedCount > 0),
+    familyFallbackEmpty: rescuedSubgenreScope.mode === "family" && rescuedSubgenreScope.familyCount === 0,
+    retrievalExpandedDueToStarvation: contractGuardPool.length === 0 && contractSafePool.length > 0,
+    retrievalExpansionReason: contractGuardPool.length === 0 && contractSafePool.length > 0
+      ? "contract_guard_empty_using_contract_safe_pool"
+      : null,
+    fallbackLevelUsed: effectiveFallbackLevelUsed,
+    starvationTriggerReason,
+    emptyPoolDetectedAtStage,
+    fallbackDepthReached,
+    fallbackExpansionPath,
+    finalPoolSizeAtScoringEntry: contractGuardedScoredPool.length,
+    retrievalFatalEmptyPool,
+      softGuardOriginTrace: softGuardRankTrace,
+    candidateCountPerStage: {
+      retrieval: pooledCandidates.length,
+      structuredRetrieval: subgenreEvidencePool.length,
+      contractSafe: contractSafePool.length,
+      contractGuard: contractGuardPool.length,
+      preRanking: contractGuardedScoredPool.length,
+    },
+    explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
+    explicitGenreRecoveryUsed,
+    promptSurvivability,
+  };
   const v3LockedIntent = buildV3LockedIntent(
     unifiedIntentContextWithMemory,
     opts.emotionProfile,
@@ -2802,15 +3279,15 @@ export async function buildPlaylistPipeline<T extends {
     stageStartedAt = Date.now();
     const result = runV3Pipeline(
       candidatePool.tracks as unknown as T[],
-      opts.vibe,
-      opts.emotionProfile,
-      opts.playlistLength,
-      {
-        genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
-        classificationByTrack: (trackId) => classMap.get(trackId),
-        noveltyByTrack:        opts.noveltyByTrack,
+    opts.vibe,
+    opts.emotionProfile,
+    opts.playlistLength,
+    {
+      genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
+      classificationByTrack: (trackId) => classMap.get(trackId),
+      noveltyByTrack:        opts.noveltyByTrack,
         seed:                  opts.postScore.startMs + candidate.seedOffset,
-        lockedIntent:          v3LockedIntent,
+      lockedIntent:          v3LockedIntent,
         unifiedIntentContext:   unifiedIntentContextWithMemory,
         momentMemory:           preGenerationMomentMemory,
         sessionArtistMemory:     effectiveSessionArtistMemory,
@@ -2838,6 +3315,8 @@ export async function buildPlaylistPipeline<T extends {
   const v3CandidatePool = selectedCandidate.candidatePool;
   const v3 = selectedCandidate.result;
   const retrievalPoolDiagnostics = {
+    signalCoverage: retrieval.diagnostics?.retrievalSignalCoverage ?? null,
+    mappingDiagnostics: retrieval.diagnostics?.retrievalSignalMapping ?? null,
     core: {
       count: retrieval.core.length,
       top20: diagnosticPool(retrieval.core, classMap, 20),
@@ -2974,38 +3453,7 @@ export async function buildPlaylistPipeline<T extends {
     retrievalPoolsDetailed: retrievalPoolDiagnostics,
     intentContract,
     fallbacks: fallbackActivations,
-    intentContractGuard: {
-      ...contractGuard.diagnostics,
-      subgenreGuardActive,
-      subgenreEvidencePoolCount: subgenreEvidencePool.length,
-      subgenreFallbackMode: preV3SubgenreScope.mode,
-      subgenrePrimaryCount: preV3SubgenreScope.primaryCount,
-      subgenreRelatedCount: preV3SubgenreScope.relatedCount,
-      subgenreFamilyCount: preV3SubgenreScope.familyCount,
-      subgenrePoolTooSmall: !!intentContract.primarySubgenre &&
-        preV3SubgenreScope.mode === "family" &&
-        (preV3SubgenreScope.primaryCount > 0 || preV3SubgenreScope.relatedCount > 0),
-      familyFallbackEmpty: preV3SubgenreScope.mode === "family" && preV3SubgenreScope.familyCount === 0,
-      retrievalExpandedDueToStarvation: contractGuard.pool.length === 0 && contractSafePool.length > 0,
-      retrievalExpansionReason: contractGuard.pool.length === 0 && contractSafePool.length > 0
-        ? "contract_guard_empty_using_contract_safe_pool"
-        : null,
-      fallbackLevelUsed: effectiveFallbackLevelUsed,
-      starvationTriggerReason,
-      emptyPoolDetectedAtStage,
-      fallbackDepthReached,
-      fallbackExpansionPath,
-      finalPoolSizeAtScoringEntry: contractGuardedScoredPool.length,
-      retrievalFatalEmptyPool,
-      candidateCountPerStage: {
-        retrieval: pooledCandidates.length,
-        contractSafe: contractSafePool.length,
-        contractGuard: contractGuard.pool.length,
-        preRanking: contractGuardedScoredPool.length,
-      },
-      explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
-      explicitGenreRecoveryUsed,
-    },
+    intentContractGuard: intentContractGuardDiagnostics,
     retrievalPools: {
       core: retrieval.core.length,
       anchor: retrieval.anchor.length,
@@ -3110,25 +3558,7 @@ export async function buildPlaylistPipeline<T extends {
               tracksAfter: resolvedTracks.length,
             },
           ],
-          intentContractGuard: {
-            ...contractGuard.diagnostics,
-            subgenreGuardActive,
-            subgenreEvidencePoolCount: subgenreEvidencePool.length,
-            subgenreFallbackMode: preV3SubgenreScope.mode,
-            subgenrePrimaryCount: preV3SubgenreScope.primaryCount,
-            subgenreRelatedCount: preV3SubgenreScope.relatedCount,
-            subgenreFamilyCount: preV3SubgenreScope.familyCount,
-            subgenrePoolTooSmall: !!intentContract.primarySubgenre &&
-              preV3SubgenreScope.mode === "family" &&
-              (preV3SubgenreScope.primaryCount > 0 || preV3SubgenreScope.relatedCount > 0),
-            familyFallbackEmpty: preV3SubgenreScope.mode === "family" && preV3SubgenreScope.familyCount === 0,
-            retrievalExpandedDueToStarvation: contractGuard.pool.length === 0 && contractSafePool.length > 0,
-            retrievalExpansionReason: contractGuard.pool.length === 0 && contractSafePool.length > 0
-              ? "contract_guard_empty_using_contract_safe_pool"
-              : null,
-            explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
-            explicitGenreRecoveryUsed,
-          },
+          intentContractGuard: intentContractGuardDiagnostics,
           controlledGeneration: controlledGenerationDiagnostics,
           timingMs: buildTimingMs(),
           retrievalPools: {
@@ -3319,25 +3749,7 @@ export async function buildPlaylistPipeline<T extends {
               tracksAfter: enforcedFallback.tracks.length,
             },
           ],
-          intentContractGuard: {
-            ...contractGuard.diagnostics,
-            subgenreGuardActive,
-            subgenreEvidencePoolCount: subgenreEvidencePool.length,
-            subgenreFallbackMode: preV3SubgenreScope.mode,
-            subgenrePrimaryCount: preV3SubgenreScope.primaryCount,
-            subgenreRelatedCount: preV3SubgenreScope.relatedCount,
-            subgenreFamilyCount: preV3SubgenreScope.familyCount,
-            subgenrePoolTooSmall: !!intentContract.primarySubgenre &&
-              preV3SubgenreScope.mode === "family" &&
-              (preV3SubgenreScope.primaryCount > 0 || preV3SubgenreScope.relatedCount > 0),
-            familyFallbackEmpty: preV3SubgenreScope.mode === "family" && preV3SubgenreScope.familyCount === 0,
-            retrievalExpandedDueToStarvation: contractGuard.pool.length === 0 && contractSafePool.length > 0,
-            retrievalExpansionReason: contractGuard.pool.length === 0 && contractSafePool.length > 0
-              ? "contract_guard_empty_using_contract_safe_pool"
-              : null,
-            explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
-            explicitGenreRecoveryUsed,
-          },
+          intentContractGuard: intentContractGuardDiagnostics,
           controlledGeneration: controlledGenerationDiagnostics,
           timingMs: buildTimingMs(),
           retrievalPools: {
@@ -3493,25 +3905,7 @@ export async function buildPlaylistPipeline<T extends {
           retrievalPoolsDetailed: retrievalPoolDiagnostics,
           intentContract,
           fallbacks: fallbackActivations,
-        intentContractGuard: {
-          ...contractGuard.diagnostics,
-          subgenreGuardActive,
-          subgenreEvidencePoolCount: subgenreEvidencePool.length,
-          subgenreFallbackMode: preV3SubgenreScope.mode,
-          subgenrePrimaryCount: preV3SubgenreScope.primaryCount,
-          subgenreRelatedCount: preV3SubgenreScope.relatedCount,
-          subgenreFamilyCount: preV3SubgenreScope.familyCount,
-          subgenrePoolTooSmall: !!intentContract.primarySubgenre &&
-            preV3SubgenreScope.mode === "family" &&
-            (preV3SubgenreScope.primaryCount > 0 || preV3SubgenreScope.relatedCount > 0),
-          familyFallbackEmpty: preV3SubgenreScope.mode === "family" && preV3SubgenreScope.familyCount === 0,
-          retrievalExpandedDueToStarvation: contractGuard.pool.length === 0 && contractSafePool.length > 0,
-          retrievalExpansionReason: contractGuard.pool.length === 0 && contractSafePool.length > 0
-            ? "contract_guard_empty_using_contract_safe_pool"
-            : null,
-          explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
-          explicitGenreRecoveryUsed,
-        },
+        intentContractGuard: intentContractGuardDiagnostics,
         explicitGenreTruthGuard: {
           active: intentContract.genreFamilies.length > 0,
           rejectedCount: truthContradictedCount,

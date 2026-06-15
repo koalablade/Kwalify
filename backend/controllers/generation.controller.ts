@@ -907,6 +907,7 @@ function trackMatchesHardConstraints(
   }>
 ): boolean {
   const terms = trackGenreTerms(track, classMap);
+  const family = trackGenreFamily(track, classMap);
   if (constraints.hard.excludedGenres.some((genre) => terms.includes(genre))) return false;
   const bridgeFamilies = constraints.hard.allowBridge ? bridgeFamiliesForTrack(track, classMap) : [];
   if (
@@ -917,13 +918,14 @@ function trackMatchesHardConstraints(
       (constraints.raw.americanaBridgePrompt && genre === "country" && isAmericanaCompatibleTrack(track, classMap))
     )
   ) {
+    if (family === "unknown") return trackEraMatches(track, constraints);
     return false;
   }
   if (constraints.hard.strictLock && constraints.raw.explicitGenreTerms.length > 0) {
     const explicitMatch = constraints.raw.explicitGenreTerms.some((term) =>
       terms.some((candidate) => candidate.includes(term.replace(/\s+/g, "_")) || candidate.includes(term))
     );
-    if (!explicitMatch && constraints.hard.genres.length > 0) return false;
+    if (!explicitMatch && constraints.hard.genres.length > 0 && family !== "unknown") return false;
   }
   return trackEraMatches(track, constraints);
 }
@@ -986,11 +988,12 @@ function activityEvidence(track: ConstraintTrack, intent: LockedIntent): boolean
   const tempo = track.tempo ?? 110;
   const danceability = track.danceability ?? 0.5;
   const acousticness = track.acousticness ?? 0.5;
+  const gentleWalk = activity === "walking" && (intent.mood.includes("melancholic") || intent.mood.includes("calm"));
   const activityMatch =
     activity === "driving" ? energy >= 0.45 && tempo >= 85 :
     activity === "focus" ? energy <= 0.6 && acousticness >= 0.25 :
     activity === "party" ? energy >= 0.6 && danceability >= 0.55 :
-    activity === "walking" ? energy >= 0.35 && energy <= 0.75 :
+    activity === "walking" ? energy >= (gentleWalk ? 0.20 : 0.35) && energy <= (gentleWalk ? 0.68 : 0.75) :
     activity === "cleaning" ? energy >= 0.35 && energy <= 0.78 :
     activity === "sleep" ? energy <= 0.42 || acousticness >= 0.45 :
     activity === "travel" ? energy >= 0.30 && tempo >= 70 :
@@ -1138,6 +1141,47 @@ function trackIsChillCalmSafe(
   if (loudness !== null && loudness > -4.8 && (energy ?? 0.5) > 0.50) return false;
   if (speechiness !== null && speechiness > 0.30) return false;
   if (valence !== null && valence < 0.24 && (energy ?? 0.5) > 0.42) return false;
+  return true;
+}
+
+function isRainyNightWalkPrompt(vibe: string, intent: LockedIntent): boolean {
+  const lower = vibe.toLowerCase();
+  const rainy = /\b(?:rainy|rain|drizzle|wet\s+streets?|storm|overcast)\b/.test(lower) || intent.mood.includes("melancholic");
+  const night = /\b(?:night|late\s+night|midnight|2am|3am|evening|after\s+dark)\b/.test(lower);
+  const walk = intent.activity === "walking" || /\b(?:walk|walking|wander|wandering|stroll)\b/.test(lower);
+  return rainy && night && walk;
+}
+
+function trackIsRainyNightWalkSafe(
+  track: ConstraintTrack,
+  explicitGenreLocked: boolean,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (!explicitGenreLocked && (family === "metal" || family === "punk")) return false;
+  const terms = trackGenreTerms(track, classMap).join(" ");
+  if (!explicitGenreLocked && /\b(?:hardcore|metalcore|deathcore|thrash|gabber|hardstyle|drill|grime|trap\s+metal|industrial)\b/.test(terms)) return false;
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const valence = typeof track.valence === "number" ? track.valence : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
+  const loudness = typeof track.loudness === "number" ? track.loudness : null;
+  const speechiness = typeof track.speechiness === "number" ? track.speechiness : null;
+  if (energy !== null && (energy < 0.18 || energy > 0.56)) return false;
+  if (tempo !== null && (tempo < 58 || tempo > 122)) return false;
+  if (danceability !== null && danceability > 0.70 && (energy ?? 0.5) > 0.42) return false;
+  if (loudness !== null && loudness > -5.4 && (energy ?? 0.5) > 0.42) return false;
+  if (speechiness !== null && speechiness > 0.26) return false;
+  if (valence !== null && valence > 0.66) return false;
+  if (valence !== null && valence < 0.18 && (energy ?? 0.5) > 0.34) return false;
+  if (acousticness !== null && acousticness < 0.08 && (energy ?? 0.5) > 0.46) return false;
   return true;
 }
 
@@ -1523,15 +1567,20 @@ function finalTrackMatchesExplicitGenre(
   const expectedFamilies = intent.primaryGenres.length > 0 ? intent.primaryGenres : intent.genreFamilies;
   if (expectedFamilies.length === 0 && constraints.hard.genres.length === 0) return true;
   const families = expectedFamilies.length > 0 ? expectedFamilies : constraints.hard.genres;
-  return families.some((family) =>
+  if (families.some((family) =>
     hasFinalGenreEvidence(track, classMap, [family]) ||
     (constraints.raw.americanaBridgePrompt && family === "country" && isAmericanaCompatibleTrack(track, classMap))
-  );
+  )) {
+    return true;
+  }
+  const family = trackGenreFamily(track, classMap);
+  if (family === "unknown") return true;
+  return families.includes(family);
 }
 
 function finalTrackMatchesExplicitEra(track: ConstraintTrack, intent: LockedIntent): boolean {
   if (!intent.eraRange) return true;
-  return trackHasEraEvidence(track, intent.eraRange);
+  return !trackHasKnownEraMismatch(track, intent.eraRange);
 }
 
 function finalTrackIsSafe(
@@ -1557,7 +1606,13 @@ function finalTrackIsSafe(
   ) {
     return false;
   }
-  if (isTechnoIdentityPrompt(opts.vibe) && !trackMatchesTechnoIdentity(track, opts.classMap)) return false;
+  if (
+    isTechnoIdentityPrompt(opts.vibe) &&
+    !trackMatchesTechnoIdentity(track, opts.classMap) &&
+    !["electronic", "unknown"].includes(trackGenreFamily(track, opts.classMap))
+  ) {
+    return false;
+  }
   const lockedIntentSafe = trackPassesLockedIntent(track, opts.intent, opts.constraints, opts.classMap);
   if (!lockedIntentSafe && !isBroadMoodPlacePrompt(opts.vibe, opts.intent, opts.constraints)) return false;
   if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
@@ -1570,6 +1625,7 @@ function finalTrackIsSafe(
   if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
+  if (isRainyNightWalkPrompt(opts.vibe, opts.intent) && !trackIsRainyNightWalkSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isEuphoricSummerPrompt(opts.vibe, opts.intent) && !trackIsEuphoricSummerSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isBreakupRainDrivePrompt(opts.vibe, opts.intent) && !trackIsBreakupRainDriveSafe(track, explicitGenreLocked, opts.classMap)) return false;
@@ -1599,7 +1655,13 @@ function finalTrackIsHardSafe(
   ) {
     return false;
   }
-  if (isTechnoIdentityPrompt(opts.vibe) && !trackMatchesTechnoIdentity(track, opts.classMap)) return false;
+  if (
+    isTechnoIdentityPrompt(opts.vibe) &&
+    !trackMatchesTechnoIdentity(track, opts.classMap) &&
+    !["electronic", "unknown"].includes(trackGenreFamily(track, opts.classMap))
+  ) {
+    return false;
+  }
   if (eraHardMismatch(track, opts.intent)) return false;
   if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
@@ -1611,6 +1673,7 @@ function finalTrackIsHardSafe(
   if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
+  if (isRainyNightWalkPrompt(opts.vibe, opts.intent) && !trackIsRainyNightWalkSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) return false;
   return true;
 }
@@ -1818,6 +1881,7 @@ function intentCoherenceScore(
   if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.22;
   if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) score -= 0.18;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) score -= 0.26;
+  if (isRainyNightWalkPrompt(opts.vibe, opts.intent) && !trackIsRainyNightWalkSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.28;
   if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.24;
   if (violations >= 2) score -= Math.min(0.30, violations * 0.10);
 
@@ -2488,9 +2552,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     isGymWorkoutPrompt(opts.vibe, opts.intent) ||
     isBroadDrivingPrompt(opts.vibe, opts.intent) ||
     isUpbeatSocialPrompt(opts.vibe, opts.intent);
-  const completionTarget = shouldCompleteActivityPlaylist
-    ? opts.requestedLength
-    : Math.min(opts.requestedLength, recoveryActivationThreshold(opts.requestedLength));
+  const completionTarget = opts.requestedLength;
 
   for (const track of opts.initial) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
   for (const track of coherentRankedCandidates) tryAdd(track, primaryArtistLimit, primaryAlbumLimit, true);
@@ -2524,6 +2586,14 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       for (const track of hardSafeCandidates(coherentRankedCandidates)) {
         tryAddHardSafe(track, false, null, null);
       }
+    }
+  }
+  const minimumCompleteCount = Math.min(opts.requestedLength, Math.ceil(opts.requestedLength * 0.90));
+  if (out.length < minimumCompleteCount) {
+    hardSafeFillUsed = true;
+    for (const track of hardSafeCandidates([...coherentRankedCandidates, ...rankedCandidates])) {
+      tryAddHardSafe(track, false, null, null);
+      if (out.length >= minimumCompleteCount) break;
     }
   }
 
@@ -3589,18 +3659,18 @@ router.post("/generate", async (req, res): Promise<void> => {
       : userId;
 
     if (!sideEffectPolicy.bypassRateLimit) {
-      const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
-      if (!rateCheck.allowed) {
-        const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
-        res.setHeader("Retry-After", String(retryAfterSec));
-        generateFail(
-          res,
-          429,
-          "RATE_LIMITED",
-          `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
-          { retry_after: retryAfterSec }
-        );
-        return;
+    const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    if (!rateCheck.allowed) {
+      const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
+      res.setHeader("Retry-After", String(retryAfterSec));
+      generateFail(
+        res,
+        429,
+        "RATE_LIMITED",
+        `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
+        { retry_after: retryAfterSec }
+      );
+      return;
       }
     }
 
@@ -3839,9 +3909,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       ? generateMockSpotifyLibrary()
       : cachedLikedRows ??
         await db
-          .select()
-          .from(likedSongsTable)
-          .where(eq(likedSongsTable.spotifyUserId, userId));
+      .select()
+      .from(likedSongsTable)
+      .where(eq(likedSongsTable.spotifyUserId, userId));
     if (!devMode && !cachedLikedRows) setCachedLikedSongs(userId, likedRowsRaw);
     const likedSongsQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
@@ -4290,10 +4360,10 @@ router.post("/generate", async (req, res): Promise<void> => {
     tStage = Date.now();
     const [recentPlaylists, feedbackMemory] = await Promise.all([
       db
-        .select()
-        .from(playlistHistoryTable)
-        .where(eq(playlistHistoryTable.spotifyUserId, userId))
-        .orderBy(desc(playlistHistoryTable.createdAt))
+      .select()
+      .from(playlistHistoryTable)
+      .where(eq(playlistHistoryTable.spotifyUserId, userId))
+      .orderBy(desc(playlistHistoryTable.createdAt))
         .limit(25),
       getFeedbackMemory(userId),
     ]);
@@ -4303,9 +4373,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     const evaluationRecentTrackLists = evaluationSessionTrackLists(rawBody as Record<string, unknown>, sideEffectPolicy.mode === "audit");
     const auditDiversityPressure = evaluationDiversityPressure(vibe, emotionProfile, evaluationRecentTrackLists.length);
     const persistentMemoryPlaylistRows = recentPlaylists.map((p) => ({
-      vibe: p.vibe,
-      trackIds: (p.trackIds as string[]) ?? [],
-      emotionProfile: p.emotionProfile as EmotionProfile | null,
+        vibe: p.vibe,
+        trackIds: (p.trackIds as string[]) ?? [],
+        emotionProfile: p.emotionProfile as EmotionProfile | null,
       createdAt: p.createdAt,
     }));
     const memoryPlaylistRows = [
@@ -4409,11 +4479,11 @@ router.post("/generate", async (req, res): Promise<void> => {
     const { profile: userGenreProfile, cacheHit } = devMode
       ? { profile: buildMockUserGenreProfile(likedSongs), cacheHit: false }
       : getUserGenreProfileForGenerate(
-          userId,
-          likedSongs,
+      userId,
+      likedSongs,
           vibe,
           { bypassCache: !!noLibraryMode }
-        );
+    );
     recordPreV3Timing(preV3Timing, "genreProfileTimeMs", Date.now() - t0);
     req.log.info(
       { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
@@ -4918,15 +4988,24 @@ router.post("/generate", async (req, res): Promise<void> => {
     let strictGenreEvidenceRelaxed = false;
     let strictEraEvidenceRelaxed = false;
     let hardValidationRelaxed = false;
+    const baseFinalizationCandidates = clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
+      ? clusterCuration.candidates
+      : finalCandidatePool;
     const strictGenreEvidenceDiagnostics = (() => {
       const expectedFamilies = lockedIntent.primaryGenres.length > 0
         ? lockedIntent.primaryGenres
         : lockedIntent.genreFamilies;
       if (expectedFamilies.length === 0) {
-        return { active: false, expectedFamilies: [], verifiedCount: finalTracks.length, rejectedCount: 0, requiredCount: 0, verified: finalTracks };
+        return { active: false, expectedFamilies: [], verifiedCount: finalTracks.length, rejectedCount: 0, requiredCount: 0, verified: finalTracks, compatible: finalTracks };
       }
       const verified = finalTracks.filter((track) =>
         hasFinalGenreEvidence(track, userGenreProfile.trackClassifications, expectedFamilies)
+      );
+      const compatible = finalTracks.filter((track) =>
+        finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
+      );
+      const rejected = finalTracks.filter((track) =>
+        !finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
       );
       const evidenceBasisCount = finalTracks.length;
       const requiredCount = Math.min(
@@ -4941,9 +5020,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         finalCount: finalTracks.length,
         evidenceBasisCount,
         verifiedCount: verified.length,
-        rejectedCount: finalTracks.length - verified.length,
+        rejectedCount: rejected.length,
         requiredCount,
         verified,
+        compatible,
       };
     })();
     if (
@@ -4962,6 +5042,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             strictGenreEvidenceDiagnostics: {
               ...strictGenreEvidenceDiagnostics,
               verified: undefined,
+              compatible: undefined,
             },
           },
           "Explicit genre evidence guard relaxed to best available playlist"
@@ -4974,6 +5055,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           strictGenreEvidenceDiagnostics: {
             ...strictGenreEvidenceDiagnostics,
             verified: undefined,
+            compatible: undefined,
           },
         },
         "Explicit genre evidence guard blocked weak playlist"
@@ -4994,6 +5076,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           strictGenreEvidence: {
             ...strictGenreEvidenceDiagnostics,
             verified: undefined,
+            compatible: undefined,
           },
           noLibrarySpotify: noLibraryMode
             ? {
@@ -5013,7 +5096,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictGenreEvidenceDiagnostics.rejectedCount > 0 &&
       !strictGenreEvidenceRelaxed
     ) {
-      finalTracks = strictGenreEvidenceDiagnostics.verified as PlaylistTrack[];
+      finalTracks = strictGenreEvidenceDiagnostics.compatible as PlaylistTrack[];
       finalValidation = validateLockedIntentOutput(
         finalTracks,
         lockedIntent,
@@ -5037,17 +5120,20 @@ router.post("/generate", async (req, res): Promise<void> => {
           compatibleFallbackUsed: false,
           verified: finalTracks,
           compatible: finalTracks,
+          compatibleRecoveryCount: finalTracks.length,
+          compatibleRecovery: finalTracks,
         };
       }
       const verified = finalTracks.filter((track) => trackHasEraEvidence(track, eraRange));
       const knownMismatches = finalTracks.filter((track) => trackHasKnownEraMismatch(track, eraRange));
       const compatible = finalTracks.filter((track) => !trackHasKnownEraMismatch(track, eraRange));
+      const compatibleRecovery = baseFinalizationCandidates.filter((track) => !trackHasKnownEraMismatch(track, eraRange));
       const requiredCount = Math.min(
         length,
         Math.max(10, Math.ceil(length * STRICT_EXPLICIT_ERA_EVIDENCE_RATIO))
       );
       const compatibleFallbackUsed =
-        verified.length === 0 &&
+        verified.length < requiredCount &&
         lockedIntent.genreFamilies.length > 0 &&
         knownMismatches.length === 0 &&
         compatible.length >= Math.min(length, Math.max(8, Math.ceil(length * 0.50)));
@@ -5060,6 +5146,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         verifiedCount: verified.length,
         unknownCount: compatible.length - verified.length,
         rejectedCount: knownMismatches.length,
+        compatibleRecoveryCount: compatibleRecovery.length,
         requiredCount,
         verifiedSample: eraDiagnosticSample(verified),
         unknownSample: eraDiagnosticSample(compatible.filter((track) => !trackHasEraEvidence(track, eraRange))),
@@ -5067,17 +5154,21 @@ router.post("/generate", async (req, res): Promise<void> => {
         compatibleFallbackUsed,
         verified,
         compatible,
+        compatibleRecovery,
       };
     })();
     if (
       strictEraEvidenceDiagnostics.active &&
-      strictEraEvidenceDiagnostics.verifiedCount === 0 &&
+      strictEraEvidenceDiagnostics.verifiedCount < strictEraEvidenceDiagnostics.requiredCount &&
       !strictEraEvidenceDiagnostics.compatibleFallbackUsed
     ) {
-      if (strictEraEvidenceDiagnostics.compatible.length >= minBestAvailableCount) {
+      const compatibleEraRecoveryPool = strictEraEvidenceDiagnostics.compatible.length >= minBestAvailableCount
+        ? strictEraEvidenceDiagnostics.compatible
+        : strictEraEvidenceDiagnostics.compatibleRecovery;
+      if (compatibleEraRecoveryPool.length >= minBestAvailableCount) {
         strictEraEvidenceRelaxed = true;
         evidenceRelaxations.push("era_evidence_relaxed_to_compatible_unknowns");
-        finalTracks = strictEraEvidenceDiagnostics.compatible as PlaylistTrack[];
+        finalTracks = compatibleEraRecoveryPool.slice(0, length) as PlaylistTrack[];
         finalValidation = validateLockedIntentOutput(
           finalTracks,
           lockedIntent,
@@ -5094,6 +5185,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               ...strictEraEvidenceDiagnostics,
               verified: undefined,
               compatible: undefined,
+              compatibleRecovery: undefined,
             },
           },
           "Explicit era evidence guard relaxed to compatible unknown-era playlist"
@@ -5114,6 +5206,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               ...strictEraEvidenceDiagnostics,
               verified: undefined,
               compatible: undefined,
+              compatibleRecovery: undefined,
             },
           },
           "Explicit era evidence guard kept activity-safe recovery playlist"
@@ -5127,6 +5220,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             ...strictEraEvidenceDiagnostics,
             verified: undefined,
             compatible: undefined,
+            compatibleRecovery: undefined,
           },
         },
         "Explicit era evidence guard blocked weak playlist"
@@ -5137,23 +5231,37 @@ router.post("/generate", async (req, res): Promise<void> => {
         res,
         409,
         "INSUFFICIENT_VERIFIED_ERA_EVIDENCE",
-        `I could not find any verified ${strictEraEvidenceDiagnostics.eraRange?.start}-${strictEraEvidenceDiagnostics.eraRange?.end} tracks after removing unknown or wrong-era songs.`,
+        `I could not find enough verified ${strictEraEvidenceDiagnostics.eraRange?.start}-${strictEraEvidenceDiagnostics.eraRange?.end} tracks after removing wrong-era songs.`,
         {
           hint: "Try a broader decade prompt, add a genre, or regenerate after syncing tracks with release years.",
           strictEraEvidence: {
             ...strictEraEvidenceDiagnostics,
             verified: undefined,
             compatible: undefined,
+            compatibleRecovery: undefined,
           },
         }
       );
       return;
       }
     }
+    if (
+      strictEraEvidenceDiagnostics.active &&
+      strictEraEvidenceDiagnostics.compatibleFallbackUsed &&
+      !strictEraEvidenceRelaxed
+    ) {
+      strictEraEvidenceRelaxed = true;
+      evidenceRelaxations.push("era_evidence_relaxed_to_compatible_unknowns");
+      finalTracks = strictEraEvidenceDiagnostics.compatible as PlaylistTrack[];
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+    }
     if (strictEraEvidenceDiagnostics.active && !strictEraEvidenceRelaxed) {
-      const nextFinalTracks = strictEraEvidenceDiagnostics.verified.length > 0
-        ? strictEraEvidenceDiagnostics.verified
-        : strictEraEvidenceDiagnostics.compatible;
+      const nextFinalTracks = strictEraEvidenceDiagnostics.compatible;
       if (nextFinalTracks.length !== finalTracks.length) {
         finalTracks = nextFinalTracks as PlaylistTrack[];
         finalValidation = validateLockedIntentOutput(
@@ -5165,14 +5273,23 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
     tStage = Date.now();
+    const finalizationIntent = strictEraEvidenceRelaxed
+      ? {
+          ...lockedIntent,
+          eraRange: null,
+          eraStart: null,
+          eraEnd: null,
+        }
+      : lockedIntent;
+    const finalizationCandidates = strictEraEvidenceRelaxed && lockedIntent.eraRange
+      ? baseFinalizationCandidates.filter((track) => !trackHasKnownEraMismatch(track, lockedIntent.eraRange!))
+      : baseFinalizationCandidates;
     finalization = finalizePlaylistTracks({
       initial: finalTracks,
-      candidates: clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
-        ? clusterCuration.candidates
-        : finalCandidatePool,
+      candidates: finalizationCandidates,
       requestedLength: length,
       vibe,
-      intent: lockedIntent,
+      intent: finalizationIntent,
       constraints: constraintLayer,
       allowHolidaySeason,
       classMap: userGenreProfile.trackClassifications,
@@ -5199,6 +5316,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ...strictEraEvidenceDiagnostics,
       verified: undefined,
       compatible: undefined,
+      compatibleRecovery: undefined,
       publishedCount: finalTracks.length,
       publishMode: strictEraEvidenceRelaxed
         ? "compatible_unknowns_relaxed"
@@ -5237,6 +5355,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           strictGenreEvidence: {
             ...strictGenreEvidenceDiagnostics,
             verified: undefined,
+            compatible: undefined,
           },
           strictEraEvidence: strictEraEvidencePublic,
         }
@@ -5249,6 +5368,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (finalTracks.length > 0 && humanCoherence.score < 0.56) {
       const repairStartedAt = Date.now();
       const repairCandidates = finalCandidatePool.filter((track) => {
+        if (strictEraEvidenceRelaxed && lockedIntent.eraRange && trackHasKnownEraMismatch(track, lockedIntent.eraRange)) return false;
         const identityFit = (track as unknown as Record<string, unknown>)["_identityFit"];
         const fit = typeof identityFit === "number" ? identityFit : scoreTrackForIdentity(track, curatorIdentity);
         const cluster = vibeClusterKey(track, userGenreProfile.trackClassifications);
@@ -5263,7 +5383,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         candidates: repairCandidates,
         requestedLength: length,
         vibe,
-        intent: lockedIntent,
+        intent: finalizationIntent,
         constraints: constraintLayer,
         allowHolidaySeason,
         classMap: userGenreProfile.trackClassifications,
@@ -5358,6 +5478,85 @@ router.post("/generate", async (req, res): Promise<void> => {
     ].filter((entry): entry is string => !!entry);
     const fallbackLevel = fallbackLevelFromFinalization(finalization.diagnostics);
     const pipelineTiming = (v3PipelineDiagnostics["timingMs"] ?? null) as Record<string, unknown> | null;
+    const intentContractGuardDiagnostics = (v3PipelineDiagnostics["intentContractGuard"] ?? {}) as Record<string, unknown>;
+    const pipelinePromptSurvivability = (intentContractGuardDiagnostics["promptSurvivability"] ?? {}) as Record<string, unknown>;
+    const promptSurvivability = {
+      preFilterPoolSize: typeof pipelinePromptSurvivability["preFilterPoolSize"] === "number"
+        ? pipelinePromptSurvivability["preFilterPoolSize"]
+        : null,
+      postStructuredRetrievalSize: typeof pipelinePromptSurvivability["postStructuredRetrievalSize"] === "number"
+        ? pipelinePromptSurvivability["postStructuredRetrievalSize"]
+        : null,
+      postContractFilterSize: typeof pipelinePromptSurvivability["postContractFilterSize"] === "number"
+        ? pipelinePromptSurvivability["postContractFilterSize"]
+        : null,
+      postFinalizationSize: finalization.tracks.length,
+      firstCollapseReason: typeof pipelinePromptSurvivability["firstCollapseReason"] === "string"
+        ? pipelinePromptSurvivability["firstCollapseReason"]
+        : finalTracks.length === 0
+          ? "finalization_empty"
+          : null,
+      structuredRetrieval: pipelinePromptSurvivability["structuredRetrieval"] ?? null,
+    };
+    const softGuardTrace = Array.isArray(intentContractGuardDiagnostics["softGuardOriginTrace"])
+      ? intentContractGuardDiagnostics["softGuardOriginTrace"] as Array<Record<string, unknown>>
+      : [];
+    const buildSoftGuardDebugSummary = (tracks: PlaylistTrack[]): Record<string, unknown> => {
+      const traceByTrackId = new Map(
+        softGuardTrace
+          .filter((entry) => typeof entry["trackId"] === "string")
+          .map((entry) => [entry["trackId"] as string, entry])
+      );
+      const originCounts = {
+        subgenre: 0,
+        family: 0,
+        text: 0,
+        fallback: 0,
+      };
+      let rescuedBySoftGuardFloor = 0;
+      for (const track of tracks) {
+        const trace = traceByTrackId.get(track.trackId);
+        const origin = trace?.["origin"];
+        const bucket = origin === "subgenre" || origin === "family" || origin === "text"
+          ? origin
+          : "fallback";
+        originCounts[bucket] += 1;
+        if (trace?.["rescuedBySoftGuardFloor"] === true) rescuedBySoftGuardFloor++;
+      }
+      const topFiveOriginCounts = softGuardTrace
+        .filter((entry) => typeof entry["finalRankPosition"] === "number" && entry["finalRankPosition"] <= 5)
+        .reduce<Record<"subgenre" | "family" | "text" | "fallback", number>>(
+          (acc, entry) => {
+            const origin = entry["origin"];
+            const bucket = origin === "subgenre" || origin === "family" || origin === "text"
+              ? origin
+              : "fallback";
+            acc[bucket] += 1;
+            return acc;
+          },
+          { subgenre: 0, family: 0, text: 0, fallback: 0 }
+        );
+      const total = Math.max(1, tracks.length);
+      return {
+        poolSizeProgression: {
+          retrieval: promptSurvivability.preFilterPoolSize,
+          structured: promptSurvivability.postStructuredRetrievalSize,
+          contractGuard: promptSurvivability.postContractFilterSize,
+          final: tracks.length,
+        },
+        finalOriginDistribution: {
+          subgenre: Math.round((originCounts.subgenre / total) * 1000) / 10,
+          family: Math.round((originCounts.family / total) * 1000) / 10,
+          text: Math.round((originCounts.text / total) * 1000) / 10,
+          fallback: Math.round((originCounts.fallback / total) * 1000) / 10,
+        },
+        finalOriginCounts: originCounts,
+        topFiveOriginCounts,
+        topFiveHasSubgenre: topFiveOriginCounts.subgenre > 0,
+        topFiveHasFallback: topFiveOriginCounts.fallback > 0,
+        rescuedBySoftGuardFloor,
+      };
+    };
     const requestTimingMs = {
       total: Date.now() - startMs,
       preV3: preV3Timing,
@@ -5393,6 +5592,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       candidatesAfterRepair: finalization.tracks.length,
       candidatesAfterCoherence: Number(waterfallDiagnostics["finalCount"] ?? finalTracks.length),
       candidatesFinal: finalTracks.length,
+      promptSurvivability,
+      softGuardDebugSummary: buildSoftGuardDebugSummary(finalTracks),
       waterfall: stageWaterfall,
       largestDrop,
       removalReasons: removalReasonDiagnostics.slice(0, 12),
@@ -5532,6 +5733,28 @@ router.post("/generate", async (req, res): Promise<void> => {
       ];
     }
     generationDiagnostics.candidatesFinal = finalTracks.length;
+    generationDiagnostics.promptSurvivability = {
+      ...generationDiagnostics.promptSurvivability,
+      postFinalizationSize: finalTracks.length,
+      firstCollapseReason: generationDiagnostics.promptSurvivability.firstCollapseReason ??
+        (finalTracks.length === 0 ? "finalization_empty" : null),
+    };
+    generationDiagnostics.softGuardDebugSummary = buildSoftGuardDebugSummary(finalTracks);
+    req.log.info(
+      {
+        userId,
+        vibe,
+        poolSizes: {
+          retrieval: generationDiagnostics.promptSurvivability.preFilterPoolSize,
+          structuredRetrieval: generationDiagnostics.promptSurvivability.postStructuredRetrievalSize,
+          contractFilter: generationDiagnostics.promptSurvivability.postContractFilterSize,
+          finalizationInput: finalizationCandidates.length,
+          finalOutput: finalTracks.length,
+        },
+        softGuardDebugSummary: generationDiagnostics.softGuardDebugSummary,
+      },
+      "Prompt generation pool-size trace"
+    );
     generationDiagnostics.fallbackTriggered = generationDiagnostics.fallbackTriggered || !!finalization.diagnostics.fallbackMode;
     generationDiagnostics.fallbackLevel = fallbackLevelFromFinalization(finalization.diagnostics);
     generationDiagnostics.recoveryTriggered =
@@ -5539,8 +5762,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       generationDiagnostics.recoveryRelaxations.length > 0;
     generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
     if (finalTracks.length === 0) {
+      const emergencySourcePool = strictEraEvidenceRelaxed && lockedIntent.eraRange
+        ? [...finalizationCandidates, ...buildBroadRecoveryLibrary().filter((track) => !trackHasKnownEraMismatch(track, lockedIntent.eraRange!))]
+        : [...finalCandidatePool, ...buildBroadRecoveryLibrary()];
       const emergencyPool = applyCuratorIdentityScoring(
-        [...finalCandidatePool, ...buildBroadRecoveryLibrary()],
+        emergencySourcePool,
         curatorIdentity,
         sessionMemory
       );
@@ -5549,7 +5775,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         candidates: emergencyPool,
         requestedLength: length,
         vibe,
-        intent: lockedIntent,
+        intent: finalizationIntent,
         constraints: constraintLayer,
         allowHolidaySeason,
         classMap: userGenreProfile.trackClassifications,
@@ -5600,10 +5826,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       setGeneratePhase(generateSessionUserId, requestId, "error");
       if (respondIfStale(res, generateSessionUserId, requestId)) return;
-      generateFail(
-        res,
-        400,
-        "EMPTY_PLAYLIST",
+        generateFail(
+          res,
+          400,
+          "EMPTY_PLAYLIST",
         `I found ${generationDiagnostics.candidatesAfterConstraints.toLocaleString()} possible matches, but none survived the final playlist checks. Try broadening the prompt, using Balanced mode, or removing strict era words.`,
         {
           hint: "The final filter graph removed all ranked candidates.",
@@ -5614,9 +5840,9 @@ router.post("/generate", async (req, res): Promise<void> => {
             "Use Balanced mode",
             "Remove strict era constraints",
           ],
-        }
-      );
-      return;
+          }
+        );
+        return;
     }
 
     if (respondIfStale(res, generateSessionUserId, requestId)) return;
@@ -5745,18 +5971,18 @@ router.post("/generate", async (req, res): Promise<void> => {
     };
     let savedPlaylistId = 0;
     if (sideEffectPolicy.allowSavedPlaylistWrites) {
-      const insertResult = await db
-        .insert(savedPlaylistsTable)
-        .values({
-          userId,
-          name: playlistName,
-          emotionProfile: profilePayload as any,
-          tracks: trackObjects as any,
-          spotifyUrl: spotifyPlaylistUrl,
-          vibe,
-          mode,
-        })
-        .returning({ id: savedPlaylistsTable.id });
+    const insertResult = await db
+      .insert(savedPlaylistsTable)
+      .values({
+        userId,
+        name: playlistName,
+        emotionProfile: profilePayload as any,
+        tracks: trackObjects as any,
+        spotifyUrl: spotifyPlaylistUrl,
+        vibe,
+        mode,
+      })
+      .returning({ id: savedPlaylistsTable.id });
       savedPlaylistId = insertResult[0]?.id ?? 0;
     }
 
@@ -5828,15 +6054,15 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (!varietyBoost && !devMode) {
       const cachedFinalTracks = finalTracks.map((t) => ({
         ...t,
-        trackId: t.trackId,
-        trackName: t.trackName,
-        artistName: t.artistName,
-        albumName: t.albumName,
-        albumArt: t.albumArt ?? null,
-        durationMs: t.durationMs ?? null,
-        energy: t.energy ?? null,
-        valence: t.valence ?? null,
-        tempo: t.tempo ?? null,
+          trackId: t.trackId,
+          trackName: t.trackName,
+          artistName: t.artistName,
+          albumName: t.albumName,
+          albumArt: t.albumArt ?? null,
+          durationMs: t.durationMs ?? null,
+          energy: t.energy ?? null,
+          valence: t.valence ?? null,
+          tempo: t.tempo ?? null,
         danceability: t.danceability ?? null,
         acousticness: t.acousticness ?? null,
         instrumentalness: t.instrumentalness ?? null,
@@ -5845,9 +6071,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         popularity: t.popularity ?? null,
         spotifyArtistGenres: Array.isArray(t.spotifyArtistGenres) ? t.spotifyArtistGenres : [],
         albumGenres: Array.isArray(t.albumGenres) ? t.albumGenres : [],
-        score: Math.round(t.score * 100) / 100,
-        rediscoveryScore: t.rediscoveryScore,
-        narrativeRole: t.narrativeRole,
+          score: Math.round(t.score * 100) / 100,
+          rediscoveryScore: t.rediscoveryScore,
+          narrativeRole: t.narrativeRole,
         genrePrimary: t.genrePrimary ?? null,
         genreFamily: t.genreFamily ?? t.genrePrimary ?? null,
         genres: Array.isArray(t.genres) && t.genres.length > 0
@@ -5987,6 +6213,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const strictGenreEvidencePublic = {
       ...strictGenreEvidenceDiagnostics,
       verified: undefined,
+      compatible: undefined,
       relaxed: strictGenreEvidenceRelaxed,
     };
     const intentSurvivalDiagnostics = buildIntentSurvivalDiagnostics({

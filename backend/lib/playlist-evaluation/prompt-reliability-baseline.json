@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "acceptedGoodRun": null,
+  "instructions": [
+    "Populate acceptedGoodRun only after a benchmark and regression report have been reviewed and accepted as a known-good baseline.",
+    "The CI gate fails closed while acceptedGoodRun is null.",
+    "Expected acceptedGoodRun shape: { acceptedAt, commit, benchmarkReportPath, regressionReportPath, promptReliabilityScore, regressionScore, prompts }.",
+    "Each prompt baseline row should include: promptId, prompt, completion, survival, confidence."
+  ]
+}

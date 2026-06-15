@@ -281,6 +281,7 @@ const state = {
   lastResult: null,
   error: null,
   errorDetails: null,
+  errorKind: null,
   profileOpen: false,
   showDebug: false,
   showExplain: false,
@@ -520,6 +521,13 @@ function renderApp() {
   const errorHtml = state.error ? (() => {
     const diagnostics = state.errorDetails?.generationDiagnostics || null;
     const suggestions = Array.isArray(state.errorDetails?.suggestions) ? state.errorDetails.suggestions : [];
+    const isGenerationError = state.errorKind === "generation";
+    const title = isGenerationError ? "Couldn’t finish that exact set." : "Something needs attention.";
+    const fallbackSuggestion = state.errorKind === "status"
+      ? "Your playlist may still be fine. Refresh if library counts look stale."
+      : state.noLibraryMode
+        ? "Try adding a clearer genre, or turn off No Library Mode for mood-only prompts."
+        : "Try again in a moment.";
     const diagHtml = diagnostics ? `
       <div class="error-diagnostics">
         <span>Library: ${Number(diagnostics.initialLibrarySize || 0).toLocaleString()}</span>
@@ -527,10 +535,10 @@ function renderApp() {
         <span>Final: ${Number(diagnostics.candidatesFinal || 0).toLocaleString()}</span>
       </div>` : "";
     return `<div class="alert alert-error">
-        <strong>Couldn’t finish that exact set.</strong>
+        <strong>${esc(title)}</strong>
         <span>${esc(state.error)}</span>
         ${diagHtml}
-        ${suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>${state.noLibraryMode ? "Try adding a clearer genre, or turn off No Library Mode for mood-only prompts." : "Try a broader phrase or Balanced mode — the DJ will keep the playlist inside your library."}</small>`}
+        ${suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>${esc(fallbackSuggestion)}</small>`}
       </div>`;
   })() : "";
 
@@ -1221,6 +1229,28 @@ function renderPlaylistExplanation(expl) {
       ${repair.active ? ` · repair reasons: <strong style="color:var(--text)">${esc(Object.entries(repair.repairReasons || {}).map(([k,v]) => `${k}:${v}`).join(", ") || "intent")}</strong>` : ""}
     </div>
   </div>`;
+  const survival = result.intentSurvival || result.v3Diagnostics?.intentSurvival || result.generationAuditSnapshot?.intentSurvival || {};
+  const survivalScores = survival.scores || {};
+  const survivalLeaks = Array.isArray(survival.leakDetections) ? survival.leakDetections : [];
+  const survivalEmotion = survival.emotionSurvival || {};
+  const survivalConvergence = survival.convergence || {};
+  const survivalPct = (value) => typeof value === "number" ? `${Math.round(value)}%` : "—";
+  const survivalRisk = survivalConvergence.convergenceRisk || "—";
+  const survivalHtml = `
+  <div class="explain-card">
+    <div class="explain-card-title">🧭 Intent Survival</div>
+    <div class="dp-pool-grid">
+      <div class="dp-pool-stat"><div class="dp-pool-num">${survivalPct(survivalScores.overallIntentSurvival)}</div><div class="dp-pool-lbl">Overall</div></div>
+      <div class="dp-pool-stat"><div class="dp-pool-num">${survivalPct(survivalScores.emotionSurvival ?? survivalEmotion.survivalPercent)}</div><div class="dp-pool-lbl">Emotion</div></div>
+      <div class="dp-pool-stat"><div class="dp-pool-num">${survivalPct(survivalScores.subgenreSurvival)}</div><div class="dp-pool-lbl">Subgenre</div></div>
+    </div>
+    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+      <span class="dp-badge">Leaks: ${survivalLeaks.length}</span>
+      <span class="dp-badge">Convergence: ${esc(String(survivalRisk))}</span>
+      ${survivalEmotion.dominantEmotion ? `<span class="dp-badge">Emotion: ${esc(String(survivalEmotion.dominantEmotion))}</span>` : ""}
+    </div>
+    ${survivalLeaks.length ? `<div style="margin-top:8px;font-size:0.68rem;color:var(--muted)">Top leak: <strong style="color:var(--text)">${esc(String(survivalLeaks[0].functionName || survivalLeaks[0].reason || "intent leak"))}</strong></div>` : ""}
+  </div>`;
 
   // ── 5. Selection summary ───────────────────────────────────────────────────
   const selRate = sel.selectionRate ?? (sel.totalCandidates > 0 ? Math.round(sel.selected/sel.totalCandidates*100) : 0);
@@ -1585,6 +1615,7 @@ function buildUnifiedDebugPanel(result, dbg) {
       ${intentHtml}
       ${diversityHtml}
       ${qualityHtml}
+      ${survivalHtml}
     </div>
     ${lanesHtml}
     ${traceHtml}
@@ -2165,6 +2196,7 @@ async function logout() {
   Object.assign(state, {
     user: null, cacheStatus: null, librarySummary: null,
     playlists: [], history: [], lastResult: null, error: null,
+    errorKind: null,
   });
   renderLanding();
 }
@@ -2178,9 +2210,11 @@ async function triggerSync(full = false) {
     .catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (!result.ok) {
     state.error = userFacingApiError(result, "Could not start sync. Please try again.");
+    state.errorKind = "sync";
     renderApp();
   } else {
     state.error = null;
+    state.errorKind = null;
     await pollStatus();
   }
 }
@@ -2194,6 +2228,11 @@ async function pollStatus() {
   if (lsRes.ok) state.librarySummary = lsRes.data;
   if (!csRes.ok || !lsRes.ok) {
     state.error = "Could not refresh library status. Please refresh if this persists.";
+    state.errorKind = "status";
+  } else if (state.errorKind === "status") {
+    state.error = null;
+    state.errorDetails = null;
+    state.errorKind = null;
   }
   renderApp();
   if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
@@ -2217,6 +2256,7 @@ async function deletePlaylist(id) {
     renderApp();
   } else {
     state.error = userFacingApiError(r, "Could not delete that playlist. Please try again.");
+    state.errorKind = "playlist";
     renderApp();
   }
 }
@@ -2237,6 +2277,7 @@ function cancelGeneration() {
   state.generationCancelRequested = true;
   state.error = null;
   state.errorDetails = null;
+  state.errorKind = null;
   renderApp();
   activeGenerationAbort?.abort();
   api("/generate/cancel", {
@@ -2311,6 +2352,7 @@ async function generate() {
   state.lastResult = null;
   state.error = null;
   state.errorDetails = null;
+  state.errorKind = null;
   state.showExplain = false;
   state.progressExpanded = false;
   renderApp();
@@ -2338,6 +2380,7 @@ async function generate() {
     if (!r.ok) {
       state.error = userFacingApiError(r, "Generation failed. Please try a broader prompt or Balanced mode.");
       state.errorDetails = r.data || null;
+      state.errorKind = "generation";
     } else {
       state.lastResult = { ...r.data, savedPlaylistId: r.data.playlistId };
       await loadPlaylists();
@@ -2345,10 +2388,12 @@ async function generate() {
   } catch (e) {
     if (state.generationCancelRequested && e?.name === "AbortError") {
       state.error = null;
+      state.errorKind = null;
     } else {
       state.error = e?.name === "AbortError"
         ? "Generation timed out. Please try again with a broader prompt."
         : "Generation failed. Please check your connection and try again.";
+      state.errorKind = "generation";
     }
     state.errorDetails = null;
   } finally {
@@ -2400,6 +2445,7 @@ async function boot() {
   if (histRes.ok) state.history = Array.isArray(histRes.data) ? histRes.data : [];
   if (!csRes.ok || !lsRes.ok || !plRes.ok || !histRes.ok) {
     state.error = "Some account data could not load. You can still try generating, or refresh if things look stale.";
+    state.errorKind = "status";
   }
 
   renderApp();
