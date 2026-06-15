@@ -112,6 +112,7 @@ const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice
 const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/edit?pli=1";
 let generationStatusTimer = null;
 let generationUiTimer = null;
+let activeGenerationAbort = null;
 let moodPreviewRequestId = 0;
 let moodPreviewAbort = null;
 let globalAppListenersWired = false;
@@ -274,6 +275,7 @@ const state = {
   length: 40,
   noLibraryMode: false,
   generating: false,
+  generationCancelRequested: false,
   generationProgress: null,
   partialPreviewStartedAt: null,
   lastResult: null,
@@ -889,8 +891,15 @@ function generatingHtml() {
   <div class="generating-card">
     <span class="spinner spinner--purple"></span>
     <div class="generating-body">
-      <div class="generating-title" id="generationTitle">${esc(progress.title)}</div>
-      <div class="generating-sub" id="generationSub">${esc(progress.sub)}</div>
+      <div class="generating-head">
+        <div>
+          <div class="generating-title" id="generationTitle">${esc(progress.title)}</div>
+          <div class="generating-sub" id="generationSub">${esc(progress.sub)}</div>
+        </div>
+        <button class="generation-cancel-btn" id="cancelGenerationBtn" type="button" ${state.generationCancelRequested ? "disabled" : ""}>
+          ${state.generationCancelRequested ? "Cancelling..." : "Cancel"}
+        </button>
+      </div>
       ${buildBarHtml}
       <button class="generation-details-toggle" id="progressDetailsToggle" type="button">
         ${state.progressExpanded ? "Hide details" : "Show what is happening"}
@@ -1999,6 +2008,7 @@ function wireAppEvents() {
   document.getElementById("fullSyncBtn")?.addEventListener("click", () => triggerSync(true));
 
   document.getElementById("generateBtn")?.addEventListener("click", generate);
+  document.getElementById("cancelGenerationBtn")?.addEventListener("click", cancelGeneration);
   document.getElementById("progressDetailsToggle")?.addEventListener("click", () => {
     state.progressExpanded = !state.progressExpanded;
     renderApp();
@@ -2222,6 +2232,19 @@ function stopGenerationStatusPolling() {
   }
 }
 
+function cancelGeneration() {
+  if (!state.generating || state.generationCancelRequested) return;
+  state.generationCancelRequested = true;
+  state.error = null;
+  state.errorDetails = null;
+  renderApp();
+  activeGenerationAbort?.abort();
+  api("/generate/cancel", {
+    method: "POST",
+    timeoutMs: 8000,
+  }).catch(() => null);
+}
+
 function startGenerationStatusPolling() {
   stopGenerationStatusPolling();
   generationUiTimer = setInterval(() => {
@@ -2282,6 +2305,7 @@ async function generate() {
     String(previousResult.vibe || previousResult.prompt || "").trim().toLowerCase() === vibe.toLowerCase();
 
   state.generating = true;
+  state.generationCancelRequested = false;
   state.partialPreviewStartedAt = null;
   state.generationProgress = { phase: "starting", stage: "Initializing", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), clientStartedAt: Date.now(), elapsedMs: 0, lastUpdatedAt: null, displayIndex: 0, fallbackEligibleAt: null, partialTracks: [] };
   state.lastResult = null;
@@ -2293,10 +2317,13 @@ async function generate() {
   startGenerationStatusPolling();
 
   const savedVibe = vibe;
+  const generationAbort = new AbortController();
+  activeGenerationAbort = generationAbort;
 
   try {
     const r = await api(debugModeEnabled() ? "/generate?debug=1" : "/generate", {
       method: "POST",
+      signal: generationAbort.signal,
       body: JSON.stringify({
         vibe,
         mode: state.mode,
@@ -2316,13 +2343,19 @@ async function generate() {
       await loadPlaylists();
     }
   } catch (e) {
-    state.error = e?.name === "AbortError"
-      ? "Generation timed out. Please try again with a broader prompt."
-      : "Generation failed. Please check your connection and try again.";
+    if (state.generationCancelRequested && e?.name === "AbortError") {
+      state.error = null;
+    } else {
+      state.error = e?.name === "AbortError"
+        ? "Generation timed out. Please try again with a broader prompt."
+        : "Generation failed. Please check your connection and try again.";
+    }
     state.errorDetails = null;
   } finally {
+    if (activeGenerationAbort === generationAbort) activeGenerationAbort = null;
     stopGenerationStatusPolling();
     state.generating = false;
+    state.generationCancelRequested = false;
     state.generationProgress = null;
     state.partialPreviewStartedAt = null;
     renderApp();

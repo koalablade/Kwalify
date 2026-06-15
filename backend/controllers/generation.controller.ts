@@ -3434,6 +3434,26 @@ router.get("/generate/status", (req, res): void => {
   res.json(getGenerateStatus(userId));
 });
 
+router.post("/generate/cancel", (req, res): void => {
+  const userId = currentGenerateUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const status = getGenerateStatus(userId);
+  if (status.active && status.requestId) {
+    cancelGenerateSession(userId, status.requestId);
+  }
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
+  res.json({
+    success: true,
+    cancelled: status.active,
+    requestId: status.requestId,
+  });
+});
+
 /**
  * GET /generate/preview?vibe=...
  * Lightweight scene detection endpoint for the live preview panel.
