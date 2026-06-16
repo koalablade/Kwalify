@@ -2306,6 +2306,8 @@ type CuratorScoringContext = {
     subGenres: string[];
   }>;
   preferredFamilies?: Set<string>;
+  identityTerms: string[];
+  expectedFamilies: string[];
 };
 
 function promptContrastPenalty(track: ConstraintTrack, vibe: string): number {
@@ -2346,19 +2348,12 @@ function humanCuratorIntentScore(track: ConstraintTrack, identity: CuratorIdenti
     constraints: context.constraints,
     classMap: context.classMap,
   }, preferredFamilies);
-  const identityTerms = universalIdentityTerms(context.vibe, context.intent, context.constraints);
   const identityText = trackUniversalIdentityText(track, context.classMap);
-  const identityHits = identityTerms.filter((term) => identityText.includes(term)).length;
+  const identityHits = context.identityTerms.filter((term) => identityText.includes(term)).length;
   const family = trackGenreFamily(track, context.classMap);
-  const expectedFamilies = context.intent.primaryGenres.length > 0
-    ? context.intent.primaryGenres
-    : context.intent.genreFamilies.length > 0
-      ? context.intent.genreFamilies
-      : context.constraints.hard.genres;
-  const familyAligned = expectedFamilies.length === 0 ||
+  const familyAligned = context.expectedFamilies.length === 0 ||
     family === "unknown" ||
-    expectedFamilies.includes(family) ||
-    hasFinalGenreEvidence(track, context.classMap, expectedFamilies);
+    context.expectedFamilies.includes(family);
   const moodAligned = moodEvidence(track, context.intent) !== false;
   const activityAligned = activityEvidence(track, context.intent) !== false;
   const isFallbackCandidate = Boolean((track as unknown as Record<string, unknown>)["_fallbackCandidate"]);
@@ -4798,6 +4793,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       intent: lockedIntent,
       constraints: constraintLayer,
       classMap: userGenreProfile.trackClassifications,
+      identityTerms: universalIdentityTerms(vibe, lockedIntent, constraintLayer),
+      expectedFamilies: lockedIntent.primaryGenres.length > 0
+        ? lockedIntent.primaryGenres
+        : lockedIntent.genreFamilies.length > 0
+          ? lockedIntent.genreFamilies
+          : constraintLayer.hard.genres,
     };
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
