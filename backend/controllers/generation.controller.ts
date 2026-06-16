@@ -1411,7 +1411,8 @@ function activityEvidence(track: ConstraintTrack, intent: LockedIntent): boolean
   const gentleWalk = activity === "walking" && (intent.mood.includes("melancholic") || intent.mood.includes("calm"));
   const activityMatch =
     activity === "driving" ? energy >= 0.45 && tempo >= 85 :
-    activity === "focus" ? energy <= 0.6 && acousticness >= 0.25 :
+    activity === "focus" ? energy <= 0.68 && (acousticness >= 0.18 || danceability <= 0.62) :
+    activity === "gym" ? energy >= 0.50 || tempo >= 108 || danceability >= 0.56 :
     activity === "party" ? energy >= 0.6 && danceability >= 0.55 :
     activity === "walking" ? energy >= (gentleWalk ? 0.20 : 0.35) && energy <= (gentleWalk ? 0.68 : 0.75) :
     activity === "cleaning" ? energy >= 0.35 && energy <= 0.78 :
@@ -1736,11 +1737,11 @@ function trackIsGymWorkoutSafe(track: ConstraintTrack): boolean {
   const danceability = typeof track.danceability === "number" ? track.danceability : null;
   const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
   const loudness = typeof track.loudness === "number" ? track.loudness : null;
-  if (energy !== null && energy < 0.55) return false;
-  if (tempo !== null && tempo < 100 && (danceability ?? 0.5) < 0.60) return false;
-  if (valence !== null && valence < 0.28) return false;
-  if (acousticness !== null && acousticness > 0.66 && (energy ?? 0.6) < 0.72) return false;
-  if (loudness !== null && loudness < -13 && (energy ?? 0.6) < 0.70) return false;
+  if (energy !== null && energy < 0.50) return false;
+  if (tempo !== null && tempo < 92 && (danceability ?? 0.5) < 0.54) return false;
+  if (valence !== null && valence < 0.20) return false;
+  if (acousticness !== null && acousticness > 0.74 && (energy ?? 0.6) < 0.64) return false;
+  if (loudness !== null && loudness < -15 && (energy ?? 0.6) < 0.62) return false;
   return true;
 }
 
@@ -1755,11 +1756,11 @@ function trackIsFocusStudySafe(track: ConstraintTrack): boolean {
   const danceability = typeof track.danceability === "number" ? track.danceability : null;
   const speechiness = typeof track.speechiness === "number" ? track.speechiness : null;
   const valence = typeof track.valence === "number" ? track.valence : null;
-  if (energy !== null && energy > 0.52) return false;
-  if (tempo !== null && (tempo > 130 || tempo < 58)) return false;
-  if (danceability !== null && danceability > 0.68 && (energy ?? 0.5) > 0.44) return false;
-  if (speechiness !== null && speechiness > 0.24) return false;
-  if (valence !== null && valence < 0.18 && (energy ?? 0.5) < 0.42) return false;
+  if (energy !== null && energy > 0.62) return false;
+  if (tempo !== null && (tempo > 142 || tempo < 50)) return false;
+  if (danceability !== null && danceability > 0.76 && (energy ?? 0.5) > 0.52) return false;
+  if (speechiness !== null && speechiness > 0.33) return false;
+  if (valence !== null && valence < 0.12 && (energy ?? 0.5) < 0.34) return false;
   return true;
 }
 
@@ -5385,7 +5386,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       lockedIntent.mood.length > 0 ||
       !!lockedIntent.energyLevel ||
       !!lockedIntent.energy;
-    if (finalTracks.length > 0 && finalTracks.length < recoveryActivationThreshold(length)) {
+    if (finalTracks.length < recoveryActivationThreshold(length)) {
       const underfillStartedAt = Date.now();
       const seenUnderfillCandidateIds = new Set<string>();
       const toUnderfillCandidate = <T extends {

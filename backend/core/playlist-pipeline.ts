@@ -867,9 +867,9 @@ function contractActivityMatch(track: IntentContractTrack, activity: string | nu
     case "driving":
       return energy >= 0.30 && energy <= 0.82 && tempo >= 75;
     case "focus":
-      return energy <= 0.65 && danceability <= 0.72;
+      return energy <= 0.70 && danceability <= 0.78;
     case "gym":
-      return energy >= 0.62 || tempo >= 120;
+      return energy >= 0.50 || tempo >= 108 || danceability >= 0.56;
     case "relaxing":
       return energy <= 0.55 || acousticness >= 0.35;
     case "party":
@@ -1220,14 +1220,15 @@ function promptOrderingBias<T extends IntentContractTrack>(
   if (!promptKey) return 0;
   const fit = intentContractFit(track, classMap, contract).score;
   const energy = track.energy ?? 0.5;
+  const tempo = track.tempo ?? 110;
   const valence = track.valence ?? 0.5;
   const danceability = track.danceability ?? 0.5;
   const acousticness = track.acousticness ?? 0.4;
   const promptHash = stableUnitHash(`${promptKey}:${track.trackId}`);
   const activityLift =
-    contract.activity === "gym" ? Math.max(0, energy - 0.55) * 0.24 :
+    contract.activity === "gym" ? Math.max(0, Math.max(energy - 0.48, (tempo - 108) / 90, danceability - 0.52)) * 0.28 :
     contract.activity === "party" ? Math.max(0, Math.max(energy, danceability) - 0.52) * 0.22 :
-    contract.activity === "focus" ? Math.max(0, 0.70 - Math.max(energy, danceability)) * 0.20 :
+    contract.activity === "focus" ? Math.max(0, 0.76 - Math.max(energy, danceability)) * 0.24 :
     contract.activity === "relaxing" || contract.activity === "sleep" ? Math.max(0, acousticness - 0.22) * 0.20 :
     0;
   const moodLift =
