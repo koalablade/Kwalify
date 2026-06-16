@@ -624,9 +624,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     trackReusePenalty?: Map<string, number>;
     requestId?: string;
     pipelineTrace?: PipelineTrace;
+    diagnosticsMode?: "minimal" | "full";
+    profileStage?: (stage: string, detail?: string) => () => void;
   } = {},
 ): Promise<V3PipelineResult<T>> {
   const pipelineStartedAt = Date.now();
+  const fullDiagnostics = opts.diagnosticsMode === "full";
   const timingMs: Record<string, number> = {
     retrieval: 0,
     laneGeneration: 0,
@@ -674,22 +677,28 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     trackCount: tracks.length,
   });
   let stageStartedAt = Date.now();
-  const retrievalCloud = await safeStage<RetrievalCloud<T>>({
-    stage: "v3.retrieval",
-    type: "RETRIEVAL_FAILURE",
-    requestId: opts.requestId,
-    trace: opts.pipelineTrace,
-    run: () => {
-      const cloud = retrieveCandidatesByEmbedding(
-        retrievalInputTracks,
-        lockedIntent,
-        unifiedIntentContext.unifiedIntent,
-      );
-      setFallbackCache(retrievalCacheKey, cloud);
-      return cloud;
-    },
-    recover: () => getFallbackCache<RetrievalCloud<T>>(retrievalCacheKey) ?? emptyRetrievalCloud<T>(),
-  });
+  const endRetrievalProfile = opts.profileStage?.("v3.retrieval", `${retrievalInputTracks.length} input tracks`);
+  let retrievalCloud: RetrievalCloud<T>;
+  try {
+    retrievalCloud = await safeStage<RetrievalCloud<T>>({
+      stage: "v3.retrieval",
+      type: "RETRIEVAL_FAILURE",
+      requestId: opts.requestId,
+      trace: opts.pipelineTrace,
+      run: () => {
+        const cloud = retrieveCandidatesByEmbedding(
+          retrievalInputTracks,
+          lockedIntent,
+          unifiedIntentContext.unifiedIntent,
+        );
+        setFallbackCache(retrievalCacheKey, cloud);
+        return cloud;
+      },
+      recover: () => getFallbackCache<RetrievalCloud<T>>(retrievalCacheKey) ?? emptyRetrievalCloud<T>(),
+    });
+  } finally {
+    endRetrievalProfile?.();
+  }
   recordTiming("retrieval", stageStartedAt);
   recordTraceCount(opts.pipelineTrace, "v3.retrievalCandidates", retrievalCloud.tracks.length);
   await yieldV3();
@@ -713,6 +722,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   let generatorDiagnostics: Record<string, unknown> = {};
   stageStartedAt = Date.now();
 
+  const endLaneGenerationProfile = opts.profileStage?.("v3.laneGeneration", fallbackTriggered ? "fallback ensemble" : "adaptive");
   const laneGeneration = await safeStage({
     stage: "v3.laneGeneration",
     type: "SYSTEM_FAILURE",
@@ -740,6 +750,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       diagnostics: { mode: "fallback_ensemble", reason: "lane_generation_failure" },
     }),
   });
+  endLaneGenerationProfile?.();
   lanes = laneGeneration.lanes;
   generatorDiagnostics = laneGeneration.diagnostics;
   recordTiming("laneGeneration", stageStartedAt);
@@ -796,6 +807,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     await yieldV3();
     // Stage 3: Score every track for this lane
     let laneStageStartedAt = Date.now();
+    const endLaneScoringProfile = opts.profileStage?.(`v3.scoring.${lane.id}`, `${retrievedTracks.length} retrieved tracks`);
     const rawScored = await safeStage<Array<LaneScoredTrack<T>>>({
       stage: `v3.scoring.${lane.id}`,
       type: "SCORING_FAILURE",
@@ -928,12 +940,15 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       }),
     });
     recordTiming("scoring", laneStageStartedAt);
-    recommendationEngineDiagnostics.push({
-      laneId: lane.id,
-      signalCount: engineResult.diagnostics.signalCount,
-      weights: engineResult.diagnostics.weights,
-      topDecisions: engineResult.diagnostics.topDecisions,
-    });
+    endLaneScoringProfile?.();
+    if (fullDiagnostics) {
+      recommendationEngineDiagnostics.push({
+        laneId: lane.id,
+        signalCount: engineResult.diagnostics.signalCount,
+        weights: engineResult.diagnostics.weights,
+        topDecisions: engineResult.diagnostics.topDecisions,
+      });
+    }
     await yieldV3();
 
     // Headroom: 3× target so the sampler has enough valid choices.
@@ -944,6 +959,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
 
     // Stage 4: Build clusters from scored pool
     laneStageStartedAt = Date.now();
+    const endLaneClusteringProfile = opts.profileStage?.(`v3.clustering.${lane.id}`, `${engineResult.decisions.length} decisions`);
     const clusteredPool = overloaded
       ? flatClusteredPool(engineResult.decisions, lane.id)
       : await safeStage<ClusteredPool<T>>({
@@ -956,6 +972,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         });
     if (overloaded) recordTraceFallback(opts.pipelineTrace, `v3.clustering.${lane.id}.bypassed_overload`);
     recordTiming("candidateGeneration", laneStageStartedAt);
+    endLaneClusteringProfile?.();
     recordTraceCount(opts.pipelineTrace, `v3.${lane.id}.clusters`, clusteredPool.clusters.size);
     await yieldV3();
     forensicTrace.push(stageTrace(
@@ -969,6 +986,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
 
     // Stage 5: Entropy-constrained selection across clusters
     laneStageStartedAt = Date.now();
+    const endLaneSamplingProfile = opts.profileStage?.(`v3.sampling.${lane.id}`, `${clusteredPool.scoredTracks.length} clustered tracks`);
     const clusterResult = await safeStage<ReturnType<typeof selectFromClusters<T>>>({
       stage: `v3.sampling.${lane.id}`,
       type: "SYSTEM_FAILURE",
@@ -988,6 +1006,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       recover: () => topNSelection(clusteredPool.scoredTracks, lane.id, laneTarget),
     });
     recordTiming("sampler", laneStageStartedAt);
+    endLaneSamplingProfile?.();
     recordTraceCount(opts.pipelineTrace, `v3.${lane.id}.sampled`, clusterResult.tracks.length);
     await yieldV3();
     forensicTrace.push(stageTrace(
@@ -999,49 +1018,48 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       "selectFromClusters",
     ));
 
-    // ── Observability: build per-track trace (top 15 by raw score) ───────────
-    const selectedIdSet = new Set(clusterResult.tracks.map((t) => t.trackId));
-    const rawScoreMap   = new Map(rawScored.map((r) => [r.track.trackId, r.laneScore]));
-    const engineDecisionByTrack = new Map(engineResult.decisions.map((decision) => [decision.track.trackId, decision]));
+    if (fullDiagnostics) {
+      // ── Observability: build per-track trace (top 15 by raw score) ─────────
+      const selectedIdSet = new Set(clusterResult.tracks.map((t) => t.trackId));
+      const rawScoreMap = new Map(rawScored.map((r) => [r.track.trackId, r.laneScore]));
+      const engineDecisionByTrack = new Map(engineResult.decisions.map((decision) => [decision.track.trackId, decision]));
 
-    const traceEntries = [...rawScored]
-      .sort((a, b) => (rawScoreMap.get(b.track.trackId) ?? 0) - (rawScoreMap.get(a.track.trackId) ?? 0))
-      .slice(0, 15)
-      .map((item) => {
-        const rawScore  = rawScoreMap.get(item.track.trackId) ?? item.laneScore;
-        const sel       = selectedIdSet.has(item.track.trackId);
-        const selTrack  = sel ? clusterResult.tracks.find((t) => t.trackId === item.track.trackId) : undefined;
-        const engineDecision = engineDecisionByTrack.get(item.track.trackId);
-        const decisionDiversity = (selTrack?.diversity ?? engineDecision?.diversity ?? emptyDiversityTraceComponents()) as DiversityTraceComponents;
-        const selectedScore = selTrack?.laneScore ?? engineDecision?.finalScore ?? item.laneScore;
+      const traceEntries = [...rawScored]
+        .sort((a, b) => (rawScoreMap.get(b.track.trackId) ?? 0) - (rawScoreMap.get(a.track.trackId) ?? 0))
+        .slice(0, 15)
+        .map((item) => {
+          const rawScore = rawScoreMap.get(item.track.trackId) ?? item.laneScore;
+          const sel = selectedIdSet.has(item.track.trackId);
+          const selTrack = sel ? clusterResult.tracks.find((t) => t.trackId === item.track.trackId) : undefined;
+          const engineDecision = engineDecisionByTrack.get(item.track.trackId);
+          const decisionDiversity = (selTrack?.diversity ?? engineDecision?.diversity ?? emptyDiversityTraceComponents()) as DiversityTraceComponents;
+          const selectedScore = selTrack?.laneScore ?? engineDecision?.finalScore ?? item.laneScore;
+          const selectionReason = sel ? "sampler_selected" : null;
 
-        const selectionReason = sel
-          ? "sampler_selected"
-          : null;
+          return {
+            trackId: item.track.trackId,
+            lane: lane.id,
+            enteredLane: lane.id,
+            laneScore: Math.round(selectedScore * 1000) / 1000,
+            rawLaneScore: Math.round(rawScore * 1000) / 1000,
+            diversityPenalty: decisionDiversity.totalPenalty,
+            artistMemoryPenalty: decisionDiversity.artistMemoryPenalty,
+            recentTrackPenalty: decisionDiversity.recentTrackPenalty,
+            trackReusePenalty: decisionDiversity.trackReusePenalty,
+            clusterSaturationPenalty: decisionDiversity.clusterSaturationPenalty,
+            familySaturationPenalty: decisionDiversity.familySaturationPenalty,
+            diversityMultiplier: decisionDiversity.finalMultiplier,
+            artistGravity: decisionDiversity.artistGravity,
+            clusterId: selTrack?.clusterIds[0] ?? null,
+            clusterWeight: selTrack ? (clusterResult.clusterSelectionRatios[selTrack.clusterIds[0] ?? ""] ?? null) : null,
+            selected: sel,
+            selectionReason,
+            rejectionReason: sel ? null : "cluster_entropy_cap",
+          };
+        });
 
-        return {
-          trackId:          item.track.trackId,
-          lane:             lane.id,
-          enteredLane:      lane.id,
-          laneScore:        Math.round(selectedScore  * 1000) / 1000,
-          rawLaneScore:     Math.round(rawScore   * 1000) / 1000,
-          diversityPenalty: decisionDiversity.totalPenalty,
-          artistMemoryPenalty: decisionDiversity.artistMemoryPenalty,
-          recentTrackPenalty: decisionDiversity.recentTrackPenalty,
-          trackReusePenalty: decisionDiversity.trackReusePenalty,
-          clusterSaturationPenalty: decisionDiversity.clusterSaturationPenalty,
-          familySaturationPenalty: decisionDiversity.familySaturationPenalty,
-          diversityMultiplier: decisionDiversity.finalMultiplier,
-          artistGravity: decisionDiversity.artistGravity,
-          clusterId:        selTrack?.clusterIds[0] ?? null,
-          clusterWeight:    selTrack ? (clusterResult.clusterSelectionRatios[selTrack.clusterIds[0] ?? ""] ?? null) : null,
-          selected:         sel,
-          selectionReason,
-          rejectionReason:  sel ? null : "cluster_entropy_cap",
-        };
-      });
-
-    finalDecisionTrace.push(...traceEntries);
+      finalDecisionTrace.push(...traceEntries);
+    }
 
     laneDetails.push({
       laneId: lane.id,
@@ -1070,6 +1088,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
   const interleaverInputCount = sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0);
   stageStartedAt = Date.now();
+  const endInterleaverProfile = opts.profileStage?.("v3.interleaver", `${interleaverInputCount} sampled tracks`);
   const interleaved = await safeStage<InterleavedResult<T>>({
     stage: "v3.interleaver",
     type: "SYSTEM_FAILURE",
@@ -1090,6 +1109,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     }),
   });
   recordTiming("interleaver", stageStartedAt);
+  endInterleaverProfile?.();
   forensicTrace.push(stageTrace(
     "interleaver input count",
     interleaverInputCount,
@@ -1143,62 +1163,64 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     selectedCount: finalLaneContributions[ld.laneId] ?? 0,
   }));
 
-  const finalTrackIds = new Set(finalTracks.map((t) => t.trackId));
-  const tracedIds = new Set(finalDecisionTrace.map((t) => t.trackId));
-  for (const trace of finalDecisionTrace) {
-    const selectedInFinal = finalTrackIds.has(trace.trackId);
-    if (selectedInFinal) {
-      const meta = finalSelectionMeta.get(trace.trackId);
-      if (meta) {
-        trace.lane = meta.laneId;
-        trace.enteredLane = meta.laneId;
-        trace.laneScore = Math.round(meta.laneScore * 1000) / 1000;
-        trace.clusterId = meta.clusterIds[0] ?? trace.clusterId;
-        const diversity = meta.diversity ?? emptyDiversityTraceComponents();
-        trace.diversityPenalty = diversity.totalPenalty;
-        trace.artistMemoryPenalty = diversity.artistMemoryPenalty;
-        trace.recentTrackPenalty = diversity.recentTrackPenalty;
-        trace.trackReusePenalty = diversity.trackReusePenalty;
-        trace.clusterSaturationPenalty = diversity.clusterSaturationPenalty;
-        trace.familySaturationPenalty = diversity.familySaturationPenalty;
-        trace.diversityMultiplier = diversity.finalMultiplier;
-        trace.artistGravity = diversity.artistGravity;
+  if (fullDiagnostics) {
+    const finalTrackIds = new Set(finalTracks.map((t) => t.trackId));
+    const tracedIds = new Set(finalDecisionTrace.map((t) => t.trackId));
+    for (const trace of finalDecisionTrace) {
+      const selectedInFinal = finalTrackIds.has(trace.trackId);
+      if (selectedInFinal) {
+        const meta = finalSelectionMeta.get(trace.trackId);
+        if (meta) {
+          trace.lane = meta.laneId;
+          trace.enteredLane = meta.laneId;
+          trace.laneScore = Math.round(meta.laneScore * 1000) / 1000;
+          trace.clusterId = meta.clusterIds[0] ?? trace.clusterId;
+          const diversity = meta.diversity ?? emptyDiversityTraceComponents();
+          trace.diversityPenalty = diversity.totalPenalty;
+          trace.artistMemoryPenalty = diversity.artistMemoryPenalty;
+          trace.recentTrackPenalty = diversity.recentTrackPenalty;
+          trace.trackReusePenalty = diversity.trackReusePenalty;
+          trace.clusterSaturationPenalty = diversity.clusterSaturationPenalty;
+          trace.familySaturationPenalty = diversity.familySaturationPenalty;
+          trace.diversityMultiplier = diversity.finalMultiplier;
+          trace.artistGravity = diversity.artistGravity;
+        }
+        trace.selected = true;
+        trace.selectionReason = trace.selectionReason ?? "interleaver_final";
+        trace.rejectionReason = null;
+        continue;
       }
-      trace.selected = true;
-      trace.selectionReason = trace.selectionReason ?? "interleaver_final";
-      trace.rejectionReason = null;
-      continue;
+      if (trace.selected) {
+        trace.selected = false;
+        trace.selectionReason = null;
+        trace.rejectionReason = "interleaver_not_used";
+      }
     }
-    if (trace.selected) {
-      trace.selected = false;
-      trace.selectionReason = null;
-      trace.rejectionReason = "interleaver_not_used";
+    for (const id of finalTrackIds) {
+      if (tracedIds.has(id)) continue;
+      const meta = finalSelectionMeta.get(id)!;
+      const diversity = meta.diversity ?? emptyDiversityTraceComponents();
+      finalDecisionTrace.push({
+        trackId: id,
+        lane: meta.laneId,
+        enteredLane: meta.laneId,
+        laneScore: Math.round(meta.laneScore * 1000) / 1000,
+        rawLaneScore: Math.round(meta.laneScore * 1000) / 1000,
+        diversityPenalty: diversity.totalPenalty,
+        artistMemoryPenalty: diversity.artistMemoryPenalty,
+        recentTrackPenalty: diversity.recentTrackPenalty,
+        trackReusePenalty: diversity.trackReusePenalty,
+        clusterSaturationPenalty: diversity.clusterSaturationPenalty,
+        familySaturationPenalty: diversity.familySaturationPenalty,
+        diversityMultiplier: diversity.finalMultiplier,
+        artistGravity: diversity.artistGravity,
+        clusterId: meta.clusterIds[0] ?? null,
+        clusterWeight: null,
+        selected: true,
+        selectionReason: "interleaver_final",
+        rejectionReason: null,
+      });
     }
-  }
-  for (const id of finalTrackIds) {
-    if (tracedIds.has(id)) continue;
-    const meta = finalSelectionMeta.get(id)!;
-    const diversity = meta.diversity ?? emptyDiversityTraceComponents();
-    finalDecisionTrace.push({
-      trackId: id,
-      lane: meta.laneId,
-      enteredLane: meta.laneId,
-      laneScore: Math.round(meta.laneScore * 1000) / 1000,
-      rawLaneScore: Math.round(meta.laneScore * 1000) / 1000,
-      diversityPenalty: diversity.totalPenalty,
-      artistMemoryPenalty: diversity.artistMemoryPenalty,
-      recentTrackPenalty: diversity.recentTrackPenalty,
-      trackReusePenalty: diversity.trackReusePenalty,
-      clusterSaturationPenalty: diversity.clusterSaturationPenalty,
-      familySaturationPenalty: diversity.familySaturationPenalty,
-      diversityMultiplier: diversity.finalMultiplier,
-      artistGravity: diversity.artistGravity,
-      clusterId: meta.clusterIds[0] ?? null,
-      clusterWeight: null,
-      selected: true,
-      selectionReason: "interleaver_final",
-      rejectionReason: null,
-    });
   }
 
   // ── Stage 8: Post-hoc global diversity audit ─────────────────────────────
@@ -1229,6 +1251,91 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const artistDist: Record<string, number> = {};
   for (const t of finalTracks) {
     artistDist[t.artistName] = (artistDist[t.artistName] ?? 0) + 1;
+  }
+
+  const genreValues = Object.values(genreDist);
+  const totalGenre = genreValues.reduce((s, v) => s + v, 0) || 1;
+  const genreConcentration = Math.max(...genreValues, 0) / totalGenre;
+  if (!fullDiagnostics) {
+    timingMs.total = Date.now() - pipelineStartedAt;
+    const slowestTiming = Object.entries(timingMs)
+      .filter(([key]) => key !== "total")
+      .sort((a, b) => b[1] - a[1])[0] ?? null;
+
+    return {
+      finalTracks,
+      diagnostics: {
+        pipelineVersion: "v3.1_unified_routing",
+        diagnosticsMode: "minimal",
+        timingMs: {
+          ...timingMs,
+          slowestStage: slowestTiming?.[0] ?? null,
+          slowestStageMs: slowestTiming?.[1] ?? 0,
+        },
+        degraded: opts.pipelineTrace?.degraded ?? false,
+        degradationReasons: opts.pipelineTrace?.degradationReasons ?? [],
+        failureTrace: opts.pipelineTrace?.failures ?? [],
+        recoveryEvents: opts.pipelineTrace?.recoveryEvents ?? [],
+        systemHealth: healthState,
+        activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
+        finalDistribution: {
+          genres: genreDist,
+          eras: eraDist,
+          artists: artistDist,
+        },
+        fallback: {
+          triggered: fallbackTriggered,
+          reason: fallbackTriggered ? "unclear_intent_multi_lane_ensemble" : "nominal",
+        },
+        lanes: diagnosticLaneDetails.map((ld) => ({
+          laneId: ld.laneId,
+          type: ld.type,
+          label: ld.label,
+          weight: ld.weight,
+          scoredCount: ld.scoredCount,
+          selectedCount: ld.selectedCount,
+        })),
+        globalDiversityMetrics: {
+          preInterleave: {
+            genreConcentration: postMetrics.genreConcentration,
+            eraConcentration: postMetrics.eraConcentration,
+            artistRepeatIndex: postMetrics.artistRepeatIndex,
+            laneSaturation: postMetrics.laneSaturation,
+            driftState: postMetrics.driftState,
+            clusterCollapseIndex: postMetrics.clusterCollapseIndex,
+            explorationPressure: postMetrics.explorationPressure,
+          },
+          postInterleave: {
+            genreConcentration: postMetrics.genreConcentration,
+            eraConcentration: postMetrics.eraConcentration,
+            artistRepeatIndex: postMetrics.artistRepeatIndex,
+            laneSaturation: postMetrics.laneSaturation,
+            driftState: postMetrics.driftState,
+            clusterCollapseIndex: postMetrics.clusterCollapseIndex,
+            explorationPressure: postMetrics.explorationPressure,
+            dominantGenre: postMetrics.dominantGenre,
+            dominantEra: postMetrics.dominantEra,
+          },
+        },
+        poolSize: tracks.length,
+        selectedCount: finalTracks.length,
+        genreDistribution: genreDist,
+        eraDistribution: eraDist,
+        genreConcentrationScore: Math.round(genreConcentration * 1000) / 1000,
+        genreConcentrationPct: `${Math.round(genreConcentration * 100)}%`,
+        eraConcentrationPct: `${Math.round(postMetrics.eraConcentration * 100)}%`,
+        repetitionIndex: postMetrics.artistRepeatIndex,
+        clusterCollapseIndex: postMetrics.clusterCollapseIndex,
+        explorationPressureScore: postMetrics.explorationPressure,
+        driftState: postMetrics.driftState,
+        generationDebug: {
+          emptyPlaylistReason: finalTracks.length === 0 ? "no_tracks_after_v3_selection" : undefined,
+          relaxationSteps: [],
+          fallbackTriggered,
+          constraintFailures: finalTracks.length === 0 ? ["v3_final_selection_empty"] : [],
+        },
+      },
+    };
   }
 
   // ── Build playlist explanation ────────────────────────────────────────────
@@ -1324,9 +1431,6 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     },
   };
 
-  const genreValues = Object.values(genreDist);
-  const totalGenre  = genreValues.reduce((s, v) => s + v, 0) || 1;
-  const genreConcentration = Math.max(...genreValues, 0) / totalGenre;
   const firstZeroCollapse = forensicTrace.find((trace) => trace.before > 0 && trace.after === 0) ?? null;
   const largestDrop = forensicTrace
     .filter((trace) => trace.removed > 0)

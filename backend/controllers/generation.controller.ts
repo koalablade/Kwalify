@@ -351,6 +351,73 @@ function recordPreV3Timing(
   }
 }
 
+type LiveStageProfileEntry = {
+  stage: string;
+  count: number;
+  totalMs: number;
+  lastMs: number;
+  maxMs: number;
+};
+
+type LiveStageProfileSnapshot = {
+  elapsedMs: number;
+  currentStage: { stage: string; detail?: string; elapsedMs: number } | null;
+  completed: LiveStageProfileEntry[];
+  slowestCompleted: LiveStageProfileEntry | null;
+  recentEvents: Array<{ stage: string; detail?: string; elapsedMs?: number; status: "started" | "completed" }>;
+};
+
+function createLiveStageProfiler(startMs: number): {
+  start: (stage: string, detail?: string) => () => void;
+  snapshot: () => LiveStageProfileSnapshot;
+} {
+  const completed = new Map<string, LiveStageProfileEntry>();
+  const recentEvents: LiveStageProfileSnapshot["recentEvents"] = [];
+  let currentStage: { stage: string; detail?: string; startedAt: number } | null = null;
+
+  const pushEvent = (event: LiveStageProfileSnapshot["recentEvents"][number]): void => {
+    recentEvents.push(event);
+    if (recentEvents.length > 24) recentEvents.shift();
+  };
+
+  return {
+    start(stage, detail) {
+      const startedAt = Date.now();
+      currentStage = { stage, detail, startedAt };
+      pushEvent({ stage, detail, status: "started" });
+      return () => {
+        const elapsedMs = Date.now() - startedAt;
+        const existing = completed.get(stage) ?? { stage, count: 0, totalMs: 0, lastMs: 0, maxMs: 0 };
+        existing.count += 1;
+        existing.totalMs += elapsedMs;
+        existing.lastMs = elapsedMs;
+        existing.maxMs = Math.max(existing.maxMs, elapsedMs);
+        completed.set(stage, existing);
+        if (currentStage?.stage === stage && currentStage.startedAt === startedAt) {
+          currentStage = null;
+        }
+        pushEvent({ stage, detail, elapsedMs, status: "completed" });
+      };
+    },
+    snapshot() {
+      const completedRows = [...completed.values()].sort((a, b) => b.totalMs - a.totalMs);
+      return {
+        elapsedMs: Date.now() - startMs,
+        currentStage: currentStage
+          ? {
+              stage: currentStage.stage,
+              detail: currentStage.detail,
+              elapsedMs: Date.now() - currentStage.startedAt,
+            }
+          : null,
+        completed: completedRows,
+        slowestCompleted: completedRows[0] ?? null,
+        recentEvents: [...recentEvents],
+      };
+    },
+  };
+}
+
 function staleGenerate(userId: string, requestId: string): boolean {
   return isGenerateCancelled(userId, requestId);
 }
@@ -3904,6 +3971,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     requestId = acquired;
     sessionUserId = generateSessionUserId;
+    const liveStageProfiler = createLiveStageProfiler(startMs);
     const deadlineAt = startMs + requestHardTimeoutMs;
     const generationShouldAbort = (): boolean => {
       if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return true;
@@ -3933,6 +4001,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     hardTimeoutTimer = setTimeout(() => {
       if (responseFinished(res)) return;
       const progressBeforeCancel = getGenerateProgress(generateSessionUserId);
+      const stageProfile = liveStageProfiler.snapshot();
       cancelGenerateSession(generateSessionUserId, requestId);
       req.log.error(
         {
@@ -3941,6 +4010,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           elapsedMs: Date.now() - startMs,
           phase: progressBeforeCancel?.phase ?? "unknown",
           stage: progressBeforeCancel?.stage ?? null,
+          stageProfile,
           code: "TIMEOUT",
         },
         "Generate absolute watchdog timeout"
@@ -3959,6 +4029,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           elapsedMs: Date.now() - startMs,
           lastPhase: progressBeforeCancel?.phase ?? null,
           lastStage: progressBeforeCancel?.stage ?? null,
+          stageProfile,
         },
       });
     }, timeoutAfterMs);
@@ -3972,6 +4043,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           requestId,
           ms: Date.now() - startMs,
           phase: progress?.phase ?? "unknown",
+          stageProfile: liveStageProfiler.snapshot(),
         },
         "Generate in progress"
       );
@@ -4074,13 +4146,19 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGenerateStageDetail(generateSessionUserId, requestId, "Scanning your liked songs...");
     tStage = Date.now();
     const cachedLikedRows = devMode ? null : getCachedLikedSongs(userId);
-    const likedRowsRaw = devMode
-      ? generateMockSpotifyLibrary()
-      : cachedLikedRows ??
-        await db
-      .select()
-      .from(likedSongsTable)
-      .where(eq(likedSongsTable.spotifyUserId, userId));
+    const endLikedSongsProfile = liveStageProfiler.start("preV3.likedSongs", cachedLikedRows ? "memory cache" : devMode ? "mock library" : "database");
+    let likedRowsRaw: typeof likedSongsTable.$inferSelect[];
+    try {
+      likedRowsRaw = devMode
+        ? generateMockSpotifyLibrary()
+        : cachedLikedRows ??
+          await db
+        .select()
+        .from(likedSongsTable)
+        .where(eq(likedSongsTable.spotifyUserId, userId));
+    } finally {
+      endLikedSongsProfile();
+    }
     if (!devMode && !cachedLikedRows) setCachedLikedSongs(userId, likedRowsRaw);
     const likedSongsQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
@@ -4529,15 +4607,16 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGeneratePhase(generateSessionUserId, requestId, "building_profile");
     setGenerateStageDetail(generateSessionUserId, requestId, "Loading recent playlist memory and feedback");
     tStage = Date.now();
+    const endMemoryProfile = liveStageProfiler.start("preV3.memoryAndFeedback", "playlist history + feedback memory");
     const [recentPlaylists, feedbackMemory] = await Promise.all([
       db
-      .select()
-      .from(playlistHistoryTable)
-      .where(eq(playlistHistoryTable.spotifyUserId, userId))
-      .orderBy(desc(playlistHistoryTable.createdAt))
+        .select()
+        .from(playlistHistoryTable)
+        .where(eq(playlistHistoryTable.spotifyUserId, userId))
+        .orderBy(desc(playlistHistoryTable.createdAt))
         .limit(25),
       getFeedbackMemory(userId),
-    ]);
+    ]).finally(endMemoryProfile);
     const playlistHistoryQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "playlistHistoryQueryMs", playlistHistoryQueryMs);
     recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);
@@ -4647,14 +4726,23 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     setGenerateStageDetail(generateSessionUserId, requestId, `Building taste profile from ${likedSongs.length.toLocaleString()} tracks`);
     let t0 = Date.now();
-    const { profile: userGenreProfile, cacheHit } = devMode
-      ? { profile: buildMockUserGenreProfile(likedSongs), cacheHit: false }
-      : getUserGenreProfileForGenerate(
-      userId,
-      likedSongs,
-          vibe,
-          { bypassCache: !!noLibraryMode }
-    );
+    const endGenreProfileProfile = liveStageProfiler.start("preV3.genreProfile", `${likedSongs.length} tracks`);
+    let userGenreProfile: ReturnType<typeof buildMockUserGenreProfile>;
+    let cacheHit = false;
+    try {
+      const genreProfileResult = devMode
+        ? { profile: buildMockUserGenreProfile(likedSongs), cacheHit: false }
+        : getUserGenreProfileForGenerate(
+            userId,
+            likedSongs,
+            vibe,
+            { bypassCache: !!noLibraryMode }
+          );
+      userGenreProfile = genreProfileResult.profile;
+      cacheHit = genreProfileResult.cacheHit;
+    } finally {
+      endGenreProfileProfile();
+    }
     recordPreV3Timing(preV3Timing, "genreProfileTimeMs", Date.now() - t0);
     req.log.info(
       { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
@@ -4738,15 +4826,20 @@ router.post("/generate", async (req, res): Promise<void> => {
     let genreStack = getCachedGenreStack(stackCacheKey);
     const stackFromCache = !!genreStack;
     tStage = Date.now();
-    if (!genreStack) {
-      genreStack = buildGenreIntelligenceStack({
-        librarySize: likedSongs.length,
-        tracks: likedSongs,
-        userProfile: userGenreProfile,
-        vibe,
-        recentPlaylistTrackIds: recentTrackLists,
-      });
-      setCachedGenreStack(stackCacheKey, genreStack);
+    const endGenreStackProfile = liveStageProfiler.start("preV3.genreStack", stackFromCache ? "memory cache" : `${likedSongs.length} tracks`);
+    try {
+      if (!genreStack) {
+        genreStack = buildGenreIntelligenceStack({
+          librarySize: likedSongs.length,
+          tracks: likedSongs,
+          userProfile: userGenreProfile,
+          vibe,
+          recentPlaylistTrackIds: recentTrackLists,
+        });
+        setCachedGenreStack(stackCacheKey, genreStack);
+      }
+    } finally {
+      endGenreStackProfile();
     }
     recordPreV3Timing(preV3Timing, "genreStackTimeMs", Date.now() - tStage);
     stageTimer.end("Genre stack built", {
@@ -4977,6 +5070,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         suppressGenres: allowHolidaySeason ? [] : ["christmas"],
       },
       requestId,
+      diagnosticsMode: debugMode ? "full" : "minimal",
+      profileStage: liveStageProfiler.start,
       shouldAbort: generationShouldAbort,
       progress: (stage, detail) => {
         if (generationShouldAbort()) return;
@@ -5068,9 +5163,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     setGenerateStageDetail(generateSessionUserId, requestId, `Applying ${curatorIdentity.type.replace(/_/g, " ")} curator identity`);
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    const endCuratorScoringProfile = liveStageProfiler.start("controller.curatorIdentityScoring", `${finalTracks.length} final tracks`);
     const identityInitialTracks = applyCuratorIdentityScoring(finalTracks, curatorIdentity, sessionMemory, curatorScoringContext);
     const finalCandidatePool = applyCuratorIdentityScoring(buildFinalCandidatePool(), curatorIdentity, sessionMemory, curatorScoringContext);
+    endCuratorScoringProfile();
     setGenerateStageDetail(generateSessionUserId, requestId, "Selecting dominant vibe cluster before final checks");
+    const endClusterCurationProfile = liveStageProfiler.start("controller.clusterCuration", `${finalCandidatePool.length} candidates`);
     const clusterCuration = curateCandidatesByVibeCluster(
       identityInitialTracks,
       finalCandidatePool,
@@ -5083,9 +5181,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         identity: curatorIdentity,
       }
     );
+    endClusterCurationProfile();
     let repairTimeMs = 0;
     let finalizationTimeMs = 0;
     tStage = Date.now();
+    const endFinalizationProfile = liveStageProfiler.start("controller.finalization.initial", `${clusterCuration.candidates.length} candidates`);
     let finalization = finalizePlaylistTracks({
       initial: clusterCuration.initial,
       candidates: clusterCuration.candidates,
@@ -5099,6 +5199,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       trackReusePenalty: finalizationReusePenalty,
       artistReusePenalty: finalizationArtistReusePenalty,
     });
+    endFinalizationProfile();
     finalizationTimeMs += Date.now() - tStage;
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
@@ -5117,6 +5218,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (finalTracks.length >= length) return false;
       if (finalTracks.length >= recoveryActivationThreshold(length)) return false;
       const recoveryStartedAt = Date.now();
+      const endRecoveryProfile = liveStageProfiler.start(`controller.recovery.${triggerStage}`, `${finalTracks.length}/${length} tracks`);
       const recovered = recoverLowComplexityPlaylist({
         initial: finalTracks,
         fullLibrary: buildBroadRecoveryLibrary(),
@@ -5133,6 +5235,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         trackReusePenalty: finalizationReusePenalty,
         artistReusePenalty: finalizationArtistReusePenalty,
       });
+      endRecoveryProfile();
       if (!recovered) return false;
       repairTimeMs += Date.now() - recoveryStartedAt;
       finalTracks = recovered.tracks;
@@ -5476,6 +5579,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalTracks.length < Math.ceil(length * 0.90) ||
       trackListChanged(finalTracks, finalization.tracks);
     if (secondFinalizationNeeded) {
+      const endSecondFinalizationProfile = liveStageProfiler.start("controller.finalization.secondPass", `${finalizationCandidates.length} candidates`);
       finalization = finalizePlaylistTracks({
         initial: finalTracks,
         candidates: finalizationCandidates,
@@ -5489,6 +5593,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         trackReusePenalty: finalizationReusePenalty,
         artistReusePenalty: finalizationArtistReusePenalty,
       });
+      endSecondFinalizationProfile();
       finalizationTimeMs += Date.now() - tStage;
     } else {
       finalization = {
@@ -5571,6 +5676,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let humanCoherenceRepairUsed = false;
     if (finalTracks.length > 0 && humanCoherence.score < 0.56) {
       const repairStartedAt = Date.now();
+      const endHumanCoherenceProfile = liveStageProfiler.start("controller.humanCoherenceRepair", `${finalCandidatePool.length} candidates`);
       const repairCandidates = finalCandidatePool.filter((track) => {
         if (strictEraEvidenceRelaxed && lockedIntent.eraRange && trackHasKnownEraMismatch(track, lockedIntent.eraRange)) return false;
         const identityFit = (track as unknown as Record<string, unknown>)["_identityFit"];
@@ -5595,6 +5701,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         trackReusePenalty: finalizationReusePenalty,
         artistReusePenalty: finalizationArtistReusePenalty,
       });
+      endHumanCoherenceProfile();
       const repairedCoherence = humanCoherenceScore(repaired.tracks, curatorIdentity);
       repairTimeMs += Date.now() - repairStartedAt;
       if (
@@ -5819,6 +5926,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           .filter(([, ms]) => ms >= 30_000)
           .map(([stage, ms]) => ({ stage, ms })),
       },
+      stageProfile: liveStageProfiler.snapshot(),
       recoveryRelaxations,
       recoveryTriggered: fallbackLevel !== "none" || recoveryRelaxations.length > 0,
       fallbackLevel,
@@ -6325,7 +6433,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
 
+    const endApiFormattingProfile = liveStageProfiler.start("controller.apiTrackFormatting", `${finalTracks.length} tracks`);
     const finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
+    endApiFormattingProfile();
     const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>(
       (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
       {},
@@ -6430,6 +6540,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       compatible: undefined,
       relaxed: strictGenreEvidenceRelaxed,
     };
+    const endIntentSurvivalProfile = liveStageProfiler.start("controller.intentSurvivalDiagnostics", `${finalTracks.length} tracks`);
     const intentSurvivalDiagnostics = buildIntentSurvivalDiagnostics({
       prompt: vibe,
       lockedIntent,
@@ -6449,6 +6560,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalMoodDistribution,
       finalEnergyDistribution,
     });
+    endIntentSurvivalProfile();
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const v3DiagnosticsWithIntentSurvival = {

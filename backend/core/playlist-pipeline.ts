@@ -156,6 +156,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
   noLibraryMode?: boolean;
   requestId?: string;
   pipelineTrace?: PipelineTrace;
+  diagnosticsMode?: "minimal" | "full";
+  profileStage?: (stage: string, detail?: string) => () => void;
   progress?: (stage: "scoring" | "retrieval" | "lanes" | "sampling" | "fallback" | "coherence", detail: string) => void | Promise<void>;
   shouldAbort?: () => boolean;
 }
@@ -2726,31 +2728,37 @@ export async function buildPlaylistPipeline<T extends {
   await emitProgress(opts, "scoring", `Scoring ${opts.likedSongs.length.toLocaleString()} liked songs`);
   if (opts.shouldAbort?.()) abortPipeline("scoring");
   let stageStartedAt = Date.now();
-  const scoring = runScoringPipeline({
-    pipelineLog: opts.pipelineLog,
-    tracks: opts.likedSongs,
-    vibe: opts.vibe,
-    mode: opts.mode,
-    emotionProfile: opts.emotionProfile,
-    vibeKind: opts.vibeKind,
-    intent: opts.intent,
-    canonical: opts.canonical,
-    prototype: opts.prototype,
-    sonicProfile: opts.sonicProfile,
-    userGenreProfile: opts.userGenreProfile,
-    genreStack: opts.genreStack,
-    playlistLength: opts.playlistLength,
-    memoryByTrack: opts.memoryByTrack,
-    noveltyByTrack: opts.noveltyByTrack,
-    recentPlaylistTrackIds: opts.recentPlaylistTrackIds,
-    varietyPenaltyScale: opts.varietyPenaltyScale,
-    referencePlaylist: opts.referencePlaylist,
-    noLibraryMode: opts.noLibraryMode,
-    postScore: {
-      ...opts.postScore,
+  const endScoringProfile = opts.profileStage?.("pipeline.scoring", `${opts.likedSongs.length} liked songs`);
+  let scoring: ReturnType<typeof runScoringPipeline<T>>;
+  try {
+    scoring = runScoringPipeline({
+      pipelineLog: opts.pipelineLog,
+      tracks: opts.likedSongs,
+      vibe: opts.vibe,
+      mode: opts.mode,
       emotionProfile: opts.emotionProfile,
-    },
-  });
+      vibeKind: opts.vibeKind,
+      intent: opts.intent,
+      canonical: opts.canonical,
+      prototype: opts.prototype,
+      sonicProfile: opts.sonicProfile,
+      userGenreProfile: opts.userGenreProfile,
+      genreStack: opts.genreStack,
+      playlistLength: opts.playlistLength,
+      memoryByTrack: opts.memoryByTrack,
+      noveltyByTrack: opts.noveltyByTrack,
+      recentPlaylistTrackIds: opts.recentPlaylistTrackIds,
+      varietyPenaltyScale: opts.varietyPenaltyScale,
+      referencePlaylist: opts.referencePlaylist,
+      noLibraryMode: opts.noLibraryMode,
+      postScore: {
+        ...opts.postScore,
+        emotionProfile: opts.emotionProfile,
+      },
+    });
+  } finally {
+    endScoringProfile?.();
+  }
   recordTiming("scoring", stageStartedAt);
   if (opts.shouldAbort?.()) abortPipeline("scoring");
 
@@ -2845,49 +2853,63 @@ export async function buildPlaylistPipeline<T extends {
     },
   };
   const intentContract = buildIntentContract(opts.vibe);
-  const unpenalizedRetrieval = await buildRetrievalPools(
-    scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
-    intentContract,
-    classMap,
-    opts.postScore.feedbackMemory ?? null,
-    {
-      promptKey: opts.noLibraryMode ? undefined : opts.vibe,
-    },
-  );
-  if (opts.shouldAbort?.()) abortPipeline("retrieval");
-  const unpenalizedPooledCandidates = flattenRetrievalPools(unpenalizedRetrieval) as ScoredLibraryTrack<T>[];
-  const unpenalizedViablePoolSize = unpenalizedPooledCandidates.length;
-  const activityKind = activityPromptKind(opts.vibe, opts.emotionProfile);
-  const effectiveDiversityPressure = Math.min(
-    opts.sessionArtistMemory?.diversityPressure ?? 1,
-    diversityPressureForViablePool(activityKind, unpenalizedViablePoolSize),
-  );
-  const effectiveSessionArtistMemory = withSessionDiversityPressure(
-    opts.sessionArtistMemory,
-    effectiveDiversityPressure,
-  );
-  const sessionMemoryHasPressure = !!effectiveSessionArtistMemory &&
-    effectiveDiversityPressure > 0 &&
-    (
-      effectiveSessionArtistMemory.artistCount.size > 0 ||
-      effectiveSessionArtistMemory.playlistArtistSet.size > 0
+  const endRetrievalProfile = opts.profileStage?.("pipeline.retrieval", `${scoring.sorted.length} scored tracks`);
+  let unpenalizedRetrieval: RetrievalPools<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string | null }>;
+  let unpenalizedPooledCandidates: ScoredLibraryTrack<T>[];
+  let unpenalizedViablePoolSize: number;
+  let activityKind: ReturnType<typeof activityPromptKind>;
+  let effectiveDiversityPressure: number;
+  let effectiveSessionArtistMemory: SessionArtistMemory | undefined;
+  let sessionMemoryHasPressure: boolean;
+  let upstreamRecentTrackPenalty: Map<string, number> | undefined;
+  let retrieval: RetrievalPools<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string | null }>;
+  try {
+    unpenalizedRetrieval = await buildRetrievalPools(
+      scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
+      intentContract,
+      classMap,
+      opts.postScore.feedbackMemory ?? null,
+      {
+        promptKey: opts.noLibraryMode ? undefined : opts.vibe,
+      },
     );
-  const upstreamRecentTrackPenalty = opts.recentPlaylistTrackIds?.length
-    ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 20, (opts.varietyPenaltyScale ?? 1) * effectiveDiversityPressure)
-    : undefined;
-  const retrieval = !upstreamRecentTrackPenalty && !sessionMemoryHasPressure
-    ? unpenalizedRetrieval
-    : await buildRetrievalPools(
-        scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
-        intentContract,
-    classMap,
-        opts.postScore.feedbackMemory ?? null,
-        {
-          recentTrackPenalty: upstreamRecentTrackPenalty,
-          sessionArtistMemory: sessionMemoryHasPressure ? effectiveSessionArtistMemory : undefined,
-          promptKey: opts.noLibraryMode ? undefined : opts.vibe,
-        },
+    if (opts.shouldAbort?.()) abortPipeline("retrieval");
+    unpenalizedPooledCandidates = flattenRetrievalPools(unpenalizedRetrieval) as ScoredLibraryTrack<T>[];
+    unpenalizedViablePoolSize = unpenalizedPooledCandidates.length;
+    activityKind = activityPromptKind(opts.vibe, opts.emotionProfile);
+    effectiveDiversityPressure = Math.min(
+      opts.sessionArtistMemory?.diversityPressure ?? 1,
+      diversityPressureForViablePool(activityKind, unpenalizedViablePoolSize),
+    );
+    effectiveSessionArtistMemory = withSessionDiversityPressure(
+      opts.sessionArtistMemory,
+      effectiveDiversityPressure,
+    );
+    sessionMemoryHasPressure = !!effectiveSessionArtistMemory &&
+      effectiveDiversityPressure > 0 &&
+      (
+        effectiveSessionArtistMemory.artistCount.size > 0 ||
+        effectiveSessionArtistMemory.playlistArtistSet.size > 0
       );
+    upstreamRecentTrackPenalty = opts.recentPlaylistTrackIds?.length
+      ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 20, (opts.varietyPenaltyScale ?? 1) * effectiveDiversityPressure)
+      : undefined;
+    retrieval = !upstreamRecentTrackPenalty && !sessionMemoryHasPressure
+      ? unpenalizedRetrieval
+      : await buildRetrievalPools(
+          scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
+          intentContract,
+          classMap,
+          opts.postScore.feedbackMemory ?? null,
+          {
+            recentTrackPenalty: upstreamRecentTrackPenalty,
+            sessionArtistMemory: sessionMemoryHasPressure ? effectiveSessionArtistMemory : undefined,
+            promptKey: opts.noLibraryMode ? undefined : opts.vibe,
+          },
+        );
+  } finally {
+    endRetrievalProfile?.();
+  }
   recordTiming("retrieval", stageStartedAt);
   if (opts.shouldAbort?.()) abortPipeline("retrieval");
   const pooledCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
@@ -3372,35 +3394,49 @@ export async function buildPlaylistPipeline<T extends {
     if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
     const inputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
     stageStartedAt = Date.now();
-    const candidatePool = buildV3CandidatePool(
-      inputPool,
-      classMap,
-      opts.playlistLength,
-      v3LockedIntent,
-      { minimumFillRatio: candidate.label === "strict_intent" ? 0.8 : 0.65 },
-      opts.pipelineLog,
-    );
+    const endCandidateGenerationProfile = opts.profileStage?.(`pipeline.candidateGeneration.${candidate.label}`, `${inputPool.length} input tracks`);
+    let candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
+    try {
+      candidatePool = buildV3CandidatePool(
+        inputPool,
+        classMap,
+        opts.playlistLength,
+        v3LockedIntent,
+        { minimumFillRatio: candidate.label === "strict_intent" ? 0.8 : 0.65 },
+        opts.pipelineLog,
+      );
+    } finally {
+      endCandidateGenerationProfile?.();
+    }
     recordTiming("candidateGeneration", stageStartedAt);
     stageStartedAt = Date.now();
-    const result = await runV3Pipeline(
-      candidatePool.tracks as unknown as T[],
-    opts.vibe,
-    opts.emotionProfile,
-    opts.playlistLength,
-    {
-      genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
-      classificationByTrack: (trackId) => classMap.get(trackId),
-      noveltyByTrack:        opts.noveltyByTrack,
-        seed:                  opts.postScore.startMs + candidate.seedOffset,
-      lockedIntent:          v3LockedIntent,
-        unifiedIntentContext:   unifiedIntentContextWithMemory,
-        momentMemory:           preGenerationMomentMemory,
-        sessionArtistMemory:     effectiveSessionArtistMemory,
-        trackReusePenalty:       upstreamRecentTrackPenalty,
-        requestId:               opts.requestId,
-        pipelineTrace,
-      }
-    );
+    const endV3Profile = opts.profileStage?.(`pipeline.v3ScoringAndSampling.${candidate.label}`, `${candidatePool.tracks.length} candidate tracks`);
+    let result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
+    try {
+      result = await runV3Pipeline(
+        candidatePool.tracks as unknown as T[],
+        opts.vibe,
+        opts.emotionProfile,
+        opts.playlistLength,
+        {
+          genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
+          classificationByTrack: (trackId) => classMap.get(trackId),
+          noveltyByTrack:        opts.noveltyByTrack,
+          seed:                  opts.postScore.startMs + candidate.seedOffset,
+          lockedIntent:          v3LockedIntent,
+          unifiedIntentContext:   unifiedIntentContextWithMemory,
+          momentMemory:           preGenerationMomentMemory,
+          sessionArtistMemory:     effectiveSessionArtistMemory,
+          trackReusePenalty:       upstreamRecentTrackPenalty,
+          requestId:               opts.requestId,
+          pipelineTrace,
+          diagnosticsMode:          opts.diagnosticsMode ?? "minimal",
+          profileStage:            opts.profileStage,
+        }
+      );
+    } finally {
+      endV3Profile?.();
+    }
     recordTiming("v3ScoringAndSampling", stageStartedAt);
     recordTraceCount(pipelineTrace, `v3.${candidate.label}.inputCandidates`, candidatePool.tracks.length);
     recordTraceCount(pipelineTrace, `v3.${candidate.label}.finalTracks`, result.finalTracks.length);
@@ -3925,6 +3961,7 @@ export async function buildPlaylistPipeline<T extends {
   }
 
   const repairStartedAt = Date.now();
+  const endPipelineRepairProfile = opts.profileStage?.("pipeline.repairAndFinalization", `${finalTracksList.length} v3 tracks`);
   const playlistCritic = repairPlaylistWithCritic(
     finalTracksList as T[],
     contractGuardedScoredPool,
@@ -4004,6 +4041,7 @@ export async function buildPlaylistPipeline<T extends {
     finalPlaylistEmbedding: buildPlaylistEmbedding(finalTracksForReturn).centroidVector,
     memoryKey: opts.momentMemoryKey,
   });
+  endPipelineRepairProfile?.();
 
   return {
     finalTracks: finalTracksForReturn,
