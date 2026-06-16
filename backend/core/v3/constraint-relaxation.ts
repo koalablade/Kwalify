@@ -52,6 +52,19 @@ function profile(intent: LockedIntent, overrides: Partial<ConstraintProfile> = {
 }
 
 export function buildConstraintRelaxationPlan(intent: LockedIntent): ConstraintRelaxationStep[] {
+  const stackedGenreEraActivity =
+    intent.genreFamilies.length > 0 &&
+    !!intent.eraRange &&
+    !!intent.activity;
+  if (stackedGenreEraActivity) {
+    return [
+      { id: "strict", label: "strict_constraints", profile: profile(intent) },
+      { id: "relax_audio", label: "audio_bounds_relaxed", profile: profile(intent, { audio: "relaxed" }) },
+      { id: "relax_mood", label: "mood_relaxed", profile: profile(intent, { audio: "relaxed", mood: "relaxed" }) },
+      { id: "relax_era", label: "era_relaxed", profile: profile(intent, { era: "relaxed", audio: "relaxed", mood: "relaxed" }) },
+      { id: "relax_genre", label: "genre_relaxed", profile: profile(intent, { era: "relaxed", genre: "relaxed", audio: "relaxed", mood: "relaxed" }) },
+    ];
+  }
   return [
     { id: "strict", label: "strict_constraints", profile: profile(intent) },
     { id: "relax_era", label: "era_relaxed", profile: profile(intent, { era: "relaxed" }) },

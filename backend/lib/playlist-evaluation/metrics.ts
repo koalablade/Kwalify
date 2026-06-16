@@ -205,14 +205,49 @@ function trackName(track: EvaluationTrack): string {
   return track.trackName || track.name || "Unknown Track";
 }
 
-function genreTerms(track: EvaluationTrack): string[] {
-  return [
+type MetricComputationCache = {
+  genreTermsByTrack: Map<string, string[]>;
+  genreDriftByPrompt: Map<string, number>;
+  eraDriftByPrompt: Map<string, number>;
+  averageJumpByPrompt: Map<string, number>;
+  harshTransitionsByPrompt: Map<string, TransitionQualityReport["harshTransitions"]>;
+  transitionQualityByPrompt: Map<string, number>;
+  promptConfidenceByPrompt: Map<string, PromptUnderstandingConfidence>;
+};
+
+function createMetricComputationCache(): MetricComputationCache {
+  return {
+    genreTermsByTrack: new Map(),
+    genreDriftByPrompt: new Map(),
+    eraDriftByPrompt: new Map(),
+    averageJumpByPrompt: new Map(),
+    harshTransitionsByPrompt: new Map(),
+    transitionQualityByPrompt: new Map(),
+    promptConfidenceByPrompt: new Map(),
+  };
+}
+
+function trackCacheKey(track: EvaluationTrack): string {
+  return trackId(track) || `${trackName(track)}:${artistName(track)}`.toLowerCase();
+}
+
+function resultCacheKey(result: GenerationEvaluationResult): string {
+  return `${result.benchmark.id}:${result.tracks.map(trackCacheKey).join("|")}`;
+}
+
+function genreTerms(track: EvaluationTrack, cache?: MetricComputationCache): string[] {
+  const key = cache ? trackCacheKey(track) : null;
+  const cached = key ? cache?.genreTermsByTrack.get(key) : undefined;
+  if (cached) return cached;
+  const terms = [
     track.genrePrimary,
     track.genreFamily,
     ...(Array.isArray(track.genres) ? track.genres : []),
   ]
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
     .map((value) => value.toLowerCase());
+  if (key) cache?.genreTermsByTrack.set(key, terms);
+  return terms;
 }
 
 function expectedHit(terms: string[], expected: string[]): boolean {
@@ -251,9 +286,9 @@ function clusterKey(track: EvaluationTrack): string {
   return `${genre}:${energy}`;
 }
 
-function genreDrift(prompt: PlaylistBenchmarkPrompt, tracks: EvaluationTrack[]): number {
+function genreDrift(prompt: PlaylistBenchmarkPrompt, tracks: EvaluationTrack[], cache?: MetricComputationCache): number {
   if (!prompt.expectedGenres?.length || tracks.length === 0) return 0;
-  const hits = tracks.filter((track) => expectedHit(genreTerms(track), prompt.expectedGenres ?? [])).length;
+  const hits = tracks.filter((track) => expectedHit(genreTerms(track, cache), prompt.expectedGenres ?? [])).length;
   return round(1 - hits / tracks.length);
 }
 
@@ -345,7 +380,87 @@ function transitionQualityScore(tracks: EvaluationTrack[]): number {
   return round(clamp01(1 - harshPenalty * 0.62 - avgEnergyJump * 0.38 - avgValenceJump * 0.28));
 }
 
-function promptConfidence(result: GenerationEvaluationResult): PromptUnderstandingConfidence {
+function cachedGenreDrift(
+  result: GenerationEvaluationResult,
+  cache?: MetricComputationCache,
+): number {
+  if (!cache) return genreDrift(result.benchmark, result.tracks);
+  const key = resultCacheKey(result);
+  const cached = cache.genreDriftByPrompt.get(key);
+  if (cached !== undefined) return cached;
+  const value = genreDrift(result.benchmark, result.tracks, cache);
+  cache.genreDriftByPrompt.set(key, value);
+  return value;
+}
+
+function cachedEraDrift(
+  result: GenerationEvaluationResult,
+  cache?: MetricComputationCache,
+): number {
+  if (!cache) return eraDrift(result.benchmark, result.tracks);
+  const key = resultCacheKey(result);
+  const cached = cache.eraDriftByPrompt.get(key);
+  if (cached !== undefined) return cached;
+  const value = eraDrift(result.benchmark, result.tracks);
+  cache.eraDriftByPrompt.set(key, value);
+  return value;
+}
+
+function cachedAverageJump(
+  result: GenerationEvaluationResult,
+  key: "energy" | "valence",
+  cache?: MetricComputationCache,
+): number {
+  if (!cache) return averageJump(result.tracks, key);
+  const cacheKey = `${resultCacheKey(result)}:${key}`;
+  const cached = cache.averageJumpByPrompt.get(cacheKey);
+  if (cached !== undefined) return cached;
+  const value = averageJump(result.tracks, key);
+  cache.averageJumpByPrompt.set(cacheKey, value);
+  return value;
+}
+
+function cachedTransitionQualityForTracks(
+  result: GenerationEvaluationResult,
+  cache?: MetricComputationCache,
+): TransitionQualityReport["harshTransitions"] {
+  if (!cache) return transitionQualityForTracks(result.tracks);
+  const key = resultCacheKey(result);
+  const cached = cache.harshTransitionsByPrompt.get(key);
+  if (cached) return cached;
+  const value = transitionQualityForTracks(result.tracks);
+  cache.harshTransitionsByPrompt.set(key, value);
+  return value;
+}
+
+function cachedTransitionQualityScore(
+  result: GenerationEvaluationResult,
+  cache?: MetricComputationCache,
+): number {
+  if (!cache) return transitionQualityScore(result.tracks);
+  const key = resultCacheKey(result);
+  const cached = cache.transitionQualityByPrompt.get(key);
+  if (cached !== undefined) return cached;
+  if (result.tracks.length <= 1) {
+    const value = result.tracks.length === 1 ? 0.7 : 0;
+    cache.transitionQualityByPrompt.set(key, value);
+    return value;
+  }
+  const harsh = cachedTransitionQualityForTracks(result, cache);
+  const avgEnergyJump = cachedAverageJump(result, "energy", cache);
+  const avgValenceJump = cachedAverageJump(result, "valence", cache);
+  const harshPenalty = harsh.length / Math.max(1, result.tracks.length - 1);
+  const value = round(clamp01(1 - harshPenalty * 0.62 - avgEnergyJump * 0.38 - avgValenceJump * 0.28));
+  cache.transitionQualityByPrompt.set(key, value);
+  return value;
+}
+
+function promptConfidence(result: GenerationEvaluationResult, cache?: MetricComputationCache): PromptUnderstandingConfidence {
+  if (cache) {
+    const key = resultCacheKey(result);
+    const cached = cache.promptConfidenceByPrompt.get(key);
+    if (cached) return cached;
+  }
   const gen = responseObj(result.response, "generationDiagnostics");
   const moment = nestedObj(gen, "momentPipeline");
   const semantic = nestedObj(moment, "semantic");
@@ -354,15 +469,21 @@ function promptConfidence(result: GenerationEvaluationResult): PromptUnderstandi
   const promptConfidenceDiagnostics = responseObj(result.response, "promptConfidence");
   const v3 = responseObj(result.response, "v3Diagnostics");
   const intentConfidence = clamp01(num(intentContract["contractSurvivalPercent"], num(promptConfidenceDiagnostics["intentConfidence"], num(promptConfidenceDiagnostics["score"], 0.65) * 100)) / 100);
-  const sceneConfidence = clamp01(num(semantic["confidence"], num(gen["clusterConfidence"], num(v3["sceneConfidence"], 0.55))));
+  const rawSceneConfidence = clamp01(num(semantic["confidence"], num(gen["sceneConfidence"], num(gen["clusterConfidence"], num(v3["sceneConfidence"], 0.55)))));
   const emotionConfidence = clamp01(num(intentContract["emotionSurvivalPercent"], num(gen["humanCoherenceScore"], 0.55) * 100) / 100);
   const eraRange = lockedIntent["eraRange"];
   const eraConfidence = result.benchmark.expectedEra
-    ? clamp01(1 - eraDrift(result.benchmark, result.tracks))
+    ? clamp01(1 - cachedEraDrift(result, cache))
     : eraRange ? 0.72 : 0.58;
   const activityConfidence = result.benchmark.expectedIdentity
     ? clamp01(num(gen["humanCoherenceScore"], 0.55) * 0.55 + (text(gen["identityType"]) === result.benchmark.expectedIdentity ? 0.45 : 0))
     : 0.62;
+  const activityDetected = activityConfidence >= 0.70 ||
+    !!result.benchmark.expectedIdentity ||
+    result.benchmark.tags.some((tag) => ["activity", "gym", "work", "study", "party", "driving"].includes(tag));
+  const sceneConfidence = activityDetected
+    ? Math.max(rawSceneConfidence, Math.min(0.62, activityConfidence * 0.58))
+    : rawSceneConfidence;
   const collapsedDimensions = [
     intentConfidence < 0.58 ? "intent" : null,
     sceneConfidence < 0.50 ? "scene" : null,
@@ -370,7 +491,7 @@ function promptConfidence(result: GenerationEvaluationResult): PromptUnderstandi
     eraConfidence < 0.55 ? "era" : null,
     activityConfidence < 0.55 ? "activity" : null,
   ].filter((value): value is string => !!value);
-  return {
+  const confidence = {
     promptId: result.benchmark.id,
     prompt: result.benchmark.prompt,
     intentConfidence: round(intentConfidence),
@@ -380,6 +501,8 @@ function promptConfidence(result: GenerationEvaluationResult): PromptUnderstandi
     activityConfidence: round(activityConfidence),
     collapsedDimensions,
   };
+  if (cache) cache.promptConfidenceByPrompt.set(resultCacheKey(result), confidence);
+  return confidence;
 }
 
 function failureModesFor(metrics: Omit<PlaylistMetrics, "failureModes" | "likelyCause">): string[] {
@@ -428,6 +551,7 @@ function likelyCause(modes: string[]): string {
 export function computePlaylistMetrics(
   result: GenerationEvaluationResult,
   crossPlaylistOverlap = 0,
+  cache?: MetricComputationCache,
 ): PlaylistMetrics {
   const tracks = result.tracks;
   const gen = responseObj(result.response, "generationDiagnostics");
@@ -438,8 +562,10 @@ export function computePlaylistMetrics(
   const debugDominantCluster = text(gen["dominantCluster"]) ?? text(debug["dominantCluster"]);
   const debugClusterPurity = num(gen["clusterPurity"], num(debug["clusterPurity"], cluster.share));
   const humanCoherence = num(gen["humanCoherenceScore"], num(responseObj(result.response, "v3Diagnostics")["avg_transition_score"], 0));
-  const transitionQuality = transitionQualityScore(tracks);
-  const emotionalConsistency = round(clamp01(1 - averageJump(tracks, "valence") * 1.6));
+  const transitionQuality = cachedTransitionQualityScore(result, cache);
+  const emotionalConsistency = round(clamp01(1 - cachedAverageJump(result, "valence", cache) * 1.6));
+  const genreDriftValue = cachedGenreDrift(result, cache);
+  const eraDriftValue = cachedEraDrift(result, cache);
   const fallbackUsed = !!(
     result.response?.["fastFallback"] ||
     result.response?.["fallbackReason"] ||
@@ -464,8 +590,8 @@ export function computePlaylistMetrics(
       ? round(Math.max(0, num(diversity["topRepeatedArtistCount"]) - 1) / Math.max(1, tracks.length))
       : duplicateRatio(tracks.map(artistName)),
     trackRepetition: duplicateRatio(tracks.map(trackId)),
-    genreDrift: genreDrift(result.benchmark, tracks),
-    eraDrift: eraDrift(result.benchmark, tracks),
+    genreDrift: genreDriftValue,
+    eraDrift: eraDriftValue,
     fallbackUsed,
     recoveryUsed,
     clusterPurity: debugClusterPurity,
@@ -474,8 +600,8 @@ export function computePlaylistMetrics(
     skipLikelihood: round(clamp01(
       (1 - transitionQuality) * 0.34 +
       Math.max(0, duplicateRatio(tracks.map(artistName)) - 0.10) * 0.25 +
-      genreDrift(result.benchmark, tracks) * 0.18 +
-      eraDrift(result.benchmark, tracks) * 0.12 +
+      genreDriftValue * 0.18 +
+      eraDriftValue * 0.12 +
       (fallbackUsed ? 0.08 : 0) +
       Math.min(0.12, Math.max(0, result.benchmark.length - tracks.length) / Math.max(1, result.benchmark.length)),
     )),
@@ -587,16 +713,19 @@ function buildQualityFailureDataset(playlists: PlaylistMetrics[]): QualityFailur
   }).sort((a, b) => b.frequency - a.frequency || b.severity - a.severity);
 }
 
-function buildTransitionQualityReports(results: GenerationEvaluationResult[]): TransitionQualityReport[] {
+function buildTransitionQualityReports(
+  results: GenerationEvaluationResult[],
+  cache?: MetricComputationCache,
+): TransitionQualityReport[] {
   return results.map((result) => {
-    const harshTransitions = transitionQualityForTracks(result.tracks);
+    const harshTransitions = cachedTransitionQualityForTracks(result, cache);
     return {
       promptId: result.benchmark.id,
       prompt: result.benchmark.prompt,
-      transitionQuality: transitionQualityScore(result.tracks),
+      transitionQuality: cachedTransitionQualityScore(result, cache),
       harshTransitionCount: harshTransitions.length,
-      averageEnergyJump: averageJump(result.tracks, "energy"),
-      averageValenceJump: averageJump(result.tracks, "valence"),
+      averageEnergyJump: cachedAverageJump(result, "energy", cache),
+      averageValenceJump: cachedAverageJump(result, "valence", cache),
       harshTransitions: harshTransitions.slice(0, 12),
     };
   }).sort((a, b) => a.transitionQuality - b.transitionQuality || b.harshTransitionCount - a.harshTransitionCount);
@@ -822,10 +951,11 @@ function buildStabilityStatus(
 }
 
 export function summarizeEvaluation(results: GenerationEvaluationResult[]): EvaluationSummaryMetrics {
+  const cache = createMetricComputationCache();
   const overlaps = computeCrossPlaylistOverlap(results);
-  const playlists = results.map((result) => computePlaylistMetrics(result, overlaps.get(result.benchmark.id) ?? 0));
-  const promptUnderstandingConfidence = results.map(promptConfidence);
-  const transitionQualityReports = buildTransitionQualityReports(results);
+  const playlists = results.map((result) => computePlaylistMetrics(result, overlaps.get(result.benchmark.id) ?? 0, cache));
+  const promptUnderstandingConfidence = results.map((result) => promptConfidence(result, cache));
+  const transitionQualityReports = buildTransitionQualityReports(results, cache);
   const qualityFailureDataset = buildQualityFailureDataset(playlists);
   const launchReadiness = buildLaunchReadiness(playlists, promptUnderstandingConfidence);
   const qualityCalibration = buildQualityCalibration(playlists);

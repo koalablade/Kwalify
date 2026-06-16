@@ -2359,14 +2359,12 @@ function hasExplicitArtistRequest(vibe: string): boolean {
 
 function artistDiversityCap(playlistSize: number, vibe: string): number {
   if (hasExplicitArtistRequest(vibe)) return Number.MAX_SAFE_INTEGER;
-  if (playlistSize < 25) return 2;
-  if (playlistSize <= 50) return 3;
-  return 4;
+  return 2;
 }
 
 function relaxedEmergencyArtistCap(playlistSize: number, maxPerArtist: number): number | null {
   if (!Number.isFinite(maxPerArtist) || maxPerArtist >= Number.MAX_SAFE_INTEGER / 2) return null;
-  return maxPerArtist + 1;
+  return Math.min(2, maxPerArtist);
 }
 
 function recoveryActivationThreshold(playlistSize: number): number {
@@ -2619,6 +2617,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   let hardSafeFillAdded = 0;
   let hardSafeSkipped = 0;
   let hardSafeDiversitySkipped = 0;
+  let backToBackArtistSkipped = 0;
   let coherenceDownranked = 0;
 
   const out: T[] = [];
@@ -2653,7 +2652,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   coherenceDownranked = rankedCandidates.filter((track) => intentCoherenceScore(track, opts, preferredFamilies, identityTerms) < 0).length;
   const coherentRankedCandidates = [...rankedCandidates]
     .sort((a, b) => candidateFinalizationScore(b, preferredFamilies) - candidateFinalizationScore(a, preferredFamilies));
-  const outOfFamilyReserve = Math.max(2, Math.ceil(opts.requestedLength * 0.12));
+  const outOfFamilyReserve = Math.max(3, Math.ceil(opts.requestedLength * 0.20));
   const tryAdd = (
     track: T,
     artistLimit: number | null,
@@ -2693,6 +2692,11 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
     const artistKey = sanitized.artistName.toLowerCase().trim();
     const artistCount = artistCounts.get(artistKey) ?? 0;
+    const previousArtistKey = out[out.length - 1]?.artistName.toLowerCase().trim() ?? null;
+    if (previousArtistKey && previousArtistKey === artistKey) {
+      backToBackArtistSkipped++;
+      return;
+    }
     if (artistLimit !== null && artistCount >= artistLimit) {
       artistLimitSkipped++;
       return;
@@ -2717,10 +2721,27 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     const albumPressure = albumKey ? albumCounts.get(albumKey) ?? 0 : 0;
     const family = trackGenreFamily(track, opts.classMap);
     const familyPressure = familyCounts.get(family) ?? 0;
-    const familyBonus = preferredFamilies.size === 0 || family === "unknown" || preferredFamilies.has(family) ? 0.08 : 0;
+    const familyPreferred = preferredFamilies.size === 0 || family === "unknown" || preferredFamilies.has(family);
+    const familyVariationBonus = familyPressure === 0 ? 0.34 : familyPressure === 1 ? 0.12 : -0.18;
+    const familyBonus = familyPreferred ? 0.10 : -0.12;
+    const expectedEnergy = opts.intent.energy ?? null;
+    const energy = track.energy ?? 0.5;
+    const energyConsistency =
+      expectedEnergy === "high" ? Math.max(0, 1 - Math.abs(energy - 0.72) / 0.45) :
+      expectedEnergy === "low" ? Math.max(0, 1 - Math.abs(energy - 0.34) / 0.40) :
+      expectedEnergy === "medium" ? Math.max(0, 1 - Math.abs(energy - 0.55) / 0.42) :
+      0.55;
     const reusePenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
     const artistReusePenalty = Math.max(0, Math.min(0.34, opts.artistReusePenalty?.get(artistKey) ?? 0));
-    return (track.score ?? 0) + familyBonus + intentCoherenceFor(track, preferredFamilies) - artistPressure * 0.42 - albumPressure * 0.22 - familyPressure * 0.10 - reusePenalty - artistReusePenalty;
+    return (track.score ?? 0) * 0.55 +
+      familyBonus +
+      familyVariationBonus +
+      energyConsistency * 0.16 +
+      intentCoherenceFor(track, preferredFamilies) * 0.85 -
+      artistPressure * 0.72 -
+      albumPressure * 0.26 -
+      reusePenalty -
+      artistReusePenalty;
   };
   const hardSafeCandidates = (tracks: T[]): T[] =>
     tracks
@@ -2756,6 +2777,11 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     const albumKey = normalizeRepeatToken(sanitized.albumName);
     const artistCount = artistCounts.get(artistKey) ?? 0;
     const albumCount = albumKey ? albumCounts.get(albumKey) ?? 0 : 0;
+    const previousArtistKey = out[out.length - 1]?.artistName.toLowerCase().trim() ?? null;
+    if (previousArtistKey && previousArtistKey === artistKey) {
+      backToBackArtistSkipped++;
+      return;
+    }
     if (artistLimit !== null && artistCount >= artistLimit) {
       hardSafeDiversitySkipped++;
       return;
@@ -2774,7 +2800,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     hardSafeFillAdded++;
   };
 
-  const primaryArtistLimit = Number.isFinite(opts.maxPerArtist) ? opts.maxPerArtist : null;
+  const primaryArtistLimit = Number.isFinite(opts.maxPerArtist) ? Math.min(2, opts.maxPerArtist) : 2;
   const emergencyArtistLimit = relaxedEmergencyArtistCap(opts.requestedLength, opts.maxPerArtist);
   const primaryAlbumLimit = finalAlbumCap(opts.requestedLength);
   const emergencyAlbumLimit = primaryAlbumLimit + Math.max(1, Math.ceil(opts.requestedLength * 0.05));
@@ -2814,15 +2840,16 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
     if (out.length < recoveryActivationThreshold(opts.requestedLength)) {
       for (const track of hardSafeCandidates(coherentRankedCandidates)) {
-        tryAddHardSafe(track, false, null, null);
+        tryAddHardSafe(track, false, emergencyArtistLimit, emergencyAlbumLimit);
       }
     }
   }
   const minimumCompleteCount = Math.min(opts.requestedLength, Math.ceil(opts.requestedLength * 0.90));
   if (out.length < minimumCompleteCount) {
     hardSafeFillUsed = true;
+    const minimumFillArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
     for (const track of hardSafeCandidates([...coherentRankedCandidates, ...rankedCandidates])) {
-      tryAddHardSafe(track, false, null, null);
+      tryAddHardSafe(track, false, minimumFillArtistLimit, emergencyAlbumLimit);
       if (out.length >= minimumCompleteCount) break;
     }
   }
@@ -2854,6 +2881,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       hardSafeFillAdded,
       hardSafeSkipped,
       hardSafeDiversitySkipped,
+      backToBackArtistSkipped,
       replenished: out.length > opts.initial.length,
       sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
       artistDiversityUniqueArtists: artistDiversityDiagnostics(out, opts.maxPerArtist).uniqueArtists,
@@ -5199,6 +5227,89 @@ router.post("/generate", async (req, res): Promise<void> => {
         skippedReason: "v3_selected_tracks_are_authoritative",
       } as Record<string, unknown>,
     };
+    const stackedConstraintLockActive =
+      (lockedIntent.primaryGenres.length > 0 || lockedIntent.genreFamilies.length > 0 || constraintLayer.hard.genres.length > 0) &&
+      (lockedIntent.eraStart !== null || lockedIntent.eraEnd !== null || constraintLayer.hard.eraStart !== null || constraintLayer.hard.eraEnd !== null) &&
+      !!lockedIntent.activity;
+    if (finalTracks.length > 0 && finalTracks.length < recoveryActivationThreshold(length)) {
+      const underfillStartedAt = Date.now();
+      const seenUnderfillCandidateIds = new Set<string>();
+      const toUnderfillCandidate = <T extends {
+        trackId: string;
+        trackName: string;
+        artistName: string;
+        albumName: string;
+        energy: number | null;
+        valence: number | null;
+        genrePrimary?: string | null;
+        genreFamily?: string | null;
+        genres?: string[] | null;
+      }>(
+        track: T
+      ): ConstraintTrack => {
+        const hydrated = hydrateTrackGenre(track);
+        const scored = hydrated as T & Partial<ConstraintTrack>;
+        return {
+          ...hydrated,
+          score: typeof scored.score === "number" ? scored.score : 0.45,
+          rediscoveryScore: typeof scored.rediscoveryScore === "number" ? scored.rediscoveryScore : 0,
+        } as ConstraintTrack;
+      };
+      const expandedUnderfillPool = [
+        ...(pipeline.sorted as ConstraintTrack[]),
+        ...finalCandidatePool,
+        ...clusterCuration.candidates,
+        ...likedSongs,
+      ];
+      const underfillCandidates = expandedUnderfillPool
+        .map(toUnderfillCandidate)
+        .filter((track) => {
+          if (seenUnderfillCandidateIds.has(track.trackId)) return false;
+          seenUnderfillCandidateIds.add(track.trackId);
+          return true;
+        })
+        .filter((track) => {
+          if (!stackedConstraintLockActive) return true;
+          if (!finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)) return false;
+          if (!finalTrackMatchesExplicitEra(track, lockedIntent)) return false;
+          return true;
+        });
+      const recovered = finalizePlaylistTracks<ConstraintTrack>({
+        initial: finalTracks as ConstraintTrack[],
+        candidates: underfillCandidates,
+        requestedLength: length,
+        vibe,
+        intent: lockedIntent,
+        constraints: constraintLayer,
+        allowHolidaySeason,
+        classMap: userGenreProfile.trackClassifications,
+        maxPerArtist,
+        trackReusePenalty: finalizationReusePenalty,
+        artistReusePenalty: finalizationArtistReusePenalty,
+      });
+      if (recovered.tracks.length > finalTracks.length) {
+        finalTracks = recovered.tracks as PlaylistTrack[];
+        finalization = {
+          tracks: finalTracks,
+          diagnostics: {
+            ...finalization.diagnostics,
+            ...recovered.diagnostics,
+            underfillRecoveryApplied: true,
+            stackedConstraintLockActive,
+            candidateCount: underfillCandidates.length,
+            underfillRecoveryExpandedPoolSize: expandedUnderfillPool.length,
+          },
+        };
+        finalizationTimeMs += Date.now() - underfillStartedAt;
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+        publishPartialTracks(finalTracks, 5);
+      }
+    }
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const endEvidenceGuardProfile = liveStageProfiler.start("controller.evidenceAndRecoveryGuards", `${finalization.tracks.length}/${length} finalized tracks`);
     const minBestAvailableCount = Math.min(length, Math.max(5, Math.ceil(length * 0.40)));
@@ -5811,7 +5922,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       selectedClusterId: clusterCuration.diagnostics.selectedCluster,
       secondaryCluster: clusterCuration.diagnostics.secondaryClusterLabel,
       secondaryClusterId: clusterCuration.diagnostics.secondaryCluster,
-      clusterConfidence: clusterCuration.diagnostics.clusterConfidence,
+      clusterConfidence: Math.max(
+        clusterCuration.diagnostics.clusterConfidence,
+        parsedCsspIntent.sceneIntent?.sceneConfidence ?? 0,
+      ),
+      sceneConfidence: parsedCsspIntent.sceneIntent?.sceneConfidence ?? null,
+      sceneConfidenceSource: parsedCsspIntent.sceneIntent ? "v3_locked_intent" : "unavailable",
       fallbackCandidatePercent: clusterCuration.diagnostics.fallbackCandidatePercent,
       humanCoherenceScore: humanCoherence.score,
       humanCoherenceComponents: humanCoherence.components,

@@ -165,9 +165,75 @@ function hasSharedClusterFamily(
   return primaryFamily(a) === primaryFamily(b);
 }
 
+function tracksAreNearIdentical(
+  a: InterleavedTrack<ScorerTrack>,
+  b: InterleavedTrack<ScorerTrack>,
+): boolean {
+  return Math.abs((a.energy ?? 0.5) - (b.energy ?? 0.5)) < 0.08 &&
+    Math.abs(intensityOf(a) - intensityOf(b)) < 0.08 &&
+    subclusterOf(a) === subclusterOf(b);
+}
+
+function recentWindowIsFlat(recentTracks: ReadonlyArray<InterleavedTrack<ScorerTrack>>): boolean {
+  if (recentTracks.length < 3) return false;
+  const energies = recentTracks.map((track) => track.energy ?? 0.5);
+  const intensity = recentTracks.map(intensityOf);
+  const sameFamily = new Set(recentTracks.map(primaryFamily)).size === 1;
+  return sameFamily &&
+    Math.max(...energies) - Math.min(...energies) < 0.12 &&
+    Math.max(...intensity) - Math.min(...intensity) < 0.12;
+}
+
+function djIntentBoost(
+  candidate: InterleavedTrack<ScorerTrack>,
+  previous: InterleavedTrack<ScorerTrack> | null,
+  recentTracks: ReadonlyArray<InterleavedTrack<ScorerTrack>>,
+  position: number,
+  total: number,
+): number {
+  const section = sectionAt(position, total);
+  const intensity = intensityOf(candidate);
+  let boost = 1.0;
+
+  if (section === "intro" && intensity >= 0.30 && intensity <= 0.58) boost += 0.08;
+  if (section === "build" && intensity >= 0.44 && intensity <= 0.72) boost += 0.06;
+  if (section === "peak" && intensity >= 0.68) boost += 0.10;
+  if (section === "release" && intensity >= 0.34 && intensity <= 0.62) boost += 0.08;
+
+  if (previous) {
+    const energyJump = Math.abs((candidate.energy ?? 0.5) - (previous.energy ?? 0.5));
+    const intensityJump = Math.abs(intensity - intensityOf(previous));
+    const nearbyFamily = hasSharedClusterFamily(candidate, previous);
+    const nearIdentical = tracksAreNearIdentical(candidate, previous);
+    if (nearbyFamily && energyJump >= 0.08 && energyJump <= 0.28) boost += 0.06;
+    if (nearbyFamily && intensityJump >= 0.06 && intensityJump <= 0.24) boost += 0.04;
+    if (nearIdentical) boost -= 0.12;
+    if (!nearbyFamily && energyJump > 0.38) boost -= 0.12;
+  }
+
+  if (recentWindowIsFlat(recentTracks) && previous && hasSharedClusterFamily(candidate, previous) && !tracksAreNearIdentical(candidate, previous)) {
+    boost += 0.09;
+  }
+
+  return Math.max(0.78, Math.min(1.14, boost));
+}
+
+function intentionalArtistRepeat(
+  candidate: InterleavedTrack<ScorerTrack>,
+  previous: InterleavedTrack<ScorerTrack> | null,
+): boolean {
+  if (!previous || candidate.artistName !== previous.artistName) return false;
+  const energyJump = Math.abs((candidate.energy ?? 0.5) - (previous.energy ?? 0.5));
+  return candidate.laneScore >= 0.82 &&
+    previous.laneScore >= 0.78 &&
+    hasSharedClusterFamily(candidate, previous) &&
+    energyJump <= 0.22;
+}
+
 function transitionCost(
   candidate: InterleavedTrack<ScorerTrack>,
   previous: InterleavedTrack<ScorerTrack> | null,
+  recentTracks: ReadonlyArray<InterleavedTrack<ScorerTrack>>,
   recentlyUsedArtists: ReadonlySet<string>,
   recentFamilies: ReadonlySet<string>,
   sectionSubclusters: ReadonlySet<string>,
@@ -199,6 +265,7 @@ function transitionCost(
     const energyJump = Math.abs(candidateEnergy - (previous.energy ?? 0.5));
     const intensityJump = Math.abs(intensityOf(candidate) - intensityOf(previous));
     const sameArtist = candidate.artistName === previous.artistName;
+    const intentionalRepeat = intentionalArtistRepeat(candidate, previous);
     const nearbyFamily = hasSharedClusterFamily(candidate, previous);
     const sameEnergyBand =
       clusterValue(candidate, "energy:") !== null &&
@@ -213,9 +280,10 @@ function transitionCost(
     cost += energyLevel(candidate) - energyLevel(previous) > 1 ? 2.0 : 0;
     cost += Math.max(0, intensityJump - 0.22) * 1.0;
     cost += harshGenreCollision ? 0.45 : nearbyFamily ? -0.03 : 0.06;
-    cost += sameEnergyBand ? -0.025 : 0;
-    cost += sameMoodCluster ? -0.025 : 0;
-    cost += sameArtist ? 4.0 : 0;
+  cost += sameEnergyBand ? -0.015 : 0;
+  cost += sameMoodCluster ? -0.015 : 0;
+  cost += tracksAreNearIdentical(candidate, previous) ? 0.34 : 0;
+  cost += sameArtist ? (intentionalRepeat ? 0.85 : 4.0) : 0;
   }
 
   if (recentlyUsedArtists.has(candidate.artistName)) {
@@ -232,7 +300,7 @@ function transitionCost(
   }
 
   // Keep the sampler/interleaver character visible; ordering should shape, not dominate.
-  return cost + originalOffset * 0.018;
+  return ((cost + originalOffset * 0.018) / djIntentBoost(candidate, previous, recentTracks, position, total));
 }
 
 function anchorPositions(total: number): Partial<Record<ArcSection, number>> {
@@ -342,6 +410,7 @@ export function orderTracksForEmotionalFlow<T extends ScorerTrack>(
       }
       if (
         previous?.artistName === candidate.artistName &&
+        !intentionalArtistRepeat(candidate, previous) &&
         hasUsableAlternative(remaining, candidate.trackId, (track) => track.artistName !== previous.artistName)
       ) {
         continue;
@@ -356,6 +425,7 @@ export function orderTracksForEmotionalFlow<T extends ScorerTrack>(
       const cost = transitionCost(
         candidate,
         previous,
+        ordered.slice(-4),
         recentlyUsedArtists,
         recentFamilies,
         usedSubclusters,
