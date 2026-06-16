@@ -88,6 +88,46 @@ interface SemanticAnchor {
   narrativeType: SemanticInterpretation["narrativeType"];
 }
 
+const FRAGMENT_NORMALIZATIONS: Array<[RegExp, string]> = [
+  [/\bnite\b/gi, "night"],
+  [/\bdriv(?:e|ing|in)?\b/gi, "driving"],
+  [/\btekk\b/gi, "hard techno"],
+  [/\bravey\b/gi, "rave"],
+  [/\bvibey\b/gi, "vibey atmospheric"],
+  [/\blofi\b/gi, "lo-fi"],
+  [/\bmates\b/gi, "friends"],
+  [/\bfix(?:ing)?\s+cars?\b/gi, "working on cars in a garage"],
+  [/\bmotorway\b/gi, "highway motorway"],
+];
+
+const EMOJI_HINTS: Array<[RegExp, string]> = [
+  [/[\u{1F697}\u{1F699}\u{1F6E3}]/gu, " driving road"],
+  [/[\u{1F327}\u{2614}]/gu, " rainy reflective"],
+  [/[\u{1F319}\u{1F31A}\u{1F303}\u{1F307}]/gu, " late night"],
+  [/[\u{1F525}\u{26A1}]/gu, " intense high energy"],
+  [/[\u{1F622}\u{1F62D}\u{1F494}]/gu, " sad heartbreak"],
+  [/[\u{1F60E}\u{1F31F}]/gu, " cool bright confident"],
+  [/[\u{1F3CB}\u{1F4AA}]/gu, " gym workout"],
+  [/[\u{1F6E0}\u{1F527}\u{1F529}]/gu, " workshop garage fixing cars"],
+];
+
+function normalizeHumanPromptFragments(vibe: string): string {
+  let normalized = vibe;
+  for (const [pattern, replacement] of EMOJI_HINTS) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+  for (const [pattern, replacement] of FRAGMENT_NORMALIZATIONS) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+  if (/\bbut\s+not\s+boring\b/i.test(normalized)) {
+    normalized += " steady engaging not sleepy";
+  }
+  if (/\b(?:garage|workshop).{0,40}\bfriends\b/i.test(normalized)) {
+    normalized += " social workshop focused";
+  }
+  return normalized;
+}
+
 // ─── SEMANTIC ANCHOR BANK ─────────────────────────────────────────────────────
 
 const SEMANTIC_ANCHORS: SemanticAnchor[] = [
@@ -317,6 +357,19 @@ const SEMANTIC_ANCHORS: SemanticAnchor[] = [
     emotionVector: { energy: 0.45, valence: 0.45, tension: 0.22, nostalgia: 0.08, calm: 0.6 },
     sceneContext: { environment: "indoor" },
     aestheticTags: ["lo-fi", "ambient", "electronic", "post-rock", "classical"],
+    narrativeType: "activity",
+  },
+
+  // ── GARAGE / WORKSHOP SOCIAL FOCUS ─────────────────────────────────────────
+  {
+    id: "garage_workshop_mates",
+    label: "Garage Workshop — Social Focus",
+    terms: ["garage", "workshop", "cars", "volvo", "tools", "fixing", "wrench", "mates", "friends", "sunday"],
+    phrases: ["fixing cars", "working on cars", "garage with friends", "garage with mates", "cold garage", "working on my car", "fixing my volvo"],
+    structuralBoost: { hasNarrative: true },
+    emotionVector: { energy: 0.48, valence: 0.58, tension: 0.18, nostalgia: 0.35, calm: 0.42 },
+    sceneContext: { environment: "indoor" },
+    aestheticTags: ["classic rock", "indie rock", "garage rock", "britpop", "americana", "post-punk"],
     narrativeType: "activity",
   },
 
@@ -573,7 +626,7 @@ function analyzeStructure(text: string): StructuralAnalysis {
   else if (/\bcity\b|\burban\b|\bstreets?\b|\bdowntown\b/i.test(text)) placeAnchor = "city";
   else if (/\bbeach\b|\bocean\b|\bsea\b|\bcoast\b/i.test(text)) placeAnchor = "coastal";
   else if (/\bforest\b|\bwoods\b|\bnature\b|\bmountain\b/i.test(text)) placeAnchor = "nature";
-  else if (/\bhome\b|\bbedroom\b|\broom\b|\bhouse\b/i.test(text)) placeAnchor = "indoor";
+  else if (/\bhome\b|\bbedroom\b|\broom\b|\bhouse\b|\bgarage\b|\bworkshop\b/i.test(text)) placeAnchor = "indoor";
 
   // Person state
   let personState: string | null = null;
@@ -629,12 +682,13 @@ function scoreAnchor(anchor: SemanticAnchor, text: string, structural: Structura
 // ─── MAIN INTERPRETER ─────────────────────────────────────────────────────────
 
 export function interpretSemantics(vibe: string): SemanticInterpretation {
-  const structural = analyzeStructure(vibe);
+  const interpretedVibe = normalizeHumanPromptFragments(vibe);
+  const structural = analyzeStructure(interpretedVibe);
 
   // Score all anchors
   const scored = SEMANTIC_ANCHORS.map((anchor) => ({
     anchor,
-    score: scoreAnchor(anchor, vibe, structural),
+    score: scoreAnchor(anchor, interpretedVibe, structural),
   })).sort((a, b) => b.score - a.score);
 
   const best = scored[0];

@@ -320,6 +320,24 @@ function promptTokens(input: string): string[] {
   return input.toLowerCase().match(/[a-z0-9']+/g) ?? [];
 }
 
+function normalizePromptFragments(input: string): string {
+  return input
+    .replace(/[\u{1F697}\u{1F699}\u{1F6E3}]/gu, " driving road ")
+    .replace(/[\u{1F327}\u{2614}]/gu, " rainy ")
+    .replace(/[\u{1F319}\u{1F31A}\u{1F303}\u{1F307}]/gu, " late night ")
+    .replace(/[\u{1F525}\u{26A1}]/gu, " hard intense ")
+    .replace(/[\u{1F622}\u{1F62D}\u{1F494}]/gu, " sad heartbreak ")
+    .replace(/[\u{1F3CB}\u{1F4AA}]/gu, " gym workout ")
+    .replace(/[\u{1F6E0}\u{1F527}\u{1F529}]/gu, " garage fixing cars ")
+    .replace(/\bnite\b/gi, "night")
+    .replace(/\bdriv(?:e|ing|in)?\b/gi, "driving")
+    .replace(/\btekk\b/gi, "hard techno")
+    .replace(/\bravey\b/gi, "rave")
+    .replace(/\bvibey\b/gi, "vibey atmospheric")
+    .replace(/\blofi\b/gi, "lo-fi")
+    .replace(/\bmates\b/gi, "friends");
+}
+
 function hasExplicitEraText(input: string): boolean {
   return /\b(?:early|mid|late|post)?\s*(?:60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|19\d0'?s|20\d0'?s|19\d{2}|20\d{2})\b/i.test(input) ||
     /\b(19\d{2}|20\d{2})\s*(?:-|to|through|until)\s*(19\d{2}|20\d{2})\b/i.test(input);
@@ -731,9 +749,12 @@ const TOKEN_CONTRIBUTIONS: Array<{ pattern: RegExp; weight: number; vector: Part
   { pattern: /\b(existential crisis|existential|crisis|spiral|overthinking|thinking about everything)\b/, weight: 1.0, vector: { tension: 0.52, introspection: 0.52, valence: -0.32, clarity: -0.26, darkness: 0.24 } },
   { pattern: /\b(garage|workshop|welding|under the hood|fixing (?:my )?(?:car|cars|volvo)|working on (?:my )?(?:car|cars|motorcycles|motorbikes))\b/, weight: 1.0, vector: { clarity: 0.36, motion: 0.18, energy: 0.08, socialness: 0.02 } },
   { pattern: /\b(friends?|mates?|hanging out|talking rubbish|saturday night)\b/, weight: 1.0, vector: { socialness: 0.48, energy: 0.16, valence: 0.16, introspection: -0.18 } },
-  { pattern: /\b(drive|driving|road|highway|dirt.?road|cruise|car)\b/, weight: 1.0, vector: { motion: 0.58, energy: 0.12, introspection: 0.12, clarity: 0.06 } },
+  { pattern: /\b(drive|driving|road|highway|motorway|dirt.?road|cruise|car)\b/, weight: 1.0, vector: { motion: 0.58, energy: 0.12, introspection: 0.12, clarity: 0.06 } },
   { pattern: /\b(nowhere|aimless|no destination|don't need to be|dont need to be)\b/, weight: 1.0, vector: { motion: 0.26, introspection: 0.42, tension: 0.18, clarity: -0.20, socialness: -0.12 } },
   { pattern: /\b(rain|rainy|storm|thunder|wet road|drizzle)\b/, weight: 1.0, vector: { introspection: 0.28, darkness: 0.26, tension: 0.14, warmth: -0.12, valence: -0.10 } },
+  { pattern: /\b(lo-fi|lofi).{0,24}\b(?:not boring|engaging|interesting)\b|\b(?:not boring|engaging|interesting).{0,24}\b(lo-fi|lofi)\b/, weight: 1.0, vector: { clarity: 0.22, energy: 0.12, tension: -0.08, socialness: -0.08 } },
+  { pattern: /\b(cold garage|garage.{0,24}sunday|sunday.{0,24}garage)\b/, weight: 1.0, vector: { nostalgia: 0.24, warmth: -0.10, clarity: 0.22, socialness: 0.18 } },
+  { pattern: /\b(motorway|highway).{0,24}\b(rain|rainy)|\b(rain|rainy).{0,24}\b(motorway|highway)\b/, weight: 1.0, vector: { motion: 0.46, introspection: 0.34, darkness: 0.28, tension: 0.12, socialness: -0.16 } },
   { pattern: /\b(memory|memories|nostalg|remember|throwback|old photos?)\b/, weight: 1.0, vector: { nostalgia: 0.62, introspection: 0.32, warmth: 0.20, valence: -0.06 } },
   { pattern: /\b(cleaning|clean room|bedroom|room|laundry)\b/, weight: 0.9, vector: { clarity: 0.26, introspection: 0.24, motion: 0.12, socialness: -0.14 } },
   { pattern: /\b(first warm day|after winter|spring|sun comes back|golden|sunrise)\b/, weight: 1.0, vector: { warmth: 0.58, valence: 0.38, energy: 0.18, darkness: -0.28, clarity: 0.20 } },
@@ -995,6 +1016,19 @@ function latentToContextWorld(sceneVector: SceneLatentVector): SceneIntent["cont
   };
 }
 
+function refineContextWorldFromPrompt(input: string, context: SceneIntent["contextWorld"]): SceneIntent["contextWorld"] {
+  if (/\b(garage|workshop|fixing (?:my )?(?:car|cars|volvo)|working on (?:my )?(?:car|cars))\b/.test(input)) {
+    return { ...context, physical: "work", motion: "static" };
+  }
+  if (/\b(mates?|friends?|house party|pub|club|rave)\b/.test(input) && context.physical !== "car") {
+    return { ...context, physical: "social" };
+  }
+  if (/\b(motorway|highway|drive|driving|cruise|car)\b/.test(input)) {
+    return { ...context, physical: "car", motion: "driving" };
+  }
+  return context;
+}
+
 function latentToIntentDriver(sceneVector: SceneLatentVector): SceneIntent["intentDriver"] {
   if (sceneVector.clarity > 0.72) return "focus";
   if (sceneVector.energy > 0.72 && sceneVector.socialness > 0.45) return "energy";
@@ -1098,7 +1132,7 @@ function buildSceneIntent(
         { vector: BALANCED_LATENT_CENTROID, weight: 0.30 },
       ])
     : recenteredVector;
-  const contextWorld = latentToContextWorld(sceneVector);
+  const contextWorld = refineContextWorldFromPrompt(input, latentToContextWorld(sceneVector));
   const intentDriver = latentToIntentDriver(sceneVector);
   const momentType = nearestPrototype(sceneVector);
   const emotionVector = latentToEmotionVector(sceneVector);
@@ -1291,7 +1325,7 @@ export function completeLockedIntent(
 }
 
 export function buildLockedIntent(input: string): LockedIntent {
-  const lower = input.toLowerCase();
+  const lower = normalizePromptFragments(input).toLowerCase();
   const rawSubgenreIntent = parseSubgenreIntent(lower);
   const humanHints = humanPhraseIntentHints(lower);
   const rawGenreFamilies = uniqueGenreFamilies([

@@ -275,6 +275,43 @@ function summaryMarkdown(report: EvaluationReportPayload): string {
     `Cache: ${report.spotifyApiMetrics.cacheHitPercent}% hit, ${report.spotifyApiMetrics.cacheMissPercent}% miss`,
     `Generation time: avg ${report.spotifyApiMetrics.averageGenerationTimeMs}ms, p95 ${report.spotifyApiMetrics.p95GenerationTimeMs}ms`,
     "",
+    "## Production Stability Lock",
+    `- Regression risk level: ${summary.stabilityStatus.regressionRiskLevel}`,
+    `- Safe to tune further: ${summary.stabilityStatus.safeToTuneFurther}`,
+    `- Active risks: ${summary.stabilityStatus.activeRisks.length}`,
+    ...summary.stabilityStatus.activeRisks.map((risk) => `- ${risk.severity.toUpperCase()} ${risk.rule}: ${risk.evidence}`),
+    "",
+    "## Locked Behaviour Contract",
+    ...summary.stabilityStatus.lockedBehaviours.map((behaviour) => `- ${behaviour}`),
+    "",
+    "## Launch Readiness Score",
+    `- Overall quality: ${pct(summary.launchReadiness.overallQualityScore)}`,
+    `- Prompt coverage: ${pct(summary.launchReadiness.promptCoverageScore)}`,
+    `- Human realism: ${pct(summary.launchReadiness.humanRealismScore)}`,
+    `- Scene accuracy: ${pct(summary.launchReadiness.sceneAccuracyScore)}`,
+    `- Era accuracy: ${pct(summary.launchReadiness.eraAccuracyScore)}`,
+    `- Emotional accuracy: ${pct(summary.launchReadiness.emotionalAccuracyScore)}`,
+    `- Transition quality: ${pct(summary.launchReadiness.transitionQualityScore)}`,
+    `- Launch readiness: ${pct(summary.launchReadiness.launchReadinessScore)}`,
+    "",
+    "## Quality Failure Dataset",
+    ...summary.qualityFailureDataset.map((row) => `- ${row.category}: ${row.frequency} examples, severity ${pct(row.severity)}${row.examples[0] ? `; example ${row.examples[0].promptId} — ${row.examples[0].evidence}` : ""}`),
+    "",
+    "## Quality Calibration Contributions",
+    ...summary.qualityCalibration.map((row) => `- ${row.system}: contribution ${pct(row.measurableContribution)}; ${row.positiveEvidence.join(" ") || "No positive evidence."}${row.negativeEvidence.length ? ` Risk: ${row.negativeEvidence.join(" ")}` : ""}`),
+    "",
+    "## Worst Transition Quality",
+    ...summary.transitionQualityReports.slice(0, 20).map((row) => `- ${row.promptId}: ${pct(row.transitionQuality)} transition quality, ${row.harshTransitionCount} harsh transitions, avg energy jump ${row.averageEnergyJump}, avg valence jump ${row.averageValenceJump}`),
+    "",
+    "## Prompt Confidence Collapses",
+    ...summary.promptUnderstandingConfidence
+      .filter((row) => row.collapsedDimensions.length > 0)
+      .slice(0, 30)
+      .map((row) => `- ${row.promptId}: ${row.collapsedDimensions.join(", ")} collapsed; intent ${pct(row.intentConfidence)}, scene ${pct(row.sceneConfidence)}, emotion ${pct(row.emotionConfidence)}, era ${pct(row.eraConfidence)}, activity ${pct(row.activityConfidence)}`),
+    "",
+    "## Top Remaining Improvements",
+    ...summary.topRemainingImprovements.map((row) => `${row.rank}. ${row.improvement}: ROI ${row.estimatedROI}, frequency ${row.frequency}. Evidence: ${row.evidence}`),
+    "",
     "## Benchmark Size Reports",
     ...report.benchmarkSizeReports.map((row) => `- ${row.benchmarkSize} playlists: runtime ${Math.round(row.runtimeMs / 1000)}s, Spotify requests ${row.totalSpotifyRequests}, ${row.requestsPerPlaylist}/playlist, cache ${row.cacheHitPercent}% hit, failures ${row.failures}, retries ${row.retries}, rate limits ${row.rateLimitEvents}`),
     "",
@@ -342,6 +379,13 @@ export async function writeEvaluationReports(input: {
   await mkdir(input.outDir, { recursive: true });
   await writeFile(path.join(input.outDir, "evaluation-report.json"), JSON.stringify(report, null, 2));
   await writeFile(path.join(input.outDir, "failure-modes.json"), JSON.stringify(summary.failureModes, null, 2));
+  await writeFile(path.join(input.outDir, "quality-failure-dataset.json"), JSON.stringify(summary.qualityFailureDataset, null, 2));
+  await writeFile(path.join(input.outDir, "prompt-confidence.json"), JSON.stringify(summary.promptUnderstandingConfidence, null, 2));
+  await writeFile(path.join(input.outDir, "transition-quality.json"), JSON.stringify(summary.transitionQualityReports, null, 2));
+  await writeFile(path.join(input.outDir, "launch-readiness.json"), JSON.stringify(summary.launchReadiness, null, 2));
+  await writeFile(path.join(input.outDir, "stability-status.json"), JSON.stringify(summary.stabilityStatus, null, 2));
+  await writeFile(path.join(input.outDir, "quality-calibration.json"), JSON.stringify(summary.qualityCalibration, null, 2));
+  await writeFile(path.join(input.outDir, "top-remaining-improvements.json"), JSON.stringify(summary.topRemainingImprovements, null, 2));
   await writeFile(path.join(input.outDir, "top-50-best-playlists.md"), [
     "# Top 50 Best Playlists",
     "",

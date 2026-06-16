@@ -68,11 +68,27 @@ function evictOldestIfNeeded(): void {
   }
 }
 
-function isCompleteSnapshot(snapshot: SessionSnapshot): boolean {
-  return Array.isArray(snapshot.likedSongs) &&
-    Array.isArray(snapshot.recentPlaylists) &&
-    snapshot.feedbackMemory !== undefined &&
-    snapshot.feedbackMemory !== null;
+function isCompleteSnapshot(snapshot: unknown): snapshot is SessionSnapshot {
+  if (!snapshot || typeof snapshot !== "object") return false;
+  const candidate = snapshot as Partial<SessionSnapshot>;
+  return candidate.version === "sessionSnapshotV1" &&
+    typeof candidate.userId === "string" &&
+    typeof candidate.sessionId === "string" &&
+    typeof candidate.updatedAt === "number" &&
+    Array.isArray(candidate.likedSongs) &&
+    Array.isArray(candidate.recentPlaylists) &&
+    candidate.feedbackMemory !== undefined &&
+    candidate.feedbackMemory !== null;
+}
+
+function cloneSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow = unknown, TFeedbackMemory = unknown>(
+  snapshot: SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory>,
+): SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory> {
+  return {
+    ...snapshot,
+    likedSongs: [...snapshot.likedSongs],
+    recentPlaylists: [...snapshot.recentPlaylists],
+  };
 }
 
 export function getSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow = unknown, TFeedbackMemory = unknown>(
@@ -99,7 +115,7 @@ export function getSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow 
     return null;
   }
   stats.hits += 1;
-  return entry.snapshot as SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory>;
+  return cloneSnapshot(entry.snapshot as SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory>);
 }
 
 export function mergeSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow = unknown, TFeedbackMemory = unknown>(
@@ -117,13 +133,13 @@ export function mergeSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRo
     feedbackMemory: snapshotData.feedbackMemory,
     updatedAt: Date.now(),
   };
-  if (!isCompleteSnapshot(snapshot as SessionSnapshot)) {
+  if (!isCompleteSnapshot(snapshot)) {
     stats.partialSnapshots += 1;
     console.warn("PARTIAL_SNAPSHOT_DETECTED", { userId, sessionId });
     throw new Error("PARTIAL_SNAPSHOT_DETECTED");
   }
   snapshots.set(key, {
-    snapshot: snapshot as SessionSnapshot,
+    snapshot: cloneSnapshot(snapshot) as SessionSnapshot,
     expiresAt: Date.now() + ttlMs(),
   });
   stats.writes += 1;

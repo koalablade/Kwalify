@@ -68,6 +68,7 @@ export interface PostScoreModifierInput<T extends { trackId: string; artistName:
   };
   vibe: string;
   feedbackMemory?: FeedbackMemory | null;
+  curatorScoreByTrack?: Map<string, number>;
 }
 
 export function applyPostScoreModifiers<T extends {
@@ -145,6 +146,10 @@ export function applyPostScoreModifiers<T extends {
     if (typeof enriched.popularity === "number") {
       const popularityBalance = 1 - Math.abs(enriched.popularity - 58) / 100;
       score += Math.max(0, popularityBalance) * 0.035;
+    }
+    const curatorScore = input.curatorScoreByTrack?.get(song.trackId);
+    if (typeof curatorScore === "number") {
+      score += Math.max(-0.35, Math.min(0.35, curatorScore - 0.5));
     }
     const era = promptEraYear(input.vibe);
     if (era && trackHasEraEvidence(enriched, era)) {

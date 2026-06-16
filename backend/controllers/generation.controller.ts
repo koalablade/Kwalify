@@ -122,6 +122,7 @@ import { buildFeedbackDiagnostics, getFeedbackMemory, type FeedbackMemory } from
 import {
   buildCuratorIdentity,
   buildIdentityDebugView,
+  scoreTrackForIdentity,
   type CuratorIdentity,
   type IdentitySessionMemory,
 } from "../lib/curator-identity";
@@ -831,7 +832,7 @@ function generateFail(
 }
 
 function fallbackLevelFromFinalization(
-  diagnostics: Record<string, number | boolean | string | null>
+  diagnostics: Record<string, unknown>
 ): "none" | "soft" | "hardSafe" {
   const requestedLength = Number(diagnostics["requestedLength"] ?? 0);
   const finalCount = Number(diagnostics["finalCount"] ?? 0);
@@ -2541,6 +2542,37 @@ function humanCoherenceScore<T extends ConstraintTrack>(
     },
     reasons,
   };
+}
+
+function repairHumanCoherenceOrder<T extends ConstraintTrack>(
+  tracks: T[],
+  identity: CuratorIdentity
+): { tracks: T[]; beforeScore: number; afterScore: number; repaired: boolean } {
+  const before = humanCoherenceScore(tracks, identity);
+  if (tracks.length < 4 || before.score >= 0.56) {
+    return { tracks, beforeScore: before.score, afterScore: before.score, repaired: false };
+  }
+
+  const remaining = [...tracks];
+  const ordered: T[] = [remaining.shift()!];
+  while (remaining.length > 0) {
+    const previous = ordered[ordered.length - 1]!;
+    const nextIndex = remaining
+      .map((track, index) => ({
+        index,
+        transitionCost:
+          Math.abs((previous.energy ?? 0.5) - (track.energy ?? 0.5)) +
+          Math.abs((previous.valence ?? 0.5) - (track.valence ?? 0.5)) * 0.8,
+      }))
+      .sort((a, b) => a.transitionCost - b.transitionCost)[0]?.index ?? 0;
+    ordered.push(remaining.splice(nextIndex, 1)[0]!);
+  }
+
+  const after = humanCoherenceScore(ordered, identity);
+  if (after.score <= before.score || !trackListChanged(tracks, ordered)) {
+    return { tracks, beforeScore: before.score, afterScore: after.score, repaired: false };
+  }
+  return { tracks: ordered, beforeScore: before.score, afterScore: after.score, repaired: true };
 }
 
 function trackListChanged<T extends { trackId: string }>(before: T[], after: T[]): boolean {
@@ -4374,37 +4406,16 @@ router.post("/generate", async (req, res): Promise<void> => {
           },
           "Generation complete"
         );
-        let cachedSavedPlaylistId: number | null = null;
-        try {
-          const [saved] = await db
-            .insert(savedPlaylistsTable)
-            .values({
-              userId,
-              name: cached.playlistName,
-              emotionProfile: cached.emotionProfile as any,
-              tracks: cached.finalTracks as any,
-              spotifyUrl: cached.spotifyPlaylistUrl,
-              vibe: cached.vibe,
-              mode: cached.mode,
-            })
-            .returning({ id: savedPlaylistsTable.id });
-          cachedSavedPlaylistId = saved?.id ?? null;
-          if (cachedSavedPlaylistId) {
-            await db.insert(playlistHistoryTable).values({
-              spotifyUserId: userId,
-              playlistId: cached.spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${cachedSavedPlaylistId}`,
-              playlistUrl: cached.spotifyPlaylistUrl ?? publicUrl(`/p/${cachedSavedPlaylistId}`),
-              name: cached.playlistName,
-              vibe: cached.vibe,
-              mode: cached.mode,
-              trackCount: cachedApiTracks.length,
-              emotionProfile: cached.emotionProfile as any,
-              trackIds: cached.finalTracks.map((track) => track.trackId),
-            });
-          }
-        } catch (cacheSaveErr) {
-          req.log.warn({ err: cacheSaveErr, userId }, "Cached generation could not create local saved playlist");
+        const cachedSavedPlaylistId: number | null = null;
+        if (!recordExecutionStage(executionHealth, req.log, "finalOutputAssembly", "controller.cachedResultAssembly", {
+          cause: "CONTROLLER_PIPELINE_CONFLICT",
+          blockDuplicate: true,
+        })) {
+          generateFail(res, 500, "DUPLICATE_EXECUTION_DETECTED", "Generation attempted duplicate final output assembly.");
+          return;
         }
+        executionHealth.hydrationCount = dbHydrationOccurred ? 1 : 0;
+        executionHealth.finalisationCount += 1;
         const cachedExecutionHealth = finaliseExecutionHealth(executionHealth, Date.now() - startMs);
         res.json({
           success: true,
@@ -4435,7 +4446,8 @@ router.post("/generate", async (req, res): Promise<void> => {
             ...(cached.generationDiagnostics ?? {}),
             cacheDbActivity: {
               hydrationDbRead: dbHydrationOccurred,
-              cachedResultSideEffectWrites: cachedSavedPlaylistId ? 2 : 0,
+              cachedResultSideEffectWrites: 0,
+              cacheHitWritesSuppressed: true,
             },
             executionHealth: cachedExecutionHealth,
           },
@@ -4880,6 +4892,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       intent: lockedIntent,
       emotionProfile,
     });
+    const curatorScoreByTrack = new Map<string, number>();
+    for (const track of likedSongs) {
+      curatorScoreByTrack.set(track.trackId, scoreTrackForIdentity(track, curatorIdentity));
+    }
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
       dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
@@ -5061,6 +5077,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           globalCloneMultiplier: freshnessCloneMultiplier,
         },
         vibe: pipelineVibe,
+        curatorScoreByTrack,
       },
       varietyPenaltyScale: recentTrackPenaltyScale,
       genrePost: {
@@ -5535,7 +5552,26 @@ router.post("/generate", async (req, res): Promise<void> => {
     let humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
     endHumanCoherenceScoreProfile();
     let humanCoherenceRepairUsed = false;
+    let humanCoherenceRepairDiagnostics: Record<string, unknown> = {
+      executed: false,
+      repaired: false,
+      beforeScore: humanCoherence.score,
+      afterScore: humanCoherence.score,
+    };
     if (finalTracks.length > 0 && humanCoherence.score < 0.56) {
+      const repairedCoherence = repairHumanCoherenceOrder(finalTracks, curatorIdentity);
+      humanCoherenceRepairDiagnostics = {
+        executed: true,
+        repaired: repairedCoherence.repaired,
+        beforeScore: repairedCoherence.beforeScore,
+        afterScore: repairedCoherence.afterScore,
+      };
+      if (repairedCoherence.repaired) {
+        finalTracks = repairedCoherence.tracks;
+        humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
+        humanCoherenceRepairUsed = true;
+        executionHealth.repairPassCount += 1;
+      }
       if (humanCoherence.score < 0.46 && finalTracks.length < minBestAvailableCount) {
         evidenceRelaxations.push("human_coherence_low_best_available");
       }
@@ -5781,10 +5817,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       humanCoherenceComponents: humanCoherence.components,
       humanCoherenceReasons: humanCoherence.reasons,
       humanCoherenceRepairUsed,
+      humanCoherenceRepair: humanCoherenceRepairDiagnostics,
       sessionHydrationShared,
       cacheDbActivity: {
         hydrationDbRead: dbHydrationOccurred,
-        cachedResultSideEffectWrites: false,
+        cachedResultSideEffectWrites: 0,
       },
       majorExclusions: [
         ...clusterCuration.diagnostics.majorExclusions,

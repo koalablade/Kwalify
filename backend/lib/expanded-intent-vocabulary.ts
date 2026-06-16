@@ -14,7 +14,10 @@ const COMMON_MISSPELLINGS: Record<string, string[]> = {
   morning: ["mornin", "mourning"],
   afternoon: ["arvo", "aftanoon"],
   evening: ["evenin"],
-  midnight: ["midnite"],
+  midnight: ["midnite", "nite"],
+  night: ["nite"],
+  driving: ["driv", "drivin"],
+  drive: ["driv"],
   motorway: ["motoway"],
   warehouse: ["wearhouse"],
   festival: ["fest", "festie", "festi"],
@@ -30,7 +33,7 @@ export const EXPANDED_GENRE_ALIASES: GenreAliasGroup[] = [
   { family: "country", terms: ["american country", "americana", "americarna", "red dirt", "red-dirt", "redirt", "cowboy", "bro country", "neo traditional country", "neotraditional country", "texas country", "oklahoma country", "red dirt country", "cowboy country", "country western", "western swing", "truck songs", "beer drinking country", "country rock", "country folk", "roots country", "appalachian", "old-time", "old time", "country gospel"] },
   { family: "hip_hop", terms: ["conscious rap", "gangsta rap", "southern rap", "atlanta rap", "miami bass", "crunk", "hyphy", "jerk rap", "cloud rap", "rage rap", "phonk", "uk drill", "ukdrill", "grime", "uk rap", "british rap", "london rap", "road rap", "afroswing", "afro swing", "jersey club rap", "pluggnb", "sample drill"] },
   { family: "rock", terms: ["garage rock", "surf rock", "psychedelic rock", "prog rock", "progressive rock", "southern rock", "heartland rock", "college rock", "post punk", "post-punk", "new wave", "no wave", "math rock", "noise rock", "art rock", "britpop", "brit pop", "lad rock", "madchester", "baggy", "shoegaze", "ska punk", "pop punk", "midwest emo", "slowcore", "dream pop"] },
-  { family: "electronic", terms: ["uk garage", "ukg", "2-step", "two step garage", "speed garage", "future garage", "bassline", "donk", "breakbeat", "breaks", "jungle", "dark jungle", "ragga jungle", "atmospheric jungle", "oldschool jungle", "old school jungle", "old skool jungle", "breakbeat hardcore", "idm", "glitch", "downtempo", "trip hop", "trip-hop", "chillout", "deep house", "tech house", "progressive house", "acid house", "electro", "electroclash", "minimal techno", "hard techno", "hardgroove", "hard groove", "schranz", "tekk", "tekno", "industrial techno", "warehouse techno", "warehouse rave", "rave techno", "hard trance", "90s trance", "nineties trance", "classic trance", "euro trance", "uplifting trance", "progressive trance", "goa trance", "psytrance", "acid trance", "dream trance", "driving trance", "dubstep", "old school dubstep", "oldschool dubstep", "old skool dubstep", "uk dubstep", "deep dubstep", "dubstep classics", "post-dubstep", "brostep", "bloghouse", "blog house", "electro bloghouse", "indie dance", "nu rave", "new rave", "ed banger", "blog era electro", "myspace electro", "french electro", "gabber", "hardstyle", "happy hardcore", "breakcore", "liquid dnb", "liquid drum and bass", "drum n bass", "drum'n'bass", "neurofunk", "footwork", "juke", "jersey club", "future bass", "wave", "vaporwave", "hyperpop", "pc music"] },
+  { family: "electronic", terms: ["uk garage", "ukg", "2-step", "two step garage", "speed garage", "future garage", "bassline", "donk", "breakbeat", "breaks", "jungle", "dark jungle", "ragga jungle", "atmospheric jungle", "oldschool jungle", "old school jungle", "old skool jungle", "breakbeat hardcore", "idm", "glitch", "downtempo", "trip hop", "trip-hop", "chillout", "deep house", "tech house", "progressive house", "acid house", "electro", "electroclash", "minimal techno", "hard techno", "hardgroove", "hard groove", "schranz", "tekk", "tekno", "techno", "industrial techno", "warehouse techno", "warehouse rave", "rave techno", "ravey", "ravey stuff", "old school ravey", "hard rave", "industrial rave", "driving techno", "driving tekk", "hard trance", "90s trance", "nineties trance", "classic trance", "euro trance", "uplifting trance", "progressive trance", "goa trance", "psytrance", "acid trance", "dream trance", "driving trance", "dubstep", "old school dubstep", "oldschool dubstep", "old skool dubstep", "uk dubstep", "deep dubstep", "dubstep classics", "post-dubstep", "brostep", "bloghouse", "blog house", "electro bloghouse", "indie dance", "nu rave", "new rave", "ed banger", "blog era electro", "myspace electro", "french electro", "gabber", "hardstyle", "happy hardcore", "breakcore", "liquid dnb", "liquid drum and bass", "drum n bass", "drum'n'bass", "neurofunk", "footwork", "juke", "jersey club", "future bass", "wave", "vaporwave", "hyperpop", "pc music"] },
   { family: "jazz", terms: ["cool jazz", "hard bop", "post bop", "modal jazz", "free jazz", "spiritual jazz", "jazz fusion", "acid jazz", "nu jazz", "gypsy jazz", "dixieland", "ragtime", "big band", "jazz funk"] },
   { family: "pop", terms: ["art pop", "baroque pop", "power pop", "dream pop", "bubblegum pop", "electropop", "hyperpop", "bedroom pop", "chamber pop", "jangle pop", "city pop", "japanese city pop", "tokyo city pop", "late night city pop", "80s city pop", "citypop", "city-pop", "mandopop", "cantopop", "j-pop", "jpop", "british pop", "britpop pop", "latin pop", "europop", "disco pop", "alt pop"] },
   { family: "folk", terms: ["indie folk", "freak folk", "psych folk", "folk rock", "anti folk", "americana folk", "protest folk", "british folk", "scottish folk", "welsh folk", "nordic folk", "sea shanty", "shanties"] },
@@ -52,7 +55,7 @@ export const EXPANDED_MOOD_TERMS: Record<string, string[]> = {
   warm: ["warm", "cozy", "cosy", "golden", "sunny", "happy", "winter", "snowy", "snow", "comforting", "comfort", "tender", "soft", "gentle", "glowing", "homey", "homely", "safe", "romantic", "sweet", "lovely", "wholesome"],
   introspective: ["introspective", "reflective", "thinking", "overthinking", "pensive", "contemplative", "diary", "private", "alone", "solitude", "existential", "spiral", "processing", "in my head", "head full", "over it"],
   nostalgic: ["nostalgic", "nostalgia", "throwback", "retro", "vintage", "old memories", "childhood", "teenage", "school days", "uni days", "sixth form", "remember", "reminiscent", "memory lane"],
-  energised: ["hype", "hyped", "happy", "upbeat", "energised", "energized", "adrenaline", "pump up", "pumped", "intense", "explosive", "fired up", "buzzing", "gassed", "party", "rave", "mosh", "gym", "workout"],
+  energised: ["hype", "hyped", "happy", "upbeat", "energised", "energized", "adrenaline", "pump up", "pumped", "intense", "explosive", "fired up", "buzzing", "gassed", "party", "rave", "ravey", "mosh", "gym", "workout", "hard", "vibey but hard"],
   calm: ["calm", "calmly", "peaceful", "serene", "relaxed", "sleepy", "sleep", "quiet", "still", "winter", "snowy", "snow", "meditative", "ambient", "floating", "drifting", "soft focus", "chilled", "chill", "chillout", "easy", "easygoing"],
   dark: ["dark", "gothic", "noir", "ominous", "haunting", "eerie", "shadowy", "brooding", "menacing", "sinister", "moody", "grim"],
   euphoric: ["euphoric", "ecstatic", "bliss", "joyful", "triumphant", "uplifting", "celebratory", "victorious", "hands in the air", "buzzing", "on top of the world"],
@@ -60,7 +63,7 @@ export const EXPANDED_MOOD_TERMS: Record<string, string[]> = {
 };
 
 export const EXPANDED_ACTIVITY_TERMS: Record<string, string[]> = {
-  driving: ["drive", "driving", "road trip", "highway", "motorway", "freeway", "cruise", "night drive", "dirt road", "backroads", "car ride", "m25", "a road", "b road"],
+  driving: ["drive", "driving", "driv", "drivin", "road trip", "highway", "motorway", "freeway", "cruise", "night drive", "nite drive", "late night motorway", "motorway in the rain", "dirt road", "backroads", "car ride", "m25", "a road", "b road"],
   workout: ["gym", "workout", "running", "run", "jogging", "lifting", "weights", "cardio", "sprint", "cycling", "boxing", "training", "five a side", "5 a side", "football training", "netball", "rugby training"],
   focus: ["study", "studying", "focus", "coding", "deep work", "writing", "reading", "homework", "revision", "revising", "coursework", "concentration", "working in the garage", "garage day", "fixing my car", "fixing cars", "fixing my volvo", "working on cars", "working on my car", "working on motorcycles", "working on motorbikes", "welding", "workshop"],
   party: ["party", "pregame", "pre game", "pres", "pre drinks", "pre-drinks", "sesh", "session", "club", "nightclub", "dancefloor", "festival", "rave", "house party", "celebration", "night out", "pub", "pub night", "beer garden"],
@@ -73,7 +76,7 @@ export const EXPANDED_TIME_TERMS: Record<"morning" | "afternoon" | "evening" | "
   morning: ["morning", "mornin", "sunrise", "dawn", "breakfast", "early morning", "waking up", "commute morning", "school run"],
   afternoon: ["afternoon", "arvo", "midday", "noon", "daytime", "lunch", "lunchtime", "sunny day", "lazy afternoon", "sunday afternoon"],
   evening: ["evening", "evenin", "sunset", "golden hour", "dusk", "twilight", "after work", "tea time", "teatime", "dinner"],
-  late_night: ["late night", "late-night", "midnight", "midnite", "after dark", "2am", "3am", "4am", "night bus", "night tube", "last train", "night drive", "witching hour", "insomnia"],
+  late_night: ["late night", "late-night", "midnight", "midnite", "nite", "after dark", "2am", "3am", "4am", "night bus", "night tube", "last train", "night drive", "nite drive", "witching hour", "insomnia"],
 };
 
 export const EXPANDED_PLACE_TERMS: Record<"rural" | "outdoors" | "city" | "beach" | "bedroom" | "car", string[]> = {

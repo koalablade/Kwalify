@@ -54,9 +54,11 @@ import {
   createPipelineTrace,
   recordTraceCount,
   recordTraceDuration,
+  recordTraceFailure,
   recordTraceFallback,
   type PipelineTrace,
 } from "../lib/pipeline-trace";
+import { createFailureContext } from "../lib/failure-types";
 import { buildPlaylistEmbedding } from "./v3/embedding-retrieval";
 import {
   EXPANDED_ACTIVITY_TERMS,
@@ -132,6 +134,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
       globalCloneMultiplier: number;
     };
     vibe: string;
+    curatorScoreByTrack?: Map<string, number>;
   };
   genrePost: {
     allowHoliday: boolean;
@@ -2102,6 +2105,99 @@ function repairPlaylistWithCritic<T extends { trackId: string }>(
   };
 }
 
+function repairPlaylistWithQualityLock<T extends { trackId: string }>(
+  tracks: T[],
+  candidatePool: ScoredLibraryTrack<T>[],
+  classMap: UserGenreProfile["trackClassifications"],
+  maxPerArtist: number,
+  playlistLength: number,
+): { tracks: T[]; diagnostics: PlaylistCriticDiagnostics & { implemented: true; guard: "qualityLock" } } {
+  const scoreByTrack = new Map(candidatePool.map((track) => [track.trackId, track]));
+  const before = evaluatePlaylistCritic(tracks, scoreByTrack, classMap, maxPerArtist);
+  const repaired = [...tracks];
+  const replacements: PlaylistCriticDiagnostics["replacements"] = [];
+  const usedTrackIds = new Set<string>();
+  const duplicateTrackIds = new Set<string>();
+  for (const track of repaired) {
+    if (usedTrackIds.has(track.trackId)) duplicateTrackIds.add(track.trackId);
+    usedTrackIds.add(track.trackId);
+  }
+
+  const repairBudget = Math.min(5, Math.max(1, Math.floor(playlistLength * 0.18)));
+  const artistCounts = new Map<string, number>();
+  for (const track of repaired) {
+    const artist = criticTrackMeta(track, scoreByTrack).artistName;
+    if (artist) artistCounts.set(artist, (artistCounts.get(artist) ?? 0) + 1);
+  }
+
+  const lockTargets = before.issues
+    .filter((issue) =>
+      issue.reason === "artist_over_cap" ||
+      issue.reason === "adjacent_artist_repeat" ||
+      issue.reason === "feature_fallback_pick" ||
+      issue.reason === "low_track_quality" ||
+      duplicateTrackIds.has(issue.trackId)
+    )
+    .sort((a, b) => b.severity - a.severity)
+    .slice(0, repairBudget);
+
+  for (const issue of lockTargets) {
+    const current = repaired[issue.index];
+    if (!current) continue;
+    const currentArtist = criticTrackMeta(current, scoreByTrack).artistName;
+    const previous = repaired[issue.index - 1];
+    const next = repaired[issue.index + 1];
+    const currentQuality = criticTrackQuality(current, scoreByTrack);
+    const replacement = candidatePool
+      .filter((candidate) => !usedTrackIds.has(candidate.trackId))
+      .map((candidate) => {
+        const meta = criticTrackMeta(candidate, scoreByTrack);
+        const artist = meta.artistName;
+        const previousArtist = previous ? criticTrackMeta(previous, scoreByTrack).artistName : null;
+        const nextArtist = next ? criticTrackMeta(next, scoreByTrack).artistName : null;
+        const artistRepeatPenalty =
+          (artist && (artistCounts.get(artist) ?? 0) >= maxPerArtist ? 0.28 : 0) +
+          (artist && previousArtist === artist ? 0.25 : 0) +
+          (artist && nextArtist === artist ? 0.20 : 0);
+        return {
+          candidate,
+          replacementScore: criticTrackQuality(candidate, scoreByTrack) - artistRepeatPenalty,
+        };
+      })
+      .sort((a, b) => b.replacementScore - a.replacementScore)[0];
+
+    if (!replacement || replacement.replacementScore < currentQuality + 0.03) continue;
+    repaired[issue.index] = replacement.candidate as unknown as T;
+    usedTrackIds.delete(current.trackId);
+    usedTrackIds.add(replacement.candidate.trackId);
+    if (currentArtist) artistCounts.set(currentArtist, Math.max(0, (artistCounts.get(currentArtist) ?? 1) - 1));
+    const replacementArtist = criticTrackMeta(replacement.candidate, scoreByTrack).artistName;
+    if (replacementArtist) artistCounts.set(replacementArtist, (artistCounts.get(replacementArtist) ?? 0) + 1);
+    replacements.push({
+      index: issue.index,
+      fromTrackId: current.trackId,
+      toTrackId: replacement.candidate.trackId,
+      reason: duplicateTrackIds.has(issue.trackId) ? "duplicate_track" : issue.reason,
+      scoreLift: round3(replacement.replacementScore - currentQuality),
+    });
+  }
+
+  const after = evaluatePlaylistCritic(repaired, scoreByTrack, classMap, maxPerArtist);
+  return {
+    tracks: repaired,
+    diagnostics: {
+      implemented: true,
+      guard: "qualityLock",
+      beforeQuality: before.quality,
+      afterQuality: after.quality,
+      repairedCount: replacements.length,
+      qualityGatePassed: after.quality >= before.quality,
+      issues: after.issues,
+      replacements,
+    },
+  };
+}
+
 function hasLaneReadyEra(track: {
   releaseYear?: number | null;
   energy: number | null;
@@ -3356,6 +3452,8 @@ export async function buildPlaylistPipeline<T extends {
           seedOffset: 19937,
         },
       ];
+  const executableCandidateInputs = candidateInputs.slice(0, 1);
+  const skippedCandidateAttemptCount = Math.max(0, candidateInputs.length - executableCandidateInputs.length);
   const candidateAttempts: Array<{
     label: string;
     inputPool: Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
@@ -3379,7 +3477,7 @@ export async function buildPlaylistPipeline<T extends {
   let candidateShortCircuitUsed = false;
   let v3InvocationCount = 0;
   let v3SingletonViolationBlocked = false;
-  for (const candidate of candidateInputs) {
+  for (const candidate of executableCandidateInputs) {
     if (v3InvocationCount >= 1) {
       v3SingletonViolationBlocked = true;
       opts.pipelineLog?.error(
@@ -3466,13 +3564,13 @@ export async function buildPlaylistPipeline<T extends {
       total: quality.overall + Math.min(0.18, countRatio * 0.18) - starvationPenalty,
     };
     candidateAttempts.push(attempt);
-    if (candidateAttempts.length === 1 && candidateInputs.length > 1 && canShortCircuitCandidateAttempt(attempt)) {
+    if (candidateAttempts.length === 1 && executableCandidateInputs.length > 1 && canShortCircuitCandidateAttempt(attempt)) {
       candidateShortCircuitUsed = true;
       break;
     }
     if (
       candidateAttempts.length === 1 &&
-      candidateInputs.length > 1 &&
+      executableCandidateInputs.length > 1 &&
       attempt.result.finalTracks.length >= Math.ceil(opts.playlistLength * 0.90) &&
       attempt.quality.overall >= 0.45 &&
       attempt.quality.promptAlignment >= 0.40
@@ -3598,6 +3696,8 @@ export async function buildPlaylistPipeline<T extends {
       retrievalElapsedMs: timingMs.retrieval,
       candidateAttemptCount: candidateAttempts.length,
       plannedCandidateAttemptCount: candidateInputs.length,
+      skippedCandidateAttemptCount,
+      v3SingletonEnforced: true,
       candidateShortCircuitUsed,
       v3InvocationCount,
       v3SingletonViolationBlocked,
@@ -3641,9 +3741,54 @@ export async function buildPlaylistPipeline<T extends {
     },
   });
 
-  // V3 output is the selected candidate list. Controller owns final assembly and
-  // repair so there is only one post-scoring finalization authority.
-  const finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
+  // V3 output is the selected candidate list. Post-V3 recovery guards are bounded
+  // to the existing candidate pool and never re-enter retrieval, scoring, or V3.
+  let finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
+  const qualityRecoveryCandidatePool = selectedCandidate.inputPool.map((track) => ({
+    ...(track as unknown as V3MetadataTrack<T>),
+    selectedByV3: (track as V3MetadataTrack<T>).selectedByV3 ?? false,
+    sourceLane: (track as V3MetadataTrack<T>).sourceLane ?? "quality_recovery",
+    laneScore: (track as V3MetadataTrack<T>).laneScore ?? (track as ScoredLibraryTrack<T>).score ?? null,
+    genrePrimary: (track as V3MetadataTrack<T>).genrePrimary ?? genreFamilyForTrack(track, classMap),
+    clusterId: (track as V3MetadataTrack<T>).clusterId ?? genreFamilyForTrack(track, classMap),
+    clusterIds: (track as V3MetadataTrack<T>).clusterIds ?? [genreFamilyForTrack(track, classMap)].filter((value): value is string => !!value),
+  })) as ScoredLibraryTrack<V3MetadataTrack<T>>[];
+  const qualityRecoveryDiagnostics: Record<string, unknown> = {
+    candidatePoolSize: qualityRecoveryCandidatePool.length,
+    qualityLock: { implemented: true, executed: false },
+    criticRepair: { executed: false },
+  };
+  if (finalTracksList.length > 0 && qualityRecoveryCandidatePool.length > finalTracksList.length) {
+    const qualityLocked = repairPlaylistWithQualityLock(
+      finalTracksList,
+      qualityRecoveryCandidatePool,
+      classMap,
+      opts.maxPerArtist,
+      opts.playlistLength,
+    );
+    finalTracksList = qualityLocked.tracks;
+    qualityRecoveryDiagnostics["qualityLock"] = {
+      ...qualityLocked.diagnostics,
+      executed: true,
+    };
+  }
+  if (finalTracksList.length > 0 && qualityRecoveryCandidatePool.length > finalTracksList.length) {
+    const criticRepaired = repairPlaylistWithCritic(
+      finalTracksList,
+      qualityRecoveryCandidatePool,
+      classMap,
+      opts.maxPerArtist,
+      opts.playlistLength,
+    );
+    if (criticRepaired.diagnostics.afterQuality >= criticRepaired.diagnostics.beforeQuality) {
+      finalTracksList = criticRepaired.tracks;
+    }
+    qualityRecoveryDiagnostics["criticRepair"] = {
+      ...criticRepaired.diagnostics,
+      executed: true,
+      applied: criticRepaired.diagnostics.afterQuality >= criticRepaired.diagnostics.beforeQuality,
+    };
+  }
   const finalHardFilterTrace = {
     stage: "final hard-filter count",
     before: v3.finalTracks.length,
@@ -4013,6 +4158,7 @@ export async function buildPlaylistPipeline<T extends {
           finalHardFilterTrace,
         },
         preV3Recovery: v3CandidatePool.diagnostics,
+        qualityRecovery: qualityRecoveryDiagnostics,
         preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 60),
         waterfall: {
           ...baseWaterfall,
