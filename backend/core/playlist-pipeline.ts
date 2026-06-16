@@ -1759,13 +1759,13 @@ function diversityPressureForViablePool(kind: "gym" | "party" | null, viablePool
   if (kind === "gym") {
     if (viablePoolSize < 50) return 0.35;
     if (viablePoolSize < 100) return 0.55;
-    if (viablePoolSize < 180) return 0.75;
-    return 1;
+    if (viablePoolSize < 180) return 0.90;
+    return 1.10;
   }
   if (kind === "party") {
     if (viablePoolSize < 50) return 0.50;
-    if (viablePoolSize < 120) return 0.75;
-    return 1;
+    if (viablePoolSize < 120) return 0.90;
+    return 1.10;
   }
   return 1;
 }
@@ -3459,7 +3459,10 @@ export async function buildPlaylistPipeline<T extends {
     contractGuardedScoredPool.length >= minSafePreRankingPool &&
     preExpansionScoreVariance <= 0.018;
   repetitionPassSkipped = topArtistDiversitySatisfied(contractGuardedScoredPool);
-  fallbackSkippedByFastPath = sceneStableFastPath || candidatePoolStabilized;
+  const constrainedCompletionAtRisk =
+    sceneConstraintActive(intentContract) &&
+    contractGuardedScoredPool.length < Math.max(minSafePreRankingPool, Math.ceil(opts.playlistLength * 1.5));
+  fallbackSkippedByFastPath = (sceneStableFastPath || candidatePoolStabilized) && !constrainedCompletionAtRisk;
   fastPathTriggered = fallbackSkippedByFastPath || repetitionPassSkipped;
   const maxFallbackDepth = 1;
   while (
@@ -4098,11 +4101,25 @@ export async function buildPlaylistPipeline<T extends {
   };
 
   const fallbackResolveLimit = Math.max(50, opts.playlistLength * 3);
+  const fallbackCandidateScore = (track: ScoredLibraryTrack<T>): number => {
+    const origin = softGuardOriginFor(track);
+    const recentTrackPenalty = upstreamRecentTrackPenalty?.get(track.trackId) ?? 0;
+    const artistPenalty = 1 - artistMemoryPenalty(effectiveSessionArtistMemory, track.artistName);
+    return (track.score ?? 0) +
+      sceneIdentityCoherenceScore(track, intentContract, classMap, origin) +
+      originScoreBoost(origin) -
+      recentTrackPenalty * 1.35 -
+      artistPenalty * 0.72;
+  };
+  const orderFallbackPool = (pool: ScoredLibraryTrack<T>[]): ScoredLibraryTrack<T>[] =>
+    [...pool].sort((a, b) => fallbackCandidateScore(b) - fallbackCandidateScore(a));
   const lastResortPool: ScoredLibraryTrack<T>[] = contractGuardedScoredPool
     .filter((track) => track.genrePrimary || track.energy != null || track.valence != null)
+    .sort((a, b) => fallbackCandidateScore(b) - fallbackCandidateScore(a))
     .slice(0, fallbackResolveLimit);
   const emergencyScoredPool: ScoredLibraryTrack<T>[] = contractGuardedScoredPool
     .filter((track) => typeof track.score === "number")
+    .sort((a, b) => fallbackCandidateScore(b) - fallbackCandidateScore(a))
     .slice(0, fallbackResolveLimit);
 
   function resolveFinalTracks(
@@ -4111,7 +4128,7 @@ export async function buildPlaylistPipeline<T extends {
   ): BuildPlaylistPipelineResult<T> | null {
     if (!pool.length) return null;
 
-    const resolvedPool = pool.slice(0, fallbackResolveLimit);
+    const resolvedPool = orderFallbackPool(pool).slice(0, fallbackResolveLimit);
     const enforcedResolved = enforceFinalPlaylistGenres({
       finalTracks: resolvedPool,
       sortedPool: contractGuardedScoredPool,
@@ -4121,12 +4138,15 @@ export async function buildPlaylistPipeline<T extends {
       suppressGenres: opts.genrePost.suppressGenres,
       coverageState: scoring.coverageState,
       genreForecast: scoring.genreForecast,
-      sceneInfluenceRatio: 0,
+      sceneInfluenceRatio: scoring.sceneInfluenceRatio,
       stabilityDiagnostics: scoring.stabilityDiagnostics,
     });
-    const resolvedTracks = enforcedResolved.tracks.length > 0
+    const enforcedTracks = enforcedResolved.tracks.length > 0
       ? enforcedResolved.tracks
-      : resolvedPool;
+      : [];
+    const resolvedTracks = (enforcedTracks.length >= Math.min(opts.playlistLength, resolvedPool.length)
+      ? enforcedTracks
+      : resolvedPool).slice(0, opts.playlistLength);
     const resolvedMomentMemory = updateMomentMemory({
       unifiedIntent: memoryAdjustedUnifiedIntent,
       finalPlaylistEmbedding: buildPlaylistEmbedding(resolvedTracks).centroidVector,
@@ -4411,6 +4431,19 @@ export async function buildPlaylistPipeline<T extends {
     const emergencyScoredFallback = resolveFinalTracks(emergencyScoredPool, "emergency_scored_pool");
     if (emergencyScoredFallback) return emergencyScoredFallback;
   }
+  if (finalTracksList.length < opts.playlistLength) {
+    const resolvedUnderfill = resolveFinalTracks(
+      [
+        ...(finalTracksList as unknown as ScoredLibraryTrack<T>[]),
+        ...lastResortPool,
+        ...emergencyScoredPool,
+      ],
+      "final_underfill_completion",
+    );
+    if (resolvedUnderfill && resolvedUnderfill.finalTracks.length > finalTracksList.length) {
+      return resolvedUnderfill;
+    }
+  }
 
   const controllerOwnedMomentMemory = updateMomentMemory({
     unifiedIntent: memoryAdjustedUnifiedIntent,
@@ -4426,7 +4459,7 @@ export async function buildPlaylistPipeline<T extends {
     ontologyTargetMet: opts.genreStack.stats.ontologyTargetMet,
     coverageState: scoring.coverageState,
     genreForecast: scoring.genreForecast,
-    sceneInfluenceRatio: 0,
+    sceneInfluenceRatio: scoring.sceneInfluenceRatio,
     stabilityDiagnostics: scoring.stabilityDiagnostics,
   });
   const controllerOwnedTiming = buildTimingMs();

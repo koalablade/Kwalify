@@ -197,12 +197,23 @@ function openingIntentFitness(track: InterleavedTrack<ScorerTrack>): number {
   const laneConfidence = clamp01(track.laneScore);
   const laneAffinity =
     /^(?:core|motion|emotional|scene|intent)/i.test(track.sourceLane) ? 0.14 :
-    /contrast|discovery/i.test(track.sourceLane) ? -0.06 :
+    /fallback|recovery|relax/i.test(track.sourceLane) ? -0.18 :
+    /contrast|discovery/i.test(track.sourceLane) ? -0.08 :
     0;
   const intensity = intensityOf(track);
   const immediateEnergy = intensity >= 0.42 && intensity <= 0.78 ? 0.10 : 0;
   const lowConfidencePenalty = laneConfidence < 0.62 ? 0.14 : 0;
   return laneConfidence * 0.72 + laneAffinity + immediateEnergy - lowConfidencePenalty;
+}
+
+function earlyFallbackArtifactPenalty(
+  candidate: InterleavedTrack<ScorerTrack>,
+  position: number,
+): number {
+  if (position >= 5) return 0;
+  if (/fallback|recovery|relax/i.test(candidate.sourceLane)) return 0.34;
+  if (/discovery|contrast/i.test(candidate.sourceLane) && clamp01(candidate.laneScore) < 0.68) return 0.14;
+  return 0;
 }
 
 function earlySonicClonePenalty(
@@ -306,6 +317,7 @@ function transitionCost(
     cost -= openingIntentFitness(candidate) * 0.52;
     cost += earlySonicClonePenalty(candidate, recentTracks, position);
     cost += earlyUniformCurvePenalty(candidate, recentTracks, position);
+    cost += earlyFallbackArtifactPenalty(candidate, position);
   }
   if (section === "peak") {
     cost -= candidateIntensity * 0.22;
@@ -354,7 +366,7 @@ function transitionCost(
     cost += 0.18;
   }
   if (position < 5 && recentlyUsedArtists.has(candidate.artistName)) {
-    cost += 0.42;
+    cost += 0.72;
   }
   if (position >= 2 && position < 7) {
     const naturalVariation = stableUnitHash(`${candidate.trackId}:${position}`) - 0.5;
