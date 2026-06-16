@@ -47,6 +47,9 @@ type EvaluationRunState = {
 type ClusterEarlyExitSummary = {
   category: string;
   failureThreshold: number;
+  failureMode: string;
+  failureRate: number;
+  evaluatedPromptIds: string[];
   failedPromptIds: string[];
   skippedPromptIds: string[];
   reason: string;
@@ -82,7 +85,7 @@ function usage(): never {
     "  --timeout-ms N              Per-request timeout (default 90000)",
     "  --max-http-retries N        Harness API retries for 429/5xx (default 3)",
     "  --max-failures N            Stop early after N failed prompts (default disabled)",
-    "  --cluster-fail-fast N       Stop remaining prompts in a category after N consecutive category failures",
+    "  --cluster-fail-fast N       Stop remaining prompts in a category after one failure mode appears in >=80% of N category prompts (default 3, 0 disables)",
     "  --checkpoint-every N        Write full report every N completed prompts (default 5)",
     "  --resume                    Resume from reports/playlist-evaluation/run-state.json",
     "  --fresh                     Ignore existing run state and start from scratch",
@@ -109,6 +112,7 @@ function parseConfig(args: string[]): HarnessConfig {
   const liveApi = args.includes("--live-api");
   const baseUrlRaw = argValue(args, "--base-url") ?? process.env["API_BASE_URL"] ?? process.env["PLAYLIST_EVAL_BASE_URL"] ?? process.env["APP_URL"] ?? null;
   const benchmarkSize = argValue(args, "--benchmark-size") ? parseIntArg(args, "--benchmark-size", 0) : null;
+  const clusterFailFastArg = argValue(args, "--cluster-fail-fast");
   if (benchmarkSize !== null && ![10, 50, 100, 250].includes(benchmarkSize)) {
     throw new Error("--benchmark-size must be one of: 10, 50, 100, 250");
   }
@@ -131,7 +135,11 @@ function parseConfig(args: string[]): HarnessConfig {
     dryRun: args.includes("--dry-run"),
     maxHttpRetries: parseIntArg(args, "--max-http-retries", 3),
     maxFailures: argValue(args, "--max-failures") ? parseIntArg(args, "--max-failures", 0) : null,
-    clusterFailFast: argValue(args, "--cluster-fail-fast") ? Math.max(1, parseIntArg(args, "--cluster-fail-fast", 0)) : null,
+    clusterFailFast: clusterFailFastArg === "0"
+      ? null
+      : clusterFailFastArg
+        ? Math.max(3, parseIntArg(args, "--cluster-fail-fast", 3))
+        : 3,
     checkpointEvery: Math.max(1, parseIntArg(args, "--checkpoint-every", 5)),
     resume: args.includes("--resume"),
     fresh: args.includes("--fresh"),
@@ -374,9 +382,61 @@ function writeReportCheckpointDue(completedCount: number, config: HarnessConfig)
   return completedCount > 0 && completedCount % config.checkpointEvery === 0;
 }
 
-function clusterEarlyExitReason(results: GenerationEvaluationResult[]): string {
-  const latestFailure = [...results].reverse().find((result) => !result.ok);
-  return latestFailure?.error ?? "cluster_failed_consistently";
+function clusterFailureShortcut(input: {
+  report: EvaluationReportPayload;
+  category: PlaylistBenchmarkPrompt["category"];
+  prompts: PlaylistBenchmarkPrompt[];
+  completed: Set<string>;
+  minPrompts: number;
+  currentIndex: number;
+}): ClusterEarlyExitSummary | null {
+  const clusterRows = input.report.summary.playlists.filter((row) => row.category === input.category);
+  if (clusterRows.length < input.minPrompts) return null;
+
+  const failureCounts = new Map<string, string[]>();
+  for (const row of clusterRows) {
+    for (const mode of row.failureModes) {
+      const promptIds = failureCounts.get(mode) ?? [];
+      promptIds.push(row.promptId);
+      failureCounts.set(mode, promptIds);
+    }
+  }
+
+  const dominant = [...failureCounts.entries()]
+    .map(([mode, promptIds]) => ({
+      mode,
+      promptIds,
+      rate: promptIds.length / Math.max(1, clusterRows.length),
+    }))
+    .filter((row) => row.promptIds.length >= input.minPrompts && row.rate >= 0.80)
+    .sort((a, b) => b.rate - a.rate || b.promptIds.length - a.promptIds.length)[0];
+  if (!dominant) return null;
+
+  const skippedPromptIds = input.prompts
+    .slice(input.currentIndex + 1)
+    .filter((prompt) => prompt.category === input.category && !input.completed.has(prompt.id))
+    .map((prompt) => prompt.id);
+  if (skippedPromptIds.length === 0) return null;
+
+  return {
+    category: input.category,
+    failureThreshold: input.minPrompts,
+    failureMode: dominant.mode,
+    failureRate: Math.round(dominant.rate * 1000) / 1000,
+    evaluatedPromptIds: clusterRows.map((row) => row.promptId),
+    failedPromptIds: dominant.promptIds,
+    skippedPromptIds,
+    reason: `${dominant.mode} appeared in ${dominant.promptIds.length}/${clusterRows.length} evaluated ${input.category} prompts`,
+  };
+}
+
+function clusterShortcutCheckpointDue(
+  results: GenerationEvaluationResult[],
+  category: PlaylistBenchmarkPrompt["category"],
+  config: HarnessConfig,
+): boolean {
+  if (config.clusterFailFast === null) return false;
+  return results.filter((row) => row.benchmark.category === category).length >= config.clusterFailFast;
 }
 
 function runningAverages(rows: PlaylistMetrics[]): {
@@ -827,7 +887,7 @@ async function main(): Promise<void> {
           started,
           results,
           latestResult: result,
-          writeReports: writeReportCheckpointDue(results.length, config),
+          writeReports: writeReportCheckpointDue(results.length, config) || clusterShortcutCheckpointDue(results, benchmark.category, config),
         });
         if (report) {
           await writeLiveSummaryFiles({ config, prompts, started, results, report });
@@ -873,36 +933,29 @@ async function main(): Promise<void> {
       started,
       results,
       latestResult: result,
-      writeReports: writeReportCheckpointDue(results.length, config),
+      writeReports: writeReportCheckpointDue(results.length, config) || clusterShortcutCheckpointDue(results, benchmark.category, config),
     });
     if (report) {
       await writeLiveSummaryFiles({ config, prompts, started, results, report });
       printLiveProgress({ config, prompts, index, result, results, report });
-    } else {
-      console.error(`[evaluation] checkpoint persisted (${results.length}/${prompts.length}); next full report at ${Math.ceil(results.length / config.checkpointEvery) * config.checkpointEvery}`);
-    }
-    if (config.clusterFailFast !== null) {
-      const clusterResults = results.filter((row) => row.benchmark.category === benchmark.category);
-      const clusterFailed = clusterResults.filter((row) => !row.ok);
-      const clusterSucceeded = clusterResults.length - clusterFailed.length;
-      if (clusterSucceeded === 0 && clusterFailed.length >= config.clusterFailFast) {
-        const skippedPromptIds = prompts
-          .slice(index + 1)
-          .filter((prompt) => prompt.category === benchmark.category && !completed.has(prompt.id))
-          .map((prompt) => prompt.id);
-        if (skippedPromptIds.length > 0) {
+      if (config.clusterFailFast !== null) {
+        const shortcut = clusterFailureShortcut({
+          report,
+          category: benchmark.category,
+          prompts,
+          completed,
+          minPrompts: config.clusterFailFast,
+          currentIndex: index,
+        });
+        if (shortcut) {
           skippedClusters.add(benchmark.category);
-          clusterEarlyExitSummaries.push({
-            category: benchmark.category,
-            failureThreshold: config.clusterFailFast,
-            failedPromptIds: clusterFailed.map((row) => row.benchmark.id),
-            skippedPromptIds,
-            reason: clusterEarlyExitReason(clusterFailed),
-          });
+          clusterEarlyExitSummaries.push(shortcut);
           await writeJsonAtomic(path.join(config.outDir, "cluster-early-exit-summary.json"), clusterEarlyExitSummaries);
-          console.error(`[evaluation] cluster early exit: ${benchmark.category} skipped ${skippedPromptIds.length} redundant prompts after ${clusterFailed.length} failures`);
+          console.error(`[evaluation] cluster early exit: ${benchmark.category} skipped ${shortcut.skippedPromptIds.length} prompts because ${shortcut.reason}`);
         }
       }
+    } else {
+      console.error(`[evaluation] checkpoint persisted (${results.length}/${prompts.length}); next full report at ${Math.ceil(results.length / config.checkpointEvery) * config.checkpointEvery}`);
     }
     const failedCount = results.filter((row) => !row.ok).length;
     if (config.maxFailures !== null && failedCount >= config.maxFailures) {

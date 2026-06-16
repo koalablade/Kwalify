@@ -147,6 +147,15 @@ function clusterValue(track: InterleavedTrack<ScorerTrack>, prefix: string): str
   return cluster ? cluster.slice(prefix.length) : null;
 }
 
+function stableUnitHash(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return ((hash >>> 0) % 1000) / 1000;
+}
+
 function subclusterOf(track: InterleavedTrack<ScorerTrack>): string {
   return clusterValue(track, "genre:") ??
     clusterValue(track, "mood:") ??
@@ -184,6 +193,48 @@ function recentWindowIsFlat(recentTracks: ReadonlyArray<InterleavedTrack<ScorerT
     Math.max(...intensity) - Math.min(...intensity) < 0.12;
 }
 
+function openingIntentFitness(track: InterleavedTrack<ScorerTrack>): number {
+  const laneConfidence = clamp01(track.laneScore);
+  const laneAffinity =
+    /^(?:core|motion|emotional|scene|intent)/i.test(track.sourceLane) ? 0.14 :
+    /contrast|discovery/i.test(track.sourceLane) ? -0.06 :
+    0;
+  const intensity = intensityOf(track);
+  const immediateEnergy = intensity >= 0.42 && intensity <= 0.78 ? 0.10 : 0;
+  const lowConfidencePenalty = laneConfidence < 0.62 ? 0.14 : 0;
+  return laneConfidence * 0.72 + laneAffinity + immediateEnergy - lowConfidencePenalty;
+}
+
+function earlySonicClonePenalty(
+  candidate: InterleavedTrack<ScorerTrack>,
+  recentTracks: ReadonlyArray<InterleavedTrack<ScorerTrack>>,
+  position: number,
+): number {
+  if (position >= 5 || recentTracks.length === 0) return 0;
+  let penalty = 0;
+  for (const recent of recentTracks.slice(-3)) {
+    if (tracksAreNearIdentical(candidate, recent)) penalty += 0.26;
+    if (subclusterOf(candidate) === subclusterOf(recent)) penalty += 0.08;
+    if (Math.abs(intensityOf(candidate) - intensityOf(recent)) < 0.05) penalty += 0.06;
+  }
+  return penalty;
+}
+
+function earlyUniformCurvePenalty(
+  candidate: InterleavedTrack<ScorerTrack>,
+  recentTracks: ReadonlyArray<InterleavedTrack<ScorerTrack>>,
+  position: number,
+): number {
+  if (position < 3 || position >= 8 || recentTracks.length < 2) return 0;
+  const previous = recentTracks[recentTracks.length - 1]!;
+  const beforePrevious = recentTracks[recentTracks.length - 2]!;
+  const lastStep = intensityOf(previous) - intensityOf(beforePrevious);
+  const nextStep = intensityOf(candidate) - intensityOf(previous);
+  const tooLinear = Math.abs(nextStep - lastStep) < 0.035;
+  const tooFlat = Math.abs(nextStep) < 0.035 && Math.abs(lastStep) < 0.035;
+  return tooLinear || tooFlat ? 0.08 : 0;
+}
+
 function djIntentBoost(
   candidate: InterleavedTrack<ScorerTrack>,
   previous: InterleavedTrack<ScorerTrack> | null,
@@ -196,6 +247,7 @@ function djIntentBoost(
   let boost = 1.0;
 
   if (section === "intro" && intensity >= 0.30 && intensity <= 0.58) boost += 0.08;
+  if (section === "intro" && position < 5) boost += openingIntentFitness(candidate) * 0.10;
   if (section === "build" && intensity >= 0.44 && intensity <= 0.72) boost += 0.06;
   if (section === "peak" && intensity >= 0.68) boost += 0.10;
   if (section === "release" && intensity >= 0.34 && intensity <= 0.62) boost += 0.08;
@@ -251,6 +303,9 @@ function transitionCost(
 
   if (section === "intro") {
     cost += complexityOf(candidate) * 0.35;
+    cost -= openingIntentFitness(candidate) * 0.52;
+    cost += earlySonicClonePenalty(candidate, recentTracks, position);
+    cost += earlyUniformCurvePenalty(candidate, recentTracks, position);
   }
   if (section === "peak") {
     cost -= candidateIntensity * 0.22;
@@ -298,6 +353,13 @@ function transitionCost(
   ) {
     cost += 0.18;
   }
+  if (position < 5 && recentlyUsedArtists.has(candidate.artistName)) {
+    cost += 0.42;
+  }
+  if (position >= 2 && position < 7) {
+    const naturalVariation = stableUnitHash(`${candidate.trackId}:${position}`) - 0.5;
+    cost += naturalVariation * 0.035;
+  }
 
   // Keep the sampler/interleaver character visible; ordering should shape, not dominate.
   return ((cost + originalOffset * 0.018) / djIntentBoost(candidate, previous, recentTracks, position, total));
@@ -317,7 +379,9 @@ function anchorPositions(total: number): Partial<Record<ArcSection, number>> {
 function anchorFitness(track: InterleavedTrack<ScorerTrack>, section: ArcSection): number {
   const intensity = intensityOf(track);
   if (section === "intro") {
-    return (1 - Math.abs(intensity - 0.42)) * 0.72 + (1 - complexityOf(track)) * 0.28;
+    return openingIntentFitness(track) * 0.58 +
+      (1 - Math.abs(intensity - 0.52)) * 0.30 +
+      (1 - complexityOf(track)) * 0.12;
   }
   if (section === "build") {
     return (1 - Math.abs(intensity - 0.58)) * 0.78 + (track.danceability ?? 0.5) * 0.22;

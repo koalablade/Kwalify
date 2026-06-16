@@ -2278,31 +2278,31 @@ function intentCoherenceScore(
 
   if (opts.intent.mood.length > 0) {
     if (moodEvidence(track, opts.intent) === true) {
-      score += 0.10;
+      score += 0.18;
     } else {
-      score -= 0.12;
+      score -= 0.24;
       violations++;
     }
   }
 
   if (opts.intent.activity || opts.intent.energyLevel) {
     if (activityEvidence(track, opts.intent) === true) {
-      score += 0.12;
+      score += 0.28;
     } else {
-      score -= 0.16;
+      score -= 0.34;
       violations++;
     }
   }
 
   const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
-  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) score -= 0.22;
-  if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) score -= 0.22;
-  if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) score -= 0.18;
-  if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.22;
-  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) score -= 0.18;
+  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) score -= 0.42;
+  if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) score -= 0.38;
+  if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) score -= 0.30;
+  if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.38;
+  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) score -= 0.34;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) score -= 0.26;
-  if (isRainyNightWalkPrompt(opts.vibe, opts.intent) && !trackIsRainyNightWalkSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.28;
-  if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.24;
+  if (isRainyNightWalkPrompt(opts.vibe, opts.intent) && !trackIsRainyNightWalkSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.40;
+  if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.38;
   if (violations >= 2) score -= Math.min(0.30, violations * 0.10);
 
   return score;
@@ -2487,11 +2487,139 @@ function buildArtistReusePenalty(
 ): Map<string, number> | undefined {
   const entries = Object.entries(memory.artistFrequencyMap);
   if (entries.length === 0) return undefined;
-  const pressure = Math.max(0.25, Math.min(1.25, diversityPressure));
+  const pressure = Math.max(0.75, Math.min(1.65, diversityPressure));
   return new Map(entries.map(([artist, count]) => [
     artist,
-    Math.min(0.34, count * 0.10 * pressure),
+    Math.min(0.72, (0.18 + count * 0.16) * pressure),
   ]));
+}
+
+function shapePreScoringCandidatePool<T extends {
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  energy: number | null;
+  valence: number | null;
+  tempo?: number | null;
+  danceability?: number | null;
+  acousticness?: number | null;
+  loudness?: number | null;
+  speechiness?: number | null;
+  releaseYear?: number | null;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
+}>(
+  tracks: T[],
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+    sessionMemory: IdentitySessionMemory;
+    requestedLength: number;
+  }
+): { tracks: T[]; diagnostics: Record<string, number | boolean | string | null> } {
+  const sceneActive =
+    isGymWorkoutPrompt(opts.vibe, opts.intent) ||
+    isUpbeatSocialPrompt(opts.vibe, opts.intent) ||
+    isBroadDrivingPrompt(opts.vibe, opts.intent) ||
+    isFocusStudyPrompt(opts.vibe, opts.intent) ||
+    isChillCalmPrompt(opts.vibe, opts.intent) ||
+    !!opts.intent.activity ||
+    opts.intent.mood.length > 0 ||
+    !!opts.intent.energyLevel;
+  const broadCap = sceneActive
+    ? Math.max(420, opts.requestedLength * 22)
+    : Math.max(900, opts.requestedLength * 35);
+  if (tracks.length <= broadCap && !sceneActive) {
+    return {
+      tracks,
+      diagnostics: {
+        applied: false,
+        inputCount: tracks.length,
+        outputCount: tracks.length,
+        cap: broadCap,
+        sceneActive,
+      },
+    };
+  }
+
+  const toConstraintTrack = (track: T): ConstraintTrack => ({ ...track, score: 0.5 } as ConstraintTrack);
+  const sceneCompatible = sceneActive
+    ? tracks.filter((track) => {
+        const candidate = toConstraintTrack(track);
+        if (opts.intent.activity || opts.intent.energyLevel) {
+          const activityMatch = activityEvidence(candidate, opts.intent);
+          if (activityMatch === false) return false;
+        }
+        if (opts.intent.mood.length > 0) {
+          const moodMatch = moodEvidence(candidate, opts.intent);
+          if (moodMatch === false) return false;
+        }
+        if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(candidate)) return false;
+        if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(candidate)) return false;
+        if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(candidate)) return false;
+        if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(candidate)) return false;
+        if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(candidate, hasExplicitGenreIntent(opts.intent, opts.constraints), opts.classMap)) return false;
+        return true;
+      })
+    : tracks;
+  const source = sceneActive && sceneCompatible.length >= Math.min(120, Math.max(40, Math.floor(tracks.length * 0.18)))
+    ? sceneCompatible
+    : tracks;
+  const artistCounts = new Map<string, number>();
+  const buckets = new Map<string, T[]>();
+  const recentArtistPenalty = opts.sessionMemory.artistFrequencyMap;
+  const sorted = [...source].sort((a, b) => {
+    const artistA = a.artistName.toLowerCase().trim();
+    const artistB = b.artistName.toLowerCase().trim();
+    return (recentArtistPenalty[artistA] ?? 0) - (recentArtistPenalty[artistB] ?? 0);
+  });
+  for (const track of sorted) {
+    const artist = track.artistName.toLowerCase().trim();
+    const artistSeen = artistCounts.get(artist) ?? 0;
+    if (artistSeen >= 3) continue;
+    artistCounts.set(artist, artistSeen + 1);
+    const family = trackGenreFamily(toConstraintTrack(track), opts.classMap);
+    const bucket = buckets.get(family) ?? [];
+    bucket.push(track);
+    buckets.set(family, bucket);
+  }
+
+  const out: T[] = [];
+  const seen = new Set<string>();
+  const orderedBuckets = [...buckets.values()].sort((a, b) => b.length - a.length);
+  let cursor = 0;
+  while (out.length < broadCap && orderedBuckets.some((bucket) => cursor < bucket.length)) {
+    for (const bucket of orderedBuckets) {
+      const track = bucket[cursor];
+      if (!track || seen.has(track.trackId)) continue;
+      seen.add(track.trackId);
+      out.push(track);
+      if (out.length >= broadCap) break;
+    }
+    cursor += 1;
+  }
+
+  return {
+    tracks: out.length > 0 ? out : tracks.slice(0, broadCap),
+    diagnostics: {
+      applied: true,
+      inputCount: tracks.length,
+      outputCount: out.length > 0 ? out.length : Math.min(tracks.length, broadCap),
+      cap: broadCap,
+      sceneActive,
+      sceneCompatibleCount: sceneCompatible.length,
+      recentArtistsRemembered: Object.keys(recentArtistPenalty).length,
+    },
+  };
 }
 
 function average(values: number[]): number {
@@ -2551,8 +2679,9 @@ function repairHumanCoherenceOrder<T extends ConstraintTrack>(
     return { tracks, beforeScore: before.score, afterScore: before.score, repaired: false };
   }
 
-  const remaining = [...tracks];
-  const ordered: T[] = [remaining.shift()!];
+  const openingLockSize = Math.min(3, Math.max(1, Math.floor(tracks.length * 0.12)));
+  const ordered: T[] = tracks.slice(0, openingLockSize);
+  const remaining = tracks.slice(openingLockSize);
   while (remaining.length > 0) {
     const previous = ordered[ordered.length - 1]!;
     const nextIndex = remaining
@@ -2640,7 +2769,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     if (cached !== undefined) return cached;
     const trackPenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
     const coherence = intentCoherenceFor(track, preferredFamilies);
-    const score = (track.score ?? 0) + coherence - trackPenalty;
+    const score = (track.score ?? 0) * 0.58 + coherence * 1.65 - trackPenalty * 1.35;
     finalizationScoreCache.set(cacheKey, score);
     return score;
   };
@@ -2732,16 +2861,16 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       expectedEnergy === "medium" ? Math.max(0, 1 - Math.abs(energy - 0.55) / 0.42) :
       0.55;
     const reusePenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
-    const artistReusePenalty = Math.max(0, Math.min(0.34, opts.artistReusePenalty?.get(artistKey) ?? 0));
+    const artistReusePenalty = Math.max(0, Math.min(0.72, opts.artistReusePenalty?.get(artistKey) ?? 0));
     return (track.score ?? 0) * 0.55 +
       familyBonus +
       familyVariationBonus +
       energyConsistency * 0.16 +
-      intentCoherenceFor(track, preferredFamilies) * 0.85 -
+      intentCoherenceFor(track, preferredFamilies) * 1.55 -
       artistPressure * 0.72 -
       albumPressure * 0.26 -
-      reusePenalty -
-      artistReusePenalty;
+      reusePenalty * 1.35 -
+      artistReusePenalty * 1.25;
   };
   const hardSafeCandidates = (tracks: T[]): T[] =>
     tracks
@@ -4990,10 +5119,19 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Quality signal and constraint context prepared"
     );
 
+    const preScoringCandidateShape = shapePreScoringCandidatePool(likedSongs, {
+      vibe,
+      intent: lockedIntent,
+      constraints: constraintLayer,
+      classMap: userGenreProfile.trackClassifications,
+      sessionMemory,
+      requestedLength: length,
+    });
+    const scoringInputSongs = preScoringCandidateShape.tracks;
     setGeneratePhase(generateSessionUserId, requestId, "scoring");
-    setGenerateStageDetail(generateSessionUserId, requestId, `Ranking matches from ${likedSongs.length.toLocaleString()} liked songs`);
+    setGenerateStageDetail(generateSessionUserId, requestId, `Ranking matches from ${scoringInputSongs.length.toLocaleString()} shaped candidates`);
     stageTimer.start("Running playlist pipeline (scoring + compose)", {
-      tracks: likedSongs.length,
+      tracks: scoringInputSongs.length,
       stackFromCache,
     });
     preV3Timing.totalBeforeV3Ms = Date.now() - startMs;
@@ -5002,6 +5140,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       {
         ...preV3Timing,
         ...(debugPerformance ? { preV3PerformanceReport, sessionSnapshotCache: getSessionSnapshotCacheStats() } : {}),
+        preScoringCandidateShape: preScoringCandidateShape.diagnostics,
       },
       "Pre-V3 timing breakdown"
     );
@@ -5057,7 +5196,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       executionHealth.retrievalPassCount += 1;
       pipeline = await runRequestLayerGeneration({
       pipelineLog: req.log,
-      likedSongs,
+      likedSongs: scoringInputSongs,
       vibe: pipelineVibe,
       mode: mode as "strict" | "balanced" | "chaotic",
       playlistLength: length,
@@ -5231,6 +5370,21 @@ router.post("/generate", async (req, res): Promise<void> => {
       (lockedIntent.primaryGenres.length > 0 || lockedIntent.genreFamilies.length > 0 || constraintLayer.hard.genres.length > 0) &&
       (lockedIntent.eraStart !== null || lockedIntent.eraEnd !== null || constraintLayer.hard.eraStart !== null || constraintLayer.hard.eraEnd !== null) &&
       !!lockedIntent.activity;
+    const explicitGenreRecoveryLockActive =
+      lockedIntent.primaryGenres.length > 0 ||
+      lockedIntent.genreFamilies.length > 0 ||
+      constraintLayer.hard.genres.length > 0;
+    const explicitEraRecoveryLockActive =
+      lockedIntent.eraStart !== null ||
+      lockedIntent.eraEnd !== null ||
+      constraintLayer.hard.eraStart !== null ||
+      constraintLayer.hard.eraEnd !== null ||
+      !!lockedIntent.eraRange;
+    const explicitSceneRecoveryLockActive =
+      !!lockedIntent.activity ||
+      lockedIntent.mood.length > 0 ||
+      !!lockedIntent.energyLevel ||
+      !!lockedIntent.energy;
     if (finalTracks.length > 0 && finalTracks.length < recoveryActivationThreshold(length)) {
       const underfillStartedAt = Date.now();
       const seenUnderfillCandidateIds = new Set<string>();
@@ -5269,9 +5423,21 @@ router.post("/generate", async (req, res): Promise<void> => {
           return true;
         })
         .filter((track) => {
-          if (!stackedConstraintLockActive) return true;
-          if (!finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)) return false;
-          if (!finalTrackMatchesExplicitEra(track, lockedIntent)) return false;
+          if (
+            explicitGenreRecoveryLockActive &&
+            !finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
+          ) return false;
+          if (explicitEraRecoveryLockActive && !finalTrackMatchesExplicitEra(track, lockedIntent)) return false;
+          if (explicitSceneRecoveryLockActive) {
+            if (lockedIntent.activity || lockedIntent.energyLevel || lockedIntent.energy) {
+              const activityMatch = activityEvidence(track, lockedIntent);
+              if (activityMatch === false) return false;
+            }
+            if (lockedIntent.mood.length > 0) {
+              const moodMatch = moodEvidence(track, lockedIntent);
+              if (moodMatch === false) return false;
+            }
+          }
           return true;
         });
       const recovered = finalizePlaylistTracks<ConstraintTrack>({
@@ -5296,6 +5462,9 @@ router.post("/generate", async (req, res): Promise<void> => {
             ...recovered.diagnostics,
             underfillRecoveryApplied: true,
             stackedConstraintLockActive,
+            explicitGenreRecoveryLockActive,
+            explicitEraRecoveryLockActive,
+            explicitSceneRecoveryLockActive,
             candidateCount: underfillCandidates.length,
             underfillRecoveryExpandedPoolSize: expandedUnderfillPool.length,
           },
@@ -5893,6 +6062,21 @@ router.post("/generate", async (req, res): Promise<void> => {
         })
           .filter(([, ms]) => ms >= 30_000)
           .map(([stage, ms]) => ({ stage, ms })),
+      },
+      performanceFastPath: {
+        fastPathTriggered: !!preScoringCandidateShape.diagnostics["applied"] ||
+          (((v3PipelineDiagnostics["controlledGeneration"] as Record<string, unknown> | undefined)?.["retrievalLatencyGuard"] as Record<string, unknown> | undefined)?.["fastPathTriggered"] === true),
+        fallbackSkipped: (((v3PipelineDiagnostics["controlledGeneration"] as Record<string, unknown> | undefined)?.["retrievalLatencyGuard"] as Record<string, unknown> | undefined)?.["fallbackSkipped"] === true),
+        candidatePoolSizeFinal: Number(
+          (((v3PipelineDiagnostics["controlledGeneration"] as Record<string, unknown> | undefined)?.["retrievalLatencyGuard"] as Record<string, unknown> | undefined)?.["candidatePoolSizeFinal"] ?? 0)
+        ),
+        candidatePoolBuilds: Number(
+          (((v3PipelineDiagnostics["controlledGeneration"] as Record<string, unknown> | undefined)?.["retrievalLatencyGuard"] as Record<string, unknown> | undefined)?.["candidatePoolBuildCount"] ?? 0)
+        ),
+        executionDepth: Number(
+          (((v3PipelineDiagnostics["controlledGeneration"] as Record<string, unknown> | undefined)?.["retrievalLatencyGuard"] as Record<string, unknown> | undefined)?.["executionDepth"] ?? 0)
+        ),
+        preScoringCandidateShape: preScoringCandidateShape.diagnostics,
       },
       stageProfile: liveStageProfiler.snapshot(),
       recoveryRelaxations,

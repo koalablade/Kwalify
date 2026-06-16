@@ -578,7 +578,10 @@ type RetrievalPools<T> = {
   energyArc: T[];
   diagnostics?: {
     inputCount: number;
+    shapedRankSourceCount?: number;
     contractRankedCount: number;
+    scenePreFilterApplied?: boolean;
+    sceneMismatchRejected?: number;
     subgenreScopeMode?: "none" | "primary_subgenre" | "related_subgenre" | "family";
     subgenrePrimaryCount?: number;
     subgenreRelatedCount?: number;
@@ -1179,25 +1182,33 @@ function sceneIdentityCoherenceScore<T extends IntentContractTrack>(
   ].filter(Boolean).length;
 
   const specificityLift =
-    (subgenreAligned ? 0.10 : 0) +
-    (familyAligned && eraAligned ? 0.055 : 0) +
-    (familyAligned && moodAligned ? 0.035 : 0) +
-    (textAligned ? Math.min(0.055, Math.max(0, identityScore) * 0.35) : 0) +
-    (signalCount >= 3 ? 0.045 : signalCount >= 2 ? 0.025 : 0) +
-    (eraAligned && textAligned ? 0.03 : 0);
+    (activityAligned ? 0.18 : 0) +
+    (moodAligned ? 0.14 : 0) +
+    (textAligned ? Math.min(0.14, Math.max(0, identityScore) * 0.70) : 0) +
+    (subgenreAligned ? 0.08 : 0) +
+    (familyAligned && eraAligned ? 0.045 : 0) +
+    (familyAligned && moodAligned ? 0.045 : 0) +
+    (signalCount >= 3 ? 0.08 : signalCount >= 2 ? 0.04 : 0) +
+    (eraAligned && textAligned ? 0.035 : 0);
 
   const weakFallbackPenalty = origin === "fallback" &&
     !subgenreAligned &&
     !familyAligned &&
     !textAligned &&
     (!contract.eraRange || !eraAligned) &&
-    !moodAligned
-    ? -0.055
+    !moodAligned &&
+    !activityAligned
+    ? -0.14
     : origin === "fallback" && !textAligned && !eraAligned && !eraCompatible
-      ? -0.025
+      ? -0.07
       : 0;
 
-  return Math.max(-0.06, Math.min(0.18, specificityLift + weakFallbackPenalty));
+  const requiredSceneMissPenalty =
+    (contract.activity && !activityAligned ? 0.18 : 0) +
+    (contract.mood.length > 0 && !moodAligned ? 0.12 : 0) +
+    (contract.explicitDimensions.some((dimension) => dimension === "place" || dimension === "timeOfDay") && !textAligned ? 0.08 : 0);
+
+  return Math.max(-0.34, Math.min(0.52, specificityLift + weakFallbackPenalty - requiredSceneMissPenalty));
 }
 
 function promptOrderingBias<T extends IntentContractTrack>(
@@ -1214,18 +1225,18 @@ function promptOrderingBias<T extends IntentContractTrack>(
   const acousticness = track.acousticness ?? 0.4;
   const promptHash = stableUnitHash(`${promptKey}:${track.trackId}`);
   const activityLift =
-    contract.activity === "gym" ? Math.max(0, energy - 0.58) * 0.10 :
-    contract.activity === "party" ? Math.max(0, Math.max(energy, danceability) - 0.55) * 0.09 :
-    contract.activity === "focus" ? Math.max(0, 0.68 - Math.max(energy, danceability)) * 0.08 :
-    contract.activity === "relaxing" || contract.activity === "sleep" ? Math.max(0, acousticness - 0.25) * 0.08 :
+    contract.activity === "gym" ? Math.max(0, energy - 0.55) * 0.24 :
+    contract.activity === "party" ? Math.max(0, Math.max(energy, danceability) - 0.52) * 0.22 :
+    contract.activity === "focus" ? Math.max(0, 0.70 - Math.max(energy, danceability)) * 0.20 :
+    contract.activity === "relaxing" || contract.activity === "sleep" ? Math.max(0, acousticness - 0.22) * 0.20 :
     0;
   const moodLift =
-    contract.mood.includes("euphoric") ? Math.max(0, valence - 0.52) * 0.06 :
-    contract.mood.includes("melancholic") || contract.mood.includes("dark") ? Math.max(0, 0.55 - valence) * 0.06 :
-    contract.mood.includes("calm") ? Math.max(0, 0.62 - energy) * 0.05 :
+    contract.mood.includes("euphoric") ? Math.max(0, valence - 0.50) * 0.16 :
+    contract.mood.includes("melancholic") || contract.mood.includes("dark") ? Math.max(0, 0.57 - valence) * 0.16 :
+    contract.mood.includes("calm") ? Math.max(0, 0.64 - energy) * 0.14 :
     0;
-  const fitLift = contract.explicitDimensions.length > 0 ? fit * 0.10 : 0;
-  return fitLift + activityLift + moodLift + identityTermScore(track, contract, classMap) + promptHash * 0.035;
+  const fitLift = contract.explicitDimensions.length > 0 ? fit * 0.22 : 0;
+  return fitLift + activityLift + moodLift + identityTermScore(track, contract, classMap) * 1.35 + promptHash * 0.020;
 }
 
 function earlyDiversityRank<T extends IntentContractTrack & { artistName?: string | null }>(
@@ -1254,6 +1265,132 @@ function earlyDiversityRank<T extends IntentContractTrack & { artistName?: strin
       };
     })
     .sort((a, b) => b.adjustedScore - a.adjustedScore);
+}
+
+function sceneConstraintActive(contract: IntentContract): boolean {
+  return !!contract.activity ||
+    !!contract.energy ||
+    contract.mood.length > 0 ||
+    contract.timeOfDay.length > 0 ||
+    contract.places.length > 0;
+}
+
+function highLevelSceneMismatch<T extends IntentContractTrack>(
+  track: T,
+  contract: IntentContract,
+  classMap: UserGenreProfile["trackClassifications"],
+): boolean {
+  let required = 0;
+  let misses = 0;
+  const add = (active: boolean, matches: boolean): void => {
+    if (!active) return;
+    required += 1;
+    if (!matches) misses += 1;
+  };
+  add(!!contract.activity, contractActivityMatch(track, contract.activity));
+  add(!!contract.energy, contractEnergyMatch(track, contract.energy));
+  add(contract.mood.length > 0, contract.mood.some((mood) => contractMoodMatch(track, mood)));
+  add(contract.timeOfDay.length > 0, contractTimeMatch(track, contract.timeOfDay));
+  add(contract.places.length > 0, contractPlaceMatch(track, classMap, contract.places));
+  return required > 0 && misses >= Math.max(1, Math.ceil(required * 0.55));
+}
+
+function shapeBroadCandidatePool<T extends IntentContractTrack & { artistName?: string | null }>(
+  tracks: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+  contract: IntentContract,
+  limit: number,
+): T[] {
+  if (tracks.length <= limit) return tracks;
+  const artistCounts = new Map<string, number>();
+  const buckets = new Map<string, T[]>();
+  for (const track of tracks) {
+    const artist = track.artistName?.toLowerCase().trim();
+    const artistSeen = artist ? artistCounts.get(artist) ?? 0 : 0;
+    if (artist && artistSeen >= 3) continue;
+    if (artist) artistCounts.set(artist, artistSeen + 1);
+    const family = genreFamilyForTrack(track, classMap) ?? "unknown";
+    const bucket = buckets.get(family) ?? [];
+    bucket.push(track);
+    buckets.set(family, bucket);
+  }
+
+  const orderedBuckets = [...buckets.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([, bucket]) => bucket);
+  const out: T[] = [];
+  const seen = new Set<string>();
+  let cursor = 0;
+  while (out.length < limit && orderedBuckets.some((bucket) => cursor < bucket.length)) {
+    for (const bucket of orderedBuckets) {
+      const track = bucket[cursor];
+      if (!track || seen.has(track.trackId)) continue;
+      seen.add(track.trackId);
+      out.push(track);
+      if (out.length >= limit) break;
+    }
+    cursor += 1;
+  }
+  return out;
+}
+
+function capV3IntentReadyPool<T extends {
+  trackId: string;
+  artistName?: string | null;
+  genrePrimary?: string;
+}>(
+  tracks: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+  limit: number,
+): T[] {
+  if (tracks.length <= limit) return tracks;
+  const buckets = new Map<string, T[]>();
+  const artistCounts = new Map<string, number>();
+  for (const track of tracks) {
+    const artist = track.artistName?.toLowerCase().trim();
+    const seenArtist = artist ? artistCounts.get(artist) ?? 0 : 0;
+    if (artist && seenArtist >= 4) continue;
+    if (artist) artistCounts.set(artist, seenArtist + 1);
+    const family = genreFamilyForTrack(track, classMap) ?? "unknown";
+    const bucket = buckets.get(family) ?? [];
+    bucket.push(track);
+    buckets.set(family, bucket);
+  }
+  const orderedBuckets = [...buckets.values()].sort((a, b) => b.length - a.length);
+  const out: T[] = [];
+  const used = new Set<string>();
+  let cursor = 0;
+  while (out.length < limit && orderedBuckets.some((bucket) => cursor < bucket.length)) {
+    for (const bucket of orderedBuckets) {
+      const track = bucket[cursor];
+      if (!track || used.has(track.trackId)) continue;
+      used.add(track.trackId);
+      out.push(track);
+      if (out.length >= limit) break;
+    }
+    cursor += 1;
+  }
+  return out;
+}
+
+function topScoreVariance<T extends { score?: number | null }>(tracks: T[], limit = 32): number {
+  const scores = tracks
+    .slice(0, limit)
+    .map((track) => typeof track.score === "number" ? track.score : 0)
+    .filter((score) => Number.isFinite(score));
+  if (scores.length < Math.min(8, limit)) return 1;
+  const mean = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  return scores.reduce((sum, score) => sum + Math.abs(score - mean), 0) / scores.length;
+}
+
+function topArtistDiversitySatisfied<T extends { artistName?: string | null }>(tracks: T[], limit = 50): boolean {
+  const counts = new Map<string, number>();
+  for (const track of tracks.slice(0, limit)) {
+    const artist = track.artistName?.toLowerCase().trim();
+    if (!artist) continue;
+    counts.set(artist, (counts.get(artist) ?? 0) + 1);
+  }
+  return [...counts.values()].every((count) => count <= 2);
 }
 
 function diagnosticTrack<T extends { trackId: string; trackName?: string | null; artistName?: string | null; genrePrimary?: string | null }>(
@@ -1323,6 +1460,7 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
   const contractFamilyMatches = new Map<string, boolean>();
   const identityScores = new Map<string, number>();
   const fitScores = new Map<string, number>();
+  const sceneMismatches = new Map<string, boolean>();
   const primarySubgenreMatch = (track: T): boolean => {
     const cached = primarySubgenreMatches.get(track.trackId);
     if (cached !== undefined) return cached;
@@ -1363,6 +1501,13 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     if (cached !== undefined) return cached;
     const value = intentContractFit(track, classMap, contract).score;
     fitScores.set(track.trackId, value);
+    return value;
+  };
+  const sceneMismatchFor = (track: T): boolean => {
+    const cached = sceneMismatches.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = highLevelSceneMismatch(track, contract, classMap);
+    sceneMismatches.set(track.trackId, value);
     return value;
   };
   const retrievalSignalCoverageTracks = contractSafeTracks;
@@ -1466,9 +1611,22 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
         ),
       }));
   const retrievalExpandedDueToStarvation = contractRankSource.length > contractSafeTracks.length;
+  const sceneActive = sceneConstraintActive(contract);
+  const sceneCompatibleRankSource = sceneActive
+    ? contractRankSource.filter((track) => !sceneMismatchFor(track))
+    : contractRankSource;
+  const sceneMismatchRejected = sceneActive ? contractRankSource.length - sceneCompatibleRankSource.length : 0;
+  const scenePreFilterApplied = sceneActive && sceneCompatibleRankSource.length >= Math.min(80, Math.max(35, Math.floor(contractRankSource.length * 0.30)));
+  const sceneRankSource = scenePreFilterApplied ? sceneCompatibleRankSource : contractRankSource;
+  const shapedRankSource = shapeBroadCandidatePool(
+    sceneRankSource,
+    classMap,
+    contract,
+    contract.activity || sceneActive ? 520 : 760,
+  );
   await yieldPipeline();
   const contractRanked = earlyDiversityRank(
-    contractRankSource
+    shapedRankSource
     .map((track) => {
       const subgenreMatchWeight = contract.primarySubgenre
         ? primarySubgenreMatch(track)
@@ -1480,9 +1638,10 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
       const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight - feedbackPenalty(track, feedback);
       const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
       const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
+      const sceneMismatchPenalty = sceneMismatchFor(track) ? 0.75 : 0;
       return {
         track,
-        adjustedScore: Math.max(0, baseScore + promptOrderingBias(track, contract, classMap, opts.promptKey) - trackPenalty) * artistPenalty,
+        adjustedScore: Math.max(0, baseScore + promptOrderingBias(track, contract, classMap, opts.promptKey) - trackPenalty - sceneMismatchPenalty) * artistPenalty,
       };
     }),
     classMap,
@@ -1543,7 +1702,10 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     discovery: takeUnique(discovery.length > 0 ? discovery : contractRanked.slice().reverse(), 80),
     diagnostics: {
       inputCount: tracks.length,
+      shapedRankSourceCount: shapedRankSource.length,
       contractRankedCount: contractRanked.length,
+      scenePreFilterApplied,
+      sceneMismatchRejected,
       subgenreScopeMode: retrievalScope.mode,
       subgenrePrimaryCount: retrievalScope.primaryCount,
       subgenreRelatedCount: retrievalScope.relatedCount,
@@ -2580,6 +2742,7 @@ function uncollapseV11CandidatePool<T extends {
 
 function buildV3CandidatePool<T extends {
   trackId: string;
+  artistName?: string | null;
   genrePrimary?: string;
   energy: number | null;
   valence: number | null;
@@ -2599,35 +2762,93 @@ function buildV3CandidatePool<T extends {
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
   const forensicPreV3Trace: PreV3TraceStage[] = [];
   const relaxationPlan = buildConstraintRelaxationPlan(lockedIntent);
+  const genreFamilyCache = new Map<string, string | null>();
+  const laneReadyCache = new Map<string, boolean>();
+  const laneReadinessReasonCache = new Map<string, string | null>();
+  const intentLaneReadyCache = new Map<string, boolean>();
+  const intentLaneReadinessReasonCache = new Map<string, string | null>();
+  const eraSignalCache = new Map<string, boolean>();
+  const lockedIntentRejectionReasonCache = new Map<string, string | null>();
+  const relaxedIntentMatchCache = new Map<string, boolean>();
+  const genreFamilyFor = (track: T): string | null => {
+    const cached = genreFamilyCache.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = genreFamilyForTrack(track, classMap);
+    genreFamilyCache.set(track.trackId, value);
+    return value;
+  };
+  const laneReadyFor = (track: T): boolean => {
+    const cached = laneReadyCache.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = isV3LaneReady(track, classMap);
+    laneReadyCache.set(track.trackId, value);
+    return value;
+  };
+  const laneReadinessReasonFor = (track: T): string | null => {
+    const cached = laneReadinessReasonCache.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = laneReadinessReason(track, classMap);
+    laneReadinessReasonCache.set(track.trackId, value);
+    return value;
+  };
+  const intentLaneReadyFor = (track: T): boolean => {
+    const cached = intentLaneReadyCache.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = isV3LaneReadyForIntent(track, classMap, lockedIntent);
+    intentLaneReadyCache.set(track.trackId, value);
+    return value;
+  };
+  const intentLaneReadinessReasonFor = (track: T): string | null => {
+    const cached = intentLaneReadinessReasonCache.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = intentLaneReadinessReason(track, classMap, lockedIntent);
+    intentLaneReadinessReasonCache.set(track.trackId, value);
+    return value;
+  };
+  const eraSignalFor = (track: T): boolean => {
+    if (!lockedIntent.eraRange) return true;
+    const cached = eraSignalCache.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = hasIntentEraSignal(track, lockedIntent.eraRange);
+    eraSignalCache.set(track.trackId, value);
+    return value;
+  };
+  const lockedIntentRejectionReasonFor = (track: T): string | null => {
+    const cached = lockedIntentRejectionReasonCache.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = lockedIntentRejectionReason(track, classMap, lockedIntent);
+    lockedIntentRejectionReasonCache.set(track.trackId, value);
+    return value;
+  };
   const minimumCandidateCount = Math.max(
     Math.ceil(playlistLength * (opts.minimumFillRatio ?? 0.8)),
     Math.min(12, playlistLength),
   );
   forensicPreV3Trace.push(preV3StageTrace("initial scored track count", sorted.length, sorted.length));
-  const genreReady = sorted.filter((track) => !!genreFamilyForTrack(track, classMap));
+  const genreReady = sorted.filter((track) => !!genreFamilyFor(track));
   forensicPreV3Trace.push(preV3StageTrace(
     "genre family normalization",
     sorted.length,
     genreReady.length,
-    countPreV3Reasons(sorted, (track) => genreFamilyForTrack(track, classMap) ? null : "missingGenreFamily"),
+    countPreV3Reasons(sorted, (track) => genreFamilyFor(track) ? null : "missingGenreFamily"),
   ));
-  const laneReady = sorted.filter((track) => isV3LaneReady(track, classMap));
+  const laneReady = sorted.filter(laneReadyFor);
   forensicPreV3Trace.push(preV3StageTrace(
     "lane readiness filter",
     sorted.length,
     laneReady.length,
-    countPreV3Reasons(sorted, (track) => laneReadinessReason(track, classMap)),
+    countPreV3Reasons(sorted, laneReadinessReasonFor),
   ));
-  const intentLaneReady = sorted.filter((track) => isV3LaneReadyForIntent(track, classMap, lockedIntent));
+  const intentLaneReady = sorted.filter(intentLaneReadyFor);
   const eraReady = lockedIntent.eraRange
-    ? intentLaneReady.filter((track) => hasIntentEraSignal(track, lockedIntent.eraRange!))
+    ? intentLaneReady.filter(eraSignalFor)
     : intentLaneReady;
   const eraReadyIds = new Set(eraReady.map((track) => track.trackId));
   forensicPreV3Trace.push(preV3StageTrace(
     "metadata completeness filter",
     sorted.length,
     intentLaneReady.length,
-    countPreV3Reasons(sorted, (track) => intentLaneReadinessReason(track, classMap, lockedIntent)),
+    countPreV3Reasons(sorted, intentLaneReadinessReasonFor),
   ));
   forensicPreV3Trace.push(preV3StageTrace(
     "era readiness filter",
@@ -2636,7 +2857,7 @@ function buildV3CandidatePool<T extends {
     lockedIntent.eraRange
       ? countPreV3Reasons(intentLaneReady, (track) => {
           if (trackHasKnownEraMismatch(track, lockedIntent.eraRange!)) return "eraMismatch";
-          if (!hasIntentEraSignal(track, lockedIntent.eraRange!)) return "unknownEra";
+          if (!eraSignalFor(track)) return "unknownEra";
           return eraReadyIds.has(track.trackId) ? null : "eraMismatch";
         })
       : {},
@@ -2649,9 +2870,14 @@ function buildV3CandidatePool<T extends {
       : step.profile.mood === "relaxed"
         ? laneReady
         : genreReady;
-    const tracks = sourcePool.filter((track) =>
-      trackMatchesLockedIntent(track, classMap, relaxedIntent)
-    );
+    const tracks = sourcePool.filter((track) => {
+      const cacheKey = `${step.label}:${track.trackId}`;
+      const cached = relaxedIntentMatchCache.get(cacheKey);
+      if (cached !== undefined) return cached;
+      const value = trackMatchesLockedIntent(track, classMap, relaxedIntent);
+      relaxedIntentMatchCache.set(cacheKey, value);
+      return value;
+    });
     return {
       step: step.label,
       profile: step.profile,
@@ -2663,20 +2889,35 @@ function buildV3CandidatePool<T extends {
     ?? relaxationAttempts.find((attempt) => attempt.candidateCount > 0)
     ?? relaxationAttempts[0];
   const effectiveLaneReady = selectedRelaxation?.step === "strict_constraints" ? strictEffectiveLaneReady : selectedRelaxation?.tracks ?? [];
-  const intentReady = selectedRelaxation?.tracks ?? [];
+  const rawIntentReady = selectedRelaxation?.tracks ?? [];
+  const broadSceneIntent = !!lockedIntent.activity || !!lockedIntent.energy || lockedIntent.mood.length > 0;
+  const intentReadyCap = Math.min(
+    rawIntentReady.length,
+    broadSceneIntent
+      ? Math.max(260, playlistLength * 16)
+      : Math.max(420, playlistLength * 22),
+  );
+  const intentReady = capV3IntentReadyPool(rawIntentReady, classMap, intentReadyCap);
   forensicPreV3Trace.push(preV3StageTrace(
     "intent readiness filter",
     selectedRelaxation?.step === "strict_constraints" ? effectiveLaneReady.length : sorted.length,
     intentReady.length,
     countPreV3Reasons(
       selectedRelaxation?.step === "strict_constraints" ? effectiveLaneReady : sorted,
-      (track) => lockedIntentRejectionReason(track, classMap, lockedIntent),
+      lockedIntentRejectionReasonFor,
     ),
   ));
   const baseWindow = Math.min(intentReady.length, Math.max(playlistLength * 8, 75));
   let windowSize = baseWindow;
-  while (windowSize < intentReady.length && familyCount(intentReady.slice(0, windowSize), classMap) < 3) {
+  let expansionIterations = 0;
+  const maxWindowExpansionIterations = 6;
+  while (
+    windowSize < intentReady.length &&
+    familyCount(intentReady.slice(0, windowSize), classMap) < 3 &&
+    expansionIterations < maxWindowExpansionIterations
+  ) {
     windowSize = Math.min(intentReady.length, windowSize + Math.max(playlistLength * 4, 25));
+    expansionIterations += 1;
   }
   const initialTracks = intentReady.slice(0, windowSize);
   const expandedWindowSize = Math.min(
@@ -2712,7 +2953,18 @@ function buildV3CandidatePool<T extends {
       intentLaneReadyCount: intentLaneReady.length,
       laneReadinessEraRelaxed: !lockedIntent.eraRange,
       intentReadyCount: intentReady.length,
+      rawIntentReadyCount: rawIntentReady.length,
+      intentReadyCap,
       candidateCount: tracks.length,
+      windowExpansionIterations: expansionIterations,
+      windowExpansionGuardHit: expansionIterations >= maxWindowExpansionIterations && windowSize < intentReady.length,
+      requestLocalMemoization: {
+        genreFamilyChecks: genreFamilyCache.size,
+        laneReadinessChecks: laneReadyCache.size,
+        intentLaneReadinessChecks: intentLaneReadyCache.size,
+        eraSignalChecks: eraSignalCache.size,
+        relaxedIntentChecks: relaxedIntentMatchCache.size,
+      },
       relaxationSteps: relaxationAttempts
         .filter((attempt) => attempt.step === selectedRelaxation?.step || attempt.candidateCount < minimumCandidateCount)
         .map((attempt) => attempt.step),
@@ -3151,6 +3403,11 @@ export async function buildPlaylistPipeline<T extends {
   let fallbackDepthReached = 0;
   const fallbackExpansionPath: string[] = [];
   let retrievalFatalEmptyPool = false;
+  let fallbackSkippedByFastPath = false;
+  let fastPathTriggered = false;
+  let candidatePoolStabilized = false;
+  let repetitionPassSkipped = false;
+  let executionDepth = 3;
   const existingIds = new Set(contractGuardedScoredPool.map((track) => track.trackId));
   const appendUnique = (base: ScoredLibraryTrack<T>[], extra: ScoredLibraryTrack<T>[], limit: number): ScoredLibraryTrack<T>[] => {
     const out = [...base];
@@ -3188,7 +3445,27 @@ export async function buildPlaylistPipeline<T extends {
     { level: "global", pool: globalExpansion },
   ];
   const beforeExpansion = contractGuardedScoredPool.length;
-  while (contractGuardedScoredPool.length < minSafePreRankingPool && fallbackDepthReached < fallbackSteps.length) {
+  const genreAlignmentStable =
+    intentContract.genreFamilies.length === 0 ||
+    contractEvidencePool.length >= Math.min(minSafePreRankingPool, Math.max(12, Math.ceil(opts.playlistLength * 0.75))) ||
+    contractGuardedScoredPool.length >= minSafePreRankingPool;
+  const sceneStableFastPath =
+    sceneConstraintActive(intentContract) &&
+    genreAlignmentStable &&
+    contractGuardedScoredPool.length >= minSafePreRankingPool;
+  const preExpansionScoreVariance = topScoreVariance(contractGuardedScoredPool);
+  candidatePoolStabilized =
+    contractGuardedScoredPool.length >= minSafePreRankingPool &&
+    preExpansionScoreVariance <= 0.018;
+  repetitionPassSkipped = topArtistDiversitySatisfied(contractGuardedScoredPool);
+  fallbackSkippedByFastPath = sceneStableFastPath || candidatePoolStabilized;
+  fastPathTriggered = fallbackSkippedByFastPath || repetitionPassSkipped;
+  const maxFallbackDepth = 1;
+  while (
+    contractGuardedScoredPool.length < minSafePreRankingPool &&
+    !fallbackSkippedByFastPath &&
+    fallbackDepthReached < Math.min(maxFallbackDepth, fallbackSteps.length)
+  ) {
     const step = fallbackSteps[fallbackDepthReached];
     fallbackDepthReached += 1;
     if (!step || step.pool.length === 0) {
@@ -3214,13 +3491,13 @@ export async function buildPlaylistPipeline<T extends {
   const originScoreBoost = (origin: "subgenre" | "family" | "text" | "fallback"): number => {
     switch (origin) {
       case "subgenre":
-        return 0.40;
+        return 0.24;
       case "family":
-        return 0.14;
+        return 0.08;
       case "text":
-        return 0.06;
+        return 0.12;
       case "fallback":
-        return 0;
+        return -0.05;
     }
   };
   contractGuardedScoredPool = contractGuardedScoredPool
@@ -3388,10 +3665,13 @@ export async function buildPlaylistPipeline<T extends {
   // No single-pass generation is allowed to directly return final output.
   // All playlists must be scored and optionally repaired before return.
   const retrievalSafetyExpanded =
-    !!starvationTriggerReason ||
-    timingMs.retrieval > 20_000 ||
-    retrieval.diagnostics?.retrievalExpandedDueToStarvation === true ||
-    (retrieval.diagnostics?.fallbackLevelUsed != null && retrieval.diagnostics.fallbackLevelUsed !== "none");
+    !fallbackSkippedByFastPath &&
+    (
+      !!starvationTriggerReason ||
+      timingMs.retrieval > 20_000 ||
+      retrieval.diagnostics?.retrievalExpandedDueToStarvation === true ||
+      (retrieval.diagnostics?.fallbackLevelUsed != null && retrieval.diagnostics.fallbackLevelUsed !== "none")
+    );
   const layeredSafetyPool = flattenRetrievalPools({
     core: retrieval.core,
     anchor: retrieval.anchor,
@@ -3454,6 +3734,10 @@ export async function buildPlaylistPipeline<T extends {
       ];
   const executableCandidateInputs = candidateInputs.slice(0, 1);
   const skippedCandidateAttemptCount = Math.max(0, candidateInputs.length - executableCandidateInputs.length);
+  executionDepth =
+    1 +
+    (fallbackDepthReached > 0 ? 1 : 0) +
+    (retrievalSafetyExpanded ? 1 : 0);
   const candidateAttempts: Array<{
     label: string;
     inputPool: Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
@@ -3476,6 +3760,7 @@ export async function buildPlaylistPipeline<T extends {
   };
   let candidateShortCircuitUsed = false;
   let v3InvocationCount = 0;
+  let candidatePoolBuildCount = 0;
   let v3SingletonViolationBlocked = false;
   for (const candidate of executableCandidateInputs) {
     if (v3InvocationCount >= 1) {
@@ -3503,6 +3788,7 @@ export async function buildPlaylistPipeline<T extends {
     const endCandidateGenerationProfile = opts.profileStage?.(`pipeline.candidateGeneration.${candidate.label}`, `${inputPool.length} input tracks`);
     let candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
     try {
+      candidatePoolBuildCount += 1;
       candidatePool = buildV3CandidatePool(
         inputPool,
         classMap,
@@ -3693,8 +3979,15 @@ export async function buildPlaylistPipeline<T extends {
     sessionArtistMemory: sessionArtistMemoryDiagnostics(effectiveSessionArtistMemory),
     retrievalLatencyGuard: {
       active: retrievalSafetyExpanded,
+      fastPathTriggered,
+      fallbackSkipped: fallbackSkippedByFastPath,
+      candidatePoolStabilized,
+      repetitionPassSkipped,
+      candidatePoolSizeFinal: v3CandidatePool.tracks.length,
+      executionDepth,
       retrievalElapsedMs: timingMs.retrieval,
       candidateAttemptCount: candidateAttempts.length,
+      candidatePoolBuildCount,
       plannedCandidateAttemptCount: candidateInputs.length,
       skippedCandidateAttemptCount,
       v3SingletonEnforced: true,
@@ -3711,6 +4004,8 @@ export async function buildPlaylistPipeline<T extends {
       fallbackExpansionPath,
       finalPoolSizeAtScoringEntry: contractGuardedScoredPool.length,
       retrievalFatalEmptyPool,
+      maxFallbackDepth,
+      fallbackSkippedByFastPath,
     },
   };
   opts.pipelineLog?.info({

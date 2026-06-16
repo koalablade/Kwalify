@@ -77,9 +77,9 @@ export function buildConstraintRelaxationPlan(intent: LockedIntent): ConstraintR
 export function relaxedIntentForProfile(intent: LockedIntent, profile: ConstraintProfile): LockedIntent {
   return {
     ...intent,
-    eraRange: profile.era === "strict" ? intent.eraRange : null,
+    eraRange: intent.eraRange,
     genreFamilies: profile.genre === "strict" ? intent.genreFamilies : [],
-    mood: profile.mood === "strict" ? intent.mood : [],
+    mood: intent.mood,
   };
 }
 
@@ -94,16 +94,18 @@ export function artistMemoryCount(memory: SessionArtistMemory | undefined, artis
 
 export function artistMemoryPenalty(memory: SessionArtistMemory | undefined, artistName: string | null | undefined): number {
   const count = artistMemoryCount(memory, artistName);
-  const pressure = Math.max(0, Math.min(1, memory?.diversityPressure ?? 1));
-  return count > 0 && pressure > 0 ? Math.pow(0.2, count * pressure) : 1;
+  const pressure = Math.max(0, Math.min(1.35, memory?.diversityPressure ?? 1));
+  return count > 0 && pressure > 0 ? Math.pow(0.14, count * pressure) : 1;
 }
 
 export function artistExceedsSessionCap(memory: SessionArtistMemory | undefined, artistName: string | null | undefined): boolean {
   const artist = normalizeArtist(artistName);
   if (!artist || !memory) return false;
-  const pressure = Math.max(0, Math.min(1, memory.diversityPressure ?? 1));
-  if (pressure < 0.5) return false;
-  const effectiveCap = Math.max(memory.maxArtistAppearances, Math.ceil(memory.maxArtistAppearances / Math.max(0.5, pressure)));
+  const pressure = Math.max(0, Math.min(1.35, memory.diversityPressure ?? 1));
+  if (pressure < 0.45) return false;
+  const effectiveCap = pressure >= 0.85
+    ? memory.maxArtistAppearances
+    : Math.max(memory.maxArtistAppearances, Math.ceil(memory.maxArtistAppearances / Math.max(0.45, pressure)));
   return (memory.artistCount.get(artist) ?? 0) >= effectiveCap;
 }
 
@@ -114,7 +116,7 @@ export function withSessionDiversityPressure(
   if (!memory) return undefined;
   return {
     ...memory,
-    diversityPressure: Math.max(0, Math.min(1, diversityPressure)),
+    diversityPressure: Math.max(0, Math.min(1.35, diversityPressure)),
   };
 }
 
