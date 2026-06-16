@@ -6667,6 +6667,78 @@ router.post("/generate", async (req, res): Promise<void> => {
       });
     }
 
+    if (sideEffectPolicy.mode === "audit" && !debugMode) {
+      const endAuditResponseProfile = liveStageProfiler.start("controller.responseAssembly.auditSlim", `${finalApiTracks.length} tracks`);
+      const auditGenerationDiagnostics = {
+        ...generationDiagnostics,
+        stageProfile: liveStageProfiler.snapshot(),
+      };
+      const auditResponse = {
+        success: true,
+        playlistId: savedPlaylistId,
+        auditMode: true,
+        spotifyApiAudit: getSpotifyApiAuditSnapshot(),
+        sideEffects: {
+          spotifyPlaylistCreate: "skipped",
+          savedPlaylistWrites: "skipped",
+          historyWrites: "skipped",
+          feedbackWrites: "skipped",
+          analyticsWrites: "skipped",
+          resultCacheWrites: "skipped",
+        },
+        playlistName,
+        name: playlistName,
+        vibe,
+        mode,
+        noLibraryMode: !!noLibraryMode,
+        noLibrarySpotify: noLibrarySpotifyDiagnostics,
+        playlistConfidence,
+        count: finalTracks.length,
+        totalTracks: finalTracks.length,
+        degraded: pipeline.pipelineTrace?.degraded ?? false,
+        degradationReasons: pipeline.pipelineTrace?.degradationReasons ?? [],
+        generationMs,
+        cacheDiagnostics: {
+          status: cacheEntryStatus,
+          staleBypassed: cacheEntryStatus === "stale",
+        },
+        stats: {
+          trackCount: finalTracks.length,
+          totalDurationMs,
+          artistCount,
+          generationMs,
+        },
+        tracks: finalApiTracks,
+        finalGenreDistribution,
+        finalEraDistribution,
+        finalMoodDistribution,
+        finalEnergyDistribution,
+        generationDiagnostics: auditGenerationDiagnostics,
+        artistDiversity,
+        feedbackDiagnostics,
+        promptDriftAudit,
+        strictGenreEvidence: strictGenreEvidencePublic,
+        strictEraEvidence: strictEraEvidencePublic,
+        finalization: finalization.diagnostics,
+        intentSurvival: intentSurvivalDiagnostics,
+        v3Diagnostics: v3DiagnosticsWithIntentSurvival,
+        requestOrchestration: pipeline.requestOrchestration ?? {
+          layer: "request",
+          candidateGenerator: fallbackReason ? "fast_fallback" : "v3",
+          selectionOwner: "request-layer",
+          repairOwner: "request-layer",
+        },
+        ...(pipeline.scoringDiagnostics?.fastFallback
+          ? { fastFallback: true }
+          : {}),
+      };
+      endAuditResponseProfile();
+      const endAuditJsonProfile = liveStageProfiler.start("controller.responseJson.auditSlim", `${finalApiTracks.length} tracks`);
+      res.json(auditResponse);
+      endAuditJsonProfile();
+      return;
+    }
+
     res.json({
       success: true,
       playlistId: savedPlaylistId,
