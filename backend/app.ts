@@ -5,13 +5,15 @@ import connectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
 import pg from "pg";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import router from "./routes/routes.index";
 import healthRouter from "./routes/health";
 import evalRouter from "./routes/eval";
 import { logger } from "./lib/logger";
 import { type AppEnv } from "./lib/env";
 import { getRuntimeReadiness, isRuntimeReady } from "./lib/runtime-readiness";
-import { getGenerateOverloadState, releaseGenerateSlot, tryAcquireGenerateSlot } from "./lib/runtime-overload";
+import { acquireGenerateSlot, getGenerateOverloadState, recordGenerateLatency } from "./lib/runtime-overload";
+import { globalRateLimit } from "./lib/global-rate-limit";
 import "./lib/session";
 
 let appInstanceCreated = false;
@@ -57,9 +59,60 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   // hop (the Render proxy) so req.secure reflects the user-facing HTTPS.
   app.set("trust proxy", 1);
 
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' https: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.spotify.com https://accounts.spotify.com;",
+    );
+    next();
+  });
+
   app.use(
     pinoHttp({
       logger,
+      genReqId(req, res) {
+        const header = req.headers["x-request-id"] ?? req.headers["x-correlation-id"];
+        const requestId = Array.isArray(header) ? header[0] : header;
+        const id = typeof requestId === "string" && requestId.trim() ? requestId.trim() : randomUUID();
+        res.setHeader("X-Request-Id", id);
+        return id;
+      },
+      customProps(req) {
+        return {
+          requestId: req.id,
+          correlationId: req.id,
+        };
+      },
+      customSuccessMessage() {
+        return "request_completed";
+      },
+      customErrorMessage() {
+        return "request_completed";
+      },
+      customSuccessObject(req, res, val) {
+        const responseTime = (val as Record<string, unknown>)["responseTime"];
+        return {
+          ...val,
+          requestId: req.id,
+          route: req.route?.path ?? req.path,
+          statusCode: res.statusCode,
+          latencyMs: typeof responseTime === "number" ? Math.round(responseTime) : undefined,
+        };
+      },
+      customErrorObject(req, res, err, val) {
+        const responseTime = (val as Record<string, unknown>)["responseTime"];
+        return {
+          ...val,
+          err,
+          requestId: req.id,
+          route: req.route?.path ?? req.path,
+          statusCode: res.statusCode,
+          latencyMs: typeof responseTime === "number" ? Math.round(responseTime) : undefined,
+        };
+      },
       serializers: {
         req(req) {
           return { id: req.id, method: req.method, url: req.url?.split("?")[0] };
@@ -83,6 +136,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
     corsOrigins.size > 0 ? [...corsOrigins] : env.NODE_ENV === "production" ? false : true;
 
   app.use(cors({ origin: allowedOrigins, credentials: true }));
+  app.use(globalRateLimit);
 
   if (env.APP_URL && env.NODE_ENV === "production") {
     const canonical = new URL(env.APP_URL);
@@ -117,22 +171,30 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       error: readiness.state === "failed"
         ? "Server startup failed. Please try again shortly."
         : "Server is starting. Please try again shortly.",
+      requestId: req.id,
       readiness: readiness.state,
       retryAfterSeconds: 5,
     });
   });
 
-  app.use((req, res, next) => {
+  app.use(async (req, res, next) => {
     if (req.method !== "POST" || req.path !== "/api/generate") return next();
-    if (!tryAcquireGenerateSlot()) {
+    const startedAt = Date.now();
+    let releaseSlot: (() => void) | null = null;
+    try {
+      releaseSlot = await acquireGenerateSlot();
+    } catch (_err) {
       const overload = getGenerateOverloadState();
       res.setHeader("Retry-After", "10");
       res.status(503).json({
         success: false,
         code: "SERVER_BUSY",
         error: "Playlist generation is currently busy. Please retry shortly.",
+        requestId: req.id,
         activeGenerateRequests: overload.active,
+        queuedGenerateRequests: overload.queued,
         generateConcurrencyLimit: overload.limit,
+        generateQueueLimit: overload.queueLimit,
         retryAfterSeconds: 10,
       });
       return;
@@ -142,7 +204,8 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
     const release = () => {
       if (released) return;
       released = true;
-      releaseGenerateSlot();
+      recordGenerateLatency(Date.now() - startedAt);
+      releaseSlot?.();
     };
 
     res.once("finish", release);
@@ -179,8 +242,8 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
     }),
   );
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: process.env["JSON_BODY_LIMIT"] ?? "1mb" }));
+  app.use(express.urlencoded({ extended: true, limit: process.env["URLENCODED_BODY_LIMIT"] ?? "256kb" }));
 
   const frontendPublicDir = path.resolve(__dirname, "../../frontend/public");
   app.use(express.static(frontendPublicDir));
@@ -201,14 +264,16 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
     const status = typeof err?.status === "number" && err.status >= 400 && err.status < 600
       ? err.status
       : 500;
+    const payloadTooLarge = status === 413 || err?.type === "entity.too.large";
     req.log.error(
-      { err, status, path: req.path, method: req.method },
-      "Unhandled API route error"
+      { err, status, path: req.path, method: req.method, requestId: req.id },
+      payloadTooLarge ? "API payload too large" : "Unhandled API route error",
     );
     res.status(status).json({
       success: false,
-      code: status === 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
-      error: status === 500 ? "Unexpected server error." : "Request failed.",
+      code: payloadTooLarge ? "PAYLOAD_TOO_LARGE" : status === 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
+      error: payloadTooLarge ? "Request payload is too large." : status === 500 ? "Unexpected server error." : "Request failed.",
+      requestId: req.id,
     });
   };
   app.use(apiErrorHandler);

@@ -45,6 +45,67 @@ async function withBootTimeout<T>(
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withBootRetry<T>(
+  operation: () => Promise<T>,
+  label: string,
+  opts: { attempts?: number; timeoutMs?: number; backoffMs?: number } = {},
+): Promise<T> {
+  const attempts = opts.attempts ?? 3;
+  const timeoutMs = opts.timeoutMs ?? BOOT_DB_TIMEOUT_MS;
+  const backoffMs = opts.backoffMs ?? 750;
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await withBootTimeout(operation(), label, timeoutMs);
+    } catch (err) {
+      lastError = err;
+      if (attempt >= attempts) break;
+      logger.warn(
+        { attempt, attempts, err },
+        `[boot] ${label} failed; retrying`,
+      );
+      await sleep(backoffMs * attempt);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function sessionTableExists(rawPool: pg.Pool): Promise<boolean> {
+  const result = await withBootRetry(
+    () => rawPool.query<{ exists: boolean }>(
+      "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'session') AS exists",
+    ),
+    "session table existence check",
+    { attempts: 2, timeoutMs: 8_000 },
+  );
+  return result.rows[0]?.exists === true;
+}
+
+async function ensureSessionTable(rawPool: pg.Pool): Promise<void> {
+  try {
+    await withBootRetry(
+      () => rawPool.query(SESSION_TABLE_DDL),
+      "session table bootstrap",
+      { attempts: 3, timeoutMs: 12_000 },
+    );
+  } catch (err) {
+    if (await sessionTableExists(rawPool)) {
+      logger.warn(
+        { err },
+        "[boot] Session table DDL timed out, but existing session table is usable",
+      );
+      return;
+    }
+    throw new Error(
+      `[boot] Session table DDL failed and no existing table was found: ${(err as Error).message}`,
+    );
+  }
+}
+
 /**
  * Startup health verification.
  *
@@ -60,7 +121,11 @@ async function verifyStartupHealth(
   env: AppEnv,
 ): Promise<void> {
   try {
-    await withBootTimeout(rawPool.query("SELECT 1"), "startup database health check");
+    await withBootRetry(
+      () => rawPool.query("SELECT 1"),
+      "startup database health check",
+      { attempts: 3, timeoutMs: 8_000 },
+    );
   } catch (err) {
     throw new Error(
       `[boot] Database health check failed: ${(err as Error).message}`,
@@ -75,16 +140,14 @@ async function verifyStartupHealth(
 async function finishRuntimeInitialization(rawPool: pg.Pool, env: AppEnv): Promise<void> {
   setRuntimeInitializing();
 
-  try {
-    await withBootTimeout(rawPool.query(SESSION_TABLE_DDL), "session table bootstrap");
-  } catch (err) {
-    throw new Error(
-      `[boot] Session table DDL failed: ${(err as Error).message}`,
-    );
-  }
+  await ensureSessionTable(rawPool);
 
   try {
-    await withBootTimeout(runDbInit(rawPool), "app schema bootstrap", 20_000);
+    await withBootRetry(
+      () => runDbInit(rawPool),
+      "app schema bootstrap",
+      { attempts: 2, timeoutMs: 25_000, backoffMs: 1_000 },
+    );
   } catch (err) {
     throw new Error(`[boot] App schema bootstrap failed: ${(err as Error).message}`);
   }

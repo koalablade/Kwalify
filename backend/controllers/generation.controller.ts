@@ -4049,7 +4049,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const vibeKind = detectVibeKind(vibe, emotionProfile);
     const budget = createRequestBudget(startMs);
-    const debugMode = req.query.debug === "1";
+    const debugMode = req.query.debug === "1" || process.env["DEBUG"] === "true";
     const resultCacheBaseKey = getGenerateCacheKey({
       userId,
       vibe,
@@ -4359,6 +4359,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           noLibraryMode: !!noLibraryMode,
           count: cachedApiTracks.length,
           totalTracks: cachedApiTracks.length,
+          degraded: false,
+          degradationReasons: [],
           emotionProfile: cached.emotionProfile,
           cacheDiagnostics: { status: "fresh", staleBypassed: false, cacheHitValid: true, invalidReason: null },
           finalGenreDistribution: cachedFinalGenreDistribution,
@@ -4974,6 +4976,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         allowHoliday: allowHolidaySeason,
         suppressGenres: allowHolidaySeason ? [] : ["christmas"],
       },
+      requestId,
       shouldAbort: generationShouldAbort,
       progress: (stage, detail) => {
         if (generationShouldAbort()) return;
@@ -6473,6 +6476,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalEnergyDistribution,
       promptDriftAudit,
       generationDiagnostics,
+      ...(debugMode
+        ? {
+            diagnostics: {
+              trace: pipeline.pipelineTrace,
+              timings: (pipeline.scoringDiagnostics?.v3Pipeline as Record<string, unknown> | undefined)?.["timingMs"] ?? null,
+              fallbackEvents: pipeline.pipelineTrace?.fallbackEvents ?? [],
+            },
+          }
+        : {}),
       artistDiversity,
       playlistConfidence,
       noLibrarySpotify: noLibrarySpotifyDiagnostics,
@@ -6528,6 +6540,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       playlistConfidence,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
+      degraded: pipeline.pipelineTrace?.degraded ?? false,
+      degradationReasons: pipeline.pipelineTrace?.degradationReasons ?? [],
       ...(fallbackReason ? { fallbackReason } : {}),
       generationMs,
       cacheDiagnostics: {

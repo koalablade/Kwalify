@@ -1,3 +1,5 @@
+import { moduleLogger } from "./logger";
+
 export interface V3TrackMetadata {
   genrePrimary?: string | null;
 
@@ -20,6 +22,8 @@ const REQUIRED_V3_METADATA_FIELDS = [
   "clusterIds",
   "genrePrimary",
 ] as const;
+
+const log = moduleLogger("v3-track-contract");
 
 type RequiredV3MetadataField = (typeof REQUIRED_V3_METADATA_FIELDS)[number];
 
@@ -67,11 +71,11 @@ export function warnIfV3MetadataLost<T extends object>(
     }
 
     if (lostFields.length > 0) {
-      console.warn("[v3-contract] metadata lost", {
+      log.warn({
         stage: context,
         trackId,
         fields: lostFields,
-      });
+      }, "v3_metadata_lost");
     }
   }
 }
@@ -99,11 +103,11 @@ export function warnIfFieldDropped<T extends object>(
     const sourceMetadata = source as Partial<V3TrackMetadata>;
     const targetMetadata = target as Partial<V3TrackMetadata>;
     if (hasMetadataValue(sourceMetadata[field]) && !hasMetadataValue(targetMetadata[field])) {
-      console.warn("[v3-contract] metadata field dropped", {
+      log.warn({
         stage: context,
         trackId,
         field,
-      });
+      }, "v3_metadata_field_dropped");
     }
   }
 }

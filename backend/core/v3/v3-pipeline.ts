@@ -21,15 +21,15 @@ import type { EmotionProfile } from "../../lib/emotion";
 import { isUnclearIntent } from "./intent-decomposer";
 import { buildLanes } from "./lane-router";
 import { generateAdaptiveLanes } from "./adaptive-lane-generator";
-import { scoreLane } from "./lane-scorer";
-import { buildClusters } from "./cluster-candidate-engine";
+import { scoreLane, type LaneScoredTrack } from "./lane-scorer";
+import { buildClusters, type ClusteredPool } from "./cluster-candidate-engine";
 import { selectFromClusters, type SampledLaneResult } from "./v3-sampler";
 import {
   createDiversityWindow,
   updateDiversityWindow,
   computeDiversityMetrics,
 } from "./global-diversity-controller";
-import { interleaveLanes } from "./interleaver";
+import { interleaveLanes, type InterleavedResult } from "./interleaver";
 import { classifyTrack, type TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
@@ -40,6 +40,7 @@ import {
   getRelaxationLevel,
   RETRIEVAL_RELAXATION_LADDER,
   retrieveCandidatesByEmbedding,
+  type RetrievalCloud,
   type RetrievalStrictness,
   type RetrievedCandidate,
   type RetrievalTrackLike,
@@ -55,6 +56,7 @@ import {
 import {
   createTrackDecision,
   withDecisionAffinities,
+  withDecisionFinalScore,
   withDecisionValidity,
   type TrackDecision,
 } from "./track-decision";
@@ -68,8 +70,22 @@ import {
   sessionArtistMemoryDiagnostics,
   type SessionArtistMemory,
 } from "./constraint-relaxation";
+import { moduleLogger } from "../../lib/logger";
+import { getFallbackCache, requestPatternKey, setFallbackCache } from "../../lib/fallback-cache";
+import { createFailureContext, type FailureContext, type FailureType } from "../../lib/failure-types";
+import {
+  recordTraceCount,
+  recordTraceDuration,
+  recordTraceFailure,
+  recordTraceFallback,
+  recordTraceRecovery,
+  type PipelineTrace,
+} from "../../lib/pipeline-trace";
+import { getSystemHealthState, recordSystemFailure } from "../../lib/system-health";
 
 // ── Types ───────────────────────────────────────────────────────────────────
+
+const log = moduleLogger("v3-pipeline");
 
 export interface V3PipelineTrack extends RetrievalTrackLike {
   trackId: string;
@@ -415,7 +431,183 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
 
 // ── Pipeline ─────────────────────────────────────────────────────────────────
 
-export function runV3Pipeline<T extends V3PipelineTrack>(
+async function yieldV3(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+function emptyRetrievalCloud<T extends V3PipelineTrack>(): RetrievalCloud<T> {
+  return {
+    tracks: [],
+    sessionState: {
+      tasteVector: [],
+      moodVector: [],
+      sceneVector: [],
+      energyVector: [],
+      driftVector: [],
+    },
+    userTasteState: {
+      longTermTasteVector: [],
+      shortTermSessionVector: [],
+      moodTrajectoryVector: [],
+      scenePreferenceVector: [],
+    },
+    playlistEmbedding: {
+      centroidVector: [],
+      energyCurveVector: [],
+      diversitySpreadVector: [],
+      emotionalArcVector: [],
+    },
+    memoryGraph: {
+      listenedTracksEmbeddingGraph: [],
+      sessionTransitions: [],
+      skippedClusters: {},
+      replayedClusters: {},
+    },
+    clusterEmbeddings: [],
+    neighborhoodCounts: {},
+  };
+}
+
+async function safeStage<T>(opts: {
+  stage: string;
+  type: FailureType;
+  requestId?: string;
+  trace?: PipelineTrace;
+  recover: () => T;
+  run: () => T;
+}): Promise<T> {
+  try {
+    return opts.run();
+  } catch (firstErr) {
+    const first = createFailureContext({
+      stage: opts.stage,
+      error: firstErr,
+      requestId: opts.requestId,
+      recoverable: true,
+    });
+    const context: FailureContext = { ...first, type: opts.type };
+    recordTraceFailure(opts.trace, context);
+    recordTraceRecovery(opts.trace, opts.stage, "recovery_attempted");
+    recordSystemFailure(context);
+    log.warn(
+      { requestId: opts.requestId, stage: opts.stage, type: context.type, recoverable: true, err: context.error },
+      "recovery_attempted",
+    );
+    try {
+      const recovered = opts.run();
+      recordTraceRecovery(opts.trace, opts.stage, "recovery_success");
+      log.info({ requestId: opts.requestId, stage: opts.stage }, "recovery_success");
+      return recovered;
+    } catch (secondErr) {
+      const second = createFailureContext({
+        stage: opts.stage,
+        error: secondErr,
+        requestId: opts.requestId,
+        recoverable: true,
+      });
+      const secondContext: FailureContext = { ...second, type: opts.type };
+      recordTraceFailure(opts.trace, secondContext);
+      recordTraceRecovery(opts.trace, opts.stage, "recovery_failed");
+      recordTraceFallback(opts.trace, `${opts.stage}_fallback`);
+      recordSystemFailure(secondContext);
+      log.error(
+        { requestId: opts.requestId, stage: opts.stage, type: secondContext.type, recoverable: true, err: secondContext.error },
+        "recovery_failed",
+      );
+      return opts.recover();
+    }
+  }
+}
+
+function passThroughScored<T extends V3PipelineTrack>(
+  tracks: T[],
+  laneId: string,
+): Array<LaneScoredTrack<T>> {
+  return tracks.map((track) => ({
+    track,
+    laneScore: 0.5,
+    signals: { ES: 0, SA: 0, EM: 0, Era: 0, Act: 0, Nov: 0, genreBonus: 0, eraBonus: 0, energyBandBonus: 0, coreGenrePenalty: 0 },
+    era: "any" as EraBucket,
+    genrePrimary: track.genrePrimary ?? track.genreFamily ?? "unknown",
+  }));
+}
+
+function flatClusteredPool<T extends V3PipelineTrack>(
+  decisions: Array<TrackDecision<T>>,
+  laneId: string,
+): ClusteredPool<T> {
+  const clusterId = `${laneId}:flat`;
+  const trackToClusterIds = new Map(decisions.map((decision) => [decision.track.trackId, [clusterId]]));
+  return {
+    clusters: new Map([
+      [clusterId, {
+        clusterId,
+        dimension: "genre",
+        value: "flat",
+        trackIds: new Set(decisions.map((decision) => decision.track.trackId)),
+        diversityContributionScore: 0,
+        size: decisions.length,
+      }],
+    ]),
+    trackToClusterIds,
+    scoredTracks: decisions.map((decision) => ({ ...decision, clusterIds: [clusterId] })),
+  };
+}
+
+function topNSelection<T extends V3PipelineTrack>(
+  decisions: Array<TrackDecision<T>>,
+  laneId: string,
+  targetCount: number,
+): ReturnType<typeof selectFromClusters<T>> {
+  const tracks = decisions.slice(0, targetCount).map((decision) => ({
+    ...decision.track,
+    sourceLane: laneId,
+    laneScore: decision.finalScore || decision.score,
+    genrePrimary: decision.genrePrimary,
+    laneEra: decision.laneEra,
+    clusterIds: decision.clusterIds.length > 0 ? decision.clusterIds : [`${laneId}:flat`],
+    diversity: decision.diversity,
+  }));
+  return {
+    tracks,
+    clusterSpread: {
+      genreClusters: 1,
+      eraClusters: 1,
+      energyBands: 1,
+      moodQuadrants: 1,
+    },
+    clusterSelectionRatios: { [`${laneId}:flat`]: tracks.length > 0 ? 1 : 0 },
+    samplerDiagnostics: {
+      inputCount: decisions.length,
+      outputCount: tracks.length,
+      rejectionReasons: {},
+      topRejectionReasons: [],
+      dominantCluster: `${laneId}:flat`,
+      clusterPurity: 1,
+      secondaryClusterAllowed: false,
+      secondaryClusterReason: "fallback_top_n",
+    },
+  };
+}
+
+function minimalSelectedTracks<T extends V3PipelineTrack>(
+  tracks: T[],
+  targetCount: number,
+): Array<T & V3SelectionCandidate<T>> {
+  return tracks.slice(0, targetCount).map((track) => ({
+    ...track,
+    sourceLane: "minimal",
+    laneScore: 0.5,
+    genrePrimary: track.genrePrimary ?? track.genreFamily ?? "unknown",
+    laneEra: "any" as EraBucket,
+    clusterIds: ["minimal:flat"],
+    clusterId: "minimal:flat",
+    diversity: null,
+    selectedByV3: true,
+  })) as Array<T & V3SelectionCandidate<T>>;
+}
+
+export async function runV3Pipeline<T extends V3PipelineTrack>(
   tracks: T[],
   vibe: string,
   profile: EmotionProfile,
@@ -430,8 +622,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     momentMemory?: MomentMemory | null;
     sessionArtistMemory?: SessionArtistMemory;
     trackReusePenalty?: Map<string, number>;
+    requestId?: string;
+    pipelineTrace?: PipelineTrace;
   } = {},
-): V3PipelineResult<T> {
+): Promise<V3PipelineResult<T>> {
   const pipelineStartedAt = Date.now();
   const timingMs: Record<string, number> = {
     retrieval: 0,
@@ -443,7 +637,10 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     total: 0,
   };
   const recordTiming = (key: keyof typeof timingMs, startedAt: number): void => {
-    timingMs[key] += Date.now() - startedAt;
+    const durationMs = Date.now() - startedAt;
+    timingMs[key] += durationMs;
+    recordTraceDuration(opts.pipelineTrace, `v3.${key}`, durationMs);
+    log.info({ requestId: opts.requestId, stage: key, durationMs }, "v3_stage_completed");
   };
 
   // ── Stage 1: Unified intent consumption ──────────────────────────────────
@@ -455,13 +652,47 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   const lockedIntent = opts.lockedIntent ?? unifiedIntentContext.lockedIntent;
   const unifiedIntentDiagnostics = unifiedIntentContext.diagnostics;
   const fallbackTriggered = isUnclearIntent(decomposed);
+  const healthState = getSystemHealthState();
+  const overloaded = healthState === "DEGRADED" || healthState === "CRITICAL";
+  if (overloaded) recordTraceFallback(opts.pipelineTrace, `system_health_${healthState.toLowerCase()}`);
+  const retrievalInputTracks = healthState === "CRITICAL"
+    ? tracks.slice(0, Math.max(targetCount, targetCount * 3))
+    : tracks;
+  const retrievalCacheKey = requestPatternKey("v3-retrieval", {
+    vibe,
+    targetCount,
+    healthState,
+    genreFamilies: lockedIntent.genreFamilies,
+    eraRange: lockedIntent.eraRange,
+    trackCount: tracks.length,
+  });
+  const outputCacheKey = requestPatternKey("v3-output", {
+    vibe,
+    targetCount,
+    genreFamilies: lockedIntent.genreFamilies,
+    eraRange: lockedIntent.eraRange,
+    trackCount: tracks.length,
+  });
   let stageStartedAt = Date.now();
-  const retrievalCloud = retrieveCandidatesByEmbedding(
-    tracks,
-    lockedIntent,
-    unifiedIntentContext.unifiedIntent,
-  );
+  const retrievalCloud = await safeStage<RetrievalCloud<T>>({
+    stage: "v3.retrieval",
+    type: "RETRIEVAL_FAILURE",
+    requestId: opts.requestId,
+    trace: opts.pipelineTrace,
+    run: () => {
+      const cloud = retrieveCandidatesByEmbedding(
+        retrievalInputTracks,
+        lockedIntent,
+        unifiedIntentContext.unifiedIntent,
+      );
+      setFallbackCache(retrievalCacheKey, cloud);
+      return cloud;
+    },
+    recover: () => getFallbackCache<RetrievalCloud<T>>(retrievalCacheKey) ?? emptyRetrievalCloud<T>(),
+  });
   recordTiming("retrieval", stageStartedAt);
+  recordTraceCount(opts.pipelineTrace, "v3.retrievalCandidates", retrievalCloud.tracks.length);
+  await yieldV3();
   const forensicTrace: ForensicStageTrace[] = [
     stageTrace(
       "retrieval result count",
@@ -482,18 +713,35 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
   let generatorDiagnostics: Record<string, unknown> = {};
   stageStartedAt = Date.now();
 
-  if (fallbackTriggered) {
-    lanes = buildLanes(decomposed);
-    generatorDiagnostics = { mode: "fallback_ensemble", reason: "unclear_intent" };
-  } else {
-    const genResult = generateAdaptiveLanes(decomposed);
-    lanes = genResult.lanes;
-    generatorDiagnostics = {
-      mode: "adaptive",
-      activeLaneTypes: genResult.activeLaneTypes,
-      ...genResult.generatorDiagnostics,
-    };
-  }
+  const laneGeneration = await safeStage({
+    stage: "v3.laneGeneration",
+    type: "SYSTEM_FAILURE",
+    requestId: opts.requestId,
+    trace: opts.pipelineTrace,
+    run: () => {
+      if (fallbackTriggered || healthState === "CRITICAL") {
+        return {
+          lanes: buildLanes(decomposed),
+          diagnostics: { mode: "fallback_ensemble", reason: fallbackTriggered ? "unclear_intent" : "critical_health" },
+        };
+      }
+      const genResult = generateAdaptiveLanes(decomposed);
+      return {
+        lanes: genResult.lanes,
+        diagnostics: {
+          mode: "adaptive",
+          activeLaneTypes: genResult.activeLaneTypes,
+          ...genResult.generatorDiagnostics,
+        },
+      };
+    },
+    recover: () => ({
+      lanes: buildLanes(decomposed),
+      diagnostics: { mode: "fallback_ensemble", reason: "lane_generation_failure" },
+    }),
+  });
+  lanes = laneGeneration.lanes;
+  generatorDiagnostics = laneGeneration.diagnostics;
   recordTiming("laneGeneration", stageStartedAt);
 
   // ── Stage 3 + 4 + 5: Per-lane scoring → cluster formation → cluster selection ──
@@ -543,13 +791,23 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     topDecisions: unknown[];
   }> = [];
 
-  const sampledResults: SampledLaneResult<T>[] = lanes.map((lane) => {
+  const sampledResults: SampledLaneResult<T>[] = [];
+  for (const lane of lanes) {
+    await yieldV3();
     // Stage 3: Score every track for this lane
     let laneStageStartedAt = Date.now();
-    const rawScored = scoreLane(retrievedTracks, lane, decomposed, {
-      genreByTrack: opts.genreByTrack,
-      noveltyByTrack: opts.noveltyByTrack,
+    const rawScored = await safeStage<Array<LaneScoredTrack<T>>>({
+      stage: `v3.scoring.${lane.id}`,
+      type: "SCORING_FAILURE",
+      requestId: opts.requestId,
+      trace: opts.pipelineTrace,
+      run: () => scoreLane(retrievedTracks, lane, decomposed, {
+        genreByTrack: opts.genreByTrack,
+        noveltyByTrack: opts.noveltyByTrack,
+      }),
+      recover: () => passThroughScored(retrievedTracks, lane.id),
     });
+    recordTraceCount(opts.pipelineTrace, `v3.${lane.id}.scored`, rawScored.length);
 
     const scoredDecisions = rawScored.map((item) => createTrackDecision(item, lane.id));
     forensicTrace.push(stageTrace(
@@ -628,11 +886,46 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       sessionArtistMemory: opts.sessionArtistMemory,
       trackReusePenalty: opts.trackReusePenalty,
     });
-    const engineResult = runRecommendationEngine({
-      decisions: affinityDecisions,
-      unifiedIntent: unifiedIntentContext.unifiedIntent,
-      memory: opts.momentMemory,
-      classificationByTrack: opts.classificationByTrack,
+    const engineResult = await safeStage<ReturnType<typeof runRecommendationEngine<T>>>({
+      stage: `v3.recommendation.${lane.id}`,
+      type: "SCORING_FAILURE",
+      requestId: opts.requestId,
+      trace: opts.pipelineTrace,
+      run: () => runRecommendationEngine({
+        decisions: affinityDecisions,
+        unifiedIntent: unifiedIntentContext.unifiedIntent,
+        memory: opts.momentMemory,
+        classificationByTrack: opts.classificationByTrack,
+      }),
+      recover: () => ({
+        decisions: affinityDecisions.map((decision) => withDecisionFinalScore(decision, decision.score)),
+        scores: affinityDecisions.map((decision) => ({
+          trackId: decision.track.trackId,
+          finalScore: decision.score,
+          normalizedSignals: {
+            trackId: decision.track.trackId,
+            embeddingAffinity: 0,
+            sceneAffinity: 0,
+            tasteAffinity: 0,
+            memoryAffinity: 0,
+            freshnessScore: 0,
+            repetitionPressure: 0,
+            genreAlignment: 0,
+            normalizedEmbedding: 0,
+            normalizedScene: 0,
+            normalizedTaste: 0,
+            normalizedMemory: 0,
+            normalizedFreshness: 0,
+            normalizedRepetition: 0,
+            normalizedGenre: 0,
+          },
+        })),
+        diagnostics: {
+          signalCount: 0,
+          weights: {},
+          topDecisions: [],
+        },
+      }),
     });
     recordTiming("scoring", laneStageStartedAt);
     recommendationEngineDiagnostics.push({
@@ -641,6 +934,7 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       weights: engineResult.diagnostics.weights,
       topDecisions: engineResult.diagnostics.topDecisions,
     });
+    await yieldV3();
 
     // Headroom: 3× target so the sampler has enough valid choices.
     const laneTarget = Math.max(
@@ -650,8 +944,20 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
 
     // Stage 4: Build clusters from scored pool
     laneStageStartedAt = Date.now();
-    const clusteredPool = buildClusters(engineResult.decisions);
+    const clusteredPool = overloaded
+      ? flatClusteredPool(engineResult.decisions, lane.id)
+      : await safeStage<ClusteredPool<T>>({
+          stage: `v3.clustering.${lane.id}`,
+          type: "CLUSTERING_FAILURE",
+          requestId: opts.requestId,
+          trace: opts.pipelineTrace,
+          run: () => buildClusters(engineResult.decisions),
+          recover: () => flatClusteredPool(engineResult.decisions, lane.id),
+        });
+    if (overloaded) recordTraceFallback(opts.pipelineTrace, `v3.clustering.${lane.id}.bypassed_overload`);
     recordTiming("candidateGeneration", laneStageStartedAt);
+    recordTraceCount(opts.pipelineTrace, `v3.${lane.id}.clusters`, clusteredPool.clusters.size);
+    await yieldV3();
     forensicTrace.push(stageTrace(
       `cluster creation count:${lane.id}`,
       engineResult.decisions.length,
@@ -663,18 +969,27 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
 
     // Stage 5: Entropy-constrained selection across clusters
     laneStageStartedAt = Date.now();
-    const clusterResult = selectFromClusters(
-      clusteredPool,
-      laneTarget,
-      lane.id,
-      `${opts.seed ?? "v3"}:${lane.id}`,
-      {
-        lockedIntent,
-        sessionArtistMemory: opts.sessionArtistMemory,
-        recentTrackPenalty: opts.trackReusePenalty,
-      },
-    );
+    const clusterResult = await safeStage<ReturnType<typeof selectFromClusters<T>>>({
+      stage: `v3.sampling.${lane.id}`,
+      type: "SYSTEM_FAILURE",
+      requestId: opts.requestId,
+      trace: opts.pipelineTrace,
+      run: () => selectFromClusters(
+        clusteredPool,
+        laneTarget,
+        lane.id,
+        `${opts.seed ?? "v3"}:${lane.id}`,
+        {
+          lockedIntent,
+          sessionArtistMemory: opts.sessionArtistMemory,
+          recentTrackPenalty: opts.trackReusePenalty,
+        },
+      ),
+      recover: () => topNSelection(clusteredPool.scoredTracks, lane.id, laneTarget),
+    });
     recordTiming("sampler", laneStageStartedAt);
+    recordTraceCount(opts.pipelineTrace, `v3.${lane.id}.sampled`, clusterResult.tracks.length);
+    await yieldV3();
     forensicTrace.push(stageTrace(
       `sampler input count:${lane.id}`,
       clusteredPool.scoredTracks.length,
@@ -746,16 +1061,34 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       secondaryClusterReason: clusterResult.samplerDiagnostics.secondaryClusterReason,
     });
 
-    return {
+    sampledResults.push({
       laneId: lane.id,
       tracks: clusterResult.tracks,
-    };
-  });
+    });
+  }
 
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
   const interleaverInputCount = sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0);
   stageStartedAt = Date.now();
-  const interleaved = interleaveLanes(lanes, sampledResults, targetCount);
+  const interleaved = await safeStage<InterleavedResult<T>>({
+    stage: "v3.interleaver",
+    type: "SYSTEM_FAILURE",
+    requestId: opts.requestId,
+    trace: opts.pipelineTrace,
+    run: () => interleaveLanes(lanes, sampledResults, targetCount),
+    recover: () => ({
+      tracks: sampledResults.flatMap((lane) => lane.tracks).slice(0, targetCount),
+      laneContributions: Object.fromEntries(sampledResults.map((lane) => [lane.laneId, lane.tracks.length])),
+      interleaverDiagnostics: {
+        repetitionEvents: 0,
+        chaosEvents: 0,
+        monotonyEvents: 0,
+        laneBoostEvents: {},
+        finalLaneUsageRatios: {},
+        entropyAtCompletion: 0,
+      },
+    }),
+  });
   recordTiming("interleaver", stageStartedAt);
   forensicTrace.push(stageTrace(
     "interleaver input count",
@@ -767,10 +1100,16 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
     "backend/core/v3/interleaver.ts",
     "interleaveLanes",
   ));
-  const finalTracks = interleaved.tracks.map((track) => ({
+  let finalTracks = interleaved.tracks.map((track) => ({
     ...track,
     clusterId: track.clusterIds[0],
   })) as Array<T & V3SelectionCandidate<T>>;
+  if (finalTracks.length === 0) {
+    const cachedFinalTracks = getFallbackCache<Array<T & V3SelectionCandidate<T>>>(outputCacheKey);
+    finalTracks = cachedFinalTracks ?? minimalSelectedTracks(tracks, targetCount);
+    if (finalTracks.length > 0) recordTraceFallback(opts.pipelineTrace, cachedFinalTracks ? "v3.output_cache_fallback" : "v3.minimal_output_fallback");
+  }
+  if (finalTracks.length > 0) setFallbackCache(outputCacheKey, finalTracks);
   const finalSelectionMeta = new Map<string, {
     laneId: string;
     laneScore: number;
@@ -1030,6 +1369,11 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       slowestStage: slowestTiming?.[0] ?? null,
       slowestStageMs: slowestTiming?.[1] ?? 0,
     },
+    degraded: opts.pipelineTrace?.degraded ?? false,
+    degradationReasons: opts.pipelineTrace?.degradationReasons ?? [],
+    failureTrace: opts.pipelineTrace?.failures ?? [],
+    recoveryEvents: opts.pipelineTrace?.recoveryEvents ?? [],
+    systemHealth: healthState,
     activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
     qualityLock: {
       active: false,

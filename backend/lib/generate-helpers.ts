@@ -5,6 +5,7 @@ import type { GenreAudit } from "./genre-audit";
 import type { BuildPlaylistPipelineResult } from "../core/output";
 import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
 import type { TrackScoringDebug } from "./hybrid-scoring";
+import { createPipelineTrace } from "./pipeline-trace";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 function fallbackScoringDebug(trackId: string): TrackScoringDebug {
@@ -115,6 +116,7 @@ export function buildFallbackPipelineResult<
       finalDistribution: {},
       coverageTargets: [],
     } as GenreAudit,
+    pipelineTrace: createPipelineTrace(),
     composeMeta: {
       structured: fbScored,
       poolTarget: opts.playlistLength,

@@ -78,7 +78,7 @@ async function main(): Promise<void> {
     await checkGenerate(origin),
   ];
   const pass = results.every((result) => result.pass);
-  console.log(JSON.stringify({ pass, origin, results }, null, 2));
+  process.stdout.write(`${JSON.stringify({ pass, origin, results }, null, 2)}\n`);
   if (!pass) process.exit(1);
 }
 

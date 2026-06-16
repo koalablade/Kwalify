@@ -16,7 +16,8 @@
     "ci:prompt-reliability": "npm run build && node backend/dist/scripts/prompt-reliability-ci-gate.js",
     "quality:eval": "npm run build && node backend/dist/scripts/playlist-quality-eval.js",
     "quality:stress": "npm run build && node backend/dist/scripts/playlist-stress-report.js",
-    "smoke:deploy": "npm run build && node backend/dist/scripts/deploy-smoke.js"
+    "smoke:deploy": "npm run build && node backend/dist/scripts/deploy-smoke.js",
+    "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"
   },
   "dependencies": {
     "@types/connect-pg-simple": "^7.0.3",
@@ -41,5 +42,8 @@
   "devDependencies": {
     "drizzle-kit": "^0.31.10",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "form-data": "4.0.6"
   }
 }

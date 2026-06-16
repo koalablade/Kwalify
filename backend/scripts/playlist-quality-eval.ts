@@ -48,7 +48,7 @@ function main(): void {
     return auditPlaylistAgainstPrompt(prompt, fixture.tracks);
   });
   const failed = results.filter((result) => result["pass"] !== true);
-  console.log(JSON.stringify({ pass: failed.length === 0, results }, null, 2));
+  process.stdout.write(`${JSON.stringify({ pass: failed.length === 0, results }, null, 2)}\n`);
   if (failed.length > 0) process.exit(1);
 }
 

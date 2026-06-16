@@ -543,7 +543,7 @@ async function main(): Promise<void> {
     failures: evaluated.failures,
   });
   await writeReports(config.outDir, report);
-  console.log(JSON.stringify({
+  process.stdout.write(`${JSON.stringify({
     outDir: config.outDir,
     promptReliabilityRegressionScore: report.summary.promptReliabilityRegressionScore,
     passedPrompts: report.summary.passedPrompts,
@@ -554,7 +554,7 @@ async function main(): Promise<void> {
       "regression-report.md",
       "regression-failures.md",
     ],
-  }, null, 2));
+  }, null, 2)}\n`);
   if (report.summary.failedPrompts > 0 || report.summary.criticalFailures > 0) {
     process.exitCode = 1;
   }

@@ -1,25 +1,25 @@
-const DEFAULT_GENERATE_CONCURRENCY = 1;
+import { createConcurrencyLimiter } from "./concurrency-limiter";
 
-let activeGenerateRequests = 0;
+const generateLimiter = createConcurrencyLimiter({
+  name: "generate_pipeline",
+  limitEnv: "GENERATE_CONCURRENCY_LIMIT",
+  queueLimitEnv: "GENERATE_QUEUE_LIMIT",
+  defaultLimit: 10,
+  defaultQueueLimit: 20,
+});
 
-function maxGenerateConcurrency(): number {
-  const parsed = Number.parseInt(process.env["GENERATE_CONCURRENCY_LIMIT"] ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_GENERATE_CONCURRENCY;
-}
-
-export function tryAcquireGenerateSlot(): boolean {
-  if (activeGenerateRequests >= maxGenerateConcurrency()) return false;
-  activeGenerateRequests += 1;
-  return true;
+export async function acquireGenerateSlot(): Promise<() => void> {
+  return generateLimiter.acquire();
 }
 
 export function releaseGenerateSlot(): void {
-  activeGenerateRequests = Math.max(0, activeGenerateRequests - 1);
+  generateLimiter.release();
 }
 
-export function getGenerateOverloadState(): { active: number; limit: number } {
-  return {
-    active: activeGenerateRequests,
-    limit: maxGenerateConcurrency(),
-  };
+export function recordGenerateLatency(latencyMs: number): void {
+  generateLimiter.recordLatency(latencyMs);
+}
+
+export function getGenerateOverloadState(): { active: number; queued: number; limit: number; queueLimit: number; averageLatencyMs: number } {
+  return generateLimiter.state();
 }

@@ -54,6 +54,13 @@ import {
   injectMomentContext,
   updateMomentMemory,
 } from "./memory/moment-memory";
+import {
+  createPipelineTrace,
+  recordTraceCount,
+  recordTraceDuration,
+  recordTraceFallback,
+  type PipelineTrace,
+} from "../lib/pipeline-trace";
 import { buildPlaylistEmbedding } from "./v3/embedding-retrieval";
 import {
   EXPANDED_ACTIVITY_TERMS,
@@ -147,6 +154,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
    * Library affinity weight is zeroed out and redistributed to semantic.
    */
   noLibraryMode?: boolean;
+  requestId?: string;
+  pipelineTrace?: PipelineTrace;
   progress?: (stage: "scoring" | "retrieval" | "lanes" | "sampling" | "fallback" | "coherence", detail: string) => void | Promise<void>;
   shouldAbort?: () => boolean;
 }
@@ -158,6 +167,7 @@ export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
   hybridExcludedCount: number;
   genreAudit: GenreAudit;
   ecosystemDebug: EcosystemDebug | null;
+  pipelineTrace: PipelineTrace;
   composeMeta: {
     structured: T[];
     poolTarget: number;
@@ -1288,7 +1298,11 @@ function diagnosticPool<T extends { trackId: string; trackName?: string | null; 
   return tracks.slice(0, limit).map((track) => diagnosticTrack(track, classMap));
 }
 
-function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> & { artistName?: string | null }>(
+async function yieldPipeline(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> & { artistName?: string | null }>(
   tracks: T[],
   contract: IntentContract,
   classMap: UserGenreProfile["trackClassifications"],
@@ -1298,9 +1312,10 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
     sessionArtistMemory?: SessionArtistMemory;
     promptKey?: string;
   } = {},
-): RetrievalPools<T> {
+): Promise<RetrievalPools<T>> {
   const MIN_BROAD_RETRIEVAL_POOL = 120;
   const contractSafeTracks = enforceIntentContract(tracks, contract, classMap);
+  await yieldPipeline();
   const primarySubgenreMatches = new Map<string, boolean>();
   const structuredSubgenreMatches = new Map<string, boolean>();
   const genreFamilyMatches = new Map<string, boolean>();
@@ -1410,6 +1425,7 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
     { ontologyMatch: 0, embeddingMatch: 0, hybridMatch: 0, fallbackOnly: 0 }
   );
   const embeddingFallbackUsed = sourceBreakdown.embeddingMatch > 0 || sourceBreakdown.hybridMatch > 0;
+  await yieldPipeline();
   const familyExpansionTracks = contract.genres.length > 0
     ? tracks.filter(genreFamilyMatch)
     : tracks;
@@ -1449,6 +1465,7 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
         ),
       }));
   const retrievalExpandedDueToStarvation = contractRankSource.length > contractSafeTracks.length;
+  await yieldPipeline();
   const contractRanked = earlyDiversityRank(
     contractRankSource
     .map((track) => {
@@ -1471,6 +1488,7 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
     contract,
   )
     .map(({ track }) => track as T);
+  await yieldPipeline();
   const seen = new Set<string>();
   const takeUnique = (items: T[], limit: number) => {
     const out: T[] = [];
@@ -2679,6 +2697,7 @@ export async function buildPlaylistPipeline<T extends {
   opts: BuildPlaylistPipelineOpts<T>
 ): Promise<BuildPlaylistPipelineResult<T>> {
   const pipelineStartedAt = Date.now();
+  const pipelineTrace = opts.pipelineTrace ?? createPipelineTrace(opts.requestId);
   const timingMs: Record<string, number> = {
     scoring: 0,
     retrieval: 0,
@@ -2689,7 +2708,9 @@ export async function buildPlaylistPipeline<T extends {
     total: 0,
   };
   const recordTiming = (key: keyof typeof timingMs, startedAt: number): void => {
-    timingMs[key] += Date.now() - startedAt;
+    const durationMs = Date.now() - startedAt;
+    timingMs[key] += durationMs;
+    recordTraceDuration(pipelineTrace, key, durationMs);
   };
   const buildTimingMs = (): Record<string, unknown> => {
     timingMs.total = Date.now() - pipelineStartedAt;
@@ -2824,7 +2845,7 @@ export async function buildPlaylistPipeline<T extends {
     },
   };
   const intentContract = buildIntentContract(opts.vibe);
-  const unpenalizedRetrieval = buildRetrievalPools(
+  const unpenalizedRetrieval = await buildRetrievalPools(
     scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
     intentContract,
     classMap,
@@ -2856,7 +2877,7 @@ export async function buildPlaylistPipeline<T extends {
     : undefined;
   const retrieval = !upstreamRecentTrackPenalty && !sessionMemoryHasPressure
     ? unpenalizedRetrieval
-    : buildRetrievalPools(
+    : await buildRetrievalPools(
         scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
         intentContract,
     classMap,
@@ -2870,6 +2891,7 @@ export async function buildPlaylistPipeline<T extends {
   recordTiming("retrieval", stageStartedAt);
   if (opts.shouldAbort?.()) abortPipeline("retrieval");
   const pooledCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
+  recordTraceCount(pipelineTrace, "retrievalCandidates", pooledCandidates.length);
   const contractSafePool = enforceIntentContract(
     pooledCandidates as unknown as Array<ScoredLibraryTrack<IntentContractTrack>>,
     intentContract,
@@ -3328,12 +3350,12 @@ export async function buildPlaylistPipeline<T extends {
     label: string;
     inputPool: Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
     candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
-    result: ReturnType<typeof runV3Pipeline<T>>;
+    result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
     quality: ReturnType<typeof evaluatePlaylistQuality>;
     total: number;
   }> = [];
   const canShortCircuitCandidateAttempt = (attempt: {
-    result: ReturnType<typeof runV3Pipeline<T>>;
+    result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
     quality: ReturnType<typeof evaluatePlaylistQuality>;
     total: number;
   }): boolean => {
@@ -3360,7 +3382,7 @@ export async function buildPlaylistPipeline<T extends {
     );
     recordTiming("candidateGeneration", stageStartedAt);
     stageStartedAt = Date.now();
-    const result = runV3Pipeline(
+    const result = await runV3Pipeline(
       candidatePool.tracks as unknown as T[],
     opts.vibe,
     opts.emotionProfile,
@@ -3375,9 +3397,13 @@ export async function buildPlaylistPipeline<T extends {
         momentMemory:           preGenerationMomentMemory,
         sessionArtistMemory:     effectiveSessionArtistMemory,
         trackReusePenalty:       upstreamRecentTrackPenalty,
+        requestId:               opts.requestId,
+        pipelineTrace,
       }
     );
     recordTiming("v3ScoringAndSampling", stageStartedAt);
+    recordTraceCount(pipelineTrace, `v3.${candidate.label}.inputCandidates`, candidatePool.tracks.length);
+    recordTraceCount(pipelineTrace, `v3.${candidate.label}.finalTracks`, result.finalTracks.length);
     if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
     const quality = evaluatePlaylistQuality(
       result.finalTracks as unknown as IntentContractTrack[],
@@ -3499,6 +3525,9 @@ export async function buildPlaylistPipeline<T extends {
         }
       : null,
   ].filter((entry): entry is { name: string; triggerReason: string; tracksBefore: number; tracksAfter: number } => !!entry);
+  for (const activation of fallbackActivations) {
+    recordTraceFallback(pipelineTrace, activation.name);
+  }
   const controlledGenerationDiagnostics = {
     selectedCandidate: selectedCandidate.label,
     selectedRelaxation: selectedCandidate.candidatePool.diagnostics["finalRelaxedConstraints"] ?? null,
@@ -3661,6 +3690,7 @@ export async function buildPlaylistPipeline<T extends {
           ],
           intentContractGuard: intentContractGuardDiagnostics,
           controlledGeneration: controlledGenerationDiagnostics,
+          pipelineTrace,
           timingMs: buildTimingMs(),
           retrievalPools: {
             core: retrieval.core.length,
@@ -3675,6 +3705,7 @@ export async function buildPlaylistPipeline<T extends {
       hybridExcludedCount: scoring.hybridExcludedCount,
       genreAudit: enforcedResolved.genreAudit,
       ecosystemDebug: null,
+      pipelineTrace,
       composeMeta: {
         structured: resolvedTracks,
         poolTarget: opts.playlistLength,
@@ -3852,6 +3883,7 @@ export async function buildPlaylistPipeline<T extends {
           ],
           intentContractGuard: intentContractGuardDiagnostics,
           controlledGeneration: controlledGenerationDiagnostics,
+          pipelineTrace,
           timingMs: buildTimingMs(),
           retrievalPools: {
             core: retrieval.core.length,
@@ -3866,6 +3898,7 @@ export async function buildPlaylistPipeline<T extends {
       hybridExcludedCount: scoring.hybridExcludedCount,
       genreAudit: enforcedFallback.genreAudit,
       ecosystemDebug: null,
+      pipelineTrace,
       composeMeta: {
         structured: enforcedFallback.tracks,
         poolTarget: opts.playlistLength,
@@ -4015,6 +4048,7 @@ export async function buildPlaylistPipeline<T extends {
           expectedFamilies: intentContract.genreFamilies,
         },
         controlledGeneration: controlledGenerationDiagnostics,
+        pipelineTrace,
         timingMs: buildTimingMs(),
         retrievalPools: {
           core: retrieval.core.length,
@@ -4034,6 +4068,7 @@ export async function buildPlaylistPipeline<T extends {
     hybridExcludedCount: scoring.hybridExcludedCount,
     genreAudit: enforced.genreAudit,
     ecosystemDebug: null,
+    pipelineTrace,
     composeMeta: {
       structured: finalTracksForReturn,
       poolTarget: opts.playlistLength,

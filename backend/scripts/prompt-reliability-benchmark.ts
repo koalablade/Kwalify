@@ -769,7 +769,7 @@ async function main(): Promise<void> {
     }));
     const report = buildReport(config, dryRows, startedAt);
     await writeReports(config, report);
-    console.log(JSON.stringify({ dryRun: true, outDir: config.outDir, prompts: prompts.length }, null, 2));
+    process.stdout.write(`${JSON.stringify({ dryRun: true, outDir: config.outDir, prompts: prompts.length }, null, 2)}\n`);
     return;
   }
   await preflightDeployment(config);
@@ -784,7 +784,7 @@ async function main(): Promise<void> {
   }
   const report = buildReport(config, rows, startedAt);
   await writeReports(config, report);
-  console.log(JSON.stringify({
+  process.stdout.write(`${JSON.stringify({
     outDir: config.outDir,
     promptReliabilityScore: report.summary.promptReliabilityScore,
     successCount: report.summary.successCount,
@@ -794,7 +794,7 @@ async function main(): Promise<void> {
       "prompt-reliability-report.md",
       "prompt-reliability-ranked-failures.md",
     ],
-  }, null, 2));
+  }, null, 2)}\n`);
   if (report.summary.failureCount > 0) process.exitCode = 1;
 }
 

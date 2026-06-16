@@ -94,7 +94,7 @@ function main(): void {
     };
   });
   const missing = rows.filter((row) => !row.present).map((row) => row.prompt);
-  console.log(JSON.stringify({ pass: missing.length === 0, missing, rows }, null, 2));
+  process.stdout.write(`${JSON.stringify({ pass: missing.length === 0, missing, rows }, null, 2)}\n`);
   if (missing.length > 0) process.exit(1);
 }
 

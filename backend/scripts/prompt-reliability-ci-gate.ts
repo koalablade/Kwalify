@@ -556,18 +556,16 @@ function markdownReport(report: CiGateReport): string {
 
 function printStatusSummary(report: CiGateReport): void {
   const topBlockingIssues = report.blockingReasons.slice(0, 3);
-  console.log("");
-  console.log("CI STATUS SUMMARY");
-  console.log(report.status);
-  console.log("Top 3 blocking issues:");
+  const lines = ["", "CI STATUS SUMMARY", report.status, "Top 3 blocking issues:"];
   if (topBlockingIssues.length === 0) {
-    console.log("- None");
+    lines.push("- None");
   } else {
     for (const issue of topBlockingIssues) {
-      console.log(`- ${issue}`);
+      lines.push(`- ${issue}`);
     }
   }
-  console.log(`Baseline drift acceptable: ${report.driftSummary.baselineDriftAcceptable ? "yes" : "no"}`);
+  lines.push(`Baseline drift acceptable: ${report.driftSummary.baselineDriftAcceptable ? "yes" : "no"}`);
+  process.stdout.write(`${lines.join("\n")}\n`);
 }
 
 async function writeReports(config: Config, report: CiGateReport): Promise<void> {

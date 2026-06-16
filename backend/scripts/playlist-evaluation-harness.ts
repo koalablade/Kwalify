@@ -699,7 +699,7 @@ async function main(): Promise<void> {
       },
       results: dryResults,
     });
-    console.log(JSON.stringify({ dryRun: true, outDir: config.outDir, prompts: prompts.length, reportFiles: Object.keys(report) }, null, 2));
+    process.stdout.write(`${JSON.stringify({ dryRun: true, outDir: config.outDir, prompts: prompts.length, reportFiles: Object.keys(report) }, null, 2)}\n`);
     return;
   }
   const preflightData = await preflight(config);
@@ -797,7 +797,7 @@ async function main(): Promise<void> {
   const average = (values: number[]): number => values.length
     ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 1000) / 1000
     : 0;
-  console.log(JSON.stringify({
+  process.stdout.write(`${JSON.stringify({
     pass: failed.length === 0,
     outDir: config.outDir,
     prompts: prompts.length,
@@ -842,7 +842,7 @@ async function main(): Promise<void> {
     benchmarkSizeReports: report.benchmarkSizeReports,
     worst: report.worstPlaylists.slice(0, 5).map((row) => ({ promptId: row.promptId, qualityScore: row.qualityScore, likelyCause: row.likelyCause })),
     best: report.bestPlaylists.slice(0, 5).map((row) => ({ promptId: row.promptId, qualityScore: row.qualityScore })),
-  }, null, 2));
+  }, null, 2)}\n`);
   if (failed.length > 0) process.exitCode = 1;
 }
 
