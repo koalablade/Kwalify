@@ -2379,6 +2379,8 @@ type CuratorScoringContext = {
   preferredFamilies?: Set<string>;
   identityTerms: string[];
   expectedFamilies: string[];
+  humanCuratorBiasCache: Map<string, number>;
+  humanScoringLimit: number;
 };
 
 function promptContrastPenalty(track: ConstraintTrack, vibe: string): number {
@@ -2412,6 +2414,9 @@ function softEraConfidenceScore(track: ConstraintTrack, intent: LockedIntent, co
 }
 
 function humanCuratorIntentScore(track: ConstraintTrack, identity: CuratorIdentity, context: CuratorScoringContext): number {
+  const cacheKey = `${track.trackId}:${Boolean((track as unknown as Record<string, unknown>)["_fallbackCandidate"]) ? "fallback" : "primary"}`;
+  const cached = context.humanCuratorBiasCache.get(cacheKey);
+  if (cached !== undefined) return cached;
   const preferredFamilies = context.preferredFamilies ?? new Set<string>();
   const coherence = intentCoherenceScore(track, {
     vibe: context.vibe,
@@ -2447,7 +2452,9 @@ function humanCuratorIntentScore(track: ConstraintTrack, identity: CuratorIdenti
     score -= 0.10;
   }
   score -= promptContrastPenalty(track, context.vibe);
-  return Math.max(-0.32, Math.min(0.38, score));
+  const bounded = Math.max(-0.32, Math.min(0.38, score));
+  context.humanCuratorBiasCache.set(cacheKey, bounded);
+  return bounded;
 }
 
 function applyCuratorIdentityScoring<T extends ConstraintTrack>(
@@ -2456,7 +2463,7 @@ function applyCuratorIdentityScoring<T extends ConstraintTrack>(
   memory: IdentitySessionMemory,
   context?: CuratorScoringContext
 ): T[] {
-  return tracks
+  const prelim = tracks
     .map((track) => {
       const identityFit = scoreTrackForIdentity(track, identity);
       const reusePenalty = sessionReusePenalty(track, memory, identity);
@@ -2465,17 +2472,28 @@ function applyCuratorIdentityScoring<T extends ConstraintTrack>(
         ? 0.26 + (memory.usedTracks.has(track.trackId) ? 0.32 : 0)
         : 0;
       const identityBias = (identityFit - 0.5) * 0.40;
-      const humanCuratorBias = context ? humanCuratorIntentScore(track, identity, context) : 0;
       return {
         ...track,
-        score: Math.max(0, (track.score ?? 0) + identityBias + humanCuratorBias - reusePenalty - fallbackPenalty),
+        score: Math.max(0, (track.score ?? 0) + identityBias - reusePenalty - fallbackPenalty),
         _identityFit: Math.round(identityFit * 100) / 100,
         _identityBias: Math.round(identityBias * 100) / 100,
-        _humanCuratorBias: Math.round(humanCuratorBias * 100) / 100,
+        _humanCuratorBias: 0,
         _sessionReusePenalty: Math.round(reusePenalty * 100) / 100,
       } as T;
     })
     .sort((a, b) => b.score - a.score);
+  if (!context) return prelim;
+  const fullScoringLimit = Math.min(prelim.length, context.humanScoringLimit);
+  for (let index = 0; index < fullScoringLimit; index++) {
+    const track = prelim[index]!;
+    const humanCuratorBias = humanCuratorIntentScore(track, identity, context);
+    prelim[index] = {
+      ...track,
+      score: Math.max(0, (track.score ?? 0) + humanCuratorBias),
+      _humanCuratorBias: Math.round(humanCuratorBias * 100) / 100,
+    };
+  }
+  return prelim.sort((a, b) => b.score - a.score);
 }
 
 function average(values: number[]): number {
@@ -4906,6 +4924,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         : lockedIntent.genreFamilies.length > 0
           ? lockedIntent.genreFamilies
           : constraintLayer.hard.genres,
+      humanCuratorBiasCache: new Map<string, number>(),
+      humanScoringLimit: Math.max(length * 3, 90),
     };
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
@@ -5114,12 +5134,21 @@ router.post("/generate", async (req, res): Promise<void> => {
         ...track,
         score: 0.55,
       } as PlaylistTrack));
-      return [
+      const merged = [
         ...(pipeline.finalTracks as PlaylistTrack[]),
         ...(pipeline.sorted as PlaylistTrack[]).slice(0, finalizationPoolCap),
         ...scoredFallbackTracks,
         ...scoredLibraryTracks,
-      ].map(hydrateTrackGenre);
+      ];
+      const seen = new Set<string>();
+      const unique: PlaylistTrack[] = [];
+      for (const track of merged) {
+        if (seen.has(track.trackId)) continue;
+        seen.add(track.trackId);
+        unique.push(track);
+        if (unique.length >= finalizationPoolCap) break;
+      }
+      return unique.map(hydrateTrackGenre);
     };
     setGeneratePhase(generateSessionUserId, requestId, "composing");
     setGenerateStageDetail(generateSessionUserId, requestId, `Building playlist flow from ${pipeline.finalTracks.length.toLocaleString()} candidates`);
