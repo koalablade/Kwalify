@@ -803,8 +803,22 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   }> = [];
 
   const sampledResults: SampledLaneResult<T>[] = [];
+  const scoredLaneIds = new Set<string>();
   for (const lane of lanes) {
     await yieldV3();
+    if (scoredLaneIds.has(lane.id)) {
+      log.error(
+        { requestId: opts.requestId, stage: `v3.scoring.${lane.id}`, callStackTag: "v3.laneLoop" },
+        "DUPLICATE_EXECUTION_DETECTED",
+      );
+      recordTraceFailure(opts.pipelineTrace, createFailureContext({
+        stage: `v3.scoring.${lane.id}`,
+        error: new Error(`Duplicate V3 lane scoring blocked for ${lane.id}`),
+        recoverable: true,
+      }));
+      continue;
+    }
+    scoredLaneIds.add(lane.id);
     // Stage 3: Score every track for this lane
     let laneStageStartedAt = Date.now();
     const endLaneScoringProfile = opts.profileStage?.(`v3.scoring.${lane.id}`, `${retrievedTracks.length} retrieved tracks`);

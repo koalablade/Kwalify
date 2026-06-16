@@ -121,7 +121,7 @@ import {
   warnIfV3MetadataLost,
   type V3MetadataTrack,
 } from "../lib/v3-track-contract";
-import { buildFeedbackDiagnostics, getFeedbackMemory } from "../lib/feedback-memory";
+import { buildFeedbackDiagnostics, getFeedbackMemory, type FeedbackMemory } from "../lib/feedback-memory";
 import {
   buildCuratorIdentity,
   buildIdentityDebugView,
@@ -148,6 +148,12 @@ import {
 } from "../lib/expanded-intent-vocabulary";
 import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify-api-audit";
 import { buildIntentSurvivalDiagnostics } from "../lib/intent-survival-diagnostics";
+import {
+  getSessionSnapshot,
+  mergeSessionSnapshot,
+  getSessionSnapshotCacheStats,
+  type SessionSnapshot,
+} from "../core/cache/session-snapshot-cache";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO = 0.85;
@@ -167,6 +173,43 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const FINALIZATION_POOL_MIN = 90;
 const FINALIZATION_POOL_PER_TRACK = 6;
 const FINALIZATION_POOL_MAX = 180;
+const EXECUTION_HEALTH_BASELINE_SIZE = 50;
+
+type ExecutionHealthState = "HEALTHY" | "DEGRADED" | "BROKEN";
+type ExecutionHealthCause =
+  | "DUPLICATE_RETRIEVAL"
+  | "DUPLICATE_SCORING"
+  | "CACHE_BYPASS_FAILURE"
+  | "MULTI_HYDRATION"
+  | "V3_REENTRY"
+  | "CONTROLLER_PIPELINE_CONFLICT"
+  | "UNEXPECTED_FALLBACK_PATH";
+
+type ExecutionHealthProfile = {
+  hydrationCount: number;
+  cacheStatus: "HIT" | "MISS";
+  retrievalPassCount: number;
+  scoringPassCount: number;
+  v3InvocationCount: number;
+  repairPassCount: number;
+  finalisationCount: number;
+  healthState: ExecutionHealthState;
+  primaryCause: ExecutionHealthCause | null;
+  driftDetected: boolean;
+  degradedPerformanceMode: boolean;
+  duplicateDetections: Array<{ stage: string; callStackTag: string }>;
+  stageCalls: Record<string, number>;
+  needsCorrection: string[];
+};
+
+type ExecutionHealthBaselineEntry = Pick<
+  ExecutionHealthProfile,
+  "hydrationCount" | "retrievalPassCount" | "scoringPassCount"
+> & {
+  latencyCategory: "FAST" | "NORMAL" | "SLOW";
+};
+
+const executionHealthBaseline: ExecutionHealthBaselineEntry[] = [];
 
 type GenerationSideEffectPolicy = {
   mode: "production" | "audit";
@@ -206,6 +249,128 @@ function requestHeader(req: Request, name: string): string | null {
   return Array.isArray(value) ? value[0] ?? null : typeof value === "string" ? value : null;
 }
 
+function createExecutionHealthProfile(cacheStatus: "HIT" | "MISS"): ExecutionHealthProfile {
+  return {
+    hydrationCount: 0,
+    cacheStatus,
+    retrievalPassCount: 0,
+    scoringPassCount: 0,
+    v3InvocationCount: 0,
+    repairPassCount: 0,
+    finalisationCount: 0,
+    healthState: "HEALTHY",
+    primaryCause: null,
+    driftDetected: false,
+    degradedPerformanceMode: false,
+    duplicateDetections: [],
+    stageCalls: {},
+    needsCorrection: [],
+  };
+}
+
+function recordExecutionStage(
+  profile: ExecutionHealthProfile,
+  logger: Request["log"],
+  stage: string,
+  callStackTag: string,
+  opts: { maxCalls?: number; cause?: ExecutionHealthCause; blockDuplicate?: boolean } = {},
+): boolean {
+  const nextCount = (profile.stageCalls[stage] ?? 0) + 1;
+  profile.stageCalls[stage] = nextCount;
+  const maxCalls = opts.maxCalls ?? 1;
+  if (nextCount <= maxCalls) return true;
+
+  profile.healthState = "BROKEN";
+  profile.primaryCause = profile.primaryCause ?? opts.cause ?? "UNEXPECTED_FALLBACK_PATH";
+  profile.driftDetected = true;
+  profile.degradedPerformanceMode = true;
+  profile.duplicateDetections.push({ stage, callStackTag });
+  profile.needsCorrection.push(stage);
+  logger.error(
+    {
+      stage,
+      callStackTag,
+      count: nextCount,
+      maxCalls,
+      cause: profile.primaryCause,
+    },
+    "DUPLICATE_EXECUTION_DETECTED",
+  );
+  return opts.blockDuplicate !== true;
+}
+
+function finaliseExecutionHealth(
+  profile: ExecutionHealthProfile,
+  elapsedMs: number,
+): {
+  healthState: ExecutionHealthState;
+  primaryCause: ExecutionHealthCause | null;
+  driftDetected: boolean;
+  executionSummary: Record<string, unknown>;
+  rollingBaseline: Record<string, unknown>;
+} {
+  if (profile.healthState !== "BROKEN") {
+    if (profile.hydrationCount > 1) {
+      profile.healthState = "BROKEN";
+      profile.primaryCause = profile.primaryCause ?? "MULTI_HYDRATION";
+    } else if (profile.v3InvocationCount > 1) {
+      profile.healthState = "BROKEN";
+      profile.primaryCause = profile.primaryCause ?? "V3_REENTRY";
+    } else if (profile.retrievalPassCount > 1) {
+      profile.healthState = "DEGRADED";
+      profile.primaryCause = profile.primaryCause ?? "DUPLICATE_RETRIEVAL";
+    } else if (profile.scoringPassCount > 1) {
+      profile.healthState = "DEGRADED";
+      profile.primaryCause = profile.primaryCause ?? "DUPLICATE_SCORING";
+    } else if (profile.finalisationCount > 1) {
+      profile.healthState = "DEGRADED";
+      profile.primaryCause = profile.primaryCause ?? "CONTROLLER_PIPELINE_CONFLICT";
+    }
+  }
+  profile.driftDetected = profile.driftDetected || profile.healthState !== "HEALTHY";
+  profile.degradedPerformanceMode = profile.degradedPerformanceMode || profile.healthState !== "HEALTHY";
+
+  const latencyCategory = elapsedMs < 20_000 ? "FAST" : elapsedMs < 60_000 ? "NORMAL" : "SLOW";
+  executionHealthBaseline.push({
+    hydrationCount: profile.hydrationCount,
+    retrievalPassCount: profile.retrievalPassCount,
+    scoringPassCount: profile.scoringPassCount,
+    latencyCategory,
+  });
+  if (executionHealthBaseline.length > EXECUTION_HEALTH_BASELINE_SIZE) executionHealthBaseline.shift();
+
+  const average = (values: number[]): number =>
+    values.length ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100 : 0;
+
+  return {
+    healthState: profile.healthState,
+    primaryCause: profile.primaryCause,
+    driftDetected: profile.driftDetected,
+    executionSummary: {
+      hydrationCount: profile.hydrationCount,
+      cacheStatus: profile.cacheStatus,
+      retrievalPassCount: profile.retrievalPassCount,
+      scoringPassCount: profile.scoringPassCount,
+      v3InvocationCount: profile.v3InvocationCount,
+      repairPassCount: profile.repairPassCount,
+      finalisationCount: profile.finalisationCount,
+      degradedPerformanceMode: profile.degradedPerformanceMode,
+      duplicateDetections: profile.duplicateDetections,
+      needsCorrection: profile.needsCorrection,
+    },
+    rollingBaseline: {
+      sampleSize: executionHealthBaseline.length,
+      averageHydrationCount: average(executionHealthBaseline.map((entry) => entry.hydrationCount)),
+      averageRetrievalPasses: average(executionHealthBaseline.map((entry) => entry.retrievalPassCount)),
+      averageScoringPasses: average(executionHealthBaseline.map((entry) => entry.scoringPassCount)),
+      latencyMix: executionHealthBaseline.reduce<Record<string, number>>((acc, entry) => {
+        acc[entry.latencyCategory] = (acc[entry.latencyCategory] ?? 0) + 1;
+        return acc;
+      }, {}),
+    },
+  };
+}
+
 function generationAuditTokenAuthorized(req: Request): boolean {
   const expected = process.env["PLAYLIST_EVAL_TOKEN"]?.trim();
   if (!expected) return false;
@@ -237,6 +402,42 @@ type PreV3TimingBreakdown = {
   totalBeforeV3Ms: number;
   slowestStage: string | null;
   slowestStageMs: number;
+  preV3Stages: Record<PreV3StageName, PreV3StageRecord>;
+  dbSessionLoadStages: Record<DbSessionLoadStageName, DbSessionLoadStageRecord>;
+};
+
+type PreV3StageName =
+  | "dbSessionLoad"
+  | "userHistoryFetch"
+  | "genreProfileBuild"
+  | "librarySignalLoad"
+  | "embeddingPrep"
+  | "promptNormalization";
+
+type DbSessionLoadStageName =
+  | "userProfileQuery"
+  | "userPreferencesQuery"
+  | "playlistHistoryQuery"
+  | "recentTracksQuery"
+  | "implicitFeedbackQuery";
+
+type PreV3StageRecord = {
+  stage: string;
+  durationMs: number;
+  inputSize: number;
+  outputSize: number;
+  cacheHit: boolean;
+};
+
+type DbSessionLoadStageRecord = PreV3StageRecord & {
+  rowsReturned: number;
+};
+
+type PreV3PerformanceReport = {
+  totalPreV3Time: number;
+  stageBreakdown: PreV3StageRecord[];
+  dbSessionLoadStages: DbSessionLoadStageRecord[];
+  bottleneckStage: string | null;
 };
 
 type QualitySignalContext = {
@@ -321,6 +522,27 @@ type ConstraintTrack = V3MetadataTrack<{
   narrativeRole?: string;
 };
 
+function emptyPreV3Stage(stage: PreV3StageName): PreV3StageRecord {
+  return {
+    stage,
+    durationMs: 0,
+    inputSize: 0,
+    outputSize: 0,
+    cacheHit: false,
+  };
+}
+
+function emptyDbSessionLoadStage(stage: DbSessionLoadStageName): DbSessionLoadStageRecord {
+  return {
+    stage,
+    durationMs: 0,
+    inputSize: 0,
+    outputSize: 0,
+    rowsReturned: 0,
+    cacheHit: false,
+  };
+}
+
 function createPreV3Timing(): PreV3TimingBreakdown {
   return {
     cacheTimeMs: 0,
@@ -336,12 +558,27 @@ function createPreV3Timing(): PreV3TimingBreakdown {
     totalBeforeV3Ms: 0,
     slowestStage: null,
     slowestStageMs: 0,
+    preV3Stages: {
+      dbSessionLoad: emptyPreV3Stage("dbSessionLoad"),
+      userHistoryFetch: emptyPreV3Stage("userHistoryFetch"),
+      genreProfileBuild: emptyPreV3Stage("genreProfileBuild"),
+      librarySignalLoad: emptyPreV3Stage("librarySignalLoad"),
+      embeddingPrep: emptyPreV3Stage("embeddingPrep"),
+      promptNormalization: emptyPreV3Stage("promptNormalization"),
+    },
+    dbSessionLoadStages: {
+      userProfileQuery: emptyDbSessionLoadStage("userProfileQuery"),
+      userPreferencesQuery: emptyDbSessionLoadStage("userPreferencesQuery"),
+      playlistHistoryQuery: emptyDbSessionLoadStage("playlistHistoryQuery"),
+      recentTracksQuery: emptyDbSessionLoadStage("recentTracksQuery"),
+      implicitFeedbackQuery: emptyDbSessionLoadStage("implicitFeedbackQuery"),
+    },
   };
 }
 
 function recordPreV3Timing(
   timing: PreV3TimingBreakdown,
-  key: keyof Omit<PreV3TimingBreakdown, "totalBeforeV3Ms" | "slowestStage" | "slowestStageMs">,
+  key: Exclude<keyof PreV3TimingBreakdown, "totalBeforeV3Ms" | "slowestStage" | "slowestStageMs" | "preV3Stages" | "dbSessionLoadStages">,
   ms: number
 ): void {
   timing[key] += ms;
@@ -349,6 +586,102 @@ function recordPreV3Timing(
     timing.slowestStage = key;
     timing.slowestStageMs = timing[key];
   }
+}
+
+function addStructuredStageTiming(
+  current: PreV3StageRecord,
+  durationMs: number,
+  inputSize: number,
+  outputSize: number,
+  cacheHit: boolean,
+): PreV3StageRecord {
+  return {
+    stage: current.stage,
+    durationMs: current.durationMs + durationMs,
+    inputSize,
+    outputSize,
+    cacheHit: current.cacheHit || cacheHit,
+  };
+}
+
+function recordPreV3Stage(
+  timing: PreV3TimingBreakdown,
+  stage: PreV3StageName,
+  meta: { durationMs: number; inputSize?: number; outputSize?: number; cacheHit?: boolean },
+): PreV3StageRecord {
+  const record = addStructuredStageTiming(
+    timing.preV3Stages[stage],
+    meta.durationMs,
+    meta.inputSize ?? timing.preV3Stages[stage].inputSize,
+    meta.outputSize ?? timing.preV3Stages[stage].outputSize,
+    meta.cacheHit ?? false,
+  );
+  timing.preV3Stages[stage] = record;
+  return record;
+}
+
+function recordDbSessionLoadStage(
+  timing: PreV3TimingBreakdown,
+  stage: DbSessionLoadStageName,
+  meta: { durationMs: number; inputSize?: number; outputSize?: number; rowsReturned?: number; cacheHit?: boolean },
+): DbSessionLoadStageRecord {
+  const base = addStructuredStageTiming(
+    timing.dbSessionLoadStages[stage],
+    meta.durationMs,
+    meta.inputSize ?? timing.dbSessionLoadStages[stage].inputSize,
+    meta.outputSize ?? timing.dbSessionLoadStages[stage].outputSize,
+    meta.cacheHit ?? false,
+  );
+  const record = {
+    ...base,
+    rowsReturned: meta.rowsReturned ?? timing.dbSessionLoadStages[stage].rowsReturned,
+  };
+  timing.dbSessionLoadStages[stage] = record;
+  return record;
+}
+
+function logPreV3Stage(
+  logger: Pick<Request["log"], "info">,
+  record: PreV3StageRecord,
+): void {
+  logger.info(
+    {
+      stage: record.stage,
+      durationMs: record.durationMs,
+      inputSize: record.inputSize,
+      outputSize: record.outputSize,
+      cacheHit: record.cacheHit,
+    },
+    "pre_v3_stage_completed",
+  );
+}
+
+function logDbSessionLoadStage(
+  logger: Pick<Request["log"], "info">,
+  record: DbSessionLoadStageRecord,
+): void {
+  logger.info(
+    {
+      stage: record.stage,
+      durationMs: record.durationMs,
+      rowsReturned: record.rowsReturned,
+      cacheHit: record.cacheHit,
+    },
+    "db_session_load_stage_completed",
+  );
+}
+
+function buildPreV3PerformanceReport(timing: PreV3TimingBreakdown): PreV3PerformanceReport {
+  const stageBreakdown = Object.values(timing.preV3Stages);
+  const bottleneck = stageBreakdown
+    .filter((stage) => stage.durationMs > 0)
+    .sort((a, b) => b.durationMs - a.durationMs)[0] ?? null;
+  return {
+    totalPreV3Time: timing.totalBeforeV3Ms,
+    stageBreakdown,
+    dbSessionLoadStages: Object.values(timing.dbSessionLoadStages),
+    bottleneckStage: bottleneck?.stage ?? timing.slowestStage,
+  };
 }
 
 type LiveStageProfileEntry = {
@@ -2380,6 +2713,8 @@ type CuratorScoringContext = {
   identityTerms: string[];
   expectedFamilies: string[];
   humanCuratorBiasCache: Map<string, number>;
+  identityFitCache: Map<string, number>;
+  sessionReusePenaltyCache: Map<string, number>;
   humanScoringLimit: number;
 };
 
@@ -2463,10 +2798,30 @@ function applyCuratorIdentityScoring<T extends ConstraintTrack>(
   memory: IdentitySessionMemory,
   context?: CuratorScoringContext
 ): T[] {
+  const featureCacheKey = (track: T): string =>
+    `${track.trackId}:${Boolean((track as unknown as Record<string, unknown>)["_fallbackCandidate"]) ? "fallback" : "primary"}`;
+  const identityFitFor = (track: T): number => {
+    if (!context) return scoreTrackForIdentity(track, identity);
+    const cacheKey = featureCacheKey(track);
+    const cached = context.identityFitCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    const scored = scoreTrackForIdentity(track, identity);
+    context.identityFitCache.set(cacheKey, scored);
+    return scored;
+  };
+  const reusePenaltyFor = (track: T): number => {
+    if (!context) return sessionReusePenalty(track, memory, identity);
+    const cacheKey = featureCacheKey(track);
+    const cached = context.sessionReusePenaltyCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    const penalty = sessionReusePenalty(track, memory, identity);
+    context.sessionReusePenaltyCache.set(cacheKey, penalty);
+    return penalty;
+  };
   const prelim = tracks
     .map((track) => {
-      const identityFit = scoreTrackForIdentity(track, identity);
-      const reusePenalty = sessionReusePenalty(track, memory, identity);
+      const identityFit = identityFitFor(track);
+      const reusePenalty = reusePenaltyFor(track);
       const isFallbackCandidate = Boolean((track as Record<string, unknown>)["_fallbackCandidate"]);
       const fallbackPenalty = isFallbackCandidate
         ? 0.26 + (memory.usedTracks.has(track.trackId) ? 0.32 : 0)
@@ -3862,6 +4217,10 @@ router.post("/generate", async (req, res): Promise<void> => {
   try {
     const devMode = useMockSpotify();
     const rawBody = req.body ?? {};
+    const debugPerformance =
+      req.query.debugPerformance === "true" ||
+      req.query.debugPerformance === "1" ||
+      rawBody["debugPerformance"] === true;
     const auditModeRequested = rawBody.auditMode === true || req.query.audit === "1";
     const auditTokenAuthorized = auditModeRequested && generationAuditTokenAuthorized(req);
     const auditMode = auditModeRequested && auditTokenAuthorized;
@@ -4115,7 +4474,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       req.log.error({ err: emotionErr }, "Emotion engine failed — using neutral fallback");
       emotionProfile = { ...NEUTRAL_PROFILE };
     }
-    recordPreV3Timing(preV3Timing, "moodIntentTimeMs", Date.now() - tStage);
+    const promptNormalizationMs = Date.now() - tStage;
+    recordPreV3Timing(preV3Timing, "moodIntentTimeMs", promptNormalizationMs);
+    if (debugPerformance) {
+      logPreV3Stage(req.log, recordPreV3Stage(preV3Timing, "promptNormalization", {
+        durationMs: promptNormalizationMs,
+        inputSize: vibe.length,
+        outputSize: momentPipeline ? 1 : 0,
+        cacheHit: false,
+      }));
+    }
 
     let referenceFingerprint: ReferenceFingerprint | null = null;
     let referencePlaylistId: string | null = null;
@@ -4156,6 +4524,25 @@ router.post("/generate", async (req, res): Promise<void> => {
     const vibeKind = detectVibeKind(vibe, emotionProfile);
     const budget = createRequestBudget(startMs);
     const debugMode = req.query.debug === "1" || process.env["DEBUG"] === "true";
+    const sessionSnapshotId = req.sessionID ?? requestId;
+    let sessionSnapshot: SessionSnapshot<
+      typeof likedSongsTable.$inferSelect,
+      typeof playlistHistoryTable.$inferSelect,
+      FeedbackMemory
+    > | null = devMode
+      ? null
+      : getSessionSnapshot<
+          typeof likedSongsTable.$inferSelect,
+          typeof playlistHistoryTable.$inferSelect,
+          FeedbackMemory
+        >(userId, sessionSnapshotId);
+    const fullSessionSnapshotHit = !devMode &&
+      !noLibraryMode &&
+      !!sessionSnapshot?.likedSongs &&
+      !!sessionSnapshot.recentPlaylists &&
+      !!sessionSnapshot.feedbackMemory;
+    const executionHealth = createExecutionHealthProfile(fullSessionSnapshotHit ? "HIT" : "MISS");
+    let dbHydrationOccurred = false;
     const resultCacheBaseKey = getGenerateCacheKey({
       userId,
       vibe,
@@ -4179,13 +4566,27 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGeneratePhase(generateSessionUserId, requestId, "loading_library");
     setGenerateStageDetail(generateSessionUserId, requestId, "Scanning your liked songs...");
     tStage = Date.now();
-    const cachedLikedRows = devMode ? null : getCachedLikedSongs(userId);
-    const endLikedSongsProfile = liveStageProfiler.start("preV3.likedSongs", cachedLikedRows ? "memory cache" : devMode ? "mock library" : "database");
+    if (!recordExecutionStage(executionHealth, req.log, "sessionHydration", "controller.preV3", {
+      cause: "MULTI_HYDRATION",
+      blockDuplicate: true,
+    })) {
+      generateFail(res, 500, "DUPLICATE_EXECUTION_DETECTED", "Generation attempted duplicate session hydration.");
+      return;
+    }
+    executionHealth.hydrationCount += 1;
+    const snapshotLikedRows = fullSessionSnapshotHit ? sessionSnapshot?.likedSongs ?? null : null;
+    const cachedLikedRows = devMode || snapshotLikedRows ? null : getCachedLikedSongs(userId);
+    const likedSongsCacheHit = !!snapshotLikedRows || !!cachedLikedRows;
+    const endLikedSongsProfile = liveStageProfiler.start(
+      "preV3.likedSongs",
+      snapshotLikedRows ? "session snapshot" : cachedLikedRows ? "memory cache" : devMode ? "mock library" : "database"
+    );
     let likedRowsRaw: typeof likedSongsTable.$inferSelect[];
     try {
       likedRowsRaw = devMode
         ? generateMockSpotifyLibrary()
-        : cachedLikedRows ??
+        : snapshotLikedRows ??
+          cachedLikedRows ??
           await db
         .select()
         .from(likedSongsTable)
@@ -4193,10 +4594,23 @@ router.post("/generate", async (req, res): Promise<void> => {
     } finally {
       endLikedSongsProfile();
     }
-    if (!devMode && !cachedLikedRows) setCachedLikedSongs(userId, likedRowsRaw);
+    if (!devMode && !snapshotLikedRows && !cachedLikedRows) setCachedLikedSongs(userId, likedRowsRaw);
+    if (!snapshotLikedRows && !cachedLikedRows && !devMode) dbHydrationOccurred = true;
     const likedSongsQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
-    recordPreV3Timing(preV3Timing, "dbTimeMs", likedSongsQueryMs);
+    if (!likedSongsCacheHit && !devMode) recordPreV3Timing(preV3Timing, "dbTimeMs", likedSongsQueryMs);
+    if (debugPerformance) {
+      logDbSessionLoadStage(req.log, recordDbSessionLoadStage(preV3Timing, "recentTracksQuery", {
+        durationMs: likedSongsQueryMs,
+        rowsReturned: likedRowsRaw.length,
+        cacheHit: likedSongsCacheHit || devMode,
+      }));
+      recordPreV3Stage(preV3Timing, "dbSessionLoad", {
+        durationMs: likedSongsCacheHit || devMode ? 0 : likedSongsQueryMs,
+        outputSize: likedRowsRaw.length,
+        cacheHit: likedSongsCacheHit || devMode,
+      });
+    }
 
     let { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
     if (droppedTracks > 0) {
@@ -4454,10 +4868,35 @@ router.post("/generate", async (req, res): Promise<void> => {
               emotionProfile: cached.emotionProfile as any,
               trackIds: cached.finalTracks.map((track) => track.trackId),
             });
+            if (!devMode && !noLibraryMode) {
+              sessionSnapshot = mergeSessionSnapshot<
+                typeof likedSongsTable.$inferSelect,
+                typeof playlistHistoryTable.$inferSelect,
+                FeedbackMemory
+              >(userId, sessionSnapshotId, {
+                recentPlaylists: [
+                  {
+                    id: 0,
+                    spotifyUserId: userId,
+                    playlistId: cached.spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${cachedSavedPlaylistId}`,
+                    playlistUrl: cached.spotifyPlaylistUrl ?? publicUrl(`/p/${cachedSavedPlaylistId}`),
+                    name: cached.playlistName,
+                    vibe: cached.vibe,
+                    mode: cached.mode,
+                    trackCount: cachedApiTracks.length,
+                    emotionProfile: cached.emotionProfile,
+                    trackIds: cached.finalTracks.map((track) => track.trackId),
+                    createdAt: new Date(),
+                  },
+                  ...(sessionSnapshot?.recentPlaylists ?? []),
+                ].slice(0, 25),
+              });
+            }
           }
         } catch (cacheSaveErr) {
           req.log.warn({ err: cacheSaveErr, userId }, "Cached generation could not create local saved playlist");
         }
+        const cachedExecutionHealth = finaliseExecutionHealth(executionHealth, Date.now() - startMs);
         res.json({
           success: true,
           cached: true,
@@ -4485,6 +4924,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             fallbackLevel: "none",
             sessionCancelled: false,
             ...(cached.generationDiagnostics ?? {}),
+            executionHealth: cachedExecutionHealth,
           },
           artistDiversity: cached.artistDiversity ?? null,
           playlistConfidence: cached.playlistConfidence ?? null,
@@ -4641,19 +5081,83 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGeneratePhase(generateSessionUserId, requestId, "building_profile");
     setGenerateStageDetail(generateSessionUserId, requestId, "Loading recent playlist memory and feedback");
     tStage = Date.now();
-    const endMemoryProfile = liveStageProfiler.start("preV3.memoryAndFeedback", "playlist history + feedback memory");
-    const [recentPlaylists, feedbackMemory] = await Promise.all([
-      db
-        .select()
-        .from(playlistHistoryTable)
-        .where(eq(playlistHistoryTable.spotifyUserId, userId))
-        .orderBy(desc(playlistHistoryTable.createdAt))
-        .limit(25),
-      getFeedbackMemory(userId),
-    ]).finally(endMemoryProfile);
+    const snapshotRecentPlaylists = fullSessionSnapshotHit ? sessionSnapshot?.recentPlaylists ?? null : null;
+    const snapshotFeedbackMemory = fullSessionSnapshotHit ? sessionSnapshot?.feedbackMemory ?? null : null;
+    const memoryCacheHit = !!snapshotRecentPlaylists && !!snapshotFeedbackMemory;
+    const endMemoryProfile = liveStageProfiler.start(
+      "preV3.memoryAndFeedback",
+      memoryCacheHit ? "session snapshot" : "playlist history + feedback memory"
+    );
+    let recentPlaylists: typeof playlistHistoryTable.$inferSelect[];
+    let feedbackMemory: FeedbackMemory;
+    try {
+      if (memoryCacheHit) {
+        recentPlaylists = snapshotRecentPlaylists;
+        feedbackMemory = snapshotFeedbackMemory;
+      } else {
+        dbHydrationOccurred = true;
+        const [loadedPlaylists, loadedFeedbackMemory] = await Promise.all([
+          db
+            .select()
+            .from(playlistHistoryTable)
+            .where(eq(playlistHistoryTable.spotifyUserId, userId))
+            .orderBy(desc(playlistHistoryTable.createdAt))
+            .limit(25),
+          getFeedbackMemory(userId),
+        ]);
+        recentPlaylists = loadedPlaylists;
+        feedbackMemory = loadedFeedbackMemory;
+      }
+    } finally {
+      endMemoryProfile();
+    }
+    if (!devMode && !noLibraryMode && !fullSessionSnapshotHit) {
+      sessionSnapshot = mergeSessionSnapshot<
+        typeof likedSongsTable.$inferSelect,
+        typeof playlistHistoryTable.$inferSelect,
+        FeedbackMemory
+      >(userId, sessionSnapshotId, { likedSongs: likedRowsRaw, recentPlaylists, feedbackMemory });
+    }
+    if (fullSessionSnapshotHit && dbHydrationOccurred) {
+      executionHealth.healthState = "BROKEN";
+      executionHealth.primaryCause = executionHealth.primaryCause ?? "CACHE_BYPASS_FAILURE";
+      executionHealth.driftDetected = true;
+      executionHealth.degradedPerformanceMode = true;
+      executionHealth.needsCorrection.push("sessionSnapshotHydrationBypass");
+      req.log.error(
+        { userId, requestId, cacheStatus: executionHealth.cacheStatus },
+        "CACHE_BYPASS_FAILURE",
+      );
+      generateFail(res, 500, "CACHE_BYPASS_FAILURE", "Generation cache hit attempted database hydration.");
+      return;
+    }
     const playlistHistoryQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "playlistHistoryQueryMs", playlistHistoryQueryMs);
-    recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);
+    if (!memoryCacheHit) recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);
+    if (debugPerformance) {
+      logDbSessionLoadStage(req.log, recordDbSessionLoadStage(preV3Timing, "playlistHistoryQuery", {
+        durationMs: playlistHistoryQueryMs,
+        rowsReturned: recentPlaylists.length,
+        cacheHit: !!snapshotRecentPlaylists,
+      }));
+      logDbSessionLoadStage(req.log, recordDbSessionLoadStage(preV3Timing, "implicitFeedbackQuery", {
+        durationMs: playlistHistoryQueryMs,
+        rowsReturned: snapshotFeedbackMemory ? 1 : Object.keys(feedbackMemory.skipCountByTrack).length + Object.keys(feedbackMemory.saveCountByTrack).length,
+        cacheHit: !!snapshotFeedbackMemory,
+      }));
+      recordPreV3Stage(preV3Timing, "dbSessionLoad", {
+        durationMs: memoryCacheHit ? 0 : playlistHistoryQueryMs,
+        inputSize: likedSongs.length,
+        outputSize: recentPlaylists.length,
+        cacheHit: memoryCacheHit,
+      });
+      recordPreV3Stage(preV3Timing, "userHistoryFetch", {
+        durationMs: playlistHistoryQueryMs,
+        inputSize: likedSongs.length,
+        outputSize: recentPlaylists.length,
+        cacheHit: !!snapshotRecentPlaylists,
+      });
+    }
     const evaluationRecentTrackLists = evaluationSessionTrackLists(rawBody as Record<string, unknown>, sideEffectPolicy.mode === "audit");
     const auditDiversityPressure = evaluationDiversityPressure(vibe, emotionProfile, evaluationRecentTrackLists.length);
     const persistentMemoryPlaylistRows = recentPlaylists.map((p) => ({
@@ -4741,7 +5245,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       likedRows,
       memoryPlaylistRows
     );
-    recordPreV3Timing(preV3Timing, "librarySignalTimeMs", Date.now() - tStage);
+    const librarySignalMs = Date.now() - tStage;
+    recordPreV3Timing(preV3Timing, "librarySignalTimeMs", librarySignalMs);
+    if (debugPerformance) {
+      logPreV3Stage(req.log, recordPreV3Stage(preV3Timing, "librarySignalLoad", {
+        durationMs: librarySignalMs,
+        inputSize: likedRows.length + memoryPlaylistRows.length,
+        outputSize: librarySignals.tracks.size,
+        cacheHit: false,
+      }));
+    }
 
     const surpriseMix = computeSurpriseMix({
       profile: emotionProfile,
@@ -4777,7 +5290,16 @@ router.post("/generate", async (req, res): Promise<void> => {
     } finally {
       endGenreProfileProfile();
     }
-    recordPreV3Timing(preV3Timing, "genreProfileTimeMs", Date.now() - t0);
+    const genreProfileMs = Date.now() - t0;
+    recordPreV3Timing(preV3Timing, "genreProfileTimeMs", genreProfileMs);
+    if (debugPerformance) {
+      logPreV3Stage(req.log, recordPreV3Stage(preV3Timing, "genreProfileBuild", {
+        durationMs: genreProfileMs,
+        inputSize: likedSongs.length,
+        outputSize: userGenreProfile.trackClassifications.size,
+        cacheHit,
+      }));
+    }
     req.log.info(
       { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
       "Genre profile built"
@@ -4875,7 +5397,18 @@ router.post("/generate", async (req, res): Promise<void> => {
     } finally {
       endGenreStackProfile();
     }
-    recordPreV3Timing(preV3Timing, "genreStackTimeMs", Date.now() - tStage);
+    const genreStackMs = Date.now() - tStage;
+    recordPreV3Timing(preV3Timing, "genreStackTimeMs", genreStackMs);
+    if (debugPerformance) {
+      logPreV3Stage(req.log, recordPreV3Stage(preV3Timing, "embeddingPrep", {
+        durationMs: genreStackMs,
+        inputSize: likedSongs.length,
+        outputSize: genreStack.stats.vectorStoreSizes.genre +
+          genreStack.stats.vectorStoreSizes.track +
+          genreStack.stats.vectorStoreSizes.cluster,
+        cacheHit: stackFromCache,
+      }));
+    }
     stageTimer.end("Genre stack built", {
       stackFromCache,
       microGenres: genreStack.stats.microGenreCount,
@@ -4941,6 +5474,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           ? lockedIntent.genreFamilies
           : constraintLayer.hard.genres,
       humanCuratorBiasCache: new Map<string, number>(),
+      identityFitCache: new Map<string, number>(),
+      sessionReusePenaltyCache: new Map<string, number>(),
       humanScoringLimit: Math.min(12, length),
     };
     const fallbackLockedFamily =
@@ -5016,7 +5551,14 @@ router.post("/generate", async (req, res): Promise<void> => {
       stackFromCache,
     });
     preV3Timing.totalBeforeV3Ms = Date.now() - startMs;
-    req.log.info({ ...preV3Timing }, "Pre-V3 timing breakdown");
+    const preV3PerformanceReport = debugPerformance ? buildPreV3PerformanceReport(preV3Timing) : null;
+    req.log.info(
+      {
+        ...preV3Timing,
+        ...(debugPerformance ? { preV3PerformanceReport, sessionSnapshotCache: getSessionSnapshotCacheStats() } : {}),
+      },
+      "Pre-V3 timing breakdown"
+    );
     const useFastFallback = !devMode && budget.shouldFastFallback();
 
     let pipeline: BuildPlaylistPipelineResult<(typeof likedSongs)[number]> & {
@@ -5049,6 +5591,23 @@ router.post("/generate", async (req, res): Promise<void> => {
         genreByTrack,
       });
     } else {
+      if (!recordExecutionStage(executionHealth, req.log, "playlistPipeline", "controller.runRequestLayerGeneration", {
+        cause: "UNEXPECTED_FALLBACK_PATH",
+        blockDuplicate: true,
+      })) {
+        generateFail(res, 500, "DUPLICATE_EXECUTION_DETECTED", "Generation attempted duplicate playlist pipeline execution.");
+        return;
+      }
+      if (!recordExecutionStage(executionHealth, req.log, "v3Pipeline", "playlist-pipeline.runV3Pipeline", {
+        cause: "V3_REENTRY",
+        blockDuplicate: true,
+      })) {
+        generateFail(res, 500, "DUPLICATE_EXECUTION_DETECTED", "Generation attempted duplicate V3 execution.");
+        return;
+      }
+      executionHealth.scoringPassCount += 1;
+      executionHealth.retrievalPassCount += 1;
+      executionHealth.v3InvocationCount += 1;
       pipeline = await runRequestLayerGeneration({
       pipelineLog: req.log,
       likedSongs,
@@ -5167,6 +5726,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       return unique.map(hydrateTrackGenre);
     };
     setGeneratePhase(generateSessionUserId, requestId, "composing");
+    if (!recordExecutionStage(executionHealth, req.log, "finalOutputAssembly", "controller.finalAuthority", {
+      cause: "CONTROLLER_PIPELINE_CONFLICT",
+      blockDuplicate: true,
+    })) {
+      generateFail(res, 500, "DUPLICATE_EXECUTION_DETECTED", "Generation attempted duplicate final output assembly.");
+      return;
+    }
+    executionHealth.finalisationCount += 1;
+    executionHealth.repairPassCount += 1;
     setGenerateStageDetail(generateSessionUserId, requestId, `Building playlist flow from ${pipeline.finalTracks.length.toLocaleString()} candidates`);
     let finalTracks = (pipeline.finalTracks as PlaylistTrack[]).map(hydrateTrackGenre);
     const publishPartialTracks = (tracks: PlaylistTrack[], limit = tracks.length): void => {
@@ -5943,6 +6511,20 @@ router.post("/generate", async (req, res): Promise<void> => {
       repair: repairTimeMs,
       finalization: finalizationTimeMs,
     }).sort((a, b) => b[1] - a[1])[0] ?? null;
+    const executionHealthReport = finaliseExecutionHealth(executionHealth, Date.now() - startMs);
+    if (executionHealthReport.healthState !== "HEALTHY") {
+      req.log.warn(
+        {
+          requestId,
+          userId,
+          healthState: executionHealthReport.healthState,
+          primaryCause: executionHealthReport.primaryCause,
+          driftDetected: executionHealthReport.driftDetected,
+          executionSummary: executionHealthReport.executionSummary,
+        },
+        "DEGRADED PERFORMANCE MODE",
+      );
+    }
     const generationDiagnostics = {
       initialLibrarySize: likedSongs.length,
       candidatesSampled: numberFromWaterfall("retrievalCount", scoringPool.hybridPoolSize ?? pipeline.sorted.length),
@@ -6021,6 +6603,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? Math.max(0, Math.min(1, 1 - (finalization.diagnostics["cohesionSkipped"] as number) / Math.max(1, finalization.tracks.length + (finalization.diagnostics["cohesionSkipped"] as number))))
         : null,
       failureReason: finalTracks.length === 0 ? "no_final_tracks_after_filters" : null,
+      executionHealth: executionHealthReport,
+      ...(debugPerformance && preV3PerformanceReport
+        ? {
+            preV3PerformanceReport,
+            sessionSnapshotCache: getSessionSnapshotCacheStats(),
+          }
+        : {}),
     };
     setGenerateStageDetail(
       generateSessionUserId,
@@ -6378,6 +6967,30 @@ router.post("/generate", async (req, res): Promise<void> => {
         emotionProfile: { ...emotionProfile, journeyArc } as any,
         trackIds: finalTracks.map((t) => t.trackId) as any,
       });
+      if (!devMode && !noLibraryMode) {
+        sessionSnapshot = mergeSessionSnapshot<
+          typeof likedSongsTable.$inferSelect,
+          typeof playlistHistoryTable.$inferSelect,
+          FeedbackMemory
+        >(userId, sessionSnapshotId, {
+          recentPlaylists: [
+            {
+              id: 0,
+              spotifyUserId: userId,
+              playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
+              playlistUrl: spotifyPlaylistUrl ?? publicUrl(`/p/${savedPlaylistId}`),
+              name: playlistName,
+              vibe,
+              mode,
+              trackCount: finalTracks.length,
+              emotionProfile: { ...emotionProfile, journeyArc },
+              trackIds: finalTracks.map((t) => t.trackId),
+              createdAt: new Date(),
+            },
+            ...(sessionSnapshot?.recentPlaylists ?? []),
+          ].slice(0, 25),
+        });
+      }
     } catch (histErr) {
       req.log.warn({ err: histErr }, "playlist_history insert failed");
     }
