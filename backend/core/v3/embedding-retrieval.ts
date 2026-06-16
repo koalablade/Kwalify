@@ -376,7 +376,7 @@ export function retrieveCandidatesByEmbedding<T extends RetrievalTrackLike>(
   const playlistEmbedding = buildPlaylistEmbedding(tracks);
   const userTasteState = buildUserTasteState(sessionState, playlistEmbedding);
   const memoryGraph = buildUserMemoryGraph(tracks, sessionState);
-  const retrieved = tracks.map((track) => {
+  const retrievedWithVectors = tracks.map((track) => {
     const trackVector = trackToEmbedding(track);
     const scene = clamp01((cosineSimilarity(userTasteState.scenePreferenceVector, trackVector) + 1) / 2);
     const taste = clamp01((cosineSimilarity(userTasteState.longTermTasteVector, trackVector) + 1) / 2);
@@ -387,22 +387,26 @@ export function retrieveCandidatesByEmbedding<T extends RetrievalTrackLike>(
     const componentAffinities = { scene, taste, mood, energy, drift };
     return {
       track,
+      trackVector,
       embeddingAffinity: clamp01(scene * 0.46 + taste * 0.22 + mood * 0.16 + energy * 0.10 + drift * 0.06),
       retrievalNeighborhood: neighborhoodOf(componentAffinities),
       componentAffinities,
     };
   });
+  const retrieved = retrievedWithVectors.map(({ trackVector: _trackVector, ...candidate }) => candidate);
 
   const neighborhoodCounts: Record<string, number> = {};
-  for (const candidate of retrieved) {
+  const candidatesByNeighborhood = new Map<string, typeof retrievedWithVectors>();
+  for (const candidate of retrievedWithVectors) {
     neighborhoodCounts[candidate.retrievalNeighborhood] = (neighborhoodCounts[candidate.retrievalNeighborhood] ?? 0) + 1;
+    const neighborhood = candidatesByNeighborhood.get(candidate.retrievalNeighborhood) ?? [];
+    neighborhood.push(candidate);
+    candidatesByNeighborhood.set(candidate.retrievalNeighborhood, neighborhood);
   }
-  const clusterEmbeddings = Object.keys(neighborhoodCounts).map((id) => {
-    const clusterTracks = retrieved
-      .filter((candidate) => candidate.retrievalNeighborhood === id);
+  const clusterEmbeddings = [...candidatesByNeighborhood.entries()].map(([id, clusterTracks]) => {
     return {
       id,
-      centroidVector: centroid(clusterTracks.map((candidate) => trackToEmbedding(candidate.track))),
+      centroidVector: centroid(clusterTracks.map((candidate) => candidate.trackVector)),
       size: clusterTracks.length,
       averageAffinity: clusterTracks.reduce((sum, candidate) => sum + candidate.embeddingAffinity, 0) / Math.max(1, clusterTracks.length),
     };

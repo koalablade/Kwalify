@@ -164,9 +164,9 @@ const router: IRouter = Router();
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const FINALIZATION_POOL_MIN = 240;
-const FINALIZATION_POOL_PER_TRACK = 20;
-const FINALIZATION_POOL_MAX = 600;
+const FINALIZATION_POOL_MIN = 180;
+const FINALIZATION_POOL_PER_TRACK = 12;
+const FINALIZATION_POOL_MAX = 360;
 
 type GenerationSideEffectPolicy = {
   mode: "production" | "audit";
@@ -357,6 +357,10 @@ function staleGenerate(userId: string, requestId: string): boolean {
 
 function responseFinished(res: import("express").Response): boolean {
   return res.headersSent || res.writableEnded || res.destroyed;
+}
+
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 function useMockSpotify(): boolean {
@@ -3901,6 +3905,14 @@ router.post("/generate", async (req, res): Promise<void> => {
     requestId = acquired;
     sessionUserId = generateSessionUserId;
     const deadlineAt = startMs + requestHardTimeoutMs;
+    const generationShouldAbort = (): boolean => {
+      if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return true;
+      if (Date.now() >= deadlineAt - 2_000) {
+        cancelGenerateSession(generateSessionUserId, requestId);
+        return true;
+      }
+      return false;
+    };
     const markClientDisconnected = (): void => {
       if (clientDisconnected) return;
       clientDisconnected = true;
@@ -4962,7 +4974,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         allowHoliday: allowHolidaySeason,
         suppressGenres: allowHolidaySeason ? [] : ["christmas"],
       },
+      shouldAbort: generationShouldAbort,
       progress: (stage, detail) => {
+        if (generationShouldAbort()) return;
         let phaseAccepted = true;
         if (stage === "scoring") {
           phaseAccepted = setGeneratePhase(generateSessionUserId, requestId, "scoring");
@@ -5497,6 +5511,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
     }
     applyLowComplexityRecovery("post_evidence_finalization_empty");
+    await yieldToEventLoop();
+    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const strictEraEvidencePublic = {
       ...strictEraEvidenceDiagnostics,
       verified: undefined,
@@ -5946,6 +5962,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       generationDiagnostics.fallbackLevel !== "none" ||
       generationDiagnostics.recoveryRelaxations.length > 0;
     generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
+    await yieldToEventLoop();
+    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     if (finalTracks.length === 0) {
       const emergencySourcePool = strictEraEvidenceRelaxed && lockedIntent.eraRange
         ? [...finalizationCandidates, ...buildBroadRecoveryLibrary().filter((track) => !trackHasKnownEraMismatch(track, lockedIntent.eraRange!))]
@@ -6176,6 +6194,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       { ms: Date.now() - tSave, userId, playlistId: savedPlaylistId, trackCount: finalTracks.length },
       "Playlist saved to DB"
     );
+    await yieldToEventLoop();
+    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
 
     if (sideEffectPolicy.allowHistoryWrites) {
     try {
@@ -6218,6 +6238,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       !noLibraryMode && datedLikes.length >= 200 && recentLikeShare > 0.85
         ? "Most cached likes look recently added. Run a full library sync from the app so older favourites are included."
         : null;
+    await yieldToEventLoop();
+    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
 
     const v3Diagnostics = formatV3DiagnosticsForApi(
       pipeline.scoringDiagnostics?.v3Pipeline,
@@ -6297,6 +6319,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Generation complete"
     );
+    await yieldToEventLoop();
+    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
 
     const finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
     const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>(
@@ -6422,6 +6446,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalMoodDistribution,
       finalEnergyDistribution,
     });
+    await yieldToEventLoop();
+    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const v3DiagnosticsWithIntentSurvival = {
       ...(v3Diagnostics ?? {}),
       intentSurvival: intentSurvivalDiagnostics,

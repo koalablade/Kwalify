@@ -610,7 +610,7 @@ async function postGenerate(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), config.requestTimeoutMs);
     try {
-    const response = await fetch(`${config.baseUrl}/api/generate${auditMode ? "?audit=1&debug=1" : "?debug=1"}`, {
+    const response = await fetch(`${config.baseUrl}/api/generate${auditMode ? "?audit=1" : ""}`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),

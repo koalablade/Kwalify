@@ -24,6 +24,7 @@ type BenchmarkConfig = {
   limit: number | null;
   group: PromptGroup | null;
   dryRun: boolean;
+  expectedDeploymentVersion: string | null;
 };
 
 type PromptBenchmarkRow = {
@@ -164,6 +165,7 @@ function usage(): never {
     "  --delay-ms N            Delay between requests (default 1000)",
     "  --limit N               Run only first N selected prompts",
     "  --group NAME            Run one group: Electronic, Alternative, Hip Hop, Lifestyle, Human",
+    "  --expected-deployment-version SHA  Expected deployed git SHA (default local HEAD / PLAYLIST_EVAL_EXPECTED_VERSION)",
     "  --dry-run               Write prompt list without calling /api/generate",
   ].join("\n"));
   process.exit(2);
@@ -208,6 +210,10 @@ function parseConfig(args: string[]): BenchmarkConfig {
     limit: argValue(args, "--limit") ? intArg(args, "--limit", 0) : null,
     group: parseGroup(argValue(args, "--group")),
     dryRun: args.includes("--dry-run"),
+    expectedDeploymentVersion: argValue(args, "--expected-deployment-version") ??
+      process.env["PLAYLIST_EVAL_EXPECTED_VERSION"] ??
+      process.env["EXPECTED_DEPLOYMENT_VERSION"] ??
+      null,
   };
 }
 
@@ -221,6 +227,64 @@ function localGitHead(): string {
   } catch {
     return "unknown";
   }
+}
+
+function versionsMatch(expected: string, actual: string): boolean {
+  if (!expected || !actual || actual === "unknown") return false;
+  return expected === actual || expected.startsWith(actual) || actual.startsWith(expected);
+}
+
+async function fetchJsonWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<{ response: Response; data: Record<string, unknown>; elapsedMs: number }> {
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+    return { response, data, elapsedMs: Date.now() - startedAt };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function preflightDeployment(config: BenchmarkConfig): Promise<void> {
+  const expectedVersion = config.expectedDeploymentVersion ?? localGitHead();
+  const pingUrl = `${config.baseUrl}/api/eval/ping`;
+  let ping: Awaited<ReturnType<typeof fetchJsonWithTimeout>>;
+  try {
+    ping = await fetchJsonWithTimeout(pingUrl, { method: "GET" }, 15_000);
+  } catch (err) {
+    throw new Error(`Preflight failed: deployment health/version ping did not respond within 15s. ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const deployedCommit = typeof ping.data["commit"] === "string" ? ping.data["commit"] : "unknown";
+  if (!ping.response.ok || ping.data["status"] !== "ok" || ping.data["deployed"] !== true) {
+    throw new Error(`Preflight failed: deployed eval route is not healthy. status=${ping.response.status} commit=${deployedCommit} elapsedMs=${ping.elapsedMs}`);
+  }
+  if (!versionsMatch(expectedVersion, deployedCommit)) {
+    throw new Error(`Preflight failed: deployed commit ${deployedCommit} does not match expected ${expectedVersion}. Deploy the current commit before running the prompt benchmark.`);
+  }
+
+  let auth: Awaited<ReturnType<typeof fetchJsonWithTimeout>>;
+  try {
+    auth = await fetchJsonWithTimeout(pingUrl, {
+      method: "POST",
+      headers: { "x-eval-token": config.token },
+    }, 15_000);
+  } catch (err) {
+    throw new Error(`Preflight failed: evaluation auth ping did not respond within 15s. ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const authCommit = typeof auth.data["commit"] === "string" ? auth.data["commit"] : deployedCommit;
+  if (!auth.response.ok || auth.data["evalEnabled"] !== true || auth.data["tokenAccepted"] !== true) {
+    throw new Error(`Preflight failed: evaluation token was not accepted. status=${auth.response.status} commit=${authCommit} elapsedMs=${auth.elapsedMs}`);
+  }
+  if (!versionsMatch(expectedVersion, authCommit)) {
+    throw new Error(`Preflight failed: authenticated deployed commit ${authCommit} does not match expected ${expectedVersion}.`);
+  }
+  console.error(`[prompt-reliability] preflight OK commit=${authCommit} pingMs=${ping.elapsedMs} authMs=${auth.elapsedMs}`);
 }
 
 function selectPrompts(config: BenchmarkConfig): BenchmarkPrompt[] {
@@ -325,7 +389,7 @@ async function postGenerate(config: BenchmarkConfig, prompt: BenchmarkPrompt): P
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
   try {
-    const response = await fetch(`${config.baseUrl}/api/generate?audit=1&debug=1`, {
+    const response = await fetch(`${config.baseUrl}/api/generate?audit=1`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -708,6 +772,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({ dryRun: true, outDir: config.outDir, prompts: prompts.length }, null, 2));
     return;
   }
+  await preflightDeployment(config);
   for (let index = 0; index < prompts.length; index++) {
     const prompt = prompts[index]!;
     console.error(`[${index + 1}/${prompts.length}] ${prompt.prompt}`);

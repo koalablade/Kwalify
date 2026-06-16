@@ -148,6 +148,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
    */
   noLibraryMode?: boolean;
   progress?: (stage: "scoring" | "retrieval" | "lanes" | "sampling" | "fallback" | "coherence", detail: string) => void | Promise<void>;
+  shouldAbort?: () => boolean;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -1300,15 +1301,63 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
 ): RetrievalPools<T> {
   const MIN_BROAD_RETRIEVAL_POOL = 120;
   const contractSafeTracks = enforceIntentContract(tracks, contract, classMap);
+  const primarySubgenreMatches = new Map<string, boolean>();
+  const structuredSubgenreMatches = new Map<string, boolean>();
+  const genreFamilyMatches = new Map<string, boolean>();
+  const contractFamilyMatches = new Map<string, boolean>();
+  const identityScores = new Map<string, number>();
+  const fitScores = new Map<string, number>();
+  const primarySubgenreMatch = (track: T): boolean => {
+    const cached = primarySubgenreMatches.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = trackMatchesPrimarySubgenre(track, classMap, contract);
+    primarySubgenreMatches.set(track.trackId, value);
+    return value;
+  };
+  const structuredSubgenreMatch = (track: T): boolean => {
+    const cached = structuredSubgenreMatches.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = trackMatchesStructuredSubgenre(track, classMap, contract);
+    structuredSubgenreMatches.set(track.trackId, value);
+    return value;
+  };
+  const genreFamilyMatch = (track: T): boolean => {
+    const cached = genreFamilyMatches.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = trackMatchesGenreFamilies(track, classMap, contract.genres);
+    genreFamilyMatches.set(track.trackId, value);
+    return value;
+  };
+  const contractFamilyMatch = (track: T): boolean => {
+    const cached = contractFamilyMatches.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = trackMatchesGenreFamilies(track, classMap, contract.genreFamilies);
+    contractFamilyMatches.set(track.trackId, value);
+    return value;
+  };
+  const identityScoreFor = (track: T): number => {
+    const cached = identityScores.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = identityTermScore(track, contract, classMap);
+    identityScores.set(track.trackId, value);
+    return value;
+  };
+  const fitScoreFor = (track: T): number => {
+    const cached = fitScores.get(track.trackId);
+    if (cached !== undefined) return cached;
+    const value = intentContractFit(track, classMap, contract).score;
+    fitScores.set(track.trackId, value);
+    return value;
+  };
   const retrievalSignalCoverageTracks = contractSafeTracks;
   const subgenreMatchCount = contract.primarySubgenre
-    ? retrievalSignalCoverageTracks.filter((track) => trackMatchesStructuredSubgenre(track, classMap, contract)).length
+    ? retrievalSignalCoverageTracks.filter(structuredSubgenreMatch).length
     : 0;
   const familyMatchCount = contract.genres.length > 0
-    ? retrievalSignalCoverageTracks.filter((track) => trackMatchesGenreFamilies(track, classMap, contract.genres)).length
+    ? retrievalSignalCoverageTracks.filter(genreFamilyMatch).length
     : 0;
   const textMatchCount = retrievalSignalCoverageTracks.filter((track) =>
-    identityTermScore(track, contract, classMap) > 0
+    identityScoreFor(track) > 0
   ).length;
   const hasSubgenreSignal = subgenreMatchCount > 0;
   const hasFamilySignal = familyMatchCount > 0;
@@ -1337,12 +1386,12 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
         (
           contract.primarySubgenre &&
           (
-            trackMatchesPrimarySubgenre(track, classMap, contract) ||
-            trackMatchesStructuredSubgenre(track, classMap, contract)
+            primarySubgenreMatch(track) ||
+            structuredSubgenreMatch(track)
           )
         ) ||
-        trackMatchesGenreFamilies(track, classMap, contract.genreFamilies) ||
-        identityTermScore(track, contract, classMap) > 0;
+        contractFamilyMatch(track) ||
+        identityScoreFor(track) > 0;
       const embeddingMatched =
         (track.score ?? 0) >= 0.72 ||
         (track.rediscoveryScore ?? 0) >= 0.68 ||
@@ -1362,7 +1411,7 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
   );
   const embeddingFallbackUsed = sourceBreakdown.embeddingMatch > 0 || sourceBreakdown.hybridMatch > 0;
   const familyExpansionTracks = contract.genres.length > 0
-    ? tracks.filter((track) => trackMatchesGenreFamilies(track, classMap, contract.genres))
+    ? tracks.filter(genreFamilyMatch)
     : tracks;
   const adjacentFamilies = new Set(contract.genres.flatMap((genre) => adjacentGenreFamilies(genre)));
   const adjacentExpansionTracks = contract.genres.length > 0
@@ -1395,8 +1444,8 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
         ...track,
         contractFitScore: Math.max(
           (track as T & { contractFitScore?: number }).contractFitScore ?? 0,
-          intentContractFit(track, classMap, contract).score,
-          contract.genres.length > 0 && trackMatchesGenreFamilies(track, classMap, contract.genres) ? 0.35 : 0,
+          fitScoreFor(track),
+          contract.genres.length > 0 && genreFamilyMatch(track) ? 0.35 : 0,
         ),
       }));
   const retrievalExpandedDueToStarvation = contractRankSource.length > contractSafeTracks.length;
@@ -1404,9 +1453,9 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
     contractRankSource
     .map((track) => {
       const subgenreMatchWeight = contract.primarySubgenre
-        ? trackMatchesPrimarySubgenre(track, classMap, contract)
+        ? primarySubgenreMatch(track)
           ? 0.16
-          : trackMatchesStructuredSubgenre(track, classMap, contract)
+          : structuredSubgenreMatch(track)
             ? 0.09
             : 0
         : 0;
@@ -1437,7 +1486,7 @@ function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTrack> &
     strictMinimum: 30,
     relatedMinimum: 12,
   });
-  const genreMatched = contractRanked.filter((track) => trackMatchesGenreFamilies(track, classMap, contract.genres));
+  const genreMatched = contractRanked.filter(genreFamilyMatch);
   const subgenrePoolTooSmall =
     !!contract.primarySubgenre &&
     retrievalScope.mode === "family" &&
@@ -2606,6 +2655,12 @@ async function emitProgress(
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
+function abortPipeline(stage: string): never {
+  const error = new Error(`Generation aborted during ${stage}`);
+  (error as Error & { code?: string }).code = "GENERATION_ABORTED";
+  throw error;
+}
+
 export async function buildPlaylistPipeline<T extends {
   trackId: string;
   trackName: string;
@@ -2648,6 +2703,7 @@ export async function buildPlaylistPipeline<T extends {
     };
   };
   await emitProgress(opts, "scoring", `Scoring ${opts.likedSongs.length.toLocaleString()} liked songs`);
+  if (opts.shouldAbort?.()) abortPipeline("scoring");
   let stageStartedAt = Date.now();
   const scoring = runScoringPipeline({
     pipelineLog: opts.pipelineLog,
@@ -2675,6 +2731,7 @@ export async function buildPlaylistPipeline<T extends {
     },
   });
   recordTiming("scoring", stageStartedAt);
+  if (opts.shouldAbort?.()) abortPipeline("scoring");
 
   if (scoring.sorted.length === 0 && opts.likedSongs.length > 0) {
     const fallbackScored = opts.likedSongs.map((track) => ({
@@ -2724,6 +2781,7 @@ export async function buildPlaylistPipeline<T extends {
 
   const sortedPool = scoring.sorted;
   await emitProgress(opts, "retrieval", `Building candidate pools from ${sortedPool.length.toLocaleString()} scored tracks`);
+  if (opts.shouldAbort?.()) abortPipeline("retrieval");
   stageStartedAt = Date.now();
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2775,6 +2833,7 @@ export async function buildPlaylistPipeline<T extends {
       promptKey: opts.noLibraryMode ? undefined : opts.vibe,
     },
   );
+  if (opts.shouldAbort?.()) abortPipeline("retrieval");
   const unpenalizedPooledCandidates = flattenRetrievalPools(unpenalizedRetrieval) as ScoredLibraryTrack<T>[];
   const unpenalizedViablePoolSize = unpenalizedPooledCandidates.length;
   const activityKind = activityPromptKind(opts.vibe, opts.emotionProfile);
@@ -2809,6 +2868,7 @@ export async function buildPlaylistPipeline<T extends {
         },
       );
   recordTiming("retrieval", stageStartedAt);
+  if (opts.shouldAbort?.()) abortPipeline("retrieval");
   const pooledCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
   const contractSafePool = enforceIntentContract(
     pooledCandidates as unknown as Array<ScoredLibraryTrack<IntentContractTrack>>,
@@ -3102,6 +3162,7 @@ export async function buildPlaylistPipeline<T extends {
       ? retrievalFallbackLevelUsed
       : finalFallbackLevelUsed;
   await emitProgress(opts, "lanes", `Routing ${contractGuardedScoredPool.length.toLocaleString()} candidates into playlist lanes`);
+  if (opts.shouldAbort?.()) abortPipeline("lanes");
   const explicitGenreRecoveryUsed = intentContract.genreFamilies.length > 0 &&
     contractEvidencePool.length === 0 &&
     explicitGenreScoredPool.length > 0;
@@ -3163,7 +3224,7 @@ export async function buildPlaylistPipeline<T extends {
     fallbackExpansionPath,
     finalPoolSizeAtScoringEntry: contractGuardedScoredPool.length,
     retrievalFatalEmptyPool,
-      softGuardOriginTrace: softGuardRankTrace,
+      softGuardOriginTrace: softGuardRankTrace.slice(0, Math.max(40, opts.playlistLength * 2)),
     candidateCountPerStage: {
       retrieval: pooledCandidates.length,
       structuredRetrieval: subgenreEvidencePool.length,
@@ -3286,6 +3347,7 @@ export async function buildPlaylistPipeline<T extends {
   let candidateShortCircuitUsed = false;
   for (const candidate of candidateInputs) {
     await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
+    if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
     const inputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
     stageStartedAt = Date.now();
     const candidatePool = buildV3CandidatePool(
@@ -3316,6 +3378,7 @@ export async function buildPlaylistPipeline<T extends {
       }
     );
     recordTiming("v3ScoringAndSampling", stageStartedAt);
+    if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
     const quality = evaluatePlaylistQuality(
       result.finalTracks as unknown as IntentContractTrack[],
       intentContract,
@@ -3333,6 +3396,16 @@ export async function buildPlaylistPipeline<T extends {
     };
     candidateAttempts.push(attempt);
     if (candidateAttempts.length === 1 && candidateInputs.length > 1 && canShortCircuitCandidateAttempt(attempt)) {
+      candidateShortCircuitUsed = true;
+      break;
+    }
+    if (
+      candidateAttempts.length === 1 &&
+      candidateInputs.length > 1 &&
+      attempt.result.finalTracks.length >= Math.ceil(opts.playlistLength * 0.90) &&
+      attempt.quality.overall >= 0.45 &&
+      attempt.quality.promptAlignment >= 0.40
+    ) {
       candidateShortCircuitUsed = true;
       break;
     }
@@ -3475,7 +3548,7 @@ export async function buildPlaylistPipeline<T extends {
     ...controlledGenerationDiagnostics,
     lanes: (v3.diagnostics["lanes"] as Array<{ laneId: string }>)?.map((l) => l.laneId),
     preV3Recovery: v3CandidatePool.diagnostics,
-    preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 200),
+    preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 60),
     waterfall: baseWaterfall,
     removalReasons,
     retrievalPoolsDetailed: retrievalPoolDiagnostics,
@@ -3568,7 +3641,7 @@ export async function buildPlaylistPipeline<T extends {
           },
           fallback: fallbackLabel,
           preV3Recovery: v3CandidatePool.diagnostics,
-          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 200),
+          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 60),
           waterfall: {
             ...baseWaterfall,
             repairCount: resolvedTracks.length,
@@ -3759,7 +3832,7 @@ export async function buildPlaylistPipeline<T extends {
           fallback: true,
           reason: "empty_library",
           preV3Recovery: v3CandidatePool.diagnostics,
-          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 200),
+          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 60),
           waterfall: {
             ...baseWaterfall,
             repairCount: enforcedFallback.tracks.length,
@@ -3923,7 +3996,7 @@ export async function buildPlaylistPipeline<T extends {
           finalHardFilterTrace,
         },
         preV3Recovery: v3CandidatePool.diagnostics,
-          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 200),
+          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 60),
           waterfall: {
             ...baseWaterfall,
             repairCount: finalTracksForReturn.length,
