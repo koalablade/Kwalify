@@ -164,9 +164,9 @@ const router: IRouter = Router();
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const FINALIZATION_POOL_MIN = 180;
-const FINALIZATION_POOL_PER_TRACK = 12;
-const FINALIZATION_POOL_MAX = 360;
+const FINALIZATION_POOL_MIN = 90;
+const FINALIZATION_POOL_PER_TRACK = 6;
+const FINALIZATION_POOL_MAX = 180;
 
 type GenerationSideEffectPolicy = {
   mode: "production" | "audit";
@@ -2592,10 +2592,27 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
 
   const out: T[] = [];
   const identityTerms = universalIdentityTerms(opts.vibe, opts.intent, opts.constraints);
-  const candidateFinalizationScore = (track: T, preferredFamilies: Set<string> = new Set()): number => {
-    const trackPenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
+  const finalizationScoreCache = new Map<string, number>();
+  const intentCoherenceCache = new Map<string, number>();
+  const preferredFamiliesKey = (preferredFamilies: Set<string>): string =>
+    preferredFamilies.size === 0 ? "none" : [...preferredFamilies].sort().join(",");
+  const intentCoherenceFor = (track: T, preferredFamilies: Set<string>): number => {
+    const cacheKey = `${track.trackId}:${preferredFamiliesKey(preferredFamilies)}`;
+    const cached = intentCoherenceCache.get(cacheKey);
+    if (cached !== undefined) return cached;
     const coherence = intentCoherenceScore(track, opts, preferredFamilies, identityTerms);
-    return (track.score ?? 0) + coherence - trackPenalty;
+    intentCoherenceCache.set(cacheKey, coherence);
+    return coherence;
+  };
+  const candidateFinalizationScore = (track: T, preferredFamilies: Set<string> = new Set()): number => {
+    const cacheKey = `${track.trackId}:${preferredFamiliesKey(preferredFamilies)}`;
+    const cached = finalizationScoreCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    const trackPenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
+    const coherence = intentCoherenceFor(track, preferredFamilies);
+    const score = (track.score ?? 0) + coherence - trackPenalty;
+    finalizationScoreCache.set(cacheKey, score);
+    return score;
   };
   const rankedCandidates = opts.candidates
     .map(sanitizePlaylistTrack)
@@ -2672,7 +2689,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     const familyBonus = preferredFamilies.size === 0 || family === "unknown" || preferredFamilies.has(family) ? 0.08 : 0;
     const reusePenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
     const artistReusePenalty = Math.max(0, Math.min(0.34, opts.artistReusePenalty?.get(artistKey) ?? 0));
-    return (track.score ?? 0) + familyBonus + intentCoherenceScore(track, opts, preferredFamilies, identityTerms) - artistPressure * 0.42 - albumPressure * 0.22 - familyPressure * 0.10 - reusePenalty - artistReusePenalty;
+    return (track.score ?? 0) + familyBonus + intentCoherenceFor(track, preferredFamilies) - artistPressure * 0.42 - albumPressure * 0.22 - familyPressure * 0.10 - reusePenalty - artistReusePenalty;
   };
   const hardSafeCandidates = (tracks: T[]): T[] =>
     tracks
@@ -3633,13 +3650,6 @@ function hasFinalGenreEvidence(
 ): boolean {
   if (expectedFamilies.length === 0) return true;
   const classification = classMap.get(track.trackId);
-  const localClassification = classifyTrack({
-    trackName: track.trackName ?? "",
-    artistName: track.artistName ?? "",
-    albumName: track.albumName ?? "",
-    energy: null,
-    valence: null,
-  });
   const cachedDiagnostics = classification?.diagnostics;
   const cachedHasLocalEvidence =
     !!classification &&
@@ -3651,11 +3661,17 @@ function hasFinalGenreEvidence(
     expectedFamilies.includes(classification.genreFamily) &&
     cachedDiagnostics?.audioFallbackUsed !== true &&
     cachedDiagnostics?.patternMatched !== "spotify_genre_metadata";
+  if (cachedHasExpectedFamily) return true;
   const candidateClassification =
     cachedHasLocalEvidence
       ? classification
-      : localClassification;
-  if (cachedHasExpectedFamily) return true;
+      : classifyTrack({
+          trackName: track.trackName ?? "",
+          artistName: track.artistName ?? "",
+          albumName: track.albumName ?? "",
+          energy: null,
+          valence: null,
+        });
   if (opts.allowSpotifyMetadataEvidence) {
     const metadataGenres = [
       ...(Array.isArray(track.spotifyArtistGenres) ? track.spotifyArtistGenres : []),
@@ -4925,7 +4941,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           ? lockedIntent.genreFamilies
           : constraintLayer.hard.genres,
       humanCuratorBiasCache: new Map<string, number>(),
-      humanScoringLimit: Math.max(length * 3, 90),
+      humanScoringLimit: Math.min(12, length),
     };
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??

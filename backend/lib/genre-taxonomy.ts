@@ -251,6 +251,46 @@ function spotifyGenreTaxon(track: {
     : null;
 }
 
+const CLASSIFY_TRACK_CACHE_MAX = 15000;
+const classifyTrackCache = new Map<string, TrackGenreClassification>();
+
+function classifyTrackCacheKey(
+  track: {
+    trackName: string;
+    artistName: string;
+    albumName: string;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
+    energy?: number | null;
+    valence?: number | null;
+    acousticness?: number | null;
+    danceability?: number | null;
+    instrumentalness?: number | null;
+    speechiness?: number | null;
+    tempo?: number | null;
+  },
+  vibeGenreHints?: string[]
+): string {
+  const metadataGenres = [
+    ...(Array.isArray(track.spotifyArtistGenres) ? track.spotifyArtistGenres : []),
+    ...(Array.isArray(track.albumGenres) ? track.albumGenres : []),
+  ].filter((value): value is string => typeof value === "string").join("|");
+  return [
+    track.trackName,
+    track.artistName,
+    track.albumName,
+    metadataGenres,
+    track.energy ?? "",
+    track.valence ?? "",
+    track.acousticness ?? "",
+    track.danceability ?? "",
+    track.instrumentalness ?? "",
+    track.speechiness ?? "",
+    track.tempo ?? "",
+    vibeGenreHints?.join("|") ?? "",
+  ].join("\u0001").toLowerCase();
+}
+
 export function classifyTrack(
   track: {
     trackName: string;
@@ -268,6 +308,10 @@ export function classifyTrack(
   },
   vibeGenreHints?: string[]
 ): TrackGenreClassification {
+  const cacheKey = classifyTrackCacheKey(track, vibeGenreHints);
+  const cached = classifyTrackCache.get(cacheKey);
+  if (cached) return cached;
+  const result = (() => {
   const spotifyTaxon = spotifyGenreTaxon(track);
   if (spotifyTaxon) return spotifyTaxon;
 
@@ -360,6 +404,13 @@ export function classifyTrack(
       audioFallbackUsed,
     },
   };
+  })();
+  classifyTrackCache.set(cacheKey, result);
+  if (classifyTrackCache.size > CLASSIFY_TRACK_CACHE_MAX) {
+    const oldestKey = classifyTrackCache.keys().next().value;
+    if (oldestKey !== undefined) classifyTrackCache.delete(oldestKey);
+  }
+  return result;
 }
 
 function inferGenreFromAudioOnly(track: {

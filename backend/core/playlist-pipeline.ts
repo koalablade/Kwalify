@@ -1313,9 +1313,11 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     recentTrackPenalty?: Map<string, number>;
     sessionArtistMemory?: SessionArtistMemory;
     promptKey?: string;
+    diagnosticsMode?: "minimal" | "full";
   } = {},
 ): Promise<RetrievalPools<T>> {
   const MIN_BROAD_RETRIEVAL_POOL = 120;
+  const fullDiagnostics = opts.diagnosticsMode === "full";
   const contractSafeTracks = enforceIntentContract(tracks, contract, classMap);
   await yieldPipeline();
   const primarySubgenreMatches = new Map<string, boolean>();
@@ -1367,15 +1369,15 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     return value;
   };
   const retrievalSignalCoverageTracks = contractSafeTracks;
-  const subgenreMatchCount = contract.primarySubgenre
+  const subgenreMatchCount = fullDiagnostics && contract.primarySubgenre
     ? retrievalSignalCoverageTracks.filter(structuredSubgenreMatch).length
     : 0;
-  const familyMatchCount = contract.genres.length > 0
+  const familyMatchCount = fullDiagnostics && contract.genres.length > 0
     ? retrievalSignalCoverageTracks.filter(genreFamilyMatch).length
     : 0;
-  const textMatchCount = retrievalSignalCoverageTracks.filter((track) =>
+  const textMatchCount = fullDiagnostics ? retrievalSignalCoverageTracks.filter((track) =>
     identityScoreFor(track) > 0
-  ).length;
+  ).length : 0;
   const hasSubgenreSignal = subgenreMatchCount > 0;
   const hasFamilySignal = familyMatchCount > 0;
   const hasTextSignal = textMatchCount > 0;
@@ -1384,20 +1386,20 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     (hasFamilySignal ? 0.30 : 0) +
     (hasTextSignal ? 0.20 : 0)
   ) * 1000) / 10;
-  const queryCanonicalization = normalizeIdentityTerm(contract.rawPrompt);
-  const mappedSubgenreKeys = uniqueNormalizedTerms([
+  const queryCanonicalization = fullDiagnostics ? normalizeIdentityTerm(contract.rawPrompt) : "";
+  const mappedSubgenreKeys = fullDiagnostics ? uniqueNormalizedTerms([
     contract.primarySubgenre,
     contract.secondarySubgenre,
     ...contract.subgenreTerms,
-  ]);
-  const mappedFamilyKeys = uniqueNormalizedTerms([
+  ]) : [];
+  const mappedFamilyKeys = fullDiagnostics ? uniqueNormalizedTerms([
     ...contract.genreFamilies,
     ...contract.genres,
     contract.primaryGenre,
-  ]);
-  const mappedTextAnchors = uniqueNormalizedTerms(contract.identityTerms);
-  const ontologyHitRate = ontologyHitRateForPrompt(queryCanonicalization);
-  const sourceBreakdown = retrievalSignalCoverageTracks.reduce(
+  ]) : [];
+  const mappedTextAnchors = fullDiagnostics ? uniqueNormalizedTerms(contract.identityTerms) : [];
+  const ontologyHitRate = fullDiagnostics ? ontologyHitRateForPrompt(queryCanonicalization) : 0;
+  const sourceBreakdown = fullDiagnostics ? retrievalSignalCoverageTracks.reduce(
     (acc, track) => {
       const ontologyMatched =
         (
@@ -1425,7 +1427,7 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
       return acc;
     },
     { ontologyMatch: 0, embeddingMatch: 0, hybridMatch: 0, fallbackOnly: 0 }
-  );
+  ) : { ontologyMatch: 0, embeddingMatch: 0, hybridMatch: 0, fallbackOnly: 0 };
   const embeddingFallbackUsed = sourceBreakdown.embeddingMatch > 0 || sourceBreakdown.hybridMatch > 0;
   await yieldPipeline();
   const familyExpansionTracks = contract.genres.length > 0
@@ -2871,6 +2873,7 @@ export async function buildPlaylistPipeline<T extends {
       opts.postScore.feedbackMemory ?? null,
       {
         promptKey: opts.noLibraryMode ? undefined : opts.vibe,
+        diagnosticsMode: opts.diagnosticsMode ?? "minimal",
       },
     );
     if (opts.shouldAbort?.()) abortPipeline("retrieval");
@@ -2894,19 +2897,10 @@ export async function buildPlaylistPipeline<T extends {
     upstreamRecentTrackPenalty = opts.recentPlaylistTrackIds?.length
       ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 20, (opts.varietyPenaltyScale ?? 1) * effectiveDiversityPressure)
       : undefined;
-    retrieval = !upstreamRecentTrackPenalty && !sessionMemoryHasPressure
-      ? unpenalizedRetrieval
-      : await buildRetrievalPools(
-          scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
-          intentContract,
-          classMap,
-          opts.postScore.feedbackMemory ?? null,
-          {
-            recentTrackPenalty: upstreamRecentTrackPenalty,
-            sessionArtistMemory: sessionMemoryHasPressure ? effectiveSessionArtistMemory : undefined,
-            promptKey: opts.noLibraryMode ? undefined : opts.vibe,
-          },
-        );
+    // Build retrieval pools once. Session/recent-track penalties are still
+    // applied downstream in V3 sampling and finalization; rebuilding every pool
+    // here doubled the most expensive retrieval pass for audit sessions.
+    retrieval = unpenalizedRetrieval;
   } finally {
     endRetrievalProfile?.();
   }
