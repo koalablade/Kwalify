@@ -2294,10 +2294,101 @@ function sessionReusePenalty(track: { trackId: string; artistName?: string | nul
   return penalty;
 }
 
+type CuratorScoringContext = {
+  vibe: string;
+  intent: LockedIntent;
+  constraints: ConstraintLayer;
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>;
+  preferredFamilies?: Set<string>;
+};
+
+function promptContrastPenalty(track: ConstraintTrack, vibe: string): number {
+  const lower = vibe.toLowerCase();
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const loudness = track.loudness ?? -8;
+  let penalty = 0;
+  if (/\b(?:not|without|no)\s+(?:sad|depressing|depressed|bleak|miserable|gloomy)\b/.test(lower)) {
+    if (valence < 0.28) penalty += 0.16;
+    if (energy < 0.22 && valence < 0.38) penalty += 0.08;
+  }
+  if (/\b(?:not|without|no)\s+(?:angry|aggressive|rage|furious|harsh)\b/.test(lower)) {
+    if (energy > 0.68 && valence < 0.48) penalty += 0.14;
+    if (loudness > -4.8 && energy > 0.58) penalty += 0.08;
+  }
+  if (/\bdark\s+but\s+(?:cozy|cosy|warm|soft|safe)\b/.test(lower)) {
+    if (valence < 0.20 || energy > 0.64) penalty += 0.12;
+  }
+  return Math.min(0.28, penalty);
+}
+
+function softEraConfidenceScore(track: ConstraintTrack, intent: LockedIntent, coherence: number): number {
+  if (!intent.eraRange) return 0;
+  if (trackHasKnownEraMismatch(track, intent.eraRange)) return -0.20;
+  if (trackHasEraEvidence(track, intent.eraRange)) return 0.12;
+  const estimatedYear = trackYearEstimate(track);
+  if (estimatedYear && estimatedYear >= intent.eraRange.start && estimatedYear <= intent.eraRange.end) return 0.08;
+  if (coherence >= 0.18) return 0.04;
+  return -0.03;
+}
+
+function humanCuratorIntentScore(track: ConstraintTrack, identity: CuratorIdentity, context: CuratorScoringContext): number {
+  const preferredFamilies = context.preferredFamilies ?? new Set<string>();
+  const coherence = intentCoherenceScore(track, {
+    vibe: context.vibe,
+    intent: context.intent,
+    constraints: context.constraints,
+    classMap: context.classMap,
+  }, preferredFamilies);
+  const identityTerms = universalIdentityTerms(context.vibe, context.intent, context.constraints);
+  const identityText = trackUniversalIdentityText(track, context.classMap);
+  const identityHits = identityTerms.filter((term) => identityText.includes(term)).length;
+  const family = trackGenreFamily(track, context.classMap);
+  const expectedFamilies = context.intent.primaryGenres.length > 0
+    ? context.intent.primaryGenres
+    : context.intent.genreFamilies.length > 0
+      ? context.intent.genreFamilies
+      : context.constraints.hard.genres;
+  const familyAligned = expectedFamilies.length === 0 ||
+    family === "unknown" ||
+    expectedFamilies.includes(family) ||
+    hasFinalGenreEvidence(track, context.classMap, expectedFamilies);
+  const moodAligned = moodEvidence(track, context.intent) !== false;
+  const activityAligned = activityEvidence(track, context.intent) !== false;
+  const isFallbackCandidate = Boolean((track as unknown as Record<string, unknown>)["_fallbackCandidate"]);
+
+  let score = Math.max(-0.24, Math.min(0.30, coherence * 0.42));
+  if (identityHits >= 2) score += 0.12;
+  else if (identityHits === 1) score += 0.05;
+  score += softEraConfidenceScore(track, context.intent, coherence);
+
+  const weakFallback =
+    isFallbackCandidate &&
+    identityHits === 0 &&
+    !familyAligned &&
+    moodAligned !== true &&
+    activityAligned !== true &&
+    (!context.intent.eraRange || !trackHasEraEvidence(track, context.intent.eraRange));
+  if (weakFallback) {
+    score -= identity.type === "balanced_curator" ? 0.22 : 0.18;
+  } else if (isFallbackCandidate && identityHits === 0 && coherence < 0.05) {
+    score -= 0.10;
+  }
+  score -= promptContrastPenalty(track, context.vibe);
+  return Math.max(-0.32, Math.min(0.38, score));
+}
+
 function applyCuratorIdentityScoring<T extends ConstraintTrack>(
   tracks: T[],
   identity: CuratorIdentity,
-  memory: IdentitySessionMemory
+  memory: IdentitySessionMemory,
+  context?: CuratorScoringContext
 ): T[] {
   return tracks
     .map((track) => {
@@ -2308,11 +2399,13 @@ function applyCuratorIdentityScoring<T extends ConstraintTrack>(
         ? 0.26 + (memory.usedTracks.has(track.trackId) ? 0.32 : 0)
         : 0;
       const identityBias = (identityFit - 0.5) * 0.40;
+      const humanCuratorBias = context ? humanCuratorIntentScore(track, identity, context) : 0;
       return {
         ...track,
-        score: Math.max(0, (track.score ?? 0) + identityBias - reusePenalty - fallbackPenalty),
+        score: Math.max(0, (track.score ?? 0) + identityBias + humanCuratorBias - reusePenalty - fallbackPenalty),
         _identityFit: Math.round(identityFit * 100) / 100,
         _identityBias: Math.round(identityBias * 100) / 100,
+        _humanCuratorBias: Math.round(humanCuratorBias * 100) / 100,
         _sessionReusePenalty: Math.round(reusePenalty * 100) / 100,
       } as T;
     })
@@ -2395,6 +2488,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   const repeatSignatures = new Set<string>();
   const artistCounts = new Map<string, number>();
   const albumCounts = new Map<string, number>();
+  const familyCounts = new Map<string, number>();
   let malformedDropped = 0;
   let unsafeDropped = 0;
   let duplicateDropped = 0;
@@ -2481,6 +2575,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     if (repeatSignature) repeatSignatures.add(repeatSignature);
     artistCounts.set(artistKey, artistCount + 1);
     if (albumKey) albumCounts.set(albumKey, albumCount + 1);
+    familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1);
     out.push(sanitized);
   };
   const hardSafeCandidateScore = (track: T): number => {
@@ -2489,10 +2584,11 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     const artistPressure = artistCounts.get(artistKey) ?? 0;
     const albumPressure = albumKey ? albumCounts.get(albumKey) ?? 0 : 0;
     const family = trackGenreFamily(track, opts.classMap);
+    const familyPressure = familyCounts.get(family) ?? 0;
     const familyBonus = preferredFamilies.size === 0 || family === "unknown" || preferredFamilies.has(family) ? 0.08 : 0;
     const reusePenalty = boundedTrackReusePenalty(opts.trackReusePenalty?.get(track.trackId));
     const artistReusePenalty = Math.max(0, Math.min(0.34, opts.artistReusePenalty?.get(artistKey) ?? 0));
-    return (track.score ?? 0) + familyBonus + intentCoherenceScore(track, opts, preferredFamilies, identityTerms) - artistPressure * 0.42 - albumPressure * 0.22 - reusePenalty - artistReusePenalty;
+    return (track.score ?? 0) + familyBonus + intentCoherenceScore(track, opts, preferredFamilies, identityTerms) - artistPressure * 0.42 - albumPressure * 0.22 - familyPressure * 0.10 - reusePenalty - artistReusePenalty;
   };
   const hardSafeCandidates = (tracks: T[]): T[] =>
     tracks
@@ -2540,6 +2636,8 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     if (repeatSignature) repeatSignatures.add(repeatSignature);
     artistCounts.set(artistKey, artistCount + 1);
     if (albumKey) albumCounts.set(albumKey, albumCount + 1);
+    const family = trackGenreFamily(sanitized, opts.classMap);
+    familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1);
     out.push(sanitized);
     hardSafeFillAdded++;
   };
@@ -2825,6 +2923,41 @@ function formatV3DiagnosticsForApi(
 ): Record<string, unknown> | null {
   const v3 = rawV3 as Record<string, unknown> | null | undefined;
   if (!v3 || typeof v3 !== "object") return null;
+  const sampleArray = (value: unknown, limit: number): unknown[] =>
+    Array.isArray(value) ? value.slice(0, limit) : [];
+  const compactIntentContractGuard = (value: unknown): unknown => {
+    const guard = value as Record<string, unknown> | null | undefined;
+    if (!guard || typeof guard !== "object") return null;
+    return {
+      ...guard,
+      softGuardOriginTrace: sampleArray(guard["softGuardOriginTrace"], 40),
+    };
+  };
+  const compactRetrievalPools = (value: unknown): unknown => {
+    const pools = value as Record<string, unknown> | null | undefined;
+    if (!pools || typeof pools !== "object") return null;
+    const compactPool = (pool: unknown): unknown => {
+      const recordPool = pool as Record<string, unknown> | null | undefined;
+      if (!recordPool || typeof recordPool !== "object") return pool;
+      return {
+        ...recordPool,
+        top20: sampleArray(recordPool["top20"], 8),
+      };
+    };
+    return Object.fromEntries(
+      Object.entries(pools).map(([key, pool]) => [key, compactPool(pool)]),
+    );
+  };
+  const compactControlledGeneration = (value: unknown): unknown => {
+    const controlled = value as Record<string, unknown> | null | undefined;
+    if (!controlled || typeof controlled !== "object") return null;
+    return {
+      ...controlled,
+      candidateScores: sampleArray(controlled["candidateScores"], 3),
+      constraintFailures: sampleArray(controlled["constraintFailures"], 20),
+      relaxationSteps: sampleArray(controlled["relaxationSteps"], 12),
+    };
+  };
   const intent         = v3["intentDecomposition"] as Record<string, unknown> | undefined;
   const lanes          = v3["lanes"] as Array<Record<string, unknown>> | undefined;
   const globalDiv      = v3["globalDiversityMetrics"] as Record<string, unknown> | undefined;
@@ -2862,8 +2995,8 @@ function formatV3DiagnosticsForApi(
       clusterSelectionRatios: l["clusterSelectionRatios"] ?? {},
     })),
     playlistExplanation:    v3["playlistExplanation"] ?? null,
-    clusters:               v3["clusters"] ?? [],
-    selectionTrace:         v3["selectionTrace"] ?? v3["finalDecisionTrace"] ?? [],
+    clusters:               sampleArray(v3["clusters"], 12),
+    selectionTrace:         sampleArray(v3["selectionTrace"] ?? v3["finalDecisionTrace"], 60),
     finalDistribution:      v3["finalDistribution"] ?? {
       genres:  v3["genreDistribution"] ?? {},
       eras:    v3["eraDistribution"] ?? {},
@@ -2871,19 +3004,27 @@ function formatV3DiagnosticsForApi(
     },
     qualityLock:              v3["qualityLock"] ?? null,
     adaptiveLaneGenerator:    v3["adaptiveLaneGenerator"] ?? null,
-    forensicPoolTrace:        v3["forensicPoolTrace"] ?? null,
+    forensicPoolTrace:        (() => {
+      const trace = v3["forensicPoolTrace"] as Record<string, unknown> | null | undefined;
+      if (!trace || typeof trace !== "object") return null;
+      return {
+        ...trace,
+        stages: sampleArray(trace["stages"], 24),
+      };
+    })(),
     retrievalRelaxation:      v3["retrievalRelaxation"] ?? null,
     recommendationEngine:     v3["recommendationEngine"] ?? null,
     embeddingRetrieval:       v3["embeddingRetrieval"] ?? null,
     interleaverDiagnostics:   v3["interleaverDiagnostics"] ?? null,
     laneContributions:        v3["laneContributions"] ?? {},
     fallback:                 v3["fallback"] ?? null,
-    intentContractGuard:      v3["intentContractGuard"] ?? null,
-    controlledGeneration:     v3["controlledGeneration"] ?? null,
+    intentContractGuard:      compactIntentContractGuard(v3["intentContractGuard"]),
+    controlledGeneration:     compactControlledGeneration(v3["controlledGeneration"]),
     playlistQuality:          v3["playlistQuality"] ?? null,
     playlistCritic:           v3["playlistCritic"] ?? null,
     clusterDistributionGraph: v3["clusterDistributionGraph"] ?? {},
     aggregateClusterSpread:   v3["aggregateClusterSpread"] ?? {},
+    retrievalPoolsDetailed:   compactRetrievalPools(v3["retrievalPoolsDetailed"]),
     globalDiversityMetrics: {
       preInterleave:  preInterleave  ?? null,
       postInterleave: postInterleave ?? null,
@@ -2899,6 +3040,27 @@ function formatV3DiagnosticsForApi(
       debugTruthLevel:  "selection_based",
       consistencyCheck: "PASS",
     },
+  };
+}
+
+function compactScoringDiagnosticsForApi(raw: unknown): Record<string, unknown> | null {
+  const diagnostics = raw as Record<string, unknown> | null | undefined;
+  if (!diagnostics || typeof diagnostics !== "object") return null;
+  const scoring = diagnostics["scoring"] as Record<string, unknown> | undefined;
+  return {
+    scoring: scoring
+      ? {
+          mode: scoring["mode"] ?? null,
+          poolSize: scoring["poolSize"] ?? null,
+          hybridPoolSize: scoring["hybridPoolSize"] ?? null,
+          excludedCount: scoring["excludedCount"] ?? null,
+        }
+      : null,
+    coverage: diagnostics["coverage"] ?? null,
+    stability: diagnostics["stability"] ?? null,
+    retrievalCompletionSafety: diagnostics["retrievalCompletionSafety"] ?? null,
+    semanticResolution: diagnostics["semanticResolution"] ?? null,
+    v3Pipeline: formatV3DiagnosticsForApi(diagnostics["v3Pipeline"], ""),
   };
 }
 
@@ -4631,6 +4793,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       intent: lockedIntent,
       emotionProfile,
     });
+    const curatorScoringContext: CuratorScoringContext = {
+      vibe,
+      intent: lockedIntent,
+      constraints: constraintLayer,
+      classMap: userGenreProfile.trackClassifications,
+    };
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
       dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
@@ -4882,8 +5050,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     setGenerateStageDetail(generateSessionUserId, requestId, `Applying ${curatorIdentity.type.replace(/_/g, " ")} curator identity`);
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
-    const identityInitialTracks = applyCuratorIdentityScoring(finalTracks, curatorIdentity, sessionMemory);
-    const finalCandidatePool = applyCuratorIdentityScoring(buildFinalCandidatePool(), curatorIdentity, sessionMemory);
+    const identityInitialTracks = applyCuratorIdentityScoring(finalTracks, curatorIdentity, sessionMemory, curatorScoringContext);
+    const finalCandidatePool = applyCuratorIdentityScoring(buildFinalCandidatePool(), curatorIdentity, sessionMemory, curatorScoringContext);
     setGenerateStageDetail(generateSessionUserId, requestId, "Selecting dominant vibe cluster before final checks");
     const clusterCuration = curateCandidatesByVibeCluster(
       identityInitialTracks,
@@ -4924,7 +5092,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         } as PlaylistTrack))
         .map(hydrateTrackGenre),
       curatorIdentity,
-      sessionMemory
+      sessionMemory,
+      curatorScoringContext
     );
     const applyLowComplexityRecovery = (triggerStage: string): boolean => {
       if (finalTracks.length >= length) return false;
@@ -5284,20 +5453,35 @@ router.post("/generate", async (req, res): Promise<void> => {
     const finalizationCandidates = strictEraEvidenceRelaxed && lockedIntent.eraRange
       ? baseFinalizationCandidates.filter((track) => !trackHasKnownEraMismatch(track, lockedIntent.eraRange!))
       : baseFinalizationCandidates;
-    finalization = finalizePlaylistTracks({
-      initial: finalTracks,
-      candidates: finalizationCandidates,
-      requestedLength: length,
-      vibe,
-      intent: finalizationIntent,
-      constraints: constraintLayer,
-      allowHolidaySeason,
-      classMap: userGenreProfile.trackClassifications,
-      maxPerArtist,
-      trackReusePenalty: finalizationReusePenalty,
-      artistReusePenalty: finalizationArtistReusePenalty,
-    });
-    finalizationTimeMs += Date.now() - tStage;
+    const secondFinalizationNeeded =
+      strictEraEvidenceRelaxed ||
+      finalTracks.length < Math.ceil(length * 0.90) ||
+      trackListChanged(finalTracks, finalization.tracks);
+    if (secondFinalizationNeeded) {
+      finalization = finalizePlaylistTracks({
+        initial: finalTracks,
+        candidates: finalizationCandidates,
+        requestedLength: length,
+        vibe,
+        intent: finalizationIntent,
+        constraints: constraintLayer,
+        allowHolidaySeason,
+        classMap: userGenreProfile.trackClassifications,
+        maxPerArtist,
+        trackReusePenalty: finalizationReusePenalty,
+        artistReusePenalty: finalizationArtistReusePenalty,
+      });
+      finalizationTimeMs += Date.now() - tStage;
+    } else {
+      finalization = {
+        tracks: finalTracks,
+        diagnostics: {
+          ...finalization.diagnostics,
+          repeatedPassSkipped: true,
+          skippedReason: "playlist_already_finalized",
+        },
+      };
+    }
     if (trackListChanged(finalTracks, finalization.tracks)) {
       req.log.info(
         { userId, vibe, finalization: finalization.diagnostics },
@@ -5768,7 +5952,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       const emergencyPool = applyCuratorIdentityScoring(
         emergencySourcePool,
         curatorIdentity,
-        sessionMemory
+        sessionMemory,
+        curatorScoringContext
       );
       const emergencyFinalization = finalizePlaylistTracks({
         initial: [],
@@ -6200,6 +6385,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     }
     const v3DiagnosticPayload = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+    const compactScoringDiagnostics = compactScoringDiagnosticsForApi(scoringDiagnostics);
     const noLibrarySpotifyDiagnostics = noLibraryMode
       ? {
           searched: noLibraryExplicitFamilies.length > 0,
@@ -6341,11 +6527,11 @@ router.post("/generate", async (req, res): Promise<void> => {
               graphPaths: momentPipeline.graph.propagationPath,
             }),
             sonicTraits: momentPipeline.sonicProfile?.traits ?? [],
-            scoringDiagnostics,
+            scoringDiagnostics: compactScoringDiagnostics,
             genreAudit,
           }
         : {
-            scoringDiagnostics,
+            scoringDiagnostics: compactScoringDiagnostics,
             genreAudit,
             genreIntelligence: {
               ontologyNodes: genreStack.stats.ontologyNodes,
@@ -6437,7 +6623,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               noLibraryMode: !!noLibraryMode,
               scoringWeights: "semantic:0.40_emotion:0.20_scene:0.15_aesthetic:0.10_library:0.10_genre:0.05",
               noLibraryWeights: noLibraryMode ? "semantic:0.55_emotion:0.20_scene:0.15_aesthetic:0.10" : null,
-              scoringDiagnostics,
+              scoringDiagnostics: compactScoringDiagnostics,
               ecosystemDebug: pipeline.ecosystemDebug,
               semanticScene: (scoringDiagnostics as Record<string, unknown>).semanticResolution ?? null,
               poolInfo: {

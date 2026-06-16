@@ -829,6 +829,8 @@ function contractMoodMatch(track: IntentContractTrack, mood: string): boolean {
       return acousticness >= 0.28 || (track.releaseYear != null && track.releaseYear <= 2015);
     case "warm":
       return valence >= 0.42 && (acousticness >= 0.22 || energy <= 0.70);
+    case "introspective":
+      return energy <= 0.64 && (acousticness >= 0.22 || valence <= 0.55);
     case "energised":
       return energy >= 0.55;
     case "dark":
@@ -2784,10 +2786,16 @@ export async function buildPlaylistPipeline<T extends {
     opts.sessionArtistMemory,
     effectiveDiversityPressure,
   );
+  const sessionMemoryHasPressure = !!effectiveSessionArtistMemory &&
+    effectiveDiversityPressure > 0 &&
+    (
+      effectiveSessionArtistMemory.artistCount.size > 0 ||
+      effectiveSessionArtistMemory.playlistArtistSet.size > 0
+    );
   const upstreamRecentTrackPenalty = opts.recentPlaylistTrackIds?.length
     ? buildRecentTrackPoolPenalty(opts.recentPlaylistTrackIds, 20, (opts.varietyPenaltyScale ?? 1) * effectiveDiversityPressure)
     : undefined;
-  const retrieval = !upstreamRecentTrackPenalty && !effectiveSessionArtistMemory
+  const retrieval = !upstreamRecentTrackPenalty && !sessionMemoryHasPressure
     ? unpenalizedRetrieval
     : buildRetrievalPools(
         scoring.sorted as Array<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string }>,
@@ -2796,7 +2804,7 @@ export async function buildPlaylistPipeline<T extends {
         opts.postScore.feedbackMemory ?? null,
         {
           recentTrackPenalty: upstreamRecentTrackPenalty,
-          sessionArtistMemory: effectiveSessionArtistMemory,
+          sessionArtistMemory: sessionMemoryHasPressure ? effectiveSessionArtistMemory : undefined,
           promptKey: opts.noLibraryMode ? undefined : opts.vibe,
         },
       );
@@ -3263,6 +3271,19 @@ export async function buildPlaylistPipeline<T extends {
     quality: ReturnType<typeof evaluatePlaylistQuality>;
     total: number;
   }> = [];
+  const canShortCircuitCandidateAttempt = (attempt: {
+    result: ReturnType<typeof runV3Pipeline<T>>;
+    quality: ReturnType<typeof evaluatePlaylistQuality>;
+    total: number;
+  }): boolean => {
+    const fullEnough = attempt.result.finalTracks.length >= Math.ceil(opts.playlistLength * 0.90);
+    const qualityGoodEnough =
+      attempt.quality.overall >= 0.58 &&
+      attempt.quality.promptAlignment >= 0.54 &&
+      attempt.quality.genericnessPenalty <= 0.38;
+    return fullEnough && qualityGoodEnough && attempt.total >= 0.70;
+  };
+  let candidateShortCircuitUsed = false;
   for (const candidate of candidateInputs) {
     await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
     const inputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
@@ -3302,14 +3323,19 @@ export async function buildPlaylistPipeline<T extends {
     );
     const countRatio = result.finalTracks.length / Math.max(1, opts.playlistLength);
     const starvationPenalty = Math.max(0, 1 - countRatio) * 0.35;
-    candidateAttempts.push({
+    const attempt = {
       label: candidate.label,
       inputPool,
       candidatePool,
       result,
       quality,
       total: quality.overall + Math.min(0.18, countRatio * 0.18) - starvationPenalty,
-    });
+    };
+    candidateAttempts.push(attempt);
+    if (candidateAttempts.length === 1 && candidateInputs.length > 1 && canShortCircuitCandidateAttempt(attempt)) {
+      candidateShortCircuitUsed = true;
+      break;
+    }
   }
   const selectedCandidate = [...candidateAttempts].sort((a, b) => b.total - a.total)[0] ?? candidateAttempts[0];
   const v3CandidatePool = selectedCandidate.candidatePool;
@@ -3423,7 +3449,9 @@ export async function buildPlaylistPipeline<T extends {
     retrievalLatencyGuard: {
       active: retrievalSafetyExpanded,
       retrievalElapsedMs: timingMs.retrieval,
-      candidateAttemptCount: candidateInputs.length,
+      candidateAttemptCount: candidateAttempts.length,
+      plannedCandidateAttemptCount: candidateInputs.length,
+      candidateShortCircuitUsed,
       fallbackLevelUsed: effectiveFallbackLevelUsed,
       starvationTriggerReason,
       layeredSafetyPoolSize: layeredSafetyPool.length,

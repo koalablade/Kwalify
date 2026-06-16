@@ -694,10 +694,11 @@ export function runV3Pipeline<T extends V3PipelineTrack>(
       .slice(0, 15)
       .map((item) => {
         const rawScore  = rawScoreMap.get(item.track.trackId) ?? item.laneScore;
-        const selectedScore = item.laneScore;
         const sel       = selectedIdSet.has(item.track.trackId);
         const selTrack  = sel ? clusterResult.tracks.find((t) => t.trackId === item.track.trackId) : undefined;
-        const decisionDiversity = (selTrack?.diversity ?? engineDecisionByTrack.get(item.track.trackId)?.diversity ?? emptyDiversityTraceComponents()) as DiversityTraceComponents;
+        const engineDecision = engineDecisionByTrack.get(item.track.trackId);
+        const decisionDiversity = (selTrack?.diversity ?? engineDecision?.diversity ?? emptyDiversityTraceComponents()) as DiversityTraceComponents;
+        const selectedScore = selTrack?.laneScore ?? engineDecision?.finalScore ?? item.laneScore;
 
         const selectionReason = sel
           ? "sampler_selected"

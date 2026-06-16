@@ -230,6 +230,54 @@ function expandedMoodTerms(input: string): string[] {
     .map(([mood]) => mood);
 }
 
+type HumanPhraseIntentHints = {
+  moods: string[];
+  activity: string | null;
+  energy: LockedIntent["energy"];
+};
+
+function humanPhraseIntentHints(input: string): HumanPhraseIntentHints {
+  const moods = new Set<string>();
+  let activity: string | null = null;
+  let energy: LockedIntent["energy"] = null;
+
+  if (/\b(?:pretending|imagine|imagining|feel like|feeling like).{0,40}\b(?:film|movie|main character|cinematic|soundtrack)\b/i.test(input) ||
+      /\b(?:film|movie|main character|cinematic|soundtrack)\s+(?:moment|walk|drive|scene|vibe)\b/i.test(input)) {
+    moods.add("introspective");
+    moods.add("warm");
+    energy = "medium";
+  }
+
+  if (/\b(?:sad|melanchol|nostalgic|dark|lonely|blue|warm|cosy|cozy)\s+but\s+(?:hopeful|not\s+(?:sad|depressing|bleak|miserable)|still\s+(?:hopeful|moving|warm))\b/i.test(input) ||
+      /\b(?:hopeful|warm|cosy|cozy)\s+but\s+not\s+(?:sad|depressing|bleak|miserable)\b/i.test(input)) {
+    moods.add("introspective");
+    moods.add("warm");
+    if (energy === null) energy = "low";
+  }
+
+  if (/\b(?:dark|noir|moody)\s+but\s+(?:cozy|cosy|warm|soft|safe)\b/i.test(input)) {
+    moods.add("dark");
+    moods.add("warm");
+    moods.add("calm");
+    energy = "low";
+  }
+
+  if (/\b(?:walking|walk|wandering|stroll).{0,35}\b(?:tokyo|city|neon|3am|2am|midnight|rain|rainy)\b/i.test(input) ||
+      /\b(?:tokyo|city|neon|3am|2am|midnight|rain|rainy).{0,35}\b(?:walking|walk|wandering|stroll)\b/i.test(input)) {
+    moods.add("introspective");
+    moods.add("calm");
+    moods.add("dark");
+    activity = "walking";
+    energy = "low";
+  }
+
+  return {
+    moods: [...moods],
+    activity,
+    energy,
+  };
+}
+
 function expandedActivity(input: string): string | null {
   if (hasGarageToken(input) && !hasGarageMusicContext(input)) return "focus";
   const hit = Object.entries(EXPANDED_ACTIVITY_TERMS)
@@ -676,6 +724,8 @@ const SCENE_PROTOTYPES: ScenePrototype[] = [
 ];
 
 const TOKEN_CONTRIBUTIONS: Array<{ pattern: RegExp; weight: number; vector: Partial<SceneLatentVector> }> = [
+  { pattern: /\b(pretending|imagine|imagining|main character|film|movie|cinematic|soundtrack-adjacent|soundtrack adjacent)\b/, weight: 1.0, vector: { introspection: 0.34, motion: 0.18, tension: 0.18, clarity: 0.18, warmth: 0.12, socialness: -0.08 } },
+  { pattern: /\b(hopeful|not depressing|not sad|still moving forward|bittersweet)\b/, weight: 1.0, vector: { warmth: 0.24, valence: 0.18, tension: -0.10, darkness: -0.12, clarity: 0.12 } },
   { pattern: /\b(petrol station|gas station|service station)\b/, weight: 1.0, vector: { motion: 0.30, introspection: 0.35, darkness: 0.24, tension: 0.22, energy: -0.08, socialness: -0.18 } },
   { pattern: /\b(2\s?am|3\s?am|4\s?am|late.?night|midnight|after.?dark)\b/, weight: 1.0, vector: { darkness: 0.58, introspection: 0.34, energy: -0.22, tension: 0.22, socialness: -0.20, clarity: -0.12 } },
   { pattern: /\b(existential crisis|existential|crisis|spiral|overthinking|thinking about everything)\b/, weight: 1.0, vector: { tension: 0.52, introspection: 0.52, valence: -0.32, clarity: -0.26, darkness: 0.24 } },
@@ -1146,11 +1196,13 @@ function completeSceneIntent(
 function excludedMoodTags(input: string): Set<string> {
   const excluded = new Set<string>();
   const rules: Array<{ tag: string; pattern: RegExp }> = [
-    { tag: "melancholic", pattern: /\b(?:not|no|without)\s+(?:sad|melanchol|lonely|blue|heartbreak)\b/i },
-    { tag: "calm", pattern: /\b(?:not|no|without)\s+(?:calm|chill|relax|soft|peaceful)\b/i },
+    { tag: "melancholic", pattern: /\b(?:not|no|without)\s+(?:sad|melanchol|lonely|blue|heartbreak|depressing|depressed|bleak|miserable|grief|gloomy)\b/i },
+    { tag: "calm", pattern: /\b(?:not|no|without)\s+(?:calm|chill|relax|soft|peaceful|sleepy|slow)\b/i },
     { tag: "nostalgic", pattern: /\b(?:not|no|without)\s+(?:nostalg|throwback|retro|memory)\b/i },
     { tag: "warm", pattern: /\b(?:not|no|without)\s+(?:warm|cozy|cosy|golden)\b/i },
     { tag: "energised", pattern: /\b(?:not|no|without)\s+(?:hype|energ|intense|pump)\b/i },
+    { tag: "angry", pattern: /\b(?:not|no|without)\s+(?:angry|aggressive|rage|furious|harsh)\b/i },
+    { tag: "dark", pattern: /\b(?:not|no|without)\s+(?:dark|bleak|gothic|ominous|eerie|grim)\b/i },
   ];
   for (const rule of rules) {
     if (rule.pattern.test(input)) excluded.add(rule.tag);
@@ -1241,6 +1293,7 @@ export function completeLockedIntent(
 export function buildLockedIntent(input: string): LockedIntent {
   const lower = input.toLowerCase();
   const rawSubgenreIntent = parseSubgenreIntent(lower);
+  const humanHints = humanPhraseIntentHints(lower);
   const rawGenreFamilies = uniqueGenreFamilies([
     ...parseGenreFamilies(lower),
     ...(rawSubgenreIntent.primaryGenre ? [rawSubgenreIntent.primaryGenre] : []),
@@ -1254,12 +1307,13 @@ export function buildLockedIntent(input: string): LockedIntent {
     /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq|winter|snowy|snow)\b/.test(lower) ? "warm" : null,
     /\b(happy|upbeat|hype|energ|intense|pump)\b/.test(lower) ? "energised" : null,
     ...expandedMoodTerms(lower),
+    ...humanHints.moods,
   ]
     .filter((tag): tag is string => !!tag && !excludedMoods.has(tag))
     .filter((tag, index, tags) => tags.indexOf(tag) === index)
     .slice(0, 4);
 
-  const activity = expandedActivity(lower) ?? (
+  const activity = expandedActivity(lower) ?? humanHints.activity ?? (
     /\b(driv|road|cruise|highway)\b/.test(lower) ? "driving" :
       /\b(study|focus|coding|work|deep work)\b/.test(lower) ? "focus" :
         /\b(gym|workout|run|running)\b/.test(lower) ? "gym" :
@@ -1268,7 +1322,7 @@ export function buildLockedIntent(input: string): LockedIntent {
               null
   );
 
-  const rawEnergy = parseEnergy(lower);
+  const rawEnergy = parseEnergy(lower) ?? humanHints.energy;
   const rawEraRange = parseEra(lower);
   const budgeted = applyInterpretationBudget(lower, {
     genreFamilies: rawGenreFamilies,

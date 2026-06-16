@@ -144,6 +144,9 @@ export function buildCuratorIdentity(input: {
   if (/\b(?:night|late|neon|2am|3am)\b/.test(lower) && type === "balanced_curator") {
     type = "drive_nostalgic";
   }
+  if (/\b(?:pretending|imagine|imagining|main character|film|movie|cinematic|soundtrack-adjacent|soundtrack adjacent)\b/.test(lower) && type === "balanced_curator") {
+    type = "drive_nostalgic";
+  }
 
   const identity = cloneIdentity(type);
   if (input.intent.energy === "high" || input.intent.energyLevel === "high") {
@@ -158,6 +161,11 @@ export function buildCuratorIdentity(input: {
   if ((input.emotionProfile.nostalgia ?? 0) > 0.62) {
     identity.familiarityBias = Math.max(identity.familiarityBias, 0.22);
     identity.eraDrift = Math.min(identity.eraDrift, 0.48);
+  }
+  if (/\b(?:pretending|imagine|imagining|main character|film|movie|cinematic|soundtrack-adjacent|soundtrack adjacent)\b/.test(lower)) {
+    identity.chaosAllowance = Math.min(identity.chaosAllowance, 0.06);
+    identity.eraDrift = Math.min(identity.eraDrift, 0.52);
+    identity.forbiddenPatterns.push("random-non-cinematic-turn");
   }
   if (input.intent.mood?.includes("melancholic") && (identity.type === "gym_beast" || identity.type === "party_social")) {
     identity.forbiddenPatterns.push("melancholy-conflicts-with-social-energy");

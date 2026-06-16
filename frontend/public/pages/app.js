@@ -875,7 +875,7 @@ function generatingHtml() {
   const elapsedSincePreview = state.partialPreviewStartedAt ? Date.now() - state.partialPreviewStartedAt : 0;
   const visiblePartialCount = partialTracks.length <= 5
     ? partialTracks.length
-    : Math.min(partialTracks.length, 5 + Math.floor(elapsedSincePreview / 1400) * 4);
+    : Math.min(partialTracks.length, 5 + Math.floor(elapsedSincePreview / 800) * 6);
   const visiblePartialTracks = partialTracks.slice(0, visiblePartialCount);
   const addingTracks = partialTracks.length > visiblePartialTracks.length;
   const partialHtml = visiblePartialTracks.length ? `
@@ -2329,10 +2329,10 @@ function startGenerationStatusPolling() {
     } catch {
       // Progress is best-effort; the generate request still owns success/failure.
     } finally {
-      if (state.generating) generationStatusTimer = setTimeout(tick, 600);
+      if (state.generating) generationStatusTimer = setTimeout(tick, 350);
     }
   };
-  generationStatusTimer = setTimeout(tick, 150);
+  generationStatusTimer = setTimeout(tick, 75);
 }
 
 async function generate() {

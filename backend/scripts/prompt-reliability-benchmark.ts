@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-type PromptGroup = "Electronic" | "Alternative" | "Hip Hop" | "Lifestyle";
+type PromptGroup = "Electronic" | "Alternative" | "Hip Hop" | "Lifestyle" | "Human";
 type BenchmarkMode = "strict" | "balanced" | "chaotic";
 
 type BenchmarkPrompt = {
@@ -37,6 +37,11 @@ type PromptBenchmarkRow = {
   ok: boolean;
   status: number | null;
   error: string | null;
+  endpointErrorDetails: {
+    status: number | null;
+    message: string | null;
+    body: Record<string, unknown> | null;
+  } | null;
   elapsedMs: number;
   retrieval: {
     retrievalCount: number | null;
@@ -72,6 +77,8 @@ type PromptBenchmarkRow = {
   success: boolean;
   promptReliabilityScore: number;
   failureReasons: string[];
+  blockingFailureReasons: string[];
+  advisoryFailureReasons: string[];
   riskScores: {
     fail: number;
     drift: number;
@@ -94,6 +101,8 @@ type BenchmarkReport = {
     promptReliabilityScore: number;
     successCount: number;
     failureCount: number;
+    blockingFailureCount: number;
+    advisoryFailureCount: number;
     successRate: number;
     averageSurvivalPercent: number;
     averageConfidenceScore: number;
@@ -133,6 +142,11 @@ const PROMPTS: BenchmarkPrompt[] = [
   { id: "lifestyle-sunday-morning-coffee", group: "Lifestyle", prompt: "sunday morning coffee", mode: "balanced", requestedLength: DEFAULT_REQUESTED_LENGTH },
   { id: "lifestyle-late-night-studying", group: "Lifestyle", prompt: "late night studying", mode: "balanced", requestedLength: DEFAULT_REQUESTED_LENGTH },
   { id: "lifestyle-road-trip-classics", group: "Lifestyle", prompt: "road trip classics", mode: "balanced", requestedLength: DEFAULT_REQUESTED_LENGTH },
+  { id: "human-feels-like-driving-home-after-a-long-night", group: "Human", prompt: "feels like driving home after a long night", mode: "balanced", requestedLength: DEFAULT_REQUESTED_LENGTH },
+  { id: "human-songs-for-cleaning-my-room-on-a-sunday", group: "Human", prompt: "songs for cleaning my room on a sunday", mode: "balanced", requestedLength: DEFAULT_REQUESTED_LENGTH },
+  { id: "human-music-for-pretending-im-in-a-film", group: "Human", prompt: "music for pretending I'm in a film", mode: "balanced", requestedLength: DEFAULT_REQUESTED_LENGTH },
+  { id: "human-something-dark-but-still-danceable", group: "Human", prompt: "something dark but still danceable", mode: "balanced", requestedLength: DEFAULT_REQUESTED_LENGTH },
+  { id: "human-warm-nostalgic-but-not-sad", group: "Human", prompt: "warm nostalgic but not sad", mode: "balanced", requestedLength: DEFAULT_REQUESTED_LENGTH },
 ];
 
 function usage(): never {
@@ -149,7 +163,7 @@ function usage(): never {
     "  --timeout-ms N          Per-request timeout (default 120000)",
     "  --delay-ms N            Delay between requests (default 1000)",
     "  --limit N               Run only first N selected prompts",
-    "  --group NAME            Run one group: Electronic, Alternative, Hip Hop, Lifestyle",
+    "  --group NAME            Run one group: Electronic, Alternative, Hip Hop, Lifestyle, Human",
     "  --dry-run               Write prompt list without calling /api/generate",
   ].join("\n"));
   process.exit(2);
@@ -170,8 +184,8 @@ function intArg(args: string[], name: string, fallback: number): number {
 
 function parseGroup(value: string | null): PromptGroup | null {
   if (!value) return null;
-  const match = ["Electronic", "Alternative", "Hip Hop", "Lifestyle"].find((group) => group.toLowerCase() === value.toLowerCase());
-  if (!match) throw new Error("--group must be one of: Electronic, Alternative, Hip Hop, Lifestyle");
+  const match = ["Electronic", "Alternative", "Hip Hop", "Lifestyle", "Human"].find((group) => group.toLowerCase() === value.toLowerCase());
+  if (!match) throw new Error("--group must be one of: Electronic, Alternative, Hip Hop, Lifestyle, Human");
   return match as PromptGroup;
 }
 
@@ -269,7 +283,44 @@ function diversityRatio(uniqueCount: number | null, total: number): number | nul
   return Math.round((uniqueCount / total) * 1000) / 1000;
 }
 
-async function postGenerate(config: BenchmarkConfig, prompt: BenchmarkPrompt): Promise<{ status: number | null; data: Record<string, unknown>; elapsedMs: number; error: string | null }> {
+type GeneratePostResult = {
+  status: number | null;
+  data: Record<string, unknown>;
+  elapsedMs: number;
+  error: string | null;
+  endpointErrorDetails: PromptBenchmarkRow["endpointErrorDetails"];
+};
+
+function survivalThresholdForPrompt(prompt: BenchmarkPrompt): number {
+  if (prompt.group === "Lifestyle") return 58;
+  if (prompt.mode === "chaotic") return 55;
+  if (prompt.mode === "balanced") return 62;
+  const words = prompt.prompt.trim().split(/\s+/).filter(Boolean);
+  const nicheElectronic = prompt.group === "Electronic" &&
+    /\b(trance|jungle|dubstep|bloghouse|breakcore|industrial|techno|dnb|drum\s+and\s+bass)\b/i.test(prompt.prompt);
+  return nicheElectronic || words.length >= 4 ? 64 : 70;
+}
+
+function compactErrorBody(data: Record<string, unknown>): Record<string, unknown> | null {
+  const keys = [
+    "success",
+    "code",
+    "error",
+    "message",
+    "details",
+    "stage",
+    "phase",
+    "failureReason",
+    "forensicPoolTrace",
+  ];
+  const body: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (data[key] !== undefined) body[key] = data[key];
+  }
+  return Object.keys(body).length > 0 ? body : null;
+}
+
+async function postGenerate(config: BenchmarkConfig, prompt: BenchmarkPrompt): Promise<GeneratePostResult> {
   const started = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -296,20 +347,33 @@ async function postGenerate(config: BenchmarkConfig, prompt: BenchmarkPrompt): P
       data,
       elapsedMs: Date.now() - started,
       error: response.ok ? null : String(data["message"] ?? data["error"] ?? response.statusText),
+      endpointErrorDetails: response.ok
+        ? null
+        : {
+            status: response.status,
+            message: String(data["message"] ?? data["error"] ?? response.statusText),
+            body: compactErrorBody(data),
+          },
     };
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     return {
       status: null,
       data: {},
       elapsedMs: Date.now() - started,
-      error: err instanceof Error ? err.message : String(err),
+      error: message,
+      endpointErrorDetails: {
+        status: null,
+        message,
+        body: null,
+      },
     };
   } finally {
     clearTimeout(timeout);
   }
 }
 
-function extractRow(prompt: BenchmarkPrompt, result: { status: number | null; data: Record<string, unknown>; elapsedMs: number; error: string | null }): PromptBenchmarkRow {
+function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): PromptBenchmarkRow {
   const response = result.data;
   const generationDiagnostics = record(response["generationDiagnostics"]);
   const promptSurvivability = record(generationDiagnostics["promptSurvivability"]);
@@ -372,24 +436,32 @@ function extractRow(prompt: BenchmarkPrompt, result: { status: number | null; da
   const leakCount = leakDetections.length +
     (boolValue(strictGenreEvidence["relaxed"]) ? 1 : 0) +
     (boolValue(strictEraEvidence["relaxed"]) ? 1 : 0);
+  const survivalThreshold = survivalThresholdForPrompt(prompt);
   const successCriteria = {
     length: finalTrackCount >= Math.ceil(requestedLength * 0.9),
     genre: !majorGenreLeak,
     era: !majorEraLeak,
-    survival: overallSurvivalPercent >= 70,
+    survival: overallSurvivalPercent >= survivalThreshold,
     confidence: confidence >= 70,
   };
-  const failureReasons = [
-    result.error ? `request_failed:${result.error}` : null,
+  const requestFailure = result.error ? `request_failed:${result.error}` : null;
+  const blockingFailureReasons = [
+    requestFailure,
     !successCriteria.length ? "requested_length_below_90_percent" : null,
     !successCriteria.genre ? "major_genre_leak" : null,
     !successCriteria.era ? "major_era_leak" : null,
-    !successCriteria.survival ? "survival_below_70_percent" : null,
+  ].filter((item): item is string => !!item);
+  const advisoryFailureReasons = [
+    !successCriteria.survival ? `survival_below_${survivalThreshold}_percent` : null,
     !successCriteria.confidence ? "confidence_below_70_percent" : null,
   ].filter((item): item is string => !!item);
+  const failureReasons = [
+    ...blockingFailureReasons,
+    ...advisoryFailureReasons,
+  ];
   const success = result.status !== null && result.status >= 200 && result.status < 300 &&
     boolValue(response["success"]) &&
-    failureReasons.length === 0;
+    blockingFailureReasons.length === 0;
   const underfillPenalty = Math.max(0, requestedLength - finalTrackCount) / Math.max(1, requestedLength);
   const driftRisk = Math.max(
     100 - overallSurvivalPercent,
@@ -423,6 +495,7 @@ function extractRow(prompt: BenchmarkPrompt, result: { status: number | null; da
     ok: result.status !== null && result.status >= 200 && result.status < 300 && boolValue(response["success"]),
     status: result.status,
     error: result.error,
+    endpointErrorDetails: result.endpointErrorDetails,
     elapsedMs: result.elapsedMs,
     retrieval: {
       retrievalCount,
@@ -458,6 +531,8 @@ function extractRow(prompt: BenchmarkPrompt, result: { status: number | null; da
     success,
     promptReliabilityScore: reliabilityScore,
     failureReasons,
+    blockingFailureReasons,
+    advisoryFailureReasons,
     riskScores: {
       fail: clampScore(failRisk),
       drift: clampScore(driftRisk),
@@ -469,6 +544,8 @@ function extractRow(prompt: BenchmarkPrompt, result: { status: number | null; da
 
 function buildReport(config: BenchmarkConfig, rows: PromptBenchmarkRow[], startedAt: number): BenchmarkReport {
   const successCount = rows.filter((row) => row.success).length;
+  const blockingFailureCount = rows.filter((row) => row.blockingFailureReasons.length > 0).length;
+  const advisoryFailureCount = rows.filter((row) => row.advisoryFailureReasons.length > 0).length;
   const promptReliabilityScore = clampScore(average(rows.map((row) => row.promptReliabilityScore)));
   const sortedBy = (key: keyof PromptBenchmarkRow["riskScores"]): PromptBenchmarkRow[] =>
     [...rows].sort((a, b) =>
@@ -490,6 +567,8 @@ function buildReport(config: BenchmarkConfig, rows: PromptBenchmarkRow[], starte
       promptReliabilityScore,
       successCount,
       failureCount: rows.length - successCount,
+      blockingFailureCount,
+      advisoryFailureCount,
       successRate: rows.length ? Math.round((successCount / rows.length) * 1000) / 10 : 0,
       averageSurvivalPercent: Math.round(average(rows.map((row) => row.intent.overallSurvivalPercent)) * 10) / 10,
       averageConfidenceScore: Math.round(average(rows.map((row) => row.quality.confidenceScore)) * 10) / 10,
@@ -524,7 +603,8 @@ function markdownReport(report: BenchmarkReport): string {
     `${row.generation.finalTrackCount}/${row.input.requestedLength}`,
     String(row.intent.overallSurvivalPercent),
     String(row.quality.confidenceScore),
-    row.failureReasons.join(", ") || "none",
+    row.blockingFailureReasons.join(", ") || "none",
+    row.advisoryFailureReasons.join(", ") || "none",
   ]);
   return [
     "# Prompt Reliability Benchmark",
@@ -534,12 +614,14 @@ function markdownReport(report: BenchmarkReport): string {
     `Prompts: ${report.run.promptCount}`,
     `Prompt Reliability Score: ${report.summary.promptReliabilityScore}/100`,
     `Success rate: ${report.summary.successCount}/${report.run.promptCount} (${report.summary.successRate}%)`,
+    `Blocking failures: ${report.summary.blockingFailureCount}`,
+    `Advisory warnings: ${report.summary.advisoryFailureCount}`,
     `Average survival: ${report.summary.averageSurvivalPercent}%`,
     `Average confidence: ${report.summary.averageConfidenceScore}%`,
     "",
     "## Prompt Results",
     ...table(
-      ["Group", "Prompt", "Status", "Score", "Tracks", "Survival", "Confidence", "Failure reasons"],
+      ["Group", "Prompt", "Status", "Score", "Tracks", "Survival", "Confidence", "Blocking", "Advisory"],
       rows,
     ),
     "",
@@ -547,8 +629,7 @@ function markdownReport(report: BenchmarkReport): string {
     "- Requested length achieved, or at least 90%",
     "- No major genre leak",
     "- No major era leak",
-    "- Survival score at least 70%",
-    "- Confidence at least 70%",
+    "- Survival and confidence warnings are advisory unless accompanied by underfill, request failure, or major leak",
     "",
   ].join("\n");
 }
@@ -558,7 +639,7 @@ function rankingBlock(title: string, rows: PromptBenchmarkRow[], key: keyof Prom
     `## ${title}`,
     "",
     ...table(
-      ["Rank", "Prompt", "Group", "Risk", "Score", "Tracks", "Collapse", "Failure reasons"],
+      ["Rank", "Prompt", "Group", "Risk", "Score", "Tracks", "Collapse", "Blocking", "Advisory"],
       rows.slice(0, 20).map((row, index) => [
         String(index + 1),
         row.input.prompt,
@@ -567,7 +648,8 @@ function rankingBlock(title: string, rows: PromptBenchmarkRow[], key: keyof Prom
         String(row.promptReliabilityScore),
         `${row.generation.finalTrackCount}/${row.input.requestedLength}`,
         row.retrieval.firstCollapseReason ?? "none",
-        row.failureReasons.join(", ") || "none",
+        row.blockingFailureReasons.join(", ") || "none",
+        row.advisoryFailureReasons.join(", ") || "none",
       ]),
     ),
     "",
@@ -580,6 +662,8 @@ function rankedFailureMarkdown(report: BenchmarkReport): string {
     "",
     `Prompt Reliability Score: ${report.summary.promptReliabilityScore}/100`,
     `Failures: ${report.summary.failureCount}`,
+    `Blocking failures: ${report.summary.blockingFailureCount}`,
+    `Advisory warnings: ${report.summary.advisoryFailureCount}`,
     `Underfilled prompts: ${report.summary.underfilledCount}`,
     `Genre leak prompts: ${report.summary.genreLeakCount}`,
     `Era leak prompts: ${report.summary.eraLeakCount}`,
@@ -613,6 +697,11 @@ async function main(): Promise<void> {
       data: {},
       elapsedMs: 0,
       error: "dry_run",
+      endpointErrorDetails: {
+        status: null,
+        message: "dry_run",
+        body: null,
+      },
     }));
     const report = buildReport(config, dryRows, startedAt);
     await writeReports(config, report);

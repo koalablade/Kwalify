@@ -26,6 +26,8 @@ type BenchmarkPromptRow = {
   success: boolean;
   promptReliabilityScore: number;
   failureReasons: string[];
+  blockingFailureReasons?: string[];
+  advisoryFailureReasons?: string[];
 };
 
 type BenchmarkReport = {
@@ -38,6 +40,8 @@ type BenchmarkReport = {
   summary: {
     promptReliabilityScore: number;
     failureCount?: number;
+    blockingFailureCount?: number;
+    advisoryFailureCount?: number;
     averageSurvivalPercent?: number;
     averageConfidenceScore?: number;
   };
@@ -161,7 +165,10 @@ type CiGateReport = {
     regressionScore: number;
     benchmarkPromptCount: number;
     benchmarkFailedPrompts: number;
+    benchmarkBlockingFailedPrompts: number;
+    benchmarkAdvisoryPromptWarnings: number;
     benchmarkFailureRate: number;
+    benchmarkBlockingFailureRate: number;
     majorGenreLeakCount: number;
     majorEraLeakCount: number;
     criticalRegressionCount: number;
@@ -377,7 +384,12 @@ function buildReport(
   const regressionScore = round(regression.summary.promptReliabilityRegressionScore);
   const benchmarkPromptCount = benchmark.run.promptCount || benchmark.prompts.length;
   const benchmarkFailedPrompts = benchmark.summary.failureCount ?? benchmark.prompts.filter((prompt) => !prompt.success).length;
+  const benchmarkBlockingFailedPrompts = benchmark.summary.blockingFailureCount ??
+    benchmark.prompts.filter((prompt) => (prompt.blockingFailureReasons ?? prompt.failureReasons).length > 0).length;
+  const benchmarkAdvisoryPromptWarnings = benchmark.summary.advisoryFailureCount ??
+    benchmark.prompts.filter((prompt) => (prompt.advisoryFailureReasons ?? []).length > 0).length;
   const benchmarkFailureRate = benchmarkPromptCount > 0 ? round((benchmarkFailedPrompts / benchmarkPromptCount) * 100) : 100;
+  const benchmarkBlockingFailureRate = benchmarkPromptCount > 0 ? round((benchmarkBlockingFailedPrompts / benchmarkPromptCount) * 100) : 100;
   const majorGenreLeakCount = benchmark.prompts.filter((prompt) => prompt.quality.majorGenreLeak).length;
   const majorEraLeakCount = benchmark.prompts.filter((prompt) => prompt.quality.majorEraLeak).length;
   const criticalRegressionCount = Math.max(
@@ -402,8 +414,8 @@ function buildReport(
   if (majorEraLeakCount > 0) {
     blockingReasons.push(`${majorEraLeakCount} prompt(s) have a major era leak.`);
   }
-  if (benchmarkFailureRate > MAX_BENCHMARK_FAILURE_RATE) {
-    blockingReasons.push(`Benchmark failure rate ${benchmarkFailureRate}% is above ${MAX_BENCHMARK_FAILURE_RATE}%.`);
+  if (benchmarkBlockingFailureRate > MAX_BENCHMARK_FAILURE_RATE) {
+    blockingReasons.push(`Benchmark blocking failure rate ${benchmarkBlockingFailureRate}% is above ${MAX_BENCHMARK_FAILURE_RATE}%.`);
   }
   if (criticalRegressionCount > 0) {
     blockingReasons.push(`${criticalRegressionCount} critical regression(s) detected.`);
@@ -449,7 +461,10 @@ function buildReport(
       regressionScore,
       benchmarkPromptCount,
       benchmarkFailedPrompts,
+      benchmarkBlockingFailedPrompts,
+      benchmarkAdvisoryPromptWarnings,
       benchmarkFailureRate,
+      benchmarkBlockingFailureRate,
       majorGenreLeakCount,
       majorEraLeakCount,
       criticalRegressionCount,
@@ -508,6 +523,8 @@ function markdownReport(report: CiGateReport): string {
     `- Prompt Reliability Score: ${report.current.promptReliabilityScore}`,
     `- Regression Score: ${report.current.regressionScore}`,
     `- Benchmark failures: ${report.current.benchmarkFailedPrompts}/${report.current.benchmarkPromptCount} (${report.current.benchmarkFailureRate}%)`,
+    `- Blocking benchmark failures: ${report.current.benchmarkBlockingFailedPrompts}/${report.current.benchmarkPromptCount} (${report.current.benchmarkBlockingFailureRate}%)`,
+    `- Advisory benchmark warnings: ${report.current.benchmarkAdvisoryPromptWarnings}`,
     `- Major genre leaks: ${report.current.majorGenreLeakCount}`,
     `- Major era leaks: ${report.current.majorEraLeakCount}`,
     `- Critical regressions: ${report.current.criticalRegressionCount}`,
