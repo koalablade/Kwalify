@@ -25,7 +25,7 @@ import {
   buildRecentTrackPoolPenalty,
   type FreshnessStats,
 } from "../lib/playlist-freshness";
-import type { GenreAudit } from "../lib/genre-audit";
+import { buildGenreAudit, type GenreAudit } from "../lib/genre-audit";
 import { classifyTrack } from "../lib/genre-taxonomy";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
@@ -34,11 +34,7 @@ import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
 import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
 import { trackMatchesConstraints } from "./v3/constraint-filter";
 import { getGenreFamily } from "./v3/global-diversity-controller";
-import {
-  warnIfFieldDropped,
-  warnIfV3MetadataLost,
-  type V3MetadataTrack,
-} from "../lib/v3-track-contract";
+import type { V3MetadataTrack } from "../lib/v3-track-contract";
 import { trackHasEraEvidence, trackHasKnownEraMismatch } from "../lib/era-evidence";
 import {
   buildUnifiedIntentContext,
@@ -72,8 +68,6 @@ import {
   EXPANDED_TIME_TERMS,
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
-import { compilePersonalPlaylist, type PersonalCompilerTrack } from "./personal-playlist-compiler";
-import { buildCoherentPlaylist } from "./playlist-coherence-engine";
 import {
   artistMemoryPenalty,
   buildConstraintRelaxationPlan,
@@ -3624,8 +3618,8 @@ export async function buildPlaylistPipeline<T extends {
     },
   });
 
-  // V3 final tracks are authoritative; do not rehydrate from scored tracks here,
-  // or V3 metadata such as sourceLane/laneScore/clusterIds can be dropped.
+  // V3 output is the selected candidate list. Controller owns final assembly and
+  // repair so there is only one post-scoring finalization authority.
   const finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
   const finalHardFilterTrace = {
     stage: "final hard-filter count",
@@ -3954,98 +3948,33 @@ export async function buildPlaylistPipeline<T extends {
     if (emergencyScoredFallback) return emergencyScoredFallback;
   }
 
-  const repairStartedAt = Date.now();
-  const endPipelineRepairProfile = opts.profileStage?.("pipeline.repairAndFinalization", `${finalTracksList.length} v3 tracks`);
-  const playlistCritic = repairPlaylistWithCritic(
-    finalTracksList as T[],
-    contractGuardedScoredPool,
-    classMap,
-    opts.maxPerArtist,
-    opts.playlistLength,
-  );
-  const criticFinalTracks = playlistCritic.tracks;
-
-  // Genre enforcement safety net — this is applied to the returned playlist,
-  // after the critic repair loop, so explicit genre drift is corrected before serialization.
-  t = Date.now();
-  const enforced = enforceFinalPlaylistGenres({
-    finalTracks: [...criticFinalTracks] as unknown as ScoredLibraryTrack<T>[],
-    sortedPool: contractGuardedScoredPool,
-    userGenreProfile: opts.userGenreProfile,
-    genreStack: opts.genreStack,
-    allowHoliday: opts.genrePost.allowHoliday,
-    suppressGenres: opts.genrePost.suppressGenres,
+  const controllerOwnedMomentMemory = updateMomentMemory({
+    unifiedIntent: memoryAdjustedUnifiedIntent,
+    finalPlaylistEmbedding: buildPlaylistEmbedding(finalTracksList).centroidVector,
+    memoryKey: opts.momentMemoryKey,
+  });
+  const controllerOwnedGenreAudit = buildGenreAudit({
+    userVector: opts.userGenreProfile.vector,
+    finalTrackIds: finalTracksList.map((track) => track.trackId),
+    classifications: opts.userGenreProfile.trackClassifications,
+    adjustments: [],
+    ontologyNodeCount: opts.genreStack.stats.ontologyNodes,
+    ontologyTargetMet: opts.genreStack.stats.ontologyTargetMet,
     coverageState: scoring.coverageState,
     genreForecast: scoring.genreForecast,
     sceneInfluenceRatio: 0,
     stabilityDiagnostics: scoring.stabilityDiagnostics,
   });
-  logScoringStage(opts.pipelineLog, "V3 genre audit complete", t, {
-    tracks: criticFinalTracks.length,
-    criticQualityBefore: playlistCritic.diagnostics.beforeQuality,
-    criticQualityAfter: playlistCritic.diagnostics.afterQuality,
-    criticRepairs: playlistCritic.diagnostics.repairedCount,
-  });
-  recordTiming("finalization", t);
-  const genreEnforcedTracks = enforced.tracks.length > 0
-    ? enforced.tracks as unknown as T[]
-    : criticFinalTracks;
-  const explicitIntentRepair = repairExplicitIntentPurity(
-    genreEnforcedTracks as unknown as IntentContractTrack[],
-    contractGuardedScoredPool as unknown as Array<ScoredLibraryTrack<IntentContractTrack>>,
-    intentContract,
-    classMap,
-    opts.playlistLength,
-  );
-  const repairedTracksForReturn = explicitIntentRepair.tracks as unknown as T[];
-  const personalCompilation = compilePersonalPlaylist({
-    seedTracks: repairedTracksForReturn as unknown as Array<T & PersonalCompilerTrack>,
-    candidatePool: contractGuardedScoredPool as unknown as Array<T & PersonalCompilerTrack>,
-    intent: v3LockedIntent,
-    userGenreProfile: opts.userGenreProfile,
-    playlistLength: opts.playlistLength,
-    maxPerArtist: opts.maxPerArtist,
-  });
-  const coherence = buildCoherentPlaylist(
-    personalCompilation.tracks as unknown as T[],
-    v3LockedIntent,
-  );
-  const finalTracksForReturn = coherence.reorderedTracks as unknown as T[];
-  recordTiming("repair", repairStartedAt);
-  await emitProgress(opts, "coherence", `Final cohesion pass on ${finalTracksForReturn.length.toLocaleString()} tracks`);
-  opts.pipelineLog?.info({
-    coherence_fallback_used: coherence.diagnostics.coherence_fallback_used,
-    avg_transition_score: coherence.diagnostics.avg_transition_score,
-    energy_curve: coherence.diagnostics.energy_curve,
-  }, "Playlist coherence layer complete");
-  const playlistQuality = evaluatePlaylistQuality(
-    finalTracksForReturn as unknown as IntentContractTrack[],
-    intentContract,
-    classMap,
-  );
-  warnIfV3MetadataLost(
-    v3.finalTracks,
-    finalTracksForReturn,
-    "v3-output-to-create-playlist"
-  );
-  warnIfFieldDropped("laneScore", v3.finalTracks, finalTracksForReturn, "v3-output-to-create-playlist");
-  warnIfFieldDropped("clusterIds", v3.finalTracks, finalTracksForReturn, "v3-output-to-create-playlist");
-  const updatedMomentMemory = updateMomentMemory({
-    unifiedIntent: memoryAdjustedUnifiedIntent,
-    finalPlaylistEmbedding: buildPlaylistEmbedding(finalTracksForReturn).centroidVector,
-    memoryKey: opts.momentMemoryKey,
-  });
-  endPipelineRepairProfile?.();
-
+  const controllerOwnedTiming = buildTimingMs();
   return {
-    finalTracks: finalTracksForReturn,
+    finalTracks: finalTracksList as V3MetadataTrack<T>[],
     sorted: scoring.sorted,
     scoringDiagnostics: {
       ...scoring.scoringDiagnostics,
       unifiedIntent: unifiedIntentDiagnostics,
       momentMemory: {
-        recentStates: updatedMomentMemory.recentStates.length,
-        decayWeight: Math.round(updatedMomentMemory.aggregatedState.decayWeight * 1000) / 1000,
+        recentStates: controllerOwnedMomentMemory.recentStates.length,
+        decayWeight: Math.round(controllerOwnedMomentMemory.aggregatedState.decayWeight * 1000) / 1000,
       },
       v3Pipeline: {
         ...v3.diagnostics,
@@ -4061,16 +3990,17 @@ export async function buildPlaylistPipeline<T extends {
           finalHardFilterTrace,
         },
         preV3Recovery: v3CandidatePool.diagnostics,
-          preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 60),
-          waterfall: {
-            ...baseWaterfall,
-            repairCount: finalTracksForReturn.length,
-            finalCount: finalTracksForReturn.length,
-          },
-          removalReasons,
-          retrievalPoolsDetailed: retrievalPoolDiagnostics,
-          intentContract,
-          fallbacks: fallbackActivations,
+        preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 60),
+        waterfall: {
+          ...baseWaterfall,
+          repairCount: finalTracksList.length,
+          finalCount: finalTracksList.length,
+          finalAssemblyOwner: "controller",
+        },
+        removalReasons,
+        retrievalPoolsDetailed: retrievalPoolDiagnostics,
+        intentContract,
+        fallbacks: fallbackActivations,
         intentContractGuard: intentContractGuardDiagnostics,
         explicitGenreTruthGuard: {
           active: intentContract.genreFamilies.length > 0,
@@ -4081,7 +4011,7 @@ export async function buildPlaylistPipeline<T extends {
         },
         controlledGeneration: controlledGenerationDiagnostics,
         pipelineTrace,
-        timingMs: buildTimingMs(),
+        timingMs: controllerOwnedTiming,
         retrievalPools: {
           core: retrieval.core.length,
           anchor: retrieval.anchor.length,
@@ -4090,27 +4020,25 @@ export async function buildPlaylistPipeline<T extends {
           energyArc: retrieval.energyArc.length,
           discovery: retrieval.discovery.length,
         },
-        playlistQuality,
-        playlistCritic: playlistCritic.diagnostics,
-        explicitIntentRepair: explicitIntentRepair.diagnostics,
-        personalCompiler: personalCompilation.diagnostics,
-        playlistCoherence: coherence.diagnostics,
+        finalAssemblyOwner: "controller",
+        pipelinePostV3RepairSkipped: true,
       },
     },
     hybridExcludedCount: scoring.hybridExcludedCount,
-    genreAudit: enforced.genreAudit,
+    genreAudit: controllerOwnedGenreAudit,
     ecosystemDebug: null,
     pipelineTrace,
     composeMeta: {
-      structured: finalTracksForReturn,
+      structured: finalTracksList as V3MetadataTrack<T>[],
       poolTarget: opts.playlistLength,
-      afterDeadZone: finalTracksForReturn,
-      afterSmoothing: finalTracksForReturn,
-      afterArtistSep: finalTracksForReturn,
-      afterArc: finalTracksForReturn,
+      afterDeadZone: finalTracksList as V3MetadataTrack<T>[],
+      afterSmoothing: finalTracksList as V3MetadataTrack<T>[],
+      afterArtistSep: finalTracksList as V3MetadataTrack<T>[],
+      afterArc: finalTracksList as V3MetadataTrack<T>[],
       emotionalPeakTrackId: null,
       emotionalPeakIndex: null,
-      gradientPhases: { start: 0.10, explore: 0.35, peak: 0.65, resolve: 0.85 },
+      gradientPhases: { start: 0, explore: 0.35, peak: 0.65, resolve: 1 },
     },
   };
+
 }
