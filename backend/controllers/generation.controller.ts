@@ -5202,6 +5202,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     endFinalizationProfile();
     finalizationTimeMs += Date.now() - tStage;
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    const endEvidenceGuardProfile = liveStageProfiler.start("controller.evidenceAndRecoveryGuards", `${finalization.tracks.length}/${length} finalized tracks`);
     const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
       likedSongs
         .slice(0, finalizationPoolCap)
@@ -5281,6 +5282,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const baseFinalizationCandidates = clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
       ? clusterCuration.candidates
       : finalCandidatePool;
+    const endGenreEvidenceProfile = liveStageProfiler.start("controller.genreEvidenceGuard", `${finalTracks.length} tracks`);
     const strictGenreEvidenceDiagnostics = (() => {
       const expectedFamilies = lockedIntent.primaryGenres.length > 0
         ? lockedIntent.primaryGenres
@@ -5316,6 +5318,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         compatible,
       };
     })();
+    endGenreEvidenceProfile();
     if (
       strictGenreEvidenceDiagnostics.active &&
       strictGenreEvidenceDiagnostics.verifiedCount < strictGenreEvidenceDiagnostics.requiredCount
@@ -5394,6 +5397,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         userGenreProfile.trackClassifications
       );
     }
+    const endEraEvidenceProfile = liveStageProfiler.start("controller.eraEvidenceGuard", `${finalTracks.length} tracks`);
     const strictEraEvidenceDiagnostics = (() => {
       const eraRange = lockedIntent.eraRange;
       if (!eraRange) {
@@ -5447,6 +5451,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         compatibleRecovery,
       };
     })();
+    endEraEvidenceProfile();
     if (
       strictEraEvidenceDiagnostics.active &&
       strictEraEvidenceDiagnostics.verifiedCount < strictEraEvidenceDiagnostics.requiredCount &&
@@ -5619,6 +5624,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
     }
     applyLowComplexityRecovery("post_evidence_finalization_empty");
+    endEvidenceGuardProfile();
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const strictEraEvidencePublic = {
@@ -5672,7 +5678,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
       }
     }
+    const endHumanCoherenceScoreProfile = liveStageProfiler.start("controller.humanCoherenceScore", `${finalTracks.length} tracks`);
     let humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
+    endHumanCoherenceScoreProfile();
     let humanCoherenceRepairUsed = false;
     if (finalTracks.length > 0 && humanCoherence.score < 0.56) {
       const repairStartedAt = Date.now();
@@ -6033,9 +6041,13 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGenerateStageDetail(generateSessionUserId, requestId, `Applying diversity rules to ${finalTracks.length.toLocaleString()} tracks`);
 
     publishPartialTracks(finalTracks);
+    const endPreEmptyRecoveryProfile = liveStageProfiler.start("controller.recovery.preEmptyPlaylistError", `${finalTracks.length}/${length} tracks`);
     const recoveredBeforeEmptyCheck = applyLowComplexityRecovery("pre_empty_playlist_error");
+    endPreEmptyRecoveryProfile();
     if (recoveredBeforeEmptyCheck) {
+      const endRecoveredCoherenceProfile = liveStageProfiler.start("controller.humanCoherenceScore.recovered", `${finalTracks.length} tracks`);
       humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
+      endRecoveredCoherenceProfile();
       generationDiagnostics.humanCoherenceScore = humanCoherence.score;
       generationDiagnostics.humanCoherenceComponents = humanCoherence.components;
       generationDiagnostics.humanCoherenceReasons = humanCoherence.reasons;
