@@ -125,7 +125,6 @@ import { buildFeedbackDiagnostics, getFeedbackMemory, type FeedbackMemory } from
 import {
   buildCuratorIdentity,
   buildIdentityDebugView,
-  scoreTrackForIdentity,
   type CuratorIdentity,
   type IdentitySessionMemory,
 } from "../lib/curator-identity";
@@ -170,9 +169,6 @@ const router: IRouter = Router();
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const FINALIZATION_POOL_MIN = 90;
-const FINALIZATION_POOL_PER_TRACK = 6;
-const FINALIZATION_POOL_MAX = 180;
 const EXECUTION_HEALTH_BASELINE_SIZE = 50;
 
 type ExecutionHealthState = "HEALTHY" | "DEGRADED" | "BROKEN";
@@ -2337,210 +2333,6 @@ function preferredCohesionFamilies<T extends ConstraintTrack>(
   );
 }
 
-function vibeClusterKey(track: ConstraintTrack, classMap: Map<string, {
-  genrePrimary: string;
-  genreFamily: string;
-  primarySubgenre: string;
-  secondarySubgenre: string | null;
-  subGenres: string[];
-}>): string {
-  const family = trackGenreFamily(track, classMap);
-  const energy = typeof track.energy === "number"
-    ? track.energy >= 0.66 ? "high" : track.energy <= 0.40 ? "low" : "mid"
-    : "energy_unknown";
-  return [family || "unknown", energy].join(":");
-}
-
-function clusterLabel(clusterId: string): string {
-  const [family, energy] = clusterId.split(":");
-  return [family, energy].filter(Boolean).join(" / ");
-}
-
-function clusterEnergyBand(clusterId: string): number {
-  const energy = clusterId.split(":")[1] ?? "mid";
-  if (energy === "low") return 0;
-  if (energy === "mid") return 1;
-  if (energy === "high") return 2;
-  return 1;
-}
-
-function clustersHaveEnergyOverlap(primaryCluster: string, secondaryCluster: string, identity: CuratorIdentity): boolean {
-  const distance = Math.abs(clusterEnergyBand(primaryCluster) - clusterEnergyBand(secondaryCluster));
-  if (distance === 0) return true;
-  return distance === 1 && identity.chaosAllowance >= 0.08;
-}
-
-function shouldUseClusterCuration(vibe: string, intent: LockedIntent, constraints: ConstraintLayer, identity?: CuratorIdentity): boolean {
-  if (constraints.hard.genres.length > 0) return false;
-  if (identity && identity.type !== "balanced_curator") return true;
-  return isFocusStudyPrompt(vibe, intent) || isGymWorkoutPrompt(vibe, intent) || isUpbeatSocialPrompt(vibe, intent);
-}
-
-function curateCandidatesByVibeCluster<T extends ConstraintTrack>(
-  initial: T[],
-  candidates: T[],
-  opts: {
-    vibe: string;
-    intent: LockedIntent;
-    constraints: ConstraintLayer;
-    classMap: Map<string, {
-      genrePrimary: string;
-      genreFamily: string;
-      primarySubgenre: string;
-      secondarySubgenre: string | null;
-      subGenres: string[];
-    }>;
-    requestedLength: number;
-    identity?: CuratorIdentity;
-  }
-): {
-  initial: T[];
-  candidates: T[];
-  diagnostics: {
-    active: boolean;
-    selectedCluster: string | null;
-    selectedClusterLabel: string | null;
-    selectedClusterCount: number;
-    clusterConfidence: number;
-    fallbackCandidatePercent: number;
-    outlierReserve: number;
-    secondaryCluster: string | null;
-    secondaryClusterLabel: string | null;
-    majorExclusions: string[];
-  };
-} {
-  const fallbackCandidateCount = candidates.filter((track) => Boolean((track as Record<string, unknown>)["_fallbackCandidate"])).length;
-  const fallbackCandidatePercent = candidates.length
-    ? Math.round((fallbackCandidateCount / candidates.length) * 100)
-    : 0;
-  if (!shouldUseClusterCuration(opts.vibe, opts.intent, opts.constraints, opts.identity)) {
-    return {
-      initial,
-      candidates,
-      diagnostics: {
-        active: false,
-        selectedCluster: null,
-        selectedClusterLabel: null,
-        selectedClusterCount: 0,
-        clusterConfidence: 0,
-        fallbackCandidatePercent,
-        outlierReserve: 0,
-        secondaryCluster: null,
-        secondaryClusterLabel: null,
-        majorExclusions: [],
-      },
-    };
-  }
-
-  const safePrimaryCandidates = candidates
-    .filter((track) => !Boolean((track as Record<string, unknown>)["_fallbackCandidate"]))
-    .filter((track) => finalTrackIsSafe(track, {
-      vibe: opts.vibe,
-      intent: opts.intent,
-      constraints: opts.constraints,
-      classMap: opts.classMap,
-    }))
-    .slice(0, Math.max(160, opts.requestedLength * 6));
-  const clusters = new Map<string, { count: number; score: number }>();
-  for (const track of safePrimaryCandidates) {
-    const key = vibeClusterKey(track, opts.classMap);
-    const current = clusters.get(key) ?? { count: 0, score: 0 };
-    current.count += 1;
-    current.score += Math.max(0, track.score ?? 0);
-    clusters.set(key, current);
-  }
-  const selected = [...clusters.entries()]
-    .filter(([, value]) => value.count >= Math.min(4, Math.max(2, Math.ceil(opts.requestedLength * 0.08))))
-    .sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? null;
-  if (!selected) {
-    return {
-      initial,
-      candidates,
-      diagnostics: {
-        active: true,
-        selectedCluster: null,
-        selectedClusterLabel: null,
-        selectedClusterCount: 0,
-        clusterConfidence: 0,
-        fallbackCandidatePercent,
-        outlierReserve: Math.max(2, Math.ceil(opts.requestedLength * 0.12)),
-        secondaryCluster: null,
-        secondaryClusterLabel: null,
-        majorExclusions: ["no_stable_cluster_found"],
-      },
-    };
-  }
-
-  const [selectedCluster, selectedStats] = selected;
-  const clusterConfidence = Math.min(1, selectedStats.count / Math.max(1, opts.requestedLength));
-  const identityChaos = opts.identity?.chaosAllowance ?? 0.08;
-  const outlierReserve = clusterConfidence < 0.45
-    ? Math.ceil(opts.requestedLength * Math.max(0.12, identityChaos * 2))
-    : Math.max(1, Math.ceil(opts.requestedLength * identityChaos));
-  const secondary = [...clusters.entries()]
-    .filter(([clusterId, value]) =>
-      clusterId !== selectedCluster &&
-      value.count >= Math.min(3, Math.max(2, Math.ceil(opts.requestedLength * 0.06))) &&
-      (!opts.identity || clustersHaveEnergyOverlap(selectedCluster, clusterId, opts.identity))
-    )
-    .sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? null;
-  const secondaryCluster = secondary?.[0] ?? null;
-  const inCluster = (track: T): boolean => {
-    const cluster = vibeClusterKey(track, opts.classMap);
-    return cluster === selectedCluster || (secondaryCluster !== null && cluster === secondaryCluster);
-  };
-  const isFinalSafe = (track: T): boolean => finalTrackIsSafe(track, {
-    vibe: opts.vibe,
-    intent: opts.intent,
-    constraints: opts.constraints,
-    classMap: opts.classMap,
-  });
-  const safeClusterCount = candidates.filter((track) => inCluster(track) && isFinalSafe(track)).length;
-  const targetCuratedSafeCount = Math.ceil(opts.requestedLength * (isGymWorkoutPrompt(opts.vibe, opts.intent) ? 2.4 : 1.8));
-  const reserveCap = Math.ceil(opts.requestedLength * (isGymWorkoutPrompt(opts.vibe, opts.intent) ? 1.1 : 0.65));
-  const expandedReserve = Math.min(
-    reserveCap,
-    Math.max(outlierReserve, targetCuratedSafeCount - safeClusterCount),
-  );
-  const initialCluster = initial.filter(inCluster);
-  const initialReserve = initial
-    .filter((track) => !inCluster(track) && !Boolean((track as Record<string, unknown>)["_fallbackCandidate"]))
-    .filter(isFinalSafe)
-    .slice(0, expandedReserve);
-  const candidateCluster = candidates.filter(inCluster);
-  const candidateReserve = candidates
-    .filter((track) => !inCluster(track))
-    .filter(isFinalSafe)
-    .map((track) => ({
-      ...track,
-      score: Math.max(0, (track.score ?? 0) - (Boolean((track as Record<string, unknown>)["_fallbackCandidate"]) ? 0.38 : 0.18)),
-    } as T))
-    .slice(0, expandedReserve);
-  const majorExclusions = [
-    `cluster_outliers:${Math.max(0, candidates.length - candidateCluster.length)}`,
-    secondaryCluster ? `secondary_cluster:${clusterLabel(secondaryCluster)}` : null,
-    expandedReserve > outlierReserve ? `expanded_safe_reserve:${expandedReserve}` : null,
-    fallbackCandidatePercent > 20 ? `fallback_candidates:${fallbackCandidatePercent}%` : null,
-  ].filter((value): value is string => !!value);
-
-  return {
-    initial: [...initialCluster, ...initialReserve],
-    candidates: [...candidateCluster, ...candidateReserve],
-    diagnostics: {
-      active: true,
-      selectedCluster,
-      selectedClusterLabel: clusterLabel(selectedCluster),
-      selectedClusterCount: selectedStats.count,
-      clusterConfidence: Math.round(clusterConfidence * 100) / 100,
-      fallbackCandidatePercent,
-      outlierReserve: expandedReserve,
-      secondaryCluster,
-      secondaryClusterLabel: secondaryCluster ? clusterLabel(secondaryCluster) : null,
-      majorExclusions,
-    },
-  };
-}
-
 function hasExplicitArtistRequest(vibe: string): boolean {
   return /\b(?:songs?\s+by|tracks?\s+by|only\s+[a-z0-9&'.\-\s]{2,40}\s+(?:songs?|tracks?)|playlist\s+of\s+)\b/i.test(vibe);
 }
@@ -2682,173 +2474,6 @@ function buildArtistReusePenalty(
     artist,
     Math.min(0.34, count * 0.10 * pressure),
   ]));
-}
-
-function sessionReusePenalty(track: { trackId: string; artistName?: string | null }, memory: IdentitySessionMemory, identity: CuratorIdentity): number {
-  let penalty = 0;
-  if (memory.usedTracks.has(track.trackId)) penalty += 0.34 + identity.repetitionPenalty;
-  const artist = track.artistName?.toLowerCase().trim();
-  if (artist) {
-    const appearances = memory.artistFrequencyMap[artist] ?? 0;
-    if (appearances > 0) {
-      const overTolerance = Math.max(0, appearances - identity.repetitionTolerance * 4);
-      penalty += Math.min(0.56, appearances * identity.repetitionPenalty + overTolerance * 0.12);
-    }
-  }
-  return penalty;
-}
-
-type CuratorScoringContext = {
-  vibe: string;
-  intent: LockedIntent;
-  constraints: ConstraintLayer;
-  classMap: Map<string, {
-    genrePrimary: string;
-    genreFamily: string;
-    primarySubgenre: string;
-    secondarySubgenre: string | null;
-    subGenres: string[];
-  }>;
-  preferredFamilies?: Set<string>;
-  identityTerms: string[];
-  expectedFamilies: string[];
-  humanCuratorBiasCache: Map<string, number>;
-  identityFitCache: Map<string, number>;
-  sessionReusePenaltyCache: Map<string, number>;
-  humanScoringLimit: number;
-};
-
-function promptContrastPenalty(track: ConstraintTrack, vibe: string): number {
-  const lower = vibe.toLowerCase();
-  const energy = track.energy ?? 0.5;
-  const valence = track.valence ?? 0.5;
-  const loudness = track.loudness ?? -8;
-  let penalty = 0;
-  if (/\b(?:not|without|no)\s+(?:sad|depressing|depressed|bleak|miserable|gloomy)\b/.test(lower)) {
-    if (valence < 0.28) penalty += 0.16;
-    if (energy < 0.22 && valence < 0.38) penalty += 0.08;
-  }
-  if (/\b(?:not|without|no)\s+(?:angry|aggressive|rage|furious|harsh)\b/.test(lower)) {
-    if (energy > 0.68 && valence < 0.48) penalty += 0.14;
-    if (loudness > -4.8 && energy > 0.58) penalty += 0.08;
-  }
-  if (/\bdark\s+but\s+(?:cozy|cosy|warm|soft|safe)\b/.test(lower)) {
-    if (valence < 0.20 || energy > 0.64) penalty += 0.12;
-  }
-  return Math.min(0.28, penalty);
-}
-
-function softEraConfidenceScore(track: ConstraintTrack, intent: LockedIntent, coherence: number): number {
-  if (!intent.eraRange) return 0;
-  if (trackHasKnownEraMismatch(track, intent.eraRange)) return -0.20;
-  if (trackHasEraEvidence(track, intent.eraRange)) return 0.12;
-  const estimatedYear = trackYearEstimate(track);
-  if (estimatedYear && estimatedYear >= intent.eraRange.start && estimatedYear <= intent.eraRange.end) return 0.08;
-  if (coherence >= 0.18) return 0.04;
-  return -0.03;
-}
-
-function humanCuratorIntentScore(track: ConstraintTrack, identity: CuratorIdentity, context: CuratorScoringContext): number {
-  const cacheKey = `${track.trackId}:${Boolean((track as unknown as Record<string, unknown>)["_fallbackCandidate"]) ? "fallback" : "primary"}`;
-  const cached = context.humanCuratorBiasCache.get(cacheKey);
-  if (cached !== undefined) return cached;
-  const preferredFamilies = context.preferredFamilies ?? new Set<string>();
-  const coherence = intentCoherenceScore(track, {
-    vibe: context.vibe,
-    intent: context.intent,
-    constraints: context.constraints,
-    classMap: context.classMap,
-  }, preferredFamilies);
-  const identityText = trackUniversalIdentityText(track, context.classMap);
-  const identityHits = context.identityTerms.filter((term) => identityText.includes(term)).length;
-  const family = trackGenreFamily(track, context.classMap);
-  const familyAligned = context.expectedFamilies.length === 0 ||
-    family === "unknown" ||
-    context.expectedFamilies.includes(family);
-  const moodAligned = moodEvidence(track, context.intent) !== false;
-  const activityAligned = activityEvidence(track, context.intent) !== false;
-  const isFallbackCandidate = Boolean((track as unknown as Record<string, unknown>)["_fallbackCandidate"]);
-
-  let score = Math.max(-0.24, Math.min(0.30, coherence * 0.42));
-  if (identityHits >= 2) score += 0.12;
-  else if (identityHits === 1) score += 0.05;
-  score += softEraConfidenceScore(track, context.intent, coherence);
-
-  const weakFallback =
-    isFallbackCandidate &&
-    identityHits === 0 &&
-    !familyAligned &&
-    moodAligned !== true &&
-    activityAligned !== true &&
-    (!context.intent.eraRange || !trackHasEraEvidence(track, context.intent.eraRange));
-  if (weakFallback) {
-    score -= identity.type === "balanced_curator" ? 0.22 : 0.18;
-  } else if (isFallbackCandidate && identityHits === 0 && coherence < 0.05) {
-    score -= 0.10;
-  }
-  score -= promptContrastPenalty(track, context.vibe);
-  const bounded = Math.max(-0.32, Math.min(0.38, score));
-  context.humanCuratorBiasCache.set(cacheKey, bounded);
-  return bounded;
-}
-
-function applyCuratorIdentityScoring<T extends ConstraintTrack>(
-  tracks: T[],
-  identity: CuratorIdentity,
-  memory: IdentitySessionMemory,
-  context?: CuratorScoringContext
-): T[] {
-  const featureCacheKey = (track: T): string =>
-    `${track.trackId}:${Boolean((track as unknown as Record<string, unknown>)["_fallbackCandidate"]) ? "fallback" : "primary"}`;
-  const identityFitFor = (track: T): number => {
-    if (!context) return scoreTrackForIdentity(track, identity);
-    const cacheKey = featureCacheKey(track);
-    const cached = context.identityFitCache.get(cacheKey);
-    if (cached !== undefined) return cached;
-    const scored = scoreTrackForIdentity(track, identity);
-    context.identityFitCache.set(cacheKey, scored);
-    return scored;
-  };
-  const reusePenaltyFor = (track: T): number => {
-    if (!context) return sessionReusePenalty(track, memory, identity);
-    const cacheKey = featureCacheKey(track);
-    const cached = context.sessionReusePenaltyCache.get(cacheKey);
-    if (cached !== undefined) return cached;
-    const penalty = sessionReusePenalty(track, memory, identity);
-    context.sessionReusePenaltyCache.set(cacheKey, penalty);
-    return penalty;
-  };
-  const prelim = tracks
-    .map((track) => {
-      const identityFit = identityFitFor(track);
-      const reusePenalty = reusePenaltyFor(track);
-      const isFallbackCandidate = Boolean((track as Record<string, unknown>)["_fallbackCandidate"]);
-      const fallbackPenalty = isFallbackCandidate
-        ? 0.26 + (memory.usedTracks.has(track.trackId) ? 0.32 : 0)
-        : 0;
-      const identityBias = (identityFit - 0.5) * 0.40;
-      return {
-        ...track,
-        score: Math.max(0, (track.score ?? 0) + identityBias - reusePenalty - fallbackPenalty),
-        _identityFit: Math.round(identityFit * 100) / 100,
-        _identityBias: Math.round(identityBias * 100) / 100,
-        _humanCuratorBias: 0,
-        _sessionReusePenalty: Math.round(reusePenalty * 100) / 100,
-      } as T;
-    })
-    .sort((a, b) => b.score - a.score);
-  if (!context) return prelim;
-  const fullScoringLimit = Math.min(prelim.length, context.humanScoringLimit);
-  for (let index = 0; index < fullScoringLimit; index++) {
-    const track = prelim[index]!;
-    const humanCuratorBias = humanCuratorIntentScore(track, identity, context);
-    prelim[index] = {
-      ...track,
-      score: Math.max(0, (track.score ?? 0) + humanCuratorBias),
-      _humanCuratorBias: Math.round(humanCuratorBias * 100) / 100,
-    };
-  }
-  return prelim.sort((a, b) => b.score - a.score);
 }
 
 function average(values: number[]): number {
@@ -3186,152 +2811,6 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       fallbackMode: null,
     },
   };
-}
-
-function broadEnergyRecoveryScore(track: ConstraintTrack, intent: LockedIntent, vibe: string): number {
-  const lower = vibe.toLowerCase();
-  const energy = track.energy ?? 0.5;
-  const valence = track.valence ?? 0.5;
-  const tempo = track.tempo ?? 110;
-  const danceability = track.danceability ?? 0.5;
-  const highEnergyPrompt =
-    intent.energy === "high" ||
-    intent.energyLevel === "high" ||
-    intent.mood.includes("energised") ||
-    /\b(?:party|hype|dance|club|rave|workout|gym)\b/i.test(lower);
-  const targetEnergy = highEnergyPrompt ? 0.76 : intent.energy === "low" || intent.energyLevel === "low" ? 0.34 : 0.55;
-  const targetValence = intent.mood.includes("melancholic") ? 0.38 : highEnergyPrompt ? 0.62 : 0.50;
-  const tempoLift = tempo >= 95 && tempo <= 145 ? 0.08 : tempo > 145 ? 0.03 : 0;
-  return (
-    1 - Math.abs(energy - targetEnergy) * 0.55 -
-    Math.abs(valence - targetValence) * 0.25 +
-    danceability * 0.16 +
-    tempoLift
-  );
-}
-
-function recoverLowComplexityPlaylist<T extends ConstraintTrack>(opts: {
-  initial: T[];
-  fullLibrary: T[];
-  candidates: T[];
-  requestedLength: number;
-  vibe: string;
-  intent: LockedIntent;
-  constraints: ConstraintLayer;
-  allowHolidaySeason: boolean;
-  classMap: Map<string, {
-    genrePrimary: string;
-    genreFamily: string;
-    primarySubgenre: string;
-    secondarySubgenre: string | null;
-    subGenres: string[];
-  }>;
-  maxPerArtist: number;
-  trackReusePenalty?: Map<string, number>;
-  artistReusePenalty?: Map<string, number>;
-}): { tracks: T[]; diagnostics: PlaylistFinalizationDiagnostics; intent: LockedIntent } | null {
-  const broadUnconstrainedPrompt =
-    opts.intent.genreFamilies.length === 0 &&
-    opts.intent.primaryGenres.length === 0 &&
-    opts.constraints.hard.genres.length === 0 &&
-    opts.constraints.hard.eraStart === null &&
-    opts.constraints.hard.eraEnd === null &&
-    opts.constraints.hard.excludedGenres.length === 0;
-  const activityRecoveryPrompt = isGymWorkoutPrompt(opts.vibe, opts.intent) || isUpbeatSocialPrompt(opts.vibe, opts.intent);
-  if (opts.intent.interpretationBudget?.complexity !== "low" && !broadUnconstrainedPrompt && !activityRecoveryPrompt) return null;
-
-  const base = {
-    requestedLength: opts.requestedLength,
-    vibe: opts.vibe,
-    constraints: opts.constraints,
-    allowHolidaySeason: opts.allowHolidaySeason,
-    classMap: opts.classMap,
-    maxPerArtist: opts.maxPerArtist,
-    trackReusePenalty: opts.trackReusePenalty,
-    artistReusePenalty: opts.artistReusePenalty,
-  };
-  const activityRelaxedConstraints: ConstraintLayer = {
-    ...opts.constraints,
-    hard: {
-      ...opts.constraints.hard,
-      genres: [],
-      eraStart: null,
-      eraEnd: null,
-      strictLock: false,
-    },
-    raw: {
-      ...opts.constraints.raw,
-      explicitGenreTerms: [],
-      explicitEraTerms: [],
-      strictTerms: [],
-    },
-  };
-  const attempts: Array<{ stage: string; intent: LockedIntent; candidates: T[]; constraints?: ConstraintLayer }> = [];
-  const partialActivityTopUp = activityRecoveryPrompt && opts.initial.length > 0;
-
-  if (!partialActivityTopUp && opts.intent.activity) {
-    attempts.push({
-      stage: "activity_relaxed",
-      intent: { ...opts.intent, activity: null },
-      candidates: opts.candidates,
-    });
-  }
-
-  if (!partialActivityTopUp && opts.intent.mood.length > 0) {
-    attempts.push({
-      stage: "mood_relaxed",
-      intent: { ...opts.intent, activity: null, mood: [] },
-      candidates: opts.candidates,
-    });
-  }
-
-  const recoveryIdentityTerms = universalIdentityTerms(opts.vibe, opts.intent, opts.constraints);
-  const broadEnergyCandidates = opts.fullLibrary
-    .filter((track) => !!track)
-    .map((track) => ({
-      ...track,
-      score: broadEnergyRecoveryScore(track, opts.intent, opts.vibe) +
-        intentCoherenceScore(track, {
-          vibe: opts.vibe,
-          intent: opts.intent,
-          constraints: opts.constraints,
-          classMap: opts.classMap,
-        }, new Set(), recoveryIdentityTerms) * 0.8,
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, Math.max(240, opts.requestedLength * 12)) as T[];
-  attempts.push({
-    stage: "energy_recovery",
-    intent: activityRecoveryPrompt ? opts.intent : { ...opts.intent, activity: null, mood: [], energy: null, energyLevel: null },
-    candidates: broadEnergyCandidates,
-    constraints: activityRecoveryPrompt && broadUnconstrainedPrompt ? activityRelaxedConstraints : undefined,
-  });
-
-  for (const attempt of attempts) {
-    const finalization = finalizePlaylistTracks({
-      ...base,
-      constraints: attempt.constraints ?? base.constraints,
-      initial: opts.initial,
-      candidates: attempt.candidates,
-      intent: attempt.intent,
-    });
-    if (finalization.tracks.length > opts.initial.length || finalization.tracks.length >= opts.requestedLength) {
-      return {
-        tracks: finalization.tracks,
-        intent: attempt.intent,
-        diagnostics: {
-          ...finalization.diagnostics,
-          fallbackMode: "broad_energy_recovery",
-          recoveryStage: attempt.stage,
-          recoveryScope: opts.intent.interpretationBudget?.complexity === "low" ? "low_complexity" : "broad_unconstrained",
-          originalFinalCount: opts.initial.length,
-          fullLibraryCandidates: opts.fullLibrary.length,
-        },
-      };
-    }
-  }
-
-  return null;
 }
 
 function assertQualityConsistency(
@@ -5462,22 +4941,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       intent: lockedIntent,
       emotionProfile,
     });
-    const curatorScoringContext: CuratorScoringContext = {
-      vibe,
-      intent: lockedIntent,
-      constraints: constraintLayer,
-      classMap: userGenreProfile.trackClassifications,
-      identityTerms: universalIdentityTerms(vibe, lockedIntent, constraintLayer),
-      expectedFamilies: lockedIntent.primaryGenres.length > 0
-        ? lockedIntent.primaryGenres
-        : lockedIntent.genreFamilies.length > 0
-          ? lockedIntent.genreFamilies
-          : constraintLayer.hard.genres,
-      humanCuratorBiasCache: new Map<string, number>(),
-      identityFitCache: new Map<string, number>(),
-      sessionReusePenaltyCache: new Map<string, number>(),
-      humanScoringLimit: Math.min(12, length),
-    };
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
       dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
@@ -5695,36 +5158,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       genreFamily?: string | null;
       genres?: string[] | null;
     };
-    const finalizationPoolCap = Math.min(
-      FINALIZATION_POOL_MAX,
-      Math.max(FINALIZATION_POOL_MIN, length * FINALIZATION_POOL_PER_TRACK)
-    );
-    const buildFinalCandidatePool = (): PlaylistTrack[] => {
-      const scoredFallbackTracks = constrainedFallbackTracks.slice(0, finalizationPoolCap).map((track) => ({
-        ...track,
-        score: 0.42,
-        _fallbackCandidate: true,
-      } as PlaylistTrack));
-      const scoredLibraryTracks = likedSongs.slice(0, finalizationPoolCap).map((track) => ({
-        ...track,
-        score: 0.55,
-      } as PlaylistTrack));
-      const merged = [
-        ...(pipeline.finalTracks as PlaylistTrack[]),
-        ...(pipeline.sorted as PlaylistTrack[]).slice(0, finalizationPoolCap),
-        ...scoredFallbackTracks,
-        ...scoredLibraryTracks,
-      ];
-      const seen = new Set<string>();
-      const unique: PlaylistTrack[] = [];
-      for (const track of merged) {
-        if (seen.has(track.trackId)) continue;
-        seen.add(track.trackId);
-        unique.push(track);
-        if (unique.length >= finalizationPoolCap) break;
-      }
-      return unique.map(hydrateTrackGenre);
-    };
     setGeneratePhase(generateSessionUserId, requestId, "composing");
     if (!recordExecutionStage(executionHealth, req.log, "finalOutputAssembly", "controller.finalAuthority", {
       cause: "CONTROLLER_PIPELINE_CONFLICT",
@@ -5734,7 +5167,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
     executionHealth.finalisationCount += 1;
-    executionHealth.repairPassCount += 1;
     setGenerateStageDetail(generateSessionUserId, requestId, `Building playlist flow from ${pipeline.finalTracks.length.toLocaleString()} candidates`);
     let finalTracks = (pipeline.finalTracks as PlaylistTrack[]).map(hydrateTrackGenre);
     const publishPartialTracks = (tracks: PlaylistTrack[], limit = tracks.length): void => {
@@ -5774,119 +5206,37 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Locked intent final validation"
     );
-    setGenerateStageDetail(generateSessionUserId, requestId, `Applying ${curatorIdentity.type.replace(/_/g, " ")} curator identity`);
+    setGenerateStageDetail(generateSessionUserId, requestId, "Validating V3-selected playlist");
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
-    const endCuratorScoringProfile = liveStageProfiler.start("controller.curatorIdentityScoring", `${finalTracks.length} final tracks`);
-    const identityInitialTracks = applyCuratorIdentityScoring(finalTracks, curatorIdentity, sessionMemory, curatorScoringContext);
-    const finalCandidatePool = applyCuratorIdentityScoring(buildFinalCandidatePool(), curatorIdentity, sessionMemory, curatorScoringContext);
-    endCuratorScoringProfile();
-    setGenerateStageDetail(generateSessionUserId, requestId, "Selecting dominant vibe cluster before final checks");
-    const endClusterCurationProfile = liveStageProfiler.start("controller.clusterCuration", `${finalCandidatePool.length} candidates`);
-    const clusterCuration = curateCandidatesByVibeCluster(
-      identityInitialTracks,
-      finalCandidatePool,
-      {
-        vibe,
-        intent: lockedIntent,
-        constraints: constraintLayer,
-        classMap: userGenreProfile.trackClassifications,
-        requestedLength: length,
-        identity: curatorIdentity,
-      }
-    );
-    endClusterCurationProfile();
+    const finalCandidatePool = finalTracks;
+    const clusterCuration = {
+      initial: finalTracks,
+      candidates: finalTracks,
+      diagnostics: {
+        active: false,
+        selectedCluster: null,
+        secondaryCluster: null,
+        selectedClusterLabel: null,
+        secondaryClusterLabel: null,
+        clusterConfidence: 0,
+        fallbackCandidatePercent: 0,
+        majorExclusions: ["controller_cluster_curation_skipped_v3_authority"],
+      },
+    };
     let repairTimeMs = 0;
     let finalizationTimeMs = 0;
-    tStage = Date.now();
-    const endFinalizationProfile = liveStageProfiler.start("controller.finalization.initial", `${clusterCuration.candidates.length} candidates`);
-    let finalization = finalizePlaylistTracks({
-      initial: clusterCuration.initial,
-      candidates: clusterCuration.candidates,
-      requestedLength: length,
-      vibe,
-      intent: lockedIntent,
-      constraints: constraintLayer,
-      allowHolidaySeason,
-      classMap: userGenreProfile.trackClassifications,
-      maxPerArtist,
-      trackReusePenalty: finalizationReusePenalty,
-      artistReusePenalty: finalizationArtistReusePenalty,
-    });
-    endFinalizationProfile();
-    finalizationTimeMs += Date.now() - tStage;
+    let finalization = {
+      tracks: finalTracks,
+      diagnostics: {
+        active: false,
+        finalAssemblyOwner: "controller",
+        scoringOwner: "v3",
+        rankingOwner: "v3",
+        skippedReason: "v3_selected_tracks_are_authoritative",
+      } as Record<string, unknown>,
+    };
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const endEvidenceGuardProfile = liveStageProfiler.start("controller.evidenceAndRecoveryGuards", `${finalization.tracks.length}/${length} finalized tracks`);
-    const buildBroadRecoveryLibrary = (): PlaylistTrack[] => applyCuratorIdentityScoring(
-      likedSongs
-        .slice(0, finalizationPoolCap)
-        .map((track) => ({
-          ...track,
-          score: 0.55,
-        } as PlaylistTrack))
-        .map(hydrateTrackGenre),
-      curatorIdentity,
-      sessionMemory,
-      curatorScoringContext
-    );
-    const applyLowComplexityRecovery = (triggerStage: string): boolean => {
-      if (finalTracks.length >= length) return false;
-      if (finalTracks.length >= recoveryActivationThreshold(length)) return false;
-      const recoveryStartedAt = Date.now();
-      const endRecoveryProfile = liveStageProfiler.start(`controller.recovery.${triggerStage}`, `${finalTracks.length}/${length} tracks`);
-      const recovered = recoverLowComplexityPlaylist({
-        initial: finalTracks,
-        fullLibrary: buildBroadRecoveryLibrary(),
-        candidates: clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
-          ? clusterCuration.candidates
-          : finalCandidatePool,
-        requestedLength: length,
-        vibe,
-        intent: lockedIntent,
-        constraints: constraintLayer,
-        allowHolidaySeason,
-        classMap: userGenreProfile.trackClassifications,
-        maxPerArtist,
-        trackReusePenalty: finalizationReusePenalty,
-        artistReusePenalty: finalizationArtistReusePenalty,
-      });
-      endRecoveryProfile();
-      if (!recovered) return false;
-      repairTimeMs += Date.now() - recoveryStartedAt;
-      finalTracks = recovered.tracks;
-      finalization = {
-        tracks: recovered.tracks,
-        diagnostics: {
-          ...recovered.diagnostics,
-          recoveryTrigger: triggerStage,
-        },
-      };
-      finalValidation = validateLockedIntentOutput(
-        finalTracks,
-        lockedIntent,
-        constraintLayer,
-        userGenreProfile.trackClassifications
-      );
-      publishPartialTracks(finalTracks);
-      req.log.info(
-        { userId, vibe, finalization: finalization.diagnostics },
-        "Broad energy recovery produced playlist"
-      );
-      return true;
-    };
-    if (trackListChanged(finalTracks, finalization.tracks)) {
-      req.log.info(
-        { userId, vibe, finalization: finalization.diagnostics },
-        "Final playlist invariants repaired track list before evidence guards"
-      );
-      finalTracks = finalization.tracks;
-      finalValidation = validateLockedIntentOutput(
-        finalTracks,
-        lockedIntent,
-        constraintLayer,
-        userGenreProfile.trackClassifications
-      );
-    }
-    applyLowComplexityRecovery("pre_evidence_finalization_empty");
     const minBestAvailableCount = Math.min(length, Math.max(5, Math.ceil(length * 0.40)));
     const evidenceRelaxations: string[] = [];
     let strictGenreEvidenceRelaxed = false;
@@ -6002,12 +5352,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictGenreEvidenceDiagnostics.rejectedCount > 0 &&
       !strictGenreEvidenceRelaxed
     ) {
-      finalTracks = strictGenreEvidenceDiagnostics.compatible as PlaylistTrack[];
-      finalValidation = validateLockedIntentOutput(
-        finalTracks,
-        lockedIntent,
-        constraintLayer,
-        userGenreProfile.trackClassifications
+      req.log.warn(
+        {
+          userId,
+          vibe,
+          rejectedCount: strictGenreEvidenceDiagnostics.rejectedCount,
+        },
+        "Explicit genre evidence guard detected rejected tracks; controller preserving V3 output"
       );
     }
     const endEraEvidenceProfile = liveStageProfiler.start("controller.eraEvidenceGuard", `${finalTracks.length} tracks`);
@@ -6076,13 +5427,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (compatibleEraRecoveryPool.length >= minBestAvailableCount) {
         strictEraEvidenceRelaxed = true;
         evidenceRelaxations.push("era_evidence_relaxed_to_compatible_unknowns");
-        finalTracks = compatibleEraRecoveryPool.slice(0, length) as PlaylistTrack[];
-        finalValidation = validateLockedIntentOutput(
-          finalTracks,
-          lockedIntent,
-          constraintLayer,
-          userGenreProfile.trackClassifications
-        );
         req.log.warn(
           {
             userId,
@@ -6160,83 +5504,32 @@ router.post("/generate", async (req, res): Promise<void> => {
     ) {
       strictEraEvidenceRelaxed = true;
       evidenceRelaxations.push("era_evidence_relaxed_to_compatible_unknowns");
-      finalTracks = strictEraEvidenceDiagnostics.compatible as PlaylistTrack[];
-      finalValidation = validateLockedIntentOutput(
-        finalTracks,
-        lockedIntent,
-        constraintLayer,
-        userGenreProfile.trackClassifications
-      );
     }
     if (strictEraEvidenceDiagnostics.active && !strictEraEvidenceRelaxed) {
       const nextFinalTracks = strictEraEvidenceDiagnostics.compatible;
       if (nextFinalTracks.length !== finalTracks.length) {
-        finalTracks = nextFinalTracks as PlaylistTrack[];
-        finalValidation = validateLockedIntentOutput(
-          finalTracks,
-          lockedIntent,
-          constraintLayer,
-          userGenreProfile.trackClassifications
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            rejectedCount: finalTracks.length - nextFinalTracks.length,
+          },
+          "Explicit era evidence guard detected rejected tracks; controller preserving V3 output"
         );
       }
     }
-    tStage = Date.now();
-    const finalizationIntent = strictEraEvidenceRelaxed
-      ? {
-          ...lockedIntent,
-          eraRange: null,
-          eraStart: null,
-          eraEnd: null,
-        }
-      : lockedIntent;
     const finalizationCandidates = strictEraEvidenceRelaxed && lockedIntent.eraRange
       ? baseFinalizationCandidates.filter((track) => !trackHasKnownEraMismatch(track, lockedIntent.eraRange!))
       : baseFinalizationCandidates;
-    const secondFinalizationNeeded =
-      strictEraEvidenceRelaxed ||
-      finalTracks.length < Math.ceil(length * 0.90) ||
-      trackListChanged(finalTracks, finalization.tracks);
-    if (secondFinalizationNeeded) {
-      const endSecondFinalizationProfile = liveStageProfiler.start("controller.finalization.secondPass", `${finalizationCandidates.length} candidates`);
-      finalization = finalizePlaylistTracks({
-        initial: finalTracks,
-        candidates: finalizationCandidates,
-        requestedLength: length,
-        vibe,
-        intent: finalizationIntent,
-        constraints: constraintLayer,
-        allowHolidaySeason,
-        classMap: userGenreProfile.trackClassifications,
-        maxPerArtist,
-        trackReusePenalty: finalizationReusePenalty,
-        artistReusePenalty: finalizationArtistReusePenalty,
-      });
-      endSecondFinalizationProfile();
-      finalizationTimeMs += Date.now() - tStage;
-    } else {
-      finalization = {
-        tracks: finalTracks,
-        diagnostics: {
-          ...finalization.diagnostics,
-          repeatedPassSkipped: true,
-          skippedReason: "playlist_already_finalized",
-        },
-      };
-    }
-    if (trackListChanged(finalTracks, finalization.tracks)) {
-      req.log.info(
-        { userId, vibe, finalization: finalization.diagnostics },
-        "Final playlist invariants repaired track list"
-      );
-      finalTracks = finalization.tracks;
-      finalValidation = validateLockedIntentOutput(
-        finalTracks,
-        lockedIntent,
-        constraintLayer,
-        userGenreProfile.trackClassifications
-      );
-    }
-    applyLowComplexityRecovery("post_evidence_finalization_empty");
+    finalization = {
+      tracks: finalTracks,
+      diagnostics: {
+        ...finalization.diagnostics,
+        repeatedPassSkipped: true,
+        secondPassSkipped: true,
+        skippedReason: "v3_selected_tracks_are_authoritative",
+      },
+    };
     endEvidenceGuardProfile();
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
@@ -6296,61 +5589,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     endHumanCoherenceScoreProfile();
     let humanCoherenceRepairUsed = false;
     if (finalTracks.length > 0 && humanCoherence.score < 0.56) {
-      const repairStartedAt = Date.now();
-      const endHumanCoherenceProfile = liveStageProfiler.start("controller.humanCoherenceRepair", `${finalCandidatePool.length} candidates`);
-      const repairCandidates = finalCandidatePool.filter((track) => {
-        if (strictEraEvidenceRelaxed && lockedIntent.eraRange && trackHasKnownEraMismatch(track, lockedIntent.eraRange)) return false;
-        const identityFit = (track as unknown as Record<string, unknown>)["_identityFit"];
-        const fit = typeof identityFit === "number" ? identityFit : scoreTrackForIdentity(track, curatorIdentity);
-        const cluster = vibeClusterKey(track, userGenreProfile.trackClassifications);
-        const allowedCluster = clusterCuration.diagnostics.selectedCluster
-          ? cluster === clusterCuration.diagnostics.selectedCluster ||
-            (clusterCuration.diagnostics.secondaryCluster !== null && cluster === clusterCuration.diagnostics.secondaryCluster)
-          : true;
-        return fit >= 0.48 && allowedCluster;
-      });
-      const repaired = finalizePlaylistTracks({
-        initial: repairCandidates.slice(0, length),
-        candidates: repairCandidates,
-        requestedLength: length,
-        vibe,
-        intent: finalizationIntent,
-        constraints: constraintLayer,
-        allowHolidaySeason,
-        classMap: userGenreProfile.trackClassifications,
-        maxPerArtist,
-        trackReusePenalty: finalizationReusePenalty,
-        artistReusePenalty: finalizationArtistReusePenalty,
-      });
-      endHumanCoherenceProfile();
-      const repairedCoherence = humanCoherenceScore(repaired.tracks, curatorIdentity);
-      repairTimeMs += Date.now() - repairStartedAt;
-      if (
-        repaired.tracks.length >= Math.min(length, Math.max(6, Math.ceil(length * 0.60))) &&
-        repairedCoherence.score >= humanCoherence.score + 0.06
-      ) {
-        finalTracks = repaired.tracks;
-        finalization = {
-          tracks: repaired.tracks,
-          diagnostics: {
-            ...repaired.diagnostics,
-            humanCoherenceRepair: true,
-          },
-        };
-        finalValidation = validateLockedIntentOutput(
-          finalTracks,
-          lockedIntent,
-          constraintLayer,
-          userGenreProfile.trackClassifications
-        );
-        humanCoherence = repairedCoherence;
-        humanCoherenceRepairUsed = true;
-        evidenceRelaxations.push("human_coherence_repaired");
-        req.log.info(
-          { userId, vibe, curatorIdentity: curatorIdentity.type, humanCoherence },
-          "Human coherence repair rebuilt playlist"
-        );
-      } else if (humanCoherence.score < 0.46 && finalTracks.length < minBestAvailableCount) {
+      if (humanCoherence.score < 0.46 && finalTracks.length < minBestAvailableCount) {
         evidenceRelaxations.push("human_coherence_low_best_available");
       }
     }
@@ -6675,21 +5914,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGenerateStageDetail(generateSessionUserId, requestId, `Applying diversity rules to ${finalTracks.length.toLocaleString()} tracks`);
 
     publishPartialTracks(finalTracks);
-    const endPreEmptyRecoveryProfile = liveStageProfiler.start("controller.recovery.preEmptyPlaylistError", `${finalTracks.length}/${length} tracks`);
-    const recoveredBeforeEmptyCheck = applyLowComplexityRecovery("pre_empty_playlist_error");
-    endPreEmptyRecoveryProfile();
-    if (recoveredBeforeEmptyCheck) {
-      const endRecoveredCoherenceProfile = liveStageProfiler.start("controller.humanCoherenceScore.recovered", `${finalTracks.length} tracks`);
-      humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
-      endRecoveredCoherenceProfile();
-      generationDiagnostics.humanCoherenceScore = humanCoherence.score;
-      generationDiagnostics.humanCoherenceComponents = humanCoherence.components;
-      generationDiagnostics.humanCoherenceReasons = humanCoherence.reasons;
-      generationDiagnostics.majorExclusions = [
-        ...clusterCuration.diagnostics.majorExclusions,
-        ...humanCoherence.reasons,
-      ];
-    }
     generationDiagnostics.candidatesFinal = finalTracks.length;
     generationDiagnostics.promptSurvivability = {
       ...generationDiagnostics.promptSurvivability,
@@ -6721,64 +5945,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
-    if (finalTracks.length === 0) {
-      const emergencySourcePool = strictEraEvidenceRelaxed && lockedIntent.eraRange
-        ? [...finalizationCandidates, ...buildBroadRecoveryLibrary().filter((track) => !trackHasKnownEraMismatch(track, lockedIntent.eraRange!))]
-        : [...finalCandidatePool, ...buildBroadRecoveryLibrary()];
-      const emergencyPool = applyCuratorIdentityScoring(
-        emergencySourcePool,
-        curatorIdentity,
-        sessionMemory,
-        curatorScoringContext
-      );
-      const emergencyFinalization = finalizePlaylistTracks({
-        initial: [],
-        candidates: emergencyPool,
-        requestedLength: length,
-        vibe,
-        intent: finalizationIntent,
-        constraints: constraintLayer,
-        allowHolidaySeason,
-        classMap: userGenreProfile.trackClassifications,
-        maxPerArtist,
-      });
-      if (emergencyFinalization.tracks.length > 0) {
-        finalTracks = emergencyFinalization.tracks;
-        finalization = {
-          tracks: emergencyFinalization.tracks,
-          diagnostics: {
-            ...emergencyFinalization.diagnostics,
-            fallbackMode: emergencyFinalization.diagnostics.fallbackMode ?? "emergency_hard_safe_return",
-            recoveryTrigger: "pre_empty_playlist_error",
-          },
-        };
-        finalValidation = validateLockedIntentOutput(
-          finalTracks,
-          lockedIntent,
-          constraintLayer,
-          userGenreProfile.trackClassifications
-        );
-        humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
-        generationDiagnostics.candidatesAfterRepair = finalization.tracks.length;
-        generationDiagnostics.candidatesFinal = finalTracks.length;
-        generationDiagnostics.fallbackTriggered = true;
-        generationDiagnostics.failureReason = null;
-        generationDiagnostics.recoveryRelaxations = [
-          ...generationDiagnostics.recoveryRelaxations,
-          "emergency_hard_safe_return",
-        ];
-        generationDiagnostics.fallbackLevel = fallbackLevelFromFinalization(finalization.diagnostics);
-        generationDiagnostics.recoveryTriggered = true;
-        generationDiagnostics.humanCoherenceScore = humanCoherence.score;
-        generationDiagnostics.humanCoherenceComponents = humanCoherence.components;
-        generationDiagnostics.humanCoherenceReasons = humanCoherence.reasons;
-        publishPartialTracks(finalTracks);
-        req.log.warn(
-          { userId, vibe, finalCount: finalTracks.length, finalization: finalization.diagnostics },
-          "Emergency hard-safe recovery prevented empty playlist"
-        );
-      }
-    }
     if (finalTracks.length === 0) {
       const forensicPoolTrace = (scoringDiagnostics.v3Pipeline as Record<string, unknown> | undefined)?.["forensicPoolTrace"];
       req.log.warn(
