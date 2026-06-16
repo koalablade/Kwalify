@@ -13,15 +13,16 @@ export type SessionSnapshotCacheStats = {
   misses: number;
   writes: number;
   evictions: number;
+  partialSnapshots: number;
 };
 
 export type SessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow = unknown, TFeedbackMemory = unknown> = {
   userId: string;
   sessionId: string;
   version: "sessionSnapshotV1";
-  likedSongs?: TLikedSongRow[];
-  recentPlaylists?: TPlaylistHistoryRow[];
-  feedbackMemory?: TFeedbackMemory;
+  likedSongs: TLikedSongRow[];
+  recentPlaylists: TPlaylistHistoryRow[];
+  feedbackMemory: TFeedbackMemory;
   updatedAt: number;
 };
 
@@ -36,6 +37,7 @@ const stats: SessionSnapshotCacheStats = {
   misses: 0,
   writes: 0,
   evictions: 0,
+  partialSnapshots: 0,
 };
 
 function ttlMs(): number {
@@ -66,6 +68,13 @@ function evictOldestIfNeeded(): void {
   }
 }
 
+function isCompleteSnapshot(snapshot: SessionSnapshot): boolean {
+  return Array.isArray(snapshot.likedSongs) &&
+    Array.isArray(snapshot.recentPlaylists) &&
+    snapshot.feedbackMemory !== undefined &&
+    snapshot.feedbackMemory !== null;
+}
+
 export function getSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow = unknown, TFeedbackMemory = unknown>(
   userId: string,
   sessionId: string,
@@ -82,6 +91,13 @@ export function getSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow 
     stats.misses += 1;
     return null;
   }
+  if (!isCompleteSnapshot(entry.snapshot)) {
+    snapshots.delete(key);
+    stats.partialSnapshots += 1;
+    stats.misses += 1;
+    console.warn("PARTIAL_SNAPSHOT_DETECTED", { userId, sessionId });
+    return null;
+  }
   stats.hits += 1;
   return entry.snapshot as SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory>;
 }
@@ -89,23 +105,23 @@ export function getSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow 
 export function mergeSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow = unknown, TFeedbackMemory = unknown>(
   userId: string,
   sessionId: string,
-  partial: Partial<SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory>>,
+  snapshotData: Pick<SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory>, "likedSongs" | "recentPlaylists" | "feedbackMemory">,
 ): SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory> {
   const key = sessionSnapshotKey(userId, sessionId);
-  const previous = snapshots.get(key)?.snapshot as SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory> | undefined;
   const snapshot: SessionSnapshot<TLikedSongRow, TPlaylistHistoryRow, TFeedbackMemory> = {
-    ...(previous ?? {
-      userId,
-      sessionId,
-      version: "sessionSnapshotV1" as const,
-      updatedAt: Date.now(),
-    }),
-    ...partial,
     userId,
     sessionId,
     version: "sessionSnapshotV1",
+    likedSongs: snapshotData.likedSongs,
+    recentPlaylists: snapshotData.recentPlaylists,
+    feedbackMemory: snapshotData.feedbackMemory,
     updatedAt: Date.now(),
   };
+  if (!isCompleteSnapshot(snapshot as SessionSnapshot)) {
+    stats.partialSnapshots += 1;
+    console.warn("PARTIAL_SNAPSHOT_DETECTED", { userId, sessionId });
+    throw new Error("PARTIAL_SNAPSHOT_DETECTED");
+  }
   snapshots.set(key, {
     snapshot: snapshot as SessionSnapshot,
     expiresAt: Date.now() + ttlMs(),

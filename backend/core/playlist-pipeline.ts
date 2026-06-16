@@ -3377,7 +3377,27 @@ export async function buildPlaylistPipeline<T extends {
     return fullEnough && qualityGoodEnough && attempt.total >= 0.70;
   };
   let candidateShortCircuitUsed = false;
+  let v3InvocationCount = 0;
+  let v3SingletonViolationBlocked = false;
   for (const candidate of candidateInputs) {
+    if (v3InvocationCount >= 1) {
+      v3SingletonViolationBlocked = true;
+      opts.pipelineLog?.error(
+        {
+          requestId: opts.requestId,
+          stage: `pipeline.v3ScoringAndSampling.${candidate.label}`,
+          callStackTag: "playlist-pipeline.candidateAttempts",
+          v3InvocationCount,
+        },
+        "V3_SINGLETON_VIOLATION",
+      );
+      recordTraceFailure(pipelineTrace, createFailureContext({
+        stage: `pipeline.v3ScoringAndSampling.${candidate.label}`,
+        error: new Error("V3 singleton blocked additional candidate attempt"),
+        recoverable: true,
+      }));
+      break;
+    }
     await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
     if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
     const inputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
@@ -3401,6 +3421,7 @@ export async function buildPlaylistPipeline<T extends {
     const endV3Profile = opts.profileStage?.(`pipeline.v3ScoringAndSampling.${candidate.label}`, `${candidatePool.tracks.length} candidate tracks`);
     let result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
     try {
+      v3InvocationCount += 1;
       result = await runV3Pipeline(
         candidatePool.tracks as unknown as T[],
         opts.vibe,
@@ -3578,6 +3599,8 @@ export async function buildPlaylistPipeline<T extends {
       candidateAttemptCount: candidateAttempts.length,
       plannedCandidateAttemptCount: candidateInputs.length,
       candidateShortCircuitUsed,
+      v3InvocationCount,
+      v3SingletonViolationBlocked,
       fallbackLevelUsed: effectiveFallbackLevelUsed,
       starvationTriggerReason,
       layeredSafetyPoolSize: layeredSafetyPool.length,

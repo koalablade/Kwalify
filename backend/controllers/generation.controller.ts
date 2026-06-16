@@ -85,10 +85,7 @@ import {
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
 import { createGenerateStageTimer } from "../lib/generate-stage-timer";
-import {
-  buildFallbackPipelineResult,
-  formatTracksForApi,
-} from "../lib/generate-helpers";
+import { formatTracksForApi } from "../lib/generate-helpers";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
 import type { BuildPlaylistPipelineResult } from "../core/output";
@@ -206,6 +203,28 @@ type ExecutionHealthBaselineEntry = Pick<
 };
 
 const executionHealthBaseline: ExecutionHealthBaselineEntry[] = [];
+type GenerateSessionSnapshot = SessionSnapshot<
+  typeof likedSongsTable.$inferSelect,
+  typeof playlistHistoryTable.$inferSelect,
+  FeedbackMemory
+>;
+const sessionHydrationFlights = new Map<
+  string,
+  Promise<{ snapshot: GenerateSessionSnapshot; dbReadOccurred: boolean }>
+>();
+
+async function runSessionHydrationSingleFlight(
+  key: string,
+  loader: () => Promise<{ snapshot: GenerateSessionSnapshot; dbReadOccurred: boolean }>,
+): Promise<{ snapshot: GenerateSessionSnapshot; dbReadOccurred: boolean; shared: boolean }> {
+  const existing = sessionHydrationFlights.get(key);
+  if (existing) return { ...(await existing), shared: true };
+  const flight = loader().finally(() => {
+    sessionHydrationFlights.delete(key);
+  });
+  sessionHydrationFlights.set(key, flight);
+  return { ...(await flight), shared: false };
+}
 
 type GenerationSideEffectPolicy = {
   mode: "production" | "audit";
@@ -4004,11 +4023,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const budget = createRequestBudget(startMs);
     const debugMode = req.query.debug === "1" || process.env["DEBUG"] === "true";
     const sessionSnapshotId = req.sessionID ?? requestId;
-    let sessionSnapshot: SessionSnapshot<
-      typeof likedSongsTable.$inferSelect,
-      typeof playlistHistoryTable.$inferSelect,
-      FeedbackMemory
-    > | null = devMode
+    let sessionSnapshot: GenerateSessionSnapshot | null = devMode
       ? null
       : getSessionSnapshot<
           typeof likedSongsTable.$inferSelect,
@@ -4022,6 +4037,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       !!sessionSnapshot.feedbackMemory;
     const executionHealth = createExecutionHealthProfile(fullSessionSnapshotHit ? "HIT" : "MISS");
     let dbHydrationOccurred = false;
+    let sessionHydrationShared = false;
     const resultCacheBaseKey = getGenerateCacheKey({
       userId,
       vibe,
@@ -4052,9 +4068,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       generateFail(res, 500, "DUPLICATE_EXECUTION_DETECTED", "Generation attempted duplicate session hydration.");
       return;
     }
-    executionHealth.hydrationCount += 1;
     const snapshotLikedRows = fullSessionSnapshotHit ? sessionSnapshot?.likedSongs ?? null : null;
-    const cachedLikedRows = devMode || snapshotLikedRows ? null : getCachedLikedSongs(userId);
+    let cachedLikedRows = devMode || snapshotLikedRows ? null : getCachedLikedSongs(userId);
     const likedSongsCacheHit = !!snapshotLikedRows || !!cachedLikedRows;
     const endLikedSongsProfile = liveStageProfiler.start(
       "preV3.likedSongs",
@@ -4062,19 +4077,58 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     let likedRowsRaw: typeof likedSongsTable.$inferSelect[];
     try {
-      likedRowsRaw = devMode
-        ? generateMockSpotifyLibrary()
-        : snapshotLikedRows ??
-          cachedLikedRows ??
+      if (devMode) {
+        likedRowsRaw = generateMockSpotifyLibrary();
+      } else if (snapshotLikedRows) {
+        likedRowsRaw = snapshotLikedRows;
+      } else if (!noLibraryMode) {
+        const hydration = await runSessionHydrationSingleFlight(`${userId}:${sessionSnapshotId}`, async () => {
+          const likedRowsFromCache = getCachedLikedSongs(userId);
+          const [loadedLikedRows, loadedPlaylists, loadedFeedbackMemory] = await Promise.all([
+            likedRowsFromCache ??
+              db
+                .select()
+                .from(likedSongsTable)
+                .where(eq(likedSongsTable.spotifyUserId, userId)),
+            db
+              .select()
+              .from(playlistHistoryTable)
+              .where(eq(playlistHistoryTable.spotifyUserId, userId))
+              .orderBy(desc(playlistHistoryTable.createdAt))
+              .limit(25),
+            getFeedbackMemory(userId),
+          ]);
+          if (!likedRowsFromCache) setCachedLikedSongs(userId, loadedLikedRows);
+          return {
+            snapshot: mergeSessionSnapshot<
+              typeof likedSongsTable.$inferSelect,
+              typeof playlistHistoryTable.$inferSelect,
+              FeedbackMemory
+            >(userId, sessionSnapshotId, {
+              likedSongs: loadedLikedRows,
+              recentPlaylists: loadedPlaylists,
+              feedbackMemory: loadedFeedbackMemory,
+            }),
+            dbReadOccurred: true,
+          };
+        });
+        sessionSnapshot = hydration.snapshot;
+        sessionHydrationShared = hydration.shared;
+        if (hydration.dbReadOccurred && !hydration.shared) dbHydrationOccurred = true;
+        likedRowsRaw = hydration.snapshot.likedSongs;
+        cachedLikedRows = hydration.dbReadOccurred ? null : likedRowsRaw;
+      } else {
+        likedRowsRaw = cachedLikedRows ??
           await db
-        .select()
-        .from(likedSongsTable)
-        .where(eq(likedSongsTable.spotifyUserId, userId));
+            .select()
+            .from(likedSongsTable)
+            .where(eq(likedSongsTable.spotifyUserId, userId));
+      }
     } finally {
       endLikedSongsProfile();
     }
-    if (!devMode && !snapshotLikedRows && !cachedLikedRows) setCachedLikedSongs(userId, likedRowsRaw);
-    if (!snapshotLikedRows && !cachedLikedRows && !devMode) dbHydrationOccurred = true;
+    if (!devMode && noLibraryMode && !snapshotLikedRows && !cachedLikedRows) setCachedLikedSongs(userId, likedRowsRaw);
+    if (!snapshotLikedRows && !cachedLikedRows && !devMode && noLibraryMode) dbHydrationOccurred = true;
     const likedSongsQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
     if (!likedSongsCacheHit && !devMode) recordPreV3Timing(preV3Timing, "dbTimeMs", likedSongsQueryMs);
@@ -4347,30 +4401,6 @@ router.post("/generate", async (req, res): Promise<void> => {
               emotionProfile: cached.emotionProfile as any,
               trackIds: cached.finalTracks.map((track) => track.trackId),
             });
-            if (!devMode && !noLibraryMode) {
-              sessionSnapshot = mergeSessionSnapshot<
-                typeof likedSongsTable.$inferSelect,
-                typeof playlistHistoryTable.$inferSelect,
-                FeedbackMemory
-              >(userId, sessionSnapshotId, {
-                recentPlaylists: [
-                  {
-                    id: 0,
-                    spotifyUserId: userId,
-                    playlistId: cached.spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${cachedSavedPlaylistId}`,
-                    playlistUrl: cached.spotifyPlaylistUrl ?? publicUrl(`/p/${cachedSavedPlaylistId}`),
-                    name: cached.playlistName,
-                    vibe: cached.vibe,
-                    mode: cached.mode,
-                    trackCount: cachedApiTracks.length,
-                    emotionProfile: cached.emotionProfile,
-                    trackIds: cached.finalTracks.map((track) => track.trackId),
-                    createdAt: new Date(),
-                  },
-                  ...(sessionSnapshot?.recentPlaylists ?? []),
-                ].slice(0, 25),
-              });
-            }
           }
         } catch (cacheSaveErr) {
           req.log.warn({ err: cacheSaveErr, userId }, "Cached generation could not create local saved playlist");
@@ -4403,6 +4433,10 @@ router.post("/generate", async (req, res): Promise<void> => {
             fallbackLevel: "none",
             sessionCancelled: false,
             ...(cached.generationDiagnostics ?? {}),
+            cacheDbActivity: {
+              hydrationDbRead: dbHydrationOccurred,
+              cachedResultSideEffectWrites: cachedSavedPlaylistId ? 2 : 0,
+            },
             executionHealth: cachedExecutionHealth,
           },
           artistDiversity: cached.artistDiversity ?? null,
@@ -4445,108 +4479,19 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (responseFinished(res)) return; // timeout handler — no second body
       if (respondIfStale(res, generateSessionUserId, requestId)) return;
       cancelGenerateSession(generateSessionUserId, requestId);
-      const ctx = (req as { _genCtx?: {
-        likedSongs: typeof likedSongs;
-        constrainedFallbackTracks?: typeof likedSongs;
-        emotionProfile: EmotionProfile;
-        length: number;
-        maxPerArtist?: number;
-        vibe: string;
-        mode: string;
-        noLibraryMode?: boolean;
-        lockedIntent?: LockedIntent;
-        constraintLayer?: ConstraintLayer;
-        classMap?: Map<string, {
-          genrePrimary: string;
-          genreFamily: string;
-          primarySubgenre: string;
-          secondarySubgenre: string | null;
-          subGenres: string[];
-        }>;
-        genreByTrack?: (trackId: string) => {
-          genrePrimary?: string | null;
-          genreFamily?: string | null;
-          genres?: string[] | null;
-        } | null;
-        trackReusePenalty?: Map<string, number>;
-        artistReusePenalty?: Map<string, number>;
-      } })._genCtx;
-      req.log.error({ userId, requestId, code: "TIMEOUT" }, "Generate hard timeout — emergency fallback");
-      if (!ctx?.likedSongs?.length) {
-        res.status(504).json({
-          success: false,
-          error: "Generation took too long before a safe playlist could be built. Try again with a slightly broader prompt, or sync your Spotify library and retry.",
-          code: "TIMEOUT",
-          tracks: [],
-          generationDiagnostics: {
-            recoveryTriggered: false,
-            fallbackLevel: "none",
-            sessionCancelled: true,
-            failureReason: "hard_timeout_before_safe_fallback",
-          },
-        });
-        return;
-      }
-      const maxPerArtist = ctx.maxPerArtist ?? artistDiversityCap(ctx.length, ctx.vibe);
-      const fallbackTracks = ctx.constrainedFallbackTracks?.length
-        ? ctx.constrainedFallbackTracks
-        : ctx.likedSongs;
-      const pipeline = buildFallbackPipelineResult({
-        tracks: fallbackTracks,
-        emotionProfile: ctx.emotionProfile,
-        playlistLength: ctx.length,
-        maxPerArtist,
-        librarySize: fallbackTracks.length,
-        genreByTrack: ctx.genreByTrack,
-      });
-      const finalizedFallback = ctx.lockedIntent && ctx.constraintLayer && ctx.classMap
-        ? finalizePlaylistTracks({
-            initial: pipeline.finalTracks as unknown as ConstraintTrack[],
-            candidates: fallbackTracks.map((track) => ({ ...track, score: 0.6 } as ConstraintTrack)),
-            requestedLength: ctx.length,
-            vibe: ctx.vibe,
-            intent: ctx.lockedIntent,
-            constraints: ctx.constraintLayer,
-            classMap: ctx.classMap,
-            maxPerArtist,
-            trackReusePenalty: ctx.trackReusePenalty,
-            artistReusePenalty: ctx.artistReusePenalty,
-          }).tracks
-        : pipeline.finalTracks;
-      const strictFallbackFailure = explicitGenreFallbackFailure({
-        vibe: ctx.vibe,
-        requestedCount: ctx.length,
-        finalCount: finalizedFallback.length,
-        hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
-        noLibraryMode: !!ctx.noLibraryMode,
-      });
-      if (strictFallbackFailure && finalizedFallback.length === 0) {
-        res.status(409).json({
-          success: false,
-          error: strictFallbackFailure.error,
-          code: strictFallbackFailure.code,
-          strictGenreEvidence: strictFallbackFailure.details,
-          tracks: [],
-        });
-        return;
-      }
-      const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
-      res.json({
-        success: true,
-        fastFallback: true,
-        code: "TIMEOUT_FALLBACK",
-        fallbackReason: {
-          stage: preV3Timing.slowestStage ?? "hard_timeout",
-          elapsedMs: preV3Timing.slowestStageMs,
+      req.log.error({ userId, requestId, code: "TIMEOUT" }, "Generate hard timeout — no controller fallback authority");
+      res.status(504).json({
+        success: false,
+        error: "Generation took too long before V3 could return a safe playlist. Try again with a slightly broader prompt, or sync your Spotify library and retry.",
+        code: "TIMEOUT",
+        tracks: [],
+        generationDiagnostics: {
+          recoveryTriggered: false,
+          fallbackLevel: "none",
+          sessionCancelled: true,
+          failureReason: "hard_timeout_no_controller_fallback",
+          controllerAuthorityConflict: false,
         },
-        playlistName,
-        name: playlistName,
-        vibe: ctx.vibe,
-        mode: ctx.mode,
-        count: finalizedFallback.length,
-        totalTracks: finalizedFallback.length,
-        spotifyUnavailable: true,
-        tracks: formatTracksForApi(finalizedFallback, ctx.emotionProfile),
       });
     });
 
@@ -4560,8 +4505,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGeneratePhase(generateSessionUserId, requestId, "building_profile");
     setGenerateStageDetail(generateSessionUserId, requestId, "Loading recent playlist memory and feedback");
     tStage = Date.now();
-    const snapshotRecentPlaylists = fullSessionSnapshotHit ? sessionSnapshot?.recentPlaylists ?? null : null;
-    const snapshotFeedbackMemory = fullSessionSnapshotHit ? sessionSnapshot?.feedbackMemory ?? null : null;
+    const snapshotRecentPlaylists = !devMode && !noLibraryMode ? sessionSnapshot?.recentPlaylists ?? null : null;
+    const snapshotFeedbackMemory = !devMode && !noLibraryMode ? sessionSnapshot?.feedbackMemory ?? null : null;
     const memoryCacheHit = !!snapshotRecentPlaylists && !!snapshotFeedbackMemory;
     const endMemoryProfile = liveStageProfiler.start(
       "preV3.memoryAndFeedback",
@@ -4590,13 +4535,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     } finally {
       endMemoryProfile();
     }
-    if (!devMode && !noLibraryMode && !fullSessionSnapshotHit) {
-      sessionSnapshot = mergeSessionSnapshot<
-        typeof likedSongsTable.$inferSelect,
-        typeof playlistHistoryTable.$inferSelect,
-        FeedbackMemory
-      >(userId, sessionSnapshotId, { likedSongs: likedRowsRaw, recentPlaylists, feedbackMemory });
-    }
     if (fullSessionSnapshotHit && dbHydrationOccurred) {
       executionHealth.healthState = "BROKEN";
       executionHealth.primaryCause = executionHealth.primaryCause ?? "CACHE_BYPASS_FAILURE";
@@ -4610,6 +4548,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       generateFail(res, 500, "CACHE_BYPASS_FAILURE", "Generation cache hit attempted database hydration.");
       return;
     }
+    executionHealth.hydrationCount = dbHydrationOccurred ? 1 : 0;
     const playlistHistoryQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "playlistHistoryQueryMs", playlistHistoryQueryMs);
     if (!memoryCacheHit) recordPreV3Timing(preV3Timing, "dbTimeMs", playlistHistoryQueryMs);
@@ -5045,14 +4984,17 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
         "Time budget — fast fallback playlist"
       );
-      pipeline = buildFallbackPipelineResult({
-        tracks: constrainedFallbackTracks,
-        emotionProfile,
-        playlistLength: length,
-        maxPerArtist,
-        librarySize: constrainedFallbackTracks.length,
-        genreByTrack,
-      });
+      generateFail(
+        res,
+        504,
+        "TIMEOUT",
+        "Generation timed out before V3 could run safely. Try Balanced mode or regenerate in a moment.",
+        {
+          fallbackReason,
+          controllerAuthorityConflict: false,
+        },
+      );
+      return;
     } else {
       if (!recordExecutionStage(executionHealth, req.log, "playlistPipeline", "controller.runRequestLayerGeneration", {
         cause: "UNEXPECTED_FALLBACK_PATH",
@@ -5068,9 +5010,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         generateFail(res, 500, "DUPLICATE_EXECUTION_DETECTED", "Generation attempted duplicate V3 execution.");
         return;
       }
-      executionHealth.scoringPassCount += 1;
       executionHealth.retrievalPassCount += 1;
-      executionHealth.v3InvocationCount += 1;
       pipeline = await runRequestLayerGeneration({
       pipelineLog: req.log,
       likedSongs,
@@ -5147,6 +5087,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         setGenerateStageDetail(generateSessionUserId, requestId, detail);
       },
     });
+      const pipelineV3DiagnosticsForHealth = ((pipeline.scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+      const controlledGenerationForHealth = (pipelineV3DiagnosticsForHealth["controlledGeneration"] ?? {}) as Record<string, unknown>;
+      const actualV3InvocationCount = controlledGenerationForHealth["v3InvocationCount"];
+      executionHealth.v3InvocationCount = typeof actualV3InvocationCount === "number" && Number.isFinite(actualV3InvocationCount)
+        ? actualV3InvocationCount
+        : 1;
+      executionHealth.scoringPassCount = executionHealth.v3InvocationCount;
     }
     playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
@@ -5834,6 +5781,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       humanCoherenceComponents: humanCoherence.components,
       humanCoherenceReasons: humanCoherence.reasons,
       humanCoherenceRepairUsed,
+      sessionHydrationShared,
+      cacheDbActivity: {
+        hydrationDbRead: dbHydrationOccurred,
+        cachedResultSideEffectWrites: false,
+      },
       majorExclusions: [
         ...clusterCuration.diagnostics.majorExclusions,
         ...humanCoherence.reasons,
@@ -6139,6 +6091,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           typeof playlistHistoryTable.$inferSelect,
           FeedbackMemory
         >(userId, sessionSnapshotId, {
+          likedSongs: likedRowsRaw,
           recentPlaylists: [
             {
               id: 0,
@@ -6155,6 +6108,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
             ...(sessionSnapshot?.recentPlaylists ?? []),
           ].slice(0, 25),
+          feedbackMemory,
         });
       }
     } catch (histErr) {
@@ -6807,110 +6761,20 @@ router.post("/generate", async (req, res): Promise<void> => {
         return;
       }
       const timedOut = Date.now() - startMs >= requestHardTimeoutMs - 1000;
-      const ctx = (req as { _genCtx?: {
-        likedSongs: { trackId: string; trackName: string; artistName: string; albumName: string }[];
-        constrainedFallbackTracks?: { trackId: string; trackName: string; artistName: string; albumName: string }[];
-        emotionProfile: EmotionProfile;
-        length: number;
-        maxPerArtist?: number;
-        vibe: string;
-        mode: string;
-        noLibraryMode?: boolean;
-        lockedIntent?: LockedIntent;
-        constraintLayer?: ConstraintLayer;
-        classMap?: Map<string, {
-          genrePrimary: string;
-          genreFamily: string;
-          primarySubgenre: string;
-          secondarySubgenre: string | null;
-          subGenres: string[];
-        }>;
-        genreByTrack?: (trackId: string) => {
-          genrePrimary?: string | null;
-          genreFamily?: string | null;
-          genres?: string[] | null;
-        } | null;
-        trackReusePenalty?: Map<string, number>;
-        artistReusePenalty?: Map<string, number>;
-      } })._genCtx;
-      if (timedOut && ctx?.likedSongs?.length) {
-        const maxPerArtist = ctx.maxPerArtist ?? artistDiversityCap(ctx.length, ctx.vibe);
-        const fallbackTracks = ctx.constrainedFallbackTracks?.length
-          ? ctx.constrainedFallbackTracks
-          : ctx.likedSongs;
-        const pipeline = buildFallbackPipelineResult({
-          tracks: fallbackTracks as Parameters<typeof buildFallbackPipelineResult>[0]["tracks"],
-          emotionProfile: ctx.emotionProfile,
-          playlistLength: ctx.length,
-          maxPerArtist,
-          librarySize: fallbackTracks.length,
-          genreByTrack: ctx.genreByTrack,
-        });
-        const finalizedFallback = ctx.lockedIntent && ctx.constraintLayer && ctx.classMap
-          ? finalizePlaylistTracks({
-              initial: pipeline.finalTracks as ConstraintTrack[],
-              candidates: fallbackTracks.map((track) => ({ ...track, score: 0.6 } as ConstraintTrack)),
-              requestedLength: ctx.length,
-              vibe: ctx.vibe,
-              intent: ctx.lockedIntent,
-              constraints: ctx.constraintLayer,
-              classMap: ctx.classMap,
-              maxPerArtist,
-              trackReusePenalty: ctx.trackReusePenalty,
-              artistReusePenalty: ctx.artistReusePenalty,
-            }).tracks
-          : pipeline.finalTracks;
-        const strictFallbackFailure = explicitGenreFallbackFailure({
-          vibe: ctx.vibe,
-          requestedCount: ctx.length,
-          finalCount: finalizedFallback.length,
-          hasGenreAwarePool: !!ctx.constrainedFallbackTracks?.length && !!ctx.genreByTrack,
-          noLibraryMode: !!ctx.noLibraryMode,
-        });
-        if (strictFallbackFailure && finalizedFallback.length === 0) {
-          res.status(409).json({
-            success: false,
-            error: strictFallbackFailure.error,
-            code: strictFallbackFailure.code,
-            strictGenreEvidence: strictFallbackFailure.details,
-            tracks: [],
-          });
-          return;
-        }
-        const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
-        res.json({
-          success: true,
-          fastFallback: true,
-          code: "TIMEOUT_FALLBACK",
-          playlistName,
-          name: playlistName,
-          vibe: ctx.vibe,
-          mode: ctx.mode,
-          count: finalizedFallback.length,
-          totalTracks: finalizedFallback.length,
-          spotifyUnavailable: true,
-          generationDiagnostics: {
-            recoveryTriggered: true,
-            fallbackLevel: "soft",
-            sessionCancelled: false,
-          },
-          tracks: formatTracksForApi(finalizedFallback, ctx.emotionProfile),
-        });
-      } else {
-        res.status(timedOut ? 504 : 500).json({
-          success: false,
-          error: timedOut
-            ? "Generation took too long. Try Balanced mode or regenerate in a moment."
-            : "An unexpected error occurred. Please try again.",
-          code: timedOut ? "TIMEOUT" : "INTERNAL_ERROR",
-          tracks: [],
-          generationDiagnostics: {
-            recoveryTriggered: false,
-            fallbackLevel: "none",
-            sessionCancelled: false,
-          },
-        });
-      }
+      res.status(timedOut ? 504 : 500).json({
+        success: false,
+        error: timedOut
+          ? "Generation took too long before V3 could return a safe playlist. Try Balanced mode or regenerate in a moment."
+          : "An unexpected error occurred. Please try again.",
+        code: timedOut ? "TIMEOUT" : "INTERNAL_ERROR",
+        tracks: [],
+        generationDiagnostics: {
+          recoveryTriggered: false,
+          fallbackLevel: "none",
+          sessionCancelled: false,
+          controllerAuthorityConflict: false,
+        },
+      });
     }
   }
 });
