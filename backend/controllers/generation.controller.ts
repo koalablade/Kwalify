@@ -3079,7 +3079,7 @@ function repairFinalResponseDuplicateSongIdentities<T extends ConstraintTrack>(
       if (seenIds.has(candidate.trackId)) return false;
       const candidateSignature = trackRepeatSignature(candidate);
       if (candidateSignature && seenSignatures.has(candidateSignature)) return false;
-      if (!finalTrackIsSafe(candidate, opts)) return false;
+      if (!finalTrackIsHardSafe(candidate, opts)) return false;
       const artistKey = candidate.artistName.toLowerCase().trim();
       return (artistCounts.get(artistKey) ?? 0) < opts.maxPerArtist;
     });
@@ -7943,6 +7943,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     if (finalApiTracks.length < length) {
       const apiRefillSeenIds = new Set(finalTracks.map((track) => track.trackId));
+      const apiRefillSeenSignatures = new Set(
+        finalTracks.map((track) => trackRepeatSignature(track)).filter((value): value is string => !!value)
+      );
       const apiRefillArtistCounts = new Map<string, number>();
       for (const track of finalTracks) {
         const artist = track.artistName.toLowerCase().trim();
@@ -7971,6 +7974,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         if (finalTracks.length >= length) break;
         const candidate = source as ConstraintTrack;
         if (apiRefillSeenIds.has(candidate.trackId)) continue;
+        const candidateSignature = trackRepeatSignature(candidate);
+        if (candidateSignature && apiRefillSeenSignatures.has(candidateSignature)) continue;
         if (!finalTrackIsHardSafe(candidate, {
           vibe,
           intent: lockedIntent,
@@ -7985,6 +7990,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           continue;
         }
         apiRefillSeenIds.add(candidate.trackId);
+        if (candidateSignature) apiRefillSeenSignatures.add(candidateSignature);
         apiRefillArtistCounts.set(artist, (apiRefillArtistCounts.get(artist) ?? 0) + 1);
         finalTracks.push(candidate as PlaylistTrack);
         apiRefillAdded += 1;
