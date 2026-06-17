@@ -649,6 +649,7 @@ type IntentContractTrack = {
   valence: number | null;
   danceability: number | null;
   acousticness: number | null;
+  speechiness?: number | null;
   tempo: number | null;
   trackName?: string | null;
   artistName?: string | null;
@@ -859,27 +860,33 @@ function contractMoodMatch(track: IntentContractTrack, mood: string): boolean {
 
 function contractActivityMatch(track: IntentContractTrack, activity: string | null): boolean {
   if (!activity) return true;
-  const energy = track.energy ?? 0.5;
-  const tempo = track.tempo ?? 110;
-  const danceability = track.danceability ?? 0.5;
-  const acousticness = track.acousticness ?? 0.4;
+  const energy = track.energy;
+  const tempo = track.tempo;
+  const danceability = track.danceability;
+  const acousticness = track.acousticness;
+  const speechiness = track.speechiness;
   switch (activity) {
     case "driving":
-      return energy >= 0.30 && energy <= 0.82 && tempo >= 75;
+      return (energy == null || (energy >= 0.30 && energy <= 0.82)) && (tempo == null || tempo >= 75);
     case "focus":
-      return energy <= 0.70 && danceability <= 0.78;
+      return (energy == null || energy <= 0.62) &&
+        (danceability == null || danceability <= 0.70) &&
+        (speechiness == null || speechiness <= 0.35);
     case "gym":
-      return energy >= 0.50 || tempo >= 108 || danceability >= 0.56;
+      return (typeof energy === "number" && energy >= 0.52) ||
+        (typeof tempo === "number" && tempo >= 108) ||
+        (typeof danceability === "number" && danceability >= 0.58);
     case "relaxing":
-      return energy <= 0.55 || acousticness >= 0.35;
+      return (energy == null || energy <= 0.55) || (typeof acousticness === "number" && acousticness >= 0.35);
     case "party":
-      return energy >= 0.58 || danceability >= 0.62;
+      return (typeof energy === "number" && energy >= 0.58) ||
+        (typeof danceability === "number" && danceability >= 0.62);
     case "cleaning":
-      return energy >= 0.35 && energy <= 0.78;
+      return energy == null || (energy >= 0.35 && energy <= 0.78);
     case "sleep":
-      return energy <= 0.42 || acousticness >= 0.45;
+      return (energy == null || energy <= 0.42) || (typeof acousticness === "number" && acousticness >= 0.45);
     case "travel":
-      return energy >= 0.30 && tempo >= 70;
+      return (energy == null || energy >= 0.30) && (tempo == null || tempo >= 70);
     default:
       return true;
   }
@@ -1219,22 +1226,32 @@ function promptOrderingBias<T extends IntentContractTrack>(
 ): number {
   if (!promptKey) return 0;
   const fit = intentContractFit(track, classMap, contract).score;
-  const energy = track.energy ?? 0.5;
-  const tempo = track.tempo ?? 110;
+  const energy = track.energy;
+  const tempo = track.tempo;
   const valence = track.valence ?? 0.5;
-  const danceability = track.danceability ?? 0.5;
-  const acousticness = track.acousticness ?? 0.4;
+  const danceability = track.danceability;
+  const acousticness = track.acousticness;
   const promptHash = stableUnitHash(`${promptKey}:${track.trackId}`);
   const activityLift =
-    contract.activity === "gym" ? Math.max(0, Math.max(energy - 0.48, (tempo - 108) / 90, danceability - 0.52)) * 0.34 :
-    contract.activity === "party" ? Math.max(0, Math.max(energy, danceability) - 0.52) * 0.28 :
-    contract.activity === "focus" ? Math.max(0, 0.76 - Math.max(energy, danceability)) * 0.30 :
-    contract.activity === "relaxing" || contract.activity === "sleep" ? Math.max(0, acousticness - 0.22) * 0.24 :
+    contract.activity === "gym" ? Math.max(0, Math.max(
+      typeof energy === "number" ? energy - 0.48 : -1,
+      typeof tempo === "number" ? (tempo - 108) / 90 : -1,
+      typeof danceability === "number" ? danceability - 0.52 : -1,
+    )) * 0.34 :
+    contract.activity === "party" ? Math.max(0, Math.max(
+      typeof energy === "number" ? energy : 0,
+      typeof danceability === "number" ? danceability : 0,
+    ) - 0.52) * 0.28 :
+    contract.activity === "focus" ? Math.max(0, 0.76 - Math.max(
+      typeof energy === "number" ? energy : 0.5,
+      typeof danceability === "number" ? danceability : 0.5,
+    )) * 0.30 :
+    contract.activity === "relaxing" || contract.activity === "sleep" ? Math.max(0, (acousticness ?? 0.4) - 0.22) * 0.24 :
     0;
   const moodLift =
     contract.mood.includes("euphoric") ? Math.max(0, valence - 0.50) * 0.20 :
     contract.mood.includes("melancholic") || contract.mood.includes("dark") ? Math.max(0, 0.57 - valence) * 0.20 :
-    contract.mood.includes("calm") ? Math.max(0, 0.64 - energy) * 0.18 :
+    contract.mood.includes("calm") ? Math.max(0, 0.64 - (energy ?? 0.5)) * 0.18 :
     0;
   const fitLift = contract.explicitDimensions.length > 0 ? fit * 0.30 : 0;
   return fitLift + activityLift + moodLift + identityTermScore(track, contract, classMap) * 1.50 + promptHash * 0.008;
@@ -3684,10 +3701,13 @@ export async function buildPlaylistPipeline<T extends {
     energyArc: retrieval.energyArc,
     discovery: retrieval.discovery,
   }) as ScoredLibraryTrack<T>[];
-  const v3SafetyInputCap = Math.min(
+  const baseV3SafetyInputCap = Math.min(
     V3_SAFETY_INPUT_MAX,
     Math.max(V3_SAFETY_INPUT_MIN, opts.playlistLength * V3_SAFETY_INPUT_PER_TRACK)
   );
+  const v3SafetyInputCap = activityKind
+    ? Math.min(baseV3SafetyInputCap, Math.max(150, opts.playlistLength * 6))
+    : baseV3SafetyInputCap;
   const capV3SafetyPool = (pool: ScoredLibraryTrack<T>[]): ScoredLibraryTrack<T>[] =>
     pool.length > v3SafetyInputCap ? pool.slice(0, v3SafetyInputCap) : pool;
   const candidateInputs: Array<{ label: string; pool: ScoredLibraryTrack<T>[]; seedOffset: number }> = retrievalSafetyExpanded
