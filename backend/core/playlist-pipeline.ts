@@ -559,6 +559,7 @@ type IntentContract = {
   emotionalTone?: string[];
   rawPrompt: string;
   genreFamilies: string[];
+  excludedGenreFamilies: string[];
   eraRange: { start: number; end: number } | null;
   mood: string[];
   activity: string | null;
@@ -691,6 +692,21 @@ function uniqueNormalizedTerms(values: Array<string | null | undefined>): string
     .filter((value, index, values) => values.indexOf(value) === index);
 }
 
+function parseExcludedGenreFamilies(input: string): string[] {
+  const excluded = new Set<string>();
+  for (const match of input.matchAll(/\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&,\-\s]{2,72})/gi)) {
+    const phrase = match[1] ?? "";
+    for (const group of EXPANDED_GENRE_ALIASES) {
+      if (termRegex([group.family, ...group.terms]).test(phrase)) excluded.add(group.family);
+    }
+    for (const part of phrase.split(/\s*,\s*|\s+or\s+|\s+and\s+/i)) {
+      const family = getGenreFamily(part.trim());
+      if (family) excluded.add(family);
+    }
+  }
+  return [...excluded];
+}
+
 function ontologyTermTokens(): Set<string> {
   const ontologyTerms = [
     ...EXPANDED_GENRE_ALIASES.flatMap((group) => [group.family, ...group.terms]),
@@ -761,6 +777,7 @@ function extractIdentityTerms(input: string, parsed: LockedIntent): string[] {
 
 function parseIntentContract(input: string, parsed: LockedIntent): IntentContract {
   const lower = input.toLowerCase();
+  const excludedGenreFamilies = parseExcludedGenreFamilies(input);
   const timeOfDay: IntentContract["timeOfDay"] = [
     termRegex(EXPANDED_TIME_TERMS.morning).test(lower) ? "morning" : null,
     termRegex(EXPANDED_TIME_TERMS.afternoon).test(lower) ? "afternoon" : null,
@@ -778,6 +795,7 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
   const hasEvent = termRegex(EXPANDED_EVENT_TERMS).test(lower);
   const explicitDimensions = [
     parsed.genreFamilies.length > 0 ? "genre" : null,
+    excludedGenreFamilies.length > 0 ? "excludedGenre" : null,
     parsed.primarySubgenre ? "subgenre" : null,
     parsed.eraRange ? "era" : null,
     parsed.mood.length > 0 ? "mood" : null,
@@ -808,6 +826,7 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
     emotionalTone: parsed.mood,
     rawPrompt: input,
     genreFamilies: parsed.genreFamilies,
+    excludedGenreFamilies,
     eraRange: parsed.eraRange,
     mood: parsed.mood,
     activity: parsed.activity,
@@ -956,6 +975,7 @@ function intentContractFit<T extends IntentContractTrack>(
   };
 
   add(contract.genreFamilies.length > 0, trackMatchesGenreFamilies(track, classMap, contract.genreFamilies), true);
+  add(contract.excludedGenreFamilies.length > 0, !trackMatchesGenreFamilies(track, classMap, contract.excludedGenreFamilies), true);
   add(!!contract.primarySubgenre, trackMatchesStructuredSubgenre(track, classMap, contract));
   add(!!contract.eraRange, !!contract.eraRange && !trackHasKnownEraMismatch(track, contract.eraRange), true);
   add(!!contract.energy, contractEnergyMatch(track, contract.energy));
@@ -975,6 +995,12 @@ function trackCompatibleWithHardIntentContract<T extends IntentContractTrack>(
   classMap: UserGenreProfile["trackClassifications"],
   contract: IntentContract,
 ): boolean {
+  if (
+    contract.excludedGenreFamilies.length > 0 &&
+    trackMatchesGenreFamilies(track, classMap, contract.excludedGenreFamilies)
+  ) {
+    return false;
+  }
   if (
     contract.genreFamilies.length > 0 &&
     contradictsExplicitGenreTruth(track, contract.genreFamilies)
@@ -1011,7 +1037,7 @@ function constrainPoolToIntentContract<T extends IntentContractTrack>(
   const relaxed = strict.length > 0 && strictEnoughForNicheSubgenre
     ? strict
     : scored.filter(({ fit }) => fit.requiredPassed && fit.score >= 0.34);
-  const hasRequiredContract = contract.genreFamilies.length > 0 || !!contract.eraRange;
+  const hasRequiredContract = contract.genreFamilies.length > 0 || contract.excludedGenreFamilies.length > 0 || !!contract.eraRange;
   const safeMinimum = hasRequiredContract
     ? Math.min(pool.length, Math.max(12, Math.ceil(pool.length * 0.10)))
     : 0;
@@ -1074,8 +1100,9 @@ function enforceIntentContract<T extends ScoredLibraryTrack<IntentContractTrack>
       return { ...track, contractFitScore };
     })
     .filter((track) => {
+      if (classMap && !trackCompatibleWithHardIntentContract(track, classMap, intent)) return false;
       if (intent.explicitDimensions.length === 0 || track.contractFitScore > 0) return true;
-      if (!classMap || (intent.genreFamilies.length === 0 && !intent.eraRange)) return false;
+      if (!classMap || (intent.genreFamilies.length === 0 && intent.excludedGenreFamilies.length === 0 && !intent.eraRange)) return false;
       return trackCompatibleWithHardIntentContract(track, classMap, intent);
     })
     .sort((a, b) => b.contractFitScore - a.contractFitScore);
