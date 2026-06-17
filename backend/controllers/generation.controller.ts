@@ -856,10 +856,54 @@ function timeoutFallbackResponse(
   const genreByTrack = typeof ctx?.genreByTrack === "function"
     ? ctx.genreByTrack as (trackId: string) => { genrePrimary?: string | null; genreFamily?: string | null; genres?: string[] | null } | null | undefined
     : undefined;
+  const lockedIntent = ctx?.lockedIntent as LockedIntent | undefined;
+  const classMap = ctx?.classMap instanceof Map
+    ? ctx.classMap as Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>
+    : new Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>();
   if (!emotionProfile || timeoutSource.length === 0 || length <= 0) return false;
+  const expectedFamilies = lockedIntent
+    ? (lockedIntent.primaryGenres.length > 0 ? lockedIntent.primaryGenres : lockedIntent.genreFamilies)
+    : [];
+  const eraRange = lockedIntent?.eraRange ?? null;
+  const orderedTimeoutSource = (() => {
+    if (expectedFamilies.length === 0 && !eraRange) return timeoutSource;
+    const strict: unknown[] = [];
+    const genreOnly: unknown[] = [];
+    const eraCompatible: unknown[] = [];
+    const rest: unknown[] = [];
+    for (const track of timeoutSource) {
+      const candidate = track as ConstraintTrack;
+      const genreOk = expectedFamilies.length === 0 || hasFinalGenreEvidence(candidate, classMap, expectedFamilies);
+      const eraOk = !eraRange || trackHasEraEvidence(candidate, eraRange);
+      const eraNotWrong = !eraRange || !trackHasKnownEraMismatch(candidate, eraRange);
+      if (genreOk && eraOk) strict.push(track);
+      else if (genreOk && eraNotWrong) genreOnly.push(track);
+      else if (eraOk) eraCompatible.push(track);
+      else rest.push(track);
+    }
+    const seen = new Set<string>();
+    return [...strict, ...genreOnly, ...eraCompatible, ...rest].filter((track) => {
+      const trackId = (track as { trackId?: string }).trackId;
+      if (!trackId || seen.has(trackId)) return false;
+      seen.add(trackId);
+      return true;
+    });
+  })();
 
   const pipeline = buildFallbackPipelineResult({
-    tracks: timeoutSource as Array<{
+    tracks: orderedTimeoutSource as Array<{
       trackId: string;
       trackName: string;
       artistName: string;
@@ -893,6 +937,7 @@ function timeoutFallbackResponse(
       trackCount: tracks.length,
       requestedLength: length,
       source: scoringInputSongs.length > 0 ? "scoring_input" : "liked_songs",
+      strictIntentFallbackCandidates: orderedTimeoutSource.length,
       failureReason: opts.failureReason,
     },
     "Generate timeout fallback response emitted"
@@ -914,6 +959,7 @@ function timeoutFallbackResponse(
       finalResponseCompletionLockApplied: true,
       finalResponseCompletionAdded: tracks.length,
       timeoutFallbackSource: scoringInputSongs.length > 0 ? "scoring_input" : "liked_songs",
+      timeoutFallbackIntentOrdered: expectedFamilies.length > 0 || !!eraRange,
     },
     v3Diagnostics: pipeline.scoringDiagnostics,
     fastFallback: true,
