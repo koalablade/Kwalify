@@ -370,11 +370,17 @@ function transitionCost(
   }
   if (position >= 2 && position < 7) {
     const naturalVariation = stableUnitHash(`${candidate.trackId}:${position}`) - 0.5;
-    cost += naturalVariation * 0.035;
+    cost += naturalVariation * 0.018;
+  }
+  if (position >= 4 && position < Math.min(total, 12) && recentlyUsedArtists.size > 0) {
+    const contrastWindow = stableUnitHash(`${candidate.trackId}:contrast:${position}`);
+    if (!recentFamilies.has(candidateFamily) && contrastWindow > 0.72) {
+      cost -= 0.035;
+    }
   }
 
   // Keep the sampler/interleaver character visible; ordering should shape, not dominate.
-  return ((cost + originalOffset * 0.018) / djIntentBoost(candidate, previous, recentTracks, position, total));
+  return ((cost + originalOffset * 0.026) / djIntentBoost(candidate, previous, recentTracks, position, total));
 }
 
 function anchorPositions(total: number): Partial<Record<ArcSection, number>> {

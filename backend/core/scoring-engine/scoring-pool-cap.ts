@@ -274,7 +274,7 @@ export function capTracksForHybridScoring<T extends {
         const eraBoost = matchesExplicitEra(t, explicitEra) ? 0.25 : 0;
         return {
           t,
-          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05 - recentPen + explicitBoost + technoIdentityBoost + eraBoost - antiGenrePenalty,
+          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.018 - recentPen + explicitBoost + technoIdentityBoost + eraBoost - antiGenrePenalty,
         };
       })
       .sort((a, b) => b.fit - a.fit);
@@ -359,7 +359,7 @@ export function capTracksForHybridScoring<T extends {
       t,
       fit:
         quickEmotionFit(t, opts.emotionProfile) +
-        seededJitter(t.trackId, seed) * 0.05 -
+        seededJitter(t.trackId, seed) * 0.018 -
         recentPen +
         eraBoost +
         explicitBoost +

@@ -94,14 +94,14 @@ export function artistMemoryCount(memory: SessionArtistMemory | undefined, artis
 
 export function artistMemoryPenalty(memory: SessionArtistMemory | undefined, artistName: string | null | undefined): number {
   const count = artistMemoryCount(memory, artistName);
-  const pressure = Math.max(0, Math.min(1.35, memory?.diversityPressure ?? 1));
-  return count > 0 && pressure > 0 ? Math.pow(0.14, count * pressure) : 1;
+  const pressure = Math.max(0, Math.min(1.75, memory?.diversityPressure ?? 1));
+  return count > 0 && pressure > 0 ? Math.pow(0.10, count * pressure) : 1;
 }
 
 export function artistExceedsSessionCap(memory: SessionArtistMemory | undefined, artistName: string | null | undefined): boolean {
   const artist = normalizeArtist(artistName);
   if (!artist || !memory) return false;
-  const pressure = Math.max(0, Math.min(1.35, memory.diversityPressure ?? 1));
+  const pressure = Math.max(0, Math.min(1.75, memory.diversityPressure ?? 1));
   if (pressure < 0.45) return false;
   const effectiveCap = pressure >= 0.85
     ? memory.maxArtistAppearances
@@ -116,7 +116,7 @@ export function withSessionDiversityPressure(
   if (!memory) return undefined;
   return {
     ...memory,
-    diversityPressure: Math.max(0, Math.min(1.35, diversityPressure)),
+    diversityPressure: Math.max(0, Math.min(1.75, diversityPressure)),
   };
 }
 

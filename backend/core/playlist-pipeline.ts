@@ -1182,9 +1182,9 @@ function sceneIdentityCoherenceScore<T extends IntentContractTrack>(
   ].filter(Boolean).length;
 
   const specificityLift =
-    (activityAligned ? 0.18 : 0) +
-    (moodAligned ? 0.14 : 0) +
-    (textAligned ? Math.min(0.14, Math.max(0, identityScore) * 0.70) : 0) +
+    (activityAligned ? 0.24 : 0) +
+    (moodAligned ? 0.18 : 0) +
+    (textAligned ? Math.min(0.18, Math.max(0, identityScore) * 0.82) : 0) +
     (subgenreAligned ? 0.08 : 0) +
     (familyAligned && eraAligned ? 0.045 : 0) +
     (familyAligned && moodAligned ? 0.045 : 0) +
@@ -1204,11 +1204,11 @@ function sceneIdentityCoherenceScore<T extends IntentContractTrack>(
       : 0;
 
   const requiredSceneMissPenalty =
-    (contract.activity && !activityAligned ? 0.18 : 0) +
-    (contract.mood.length > 0 && !moodAligned ? 0.12 : 0) +
-    (contract.explicitDimensions.some((dimension) => dimension === "place" || dimension === "timeOfDay") && !textAligned ? 0.08 : 0);
+    (contract.activity && !activityAligned ? 0.24 : 0) +
+    (contract.mood.length > 0 && !moodAligned ? 0.16 : 0) +
+    (contract.explicitDimensions.some((dimension) => dimension === "place" || dimension === "timeOfDay") && !textAligned ? 0.12 : 0);
 
-  return Math.max(-0.34, Math.min(0.52, specificityLift + weakFallbackPenalty - requiredSceneMissPenalty));
+  return Math.max(-0.42, Math.min(0.64, specificityLift + weakFallbackPenalty - requiredSceneMissPenalty));
 }
 
 function promptOrderingBias<T extends IntentContractTrack>(
@@ -1226,18 +1226,18 @@ function promptOrderingBias<T extends IntentContractTrack>(
   const acousticness = track.acousticness ?? 0.4;
   const promptHash = stableUnitHash(`${promptKey}:${track.trackId}`);
   const activityLift =
-    contract.activity === "gym" ? Math.max(0, Math.max(energy - 0.48, (tempo - 108) / 90, danceability - 0.52)) * 0.28 :
-    contract.activity === "party" ? Math.max(0, Math.max(energy, danceability) - 0.52) * 0.22 :
-    contract.activity === "focus" ? Math.max(0, 0.76 - Math.max(energy, danceability)) * 0.24 :
-    contract.activity === "relaxing" || contract.activity === "sleep" ? Math.max(0, acousticness - 0.22) * 0.20 :
+    contract.activity === "gym" ? Math.max(0, Math.max(energy - 0.48, (tempo - 108) / 90, danceability - 0.52)) * 0.34 :
+    contract.activity === "party" ? Math.max(0, Math.max(energy, danceability) - 0.52) * 0.28 :
+    contract.activity === "focus" ? Math.max(0, 0.76 - Math.max(energy, danceability)) * 0.30 :
+    contract.activity === "relaxing" || contract.activity === "sleep" ? Math.max(0, acousticness - 0.22) * 0.24 :
     0;
   const moodLift =
-    contract.mood.includes("euphoric") ? Math.max(0, valence - 0.50) * 0.16 :
-    contract.mood.includes("melancholic") || contract.mood.includes("dark") ? Math.max(0, 0.57 - valence) * 0.16 :
-    contract.mood.includes("calm") ? Math.max(0, 0.64 - energy) * 0.14 :
+    contract.mood.includes("euphoric") ? Math.max(0, valence - 0.50) * 0.20 :
+    contract.mood.includes("melancholic") || contract.mood.includes("dark") ? Math.max(0, 0.57 - valence) * 0.20 :
+    contract.mood.includes("calm") ? Math.max(0, 0.64 - energy) * 0.18 :
     0;
-  const fitLift = contract.explicitDimensions.length > 0 ? fit * 0.22 : 0;
-  return fitLift + activityLift + moodLift + identityTermScore(track, contract, classMap) * 1.35 + promptHash * 0.020;
+  const fitLift = contract.explicitDimensions.length > 0 ? fit * 0.30 : 0;
+  return fitLift + activityLift + moodLift + identityTermScore(track, contract, classMap) * 1.50 + promptHash * 0.008;
 }
 
 function earlyDiversityRank<T extends IntentContractTrack & { artistName?: string | null }>(
@@ -1639,7 +1639,7 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
       const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight - feedbackPenalty(track, feedback);
       const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
       const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
-      const sceneMismatchPenalty = sceneMismatchFor(track) ? 0.75 : 0;
+      const sceneMismatchPenalty = sceneMismatchFor(track) ? 0.90 : 0;
       return {
         track,
         adjustedScore: Math.max(0, baseScore + promptOrderingBias(track, contract, classMap, opts.promptKey) - trackPenalty - sceneMismatchPenalty) * artistPenalty,
