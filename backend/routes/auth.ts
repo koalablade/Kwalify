@@ -102,7 +102,7 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
       { expectedState: !!expectedState, returnedState: !!returnedState, match: returnedState === expectedState },
       "OAuth state mismatch — possible CSRF attempt"
     );
-    res.status(400).json({ error: "Invalid OAuth state. Please try logging in again." });
+    res.redirect(getFrontendRedirect("/?error=session_failed"));
     return;
   }
 

@@ -85,7 +85,7 @@ import {
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
 import { createGenerateStageTimer } from "../lib/generate-stage-timer";
-import { formatTracksForApi } from "../lib/generate-helpers";
+import { buildFallbackPipelineResult, formatTracksForApi } from "../lib/generate-helpers";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
 import type { BuildPlaylistPipelineResult } from "../core/output";
@@ -5154,17 +5154,15 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
         "Time budget — fast fallback playlist"
       );
-      generateFail(
-        res,
-        504,
-        "TIMEOUT",
-        "Generation timed out before V3 could run safely. Try Balanced mode or regenerate in a moment.",
-        {
-          fallbackReason,
-          controllerAuthorityConflict: false,
-        },
-      );
-      return;
+      pipeline = buildFallbackPipelineResult({
+        tracks: scoringInputSongs,
+        emotionProfile,
+        playlistLength: length,
+        maxPerArtist,
+        librarySize: likedSongs.length,
+        genreByTrack,
+      }) as typeof pipeline;
+      playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
     } else {
       if (!recordExecutionStage(executionHealth, req.log, "playlistPipeline", "controller.runRequestLayerGeneration", {
         cause: "UNEXPECTED_FALLBACK_PATH",
@@ -6958,7 +6956,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       intentSurvival: intentSurvivalDiagnostics,
     };
 
-    if (sideEffectPolicy.allowResultCacheWrites && !varietyBoost && !devMode && spotifyPlaylistUrl) {
+    if (sideEffectPolicy.allowResultCacheWrites && !varietyBoost && !devMode) {
       setCachedGenerateResult(resultCacheKey, {
         cacheVersion: "v30",
         playlistName,

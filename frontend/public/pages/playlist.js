@@ -164,14 +164,6 @@ function render(data) {
         <div class="track-name">${esc(name)}</div>
         <div class="track-artist">${esc(artist)}</div>
       </div>
-      <div class="track-actions">
-        <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" title="Skip this track" aria-label="Skip this track">⏭</button>
-        <button class="section-action feedback-track-btn" data-action="remove" data-track-index="${i}" title="Remove from future playlists" aria-label="Remove from future playlists">−</button>
-        <button class="section-action feedback-track-btn" data-action="replace" data-track-index="${i}" title="Replace with a nearby track" aria-label="Replace with a nearby track">↻</button>
-        <button class="section-action feedback-track-btn" data-action="like" data-track-index="${i}" title="Like this track" aria-label="Like this track">♥</button>
-        <button class="section-action feedback-track-btn" data-action="dislike" data-track-index="${i}" title="Thumbs down" aria-label="Thumbs down">↓</button>
-        <button class="section-action feedback-track-btn undo-feedback-btn" data-action="undo" data-track-index="${i}" title="Undo last feedback" aria-label="Undo last feedback" style="display:none">Undo</button>
-      </div>
     </div>`;
   }).join("");
 
@@ -199,6 +191,7 @@ function render(data) {
       <button id="copyBtn" class="btn btn-ghost">Copy tracklist</button>
       <a href="/" class="btn btn-outline btn-sm">Generate yours — free</a>
     </div>
+    <div class="playlist-vibe" style="margin-top:14px;">Want feedback controls and replacements? Sign in and generate your own version.</div>
     <div class="tracks-list">${tracksHtml}</div>
   </div>`;
 
@@ -219,46 +212,6 @@ function render(data) {
     }
   });
 
-  document.querySelectorAll(".feedback-track-btn[data-track-index]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const index = Number(btn.dataset.trackIndex);
-      const action = btn.dataset.action;
-      const track = tracks[index];
-      if (!track || !action) return;
-      btn.disabled = true;
-      const originalText = btn.textContent;
-      btn.textContent = action === "like" ? "♥" : action === "replace" ? "…" : action === "undo" ? "Undo" : "✓";
-      try {
-        if (action === "undo") {
-          await sendFeedbackEvent(track, "undo", data.id, { vibe: data.vibe || "" });
-          btn.closest(".track-row")?.style.setProperty("opacity", "1");
-          btn.style.display = "none";
-          btn.disabled = false;
-          return;
-        }
-        if (action === "replace") {
-          const replacement = await replacePlaylistTrack(data.id, track, { vibe: data.vibe || "" });
-          if (replacement) {
-            data.tracks[index] = replacement;
-            render(data);
-          }
-          return;
-        }
-        await sendFeedbackEvent(track, action, data.id, { vibe: data.vibe || "" });
-        if (action === "skip") await sendImplicitFeedback(track, 0, true, "skip");
-        if (action === "like") await sendImplicitFeedback(track, track.durationMs || 0, false, "manual_save");
-        if (action === "remove" || action === "dislike") {
-          const row = btn.closest(".track-row");
-          row?.style.setProperty("opacity", "0.45");
-          const undo = row?.querySelector(".undo-feedback-btn");
-          if (undo) undo.style.display = "inline-flex";
-        }
-      } catch (_) {
-        btn.disabled = false;
-        btn.textContent = originalText;
-      }
-    });
-  });
 }
 
 async function boot() {
@@ -267,10 +220,10 @@ async function boot() {
   root.innerHTML = navHtml() + `<div class="loading-shell"><div class="spinner"></div><span>Loading playlist…</span></div>`;
 
   try {
-    const r = await fetch(`/api/share/${playlistId}`, { credentials: "include" });
-    if (r.status === 404) { renderNotFound(); return; }
-    if (!r.ok) { renderLoadError("The server could not load this playlist right now."); return; }
-    render(await r.json());
+    const result = await api(`/share/${playlistId}`, { timeoutMs: 20_000 });
+    if (result.status === 404) { renderNotFound(); return; }
+    if (!result.ok) { renderLoadError("The server could not load this playlist right now."); return; }
+    render(result.data);
   } catch {
     renderLoadError("Network error while loading this playlist.");
   }

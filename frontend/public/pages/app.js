@@ -109,7 +109,7 @@ function userFacingApiError(result, fallback = "Something went wrong. Please try
 }
 
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/edit?pli=1";
+const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform";
 let generationStatusTimer = null;
 let generationUiTimer = null;
 let activeGenerationAbort = null;

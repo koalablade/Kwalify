@@ -38,7 +38,8 @@ function isExempt(req: Request): boolean {
     req.path === "/readyz" ||
     req.path === "/api/healthz" ||
     req.path === "/api/readyz" ||
-    req.path === "/api/health";
+    req.path === "/api/health" ||
+    req.path === "/api/eval/ping";
 }
 
 export function globalRateLimit(req: Request, res: Response, next: NextFunction): void {

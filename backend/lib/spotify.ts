@@ -153,6 +153,11 @@ async function awaitSpotifySlot(userKey?: string): Promise<void> {
     () => new Promise<void>((r) => setTimeout(r, MIN_SPOTIFY_GAP_MS))
   );
   sessionThrottle.set(userKey, slot);
+  slot.finally(() => {
+    if (sessionThrottle.get(userKey) === slot) {
+      sessionThrottle.delete(userKey);
+    }
+  }).catch(() => undefined);
   await slot;
 }
 
@@ -199,6 +204,7 @@ async function spotifyRequest<T = unknown>(
       });
 
       if (status === 429) {
+        if (attempt >= maxRetries) throw err;
         const retryAfter = parseInt(err.response?.headers?.["retry-after"] ?? "2", 10);
         const baseSec = isNaN(retryAfter) ? 2 : retryAfter;
         const wait = baseSec * 1000 * Math.pow(2, Math.min(attempt, 3));

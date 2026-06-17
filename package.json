@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "smoke:static": "node scripts/smoke-static.mjs",
     "evaluation:playlists": "npm run build && node backend/dist/scripts/playlist-evaluation-harness.js",
+    "evaluation:overnight": "npm run build && node backend/dist/scripts/playlist-evaluation-harness.js --benchmark-size 250 --out reports/playlist-evaluation/overnight-live --timeout-ms 120000 --concurrency 1 --delay-ms 2500 --max-http-retries 2 --max-failures 35 --cluster-fail-fast 0 --checkpoint-every 1 --fresh",
+    "evaluation:overnight:resume": "npm run build && node backend/dist/scripts/playlist-evaluation-harness.js --benchmark-size 250 --out reports/playlist-evaluation/overnight-live --timeout-ms 120000 --concurrency 1 --delay-ms 2500 --max-http-retries 2 --max-failures 35 --cluster-fail-fast 0 --checkpoint-every 1 --resume",
     "benchmark:prompt-reliability": "npm run build && node backend/dist/scripts/prompt-reliability-benchmark.js",
     "regression:prompt-reliability": "npm run build && node backend/dist/scripts/prompt-reliability-regression.js",
     "ci:prompt-reliability": "npm run build && node backend/dist/scripts/prompt-reliability-ci-gate.js",

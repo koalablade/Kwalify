@@ -4,8 +4,8 @@ const generateLimiter = createConcurrencyLimiter({
   name: "generate_pipeline",
   limitEnv: "GENERATE_CONCURRENCY_LIMIT",
   queueLimitEnv: "GENERATE_QUEUE_LIMIT",
-  defaultLimit: 10,
-  defaultQueueLimit: 20,
+  defaultLimit: 4,
+  defaultQueueLimit: 12,
 });
 
 export async function acquireGenerateSlot(): Promise<() => void> {

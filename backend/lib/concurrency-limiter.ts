@@ -7,6 +7,7 @@ type Waiter = {
   resolve: (release: () => void) => void;
   reject: (err: Error) => void;
   enqueuedAt: number;
+  timer?: NodeJS.Timeout;
 };
 
 export type ConcurrencyLimiter = {
@@ -32,6 +33,7 @@ export function createConcurrencyLimiter(opts: {
 }): ConcurrencyLimiter {
   const limit = envInt(opts.limitEnv ?? "", opts.defaultLimit);
   const queueLimit = envInt(opts.queueLimitEnv ?? "", opts.defaultQueueLimit);
+  const maxWaitMs = envInt(`${opts.name.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_QUEUE_MAX_WAIT_MS`, envInt("CONCURRENCY_QUEUE_MAX_WAIT_MS", 45_000));
   const overloadQueueThreshold = opts.overloadQueueThreshold ?? Math.max(1, Math.floor(queueLimit * 0.8));
   const overloadLatencyMs = opts.overloadLatencyMs ?? 30_000;
   const queue: Waiter[] = [];
@@ -63,6 +65,7 @@ export function createConcurrencyLimiter(opts: {
       active = Math.max(0, active - 1);
       const next = queue.shift();
       if (!next) return;
+      if (next.timer) clearTimeout(next.timer);
       active += 1;
       next.resolve(makeRelease());
     };
@@ -83,7 +86,18 @@ export function createConcurrencyLimiter(opts: {
         throw err;
       }
       return new Promise<() => void>((resolve, reject) => {
-        queue.push({ resolve, reject, enqueuedAt: Date.now() });
+        const waiter: Waiter = { resolve, reject, enqueuedAt: Date.now() };
+        waiter.timer = setTimeout(() => {
+          const index = queue.indexOf(waiter);
+          if (index >= 0) queue.splice(index, 1);
+          const err = new Error(`${opts.name} queue wait timed out`);
+          (err as Error & { code?: string }).code = "QUEUE_TIMEOUT";
+          recordSystemOverload();
+          log.warn({ limiter: opts.name, ...state(), maxWaitMs }, "system_overloaded_queue_timeout");
+          reject(err);
+        }, maxWaitMs);
+        waiter.timer.unref?.();
+        queue.push(waiter);
         logOverloadIfNeeded();
       });
     },

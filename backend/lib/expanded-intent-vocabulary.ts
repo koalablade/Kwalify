@@ -107,6 +107,268 @@ export const EXPANDED_ERA_TERMS: Array<{ label: string; start: number; end: numb
   { label: "20s", start: 2020, end: 2029, terms: ["2020s", "twenty twenties", "twenties", "modern", "current", "today", "new music", "pandemic era", "tiktok era"], aesthetic: "hyperpop-adjacent, genre-fluid, lo-fi and emotionally complex" },
 ];
 
+Object.assign(COMMON_MISSPELLINGS, {
+  ambient: ["ambiant", "ambinet"],
+  amapiano: ["ampiano", "amapinao"],
+  bachata: ["bachatta"],
+  breakbeat: ["break beat", "breakbeats"],
+  classical: ["clasical", "classicall"],
+  dancehall: ["dance hall"],
+  dubstep: ["dub step"],
+  electronic: ["electronica", "eletronic", "electonic"],
+  garage: ["garidge", "garrage"],
+  hardcore: ["hard core"],
+  hyperpop: ["hyper pop"],
+  jungle: ["junglist", "jungl"],
+  lofi: ["lofi", "lowfi", "low-fi"],
+  metalcore: ["metal core"],
+  reggaeton: ["reggeton", "reggaeton"],
+  shoegaze: ["shoe gaze", "shoegazing"],
+  synthwave: ["synth wave"],
+  techno: ["technoo", "tekno"],
+});
+
+EXPANDED_GENRE_ALIASES.push(
+  {
+    family: "electronic",
+    terms: [
+      "ambient house", "ambient techno", "balearic", "balearic beat", "big beat", "bleep techno", "breaks garage", "chicago house",
+      "classic house", "deep techno", "detroit techno", "dub techno", "electro house", "euphoric hardstyle", "fidget house",
+      "future house", "future rave", "garage house", "ghetto house", "hard dance", "hard house", "italo disco", "italo house",
+      "lo-fi house", "melodic house", "melodic techno", "organic house", "outsider house", "peak time techno", "progressive breaks",
+      "raw techno", "space disco", "techno bunker", "tribal house", "uk funky", "uk funky house", "vocal house", "y2k trance",
+      "breakbeat garage", "4x4 garage", "dark garage", "dubstep rollers", "140 dubstep", "bass music", "future beats",
+      "chillstep", "melodic dubstep", "drumstep", "jump up dnb", "rollers dnb", "deep dnb", "dark dnb", "old school dnb",
+      "rave breaks", "warehouse breaks", "acid breaks", "electro swing", "nu disco", "filter house", "french house",
+      "complextro", "synth pop", "synthpop", "dark synth", "darkwave synth", "coldwave", "minimal wave", "new beat",
+    ],
+  },
+  {
+    family: "hip_hop",
+    terms: [
+      "boom bap", "golden era rap", "east coast rap", "west coast rap", "g-funk", "dirty south", "trap", "drill", "brooklyn drill",
+      "chicago drill", "detroit rap", "memphis rap", "philly rap", "uk trap", "uk road rap", "manchester rap", "birmingham rap",
+      "scouse rap", "aussie drill", "ny drill", "jersey drill", "rage beats", "rage trap", "plugg", "drumless rap", "abstract hip hop",
+      "alt hip hop", "experimental hip hop", "jazz rap", "lo-fi rap", "emo rap", "sad rap", "melodic rap", "afro trap",
+      "trap metal", "horrorcore", "battle rap", "political rap", "backpack rap", "underground rap", "mixtape rap",
+    ],
+  },
+  {
+    family: "rock",
+    terms: [
+      "alternative rock", "alt rock", "arena rock", "blues rock", "classic rock", "desert rock", "emo", "emo rock", "folk punk",
+      "glam rock", "goth rock", "grunge", "hard rock", "indie rock", "jangle rock", "krautrock", "lo-fi rock", "new romantic",
+      "post hardcore", "post-hardcore", "power pop rock", "proto punk", "pub rock", "riot grrrl", "soft rock", "space rock",
+      "stoner rock", "yacht rock", "dad rock", "landfill indie", "blog rock", "new york rock", "manchester indie",
+      "sheffield indie", "scottish indie", "welsh indie",
+    ],
+  },
+  {
+    family: "pop",
+    terms: [
+      "afropop", "alt-pop", "bedroom hyperpop", "brat pop", "breakup pop", "country pop", "dance pop", "dark pop", "girl pop",
+      "indie pop", "k-pop", "kpop", "latin pop", "leftfield pop", "main pop", "mainstream pop", "pop rap", "pop rock",
+      "sad pop", "scandi pop", "sophisti-pop", "teen pop", "uk pop", "viral pop", "tiktok pop", "internet pop", "queer pop",
+      "sad girl pop", "sad boy pop", "dreamy pop", "night drive pop",
+    ],
+  },
+  {
+    family: "rnb",
+    terms: [
+      "alt r&b", "alternative r&b", "contemporary r&b", "dark r&b", "indie r&b", "neo soul", "neo-soul", "new jack swing",
+      "r&b slow jams", "silky r&b", "smooth r&b", "soulful r&b", "uk soul", "modern soul", "bedroom soul", "quiet storm",
+      "lover's r&b", "late night r&b", "trap r&b",
+    ],
+  },
+  {
+    family: "latin",
+    terms: [
+      "bachata", "cumbia", "latin trap", "latin urbano", "merengue", "música mexicana", "musica mexicana", "nueva musica mexicana",
+      "perreo", "reggaeton", "reggaetón", "salsa", "salsa romantica", "tango", "tejano", "urbano", "urbano latino",
+      "vallenato", "mexican pop", "latin indie", "latin alternative",
+    ],
+  },
+  {
+    family: "world",
+    terms: [
+      "afrobeats", "afrobeat", "amapiano", "arab pop", "azonto", "bossa nova", "brazilian funk", "desi hip hop", "flamenco pop",
+      "highlife", "indian pop", "japanese rock", "j-rock", "j rock", "japanese indie", "k-indie", "korean indie", "k-hip hop",
+      "k hip hop", "k-r&b", "k r&b", "mandopop ballad", "soca", "zouk", "kompa", "mbaqanga", "south african house",
+      "turkish pop", "anatolian rock", "rai pop", "bhangra pop",
+    ],
+  },
+  {
+    family: "metal",
+    terms: [
+      "alt metal", "alternative metal", "black metal", "death metal", "deathcore", "djent", "gothic metal", "groove metal",
+      "hair metal", "hardcore metal", "melodic death metal", "metalcore", "nu metal", "progressive death metal", "thrash metal",
+      "post black metal", "screamo", "industrial metal workout",
+    ],
+  },
+  {
+    family: "jazz",
+    terms: [
+      "bebop", "big band swing", "bossanova jazz", "bossa jazz", "contemporary jazz", "jazz rap", "jazztronica", "latin jazz",
+      "lounge jazz", "smooth jazz", "vocal jazz", "jazz piano", "jazz cafe", "late night jazz", "rainy jazz",
+    ],
+  },
+  {
+    family: "classical",
+    terms: [
+      "baroque", "classical era", "classical focus", "contemporary classical", "dark academia classical", "impressionism",
+      "modern composition", "orchestral", "piano focus", "study classical", "string ensemble", "symphonic", "opera",
+      "ambient classical", "cinematic classical",
+    ],
+  },
+  {
+    family: "soundtrack",
+    terms: [
+      "cinematic", "cinematic score", "film music", "movie score", "tv soundtrack", "series soundtrack", "trailer score",
+      "epic orchestral", "fantasy soundtrack", "sci-fi soundtrack", "horror soundtrack", "anime opening", "anime ending",
+      "jrpg soundtrack", "racing game soundtrack", "open world soundtrack", "boss fight", "main character soundtrack",
+    ],
+  },
+  {
+    family: "reggae",
+    terms: [
+      "dancehall", "afro dancehall", "bashment", "dub", "dub poetry", "lovers rock uk", "modern reggae", "reggae rock",
+      "ska revival", "ska rock", "sound system", "uk reggae", "roots dub", "dancehall party",
+    ],
+  },
+  {
+    family: "folk",
+    terms: [
+      "alt folk", "celtic folk", "dark folk", "folk pop", "indie acoustic", "modern folk", "neo folk", "pastoral folk",
+      "singer songwriter folk", "trad folk", "uk folk", "irish folk", "scottish folk songs", "welsh folk songs",
+    ],
+  },
+  {
+    family: "indie",
+    terms: [
+      "alternative indie", "bedroom indie", "blog era indie", "college indie", "dreamy indie", "indie pop rock", "indie surf",
+      "lo-fi bedroom", "sad bedroom", "slacker indie", "soft indie", "uk indie", "garage indie", "indie disco", "indie party",
+    ],
+  }
+);
+
+EXPANDED_MOOD_TERMS.anxious = [
+  "anxious", "anxiety", "nervous", "uneasy", "restless", "on edge", "panicky", "overwhelmed", "stressed", "stressy", "wired",
+  "tense", "paranoid", "spiralling", "spiraling", "can't settle", "too much in my head",
+];
+EXPANDED_MOOD_TERMS.confident = [
+  "confident", "cocky", "bold", "swagger", "main character", "unbothered", "cool", "icy", "clean", "sharp", "boss", "powerful",
+  "self assured", "walking in", "entrance music", "feel myself", "hot girl", "bad bitch", "big energy",
+];
+EXPANDED_MOOD_TERMS.romantic = [
+  "romantic", "love", "loved up", "crush", "date", "date night", "flirty", "sensual", "sexy", "intimate", "slow dance", "yearning",
+  "soft love", "honeymoon", "valentine", "late night love", "bedroom",
+];
+EXPANDED_MOOD_TERMS.chaotic = [
+  "chaotic", "messy", "unhinged", "feral", "manic", "wild", "mad one", "no thoughts", "reckless", "unpredictable", "mayhem",
+  "carnage", "rowdy", "silly", "deranged", "brainrot",
+];
+EXPANDED_MOOD_TERMS.dreamy = [
+  "dreamy", "ethereal", "hazy", "foggy", "floaty", "spacey", "glossy", "soft light", "otherworldly", "celestial", "angelic",
+  "shimmering", "cloudy", "sleepy but awake",
+];
+EXPANDED_MOOD_TERMS.brooding = [
+  "brooding", "serious", "heavy", "grave", "stern", "cold", "detached", "stoic", "hard faced", "quiet anger", "dark focus",
+  "villain", "villain arc",
+];
+EXPANDED_MOOD_TERMS.playful = [
+  "playful", "cheeky", "silly", "fun", "bouncy", "cute", "camp", "goofy", "lighthearted", "carefree", "sparkly", "bubblegum",
+  "feel good", "good mood",
+];
+EXPANDED_MOOD_TERMS.spiritual = [
+  "spiritual", "transcendent", "sacred", "ritual", "meditative", "prayer", "church", "gospel feeling", "healing", "grounded",
+  "awe", "cosmic", "universe", "higher power",
+];
+
+EXPANDED_ACTIVITY_TERMS.workout.push(
+  "hiit", "crossfit", "powerlifting", "bodybuilding", "leg day", "push day", "pull day", "upper body", "lower body", "deadlift",
+  "squat", "bench press", "pr attempt", "personal record", "treadmill", "spin class", "peloton", "rowing", "hyrox", "warmup",
+  "cool down", "stretching", "mobility", "yoga flow", "pilates", "calisthenics", "climbing", "bouldering", "skateboarding"
+);
+EXPANDED_ACTIVITY_TERMS.focus.push(
+  "essay writing", "exam cram", "dissertation", "thesis", "revision session", "library grind", "deep work block", "programming",
+  "debugging", "design work", "creative writing", "journaling", "paperwork", "admin", "emails", "planning", "notion setup",
+  "clean focus", "adhd focus", "pomodoro", "flow state", "reading fiction", "reading textbook"
+);
+EXPANDED_ACTIVITY_TERMS.party.push(
+  "girls night", "boys night", "pres at mine", "uni pres", "freshers pres", "kitchen pres", "afters", "after party", "club queue",
+  "uber to the club", "housewarming", "dinner party", "bbq", "garden party", "pub crawl", "karaoke", "wedding reception",
+  "dance party", "festival campsite", "warehouse party"
+);
+EXPANDED_ACTIVITY_TERMS.driving.push(
+  "school run", "commuting", "commute", "m1", "m6", "m4", "m62", "a1", "a roads", "b roads", "ring road", "dual carriageway",
+  "city driving", "traffic", "rush hour", "late drive home", "petrol station", "service station", "windows down", "car stereo",
+  "passenger seat", "long drive", "short drive", "road rage", "night motorway"
+);
+EXPANDED_ACTIVITY_TERMS.travel.push(
+  "airport lounge", "boarding", "plane", "flying", "long haul", "holiday travel", "train home", "train to london", "tube ride",
+  "elizabeth line", "overground", "bus home", "night bus", "coach trip", "interrail", "backpacking", "walking around town",
+  "city break", "hotel room"
+);
+EXPANDED_ACTIVITY_TERMS.sleep.push(
+  "wind down", "sleepy", "falling asleep", "bed", "bedroom at night", "insomnia", "nap", "power nap", "sleep playlist",
+  "calm down", "night routine", "rain sleep"
+);
+EXPANDED_ACTIVITY_TERMS.cleaning.push(
+  "deep clean", "reset room", "sunday reset", "washing up", "dishes", "hoovering", "vacuuming", "mopping", "decluttering",
+  "laundry day", "spring clean", "cleaning motivation"
+);
+EXPANDED_ACTIVITY_TERMS.cooking = [
+  "cooking", "cook", "meal prep", "making dinner", "kitchen", "baking", "barbecue", "bbq", "sunday roast", "breakfast cooking",
+  "wine and cooking", "date night cooking", "chopping vegetables",
+];
+EXPANDED_ACTIVITY_TERMS.gaming = [
+  "gaming", "video games", "xbox", "playstation", "pc gaming", "ranked", "competitive gaming", "fps", "racing game", "minecraft",
+  "open world", "boss fight", "final boss", "mmorpg", "late night gaming", "cozy gaming", "cyberpunk game",
+];
+EXPANDED_ACTIVITY_TERMS.social = [
+  "hanging out", "with friends", "with mates", "group chat", "getting ready", "preparing to go out", "walking with friends",
+  "coffee with friends", "pub with mates", "catch up", "social anxiety", "meeting people",
+];
+EXPANDED_ACTIVITY_TERMS.creative = [
+  "painting", "drawing", "sketching", "making art", "photography", "editing photos", "video editing", "writing songs",
+  "producing music", "studio session", "crafting", "sewing", "designing", "brainstorming",
+];
+
+EXPANDED_PLACE_TERMS.rural.push("country pub", "country lane", "layby", "hills", "valley", "woods at night", "farm road", "lake district", "peak district", "yorkshire dales", "highlands");
+EXPANDED_PLACE_TERMS.outdoors.push("garden", "back garden", "balcony", "rooftop garden", "field walk", "dog walk", "canal walk", "riverside", "waterfall", "beach walk", "snow", "heatwave", "thunderstorm");
+EXPANDED_PLACE_TERMS.city.push("camden", "shoreditch", "soho", "brixton", "hackney", "peckham", "dalston", "croydon", "west end", "tube station", "bus stop", "estate", "high street", "city lights", "student halls");
+EXPANDED_PLACE_TERMS.beach.push("ibiza", "mallorca", "marbella", "benidorm", "beach bar", "boat party", "seafront", "promenade", "sun lounger", "holiday pool", "pool party");
+EXPANDED_PLACE_TERMS.bedroom.push("student room", "shared house", "bedsit", "studio flat", "window open", "messy room", "floor crying", "getting ready in room", "mirror", "wardrobe");
+EXPANDED_PLACE_TERMS.car.push("uber", "taxi", "cab", "van", "truck", "lorry", "first car", "old car", "90s car", "windows down", "aux cord", "car park", "multi storey", "drive thru");
+
+EXPANDED_EVENT_TERMS.push(
+  "anniversary", "baby shower", "bar mitzvah", "bat mitzvah", "christening", "engagement party", "hen do", "stag do", "leavers", "leaving party",
+  "retirement party", "promotion", "new job", "job interview", "first day", "last day", "payday", "moving day", "housewarming", "flat warming",
+  "uni move in", "freshers night", "club night", "rave comedown", "comedown", "afterparty comedown", "hangover", "sunday scaries",
+  "exam results", "gcse results", "a level results", "deadline", "all nighter", "sports day", "cup final", "world cup", "euros",
+  "christmas eve", "christmas morning", "christmas party", "new year's eve", "new year's day", "valentine's day", "pancake day",
+  "easter sunday", "notting hill carnival", "pride", "ramadan", "eid", "diwali", "hanukkah", "lunar new year", "thanksgiving",
+  "halloween party", "bonfire", "fireworks", "summer solstice", "winter solstice"
+);
+
+EXPANDED_TIME_TERMS.morning.push("5am", "6am", "7am", "8am", "early doors", "school morning", "gym morning", "commute sunrise", "cold morning");
+EXPANDED_TIME_TERMS.afternoon.push("2pm", "3pm", "4pm", "after lunch", "hot afternoon", "bank holiday afternoon", "study afternoon");
+EXPANDED_TIME_TERMS.evening.push("5pm", "6pm", "7pm", "8pm", "after dinner", "pre drinks time", "getting ready", "blue hour", "evening commute");
+EXPANDED_TIME_TERMS.late_night.push("11pm", "12am", "1am", "5am", "after party", "club closing", "last orders", "walk home at night", "late shift");
+
+EXPANDED_ERA_TERMS.unshift(
+  { label: "20s-30s", start: 1920, end: 1939, terms: ["1920s", "1930s", "20s jazz", "30s jazz", "roaring twenties", "great depression era", "swing era", "early jazz age"], aesthetic: "early jazz, swing, crooners, ballroom warmth" }
+);
+EXPANDED_ERA_TERMS.find((era) => era.label === "40s")?.terms.push("post war", "post-war", "wartime jazz", "crooner era");
+EXPANDED_ERA_TERMS.find((era) => era.label === "50s")?.terms.push("jukebox", "sock hop", "early soul", "early country pop", "rockabilly");
+EXPANDED_ERA_TERMS.find((era) => era.label === "60s")?.terms.push("motown era", "girl groups", "surf era", "folk revival", "mod", "soul sixties");
+EXPANDED_ERA_TERMS.find((era) => era.label === "70s")?.terms.push("glam era", "prog era", "singer songwriter era", "roots reggae era", "funk era", "yacht rock era");
+EXPANDED_ERA_TERMS.find((era) => era.label === "80s")?.terms.push("post disco", "early hip hop", "new romantic era", "arena rock era", "synthpop era", "80s goth");
+EXPANDED_ERA_TERMS.find((era) => era.label === "90s")?.terms.push("rave era", "jungle era", "trip hop era", "90s r&b", "90s house", "90s country", "90s emo");
+EXPANDED_ERA_TERMS.find((era) => era.label === "00s")?.terms.push("blog era", "garage revival", "indie sleaze era", "crunk era", "snap music", "limewire era", "emo noughties");
+EXPANDED_ERA_TERMS.find((era) => era.label === "10s")?.terms.push("soundcloud era", "trap era", "future bass era", "tropical house era", "vine era", "tumblr indie", "2016 summer");
+EXPANDED_ERA_TERMS.find((era) => era.label === "20s")?.terms.push("lockdown era", "post pandemic", "reels era", "algorithm era", "2020 lockdown", "2021 summer", "2022", "2023", "2024", "2025", "2026");
+
 export function termRegex(terms: string[]): RegExp {
   const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const typoVariants = (token: string): string[] => {

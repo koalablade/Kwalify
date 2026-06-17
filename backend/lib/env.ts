@@ -50,6 +50,22 @@ function requireEnv(key: string): string {
   return val;
 }
 
+function normalizeOptionalUrlEnv(key: "APP_URL" | "FRONTEND_URL"): string | undefined {
+  const raw = process.env[key]?.trim();
+  if (!raw) return undefined;
+  const origins = raw.split(",").map((value) => value.trim()).filter(Boolean);
+  if (origins.length === 0) return undefined;
+  for (const origin of origins) {
+    try {
+      const parsed = new URL(origin);
+      if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("unsupported protocol");
+    } catch {
+      throw new Error(`[env] ${key} must contain valid http(s) URL origins, got "${origin}"`);
+    }
+  }
+  return origins.map((origin) => origin.replace(/\/+$/, "")).join(",");
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -72,15 +88,15 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
     throw new Error(`[env] PORT must be a positive integer, got "${rawPort}"`);
   }
 
-  const appUrlRaw = process.env["APP_URL"]?.trim();
-  const APP_URL = appUrlRaw ? appUrlRaw.replace(/\/$/, "") : undefined;
+  const APP_URL = normalizeOptionalUrlEnv("APP_URL");
+  const FRONTEND_URL = normalizeOptionalUrlEnv("FRONTEND_URL");
 
   _env = {
     DATABASE_URL,
     SESSION_SECRET,
     PORT,
     APP_URL,
-    FRONTEND_URL: process.env["FRONTEND_URL"],
+    FRONTEND_URL,
     NODE_ENV: process.env["NODE_ENV"] ?? "development",
   };
 

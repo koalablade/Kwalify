@@ -558,6 +558,8 @@ export function computePlaylistMetrics(
   const debug = responseObj(gen, "generationDebug");
   const confidence = responseObj(result.response, "playlistConfidence");
   const diversity = responseObj(result.response, "artistDiversity");
+  const v3Diagnostics = responseObj(result.response, "v3Diagnostics");
+  const finalization = responseObj(result.response, "finalization");
   const cluster = dominantShare(tracks.map(clusterKey));
   const debugDominantCluster = text(gen["dominantCluster"]) ?? text(debug["dominantCluster"]);
   const debugClusterPurity = num(gen["clusterPurity"], num(debug["clusterPurity"], cluster.share));
@@ -570,11 +572,16 @@ export function computePlaylistMetrics(
     result.response?.["fastFallback"] ||
     result.response?.["fallbackReason"] ||
     gen["fallbackTriggered"] ||
-    confidence["fallbackUsed"]
+    confidence["fallbackUsed"] ||
+    (typeof gen["fallbackLevel"] === "string" && gen["fallbackLevel"] !== "none") ||
+    (typeof finalization["fallbackMode"] === "string" && finalization["fallbackMode"] !== "none") ||
+    v3Diagnostics["fastFallback"] === true
   );
   const recoveryUsed = !!(
     confidence["recoveryUsed"] ||
-    (Array.isArray(gen["recoveryRelaxations"]) && gen["recoveryRelaxations"].length > 0)
+    (Array.isArray(gen["recoveryRelaxations"]) && gen["recoveryRelaxations"].length > 0) ||
+    finalization["finalResponseCompletionLockApplied"] === true ||
+    finalization["finalCompletionFillApplied"] === true
   );
   const base = {
     promptId: result.benchmark.id,
@@ -589,7 +596,10 @@ export function computePlaylistMetrics(
     artistRepetition: num(diversity["topRepeatedArtistCount"]) > 0
       ? round(Math.max(0, num(diversity["topRepeatedArtistCount"]) - 1) / Math.max(1, tracks.length))
       : duplicateRatio(tracks.map(artistName)),
-    trackRepetition: duplicateRatio(tracks.map(trackId)),
+    trackRepetition: Math.max(
+      duplicateRatio(tracks.map(trackId)),
+      num(finalization["finalResponseDuplicateFillAdded"]) > 0 ? round(num(finalization["finalResponseDuplicateFillAdded"]) / Math.max(1, tracks.length)) : 0,
+    ),
     genreDrift: genreDriftValue,
     eraDrift: eraDriftValue,
     fallbackUsed,

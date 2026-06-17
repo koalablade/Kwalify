@@ -55,7 +55,7 @@ type ClusterEarlyExitSummary = {
   reason: string;
 };
 
-const RUN_STATE_FILE = path.join("reports", "playlist-evaluation", "run-state.json");
+const LEGACY_RUN_STATE_FILE = path.join("reports", "playlist-evaluation", "run-state.json");
 const PREVIOUS_BASELINE = {
   successCount: 11,
   benchmarkSize: 20,
@@ -150,13 +150,13 @@ function parseConfig(args: string[]): HarnessConfig {
   if (!config.baseUrl) {
     throw new Error("API_BASE_URL is required. Set API_BASE_URL or pass --base-url.");
   }
+  if (config.dryRun) return config;
   if (!config.token) {
     throw new Error("PLAYLIST_EVAL_TOKEN is required. Set PLAYLIST_EVAL_TOKEN or pass --token.");
   }
   if (!config.spotifyUserId) {
     throw new Error("SPOTIFY_USER_ID is required. Set SPOTIFY_USER_ID or pass --spotify-user-id.");
   }
-  if (config.dryRun) return config;
   if (config.allowSpotifyCreate && !config.liveApi) {
     throw new Error("--allow-spotify-create can only be used with --live-api.");
   }
@@ -201,6 +201,10 @@ function sanitizedBaseUrl(value: string): string {
   } catch {
     return value.replace(/[?].*$/, "");
   }
+}
+
+function runStateFile(outDir: string): string {
+  return path.join(outDir, "run-state.json");
 }
 
 function logStartup(config: HarnessConfig, promptCount: number): void {
@@ -253,6 +257,22 @@ async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> 
   const tmpPath = `${filePath}.${process.pid}.tmp`;
   await writeFile(tmpPath, JSON.stringify(value, null, 2));
   await rename(tmpPath, filePath);
+}
+
+async function fetchJsonWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<{ response: Response; data: Record<string, unknown> }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+    return { response, data };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function resultIndexByPrompt(prompts: PlaylistBenchmarkPrompt[], result: GenerationEvaluationResult): number {
@@ -323,7 +343,7 @@ async function checkpointRun(input: {
       `${JSON.stringify(input.latestResult)}\n`,
     );
   }
-  await writeJsonAtomic(RUN_STATE_FILE, runStateFromResults(input));
+  await writeJsonAtomic(runStateFile(input.config.outDir), runStateFromResults(input));
   if (input.writeReports === false) return null;
   const report = await writeEvaluationReports({
     outDir: input.config.outDir,
@@ -595,12 +615,18 @@ async function preflight(config: HarnessConfig): Promise<Record<string, unknown>
   if (!expectedVersion) {
     throw new Error("Could not determine expected deployment version. Pass --expected-deployment-version or set PLAYLIST_EVAL_EXPECTED_VERSION.");
   }
+  try {
+    const { response, data } = await fetchJsonWithTimeout(`${config.baseUrl}/api/readyz`, { method: "GET" }, 15_000);
+    if (!response.ok || data["status"] !== "ready" || data["readiness"] !== "ready") {
+      throw new Error(`GET /api/readyz returned ${response.status} ${String(data["status"] ?? "unknown")}/${String(data["readiness"] ?? "unknown")}`);
+    }
+  } catch (err) {
+    throw new Error(`Preflight failed: deployment is not ready. ${err instanceof Error ? err.message : String(err)}`);
+  }
   let deploymentData: Record<string, unknown>;
   try {
-    const deploymentResponse = await fetch(`${config.baseUrl}/api/eval/ping`, {
-      method: "GET",
-    });
-    deploymentData = await deploymentResponse.json().catch(() => ({})) as Record<string, unknown>;
+    const { response: deploymentResponse, data } = await fetchJsonWithTimeout(`${config.baseUrl}/api/eval/ping`, { method: "GET" }, 15_000);
+    deploymentData = data;
     if (!deploymentResponse.ok || deploymentData["status"] !== "ok" || deploymentData["deployed"] !== true) {
       console.error(`[evaluation] preflight: deployment reachable=${deploymentResponse.ok}, eval route deployed=false, token accepted=false, commit=${String(deploymentData["commit"] ?? "unknown")}`);
       throw new Error(`Preflight failed: deployment not reachable or route missing. GET /api/eval/ping returned ${deploymentResponse.status}.`);
@@ -617,13 +643,12 @@ async function preflight(config: HarnessConfig): Promise<Record<string, unknown>
     throw new Error(`Preflight failed: deployed commit ${commit} does not match expected ${expectedVersion}. Deploy the current commit or pass the correct --expected-deployment-version.`);
   }
 
-  const authResponse = await fetch(`${config.baseUrl}/api/eval/ping`, {
+  const { response: authResponse, data: authData } = await fetchJsonWithTimeout(`${config.baseUrl}/api/eval/ping`, {
     method: "POST",
     headers: {
       "x-eval-token": config.token!,
     },
-  });
-  const authData = await authResponse.json().catch(() => ({})) as Record<string, unknown>;
+  }, 15_000);
   const authCommit = typeof authData["commit"] === "string" ? authData["commit"] : commit;
   if (!authResponse.ok) {
     console.error(`[evaluation] preflight: deployment reachable=true, eval route deployed=true, token accepted=false, commit=${authCommit}`);
@@ -692,9 +717,11 @@ async function postGenerate(
     }
   }
   let httpRetries = 0;
+  let attemptsMade = 0;
   let lastStatus: number | undefined;
   let lastError: string | undefined;
   for (let attempt = 0; attempt <= config.maxHttpRetries; attempt++) {
+    attemptsMade += 1;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), config.requestTimeoutMs);
     try {
@@ -716,7 +743,7 @@ async function postGenerate(
       ok: response.ok && data["success"] === true,
       status: response.status,
       error: response.ok ? undefined : String(data["message"] ?? data["error"] ?? response.statusText),
-      response: { ...data, harnessHttp: { retries: httpRetries, attempts: attempt + 1 } },
+      response: { ...data, harnessHttp: { retries: httpRetries, attempts: attemptsMade } },
       tracks: tracksFromResponse(data),
       elapsedMs: Date.now() - started,
     };
@@ -736,7 +763,7 @@ async function postGenerate(
     ok: false,
     status: lastStatus,
     error: lastError ?? "request_failed_after_retries",
-    response: { harnessHttp: { retries: httpRetries, attempts: httpRetries + 1 } },
+    response: { harnessHttp: { retries: httpRetries, attempts: attemptsMade } },
     tracks: [],
     elapsedMs: Date.now() - started,
   };
@@ -794,9 +821,13 @@ async function main(): Promise<void> {
   const deployedCommit = typeof preflightData["commit"] === "string"
     ? preflightData["commit"]
     : config.expectedDeploymentVersion ?? localGitHead() ?? "unknown";
-  const savedState = config.resume ? await readJsonFile<EvaluationRunState>(RUN_STATE_FILE) : null;
+  const stateFile = runStateFile(config.outDir);
+  let savedState = config.resume ? await readJsonFile<EvaluationRunState>(stateFile) : null;
+  if (config.resume && !savedState && config.outDir === "reports/playlist-evaluation/latest") {
+    savedState = await readJsonFile<EvaluationRunState>(LEGACY_RUN_STATE_FILE);
+  }
   if (config.resume && !savedState) {
-    throw new Error(`Cannot resume: ${RUN_STATE_FILE} does not exist. Run without --resume or pass --fresh.`);
+    throw new Error(`Cannot resume: ${stateFile} does not exist. Run without --resume or pass --fresh.`);
   }
   if (savedState) {
     const promptIds = prompts.map((prompt) => prompt.id);
@@ -814,7 +845,8 @@ async function main(): Promise<void> {
     }
   }
   if (!config.resume) {
-    await rm(RUN_STATE_FILE, { force: true });
+    await rm(stateFile, { force: true });
+    await rm(LEGACY_RUN_STATE_FILE, { force: true });
     await rm(path.join(config.outDir, "evaluation-results.jsonl"), { force: true });
   }
   const runId = savedState?.runId ?? randomUUID();

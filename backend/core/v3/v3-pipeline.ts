@@ -494,7 +494,7 @@ async function safeStage<T>(opts: {
       "recovery_attempted",
     );
     try {
-      const recovered = opts.run();
+      const recovered = opts.recover();
       recordTraceRecovery(opts.trace, opts.stage, "recovery_success");
       log.info({ requestId: opts.requestId, stage: opts.stage }, "recovery_success");
       return recovered;
@@ -514,7 +514,7 @@ async function safeStage<T>(opts: {
         { requestId: opts.requestId, stage: opts.stage, type: secondContext.type, recoverable: true, err: secondContext.error },
         "recovery_failed",
       );
-      return opts.recover();
+      throw secondErr;
     }
   }
 }

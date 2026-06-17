@@ -5,8 +5,11 @@
  * without changing database ownership or persisted schema.
  */
 
+import { moduleLogger } from "../../lib/logger";
+
 const DEFAULT_SESSION_SNAPSHOT_TTL_MS = 10 * 60 * 1000;
 const MAX_SESSION_SNAPSHOTS = 500;
+const log = moduleLogger("session-snapshot-cache");
 
 export type SessionSnapshotCacheStats = {
   hits: number;
@@ -111,7 +114,7 @@ export function getSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRow 
     snapshots.delete(key);
     stats.partialSnapshots += 1;
     stats.misses += 1;
-    console.warn("PARTIAL_SNAPSHOT_DETECTED", { userId, sessionId });
+    log.warn({ userId, sessionId }, "PARTIAL_SNAPSHOT_DETECTED");
     return null;
   }
   stats.hits += 1;
@@ -135,7 +138,7 @@ export function mergeSessionSnapshot<TLikedSongRow = unknown, TPlaylistHistoryRo
   };
   if (!isCompleteSnapshot(snapshot)) {
     stats.partialSnapshots += 1;
-    console.warn("PARTIAL_SNAPSHOT_DETECTED", { userId, sessionId });
+    log.warn({ userId, sessionId }, "PARTIAL_SNAPSHOT_DETECTED");
     throw new Error("PARTIAL_SNAPSHOT_DETECTED");
   }
   snapshots.set(key, {

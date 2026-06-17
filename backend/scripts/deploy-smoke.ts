@@ -13,6 +13,16 @@ function baseUrl(): string {
   return raw.replace(/\/+$/, "");
 }
 
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS ?? 30_000)): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   try {
     return await response.json() as Record<string, unknown>;
@@ -22,7 +32,7 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 }
 
 async function checkHealth(origin: string): Promise<SmokeResult> {
-  const response = await fetch(`${origin}/api/healthz`);
+  const response = await fetchWithTimeout(`${origin}/api/healthz`);
   const data = await readJson(response);
   return {
     name: "healthz",
@@ -33,7 +43,7 @@ async function checkHealth(origin: string): Promise<SmokeResult> {
 }
 
 async function checkReadiness(origin: string): Promise<SmokeResult> {
-  const response = await fetch(`${origin}/api/readyz`);
+  const response = await fetchWithTimeout(`${origin}/api/readyz`);
   const data = await readJson(response);
   return {
     name: "readyz",
@@ -45,7 +55,7 @@ async function checkReadiness(origin: string): Promise<SmokeResult> {
 
 async function checkDeploymentCommit(origin: string): Promise<SmokeResult> {
   const expected = process.env.SMOKE_EXPECTED_COMMIT ?? process.env.EXPECTED_DEPLOYMENT_VERSION ?? null;
-  const response = await fetch(`${origin}/api/eval/ping`);
+  const response = await fetchWithTimeout(`${origin}/api/eval/ping`);
   const data = await readJson(response);
   const commit = typeof data["commit"] === "string" ? data["commit"] : "unknown";
   return {
@@ -60,6 +70,28 @@ async function checkDeploymentCommit(origin: string): Promise<SmokeResult> {
   };
 }
 
+async function checkEvalToken(origin: string): Promise<SmokeResult> {
+  const token = process.env.PLAYLIST_EVAL_TOKEN ?? process.env.SMOKE_EVAL_TOKEN ?? null;
+  if (!token) {
+    return {
+      name: "evalToken",
+      pass: true,
+      details: { skipped: true, reason: "PLAYLIST_EVAL_TOKEN not set" },
+    };
+  }
+  const response = await fetchWithTimeout(`${origin}/api/eval/ping`, {
+    method: "POST",
+    headers: { "x-eval-token": token },
+  });
+  const data = await readJson(response);
+  return {
+    name: "evalToken",
+    pass: response.ok && data["tokenAccepted"] === true,
+    status: response.status,
+    details: data,
+  };
+}
+
 async function checkGenerate(origin: string): Promise<SmokeResult> {
   const cookie = process.env.SMOKE_AUTH_COOKIE;
   const requestedLength = Number(process.env.SMOKE_GENERATE_LENGTH ?? 12);
@@ -70,7 +102,7 @@ async function checkGenerate(origin: string): Promise<SmokeResult> {
       details: { skipped: true, reason: "SMOKE_AUTH_COOKIE not set" },
     };
   }
-  const response = await fetch(`${origin}/api/generate`, {
+  const response = await fetchWithTimeout(`${origin}/api/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -107,6 +139,7 @@ async function main(): Promise<void> {
     await checkHealth(origin),
     await checkReadiness(origin),
     await checkDeploymentCommit(origin),
+    await checkEvalToken(origin),
     await checkGenerate(origin),
   ];
   const pass = results.every((result) => result.pass);
