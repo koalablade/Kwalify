@@ -160,7 +160,13 @@ EXPANDED_GENRE_ALIASES.push(
       "glam rock", "goth rock", "grunge", "hard rock", "indie rock", "jangle rock", "krautrock", "lo-fi rock", "new romantic",
       "post hardcore", "post-hardcore", "power pop rock", "proto punk", "pub rock", "riot grrrl", "soft rock", "space rock",
       "stoner rock", "yacht rock", "dad rock", "landfill indie", "blog rock", "new york rock", "manchester indie",
-      "sheffield indie", "scottish indie", "welsh indie",
+      "sheffield indie", "scottish indie", "welsh indie", "pop punk", "pop-punk", "skate punk", "skate-punk",
+      "mall punk", "melodic punk", "emo pop punk", "emo pop", "scene kid", "scene kids", "scene music",
+      "warped tour", "vans warped tour", "kerrang", "kerrang music", "kerrang rock", "kerrang tv", "kerrang in the 2000s",
+      "mtv2 rock", "mtv2", "tony hawk", "tony hawk soundtrack", "tony hawk pro skater", "pro skater soundtrack",
+      "skate video soundtrack", "skate game soundtrack", "burnout soundtrack", "need for speed soundtrack",
+      "american pie soundtrack", "2000s youth culture", "myspace rock", "myspace emo", "myspace scene",
+      "limewire rock", "guitar hero rock", "rock band game soundtrack",
     ],
   },
   {
@@ -365,7 +371,12 @@ EXPANDED_ERA_TERMS.find((era) => era.label === "60s")?.terms.push("motown era", 
 EXPANDED_ERA_TERMS.find((era) => era.label === "70s")?.terms.push("glam era", "prog era", "singer songwriter era", "roots reggae era", "funk era", "yacht rock era");
 EXPANDED_ERA_TERMS.find((era) => era.label === "80s")?.terms.push("post disco", "early hip hop", "new romantic era", "arena rock era", "synthpop era", "80s goth");
 EXPANDED_ERA_TERMS.find((era) => era.label === "90s")?.terms.push("rave era", "jungle era", "trip hop era", "90s r&b", "90s house", "90s country", "90s emo");
-EXPANDED_ERA_TERMS.find((era) => era.label === "00s")?.terms.push("blog era", "garage revival", "indie sleaze era", "crunk era", "snap music", "limewire era", "emo noughties");
+EXPANDED_ERA_TERMS.find((era) => era.label === "00s")?.terms.push(
+  "blog era", "garage revival", "indie sleaze era", "crunk era", "snap music", "limewire era", "emo noughties",
+  "kerrang era", "kerrang tv", "mtv2 era", "tony hawk era", "tony hawk soundtrack", "pro skater era",
+  "need for speed soundtrack", "burnout soundtrack", "warped tour era", "myspace era rock", "scene kid era",
+  "guitar hero era", "rock band era",
+);
 EXPANDED_ERA_TERMS.find((era) => era.label === "10s")?.terms.push("soundcloud era", "trap era", "future bass era", "tropical house era", "vine era", "tumblr indie", "2016 summer");
 EXPANDED_ERA_TERMS.find((era) => era.label === "20s")?.terms.push("lockdown era", "post pandemic", "reels era", "algorithm era", "2020 lockdown", "2021 summer", "2022", "2023", "2024", "2025", "2026");
 
