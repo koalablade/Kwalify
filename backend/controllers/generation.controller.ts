@@ -508,6 +508,7 @@ type ConstraintLayer = {
   hard: {
     genres: string[];
     excludedGenres: string[];
+    excludedArtists: string[];
     eraStart: number | null;
     eraEnd: number | null;
     strictLock: boolean;
@@ -1563,6 +1564,31 @@ function isAmericanaBridgePrompt(lower: string): boolean {
   return /\b(?:americana|americarna|americanna|americanana|alt[-\s]?country|roots\s+country|country\s+folk|folk\s+country|country\s+rock)\b/i.test(lower);
 }
 
+function normalizeArtistConstraint(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/\bthe\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function extractExcludedArtists(vibe: string): string[] {
+  const excluded: string[] = [];
+  const genericNonArtist = /\b(?:music|songs?|tracks?|vocals?|words?|lyrics?|ambient|electronic|metal|pop|rock|rap|hip\s*hop|country|jazz|classical|christmas|sad|slow|fast|screamo)\b/i;
+  for (const match of vibe.matchAll(/\b(?:no|without|exclude|excluding)\s+([a-z0-9&'\-!\s]{2,36})/gi)) {
+    const phrase = (match[1] ?? "")
+      .replace(/\b(?:music|songs?|tracks?|playlist|please|pls|obviously|only)\b/gi, "")
+      .trim();
+    if (!phrase || genericNonArtist.test(phrase)) continue;
+    if (extractGenreTerms(phrase).roots.length > 0) continue;
+    const normalized = normalizeArtistConstraint(phrase);
+    if (normalized && !excluded.includes(normalized)) excluded.push(normalized);
+  }
+  return excluded;
+}
+
 function extractConstraintLayer(vibe: string, signals: QualitySignalContext): ConstraintLayer {
   const lower = vibe.toLowerCase();
   const strictTerms = [
@@ -1573,6 +1599,7 @@ function extractConstraintLayer(vibe: string, signals: QualitySignalContext): Co
   ].filter((term): term is string => !!term);
   const excludedText = lower.match(/\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&\-\s]{2,24})/g) ?? [];
   const excludedGenreHits = extractGenreTerms(excludedText.join(" "));
+  const excludedArtists = extractExcludedArtists(vibe);
   const genreHits = extractGenreTerms(vibe);
   const era = extractEraRange(vibe);
   const americanaBridgePrompt = isAmericanaBridgePrompt(lower);
@@ -1590,6 +1617,7 @@ function extractConstraintLayer(vibe: string, signals: QualitySignalContext): Co
     hard: {
       genres: genreHits.roots,
       excludedGenres: excludedGenreHits.roots,
+      excludedArtists,
       eraStart: era.start,
       eraEnd: era.end,
       strictLock: strictTerms.length > 0,
@@ -1681,6 +1709,44 @@ function trackGenreFamily(track: ConstraintTrack, classMap: Map<string, {
     track.genrePrimary ??
     "unknown"
   ).toLowerCase();
+}
+
+function normalizeGenreEvidenceTerm(term: string): string {
+  return term.toLowerCase().replace(/^genre:/, "").replace(/&/g, "and").replace(/[\s-]+/g, "_");
+}
+
+function explicitSubgenreTerms(intent: LockedIntent): string[] {
+  return [
+    intent.primarySubgenre,
+    intent.secondarySubgenre,
+    ...intent.subgenreTerms,
+  ]
+    .filter((term): term is string => !!term && term.trim().length > 0)
+    .map(normalizeGenreEvidenceTerm)
+    .filter((term, index, terms) => terms.indexOf(term) === index);
+}
+
+function hasExplicitSubgenreIntent(intent: LockedIntent): boolean {
+  return explicitSubgenreTerms(intent).length > 0;
+}
+
+function trackMatchesExplicitSubgenre(
+  track: ConstraintTrack,
+  intent: LockedIntent,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const expected = explicitSubgenreTerms(intent);
+  if (expected.length === 0) return true;
+  const terms = trackGenreTerms(track, classMap).map(normalizeGenreEvidenceTerm);
+  return expected.some((term) =>
+    terms.some((candidate) => candidate === term || candidate.includes(term) || term.includes(candidate))
+  );
 }
 
 function trackIsChristmasTrack(track: ConstraintTrack, classMap: Map<string, {
@@ -1816,6 +1882,7 @@ function passesGenreGraphBoundary(
 function trackMatchesHardConstraints(
   track: ConstraintTrack,
   constraints: ConstraintLayer,
+  intent: LockedIntent,
   classMap: Map<string, {
     genrePrimary: string;
     genreFamily: string;
@@ -1826,7 +1893,17 @@ function trackMatchesHardConstraints(
 ): boolean {
   const terms = trackGenreTerms(track, classMap);
   const family = trackGenreFamily(track, classMap);
+  const artist = normalizeArtistConstraint(track.artistName ?? "");
+  if (
+    artist &&
+    constraints.hard.excludedArtists.some((excluded) =>
+      artist === excluded || artist.includes(excluded) || excluded.includes(artist)
+    )
+  ) {
+    return false;
+  }
   if (constraints.hard.excludedGenres.some((genre) => terms.includes(genre))) return false;
+  if (!trackMatchesExplicitSubgenre(track, intent, classMap)) return false;
   const bridgeFamilies = constraints.hard.allowBridge ? bridgeFamiliesForTrack(track, classMap) : [];
   if (
     constraints.hard.genres.length > 0 &&
@@ -1836,7 +1913,7 @@ function trackMatchesHardConstraints(
       (constraints.raw.americanaBridgePrompt && genre === "country" && isAmericanaCompatibleTrack(track, classMap))
     )
   ) {
-    if (family === "unknown") return trackEraMatches(track, constraints);
+    if (family === "unknown") return false;
     return false;
   }
   if (constraints.hard.strictLock && constraints.raw.explicitGenreTerms.length > 0) {
@@ -2113,6 +2190,7 @@ function isNeutralDrivingPrompt(vibe: string, intent: Pick<LockedIntent, "activi
 function hasExplicitGenreIntent(intent: LockedIntent, constraints: ConstraintLayer): boolean {
   return intent.primaryGenres.length > 0 ||
     intent.genreFamilies.length > 0 ||
+    hasExplicitSubgenreIntent(intent) ||
     constraints.hard.genres.length > 0 ||
     constraints.raw.explicitGenreTerms.length > 0;
 }
@@ -2513,6 +2591,7 @@ function finalTrackMatchesExplicitGenre(
 ): boolean {
   const expectedFamilies = intent.primaryGenres.length > 0 ? intent.primaryGenres : intent.genreFamilies;
   if (expectedFamilies.length === 0 && constraints.hard.genres.length === 0) return true;
+  if (!trackMatchesExplicitSubgenre(track, intent, classMap)) return false;
   const families = expectedFamilies.length > 0 ? expectedFamilies : constraints.hard.genres;
   if (families.some((family) =>
     hasFinalGenreEvidence(track, classMap, [family]) ||
@@ -2521,7 +2600,7 @@ function finalTrackMatchesExplicitGenre(
     return true;
   }
   const family = trackGenreFamily(track, classMap);
-  if (family === "unknown") return true;
+  if (family === "unknown") return false;
   return families.includes(family);
 }
 
@@ -2546,7 +2625,7 @@ function finalTrackIsSafe(
     }>;
   }
 ): boolean {
-  if (!trackMatchesHardConstraints(track, opts.constraints, opts.classMap)) return false;
+  if (!trackMatchesHardConstraints(track, opts.constraints, opts.intent, opts.classMap)) return false;
   if (
     isUkGaragePrompt(opts.vibe) &&
     (trackGenreFamily(track, opts.classMap) !== "electronic" || isKnownNonUkGarageTrack(track))
@@ -2595,7 +2674,7 @@ function finalTrackIsHardSafe(
     }>;
   }
 ): boolean {
-  if (!trackMatchesHardConstraints(track, opts.constraints, opts.classMap)) return false;
+  if (!trackMatchesHardConstraints(track, opts.constraints, opts.intent, opts.classMap)) return false;
   if (
     isUkGaragePrompt(opts.vibe) &&
     (trackGenreFamily(track, opts.classMap) !== "electronic" || isKnownNonUkGarageTrack(track))
@@ -6241,7 +6320,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         };
         const deterministicCandidates = expandedUnderfillPool
           .filter((track) => !deterministicSeenIds.has(track.trackId))
-          .filter((track) => trackMatchesHardConstraints(track, constraintLayer, userGenreProfile.trackClassifications))
+          .filter((track) => trackMatchesHardConstraints(track, constraintLayer, lockedIntent, userGenreProfile.trackClassifications))
           .filter((track) => !explicitGenreRecoveryLockActive || finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications))
           .filter((track) => !explicitEraRecoveryLockActive || finalTrackMatchesExplicitEra(track, lockedIntent))
           .sort((a, b) => finalCompletionCandidateScore(b) - finalCompletionCandidateScore(a));
@@ -6393,7 +6472,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         return { active: false, expectedFamilies: [], verifiedCount: finalTracks.length, rejectedCount: 0, requiredCount: 0, verified: finalTracks, compatible: finalTracks };
       }
       const verified = finalTracks.filter((track) =>
-        hasFinalGenreEvidence(track, userGenreProfile.trackClassifications, expectedFamilies)
+        finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
       );
       const compatible = finalTracks.filter((track) =>
         finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
@@ -7703,6 +7782,77 @@ router.post("/generate", async (req, res): Promise<void> => {
         };
       }
     }
+    if (finalApiTracks.length < length) {
+      const apiRefillSeenIds = new Set(finalTracks.map((track) => track.trackId));
+      const apiRefillArtistCounts = new Map<string, number>();
+      for (const track of finalTracks) {
+        const artist = track.artistName.toLowerCase().trim();
+        apiRefillArtistCounts.set(artist, (apiRefillArtistCounts.get(artist) ?? 0) + 1);
+      }
+      const apiFamilyAllowed = (track: ConstraintTrack): boolean => {
+        const family = trackGenreFamily(track, userGenreProfile.trackClassifications);
+        if (isGymWorkoutPrompt(vibe, lockedIntent) && !promptExplicitlyAllowsGymHipHop(vibe, lockedIntent, constraintLayer)) {
+          return !["hip_hop", "country", "classical", "christmas"].includes(family);
+        }
+        if (isFocusStudyPrompt(vibe, lockedIntent)) {
+          return new Set(["electronic", "indie", "pop", "ambient", "soundtrack", "folk", "blues", "soul", "unknown"]).has(family);
+        }
+        return true;
+      };
+      const apiRefillSources = [
+        ...finalCandidatePool,
+        ...clusterCuration.candidates,
+        ...(pipeline.sorted as ConstraintTrack[]),
+        ...scoringInputSongs.map((track) => ({ ...hydrateTrackGenre(track), score: 0.4 } as ConstraintTrack)),
+        ...likedSongs.map((track) => ({ ...hydrateTrackGenre(track), score: 0.3 } as ConstraintTrack)),
+      ];
+      let apiRefillAdded = 0;
+      let apiRefillArtistCapSkipped = 0;
+      for (const source of apiRefillSources) {
+        if (finalTracks.length >= length) break;
+        const candidate = source as ConstraintTrack;
+        if (apiRefillSeenIds.has(candidate.trackId)) continue;
+        if (!finalTrackIsHardSafe(candidate, {
+          vibe,
+          intent: lockedIntent,
+          constraints: constraintLayer,
+          allowHolidaySeason,
+          classMap: userGenreProfile.trackClassifications,
+        })) continue;
+        if (!apiFamilyAllowed(candidate)) continue;
+        const artist = candidate.artistName.toLowerCase().trim();
+        if ((apiRefillArtistCounts.get(artist) ?? 0) >= maxPerArtist) {
+          apiRefillArtistCapSkipped += 1;
+          continue;
+        }
+        apiRefillSeenIds.add(candidate.trackId);
+        apiRefillArtistCounts.set(artist, (apiRefillArtistCounts.get(artist) ?? 0) + 1);
+        finalTracks.push(candidate as PlaylistTrack);
+        apiRefillAdded += 1;
+      }
+      if (apiRefillAdded > 0) {
+        finalTracks = finalTracks.slice(0, length);
+        finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
+        finalization = {
+          tracks: finalTracks,
+          diagnostics: {
+            ...finalization.diagnostics,
+            apiPruneRefillApplied: true,
+            apiPruneRefillAdded: apiRefillAdded,
+            apiPruneRefillArtistCapSkipped: apiRefillArtistCapSkipped,
+          },
+        };
+      } else if (finalApiTracks.length < length) {
+        finalization = {
+          tracks: finalTracks,
+          diagnostics: {
+            ...finalization.diagnostics,
+            apiPruneUnderfilled: true,
+            apiPruneUnderfilledBy: length - finalApiTracks.length,
+          },
+        };
+      }
+    }
     endApiFormattingProfile();
     const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>(
       (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
@@ -7733,6 +7883,23 @@ router.post("/generate", async (req, res): Promise<void> => {
     const recoveryPenalty = generationDiagnostics.recoveryRelaxations.length > 0 ? 0.10 : 0;
     const fallbackPenalty = generationDiagnostics.fallbackTriggered ? 0.12 : 0;
     const underfilledPenalty = finalTracks.length < length ? Math.min(0.20, (length - finalTracks.length) / Math.max(1, length) * 0.5) : 0;
+    const strictGenreEvidenceWeak =
+      strictGenreEvidenceDiagnostics.active &&
+      strictGenreEvidenceDiagnostics.verifiedCount < strictGenreEvidenceDiagnostics.requiredCount;
+    const strictEraEvidenceWeak =
+      strictEraEvidenceDiagnostics.active &&
+      strictEraEvidenceDiagnostics.verifiedCount < strictEraEvidenceDiagnostics.requiredCount &&
+      !strictEraEvidenceRelaxed;
+    const confidenceCap = Math.min(
+      0.99,
+      strictGenreEvidenceWeak ? 0.54 : 0.99,
+      strictEraEvidenceWeak ? 0.58 : 0.99,
+      hasExplicitSubgenreIntent(lockedIntent) && strictGenreEvidenceWeak ? 0.50 : 0.99,
+      generationDiagnostics.recoveryRelaxations.length > 0 ? 0.72 : 0.99,
+      finalTracks.length < length ? 0.45 : 0.99,
+      finalApiTracks.length < length ? 0.42 : 0.99,
+      finalization.diagnostics["apiPruneUnderfilled"] ? 0.38 : 0.99,
+    );
     const diversityPenalty = (artistDiversity.cappedTracks > 0 ? 0.10 : 0) +
       (finalization.diagnostics["artistLimitRelaxed"] ? 0.04 : 0) +
       (finalization.diagnostics["albumLimitRelaxed"] ? 0.03 : 0);
@@ -7744,7 +7911,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const confidenceScore = Math.max(
       0.05,
       Math.min(
-        0.99,
+        confidenceCap,
         (qualitySignals.length
           ? qualitySignals.reduce((sum, value) => sum + value, 0) / qualitySignals.length
           : fillRatio * 0.72 + 0.18) - recoveryPenalty - fallbackPenalty - underfilledPenalty - diversityPenalty - coherencePenalty

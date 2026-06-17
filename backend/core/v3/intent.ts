@@ -1332,8 +1332,8 @@ export function buildLockedIntent(input: string): LockedIntent {
   const rawSubgenreIntent = parseSubgenreIntent(lower);
   const humanHints = humanPhraseIntentHints(lower);
   const rawGenreFamilies = uniqueGenreFamilies([
-    ...parseGenreFamilies(lower),
     ...(rawSubgenreIntent.primaryGenre ? [rawSubgenreIntent.primaryGenre] : []),
+    ...parseGenreFamilies(lower),
   ]);
 
   const excludedMoods = excludedMoodTags(lower);
