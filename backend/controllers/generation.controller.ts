@@ -3046,6 +3046,7 @@ function shapePreScoringCandidatePool<T extends {
   const broadCap = sceneActive
     ? Math.max(240, opts.requestedLength * 12)
     : Math.max(900, opts.requestedLength * 35);
+  const hasExplicitConstraints = hasHardConstraints(opts.constraints) || hasExplicitGenreIntent(opts.intent, opts.constraints);
   if (tracks.length <= broadCap && !sceneActive) {
     return {
       tracks,
@@ -3055,11 +3056,32 @@ function shapePreScoringCandidatePool<T extends {
         outputCount: tracks.length,
         cap: broadCap,
         sceneActive,
+        hasExplicitConstraints,
       },
     };
   }
 
   const toConstraintTrack = (track: T): ConstraintTrack => ({ ...track, score: 0.5 } as ConstraintTrack);
+  const strictConstrained = hasExplicitConstraints
+    ? tracks.filter((track) =>
+        finalTrackIsSafe(toConstraintTrack(track), {
+          vibe: opts.vibe,
+          intent: opts.intent,
+          constraints: opts.constraints,
+          classMap: opts.classMap,
+        })
+      )
+    : [];
+  const hardConstrained = hasExplicitConstraints
+    ? tracks.filter((track) =>
+        finalTrackIsHardSafe(toConstraintTrack(track), {
+          vibe: opts.vibe,
+          intent: opts.intent,
+          constraints: opts.constraints,
+          classMap: opts.classMap,
+        })
+      )
+    : [];
   const sceneCompatible = sceneActive
     ? tracks.filter((track) => {
         const candidate = toConstraintTrack(track);
@@ -3082,9 +3104,21 @@ function shapePreScoringCandidatePool<T extends {
   const sceneCompatibleFloor = gymScene || focusScene
     ? Math.min(90, Math.max(opts.requestedLength, Math.floor(tracks.length * 0.04)))
     : Math.min(120, Math.max(40, Math.floor(tracks.length * 0.18)));
-  const source = sceneActive && sceneCompatible.length >= sceneCompatibleFloor
-    ? sceneCompatible
-    : tracks;
+  const constrainedFloor = Math.max(opts.requestedLength, Math.ceil(opts.requestedLength * 1.5));
+  const source = strictConstrained.length >= constrainedFloor
+    ? strictConstrained
+    : hardConstrained.length >= constrainedFloor
+      ? hardConstrained
+      : sceneActive && sceneCompatible.length >= sceneCompatibleFloor
+        ? sceneCompatible
+        : tracks;
+  const sourceMode = strictConstrained.length >= constrainedFloor
+    ? "strict_constraints"
+    : hardConstrained.length >= constrainedFloor
+      ? "hard_constraints"
+      : sceneActive && sceneCompatible.length >= sceneCompatibleFloor
+        ? "scene_compatible"
+        : "unfiltered";
   const artistCounts = new Map<string, number>();
   const buckets = new Map<string, T[]>();
   const recentArtistPenalty = opts.sessionMemory.artistFrequencyMap;
@@ -3133,7 +3167,12 @@ function shapePreScoringCandidatePool<T extends {
       outputCount: out.length > 0 ? out.length : Math.min(tracks.length, broadCap),
       cap: broadCap,
       sceneActive,
+      hasExplicitConstraints,
+      constrainedFloor,
+      strictConstrainedCount: strictConstrained.length,
+      hardConstrainedCount: hardConstrained.length,
       sceneCompatibleCount: sceneCompatible.length,
+      sourceMode,
       recentArtistsRemembered: Object.keys(recentArtistPenalty).length,
     },
   };
