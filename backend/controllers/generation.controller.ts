@@ -1513,6 +1513,19 @@ function extractGenreTerms(text: string): { roots: string[]; terms: string[] } {
   return { roots: [...roots], terms: [...terms] };
 }
 
+function removeExcludedGenreHits(
+  hits: { roots: string[]; terms: string[] },
+  excludedRoots: string[],
+): { roots: string[]; terms: string[] } {
+  if (excludedRoots.length === 0) return hits;
+  const roots = hits.roots.filter((root) => !excludedRoots.includes(root));
+  const terms = hits.terms.filter((term) => {
+    const termRoots = extractGenreTerms(term).roots;
+    return termRoots.length === 0 || termRoots.some((root) => !excludedRoots.includes(root));
+  });
+  return { roots, terms };
+}
+
 function hasDecorativeEraOnly(lower: string): boolean {
   const decorativeEraContext = /\b(?:60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\s+(?:car|cars|motor|motors|vehicle|vehicles|volvo|bmw|mercedes|honda|toyota|ford|garage|bedroom|room|fit|fashion|aesthetic|vibe)\b/i;
   const explicitMusicEraContext = /\b(?:music|songs?|tracks?|playlist|mix|hits?|anthems?|throwbacks?|classics?|era|decade|sound|rave|disco|rock|pop|rap|hip\s*hop|jungle|house|techno)\b/i;
@@ -1577,14 +1590,16 @@ function normalizeArtistConstraint(value: string): string {
 function extractExcludedArtists(vibe: string): string[] {
   const excluded: string[] = [];
   const genericNonArtist = /\b(?:music|songs?|tracks?|vocals?|words?|lyrics?|ambient|electronic|metal|pop|rock|rap|hip\s*hop|country|jazz|classical|christmas|sad|slow|fast|screamo)\b/i;
-  for (const match of vibe.matchAll(/\b(?:no|without|exclude|excluding)\s+([a-z0-9&'\-!\s]{2,36})/gi)) {
+  for (const match of vibe.matchAll(/\b(?:no|without|exclude|excluding)\s+([a-z0-9&,'\-!\s]{2,96})/gi)) {
     const phrase = (match[1] ?? "")
       .replace(/\b(?:music|songs?|tracks?|playlist|please|pls|obviously|only)\b/gi, "")
       .trim();
     if (!phrase || genericNonArtist.test(phrase)) continue;
     if (extractGenreTerms(phrase).roots.length > 0) continue;
-    const normalized = normalizeArtistConstraint(phrase);
-    if (normalized && !excluded.includes(normalized)) excluded.push(normalized);
+    for (const part of phrase.split(/\s*,\s*|\s+or\s+|\s+and\s+/i)) {
+      const normalized = normalizeArtistConstraint(part);
+      if (normalized && !excluded.includes(normalized)) excluded.push(normalized);
+    }
   }
   return excluded;
 }
@@ -1597,10 +1612,10 @@ function extractConstraintLayer(vibe: string, signals: QualitySignalContext): Co
     /\bpure\b/.test(lower) ? "pure" : null,
     /\bexclusively\b/.test(lower) ? "exclusively" : null,
   ].filter((term): term is string => !!term);
-  const excludedText = lower.match(/\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&\-\s]{2,24})/g) ?? [];
+  const excludedText = lower.match(/\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&,\-\s]{2,72})/g) ?? [];
   const excludedGenreHits = extractGenreTerms(excludedText.join(" "));
   const excludedArtists = extractExcludedArtists(vibe);
-  const genreHits = extractGenreTerms(vibe);
+  const genreHits = removeExcludedGenreHits(extractGenreTerms(vibe), excludedGenreHits.roots);
   const era = extractEraRange(vibe);
   const americanaBridgePrompt = isAmericanaBridgePrompt(lower);
   const multiGenreTerms = [
@@ -6421,18 +6436,21 @@ router.post("/generate", async (req, res): Promise<void> => {
       return year >= lockedIntent.eraRange.start - 10 && year <= lockedIntent.eraRange.end + 10;
     };
     const exactConstrainedRecoveryPool = explicitCandidatePool.filter((track) =>
+      trackMatchesHardConstraints(track, constraintLayer, lockedIntent, userGenreProfile.trackClassifications) &&
       finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
       finalTrackMatchesExplicitEra(track, lockedIntent)
     );
     const adjacentConstrainedRecoveryPool = exactConstrainedRecoveryPool.length > 0
       ? exactConstrainedRecoveryPool
       : explicitCandidatePool.filter((track) =>
+          trackMatchesHardConstraints(track, constraintLayer, lockedIntent, userGenreProfile.trackClassifications) &&
           finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
           adjacentEraMatches(track)
         );
     const genreConstrainedRecoveryPool = adjacentConstrainedRecoveryPool.length > 0
       ? adjacentConstrainedRecoveryPool
       : explicitCandidatePool.filter((track) =>
+          trackMatchesHardConstraints(track, constraintLayer, lockedIntent, userGenreProfile.trackClassifications) &&
           finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
         );
     const publishConstrainedPrefix = (reason: string): boolean => {

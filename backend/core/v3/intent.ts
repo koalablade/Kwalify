@@ -154,7 +154,7 @@ export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   ],
 }));
 
-const GENRE_EXCLUSION_RE = /\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&\-\s]{2,28})/gi;
+const GENRE_EXCLUSION_RE = /\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&,\-\s]{2,72})/gi;
 
 const ERA_BUCKET_RANGES: Record<string, { start: number; end: number }> = {
   "60s": { start: 1960, end: 1969 },
@@ -514,6 +514,7 @@ function hasGarageToken(input: string): boolean {
 
 function hasGarageMusicContext(input: string): boolean {
   return hasGarageToken(input) &&
+    !hasGaragePhysicalContext(input) &&
     /\b(?:music|ukg|uk\s+garage|2-step|two\s+step|two-step)\b/i.test(input);
 }
 
