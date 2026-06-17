@@ -2663,6 +2663,89 @@ function duplicateSuppressionReasons<T extends { trackId: string }>(tracks: T[])
   return duplicates > 0 ? { duplicateTrackId: duplicates } : {};
 }
 
+function normalizeSongIdentityPart(value?: string | null): string {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/\bfeat(?:\.|uring)?\b.*$/i, "")
+    .replace(/\bfrom\s+"[^"]+".*$/i, "")
+    .replace(/\s*-\s*(?:\d{4}\s*)?(?:remaster(?:ed)?|radio edit|single edit|mono|stereo|explicit|clean|bonus track|album version|original mix).*$/i, "")
+    .replace(/\([^)]*(?:remaster(?:ed)?|radio edit|single edit|mono|stereo|explicit|clean|bonus track|album version|original mix)[^)]*\)/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/[^a-z0-9 ]+/g, "")
+    .trim();
+}
+
+function songIdentityFingerprint(track: { trackName?: string | null; artistName?: string | null }): string | null {
+  const title = normalizeSongIdentityPart(track.trackName);
+  const artist = normalizeSongIdentityPart(track.artistName);
+  if (!title || !artist) return null;
+  return `${artist}::${title}`;
+}
+
+function repairDuplicateSongIdentities<T extends { trackId: string; trackName?: string | null; artistName?: string | null }>(
+  tracks: T[],
+  candidatePool: T[],
+): {
+  tracks: T[];
+  diagnostics: {
+    duplicateIdentityCount: number;
+    replacedCount: number;
+    unresolvedCount: number;
+    replacements: Array<{ index: number; fromTrackId: string; toTrackId: string; fingerprint: string }>;
+  };
+} {
+  const out: T[] = [];
+  const usedTrackIds = new Set<string>();
+  const usedFingerprints = new Set<string>();
+  const replacements: Array<{ index: number; fromTrackId: string; toTrackId: string; fingerprint: string }> = [];
+  let duplicateIdentityCount = 0;
+  let unresolvedCount = 0;
+
+  for (const track of tracks) {
+    const fingerprint = songIdentityFingerprint(track);
+    if (!usedTrackIds.has(track.trackId) && (!fingerprint || !usedFingerprints.has(fingerprint))) {
+      out.push(track);
+      usedTrackIds.add(track.trackId);
+      if (fingerprint) usedFingerprints.add(fingerprint);
+      continue;
+    }
+
+    duplicateIdentityCount += 1;
+    const replacement = candidatePool.find((candidate) => {
+      if (usedTrackIds.has(candidate.trackId)) return false;
+      const candidateFingerprint = songIdentityFingerprint(candidate);
+      return !candidateFingerprint || !usedFingerprints.has(candidateFingerprint);
+    });
+
+    if (!replacement) {
+      out.push(track);
+      unresolvedCount += 1;
+      continue;
+    }
+
+    const replacementFingerprint = songIdentityFingerprint(replacement);
+    out.push(replacement);
+    usedTrackIds.add(replacement.trackId);
+    if (replacementFingerprint) usedFingerprints.add(replacementFingerprint);
+    replacements.push({
+      index: out.length - 1,
+      fromTrackId: track.trackId,
+      toTrackId: replacement.trackId,
+      fingerprint: fingerprint ?? track.trackId,
+    });
+  }
+
+  return {
+    tracks: out,
+    diagnostics: {
+      duplicateIdentityCount,
+      replacedCount: replacements.length,
+      unresolvedCount,
+      replacements,
+    },
+  };
+}
+
 function familyCount<T extends { trackId: string; genrePrimary?: string }>(
   tracks: T[],
   classMap: UserGenreProfile["trackClassifications"],
@@ -4227,14 +4310,19 @@ export async function buildPlaylistPipeline<T extends {
     const resolvedTracks = (enforcedTracks.length >= Math.min(opts.playlistLength, resolvedPool.length)
       ? enforcedTracks
       : resolvedPool).slice(0, opts.playlistLength);
+    const antiBlandness = repairDuplicateSongIdentities(
+      resolvedTracks,
+      [...resolvedPool, ...contractGuardedScoredPool] as Array<ScoredLibraryTrack<T>>,
+    );
+    const resolvedFinalTracks = antiBlandness.tracks;
     const resolvedMomentMemory = updateMomentMemory({
       unifiedIntent: memoryAdjustedUnifiedIntent,
-      finalPlaylistEmbedding: buildPlaylistEmbedding(resolvedTracks).centroidVector,
+      finalPlaylistEmbedding: buildPlaylistEmbedding(resolvedFinalTracks).centroidVector,
       memoryKey: opts.momentMemoryKey,
     });
 
     return {
-      finalTracks: resolvedTracks,
+      finalTracks: resolvedFinalTracks,
       sorted: scoring.sorted,
       scoringDiagnostics: {
         ...scoring.scoringDiagnostics,
@@ -4261,8 +4349,15 @@ export async function buildPlaylistPipeline<T extends {
           preV3TopCandidates: diagnosticPool(selectedCandidate.inputPool, classMap, 60),
           waterfall: {
             ...baseWaterfall,
-            repairCount: resolvedTracks.length,
-            finalCount: resolvedTracks.length,
+            repairCount: resolvedFinalTracks.length,
+            finalCount: resolvedFinalTracks.length,
+          },
+          qualityRecovery: {
+            antiBlandness: {
+              ...antiBlandness.diagnostics,
+              executed: true,
+              fallbackLabel,
+            },
           },
           removalReasons,
           retrievalPoolsDetailed: retrievalPoolDiagnostics,
@@ -4273,7 +4368,7 @@ export async function buildPlaylistPipeline<T extends {
               name: fallbackLabel,
               triggerReason: "resolve_final_tracks_called",
               tracksBefore: pool.length,
-              tracksAfter: resolvedTracks.length,
+              tracksAfter: resolvedFinalTracks.length,
             },
           ],
           intentContractGuard: intentContractGuardDiagnostics,
@@ -4295,15 +4390,15 @@ export async function buildPlaylistPipeline<T extends {
       ecosystemDebug: null,
       pipelineTrace,
       composeMeta: {
-        structured: resolvedTracks,
+        structured: resolvedFinalTracks,
         poolTarget: opts.playlistLength,
-        afterDeadZone: resolvedTracks,
-        afterSmoothing: resolvedTracks,
-        afterArtistSep: resolvedTracks,
-        afterArc: resolvedTracks,
+        afterDeadZone: resolvedFinalTracks,
+        afterSmoothing: resolvedFinalTracks,
+        afterArtistSep: resolvedFinalTracks,
+        afterArc: resolvedFinalTracks,
         emotionalPeakTrackId: null,
         emotionalPeakIndex: null,
-        gradientPhases: { start: 0, explore: 0, peak: 0, resolve: resolvedTracks.length },
+        gradientPhases: { start: 0, explore: 0, peak: 0, resolve: resolvedFinalTracks.length },
       },
     };
   }
@@ -4524,6 +4619,22 @@ export async function buildPlaylistPipeline<T extends {
       return resolvedUnderfill;
     }
   }
+
+  const finalAntiBlandness = repairDuplicateSongIdentities(
+    finalTracksList as Array<T & { trackName?: string | null; artistName?: string | null }>,
+    orderFallbackPool([
+      ...(qualityRecoveryCandidatePool as Array<ScoredLibraryTrack<T>>),
+      ...contractGuardedScoredPool,
+      ...lastResortPool,
+    ]) as Array<T & { trackName?: string | null; artistName?: string | null }>,
+  );
+  if (finalAntiBlandness.diagnostics.replacedCount > 0) {
+    finalTracksList = finalAntiBlandness.tracks as T[];
+  }
+  qualityRecoveryDiagnostics["antiBlandness"] = {
+    ...finalAntiBlandness.diagnostics,
+    executed: true,
+  };
 
   const controllerOwnedMomentMemory = updateMomentMemory({
     unifiedIntent: memoryAdjustedUnifiedIntent,
