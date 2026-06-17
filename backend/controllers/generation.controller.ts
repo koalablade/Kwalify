@@ -2229,10 +2229,7 @@ function isGymWorkoutPrompt(vibe: string, intent: LockedIntent): boolean {
     /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/i.test(vibe);
 }
 
-function promptExplicitlyAllowsGymHipHop(vibe: string, _intent: LockedIntent, constraints: ConstraintLayer): boolean {
-  if (constraints.raw.explicitGenreTerms.some((term) => /\b(?:hip.?hop|rap|trap|drill|phonk|grime|boom\s+bap)\b/i.test(term))) {
-    return true;
-  }
+function promptExplicitlyAllowsGymHipHop(vibe: string, _intent: LockedIntent, _constraints: ConstraintLayer): boolean {
   return /\b(?:hip.?hop|rap|trap|drill|phonk|grime|boom\s+bap)\b/i.test(vibe);
 }
 
