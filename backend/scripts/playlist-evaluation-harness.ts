@@ -276,6 +276,24 @@ async function fetchJsonWithTimeout(
   }
 }
 
+async function preflightFetchJson(
+  url: string,
+  init: RequestInit,
+  label: string,
+): Promise<{ response: Response; data: Record<string, unknown> }> {
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await fetchJsonWithTimeout(url, init, PREFLIGHT_TIMEOUT_MS);
+    } catch (err) {
+      lastErr = err;
+      console.error(`[evaluation] preflight retry ${attempt + 1}/3 failed for ${label}: ${err instanceof Error ? err.message : String(err)}`);
+      if (attempt < 2) await sleep(5_000 * (attempt + 1));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr ?? `${label} failed`));
+}
+
 function resultIndexByPrompt(prompts: PlaylistBenchmarkPrompt[], result: GenerationEvaluationResult): number {
   return prompts.findIndex((prompt) => prompt.id === result.benchmark.id);
 }
@@ -617,7 +635,7 @@ async function preflight(config: HarnessConfig): Promise<Record<string, unknown>
     throw new Error("Could not determine expected deployment version. Pass --expected-deployment-version or set PLAYLIST_EVAL_EXPECTED_VERSION.");
   }
   try {
-    const { response, data } = await fetchJsonWithTimeout(`${config.baseUrl}/api/readyz`, { method: "GET" }, PREFLIGHT_TIMEOUT_MS);
+    const { response, data } = await preflightFetchJson(`${config.baseUrl}/api/readyz`, { method: "GET" }, "readyz");
     if (!response.ok || data["status"] !== "ready" || data["readiness"] !== "ready") {
       throw new Error(`GET /api/readyz returned ${response.status} ${String(data["status"] ?? "unknown")}/${String(data["readiness"] ?? "unknown")}`);
     }
@@ -626,7 +644,7 @@ async function preflight(config: HarnessConfig): Promise<Record<string, unknown>
   }
   let deploymentData: Record<string, unknown>;
   try {
-    const { response: deploymentResponse, data } = await fetchJsonWithTimeout(`${config.baseUrl}/api/eval/ping`, { method: "GET" }, PREFLIGHT_TIMEOUT_MS);
+    const { response: deploymentResponse, data } = await preflightFetchJson(`${config.baseUrl}/api/eval/ping`, { method: "GET" }, "eval-ping-get");
     deploymentData = data;
     if (!deploymentResponse.ok || deploymentData["status"] !== "ok" || deploymentData["deployed"] !== true) {
       console.error(`[evaluation] preflight: deployment reachable=${deploymentResponse.ok}, eval route deployed=false, token accepted=false, commit=${String(deploymentData["commit"] ?? "unknown")}`);
@@ -644,12 +662,12 @@ async function preflight(config: HarnessConfig): Promise<Record<string, unknown>
     throw new Error(`Preflight failed: deployed commit ${commit} does not match expected ${expectedVersion}. Deploy the current commit or pass the correct --expected-deployment-version.`);
   }
 
-  const { response: authResponse, data: authData } = await fetchJsonWithTimeout(`${config.baseUrl}/api/eval/ping`, {
+  const { response: authResponse, data: authData } = await preflightFetchJson(`${config.baseUrl}/api/eval/ping`, {
     method: "POST",
     headers: {
       "x-eval-token": config.token!,
     },
-  }, PREFLIGHT_TIMEOUT_MS);
+  }, "eval-ping-post");
   const authCommit = typeof authData["commit"] === "string" ? authData["commit"] : commit;
   if (!authResponse.ok) {
     console.error(`[evaluation] preflight: deployment reachable=true, eval route deployed=true, token accepted=false, commit=${authCommit}`);
