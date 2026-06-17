@@ -831,6 +831,89 @@ function generateFail(
   });
 }
 
+function timeoutFallbackResponse(
+  req: import("express").Request,
+  res: import("express").Response,
+  opts: {
+    failureReason: string;
+    elapsedMs: number;
+    requestId: string;
+    lastPhase?: string | null;
+    lastStage?: string | null;
+    stageProfile?: unknown;
+  },
+): boolean {
+  if (responseFinished(res)) return true;
+  const ctx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
+  const likedSongs = Array.isArray(ctx?.likedSongs) ? ctx.likedSongs : [];
+  const emotionProfile = ctx?.emotionProfile as EmotionProfile | undefined;
+  const length = typeof ctx?.length === "number" ? ctx.length : 0;
+  const vibe = typeof ctx?.vibe === "string" ? ctx.vibe : "";
+  const mode = typeof ctx?.mode === "string" ? ctx.mode : "balanced";
+  const maxPerArtist = typeof ctx?.maxPerArtist === "number" ? ctx.maxPerArtist : artistDiversityCap(length, vibe);
+  if (!emotionProfile || likedSongs.length === 0 || length <= 0) return false;
+
+  const pipeline = buildFallbackPipelineResult({
+    tracks: likedSongs as Array<{
+      trackId: string;
+      trackName: string;
+      artistName: string;
+      albumName: string;
+      albumArt?: string | null;
+      durationMs?: number | null;
+      energy: number | null;
+      valence: number | null;
+      tempo?: number | null;
+      danceability?: number | null;
+      acousticness?: number | null;
+      score?: number;
+      rediscoveryScore?: number;
+      genrePrimary?: string | null;
+      genreFamily?: string | null;
+      genres?: string[] | null;
+    }>,
+    emotionProfile,
+    playlistLength: length,
+    maxPerArtist,
+    librarySize: likedSongs.length,
+  });
+  const tracks = formatTracksForApi(pipeline.finalTracks.slice(0, length), emotionProfile);
+  if (tracks.length === 0) return false;
+
+  req.log.warn(
+    {
+      requestId: opts.requestId,
+      elapsedMs: opts.elapsedMs,
+      trackCount: tracks.length,
+      requestedLength: length,
+      failureReason: opts.failureReason,
+    },
+    "Generate timeout fallback response emitted"
+  );
+  res.status(200).json({
+    success: true,
+    playlistName: generatePlaylistName(vibe, emotionProfile),
+    tracks,
+    generationDiagnostics: {
+      recoveryTriggered: true,
+      fallbackLevel: "timeout_fallback",
+      sessionCancelled: true,
+      failureReason: opts.failureReason,
+      requestId: opts.requestId,
+      elapsedMs: opts.elapsedMs,
+      lastPhase: opts.lastPhase ?? null,
+      lastStage: opts.lastStage ?? null,
+      stageProfile: opts.stageProfile ?? null,
+      finalResponseCompletionLockApplied: true,
+      finalResponseCompletionAdded: tracks.length,
+    },
+    v3Diagnostics: pipeline.scoringDiagnostics,
+    fastFallback: true,
+    mode,
+  });
+  return true;
+}
+
 function fallbackLevelFromFinalization(
   diagnostics: Record<string, unknown>
 ): "none" | "soft" | "hardSafe" {
@@ -4103,6 +4186,14 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
         "Generate absolute watchdog timeout"
       );
+      if (timeoutFallbackResponse(req, res, {
+        failureReason: "absolute_watchdog_timeout_fallback",
+        elapsedMs: Date.now() - startMs,
+        requestId,
+        lastPhase: progressBeforeCancel?.phase ?? null,
+        lastStage: progressBeforeCancel?.stage ?? null,
+        stageProfile,
+      })) return;
       res.status(504).json({
         success: false,
         error: "Generation took too long before a safe playlist could be built. Try again with a slightly broader prompt, or sync your Spotify library and retry.",
@@ -4657,6 +4748,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (respondIfStale(res, generateSessionUserId, requestId)) return;
       cancelGenerateSession(generateSessionUserId, requestId);
       req.log.error({ userId, requestId, code: "TIMEOUT" }, "Generate hard timeout — no controller fallback authority");
+      if (timeoutFallbackResponse(req, res, {
+        failureReason: "express_timeout_fallback",
+        elapsedMs: Date.now() - startMs,
+        requestId,
+      })) return;
       res.status(504).json({
         success: false,
         error: "Generation took too long before V3 could return a safe playlist. Try again with a slightly broader prompt, or sync your Spotify library and retry.",
@@ -6380,6 +6476,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
     if (finalTracks.length < length) {
       const emergencySeenIds = new Set(finalTracks.map((track) => track.trackId));
+      const finalResponseArtistCounts = new Map<string, number>();
+      for (const track of finalTracks) {
+        const key = track.artistName.toLowerCase().trim();
+        finalResponseArtistCounts.set(key, (finalResponseArtistCounts.get(key) ?? 0) + 1);
+      }
+      const finalArtistCap = Number.isFinite(maxPerArtist) ? maxPerArtist : Number.MAX_SAFE_INTEGER;
       const toEmergencyCompletionTrack = <T extends {
         trackId: string;
         trackName: string;
@@ -6407,19 +6509,41 @@ router.post("/generate", async (req, res): Promise<void> => {
         rediscoveryScore: typeof track.rediscoveryScore === "number" ? track.rediscoveryScore : 0,
       } as ConstraintTrack);
       let finalResponseCompletionAdded = 0;
-      for (const track of [
+      let finalResponseArtistCapSkipped = 0;
+      let finalResponseArtistCapBypassed = 0;
+      const finalResponseCompletionSources = [
         ...finalCandidatePool,
         ...clusterCuration.candidates,
         ...(pipeline.sorted as ConstraintTrack[]),
         ...scoringInputSongs,
         ...likedSongs,
-      ]) {
+      ];
+      for (const track of finalResponseCompletionSources) {
         if (finalTracks.length >= length) break;
         const candidate = toEmergencyCompletionTrack(track);
         if (emergencySeenIds.has(candidate.trackId)) continue;
+        const candidateArtist = candidate.artistName.toLowerCase().trim();
+        if ((finalResponseArtistCounts.get(candidateArtist) ?? 0) >= finalArtistCap) {
+          finalResponseArtistCapSkipped += 1;
+          continue;
+        }
         emergencySeenIds.add(candidate.trackId);
         finalTracks.push(candidate as PlaylistTrack);
+        finalResponseArtistCounts.set(candidateArtist, (finalResponseArtistCounts.get(candidateArtist) ?? 0) + 1);
         finalResponseCompletionAdded += 1;
+      }
+      if (finalTracks.length < length) {
+        for (const track of finalResponseCompletionSources) {
+          if (finalTracks.length >= length) break;
+          const candidate = toEmergencyCompletionTrack(track);
+          if (emergencySeenIds.has(candidate.trackId)) continue;
+          const candidateArtist = candidate.artistName.toLowerCase().trim();
+          emergencySeenIds.add(candidate.trackId);
+          finalTracks.push(candidate as PlaylistTrack);
+          finalResponseArtistCounts.set(candidateArtist, (finalResponseArtistCounts.get(candidateArtist) ?? 0) + 1);
+          finalResponseCompletionAdded += 1;
+          finalResponseArtistCapBypassed += 1;
+        }
       }
       let finalResponseDuplicateFillAdded = 0;
       if (finalTracks.length > 0 && finalTracks.length < length) {
@@ -6432,8 +6556,26 @@ router.post("/generate", async (req, res): Promise<void> => {
           const previousArtist = finalTracks[finalTracks.length - 1]?.artistName.toLowerCase().trim() ?? null;
           const candidateArtist = candidate.artistName.toLowerCase().trim();
           if (uniqueSource.length > 1 && previousArtist === candidateArtist) continue;
+          if ((finalResponseArtistCounts.get(candidateArtist) ?? 0) >= finalArtistCap) {
+            finalResponseArtistCapSkipped += 1;
+            continue;
+          }
           finalTracks.push({ ...candidate });
+          finalResponseArtistCounts.set(candidateArtist, (finalResponseArtistCounts.get(candidateArtist) ?? 0) + 1);
           finalResponseDuplicateFillAdded += 1;
+        }
+        cursor = 0;
+        while (finalTracks.length < length && cursor < length * 2) {
+          const candidate = uniqueSource[cursor % uniqueSource.length];
+          cursor += 1;
+          if (!candidate) break;
+          const previousArtist = finalTracks[finalTracks.length - 1]?.artistName.toLowerCase().trim() ?? null;
+          const candidateArtist = candidate.artistName.toLowerCase().trim();
+          if (uniqueSource.length > 1 && previousArtist === candidateArtist) continue;
+          finalTracks.push({ ...candidate });
+          finalResponseArtistCounts.set(candidateArtist, (finalResponseArtistCounts.get(candidateArtist) ?? 0) + 1);
+          finalResponseDuplicateFillAdded += 1;
+          finalResponseArtistCapBypassed += 1;
         }
       }
       if (finalResponseCompletionAdded > 0 || finalResponseDuplicateFillAdded > 0) {
@@ -6445,6 +6587,8 @@ router.post("/generate", async (req, res): Promise<void> => {
             finalResponseCompletionLockApplied: true,
             finalResponseCompletionAdded,
             finalResponseDuplicateFillAdded,
+            finalResponseArtistCapSkipped,
+            finalResponseArtistCapBypassed,
           },
         };
         generationDiagnostics.candidatesFinal = finalTracks.length;
@@ -7318,6 +7462,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         return;
       }
       const timedOut = Date.now() - startMs >= requestHardTimeoutMs - 1000;
+      if (timedOut && timeoutFallbackResponse(req, res, {
+        failureReason: "fatal_timeout_fallback",
+        elapsedMs: Date.now() - startMs,
+        requestId,
+      })) return;
       res.status(timedOut ? 504 : 500).json({
         success: false,
         error: timedOut
