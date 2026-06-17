@@ -7624,7 +7624,27 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     publishFinalTracksContext();
     const endApiFormattingProfile = liveStageProfiler.start("controller.apiTrackFormatting", `${finalTracks.length} tracks`);
-    const finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
+    let finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
+    if (isGymWorkoutPrompt(vibe, lockedIntent) && !promptExplicitlyAllowsGymHipHop(vibe, lockedIntent, constraintLayer)) {
+      const prunedApiTracks = finalApiTracks.filter((track) => {
+        const family = (track.genreFamily ?? track.genrePrimary ?? track.genres?.[0] ?? "unknown").toLowerCase();
+        return !["hip_hop", "country", "classical", "christmas"].includes(family);
+      });
+      if (prunedApiTracks.length > 0 && prunedApiTracks.length < finalApiTracks.length) {
+        const originalApiTrackCount = finalApiTracks.length;
+        const keptIds = new Set(prunedApiTracks.map((track) => track.id));
+        finalApiTracks = prunedApiTracks;
+        finalTracks = finalTracks.filter((track) => keptIds.has(track.trackId));
+        finalization = {
+          tracks: finalTracks,
+          diagnostics: {
+            ...finalization.diagnostics,
+            genericGymApiContaminationPruned: true,
+            genericGymApiContaminationPrunedCount: originalApiTrackCount - finalApiTracks.length,
+          },
+        };
+      }
+    }
     endApiFormattingProfile();
     const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>(
       (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
