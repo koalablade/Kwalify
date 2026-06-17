@@ -696,8 +696,8 @@ function parseExcludedGenreFamilies(input: string): string[] {
   const excluded = new Set<string>();
   for (const match of input.matchAll(/\b(?:no|without|exclude|excluding|not)\s+([a-z0-9&,\-\s]{2,72})/gi)) {
     const phrase = match[1] ?? "";
-    for (const group of EXPANDED_GENRE_ALIASES) {
-      if (termRegex([group.family, ...group.terms]).test(phrase)) excluded.add(group.family);
+    for (const [family, terms] of Object.entries(SPOTIFY_TRUTH_TERMS)) {
+      if (termRegex([family, ...terms]).test(phrase)) excluded.add(family);
     }
     for (const part of phrase.split(/\s*,\s*|\s+or\s+|\s+and\s+/i)) {
       const family = getGenreFamily(part.trim());
