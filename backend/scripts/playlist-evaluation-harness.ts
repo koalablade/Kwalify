@@ -56,6 +56,7 @@ type ClusterEarlyExitSummary = {
 };
 
 const LEGACY_RUN_STATE_FILE = path.join("reports", "playlist-evaluation", "run-state.json");
+const PREFLIGHT_TIMEOUT_MS = 45_000;
 const PREVIOUS_BASELINE = {
   successCount: 11,
   benchmarkSize: 20,
@@ -616,7 +617,7 @@ async function preflight(config: HarnessConfig): Promise<Record<string, unknown>
     throw new Error("Could not determine expected deployment version. Pass --expected-deployment-version or set PLAYLIST_EVAL_EXPECTED_VERSION.");
   }
   try {
-    const { response, data } = await fetchJsonWithTimeout(`${config.baseUrl}/api/readyz`, { method: "GET" }, 15_000);
+    const { response, data } = await fetchJsonWithTimeout(`${config.baseUrl}/api/readyz`, { method: "GET" }, PREFLIGHT_TIMEOUT_MS);
     if (!response.ok || data["status"] !== "ready" || data["readiness"] !== "ready") {
       throw new Error(`GET /api/readyz returned ${response.status} ${String(data["status"] ?? "unknown")}/${String(data["readiness"] ?? "unknown")}`);
     }
@@ -625,7 +626,7 @@ async function preflight(config: HarnessConfig): Promise<Record<string, unknown>
   }
   let deploymentData: Record<string, unknown>;
   try {
-    const { response: deploymentResponse, data } = await fetchJsonWithTimeout(`${config.baseUrl}/api/eval/ping`, { method: "GET" }, 15_000);
+    const { response: deploymentResponse, data } = await fetchJsonWithTimeout(`${config.baseUrl}/api/eval/ping`, { method: "GET" }, PREFLIGHT_TIMEOUT_MS);
     deploymentData = data;
     if (!deploymentResponse.ok || deploymentData["status"] !== "ok" || deploymentData["deployed"] !== true) {
       console.error(`[evaluation] preflight: deployment reachable=${deploymentResponse.ok}, eval route deployed=false, token accepted=false, commit=${String(deploymentData["commit"] ?? "unknown")}`);
@@ -648,7 +649,7 @@ async function preflight(config: HarnessConfig): Promise<Record<string, unknown>
     headers: {
       "x-eval-token": config.token!,
     },
-  }, 15_000);
+  }, PREFLIGHT_TIMEOUT_MS);
   const authCommit = typeof authData["commit"] === "string" ? authData["commit"] : commit;
   if (!authResponse.ok) {
     console.error(`[evaluation] preflight: deployment reachable=true, eval route deployed=true, token accepted=false, commit=${authCommit}`);
