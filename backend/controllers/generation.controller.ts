@@ -927,7 +927,43 @@ function timeoutFallbackResponse(
     librarySize: likedSongs.length || timeoutSource.length,
     genreByTrack,
   });
-  const tracks = formatTracksForApi(pipeline.finalTracks.slice(0, length), emotionProfile);
+  const timeoutFinalTracks = [...pipeline.finalTracks];
+  if (timeoutFinalTracks.length < length) {
+    const seenTrackIds = new Set(timeoutFinalTracks.map((track) => track.trackId));
+    for (const track of orderedTimeoutSource) {
+      if (timeoutFinalTracks.length >= length) break;
+      const candidate = track as {
+        trackId: string;
+        trackName: string;
+        artistName: string;
+        albumName: string;
+        albumArt?: string | null;
+        durationMs?: number | null;
+        energy: number | null;
+        valence: number | null;
+        tempo?: number | null;
+        danceability?: number | null;
+        acousticness?: number | null;
+        score?: number;
+        rediscoveryScore?: number;
+        genrePrimary?: string | null;
+        genreFamily?: string | null;
+        genres?: string[] | null;
+      };
+      if (!candidate.trackId || seenTrackIds.has(candidate.trackId)) continue;
+      const genre = genreByTrack?.(candidate.trackId);
+      timeoutFinalTracks.push({
+        ...candidate,
+        genrePrimary: candidate.genrePrimary ?? genre?.genrePrimary ?? undefined,
+        genreFamily: candidate.genreFamily ?? genre?.genreFamily ?? candidate.genrePrimary ?? genre?.genrePrimary ?? undefined,
+        genres: candidate.genres ?? genre?.genres ?? (candidate.genrePrimary ? [candidate.genrePrimary] : []),
+        score: candidate.score ?? 0.7,
+        rediscoveryScore: candidate.rediscoveryScore ?? 0.35,
+      } as (typeof pipeline.finalTracks)[number]);
+      seenTrackIds.add(candidate.trackId);
+    }
+  }
+  const tracks = formatTracksForApi(timeoutFinalTracks.slice(0, length), emotionProfile);
   if (tracks.length === 0) return false;
 
   req.log.warn(
@@ -958,6 +994,7 @@ function timeoutFallbackResponse(
       stageProfile: opts.stageProfile ?? null,
       finalResponseCompletionLockApplied: true,
       finalResponseCompletionAdded: tracks.length,
+      timeoutFallbackHardFillAdded: Math.max(0, tracks.length - pipeline.finalTracks.length),
       timeoutFallbackSource: scoringInputSongs.length > 0 ? "scoring_input" : "liked_songs",
       timeoutFallbackIntentOrdered: expectedFamilies.length > 0 || !!eraRange,
     },
