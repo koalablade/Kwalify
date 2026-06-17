@@ -3011,9 +3011,9 @@ function normalizeRepeatToken(value: string | null | undefined): string {
     .trim();
 }
 
-function trackRepeatSignature(track: { trackName?: string | null; artistName?: string | null }): string | null {
-  const title = normalizeRepeatToken(track.trackName);
-  const artist = normalizeRepeatToken(track.artistName);
+function trackRepeatSignature(track: { trackName?: string | null; artistName?: string | null; name?: string | null; artist?: string | null }): string | null {
+  const title = normalizeRepeatToken(track.trackName ?? track.name);
+  const artist = normalizeRepeatToken(track.artistName ?? track.artist);
   if (!title || !artist) return null;
   return `${artist}:${title}`;
 }
@@ -3040,17 +3040,21 @@ function repairFinalResponseDuplicateSongIdentities<T extends ConstraintTrack>(
   diagnostics: {
     duplicateIdentityCount: number;
     replacedCount: number;
+    prunedCount: number;
+    refilledCount: number;
     unresolvedCount: number;
     replacements: Array<{ index: number; fromTrackId: string; toTrackId: string; signature: string }>;
   };
 } {
+  const targetLength = tracks.length;
   const out: T[] = [];
   const seenIds = new Set<string>();
   const seenSignatures = new Set<string>();
   const artistCounts = new Map<string, number>();
   const replacements: Array<{ index: number; fromTrackId: string; toTrackId: string; signature: string }> = [];
   let duplicateIdentityCount = 0;
-  let unresolvedCount = 0;
+  let prunedCount = 0;
+  let refilledCount = 0;
   const orderedCandidates = candidates
     .map(sanitizePlaylistTrack)
     .filter((track): track is T => !!track)
@@ -3084,8 +3088,7 @@ function repairFinalResponseDuplicateSongIdentities<T extends ConstraintTrack>(
     });
 
     if (!replacement) {
-      accept(track);
-      unresolvedCount += 1;
+      prunedCount += 1;
       continue;
     }
 
@@ -3098,12 +3101,24 @@ function repairFinalResponseDuplicateSongIdentities<T extends ConstraintTrack>(
     });
   }
 
+  for (const candidate of orderedCandidates) {
+    if (out.length >= targetLength) break;
+    if (seenIds.has(candidate.trackId)) continue;
+    const candidateSignature = trackRepeatSignature(candidate);
+    if (candidateSignature && seenSignatures.has(candidateSignature)) continue;
+    if (!finalTrackIsHardSafe(candidate, opts)) continue;
+    accept(candidate);
+    refilledCount += 1;
+  }
+
   return {
     tracks: out,
     diagnostics: {
       duplicateIdentityCount,
       replacedCount: replacements.length,
-      unresolvedCount,
+      prunedCount,
+      refilledCount,
+      unresolvedCount: Math.max(0, targetLength - out.length),
       replacements,
     },
   };
@@ -7573,7 +7588,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         maxPerArtist,
       }
     );
-    if (finalResponseAntiBlandness.diagnostics.replacedCount > 0) {
+    const finalResponseAntiBlandnessChanged =
+      finalResponseAntiBlandness.diagnostics.replacedCount > 0 ||
+      finalResponseAntiBlandness.diagnostics.prunedCount > 0 ||
+      finalResponseAntiBlandness.diagnostics.refilledCount > 0 ||
+      finalResponseAntiBlandness.tracks.length !== finalTracks.length;
+    if (finalResponseAntiBlandnessChanged) {
       finalTracks = finalResponseAntiBlandness.tracks as PlaylistTrack[];
       finalization = {
         tracks: finalTracks,
