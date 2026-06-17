@@ -560,6 +560,7 @@ type IntentContract = {
   rawPrompt: string;
   genreFamilies: string[];
   excludedGenreFamilies: string[];
+  excludedArtistTerms: string[];
   eraRange: { start: number; end: number } | null;
   mood: string[];
   activity: string | null;
@@ -707,6 +708,33 @@ function parseExcludedGenreFamilies(input: string): string[] {
   return [...excluded];
 }
 
+function parseExcludedArtistTerms(input: string): string[] {
+  const excluded: string[] = [];
+  const genericNonArtist = /\b(?:music|songs?|tracks?|vocals?|words?|lyrics?|ambient|electronic|metal|pop|rock|rap|hip\s*hop|country|jazz|classical|christmas|sad|slow|fast|screamo|edm)\b/i;
+  for (const match of input.matchAll(/\b(?:no|without|exclude|excluding)\s+([a-z0-9&,'\-!\s]{2,96})/gi)) {
+    const phrase = (match[1] ?? "")
+      .replace(/\b(?:music|songs?|tracks?|playlist|please|pls|obviously|only)\b/gi, "")
+      .trim();
+    if (!phrase || genericNonArtist.test(phrase)) continue;
+    for (const part of phrase.split(/\s*,\s*|\s+or\s+|\s+and\s+/i)) {
+      const normalized = normalizeIdentityTerm(part);
+      if (normalized.length >= 2 && !excluded.includes(normalized)) excluded.push(normalized);
+    }
+  }
+  return excluded;
+}
+
+function trackMatchesExcludedArtist<T extends IntentContractTrack>(track: T, excludedArtistTerms: string[]): boolean {
+  if (excludedArtistTerms.length === 0) return false;
+  const artist = normalizeIdentityTerm(track.artistName ?? "");
+  if (!artist) return false;
+  return excludedArtistTerms.some((excluded) =>
+    artist === excluded ||
+    artist.includes(excluded) ||
+    excluded.includes(artist)
+  );
+}
+
 function ontologyTermTokens(): Set<string> {
   const ontologyTerms = [
     ...EXPANDED_GENRE_ALIASES.flatMap((group) => [group.family, ...group.terms]),
@@ -778,6 +806,7 @@ function extractIdentityTerms(input: string, parsed: LockedIntent): string[] {
 function parseIntentContract(input: string, parsed: LockedIntent): IntentContract {
   const lower = input.toLowerCase();
   const excludedGenreFamilies = parseExcludedGenreFamilies(input);
+  const excludedArtistTerms = parseExcludedArtistTerms(input);
   const timeOfDay: IntentContract["timeOfDay"] = [
     termRegex(EXPANDED_TIME_TERMS.morning).test(lower) ? "morning" : null,
     termRegex(EXPANDED_TIME_TERMS.afternoon).test(lower) ? "afternoon" : null,
@@ -827,6 +856,7 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
     rawPrompt: input,
     genreFamilies: parsed.genreFamilies,
     excludedGenreFamilies,
+    excludedArtistTerms,
     eraRange: parsed.eraRange,
     mood: parsed.mood,
     activity: parsed.activity,
@@ -995,6 +1025,9 @@ function trackCompatibleWithHardIntentContract<T extends IntentContractTrack>(
   classMap: UserGenreProfile["trackClassifications"],
   contract: IntentContract,
 ): boolean {
+  if (trackMatchesExcludedArtist(track, contract.excludedArtistTerms)) {
+    return false;
+  }
   if (
     contract.excludedGenreFamilies.length > 0 &&
     trackMatchesGenreFamilies(track, classMap, contract.excludedGenreFamilies)
