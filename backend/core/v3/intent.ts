@@ -150,7 +150,9 @@ export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   ...alias,
   terms: [
     ...alias.terms,
-    ...(EXPANDED_GENRE_ALIASES.find((extra) => extra.family === alias.family)?.terms ?? []),
+    ...EXPANDED_GENRE_ALIASES
+      .filter((extra) => extra.family === alias.family)
+      .flatMap((extra) => extra.terms),
   ],
 }));
 
