@@ -5545,32 +5545,6 @@ router.post("/generate", async (req, res): Promise<void> => {
         artistReusePenalty: finalizationArtistReusePenalty,
       }) as typeof pipeline;
       playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
-      const fastFallbackTracks = formatTracksForApi(pipeline.finalTracks.slice(0, length), emotionProfile);
-      if (fastFallbackTracks.length > 0) {
-        res.status(200).json({
-          success: true,
-          playlistName: generatePlaylistName(vibe, emotionProfile),
-          name: generatePlaylistName(vibe, emotionProfile),
-          vibe,
-          mode,
-          count: fastFallbackTracks.length,
-          totalTracks: fastFallbackTracks.length,
-          tracks: fastFallbackTracks,
-          generationDiagnostics: {
-            recoveryTriggered: true,
-            fallbackLevel: "fast_fallback",
-            sessionCancelled: false,
-            failureReason: "time_budget_fast_fallback",
-            requestId,
-            elapsedMs: Date.now() - startMs,
-            fastFallbackImmediateResponse: true,
-            preV3Timing,
-          },
-          v3Diagnostics: pipeline.scoringDiagnostics,
-          fastFallback: true,
-        });
-        return;
-      }
     } else {
       if (!recordExecutionStage(executionHealth, req.log, "playlistPipeline", "controller.runRequestLayerGeneration", {
         cause: "UNEXPECTED_FALLBACK_PATH",
