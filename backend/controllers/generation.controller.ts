@@ -7505,7 +7505,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     if (!responseFinished(res)) {
       const timedOut = Date.now() - startMs >= requestHardTimeoutMs - 1000;
-      if (timedOut && timeoutFallbackResponse(req, res, {
+      const longRunningCancelled = sessionWasCancelled && Date.now() - startMs >= 30_000;
+      if ((timedOut || longRunningCancelled) && timeoutFallbackResponse(req, res, {
         failureReason: sessionWasCancelled ? "cancelled_timeout_fallback" : "fatal_timeout_fallback",
         elapsedMs: Date.now() - startMs,
         requestId,
