@@ -846,15 +846,20 @@ function timeoutFallbackResponse(
   if (responseFinished(res)) return true;
   const ctx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
   const likedSongs = Array.isArray(ctx?.likedSongs) ? ctx.likedSongs : [];
+  const scoringInputSongs = Array.isArray(ctx?.scoringInputSongs) ? ctx.scoringInputSongs : [];
   const emotionProfile = ctx?.emotionProfile as EmotionProfile | undefined;
   const length = typeof ctx?.length === "number" ? ctx.length : 0;
   const vibe = typeof ctx?.vibe === "string" ? ctx.vibe : "";
   const mode = typeof ctx?.mode === "string" ? ctx.mode : "balanced";
   const maxPerArtist = typeof ctx?.maxPerArtist === "number" ? ctx.maxPerArtist : artistDiversityCap(length, vibe);
-  if (!emotionProfile || likedSongs.length === 0 || length <= 0) return false;
+  const timeoutSource = scoringInputSongs.length > 0 ? scoringInputSongs : likedSongs;
+  const genreByTrack = typeof ctx?.genreByTrack === "function"
+    ? ctx.genreByTrack as (trackId: string) => { genrePrimary?: string | null; genreFamily?: string | null; genres?: string[] | null } | null | undefined
+    : undefined;
+  if (!emotionProfile || timeoutSource.length === 0 || length <= 0) return false;
 
   const pipeline = buildFallbackPipelineResult({
-    tracks: likedSongs as Array<{
+    tracks: timeoutSource as Array<{
       trackId: string;
       trackName: string;
       artistName: string;
@@ -875,7 +880,8 @@ function timeoutFallbackResponse(
     emotionProfile,
     playlistLength: length,
     maxPerArtist,
-    librarySize: likedSongs.length,
+    librarySize: likedSongs.length || timeoutSource.length,
+    genreByTrack,
   });
   const tracks = formatTracksForApi(pipeline.finalTracks.slice(0, length), emotionProfile);
   if (tracks.length === 0) return false;
@@ -886,6 +892,7 @@ function timeoutFallbackResponse(
       elapsedMs: opts.elapsedMs,
       trackCount: tracks.length,
       requestedLength: length,
+      source: scoringInputSongs.length > 0 ? "scoring_input" : "liked_songs",
       failureReason: opts.failureReason,
     },
     "Generate timeout fallback response emitted"
@@ -906,6 +913,7 @@ function timeoutFallbackResponse(
       stageProfile: opts.stageProfile ?? null,
       finalResponseCompletionLockApplied: true,
       finalResponseCompletionAdded: tracks.length,
+      timeoutFallbackSource: scoringInputSongs.length > 0 ? "scoring_input" : "liked_songs",
     },
     v3Diagnostics: pipeline.scoringDiagnostics,
     fastFallback: true,
@@ -5207,6 +5215,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       requestedLength: length,
     });
     const scoringInputSongs = preScoringCandidateShape.tracks;
+    (req as { _genCtx?: Record<string, unknown> })._genCtx = {
+      ...(req as { _genCtx?: Record<string, unknown> })._genCtx,
+      scoringInputSongs: scoringInputSongs.map(hydrateTrackGenre),
+      genreByTrack,
+    };
     const curatorScoreByTrack = new Map<string, number>();
     for (const track of scoringInputSongs) {
       curatorScoreByTrack.set(track.trackId, scoreTrackForIdentity(track, curatorIdentity));
