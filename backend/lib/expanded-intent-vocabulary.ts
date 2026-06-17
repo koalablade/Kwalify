@@ -46,7 +46,7 @@ export const EXPANDED_GENRE_ALIASES: GenreAliasGroup[] = [
   { family: "reggae", terms: ["lovers rock", "ska", "two tone", "2 tone", "reggae fusion", "dub reggae", "digital dancehall", "conscious reggae", "roots reggae", "beach reggae", "sunset reggae", "island reggae", "summer reggae", "reggae dub", "rocksteady", "ragga", "dubwise", "one drop", "rub-a-dub"] },
   { family: "latin", terms: ["corridos", "corridos tumbados", "regional mexican", "norteño", "norteno", "banda", "mariachi", "ranchera", "son cubano", "bolero", "mambo", "cha cha", "latin rock", "bossa", "mpb", "tropicalia", "urbano latino", "dembow"] },
   { family: "soundtrack", terms: ["anime ost", "anime soundtrack", "video game music", "vgm", "game score", "disney soundtrack", "musical theatre", "broadway", "west end", "trailer music", "epic score"] },
-  { family: "world", terms: ["k afrobeat", "afro house", "afro tech", "gqom", "kuduro", "soukous", "rai", "gnawa", "qawwali", "bollywood", "bhangra", "desi pop", "korean ballad", "enka", "city pop", "c-pop", "c pop", "fado", "flamenco", "klezmer"] },
+  { family: "world", terms: ["k afrobeat", "afro house", "afro tech", "gqom", "kuduro", "soukous", "rai", "gnawa", "qawwali", "bollywood", "bhangra", "desi pop", "korean ballad", "enka", "c-pop", "c pop", "fado", "flamenco", "klezmer"] },
   { family: "christmas", terms: ["christmas jazz", "christmas pop", "christmas classics", "holiday classics", "winter songs", "advent", "carols", "christmas carols"] },
 ];
 
@@ -461,7 +461,7 @@ EXPANDED_GENRE_ALIASES.push(
   {
     family: "world",
     terms: [
-      "alt k-pop", "anime rock", "enka pop", "j-pop rock", "japanese city pop", "japanese indie rock",
+      "alt k-pop", "anime rock", "enka pop", "j-pop rock", "japanese indie rock",
       "korean r&b", "latin alternative", "mandopop", "shibuya-kei", "visual kei",
     ],
   },
