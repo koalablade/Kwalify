@@ -946,6 +946,85 @@ function timeoutFallbackResponse(
     ? (lockedIntent.primaryGenres.length > 0 ? lockedIntent.primaryGenres : lockedIntent.genreFamilies)
     : [];
   const eraRange = lockedIntent?.eraRange ?? null;
+  const fallbackTrackText = (track: ConstraintTrack): string => {
+    const genreTerms = Array.isArray((track as { genres?: unknown }).genres)
+      ? ((track as { genres?: string[] }).genres ?? []).join(" ")
+      : "";
+    return `${track.trackName ?? ""} ${track.artistName ?? ""} ${track.albumName ?? ""} ${genreTerms}`.toLowerCase();
+  };
+  const fallbackActivityScore = (track: ConstraintTrack): number => {
+    const activity = lockedIntent?.activity;
+    const energy = track.energy;
+    const tempo = track.tempo;
+    const danceability = track.danceability;
+    const acousticness = track.acousticness;
+    const speechiness = track.speechiness;
+    if (activity === "gym") {
+      return (typeof energy === "number" && energy >= 0.52) ||
+        (typeof tempo === "number" && tempo >= 108) ||
+        (typeof danceability === "number" && danceability >= 0.58)
+        ? 0.16
+        : -0.18;
+    }
+    if (activity === "party") {
+      return (typeof energy === "number" && energy >= 0.58) ||
+        (typeof danceability === "number" && danceability >= 0.62)
+        ? 0.12
+        : -0.12;
+    }
+    if (activity === "focus") {
+      const calmEnough = (energy == null || energy <= 0.62) &&
+        (danceability == null || danceability <= 0.70) &&
+        (speechiness == null || speechiness <= 0.35);
+      return calmEnough ? 0.12 : -0.16;
+    }
+    if (activity === "driving") {
+      return (energy == null || (energy >= 0.30 && energy <= 0.82)) && (tempo == null || tempo >= 75)
+        ? 0.08
+        : -0.08;
+    }
+    if (activity === "relaxing" || activity === "sleep") {
+      return (energy == null || energy <= 0.50) || (typeof acousticness === "number" && acousticness >= 0.35)
+        ? 0.08
+        : -0.10;
+    }
+    return 0;
+  };
+  const fallbackIntentScore = (track: ConstraintTrack): number => {
+    const text = fallbackTrackText(track);
+    const genreEvidence = expectedFamilies.length > 0 && hasFinalGenreEvidence(track, classMap, expectedFamilies);
+    const genreTextEvidence = expectedFamilies.flatMap((family) => FINAL_GUARD_GENRE_TERMS[family] ?? [])
+      .some((term) => text.includes(term));
+    const subgenreEvidence = [
+      lockedIntent?.primarySubgenre,
+      lockedIntent?.secondarySubgenre,
+      ...(lockedIntent?.subgenreTerms ?? []),
+    ].filter((term): term is string => !!term)
+      .some((term) => text.includes(term.replace(/_/g, " ")));
+    const eraScore = !eraRange
+      ? 0
+      : trackHasEraEvidence(track, eraRange)
+        ? 0.10
+        : trackHasKnownEraMismatch(track, eraRange)
+          ? -0.18
+          : 0;
+    const unknownGenrePenalty = expectedFamilies.length > 0 && !genreEvidence && !genreTextEvidence && !subgenreEvidence
+      ? -0.22
+      : 0;
+    return (
+      (genreEvidence ? 0.34 : 0) +
+      (genreTextEvidence ? 0.18 : 0) +
+      (subgenreEvidence ? 0.22 : 0) +
+      fallbackActivityScore(track) +
+      eraScore +
+      unknownGenrePenalty
+    );
+  };
+  const sortFallbackBucket = (tracks: unknown[]): unknown[] =>
+    [...tracks].sort((a, b) =>
+      fallbackIntentScore(b as ConstraintTrack) - fallbackIntentScore(a as ConstraintTrack) ||
+      (((b as ConstraintTrack).score ?? 0) - ((a as ConstraintTrack).score ?? 0))
+    );
   const orderedTimeoutSource = (() => {
     if (expectedFamilies.length === 0 && !eraRange) return timeoutSource;
     const strict: unknown[] = [];
@@ -963,7 +1042,18 @@ function timeoutFallbackResponse(
       else rest.push(track);
     }
     const seen = new Set<string>();
-    return [...strict, ...genreOnly, ...eraCompatible, ...rest].filter((track) => {
+    return [
+      ...sortFallbackBucket(strict),
+      ...sortFallbackBucket(genreOnly),
+      ...sortFallbackBucket(eraCompatible),
+      ...sortFallbackBucket(rest),
+    ].map((track) => {
+      const candidate = track as ConstraintTrack;
+      return {
+        ...candidate,
+        score: Math.max(0, Math.min(1, (candidate.score ?? 0.5) + fallbackIntentScore(candidate))),
+      };
+    }).filter((track) => {
       const trackId = (track as { trackId?: string }).trackId;
       if (!trackId || seen.has(trackId)) return false;
       seen.add(trackId);
