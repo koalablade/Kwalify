@@ -2227,8 +2227,8 @@ function isGymWorkoutPrompt(vibe: string, intent: LockedIntent): boolean {
     /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/i.test(vibe);
 }
 
-function promptExplicitlyAllowsGymHipHop(vibe: string, intent: LockedIntent, constraints: ConstraintLayer): boolean {
-  if (intent.genreFamilies.includes("hip_hop") || intent.primaryGenres.includes("hip_hop") || constraints.hard.genres.includes("hip_hop")) {
+function promptExplicitlyAllowsGymHipHop(vibe: string, _intent: LockedIntent, constraints: ConstraintLayer): boolean {
+  if (constraints.raw.explicitGenreTerms.some((term) => /\b(?:hip.?hop|rap|trap|drill|phonk|grime|boom\s+bap)\b/i.test(term))) {
     return true;
   }
   return /\b(?:hip.?hop|rap|trap|drill|phonk|grime|boom\s+bap)\b/i.test(vibe);
