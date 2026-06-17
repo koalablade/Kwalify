@@ -3106,6 +3106,28 @@ function shapePreScoringCandidatePool<T extends {
         })
       )
     : [];
+  const explicitGenreEraConstrained = hasExplicitConstraints
+    ? tracks.filter((track) => {
+        const candidate = toConstraintTrack(track);
+        return finalTrackMatchesExplicitGenre(candidate, opts.intent, opts.constraints, opts.classMap) &&
+          finalTrackMatchesExplicitEra(candidate, opts.intent);
+      })
+    : [];
+  const adjacentGenreEraConstrained = hasExplicitConstraints
+    ? tracks.filter((track) => {
+        const candidate = toConstraintTrack(track);
+        if (!finalTrackMatchesExplicitGenre(candidate, opts.intent, opts.constraints, opts.classMap)) return false;
+        if (!opts.intent.eraRange) return true;
+        const year = trackYearEstimate(candidate);
+        return year !== null && year >= opts.intent.eraRange.start - 10 && year <= opts.intent.eraRange.end + 10;
+      })
+    : [];
+  const genericGymFamilySafe = gymScene && !promptExplicitlyAllowsGymHipHop(opts.vibe, opts.intent, opts.constraints)
+    ? tracks.filter((track) => {
+        const family = trackGenreFamily(toConstraintTrack(track), opts.classMap);
+        return !["hip_hop", "country", "classical", "christmas"].includes(family);
+      })
+    : [];
   const sceneCompatible = sceneActive
     ? tracks.filter((track) => {
         const candidate = toConstraintTrack(track);
@@ -3133,16 +3155,28 @@ function shapePreScoringCandidatePool<T extends {
     ? strictConstrained
     : hardConstrained.length >= constrainedFloor
       ? hardConstrained
-      : sceneActive && sceneCompatible.length >= sceneCompatibleFloor
-        ? sceneCompatible
-        : tracks;
+      : explicitGenreEraConstrained.length >= opts.requestedLength
+        ? explicitGenreEraConstrained
+        : adjacentGenreEraConstrained.length >= opts.requestedLength
+          ? adjacentGenreEraConstrained
+          : genericGymFamilySafe.length >= sceneCompatibleFloor
+            ? genericGymFamilySafe
+            : sceneActive && sceneCompatible.length >= sceneCompatibleFloor
+              ? sceneCompatible
+              : tracks;
   const sourceMode = strictConstrained.length >= constrainedFloor
     ? "strict_constraints"
     : hardConstrained.length >= constrainedFloor
       ? "hard_constraints"
-      : sceneActive && sceneCompatible.length >= sceneCompatibleFloor
-        ? "scene_compatible"
-        : "unfiltered";
+      : explicitGenreEraConstrained.length >= opts.requestedLength
+        ? "explicit_genre_era_constraints"
+        : adjacentGenreEraConstrained.length >= opts.requestedLength
+          ? "adjacent_era_genre_constraints"
+          : genericGymFamilySafe.length >= sceneCompatibleFloor
+            ? "generic_gym_family_safe"
+            : sceneActive && sceneCompatible.length >= sceneCompatibleFloor
+              ? "scene_compatible"
+              : "unfiltered";
   const artistCounts = new Map<string, number>();
   const buckets = new Map<string, T[]>();
   const recentArtistPenalty = opts.sessionMemory.artistFrequencyMap;
@@ -3195,6 +3229,9 @@ function shapePreScoringCandidatePool<T extends {
       constrainedFloor,
       strictConstrainedCount: strictConstrained.length,
       hardConstrainedCount: hardConstrained.length,
+      explicitGenreEraConstrainedCount: explicitGenreEraConstrained.length,
+      adjacentGenreEraConstrainedCount: adjacentGenreEraConstrained.length,
+      genericGymFamilySafeCount: genericGymFamilySafe.length,
       sceneCompatibleCount: sceneCompatible.length,
       sourceMode,
       recentArtistsRemembered: Object.keys(recentArtistPenalty).length,
