@@ -852,7 +852,18 @@ function timeoutFallbackResponse(
   const vibe = typeof ctx?.vibe === "string" ? ctx.vibe : "";
   const mode = typeof ctx?.mode === "string" ? ctx.mode : "balanced";
   const maxPerArtist = typeof ctx?.maxPerArtist === "number" ? ctx.maxPerArtist : artistDiversityCap(length, vibe);
-  const timeoutSource = scoringInputSongs.length > 0 ? scoringInputSongs : likedSongs;
+  const timeoutSource = (() => {
+    if (scoringInputSongs.length === 0) return likedSongs;
+    const seen = new Set<string>();
+    const combined: unknown[] = [];
+    for (const track of [...scoringInputSongs, ...likedSongs]) {
+      const trackId = (track as { trackId?: string }).trackId;
+      if (!trackId || seen.has(trackId)) continue;
+      seen.add(trackId);
+      combined.push(track);
+    }
+    return combined;
+  })();
   const genreByTrack = typeof ctx?.genreByTrack === "function"
     ? ctx.genreByTrack as (trackId: string) => { genrePrimary?: string | null; genreFamily?: string | null; genres?: string[] | null } | null | undefined
     : undefined;
@@ -972,7 +983,7 @@ function timeoutFallbackResponse(
       elapsedMs: opts.elapsedMs,
       trackCount: tracks.length,
       requestedLength: length,
-      source: scoringInputSongs.length > 0 ? "scoring_input" : "liked_songs",
+      source: scoringInputSongs.length > 0 ? "scoring_input_plus_library" : "liked_songs",
       strictIntentFallbackCandidates: orderedTimeoutSource.length,
       failureReason: opts.failureReason,
     },
@@ -995,7 +1006,7 @@ function timeoutFallbackResponse(
       finalResponseCompletionLockApplied: true,
       finalResponseCompletionAdded: tracks.length,
       timeoutFallbackHardFillAdded: Math.max(0, tracks.length - pipeline.finalTracks.length),
-      timeoutFallbackSource: scoringInputSongs.length > 0 ? "scoring_input" : "liked_songs",
+      timeoutFallbackSource: scoringInputSongs.length > 0 ? "scoring_input_plus_library" : "liked_songs",
       timeoutFallbackIntentOrdered: expectedFamilies.length > 0 || !!eraRange,
     },
     v3Diagnostics: pipeline.scoringDiagnostics,
