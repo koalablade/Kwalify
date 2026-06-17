@@ -3080,8 +3080,7 @@ function repairFinalResponseDuplicateSongIdentities<T extends ConstraintTrack>(
       const candidateSignature = trackRepeatSignature(candidate);
       if (candidateSignature && seenSignatures.has(candidateSignature)) return false;
       if (!finalTrackIsHardSafe(candidate, opts)) return false;
-      const artistKey = candidate.artistName.toLowerCase().trim();
-      return (artistCounts.get(artistKey) ?? 0) < opts.maxPerArtist;
+      return true;
     });
 
     if (!replacement) {
