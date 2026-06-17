@@ -1266,9 +1266,16 @@ function extractGenreTerms(text: string): { roots: string[]; terms: string[] } {
   return { roots: [...roots], terms: [...terms] };
 }
 
+function hasDecorativeEraOnly(lower: string): boolean {
+  const decorativeEraContext = /\b(?:60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\s+(?:car|cars|motor|motors|vehicle|vehicles|volvo|bmw|mercedes|honda|toyota|ford|garage|bedroom|room|fit|fashion|aesthetic|vibe)\b/i;
+  const explicitMusicEraContext = /\b(?:music|songs?|tracks?|playlist|mix|hits?|anthems?|throwbacks?|classics?|era|decade|sound|rave|disco|rock|pop|rap|hip\s*hop|jungle|house|techno)\b/i;
+  return decorativeEraContext.test(lower) && !explicitMusicEraContext.test(lower);
+}
+
 function extractEraRange(vibe: string): { start: number | null; end: number | null; terms: string[] } {
   const lower = vibe.toLowerCase();
   const terms: string[] = [];
+  if (hasDecorativeEraOnly(lower)) return { start: null, end: null, terms };
   const decadeMatch = lower.match(/\b(60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\b/);
   if (decadeMatch?.[1]) {
     const term = decadeMatch[1].replace("'", "");
@@ -2694,12 +2701,15 @@ function evaluationDiversityPressure(
   if (evaluationMemoryCount <= 0) return 1;
   const lower = vibe.toLowerCase();
   if (profile.environment === "gym" || /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/.test(lower)) {
-    return 0.75;
+    return 1.75;
   }
   if (profile.environment === "party" || /\b(?:party|club|dancefloor|pre\s*drinks|night\s*out|rave)\b/.test(lower)) {
-    return 0.65;
+    return 1.7;
   }
-  return 1;
+  if (profile.environment === "focus" || /\b(?:focus|study|coding|work|reading|office)\b/.test(lower)) {
+    return 1.6;
+  }
+  return 1.55;
 }
 
 function buildSessionMemory(

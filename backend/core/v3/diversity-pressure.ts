@@ -18,7 +18,7 @@ export function roundDiversity(value: number): number {
 }
 
 export function boundedTrackReusePenalty(recentTrackPenalty: number | undefined): number {
-  return roundDiversity(clamp((recentTrackPenalty ?? 0) * 0.22, 0, 0.08));
+  return roundDiversity(clamp((recentTrackPenalty ?? 0) * 0.35, 0, 0.18));
 }
 
 export function boundedClusterSaturationPenalty(count: number): number {

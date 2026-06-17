@@ -177,6 +177,9 @@ function termMatchIndex(input: string, term: string): number {
 
 function parseEra(input: string): { start: number; end: number } | null {
   if (/\bmadchester\b/i.test(input)) return { start: 1988, end: 1992 };
+  const decorativeEraContext = /\b(?:60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\s+(?:car|cars|motor|motors|vehicle|vehicles|volvo|bmw|mercedes|honda|toyota|ford|garage|bedroom|room|fit|fashion|aesthetic|vibe)\b/i;
+  const explicitMusicEraContext = /\b(?:music|songs?|tracks?|playlist|mix|hits?|anthems?|throwbacks?|classics?|era|decade|sound|rave|disco|rock|pop|rap|hip\s*hop|garage|jungle|house|techno)\b/i;
+  if (decorativeEraContext.test(input) && !explicitMusicEraContext.test(input)) return null;
 
   const relativeDecade = input.match(/\b(early|mid|late|post)\s+(60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s|20\d{2})\b/i);
   if (relativeDecade?.[1] && relativeDecade[2]) {

@@ -51,6 +51,7 @@ export function buildFastFallbackPlaylist<
     energy: number | null;
     valence: number | null;
     artistName: string;
+    score?: number;
   }
 >(opts: {
   tracks: T[];
@@ -64,7 +65,13 @@ export function buildFastFallbackPlaylist<
       : opts.tracks;
 
   const ranked = pool
-    .map((t) => ({ t, fit: emotionFit(t, opts.emotionProfile) }))
+    .map((t, index) => ({
+      t,
+      fit:
+        emotionFit(t, opts.emotionProfile) * 0.72 +
+        Math.max(0, Math.min(1, t.score ?? 0.5)) * 0.20 +
+        (1 - index / Math.max(1, pool.length)) * 0.08,
+    }))
     .sort((a, b) => b.fit - a.fit);
 
   const maxPerArtist = opts.maxPerArtist ?? 4;
