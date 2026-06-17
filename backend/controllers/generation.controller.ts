@@ -456,6 +456,38 @@ type PreV3PerformanceReport = {
   bottleneckStage: string | null;
 };
 
+type ProductionTimelineStage =
+  | "request_validation"
+  | "session_acquire"
+  | "prompt_understanding"
+  | "candidate_fetch"
+  | "cache_lookup"
+  | "memory_load"
+  | "freshness_memory"
+  | "music_chapters"
+  | "library_signals"
+  | "surprise_context"
+  | "genre_profile"
+  | "genre_stack"
+  | "intent_lock"
+  | "candidate_shape"
+  | "curator_scoring"
+  | "v3_pipeline";
+
+type ProductionTimeline = {
+  request_received: number;
+  queue_entered: number | null;
+  worker_acquired: number | null;
+  deps_loaded: number | null;
+  candidate_fetch_start: number | null;
+  candidate_fetch_end: number | null;
+  scoring_start: number | null;
+  scoring_end: number | null;
+  v3_entry: number | null;
+  stageDurations: Partial<Record<ProductionTimelineStage, number>>;
+  activeStages: Partial<Record<ProductionTimelineStage, number>>;
+};
+
 type QualitySignalContext = {
   primary: string;
   moodTags: string[];
@@ -589,6 +621,108 @@ function createPreV3Timing(): PreV3TimingBreakdown {
       recentTracksQuery: emptyDbSessionLoadStage("recentTracksQuery"),
       implicitFeedbackQuery: emptyDbSessionLoadStage("implicitFeedbackQuery"),
     },
+  };
+}
+
+function createProductionTimeline(): ProductionTimeline {
+  return {
+    request_received: 0,
+    queue_entered: null,
+    worker_acquired: null,
+    deps_loaded: null,
+    candidate_fetch_start: null,
+    candidate_fetch_end: null,
+    scoring_start: null,
+    scoring_end: null,
+    v3_entry: null,
+    stageDurations: {},
+    activeStages: {},
+  };
+}
+
+function timelineOffset(startMs: number): number {
+  return Math.max(0, Date.now() - startMs);
+}
+
+function markTimeline(
+  timeline: ProductionTimeline,
+  startMs: number,
+  key: keyof Pick<
+    ProductionTimeline,
+    | "queue_entered"
+    | "worker_acquired"
+    | "deps_loaded"
+    | "candidate_fetch_start"
+    | "candidate_fetch_end"
+    | "scoring_start"
+    | "scoring_end"
+    | "v3_entry"
+  >
+): void {
+  timeline[key] = timelineOffset(startMs);
+}
+
+function startTimelineStage(
+  timeline: ProductionTimeline,
+  startMs: number,
+  stage: ProductionTimelineStage
+): void {
+  timeline.activeStages[stage] = timelineOffset(startMs);
+}
+
+function endTimelineStage(
+  timeline: ProductionTimeline,
+  startMs: number,
+  stage: ProductionTimelineStage
+): void {
+  const startedAt = timeline.activeStages[stage];
+  if (typeof startedAt !== "number") return;
+  const elapsed = Math.max(0, timelineOffset(startMs) - startedAt);
+  timeline.stageDurations[stage] = (timeline.stageDurations[stage] ?? 0) + elapsed;
+  delete timeline.activeStages[stage];
+}
+
+function buildProductionTimelineReport(
+  timeline: ProductionTimeline,
+  startMs: number,
+  opts: { failureReason?: string | null } = {}
+): Record<string, unknown> {
+  const nowOffset = timelineOffset(startMs);
+  const terminalOffset = timeline.v3_entry ?? timeline.scoring_start ?? nowOffset;
+  const activeDurations = Object.fromEntries(
+    Object.entries(timeline.activeStages).map(([stage, startedAt]) => [
+      stage,
+      Math.max(0, nowOffset - (startedAt ?? nowOffset)),
+    ])
+  );
+  const completedStageMs = Object.values(timeline.stageDurations)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .reduce((sum, value) => sum + value, 0);
+  const activeStageMs = Object.values(activeDurations)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .reduce((sum, value) => sum + value, 0);
+  const allStageDurations = {
+    ...timeline.stageDurations,
+    ...activeDurations,
+  };
+  const blockingStage = Object.entries(allStageDurations)
+    .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0]?.[0] ?? "unknown";
+  return {
+    timeline: {
+      request_received: timeline.request_received,
+      queue_entered: timeline.queue_entered,
+      worker_acquired: timeline.worker_acquired,
+      deps_loaded: timeline.deps_loaded,
+      candidate_fetch_start: timeline.candidate_fetch_start,
+      candidate_fetch_end: timeline.candidate_fetch_end,
+      scoring_start: timeline.scoring_start,
+      scoring_end: timeline.scoring_end,
+      v3_entry: timeline.v3_entry,
+    },
+    stageDurationsMs: allStageDurations,
+    unaccounted_time_ms: Math.max(0, terminalOffset - completedStageMs - activeStageMs),
+    blocking_stage: blockingStage,
+    failure_reason: opts.failureReason ?? null,
   };
 }
 
@@ -851,6 +985,11 @@ function timeoutFallbackResponse(
   const length = typeof ctx?.length === "number" ? ctx.length : 0;
   const vibe = typeof ctx?.vibe === "string" ? ctx.vibe : "";
   const mode = typeof ctx?.mode === "string" ? ctx.mode : "balanced";
+  const productionTimeline = ctx?.productionTimeline as ProductionTimeline | undefined;
+  const timelineStartMs = typeof ctx?.startMs === "number" ? ctx.startMs : Date.now() - opts.elapsedMs;
+  const productionTimelineReport = productionTimeline
+    ? buildProductionTimelineReport(productionTimeline, timelineStartMs, { failureReason: opts.failureReason })
+    : null;
   const maxPerArtist = typeof ctx?.maxPerArtist === "number" ? ctx.maxPerArtist : artistDiversityCap(length, vibe);
   const finalizedTracks = Array.isArray(ctx?.finalTracks)
     ? ctx.finalTracks as Array<V3MetadataTrack<{
@@ -902,6 +1041,7 @@ function timeoutFallbackResponse(
           finalResponseCompletionLockApplied: true,
           finalResponseCompletionAdded: tracks.length,
           timeoutFallbackSource: "finalized_tracks",
+          productionTimeline: productionTimelineReport,
         },
         v3Diagnostics: (ctx?.v3Diagnostics as Record<string, unknown> | undefined) ?? { timeoutFinalized: true },
         fastFallback: false,
@@ -1164,6 +1304,7 @@ function timeoutFallbackResponse(
       timeoutFallbackHardFillAdded: Math.max(0, tracks.length - pipeline.finalTracks.length),
       timeoutFallbackSource: scoringInputSongs.length > 0 ? "scoring_input_plus_library" : "liked_songs",
       timeoutFallbackIntentOrdered: expectedFamilies.length > 0 || !!eraRange,
+      productionTimeline: productionTimelineReport,
     },
     v3Diagnostics: pipeline.scoringDiagnostics,
     fastFallback: true,
@@ -4264,6 +4405,7 @@ router.get("/generate/preview", (req, res): void => {
 // Long-term learning is driven by implicit + explicit feedback loops.
 router.post("/generate", async (req, res): Promise<void> => {
   const startMs = Date.now();
+  const productionTimeline = createProductionTimeline();
   let requestId = "";
   let sessionUserId = "";
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -4272,6 +4414,7 @@ router.post("/generate", async (req, res): Promise<void> => {
   let cleanupClientDisconnectListeners: (() => void) | null = null;
   let requestHardTimeoutMs = REQUEST_HARD_TIMEOUT_MS;
   try {
+    startTimelineStage(productionTimeline, startMs, "request_validation");
     const devMode = useMockSpotify();
     const rawBody = req.body ?? {};
     const debugPerformance =
@@ -4408,6 +4551,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
+    endTimelineStage(productionTimeline, startMs, "request_validation");
+    markTimeline(productionTimeline, startMs, "queue_entered");
+    startTimelineStage(productionTimeline, startMs, "session_acquire");
     const acquired = acquireGenerateSession(generateSessionUserId);
     if (!acquired) {
       req.log.info({ userId, code: "GENERATION_IN_PROGRESS" }, "Rejected duplicate generate");
@@ -4419,6 +4565,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       return;
     }
+    endTimelineStage(productionTimeline, startMs, "session_acquire");
+    markTimeline(productionTimeline, startMs, "worker_acquired");
     requestId = acquired;
     sessionUserId = generateSessionUserId;
     const liveStageProfiler = createLiveStageProfiler(startMs);
@@ -4512,6 +4660,8 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     try {
 
+    markTimeline(productionTimeline, startMs, "deps_loaded");
+    startTimelineStage(productionTimeline, startMs, "prompt_understanding");
     let tStage = Date.now();
     const mixedEmotions = detectMixedEmotions(vibe);
     const destParse = parseEmotionalDestination(vibe);
@@ -4541,6 +4691,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     const promptNormalizationMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "moodIntentTimeMs", promptNormalizationMs);
+    endTimelineStage(productionTimeline, startMs, "prompt_understanding");
     if (debugPerformance) {
       logPreV3Stage(req.log, recordPreV3Stage(preV3Timing, "promptNormalization", {
         durationMs: promptNormalizationMs,
@@ -4627,6 +4778,8 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     setGeneratePhase(generateSessionUserId, requestId, "loading_library");
     setGenerateStageDetail(generateSessionUserId, requestId, "Scanning your liked songs...");
+    markTimeline(productionTimeline, startMs, "candidate_fetch_start");
+    startTimelineStage(productionTimeline, startMs, "candidate_fetch");
     tStage = Date.now();
     if (!recordExecutionStage(executionHealth, req.log, "sessionHydration", "controller.preV3", {
       cause: "MULTI_HYDRATION",
@@ -4889,10 +5042,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       return;
     }
+    endTimelineStage(productionTimeline, startMs, "candidate_fetch");
+    markTimeline(productionTimeline, startMs, "candidate_fetch_end");
 
     resultCacheKey = `${resultCacheBaseKey}:${libraryFingerprint(likedSongs)}`;
     cacheEntryStatus = getGenerateCacheEntryStatus(resultCacheKey);
     if (sideEffectPolicy.mode === "production" && !debugMode && !varietyBoost && !devMode && !hasHardConstraints(cacheConstraintLayer)) {
+      startTimelineStage(productionTimeline, startMs, "cache_lookup");
       tStage = Date.now();
       const cached = getCachedGenerateResult(resultCacheKey);
       recordPreV3Timing(preV3Timing, "cacheTimeMs", Date.now() - tStage);
@@ -5003,11 +5159,13 @@ router.post("/generate", async (req, res): Promise<void> => {
           cacheInvalidReason,
         }, "Generate result cache bypassed");
       }
+      endTimelineStage(productionTimeline, startMs, "cache_lookup");
     }
 
     (req as { _genCtx?: Record<string, unknown> })._genCtx = {
       requestId,
       userId,
+      startMs,
       likedSongs,
       emotionProfile,
       length,
@@ -5019,6 +5177,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       noLibrarySpotifyFallbackReason,
       noLibraryRetrievalDiagnostics,
       noLibraryMode,
+      productionTimeline,
     };
 
     if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
@@ -5056,6 +5215,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     setGeneratePhase(generateSessionUserId, requestId, "building_profile");
     setGenerateStageDetail(generateSessionUserId, requestId, "Loading recent playlist memory and feedback");
+    startTimelineStage(productionTimeline, startMs, "memory_load");
     tStage = Date.now();
     const snapshotRecentPlaylists = !devMode && !noLibraryMode ? sessionSnapshot?.recentPlaylists ?? null : null;
     const snapshotFeedbackMemory = !devMode && !noLibraryMode ? sessionSnapshot?.feedbackMemory ?? null : null;
@@ -5086,6 +5246,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     } finally {
       endMemoryProfile();
+      endTimelineStage(productionTimeline, startMs, "memory_load");
     }
     if (fullSessionSnapshotHit && dbHydrationOccurred) {
       executionHealth.healthState = "BROKEN";
@@ -5149,6 +5310,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ? persistentMemoryPlaylistRows
       : memoryPlaylistRows;
 
+    startTimelineStage(productionTimeline, startMs, "freshness_memory");
     tStage = Date.now();
     const freshnessStats = buildFreshnessStats(
       scoringMemoryPlaylistRows
@@ -5176,6 +5338,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       momentPipeline?.canonicalScene?.sceneId ?? experienceScene?.sceneId
     );
     recordPreV3Timing(preV3Timing, "freshnessTimeMs", Date.now() - tStage);
+    endTimelineStage(productionTimeline, startMs, "freshness_memory");
 
     const humanIntent = momentPipeline?.intent ?? decodeIntent(vibe);
     const sonicProfile = momentPipeline?.sonicProfile ?? null;
@@ -5207,9 +5370,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       danceability: s.danceability,
     }));
 
+    startTimelineStage(productionTimeline, startMs, "music_chapters");
     const musicChapters = detectMusicChapters(likedRows);
     const chapterMatch = matchChapterFromVibe(vibe, musicChapters, likedRows);
+    endTimelineStage(productionTimeline, startMs, "music_chapters");
 
+    startTimelineStage(productionTimeline, startMs, "library_signals");
     tStage = Date.now();
     const librarySignals = buildLibrarySignals(
       likedRows,
@@ -5217,6 +5383,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const librarySignalMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "librarySignalTimeMs", librarySignalMs);
+    endTimelineStage(productionTimeline, startMs, "library_signals");
     if (debugPerformance) {
       logPreV3Stage(req.log, recordPreV3Stage(preV3Timing, "librarySignalLoad", {
         durationMs: librarySignalMs,
@@ -5226,6 +5393,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       }));
     }
 
+    startTimelineStage(productionTimeline, startMs, "surprise_context");
     const surpriseMix = computeSurpriseMix({
       profile: emotionProfile,
       vibe,
@@ -5240,9 +5408,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       journeyArc
     );
     const journeyArcMultiplier = journeyArcCooldownMultiplier(arcRepeatCount);
+    endTimelineStage(productionTimeline, startMs, "surprise_context");
 
     setGenerateStageDetail(generateSessionUserId, requestId, `Building taste profile from ${likedSongs.length.toLocaleString()} tracks`);
     let t0 = Date.now();
+    startTimelineStage(productionTimeline, startMs, "genre_profile");
     const endGenreProfileProfile = liveStageProfiler.start("preV3.genreProfile", `${likedSongs.length} tracks`);
     let userGenreProfile: ReturnType<typeof buildMockUserGenreProfile>;
     let cacheHit = false;
@@ -5259,6 +5429,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       cacheHit = genreProfileResult.cacheHit;
     } finally {
       endGenreProfileProfile();
+      endTimelineStage(productionTimeline, startMs, "genre_profile");
     }
     const genreProfileMs = Date.now() - t0;
     recordPreV3Timing(preV3Timing, "genreProfileTimeMs", genreProfileMs);
@@ -5353,6 +5524,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let genreStack = getCachedGenreStack(stackCacheKey);
     const stackFromCache = !!genreStack;
     tStage = Date.now();
+    startTimelineStage(productionTimeline, startMs, "genre_stack");
     const endGenreStackProfile = liveStageProfiler.start("preV3.genreStack", stackFromCache ? "memory cache" : `${likedSongs.length} tracks`);
     try {
       if (!genreStack) {
@@ -5367,6 +5539,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     } finally {
       endGenreStackProfile();
+      endTimelineStage(productionTimeline, startMs, "genre_stack");
     }
     const genreStackMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "genreStackTimeMs", genreStackMs);
@@ -5386,6 +5559,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ontologyEdges: genreStack.stats.ontologyEdges,
     });
 
+    startTimelineStage(productionTimeline, startMs, "intent_lock");
     const maxPerArtist = artistDiversityCap(length, vibe);
 
     const allowHolidaySeason = hasExplicitHolidayIntent(vibe);
@@ -5451,6 +5625,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       secondarySubgenre: lockedIntent.secondarySubgenre,
       subgenreTerms: lockedIntent.subgenreTerms,
     });
+    endTimelineStage(productionTimeline, startMs, "intent_lock");
     const genCtx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
     if (genCtx) {
       genCtx["fallbackLockedFamily"] = fallbackLockedFamily;
@@ -5477,6 +5652,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Quality signal and constraint context prepared"
     );
 
+    startTimelineStage(productionTimeline, startMs, "candidate_shape");
     const preScoringCandidateShape = shapePreScoringCandidatePool(likedSongs, {
       vibe,
       intent: lockedIntent,
@@ -5486,17 +5662,21 @@ router.post("/generate", async (req, res): Promise<void> => {
       requestedLength: length,
     });
     const scoringInputSongs = preScoringCandidateShape.tracks;
+    endTimelineStage(productionTimeline, startMs, "candidate_shape");
     (req as { _genCtx?: Record<string, unknown> })._genCtx = {
       ...(req as { _genCtx?: Record<string, unknown> })._genCtx,
       scoringInputSongs: scoringInputSongs.map(hydrateTrackGenre),
       genreByTrack,
     };
+    startTimelineStage(productionTimeline, startMs, "curator_scoring");
     const curatorScoreByTrack = new Map<string, number>();
     for (const track of scoringInputSongs) {
       curatorScoreByTrack.set(track.trackId, scoreTrackForIdentity(track, curatorIdentity));
     }
+    endTimelineStage(productionTimeline, startMs, "curator_scoring");
     setGeneratePhase(generateSessionUserId, requestId, "scoring");
     setGenerateStageDetail(generateSessionUserId, requestId, `Ranking matches from ${scoringInputSongs.length.toLocaleString()} shaped candidates`);
+    markTimeline(productionTimeline, startMs, "scoring_start");
     stageTimer.start("Running playlist pipeline (scoring + compose)", {
       tracks: scoringInputSongs.length,
       stackFromCache,
@@ -5561,6 +5741,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         return;
       }
       executionHealth.retrievalPassCount += 1;
+      markTimeline(productionTimeline, startMs, "v3_entry");
+      startTimelineStage(productionTimeline, startMs, "v3_pipeline");
       pipeline = await runRequestLayerGeneration({
       pipelineLog: req.log,
       likedSongs: scoringInputSongs,
@@ -5645,7 +5827,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? actualV3InvocationCount
         : 1;
       executionHealth.scoringPassCount = executionHealth.v3InvocationCount;
+      endTimelineStage(productionTimeline, startMs, "v3_pipeline");
     }
+    markTimeline(productionTimeline, startMs, "scoring_end");
     playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
 
@@ -7352,6 +7536,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       ...(v3Diagnostics ?? {}),
       intentSurvival: intentSurvivalDiagnostics,
     };
+    const productionTimelineReport = buildProductionTimelineReport(productionTimeline, startMs, {
+      failureReason: fallbackReason ? "time_budget_fast_fallback" : null,
+    });
+    const generationDiagnosticsWithTimeline = {
+      ...generationDiagnostics,
+      productionTimeline: productionTimelineReport,
+    };
     const generationAuditSnapshot = {
       prompt: vibe,
       mode,
@@ -7372,7 +7563,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalMoodDistribution,
       finalEnergyDistribution,
       promptDriftAudit,
-      generationDiagnostics,
+      generationDiagnostics: generationDiagnosticsWithTimeline,
       ...(debugMode
         ? {
             diagnostics: {
@@ -7404,7 +7595,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         emotionProfile: { ...emotionProfile, journeyArc },
         spotifyPlaylistUrl,
         v3Diagnostics: v3DiagnosticsWithIntentSurvival,
-        generationDiagnostics,
+        generationDiagnostics: generationDiagnosticsWithTimeline,
         artistDiversity,
         playlistConfidence,
         cachedAt: Date.now(),
@@ -7414,7 +7605,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (sideEffectPolicy.mode === "audit" && !debugMode) {
       const endAuditResponseProfile = liveStageProfiler.start("controller.responseAssembly.auditSlim", `${finalApiTracks.length} tracks`);
       const auditGenerationDiagnostics = {
-        ...generationDiagnostics,
+        ...generationDiagnosticsWithTimeline,
         stageProfile: liveStageProfiler.snapshot(),
       };
       const auditResponse = {
@@ -7598,7 +7789,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalEraDistribution,
       finalMoodDistribution,
       finalEnergyDistribution,
-      generationDiagnostics,
+      generationDiagnostics: generationDiagnosticsWithTimeline,
       artistDiversity,
       feedbackDiagnostics,
       promptDriftAudit,
