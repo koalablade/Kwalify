@@ -7645,6 +7645,27 @@ router.post("/generate", async (req, res): Promise<void> => {
         };
       }
     }
+    if (isFocusStudyPrompt(vibe, lockedIntent)) {
+      const focusAllowedFamilies = new Set(["electronic", "indie", "pop", "ambient", "unknown"]);
+      const prunedApiTracks = finalApiTracks.filter((track) => {
+        const family = (track.genreFamily ?? track.genrePrimary ?? track.genres?.[0] ?? "unknown").toLowerCase();
+        return focusAllowedFamilies.has(family);
+      });
+      if (prunedApiTracks.length > 0 && prunedApiTracks.length < finalApiTracks.length) {
+        const originalApiTrackCount = finalApiTracks.length;
+        const keptIds = new Set(prunedApiTracks.map((track) => track.id));
+        finalApiTracks = prunedApiTracks;
+        finalTracks = finalTracks.filter((track) => keptIds.has(track.trackId));
+        finalization = {
+          tracks: finalTracks,
+          diagnostics: {
+            ...finalization.diagnostics,
+            focusApiContaminationPruned: true,
+            focusApiContaminationPrunedCount: originalApiTrackCount - finalApiTracks.length,
+          },
+        };
+      }
+    }
     endApiFormattingProfile();
     const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>(
       (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
