@@ -7271,6 +7271,32 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (isGymWorkoutPrompt(vibe, lockedIntent) && !promptExplicitlyAllowsGymHipHop(vibe, lockedIntent, constraintLayer)) {
+      const originalGymTrackCount = finalTracks.length;
+      const gymSafeTracks = finalTracks.filter((track) =>
+        trackIsGymWorkoutSafe(track, {
+          vibe,
+          intent: lockedIntent,
+          constraints: constraintLayer,
+          classMap: userGenreProfile.trackClassifications,
+        })
+      );
+      if (gymSafeTracks.length > 0 && gymSafeTracks.length < finalTracks.length) {
+        finalTracks = gymSafeTracks;
+        finalization = {
+          tracks: finalTracks,
+          diagnostics: {
+            ...finalization.diagnostics,
+            genericGymContaminationPruned: true,
+            genericGymContaminationPrunedCount: originalGymTrackCount - finalTracks.length,
+          },
+        };
+        generationDiagnostics.candidatesFinal = finalTracks.length;
+        generationDiagnostics.candidatesAfterCoherence = finalTracks.length;
+        generationDiagnostics.failureReason = null;
+        publishPartialTracks(finalTracks, 5);
+      }
+    }
     if (finalTracks.length === 0) {
       const forensicPoolTrace = (scoringDiagnostics.v3Pipeline as Record<string, unknown> | undefined)?.["forensicPoolTrace"];
       req.log.warn(
