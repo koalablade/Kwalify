@@ -4905,7 +4905,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     res.setTimeout(Math.max(1_000, deadlineAt - Date.now() + 2_000), () => {
       if (responseFinished(res)) return; // timeout handler — no second body
-      if (respondIfStale(res, generateSessionUserId, requestId)) return;
       cancelGenerateSession(generateSessionUserId, requestId);
       req.log.error({ userId, requestId, code: "TIMEOUT" }, "Generate hard timeout — no controller fallback authority");
       if (timeoutFallbackResponse(req, res, {
@@ -4913,6 +4912,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         elapsedMs: Date.now() - startMs,
         requestId,
       })) return;
+      if (respondIfStale(res, generateSessionUserId, requestId)) return;
       res.status(504).json({
         success: false,
         error: "Generation took too long before V3 could return a safe playlist. Try again with a slightly broader prompt, or sync your Spotify library and retry.",
