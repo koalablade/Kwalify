@@ -7121,7 +7121,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       generationDiagnostics.fallbackLevel !== "none" ||
       generationDiagnostics.recoveryRelaxations.length > 0;
     generationDiagnostics.failureReason = finalTracks.length === 0 ? "no_final_tracks_after_filters" : null;
-    if (finalTracks.length < length) {
+    const finalResponseExplicitConstraintPartialPublished = finalization.diagnostics["explicitConstraintPartialPublished"] === true;
+    if (finalTracks.length < length && !finalResponseExplicitConstraintPartialPublished) {
       const emergencySeenIds = new Set(finalTracks.map((track) => track.trackId));
       const finalResponseArtistCounts = new Map<string, number>();
       for (const track of finalTracks) {
