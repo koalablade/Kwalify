@@ -2227,7 +2227,32 @@ function isGymWorkoutPrompt(vibe: string, intent: LockedIntent): boolean {
     /\b(?:gym|workout|training|pump|cardio|run|running|lifting|weights)\b/i.test(vibe);
 }
 
-function trackIsGymWorkoutSafe(track: ConstraintTrack): boolean {
+function promptExplicitlyAllowsGymHipHop(vibe: string, intent: LockedIntent, constraints: ConstraintLayer): boolean {
+  if (intent.genreFamilies.includes("hip_hop") || intent.primaryGenres.includes("hip_hop") || constraints.hard.genres.includes("hip_hop")) {
+    return true;
+  }
+  return /\b(?:hip.?hop|rap|trap|drill|phonk|grime|boom\s+bap)\b/i.test(vibe);
+}
+
+function trackIsGymWorkoutSafe(
+  track: ConstraintTrack,
+  opts?: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+  }
+): boolean {
+  if (opts && !promptExplicitlyAllowsGymHipHop(opts.vibe, opts.intent, opts.constraints)) {
+    const family = trackGenreFamily(track, opts.classMap);
+    if (family === "hip_hop") return false;
+  }
   const energy = typeof track.energy === "number" ? track.energy : null;
   const valence = typeof track.valence === "number" ? track.valence : null;
   const tempo = typeof track.tempo === "number" ? track.tempo : null;
@@ -2542,7 +2567,7 @@ function finalTrackIsSafe(
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
   if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
   const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
-  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) return false;
+  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track, opts)) return false;
   if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) return false;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
   if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) return false;
@@ -2590,7 +2615,7 @@ function finalTrackIsHardSafe(
   if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
   if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
   const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
-  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) return false;
+  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track, opts)) return false;
   if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) return false;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
   if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) return false;
@@ -2798,7 +2823,7 @@ function intentCoherenceScore(
   }
 
   const explicitGenreLocked = hasExplicitGenreIntent(opts.intent, opts.constraints);
-  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track)) score -= 0.42;
+  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(track, opts)) score -= 0.42;
   if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) score -= 0.38;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) score -= 0.30;
   if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.38;
@@ -3093,7 +3118,7 @@ function shapePreScoringCandidatePool<T extends {
           const moodMatch = moodEvidence(candidate, opts.intent);
           if (moodMatch === false) return false;
         }
-        if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(candidate)) return false;
+        if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(candidate, opts)) return false;
         if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(candidate)) return false;
         if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(candidate)) return false;
         if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(candidate)) return false;
