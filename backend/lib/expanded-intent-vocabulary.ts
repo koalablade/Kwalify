@@ -379,6 +379,203 @@ EXPANDED_ERA_TERMS.find((era) => era.label === "00s")?.terms.push(
 EXPANDED_ERA_TERMS.find((era) => era.label === "10s")?.terms.push("soundcloud era", "trap era", "future bass era", "tropical house era", "vine era", "tumblr indie", "2016 summer");
 EXPANDED_ERA_TERMS.find((era) => era.label === "20s")?.terms.push("lockdown era", "post pandemic", "reels era", "algorithm era", "2020 lockdown", "2021 summer", "2022", "2023", "2024", "2025", "2026");
 
+function pushUniqueTerms(target: string[], terms: string[]): void {
+  for (const term of terms) {
+    if (!target.includes(term)) target.push(term);
+  }
+}
+
+// Universal semantic music ontology expansion. Keep these high-precision aliases:
+// they enrich retrieval/intent coverage without changing scoring, fallback, or trust gates.
+EXPANDED_GENRE_ALIASES.push(
+  {
+    family: "rock",
+    terms: [
+      "aor", "adult oriented rock", "album rock", "anthemic rock", "bar rock", "college rock", "heartland rock",
+      "modern rock", "post grunge", "post-grunge", "radio rock", "roots rock", "skate rock", "surf punk",
+      "third wave ska punk", "emo revival", "swancore", "easycore", "orgcore", "melodic hardcore punk",
+      "basement show", "house show punk", "diy punk", "hardcore scene", "straight edge", "youth crew",
+      "download festival rock", "reading festival rock", "leeds festival rock", "slam dunk festival",
+    ],
+  },
+  {
+    family: "metal",
+    terms: [
+      "arena metal", "bay area thrash", "beatdown hardcore", "blackened death metal", "crossover thrash",
+      "doomgaze", "funeral doom", "industrial metal", "melodic metalcore", "modern metal", "nwobhm",
+      "old school death metal", "osdm", "post metal", "progressive metalcore", "slam death metal",
+      "stoner doom", "technical death metal", "viking metal", "warped tour metalcore", "kerrang metal",
+    ],
+  },
+  {
+    family: "pop",
+    terms: [
+      "adult contemporary", "alt z", "bubblegum bass", "chill pop", "dance-pop", "diva pop", "europop",
+      "girl group pop", "heartbreak pop", "idol pop", "main character pop", "maximalist pop", "new jack pop",
+      "sad bangers", "soft pop", "summer pop", "synth pop", "y2k pop", "2010s tumblr pop",
+    ],
+  },
+  {
+    family: "hip_hop",
+    terms: [
+      "blog rap", "cloud trap", "conscious hip hop", "detroit scam rap", "dirty south rap", "drumless hip hop",
+      "frat rap", "golden age rap", "horrorcore rap", "hyphy movement", "jazz hip hop", "jerk movement",
+      "mixtape era", "ny drill", "sample drill", "soundcloud rap", "uk grime", "uk garage rap",
+    ],
+  },
+  {
+    family: "electronic",
+    terms: [
+      "acid techno", "afterhours techno", "ambient dnb", "bass house", "bassline house", "berlin techno",
+      "big room", "clubland", "deep dubstep", "detroit house", "donk rave", "dub techno", "edm festival",
+      "electro pop", "electroclash", "future garage", "garage revival", "happy hardcore", "hard dance",
+      "hardstyle gym", "ibiza house", "leftfield bass", "night bus garage", "progressive electronic",
+      "rave soundtrack", "speed garage", "uk bass", "warehouse rave", "white isle",
+    ],
+  },
+  {
+    family: "country",
+    terms: [
+      "appalachian country", "country soul", "country trap", "cowboy songs", "driving country", "heartland country",
+      "nashville sound", "neo-traditional country", "red dirt scene", "road trip country", "southern gothic country",
+      "truck stop country", "western songs", "working man country",
+    ],
+  },
+  {
+    family: "indie",
+    terms: [
+      "blog indie", "brooklyn indie", "c86", "college radio indie", "festival indie", "indie sleaze revival",
+      "landfill indie", "new rave indie", "nme indie", "pitchfork indie", "post punk revival", "twee indie",
+      "tumblr indie", "urban outfitters indie",
+    ],
+  },
+  {
+    family: "soundtrack",
+    terms: [
+      "action movie soundtrack", "coming of age soundtrack", "cult film soundtrack", "driving game soundtrack",
+      "fifa soundtrack", "forza soundtrack", "gta radio", "gta soundtrack", "gran turismo soundtrack",
+      "madden soundtrack", "movie montage", "need for speed underground", "nhl soundtrack", "racing game soundtrack",
+      "rom com soundtrack", "skate film soundtrack", "ssx soundtrack", "teen movie soundtrack", "tv theme",
+    ],
+  },
+  {
+    family: "world",
+    terms: [
+      "alt k-pop", "anime rock", "enka pop", "j-pop rock", "japanese city pop", "japanese indie rock",
+      "korean r&b", "latin alternative", "mandopop", "shibuya-kei", "visual kei",
+    ],
+  },
+  {
+    family: "reggae",
+    terms: [
+      "2 tone ska", "ska punk", "ska punk revival", "skinhead reggae", "soundclash", "third wave ska",
+    ],
+  },
+  {
+    family: "soul",
+    terms: [
+      "deep funk", "disco funk", "rare groove", "southern funk", "street soul", "yacht soul",
+    ],
+  },
+  {
+    family: "jazz",
+    terms: [
+      "coffee shop jazz", "dark jazz", "jazz noir", "jazztronica", "lofi jazz", "rainy jazz", "spiritual jazz",
+      "study jazz", "uk jazz",
+    ],
+  },
+);
+
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.workout, [
+  "arms day", "back day", "cardio session", "couch to 5k", "gym class", "gym playlist", "half marathon training",
+  "marathon training", "morning run", "night run", "park run", "pre workout", "running faster", "spin bike",
+  "strongman", "trail running", "ultramarathon", "workout finisher",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.focus, [
+  "building an app", "coding late", "coding sprint", "debugging session", "finishing a project", "flow coding",
+  "founder mode", "launching product", "night shift coding", "productivity sprint", "shipping a feature",
+  "starting business", "writing code", "working harder", "working on startup",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.driving, [
+  "autobahn", "canyon drive", "coastal drive", "empty road", "first car drive", "motorcycle ride", "rainy motorway drive",
+  "restoring a car", "road trip through scotland", "sunday drive", "volvo drive", "windows down driving",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.focus, [
+  "bike repair", "car restoration", "classic car restoration", "diy project", "fixing a car", "fixing my volvo",
+  "garage work", "mechanic work", "motorcycle maintenance", "restoring a volvo", "troubleshooting electrics",
+  "woodworking", "workbench", "workshop day",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.gaming, [
+  "burnout", "fifa", "forza", "gran turismo", "gta", "guitar hero", "madden", "need for speed", "nhl",
+  "racing game", "rock band", "ssx", "tony hawk", "tony hawk pro skater",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.creative, [
+  "building something", "creative block", "design sprint", "finishing art", "making a video", "photo editing",
+  "renovating", "songwriting", "starting a project", "writing a script",
+]);
+
+pushUniqueTerms(EXPANDED_MOOD_TERMS.euphoric, [
+  "achievement", "after a long struggle", "champion", "finished the project", "glorious", "made it", "overcome",
+  "proud", "redemption", "unstoppable", "victory lap", "winning",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.angry, [
+  "chip on my shoulder", "clenched jaw", "destroy everything", "fight back", "furious focus", "prove them wrong",
+  "revenge gym", "righteous anger", "spite", "war mode",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.nostalgic, [
+  "old games", "old mtv", "old photos", "school memories", "teen memories", "throwback tv", "y2k nostalgia",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.calm, [
+  "decompress", "grounding", "peaceful focus", "quiet confidence", "regulated", "soft reset", "wellness",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.melancholic, [
+  "breakup recovery", "divorce", "grieving", "heartbreak recovery", "missing someone", "moving on", "sad but hopeful",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.confident, [
+  "boss mode", "can't lose", "comeback", "main stage", "power walk", "self belief", "walk in like you own it",
+]);
+
+pushUniqueTerms(EXPANDED_PLACE_TERMS.city, [
+  "berlin", "chicago", "detroit", "downtown", "glasgow", "liverpool", "los angeles", "manhattan", "new york",
+  "seattle", "tokyo", "underground club", "urban night",
+]);
+pushUniqueTerms(EXPANDED_PLACE_TERMS.rural, [
+  "american south", "countryside drive", "farmhouse", "nashville", "open road", "scottish highlands", "wales",
+]);
+pushUniqueTerms(EXPANDED_PLACE_TERMS.car, [
+  "classic car", "classic car meet", "old volvo", "project car", "volvo 480", "volvo 480 turbo", "workshop garage",
+]);
+pushUniqueTerms(EXPANDED_PLACE_TERMS.outdoors, [
+  "autumn leaves", "blizzard", "cloudy day", "fog", "forest road", "mountains", "rain storm", "snowy night",
+  "spring morning", "storm clouds", "summer evening", "sunrise", "sunset", "thunderstorm", "windy day", "winter night",
+]);
+pushUniqueTerms(EXPANDED_PLACE_TERMS.bedroom, [
+  "internet bedroom", "myspace profile", "tumblr room", "youtube rabbit hole",
+]);
+
+pushUniqueTerms(EXPANDED_EVENT_TERMS, [
+  "anniversary dinner", "breakup recovery", "career change", "divorce papers", "exam success", "finishing project",
+  "first date nerves", "first day at work", "funeral reflection", "graduation party", "job interview nerves",
+  "launch day", "moving city", "new chapter", "personal growth", "promotion celebration", "starting over",
+]);
+
+EXPANDED_ERA_TERMS.find((era) => era.label === "80s")?.terms.push(
+  "vh1 classics", "miami vice", "john hughes movie", "synthwave nostalgia", "arcade era",
+);
+EXPANDED_ERA_TERMS.find((era) => era.label === "90s")?.terms.push(
+  "seattle scene", "sub pop", "britpop battle", "mtv unplugged", "skate video era", "playstation era",
+);
+EXPANDED_ERA_TERMS.find((era) => era.label === "00s")?.terms.push(
+  "purevolume", "last.fm era", "nme era", "download festival era", "slam dunk era", "fifa soundtrack era",
+  "gta radio era", "need for speed underground", "burnout 3", "ssx tricky", "guitar hero soundtrack",
+);
+EXPANDED_ERA_TERMS.find((era) => era.label === "10s")?.terms.push(
+  "bloghouse revival", "edm festival boom", "instagram era", "lofi beats era", "spotify era", "youtube era",
+);
+EXPANDED_ERA_TERMS.find((era) => era.label === "20s")?.terms.push(
+  "algorithm pop", "bedroom producer era", "hyperpop era", "reels era", "tiktok sound", "viral song",
+);
+
 export function termRegex(terms: string[]): RegExp {
   const cacheKey = terms.join("\u0001").toLowerCase();
   const cached = termRegexCache.get(cacheKey);
