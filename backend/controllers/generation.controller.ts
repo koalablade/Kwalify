@@ -470,6 +470,13 @@ type ProductionTimelineStage =
   | "genre_profile"
   | "genre_stack"
   | "intent_lock"
+  | "intent_quality_context"
+  | "intent_constraint_extract"
+  | "intent_cssp_parse"
+  | "intent_object_resolve"
+  | "intent_curator_identity"
+  | "intent_fallback_family"
+  | "intent_v3_fallback"
   | "candidate_shape"
   | "curator_scoring"
   | "v3_pipeline";
@@ -5563,16 +5570,23 @@ router.post("/generate", async (req, res): Promise<void> => {
     const maxPerArtist = artistDiversityCap(length, vibe);
 
     const allowHolidaySeason = hasExplicitHolidayIntent(vibe);
+    startTimelineStage(productionTimeline, startMs, "intent_quality_context");
     const qualitySignalContext = buildQualitySignalContext({
       vibe,
       emotionProfile,
       userGenreProfile,
       recentPlaylists: recentPlaylists.map((p) => ({ vibe: p.vibe, createdAt: p.createdAt })),
     });
+    endTimelineStage(productionTimeline, startMs, "intent_quality_context");
     const pipelineVibe = normalizeVibeForPipeline(vibe, qualitySignalContext);
+    startTimelineStage(productionTimeline, startMs, "intent_constraint_extract");
     const constraintLayer = extractConstraintLayer(vibe, qualitySignalContext);
+    endTimelineStage(productionTimeline, startMs, "intent_constraint_extract");
+    startTimelineStage(productionTimeline, startMs, "intent_cssp_parse");
     const parsedCsspIntent = buildCsspLockedIntent(vibe);
+    endTimelineStage(productionTimeline, startMs, "intent_cssp_parse");
     const neutralDrivingPrompt = isNeutralDrivingPrompt(vibe, parsedCsspIntent);
+    startTimelineStage(productionTimeline, startMs, "intent_object_resolve");
     const resolvedMoodTags = (parsedCsspIntent.mood.length > 0
       ? parsedCsspIntent.mood
       : qualitySignalContext.moodTags.filter((tag) => tag !== "neutral").slice(0, 3))
@@ -5602,14 +5616,20 @@ router.post("/generate", async (req, res): Promise<void> => {
       energyLevel: resolvedEnergy,
       interpretationBudget: parsedCsspIntent.interpretationBudget,
     };
+    endTimelineStage(productionTimeline, startMs, "intent_object_resolve");
+    startTimelineStage(productionTimeline, startMs, "intent_curator_identity");
     const curatorIdentity = buildCuratorIdentity({
       prompt: vibe,
       intent: lockedIntent,
       emotionProfile,
     });
+    endTimelineStage(productionTimeline, startMs, "intent_curator_identity");
+    startTimelineStage(productionTimeline, startMs, "intent_fallback_family");
     const fallbackLockedFamily =
       lockedIntent.primaryGenres[0] ??
       dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
+    endTimelineStage(productionTimeline, startMs, "intent_fallback_family");
+    startTimelineStage(productionTimeline, startMs, "intent_v3_fallback");
     const v3FallbackIntent = completeCsspLockedIntent(parsedCsspIntent, {
       genreFamilies: lockedIntent.genreFamilies.length > 0
         ? lockedIntent.genreFamilies
@@ -5625,6 +5645,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       secondarySubgenre: lockedIntent.secondarySubgenre,
       subgenreTerms: lockedIntent.subgenreTerms,
     });
+    endTimelineStage(productionTimeline, startMs, "intent_v3_fallback");
     endTimelineStage(productionTimeline, startMs, "intent_lock");
     const genCtx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
     if (genCtx) {
