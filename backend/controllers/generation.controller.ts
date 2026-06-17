@@ -6650,7 +6650,36 @@ router.post("/generate", async (req, res): Promise<void> => {
         finalValidation.eraAlignment === "FAIL" ? "eraAlignment" : null,
     ].filter((failure): failure is string => !!failure);
     if (finalTracks.length > 0 && hardValidationFailures.length > 0) {
-      if (finalTracks.length >= minBestAvailableCount) {
+      const validPrefix = explicitConstraintActive
+        ? finalTracks.filter((track) =>
+            finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
+            finalTrackMatchesExplicitEra(track, lockedIntent)
+          )
+        : [];
+      if (validPrefix.length > 0) {
+        finalTracks = validPrefix.slice(0, length);
+        finalization = {
+          tracks: finalTracks,
+          diagnostics: {
+            ...finalization.diagnostics,
+            explicitConstraintPartialPublished: true,
+            explicitConstraintPartialReason: "hard_validation_valid_prefix",
+            explicitConstraintValidPrefixCount: validPrefix.length,
+          },
+        };
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+        evidenceRelaxations.push("locked_intent_valid_prefix_published");
+        publishPartialTracks(finalTracks, 5);
+        req.log.warn(
+          { userId, vibe, hardValidationFailures, validPrefixCount: validPrefix.length },
+          "Hard locked intent validation published valid prefix"
+        );
+      } else if (finalTracks.length >= minBestAvailableCount) {
         hardValidationRelaxed = true;
         evidenceRelaxations.push("locked_intent_validation_relaxed_best_available");
         req.log.warn(
