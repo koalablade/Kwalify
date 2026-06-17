@@ -7504,6 +7504,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       endGenerateSession(sessionUserId, requestId);
     }
     if (!responseFinished(res)) {
+      const timedOut = Date.now() - startMs >= requestHardTimeoutMs - 1000;
+      if (timedOut && timeoutFallbackResponse(req, res, {
+        failureReason: sessionWasCancelled ? "cancelled_timeout_fallback" : "fatal_timeout_fallback",
+        elapsedMs: Date.now() - startMs,
+        requestId,
+      })) return;
       if (sessionWasCancelled) {
         generateFail(
           res,
@@ -7520,12 +7526,6 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
         return;
       }
-      const timedOut = Date.now() - startMs >= requestHardTimeoutMs - 1000;
-      if (timedOut && timeoutFallbackResponse(req, res, {
-        failureReason: "fatal_timeout_fallback",
-        elapsedMs: Date.now() - startMs,
-        requestId,
-      })) return;
       res.status(timedOut ? 504 : 500).json({
         success: false,
         error: timedOut
