@@ -3001,6 +3001,9 @@ function finalAlbumCap(playlistSize: number): number {
 function normalizeRepeatToken(value: string | null | undefined): string {
   return (value ?? "")
     .toLowerCase()
+    .replace(/\bfeat(?:\.|uring)?\b.*$/i, "")
+    .replace(/\bfrom\s+"[^"]+".*$/i, "")
+    .replace(/\s*-\s*(?:\d{4}\s*)?(?:remaster(?:ed)?|radio edit|single edit|mono|stereo|explicit|clean|bonus track|album version|original mix).*$/i, "")
     .replace(/\b(?:remaster(?:ed)?|deluxe|expanded|anniversary|radio edit|single edit|edit|live|mono|stereo|version|mix)\b/g, "")
     .replace(/\([^)]*\)|\[[^\]]*\]/g, "")
     .replace(/&/g, "and")
@@ -3013,6 +3016,98 @@ function trackRepeatSignature(track: { trackName?: string | null; artistName?: s
   const artist = normalizeRepeatToken(track.artistName);
   if (!title || !artist) return null;
   return `${artist}:${title}`;
+}
+
+function repairFinalResponseDuplicateSongIdentities<T extends ConstraintTrack>(
+  tracks: T[],
+  candidates: T[],
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    allowHolidaySeason?: boolean;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+    maxPerArtist: number;
+  }
+): {
+  tracks: T[];
+  diagnostics: {
+    duplicateIdentityCount: number;
+    replacedCount: number;
+    unresolvedCount: number;
+    replacements: Array<{ index: number; fromTrackId: string; toTrackId: string; signature: string }>;
+  };
+} {
+  const out: T[] = [];
+  const seenIds = new Set<string>();
+  const seenSignatures = new Set<string>();
+  const artistCounts = new Map<string, number>();
+  const replacements: Array<{ index: number; fromTrackId: string; toTrackId: string; signature: string }> = [];
+  let duplicateIdentityCount = 0;
+  let unresolvedCount = 0;
+  const orderedCandidates = candidates
+    .map(sanitizePlaylistTrack)
+    .filter((track): track is T => !!track)
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+  const accept = (track: T): void => {
+    out.push(track);
+    seenIds.add(track.trackId);
+    const signature = trackRepeatSignature(track);
+    if (signature) seenSignatures.add(signature);
+    const artistKey = track.artistName.toLowerCase().trim();
+    artistCounts.set(artistKey, (artistCounts.get(artistKey) ?? 0) + 1);
+  };
+
+  for (const rawTrack of tracks) {
+    const track = sanitizePlaylistTrack(rawTrack);
+    if (!track) continue;
+    const signature = trackRepeatSignature(track);
+    if (!seenIds.has(track.trackId) && (!signature || !seenSignatures.has(signature))) {
+      accept(track);
+      continue;
+    }
+
+    duplicateIdentityCount += 1;
+    const replacement = orderedCandidates.find((candidate) => {
+      if (seenIds.has(candidate.trackId)) return false;
+      const candidateSignature = trackRepeatSignature(candidate);
+      if (candidateSignature && seenSignatures.has(candidateSignature)) return false;
+      if (!finalTrackIsSafe(candidate, opts)) return false;
+      const artistKey = candidate.artistName.toLowerCase().trim();
+      return (artistCounts.get(artistKey) ?? 0) < opts.maxPerArtist;
+    });
+
+    if (!replacement) {
+      accept(track);
+      unresolvedCount += 1;
+      continue;
+    }
+
+    accept(replacement);
+    replacements.push({
+      index: out.length - 1,
+      fromTrackId: track.trackId,
+      toTrackId: replacement.trackId,
+      signature: signature ?? track.trackId,
+    });
+  }
+
+  return {
+    tracks: out,
+    diagnostics: {
+      duplicateIdentityCount,
+      replacedCount: replacements.length,
+      unresolvedCount,
+      replacements,
+    },
+  };
 }
 
 function artistDiversityDiagnostics<T extends { artistName?: string | null }>(
@@ -7460,6 +7555,52 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (respondIfStale(res, generateSessionUserId, requestId)) return;
 
     const playlistName = generatePlaylistName(vibe, emotionProfile);
+
+    const finalResponseAntiBlandness = repairFinalResponseDuplicateSongIdentities(
+      finalTracks as ConstraintTrack[],
+      [
+        ...finalCandidatePool,
+        ...clusterCuration.candidates,
+        ...(pipeline.sorted as ConstraintTrack[]),
+        ...scoringInputSongs,
+        ...likedSongs,
+      ] as ConstraintTrack[],
+      {
+        vibe,
+        intent: lockedIntent,
+        constraints: constraintLayer,
+        allowHolidaySeason,
+        classMap: userGenreProfile.trackClassifications,
+        maxPerArtist,
+      }
+    );
+    if (finalResponseAntiBlandness.diagnostics.replacedCount > 0) {
+      finalTracks = finalResponseAntiBlandness.tracks as PlaylistTrack[];
+      finalization = {
+        tracks: finalTracks,
+        diagnostics: {
+          ...finalization.diagnostics,
+          finalResponseAntiBlandness: {
+            ...finalResponseAntiBlandness.diagnostics,
+            executed: true,
+          },
+        },
+      };
+      generationDiagnostics.candidatesFinal = finalTracks.length;
+      generationDiagnostics.candidatesAfterCoherence = finalTracks.length;
+      publishPartialTracks(finalTracks, 5);
+    } else {
+      finalization = {
+        tracks: finalTracks,
+        diagnostics: {
+          ...finalization.diagnostics,
+          finalResponseAntiBlandness: {
+            ...finalResponseAntiBlandness.diagnostics,
+            executed: true,
+          },
+        },
+      };
+    }
 
     const trackObjects = finalTracks.map((t) => ({
       ...t,
