@@ -7646,7 +7646,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
     if (isFocusStudyPrompt(vibe, lockedIntent)) {
-      const focusAllowedFamilies = new Set(["electronic", "indie", "pop", "ambient", "unknown"]);
+      const focusAllowedFamilies = new Set(["electronic", "indie", "pop", "ambient", "soundtrack", "folk", "blues", "soul", "unknown"]);
       const prunedApiTracks = finalApiTracks.filter((track) => {
         const family = (track.genreFamily ?? track.genrePrimary ?? track.genres?.[0] ?? "unknown").toLowerCase();
         return focusAllowedFamilies.has(family);
