@@ -26,8 +26,8 @@ const COMMON_MISSPELLINGS: Record<string, string[]> = {
   valentine: ["valentines", "valentines day", "valentine's"],
 };
 
-const FUZZY_TOKEN_MIN_LENGTH = 6;
-const FUZZY_TOKEN_MAX_LENGTH = 18;
+const TERM_REGEX_CACHE_MAX = 1000;
+const termRegexCache = new Map<string, RegExp>();
 
 export const EXPANDED_GENRE_ALIASES: GenreAliasGroup[] = [
   { family: "country", terms: ["american country", "americana", "americarna", "red dirt", "red-dirt", "redirt", "cowboy", "bro country", "neo traditional country", "neotraditional country", "texas country", "oklahoma country", "red dirt country", "cowboy country", "country western", "western swing", "truck songs", "beer drinking country", "country rock", "country folk", "roots country", "appalachian", "old-time", "old time", "country gospel"] },
@@ -370,39 +370,20 @@ EXPANDED_ERA_TERMS.find((era) => era.label === "10s")?.terms.push("soundcloud er
 EXPANDED_ERA_TERMS.find((era) => era.label === "20s")?.terms.push("lockdown era", "post pandemic", "reels era", "algorithm era", "2020 lockdown", "2021 summer", "2022", "2023", "2024", "2025", "2026");
 
 export function termRegex(terms: string[]): RegExp {
+  const cacheKey = terms.join("\u0001").toLowerCase();
+  const cached = termRegexCache.get(cacheKey);
+  if (cached) return cached;
   const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const typoVariants = (token: string): string[] => {
-    if (
-      !/^[a-z]+$/i.test(token) ||
-      token.length < FUZZY_TOKEN_MIN_LENGTH ||
-      token.length > FUZZY_TOKEN_MAX_LENGTH
-    ) {
-      return [];
-    }
-
-    const lower = token.toLowerCase();
-    const variants = new Set<string>();
-    for (let i = 0; i < lower.length; i++) {
-      variants.add(`${lower.slice(0, i)}[a-z]${lower.slice(i + 1)}`);
-      variants.add(`${lower.slice(0, i)}${lower.slice(i + 1)}`);
-      variants.add(`${lower.slice(0, i)}[a-z]${lower.slice(i)}`);
-      if (i < lower.length - 1) {
-        variants.add(`${lower.slice(0, i)}${lower[i + 1]}${lower[i]}${lower.slice(i + 2)}`);
-      }
-    }
-    return [...variants];
-  };
-  const tokenPattern = (token: string): string => {
-    const escaped = escape(token);
-    if (!/^[a-z]+$/i.test(token) || token.length < FUZZY_TOKEN_MIN_LENGTH) return escaped;
-    const misspellings = COMMON_MISSPELLINGS[token.toLowerCase()] ?? [];
-    const variants = [...typoVariants(token), ...misspellings.map(escape)];
-    return `(?:${escaped}${variants.length ? `|${variants.join("|")}` : ""})`;
-  };
   const source = terms
     .flatMap((term) => [term, ...(COMMON_MISSPELLINGS[term.toLowerCase()] ?? [])])
-    .map((term) => term.trim().split(/[\s_-]+/).filter(Boolean).map(tokenPattern).join("[\\s_-]*"))
+    .map((term) => term.trim().split(/[\s_-]+/).filter(Boolean).map(escape).join("[\\s_-]+"))
+    .sort((a, b) => b.length - a.length)
     .join("|");
-  if (!source) return /a^/i;
-  return new RegExp(`\\b(?:${source})\\b`, "i");
+  const regex = source ? new RegExp(`\\b(?:${source})\\b`, "i") : /a^/i;
+  termRegexCache.set(cacheKey, regex);
+  if (termRegexCache.size > TERM_REGEX_CACHE_MAX) {
+    const oldestKey = termRegexCache.keys().next().value;
+    if (oldestKey !== undefined) termRegexCache.delete(oldestKey);
+  }
+  return regex;
 }
