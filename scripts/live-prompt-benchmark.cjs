@@ -91,6 +91,37 @@ const PROMPT_GROUPS = [
   },
 ];
 
+const ULTIMATE_AUDIT_GROUPS = [
+  {
+    name: "Core Suite",
+    prompts: [
+      { id: "ultimate-core-gym-2000s-pop-punk", prompt: "gym 2000s pop punk workout", category: "gym", mode: "balanced", length: 25, expectedGenres: ["pop punk", "punk", "rock"], expectedEra: { start: 2000, end: 2009 }, expectedEnergy: "high" },
+      { id: "ultimate-core-heavy-lifting", prompt: "gym heavy lifting intense", category: "gym", mode: "balanced", length: 25, expectedEnergy: "high" },
+      { id: "ultimate-core-cardio-upbeat", prompt: "gym cardio upbeat", category: "gym", mode: "balanced", length: 25, expectedEnergy: "high", expectedValence: "high" },
+      { id: "ultimate-core-angry-rock", prompt: "gym angry rock", category: "gym", mode: "strict", length: 25, expectedGenres: ["rock"], expectedEnergy: "high" },
+    ],
+  },
+  {
+    name: "Real User Suite",
+    prompts: [
+      { id: "ultimate-real-car-garage-alone", prompt: "music for fixing a car alone in a garage", category: "mixed", mode: "balanced", length: 25, expectedEnergy: "medium" },
+      { id: "ultimate-real-winning-struggle", prompt: "songs that feel like winning after a long struggle", category: "mood_specific", mode: "balanced", length: 25, expectedEnergy: "medium", expectedValence: "high" },
+      { id: "ultimate-real-upbeat-not-annoying-gym", prompt: "something upbeat but not annoying for the gym", category: "gym", mode: "balanced", length: 25, expectedEnergy: "high", expectedValence: "high" },
+      { id: "ultimate-real-kerrang-2000s", prompt: "stuff I'd have heard on Kerrang in the 2000s", category: "genre_specific", mode: "strict", length: 25, expectedGenres: ["rock", "punk", "metal"], expectedEra: { start: 2000, end: 2009 }, expectedEnergy: "high" },
+      { id: "ultimate-real-rain-night-driving", prompt: "music for driving through rain at night", category: "driving", mode: "balanced", length: 25, expectedEnergy: "medium", expectedValence: "low" },
+    ],
+  },
+  {
+    name: "Constraint Suite",
+    prompts: [
+      { id: "ultimate-constraint-pop-punk-no-blink", prompt: "2000s pop punk without Blink-182", category: "genre_specific", mode: "strict", length: 25, expectedGenres: ["pop punk", "punk", "rock"], expectedEra: { start: 2000, end: 2009 }, excludedArtists: ["blink-182", "blink 182"] },
+      { id: "ultimate-constraint-rock-2004-2008", prompt: "rock workout playlist from exactly 2004-2008", category: "gym", mode: "strict", length: 25, expectedGenres: ["rock"], expectedEra: { start: 2004, end: 2008 }, expectedEnergy: "high" },
+      { id: "ultimate-constraint-angry-no-metal-rap-edm", prompt: "angry workout playlist with no metal, rap or EDM", category: "gym", mode: "strict", length: 25, expectedGenres: ["rock"], expectedEnergy: "high", forbiddenTerms: ["metal", "rap", "edm", "electronic"] },
+      { id: "ultimate-constraint-focus-no-ambient-classical-electronic", prompt: "focus music with no ambient, classical or electronic", category: "focus", mode: "strict", length: 25, expectedEnergy: "low", forbiddenTerms: ["ambient", "classical", "electronic"] },
+    ],
+  },
+];
+
 function usage() {
   console.error([
     "Usage:",
@@ -103,6 +134,7 @@ function usage() {
     "  --delay-ms N       Delay between playlists, default 13000",
     "  --timeout-ms N     Per-request timeout, default 120000",
     "  --limit N          Run only first N prompts",
+    "  --suite NAME       Prompt suite: stress (default) or ultimate",
     "  --resume           Continue from existing raw-results.json",
   ].join("\n"));
   process.exit(2);
@@ -137,8 +169,10 @@ function parseConfig() {
   const delayMs = Number(argValue(args, "--delay-ms") ?? 13000);
   const timeoutMs = Number(argValue(args, "--timeout-ms") ?? 120000);
   const limitRaw = argValue(args, "--limit");
+  const suite = argValue(args, "--suite") ?? "stress";
   const authCookie = normalizeCookie();
   if (!authCookie) throw new Error("Set PLAYLIST_BENCHMARK_AUTH_COOKIE or COOKIE_VALUE before running.");
+  if (!["stress", "ultimate"].includes(suite)) throw new Error("--suite must be stress or ultimate");
   return {
     baseUrl,
     outDir,
@@ -147,11 +181,16 @@ function parseConfig() {
     limit: limitRaw ? Number(limitRaw) : null,
     resume: args.includes("--resume"),
     authCookie,
+    suite,
   };
 }
 
-function flattenPrompts() {
-  return PROMPT_GROUPS.flatMap((group) =>
+function promptGroupsForSuite(suite) {
+  return suite === "ultimate" ? ULTIMATE_AUDIT_GROUPS : PROMPT_GROUPS;
+}
+
+function flattenPrompts(suite) {
+  return promptGroupsForSuite(suite).flatMap((group) =>
     group.prompts.map((prompt, index) => ({
       ...prompt,
       group: group.name,
@@ -370,7 +409,7 @@ async function writeCustomMarkdown(config, run) {
   const links = run.results
     .filter((result) => result.generated?.spotifyPlaylistUrl ?? result.response?.spotifyPlaylistUrl)
     .map((result) => `- ${result.benchmark.id}: ${result.generated?.spotifyPlaylistUrl ?? result.response?.spotifyPlaylistUrl}`);
-  const groupBlocks = PROMPT_GROUPS.map((group) => {
+  const groupBlocks = promptGroupsForSuite(config.suite).map((group) => {
     const groupResults = run.results.filter((result) => result.benchmark.group === group.name);
     if (!groupResults.length) return "";
     const groupOk = groupResults.filter((result) => result.ok).length;
@@ -389,6 +428,7 @@ async function writeCustomMarkdown(config, run) {
     `Base URL: ${config.baseUrl}`,
     `Authenticated user: ${run.user?.id ?? "unknown"} (${run.user?.displayName ?? "unknown"})`,
     `Mode: live production generation with Spotify playlist creation`,
+    `Suite: ${config.suite}`,
     `Prompts completed: ${total}/${run.promptCount}`,
     `Successful playlists: ${ok}/${total} (${pct(total ? ok / total : 0)})`,
     `Metadata constraint violations: ${violations.length}`,
@@ -423,7 +463,7 @@ async function writeReports(config, run) {
 async function main() {
   const config = parseConfig();
   const started = Date.now();
-  const allPrompts = flattenPrompts();
+  const allPrompts = flattenPrompts(config.suite);
   const prompts = config.limit ? allPrompts.slice(0, config.limit) : allPrompts;
   await mkdir(config.outDir, { recursive: true });
   const user = await preflight(config);
