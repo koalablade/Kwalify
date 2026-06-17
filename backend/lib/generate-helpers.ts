@@ -61,7 +61,6 @@ export function buildFallbackPipelineResult<
   } | null | undefined;
   recentTrackPenalty?: Map<string, number>;
   artistReusePenalty?: Map<string, number>;
-  intentFitByTrack?: Map<string, number>;
 }): BuildPlaylistPipelineResult<T> {
   const fb = buildFastFallbackPlaylist({
     tracks: opts.tracks,
@@ -70,7 +69,6 @@ export function buildFallbackPipelineResult<
     maxPerArtist: opts.maxPerArtist,
     recentTrackPenalty: opts.recentTrackPenalty,
     artistReusePenalty: opts.artistReusePenalty,
-    intentFitByTrack: opts.intentFitByTrack,
   });
   const fbScored: Array<ScoredLibraryTrack<T> & V3TrackMetadata> = fb.map((t) => {
     const genre = opts.genreByTrack?.(t.trackId);

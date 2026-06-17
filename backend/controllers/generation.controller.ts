@@ -5512,17 +5512,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Pre-V3 timing breakdown"
     );
     const useFastFallback = !devMode && budget.shouldFastFallback();
-    const fallbackIntentFitByTrack = useFastFallback
-      ? new Map(scoringInputSongs.map((track) => [
-          track.trackId,
-          intentCoherenceScore(track as unknown as ConstraintTrack, {
-            vibe,
-            intent: lockedIntent,
-            constraints: constraintLayer,
-            classMap: userGenreProfile.trackClassifications,
-          }),
-        ]))
-      : undefined;
 
     let pipeline: BuildPlaylistPipelineResult<(typeof likedSongs)[number]> & {
       requestOrchestration?: RequestGenerationOrchestration;
@@ -5554,7 +5543,6 @@ router.post("/generate", async (req, res): Promise<void> => {
         genreByTrack,
         recentTrackPenalty: finalizationReusePenalty,
         artistReusePenalty: finalizationArtistReusePenalty,
-        intentFitByTrack: fallbackIntentFitByTrack,
       }) as typeof pipeline;
       playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
     } else {
