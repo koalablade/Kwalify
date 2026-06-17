@@ -576,6 +576,147 @@ EXPANDED_ERA_TERMS.find((era) => era.label === "20s")?.terms.push(
   "algorithm pop", "bedroom producer era", "hyperpop era", "reels era", "tiktok sound", "viral song",
 );
 
+// Life-state, emotional-transition, personality, and global-scene expansion.
+EXPANDED_GENRE_ALIASES.push(
+  {
+    family: "world",
+    terms: [
+      "african jazz", "afro jazz", "afro latin", "arabic electronic", "balkan brass", "bossa pop",
+      "brazilian funk", "brazilian jazz", "brazilian pop", "desi indie", "french pop", "german techno",
+      "highlife guitar", "japanese ambient", "japanese fusion", "japanese jazz", "japanese metal",
+      "korean indie", "korean rock", "nordic folk", "nordic metal", "scandi pop", "south african jazz",
+      "spanish indie", "turkish psych", "uk afro swing", "welsh rock",
+    ],
+  },
+  {
+    family: "electronic",
+    terms: [
+      "after work house", "airport ambient", "ambient pop", "city lights electronic", "coding electronic",
+      "deep focus electronic", "desert techno", "forest psytrance", "german techno club", "night drive synth",
+      "productivity techno", "rainy garage", "sunset house", "train journey ambient", "winter ambient",
+    ],
+  },
+  {
+    family: "folk",
+    terms: [
+      "autumn folk", "cabin folk", "coffee shop acoustic", "grief folk", "healing folk", "mountain folk",
+      "moving house folk", "new beginning folk", "rainy folk", "recovery acoustic", "road folk", "spring folk",
+      "winter folk",
+    ],
+  },
+  {
+    family: "soul",
+    terms: [
+      "confidence soul", "healing soul", "hopeful soul", "motivational soul", "recovery soul", "wedding soul",
+    ],
+  },
+  {
+    family: "rock",
+    terms: [
+      "comeback rock", "confidence rock", "driving through rain rock", "finishing project rock", "garage work rock",
+      "motivational rock", "rainy motorway rock", "rebuilding life rock", "road trip alt rock", "unstoppable rock",
+    ],
+  },
+);
+
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.focus, [
+  "burnout recovery", "career change", "deep focus entry", "exam revision", "fatigue prevention", "focus entry",
+  "getting back on track", "life admin", "rebuilding life", "rebuilding my life", "recovery routine",
+  "starting again", "study fatigue", "work burnout",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.workout, [
+  "build phase", "build up", "cooldown", "cool down", "energy peak", "finish strong", "gym cooldown",
+  "gym finisher", "gym peak", "peak energy", "peak set", "workout arc", "workout warmup", "warm up", "warmup",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.driving, [
+  "departure", "driving through scotland", "driving through wales", "empty motorway", "highland drive",
+  "midnight motorway", "rainy a road", "roadtrip cruise", "roadtrip departure", "roadtrip sunset",
+  "sunset cruise", "top gear roadtrip vibes",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.travel, [
+  "airport anxiety", "airport departure", "airport waiting", "first trip alone", "moving abroad", "train station",
+  "train window", "travel nerves",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.social, [
+  "friendship", "making friends", "meeting someone new", "reconnecting with friends", "social battery",
+]);
+pushUniqueTerms(EXPANDED_ACTIVITY_TERMS.creative, [
+  "creative confidence", "portfolio work", "studio flow", "work in progress",
+]);
+
+pushUniqueTerms(EXPANDED_MOOD_TERMS.melancholic, [
+  "alone after breakup", "divorced", "empty house", "grief", "grieving", "illness", "loneliness", "lonely",
+  "lost", "mourning", "post breakup", "sad to hopeful", "widowed",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.warm, [
+  "first home", "friendship warmth", "home again", "new parent", "parenthood", "settling in", "soft hope",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.euphoric, [
+  "promotion", "success", "survived it", "things are getting better", "triumph after struggle",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.confident, [
+  "ambitious", "back in control", "competitive", "confidence building", "focused personality", "level up",
+  "personal growth", "rebuilding confidence", "self improvement", "starting over strong",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.calm, [
+  "anxious to calm", "calm after chaos", "illness recovery", "peace after grief", "restoring balance",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.angry, [
+  "angry to motivated", "channel anger", "turn anger into focus",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.nostalgic, [
+  "first job", "student life", "university days", "uni memories", "youth culture",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.dreamy, [
+  "dreaming of change", "future self", "soft future", "starting a new chapter",
+]);
+pushUniqueTerms(EXPANDED_MOOD_TERMS.introspective, [
+  "figuring life out", "life transition", "looking back", "moving home", "questioning everything", "retirement",
+  "turning point",
+]);
+
+pushUniqueTerms(EXPANDED_PLACE_TERMS.city, [
+  "atlanta", "bristol", "brooklyn", "cardiff", "ibiza town", "kingston", "memphis", "new orleans",
+  "paris", "rio", "stockholm", "toronto",
+]);
+pushUniqueTerms(EXPANDED_PLACE_TERMS.rural, [
+  "desert road", "empty fields", "farm town", "small town night", "suburban estate", "suburban streets",
+]);
+pushUniqueTerms(EXPANDED_PLACE_TERMS.outdoors, [
+  "cold rain", "desert", "dry heat", "golden autumn", "heavy rain", "humid night", "icy morning",
+  "misty forest", "stormy night", "summer night", "warm rain",
+]);
+pushUniqueTerms(EXPANDED_PLACE_TERMS.bedroom, [
+  "first flat", "new apartment", "student bedroom", "university room",
+]);
+
+pushUniqueTerms(EXPANDED_EVENT_TERMS, [
+  "becoming a parent", "burnout recovery", "divorce recovery", "empty nest", "first job", "getting married",
+  "grief recovery", "illness recovery", "leaving university", "losing someone", "marriage", "midlife reset",
+  "moving back home", "parenthood", "rebuilding confidence", "rebuilding my life", "recovering from illness",
+  "retirement", "starting a business", "starting university", "student life", "university", "work burnout",
+]);
+
+pushUniqueTerms(EXPANDED_TIME_TERMS.morning, ["fresh start morning", "new chapter morning", "recovery morning"]);
+pushUniqueTerms(EXPANDED_TIME_TERMS.evening, ["after a hard day", "evening reset", "sunset transition"]);
+pushUniqueTerms(EXPANDED_TIME_TERMS.late_night, ["can't sleep", "life thoughts at night", "night thoughts", "overthinking at 2am"]);
+
+EXPANDED_ERA_TERMS.find((era) => era.label === "50s")?.terms.push("early television era", "teen dance era");
+EXPANDED_ERA_TERMS.find((era) => era.label === "60s")?.terms.push("counterculture", "motown tv", "woodstock era");
+EXPANDED_ERA_TERMS.find((era) => era.label === "70s")?.terms.push("cbgb", "disco club era", "punk club era");
+EXPANDED_ERA_TERMS.find((era) => era.label === "80s")?.terms.push("college radio", "hair metal mtv", "vh1 era");
+EXPANDED_ERA_TERMS.find((era) => era.label === "90s")?.terms.push("alternative nation", "britpop tv", "cd wallet era", "napster era");
+EXPANDED_ERA_TERMS.find((era) => era.label === "00s")?.terms.push(
+  "emo scene", "facebook era", "ipod nano", "kerrang magazine", "mtv2 rock countdown", "myspace profile song",
+  "purevolume bands", "warped tour summer", "youtube early days",
+);
+EXPANDED_ERA_TERMS.find((era) => era.label === "10s")?.terms.push(
+  "boiler room era", "festival edm era", "soundcloud upload", "tumblr dashboard",
+);
+EXPANDED_ERA_TERMS.find((era) => era.label === "20s")?.terms.push(
+  "discord music scene", "lockdown walks", "playlist culture", "tiktok discovery",
+);
+
 export function termRegex(terms: string[]): RegExp {
   const cacheKey = terms.join("\u0001").toLowerCase();
   const cached = termRegexCache.get(cacheKey);

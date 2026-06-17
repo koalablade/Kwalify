@@ -847,9 +847,9 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
     era: parsed.eraRange,
     moods: parsed.mood,
     context: places[0] ?? parsed.activity ?? undefined,
-    energyArc: /\b(low\s*(?:to|->|-)\s*high|build|rising|progressive|crescendo)\b/.test(lower)
+    energyArc: /\b(low\s*(?:to|->|-)\s*high|build|build\s*up|building|rising|progressive|crescendo|warm\s*up.{0,48}(?:peak|finish|cool\s*down)|start(?:s|ing)?\s+slow.{0,48}(?:peak|finish)|finish\s+strong)\b/.test(lower)
       ? "progressive"
-      : /\b(dynamic|varied|journey|arc)\b/.test(lower)
+      : /\b(dynamic|varied|journey|arc|warm\s*up|cool\s*down|cooldown|peak\s+energy|mood\s+transition|emotional\s+journey|sad\s*(?:to|->|-)\s*hopeful|angry\s*(?:to|->|-)\s*motivated|anxious\s*(?:to|->|-)\s*calm|heartbroken\s*(?:to|->|-)\s*healing|lost\s*(?:to|->|-)\s*determined)\b/.test(lower)
         ? "dynamic"
         : parsed.energy ?? undefined,
     emotionalTone: parsed.mood,
