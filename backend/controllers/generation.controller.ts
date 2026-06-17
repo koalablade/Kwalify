@@ -852,6 +852,64 @@ function timeoutFallbackResponse(
   const vibe = typeof ctx?.vibe === "string" ? ctx.vibe : "";
   const mode = typeof ctx?.mode === "string" ? ctx.mode : "balanced";
   const maxPerArtist = typeof ctx?.maxPerArtist === "number" ? ctx.maxPerArtist : artistDiversityCap(length, vibe);
+  const finalizedTracks = Array.isArray(ctx?.finalTracks)
+    ? ctx.finalTracks as Array<V3MetadataTrack<{
+      trackId: string;
+      trackName: string;
+      artistName: string;
+      albumName: string;
+      albumArt?: string | null;
+      durationMs?: number | null;
+      energy: number | null;
+      valence: number | null;
+      tempo?: number | null;
+      danceability?: number | null;
+      acousticness?: number | null;
+      score?: number;
+      rediscoveryScore?: number;
+      genrePrimary?: string | null;
+      genreFamily?: string | null;
+      genres?: string[] | null;
+    }>>
+    : [];
+  if (emotionProfile && finalizedTracks.length > 0 && length > 0) {
+    const tracks = formatTracksForApi(finalizedTracks.slice(0, length), emotionProfile);
+    if (tracks.length > 0) {
+      req.log.warn(
+        {
+          requestId: opts.requestId,
+          elapsedMs: opts.elapsedMs,
+          trackCount: tracks.length,
+          requestedLength: length,
+          failureReason: opts.failureReason,
+        },
+        "Generate timeout finalized response emitted"
+      );
+      res.status(200).json({
+        success: true,
+        playlistName: generatePlaylistName(vibe, emotionProfile),
+        tracks,
+        generationDiagnostics: {
+          recoveryTriggered: true,
+          fallbackLevel: "timeout_finalized",
+          sessionCancelled: true,
+          failureReason: opts.failureReason,
+          requestId: opts.requestId,
+          elapsedMs: opts.elapsedMs,
+          lastPhase: opts.lastPhase ?? null,
+          lastStage: opts.lastStage ?? null,
+          stageProfile: opts.stageProfile ?? null,
+          finalResponseCompletionLockApplied: true,
+          finalResponseCompletionAdded: tracks.length,
+          timeoutFallbackSource: "finalized_tracks",
+        },
+        v3Diagnostics: (ctx?.v3Diagnostics as Record<string, unknown> | undefined) ?? { timeoutFinalized: true },
+        fastFallback: false,
+        mode,
+      });
+      return true;
+    }
+  }
   const timeoutSource = (() => {
     if (scoringInputSongs.length === 0) return likedSongs;
     const seen = new Set<string>();
@@ -5505,6 +5563,13 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     warnIfFieldDropped("laneScore", pipeline.finalTracks, finalTracks, "create-playlist-to-controller");
     warnIfFieldDropped("clusterIds", pipeline.finalTracks, finalTracks, "create-playlist-to-controller");
+    const publishFinalTracksContext = (): void => {
+      const genCtx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
+      if (!genCtx) return;
+      genCtx["finalTracks"] = finalTracks;
+      genCtx["v3Diagnostics"] = pipeline.scoringDiagnostics;
+    };
+    publishFinalTracksContext();
     let finalValidation = validateLockedIntentOutput(
       finalTracks,
       lockedIntent,
@@ -7031,6 +7096,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
 
+    publishFinalTracksContext();
     const endApiFormattingProfile = liveStageProfiler.start("controller.apiTrackFormatting", `${finalTracks.length} tracks`);
     const finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
     endApiFormattingProfile();
