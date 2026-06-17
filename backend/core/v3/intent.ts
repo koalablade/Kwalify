@@ -1331,9 +1331,12 @@ export function completeLockedIntent(
 export function buildLockedIntent(input: string): LockedIntent {
   const lower = normalizePromptFragments(input).toLowerCase();
   const rawSubgenreIntent = parseSubgenreIntent(lower);
+  const rawExcludedGenreFamilies = excludedGenreFamilies(lower);
+  const subgenrePrimaryExcluded = !!rawSubgenreIntent.primaryGenre &&
+    rawExcludedGenreFamilies.has(rawSubgenreIntent.primaryGenre);
   const humanHints = humanPhraseIntentHints(lower);
   const rawGenreFamilies = uniqueGenreFamilies([
-    ...(rawSubgenreIntent.primaryGenre ? [rawSubgenreIntent.primaryGenre] : []),
+    ...(rawSubgenreIntent.primaryGenre && !subgenrePrimaryExcluded ? [rawSubgenreIntent.primaryGenre] : []),
     ...parseGenreFamilies(lower),
   ]);
 
@@ -1372,10 +1375,10 @@ export function buildLockedIntent(input: string): LockedIntent {
 
   return {
     genreFamilies: budgeted.genreFamilies,
-    primaryGenre: rawSubgenreIntent.primaryGenre ?? budgeted.genreFamilies[0] ?? null,
-    primarySubgenre: rawSubgenreIntent.primarySubgenre,
-    secondarySubgenre: rawSubgenreIntent.secondarySubgenre,
-    subgenreTerms: rawSubgenreIntent.subgenreTerms,
+    primaryGenre: subgenrePrimaryExcluded ? budgeted.genreFamilies[0] ?? null : rawSubgenreIntent.primaryGenre ?? budgeted.genreFamilies[0] ?? null,
+    primarySubgenre: subgenrePrimaryExcluded ? null : rawSubgenreIntent.primarySubgenre,
+    secondarySubgenre: subgenrePrimaryExcluded ? null : rawSubgenreIntent.secondarySubgenre,
+    subgenreTerms: subgenrePrimaryExcluded ? [] : rawSubgenreIntent.subgenreTerms,
     eraRange: budgeted.eraRange,
     mood: budgeted.mood,
     activity: budgeted.activity,
