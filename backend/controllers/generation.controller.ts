@@ -6263,6 +6263,66 @@ router.post("/generate", async (req, res): Promise<void> => {
     const baseFinalizationCandidates = clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
       ? clusterCuration.candidates
       : finalCandidatePool;
+    const explicitConstraintActive = hasExplicitGenreIntent(lockedIntent, constraintLayer) || !!lockedIntent.eraRange;
+    const explicitCandidateMap = new Map<string, PlaylistTrack>();
+    if (explicitConstraintActive) {
+      for (const track of finalTracks) explicitCandidateMap.set(track.trackId, track);
+      for (const track of baseFinalizationCandidates) explicitCandidateMap.set(track.trackId, track);
+      for (const track of scoringInputSongs) {
+        const candidate = { ...hydrateTrackGenre(track), score: 0.5 } as PlaylistTrack;
+        explicitCandidateMap.set(candidate.trackId, candidate);
+      }
+    }
+    const explicitCandidatePool = [...explicitCandidateMap.values()];
+    const adjacentEraMatches = (track: PlaylistTrack): boolean => {
+      if (!lockedIntent.eraRange) return true;
+      const year = trackYearEstimate(track);
+      if (year === null) return false;
+      return year >= lockedIntent.eraRange.start - 10 && year <= lockedIntent.eraRange.end + 10;
+    };
+    const exactConstrainedRecoveryPool = explicitCandidatePool.filter((track) =>
+      finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
+      finalTrackMatchesExplicitEra(track, lockedIntent)
+    );
+    const adjacentConstrainedRecoveryPool = exactConstrainedRecoveryPool.length > 0
+      ? exactConstrainedRecoveryPool
+      : explicitCandidatePool.filter((track) =>
+          finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
+          adjacentEraMatches(track)
+        );
+    const genreConstrainedRecoveryPool = adjacentConstrainedRecoveryPool.length > 0
+      ? adjacentConstrainedRecoveryPool
+      : explicitCandidatePool.filter((track) =>
+          finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
+        );
+    const publishConstrainedPrefix = (reason: string): boolean => {
+      const replacement = exactConstrainedRecoveryPool.length > 0
+        ? exactConstrainedRecoveryPool
+        : adjacentConstrainedRecoveryPool.length > 0
+          ? adjacentConstrainedRecoveryPool
+          : genreConstrainedRecoveryPool;
+      if (replacement.length === 0) return false;
+      finalTracks = replacement.slice(0, length);
+      finalization = {
+        tracks: finalTracks,
+        diagnostics: {
+          ...finalization.diagnostics,
+          explicitConstraintPartialPublished: true,
+          explicitConstraintPartialReason: reason,
+          exactConstrainedRecoveryCount: exactConstrainedRecoveryPool.length,
+          adjacentConstrainedRecoveryCount: adjacentConstrainedRecoveryPool.length,
+          genreConstrainedRecoveryCount: genreConstrainedRecoveryPool.length,
+        },
+      };
+      finalValidation = validateLockedIntentOutput(
+        finalTracks,
+        lockedIntent,
+        constraintLayer,
+        userGenreProfile.trackClassifications
+      );
+      publishPartialTracks(finalTracks, 5);
+      return true;
+    };
     const endGenreEvidenceProfile = liveStageProfiler.start("controller.genreEvidenceGuard", `${finalTracks.length} tracks`);
     const strictGenreEvidenceDiagnostics = (() => {
       const expectedFamilies = lockedIntent.primaryGenres.length > 0
@@ -6304,22 +6364,23 @@ router.post("/generate", async (req, res): Promise<void> => {
       strictGenreEvidenceDiagnostics.active &&
       strictGenreEvidenceDiagnostics.verifiedCount < strictGenreEvidenceDiagnostics.requiredCount
     ) {
-      if (finalTracks.length >= minBestAvailableCount) {
-        strictGenreEvidenceRelaxed = true;
-        evidenceRelaxations.push("genre_evidence_relaxed_best_available");
+      if (publishConstrainedPrefix("insufficient_verified_genre_evidence")) {
+        evidenceRelaxations.push("genre_evidence_partial_constrained_prefix");
         req.log.warn(
           {
             userId,
             vibe,
             finalCount: finalTracks.length,
-            minBestAvailableCount,
+            exactConstrainedRecoveryCount: exactConstrainedRecoveryPool.length,
+            adjacentConstrainedRecoveryCount: adjacentConstrainedRecoveryPool.length,
+            genreConstrainedRecoveryCount: genreConstrainedRecoveryPool.length,
             strictGenreEvidenceDiagnostics: {
               ...strictGenreEvidenceDiagnostics,
               verified: undefined,
               compatible: undefined,
             },
           },
-          "Explicit genre evidence guard relaxed to best available playlist"
+          "Explicit genre evidence guard published constrained prefix"
         );
       } else {
       req.log.warn(
@@ -6480,6 +6541,26 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
           },
           "Explicit era evidence guard kept activity-safe recovery playlist"
+        );
+      } else if (explicitConstraintActive && finalTracks.length > 0) {
+        strictEraEvidenceRelaxed = true;
+        evidenceRelaxations.push("era_evidence_partial_constrained_prefix");
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            finalCount: finalTracks.length,
+            exactConstrainedRecoveryCount: exactConstrainedRecoveryPool.length,
+            adjacentConstrainedRecoveryCount: adjacentConstrainedRecoveryPool.length,
+            genreConstrainedRecoveryCount: genreConstrainedRecoveryPool.length,
+            strictEraEvidenceDiagnostics: {
+              ...strictEraEvidenceDiagnostics,
+              verified: undefined,
+              compatible: undefined,
+              compatibleRecovery: undefined,
+            },
+          },
+          "Explicit era evidence guard published constrained prefix"
         );
       } else {
       req.log.warn(
