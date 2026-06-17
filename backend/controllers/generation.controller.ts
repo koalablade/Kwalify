@@ -1673,9 +1673,11 @@ function trackGenreFamily(track: ConstraintTrack, classMap: Map<string, {
   subGenres: string[];
 }>): string {
   const classification = classMap.get(track.trackId);
+  const trackGenre = track as ConstraintTrack & { genreFamily?: string | null };
   return (
     classification?.genreFamily ??
     classification?.genrePrimary ??
+    trackGenre.genreFamily ??
     track.genrePrimary ??
     "unknown"
   ).toLowerCase();
