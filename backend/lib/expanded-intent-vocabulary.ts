@@ -37,7 +37,7 @@ export const EXPANDED_GENRE_ALIASES: GenreAliasGroup[] = [
   { family: "jazz", terms: ["cool jazz", "hard bop", "post bop", "modal jazz", "free jazz", "spiritual jazz", "jazz fusion", "acid jazz", "nu jazz", "gypsy jazz", "dixieland", "ragtime", "big band", "jazz funk"] },
   { family: "pop", terms: ["art pop", "baroque pop", "power pop", "dream pop", "bubblegum pop", "electropop", "hyperpop", "bedroom pop", "chamber pop", "jangle pop", "city pop", "japanese city pop", "tokyo city pop", "late night city pop", "80s city pop", "citypop", "city-pop", "mandopop", "cantopop", "j-pop", "jpop", "british pop", "britpop pop", "latin pop", "europop", "disco pop", "alt pop"] },
   { family: "folk", terms: ["indie folk", "freak folk", "psych folk", "folk rock", "anti folk", "americana folk", "protest folk", "british folk", "scottish folk", "welsh folk", "nordic folk", "sea shanty", "shanties"] },
-  { family: "soul", terms: ["northern soul", "southern soul", "memphis soul", "philly soul", "psychedelic soul", "quiet storm", "boogie", "disco", "p-funk", "p funk", "funk rock"] },
+  { family: "soul", terms: ["northern soul", "southern soul", "memphis soul", "philly soul", "psychedelic soul", "quiet storm", "boogie", "disco", "p-funk", "p funk", "funk rock", "city pop", "japanese city pop", "city pop funk", "city pop boogie"] },
   { family: "metal", terms: ["doom metal", "sludge metal", "stoner metal", "power metal", "symphonic metal", "progressive metal", "prog metal", "folk metal", "industrial metal", "post metal", "post-metal", "metallic hardcore", "blackgaze", "grindcore", "speed metal"] },
   { family: "classical", terms: ["romantic classical", "modern classical", "minimalism", "minimalist classical", "neoclassical", "choral", "requiem", "aria", "string quartet", "solo piano", "film orchestra", "ballet", "renaissance", "impressionist classical"] },
   { family: "indie", terms: ["indietronica", "indie sleaze", "twee", "twee pop", "slacker rock", "lo-fi indie", "lofi indie", "hypnagogic pop", "cassette pop", "chillwave", "glo-fi", "sad indie", "rainy indie"] },
@@ -215,6 +215,7 @@ EXPANDED_GENRE_ALIASES.push(
     terms: [
       "bebop", "big band swing", "bossanova jazz", "bossa jazz", "contemporary jazz", "jazz rap", "jazztronica", "latin jazz",
       "lounge jazz", "smooth jazz", "vocal jazz", "jazz piano", "jazz cafe", "late night jazz", "rainy jazz",
+      "city pop jazz", "japanese city pop", "japanese jazz fusion",
     ],
   },
   {
