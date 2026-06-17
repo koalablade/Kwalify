@@ -59,12 +59,16 @@ export function buildFallbackPipelineResult<
     genreFamily?: string | null;
     genres?: string[] | null;
   } | null | undefined;
+  recentTrackPenalty?: Map<string, number>;
+  artistReusePenalty?: Map<string, number>;
 }): BuildPlaylistPipelineResult<T> {
   const fb = buildFastFallbackPlaylist({
     tracks: opts.tracks,
     emotionProfile: opts.emotionProfile,
     playlistLength: opts.playlistLength,
     maxPerArtist: opts.maxPerArtist,
+    recentTrackPenalty: opts.recentTrackPenalty,
+    artistReusePenalty: opts.artistReusePenalty,
   });
   const fbScored: Array<ScoredLibraryTrack<T> & V3TrackMetadata> = fb.map((t) => {
     const genre = opts.genreByTrack?.(t.trackId);

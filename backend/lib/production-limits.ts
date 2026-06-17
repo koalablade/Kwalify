@@ -21,9 +21,9 @@ export const TRACE_SAMPLE_SIZE = 40;
 export const TRACE_MAX_TOTAL = 45;
 
 /** Hard server budget for /generate (ms). */
-export const REQUEST_HARD_TIMEOUT_MS = 75_000;
+export const REQUEST_HARD_TIMEOUT_MS = 60_000;
 /** Switch to fast fallback if pipeline not done by this point (ms from request start). */
-export const REQUEST_FAST_FALLBACK_MS = 45_000;
+export const REQUEST_FAST_FALLBACK_MS = 28_000;
 
 export const GENERATE_RESULT_CACHE_TTL_MS = 20 * 60 * 1000;
 export const GENRE_STACK_CACHE_TTL_MS = 60 * 60 * 1000;

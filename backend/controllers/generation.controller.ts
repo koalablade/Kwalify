@@ -925,6 +925,12 @@ function timeoutFallbackResponse(
   const genreByTrack = typeof ctx?.genreByTrack === "function"
     ? ctx.genreByTrack as (trackId: string) => { genrePrimary?: string | null; genreFamily?: string | null; genres?: string[] | null } | null | undefined
     : undefined;
+  const trackReusePenalty = ctx?.trackReusePenalty instanceof Map
+    ? ctx.trackReusePenalty as Map<string, number>
+    : undefined;
+  const artistReusePenalty = ctx?.artistReusePenalty instanceof Map
+    ? ctx.artistReusePenalty as Map<string, number>
+    : undefined;
   const lockedIntent = ctx?.lockedIntent as LockedIntent | undefined;
   const classMap = ctx?.classMap instanceof Map
     ? ctx.classMap as Map<string, {
@@ -1085,6 +1091,8 @@ function timeoutFallbackResponse(
     maxPerArtist,
     librarySize: likedSongs.length || timeoutSource.length,
     genreByTrack,
+    recentTrackPenalty: trackReusePenalty,
+    artistReusePenalty,
   });
   const timeoutFinalTracks = [...pipeline.finalTracks];
   if (timeoutFinalTracks.length < length) {
@@ -1744,26 +1752,27 @@ function moodEvidence(track: ConstraintTrack, intent: LockedIntent): boolean | n
 function activityEvidence(track: ConstraintTrack, intent: LockedIntent): boolean | null {
   if (!intent.activity && !intent.energyLevel) return null;
   const activity = intent.activity;
-  const energy = track.energy ?? 0.5;
-  const tempo = track.tempo ?? 110;
-  const danceability = track.danceability ?? 0.5;
-  const acousticness = track.acousticness ?? 0.5;
+  const energy = typeof track.energy === "number" ? track.energy : null;
+  const tempo = typeof track.tempo === "number" ? track.tempo : null;
+  const danceability = typeof track.danceability === "number" ? track.danceability : null;
+  const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
+  const speechiness = typeof track.speechiness === "number" ? track.speechiness : null;
   const gentleWalk = activity === "walking" && (intent.mood.includes("melancholic") || intent.mood.includes("calm"));
   const activityMatch =
-    activity === "driving" ? energy >= 0.45 && tempo >= 85 :
-    activity === "focus" ? energy <= 0.68 && (acousticness >= 0.18 || danceability <= 0.62) :
-    activity === "gym" ? energy >= 0.50 || tempo >= 108 || danceability >= 0.56 :
-    activity === "party" ? energy >= 0.6 && danceability >= 0.55 :
-    activity === "walking" ? energy >= (gentleWalk ? 0.20 : 0.35) && energy <= (gentleWalk ? 0.68 : 0.75) :
-    activity === "cleaning" ? energy >= 0.35 && energy <= 0.78 :
-    activity === "sleep" ? energy <= 0.42 || acousticness >= 0.45 :
-    activity === "travel" ? energy >= 0.30 && tempo >= 70 :
-    activity === "relaxing" ? energy <= 0.45 :
+    activity === "driving" ? (energy == null || energy >= 0.45) && (tempo == null || tempo >= 85) :
+    activity === "focus" ? (energy == null || energy <= 0.62) && (danceability == null || danceability <= 0.70) && (speechiness == null || speechiness <= 0.35) :
+    activity === "gym" ? (energy !== null && energy >= 0.50) || (tempo !== null && tempo >= 108) || (danceability !== null && danceability >= 0.56) :
+    activity === "party" ? (energy !== null && energy >= 0.6) || (danceability !== null && danceability >= 0.62) :
+    activity === "walking" ? (energy == null || (energy >= (gentleWalk ? 0.20 : 0.35) && energy <= (gentleWalk ? 0.68 : 0.75))) :
+    activity === "cleaning" ? energy == null || (energy >= 0.35 && energy <= 0.78) :
+    activity === "sleep" ? (energy == null || energy <= 0.42) || (acousticness !== null && acousticness >= 0.45) :
+    activity === "travel" ? (energy == null || energy >= 0.30) && (tempo == null || tempo >= 70) :
+    activity === "relaxing" ? energy == null || energy <= 0.45 :
     null;
   const energyMatch =
-    intent.energyLevel === "high" ? energy >= 0.62 || tempo >= 125 :
-    intent.energyLevel === "medium" ? energy >= 0.38 && energy <= 0.75 :
-    intent.energyLevel === "low" ? energy <= 0.5 :
+    intent.energyLevel === "high" ? (energy !== null && energy >= 0.62) || (tempo !== null && tempo >= 125) :
+    intent.energyLevel === "medium" ? energy == null || (energy >= 0.38 && energy <= 0.75) :
+    intent.energyLevel === "low" ? energy == null || energy <= 0.5 :
     null;
   if (activityMatch === null) return energyMatch;
   if (energyMatch === null) return activityMatch;
@@ -2077,6 +2086,11 @@ function trackIsGymWorkoutSafe(track: ConstraintTrack): boolean {
   const danceability = typeof track.danceability === "number" ? track.danceability : null;
   const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
   const loudness = typeof track.loudness === "number" ? track.loudness : null;
+  const hasPositiveGymSignal =
+    (energy !== null && energy >= 0.52) ||
+    (tempo !== null && tempo >= 108) ||
+    (danceability !== null && danceability >= 0.58);
+  if (!hasPositiveGymSignal) return false;
   if (energy !== null && energy < 0.50) return false;
   if (tempo !== null && tempo < 92 && (danceability ?? 0.5) < 0.54) return false;
   if (valence !== null && valence < 0.20) return false;
@@ -2870,17 +2884,19 @@ function shapePreScoringCandidatePool<T extends {
     requestedLength: number;
   }
 ): { tracks: T[]; diagnostics: Record<string, number | boolean | string | null> } {
+  const gymScene = isGymWorkoutPrompt(opts.vibe, opts.intent);
+  const focusScene = isFocusStudyPrompt(opts.vibe, opts.intent);
   const sceneActive =
-    isGymWorkoutPrompt(opts.vibe, opts.intent) ||
+    gymScene ||
     isUpbeatSocialPrompt(opts.vibe, opts.intent) ||
     isBroadDrivingPrompt(opts.vibe, opts.intent) ||
-    isFocusStudyPrompt(opts.vibe, opts.intent) ||
+    focusScene ||
     isChillCalmPrompt(opts.vibe, opts.intent) ||
     !!opts.intent.activity ||
     opts.intent.mood.length > 0 ||
     !!opts.intent.energyLevel;
   const broadCap = sceneActive
-    ? Math.max(420, opts.requestedLength * 22)
+    ? Math.max(240, opts.requestedLength * 12)
     : Math.max(900, opts.requestedLength * 35);
   if (tracks.length <= broadCap && !sceneActive) {
     return {
@@ -2915,7 +2931,10 @@ function shapePreScoringCandidatePool<T extends {
         return true;
       })
     : tracks;
-  const source = sceneActive && sceneCompatible.length >= Math.min(120, Math.max(40, Math.floor(tracks.length * 0.18)))
+  const sceneCompatibleFloor = gymScene || focusScene
+    ? Math.min(90, Math.max(opts.requestedLength, Math.floor(tracks.length * 0.04)))
+    : Math.min(120, Math.max(40, Math.floor(tracks.length * 0.18)));
+  const source = sceneActive && sceneCompatible.length >= sceneCompatibleFloor
     ? sceneCompatible
     : tracks;
   const artistCounts = new Map<string, number>();
@@ -5522,6 +5541,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         maxPerArtist,
         librarySize: likedSongs.length,
         genreByTrack,
+        recentTrackPenalty: finalizationReusePenalty,
+        artistReusePenalty: finalizationArtistReusePenalty,
       }) as typeof pipeline;
       playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
     } else {

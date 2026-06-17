@@ -42,14 +42,14 @@ export function buildDiversityTraceComponents(input: {
   const trackReusePenalty = roundDiversity(clamp(
     input.trackReusePenalty ?? boundedTrackReusePenalty(recentTrackPenalty),
     0,
-    0.08
+    0.18
   ));
   const clusterSaturationPenalty = roundDiversity(clamp(input.clusterSaturationPenalty ?? 0, 0, 0.06));
   const familySaturationPenalty = roundDiversity(clamp(input.familySaturationPenalty ?? 0, 0, 0.05));
   const totalPenalty = roundDiversity(clamp(
     trackReusePenalty + clusterSaturationPenalty + familySaturationPenalty,
     0,
-    0.16
+    0.26
   ));
 
   return {
@@ -59,7 +59,7 @@ export function buildDiversityTraceComponents(input: {
     clusterSaturationPenalty,
     familySaturationPenalty,
     totalPenalty,
-    finalMultiplier: roundDiversity(clamp(1 - totalPenalty, 0.84, 1)),
+    finalMultiplier: roundDiversity(clamp(1 - totalPenalty, 0.74, 1)),
     artistGravity: roundDiversity(clamp(input.artistGravity ?? 0, 0, 1)),
   };
 }

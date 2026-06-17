@@ -58,6 +58,8 @@ export function buildFastFallbackPlaylist<
   emotionProfile: EmotionProfile;
   playlistLength: number;
   maxPerArtist?: number;
+  recentTrackPenalty?: Map<string, number>;
+  artistReusePenalty?: Map<string, number>;
 }): T[] {
   const pool =
     opts.tracks.length > FAST_SCAN_MAX
@@ -70,7 +72,9 @@ export function buildFastFallbackPlaylist<
       fit:
         emotionFit(t, opts.emotionProfile) * 0.72 +
         Math.max(0, Math.min(1, t.score ?? 0.5)) * 0.20 +
-        (1 - index / Math.max(1, pool.length)) * 0.08,
+        (1 - index / Math.max(1, pool.length)) * 0.08 -
+        Math.max(0, Math.min(0.32, opts.recentTrackPenalty?.get(t.trackId) ?? 0)) * 0.42 -
+        Math.max(0, Math.min(0.94, opts.artistReusePenalty?.get(t.artistName.toLowerCase().trim()) ?? 0)) * 0.30,
     }))
     .sort((a, b) => b.fit - a.fit);
 
