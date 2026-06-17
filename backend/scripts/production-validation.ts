@@ -169,6 +169,12 @@ async function preflight(config: Config): Promise<void> {
     throw new Error(`Deployment commit mismatch: expected ${expected}, got ${commit}`);
   }
   process.stderr.write(`[validation] preflight GET ok commit=${commit}\n`);
+  process.stderr.write("[validation] preflight GET /api/readyz\n");
+  const ready = await fetchJson(`${config.baseUrl}/api/readyz`, { method: "GET" }, 15_000);
+  if (ready.status >= 400 || ready.body["status"] !== "ready" || ready.body["readiness"] !== "ready") {
+    throw new Error(`Readiness preflight failed: /api/readyz returned ${ready.status} ${JSON.stringify(ready.body)}`);
+  }
+  process.stderr.write("[validation] preflight readiness ok\n");
   process.stderr.write("[validation] preflight POST /api/eval/ping\n");
   const auth = await fetchJson(`${config.baseUrl}/api/eval/ping`, {
     method: "POST",

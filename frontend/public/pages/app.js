@@ -452,7 +452,7 @@ function renderLanding() {
           <div class="how-step-num">Step 03</div>
           <div class="how-step-icon">⚡</div>
           <h3>Get the playlist</h3>
-          <p>A private playlist lands in your Spotify within seconds. Every track is one you already saved.</p>
+          <p>A private playlist is built from your saved tracks with live progress while quality checks run.</p>
         </div>
       </div>
     </section>
@@ -481,14 +481,14 @@ function renderLanding() {
         <div class="feature-card">
           <div class="feature-icon">🎯</div>
           <h3>One prompt, done</h3>
-          <p>Describe the moment, hit Generate. A shareable playlist is in Spotify in under 15 seconds.</p>
+          <p>Describe the moment, hit Generate, and get a shareable Spotify playlist without tuning settings.</p>
         </div>
       </div>
     </section>
 
     <section class="cta-section">
       <h2>Ready to hear it?</h2>
-      <p>Connect Spotify and describe your first moment. Takes 10 seconds.</p>
+      <p>Connect Spotify, describe your first moment, and watch Kwalify build from your saved tracks.</p>
       <a href="/api/auth/login" class="btn btn-green btn-lg">${spi()} Connect with Spotify — free</a>
     </section>
 

@@ -32,8 +32,37 @@ async function checkHealth(origin: string): Promise<SmokeResult> {
   };
 }
 
+async function checkReadiness(origin: string): Promise<SmokeResult> {
+  const response = await fetch(`${origin}/api/readyz`);
+  const data = await readJson(response);
+  return {
+    name: "readyz",
+    pass: response.ok && data["status"] === "ready" && data["readiness"] === "ready",
+    status: response.status,
+    details: data,
+  };
+}
+
+async function checkDeploymentCommit(origin: string): Promise<SmokeResult> {
+  const expected = process.env.SMOKE_EXPECTED_COMMIT ?? process.env.EXPECTED_DEPLOYMENT_VERSION ?? null;
+  const response = await fetch(`${origin}/api/eval/ping`);
+  const data = await readJson(response);
+  const commit = typeof data["commit"] === "string" ? data["commit"] : "unknown";
+  return {
+    name: "deploymentCommit",
+    pass: response.ok && data["status"] === "ok" && (!expected || commit.startsWith(expected) || expected.startsWith(commit)),
+    status: response.status,
+    details: {
+      commit,
+      expected,
+      deployed: data["deployed"] === true,
+    },
+  };
+}
+
 async function checkGenerate(origin: string): Promise<SmokeResult> {
   const cookie = process.env.SMOKE_AUTH_COOKIE;
+  const requestedLength = Number(process.env.SMOKE_GENERATE_LENGTH ?? 12);
   if (!cookie) {
     return {
       name: "generate",
@@ -50,7 +79,7 @@ async function checkGenerate(origin: string): Promise<SmokeResult> {
     body: JSON.stringify({
       vibe: process.env.SMOKE_GENERATE_PROMPT ?? "american country cowboy red dirt",
       mode: "balanced",
-      length: 12,
+      length: requestedLength,
     }),
   });
   const data = await readJson(response);
@@ -60,10 +89,11 @@ async function checkGenerate(origin: string): Promise<SmokeResult> {
     : 0;
   return {
     name: "generate",
-    pass: response.ok && tracks.length > 0 && genreCoverage >= 0.85,
+    pass: response.ok && tracks.length === requestedLength && genreCoverage >= 0.85,
     status: response.status,
     details: {
       trackCount: tracks.length,
+      requestedLength,
       genreCoverage: Math.round(genreCoverage * 1000) / 1000,
       code: data["code"],
       skipped: false,
@@ -75,6 +105,8 @@ async function main(): Promise<void> {
   const origin = baseUrl();
   const results = [
     await checkHealth(origin),
+    await checkReadiness(origin),
+    await checkDeploymentCommit(origin),
     await checkGenerate(origin),
   ];
   const pass = results.every((result) => result.pass);
