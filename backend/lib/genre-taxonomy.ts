@@ -130,7 +130,7 @@ export function toGenreProfile(c: TrackGenreClassification): TrackGenreProfile {
 
 const SPOTIFY_GENRE_ROOT_TERMS: Record<RootGenre, string[]> = {
   country: ["country", "americana", "red dirt", "outlaw country", "honky tonk", "bluegrass", "nashville"],
-  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "g-funk", "emo rap"],
+  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "g-funk", "emo rap", "grime", "uk hip hop", "british hip hop", "uk rap"],
   rock: ["rock", "new wave", "post-punk", "punk", "grunge", "psychedelic", "album rock"],
   electronic: ["electronic", "edm", "house", "techno", "trance", "dnb", "drum and bass", "dubstep"],
   jazz: ["jazz", "bebop", "swing", "bossa nova"],

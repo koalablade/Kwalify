@@ -46,6 +46,22 @@ const FIXTURES: Fixture[] = [
     expectAliases: ["indie", "electronic"],
     minConfidence: 0.35,
   },
+  {
+    id: "uk-grime",
+    prompt: "uk grime classics workout playlist",
+    mode: "balanced",
+    expectAliases: ["hip_hop"],
+    expectSceneLock: true,
+    minConfidence: 0.4,
+  },
+  {
+    id: "uk-rap",
+    prompt: "uk rap road rap london",
+    mode: "strict",
+    expectAliases: ["hip_hop"],
+    expectSceneLock: true,
+    minConfidence: 0.4,
+  },
 ];
 
 function main(): void {

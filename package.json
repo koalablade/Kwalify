@@ -28,7 +28,10 @@
     "coherence:intent": "npm run build && node backend/dist/scripts/coherence-intent-fixtures.js",
     "coherence:playlist": "npm run build && node backend/dist/scripts/coherence-playlist-fixtures.js",
     "coherence:world-boundary": "npm run build && node backend/dist/scripts/coherence-world-boundary-fixtures.js",
+    "coherence:uk-hip-hop": "npm run build && node backend/dist/scripts/coherence-uk-hip-hop-fixtures.js",
+    "coherence:taxonomy": "npm run build && node backend/dist/scripts/coherence-taxonomy-correlation-fixtures.js",
     "regression:coherence-live": "npm run build && node backend/dist/scripts/coherence-live-regression.js",
+    "smoke:spotify-user-id": "node scripts/resolve-smoke-spotify-user-id.mjs",
     "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"
   },
   "dependencies": {

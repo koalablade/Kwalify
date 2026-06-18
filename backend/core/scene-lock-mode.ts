@@ -3,6 +3,7 @@
  */
 
 import type { IntentState } from "./intent-state-engine";
+import { detectUkHipHopScene, ukHipHopSceneLockProfile } from "../lib/uk-hip-hop-scene";
 
 export type SceneLockStatus = {
   active: boolean;
@@ -47,7 +48,7 @@ const CULTURAL_PROFILES: CulturalSceneProfile[] = [
     offSceneGenreFamilies: ["folk", "jazz", "classical", "blues"],
   },
   {
-    anchors: [/\b(?:fix(?:ing)?|repair(?:ing)?)\s+(?:a\s+)?(?:car|cars|volvo|saab|bmw|mx-?5)\b/i, /\bproject\s+car\b/i],
+    anchors: [/\b(?:fix(?:ing)?|repair(?:ing)?|working\s+on)\s+(?:a\s+|my\s+)?(?:car|cars|volvo|saab|bmw|mx-?5)\b/i, /\bproject\s+car\b/i],
     id: "garage_repair",
     allowedGenreFamilies: ["blues", "indie", "rock", "folk", "country"],
     offSceneGenreFamilies: ["electronic", "hip_hop", "pop", "metal"],
@@ -66,6 +67,15 @@ const CULTURAL_PROFILES: CulturalSceneProfile[] = [
   },
 ];
 
+function ukGarageOrGrimePrompt(prompt: string): boolean {
+  return /\b(?:ukg|uk\s+garage)\b/i.test(prompt) || /\bgrime\b/i.test(prompt) || /\buk\s+rap\b/i.test(prompt);
+}
+
+function physicalGaragePrompt(prompt: string): boolean {
+  if (ukGarageOrGrimePrompt(prompt)) return false;
+  return /\b(?:garage|workshop)\b/i.test(prompt);
+}
+
 export function resolveSceneLock(intentState: IntentState, prompt: string): SceneLockStatus {
   const inactive: SceneLockStatus = {
     active: false,
@@ -77,9 +87,24 @@ export function resolveSceneLock(intentState: IntentState, prompt: string): Scen
     reason: null,
   };
 
-  const matched = CULTURAL_PROFILES.filter((profile) =>
-    profile.anchors.some((pattern) => pattern.test(prompt)),
-  );
+  const ukScene = detectUkHipHopScene(prompt);
+  if (ukScene?.active) {
+    const profile = ukHipHopSceneLockProfile(ukScene);
+    return {
+      active: true,
+      anchors: [ukScene.id],
+      allowedGenreFamilies: profile.allowedGenreFamilies,
+      offSceneGenreFamilies: profile.offSceneGenreFamilies,
+      boostWeight: 0.22,
+      penalizeWeight: 0.48,
+      reason: `uk_hip_hop_scene_lock:${ukScene.id}`,
+    };
+  }
+
+  const matched = CULTURAL_PROFILES.filter((profile) => {
+    if (profile.id === "garage_workshop" && !physicalGaragePrompt(prompt)) return false;
+    return profile.anchors.some((pattern) => pattern.test(prompt));
+  });
   if (matched.length === 0) return inactive;
 
   const primary = matched[0]!;

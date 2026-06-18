@@ -6,6 +6,13 @@
 import type { SceneLockStatus } from "./scene-lock-mode";
 import type { LockedIntent } from "./v3/intent";
 import {
+  detectUkHipHopScene,
+  passesUkHipHopWorldGate,
+  ukHipHopEvidenceScore,
+  usHipHopDriftScore,
+  type UkHipHopScene,
+} from "../lib/uk-hip-hop-scene";
+import {
   auditPlaylistCoherence,
   scorePlaylistCoherence,
   type CoherenceAuditTrack,
@@ -20,6 +27,7 @@ export type WorldBoundary = {
   offSceneGenreFamilies: string[];
   scenePrediction: Record<string, number>;
   reason: string | null;
+  ukHipHopScene: UkHipHopScene | null;
 };
 
 export type WorldBoundaryDiagnostics = {
@@ -50,14 +58,28 @@ function normalizeFamily(value?: string | null): string | null {
   return value.toLowerCase().trim().replace(/[\s-]+/g, "_");
 }
 
+function ukSceneFromLock(sceneLock: SceneLockStatus | null): UkHipHopScene | null {
+  if (!sceneLock?.active || !sceneLock.reason?.startsWith("uk_hip_hop_scene_lock:")) return null;
+  const id = sceneLock.anchors[0];
+  if (id !== "uk_grime" && id !== "uk_rap" && id !== "uk_drill" && id !== "uk_garage_grime") return null;
+  return {
+    active: true,
+    id,
+    allowsElectronic: id === "uk_garage_grime",
+    anchor: id,
+  };
+}
+
 export function resolveWorldBoundary(opts: {
   sceneLock?: SceneLockStatus | null;
   sceneAliases?: string[];
   scenePrediction?: Record<string, number>;
+  prompt?: string;
 }): WorldBoundary {
   const sceneLock = opts.sceneLock ?? null;
   const sceneAliases = opts.sceneAliases ?? [];
   const scenePrediction = opts.scenePrediction ?? {};
+  const ukHipHopScene = ukSceneFromLock(sceneLock) ?? (opts.prompt ? detectUkHipHopScene(opts.prompt) : null);
   const predictionEntries = Object.entries(scenePrediction).sort((a, b) => b[1] - a[1]);
   const dominantScene = predictionEntries[0]?.[0] ?? sceneAliases[0] ?? null;
 
@@ -78,6 +100,7 @@ export function resolveWorldBoundary(opts: {
       offSceneGenreFamilies: offScene,
       scenePrediction,
       reason: sceneLock.reason,
+      ukHipHopScene,
     };
   }
 
@@ -97,6 +120,7 @@ export function resolveWorldBoundary(opts: {
       offSceneGenreFamilies: offScene,
       scenePrediction,
       reason: "scene_prediction_dominance",
+      ukHipHopScene,
     };
   }
 
@@ -108,6 +132,7 @@ export function resolveWorldBoundary(opts: {
     offSceneGenreFamilies: [],
     scenePrediction,
     reason: null,
+    ukHipHopScene: ukHipHopScene?.active ? ukHipHopScene : null,
   };
 }
 
@@ -122,13 +147,30 @@ export function trackGenreFamilyForBoundary(
 }
 
 export function isTrackInWorld(
-  track: { trackId: string; genreFamily?: string | null; genrePrimary?: string | null; danceability?: number | null },
+  track: {
+    trackId: string;
+    genreFamily?: string | null;
+    genrePrimary?: string | null;
+    danceability?: number | null;
+    trackName?: string | null;
+    artistName?: string | null;
+    albumName?: string | null;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
+    genres?: string[] | null;
+  },
   world: WorldBoundary,
   genreFamily?: string | null,
 ): boolean {
   if (!world.active) return true;
 
   const family = normalizeFamily(genreFamily ?? track.genreFamily ?? track.genrePrimary);
+  const ukScene = world.ukHipHopScene;
+
+  if (ukScene?.active && family === "hip_hop") {
+    if (!passesUkHipHopWorldGate(track, ukScene, { hardLock: world.hardLock })) return false;
+  }
+
   if (!family) return !world.hardLock;
 
   if (world.offSceneGenreFamilies.includes(family)) return false;
@@ -152,7 +194,11 @@ export function scoreWorldCandidateFit(
 ): WorldCandidateFit {
   const family = normalizeFamily(track.genreFamily ?? track.genrePrimary);
   let sceneMatch = 0.35;
-  if (family && world.allowedGenreFamilies.includes(family)) {
+  if (world.ukHipHopScene?.active) {
+    const uk = ukHipHopEvidenceScore(track);
+    const us = usHipHopDriftScore(track);
+    sceneMatch = clamp01(0.25 + uk * 0.65 - us * 0.35);
+  } else if (family && world.allowedGenreFamilies.includes(family)) {
     const rank = world.allowedGenreFamilies.indexOf(family);
     sceneMatch = clamp01(0.92 - rank * 0.08);
   } else if (family && world.offSceneGenreFamilies.includes(family)) {

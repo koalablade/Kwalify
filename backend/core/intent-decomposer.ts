@@ -53,7 +53,13 @@ const CULTURAL_PATTERNS: Array<{ pattern: RegExp; ref: string; scene: string }> 
   { pattern: /\bforza\s+horizon\b|\bforza\b/i, ref: "forza-horizon", scene: "driving-electronic-rock" },
   { pattern: /\btop\s+gear\b|\bclarkson\b/i, ref: "top-gear", scene: "driving-rock" },
   { pattern: /\bvolvo\b|\bsaab\b|\bmx-?5\b|\be46\b/i, ref: "project-car", scene: "garage-repair" },
-  { pattern: /\b(?:fix(?:ing)?|repair(?:ing)?)\s+(?:a\s+)?(?:car|cars)\b/i, ref: "garage-work", scene: "garage-repair" },
+  { pattern: /\b(?:fix(?:ing)?|repair(?:ing)?|working\s+on)\s+(?:a\s+|my\s+)?(?:car|cars|volvo|saab|bmw|mx-?5)\b/i, ref: "garage-work", scene: "garage-repair" },
+  { pattern: /\buk\s+grime\b/i, ref: "uk-grime", scene: "uk-grime" },
+  { pattern: /\buk\s+rap\b/i, ref: "uk-rap", scene: "uk-rap" },
+  { pattern: /\buk\s+drill\b/i, ref: "uk-drill", scene: "uk-drill" },
+  { pattern: /\b(?:british|london|road)\s+rap\b/i, ref: "uk-rap", scene: "uk-rap" },
+  { pattern: /\bgrime\s+(?:classics|anthems|bangers|playlist|mix|workout)\b/i, ref: "uk-grime", scene: "uk-grime" },
+  { pattern: /\b(?:ukg|uk\s+garage)\b.*\b(?:grime|rap|drill)\b/i, ref: "uk-garage-grime", scene: "uk-garage-grime" },
   { pattern: /\b(?:garage|workshop|project\s+car)\b/i, ref: "garage-workshop", scene: "garage-workshop" },
   { pattern: /\brainy\s+night\s+driv/i, ref: "rainy-night-drive", scene: "rainy-night-drive" },
 ];
@@ -77,6 +83,7 @@ export function matchScene(text: string): string | null {
     if (entry.pattern.test(text)) return entry.scene;
   }
   const lower = text.toLowerCase();
+  if (/\b(?:ukg|uk\s+garage|grime|uk\s+rap|uk\s+drill)\b/.test(lower)) return null;
   if (/\bgarage\b/.test(lower)) return "garage-workshop";
   if (/\brainy\b/.test(lower) && /\bnight\b/.test(lower)) return "rainy-night-drive";
   return null;

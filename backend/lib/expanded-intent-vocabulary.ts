@@ -11,7 +11,7 @@ const COMMON_MISSPELLINGS: Record<string, string[]> = {
   energised: ["energised", "energized", "energisd"],
   relaxed: ["relxed", "relaxxed"],
   anxious: ["anxious", "anxius", "anxietous"],
-  morning: ["mornin", "mourning"],
+  morning: ["mornin"],
   afternoon: ["arvo", "aftanoon"],
   evening: ["evenin"],
   midnight: ["midnite", "nite"],
@@ -35,7 +35,7 @@ export const EXPANDED_GENRE_ALIASES: GenreAliasGroup[] = [
   { family: "rock", terms: ["garage rock", "surf rock", "psychedelic rock", "prog rock", "progressive rock", "southern rock", "heartland rock", "college rock", "post punk", "post-punk", "new wave", "no wave", "math rock", "noise rock", "art rock", "britpop", "brit pop", "lad rock", "madchester", "baggy", "shoegaze", "ska punk", "pop punk", "midwest emo", "slowcore", "dream pop"] },
   { family: "electronic", terms: ["uk garage", "ukg", "uk garage chill", "ukg chill", "ukg drive", "late night ukg", "2-step", "2 step", "two step garage", "speed garage", "night bus garage", "future garage", "bassline", "uk bassline", "niche bassline", "donk", "breakbeat", "breaks", "jungle", "jungle classics", "dark jungle", "ragga jungle", "atmospheric jungle", "oldschool jungle", "old school jungle", "old skool jungle", "breakbeat hardcore", "idm", "glitch", "downtempo", "trip hop", "trip-hop", "chillout", "deep house", "tech house", "progressive house", "acid house", "electro", "electroclash", "minimal techno", "hard techno", "hardgroove", "hard groove", "schranz", "tekk", "tekno", "techno", "industrial techno", "warehouse techno", "warehouse rave", "rave techno", "ravey", "ravey stuff", "old school ravey", "hard rave", "industrial rave", "driving techno", "driving tekk", "hard trance", "90s trance", "nineties trance", "classic trance", "euro trance", "uplifting trance", "progressive trance", "goa trance", "psytrance", "acid trance", "dream trance", "driving trance", "dubstep", "old school dubstep", "oldschool dubstep", "old skool dubstep", "uk dubstep", "deep dubstep", "dubstep classics", "post-dubstep", "brostep", "bloghouse", "blog house", "electro bloghouse", "indie dance", "nu rave", "new rave", "ed banger", "blog era electro", "myspace electro", "french electro", "gabber", "hardstyle", "happy hardcore", "breakcore", "liquid dnb", "liquid drum and bass", "drum n bass", "drum'n'bass", "neurofunk", "footwork", "juke", "jersey club", "future bass", "wave", "vaporwave", "hyperpop", "pc music"] },
   { family: "jazz", terms: ["cool jazz", "hard bop", "post bop", "modal jazz", "free jazz", "spiritual jazz", "jazz fusion", "acid jazz", "nu jazz", "gypsy jazz", "dixieland", "ragtime", "big band", "jazz funk"] },
-  { family: "pop", terms: ["art pop", "baroque pop", "power pop", "dream pop", "bubblegum pop", "electropop", "hyperpop", "bedroom pop", "chamber pop", "jangle pop", "city pop", "japanese city pop", "tokyo city pop", "late night city pop", "80s city pop", "citypop", "city-pop", "mandopop", "cantopop", "j-pop", "jpop", "british pop", "britpop pop", "latin pop", "europop", "disco pop", "alt pop"] },
+  { family: "pop", terms: ["art pop", "baroque pop", "power pop", "bubblegum pop", "electropop", "bedroom pop", "chamber pop", "jangle pop", "city pop", "japanese city pop", "tokyo city pop", "late night city pop", "80s city pop", "citypop", "city-pop", "mandopop", "cantopop", "j-pop", "jpop", "british pop", "britpop pop", "latin pop", "europop", "disco pop", "alt pop"] },
   { family: "folk", terms: ["indie folk", "freak folk", "psych folk", "folk rock", "anti folk", "americana folk", "protest folk", "british folk", "scottish folk", "welsh folk", "nordic folk", "sea shanty", "shanties"] },
   { family: "soul", terms: ["northern soul", "southern soul", "memphis soul", "philly soul", "psychedelic soul", "quiet storm", "boogie", "disco", "p-funk", "p funk", "funk rock"] },
   { family: "metal", terms: ["doom metal", "sludge metal", "stoner metal", "power metal", "symphonic metal", "progressive metal", "prog metal", "folk metal", "industrial metal", "post metal", "post-metal", "metallic hardcore", "blackgaze", "grindcore", "speed metal"] },
@@ -51,11 +51,11 @@ export const EXPANDED_GENRE_ALIASES: GenreAliasGroup[] = [
 ];
 
 export const EXPANDED_MOOD_TERMS: Record<string, string[]> = {
-  melancholic: ["sad", "melancholy", "melancholic", "blue", "lonely", "heartbroken", "heartbreak", "grief", "crying", "tearful", "wistful", "bittersweet", "yearning", "longing", "empty", "hollow", "aching", "devastated", "gutted", "proper sad", "down bad", "mardy", "fed up"],
-  warm: ["warm", "cozy", "cosy", "golden", "sunny", "happy", "winter", "snowy", "snow", "comforting", "comfort", "tender", "soft", "gentle", "glowing", "homey", "homely", "safe", "romantic", "sweet", "lovely", "wholesome"],
+  melancholic: ["sad", "melancholy", "melancholic", "mourning", "blue", "lonely", "heartbroken", "heartbreak", "grief", "crying", "tearful", "wistful", "bittersweet", "yearning", "longing", "empty", "hollow", "aching", "devastated", "gutted", "proper sad", "down bad", "mardy", "fed up"],
+  warm: ["warm", "cozy", "cosy", "golden", "sunny", "happy", "comforting", "comfort", "tender", "soft", "gentle", "glowing", "homey", "homely", "safe", "romantic", "sweet", "lovely", "wholesome"],
   introspective: ["introspective", "reflective", "thinking", "overthinking", "pensive", "contemplative", "diary", "private", "alone", "solitude", "existential", "spiral", "processing", "in my head", "head full", "over it"],
   nostalgic: ["nostalgic", "nostalgia", "throwback", "retro", "vintage", "old memories", "childhood", "teenage", "school days", "uni days", "sixth form", "remember", "reminiscent", "memory lane"],
-  energised: ["hype", "hyped", "happy", "upbeat", "energised", "energized", "adrenaline", "pump up", "pumped", "intense", "explosive", "fired up", "buzzing", "gassed", "party", "rave", "ravey", "mosh", "gym", "workout", "hard", "vibey but hard"],
+  energised: ["hype", "hyped", "happy", "upbeat", "energised", "energized", "adrenaline", "pump up", "pumped", "intense", "explosive", "fired up", "buzzing", "gassed", "hard", "vibey but hard"],
   calm: ["calm", "calmly", "peaceful", "serene", "relaxed", "sleepy", "sleep", "quiet", "still", "winter", "snowy", "snow", "meditative", "ambient", "floating", "drifting", "soft focus", "chilled", "chill", "chillout", "easy", "easygoing"],
   dark: ["dark", "gothic", "noir", "ominous", "haunting", "eerie", "shadowy", "brooding", "menacing", "sinister", "moody", "grim"],
   euphoric: ["euphoric", "ecstatic", "bliss", "joyful", "triumphant", "uplifting", "celebratory", "victorious", "hands in the air", "buzzing", "on top of the world"],
@@ -73,7 +73,7 @@ export const EXPANDED_ACTIVITY_TERMS: Record<string, string[]> = {
 };
 
 export const EXPANDED_TIME_TERMS: Record<"morning" | "afternoon" | "evening" | "late_night", string[]> = {
-  morning: ["morning", "mornin", "sunrise", "dawn", "breakfast", "early morning", "waking up", "commute morning", "school run"],
+  morning: ["morning", "mornin", "sunrise", "dawn", "breakfast", "early morning", "waking up", "commute morning", "school run", "5am"],
   afternoon: ["afternoon", "arvo", "midday", "noon", "daytime", "lunch", "lunchtime", "sunny day", "lazy afternoon", "sunday afternoon"],
   evening: ["evening", "evenin", "sunset", "golden hour", "dusk", "twilight", "after work", "tea time", "teatime", "dinner"],
   late_night: ["late night", "late-night", "midnight", "midnite", "nite", "after dark", "2am", "3am", "4am", "night bus", "night tube", "last train", "night drive", "nite drive", "witching hour", "insomnia"],
@@ -82,7 +82,7 @@ export const EXPANDED_TIME_TERMS: Record<"morning" | "afternoon" | "evening" | "
 export const EXPANDED_PLACE_TERMS: Record<"rural" | "outdoors" | "city" | "beach" | "bedroom" | "car", string[]> = {
   rural: ["rural", "country road", "small town", "village", "cowboy", "western", "red dirt", "farm", "fields", "countryside", "desert", "prairie", "barn", "truck stop"],
   outdoors: ["outdoors", "outside", "forest", "woods", "mountain", "campfire", "trail", "hiking", "walking", "lake", "river", "open air", "rain", "storm", "park", "common", "moor", "dales"],
-  city: ["city", "urban", "downtown", "town centre", "city centre", "subway", "street", "nightclub", "skyscraper", "neon", "alley", "rooftop", "warehouse", "london", "manchester", "birmingham", "leeds", "glasgow", "bristol", "liverpool", "newcastle", "cardiff", "edinburgh", "nottingham", "sheffield"],
+  city: ["city", "urban", "downtown", "town centre", "city centre", "subway", "street", "nightclub", "skyscraper", "neon", "alley", "rooftop", "london", "manchester", "birmingham", "leeds", "glasgow", "bristol", "liverpool", "newcastle", "cardiff", "edinburgh", "nottingham", "sheffield"],
   beach: ["beach", "coast", "coastal", "seaside", "pier", "island", "summer", "poolside", "ocean", "sea", "surf", "tropical", "brighton", "cornwall", "devon"],
   bedroom: ["bedroom", "room", "alone", "private", "diary", "window", "floor", "flat", "apartment", "uni room", "halls", "dorm"],
   car: ["car", "cars", "volvo", "motorcycle", "motorcycles", "motorbike", "motorbikes", "bike shed", "garage", "workshop", "drive", "driving", "road trip", "motorway", "highway", "cruise", "backseat", "passenger seat", "passenger princess", "fixing cars", "under the hood", "welding"],
@@ -104,7 +104,7 @@ export const EXPANDED_ERA_TERMS: Array<{ label: string; start: number; end: numb
   { label: "90s", start: 1990, end: 1999, terms: ["1990s", "1990's", "90s", "90's", "nineties", "grunge era", "britpop era", "madchester", "madchester era", "golden age hip hop"], aesthetic: "grunge, alt-rock, boom bap, neo-soul, raw crossover emotion" },
   { label: "00s", start: 2000, end: 2009, terms: ["2000s", "2000's", "00s", "00's", "noughties", "naughties", "aughts", "y2k", "myspace era", "ipod era"], aesthetic: "Y2K gloss, pop punk, emo, ringtone rap, post-punk revival" },
   { label: "10s", start: 2010, end: 2019, terms: ["2010s", "twenty tens", "tens", "tumblr era", "bloghouse revival", "edm era"], aesthetic: "streaming-era indie, EDM crossover, tumblr pop, trap bloom" },
-  { label: "20s", start: 2020, end: 2029, terms: ["2020s", "twenty twenties", "twenties", "modern", "current", "today", "new music", "pandemic era", "tiktok era"], aesthetic: "hyperpop-adjacent, genre-fluid, lo-fi and emotionally complex" },
+  { label: "20s", start: 2020, end: 2029, terms: ["2020s", "twenty twenties", "twenties", "pandemic era", "tiktok era"], aesthetic: "hyperpop-adjacent, genre-fluid, lo-fi and emotionally complex" },
 ];
 
 Object.assign(COMMON_MISSPELLINGS, {
@@ -593,7 +593,7 @@ EXPANDED_GENRE_ALIASES.push(
     terms: [
       "after work house", "airport ambient", "ambient pop", "city lights electronic", "coding electronic",
       "deep focus electronic", "desert techno", "forest psytrance", "german techno club", "night drive synth",
-      "productivity techno", "rainy garage", "sunset house", "train journey ambient", "winter ambient",
+      "productivity techno", "rainy ukg", "sunset house", "train journey ambient", "winter ambient",
     ],
   },
   {

@@ -95,4 +95,25 @@ router.get("/eval/admin/trends", async (req, res) => {
   res.json({ commit: deploymentVersion(), trends });
 });
 
+/** Best synced library for CI smoke / live coherence regression. */
+router.get("/eval/admin/smoke-spotify-user-id", async (req, res) => {
+  if (!requireEvalToken(req, res)) return;
+  const result = await pool.query<{ spotify_user_id: string; total_tracks: number | null }>(
+    `SELECT spotify_user_id, total_tracks
+     FROM sync_status
+     ORDER BY total_tracks DESC NULLS LAST, updated_at DESC NULLS LAST
+     LIMIT 5`,
+  );
+  const candidates = result.rows.map((row) => ({
+    spotifyUserId: row.spotify_user_id,
+    totalTracks: row.total_tracks ?? 0,
+  }));
+  res.json({
+    commit: deploymentVersion(),
+    recommended: candidates[0]?.spotifyUserId ?? null,
+    candidates,
+    hint: "Set GitHub secret SMOKE_SPOTIFY_USER_ID to recommended (not your GitHub username).",
+  });
+});
+
 export default router;

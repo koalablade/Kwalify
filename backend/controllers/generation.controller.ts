@@ -4297,7 +4297,7 @@ function libraryFingerprint(tracks: Array<{
 
 const FINAL_GUARD_GENRE_TERMS: Record<string, string[]> = {
   country: ["country", "americana", "red dirt", "outlaw country", "honky tonk", "bluegrass", "nashville", "country road"],
-  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap"],
+  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap", "grime", "uk hip hop", "british hip hop", "uk rap"],
   rock: ["rock", "new wave", "post-punk", "punk", "grunge", "psychedelic", "album rock"],
   reggae: ["reggae", "dancehall", "dub", "rocksteady"],
   pop: ["pop", "dance pop", "synthpop"],

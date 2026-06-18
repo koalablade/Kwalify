@@ -43,7 +43,11 @@ const CULTURAL_SCENE_PATTERNS: Array<{ pattern: RegExp; scene: string }> = [
   { pattern: /\btony\s+hawk\b/i, scene: "tony_hawk_punk" },
   { pattern: /\bneed\s+for\s+speed\b|\bnfs\b/i, scene: "need_for_speed" },
   { pattern: /\bforza\s+horizon\b|\bforza\b/i, scene: "forza_horizon" },
-  { pattern: /\b(?:fix(?:ing)?|repair(?:ing)?)\s+(?:a\s+)?(?:car|cars|volvo|saab|bmw|mx-?5)\b/i, scene: "garage_repair" },
+  { pattern: /\buk\s+grime\b/i, scene: "uk_grime" },
+  { pattern: /\bgrime\s+(?:classics|anthems|bangers|workout|walk|era)\b/i, scene: "uk_grime" },
+  { pattern: /\buk\s+rap\b/i, scene: "uk_rap" },
+  { pattern: /\buk\s+drill\b/i, scene: "uk_drill" },
+  { pattern: /\b(?:fix(?:ing)?|repair(?:ing)?|working\s+on)\s+(?:a\s+|my\s+)?(?:car|cars|volvo|saab|bmw|mx-?5)\b/i, scene: "garage_repair" },
   { pattern: /\b(?:garage|workshop|project\s+car)\b/i, scene: "garage_workshop" },
   { pattern: /\brainy\s+night\s+driv/i, scene: "rainy_night_drive" },
   { pattern: /\bnight\s+driv/i, scene: "night_drive" },
@@ -139,8 +143,12 @@ function extractExcludedArtists(prompt: string): string[] {
 }
 
 function extractCulturalScenes(prompt: string): string[] {
+  const ukMusicGarage = /\b(?:ukg|uk\s+garage|grime|uk\s+rap|uk\s+drill)\b/i.test(prompt);
   return CULTURAL_SCENE_PATTERNS
-    .filter(({ pattern }) => pattern.test(prompt))
+    .filter(({ pattern, scene }) => {
+      if (scene === "garage_workshop" && ukMusicGarage) return false;
+      return pattern.test(prompt);
+    })
     .map(({ scene }) => scene);
 }
 

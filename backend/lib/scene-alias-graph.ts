@@ -35,6 +35,10 @@ const SCENE_ALIAS_GRAPH: Record<string, string[]> = {
   "minecraft": ["ambient", "electronic", "lofi", "indie"],
   "fifa-night": ["electronic", "hip_hop", "pop", "house"],
   "party-night": ["pop", "hip_hop", "electronic", "dance"],
+  "uk-grime": ["hip_hop"],
+  "uk-rap": ["hip_hop"],
+  "uk-drill": ["hip_hop"],
+  "uk-garage-grime": ["hip_hop", "electronic"],
 };
 
 const promotedGraphOverrides = new Map<string, string[]>();

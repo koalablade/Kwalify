@@ -6,6 +6,7 @@ import { runScoringPipeline } from "./scoring-engine";
 import { tasteGraphV2RetrievalBoost, type TasteGraphV2 } from "../lib/taste-graph-v2";
 import { cultureRetrievalBoost } from "../lib/scene-culture-graph";
 import { multiObjectRetrievalBoost, type MultiObjectPlan } from "../lib/multi-object-planner";
+import { detectUkHipHopScene, isUkHipHopSceneLock, ukHipHopRetrievalBoost } from "../lib/uk-hip-hop-scene";
 import { computeSceneAliasRetrievalBoost } from "../lib/scene-alias-retrieval-boost";
 import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
@@ -476,7 +477,7 @@ const KNOWN_ARTIST_GENRE_TRUTH: Array<{ pattern: RegExp; family: string }> = [
 
 const SPOTIFY_TRUTH_TERMS: Record<string, string[]> = {
   country: ["country", "americana", "red dirt", "outlaw country", "bluegrass"],
-  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap"],
+  hip_hop: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "emo rap", "grime", "uk hip hop", "british hip hop", "uk rap"],
   rock: ["rock", "new wave", "post-punk", "punk", "grunge", "psychedelic", "album rock"],
   reggae: ["reggae", "dancehall", "dub", "rocksteady"],
   pop: ["pop", "dance pop", "synthpop"],
@@ -833,7 +834,7 @@ function parseIntentContract(input: string, parsed: LockedIntent): IntentContrac
   const excludedGenreFamilies = parseExcludedGenreFamilies(input);
   const excludedArtistTerms = parseExcludedArtistTerms(input);
   const timeOfDay: IntentContract["timeOfDay"] = [
-    termRegex(EXPANDED_TIME_TERMS.morning).test(lower) ? "morning" : null,
+    !/\bmourning\b/i.test(lower) && termRegex(EXPANDED_TIME_TERMS.morning).test(lower) ? "morning" : null,
     termRegex(EXPANDED_TIME_TERMS.afternoon).test(lower) ? "afternoon" : null,
     termRegex(EXPANDED_TIME_TERMS.evening).test(lower) ? "evening" : null,
     termRegex(EXPANDED_TIME_TERMS.late_night).test(lower) ? "late_night" : null,
@@ -1565,6 +1566,7 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     sceneLock: opts.sceneLock ?? null,
     sceneAliases: opts.sceneAliases,
     scenePrediction: opts.scenePrediction,
+    prompt: contract.rawPrompt,
   });
   let contractSafeTracks = enforceIntentContract(tracks, contract, classMap);
   if (worldBoundary.active) {
@@ -1695,7 +1697,10 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
   const familyExpansionTracks = contract.genres.length > 0
     ? tracks.filter(genreFamilyMatch)
     : tracks;
-  const adjacentFamilies = new Set(contract.genres.flatMap((genre) => adjacentGenreFamilies(genre)));
+  const ukLocked = isUkHipHopSceneLock(opts.sceneLock) || !!worldBoundary.ukHipHopScene?.active;
+  const adjacentFamilies = new Set(
+    ukLocked ? [] : contract.genres.flatMap((genre) => adjacentGenreFamilies(genre)),
+  );
   const adjacentExpansionTracks = contract.genres.length > 0
     ? tracks.filter((track) => {
         const family = genreFamilyForTrack(track, classMap);
@@ -1807,7 +1812,21 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
           opts.multiObjectPlan,
         )
         : 0;
-      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight + sceneAliasBoost + tasteBoost + cultureBoost + segmentBoost - feedbackPenalty(track, feedback);
+      const ukScene = worldBoundary.ukHipHopScene ?? detectUkHipHopScene(contract.rawPrompt);
+      const ukBoost = ukScene?.active
+        ? ukHipHopRetrievalBoost(
+          {
+            trackName: track.trackName,
+            artistName: track.artistName,
+            albumName: track.albumName,
+            spotifyArtistGenres: (track as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+            albumGenres: (track as { albumGenres?: unknown }).albumGenres,
+            genres: classMap.get(track.trackId)?.subGenres ?? null,
+          },
+          ukScene,
+        )
+        : 0;
+      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight + sceneAliasBoost + tasteBoost + cultureBoost + segmentBoost + ukBoost - feedbackPenalty(track, feedback);
       const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
       const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
       const sceneMismatchPenalty = sceneMismatchFor(track) ? 0.90 : 0;
@@ -3483,6 +3502,7 @@ export async function buildPlaylistPipeline<T extends {
     sceneLock: opts.postScore.sceneLock ?? null,
     sceneAliases: opts.postScore.sceneAliases,
     scenePrediction: opts.postScore.scenePrediction,
+    prompt: opts.vibe,
   });
   const endRetrievalProfile = opts.profileStage?.("pipeline.retrieval", `${scoring.sorted.length} scored tracks`);
   let unpenalizedRetrieval: RetrievalPools<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string | null }>;
@@ -3718,7 +3738,10 @@ export async function buildPlaylistPipeline<T extends {
         trackMatchesGenreFamilies(track, classMap, intentContract.genreFamilies)
       )
     : [];
-  const adjacentFamilies = new Set(intentContract.genreFamilies.flatMap((genre) => adjacentGenreFamilies(genre)));
+  const ukLocked = isUkHipHopSceneLock(opts.postScore.sceneLock) || !!worldBoundary.ukHipHopScene?.active;
+  const adjacentFamilies = new Set(
+    ukLocked ? [] : intentContract.genreFamilies.flatMap((genre) => adjacentGenreFamilies(genre)),
+  );
   const adjacentExpansion = intentContract.genreFamilies.length > 0
     ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) => {
         if (!trackCompatibleWithHardIntentContract(track, classMap, intentContract)) return false;

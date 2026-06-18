@@ -203,6 +203,10 @@ function parseEra(input: string): { start: number; end: number } | null {
   }
 
   for (const era of EXPANDED_ERA_TERMS) {
+    if (era.label === "20s") {
+      const vagueModern = /\b(?:modern|current|today|new music)\b/i.test(input) && !explicitMusicEraContext.test(input);
+      if (vagueModern) continue;
+    }
     if (termRegex(era.terms).test(input)) return { start: era.start, end: era.end };
   }
   const decade = input.match(/\b(60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\b/i)?.[1]?.replace("'", "");
@@ -525,6 +529,23 @@ function hasGaragePhysicalContext(input: string): boolean {
     /\b(?:car|cars|working|fixing|friends|tools|toolbox|workshop|welding|volvo|motorcycle|motorcycles|motorbike|motorbikes|under\s+the\s+hood)\b/i.test(input);
 }
 
+function dedupeGenreFamilyCollisions(input: string, families: string[]): string[] {
+  let out = [...families];
+  if (/\b(dream pop|shoegaze|shoegazing|noise pop|jangle pop|slowcore)\b/i.test(input) && out.includes("rock") && out.includes("pop")) {
+    out = out.filter((family) => family !== "pop");
+  }
+  if (/\b(?:hyper\s*pop|hyperpop)\b/i.test(input) && out.includes("electronic") && out.includes("pop")) {
+    out = out.filter((family) => family !== "pop");
+  }
+  if (hasGaragePhysicalContext(input) && out.includes("electronic")) {
+    out = out.filter((family) => family !== "electronic");
+  }
+  if (/\b(?:ukg|uk\s+garage|2-step|speed garage)\b/i.test(input) && out.includes("hip_hop") && out.includes("electronic") && !/\b(?:grime|rap|drill)\b/i.test(input)) {
+    out = out.filter((family) => family !== "hip_hop");
+  }
+  return out;
+}
+
 function parseGenreFamilies(input: string): string[] {
   const excluded = excludedGenreFamilies(input);
   const matches = GENRE_ALIASES
@@ -551,7 +572,7 @@ function parseGenreFamilies(input: string): string[] {
   if (hasGarageMusicContext(input) && !excluded.has("electronic") && !families.includes("electronic")) {
     families.unshift("electronic");
   }
-  return families;
+  return dedupeGenreFamilyCollisions(input, families);
 }
 
 function parseMatchedGenreTerms(input: string): string[] {
@@ -1347,7 +1368,7 @@ export function buildLockedIntent(input: string): LockedIntent {
     /\b(sad|melanchol|lonely|blue|heartbreak|heartbroken|breakup|break\s+up|crying|fight|argument|rainy|rain)\b/.test(lower) ? "melancholic" : null,
     /\b(calm|calmly|chill|relax|soft|peaceful|winter|snowy|snow)\b/.test(lower) ? "calm" : null,
     /\b(nostalg|throwback|retro|memory)\b/.test(lower) ? "nostalgic" : null,
-    /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq|winter|snowy|snow)\b/.test(lower) ? "warm" : null,
+    /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq)\b/.test(lower) ? "warm" : null,
     /\b(happy|upbeat|hype|energ|intense|pump)\b/.test(lower) ? "energised" : null,
     ...expandedMoodTerms(lower),
     ...humanHints.moods,
