@@ -59,7 +59,7 @@ async function main(): Promise<void> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-eval-token": token,
+        "x-kwalify-evaluation-token": token,
       },
       body: JSON.stringify({
         vibe: fixture.prompt,
