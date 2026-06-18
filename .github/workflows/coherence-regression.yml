@@ -27,7 +27,6 @@ jobs:
           npm run coherence:playlist
           npm run coherence:world-boundary
       - name: Live coherence regression
-        if: ${{ secrets.PLAYLIST_EVAL_TOKEN != '' && secrets.SMOKE_SPOTIFY_USER_ID != '' }}
         env:
           SMOKE_BASE_URL: https://kwalify.net
           PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
