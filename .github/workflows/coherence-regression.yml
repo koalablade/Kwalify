@@ -28,6 +28,7 @@ jobs:
           npm run coherence:world-boundary
           npm run coherence:uk-hip-hop
           npm run coherence:taxonomy
+          npm run coherence:semantic-collisions
       - name: Live coherence regression
         env:
           SMOKE_BASE_URL: https://kwalify.net

@@ -7,6 +7,12 @@ import {
   termRegex,
 } from "../../lib/expanded-intent-vocabulary";
 import { GENRE_FAMILIES } from "../../lib/genre-taxonomy-data";
+import {
+  hasMoodBluesContext,
+  shouldSuppressGenreFamily,
+  shouldSuppressGenreTerm,
+  shouldSuppressSubgenre,
+} from "../../lib/semantic-collision-guards";
 
 export interface LockedIntent {
   genreFamilies: string[];
@@ -170,6 +176,11 @@ const ERA_BUCKET_RANGES: Record<string, { start: number; end: number }> = {
 
 function matchesTerm(input: string, term: string): boolean {
   return termRegex([term]).test(input);
+}
+
+function genreMatchesTerm(input: string, family: string, term: string): boolean {
+  if (shouldSuppressGenreTerm(input, family, term)) return false;
+  return matchesTerm(input, term);
 }
 
 function termMatchIndex(input: string, term: string): number {
@@ -543,18 +554,18 @@ function dedupeGenreFamilyCollisions(input: string, families: string[]): string[
   if (/\b(?:ukg|uk\s+garage|2-step|speed garage)\b/i.test(input) && out.includes("hip_hop") && out.includes("electronic") && !/\b(?:grime|rap|drill)\b/i.test(input)) {
     out = out.filter((family) => family !== "hip_hop");
   }
-  return out;
+  return out.filter((family) => !shouldSuppressGenreFamily(input, family));
 }
 
 function parseGenreFamilies(input: string): string[] {
   const excluded = excludedGenreFamilies(input);
   const matches = GENRE_ALIASES
     .map(({ family, terms }) => {
-      const hitCount = terms.filter((term) => matchesTerm(input, term)).length;
-      const directFamilyHit = matchesTerm(input, family) ? 2 : 0;
+      const hitCount = terms.filter((term) => genreMatchesTerm(input, family, term)).length;
+      const directFamilyHit = genreMatchesTerm(input, family, family) ? 2 : 0;
       const hitIndexes = [
-        ...terms.map((term) => termMatchIndex(input, term)),
-        termMatchIndex(input, family),
+        ...terms.map((term) => (genreMatchesTerm(input, family, term) ? termMatchIndex(input, term) : -1)),
+        genreMatchesTerm(input, family, family) ? termMatchIndex(input, family) : -1,
       ].filter((index) => index >= 0);
       const firstTermIndex = hitIndexes.length > 0
         ? Math.min(...hitIndexes)
@@ -578,9 +589,9 @@ function parseGenreFamilies(input: string): string[] {
 function parseMatchedGenreTerms(input: string): string[] {
   const terms: string[] = [];
   const seen = new Set<string>();
-  for (const { terms: aliases } of GENRE_ALIASES) {
+  for (const { terms: aliases, family } of GENRE_ALIASES) {
     for (const term of aliases) {
-      if (!matchesTerm(input, term) || seen.has(term)) continue;
+      if (!genreMatchesTerm(input, family, term) || seen.has(term)) continue;
       seen.add(term);
       terms.push(term);
     }
@@ -624,7 +635,8 @@ function parseSubgenreIntent(input: string): {
       const matchedPatternIndexes = subgenre.patterns
         .map((pattern) => patternMatchIndex(input, pattern))
         .filter((index) => index >= 0);
-      const matchedPlainTerms = plainTerms.filter((term) => matchesTerm(input, term));
+      if (shouldSuppressSubgenre(input, familyDef.family, subgenre.id)) continue;
+      const matchedPlainTerms = plainTerms.filter((term) => genreMatchesTerm(input, familyDef.family, term));
       const matchedPlainIndexes = matchedPlainTerms
         .map((term) => termMatchIndex(input, term))
         .filter((index) => index >= 0);
@@ -1357,15 +1369,20 @@ export function buildLockedIntent(input: string): LockedIntent {
   const rawExcludedGenreFamilies = excludedGenreFamilies(lower);
   const subgenrePrimaryExcluded = !!rawSubgenreIntent.primaryGenre &&
     rawExcludedGenreFamilies.has(rawSubgenreIntent.primaryGenre);
+  const subgenrePrimarySuppressed = !!rawSubgenreIntent.primaryGenre &&
+    shouldSuppressGenreFamily(lower, rawSubgenreIntent.primaryGenre);
   const humanHints = humanPhraseIntentHints(lower);
   const rawGenreFamilies = uniqueGenreFamilies([
-    ...(rawSubgenreIntent.primaryGenre && !subgenrePrimaryExcluded ? [rawSubgenreIntent.primaryGenre] : []),
+    ...(rawSubgenreIntent.primaryGenre && !subgenrePrimaryExcluded && !subgenrePrimarySuppressed
+      ? [rawSubgenreIntent.primaryGenre]
+      : []),
     ...parseGenreFamilies(lower),
   ]);
 
   const excludedMoods = excludedMoodTags(lower);
   const rawMood = [
     /\b(sad|melanchol|lonely|blue|heartbreak|heartbroken|breakup|break\s+up|crying|fight|argument|rainy|rain)\b/.test(lower) ? "melancholic" : null,
+    hasMoodBluesContext(lower) ? "melancholic" : null,
     /\b(calm|calmly|chill|relax|soft|peaceful|winter|snowy|snow)\b/.test(lower) ? "calm" : null,
     /\b(nostalg|throwback|retro|memory)\b/.test(lower) ? "nostalgic" : null,
     /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq)\b/.test(lower) ? "warm" : null,
@@ -1399,9 +1416,9 @@ export function buildLockedIntent(input: string): LockedIntent {
   return {
     genreFamilies: budgeted.genreFamilies,
     primaryGenre: subgenrePrimaryExcluded ? budgeted.genreFamilies[0] ?? null : rawSubgenreIntent.primaryGenre ?? budgeted.genreFamilies[0] ?? null,
-    primarySubgenre: subgenrePrimaryExcluded ? null : rawSubgenreIntent.primarySubgenre,
-    secondarySubgenre: subgenrePrimaryExcluded ? null : rawSubgenreIntent.secondarySubgenre,
-    subgenreTerms: subgenrePrimaryExcluded ? [] : rawSubgenreIntent.subgenreTerms,
+    primarySubgenre: subgenrePrimaryExcluded || subgenrePrimarySuppressed ? null : rawSubgenreIntent.primarySubgenre,
+    secondarySubgenre: subgenrePrimaryExcluded || subgenrePrimarySuppressed ? null : rawSubgenreIntent.secondarySubgenre,
+    subgenreTerms: subgenrePrimaryExcluded || subgenrePrimarySuppressed ? [] : rawSubgenreIntent.subgenreTerms,
     eraRange: budgeted.eraRange,
     mood: budgeted.mood,
     activity: budgeted.activity,

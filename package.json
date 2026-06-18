@@ -22,6 +22,7 @@
     "quality:eval": "npm run build && node backend/dist/scripts/playlist-quality-eval.js",
     "quality:stress": "npm run build && node backend/dist/scripts/playlist-stress-report.js",
     "smoke:deploy": "npm run build && node backend/dist/scripts/deploy-smoke.js",
+    "verify:eval-token": "node scripts/verify-eval-token.mjs",
     "harvest:unknown-terms": "npm run build && node backend/dist/scripts/harvest-unknown-terms.js",
     "promote:aliases": "npm run build && node backend/dist/scripts/promote-harvested-aliases.js",
     "promote:aliases:apply": "npm run build && node backend/dist/scripts/promote-harvested-aliases.js -- --apply",
@@ -30,6 +31,7 @@
     "coherence:world-boundary": "npm run build && node backend/dist/scripts/coherence-world-boundary-fixtures.js",
     "coherence:uk-hip-hop": "npm run build && node backend/dist/scripts/coherence-uk-hip-hop-fixtures.js",
     "coherence:taxonomy": "npm run build && node backend/dist/scripts/coherence-taxonomy-correlation-fixtures.js",
+    "coherence:semantic-collisions": "npm run build && node backend/dist/scripts/coherence-semantic-collision-fixtures.js",
     "regression:coherence-live": "npm run build && node backend/dist/scripts/coherence-live-regression.js",
     "smoke:spotify-user-id": "node scripts/resolve-smoke-spotify-user-id.mjs",
     "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"

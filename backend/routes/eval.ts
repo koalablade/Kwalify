@@ -29,7 +29,8 @@ router.post("/eval/ping", (req, res) => {
     return;
   }
 
-  const token = requestHeader(req, "x-eval-token");
+  const token = requestHeader(req, "x-kwalify-evaluation-token")
+    ?? requestHeader(req, "x-eval-token");
   if (token !== expected) {
     res.status(403).json({
       status: "error",

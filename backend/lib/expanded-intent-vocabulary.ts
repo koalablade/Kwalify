@@ -55,8 +55,8 @@ export const EXPANDED_MOOD_TERMS: Record<string, string[]> = {
   warm: ["warm", "cozy", "cosy", "golden", "sunny", "happy", "comforting", "comfort", "tender", "soft", "gentle", "glowing", "homey", "homely", "safe", "romantic", "sweet", "lovely", "wholesome"],
   introspective: ["introspective", "reflective", "thinking", "overthinking", "pensive", "contemplative", "diary", "private", "alone", "solitude", "existential", "spiral", "processing", "in my head", "head full", "over it"],
   nostalgic: ["nostalgic", "nostalgia", "throwback", "retro", "vintage", "old memories", "childhood", "teenage", "school days", "uni days", "sixth form", "remember", "reminiscent", "memory lane"],
-  energised: ["hype", "hyped", "happy", "upbeat", "energised", "energized", "adrenaline", "pump up", "pumped", "intense", "explosive", "fired up", "buzzing", "gassed", "hard", "vibey but hard"],
-  calm: ["calm", "calmly", "peaceful", "serene", "relaxed", "sleepy", "sleep", "quiet", "still", "winter", "snowy", "snow", "meditative", "ambient", "floating", "drifting", "soft focus", "chilled", "chill", "chillout", "easy", "easygoing"],
+  energised: ["hype", "hyped", "happy", "upbeat", "energised", "energized", "adrenaline", "pump up", "pumped", "intense", "explosive", "fired up", "buzzing", "gassed", "vibey but hard"],
+  calm: ["calm", "calmly", "peaceful", "serene", "relaxed", "sleepy", "sleep", "quiet", "still", "winter", "snowy", "snow", "meditative", "floating", "drifting", "soft focus", "chilled", "chill", "chillout", "easy", "easygoing"],
   dark: ["dark", "gothic", "noir", "ominous", "haunting", "eerie", "shadowy", "brooding", "menacing", "sinister", "moody", "grim"],
   euphoric: ["euphoric", "ecstatic", "bliss", "joyful", "triumphant", "uplifting", "celebratory", "victorious", "hands in the air", "buzzing", "on top of the world"],
   angry: ["angry", "rage", "furious", "aggressive", "vengeful", "pissed", "pissed off", "fuming", "wound up", "livid", "resentful", "defiant", "rebellious"],
@@ -69,7 +69,7 @@ export const EXPANDED_ACTIVITY_TERMS: Record<string, string[]> = {
   party: ["party", "pregame", "pre game", "pres", "pre drinks", "pre-drinks", "sesh", "session", "club", "nightclub", "dancefloor", "festival", "rave", "house party", "celebration", "night out", "pub", "pub night", "beer garden"],
   sleep: ["sleep", "bedtime", "nap", "insomnia", "fall asleep", "wind down", "lullaby", "kip"],
   cleaning: ["cleaning", "clean room", "laundry", "washing", "chores", "tidying", "tidy", "reset day"],
-  travel: ["flight", "airport", "train", "bus", "commute", "walking", "walk", "transit", "subway", "tube", "underground", "tram", "coach", "rail", "national rail"],
+  travel: ["flight", "airport", "train", "bus", "commute", "walking", "walk", "transit", "subway", "tube", "london underground", "the underground", "tram", "coach", "rail", "national rail"],
 };
 
 export const EXPANDED_TIME_TERMS: Record<"morning" | "afternoon" | "evening" | "late_night", string[]> = {
@@ -80,7 +80,7 @@ export const EXPANDED_TIME_TERMS: Record<"morning" | "afternoon" | "evening" | "
 };
 
 export const EXPANDED_PLACE_TERMS: Record<"rural" | "outdoors" | "city" | "beach" | "bedroom" | "car", string[]> = {
-  rural: ["rural", "country road", "small town", "village", "cowboy", "western", "red dirt", "farm", "fields", "countryside", "desert", "prairie", "barn", "truck stop"],
+  rural: ["rural", "country road", "country roads", "small town", "village", "cowboy", "western", "red dirt", "farm", "fields", "countryside", "desert", "prairie", "barn", "truck stop"],
   outdoors: ["outdoors", "outside", "forest", "woods", "mountain", "campfire", "trail", "hiking", "walking", "lake", "river", "open air", "rain", "storm", "park", "common", "moor", "dales"],
   city: ["city", "urban", "downtown", "town centre", "city centre", "subway", "street", "nightclub", "skyscraper", "neon", "alley", "rooftop", "london", "manchester", "birmingham", "leeds", "glasgow", "bristol", "liverpool", "newcastle", "cardiff", "edinburgh", "nottingham", "sheffield"],
   beach: ["beach", "coast", "coastal", "seaside", "pier", "island", "summer", "poolside", "ocean", "sea", "surf", "tropical", "brighton", "cornwall", "devon"],

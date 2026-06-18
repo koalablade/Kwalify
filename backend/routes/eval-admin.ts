@@ -29,7 +29,8 @@ function requireEvalToken(req: Request, res: Response): boolean {
     res.status(503).json({ error: "PLAYLIST_EVAL_TOKEN not configured" });
     return false;
   }
-  const token = requestHeader(req, "x-eval-token");
+  const token = requestHeader(req, "x-kwalify-evaluation-token")
+    ?? requestHeader(req, "x-eval-token");
   if (token !== expected) {
     res.status(403).json({ error: "Invalid evaluation token" });
     return false;
