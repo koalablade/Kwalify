@@ -125,6 +125,83 @@ function siteFooterHtml({ showBeta = true } = {}) {
     </div>
   </footer>`;
 }
+
+function showToast(message, kind = "info") {
+  let el = document.getElementById("kwalifyToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "kwalifyToast";
+    el.className = "kwalify-toast";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.className = `kwalify-toast kwalify-toast--${kind} kwalify-toast--show`;
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => el.classList.remove("kwalify-toast--show"), 4200);
+}
+
+function libraryGateState() {
+  const cs = state.cacheStatus;
+  const ls = state.librarySummary;
+  return {
+    syncing: !!cs?.isSyncing,
+    total: cs?.totalTracks || ls?.trackCount || 0,
+  };
+}
+
+function generateGate() {
+  if (state.noLibraryMode) return { blocked: false, message: "" };
+  const { syncing, total } = libraryGateState();
+  if (syncing) return { blocked: true, message: "Your liked songs are syncing — generate unlocks when ready." };
+  if (total === 0) return { blocked: true, message: "Sync your library first (nav → Sync new)." };
+  return { blocked: false, message: "" };
+}
+
+function scrubLandingQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has("error") && params.get("gallery") !== "login") return;
+  params.delete("error");
+  params.delete("gallery");
+  const qs = params.toString();
+  history.replaceState({}, "", qs ? `?${qs}` : window.location.pathname);
+}
+
+function navLogoHtml() {
+  return `<a href="/" class="nav-logo" style="text-decoration:none;color:inherit;"><div class="nav-logo-mark">K</div><span>Kwalify</span></a>`;
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  document.body.removeChild(ta);
+}
+
+function applyPendingPrompt() {
+  try {
+    const pending = localStorage.getItem("kwalify-pending-prompt");
+    if (!pending) return;
+    localStorage.removeItem("kwalify-pending-prompt");
+    const input = document.getElementById("vibeInput");
+    if (!input) return;
+    input.value = pending;
+    const count = document.getElementById("charCount");
+    if (count) count.textContent = String(pending.length);
+    updateMoodPanel(pending);
+  } catch {
+    // ignore storage errors
+  }
+}
 let generationStatusTimer = null;
 let generationUiTimer = null;
 let activeGenerationAbort = null;
@@ -344,10 +421,7 @@ function navHtml(user) {
 
   return `
   <nav class="nav">
-    <div class="nav-logo">
-      <div class="nav-logo-mark">K</div>
-      <span>Kwalify</span>
-    </div>
+    ${navLogoHtml()}
     <div class="nav-right">
       <a href="/gallery" class="nav-link">Gallery <span class="nav-link-arrow">→</span></a>
       <div class="nav-library-panel">
@@ -376,6 +450,9 @@ function navHtml(user) {
             <span>${isDark ? "Light mode" : "Dark mode"}</span>
           </button>
           <div class="profile-dropdown-divider"></div>
+          <button class="profile-dropdown-item profile-dropdown-danger" id="deleteAccountBtn" type="button">
+            <span>Delete my data</span>
+          </button>
           <button class="profile-dropdown-item profile-dropdown-logout" id="logoutBtn">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             <span>Log out</span>
@@ -408,15 +485,24 @@ function landingNoticeMessage() {
   return null;
 }
 
+function wireLandingEvents() {
+  document.querySelectorAll("[data-hero-prompt]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const prompt = chip.getAttribute("data-hero-prompt");
+      if (!prompt) return;
+      try { localStorage.setItem("kwalify-pending-prompt", prompt); } catch { /* ignore */ }
+      window.location.href = "/api/auth/login";
+    });
+  });
+  scrubLandingQueryParams();
+}
+
 function renderLanding() {
   document.title = "Kwalify — Moment-to-Music from your liked songs";
   const landingNotice = landingNoticeMessage();
   root.innerHTML = `
   <nav class="nav">
-    <div class="nav-logo">
-      <div class="nav-logo-mark">K</div>
-      <span>Kwalify</span>
-    </div>
+    ${navLogoHtml()}
     <div class="nav-right">
       <a href="/api/auth/login" class="btn btn-green btn-sm">${spi()} Connect Spotify</a>
     </div>
@@ -427,29 +513,30 @@ function renderLanding() {
     <section class="hero">
       <div class="hero-eyebrow">
         <span class="hero-eyebrow-dot"></span>
-        Public beta · From your liked songs only
+        Public beta · Playlists from your liked songs
       </div>
       <h1>What's the <em>moment</em>?</h1>
-      <p class="hero-sub">Describe a feeling and get a playlist entirely from songs you already love.</p>
+      <p class="hero-sub">Describe a feeling and get a playlist from songs you already love — or use optional discovery mode for genre prompts.</p>
 
       <div class="hero-demo">
         <div class="hero-demo-box">
           <div class="hero-demo-placeholder">empty petrol station at 2am<span class="hero-demo-cursor"></span></div>
         </div>
         <div class="hero-chips">
-          <span class="hero-chip">"Driving somewhere you don't need to be"</span>
-          <span class="hero-chip">"Late night thinking about everything"</span>
-          <span class="hero-chip">"First warm day after winter"</span>
-          <span class="hero-chip">"Walking home after a good night"</span>
+          <button type="button" class="hero-chip" data-hero-prompt="Driving somewhere you don't need to be">"Driving somewhere you don't need to be"</button>
+          <button type="button" class="hero-chip" data-hero-prompt="Late night thinking about everything">"Late night thinking about everything"</button>
+          <button type="button" class="hero-chip" data-hero-prompt="First warm day after winter">"First warm day after winter"</button>
+          <button type="button" class="hero-chip" data-hero-prompt="Walking home after a good night">"Walking home after a good night"</button>
         </div>
       </div>
 
       ${landingNotice ? `<div class="alert ${landingNotice.kind === "error" ? "alert-error" : "alert-success"} landing-auth-alert">${esc(landingNotice.message)}</div>` : ""}
+      <p class="landing-beta-note">Spotify may limit logins during beta until our app is fully approved. If Connect fails, try again later or contact us via Feedback.</p>
       <a href="/api/auth/login" class="btn btn-green btn-lg hero-cta">${spi()} Get started — free</a>
       <div class="hero-trust">
         <span>No credit card</span>
         <span class="hero-trust-sep">·</span>
-        <span>Only reads your liked songs</span>
+        <span>Reads liked songs only</span>
         <span class="hero-trust-sep">·</span>
         <span>Shareable when you want</span>
       </div>
@@ -458,7 +545,7 @@ function renderLanding() {
     <section class="how-section">
       <div class="how-label">How it works</div>
       <h2 class="how-title">Three steps to your soundtrack</h2>
-      <p class="how-sub">No recommendations. No new music. Just the right songs from the library you spent years building.</p>
+      <p class="how-sub">Default mode uses only your Liked Songs. Optional No Library Mode can search Spotify broadly for clear genre prompts.</p>
       <div class="how-steps">
         <div class="how-step">
           <div class="how-step-num">Step 01</div>
@@ -499,8 +586,8 @@ function renderLanding() {
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔒</div>
-          <h3>Your data, always yours</h3>
-          <p>Only your Liked Songs are read. We never store your listening history or surface data outside your library.</p>
+          <h3>Your library first</h3>
+          <p>Default mode reads only your Liked Songs. Optional No Library Mode searches Spotify for genre-specific prompts.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🎯</div>
@@ -518,6 +605,7 @@ function renderLanding() {
 
   </div>
   ${siteFooterHtml()}`;
+  wireLandingEvents();
 }
 
 const MOOD_BAR_DEFS = [
@@ -542,6 +630,7 @@ function renderApp() {
     balanced: "Balanced: best quality and variety.",
     chaotic: "Chaotic: more surprise, still safety-checked.",
   }[state.mode] || "Balanced: best quality and variety.";
+  const gate = generateGate();
 
   const errorHtml = state.error ? (() => {
     const diagnostics = state.errorDetails?.generationDiagnostics || null;
@@ -682,7 +771,8 @@ function renderApp() {
           </label>
         </div>
 
-        <button id="generateBtn" class="gen-btn ${state.generating ? "loading" : ""}" ${state.generating ? "disabled" : ""}>
+        ${gate.blocked ? `<p class="generate-gate-msg">${esc(gate.message)}</p>` : ""}
+        <button id="generateBtn" class="gen-btn ${state.generating ? "loading" : ""}" ${gate.blocked || state.generating ? "disabled" : ""}>
           ${state.generating
             ? `<span class="spinner spinner--sm"></span> Generating…`
             : `Generate playlist <span class="btn-arrow">→</span>`}
@@ -1061,8 +1151,12 @@ function resultHtml(result) {
       const title = t.trackName || t.name || "Unknown track";
       const artist = t.artistName || t.artist || "Unknown artist";
       const art = t.albumArt || t.album_art;
-      const why = Array.isArray(t.whyReasons) && t.whyReasons.length
-        ? ` title="Why this song: ${esc(t.whyReasons.slice(0, 3).join(", "))}"`
+      const whyReasons = Array.isArray(t.whyReasons) ? t.whyReasons.filter(Boolean) : [];
+      const why = whyReasons.length
+        ? ` title="Why this song: ${esc(whyReasons.slice(0, 3).join(", "))}"`
+        : "";
+      const whyHtml = whyReasons.length
+        ? `<div class="track-why">${esc(whyReasons.slice(0, 2).join(" · "))}</div>`
         : "";
       return `
       <div class="track-row" data-track-index="${i}"${why}>
@@ -1071,6 +1165,7 @@ function resultHtml(result) {
         <div class="track-info">
           <div class="track-name">${esc(title)}</div>
           <div class="track-artist">${esc(artist)}</div>
+          ${whyHtml}
         </div>
         <div class="track-actions">
           <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" data-playlist-id="${playlistId}" title="Skip this track" aria-label="Skip this track">⏭</button>
@@ -1108,7 +1203,10 @@ function resultHtml(result) {
       </div>` : ""}
       <div class="result-actions">
         ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
-        ${shareSlug ? `<a href="/p/${esc(shareSlug)}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
+        ${shareSlug ? `
+        <a href="/p/${esc(shareSlug)}" class="btn btn-ghost btn-sm">Open share page</a>
+        <button type="button" class="btn btn-ghost btn-sm" id="copyShareLinkBtn" data-share-slug="${esc(shareSlug)}">Copy link</button>
+        ` : ""}
       </div>
       ${tabsHtml}
     </div>
@@ -2052,6 +2150,30 @@ function wireAppEvents() {
   }
 
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
+  document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
+    if (!confirm("Delete all your Kwalify data (playlists, liked-song cache, feedback)? This cannot be undone.")) return;
+    try {
+      const r = await api("/auth/account", { method: "DELETE" });
+      if (r.ok) {
+        window.location.href = "/";
+        return;
+      }
+      showToast(userFacingApiError(r, "Could not delete your data. Try again."), "error");
+    } catch {
+      showToast("Could not delete your data. Check your connection.", "error");
+    }
+  });
+  document.getElementById("copyShareLinkBtn")?.addEventListener("click", async (e) => {
+    const slug = e.currentTarget?.dataset?.shareSlug;
+    if (!slug) return;
+    const url = `${window.location.origin}/p/${slug}`;
+    try {
+      await copyTextToClipboard(url);
+      showToast("Link copied to clipboard.", "success");
+    } catch {
+      showToast("Could not copy link.", "error");
+    }
+  });
   document.getElementById("themeToggleBtn")?.addEventListener("click", toggleTheme);
 
   // Sync buttons
@@ -2069,15 +2191,13 @@ function wireAppEvents() {
   // No-library mode toggle
   document.getElementById("noLibraryToggle")?.addEventListener("click", () => {
     state.noLibraryMode = !state.noLibraryMode;
-    document.getElementById("noLibraryToggle")?.classList.toggle("on", state.noLibraryMode);
-    document.getElementById("noLibraryToggle")?.setAttribute("aria-checked", String(state.noLibraryMode));
+    renderApp();
   });
   document.getElementById("noLibraryToggle")?.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
     state.noLibraryMode = !state.noLibraryMode;
-    document.getElementById("noLibraryToggle")?.classList.toggle("on", state.noLibraryMode);
-    document.getElementById("noLibraryToggle")?.setAttribute("aria-checked", String(state.noLibraryMode));
+    renderApp();
   });
 
   const vibeInput = document.getElementById("vibeInput");
@@ -2162,6 +2282,7 @@ function wireAppEvents() {
       } catch (_) {
         btn.disabled = false;
         btn.textContent = originalText;
+        showToast("Feedback could not be saved. Try again.", "error");
       }
     });
   });
@@ -2361,6 +2482,11 @@ async function generate() {
   const vibe = vibeInput?.value.trim();
   if (!vibe) { vibeInput?.focus(); return; }
   if (state.generating) return;
+  const gate = generateGate();
+  if (gate.blocked) {
+    showToast(gate.message, "error");
+    return;
+  }
   const previousResult = state.lastResult;
   const samePromptRegenerate =
     !!previousResult &&
@@ -2470,6 +2596,7 @@ async function boot() {
   }
 
   renderApp();
+  applyPendingPrompt();
 
   if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
 }

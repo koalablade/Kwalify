@@ -7975,7 +7975,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       await db.insert(playlistHistoryTable).values({
         spotifyUserId: userId,
         playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
-        playlistUrl: spotifyPlaylistUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : null),
+        playlistUrl: spotifyPlaylistUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : ""),
         name: playlistName,
         vibe,
         mode,
@@ -7995,7 +7995,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               id: 0,
               spotifyUserId: userId,
               playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
-              playlistUrl: spotifyPlaylistUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : null),
+              playlistUrl: spotifyPlaylistUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : ""),
               name: playlistName,
               vibe,
               mode,

@@ -16,6 +16,8 @@ import { eq } from "drizzle-orm";
 import { runSync, activeSyncs } from "./spotify";
 import { logger } from "../lib/logger";
 import { getPublicBaseUrl } from "../lib/public-url";
+import { deleteUserData } from "../lib/delete-user-data";
+import { pool } from "../lib/pg-pool";
 
 const router: IRouter = Router();
 
@@ -173,6 +175,33 @@ router.post("/auth/logout", (req, res): void => {
   req.session.destroy(() => {
     res.json({ message: "Logged out successfully" });
   });
+});
+
+router.delete("/auth/account", async (req, res): Promise<void> => {
+  const userId = req.session.spotifyUserId;
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  try {
+    const result = await deleteUserData(userId, pool);
+    req.session.destroy((err) => {
+      if (err) {
+        req.log.error({ err, userId }, "Account data deleted but session destroy failed");
+        res.status(500).json({ error: "Account data deleted, but logout failed. Clear cookies and try again." });
+        return;
+      }
+      res.json({
+        success: true,
+        message: "Your Kwalify data has been deleted.",
+        deletedPlaylists: result.deletedPlaylists,
+      });
+    });
+  } catch (err) {
+    req.log.error({ err, userId }, "Account deletion failed");
+    res.status(500).json({ error: "Could not delete account data. Please try again." });
+  }
 });
 
 router.get("/auth/me", async (req, res): Promise<void> => {

@@ -80,10 +80,10 @@ function navHtml() {
   if (!galleryUser) {
     return `
     <nav class="nav">
-      <div class="nav-logo">
+      <a href="/" class="nav-logo" style="text-decoration:none;color:inherit;">
         <div class="nav-logo-mark">K</div>
         <span>Kwalify</span>
-      </div>
+      </a>
       <div class="nav-right">
         <a href="/" class="btn btn-ghost btn-sm">← Back to app</a>
       </div>
@@ -96,10 +96,10 @@ function navHtml() {
 
   return `
   <nav class="nav">
-    <div class="nav-logo">
+    <a href="/" class="nav-logo" style="text-decoration:none;color:inherit;">
       <div class="nav-logo-mark">K</div>
       <span>Kwalify</span>
-    </div>
+    </a>
     <div class="nav-right">
       <a href="/" class="nav-link">← App</a>
       <div class="nav-profile-wrap" id="galleryProfileWrap">

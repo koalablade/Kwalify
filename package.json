@@ -25,6 +25,7 @@
     "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"
   },
   "dependencies": {
+    "@types/compression": "^1.8.1",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
@@ -32,6 +33,7 @@
     "@types/node": "^22.19.19",
     "@types/pg": "^8.20.0",
     "axios": "^1.17.0",
+    "compression": "^1.8.1",
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.6",
     "drizzle-orm": "^0.45.2",

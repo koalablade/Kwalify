@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Kwalify  playlists from your liked songs">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d0b1e"/>
+      <stop offset="100%" stop-color="#1a1230"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="80" y="80" width="88" height="88" rx="20" fill="#1DB954"/>
+  <text x="124" y="142" text-anchor="middle" fill="#0d0b1e" font-family="system-ui,sans-serif" font-weight="800" font-size="48">K</text>
+  <text x="200" y="150" fill="#ffffff" font-family="system-ui,sans-serif" font-weight="800" font-size="64" letter-spacing="-2">Kwalify</text>
+  <text x="80" y="260" fill="#e8e4ff" font-family="system-ui,sans-serif" font-weight="700" font-size="52" letter-spacing="-1">What's the moment?</text>
+  <text x="80" y="330" fill="#a8a3c4" font-family="system-ui,sans-serif" font-size="32">Playlists built from your Spotify liked songs.</text>
+  <text x="80" y="520" fill="#1DB954" font-family="system-ui,sans-serif" font-weight="600" font-size="28">kwalify.net</text>
+</svg>

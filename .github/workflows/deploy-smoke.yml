@@ -1,0 +1,22 @@
+name: Production smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */12 * * *"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Smoke kwalify.net
+        env:
+          APP_URL: https://kwalify.net
+          SMOKE_TIMEOUT_MS: 45000
+        run: npm run smoke:deploy

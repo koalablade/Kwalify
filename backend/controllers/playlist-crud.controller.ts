@@ -21,6 +21,54 @@ import { markGenerateResultCacheStale } from "../lib/generate-result-cache";
 
 const router: IRouter = Router();
 
+type ShareTrack = {
+  trackName?: string;
+  name?: string;
+  artistName?: string;
+  artist?: string;
+  albumArt?: string;
+  album_art?: string;
+  whyReasons?: string[];
+};
+
+function publicShareTracks(tracks: unknown): ShareTrack[] {
+  if (!Array.isArray(tracks)) return [];
+  return tracks.map((raw) => {
+    const t = (raw ?? {}) as ShareTrack;
+    return {
+      trackName: t.trackName ?? t.name ?? "Unknown",
+      artistName: t.artistName ?? t.artist ?? "Unknown artist",
+      albumArt: t.albumArt ?? t.album_art ?? undefined,
+      whyReasons: Array.isArray(t.whyReasons) ? t.whyReasons.slice(0, 3) : [],
+    };
+  });
+}
+
+function publicSharePayload(playlist: typeof savedPlaylistsTable.$inferSelect) {
+  const ep = (playlist.emotionProfile ?? {}) as {
+    journeyArc?: string;
+    librarySize?: number;
+    timeOfDay?: string | null;
+    environment?: string | null;
+  };
+  const tracks = publicShareTracks(playlist.tracks);
+  return {
+    id: playlist.id,
+    shareSlug: playlist.shareSlug ?? null,
+    name: playlist.name,
+    vibe: playlist.vibe ?? null,
+    mode: playlist.mode ?? null,
+    journeyArc: ep.journeyArc ?? null,
+    librarySize: ep.librarySize ?? null,
+    timeOfDay: ep.timeOfDay ?? null,
+    environment: ep.environment ?? null,
+    tracks,
+    trackCount: tracks.length,
+    spotifyUrl: playlist.spotifyUrl ?? null,
+    createdAt: playlist.createdAt.toISOString(),
+  };
+}
+
 const FeedbackTrackSchema = z.object({
   trackId: z.string().min(1),
   trackName: z.string().nullable().optional(),
@@ -221,27 +269,7 @@ router.get("/share/:slug", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Playlist not found." });
       return;
     }
-    const ep = (playlist.emotionProfile ?? {}) as {
-      journeyArc?: string;
-      librarySize?: number;
-      timeOfDay?: string | null;
-      environment?: string | null;
-      nostalgia?: number;
-      calm?: number;
-    };
-    res.json({
-      id: playlist.id,
-      name: playlist.name,
-      vibe: playlist.vibe ?? null,
-      mode: playlist.mode ?? null,
-      emotionProfile: playlist.emotionProfile ?? null,
-      journeyArc: ep.journeyArc ?? null,
-      librarySize: ep.librarySize ?? null,
-      tracks: playlist.tracks ?? [],
-      trackCount: Array.isArray(playlist.tracks) ? playlist.tracks.length : 0,
-      spotifyUrl: playlist.spotifyUrl ?? null,
-      createdAt: playlist.createdAt.toISOString(),
-    });
+    res.json(publicSharePayload(playlist));
   } catch (err: any) {
     res.status(500).json({ error: "Failed to fetch playlist." });
   }

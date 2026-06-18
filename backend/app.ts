@@ -1,4 +1,5 @@
 import express, { type ErrorRequestHandler, type Express } from "express";
+import compression from "compression";
 import cors from "cors";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -63,12 +64,18 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (env.NODE_ENV === "production") {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
     res.setHeader(
       "Content-Security-Policy",
       "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' https: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.spotify.com https://accounts.spotify.com;",
     );
     next();
   });
+
+  app.use(compression());
 
   app.use(
     pinoHttp({

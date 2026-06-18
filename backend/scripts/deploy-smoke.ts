@@ -133,6 +133,29 @@ async function checkGenerate(origin: string): Promise<SmokeResult> {
   };
 }
 
+async function checkLaunchPages(origin: string): Promise<SmokeResult[]> {
+  const paths = ["/privacy", "/terms", "/favicon.svg", "/og-image.svg"];
+  const results: SmokeResult[] = [];
+  for (const path of paths) {
+    const response = await fetchWithTimeout(`${origin}${path}`);
+    results.push({
+      name: `page${path.replace(/\//g, "_")}`,
+      pass: response.ok,
+      status: response.status,
+      details: { path },
+    });
+  }
+  const bogus = await fetchWithTimeout(`${origin}/this-page-should-404-smoke-test`);
+  const bogusBody = await bogus.text();
+  results.push({
+    name: "branded404",
+    pass: bogus.status === 404 && bogusBody.includes("Page not found"),
+    status: bogus.status,
+    details: { hasBrandedCopy: bogusBody.includes("Page not found") },
+  });
+  return results;
+}
+
 async function main(): Promise<void> {
   const origin = baseUrl();
   const results = [
@@ -141,6 +164,7 @@ async function main(): Promise<void> {
     await checkDeploymentCommit(origin),
     await checkEvalToken(origin),
     await checkGenerate(origin),
+    ...(await checkLaunchPages(origin)),
   ];
   const pass = results.every((result) => result.pass);
   process.stdout.write(`${JSON.stringify({ pass, origin, results }, null, 2)}\n`);
