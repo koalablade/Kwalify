@@ -409,7 +409,9 @@ function finaliseExecutionHealth(
 function generationAuditTokenAuthorized(req: Request): boolean {
   const expected = process.env["PLAYLIST_EVAL_TOKEN"]?.trim();
   if (!expected) return false;
-  return requestHeader(req, "x-kwalify-evaluation-token") === expected;
+  const token = requestHeader(req, "x-kwalify-evaluation-token")
+    ?? requestHeader(req, "x-eval-token");
+  return token === expected;
 }
 
 const NEUTRAL_PROFILE: EmotionProfile = {
