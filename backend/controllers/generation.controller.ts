@@ -2769,6 +2769,40 @@ function finalTrackIsHardSafe(
   return true;
 }
 
+function duplicateReplacementIsSafe(
+  track: ConstraintTrack,
+  opts: {
+    vibe: string;
+    intent: LockedIntent;
+    constraints: ConstraintLayer;
+    allowHolidaySeason?: boolean;
+    classMap: Map<string, {
+      genrePrimary: string;
+      genreFamily: string;
+      primarySubgenre: string;
+      secondarySubgenre: string | null;
+      subGenres: string[];
+    }>;
+  }
+): boolean {
+  if (!trackMatchesHardConstraints(track, opts.constraints, opts.intent, opts.classMap)) return false;
+  if (eraHardMismatch(track, opts.intent)) return false;
+  if (!finalTrackMatchesExplicitGenre(track, opts.intent, opts.constraints, opts.classMap)) return false;
+  if (!finalTrackMatchesExplicitEra(track, opts.intent)) return false;
+  if (opts.allowHolidaySeason !== true && trackIsChristmasTrack(track, opts.classMap)) return false;
+  if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !promptExplicitlyAllowsGymHipHop(opts.vibe, opts.intent, opts.constraints)) {
+    const family = trackGenreFamily(track, opts.classMap);
+    if (["hip_hop", "country", "classical", "christmas"].includes(family)) return false;
+  }
+  if (isFocusStudyPrompt(opts.vibe, opts.intent)) {
+    const family = trackGenreFamily(track, opts.classMap);
+    if (!new Set(["electronic", "indie", "pop", "ambient", "soundtrack", "folk", "blues", "soul", "unknown"]).has(family)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 const UNIVERSAL_IDENTITY_STOPWORDS = new Set([
   "music",
   "songs",
@@ -3165,7 +3199,7 @@ function repairFinalResponseDuplicateSongIdentities<T extends ConstraintTrack>(
         if (usedIds.has(candidate.trackId)) return false;
         const candidateSignature = trackRepeatSignature(candidate);
         if (candidateSignature && usedSignatures.has(candidateSignature)) return false;
-        if (!finalTrackIsHardSafe(candidate, opts)) return false;
+        if (!duplicateReplacementIsSafe(candidate, opts)) return false;
         return true;
       });
     let replacement = findReplacement(orderedCandidates);
