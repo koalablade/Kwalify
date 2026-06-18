@@ -1098,6 +1098,30 @@ function flattenIntentConcepts(intent) {
   ].filter(Boolean).slice(0, 8);
 }
 
+function buildSegmentStripHtml(segmentDiagnostics) {
+  if (!Array.isArray(segmentDiagnostics) || segmentDiagnostics.length === 0) return "";
+  const chips = segmentDiagnostics.map((seg) =>
+    `<span class="segment-chip" title="${esc((seg.trackIds || []).length ? (seg.trackIds.length + " tracks") : "journey phase")}">${esc(seg.label || seg.segmentId)}</span>`,
+  ).join("");
+  return `<div class="segment-strip" aria-label="Playlist journey segments">${chips}</div>`;
+}
+
+function buildCoherenceBadgeHtml(coherence, sceneLockStatus, coherenceGate, swapRepairActions) {
+  const overall = coherence?.overallScore ?? coherence?.overallCoherence;
+  if (typeof overall !== "number") return "";
+  const pct = Math.round(overall * 100);
+  const tone = pct >= 72 ? "good" : pct >= 58 ? "ok" : "low";
+  const repaired = Array.isArray(swapRepairActions) && swapRepairActions.length > 0;
+  const worldLocked = !!(sceneLockStatus?.active);
+  const gateNote = coherenceGate?.publish === false && coherenceGate?.reason
+    ? ` · ${esc(coherenceGate.reason)}`
+    : "";
+  return `<div class="coherence-badge coherence-badge--${tone}" aria-label="Playlist coherence ${pct} percent">
+    <span class="coherence-badge-score">${pct}%</span>
+    <span class="coherence-badge-label">world coherence${repaired ? " · refined" : ""}${worldLocked ? " · scene locked" : ""}${gateNote}</span>
+  </div>`;
+}
+
 function buildIntentUnderstandingHtml(intent, coherence, opts = {}) {
   const decomposed = opts.decomposed || null;
   if (!intent && !decomposed) return "";
@@ -1235,9 +1259,22 @@ function resultHtml(result) {
     || result.coherenceScore
     || result.v3Diagnostics?.playlistCoherence
     || null;
+  const segmentDiagnostics = result.segmentDiagnostics
+    || result.generationDiagnostics?.segmentDiagnostics
+    || [];
+  const segmentStripHtml = buildSegmentStripHtml(segmentDiagnostics);
+  const coherenceGate = result.coherenceGate || result.generationDiagnostics?.coherenceGate || null;
+  const sceneLockStatus = result.sceneLockStatus || result.generationDiagnostics?.sceneLockStatus || null;
+  const coherenceBadgeHtml = buildCoherenceBadgeHtml(
+    playlistCoherence,
+    sceneLockStatus,
+    coherenceGate,
+    result.swapRepairActions,
+  );
   const intentUnderstandingHtml = buildIntentUnderstandingHtml(intentUnderstanding, playlistCoherence, {
     repairApplied: Array.isArray(result.swapRepairActions) && result.swapRepairActions.length > 0,
     decomposed: decomposedIntent,
+    alwaysShow: typeof (playlistCoherence?.overallScore ?? playlistCoherence?.overallCoherence) === "number",
   });
 
   const hasExplain = debugModeEnabled() && !!(result.v3Diagnostics?.playlistExplanation);
@@ -1304,7 +1341,9 @@ function resultHtml(result) {
       <h2 class="result-title">${name}</h2>
       <p class="result-insight">${result.noLibraryMode ? "Curated from Spotify-wide search to fit the moment. Less personalized than your liked songs." : "Curated from your liked songs to fit the moment."}</p>
       ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
+      ${coherenceBadgeHtml}
       ${trustChipsHtml}
+      ${segmentStripHtml}
       ${intentUnderstandingHtml}
       ${confidenceHtml}
       <div class="result-vibes">

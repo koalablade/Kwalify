@@ -27,6 +27,7 @@
     "promote:aliases:apply": "npm run build && node backend/dist/scripts/promote-harvested-aliases.js -- --apply",
     "coherence:intent": "npm run build && node backend/dist/scripts/coherence-intent-fixtures.js",
     "coherence:playlist": "npm run build && node backend/dist/scripts/coherence-playlist-fixtures.js",
+    "coherence:world-boundary": "npm run build && node backend/dist/scripts/coherence-world-boundary-fixtures.js",
     "regression:coherence-live": "npm run build && node backend/dist/scripts/coherence-live-regression.js",
     "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"
   },

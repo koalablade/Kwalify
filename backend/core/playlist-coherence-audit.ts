@@ -5,6 +5,10 @@
 import type { LockedIntent } from "./v3/intent";
 import type { SceneLockStatus } from "./scene-lock-mode";
 import { sceneLockTrackAdjustment } from "./scene-lock-mode";
+import {
+  isTrackInWorld,
+  resolveWorldBoundary,
+} from "./world-boundary";
 import { buildCoherentPlaylist } from "./playlist-coherence-engine";
 
 export type CoherenceAuditTrack = {
@@ -273,6 +277,7 @@ export function repairPlaylistCoherence<T extends CoherenceAuditTrack>(opts: {
   intent: LockedIntent;
   scenePrediction?: Record<string, number>;
   sceneLock?: SceneLockStatus | null;
+  sceneAliases?: string[];
   maxSwaps?: number;
   maxIterations?: number;
   minOverall?: number;
@@ -281,10 +286,18 @@ export function repairPlaylistCoherence<T extends CoherenceAuditTrack>(opts: {
   const maxIterations = opts.maxIterations ?? 1;
   const minOverall = opts.minOverall ?? COHERENCE_REPAIR_THRESHOLD;
   const sceneLock = opts.sceneLock ?? null;
+  const world = resolveWorldBoundary({
+    sceneLock,
+    sceneAliases: opts.sceneAliases,
+    scenePrediction: opts.scenePrediction,
+  });
 
   let working = [...opts.tracks];
   const usedIds = new Set(working.map((t) => t.trackId));
-  const pool = opts.candidates.filter((c) => !usedIds.has(c.trackId));
+  let pool = opts.candidates.filter((c) => !usedIds.has(c.trackId));
+  if (world.active) {
+    pool = pool.filter((track) => isTrackInWorld(track, world, track.genreFamily ?? track.genrePrimary));
+  }
 
   let audit = auditPlaylistCoherence(working, opts.intent, opts.scenePrediction);
   const beforeOverall = audit.overallCoherence;
@@ -318,6 +331,9 @@ export function repairPlaylistCoherence<T extends CoherenceAuditTrack>(opts: {
       let bestReplacement: { track: T; gain: number } | null = null;
       for (const replacement of pool) {
         if (usedIds.has(replacement.trackId)) continue;
+        if (world.active && !isTrackInWorld(replacement, world, replacement.genreFamily ?? replacement.genrePrimary)) {
+          continue;
+        }
         const trial = working.map((t) => (t.trackId === candidate.track.trackId ? replacement : t));
         const trialAudit = auditPlaylistCoherence(trial, opts.intent, opts.scenePrediction);
         const sceneAdj = sceneLock ? sceneLockTrackAdjustment(replacement, sceneLock) : 0;
@@ -389,6 +405,7 @@ export function repairPlaylistIfNeeded<T extends CoherenceAuditTrack>(opts: {
   coherenceScore: PlaylistCoherenceScore;
   scenePrediction?: Record<string, number>;
   sceneLock?: SceneLockStatus | null;
+  sceneAliases?: string[];
 }): {
   tracks: T[];
   coherenceScore: PlaylistCoherenceScore;
@@ -412,6 +429,7 @@ export function repairPlaylistIfNeeded<T extends CoherenceAuditTrack>(opts: {
     intent: opts.intent,
     scenePrediction: opts.scenePrediction,
     sceneLock: opts.sceneLock,
+    sceneAliases: opts.sceneAliases,
     maxIterations: 1,
     maxSwaps: 5,
     minOverall: COHERENCE_REPAIR_THRESHOLD,

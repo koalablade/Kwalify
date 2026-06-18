@@ -1,0 +1,20 @@
+[
+  {"entityKey":"need-for-speed","entityType":"game","label":"Need for Speed","embedding":[0.7,0.5,0.2,0.1,0.1,0.9,0.6,0.3],"genreFamilies":["rock","electronic","metal","hip_hop"]},
+  {"entityKey":"forza-horizon","entityType":"game","label":"Forza Horizon","embedding":[0.5,0.6,0.3,0.2,0.1,0.8,0.7,0.2],"genreFamilies":["electronic","rock","hip_hop","pop"]},
+  {"entityKey":"gta","entityType":"game","label":"Grand Theft Auto","embedding":[0.4,0.3,0.8,0.1,0.2,0.7,0.5,0.3],"genreFamilies":["hip_hop","electronic","rock","rnb"]},
+  {"entityKey":"minecraft","entityType":"game","label":"Minecraft","embedding":[0.1,0.3,0.1,0.5,0.4,0.1,0.1,0.6],"genreFamilies":["ambient","electronic","lofi","indie"]},
+  {"entityKey":"skyrim","entityType":"game","label":"Skyrim","embedding":[0.2,0.1,0.1,0.3,0.5,0.2,0.1,0.8],"genreFamilies":["orchestral","ambient","folk","classical"]},
+  {"entityKey":"fifa","entityType":"game","label":"FIFA","embedding":[0.3,0.5,0.4,0.2,0.1,0.4,0.9,0.3],"genreFamilies":["electronic","hip_hop","pop","dance"]},
+  {"entityKey":"tony-hawk","entityType":"game","label":"Tony Hawk","embedding":[0.8,0.2,0.1,0.3,0.1,0.5,0.6,0.4],"genreFamilies":["punk","rock","indie"]},
+  {"entityKey":"cyberpunk","entityType":"game","label":"Cyberpunk 2077","embedding":[0.3,0.9,0.2,0.1,0.6,0.4,0.3,0.2],"genreFamilies":["electronic","synth","industrial","rock"]},
+  {"entityKey":"blade-runner","entityType":"film","label":"Blade Runner","embedding":[0.1,0.8,0.1,0.2,0.9,0.5,0.1,0.4],"genreFamilies":["electronic","ambient","synth","jazz"]},
+  {"entityKey":"drive","entityType":"film","label":"Drive","embedding":[0.4,0.7,0.1,0.3,0.7,0.6,0.2,0.5],"genreFamilies":["synth","electronic","pop","indie"]},
+  {"entityKey":"john-wick","entityType":"film","label":"John Wick","embedding":[0.6,0.6,0.2,0.1,0.3,0.7,0.5,0.2],"genreFamilies":["electronic","rock","metal","hip_hop"]},
+  {"entityKey":"interstellar","entityType":"film","label":"Interstellar","embedding":[0.2,0.3,0.1,0.2,0.6,0.3,0.1,0.9],"genreFamilies":["orchestral","ambient","electronic","classical"]},
+  {"entityKey":"fight-club","entityType":"film","label":"Fight Club","embedding":[0.7,0.4,0.1,0.2,0.5,0.4,0.3,0.6],"genreFamilies":["rock","electronic","industrial","metal"]},
+  {"entityKey":"stranger-things","entityType":"show","label":"Stranger Things","embedding":[0.3,0.7,0.1,0.2,0.5,0.3,0.2,0.8],"genreFamilies":["synth","electronic","pop","rock"]},
+  {"entityKey":"euphoria","entityType":"show","label":"Euphoria","embedding":[0.2,0.4,0.3,0.4,0.6,0.3,0.3,0.5],"genreFamilies":["rnb","pop","electronic","indie"]},
+  {"entityKey":"kerrang","entityType":"culture","label":"Kerrang","embedding":[0.9,0.1,0.1,0.4,0.2,0.3,0.5,0.7],"genreFamilies":["rock","metal","indie","punk"]},
+  {"entityKey":"top-gear","entityType":"culture","label":"Top Gear","embedding":[0.6,0.4,0.1,0.2,0.2,0.8,0.4,0.5],"genreFamilies":["rock","electronic","indie"]},
+  {"entityKey":"volvo-garage","entityType":"culture","label":"Volvo Garage","embedding":[0.3,0.1,0.1,0.7,0.8,0.6,0.1,0.6],"genreFamilies":["blues","indie","rock","folk","country"]}
+]

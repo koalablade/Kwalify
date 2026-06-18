@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import router from "./routes/routes.index";
 import healthRouter from "./routes/health";
 import evalRouter from "./routes/eval";
+import evalAdminRouter from "./routes/eval-admin";
 import { logger } from "./lib/logger";
 import { type AppEnv } from "./lib/env";
 import { getRuntimeReadiness, isRuntimeReady } from "./lib/runtime-readiness";
@@ -168,6 +169,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.use("/", healthRouter);
   app.use("/api", healthRouter);
   app.use("/api", evalRouter);
+  app.use("/api", evalAdminRouter);
 
   app.use((req, res, next) => {
     if (!req.path.startsWith("/api") || isRuntimeReady()) return next();

@@ -3,12 +3,24 @@
  */
 
 import { runScoringPipeline } from "./scoring-engine";
-import type { TasteMemoryGraph } from "../lib/taste-memory-graph";
+import { tasteGraphV2RetrievalBoost, type TasteGraphV2 } from "../lib/taste-graph-v2";
+import { cultureRetrievalBoost } from "../lib/scene-culture-graph";
+import { multiObjectRetrievalBoost, type MultiObjectPlan } from "../lib/multi-object-planner";
 import { computeSceneAliasRetrievalBoost } from "../lib/scene-alias-retrieval-boost";
-import { tasteGraphRetrievalBoost } from "../lib/taste-memory-graph";
 import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
 import { runV3Pipeline } from "./v3/v3-pipeline";
+import type { SceneLockStatus } from "./scene-lock-mode";
+import {
+  hardRejectOffWorldTracks,
+  preCoherenceWorldFilter,
+  resolveWorldBoundary,
+  buildPlaylistByWorldConstraints,
+  trackGenreFamilyForBoundary,
+  isTrackInWorld,
+  type WorldBoundary,
+} from "./world-boundary";
+import { scorePlaylistCoherence } from "./playlist-coherence-audit";
 import type { EmotionProfile, VibeKind } from "../lib/emotion";
 import type { IntentDecodeResult } from "../lib/intent-decoder";
 import type { CanonicalSceneResult } from "../lib/scene-canonicalizer";
@@ -140,7 +152,10 @@ export interface BuildPlaylistPipelineOpts<T extends {
     curatorScoreByTrack?: Map<string, number>;
     sceneAliases?: string[];
     scenePrediction?: Record<string, number>;
-    tasteGraph?: TasteMemoryGraph | null;
+    sceneLock?: SceneLockStatus | null;
+    tasteGraphV2?: TasteGraphV2 | null;
+    globalTasteProfile?: import("../lib/global-taste-profile").GlobalTasteProfile | null;
+    multiObjectPlan?: MultiObjectPlan | null;
     trendPrompt?: string;
   };
   genrePost: {
@@ -591,6 +606,9 @@ type RetrievalPools<T> = {
     contractRankedCount: number;
     scenePreFilterApplied?: boolean;
     sceneMismatchRejected?: number;
+    worldBoundaryActive?: boolean;
+    worldHardLock?: boolean;
+    worldDominantScene?: string | null;
     subgenreScopeMode?: "none" | "primary_subgenre" | "related_subgenre" | "family";
     subgenrePrimaryCount?: number;
     subgenreRelatedCount?: number;
@@ -1535,13 +1553,26 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     diagnosticsMode?: "minimal" | "full";
     sceneAliases?: string[];
     scenePrediction?: Record<string, number>;
-    tasteGraph?: TasteMemoryGraph | null;
+    sceneLock?: SceneLockStatus | null;
+    tasteGraphV2?: TasteGraphV2 | null;
+    multiObjectPlan?: MultiObjectPlan | null;
     trendPrompt?: string;
   } = {},
 ): Promise<RetrievalPools<T>> {
   const MIN_BROAD_RETRIEVAL_POOL = 120;
   const fullDiagnostics = opts.diagnosticsMode === "full";
-  const contractSafeTracks = enforceIntentContract(tracks, contract, classMap);
+  const worldBoundary = resolveWorldBoundary({
+    sceneLock: opts.sceneLock ?? null,
+    sceneAliases: opts.sceneAliases,
+    scenePrediction: opts.scenePrediction,
+  });
+  let contractSafeTracks = enforceIntentContract(tracks, contract, classMap);
+  if (worldBoundary.active) {
+    const worldFiltered = hardRejectOffWorldTracks(contractSafeTracks, worldBoundary, classMap);
+    if (worldFiltered.kept.length >= Math.min(30, Math.max(12, Math.floor(tracks.length * 0.08)))) {
+      contractSafeTracks = worldFiltered.kept;
+    }
+  }
   await yieldPipeline();
   const primarySubgenreMatches = new Map<string, boolean>();
   const structuredSubgenreMatches = new Map<string, boolean>();
@@ -1674,10 +1705,14 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
   const contractSafeTrackIds = new Set(contractSafeTracks.map((track) => track.trackId));
   const expansionSource = familyExpansionTracks.length > 0
     ? familyExpansionTracks
-    : adjacentExpansionTracks.length > 0
+    : adjacentExpansionTracks.length > 0 && !worldBoundary.hardLock
       ? adjacentExpansionTracks
-      : tracks;
-  const fallbackLevelUsed = contractSafeTracks.length >= Math.min(MIN_BROAD_RETRIEVAL_POOL, Math.max(30, tracks.length))
+      : worldBoundary.hardLock
+        ? contractSafeTracks
+        : tracks;
+  const fallbackLevelUsed = worldBoundary.hardLock
+    ? (contractSafeTracks.length >= Math.min(MIN_BROAD_RETRIEVAL_POOL, Math.max(30, tracks.length)) ? "none" : "family")
+    : contractSafeTracks.length >= Math.min(MIN_BROAD_RETRIEVAL_POOL, Math.max(30, tracks.length))
     ? "none"
     : familyExpansionTracks.length > 0
       ? "family"
@@ -1700,12 +1735,27 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
         ),
       }));
   const retrievalExpandedDueToStarvation = contractRankSource.length > contractSafeTracks.length;
-  const sceneActive = sceneConstraintActive(contract);
+  const sceneActive = sceneConstraintActive(contract) || worldBoundary.active;
   const sceneCompatibleRankSource = sceneActive
-    ? contractRankSource.filter((track) => !sceneMismatchFor(track))
+    ? contractRankSource.filter((track) => {
+        if (worldBoundary.active) {
+          return isTrackInWorld(
+            {
+              trackId: track.trackId,
+              genreFamily: genreFamilyForTrack(track, classMap),
+              genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? null,
+            },
+            worldBoundary,
+            genreFamilyForTrack(track, classMap),
+          );
+        }
+        return !sceneMismatchFor(track);
+      })
     : contractRankSource;
   const sceneMismatchRejected = sceneActive ? contractRankSource.length - sceneCompatibleRankSource.length : 0;
-  const scenePreFilterApplied = sceneActive && sceneCompatibleRankSource.length >= Math.min(80, Math.max(35, Math.floor(contractRankSource.length * 0.30)));
+  const scenePreFilterApplied = worldBoundary.hardLock
+    ? true
+    : sceneActive && sceneCompatibleRankSource.length >= Math.min(80, Math.max(35, Math.floor(contractRankSource.length * 0.30)));
   const sceneRankSource = scenePreFilterApplied ? sceneCompatibleRankSource : contractRankSource;
   const shapedRankSource = shapeBroadCandidatePool(
     sceneRankSource,
@@ -1735,18 +1785,29 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
           opts.scenePrediction ?? {},
         )
         : 0;
-      const tasteBoost = opts.tasteGraph
-        ? tasteGraphRetrievalBoost(
+      const tasteBoost = opts.tasteGraphV2
+        ? tasteGraphV2RetrievalBoost(
           {
             genreFamily: genreFamilyForTrack(track, classMap),
             genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? null,
             genres: classMap.get(track.trackId)?.subGenres ?? null,
             artistName: track.artistName ?? null,
           },
-          opts.tasteGraph,
+          opts.tasteGraphV2,
         )
         : 0;
-      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight + sceneAliasBoost + tasteBoost - feedbackPenalty(track, feedback);
+      const cultureBoost = opts.trendPrompt ? cultureRetrievalBoost(opts.trendPrompt) : 0;
+      const segmentBoost = opts.multiObjectPlan
+        ? multiObjectRetrievalBoost(
+          {
+            energy: track.energy,
+            valence: track.valence,
+            genreFamily: genreFamilyForTrack(track, classMap),
+          },
+          opts.multiObjectPlan,
+        )
+        : 0;
+      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight + sceneAliasBoost + tasteBoost + cultureBoost + segmentBoost - feedbackPenalty(track, feedback);
       const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
       const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
       const sceneMismatchPenalty = sceneMismatchFor(track) ? 0.90 : 0;
@@ -1804,19 +1865,32 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     (track.rediscoveryScore ?? 0) <= 0.45 ||
     (track as T & { explorationDistance?: number }).explorationDistance != null
   );
+  const worldDiscoverySource = worldBoundary.active
+    ? discovery.filter((track) => isTrackInWorld(
+      { trackId: track.trackId, genreFamily: genreFamilyForTrack(track, classMap) },
+      worldBoundary,
+      genreFamilyForTrack(track, classMap),
+    ))
+    : discovery;
   return {
-    core: takeUnique(coreSource, 160),
-    anchor: takeUnique(anchor, 80),
-    adjacent: takeUnique(adjacent, 100),
-    bridge: takeUnique([...adjacent, ...contractRanked], 80),
+    core: takeUnique(coreSource, worldBoundary.hardLock ? 120 : 160),
+    anchor: takeUnique(anchor, worldBoundary.hardLock ? 60 : 80),
+    adjacent: takeUnique(worldBoundary.hardLock ? [] : adjacent, 100),
+    bridge: takeUnique(worldBoundary.hardLock ? coreSource : [...adjacent, ...contractRanked], 80),
     energyArc: takeUnique(energyArc, 80),
-    discovery: takeUnique(discovery.length > 0 ? discovery : contractRanked.slice().reverse(), 80),
+    discovery: takeUnique(
+      worldDiscoverySource.length > 0 ? worldDiscoverySource : contractRanked.slice().reverse(),
+      worldBoundary.hardLock ? 40 : 80,
+    ),
     diagnostics: {
       inputCount: tracks.length,
       shapedRankSourceCount: shapedRankSource.length,
       contractRankedCount: contractRanked.length,
       scenePreFilterApplied,
       sceneMismatchRejected,
+      worldBoundaryActive: worldBoundary.active,
+      worldHardLock: worldBoundary.hardLock,
+      worldDominantScene: worldBoundary.dominantScene,
       subgenreScopeMode: retrievalScope.mode,
       subgenrePrimaryCount: retrievalScope.primaryCount,
       subgenreRelatedCount: retrievalScope.relatedCount,
@@ -2847,7 +2921,18 @@ function uncollapseV11CandidatePool<T extends {
   expandedPool: T[],
   classMap: UserGenreProfile["trackClassifications"],
   playlistLength: number,
+  singleWorldMode = false,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
+  if (singleWorldMode) {
+    return {
+      tracks: initialPool,
+      diagnostics: {
+        collapseDetected: false,
+        singleWorldMode: true,
+        uncollapseApplied: false,
+      },
+    };
+  }
   const availableFamilyCount = familyCount(expandedPool, classMap);
   const initialDistribution = familyDistribution(initialPool, classMap);
   const initialDominant = dominantFamilyShare(initialDistribution);
@@ -2951,6 +3036,7 @@ function buildV3CandidatePool<T extends {
   lockedIntent: LockedIntent,
   opts: {
     minimumFillRatio?: number;
+    singleWorldMode?: boolean;
   } = {},
   logger?: import("pino").Logger,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
@@ -3106,6 +3192,7 @@ function buildV3CandidatePool<T extends {
   let expansionIterations = 0;
   const maxWindowExpansionIterations = 6;
   while (
+    !opts.singleWorldMode &&
     windowSize < intentReady.length &&
     familyCount(intentReady.slice(0, windowSize), classMap) < 3 &&
     expansionIterations < maxWindowExpansionIterations
@@ -3123,6 +3210,7 @@ function buildV3CandidatePool<T extends {
     intentReady.slice(0, expandedWindowSize),
     classMap,
     playlistLength,
+    !!opts.singleWorldMode,
   );
   const tracks = uncollapsed.tracks;
   forensicPreV3Trace.push(preV3StageTrace(
@@ -3391,6 +3479,11 @@ export async function buildPlaylistPipeline<T extends {
     },
   };
   const intentContract = buildIntentContract(opts.vibe);
+  const worldBoundary = resolveWorldBoundary({
+    sceneLock: opts.postScore.sceneLock ?? null,
+    sceneAliases: opts.postScore.sceneAliases,
+    scenePrediction: opts.postScore.scenePrediction,
+  });
   const endRetrievalProfile = opts.profileStage?.("pipeline.retrieval", `${scoring.sorted.length} scored tracks`);
   let unpenalizedRetrieval: RetrievalPools<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string | null }>;
   let unpenalizedPooledCandidates: ScoredLibraryTrack<T>[];
@@ -3412,7 +3505,9 @@ export async function buildPlaylistPipeline<T extends {
         diagnosticsMode: opts.diagnosticsMode ?? "minimal",
         sceneAliases: opts.postScore.sceneAliases,
         scenePrediction: opts.postScore.scenePrediction,
-        tasteGraph: opts.postScore.tasteGraph ?? null,
+        sceneLock: opts.postScore.sceneLock ?? null,
+        tasteGraphV2: opts.postScore.tasteGraphV2 ?? null,
+        multiObjectPlan: opts.postScore.multiObjectPlan ?? null,
         trendPrompt: opts.postScore.trendPrompt,
       },
     );
@@ -3661,10 +3756,11 @@ export async function buildPlaylistPipeline<T extends {
     contractGuardedScoredPool.length < Math.max(minSafePreRankingPool, Math.ceil(opts.playlistLength * 1.5));
   fallbackSkippedByFastPath = (sceneStableFastPath || candidatePoolStabilized) && !constrainedCompletionAtRisk;
   fastPathTriggered = fallbackSkippedByFastPath || repetitionPassSkipped;
-  const maxFallbackDepth = 1;
+  const maxFallbackDepth = worldBoundary.hardLock ? 0 : 1;
   while (
     contractGuardedScoredPool.length < minSafePreRankingPool &&
     !fallbackSkippedByFastPath &&
+    !worldBoundary.hardLock &&
     fallbackDepthReached < Math.min(maxFallbackDepth, fallbackSteps.length)
   ) {
     const step = fallbackSteps[fallbackDepthReached];
@@ -3677,7 +3773,7 @@ export async function buildPlaylistPipeline<T extends {
     finalFallbackLevelUsed = step.level;
     fallbackExpansionPath.push(`${step.level}:${contractGuardedScoredPool.length}`);
   }
-  if (contractGuardedScoredPool.length === 0 && globalExpansion.length > 0) {
+  if (contractGuardedScoredPool.length === 0 && globalExpansion.length > 0 && !worldBoundary.active) {
     retrievalFatalEmptyPool = true;
     emptyPoolDetectedAtStage = emptyPoolDetectedAtStage ?? "pre_v3_scoring_entry";
     contractGuardedScoredPool = appendUnique(contractGuardedScoredPool, globalExpansion, minSafePreRankingPool);
@@ -3849,6 +3945,39 @@ export async function buildPlaylistPipeline<T extends {
     classMap,
     explicitPromptGenreFamilies,
   );
+  let worldBoundaryDiagnostics: Record<string, unknown> = {
+    active: worldBoundary.active,
+    hardLock: worldBoundary.hardLock,
+    dominantScene: worldBoundary.dominantScene,
+  };
+  if (worldBoundary.active) {
+    const enrichedForWorld = contractGuardedScoredPool.map((track) => ({
+      trackId: track.trackId,
+      energy: track.energy,
+      valence: track.valence,
+      tempo: track.tempo,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      artistName: track.artistName,
+      genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? null,
+      genreFamily: trackGenreFamilyForBoundary(
+        { trackId: track.trackId, genrePrimary: track.genrePrimary ?? null },
+        classMap,
+      ),
+      score: track.score,
+    }));
+    const preFiltered = preCoherenceWorldFilter(enrichedForWorld, worldBoundary, v3LockedIntent);
+    const preFilteredIds = new Set(preFiltered.map((t) => t.trackId));
+    const beforeCount = contractGuardedScoredPool.length;
+    contractGuardedScoredPool = contractGuardedScoredPool.filter((track) => preFilteredIds.has(track.trackId));
+    worldBoundaryDiagnostics = {
+      ...worldBoundaryDiagnostics,
+      preCoherenceFilter: {
+        beforeCount,
+        afterCount: contractGuardedScoredPool.length,
+      },
+    };
+  }
   const unifiedIntentDiagnostics = resolveUnifiedIntent([
     ...unifiedIntentContextWithMemory.diagnostics.snapshots,
     unifiedIntentFromLockedIntent(v3LockedIntent),
@@ -3998,7 +4127,10 @@ export async function buildPlaylistPipeline<T extends {
         classMap,
         opts.playlistLength,
         v3LockedIntent,
-        { minimumFillRatio: candidate.label === "strict_intent" ? 0.8 : 0.65 },
+        {
+          minimumFillRatio: candidate.label === "strict_intent" ? 0.8 : 0.65,
+          singleWorldMode: worldBoundary.hardLock,
+        },
         opts.pipelineLog,
       );
     } finally {
@@ -4288,6 +4420,67 @@ export async function buildPlaylistPipeline<T extends {
       applied: criticRepaired.diagnostics.afterQuality >= criticRepaired.diagnostics.beforeQuality,
     };
   }
+
+  if (worldBoundary.active && qualityRecoveryCandidatePool.length >= Math.max(12, opts.playlistLength)) {
+    const constraintCandidates = qualityRecoveryCandidatePool.map((track) => ({
+      trackId: track.trackId,
+      energy: track.energy,
+      valence: track.valence,
+      tempo: track.tempo,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      artistName: track.artistName,
+      genrePrimary: track.genrePrimary ?? classMap.get(track.trackId)?.genrePrimary ?? null,
+      genreFamily: trackGenreFamilyForBoundary(
+        { trackId: track.trackId, genrePrimary: track.genrePrimary ?? null },
+        classMap,
+      ),
+      score: track.score,
+    }));
+    const constrained = buildPlaylistByWorldConstraints({
+      candidates: constraintCandidates,
+      intent: v3LockedIntent,
+      world: worldBoundary,
+      playlistLength: opts.playlistLength,
+      scenePrediction: opts.postScore.scenePrediction,
+      maxPerArtist: opts.maxPerArtist,
+    });
+    if (constrained.tracks.length >= Math.min(opts.playlistLength, 8)) {
+      const trackById = new Map(qualityRecoveryCandidatePool.map((t) => [t.trackId, t]));
+      const v3Ids = new Set(finalTracksList.map((t) => t.trackId));
+      const v3CoherenceTracks = finalTracksList.map((track) => ({
+        trackId: track.trackId,
+        energy: track.energy,
+        valence: track.valence,
+        genreFamily: trackGenreFamilyForBoundary(track, classMap),
+        genrePrimary: track.genrePrimary ?? null,
+      }));
+      const v3Score = scorePlaylistCoherence(
+        v3CoherenceTracks,
+        v3LockedIntent,
+        opts.postScore.scenePrediction,
+      );
+      const useConstraint =
+        worldBoundary.hardLock ||
+        constrained.coherenceScore.overallScore >= v3Score.overallScore;
+      if (useConstraint) {
+        finalTracksList = constrained.tracks
+          .map((track) => trackById.get(track.trackId))
+          .filter((track): track is NonNullable<typeof track> => !!track) as V3MetadataTrack<T>[];
+        worldBoundaryDiagnostics = {
+          ...worldBoundaryDiagnostics,
+          constraintBuild: {
+            executed: true,
+            builtCount: finalTracksList.length,
+            coherenceScore: constrained.coherenceScore,
+            replacedV3: !v3Ids.has(constrained.tracks[0]?.trackId ?? ""),
+          },
+        };
+        qualityRecoveryDiagnostics["constraintBuild"] = constrained.diagnostics;
+      }
+    }
+  }
+
   const finalHardFilterTrace = {
     stage: "final hard-filter count",
     before: v3.finalTracks.length,
@@ -4534,6 +4727,7 @@ export async function buildPlaylistPipeline<T extends {
       canonical: opts.canonical,
       recentTrackPenalty,
       ecosystemVector: undefined,
+      worldBoundary,
     });
     const enforcedFallback = enforceFinalPlaylistGenres({
       finalTracks: composed.finalTracks,

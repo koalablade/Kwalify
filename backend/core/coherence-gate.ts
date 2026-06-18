@@ -40,15 +40,20 @@ export function strictModeGuard(
 export function shouldPublishPlaylist(
   score: PlaylistCoherenceScore,
   mode: "strict" | "balanced" | "chaotic",
-  opts?: { librarySize?: number },
+  opts?: {
+    librarySize?: number;
+    publishGate?: { minCoherence?: number; strictBlock?: boolean };
+  },
 ): CoherenceGateResult {
   const thinLibrary = (opts?.librarySize ?? 1000) < 200;
   const mediumLibrary = !thinLibrary && (opts?.librarySize ?? 1000) < 500;
-  const strictOverall = thinLibrary
+  const planMinCoherence = opts?.publishGate?.minCoherence;
+  const strictOverall = planMinCoherence ?? (thinLibrary
     ? Math.max(0.52, COHERENCE_STRICT_THRESHOLD - 0.08)
     : mediumLibrary
       ? Math.max(0.60, COHERENCE_STRICT_THRESHOLD - 0.04)
-      : COHERENCE_STRICT_THRESHOLD;
+      : COHERENCE_STRICT_THRESHOLD);
+  const balancedOverall = planMinCoherence ?? COHERENCE_PUBLISH_THRESHOLD;
   const hardSceneMin = thinLibrary
     ? Math.max(0.48, COHERENCE_HARD_SCENE_MIN - 0.1)
     : COHERENCE_HARD_SCENE_MIN;
@@ -60,8 +65,8 @@ export function shouldPublishPlaylist(
     overall: mode === "strict"
       ? strictOverall
       : mode === "chaotic"
-        ? COHERENCE_PUBLISH_THRESHOLD - 0.06
-        : COHERENCE_PUBLISH_THRESHOLD,
+        ? balancedOverall - 0.06
+        : balancedOverall,
     scene: mode === "strict" ? hardSceneMin : COHERENCE_HARD_SCENE_MIN - 0.08,
     atmosphere: mode === "strict" ? hardAtmosphereMin : COHERENCE_HARD_ATMOSPHERE_MIN - 0.06,
   };

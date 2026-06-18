@@ -151,11 +151,15 @@ import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
 import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
 import { runCoherenceRebuildLoop } from "../core/rebuild-loop";
 import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
-import { orderTracksByPlaylistSegments } from "../core/emotional-arc-planner";
+import { buildPlaylistSegments, orderTracksByPlaylistSegments, type EmotionalArc } from "../core/emotional-arc-planner";
 import { buildIntentPipelineContext, mergeSceneAliasesIntoGenres } from "../lib/intent-pipeline-orchestrator";
 import { compilePlaylistContext } from "../core/playlist-compiler";
 import { recordPromptSceneMemory } from "../lib/cross-session-memory";
-import type { TasteMemoryGraph } from "../lib/taste-memory-graph";
+import { refreshGlobalTasteProfile } from "../lib/global-taste-profile";
+import { assignTracksToSegments } from "../core/segment-playlist-planner";
+import { segmentAssignmentsToDiagnostics, coherenceRepairSettingsFromPlan, coherenceGateFromPlan } from "../core/compile-plan-dsl";
+import type { TasteGraphV2 } from "../lib/taste-graph-v2";
+import type { CompilePlanDSL } from "../core/compile-plan-dsl";
 import { rediscoveryModeForFamiliarity, type FamiliarityMode } from "../lib/familiarity-controller";
 import { mergeScenePredictions } from "../lib/scene-alias-graph";
 import { buildIntentLossReport, type IntentLossReport } from "../lib/intent-loss-report";
@@ -1014,6 +1018,9 @@ function timeoutFallbackResponse(
     ? buildProductionTimelineReport(productionTimeline, timelineStartMs, { failureReason: opts.failureReason })
     : null;
   const maxPerArtist = typeof ctx?.maxPerArtist === "number" ? ctx.maxPerArtist : artistDiversityCap(length, vibe);
+  const sceneLockStatus = ctx?.sceneLockStatus as import("../core/scene-lock-mode").SceneLockStatus | undefined;
+  const sceneAliases = Array.isArray(ctx?.sceneAliases) ? ctx.sceneAliases as string[] : [];
+  const mergedScenePrediction = ctx?.mergedScenePrediction as Record<string, number> | undefined;
   const finalizedTracks = Array.isArray(ctx?.finalTracks)
     ? ctx.finalTracks as Array<V3MetadataTrack<{
       trackId: string;
@@ -1256,6 +1263,13 @@ function timeoutFallbackResponse(
     genreByTrack,
     recentTrackPenalty: trackReusePenalty,
     artistReusePenalty,
+    worldFilter: sceneLockStatus?.active || sceneAliases.length > 0
+      ? {
+        sceneLock: sceneLockStatus ?? null,
+        sceneAliases,
+        scenePrediction: mergedScenePrediction,
+      }
+      : undefined,
   });
   const timeoutFinalTracks = [...pipeline.finalTracks];
   if (timeoutFinalTracks.length < length) {
@@ -5160,7 +5174,10 @@ router.post("/generate", async (req, res): Promise<void> => {
     let intentLossReport: IntentLossReport = intentPipeline.intentLossReport;
     let familiarityMode = intentPipeline.familiarityMode;
     let mergedScenePrediction = intentPipeline.scenePrediction;
-    let tasteGraph: TasteMemoryGraph | null = null;
+    let tasteGraphV2: TasteGraphV2 | null = null;
+    let globalTasteProfile: import("../lib/global-taste-profile").GlobalTasteProfile | null = null;
+    let compilePlan: CompilePlanDSL | null = null;
+    let segmentDiagnostics: Array<{ segmentId: string; label: string; trackIds: string[] }> = [];
     let adaptiveReasons: string[] = [];
     req.log.info(
       {
@@ -5962,6 +5979,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           .map((song) => userGenreProfile.trackClassifications.get(song.trackId)?.genreFamily)
           .filter((family): family is NonNullable<typeof family> => typeof family === "string" && family.length > 0),
       )].map(String).slice(0, 8);
+      const likedArtists = [...new Set(likedSongs.map((song) => song.artistName).filter(Boolean))].slice(0, 50);
       const compiled = await compilePlaylistContext({
         prompt: vibe,
         userId,
@@ -5970,13 +5988,17 @@ router.post("/generate", async (req, res): Promise<void> => {
         length,
         feedbackMemory,
         likedGenreFamilies,
+        likedArtists,
+        samePromptRegenerate: varietyBoost === true,
       });
       sceneAliases = compiled.sceneAliases;
       mergedScenePrediction = compiled.scenePrediction;
-      familiarityMode = compiled.adaptiveProfile.familiarityMode;
-      length = compiled.adaptiveProfile.length;
-      tasteGraph = compiled.tasteGraph;
-      adaptiveReasons = compiled.adaptiveProfile.reasons;
+      familiarityMode = compiled.intentPipeline.familiarityMode;
+      length = compiled.compilePlan.length;
+      tasteGraphV2 = compiled.tasteGraphV2;
+      globalTasteProfile = compiled.globalTaste;
+      compilePlan = compiled.compilePlan;
+      adaptiveReasons = [...compiled.adaptiveProfile.reasons, ...(compiled.compilePlan.morphPlan?.morph.reasons ?? [])];
       req.log.info(
         {
           sceneAliases,
@@ -5990,7 +6012,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
     } catch (compileErr) {
       req.log.warn({ err: compileErr }, "Playlist compiler failed — using base intent pipeline");
-      tasteGraph = null;
     }
     const genreByTrack = (trackId: string) => {
       const classification = userGenreProfile.trackClassifications.get(trackId);
@@ -6275,7 +6296,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       "Pre-V3 timing breakdown"
     );
-    const useFastFallback = !devMode && budget.shouldFastFallback();
+    const pipelineReady = scoringInputSongs.length >= Math.max(8, Math.min(length, 20));
+    const useFastFallback = !devMode && budget.shouldFastFallback() && !pipelineReady;
 
     let pipeline: BuildPlaylistPipelineResult<(typeof likedSongs)[number]> & {
       requestOrchestration?: RequestGenerationOrchestration;
@@ -6307,6 +6329,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         genreByTrack,
         recentTrackPenalty: finalizationReusePenalty,
         artistReusePenalty: finalizationArtistReusePenalty,
+        worldFilter: sceneLockStatus.active || sceneAliases.length > 0
+          ? {
+            sceneLock: sceneLockStatus,
+            sceneAliases,
+            scenePrediction: mergedScenePrediction,
+          }
+          : undefined,
       }) as typeof pipeline;
       playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
     } else {
@@ -6380,7 +6409,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         curatorScoreByTrack,
         sceneAliases,
         scenePrediction: mergedScenePrediction,
-        tasteGraph,
+        sceneLock: sceneLockStatus,
+        tasteGraphV2,
+        globalTasteProfile,
+        multiObjectPlan: compilePlan?.multiObjectPlan ?? null,
         trendPrompt: pipelineVibe,
       },
       varietyPenaltyScale: recentTrackPenaltyScale,
@@ -7321,6 +7353,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let coherenceGateResult: CoherenceGateResult | null = null;
     if (finalTracks.length >= 4) {
       const enrichedFinal = finalTracks.map(enrichTrackForCoherence);
+      const coherenceRepair = coherenceRepairSettingsFromPlan(compilePlan, sceneLockStatus.active);
       if (baseFinalizationCandidates.length > 0) {
         const rebuild = runCoherenceRebuildLoop({
           tracks: enrichedFinal,
@@ -7328,12 +7361,16 @@ router.post("/generate", async (req, res): Promise<void> => {
           intent: v3FallbackIntent,
           scenePrediction: mergedScenePrediction,
           sceneLock: sceneLockStatus,
-          maxIterations: 2,
+          sceneAliases,
+          playlistLength: length,
+          maxPerArtist,
+          maxIterations: coherenceRepair.maxIterations,
+          repairThreshold: coherenceRepair.repairThreshold,
         });
         playlistCoherenceScore = rebuild.coherenceScore;
         swapRepairActions = rebuild.swapRepairActions;
         coherenceRebuildIterations = rebuild.iterations;
-        if (swapRepairActions.length > 0) {
+        if (swapRepairActions.length > 0 || rebuild.constraintBuildUsed) {
           const trackById = new Map<string, ConstraintTrack>();
           for (const track of [...finalTracks, ...baseFinalizationCandidates]) {
             trackById.set(track.trackId, track);
@@ -7342,16 +7379,16 @@ router.post("/generate", async (req, res): Promise<void> => {
             .map((track) => trackById.get(track.trackId))
             .filter((track): track is ConstraintTrack => !!track) as PlaylistTrack[];
           executionHealth.repairPassCount += 1;
-          evidenceRelaxations.push("playlist_coherence_swap_repair");
+          evidenceRelaxations.push(rebuild.constraintBuildUsed ? "world_constraint_build" : "playlist_coherence_swap_repair");
           if (sceneLockStatus.active) evidenceRelaxations.push("scene_lock_repair_assist");
           publishPartialTracks(finalTracks, 5);
         }
 
         if (
           mode === "balanced" &&
-          playlistCoherenceScore.overallScore < COHERENCE_PUBLISH_THRESHOLD &&
+          playlistCoherenceScore.overallScore < coherenceRepair.repairThreshold &&
           baseFinalizationCandidates.length > 0 &&
-          coherenceRebuildIterations < 3
+          coherenceRebuildIterations < coherenceRepair.maxIterations + 1
         ) {
           const balancedRetry = runCoherenceRebuildLoop({
             tracks: finalTracks.map(enrichTrackForCoherence),
@@ -7359,9 +7396,13 @@ router.post("/generate", async (req, res): Promise<void> => {
             intent: v3FallbackIntent,
             scenePrediction: mergedScenePrediction,
             sceneLock: sceneLockStatus,
+            sceneAliases,
+            playlistLength: length,
+            maxPerArtist,
             maxIterations: 1,
+            repairThreshold: coherenceRepair.repairThreshold,
           });
-          if (balancedRetry.swapRepairActions.length > 0) {
+          if (balancedRetry.swapRepairActions.length > 0 || balancedRetry.constraintBuildUsed) {
             playlistCoherenceScore = balancedRetry.coherenceScore;
             swapRepairActions.push(...balancedRetry.swapRepairActions);
             coherenceRebuildIterations += balancedRetry.iterations;
@@ -7385,23 +7426,49 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
 
       if (playlistCoherenceScore && finalTracks.length >= 3) {
-        const arcOrdered = orderTracksByPlaylistSegments(
-          finalTracks.map(enrichTrackForCoherence),
-          emotionalArc,
-        );
-        const orderMap = new Map(arcOrdered.map((track, index) => [track.trackId, index]));
-        finalTracks = [...finalTracks].sort(
-          (a, b) => (orderMap.get(a.trackId) ?? 0) - (orderMap.get(b.trackId) ?? 0),
-        );
-        evidenceRelaxations.push("emotional_arc_ordering");
+        if (compilePlan?.segmentPlan) {
+          const segmented = assignTracksToSegments(
+            finalTracks.map(enrichTrackForCoherence),
+            compilePlan.segmentPlan,
+          );
+          segmentDiagnostics = segmentAssignmentsToDiagnostics(segmented.assignments);
+          const orderMap = new Map(segmented.ordered.map((track, index) => [track.trackId, index]));
+          finalTracks = [...finalTracks].sort(
+            (a, b) => (orderMap.get(a.trackId) ?? 0) - (orderMap.get(b.trackId) ?? 0),
+          );
+          evidenceRelaxations.push("segment_playlist_planning");
+        } else {
+          const arcOrdered = orderTracksByPlaylistSegments(
+            finalTracks.map(enrichTrackForCoherence),
+            emotionalArc,
+          );
+          const orderMap = new Map(arcOrdered.map((track, index) => [track.trackId, index]));
+          finalTracks = [...finalTracks].sort(
+            (a, b) => (orderMap.get(a.trackId) ?? 0) - (orderMap.get(b.trackId) ?? 0),
+          );
+          evidenceRelaxations.push("emotional_arc_ordering");
+          if (segmentDiagnostics.length === 0) {
+            segmentDiagnostics = buildPlaylistSegments(emotionalArc).map((seg) => ({
+              segmentId: seg.id,
+              label: seg.label,
+              trackIds: [],
+            }));
+          }
+        }
       }
 
       if (playlistCoherenceScore) {
         coherenceGateResult = shouldPublishPlaylist(
           playlistCoherenceScore,
           mode as "strict" | "balanced" | "chaotic",
-          { librarySize: likedSongs.length },
+          {
+            librarySize: likedSongs.length,
+            publishGate: compilePlan?.publishGate,
+          },
         );
+        if (compilePlan) {
+          compilePlan = coherenceGateFromPlan(compilePlan, coherenceGateResult);
+        }
         if (!coherenceGateResult.publish && mode === "strict") {
           setGeneratePhase(generateSessionUserId, requestId, "error");
           if (respondIfStale(res, generateSessionUserId, requestId)) return;
@@ -7743,6 +7810,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       emotionalArc,
       familiarityMode,
       mergedScenePrediction,
+      compilePlan,
+      segmentDiagnostics,
+      tasteGraphV2: tasteGraphV2 ? {
+        nodeCount: tasteGraphV2.nodes.length,
+        edgeCount: tasteGraphV2.edges.length,
+        genreWeights: tasteGraphV2.genreWeights,
+      } : null,
       unknownTokens: decomposedIntent.unknownTokens ?? intentState.unknownTokens ?? [],
       pipelineDiagnostics: buildGenerationPipelineDiagnostics({
         intentState,
@@ -8637,6 +8711,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         coherenceScore: playlistCoherenceScore?.overallScore ?? null,
         familiarityMode,
       }).catch((err) => req.log.warn({ err }, "Failed to record cross-session prompt memory"));
+      void refreshGlobalTasteProfile(userId).catch((err) =>
+        req.log.warn({ err }, "Failed to refresh global taste profile"),
+      );
     }
     if (sideEffectPolicy.allowSavedPlaylistWrites && savedPlaylistId > 0) {
     try {

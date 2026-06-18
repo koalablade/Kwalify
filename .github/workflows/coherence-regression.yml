@@ -1,0 +1,35 @@
+name: Coherence regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * *"
+
+jobs:
+  coherence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Local coherence fixtures
+        run: |
+          npm run coherence:intent
+          npm run coherence:playlist
+          npm run coherence:world-boundary
+      - name: Live coherence regression
+        if: ${{ secrets.PLAYLIST_EVAL_TOKEN != '' && secrets.SMOKE_SPOTIFY_USER_ID != '' }}
+        env:
+          SMOKE_BASE_URL: https://kwalify.net
+          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          SMOKE_SPOTIFY_USER_ID: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+        run: npm run regression:coherence-live

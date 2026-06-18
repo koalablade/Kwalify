@@ -1,26 +1,46 @@
 /**
- * Persistent scene alias promotions (Q3 auto-promote).
+ * Persistent scene alias promotions (Q3) — with review queue.
  */
 
 import type pg from "pg";
 import { db, sceneAliasPromotionsTable } from "../db";
-import { sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { registerRuntimeSceneAliases } from "./harvested-alias-runtime";
 import { registerPromotedGraphAliases } from "./scene-alias-graph";
 import { summarizeHarvestedTerms } from "./unknown-term-harvest";
 import { logger } from "./logger";
+
+// Avoid circular import — inferPromotion duplicated lightly for queue path
+function defaultInferAliases(term: string): string[] {
+  const normalized = term.toLowerCase().trim();
+  if (/\b(volvo|garage|saab|bmw)\b/i.test(normalized)) return ["blues", "indie", "rock", "folk"];
+  if (/\b(kerrang|emo|punk)\b/i.test(normalized)) return ["rock", "metal", "indie", "punk"];
+  return ["indie", "rock"];
+}
+
+export type AliasPromotionStatus = "pending" | "approved" | "rejected";
 
 export type SceneAliasPromotion = {
   term: string;
   aliases: string[];
   occurrences: number;
   source: string;
+  status: AliasPromotionStatus;
 };
+
+function normalizeTerm(term: string): string {
+  return term.toLowerCase().trim().replace(/\s+/g, "-");
+}
+
+function activatePromotion(term: string, aliases: string[]): void {
+  registerRuntimeSceneAliases(term, aliases);
+  registerPromotedGraphAliases(term, aliases);
+}
 
 export async function upsertSceneAliasPromotion(
   promotion: SceneAliasPromotion,
 ): Promise<void> {
-  const normalizedTerm = promotion.term.toLowerCase().trim().replace(/\s+/g, "-");
+  const normalizedTerm = normalizeTerm(promotion.term);
   if (!normalizedTerm || promotion.aliases.length === 0) return;
 
   await db
@@ -30,6 +50,7 @@ export async function upsertSceneAliasPromotion(
       aliases: promotion.aliases.slice(0, 8),
       occurrences: promotion.occurrences,
       source: promotion.source,
+      status: promotion.status,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -38,12 +59,108 @@ export async function upsertSceneAliasPromotion(
         aliases: promotion.aliases.slice(0, 8),
         occurrences: promotion.occurrences,
         source: promotion.source,
+        status: promotion.status,
         updatedAt: new Date(),
       },
     });
 
-  registerRuntimeSceneAliases(normalizedTerm, promotion.aliases);
-  registerPromotedGraphAliases(normalizedTerm, promotion.aliases);
+  if (promotion.status === "approved") {
+    activatePromotion(normalizedTerm, promotion.aliases);
+  }
+}
+
+export async function listPendingAliasPromotions(): Promise<SceneAliasPromotion[]> {
+  const rows = await db
+    .select()
+    .from(sceneAliasPromotionsTable)
+    .where(eq(sceneAliasPromotionsTable.status, "pending"))
+    .orderBy(sql`${sceneAliasPromotionsTable.occurrences} DESC`)
+    .limit(100);
+
+  return rows.map((row) => ({
+    term: row.term,
+    aliases: Array.isArray(row.aliases) ? row.aliases as string[] : [],
+    occurrences: row.occurrences,
+    source: row.source,
+    status: (row.status ?? "pending") as AliasPromotionStatus,
+  }));
+}
+
+export async function approveAliasPromotion(term: string): Promise<SceneAliasPromotion | null> {
+  const normalized = normalizeTerm(term);
+  const [row] = await db
+    .select()
+    .from(sceneAliasPromotionsTable)
+    .where(eq(sceneAliasPromotionsTable.term, normalized))
+    .limit(1);
+  if (!row) return null;
+
+  await db
+    .update(sceneAliasPromotionsTable)
+    .set({ status: "approved", updatedAt: new Date() })
+    .where(eq(sceneAliasPromotionsTable.term, normalized));
+
+  const promotion: SceneAliasPromotion = {
+    term: row.term,
+    aliases: Array.isArray(row.aliases) ? row.aliases as string[] : [],
+    occurrences: row.occurrences,
+    source: row.source,
+    status: "approved",
+  };
+  activatePromotion(promotion.term, promotion.aliases);
+  return promotion;
+}
+
+export async function rejectAliasPromotion(term: string): Promise<SceneAliasPromotion | null> {
+  const normalized = normalizeTerm(term);
+  const [row] = await db
+    .select()
+    .from(sceneAliasPromotionsTable)
+    .where(eq(sceneAliasPromotionsTable.term, normalized))
+    .limit(1);
+  if (!row) return null;
+
+  await db
+    .update(sceneAliasPromotionsTable)
+    .set({ status: "rejected", updatedAt: new Date() })
+    .where(eq(sceneAliasPromotionsTable.term, normalized));
+
+  return {
+    term: row.term,
+    aliases: Array.isArray(row.aliases) ? row.aliases as string[] : [],
+    occurrences: row.occurrences,
+    source: row.source,
+    status: "rejected",
+  };
+}
+
+export async function queueHarvestedAliasesForReview(
+  rawPool?: pg.Pool,
+  opts?: { days?: number; minOccurrences?: number; limit?: number; inferAliases?: (term: string) => string[] },
+): Promise<SceneAliasPromotion[]> {
+  const days = opts?.days ?? 60;
+  const minOccurrences = opts?.minOccurrences ?? 5;
+  const limit = opts?.limit ?? 40;
+  const infer = opts?.inferAliases ?? ((term: string) => [term]);
+
+  if (!rawPool) return [];
+
+  const harvested = await summarizeHarvestedTerms(rawPool, { days, minOccurrences, limit });
+
+  const queued: SceneAliasPromotion[] = [];
+  for (const row of harvested) {
+    const aliases = infer(row.term);
+    const promotion: SceneAliasPromotion = {
+      term: row.term,
+      aliases,
+      occurrences: row.occurrences,
+      source: "harvest_review",
+      status: "pending",
+    };
+    await upsertSceneAliasPromotion(promotion);
+    queued.push(promotion);
+  }
+  return queued;
 }
 
 export async function loadSceneAliasPromotions(
@@ -56,9 +173,11 @@ export async function loadSceneAliasPromotions(
       aliases: string[];
       occurrences: number;
       source: string;
+      status: string;
     }>(
-      `SELECT term, aliases, occurrences, source
+      `SELECT term, aliases, occurrences, source, status
        FROM scene_alias_promotions
+       WHERE status = 'approved'
        ORDER BY occurrences DESC, updated_at DESC
        LIMIT $1`,
       [limit],
@@ -68,12 +187,14 @@ export async function loadSceneAliasPromotions(
       aliases: Array.isArray(row.aliases) ? row.aliases : [],
       occurrences: Number(row.occurrences),
       source: row.source,
+      status: (row.status as AliasPromotionStatus) ?? "approved",
     }));
   }
 
   const rows = await db
     .select()
     .from(sceneAliasPromotionsTable)
+    .where(eq(sceneAliasPromotionsTable.status, "approved"))
     .orderBy(sql`${sceneAliasPromotionsTable.occurrences} DESC`)
     .limit(limit);
 
@@ -82,6 +203,7 @@ export async function loadSceneAliasPromotions(
     aliases: Array.isArray(row.aliases) ? row.aliases as string[] : [],
     occurrences: row.occurrences,
     source: row.source,
+    status: (row.status ?? "approved") as AliasPromotionStatus,
   }));
 }
 
@@ -91,11 +213,12 @@ export async function warmSceneAliasPromotionsFromDb(
   try {
     const rows = await loadSceneAliasPromotions(rawPool);
     for (const row of rows) {
-      registerRuntimeSceneAliases(row.term, row.aliases);
-      registerPromotedGraphAliases(row.term, row.aliases);
+      if (row.status === "approved") {
+        activatePromotion(row.term, row.aliases);
+      }
     }
     if (rows.length > 0) {
-      logger.info({ count: rows.length }, "Scene alias promotions loaded from DB");
+      logger.info({ count: rows.length }, "Approved scene alias promotions loaded");
     }
     return rows.length;
   } catch (err) {
@@ -108,24 +231,5 @@ export async function autoPromoteHarvestedTerms(
   rawPool: pg.Pool,
   opts: { days?: number; minOccurrences?: number; limit?: number; inferAliases: (term: string) => string[] },
 ): Promise<SceneAliasPromotion[]> {
-  const days = opts.days ?? 60;
-  const minOccurrences = opts.minOccurrences ?? 5;
-  const limit = opts.limit ?? 40;
-
-  const harvested = await summarizeHarvestedTerms(rawPool, { days, minOccurrences, limit });
-  const promoted: SceneAliasPromotion[] = [];
-
-  for (const row of harvested) {
-    const aliases = opts.inferAliases(row.term);
-    const promotion: SceneAliasPromotion = {
-      term: row.term,
-      aliases,
-      occurrences: row.occurrences,
-      source: "harvest_auto",
-    };
-    await upsertSceneAliasPromotion(promotion);
-    promoted.push(promotion);
-  }
-
-  return promoted;
+  return queueHarvestedAliasesForReview(rawPool, opts);
 }

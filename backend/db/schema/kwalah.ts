@@ -118,8 +118,47 @@ export const sceneAliasPromotionsTable = pgTable("scene_alias_promotions", {
   aliases: jsonb("aliases").notNull().default([]),
   occurrences: integer("occurrences").notNull().default(0),
   source: text("source").notNull().default("harvest"),
+  status: text("status").notNull().default("pending"),
   promotedAt: timestamp("promoted_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const userTasteGraphTable = pgTable("user_taste_graph", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().unique(),
+  nodes: jsonb("nodes").notNull().default([]),
+  edges: jsonb("edges").notNull().default([]),
+  genreWeights: jsonb("genre_weights").notNull().default({}),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const userGlobalTasteTable = pgTable("user_global_taste", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().unique(),
+  genreWeights: jsonb("genre_weights").notNull().default({}),
+  sceneWeights: jsonb("scene_weights").notNull().default({}),
+  artistWeights: jsonb("artist_weights").notNull().default({}),
+  generationCount: integer("generation_count").notNull().default(0),
+  avgCoherence: real("avg_coherence"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const sceneCultureEmbeddingsTable = pgTable("scene_culture_embeddings", {
+  id: serial("id").primaryKey(),
+  entityKey: text("entity_key").notNull().unique(),
+  entityType: text("entity_type").notNull(),
+  label: text("label").notNull(),
+  embedding: jsonb("embedding").notNull().default([]),
+  genreFamilies: jsonb("genre_families").notNull().default([]),
+  metadata: jsonb("metadata").notNull().default({}),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const trendSnapshotsTable = pgTable("trend_snapshots", {
+  id: serial("id").primaryKey(),
+  source: text("source").notNull(),
+  trends: jsonb("trends").notNull().default([]),
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
 });
 
 export const promptSceneMemoryTable = pgTable("prompt_scene_memory", {

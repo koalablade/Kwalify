@@ -4,7 +4,7 @@
 
 import type pg from "pg";
 import { summarizeHarvestedTerms } from "./unknown-term-harvest";
-import { warmSceneAliasPromotionsFromDb, autoPromoteHarvestedTerms } from "./alias-promotion-store";
+import { warmSceneAliasPromotionsFromDb, queueHarvestedAliasesForReview } from "./alias-promotion-store";
 import { logger } from "./logger";
 
 const GENRE_HINTS = ["rock", "metal", "indie", "punk", "blues", "folk", "country", "electronic", "hip_hop", "pop", "rnb"];
@@ -58,7 +58,7 @@ export async function warmHarvestedAliasPromotions(
   try {
     const dbCount = await warmSceneAliasPromotionsFromDb(rawPool);
     if (opts?.autoPromote !== false) {
-      await autoPromoteHarvestedTerms(rawPool, {
+      await queueHarvestedAliasesForReview(rawPool, {
         days,
         minOccurrences: Math.max(minOccurrences, 5),
         limit,

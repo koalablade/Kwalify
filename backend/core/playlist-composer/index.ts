@@ -26,6 +26,8 @@ import type { HumanIntent } from "../../lib/intent-decoder";
 import type { SurpriseMix } from "../../lib/human-surprise";
 import { modeWildcardScale } from "../../lib/vibe-match-guards";
 import type { CanonicalSceneResult } from "../../lib/scene-canonicalizer";
+import type { WorldBoundary } from "../world-boundary";
+import { isTrackInWorld, trackGenreFamilyForBoundary } from "../world-boundary";
 import { placeEmotionalPeak } from "./emotional-peak";
 import { applyEmotionalGradientFlow } from "./emotional-gradient-flow";
 import type { TrackGravityProfile } from "../scoring-engine/taste-gravity";
@@ -63,6 +65,8 @@ export interface ComposePlaylistInput<T extends {
   recentTrackPenalty?: Map<string, number>;
   /** When scene lock is active, filter discovery pool to ecosystem-compliant tracks only */
   ecosystemVector?: SemanticSceneVector;
+  /** Hard world boundary — blocks off-scene surprise injection */
+  worldBoundary?: WorldBoundary | null;
 }
 
 type ComposePoolTrack = {
@@ -289,21 +293,31 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
   // When ecosystem lock is active, restrict discovery pool to ecosystem-compliant tracks only.
   // This prevents anti-genre tracks leaking in through the controlled-surprise injection path.
   const rawWildcardPool = sortedPool.slice(0, Math.min(sortedPool.length, poolTarget * 3));
-  const wildcardPool = input.ecosystemVector
+  const wildcardPool = input.worldBoundary?.active
+    ? rawWildcardPool.filter((t) => isTrackInWorld(
+      {
+        trackId: t.trackId,
+        genreFamily: trackGenreFamilyForBoundary(t as { trackId: string; genrePrimary?: string | null }),
+      },
+      input.worldBoundary!,
+    ))
+    : input.ecosystemVector
     ? rawWildcardPool.filter((t) => {
         const classification = classifyTrack(t as unknown as { trackId: string; trackName: string; artistName: string; albumName: string; energy: number | null; valence: number | null; tempo: number | null; danceability: number | null; acousticness: number | null });
         return !isHardAntiGenre(classification, input.ecosystemVector!);
       })
     : rawWildcardPool;
   finalTracks = assignNarrativeRoles(
-    injectControlledSurprise(
-      finalTracks,
-      wildcardPool,
-      emotionProfile,
-      scaledSurprise,
-      humanIntent.intent as HumanIntent,
-      playlistLength
-    ),
+    input.worldBoundary?.hardLock
+      ? finalTracks
+      : injectControlledSurprise(
+        finalTracks,
+        wildcardPool,
+        emotionProfile,
+        scaledSurprise,
+        humanIntent.intent as HumanIntent,
+        playlistLength
+      ),
     journeyArc
   );
 

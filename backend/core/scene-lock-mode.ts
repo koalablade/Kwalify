@@ -91,8 +91,8 @@ export function resolveSceneLock(intentState: IntentState, prompt: string): Scen
     anchors: matched.map((p) => p.id),
     allowedGenreFamilies: allowed,
     offSceneGenreFamilies: offScene.filter((f) => !allowed.includes(f)),
-    boostWeight: 0.12,
-    penalizeWeight: 0.18,
+    boostWeight: 0.18,
+    penalizeWeight: 0.42,
     reason: `cultural_scene_lock:${primary.id}`,
   };
 }

@@ -7,6 +7,8 @@ import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
 import type { TrackScoringDebug } from "./hybrid-scoring";
 import { createPipelineTrace } from "./pipeline-trace";
 import type { V3TrackMetadata } from "./v3-track-contract";
+import type { SceneLockStatus } from "../core/scene-lock-mode";
+import { hardRejectOffWorldTracks, resolveWorldBoundary } from "../core/world-boundary";
 
 function fallbackScoringDebug(trackId: string): TrackScoringDebug {
   return {
@@ -61,9 +63,33 @@ export function buildFallbackPipelineResult<
   } | null | undefined;
   recentTrackPenalty?: Map<string, number>;
   artistReusePenalty?: Map<string, number>;
+  worldFilter?: {
+    sceneLock?: SceneLockStatus | null;
+    sceneAliases?: string[];
+    scenePrediction?: Record<string, number>;
+  };
 }): BuildPlaylistPipelineResult<T> {
+  const world = resolveWorldBoundary({
+    sceneLock: opts.worldFilter?.sceneLock ?? null,
+    sceneAliases: opts.worldFilter?.sceneAliases,
+    scenePrediction: opts.worldFilter?.scenePrediction,
+  });
+  let sourceTracks = opts.tracks;
+  if (world.active) {
+    const filtered = hardRejectOffWorldTracks(
+      opts.tracks.map((track) => ({
+        ...track,
+        genrePrimary: track.genrePrimary ?? opts.genreByTrack?.(track.trackId)?.genrePrimary ?? null,
+        genreFamily: track.genreFamily ?? opts.genreByTrack?.(track.trackId)?.genreFamily ?? null,
+      })),
+      world,
+    );
+    if (filtered.kept.length >= Math.max(8, Math.min(opts.playlistLength, 12))) {
+      sourceTracks = filtered.kept;
+    }
+  }
   const fb = buildFastFallbackPlaylist({
-    tracks: opts.tracks,
+    tracks: sourceTracks,
     emotionProfile: opts.emotionProfile,
     playlistLength: opts.playlistLength,
     maxPerArtist: opts.maxPerArtist,
@@ -99,6 +125,8 @@ export function buildFallbackPipelineResult<
     scoringDiagnostics: {
       fastFallback: true,
       failureReason: "time_budget",
+      worldBoundaryFiltered: world.active,
+      worldBoundaryKept: sourceTracks.length,
       scoringPool: {
         poolCapped: true,
         originalCount: opts.librarySize,

@@ -166,6 +166,46 @@ CREATE TABLE IF NOT EXISTS "prompt_scene_memory" (
 );
 CREATE INDEX IF NOT EXISTS "IDX_prompt_scene_memory_user_prompt"
   ON "prompt_scene_memory" ("user_id", "prompt_hash");
+
+ALTER TABLE "scene_alias_promotions" ADD COLUMN IF NOT EXISTS "status" text NOT NULL DEFAULT 'approved';
+
+CREATE TABLE IF NOT EXISTS "user_taste_graph" (
+  "id" serial PRIMARY KEY,
+  "user_id" text NOT NULL UNIQUE,
+  "nodes" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "edges" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "genre_weights" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "updated_at" timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS "user_global_taste" (
+  "id" serial PRIMARY KEY,
+  "user_id" text NOT NULL UNIQUE,
+  "genre_weights" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "scene_weights" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "artist_weights" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "generation_count" integer NOT NULL DEFAULT 0,
+  "avg_coherence" real,
+  "updated_at" timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS "scene_culture_embeddings" (
+  "id" serial PRIMARY KEY,
+  "entity_key" text NOT NULL UNIQUE,
+  "entity_type" text NOT NULL,
+  "label" text NOT NULL,
+  "embedding" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "genre_families" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "metadata" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "updated_at" timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS "trend_snapshots" (
+  "id" serial PRIMARY KEY,
+  "source" text NOT NULL,
+  "trends" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "fetched_at" timestamp NOT NULL DEFAULT now()
+);
 `;
 
 async function backfillShareSlugs(rawPool: pg.Pool): Promise<void> {

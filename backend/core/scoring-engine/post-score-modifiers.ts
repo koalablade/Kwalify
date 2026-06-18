@@ -29,7 +29,9 @@ import type { ScoredLibraryTrack } from "./types";
 import type { HybridScoreResult } from "../../lib/hybrid-scoring";
 import type { FeedbackMemory } from "../../lib/feedback-memory";
 import { computeSceneAliasRetrievalBoost } from "../../lib/scene-alias-retrieval-boost";
-import { tasteGraphRetrievalBoost, type TasteMemoryGraph } from "../../lib/taste-memory-graph";
+import { tasteGraphV2RetrievalBoost, type TasteGraphV2 } from "../../lib/taste-graph-v2";
+import { cultureRetrievalBoost } from "../../lib/scene-culture-graph";
+import { globalTasteRetrievalBoost, type GlobalTasteProfile } from "../../lib/global-taste-profile";
 import { trendRetrievalBoost } from "../../lib/trend-ingestion";
 
 function metadataGenreMatch(genres: unknown, vibe: string): number {
@@ -74,7 +76,9 @@ export interface PostScoreModifierInput<T extends { trackId: string; artistName:
   curatorScoreByTrack?: Map<string, number>;
   sceneAliases?: string[];
   scenePrediction?: Record<string, number>;
-  tasteGraph?: TasteMemoryGraph | null;
+  tasteGraphV2?: TasteGraphV2 | null;
+  globalTasteProfile?: GlobalTasteProfile | null;
+  globalGenreFamily?: string | null;
   trendPrompt?: string;
 }
 
@@ -160,11 +164,24 @@ export function applyPostScoreModifiers<T extends {
         input.scenePrediction ?? {},
       );
     }
-    if (input.tasteGraph) {
-      score += tasteGraphRetrievalBoost(enriched, input.tasteGraph);
+    if (input.tasteGraphV2) {
+      score += tasteGraphV2RetrievalBoost(enriched, input.tasteGraphV2);
+    }
+    if (input.globalTasteProfile) {
+      score += globalTasteRetrievalBoost(enriched.genreFamily, input.globalTasteProfile);
+    } else if (input.globalGenreFamily && input.tasteGraphV2) {
+      score += globalTasteRetrievalBoost(enriched.genreFamily ?? input.globalGenreFamily, {
+        userId: "",
+        genreWeights: input.tasteGraphV2.genreWeights,
+        sceneWeights: input.tasteGraphV2.memoryGraph.sceneAffinity,
+        artistWeights: input.tasteGraphV2.memoryGraph.artistAffinity,
+        generationCount: 0,
+        avgCoherence: null,
+      });
     }
     if (input.trendPrompt) {
       score += trendRetrievalBoost(input.trendPrompt);
+      score += cultureRetrievalBoost(input.trendPrompt);
     }
     if (typeof enriched.popularity === "number") {
       const popularityBalance = 1 - Math.abs(enriched.popularity - 58) / 100;

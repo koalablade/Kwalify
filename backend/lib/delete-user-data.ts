@@ -9,7 +9,10 @@ import {
   syncStatusTable,
   unknownTermEventsTable,
   promptSceneMemoryTable,
+  sceneAliasPromotionsTable,
   userFeedbackMemoryTable,
+  userGlobalTasteTable,
+  userTasteGraphTable,
 } from "../db";
 
 /** Delete all Kwalify-stored data for a Spotify user id. */
@@ -37,6 +40,8 @@ export async function deleteUserData(
   await db.delete(userFeedbackMemoryTable).where(eq(userFeedbackMemoryTable.userId, spotifyUserId));
   await db.delete(unknownTermEventsTable).where(eq(unknownTermEventsTable.userId, spotifyUserId));
   await db.delete(promptSceneMemoryTable).where(eq(promptSceneMemoryTable.userId, spotifyUserId));
+  await db.delete(userGlobalTasteTable).where(eq(userGlobalTasteTable.userId, spotifyUserId));
+  await db.delete(userTasteGraphTable).where(eq(userTasteGraphTable.userId, spotifyUserId));
 
   if (rawPool) {
     await rawPool.query(
