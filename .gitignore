@@ -61,3 +61,7 @@ diversity-activation-audit.md
 # Replit
 .cache/
 .local/
+
+# Local secrets (never commit)
+.env
+.env.local

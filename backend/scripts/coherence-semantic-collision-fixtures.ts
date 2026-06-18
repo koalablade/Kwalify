@@ -11,6 +11,7 @@ import {
   EXPANDED_TIME_TERMS,
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
+import { evaluateHarvestedAlias } from "../lib/semantic-collision-guards";
 
 type Place = "rural" | "outdoors" | "city" | "beach" | "bedroom" | "car";
 
@@ -243,6 +244,46 @@ const FIXTURES: Fixture[] = [
       detail: `mood=${locked.mood.join(",")}`,
     }),
   },
+  {
+    id: "drill-workout-not-rap",
+    prompt: "drill workout football training playlist",
+    check: ({ locked }) => ({
+      pass: !locked.genreFamilies.includes("hip_hop") && locked.primarySubgenre !== "drill",
+      detail: `families=${locked.genreFamilies.join(",")} sub=${locked.primarySubgenre ?? "none"}`,
+    }),
+  },
+  {
+    id: "uk-drill-workout-keeps-rap",
+    prompt: "uk drill workout gym playlist",
+    check: ({ locked }) => ({
+      pass: locked.genreFamilies.includes("hip_hop") && (locked.primarySubgenre === "uk_drill" || locked.subgenreTerms.includes("uk_drill")),
+      detail: `families=${locked.genreFamilies.join(",")} sub=${locked.primarySubgenre ?? "none"}`,
+    }),
+  },
+  {
+    id: "progressive-overload-not-house",
+    prompt: "progressive overload leg day gym playlist",
+    check: ({ locked }) => ({
+      pass: !locked.genreFamilies.includes("electronic") && locked.primarySubgenre !== "progressive_house",
+      detail: `families=${locked.genreFamilies.join(",")} sub=${locked.primarySubgenre ?? "none"}`,
+    }),
+  },
+  {
+    id: "progressive-house-keeps-electronic",
+    prompt: "progressive house sunset drive playlist",
+    check: ({ locked }) => ({
+      pass: locked.genreFamilies.includes("electronic"),
+      detail: `families=${locked.genreFamilies.join(",")}`,
+    }),
+  },
+];
+
+const ALIAS_REJECTION_FIXTURES: Array<{ id: string; term: string; expectRejected: boolean; reason?: string }> = [
+  { id: "alias-reject-bare-garage", term: "garage", expectRejected: true, reason: "bare_collision" },
+  { id: "alias-reject-bare-house", term: "house", expectRejected: true, reason: "bare_collision" },
+  { id: "alias-reject-bare-drill", term: "drill", expectRejected: true, reason: "bare_collision" },
+  { id: "alias-accept-uk-garage", term: "uk garage", expectRejected: false },
+  { id: "alias-reject-fitness-drill", term: "drill workout", expectRejected: true, reason: "fitness_drill" },
 ];
 
 function main(): void {
@@ -253,8 +294,20 @@ function main(): void {
     const outcome = fixture.check({ locked, pipeline, places });
     return { id: fixture.id, pass: outcome.pass, detail: outcome.detail };
   });
-  const failed = results.filter((row) => !row.pass);
-  process.stdout.write(`${JSON.stringify({ pass: failed.length === 0, total: results.length, failed: failed.length, results }, null, 2)}\n`);
+  const aliasResults = ALIAS_REJECTION_FIXTURES.map((fixture) => {
+    const outcome = evaluateHarvestedAlias(fixture.term);
+    const pass = fixture.expectRejected
+      ? outcome.rejected && (!fixture.reason || outcome.reason.startsWith(fixture.reason))
+      : !outcome.rejected;
+    return {
+      id: fixture.id,
+      pass,
+      detail: outcome.rejected ? outcome.reason : "accepted",
+    };
+  });
+  const allResults = [...results, ...aliasResults];
+  const failed = allResults.filter((row) => !row.pass);
+  process.stdout.write(`${JSON.stringify({ pass: failed.length === 0, total: allResults.length, failed: failed.length, results: allResults }, null, 2)}\n`);
   if (failed.length > 0) process.exit(1);
 }
 

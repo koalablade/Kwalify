@@ -130,7 +130,13 @@ export function shouldSuppressGenreTerm(input: string, family: string, term: str
   if (family === "hip_hop" && normalized === "drill") {
     if (hasDrillMusicContext(input)) return false;
     if (hasConstructionDrillContext(input)) return true;
+    if (hasFitnessDrillContext(input)) return true;
     if (/\bdrill\s+workout\b/i.test(input) && !/\b(?:uk|london|rap|drill\s+music)\b/i.test(input)) return true;
+  }
+
+  if ((family === "electronic" || family === "metal") && /\bprogressive\b/i.test(normalized)) {
+    if (hasProgressiveMusicContext(input)) return false;
+    if (hasFitnessProgressiveContext(input)) return true;
   }
 
   if (family === "hip_hop" && normalized === "trap") {
@@ -167,7 +173,8 @@ export function shouldSuppressSubgenre(input: string, family: string, subgenreId
   if (subgenreId === "trap" && (hasTrapPlaceContext(input) || /\btrap\s+house\b/i.test(input))) return true;
   if (subgenreId === "blues" && hasMoodBluesContext(input) && !hasBluesMusicContext(input)) return true;
   if (subgenreId === "ambient" && hasAtmosphereAmbientContext(input) && !/\bambient\s+(?:music|house|techno|playlist)\b/i.test(input)) return true;
-  if (subgenreId === "drill" && hasConstructionDrillContext(input) && !hasDrillMusicContext(input)) return true;
+  if (subgenreId === "drill" && (hasConstructionDrillContext(input) || hasFitnessDrillContext(input)) && !hasDrillMusicContext(input)) return true;
+  if (subgenreId === "progressive_house" && hasFitnessProgressiveContext(input) && !hasProgressiveMusicContext(input)) return true;
   if (
     (subgenreId === "industrial_techno" || subgenreId === "industrial_metal") &&
     hasIndustrialWorkContext(input) &&
@@ -178,14 +185,86 @@ export function shouldSuppressSubgenre(input: string, family: string, subgenreId
   return false;
 }
 
+export function hasFitnessDrillContext(input: string): boolean {
+  return /\b(?:drill\s+workout|workout\s+drills?|fitness\s+drills?|football\s+drills?|soccer\s+drills?|training\s+drills?|cone\s+drills?|passing\s+drills?)\b/i.test(input);
+}
+
+export function hasFitnessProgressiveContext(input: string): boolean {
+  return /\bprogressive\s+overload\b/i.test(input) ||
+    /\b(?:progressive|linear)\s+(?:training|program|overload|periodization)\b/i.test(input);
+}
+
+export function hasProgressiveMusicContext(input: string): boolean {
+  return /\bprogressive\s+(?:house|trance|metal|rock|electronic|djent|death)\b/i.test(input);
+}
+
+const BARE_COLLISION_ALIAS_TERMS = new Set([
+  "garage", "house", "drill", "jungle", "trap", "ambient", "industrial",
+  "underground", "country", "blues", "rave", "metal", "punk", "emo", "folk", "soul", "pop",
+]);
+
+export type HarvestAliasRejection = { rejected: true; reason: string } | { rejected: false };
+
+export function evaluateHarvestedAlias(term: string): HarvestAliasRejection {
+  const normalized = term.toLowerCase().trim().replace(/\s+/g, " ");
+  const slug = normalized.replace(/\s+/g, "-");
+  if (!normalized) return { rejected: true, reason: "empty_term" };
+  if (BARE_COLLISION_ALIAS_TERMS.has(normalized) || BARE_COLLISION_ALIAS_TERMS.has(slug)) {
+    return { rejected: true, reason: `bare_collision:${normalized}` };
+  }
+  if (hasDomesticHouseContext(term) && !hasHouseMusicContext(term)) {
+    return { rejected: true, reason: "domestic_house" };
+  }
+  if (hasRuralCountryContext(term) && !hasCountryMusicContext(term)) {
+    return { rejected: true, reason: "rural_country_place" };
+  }
+  if (hasNatureJungleContext(term) && !hasJungleMusicContext(term)) {
+    return { rejected: true, reason: "nature_jungle" };
+  }
+  if (hasFitnessDrillContext(term) && !hasDrillMusicContext(term)) {
+    return { rejected: true, reason: "fitness_drill" };
+  }
+  if (hasFitnessProgressiveContext(term) && !hasProgressiveMusicContext(term)) {
+    return { rejected: true, reason: "fitness_progressive" };
+  }
+  if (/\btrap\s+house\b/i.test(term)) return { rejected: true, reason: "trap_house_place" };
+  return { rejected: false };
+}
+
+export function shouldBlockSceneMatch(prompt: string, sceneId: string): boolean {
+  if (sceneId === "PETROL_STATION_2AM" && /\b(?:ukg|uk\s+garage|grime|uk\s+rap|uk\s+drill)\b/i.test(prompt)) {
+    return true;
+  }
+  if (sceneId === "RAVE_90S_UK" && hasNatureJungleContext(prompt) && !hasJungleMusicContext(prompt)) {
+    return true;
+  }
+  return false;
+}
+
+export function shouldSuppressEmotionGenreCue(input: string, matchedTerm: string): boolean {
+  const term = matchedTerm.toLowerCase().trim();
+  const familyHints: Array<{ family: string; pattern: RegExp }> = [
+    { family: "electronic", pattern: /\b(?:house|techno|jungle|ambient|edm|dnb|drum and bass)\b/ },
+    { family: "hip_hop", pattern: /\b(?:drill|trap|rap|grime)\b/ },
+    { family: "country", pattern: /\bcountry\b/ },
+    { family: "blues", pattern: /\bblues\b/ },
+    { family: "metal", pattern: /\b(?:metal|metalcore)\b/ },
+  ];
+  for (const { family, pattern } of familyHints) {
+    if (pattern.test(term) && shouldSuppressGenreTerm(input, family, term)) return true;
+  }
+  if (/\bprogressive\b/i.test(term) && shouldSuppressGenreTerm(input, "electronic", term)) return true;
+  return false;
+}
+
 export function shouldSuppressGenreFamily(input: string, family: string): boolean {
   if (family === "country" && hasRuralCountryContext(input) && !hasCountryMusicContext(input)) return true;
   if (family === "electronic" && hasDomesticHouseContext(input) && !hasHouseMusicContext(input)) return true;
   if (family === "electronic" && /\btrap\s+house\b/i.test(input) && !hasHouseMusicContext(input)) return true;
   if (family === "electronic" && hasNatureJungleContext(input) && !hasJungleMusicContext(input)) return true;
   if (family === "blues" && (hasMoodBluesContext(input) || /\bfeeling\s+(?:the\s+)?blues\b/i.test(input)) && !hasBluesMusicContext(input)) return true;
-  if (family === "hip_hop" && hasTrapPlaceContext(input) && !hasDrillMusicContext(input) && !/\b(?:trap\s+music|trap\s+beats?|trap\s+rap)\b/i.test(input)) return true;
-  if ((family === "electronic" || family === "metal") && hasIndustrialWorkContext(input) && !hasIndustrialMusicContext(input)) return true;
+  if (family === "hip_hop" && (hasTrapPlaceContext(input) || hasFitnessDrillContext(input)) && !hasDrillMusicContext(input) && !/\b(?:trap\s+music|trap\s+beats?|trap\s+rap)\b/i.test(input)) return true;
+  if ((family === "electronic" || family === "metal") && (hasIndustrialWorkContext(input) || hasFitnessProgressiveContext(input)) && !hasIndustrialMusicContext(input) && !hasProgressiveMusicContext(input)) return true;
   if (family === "electronic" && hasAtmosphereAmbientContext(input) && !/\bambient\s+(?:music|house|techno|playlist)\b/i.test(input)) return true;
   return false;
 }

@@ -43,6 +43,8 @@ These variables are used in the codebase but are **not** declared or validated i
 | Variable | Default | Used In | Description |
 |---|---|---|---|
 | `LOG_LEVEL` | `"info"` | `backend/lib/logger.ts` | Pino log level. Values: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`, `"fatal"` |
+| `PLAYLIST_EVAL_TOKEN` | undefined | `backend/routes/eval.ts`, generation audit mode | Shared secret for eval/audit API. Must match on Render and GitHub Actions. |
+| `SMOKE_SPOTIFY_USER_ID` | undefined | CI live coherence scripts | Spotify user ID for live regression (GitHub secret; optional locally). |
 | `KWALIFY_DETERMINISTIC` | undefined | `backend/core/debug/stability-config.ts` | Set to `"1"` to enable deterministic mode in the scoring engine. Used for testing reproducibility. |
 
 ## Variable Interactions
@@ -91,6 +93,7 @@ NODE_ENV=production
 APP_URL=https://kwalify.net
 FRONTEND_URL=https://www.kwalify.net
 LOG_LEVEL=info
+PLAYLIST_EVAL_TOKEN=your-shared-eval-token
 ```
 
 ## Replit Secrets

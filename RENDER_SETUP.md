@@ -71,6 +71,7 @@ In the web service → **Environment** → add:
 | `APP_URL` | `https://kwalify.net` | Canonical public URL; enables redirect from `*.onrender.com` |
 | `SPOTIFY_REDIRECT_URI` | `https://kwalify.net/api/auth/callback` | **Must match Spotify exactly** |
 | `FRONTEND_URL` | `https://kwalify.net,https://www.kwalify.net` | Comma-separated CORS origins (no trailing slashes) |
+| `PLAYLIST_EVAL_TOKEN` | *(same value on GitHub Actions)* | Enables audit/eval playlist generation + live CI regression. Alphanumeric recommended. |
 
 **Do not set `PORT`** — Render sets it automatically.
 

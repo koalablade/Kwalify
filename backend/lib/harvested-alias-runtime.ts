@@ -3,6 +3,7 @@
  */
 
 import type pg from "pg";
+import { evaluateHarvestedAlias } from "./semantic-collision-guards";
 import { summarizeHarvestedTerms } from "./unknown-term-harvest";
 import { warmSceneAliasPromotionsFromDb, queueHarvestedAliasesForReview } from "./alias-promotion-store";
 import { logger } from "./logger";
@@ -20,7 +21,10 @@ function inferPromotion(term: string): string[] {
   const hits = GENRE_HINTS.filter((genre) => normalized.includes(genre.replace("_", "")));
   if (hits.length >= 2) return hits.slice(0, 4);
   if (hits.length === 1) return [hits[0]!, "indie", "rock"];
-  if (/\b(car|garage|workshop|volvo|saab|bmw|mx-?5|e46)\b/i.test(term)) {
+  if (/\b(?:ukg|uk\s+garage|grime|uk\s+rap|uk\s+drill)\b/i.test(term)) {
+    return ["hip_hop", "electronic"];
+  }
+  if (/\b(?:workshop|volvo|saab|bmw|mx-?5|e46|fixing\s+cars?|project\s+car)\b/i.test(term)) {
     return ["blues", "indie", "rock", "folk"];
   }
   if (/\b(kerrang|emo|skate|punk)\b/i.test(term)) {
@@ -68,6 +72,7 @@ export async function warmHarvestedAliasPromotions(
     } else {
       const rows = await summarizeHarvestedTerms(rawPool, { days, minOccurrences, limit });
       for (const row of rows) {
+        if (evaluateHarvestedAlias(row.term).rejected) continue;
         registerRuntimeSceneAliases(row.term, inferPromotion(row.term));
       }
       if (rows.length > 0) {

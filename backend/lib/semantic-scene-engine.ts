@@ -14,6 +14,7 @@
 
 import type { RootGenre, TrackGenreClassification } from "./genre-taxonomy";
 import type { EmotionProfile } from "./emotion";
+import { shouldBlockSceneMatch } from "./semantic-collision-guards";
 
 export interface SemanticSceneVector {
   id: string;
@@ -1251,7 +1252,7 @@ const SCENE_DETECTION_PATTERNS: {
     id: "PETROL_STATION_2AM",
     patterns: [
       /\b(petrol station|gas station).{0,30}(2am|3am|late night|midnight|night)\b/i,
-      /\b(2am|3am).{0,30}(petrol|gas station|garage|forecourt)\b/i,
+      /\b(2am|3am).{0,30}(petrol|gas station|forecourt)\b/i,
       /\b(service station.{0,20}(midnight|night|late|2am)|late.{0,15}service station)\b/i,
     ],
     confidence: 0.95,
@@ -1974,6 +1975,7 @@ export function resolveSemanticScene(
   const matches: { id: string; confidence: number }[] = [];
 
   for (const entry of SCENE_DETECTION_PATTERNS) {
+    if (shouldBlockSceneMatch(vibe, entry.id)) continue;
     if (entry.patterns.some((re) => re.test(vibe))) {
       matches.push({ id: entry.id, confidence: entry.confidence });
     }

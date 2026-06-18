@@ -7,13 +7,14 @@ import { db, sceneAliasPromotionsTable } from "../db";
 import { eq, sql, and } from "drizzle-orm";
 import { registerRuntimeSceneAliases } from "./harvested-alias-runtime";
 import { registerPromotedGraphAliases } from "./scene-alias-graph";
+import { evaluateHarvestedAlias } from "./semantic-collision-guards";
 import { summarizeHarvestedTerms } from "./unknown-term-harvest";
 import { logger } from "./logger";
 
 // Avoid circular import — inferPromotion duplicated lightly for queue path
 function defaultInferAliases(term: string): string[] {
   const normalized = term.toLowerCase().trim();
-  if (/\b(volvo|garage|saab|bmw)\b/i.test(normalized)) return ["blues", "indie", "rock", "folk"];
+  if (/\b(?:volvo|workshop|saab|bmw|mx-?5|e46|fixing)\b/i.test(normalized)) return ["blues", "indie", "rock", "folk"];
   if (/\b(kerrang|emo|punk)\b/i.test(normalized)) return ["rock", "metal", "indie", "punk"];
   return ["indie", "rock"];
 }
@@ -88,6 +89,11 @@ export async function listPendingAliasPromotions(): Promise<SceneAliasPromotion[
 
 export async function approveAliasPromotion(term: string): Promise<SceneAliasPromotion | null> {
   const normalized = normalizeTerm(term);
+  const rejection = evaluateHarvestedAlias(normalized.replace(/-/g, " "));
+  if (rejection.rejected) {
+    logger.warn({ term: normalized, reason: rejection.reason }, "Rejected alias promotion with collision risk");
+    return rejectAliasPromotion(term);
+  }
   const [row] = await db
     .select()
     .from(sceneAliasPromotionsTable)
@@ -149,6 +155,17 @@ export async function queueHarvestedAliasesForReview(
 
   const queued: SceneAliasPromotion[] = [];
   for (const row of harvested) {
+    const rejection = evaluateHarvestedAlias(row.term);
+    if (rejection.rejected) {
+      await upsertSceneAliasPromotion({
+        term: row.term,
+        aliases: [],
+        occurrences: row.occurrences,
+        source: `harvest_review:${rejection.reason}`,
+        status: "rejected",
+      });
+      continue;
+    }
     const aliases = infer(row.term);
     const promotion: SceneAliasPromotion = {
       term: row.term,

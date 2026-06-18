@@ -23,6 +23,7 @@
     "quality:stress": "npm run build && node backend/dist/scripts/playlist-stress-report.js",
     "smoke:deploy": "npm run build && node backend/dist/scripts/deploy-smoke.js",
     "verify:eval-token": "node scripts/verify-eval-token.mjs",
+    "sync:eval-token": "powershell -ExecutionPolicy Bypass -File scripts/sync-eval-token.ps1",
     "harvest:unknown-terms": "npm run build && node backend/dist/scripts/harvest-unknown-terms.js",
     "promote:aliases": "npm run build && node backend/dist/scripts/promote-harvested-aliases.js",
     "promote:aliases:apply": "npm run build && node backend/dist/scripts/promote-harvested-aliases.js -- --apply",

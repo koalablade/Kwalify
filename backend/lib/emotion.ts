@@ -29,6 +29,7 @@ import {
   getSceneJourneyArc,
   matchExperienceScene,
 } from "./scene-intelligence";
+import { shouldSuppressEmotionGenreCue } from "./semantic-collision-guards";
 
 export type { JourneyArc };
 export { detectJourneyArc, parseEmotionalDestination } from "./emotion-destination";
@@ -730,7 +731,7 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
     artistOrGenreCue: true,
   },
   {
-    terms: ["drill", "uk drill", "chicago drill", "trap", "dark trap"],
+    terms: ["uk drill", "chicago drill", "trap music", "dark trap"],
     weights: { energy: 0.35, valence: -0.15, tension: 0.4, nostalgia: -0.1, calm: -0.35 },
     artistOrGenreCue: true,
   },
@@ -1060,6 +1061,7 @@ export function analyzeVibe(vibe: string): EmotionProfile {
     }
 
     if (!matchedTerm) continue;
+    if (keyword.artistOrGenreCue && shouldSuppressEmotionGenreCue(text, matchedTerm)) continue;
 
     if (hasSpecificScene) {
       const onlyGenericTime = keyword.terms.every((t) =>
