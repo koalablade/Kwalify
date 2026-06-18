@@ -11,10 +11,12 @@ import router from "./routes/routes.index";
 import healthRouter from "./routes/health";
 import evalRouter from "./routes/eval";
 import evalAdminRouter from "./routes/eval-admin";
+import opsRouter from "./routes/ops";
 import { logger } from "./lib/logger";
 import { type AppEnv } from "./lib/env";
 import { getRuntimeReadiness, isRuntimeReady } from "./lib/runtime-readiness";
 import { acquireGenerateSlot, getGenerateOverloadState, recordGenerateLatency } from "./lib/runtime-overload";
+import { recordServerBusy } from "./lib/ops-metrics";
 import { globalRateLimit } from "./lib/global-rate-limit";
 import "./lib/session";
 
@@ -170,6 +172,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.use("/api", healthRouter);
   app.use("/api", evalRouter);
   app.use("/api", evalAdminRouter);
+  app.use("/api", opsRouter);
 
   app.use((req, res, next) => {
     if (!req.path.startsWith("/api") || isRuntimeReady()) return next();
@@ -194,6 +197,13 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       releaseSlot = await acquireGenerateSlot();
     } catch (_err) {
       const overload = getGenerateOverloadState();
+      recordServerBusy({
+        active: overload.active,
+        queued: overload.queued,
+        limit: overload.limit,
+        queueLimit: overload.queueLimit,
+        requestId: String(req.id),
+      });
       res.setHeader("Retry-After", "10");
       res.status(503).json({
         success: false,

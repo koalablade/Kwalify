@@ -29,6 +29,8 @@ import { invalidateGenerateResultCache } from "../lib/generate-result-cache";
 import { enrichTrackSemanticProfile } from "../lib/track-semantic-enrichment";
 import { SEMANTIC_ENRICHMENT_VERSION } from "../lib/track-semantic-types";
 import { enrichLibrarySemanticProfiles } from "../lib/semantic-enrichment-pipeline";
+import { backfillAudioFeaturesForUser } from "../lib/audio-feature-backfill-job";
+import { recordSyncFailure } from "../lib/ops-metrics";
 import { invalidateSemanticProfileCache } from "../lib/semantic-profile-store";
 import { getFeatures } from "../lib/env";
 import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
@@ -226,6 +228,7 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
   });
 
   runSync(userId, req.session.spotifyTokens, { forceFull }).catch((err) => {
+    recordSyncFailure({ userId, phase: "sync_start", message: err instanceof Error ? err.message : String(err) });
     logger.error({ err, userId }, "Background sync failed");
     activeSyncs.delete(userId);
   });
@@ -547,6 +550,17 @@ export async function runSync(
       );
     }
 
+    if (featureCoverage < 1) {
+      try {
+        const backfill = await backfillAudioFeaturesForUser(userId, accessToken);
+        if (backfill.updated > 0) {
+          logger.info({ userId, ...backfill }, "Post-sync audio feature backfill complete");
+        }
+      } catch (err) {
+        logger.warn({ err, userId }, "Post-sync audio feature backfill skipped");
+      }
+    }
+
     logger.info(
       {
         userId,
@@ -558,6 +572,7 @@ export async function runSync(
       "Sync complete"
     );
   } catch (err) {
+    recordSyncFailure({ userId, phase: "sync_run", message: err instanceof Error ? err.message : String(err) });
     logger.error({ err, userId }, "Sync failed");
 
     await db

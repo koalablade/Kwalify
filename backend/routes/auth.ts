@@ -14,6 +14,7 @@ import { getFeatures } from "../lib/env";
 import { db, syncStatusTable } from "../db";
 import { eq } from "drizzle-orm";
 import { runSync, activeSyncs } from "./spotify";
+import { recordSyncFailure } from "../lib/ops-metrics";
 import { logger } from "../lib/logger";
 import { getPublicBaseUrl } from "../lib/public-url";
 import { deleteUserData } from "../lib/delete-user-data";
@@ -150,6 +151,7 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
           });
         activeSyncs.add(user.id);
         runSync(user.id, tokens).catch((err) => {
+          recordSyncFailure({ userId: user.id, phase: "oauth_auto_sync", message: err instanceof Error ? err.message : String(err) });
           logger.error({ err, userId: user.id }, "Background auto-sync failed");
         });
       }

@@ -12,6 +12,7 @@ import { warmHarvestedAliasPromotions } from "./lib/harvested-alias-runtime";
 import { warmSceneCultureCache, seedSceneCultureEmbeddings } from "./lib/scene-culture-graph";
 import { refreshLiveTrends } from "./lib/trend-ingestion-live";
 import { startFeedbackMemoryDecayJob } from "./lib/feedback-memory";
+import { startOpsMetricsMonitor } from "./lib/ops-metrics";
 import { setRuntimeFailed, setRuntimeInitializing, setRuntimeReady } from "./lib/runtime-readiness";
 
 const BOOT_DB_TIMEOUT_MS = 15_000;
@@ -256,6 +257,7 @@ async function bootstrap(): Promise<void> {
     .then(() => {
       logger.info({ db: "connected" }, "Server ready");
       startFeedbackMemoryDecayJob(logger);
+      startOpsMetricsMonitor();
     })
     .catch((err) => {
       setRuntimeFailed(err);
