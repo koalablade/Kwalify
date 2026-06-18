@@ -8,6 +8,7 @@ import { logger } from "./lib/logger";
 import { runDbInit } from "./lib/db-init";
 import { beginGracefulShutdown } from "./lib/shutdown";
 import { warmGenreOntologyAtBoot } from "./lib/warm-genre-ontology";
+import { warmHarvestedAliasPromotions } from "./lib/harvested-alias-runtime";
 import { startFeedbackMemoryDecayJob } from "./lib/feedback-memory";
 import { setRuntimeFailed, setRuntimeInitializing, setRuntimeReady } from "./lib/runtime-readiness";
 
@@ -155,6 +156,9 @@ async function finishRuntimeInitialization(rawPool: pg.Pool, env: AppEnv): Promi
   await verifyStartupHealth(rawPool, env);
 
   warmGenreOntologyAtBoot();
+  void warmHarvestedAliasPromotions(rawPool).catch((err) => {
+    logger.warn({ err }, "[boot] Harvested alias warm skipped");
+  });
   setRuntimeReady();
 }
 

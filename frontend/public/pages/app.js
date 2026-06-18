@@ -364,6 +364,14 @@ const state = {
   playlists: [],
   history: [],
   mode: "balanced",
+  familiarity: (() => {
+    try {
+      const saved = localStorage.getItem("kwalify-familiarity");
+      return saved === "safe" || saved === "discovery" ? saved : "balanced";
+    } catch {
+      return "balanced";
+    }
+  })(),
   length: 40,
   noLibraryMode: false,
   generating: false,
@@ -468,7 +476,7 @@ function authErrorMessage() {
   const error = new URLSearchParams(window.location.search).get("error");
   if (!error) return null;
   const messages = {
-    access_denied: "Spotify login was cancelled. Connect again when you're ready.",
+    access_denied: "Spotify login was cancelled, or your account isn't on the Kwalify allowlist yet. Ask the app owner to add your Spotify email in the Spotify Developer Dashboard → User Management.",
     no_code: "Spotify did not finish login. Please try connecting again.",
     session_failed: "Kwalify could not save your login session. Please try again.",
     auth_failed: "Spotify login failed. Please try again in a moment.",
@@ -630,6 +638,11 @@ function renderApp() {
     balanced: "Balanced: best quality and variety.",
     chaotic: "Chaotic: more surprise, still safety-checked.",
   }[state.mode] || "Balanced: best quality and variety.";
+  const familiarityCopy = {
+    safe: "Safe: mostly tracks you already know.",
+    balanced: "Balanced: mix of comfort and discovery.",
+    discovery: "Discovery: more deep cuts and surprises.",
+  }[state.familiarity] || "Balanced: mix of comfort and discovery.";
   const gate = generateGate();
 
   const errorHtml = state.error ? (() => {
@@ -760,7 +773,15 @@ function renderApp() {
             <span class="length-val" id="lengthLabel">${state.length} tracks</span>
           </div>
         </div>
-        <div class="mode-helper">${esc(modeCopy)}</div>
+        <div class="familiarity-row" aria-label="Familiarity vs discovery">
+          <span class="familiarity-label">Familiarity</span>
+          <div class="familiarity-group">
+            <button class="familiarity-btn ${state.familiarity === "safe" ? "active" : ""}" data-familiarity="safe" title="Mostly known tracks" aria-pressed="${state.familiarity === "safe"}">Safe</button>
+            <button class="familiarity-btn ${state.familiarity === "balanced" ? "active" : ""}" data-familiarity="balanced" title="Comfort + discovery" aria-pressed="${state.familiarity === "balanced"}">Balanced</button>
+            <button class="familiarity-btn ${state.familiarity === "discovery" ? "active" : ""}" data-familiarity="discovery" title="More deep cuts" aria-pressed="${state.familiarity === "discovery"}">Discovery</button>
+          </div>
+        </div>
+        <div class="mode-helper">${esc(modeCopy)} · ${esc(familiarityCopy)}</div>
 
         <div class="no-library-row">
           <label class="no-library-toggle" title="Use Spotify-wide search for clear genre prompts">
@@ -2326,6 +2347,16 @@ function wireAppEvents() {
     });
   });
 
+  document.querySelectorAll(".familiarity-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.familiarity = btn.dataset.familiarity;
+      try { localStorage.setItem("kwalify-familiarity", state.familiarity); } catch { /* ignore */ }
+      document.querySelectorAll(".familiarity-btn").forEach((b) =>
+        b.classList.toggle("active", b.dataset.familiarity === state.familiarity)
+      );
+    });
+  });
+
   document.querySelectorAll(".delete-btn[data-id]").forEach((btn) => {
     btn.addEventListener("click", () => deletePlaylist(Number(btn.dataset.id)));
   });
@@ -2613,6 +2644,7 @@ async function generate() {
       body: JSON.stringify({
         vibe,
         mode: state.mode,
+        familiarity: state.familiarity,
         length: state.length,
         noLibraryMode: state.noLibraryMode,
         varietyBoost: samePromptRegenerate,

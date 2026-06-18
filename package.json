@@ -25,6 +25,7 @@
     "harvest:unknown-terms": "npm run build && node backend/dist/scripts/harvest-unknown-terms.js",
     "promote:aliases": "npm run build && node backend/dist/scripts/promote-harvested-aliases.js",
     "coherence:intent": "npm run build && node backend/dist/scripts/coherence-intent-fixtures.js",
+    "coherence:playlist": "npm run build && node backend/dist/scripts/coherence-playlist-fixtures.js",
     "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"
   },
   "dependencies": {

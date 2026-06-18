@@ -4,6 +4,7 @@
  */
 
 import type { DecomposedIntent } from "../core/intent-decomposer";
+import { getRuntimePromotedAliases } from "./harvested-alias-runtime";
 
 const SCENE_ALIAS_GRAPH: Record<string, string[]> = {
   "alt-rock-scene": ["rock", "metal", "indie", "punk"],
@@ -36,6 +37,8 @@ const CULTURAL_REF_ALIASES: Record<string, string[]> = {
 
 export function resolveSceneAliases(sceneKey: string): string[] {
   const normalized = sceneKey.toLowerCase().trim().replace(/\s+/g, "-");
+  const promoted = getRuntimePromotedAliases(normalized);
+  if (promoted && promoted.length > 0) return promoted;
   return SCENE_ALIAS_GRAPH[normalized] ?? CULTURAL_REF_ALIASES[normalized] ?? [normalized];
 }
 

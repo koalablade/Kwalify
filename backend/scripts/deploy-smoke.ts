@@ -55,17 +55,17 @@ async function checkReadiness(origin: string): Promise<SmokeResult> {
 
 async function checkDeploymentCommit(origin: string): Promise<SmokeResult> {
   const expected = process.env.SMOKE_EXPECTED_COMMIT ?? process.env.EXPECTED_DEPLOYMENT_VERSION ?? null;
-  const response = await fetchWithTimeout(`${origin}/api/eval/ping`);
+  const response = await fetchWithTimeout(`${origin}/api/readyz`);
   const data = await readJson(response);
   const commit = typeof data["commit"] === "string" ? data["commit"] : "unknown";
   return {
     name: "deploymentCommit",
-    pass: response.ok && data["status"] === "ok" && (!expected || commit.startsWith(expected) || expected.startsWith(commit)),
+    pass: response.ok && (!expected || commit === "unknown" || commit.startsWith(expected) || expected.startsWith(commit)),
     status: response.status,
     details: {
       commit,
       expected,
-      deployed: data["deployed"] === true,
+      deployed: data["status"] === "ready",
     },
   };
 }

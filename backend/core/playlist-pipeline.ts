@@ -135,6 +135,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
     };
     vibe: string;
     curatorScoreByTrack?: Map<string, number>;
+    sceneAliases?: string[];
+    scenePrediction?: Record<string, number>;
   };
   genrePost: {
     allowHoliday: boolean;

@@ -27,6 +27,7 @@ export type IntentPipelineContext = {
 export function buildIntentPipelineContext(
   prompt: string,
   generateMode: "strict" | "balanced" | "chaotic",
+  familiarityOverride?: FamiliarityMode | null,
 ): IntentPipelineContext {
   const decomposedIntent = decomposeIntent(prompt);
   const intentState = buildIntentState(prompt);
@@ -38,7 +39,7 @@ export function buildIntentPipelineContext(
     scenePrediction,
     assumptions: buildAssumptions(decomposedIntent, sceneAliases),
   });
-  const familiarityMode = familiarityModeForGenerateMode(generateMode);
+  const familiarityMode = familiarityModeForGenerateMode(generateMode, familiarityOverride);
 
   return {
     decomposedIntent,

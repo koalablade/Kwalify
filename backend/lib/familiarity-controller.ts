@@ -9,7 +9,9 @@ export type FamiliarityMode = "safe" | "balanced" | "discovery";
 
 export function familiarityModeForGenerateMode(
   mode: "strict" | "balanced" | "chaotic",
+  override?: FamiliarityMode | null,
 ): FamiliarityMode {
+  if (override && ["safe", "balanced", "discovery"].includes(override)) return override;
   if (mode === "strict") return "safe";
   if (mode === "chaotic") return "discovery";
   return "balanced";

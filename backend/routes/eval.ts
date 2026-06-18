@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
+import { deploymentVersion } from "../lib/deployment-version";
 
 const router: IRouter = Router();
 
@@ -7,23 +8,12 @@ function requestHeader(req: Request, name: string): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function deploymentVersion(): string {
-  return process.env["RENDER_GIT_COMMIT"]?.trim() ||
-    process.env["GIT_COMMIT"]?.trim() ||
-    process.env["COMMIT_SHA"]?.trim() ||
-    process.env["SOURCE_VERSION"]?.trim() ||
-    "unknown";
-}
-
 router.get("/eval/ping", (_req, res) => {
-  const payload: Record<string, unknown> = {
+  res.json({
     status: "ok",
     deployed: true,
-  };
-  if (process.env.NODE_ENV !== "production") {
-    payload.commit = deploymentVersion();
-  }
-  res.json(payload);
+    commit: deploymentVersion(),
+  });
 });
 
 router.post("/eval/ping", (req, res) => {

@@ -151,9 +151,9 @@ import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
 import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
 import { runCoherenceRebuildLoop } from "../core/rebuild-loop";
 import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
-import { orderTracksByEmotionalArc } from "../core/emotional-arc-planner";
+import { orderTracksByPlaylistSegments } from "../core/emotional-arc-planner";
 import { buildIntentPipelineContext, mergeSceneAliasesIntoGenres } from "../lib/intent-pipeline-orchestrator";
-import { rediscoveryModeForFamiliarity } from "../lib/familiarity-controller";
+import { rediscoveryModeForFamiliarity, type FamiliarityMode } from "../lib/familiarity-controller";
 import { mergeScenePredictions } from "../lib/scene-alias-graph";
 import { buildIntentLossReport, type IntentLossReport } from "../lib/intent-loss-report";
 import { buildGenerationPipelineDiagnostics } from "../lib/generation-pipeline-diagnostics";
@@ -4991,6 +4991,11 @@ router.post("/generate", async (req, res): Promise<void> => {
           ? rawBody.filmScene.trim()
           : "";
 
+    const familiarityRaw = rawBody.familiarity ?? null;
+    const familiarityOverride = (["safe", "balanced", "discovery"] as const).includes(familiarityRaw)
+      ? familiarityRaw as FamiliarityMode
+      : null;
+
     const payload = {
       vibe: (typeof vibeRaw === "string" ? vibeRaw.trim() : String(vibeRaw).trim()) || "balanced",
       mode: (["strict", "balanced", "chaotic"] as const).includes(modeRaw) ? modeRaw : "balanced",
@@ -4999,6 +5004,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ...(varietyBoostRequested ? { varietyBoost: true } : {}),
       ...(moodSceneRaw ? { sceneId: moodSceneRaw } : {}),
       ...(noLibraryModeRequested ? { noLibraryMode: true } : {}),
+      ...(familiarityOverride ? { familiarity: familiarityOverride } : {}),
     };
 
     const parsed = GeneratePlaylistBody.safeParse(payload);
@@ -5008,7 +5014,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId, noLibraryMode } = parsed.data;
+    const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId, noLibraryMode, familiarity } = parsed.data;
     const moodSceneId = sceneId?.trim() || null;
     const noLibraryParsedIntent = noLibraryMode ? buildCsspLockedIntent(vibe) : null;
     const noLibraryExplicitFamilies = noLibraryParsedIntent?.genreFamilies ?? [];
@@ -5141,7 +5147,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     markTimeline(productionTimeline, startMs, "deps_loaded");
     startTimelineStage(productionTimeline, startMs, "prompt_understanding");
-    const intentPipeline = buildIntentPipelineContext(vibe, mode);
+    const intentPipeline = buildIntentPipelineContext(vibe, mode, familiarity ?? null);
     const intentState = intentPipeline.intentState;
     const decomposedIntent = intentPipeline.decomposedIntent;
     const sceneAliases = intentPipeline.sceneAliases;
@@ -5899,6 +5905,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       archaeology,
       journeyArc,
       mode: mode as "strict" | "balanced" | "chaotic",
+      familiarityMode,
     });
 
     const arcRepeatCount = countRecentJourneyArc(
@@ -6329,6 +6336,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
         vibe: pipelineVibe,
         curatorScoreByTrack,
+        sceneAliases,
+        scenePrediction: intentPipeline.scenePrediction,
       },
       varietyPenaltyScale: recentTrackPenaltyScale,
       genrePost: {
@@ -7332,7 +7341,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
 
       if (playlistCoherenceScore && finalTracks.length >= 3) {
-        const arcOrdered = orderTracksByEmotionalArc(
+        const arcOrdered = orderTracksByPlaylistSegments(
           finalTracks.map(enrichTrackForCoherence),
           emotionalArc,
         );

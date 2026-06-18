@@ -28,6 +28,7 @@ import { trackHasEraEvidence } from "../../lib/era-evidence";
 import type { ScoredLibraryTrack } from "./types";
 import type { HybridScoreResult } from "../../lib/hybrid-scoring";
 import type { FeedbackMemory } from "../../lib/feedback-memory";
+import { computeSceneAliasRetrievalBoost } from "../../lib/scene-alias-retrieval-boost";
 
 function metadataGenreMatch(genres: unknown, vibe: string): number {
   if (!Array.isArray(genres)) return 0;
@@ -69,6 +70,8 @@ export interface PostScoreModifierInput<T extends { trackId: string; artistName:
   vibe: string;
   feedbackMemory?: FeedbackMemory | null;
   curatorScoreByTrack?: Map<string, number>;
+  sceneAliases?: string[];
+  scenePrediction?: Record<string, number>;
 }
 
 export function applyPostScoreModifiers<T extends {
@@ -140,9 +143,19 @@ export function applyPostScoreModifiers<T extends {
       albumGenres?: unknown;
       popularity?: number | null;
       releaseYear?: number | null;
+      genreFamily?: string | null;
+      genrePrimary?: string | null;
+      genres?: string[] | null;
     };
     score += metadataGenreMatch(enriched.spotifyArtistGenres, input.vibe) * 0.18;
     score += metadataGenreMatch(enriched.albumGenres, input.vibe) * 0.10;
+    if (input.sceneAliases && input.sceneAliases.length > 0) {
+      score += computeSceneAliasRetrievalBoost(
+        enriched,
+        input.sceneAliases,
+        input.scenePrediction ?? {},
+      );
+    }
     if (typeof enriched.popularity === "number") {
       const popularityBalance = 1 - Math.abs(enriched.popularity - 58) / 100;
       score += Math.max(0, popularityBalance) * 0.035;

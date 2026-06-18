@@ -126,6 +126,24 @@ export const PLAYLIST_EVAL_PROMPTS: PlaylistEvalPrompt[] = [
     minPromptAlignment: 0.70,
     minMoodFit: 0.58,
   },
+  {
+    id: "volvo-garage",
+    prompt: "music for working on my volvo in the garage late at night rainy sunday",
+    expectedGenres: ["blues", "indie", "rock", "folk", "country"],
+    expectedMood: ["solitary", "rainy", "calm", "low energy"],
+    minGenrePurity: 0.55,
+    minPromptAlignment: 0.62,
+    minMoodFit: 0.50,
+  },
+  {
+    id: "kerrang-alt",
+    prompt: "kerrang era alt rock and emo from my teenage years",
+    expectedGenres: ["rock", "metal", "indie", "punk", "emo"],
+    expectedMood: ["nostalgic", "aggressive", "high energy"],
+    minGenrePurity: 0.58,
+    minPromptAlignment: 0.65,
+    minMoodFit: 0.52,
+  },
 ];
 
 function lowerTerms(values: Array<string | null | undefined>): string[] {

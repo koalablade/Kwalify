@@ -10,6 +10,22 @@ export type EmotionalArc = {
   resolution: string;
 };
 
+export type PlaylistSegment = {
+  id: "intro" | "build" | "peak" | "release" | "cooldown";
+  label: string;
+  share: number;
+};
+
+export function buildPlaylistSegments(arc: EmotionalArc): PlaylistSegment[] {
+  return [
+    { id: "intro", label: arc.start, share: 0.14 },
+    { id: "build", label: "build", share: 0.22 },
+    { id: "peak", label: arc.peak, share: 0.30 },
+    { id: "release", label: "release", share: 0.20 },
+    { id: "cooldown", label: arc.resolution, share: 0.14 },
+  ];
+}
+
 export function buildEmotionalArc(intent: DecomposedIntent): EmotionalArc {
   const emotion = intent.emotion ?? "neutral";
 
@@ -107,5 +123,48 @@ export function orderTracksByEmotionalArc<T extends ArcAwareTrack>(
     }
   }
 
+  return ordered.length === tracks.length ? ordered : tracks;
+}
+
+/** Five-segment journey ordering (Q8 foundation). */
+export function orderTracksByPlaylistSegments<T extends ArcAwareTrack>(
+  tracks: T[],
+  arc: EmotionalArc,
+): T[] {
+  if (tracks.length <= 5) return orderTracksByEmotionalArc(tracks, arc);
+  const segments = buildPlaylistSegments(arc);
+  const remaining = [...tracks];
+  const ordered: T[] = [];
+
+  for (const segment of segments) {
+    const phase = segment.id === "build"
+      ? arc.start
+      : segment.id === "release"
+        ? arc.peak
+        : segment.id === "intro"
+          ? arc.start
+          : segment.id === "peak"
+            ? arc.peak
+            : arc.resolution;
+    const take = segment.id === "cooldown"
+      ? remaining.length
+      : Math.max(1, Math.round(tracks.length * segment.share));
+    for (let i = 0; i < take && remaining.length > 0; i++) {
+      let bestIdx = 0;
+      let bestScore = -1;
+      for (let j = 0; j < remaining.length; j++) {
+        const score = arcAffinity(remaining[j]!, phase);
+        if (score > bestScore) {
+          bestScore = score;
+          bestIdx = j;
+        }
+      }
+      ordered.push(remaining.splice(bestIdx, 1)[0]!);
+    }
+  }
+
+  while (remaining.length > 0) {
+    ordered.push(remaining.shift()!);
+  }
   return ordered.length === tracks.length ? ordered : tracks;
 }

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "../zod/api";
 import { getRuntimeReadiness, isRuntimeReady } from "../lib/runtime-readiness";
+import { deploymentVersion } from "../lib/deployment-version";
 
 const router: IRouter = Router();
 
@@ -24,6 +25,7 @@ router.get("/readyz", (_req, res) => {
     readyAt: readiness.readyAt,
     failedAt: readiness.failedAt,
     error: readiness.error,
+    commit: deploymentVersion(),
     latencyMs: Date.now() - startedAt,
   });
 });

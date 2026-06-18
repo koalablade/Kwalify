@@ -88,6 +88,7 @@ export const GeneratePlaylistBody = zod.object({
   "filmScene": zod.string().max(120).optional(),
   "sceneId": zod.string().max(120).optional(),
   "noLibraryMode": zod.boolean().optional(),
+  "familiarity": zod.enum(['safe', 'balanced', 'discovery']).optional(),
 })
 
 export const GeneratePlaylistResponse = zod.object({

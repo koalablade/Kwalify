@@ -6,6 +6,8 @@ import type { EmotionProfile } from "./emotion";
 import type { RediscoveryMode } from "./forgotten-favourites";
 import type { ArchaeologyIntent } from "./library-archaeology";
 import type { JourneyArc } from "./emotion-destination";
+import type { FamiliarityMode } from "./familiarity-controller";
+import { familiarityDiscoveryRatio } from "./familiarity-controller";
 
 export interface SurpriseMix {
   comfort: number;
@@ -25,8 +27,9 @@ export function computeSurpriseMix(opts: {
   archaeology: ArchaeologyIntent | null;
   journeyArc: JourneyArc;
   mode: "strict" | "balanced" | "chaotic";
+  familiarityMode?: FamiliarityMode;
 }): SurpriseMix {
-  const { profile, vibe, rediscoveryMode, archaeology, journeyArc, mode } = opts;
+  const { profile, vibe, rediscoveryMode, archaeology, journeyArc, mode, familiarityMode } = opts;
   const lower = vibe.toLowerCase();
 
   let comfort = mode === "strict" ? 0.68 : 0.55;
@@ -69,6 +72,13 @@ export function computeSurpriseMix(opts: {
   }
 
   if (journeyArc === "recovery") comfort += 0.1;
+
+  if (familiarityMode) {
+    const discoveryTarget = familiarityDiscoveryRatio(familiarityMode);
+    discovery = discovery * 0.55 + discoveryTarget * 0.45;
+    comfort = comfort * 0.7 + (1 - discoveryTarget) * 0.3;
+    novelty = novelty * 0.65 + discoveryTarget * 0.35;
+  }
 
   const sum = comfort + discovery + nostalgia + novelty;
   comfort /= sum;

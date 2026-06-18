@@ -43,9 +43,12 @@ export function shouldPublishPlaylist(
   opts?: { librarySize?: number },
 ): CoherenceGateResult {
   const thinLibrary = (opts?.librarySize ?? 1000) < 200;
+  const mediumLibrary = !thinLibrary && (opts?.librarySize ?? 1000) < 500;
   const strictOverall = thinLibrary
     ? Math.max(0.52, COHERENCE_STRICT_THRESHOLD - 0.08)
-    : COHERENCE_STRICT_THRESHOLD;
+    : mediumLibrary
+      ? Math.max(0.60, COHERENCE_STRICT_THRESHOLD - 0.04)
+      : COHERENCE_STRICT_THRESHOLD;
   const hardSceneMin = thinLibrary
     ? Math.max(0.48, COHERENCE_HARD_SCENE_MIN - 0.1)
     : COHERENCE_HARD_SCENE_MIN;
