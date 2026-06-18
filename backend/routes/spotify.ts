@@ -166,7 +166,7 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
     return;
   }
 
-  const forceFull = req.body?.full === true;
+  const forceFull = req.body?.full === true || req.query["full"] === "1";
   const [existingStatus] = await db
     .select()
     .from(syncStatusTable)

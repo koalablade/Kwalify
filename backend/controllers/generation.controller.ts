@@ -48,6 +48,7 @@ import { computeSurpriseMix } from "../lib/human-surprise";
 import { analyzeMomentPipeline } from "../lib/moment-pipeline";
 import { getUserGenreProfileForGenerate } from "../lib/genre-profile-cache";
 import { getCachedLikedSongs, setCachedLikedSongs } from "../lib/liked-songs-cache";
+import { loadLikedSongsBatched } from "../lib/load-liked-songs-batched";
 import { classifyTrack } from "../lib/genre-taxonomy";
 import { getGenreFamily } from "../core/v3/global-diversity-controller";
 import { buildGenreIntelligenceStack } from "../lib/genre-intelligence-stack";
@@ -5351,10 +5352,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           const likedRowsFromCache = getCachedLikedSongs(userId);
           const [loadedLikedRows, loadedPlaylists, loadedFeedbackMemory] = await Promise.all([
             likedRowsFromCache ??
-              db
-                .select()
-                .from(likedSongsTable)
-                .where(eq(likedSongsTable.spotifyUserId, userId)),
+              loadLikedSongsBatched(userId),
             db
               .select()
               .from(playlistHistoryTable)
@@ -5384,10 +5382,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         cachedLikedRows = hydration.dbReadOccurred ? null : likedRowsRaw;
       } else {
         likedRowsRaw = cachedLikedRows ??
-          await db
-            .select()
-            .from(likedSongsTable)
-            .where(eq(likedSongsTable.spotifyUserId, userId));
+          await loadLikedSongsBatched(userId);
       }
     } finally {
       endLikedSongsProfile();

@@ -16,6 +16,7 @@
     "benchmark:prompt-reliability": "npm run build && node backend/dist/scripts/prompt-reliability-benchmark.js",
     "regression:prompt-reliability": "npm run build && node backend/dist/scripts/prompt-reliability-regression.js",
     "regression:playlists": "npm run build && node backend/dist/scripts/playlist-regression-guard.js",
+    "ci:prompt-reliability-local": "npm run build && node backend/dist/scripts/prompt-reliability-local-fixtures.js",
     "ci:prompt-reliability": "npm run build && node backend/dist/scripts/prompt-reliability-ci-gate.js",
     "audit:product-behavior": "npm run build && node backend/dist/scripts/playlist-product-behavior-audit.js",
     "audit:system-observability": "npm run build && node backend/dist/scripts/playlist-system-observability-audit.js",

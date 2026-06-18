@@ -552,7 +552,7 @@ function renderLanding() {
           <div class="how-step-num">Step 01</div>
           <div class="how-step-icon">🎵</div>
           <h3>Connect Spotify</h3>
-          <p>We read only your Liked Songs. Nothing else is accessed or stored.</p>
+          <p>We read your Liked Songs and sync metadata needed for playlist generation. We do not access your listening history or messages.</p>
         </div>
         <div class="how-step">
           <div class="how-step-num">Step 02</div>
@@ -624,7 +624,7 @@ function moodLevelLabel(v) {
 function renderApp() {
   const cs = state.cacheStatus;
   const ls = state.librarySummary;
-  const total = cs?.totalTracks || ls?.trackCount || 0;
+  const total = ls?.trackCount ?? cs?.totalTracks ?? 0;
   const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
   const modeCopy = {
     strict: "Strict: closest match, least drift.",
@@ -1048,7 +1048,7 @@ function generatingHtml() {
       </button>
       ${progressDetailsHtml}
       ${debugModeEnabled() ? `<div class="generation-safety-chip">Excluded: Christmas / holiday tracks unless requested</div>` : ""}
-      <div class="generating-progress" aria-hidden="true">
+      <div class="generating-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.pct}" aria-label="Playlist generation progress">
         <div class="generating-progress-fill" id="generationProgressFill" style="width:${progress.pct}%"></div>
       </div>
       ${partialHtml}
@@ -1084,6 +1084,8 @@ function refreshGenerationProgressDom() {
   setText("generationDetailPreview", previewText);
   const fill = document.getElementById("generationProgressFill");
   if (fill) fill.style.width = `${progress.pct}%`;
+  const progressBar = fill?.closest('[role="progressbar"]');
+  if (progressBar) progressBar.setAttribute("aria-valuenow", String(progress.pct));
 }
 
 function flattenIntentConcepts(intent) {
@@ -1247,7 +1249,10 @@ function resultHtml(result) {
     result.personalizationSource === "spotify_discovery" || result.noLibraryMode
       ? "Built from Spotify Discovery"
       : "Built from Your Library",
+    result.generationTrust?.controlledRecoveryBlocked ? "Best Available — recovery blocked further widening" : null,
     result.recoveryAssisted || result.generationTrust?.recoveryAssisted || confidence.recoveryUsed || confidence.fallbackUsed || result.fastFallback || result.code === "TIMEOUT_FALLBACK" ? "Recovery Assisted" : null,
+    result.generationTrust?.eraRelaxed || result.strictEraEvidence?.relaxed ? "Era widened to best available" : null,
+    result.generationTrust?.genreRelaxed || result.strictGenreEvidence?.relaxed ? "Genre widened to best available" : null,
     result.spotifyUnavailable ? "Review Copy Available" : result.spotifyPartial ? "Spotify Partially Saved" : null,
   ].filter(Boolean);
   const trustChipsHtml = trustChips.length ? `
@@ -2800,6 +2805,10 @@ async function boot() {
 
   renderApp();
   applyPendingPrompt();
+
+  if (state.cacheStatus?.suggestFullSync && !state.cacheStatus?.isSyncing) {
+    api("/spotify/sync", { method: "POST", body: JSON.stringify({ full: true }) }).catch(() => {});
+  }
 
   if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
 }

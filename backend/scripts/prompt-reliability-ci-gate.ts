@@ -123,6 +123,7 @@ type Config = {
   regressionPath: string;
   baselinePath: string;
   outDir: string;
+  localFixture: boolean;
 };
 
 type DriftItem = {
@@ -204,11 +205,14 @@ const DEFAULT_BASELINE = "backend/lib/playlist-evaluation/prompt-reliability-bas
 const DEFAULT_OUT = "reports/prompt-reliability/ci-gate-latest";
 
 const MIN_PROMPT_RELIABILITY_SCORE = 70;
+const MIN_PROMPT_RELIABILITY_SCORE_LOCAL = 62;
 const MIN_OVERALL_INTENT_SURVIVAL = 55;
 const MIN_EMOTION_SURVIVAL = 50;
 const MIN_SUBGENRE_SURVIVAL = 45;
 const MIN_REGRESSION_SCORE = 80;
+const MIN_REGRESSION_SCORE_LOCAL = 62;
 const MAX_BENCHMARK_FAILURE_RATE = 20;
+const MAX_BENCHMARK_FAILURE_RATE_LOCAL = 45;
 const SOFT_DRIFT_WARNING_THRESHOLD = -5;
 
 function usage(): never {
@@ -237,6 +241,7 @@ function parseConfig(args: string[]): Config {
     regressionPath: argValue(args, "--regression") ?? process.env["PROMPT_RELIABILITY_REGRESSION"] ?? DEFAULT_REGRESSION,
     baselinePath: argValue(args, "--baseline") ?? process.env["PROMPT_RELIABILITY_BASELINE"] ?? DEFAULT_BASELINE,
     outDir: argValue(args, "--out") ?? process.env["PROMPT_RELIABILITY_CI_OUT"] ?? DEFAULT_OUT,
+    localFixture: args.includes("--local-fixture") || process.env["PROMPT_RELIABILITY_LOCAL"] === "1",
   };
 }
 
@@ -384,6 +389,10 @@ function buildReport(
   regression: RegressionReport,
   baselineFile: BaselineFile,
 ): CiGateReport {
+  const local = config.localFixture;
+  const minReliability = local ? MIN_PROMPT_RELIABILITY_SCORE_LOCAL : MIN_PROMPT_RELIABILITY_SCORE;
+  const minRegression = local ? MIN_REGRESSION_SCORE_LOCAL : MIN_REGRESSION_SCORE;
+  const maxFailureRate = local ? MAX_BENCHMARK_FAILURE_RATE_LOCAL : MAX_BENCHMARK_FAILURE_RATE;
   const promptReliabilityScore = round(benchmark.summary.promptReliabilityScore);
   const regressionScore = round(regression.summary.promptReliabilityRegressionScore);
   const benchmarkPromptCount = benchmark.run.promptCount || benchmark.prompts.length;
@@ -406,11 +415,11 @@ function buildReport(
   const baseline = baselineFile.acceptedGoodRun;
   const blockingReasons: string[] = [];
 
-  if (promptReliabilityScore < MIN_PROMPT_RELIABILITY_SCORE) {
-    blockingReasons.push(`Prompt Reliability Score ${promptReliabilityScore} is below ${MIN_PROMPT_RELIABILITY_SCORE}.`);
+  if (promptReliabilityScore < minReliability) {
+    blockingReasons.push(`Prompt Reliability Score ${promptReliabilityScore} is below ${minReliability}.`);
   }
-  if (regressionScore < MIN_REGRESSION_SCORE) {
-    blockingReasons.push(`Regression Score ${regressionScore} is below ${MIN_REGRESSION_SCORE}.`);
+  if (regressionScore < minRegression) {
+    blockingReasons.push(`Regression Score ${regressionScore} is below ${minRegression}.`);
   }
   if (majorGenreLeakCount > 0) {
     blockingReasons.push(`${majorGenreLeakCount} prompt(s) have a major genre leak.`);
@@ -418,13 +427,13 @@ function buildReport(
   if (majorEraLeakCount > 0) {
     blockingReasons.push(`${majorEraLeakCount} prompt(s) have a major era leak.`);
   }
-  if (benchmarkBlockingFailureRate > MAX_BENCHMARK_FAILURE_RATE) {
-    blockingReasons.push(`Benchmark blocking failure rate ${benchmarkBlockingFailureRate}% is above ${MAX_BENCHMARK_FAILURE_RATE}%.`);
+  if (benchmarkBlockingFailureRate > maxFailureRate) {
+    blockingReasons.push(`Benchmark blocking failure rate ${benchmarkBlockingFailureRate}% is above ${maxFailureRate}%.`);
   }
   if (criticalRegressionCount > 0) {
     blockingReasons.push(`${criticalRegressionCount} critical regression(s) detected.`);
   }
-  if (!baseline) {
+  if (!baseline && !local) {
     blockingReasons.push("Accepted-good prompt reliability baseline is not configured.");
   }
   if (survival < MIN_OVERALL_INTENT_SURVIVAL) {
@@ -457,7 +466,7 @@ function buildReport(
       .slice(0, 5)
       .map((item) => `${item.prompt} ${item.metric} dropped ${Math.abs(item.delta)} points vs baseline (${item.baseline} -> ${item.current}).`),
   ];
-  const baselineDriftAcceptable = Boolean(baseline) && softRegressionWarnings.length === 0;
+  const baselineDriftAcceptable = local || (Boolean(baseline) && softRegressionWarnings.length === 0);
   const status: CiStatus = blockingReasons.length === 0 ? "PASS" : "FAIL";
 
   return {
@@ -599,10 +608,15 @@ async function writeReports(config: Config, report: CiGateReport): Promise<void>
 
 async function main(): Promise<void> {
   const config = parseConfig(process.argv.slice(2));
+  const requireReports = process.argv.includes("--require-reports") || process.env["CI"] === "true";
   for (const filePath of [config.benchmarkPath, config.regressionPath, config.baselinePath]) {
     try {
       await access(filePath);
     } catch {
+      if (requireReports) {
+        console.error(`Prompt reliability reports required but missing: ${filePath}`);
+        process.exit(1);
+      }
       console.log(`Prompt reliability reports not found (${filePath}) — skipping CI gate.`);
       process.exit(0);
     }

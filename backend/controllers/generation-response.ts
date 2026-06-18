@@ -22,6 +22,8 @@ export type GenerationTrustPayload = {
   finalizationFallbackLevel: string | null;
   eraRelaxed: boolean;
   genreRelaxed: boolean;
+  controlledRecoveryBlocked: boolean;
+  controlledRecoveryReason: string | null;
 };
 
 const MATCH_LABELS: Record<MatchQualityLabel, string> = {
@@ -76,8 +78,14 @@ export function buildGenerationTrustPayload(opts: {
   const recoveryAssisted = !!(
     opts.generationDiagnostics?.["recoveryTriggered"] ||
     opts.generationDiagnostics?.["cohesionRelaxedFillUsed"] ||
-    opts.generationDiagnostics?.["hardSafeFillUsed"]
+    opts.generationDiagnostics?.["hardSafeFillUsed"] ||
+    opts.generationDiagnostics?.["controlledRecoveryBlocked"]
   );
+
+  const controlledRecoveryBlocked = opts.generationDiagnostics?.["controlledRecoveryBlocked"] === true;
+  const controlledRecoveryReason = typeof opts.generationDiagnostics?.["controlledRecoveryReason"] === "string"
+    ? opts.generationDiagnostics["controlledRecoveryReason"] as string
+    : null;
 
   const genreRelaxed = opts.strictGenreEvidence?.relaxed === true;
   const eraRelaxed = opts.strictEraEvidence?.relaxed === true;
@@ -109,5 +117,7 @@ export function buildGenerationTrustPayload(opts: {
     finalizationFallbackLevel: finalizationLevel,
     eraRelaxed,
     genreRelaxed,
+    controlledRecoveryBlocked,
+    controlledRecoveryReason,
   };
 }

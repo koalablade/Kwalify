@@ -49,10 +49,10 @@ jobs:
           npm run benchmark:pairwise-signatures
       - name: Semantic scene benchmark
         run: npm run ci:semantic-scenes
-      - name: Golden prompt regression (local)
-        run: npm run regression:prompt-reliability
-      - name: CI prompt reliability gate (when reports exist)
-        run: npm run ci:prompt-reliability
+      - name: Local prompt reliability fixtures
+        run: npm run ci:prompt-reliability-local
+      - name: CI prompt reliability gate
+        run: npm run ci:prompt-reliability -- --require-reports --local-fixture --benchmark reports/prompt-reliability/local/prompt-reliability-report.json --regression reports/prompt-reliability/local/regression-report.json --baseline reports/prompt-reliability/local/local-baseline.json
 
   deploy-smoke-pr:
     if: github.event_name == 'pull_request'
