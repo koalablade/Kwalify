@@ -3061,11 +3061,38 @@ function normalizeRepeatToken(value: string | null | undefined): string {
     .trim();
 }
 
-function trackRepeatSignature(track: { trackName?: string | null; artistName?: string | null }): string | null {
-  const title = normalizeRepeatToken(track.trackName);
-  const artist = normalizeRepeatToken(track.artistName);
+function trackRepeatSignature(track: { trackName?: string | null; artistName?: string | null; name?: string | null; artist?: string | null }): string | null {
+  const title = normalizeRepeatToken(track.trackName ?? track.name);
+  const artist = normalizeRepeatToken(track.artistName ?? track.artist);
   if (!title || !artist) return null;
   return `${artist}:${title}`;
+}
+
+function countDuplicateSongIdentities<T extends { trackName?: string | null; artistName?: string | null; name?: string | null; artist?: string | null }>(
+  tracks: T[]
+): number {
+  const counts = new Map<string, number>();
+  let duplicates = 0;
+  for (const track of tracks) {
+    const signature = trackRepeatSignature(track);
+    if (!signature) continue;
+    const next = (counts.get(signature) ?? 0) + 1;
+    counts.set(signature, next);
+    if (next > 1) duplicates += 1;
+  }
+  return duplicates;
+}
+
+function shouldApplyFinalizeRecovery<T extends { trackName?: string | null; artistName?: string | null; name?: string | null; artist?: string | null }>(
+  before: T[],
+  after: T[],
+  requestedLength: number
+): boolean {
+  if (after.length > before.length) return true;
+  const beforeDuplicates = countDuplicateSongIdentities(before);
+  const afterDuplicates = countDuplicateSongIdentities(after);
+  const minAllowedCount = Math.ceil(requestedLength * 0.95);
+  return beforeDuplicates > 0 && afterDuplicates < beforeDuplicates && after.length >= minAllowedCount;
 }
 
 function repairFinalResponseDuplicateSongIdentities<T extends ConstraintTrack>(
@@ -3125,13 +3152,20 @@ function repairFinalResponseDuplicateSongIdentities<T extends ConstraintTrack>(
     }
 
     duplicateIdentityCount += 1;
-    const replacement = orderedCandidates.find((candidate) => {
-      if (seenIds.has(candidate.trackId)) return false;
-      const candidateSignature = trackRepeatSignature(candidate);
-      if (candidateSignature && seenSignatures.has(candidateSignature)) return false;
-      if (!finalTrackIsHardSafe(candidate, opts)) return false;
-      return true;
-    });
+    const findReplacement = (pool: T[]): T | undefined =>
+      pool.find((candidate) => {
+        if (seenIds.has(candidate.trackId)) return false;
+        const candidateSignature = trackRepeatSignature(candidate);
+        if (candidateSignature && seenSignatures.has(candidateSignature)) return false;
+        if (!finalTrackIsHardSafe(candidate, opts)) return false;
+        return true;
+      });
+    let replacement = findReplacement(orderedCandidates);
+    if (!replacement && isRockPunkClusterPrompt(opts.vibe, opts.intent)) {
+      replacement = findReplacement(
+        orderedCandidates.filter((candidate) => trackMatchesRockPunkSiblingCluster(candidate, opts.classMap))
+      );
+    }
 
     if (!replacement) {
       accept(track);
@@ -6327,7 +6361,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       lockedIntent.mood.length > 0 ||
       !!lockedIntent.energyLevel ||
       !!lockedIntent.energy;
-    if (finalTracks.length < length) {
+    const duplicateIdentityCountBeforeFinalize = countDuplicateSongIdentities(finalTracks);
+    const needsFinalizeRecovery = finalTracks.length < length || duplicateIdentityCountBeforeFinalize > 0;
+    if (needsFinalizeRecovery) {
       const underfillStartedAt = Date.now();
       const seenUnderfillCandidateIds = new Set<string>();
       const toUnderfillCandidate = <T extends {
@@ -6408,14 +6444,17 @@ router.post("/generate", async (req, res): Promise<void> => {
         trackReusePenalty: finalizationReusePenalty,
         artistReusePenalty: finalizationArtistReusePenalty,
       });
-      if (recovered.tracks.length > finalTracks.length) {
+      if (shouldApplyFinalizeRecovery(finalTracks, recovered.tracks, length)) {
         finalTracks = recovered.tracks as PlaylistTrack[];
         finalization = {
           tracks: finalTracks,
           diagnostics: {
             ...finalization.diagnostics,
             ...recovered.diagnostics,
-            underfillRecoveryApplied: true,
+            underfillRecoveryApplied: finalTracks.length < length,
+            duplicateIdentityRecoveryApplied: duplicateIdentityCountBeforeFinalize > 0,
+            duplicateIdentityCountBeforeFinalize,
+            duplicateIdentityCountAfterFinalize: countDuplicateSongIdentities(recovered.tracks),
             stackedConstraintLockActive,
             explicitGenreRecoveryLockActive,
             explicitEraRecoveryLockActive,
@@ -6462,15 +6501,18 @@ router.post("/generate", async (req, res): Promise<void> => {
           trackReusePenalty: finalizationReusePenalty,
           artistReusePenalty: finalizationArtistReusePenalty,
         });
-        if (relaxedRecovered.tracks.length > finalTracks.length) {
+        if (shouldApplyFinalizeRecovery(finalTracks, relaxedRecovered.tracks, length)) {
           finalTracks = relaxedRecovered.tracks as PlaylistTrack[];
           finalization = {
             tracks: finalTracks,
             diagnostics: {
               ...finalization.diagnostics,
               ...relaxedRecovered.diagnostics,
-              underfillRecoveryApplied: true,
+              underfillRecoveryApplied: finalTracks.length < length,
               underfillRelaxedSceneFillApplied: true,
+              duplicateIdentityRecoveryApplied: duplicateIdentityCountBeforeFinalize > 0,
+              duplicateIdentityCountBeforeFinalize,
+              duplicateIdentityCountAfterFinalize: countDuplicateSongIdentities(relaxedRecovered.tracks),
               stackedConstraintLockActive,
               explicitGenreRecoveryLockActive,
               explicitEraRecoveryLockActive,
@@ -6491,6 +6533,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
       if (finalTracks.length < length) {
         const deterministicSeenIds = new Set(finalTracks.map((track) => track.trackId));
+        const deterministicSeenSignatures = new Set(
+          finalTracks.map((track) => trackRepeatSignature(track)).filter((value): value is string => !!value)
+        );
         const deterministicArtistCounts = new Map<string, number>();
         for (const track of finalTracks) {
           const artist = track.artistName.toLowerCase().trim();
@@ -6513,12 +6558,15 @@ router.post("/generate", async (req, res): Promise<void> => {
           for (const track of deterministicCandidates) {
             if (finalTracks.length >= length) break;
             if (deterministicSeenIds.has(track.trackId)) continue;
+            const signature = trackRepeatSignature(track);
+            if (signature && deterministicSeenSignatures.has(signature)) continue;
             const artist = track.artistName.toLowerCase().trim();
             const previousArtist = finalTracks[finalTracks.length - 1]?.artistName.toLowerCase().trim() ?? null;
             if (avoidBackToBack && previousArtist && previousArtist === artist) continue;
             const count = deterministicArtistCounts.get(artist) ?? 0;
             if (artistLimit !== null && count >= artistLimit) continue;
             deterministicSeenIds.add(track.trackId);
+            if (signature) deterministicSeenSignatures.add(signature);
             deterministicArtistCounts.set(artist, count + 1);
             finalTracks.push(track as PlaylistTrack);
             added += 1;
@@ -6537,7 +6585,10 @@ router.post("/generate", async (req, res): Promise<void> => {
           for (const track of absoluteCandidates) {
             if (finalTracks.length >= length) break;
             if (deterministicSeenIds.has(track.trackId)) continue;
+            const signature = trackRepeatSignature(track);
+            if (signature && deterministicSeenSignatures.has(signature)) continue;
             deterministicSeenIds.add(track.trackId);
+            if (signature) deterministicSeenSignatures.add(signature);
             finalTracks.push(track as PlaylistTrack);
             absoluteLastResortAdded += 1;
           }
@@ -6548,7 +6599,10 @@ router.post("/generate", async (req, res): Promise<void> => {
             if (finalTracks.length >= length) break;
             const candidate = toUnderfillCandidate(track);
             if (deterministicSeenIds.has(candidate.trackId)) continue;
+            const signature = trackRepeatSignature(candidate);
+            if (signature && deterministicSeenSignatures.has(signature)) continue;
             deterministicSeenIds.add(candidate.trackId);
+            if (signature) deterministicSeenSignatures.add(signature);
             finalTracks.push(candidate as PlaylistTrack);
             finalLibrarySweepAdded += 1;
           }
