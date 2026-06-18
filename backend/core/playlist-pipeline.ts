@@ -3,6 +3,9 @@
  */
 
 import { runScoringPipeline } from "./scoring-engine";
+import type { TasteMemoryGraph } from "../lib/taste-memory-graph";
+import { computeSceneAliasRetrievalBoost } from "../lib/scene-alias-retrieval-boost";
+import { tasteGraphRetrievalBoost } from "../lib/taste-memory-graph";
 import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
 import { runV3Pipeline } from "./v3/v3-pipeline";
@@ -137,6 +140,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
     curatorScoreByTrack?: Map<string, number>;
     sceneAliases?: string[];
     scenePrediction?: Record<string, number>;
+    tasteGraph?: TasteMemoryGraph | null;
+    trendPrompt?: string;
   };
   genrePost: {
     allowHoliday: boolean;
@@ -1528,6 +1533,10 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     sessionArtistMemory?: SessionArtistMemory;
     promptKey?: string;
     diagnosticsMode?: "minimal" | "full";
+    sceneAliases?: string[];
+    scenePrediction?: Record<string, number>;
+    tasteGraph?: TasteMemoryGraph | null;
+    trendPrompt?: string;
   } = {},
 ): Promise<RetrievalPools<T>> {
   const MIN_BROAD_RETRIEVAL_POOL = 120;
@@ -1715,7 +1724,29 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
             ? 0.09
             : 0
         : 0;
-      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight - feedbackPenalty(track, feedback);
+      const sceneAliasBoost = opts.sceneAliases && opts.sceneAliases.length > 0
+        ? computeSceneAliasRetrievalBoost(
+          {
+            genreFamily: genreFamilyForTrack(track, classMap),
+            genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? null,
+            genres: classMap.get(track.trackId)?.subGenres ?? null,
+          },
+          opts.sceneAliases,
+          opts.scenePrediction ?? {},
+        )
+        : 0;
+      const tasteBoost = opts.tasteGraph
+        ? tasteGraphRetrievalBoost(
+          {
+            genreFamily: genreFamilyForTrack(track, classMap),
+            genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? null,
+            genres: classMap.get(track.trackId)?.subGenres ?? null,
+            artistName: track.artistName ?? null,
+          },
+          opts.tasteGraph,
+        )
+        : 0;
+      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight + sceneAliasBoost + tasteBoost - feedbackPenalty(track, feedback);
       const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
       const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
       const sceneMismatchPenalty = sceneMismatchFor(track) ? 0.90 : 0;
@@ -3379,6 +3410,10 @@ export async function buildPlaylistPipeline<T extends {
       {
         promptKey: opts.noLibraryMode ? undefined : opts.vibe,
         diagnosticsMode: opts.diagnosticsMode ?? "minimal",
+        sceneAliases: opts.postScore.sceneAliases,
+        scenePrediction: opts.postScore.scenePrediction,
+        tasteGraph: opts.postScore.tasteGraph ?? null,
+        trendPrompt: opts.postScore.trendPrompt,
       },
     );
     if (opts.shouldAbort?.()) abortPipeline("retrieval");

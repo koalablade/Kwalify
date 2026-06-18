@@ -1,0 +1,9 @@
+[
+  {
+    "id": "drift-phonk-moment",
+    "terms": ["drift phonk", "sigma edit", "gym phonk"],
+    "genreFamilies": ["hip_hop", "electronic", "metal"],
+    "sceneKeys": ["gym-workout"],
+    "weight": 0.15
+  }
+]

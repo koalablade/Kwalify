@@ -153,6 +153,9 @@ import { runCoherenceRebuildLoop } from "../core/rebuild-loop";
 import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
 import { orderTracksByPlaylistSegments } from "../core/emotional-arc-planner";
 import { buildIntentPipelineContext, mergeSceneAliasesIntoGenres } from "../lib/intent-pipeline-orchestrator";
+import { compilePlaylistContext } from "../core/playlist-compiler";
+import { recordPromptSceneMemory } from "../lib/cross-session-memory";
+import type { TasteMemoryGraph } from "../lib/taste-memory-graph";
 import { rediscoveryModeForFamiliarity, type FamiliarityMode } from "../lib/familiarity-controller";
 import { mergeScenePredictions } from "../lib/scene-alias-graph";
 import { buildIntentLossReport, type IntentLossReport } from "../lib/intent-loss-report";
@@ -5014,7 +5017,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId, noLibraryMode, familiarity } = parsed.data;
+    const { vibe, mode, length: requestedLength, referencePlaylist, varietyBoost, sceneId, noLibraryMode, familiarity } = parsed.data;
+    let length = requestedLength;
     const moodSceneId = sceneId?.trim() || null;
     const noLibraryParsedIntent = noLibraryMode ? buildCsspLockedIntent(vibe) : null;
     const noLibraryExplicitFamilies = noLibraryParsedIntent?.genreFamilies ?? [];
@@ -5150,12 +5154,14 @@ router.post("/generate", async (req, res): Promise<void> => {
     const intentPipeline = buildIntentPipelineContext(vibe, mode, familiarity ?? null);
     const intentState = intentPipeline.intentState;
     const decomposedIntent = intentPipeline.decomposedIntent;
-    const sceneAliases = intentPipeline.sceneAliases;
+    let sceneAliases = intentPipeline.sceneAliases;
     const emotionalArc = intentPipeline.emotionalArc;
     const sceneLockStatus = intentPipeline.sceneLockStatus;
     let intentLossReport: IntentLossReport = intentPipeline.intentLossReport;
-    const familiarityMode = intentPipeline.familiarityMode;
+    let familiarityMode = intentPipeline.familiarityMode;
     let mergedScenePrediction = intentPipeline.scenePrediction;
+    let tasteGraph: TasteMemoryGraph | null = null;
+    let adaptiveReasons: string[] = [];
     req.log.info(
       {
         intentState,
@@ -5950,6 +5956,42 @@ router.post("/generate", async (req, res): Promise<void> => {
       { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
       "Genre profile built"
     );
+    try {
+      const likedGenreFamilies = [...new Set(
+        likedSongs
+          .map((song) => userGenreProfile.trackClassifications.get(song.trackId)?.genreFamily)
+          .filter((family): family is NonNullable<typeof family> => typeof family === "string" && family.length > 0),
+      )].map(String).slice(0, 8);
+      const compiled = await compilePlaylistContext({
+        prompt: vibe,
+        userId,
+        mode,
+        familiarityOverride: familiarity ?? null,
+        length,
+        feedbackMemory,
+        likedGenreFamilies,
+      });
+      sceneAliases = compiled.sceneAliases;
+      mergedScenePrediction = compiled.scenePrediction;
+      familiarityMode = compiled.adaptiveProfile.familiarityMode;
+      length = compiled.adaptiveProfile.length;
+      tasteGraph = compiled.tasteGraph;
+      adaptiveReasons = compiled.adaptiveProfile.reasons;
+      req.log.info(
+        {
+          sceneAliases,
+          familiarityMode,
+          length,
+          crossSession: compiled.crossSessionMemory?.generationCount ?? 0,
+          trendAliases: compiled.trendAliases,
+          adaptiveReasons,
+        },
+        "Playlist compiler context assembled",
+      );
+    } catch (compileErr) {
+      req.log.warn({ err: compileErr }, "Playlist compiler failed — using base intent pipeline");
+      tasteGraph = null;
+    }
     const genreByTrack = (trackId: string) => {
       const classification = userGenreProfile.trackClassifications.get(trackId);
       if (!classification) return null;
@@ -6337,7 +6379,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         vibe: pipelineVibe,
         curatorScoreByTrack,
         sceneAliases,
-        scenePrediction: intentPipeline.scenePrediction,
+        scenePrediction: mergedScenePrediction,
+        tasteGraph,
+        trendPrompt: pipelineVibe,
       },
       varietyPenaltyScale: recentTrackPenaltyScale,
       genrePost: {
@@ -8584,6 +8628,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       overallCoherence: playlistCoherenceScore?.overallScore ?? null,
       inferredScene: decomposedIntent.scene ?? decomposedIntent.culturalRefs[0] ?? null,
     });
+    if (!devMode && !auditMode) {
+      void recordPromptSceneMemory({
+        userId,
+        prompt: vibe,
+        sceneKey: decomposedIntent.scene ?? sceneAliases[0] ?? null,
+        genreFamilies: sceneAliases,
+        coherenceScore: playlistCoherenceScore?.overallScore ?? null,
+        familiarityMode,
+      }).catch((err) => req.log.warn({ err }, "Failed to record cross-session prompt memory"));
+    }
     if (sideEffectPolicy.allowSavedPlaylistWrites && savedPlaylistId > 0) {
     try {
       await db

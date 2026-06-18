@@ -4,6 +4,7 @@
 
 import type pg from "pg";
 import { summarizeHarvestedTerms } from "./unknown-term-harvest";
+import { warmSceneAliasPromotionsFromDb, autoPromoteHarvestedTerms } from "./alias-promotion-store";
 import { logger } from "./logger";
 
 const GENRE_HINTS = ["rock", "metal", "indie", "punk", "blues", "folk", "country", "electronic", "hip_hop", "pop", "rnb"];
@@ -48,21 +49,33 @@ export function listRuntimePromotedTerms(): string[] {
 
 export async function warmHarvestedAliasPromotions(
   rawPool: pg.Pool,
-  opts?: { days?: number; minOccurrences?: number; limit?: number },
+  opts?: { days?: number; minOccurrences?: number; limit?: number; autoPromote?: boolean },
 ): Promise<number> {
   const days = opts?.days ?? 60;
   const minOccurrences = opts?.minOccurrences ?? 4;
   const limit = opts?.limit ?? 40;
 
   try {
-    const rows = await summarizeHarvestedTerms(rawPool, { days, minOccurrences, limit });
-    for (const row of rows) {
-      registerRuntimeSceneAliases(row.term, inferPromotion(row.term));
+    const dbCount = await warmSceneAliasPromotionsFromDb(rawPool);
+    if (opts?.autoPromote !== false) {
+      await autoPromoteHarvestedTerms(rawPool, {
+        days,
+        minOccurrences: Math.max(minOccurrences, 5),
+        limit,
+        inferAliases: inferPromotion,
+      });
+      await warmSceneAliasPromotionsFromDb(rawPool);
+    } else {
+      const rows = await summarizeHarvestedTerms(rawPool, { days, minOccurrences, limit });
+      for (const row of rows) {
+        registerRuntimeSceneAliases(row.term, inferPromotion(row.term));
+      }
+      if (rows.length > 0) {
+        logger.info({ count: rows.length, terms: rows.slice(0, 8).map((r) => r.term) }, "Runtime scene alias promotions warmed");
+      }
+      return rows.length + dbCount;
     }
-    if (rows.length > 0) {
-      logger.info({ count: rows.length, terms: rows.slice(0, 8).map((r) => r.term) }, "Runtime scene alias promotions warmed");
-    }
-    return rows.length;
+    return dbCount;
   } catch (err) {
     logger.warn({ err }, "Failed to warm harvested alias promotions");
     return 0;

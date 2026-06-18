@@ -21,7 +21,30 @@ const SCENE_ALIAS_GRAPH: Record<string, string[]> = {
   "project-car": ["blues", "indie", "rock", "folk", "country"],
   "rainy-night-drive": ["indie", "electronic", "rock", "rnb"],
   "rainy-night-drive-scene": ["indie", "electronic", "rock", "rnb"],
+  "gta-driving": ["hip_hop", "electronic", "rock", "rnb"],
+  "grand-theft-auto": ["hip_hop", "electronic", "rock", "rnb"],
+  "cyberpunk-night": ["electronic", "synth", "industrial", "rock"],
+  "blade-runner": ["electronic", "ambient", "synth", "jazz"],
+  "drive-movie": ["synth", "electronic", "pop", "indie"],
+  "john-wick": ["electronic", "rock", "metal", "hip_hop"],
+  "stranger-things": ["synth", "electronic", "pop", "rock"],
+  "interstellar": ["orchestral", "ambient", "electronic", "classical"],
+  "fight-club": ["rock", "electronic", "industrial", "metal"],
+  "euphoria": ["rnb", "pop", "electronic", "indie"],
+  "skyrim": ["orchestral", "ambient", "folk", "classical"],
+  "minecraft": ["ambient", "electronic", "lofi", "indie"],
+  "fifa-night": ["electronic", "hip_hop", "pop", "house"],
+  "party-night": ["pop", "hip_hop", "electronic", "dance"],
 };
+
+const promotedGraphOverrides = new Map<string, string[]>();
+
+export function registerPromotedGraphAliases(term: string, aliases: string[]): void {
+  const key = term.toLowerCase().trim().replace(/\s+/g, "-");
+  if (!key || aliases.length === 0) return;
+  promotedGraphOverrides.set(key, aliases.slice(0, 8));
+  SCENE_ALIAS_GRAPH[key] = aliases.slice(0, 8);
+}
 
 const CULTURAL_REF_ALIASES: Record<string, string[]> = {
   "kerrang": ["rock", "metal", "indie", "punk"],
@@ -33,6 +56,17 @@ const CULTURAL_REF_ALIASES: Record<string, string[]> = {
   "garage-workshop": ["blues", "indie", "rock", "folk"],
   "garage-work": ["blues", "indie", "rock", "folk"],
   "rainy-night-drive": ["indie", "electronic", "rock", "rnb"],
+  "gta": ["hip_hop", "electronic", "rock"],
+  "cyberpunk": ["electronic", "synth", "industrial"],
+  "blade-runner": ["electronic", "ambient", "synth"],
+  "john-wick": ["electronic", "rock", "metal"],
+  "stranger-things": ["synth", "electronic", "pop"],
+  "interstellar": ["orchestral", "ambient", "electronic"],
+  "minecraft": ["ambient", "electronic", "lofi"],
+  "fifa": ["electronic", "hip_hop", "pop"],
+  "volvo": ["blues", "indie", "rock", "folk"],
+  "saab": ["blues", "indie", "rock", "folk"],
+  "e46": ["blues", "indie", "rock", "electronic"],
 };
 
 export function resolveSceneAliases(sceneKey: string): string[] {

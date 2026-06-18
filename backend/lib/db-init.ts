@@ -141,6 +141,31 @@ CREATE INDEX IF NOT EXISTS "IDX_unknown_term_events_term_created"
   ON "unknown_term_events" ("term", "created_at" DESC);
 CREATE INDEX IF NOT EXISTS "IDX_unknown_term_events_prompt_hash"
   ON "unknown_term_events" ("prompt_hash");
+
+CREATE TABLE IF NOT EXISTS "scene_alias_promotions" (
+  "id" serial PRIMARY KEY,
+  "term" text NOT NULL UNIQUE,
+  "aliases" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "occurrences" integer NOT NULL DEFAULT 0,
+  "source" text NOT NULL DEFAULT 'harvest',
+  "promoted_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS "prompt_scene_memory" (
+  "id" serial PRIMARY KEY,
+  "user_id" text NOT NULL,
+  "prompt_hash" text NOT NULL,
+  "prompt_sample" text NOT NULL,
+  "scene_key" text,
+  "genre_families" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "coherence_score" real,
+  "familiarity_mode" text,
+  "generation_count" integer NOT NULL DEFAULT 1,
+  "updated_at" timestamp NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS "IDX_prompt_scene_memory_user_prompt"
+  ON "prompt_scene_memory" ("user_id", "prompt_hash");
 `;
 
 async function backfillShareSlugs(rawPool: pg.Pool): Promise<void> {

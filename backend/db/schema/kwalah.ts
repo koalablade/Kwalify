@@ -112,6 +112,31 @@ export const unknownTermEventsTable = pgTable("unknown_term_events", {
   promptHashIndex: index("IDX_unknown_term_events_prompt_hash").on(table.promptHash),
 }));
 
+export const sceneAliasPromotionsTable = pgTable("scene_alias_promotions", {
+  id: serial("id").primaryKey(),
+  term: text("term").notNull().unique(),
+  aliases: jsonb("aliases").notNull().default([]),
+  occurrences: integer("occurrences").notNull().default(0),
+  source: text("source").notNull().default("harvest"),
+  promotedAt: timestamp("promoted_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const promptSceneMemoryTable = pgTable("prompt_scene_memory", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  promptHash: text("prompt_hash").notNull(),
+  promptSample: text("prompt_sample").notNull(),
+  sceneKey: text("scene_key"),
+  genreFamilies: jsonb("genre_families").notNull().default([]),
+  coherenceScore: real("coherence_score"),
+  familiarityMode: text("familiarity_mode"),
+  generationCount: integer("generation_count").notNull().default(1),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userPromptIndex: index("IDX_prompt_scene_memory_user_prompt").on(table.userId, table.promptHash),
+}));
+
 export const insertLikedSongSchema = createInsertSchema(likedSongsTable).omit({ id: true, createdAt: true });
 export const insertPlaylistHistorySchema = createInsertSchema(playlistHistoryTable).omit({ id: true, createdAt: true });
 export const insertSyncStatusSchema = createInsertSchema(syncStatusTable).omit({ id: true });

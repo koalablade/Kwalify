@@ -29,6 +29,8 @@ import type { ScoredLibraryTrack } from "./types";
 import type { HybridScoreResult } from "../../lib/hybrid-scoring";
 import type { FeedbackMemory } from "../../lib/feedback-memory";
 import { computeSceneAliasRetrievalBoost } from "../../lib/scene-alias-retrieval-boost";
+import { tasteGraphRetrievalBoost, type TasteMemoryGraph } from "../../lib/taste-memory-graph";
+import { trendRetrievalBoost } from "../../lib/trend-ingestion";
 
 function metadataGenreMatch(genres: unknown, vibe: string): number {
   if (!Array.isArray(genres)) return 0;
@@ -72,6 +74,8 @@ export interface PostScoreModifierInput<T extends { trackId: string; artistName:
   curatorScoreByTrack?: Map<string, number>;
   sceneAliases?: string[];
   scenePrediction?: Record<string, number>;
+  tasteGraph?: TasteMemoryGraph | null;
+  trendPrompt?: string;
 }
 
 export function applyPostScoreModifiers<T extends {
@@ -155,6 +159,12 @@ export function applyPostScoreModifiers<T extends {
         input.sceneAliases,
         input.scenePrediction ?? {},
       );
+    }
+    if (input.tasteGraph) {
+      score += tasteGraphRetrievalBoost(enriched, input.tasteGraph);
+    }
+    if (input.trendPrompt) {
+      score += trendRetrievalBoost(input.trendPrompt);
     }
     if (typeof enriched.popularity === "number") {
       const popularityBalance = 1 - Math.abs(enriched.popularity - 58) / 100;

@@ -8,6 +8,7 @@ import {
   savedPlaylistsTable,
   syncStatusTable,
   unknownTermEventsTable,
+  promptSceneMemoryTable,
   userFeedbackMemoryTable,
 } from "../db";
 
@@ -35,6 +36,7 @@ export async function deleteUserData(
   await db.delete(syncStatusTable).where(eq(syncStatusTable.spotifyUserId, spotifyUserId));
   await db.delete(userFeedbackMemoryTable).where(eq(userFeedbackMemoryTable.userId, spotifyUserId));
   await db.delete(unknownTermEventsTable).where(eq(unknownTermEventsTable.userId, spotifyUserId));
+  await db.delete(promptSceneMemoryTable).where(eq(promptSceneMemoryTable.userId, spotifyUserId));
 
   if (rawPool) {
     await rawPool.query(
