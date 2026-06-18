@@ -1220,6 +1220,8 @@ function resultHtml(result) {
       : null;
   const fallbackNotice = degradedSpotifyNotice
     ? degradedSpotifyNotice
+    : result.degraded || (Array.isArray(result.degradationReasons) && result.degradationReasons.length > 0)
+      ? "Built in degraded mode — some quality checks were relaxed to finish in time."
     : count > 0 && count < Math.max(8, Math.floor(state.length * 0.4))
       ? `Only ${count} strong tracks survived the safety checks. Try a broader prompt or Balanced mode for a fuller playlist.`
     : result.fastFallback || result.code === "TIMEOUT_FALLBACK"
@@ -1250,6 +1252,7 @@ function resultHtml(result) {
       ? "Built from Spotify Discovery"
       : "Built from Your Library",
     result.generationTrust?.controlledRecoveryBlocked ? "Best Available — recovery blocked further widening" : null,
+    result.degraded ? "Degraded Performance Mode" : null,
     result.recoveryAssisted || result.generationTrust?.recoveryAssisted || confidence.recoveryUsed || confidence.fallbackUsed || result.fastFallback || result.code === "TIMEOUT_FALLBACK" ? "Recovery Assisted" : null,
     result.generationTrust?.eraRelaxed || result.strictEraEvidence?.relaxed ? "Era widened to best available" : null,
     result.generationTrust?.genreRelaxed || result.strictGenreEvidence?.relaxed ? "Genre widened to best available" : null,

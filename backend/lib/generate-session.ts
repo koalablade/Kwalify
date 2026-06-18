@@ -119,11 +119,6 @@ export function acquireGenerateSession(
   return requestId;
 }
 
-/** @deprecated use acquireGenerateSession */
-export function beginGenerateSession(userId: string): string {
-  return acquireGenerateSession(userId, { force: true })!;
-}
-
 export function setGeneratePhase(
   userId: string,
   requestId: string,

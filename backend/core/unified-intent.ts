@@ -478,6 +478,18 @@ export function resolveUnifiedIntent(snapshots: UnifiedIntentSnapshot[]): Unifie
     timeOfDayVector: averageVectors(active.map((snapshot) => snapshot.intent.timeOfDayVector)),
   };
   const primarySnapshot = [...active].sort((a, b) => b.confidence - a.confidence)[0];
+  const activityDisagreement = Math.max(
+    ...active.map((snapshot, index) =>
+      active.some((other, otherIndex) =>
+        otherIndex !== index &&
+        cosineDistance(snapshot.intent.semantic.activity, other.intent.semantic.activity) > 0.35
+      ) ? 1 : 0
+    ),
+    0,
+  );
+  const activityVector = activityDisagreement > 0 && primarySnapshot
+    ? [...primarySnapshot.intent.semantic.activity]
+    : averageVectors(active.map((snapshot) => snapshot.intent.semantic.activity));
   const resolver: UnifiedIntentSnapshot = {
     source: "resolver",
     confidence: Math.round((active.reduce((sum, snapshot) => sum + snapshot.confidence, 0) / active.length) * 1000) / 1000,
@@ -485,7 +497,7 @@ export function resolveUnifiedIntent(snapshots: UnifiedIntentSnapshot[]): Unifie
       resolvedVectors,
       primarySnapshot?.intent.momentCore ?? defaultMomentCore(),
       primarySnapshot?.intent.latentContext ?? defaultLatentContext(),
-      averageVectors(active.map((snapshot) => snapshot.intent.semantic.activity)),
+      activityVector,
     ),
   };
 

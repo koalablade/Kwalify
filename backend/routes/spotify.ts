@@ -272,9 +272,15 @@ export async function runSync(
           .set({
             syncProgress: progressCount,
             syncTotal: progressTotal ?? total,
-            // During incremental sync keep totalTracks as existing count until done
             totalTracks: isIncremental
-              ? (existingStatus?.totalTracks ?? 0)
+              ? Number(
+                  (
+                    await db
+                      .select({ count: sql<number>`count(*)::int` })
+                      .from(likedSongsTable)
+                      .where(eq(likedSongsTable.spotifyUserId, userId))
+                  )[0]?.count ?? existingStatus?.totalTracks ?? 0,
+                )
               : offset + tracks.length,
             updatedAt: new Date(),
           })

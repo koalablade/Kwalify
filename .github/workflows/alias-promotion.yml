@@ -1,0 +1,39 @@
+name: Alias promotion
+
+on:
+  schedule:
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply promotions to DB"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  promote-aliases:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Harvest alias suggestions
+        if: ${{ secrets.DATABASE_URL == '' }}
+        run: npm run promote:aliases
+      - name: Promote harvested aliases
+        if: ${{ secrets.DATABASE_URL != '' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ "${{ github.event.inputs.apply }}" = "true" ]; then
+            npm run promote:aliases:apply
+          else
+            npm run promote:aliases
+          fi

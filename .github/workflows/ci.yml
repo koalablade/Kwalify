@@ -29,9 +29,14 @@ jobs:
         run: npm audit --audit-level=high
       - name: Typecheck
         run: npm run typecheck
-      - name: Strict unused locals
-        run: npx tsc --noEmit --noUnusedLocals --noUnusedParameters 2>&1 | head -n 60
-        continue-on-error: true
+      - name: Strict unused locals (generation modules)
+        run: |
+          OUTPUT=$(npx tsc --noEmit --noUnusedLocals --noUnusedParameters 2>&1 || true)
+          echo "$OUTPUT" | head -n 60
+          if echo "$OUTPUT" | grep -q 'backend/controllers/generation/'; then
+            echo "Unused locals detected in backend/controllers/generation/*"
+            exit 1
+          fi
       - name: Static smoke
         run: npm run smoke:static
       - name: Build
@@ -53,6 +58,10 @@ jobs:
         run: npm run ci:prompt-reliability-local
       - name: CI prompt reliability gate
         run: npm run ci:prompt-reliability -- --require-reports --local-fixture --benchmark reports/prompt-reliability/local/prompt-reliability-report.json --regression reports/prompt-reliability/local/regression-report.json --baseline reports/prompt-reliability/local/local-baseline.json
+      - name: Convergence overlap gate
+        run: npm run ci:convergence-overlap -- --report reports/prompt-reliability/local/regression-report.json
+      - name: Graceful shutdown smoke
+        run: npm run smoke:shutdown
 
   deploy-smoke-pr:
     if: github.event_name == 'pull_request'
@@ -71,6 +80,7 @@ jobs:
         run: npm run smoke:deploy
 
   coherence-live:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

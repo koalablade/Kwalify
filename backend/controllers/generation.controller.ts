@@ -50,6 +50,7 @@ import { getUserGenreProfileForGenerate } from "../lib/genre-profile-cache";
 import { getCachedLikedSongs, setCachedLikedSongs } from "../lib/liked-songs-cache";
 import { loadLikedSongsBatched } from "../lib/load-liked-songs-batched";
 import { classifyTrack } from "../lib/genre-taxonomy";
+import { assessGenreEvidenceTier } from "../lib/genre-evidence-tier";
 import { getGenreFamily } from "../core/v3/global-diversity-controller";
 import { buildGenreIntelligenceStack } from "../lib/genre-intelligence-stack";
 import {
@@ -148,6 +149,12 @@ import {
 import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify-api-audit";
 import { buildIntentSurvivalDiagnostics } from "../lib/intent-survival-diagnostics";
 import { buildGenerationTrustPayload } from "./generation-response";
+import { capAuditResponsePayload } from "../lib/audit-response-cap";
+import {
+  recordGenerationPhaseDuration,
+  recordIntentSurvivalSample,
+  recordSpotifyApiMetrics,
+} from "../lib/ops-metrics";
 import {
   effectiveRecoveryArtistLimit,
   evaluateRecoveryGuards,
@@ -4023,10 +4030,16 @@ function hasFinalGenreEvidence(
       ...(Array.isArray(track.spotifyArtistGenres) ? track.spotifyArtistGenres : []),
       ...(Array.isArray(track.albumGenres) ? track.albumGenres : []),
     ].filter((value): value is string => typeof value === "string");
-    if (metadataGenres.some((genre) => {
+    const metadataFamilyHit = metadataGenres.some((genre) => {
       const family = getGenreFamily(genre.toLowerCase().trim().replace(/&/g, "and").replace(/[\s-]+/g, "_"));
       return !!family && expectedFamilies.includes(family);
-    })) {
+    });
+    const metadataTier = assessGenreEvidenceTier({
+      subgenreMatch: false,
+      spotifyArtistGenres: track.spotifyArtistGenres,
+      albumGenres: track.albumGenres,
+    });
+    if (metadataFamilyHit && metadataTier.confidence >= 0.68) {
       return true;
     }
   }
@@ -4035,6 +4048,16 @@ function hasFinalGenreEvidence(
     return !!known && expectedFamilies.includes(known.family);
   }
   const diagnostics = candidateClassification.diagnostics;
+  const evidenceTier = assessGenreEvidenceTier({
+    subgenreMatch: expectedFamilies.includes(candidateClassification.genreFamily),
+    spotifyArtistGenres: track.spotifyArtistGenres,
+    albumGenres: track.albumGenres,
+    taxonomyHit: diagnostics?.taxonomyHit === true,
+    audioFallbackUsed: diagnostics?.audioFallbackUsed === true,
+  });
+  if (evidenceTier.tier === "exact_tag" || evidenceTier.tier === "artist_genre" || evidenceTier.tier === "taxonomy") {
+    return true;
+  }
   if (
     diagnostics?.taxonomyHit === true &&
     diagnostics.audioFallbackUsed !== true &&
@@ -4687,6 +4710,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (!snapshotLikedRows && !cachedLikedRows && !devMode && noLibraryMode) dbHydrationOccurred = true;
     const likedSongsQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
+    recordGenerationPhaseDuration("library_load", likedSongsQueryMs);
     if (!likedSongsCacheHit && !devMode) recordPreV3Timing(preV3Timing, "dbTimeMs", likedSongsQueryMs);
     if (debugPerformance) {
       logDbSessionLoadStage(req.log, recordDbSessionLoadStage(preV3Timing, "recentTracksQuery", {
@@ -5763,6 +5787,33 @@ router.post("/generate", async (req, res): Promise<void> => {
     playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
 
+    const pipelineV3Early = ((pipeline.scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+    const earlyGuard = (pipelineV3Early["intentContractGuard"] ?? {}) as Record<string, unknown>;
+    const preV3PoolHealth = earlyGuard["preV3PoolHealth"] as {
+      healthy?: boolean;
+      reason?: string | null;
+      actual?: number;
+      minRequired?: number;
+    } | undefined;
+    if (
+      preV3PoolHealth?.healthy === false &&
+      (mode === "strict" || (preV3PoolHealth.actual ?? 0) < Math.max(3, Math.ceil(length * 0.15)))
+    ) {
+      generateFail(
+        res,
+        422,
+        "CANDIDATE_POOL_UNHEALTHY",
+        `Your library doesn't have enough tracks matching this prompt (${preV3PoolHealth.actual ?? 0} found, ${preV3PoolHealth.minRequired ?? 0} needed). Try Balanced mode or broaden the genre.`,
+        {
+          poolHealth: preV3PoolHealth,
+          suggestions: ["Use Balanced mode", "Broaden genre or era terms", "Sync your library if recently updated"],
+        },
+      );
+      return;
+    }
+    recordGenerationPhaseDuration("v3_pipeline", playlistPipelineTimeMs);
+    recordSpotifyApiMetrics(getSpotifyApiAuditSnapshot());
+
     type PlaylistTrack = V3MetadataTrack<(typeof likedSongs)[number]> & {
       score: number;
       rediscoveryScore?: number;
@@ -6621,6 +6672,23 @@ router.post("/generate", async (req, res): Promise<void> => {
     endEvidenceGuardProfile();
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (controlledRecoveryBlocked && finalTracks.length < minBestAvailableCount) {
+      setGeneratePhase(generateSessionUserId, requestId, "error");
+      if (respondIfStale(res, generateSessionUserId, requestId)) return;
+      generateFail(
+        res,
+        409,
+        "CONTROLLED_RECOVERY_FAILURE",
+        controlledRecoveryReason ?? "Recovery would erase your prompt identity — try balanced mode or sync more library tracks.",
+        {
+          controlledRecoveryBlocked: true,
+          controlledRecoveryReason,
+          finalCount: finalTracks.length,
+          minBestAvailableCount,
+        }
+      );
+      return;
+    }
     const strictEraEvidencePublic = {
       ...strictEraEvidenceDiagnostics,
       verified: undefined,
@@ -7743,6 +7811,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const totalDurationMs = finalTracks.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
     const artistCount = new Set(finalTracks.map((t) => t.artistName)).size;
     const generationMs = Date.now() - startMs;
+    recordGenerationPhaseDuration("controller.total", generationMs);
 
     const datedLikes = likedSongs.filter((s) => s.addedAt);
     const recentCutoff = Date.now() - 120 * 24 * 60 * 60 * 1000;
@@ -8153,6 +8222,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       intentUnderstanding: intentUnderstandingDiagnostics,
     });
     endIntentSurvivalProfile();
+    recordIntentSurvivalSample({
+      overall: intentSurvivalDiagnostics.scores.overallIntentSurvival,
+      emotion: intentSurvivalDiagnostics.scores.emotionSurvival,
+      subgenre: intentSurvivalDiagnostics.scores.subgenreSurvival,
+    });
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
     const v3DiagnosticsWithIntentSurvival = {
@@ -8335,7 +8409,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       };
       endAuditResponseProfile();
       const endAuditJsonProfile = liveStageProfiler.start("controller.responseJson.auditSlim", `${finalApiTracks.length} tracks`);
-      res.json(auditResponse);
+      res.json(capAuditResponsePayload(auditResponse));
       endAuditJsonProfile();
       return;
     }

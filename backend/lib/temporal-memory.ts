@@ -71,8 +71,3 @@ export function computeTemporalMemory(signal: TrackLibrarySignal): TemporalMemor
 
   return { phase, overplayedScore, rediscoveryScore, scoreModifier, explanation };
 }
-
-/** @deprecated */
-export function computeTemporalPhase(signal: TrackLibrarySignal): TemporalMemoryState {
-  return computeTemporalMemory(signal);
-}

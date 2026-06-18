@@ -1,0 +1,33 @@
+name: Production validation
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  production-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Dry-run validation (cache + failure classification)
+        run: npm run validation:production -- --dry-run
+      - name: Live production validation
+        if: ${{ secrets.PLAYLIST_EVAL_TOKEN != '' && secrets.SMOKE_SPOTIFY_USER_ID != '' }}
+        env:
+          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          SMOKE_SPOTIFY_USER_ID: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+        run: |
+          npm run validation:production -- \
+            --base-url https://kwalify.net \
+            --spotify-user-id "$SMOKE_SPOTIFY_USER_ID" \
+            --token "$PLAYLIST_EVAL_TOKEN" \
+            --requests 20 \
+            --concurrency 5 \
+            --concurrency-requests 0 \
+            --enforce-slo

@@ -23,6 +23,7 @@
     "quality:eval": "npm run build && node backend/dist/scripts/playlist-quality-eval.js",
     "quality:stress": "npm run build && node backend/dist/scripts/playlist-stress-report.js",
     "smoke:deploy": "npm run build && node backend/dist/scripts/deploy-smoke.js",
+    "smoke:shutdown": "npm run build && node backend/dist/scripts/shutdown-smoke.js",
     "verify:eval-token": "node scripts/verify-eval-token.mjs",
     "sync:eval-token": "powershell -ExecutionPolicy Bypass -File scripts/sync-eval-token.ps1",
     "harvest:unknown-terms": "npm run build && node backend/dist/scripts/harvest-unknown-terms.js",
@@ -41,7 +42,9 @@
     "ci:semantic-scenes": "npm run build && node backend/dist/scripts/semantic-scene-ci-gate.js",
     "regression:coherence-live": "npm run build && node backend/dist/scripts/coherence-live-regression.js",
     "smoke:spotify-user-id": "node scripts/resolve-smoke-spotify-user-id.mjs",
-    "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"
+    "validation:production": "npm run build && node backend/dist/scripts/production-validation.js",
+    "ci:convergence-overlap": "npm run build && node backend/dist/scripts/convergence-overlap-ci-gate.js",
+    "report:prompt-reliability-trend": "npm run build && node backend/dist/scripts/prompt-reliability-trend.js"
   },
   "dependencies": {
     "@types/compression": "^1.8.1",

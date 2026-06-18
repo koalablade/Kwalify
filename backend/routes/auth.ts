@@ -116,56 +116,69 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
     const tokens = await exchangeCode(String(code), redirectUri);
     const user = await getSpotifyUser(tokens.accessToken);
 
-    req.session.spotifyTokens = tokens;
-    req.session.spotifyUserId = user.id;
-    req.session.spotifyDisplayName = user.display_name ?? user.id;
-    req.session.spotifyEmail = user.email ?? null;
-    req.session.spotifyAvatarUrl = user.images?.[0]?.url ?? null;
-    req.session.spotifyCountry = user.country ?? null;
+    const persistOAuthSession = (): void => {
+      req.session.spotifyTokens = tokens;
+      req.session.spotifyUserId = user.id;
+      req.session.spotifyDisplayName = user.display_name ?? user.id;
+      req.session.spotifyEmail = user.email ?? null;
+      req.session.spotifyAvatarUrl = user.images?.[0]?.url ?? null;
+      req.session.spotifyCountry = user.country ?? null;
 
-    req.log.info({ spotifyUserId: user.id }, "Spotify OAuth successful");
+      req.log.info({ spotifyUserId: user.id }, "Spotify OAuth successful");
 
-    const finishOAuth = (): void => {
-      res.redirect(getFrontendRedirect("/"));
+      const finishOAuth = (): void => {
+        res.redirect(getFrontendRedirect("/"));
+      };
+
+      // Auto-sync on first login — fire and forget (don't await)
+      void (async () => {
+        try {
+          const [syncStatus] = await db
+            .select()
+            .from(syncStatusTable)
+            .where(eq(syncStatusTable.spotifyUserId, user.id));
+
+          const neverSynced =
+            !syncStatus ||
+            (syncStatus.totalTracks === 0 && syncStatus.lastSyncedAt === null);
+
+          if (neverSynced && !activeSyncs.has(user.id)) {
+            req.log.info({ userId: user.id }, "Auto-syncing on first login");
+            await db
+              .insert(syncStatusTable)
+              .values({ spotifyUserId: user.id, isSyncing: 1, totalTracks: 0 })
+              .onConflictDoUpdate({
+                target: syncStatusTable.spotifyUserId,
+                set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
+              });
+            activeSyncs.add(user.id);
+            runSync(user.id, tokens).catch((err) => {
+              recordSyncFailure({ userId: user.id, phase: "oauth_auto_sync", message: err instanceof Error ? err.message : String(err) });
+              logger.error({ err, userId: user.id }, "Background auto-sync failed");
+            });
+          }
+        } catch (autoSyncErr) {
+          req.log.warn({ err: autoSyncErr }, "Auto-sync check failed — continuing");
+        }
+
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            req.log.error({ err: saveErr }, "Failed to save session after OAuth");
+            res.redirect(getFrontendRedirect("/?error=session_failed"));
+            return;
+          }
+          finishOAuth();
+        });
+      })();
     };
 
-    // Auto-sync on first login — fire and forget (don't await)
-    try {
-      const [syncStatus] = await db
-        .select()
-        .from(syncStatusTable)
-        .where(eq(syncStatusTable.spotifyUserId, user.id));
-
-      const neverSynced =
-        !syncStatus ||
-        (syncStatus.totalTracks === 0 && syncStatus.lastSyncedAt === null);
-
-      if (neverSynced && !activeSyncs.has(user.id)) {
-        req.log.info({ userId: user.id }, "Auto-syncing on first login");
-        await db
-          .insert(syncStatusTable)
-          .values({ spotifyUserId: user.id, isSyncing: 1, totalTracks: 0 })
-          .onConflictDoUpdate({
-            target: syncStatusTable.spotifyUserId,
-            set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
-          });
-        activeSyncs.add(user.id);
-        runSync(user.id, tokens).catch((err) => {
-          recordSyncFailure({ userId: user.id, phase: "oauth_auto_sync", message: err instanceof Error ? err.message : String(err) });
-          logger.error({ err, userId: user.id }, "Background auto-sync failed");
-        });
-      }
-    } catch (autoSyncErr) {
-      req.log.warn({ err: autoSyncErr }, "Auto-sync check failed — continuing");
-    }
-
-    req.session.save((saveErr) => {
-      if (saveErr) {
-        req.log.error({ err: saveErr }, "Failed to save session after OAuth");
+    req.session.regenerate((regenerateErr) => {
+      if (regenerateErr) {
+        req.log.error({ err: regenerateErr }, "Failed to regenerate session after OAuth");
         res.redirect(getFrontendRedirect("/?error=session_failed"));
         return;
       }
-      finishOAuth();
+      persistOAuthSession();
     });
   } catch (err) {
     req.log.error({ err }, "Spotify OAuth callback failed");

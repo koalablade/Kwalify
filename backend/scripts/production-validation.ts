@@ -16,6 +16,7 @@ type Config = {
   timeoutMs: number;
   expectedDeploymentVersion: string | null;
   dryRun: boolean;
+  enforceSlo: boolean;
 };
 
 type RequestRow = {
@@ -60,6 +61,17 @@ type ValidationReport = {
   dryRun: boolean;
   load: ScenarioReport[];
   concurrency: ScenarioReport[];
+  slo: {
+    enforced: boolean;
+    pass: boolean;
+    violations: string[];
+    thresholds: {
+      maxP95LatencyMs: number;
+      maxTimeoutRate: number;
+      maxFailureRate: number;
+      maxHeapGrowthMb: number;
+    };
+  };
   cacheValidation: {
     pass: boolean;
     ttlExpiry: boolean;
@@ -114,6 +126,7 @@ function intList(raw: string | null, fallback: number[]): number[] {
 function parseConfig(args: string[]): Config {
   if (args.includes("--help") || args.includes("-h")) usage();
   const dryRun = args.includes("--dry-run");
+  const enforceSlo = args.includes("--enforce-slo");
   const baseUrl = argValue(args, "--base-url") ?? process.env["API_BASE_URL"] ?? process.env["PLAYLIST_EVAL_BASE_URL"] ?? "";
   const spotifyUserId = argValue(args, "--spotify-user-id") ?? process.env["SPOTIFY_USER_ID"] ?? process.env["PLAYLIST_EVAL_SPOTIFY_USER_ID"] ?? "";
   const token = argValue(args, "--token") ?? process.env["PLAYLIST_EVAL_TOKEN"] ?? "";
@@ -131,6 +144,7 @@ function parseConfig(args: string[]): Config {
     timeoutMs: Number(argValue(args, "--timeout-ms") ?? 120_000),
     expectedDeploymentVersion: argValue(args, "--expected-deployment-version") ?? process.env["PLAYLIST_EVAL_EXPECTED_VERSION"] ?? process.env["EXPECTED_DEPLOYMENT_VERSION"] ?? null,
     dryRun,
+    enforceSlo,
   };
 }
 
@@ -379,6 +393,42 @@ function validateFailureClassification(): ValidationReport["failureClassificatio
   return { pass: rows.every((row) => row.pass), rows };
 }
 
+function validateSlo(
+  scenarios: ScenarioReport[],
+  enforce: boolean,
+): ValidationReport["slo"] {
+  const maxP95LatencyMs = Number.parseInt(process.env["PROD_SLO_P95_MS"] ?? "90000", 10);
+  const maxTimeoutRate = Number.parseFloat(process.env["PROD_SLO_TIMEOUT_RATE"] ?? "0.05");
+  const maxFailureRate = Number.parseFloat(process.env["PROD_SLO_FAILURE_RATE"] ?? "0.08");
+  const maxHeapGrowthMb = Number.parseInt(process.env["PROD_SLO_HEAP_GROWTH_MB"] ?? "256", 10);
+  const thresholds = { maxP95LatencyMs, maxTimeoutRate, maxFailureRate, maxHeapGrowthMb };
+  const violations: string[] = [];
+
+  for (const scenario of scenarios) {
+    if (scenario.p95LatencyMs > maxP95LatencyMs) {
+      violations.push(`${scenario.name}: p95 ${scenario.p95LatencyMs}ms > ${maxP95LatencyMs}ms`);
+    }
+    const timeoutRate = scenario.timeoutCount / Math.max(1, scenario.requests);
+    if (timeoutRate > maxTimeoutRate) {
+      violations.push(`${scenario.name}: timeout rate ${timeoutRate.toFixed(3)} > ${maxTimeoutRate}`);
+    }
+    const failureRate = scenario.failureCount / Math.max(1, scenario.requests);
+    if (failureRate > maxFailureRate) {
+      violations.push(`${scenario.name}: failure rate ${failureRate.toFixed(3)} > ${maxFailureRate}`);
+    }
+    if (scenario.memory.heapGrowthMb > maxHeapGrowthMb) {
+      violations.push(`${scenario.name}: heap growth ${scenario.memory.heapGrowthMb}MB > ${maxHeapGrowthMb}MB`);
+    }
+  }
+
+  return {
+    enforced: enforce,
+    pass: violations.length === 0,
+    violations,
+    thresholds,
+  };
+}
+
 function markdown(report: ValidationReport): string {
   const scenarioRows = [...report.load, ...report.concurrency]
     .map((row) => `| ${row.name} | ${row.requests} | ${row.concurrency} | ${row.requestsPerSecond} | ${row.p50LatencyMs} | ${row.p95LatencyMs} | ${row.p99LatencyMs} | ${row.timeoutCount} | ${row.degradedCount} | ${row.recoveryCount} | ${row.failureCount} | ${row.rejectionCount} | ${row.memory.heapGrowthMb} |`)
@@ -417,6 +467,13 @@ ${report.failureClassification.rows.map((row) => `- ${row.stage}: expected ${row
 - Large payload rejected correctly: ${report.securityProbes.largePayload.pass}
 - Large payload status/code: ${report.securityProbes.largePayload.status ?? "n/a"} / ${report.securityProbes.largePayload.code ?? "n/a"}
 
+## SLO Validation
+
+- Enforced: ${report.slo.enforced}
+- Pass: ${report.slo.pass}
+- Thresholds: ${JSON.stringify(report.slo.thresholds)}
+${report.slo.violations.map((v) => `- ${v}`).join("\n") || "- none"}
+
 ## Notes
 
 ${report.notes.map((note) => `- ${note}`).join("\n")}
@@ -434,6 +491,7 @@ async function main(): Promise<void> {
     dryRun: config.dryRun,
     load: [],
     concurrency: [],
+    slo: validateSlo([], config.enforceSlo),
     cacheValidation: await validateCache(),
     failureClassification: validateFailureClassification(),
     securityProbes: {
@@ -453,6 +511,10 @@ async function main(): Promise<void> {
       }
     }
     report.securityProbes = await runSecurityProbes(config);
+    report.slo = validateSlo([...report.load, ...report.concurrency], config.enforceSlo);
+    if (config.enforceSlo && !report.slo.pass) {
+      report.notes.push(`SLO violations: ${report.slo.violations.join("; ")}`);
+    }
   }
   await writeFile(path.join(config.outDir, "production-validation-report.json"), JSON.stringify(report, null, 2));
   await writeFile(path.join(config.outDir, "PRODUCTION_READINESS_REPORT.md"), markdown(report));
@@ -462,7 +524,9 @@ async function main(): Promise<void> {
     scenarios: report.load.length + report.concurrency.length,
     cachePass: report.cacheValidation.pass,
     failureClassificationPass: report.failureClassification.pass,
+    sloPass: report.slo.pass,
   }, null, 2)}\n`);
+  if (config.enforceSlo && !report.slo.pass) process.exit(1);
 }
 
 main().catch((err) => {

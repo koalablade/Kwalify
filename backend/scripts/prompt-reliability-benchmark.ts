@@ -463,7 +463,9 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
     stringValue(generationDiagnostics["finalizationFallbackLevel"]) ??
     stringValue(finalization["fallbackMode"]) ??
     (boolValue(finalization["hardSafeFillUsed"]) ? "hardSafe" : "none");
-  const fallbackLevelUsed = retrievalFallbackLevel;
+  const fallbackLevelUsed = finalizationFallbackLevel !== "none"
+    ? `${retrievalFallbackLevel}|${finalizationFallbackLevel}`
+    : retrievalFallbackLevel;
   const leakDetections = arrayValue(intentSurvival["leakDetections"]).filter((item) => typeof item === "object" && item !== null) as Array<Record<string, unknown>>;
   const majorGenreLeak = boolValue(strictGenreEvidence["relaxed"]) ||
     leakDetections.some((leak) => {

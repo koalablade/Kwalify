@@ -214,6 +214,7 @@ async function main(): Promise<void> {
     subgenreSurvival: row.intent.subgenreSurvivalPercent,
     leaks: 0,
     convergenceRisk: "low",
+    retrievalToFinalOverlap: 0.32,
     recoveryCount: 0,
     collapseStage: row.success ? "none" : "intent_parse",
     failures: row.blockingFailureReasons.map((reason) => ({

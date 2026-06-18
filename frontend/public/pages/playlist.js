@@ -1,25 +1,10 @@
 // ── Kwalify · Playlist share page ────────────────────────────────────────────
+import { esc, initTheme } from "../lib/shared.js";
+
+initTheme();
 const root = document.getElementById("playlistRoot");
 const match = window.location.pathname.match(/\/p\/([^/]+)/);
 const shareSlug = match ? decodeURIComponent(match[1]) : null;
-
-(function initTheme() {
-  let saved = null;
-  try {
-    saved = localStorage.getItem("kwalify-theme");
-  } catch {
-    saved = null;
-  }
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const theme = saved || (prefersDark ? "dark" : "light");
-  document.documentElement.setAttribute("data-theme", theme);
-})();
-
-function esc(v) {
-  return String(v ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
-  );
-}
 
 async function api(path, opts = {}) {
   const controller = new AbortController();

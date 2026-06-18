@@ -3914,11 +3914,17 @@ export async function buildPlaylistPipeline<T extends {
     fallbackExpansionPath.push(`${step.level}:${contractGuardedScoredPool.length}`);
   }
   if (contractGuardedScoredPool.length === 0 && globalExpansion.length > 0 && !worldBoundary.active) {
-    retrievalFatalEmptyPool = true;
-    emptyPoolDetectedAtStage = emptyPoolDetectedAtStage ?? "pre_v3_scoring_entry";
-    contractGuardedScoredPool = appendUnique(contractGuardedScoredPool, globalExpansion, minSafePreRankingPool);
-    finalFallbackLevelUsed = "global";
-    fallbackExpansionPath.push(`fatal_global:${contractGuardedScoredPool.length}`);
+    const retrievalEmotionGate = detectDominantEmotion(opts.vibe, opts.emotionProfile);
+    const blockFatalGlobal = opts.mode === "strict" || retrievalEmotionGate.explicit;
+    if (!blockFatalGlobal) {
+      retrievalFatalEmptyPool = true;
+      emptyPoolDetectedAtStage = emptyPoolDetectedAtStage ?? "pre_v3_scoring_entry";
+      contractGuardedScoredPool = appendUnique(contractGuardedScoredPool, globalExpansion, minSafePreRankingPool);
+      finalFallbackLevelUsed = "global";
+      fallbackExpansionPath.push(`fatal_global:${contractGuardedScoredPool.length}`);
+    } else {
+      fallbackExpansionPath.push("fatal_global:blocked_preserve_intent");
+    }
   }
   if (contractGuardedScoredPool.length > beforeExpansion) {
     starvationTriggerReason = beforeExpansion === 0

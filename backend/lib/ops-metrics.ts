@@ -4,6 +4,9 @@
  */
 
 import { moduleLogger } from "./logger";
+import { getExtendedOpsMetrics } from "./ops-metrics-extended";
+
+export { recordSpotifyApiMetrics, recordGenerationPhaseDuration, recordIntentSurvivalSample } from "./ops-metrics-extended";
 
 const log = moduleLogger("ops-metrics");
 
@@ -28,6 +31,7 @@ export type OpsMetricsSnapshot = {
     queueLimit: number;
     averageLatencyMs: number;
   } | null;
+  extended: ReturnType<typeof getExtendedOpsMetrics>;
   alerts: Array<{ type: string; at: string; detail: Record<string, unknown> }>;
 };
 
@@ -110,6 +114,7 @@ export function getOpsMetrics(generateQueue: OpsMetricsSnapshot["generateQueue"]
       lastEventAt: syncFailureLastAt,
     },
     generateQueue,
+    extended: getExtendedOpsMetrics(),
     alerts: [...recentAlerts],
   };
 }

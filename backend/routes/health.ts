@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "../zod/api";
 import { getRuntimeReadiness, isRuntimeReady } from "../lib/runtime-readiness";
 import { deploymentVersion } from "../lib/deployment-version";
+import { isShuttingDown } from "../lib/shutdown";
 
 const router: IRouter = Router();
 
@@ -21,6 +22,7 @@ router.get("/readyz", (_req, res) => {
   res.status(isRuntimeReady() ? 200 : 503).json({
     status: isRuntimeReady() ? "ready" : "not_ready",
     readiness: readiness.state,
+    shuttingDown: isShuttingDown(),
     uptimeMs: readiness.uptimeMs,
     readyAt: readiness.readyAt,
     failedAt: readiness.failedAt,

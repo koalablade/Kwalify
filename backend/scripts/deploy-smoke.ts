@@ -1,3 +1,6 @@
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+
 type SmokeResult = {
   name: string;
   pass: boolean;
@@ -47,7 +50,7 @@ async function checkReadiness(origin: string): Promise<SmokeResult> {
   const data = await readJson(response);
   return {
     name: "readyz",
-    pass: response.ok && data["status"] === "ready" && data["readiness"] === "ready",
+    pass: response.ok && data["status"] === "ready" && data["readiness"] === "ready" && data["shuttingDown"] !== true,
     status: response.status,
     details: data,
   };
@@ -173,13 +176,62 @@ async function checkLaunchPages(origin: string): Promise<SmokeResult[]> {
   return results;
 }
 
+async function checkOpsMetrics(origin: string): Promise<SmokeResult> {
+  const token = process.env.PLAYLIST_EVAL_TOKEN ?? process.env.SMOKE_EVAL_TOKEN ?? null;
+  if (!token) {
+    return {
+      name: "opsMetrics",
+      pass: true,
+      details: { skipped: true, reason: "PLAYLIST_EVAL_TOKEN not set" },
+    };
+  }
+  const response = await fetchWithTimeout(`${origin}/api/ops/metrics`, {
+    headers: { "x-eval-token": token },
+  });
+  const data = await readJson(response);
+  return {
+    name: "opsMetrics",
+    pass: response.ok
+      && typeof data["serverBusy"] === "object"
+      && typeof data["extended"] === "object"
+      && data["extended"] !== null,
+    status: response.status,
+    details: {
+      serverBusy: data["serverBusy"],
+      extended: data["extended"],
+      alerts: data["alerts"],
+    },
+  };
+}
+
+function checkGracefulShutdownModule(): SmokeResult {
+  try {
+    const script = path.join(process.cwd(), "backend/dist/scripts/shutdown-smoke.js");
+    const out = execFileSync(process.execPath, [script], { encoding: "utf8" }).trim();
+    const parsed = JSON.parse(out) as { pass?: boolean; shuttingDown?: boolean };
+    return {
+      name: "gracefulShutdown",
+      pass: parsed.pass === true && parsed.shuttingDown === true,
+      details: parsed,
+    };
+  } catch (err) {
+    return {
+      name: "gracefulShutdown",
+      pass: false,
+      details: { error: err instanceof Error ? err.message : String(err) },
+    };
+  }
+}
+
 async function main(): Promise<void> {
   const origin = baseUrl();
   const results = [
     await checkHealth(origin),
     await checkReadiness(origin),
+    checkGracefulShutdownModule(),
     await checkDeploymentCommit(origin),
     await checkEvalToken(origin),
+    await checkOpsMetrics(origin),
     await checkCors(origin),
     await checkGenerate(origin),
     ...(await checkLaunchPages(origin)),
