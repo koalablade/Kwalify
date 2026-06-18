@@ -23,6 +23,8 @@
     "quality:stress": "npm run build && node backend/dist/scripts/playlist-stress-report.js",
     "smoke:deploy": "npm run build && node backend/dist/scripts/deploy-smoke.js",
     "harvest:unknown-terms": "npm run build && node backend/dist/scripts/harvest-unknown-terms.js",
+    "promote:aliases": "npm run build && node backend/dist/scripts/promote-harvested-aliases.js",
+    "coherence:intent": "npm run build && node backend/dist/scripts/coherence-intent-fixtures.js",
     "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"
   },
   "dependencies": {

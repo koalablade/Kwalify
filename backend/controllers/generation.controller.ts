@@ -151,11 +151,10 @@ import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
 import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
 import { runCoherenceRebuildLoop } from "../core/rebuild-loop";
 import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
-import { buildIntentState } from "../core/intent-state-engine";
-import { decomposeIntent } from "../core/intent-decomposer";
-import { buildEmotionalArc, orderTracksByEmotionalArc } from "../core/emotional-arc-planner";
-import { resolveDecomposedSceneAliases } from "../lib/scene-alias-graph";
-import { resolveSceneLock } from "../core/scene-lock-mode";
+import { orderTracksByEmotionalArc } from "../core/emotional-arc-planner";
+import { buildIntentPipelineContext, mergeSceneAliasesIntoGenres } from "../lib/intent-pipeline-orchestrator";
+import { rediscoveryModeForFamiliarity } from "../lib/familiarity-controller";
+import { mergeScenePredictions } from "../lib/scene-alias-graph";
 import { buildIntentLossReport, type IntentLossReport } from "../lib/intent-loss-report";
 import { buildGenerationPipelineDiagnostics } from "../lib/generation-pipeline-diagnostics";
 import {
@@ -4857,8 +4856,21 @@ router.get("/generate/preview", (req, res): void => {
         prompt: vibe,
         profile,
       }),
-      intentState: buildIntentState(vibe),
-      decomposedIntent: decomposeIntent(vibe),
+      ...(() => {
+        const previewMode = typeof req.query.mode === "string" &&
+          ["strict", "balanced", "chaotic"].includes(req.query.mode)
+          ? req.query.mode as "strict" | "balanced" | "chaotic"
+          : "balanced";
+        const pipeline = buildIntentPipelineContext(vibe, previewMode);
+        return {
+          intentState: pipeline.intentState,
+          decomposedIntent: pipeline.decomposedIntent,
+          sceneAliases: pipeline.sceneAliases,
+          scenePrediction: pipeline.scenePrediction,
+          familiarityMode: pipeline.familiarityMode,
+          sceneLockStatus: pipeline.sceneLockStatus.active ? pipeline.sceneLockStatus.anchors : null,
+        };
+      })(),
     });
   } catch (err) {
     res.status(500).json({ error: "Preview analysis failed" });
@@ -5129,12 +5141,15 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     markTimeline(productionTimeline, startMs, "deps_loaded");
     startTimelineStage(productionTimeline, startMs, "prompt_understanding");
-    const intentState = buildIntentState(vibe);
-    const decomposedIntent = decomposeIntent(vibe);
-    const sceneAliases = resolveDecomposedSceneAliases(decomposedIntent);
-    const emotionalArc = buildEmotionalArc(decomposedIntent);
-    const sceneLockStatus = resolveSceneLock(intentState, vibe);
-    let intentLossReport: IntentLossReport = buildIntentLossReport(intentState);
+    const intentPipeline = buildIntentPipelineContext(vibe, mode);
+    const intentState = intentPipeline.intentState;
+    const decomposedIntent = intentPipeline.decomposedIntent;
+    const sceneAliases = intentPipeline.sceneAliases;
+    const emotionalArc = intentPipeline.emotionalArc;
+    const sceneLockStatus = intentPipeline.sceneLockStatus;
+    let intentLossReport: IntentLossReport = intentPipeline.intentLossReport;
+    const familiarityMode = intentPipeline.familiarityMode;
+    let mergedScenePrediction = intentPipeline.scenePrediction;
     req.log.info(
       {
         intentState,
@@ -5840,6 +5855,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const archaeology = detectArchaeologyIntent(vibe);
     let rediscoveryMode: RediscoveryMode = detectRediscoveryMode(vibe);
     if (archaeology) rediscoveryMode = archaeology.rediscoveryMode;
+    rediscoveryMode = rediscoveryModeForFamiliarity(familiarityMode, rediscoveryMode);
 
     const likedRows: LikedSongRow[] = likedSongs.map((s) => ({
       trackId: s.trackId,
@@ -6097,8 +6113,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       profile: emotionProfile,
       lockedIntent: parsedCsspIntent,
     });
+    mergedScenePrediction = mergeScenePredictions(
+      intentUnderstandingDiagnostics.scenePrediction,
+      intentPipeline.scenePrediction,
+    );
     intentLossReport = buildIntentLossReport(intentState, {
-      scenePrediction: intentUnderstandingDiagnostics.scenePrediction,
+      scenePrediction: mergedScenePrediction,
       assumptions: intentUnderstandingDiagnostics.assumptions,
     });
     startTimelineStage(productionTimeline, startMs, "intent_curator_identity");
@@ -6115,11 +6135,14 @@ router.post("/generate", async (req, res): Promise<void> => {
     endTimelineStage(productionTimeline, startMs, "intent_fallback_family");
     startTimelineStage(productionTimeline, startMs, "intent_v3_fallback");
     const v3FallbackIntent = completeCsspLockedIntent(parsedCsspIntent, {
-      genreFamilies: lockedIntent.genreFamilies.length > 0
-        ? lockedIntent.genreFamilies
-        : fallbackLockedFamily
-          ? [fallbackLockedFamily]
-          : [],
+      genreFamilies: mergeSceneAliasesIntoGenres(
+        lockedIntent.genreFamilies.length > 0
+          ? lockedIntent.genreFamilies
+          : fallbackLockedFamily
+            ? [fallbackLockedFamily]
+            : [],
+        sceneAliases,
+      ),
       eraRange: lockedIntent.eraRange,
       mood: lockedIntent.mood,
       activity: lockedIntent.activity,
@@ -6144,6 +6167,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       genCtx["decomposedIntent"] = decomposedIntent;
       genCtx["sceneLockStatus"] = sceneLockStatus;
       genCtx["sceneAliases"] = sceneAliases;
+      genCtx["mergedScenePrediction"] = mergedScenePrediction;
+      genCtx["familiarityMode"] = familiarityMode;
       genCtx["trackReusePenalty"] = finalizationReusePenalty;
       genCtx["artistReusePenalty"] = finalizationArtistReusePenalty;
     }
@@ -7248,7 +7273,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           tracks: enrichedFinal,
           candidates: baseFinalizationCandidates.map(enrichTrackForCoherence),
           intent: v3FallbackIntent,
-          scenePrediction: intentUnderstandingDiagnostics.scenePrediction,
+          scenePrediction: mergedScenePrediction,
           sceneLock: sceneLockStatus,
           maxIterations: 2,
         });
@@ -7279,7 +7304,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             tracks: finalTracks.map(enrichTrackForCoherence),
             candidates: baseFinalizationCandidates.map(enrichTrackForCoherence),
             intent: v3FallbackIntent,
-            scenePrediction: intentUnderstandingDiagnostics.scenePrediction,
+            scenePrediction: mergedScenePrediction,
             sceneLock: sceneLockStatus,
             maxIterations: 1,
           });
@@ -7302,7 +7327,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistCoherenceScore = scorePlaylistCoherence(
           enrichedFinal,
           v3FallbackIntent,
-          intentUnderstandingDiagnostics.scenePrediction,
+          mergedScenePrediction,
         );
       }
 
@@ -7663,6 +7688,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       sceneLockStatus,
       sceneAliases,
       emotionalArc,
+      familiarityMode,
+      mergedScenePrediction,
       unknownTokens: decomposedIntent.unknownTokens ?? intentState.unknownTokens ?? [],
       pipelineDiagnostics: buildGenerationPipelineDiagnostics({
         intentState,

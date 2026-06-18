@@ -57,3 +57,32 @@ export function resolveDecomposedSceneAliases(intent: DecomposedIntent): string[
 export function sceneAliasBoostWeight(termFrequency = 1): number {
   return Math.min(0.35, 0.08 + termFrequency * 0.02);
 }
+
+/** Build weighted scene prediction map for coherence scoring and diagnostics. */
+export function scenePredictionFromAliases(
+  sceneAliases: string[],
+  confidence = 0.5,
+): Record<string, number> {
+  if (sceneAliases.length === 0) return {};
+  const base = Math.max(0.15, Math.min(0.45, confidence * 0.5));
+  const entries = sceneAliases.map((alias, index) => {
+    const weight = Math.max(0.05, base - index * 0.04);
+    return [alias, Math.round(weight * 100) / 100] as const;
+  });
+  const total = entries.reduce((sum, [, weight]) => sum + weight, 0) || 1;
+  return Object.fromEntries(entries.map(([alias, weight]) => [alias, Math.round((weight / total) * 100) / 100]));
+}
+
+/** Merge alias prediction with semantic scene prediction (diagnostics + coherence). */
+export function mergeScenePredictions(
+  primary: Record<string, number>,
+  aliasPrediction: Record<string, number>,
+): Record<string, number> {
+  const combined: Record<string, number> = { ...primary };
+  for (const [key, weight] of Object.entries(aliasPrediction)) {
+    combined[key] = Math.round(((combined[key] ?? 0) + weight * 0.65) * 100) / 100;
+  }
+  const entries = Object.entries(combined).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const total = entries.reduce((sum, [, w]) => sum + w, 0) || 1;
+  return Object.fromEntries(entries.map(([k, w]) => [k, Math.round((w / total) * 100) / 100]));
+}
