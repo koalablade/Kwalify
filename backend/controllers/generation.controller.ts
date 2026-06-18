@@ -146,6 +146,18 @@ import {
 } from "../lib/expanded-intent-vocabulary";
 import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify-api-audit";
 import { buildIntentSurvivalDiagnostics } from "../lib/intent-survival-diagnostics";
+import { buildIntentUnderstandingDiagnostics } from "../lib/intent-understanding-diagnostics";
+import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
+import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
+import { runCoherenceRebuildLoop } from "../core/rebuild-loop";
+import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
+import { buildIntentState } from "../core/intent-state-engine";
+import { decomposeIntent } from "../core/intent-decomposer";
+import { buildEmotionalArc, orderTracksByEmotionalArc } from "../core/emotional-arc-planner";
+import { resolveDecomposedSceneAliases } from "../lib/scene-alias-graph";
+import { resolveSceneLock } from "../core/scene-lock-mode";
+import { buildIntentLossReport, type IntentLossReport } from "../lib/intent-loss-report";
+import { buildGenerationPipelineDiagnostics } from "../lib/generation-pipeline-diagnostics";
 import {
   getSessionSnapshot,
   mergeSessionSnapshot,
@@ -4841,6 +4853,12 @@ router.get("/generate/preview", (req, res): void => {
         calm: profile.calm,
       },
       journeyArc: journeyArc ?? null,
+      intentUnderstanding: buildIntentUnderstandingDiagnostics({
+        prompt: vibe,
+        profile,
+      }),
+      intentState: buildIntentState(vibe),
+      decomposedIntent: decomposeIntent(vibe),
     });
   } catch (err) {
     res.status(500).json({ error: "Preview analysis failed" });
@@ -5111,6 +5129,21 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     markTimeline(productionTimeline, startMs, "deps_loaded");
     startTimelineStage(productionTimeline, startMs, "prompt_understanding");
+    const intentState = buildIntentState(vibe);
+    const decomposedIntent = decomposeIntent(vibe);
+    const sceneAliases = resolveDecomposedSceneAliases(decomposedIntent);
+    const emotionalArc = buildEmotionalArc(decomposedIntent);
+    const sceneLockStatus = resolveSceneLock(intentState, vibe);
+    let intentLossReport: IntentLossReport = buildIntentLossReport(intentState);
+    req.log.info(
+      {
+        intentState,
+        decomposedIntent,
+        sceneAliases,
+        sceneLockStatus: sceneLockStatus.active ? sceneLockStatus.anchors : null,
+      },
+      "Intent state extracted",
+    );
     let tStage = Date.now();
     const mixedEmotions = detectMixedEmotions(vibe);
     const destParse = parseEmotionalDestination(vibe);
@@ -6059,6 +6092,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       interpretationBudget: parsedCsspIntent.interpretationBudget,
     };
     endTimelineStage(productionTimeline, startMs, "intent_object_resolve");
+    const intentUnderstandingDiagnostics = buildIntentUnderstandingDiagnostics({
+      prompt: vibe,
+      profile: emotionProfile,
+      lockedIntent: parsedCsspIntent,
+    });
+    intentLossReport = buildIntentLossReport(intentState, {
+      scenePrediction: intentUnderstandingDiagnostics.scenePrediction,
+      assumptions: intentUnderstandingDiagnostics.assumptions,
+    });
     startTimelineStage(productionTimeline, startMs, "intent_curator_identity");
     const curatorIdentity = buildCuratorIdentity({
       prompt: vibe,
@@ -6097,6 +6139,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       genCtx["lockedIntent"] = lockedIntent;
       genCtx["constraintLayer"] = constraintLayer;
       genCtx["classMap"] = userGenreProfile.trackClassifications;
+      genCtx["intentUnderstanding"] = intentUnderstandingDiagnostics;
+      genCtx["intentState"] = intentState;
+      genCtx["decomposedIntent"] = decomposedIntent;
+      genCtx["sceneLockStatus"] = sceneLockStatus;
+      genCtx["sceneAliases"] = sceneAliases;
       genCtx["trackReusePenalty"] = finalizationReusePenalty;
       genCtx["artistReusePenalty"] = finalizationArtistReusePenalty;
     }
@@ -7175,6 +7222,131 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
       }
     }
+    const enrichTrackForCoherence = (track: ConstraintTrack) => {
+      const classification = userGenreProfile.trackClassifications.get(track.trackId);
+      return {
+        trackId: track.trackId,
+        energy: track.energy,
+        valence: track.valence,
+        tempo: track.tempo ?? null,
+        danceability: track.danceability ?? null,
+        acousticness: track.acousticness ?? null,
+        artistName: track.artistName,
+        genrePrimary: classification?.genrePrimary ?? null,
+        genreFamily: classification?.genreFamily ?? null,
+        score: track.score,
+      };
+    };
+    let playlistCoherenceScore: PlaylistCoherenceScore | null = null;
+    let swapRepairActions: CoherenceSwapRecord[] = [];
+    let coherenceRebuildIterations = 0;
+    let coherenceGateResult: CoherenceGateResult | null = null;
+    if (finalTracks.length >= 4) {
+      const enrichedFinal = finalTracks.map(enrichTrackForCoherence);
+      if (baseFinalizationCandidates.length > 0) {
+        const rebuild = runCoherenceRebuildLoop({
+          tracks: enrichedFinal,
+          candidates: baseFinalizationCandidates.map(enrichTrackForCoherence),
+          intent: v3FallbackIntent,
+          scenePrediction: intentUnderstandingDiagnostics.scenePrediction,
+          sceneLock: sceneLockStatus,
+          maxIterations: 2,
+        });
+        playlistCoherenceScore = rebuild.coherenceScore;
+        swapRepairActions = rebuild.swapRepairActions;
+        coherenceRebuildIterations = rebuild.iterations;
+        if (swapRepairActions.length > 0) {
+          const trackById = new Map<string, ConstraintTrack>();
+          for (const track of [...finalTracks, ...baseFinalizationCandidates]) {
+            trackById.set(track.trackId, track);
+          }
+          finalTracks = rebuild.tracks
+            .map((track) => trackById.get(track.trackId))
+            .filter((track): track is ConstraintTrack => !!track) as PlaylistTrack[];
+          executionHealth.repairPassCount += 1;
+          evidenceRelaxations.push("playlist_coherence_swap_repair");
+          if (sceneLockStatus.active) evidenceRelaxations.push("scene_lock_repair_assist");
+          publishPartialTracks(finalTracks, 5);
+        }
+
+        if (
+          mode === "balanced" &&
+          playlistCoherenceScore.overallScore < COHERENCE_PUBLISH_THRESHOLD &&
+          baseFinalizationCandidates.length > 0 &&
+          coherenceRebuildIterations < 3
+        ) {
+          const balancedRetry = runCoherenceRebuildLoop({
+            tracks: finalTracks.map(enrichTrackForCoherence),
+            candidates: baseFinalizationCandidates.map(enrichTrackForCoherence),
+            intent: v3FallbackIntent,
+            scenePrediction: intentUnderstandingDiagnostics.scenePrediction,
+            sceneLock: sceneLockStatus,
+            maxIterations: 1,
+          });
+          if (balancedRetry.swapRepairActions.length > 0) {
+            playlistCoherenceScore = balancedRetry.coherenceScore;
+            swapRepairActions.push(...balancedRetry.swapRepairActions);
+            coherenceRebuildIterations += balancedRetry.iterations;
+            const trackById = new Map<string, ConstraintTrack>();
+            for (const track of [...finalTracks, ...baseFinalizationCandidates]) {
+              trackById.set(track.trackId, track);
+            }
+            finalTracks = balancedRetry.tracks
+              .map((track) => trackById.get(track.trackId))
+              .filter((track): track is ConstraintTrack => !!track) as PlaylistTrack[];
+            evidenceRelaxations.push("balanced_coherence_soft_rebuild");
+            publishPartialTracks(finalTracks, 5);
+          }
+        }
+      } else {
+        playlistCoherenceScore = scorePlaylistCoherence(
+          enrichedFinal,
+          v3FallbackIntent,
+          intentUnderstandingDiagnostics.scenePrediction,
+        );
+      }
+
+      if (playlistCoherenceScore && finalTracks.length >= 3) {
+        const arcOrdered = orderTracksByEmotionalArc(
+          finalTracks.map(enrichTrackForCoherence),
+          emotionalArc,
+        );
+        const orderMap = new Map(arcOrdered.map((track, index) => [track.trackId, index]));
+        finalTracks = [...finalTracks].sort(
+          (a, b) => (orderMap.get(a.trackId) ?? 0) - (orderMap.get(b.trackId) ?? 0),
+        );
+        evidenceRelaxations.push("emotional_arc_ordering");
+      }
+
+      if (playlistCoherenceScore) {
+        coherenceGateResult = shouldPublishPlaylist(
+          playlistCoherenceScore,
+          mode as "strict" | "balanced" | "chaotic",
+          { librarySize: likedSongs.length },
+        );
+        if (!coherenceGateResult.publish && mode === "strict") {
+          setGeneratePhase(generateSessionUserId, requestId, "error");
+          if (respondIfStale(res, generateSessionUserId, requestId)) return;
+          generateFail(
+            res,
+            409,
+            "COHERENCE_GATE_FAILED",
+            "This playlist did not pass coherence validation in Strict mode. Try Balanced mode or broaden the prompt.",
+            {
+              coherenceScore: playlistCoherenceScore,
+              coherenceGate: coherenceGateResult,
+              swapRepairActions,
+              rebuildIterations: coherenceRebuildIterations,
+              decomposedIntent,
+            },
+          );
+          return;
+        }
+        if (playlistCoherenceScore.overallScore < 0.58 && finalTracks.length >= minBestAvailableCount) {
+          evidenceRelaxations.push("playlist_coherence_low_best_available");
+        }
+      }
+    }
     const endHumanCoherenceScoreProfile = liveStageProfiler.start("controller.humanCoherenceScore", `${finalTracks.length} tracks`);
     let humanCoherence = humanCoherenceScore(finalTracks, curatorIdentity);
     endHumanCoherenceScoreProfile();
@@ -7482,6 +7654,28 @@ router.post("/generate", async (req, res): Promise<void> => {
         : null,
       failureReason: finalTracks.length === 0 ? "no_final_tracks_after_filters" : null,
       executionHealth: executionHealthReport,
+      intentState,
+      decomposedIntent,
+      intentLossReport,
+      coherenceScore: playlistCoherenceScore,
+      coherenceGate: coherenceGateResult,
+      swapRepairActions,
+      sceneLockStatus,
+      sceneAliases,
+      emotionalArc,
+      unknownTokens: decomposedIntent.unknownTokens ?? intentState.unknownTokens ?? [],
+      pipelineDiagnostics: buildGenerationPipelineDiagnostics({
+        intentState,
+        decomposedIntent,
+        intentLossReport,
+        coherenceScore: playlistCoherenceScore,
+        coherenceGate: coherenceGateResult,
+        swapRepairActions,
+        sceneLockStatus,
+        sceneAliases,
+        emotionalArc,
+        rebuildIterations: coherenceRebuildIterations,
+      }),
       ...(debugPerformance && preV3PerformanceReport
         ? {
             preV3PerformanceReport,
@@ -8346,6 +8540,14 @@ router.post("/generate", async (req, res): Promise<void> => {
       recoveryUsed: generationDiagnostics.recoveryTriggered,
       fallbackUsed: generationDiagnostics.fallbackTriggered,
     };
+    recordUnknownTermEvents({
+      userId,
+      prompt: vibe,
+      intentUnderstanding: intentUnderstandingDiagnostics,
+      playlistConfidence: playlistConfidence.percent,
+      overallCoherence: playlistCoherenceScore?.overallScore ?? null,
+      inferredScene: decomposedIntent.scene ?? decomposedIntent.culturalRefs[0] ?? null,
+    });
     if (sideEffectPolicy.allowSavedPlaylistWrites && savedPlaylistId > 0) {
     try {
       await db
@@ -8412,6 +8614,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalEraDistribution,
       finalMoodDistribution,
       finalEnergyDistribution,
+      intentUnderstanding: intentUnderstandingDiagnostics,
     });
     endIntentSurvivalProfile();
     await yieldToEventLoop();
@@ -8419,6 +8622,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     const v3DiagnosticsWithIntentSurvival = {
       ...(v3Diagnostics ?? {}),
       intentSurvival: intentSurvivalDiagnostics,
+      intentUnderstanding: intentUnderstandingDiagnostics,
+      decomposedIntent,
+      intentState,
+      intentLossReport,
+      playlistCoherence: playlistCoherenceScore,
+      coherenceScore: playlistCoherenceScore,
+      coherenceGate: coherenceGateResult,
+      swapRepairActions,
+      sceneLockStatus,
+      sceneAliases,
+      emotionalArc,
     };
     const productionTimelineReport = buildProductionTimelineReport(productionTimeline, startMs, {
       failureReason: fallbackReason ? "time_budget_fast_fallback" : null,
@@ -8682,6 +8896,17 @@ router.post("/generate", async (req, res): Promise<void> => {
       promptDriftAudit,
       strictGenreEvidence: strictGenreEvidencePublic,
       strictEraEvidence: strictEraEvidencePublic,
+      intentUnderstanding: intentUnderstandingDiagnostics,
+      intentState,
+      decomposedIntent,
+      intentLossReport,
+      playlistCoherence: playlistCoherenceScore,
+      coherenceScore: playlistCoherenceScore,
+      coherenceGate: coherenceGateResult,
+      swapRepairActions,
+      sceneLockStatus,
+      sceneAliases,
+      emotionalArc,
       intentSurvival: intentSurvivalDiagnostics,
       generationAuditSnapshot,
       requestOrchestration: pipeline.requestOrchestration ?? {

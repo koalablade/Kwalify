@@ -1,5 +1,6 @@
 import { trackHasEraEvidence, trackHasKnownEraMismatch, type EraRange } from "./era-evidence";
 import { buildLockedIntent, type LockedIntent } from "../core/v3/intent";
+import type { IntentUnderstandingDiagnostics } from "./intent-understanding-diagnostics";
 
 export type SurvivalDimension =
   | "genre"
@@ -163,6 +164,23 @@ export type IntentSurvivalDiagnostics = {
     highestRisk: SurvivalRisk;
     highestRiskReasons: string[];
   };
+  intentUnderstanding?: IntentUnderstandingDiagnostics | null;
+  termTrace?: IntentTermTrace[];
+  intentLossPipeline?: IntentLossStage[];
+};
+
+export type IntentTermTrace = {
+  term: string;
+  status: "recognized" | "unrecognized" | "assumed" | "lost" | "drifted";
+  stage: string;
+  note: string | null;
+};
+
+export type IntentLossStage = {
+  stage: string;
+  summary: string;
+  concepts: Record<string, string[]>;
+  lostTerms: string[];
 };
 
 type ConstraintLayerLike = {
@@ -211,6 +229,7 @@ type BuildIntentSurvivalDiagnosticsOpts = {
   finalEraDistribution?: Record<string, number>;
   finalMoodDistribution?: Record<string, number>;
   finalEnergyDistribution?: Record<string, number>;
+  intentUnderstanding?: IntentUnderstandingDiagnostics | null;
 };
 
 const DIMENSIONS: SurvivalDimension[] = [
@@ -1113,6 +1132,140 @@ function riskRank(risks: SurvivalRisk[]): SurvivalRisk {
   return "low";
 }
 
+function buildTermTrace(
+  intentUnderstanding: IntentUnderstandingDiagnostics | null | undefined,
+  stageTrace: IntentStageTrace[],
+): IntentTermTrace[] {
+  if (!intentUnderstanding) return [];
+
+  const traces: IntentTermTrace[] = [];
+  for (const term of intentUnderstanding.unrecognizedTerms) {
+    traces.push({
+      term,
+      status: "unrecognized",
+      stage: "parse",
+      note: "No vocabulary or anchor match",
+    });
+  }
+
+  for (const assumption of intentUnderstanding.assumptions) {
+    const inferred = assumption.split("->")[0]?.trim();
+    if (!inferred) continue;
+    traces.push({
+      term: inferred,
+      status: "assumed",
+      stage: "parse",
+      note: assumption,
+    });
+  }
+
+  for (const stage of stageTrace) {
+    for (const dimension of stage.lostDimensions) {
+      traces.push({
+        term: dimension,
+        status: "lost",
+        stage: stage.stage,
+        note: `Lost during ${stage.stage}`,
+      });
+    }
+    for (const dimension of stage.weakenedDimensions) {
+      traces.push({
+        term: dimension,
+        status: "drifted",
+        stage: stage.stage,
+        note: `Weakened during ${stage.stage}`,
+      });
+    }
+  }
+
+  const recognized = [
+    ...intentUnderstanding.recognizedConcepts.activity,
+    ...intentUnderstanding.recognizedConcepts.atmosphere,
+    ...intentUnderstanding.recognizedConcepts.emotion,
+    ...intentUnderstanding.recognizedConcepts.time,
+    ...intentUnderstanding.recognizedConcepts.place,
+    ...intentUnderstanding.recognizedConcepts.genre,
+  ];
+  for (const concept of recognized.slice(0, 12)) {
+    traces.push({
+      term: concept,
+      status: "recognized",
+      stage: "parse",
+      note: null,
+    });
+  }
+
+  return traces.slice(0, 40);
+}
+
+function buildIntentLossPipeline(
+  intentUnderstanding: IntentUnderstandingDiagnostics | null | undefined,
+  opts: BuildIntentSurvivalDiagnosticsOpts,
+  parsedPromptIntent: LockedIntent,
+): IntentLossStage[] {
+  const v3 = opts.v3Diagnostics ?? {};
+  const intentDecomposition = (v3["intentDecomposition"] ?? {}) as Record<string, unknown>;
+  const retrievalConcepts = [
+    ...(Array.isArray(intentDecomposition["genreHints"]) ? intentDecomposition["genreHints"] as string[] : []),
+    ...(Array.isArray(intentDecomposition["moodTags"]) ? intentDecomposition["moodTags"] as string[] : []),
+    ...(Array.isArray(intentDecomposition["activityTags"]) ? intentDecomposition["activityTags"] as string[] : []),
+  ].filter(Boolean);
+
+  const finalGenres = Object.keys(opts.finalGenreDistribution ?? {}).slice(0, 6);
+  const finalMoods = Object.keys(opts.finalMoodDistribution ?? {}).slice(0, 4);
+
+  const parseConcepts = intentUnderstanding?.recognizedConcepts ?? {
+    activity: parsedPromptIntent.activity ? [parsedPromptIntent.activity] : [],
+    atmosphere: [],
+    emotion: parsedPromptIntent.mood,
+    time: [],
+    place: [],
+    genre: parsedPromptIntent.genreFamilies,
+    era: parsedPromptIntent.eraRange ? [`${parsedPromptIntent.eraRange.start}-${parsedPromptIntent.eraRange.end}`] : [],
+  };
+
+  const lostAtParse = intentUnderstanding?.unrecognizedTerms ?? [];
+
+  return [
+    {
+      stage: "original_prompt",
+      summary: opts.prompt,
+      concepts: { prompt: [opts.prompt] },
+      lostTerms: [],
+    },
+    {
+      stage: "recognized_concepts",
+      summary: "Parser output after vocabulary, semantic, and scene analysis",
+      concepts: parseConcepts as unknown as Record<string, string[]>,
+      lostTerms: lostAtParse,
+    },
+    {
+      stage: "retrieval_concepts",
+      summary: "Concepts passed into retrieval and lane scoring",
+      concepts: {
+        genre: retrievalConcepts.filter((c) => parsedPromptIntent.genreFamilies.includes(c) || /rock|pop|blues|indie|metal|electronic/i.test(c)),
+        mood: retrievalConcepts.filter((c) => parsedPromptIntent.mood.includes(c)),
+        activity: retrievalConcepts.filter((c) => c === parsedPromptIntent.activity),
+        lanes: Object.keys((v3["laneContributions"] ?? {}) as Record<string, unknown>).slice(0, 6),
+      },
+      lostTerms: lostAtParse,
+    },
+    {
+      stage: "final_playlist",
+      summary: "Dominant traits in published playlist",
+      concepts: {
+        genre: finalGenres,
+        mood: finalMoods,
+        energy: Object.keys(opts.finalEnergyDistribution ?? {}).slice(0, 3),
+      },
+      lostTerms: [
+        ...lostAtParse,
+        ...(intentUnderstanding && intentUnderstanding.confidence < 0.55 ? ["low_intent_confidence"] : []),
+      ],
+    },
+  ];
+}
+
 function buildReleaseReadiness(
   dimensions: Record<SurvivalDimension, DimensionSurvivalScore>,
   leaks: IntentLeakDetection[],
@@ -1148,6 +1301,8 @@ export function buildIntentSurvivalDiagnostics(opts: BuildIntentSurvivalDiagnost
   const relaxationAudit = buildRelaxationAudit(opts);
   const stageByStageLog = buildStageByStageLog(stageTrace, dimensions);
   const releaseReadiness = buildReleaseReadiness(dimensions, leakDetections, emotionSurvival);
+  const termTrace = buildTermTrace(opts.intentUnderstanding, stageTrace);
+  const intentLossPipeline = buildIntentLossPipeline(opts.intentUnderstanding, opts, parsedPromptIntent);
   return {
     prompt: opts.prompt,
     generatedAt: new Date().toISOString(),
@@ -1160,5 +1315,8 @@ export function buildIntentSurvivalDiagnostics(opts: BuildIntentSurvivalDiagnost
     relaxationAudit,
     stageByStageLog,
     releaseReadiness,
+    intentUnderstanding: opts.intentUnderstanding ?? null,
+    termTrace,
+    intentLossPipeline,
   };
 }

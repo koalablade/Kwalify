@@ -22,6 +22,7 @@
     "quality:eval": "npm run build && node backend/dist/scripts/playlist-quality-eval.js",
     "quality:stress": "npm run build && node backend/dist/scripts/playlist-stress-report.js",
     "smoke:deploy": "npm run build && node backend/dist/scripts/deploy-smoke.js",
+    "harvest:unknown-terms": "npm run build && node backend/dist/scripts/harvest-unknown-terms.js",
     "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"
   },
   "dependencies": {

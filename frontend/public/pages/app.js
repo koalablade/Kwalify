@@ -746,6 +746,7 @@ function renderApp() {
           <span class="prompt-guide-chip">who it's for</span>
           <span class="prompt-guide-example">e.g. garage with mates, upbeat 2000s, Saturday night</span>
         </div>
+        <div id="intentPreviewStrip" class="intent-preview-strip" hidden aria-live="polite"></div>
 
         <div class="controls-row">
           <div class="mode-group">
@@ -1062,6 +1063,81 @@ function refreshGenerationProgressDom() {
   if (fill) fill.style.width = `${progress.pct}%`;
 }
 
+function flattenIntentConcepts(intent) {
+  const concepts = intent?.recognizedConcepts;
+  if (!concepts) return [];
+  return [
+    ...(concepts.activity || []),
+    ...(concepts.atmosphere || []),
+    ...(concepts.emotion || []),
+    ...(concepts.time || []),
+    ...(concepts.place || []),
+    ...(concepts.genre || []),
+    ...(concepts.era || []),
+  ].filter(Boolean).slice(0, 8);
+}
+
+function buildIntentUnderstandingHtml(intent, coherence, opts = {}) {
+  const decomposed = opts.decomposed || null;
+  if (!intent && !decomposed) return "";
+
+  let understood = flattenIntentConcepts(intent);
+  if (understood.length === 0 && decomposed) {
+    understood = [
+      decomposed.scene,
+      decomposed.emotion,
+      decomposed.energy,
+      decomposed.inferredActivity,
+      ...(decomposed.culturalRefs || []),
+      ...(decomposed.exclusions || []).map((x) => `exclude: ${x}`),
+    ].filter(Boolean).slice(0, 8);
+  }
+
+  const unknown = [
+    ...(Array.isArray(intent?.unrecognizedTerms) ? intent.unrecognizedTerms : []),
+    ...(Array.isArray(decomposed?.unknownTokens) ? decomposed.unknownTokens : []),
+  ].filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 8);
+
+  const rawConf = intent?.confidence ?? decomposed?.confidence;
+  const conf = typeof rawConf === "number" ? Math.round(rawConf * 100) : null;
+  const alwaysShow = !!opts.alwaysShow;
+  if (!alwaysShow && unknown.length === 0 && (conf === null || conf >= 78)) return "";
+
+  const overall = coherence?.overallScore ?? coherence?.overallCoherence;
+  const repaired = coherence?.repairApplied || !!opts.repairApplied;
+  const coherenceLine = typeof overall === "number"
+    ? `<div class="intent-understanding-line intent-understanding-muted">Playlist coherence: <strong style="color:var(--text)">${Math.round(overall * 100)}%</strong>${repaired ? " · refined" : ""}</div>`
+    : "";
+
+  return `<div class="${opts.preview ? "intent-preview-strip" : "intent-understanding-card"}">
+    <div class="intent-understanding-title">${opts.preview ? "Preview" : "What we understood"}</div>
+    ${understood.length ? `<div class="intent-understanding-line"><strong>Recognized:</strong> ${understood.map(esc).join(" · ")}</div>` : ""}
+    ${unknown.length ? `<div class="intent-understanding-line intent-understanding-line--warn"><strong>Not sure about:</strong> ${unknown.map(esc).join(", ")}</div>` : ""}
+    ${Array.isArray(intent.assumptions) && intent.assumptions.length
+      ? `<div class="intent-understanding-line intent-understanding-muted">Assuming: ${intent.assumptions.slice(0, 3).map(esc).join(" · ")}</div>`
+      : ""}
+    ${conf !== null ? `<div class="intent-understanding-line intent-understanding-muted">Intent confidence: ${conf}%</div>` : ""}
+    ${coherenceLine}
+  </div>`;
+}
+
+function updateIntentPreviewStrip(data) {
+  const strip = document.getElementById("intentPreviewStrip");
+  if (!strip) return;
+  const html = buildIntentUnderstandingHtml(
+    data?.intentUnderstanding || null,
+    null,
+    { preview: true, alwaysShow: true, decomposed: data?.decomposedIntent || null },
+  );
+  if (!html) {
+    strip.hidden = true;
+    strip.innerHTML = "";
+    return;
+  }
+  strip.hidden = false;
+  strip.innerHTML = html;
+}
+
 function resultHtml(result) {
   const count = result.trackCount || (Array.isArray(result.tracks) ? result.tracks.length : 0);
   const name = esc(result.playlistName || result.name || "Playlist created");
@@ -1127,6 +1203,21 @@ function resultHtml(result) {
       <div class="result-trust-chips">
         ${trustChips.map((chip) => `<span>${esc(chip)}</span>`).join("")}
       </div>` : "";
+  const intentUnderstanding = result.intentUnderstanding
+    || result.v3Diagnostics?.intentUnderstanding
+    || null;
+  const decomposedIntent = result.decomposedIntent
+    || result.generationDiagnostics?.decomposedIntent
+    || result.v3Diagnostics?.decomposedIntent
+    || null;
+  const playlistCoherence = result.playlistCoherence
+    || result.coherenceScore
+    || result.v3Diagnostics?.playlistCoherence
+    || null;
+  const intentUnderstandingHtml = buildIntentUnderstandingHtml(intentUnderstanding, playlistCoherence, {
+    repairApplied: Array.isArray(result.swapRepairActions) && result.swapRepairActions.length > 0,
+    decomposed: decomposedIntent,
+  });
 
   const hasExplain = debugModeEnabled() && !!(result.v3Diagnostics?.playlistExplanation);
   const tabsHtml = hasExplain ? `
@@ -1193,6 +1284,7 @@ function resultHtml(result) {
       <p class="result-insight">${result.noLibraryMode ? "Curated from Spotify-wide search to fit the moment. Less personalized than your liked songs." : "Curated from your liked songs to fit the moment."}</p>
       ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
       ${trustChipsHtml}
+      ${intentUnderstandingHtml}
       ${confidenceHtml}
       <div class="result-vibes">
         ${vibeDotsHtml}
@@ -1369,6 +1461,10 @@ function renderPlaylistExplanation(expl) {
       ${survivalEmotion.dominantEmotion ? `<span class="dp-badge">Emotion: ${esc(String(survivalEmotion.dominantEmotion))}</span>` : ""}
     </div>
     ${survivalLeaks.length ? `<div style="margin-top:8px;font-size:0.68rem;color:var(--muted)">Top leak: <strong style="color:var(--text)">${esc(String(survivalLeaks[0].functionName || survivalLeaks[0].reason || "intent leak"))}</strong></div>` : ""}
+    ${Array.isArray(survival.intentLossPipeline) && survival.intentLossPipeline.length ? `
+    <div style="margin-top:10px;font-size:0.68rem;color:var(--muted)">
+      ${survival.intentLossPipeline.map((stage) => `<div style="margin-top:4px"><strong style="color:var(--text)">${esc(stage.stage)}</strong>${stage.lostTerms?.length ? ` · lost: ${esc(stage.lostTerms.join(", "))}` : ""}</div>`).join("")}
+    </div>` : ""}
   </div>`;
 
   // ── 5. Selection summary ───────────────────────────────────────────────────
@@ -2057,6 +2153,7 @@ async function fetchScenePreview(text) {
     if (requestId !== moodPreviewRequestId || currentText !== text.trim()) return;
     if (r.ok && r.data) {
       updateMoodPanelFromServer(r.data);
+      updateIntentPreviewStrip(r.data);
     }
   } catch (err) {
     if (err?.name === "AbortError") return;

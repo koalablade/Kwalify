@@ -1767,6 +1767,43 @@ p { margin: 0; }
   font-weight: 700;
 }
 
+.intent-preview-strip,
+.intent-understanding-card {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  background: rgba(124, 58, 237, 0.08);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.intent-understanding-card {
+  margin-top: 12px;
+  text-align: left;
+}
+.intent-understanding-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #c4b5fd;
+  margin-bottom: 6px;
+}
+.intent-understanding-line {
+  color: var(--text);
+  margin-top: 4px;
+}
+.intent-understanding-line--warn strong {
+  color: #fbbf24;
+}
+.intent-understanding-muted {
+  color: var(--muted);
+  font-size: 11px;
+}
+.intent-preview-strip[hidden] {
+  display: none !important;
+}
+
 .result-vibes {
   display: flex;
   align-items: center;

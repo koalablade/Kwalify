@@ -127,6 +127,20 @@ ALTER TABLE "user_feedback_memory"
   ADD COLUMN IF NOT EXISTS "scene_embeddings" jsonb NOT NULL DEFAULT '[]'::jsonb;
 CREATE UNIQUE INDEX IF NOT EXISTS "IDX_user_feedback_memory_user"
   ON "user_feedback_memory" ("user_id");
+
+CREATE TABLE IF NOT EXISTS "unknown_term_events" (
+  "id" serial PRIMARY KEY,
+  "user_id" text,
+  "term" text NOT NULL,
+  "prompt" text NOT NULL,
+  "prompt_hash" text NOT NULL,
+  "context" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "created_at" timestamp NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS "IDX_unknown_term_events_term_created"
+  ON "unknown_term_events" ("term", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "IDX_unknown_term_events_prompt_hash"
+  ON "unknown_term_events" ("prompt_hash");
 `;
 
 async function backfillShareSlugs(rawPool: pg.Pool): Promise<void> {

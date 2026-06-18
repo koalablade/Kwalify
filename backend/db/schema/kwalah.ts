@@ -99,6 +99,19 @@ export const userFeedbackMemoryTable = pgTable("user_feedback_memory", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const unknownTermEventsTable = pgTable("unknown_term_events", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),
+  term: text("term").notNull(),
+  prompt: text("prompt").notNull(),
+  promptHash: text("prompt_hash").notNull(),
+  context: jsonb("context").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  termCreatedIndex: index("IDX_unknown_term_events_term_created").on(table.term, table.createdAt),
+  promptHashIndex: index("IDX_unknown_term_events_prompt_hash").on(table.promptHash),
+}));
+
 export const insertLikedSongSchema = createInsertSchema(likedSongsTable).omit({ id: true, createdAt: true });
 export const insertPlaylistHistorySchema = createInsertSchema(playlistHistoryTable).omit({ id: true, createdAt: true });
 export const insertSyncStatusSchema = createInsertSchema(syncStatusTable).omit({ id: true });
