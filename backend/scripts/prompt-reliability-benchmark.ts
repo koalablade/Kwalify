@@ -455,18 +455,15 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
   const tracks = arrayValue(response["tracks"]);
   const finalTrackCount = numberValue(response["totalTracks"]) ?? numberValue(response["count"]) ?? tracks.length;
   const requestedLength = prompt.requestedLength;
-  const retrievalCount =
-    numberValue(promptSurvivability["preFilterPoolSize"]) ??
-    numberValue(generationDiagnostics["candidatesSampled"]) ??
-    numberValue(intentContractGuard["candidateCountPerStage"] && record(intentContractGuard["candidateCountPerStage"])["retrieval"]);
-  const structuredRetrievalCount =
-    numberValue(promptSurvivability["postStructuredRetrievalSize"]) ??
-    numberValue(intentContractGuard["subgenreEvidencePoolCount"]) ??
-    numberValue(intentContractGuard["subgenreRelatedCount"]) ??
-    numberValue(intentContractGuard["subgenrePrimaryCount"]);
-  const fallbackLevelUsed =
-    stringValue(intentContractGuard["fallbackLevelUsed"]) ??
-    stringValue(generationDiagnostics["fallbackLevel"]);
+  const retrievalCount = numberValue(promptSurvivability["preFilterPoolSize"]);
+  const structuredRetrievalCount = numberValue(promptSurvivability["postStructuredRetrievalSize"]);
+  const retrievalFallbackLevel =
+    stringValue(intentContractGuard["fallbackLevelUsed"]) ?? "none";
+  const finalizationFallbackLevel =
+    stringValue(generationDiagnostics["finalizationFallbackLevel"]) ??
+    stringValue(finalization["fallbackMode"]) ??
+    (boolValue(finalization["hardSafeFillUsed"]) ? "hardSafe" : "none");
+  const fallbackLevelUsed = retrievalFallbackLevel;
   const leakDetections = arrayValue(intentSurvival["leakDetections"]).filter((item) => typeof item === "object" && item !== null) as Array<Record<string, unknown>>;
   const majorGenreLeak = boolValue(strictGenreEvidence["relaxed"]) ||
     leakDetections.some((leak) => {
@@ -483,8 +480,9 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
     });
   const overallSurvivalPercent = percentValue(survivalScores["overallIntentSurvival"]) ?? 0;
   const contractSurvivalPercent = overallSurvivalPercent;
-  const emotionSurvivalPercent = percentValue(emotionSurvival["survivalPercent"]) ?? percentValue(survivalScores["emotionSurvival"]) ?? 100;
-  const subgenreSurvivalPercent = percentValue(survivalScores["subgenreSurvival"]) ?? 100;
+  const emotionSurvivalPercent = percentValue(emotionSurvival["survivalPercent"]) ?? percentValue(survivalScores["emotionSurvival"]);
+  const subgenreSurvivalPercent = percentValue(survivalScores["subgenreSurvival"]);
+  const diagnosticsMissing = !intentSurvival || Object.keys(intentSurvival).length === 0;
   const finalizationSurvivalPercent = Math.round((finalTrackCount / Math.max(1, requestedLength)) * 1000) / 10;
   const confidence = confidencePercent(response);
   const repairCount =
@@ -511,6 +509,9 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
   const requestFailure = result.error ? `request_failed:${result.error}` : null;
   const blockingFailureReasons = [
     requestFailure,
+    diagnosticsMissing ? "missing_intent_survival_diagnostics" : null,
+    emotionSurvivalPercent == null ? "missing_emotion_survival" : null,
+    subgenreSurvivalPercent == null ? "missing_subgenre_survival" : null,
     !successCriteria.length ? "requested_length_below_90_percent" : null,
     !successCriteria.genre ? "major_genre_leak" : null,
     !successCriteria.era ? "major_era_leak" : null,
@@ -569,8 +570,8 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
     },
     intent: {
       contractSurvivalPercent,
-      emotionSurvivalPercent,
-      subgenreSurvivalPercent,
+      emotionSurvivalPercent: emotionSurvivalPercent ?? 0,
+      subgenreSurvivalPercent: subgenreSurvivalPercent ?? 0,
       overallSurvivalPercent,
     },
     generation: {

@@ -23,6 +23,11 @@ export const likedSongsTable = pgTable("liked_songs", {
   albumGenres: jsonb("album_genres"),
   popularity: integer("popularity"),
   releaseYear: integer("release_year"),
+  primaryArtistId: text("primary_artist_id"),
+  artistIds: jsonb("artist_ids"),
+  semanticProfile: jsonb("semantic_profile"),
+  enrichmentVersion: text("enrichment_version"),
+  enrichedAt: timestamp("enriched_at"),
   addedAt: timestamp("added_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({

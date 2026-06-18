@@ -33,6 +33,11 @@
     "coherence:uk-hip-hop": "npm run build && node backend/dist/scripts/coherence-uk-hip-hop-fixtures.js",
     "coherence:taxonomy": "npm run build && node backend/dist/scripts/coherence-taxonomy-correlation-fixtures.js",
     "coherence:semantic-collisions": "npm run build && node backend/dist/scripts/coherence-semantic-collision-fixtures.js",
+    "coherence:electronic-subgenres": "npm run build && node backend/dist/scripts/coherence-electronic-subgenre-fixtures.js",
+    "benchmark:pairwise-signatures": "npm run build && node backend/dist/scripts/pairwise-signature-benchmark.js",
+    "backfill:audio-features": "npm run build && node backend/dist/scripts/audio-feature-backfill.js",
+    "coherence:recovery-finalization": "npm run build && node backend/dist/scripts/coherence-recovery-finalization-fixtures.js",
+    "ci:semantic-scenes": "npm run build && node backend/dist/scripts/semantic-scene-ci-gate.js",
     "regression:coherence-live": "npm run build && node backend/dist/scripts/coherence-live-regression.js",
     "smoke:spotify-user-id": "node scripts/resolve-smoke-spotify-user-id.mjs",
     "validation:production": "npm run build && node backend/dist/scripts/production-validation.js"

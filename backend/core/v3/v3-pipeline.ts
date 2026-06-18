@@ -626,6 +626,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     pipelineTrace?: PipelineTrace;
     diagnosticsMode?: "minimal" | "full";
     profileStage?: (stage: string, detail?: string) => () => void;
+    dominantIntentGates?: {
+      dominantEmotionExplicit?: boolean;
+      allowContrastLanes?: boolean;
+      allowExplorationLanes?: boolean;
+      maxTasteWeight?: number;
+    };
   } = {},
 ): Promise<V3PipelineResult<T>> {
   const pipelineStartedAt = Date.now();
@@ -690,6 +696,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           retrievalInputTracks,
           lockedIntent,
           unifiedIntentContext.unifiedIntent,
+          { maxTasteWeight: opts.dominantIntentGates?.maxTasteWeight },
         );
         setFallbackCache(retrievalCacheKey, cloud);
         return cloud;
@@ -735,7 +742,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           diagnostics: { mode: "fallback_ensemble", reason: fallbackTriggered ? "unclear_intent" : "critical_health" },
         };
       }
-      const genResult = generateAdaptiveLanes(decomposed);
+      const genResult = generateAdaptiveLanes(decomposed, {
+        dominantEmotionExplicit: opts.dominantIntentGates?.dominantEmotionExplicit,
+        allowContrastLanes: opts.dominantIntentGates?.allowContrastLanes,
+        allowExplorationLanes: opts.dominantIntentGates?.allowExplorationLanes,
+      });
       return {
         lanes: genResult.lanes,
         diagnostics: {

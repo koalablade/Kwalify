@@ -251,7 +251,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
     }),
   );
 
-  app.use(express.json({ limit: process.env["JSON_BODY_LIMIT"] ?? "1mb" }));
+  app.use(express.json({ limit: process.env["JSON_BODY_LIMIT"] ?? "64kb" }));
   app.use(express.urlencoded({ extended: true, limit: process.env["URLENCODED_BODY_LIMIT"] ?? "256kb" }));
 
   const frontendPublicDir = path.resolve(__dirname, "../../frontend/public");

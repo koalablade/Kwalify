@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Block committed secrets
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo ".env must not be committed"
+            exit 1
+          fi
+      - name: npm audit (high+)
+        run: npm audit --audit-level=high
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Strict unused locals
+        run: npx tsc --noEmit --noUnusedLocals --noUnusedParameters 2>&1 | head -n 60
+        continue-on-error: true
+      - name: Static smoke
+        run: npm run smoke:static
+      - name: Build
+        run: npm run build
+      - name: Coherence fixtures
+        run: |
+          npm run coherence:intent
+          npm run coherence:playlist
+          npm run coherence:world-boundary
+          npm run coherence:uk-hip-hop
+          npm run coherence:taxonomy
+          npm run coherence:semantic-collisions
+          npm run coherence:electronic-subgenres
+          npm run coherence:recovery-finalization
+          npm run benchmark:pairwise-signatures
+      - name: Semantic scene benchmark
+        run: npm run ci:semantic-scenes
+      - name: Golden prompt regression (local)
+        run: npm run regression:prompt-reliability
+      - name: CI prompt reliability gate (when reports exist)
+        run: npm run ci:prompt-reliability
+
+  deploy-smoke-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Deploy smoke (production)
+        env:
+          SMOKE_BASE_URL: https://kwalify.net
+          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+        run: npm run smoke:deploy
+
+  coherence-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Live coherence regression
+        env:
+          SMOKE_BASE_URL: https://kwalify.net
+          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          SMOKE_SPOTIFY_USER_ID: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+        run: npm run regression:coherence-live
+
+  nightly-eval:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Overnight evaluation harness
+        env:
+          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+        run: npm run evaluation:overnight:resume || npm run evaluation:overnight

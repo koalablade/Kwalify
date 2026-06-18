@@ -224,6 +224,15 @@ router.get("/auth/me", async (req, res): Promise<void> => {
         }
       } catch (err) {
         req.log.warn({ err, userId: req.session.spotifyUserId }, "Token refresh failed — serving session user");
+        res.json({
+          id: req.session.spotifyUserId,
+          displayName: req.session.spotifyDisplayName,
+          email: req.session.spotifyEmail ?? null,
+          avatarUrl: req.session.spotifyAvatarUrl ?? null,
+          country: req.session.spotifyCountry ?? null,
+          reauthRequired: true,
+        });
+        return;
       }
     }
     res.json({

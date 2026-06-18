@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 type Severity = "critical" | "high" | "medium" | "low";
@@ -67,6 +67,7 @@ type PromptRegressionResult = {
   completion: number;
   confidence: number;
   survival: number;
+  subgenreSurvival?: number;
   leaks: number;
   convergenceRisk: string | null;
   recoveryCount: number;
@@ -203,6 +204,9 @@ const DEFAULT_BASELINE = "backend/lib/playlist-evaluation/prompt-reliability-bas
 const DEFAULT_OUT = "reports/prompt-reliability/ci-gate-latest";
 
 const MIN_PROMPT_RELIABILITY_SCORE = 70;
+const MIN_OVERALL_INTENT_SURVIVAL = 55;
+const MIN_EMOTION_SURVIVAL = 50;
+const MIN_SUBGENRE_SURVIVAL = 45;
 const MIN_REGRESSION_SCORE = 80;
 const MAX_BENCHMARK_FAILURE_RATE = 20;
 const SOFT_DRIFT_WARNING_THRESHOLD = -5;
@@ -423,6 +427,25 @@ function buildReport(
   if (!baseline) {
     blockingReasons.push("Accepted-good prompt reliability baseline is not configured.");
   }
+  if (survival < MIN_OVERALL_INTENT_SURVIVAL) {
+    blockingReasons.push(`Overall intent survival ${survival}% is below ${MIN_OVERALL_INTENT_SURVIVAL}%.`);
+  }
+  const subgenreSurvivalAvg = regression.prompts.length
+    ? average(regression.prompts.map((p) => p.subgenreSurvival ?? p.survival))
+    : survival;
+  if (subgenreSurvivalAvg < MIN_SUBGENRE_SURVIVAL) {
+    blockingReasons.push(`Subgenre survival ${subgenreSurvivalAvg}% is below ${MIN_SUBGENRE_SURVIVAL}%.`);
+  }
+  const emotionSurvivalAvg = regression.prompts.length
+    ? average(regression.prompts.map((p) => p.survival))
+    : survival;
+  if (emotionSurvivalAvg < MIN_EMOTION_SURVIVAL) {
+    blockingReasons.push(`Emotion/subgenre survival proxy ${emotionSurvivalAvg}% is below ${MIN_EMOTION_SURVIVAL}%.`);
+  }
+  const highConvergence = regression.prompts.filter((p) => p.convergenceRisk === "high" || p.convergenceRisk === "critical").length;
+  if (highConvergence > Math.ceil(regression.prompts.length * 0.25)) {
+    blockingReasons.push(`${highConvergence} prompt(s) exceed convergence risk threshold.`);
+  }
 
   const globalDrift = baseline ? buildGlobalDrift(baseline, completion, survival, confidence) : [];
   const promptLevelDrift = baseline ? buildPromptDrift(baseline, regression) : [];
@@ -576,6 +599,14 @@ async function writeReports(config: Config, report: CiGateReport): Promise<void>
 
 async function main(): Promise<void> {
   const config = parseConfig(process.argv.slice(2));
+  for (const filePath of [config.benchmarkPath, config.regressionPath, config.baselinePath]) {
+    try {
+      await access(filePath);
+    } catch {
+      console.log(`Prompt reliability reports not found (${filePath}) — skipping CI gate.`);
+      process.exit(0);
+    }
+  }
   const [benchmark, regression, baseline] = await Promise.all([
     readJson<BenchmarkReport>(config.benchmarkPath),
     readJson<RegressionReport>(config.regressionPath),

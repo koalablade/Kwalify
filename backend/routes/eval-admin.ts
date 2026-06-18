@@ -14,6 +14,7 @@ import { loadTasteGraphV2 } from "../lib/taste-graph-v2";
 import { loadGlobalTasteProfile } from "../lib/global-taste-profile";
 import { matchCultureEntities, warmSceneCultureCache } from "../lib/scene-culture-graph";
 import { refreshLiveTrends } from "../lib/trend-ingestion-live";
+import { getSessionSnapshotCacheStats } from "../core/cache/session-snapshot-cache";
 import { deploymentVersion } from "../lib/deployment-version";
 
 const router: IRouter = Router();
@@ -114,6 +115,43 @@ router.get("/eval/admin/smoke-spotify-user-id", async (req, res) => {
     recommended: candidates[0]?.spotifyUserId ?? null,
     candidates,
     hint: "Set GitHub secret SMOKE_SPOTIFY_USER_ID to recommended (not your GitHub username).",
+  });
+});
+
+router.get("/eval/admin/observability", async (req, res) => {
+  if (!requireEvalToken(req, res)) return;
+  res.json({
+    commit: deploymentVersion(),
+    sessionSnapshotCache: getSessionSnapshotCacheStats(),
+    runtime: {
+      nodeEnv: process.env.NODE_ENV ?? "development",
+      generateConcurrencyLimit: process.env.GENERATE_CONCURRENCY_LIMIT ?? null,
+      jsonBodyLimit: process.env.JSON_BODY_LIMIT ?? "64kb",
+    },
+  });
+});
+
+router.get("/eval/admin/intent-survival-aggregates", async (req, res) => {
+  if (!requireEvalToken(req, res)) return;
+  const result = await pool.query<{ playlist_count: string }>(
+    `SELECT COUNT(*)::text AS playlist_count
+     FROM saved_playlists
+     WHERE created_at > NOW() - INTERVAL '30 days'`,
+  );
+  const feedback = await pool.query<{ reaction: string; count: string }>(
+    `SELECT reaction, COUNT(*)::text AS count
+     FROM playlist_feedback
+     WHERE created_at > NOW() - INTERVAL '30 days'
+     GROUP BY reaction`,
+  );
+  const row = result.rows[0];
+  res.json({
+    commit: deploymentVersion(),
+    windowDays: 30,
+    playlistCount: Number(row?.playlist_count ?? 0),
+    playlistFeedbackByReaction: Object.fromEntries(
+      feedback.rows.map((r) => [r.reaction, Number(r.count)]),
+    ),
   });
 });
 

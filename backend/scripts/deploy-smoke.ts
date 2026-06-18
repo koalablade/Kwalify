@@ -133,6 +133,23 @@ async function checkGenerate(origin: string): Promise<SmokeResult> {
   };
 }
 
+async function checkCors(origin: string): Promise<SmokeResult> {
+  const response = await fetchWithTimeout(`${origin}/api/healthz`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: origin,
+      "Access-Control-Request-Method": "GET",
+    },
+  });
+  const allowOrigin = response.headers.get("access-control-allow-origin");
+  return {
+    name: "cors",
+    pass: response.ok || response.status === 204 || !!allowOrigin,
+    status: response.status,
+    details: { allowOrigin },
+  };
+}
+
 async function checkLaunchPages(origin: string): Promise<SmokeResult[]> {
   const paths = ["/privacy", "/terms", "/favicon.svg", "/og-image.svg"];
   const results: SmokeResult[] = [];
@@ -163,6 +180,7 @@ async function main(): Promise<void> {
     await checkReadiness(origin),
     await checkDeploymentCommit(origin),
     await checkEvalToken(origin),
+    await checkCors(origin),
     await checkGenerate(origin),
     ...(await checkLaunchPages(origin)),
   ];

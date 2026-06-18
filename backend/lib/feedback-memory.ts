@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm";
-import { db, userFeedbackMemoryTable } from "../db";
+import { eq, desc } from "drizzle-orm";
+import { db, userFeedbackMemoryTable, playlistFeedbackTable } from "../db";
 
 export type FeedbackMemory = {
   badArtists: string[];
@@ -272,13 +272,28 @@ function normalizeRow(row: typeof userFeedbackMemoryTable.$inferSelect | undefin
   };
 }
 
+async function mergePlaylistLevelFeedback(userId: string, memory: FeedbackMemory): Promise<FeedbackMemory> {
+  const rows = await db
+    .select()
+    .from(playlistFeedbackTable)
+    .where(eq(playlistFeedbackTable.userId, userId))
+    .orderBy(desc(playlistFeedbackTable.createdAt))
+    .limit(40);
+  for (const row of rows) {
+    if (row.reaction === "down") {
+      memory.badMoodMatches = uniquePush(memory.badMoodMatches, row.vibe, 80);
+    }
+  }
+  return memory;
+}
+
 export async function getFeedbackMemory(userId: string): Promise<FeedbackMemory> {
   const rows = await db
     .select()
     .from(userFeedbackMemoryTable)
     .where(eq(userFeedbackMemoryTable.userId, userId))
     .limit(1);
-  const memory = normalizeRow(rows[0]);
+  const memory = await mergePlaylistLevelFeedback(userId, normalizeRow(rows[0]));
   const updatedAt = rows[0]?.updatedAt?.getTime?.() ?? Date.now();
   const daysElapsed = Math.floor((Date.now() - updatedAt) / (24 * 60 * 60 * 1000));
   if (rows[0] && daysElapsed >= 7) {

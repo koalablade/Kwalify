@@ -153,6 +153,11 @@ export function generateMockSpotifyLibrary(count = 160, seedValue = "kwalify-dev
       albumGenres: [genre],
       popularity: 42 + (seed % 45),
       releaseYear: 1980 + (seed % 44),
+      primaryArtistId: null,
+      artistIds: null,
+      semanticProfile: null,
+      enrichmentVersion: null,
+      enrichedAt: null,
       addedAt: new Date(baseTime - index * 36 * 60 * 60 * 1000),
       createdAt: new Date(baseTime - index * 36 * 60 * 60 * 1000),
     };

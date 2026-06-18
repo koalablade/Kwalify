@@ -1,0 +1,95 @@
+/**
+ * Recovery / finalization guard fixtures.
+ *
+ * Usage: npm run coherence:recovery-finalization
+ */
+
+import {
+  capArtistAlbumRelaxation,
+  minimumGenreEvidenceInTail,
+  narrowSceneDiversityPressure,
+  recoveryIntentPreCheck,
+  buildDominantIntentContract,
+} from "../core/dominant-intent-contract";
+import { evaluateRecoveryGuards, recoveryStageAllowed } from "../controllers/generation-recovery";
+
+function main(): void {
+  let failed = 0;
+
+  const strictContract = buildDominantIntentContract({
+    prompt: "industrial techno warehouse bunker",
+    intentContract: {
+      primarySubgenre: "hard_techno",
+      genreFamilies: ["electronic"],
+      activity: null,
+      places: [],
+      eraRange: null,
+      explicitDimensions: ["genre"],
+    },
+    mode: "strict",
+    noLibraryMode: false,
+  });
+
+  const globalBlocked = recoveryIntentPreCheck(strictContract, {
+    fallbackLevel: "global",
+    underfillRatio: 0.4,
+    currentSubgenreSurvival: 40,
+  });
+  if (globalBlocked.allowed || !globalBlocked.controlledFailureRecommended) failed += 1;
+
+  const subgenreErase = recoveryIntentPreCheck(strictContract, {
+    fallbackLevel: "soft",
+    underfillRatio: 0.3,
+    currentSubgenreSurvival: 35,
+  });
+  if (subgenreErase.allowed || subgenreErase.reason !== "recovery_would_erase_subgenre") failed += 1;
+
+  const tail = minimumGenreEvidenceInTail(
+    [
+      { genreFamily: "electronic", genrePrimary: "techno" },
+      { genreFamily: "electronic", genrePrimary: "techno" },
+      { genreFamily: "pop", genrePrimary: "pop" },
+      { genreFamily: "pop", genrePrimary: "pop" },
+    ],
+    ["electronic"],
+  );
+  if (tail.satisfied) failed += 1;
+
+  const narrowScene = narrowSceneDiversityPressure({
+    visual: ["neon"],
+    place: ["city"],
+    time: ["night"],
+    atmosphere: ["lonely"],
+  });
+  if (narrowScene >= 1) failed += 1;
+
+  const strictCaps = capArtistAlbumRelaxation("strict");
+  if (strictCaps.allowArtistRelax || strictCaps.allowAlbumRelax) failed += 1;
+
+  const guards = evaluateRecoveryGuards(strictContract, {
+    fallbackLevel: "global",
+    underfillRatio: 0.35,
+    finalTracks: [{ genreFamily: "electronic" }],
+    expectedFamilies: ["electronic"],
+  });
+  const stage = recoveryStageAllowed(guards, "global");
+  if (stage.allowed) failed += 1;
+
+  console.log(JSON.stringify({
+    globalBlocked,
+    subgenreErase,
+    tail,
+    narrowScene,
+    strictCaps,
+    stage,
+    failed,
+  }));
+
+  if (failed > 0) {
+    console.error(`recovery/finalization fixtures failed: ${failed}`);
+    process.exit(1);
+  }
+  console.log("recovery/finalization fixtures passed");
+}
+
+main();

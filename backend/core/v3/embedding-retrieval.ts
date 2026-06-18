@@ -371,7 +371,15 @@ export function retrieveCandidatesByEmbedding<T extends RetrievalTrackLike>(
   tracks: T[],
   intent: LockedIntent,
   unifiedIntent?: UnifiedIntent,
+  opts: { maxTasteWeight?: number } = {},
 ): RetrievalCloud<T> {
+  const tasteWeight = Math.min(0.22, Math.max(0.06, opts.maxTasteWeight ?? 0.22));
+  const sceneWeight = 0.46;
+  const moodWeight = 0.16;
+  const energyWeight = 0.10;
+  const driftWeight = 0.06;
+  const remaining = 1 - tasteWeight;
+  const scale = remaining / (sceneWeight + moodWeight + energyWeight + driftWeight);
   const sessionState = buildSessionEmbeddingState(tracks, intent, unifiedIntent);
   const playlistEmbedding = buildPlaylistEmbedding(tracks);
   const userTasteState = buildUserTasteState(sessionState, playlistEmbedding);
@@ -388,7 +396,13 @@ export function retrieveCandidatesByEmbedding<T extends RetrievalTrackLike>(
     return {
       track,
       trackVector,
-      embeddingAffinity: clamp01(scene * 0.46 + taste * 0.22 + mood * 0.16 + energy * 0.10 + drift * 0.06),
+      embeddingAffinity: clamp01(
+        scene * sceneWeight * scale +
+        taste * tasteWeight +
+        mood * moodWeight * scale +
+        energy * energyWeight * scale +
+        drift * driftWeight * scale
+      ),
       retrievalNeighborhood: neighborhoodOf(componentAffinities),
       componentAffinities,
     };

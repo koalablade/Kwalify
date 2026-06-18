@@ -41,6 +41,13 @@ ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "spotify_artist_genres" jsonb
 ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "album_genres" jsonb;
 ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "popularity" integer;
 ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "release_year" integer;
+ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "primary_artist_id" text;
+ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "artist_ids" jsonb;
+ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "semantic_profile" jsonb;
+ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "enrichment_version" text;
+ALTER TABLE "liked_songs" ADD COLUMN IF NOT EXISTS "enriched_at" timestamp;
+CREATE INDEX IF NOT EXISTS "IDX_liked_songs_semantic_enrichment"
+  ON "liked_songs" ("spotify_user_id", "enrichment_version");
 
 CREATE TABLE IF NOT EXISTS "sync_status" (
   "id" serial PRIMARY KEY,

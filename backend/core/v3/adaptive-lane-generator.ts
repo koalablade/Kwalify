@@ -437,6 +437,11 @@ export interface AdaptiveLaneGeneratorResult {
 
 export function generateAdaptiveLanes(
   intent: DecomposedIntent,
+  gates: {
+    dominantEmotionExplicit?: boolean;
+    allowContrastLanes?: boolean;
+    allowExplorationLanes?: boolean;
+  } = {},
 ): AdaptiveLaneGeneratorResult {
   const map = intent.sceneInfluenceMap;
   const countryAmericanaIntent = isCountryAmericanaIntent(intent);
@@ -480,7 +485,7 @@ export function generateAdaptiveLanes(
     confidenceMap["emotional_split"] = 1 - emVariance;
   }
 
-  if (!countryAmericanaIntent && topForceWeight < 0.30) {
+  if (!countryAmericanaIntent && !gates.dominantEmotionExplicit && gates.allowExplorationLanes !== false && topForceWeight < 0.30) {
     activeLaneTypes.push("exploration");
     confidenceMap["exploration"] = 1 - topForceWeight;
   }
@@ -495,7 +500,11 @@ export function generateAdaptiveLanes(
     confidenceMap["era_split"] = 0.75;
   }
 
-  activeLaneTypes.push("contrast");
+  if (gates.allowContrastLanes !== false && !gates.dominantEmotionExplicit) {
+    activeLaneTypes.push("contrast");
+  } else if (gates.allowContrastLanes === true) {
+    activeLaneTypes.push("contrast");
+  }
 
   const alloc = allocateWeights(activeLaneTypes, confidenceMap, confidence);
 
@@ -505,6 +514,15 @@ export function generateAdaptiveLanes(
     const total = Object.values(alloc).reduce((s, v) => s + v, 0);
     for (const key of Object.keys(alloc) as AdaptiveLaneType[]) {
       alloc[key] = alloc[key]! / total;
+    }
+  } else if (gates.dominantEmotionExplicit && gates.allowContrastLanes === false) {
+    alloc["contrast"] = 0;
+    alloc["exploration"] = 0;
+    const total = Object.values(alloc).reduce((s, v) => s + v, 0);
+    if (total > 0) {
+      for (const key of Object.keys(alloc) as AdaptiveLaneType[]) {
+        alloc[key] = alloc[key]! / total;
+      }
     }
   }
 

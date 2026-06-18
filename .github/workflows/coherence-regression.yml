@@ -29,6 +29,7 @@ jobs:
           npm run coherence:uk-hip-hop
           npm run coherence:taxonomy
           npm run coherence:semantic-collisions
+          npm run coherence:electronic-subgenres
       - name: Live coherence regression
         env:
           SMOKE_BASE_URL: https://kwalify.net

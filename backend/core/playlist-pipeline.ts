@@ -48,6 +48,14 @@ import { logScoringStage } from "../lib/generate-stage-timer";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
 import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
+import { adaptiveRetrievalThresholds, assessCandidatePoolHealth, detectDominantEmotion } from "./dominant-intent-contract";
+import { buildArtistEcosystemGraph, type ArtistEcosystemGraph } from "../lib/artist-ecosystem-graph";
+import { buildSemanticProfileMap } from "../lib/semantic-profile-store";
+import type { TrackSemanticProfile, PromptSceneProfile } from "../lib/track-semantic-types";
+import {
+  buildPromptSceneProfile,
+  scoreSemanticSceneMatch,
+} from "../lib/scene-semantic-retrieval";
 import { trackMatchesConstraints } from "./v3/constraint-filter";
 import { getGenreFamily } from "./v3/global-diversity-controller";
 import type { V3MetadataTrack } from "../lib/v3-track-contract";
@@ -111,6 +119,9 @@ export interface BuildPlaylistPipelineOpts<T extends {
   acousticness: number | null;
   instrumentalness?: number | null;
   speechiness?: number | null;
+  semanticProfile?: unknown;
+  primaryArtistId?: string | null;
+  artistIds?: unknown;
 }> {
   likedSongs: T[];
   vibe: string;
@@ -158,6 +169,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
     globalTasteProfile?: import("../lib/global-taste-profile").GlobalTasteProfile | null;
     multiObjectPlan?: MultiObjectPlan | null;
     trendPrompt?: string;
+    artistEcosystemGraph?: ArtistEcosystemGraph | null;
   };
   genrePost: {
     allowHoliday: boolean;
@@ -644,6 +656,14 @@ type RetrievalPools<T> = {
     };
     fallbackLevelUsed?: "none" | "family" | "adjacent" | "global";
     familyFallbackEmpty?: boolean;
+    semanticRetrieval?: {
+      active: boolean;
+      promptSignature: string;
+      maxBoost: number;
+      tracksBoosted: number;
+      averageBoost: number;
+      dominantEmotionGuard: boolean;
+    };
   };
 };
 
@@ -1558,6 +1578,10 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     tasteGraphV2?: TasteGraphV2 | null;
     multiObjectPlan?: MultiObjectPlan | null;
     trendPrompt?: string;
+    semanticProfiles?: Map<string, TrackSemanticProfile>;
+    promptSceneProfile?: PromptSceneProfile | null;
+    artistEcosystemGraph?: ArtistEcosystemGraph | null;
+    semanticMaxBoost?: number;
   } = {},
 ): Promise<RetrievalPools<T>> {
   const MIN_BROAD_RETRIEVAL_POOL = 120;
@@ -1768,6 +1792,16 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     contract,
     contract.activity || sceneActive ? 520 : 760,
   );
+  const promptSceneProfile = opts.promptSceneProfile ?? buildPromptSceneProfile(contract.rawPrompt);
+  const narrativeSemanticPrompt =
+    promptSceneProfile.places.length > 0 ||
+    promptSceneProfile.times.length > 0 ||
+    promptSceneProfile.culturalTags.length > 0 ||
+    promptSceneProfile.sceneConcepts.length > 0;
+  const dominantEmotion = detectDominantEmotion(contract.rawPrompt);
+  const semanticMaxBoost = opts.semanticMaxBoost ?? (dominantEmotion.explicit ? 0.18 : 0.28);
+  let semanticBoostApplied = 0;
+  let semanticBoostTotal = 0;
   await yieldPipeline();
   const contractRanked = earlyDiversityRank(
     shapedRankSource
@@ -1826,7 +1860,23 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
           ukScene,
         )
         : 0;
-      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight + sceneAliasBoost + tasteBoost + cultureBoost + segmentBoost + ukBoost - feedbackPenalty(track, feedback);
+      let semanticSceneBoost = 0;
+      if (narrativeSemanticPrompt && opts.semanticProfiles) {
+        const trackProfile = opts.semanticProfiles.get(track.trackId);
+        if (trackProfile) {
+          semanticSceneBoost = scoreSemanticSceneMatch(promptSceneProfile, trackProfile, {
+            artistName: track.artistName,
+            trackName: track.trackName,
+            artistGraph: opts.artistEcosystemGraph,
+            maxBoost: semanticMaxBoost,
+          }).boost;
+          if (semanticSceneBoost > 0) {
+            semanticBoostApplied += 1;
+            semanticBoostTotal += semanticSceneBoost;
+          }
+        }
+      }
+      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight + sceneAliasBoost + tasteBoost + cultureBoost + segmentBoost + ukBoost + semanticSceneBoost - feedbackPenalty(track, feedback);
       const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
       const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
       const sceneMismatchPenalty = sceneMismatchFor(track) ? 0.90 : 0;
@@ -1851,10 +1901,12 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     }
     return out;
   };
-  const retrievalScope = structuredRetrievalScope(contractRanked, classMap, contract, {
-    strictMinimum: 30,
-    relatedMinimum: 12,
-  });
+  const retrievalScope = structuredRetrievalScope(
+    contractRanked,
+    classMap,
+    contract,
+    adaptiveRetrievalThresholds(contractRanked.length, Math.max(12, Math.ceil(contractRanked.length * 0.04))),
+  );
   const genreMatched = contractRanked.filter(genreFamilyMatch);
   const subgenrePoolTooSmall =
     !!contract.primarySubgenre &&
@@ -1866,10 +1918,12 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     : genreMatched.length > 0
       ? genreMatched
       : contractRanked;
-  const adjacent = contractRanked.filter((track) => {
-    const family = genreFamilyForTrack(track, classMap);
-    return !!family && adjacentFamilies.has(family);
-  });
+  const adjacent = retrievalScope.mode === "family" || !contract.primarySubgenre
+    ? contractRanked.filter((track) => {
+        const family = genreFamilyForTrack(track, classMap);
+        return !!family && adjacentFamilies.has(family);
+      })
+    : [];
   const energyArc = contractRanked.filter((track) =>
     !contract.energyArc ||
     contract.energyArc === "dynamic" ||
@@ -1943,6 +1997,16 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
       },
       fallbackLevelUsed,
       familyFallbackEmpty,
+      semanticRetrieval: {
+        active: narrativeSemanticPrompt && !!opts.semanticProfiles,
+        promptSignature: promptSceneProfile.retrievalSignature,
+        maxBoost: semanticMaxBoost,
+        tracksBoosted: semanticBoostApplied,
+        averageBoost: semanticBoostApplied > 0
+          ? Math.round((semanticBoostTotal / semanticBoostApplied) * 1000) / 1000
+          : 0,
+        dominantEmotionGuard: dominantEmotion.explicit,
+      },
     },
   };
 }
@@ -3505,6 +3569,54 @@ export async function buildPlaylistPipeline<T extends {
     prompt: opts.vibe,
   });
   const endRetrievalProfile = opts.profileStage?.("pipeline.retrieval", `${scoring.sorted.length} scored tracks`);
+  const semanticProfiles = buildSemanticProfileMap(
+    opts.likedSongs.map((song) => {
+      const row = song as typeof song & {
+        semanticProfile?: unknown;
+        primaryArtistId?: string | null;
+        artistIds?: unknown;
+        spotifyArtistGenres?: unknown;
+        albumGenres?: unknown;
+        releaseYear?: number | null;
+        popularity?: number | null;
+      };
+      return {
+        trackId: row.trackId,
+        trackName: row.trackName,
+        artistName: row.artistName,
+        albumName: row.albumName,
+        energy: row.energy,
+        valence: row.valence,
+        tempo: row.tempo,
+        danceability: row.danceability,
+        acousticness: row.acousticness,
+        instrumentalness: row.instrumentalness,
+        speechiness: row.speechiness,
+        spotifyArtistGenres: row.spotifyArtistGenres,
+        albumGenres: row.albumGenres,
+        releaseYear: row.releaseYear ?? null,
+        popularity: row.popularity ?? null,
+        semanticProfile: row.semanticProfile,
+        primaryArtistId: row.primaryArtistId,
+        artistIds: Array.isArray(row.artistIds)
+          ? row.artistIds.filter((id): id is string => typeof id === "string")
+          : null,
+      };
+    }),
+  );
+  const promptSceneProfile = buildPromptSceneProfile(opts.vibe);
+  const artistEcosystemGraph = opts.postScore.artistEcosystemGraph ?? buildArtistEcosystemGraph({
+    likedTracks: opts.likedSongs.map((song) => ({
+      trackId: song.trackId,
+      artistName: song.artistName,
+    })),
+  });
+  const semanticRetrievalOpts = {
+    semanticProfiles,
+    promptSceneProfile,
+    artistEcosystemGraph,
+    semanticMaxBoost: opts.noLibraryMode ? 0.14 : undefined,
+  };
   let unpenalizedRetrieval: RetrievalPools<ScoredLibraryTrack<IntentContractTrack> & { artistName?: string | null }>;
   let unpenalizedPooledCandidates: ScoredLibraryTrack<T>[];
   let unpenalizedViablePoolSize: number;
@@ -3529,6 +3641,7 @@ export async function buildPlaylistPipeline<T extends {
         tasteGraphV2: opts.postScore.tasteGraphV2 ?? null,
         multiObjectPlan: opts.postScore.multiObjectPlan ?? null,
         trendPrompt: opts.postScore.trendPrompt,
+        ...semanticRetrievalOpts,
       },
     );
     if (opts.shouldAbort?.()) abortPipeline("retrieval");
@@ -3625,14 +3738,12 @@ export async function buildPlaylistPipeline<T extends {
   const structuredScopeSource = contractGuardPool.length > 0
     ? contractGuardPool
     : contractSafePool;
+  const adaptiveThresholds = adaptiveRetrievalThresholds(structuredScopeSource.length, opts.playlistLength);
   const preV3SubgenreScope = structuredRetrievalScope(
     structuredScopeSource,
     classMap,
     intentContract,
-    {
-      strictMinimum: Math.max(30, opts.playlistLength + 5),
-      relatedMinimum: Math.max(8, Math.ceil(opts.playlistLength * 0.60)),
-    },
+    adaptiveThresholds,
   );
   const contractSafeSubgenreScope = structuredScopeSource === contractSafePool
     ? preV3SubgenreScope
@@ -3640,10 +3751,7 @@ export async function buildPlaylistPipeline<T extends {
         contractSafePool,
         classMap,
         intentContract,
-        {
-          strictMinimum: Math.max(30, opts.playlistLength + 5),
-          relatedMinimum: Math.max(8, Math.ceil(opts.playlistLength * 0.60)),
-        },
+        adaptiveThresholds,
       );
   const rescuedSubgenreScope = preV3SubgenreScope.mode === "family" && contractSafeSubgenreScope.mode !== "family"
     ? contractSafeSubgenreScope
@@ -3739,10 +3847,14 @@ export async function buildPlaylistPipeline<T extends {
       )
     : [];
   const ukLocked = isUkHipHopSceneLock(opts.postScore.sceneLock) || !!worldBoundary.ukHipHopScene?.active;
+  const relatedSubgenreExhausted =
+    !intentContract.primarySubgenre ||
+    rescuedSubgenreScope.mode === "family" ||
+    rescuedSubgenreScope.mode === "none";
   const adjacentFamilies = new Set(
-    ukLocked ? [] : intentContract.genreFamilies.flatMap((genre) => adjacentGenreFamilies(genre)),
+    ukLocked || !relatedSubgenreExhausted ? [] : intentContract.genreFamilies.flatMap((genre) => adjacentGenreFamilies(genre)),
   );
-  const adjacentExpansion = intentContract.genreFamilies.length > 0
+  const adjacentExpansion = relatedSubgenreExhausted && intentContract.genreFamilies.length > 0
     ? (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) => {
         if (!trackCompatibleWithHardIntentContract(track, classMap, intentContract)) return false;
         const family = genreFamilyForTrack(track, classMap);
@@ -3757,9 +3869,14 @@ export async function buildPlaylistPipeline<T extends {
     pool: ScoredLibraryTrack<T>[];
   }> = [
     { level: "family", pool: sameFamilyExpansion },
-    { level: "adjacent", pool: adjacentExpansion },
+    ...(relatedSubgenreExhausted ? [{ level: "adjacent" as const, pool: adjacentExpansion }] : []),
     { level: "global", pool: globalExpansion },
   ];
+  const preV3PoolHealth = assessCandidatePoolHealth(
+    contractGuardedScoredPool.length,
+    opts.playlistLength,
+    rescuedSubgenreScope.mode,
+  );
   const beforeExpansion = contractGuardedScoredPool.length;
   const genreAlignmentStable =
     intentContract.genreFamilies.length === 0 ||
@@ -3950,6 +4067,8 @@ export async function buildPlaylistPipeline<T extends {
     finalPoolSizeAtScoringEntry: contractGuardedScoredPool.length,
     retrievalFatalEmptyPool,
       softGuardOriginTrace: softGuardRankTrace.slice(0, Math.max(40, opts.playlistLength * 2)),
+    preV3PoolHealth,
+    relatedSubgenreExhausted,
     candidateCountPerStage: {
       retrieval: pooledCandidates.length,
       structuredRetrieval: subgenreEvidencePool.length,
@@ -4163,6 +4282,7 @@ export async function buildPlaylistPipeline<T extends {
     stageStartedAt = Date.now();
     const endV3Profile = opts.profileStage?.(`pipeline.v3ScoringAndSampling.${candidate.label}`, `${candidatePool.tracks.length} candidate tracks`);
     let result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
+    const emotionGate = detectDominantEmotion(opts.vibe, opts.emotionProfile);
     try {
       v3InvocationCount += 1;
       result = await runV3Pipeline(
@@ -4184,6 +4304,12 @@ export async function buildPlaylistPipeline<T extends {
           pipelineTrace,
           diagnosticsMode:          opts.diagnosticsMode ?? "minimal",
           profileStage:            opts.profileStage,
+          dominantIntentGates: {
+            dominantEmotionExplicit: emotionGate.explicit,
+            allowContrastLanes: emotionGate.explicit ? false : true,
+            allowExplorationLanes: !emotionGate.explicit,
+            maxTasteWeight: emotionGate.explicit ? 0.12 : 0.22,
+          },
         }
       );
     } finally {

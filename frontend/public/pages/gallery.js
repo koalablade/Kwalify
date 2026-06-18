@@ -1,23 +1,15 @@
 // ── Kwalify · Gallery ─────────────────────────────────────────────────────────
+import { esc as sharedEsc, fmtDate as sharedFmtDate, initTheme } from "../lib/shared.js";
+
+initTheme();
 const root = document.getElementById("galleryRoot");
 
-// ── Theme bootstrap ───────────────────────────────────────────────────────────
-(function initTheme() {
-  let saved = null;
-  try {
-    saved = localStorage.getItem("kwalify-theme");
-  } catch {
-    saved = null;
-  }
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const theme = saved || (prefersDark ? "dark" : "light");
-  document.documentElement.setAttribute("data-theme", theme);
-})();
-
 function esc(v) {
-  return String(v ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
-  );
+  return sharedEsc(v);
+}
+
+function fmtDate(iso) {
+  return sharedFmtDate(iso);
 }
 
 async function api(path, opts = {}) {
@@ -34,12 +26,6 @@ async function api(path, opts = {}) {
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function fmtDate(iso) {
-  try {
-    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  } catch { return ""; }
 }
 
 function spi() {

@@ -1,26 +1,18 @@
 // ── Kwalify · Single app entry point ─────────────────────────────────────────
+import { esc as sharedEsc, fmtDate as sharedFmtDate, initTheme, spi, toggleTheme } from "../lib/shared.js";
+
+initTheme();
 const root = document.getElementById("appRoot");
 
-// ── Theme bootstrap (runs before any render) ──────────────────────────────────
-(function initTheme() {
-  let saved = null;
-  try {
-    saved = localStorage.getItem("kwalify-theme");
-  } catch {
-    saved = null;
-  }
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const theme = saved || (prefersDark ? "dark" : "light");
-  document.documentElement.setAttribute("data-theme", theme);
-})();
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function esc(v) {
-  return String(v ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
-  );
+  return sharedEsc(v);
 }
 
+function fmtDate(iso) {
+  return sharedFmtDate(iso);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function trackGenreLabel(track) {
   return track?.genrePrimary ||
     track?.genreFamily ||
@@ -146,7 +138,7 @@ function libraryGateState() {
   const ls = state.librarySummary;
   return {
     syncing: !!cs?.isSyncing,
-    total: cs?.totalTracks || ls?.trackCount || 0,
+    total: ls?.trackCount || cs?.totalTracks || 0,
   };
 }
 
@@ -363,6 +355,7 @@ const state = {
   librarySummary: null,
   playlists: [],
   history: [],
+  libraryChapters: [],
   mode: "balanced",
   familiarity: (() => {
     try {
@@ -413,7 +406,7 @@ function navHtml(user) {
   const cs = state.cacheStatus;
   const ls = state.librarySummary;
   const syncing = cs?.isSyncing;
-  const total = cs?.totalTracks || ls?.trackCount || 0;
+  const total = ls?.trackCount || cs?.totalTracks || 0;
   const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
   const syncPct = cs?.syncTotal && cs.syncProgress !== null && cs.syncProgress !== undefined
     ? Math.max(0, Math.min(100, Math.round((Number(cs.syncProgress) / Math.max(1, Number(cs.syncTotal))) * 100)))
@@ -544,7 +537,7 @@ function renderLanding() {
       <div class="hero-trust">
         <span>No credit card</span>
         <span class="hero-trust-sep">·</span>
-        <span>Reads liked songs only</span>
+        <span>Your library stays on our servers for sync</span>
         <span class="hero-trust-sep">·</span>
         <span>Shareable when you want</span>
       </div>
@@ -664,6 +657,8 @@ function renderApp() {
     return `<div class="alert alert-error">
         <strong>${esc(title)}</strong>
         <span>${esc(state.error)}</span>
+        ${state.errorDetails?.requestId ? `<small>Reference: ${esc(state.errorDetails.requestId)}</small>` : ""}
+        ${isGenerationError ? `<button type="button" class="btn btn-sm btn-green" id="retryGenerateBtn">Try again</button>` : ""}
         ${diagHtml}
         ${suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>${esc(fallbackSuggestion)}</small>`}
       </div>`;
@@ -724,6 +719,13 @@ function renderApp() {
 
     ${errorHtml}
 
+    ${state.libraryChapters?.length ? `<section class="library-chapters" aria-label="Life chapters from your library">
+      <h2 class="section-title">Life chapters</h2>
+      <div class="library-chapters-row">
+        ${state.libraryChapters.slice(0, 4).map((ch) => `<button type="button" class="hero-chip library-chapter-chip" data-chapter-prompt="${esc(ch.label || ch.id)}">${esc(ch.label || ch.id)}</button>`).join("")}
+      </div>
+    </section>` : ""}
+
     <div class="input-grid ${debugModeEnabled() ? "" : "input-grid--single"}">
 
       <!-- Vibe input -->
@@ -745,7 +747,7 @@ function renderApp() {
               rows="4"
             ></textarea>
             <div class="vibe-footer">
-              <span class="vibe-hint">Enter ↵ to generate</span>
+              <span class="vibe-hint">Enter ↵ to generate · Ctrl+K focus</span>
               <span class="vibe-count"><span id="charCount">0</span>/140</span>
             </div>
           </div>
@@ -1237,11 +1239,15 @@ function resultHtml(result) {
         <strong>${confidencePercent}%</strong>
       </div>` : "";
   const trustChips = [
-    confidencePercent !== null
-      ? (confidencePercent >= 78 ? "Strong Prompt Match" : confidencePercent >= 58 ? "Good Prompt Match" : "Best Available Match")
-      : "Prompt Matched",
-    result.noLibraryMode ? "Built from Spotify Discovery" : "Built from Your Library",
-    confidence.recoveryUsed || confidence.fallbackUsed || result.fastFallback || result.code === "TIMEOUT_FALLBACK" ? "Recovery Assisted" : null,
+    result.matchQualityLabel ||
+      (result.generationTrust?.matchQualityLabel) ||
+      (confidencePercent !== null
+        ? (confidencePercent >= 78 ? "Strong Prompt Match" : confidencePercent >= 58 ? "Good Prompt Match" : "Best Available Match")
+        : "Prompt Matched"),
+    result.personalizationSource === "spotify_discovery" || result.noLibraryMode
+      ? "Built from Spotify Discovery"
+      : "Built from Your Library",
+    result.recoveryAssisted || result.generationTrust?.recoveryAssisted || confidence.recoveryUsed || confidence.fallbackUsed || result.fastFallback || result.code === "TIMEOUT_FALLBACK" ? "Recovery Assisted" : null,
     result.spotifyUnavailable ? "Review Copy Available" : result.spotifyPartial ? "Spotify Partially Saved" : null,
   ].filter(Boolean);
   const trustChipsHtml = trustChips.length ? `
@@ -1343,6 +1349,8 @@ function resultHtml(result) {
       ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
       ${coherenceBadgeHtml}
       ${trustChipsHtml}
+      ${result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary ? `<p class="result-insight result-insight--trust">${esc(result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary)}</p>` : ""}
+      ${result.playlistWhy || result.generationTrust?.playlistWhy ? `<p class="result-insight">${esc(result.playlistWhy || result.generationTrust?.playlistWhy)}</p>` : ""}
       ${segmentStripHtml}
       ${intentUnderstandingHtml}
       ${confidenceHtml}
@@ -2339,6 +2347,12 @@ function wireAppEvents() {
   document.getElementById("fullSyncBtn")?.addEventListener("click", () => triggerSync(true));
 
   document.getElementById("generateBtn")?.addEventListener("click", generate);
+  document.getElementById("retryGenerateBtn")?.addEventListener("click", () => {
+    state.error = null;
+    state.errorDetails = null;
+    state.errorKind = null;
+    generate();
+  });
   document.getElementById("cancelGenerationBtn")?.addEventListener("click", cancelGeneration);
   document.getElementById("progressDetailsToggle")?.addEventListener("click", () => {
     state.progressExpanded = !state.progressExpanded;
@@ -2355,6 +2369,18 @@ function wireAppEvents() {
     e.preventDefault();
     state.noLibraryMode = !state.noLibraryMode;
     renderApp();
+  });
+
+  document.querySelectorAll(".library-chapter-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const prompt = chip.getAttribute("data-chapter-prompt");
+      const input = document.getElementById("vibeInput");
+      if (input && prompt) {
+        input.value = prompt;
+        input.dispatchEvent(new Event("input"));
+        input.focus();
+      }
+    });
   });
 
   const vibeInput = document.getElementById("vibeInput");
@@ -2745,19 +2771,28 @@ async function boot() {
     return;
   }
 
+  if (meRes.data?.reauthRequired) {
+    state.error = "Your Spotify session expired. Please reconnect to continue.";
+    state.errorKind = "auth";
+    renderLanding();
+    return;
+  }
+
   state.user = meRes.data;
 
-  const [csRes, lsRes, plRes, histRes] = await Promise.all([
+  const [csRes, lsRes, plRes, histRes, chRes] = await Promise.all([
     api("/spotify/cache-status").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
     api("/library/summary").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
     api("/playlists?limit=6").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
     api("/history").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
+    api("/library/chapters").catch(() => ({ ok: false, status: 0, data: { chapters: [] } })),
   ]);
 
   if (csRes.ok) state.cacheStatus = csRes.data;
   if (lsRes.ok) state.librarySummary = lsRes.data;
   if (plRes.ok) state.playlists = plRes.data.playlists || [];
   if (histRes.ok) state.history = Array.isArray(histRes.data) ? histRes.data : [];
+  if (chRes.ok && Array.isArray(chRes.data?.chapters)) state.libraryChapters = chRes.data.chapters;
   if (!csRes.ok || !lsRes.ok || !plRes.ok || !histRes.ok) {
     state.error = "Some account data could not load. You can still try generating, or refresh if things look stale.";
     state.errorKind = "status";

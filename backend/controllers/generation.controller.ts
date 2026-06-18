@@ -146,6 +146,13 @@ import {
 } from "../lib/expanded-intent-vocabulary";
 import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify-api-audit";
 import { buildIntentSurvivalDiagnostics } from "../lib/intent-survival-diagnostics";
+import { buildGenerationTrustPayload } from "./generation-response";
+import {
+  effectiveRecoveryArtistLimit,
+  evaluateRecoveryGuards,
+  recoveryStageAllowed,
+} from "./generation-recovery";
+import { buildDominantIntentContract } from "../core/dominant-intent-contract";
 import { buildIntentUnderstandingDiagnostics } from "../lib/intent-understanding-diagnostics";
 import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
 import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
@@ -4179,7 +4186,7 @@ function compactScoringDiagnosticsForApi(raw: unknown): Record<string, unknown> 
   const diagnostics = raw as Record<string, unknown> | null | undefined;
   if (!diagnostics || typeof diagnostics !== "object") return null;
   const scoring = diagnostics["scoring"] as Record<string, unknown> | undefined;
-  return {
+  const payload = {
     scoring: scoring
       ? {
           mode: scoring["mode"] ?? null,
@@ -4194,6 +4201,11 @@ function compactScoringDiagnosticsForApi(raw: unknown): Record<string, unknown> 
     semanticResolution: diagnostics["semanticResolution"] ?? null,
     v3Pipeline: formatV3DiagnosticsForApi(diagnostics["v3Pipeline"], ""),
   };
+  const serialized = JSON.stringify(payload);
+  if (serialized.length > 120_000) {
+    return { truncated: true, byteLength: serialized.length, preview: payload };
+  }
+  return payload;
 }
 
 function buildPromptDriftAudit(diagnostics: Record<string, unknown> | null): Record<string, unknown> {
@@ -4648,6 +4660,11 @@ async function buildNoLibrarySpotifyCandidates(opts: {
       albumGenres: enriched.albumGenres,
       popularity: enriched.popularity ?? null,
       releaseYear: enriched.releaseYear ?? null,
+      primaryArtistId: enriched.artists[0]?.id ?? null,
+      artistIds: enriched.artists.map((artist) => artist.id).filter((id): id is string => !!id),
+      semanticProfile: null,
+      enrichmentVersion: null,
+      enrichedAt: null,
       addedAt: now,
       createdAt: now,
     };
@@ -6567,6 +6584,32 @@ router.post("/generate", async (req, res): Promise<void> => {
       !!lockedIntent.energy;
     const duplicateIdentityCountBeforeFinalize = countDuplicateSongIdentities(finalTracks);
     const needsFinalizeRecovery = finalTracks.length < length || duplicateIdentityCountBeforeFinalize > 0;
+    const dominantContractForRecovery = buildDominantIntentContract({
+      prompt: vibe,
+      intentContract: {
+        primarySubgenre: lockedIntent.primarySubgenre ?? null,
+        genreFamilies: lockedIntent.genreFamilies,
+        activity: lockedIntent.activity ?? null,
+        places: [],
+        eraRange: lockedIntent.eraRange ?? null,
+        explicitDimensions: [],
+      },
+      emotionProfile,
+      mode: mode as "strict" | "balanced" | "chaotic",
+      noLibraryMode: !!noLibraryMode,
+    });
+    let recoveryGuards = evaluateRecoveryGuards(dominantContractForRecovery, {
+      underfillRatio: finalTracks.length / Math.max(1, length),
+      fallbackLevel: "soft",
+      finalTracks,
+      expectedFamilies: lockedIntent.genreFamilies,
+    });
+    let controlledRecoveryBlocked = false;
+    let controlledRecoveryReason: string | null = null;
+    if (recoveryGuards.controlledFailure && finalTracks.length < Math.ceil(length * 0.55)) {
+      controlledRecoveryBlocked = true;
+      controlledRecoveryReason = recoveryGuards.reason;
+    }
     if (needsFinalizeRecovery) {
       const underfillStartedAt = Date.now();
       const seenUnderfillCandidateIds = new Set<string>();
@@ -6635,6 +6678,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           }
           return true;
         });
+      const maxPerArtistForRecovery = effectiveRecoveryArtistLimit(maxPerArtist, recoveryGuards);
       const recovered = finalizePlaylistTracks<ConstraintTrack>({
         initial: finalTracks as ConstraintTrack[],
         candidates: underfillCandidates,
@@ -6644,7 +6688,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         constraints: constraintLayer,
         allowHolidaySeason,
         classMap: userGenreProfile.trackClassifications,
-        maxPerArtist,
+        maxPerArtist: maxPerArtistForRecovery,
         trackReusePenalty: finalizationReusePenalty,
         artistReusePenalty: finalizationArtistReusePenalty,
       });
@@ -6676,7 +6720,20 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
         publishPartialTracks(finalTracks, 5);
       }
-      if (finalTracks.length < length) {
+      if (finalTracks.length < length && !controlledRecoveryBlocked) {
+        recoveryGuards = evaluateRecoveryGuards(dominantContractForRecovery, {
+          underfillRatio: finalTracks.length / Math.max(1, length),
+          fallbackLevel: "relaxed_scene" as "soft",
+          finalTracks,
+          expectedFamilies: lockedIntent.genreFamilies,
+        });
+        const relaxedStage = recoveryStageAllowed(recoveryGuards, "relaxed_scene");
+        if (!relaxedStage.allowed) {
+          controlledRecoveryBlocked = true;
+          controlledRecoveryReason = relaxedStage.reason;
+        }
+      }
+      if (finalTracks.length < length && !controlledRecoveryBlocked) {
         const relaxedSeenIds = new Set<string>();
         const relaxedSceneCandidates = expandedUnderfillPool
           .filter((track) => {
@@ -6735,7 +6792,20 @@ router.post("/generate", async (req, res): Promise<void> => {
           publishPartialTracks(finalTracks, 5);
         }
       }
-      if (finalTracks.length < length) {
+      if (finalTracks.length < length && !controlledRecoveryBlocked) {
+        recoveryGuards = evaluateRecoveryGuards(dominantContractForRecovery, {
+          underfillRatio: finalTracks.length / Math.max(1, length),
+          fallbackLevel: mode === "strict" ? "soft" : "global",
+          finalTracks,
+          expectedFamilies: lockedIntent.genreFamilies,
+        });
+        const globalStage = recoveryStageAllowed(recoveryGuards, "global");
+        if (!globalStage.allowed) {
+          controlledRecoveryBlocked = true;
+          controlledRecoveryReason = globalStage.reason;
+        }
+      }
+      if (finalTracks.length < length && !controlledRecoveryBlocked) {
         const deterministicSeenIds = new Set(finalTracks.map((track) => track.trackId));
         const deterministicSeenSignatures = new Set(
           finalTracks.map((track) => trackRepeatSignature(track)).filter((value): value is string => !!value)
@@ -6777,12 +6847,15 @@ router.post("/generate", async (req, res): Promise<void> => {
           }
           return added;
         };
-        const diversitySafeAdded = appendDeterministicFill(2, true);
+        const diversitySafeAdded = appendDeterministicFill(
+          Math.max(1, Math.ceil(2 * recoveryGuards.diversityPressureMultiplier)),
+          true,
+        );
         const completionAdded = finalTracks.length < length
           ? appendDeterministicFill(null, false)
           : 0;
         let absoluteLastResortAdded = 0;
-        if (finalTracks.length < length) {
+        if (finalTracks.length < length && !recoveryGuards.controlledFailure) {
           const absoluteCandidates = expandedUnderfillPool
             .filter((track) => !deterministicSeenIds.has(track.trackId))
             .sort((a, b) => finalCompletionCandidateScore(b) - finalCompletionCandidateScore(a));
@@ -6798,7 +6871,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           }
         }
         let finalLibrarySweepAdded = 0;
-        if (finalTracks.length < length) {
+        if (finalTracks.length < length && !controlledRecoveryBlocked && !recoveryGuards.controlledFailure) {
           for (const track of scoringInputSongs) {
             if (finalTracks.length >= length) break;
             const candidate = toUnderfillCandidate(track);
@@ -6823,6 +6896,9 @@ router.post("/generate", async (req, res): Promise<void> => {
               finalCompletionAbsoluteLastResortAdded: absoluteLastResortAdded,
               finalCompletionLibrarySweepAdded: finalLibrarySweepAdded,
               finalCompletionCandidateCount: deterministicCandidates.length,
+              controlledRecoveryBlocked,
+              controlledRecoveryReason,
+              recoveryTailGenreEvidence: recoveryGuards.tailGenreEvidence,
             },
           };
           finalValidation = validateLockedIntentOutput(
@@ -8810,6 +8886,37 @@ router.post("/generate", async (req, res): Promise<void> => {
       ...generationDiagnostics,
       productionTimeline: productionTimelineReport,
     };
+    const generationTrust = buildGenerationTrustPayload({
+      vibe,
+      mode: mode as "strict" | "balanced" | "chaotic",
+      noLibraryMode: !!noLibraryMode,
+      intentContract: {
+        primarySubgenre: lockedIntent.primarySubgenre ?? null,
+        genreFamilies: lockedIntent.genreFamilies,
+        activity: lockedIntent.activity ?? null,
+        places: [],
+        eraRange: lockedIntent.eraRange ?? null,
+        explicitDimensions: [],
+      },
+      emotionProfile,
+      intentSurvival: intentSurvivalDiagnostics,
+      generationDiagnostics: {
+        ...generationDiagnosticsWithTimeline,
+        intentContractGuard: (v3Diagnostics as Record<string, unknown>)?.["intentContractGuard"],
+        finalizationFallbackLevel: fallbackLevelFromFinalization(finalization.diagnostics as Record<string, unknown>),
+        cohesionRelaxedFillUsed: (finalization.diagnostics as Record<string, unknown>)?.["cohesionRelaxedFillUsed"],
+        hardSafeFillUsed: (finalization.diagnostics as Record<string, unknown>)?.["hardSafeFillUsed"],
+      },
+      strictGenreEvidence: strictGenreEvidencePublic,
+      strictEraEvidence: strictEraEvidencePublic,
+      intentDecode: momentPipeline?.intent,
+    });
+    if (generationTrust.genreRelaxed || generationTrust.eraRelaxed) {
+      playlistConfidence.label = generationTrust.matchQualityLabel;
+      if (generationTrust.matchQuality === "best_available") {
+        playlistConfidence.percent = Math.min(playlistConfidence.percent, 57);
+      }
+    }
     const generationAuditSnapshot = {
       prompt: vibe,
       mode,
@@ -8850,6 +8957,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       explicitIntentRepair: ((v3Diagnostics ?? {}) as Record<string, unknown>)["explicitIntentRepair"] ?? null,
       feedbackDiagnostics,
       intentSurvival: intentSurvivalDiagnostics,
+      generationTrust,
     };
 
     if (sideEffectPolicy.allowResultCacheWrites && !varietyBoost && !devMode) {
@@ -8968,6 +9076,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       noLibrarySpotify: noLibrarySpotifyDiagnostics,
       devMode,
       playlistConfidence,
+      generationTrust,
+      intentSurvivalSummary: generationTrust.intentSurvivalSummary,
+      playlistWhy: generationTrust.playlistWhy,
+      retrievalSignature: generationTrust.retrievalSignature,
+      matchQualityLabel: generationTrust.matchQualityLabel,
+      personalizationSource: generationTrust.personalizationSource,
+      recoveryAssisted: generationTrust.recoveryAssisted,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
       degraded: pipeline.pipelineTrace?.degraded ?? false,

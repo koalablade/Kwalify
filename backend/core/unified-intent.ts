@@ -454,10 +454,26 @@ export function resolveUnifiedIntent(snapshots: UnifiedIntentSnapshot[]): Unifie
     confidence: 1,
     intent: emptyUnifiedIntent(),
   }];
+
+  const emotionVectors = active.map((snapshot) => snapshot.intent.emotionVector);
+  const emotionDisagreement = Math.max(
+    ...active.map((snapshot, index) =>
+      emotionVectors.some((other, otherIndex) =>
+        otherIndex !== index && cosineDistance(snapshot.intent.emotionVector, other) > 0.42
+      ) ? 1 : 0
+    ),
+    0,
+  );
+  const dominantEmotionSnapshot = emotionDisagreement > 0
+    ? [...active].sort((a, b) => b.confidence - a.confidence)[0]
+    : null;
+
   const resolvedVectors = {
     genreVector: averageVectors(active.map((snapshot) => snapshot.intent.genreVector)),
     sceneVector: averageVectors(active.map((snapshot) => snapshot.intent.sceneVector)),
-    emotionVector: averageVectors(active.map((snapshot) => snapshot.intent.emotionVector)),
+    emotionVector: dominantEmotionSnapshot
+      ? [...dominantEmotionSnapshot.intent.emotionVector]
+      : averageVectors(emotionVectors),
     energyVector: averageVectors(active.map((snapshot) => snapshot.intent.energyVector)),
     timeOfDayVector: averageVectors(active.map((snapshot) => snapshot.intent.timeOfDayVector)),
   };

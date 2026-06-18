@@ -155,9 +155,9 @@ export function initPool(connectionString: string): pg.Pool {
   }
   _pool = new pg.Pool({
     connectionString,
-    max: 10,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 12_000,
+    max: Number.parseInt(process.env["DB_POOL_MAX"] ?? process.env["PG_POOL_MAX"] ?? "10", 10),
+    idleTimeoutMillis: Number.parseInt(process.env["DB_POOL_IDLE_MS"] ?? "30000", 10),
+    connectionTimeoutMillis: Number.parseInt(process.env["DB_POOL_CONNECT_MS"] ?? "12000", 10),
   });
   protectPool(_pool);
   return _pool;

@@ -26,6 +26,10 @@ import {
 } from "../lib/genre-profile-cache";
 import { invalidateLikedSongsCache, setCachedLikedSongs } from "../lib/liked-songs-cache";
 import { invalidateGenerateResultCache } from "../lib/generate-result-cache";
+import { enrichTrackSemanticProfile } from "../lib/track-semantic-enrichment";
+import { SEMANTIC_ENRICHMENT_VERSION } from "../lib/track-semantic-types";
+import { enrichLibrarySemanticProfiles } from "../lib/semantic-enrichment-pipeline";
+import { invalidateSemanticProfileCache } from "../lib/semantic-profile-store";
 import { getFeatures } from "../lib/env";
 import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
 
@@ -91,12 +95,17 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   }
 
   let suggestFullSync = false;
+  const [liveCountRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(likedSongsTable)
+    .where(eq(likedSongsTable.spotifyUserId, userId));
+  const liveTotalTracks = Number(liveCountRow?.count ?? status.totalTracks);
+  if (Math.abs(liveTotalTracks - status.totalTracks) > Math.max(5, status.totalTracks * 0.02)) {
+    suggestFullSync = true;
+  }
   if (status.totalTracks >= 200) {
     const recentCutoff = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000);
-    const [totalRow] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(likedSongsTable)
-      .where(eq(likedSongsTable.spotifyUserId, userId));
+    const total = liveTotalTracks;
     const [recentRow] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(likedSongsTable)
@@ -106,7 +115,6 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
           gt(likedSongsTable.addedAt, recentCutoff)
         )
       );
-    const total = Number(totalRow?.count ?? 0);
     const recent = Number(recentRow?.count ?? 0);
     if (total > 0 && recent / total > 0.85) suggestFullSync = true;
     const [metadataRow] = await db
@@ -123,7 +131,8 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
 
   res.json({
     synced: !!status.lastSyncedAt,
-    totalTracks: status.totalTracks,
+    totalTracks: liveTotalTracks,
+    storedTotalTracks: status.totalTracks,
     lastSyncedAt: status.lastSyncedAt?.toISOString() ?? null,
     isSyncing: activeSyncs.has(userId) || status.isSyncing === 1,
     syncProgress: status.syncProgress ?? null,
@@ -375,6 +384,28 @@ export async function runSync(
       for (const track of newTracks) {
         const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
         const features = featuresMap.get(track.id);
+        const artistIds = enriched.artists.map((artist) => artist.id).filter((id): id is string => !!id);
+        const semanticInput = {
+          trackId: enriched.id,
+          trackName: enriched.name,
+          artistName: enriched.artists[0]?.name ?? "Unknown",
+          albumName: enriched.album.name,
+          energy: features?.energy ?? null,
+          valence: features?.valence ?? null,
+          tempo: features?.tempo ?? null,
+          danceability: features?.danceability ?? null,
+          acousticness: features?.acousticness ?? null,
+          instrumentalness: features?.instrumentalness ?? null,
+          loudness: features?.loudness ?? null,
+          speechiness: features?.speechiness ?? null,
+          spotifyArtistGenres: enriched.spotifyArtistGenres,
+          albumGenres: enriched.albumGenres,
+          releaseYear: enriched.releaseYear ?? null,
+          popularity: enriched.popularity ?? null,
+          primaryArtistId: artistIds[0] ?? null,
+          artistIds,
+        };
+        const semanticProfile = enrichTrackSemanticProfile(semanticInput);
         rowsToInsert.push({
           spotifyUserId: userId,
           trackId: enriched.id,
@@ -395,6 +426,11 @@ export async function runSync(
           albumGenres: enriched.albumGenres,
           popularity: enriched.popularity ?? null,
           releaseYear: enriched.releaseYear ?? null,
+          primaryArtistId: artistIds[0] ?? null,
+          artistIds,
+          semanticProfile: semanticProfile as unknown as Record<string, unknown>,
+          enrichmentVersion: SEMANTIC_ENRICHMENT_VERSION,
+          enrichedAt: new Date(),
           addedAt: enriched.addedAt ? new Date(enriched.addedAt) : new Date(),
         });
       }
@@ -445,6 +481,7 @@ export async function runSync(
     invalidateGenreProfileCache(userId);
     invalidateLikedSongsCache(userId);
     invalidateGenerateResultCache(userId);
+    invalidateSemanticProfileCache(userId);
 
     const allRows = await db
       .select()
@@ -469,6 +506,34 @@ export async function runSync(
         speechiness: s.speechiness,
       }))
     );
+
+    try {
+      const enrichmentRows = allRows.map((s) => ({
+        trackId: s.trackId,
+        trackName: s.trackName,
+        artistName: s.artistName,
+        albumName: s.albumName,
+        energy: s.energy,
+        valence: s.valence,
+        tempo: s.tempo,
+        danceability: s.danceability,
+        acousticness: s.acousticness,
+        instrumentalness: s.instrumentalness,
+        speechiness: s.speechiness,
+        loudness: s.loudness,
+        spotifyArtistGenres: s.spotifyArtistGenres,
+        albumGenres: s.albumGenres,
+        releaseYear: s.releaseYear,
+        popularity: s.popularity,
+        semanticProfile: s.semanticProfile,
+        primaryArtistId: s.primaryArtistId,
+        artistIds: Array.isArray(s.artistIds) ? s.artistIds.filter((id): id is string => typeof id === "string") : null,
+      }));
+      const enrichmentResult = await enrichLibrarySemanticProfiles(userId, enrichmentRows);
+      logger.info({ userId, ...enrichmentResult }, "Semantic library enrichment complete");
+    } catch (err) {
+      logger.warn({ err, userId }, "Post-sync semantic enrichment failed — generation will enrich on demand");
+    }
 
     const withFeatures = allRows.filter(
       (r) => r.energy != null && r.valence != null
