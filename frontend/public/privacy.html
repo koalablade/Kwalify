@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Kwalify</title>
+  <meta name="description" content="How Kwalify collects, uses, and protects your data when you connect Spotify and generate playlists from your liked songs.">
+  <link rel="canonical" href="https://kwalify.net/privacy">
+  <meta name="theme-color" content="#0d0b1e">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles/base.css">
+</head>
+<body>
+  <nav class="nav">
+    <a href="/" class="nav-logo" style="text-decoration:none;color:inherit;">
+      <div class="nav-logo-mark">K</div>
+      <span>Kwalify</span>
+    </a>
+    <div class="nav-right">
+      <a href="/api/auth/login" class="btn btn-green btn-sm">Connect Spotify</a>
+    </div>
+  </nav>
+
+  <article class="legal-page">
+    <h1>Privacy Policy</h1>
+    <p class="legal-updated">Last updated: June 18, 2026</p>
+
+    <p>Kwalify (“we”, “us”) helps you build Spotify playlists from songs you have already liked. This policy explains what we collect and why when you use <a href="https://kwalify.net">kwalify.net</a>.</p>
+
+    <h2>What we collect</h2>
+    <ul>
+      <li><strong>Spotify account info</strong> — display name, email, country, and Spotify user ID when you sign in with Spotify.</li>
+      <li><strong>Your liked songs</strong> — track metadata from your Spotify Liked Songs library (titles, artists, albums, audio features, and related data Spotify provides).</li>
+      <li><strong>Playlists you create</strong> — prompts you enter, generated track lists, and optional Spotify playlist links we create on your behalf.</li>
+      <li><strong>Session data</strong> — a signed cookie so you stay logged in, plus OAuth tokens stored server-side to call Spotify on your behalf.</li>
+      <li><strong>Feedback</strong> — if you submit our feedback form or in-app feedback, we receive what you choose to send.</li>
+      <li><strong>Technical logs</strong> — standard server logs (IP address, request path, errors) for security and reliability.</li>
+    </ul>
+
+    <h2>What we do not collect</h2>
+    <ul>
+      <li>We do not read your full Spotify listening history beyond what is needed to sync your Liked Songs.</li>
+      <li>We do not sell your personal data.</li>
+      <li>We do not use third-party advertising trackers on the site.</li>
+    </ul>
+
+    <h2>How we use your data</h2>
+    <ul>
+      <li>Authenticate you with Spotify and keep your session active.</li>
+      <li>Sync and score your liked songs to generate playlists from your prompts.</li>
+      <li>Save playlists in your Kwalify gallery and create private playlists in Spotify when you request it.</li>
+      <li>Improve reliability, prevent abuse, and fix bugs.</li>
+    </ul>
+
+    <h2>Sharing and third parties</h2>
+    <ul>
+      <li><strong>Spotify</strong> — we call Spotify’s API using your authorization. Spotify’s use of your data is governed by <a href="https://www.spotify.com/legal/privacy-policy/" target="_blank" rel="noopener">Spotify’s Privacy Policy</a>.</li>
+      <li><strong>Hosting</strong> — the app and database run on Render. Data is stored in PostgreSQL in the region configured for your deployment.</li>
+      <li><strong>Feedback forms</strong> — optional feedback may be collected via Google Forms; Google’s terms apply to that submission.</li>
+      <li><strong>Share links</strong> — if you open or share a playlist link (e.g. <code>/p/abc123…</code>), anyone with that link can view that playlist’s name, prompt, and track list. Links use unguessable tokens and are not listed publicly.</li>
+    </ul>
+
+    <h2>Retention</h2>
+    <p>We keep your liked-song cache, saved playlists, and session data while your account is active. You may disconnect Spotify at any time; contact us if you want account data deleted.</p>
+
+    <h2>Security</h2>
+    <p>Sessions use HTTP-only cookies. In production, cookies are marked Secure and traffic is served over HTTPS. OAuth tokens are stored server-side, not in the browser.</p>
+
+    <h2>Your choices</h2>
+    <ul>
+      <li>Revoke Kwalify’s access anytime in your <a href="https://www.spotify.com/account/apps/" target="_blank" rel="noopener">Spotify account apps</a> settings.</li>
+      <li>Log out of Kwalify from the app.</li>
+      <li>Request deletion of stored data by emailing us (see Contact).</li>
+    </ul>
+
+    <h2>Children</h2>
+    <p>Kwalify is not directed at children under 13. We do not knowingly collect data from children.</p>
+
+    <h2>Changes</h2>
+    <p>We may update this policy. The “Last updated” date at the top will change when we do.</p>
+
+    <h2>Contact</h2>
+    <p>Questions or deletion requests: use the <a href="https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform" target="_blank" rel="noopener">feedback form</a> or open an issue on our GitHub repository.</p>
+  </article>
+
+  <footer class="app-footer site-footer">
+    <div class="footer-left"><span class="footer-brand">© 2026 Kwalify</span></div>
+    <div class="footer-right">
+      <span class="badge badge-muted">Beta</span>
+      <a href="/privacy" class="footer-link">Privacy</a>
+      <a href="/terms" class="footer-link">Terms</a>
+      <a href="/" class="footer-link">Home</a>
+    </div>
+  </footer>
+</body>
+</html>

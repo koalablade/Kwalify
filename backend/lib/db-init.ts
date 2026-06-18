@@ -1,5 +1,6 @@
 import pg from "pg";
 import { logger } from "./logger";
+import { generateShareSlug } from "./share-slug";
 
 const SCHEMA_DDL = `
 CREATE TABLE IF NOT EXISTS "liked_songs" (
@@ -88,6 +89,10 @@ CREATE INDEX IF NOT EXISTS "IDX_saved_playlists_user_created"
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "spotify_url" text;
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "vibe" text;
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "mode" text;
+ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "share_slug" text;
+CREATE UNIQUE INDEX IF NOT EXISTS "IDX_saved_playlists_share_slug"
+  ON "saved_playlists" ("share_slug")
+  WHERE "share_slug" IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS "playlist_feedback" (
   "id" serial PRIMARY KEY,
@@ -124,9 +129,39 @@ CREATE UNIQUE INDEX IF NOT EXISTS "IDX_user_feedback_memory_user"
   ON "user_feedback_memory" ("user_id");
 `;
 
+async function backfillShareSlugs(rawPool: pg.Pool): Promise<void> {
+  for (;;) {
+    const { rows } = await rawPool.query<{ id: number }>(
+      `SELECT id FROM saved_playlists WHERE share_slug IS NULL LIMIT 100`,
+    );
+    if (rows.length === 0) break;
+
+    for (const row of rows) {
+      let updated = false;
+      for (let attempt = 0; attempt < 8 && !updated; attempt++) {
+        const slug = generateShareSlug();
+        try {
+          const result = await rawPool.query(
+            `UPDATE saved_playlists SET share_slug = $1 WHERE id = $2 AND share_slug IS NULL`,
+            [slug, row.id],
+          );
+          updated = result.rowCount === 1;
+        } catch (err) {
+          const code = (err as { code?: string }).code;
+          if (code !== "23505") throw err;
+        }
+      }
+      if (!updated) {
+        throw new Error(`[db-init] Failed to assign share_slug for playlist ${row.id}`);
+      }
+    }
+  }
+}
+
 export async function runDbInit(rawPool: pg.Pool): Promise<void> {
   try {
     await rawPool.query(SCHEMA_DDL);
+    await backfillShareSlugs(rawPool);
     logger.info("[db-init] schema verified — all tables ready");
   } catch (err) {
     throw new Error(`[db-init] Schema bootstrap failed: ${(err as Error).message}`);

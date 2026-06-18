@@ -88,21 +88,11 @@ Full DNS + Render domain steps: **[CUSTOM_DOMAIN.md](./CUSTOM_DOMAIN.md)**.
 
 ---
 
-## Part 5 — Create database tables (one time)
+## Part 5 — Database tables
 
-The API creates the **session** table on startup. App tables (`liked_songs`, `playlist_history`, etc.) need Drizzle once:
+All application tables are created automatically on startup via `backend/lib/db-init.ts` (sessions, liked songs, playlists, etc.). **No manual migration step is required** for a fresh Render deploy.
 
-**On your PC** (with Node/npm installed):
-
-```powershell
-cd "c:\Users\Kwalah\Downloads\Asset-Manager (1)\Asset-Manager (2)\Asset-Manager\artifacts\api-server"
-
-$env:DATABASE_URL = "PASTE_YOUR_RENDER_EXTERNAL_DATABASE_URL_HERE"
-npm install
-npx drizzle-kit push
-```
-
-Use the **External** Database URL from Render if running from your machine (not Internal).
+If you need to inspect the database locally, set `DATABASE_URL` and run `npm start` once — the schema will be applied on boot.
 
 ---
 
@@ -125,7 +115,7 @@ Use the **External** Database URL from Render if running from your machine (not 
 | Build fails / pnpm | Build must be `rm -rf node_modules && npm cache clean --force && npm ci --include=dev --cache /tmp/npm-cache --prefer-online && npm run build` — no pnpm/yarn |
 | `SESSION_SECRET` / `DATABASE_URL` required | Add env vars and redeploy |
 | Spotify redirect error | `SPOTIFY_REDIRECT_URI` must match Spotify dashboard character-for-character |
-| Login works but sync/generate fails | Run `drizzle-kit push` (Part 5) |
+| Login works but sync/generate fails | Check `/api/readyz` and Render logs; confirm `DATABASE_URL` is set |
 | 502 on free tier | Service may be sleeping; wait 30s and retry |
 | CORS errors from a frontend | Set `FRONTEND_URL` to your frontend origin (https, no trailing slash) |
 
@@ -137,8 +127,7 @@ Use the **External** Database URL from Render if running from your machine (not 
 - [ ] PostgreSQL linked (`DATABASE_URL`)
 - [ ] All env vars set
 - [ ] Spotify redirect URI added
-- [ ] `drizzle-kit push` completed
-- [ ] `/api/healthz` works
+- [ ] `/api/readyz` works
 - [ ] `/api/auth/login` redirects to Spotify
 
 ---

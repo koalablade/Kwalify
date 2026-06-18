@@ -106,6 +106,7 @@ import { GeneratePlaylistBody } from "../zod/api";
 import { checkRateLimit } from "../lib/rate-limit";
 import { getFeatures } from "../lib/env";
 import { publicUrl } from "../lib/public-url";
+import { generateShareSlug } from "../lib/share-slug";
 import { resolveSemanticScene } from "../lib/semantic-scene-engine";
 import { detectEra } from "../lib/era-detection";
 import {
@@ -7942,7 +7943,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       librarySize: likedSongs.length,
     };
     let savedPlaylistId = 0;
+    let savedShareSlug = "";
     if (sideEffectPolicy.allowSavedPlaylistWrites) {
+    const shareSlug = generateShareSlug();
     const insertResult = await db
       .insert(savedPlaylistsTable)
       .values({
@@ -7953,9 +7956,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         spotifyUrl: spotifyPlaylistUrl,
         vibe,
         mode,
+        shareSlug,
       })
-      .returning({ id: savedPlaylistsTable.id });
+      .returning({ id: savedPlaylistsTable.id, shareSlug: savedPlaylistsTable.shareSlug });
       savedPlaylistId = insertResult[0]?.id ?? 0;
+      savedShareSlug = insertResult[0]?.shareSlug ?? "";
     }
 
     req.log.info(
@@ -7970,7 +7975,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       await db.insert(playlistHistoryTable).values({
         spotifyUserId: userId,
         playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
-        playlistUrl: spotifyPlaylistUrl ?? publicUrl(`/p/${savedPlaylistId}`),
+        playlistUrl: spotifyPlaylistUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : null),
         name: playlistName,
         vibe,
         mode,
@@ -7990,7 +7995,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               id: 0,
               spotifyUserId: userId,
               playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
-              playlistUrl: spotifyPlaylistUrl ?? publicUrl(`/p/${savedPlaylistId}`),
+              playlistUrl: spotifyPlaylistUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : null),
               name: playlistName,
               vibe,
               mode,
@@ -8556,6 +8561,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     res.json({
       success: true,
       playlistId: savedPlaylistId,
+      savedPlaylistId,
+      shareSlug: savedShareSlug || undefined,
+      shareUrl: savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : undefined,
       auditMode: sideEffectPolicy.mode === "audit",
       spotifyApiAudit: sideEffectPolicy.mode === "audit" ? getSpotifyApiAuditSnapshot() : undefined,
       sideEffects: sideEffectPolicy.mode === "audit"

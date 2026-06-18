@@ -16,11 +16,14 @@ function deploymentVersion(): string {
 }
 
 router.get("/eval/ping", (_req, res) => {
-  res.json({
+  const payload: Record<string, unknown> = {
     status: "ok",
     deployed: true,
-    commit: deploymentVersion(),
-  });
+  };
+  if (process.env.NODE_ENV !== "production") {
+    payload.commit = deploymentVersion();
+  }
+  res.json(payload);
 });
 
 router.post("/eval/ping", (req, res) => {

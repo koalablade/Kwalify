@@ -1,0 +1,17 @@
+{
+  "name": "Kwalify",
+  "short_name": "Kwalify",
+  "description": "Describe a moment. Get a Spotify playlist from your liked songs.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0b1e",
+  "theme_color": "#0d0b1e",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

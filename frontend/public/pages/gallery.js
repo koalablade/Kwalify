@@ -175,7 +175,7 @@ function generatorNote(p) {
   if (confidence?.label && typeof confidence.percent === "number") {
     bits.push(`${confidence.label} ${confidence.percent}%`);
   }
-  if (diagnostics.fallbackTriggered) bits.push("fallback used");
+  if (diagnostics.fallbackTriggered) bits.push("recovery assisted");
   if (diagnostics.identityType) bits.push(String(diagnostics.identityType).replace(/_/g, " "));
   if (typeof diagnostics.humanCoherenceScore === "number") {
     bits.push(`coherence ${Math.round(diagnostics.humanCoherenceScore * 100)}%`);
@@ -337,7 +337,7 @@ function renderCards(playlists) {
           <div class="gallery-card-meta">${count} tracks · ${fmtDate(p.createdAt)}</div>
           ${deleteMode ? "" : `<div class="gallery-card-actions">
             ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm">${spi()} Spotify</a>` : ""}
-            <a href="/p/${p.id}" class="btn btn-ghost btn-sm">Share</a>
+            ${p.shareSlug ? `<a href="/p/${esc(p.shareSlug)}" class="btn btn-ghost btn-sm">Share</a>` : ""}
           </div>`}
         </div>
       </div>`;
@@ -359,6 +359,15 @@ function renderGallery() {
     ${renderCards(visiblePlaylists)}
   </div>
 
+  <footer class="app-footer site-footer">
+    <div class="footer-left"><span class="footer-brand">© ${new Date().getFullYear()} Kwalify</span></div>
+    <div class="footer-right">
+      <span class="badge badge-muted">Beta</span>
+      <a href="/privacy" class="footer-link">Privacy</a>
+      <a href="/terms" class="footer-link">Terms</a>
+      <a href="/" class="footer-link">Home</a>
+    </div>
+  </footer>
   `;
 
   wireNavEvents();
@@ -458,7 +467,7 @@ async function boot() {
 
   const meRes = await api("/auth/me").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (meRes.status === 401 || !meRes.ok) {
-    if (meRes.status === 401) window.location.href = "/";
+    if (meRes.status === 401) window.location.href = "/?gallery=login";
     else root.innerHTML = navHtml() + `<div class="empty-state"><h3>Could not load gallery</h3><p>Check your connection and refresh.</p></div>`;
     return;
   }

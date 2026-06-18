@@ -110,6 +110,21 @@ function userFacingApiError(result, fallback = "Something went wrong. Please try
 
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform";
+
+function siteFooterHtml({ showBeta = true } = {}) {
+  return `
+  <footer class="app-footer site-footer">
+    <div class="footer-left">
+      <span class="footer-brand">© ${new Date().getFullYear()} Kwalify</span>
+    </div>
+    <div class="footer-right">
+      ${showBeta ? '<span class="badge badge-muted">Beta</span>' : ""}
+      <a href="/privacy" class="footer-link">Privacy</a>
+      <a href="/terms" class="footer-link">Terms</a>
+      <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">Feedback</a>
+    </div>
+  </footer>`;
+}
 let generationStatusTimer = null;
 let generationUiTimer = null;
 let activeGenerationAbort = null;
@@ -384,9 +399,18 @@ function authErrorMessage() {
   return messages[error] || "Spotify login could not be completed. Please try again.";
 }
 
+function landingNoticeMessage() {
+  const error = authErrorMessage();
+  if (error) return { kind: "error", message: error };
+  if (new URLSearchParams(window.location.search).get("gallery") === "login") {
+    return { kind: "info", message: "Sign in with Spotify to view your saved playlists." };
+  }
+  return null;
+}
+
 function renderLanding() {
   document.title = "Kwalify — Moment-to-Music from your liked songs";
-  const loginError = authErrorMessage();
+  const landingNotice = landingNoticeMessage();
   root.innerHTML = `
   <nav class="nav">
     <div class="nav-logo">
@@ -403,7 +427,7 @@ function renderLanding() {
     <section class="hero">
       <div class="hero-eyebrow">
         <span class="hero-eyebrow-dot"></span>
-        From your liked songs only
+        Public beta · From your liked songs only
       </div>
       <h1>What's the <em>moment</em>?</h1>
       <p class="hero-sub">Describe a feeling and get a playlist entirely from songs you already love.</p>
@@ -420,14 +444,14 @@ function renderLanding() {
         </div>
       </div>
 
-      ${loginError ? `<div class="alert alert-error landing-auth-alert">${esc(loginError)}</div>` : ""}
+      ${landingNotice ? `<div class="alert ${landingNotice.kind === "error" ? "alert-error" : "alert-success"} landing-auth-alert">${esc(landingNotice.message)}</div>` : ""}
       <a href="/api/auth/login" class="btn btn-green btn-lg hero-cta">${spi()} Get started — free</a>
       <div class="hero-trust">
         <span>No credit card</span>
         <span class="hero-trust-sep">·</span>
         <span>Only reads your liked songs</span>
         <span class="hero-trust-sep">·</span>
-        <span>Private playlists</span>
+        <span>Shareable when you want</span>
       </div>
     </section>
 
@@ -492,7 +516,8 @@ function renderLanding() {
       <a href="/api/auth/login" class="btn btn-green btn-lg">${spi()} Connect with Spotify — free</a>
     </section>
 
-  </div>`;
+  </div>
+  ${siteFooterHtml()}`;
 }
 
 const MOOD_BAR_DEFS = [
@@ -672,12 +697,7 @@ function renderApp() {
 
   </div>
 
-  <footer class="app-footer">
-    <div class="footer-right">
-      <span class="badge badge-muted">Beta</span>
-      <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">Send feedback</a>
-    </div>
-  </footer>`;
+  ${siteFooterHtml()}`;
 
   wireAppEvents();
 }
@@ -1034,6 +1054,7 @@ function resultHtml(result) {
     : "";
   const tracks = Array.isArray(result.tracks) ? result.tracks : [];
   const playlistId = result.savedPlaylistId || result.playlistId || "";
+  const shareSlug = result.shareSlug || "";
   const tracksHtml = tracks.length ? `
   <div class="tracks-list" id="resultTracksList">
     ${tracks.map((t, i) => {
@@ -1087,7 +1108,7 @@ function resultHtml(result) {
       </div>` : ""}
       <div class="result-actions">
         ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
-        ${playlistId ? `<a href="/p/${playlistId}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
+        ${shareSlug ? `<a href="/p/${esc(shareSlug)}" class="btn btn-ghost btn-sm">Share link</a>` : ""}
       </div>
       ${tabsHtml}
     </div>
@@ -2382,7 +2403,7 @@ async function generate() {
       state.errorDetails = r.data || null;
       state.errorKind = "generation";
     } else {
-      state.lastResult = { ...r.data, savedPlaylistId: r.data.playlistId };
+      state.lastResult = { ...r.data, savedPlaylistId: r.data.playlistId, shareSlug: r.data.shareSlug };
       await loadPlaylists();
     }
   } catch (e) {

@@ -1,8 +1,8 @@
 # Kwalify
 
-**Backend/API service for generating Spotify playlists from liked songs.**
+**Generate Spotify playlists from your liked songs — describe the moment, get the mix.**
 
-The frontend has been removed. This repository currently exposes backend/API behavior only.
+Kwalify is a full-stack web app: static frontend in `frontend/public/`, API in `backend/`, deployed as one service on Render.
 
 ---
 
@@ -41,7 +41,7 @@ Feedback and bugs: open an issue here.
 
 ## For developers
 
-This repo is the **Kwalify backend/API** (Node, Express, PostgreSQL, backend in `backend/`). No runtime frontend is currently present.
+This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend). Copy `.env.example` to `.env` for local setup.
 
 ### Local setup
 

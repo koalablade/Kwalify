@@ -2,7 +2,7 @@
  * Purpose: CRUD routes for saved playlists — list, share, feedback, delete.
  * Responsibilities:
  *   - GET /playlists        — return saved playlists for the authenticated user
- *   - GET /share/:id        — return a playlist by id for the public share page
+ *   - GET /share/:slug      — return a playlist by opaque share slug for the public share page
  *   - POST /playlists/:id/feedback — record a thumbs-up/neutral/down reaction
  *   - DELETE /playlists/:id — delete a playlist owned by the authenticated user
  * Dependencies: drizzle-orm, db (saved_playlists, playlist_feedback tables)
@@ -195,6 +195,7 @@ router.get("/playlists", async (req, res): Promise<void> => {
         spotifyUrl: p.spotifyUrl ?? null,
         vibe: p.vibe ?? null,
         mode: p.mode ?? null,
+        shareSlug: p.shareSlug ?? null,
       })),
     });
   } catch (err: any) {
@@ -203,17 +204,17 @@ router.get("/playlists", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/share/:id", async (req, res): Promise<void> => {
-  const playlistId = parseInt(req.params.id, 10);
-  if (isNaN(playlistId)) {
-    res.status(400).json({ error: "Invalid playlist id." });
+router.get("/share/:slug", async (req, res): Promise<void> => {
+  const slug = String(req.params.slug ?? "").trim();
+  if (!slug || /^\d+$/.test(slug)) {
+    res.status(404).json({ error: "Playlist not found." });
     return;
   }
   try {
     const rows = await db
       .select()
       .from(savedPlaylistsTable)
-      .where(eq(savedPlaylistsTable.id, playlistId))
+      .where(eq(savedPlaylistsTable.shareSlug, slug))
       .limit(1);
     const playlist = rows[0];
     if (!playlist) {

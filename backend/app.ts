@@ -247,10 +247,24 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
 
   const frontendPublicDir = path.resolve(__dirname, "../../frontend/public");
   app.use(express.static(frontendPublicDir));
-  app.get("/p/:id", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "playlist.html")));
+  app.get("/p/:slug", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "playlist.html")));
   app.get("/gallery", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "gallery.html")));
+  app.get("/privacy", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "privacy.html")));
+  app.get("/terms", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "terms.html")));
 
   app.use("/api", router);
+
+  app.use((req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      next();
+      return;
+    }
+    if (req.path.startsWith("/api")) {
+      next();
+      return;
+    }
+    res.status(404).sendFile(path.resolve(frontendPublicDir, "404.html"));
+  });
 
   const apiErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
     if (!req.path.startsWith("/api")) {

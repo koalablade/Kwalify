@@ -66,9 +66,11 @@ export const savedPlaylistsTable = pgTable("saved_playlists", {
   spotifyUrl: text("spotify_url"),
   vibe: text("vibe"),
   mode: text("mode"),
+  shareSlug: text("share_slug"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   userCreatedIndex: index("IDX_saved_playlists_user_created").on(table.userId, table.createdAt),
+  shareSlugUnique: index("IDX_saved_playlists_share_slug").on(table.shareSlug),
 }));
 
 export const playlistFeedbackTable = pgTable("playlist_feedback", {
