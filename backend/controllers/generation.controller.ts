@@ -2050,6 +2050,22 @@ function isKnownNonUkGarageTrack(track: ConstraintTrack): boolean {
 const TECHNO_IDENTITY_PROMPT_RE = /\b(?:hard\s+techno|hardgroove|hard\s+groove|schranz|tekk|tekno|industrial\s+techno|warehouse\s+techno|rave\s+techno|hard\s+trance|techno|rave)\b/i;
 const TECHNO_IDENTITY_EVIDENCE_RE = /\b(?:hard\s+techno|hardgroove|hard\s+groove|schranz|tekk|tekno|industrial\s+techno|warehouse\s+techno|rave\s+techno|hard\s+trance|techno|trance|rave|gabber|hardstyle|hardcore\s+techno|berghain)\b/i;
 const TECHNO_COMPATIBLE_SUBGENRES = new Set(["techno", "hard_techno", "rave", "trance"]);
+const ROCK_PUNK_SIBLING_SUBGENRES = new Set([
+  "pop_punk",
+  "skate_punk",
+  "post_hardcore",
+  "emo",
+  "alternative_rock",
+  "alt_rock",
+  "punk_rock",
+  "hardcore_punk",
+  "melodic_hardcore",
+  "indie_rock",
+  "nu_metal",
+  "post_grunge",
+]);
+const ROCK_PUNK_CLUSTER_PROMPT_RE = /\b(?:pop[\s-]?punk|skate[\s-]?punk|emo|post[\s-]?hardcore|punk(?:\s+rock)?|kerrang|warped(?:\s+tour)?|tony\s+hawk|mall\s+punk|scene\s+kid)\b/i;
+const ROCK_PUNK_CLUSTER_EVIDENCE_RE = /\b(?:pop[\s_-]?punk|skate[\s_-]?punk|emo|post[\s_-]?hardcore|punk|hardcore|warped|kerrang|mall[\s_-]?punk)\b/i;
 
 function stringValues(value: unknown): string[] {
   return Array.isArray(value)
@@ -2059,6 +2075,40 @@ function stringValues(value: unknown): string[] {
 
 function isTechnoIdentityPrompt(vibe: string): boolean {
   return TECHNO_IDENTITY_PROMPT_RE.test(vibe);
+}
+
+function isRockPunkClusterPrompt(vibe: string, intent: LockedIntent): boolean {
+  if (ROCK_PUNK_CLUSTER_PROMPT_RE.test(vibe)) return true;
+  return explicitSubgenreTerms(intent).some((term) => ROCK_PUNK_SIBLING_SUBGENRES.has(term));
+}
+
+function trackMatchesRockPunkSiblingCluster(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (family !== "rock" && family !== "metal") return false;
+
+  const classification = classMap.get(track.trackId);
+  if (
+    classification &&
+    (
+      ROCK_PUNK_SIBLING_SUBGENRES.has(classification.primarySubgenre) ||
+      (classification.secondarySubgenre ? ROCK_PUNK_SIBLING_SUBGENRES.has(classification.secondarySubgenre) : false) ||
+      classification.subGenres.some((subgenre) => ROCK_PUNK_SIBLING_SUBGENRES.has(subgenre))
+    )
+  ) {
+    return true;
+  }
+
+  const evidenceText = trackGenreTerms(track, classMap).join(" ");
+  return ROCK_PUNK_CLUSTER_EVIDENCE_RE.test(evidenceText);
 }
 
 function trackMatchesTechnoIdentity(
@@ -3551,6 +3601,8 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   let hardSafeFillAdded = 0;
   let hardSafeSkipped = 0;
   let hardSafeDiversitySkipped = 0;
+  let siblingSubgenreRefillUsed = false;
+  let siblingSubgenreRefillAdded = 0;
   let backToBackArtistSkipped = 0;
   let coherenceDownranked = 0;
 
@@ -3733,6 +3785,30 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     out.push(sanitized);
     hardSafeFillAdded++;
   };
+  const fillUniqueHardSafe = (
+    tracks: T[],
+    artistLimit: number | null,
+    albumLimit: number | null,
+    stopAt: number = opts.requestedLength
+  ): number => {
+    const before = out.length;
+    for (const track of hardSafeCandidates(tracks)) {
+      if (out.length >= stopAt) break;
+      tryAddHardSafe(track, true, artistLimit, albumLimit);
+    }
+    return out.length - before;
+  };
+  const fillRockPunkSiblingRefill = (
+    artistLimit: number | null,
+    albumLimit: number | null,
+    stopAt: number = opts.requestedLength
+  ): number => {
+    if (!isRockPunkClusterPrompt(opts.vibe, opts.intent)) return 0;
+    const siblingPool = rankedCandidates.filter((track) => trackMatchesRockPunkSiblingCluster(track, opts.classMap));
+    if (siblingPool.length === 0) return 0;
+    siblingSubgenreRefillUsed = true;
+    return fillUniqueHardSafe(siblingPool, artistLimit, albumLimit, stopAt);
+  };
 
   const primaryArtistLimit = Number.isFinite(opts.maxPerArtist) ? Math.min(2, opts.maxPerArtist) : 2;
   const emergencyArtistLimit = relaxedEmergencyArtistCap(opts.requestedLength, opts.maxPerArtist);
@@ -3764,27 +3840,24 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     hardSafeFillUsed = true;
     const strictHardSafeArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
     const strictHardSafeAlbumLimit = primaryAlbumLimit;
-    for (const track of hardSafeCandidates([...opts.initial, ...coherentRankedCandidates])) {
-      tryAddHardSafe(track, true, strictHardSafeArtistLimit, strictHardSafeAlbumLimit);
-    }
+    fillUniqueHardSafe([...opts.initial, ...coherentRankedCandidates], strictHardSafeArtistLimit, strictHardSafeAlbumLimit);
     if (out.length < opts.requestedLength) {
-      for (const track of hardSafeCandidates(coherentRankedCandidates)) {
-        tryAddHardSafe(track, false, emergencyArtistLimit, emergencyAlbumLimit);
-      }
+      fillUniqueHardSafe(coherentRankedCandidates, emergencyArtistLimit, emergencyAlbumLimit);
     }
     if (out.length < recoveryActivationThreshold(opts.requestedLength)) {
-      for (const track of hardSafeCandidates(coherentRankedCandidates)) {
-        tryAddHardSafe(track, false, emergencyArtistLimit, emergencyAlbumLimit);
-      }
+      fillUniqueHardSafe(coherentRankedCandidates, emergencyArtistLimit, emergencyAlbumLimit);
+    }
+    if (out.length < opts.requestedLength) {
+      siblingSubgenreRefillAdded += fillRockPunkSiblingRefill(emergencyArtistLimit, emergencyAlbumLimit);
     }
   }
   const minimumCompleteCount = Math.min(opts.requestedLength, Math.ceil(opts.requestedLength * 0.90));
   if (out.length < minimumCompleteCount) {
     hardSafeFillUsed = true;
     const minimumFillArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
-    for (const track of hardSafeCandidates([...coherentRankedCandidates, ...rankedCandidates])) {
-      tryAddHardSafe(track, false, minimumFillArtistLimit, emergencyAlbumLimit);
-      if (out.length >= minimumCompleteCount) break;
+    fillUniqueHardSafe([...coherentRankedCandidates, ...rankedCandidates], minimumFillArtistLimit, emergencyAlbumLimit, minimumCompleteCount);
+    if (out.length < minimumCompleteCount) {
+      siblingSubgenreRefillAdded += fillRockPunkSiblingRefill(minimumFillArtistLimit, emergencyAlbumLimit, minimumCompleteCount);
     }
   }
 
@@ -3815,6 +3888,8 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       hardSafeFillAdded,
       hardSafeSkipped,
       hardSafeDiversitySkipped,
+      siblingSubgenreRefillUsed,
+      siblingSubgenreRefillAdded,
       backToBackArtistSkipped,
       replenished: out.length > opts.initial.length,
       sleepSafetyApplied: isSleepSafetyPrompt(opts.vibe, opts.intent),
