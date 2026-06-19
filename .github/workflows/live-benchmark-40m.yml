@@ -1,0 +1,38 @@
+name: Live benchmark 40m
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prompt-reliability-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Live prompt reliability benchmark (~40m)
+        if: ${{ secrets.PLAYLIST_EVAL_TOKEN != '' && secrets.SMOKE_SPOTIFY_USER_ID != '' }}
+        env:
+          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          SMOKE_SPOTIFY_USER_ID: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+        run: |
+          OUT_DIR="reports/prompt-reliability/live-$(date -u +%Y%m%dT%H%MZ)"
+          npm run benchmark:prompt-reliability -- \
+            --base-url https://kwalify.net \
+            --spotify-user-id "$SMOKE_SPOTIFY_USER_ID" \
+            --token "$PLAYLIST_EVAL_TOKEN" \
+            --out "$OUT_DIR" \
+            --delay-ms 2000 \
+            --timeout-ms 120000
+          echo "OUT_DIR=$OUT_DIR" >> "$GITHUB_ENV"
+      - name: Upload benchmark reports
+        if: always() && secrets.PLAYLIST_EVAL_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompt-reliability-live-${{ github.run_id }}
+          path: reports/prompt-reliability/
+          if-no-files-found: warn
