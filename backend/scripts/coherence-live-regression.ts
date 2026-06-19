@@ -1,12 +1,14 @@
 /**
  * Live coherence regression against real /api/generate (Spotify audit mode).
  *
- * Usage:
- *   SMOKE_BASE_URL=https://kwalify.net \
- *   PLAYLIST_EVAL_TOKEN=... \
- *   SMOKE_SPOTIFY_USER_ID=... \
- *   npm run regression:coherence-live
+ * Requires benchmark env (see docs/benchmark-environment.md).
+ * CI injects secrets via .github/actions/benchmark-env.
  */
+
+import {
+  isCiEnvironment,
+  resolveLiveBenchmarkCredentials,
+} from "../lib/benchmark-env";
 
 type Fixture = {
   id: string;
@@ -33,25 +35,21 @@ const FIXTURES: Fixture[] = [
   },
 ];
 
-function baseUrl(): string {
-  const raw = process.env.SMOKE_BASE_URL ?? process.env.APP_URL ?? process.env.PLAYLIST_EVAL_BASE_URL;
-  if (!raw) throw new Error("Set SMOKE_BASE_URL or PLAYLIST_EVAL_BASE_URL");
-  return raw.replace(/\/+$/, "");
-}
-
 async function main(): Promise<void> {
-  const token = process.env.PLAYLIST_EVAL_TOKEN ?? process.env.SMOKE_EVAL_TOKEN;
-  const spotifyUserId = process.env.SMOKE_SPOTIFY_USER_ID ?? process.env.PLAYLIST_EVAL_SPOTIFY_USER_ID;
-  if (!token || !spotifyUserId) {
+  let creds;
+  try {
+    creds = resolveLiveBenchmarkCredentials({ strict: isCiEnvironment() });
+  } catch (err) {
+    if (isCiEnvironment()) throw err;
     process.stdout.write(`${JSON.stringify({
       pass: true,
       skipped: true,
-      reason: "Set PLAYLIST_EVAL_TOKEN and SMOKE_SPOTIFY_USER_ID to run live coherence regression",
+      reason: err instanceof Error ? err.message : String(err),
     }, null, 2)}\n`);
     return;
   }
 
-  const origin = baseUrl();
+  const origin = creds.baseUrl;
   const results = [];
 
   for (const fixture of FIXTURES) {
@@ -59,13 +57,13 @@ async function main(): Promise<void> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-kwalify-evaluation-token": token,
+        "x-kwalify-evaluation-token": creds.token,
       },
       body: JSON.stringify({
         vibe: fixture.prompt,
         mode: fixture.mode,
         length: 20,
-        spotifyUserId,
+        spotifyUserId: creds.spotifyUserId,
         auditMode: true,
       }),
     });

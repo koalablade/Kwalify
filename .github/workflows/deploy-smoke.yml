@@ -14,9 +14,16 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-      - run: npm ci
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
+      - run: npm ci && npm run build
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
       - name: Smoke kwalify.net
         env:
-          APP_URL: https://kwalify.net
           SMOKE_TIMEOUT_MS: 45000
         run: npm run smoke:deploy

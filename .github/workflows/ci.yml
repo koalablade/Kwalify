@@ -76,11 +76,16 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
       - run: npm ci && npm run build
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
       - name: Deploy smoke (production)
-        env:
-          SMOKE_BASE_URL: https://kwalify.net
-          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
         run: npm run smoke:deploy
 
   coherence-live:
@@ -92,12 +97,16 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
       - run: npm ci && npm run build
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
       - name: Live coherence regression
-        env:
-          SMOKE_BASE_URL: https://kwalify.net
-          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
-          SMOKE_SPOTIFY_USER_ID: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
         run: npm run regression:coherence-live
 
   nightly-eval:
@@ -109,8 +118,14 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
       - run: npm ci && npm run build
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
       - name: Overnight evaluation harness
-        env:
-          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
         run: npm run evaluation:overnight:resume || npm run evaluation:overnight

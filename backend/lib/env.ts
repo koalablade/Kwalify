@@ -10,6 +10,7 @@
  */
 
 import { assertBootReady } from "./boot-state";
+import { warnIfProductionEvalTokenMissing } from "./benchmark-env";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -118,6 +119,8 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
           }
         : { enabled: false },
   };
+
+  warnIfProductionEvalTokenMissing(_env.NODE_ENV);
 
   return { env: _env, features: _features };
 }

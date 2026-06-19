@@ -1,6 +1,6 @@
 /** Audit mode side-effect policy and eval token authorization. */
 import type { Request } from "express";
-import { normalizeEvalToken } from "../lib/eval-token-normalize";
+import { normalizeEvalToken } from "../../lib/eval-token-normalize";
 
 export function requestHeader(req: Request, name: string): string | null {
   const value = req.headers[name.toLowerCase()];

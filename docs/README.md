@@ -15,6 +15,7 @@ This directory contains the technical documentation for the Kwalify codebase, pr
 | [environment-variables.md](./environment-variables.md) | All env vars: required, optional, undocumented, example .env files |
 | [deployment.md](./deployment.md) | Build, run, Replit deploy, schema migration approach, checklist |
 | [local-commands.md](./local-commands.md) | Terminal cheat sheet: dev, CI, benchmarks, deploy, token sync (use when IDE is down) |
+| [benchmark-environment.md](./benchmark-environment.md) | Benchmark secrets, GitHub Actions injection, env aliases, validation |
 | [audit-report.md](./audit-report.md) | Full audit findings: bugs, dead code, design observations, security, recommendations |
 
 ## Quick Reference

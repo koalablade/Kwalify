@@ -1,0 +1,83 @@
+/**
+ * Verify PLAYLIST_EVAL_TOKEN against deployed /api/eval/ping and audit /api/generate.
+ */
+import {
+  readBenchmarkEnv,
+  resolveLiveBenchmarkCredentials,
+  BENCHMARK_ENV_ALIASES,
+} from "../lib/benchmark-env";
+import { normalizeEvalToken } from "../lib/eval-token-normalize";
+
+async function ping(base: string, token: string, header: string) {
+  const res = await fetch(`${base}/api/eval/ping`, {
+    method: "POST",
+    headers: { [header]: token },
+  });
+  const data = await res.json() as Record<string, unknown>;
+  return { endpoint: "POST /api/eval/ping", header, status: res.status, ...data };
+}
+
+async function generate(base: string, token: string, spotifyUserId: string, header: string) {
+  const res = await fetch(`${base}/api/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      [header]: token,
+    },
+    body: JSON.stringify({
+      vibe: "uk grime classics workout",
+      mode: "balanced",
+      length: 5,
+      spotifyUserId,
+      auditMode: true,
+    }),
+  });
+  const data = await res.json() as Record<string, unknown>;
+  return {
+    endpoint: "POST /api/generate",
+    header,
+    status: res.status,
+    code: data["code"] ?? null,
+    trackCount: Array.isArray(data["tracks"]) ? data["tracks"].length : 0,
+    message: data["message"] ?? data["error"] ?? data["reason"] ?? null,
+  };
+}
+
+async function main(): Promise<void> {
+  const creds = resolveLiveBenchmarkCredentials({ strict: true });
+  const token = normalizeEvalToken(creds.token);
+  if (!token) {
+    throw new Error("PLAYLIST_EVAL_TOKEN resolved empty after normalization.");
+  }
+
+  const readyz = await (await fetch(`${creds.baseUrl}/api/readyz`)).json() as Record<string, unknown>;
+  const pings = await Promise.all([
+    ping(creds.baseUrl, token, "x-eval-token"),
+    ping(creds.baseUrl, token, "x-kwalify-evaluation-token"),
+  ]);
+  const gens = await Promise.all([
+    generate(creds.baseUrl, token, creds.spotifyUserId, "x-kwalify-evaluation-token"),
+    generate(creds.baseUrl, token, creds.spotifyUserId, "x-eval-token"),
+  ]);
+
+  const pingOk = pings.some((row) => (row as Record<string, unknown>)["tokenAccepted"] === true);
+  const generateOk = gens.some((row) => row.status === 200 && row.trackCount > 0);
+  const summary = {
+    base: creds.baseUrl,
+    tokenLength: token.length,
+    tokenSource: readBenchmarkEnv(BENCHMARK_ENV_ALIASES.token) ? "env" : "cli",
+    readyz: { status: readyz["status"], commit: readyz["commit"] },
+    pingOk,
+    generateOk,
+    pings,
+    gens,
+  };
+
+  process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+  process.exit(pingOk && generateOk ? 0 : 1);
+}
+
+main().catch((err) => {
+  process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+  process.exit(1);
+});

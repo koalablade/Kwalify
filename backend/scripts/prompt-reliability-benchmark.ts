@@ -1,6 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  fetchDeployedCommit,
+  isCiEnvironment,
+  resolveLiveBenchmarkCredentials,
+} from "../lib/benchmark-env";
 
 type PromptGroup = "Electronic" | "Alternative" | "Hip Hop" | "Lifestyle" | "Human";
 type BenchmarkMode = "strict" | "balanced" | "chaotic";
@@ -194,27 +199,29 @@ function parseGroup(value: string | null): PromptGroup | null {
 
 function parseConfig(args: string[]): BenchmarkConfig {
   if (args.includes("--help") || args.includes("-h")) usage();
-  const baseUrl = argValue(args, "--base-url") ?? process.env["API_BASE_URL"] ?? process.env["PLAYLIST_EVAL_BASE_URL"] ?? "";
-  const spotifyUserId = argValue(args, "--spotify-user-id") ?? process.env["SPOTIFY_USER_ID"] ?? process.env["PLAYLIST_EVAL_SPOTIFY_USER_ID"] ?? "";
-  const token = argValue(args, "--token") ?? process.env["PLAYLIST_EVAL_TOKEN"] ?? "";
-  if (!baseUrl) throw new Error("API base URL is required. Pass --base-url or set API_BASE_URL.");
-  if (!spotifyUserId) throw new Error("Spotify user id is required. Pass --spotify-user-id or set SPOTIFY_USER_ID.");
-  if (!token) throw new Error("Evaluation token is required. Pass --token or set PLAYLIST_EVAL_TOKEN.");
+  const dryRun = args.includes("--dry-run");
+  const creds = resolveLiveBenchmarkCredentials({
+    dryRun,
+    strict: !dryRun,
+    cli: {
+      baseUrl: argValue(args, "--base-url"),
+      spotifyUserId: argValue(args, "--spotify-user-id"),
+      token: argValue(args, "--token"),
+      expectedDeploymentVersion: argValue(args, "--expected-deployment-version"),
+    },
+  });
   return {
-    baseUrl: baseUrl.replace(/\/+$/, ""),
+    baseUrl: creds.baseUrl,
     outDir: argValue(args, "--out") ?? "reports/prompt-reliability/latest",
-    spotifyUserId,
-    token,
+    spotifyUserId: creds.spotifyUserId,
+    token: creds.token,
     requestedLength: intArg(args, "--length", DEFAULT_REQUESTED_LENGTH),
     timeoutMs: intArg(args, "--timeout-ms", 120_000),
     delayMs: intArg(args, "--delay-ms", 1_000),
     limit: argValue(args, "--limit") ? intArg(args, "--limit", 0) : null,
     group: parseGroup(argValue(args, "--group")),
-    dryRun: args.includes("--dry-run"),
-    expectedDeploymentVersion: argValue(args, "--expected-deployment-version") ??
-      process.env["PLAYLIST_EVAL_EXPECTED_VERSION"] ??
-      process.env["EXPECTED_DEPLOYMENT_VERSION"] ??
-      null,
+    dryRun,
+    expectedDeploymentVersion: creds.expectedDeploymentVersion,
   };
 }
 
@@ -253,7 +260,13 @@ async function fetchJsonWithTimeout(
 }
 
 async function preflightDeployment(config: BenchmarkConfig): Promise<void> {
-  const expectedVersion = config.expectedDeploymentVersion ?? localGitHead();
+  let expectedVersion = config.expectedDeploymentVersion ?? null;
+  if (!expectedVersion && isCiEnvironment()) {
+    expectedVersion = await fetchDeployedCommit(config.baseUrl);
+  }
+  if (!expectedVersion) {
+    expectedVersion = localGitHead();
+  }
   const pingUrl = `${config.baseUrl}/api/eval/ping`;
   let ping: Awaited<ReturnType<typeof fetchJsonWithTimeout>>;
   try {

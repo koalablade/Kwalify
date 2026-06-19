@@ -17,16 +17,17 @@ jobs:
       - run: npm ci && npm run build
       - name: Dry-run validation (cache + failure classification)
         run: npm run validation:production -- --dry-run
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
       - name: Live production validation
-        if: ${{ secrets.PLAYLIST_EVAL_TOKEN != '' && secrets.SMOKE_SPOTIFY_USER_ID != '' }}
-        env:
-          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
-          SMOKE_SPOTIFY_USER_ID: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
         run: |
           npm run validation:production -- \
-            --base-url https://kwalify.net \
-            --spotify-user-id "$SMOKE_SPOTIFY_USER_ID" \
-            --token "$PLAYLIST_EVAL_TOKEN" \
             --requests 20 \
             --concurrency 5 \
             --concurrency-requests 0 \

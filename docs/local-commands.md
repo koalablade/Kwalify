@@ -71,38 +71,20 @@ More detail: [runbooks/health-checks.md](./runbooks/health-checks.md)
 
 ## Eval token sync (Render ↔ GitHub ↔ local)
 
-**GitHub secrets already used by CI:**
+**Full reference:** [benchmark-environment.md](./benchmark-environment.md)
+
+**GitHub secrets (auto-injected in CI via `.github/actions/benchmark-env`):**
 
 - `PLAYLIST_EVAL_TOKEN`
-- `SMOKE_SPOTIFY_USER_ID` (e.g. `koalablade`)
+- `SMOKE_SPOTIFY_USER_ID`
 
-**Verify token against production:**
+**Preflight (local or CI):**
 
 ```powershell
-$env:PLAYLIST_EVAL_TOKEN = "<token>"
-$env:SMOKE_BASE_URL = "https://kwalify.net"
-$env:SMOKE_SPOTIFY_USER_ID = "koalablade"
+npm run validate:benchmark-env
 npm run verify:eval-token
+npm run diagnose:eval-token
 ```
-
-Look for `"pingOk": true` and `"generateOk": true`.
-
-**Sync token to `.env` + GitHub secret + verify:**
-
-```powershell
-$env:PLAYLIST_EVAL_TOKEN = "<token>"
-npm run sync:eval-token
-```
-
-**Generate a fresh token (GitHub + local `.env`; paste printed value into Render + redeploy):**
-
-```powershell
-npm run rotate:eval-token
-```
-
-After changing token on Render, **redeploy** before verify/benchmark will pass.
-
-Rotation guide: [eval-token-rotation.md](./eval-token-rotation.md)
 
 ---
 

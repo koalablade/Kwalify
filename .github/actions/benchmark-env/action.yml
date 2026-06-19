@@ -1,0 +1,61 @@
+name: Setup benchmark environment
+description: Inject standard benchmark env vars from GitHub secrets (all alias names).
+inputs:
+  playlist-eval-token:
+    description: PLAYLIST_EVAL_TOKEN secret value
+    required: false
+    default: ""
+  smoke-spotify-user-id:
+    description: SMOKE_SPOTIFY_USER_ID secret value
+    required: false
+    default: ""
+  base-url:
+    description: Production API base URL
+    required: false
+    default: https://kwalify.net
+  require-secrets:
+    description: Fail the step when required secrets are empty
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        BASE_URL="${{ inputs.base-url }}"
+        TOKEN="${{ inputs.playlist-eval-token }}"
+        USER_ID="${{ inputs.smoke-spotify-user-id }}"
+        REQUIRE="${{ inputs.require-secrets }}"
+
+        missing=()
+        if [ -z "$TOKEN" ]; then missing+=("PLAYLIST_EVAL_TOKEN"); fi
+        if [ -z "$USER_ID" ]; then missing+=("SMOKE_SPOTIFY_USER_ID"); fi
+
+        if [ "$REQUIRE" = "true" ] && [ "${#missing[@]}" -gt 0 ]; then
+          echo "Missing GitHub repository secrets required for live benchmarks:"
+          printf '  - %s\n' "${missing[@]}"
+          echo ""
+          echo "Configure: Settings > Secrets and variables > Actions"
+          echo "Required secrets: PLAYLIST_EVAL_TOKEN, SMOKE_SPOTIFY_USER_ID"
+          exit 1
+        fi
+
+        {
+          echo "KWALIFY_BENCHMARK_BASE_URL=$BASE_URL"
+          echo "SMOKE_BASE_URL=$BASE_URL"
+          echo "API_BASE_URL=$BASE_URL"
+          echo "PLAYLIST_EVAL_BASE_URL=$BASE_URL"
+          echo "APP_URL=$BASE_URL"
+          echo "PLAYLIST_EVAL_TOKEN=$TOKEN"
+          echo "SMOKE_EVAL_TOKEN=$TOKEN"
+          echo "SMOKE_SPOTIFY_USER_ID=$USER_ID"
+          echo "SPOTIFY_USER_ID=$USER_ID"
+          echo "PLAYLIST_EVAL_SPOTIFY_USER_ID=$USER_ID"
+          echo "CI=true"
+          echo "GITHUB_ACTIONS=true"
+        } >> "$GITHUB_ENV"
+
+        echo "Benchmark environment configured for $BASE_URL"
+        echo "PLAYLIST_EVAL_TOKEN: $([ -n "$TOKEN" ] && echo set || echo missing)"
+        echo "SMOKE_SPOTIFY_USER_ID: $([ -n "$USER_ID" ] && echo set || echo missing)"

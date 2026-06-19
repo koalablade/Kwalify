@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { resolveLiveBenchmarkCredentials } from "../lib/benchmark-env";
 import { PLAYLIST_BENCHMARK_PROMPTS, type PlaylistBenchmarkPrompt } from "../lib/playlist-evaluation/benchmark-prompts";
 import { writeEvaluationReports, type EvaluationReportPayload } from "../lib/playlist-evaluation/report";
 import type { EvaluationTrack, GenerationEvaluationResult, PlaylistMetrics } from "../lib/playlist-evaluation/metrics";
@@ -111,29 +112,39 @@ function parseIntArg(args: string[], name: string, fallback: number): number {
 function parseConfig(args: string[]): HarnessConfig {
   if (args.includes("--help") || args.includes("-h")) usage();
   const liveApi = args.includes("--live-api");
-  const baseUrlRaw = argValue(args, "--base-url") ?? process.env["API_BASE_URL"] ?? process.env["PLAYLIST_EVAL_BASE_URL"] ?? process.env["APP_URL"] ?? null;
+  const dryRun = args.includes("--dry-run");
+  const creds = resolveLiveBenchmarkCredentials({
+    dryRun,
+    strict: !dryRun,
+    cli: {
+      baseUrl: argValue(args, "--base-url"),
+      spotifyUserId: argValue(args, "--spotify-user-id"),
+      token: argValue(args, "--token"),
+      expectedDeploymentVersion: argValue(args, "--expected-deployment-version"),
+    },
+  });
   const benchmarkSize = argValue(args, "--benchmark-size") ? parseIntArg(args, "--benchmark-size", 0) : null;
   const clusterFailFastArg = argValue(args, "--cluster-fail-fast");
   if (benchmarkSize !== null && ![10, 50, 100, 250].includes(benchmarkSize)) {
     throw new Error("--benchmark-size must be one of: 10, 50, 100, 250");
   }
   const config: HarnessConfig = {
-    baseUrl: baseUrlRaw ? baseUrlRaw.replace(/\/+$/, "") : "",
+    baseUrl: creds.baseUrl,
     outDir: argValue(args, "--out") ?? "reports/playlist-evaluation/latest",
-    spotifyUserId: argValue(args, "--spotify-user-id") ?? process.env["SPOTIFY_USER_ID"] ?? process.env["PLAYLIST_EVAL_SPOTIFY_USER_ID"] ?? null,
+    spotifyUserId: creds.spotifyUserId || null,
     authCookie: argValue(args, "--auth-cookie") ?? process.env["PLAYLIST_EVAL_AUTH_COOKIE"] ?? null,
-    token: argValue(args, "--token") ?? process.env["PLAYLIST_EVAL_TOKEN"] ?? null,
+    token: creds.token || null,
     liveApi,
     allowSpotifyCreate: args.includes("--allow-spotify-create"),
     allowDbWrites: args.includes("--allow-db-writes"),
-    expectedDeploymentVersion: argValue(args, "--expected-deployment-version") ?? process.env["PLAYLIST_EVAL_EXPECTED_VERSION"] ?? process.env["EXPECTED_DEPLOYMENT_VERSION"] ?? null,
+    expectedDeploymentVersion: creds.expectedDeploymentVersion,
     concurrency: Math.max(1, Math.min(3, parseIntArg(args, "--concurrency", 1))),
     delayMs: parseIntArg(args, "--delay-ms", 1200),
     limit: argValue(args, "--limit") ? parseIntArg(args, "--limit", 0) : null,
     benchmarkSize,
     category: argValue(args, "--category"),
     requestTimeoutMs: parseIntArg(args, "--timeout-ms", 90_000),
-    dryRun: args.includes("--dry-run"),
+    dryRun,
     maxHttpRetries: parseIntArg(args, "--max-http-retries", 3),
     maxFailures: argValue(args, "--max-failures") ? parseIntArg(args, "--max-failures", 0) : null,
     clusterFailFast: clusterFailFastArg === "0"
@@ -147,16 +158,6 @@ function parseConfig(args: string[]): HarnessConfig {
   };
   if (config.resume && config.fresh) {
     throw new Error("--resume and --fresh cannot be used together.");
-  }
-  if (!config.baseUrl) {
-    throw new Error("API_BASE_URL is required. Set API_BASE_URL or pass --base-url.");
-  }
-  if (config.dryRun) return config;
-  if (!config.token) {
-    throw new Error("PLAYLIST_EVAL_TOKEN is required. Set PLAYLIST_EVAL_TOKEN or pass --token.");
-  }
-  if (!config.spotifyUserId) {
-    throw new Error("SPOTIFY_USER_ID is required. Set SPOTIFY_USER_ID or pass --spotify-user-id.");
   }
   if (config.allowSpotifyCreate && !config.liveApi) {
     throw new Error("--allow-spotify-create can only be used with --live-api.");

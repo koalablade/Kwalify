@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { resolveLiveBenchmarkCredentials } from "../lib/benchmark-env";
 import { getFallbackCache, setFallbackCache, clearFallbackCacheForValidation, getFallbackCacheStats, requestPatternKey } from "../lib/fallback-cache";
 import { classifyFailure, createFailureContext } from "../lib/failure-types";
 import { PLAYLIST_BENCHMARK_PROMPTS } from "../lib/playlist-evaluation/benchmark-prompts";
@@ -127,22 +128,26 @@ function parseConfig(args: string[]): Config {
   if (args.includes("--help") || args.includes("-h")) usage();
   const dryRun = args.includes("--dry-run");
   const enforceSlo = args.includes("--enforce-slo");
-  const baseUrl = argValue(args, "--base-url") ?? process.env["API_BASE_URL"] ?? process.env["PLAYLIST_EVAL_BASE_URL"] ?? "";
-  const spotifyUserId = argValue(args, "--spotify-user-id") ?? process.env["SPOTIFY_USER_ID"] ?? process.env["PLAYLIST_EVAL_SPOTIFY_USER_ID"] ?? "";
-  const token = argValue(args, "--token") ?? process.env["PLAYLIST_EVAL_TOKEN"] ?? "";
-  if (!dryRun && !baseUrl) throw new Error("API base URL is required unless --dry-run is used.");
-  if (!dryRun && !spotifyUserId) throw new Error("Spotify user id is required unless --dry-run is used.");
-  if (!dryRun && !token) throw new Error("Evaluation token is required unless --dry-run is used.");
+  const creds = resolveLiveBenchmarkCredentials({
+    dryRun,
+    strict: !dryRun,
+    cli: {
+      baseUrl: argValue(args, "--base-url"),
+      spotifyUserId: argValue(args, "--spotify-user-id"),
+      token: argValue(args, "--token"),
+      expectedDeploymentVersion: argValue(args, "--expected-deployment-version"),
+    },
+  });
   return {
-    baseUrl: baseUrl.replace(/\/+$/, ""),
+    baseUrl: creds.baseUrl,
     outDir: argValue(args, "--out") ?? "reports/production-validation/latest",
-    spotifyUserId,
-    token,
+    spotifyUserId: creds.spotifyUserId,
+    token: creds.token,
     requests: intList(argValue(args, "--requests"), [100]),
     concurrency: intList(argValue(args, "--concurrency"), [5, 10, 25, 50, 100]),
     concurrencyRequests: Number(argValue(args, "--concurrency-requests") ?? 100),
     timeoutMs: Number(argValue(args, "--timeout-ms") ?? 120_000),
-    expectedDeploymentVersion: argValue(args, "--expected-deployment-version") ?? process.env["PLAYLIST_EVAL_EXPECTED_VERSION"] ?? process.env["EXPECTED_DEPLOYMENT_VERSION"] ?? null,
+    expectedDeploymentVersion: creds.expectedDeploymentVersion,
     dryRun,
     enforceSlo,
   };

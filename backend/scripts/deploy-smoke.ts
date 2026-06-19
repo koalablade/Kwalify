@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { readBenchmarkEnv, BENCHMARK_ENV_ALIASES } from "../lib/benchmark-env";
 
 type SmokeResult = {
   name: string;
@@ -9,9 +10,9 @@ type SmokeResult = {
 };
 
 function baseUrl(): string {
-  const raw = process.env.SMOKE_BASE_URL ?? process.env.APP_URL;
+  const raw = readBenchmarkEnv(BENCHMARK_ENV_ALIASES.baseUrl);
   if (!raw) {
-    throw new Error("Set SMOKE_BASE_URL or APP_URL before running smoke:deploy");
+    throw new Error("Set KWALIFY_BENCHMARK_BASE_URL, SMOKE_BASE_URL, or APP_URL before running smoke:deploy");
   }
   return raw.replace(/\/+$/, "");
 }
@@ -74,12 +75,15 @@ async function checkDeploymentCommit(origin: string): Promise<SmokeResult> {
 }
 
 async function checkEvalToken(origin: string): Promise<SmokeResult> {
-  const token = process.env.PLAYLIST_EVAL_TOKEN ?? process.env.SMOKE_EVAL_TOKEN ?? null;
+  const token = readBenchmarkEnv(BENCHMARK_ENV_ALIASES.token);
   if (!token) {
     return {
       name: "evalToken",
-      pass: true,
-      details: { skipped: true, reason: "PLAYLIST_EVAL_TOKEN not set" },
+      pass: false,
+      details: {
+        skipped: false,
+        reason: "PLAYLIST_EVAL_TOKEN not set — configure GitHub secret or export env (see docs/benchmark-environment.md)",
+      },
     };
   }
   const response = await fetchWithTimeout(`${origin}/api/eval/ping`, {
@@ -177,12 +181,15 @@ async function checkLaunchPages(origin: string): Promise<SmokeResult[]> {
 }
 
 async function checkOpsMetrics(origin: string): Promise<SmokeResult> {
-  const token = process.env.PLAYLIST_EVAL_TOKEN ?? process.env.SMOKE_EVAL_TOKEN ?? null;
+  const token = readBenchmarkEnv(BENCHMARK_ENV_ALIASES.token);
   if (!token) {
     return {
       name: "opsMetrics",
-      pass: true,
-      details: { skipped: true, reason: "PLAYLIST_EVAL_TOKEN not set" },
+      pass: false,
+      details: {
+        skipped: false,
+        reason: "PLAYLIST_EVAL_TOKEN not set — configure GitHub secret or export env (see docs/benchmark-environment.md)",
+      },
     };
   }
   const response = await fetchWithTimeout(`${origin}/api/ops/metrics`, {
