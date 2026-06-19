@@ -15,11 +15,14 @@ jobs:
           cache: npm
       - run: npm ci && npm run build
       - name: Live prompt reliability benchmark (~40m)
-        if: ${{ secrets.PLAYLIST_EVAL_TOKEN != '' && secrets.SMOKE_SPOTIFY_USER_ID != '' }}
         env:
           PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
           SMOKE_SPOTIFY_USER_ID: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
         run: |
+          if [ -z "$PLAYLIST_EVAL_TOKEN" ] || [ -z "$SMOKE_SPOTIFY_USER_ID" ]; then
+            echo "Missing PLAYLIST_EVAL_TOKEN or SMOKE_SPOTIFY_USER_ID repository secrets"
+            exit 1
+          fi
           OUT_DIR="reports/prompt-reliability/live-$(date -u +%Y%m%dT%H%MZ)"
           npm run benchmark:prompt-reliability -- \
             --base-url https://kwalify.net \
@@ -30,7 +33,7 @@ jobs:
             --timeout-ms 120000
           echo "OUT_DIR=$OUT_DIR" >> "$GITHUB_ENV"
       - name: Upload benchmark reports
-        if: always() && secrets.PLAYLIST_EVAL_TOKEN != ''
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: prompt-reliability-live-${{ github.run_id }}
