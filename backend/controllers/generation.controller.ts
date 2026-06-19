@@ -201,7 +201,7 @@ import {
   STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
 } from "./generation/generation-types";
 
-import { buildDominantIntentContract } from "../core/dominant-intent-contract";
+import { buildDominantIntentContract, shouldBlockHardSafeFinalization } from "../core/dominant-intent-contract";
 import { buildIntentUnderstandingDiagnostics } from "../lib/intent-understanding-diagnostics";
 import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
 import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
@@ -2988,6 +2988,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   requestedLength: number;
   vibe: string;
   intent: LockedIntent;
+  mode?: "strict" | "balanced" | "chaotic";
   constraints: ConstraintLayer;
   allowHolidaySeason?: boolean;
   classMap: Map<string, {
@@ -3025,6 +3026,10 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
   let siblingSubgenreRefillAdded = 0;
   let backToBackArtistSkipped = 0;
   let coherenceDownranked = 0;
+  const blockHardSafeFill = shouldBlockHardSafeFinalization(opts.mode ?? "balanced", {
+    primarySubgenre: opts.intent.primarySubgenre ?? null,
+    primaryGenres: opts.intent.primaryGenres,
+  });
 
   const out: T[] = [];
   const identityTerms = universalIdentityTerms(opts.vibe, opts.intent, opts.constraints);
@@ -3256,7 +3261,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       if (out.length > before) cohesionRelaxedFillAdded++;
     }
   }
-  if (out.length < completionTarget) {
+  if (!blockHardSafeFill && out.length < completionTarget) {
     hardSafeFillUsed = true;
     const strictHardSafeArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
     const strictHardSafeAlbumLimit = primaryAlbumLimit;
@@ -3272,7 +3277,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
   }
   const minimumCompleteCount = Math.min(opts.requestedLength, Math.ceil(opts.requestedLength * 0.90));
-  if (out.length < minimumCompleteCount) {
+  if (!blockHardSafeFill && out.length < minimumCompleteCount) {
     hardSafeFillUsed = true;
     const minimumFillArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
     fillUniqueHardSafe([...coherentRankedCandidates, ...rankedCandidates], minimumFillArtistLimit, emergencyAlbumLimit, minimumCompleteCount);
@@ -3305,6 +3310,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       albumLimitRelaxedTo: relaxedAlbumFillUsed ? emergencyAlbumLimit : null,
       artistLimitBypassed: false,
       hardSafeFillUsed,
+      hardSafeFillBlocked: blockHardSafeFill,
       hardSafeFillAdded,
       hardSafeSkipped,
       hardSafeDiversitySkipped,
@@ -6027,6 +6033,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         requestedLength: length,
         vibe,
         intent: lockedIntent,
+        mode: mode as "strict" | "balanced" | "chaotic",
         constraints: constraintLayer,
         allowHolidaySeason,
         classMap: userGenreProfile.trackClassifications,
@@ -6097,6 +6104,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           requestedLength: length,
           vibe,
           intent: lockedIntent,
+          mode: mode as "strict" | "balanced" | "chaotic",
           constraints: constraintLayer,
           allowHolidaySeason,
           classMap: userGenreProfile.trackClassifications,

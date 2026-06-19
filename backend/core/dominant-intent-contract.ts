@@ -328,6 +328,15 @@ export function recoveryIntentPreCheck(
   };
 }
 
+/** Block hard-safe finalization fill when strict mode would erase explicit subgenre intent. */
+export function shouldBlockHardSafeFinalization(
+  mode: "strict" | "balanced" | "chaotic",
+  intent: { primarySubgenre?: string | null; primaryGenres?: string[] },
+): boolean {
+  if (mode !== "strict") return false;
+  return !!intent.primarySubgenre || (intent.primaryGenres?.length ?? 0) > 0;
+}
+
 export type MatchQualityLabel = "strong" | "good" | "best_available";
 
 export function deriveMatchQuality(opts: {

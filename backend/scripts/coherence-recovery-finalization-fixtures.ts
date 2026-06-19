@@ -10,6 +10,7 @@ import {
   narrowSceneDiversityPressure,
   recoveryIntentPreCheck,
   buildDominantIntentContract,
+  shouldBlockHardSafeFinalization,
 } from "../core/dominant-intent-contract";
 import { evaluateRecoveryGuards, recoveryStageAllowed } from "../controllers/generation-recovery";
 
@@ -43,6 +44,9 @@ function main(): void {
     currentSubgenreSurvival: 55,
   });
   if (hardSafeBlocked.allowed || hardSafeBlocked.reason !== "hard_safe_blocked_in_strict_mode") failed += 1;
+
+  if (!shouldBlockHardSafeFinalization("strict", { primarySubgenre: "hard_techno", primaryGenres: ["electronic"] })) failed += 1;
+  if (shouldBlockHardSafeFinalization("balanced", { primarySubgenre: "hard_techno", primaryGenres: ["electronic"] })) failed += 1;
 
   const subgenreErase = recoveryIntentPreCheck(strictContract, {
     fallbackLevel: "soft",
