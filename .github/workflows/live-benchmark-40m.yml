@@ -23,12 +23,19 @@ jobs:
             echo "Missing PLAYLIST_EVAL_TOKEN or SMOKE_SPOTIFY_USER_ID repository secrets"
             exit 1
           fi
+          DEPLOYED_COMMIT="$(curl -sf https://kwalify.net/api/eval/ping | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); process.stdout.write(String(d.commit||''));")"
+          if [ -z "$DEPLOYED_COMMIT" ]; then
+            echo "Could not resolve deployed commit from /api/eval/ping"
+            exit 1
+          fi
+          echo "Benchmarking production commit $DEPLOYED_COMMIT"
           OUT_DIR="reports/prompt-reliability/live-$(date -u +%Y%m%dT%H%MZ)"
           npm run benchmark:prompt-reliability -- \
             --base-url https://kwalify.net \
             --spotify-user-id "$SMOKE_SPOTIFY_USER_ID" \
             --token "$PLAYLIST_EVAL_TOKEN" \
             --out "$OUT_DIR" \
+            --expected-deployment-version "$DEPLOYED_COMMIT" \
             --delay-ms 2000 \
             --timeout-ms 120000
           echo "OUT_DIR=$OUT_DIR" >> "$GITHUB_ENV"
