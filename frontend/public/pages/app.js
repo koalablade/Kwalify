@@ -1,5 +1,5 @@
 // ── Kwalify · Single app entry point ─────────────────────────────────────────
-import { esc as sharedEsc, fmtDate as sharedFmtDate, initTheme, spi, toggleTheme } from "../lib/shared.js";
+import { esc as sharedEsc, initTheme } from "../lib/shared.js";
 
 initTheme();
 const root = document.getElementById("appRoot");
@@ -9,7 +9,12 @@ function esc(v) {
 }
 
 function fmtDate(iso) {
-  return sharedFmtDate(iso);
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  } catch {
+    return "";
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -264,12 +269,6 @@ function timeAgo(iso) {
     if (mins < 1) return "just now";
     if (mins < 60) return `${mins}m ago`;
     return `${Math.floor(mins / 60)}h ago`;
-  } catch { return ""; }
-}
-
-function fmtDate(iso) {
-  try {
-    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   } catch { return ""; }
 }
 
