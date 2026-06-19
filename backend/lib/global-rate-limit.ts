@@ -33,8 +33,23 @@ function clientKey(req: Request): string {
   return req.ip || req.socket.remoteAddress || "unknown";
 }
 
+function isStaticAsset(req: Request): boolean {
+  if (req.method !== "GET" && req.method !== "HEAD") return false;
+  const path = req.path;
+  return (
+    path === "/" ||
+    path === "/gallery" ||
+    path.startsWith("/p/") ||
+    path.startsWith("/pages/") ||
+    path.startsWith("/styles/") ||
+    path.startsWith("/lib/") ||
+    /\.(html?|css|js|svg|png|jpe?g|webp|ico|txt|xml|webmanifest)$/i.test(path)
+  );
+}
+
 function isExempt(req: Request): boolean {
-  return req.path === "/healthz" ||
+  return isStaticAsset(req) ||
+    req.path === "/healthz" ||
     req.path === "/readyz" ||
     req.path === "/api/healthz" ||
     req.path === "/api/readyz" ||

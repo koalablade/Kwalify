@@ -62,6 +62,8 @@ jobs:
         run: npm run ci:convergence-overlap -- --report reports/prompt-reliability/local/regression-report.json
       - name: Graceful shutdown smoke
         run: npm run smoke:shutdown
+      - name: Frontend module gate
+        run: npm run ci:frontend-modules
 
   deploy-smoke-pr:
     if: github.event_name == 'pull_request'

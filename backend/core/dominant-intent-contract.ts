@@ -287,6 +287,17 @@ export function recoveryIntentPreCheck(
     typeof opts.currentSubgenreSurvival === "number" &&
     opts.currentSubgenreSurvival < 50;
   const globalWithoutDowngrade = opts.fallbackLevel === "global" && contract.mode === "strict";
+  const hardSafeInStrict = opts.fallbackLevel === "hardSafe" && contract.mode === "strict";
+
+  if (hardSafeInStrict && !!contract.primarySubgenre) {
+    return {
+      allowed: false,
+      reason: "hard_safe_blocked_in_strict_mode",
+      preserveEmotion: true,
+      preserveSubgenre: true,
+      controlledFailureRecommended: true,
+    };
+  }
 
   if (globalWithoutDowngrade) {
     return {

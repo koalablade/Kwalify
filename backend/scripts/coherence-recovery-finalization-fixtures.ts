@@ -37,6 +37,13 @@ function main(): void {
   });
   if (globalBlocked.allowed || !globalBlocked.controlledFailureRecommended) failed += 1;
 
+  const hardSafeBlocked = recoveryIntentPreCheck(strictContract, {
+    fallbackLevel: "hardSafe",
+    underfillRatio: 0.35,
+    currentSubgenreSurvival: 55,
+  });
+  if (hardSafeBlocked.allowed || hardSafeBlocked.reason !== "hard_safe_blocked_in_strict_mode") failed += 1;
+
   const subgenreErase = recoveryIntentPreCheck(strictContract, {
     fallbackLevel: "soft",
     underfillRatio: 0.3,
@@ -77,6 +84,7 @@ function main(): void {
 
   console.log(JSON.stringify({
     globalBlocked,
+    hardSafeBlocked,
     subgenreErase,
     tail,
     narrowScene,

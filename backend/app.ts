@@ -266,6 +266,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
 
   const frontendPublicDir = path.resolve(__dirname, "../../frontend/public");
   app.use(express.static(frontendPublicDir));
+  app.get("/", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "index.html")));
   app.get("/p/:slug", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "playlist.html")));
   app.get("/gallery", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "gallery.html")));
   app.get("/privacy", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "privacy.html")));

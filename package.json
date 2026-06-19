@@ -44,6 +44,7 @@
     "smoke:spotify-user-id": "node scripts/resolve-smoke-spotify-user-id.mjs",
     "validation:production": "npm run build && node backend/dist/scripts/production-validation.js",
     "ci:convergence-overlap": "npm run build && node backend/dist/scripts/convergence-overlap-ci-gate.js",
+    "ci:frontend-modules": "npm run build && node backend/dist/scripts/frontend-module-ci-gate.js",
     "report:prompt-reliability-trend": "npm run build && node backend/dist/scripts/prompt-reliability-trend.js"
   },
   "dependencies": {

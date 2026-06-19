@@ -126,11 +126,16 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
 
       req.log.info({ spotifyUserId: user.id }, "Spotify OAuth successful");
 
-      const finishOAuth = (): void => {
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          req.log.error({ err: saveErr }, "Failed to save session after OAuth");
+          res.redirect(getFrontendRedirect("/?error=session_failed"));
+          return;
+        }
         res.redirect(getFrontendRedirect("/"));
-      };
+      });
 
-      // Auto-sync on first login — fire and forget (don't await)
+      // Auto-sync on first login — never block redirect on DB work
       void (async () => {
         try {
           const [syncStatus] = await db
@@ -160,15 +165,6 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
         } catch (autoSyncErr) {
           req.log.warn({ err: autoSyncErr }, "Auto-sync check failed — continuing");
         }
-
-        req.session.save((saveErr) => {
-          if (saveErr) {
-            req.log.error({ err: saveErr }, "Failed to save session after OAuth");
-            res.redirect(getFrontendRedirect("/?error=session_failed"));
-            return;
-          }
-          finishOAuth();
-        });
       })();
     };
 
