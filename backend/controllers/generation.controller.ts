@@ -201,7 +201,7 @@ import {
   STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
 } from "./generation/generation-types";
 
-import { buildDominantIntentContract, shouldBlockHardSafeFinalization, detectDominantEmotion, trackMatchesDominantEmotion } from "../core/dominant-intent-contract";
+import { buildDominantIntentContract, shouldBlockHardSafeFinalization, detectDominantEmotion, trackMatchesDominantEmotion, capTastePullWeight } from "../core/dominant-intent-contract";
 import { buildIntentUnderstandingDiagnostics } from "../lib/intent-understanding-diagnostics";
 import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
 import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
@@ -216,6 +216,12 @@ import { assignTracksToSegments } from "../core/segment-playlist-planner";
 import { segmentAssignmentsToDiagnostics, coherenceRepairSettingsFromPlan, coherenceGateFromPlan } from "../core/compile-plan-dsl";
 import type { TasteGraphV2 } from "../lib/taste-graph-v2";
 import type { CompilePlanDSL } from "../core/compile-plan-dsl";
+import {
+  buildNoLibrarySpotifyCandidates,
+  defaultRetrievalCompletionDiagnostics,
+  type RetrievalCompletionDiagnostics,
+} from "./generation/generation-no-library-retrieval";
+
 import { rediscoveryModeForFamiliarity, type FamiliarityMode } from "../lib/familiarity-controller";
 import { mergeScenePredictions } from "../lib/scene-alias-graph";
 import { buildIntentLossReport, type IntentLossReport } from "../lib/intent-loss-report";
@@ -3650,339 +3656,6 @@ const FINAL_GUARD_KNOWN_ARTISTS: Array<{ pattern: RegExp; family: string }> = [
   { pattern: /\brockwell\b/i, family: "pop" },
 ];
 
-const NO_LIBRARY_GENRE_SEARCH_TERMS: Record<string, string[]> = {
-  country: [
-    "genre:country",
-    "country",
-    "americana",
-    "red dirt country",
-    "outlaw country",
-    "bluegrass",
-    "zach bryan",
-    "johnny cash",
-  ],
-  hip_hop: ["genre:hip-hop", "hip hop", "rap", "trap", "drill"],
-  rock: ["genre:rock", "rock", "classic rock", "alternative rock", "indie rock"],
-  electronic: ["genre:electronic", "electronic", "house", "techno", "uk garage"],
-  rnb: ["r&b", "rnb", "neo soul", "slow jams"],
-  pop: ["genre:pop", "pop", "dance pop"],
-  reggae: ["reggae", "dancehall", "dub"],
-  jazz: ["jazz", "bebop", "swing"],
-  latin: ["latin", "reggaeton", "salsa"],
-  metal: ["metal", "metalcore", "thrash"],
-};
-
-function noLibrarySearchQueries(vibe: string, families: string[], subgenreTerms: string[] = []): string[] {
-  const cleanedVibe = vibe.trim();
-  const eraTerms = extractEraRange(vibe).terms;
-  const priorityQueries = new Set<string>();
-  const expandedQueries = new Set<string>();
-  const lower = cleanedVibe.toLowerCase();
-  const controlledAliases = new Set<string>();
-  const aliasSource = `${lower} ${subgenreTerms.join(" ").toLowerCase().replace(/_/g, " ")}`;
-  if (/\b(?:tekk|tekno|schranz|hardgroove|industrial techno)\b/.test(aliasSource)) {
-    ["hard techno", "schranz", "tekno", "techno"].forEach((term) => controlledAliases.add(term));
-  }
-  if (/\b(?:d\s*&\s*b|dnb|drum and bass|rollers?|liquid dnb|liquid drum and bass|jungle|old\s*skool jungle|old\s*school jungle|breakbeat hardcore)\b/.test(aliasSource)) {
-    ["dnb rollers", "drum and bass rollers", "liquid drum and bass", "drum and bass", "jungle", "old school jungle", "jungle rollers", "breakbeat hardcore"].forEach((term) => controlledAliases.add(term));
-  }
-  if (cleanedVibe) priorityQueries.add(cleanedVibe);
-  for (const subgenre of [...subgenreTerms, ...controlledAliases]) {
-    const term = subgenre.replace(/_/g, " ").trim();
-    if (!term) continue;
-    priorityQueries.add(term);
-    if (cleanedVibe && !cleanedVibe.toLowerCase().includes(term.toLowerCase())) {
-      expandedQueries.add(`${cleanedVibe} ${term}`);
-    }
-    for (const era of eraTerms) {
-      expandedQueries.add(`${era} ${term}`);
-    }
-  }
-  for (const family of families) {
-    for (const term of NO_LIBRARY_GENRE_SEARCH_TERMS[family] ?? [family.replace(/_/g, " ")]) {
-      priorityQueries.add(term);
-      if (cleanedVibe && !cleanedVibe.toLowerCase().includes(term.toLowerCase())) {
-        expandedQueries.add(`${cleanedVibe} ${term}`);
-      }
-      for (const era of eraTerms) {
-        expandedQueries.add(`${era} ${term}`);
-      }
-    }
-  }
-  return [...priorityQueries, ...expandedQueries].slice(0, 24);
-}
-
-type RetrievalCompletionDiagnostics = {
-  retrievalBlockingReason: string | null;
-  unresolvedProviders: string[];
-  retrievalWaitTimePerSource: Record<string, number>;
-  usedPartialRetrieval: boolean;
-  retrievalPartialCompletion: boolean;
-  candidatePoolSizeAtUnblock: number;
-  minViablePool: number;
-  emptyPoolDetectedAtStage?: string | null;
-  fallbackDepthReached?: number;
-  fallbackExpansionPath?: string[];
-  finalPoolSizeAtScoringEntry?: number;
-  retrievalFatalEmptyPool?: boolean;
-};
-
-type TimedRetrievalSource<T> = {
-  value: T;
-  elapsedMs: number;
-  timedOut: boolean;
-  failed: boolean;
-};
-
-function defaultRetrievalCompletionDiagnostics(minViablePool: number): RetrievalCompletionDiagnostics {
-  return {
-    retrievalBlockingReason: null,
-    unresolvedProviders: [],
-    retrievalWaitTimePerSource: {},
-    usedPartialRetrieval: false,
-    retrievalPartialCompletion: false,
-    candidatePoolSizeAtUnblock: 0,
-    minViablePool,
-    emptyPoolDetectedAtStage: null,
-    fallbackDepthReached: 0,
-    fallbackExpansionPath: [],
-    finalPoolSizeAtScoringEntry: 0,
-    retrievalFatalEmptyPool: false,
-  };
-}
-
-async function timeboxRetrievalSource<T>(
-  source: string,
-  promise: Promise<T>,
-  timeoutMs: number,
-  fallback: T,
-): Promise<TimedRetrievalSource<T>> {
-  const startedAt = Date.now();
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const guarded = promise
-    .then((value) => ({
-      value,
-      elapsedMs: Date.now() - startedAt,
-      timedOut: false,
-      failed: false,
-    }))
-    .catch(() => ({
-      value: fallback,
-      elapsedMs: Date.now() - startedAt,
-      timedOut: false,
-      failed: true,
-    }));
-  const timeout = new Promise<TimedRetrievalSource<T>>((resolve) => {
-    timer = setTimeout(() => {
-      resolve({
-        value: fallback,
-        elapsedMs: Date.now() - startedAt,
-        timedOut: true,
-        failed: false,
-      });
-    }, timeoutMs);
-  });
-  const result = await Promise.race([guarded, timeout]);
-  if (timer) clearTimeout(timer);
-  return result;
-}
-
-async function buildNoLibrarySpotifyCandidates(opts: {
-  accessToken: string;
-  userId: string;
-  vibe: string;
-  length: number;
-  families: string[];
-  subgenreTerms?: string[];
-}): Promise<{
-  tracks: Array<typeof likedSongsTable.$inferSelect>;
-  diagnostics: RetrievalCompletionDiagnostics;
-}> {
-  const minViablePool = Math.min(120, Math.max(50, opts.length * 2));
-  const diagnostics = defaultRetrievalCompletionDiagnostics(minViablePool);
-  const maxTracks = Math.max(80, opts.length * 3);
-  const searchResult = await timeboxRetrievalSource(
-    "spotifySearch",
-    searchSpotifyTracks(
-      opts.accessToken,
-      noLibrarySearchQueries(opts.vibe, opts.families, opts.subgenreTerms),
-      maxTracks,
-      {
-        userKey: opts.userId,
-        bestEffort: true,
-        minTracks: minViablePool,
-        maxElapsedMs: 5_000,
-        maxRetries: 0,
-        requestTimeoutMs: 2_500,
-      }
-    ),
-    6_000,
-    []
-  );
-  diagnostics.retrievalWaitTimePerSource.spotifySearch = searchResult.elapsedMs;
-  let rawTracks = searchResult.value;
-  const searchWindowElapsed = searchResult.elapsedMs >= 4_900 && rawTracks.length < maxTracks;
-  if (searchResult.timedOut || searchResult.failed || searchWindowElapsed) {
-    diagnostics.unresolvedProviders.push("spotifySearch");
-  }
-  if (rawTracks.length === 0 && (opts.subgenreTerms?.length ?? 0) > 0) {
-    diagnostics.emptyPoolDetectedAtStage = "spotify_search_strict";
-    diagnostics.fallbackDepthReached = 1;
-    const familySearchResult = await timeboxRetrievalSource(
-      "spotifyFamilySearch",
-      searchSpotifyTracks(
-        opts.accessToken,
-        noLibrarySearchQueries(opts.vibe, opts.families, []),
-        maxTracks,
-        {
-          userKey: opts.userId,
-          bestEffort: true,
-          minTracks: minViablePool,
-          maxElapsedMs: 5_000,
-          maxRetries: 0,
-          requestTimeoutMs: 2_500,
-        }
-      ),
-      6_000,
-      []
-    );
-    diagnostics.retrievalWaitTimePerSource.spotifyFamilySearch = familySearchResult.elapsedMs;
-    if (familySearchResult.timedOut || familySearchResult.failed) diagnostics.unresolvedProviders.push("spotifyFamilySearch");
-    rawTracks = familySearchResult.value;
-    diagnostics.fallbackExpansionPath?.push(`family:${rawTracks.length}`);
-  }
-  if (rawTracks.length === 0) {
-    diagnostics.emptyPoolDetectedAtStage = diagnostics.emptyPoolDetectedAtStage ?? "spotify_search_family";
-    diagnostics.fallbackDepthReached = Math.max(diagnostics.fallbackDepthReached ?? 0, 2);
-    const broadQueries = [
-      ...opts.families.map((family) => family.replace(/_/g, " ")),
-      ...opts.families.map((family) => `popular ${family.replace(/_/g, " ")}`),
-      "popular music",
-    ];
-    const broadSearchResult = await timeboxRetrievalSource(
-      "spotifyBroadSearch",
-      searchSpotifyTracks(
-        opts.accessToken,
-        broadQueries,
-        maxTracks,
-        {
-          userKey: opts.userId,
-          bestEffort: true,
-          minTracks: minViablePool,
-          maxElapsedMs: 5_000,
-          maxRetries: 0,
-          requestTimeoutMs: 2_500,
-        }
-      ),
-      6_000,
-      []
-    );
-    diagnostics.retrievalWaitTimePerSource.spotifyBroadSearch = broadSearchResult.elapsedMs;
-    if (broadSearchResult.timedOut || broadSearchResult.failed) diagnostics.unresolvedProviders.push("spotifyBroadSearch");
-    rawTracks = broadSearchResult.value;
-    diagnostics.fallbackExpansionPath?.push(`global:${rawTracks.length}`);
-  }
-  diagnostics.candidatePoolSizeAtUnblock = rawTracks.length;
-  diagnostics.finalPoolSizeAtScoringEntry = rawTracks.length;
-  if (rawTracks.length === 0) {
-    diagnostics.retrievalBlockingReason = "empty_candidate_pool_after_timeboxed_retrieval";
-    diagnostics.usedPartialRetrieval = searchResult.timedOut || searchResult.failed;
-    diagnostics.retrievalPartialCompletion = diagnostics.usedPartialRetrieval;
-    diagnostics.emptyPoolDetectedAtStage = diagnostics.emptyPoolDetectedAtStage ?? "spotify_search";
-    diagnostics.retrievalFatalEmptyPool = true;
-    return { tracks: [], diagnostics };
-  }
-  if (rawTracks.length >= minViablePool && (searchResult.timedOut || searchResult.failed || searchWindowElapsed)) {
-    diagnostics.retrievalBlockingReason = "min_viable_pool_reached_before_all_sources_completed";
-  } else if (rawTracks.length < minViablePool) {
-    diagnostics.retrievalBlockingReason = "retrieval_timebox_elapsed_below_min_viable_pool";
-  }
-
-  const [artistGenreResult, albumMetadataResult, audioFeaturesResult] = await Promise.all([
-    timeboxRetrievalSource(
-      "artistGenres",
-      fetchArtistGenres(
-        opts.accessToken,
-        rawTracks.flatMap((track) => track.artists.map((artist) => artist.id).filter((id): id is string => !!id)),
-        { userKey: opts.userId, maxRetries: 0, requestTimeoutMs: 2_500 }
-      ),
-      3_500,
-      new Map<string, string[]>()
-    ),
-    timeboxRetrievalSource(
-      "albumMetadata",
-      fetchAlbumMetadata(
-        opts.accessToken,
-        rawTracks.map((track) => track.album.id).filter((id): id is string => !!id),
-        { userKey: opts.userId, maxRetries: 0, requestTimeoutMs: 2_500 }
-      ),
-      3_500,
-      new Map()
-    ),
-    timeboxRetrievalSource(
-      "audioFeatures",
-      fetchAudioFeatures(
-        opts.accessToken,
-        rawTracks.map((track) => track.id),
-        { userKey: opts.userId, maxRetries: 0, requestTimeoutMs: 2_500 }
-      ),
-      3_500,
-      []
-    ),
-  ]);
-  diagnostics.retrievalWaitTimePerSource.artistGenres = artistGenreResult.elapsedMs;
-  diagnostics.retrievalWaitTimePerSource.albumMetadata = albumMetadataResult.elapsedMs;
-  diagnostics.retrievalWaitTimePerSource.audioFeatures = audioFeaturesResult.elapsedMs;
-  for (const [source, result] of [
-    ["artistGenres", artistGenreResult],
-    ["albumMetadata", albumMetadataResult],
-    ["audioFeatures", audioFeaturesResult],
-  ] as const) {
-    if (result.timedOut || result.failed) diagnostics.unresolvedProviders.push(source);
-  }
-  diagnostics.usedPartialRetrieval = diagnostics.unresolvedProviders.length > 0 || rawTracks.length < minViablePool;
-  diagnostics.retrievalPartialCompletion = diagnostics.usedPartialRetrieval;
-  const artistGenreMap = artistGenreResult.value;
-  const albumMetadataMap = albumMetadataResult.value;
-  const audioFeatures = audioFeaturesResult.value;
-  const featuresById = new Map(audioFeatures.map((features) => [features.id, features]));
-  const now = new Date();
-
-  const tracks = rawTracks.map((track, index) => {
-    const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
-    const features = featuresById.get(track.id);
-    return {
-      id: -1 - index,
-      spotifyUserId: opts.userId,
-      trackId: enriched.id,
-      trackName: enriched.name,
-      artistName: enriched.artists[0]?.name ?? "Unknown",
-      albumName: enriched.album.name,
-      albumArt: enriched.album.images[0]?.url ?? null,
-      durationMs: enriched.duration_ms,
-      energy: features?.energy ?? null,
-      valence: features?.valence ?? null,
-      tempo: features?.tempo ?? null,
-      danceability: features?.danceability ?? null,
-      acousticness: features?.acousticness ?? null,
-      instrumentalness: features?.instrumentalness ?? null,
-      loudness: features?.loudness ?? null,
-      speechiness: features?.speechiness ?? null,
-      spotifyArtistGenres: enriched.spotifyArtistGenres,
-      albumGenres: enriched.albumGenres,
-      popularity: enriched.popularity ?? null,
-      releaseYear: enriched.releaseYear ?? null,
-      primaryArtistId: enriched.artists[0]?.id ?? null,
-      artistIds: enriched.artists.map((artist) => artist.id).filter((id): id is string => !!id),
-      semanticProfile: null,
-      enrichmentVersion: null,
-      enrichedAt: null,
-      addedAt: now,
-      createdAt: now,
-    };
-  });
-  return { tracks, diagnostics };
-}
 
 function hasFinalGenreEvidence(
   track: {
@@ -4756,6 +4429,9 @@ router.post("/generate", async (req, res): Promise<void> => {
           length,
           families: noLibraryExplicitFamilies,
           subgenreTerms: noLibraryParsedIntent?.subgenreTerms ?? [],
+          mode: mode as "strict" | "balanced" | "chaotic",
+          primarySubgenre: noLibraryParsedIntent?.primarySubgenre ?? null,
+          allowGlobalFallback: mode !== "strict",
         });
         const spotifyCandidates = spotifyCandidateResult.tracks;
         noLibraryRetrievalDiagnostics = spotifyCandidateResult.diagnostics;
@@ -5211,12 +4887,27 @@ router.post("/generate", async (req, res): Promise<void> => {
     const humanIntent = momentPipeline?.intent ?? decodeIntent(vibe);
     const sonicProfile = momentPipeline?.sonicProfile ?? null;
     const scenePrototype = momentPipeline?.prototype ?? null;
-    const memoryWeight =
+    const memoryWeightRaw =
       momentPipeline?.canonicalScene && momentPipeline.canonicalScene.confidence >= 0.65
         ? 0.55
         : momentPipeline?.experienceScene
           ? 0.35
           : 0;
+    const tasteCapContract = buildDominantIntentContract({
+      prompt: vibe,
+      intentContract: {
+        primarySubgenre: null,
+        genreFamilies: [],
+        activity: null,
+        places: [],
+        eraRange: null,
+        explicitDimensions: [],
+      },
+      emotionProfile,
+      mode: mode as "strict" | "balanced" | "chaotic",
+      noLibraryMode: !!noLibraryMode,
+    });
+    const memoryWeight = capTastePullWeight(memoryWeightRaw, tasteCapContract.maxTastePullWeight);
 
     const journeyArc =
       sceneJourneyArc && sceneJourneyArc !== "default"

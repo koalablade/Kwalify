@@ -381,8 +381,10 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
     retrievalByTrack?: Map<string, RetrievedCandidate<T>>;
     sessionArtistMemory?: SessionArtistMemory;
     trackReusePenalty?: Map<string, number>;
+    maxTastePullWeight?: number;
   },
 ): Array<TrackDecision<T>> {
+  const tasteScale = Math.max(0.35, Math.min(1, (opts.maxTastePullWeight ?? 0.22) / 0.22));
   return decisions.map((decision) => {
     const classification = opts.classificationByTrack?.(decision.track.trackId);
     const genreFamily = resolvedDecisionGenreFamily(decision, opts) ??
@@ -415,7 +417,7 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
 
     return withDecisionAffinities(decision, {
       sceneAffinity,
-      tasteAffinity: clamp01(tasteAffinity * sessionPenalty * (sessionCapped ? 0.45 : 1) * trackReuseMultiplier),
+      tasteAffinity: clamp01(tasteAffinity * tasteScale * sessionPenalty * (sessionCapped ? 0.45 : 1) * trackReuseMultiplier),
       freshnessAffinity: clamp01(freshnessAffinity * sessionPenalty * (sessionCapped ? 0.35 : 1) * trackReuseMultiplier),
       embeddingAffinity: retrieval?.embeddingAffinity,
       retrievalNeighborhood: retrieval?.retrievalNeighborhood,
@@ -922,6 +924,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       retrievalByTrack,
       sessionArtistMemory: opts.sessionArtistMemory,
       trackReusePenalty: opts.trackReusePenalty,
+      maxTastePullWeight: opts.dominantIntentGates?.maxTasteWeight,
     });
     const engineResult = await safeStage<ReturnType<typeof runRecommendationEngine<T>>>({
       stage: `v3.recommendation.${lane.id}`,
@@ -933,6 +936,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         unifiedIntent: unifiedIntentContext.unifiedIntent,
         memory: opts.momentMemory,
         classificationByTrack: opts.classificationByTrack,
+        maxTastePullWeight: opts.dominantIntentGates?.maxTasteWeight,
       }),
       recover: () => ({
         decisions: affinityDecisions.map((decision) => withDecisionFinalScore(decision, decision.score)),

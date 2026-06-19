@@ -41,13 +41,30 @@ export interface RecommendationEngineResult<T extends ScorerTrack> {
   };
 }
 
-const DECISION_WEIGHTS = {
+const BASE_DECISION_WEIGHTS = {
   embeddingAffinity: 0.40,
   sceneAffinity: 0.25,
   tasteAffinity: 0.20,
   memoryAffinity: 0.10,
   freshnessPenalty: 0.05,
 } as const;
+
+type DecisionWeightKey = keyof typeof BASE_DECISION_WEIGHTS;
+
+/** Scale taste/memory pull down when explicit intent should dominate retrieval. */
+export function buildDecisionWeights(maxTastePullWeight = 0.22): Record<DecisionWeightKey, number> {
+  const scale = Math.max(0.35, Math.min(1, maxTastePullWeight / 0.22));
+  const tasteAffinity = BASE_DECISION_WEIGHTS.tasteAffinity * scale;
+  const memoryAffinity = BASE_DECISION_WEIGHTS.memoryAffinity * scale;
+  const redistributed = (BASE_DECISION_WEIGHTS.tasteAffinity + BASE_DECISION_WEIGHTS.memoryAffinity) - (tasteAffinity + memoryAffinity);
+  return {
+    embeddingAffinity: BASE_DECISION_WEIGHTS.embeddingAffinity + redistributed * 0.55,
+    sceneAffinity: BASE_DECISION_WEIGHTS.sceneAffinity + redistributed * 0.45,
+    tasteAffinity,
+    memoryAffinity,
+    freshnessPenalty: BASE_DECISION_WEIGHTS.freshnessPenalty,
+  };
+}
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -155,15 +172,18 @@ export function collectSignals<T extends ScorerTrack>(input: {
   };
 }
 
-export function computeFinalDecision(signal: NormalizedSignalBundle): DecisionScore {
+export function computeFinalDecision(
+  signal: NormalizedSignalBundle,
+  weights: Record<DecisionWeightKey, number> = BASE_DECISION_WEIGHTS,
+): DecisionScore {
   const memorySignal = clamp01(signal.normalizedMemory * 0.85 + signal.normalizedGenre * 0.15);
   const freshnessSignal = clamp01(signal.normalizedFreshness * 0.65 + (1 - signal.normalizedRepetition) * 0.35);
   const finalScore = clamp01(
-    signal.normalizedEmbedding * DECISION_WEIGHTS.embeddingAffinity +
-    signal.normalizedScene * DECISION_WEIGHTS.sceneAffinity +
-    signal.normalizedTaste * DECISION_WEIGHTS.tasteAffinity +
-    memorySignal * DECISION_WEIGHTS.memoryAffinity +
-    freshnessSignal * DECISION_WEIGHTS.freshnessPenalty,
+    signal.normalizedEmbedding * weights.embeddingAffinity +
+    signal.normalizedScene * weights.sceneAffinity +
+    signal.normalizedTaste * weights.tasteAffinity +
+    memorySignal * weights.memoryAffinity +
+    freshnessSignal * weights.freshnessPenalty,
   );
 
   return {
@@ -199,7 +219,9 @@ export function runRecommendationEngine<T extends ScorerTrack>(input: {
   unifiedIntent: UnifiedIntent;
   memory?: MomentMemory | null;
   classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  maxTastePullWeight?: number;
 }): RecommendationEngineResult<T> {
+  const weights = buildDecisionWeights(input.maxTastePullWeight ?? 0.22);
   const signals = input.decisions.map((decision) => collectSignals({
     decision,
     unifiedIntent: input.unifiedIntent,
@@ -207,7 +229,7 @@ export function runRecommendationEngine<T extends ScorerTrack>(input: {
     classification: input.classificationByTrack?.(decision.track.trackId),
   }));
   const normalized = normalizeSignals(signals);
-  const scores = normalized.map(computeFinalDecision);
+  const scores = normalized.map((signal) => computeFinalDecision(signal, weights));
   const scoreByTrack = new Map(scores.map((score) => [score.trackId, score]));
   const decisions = input.decisions.map((decision) =>
     withDecisionFinalScore(decision, scoreByTrack.get(decision.track.trackId)?.finalScore ?? decision.finalScore)
@@ -218,13 +240,7 @@ export function runRecommendationEngine<T extends ScorerTrack>(input: {
     scores,
     diagnostics: {
       signalCount: signals.length,
-      weights: {
-        embeddingAffinity: DECISION_WEIGHTS.embeddingAffinity,
-        sceneAffinity: DECISION_WEIGHTS.sceneAffinity,
-        tasteAffinity: DECISION_WEIGHTS.tasteAffinity,
-        memoryAffinity: DECISION_WEIGHTS.memoryAffinity,
-        freshnessPenalty: DECISION_WEIGHTS.freshnessPenalty,
-      },
+      weights,
       topDecisions: [...scores]
         .sort((a, b) => b.finalScore - a.finalScore)
         .slice(0, 10)

@@ -121,6 +121,14 @@ export function detectDominantEmotion(prompt: string, profile?: EmotionProfileLi
   return { emotion: null, explicit: false };
 }
 
+export const DEFAULT_MAX_TASTE_PULL_WEIGHT = 0.22;
+export const EXPLICIT_MAX_TASTE_PULL_WEIGHT = 0.12;
+
+/** Cap scene/memory taste pull so explicit intent is not drowned out. */
+export function capTastePullWeight(weight: number, maxTastePullWeight: number): number {
+  return Math.min(Math.max(0, weight), maxTastePullWeight);
+}
+
 /** Reject tracks that clearly contradict an explicit dominant emotion at finalization. */
 export function trackMatchesDominantEmotion(
   track: { energy: number | null; valence: number | null },

@@ -48,7 +48,7 @@ import { logScoringStage } from "../lib/generate-stage-timer";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
 import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
-import { adaptiveRetrievalThresholds, assessCandidatePoolHealth, detectDominantEmotion } from "./dominant-intent-contract";
+import { adaptiveRetrievalThresholds, assessCandidatePoolHealth, buildDominantIntentContract, detectDominantEmotion } from "./dominant-intent-contract";
 import { buildArtistEcosystemGraph, type ArtistEcosystemGraph } from "../lib/artist-ecosystem-graph";
 import { buildSemanticProfileMap } from "../lib/semantic-profile-store";
 import type { TrackSemanticProfile, PromptSceneProfile } from "../lib/track-semantic-types";
@@ -4293,7 +4293,20 @@ export async function buildPlaylistPipeline<T extends {
     stageStartedAt = Date.now();
     const endV3Profile = opts.profileStage?.(`pipeline.v3ScoringAndSampling.${candidate.label}`, `${candidatePool.tracks.length} candidate tracks`);
     let result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
-    const emotionGate = detectDominantEmotion(opts.vibe, opts.emotionProfile);
+    const dominantContract = buildDominantIntentContract({
+      prompt: opts.vibe,
+      intentContract: {
+        primarySubgenre: intentContract.primarySubgenre,
+        genreFamilies: intentContract.genreFamilies,
+        activity: intentContract.activity ?? null,
+        places: intentContract.places ?? [],
+        eraRange: intentContract.eraRange ?? null,
+        explicitDimensions: intentContract.explicitDimensions ?? [],
+      },
+      emotionProfile: opts.emotionProfile,
+      mode: opts.mode,
+      noLibraryMode: opts.noLibraryMode,
+    });
     try {
       v3InvocationCount += 1;
       result = await runV3Pipeline(
@@ -4316,10 +4329,10 @@ export async function buildPlaylistPipeline<T extends {
           diagnosticsMode:          opts.diagnosticsMode ?? "minimal",
           profileStage:            opts.profileStage,
           dominantIntentGates: {
-            dominantEmotionExplicit: emotionGate.explicit,
-            allowContrastLanes: emotionGate.explicit ? false : true,
-            allowExplorationLanes: !emotionGate.explicit,
-            maxTasteWeight: emotionGate.explicit ? 0.12 : 0.22,
+            dominantEmotionExplicit: dominantContract.dominantEmotionExplicit,
+            allowContrastLanes: dominantContract.allowContrastLanes,
+            allowExplorationLanes: dominantContract.allowExplorationLanes,
+            maxTasteWeight: dominantContract.maxTastePullWeight,
           },
         }
       );

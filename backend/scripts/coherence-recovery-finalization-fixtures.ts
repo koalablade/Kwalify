@@ -12,6 +12,7 @@ import {
   buildDominantIntentContract,
   shouldBlockHardSafeFinalization,
   trackMatchesDominantEmotion,
+  capTastePullWeight,
 } from "../core/dominant-intent-contract";
 import { buildConstraintRelaxationPlan } from "../core/v3/constraint-relaxation";
 import { evaluateRecoveryGuards, recoveryStageAllowed } from "../controllers/generation-recovery";
@@ -52,6 +53,7 @@ function main(): void {
 
   if (trackMatchesDominantEmotion({ energy: 0.9, valence: 0.9 }, "melancholy")) failed += 1;
   if (!trackMatchesDominantEmotion({ energy: 0.35, valence: 0.3 }, "melancholy")) failed += 1;
+  if (capTastePullWeight(0.55, 0.12) > 0.12 || capTastePullWeight(0.35, 0.22) !== 0.35) failed += 1;
 
   const strictRelaxPlan = buildConstraintRelaxationPlan({
     genreFamilies: ["electronic"],
