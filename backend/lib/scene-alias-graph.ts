@@ -4,6 +4,7 @@
  */
 
 import type { DecomposedIntent } from "../core/intent-decomposer";
+import { getSceneGenreAliases, listCulturalReferenceEntries } from "./cultural-reference-expansion";
 import { getRuntimePromotedAliases } from "./harvested-alias-runtime";
 
 const SCENE_ALIAS_GRAPH: Record<string, string[]> = {
@@ -39,7 +40,35 @@ const SCENE_ALIAS_GRAPH: Record<string, string[]> = {
   "uk-rap": ["hip_hop"],
   "uk-drill": ["hip_hop"],
   "uk-garage-grime": ["hip_hop", "electronic"],
+  "cozy-mystery": ["jazz", "classical", "ambient", "folk", "soundtrack"],
+  "victorian-detective": ["classical", "jazz", "ambient", "folk", "soundtrack"],
+  "horror-suspense": ["ambient", "rock", "electronic", "classical", "soundtrack"],
+  "cosmic-horror": ["ambient", "classical", "electronic", "metal", "soundtrack"],
+  "epic-fantasy": ["orchestral", "folk", "ambient", "classical"],
+  "desert-epic": ["orchestral", "ambient", "electronic", "world", "soundtrack"],
+  "dystopian": ["electronic", "industrial", "ambient", "rock", "classical"],
+  "neo-noir": ["jazz", "electronic", "ambient", "trip_hop", "soundtrack"],
+  "tokyo-night": ["electronic", "ambient", "indie", "synth", "jazz"],
+  "paris-cafe": ["jazz", "classical", "ambient", "indie", "folk"],
+  "garage-midnight": ["blues", "indie", "rock", "folk", "ambient"],
+  "literary-reading": ["ambient", "classical", "jazz", "folk"],
+  "agatha-christie": ["jazz", "classical", "ambient", "folk", "soundtrack"],
+  "sherlock-holmes": ["classical", "jazz", "ambient", "folk", "soundtrack"],
+  "stephen-king": ["ambient", "rock", "electronic", "classical", "soundtrack"],
+  "tolkien": ["orchestral", "folk", "ambient", "classical"],
+  "dune": ["orchestral", "ambient", "electronic", "world", "soundtrack"],
+  "orwell": ["electronic", "industrial", "ambient", "rock", "classical"],
+  "lovecraft": ["ambient", "classical", "electronic", "metal", "soundtrack"],
+  "murder-mystery": ["jazz", "classical", "ambient", "blues", "soundtrack"],
 };
+
+for (const entry of listCulturalReferenceEntries()) {
+  const aliases = getSceneGenreAliases(entry.sceneId);
+  if (aliases.length > 0) {
+    SCENE_ALIAS_GRAPH[entry.sceneId] = aliases;
+    SCENE_ALIAS_GRAPH[entry.id] = aliases;
+  }
+}
 
 const promotedGraphOverrides = new Map<string, string[]>();
 

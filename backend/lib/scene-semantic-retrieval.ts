@@ -4,6 +4,10 @@
 
 import { splitSceneContracts } from "../core/dominant-intent-contract";
 import {
+  expandCulturalReferences,
+  mergeExpansionIntoSceneProfile,
+} from "./cultural-reference-expansion";
+import {
   emptySceneProfile,
   signatureFromTags,
   type PromptSceneProfile,
@@ -75,6 +79,39 @@ function overlapRatio(a: string[], b: string[]): number {
   return recall * 0.72 + precision * 0.28;
 }
 
+/** Cross-walk abstract atmospheres to audio-derived tags — library-first semantic matching. */
+const ATMOSPHERE_AFFINITY: Record<string, string[]> = {
+  mystery: ["tense", "nocturnal", "melancholic", "hypnotic", "reflective", "suspense", "mystery"],
+  suspense: ["tense", "foreboding", "nocturnal", "uncanny", "suspense"],
+  detective: ["reflective", "nocturnal", "tense", "intellectual", "mystery"],
+  vintage: ["nostalgic", "melancholic", "reflective"],
+  cozy: ["reflective", "melancholic", "cozy"],
+  intellectual: ["reflective", "hypnotic"],
+  foreboding: ["tense", "uncanny", "melancholic"],
+  epic: ["wonder", "cinematic", "adventure"],
+  futuristic: ["nocturnal", "hypnotic", "cinematic", "electronic"],
+  urban: ["city", "nocturnal", "lonely"],
+  nocturnal: ["night", "late-night", "nocturnal", "hypnotic"],
+  melancholy: ["melancholic", "reflective", "sad"],
+  romantic: ["reflective", "melancholic"],
+};
+
+function expandAtmosphereTags(tags: string[]): string[] {
+  const expanded = new Set(tags);
+  for (const tag of tags) {
+    expanded.add(tag);
+    for (const related of ATMOSPHERE_AFFINITY[tag] ?? []) expanded.add(related);
+  }
+  return [...expanded];
+}
+
+function atmosphereOverlap(promptAtmospheres: string[], trackAtmospheres: string[]): number {
+  return overlapRatio(
+    expandAtmosphereTags(promptAtmospheres),
+    expandAtmosphereTags(trackAtmospheres),
+  );
+}
+
 function flattenScene(profile: TrackSemanticProfile | PromptSceneProfile): string[] {
   const scene = "scene" in profile ? profile.scene : profile;
   return [
@@ -117,28 +154,39 @@ export function buildPromptSceneProfile(prompt: string): PromptSceneProfile {
   scene.atmospheres = [...new Set([...scene.atmospheres, ...dominantScene.atmosphere])];
   culturalTags.push(...dominantScene.visual.filter((v) => !culturalTags.includes(v)));
 
+  const expansion = expandCulturalReferences(prompt);
+  const merged = mergeExpansionIntoSceneProfile(
+    { ...scene, culturalTags, themes, sceneConcepts },
+    expansion,
+  );
+
   const all = [
-    ...culturalTags,
+    ...merged.culturalTags,
     ...flattenScene({
-      culturalTags,
-      themes,
-      sceneConcepts,
+      culturalTags: merged.culturalTags,
+      themes: merged.themes,
+      sceneConcepts: merged.sceneConcepts,
       retrievalSignature: "",
-      ...scene,
+      places: merged.places,
+      times: merged.times,
+      activities: merged.activities,
+      weather: merged.weather,
+      atmospheres: merged.atmospheres,
     }),
-    ...themes,
-    ...sceneConcepts,
+    ...merged.themes,
+    ...merged.sceneConcepts,
+    ...expansion.atmospheres,
   ];
 
   return {
-    places: scene.places,
-    times: scene.times,
-    activities: scene.activities,
-    weather: scene.weather,
-    atmospheres: scene.atmospheres,
-    culturalTags: [...new Set(culturalTags)],
-    themes: [...new Set(themes)],
-    sceneConcepts: [...new Set(sceneConcepts)],
+    places: merged.places,
+    times: merged.times,
+    activities: merged.activities,
+    weather: merged.weather,
+    atmospheres: merged.atmospheres,
+    culturalTags: merged.culturalTags,
+    themes: merged.themes,
+    sceneConcepts: merged.sceneConcepts,
     retrievalSignature: signatureFromTags(all),
   };
 }
@@ -165,7 +213,12 @@ export function scoreSemanticSceneMatch(
     maxBoost?: number;
   } = {},
 ): { boost: number; diagnostics: SemanticMatchDiagnostics } {
-  const sceneOverlap = overlapRatio(flattenScene(promptProfile), flattenScene(trackProfile));
+  const promptSceneFlat = flattenScene(promptProfile);
+  const trackSceneFlat = flattenScene(trackProfile);
+  const sceneOverlap = Math.max(
+    overlapRatio(promptSceneFlat, trackSceneFlat),
+    atmosphereOverlap(promptProfile.atmospheres, trackProfile.scene.atmospheres) * 0.85,
+  );
   const culturalOverlap = overlapRatio(promptProfile.culturalTags, trackProfile.culturalTags);
   const themeOverlap = overlapRatio(promptProfile.themes, trackProfile.themes);
   const conceptOverlap = overlapRatio(promptProfile.sceneConcepts, trackProfile.sceneConcepts);

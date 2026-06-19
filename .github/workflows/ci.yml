@@ -51,9 +51,13 @@ jobs:
           npm run coherence:semantic-collisions
           npm run coherence:electronic-subgenres
           npm run coherence:recovery-finalization
+          npm run coherence:cultural-references
+          npm run coherence:taste-preservation
           npm run benchmark:pairwise-signatures
       - name: Semantic scene benchmark
         run: npm run ci:semantic-scenes
+      - name: Scene knowledge accuracy
+        run: npm run benchmark:scene-knowledge
       - name: Local prompt reliability fixtures
         run: npm run ci:prompt-reliability-local
       - name: CI prompt reliability gate

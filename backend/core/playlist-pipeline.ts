@@ -1797,7 +1797,9 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     promptSceneProfile.places.length > 0 ||
     promptSceneProfile.times.length > 0 ||
     promptSceneProfile.culturalTags.length > 0 ||
-    promptSceneProfile.sceneConcepts.length > 0;
+    promptSceneProfile.sceneConcepts.length > 0 ||
+    promptSceneProfile.themes.length > 0 ||
+    promptSceneProfile.atmospheres.length > 0;
   const dominantEmotion = detectDominantEmotion(contract.rawPrompt);
   const semanticMaxBoost = opts.semanticMaxBoost ?? (dominantEmotion.explicit ? 0.18 : 0.28);
   let semanticBoostApplied = 0;

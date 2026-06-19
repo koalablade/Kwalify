@@ -14,6 +14,7 @@ import {
   EXPANDED_ERA_TERMS,
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
+import { expandCulturalReferences } from "../lib/cultural-reference-expansion";
 
 export type DecomposedIntent = {
   raw: string;
@@ -44,6 +45,8 @@ const KNOWN_TOKEN_ROOTS = new Set([
   "kerrang", "tony", "hawk", "nfs", "forza", "volvo", "saab", "garage", "rainy",
   "night", "drive", "driving", "gym", "workout", "sleep", "calm", "sad", "angry",
   "rock", "metal", "pop", "rap", "trap", "edm", "indie", "blues", "country",
+  "agatha", "christie", "sherlock", "holmes", "tolkien", "dune", "orwell", "lovecraft",
+  "mystery", "detective", "victorian", "noir", "fantasy", "horror",
 ]);
 
 const CULTURAL_PATTERNS: Array<{ pattern: RegExp; ref: string; scene: string }> = [
@@ -79,6 +82,8 @@ export function tokenize(lower: string): string[] {
 }
 
 export function matchScene(text: string): string | null {
+  const expansion = expandCulturalReferences(text);
+  if (expansion.sceneId) return expansion.sceneId;
   for (const entry of CULTURAL_PATTERNS) {
     if (entry.pattern.test(text)) return entry.scene;
   }
@@ -135,9 +140,11 @@ export function extractExclusions(text: string): string[] {
 }
 
 export function extractCulturalRefs(text: string): string[] {
-  return CULTURAL_PATTERNS
+  const legacy = CULTURAL_PATTERNS
     .filter(({ pattern }) => pattern.test(text))
     .map(({ ref }) => ref);
+  const expansion = expandCulturalReferences(text);
+  return [...new Set([...legacy, ...expansion.matchedIds, ...expansion.culturalRefs])];
 }
 
 function collectMatchedSpans(prompt: string): Set<string> {
@@ -175,6 +182,11 @@ function collectMatchedSpans(prompt: string): Set<string> {
       mark(entry.scene);
     }
   }
+  const expansion = expandCulturalReferences(prompt);
+  for (const id of expansion.matchedIds) mark(id);
+  for (const tag of expansion.culturalTags) mark(tag);
+  for (const theme of expansion.themes) mark(theme);
+  if (expansion.sceneId) mark(expansion.sceneId);
   const era = detectEra(prompt);
   if (era.decade) mark(era.decade);
 

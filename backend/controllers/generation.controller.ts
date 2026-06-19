@@ -5255,6 +5255,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
     endTimelineStage(productionTimeline, startMs, "intent_fallback_family");
     startTimelineStage(productionTimeline, startMs, "intent_v3_fallback");
+    const libraryGenreFamilies = [...new Set(
+      likedSongs
+        .map((song) => userGenreProfile.trackClassifications.get(song.trackId)?.genreFamily)
+        .filter((family): family is NonNullable<typeof family> => typeof family === "string" && family.length > 0),
+    )].map(String).slice(0, 8);
     const v3FallbackIntent = completeCsspLockedIntent(parsedCsspIntent, {
       genreFamilies: mergeSceneAliasesIntoGenres(
         lockedIntent.genreFamilies.length > 0
@@ -5263,6 +5268,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             ? [fallbackLockedFamily]
             : [],
         sceneAliases,
+        { libraryGenreFamilies },
       ),
       eraRange: lockedIntent.eraRange,
       mood: lockedIntent.mood,

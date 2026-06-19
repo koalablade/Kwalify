@@ -67,14 +67,21 @@ function buildAssumptions(intent: DecomposedIntent, sceneAliases: string[]): str
   return assumptions.slice(0, 8);
 }
 
-/** Soft-merge scene alias families into genre intent without hard locking retrieval. */
+/** Soft-merge scene alias families into genre intent — library-first, never inject cultural genres alone. */
 export function mergeSceneAliasesIntoGenres(
   genreFamilies: string[],
   sceneAliases: string[],
+  opts?: { libraryGenreFamilies?: string[] },
 ): string[] {
   if (sceneAliases.length === 0) return genreFamilies;
-  const merged = [...genreFamilies];
+  const base = [...genreFamilies];
+  if (base.length === 0) {
+    return [];
+  }
+  const library = new Set(opts?.libraryGenreFamilies ?? []);
+  const merged = [...base];
   for (const alias of sceneAliases) {
+    if (library.size > 0 && !library.has(alias)) continue;
     if (!merged.includes(alias)) merged.push(alias);
   }
   return merged.slice(0, 6);

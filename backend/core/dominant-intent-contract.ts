@@ -2,6 +2,10 @@
  * Dominant intent contract — shared invariant across parsing, retrieval, V3, recovery, and finalization.
  */
 import type { LockedIntent } from "./v3/intent";
+import {
+  expandCulturalReferences,
+  resolveActivityWithCulturalContext,
+} from "../lib/cultural-reference-expansion";
 
 export type EmotionProfileLike = {
   energy?: number;
@@ -218,23 +222,41 @@ export function buildDominantIntentContract(opts: {
   retrievalFallbackLevel?: RetrievalFallbackLevel;
   poolSize?: number;
 }): DominantIntentContract {
+  const expansion = expandCulturalReferences(opts.prompt);
   const { emotion, explicit } = detectDominantEmotion(opts.prompt, opts.emotionProfile);
-  const activity = resolveActivityPriority(opts.intentContract.activity, opts.prompt);
+  const dominantEmotion = explicit ? emotion : (expansion.dominantEmotion ?? emotion);
+  let activity = resolveActivityPriority(opts.intentContract.activity, opts.prompt);
+  activity = resolveActivityWithCulturalContext(activity, opts.prompt, expansion);
   const mode = opts.mode ?? "balanced";
   const noLibraryMode = !!opts.noLibraryMode;
   const subgenreLadderMode = opts.subgenreLadderMode ?? "none";
   const strict = mode === "strict";
 
+  const scene = splitSceneContracts(opts.prompt, opts.intentContract.places);
+  if (expansion.culturalDominance >= 0.45) {
+    scene.atmosphere = [...new Set([...scene.atmosphere, ...expansion.atmospheres])];
+    scene.visual = [...new Set([...scene.visual, ...expansion.sceneConcepts.slice(0, 4)])];
+    if (expansion.scene.places.length > 0) {
+      scene.place = [...new Set([...scene.place, ...expansion.scene.places])];
+    }
+  }
+
+  const genreFamilies = [...opts.intentContract.genreFamilies];
+  const eraRange = opts.intentContract.eraRange;
+  const tasteCap = expansion.atmosphereOverActivity
+    ? 0.18
+    : (explicit || opts.intentContract.places.length > 0 ? 0.12 : 0.22);
+
   const base: DominantIntentContract = {
     rawPrompt: opts.prompt,
-    dominantEmotion: emotion,
+    dominantEmotion,
     dominantEmotionExplicit: explicit,
     primarySubgenre: opts.intentContract.primarySubgenre,
-    genreFamilies: opts.intentContract.genreFamilies,
+    genreFamilies,
     activity,
     activityPriority: ACTIVITY_PRIORITY[activity ?? "listening"] ?? 10,
-    scene: splitSceneContracts(opts.prompt, opts.intentContract.places),
-    eraRange: opts.intentContract.eraRange,
+    scene,
+    eraRange,
     explicitDimensions: opts.intentContract.explicitDimensions,
     mode,
     noLibraryMode,
@@ -243,7 +265,7 @@ export function buildDominantIntentContract(opts: {
     allowAdjacentFallback: subgenreLadderMode === "family",
     allowContrastLanes: !explicit || mode === "chaotic",
     allowExplorationLanes: !explicit && mode !== "strict",
-    maxTastePullWeight: explicit || opts.intentContract.places.length > 0 ? 0.12 : 0.22,
+    maxTastePullWeight: tasteCap,
     retrievalSignature: "",
     intentSignature: "",
   };

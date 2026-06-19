@@ -21,6 +21,8 @@ const NARRATIVE_PROMPTS = [
   "Last train home",
   "Post-club solitude outside the club",
   "Urban nostalgia from a forgotten rave flyer in 1997",
+  "reading agatha christie books",
+  "Reading Sherlock Holmes on a foggy night",
 ];
 
 const RANKING_EXPECTATIONS: Array<{ prompt: string; topArtists: string[] }> = [
