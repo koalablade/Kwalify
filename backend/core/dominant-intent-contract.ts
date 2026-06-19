@@ -121,6 +121,30 @@ export function detectDominantEmotion(prompt: string, profile?: EmotionProfileLi
   return { emotion: null, explicit: false };
 }
 
+/** Reject tracks that clearly contradict an explicit dominant emotion at finalization. */
+export function trackMatchesDominantEmotion(
+  track: { energy: number | null; valence: number | null },
+  emotion: DominantEmotion,
+): boolean {
+  if (!emotion) return true;
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  switch (emotion) {
+    case "melancholy":
+      return valence <= 0.58 && energy <= 0.72;
+    case "euphoria":
+      return valence >= 0.52 && energy >= 0.48;
+    case "peace":
+      return energy <= 0.58;
+    case "tension":
+      return energy >= 0.42;
+    case "nostalgia":
+      return valence <= 0.72 || energy <= 0.68;
+    default:
+      return true;
+  }
+}
+
 export function splitSceneContracts(prompt: string, places: string[] = []): SceneContracts {
   return {
     visual: uniqueMatches(prompt, VISUAL_PATTERNS),

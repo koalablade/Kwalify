@@ -289,7 +289,21 @@ function evaluateFailures(row: BenchmarkPromptRow, spec: GoldenPromptAssertion):
     failures.push(failure(row, "leakCount", `<= ${spec.maxLeaks}`, row.quality.leakCount, row.quality.leakCount >= spec.maxLeaks + 2 ? "high" : "low"));
   }
   if (!riskAllowed(row.quality.convergenceRisk, spec.maxConvergenceRisk)) {
-    failures.push(failure(row, "convergenceRisk", `<= ${spec.maxConvergenceRisk}`, row.quality.convergenceRisk, "low"));
+    const severity: Severity =
+      row.input.group === "subgenre" || row.input.group === "emotion" ? "high" : "low";
+    failures.push(failure(row, "convergenceRisk", `<= ${spec.maxConvergenceRisk}`, row.quality.convergenceRisk, severity));
+  }
+  if (spec.maxGenreDrift !== undefined) {
+    const genreDrift = row.quality.majorGenreLeak ? 1 : Math.min(1, row.quality.leakCount / Math.max(1, spec.maxLeaks + 1));
+    if (genreDrift > spec.maxGenreDrift) {
+      failures.push(failure(row, "genreDrift", `<= ${spec.maxGenreDrift}`, genreDrift, "high"));
+    }
+  }
+  if (spec.maxEraDrift !== undefined) {
+    const eraDrift = row.quality.majorEraLeak || row.finalization.eraRelaxationUsed ? 1 : 0;
+    if (eraDrift > spec.maxEraDrift) {
+      failures.push(failure(row, "eraDrift", `<= ${spec.maxEraDrift}`, eraDrift, "high"));
+    }
   }
   if (spec.minEmotionSurvival !== undefined && row.intent.emotionSurvivalPercent < spec.minEmotionSurvival) {
     failures.push(failure(row, "emotionSurvival", spec.minEmotionSurvival, row.intent.emotionSurvivalPercent, "low"));

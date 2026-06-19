@@ -64,6 +64,8 @@ jobs:
         run: npm run smoke:shutdown
       - name: Frontend module gate
         run: npm run ci:frontend-modules
+      - name: Production validation dry-run
+        run: npm run validation:production -- --dry-run
 
   deploy-smoke-pr:
     if: github.event_name == 'pull_request'

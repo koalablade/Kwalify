@@ -51,27 +51,33 @@ function profile(intent: LockedIntent, overrides: Partial<ConstraintProfile> = {
   };
 }
 
-export function buildConstraintRelaxationPlan(intent: LockedIntent): ConstraintRelaxationStep[] {
+export function buildConstraintRelaxationPlan(
+  intent: LockedIntent,
+  mode: "strict" | "balanced" | "chaotic" = "balanced",
+): ConstraintRelaxationStep[] {
   const stackedGenreEraActivity =
     intent.genreFamilies.length > 0 &&
     !!intent.eraRange &&
     !!intent.activity;
-  if (stackedGenreEraActivity) {
-    return [
+  const plan: ConstraintRelaxationStep[] = stackedGenreEraActivity
+    ? [
       { id: "strict", label: "strict_constraints", profile: profile(intent) },
       { id: "relax_audio", label: "audio_bounds_relaxed", profile: profile(intent, { audio: "relaxed" }) },
       { id: "relax_mood", label: "mood_relaxed", profile: profile(intent, { audio: "relaxed", mood: "relaxed" }) },
       { id: "relax_era", label: "era_relaxed", profile: profile(intent, { era: "relaxed", audio: "relaxed", mood: "relaxed" }) },
       { id: "relax_genre", label: "genre_relaxed", profile: profile(intent, { era: "relaxed", genre: "relaxed", audio: "relaxed", mood: "relaxed" }) },
+    ]
+    : [
+      { id: "strict", label: "strict_constraints", profile: profile(intent) },
+      { id: "relax_era", label: "era_relaxed", profile: profile(intent, { era: "relaxed" }) },
+      { id: "relax_genre", label: "genre_relaxed", profile: profile(intent, { era: "relaxed", genre: "relaxed" }) },
+      { id: "relax_audio", label: "audio_bounds_relaxed", profile: profile(intent, { era: "relaxed", genre: "relaxed", audio: "relaxed" }) },
+      { id: "relax_mood", label: "mood_relaxed", profile: profile(intent, { era: "relaxed", genre: "relaxed", audio: "relaxed", mood: "relaxed" }) },
     ];
+  if (mode === "strict") {
+    return plan.slice(0, 1);
   }
-  return [
-    { id: "strict", label: "strict_constraints", profile: profile(intent) },
-    { id: "relax_era", label: "era_relaxed", profile: profile(intent, { era: "relaxed" }) },
-    { id: "relax_genre", label: "genre_relaxed", profile: profile(intent, { era: "relaxed", genre: "relaxed" }) },
-    { id: "relax_audio", label: "audio_bounds_relaxed", profile: profile(intent, { era: "relaxed", genre: "relaxed", audio: "relaxed" }) },
-    { id: "relax_mood", label: "mood_relaxed", profile: profile(intent, { era: "relaxed", genre: "relaxed", audio: "relaxed", mood: "relaxed" }) },
-  ];
+  return plan;
 }
 
 export function relaxedIntentForProfile(intent: LockedIntent, profile: ConstraintProfile): LockedIntent {

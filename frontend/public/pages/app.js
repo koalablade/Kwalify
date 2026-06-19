@@ -1357,6 +1357,7 @@ function resultHtml(result) {
       ${coherenceBadgeHtml}
       ${trustChipsHtml}
       ${result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary ? `<p class="result-insight result-insight--trust">${esc(result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary)}</p>` : ""}
+      ${result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary ? `<p class="result-insight result-insight--muted">${esc(result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary)}</p>` : ""}
       ${result.playlistWhy || result.generationTrust?.playlistWhy ? `<p class="result-insight">${esc(result.playlistWhy || result.generationTrust?.playlistWhy)}</p>` : ""}
       ${segmentStripHtml}
       ${intentUnderstandingHtml}
@@ -2561,12 +2562,45 @@ async function triggerSync(full = false) {
   }
 }
 
+let syncEventSource = null;
+
+function applyCacheStatus(data) {
+  if (!data || typeof data !== "object") return;
+  state.cacheStatus = { ...(state.cacheStatus ?? {}), ...data };
+}
+
+function stopSyncStream() {
+  if (syncEventSource) {
+    syncEventSource.close();
+    syncEventSource = null;
+  }
+}
+
+function startSyncStream() {
+  if (syncEventSource || typeof EventSource === "undefined") return;
+  syncEventSource = new EventSource("/api/spotify/sync/stream", { withCredentials: true });
+  syncEventSource.addEventListener("sync", (event) => {
+    try {
+      applyCacheStatus(JSON.parse(event.data));
+      renderApp();
+      if (!state.cacheStatus?.isSyncing) stopSyncStream();
+    } catch {
+      stopSyncStream();
+      void pollStatus();
+    }
+  });
+  syncEventSource.onerror = () => {
+    stopSyncStream();
+    void pollStatus();
+  };
+}
+
 async function pollStatus() {
   const [csRes, lsRes] = await Promise.all([
     api("/spotify/cache-status").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
     api("/library/summary").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),
   ]);
-  if (csRes.ok) state.cacheStatus = csRes.data;
+  if (csRes.ok) applyCacheStatus(csRes.data);
   if (lsRes.ok) state.librarySummary = lsRes.data;
   if (!csRes.ok || !lsRes.ok) {
     state.error = "Could not refresh library status. Please refresh if this persists.";
@@ -2577,7 +2611,12 @@ async function pollStatus() {
     state.errorKind = null;
   }
   renderApp();
-  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
+  if (state.cacheStatus?.isSyncing) {
+    startSyncStream();
+    setTimeout(pollStatus, 5000);
+  } else {
+    stopSyncStream();
+  }
 }
 
 async function loadPlaylists() {
@@ -2795,7 +2834,7 @@ async function boot() {
     api("/library/chapters").catch(() => ({ ok: false, status: 0, data: { chapters: [] } })),
   ]);
 
-  if (csRes.ok) state.cacheStatus = csRes.data;
+  if (csRes.ok) applyCacheStatus(csRes.data);
   if (lsRes.ok) state.librarySummary = lsRes.data;
   if (plRes.ok) state.playlists = plRes.data.playlists || [];
   if (histRes.ok) state.history = Array.isArray(histRes.data) ? histRes.data : [];
@@ -2812,7 +2851,10 @@ async function boot() {
     api("/spotify/sync", { method: "POST", body: JSON.stringify({ full: true }) }).catch(() => {});
   }
 
-  if (state.cacheStatus?.isSyncing) setTimeout(pollStatus, 1200);
+  if (state.cacheStatus?.isSyncing) {
+    startSyncStream();
+    setTimeout(pollStatus, 5000);
+  }
 }
 
 boot();

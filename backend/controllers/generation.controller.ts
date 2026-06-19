@@ -201,7 +201,7 @@ import {
   STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
 } from "./generation/generation-types";
 
-import { buildDominantIntentContract, shouldBlockHardSafeFinalization } from "../core/dominant-intent-contract";
+import { buildDominantIntentContract, shouldBlockHardSafeFinalization, detectDominantEmotion, trackMatchesDominantEmotion } from "../core/dominant-intent-contract";
 import { buildIntentUnderstandingDiagnostics } from "../lib/intent-understanding-diagnostics";
 import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
 import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
@@ -2108,6 +2108,8 @@ function finalTrackIsHardSafe(
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
   if (isRainyNightWalkPrompt(opts.vibe, opts.intent) && !trackIsRainyNightWalkSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) return false;
+  const promptEmotion = detectDominantEmotion(opts.vibe);
+  if (promptEmotion.explicit && !trackMatchesDominantEmotion(track, promptEmotion.emotion)) return false;
   return true;
 }
 

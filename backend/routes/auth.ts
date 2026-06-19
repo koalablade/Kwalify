@@ -18,6 +18,7 @@ import { recordSyncFailure } from "../lib/ops-metrics";
 import { logger } from "../lib/logger";
 import { getPublicBaseUrl } from "../lib/public-url";
 import { deleteUserData } from "../lib/delete-user-data";
+import { checkRateLimit } from "../lib/rate-limit";
 import { pool } from "../lib/pg-pool";
 
 const router: IRouter = Router();
@@ -60,6 +61,12 @@ function requireSpotify(res: any): boolean {
 
 router.get("/auth/login", (req, res): void => {
   if (!requireSpotify(res)) return;
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const limit = checkRateLimit(`auth:login:${ip}`, 20, 60_000);
+  if (!limit.allowed) {
+    res.status(429).json({ error: "Too many login attempts. Please wait and try again.", retryAfterSeconds: Math.ceil(limit.resetInMs / 1000) });
+    return;
+  }
   const redirectUri = getRedirectUri();
 
   const state = randomBytes(32).toString("hex");
@@ -81,6 +88,12 @@ router.get("/auth/login", (req, res): void => {
 
 router.get("/auth/callback", async (req, res): Promise<void> => {
   if (!requireSpotify(res)) return;
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const limit = checkRateLimit(`auth:callback:${ip}`, 30, 60_000);
+  if (!limit.allowed) {
+    res.redirect(getFrontendRedirect("/?error=rate_limited"));
+    return;
+  }
   const { code, error, state: returnedState } = req.query as {
     code?: string;
     error?: string;

@@ -188,6 +188,7 @@ router.get("/library/chapters", async (req, res): Promise<void> => {
   }
 
   const userId = req.session.spotifyUserId;
+  try {
   const cachedRows = getCachedLikedSongs(userId);
   const rows = cachedRows ?? await db
     .select()
@@ -221,6 +222,10 @@ router.get("/library/chapters", async (req, res): Promise<void> => {
     })),
     hint: 'Reference a chapter in your vibe: "take me back to 2019" or "my forgotten indie phase".',
   });
+  } catch (err) {
+    req.log.error({ err, userId }, "library chapters failed");
+    res.status(500).json({ error: "Could not load library chapters.", chapters: [] });
+  }
 });
 
 export default router;

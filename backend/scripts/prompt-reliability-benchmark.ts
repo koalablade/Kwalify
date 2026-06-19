@@ -89,6 +89,7 @@ type PromptBenchmarkRow = {
 };
 
 type BenchmarkReport = {
+  schemaVersion: string;
   generatedAt: string;
   commit: string;
   run: {
@@ -401,7 +402,7 @@ async function postGenerate(config: BenchmarkConfig, prompt: BenchmarkPrompt): P
         length: prompt.requestedLength,
         auditMode: true,
         spotifyUserId: config.spotifyUserId,
-        varietyBoost: true,
+        varietyBoost: process.env["BENCHMARK_VARIETY_BOOST"] === "1",
       }),
       signal: controller.signal,
     });
@@ -621,6 +622,7 @@ function buildReport(config: BenchmarkConfig, rows: PromptBenchmarkRow[], starte
       a.input.id.localeCompare(b.input.id)
     );
   return {
+    schemaVersion: "prompt-reliability-v2",
     generatedAt: new Date().toISOString(),
     commit: localGitHead(),
     run: {

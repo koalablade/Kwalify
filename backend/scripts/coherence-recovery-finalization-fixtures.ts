@@ -11,7 +11,9 @@ import {
   recoveryIntentPreCheck,
   buildDominantIntentContract,
   shouldBlockHardSafeFinalization,
+  trackMatchesDominantEmotion,
 } from "../core/dominant-intent-contract";
+import { buildConstraintRelaxationPlan } from "../core/v3/constraint-relaxation";
 import { evaluateRecoveryGuards, recoveryStageAllowed } from "../controllers/generation-recovery";
 
 function main(): void {
@@ -47,6 +49,23 @@ function main(): void {
 
   if (!shouldBlockHardSafeFinalization("strict", { primarySubgenre: "hard_techno", primaryGenres: ["electronic"] })) failed += 1;
   if (shouldBlockHardSafeFinalization("balanced", { primarySubgenre: "hard_techno", primaryGenres: ["electronic"] })) failed += 1;
+
+  if (trackMatchesDominantEmotion({ energy: 0.9, valence: 0.9 }, "melancholy")) failed += 1;
+  if (!trackMatchesDominantEmotion({ energy: 0.35, valence: 0.3 }, "melancholy")) failed += 1;
+
+  const strictRelaxPlan = buildConstraintRelaxationPlan({
+    genreFamilies: ["electronic"],
+    primaryGenre: "techno",
+    primarySubgenre: "hard_techno",
+    secondarySubgenre: null,
+    subgenreTerms: ["hard_techno"],
+    activity: null,
+    eraRange: null,
+    mood: [],
+    energy: null,
+    sceneIntent: null,
+  }, "strict");
+  if (strictRelaxPlan.length !== 1 || strictRelaxPlan[0]?.id !== "strict") failed += 1;
 
   const subgenreErase = recoveryIntentPreCheck(strictContract, {
     fallbackLevel: "soft",

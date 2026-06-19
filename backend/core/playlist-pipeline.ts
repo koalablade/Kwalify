@@ -3120,11 +3120,12 @@ function buildV3CandidatePool<T extends {
   opts: {
     minimumFillRatio?: number;
     singleWorldMode?: boolean;
+    mode?: "strict" | "balanced" | "chaotic";
   } = {},
   logger?: import("pino").Logger,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
   const forensicPreV3Trace: PreV3TraceStage[] = [];
-  const relaxationPlan = buildConstraintRelaxationPlan(lockedIntent);
+  const relaxationPlan = buildConstraintRelaxationPlan(lockedIntent, opts.mode ?? "balanced");
   const genreFamilyCache = new Map<string, string | null>();
   const laneReadyCache = new Map<string, boolean>();
   const laneReadinessReasonCache = new Map<string, string | null>();
@@ -3915,7 +3916,10 @@ export async function buildPlaylistPipeline<T extends {
   }
   if (contractGuardedScoredPool.length === 0 && globalExpansion.length > 0 && !worldBoundary.active) {
     const retrievalEmotionGate = detectDominantEmotion(opts.vibe, opts.emotionProfile);
-    const blockFatalGlobal = opts.mode === "strict" || retrievalEmotionGate.explicit;
+    const blockFatalGlobal =
+      opts.mode === "strict" ||
+      retrievalEmotionGate.explicit ||
+      !!intentContract.primarySubgenre;
     if (!blockFatalGlobal) {
       retrievalFatalEmptyPool = true;
       emptyPoolDetectedAtStage = emptyPoolDetectedAtStage ?? "pre_v3_scoring_entry";
@@ -4278,6 +4282,7 @@ export async function buildPlaylistPipeline<T extends {
         {
           minimumFillRatio: candidate.label === "strict_intent" ? 0.8 : 0.65,
           singleWorldMode: worldBoundary.hardLock,
+          mode: opts.mode,
         },
         opts.pipelineLog,
       );

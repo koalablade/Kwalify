@@ -590,4 +590,70 @@ export async function runSync(
   }
 }
 
+router.get("/spotify/sync/stream", async (req, res): Promise<void> => {
+  if (getFeatures().devMode.useMockSpotify) {
+    res.status(204).end();
+    return;
+  }
+  if (!getFeatures().spotify.enabled) {
+    res.status(503).end();
+    return;
+  }
+  if (!req.session.spotifyUserId) {
+    res.status(401).end();
+    return;
+  }
+
+  const userId = req.session.spotifyUserId;
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  let closed = false;
+  req.on("close", () => {
+    closed = true;
+  });
+
+  const pushStatus = async (): Promise<boolean> => {
+    if (closed) return false;
+    const [status] = await db
+      .select()
+      .from(syncStatusTable)
+      .where(eq(syncStatusTable.spotifyUserId, userId));
+    const payload = {
+      isSyncing: status?.isSyncing === 1,
+      syncProgress: status?.syncProgress ?? null,
+      syncTotal: status?.syncTotal ?? null,
+      totalTracks: status?.totalTracks ?? 0,
+      lastSyncedAt: status?.lastSyncedAt?.toISOString() ?? null,
+    };
+    res.write(`event: sync\ndata: ${JSON.stringify(payload)}\n\n`);
+    return payload.isSyncing;
+  };
+
+  try {
+    const stillSyncing = await pushStatus();
+    if (!stillSyncing) {
+      res.end();
+      return;
+    }
+    const timer = setInterval(() => {
+      void pushStatus().then((syncing) => {
+        if (!syncing || closed) {
+          clearInterval(timer);
+          if (!closed) res.end();
+        }
+      }).catch(() => {
+        clearInterval(timer);
+        if (!closed) res.end();
+      });
+    }, 1500);
+    timer.unref?.();
+  } catch (err) {
+    logger.warn({ err, userId }, "Sync SSE stream failed");
+    if (!closed) res.end();
+  }
+});
+
 export default router;
