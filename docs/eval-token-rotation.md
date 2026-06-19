@@ -13,6 +13,12 @@ The playlist evaluation token (`PLAYLIST_EVAL_TOKEN`) gates audit/debug generati
 npm run sync:eval-token
 ```
 
+Or generate a new token everywhere except Render (then paste + redeploy):
+
+```powershell
+npm run rotate:eval-token
+```
+
 Or set `PLAYLIST_EVAL_TOKEN` in `.env` and run `npm run verify:eval-token`.
 
 5. Redeploy and confirm:

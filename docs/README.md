@@ -14,6 +14,7 @@ This directory contains the technical documentation for the Kwalify codebase, pr
 | [playlist-generation-flow.md](./playlist-generation-flow.md) | Step-by-step pipeline from POST /api/generate to Spotify playlist |
 | [environment-variables.md](./environment-variables.md) | All env vars: required, optional, undocumented, example .env files |
 | [deployment.md](./deployment.md) | Build, run, Replit deploy, schema migration approach, checklist |
+| [local-commands.md](./local-commands.md) | Terminal cheat sheet: dev, CI, benchmarks, deploy, token sync (use when IDE is down) |
 | [audit-report.md](./audit-report.md) | Full audit findings: bugs, dead code, design observations, security, recommendations |
 
 ## Quick Reference

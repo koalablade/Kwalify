@@ -3,9 +3,38 @@
  *
  * Usage:
  *   PLAYLIST_EVAL_TOKEN='your-token' SMOKE_BASE_URL=https://kwalify.net npm run verify:eval-token
+ *   (or set PLAYLIST_EVAL_TOKEN in .env at repo root)
  */
 
-const token = process.env.PLAYLIST_EVAL_TOKEN?.trim();
+import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+function loadDotEnv() {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const envPath = path.join(root, ".env");
+  if (!existsSync(envPath)) return;
+  for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim();
+    if (key === "PLAYLIST_EVAL_TOKEN" || !(key in process.env)) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadDotEnv();
+
+function normalizeEvalToken(raw) {
+  if (typeof raw !== "string") return "";
+  return raw.trim().replace(/^["']+|["']+$/g, "").replace(/\r?\n/g, "");
+}
+
+const token = normalizeEvalToken(process.env.PLAYLIST_EVAL_TOKEN);
 const base = (process.env.SMOKE_BASE_URL ?? process.env.APP_URL ?? "https://kwalify.net").replace(/\/+$/, "");
 const spotifyUserId = process.env.SMOKE_SPOTIFY_USER_ID?.trim() ?? "koalablade";
 

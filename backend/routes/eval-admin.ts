@@ -16,6 +16,7 @@ import { matchCultureEntities, warmSceneCultureCache } from "../lib/scene-cultur
 import { refreshLiveTrends } from "../lib/trend-ingestion-live";
 import { getSessionSnapshotCacheStats } from "../core/cache/session-snapshot-cache";
 import { deploymentVersion } from "../lib/deployment-version";
+import { normalizeEvalToken } from "../lib/eval-token-normalize";
 
 const router: IRouter = Router();
 
@@ -25,13 +26,15 @@ function requestHeader(req: Request, name: string): string | undefined {
 }
 
 function requireEvalToken(req: Request, res: Response): boolean {
-  const expected = process.env["PLAYLIST_EVAL_TOKEN"]?.trim();
+  const expected = normalizeEvalToken(process.env["PLAYLIST_EVAL_TOKEN"]);
   if (!expected) {
     res.status(503).json({ error: "PLAYLIST_EVAL_TOKEN not configured" });
     return false;
   }
-  const token = requestHeader(req, "x-kwalify-evaluation-token")
-    ?? requestHeader(req, "x-eval-token");
+  const token = normalizeEvalToken(
+    requestHeader(req, "x-kwalify-evaluation-token")
+      ?? requestHeader(req, "x-eval-token"),
+  );
   if (token !== expected) {
     res.status(403).json({ error: "Invalid evaluation token" });
     return false;
