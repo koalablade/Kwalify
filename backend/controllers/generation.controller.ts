@@ -5954,6 +5954,13 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     let controlledRecoveryBlocked = false;
     let controlledRecoveryReason: string | null = null;
+    const blockUnconstrainedRecoveryFill = shouldBlockHardSafeFinalization(
+      mode as "strict" | "balanced" | "chaotic",
+      {
+        primarySubgenre: lockedIntent.primarySubgenre ?? null,
+        primaryGenres: lockedIntent.primaryGenres,
+      },
+    );
     if (recoveryGuards.controlledFailure && finalTracks.length < Math.ceil(length * 0.55)) {
       controlledRecoveryBlocked = true;
       controlledRecoveryReason = recoveryGuards.reason;
@@ -6205,7 +6212,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           ? appendDeterministicFill(null, false)
           : 0;
         let absoluteLastResortAdded = 0;
-        if (finalTracks.length < length && !recoveryGuards.controlledFailure) {
+        if (finalTracks.length < length && !recoveryGuards.controlledFailure && !blockUnconstrainedRecoveryFill) {
           const absoluteCandidates = expandedUnderfillPool
             .filter((track) => !deterministicSeenIds.has(track.trackId))
             .sort((a, b) => finalCompletionCandidateScore(b) - finalCompletionCandidateScore(a));
@@ -6221,7 +6228,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           }
         }
         let finalLibrarySweepAdded = 0;
-        if (finalTracks.length < length && !controlledRecoveryBlocked && !recoveryGuards.controlledFailure) {
+        if (finalTracks.length < length && !controlledRecoveryBlocked && !recoveryGuards.controlledFailure && !blockUnconstrainedRecoveryFill) {
           for (const track of scoringInputSongs) {
             if (finalTracks.length >= length) break;
             const candidate = toUnderfillCandidate(track);
