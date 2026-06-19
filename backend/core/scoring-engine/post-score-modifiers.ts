@@ -112,7 +112,7 @@ export function applyPostScoreModifiers<T extends {
     }
 
     if (input.memoryWeight > 0.45 && (song.acousticness ?? 0) > 0.35) {
-      score += input.memoryWeight * 0.04;
+      score += (input.memoryWeight / 0.55) * input.memoryWeight * 0.04;
     }
 
     const signal = input.librarySignals.tracks.get(song.trackId);

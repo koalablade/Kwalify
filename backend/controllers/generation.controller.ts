@@ -201,7 +201,7 @@ import {
   STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
 } from "./generation/generation-types";
 
-import { buildDominantIntentContract, shouldBlockHardSafeFinalization, detectDominantEmotion, trackMatchesDominantEmotion, capTastePullWeight } from "../core/dominant-intent-contract";
+import { buildDominantIntentContract, shouldBlockHardSafeFinalization, detectDominantEmotion, trackMatchesDominantEmotion, capTastePullWeight, splitSceneContracts } from "../core/dominant-intent-contract";
 import { buildIntentUnderstandingDiagnostics } from "../lib/intent-understanding-diagnostics";
 import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
 import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
@@ -3996,6 +3996,20 @@ router.post("/generate", async (req, res): Promise<void> => {
       : userId;
 
     if (!sideEffectPolicy.bypassRateLimit) {
+    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+    const ipRateCheck = checkRateLimit(`generate:ip:${clientIp}`, RATE_LIMIT_MAX * 2, RATE_LIMIT_WINDOW_MS);
+    if (!ipRateCheck.allowed) {
+      const retryAfterSec = Math.ceil(ipRateCheck.resetInMs / 1000);
+      res.setHeader("Retry-After", String(retryAfterSec));
+      generateFail(
+        res,
+        429,
+        "RATE_LIMITED",
+        `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
+        { retry_after: retryAfterSec }
+      );
+      return;
+    }
     const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!rateCheck.allowed) {
       const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
@@ -4893,13 +4907,17 @@ router.post("/generate", async (req, res): Promise<void> => {
         : momentPipeline?.experienceScene
           ? 0.35
           : 0;
+    const tasteCapPlaces = splitSceneContracts(vibe).place.filter(
+      (place): place is "rural" | "outdoors" | "city" | "beach" | "bedroom" | "car" =>
+        place === "rural" || place === "outdoors" || place === "city" || place === "beach" || place === "bedroom" || place === "car",
+    );
     const tasteCapContract = buildDominantIntentContract({
       prompt: vibe,
       intentContract: {
         primarySubgenre: null,
         genreFamilies: [],
         activity: null,
-        places: [],
+        places: tasteCapPlaces,
         eraRange: null,
         explicitDimensions: [],
       },
@@ -5496,7 +5514,11 @@ router.post("/generate", async (req, res): Promise<void> => {
     } | undefined;
     if (
       preV3PoolHealth?.healthy === false &&
-      (mode === "strict" || (preV3PoolHealth.actual ?? 0) < Math.max(3, Math.ceil(length * 0.15)))
+      (
+        mode === "strict" ||
+        !!lockedIntent.primarySubgenre ||
+        (preV3PoolHealth.actual ?? 0) < Math.max(3, Math.ceil(length * 0.15))
+      )
     ) {
       generateFail(
         res,

@@ -194,6 +194,14 @@ async function timeboxRetrievalSource<T>(
   return result;
 }
 
+export function allowNoLibraryGlobalFallback(opts: {
+  mode?: "strict" | "balanced" | "chaotic";
+  primarySubgenre?: string | null;
+  allowGlobalFallback?: boolean;
+}): boolean {
+  return opts.allowGlobalFallback !== false && !(opts.mode === "strict" && !!opts.primarySubgenre);
+}
+
 export async function buildNoLibrarySpotifyCandidates(opts: {
   accessToken: string;
   userId: string;
@@ -262,9 +270,7 @@ export async function buildNoLibrarySpotifyCandidates(opts: {
     diagnostics.fallbackExpansionPath?.push(`family:${rawTracks.length}`);
   }
   if (rawTracks.length === 0) {
-    const allowGlobalFallback = opts.allowGlobalFallback !== false &&
-      !(opts.mode === "strict" && !!opts.primarySubgenre);
-    if (!allowGlobalFallback) {
+    if (!allowNoLibraryGlobalFallback(opts)) {
       diagnostics.emptyPoolDetectedAtStage = diagnostics.emptyPoolDetectedAtStage ?? "spotify_search_family";
       diagnostics.fallbackDepthReached = Math.max(diagnostics.fallbackDepthReached ?? 0, 2);
       diagnostics.retrievalBlockingReason = "global_fallback_blocked_no_library_strict";

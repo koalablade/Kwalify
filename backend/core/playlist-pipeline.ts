@@ -3865,13 +3865,22 @@ export async function buildPlaylistPipeline<T extends {
   const globalExpansion = hardCompatibleScoredPool.length > 0
     ? hardCompatibleScoredPool
     : scoring.sorted as ScoredLibraryTrack<T>[];
+  const blockGlobalExpansion =
+    !!opts.noLibraryMode ||
+    opts.mode === "strict" ||
+    !!intentContract.primarySubgenre ||
+    worldBoundary.hardLock;
+  const blockSubgenreDilutingFallback =
+    opts.mode === "strict" && !!intentContract.primarySubgenre;
   const fallbackSteps: Array<{
     level: "family" | "adjacent" | "global";
     pool: ScoredLibraryTrack<T>[];
   }> = [
-    { level: "family", pool: sameFamilyExpansion },
-    ...(relatedSubgenreExhausted ? [{ level: "adjacent" as const, pool: adjacentExpansion }] : []),
-    { level: "global", pool: globalExpansion },
+    ...(!blockSubgenreDilutingFallback ? [{ level: "family" as const, pool: sameFamilyExpansion }] : []),
+    ...(relatedSubgenreExhausted && !blockSubgenreDilutingFallback
+      ? [{ level: "adjacent" as const, pool: adjacentExpansion }]
+      : []),
+    ...(!blockGlobalExpansion ? [{ level: "global" as const, pool: globalExpansion }] : []),
   ];
   const preV3PoolHealth = assessCandidatePoolHealth(
     contractGuardedScoredPool.length,
@@ -3897,7 +3906,9 @@ export async function buildPlaylistPipeline<T extends {
     contractGuardedScoredPool.length < Math.max(minSafePreRankingPool, Math.ceil(opts.playlistLength * 1.5));
   fallbackSkippedByFastPath = (sceneStableFastPath || candidatePoolStabilized) && !constrainedCompletionAtRisk;
   fastPathTriggered = fallbackSkippedByFastPath || repetitionPassSkipped;
-  const maxFallbackDepth = worldBoundary.hardLock ? 0 : 1;
+  const maxFallbackDepth = worldBoundary.hardLock || blockSubgenreDilutingFallback || opts.noLibraryMode
+    ? 0
+    : 1;
   while (
     contractGuardedScoredPool.length < minSafePreRankingPool &&
     !fallbackSkippedByFastPath &&
@@ -3914,12 +3925,13 @@ export async function buildPlaylistPipeline<T extends {
     finalFallbackLevelUsed = step.level;
     fallbackExpansionPath.push(`${step.level}:${contractGuardedScoredPool.length}`);
   }
-  if (contractGuardedScoredPool.length === 0 && globalExpansion.length > 0 && !worldBoundary.active) {
+  if (contractGuardedScoredPool.length === 0 && globalExpansion.length > 0 && !worldBoundary.active && !opts.noLibraryMode) {
     const retrievalEmotionGate = detectDominantEmotion(opts.vibe, opts.emotionProfile);
     const blockFatalGlobal =
       opts.mode === "strict" ||
       retrievalEmotionGate.explicit ||
-      !!intentContract.primarySubgenre;
+      !!intentContract.primarySubgenre ||
+      blockGlobalExpansion;
     if (!blockFatalGlobal) {
       retrievalFatalEmptyPool = true;
       emptyPoolDetectedAtStage = emptyPoolDetectedAtStage ?? "pre_v3_scoring_entry";
