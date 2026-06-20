@@ -131,6 +131,11 @@ import {
 } from "../lib/curator-identity";
 import { runRequestLayerGeneration, type RequestGenerationOrchestration } from "../lib/request-generation-orchestrator";
 import {
+  profileUserLibrary,
+  estimatePromptUncertainty,
+  resolveGenerationPolicy,
+} from "../lib/library-generation-policy";
+import {
   buildLockedIntent as buildCsspLockedIntent,
   completeLockedIntent as completeCsspLockedIntent,
   GENRE_ALIASES,
@@ -5714,6 +5719,33 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const pipelineReady = scoringInputSongs.length >= Math.max(8, Math.min(length, 20));
     const useFastFallback = !devMode && budget.shouldFastFallback() && !pipelineReady;
+    const generationPolicy = resolveGenerationPolicy(
+      profileUserLibrary(likedSongs, userGenreProfile.trackClassifications),
+      estimatePromptUncertainty({
+        vibe,
+        moodCount: lockedIntent.mood.length,
+        explicitDimensions: parsedCsspIntent.interpretationBudget?.appliedDimensions?.length ?? (
+          (lockedIntent.genreFamilies.length > 0 ? 1 : 0) +
+          (lockedIntent.eraRange ? 1 : 0) +
+          (lockedIntent.activity ? 1 : 0) +
+          (lockedIntent.energy ? 1 : 0) +
+          (lockedIntent.primarySubgenre ? 1 : 0)
+        ),
+        interpretationComplexity: parsedCsspIntent.interpretationBudget?.complexity,
+        sceneConfidence: parsedCsspIntent.sceneIntent?.sceneConfidence ?? null,
+        emotionProfile,
+      }),
+    );
+    req.log.info(
+      {
+        libraryRichness: generationPolicy.library.richness,
+        libraryDistribution: generationPolicy.library.distribution,
+        promptUncertainty: generationPolicy.prompt.score,
+        retrievalBreadth: generationPolicy.retrievalBreadth,
+        disableFastPath: generationPolicy.disableFastPath,
+      },
+      "Library-aware generation policy resolved",
+    );
 
     let pipeline: BuildPlaylistPipelineResult<(typeof likedSongs)[number]> & {
       requestOrchestration?: RequestGenerationOrchestration;
@@ -5841,6 +5873,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       diagnosticsMode: debugMode ? "full" : "minimal",
       profileStage: liveStageProfiler.start,
       shouldAbort: generationShouldAbort,
+      generationPolicy,
       progress: (stage, detail) => {
         if (generationShouldAbort()) return;
         let phaseAccepted = true;

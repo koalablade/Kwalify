@@ -82,6 +82,9 @@ export interface PostScoreModifierInput<T extends { trackId: string; artistName:
   globalTasteProfile?: GlobalTasteProfile | null;
   globalGenreFamily?: string | null;
   trendPrompt?: string;
+  /** Library-aware scaling from generation policy */
+  discoveryBoostScale?: number;
+  mainstreamSuppressionScale?: number;
 }
 
 export function applyPostScoreModifiers<T extends {
@@ -188,8 +191,14 @@ export function applyPostScoreModifiers<T extends {
     }
     if (typeof enriched.popularity === "number") {
       const pop = enriched.popularity;
-      const discoveryBoost = pop <= 45 ? Math.max(0, (45 - pop) / 45) * 0.04 : 0;
-      const mainstreamPenalty = pop >= 78 ? Math.min(0.03, (pop - 78) / 22 * 0.03) : 0;
+      const discoveryScale = input.discoveryBoostScale ?? 1;
+      const mainstreamScale = input.mainstreamSuppressionScale ?? 1;
+      const discoveryBoost = pop <= 45
+        ? Math.max(0, (45 - pop) / 45) * 0.04 * discoveryScale
+        : 0;
+      const mainstreamPenalty = pop >= 70
+        ? Math.min(0.06 * mainstreamScale, ((pop - 70) / 30) * 0.06 * mainstreamScale)
+        : 0;
       score += discoveryBoost - mainstreamPenalty;
     }
     const curatorScore = input.curatorScoreByTrack?.get(song.trackId);

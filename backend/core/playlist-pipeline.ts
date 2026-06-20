@@ -28,6 +28,7 @@ import {
   type WorldBoundary,
 } from "./world-boundary";
 import { scorePlaylistCoherence } from "./playlist-coherence-audit";
+import type { GenerationPolicy } from "../lib/library-generation-policy";
 import type { EmotionProfile, VibeKind } from "../lib/emotion";
 import type { IntentDecodeResult } from "../lib/intent-decoder";
 import type { CanonicalSceneResult } from "../lib/scene-canonicalizer";
@@ -201,6 +202,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
   profileStage?: (stage: string, detail?: string) => () => void;
   progress?: (stage: "scoring" | "retrieval" | "lanes" | "sampling" | "fallback" | "coherence", detail: string) => void | Promise<void>;
   shouldAbort?: () => boolean;
+  /** Library + prompt uncertainty adaptation layer */
+  generationPolicy?: GenerationPolicy;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -1106,6 +1109,7 @@ function constrainPoolToIntentContract<T extends IntentContractTrack>(
   pool: T[],
   classMap: UserGenreProfile["trackClassifications"],
   contract: IntentContract,
+  fitElasticity = 1,
 ): { pool: T[]; diagnostics: IntentContractDiagnostics } {
   if (contract.explicitDimensions.length === 0) {
     return {
@@ -1117,14 +1121,16 @@ function constrainPoolToIntentContract<T extends IntentContractTrack>(
     track,
     fit: intentContractFit(track, classMap, contract),
   }));
-  const strict = scored.filter(({ fit }) => fit.requiredPassed && fit.score >= 0.50);
+  const strictMin = 0.50 * fitElasticity;
+  const relaxedMin = 0.34 * fitElasticity;
+  const strict = scored.filter(({ fit }) => fit.requiredPassed && fit.score >= strictMin);
   const rareSubgenreFloor = contract.primarySubgenre
     ? Math.min(12, Math.max(4, Math.ceil(pool.length * 0.08)))
     : 0;
   const strictEnoughForNicheSubgenre = !contract.primarySubgenre || strict.length >= rareSubgenreFloor;
   const relaxed = strict.length > 0 && strictEnoughForNicheSubgenre
     ? strict
-    : scored.filter(({ fit }) => fit.requiredPassed && fit.score >= 0.34);
+    : scored.filter(({ fit }) => fit.requiredPassed && fit.score >= relaxedMin);
   const hasRequiredContract = contract.genreFamilies.length > 0 || contract.excludedGenreFamilies.length > 0 || !!contract.eraRange;
   const safeMinimum = hasRequiredContract
     ? Math.min(pool.length, Math.max(12, Math.ceil(pool.length * 0.10)))
@@ -1603,6 +1609,8 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     promptSceneProfile?: PromptSceneProfile | null;
     artistEcosystemGraph?: ArtistEcosystemGraph | null;
     semanticMaxBoost?: number;
+    retrievalBreadth?: number;
+    escapeDiversityRatio?: number;
   } = {},
 ): Promise<RetrievalPools<T>> {
   const MIN_BROAD_RETRIEVAL_POOL = 120;
@@ -2007,15 +2015,23 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
       genreFamilyForTrack(track, classMap),
     ))
     : discovery;
+  const breadth = opts.retrievalBreadth ?? 1;
+  const escapeRatio = opts.escapeDiversityRatio ?? 0.12;
+  const coreLimit = Math.ceil((worldBoundary.hardLock ? 120 : 160) * breadth);
+  const anchorLimit = Math.ceil((worldBoundary.hardLock ? 60 : 80) * breadth);
+  const adjacentLimit = Math.ceil(100 * breadth);
+  const bridgeLimit = Math.ceil(80 * breadth);
+  const energyArcLimit = Math.ceil(80 * breadth);
+  const discoveryLimit = Math.ceil((worldBoundary.hardLock ? 40 : 80) * breadth * (1 + escapeRatio));
   return {
-    core: takeUnique(coreSource, worldBoundary.hardLock ? 120 : 160),
-    anchor: takeUnique(anchor, worldBoundary.hardLock ? 60 : 80),
-    adjacent: takeUnique(worldBoundary.hardLock ? [] : adjacent, 100),
-    bridge: takeUnique(worldBoundary.hardLock ? coreSource : [...adjacent, ...contractRanked], 80),
-    energyArc: takeUnique(energyArc, 80),
+    core: takeUnique(coreSource, coreLimit),
+    anchor: takeUnique(anchor, anchorLimit),
+    adjacent: takeUnique(worldBoundary.hardLock ? [] : adjacent, adjacentLimit),
+    bridge: takeUnique(worldBoundary.hardLock ? coreSource : [...adjacent, ...contractRanked], bridgeLimit),
+    energyArc: takeUnique(energyArc, energyArcLimit),
     discovery: takeUnique(
       worldDiscoverySource.length > 0 ? worldDiscoverySource : contractRanked.slice().reverse(),
-      worldBoundary.hardLock ? 40 : 80,
+      discoveryLimit,
     ),
     diagnostics: {
       inputCount: tracks.length,
@@ -2084,19 +2100,27 @@ function activityPromptKind(vibe: string, profile: EmotionProfile): "gym" | "par
   return null;
 }
 
-function diversityPressureForViablePool(kind: "gym" | "party" | null, viablePoolSize: number): number {
+function diversityPressureForViablePool(
+  kind: "gym" | "party" | null,
+  viablePoolSize: number,
+  policyPressure = 1,
+): number {
   if (kind === "gym") {
-    if (viablePoolSize < 50) return 0.35;
-    if (viablePoolSize < 100) return 0.55;
-    if (viablePoolSize < 180) return 0.90;
-    return 1.10;
+    if (viablePoolSize < 50) return Math.min(policyPressure, 0.35);
+    if (viablePoolSize < 100) return Math.min(policyPressure, 0.55);
+    if (viablePoolSize < 180) return Math.min(policyPressure, 0.90);
+    return policyPressure * 1.10;
   }
   if (kind === "party") {
-    if (viablePoolSize < 50) return 0.50;
-    if (viablePoolSize < 120) return 0.90;
-    return 1.10;
+    if (viablePoolSize < 50) return Math.min(policyPressure, 0.50);
+    if (viablePoolSize < 120) return Math.min(policyPressure, 0.90);
+    return policyPressure * 1.10;
   }
-  return 1;
+  if (viablePoolSize < 45) return policyPressure * 0.62;
+  if (viablePoolSize < 90) return policyPressure * 0.78;
+  if (viablePoolSize < 160) return policyPressure * 0.92;
+  if (viablePoolSize >= 320) return policyPressure * 1.08;
+  return policyPressure;
 }
 
 function flattenRetrievalPools<T>(retrieval: RetrievalPools<T>): T[] {
@@ -3501,6 +3525,7 @@ export async function buildPlaylistPipeline<T extends {
   if (opts.shouldAbort?.()) abortPipeline("scoring");
   let stageStartedAt = Date.now();
   const endScoringProfile = opts.profileStage?.("pipeline.scoring", `${opts.likedSongs.length} liked songs`);
+  const policy = opts.generationPolicy;
   let scoring: ReturnType<typeof runScoringPipeline<T>>;
   try {
     scoring = runScoringPipeline({
@@ -3520,12 +3545,14 @@ export async function buildPlaylistPipeline<T extends {
       memoryByTrack: opts.memoryByTrack,
       noveltyByTrack: opts.noveltyByTrack,
       recentPlaylistTrackIds: opts.recentPlaylistTrackIds,
-      varietyPenaltyScale: opts.varietyPenaltyScale,
+      varietyPenaltyScale: (opts.varietyPenaltyScale ?? 1) * (policy?.diversityPressure ?? 1),
       referencePlaylist: opts.referencePlaylist,
       noLibraryMode: opts.noLibraryMode,
       postScore: {
         ...opts.postScore,
         emotionProfile: opts.emotionProfile,
+        discoveryBoostScale: policy?.discoveryBoost,
+        mainstreamSuppressionScale: policy?.mainstreamSuppression,
       },
     });
   } finally {
@@ -3706,6 +3733,8 @@ export async function buildPlaylistPipeline<T extends {
         multiObjectPlan: opts.postScore.multiObjectPlan ?? null,
         trendPrompt: opts.postScore.trendPrompt,
         ...semanticRetrievalOpts,
+        retrievalBreadth: policy?.retrievalBreadth,
+        escapeDiversityRatio: policy?.escapeDiversityRatio,
       },
     );
     if (opts.shouldAbort?.()) abortPipeline("retrieval");
@@ -3714,7 +3743,11 @@ export async function buildPlaylistPipeline<T extends {
     activityKind = activityPromptKind(opts.vibe, opts.emotionProfile);
     effectiveDiversityPressure = Math.min(
       opts.sessionArtistMemory?.diversityPressure ?? 1,
-      diversityPressureForViablePool(activityKind, unpenalizedViablePoolSize),
+      diversityPressureForViablePool(
+        activityKind,
+        unpenalizedViablePoolSize,
+        policy?.diversityPressure ?? 1,
+      ),
     );
     effectiveSessionArtistMemory = withSessionDiversityPressure(
       opts.sessionArtistMemory,
@@ -3749,10 +3782,18 @@ export async function buildPlaylistPipeline<T extends {
   // Playlist output MUST remain inside Intent Contract bounds
   // before ANY widening or fallback logic is applied.
   // No fallback stage may violate genre/mood/era/context intent.
-  const contractGuard = constrainPoolToIntentContract(contractSafePool, classMap, intentContract);
+  const contractGuard = constrainPoolToIntentContract(
+    contractSafePool,
+    classMap,
+    intentContract,
+    policy?.intentElasticity ?? 1,
+  );
   const minContractGuardFloor = Math.min(
     contractSafePool.length,
-    Math.max(27, Math.ceil(opts.playlistLength * 0.90)),
+    Math.max(
+      policy?.library.richness === "sparse" ? 18 : 27,
+      Math.ceil(opts.playlistLength * (policy?.minCandidateRatio ?? 0.90)),
+    ),
   );
   const contractGuardSoftFallback = contractSafePool
     .filter((track) => trackCompatibleWithHardIntentContract(track, classMap, intentContract))
@@ -3975,7 +4016,9 @@ export async function buildPlaylistPipeline<T extends {
     sceneConstraintActive(intentContract) &&
     contractGuardedScoredPool.length < Math.max(minSafePreRankingPool, Math.ceil(opts.playlistLength * 1.5));
   const preserveDiscoveryForBlend = multiSignalSceneBlend(intentContract);
-  fallbackSkippedByFastPath = (sceneStableFastPath || candidatePoolStabilized) &&
+  const policyBlocksFastPath = policy?.disableFastPath === true;
+  fallbackSkippedByFastPath = !policyBlocksFastPath &&
+    (sceneStableFastPath || candidatePoolStabilized) &&
     !constrainedCompletionAtRisk &&
     !preserveDiscoveryForBlend;
   fastPathTriggered = fallbackSkippedByFastPath || (repetitionPassSkipped && !preserveDiscoveryForBlend);
@@ -4601,6 +4644,22 @@ export async function buildPlaylistPipeline<T extends {
       maxFallbackDepth,
       fallbackSkippedByFastPath,
     },
+    generationPolicy: policy
+      ? {
+          libraryRichness: policy.library.richness,
+          libraryDistribution: policy.library.distribution,
+          trackCount: policy.library.trackCount,
+          genreEntropy: policy.library.genreEntropy,
+          mainstreamRatio: policy.library.mainstreamRatio,
+          discoveryCapacity: policy.library.discoveryCapacity,
+          promptUncertainty: policy.prompt.score,
+          retrievalBreadth: policy.retrievalBreadth,
+          diversityPressure: policy.diversityPressure,
+          mainstreamSuppression: policy.mainstreamSuppression,
+          intentElasticity: policy.intentElasticity,
+          disableFastPath: policy.disableFastPath,
+        }
+      : null,
   };
   opts.pipelineLog?.info({
     preV3PoolSize: v3CandidatePool.tracks.length,
