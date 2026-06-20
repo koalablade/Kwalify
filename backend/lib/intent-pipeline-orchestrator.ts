@@ -3,7 +3,8 @@
  */
 
 import { buildIntentState, type IntentState } from "../core/intent-state-engine";
-import { decomposeIntent, type DecomposedIntent } from "../core/intent-decomposer";
+import { buildAuthoritativeIntentContract, type AuthoritativeIntentContract } from "../core/authoritative-intent-contract";
+import type { DecomposedIntent } from "../core/intent-decomposer";
 import { resolveSceneLock, type SceneLockStatus } from "../core/scene-lock-mode";
 import { buildEmotionalArc, type EmotionalArc } from "../core/emotional-arc-planner";
 import { buildIntentLossReport, type IntentLossReport } from "./intent-loss-report";
@@ -12,13 +13,24 @@ import {
   scenePredictionFromAliases,
 } from "./scene-alias-graph";
 import { familiarityModeForGenerateMode, type FamiliarityMode } from "./familiarity-controller";
+import {
+  filterSceneAliasesThroughManifold,
+  filterScenePredictionThroughManifold,
+  mergeProjectedWeightsIntoPrediction,
+  type SceneProjection,
+  type UserTasteManifold,
+} from "./user-taste-manifold";
+import { expandCulturalReferences } from "./cultural-reference-expansion";
+import { buildSceneModifier, type SceneModifier } from "./scene-modifier";
 
 export type IntentPipelineContext = {
+  authoritativeIntent: AuthoritativeIntentContract;
   decomposedIntent: DecomposedIntent;
   intentState: IntentState;
   intentLossReport: IntentLossReport;
   sceneAliases: string[];
   scenePrediction: Record<string, number>;
+  sceneModifier: SceneModifier;
   sceneLockStatus: SceneLockStatus;
   emotionalArc: EmotionalArc;
   familiarityMode: FamiliarityMode;
@@ -29,10 +41,20 @@ export function buildIntentPipelineContext(
   generateMode: "strict" | "balanced" | "chaotic",
   familiarityOverride?: FamiliarityMode | null,
 ): IntentPipelineContext {
-  const decomposedIntent = decomposeIntent(prompt);
-  const intentState = buildIntentState(prompt);
+  const authoritativeIntent = buildAuthoritativeIntentContract({
+    prompt,
+    mode: generateMode,
+  });
+  const decomposedIntent = authoritativeIntent.decomposedIntent;
+  const intentState = authoritativeIntent.intentState;
   const sceneAliases = resolveDecomposedSceneAliases(decomposedIntent);
   const scenePrediction = scenePredictionFromAliases(sceneAliases, decomposedIntent.confidence);
+  const expansion = expandCulturalReferences(prompt);
+  const sceneModifier = buildSceneModifier({
+    prompt,
+    expansion,
+    scenePrediction,
+  });
   const sceneLockStatus = resolveSceneLock(intentState, prompt);
   const emotionalArc = buildEmotionalArc(decomposedIntent);
   const intentLossReport = buildIntentLossReport(intentState, {
@@ -42,11 +64,13 @@ export function buildIntentPipelineContext(
   const familiarityMode = familiarityModeForGenerateMode(generateMode, familiarityOverride);
 
   return {
+    authoritativeIntent,
     decomposedIntent,
     intentState,
     intentLossReport,
     sceneAliases,
-    scenePrediction,
+    scenePrediction: sceneModifier.weights,
+    sceneModifier,
     sceneLockStatus,
     emotionalArc,
     familiarityMode,
@@ -67,22 +91,25 @@ function buildAssumptions(intent: DecomposedIntent, sceneAliases: string[]): str
   return assumptions.slice(0, 8);
 }
 
-/** Soft-merge scene alias families into genre intent — library-first, never inject cultural genres alone. */
+/** @deprecated Scene never merges genres — returns base unchanged. */
 export function mergeSceneAliasesIntoGenres(
   genreFamilies: string[],
-  sceneAliases: string[],
-  opts?: { libraryGenreFamilies?: string[] },
+  _sceneAliases: string[],
+  _opts?: { libraryGenreFamilies?: string[] },
 ): string[] {
-  if (sceneAliases.length === 0) return genreFamilies;
-  const base = [...genreFamilies];
-  if (base.length === 0) {
-    return [];
+  return [...genreFamilies];
+}
+
+export function anchorSceneContextToManifold(
+  sceneAliases: string[],
+  scenePrediction: Record<string, number>,
+  manifold: UserTasteManifold | null,
+  sceneProjection?: SceneProjection | null,
+): { sceneAliases: string[]; scenePrediction: Record<string, number> } {
+  const anchoredAliases = filterSceneAliasesThroughManifold(sceneAliases, manifold);
+  let anchoredPrediction = filterScenePredictionThroughManifold(scenePrediction, manifold);
+  if (sceneProjection && manifold) {
+    anchoredPrediction = mergeProjectedWeightsIntoPrediction(anchoredPrediction, sceneProjection);
   }
-  const library = new Set(opts?.libraryGenreFamilies ?? []);
-  const merged = [...base];
-  for (const alias of sceneAliases) {
-    if (library.size > 0 && !library.has(alias)) continue;
-    if (!merged.includes(alias)) merged.push(alias);
-  }
-  return merged.slice(0, 6);
+  return { sceneAliases: anchoredAliases, scenePrediction: anchoredPrediction };
 }

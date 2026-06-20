@@ -107,14 +107,7 @@ export function matchLiveTrends(prompt: string, trends: LiveTrend[]): LiveTrend[
 
 export function liveTrendSceneAliases(prompt: string, trends: LiveTrend[]): string[] {
   const matches = matchLiveTrends(prompt, trends);
-  const families = new Set<string>();
-  for (const match of matches) {
-    for (const family of match.genreFamilies) families.add(family);
-  }
-  if (families.size === 0 && trends.length > 0) {
-    for (const family of trends[0]!.genreFamilies) families.add(family);
-  }
-  return [...families].slice(0, 4);
+  return matches.map((match) => match.term.replace(/\s+/g, "-")).slice(0, 4);
 }
 
 export function liveTrendBoost(prompt: string, trends: LiveTrend[]): number {

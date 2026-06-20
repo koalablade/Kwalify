@@ -128,17 +128,7 @@ export function matchCultureEntities(prompt: string, limit = 5): CultureMatch[] 
 
 export function cultureSceneAliasesForPrompt(prompt: string): string[] {
   const matches = matchCultureEntities(prompt);
-  const families = new Set<string>();
-  for (const match of matches) {
-    for (const family of match.genreFamilies) families.add(family);
-    families.add(match.entity.entityKey);
-  }
-  for (const match of matches) {
-    for (const alias of resolveSceneAliases(match.entity.entityKey)) {
-      families.add(alias);
-    }
-  }
-  return [...families].slice(0, 8);
+  return matches.map((match) => match.entity.entityKey).slice(0, 4);
 }
 
 export function cultureRetrievalBoost(prompt: string): number {

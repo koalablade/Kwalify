@@ -44,6 +44,7 @@ jobs:
       - name: Coherence fixtures
         run: |
           npm run coherence:intent
+          npm run coherence:intent-contract-ssot
           npm run coherence:playlist
           npm run coherence:world-boundary
           npm run coherence:uk-hip-hop
@@ -53,6 +54,15 @@ jobs:
           npm run coherence:recovery-finalization
           npm run coherence:cultural-references
           npm run coherence:taste-preservation
+          npm run benchmark:library-anchored-scenes
+          npm run benchmark:deep-music-semantics
+          npm run stress:cross-library
+          npm run stress:identity-preservation
+          npm run stress:adversarial:ci
+          npm run benchmark:scene-collisions
+          npm run coherence:scene-filter
+          npm run coherence:truthful-metrics
+          npm run audit:benchmarks:ci
           npm run benchmark:pairwise-signatures
       - name: Semantic scene benchmark
         run: npm run ci:semantic-scenes

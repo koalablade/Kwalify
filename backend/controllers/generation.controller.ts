@@ -208,13 +208,14 @@ import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceS
 import { runCoherenceRebuildLoop } from "../core/rebuild-loop";
 import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
 import { buildPlaylistSegments, orderTracksByPlaylistSegments, type EmotionalArc } from "../core/emotional-arc-planner";
-import { buildIntentPipelineContext, mergeSceneAliasesIntoGenres } from "../lib/intent-pipeline-orchestrator";
+import { buildIntentPipelineContext } from "../lib/intent-pipeline-orchestrator";
 import { compilePlaylistContext } from "../core/playlist-compiler";
 import { recordPromptSceneMemory } from "../lib/cross-session-memory";
 import { refreshGlobalTasteProfile } from "../lib/global-taste-profile";
 import { assignTracksToSegments } from "../core/segment-playlist-planner";
 import { segmentAssignmentsToDiagnostics, coherenceRepairSettingsFromPlan, coherenceGateFromPlan } from "../core/compile-plan-dsl";
 import type { TasteGraphV2 } from "../lib/taste-graph-v2";
+import type { UserTasteManifold } from "../lib/user-taste-manifold";
 import type { CompilePlanDSL } from "../core/compile-plan-dsl";
 import {
   buildNoLibrarySpotifyCandidates,
@@ -4209,6 +4210,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let familiarityMode = intentPipeline.familiarityMode;
     let mergedScenePrediction = intentPipeline.scenePrediction;
     let tasteGraphV2: TasteGraphV2 | null = null;
+    let tasteManifold: UserTasteManifold | null = null;
     let globalTasteProfile: import("../lib/global-taste-profile").GlobalTasteProfile | null = null;
     let compilePlan: CompilePlanDSL | null = null;
     let segmentDiagnostics: Array<{ segmentId: string; label: string; trackIds: string[] }> = [];
@@ -5031,6 +5033,22 @@ router.post("/generate", async (req, res): Promise<void> => {
           .filter((family): family is NonNullable<typeof family> => typeof family === "string" && family.length > 0),
       )].map(String).slice(0, 8);
       const likedArtists = [...new Set(likedSongs.map((song) => song.artistName).filter(Boolean))].slice(0, 50);
+      const manifoldTracks = likedSongs.map((song) => {
+        const classification = userGenreProfile.trackClassifications.get(song.trackId);
+        return {
+          trackId: song.trackId,
+          artistName: song.artistName,
+          genreFamily: classification?.genreFamily ?? null,
+          genrePrimary: classification?.genrePrimary ?? null,
+          genres: classification?.subGenres ?? null,
+          energy: song.energy,
+          valence: song.valence,
+          tempo: song.tempo,
+          danceability: song.danceability,
+          acousticness: song.acousticness,
+          instrumentalness: song.instrumentalness,
+        };
+      });
       const compiled = await compilePlaylistContext({
         prompt: vibe,
         userId,
@@ -5040,6 +5058,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         feedbackMemory,
         likedGenreFamilies,
         likedArtists,
+        manifoldTracks,
         samePromptRegenerate: varietyBoost === true,
       });
       sceneAliases = compiled.sceneAliases;
@@ -5047,6 +5066,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       familiarityMode = compiled.intentPipeline.familiarityMode;
       length = compiled.compilePlan.length;
       tasteGraphV2 = compiled.tasteGraphV2;
+      tasteManifold = compiled.tasteManifold;
       globalTasteProfile = compiled.globalTaste;
       compilePlan = compiled.compilePlan;
       adaptiveReasons = [...compiled.adaptiveProfile.reasons, ...(compiled.compilePlan.morphPlan?.morph.reasons ?? [])];
@@ -5261,15 +5281,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         .filter((family): family is NonNullable<typeof family> => typeof family === "string" && family.length > 0),
     )].map(String).slice(0, 8);
     const v3FallbackIntent = completeCsspLockedIntent(parsedCsspIntent, {
-      genreFamilies: mergeSceneAliasesIntoGenres(
-        lockedIntent.genreFamilies.length > 0
-          ? lockedIntent.genreFamilies
-          : fallbackLockedFamily
-            ? [fallbackLockedFamily]
-            : [],
-        sceneAliases,
-        { libraryGenreFamilies },
-      ),
+      genreFamilies: lockedIntent.genreFamilies.length > 0
+        ? lockedIntent.genreFamilies
+        : fallbackLockedFamily
+          ? [fallbackLockedFamily]
+          : [],
       eraRange: lockedIntent.eraRange,
       mood: lockedIntent.mood,
       activity: lockedIntent.activity,
@@ -5468,6 +5484,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         scenePrediction: mergedScenePrediction,
         sceneLock: sceneLockStatus,
         tasteGraphV2,
+        tasteManifold,
         globalTasteProfile,
         multiObjectPlan: compilePlan?.multiObjectPlan ?? null,
         trendPrompt: pipelineVibe,

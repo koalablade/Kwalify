@@ -15,6 +15,13 @@ import {
   type TrackSemanticProfile,
 } from "./track-semantic-types";
 import { enrichTrackSemanticProfile, type EnrichmentTrackInput } from "./track-semantic-enrichment";
+import {
+  buildMusicSemanticConstraintsFromPrompt,
+  buildMusicSemanticConstraintsFromSceneProfile,
+  isRichMusicSemanticPrompt,
+} from "./scene-music-alignment";
+import { applySceneDifferentiation } from "./scene-collision-resolver";
+import { scoreMusicSemanticCompatibility } from "./music-semantic-retrieval";
 import { artistEcosystemBoost, type ArtistEcosystemGraph } from "./artist-ecosystem-graph";
 
 const PROMPT_LEXICON: Array<{ dimension: keyof PromptSceneProfile; tag: string; pattern: RegExp }> = [
@@ -26,6 +33,7 @@ const PROMPT_LEXICON: Array<{ dimension: keyof PromptSceneProfile; tag: string; 
   { dimension: "times", tag: "night", pattern: /\b(night|midnight|3\s?am|2\s?am|late.?night)\b/i },
   { dimension: "times", tag: "sunrise", pattern: /\b(sunrise|dawn|morning after)\b/i },
   { dimension: "activities", tag: "driving", pattern: /\b(driv|road|motorway|cruise)\b/i },
+  { dimension: "activities", tag: "studying", pattern: /\b(stud(y|ying)|exam|revision|textbook|focus)\b/i },
   { dimension: "activities", tag: "repairing", pattern: /\b(fix|repair|garage|mechanic|volvo)\b/i },
   { dimension: "activities", tag: "walking", pattern: /\b(walk|stroll|empty streets)\b/i },
   { dimension: "weather", tag: "rain", pattern: /\b(rain|rainy|wet|storm)\b/i },
@@ -34,7 +42,9 @@ const PROMPT_LEXICON: Array<{ dimension: keyof PromptSceneProfile; tag: string; 
   { dimension: "atmospheres", tag: "reflective", pattern: /\b(reflect|thought|missed|bad breakup)\b/i },
   { dimension: "atmospheres", tag: "nostalgic", pattern: /\b(nostalg|1997|forgotten|flyer|memory)\b/i },
   { dimension: "atmospheres", tag: "euphoric", pattern: /\b(euphor|party|club|anthem)\b/i },
-  { dimension: "atmospheres", tag: "tense", pattern: /\b(tense|anxious|bad breakup)\b/i },
+  { dimension: "atmospheres", tag: "melancholy", pattern: /\b(sad|melanchol|somber|heartbreak)\b/i },
+  { dimension: "atmospheres", tag: "cozy", pattern: /\b(cozy|study|reading|focus)\b/i },
+  { dimension: "atmospheres", tag: "nocturnal", pattern: /\b(nocturnal|night|midnight)\b/i },
 ];
 
 const PROMPT_CULTURAL: Array<{ tag: string; pattern: RegExp }> = [
@@ -160,6 +170,14 @@ export function buildPromptSceneProfile(prompt: string): PromptSceneProfile {
     expansion,
   );
 
+  if (merged.atmospheres.length === 0) {
+    if (merged.activities.includes("studying")) merged.atmospheres.push("cozy");
+    if (merged.activities.includes("driving")) merged.atmospheres.push("reflective");
+    if (merged.times.includes("night")) merged.atmospheres.push("nocturnal");
+    if (/\bsad\b|\bindie\b/i.test(prompt)) merged.atmospheres.push("melancholy");
+  }
+  merged.atmospheres = [...new Set(merged.atmospheres)];
+
   const all = [
     ...merged.culturalTags,
     ...flattenScene({
@@ -178,7 +196,7 @@ export function buildPromptSceneProfile(prompt: string): PromptSceneProfile {
     ...expansion.atmospheres,
   ];
 
-  return {
+  const differentiated = applySceneDifferentiation(prompt, {
     places: merged.places,
     times: merged.times,
     activities: merged.activities,
@@ -188,6 +206,18 @@ export function buildPromptSceneProfile(prompt: string): PromptSceneProfile {
     themes: merged.themes,
     sceneConcepts: merged.sceneConcepts,
     retrievalSignature: signatureFromTags(all),
+  }, expansion);
+
+  return {
+    places: merged.places,
+    times: merged.times,
+    activities: merged.activities,
+    weather: merged.weather,
+    atmospheres: merged.atmospheres,
+    culturalTags: merged.culturalTags,
+    themes: merged.themes,
+    sceneConcepts: merged.sceneConcepts,
+    retrievalSignature: differentiated.retrievalSignature,
   };
 }
 
@@ -211,6 +241,8 @@ export function scoreSemanticSceneMatch(
     trackName?: string | null;
     artistGraph?: ArtistEcosystemGraph | null;
     maxBoost?: number;
+    musicConstraints?: ReturnType<typeof buildMusicSemanticConstraintsFromSceneProfile>;
+    sceneId?: string | null;
   } = {},
 ): { boost: number; diagnostics: SemanticMatchDiagnostics } {
   const promptSceneFlat = flattenScene(promptProfile);
@@ -225,13 +257,26 @@ export function scoreSemanticSceneMatch(
   const ecosystemBoost = artistEcosystemBoost(opts.artistName, opts.artistGraph);
   const titleBoost = titleMatchBoost(promptProfile, opts.trackName ?? "");
 
-  const raw =
+  const musicConstraints =
+    opts.musicConstraints ??
+    buildMusicSemanticConstraintsFromSceneProfile(promptProfile, opts.sceneId ?? null);
+  const musicMatch = scoreMusicSemanticCompatibility(
+    musicConstraints,
+    trackProfile.musicSemantic,
+    { maxBoost: isRichMusicSemanticPrompt(musicConstraints) ? 0.22 : 0.12 },
+  );
+
+  const sceneRaw =
     sceneOverlap * 0.38 +
     culturalOverlap * 0.22 +
     themeOverlap * 0.18 +
     conceptOverlap * 0.14 +
     ecosystemBoost +
     titleBoost;
+
+  const musicRaw = musicMatch.boost;
+  const blend = isRichMusicSemanticPrompt(musicConstraints) ? 0.48 : 0.62;
+  const raw = sceneRaw * blend + musicRaw * (1 - blend);
 
   const cap = opts.maxBoost ?? 0.28;
   const boost = Math.min(cap, raw * cap);
@@ -244,21 +289,30 @@ export function scoreSemanticSceneMatch(
       themeOverlap: Math.round(themeOverlap * 1000) / 1000,
       conceptOverlap: Math.round(conceptOverlap * 1000) / 1000,
       ecosystemBoost: Math.round(ecosystemBoost * 1000) / 1000,
+      musicSemanticBoost: Math.round(musicMatch.boost * 1000) / 1000,
+      narrativeAlignment: musicMatch.diagnostics.narrativeAlignment,
+      cinematicAlignment: musicMatch.diagnostics.cinematicAlignment,
       totalBoost: Math.round(boost * 1000) / 1000,
     },
   };
+}
+
+export function buildPromptMusicConstraints(prompt: string) {
+  return buildMusicSemanticConstraintsFromPrompt(prompt);
 }
 
 export function semanticRetrievalBoost(
   track: EnrichmentTrackInput & { semanticProfile?: TrackSemanticProfile | null },
   promptProfile: PromptSceneProfile,
   artistGraph?: ArtistEcosystemGraph | null,
+  sceneId?: string | null,
 ): number {
   const profile = track.semanticProfile ?? enrichTrackSemanticProfile(track);
   return scoreSemanticSceneMatch(promptProfile, profile, {
     artistName: track.artistName,
     trackName: track.trackName,
     artistGraph,
+    sceneId,
   }).boost;
 }
 

@@ -4,6 +4,9 @@
  */
 
 import { classifyTrack } from "./genre-taxonomy";
+import { buildMusicSemanticProfile } from "./music-semantic-inference";
+import { parseMusicSemanticProfile } from "./music-semantic-parse";
+import { emptyMusicSemanticProfile } from "./music-semantic-types";
 import {
   SEMANTIC_ENRICHMENT_VERSION,
   emptySceneProfile,
@@ -302,8 +305,7 @@ export function enrichTrackSemanticProfile(track: EnrichmentTrackInput): TrackSe
     [...scene.places, ...scene.times, ...scene.atmospheres, ...themes, ...sceneConcepts],
   );
 
-  return {
-    version: SEMANTIC_ENRICHMENT_VERSION,
+  const baseSemantic = {
     culturalTags: uniquePush(culturalTags, audioHints.culturalTags ?? []),
     scene: {
       places: [...new Set(scene.places)],
@@ -314,8 +316,20 @@ export function enrichTrackSemanticProfile(track: EnrichmentTrackInput): TrackSe
     },
     themes: uniquePush(themes, audioHints.themes ?? []),
     sceneConcepts: [...new Set(sceneConcepts)],
+  };
+
+  const musicSemantic = buildMusicSemanticProfile(track, baseSemantic);
+
+  return {
+    version: SEMANTIC_ENRICHMENT_VERSION,
+    ...baseSemantic,
     eras: [...new Set(eras)],
-    retrievalSignature: signatureFromTags(allTags),
+    musicSemantic,
+    retrievalSignature: signatureFromTags([
+      ...allTags,
+      ...musicSemantic.narrativeTags.slice(0, 3),
+      ...musicSemantic.cinematicTags.slice(0, 2),
+    ]),
     enrichedAt: new Date().toISOString(),
   };
 }
@@ -328,20 +342,44 @@ export function parseTrackSemanticProfile(raw: unknown): TrackSemanticProfile | 
   const s = scene as Record<string, unknown>;
   const asStrings = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  return {
-    version: SEMANTIC_ENRICHMENT_VERSION,
-    culturalTags: asStrings(o["culturalTags"]),
-    scene: {
-      places: asStrings(s["places"]),
-      times: asStrings(s["times"]),
-      activities: asStrings(s["activities"]),
-      weather: asStrings(s["weather"]),
-      atmospheres: asStrings(s["atmospheres"]),
-    },
-    themes: asStrings(o["themes"]),
-    sceneConcepts: asStrings(o["sceneConcepts"]),
+
+  const culturalTags = asStrings(o["culturalTags"]);
+  const parsedScene = {
+    places: asStrings(s["places"]),
+    times: asStrings(s["times"]),
+    activities: asStrings(s["activities"]),
+    weather: asStrings(s["weather"]),
+    atmospheres: asStrings(s["atmospheres"]),
+  };
+  const themes = asStrings(o["themes"]);
+  const sceneConcepts = asStrings(o["sceneConcepts"]);
+
+  let musicSemantic = emptyMusicSemanticProfile();
+  if (o["musicSemantic"]) {
+    musicSemantic = parseMusicSemanticProfile(o["musicSemantic"]);
+  }
+
+  const version =
+    typeof o["version"] === "string" ? o["version"] : SEMANTIC_ENRICHMENT_VERSION;
+
+  const profile: TrackSemanticProfile = {
+    version: version as typeof SEMANTIC_ENRICHMENT_VERSION,
+    culturalTags,
+    scene: parsedScene,
+    themes,
+    sceneConcepts,
     eras: asStrings(o["eras"]),
+    musicSemantic,
     retrievalSignature: typeof o["retrievalSignature"] === "string" ? o["retrievalSignature"] : "",
     enrichedAt: typeof o["enrichedAt"] === "string" ? o["enrichedAt"] : "",
   };
+
+  if (!profile.musicSemantic.deepSignature || profile.version !== SEMANTIC_ENRICHMENT_VERSION) {
+    profile.musicSemantic = buildMusicSemanticProfile(
+      { trackId: "backfill", trackName: "", artistName: "", albumName: "" },
+      profile,
+    );
+  }
+
+  return profile;
 }

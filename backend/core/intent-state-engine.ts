@@ -3,7 +3,9 @@
  * Deterministic, non-blocking, partial understanding only.
  */
 
-import { buildLockedIntent } from "./v3/intent";
+import { buildLockedIntent, type LockedIntent } from "./v3/intent";
+import type { DecomposedIntent } from "./intent-decomposer";
+import type { ExpandedCulturalContext } from "../lib/cultural-reference-expansion";
 import { detectEra } from "../lib/era-detection";
 import {
   EXPANDED_ACTIVITY_TERMS,
@@ -170,11 +172,20 @@ function computeConfidence(signals: {
   return round2(clamp01(richness + coverage * 0.35));
 }
 
-export function buildIntentState(prompt: string): IntentState {
+export function buildIntentState(
+  prompt: string,
+  ssot?: {
+    lockedIntent?: LockedIntent;
+    decomposedIntent?: DecomposedIntent;
+    culturalExpansion?: ExpandedCulturalContext;
+  },
+): IntentState {
   const text = prompt.trim();
   if (!text) return { confidence: 0.1, unknownTokens: [] };
 
-  const locked = buildLockedIntent(text);
+  const locked = ssot?.lockedIntent ?? buildLockedIntent(text);
+  const decomposed = ssot?.decomposedIntent;
+  const expansion = ssot?.culturalExpansion;
   const matched = collectMatchedSpans(text);
   const tokens = tokenize(text);
   const unknownTokens = [...new Set(
@@ -184,9 +195,13 @@ export function buildIntentState(prompt: string): IntentState {
       .filter((token) => !/^\d+$/.test(token)),
   )].slice(0, 12);
 
-  const culturalScenes = extractCulturalScenes(text);
+  const culturalScenes = expansion?.sceneId
+    ? [expansion.sceneId, ...extractCulturalScenes(text)]
+    : extractCulturalScenes(text);
   const scene = [...new Set([
     ...culturalScenes,
+    ...(decomposed?.culturalRefs ?? []),
+    ...(decomposed?.scene ? [decomposed.scene] : []),
     ...locked.genreFamilies,
     locked.primarySubgenre,
     locked.activity ? locked.activity.replace(/_/g, " ") : null,

@@ -47,9 +47,10 @@ export type ResolveLiveBenchmarkOptions = {
   defaultBaseUrl?: string;
 };
 
+import { normalizeEvalToken } from "./eval-token-normalize";
+
 function trimValue(raw: string | null | undefined): string | null {
-  if (typeof raw !== "string") return null;
-  const value = raw.trim().replace(/^["']+|["']+$/g, "").replace(/\r?\n/g, "");
+  const value = normalizeEvalToken(raw);
   return value || null;
 }
 

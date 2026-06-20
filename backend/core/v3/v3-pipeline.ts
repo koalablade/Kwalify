@@ -659,7 +659,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     throw new Error("UnifiedIntent required — raw prompt parsing disabled");
   }
   const unifiedIntentContext = opts.unifiedIntentContext;
-  const decomposed = unifiedIntentContext.decomposedIntent;
+  const decomposed = unifiedIntentContext.v3DecomposedIntent;
   const lockedIntent = opts.lockedIntent ?? unifiedIntentContext.lockedIntent;
   const unifiedIntentDiagnostics = unifiedIntentContext.diagnostics;
   const fallbackTriggered = isUnclearIntent(decomposed);

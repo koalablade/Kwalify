@@ -10,6 +10,7 @@ import {
   type AtmosphereDimension,
   type SceneKnowledgeEntry,
 } from "./scene-knowledge";
+import { filterGenreHintsThroughManifold, type UserTasteManifold } from "./user-taste-manifold";
 
 export type { AtmosphereDimension };
 
@@ -25,7 +26,7 @@ export type ExpandedCulturalContext = {
   sceneConcepts: string[];
   culturalTags: string[];
   scene: SceneDimensionProfile;
-  /** Scene-genre hints for alias graph only — not hard intent contract genres. */
+  /** @deprecated Always empty — scenes do not generate genres. Use SceneModifier.weights. */
   genreFamilies: string[];
   eraRange: { start: number; end: number } | null;
   dominantEmotion: DominantEmotion;
@@ -169,11 +170,7 @@ export function expandCulturalReferences(prompt: string): ExpandedCulturalContex
   const themes = mergeUnique(allEntries.flatMap((e) => e.themes));
   const sceneConcepts = mergeUnique(allEntries.flatMap((e) => e.sceneConcepts));
   const culturalTags = mergeUnique(allEntries.flatMap((e) => e.culturalTags));
-  const genreFamilies = mergeUnique(
-    allEntries
-      .filter((e) => entryWeight(e) >= 0.5)
-      .flatMap((e) => e.genreFamilies),
-  ).slice(0, 8);
+  const genreFamilies: string[] = [];
 
   scene.places = mergeUnique(allEntries.flatMap((e) => e.places ?? []));
   scene.times = mergeUnique(allEntries.flatMap((e) => e.times ?? []));
@@ -221,8 +218,18 @@ export function expandCulturalReferences(prompt: string): ExpandedCulturalContex
   };
 }
 
-export function getSceneGenreAliases(sceneId: string): string[] {
-  return SCENE_GENRE_ALIASES[sceneId] ?? [];
+export function getSceneGenreAliases(_sceneId: string): string[] {
+  /** Removed — scenes filter taste; they do not emit genre aliases. */
+  return [];
+}
+
+export function partitionExpansionGenreHints(
+  expansion: ExpandedCulturalContext,
+  manifold: UserTasteManifold | null,
+): { retrievalHints: string[]; diagnosticOnlyHints: string[] } {
+  void expansion;
+  const { blocked } = filterGenreHintsThroughManifold([], manifold);
+  return { retrievalHints: [], diagnosticOnlyHints: blocked };
 }
 
 export function mergeExpansionIntoSceneProfile(
@@ -277,7 +284,4 @@ export function registerCulturalReferenceEntry(entry: SceneKnowledgeEntry): void
   const exists = SCENE_KNOWLEDGE_ENTRIES.some((e) => e.id === entry.id);
   if (exists) return;
   SCENE_KNOWLEDGE_ENTRIES.push(entry);
-  if (entry.genreFamilies.length > 0 && entryWeight(entry) >= 0.5) {
-    SCENE_GENRE_ALIASES[entry.sceneId] = entry.genreFamilies;
-  }
 }

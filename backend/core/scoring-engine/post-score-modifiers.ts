@@ -30,6 +30,7 @@ import type { HybridScoreResult } from "../../lib/hybrid-scoring";
 import type { FeedbackMemory } from "../../lib/feedback-memory";
 import { computeSceneAliasRetrievalBoost } from "../../lib/scene-alias-retrieval-boost";
 import { tasteGraphV2RetrievalBoost, type TasteGraphV2 } from "../../lib/taste-graph-v2";
+import type { UserTasteManifold } from "../../lib/user-taste-manifold";
 import { cultureRetrievalBoost } from "../../lib/scene-culture-graph";
 import { globalTasteRetrievalBoost, type GlobalTasteProfile } from "../../lib/global-taste-profile";
 import { trendRetrievalBoost } from "../../lib/trend-ingestion";
@@ -77,6 +78,7 @@ export interface PostScoreModifierInput<T extends { trackId: string; artistName:
   sceneAliases?: string[];
   scenePrediction?: Record<string, number>;
   tasteGraphV2?: TasteGraphV2 | null;
+  tasteManifold?: UserTasteManifold | null;
   globalTasteProfile?: GlobalTasteProfile | null;
   globalGenreFamily?: string | null;
   trendPrompt?: string;
@@ -162,6 +164,7 @@ export function applyPostScoreModifiers<T extends {
         enriched,
         input.sceneAliases,
         input.scenePrediction ?? {},
+        { tasteManifold: input.tasteManifold ?? null },
       );
     }
     if (input.tasteGraphV2) {

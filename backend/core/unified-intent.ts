@@ -1,7 +1,13 @@
 import type { EmotionProfile } from "../lib/emotion";
 import type { IntentDecodeResult } from "../lib/intent-decoder";
 import type { UserIntent } from "../lib/intent-parser";
-import { decomposeIntent, type DecomposedIntent } from "./v3/intent-decomposer";
+import type { DecomposedIntent as V1DecomposedIntent } from "./intent-decomposer";
+import { decomposeIntent as decomposeIntentV3, type DecomposedIntent as V3DecomposedIntent } from "./v3/intent-decomposer";
+import {
+  buildAuthoritativeIntentContract,
+  validateAuthoritativeIntentContract,
+  type AuthoritativeIntentContract,
+} from "./authoritative-intent-contract";
 import {
   buildLockedIntent,
   completeLockedIntent,
@@ -63,10 +69,14 @@ export interface UnifiedIntentDiagnostics {
 }
 
 export interface UnifiedIntentContext {
+  authoritativeIntent: AuthoritativeIntentContract;
   unifiedIntent: UnifiedIntent;
   diagnostics: UnifiedIntentDiagnostics;
   lockedIntent: LockedIntent;
-  decomposedIntent: DecomposedIntent;
+  /** Canonical V1 decomposer — SSOT for cultural/scene/activity. */
+  decomposedIntent: V1DecomposedIntent;
+  /** Auxiliary V3 influence map — diagnostics/V3 pipeline only, not authoritative. */
+  v3DecomposedIntent: V3DecomposedIntent;
 }
 
 const DEFAULT_EMOTION_PROFILE: EmotionProfile = {
@@ -105,16 +115,6 @@ function cosineDistance(a: number[], b: number[]): number {
   }
   if (aMag === 0 || bMag === 0) return 0;
   return Math.round((1 - dot / (Math.sqrt(aMag) * Math.sqrt(bMag))) * 1000) / 1000;
-}
-
-function averageVectors(vectors: number[][]): number[] {
-  if (vectors.length === 0) return [];
-  const width = Math.max(...vectors.map((vector) => vector.length));
-  const out = new Array(width).fill(0);
-  for (const vector of vectors) {
-    for (let i = 0; i < width; i++) out[i] += vector[i] ?? 0;
-  }
-  return normalizeVector(out.map((value) => value / vectors.length));
 }
 
 function genreVector(families: string[]): number[] {
@@ -427,8 +427,37 @@ export function unifiedIntentFromSceneIntent(scene: SceneIntent | null | undefin
   };
 }
 
-export function unifiedIntentFromDecomposedIntent(intent: DecomposedIntent): UnifiedIntentSnapshot {
-  const baseIntent: UserIntent = intent.baseIntent;
+export function unifiedIntentFromV1DecomposedIntent(intent: V1DecomposedIntent): UnifiedIntentSnapshot {
+  return {
+    source: "v3_decomposed",
+    confidence: clamp01(intent.confidence),
+    intent: {
+      ...emptyUnifiedIntent(),
+      sceneVector: sceneVectorFromInfluences({
+        ...(intent.scene ? { [intent.scene]: 0.55 } : {}),
+        ...(intent.emotion ? { [intent.emotion]: 0.45 } : {}),
+        ...(intent.inferredActivity ? { [intent.inferredActivity]: 0.35 } : {}),
+      }),
+      emotionVector: normalizeVector([
+        intent.emotion === "happy" ? 1 : 0.5,
+        intent.emotion === "sad" ? 1 : 0.3,
+        intent.emotion === "nostalgic" ? 1 : 0.2,
+        0.35,
+        intent.emotion === "calm" ? 1 : 0.5,
+      ]),
+      energyVector: energyVector(intent.energy),
+    },
+  };
+}
+
+/** @deprecated Use unifiedIntentFromV1DecomposedIntent — V3 decomposer is auxiliary only. */
+export function unifiedIntentFromDecomposedIntent(intent: {
+  confidence: number;
+  baseIntent: UserIntent;
+  contextAnchors: { environment: string; motionLevel: number };
+  sceneInfluenceMap: Record<string, number>;
+}): UnifiedIntentSnapshot {
+  const baseIntent = intent.baseIntent;
   return {
     source: "v3_decomposed",
     confidence: clamp01(intent.confidence),
@@ -448,6 +477,28 @@ export function unifiedIntentFromDecomposedIntent(intent: DecomposedIntent): Uni
   };
 }
 
+const SNAPSHOT_SOURCE_PRIORITY: Record<UnifiedIntentSnapshot["source"], number> = {
+  v3_locked: 100,
+  v3_scene: 85,
+  v3_decomposed: 60,
+  controller: 45,
+  v11: 40,
+  resolver: 0,
+};
+
+function pickPrioritySnapshot(snapshots: UnifiedIntentSnapshot[]): UnifiedIntentSnapshot {
+  if (snapshots.length === 0) {
+    return {
+      source: "resolver",
+      confidence: 1,
+      intent: emptyUnifiedIntent(),
+    };
+  }
+  return [...snapshots].sort(
+    (a, b) => (SNAPSHOT_SOURCE_PRIORITY[b.source] ?? 0) - (SNAPSHOT_SOURCE_PRIORITY[a.source] ?? 0),
+  )[0]!;
+}
+
 export function resolveUnifiedIntent(snapshots: UnifiedIntentSnapshot[]): UnifiedIntentDiagnostics {
   const active = snapshots.length > 0 ? snapshots : [{
     source: "resolver" as const,
@@ -455,61 +506,17 @@ export function resolveUnifiedIntent(snapshots: UnifiedIntentSnapshot[]): Unifie
     intent: emptyUnifiedIntent(),
   }];
 
-  const emotionVectors = active.map((snapshot) => snapshot.intent.emotionVector);
-  const emotionDisagreement = Math.max(
-    ...active.map((snapshot, index) =>
-      emotionVectors.some((other, otherIndex) =>
-        otherIndex !== index && cosineDistance(snapshot.intent.emotionVector, other) > 0.42
-      ) ? 1 : 0
-    ),
-    0,
-  );
-  const dominantEmotionSnapshot = emotionDisagreement > 0
-    ? [...active].sort((a, b) => b.confidence - a.confidence)[0]
-    : null;
-
-  const resolvedVectors = {
-    genreVector: averageVectors(active.map((snapshot) => snapshot.intent.genreVector)),
-    sceneVector: averageVectors(active.map((snapshot) => snapshot.intent.sceneVector)),
-    emotionVector: dominantEmotionSnapshot
-      ? [...dominantEmotionSnapshot.intent.emotionVector]
-      : averageVectors(emotionVectors),
-    energyVector: averageVectors(active.map((snapshot) => snapshot.intent.energyVector)),
-    timeOfDayVector: averageVectors(active.map((snapshot) => snapshot.intent.timeOfDayVector)),
-  };
-  const primarySnapshot = [...active].sort((a, b) => b.confidence - a.confidence)[0];
-  const activityDisagreement = Math.max(
-    ...active.map((snapshot, index) =>
-      active.some((other, otherIndex) =>
-        otherIndex !== index &&
-        cosineDistance(snapshot.intent.semantic.activity, other.intent.semantic.activity) > 0.35
-      ) ? 1 : 0
-    ),
-    0,
-  );
-  const activityVector = activityDisagreement > 0 && primarySnapshot
-    ? [...primarySnapshot.intent.semantic.activity]
-    : averageVectors(active.map((snapshot) => snapshot.intent.semantic.activity));
-  const resolver: UnifiedIntentSnapshot = {
-    source: "resolver",
-    confidence: Math.round((active.reduce((sum, snapshot) => sum + snapshot.confidence, 0) / active.length) * 1000) / 1000,
-    intent: withMomentModel(
-      resolvedVectors,
-      primarySnapshot?.intent.momentCore ?? defaultMomentCore(),
-      primarySnapshot?.intent.latentContext ?? defaultLatentContext(),
-      activityVector,
-    ),
-  };
+  const winner = pickPrioritySnapshot(active);
 
   return {
     snapshots: active,
-    resolver,
+    resolver: winner,
     disagreement: {
-      genre: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.genreVector, resolver.intent.genreVector)), 0),
-      scene: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.sceneVector, resolver.intent.sceneVector)), 0),
-      emotion: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.emotionVector, resolver.intent.emotionVector)), 0),
-      energy: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.energyVector, resolver.intent.energyVector)), 0),
-      timeOfDay: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.timeOfDayVector, resolver.intent.timeOfDayVector)), 0),
+      genre: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.genreVector, winner.intent.genreVector)), 0),
+      scene: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.sceneVector, winner.intent.sceneVector)), 0),
+      emotion: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.emotionVector, winner.intent.emotionVector)), 0),
+      energy: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.energyVector, winner.intent.energyVector)), 0),
+      timeOfDay: Math.max(...active.map((snapshot) => cosineDistance(snapshot.intent.timeOfDayVector, winner.intent.timeOfDayVector)), 0),
     },
   };
 }
@@ -520,13 +527,19 @@ export function buildUnifiedIntentContext(
   fallbacks: LockedIntentFallbacks = {},
   comparisonSnapshots: UnifiedIntentSnapshot[] = [],
 ): UnifiedIntentContext {
-  const lockedIntent = completeLockedIntent(buildLockedIntent(prompt), fallbacks);
-  const decomposedIntent = decomposeIntent(prompt, profile);
+  const authoritativeIntent = buildAuthoritativeIntentContract({
+    prompt,
+    fallbacks,
+    emotionProfile: profile,
+  });
+  const lockedIntent = authoritativeIntent.lockedIntent;
+  const decomposedIntent = authoritativeIntent.decomposedIntent;
+  const v3DecomposedIntent = decomposeIntentV3(prompt, profile);
   const diagnosticsBase = resolveUnifiedIntent([
     ...comparisonSnapshots,
     unifiedIntentFromLockedIntent(lockedIntent),
     unifiedIntentFromSceneIntent(lockedIntent.sceneIntent),
-    unifiedIntentFromDecomposedIntent(decomposedIntent),
+    unifiedIntentFromV1DecomposedIntent(decomposedIntent),
   ]);
   const momentCore = resolveMomentCore(prompt);
   const latentContext = latentContextFromMoment(prompt, momentCore, lockedIntent.sceneIntent);
@@ -552,13 +565,11 @@ export function buildUnifiedIntentContext(
   };
 
   return {
+    authoritativeIntent,
     unifiedIntent,
     diagnostics,
     lockedIntent,
     decomposedIntent,
+    v3DecomposedIntent,
   };
-}
-
-export function buildUnifiedIntent(prompt: string): UnifiedIntent {
-  return buildUnifiedIntentContext(prompt).unifiedIntent;
 }

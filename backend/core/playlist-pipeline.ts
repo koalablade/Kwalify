@@ -8,6 +8,12 @@ import { cultureRetrievalBoost } from "../lib/scene-culture-graph";
 import { multiObjectRetrievalBoost, type MultiObjectPlan } from "../lib/multi-object-planner";
 import { detectUkHipHopScene, isUkHipHopSceneLock, ukHipHopRetrievalBoost } from "../lib/uk-hip-hop-scene";
 import { computeSceneAliasRetrievalBoost } from "../lib/scene-alias-retrieval-boost";
+import {
+  manifoldRetrievalPenalty,
+  trackManifoldAffinity,
+  type UserTasteManifold,
+} from "../lib/user-taste-manifold";
+import { expandCulturalReferences } from "../lib/cultural-reference-expansion";
 import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
 import { runV3Pipeline } from "./v3/v3-pipeline";
@@ -54,8 +60,10 @@ import { buildSemanticProfileMap } from "../lib/semantic-profile-store";
 import type { TrackSemanticProfile, PromptSceneProfile } from "../lib/track-semantic-types";
 import {
   buildPromptSceneProfile,
+  buildPromptMusicConstraints,
   scoreSemanticSceneMatch,
 } from "../lib/scene-semantic-retrieval";
+import { isRichMusicSemanticPrompt } from "../lib/scene-music-alignment";
 import { trackMatchesConstraints } from "./v3/constraint-filter";
 import { getGenreFamily } from "./v3/global-diversity-controller";
 import type { V3MetadataTrack } from "../lib/v3-track-contract";
@@ -166,6 +174,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
     scenePrediction?: Record<string, number>;
     sceneLock?: SceneLockStatus | null;
     tasteGraphV2?: TasteGraphV2 | null;
+    tasteManifold?: UserTasteManifold | null;
     globalTasteProfile?: import("../lib/global-taste-profile").GlobalTasteProfile | null;
     multiObjectPlan?: MultiObjectPlan | null;
     trendPrompt?: string;
@@ -1576,6 +1585,7 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     scenePrediction?: Record<string, number>;
     sceneLock?: SceneLockStatus | null;
     tasteGraphV2?: TasteGraphV2 | null;
+    tasteManifold?: UserTasteManifold | null;
     multiObjectPlan?: MultiObjectPlan | null;
     trendPrompt?: string;
     semanticProfiles?: Map<string, TrackSemanticProfile>;
@@ -1793,15 +1803,21 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     contract.activity || sceneActive ? 520 : 760,
   );
   const promptSceneProfile = opts.promptSceneProfile ?? buildPromptSceneProfile(contract.rawPrompt);
+  const culturalExpansion = expandCulturalReferences(contract.rawPrompt);
+  const musicConstraints = buildPromptMusicConstraints(contract.rawPrompt);
+  const richMusicSemantic = isRichMusicSemanticPrompt(musicConstraints);
   const narrativeSemanticPrompt =
     promptSceneProfile.places.length > 0 ||
     promptSceneProfile.times.length > 0 ||
     promptSceneProfile.culturalTags.length > 0 ||
     promptSceneProfile.sceneConcepts.length > 0 ||
     promptSceneProfile.themes.length > 0 ||
-    promptSceneProfile.atmospheres.length > 0;
+    promptSceneProfile.atmospheres.length > 0 ||
+    (richMusicSemantic &&
+      (musicConstraints.narrativeTags.length > 0 || musicConstraints.cinematicTags.length > 0));
   const dominantEmotion = detectDominantEmotion(contract.rawPrompt);
-  const semanticMaxBoost = opts.semanticMaxBoost ?? (dominantEmotion.explicit ? 0.18 : 0.28);
+  const sceneStrength = culturalExpansion.culturalDominance;
+  const semanticMaxBoost = opts.semanticMaxBoost ?? (dominantEmotion.explicit ? 0.18 : richMusicSemantic ? 0.26 : 0.28);
   let semanticBoostApplied = 0;
   let semanticBoostTotal = 0;
   await yieldPipeline();
@@ -1824,9 +1840,10 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
           },
           opts.sceneAliases,
           opts.scenePrediction ?? {},
+          { tasteManifold: opts.tasteManifold ?? null },
         )
         : 0;
-      const tasteBoost = opts.tasteGraphV2
+      const tasteBoostRaw = opts.tasteGraphV2
         ? tasteGraphV2RetrievalBoost(
           {
             genreFamily: genreFamilyForTrack(track, classMap),
@@ -1837,6 +1854,8 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
           opts.tasteGraphV2,
         )
         : 0;
+      const tasteCentroidCap = richMusicSemantic ? 0.82 : 1;
+      const tasteBoost = tasteBoostRaw * tasteCentroidCap;
       const cultureBoost = opts.trendPrompt ? cultureRetrievalBoost(opts.trendPrompt) : 0;
       const segmentBoost = opts.multiObjectPlan
         ? multiObjectRetrievalBoost(
@@ -1871,6 +1890,8 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
             trackName: track.trackName,
             artistGraph: opts.artistEcosystemGraph,
             maxBoost: semanticMaxBoost,
+            sceneId: culturalExpansion.sceneId,
+            musicConstraints,
           }).boost;
           if (semanticSceneBoost > 0) {
             semanticBoostApplied += 1;
@@ -1878,7 +1899,35 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
           }
         }
       }
-      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight + sceneAliasBoost + tasteBoost + cultureBoost + segmentBoost + ukBoost + semanticSceneBoost - feedbackPenalty(track, feedback);
+      const manifoldBoost = opts.tasteManifold
+        ? trackManifoldAffinity(
+          {
+            trackId: track.trackId,
+            artistName: track.artistName,
+            genreFamily: genreFamilyForTrack(track, classMap),
+            genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? null,
+            genres: classMap.get(track.trackId)?.subGenres ?? null,
+            energy: track.energy,
+            valence: track.valence,
+            tempo: track.tempo,
+            danceability: track.danceability,
+            acousticness: track.acousticness,
+            instrumentalness: (track as { instrumentalness?: number | null }).instrumentalness ?? null,
+          },
+          opts.tasteManifold,
+        )
+        : 0;
+      const offManifoldPenalty = manifoldRetrievalPenalty(
+        {
+          trackId: track.trackId,
+          genreFamily: genreFamilyForTrack(track, classMap),
+          genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? null,
+          genres: classMap.get(track.trackId)?.subGenres ?? null,
+        },
+        opts.tasteManifold ?? null,
+        sceneStrength,
+      );
+      const baseScore = (track.contractFitScore * 0.20) + (track.score ?? 0) + subgenreMatchWeight + sceneAliasBoost + tasteBoost + cultureBoost + segmentBoost + ukBoost + semanticSceneBoost + manifoldBoost - offManifoldPenalty - feedbackPenalty(track, feedback);
       const trackPenalty = opts.recentTrackPenalty?.get(track.trackId) ?? 0;
       const artistPenalty = artistMemoryPenalty(opts.sessionArtistMemory, track.artistName);
       const sceneMismatchPenalty = sceneMismatchFor(track) ? 0.90 : 0;
@@ -3642,6 +3691,7 @@ export async function buildPlaylistPipeline<T extends {
         scenePrediction: opts.postScore.scenePrediction,
         sceneLock: opts.postScore.sceneLock ?? null,
         tasteGraphV2: opts.postScore.tasteGraphV2 ?? null,
+        tasteManifold: opts.postScore.tasteManifold ?? null,
         multiObjectPlan: opts.postScore.multiObjectPlan ?? null,
         trendPrompt: opts.postScore.trendPrompt,
         ...semanticRetrievalOpts,

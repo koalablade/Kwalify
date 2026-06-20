@@ -1,10 +1,10 @@
 /**
- * Scene alias graph — weak cultural scene → genre cluster mappings (Q3 foundation).
- * Used for retrieval boosts and coherence scoring, NOT hard taxonomy.
+ * Scene alias graph — legacy genre mappings retained for diagnostics only.
+ * Production path: SceneModifier (weights/filters/boosts/constraints) — no genre generation.
  */
 
 import type { DecomposedIntent } from "../core/intent-decomposer";
-import { getSceneGenreAliases, listCulturalReferenceEntries } from "./cultural-reference-expansion";
+import { listCulturalReferenceEntries } from "./cultural-reference-expansion";
 import { getRuntimePromotedAliases } from "./harvested-alias-runtime";
 
 const SCENE_ALIAS_GRAPH: Record<string, string[]> = {
@@ -63,11 +63,7 @@ const SCENE_ALIAS_GRAPH: Record<string, string[]> = {
 };
 
 for (const entry of listCulturalReferenceEntries()) {
-  const aliases = getSceneGenreAliases(entry.sceneId);
-  if (aliases.length > 0) {
-    SCENE_ALIAS_GRAPH[entry.sceneId] = aliases;
-    SCENE_ALIAS_GRAPH[entry.id] = aliases;
-  }
+  void entry;
 }
 
 const promotedGraphOverrides = new Map<string, string[]>();
@@ -109,19 +105,9 @@ export function resolveSceneAliases(sceneKey: string): string[] {
   return SCENE_ALIAS_GRAPH[normalized] ?? CULTURAL_REF_ALIASES[normalized] ?? [normalized];
 }
 
-export function resolveDecomposedSceneAliases(intent: DecomposedIntent): string[] {
-  const keys = [
-    intent.scene,
-    ...intent.culturalRefs,
-  ].filter((value): value is string => !!value);
-
-  const families = new Set<string>();
-  for (const key of keys) {
-    for (const alias of resolveSceneAliases(key)) {
-      families.add(alias);
-    }
-  }
-  return [...families];
+export function resolveDecomposedSceneAliases(_intent: DecomposedIntent): string[] {
+  /** Scene does not emit genre aliases — use buildSceneModifier().weights instead. */
+  return [];
 }
 
 export function sceneAliasBoostWeight(termFrequency = 1): number {

@@ -109,15 +109,6 @@ export function buildUnifiedGenreGraph(opts: BuildGenreGraphOpts): GenreGraph {
   };
 }
 
-/** @deprecated use buildUnifiedGenreGraph */
-export function buildGenreGraph(trackInputs: TrackEmbeddingInput[]): GenreGraph {
-  return buildUnifiedGenreGraph({
-    trackInputs,
-    userProfile: {},
-    clusters: [],
-  });
-}
-
 export function addCoOccurrenceEdges(
   graph: GenreGraph,
   recentPlaylistTrackIds: string[][],

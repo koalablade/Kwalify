@@ -1,6 +1,7 @@
 import { trackHasEraEvidence, trackHasKnownEraMismatch, type EraRange } from "./era-evidence";
 import { buildLockedIntent, type LockedIntent } from "../core/v3/intent";
 import type { IntentUnderstandingDiagnostics } from "./intent-understanding-diagnostics";
+import { computeTruthfulMetrics } from "./quality-control/truthful-metrics";
 
 export type SurvivalDimension =
   | "genre"
@@ -167,6 +168,8 @@ export type IntentSurvivalDiagnostics = {
   intentUnderstanding?: IntentUnderstandingDiagnostics | null;
   termTrace?: IntentTermTrace[];
   intentLossPipeline?: IntentLossStage[];
+  /** Externally verifiable scores — prompt + track metadata only (no pipeline circular inputs). */
+  truthfulMetrics?: import("./quality-control/truthful-metrics").TruthfulMetricScores;
 };
 
 export type IntentTermTrace = {
@@ -1303,6 +1306,7 @@ export function buildIntentSurvivalDiagnostics(opts: BuildIntentSurvivalDiagnost
   const releaseReadiness = buildReleaseReadiness(dimensions, leakDetections, emotionSurvival);
   const termTrace = buildTermTrace(opts.intentUnderstanding, stageTrace);
   const intentLossPipeline = buildIntentLossPipeline(opts.intentUnderstanding, opts, parsedPromptIntent);
+  const truthfulMetrics = computeTruthfulMetrics({ prompt: opts.prompt, tracks: opts.finalTracks });
   return {
     prompt: opts.prompt,
     generatedAt: new Date().toISOString(),
@@ -1318,5 +1322,6 @@ export function buildIntentSurvivalDiagnostics(opts: BuildIntentSurvivalDiagnost
     intentUnderstanding: opts.intentUnderstanding ?? null,
     termTrace,
     intentLossPipeline,
+    truthfulMetrics,
   };
 }

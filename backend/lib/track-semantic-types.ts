@@ -2,7 +2,9 @@
  * Track semantic profile — persisted enrichment beyond genre/audio features.
  */
 
-export const SEMANTIC_ENRICHMENT_VERSION = "semantic-v1";
+import type { MusicSemanticProfile } from "./music-semantic-types";
+
+export const SEMANTIC_ENRICHMENT_VERSION = "semantic-v3";
 
 export type SceneDimensionProfile = {
   places: string[];
@@ -19,6 +21,8 @@ export type TrackSemanticProfile = {
   themes: string[];
   sceneConcepts: string[];
   eras: string[];
+  /** Narrative/cinematic/cultural music feel — above genre + audio features. */
+  musicSemantic: MusicSemanticProfile;
   retrievalSignature: string;
   enrichedAt: string;
 };
@@ -36,6 +40,9 @@ export type SemanticMatchDiagnostics = {
   themeOverlap: number;
   conceptOverlap: number;
   ecosystemBoost: number;
+  musicSemanticBoost: number;
+  narrativeAlignment: number;
+  cinematicAlignment: number;
   totalBoost: number;
 };
 
