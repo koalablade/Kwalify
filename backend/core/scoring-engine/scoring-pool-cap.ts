@@ -69,6 +69,73 @@ function quickEmotionFit(
   );
 }
 
+function emotionQuadrantKey(track: { energy: number | null; valence: number | null }): string {
+  const e = (track.energy ?? 0.5) >= 0.55 ? "hi" : (track.energy ?? 0.5) <= 0.42 ? "lo" : "md";
+  const v = (track.valence ?? 0.5) >= 0.55 ? "pos" : (track.valence ?? 0.5) <= 0.42 ? "neg" : "neu";
+  return `${e}_${v}`;
+}
+
+function retrievalClusterKey<T extends { trackId: string; energy: number | null; valence: number | null }>(
+  track: T,
+  classifications: Map<string, TrackGenreClassification>,
+): string {
+  const family = classifications.get(track.trackId)?.genreFamily ?? "unknown";
+  return `${family}|${emotionQuadrantKey(track)}`;
+}
+
+function stratifiedPoolPick<T extends { trackId: string }>(
+  ranked: Array<{ t: T; fit: number }>,
+  max: number,
+  clusterKey: (track: T) => string,
+  maxClusterShare = 0.45,
+): T[] {
+  const byCluster = new Map<string, Array<{ t: T; fit: number }>>();
+  for (const item of ranked) {
+    const key = clusterKey(item.t);
+    const list = byCluster.get(key) ?? [];
+    list.push(item);
+    byCluster.set(key, list);
+  }
+  for (const list of byCluster.values()) {
+    list.sort((a, b) => b.fit - a.fit);
+  }
+  const clusters = [...byCluster.entries()].sort(
+    (a, b) => (b[1][0]?.fit ?? 0) - (a[1][0]?.fit ?? 0),
+  );
+  const maxPerCluster = Math.max(1, Math.ceil(max * maxClusterShare));
+  const picked: T[] = [];
+  const seen = new Set<string>();
+  const clusterCounts = new Map<string, number>();
+  const active = clusters.slice(0, Math.min(4, clusters.length));
+  let guard = 0;
+  while (picked.length < max && guard < max * Math.max(1, clusters.length) * 2) {
+    guard += 1;
+    let progressed = false;
+    for (const [key, items] of active) {
+      if (picked.length >= max) break;
+      if ((clusterCounts.get(key) ?? 0) >= maxPerCluster) continue;
+      while (items.length > 0 && seen.has(items[0]!.t.trackId)) items.shift();
+      const next = items.shift();
+      if (!next) continue;
+      seen.add(next.t.trackId);
+      picked.push(next.t);
+      clusterCounts.set(key, (clusterCounts.get(key) ?? 0) + 1);
+      progressed = true;
+    }
+    if (!progressed) break;
+  }
+  for (const item of ranked) {
+    if (picked.length >= max) break;
+    if (seen.has(item.t.trackId)) continue;
+    const key = clusterKey(item.t);
+    if ((clusterCounts.get(key) ?? 0) >= maxPerCluster) continue;
+    seen.add(item.t.trackId);
+    picked.push(item.t);
+    clusterCounts.set(key, (clusterCounts.get(key) ?? 0) + 1);
+  }
+  return picked;
+}
+
 function explicitGenreFamilies(vibe: string | undefined): Set<string> {
   const normalized = vibe ?? "";
   const families = new Set<string>();
@@ -313,11 +380,17 @@ export function capTracksForHybridScoring<T extends {
       seen.add(item.t.trackId);
       picked.push(item.t);
     }
-    for (const item of ranked) {
+    const remaining = stratifiedPoolPick(
+      ranked.filter((item) => !seen.has(item.t.trackId)),
+      Math.max(0, max - picked.length),
+      (track) => retrievalClusterKey(track, opts.classifications),
+      explicitFamilies.size > 0 ? 0.45 : 0.40,
+    );
+    for (const track of remaining) {
       if (picked.length >= max) break;
-      if (seen.has(item.t.trackId)) continue;
-      seen.add(item.t.trackId);
-      picked.push(item.t);
+      if (seen.has(track.trackId)) continue;
+      seen.add(track.trackId);
+      picked.push(track);
     }
     return {
       pool: picked,
@@ -420,14 +493,19 @@ export function capTracksForHybridScoring<T extends {
     }
   }
 
+  const maxPerFamily = Math.max(1, Math.ceil(max * 0.45));
+  const familyCounts = new Map<RootGenre, number>();
+
   while (picked.length < max && families.some((f) => (byFamily.get(f)?.length ?? 0) > 0)) {
     for (const fam of families) {
       const list = byFamily.get(fam);
       if (!list?.length) continue;
+      if ((familyCounts.get(fam) ?? 0) >= maxPerFamily) continue;
       const next = list.shift()!;
       if (seen.has(next.t.trackId)) continue;
       seen.add(next.t.trackId);
       picked.push(next.t);
+      familyCounts.set(fam, (familyCounts.get(fam) ?? 0) + 1);
       if (picked.length >= max) break;
     }
   }

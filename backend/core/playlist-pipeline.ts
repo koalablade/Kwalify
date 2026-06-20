@@ -3082,6 +3082,221 @@ function adjacentGenreFamilies(family: string | null): string[] {
   }
 }
 
+type PromptDiversityKind = "strong" | "blended" | "vague" | "edge";
+
+function promptDiversityKind(contract: IntentContract, vibe: string): PromptDiversityKind {
+  if (contract.primarySubgenre || (contract.genres.length > 0 && contract.explicitDimensions.length >= 2)) {
+    return "strong";
+  }
+  if (/\b(but|yet|happy\s+sad|calm\s+energy|chaotic|intense\s+but|energetic\s+but|sad\s+but|relaxed\s+hype|dreamy\s+but|nostalgic\s+but)\b/i.test(vibe)) {
+    return "edge";
+  }
+  if (multiSignalSceneBlend(contract) || contract.mood.length >= 2) return "blended";
+  if (vibe.trim().split(/\s+/).filter(Boolean).length <= 4) return "vague";
+  return "blended";
+}
+
+function minClusterEntropyForKind(kind: PromptDiversityKind): number {
+  if (kind === "strong") return 0.55;
+  if (kind === "edge") return 0.80;
+  return 0.75;
+}
+
+function emotionQuadrantForTrack(track: { energy: number | null; valence: number | null }): string {
+  const e = (track.energy ?? 0.5) >= 0.55 ? "hi" : (track.energy ?? 0.5) <= 0.42 ? "lo" : "md";
+  const v = (track.valence ?? 0.5) >= 0.55 ? "pos" : (track.valence ?? 0.5) <= 0.42 ? "neg" : "neu";
+  return `${e}_${v}`;
+}
+
+function textureBucketForTrack(track: {
+  acousticness?: number | null;
+  danceability?: number | null;
+}): string {
+  const acoustic = track.acousticness ?? 0.5;
+  const dance = track.danceability ?? 0.5;
+  if (acoustic >= 0.55) return "acoustic";
+  if (dance >= 0.65) return "rhythmic";
+  if (acoustic <= 0.25 && dance <= 0.45) return "dense";
+  return "balanced";
+}
+
+function eraBucketForTrack(releaseYear?: number | null): string {
+  if (!releaseYear || releaseYear < 1970) return "pre70";
+  if (releaseYear < 1990) return "70s80s";
+  if (releaseYear < 2010) return "90s00s";
+  return "2010s";
+}
+
+function normalizedLabelEntropy(labels: string[]): number {
+  if (labels.length <= 1) return 0;
+  const counts = new Map<string, number>();
+  for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  let entropy = 0;
+  for (const count of counts.values()) {
+    const p = count / labels.length;
+    if (p > 0) entropy -= p * Math.log2(p);
+  }
+  return entropy / Math.log2(counts.size);
+}
+
+function retrievalManifoldKey<T extends {
+  trackId: string;
+  energy: number | null;
+  valence: number | null;
+  acousticness?: number | null;
+  danceability?: number | null;
+  releaseYear?: number | null;
+  genrePrimary?: string;
+}>(
+  track: T,
+  classMap: UserGenreProfile["trackClassifications"],
+): string {
+  const family = genreFamilyForTrack(track, classMap) ?? "unknown";
+  return `${family}|${emotionQuadrantForTrack(track)}|${textureBucketForTrack(track)}`;
+}
+
+function deCollapseCandidatePool<T extends {
+  trackId: string;
+  score?: number;
+  energy: number | null;
+  valence: number | null;
+  acousticness?: number | null;
+  danceability?: number | null;
+  releaseYear?: number | null;
+  genrePrimary?: string;
+}>(
+  pool: T[],
+  expanded: T[],
+  classMap: UserGenreProfile["trackClassifications"],
+  kind: PromptDiversityKind,
+  targetSize: number,
+): { tracks: T[]; diagnostics: Record<string, unknown> } {
+  if (pool.length === 0) {
+    return { tracks: pool, diagnostics: { applied: false, reason: "empty_pool" } };
+  }
+  const maxClusterShare = 0.45;
+  const minEntropy = minClusterEntropyForKind(kind);
+  const initialLabels = pool.map((track) => retrievalManifoldKey(track, classMap));
+  const initialEntropy = normalizedLabelEntropy(initialLabels);
+  const initialDominant = dominantFamilyShare(familyDistribution(pool, classMap));
+  const collapseDetected =
+    initialDominant.share > maxClusterShare ||
+    initialEntropy < minEntropy ||
+    familyCount(pool, classMap) < (kind === "strong" ? 2 : 3);
+
+  if (!collapseDetected) {
+    return {
+      tracks: pool,
+      diagnostics: {
+        applied: false,
+        kind,
+        initialEntropy: round3(initialEntropy),
+        dominantShare: round3(initialDominant.share),
+      },
+    };
+  }
+
+  const ranked = [...expanded].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const byCluster = new Map<string, T[]>();
+  for (const track of ranked) {
+    const key = retrievalManifoldKey(track, classMap);
+    const list = byCluster.get(key) ?? [];
+    list.push(track);
+    byCluster.set(key, list);
+  }
+  const clusters = [...byCluster.entries()].sort(
+    (a, b) => (b[1][0]?.score ?? 0) - (a[1][0]?.score ?? 0),
+  );
+  const maxPerCluster = Math.max(1, Math.ceil(targetSize * maxClusterShare));
+  const used = new Set<string>();
+  const out: T[] = [];
+  const clusterCounts = new Map<string, number>();
+  const activeClusters = [
+    ...clusters.slice(0, 3),
+    ...clusters.slice(-1),
+  ].filter((entry, index, entries) => entries.findIndex(([key]) => key === entry[0]) === index);
+
+  for (const [key, tracks] of activeClusters) {
+    for (const track of tracks) {
+      if (out.length >= targetSize) break;
+      if (used.has(track.trackId)) continue;
+      if ((clusterCounts.get(key) ?? 0) >= maxPerCluster) continue;
+      used.add(track.trackId);
+      out.push(track);
+      clusterCounts.set(key, (clusterCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  if (kind !== "strong") {
+    const familiesSeen = new Set(out.map((track) => genreFamilyForTrack(track, classMap)).filter(Boolean));
+    const energyBands = new Set(out.map((track) => emotionQuadrantForTrack(track)));
+    for (const track of ranked) {
+      if (out.length >= targetSize) break;
+      if (used.has(track.trackId)) continue;
+      const family = genreFamilyForTrack(track, classMap);
+      const needsFamily = familiesSeen.size < 2 && family && !familiesSeen.has(family);
+      const needsEnergy = energyBands.size < 2;
+      if (!needsFamily && !needsEnergy && (clusterCounts.get(retrievalManifoldKey(track, classMap)) ?? 0) >= maxPerCluster) {
+        continue;
+      }
+      used.add(track.trackId);
+      out.push(track);
+      if (family) familiesSeen.add(family);
+      energyBands.add(emotionQuadrantForTrack(track));
+    }
+  }
+
+  for (const track of ranked) {
+    if (out.length >= targetSize) break;
+    if (used.has(track.trackId)) continue;
+    const key = retrievalManifoldKey(track, classMap);
+    if ((clusterCounts.get(key) ?? 0) >= maxPerCluster) continue;
+    used.add(track.trackId);
+    out.push(track);
+    clusterCounts.set(key, (clusterCounts.get(key) ?? 0) + 1);
+  }
+
+  const finalLabels = out.map((track) => retrievalManifoldKey(track, classMap));
+  const textureLabels = out.map((track) => textureBucketForTrack(track));
+  const eraLabels = out.map((track) => eraBucketForTrack(track.releaseYear));
+  const textureDominant = dominantFamilyShare(
+    textureLabels.reduce<Record<string, number>>((acc, label) => {
+      acc[label] = (acc[label] ?? 0) + 1;
+      return acc;
+    }, {}),
+  );
+  if (textureDominant.share > 0.45) {
+    for (const track of ranked) {
+      if (out.length >= targetSize) break;
+      if (used.has(track.trackId)) continue;
+      if (textureBucketForTrack(track) === textureDominant.family) continue;
+      out.push(track);
+      used.add(track.trackId);
+      if (dominantFamilyShare(
+        out.map((item) => textureBucketForTrack(item)).reduce<Record<string, number>>((acc, label) => {
+          acc[label] = (acc[label] ?? 0) + 1;
+          return acc;
+        }, {}),
+      ).share <= 0.45) break;
+    }
+  }
+
+  return {
+    tracks: out.length > 0 ? out : pool,
+    diagnostics: {
+      applied: true,
+      kind,
+      initialEntropy: round3(initialEntropy),
+      finalEntropy: round3(normalizedLabelEntropy(finalLabels)),
+      dominantShareBefore: round3(initialDominant.share),
+      dominantShareAfter: round3(dominantFamilyShare(familyDistribution(out, classMap)).share),
+      eraEntropy: round3(normalizedLabelEntropy(eraLabels)),
+      textureDominantShare: round3(textureDominant.share),
+      targetSize,
+    },
+  };
+}
+
 function uncollapseV11CandidatePool<T extends {
   trackId: string;
   genrePrimary?: string;
@@ -3106,7 +3321,7 @@ function uncollapseV11CandidatePool<T extends {
   const initialDistribution = familyDistribution(initialPool, classMap);
   const initialDominant = dominantFamilyShare(initialDistribution);
   const collapseDetected =
-    initialDominant.share > 0.70 ||
+    initialDominant.share > 0.45 ||
     familyCount(initialPool, classMap) < Math.min(3, availableFamilyCount);
 
   if (!collapseDetected || availableFamilyCount < 2) {
@@ -3146,7 +3361,7 @@ function uncollapseV11CandidatePool<T extends {
 
   function diversityTargetMet(): boolean {
     return familyCount(out, classMap) >= targetFamilyCount &&
-      dominantFamilyShare(familyDistribution(out, classMap)).share <= 0.70;
+      dominantFamilyShare(familyDistribution(out, classMap)).share <= 0.45;
   }
 
   for (const family of preferredFamilies) {
@@ -3771,7 +3986,16 @@ export async function buildPlaylistPipeline<T extends {
   }
   recordTiming("retrieval", stageStartedAt);
   if (opts.shouldAbort?.()) abortPipeline("retrieval");
-  const pooledCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
+  const diversityKind = promptDiversityKind(intentContract, opts.vibe);
+  const flattenedCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
+  const deCollapsed = deCollapseCandidatePool(
+    flattenedCandidates.slice(0, Math.min(flattenedCandidates.length, Math.max(opts.playlistLength * 12, 120))),
+    flattenedCandidates,
+    classMap,
+    diversityKind,
+    Math.max(opts.playlistLength * 10, 90),
+  );
+  const pooledCandidates = deCollapsed.tracks;
   recordTraceCount(pipelineTrace, "retrievalCandidates", pooledCandidates.length);
   const contractSafePool = enforceIntentContract(
     pooledCandidates as unknown as Array<ScoredLibraryTrack<IntentContractTrack>>,
@@ -4085,6 +4309,18 @@ export async function buildPlaylistPipeline<T extends {
           sceneIdentityCoherenceScore(track, intentContract, classMap, origin),
       };
     })
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const preV3DeCollapse = deCollapseCandidatePool(
+    contractGuardedScoredPool.slice(0, Math.min(
+      contractGuardedScoredPool.length,
+      Math.max(opts.playlistLength * 12, 120),
+    )),
+    contractGuardedScoredPool,
+    classMap,
+    diversityKind,
+    Math.max(minSafePreRankingPool, opts.playlistLength * 8),
+  );
+  contractGuardedScoredPool = preV3DeCollapse.tracks
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   if (starvationTriggerReason) {
     opts.pipelineLog?.warn({

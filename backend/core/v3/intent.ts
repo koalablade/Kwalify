@@ -1015,6 +1015,10 @@ function buildVibeMixture(
     .map((segment) => segment.trim())
     .filter(Boolean);
   const sourceSegments = segments.length > 0 ? segments : [input];
+  const timeMatch = input.match(/\b(morning|afternoon|evening|night|sunrise|sunset|midnight|dawn|noon)\b/i)?.[0];
+  if (timeMatch && sourceSegments.length === 1 && !sourceSegments[0]!.toLowerCase().includes(timeMatch.toLowerCase())) {
+    sourceSegments.push(timeMatch);
+  }
   if (sourceSegments.length === 1 && mood.length >= 2) {
     const baseVector = vectorFromPromptSegment(sourceSegments[0], mood, activity, energy);
     const moodVectors = mood.map((tag) =>

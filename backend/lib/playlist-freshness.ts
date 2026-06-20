@@ -20,21 +20,25 @@ export interface FreshnessStats {
 }
 
 /** Progressive track cooldown: recent playlists should not dominate the next pick. */
-export function trackCooldownMultiplier(appearances: number): number {
+export function trackCooldownMultiplier(appearances: number, maxPlaylists = 12): number {
   if (appearances <= 0) return 1;
-  if (appearances === 1) return 0.40;
-  if (appearances === 2) return 0.24;
-  if (appearances === 3) return 0.15;
-  return 0.08;
+  const share = appearances / Math.max(1, maxPlaylists);
+  if (share >= 0.30) return 0.12;
+  if (appearances === 1) return 0.34;
+  if (appearances === 2) return 0.18;
+  if (appearances === 3) return 0.10;
+  return Math.max(0.06, 0.08 * Math.pow(0.72, appearances - 3));
 }
 
 /** Artist used heavily across recent playlists. */
-export function artistCooldownMultiplier(appearances: number): number {
+export function artistCooldownMultiplier(appearances: number, maxPlaylists = 12): number {
   if (appearances <= 0) return 1;
-  if (appearances === 1) return 0.88;
-  if (appearances === 2) return 0.72;
-  if (appearances === 3) return 0.56;
-  return 0.42;
+  const share = appearances / Math.max(1, maxPlaylists);
+  if (share >= 0.35) return 0.38;
+  if (appearances === 1) return 0.82;
+  if (appearances === 2) return 0.62;
+  if (appearances === 3) return 0.48;
+  return Math.max(0.32, 0.42 * Math.pow(0.78, appearances - 3));
 }
 
 export function albumCooldownMultiplier(appearances: number): number {
@@ -166,14 +170,28 @@ export function sceneClonePenalty(
 /** Penalty for hybrid pool pre-filter (last playlists weighted heavier). */
 export function buildRecentTrackPoolPenalty(
   recentPlaylistTrackIds: string[][],
-  maxPlaylists = 5,
+  maxPlaylists = 12,
   scale = 1
 ): Map<string, number> {
   const map = new Map<string, number>();
-  for (const [i, ids] of recentPlaylistTrackIds.slice(0, maxPlaylists).entries()) {
-    const weight = (i === 0 ? 0.26 : i === 1 ? 0.17 : 0.10) * scale;
+  const playlists = recentPlaylistTrackIds.slice(0, maxPlaylists);
+  const trackCounts = new Map<string, number>();
+  for (const ids of playlists) {
     for (const id of ids) {
-      map.set(id, (map.get(id) ?? 0) + weight);
+      trackCounts.set(id, (trackCounts.get(id) ?? 0) + 1);
+    }
+  }
+  for (const [i, ids] of playlists.entries()) {
+    const recencyWeight = Math.pow(0.82, i) * scale;
+    for (const id of ids) {
+      const appearances = trackCounts.get(id) ?? 0;
+      const share = appearances / Math.max(1, playlists.length);
+      const appearanceWeight = share >= 0.30
+        ? 0.42
+        : share >= 0.20
+          ? 0.28
+          : Math.min(0.22, 0.08 + appearances * 0.05);
+      map.set(id, (map.get(id) ?? 0) + recencyWeight * appearanceWeight);
     }
   }
   return map;
@@ -191,11 +209,14 @@ export function applyFreshnessToScore(
     globalCloneMultiplier: number;
   }
 ): number {
+  const scanned = Math.max(1, opts.stats.playlistsScanned);
   const trackMult = trackCooldownMultiplier(
-    opts.stats.trackAppearances.get(opts.trackId) ?? 0
+    opts.stats.trackAppearances.get(opts.trackId) ?? 0,
+    scanned,
   );
   const artistMult = artistCooldownMultiplier(
-    opts.artistAppearances.get(opts.artistName.toLowerCase()) ?? 0
+    opts.artistAppearances.get(opts.artistName.toLowerCase()) ?? 0,
+    scanned,
   );
   const albumMult = albumCooldownMultiplier(
     opts.albumAppearances.get(opts.albumName.toLowerCase()) ?? 0

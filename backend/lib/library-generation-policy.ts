@@ -170,6 +170,9 @@ export function estimatePromptUncertainty(input: {
     score += Math.max(0, 0.60 - input.sceneConfidence) * 0.28;
   }
 
+  if (input.explicitDimensions >= 2) score -= Math.min(0.18, input.explicitDimensions * 0.06);
+  if (input.interpretationComplexity === "low" && input.explicitDimensions >= 1) score -= 0.08;
+
   const profile = input.emotionProfile;
   if (profile) {
     const axisHits = [
@@ -201,8 +204,8 @@ export function resolveGenerationPolicy(
   const mainstream = library.distribution === "mainstream_heavy";
   const genreLocked = library.genreLockedRatio >= 0.55;
   const lowDiscovery = library.discoveryCapacity < 0.42;
-  const ambiguous = prompt.score >= 0.50;
-  const multiSignal = prompt.signalCount >= 3;
+  const ambiguous = prompt.score >= 0.58;
+  const multiSignal = prompt.signalCount >= 4;
 
   let retrievalBreadth = 1;
   let diversityPressure = 1;
@@ -219,8 +222,8 @@ export function resolveGenerationPolicy(
     discoveryBoost = 1.30;
     intentElasticity = 0.84;
     minCandidateRatio = 0.42;
-    escapeDiversityRatio = 0.18;
-    disableFastPath = true;
+    escapeDiversityRatio = prompt.score >= 0.55 ? 0.18 : 0.13;
+    disableFastPath = ambiguous || multiSignal;
   } else if (rich) {
     retrievalBreadth = 1.12;
     diversityPressure = 1.10;
@@ -235,10 +238,20 @@ export function resolveGenerationPolicy(
     diversityPressure = Math.max(diversityPressure, 1.08);
   }
 
+  if (prompt.explicitDimensions >= 2) {
+    mainstreamSuppression = Math.min(mainstreamSuppression, 1.40);
+    intentElasticity = Math.max(intentElasticity, 0.96);
+    minCandidateRatio = Math.max(minCandidateRatio, sparse ? 0.58 : 0.68);
+  }
+
+  if (rich && prompt.explicitDimensions >= 1) {
+    intentElasticity = Math.max(intentElasticity, 0.98);
+  }
+
   if (genreLocked) {
     diversityPressure = Math.max(diversityPressure, 1.10);
     intentElasticity = Math.min(intentElasticity, 0.88);
-    escapeDiversityRatio = Math.max(escapeDiversityRatio, 0.20);
+    escapeDiversityRatio = Math.max(escapeDiversityRatio, prompt.score >= 0.55 ? 0.18 : 0.14);
   }
 
   if (ambiguous || multiSignal) {

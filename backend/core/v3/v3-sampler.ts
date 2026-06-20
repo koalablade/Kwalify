@@ -374,24 +374,38 @@ export function selectFromClusters<T extends ScorerTrack>(
     if (genreCid) genreClusterCounts.set(genreCid, (genreClusterCounts.get(genreCid) ?? 0) + 1);
   }
   const dominantCluster = [...genreClusterCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  const primaryCoverage = dominantCluster
-    ? rankedCandidates.filter((decision) => (trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster)).length
+  const dominantShareInPool = dominantCluster
+    ? (genreClusterCounts.get(dominantCluster) ?? 0) / Math.max(1, rankedCandidates.length)
     : 0;
-  const requiredPrimaryCoverage = Math.ceil(targetCount * 0.70);
-  const secondaryClusterAllowed = primaryCoverage < requiredPrimaryCoverage;
-  const secondaryClusterReason = secondaryClusterAllowed
-    ? "primary_cluster_below_70_percent_target"
-    : null;
-  const clusterDisciplinedCandidates = dominantCluster && !secondaryClusterAllowed
-    ? rankedCandidates.filter((decision) => (trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster))
+  const dominantPenalty = dominantShareInPool > 0.40 ? 0.15 : dominantShareInPool > 0.30 ? 0.10 : 0;
+  const clusterBalancedCandidates = dominantCluster && dominantPenalty > 0
+    ? rankedCandidates.map((decision) => {
+        const inDominant = (trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster);
+        return inDominant
+          ? { ...decision, finalScore: decision.finalScore * (1 - dominantPenalty) }
+          : decision;
+      }).sort((a, b) => b.finalScore - a.finalScore)
     : rankedCandidates;
-  if (dominantCluster && clusterDisciplinedCandidates.length < rankedCandidates.length) {
-    recordRejection("sampler_non_dominant_cluster_held", rankedCandidates.length - clusterDisciplinedCandidates.length);
-  }
+  const topWindow = clusterBalancedCandidates.slice(0, Math.max(20, targetCount * 2));
+  const topDominantCount = dominantCluster
+    ? topWindow.filter((decision) => (trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster)).length
+    : 0;
+  const topDominantCap = Math.ceil(topWindow.length * 0.30);
+  const clusterDisciplinedCandidates = dominantCluster && topDominantCount > topDominantCap
+    ? [
+        ...topWindow.filter((decision) => !(trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster)),
+        ...topWindow.filter((decision) => (trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster)).slice(0, topDominantCap),
+        ...clusterBalancedCandidates.slice(topWindow.length),
+      ]
+    : clusterBalancedCandidates;
+  const secondaryClusterAllowed = true;
+  const secondaryClusterReason = dominantShareInPool > 0.45
+    ? "dominant_cluster_exceeded_45_percent_pool"
+    : null;
 
   const coreEnd = Math.max(1, Math.ceil(clusterDisciplinedCandidates.length * 0.35));
   const variationEnd = Math.max(coreEnd, Math.ceil(clusterDisciplinedCandidates.length * 0.75));
-  const coreTarget = Math.ceil(targetCount * 0.70);
+  const coreTarget = Math.ceil(targetCount * 0.52);
   const variationTarget = Math.floor(targetCount * 0.20);
   const explorationTarget = Math.max(0, targetCount - coreTarget - variationTarget);
   const selectionBuckets = [

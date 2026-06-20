@@ -199,7 +199,8 @@ export function applyPostScoreModifiers<T extends {
       const mainstreamPenalty = pop >= 70
         ? Math.min(0.06 * mainstreamScale, ((pop - 70) / 30) * 0.06 * mainstreamScale)
         : 0;
-      score += discoveryBoost - mainstreamPenalty;
+      const popularityDominancePenalty = pop >= 72 ? Math.min(0.08, ((pop - 72) / 28) * 0.08) : 0;
+      score += discoveryBoost - mainstreamPenalty - popularityDominancePenalty;
     }
     const curatorScore = input.curatorScoreByTrack?.get(song.trackId);
     if (typeof curatorScore === "number") {

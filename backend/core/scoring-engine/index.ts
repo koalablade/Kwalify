@@ -115,6 +115,64 @@ import { logScoringStage } from "../../lib/generate-stage-timer";
 
 
 
+function rebalanceSortedAntiCollapse<T extends {
+  trackId: string;
+  score: number;
+  genrePrimary?: string | null;
+}>(
+  sorted: T[],
+  classMap: Map<string, { genreFamily?: string; genrePrimary?: string }>,
+  playlistLength: number,
+): T[] {
+  const topSize = Math.max(20, playlistLength * 2);
+  if (sorted.length <= topSize) return sorted;
+  const familyFor = (track: T): string =>
+    classMap.get(track.trackId)?.genreFamily ??
+    track.genrePrimary ??
+    classMap.get(track.trackId)?.genrePrimary ??
+    "unknown";
+  const top = sorted.slice(0, topSize);
+  const familyCounts = new Map<string, number>();
+  for (const track of top) {
+    const family = familyFor(track);
+    familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1);
+  }
+  const dominant = [...familyCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const maxDominant = Math.ceil(topSize * 0.30);
+  if (!dominant || dominant[1] <= maxDominant) return sorted;
+
+  const [dominantFamily] = dominant;
+  const dominantPenalty = dominant[1] / topSize > 0.40 ? 0.16 : 0.12;
+  const adjusted = sorted.map((track, index) => {
+    if (index >= topSize) return track;
+    if (familyFor(track) !== dominantFamily) return track;
+    return { ...track, score: track.score * (1 - dominantPenalty) };
+  });
+  adjusted.sort((a, b) => b.score - a.score);
+  const reTop = adjusted.slice(0, topSize);
+  const dominantInTop = reTop.filter((track) => familyFor(track) === dominantFamily).length;
+  if (dominantInTop <= maxDominant) return adjusted;
+
+  const kept = reTop.filter((track) => familyFor(track) !== dominantFamily);
+  const dominantKept = reTop
+    .filter((track) => familyFor(track) === dominantFamily)
+    .slice(0, maxDominant);
+  const overflow = reTop.filter((track) => familyFor(track) === dominantFamily).slice(maxDominant);
+  const replacements = adjusted.slice(topSize).filter((track) => familyFor(track) !== dominantFamily);
+  const rebuiltTop = [...kept, ...dominantKept];
+  for (const track of replacements) {
+    if (rebuiltTop.length >= topSize) break;
+    rebuiltTop.push(track);
+  }
+  rebuiltTop.sort((a, b) => b.score - a.score);
+  return [...rebuiltTop, ...overflow, ...adjusted.slice(topSize).filter((track) =>
+    !rebuiltTop.some((item) => item.trackId === track.trackId) &&
+    !overflow.some((item) => item.trackId === track.trackId)
+  )];
+}
+
+
+
 export interface RunScoringPipelineOpts<T extends {
 
   trackId: string;
@@ -546,12 +604,11 @@ export function runScoringPipeline<T extends {
 
   const rawSorted = sortByScore(biased);
 
-  // Post-score invariant filter DISABLED — genre diversity must be preserved.
-  // Scene shapes output via scoring weights; hard post-score removal destroys
-  // cross-genre adjacency and produces single-genre collapse.
-  // Tracks are ranked by score; the genre diversity enforcer handles balance.
+  const sorted = rebalanceSortedAntiCollapse(rawSorted, classMap, opts.playlistLength);
+
   const postScoreFilteredCount = 0;
-  const sorted = rawSorted;
+
+  // Post-score invariant filter DISABLED — genre diversity must be preserved.
 
   const gravityDiagnostics = buildGravityDiagnostics(
     gravityProfiles,

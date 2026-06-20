@@ -178,6 +178,37 @@ function distributeArtistsAcrossPhases<T extends { trackId: string; artistName: 
   return result;
 }
 
+function smoothAdjacentEnergySteps<T extends { energy: number | null; score: number }>(
+  tracks: T[],
+  maxJump = 0.30,
+): T[] {
+  if (tracks.length < 3) return tracks;
+  const out = [...tracks];
+  for (let i = 1; i < out.length; i++) {
+    const prevEnergy = out[i - 1]!.energy ?? 0.5;
+    const currEnergy = out[i]!.energy ?? 0.5;
+    if (Math.abs(currEnergy - prevEnergy) <= maxJump) continue;
+    let swapIdx = -1;
+    for (let j = i + 1; j < Math.min(out.length, i + 7); j++) {
+      const candidateEnergy = out[j]!.energy ?? 0.5;
+      const nextEnergy = out[i + 1]?.energy ?? candidateEnergy;
+      if (
+        Math.abs(candidateEnergy - prevEnergy) <= maxJump &&
+        Math.abs(nextEnergy - candidateEnergy) <= maxJump
+      ) {
+        swapIdx = j;
+        break;
+      }
+    }
+    if (swapIdx >= 0) {
+      const tmp = out[i]!;
+      out[i] = out[swapIdx]!;
+      out[swapIdx] = tmp;
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Apply genre bridge smoothing within individual phases only.
 // Reordering is local to each phase so the macro emotional arc is preserved.
@@ -283,7 +314,8 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
     afterSmoothing = afterDeadZone;
   }
   const afterArtistSep = separateAdjacentArtists(afterSmoothing);
-  const afterArc = enforceArc(afterArtistSep, emotionProfile, journeyArc);
+  const afterEnergySteps = smoothAdjacentEnergySteps(afterArtistSep);
+  const afterArc = enforceArc(afterEnergySteps, emotionProfile, journeyArc);
 
   let finalTracks: ComposedTrack<T>[] = assignNarrativeRoles(
     afterArc.slice(0, playlistLength),
