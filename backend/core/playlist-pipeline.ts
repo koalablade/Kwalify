@@ -45,8 +45,10 @@ import type { SurpriseMix } from "../lib/human-surprise";
 import type { JourneyArc } from "../lib/emotion-destination";
 import type { FeedbackMemory } from "../lib/feedback-memory";
 import {
+  applyStructuralDiversityGuards,
   buildRecentTrackPoolPenalty,
   type FreshnessStats,
+  type PlaylistHistoryRow,
 } from "../lib/playlist-freshness";
 import { buildGenreAudit, type GenreAudit } from "../lib/genre-audit";
 import { classifyTrack } from "../lib/genre-taxonomy";
@@ -150,6 +152,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
   memoryByTrack: (trackId: string) => number;
   noveltyByTrack: (trackId: string) => number;
   recentPlaylistTrackIds?: string[][];
+  recentPlaylistHistory?: PlaylistHistoryRow[];
   sessionArtistMemory?: SessionArtistMemory;
   postScore: {
     referenceFingerprint: ReferenceFingerprint | null;
@@ -5167,6 +5170,32 @@ export async function buildPlaylistPipeline<T extends {
     .sort((a, b) => fallbackCandidateScore(b) - fallbackCandidateScore(a))
     .slice(0, fallbackResolveLimit);
 
+  const trackByIdForStructural = new Map(opts.likedSongs.map((song) => [song.trackId, song]));
+  const structuralCandidatePool = orderFallbackPool([
+    ...(qualityRecoveryCandidatePool as ScoredLibraryTrack<T>[]),
+    ...contractGuardedScoredPool,
+  ]) as T[];
+  const guardStructuralDiversity = (tracks: T[]): T[] => {
+    if (tracks.length < 6) return tracks;
+    const guarded = applyStructuralDiversityGuards(tracks, {
+      candidatePool: structuralCandidatePool,
+      recentPlaylistTrackIds: opts.recentPlaylistTrackIds,
+      recentPlaylistHistory: opts.recentPlaylistHistory,
+      trackById: trackByIdForStructural,
+      classMap,
+      vibe: opts.vibe,
+      emotionProfile: opts.emotionProfile,
+      diversityKind,
+    });
+    if (guarded.diagnostics.applied) {
+      opts.pipelineLog?.info(
+        { structuralDiversity: guarded.diagnostics },
+        "Structural diversity guards applied",
+      );
+    }
+    return guarded.tracks;
+  };
+
   function resolveFinalTracks(
     pool: ScoredLibraryTrack<T>[],
     fallbackLabel: string,
@@ -5196,7 +5225,7 @@ export async function buildPlaylistPipeline<T extends {
       resolvedTracks,
       [...resolvedPool, ...contractGuardedScoredPool] as Array<ScoredLibraryTrack<T>>,
     );
-    const resolvedFinalTracks = antiBlandness.tracks;
+    const resolvedFinalTracks = guardStructuralDiversity(antiBlandness.tracks);
     const resolvedMomentMemory = updateMomentMemory({
       unifiedIntent: memoryAdjustedUnifiedIntent,
       finalPlaylistEmbedding: buildPlaylistEmbedding(resolvedFinalTracks).centroidVector,
@@ -5404,7 +5433,7 @@ export async function buildPlaylistPipeline<T extends {
       memoryKey: opts.momentMemoryKey,
     });
     return {
-      finalTracks: enforcedFallback.tracks,
+      finalTracks: guardStructuralDiversity(enforcedFallback.tracks),
       sorted: scoring.sorted,
       scoringDiagnostics: {
         ...scoring.scoringDiagnostics,
@@ -5514,6 +5543,7 @@ export async function buildPlaylistPipeline<T extends {
   if (finalAntiBlandness.diagnostics.replacedCount > 0) {
     finalTracksList = finalAntiBlandness.tracks as T[];
   }
+  finalTracksList = guardStructuralDiversity(finalTracksList);
   qualityRecoveryDiagnostics["antiBlandness"] = {
     ...finalAntiBlandness.diagnostics,
     executed: true,

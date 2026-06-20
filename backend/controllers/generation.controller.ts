@@ -5824,6 +5824,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       journeyArc,
       maxPerArtist,
       recentPlaylistTrackIds: recentTrackLists,
+      recentPlaylistHistory: persistentMemoryPlaylistRows.slice(0, 10),
       sessionArtistMemory,
       lastSuccessfulVibe: recentPlaylists[0]?.vibe ?? null,
       noLibraryMode: !!noLibraryMode,
