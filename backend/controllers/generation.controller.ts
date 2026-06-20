@@ -2959,24 +2959,40 @@ function repairHumanCoherenceOrder<T extends ConstraintTrack>(
   identity: CuratorIdentity
 ): { tracks: T[]; beforeScore: number; afterScore: number; repaired: boolean } {
   const before = humanCoherenceScore(tracks, identity);
-  if (tracks.length < 4 || before.score >= 0.56) {
+  if (tracks.length < 4 || before.score >= 0.60) {
     return { tracks, beforeScore: before.score, afterScore: before.score, repaired: false };
   }
 
   const openingLockSize = Math.min(3, Math.max(1, Math.floor(tracks.length * 0.12)));
   const ordered: T[] = tracks.slice(0, openingLockSize);
   const remaining = tracks.slice(openingLockSize);
+  const recentArtists = new Set(ordered.map((t) => t.artistName.toLowerCase().trim()).filter(Boolean));
   while (remaining.length > 0) {
     const previous = ordered[ordered.length - 1]!;
+    const previousArtist = previous.artistName.toLowerCase().trim();
     const nextIndex = remaining
-      .map((track, index) => ({
-        index,
-        transitionCost:
-          Math.abs((previous.energy ?? 0.5) - (track.energy ?? 0.5)) +
-          Math.abs((previous.valence ?? 0.5) - (track.valence ?? 0.5)) * 0.8,
-      }))
+      .map((track, index) => {
+        const artist = track.artistName.toLowerCase().trim();
+        const sameArtistPenalty = artist && (artist === previousArtist || recentArtists.has(artist)) ? 0.42 : 0;
+        return {
+          index,
+          transitionCost:
+            Math.abs((previous.energy ?? 0.5) - (track.energy ?? 0.5)) +
+            Math.abs((previous.valence ?? 0.5) - (track.valence ?? 0.5)) * 0.8 +
+            sameArtistPenalty,
+        };
+      })
       .sort((a, b) => a.transitionCost - b.transitionCost)[0]?.index ?? 0;
-    ordered.push(remaining.splice(nextIndex, 1)[0]!);
+    const picked = remaining.splice(nextIndex, 1)[0]!;
+    ordered.push(picked);
+    const pickedArtist = picked.artistName.toLowerCase().trim();
+    if (pickedArtist) recentArtists.add(pickedArtist);
+    if (recentArtists.size > 4) {
+      const keep = new Set(ordered.slice(-4).map((t) => t.artistName.toLowerCase().trim()).filter(Boolean));
+      for (const key of [...recentArtists]) {
+        if (!keep.has(key)) recentArtists.delete(key);
+      }
+    }
   }
 
   const after = humanCoherenceScore(ordered, identity);
@@ -3112,8 +3128,8 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
     const artistKey = sanitized.artistName.toLowerCase().trim();
     const artistCount = artistCounts.get(artistKey) ?? 0;
-    const previousArtistKey = out[out.length - 1]?.artistName.toLowerCase().trim() ?? null;
-    if (previousArtistKey && previousArtistKey === artistKey) {
+    const recentArtistKeys = out.slice(-2).map((t) => t.artistName.toLowerCase().trim());
+    if (recentArtistKeys.some((key) => key && key === artistKey)) {
       backToBackArtistSkipped++;
       return;
     }
@@ -5146,7 +5162,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       maxArtistAppearances: 1,
       diversityPressure: sessionDiversityPressure,
     };
-    const recentTrackPenaltyScale = (varietyBoost ? 2.75 : 1.85) * sessionDiversityPressure;
+    const recentTrackPenaltyScale = (varietyBoost ? 2.85 : 2.05) * sessionDiversityPressure;
     const finalizationReusePenalty = recentTrackLists.length
       ? buildRecentTrackPoolPenalty(recentTrackLists, 20, recentTrackPenaltyScale)
       : undefined;
@@ -6692,7 +6708,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       beforeScore: humanCoherence.score,
       afterScore: humanCoherence.score,
     };
-    if (finalTracks.length > 0 && humanCoherence.score < 0.56) {
+    if (finalTracks.length > 0 && humanCoherence.score < 0.60) {
       const repairedCoherence = repairHumanCoherenceOrder(finalTracks, curatorIdentity);
       humanCoherenceRepairDiagnostics = {
         executed: true,

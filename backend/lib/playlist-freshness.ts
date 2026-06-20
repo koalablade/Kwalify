@@ -22,19 +22,19 @@ export interface FreshnessStats {
 /** Progressive track cooldown: recent playlists should not dominate the next pick. */
 export function trackCooldownMultiplier(appearances: number): number {
   if (appearances <= 0) return 1;
-  if (appearances === 1) return 0.45;
-  if (appearances === 2) return 0.28;
-  if (appearances === 3) return 0.18;
-  return 0.1;
+  if (appearances === 1) return 0.40;
+  if (appearances === 2) return 0.24;
+  if (appearances === 3) return 0.15;
+  return 0.08;
 }
 
 /** Artist used heavily across recent playlists. */
 export function artistCooldownMultiplier(appearances: number): number {
   if (appearances <= 0) return 1;
-  if (appearances === 1) return 0.92;
-  if (appearances === 2) return 0.8;
-  if (appearances === 3) return 0.65;
-  return 0.5;
+  if (appearances === 1) return 0.88;
+  if (appearances === 2) return 0.72;
+  if (appearances === 3) return 0.56;
+  return 0.42;
 }
 
 export function albumCooldownMultiplier(appearances: number): number {
@@ -171,7 +171,7 @@ export function buildRecentTrackPoolPenalty(
 ): Map<string, number> {
   const map = new Map<string, number>();
   for (const [i, ids] of recentPlaylistTrackIds.slice(0, maxPlaylists).entries()) {
-    const weight = (i === 0 ? 0.22 : i === 1 ? 0.14 : 0.08) * scale;
+    const weight = (i === 0 ? 0.26 : i === 1 ? 0.17 : 0.10) * scale;
     for (const id of ids) {
       map.set(id, (map.get(id) ?? 0) + weight);
     }

@@ -187,8 +187,10 @@ export function applyPostScoreModifiers<T extends {
       score += cultureRetrievalBoost(input.trendPrompt);
     }
     if (typeof enriched.popularity === "number") {
-      const popularityBalance = 1 - Math.abs(enriched.popularity - 58) / 100;
-      score += Math.max(0, popularityBalance) * 0.035;
+      const pop = enriched.popularity;
+      const discoveryBoost = pop <= 45 ? Math.max(0, (45 - pop) / 45) * 0.04 : 0;
+      const mainstreamPenalty = pop >= 78 ? Math.min(0.03, (pop - 78) / 22 * 0.03) : 0;
+      score += discoveryBoost - mainstreamPenalty;
     }
     const curatorScore = input.curatorScoreByTrack?.get(song.trackId);
     if (typeof curatorScore === "number") {

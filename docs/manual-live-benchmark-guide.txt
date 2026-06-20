@@ -1,0 +1,237 @@
+================================================================================
+  KWALIFY — MANUAL LIVE BENCHMARK GUIDE (no Cursor required)
+================================================================================
+
+Project root:
+  c:\Users\Kwalah\Downloads\Kwalify-main
+
+Shell: PowerShell (run commands one at a time, or join with semicolons)
+
+================================================================================
+  WHAT YOU NEED BEFORE STARTING
+================================================================================
+
+1. Node 20.x and npm installed
+2. Dependencies built at least once:
+     cd c:\Users\Kwalah\Downloads\Kwalify-main
+     npm ci
+     npm run build
+
+3. Eval token that matches PRODUCTION (Render):
+     - Get PLAYLIST_EVAL_TOKEN from Render dashboard (same value as GitHub secret)
+     - Or run:  npm run sync:eval-token   (after setting token in PowerShell)
+
+4. Spotify user id used for audit-mode generation (default in repo: koalablade):
+     SMOKE_SPOTIFY_USER_ID=koalablade
+
+5. Optional: GitHub CLI (gh) for Option A only
+
+================================================================================
+  PREFLIGHT (always run first — 2 minutes)
+================================================================================
+
+Set token for this PowerShell session:
+
+  $env:PLAYLIST_EVAL_TOKEN = "<your-64-char-token>"
+  $env:SMOKE_SPOTIFY_USER_ID = "koalablade"
+  $env:KWALIFY_BENCHMARK_BASE_URL = "https://kwalify.net"
+
+Validate env:
+
+  cd c:\Users\Kwalah\Downloads\Kwalify-main
+  npm run validate:benchmark-env
+
+Check production is up and token works:
+
+  npm run verify:eval-token
+
+If verify fails with 403:
+  - Token in .env / PowerShell does NOT match Render PLAYLIST_EVAL_TOKEN
+  - Fix: update Render secret OR run npm run rotate:eval-token (see docs/eval-token-rotation.md)
+  - Then: npm run sync:eval-token
+
+Get deployed commit (needed for local benchmark pin):
+
+  Invoke-RestMethod https://kwalify.net/api/readyz
+  # Note the "commit" field
+
+Or:
+
+  npm run diagnose:eval-token
+
+================================================================================
+  OPTION A — GITHUB ACTIONS (~40 min, easiest, no local token)
+================================================================================
+
+Uses repo secrets PLAYLIST_EVAL_TOKEN + SMOKE_SPOTIFY_USER_ID automatically.
+
+  gh workflow run live-benchmark-40m.yml -R koalablade/Kwalify
+
+Watch progress:
+
+  gh run list -R koalablade/Kwalify --workflow=live-benchmark-40m.yml --limit 3
+  gh run watch <run-id> -R koalablade/Kwalify --interval 60
+
+Download results:
+  GitHub → Actions → "Live benchmark 40m" run → Artifacts → prompt-reliability-live-<run-id>
+
+Workflow file:
+  .github/workflows/live-benchmark-40m.yml
+
+================================================================================
+  OPTION B — PROMPT RELIABILITY BENCHMARK (local terminal, ~40 min)
+================================================================================
+
+This is the same benchmark CI uses. Hits live https://kwalify.net/api/generate
+in audit mode with ~25 golden prompts.
+
+Step 1 — set env (same session as preflight):
+
+  $env:PLAYLIST_EVAL_TOKEN = "<token>"
+  $env:SMOKE_SPOTIFY_USER_ID = "koalablade"
+
+Step 2 — resolve deployed commit:
+
+  $ready = Invoke-RestMethod https://kwalify.net/api/readyz
+  $commit = $ready.commit
+
+Step 3 — run benchmark:
+
+  cd c:\Users\Kwalah\Downloads\Kwalify-main
+  npm run benchmark:prompt-reliability -- `
+    --base-url https://kwalify.net `
+    --spotify-user-id koalablade `
+    --token $env:PLAYLIST_EVAL_TOKEN `
+    --expected-deployment-version $commit `
+    --out reports/prompt-reliability/live-manual `
+    --delay-ms 2000 `
+    --timeout-ms 120000
+
+Useful flags:
+  --limit 5              Quick smoke (5 prompts only)
+  --group "Electronic"   Run one prompt group
+  --dry-run              Print config, no HTTP
+  --help                 Full flag list
+
+Output files:
+  reports/prompt-reliability/live-manual/prompt-reliability-report.json
+  reports/prompt-reliability/live-manual/prompt-reliability-report.md
+
+Step 4 — optional regression gate on the report:
+
+  npm run regression:prompt-reliability -- `
+    --report reports/prompt-reliability/live-manual/prompt-reliability-report.json
+
+Step 5 — optional CI-style gate:
+
+  npm run ci:prompt-reliability -- `
+    --benchmark reports/prompt-reliability/live-manual/prompt-reliability-report.json `
+    --regression reports/prompt-reliability/live-manual/regression-report.json
+
+================================================================================
+  OPTION C — LIVE PROMPT STRESS SUITE (cookie auth, ~30–60 min)
+================================================================================
+
+Uses your logged-in browser session instead of eval token.
+
+Step 1 — get connect.sid cookie:
+  - Log in at https://kwalify.net in Chrome/Edge
+  - DevTools → Application → Cookies → connect.sid
+  - Copy value
+
+Step 2 — run:
+
+  $env:COOKIE_VALUE = "<connect.sid value>"
+  cd c:\Users\Kwalah\Downloads\Kwalify-main
+  node scripts/live-prompt-benchmark.cjs `
+    --base-url https://kwalify.net `
+    --out reports/live-playlist-benchmark/manual-run `
+    --limit 23 `
+    --delay-ms 13000
+
+Resume interrupted run:
+
+  node scripts/live-prompt-benchmark.cjs `
+    --base-url https://kwalify.net `
+    --out reports/live-playlist-benchmark/manual-run `
+    --resume
+
+Output:
+  reports/live-playlist-benchmark/manual-run/raw-results.json
+  reports/live-playlist-benchmark/manual-run/live-benchmark-summary.md
+
+================================================================================
+  OPTION D — QUICK LIVE CHECKS (5–15 min)
+================================================================================
+
+Coherence regression (2 prompts):
+
+  $env:SMOKE_BASE_URL = "https://kwalify.net"
+  $env:PLAYLIST_EVAL_TOKEN = "<token>"
+  $env:SMOKE_SPOTIFY_USER_ID = "koalablade"
+  npm run regression:coherence-live
+
+Production validation / load sample:
+
+  npm run validation:production -- `
+    --base-url https://kwalify.net `
+    --spotify-user-id koalablade `
+    --token $env:PLAYLIST_EVAL_TOKEN `
+    --requests 20 `
+    --concurrency 5 `
+    --enforce-slo
+
+Deploy smoke (single generation):
+
+  $env:SMOKE_BASE_URL = "https://kwalify.net"
+  $env:PLAYLIST_EVAL_TOKEN = "<token>"
+  $env:SMOKE_SPOTIFY_USER_ID = "koalablade"
+  npm run smoke:deploy
+
+================================================================================
+  TROUBLESHOOTING
+================================================================================
+
+403 on eval ping / benchmark:
+  Token mismatch. Run npm run diagnose:eval-token and fix Render secret.
+
+Expected deployment version mismatch:
+  Re-fetch commit from /api/readyz and pass --expected-deployment-version again.
+
+Timeouts (120s default):
+  Increase: --timeout-ms 180000
+
+Rate limiting:
+  Increase delay: --delay-ms 3000
+
+Windows Node crash after diagnose script:
+  Ignore UV_HANDLE_CLOSING assertion if JSON output printed; use verify:eval-token instead.
+
+Hung curl to /api/eval/ping:
+  Use Invoke-RestMethod with -TimeoutSec 15 instead of bare curl.
+
+================================================================================
+  REPORT LOCATIONS SUMMARY
+================================================================================
+
+  reports/prompt-reliability/live-manual/     Option B (prompt reliability)
+  reports/prompt-reliability/live-*/          GitHub Actions artifacts
+  reports/live-playlist-benchmark/            Option C (cookie stress)
+  reports/prompt-reliability/local/           Offline CI fixtures only
+
+Related docs (markdown):
+  docs/local-commands.md
+  docs/benchmark-environment.md
+  docs/eval-token-rotation.md
+
+================================================================================
+  RECOMMENDED WORKFLOW
+================================================================================
+
+  1. npm run validate:benchmark-env
+  2. npm run verify:eval-token
+  3. Option B with --limit 3   (quick smoke)
+  4. Option B full run OR gh workflow run live-benchmark-40m.yml
+  5. Read prompt-reliability-report.md in output folder
+
+================================================================================
