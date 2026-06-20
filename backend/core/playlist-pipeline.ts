@@ -1408,6 +1408,17 @@ function sceneConstraintActive(contract: IntentContract): boolean {
     contract.places.length > 0;
 }
 
+function multiSignalSceneBlend(contract: IntentContract): boolean {
+  const sceneDimensions = [
+    contract.mood.length > 0,
+    contract.timeOfDay.length > 0,
+    contract.places.length > 0,
+    !!contract.activity,
+    !!contract.energy,
+  ].filter(Boolean).length;
+  return contract.mood.length >= 2 || sceneDimensions >= 2;
+}
+
 function highLevelSceneMismatch<T extends IntentContractTrack>(
   track: T,
   contract: IntentContract,
@@ -3924,11 +3935,18 @@ export async function buildPlaylistPipeline<T extends {
     worldBoundary.hardLock;
   const blockSubgenreDilutingFallback =
     opts.mode === "strict" && !!intentContract.primarySubgenre;
+  const allowStrictFamilyPreservationFallback =
+    opts.mode === "strict" &&
+    !!intentContract.primarySubgenre &&
+    contractGuardedScoredPool.length < minSafePreRankingPool &&
+    sameFamilyExpansion.length > contractGuardedScoredPool.length;
   const fallbackSteps: Array<{
     level: "family" | "adjacent" | "global";
     pool: ScoredLibraryTrack<T>[];
   }> = [
-    ...(!blockSubgenreDilutingFallback ? [{ level: "family" as const, pool: sameFamilyExpansion }] : []),
+    ...((!blockSubgenreDilutingFallback || allowStrictFamilyPreservationFallback) && sameFamilyExpansion.length > 0
+      ? [{ level: "family" as const, pool: sameFamilyExpansion }]
+      : []),
     ...(relatedSubgenreExhausted && !blockSubgenreDilutingFallback
       ? [{ level: "adjacent" as const, pool: adjacentExpansion }]
       : []),
@@ -3956,8 +3974,11 @@ export async function buildPlaylistPipeline<T extends {
   const constrainedCompletionAtRisk =
     sceneConstraintActive(intentContract) &&
     contractGuardedScoredPool.length < Math.max(minSafePreRankingPool, Math.ceil(opts.playlistLength * 1.5));
-  fallbackSkippedByFastPath = (sceneStableFastPath || candidatePoolStabilized) && !constrainedCompletionAtRisk;
-  fastPathTriggered = fallbackSkippedByFastPath || repetitionPassSkipped;
+  const preserveDiscoveryForBlend = multiSignalSceneBlend(intentContract);
+  fallbackSkippedByFastPath = (sceneStableFastPath || candidatePoolStabilized) &&
+    !constrainedCompletionAtRisk &&
+    !preserveDiscoveryForBlend;
+  fastPathTriggered = fallbackSkippedByFastPath || (repetitionPassSkipped && !preserveDiscoveryForBlend);
   const maxFallbackDepth = worldBoundary.hardLock || blockSubgenreDilutingFallback || opts.noLibraryMode
     ? 0
     : 1;

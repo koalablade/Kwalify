@@ -65,7 +65,23 @@ export function scorePromptConfidence(
   if (score >= 0.62) tier = "high";
   else if (score >= 0.38) tier = "medium";
 
-  const qualityBoost = tier === "high" ? 1.06 : tier === "medium" ? 1.02 : 1;
+  const blendedScenePrompt = [
+    profile.timeOfDay,
+    profile.environment,
+    profile.motionState,
+    profile.valence >= 0.58 || profile.valence <= 0.42,
+    profile.nostalgia >= 0.45,
+    profile.calm >= 0.52,
+    profile.tension >= 0.45,
+    (opts?.mixedEmotions?.length ?? 0) >= 2,
+  ].filter(Boolean).length >= 3;
+  const qualityBoost = blendedScenePrompt
+    ? 1
+    : tier === "high"
+      ? 1.06
+      : tier === "medium"
+        ? 1.02
+        : 1;
 
   if (tier === "low" && hints.length === 0) {
     hints.push('Try a moment: "rainy train home after work, want calm not sad".');

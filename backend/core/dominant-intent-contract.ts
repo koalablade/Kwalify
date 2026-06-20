@@ -303,10 +303,10 @@ export type PoolHealthResult = {
 
 export function assessCandidatePoolHealth(poolSize: number, playlistLength: number, mode: SubgenreLadderMode): PoolHealthResult {
   const minRequired = mode === "primary_subgenre"
-    ? Math.max(12, Math.ceil(playlistLength * 0.8))
+    ? Math.max(8, Math.ceil(playlistLength * 0.40))
     : mode === "related_subgenre"
-      ? Math.max(8, Math.ceil(playlistLength * 0.5))
-      : Math.max(6, Math.ceil(playlistLength * 0.35));
+      ? Math.max(6, Math.ceil(playlistLength * 0.35))
+      : Math.max(5, Math.ceil(playlistLength * 0.25));
   const score = minRequired > 0 ? Math.min(100, Math.round((poolSize / minRequired) * 100)) : 100;
   return {
     healthy: poolSize >= minRequired,

@@ -1415,6 +1415,78 @@ const ROCK_PUNK_SIBLING_SUBGENRES = new Set([
 ]);
 const ROCK_PUNK_CLUSTER_PROMPT_RE = /\b(?:pop[\s-]?punk|skate[\s-]?punk|emo|post[\s-]?hardcore|punk(?:\s+rock)?|kerrang|warped(?:\s+tour)?|tony\s+hawk|mall\s+punk|scene\s+kid)\b/i;
 const ROCK_PUNK_CLUSTER_EVIDENCE_RE = /\b(?:pop[\s_-]?punk|skate[\s_-]?punk|emo|post[\s_-]?hardcore|punk|hardcore|warped|kerrang|mall[\s_-]?punk)\b/i;
+const ELECTRONIC_BASS_SIBLING_SUBGENRES = new Set([
+  "liquid_dnb",
+  "drum_and_bass",
+  "jungle",
+  "neurofunk",
+  "liquid_funk",
+  "jump_up",
+  "dubstep",
+  "brostep",
+  "riddim",
+  "uk_garage",
+  "bass_music",
+  "halftime",
+  "breakbeat",
+]);
+const ELECTRONIC_TRANCE_SIBLING_SUBGENRES = new Set([
+  "trance",
+  "progressive_trance",
+  "psytrance",
+  "hard_trance",
+  "uplifting_trance",
+  "goa_trance",
+  "eurodance",
+]);
+const DREAM_ROCK_SIBLING_SUBGENRES = new Set([
+  "shoegaze",
+  "dream_pop",
+  "noise_pop",
+  "slowcore",
+  "indie_rock",
+  "alternative_rock",
+  "post_punk",
+  "new_wave",
+]);
+const ELECTRONIC_BASS_CLUSTER_PROMPT_RE = /\b(?:liquid\s+(?:drum\s+(?:and|&)\s+bass|dnb)|drum\s+(?:and|&)\s+bass|dnb|jungle|dark\s+jungle|dubstep|old\s+school\s+dubstep|bass\s+music|neurofunk)\b/i;
+const ELECTRONIC_TRANCE_CLUSTER_PROMPT_RE = /\b(?:progressive\s+trance|trance\s+journey|90s?\s+trance|trance\s+drive|uplifting\s+trance|psytrance|hard\s+trance)\b/i;
+const ELECTRONIC_BASS_CLUSTER_EVIDENCE_RE = /\b(?:liquid(?:\s+dnb|\s+drum(?:\s+(?:and|&)\s+bass)?)?|drum(?:\s+(?:and|&)\s+bass)|dnb|jungle|dubstep|brostep|riddim|neurofunk|breakbeat|uk\s+garage|bass\s+music)\b/i;
+const ELECTRONIC_TRANCE_CLUSTER_EVIDENCE_RE = /\b(?:progressive\s+trance|trance|psytrance|goa|uplifting\s+trance|hard\s+trance|eurodance)\b/i;
+const DREAM_ROCK_CLUSTER_PROMPT_RE = /\b(?:shoegaze|dream\s+pop|dreamscape|noise\s+pop|slowcore|ethereal\s+rock)\b/i;
+const DREAM_ROCK_CLUSTER_EVIDENCE_RE = /\b(?:shoegaze|dream\s+pop|noise\s+pop|slowcore|ethereal|jangle\s+pop|bedroom\s+pop)\b/i;
+const CITY_POP_SIBLING_SUBGENRES = new Set([
+  "city_pop",
+  "j_pop",
+  "k_pop",
+  "synthpop",
+  "aor",
+  "soft_rock",
+  "yacht_rock",
+]);
+const REGGAE_SIBLING_SUBGENRES = new Set([
+  "reggae",
+  "roots_reggae",
+  "dub",
+  "dancehall",
+  "rocksteady",
+  "lovers_rock",
+  "ska",
+]);
+const HIP_HOP_CLASSICS_SIBLING_SUBGENRES = new Set([
+  "boom_bap",
+  "conscious_hip_hop",
+  "east_coast_hip_hop",
+  "golden_age_hip_hop",
+  "alternative_hip_hop",
+  "jazz_rap",
+]);
+const CITY_POP_CLUSTER_PROMPT_RE = /\b(?:city\s+pop|j[\s-]?pop|k[\s-]?pop|aor|soft\s+rock|yacht\s+rock)\b/i;
+const REGGAE_CLUSTER_PROMPT_RE = /\b(?:reggae|dub|dancehall|rocksteady|ska|roots\s+reggae|beach\s+reggae)\b/i;
+const HIP_HOP_CLASSICS_CLUSTER_PROMPT_RE = /\b(?:conscious\s+rap|boom\s+bap|golden\s+age|classic\s+hip\s+hop|old\s+school\s+rap|underground\s+hip\s+hop)\b/i;
+const CITY_POP_CLUSTER_EVIDENCE_RE = /\b(?:city\s+pop|j[\s-]?pop|k[\s-]?pop|aor|yacht\s+rock|soft\s+rock|citypop)\b/i;
+const REGGAE_CLUSTER_EVIDENCE_RE = /\b(?:reggae|dub|dancehall|rocksteady|ska|roots\s+reggae|lover'?s?\s+rock)\b/i;
+const HIP_HOP_CLASSICS_CLUSTER_EVIDENCE_RE = /\b(?:conscious|boom\s+bap|golden\s+age|east\s+coast|jazz\s+rap|underground\s+hip\s+hop|old\s+school)\b/i;
 
 function stringValues(value: unknown): string[] {
   return Array.isArray(value)
@@ -1458,6 +1530,186 @@ function trackMatchesRockPunkSiblingCluster(
 
   const evidenceText = trackGenreTerms(track, classMap).join(" ");
   return ROCK_PUNK_CLUSTER_EVIDENCE_RE.test(evidenceText);
+}
+
+function isElectronicBassClusterPrompt(vibe: string, intent: LockedIntent): boolean {
+  if (ELECTRONIC_BASS_CLUSTER_PROMPT_RE.test(vibe)) return true;
+  return explicitSubgenreTerms(intent).some((term) => ELECTRONIC_BASS_SIBLING_SUBGENRES.has(term));
+}
+
+function isElectronicTranceClusterPrompt(vibe: string, intent: LockedIntent): boolean {
+  if (ELECTRONIC_TRANCE_CLUSTER_PROMPT_RE.test(vibe)) return true;
+  return explicitSubgenreTerms(intent).some((term) => ELECTRONIC_TRANCE_SIBLING_SUBGENRES.has(term));
+}
+
+function isDreamRockClusterPrompt(vibe: string, intent: LockedIntent): boolean {
+  if (DREAM_ROCK_CLUSTER_PROMPT_RE.test(vibe)) return true;
+  return explicitSubgenreTerms(intent).some((term) => DREAM_ROCK_SIBLING_SUBGENRES.has(term));
+}
+
+function trackMatchesElectronicSiblingCluster(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>,
+  siblingSubgenres: Set<string>,
+  evidencePattern: RegExp,
+): boolean {
+  if (trackGenreFamily(track, classMap) !== "electronic") return false;
+  const classification = classMap.get(track.trackId);
+  if (
+    classification &&
+    (
+      siblingSubgenres.has(classification.primarySubgenre) ||
+      (classification.secondarySubgenre ? siblingSubgenres.has(classification.secondarySubgenre) : false) ||
+      classification.subGenres.some((subgenre) => siblingSubgenres.has(subgenre))
+    )
+  ) {
+    return true;
+  }
+  return evidencePattern.test(trackGenreTerms(track, classMap).join(" "));
+}
+
+function trackMatchesDreamRockSiblingCluster(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (family !== "rock" && family !== "indie" && family !== "alternative") return false;
+  const classification = classMap.get(track.trackId);
+  if (
+    classification &&
+    (
+      DREAM_ROCK_SIBLING_SUBGENRES.has(classification.primarySubgenre) ||
+      (classification.secondarySubgenre ? DREAM_ROCK_SIBLING_SUBGENRES.has(classification.secondarySubgenre) : false) ||
+      classification.subGenres.some((subgenre) => DREAM_ROCK_SIBLING_SUBGENRES.has(subgenre))
+    )
+  ) {
+    return true;
+  }
+  return DREAM_ROCK_CLUSTER_EVIDENCE_RE.test(trackGenreTerms(track, classMap).join(" "));
+}
+
+function trackMatchesHipHopClassicsSiblingCluster(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  if (trackGenreFamily(track, classMap) !== "hip_hop") return false;
+  const classification = classMap.get(track.trackId);
+  if (
+    classification &&
+    (
+      HIP_HOP_CLASSICS_SIBLING_SUBGENRES.has(classification.primarySubgenre) ||
+      (classification.secondarySubgenre ? HIP_HOP_CLASSICS_SIBLING_SUBGENRES.has(classification.secondarySubgenre) : false) ||
+      classification.subGenres.some((subgenre) => HIP_HOP_CLASSICS_SIBLING_SUBGENRES.has(subgenre))
+    )
+  ) {
+    return true;
+  }
+  return HIP_HOP_CLASSICS_CLUSTER_EVIDENCE_RE.test(trackGenreTerms(track, classMap).join(" "));
+}
+
+function trackMatchesCityPopSiblingCluster(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (family !== "pop" && family !== "rnb" && family !== "soul" && family !== "world" && family !== "latin") return false;
+  const classification = classMap.get(track.trackId);
+  if (
+    classification &&
+    (
+      CITY_POP_SIBLING_SUBGENRES.has(classification.primarySubgenre) ||
+      (classification.secondarySubgenre ? CITY_POP_SIBLING_SUBGENRES.has(classification.secondarySubgenre) : false) ||
+      classification.subGenres.some((subgenre) => CITY_POP_SIBLING_SUBGENRES.has(subgenre))
+    )
+  ) {
+    return true;
+  }
+  return CITY_POP_CLUSTER_EVIDENCE_RE.test(trackGenreTerms(track, classMap).join(" "));
+}
+
+function trackMatchesReggaeSiblingCluster(
+  track: ConstraintTrack,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  if (trackGenreFamily(track, classMap) !== "reggae") return false;
+  const classification = classMap.get(track.trackId);
+  if (
+    classification &&
+    (
+      REGGAE_SIBLING_SUBGENRES.has(classification.primarySubgenre) ||
+      (classification.secondarySubgenre ? REGGAE_SIBLING_SUBGENRES.has(classification.secondarySubgenre) : false) ||
+      classification.subGenres.some((subgenre) => REGGAE_SIBLING_SUBGENRES.has(subgenre))
+    )
+  ) {
+    return true;
+  }
+  return REGGAE_CLUSTER_EVIDENCE_RE.test(trackGenreTerms(track, classMap).join(" "));
+}
+
+function trackMatchesGenreSiblingUnderfill(
+  track: ConstraintTrack,
+  vibe: string,
+  intent: LockedIntent,
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>
+): boolean {
+  if (isElectronicBassClusterPrompt(vibe, intent)) {
+    return trackMatchesElectronicSiblingCluster(track, classMap, ELECTRONIC_BASS_SIBLING_SUBGENRES, ELECTRONIC_BASS_CLUSTER_EVIDENCE_RE);
+  }
+  if (isElectronicTranceClusterPrompt(vibe, intent)) {
+    return trackMatchesElectronicSiblingCluster(track, classMap, ELECTRONIC_TRANCE_SIBLING_SUBGENRES, ELECTRONIC_TRANCE_CLUSTER_EVIDENCE_RE);
+  }
+  if (isDreamRockClusterPrompt(vibe, intent)) {
+    return trackMatchesDreamRockSiblingCluster(track, classMap);
+  }
+  if (CITY_POP_CLUSTER_PROMPT_RE.test(vibe)) {
+    return trackMatchesCityPopSiblingCluster(track, classMap);
+  }
+  if (REGGAE_CLUSTER_PROMPT_RE.test(vibe)) {
+    return trackMatchesReggaeSiblingCluster(track, classMap);
+  }
+  if (HIP_HOP_CLASSICS_CLUSTER_PROMPT_RE.test(vibe)) {
+    return trackMatchesHipHopClassicsSiblingCluster(track, classMap);
+  }
+  if (isRockPunkClusterPrompt(vibe, intent)) {
+    return trackMatchesRockPunkSiblingCluster(track, classMap);
+  }
+  return false;
 }
 
 function trackMatchesTechnoIdentity(
@@ -3259,6 +3511,63 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     siblingSubgenreRefillUsed = true;
     return fillUniqueHardSafe(siblingPool, artistLimit, albumLimit, stopAt);
   };
+  const fillElectronicSiblingRefill = (
+    artistLimit: number | null,
+    albumLimit: number | null,
+    stopAt: number = opts.requestedLength
+  ): number => {
+    const siblingPool = rankedCandidates.filter((track) => {
+      if (isElectronicBassClusterPrompt(opts.vibe, opts.intent)) {
+        return trackMatchesElectronicSiblingCluster(
+          track,
+          opts.classMap,
+          ELECTRONIC_BASS_SIBLING_SUBGENRES,
+          ELECTRONIC_BASS_CLUSTER_EVIDENCE_RE,
+        );
+      }
+      if (isElectronicTranceClusterPrompt(opts.vibe, opts.intent)) {
+        return trackMatchesElectronicSiblingCluster(
+          track,
+          opts.classMap,
+          ELECTRONIC_TRANCE_SIBLING_SUBGENRES,
+          ELECTRONIC_TRANCE_CLUSTER_EVIDENCE_RE,
+        );
+      }
+      return false;
+    });
+    if (siblingPool.length === 0) return 0;
+    siblingSubgenreRefillUsed = true;
+    return fillUniqueHardSafe(siblingPool, artistLimit, albumLimit, stopAt);
+  };
+  const fillDreamRockSiblingRefill = (
+    artistLimit: number | null,
+    albumLimit: number | null,
+    stopAt: number = opts.requestedLength
+  ): number => {
+    if (!isDreamRockClusterPrompt(opts.vibe, opts.intent)) return 0;
+    const siblingPool = rankedCandidates.filter((track) => trackMatchesDreamRockSiblingCluster(track, opts.classMap));
+    if (siblingPool.length === 0) return 0;
+    siblingSubgenreRefillUsed = true;
+    return fillUniqueHardSafe(siblingPool, artistLimit, albumLimit, stopAt);
+  };
+  const fillConstrainedSiblingRefill = (
+    artistLimit: number | null,
+    albumLimit: number | null,
+    stopAt: number = opts.requestedLength
+  ): number => {
+    const siblingPool = rankedCandidates.filter((track) =>
+      trackMatchesGenreSiblingUnderfill(track, opts.vibe, opts.intent, opts.classMap) &&
+      finalTrackIsSafe(track, opts)
+    );
+    if (siblingPool.length === 0) return 0;
+    siblingSubgenreRefillUsed = true;
+    const before = out.length;
+    for (const track of siblingPool) {
+      if (out.length >= stopAt) break;
+      tryAdd(track, artistLimit, albumLimit, true);
+    }
+    return out.length - before;
+  };
 
   const primaryArtistLimit = Number.isFinite(opts.maxPerArtist) ? Math.min(2, opts.maxPerArtist) : 2;
   const emergencyArtistLimit = relaxedEmergencyArtistCap(opts.requestedLength, opts.maxPerArtist);
@@ -3286,6 +3595,13 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       if (out.length > before) cohesionRelaxedFillAdded++;
     }
   }
+  if (blockHardSafeFill && out.length < completionTarget) {
+    siblingSubgenreRefillAdded += fillConstrainedSiblingRefill(
+      emergencyArtistLimit,
+      emergencyAlbumLimit,
+      completionTarget,
+    );
+  }
   if (!blockHardSafeFill && out.length < completionTarget) {
     hardSafeFillUsed = true;
     const strictHardSafeArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
@@ -3299,15 +3615,26 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     }
     if (out.length < opts.requestedLength) {
       siblingSubgenreRefillAdded += fillRockPunkSiblingRefill(emergencyArtistLimit, emergencyAlbumLimit);
+      siblingSubgenreRefillAdded += fillElectronicSiblingRefill(emergencyArtistLimit, emergencyAlbumLimit);
+      siblingSubgenreRefillAdded += fillDreamRockSiblingRefill(emergencyArtistLimit, emergencyAlbumLimit);
     }
   }
   const minimumCompleteCount = Math.min(opts.requestedLength, Math.ceil(opts.requestedLength * 0.90));
+  if (blockHardSafeFill && out.length < minimumCompleteCount) {
+    siblingSubgenreRefillAdded += fillConstrainedSiblingRefill(
+      primaryArtistLimit ?? emergencyArtistLimit,
+      emergencyAlbumLimit,
+      minimumCompleteCount,
+    );
+  }
   if (!blockHardSafeFill && out.length < minimumCompleteCount) {
     hardSafeFillUsed = true;
     const minimumFillArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
     fillUniqueHardSafe([...coherentRankedCandidates, ...rankedCandidates], minimumFillArtistLimit, emergencyAlbumLimit, minimumCompleteCount);
     if (out.length < minimumCompleteCount) {
       siblingSubgenreRefillAdded += fillRockPunkSiblingRefill(minimumFillArtistLimit, emergencyAlbumLimit, minimumCompleteCount);
+      siblingSubgenreRefillAdded += fillElectronicSiblingRefill(minimumFillArtistLimit, emergencyAlbumLimit, minimumCompleteCount);
+      siblingSubgenreRefillAdded += fillDreamRockSiblingRefill(minimumFillArtistLimit, emergencyAlbumLimit, minimumCompleteCount);
     }
   }
 
@@ -5553,23 +5880,27 @@ router.post("/generate", async (req, res): Promise<void> => {
     } | undefined;
     if (
       preV3PoolHealth?.healthy === false &&
-      (
-        mode === "strict" ||
-        !!lockedIntent.primarySubgenre ||
-        (preV3PoolHealth.actual ?? 0) < Math.max(3, Math.ceil(length * 0.15))
-      )
+      (preV3PoolHealth.actual ?? 0) === 0 &&
+      pipeline.finalTracks.length === 0
     ) {
-      generateFail(
-        res,
-        422,
-        "CANDIDATE_POOL_UNHEALTHY",
-        `Your library doesn't have enough tracks matching this prompt (${preV3PoolHealth.actual ?? 0} found, ${preV3PoolHealth.minRequired ?? 0} needed). Try Balanced mode or broaden the genre.`,
+      req.log.warn(
         {
+          userId,
+          vibe,
           poolHealth: preV3PoolHealth,
-          suggestions: ["Use Balanced mode", "Broaden genre or era terms", "Sync your library if recently updated"],
         },
+        "Pre-V3 pool health warning with empty candidate pool; attempting constrained library recovery"
       );
-      return;
+    } else if (preV3PoolHealth?.healthy === false) {
+      req.log.warn(
+        {
+          userId,
+          vibe,
+          poolHealth: preV3PoolHealth,
+          pipelineCandidateCount: pipeline.finalTracks.length,
+        },
+        "Continuing with constrained candidate pool despite pre-V3 health warning"
+      );
     }
     recordGenerationPhaseDuration("v3_pipeline", playlistPipelineTimeMs);
     recordSpotifyApiMetrics(getSpotifyApiAuditSnapshot());
@@ -5715,7 +6046,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         primaryGenres: lockedIntent.primaryGenres,
       },
     );
-    if (recoveryGuards.controlledFailure && finalTracks.length < Math.ceil(length * 0.55)) {
+    if (recoveryGuards.controlledFailure && finalTracks.length < Math.min(5, Math.ceil(length * 0.15))) {
       controlledRecoveryBlocked = true;
       controlledRecoveryReason = recoveryGuards.reason;
     }
@@ -5772,7 +6103,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         .filter((track) => {
           if (
             explicitGenreRecoveryLockActive &&
-            !finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
+            !finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
+            !(
+              finalTracks.length < Math.ceil(length * 0.75) &&
+              trackMatchesGenreSiblingUnderfill(track, vibe, lockedIntent, userGenreProfile.trackClassifications)
+            )
           ) return false;
           if (explicitEraRecoveryLockActive && !finalTrackMatchesExplicitEra(track, lockedIntent)) return false;
           if (explicitSceneRecoveryLockActive) {
@@ -5962,6 +6297,33 @@ router.post("/generate", async (req, res): Promise<void> => {
           Math.max(1, Math.ceil(2 * recoveryGuards.diversityPressureMultiplier)),
           true,
         );
+        let familyConstrainedFillAdded = 0;
+        if (finalTracks.length < length && explicitGenreRecoveryLockActive) {
+          const familyConstrainedCandidates = expandedUnderfillPool
+            .filter((track) => !deterministicSeenIds.has(track.trackId))
+            .filter((track) => trackMatchesHardConstraints(track, constraintLayer, lockedIntent, userGenreProfile.trackClassifications))
+            .filter((track) =>
+              finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) ||
+              trackMatchesGenreSiblingUnderfill(track, vibe, lockedIntent, userGenreProfile.trackClassifications)
+            )
+            .sort((a, b) => finalCompletionCandidateScore(b) - finalCompletionCandidateScore(a));
+          for (const track of familyConstrainedCandidates) {
+            if (finalTracks.length >= length) break;
+            if (deterministicSeenIds.has(track.trackId)) continue;
+            const signature = trackRepeatSignature(track);
+            if (signature && deterministicSeenSignatures.has(signature)) continue;
+            const artist = track.artistName.toLowerCase().trim();
+            const previousArtist = finalTracks[finalTracks.length - 1]?.artistName.toLowerCase().trim() ?? null;
+            if (previousArtist && previousArtist === artist) continue;
+            const count = deterministicArtistCounts.get(artist) ?? 0;
+            if (count >= Math.max(1, Math.ceil(2 * recoveryGuards.diversityPressureMultiplier))) continue;
+            deterministicSeenIds.add(track.trackId);
+            if (signature) deterministicSeenSignatures.add(signature);
+            deterministicArtistCounts.set(artist, count + 1);
+            finalTracks.push(track as PlaylistTrack);
+            familyConstrainedFillAdded += 1;
+          }
+        }
         const completionAdded = finalTracks.length < length
           ? appendDeterministicFill(null, false)
           : 0;
@@ -5995,7 +6357,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             finalLibrarySweepAdded += 1;
           }
         }
-        if (diversitySafeAdded > 0 || completionAdded > 0 || absoluteLastResortAdded > 0 || finalLibrarySweepAdded > 0) {
+        if (diversitySafeAdded > 0 || completionAdded > 0 || absoluteLastResortAdded > 0 || finalLibrarySweepAdded > 0 || familyConstrainedFillAdded > 0) {
           finalTracks = finalTracks.slice(0, length);
           finalization = {
             tracks: finalTracks,
@@ -6003,6 +6365,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               ...finalization.diagnostics,
               finalCompletionFillApplied: true,
               finalCompletionDiversitySafeAdded: diversitySafeAdded,
+              finalCompletionFamilyConstrainedAdded: familyConstrainedFillAdded,
               finalCompletionLastResortAdded: completionAdded,
               finalCompletionAbsoluteLastResortAdded: absoluteLastResortAdded,
               finalCompletionLibrarySweepAdded: finalLibrarySweepAdded,
@@ -6091,25 +6454,53 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
       finalTrackMatchesExplicitEra(track, lockedIntent)
     );
-    const adjacentConstrainedRecoveryPool = exactConstrainedRecoveryPool.length > 0
-      ? exactConstrainedRecoveryPool
-      : explicitCandidatePool.filter((track) =>
+    const adjacentConstrainedRecoveryPool = explicitCandidatePool.filter((track) =>
+      trackMatchesHardConstraints(track, constraintLayer, lockedIntent, userGenreProfile.trackClassifications) &&
+      finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
+      adjacentEraMatches(track)
+    );
+    const genreConstrainedRecoveryPool = explicitCandidatePool.filter((track) =>
+      trackMatchesHardConstraints(track, constraintLayer, lockedIntent, userGenreProfile.trackClassifications) &&
+      finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
+    );
+    const expectedRecoveryFamilies = lockedIntent.primaryGenres.length > 0
+      ? lockedIntent.primaryGenres
+      : lockedIntent.genreFamilies;
+    const familyConstrainedRecoveryPool = expectedRecoveryFamilies.length > 0
+      ? explicitCandidatePool.filter((track) =>
           trackMatchesHardConstraints(track, constraintLayer, lockedIntent, userGenreProfile.trackClassifications) &&
-          finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
-          adjacentEraMatches(track)
-        );
-    const genreConstrainedRecoveryPool = adjacentConstrainedRecoveryPool.length > 0
-      ? adjacentConstrainedRecoveryPool
-      : explicitCandidatePool.filter((track) =>
-          trackMatchesHardConstraints(track, constraintLayer, lockedIntent, userGenreProfile.trackClassifications) &&
-          finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
-        );
-    const publishConstrainedPrefix = (reason: string): boolean => {
-      const replacement = exactConstrainedRecoveryPool.length > 0
-        ? exactConstrainedRecoveryPool
-        : adjacentConstrainedRecoveryPool.length > 0
-          ? adjacentConstrainedRecoveryPool
-          : genreConstrainedRecoveryPool;
+          (
+            expectedRecoveryFamilies.some((family) =>
+              hasFinalGenreEvidence(track, userGenreProfile.trackClassifications, [family])
+            ) ||
+            trackMatchesGenreSiblingUnderfill(track, vibe, lockedIntent, userGenreProfile.trackClassifications)
+          )
+        )
+      : [];
+    const mergeConstrainedRecoveryPools = (...pools: PlaylistTrack[][]): PlaylistTrack[] => {
+      const seen = new Set<string>();
+      const merged: PlaylistTrack[] = [];
+      for (const pool of pools) {
+        for (const track of pool) {
+          if (seen.has(track.trackId)) continue;
+          seen.add(track.trackId);
+          merged.push(track);
+        }
+      }
+      return merged;
+    };
+    const mergedConstrainedRecoveryPool = mergeConstrainedRecoveryPools(
+      exactConstrainedRecoveryPool,
+      adjacentConstrainedRecoveryPool,
+      genreConstrainedRecoveryPool,
+      familyConstrainedRecoveryPool,
+    );
+    const publishConstrainedPrefix = (reason: string, minimumCount = 5): boolean => {
+      const replacement = mergedConstrainedRecoveryPool.length >= minimumCount
+        ? mergedConstrainedRecoveryPool
+        : mergedConstrainedRecoveryPool.length > 0
+          ? mergedConstrainedRecoveryPool
+          : [];
       if (replacement.length === 0) return false;
       finalTracks = replacement.slice(0, length);
       finalization = {
@@ -6121,6 +6512,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           exactConstrainedRecoveryCount: exactConstrainedRecoveryPool.length,
           adjacentConstrainedRecoveryCount: adjacentConstrainedRecoveryPool.length,
           genreConstrainedRecoveryCount: genreConstrainedRecoveryPool.length,
+          familyConstrainedRecoveryCount: familyConstrainedRecoveryPool.length,
+          mergedConstrainedRecoveryCount: mergedConstrainedRecoveryPool.length,
         },
       };
       finalValidation = validateLockedIntentOutput(
@@ -6132,6 +6525,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       publishPartialTracks(finalTracks, 5);
       return true;
     };
+    if (finalTracks.length === 0 && explicitConstraintActive && mergedConstrainedRecoveryPool.length > 0) {
+      publishConstrainedPrefix("empty_finalization_constrained_recovery", Math.min(minBestAvailableCount, 5));
+      evidenceRelaxations.push("empty_finalization_constrained_recovery");
+    }
     const endGenreEvidenceProfile = liveStageProfiler.start("controller.genreEvidenceGuard", `${finalTracks.length} tracks`);
     const strictGenreEvidenceDiagnostics = (() => {
       const expectedFamilies = lockedIntent.primaryGenres.length > 0
@@ -6150,14 +6547,23 @@ router.post("/generate", async (req, res): Promise<void> => {
         !finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
       );
       const evidenceBasisCount = finalTracks.length;
-      const requiredCount = Math.min(
-        evidenceBasisCount,
-        Math.max(1, Math.ceil(evidenceBasisCount * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
-      );
+      const partialPlaylistExpected = evidenceBasisCount < Math.ceil(length * 0.9);
+      const effectiveGenreEvidenceRatio = partialPlaylistExpected
+        ? Math.min(STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO, 0.65)
+        : STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO;
+      const requiredCount = evidenceBasisCount === 0
+        ? Math.min(length, Math.max(1, minBestAvailableCount))
+        : Math.min(
+            evidenceBasisCount,
+            Math.max(
+              partialPlaylistExpected ? Math.min(5, evidenceBasisCount) : 1,
+              Math.ceil(evidenceBasisCount * effectiveGenreEvidenceRatio),
+            ),
+          );
       return {
         active: true,
         expectedFamilies,
-        requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
+        requiredRatio: effectiveGenreEvidenceRatio,
         requestedCount: length,
         finalCount: finalTracks.length,
         evidenceBasisCount,
@@ -6190,6 +6596,46 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
           },
           "Explicit genre evidence guard published constrained prefix"
+        );
+      } else if (strictGenreEvidenceDiagnostics.verified.length >= 5) {
+        finalTracks = strictGenreEvidenceDiagnostics.verified.slice(0, length);
+        finalization = {
+          tracks: finalTracks,
+          diagnostics: {
+            ...finalization.diagnostics,
+            explicitConstraintPartialPublished: true,
+            explicitConstraintPartialReason: "genre_evidence_verified_partial",
+            explicitConstraintValidPrefixCount: strictGenreEvidenceDiagnostics.verified.length,
+          },
+        };
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+        publishPartialTracks(finalTracks, 5);
+        evidenceRelaxations.push("genre_evidence_verified_partial_published");
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            finalCount: finalTracks.length,
+            verifiedCount: strictGenreEvidenceDiagnostics.verified.length,
+          },
+          "Explicit genre evidence guard published verified-only partial playlist"
+        );
+      } else if (publishConstrainedPrefix("genre_evidence_family_constrained_recovery", 5)) {
+        evidenceRelaxations.push("genre_evidence_family_constrained_recovery");
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            finalCount: finalTracks.length,
+            familyConstrainedRecoveryCount: familyConstrainedRecoveryPool.length,
+            mergedConstrainedRecoveryCount: mergedConstrainedRecoveryPool.length,
+          },
+          "Explicit genre evidence guard published family-constrained recovery playlist"
         );
       } else {
       req.log.warn(
@@ -6237,8 +6683,59 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     if (
       strictGenreEvidenceDiagnostics.active &&
+      strictGenreEvidenceDiagnostics.rejectedCount > 0
+    ) {
+      const verifiedOnly = finalTracks.filter((track) =>
+        finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications)
+      );
+      const rejectedCount = finalTracks.length - verifiedOnly.length;
+      if (rejectedCount > 0 && verifiedOnly.length >= 5 && verifiedOnly.length < finalTracks.length) {
+        finalTracks = verifiedOnly.slice(0, length);
+        finalization = {
+          tracks: finalTracks,
+          diagnostics: {
+            ...finalization.diagnostics,
+            explicitConstraintPartialPublished: true,
+            explicitConstraintPartialReason: "genre_leak_stripped_to_verified",
+            explicitConstraintValidPrefixCount: verifiedOnly.length,
+            genreLeakRejectedCount: strictGenreEvidenceDiagnostics.rejectedCount,
+          },
+        };
+        finalValidation = validateLockedIntentOutput(
+          finalTracks,
+          lockedIntent,
+          constraintLayer,
+          userGenreProfile.trackClassifications
+        );
+        publishPartialTracks(finalTracks, 5);
+        evidenceRelaxations.push("genre_leak_stripped_to_verified");
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            rejectedCount,
+            publishedCount: finalTracks.length,
+          },
+          "Explicit genre evidence guard stripped genre leaks to verified-only playlist"
+        );
+      } else if (publishConstrainedPrefix("genre_leak_constrained_recovery", 5)) {
+        evidenceRelaxations.push("genre_leak_constrained_recovery");
+        req.log.warn(
+          {
+            userId,
+            vibe,
+            rejectedCount,
+            publishedCount: finalTracks.length,
+          },
+          "Explicit genre evidence guard recovered from genre leak via constrained prefix"
+        );
+      }
+    }
+    if (
+      strictGenreEvidenceDiagnostics.active &&
       strictGenreEvidenceDiagnostics.rejectedCount > 0 &&
-      !strictGenreEvidenceRelaxed
+      !strictGenreEvidenceRelaxed &&
+      !evidenceRelaxations.some((entry) => entry.startsWith("genre_leak_"))
     ) {
       req.log.warn(
         {
@@ -6441,7 +6938,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     endEvidenceGuardProfile();
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
-    if (controlledRecoveryBlocked && finalTracks.length < minBestAvailableCount) {
+    if (controlledRecoveryBlocked && finalTracks.length < 5) {
       setGeneratePhase(generateSessionUserId, requestId, "error");
       if (respondIfStale(res, generateSessionUserId, requestId)) return;
       generateFail(

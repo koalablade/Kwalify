@@ -383,6 +383,9 @@ function classifyPromptComplexity(input: string): { complexity: PromptComplexity
     return { complexity: "high", score: complexityScore };
   }
   if (tokens.length <= 4 && connectors === 0 && !sentenceSignals) {
+    if (tokens.length >= 4) {
+      return { complexity: "medium", score: Math.max(complexityScore, 0.46) };
+    }
     return { complexity: "low", score: Math.min(complexityScore, 0.45) };
   }
   return { complexity: "medium", score: complexityScore };
@@ -413,6 +416,8 @@ function applyInterpretationBudget(
   const rawAvailable = dimensionNames(raw);
   const complexity: PromptComplexity = rawAvailable.length >= 3
     ? "high"
+    : raw.mood.length >= 2 && classified.complexity === "low"
+      ? "medium"
     : classified.complexity === "low" && raw.activity === "driving" && raw.energy === "medium"
       ? "medium"
     : classified.complexity === "low" && tokens.length >= 3 && rawAvailable.length > 1
@@ -799,9 +804,14 @@ const TOKEN_CONTRIBUTIONS: Array<{ pattern: RegExp; weight: number; vector: Part
   { pattern: /\b(first warm day|after winter|spring|sun comes back|golden|sunrise)\b/, weight: 1.0, vector: { warmth: 0.58, valence: 0.38, energy: 0.18, darkness: -0.28, clarity: 0.20 } },
   { pattern: /\b(sad|sadness|lonely|alone|heartbreak|crying|fight|argument|blue|melanchol)\b/, weight: 1.0, vector: { valence: -0.34, introspection: 0.32, tension: 0.24, socialness: -0.20, darkness: 0.22 } },
   { pattern: /\b(calm|calmly|chill|soft|peaceful|ambient|sleep|relax)\b/, weight: 1.0, vector: { energy: -0.24, tension: -0.22, clarity: 0.14, warmth: 0.12, valence: 0.08 } },
-  { pattern: /\b(happy|upbeat|hype|energ|intense|workout|gym|run|party|rave|dance)\b/, weight: 1.0, vector: { energy: 0.44, motion: 0.28, socialness: 0.36, tension: 0.12, introspection: -0.20, valence: 0.18 } },
+  { pattern: /\b(happy|upbeat|hype|energ|intense|workout|gym|run|party|rave|dance|feel good|feel-good)\b/, weight: 1.0, vector: { energy: 0.44, motion: 0.28, socialness: 0.36, tension: 0.12, introspection: -0.20, valence: 0.18 } },
   { pattern: /\b(study|focus|coding|work|deep work)\b/, weight: 1.0, vector: { clarity: 0.46, introspection: 0.22, energy: -0.08, socialness: -0.24, tension: -0.08 } },
-  { pattern: /\b(warm|cozy|cosy|comfort|soft light)\b/, weight: 0.9, vector: { warmth: 0.42, valence: 0.16, tension: -0.12, darkness: -0.10 } },
+  { pattern: /\b(warm|cozy|cosy|comfort|soft light|soft)\b/, weight: 0.9, vector: { warmth: 0.42, valence: 0.16, tension: -0.12, darkness: -0.10 } },
+  { pattern: /\b(morning|sunrise|dawn|breakfast|start to the day)\b/, weight: 0.95, vector: { clarity: 0.18, warmth: 0.14, energy: 0.12, valence: 0.10, introspection: -0.08 } },
+  { pattern: /\b(summer|summertime|sunny|sunshine)\b/, weight: 0.85, vector: { warmth: 0.30, valence: 0.22, energy: 0.14, nostalgia: 0.10 } },
+  { pattern: /\b(nostalgic|nostalgia|throwback)\b/, weight: 1.0, vector: { nostalgia: 0.48, introspection: 0.20, warmth: 0.14 } },
+  { pattern: /\b(optimistic|hopeful|uplifting)\b/, weight: 0.95, vector: { valence: 0.28, warmth: 0.18, tension: -0.12, energy: 0.10 } },
+  { pattern: /\b(sunday)\b/, weight: 0.85, vector: { nostalgia: 0.16, introspection: 0.14, warmth: 0.12, socialness: -0.10, energy: -0.08 } },
   { pattern: /\b(discover|new-to-me|new to me|like my liked songs|my taste|normally skip|different genres|older)\b/, weight: 0.9, vector: { nostalgia: 0.26, clarity: 0.20, introspection: 0.12, socialness: -0.08 } },
   { pattern: /\b(gta|loading screen|video game|game soundtrack)\b/, weight: 0.9, vector: { energy: 0.18, motion: 0.22, tension: 0.18, darkness: 0.14, socialness: 0.10 } },
 ];
@@ -1005,6 +1015,16 @@ function buildVibeMixture(
     .map((segment) => segment.trim())
     .filter(Boolean);
   const sourceSegments = segments.length > 0 ? segments : [input];
+  if (sourceSegments.length === 1 && mood.length >= 2) {
+    const baseVector = vectorFromPromptSegment(sourceSegments[0], mood, activity, energy);
+    const moodVectors = mood.map((tag) =>
+      vectorFromPromptSegment(sourceSegments[0], [tag], activity, energy)
+    );
+    return {
+      vectors: [baseVector, ...moodVectors],
+      weights: [1, ...mood.map(() => 0.85)],
+    };
+  }
   const vectors = sourceSegments.map((segment) => vectorFromPromptSegment(segment, mood, activity, energy));
   const weights = sourceSegments.map((segment) => Math.max(0.6, Math.min(1.4, segment.length / Math.max(12, input.length / sourceSegments.length))));
   return { vectors, weights };
@@ -1064,6 +1084,18 @@ function refineContextWorldFromPrompt(input: string, context: SceneIntent["conte
   }
   if (/\b(motorway|highway|drive|driving|cruise|car)\b/.test(input)) {
     return { ...context, physical: "car", motion: "driving" };
+  }
+  if (/\b(morning|sunrise|dawn|breakfast|start to the day)\b/i.test(input)) {
+    return { ...context, time: "morning" };
+  }
+  if (/\b(afternoon|midday)\b/i.test(input)) {
+    return { ...context, time: "afternoon" };
+  }
+  if (/\b(evening|sunset|dusk|golden hour)\b/i.test(input)) {
+    return { ...context, time: "evening" };
+  }
+  if (/\b(late night|midnight|2\s?am|3\s?am|4\s?am)\b/i.test(input)) {
+    return { ...context, time: "late_night" };
   }
   return context;
 }
@@ -1161,8 +1193,9 @@ function buildSceneIntent(
     eraRange,
     budget,
   );
+  const multiSignalBlend = mood.length >= 2 || (mood.length >= 1 && explicitCount >= 2);
   const fallbackMode: SceneIntent["fallbackMode"] =
-    confidence < 0.62 || hasMultiVibeAmbiguity(recenteredVector, vibeMixture)
+    confidence < 0.62 || hasMultiVibeAmbiguity(recenteredVector, vibeMixture) || multiSignalBlend
       ? "balanced_latent_centroid"
       : "latent";
   const sceneVector = fallbackMode === "balanced_latent_centroid"
@@ -1386,7 +1419,7 @@ export function buildLockedIntent(input: string): LockedIntent {
     /\b(calm|calmly|chill|relax|soft|peaceful|winter|snowy|snow)\b/.test(lower) ? "calm" : null,
     /\b(nostalg|throwback|retro|memory)\b/.test(lower) ? "nostalgic" : null,
     /\b(warm|sunset|cozy|cosy|golden|summer|barbecue|bbq)\b/.test(lower) ? "warm" : null,
-    /\b(happy|upbeat|hype|energ|intense|pump)\b/.test(lower) ? "energised" : null,
+    /\b(happy|upbeat|hype|energ|intense|pump|feel good|feel-good|optimistic|hopeful)\b/.test(lower) ? "energised" : null,
     ...expandedMoodTerms(lower),
     ...humanHints.moods,
   ]

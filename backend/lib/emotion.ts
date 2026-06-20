@@ -1211,7 +1211,24 @@ export type VibeKind = "sunny" | "late_night" | "neutral";
 const SUNNY_VIBE_PATTERN =
   /feel like (the )?sun|songs that feel like sun|sunshine|sunlit|sunny day|sun drenched|warm pop|summer pop|windows down|blue sky/i;
 
+function emotionProfileAxisSpread(profile: EmotionProfile): number {
+  let spread = 0;
+  if (profile.valence >= 0.58 || profile.valence <= 0.42) spread += 1;
+  if (profile.energy >= 0.58 || profile.energy <= 0.42) spread += 1;
+  if (profile.nostalgia >= 0.45) spread += 1;
+  if (profile.calm >= 0.52) spread += 1;
+  if (profile.tension >= 0.45) spread += 1;
+  if (profile.timeOfDay) spread += 1;
+  if (profile.environment) spread += 1;
+  return spread;
+}
+
 export function detectVibeKind(vibe: string, profile: EmotionProfile): VibeKind {
+  const blendedScene = emotionProfileAxisSpread(profile) >= 3;
+  if (blendedScene) {
+    if (profile.timeOfDay === "late_night" && profile.energy < 0.55) return "late_night";
+    return "neutral";
+  }
   if (SUNNY_VIBE_PATTERN.test(vibe)) return "sunny";
   if (
     profile.valence >= 0.62 &&
