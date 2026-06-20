@@ -3108,6 +3108,13 @@ function emotionQuadrantForTrack(track: { energy: number | null; valence: number
   return `${e}_${v}`;
 }
 
+function energyBandForTrack(track: { energy: number | null }): string {
+  const e = track.energy ?? 0.5;
+  if (e <= 0.42) return "lo";
+  if (e >= 0.55) return "hi";
+  return "md";
+}
+
 function textureBucketForTrack(track: {
   acousticness?: number | null;
   danceability?: number | null;
@@ -3229,7 +3236,29 @@ function deCollapseCandidatePool<T extends {
 
   if (kind !== "strong") {
     const familiesSeen = new Set(out.map((track) => genreFamilyForTrack(track, classMap)).filter(Boolean));
-    const energyBands = new Set(out.map((track) => emotionQuadrantForTrack(track)));
+    const energyBands = new Set(out.map((track) => energyBandForTrack(track)));
+    const contrastKey = clusters.length >= 3 ? clusters[clusters.length - 1]![0] : null;
+    const hasContrastLane = contrastKey
+      ? out.some((track) => retrievalManifoldKey(track, classMap) === contrastKey)
+      : true;
+    if (contrastKey && !hasContrastLane) {
+      const contrastTrack = (byCluster.get(contrastKey) ?? []).find((track) => !used.has(track.trackId));
+      if (contrastTrack) {
+        if (out.length >= targetSize) {
+          const replaceIdx = out.findIndex(
+            (track) => retrievalManifoldKey(track, classMap) !== contrastKey,
+          );
+          if (replaceIdx >= 0) {
+            used.delete(out[replaceIdx]!.trackId);
+            out[replaceIdx] = contrastTrack;
+          }
+        } else {
+          out.push(contrastTrack);
+        }
+        used.add(contrastTrack.trackId);
+        clusterCounts.set(contrastKey, (clusterCounts.get(contrastKey) ?? 0) + 1);
+      }
+    }
     for (const track of ranked) {
       if (out.length >= targetSize) break;
       if (used.has(track.trackId)) continue;
@@ -3242,7 +3271,7 @@ function deCollapseCandidatePool<T extends {
       used.add(track.trackId);
       out.push(track);
       if (family) familiesSeen.add(family);
-      energyBands.add(emotionQuadrantForTrack(track));
+      energyBands.add(energyBandForTrack(track));
     }
   }
 
@@ -3278,6 +3307,76 @@ function deCollapseCandidatePool<T extends {
           return acc;
         }, {}),
       ).share <= 0.45) break;
+    }
+  }
+
+  const eraDominant = dominantFamilyShare(
+    out.map((track) => eraBucketForTrack(track.releaseYear)).reduce<Record<string, number>>((acc, label) => {
+      acc[label] = (acc[label] ?? 0) + 1;
+      return acc;
+    }, {}),
+  );
+  if (eraDominant.share > 0.50) {
+    for (const track of ranked) {
+      if (out.length >= targetSize) break;
+      if (used.has(track.trackId)) continue;
+      if (eraBucketForTrack(track.releaseYear) === eraDominant.family) continue;
+      out.push(track);
+      used.add(track.trackId);
+      if (dominantFamilyShare(
+        out.map((item) => eraBucketForTrack(item.releaseYear)).reduce<Record<string, number>>((acc, label) => {
+          acc[label] = (acc[label] ?? 0) + 1;
+          return acc;
+        }, {}),
+      ).share <= 0.50) break;
+    }
+  }
+
+  if (targetSize >= 10) {
+    const bandSet = new Set(out.map((track) => energyBandForTrack(track)));
+    if (bandSet.size < 2) {
+      for (const track of ranked) {
+        if (used.has(track.trackId)) continue;
+        const band = energyBandForTrack(track);
+        if (bandSet.has(band)) continue;
+        if (out.length >= targetSize) {
+          const replaceIdx = out.findIndex((item) => energyBandForTrack(item) === [...bandSet][0]);
+          if (replaceIdx >= 0) {
+            used.delete(out[replaceIdx]!.trackId);
+            out[replaceIdx] = track;
+          }
+        } else {
+          out.push(track);
+        }
+        used.add(track.trackId);
+        bandSet.add(band);
+        break;
+      }
+    }
+  }
+
+  if (kind !== "strong") {
+    const axisCoverage = {
+      mood: new Set(out.map((track) => emotionQuadrantForTrack(track).split("_")[1])),
+      energy: new Set(out.map((track) => energyBandForTrack(track))),
+      texture: new Set(out.map((track) => textureBucketForTrack(track))),
+    };
+    for (const track of ranked) {
+      if (used.has(track.trackId)) continue;
+      const moodAxis = emotionQuadrantForTrack(track).split("_")[1]!;
+      const energyAxis = energyBandForTrack(track);
+      const textureAxis = textureBucketForTrack(track);
+      const fillsAxis =
+        !axisCoverage.mood.has(moodAxis) ||
+        !axisCoverage.energy.has(energyAxis) ||
+        !axisCoverage.texture.has(textureAxis);
+      if (!fillsAxis) continue;
+      if (out.length >= targetSize) break;
+      used.add(track.trackId);
+      out.push(track);
+      axisCoverage.mood.add(moodAxis);
+      axisCoverage.energy.add(energyAxis);
+      axisCoverage.texture.add(textureAxis);
     }
   }
 

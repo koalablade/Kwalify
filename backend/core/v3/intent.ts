@@ -1019,18 +1019,41 @@ function buildVibeMixture(
   if (timeMatch && sourceSegments.length === 1 && !sourceSegments[0]!.toLowerCase().includes(timeMatch.toLowerCase())) {
     sourceSegments.push(timeMatch);
   }
-  if (sourceSegments.length === 1 && mood.length >= 2) {
-    const baseVector = vectorFromPromptSegment(sourceSegments[0], mood, activity, energy);
-    const moodVectors = mood.map((tag) =>
-      vectorFromPromptSegment(sourceSegments[0], [tag], activity, energy)
-    );
-    return {
-      vectors: [baseVector, ...moodVectors],
-      weights: [1, ...mood.map(() => 0.85)],
-    };
+
+  const vectors: SceneLatentVector[] = [];
+  const weights: number[] = [];
+  const promptBase = sourceSegments[0] ?? input;
+
+  if (mood.length >= 2) {
+    vectors.push(vectorFromPromptSegment(promptBase, [mood[0]!], null, null));
+    weights.push(1);
+    for (const tag of mood) {
+      vectors.push(vectorFromPromptSegment(promptBase, [tag], null, null));
+      weights.push(0.85);
+    }
+  } else {
+    for (const segment of sourceSegments) {
+      vectors.push(vectorFromPromptSegment(segment, mood, null, null));
+      weights.push(
+        Math.max(0.6, Math.min(1.4, segment.length / Math.max(12, input.length / sourceSegments.length))),
+      );
+    }
   }
-  const vectors = sourceSegments.map((segment) => vectorFromPromptSegment(segment, mood, activity, energy));
-  const weights = sourceSegments.map((segment) => Math.max(0.6, Math.min(1.4, segment.length / Math.max(12, input.length / sourceSegments.length))));
+
+  if (energy) {
+    vectors.push(vectorFromPromptSegment("", [], null, energy));
+    weights.push(0.95);
+  }
+  if (activity) {
+    vectors.push(vectorFromPromptSegment(activity, [], null, null));
+    weights.push(0.88);
+  }
+
+  if (vectors.length === 0) {
+    vectors.push(vectorFromPromptSegment(input, mood, activity, energy));
+    weights.push(1);
+  }
+
   return { vectors, weights };
 }
 

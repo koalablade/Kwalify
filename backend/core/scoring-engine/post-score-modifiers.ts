@@ -43,6 +43,18 @@ function metadataGenreMatch(genres: unknown, vibe: string): number {
     : 0;
 }
 
+function normalizedPoolEntropy(labels: string[]): number {
+  if (labels.length <= 1) return 0;
+  const counts = new Map<string, number>();
+  for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  let entropy = 0;
+  for (const count of counts.values()) {
+    const p = count / labels.length;
+    if (p > 0) entropy -= p * Math.log2(p);
+  }
+  return entropy / Math.log2(counts.size);
+}
+
 function promptEraYear(vibe: string): { start: number; end: number } | null {
   const lower = vibe.toLowerCase();
   const decade = lower.match(/\b(60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\b/)?.[1]?.replace("'", "");
@@ -99,6 +111,14 @@ export function applyPostScoreModifiers<T extends {
 }>(
   input: PostScoreModifierInput<T>
 ): ScoredLibraryTrack<T>[] {
+  const poolClusterEntropy = normalizedPoolEntropy(
+    input.hybridResults.slice(0, 200).map(({ track }) =>
+      ("genrePrimary" in track && typeof track.genrePrimary === "string" ? track.genrePrimary : null) ??
+      "unknown",
+    ),
+  );
+  const lowPoolDiversity = poolClusterEntropy < 0.55;
+
   return input.hybridResults.map(({ track: song, score: hybridBase, debug }) => {
     let score = hybridBase;
 
@@ -192,14 +212,16 @@ export function applyPostScoreModifiers<T extends {
     if (typeof enriched.popularity === "number") {
       const pop = enriched.popularity;
       const discoveryScale = input.discoveryBoostScale ?? 1;
-      const mainstreamScale = input.mainstreamSuppressionScale ?? 1;
+      const mainstreamScale = (input.mainstreamSuppressionScale ?? 1) * (lowPoolDiversity ? 1.35 : 1);
       const discoveryBoost = pop <= 45
-        ? Math.max(0, (45 - pop) / 45) * 0.04 * discoveryScale
+        ? Math.max(0, (45 - pop) / 45) * 0.04 * discoveryScale * (lowPoolDiversity ? 0.65 : 1)
         : 0;
       const mainstreamPenalty = pop >= 70
         ? Math.min(0.06 * mainstreamScale, ((pop - 70) / 30) * 0.06 * mainstreamScale)
         : 0;
-      const popularityDominancePenalty = pop >= 72 ? Math.min(0.08, ((pop - 72) / 28) * 0.08) : 0;
+      const popularityDominancePenalty = pop >= 72
+        ? Math.min(0.10, ((pop - 72) / 28) * 0.10) * (lowPoolDiversity ? 1.45 : 1)
+        : 0;
       score += discoveryBoost - mainstreamPenalty - popularityDominancePenalty;
     }
     const curatorScore = input.curatorScoreByTrack?.get(song.trackId);

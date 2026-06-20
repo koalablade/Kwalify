@@ -115,6 +115,18 @@ import { logScoringStage } from "../../lib/generate-stage-timer";
 
 
 
+function normalizedFamilyEntropy(labels: string[]): number {
+  if (labels.length <= 1) return 0;
+  const counts = new Map<string, number>();
+  for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  let entropy = 0;
+  for (const count of counts.values()) {
+    const p = count / labels.length;
+    if (p > 0) entropy -= p * Math.log2(p);
+  }
+  return entropy / Math.log2(counts.size);
+}
+
 function rebalanceSortedAntiCollapse<T extends {
   trackId: string;
   score: number;
@@ -139,7 +151,12 @@ function rebalanceSortedAntiCollapse<T extends {
   }
   const dominant = [...familyCounts.entries()].sort((a, b) => b[1] - a[1])[0];
   const maxDominant = Math.ceil(topSize * 0.30);
-  if (!dominant || dominant[1] <= maxDominant) return sorted;
+  const poolEntropy = normalizedFamilyEntropy(top.map((track) => familyFor(track)));
+  const entropyBoost = poolEntropy >= 0.65 ? 1 + Math.min(0.03, poolEntropy * 0.035) : 1;
+  if (!dominant || dominant[1] <= maxDominant) {
+    if (entropyBoost === 1) return sorted;
+    return sorted.map((track) => ({ ...track, score: track.score * entropyBoost }));
+  }
 
   const [dominantFamily] = dominant;
   const dominantPenalty = dominant[1] / topSize > 0.40 ? 0.16 : 0.12;
@@ -151,7 +168,10 @@ function rebalanceSortedAntiCollapse<T extends {
   adjusted.sort((a, b) => b.score - a.score);
   const reTop = adjusted.slice(0, topSize);
   const dominantInTop = reTop.filter((track) => familyFor(track) === dominantFamily).length;
-  if (dominantInTop <= maxDominant) return adjusted;
+  if (dominantInTop <= maxDominant) {
+    if (entropyBoost === 1) return adjusted;
+    return adjusted.map((track) => ({ ...track, score: track.score * entropyBoost }));
+  }
 
   const kept = reTop.filter((track) => familyFor(track) !== dominantFamily);
   const dominantKept = reTop
@@ -165,10 +185,12 @@ function rebalanceSortedAntiCollapse<T extends {
     rebuiltTop.push(track);
   }
   rebuiltTop.sort((a, b) => b.score - a.score);
-  return [...rebuiltTop, ...overflow, ...adjusted.slice(topSize).filter((track) =>
+  const rebalanced = [...rebuiltTop, ...overflow, ...adjusted.slice(topSize).filter((track) =>
     !rebuiltTop.some((item) => item.trackId === track.trackId) &&
     !overflow.some((item) => item.trackId === track.trackId)
   )];
+  if (entropyBoost === 1) return rebalanced;
+  return rebalanced.map((track) => ({ ...track, score: track.score * entropyBoost }));
 }
 
 

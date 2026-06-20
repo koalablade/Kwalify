@@ -19,7 +19,7 @@ import {
 } from "../../lib/emotion";
 import { applyRediscoveryPoolBias } from "../../lib/emotional-discovery";
 import { injectControlledSurprise } from "../../lib/controlled-surprise";
-import { assignNarrativeRoles, type TrackNarrativeRole, type PlaylistPhase } from "../../lib/narrative-roles";
+import { assignNarrativeRoles, roleForIndex, type TrackNarrativeRole, type PlaylistPhase } from "../../lib/narrative-roles";
 import type { JourneyArc } from "../../lib/emotion-destination";
 import type { IntentDecodeResult } from "../../lib/intent-decoder";
 import type { HumanIntent } from "../../lib/intent-decoder";
@@ -209,6 +209,120 @@ function smoothAdjacentEnergySteps<T extends { energy: number | null; score: num
   return out;
 }
 
+function moodAxisForTrack(track: { energy: number | null; valence: number | null }): string {
+  const v = track.valence ?? 0.5;
+  if (v >= 0.55) return "bright";
+  if (v <= 0.42) return "dark";
+  return "neutral";
+}
+
+function energyBandLabel(track: { energy: number | null }): string {
+  const e = track.energy ?? 0.5;
+  if (e <= 0.42) return "low";
+  if (e >= 0.55) return "high";
+  return "mid";
+}
+
+function tracksShareAdjacencyContext(
+  a: { energy: number | null; valence: number | null },
+  b: { energy: number | null; valence: number | null },
+): boolean {
+  return energyBandLabel(a) === energyBandLabel(b) || moodAxisForTrack(a) === moodAxisForTrack(b);
+}
+
+function smoothContextualAdjacency<T extends { energy: number | null; valence: number | null; score: number }>(
+  tracks: T[],
+): T[] {
+  if (tracks.length < 3) return tracks;
+  const out = [...tracks];
+  for (let i = 1; i < out.length; i++) {
+    if (tracksShareAdjacencyContext(out[i - 1]!, out[i]!)) continue;
+    for (let j = i + 1; j < Math.min(out.length, i + 8); j++) {
+      if (
+        tracksShareAdjacencyContext(out[i - 1]!, out[j]!) &&
+        (j === out.length - 1 || tracksShareAdjacencyContext(out[j]!, out[i]!))
+      ) {
+        const tmp = out[i]!;
+        out[i] = out[j]!;
+        out[j] = tmp;
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+function classifyTrackEmotionalPhase(track: { energy: number | null; valence: number | null }): TrackNarrativeRole {
+  const e = track.energy ?? 0.5;
+  const v = track.valence ?? 0.5;
+  if (e >= 0.72) return "peak";
+  if (e <= 0.38 && v <= 0.5) return "introduction";
+  if (e <= 0.45 && v >= 0.55) return "resolution";
+  if (e <= 0.48) return "early_build";
+  if (v <= 0.45 && e >= 0.5) return "reflection";
+  return "momentum";
+}
+
+function reorderForEmotionalArc<T extends { trackId: string; energy: number | null; valence: number | null; score: number }>(
+  tracks: T[],
+): T[] {
+  if (tracks.length < 8) return tracks;
+  const n = tracks.length;
+  const roles: TrackNarrativeRole[] = [
+    "introduction", "early_build", "momentum", "peak", "reflection", "resolution",
+  ];
+  const rolePools = new Map<TrackNarrativeRole, T[]>();
+  for (const role of roles) rolePools.set(role, []);
+  for (const track of tracks) {
+    rolePools.get(classifyTrackEmotionalPhase(track))!.push(track);
+  }
+  for (const pool of rolePools.values()) pool.sort((a, b) => b.score - a.score);
+
+  const result: T[] = [];
+  const used = new Set<string>();
+  for (let i = 0; i < n; i++) {
+    const targetRole = roleForIndex(i, n);
+    let pick = rolePools.get(targetRole)!.find((track) => !used.has(track.trackId));
+    if (!pick) {
+      for (const role of roles) {
+        pick = rolePools.get(role)!.find((track) => !used.has(track.trackId));
+        if (pick) break;
+      }
+    }
+    if (!pick) break;
+    used.add(pick.trackId);
+    result.push(pick);
+  }
+  for (const track of tracks) {
+    if (result.length >= n) break;
+    if (used.has(track.trackId)) continue;
+    used.add(track.trackId);
+    result.push(track);
+  }
+  return result.slice(0, n);
+}
+
+function limitConsecutivePhaseRepeats<T extends { energy: number | null; valence: number | null; score: number }>(
+  tracks: T[],
+): T[] {
+  if (tracks.length < 4) return tracks;
+  const out = [...tracks];
+  for (let i = 2; i < out.length; i++) {
+    const r0 = classifyTrackEmotionalPhase(out[i - 2]!);
+    const r1 = classifyTrackEmotionalPhase(out[i - 1]!);
+    const r2 = classifyTrackEmotionalPhase(out[i]!);
+    if (r0 !== r1 || r1 !== r2) continue;
+    for (let j = i + 1; j < Math.min(out.length, i + 6); j++) {
+      if (classifyTrackEmotionalPhase(out[j]!) === r2) continue;
+      const tmp = out[i]!;
+      out[i] = out[j]!;
+      out[j] = tmp;
+      break;
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Apply genre bridge smoothing within individual phases only.
 // Reordering is local to each phase so the macro emotional arc is preserved.
@@ -316,9 +430,12 @@ export function composePlaylistFromPool<T extends ComposePoolTrack>(
   const afterArtistSep = separateAdjacentArtists(afterSmoothing);
   const afterEnergySteps = smoothAdjacentEnergySteps(afterArtistSep);
   const afterArc = enforceArc(afterEnergySteps, emotionProfile, journeyArc);
+  const afterSequencing = limitConsecutivePhaseRepeats(
+    smoothContextualAdjacency(reorderForEmotionalArc(afterArc)),
+  );
 
   let finalTracks: ComposedTrack<T>[] = assignNarrativeRoles(
-    afterArc.slice(0, playlistLength),
+    afterSequencing.slice(0, playlistLength),
     journeyArc
   );
 
