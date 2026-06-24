@@ -414,8 +414,12 @@ function attachHierarchicalAffinities<T extends V3PipelineTrack>(
     const artistGravity = opts.sessionArtistMemory?.maxArtistAppearances
       ? artistMemoryCount(opts.sessionArtistMemory, decision.track.artistName) / opts.sessionArtistMemory.maxArtistAppearances
       : 0;
+    const penalizedDecision = {
+      ...decision,
+      score: (decision.score ?? 0) * trackReuseMultiplier,
+    };
 
-    return withDecisionAffinities(decision, {
+    return withDecisionAffinities(penalizedDecision, {
       sceneAffinity,
       tasteAffinity: clamp01(tasteAffinity * tasteScale * sessionPenalty * (sessionCapped ? 0.45 : 1) * trackReuseMultiplier),
       freshnessAffinity: clamp01(freshnessAffinity * sessionPenalty * (sessionCapped ? 0.35 : 1) * trackReuseMultiplier),

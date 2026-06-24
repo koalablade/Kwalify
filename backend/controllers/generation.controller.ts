@@ -5477,6 +5477,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
 
     const recentTrackLists = memoryPlaylistRows.map((p) => p.trackIds);
+    const sessionPenaltyTrackLists = evaluationRecentTrackLists.length > 0
+      ? evaluationRecentTrackLists.slice(-20)
+      : recentTrackLists.slice(0, 20);
     const sessionMemory = buildSessionMemory(recentTrackLists, trackIdToArtist);
     const playlistArtistSet = new Map<string, Set<string>>();
     memoryPlaylistRows.forEach((playlist, index) => {
@@ -5495,8 +5498,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       diversityPressure: sessionDiversityPressure,
     };
     const recentTrackPenaltyScale = (varietyBoost ? 2.85 : 2.05) * sessionDiversityPressure;
-    const finalizationReusePenalty = recentTrackLists.length
-      ? buildRecentTrackPoolPenalty(recentTrackLists, 20, recentTrackPenaltyScale)
+    const finalizationReusePenalty = sessionPenaltyTrackLists.length
+      ? buildRecentTrackPoolPenalty(sessionPenaltyTrackLists, 20, recentTrackPenaltyScale)
       : undefined;
     const finalizationArtistReusePenalty = buildArtistReusePenalty(sessionMemory, sessionDiversityPressure);
     const freshnessCloneMultiplier = varietyBoost
@@ -5520,7 +5523,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           tracks: likedSongs,
           userProfile: userGenreProfile,
           vibe,
-          recentPlaylistTrackIds: recentTrackLists,
+          recentPlaylistTrackIds: sessionPenaltyTrackLists,
         });
         setCachedGenreStack(stackCacheKey, genreStack);
       }
@@ -5823,7 +5826,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       surpriseMix,
       journeyArc,
       maxPerArtist,
-      recentPlaylistTrackIds: recentTrackLists,
+      recentPlaylistTrackIds: sessionPenaltyTrackLists,
       recentPlaylistHistory: persistentMemoryPlaylistRows.slice(0, 10),
       sessionArtistMemory,
       lastSuccessfulVibe: recentPlaylists[0]?.vibe ?? null,
