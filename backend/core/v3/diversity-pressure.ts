@@ -42,7 +42,7 @@ export function buildDiversityTraceComponents(input: {
   const trackReusePenalty = roundDiversity(clamp(
     input.trackReusePenalty ?? boundedTrackReusePenalty(recentTrackPenalty),
     0,
-    0.22
+    0.52
   ));
   const clusterSaturationPenalty = roundDiversity(clamp(input.clusterSaturationPenalty ?? 0, 0, 0.06));
   const familySaturationPenalty = roundDiversity(clamp(input.familySaturationPenalty ?? 0, 0, 0.05));

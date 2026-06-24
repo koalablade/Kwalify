@@ -3121,7 +3121,7 @@ function applyCentroidSurvivorPenalty<T extends IntentContractTrack & { score?: 
     const genericWinner = base >= 0.50 && identity < 0.05;
     const uniquenessLift = Math.max(0, identity) * 0.24 * identityWeight;
     const reusePenalty = Math.min(0.55, recent * 0.95);
-    const genericPenalty = genericWinner ? 0.16 : 0;
+    const genericPenalty = genericWinner ? (kind === "vague" ? 0.24 : kind === "edge" ? 0.20 : 0.18) : 0;
     return {
       ...track,
       score: Math.max(0.01, base * (1 - reusePenalty - genericPenalty) + uniquenessLift),
