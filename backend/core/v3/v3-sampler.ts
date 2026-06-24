@@ -94,6 +94,7 @@ export function selectFromClusters<T extends ScorerTrack>(
   }
 
   const softIntent = !opts.lockedIntent?.genreFamilies?.length && !opts.lockedIntent?.eraRange;
+  const calmSoftWorld = softIntent && opts.lockedIntent?.energy !== "high";
   const genreMax   = opts.lockedIntent?.genreFamilies.length
     ? Number.POSITIVE_INFINITY
     : Math.max(1, Math.ceil(targetCount * (softIntent ? 0.48 : 0.60)));
@@ -164,6 +165,31 @@ export function selectFromClusters<T extends ScorerTrack>(
       da.artistGravity - db.artistGravity ||
       da.clusterSaturationPenalty - db.clusterSaturationPenalty ||
       da.familySaturationPenalty - db.familySaturationPenalty;
+  }
+
+  function sonicWorldFit(decision: TrackDecision<T>): number {
+    if (!softIntent) return 1;
+    const e = decision.track.energy ?? 0.5;
+    const d = decision.track.danceability ?? 0.5;
+    const a = decision.track.acousticness ?? 0.5;
+    const targetEnergy = opts.lockedIntent?.energy === "high"
+      ? 0.72
+      : opts.lockedIntent?.energy === "low"
+        ? 0.34
+        : 0.48;
+    const targetDance = opts.lockedIntent?.energy === "high" ? 0.68 : 0.40;
+    const energyFit = 1 - Math.min(1, Math.abs(e - targetEnergy) * 1.8);
+    const danceFit = 1 - Math.min(1, Math.max(0, d - targetDance - 0.10) * 2.4);
+    const acousticFit = 1 - Math.min(1, Math.abs(a - (targetEnergy < 0.45 ? 0.56 : 0.42)) * 1.2);
+    return clamp01(energyFit * 0.42 + danceFit * 0.38 + acousticFit * 0.20);
+  }
+
+  function candidateFitsOpeningWorld(decision: TrackDecision<T>): boolean {
+    if (!calmSoftWorld || selected.length >= 5) return true;
+    const e = decision.track.energy ?? 0.5;
+    const d = decision.track.danceability ?? 0.5;
+    if (d > 0.74 && e > 0.60) return false;
+    return sonicWorldFit(decision) >= 0.40;
   }
 
   function dominantSelectedGenreFamily(): string | null {
@@ -254,10 +280,12 @@ export function selectFromClusters<T extends ScorerTrack>(
     const cohesion = selected.length > 0
       ? (softIntent ? playlistCohesionMultiplier(decision) : 0.88 + playlistCohesionMultiplier(decision) * 0.12)
       : 1;
+    const sonic = softIntent ? sonicWorldFit(decision) : 1;
     return clamp01(
       (decision.finalScore * (1 - bucketBlend) + explorationAdjustment * bucketBlend) *
       diversity.finalMultiplier *
-      cohesion,
+      cohesion *
+      sonic,
     );
   }
 
@@ -311,8 +339,7 @@ export function selectFromClusters<T extends ScorerTrack>(
   }
 
   function candidateFitsPlaylistWorld(decision: TrackDecision<T>, bucketName: string): boolean {
-    if (!softIntent || selected.length === 0) return true;
-    if (bucketName === "core") return true;
+    if (!softIntent || selected.length === 0) return candidateFitsOpeningWorld(decision);
     const cohesion = playlistCohesionMultiplier(decision);
     return cohesion >= 0.68 || sharesSelectedCluster(decision);
   }
@@ -378,6 +405,14 @@ export function selectFromClusters<T extends ScorerTrack>(
         candidates.length - available.length > Math.max(3, targetCount - selected.length)
       ) {
         recordRejection("sampler_session_artist_cap");
+        continue;
+      }
+      if (!candidateFitsOpeningWorld(item)) {
+        recordRejection("sampler_opening_world_mismatch");
+        continue;
+      }
+      if (!candidateFitsPlaylistWorld(item, bucketName)) {
+        recordRejection("sampler_playlist_world_mismatch");
         continue;
       }
       available.push(item);
