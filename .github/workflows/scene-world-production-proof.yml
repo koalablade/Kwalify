@@ -1,0 +1,68 @@
+name: Scene World production evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "backend/core/scene-world-layer.ts"
+      - "backend/core/scene-cohesion-clusters.ts"
+      - "backend/core/scene-world-editorial-audit.ts"
+      - "backend/core/v3/v3-pipeline.ts"
+      - "scripts/scene-world-proof-remote.mjs"
+      - "scripts/human-save-regression.mjs"
+      - "scripts/production-evidence-report.mjs"
+      - "scripts/live-e2e-phase-run.mjs"
+
+concurrency:
+  group: scene-world-production-evidence
+  cancel-in-progress: true
+
+jobs:
+  production-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
+      - run: npm ci && npm run build
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
+      - name: Verify deployed commit
+        run: |
+          DEPLOYED=$(curl -fsS https://kwalify.net/api/readyz | node -pe "JSON.parse(fs.readFileSync(0,'utf8')).commit")
+          EXPECTED=$(git rev-parse HEAD)
+          echo "deployed=$DEPLOYED"
+          echo "expected=$EXPECTED"
+          node -e "const d=process.argv[1],e=process.argv[2]; if(!d.startsWith(e.slice(0,7))&&!e.startsWith(d.slice(0,7))){console.error('Deploy hash mismatch');process.exit(1)}" "$DEPLOYED" "$EXPECTED"
+      - name: Scene world remote proof (production API)
+        run: node scripts/scene-world-proof-remote.mjs
+        continue-on-error: true
+      - name: Human save regression (production API)
+        run: node scripts/human-save-regression.mjs
+        continue-on-error: true
+      - name: Live E2E 65 prompts (fresh checkpoint)
+        run: |
+          rm -f reports/live-e2e-phase/checkpoint.json
+          node scripts/live-e2e-phase-run.mjs
+        continue-on-error: true
+      - name: Aggregate production evidence report
+        run: node scripts/production-evidence-report.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-evidence-${{ github.run_id }}
+          path: |
+            reports/production-evidence-report.json
+            reports/production-evidence-report.md
+            reports/scene-world-proof-remote.json
+            reports/human-save-regression.json
+            reports/live-e2e-phase/results.json

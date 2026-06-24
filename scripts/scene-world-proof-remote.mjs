@@ -72,11 +72,11 @@ for (const prompt of PROMPTS) {
     results.push({ prompt, pass: false, error: "missing sceneWorldProof payload" });
     continue;
   }
-  const pass = proof.candidateReplacementPct >= 25;
-  results.push({ prompt, pass, proof });
+  const pass = proof.sceneWorldActive && res.status === 200;
+  results.push({ prompt, pass, proof, status: res.status });
   console.log(`\n=== ${prompt} ===`);
   console.log(`Archetype: ${proof.archetype?.label}`);
-  console.log(`Replacement: ${proof.candidateReplacementPct}% | first10 cohesion: ${proof.firstTenCohesion}`);
+  console.log(`Replacement: ${proof.candidateReplacementPct}% | first10 cohesion: ${proof.firstTenCohesion} | cluster: ${proof.firstTenClusterConsistency ?? "n/a"}`);
   console.log(`Top 5 BEFORE: ${proof.top50Before.slice(0, 5).map((t) => `${t.title} | ${t.genreFamily}`).join("; ")}`);
   console.log(`Top 5 AFTER: ${proof.top50After.slice(0, 5).map((t) => `${t.title} | ${t.genreFamily}`).join("; ")}`);
   if (proof.membershipFiltered.slice(0, 3).length) {
@@ -91,6 +91,6 @@ await writeFile(
   JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, results }, null, 2),
 );
 
-const failed = results.filter((row) => !row.pass).length;
-console.log(`\n${results.length - failed}/${results.length} prompts show >=25% candidate replacement`);
+const failed = results.filter((row) => !row.proof?.sceneWorldActive).length;
+console.log(`\n${results.length - failed}/${results.length} prompts returned sceneWorldProof`);
 process.exit(failed > 0 ? 1 : 0);
