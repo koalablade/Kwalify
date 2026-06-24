@@ -309,6 +309,7 @@ function computeAggregateMetrics(results) {
   const avgStructuralSimilarity = structuralPairs > 0 ? Math.round((structuralSimSum / structuralPairs) * 1000) / 1000 : 0;
 
   let crossrunSim = 0;
+  let crossrunTrackSim = 0;
   if (crossrun.length >= 2) {
     const fps = crossrun.map((r) => r.structuralFingerprint).filter(Boolean);
     let sum = 0, pairs = 0;
@@ -319,6 +320,19 @@ function computeAggregateMetrics(results) {
       }
     }
     crossrunSim = pairs > 0 ? Math.round((sum / pairs) * 1000) / 1000 : 0;
+    let trackSum = 0;
+    let trackPairs = 0;
+    for (let i = 0; i < crossrun.length; i++) {
+      for (let j = i + 1; j < crossrun.length; j++) {
+        const a = new Set(crossrun[i].tracks.map((t) => t.trackId).filter(Boolean));
+        const b = new Set(crossrun[j].tracks.map((t) => t.trackId).filter(Boolean));
+        const inter = [...a].filter((id) => b.has(id)).length;
+        const union = new Set([...a, ...b]).size;
+        trackSum += union > 0 ? inter / union : 0;
+        trackPairs++;
+      }
+    }
+    crossrunTrackSim = trackPairs > 0 ? Math.round((trackSum / trackPairs) * 1000) / 1000 : 0;
   }
 
   const blended = successes.filter((r) => r.category === "blended");
@@ -348,6 +362,7 @@ function computeAggregateMetrics(results) {
     overSmoothingScore,
     crossPlaylistStructuralSimilarity: avgStructuralSimilarity,
     crossRunStructuralSimilarity: crossrunSim,
+    crossRunTrackOverlap: crossrunTrackSim,
     trackRepetitionAcrossOutputs: repeatedTracks.slice(0, 30),
     topRepeatedArtists: [...allArtists.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([artist, count]) => ({ artist, appearances: count })),
     categoryOverlap: {
