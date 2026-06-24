@@ -3118,7 +3118,7 @@ function applyCentroidSurvivorPenalty<T extends IntentContractTrack & { score?: 
     const base = track.score ?? 0;
     const identity = sceneIdentityCoherenceScore(track, intentContract, classMap, "text");
     const recent = recentTrackPenalty?.get(track.trackId) ?? 0;
-    const genericWinner = base >= 0.48 && identity < 0.08;
+    const genericWinner = base >= 0.50 && identity < 0.05;
     const uniquenessLift = Math.max(0, identity) * 0.24 * identityWeight;
     const reusePenalty = Math.min(0.55, recent * 0.95);
     const genericPenalty = genericWinner ? (kind === "vague" ? 0.24 : kind === "edge" ? 0.20 : 0.18) : 0;
@@ -4434,18 +4434,12 @@ export async function buildPlaylistPipeline<T extends {
   )
     .map((track) => {
       const origin = softGuardOriginFor(track);
-      const identity = sceneIdentityCoherenceScore(track, intentContract, classMap, origin);
-      const identityWeight =
-        diversityKind === "strong" ? 1 :
-        diversityKind === "edge" ? 2.25 :
-        diversityKind === "vague" ? 2.05 :
-        1.85;
       return {
         ...track,
         score: (track.score ?? 0) +
           originScoreBoost(origin) +
-          identity * identityWeight -
-          (identity < 0 ? Math.min(0.22, Math.abs(identity) * 0.55) : 0),
+          sceneIdentityCoherenceScore(track, intentContract, classMap, origin) *
+          (diversityKind === "strong" ? 1 : 1.35),
       };
     })
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
