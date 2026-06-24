@@ -1970,7 +1970,9 @@ function isUpbeatSocialPrompt(vibe: string, intent: LockedIntent): boolean {
   if (/\b(?:party|all\s+night|chaos|workout|gym|friends?|mates?|saturday\s+night)\b/.test(lower)) return true;
   if (intent.mood.includes("melancholic")) return false;
   if (intent.mood.includes("energised") || intent.energy === "high" || intent.energyLevel === "high") return true;
-  return /\b(?:hype|high\s+energy|energ(?:y|ised|ized))\b/.test(lower);
+  if (/\b(?:hype|high\s+energy|energ(?:y|ised|ized))\b/.test(lower)) return true;
+  if (/\b(?:feel.?good|getting ready|commut(?:e|ing))\b/.test(lower) && /\b(?:morning|day|summer|work)\b/.test(lower)) return true;
+  return false;
 }
 
 function isGymWorkoutPrompt(vibe: string, intent: LockedIntent): boolean {
@@ -2039,7 +2041,20 @@ function trackIsFocusStudySafe(track: ConstraintTrack): boolean {
   return true;
 }
 
-function trackIsUpbeatSocialSafe(track: ConstraintTrack): boolean {
+function trackIsUpbeatSocialSafe(
+  track: ConstraintTrack,
+  classMap?: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>,
+): boolean {
+  if (classMap) {
+    const family = trackGenreFamily(track, classMap);
+    if (family === "metal" || family === "classical") return false;
+  }
   const energy = typeof track.energy === "number" ? track.energy : null;
   const valence = typeof track.valence === "number" ? track.valence : null;
   const tempo = typeof track.tempo === "number" ? track.tempo : null;
@@ -2320,7 +2335,7 @@ function finalTrackIsSafe(
   if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) return false;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
   if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) return false;
-  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
+  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track, opts.classMap)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
   if (isRainyNightWalkPrompt(opts.vibe, opts.intent) && !trackIsRainyNightWalkSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) return false;
@@ -2368,7 +2383,7 @@ function finalTrackIsHardSafe(
   if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) return false;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) return false;
   if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) return false;
-  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) return false;
+  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track, opts.classMap)) return false;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) return false;
   if (isRainyNightWalkPrompt(opts.vibe, opts.intent) && !trackIsRainyNightWalkSafe(track, explicitGenreLocked, opts.classMap)) return false;
   if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) return false;
@@ -2612,7 +2627,7 @@ function intentCoherenceScore(
   if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(track)) score -= 0.38;
   if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(track)) score -= 0.30;
   if (isLateNightDrivingPrompt(opts.vibe, opts.intent) && !trackIsLateNightDrivingSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.38;
-  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track)) score -= 0.34;
+  if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(track, opts.classMap)) score -= 0.34;
   if (isSleepSafetyPrompt(opts.vibe, opts.intent) && !trackIsSleepSafe(track)) score -= 0.26;
   if (isRainyNightWalkPrompt(opts.vibe, opts.intent) && !trackIsRainyNightWalkSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.40;
   if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(track, explicitGenreLocked, opts.classMap)) score -= 0.38;
@@ -2644,13 +2659,18 @@ function preferredCohesionFamilies<T extends ConstraintTrack>(
       secondarySubgenre: string | null;
       subGenres: string[];
     }>;
-  }
+  },
+  seedTracks: T[] = [],
 ): Set<string> {
   const limit = cohesionFamilyLimit(opts.vibe, opts.intent, opts.constraints);
   if (!limit) return new Set();
+  const minFamilyCount = isUpbeatSocialPrompt(opts.vibe, opts.intent) ? 3 : 4;
   const counts = new Map<string, number>();
   const scores = new Map<string, number>();
-  for (const track of tracks.slice(0, Math.max(40, limit * 30))) {
+  const seen = new Set<string>();
+  for (const track of [...seedTracks, ...tracks.slice(0, Math.max(40, limit * 30))]) {
+    if (seen.has(track.trackId)) continue;
+    seen.add(track.trackId);
     if (!finalTrackIsSafe(track, opts)) continue;
     const family = trackGenreFamily(track, opts.classMap);
     if (!family || family === "unknown") continue;
@@ -2659,7 +2679,7 @@ function preferredCohesionFamilies<T extends ConstraintTrack>(
   }
   return new Set(
     [...counts.entries()]
-      .filter(([, count]) => count >= 4)
+      .filter(([, count]) => count >= minFamilyCount)
       .sort((a, b) => (scores.get(b[0]) ?? 0) - (scores.get(a[0]) ?? 0) || b[1] - a[1])
       .slice(0, limit)
       .map(([family]) => family)
@@ -3066,7 +3086,7 @@ function shapePreScoringCandidatePool<T extends {
         if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(candidate, opts)) return false;
         if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(candidate)) return false;
         if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(candidate)) return false;
-        if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(candidate)) return false;
+        if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(candidate, opts.classMap)) return false;
         if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(candidate, hasExplicitGenreIntent(opts.intent, opts.constraints), opts.classMap)) return false;
         return true;
       })
@@ -3341,7 +3361,7 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     .map(sanitizePlaylistTrack)
     .filter((track): track is T => !!track)
     .sort((a, b) => candidateFinalizationScore(b) - candidateFinalizationScore(a));
-  const preferredFamilies = preferredCohesionFamilies(rankedCandidates, opts);
+  const preferredFamilies = preferredCohesionFamilies(rankedCandidates, opts, opts.initial);
   coherenceDownranked = rankedCandidates.filter((track) => intentCoherenceScore(track, opts, preferredFamilies, identityTerms) < 0).length;
   const coherentRankedCandidates = [...rankedCandidates]
     .sort((a, b) => candidateFinalizationScore(b, preferredFamilies) - candidateFinalizationScore(a, preferredFamilies));

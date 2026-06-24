@@ -139,7 +139,12 @@ function scoreSceneMembership(
   expectedFamilies: string[],
 ): { score: number; reasons: string[] } {
   if (tracks.length === 0) return { score: 0, reasons: ["empty_playlist"] };
-  if (expectedFamilies.length === 0) return { score: 0.72, reasons: [] };
+  if (expectedFamilies.length === 0) {
+    const unity = scoreGenreUnity(tracks);
+    const score = round2(clamp01(0.38 + unity.score * 0.62));
+    const reasons = unity.score < 0.58 ? ["no_dominant_genre_world", ...unity.reasons] : unity.reasons;
+    return { score, reasons };
+  }
 
   const expected = new Set(expectedFamilies.map((f) => f.toLowerCase()));
   let inFamily = 0;

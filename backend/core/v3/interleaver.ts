@@ -624,25 +624,40 @@ export function interleaveLanes<T extends ScorerTrack>(
       const queue = queues.get(laneId) ?? [];
       let picked: (T & { laneScore: number; genrePrimary: string; laneEra: EraBucket; clusterIds: string[] }) | null = null;
 
-      for (let q = 0; q < queue.length; q++) {
-        const candidate = queue[q]!;
-        if (usedIds.has(candidate.trackId)) continue;
+      const dominantFamily = opts.cohesivePlaylist && result.length >= 3
+        ? (() => {
+            const counts = new Map<string, number>();
+            for (const track of result) {
+              const family = getGenreFamily(track.genrePrimary);
+              counts.set(family, (counts.get(family) ?? 0) + 1);
+            }
+            return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+          })()
+        : null;
 
-        picked = candidate;
-        queue.splice(q, 1);
-        break;
-      }
-
-      // Fallback: any unseen track from this lane
-      if (!picked) {
+      const pickCandidate = (requireWorldMatch: boolean) => {
         for (let q = 0; q < queue.length; q++) {
           const candidate = queue[q]!;
-          if (!usedIds.has(candidate.trackId)) {
-            picked = candidate;
-            queue.splice(q, 1);
-            break;
+          if (usedIds.has(candidate.trackId)) continue;
+          if (requireWorldMatch && dominantFamily) {
+            const candidateFamily = getGenreFamily(candidate.genrePrimary);
+            const previous = result[result.length - 1];
+            const sharesWorld = candidateFamily === dominantFamily ||
+              (previous ? hasSharedClusterFamily(
+                { ...candidate, sourceLane: laneId } as InterleavedTrack<ScorerTrack>,
+                { ...previous, sourceLane: previous.sourceLane } as InterleavedTrack<ScorerTrack>,
+              ) : false);
+            if (!sharesWorld) continue;
           }
+          queue.splice(q, 1);
+          return candidate;
         }
+        return null;
+      };
+
+      picked = pickCandidate(!!dominantFamily && result.length < Math.min(14, targetCount));
+      if (!picked) {
+        picked = pickCandidate(false);
       }
 
       if (!picked) {
