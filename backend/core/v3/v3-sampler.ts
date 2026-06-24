@@ -185,11 +185,16 @@ export function selectFromClusters<T extends ScorerTrack>(
   }
 
   function candidateFitsOpeningWorld(decision: TrackDecision<T>): boolean {
-    if (!calmSoftWorld || selected.length >= 5) return true;
+    if (!calmSoftWorld || selected.length >= 6) return true;
     const e = decision.track.energy ?? 0.5;
     const d = decision.track.danceability ?? 0.5;
+    const v = decision.track.valence ?? 0.5;
+    const a = decision.track.acousticness ?? 0.5;
     if (d > 0.74 && e > 0.60) return false;
-    return sonicWorldFit(decision) >= 0.40;
+    const aggressiveRock = e > 0.56 && v < 0.48 && d < 0.52;
+    const noveltySpike = e > 0.54 && v < 0.38 && a < 0.22;
+    if (aggressiveRock || noveltySpike) return false;
+    return sonicWorldFit(decision) >= (selected.length === 0 ? 0.50 : 0.42);
   }
 
   function dominantSelectedGenreFamily(): string | null {
