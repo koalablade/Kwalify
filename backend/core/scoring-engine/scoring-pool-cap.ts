@@ -332,7 +332,7 @@ export function capTracksForHybridScoring<T extends {
     }
     const seed = opts.seedMs ?? 0;
     const softPrompt = explicitFamilies.size === 0 && (opts.promptWordCount ?? 99) <= 8;
-    const emotionWeight = softPrompt ? 0.32 : 1;
+    const emotionWeight = softPrompt ? 0.26 : 1;
     const ranked = candidates
       .map((t) => {
         const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
@@ -342,7 +342,7 @@ export function capTracksForHybridScoring<T extends {
         const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
         const eraBoost = matchesExplicitEra(t, explicitEra) ? 0.25 : 0;
         const emotionFit = quickEmotionFit(t, opts.emotionProfile) * emotionWeight;
-        const reuseDampener = 1 - Math.min(0.58, recentPen);
+        const reuseDampener = 1 - Math.min(0.72, recentPen * 1.12);
         const fit =
           (emotionFit + seededJitter(t.trackId, seed) * (softPrompt ? 0.06 : 0.018)) *
           reuseDampener +
@@ -424,7 +424,7 @@ export function capTracksForHybridScoring<T extends {
 
   const seed = opts.seedMs ?? 0;
   const softPrompt = explicitFamilies.size === 0 && (opts.promptWordCount ?? 99) <= 8;
-  const emotionWeight = softPrompt ? 0.32 : 1;
+  const emotionWeight = softPrompt ? 0.26 : 1;
   const eraMode =
     opts.libraryEraMode ?? detectLibraryEraMode(opts.vibe ?? "");
   const ranked = candidates.map((t) => {
@@ -436,7 +436,7 @@ export function capTracksForHybridScoring<T extends {
     const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
     const explicitEraBoost = matchesExplicitEra(t, explicitEra) ? 0.20 : 0;
     const emotionFit = quickEmotionFit(t, opts.emotionProfile) * emotionWeight;
-    const reuseDampener = 1 - Math.min(0.58, recentPen);
+    const reuseDampener = 1 - Math.min(0.72, recentPen * 1.12);
     const fit =
       (emotionFit + seededJitter(t.trackId, seed) * (softPrompt ? 0.06 : 0.018)) *
       reuseDampener +
