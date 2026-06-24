@@ -11,6 +11,13 @@ import type { ClusteredPool } from "./cluster-candidate-engine";
 import { getGenreFamily } from "./global-diversity-controller";
 import type { LockedIntent } from "./intent";
 import { withDecisionWeight, type TrackDecision } from "./track-decision";
+import type { SceneWorldContext } from "../scene-world-layer";
+import { computeWorldMembershipScore } from "../scene-world-layer";
+import {
+  computeSceneClusterMembershipScore,
+  openingSceneClusterThreshold,
+  shouldRejectForSceneCluster,
+} from "../scene-cohesion-clusters";
 import { artistExceedsSessionCap, type SessionArtistMemory } from "./constraint-relaxation";
 import {
   boundedClusterSaturationPenalty,
@@ -75,6 +82,7 @@ export function selectFromClusters<T extends ScorerTrack>(
     lockedIntent?: LockedIntent;
     sessionArtistMemory?: SessionArtistMemory;
     recentTrackPenalty?: Map<string, number>;
+    sceneWorld?: SceneWorldContext | null;
   } = {},
 ): ClusterSelectionResult<T> {
   const { scoredTracks, trackToClusterIds, clusters } = pool;
@@ -93,6 +101,81 @@ export function selectFromClusters<T extends ScorerTrack>(
     };
   }
 
+  const sceneWorldStrict = !!opts.sceneWorld?.strictMode;
+
+  function trackWorldMembership(decision: TrackDecision<T>): number {
+    if (!opts.sceneWorld?.active) return 1;
+    return computeWorldMembershipScore(
+      {
+        trackId: decision.track.trackId,
+        artistName: decision.track.artistName,
+        genrePrimary: decision.genrePrimary,
+        energy: decision.track.energy,
+        valence: decision.track.valence,
+        danceability: decision.track.danceability,
+        acousticness: decision.track.acousticness,
+        tempo: decision.track.tempo,
+        speechiness: decision.track.speechiness,
+      },
+      opts.sceneWorld,
+    );
+  }
+
+  function trackSceneClusterMembership(decision: TrackDecision<T>): number {
+    if (!opts.sceneWorld?.active) return 1;
+    return computeSceneClusterMembershipScore(
+      {
+        trackId: decision.track.trackId,
+        artistName: decision.track.artistName,
+        genrePrimary: decision.genrePrimary,
+        energy: decision.track.energy,
+        valence: decision.track.valence,
+        danceability: decision.track.danceability,
+        acousticness: decision.track.acousticness,
+        tempo: decision.track.tempo,
+        speechiness: decision.track.speechiness,
+      },
+      opts.sceneWorld,
+    );
+  }
+
+  function candidateFitsSceneCluster(decision: TrackDecision<T>): boolean {
+    if (!opts.sceneWorld?.active || !opts.sceneWorld.sceneClusters) return true;
+    const track = {
+      trackId: decision.track.trackId,
+      artistName: decision.track.artistName,
+      genrePrimary: decision.genrePrimary,
+      energy: decision.track.energy,
+      valence: decision.track.valence,
+      danceability: decision.track.danceability,
+      acousticness: decision.track.acousticness,
+      tempo: decision.track.tempo,
+      speechiness: decision.track.speechiness,
+    };
+    if (shouldRejectForSceneCluster(track, opts.sceneWorld)) return false;
+    const clusterMembership = trackSceneClusterMembership(decision);
+    if (selected.length < 10) {
+      return clusterMembership >= openingSceneClusterThreshold(selected.length);
+    }
+    return clusterMembership >= 0.58;
+  }
+
+  function candidateFitsSceneWorld(decision: TrackDecision<T>): boolean {
+    if (!opts.sceneWorld?.active) return true;
+    const membership = trackWorldMembership(decision);
+    if (selected.length < 10) return membership >= (selected.length < 5 ? 0.62 : 0.56);
+    return membership >= 0.52;
+  }
+
+  function candidateFitsOpeningAnchor(decision: TrackDecision<T>): boolean {
+    if (!sceneWorldStrict || selected.length >= 5) return true;
+    const membership = trackWorldMembership(decision);
+    if (membership < 0.64) return false;
+    if (selected.length === 0) {
+      return opts.sceneWorld!.anchorTrackIds.has(decision.track.trackId) || membership >= 0.72;
+    }
+    return membership >= 0.62;
+  }
   const softIntent = !opts.lockedIntent?.genreFamilies?.length && !opts.lockedIntent?.eraRange;
   const highEnergySoft = softIntent && opts.lockedIntent?.energy === "high";
   const calmSoftWorld = softIntent && !highEnergySoft;
@@ -546,6 +629,18 @@ export function selectFromClusters<T extends ScorerTrack>(
         recordRejection("sampler_unknown_world_mismatch");
         continue;
       }
+      if (!candidateFitsSceneWorld(item)) {
+        recordRejection("sampler_scene_world_mismatch");
+        continue;
+      }
+      if (!candidateFitsSceneCluster(item)) {
+        recordRejection("sampler_scene_cluster_mismatch");
+        continue;
+      }
+      if (!candidateFitsOpeningAnchor(item)) {
+        recordRejection("sampler_opening_anchor_mismatch");
+        continue;
+      }
       available.push(item);
     }
     if (available.length === 0) {
@@ -645,7 +740,7 @@ export function selectFromClusters<T extends ScorerTrack>(
   let variationTarget = Math.floor(targetCount * (softIntent ? 0.28 : 0.20));
   let explorationTarget = Math.max(0, targetCount - coreTarget - variationTarget);
   if (softIntent) {
-    explorationTarget = Math.min(explorationTarget, Math.ceil(targetCount * 0.08));
+    explorationTarget = sceneWorldStrict ? 0 : Math.min(explorationTarget, Math.ceil(targetCount * 0.08));
     coreTarget = Math.max(coreTarget, targetCount - variationTarget - explorationTarget);
   }
   const selectionBuckets = [
@@ -654,7 +749,11 @@ export function selectFromClusters<T extends ScorerTrack>(
     { name: "exploration", target: explorationTarget, pool: clusterDisciplinedCandidates.slice(variationEnd) },
   ];
 
-  const openingAnchorSlots = softIntent ? Math.min(5, targetCount) : 0;
+  const openingAnchorSlots = sceneWorldStrict
+    ? Math.min(10, targetCount)
+    : softIntent
+      ? Math.min(5, targetCount)
+      : 0;
   const openingPool = clusterDisciplinedCandidates.slice(0, Math.max(15, targetCount * 2));
   while (selected.length < openingAnchorSlots) {
     const pick = weightedPick(openingPool, "core");

@@ -202,6 +202,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
   requestId?: string;
   pipelineTrace?: PipelineTrace;
   diagnosticsMode?: "minimal" | "full";
+  sceneWorldProof?: boolean;
   profileStage?: (stage: string, detail?: string) => () => void;
   progress?: (stage: "scoring" | "retrieval" | "lanes" | "sampling" | "fallback" | "coherence", detail: string) => void | Promise<void>;
   shouldAbort?: () => boolean;
@@ -4827,6 +4828,7 @@ export async function buildPlaylistPipeline<T extends {
           requestId:               opts.requestId,
           pipelineTrace,
           diagnosticsMode:          opts.diagnosticsMode ?? "minimal",
+          sceneWorldProof:          opts.sceneWorldProof ?? false,
           profileStage:            opts.profileStage,
           dominantIntentGates: {
             dominantEmotionExplicit: dominantContract.dominantEmotionExplicit,

@@ -4357,6 +4357,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       req.query.debugPerformance === "1" ||
       rawBody["debugPerformance"] === true;
     const auditModeRequested = rawBody.auditMode === true || req.query.audit === "1";
+    const sceneWorldProofRequested = rawBody.sceneWorldProof === true || req.query.sceneWorldProof === "1";
     const auditTokenAuthorized = auditModeRequested && generationAuditTokenAuthorized(req);
     const auditMode = auditModeRequested && auditTokenAuthorized;
     const sideEffectPolicy = auditMode ? AUDIT_SIDE_EFFECT_POLICY : PRODUCTION_SIDE_EFFECT_POLICY;
@@ -5945,6 +5946,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
       requestId,
       diagnosticsMode: debugMode ? "full" : "minimal",
+      sceneWorldProof: sceneWorldProofRequested,
       profileStage: liveStageProfiler.start,
       shouldAbort: generationShouldAbort,
       generationPolicy,
@@ -8770,6 +8772,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         finalization: finalization.diagnostics,
         intentSurvival: intentSurvivalDiagnostics,
         v3Diagnostics: v3DiagnosticsWithIntentSurvival,
+        sceneWorldProof: sceneWorldProofRequested
+          ? ((pipeline.scoringDiagnostics?.v3Pipeline as Record<string, unknown> | undefined)?.["sceneWorldProof"] ?? null)
+          : undefined,
         requestOrchestration: pipeline.requestOrchestration ?? {
           layer: "request",
           candidateGenerator: fallbackReason ? "fast_fallback" : "v3",

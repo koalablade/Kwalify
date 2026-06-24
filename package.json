@@ -6,7 +6,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "build": "node scripts/prepare-dist.mjs && node node_modules/typescript/bin/tsc",
+    "build": "node scripts/prepare-dist.mjs && node node_modules/typescript/bin/tsc && node backend/dist/scripts/scene-cohesion-human-save-gate.js",
     "start": "node backend/dist/server.js",
     "typecheck": "tsc --noEmit",
     "smoke:static": "node scripts/smoke-static.mjs",
@@ -57,6 +57,11 @@
     "stress:identity-preservation": "npm run build && node backend/dist/scripts/identity-preservation-stress-test.js",
     "benchmark:scene-collisions": "npm run build && node backend/dist/scripts/scene-collision-benchmark.js",
     "coherence:scene-filter": "npm run build && node backend/dist/scripts/coherence-scene-filter-fixtures.js",
+    "coherence:scene-world": "npm run build && node backend/dist/scripts/scene-world-fixtures.js",
+    "audit:human-save": "npm run build && node backend/dist/scripts/human-save-audit.js",
+    "ci:scene-cohesion-human-save": "npm run build && node backend/dist/scripts/scene-cohesion-human-save-gate.js",
+    "proof:scene-world": "npm run build && node backend/dist/scripts/scene-world-proof.js",
+    "regression:human-save": "node scripts/human-save-regression.mjs",
     "coherence:truthful-metrics": "npm run build && node backend/dist/scripts/truthful-metrics-fixtures.js",
     "audit:benchmarks": "npm run build && node backend/dist/scripts/real-vs-synthetic-benchmark-auditor.js",
     "audit:benchmarks:ci": "npm run build && node backend/dist/scripts/real-vs-synthetic-benchmark-auditor.js --ci --limit 100",

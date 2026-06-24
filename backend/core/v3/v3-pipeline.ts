@@ -30,6 +30,33 @@ import {
   computeDiversityMetrics,
 } from "./global-diversity-controller";
 import { interleaveLanes, type InterleavedResult } from "./interleaver";
+import {
+  auditEditorialPlaylist,
+  enforceOpeningSceneCluster,
+  scorePlaylistWorldMetrics,
+} from "../scene-world-editorial-audit";
+import {
+  buildSceneWorldProofReport,
+  createSceneWorldProofAccumulator,
+  describeWorldRemovalReason,
+  rankBeforeMembershipFilter,
+  recordSceneWorldMembershipRemoval,
+  recordSceneWorldProofAfter,
+  recordSceneWorldProofBefore,
+  type SceneWorldProofReport,
+} from "../scene-world-proof-capture";
+import {
+  blendScoreWithWorldMembership,
+  buildSceneWorldContext,
+  computeWorldMembershipScore,
+  type SceneWorldContext,
+} from "../scene-world-layer";
+import {
+  computeFirstTenClusterConsistency,
+  computeSceneClusterMembershipScore,
+  describeSceneClusterViolation,
+  shouldRejectForSceneCluster,
+} from "../scene-cohesion-clusters";
 import { classifyTrack, type TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
@@ -638,6 +665,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       allowExplorationLanes?: boolean;
       maxTasteWeight?: number;
     };
+    sceneWorldProof?: boolean;
+    playlistAdjacency?: Array<{ trackIds: string[] }>;
+    likedAdjacency?: Array<{ trackId: string; addedAt?: string | Date | null }>;
   } = {},
 ): Promise<V3PipelineResult<T>> {
   const pipelineStartedAt = Date.now();
@@ -673,6 +703,34 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const retrievalInputTracks = healthState === "CRITICAL"
     ? tracks.slice(0, Math.max(targetCount, targetCount * 3))
     : tracks;
+  const preRetrievalSceneWorld = buildSceneWorldContext({
+    vibe,
+    lockedIntent,
+    tracks: retrievalInputTracks.map((track) => ({
+      trackId: track.trackId,
+      artistName: track.artistName,
+      genrePrimary: opts.genreByTrack?.(track.trackId) ?? null,
+      genreFamily: opts.classificationByTrack?.(track.trackId)?.genreFamily ?? null,
+      energy: track.energy,
+      valence: track.valence,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      tempo: track.tempo,
+      speechiness: track.speechiness,
+      albumName: (track as { albumName?: string | null }).albumName ?? null,
+    })),
+    seed: opts.seed != null ? String(opts.seed) : vibe,
+    playlistAdjacency: opts.playlistAdjacency,
+    likedAdjacency: opts.likedAdjacency,
+  });
+  const effectiveIntentGates = preRetrievalSceneWorld?.strictMode
+    ? {
+        dominantEmotionExplicit: true,
+        allowContrastLanes: false,
+        allowExplorationLanes: false,
+        maxTasteWeight: Math.min(0.12, opts.dominantIntentGates?.maxTasteWeight ?? 0.22),
+      }
+    : opts.dominantIntentGates;
   const retrievalCacheKey = requestPatternKey("v3-retrieval", {
     vibe,
     targetCount,
@@ -702,7 +760,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           retrievalInputTracks,
           lockedIntent,
           unifiedIntentContext.unifiedIntent,
-          { maxTasteWeight: opts.dominantIntentGates?.maxTasteWeight },
+          { maxTasteWeight: effectiveIntentGates?.maxTasteWeight },
         );
         setFallbackCache(retrievalCacheKey, cloud);
         return cloud;
@@ -729,6 +787,30 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const retrievalByTrack = new Map(
     retrievalCloud.tracks.map((candidate) => [candidate.track.trackId, candidate])
   );
+  const sceneWorldContext = buildSceneWorldContext({
+    vibe,
+    lockedIntent,
+    tracks: retrievedTracks.map((track) => ({
+      trackId: track.trackId,
+      artistName: track.artistName,
+      genrePrimary: opts.genreByTrack?.(track.trackId) ?? null,
+      genreFamily: opts.classificationByTrack?.(track.trackId)?.genreFamily ?? null,
+      energy: track.energy,
+      valence: track.valence,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      tempo: track.tempo,
+      speechiness: track.speechiness,
+      albumName: (track as { albumName?: string | null }).albumName ?? null,
+    })),
+    seed: opts.seed != null ? String(opts.seed) : vibe,
+    playlistAdjacency: opts.playlistAdjacency,
+    likedAdjacency: opts.likedAdjacency,
+  }) ?? preRetrievalSceneWorld;
+  const sceneWorldStrict = !!sceneWorldContext?.strictMode;
+  const sceneWorldProofAcc = opts.sceneWorldProof && sceneWorldContext?.active
+    ? createSceneWorldProofAccumulator<T>()
+    : null;
 
   // ── Stage 2: Adaptive lane generation ───────────────────────────────────
   let lanes: ReturnType<typeof buildLanes>;
@@ -749,9 +831,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         };
       }
       const genResult = generateAdaptiveLanes(decomposed, {
-        dominantEmotionExplicit: opts.dominantIntentGates?.dominantEmotionExplicit,
-        allowContrastLanes: opts.dominantIntentGates?.allowContrastLanes,
-        allowExplorationLanes: opts.dominantIntentGates?.allowExplorationLanes,
+        dominantEmotionExplicit: effectiveIntentGates?.dominantEmotionExplicit,
+        allowContrastLanes: effectiveIntentGates?.allowContrastLanes,
+        allowExplorationLanes: effectiveIntentGates?.allowExplorationLanes,
       });
       return {
         lanes: genResult.lanes,
@@ -928,7 +1010,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       retrievalByTrack,
       sessionArtistMemory: opts.sessionArtistMemory,
       trackReusePenalty: opts.trackReusePenalty,
-      maxTastePullWeight: opts.dominantIntentGates?.maxTasteWeight,
+      maxTastePullWeight: effectiveIntentGates?.maxTasteWeight,
     });
     const engineResult = await safeStage<ReturnType<typeof runRecommendationEngine<T>>>({
       stage: `v3.recommendation.${lane.id}`,
@@ -940,7 +1022,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         unifiedIntent: unifiedIntentContext.unifiedIntent,
         memory: opts.momentMemory,
         classificationByTrack: opts.classificationByTrack,
-        maxTastePullWeight: opts.dominantIntentGates?.maxTasteWeight,
+        maxTastePullWeight: effectiveIntentGates?.maxTasteWeight,
       }),
       recover: () => ({
         decisions: affinityDecisions.map((decision) => withDecisionFinalScore(decision, decision.score)),
@@ -984,6 +1066,77 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     }
     await yieldV3();
 
+    const worldScoredDecisions = sceneWorldContext?.active
+      ? engineResult.decisions
+        .map((decision) => {
+          const worldTrack = {
+            trackId: decision.track.trackId,
+            artistName: decision.track.artistName,
+            genrePrimary: decision.genrePrimary,
+            genreFamily: opts.classificationByTrack?.(decision.track.trackId)?.genreFamily ?? null,
+            energy: decision.track.energy,
+            valence: decision.track.valence,
+            danceability: decision.track.danceability,
+            acousticness: decision.track.acousticness,
+            tempo: decision.track.tempo,
+            speechiness: decision.track.speechiness,
+          };
+          const membership = computeWorldMembershipScore(worldTrack, sceneWorldContext);
+          const clusterMembership = computeSceneClusterMembershipScore(worldTrack, sceneWorldContext);
+          const clusterReject = shouldRejectForSceneCluster(worldTrack, sceneWorldContext);
+          if (sceneWorldProofAcc) {
+            const genreFamily = opts.classificationByTrack?.(decision.track.trackId)?.genreFamily
+              ?? decision.genrePrimary
+              ?? "unknown";
+            const beforeScore = decision.finalScore || decision.score;
+            recordSceneWorldProofBefore(
+              sceneWorldProofAcc,
+              decision.track,
+              beforeScore,
+              genreFamily,
+              null,
+            );
+            if (membership < 0.26 || clusterReject) {
+              recordSceneWorldMembershipRemoval(
+                sceneWorldProofAcc,
+                decision.track,
+                rankBeforeMembershipFilter(sceneWorldProofAcc, decision.track.trackId),
+                clusterReject ? clusterMembership : membership,
+                sceneWorldContext,
+                clusterReject
+                  ? describeSceneClusterViolation(worldTrack, sceneWorldContext)
+                  : undefined,
+              );
+            }
+          }
+          if (membership < 0.26 || clusterReject) {
+            return withDecisionFinalScore(decision, 0);
+          }
+          const combinedMembership = clamp01(membership * 0.52 + clusterMembership * 0.48);
+          const blended = blendScoreWithWorldMembership(
+            decision.finalScore || decision.score,
+            combinedMembership,
+            sceneWorldContext.strictMode,
+          );
+          if (sceneWorldProofAcc) {
+            const genreFamily = opts.classificationByTrack?.(decision.track.trackId)?.genreFamily
+              ?? decision.genrePrimary
+              ?? "unknown";
+            recordSceneWorldProofAfter(
+              sceneWorldProofAcc,
+              decision.track,
+              blended,
+              genreFamily,
+              combinedMembership,
+              clusterMembership,
+            );
+          }
+          return withDecisionFinalScore(decision, blended);
+        })
+        .filter((decision) => decision.finalScore > 0.04)
+        .sort((a, b) => b.finalScore - a.finalScore)
+      : engineResult.decisions;
+
     // Headroom: 3× target so the sampler has enough valid choices.
     const laneTarget = Math.max(
       Math.ceil(targetCount * lane.weight * 3),
@@ -992,16 +1145,16 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
 
     // Stage 4: Build clusters from scored pool
     laneStageStartedAt = Date.now();
-    const endLaneClusteringProfile = opts.profileStage?.(`v3.clustering.${lane.id}`, `${engineResult.decisions.length} decisions`);
+    const endLaneClusteringProfile = opts.profileStage?.(`v3.clustering.${lane.id}`, `${worldScoredDecisions.length} decisions`);
     const clusteredPool = overloaded
-      ? flatClusteredPool(engineResult.decisions, lane.id)
+      ? flatClusteredPool(worldScoredDecisions, lane.id)
       : await safeStage<ClusteredPool<T>>({
           stage: `v3.clustering.${lane.id}`,
           type: "CLUSTERING_FAILURE",
           requestId: opts.requestId,
           trace: opts.pipelineTrace,
-          run: () => buildClusters(engineResult.decisions),
-          recover: () => flatClusteredPool(engineResult.decisions, lane.id),
+          run: () => buildClusters(worldScoredDecisions),
+          recover: () => flatClusteredPool(worldScoredDecisions, lane.id),
         });
     if (overloaded) recordTraceFallback(opts.pipelineTrace, `v3.clustering.${lane.id}.bypassed_overload`);
     recordTiming("candidateGeneration", laneStageStartedAt);
@@ -1034,6 +1187,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           lockedIntent,
           sessionArtistMemory: opts.sessionArtistMemory,
           recentTrackPenalty: opts.trackReusePenalty,
+          sceneWorld: sceneWorldContext,
         },
       ),
       recover: () => topNSelection(clusteredPool.scoredTracks, lane.id, laneTarget),
@@ -1164,6 +1318,110 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     if (finalTracks.length > 0) recordTraceFallback(opts.pipelineTrace, cachedFinalTracks ? "v3.output_cache_fallback" : "v3.minimal_output_fallback");
   }
   if (finalTracks.length > 0) setFallbackCache(outputCacheKey, finalTracks);
+
+  let editorialAudit: ReturnType<typeof auditEditorialPlaylist<T>> | null = null;
+  const editorialRemoved: Array<{
+    title: string;
+    artist: string;
+    trackId: string;
+    previousRank: number;
+    worldMembershipScore: number;
+    removalReason: string;
+  }> = [];
+  if (sceneWorldContext?.active && finalTracks.length > 0) {
+    const preAuditTracks = [...finalTracks];
+    const openingRepair = enforceOpeningSceneCluster({
+      tracks: finalTracks,
+      candidates: retrievedTracks,
+      context: sceneWorldContext,
+      openingSize: 10,
+      maxSwaps: 10,
+    });
+    finalTracks = openingRepair.tracks.map((track) => ({
+      ...track,
+      clusterId: (track as V3SelectionCandidate<T>).clusterIds?.[0] ?? (track as V3SelectionCandidate<T>).clusterId,
+    })) as Array<T & V3SelectionCandidate<T>>;
+    if (sceneWorldProofAcc) {
+      for (const swap of openingRepair.swaps) {
+        const fromTrack = preAuditTracks.find((track) => track.trackId === swap.fromTrackId);
+        if (!fromTrack) continue;
+        const previousRank = preAuditTracks.findIndex((track) => track.trackId === swap.fromTrackId) + 1;
+        editorialRemoved.push({
+          title: fromTrack.trackName ?? fromTrack.trackId,
+          artist: fromTrack.artistName ?? "Unknown",
+          trackId: fromTrack.trackId,
+          previousRank,
+          worldMembershipScore: Math.round(swap.fromMembership * 1000) / 1000,
+          removalReason: describeSceneClusterViolation(fromTrack, sceneWorldContext),
+        });
+      }
+    }
+    const preEditorialTracks = [...finalTracks];
+    editorialAudit = auditEditorialPlaylist({
+      tracks: finalTracks,
+      candidates: retrievedTracks,
+      context: sceneWorldContext,
+      maxSwaps: Math.max(10, Math.ceil(targetCount * 0.25)),
+    });
+    if (sceneWorldProofAcc) {
+      for (const swap of editorialAudit.swaps) {
+        const fromTrack = preEditorialTracks.find((track) => track.trackId === swap.fromTrackId);
+        if (!fromTrack) continue;
+        const previousRank = preAuditTracks.findIndex((track) => track.trackId === swap.fromTrackId) + 1;
+        editorialRemoved.push({
+          title: fromTrack.trackName ?? fromTrack.trackId,
+          artist: fromTrack.artistName ?? "Unknown",
+          trackId: fromTrack.trackId,
+          previousRank,
+          worldMembershipScore: Math.round(swap.fromMembership * 1000) / 1000,
+          removalReason: describeWorldRemovalReason(fromTrack, sceneWorldContext, swap.fromMembership),
+        });
+      }
+    }
+    finalTracks = editorialAudit.tracks.map((track) => ({
+      ...track,
+      clusterId: (track as V3SelectionCandidate<T>).clusterIds?.[0] ?? (track as V3SelectionCandidate<T>).clusterId,
+    })) as Array<T & V3SelectionCandidate<T>>;
+  }
+
+  const sceneWorldMetrics = sceneWorldContext?.active
+    ? scorePlaylistWorldMetrics(finalTracks, sceneWorldContext)
+    : null;
+  if (sceneWorldMetrics && sceneWorldProofAcc) {
+    sceneWorldMetrics.sceneClusterViolationsRemoved = sceneWorldProofAcc.membershipFiltered.filter((row) =>
+      row.removalReason.includes("scene cluster") ||
+      row.removalReason.includes("wrong scene cluster"),
+    ).length;
+  }
+
+  let sceneWorldProof: SceneWorldProofReport | null = null;
+  if (sceneWorldProofAcc && sceneWorldContext?.active) {
+    sceneWorldProof = buildSceneWorldProofReport({
+      prompt: vibe,
+      context: sceneWorldContext,
+      beforeByTrack: sceneWorldProofAcc.beforeByTrack,
+      afterByTrack: sceneWorldProofAcc.afterByTrack,
+      membershipFiltered: sceneWorldProofAcc.membershipFiltered
+        .sort((a, b) => a.previousRank - b.previousRank)
+        .slice(0, 80),
+      editorialRemoved,
+      finalTracks,
+      metrics: sceneWorldMetrics
+        ? {
+            worldConsistency: sceneWorldMetrics.worldConsistency,
+            archetypeConsistency: sceneWorldMetrics.archetypeConsistency,
+            outlierCount: sceneWorldMetrics.outlierCount,
+            firstTenClusterConsistency: sceneWorldMetrics.firstTenClusterConsistency,
+            clusterPurity: sceneWorldMetrics.clusterPurity,
+            dominantSceneCluster: sceneWorldMetrics.dominantSceneCluster,
+            sceneClusterViolationsRemoved: sceneWorldMetrics.sceneClusterViolationsRemoved,
+          }
+        : null,
+      firstTenCohesion: editorialAudit?.firstTenCohesion ?? sceneWorldMetrics?.firstTenCohesion ?? 0,
+      firstTenClusterConsistency: sceneWorldMetrics?.firstTenClusterConsistency ?? 0,
+    });
+  }
+
   const finalSelectionMeta = new Map<string, {
     laneId: string;
     laneScore: number;
@@ -1684,6 +1942,45 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     explorationPressureScore: postMetrics.explorationPressure,
     driftState: postMetrics.driftState,
     diversityStrategy: "v3.1_adaptive_clustered_probabilistic_ecosystem",
+
+    sceneWorldLayer: sceneWorldContext?.active
+      ? {
+          active: true,
+          strictMode: sceneWorldContext.strictMode,
+          descriptor: sceneWorldContext.descriptor,
+          archetype: {
+            id: sceneWorldContext.archetype.id,
+            label: sceneWorldContext.archetype.label,
+            curatorVoice: sceneWorldContext.archetype.curatorVoice,
+            genreFamilies: sceneWorldContext.archetype.genreFamilies,
+          },
+          candidateArchetypes: sceneWorldContext.candidateArchetypes.map((row) => row.label),
+          anchorCount: sceneWorldContext.anchors.length,
+          anchorStats: sceneWorldContext.anchorStats,
+          editorialAudit: editorialAudit
+            ? {
+                swaps: editorialAudit.swaps.length,
+                outlierCount: editorialAudit.outlierCount,
+                firstTenCohesion: editorialAudit.firstTenCohesion,
+              }
+            : null,
+          metrics: sceneWorldMetrics,
+          sceneClusters: sceneWorldContext.sceneClusters
+            ? {
+                dominantCluster: sceneWorldContext.sceneClusters.dominantCluster.label,
+                dominantClusterId: sceneWorldContext.sceneClusters.dominantClusterId,
+                clusterCount: sceneWorldContext.sceneClusters.clusters.size,
+                clusterPurity: sceneWorldMetrics?.clusterPurity ?? sceneWorldContext.sceneClusters.clusterPurity,
+                firstTenClusterConsistency: sceneWorldMetrics?.firstTenClusterConsistency ?? 0,
+                sceneClusterViolationsRemoved: sceneWorldMetrics?.sceneClusterViolationsRemoved ?? 0,
+                adjacencyEdgeCount: sceneWorldContext.sceneClusters.adjacencyEdgeCount,
+                coOccurrenceEdgeCount: sceneWorldContext.sceneClusters.coOccurrenceEdgeCount,
+              }
+            : null,
+        }
+      : { active: false },
+
+    sceneWorldProof,
   };
 
   return { finalTracks, diagnostics };
