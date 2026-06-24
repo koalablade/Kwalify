@@ -1122,12 +1122,15 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const interleaverInputCount = sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0);
   stageStartedAt = Date.now();
   const endInterleaverProfile = opts.profileStage?.("v3.interleaver", `${interleaverInputCount} sampled tracks`);
+  const cohesivePlaylist = lockedIntent.genreFamilies.length === 0 &&
+    !lockedIntent.eraRange &&
+    lockedIntent.energy !== "high";
   const interleaved = await safeStage<InterleavedResult<T>>({
     stage: "v3.interleaver",
     type: "SYSTEM_FAILURE",
     requestId: opts.requestId,
     trace: opts.pipelineTrace,
-    run: () => interleaveLanes(lanes, sampledResults, targetCount),
+    run: () => interleaveLanes(lanes, sampledResults, targetCount, { cohesivePlaylist }),
     recover: () => ({
       tracks: sampledResults.flatMap((lane) => lane.tracks).slice(0, targetCount),
       laneContributions: Object.fromEntries(sampledResults.map((lane) => [lane.laneId, lane.tracks.length])),

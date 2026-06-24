@@ -544,6 +544,7 @@ export function interleaveLanes<T extends ScorerTrack>(
   lanes: Lane[],
   sampledLanes: InterleavableLaneResult<T>[],
   targetCount: number,
+  opts: { cohesivePlaylist?: boolean } = {},
 ): InterleavedResult<T> {
   if (lanes.length === 0 || targetCount === 0) {
     return {
@@ -562,6 +563,32 @@ export function interleaveLanes<T extends ScorerTrack>(
   const laneWeights: Record<string, number> = {};
   for (const l of lanes) laneWeights[l.id] = l.weight;
 
+  let activeLanes = lanes;
+  let primaryLaneId: string | null = null;
+  const openingPrimaryCount = opts.cohesivePlaylist
+    ? Math.min(8, Math.ceil(targetCount * 0.34))
+    : 0;
+  if (opts.cohesivePlaylist && lanes.length > 1) {
+    const primary = lanes.find((lane) => lane.type === "core") ??
+      [...lanes].sort((a, b) => b.weight - a.weight)[0]!;
+    primaryLaneId = primary.id;
+    activeLanes = lanes.filter((lane) =>
+      lane.id === primary.id ||
+      (lane.type !== "contrast" && !lane.id.includes("exploration") && lane.weight >= 0.10)
+    );
+    const secondary = activeLanes.filter((lane) => lane.id !== primary.id);
+    for (const lane of activeLanes) {
+      laneWeights[lane.id] = lane.id === primary.id
+        ? Math.max(lane.weight, 0.55)
+        : lane.weight * 0.45;
+    }
+    if (secondary.length === 0) {
+      laneWeights[primary.id] = 1;
+    }
+  }
+
+  const activeLaneIds = activeLanes.map((lane) => lane.id);
+
   const queues = new Map<string, Array<T & {
     laneScore: number;
     genrePrimary: string;
@@ -573,7 +600,7 @@ export function interleaveLanes<T extends ScorerTrack>(
   }
 
   const debt = new Map<string, number>();
-  const initialSlots = allocateSlots(lanes, laneWeights, targetCount);
+  const initialSlots = allocateSlots(activeLanes, laneWeights, targetCount);
   for (const [id, slots] of Object.entries(initialSlots)) debt.set(id, slots);
 
   const usedIds = new Set<string>();
@@ -582,12 +609,15 @@ export function interleaveLanes<T extends ScorerTrack>(
   let round = 0;
   let stuckGuard = 0;
 
-  while (result.length < targetCount && stuckGuard < targetCount * laneIds.length * 3) {
+  while (result.length < targetCount && stuckGuard < targetCount * activeLaneIds.length * 3) {
     stuckGuard++;
 
     let found = false;
-    for (let attempt = 0; attempt < laneIds.length; attempt++) {
-      const laneId = laneIds[(round + attempt) % laneIds.length]!;
+    const laneOrder = result.length < openingPrimaryCount && primaryLaneId
+      ? [primaryLaneId, ...activeLaneIds.filter((id) => id !== primaryLaneId)]
+      : activeLaneIds;
+    for (let attempt = 0; attempt < laneOrder.length; attempt++) {
+      const laneId = laneOrder[(round + attempt) % laneOrder.length]!;
       const remaining = debt.get(laneId) ?? 0;
       if (remaining <= 0) continue;
 
@@ -631,7 +661,7 @@ export function interleaveLanes<T extends ScorerTrack>(
 
       usedIds.add(picked.trackId);
       debt.set(laneId, remaining - 1);
-      round = (round + attempt + 1) % laneIds.length;
+      round = (round + attempt + 1) % laneOrder.length;
       found = true;
       break;
     }
