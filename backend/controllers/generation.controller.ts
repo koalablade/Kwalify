@@ -2649,6 +2649,33 @@ function cohesionFamilyLimit(vibe: string, intent: LockedIntent, constraints: Co
   return null;
 }
 
+function trackProvesUnknownFinalWorld<T extends ConstraintTrack>(
+  track: T,
+  playlist: T[],
+  classMap: Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>,
+): boolean {
+  const family = trackGenreFamily(track, classMap);
+  if (family !== "unknown" || playlist.length < 3) return true;
+  const anchors = playlist.filter((row) => trackGenreFamily(row, classMap) !== "unknown");
+  if (anchors.length < 2) return true;
+  const avgEnergy = anchors.reduce((sum, row) => sum + (row.energy ?? 0.5), 0) / anchors.length;
+  const avgValence = anchors.reduce((sum, row) => sum + (row.valence ?? 0.5), 0) / anchors.length;
+  const avgAcoustic = anchors.reduce((sum, row) => sum + (row.acousticness ?? 0.5), 0) / anchors.length;
+  const energy = track.energy ?? 0.5;
+  const valence = track.valence ?? 0.5;
+  const acoustic = track.acousticness ?? 0.5;
+  if (Math.abs(energy - avgEnergy) > 0.24) return false;
+  if (Math.abs(valence - avgValence) > 0.28) return false;
+  if (Math.abs(acoustic - avgAcoustic) > 0.30) return false;
+  return true;
+}
+
 function preferredCohesionFamilies<T extends ConstraintTrack>(
   tracks: T[],
   opts: {
@@ -3406,6 +3433,26 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       cohesionSkipped++;
       return;
     }
+    if (
+      enforceCohesion &&
+      family === "unknown" &&
+      preferredFamilies.size > 0 &&
+      out.length >= 3 &&
+      !trackProvesUnknownFinalWorld(sanitized, out, opts.classMap)
+    ) {
+      cohesionSkipped++;
+      return;
+    }
+    if (
+      enforceCohesion &&
+      family === "unknown" &&
+      preferredFamilies.size > 0 &&
+      out.length >= 3 &&
+      intentCoherenceFor(sanitized, preferredFamilies) < 0.06
+    ) {
+      cohesionSkipped++;
+      return;
+    }
     const artistKey = sanitized.artistName.toLowerCase().trim();
     const artistCount = artistCounts.get(artistKey) ?? 0;
     const recentArtistKeys = out.slice(-2).map((t) => t.artistName.toLowerCase().trim());
@@ -3437,9 +3484,9 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     const albumPressure = albumKey ? albumCounts.get(albumKey) ?? 0 : 0;
     const family = trackGenreFamily(track, opts.classMap);
     const familyPressure = familyCounts.get(family) ?? 0;
-    const familyPreferred = preferredFamilies.size === 0 || family === "unknown" || preferredFamilies.has(family);
+    const familyPreferred = preferredFamilies.size === 0 || preferredFamilies.has(family);
     const familyVariationBonus = familyPressure === 0 ? 0.34 : familyPressure === 1 ? 0.12 : -0.18;
-    const familyBonus = familyPreferred ? 0.10 : -0.12;
+    const familyBonus = familyPreferred ? 0.10 : family === "unknown" ? -0.18 : -0.12;
     const expectedEnergy = opts.intent.energy ?? null;
     const energy = track.energy ?? 0.5;
     const energyConsistency =

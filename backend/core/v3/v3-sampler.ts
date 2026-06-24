@@ -185,8 +185,62 @@ export function selectFromClusters<T extends ScorerTrack>(
     return clamp01(energyFit * 0.42 + danceFit * 0.38 + acousticFit * 0.20);
   }
 
+  function isUnknownFamily(family: string): boolean {
+    return !family || family === "unknown";
+  }
+
+  function averageSelectedFeature(key: "energy" | "valence" | "danceability" | "acousticness"): number {
+    if (selected.length === 0) return 0.5;
+    const values = selected.map((track) => track[key] ?? 0.5);
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  }
+
+  function candidateProvesUnknownWorld(decision: TrackDecision<T>): boolean {
+    if (!softIntent || selected.length === 0) return true;
+    const family = getGenreFamily(decision.genrePrimary ?? "unknown");
+    if (!isUnknownFamily(family)) return true;
+
+    const sonic = sonicWorldFit(decision);
+    const minSonic = selected.length < 5 ? 0.56 : 0.52;
+    if (sonic < minSonic) return false;
+
+    const dominantTexture = dominantSelectedTexture();
+    const candidateTexture = textureBucketForTrack(decision.track);
+    if (dominantTexture && candidateTexture !== dominantTexture) {
+      const textureDrift =
+        Math.abs((decision.track.acousticness ?? 0.5) - averageSelectedFeature("acousticness")) +
+        Math.abs((decision.track.danceability ?? 0.5) - averageSelectedFeature("danceability"));
+      if (textureDrift > 0.34) return false;
+    }
+
+    const energyDrift = Math.abs((decision.track.energy ?? 0.5) - averageSelectedFeature("energy"));
+    const valenceDrift = Math.abs((decision.track.valence ?? 0.5) - averageSelectedFeature("valence"));
+    if (energyDrift > 0.24) return false;
+    if (valenceDrift > 0.28) return false;
+
+    const genreCluster = (trackToClusterIds.get(decision.track.trackId) ?? [])
+      .find((cluster) => cluster.startsWith("genre:"));
+    const dominantFamily = dominantSelectedGenreFamily();
+    if (genreCluster && dominantFamily) {
+      const clusterFamily = getGenreFamily(genreCluster.replace("genre:", ""));
+      if (!isUnknownFamily(clusterFamily) && clusterFamily !== dominantFamily) return false;
+    }
+
+    return playlistCohesionMultiplier(decision) >= (selected.length < 5 ? 0.76 : 0.72);
+  }
+
+  function candidateFitsOpeningTexture(decision: TrackDecision<T>): boolean {
+    if (!softIntent || selected.length === 0) return true;
+    const dominantTexture = dominantSelectedTexture();
+    if (!dominantTexture) return true;
+    const candidateTexture = textureBucketForTrack(decision.track);
+    if (candidateTexture === dominantTexture) return true;
+    return sonicWorldFit(decision) >= 0.62 &&
+      Math.abs((decision.track.acousticness ?? 0.5) - averageSelectedFeature("acousticness")) <= 0.22;
+  }
+
   function candidateFitsOpeningWorld(decision: TrackDecision<T>): boolean {
-    if (!softIntent || selected.length >= 6) return true;
+    if (!softIntent || selected.length >= 5) return true;
     const e = decision.track.energy ?? 0.5;
     const d = decision.track.danceability ?? 0.5;
     const v = decision.track.valence ?? 0.5;
@@ -205,7 +259,8 @@ export function selectFromClusters<T extends ScorerTrack>(
     const openingThreshold = selected.length === 0
       ? (highEnergySoft ? 0.54 : 0.50)
       : (highEnergySoft ? 0.48 : 0.42);
-    return sonicWorldFit(decision) >= openingThreshold;
+    if (sonicWorldFit(decision) < openingThreshold) return false;
+    return candidateFitsOpeningTexture(decision);
   }
 
   function dominantSelectedGenreFamily(): string | null {
@@ -213,8 +268,10 @@ export function selectFromClusters<T extends ScorerTrack>(
     const counts = new Map<string, number>();
     for (const track of selected) {
       const family = getGenreFamily(track.genrePrimary ?? "unknown");
+      if (isUnknownFamily(family)) continue;
       counts.set(family, (counts.get(family) ?? 0) + 1);
     }
+    if (counts.size === 0) return null;
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   }
 
@@ -241,9 +298,12 @@ export function selectFromClusters<T extends ScorerTrack>(
     if (selected.length === 0) return 1;
     const dominantFamily = dominantSelectedGenreFamily();
     const candidateFamily = getGenreFamily(decision.genrePrimary ?? "unknown");
-    const familyAligned = dominantFamily ? candidateFamily === dominantFamily : true;
+    const familyAligned = dominantFamily
+      ? candidateFamily === dominantFamily
+      : !isUnknownFamily(candidateFamily);
     const clusterAligned = sharesSelectedCluster(decision);
-    const familyFit = familyAligned ? 1 : clusterAligned ? 0.86 : softIntent ? 0.46 : 0.72;
+    const unknownPenalty = isUnknownFamily(candidateFamily) && dominantFamily ? 0.62 : 1;
+    const familyFit = familyAligned ? 1 : clusterAligned ? 0.82 : softIntent ? 0.40 : 0.72;
 
     const dominantTexture = dominantSelectedTexture();
     const candidateTexture = textureBucketForTrack(decision.track);
@@ -255,7 +315,7 @@ export function selectFromClusters<T extends ScorerTrack>(
       : true;
     const moodFit = moodAligned ? 1 : softIntent ? 0.72 : 0.82;
 
-    return clamp01(familyFit * 0.50 + textureFit * 0.28 + moodFit * 0.22);
+    return clamp01((familyFit * 0.50 + textureFit * 0.28 + moodFit * 0.22) * unknownPenalty);
   }
 
   function behavioralModifier(decision: TrackDecision<T>, bucketName = "core"): number {
@@ -350,20 +410,30 @@ export function selectFromClusters<T extends ScorerTrack>(
     if (selected.length === 0) return 0;
     const dominantFamily = dominantSelectedGenreFamily();
     if (!dominantFamily) return 0;
-    const aligned = selected.filter(
-      (track) => getGenreFamily(track.genrePrimary ?? "unknown") === dominantFamily,
-    ).length;
+    const dominantTexture = dominantSelectedTexture();
+    const aligned = selected.filter((track) => {
+      const family = getGenreFamily(track.genrePrimary ?? "unknown");
+      if (family === dominantFamily) return true;
+      if (isUnknownFamily(family) && dominantTexture) {
+        return textureBucketForTrack(track) === dominantTexture;
+      }
+      return false;
+    }).length;
     return aligned / selected.length;
   }
 
   function candidateFitsAnchoredWorld(decision: TrackDecision<T>): boolean {
     if (!softIntent || selected.length < 4) return true;
+    if (!candidateProvesUnknownWorld(decision)) return false;
     if (dominantFamilyShare() < 0.45) return true;
     const dominantFamily = dominantSelectedGenreFamily();
     const candidateFamily = getGenreFamily(decision.genrePrimary ?? "unknown");
-    if (!dominantFamily || candidateFamily === "unknown") return true;
+    if (!dominantFamily) return true;
+    if (isUnknownFamily(candidateFamily)) {
+      return playlistCohesionMultiplier(decision) >= 0.74;
+    }
     if (candidateFamily === dominantFamily) return true;
-    return sharesSelectedGenreWorld(decision) && playlistCohesionMultiplier(decision) >= 0.76;
+    return sharesSelectedGenreWorld(decision) && playlistCohesionMultiplier(decision) >= 0.78;
   }
 
   function clusterCapRejectionReason(decision: TrackDecision<T>): string | null {
@@ -470,6 +540,10 @@ export function selectFromClusters<T extends ScorerTrack>(
       }
       if (!candidateFitsAnchoredWorld(item)) {
         recordRejection("sampler_anchored_world_mismatch");
+        continue;
+      }
+      if (!candidateProvesUnknownWorld(item)) {
+        recordRejection("sampler_unknown_world_mismatch");
         continue;
       }
       available.push(item);
@@ -580,8 +654,20 @@ export function selectFromClusters<T extends ScorerTrack>(
     { name: "exploration", target: explorationTarget, pool: clusterDisciplinedCandidates.slice(variationEnd) },
   ];
 
+  const openingAnchorSlots = softIntent ? Math.min(5, targetCount) : 0;
+  const openingPool = clusterDisciplinedCandidates.slice(0, Math.max(15, targetCount * 2));
+  while (selected.length < openingAnchorSlots) {
+    const pick = weightedPick(openingPool, "core");
+    if (!pick) {
+      recordRejection("sampler_opening_anchor_failed");
+      break;
+    }
+    addSelected(pick, "core");
+  }
+
   for (const bucket of selectionBuckets) {
     if (selected.length >= targetCount) break;
+    if (softIntent && selected.length < openingAnchorSlots && bucket.name !== "core") continue;
     const start = selected.length;
     let attempts = 0;
     while (

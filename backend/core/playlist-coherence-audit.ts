@@ -203,6 +203,18 @@ function scoreNarrativeFlow(tracks: CoherenceAuditTrack[], intent: LockedIntent)
   return { score, reasons };
 }
 
+function scoreUnknownMetadataUnity(tracks: CoherenceAuditTrack[]): { score: number; reasons: string[] } {
+  if (tracks.length < 4) return { score: 0.7, reasons: [] };
+  const unknownCount = tracks.filter((track) => {
+    const family = track.genreFamily?.toLowerCase() ?? track.genrePrimary?.toLowerCase() ?? "unknown";
+    return family === "unknown";
+  }).length;
+  const unknownShare = unknownCount / tracks.length;
+  const score = round2(clamp01(1 - Math.max(0, unknownShare - 0.18) * 2.4));
+  const reasons = unknownShare > 0.28 ? ["unknown_metadata_dominance"] : [];
+  return { score, reasons };
+}
+
 function scoreGenreUnity(tracks: CoherenceAuditTrack[]): { score: number; reasons: string[] } {
   if (tracks.length < 4) return { score: 0.7, reasons: [] };
   const families = tracks
@@ -260,14 +272,16 @@ export function auditPlaylistCoherence(
   const softIntent = intent.genreFamilies.length === 0 && !intent.eraRange;
   const genreUnity = softIntent ? scoreGenreUnity(tracks) : { score: 0.74, reasons: [] as string[] };
   const textureUnity = softIntent ? scoreTextureUnity(tracks) : { score: 0.74, reasons: [] as string[] };
+  const unknownUnity = softIntent ? scoreUnknownMetadataUnity(tracks) : { score: 0.74, reasons: [] as string[] };
 
   const overallCoherence = round2(clamp01(
-    atmosphere.score * (softIntent ? 0.24 : 0.30) +
-    scene.score * (softIntent ? 0.20 : 0.30) +
-    energy.score * 0.20 +
-    narrative.score * 0.14 +
+    atmosphere.score * (softIntent ? 0.22 : 0.30) +
+    scene.score * (softIntent ? 0.18 : 0.30) +
+    energy.score * 0.18 +
+    narrative.score * 0.12 +
     genreUnity.score * (softIntent ? 0.14 : 0.06) +
-    textureUnity.score * (softIntent ? 0.08 : 0.04),
+    textureUnity.score * (softIntent ? 0.08 : 0.04) +
+    unknownUnity.score * (softIntent ? 0.08 : 0),
   ));
 
   const reasons = [...new Set([
@@ -277,6 +291,7 @@ export function auditPlaylistCoherence(
     ...narrative.reasons,
     ...genreUnity.reasons,
     ...textureUnity.reasons,
+    ...unknownUnity.reasons,
   ])];
 
   return {
