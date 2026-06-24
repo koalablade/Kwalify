@@ -2053,13 +2053,16 @@ function trackIsUpbeatSocialSafe(
 ): boolean {
   if (classMap) {
     const family = trackGenreFamily(track, classMap);
-    if (family === "metal" || family === "classical") return false;
+    if (family === "metal" || family === "classical" || family === "soundtrack") return false;
   }
   const energy = typeof track.energy === "number" ? track.energy : null;
   const valence = typeof track.valence === "number" ? track.valence : null;
   const tempo = typeof track.tempo === "number" ? track.tempo : null;
   const danceability = typeof track.danceability === "number" ? track.danceability : null;
   const acousticness = typeof track.acousticness === "number" ? track.acousticness : null;
+  const speechiness = typeof track.speechiness === "number" ? track.speechiness : null;
+  if (energy !== null && energy > 0.58 && valence !== null && valence < 0.48 && (danceability ?? 0.5) < 0.52) return false;
+  if (speechiness !== null && speechiness > 0.34 && valence !== null && valence < 0.55) return false;
   if (energy !== null && energy < 0.48) return false;
   if (tempo !== null && tempo < 86 && (danceability ?? 0.5) < 0.56) return false;
   if (danceability !== null && danceability < 0.44 && (energy ?? 0.5) < 0.62) return false;
