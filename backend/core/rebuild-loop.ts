@@ -6,6 +6,7 @@ import type { LockedIntent } from "./v3/intent";
 import type { SceneLockStatus } from "./scene-lock-mode";
 import {
   COHERENCE_REPAIR_THRESHOLD,
+  coherenceRepairThresholdForIntent,
   repairPlaylistIfNeeded,
   scorePlaylistCoherence,
   type CoherenceAuditTrack,
@@ -40,7 +41,7 @@ export function runCoherenceRebuildLoop<T extends CoherenceAuditTrack>(opts: {
   repairThreshold?: number;
 }): RebuildLoopResult<T> {
   const maxIterations = opts.maxIterations ?? 2;
-  const repairThreshold = opts.repairThreshold ?? COHERENCE_REPAIR_THRESHOLD;
+  const repairThreshold = opts.repairThreshold ?? coherenceRepairThresholdForIntent(opts.intent);
   const world = resolveWorldBoundary({
     sceneLock: opts.sceneLock ?? null,
     sceneAliases: opts.sceneAliases,

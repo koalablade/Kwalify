@@ -135,7 +135,7 @@ export function coherenceRepairSettingsFromPlan(
   sceneLockActive = false,
 ): { maxIterations: number; repairThreshold: number } {
   return {
-    maxIterations: plan?.publishGate.maxRepairIterations ?? (sceneLockActive ? 1 : 2),
-    repairThreshold: plan?.publishGate.minCoherence ?? 0.75,
+    maxIterations: plan?.publishGate.maxRepairIterations ?? (sceneLockActive ? 2 : 3),
+    repairThreshold: plan?.publishGate.minCoherence ?? (sceneLockActive ? 0.75 : 0.70),
   };
 }

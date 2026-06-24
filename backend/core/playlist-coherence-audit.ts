@@ -56,6 +56,11 @@ export type PlaylistCoherenceScore = {
 
 export const COHERENCE_REPAIR_THRESHOLD = 0.75;
 
+export function coherenceRepairThresholdForIntent(intent: LockedIntent): number {
+  if (intent.genreFamilies.length > 0 || intent.eraRange) return COHERENCE_REPAIR_THRESHOLD;
+  return 0.70;
+}
+
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -193,6 +198,42 @@ function scoreNarrativeFlow(tracks: CoherenceAuditTrack[], intent: LockedIntent)
   return { score, reasons };
 }
 
+function scoreGenreUnity(tracks: CoherenceAuditTrack[]): { score: number; reasons: string[] } {
+  if (tracks.length < 4) return { score: 0.7, reasons: [] };
+  const families = tracks
+    .map((track) => track.genreFamily?.toLowerCase() ?? track.genrePrimary?.toLowerCase() ?? "unknown")
+    .filter((family) => family !== "unknown");
+  if (families.length < 2) return { score: 0.68, reasons: [] };
+
+  const counts = new Map<string, number>();
+  for (const family of families) counts.set(family, (counts.get(family) ?? 0) + 1);
+  const dominantShare = Math.max(...counts.values()) / families.length;
+  const distinctFamilies = counts.size;
+  const score = round2(clamp01(dominantShare * 0.72 + (1 - Math.min(1, (distinctFamilies - 2) / 5)) * 0.28));
+  const reasons: string[] = [];
+  if (distinctFamilies > 4) reasons.push("genre_family_fragmentation");
+  if (dominantShare < 0.40) reasons.push("no_dominant_genre_world");
+  return { score, reasons };
+}
+
+function scoreTextureUnity(tracks: CoherenceAuditTrack[]): { score: number; reasons: string[] } {
+  if (tracks.length < 4) return { score: 0.7, reasons: [] };
+  const buckets = tracks.map((track) => {
+    const acoustic = feature(track, "acousticness");
+    const dance = feature(track, "danceability");
+    if (acoustic >= 0.55) return "acoustic";
+    if (dance >= 0.65) return "rhythmic";
+    if (acoustic <= 0.25 && dance <= 0.45) return "dense";
+    return "balanced";
+  });
+  const counts = new Map<string, number>();
+  for (const bucket of buckets) counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+  const dominantShare = Math.max(...counts.values()) / buckets.length;
+  const score = round2(clamp01(0.35 + dominantShare * 0.65));
+  const reasons = dominantShare < 0.42 ? ["texture_world_fragmentation"] : [];
+  return { score, reasons };
+}
+
 export function auditPlaylistCoherence(
   tracks: CoherenceAuditTrack[],
   intent: LockedIntent,
@@ -211,12 +252,17 @@ export function auditPlaylistCoherence(
   const scene = scoreSceneMembership(tracks, [...new Set(expectedFamilies)]);
   const energy = scoreEnergyCoherence(tracks);
   const narrative = scoreNarrativeFlow(tracks, intent);
+  const softIntent = intent.genreFamilies.length === 0 && !intent.eraRange;
+  const genreUnity = softIntent ? scoreGenreUnity(tracks) : { score: 0.74, reasons: [] as string[] };
+  const textureUnity = softIntent ? scoreTextureUnity(tracks) : { score: 0.74, reasons: [] as string[] };
 
   const overallCoherence = round2(clamp01(
-    atmosphere.score * 0.30 +
-    scene.score * 0.30 +
-    energy.score * 0.22 +
-    narrative.score * 0.18,
+    atmosphere.score * (softIntent ? 0.24 : 0.30) +
+    scene.score * (softIntent ? 0.20 : 0.30) +
+    energy.score * 0.20 +
+    narrative.score * 0.14 +
+    genreUnity.score * (softIntent ? 0.14 : 0.06) +
+    textureUnity.score * (softIntent ? 0.08 : 0.04),
   ));
 
   const reasons = [...new Set([
@@ -224,6 +270,8 @@ export function auditPlaylistCoherence(
     ...scene.reasons,
     ...energy.reasons,
     ...narrative.reasons,
+    ...genreUnity.reasons,
+    ...textureUnity.reasons,
   ])];
 
   return {
@@ -284,7 +332,7 @@ export function repairPlaylistCoherence<T extends CoherenceAuditTrack>(opts: {
 }): { tracks: T[]; audit: PlaylistCoherenceAudit } {
   const maxSwaps = opts.maxSwaps ?? 5;
   const maxIterations = opts.maxIterations ?? 1;
-  const minOverall = opts.minOverall ?? COHERENCE_REPAIR_THRESHOLD;
+  const minOverall = opts.minOverall ?? coherenceRepairThresholdForIntent(opts.intent);
   const sceneLock = opts.sceneLock ?? null;
   const world = resolveWorldBoundary({
     sceneLock,
@@ -411,8 +459,9 @@ export function repairPlaylistIfNeeded<T extends CoherenceAuditTrack>(opts: {
   coherenceScore: PlaylistCoherenceScore;
   swapRepairActions: CoherenceSwapRecord[];
 } {
+  const repairThreshold = coherenceRepairThresholdForIntent(opts.intent);
   if (
-    opts.coherenceScore.overallScore >= COHERENCE_REPAIR_THRESHOLD ||
+    opts.coherenceScore.overallScore >= repairThreshold ||
     opts.tracks.length < 4 ||
     opts.candidates.length === 0
   ) {
@@ -430,9 +479,9 @@ export function repairPlaylistIfNeeded<T extends CoherenceAuditTrack>(opts: {
     scenePrediction: opts.scenePrediction,
     sceneLock: opts.sceneLock,
     sceneAliases: opts.sceneAliases,
-    maxIterations: 1,
-    maxSwaps: 5,
-    minOverall: COHERENCE_REPAIR_THRESHOLD,
+    maxIterations: opts.intent.genreFamilies.length === 0 && !opts.intent.eraRange ? 2 : 1,
+    maxSwaps: opts.intent.genreFamilies.length === 0 && !opts.intent.eraRange ? 8 : 5,
+    minOverall: repairThreshold,
   });
 
   return {

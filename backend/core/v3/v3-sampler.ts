@@ -93,16 +93,17 @@ export function selectFromClusters<T extends ScorerTrack>(
     };
   }
 
+  const softIntent = !opts.lockedIntent?.genreFamilies?.length && !opts.lockedIntent?.eraRange;
   const genreMax   = opts.lockedIntent?.genreFamilies.length
     ? Number.POSITIVE_INFINITY
-    : Math.max(1, Math.ceil(targetCount * 0.60));
+    : Math.max(1, Math.ceil(targetCount * (softIntent ? 0.48 : 0.60)));
   const eraMax     = opts.lockedIntent?.eraRange
     ? Number.POSITIVE_INFINITY
-    : Math.max(1, Math.ceil(targetCount * 0.60));
+    : Math.max(1, Math.ceil(targetCount * (softIntent ? 0.50 : 0.60)));
   const energyMax  = Math.max(1, Math.ceil(targetCount * 0.65));
   const familyMax  = opts.lockedIntent?.genreFamilies.length
     ? Number.POSITIVE_INFINITY
-    : Math.max(1, Math.ceil(targetCount * 0.75));
+    : Math.max(1, Math.ceil(targetCount * (softIntent ? 0.40 : 0.75)));
 
   const clusterPickCount = new Map<string, number>();
   const familyPickCount  = new Map<string, number>();
@@ -165,6 +166,56 @@ export function selectFromClusters<T extends ScorerTrack>(
       da.familySaturationPenalty - db.familySaturationPenalty;
   }
 
+  function dominantSelectedGenreFamily(): string | null {
+    if (selected.length === 0) return null;
+    const counts = new Map<string, number>();
+    for (const track of selected) {
+      const family = getGenreFamily(track.genrePrimary ?? "unknown");
+      counts.set(family, (counts.get(family) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  }
+
+  function textureBucketForTrack(track: { danceability?: number | null; acousticness?: number | null }): string {
+    const acoustic = track.acousticness ?? 0.5;
+    const dance = track.danceability ?? 0.5;
+    if (acoustic >= 0.55) return "acoustic";
+    if (dance >= 0.65) return "rhythmic";
+    if (acoustic <= 0.25 && dance <= 0.45) return "dense";
+    return "balanced";
+  }
+
+  function dominantSelectedTexture(): string | null {
+    if (selected.length === 0) return null;
+    const counts = new Map<string, number>();
+    for (const track of selected) {
+      const bucket = textureBucketForTrack(track);
+      counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  }
+
+  function playlistCohesionMultiplier(decision: TrackDecision<T>): number {
+    if (selected.length === 0) return 1;
+    const dominantFamily = dominantSelectedGenreFamily();
+    const candidateFamily = getGenreFamily(decision.genrePrimary ?? "unknown");
+    const familyAligned = dominantFamily ? candidateFamily === dominantFamily : true;
+    const clusterAligned = sharesSelectedCluster(decision);
+    const familyFit = familyAligned ? 1 : clusterAligned ? 0.86 : softIntent ? 0.58 : 0.72;
+
+    const dominantTexture = dominantSelectedTexture();
+    const candidateTexture = textureBucketForTrack(decision.track);
+    const textureFit = dominantTexture ? (candidateTexture === dominantTexture ? 1 : 0.78) : 1;
+
+    const moodCluster = clusterValue(decision, "mood:");
+    const moodAligned = moodCluster
+      ? selected.some((track) => track.clusterIds.some((cid) => cid === `mood:${moodCluster}`))
+      : true;
+    const moodFit = moodAligned ? 1 : softIntent ? 0.72 : 0.82;
+
+    return clamp01(familyFit * 0.50 + textureFit * 0.28 + moodFit * 0.22);
+  }
+
   function behavioralModifier(decision: TrackDecision<T>, bucketName = "core"): number {
     const cids = trackToClusterIds.get(decision.track.trackId) ?? [];
     const energyBand = clusterValue(decision, "energy:");
@@ -176,8 +227,12 @@ export function selectFromClusters<T extends ScorerTrack>(
       0
     );
     const energyFit = energyBand && energyBand === targetEnergyBand ? 1.18 : 0.92;
-    const explorationLift = bucketName === "exploration" ? 1.18 : bucketName === "variation" ? 1.08 : 1;
-    const genreRotation = genreCid ? 1 / (1 + (clusterPickCount.get(genreCid) ?? 0) * 0.18) : 1;
+    const explorationLift = softIntent
+      ? (bucketName === "exploration" ? 0.96 : bucketName === "variation" ? 1.02 : 1)
+      : (bucketName === "exploration" ? 1.18 : bucketName === "variation" ? 1.08 : 1);
+    const genreRotation = genreCid
+      ? 1 / (1 + (clusterPickCount.get(genreCid) ?? 0) * (softIntent ? 0.34 : 0.18))
+      : 1;
     const moodRotation = moodCluster ? 1 / (1 + (clusterPickCount.get(`mood:${moodCluster}`) ?? 0) * 0.12) : 1;
     const repetitionDampener = 1 / (1 + repeatedClusterPressure * 0.08);
     const diversityLift = 0.35 + clusterDiversityScore(decision);
@@ -196,9 +251,13 @@ export function selectFromClusters<T extends ScorerTrack>(
     const explorationAdjustment = behavioralModifier(decision, bucketName);
     const diversity = candidateDiversity(decision);
     const bucketBlend = bucketName === "exploration" ? 0.18 : bucketName === "variation" ? 0.14 : 0.10;
+    const cohesion = selected.length > 0
+      ? (softIntent ? playlistCohesionMultiplier(decision) : 0.88 + playlistCohesionMultiplier(decision) * 0.12)
+      : 1;
     return clamp01(
       (decision.finalScore * (1 - bucketBlend) + explorationAdjustment * bucketBlend) *
-      diversity.finalMultiplier,
+      diversity.finalMultiplier *
+      cohesion,
     );
   }
 
@@ -249,6 +308,13 @@ export function selectFromClusters<T extends ScorerTrack>(
 
   function candidateFitsClusterCaps(decision: TrackDecision<T>): boolean {
     return clusterCapRejectionReason(decision) === null;
+  }
+
+  function candidateFitsPlaylistWorld(decision: TrackDecision<T>, bucketName: string): boolean {
+    if (!softIntent || selected.length === 0) return true;
+    if (bucketName === "core") return true;
+    const cohesion = playlistCohesionMultiplier(decision);
+    return cohesion >= 0.68 || sharesSelectedCluster(decision);
   }
 
   function candidateFitsSequence(decision: TrackDecision<T>): boolean {
@@ -409,9 +475,8 @@ export function selectFromClusters<T extends ScorerTrack>(
 
   const coreEnd = Math.max(1, Math.ceil(clusterDisciplinedCandidates.length * 0.35));
   const variationEnd = Math.max(coreEnd, Math.ceil(clusterDisciplinedCandidates.length * 0.75));
-  const softIntent = !opts.lockedIntent?.genreFamilies?.length && !opts.lockedIntent?.eraRange;
-  const coreTarget = Math.ceil(targetCount * (softIntent ? 0.42 : 0.52));
-  const variationTarget = Math.floor(targetCount * (softIntent ? 0.28 : 0.20));
+  const coreTarget = Math.ceil(targetCount * (softIntent ? 0.58 : 0.52));
+  const variationTarget = Math.floor(targetCount * (softIntent ? 0.30 : 0.20));
   const explorationTarget = Math.max(0, targetCount - coreTarget - variationTarget);
   const selectionBuckets = [
     { name: "core", target: coreTarget, pool: clusterDisciplinedCandidates.slice(0, coreEnd) },
@@ -428,10 +493,16 @@ export function selectFromClusters<T extends ScorerTrack>(
       selected.length - start < bucket.target &&
       attempts < bucket.pool.length * 3
     ) {
-      const nearbyPool = bucket.name === "variation"
-        ? bucket.pool.filter(sharesSelectedCluster)
+      const nearbyPool = bucket.name === "variation" || bucket.name === "exploration"
+        ? bucket.pool.filter((item) =>
+            sharesSelectedCluster(item) && candidateFitsPlaylistWorld(item, bucket.name))
         : bucket.pool;
-      const pick = weightedPick(nearbyPool.length > 0 ? nearbyPool : bucket.pool, bucket.name);
+      const pickPool = nearbyPool.length > 0
+        ? nearbyPool
+        : bucket.name === "exploration" && softIntent
+          ? bucket.pool.filter((item) => candidateFitsPlaylistWorld(item, bucket.name))
+          : bucket.pool;
+      const pick = weightedPick(pickPool.length > 0 ? pickPool : bucket.pool, bucket.name);
       if (!pick) {
         recordRejection(`sampler_${bucket.name}_pick_failed`);
         break;

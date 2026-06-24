@@ -346,7 +346,8 @@ function transitionCost(
     cost += energyJump > 0.48 ? 1.2 : 0;
     cost += energyLevel(candidate) - energyLevel(previous) > 1 ? 2.0 : 0;
     cost += Math.max(0, intensityJump - 0.22) * 1.0;
-    cost += harshGenreCollision ? 0.45 : nearbyFamily ? -0.03 : 0.06;
+    cost += harshGenreCollision ? 0.95 : nearbyFamily ? -0.03 : 0.28;
+    cost += !nearbyFamily && position < 10 ? 0.38 : 0;
   cost += sameEnergyBand ? -0.015 : 0;
   cost += sameMoodCluster ? -0.015 : 0;
   cost += tracksAreNearIdentical(candidate, previous) ? 0.34 : 0;
@@ -373,9 +374,8 @@ function transitionCost(
     cost += naturalVariation * 0.018;
   }
   if (position >= 4 && position < Math.min(total, 12) && recentlyUsedArtists.size > 0) {
-    const contrastWindow = stableUnitHash(`${candidate.trackId}:contrast:${position}`);
-    if (!recentFamilies.has(candidateFamily) && contrastWindow > 0.72) {
-      cost -= 0.035;
+    if (!recentFamilies.has(candidateFamily) && position < 8) {
+      cost += 0.48;
     }
   }
 
