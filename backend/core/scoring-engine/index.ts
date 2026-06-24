@@ -339,7 +339,7 @@ export function runScoringPipeline<T extends {
     recentTrackPenalty: opts.recentPlaylistTrackIds?.length
       ? buildRecentTrackPoolPenalty(
           opts.recentPlaylistTrackIds,
-          5,
+          12,
           opts.varietyPenaltyScale ?? 1
         )
       : undefined,

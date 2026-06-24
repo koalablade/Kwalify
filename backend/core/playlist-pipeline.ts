@@ -3105,6 +3105,30 @@ function minClusterEntropyForKind(kind: PromptDiversityKind): number {
   return 0.75;
 }
 
+function applyCentroidSurvivorPenalty<T extends IntentContractTrack & { score?: number }>(
+  tracks: T[],
+  kind: PromptDiversityKind,
+  intentContract: IntentContract,
+  classMap: UserGenreProfile["trackClassifications"],
+  recentTrackPenalty?: Map<string, number>,
+): T[] {
+  if (kind === "strong" || tracks.length === 0) return tracks;
+  const identityWeight = kind === "edge" ? 1.35 : kind === "vague" ? 1.28 : 1.18;
+  return tracks.map((track) => {
+    const base = track.score ?? 0;
+    const identity = sceneIdentityCoherenceScore(track, intentContract, classMap, "text");
+    const recent = recentTrackPenalty?.get(track.trackId) ?? 0;
+    const genericWinner = base >= 0.50 && identity < 0.05;
+    const uniquenessLift = Math.max(0, identity) * 0.24 * identityWeight;
+    const reusePenalty = Math.min(0.55, recent * 0.95);
+    const genericPenalty = genericWinner ? 0.16 : 0;
+    return {
+      ...track,
+      score: Math.max(0.01, base * (1 - reusePenalty - genericPenalty) + uniquenessLift),
+    };
+  });
+}
+
 function emotionQuadrantForTrack(track: { energy: number | null; valence: number | null }): string {
   const e = (track.energy ?? 0.5) >= 0.55 ? "hi" : (track.energy ?? 0.5) <= 0.42 ? "lo" : "md";
   const v = (track.valence ?? 0.5) >= 0.55 ? "pos" : (track.valence ?? 0.5) <= 0.42 ? "neg" : "neu";
@@ -4401,14 +4425,21 @@ export async function buildPlaylistPipeline<T extends {
         return -0.05;
     }
   };
-  contractGuardedScoredPool = contractGuardedScoredPool
+  contractGuardedScoredPool = applyCentroidSurvivorPenalty(
+    contractGuardedScoredPool,
+    diversityKind,
+    intentContract,
+    classMap,
+    upstreamRecentTrackPenalty,
+  )
     .map((track) => {
       const origin = softGuardOriginFor(track);
       return {
         ...track,
         score: (track.score ?? 0) +
           originScoreBoost(origin) +
-          sceneIdentityCoherenceScore(track, intentContract, classMap, origin),
+          sceneIdentityCoherenceScore(track, intentContract, classMap, origin) *
+          (diversityKind === "strong" ? 1 : 1.35),
       };
     })
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
@@ -4784,7 +4815,10 @@ export async function buildPlaylistPipeline<T extends {
           genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
           classificationByTrack: (trackId) => classMap.get(trackId),
           noveltyByTrack:        opts.noveltyByTrack,
-          seed:                  opts.postScore.startMs + candidate.seedOffset,
+          seed:                  opts.postScore.startMs +
+            candidate.seedOffset +
+            Math.floor(stableUnitHash(opts.vibe) * 10_000) +
+            (opts.requestId ? Math.floor(stableUnitHash(opts.requestId) * 1_000) : 0),
           lockedIntent:          v3LockedIntent,
           unifiedIntentContext:   unifiedIntentContextWithMemory,
           momentMemory:           preGenerationMomentMemory,

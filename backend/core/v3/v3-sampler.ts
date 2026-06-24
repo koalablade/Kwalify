@@ -195,7 +195,11 @@ export function selectFromClusters<T extends ScorerTrack>(
   function distributionScore(decision: TrackDecision<T>, bucketName = "core"): number {
     const explorationAdjustment = behavioralModifier(decision, bucketName);
     const diversity = candidateDiversity(decision);
-    return clamp01((decision.finalScore * 0.94 + explorationAdjustment * 0.06) * (1 - diversity.trackReusePenalty));
+    const bucketBlend = bucketName === "exploration" ? 0.18 : bucketName === "variation" ? 0.14 : 0.10;
+    return clamp01(
+      (decision.finalScore * (1 - bucketBlend) + explorationAdjustment * bucketBlend) *
+      diversity.finalMultiplier,
+    );
   }
 
   function scoredDecision(decision: TrackDecision<T>, bucketName = "core"): TrackDecision<T> {
@@ -405,8 +409,9 @@ export function selectFromClusters<T extends ScorerTrack>(
 
   const coreEnd = Math.max(1, Math.ceil(clusterDisciplinedCandidates.length * 0.35));
   const variationEnd = Math.max(coreEnd, Math.ceil(clusterDisciplinedCandidates.length * 0.75));
-  const coreTarget = Math.ceil(targetCount * 0.52);
-  const variationTarget = Math.floor(targetCount * 0.20);
+  const softIntent = !opts.lockedIntent?.genreFamilies?.length && !opts.lockedIntent?.eraRange;
+  const coreTarget = Math.ceil(targetCount * (softIntent ? 0.42 : 0.52));
+  const variationTarget = Math.floor(targetCount * (softIntent ? 0.28 : 0.20));
   const explorationTarget = Math.max(0, targetCount - coreTarget - variationTarget);
   const selectionBuckets = [
     { name: "core", target: coreTarget, pool: clusterDisciplinedCandidates.slice(0, coreEnd) },

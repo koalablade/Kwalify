@@ -1348,8 +1348,8 @@ export function refineSongScore(
     if (v < 0.35) s -= 0.15;
     if (e < 0.4) s -= 0.12;
     if ((song.acousticness ?? 0) > 0.72) s -= 0.12;
-    if (v >= 0.58 && e >= 0.48 && e <= 0.82 && d >= 0.45) s += 0.14;
-    if (v >= 0.65 && d >= 0.5) s += 0.06;
+    if (v >= 0.58 && e >= 0.48 && e <= 0.82 && d >= 0.45) s += 0.05;
+    if (v >= 0.65 && d >= 0.5) s += 0.03;
   }
 
   return clamp(s);

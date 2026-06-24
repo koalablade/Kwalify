@@ -18,7 +18,7 @@ export function roundDiversity(value: number): number {
 }
 
 export function boundedTrackReusePenalty(recentTrackPenalty: number | undefined): number {
-  return roundDiversity(clamp((recentTrackPenalty ?? 0) * 0.38, 0, 0.22));
+  return roundDiversity(clamp((recentTrackPenalty ?? 0) * 0.78, 0, 0.52));
 }
 
 export function boundedClusterSaturationPenalty(count: number): number {
@@ -49,7 +49,7 @@ export function buildDiversityTraceComponents(input: {
   const totalPenalty = roundDiversity(clamp(
     trackReusePenalty + clusterSaturationPenalty + familySaturationPenalty,
     0,
-    0.26
+    0.58
   ));
 
   return {
@@ -59,7 +59,7 @@ export function buildDiversityTraceComponents(input: {
     clusterSaturationPenalty,
     familySaturationPenalty,
     totalPenalty,
-    finalMultiplier: roundDiversity(clamp(1 - totalPenalty, 0.70, 1)),
+    finalMultiplier: roundDiversity(clamp(1 - totalPenalty, 0.42, 1)),
     artistGravity: roundDiversity(clamp(input.artistGravity ?? 0, 0, 1)),
   };
 }

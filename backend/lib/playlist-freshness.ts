@@ -187,10 +187,12 @@ export function buildRecentTrackPoolPenalty(
       const appearances = trackCounts.get(id) ?? 0;
       const share = appearances / Math.max(1, playlists.length);
       const appearanceWeight = share >= 0.30
-        ? 0.42
+        ? 0.78
         : share >= 0.20
-          ? 0.28
-          : Math.min(0.22, 0.08 + appearances * 0.05);
+          ? 0.52
+          : share >= 0.12
+            ? 0.34
+            : Math.min(0.28, 0.10 + appearances * 0.06);
       map.set(id, (map.get(id) ?? 0) + recencyWeight * appearanceWeight);
     }
   }

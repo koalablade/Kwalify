@@ -331,6 +331,8 @@ export function capTracksForHybridScoring<T extends {
       }
     }
     const seed = opts.seedMs ?? 0;
+    const softPrompt = explicitFamilies.size === 0 && (opts.promptWordCount ?? 99) <= 8;
+    const emotionWeight = softPrompt ? 0.32 : 1;
     const ranked = candidates
       .map((t) => {
         const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
@@ -339,10 +341,13 @@ export function capTracksForHybridScoring<T extends {
         const technoIdentityBoost = technoIdentityActive && matchesTechnoIdentity(classification) ? 0.28 : 0;
         const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
         const eraBoost = matchesExplicitEra(t, explicitEra) ? 0.25 : 0;
-        return {
-          t,
-          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.018 - recentPen + explicitBoost + technoIdentityBoost + eraBoost - antiGenrePenalty,
-        };
+        const emotionFit = quickEmotionFit(t, opts.emotionProfile) * emotionWeight;
+        const reuseDampener = 1 - Math.min(0.58, recentPen);
+        const fit =
+          (emotionFit + seededJitter(t.trackId, seed) * (softPrompt ? 0.06 : 0.018)) *
+          reuseDampener +
+          explicitBoost + technoIdentityBoost + eraBoost - antiGenrePenalty;
+        return { t, fit };
       })
       .sort((a, b) => b.fit - a.fit);
     const technoIdentityRanked = technoIdentityActive
@@ -418,6 +423,8 @@ export function capTracksForHybridScoring<T extends {
   }
 
   const seed = opts.seedMs ?? 0;
+  const softPrompt = explicitFamilies.size === 0 && (opts.promptWordCount ?? 99) <= 8;
+  const emotionWeight = softPrompt ? 0.32 : 1;
   const eraMode =
     opts.libraryEraMode ?? detectLibraryEraMode(opts.vibe ?? "");
   const ranked = candidates.map((t) => {
@@ -428,18 +435,17 @@ export function capTracksForHybridScoring<T extends {
     const technoIdentityBoost = technoIdentityActive && matchesTechnoIdentity(classification) ? 0.24 : 0;
     const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
     const explicitEraBoost = matchesExplicitEra(t, explicitEra) ? 0.20 : 0;
-    return {
-      t,
-      fit:
-        quickEmotionFit(t, opts.emotionProfile) +
-        seededJitter(t.trackId, seed) * 0.018 -
-        recentPen +
-        eraBoost +
-        explicitBoost +
-        technoIdentityBoost +
-        explicitEraBoost -
-        antiGenrePenalty,
-    };
+    const emotionFit = quickEmotionFit(t, opts.emotionProfile) * emotionWeight;
+    const reuseDampener = 1 - Math.min(0.58, recentPen);
+    const fit =
+      (emotionFit + seededJitter(t.trackId, seed) * (softPrompt ? 0.06 : 0.018)) *
+      reuseDampener +
+      eraBoost +
+      explicitBoost +
+      technoIdentityBoost +
+      explicitEraBoost -
+      antiGenrePenalty;
+    return { t, fit };
   });
   ranked.sort((a, b) => b.fit - a.fit);
 
