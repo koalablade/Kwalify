@@ -40,6 +40,19 @@ export type HumanSaveabilityPipelineResult<T extends HumanSaveabilityTrack> = {
     removalReason: string;
   }>;
   sceneWorldMetrics: ReturnType<typeof scorePlaylistWorldMetrics<T>> | null;
+  failureAttribution: {
+    firstOffendingTrackId: string | null;
+    firstOffendingArtist: string | null;
+    stageResponsible: "retrieval" | "scene world layer" | "cluster layer" | "sampler" | "interleaver" | "editorial audit";
+    stageCounts: Record<string, number>;
+    offendingTrackAttribution: Array<{
+      trackId: string;
+      artist: string;
+      reason: string;
+      stageResponsible: "retrieval" | "scene world layer" | "cluster layer" | "sampler" | "interleaver" | "editorial audit";
+      suggestedFix: string;
+    }>;
+  };
 };
 
 export type LaneRetryArtifact = {
@@ -50,6 +63,38 @@ export type LaneRetryArtifact = {
 
 function isExplorationOrContrastLane(lane: Lane): boolean {
   return lane.type === "contrast" || lane.id.includes("exploration");
+}
+
+function familyOf(track: HumanSaveabilityTrack): string {
+  return (track.genreFamily ?? track.genrePrimary ?? "unknown").toLowerCase();
+}
+
+function suggestedFixForStage(stage: HumanSaveabilityPipelineResult<HumanSaveabilityTrack>["failureAttribution"]["stageResponsible"]): string {
+  if (stage === "scene world layer") return "Enforce strict-mode primary-family filtering before clustering.";
+  if (stage === "cluster layer") return "Raise strict cluster membership floor before sampler.";
+  if (stage === "sampler") return "Disallow secondary clusters in strict mode and cap off-cluster picks to zero.";
+  if (stage === "interleaver") return "Pin opening 5 to dominant micro-world in strict mode before editorial pass.";
+  if (stage === "editorial audit") return "Constrain swaps to dominant cluster only in strict mode.";
+  return "Tighten retrieval gating to strict archetype families.";
+}
+
+function stageForOffendingTrack(
+  track: HumanSaveabilityTrack,
+  reason: string,
+  context: SceneWorldContext | null,
+  strictHumanSave: boolean,
+): HumanSaveabilityPipelineResult<HumanSaveabilityTrack>["failureAttribution"]["stageResponsible"] {
+  if (!context?.active) return "sampler";
+  const primaryFamilies = new Set((context.archetype?.genreFamilies ?? []).map((f) => f.toLowerCase()));
+  if (strictHumanSave && primaryFamilies.size > 0 && !primaryFamilies.has(familyOf(track))) {
+    return "scene world layer";
+  }
+  const clusterMembership = computeSceneClusterMembershipScore(track, context);
+  if (clusterMembership < (strictHumanSave ? 0.78 : 0.68)) return "cluster layer";
+  if (reason.includes("opening 5")) return "interleaver";
+  const sourceLane = ((track as unknown as { sourceLane?: string }).sourceLane ?? "").toLowerCase();
+  if (sourceLane.includes("exploration") || sourceLane.includes("contrast")) return "sampler";
+  return "sampler";
 }
 
 function applyEditorialPass<T extends HumanSaveabilityTrack>(opts: {
@@ -202,6 +247,36 @@ export async function runHumanSaveabilityGateWithRetries<T extends HumanSaveabil
     ? scorePlaylistWorldMetrics(tracks, opts.context)
     : null;
 
+  const trackById = new Map(tracks.map((track) => [track.trackId, track]));
+  const offendingTrackAttribution = evaluation.offendingTracks.map((offender) => {
+    const track = trackById.get(offender.trackId);
+    if (!track) {
+      return {
+        trackId: offender.trackId,
+        artist: offender.artist,
+        reason: offender.reason,
+        stageResponsible: "interleaver" as const,
+        suggestedFix: suggestedFixForStage("interleaver"),
+      };
+    }
+    const stage = stageForOffendingTrack(track, offender.reason, opts.context, opts.strictHumanSave);
+    return {
+      trackId: offender.trackId,
+      artist: offender.artist,
+      reason: offender.reason,
+      stageResponsible: stage,
+      suggestedFix: suggestedFixForStage(stage),
+    };
+  });
+  const stageCounts: Record<string, number> = {};
+  for (const row of offendingTrackAttribution) {
+    stageCounts[row.stageResponsible] = (stageCounts[row.stageResponsible] ?? 0) + 1;
+  }
+  const firstOffender = [...evaluation.offendingTracks].sort((a, b) => a.rank - b.rank)[0] ?? null;
+  const firstAttribution = firstOffender
+    ? offendingTrackAttribution.find((row) => row.trackId === firstOffender.trackId)
+    : null;
+
   return {
     tracks,
     evaluation,
@@ -209,5 +284,12 @@ export async function runHumanSaveabilityGateWithRetries<T extends HumanSaveabil
     passed: evaluation.humanSaveable,
     editorialRemoved,
     sceneWorldMetrics,
+    failureAttribution: {
+      firstOffendingTrackId: firstOffender?.trackId ?? null,
+      firstOffendingArtist: firstOffender?.artist ?? null,
+      stageResponsible: firstAttribution?.stageResponsible ?? "sampler",
+      stageCounts,
+      offendingTrackAttribution,
+    },
   };
 }

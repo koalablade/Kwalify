@@ -20,13 +20,19 @@ export class HumanSaveabilityGateError extends Error {
   readonly code = "HUMAN_SAVEABILITY_GATE_FAILED";
   readonly evaluation: HumanSaveabilityEvaluation;
   readonly retriesUsed: number;
+  readonly attribution: Record<string, unknown> | null;
 
-  constructor(evaluation: HumanSaveabilityEvaluation, retriesUsed: number) {
+  constructor(
+    evaluation: HumanSaveabilityEvaluation,
+    retriesUsed: number,
+    attribution: Record<string, unknown> | null = null,
+  ) {
     const reasons = evaluation.rejectionReasons.slice(0, 3).join("; ") || "curator gate failed";
     super(`Human saveability gate failed after ${retriesUsed} retries: ${reasons}`);
     this.name = "HumanSaveabilityGateError";
     this.evaluation = evaluation;
     this.retriesUsed = retriesUsed;
+    this.attribution = attribution;
   }
 }
 

@@ -725,6 +725,10 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     likedAdjacency: opts.likedAdjacency,
   });
   const humanSaveStrictMode = strictModeHumanSaveability(vibe, lockedIntent);
+  const strictPrimaryFamilies = new Set(
+    (preRetrievalSceneWorld?.archetype?.genreFamilies ?? lockedIntent.genreFamilies ?? [])
+      .map((f) => f.toLowerCase()),
+  );
   const effectiveIntentGates = (preRetrievalSceneWorld?.strictMode || humanSaveStrictMode)
     ? {
         dominantEmotionExplicit: true,
@@ -1140,7 +1144,14 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           }
           return withDecisionFinalScore(decision, blended);
         })
-        .filter((decision) => decision.finalScore > 0.04)
+        .filter((decision) => {
+          if (decision.finalScore <= 0.04) return false;
+          if (!humanSaveStrictMode || strictPrimaryFamilies.size === 0) return true;
+          const family = resolvedDecisionGenreFamily(decision, {
+            classificationByTrack: opts.classificationByTrack,
+          });
+          return !!family && strictPrimaryFamilies.has(family.toLowerCase());
+        })
         .sort((a, b) => b.finalScore - a.finalScore)
       : engineResult.decisions;
 
@@ -1153,7 +1164,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     // Stage 4: Build clusters from scored pool
     laneStageStartedAt = Date.now();
     const endLaneClusteringProfile = opts.profileStage?.(`v3.clustering.${lane.id}`, `${worldScoredDecisions.length} decisions`);
-    const clusteredPool = overloaded
+    let clusteredPool = overloaded
       ? flatClusteredPool(worldScoredDecisions, lane.id)
       : await safeStage<ClusteredPool<T>>({
           stage: `v3.clustering.${lane.id}`,
@@ -1163,6 +1174,26 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           run: () => buildClusters(worldScoredDecisions),
           recover: () => flatClusteredPool(worldScoredDecisions, lane.id),
         });
+    if (humanSaveStrictMode && sceneWorldContext?.sceneClusters) {
+      const dominantClusterId = sceneWorldContext.sceneClusters.dominantClusterId;
+      const strictClusteredTracks = clusteredPool.scoredTracks.filter((decision) => {
+        const family = resolvedDecisionGenreFamily(decision, {
+          classificationByTrack: opts.classificationByTrack,
+        });
+        if (strictPrimaryFamilies.size > 0 && (!family || !strictPrimaryFamilies.has(family.toLowerCase()))) {
+          return false;
+        }
+        const clusterIds = clusteredPool.trackToClusterIds.get(decision.track.trackId) ?? [];
+        if (!clusterIds.includes(dominantClusterId)) return false;
+        return computeSceneClusterMembershipScore(decision.track, sceneWorldContext) >= 0.80;
+      });
+      if (strictClusteredTracks.length > 0) {
+        clusteredPool = {
+          ...clusteredPool,
+          scoredTracks: strictClusteredTracks,
+        };
+      }
+    }
     if (overloaded) recordTraceFallback(opts.pipelineTrace, `v3.clustering.${lane.id}.bypassed_overload`);
     recordTiming("candidateGeneration", laneStageStartedAt);
     endLaneClusteringProfile?.();
@@ -1366,13 +1397,18 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     rejectionReasons: humanSaveGate.evaluation.rejectionReasons,
     offendingTracks: humanSaveGate.evaluation.offendingTracks,
     strictModeHumanSaveability: humanSaveGate.evaluation.strictModeHumanSaveability,
+    attribution: humanSaveGate.failureAttribution,
     retriesUsed: humanSaveGate.retriesUsed,
     maxRetries: 2,
     hardFailed: !humanSaveGate.passed,
   };
 
   if (!humanSaveGate.passed) {
-    throw new HumanSaveabilityGateError(humanSaveGate.evaluation, humanSaveGate.retriesUsed);
+    throw new HumanSaveabilityGateError(
+      humanSaveGate.evaluation,
+      humanSaveGate.retriesUsed,
+      humanSaveGate.failureAttribution as Record<string, unknown>,
+    );
   }
 
   if (sceneWorldContext?.active && finalTracks.length > 0) {

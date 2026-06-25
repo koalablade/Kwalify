@@ -9092,6 +9092,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               rejectionReasons: fatalErr.evaluation.rejectionReasons,
               offendingTracks: fatalErr.evaluation.offendingTracks,
               strictModeHumanSaveability: fatalErr.evaluation.strictModeHumanSaveability,
+              attribution: fatalErr.attribution,
               retriesUsed: fatalErr.retriesUsed,
               maxRetries: 2,
               hardFailed: true,
