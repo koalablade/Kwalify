@@ -2,13 +2,16 @@
  * Central benchmark / evaluation environment resolution.
  *
  * CI: GitHub Actions injects secrets via .github/actions/benchmark-env (all alias names).
- * Local: export vars or run npm run sync:eval-token — no automatic .env loading.
+ * Local: repo-root .env ALWAYS wins over process.env for PLAYLIST_EVAL_TOKEN.
  */
 
 export const BENCHMARK_GITHUB_SECRETS = [
   "PLAYLIST_EVAL_TOKEN",
   "SMOKE_SPOTIFY_USER_ID",
 ] as const;
+
+/** Production Render eval token length (must match exactly). */
+export const EXPECTED_EVAL_TOKEN_LENGTH = 21;
 
 export const BENCHMARK_ENV_ALIASES = {
   token: ["PLAYLIST_EVAL_TOKEN", "SMOKE_EVAL_TOKEN"] as const,
@@ -48,18 +51,108 @@ export type ResolveLiveBenchmarkOptions = {
 };
 
 import { normalizeEvalToken } from "./eval-token-normalize";
+import { readLocalDotEnvValue } from "./benchmark-env-dotenv";
 
 function trimValue(raw: string | null | undefined): string | null {
   const value = normalizeEvalToken(raw);
   return value || null;
 }
 
-export function readBenchmarkEnv(keys: readonly string[]): string | null {
+function keysAreTokenAliases(keys: readonly string[]): boolean {
+  const tokenKeys = BENCHMARK_ENV_ALIASES.token as readonly string[];
+  return keys.length === tokenKeys.length && keys.every((key) => tokenKeys.includes(key));
+}
+
+function readFromProcessEnv(keys: readonly string[]): string | null {
   for (const key of keys) {
     const value = trimValue(process.env[key]);
     if (value) return value;
   }
   return null;
+}
+
+function readEvalTokenFromDotEnv(): string | null {
+  for (const key of BENCHMARK_ENV_ALIASES.token) {
+    const value = trimValue(readLocalDotEnvValue(key));
+    if (value) return value;
+  }
+  return null;
+}
+
+export type EvalTokenResolution = {
+  token: string;
+  source: string;
+  staleShellIgnored: boolean;
+  tokenConflicts: Array<{ source: string; length: number; ignoredBecause: string }>;
+};
+
+/**
+ * Local: .env always beats process.env for PLAYLIST_EVAL_TOKEN.
+ * CI: process.env only (GitHub secrets).
+ */
+export function readEvalToken(): EvalTokenResolution {
+  const empty: EvalTokenResolution = {
+    token: "",
+    source: "missing",
+    staleShellIgnored: false,
+    tokenConflicts: [],
+  };
+
+  if (isCiEnvironment()) {
+    const token = readFromProcessEnv(BENCHMARK_ENV_ALIASES.token) ?? "";
+    return {
+      token,
+      source: token ? "process.env (CI)" : "missing",
+      staleShellIgnored: false,
+      tokenConflicts: [],
+    };
+  }
+
+  const dotEnvToken = readEvalTokenFromDotEnv();
+  if (dotEnvToken) {
+    const conflicts: EvalTokenResolution["tokenConflicts"] = [];
+    for (const key of BENCHMARK_ENV_ALIASES.token) {
+      const shell = trimValue(process.env[key]);
+      if (shell && shell !== dotEnvToken) {
+        console.warn(
+          `[benchmark-env] Stale shell token ignored (${key} length ${shell.length} != .env length ${dotEnvToken.length})`,
+        );
+        conflicts.push({
+          source: `process.env.${key}`,
+          length: shell.length,
+          ignoredBecause: ".env PLAYLIST_EVAL_TOKEN",
+        });
+      }
+    }
+    return {
+      token: dotEnvToken,
+      source: ".env PLAYLIST_EVAL_TOKEN",
+      staleShellIgnored: conflicts.length > 0,
+      tokenConflicts: conflicts,
+    };
+  }
+
+  const shellToken = readFromProcessEnv(BENCHMARK_ENV_ALIASES.token) ?? "";
+  return {
+    token: shellToken,
+    source: shellToken ? "process.env PLAYLIST_EVAL_TOKEN" : "missing",
+    staleShellIgnored: false,
+    tokenConflicts: [],
+  };
+}
+
+export function readBenchmarkEnv(keys: readonly string[]): string | null {
+  if (keysAreTokenAliases(keys)) {
+    return readEvalToken().token || null;
+  }
+
+  if (!isCiEnvironment()) {
+    for (const key of keys) {
+      const fromDotEnv = trimValue(readLocalDotEnvValue(key));
+      if (fromDotEnv) return fromDotEnv;
+    }
+  }
+  return readFromProcessEnv(keys);
 }
 
 export function isCiEnvironment(): boolean {
@@ -74,8 +167,8 @@ export function formatMissingBenchmarkEnv(missing: string[]): string {
     "GitHub Actions: set repository secrets PLAYLIST_EVAL_TOKEN and SMOKE_SPOTIFY_USER_ID,",
     "then use .github/actions/benchmark-env in the workflow (see docs/benchmark-environment.md).",
     "",
-    "Local runs: export variables in your shell or run npm run sync:eval-token.",
-    "Do not rely on .env for CI; .env is local-only and gitignored.",
+    "Local runs: npm run sync:eval-token -Token \"<21-char Render token>\"",
+    "Repo-root .env overrides shell PLAYLIST_EVAL_TOKEN.",
   ];
   return lines.join("\n");
 }
@@ -103,14 +196,23 @@ export function validateBenchmarkEnvForCi(): {
   ok: boolean;
   missing: string[];
   present: Record<string, boolean>;
+  tokenLength: number | null;
 } {
+  const token = readBenchmarkEnv(BENCHMARK_ENV_ALIASES.token);
   const present = {
-    PLAYLIST_EVAL_TOKEN: Boolean(readBenchmarkEnv(BENCHMARK_ENV_ALIASES.token)),
+    PLAYLIST_EVAL_TOKEN: Boolean(token),
     SMOKE_SPOTIFY_USER_ID: Boolean(readBenchmarkEnv(BENCHMARK_ENV_ALIASES.spotifyUserId)),
     KWALIFY_BENCHMARK_BASE_URL: Boolean(readBenchmarkEnv(BENCHMARK_ENV_ALIASES.baseUrl)),
   };
   const missing = listMissingLiveBenchmarkEnv();
-  return { ok: missing.length === 0, missing, present };
+  const tokenLength = token?.length ?? null;
+  const lengthOk = tokenLength === EXPECTED_EVAL_TOKEN_LENGTH;
+  return {
+    ok: missing.length === 0 && lengthOk,
+    missing: lengthOk ? missing : [...missing, `PLAYLIST_EVAL_TOKEN length must be ${EXPECTED_EVAL_TOKEN_LENGTH} (got ${tokenLength ?? 0})`],
+    present,
+    tokenLength,
+  };
 }
 
 export function resolveLiveBenchmarkCredentials(
@@ -123,12 +225,13 @@ export function resolveLiveBenchmarkCredentials(
     ?? readBenchmarkEnv(BENCHMARK_ENV_ALIASES.baseUrl)
     ?? trimValue(opts.defaultBaseUrl)
     ?? null;
-  const token = trimValue(opts.cli?.token) ?? readBenchmarkEnv(BENCHMARK_ENV_ALIASES.token) ?? "";
   const spotifyUserId = trimValue(opts.cli?.spotifyUserId)
     ?? readBenchmarkEnv(BENCHMARK_ENV_ALIASES.spotifyUserId)
     ?? "";
   const expectedDeploymentVersion = trimValue(opts.cli?.expectedDeploymentVersion)
     ?? readBenchmarkEnv(BENCHMARK_ENV_ALIASES.expectedVersion);
+
+  const token = trimValue(opts.cli?.token) ?? readEvalToken().token;
 
   const missing: string[] = [];
   if (!dryRun) {
@@ -149,6 +252,40 @@ export function resolveLiveBenchmarkCredentials(
     token,
     spotifyUserId,
     expectedDeploymentVersion,
+  };
+}
+
+/** Resolve eval token and validate length + production acceptance. */
+export async function resolveVerifiedProductionCredentials(
+  opts: ResolveLiveBenchmarkOptions = {},
+): Promise<LiveBenchmarkCredentials & {
+  tokenSource: string;
+  tokenConflicts: Array<{ source: string; length: number; ignoredBecause: string }>;
+}> {
+  const base = resolveLiveBenchmarkCredentials({ ...opts, strict: false });
+  const cliToken = trimValue(opts.cli?.token);
+  const resolved = cliToken
+    ? { token: cliToken, source: "cli", staleShellIgnored: false, tokenConflicts: [] as EvalTokenResolution["tokenConflicts"] }
+    : readEvalToken();
+
+  const token = resolved.token || base.token;
+  const strict = opts.strict ?? isCiEnvironment();
+
+  if (strict && token.length !== EXPECTED_EVAL_TOKEN_LENGTH) {
+    throw new Error(
+      `PLAYLIST_EVAL_TOKEN length must be ${EXPECTED_EVAL_TOKEN_LENGTH} (got ${token.length} from ${resolved.source}).`,
+    );
+  }
+
+  if (!token && strict) {
+    throw new Error(formatMissingBenchmarkEnv(["PLAYLIST_EVAL_TOKEN (GitHub secret)"]));
+  }
+
+  return {
+    ...base,
+    token,
+    tokenSource: resolved.source,
+    tokenConflicts: resolved.tokenConflicts,
   };
 }
 

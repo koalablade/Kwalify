@@ -37,6 +37,8 @@ jobs:
       - run: npm ci && npm run build
       - name: Validate benchmark environment
         run: npm run validate:benchmark-env
+      - name: Verify eval token matches production
+        run: npm run verify:eval-token
       - name: Verify deployed commit
         run: |
           DEPLOYED=$(curl -fsS https://kwalify.net/api/readyz | node -pe "JSON.parse(fs.readFileSync(0,'utf8')).commit")
@@ -46,15 +48,12 @@ jobs:
           node -e "const d=process.argv[1],e=process.argv[2]; if(!d.startsWith(e.slice(0,7))&&!e.startsWith(d.slice(0,7))){console.error('Deploy hash mismatch');process.exit(1)}" "$DEPLOYED" "$EXPECTED"
       - name: Scene world remote proof (production API)
         run: node scripts/scene-world-proof-remote.mjs
-        continue-on-error: true
       - name: Human save regression (production API)
         run: node scripts/human-save-regression.mjs
-        continue-on-error: true
       - name: Live E2E 65 prompts (fresh checkpoint)
         run: |
           rm -f reports/live-e2e-phase/checkpoint.json
           node scripts/live-e2e-phase-run.mjs
-        continue-on-error: true
       - name: Aggregate production evidence report
         run: node scripts/production-evidence-report.mjs
       - uses: actions/upload-artifact@v4

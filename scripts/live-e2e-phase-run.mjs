@@ -4,25 +4,19 @@
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { assertAuditResponse, loadBenchmarkEnv, requireProductionAuth } from "./load-benchmark-env.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const OUT_DIR = path.join(ROOT, "reports", "live-e2e-phase");
 const CHECKPOINT = path.join(OUT_DIR, "checkpoint.json");
 
 async function loadEnv() {
-  const env = {};
-  try {
-    const raw = await readFile(path.join(ROOT, ".env"), "utf8");
-    for (const line of raw.split(/\r?\n/)) {
-      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
-      if (!m) continue;
-      env[m[1]] = m[2].replace(/^["']|["']$/g, "").trim();
-    }
-  } catch { /* no .env */ }
+  const cfg = await loadBenchmarkEnv();
   return {
-    baseUrl: process.env.SMOKE_BASE_URL || env.SMOKE_BASE_URL || "https://kwalify.net",
-    token: process.env.PLAYLIST_EVAL_TOKEN || env.PLAYLIST_EVAL_TOKEN || "",
-    spotifyUserId: process.env.SMOKE_SPOTIFY_USER_ID || env.SMOKE_SPOTIFY_USER_ID || "koalablade",
+    baseUrl: cfg.baseUrl,
+    token: cfg.token,
+    tokenSource: cfg.tokenSource,
+    spotifyUserId: cfg.spotifyUserId,
     timeoutMs: Number(process.env.E2E_TIMEOUT_MS || 180000),
     delayMs: Number(process.env.E2E_DELAY_MS || 2000),
   };
@@ -222,6 +216,9 @@ async function generate(cfg, item, sessionMemory) {
       signal: controller.signal,
     });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 403 || data?.code === "AUDIT_MODE_NOT_AUTHORIZED") {
+      assertAuditResponse(res, data, { id: item.id, script: "live-e2e-phase-run" });
+    }
     const tracks = Array.isArray(data.tracks) ? data.tracks : [];
     const ok = res.ok && data.success === true && tracks.length > 0;
     const meta = playlistMetadata(tracks, data);
@@ -249,6 +246,10 @@ async function generate(cfg, item, sessionMemory) {
         intentSurvival: data.intentSurvival ?? null,
         artistDiversity: data.artistDiversity ?? null,
         finalization: data.finalization ?? null,
+        sceneWorldLayer: data.diagnostics?.v3Pipeline?.sceneWorldLayer
+          ?? data.generationDiagnostics?.sceneWorldLayer
+          ?? null,
+        sceneWorldProof: data.sceneWorldProof ?? data.diagnostics?.v3Pipeline?.sceneWorldProof ?? null,
       },
     };
   } catch (err) {
@@ -376,11 +377,7 @@ function computeAggregateMetrics(results) {
 }
 
 async function main() {
-  const cfg = await loadEnv();
-  if (!cfg.token) {
-    console.error("PLAYLIST_EVAL_TOKEN missing — set in .env");
-    process.exit(1);
-  }
+  const cfg = await requireProductionAuth(await loadEnv());
   await mkdir(OUT_DIR, { recursive: true });
 
   let checkpoint = { completed: {}, sessionMemory: [], startedAt: new Date().toISOString() };
@@ -389,7 +386,7 @@ async function main() {
   } catch { /* fresh */ }
 
   const sessionMemory = checkpoint.sessionMemory ?? [];
-  console.log(`Live E2E: ${PROMPTS.length} prompts → ${cfg.baseUrl} user=${cfg.spotifyUserId}`);
+  console.log(`Live E2E: ${PROMPTS.length} prompts → ${cfg.baseUrl} user=${cfg.spotifyUserId} tokenSource=${cfg.tokenSource}`);
 
   for (const item of PROMPTS) {
     if (checkpoint.completed[item.id]) {
@@ -421,6 +418,11 @@ async function main() {
   await writeFile(path.join(OUT_DIR, "results.json"), JSON.stringify(final, null, 2));
   await writeFile(path.join(OUT_DIR, "metrics-summary.json"), JSON.stringify(metrics, null, 2));
   console.log("\nDONE", JSON.stringify({ success: metrics.successCount, fail: metrics.failureCount }));
+  if (metrics.successCount === 0) {
+    console.error("E2E produced zero successful playlists — production observability failure");
+    process.exit(1);
+  }
+  if (metrics.failureCount > 0) process.exit(1);
 }
 
 main().catch((err) => {

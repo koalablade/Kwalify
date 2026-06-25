@@ -130,6 +130,7 @@ import {
   type IdentitySessionMemory,
 } from "../lib/curator-identity";
 import { runRequestLayerGeneration, type RequestGenerationOrchestration } from "../lib/request-generation-orchestrator";
+import { HumanSaveabilityGateError } from "../core/human-saveability-gate";
 import {
   profileUserLibrary,
   estimatePromptUncertainty,
@@ -9089,6 +9090,29 @@ router.post("/generate", async (req, res): Promise<void> => {
               sessionCancelled: true,
             },
           }
+        );
+        return;
+      }
+      if (fatalErr instanceof HumanSaveabilityGateError) {
+        generateFail(
+          res,
+          422,
+          "HUMAN_SAVEABILITY_GATE_FAILED",
+          fatalErr.message,
+          {
+            humanSaveabilityGate: {
+              passed: false,
+              humanSaveable: false,
+              curatorScore: fatalErr.evaluation.curatorScore,
+              breakdown: fatalErr.evaluation.breakdown,
+              rejectionReasons: fatalErr.evaluation.rejectionReasons,
+              offendingTracks: fatalErr.evaluation.offendingTracks,
+              strictModeHumanSaveability: fatalErr.evaluation.strictModeHumanSaveability,
+              retriesUsed: fatalErr.retriesUsed,
+              maxRetries: 2,
+              hardFailed: true,
+            },
+          },
         );
         return;
       }

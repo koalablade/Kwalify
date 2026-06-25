@@ -24,9 +24,12 @@ runs:
       run: |
         set -euo pipefail
         BASE_URL="${{ inputs.base-url }}"
+        REQUIRE="${{ inputs.require-secrets }}"
         TOKEN="${{ inputs.playlist-eval-token }}"
         USER_ID="${{ inputs.smoke-spotify-user-id }}"
-        REQUIRE="${{ inputs.require-secrets }}"
+        TOKEN="$(printf '%s' "$TOKEN" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^["'\''\'']//' -e 's/["'\''\'']$//')"
+        USER_ID="$(printf '%s' "$USER_ID" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+        EXPECTED_LEN=21
 
         missing=()
         if [ -z "$TOKEN" ]; then missing+=("PLAYLIST_EVAL_TOKEN"); fi
@@ -38,6 +41,12 @@ runs:
           echo ""
           echo "Configure: Settings > Secrets and variables > Actions"
           echo "Required secrets: PLAYLIST_EVAL_TOKEN, SMOKE_SPOTIFY_USER_ID"
+          exit 1
+        fi
+
+        if [ -n "$TOKEN" ] && [ "${#TOKEN}" -ne "$EXPECTED_LEN" ]; then
+          echo "PLAYLIST_EVAL_TOKEN must be exactly $EXPECTED_LEN characters (got ${#TOKEN})"
+          echo "Update GitHub secret from Render dashboard: npm run sync:eval-token -Token \"<Render value>\""
           exit 1
         fi
 

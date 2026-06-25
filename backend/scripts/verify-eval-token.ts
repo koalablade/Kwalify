@@ -2,9 +2,8 @@
  * Verify PLAYLIST_EVAL_TOKEN against deployed /api/eval/ping and audit /api/generate.
  */
 import {
-  readBenchmarkEnv,
-  resolveLiveBenchmarkCredentials,
-  BENCHMARK_ENV_ALIASES,
+  EXPECTED_EVAL_TOKEN_LENGTH,
+  resolveVerifiedProductionCredentials,
 } from "../lib/benchmark-env";
 import { normalizeEvalToken } from "../lib/eval-token-normalize";
 
@@ -27,7 +26,7 @@ async function generate(base: string, token: string, spotifyUserId: string, head
     body: JSON.stringify({
       vibe: "uk grime classics workout",
       mode: "balanced",
-      length: 5,
+      length: 25,
       spotifyUserId,
       auditMode: true,
     }),
@@ -44,10 +43,15 @@ async function generate(base: string, token: string, spotifyUserId: string, head
 }
 
 async function main(): Promise<void> {
-  const creds = resolveLiveBenchmarkCredentials({ strict: true });
+  const creds = await resolveVerifiedProductionCredentials({ strict: true });
   const token = normalizeEvalToken(creds.token);
   if (!token) {
     throw new Error("PLAYLIST_EVAL_TOKEN resolved empty after normalization.");
+  }
+  if (token.length !== EXPECTED_EVAL_TOKEN_LENGTH) {
+    throw new Error(
+      `PLAYLIST_EVAL_TOKEN length must be ${EXPECTED_EVAL_TOKEN_LENGTH} (got ${token.length} from ${creds.tokenSource}).`,
+    );
   }
 
   const readyz = await (await fetch(`${creds.baseUrl}/api/readyz`)).json() as Record<string, unknown>;
@@ -65,7 +69,9 @@ async function main(): Promise<void> {
   const summary = {
     base: creds.baseUrl,
     tokenLength: token.length,
-    tokenSource: readBenchmarkEnv(BENCHMARK_ENV_ALIASES.token) ? "env" : "cli",
+    expectedTokenLength: EXPECTED_EVAL_TOKEN_LENGTH,
+    tokenSource: creds.tokenSource,
+    staleOverridesIgnored: creds.tokenConflicts.length > 0 ? creds.tokenConflicts : undefined,
     readyz: { status: readyz["status"], commit: readyz["commit"] },
     pingOk,
     generateOk,
@@ -74,7 +80,9 @@ async function main(): Promise<void> {
   };
 
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-  process.exit(pingOk && generateOk ? 0 : 1);
+  if (!pingOk || !generateOk || token.length !== EXPECTED_EVAL_TOKEN_LENGTH) {
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

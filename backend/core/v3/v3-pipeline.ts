@@ -32,9 +32,10 @@ import {
 import { interleaveLanes, type InterleavedResult } from "./interleaver";
 import {
   auditEditorialPlaylist,
-  enforceOpeningSceneCluster,
   scorePlaylistWorldMetrics,
 } from "../scene-world-editorial-audit";
+import { strictModeHumanSaveability, HumanSaveabilityGateError } from "../human-saveability-gate";
+import { runHumanSaveabilityGateWithRetries } from "../human-saveability-pipeline";
 import {
   buildSceneWorldProofReport,
   createSceneWorldProofAccumulator,
@@ -723,7 +724,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     playlistAdjacency: opts.playlistAdjacency,
     likedAdjacency: opts.likedAdjacency,
   });
-  const effectiveIntentGates = preRetrievalSceneWorld?.strictMode
+  const humanSaveStrictMode = strictModeHumanSaveability(vibe, lockedIntent);
+  const effectiveIntentGates = (preRetrievalSceneWorld?.strictMode || humanSaveStrictMode)
     ? {
         dominantEmotionExplicit: true,
         allowContrastLanes: false,
@@ -902,6 +904,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   }> = [];
 
   const sampledResults: SampledLaneResult<T>[] = [];
+  const laneRetryArtifacts: Array<{
+    lane: (typeof lanes)[number];
+    clusteredPool: ClusteredPool<T>;
+    laneTarget: number;
+  }> = [];
   const scoredLaneIds = new Set<string>();
   for (const lane of lanes) {
     await yieldV3();
@@ -1170,6 +1177,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       "buildClusters",
     ));
 
+    laneRetryArtifacts.push({ lane, clusteredPool, laneTarget });
+
     // Stage 5: Entropy-constrained selection across clusters
     laneStageStartedAt = Date.now();
     const endLaneSamplingProfile = opts.profileStage?.(`v3.sampling.${lane.id}`, `${clusteredPool.scoredTracks.length} clustered tracks`);
@@ -1320,7 +1329,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   if (finalTracks.length > 0) setFallbackCache(outputCacheKey, finalTracks);
 
   let editorialAudit: ReturnType<typeof auditEditorialPlaylist<T>> | null = null;
-  const editorialRemoved: Array<{
+  let editorialRemoved: Array<{
     title: string;
     artist: string;
     trackId: string;
@@ -1328,65 +1337,55 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     worldMembershipScore: number;
     removalReason: string;
   }> = [];
-  if (sceneWorldContext?.active && finalTracks.length > 0) {
-    const preAuditTracks = [...finalTracks];
-    const openingRepair = enforceOpeningSceneCluster({
-      tracks: finalTracks,
-      candidates: retrievedTracks,
-      context: sceneWorldContext,
-      openingSize: 10,
-      maxSwaps: 10,
-    });
-    finalTracks = openingRepair.tracks.map((track) => ({
-      ...track,
-      clusterId: (track as V3SelectionCandidate<T>).clusterIds?.[0] ?? (track as V3SelectionCandidate<T>).clusterId,
-    })) as Array<T & V3SelectionCandidate<T>>;
-    if (sceneWorldProofAcc) {
-      for (const swap of openingRepair.swaps) {
-        const fromTrack = preAuditTracks.find((track) => track.trackId === swap.fromTrackId);
-        if (!fromTrack) continue;
-        const previousRank = preAuditTracks.findIndex((track) => track.trackId === swap.fromTrackId) + 1;
-        editorialRemoved.push({
-          title: fromTrack.trackName ?? fromTrack.trackId,
-          artist: fromTrack.artistName ?? "Unknown",
-          trackId: fromTrack.trackId,
-          previousRank,
-          worldMembershipScore: Math.round(swap.fromMembership * 1000) / 1000,
-          removalReason: describeSceneClusterViolation(fromTrack, sceneWorldContext),
-        });
-      }
-    }
-    const preEditorialTracks = [...finalTracks];
-    editorialAudit = auditEditorialPlaylist({
-      tracks: finalTracks,
-      candidates: retrievedTracks,
-      context: sceneWorldContext,
-      maxSwaps: Math.max(10, Math.ceil(targetCount * 0.25)),
-    });
-    if (sceneWorldProofAcc) {
-      for (const swap of editorialAudit.swaps) {
-        const fromTrack = preEditorialTracks.find((track) => track.trackId === swap.fromTrackId);
-        if (!fromTrack) continue;
-        const previousRank = preAuditTracks.findIndex((track) => track.trackId === swap.fromTrackId) + 1;
-        editorialRemoved.push({
-          title: fromTrack.trackName ?? fromTrack.trackId,
-          artist: fromTrack.artistName ?? "Unknown",
-          trackId: fromTrack.trackId,
-          previousRank,
-          worldMembershipScore: Math.round(swap.fromMembership * 1000) / 1000,
-          removalReason: describeWorldRemovalReason(fromTrack, sceneWorldContext, swap.fromMembership),
-        });
-      }
-    }
-    finalTracks = editorialAudit.tracks.map((track) => ({
-      ...track,
-      clusterId: (track as V3SelectionCandidate<T>).clusterIds?.[0] ?? (track as V3SelectionCandidate<T>).clusterId,
-    })) as Array<T & V3SelectionCandidate<T>>;
+
+  const humanSaveGate = await runHumanSaveabilityGateWithRetries({
+    prompt: vibe,
+    lockedIntent,
+    initialTracks: finalTracks as unknown as import("../human-saveability-gate").HumanSaveabilityTrack[],
+    candidates: retrievedTracks as unknown as import("../human-saveability-gate").HumanSaveabilityTrack[],
+    context: sceneWorldContext,
+    targetCount,
+    strictHumanSave: humanSaveStrictMode,
+    laneRetryArtifacts,
+    lanes,
+    sampledResults,
+    seed: opts.seed,
+    lockedIntentForSampler: lockedIntent,
+    sessionArtistMemory: opts.sessionArtistMemory,
+    recentTrackPenalty: opts.trackReusePenalty,
+    cohesivePlaylist: cohesivePlaylist || humanSaveStrictMode,
+  });
+  finalTracks = humanSaveGate.tracks as Array<T & V3SelectionCandidate<T>>;
+  editorialRemoved = humanSaveGate.editorialRemoved;
+
+  const humanSaveabilityDiagnostics = {
+    passed: humanSaveGate.passed,
+    humanSaveable: humanSaveGate.evaluation.humanSaveable,
+    curatorScore: humanSaveGate.evaluation.curatorScore,
+    breakdown: humanSaveGate.evaluation.breakdown,
+    rejectionReasons: humanSaveGate.evaluation.rejectionReasons,
+    offendingTracks: humanSaveGate.evaluation.offendingTracks,
+    strictModeHumanSaveability: humanSaveGate.evaluation.strictModeHumanSaveability,
+    retriesUsed: humanSaveGate.retriesUsed,
+    maxRetries: 2,
+    hardFailed: !humanSaveGate.passed,
+  };
+
+  if (!humanSaveGate.passed) {
+    throw new HumanSaveabilityGateError(humanSaveGate.evaluation, humanSaveGate.retriesUsed);
   }
 
-  const sceneWorldMetrics = sceneWorldContext?.active
-    ? scorePlaylistWorldMetrics(finalTracks, sceneWorldContext)
-    : null;
+  if (sceneWorldContext?.active && finalTracks.length > 0) {
+    editorialAudit = {
+      tracks: finalTracks,
+      swaps: [],
+      outlierCount: humanSaveGate.evaluation.offendingTracks.length,
+      firstTenCohesion: humanSaveGate.sceneWorldMetrics?.firstTenCohesion ?? 0,
+    };
+  }
+
+  const sceneWorldMetrics = humanSaveGate.sceneWorldMetrics
+    ?? (sceneWorldContext?.active ? scorePlaylistWorldMetrics(finalTracks, sceneWorldContext) : null);
   if (sceneWorldMetrics && sceneWorldProofAcc) {
     sceneWorldMetrics.sceneClusterViolationsRemoved = sceneWorldProofAcc.membershipFiltered.filter((row) =>
       row.removalReason.includes("scene cluster") ||
@@ -1579,6 +1578,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           triggered: fallbackTriggered,
           reason: fallbackTriggered ? "unclear_intent_multi_lane_ensemble" : "nominal",
         },
+        humanSaveabilityGate: humanSaveabilityDiagnostics,
         lanes: diagnosticLaneDetails.map((ld) => ({
           laneId: ld.laneId,
           type: ld.type,
@@ -1980,6 +1980,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         }
       : { active: false },
 
+    humanSaveabilityGate: humanSaveabilityDiagnostics,
     sceneWorldProof,
   };
 

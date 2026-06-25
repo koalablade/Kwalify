@@ -4,8 +4,9 @@
  * Usage: node scripts/human-save-regression.mjs
  */
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { assertAuditResponse, loadBenchmarkEnv, requireProductionAuth } from "./load-benchmark-env.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const MIN_CLUSTER_CONSISTENCY = 0.80;
@@ -20,22 +21,6 @@ const PROMPTS = [
   { id: "study_session", prompt: "music for thinking and study session focus", maxOutliers: 6, minFirstTen: 0.46 },
   { id: "gym_boost", prompt: "gym confidence boost high energy workout", maxOutliers: 6, minFirstTen: 0.46 },
 ];
-
-async function loadEnv() {
-  const env = {};
-  try {
-    const raw = await readFile(path.join(ROOT, ".env"), "utf8");
-    for (const line of raw.split(/\r?\n/)) {
-      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
-      if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, "").trim();
-    }
-  } catch { /* no .env */ }
-  return {
-    baseUrl: process.env.SMOKE_BASE_URL || env.SMOKE_BASE_URL || "https://kwalify.net",
-    token: process.env.PLAYLIST_EVAL_TOKEN || env.PLAYLIST_EVAL_TOKEN || "",
-    spotifyUserId: process.env.SMOKE_SPOTIFY_USER_ID || env.SMOKE_SPOTIFY_USER_ID || "koalablade",
-  };
-}
 
 function obviousOutlier(track, promptId) {
   const g = (track.genreFamily || track.genrePrimary || "unknown").toLowerCase();
@@ -59,7 +44,7 @@ function obviousOutlier(track, promptId) {
   return false;
 }
 
-const cfg = await loadEnv();
+const cfg = await requireProductionAuth(await loadBenchmarkEnv());
 const results = [];
 let failed = 0;
 
@@ -80,19 +65,40 @@ for (const item of PROMPTS) {
     }),
   });
   const data = await res.json();
-  const tracks = (data.tracks || []).map((t, i) => ({
+  assertAuditResponse(res, data, { id: item.id, script: "human-save-regression" });
+
+  if (res.status !== 200 || !Array.isArray(data.tracks) || data.tracks.length === 0) {
+    console.error(JSON.stringify({
+      error: "PRODUCTION_PLAYLIST_EMPTY",
+      id: item.id,
+      status: res.status,
+      message: data.message ?? data.error ?? null,
+    }, null, 2));
+    process.exit(1);
+  }
+
+  const tracks = data.tracks.map((t, i) => ({
     position: i + 1,
     trackName: t.trackName || t.name,
     artistName: t.artistName || t.artist,
     genreFamily: t.genreFamily ?? t.genrePrimary ?? "unknown",
     energy: t.energy ?? null,
     valence: t.valence ?? null,
+    worldMembership: t.worldMembership ?? t.worldMembershipScore ?? null,
+    sceneClusterMembership: t.sceneClusterMembership ?? null,
   }));
-  const sceneWorld = data.diagnostics?.v3Pipeline?.sceneWorldLayer ?? data.generationDiagnostics?.sceneWorldLayer ?? null;
+  const sceneWorld = data.diagnostics?.v3Pipeline?.sceneWorldLayer
+    ?? data.generationDiagnostics?.sceneWorldLayer
+    ?? data.sceneWorldProof
+    ?? null;
   const clusterConsistency =
     sceneWorld?.sceneClusters?.firstTenClusterConsistency ??
     data.diagnostics?.v3Pipeline?.sceneWorldProof?.firstTenClusterConsistency ??
     data.sceneWorldProof?.firstTenClusterConsistency ??
+    null;
+  const worldConsistency =
+    sceneWorld?.metrics?.worldConsistency ??
+    data.sceneWorldProof?.metrics?.worldConsistency ??
     null;
   const outliers = tracks.filter((track) => obviousOutlier(track, item.id));
   const firstTen = tracks.slice(0, 10);
@@ -105,22 +111,31 @@ for (const item of PROMPTS) {
   if (!pass) failed++;
   results.push({
     id: item.id,
+    prompt: item.prompt,
     pass,
     status: res.status,
     outlierCount: outliers.length,
     firstTenOutliers: firstTenOutliers.length,
     firstTenClusterConsistency: clusterConsistency,
+    worldConsistency,
     sceneWorld,
+    firstTenTracks: firstTen,
     opening5: tracks.slice(0, 5).map((t) => `${t.trackName} | ${t.artistName} | ${t.genreFamily}`),
     outliers: outliers.slice(0, 8).map((t) => `${t.trackName} | ${t.artistName}`),
   });
-  console.log(`${pass ? "PASS" : "FAIL"} ${item.id} outliers=${outliers.length} first10=${firstTenOutliers.length} cluster=${clusterConsistency ?? "n/a"}`);
+  console.log(`${pass ? "PASS" : "FAIL"} ${item.id} outliers=${outliers.length} first10=${firstTenOutliers.length} cluster=${clusterConsistency ?? "n/a"} world=${worldConsistency ?? "n/a"}`);
 }
 
 await mkdir(path.join(ROOT, "reports"), { recursive: true });
 await writeFile(
   path.join(ROOT, "reports", "human-save-regression.json"),
-  JSON.stringify({ generatedAt: new Date().toISOString(), failed, results }, null, 2),
+  JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    baseUrl: cfg.baseUrl,
+    tokenSource: cfg.tokenSource,
+    failed,
+    results,
+  }, null, 2),
 );
 
 console.log(`\nRegression: ${results.length - failed}/${results.length} passed`);

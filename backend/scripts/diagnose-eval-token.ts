@@ -2,9 +2,9 @@
  * Diagnose PLAYLIST_EVAL_TOKEN mismatch (reads env only; no secrets printed).
  */
 import {
-  readBenchmarkEnv,
+  EXPECTED_EVAL_TOKEN_LENGTH,
+  readEvalToken,
   resolveLiveBenchmarkCredentials,
-  BENCHMARK_ENV_ALIASES,
 } from "../lib/benchmark-env";
 import { normalizeEvalToken } from "../lib/eval-token-normalize";
 
@@ -28,19 +28,23 @@ async function tryToken(base: string, label: string, token: string) {
 }
 
 async function main(): Promise<void> {
-  const creds = resolveLiveBenchmarkCredentials({ strict: true });
-  const token = normalizeEvalToken(creds.token);
-  const readyz = await (await fetch(`${creds.baseUrl}/api/readyz`)).json() as Record<string, unknown>;
-  const getPing = await (await fetch(`${creds.baseUrl}/api/eval/ping`)).json() as Record<string, unknown>;
+  const base = resolveLiveBenchmarkCredentials({ strict: false });
+  const resolved = readEvalToken();
+  const token = normalizeEvalToken(resolved.token);
+  const readyz = await (await fetch(`${base.baseUrl}/api/readyz`)).json() as Record<string, unknown>;
+  const getPing = await (await fetch(`${base.baseUrl}/api/eval/ping`)).json() as Record<string, unknown>;
 
-  const attempts = [await tryToken(creds.baseUrl, "env-token", token)];
+  const attempts = token ? [await tryToken(base.baseUrl, resolved.source, token)] : [];
 
   process.stdout.write(`${JSON.stringify({
-    base: creds.baseUrl,
+    base: base.baseUrl,
     readyz: { status: readyz["status"], commit: readyz["commit"], uptimeMs: readyz["uptimeMs"] },
     productionEvalTokenLength: getPing["evalTokenLength"] ?? null,
+    expectedTokenLength: EXPECTED_EVAL_TOKEN_LENGTH,
     envTokenLen: token.length,
-    envTokenSource: readBenchmarkEnv(BENCHMARK_ENV_ALIASES.token) ? "env" : "cli",
+    envTokenSource: resolved.source,
+    staleShellIgnored: resolved.staleShellIgnored,
+    staleOverridesIgnored: resolved.tokenConflicts.length > 0 ? resolved.tokenConflicts : undefined,
     attempts,
     anyAccepted: attempts.some((row) => row.tokenAccepted),
   }, null, 2)}\n`);

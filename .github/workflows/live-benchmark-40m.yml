@@ -22,6 +22,8 @@ jobs:
       - run: npm ci && npm run build
       - name: Validate benchmark environment
         run: npm run validate:benchmark-env
+      - name: Verify eval token matches production
+        run: npm run verify:eval-token
       - name: Live prompt reliability benchmark (~40m)
         run: |
           OUT_DIR="reports/prompt-reliability/live-$(date -u +%Y%m%dT%H%MZ)"

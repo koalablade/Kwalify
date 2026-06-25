@@ -64,9 +64,40 @@ function humanSaveVerdict(prompt, tracks, sceneWorld) {
 
 async function main() {
   const readyz = await fetch("https://kwalify.net/api/readyz").then((r) => r.json()).catch(() => ({}));
-  const remote = await readJson(path.join(REPORTS, "scene-world-proof-remote.json"), { results: [] });
-  const regression = await readJson(path.join(REPORTS, "human-save-regression.json"), { results: [] });
-  const e2e = await readJson(path.join(REPORTS, "live-e2e-phase", "results.json"), { playlists: [], aggregateMetrics: {} });
+  const remote = await readJson(path.join(REPORTS, "scene-world-proof-remote.json"));
+  const regression = await readJson(path.join(REPORTS, "human-save-regression.json"));
+  const e2e = await readJson(path.join(REPORTS, "live-e2e-phase", "results.json"));
+
+  const hasRemote = remote?.results?.some((row) => row.firstTenTracks?.length > 0 || row.proof?.finalPlaylist?.length > 0);
+  const hasRegression = regression?.results?.some((row) => row.firstTenTracks?.length > 0);
+  const hasE2e = e2e?.playlists?.some((row) => row.tracks?.length > 0);
+
+  if (!hasRemote || !hasRegression || !hasE2e) {
+    const blocker = {
+      error: "PRODUCTION_EVIDENCE_INCOMPLETE",
+      generatedAt: new Date().toISOString(),
+      deploymentCommit: readyz.commit ?? null,
+      missing: {
+        sceneWorldProof: !hasRemote,
+        humanSaveRegression: !hasRegression,
+        e2e: !hasE2e,
+      },
+      message: "Report requires real production playlists from all three proof runs. No fixture or inferred data.",
+    };
+    await mkdir(REPORTS, { recursive: true });
+    await writeFile(path.join(REPORTS, "production-evidence-report.json"), JSON.stringify(blocker, null, 2));
+    await writeFile(
+      path.join(REPORTS, "production-evidence-report.md"),
+      `# Production Evidence Report\n\n**Status:** BLOCKED — incomplete production data\n\n\`\`\`json\n${JSON.stringify(blocker, null, 2)}\n\`\`\`\n`,
+    );
+    console.error(JSON.stringify(blocker, null, 2));
+    process.exit(1);
+  }
+
+  remote.results ??= [];
+  regression.results ??= [];
+  e2e.playlists ??= [];
+  e2e.aggregateMetrics ??= {};
 
   const sceneWorldPrompts = (remote.results ?? []).map((row) => {
     const proof = row.proof ?? {};
