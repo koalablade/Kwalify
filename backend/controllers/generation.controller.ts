@@ -93,8 +93,10 @@ import {
   attachExecutionTrace,
   buildFallbackExecutionTraceDraft,
   buildGateFailureExecutionTraceDraft,
+  buildUnknownExitTraceDraft,
   buildV3PipelineExecutionTraceDraft,
   extractPlaylistExecutionTrace,
+  finalizePlaylistExecutionTrace,
   finalizeExecutionTrace,
   type PlaylistExecutionTrace,
   type PlaylistExecutionTraceDraft,
@@ -323,26 +325,28 @@ function generateFail(
   const existingTrace = extra ? extractPlaylistExecutionTrace(extra) : null;
   const prebuiltTrace = extra?.playlistExecutionTrace as PlaylistExecutionTrace | undefined;
   const gate = extra?.humanSaveabilityGate as Record<string, unknown> | undefined;
-  const resolvedTrace = prebuiltTrace
-    ?? existingTrace
-    ?? (traceDraft ? finalizeExecutionTrace(traceDraft) : null)
-    ?? (gate
-      ? finalizeExecutionTrace(buildGateFailureExecutionTraceDraft({
-          requestId: String(traceDraft?.requestId ?? extra?.requestId ?? "unknown"),
-          prompt: String(traceDraft?.prompt ?? extra?.prompt ?? ""),
-          seed: (traceDraft?.seed ?? extra?.seed ?? null) as number | string | null,
-          gate,
-        }))
-      : traceDraft
-        ? finalizeExecutionTrace(traceDraft)
-        : finalizeExecutionTrace({
-            requestId: String(extra?.requestId ?? "unknown"),
-            prompt: String(extra?.prompt ?? ""),
-            seed: (extra?.seed ?? null) as number | string | null,
-            executionPath: "partial_pipeline",
-            humanSaveable: false,
-            debugFlags: { gateExecuted: false, gateBypassed: true, timeoutOccurred: false },
-          }));
+  let resolvedTrace: PlaylistExecutionTrace;
+  if (prebuiltTrace) {
+    resolvedTrace = prebuiltTrace;
+  } else if (existingTrace) {
+    resolvedTrace = existingTrace;
+  } else if (traceDraft) {
+    resolvedTrace = finalizeExecutionTrace(traceDraft);
+  } else if (gate) {
+    resolvedTrace = finalizeExecutionTrace(buildGateFailureExecutionTraceDraft({
+      requestId: String(extra?.requestId ?? "unknown"),
+      prompt: String(extra?.prompt ?? ""),
+      seed: (extra?.seed ?? null) as number | string | null,
+      gate,
+    }));
+  } else {
+    resolvedTrace = finalizeExecutionTrace(buildUnknownExitTraceDraft({
+      requestId: String(extra?.requestId ?? "unknown"),
+      prompt: String(extra?.prompt ?? ""),
+      seed: (extra?.seed ?? null) as number | string | null,
+      reason: code,
+    }));
+  }
   const payload: Record<string, unknown> = {
     success: false,
     code,
@@ -350,11 +354,22 @@ function generateFail(
     tracks: [],
     spotifyUnavailable: true,
     ...extra,
+    playlistExecutionTrace: resolvedTrace,
   };
-  if (resolvedTrace) {
-    payload.playlistExecutionTrace = resolvedTrace;
-  }
   res.status(status).json(payload);
+}
+
+function jsonWithExecutionTrace(
+  res: import("express").Response,
+  status: number,
+  body: Record<string, unknown>,
+  traceDraft: PlaylistExecutionTraceDraft,
+): void {
+  if (res.headersSent || res.writableEnded || res.destroyed) return;
+  res.status(status).json({
+    ...body,
+    playlistExecutionTrace: finalizePlaylistExecutionTrace(traceDraft),
+  });
 }
 
 function resolveSuccessExecutionTrace(opts: {
@@ -4806,6 +4821,15 @@ router.post("/generate", async (req, res): Promise<void> => {
           lastStage: progressBeforeCancel?.stage ?? null,
           stageProfile,
         },
+        playlistExecutionTrace: finalizePlaylistExecutionTrace(buildFallbackExecutionTraceDraft({
+          requestId,
+          prompt: generateVibe || "unknown",
+          seed: generationSeed,
+          executionPath: "timeout_fallback",
+          failureDetail: "absolute_watchdog_timeout_before_safe_fallback",
+          finalTrackCount: 0,
+          timeoutOccurred: true,
+        })),
       });
     }, timeoutAfterMs);
     hardTimeoutTimer.unref?.();
@@ -5299,7 +5323,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         executionHealth.hydrationCount = dbHydrationOccurred ? 1 : 0;
         executionHealth.finalisationCount += 1;
         const cachedExecutionHealth = finaliseExecutionHealth(executionHealth, Date.now() - startMs);
-        res.json({
+        res.json(attachExecutionTrace({
           success: true,
           cached: true,
           playlistId: cachedSavedPlaylistId,
@@ -5338,7 +5362,28 @@ router.post("/generate", async (req, res): Promise<void> => {
           ...(cached.spotifyPlaylistUrl
             ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
             : { spotifyUnavailable: true as const }),
-        });
+        }, (() => {
+          const cachedV3 = (cached.v3Diagnostics ?? null) as Record<string, unknown> | null;
+          const cachedTrace = cachedV3?.playlistExecutionTrace;
+          if (cachedTrace && typeof cachedTrace === "object") {
+            return cachedTrace as PlaylistExecutionTraceDraft;
+          }
+          return {
+            requestId,
+            prompt: cached.vibe ?? vibe,
+            seed: generationSeed,
+            executionPath: "full_pipeline" as const,
+            humanSaveable: true,
+            rejectionReasons: ["human_saveable:passed"],
+            trackCounts: {
+              retrieved: 0,
+              after_world: 0,
+              after_sampler: 0,
+              final: cachedApiTracks.length,
+            },
+            debugFlags: { gateExecuted: true, gateBypassed: false, timeoutOccurred: false },
+          };
+        })()));
         return;
       }
       if (cached && cacheInvalidReason) {
@@ -5383,7 +5428,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         requestId,
       })) return;
       if (respondIfStale(res, generateSessionUserId, requestId)) return;
-      res.status(504).json({
+      jsonWithExecutionTrace(res, 504, {
         success: false,
         error: "Generation took too long before V3 could return a safe playlist. Try again with a slightly broader prompt, or sync your Spotify library and retry.",
         code: "TIMEOUT",
@@ -5395,7 +5440,15 @@ router.post("/generate", async (req, res): Promise<void> => {
           failureReason: "hard_timeout_no_controller_fallback",
           controllerAuthorityConflict: false,
         },
-      });
+      }, buildFallbackExecutionTraceDraft({
+        requestId,
+        prompt: generateVibe || vibe,
+        seed: generationSeed,
+        executionPath: "timeout_fallback",
+        failureDetail: "hard_timeout_no_controller_fallback",
+        finalTrackCount: 0,
+        timeoutOccurred: true,
+      }));
     });
 
     const promptConfidence = scorePromptConfidence(vibe, emotionProfile, {
@@ -9395,7 +9448,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
         return;
       }
-      res.status(timedOut ? 504 : 500).json({
+      jsonWithExecutionTrace(res, timedOut ? 504 : 500, {
         success: false,
         error: timedOut
           ? "Generation took too long before V3 could return a safe playlist. Try Balanced mode or regenerate in a moment."
@@ -9408,7 +9461,13 @@ router.post("/generate", async (req, res): Promise<void> => {
           sessionCancelled: false,
           controllerAuthorityConflict: false,
         },
-      });
+      }, buildUnknownExitTraceDraft({
+        requestId,
+        prompt: generateVibe || "unknown",
+        seed: generationSeed,
+        reason: timedOut ? "fatal_timeout" : "internal_error",
+        timeoutOccurred: timedOut,
+      }));
     }
   }
 });

@@ -61,6 +61,7 @@
     "audit:human-save": "npm run build && node backend/dist/scripts/human-save-audit.js",
     "benchmark:human-saveability-overnight": "npm run build && node backend/dist/scripts/human-saveability-overnight-benchmark.js",
     "test:observability-invariants": "npm run build && node --test backend/dist/tests/observability-invariants.test.js",
+    "test:observability-completeness": "npm run build && node --test backend/dist/tests/observability-completeness.test.js",
     "investigate:dominant-cluster-funnel": "npm run build && node backend/dist/scripts/dominant-cluster-funnel-investigation.js",
     "investigate:opening-ten-trace": "npm run build && node backend/dist/scripts/opening-ten-trace-investigation.js",
     "trace:benchmark-attribution": "npm run build && node backend/dist/scripts/benchmark-attribution-trace.js",

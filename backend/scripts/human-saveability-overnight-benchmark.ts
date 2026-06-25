@@ -11,8 +11,8 @@ import {
   EXPECTED_EVAL_TOKEN_LENGTH,
 } from "../lib/benchmark-env";
 import { normalizeEvalToken } from "../lib/eval-token-normalize";
+import { fetchAndParseBenchmarkGenerate } from "../lib/benchmark-generate-fetch";
 import {
-  parseHumanSaveabilityFromGenerateResponse,
   primaryRejectionReasonFromParsed,
   type ParsedHumanSaveabilityRun,
 } from "../lib/human-saveability-benchmark-parse";
@@ -37,6 +37,7 @@ type RunRow = {
   promptId: string;
   prompt: string;
   seed: number;
+  requestId: string;
   httpStatus: number;
   responseKind: ParsedHumanSaveabilityRun["responseKind"];
   gateSource: string | null;
@@ -64,7 +65,36 @@ type RunRow = {
   executionPath: ParsedHumanSaveabilityRun["executionPath"];
   funnelCollapseStage: string | null;
   tracePresent: boolean;
+  htmlResponse: boolean;
+  fetchAttempts: number;
 };
+
+function applyParsed(row: RunRow, parsed: ParsedHumanSaveabilityRun): void {
+  row.responseKind = parsed.responseKind;
+  row.gateSource = parsed.gateSource;
+  row.humanSaveable = parsed.humanSaveable;
+  row.curatorScore = parsed.curatorScore;
+  row.rejectionReasons = parsed.rejectionReasons;
+  row.retriesUsed = parsed.retriesUsed;
+  row.trackCount = parsed.trackCount;
+  row.firstTen = parsed.firstTen;
+  row.opening5 = parsed.firstTen.slice(0, 5);
+  row.offendingTracks = parsed.offendingTracks;
+  row.pipelineStageResponsible = parsed.pipelineStageResponsible;
+  row.suggestedFix = parsed.suggestedFix;
+  row.dominantCluster = parsed.dominantCluster;
+  row.archetypeLabel = typeof parsed.archetype?.label === "string" ? parsed.archetype.label : null;
+  row.openingViolatingTracks = parsed.openingClusterViolations;
+  row.openingFailureOrigin = parsed.openingFailureOrigin;
+  row.openingTenDominantCluster = parsed.openingTenDominantCluster;
+  row.openingTenTrace = parsed.openingTenTrace;
+  row.parseWarnings = parsed.parseWarnings;
+  row.gateBypassed = parsed.gateBypassed;
+  row.bypassReason = parsed.bypassReason;
+  row.executionPath = parsed.executionPath;
+  row.funnelCollapseStage = parsed.funnelCollapseStage;
+  row.tracePresent = parsed.tracePresent;
+}
 
 async function generateRun(
   baseUrl: string,
@@ -73,10 +103,12 @@ async function generateRun(
   item: { id: string; prompt: string },
   seed: number,
 ): Promise<RunRow> {
+  const requestId = `overnight-human-save-${item.id}-seed-${seed}`;
   const row: RunRow = {
     promptId: item.id,
     prompt: item.prompt,
     seed,
+    requestId,
     httpStatus: 0,
     responseKind: "unparsed",
     gateSource: null,
@@ -104,69 +136,40 @@ async function generateRun(
     executionPath: null,
     funnelCollapseStage: null,
     tracePresent: false,
+    htmlResponse: false,
+    fetchAttempts: 0,
   };
 
   try {
-    const res = await fetch(`${baseUrl}/api/generate?audit=1`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-kwalify-evaluation-token": token,
-      },
-      body: JSON.stringify({
-        vibe: item.prompt,
-        mode: "balanced",
-        length: 25,
-        varietyBoost: true,
-        auditMode: true,
-        spotifyUserId,
-        requestId: `overnight-human-save-${item.id}-seed-${seed}`,
-        seed,
-      }),
+    const fetched = await fetchAndParseBenchmarkGenerate({
+      baseUrl,
+      token,
+      spotifyUserId,
+      prompt: item.prompt,
+      seed,
+      requestId,
     });
-    row.httpStatus = res.status;
-    const data = await res.json() as Record<string, unknown>;
-    const parsed = parseHumanSaveabilityFromGenerateResponse(res.status, data);
+    row.httpStatus = fetched.httpStatus;
+    row.fetchAttempts = fetched.attempts;
+    row.htmlResponse = fetched.htmlResponse;
+    applyParsed(row, fetched.parsed);
 
-    row.responseKind = parsed.responseKind;
-    row.gateSource = parsed.gateSource;
-    row.humanSaveable = parsed.humanSaveable;
-    row.curatorScore = parsed.curatorScore;
-    row.rejectionReasons = parsed.rejectionReasons;
-    row.retriesUsed = parsed.retriesUsed;
-    row.trackCount = parsed.trackCount;
-    row.firstTen = parsed.firstTen;
-    row.opening5 = parsed.firstTen.slice(0, 5);
-    row.offendingTracks = parsed.offendingTracks;
-    row.pipelineStageResponsible = parsed.pipelineStageResponsible;
-    row.suggestedFix = parsed.suggestedFix;
-    row.dominantCluster = parsed.dominantCluster;
-    row.archetypeLabel = typeof parsed.archetype?.label === "string" ? parsed.archetype.label : null;
-    row.openingViolatingTracks = parsed.openingClusterViolations;
-    row.openingFailureOrigin = parsed.openingFailureOrigin;
-    row.openingTenDominantCluster = parsed.openingTenDominantCluster;
-    row.openingTenTrace = parsed.openingTenTrace;
-    row.parseWarnings = parsed.parseWarnings;
-    row.gateBypassed = parsed.gateBypassed;
-    row.bypassReason = parsed.bypassReason;
-    row.executionPath = parsed.executionPath;
-    row.funnelCollapseStage = parsed.funnelCollapseStage;
-    row.tracePresent = parsed.tracePresent;
-
-    if (!parsed.tracePresent) {
-      row.ok = false;
-      row.error = "MISSING_PLAYLIST_EXECUTION_TRACE";
-      row.rejectionReasons = parsed.rejectionReasons;
+    if (fetched.htmlResponse) {
+      row.ok = true;
+      row.humanSaveable = false;
+      row.error = null;
       return row;
     }
 
-    if (!res.ok) {
-      row.error = String(data.message ?? data.error ?? data.code ?? res.status);
-      row.ok = res.status === 422 || parsed.humanSaveable === false;
-      if (row.ok) row.error = null;
-      if (row.rejectionReasons.length === 0 && row.error) {
-        row.rejectionReasons = [`http_error:${row.error}`];
-      }
+    if (!fetched.parsed.tracePresent) {
+      row.ok = false;
+      row.error = "missing_final_trace";
+      return row;
+    }
+
+    if (fetched.fetchError) {
+      row.ok = true;
+      row.humanSaveable = false;
       return row;
     }
 
@@ -177,6 +180,8 @@ async function generateRun(
     return row;
   } catch (err) {
     row.error = err instanceof Error ? err.message : String(err);
+    row.rejectionReasons = [`benchmark_fetch_error:${row.error}`];
+    row.executionPath = "unknown_exit";
     return row;
   }
 }
@@ -200,24 +205,25 @@ async function main(): Promise<void> {
       results.push(row);
       process.stdout.write(
         row.ok
-          ? `  ${row.httpStatus} ${row.humanSaveable ? "PASS" : "FAIL"} path=${row.executionPath ?? "none"} stage=${row.pipelineStageResponsible ?? "n/a"} bypass=${row.gateBypassed ? row.bypassReason : "no"} reasons=${row.rejectionReasons.slice(0, 2).join("; ") || "none"}\n`
+          ? `  ${row.httpStatus} ${row.humanSaveable ? "PASS" : "FAIL"} path=${row.executionPath ?? "none"} stage=${row.pipelineStageResponsible ?? "n/a"} html=${row.htmlResponse ? "yes" : "no"} reasons=${row.rejectionReasons.slice(0, 2).join("; ") || "none"}\n`
           : `  ERROR ${row.error ?? row.rejectionReasons[0] ?? "unknown"}\n`,
       );
       await new Promise((r) => setTimeout(r, 1500));
     }
   }
 
-  const successful = results.filter((r) => r.ok);
-  const humanSaveable = successful.filter((r) => r.humanSaveable);
+  const attributable = results.filter((r) => r.tracePresent || r.htmlResponse || r.executionPath === "invalid_html_response");
+  const humanSaveable = results.filter((r) => r.humanSaveable);
   const reasonCounts = new Map<string, number>();
-  for (const row of successful.filter((r) => !r.humanSaveable)) {
+  for (const row of results.filter((r) => !r.humanSaveable)) {
     const reason = primaryRejectionReason(row);
     reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
   }
-  const parseMissCount = results.filter((r) => !r.tracePresent).length;
+  const missingTraceCount = results.filter((r) => !r.tracePresent && !r.htmlResponse).length;
+  const htmlResponseCount = results.filter((r) => r.htmlResponse).length;
 
   const byPrompt = new Map<string, { pass: number; total: number }>();
-  for (const row of successful) {
+  for (const row of results.filter((r) => r.ok)) {
     const cur = byPrompt.get(row.promptId) ?? { pass: 0, total: 0 };
     cur.total += 1;
     if (row.humanSaveable) cur.pass += 1;
@@ -235,13 +241,14 @@ async function main(): Promise<void> {
 
   const summary = {
     totalRuns: results.length,
-    apiSuccessRuns: successful.length,
+    attributableRuns: attributable.length,
     humanSaveableRuns: humanSaveable.length,
-    humanSaveablePct: successful.length > 0
-      ? Math.round((humanSaveable.length / successful.length) * 1000) / 1000
+    humanSaveablePct: results.length > 0
+      ? Math.round((humanSaveable.length / results.length) * 1000) / 1000
       : 0,
-    parseMissCount,
-    gateSourceCounts: Object.fromEntries(
+    missingTraceCount,
+    htmlResponseCount,
+    executionPathCounts: Object.fromEntries(
       [...results.reduce((map, row) => {
         const key = row.executionPath ?? (row.tracePresent ? "trace" : "missing_trace");
         map.set(key, (map.get(key) ?? 0) + 1);
@@ -264,52 +271,35 @@ async function main(): Promise<void> {
 
   const failed = results.filter((row) => !row.humanSaveable);
   const stageCounts = new Map<string, number>();
-  const artistCounts = new Map<string, number>();
-  const suggestedFixCounts = new Map<string, number>();
   for (const row of failed) {
-    const stage = row.pipelineStageResponsible ?? (row.ok ? "unknown" : "request");
+    const stage = row.pipelineStageResponsible ?? row.executionPath ?? "unknown";
     stageCounts.set(stage, (stageCounts.get(stage) ?? 0) + 1);
-    if (row.suggestedFix) {
-      suggestedFixCounts.set(row.suggestedFix, (suggestedFixCounts.get(row.suggestedFix) ?? 0) + 1);
-    }
-    for (const offender of row.offendingTracks) {
-      artistCounts.set(offender.artist, (artistCounts.get(offender.artist) ?? 0) + 1);
-    }
   }
   const rootCauseReport = {
     generatedAt: new Date().toISOString(),
     baseUrl: creds.baseUrl,
     totalRuns: results.length,
     failedRuns: failed.length,
-    parseMissCount,
+    missingTraceCount,
+    htmlResponseCount,
     failedPlaylists: failed.map((row) => ({
       prompt: row.prompt,
       seed: row.seed,
+      requestId: row.requestId,
       httpStatus: row.httpStatus,
-      responseKind: row.responseKind,
-      gateSource: row.gateSource,
+      executionPath: row.executionPath,
       rejectionReason: primaryRejectionReason(row),
       rejectionReasons: row.rejectionReasons,
       curatorScore: row.curatorScore,
       dominantCluster: row.dominantCluster,
-      archetypeLabel: row.archetypeLabel,
-      opening5: row.opening5,
-      openingTenTrace: row.openingTenTrace,
-      openingTenDominantCluster: row.openingTenDominantCluster,
-      openingViolatingTracks: row.openingViolatingTracks,
-      openingFailureOrigin: row.openingFailureOrigin,
-      offendingTracks: row.offendingTracks,
-      pipelineStageResponsible: row.pipelineStageResponsible ?? (row.ok ? "unknown" : "request"),
-      suggestedFix: row.suggestedFix,
-      parseWarnings: row.parseWarnings,
+      pipelineStageResponsible: row.pipelineStageResponsible,
+      htmlResponse: row.htmlResponse,
+      fetchAttempts: row.fetchAttempts,
     })),
     aggregates: {
-      mostCommonOffendingArtists: [...artistCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([artist, count]) => ({ artist, count })),
-      mostCommonOffendingPipelineStage: [...stageCounts.entries()].sort((a, b) => b[1] - a[1]).map(([stage, count]) => ({ stage, count })),
+      mostCommonPipelineStage: [...stageCounts.entries()].sort((a, b) => b[1] - a[1]).map(([stage, count]) => ({ stage, count })),
+      executionPathCounts: summary.executionPathCounts,
     },
-    rankedFixesByImpact: [...suggestedFixCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([fix, count], idx) => ({ rank: idx + 1, fix, count })),
   };
 
   await mkdir(REPORT_DIR, { recursive: true });

@@ -217,7 +217,7 @@ export function evaluateHumanSaveability(
   const intentFloor = strict ? 0.72 : 0.62;
 
   if (!Number.isFinite(breakdown.curatorScore)) {
-    rejectionReasons.push("curatorScore non-finite (evaluation signal incomplete)");
+    rejectionReasons.push("evaluation_metadata_incomplete:curator_score_non_finite");
   } else if (breakdown.curatorScore < MIN_CURATOR_SCORE) {
     rejectionReasons.push(`curatorScore ${breakdown.curatorScore.toFixed(3)} < ${MIN_CURATOR_SCORE}`);
   }
@@ -321,7 +321,7 @@ export function evaluateHumanSaveability(
       const first = dedupedOffenders[0]!;
       rejectionReasons.push(`offending track rank ${first.rank}: ${first.reason} (${first.artist})`);
     } else if (!Number.isFinite(breakdown.curatorScore)) {
-      rejectionReasons.push("curatorScore non-finite (evaluation signal incomplete)");
+      rejectionReasons.push("evaluation_metadata_incomplete:curator_score_non_finite");
     } else if (breakdown.curatorScore < MIN_CURATOR_SCORE) {
       rejectionReasons.push(`curatorScore ${breakdown.curatorScore.toFixed(3)} < ${MIN_CURATOR_SCORE}`);
     } else {

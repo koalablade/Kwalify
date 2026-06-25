@@ -3,12 +3,14 @@
  * Observability only; does not affect ranking, clustering, or gate thresholds.
  */
 
-export type ExecutionPath =
-  | "full_pipeline"
-  | "fast_fallback"
-  | "timeout_fallback"
-  | "gate_failure"
-  | "partial_pipeline";
+import {
+  type ExecutionPath,
+  isExecutionPath,
+  normalizeExecutionPath,
+} from "./execution-state";
+
+export type { ExecutionPath } from "./execution-state";
+export { EXECUTION_PATHS, isHtmlResponseBody, isExecutionPath } from "./execution-state";
 
 export type StageStatus = "completed" | "failed" | "skipped" | "bypassed";
 
@@ -146,6 +148,10 @@ export function inferRejectionReasons(trace: PlaylistExecutionTrace): string[] {
     inferred.push("execution_path:gate_failure");
   } else if (trace.executionPath === "partial_pipeline") {
     inferred.push("execution_path:partial_pipeline");
+  } else if (trace.executionPath === "invalid_html_response") {
+    inferred.push("api_returned_html");
+  } else if (trace.executionPath === "unknown_exit") {
+    inferred.push("unknown_exit");
   }
 
   if (trace.curatorScore == null && trace.debugFlags.gateExecuted && !trace.debugFlags.gateBypassed) {
@@ -160,7 +166,7 @@ export function inferRejectionReasons(trace: PlaylistExecutionTrace): string[] {
 }
 
 export function finalizeExecutionTrace(draft: PlaylistExecutionTraceDraft): PlaylistExecutionTrace {
-  const executionPath = draft.executionPath ?? "partial_pipeline";
+  const executionPath = normalizeExecutionPath(draft.executionPath, "unknown_exit");
   const stageAttribution = {
     ...defaultStageAttribution(),
     ...(draft.stageAttribution ?? {}),
@@ -210,6 +216,46 @@ export function finalizeExecutionTrace(draft: PlaylistExecutionTraceDraft): Play
   return trace;
 }
 
+/** Alias used by controller/pipeline exit paths. */
+export const finalizePlaylistExecutionTrace = finalizeExecutionTrace;
+
+export function extractFinalPlaylistExecutionTrace(
+  data: Record<string, unknown>,
+): PlaylistExecutionTrace | null {
+  const top = data.playlistExecutionTrace;
+  if (!top || typeof top !== "object") return null;
+  return finalizeExecutionTrace(top as PlaylistExecutionTraceDraft);
+}
+
+export function buildUnknownExitTraceDraft(opts: {
+  requestId: string;
+  prompt: string;
+  seed?: number | string | null;
+  reason: string;
+  timeoutOccurred?: boolean;
+}): PlaylistExecutionTraceDraft {
+  return {
+    requestId: opts.requestId,
+    prompt: opts.prompt,
+    seed: opts.seed ?? null,
+    executionPath: "unknown_exit",
+    humanSaveable: false,
+    rejectionReasons: [`unknown_exit:${opts.reason}`],
+    dominantCluster: null,
+    openingTenClusterTrace: [],
+    funnelCollapseStage: null,
+    fastFallbackUsed: false,
+    curatorScore: null,
+    trackCounts: { retrieved: 0, after_world: 0, after_sampler: 0, final: 0 },
+    stageAttribution: defaultStageAttribution(),
+    debugFlags: {
+      gateExecuted: false,
+      gateBypassed: true,
+      timeoutOccurred: opts.timeoutOccurred === true,
+    },
+  };
+}
+
 export function attachExecutionTrace<T extends Record<string, unknown>>(
   payload: T,
   draft: PlaylistExecutionTraceDraft,
@@ -223,10 +269,9 @@ export function attachExecutionTrace<T extends Record<string, unknown>>(
 export function extractPlaylistExecutionTrace(
   data: Record<string, unknown>,
 ): PlaylistExecutionTrace | null {
-  const top = data.playlistExecutionTrace;
-  if (top && typeof top === "object") {
-    return finalizeExecutionTrace(top as PlaylistExecutionTraceDraft);
-  }
+  const finalTrace = extractFinalPlaylistExecutionTrace(data);
+  if (finalTrace) return finalTrace;
+
   const v3 = asRecord(data.v3Diagnostics);
   const fromV3 = v3?.playlistExecutionTrace;
   if (fromV3 && typeof fromV3 === "object") {
@@ -338,11 +383,20 @@ export function buildGateFailureExecutionTraceDraft(opts: {
     ? opts.gate.rejectionReasons.map(String).filter((r) => r.length > 0 && r !== "unspecified")
     : [];
 
+  const rawCuratorScore = normalizeCuratorScore(opts.gate.curatorScore)
+    ?? normalizeCuratorScore(asRecord(opts.gate.breakdown)?.curatorScore);
+  const evaluationIncomplete = rawCuratorScore == null;
+  if (evaluationIncomplete) {
+    rejectionReasons.push("evaluation_metadata_incomplete:curator_score_non_finite");
+  }
+
+  const executionPath: ExecutionPath = evaluationIncomplete ? "partial_pipeline" : "gate_failure";
+
   return {
     requestId: opts.requestId,
     prompt: opts.prompt,
     seed: opts.seed ?? null,
-    executionPath: "gate_failure",
+    executionPath,
     humanSaveable: false,
     dominantCluster,
     openingTenClusterTrace: Array.isArray(openingTen?.trace)
@@ -351,8 +405,7 @@ export function buildGateFailureExecutionTraceDraft(opts: {
     rejectionReasons,
     funnelCollapseStage,
     fastFallbackUsed: false,
-    curatorScore: normalizeCuratorScore(opts.gate.curatorScore)
-      ?? normalizeCuratorScore(asRecord(opts.gate.breakdown)?.curatorScore),
+    curatorScore: rawCuratorScore,
     trackCounts: {
       retrieved: Number(counts?.retrieval ?? 0),
       after_world: Number(counts?.world_layer ?? 0),
@@ -497,8 +550,8 @@ export function buildV3PipelineExecutionTraceDraft(opts: {
 }
 
 export function assertExecutionTraceInvariants(trace: PlaylistExecutionTrace): void {
-  if (!trace.executionPath) {
-    throw new Error("playlistExecutionTrace.executionPath is required");
+  if (!isExecutionPath(trace.executionPath)) {
+    throw new Error(`playlistExecutionTrace.executionPath invalid: ${String(trace.executionPath)}`);
   }
   if (trace.rejectionReasons.length === 0) {
     throw new Error("playlistExecutionTrace.rejectionReasons must not be empty");

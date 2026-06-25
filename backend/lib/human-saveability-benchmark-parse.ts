@@ -1,12 +1,13 @@
 /**
- * Benchmark parser — consumes ONLY playlistExecutionTrace from /api/generate responses.
+ * Benchmark parser — consumes ONLY top-level playlistExecutionTrace from /api/generate.
  */
 
 import {
   assertExecutionTraceInvariants,
-  extractPlaylistExecutionTrace,
+  extractFinalPlaylistExecutionTrace,
   type PlaylistExecutionTrace,
 } from "../core/observability/playlist-execution-trace";
+import type { ExecutionPath } from "../core/observability/execution-state";
 
 export type ParsedHumanSaveabilityRun = {
   httpStatus: number;
@@ -30,10 +31,27 @@ export type ParsedHumanSaveabilityRun = {
   parseWarnings: string[];
   gateBypassed: boolean;
   bypassReason: string | null;
-  executionPath: PlaylistExecutionTrace["executionPath"] | null;
+  executionPath: ExecutionPath | null;
   funnelCollapseStage: string | null;
   tracePresent: boolean;
 };
+
+function normalizeCuratorScoreForBenchmark(
+  trace: PlaylistExecutionTrace,
+): number | null {
+  if (trace.humanSaveable) {
+    return typeof trace.curatorScore === "number" && Number.isFinite(trace.curatorScore)
+      ? trace.curatorScore
+      : null;
+  }
+  if (typeof trace.curatorScore === "number" && Number.isFinite(trace.curatorScore)) {
+    return trace.curatorScore;
+  }
+  if (trace.rejectionReasons.some((r) => r.includes("curator_score") || r.includes("evaluation_metadata_incomplete"))) {
+    return 0;
+  }
+  return 0;
+}
 
 function firstFailingStage(trace: PlaylistExecutionTrace): string | null {
   const entries = Object.entries(trace.stageAttribution) as Array<[string, { status: string }]>;
@@ -62,17 +80,18 @@ function mapTraceToRun(
         : null;
 
   let responseKind: ParsedHumanSaveabilityRun["responseKind"] = "audit_200";
-  if (httpStatus === 422) responseKind = "gate_422";
+  if (trace.executionPath === "invalid_html_response") responseKind = "error";
+  else if (httpStatus === 422) responseKind = "gate_422";
   else if (httpStatus < 200 || httpStatus >= 300) responseKind = "error";
 
   return {
     httpStatus,
     responseKind,
     humanSaveable: trace.humanSaveable,
-    curatorScore: trace.curatorScore,
+    curatorScore: normalizeCuratorScoreForBenchmark(trace),
     rejectionReasons: trace.rejectionReasons,
     retriesUsed: null,
-    dominantCluster: trace.dominantCluster,
+    dominantCluster: trace.dominantCluster ?? (trace.humanSaveable ? null : "dominant_cluster:not_computed"),
     archetype: null,
     openingTenDominantCluster: trace.openingTenClusterTrace.length > 0
       ? { trace: trace.openingTenClusterTrace }
@@ -104,16 +123,16 @@ export function parseHumanSaveabilityFromGenerateResponse(
     `${t.trackName ?? t.name} — ${t.artistName ?? t.artist}`,
   );
 
-  const trace = extractPlaylistExecutionTrace(data);
+  const trace = extractFinalPlaylistExecutionTrace(data);
   if (!trace) {
     return {
       httpStatus,
       responseKind: "trace_missing",
       humanSaveable: false,
-      curatorScore: null,
-      rejectionReasons: ["benchmark_hard_failure:missing_playlist_execution_trace"],
+      curatorScore: 0,
+      rejectionReasons: ["missing_final_trace"],
       retriesUsed: null,
-      dominantCluster: null,
+      dominantCluster: "dominant_cluster:not_computed",
       archetype: null,
       openingTenDominantCluster: null,
       openingTenTrace: [],
@@ -145,6 +164,6 @@ export function primaryRejectionReasonFromParsed(row: {
 }): string {
   if (row.rejectionReasons.length > 0) return row.rejectionReasons[0]!;
   if (row.parseWarnings.length > 0) return row.parseWarnings[0]!;
-  if (row.error) return row.error;
+  if (row.error) return `benchmark_error:${row.error}`;
   return "benchmark_hard_failure:missing_rejection_reason";
 }
