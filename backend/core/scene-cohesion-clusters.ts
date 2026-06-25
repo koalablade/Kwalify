@@ -586,6 +586,109 @@ export function computeFirstTenClusterConsistency<T extends SceneWorldTrack>(
   return clamp01(sum / firstTen.length);
 }
 
+export type SceneClusterFunnelStage =
+  | "full_library"
+  | "retrieval"
+  | "retrieval_dominant_filter"
+  | "world_layer"
+  | "primary_family"
+  | "strict_cluster_filter"
+  | "sampler_pool"
+  | "opening5_pre_interleaver"
+  | "opening5_post_interleaver";
+
+export type SceneClusterFunnelReport = {
+  dominantClusterId: string | null;
+  dominantClusterLabel: string | null;
+  dominantClusterSizeFullLibrary: number;
+  dominantClusterShifted: boolean;
+  preRetrievalDominantId: string | null;
+  postRetrievalDominantId: string | null;
+  retrievalDominantFilterApplied: boolean;
+  worldLockedFromFullLibrary: boolean;
+  counts: Record<SceneClusterFunnelStage, number>;
+  earliestCollapseStage: SceneClusterFunnelStage | null;
+};
+
+export function countTracksInDominantSceneCluster(
+  trackIds: Iterable<string>,
+  context: SceneWorldContext | null,
+): number {
+  if (!context?.sceneClusters) return 0;
+  const dominantId = context.sceneClusters.dominantClusterId;
+  let count = 0;
+  for (const id of trackIds) {
+    if (context.sceneClusters.trackToClusterId.get(id) === dominantId) count++;
+  }
+  return count;
+}
+
+export function dominantClusterSize(context: SceneWorldContext | null): number {
+  if (!context?.sceneClusters) return 0;
+  return context.sceneClusters.dominantCluster.size;
+}
+
+export function buildSceneClusterFunnelReport(
+  counts: Record<SceneClusterFunnelStage, number>,
+  opts: {
+    context: SceneWorldContext | null;
+    preRetrievalContext: SceneWorldContext | null;
+    postRetrievalRebuiltContext: SceneWorldContext | null;
+    retrievalDominantFilterApplied: boolean;
+    worldLockedFromFullLibrary: boolean;
+    opening5PreInterleaver: number;
+    opening5PostInterleaver: number;
+  },
+): SceneClusterFunnelReport {
+  const dominantClusterId = opts.context?.sceneClusters?.dominantClusterId ?? null;
+  const dominantClusterLabel = opts.context?.sceneClusters?.dominantCluster.label ?? null;
+  const preRetrievalDominantId = opts.preRetrievalContext?.sceneClusters?.dominantClusterId ?? null;
+  const postRetrievalDominantId = opts.postRetrievalRebuiltContext?.sceneClusters?.dominantClusterId ?? null;
+  const dominantClusterShifted = !!(
+    preRetrievalDominantId &&
+    postRetrievalDominantId &&
+    preRetrievalDominantId !== postRetrievalDominantId
+  );
+
+  const orderedStages: SceneClusterFunnelStage[] = [
+    "full_library",
+    "retrieval",
+    "retrieval_dominant_filter",
+    "world_layer",
+    "primary_family",
+    "strict_cluster_filter",
+    "sampler_pool",
+    "opening5_pre_interleaver",
+    "opening5_post_interleaver",
+  ];
+  let earliestCollapseStage: SceneClusterFunnelStage | null = null;
+  for (let i = 1; i < orderedStages.length; i++) {
+    const prev = counts[orderedStages[i - 1]!] ?? 0;
+    const curr = counts[orderedStages[i]!] ?? 0;
+    if (prev >= 5 && curr < 5) {
+      earliestCollapseStage = orderedStages[i]!;
+      break;
+    }
+  }
+
+  return {
+    dominantClusterId,
+    dominantClusterLabel,
+    dominantClusterSizeFullLibrary: dominantClusterSize(opts.preRetrievalContext),
+    dominantClusterShifted,
+    preRetrievalDominantId,
+    postRetrievalDominantId,
+    retrievalDominantFilterApplied: opts.retrievalDominantFilterApplied,
+    worldLockedFromFullLibrary: opts.worldLockedFromFullLibrary,
+    counts: {
+      ...counts,
+      opening5_pre_interleaver: opts.opening5PreInterleaver,
+      opening5_post_interleaver: opts.opening5PostInterleaver,
+    },
+    earliestCollapseStage,
+  };
+}
+
 export function countSceneClusterViolationsRemoved(
   removed: Array<{ removalReason?: string }>,
 ): number {

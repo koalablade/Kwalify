@@ -53,11 +53,14 @@ import {
   type SceneWorldContext,
 } from "../scene-world-layer";
 import {
+  buildSceneClusterFunnelReport,
   computeFirstTenClusterConsistency,
   computeSceneClusterMembershipScore,
+  countTracksInDominantSceneCluster,
   describeSceneClusterViolation,
   openingSceneClusterThreshold,
   shouldRejectForSceneCluster,
+  type SceneClusterFunnelStage,
 } from "../scene-cohesion-clusters";
 import { classifyTrack, type TrackGenreClassification } from "../../lib/genre-taxonomy";
 import type { EraBucket } from "../../lib/intent-parser";
@@ -216,6 +219,42 @@ function resolvedDecisionGenreFamily<T extends V3PipelineTrack>(
     return normalizeLockedGenreFamily(inferred.genreFamily ?? inferred.genrePrimary);
   }
   return null;
+}
+
+function toSceneWorldTrack<T extends V3PipelineTrack>(
+  track: T,
+  opts: {
+    genreByTrack?: (trackId: string) => string;
+    classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
+  },
+) {
+  return {
+    trackId: track.trackId,
+    artistName: track.artistName,
+    genrePrimary: opts.genreByTrack?.(track.trackId) ?? null,
+    genreFamily: opts.classificationByTrack?.(track.trackId)?.genreFamily ?? null,
+    energy: track.energy,
+    valence: track.valence,
+    danceability: track.danceability,
+    acousticness: track.acousticness,
+    tempo: track.tempo,
+    speechiness: track.speechiness,
+    albumName: (track as { albumName?: string | null }).albumName ?? null,
+  };
+}
+
+function emptySceneClusterFunnelCounts(): Record<SceneClusterFunnelStage, number> {
+  return {
+    full_library: 0,
+    retrieval: 0,
+    retrieval_dominant_filter: 0,
+    world_layer: 0,
+    primary_family: 0,
+    strict_cluster_filter: 0,
+    sampler_pool: 0,
+    opening5_pre_interleaver: 0,
+    opening5_post_interleaver: 0,
+  };
 }
 
 function decisionMatchesConstraints<T extends V3PipelineTrack>(
@@ -796,19 +835,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const preRetrievalSceneWorld = buildSceneWorldContext({
     vibe,
     lockedIntent,
-    tracks: retrievalInputTracks.map((track) => ({
-      trackId: track.trackId,
-      artistName: track.artistName,
-      genrePrimary: opts.genreByTrack?.(track.trackId) ?? null,
-      genreFamily: opts.classificationByTrack?.(track.trackId)?.genreFamily ?? null,
-      energy: track.energy,
-      valence: track.valence,
-      danceability: track.danceability,
-      acousticness: track.acousticness,
-      tempo: track.tempo,
-      speechiness: track.speechiness,
-      albumName: (track as { albumName?: string | null }).albumName ?? null,
-    })),
+    tracks: retrievalInputTracks.map((track) => toSceneWorldTrack(track, opts)),
     seed: opts.seed != null ? String(opts.seed) : vibe,
     playlistAdjacency: opts.playlistAdjacency,
     likedAdjacency: opts.likedAdjacency,
@@ -878,30 +905,53 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       "retrieveCandidatesByEmbedding",
     ),
   ];
-  const retrievedTracks = retrievalCloud.tracks.map((candidate) => candidate.track);
-  const retrievalByTrack = new Map(
-    retrievalCloud.tracks.map((candidate) => [candidate.track.trackId, candidate])
+  const sceneClusterFunnelCounts = emptySceneClusterFunnelCounts();
+  sceneClusterFunnelCounts.full_library = countTracksInDominantSceneCluster(
+    retrievalInputTracks.map((track) => track.trackId),
+    preRetrievalSceneWorld,
   );
-  const sceneWorldContext = buildSceneWorldContext({
+  sceneClusterFunnelCounts.retrieval = countTracksInDominantSceneCluster(
+    retrievalCloud.tracks.map((candidate) => candidate.track.trackId),
+    preRetrievalSceneWorld,
+  );
+
+  let retrievalDominantFilterApplied = false;
+  let activeRetrievalCloud = retrievalCloud;
+  if (humanSaveStrictMode && preRetrievalSceneWorld?.sceneClusters) {
+    const dominantId = preRetrievalSceneWorld.sceneClusters.dominantClusterId;
+    const minDominantPool = Math.max(25, targetCount * 2);
+    const dominantOnly = activeRetrievalCloud.tracks.filter(
+      (candidate) => preRetrievalSceneWorld.sceneClusters!.trackToClusterId.get(candidate.track.trackId) === dominantId,
+    );
+    if (dominantOnly.length >= minDominantPool) {
+      activeRetrievalCloud = { ...activeRetrievalCloud, tracks: dominantOnly };
+      retrievalDominantFilterApplied = true;
+    }
+  }
+  if (retrievalDominantFilterApplied) {
+    retrievalCloud = activeRetrievalCloud;
+  }
+  const retrievedTracks = activeRetrievalCloud.tracks.map((candidate) => candidate.track);
+  const retrievalByTrack = new Map(
+    activeRetrievalCloud.tracks.map((candidate) => [candidate.track.trackId, candidate]),
+  );
+  sceneClusterFunnelCounts.retrieval_dominant_filter = countTracksInDominantSceneCluster(
+    retrievedTracks.map((track) => track.trackId),
+    preRetrievalSceneWorld,
+  );
+
+  const postRetrievalRebuiltWorld = buildSceneWorldContext({
     vibe,
     lockedIntent,
-    tracks: retrievedTracks.map((track) => ({
-      trackId: track.trackId,
-      artistName: track.artistName,
-      genrePrimary: opts.genreByTrack?.(track.trackId) ?? null,
-      genreFamily: opts.classificationByTrack?.(track.trackId)?.genreFamily ?? null,
-      energy: track.energy,
-      valence: track.valence,
-      danceability: track.danceability,
-      acousticness: track.acousticness,
-      tempo: track.tempo,
-      speechiness: track.speechiness,
-      albumName: (track as { albumName?: string | null }).albumName ?? null,
-    })),
+    tracks: retrievedTracks.map((track) => toSceneWorldTrack(track, opts)),
     seed: opts.seed != null ? String(opts.seed) : vibe,
     playlistAdjacency: opts.playlistAdjacency,
     likedAdjacency: opts.likedAdjacency,
-  }) ?? preRetrievalSceneWorld;
+  });
+  const worldLockedFromFullLibrary = humanSaveStrictMode && !!preRetrievalSceneWorld?.active;
+  const sceneWorldContext = worldLockedFromFullLibrary
+    ? preRetrievalSceneWorld
+    : (postRetrievalRebuiltWorld ?? preRetrievalSceneWorld);
   const sceneWorldStrict = !!sceneWorldContext?.strictMode;
   const sceneWorldProofAcc = opts.sceneWorldProof && sceneWorldContext?.active
     ? createSceneWorldProofAccumulator<T>()
@@ -1244,6 +1294,34 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         .sort((a, b) => b.finalScore - a.finalScore)
       : engineResult.decisions;
 
+    if (sceneWorldContext?.sceneClusters) {
+      const dominantId = sceneWorldContext.sceneClusters.dominantClusterId;
+      let worldLayerDominant = 0;
+      let primaryFamilyDominant = 0;
+      for (const decision of engineResult.decisions) {
+        const worldTrack = toSceneWorldTrack(decision.track, opts);
+        const sceneClusterId = sceneWorldContext.sceneClusters.trackToClusterId.get(decision.track.trackId);
+        if (sceneClusterId !== dominantId) continue;
+        const membership = computeWorldMembershipScore(worldTrack, sceneWorldContext);
+        const clusterReject = shouldRejectForSceneCluster(worldTrack, sceneWorldContext);
+        if (membership >= 0.26 && !clusterReject) {
+          worldLayerDominant++;
+          if (!humanSaveStrictMode || strictPrimaryFamilies.size === 0) {
+            primaryFamilyDominant++;
+          } else {
+            const family = resolvedDecisionGenreFamily(decision, {
+              classificationByTrack: opts.classificationByTrack,
+            });
+            if (family && strictPrimaryFamilies.has(family.toLowerCase())) {
+              primaryFamilyDominant++;
+            }
+          }
+        }
+      }
+      sceneClusterFunnelCounts.world_layer = Math.max(sceneClusterFunnelCounts.world_layer, worldLayerDominant);
+      sceneClusterFunnelCounts.primary_family = Math.max(sceneClusterFunnelCounts.primary_family, primaryFamilyDominant);
+    }
+
     // Headroom: 3× target so the sampler has enough valid choices.
     const laneTarget = Math.max(
       Math.ceil(targetCount * lane.weight * 3),
@@ -1272,10 +1350,14 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         if (strictPrimaryFamilies.size > 0 && (!family || !strictPrimaryFamilies.has(family.toLowerCase()))) {
           return false;
         }
-        const clusterIds = clusteredPool.trackToClusterIds.get(decision.track.trackId) ?? [];
-        if (!clusterIds.includes(dominantClusterId)) return false;
+        const sceneClusterId = sceneWorldContext.sceneClusters!.trackToClusterId.get(decision.track.trackId);
+        if (sceneClusterId !== dominantClusterId) return false;
         return computeSceneClusterMembershipScore(decision.track, sceneWorldContext) >= 0.80;
       });
+      sceneClusterFunnelCounts.strict_cluster_filter = Math.max(
+        sceneClusterFunnelCounts.strict_cluster_filter,
+        strictClusteredTracks.length,
+      );
       if (strictClusteredTracks.length > 0) {
         clusteredPool = {
           ...clusteredPool,
@@ -1325,6 +1407,13 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     endLaneSamplingProfile?.();
     recordTraceCount(opts.pipelineTrace, `v3.${lane.id}.sampled`, clusterResult.tracks.length);
     await yieldV3();
+    if (sceneWorldContext?.sceneClusters) {
+      const dominantId = sceneWorldContext.sceneClusters.dominantClusterId;
+      const samplerDominant = clusteredPool.scoredTracks.filter(
+        (decision) => sceneWorldContext.sceneClusters!.trackToClusterId.get(decision.track.trackId) === dominantId,
+      ).length;
+      sceneClusterFunnelCounts.sampler_pool = Math.max(sceneClusterFunnelCounts.sampler_pool, samplerDominant);
+    }
     forensicTrace.push(stageTrace(
       `sampler input count:${lane.id}`,
       clusteredPool.scoredTracks.length,
@@ -1459,6 +1548,27 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     insufficientOpeningWorldReason = strictOpening.insufficientOpeningWorldReason;
   }
   const postInterleaverOpeningAudit = openingClusterAudit(finalTracks, sceneWorldContext);
+  const opening5PreInterleaver = sceneWorldContext?.sceneClusters
+    ? preInterleaverPreview.filter(
+      (track) => sceneWorldContext.sceneClusters!.trackToClusterId.get(track.trackId)
+        === sceneWorldContext.sceneClusters!.dominantClusterId,
+    ).length
+    : 0;
+  const opening5PostInterleaver = sceneWorldContext?.sceneClusters
+    ? finalTracks.slice(0, 5).filter(
+      (track) => sceneWorldContext.sceneClusters!.trackToClusterId.get(track.trackId)
+        === sceneWorldContext.sceneClusters!.dominantClusterId,
+    ).length
+    : 0;
+  const sceneClusterFunnel = buildSceneClusterFunnelReport(sceneClusterFunnelCounts, {
+    context: sceneWorldContext,
+    preRetrievalContext: preRetrievalSceneWorld,
+    postRetrievalRebuiltContext: postRetrievalRebuiltWorld,
+    retrievalDominantFilterApplied,
+    worldLockedFromFullLibrary,
+    opening5PreInterleaver,
+    opening5PostInterleaver,
+  });
   const interleaverPurityDegraded =
     postInterleaverOpeningAudit.openingClusterPurity < preInterleaverOpeningAudit.openingClusterPurity;
   if (interleaverPurityDegraded) {
@@ -1529,6 +1639,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     retriesUsed: humanSaveGate.retriesUsed,
     maxRetries: 2,
     hardFailed: !humanSaveGate.passed,
+    sceneClusterFunnel,
   };
 
   if (!humanSaveGate.passed || interleaverPurityDegraded || !!insufficientOpeningWorldReason) {
@@ -1546,6 +1657,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         interleaverAudit: humanSaveabilityDiagnostics.interleaverAudit,
         dominantCluster: postInterleaverOpeningAudit.dominantClusterLabel,
         opening5Violations: postInterleaverOpeningAudit.openingClusterViolations,
+        sceneClusterFunnel,
       } as Record<string, unknown>,
     );
   }
@@ -2156,6 +2268,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       : { active: false },
 
     humanSaveabilityGate: humanSaveabilityDiagnostics,
+    sceneClusterFunnel,
     sceneWorldProof,
   };
 
