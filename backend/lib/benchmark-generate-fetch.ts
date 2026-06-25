@@ -69,6 +69,28 @@ function traceToParsed(
   const firstTen = tracks.slice(0, 10).map((t) =>
     `${t.trackName ?? t.name} — ${t.artistName ?? t.artist}`,
   );
+  const firstTwenty = tracks.slice(0, 20).map((t) =>
+    `${t.trackName ?? t.name} — ${t.artistName ?? t.artist}`,
+  );
+  const first15 = tracks.slice(0, 15);
+  const artistCounts = new Map<string, number>();
+  for (const track of first15) {
+    const artist = String(track.artistName ?? track.artist ?? "unknown").toLowerCase();
+    artistCounts.set(artist, (artistCounts.get(artist) ?? 0) + 1);
+  }
+  const duplicateArtists = [...artistCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([artist]) => artist);
+  const maxInFirst15 = duplicateArtists.length > 0
+    ? Math.max(...duplicateArtists.map((artist) => artistCounts.get(artist) ?? 0))
+    : 1;
+  const energyProgression = tracks.slice(0, 20).map((track) => {
+    const energy = track.energy;
+    return typeof energy === "number" && Number.isFinite(energy) ? energy : 0.5;
+  });
+  const clusters = tracks.slice(0, 20).map((track) => String(track.genreFamily ?? track.genrePrimary ?? "unknown"));
+  const clusterConsistency = clusters.length > 0 ? new Set(clusters).size / clusters.length : null;
+
   let responseKind: ParsedHumanSaveabilityRun["responseKind"] = "audit_200";
   if (trace.executionPath === "invalid_html_response") responseKind = "error";
   else if (httpStatus === 422) responseKind = "gate_422";
@@ -103,6 +125,11 @@ function traceToParsed(
     executionPath: trace.executionPath,
     funnelCollapseStage: trace.funnelCollapseStage,
     tracePresent: true,
+    intentCollapseLayer: trace.intentCollapseLayer as Record<string, unknown> | null ?? null,
+    firstTwenty,
+    artistRepetition: { maxInFirst15, duplicateArtists },
+    energyProgression,
+    clusterConsistency,
   };
 }
 

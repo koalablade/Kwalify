@@ -67,6 +67,14 @@ type RunRow = {
   tracePresent: boolean;
   htmlResponse: boolean;
   fetchAttempts: number;
+  intentCollapseLayer: Record<string, unknown> | null;
+  firstTwenty: string[];
+  artistRepetition: {
+    maxInFirst15: number;
+    duplicateArtists: string[];
+  } | null;
+  energyProgression: number[];
+  clusterConsistency: number | null;
 };
 
 function applyParsed(row: RunRow, parsed: ParsedHumanSaveabilityRun): void {
@@ -94,6 +102,11 @@ function applyParsed(row: RunRow, parsed: ParsedHumanSaveabilityRun): void {
   row.executionPath = parsed.executionPath;
   row.funnelCollapseStage = parsed.funnelCollapseStage;
   row.tracePresent = parsed.tracePresent;
+  row.intentCollapseLayer = parsed.intentCollapseLayer;
+  row.firstTwenty = parsed.firstTwenty;
+  row.artistRepetition = parsed.artistRepetition;
+  row.energyProgression = parsed.energyProgression;
+  row.clusterConsistency = parsed.clusterConsistency;
 }
 
 async function generateRun(
@@ -138,6 +151,11 @@ async function generateRun(
     tracePresent: false,
     htmlResponse: false,
     fetchAttempts: 0,
+    intentCollapseLayer: null,
+    firstTwenty: [],
+    artistRepetition: null,
+    energyProgression: [],
+    clusterConsistency: null,
   };
 
   try {

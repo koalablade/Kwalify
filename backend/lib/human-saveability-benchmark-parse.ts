@@ -34,6 +34,14 @@ export type ParsedHumanSaveabilityRun = {
   executionPath: ExecutionPath | null;
   funnelCollapseStage: string | null;
   tracePresent: boolean;
+  intentCollapseLayer: Record<string, unknown> | null;
+  firstTwenty: string[];
+  artistRepetition: {
+    maxInFirst15: number;
+    duplicateArtists: string[];
+  } | null;
+  energyProgression: number[];
+  clusterConsistency: number | null;
 };
 
 function normalizeCuratorScoreForBenchmark(
@@ -61,6 +69,45 @@ function firstFailingStage(trace: PlaylistExecutionTrace): string | null {
   return null;
 }
 
+function analyzeTrackMetrics(tracks: Array<Record<string, unknown>>): {
+  firstTwenty: string[];
+  artistRepetition: ParsedHumanSaveabilityRun["artistRepetition"];
+  energyProgression: number[];
+  clusterConsistency: number | null;
+} {
+  const firstTwenty = tracks.slice(0, 20).map((t) =>
+    `${t.trackName ?? t.name} — ${t.artistName ?? t.artist}`,
+  );
+  const first15 = tracks.slice(0, 15);
+  const artistCounts = new Map<string, number>();
+  for (const track of first15) {
+    const artist = String(track.artistName ?? track.artist ?? "unknown").toLowerCase();
+    artistCounts.set(artist, (artistCounts.get(artist) ?? 0) + 1);
+  }
+  const duplicateArtists = [...artistCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([artist]) => artist);
+  const maxInFirst15 = duplicateArtists.length > 0
+    ? Math.max(...duplicateArtists.map((artist) => artistCounts.get(artist) ?? 0))
+    : 1;
+
+  const energyProgression = tracks.slice(0, 20).map((track) => {
+    const energy = track.energy;
+    return typeof energy === "number" && Number.isFinite(energy) ? energy : 0.5;
+  });
+
+  const clusters = tracks.slice(0, 20).map((track) => String(track.genreFamily ?? track.genrePrimary ?? "unknown"));
+  const uniqueClusters = new Set(clusters).size;
+  const clusterConsistency = clusters.length > 0 ? uniqueClusters / clusters.length : null;
+
+  return {
+    firstTwenty,
+    artistRepetition: { maxInFirst15, duplicateArtists },
+    energyProgression,
+    clusterConsistency,
+  };
+}
+
 function mapTraceToRun(
   httpStatus: number,
   data: Record<string, unknown>,
@@ -70,6 +117,10 @@ function mapTraceToRun(
   const firstTen = tracks.slice(0, 10).map((t) =>
     `${t.trackName ?? t.name} — ${t.artistName ?? t.artist}`,
   );
+  const trackMetrics = analyzeTrackMetrics(tracks);
+  const v3 = data.v3Diagnostics as Record<string, unknown> | undefined;
+  const gate = v3?.humanSaveabilityGate as Record<string, unknown> | undefined;
+  const intentFromGate = gate?.intentCollapseLayer as Record<string, unknown> | undefined;
   const interleaverDiff = trace.stageAttribution.interleaver.diff;
   const interleaverDetail = trace.stageAttribution.interleaver.detail;
   const openingFailureOrigin =
@@ -111,6 +162,11 @@ function mapTraceToRun(
     executionPath: trace.executionPath,
     funnelCollapseStage: trace.funnelCollapseStage,
     tracePresent: true,
+    intentCollapseLayer: trace.intentCollapseLayer as Record<string, unknown> | null ?? intentFromGate ?? null,
+    firstTwenty: trackMetrics.firstTwenty,
+    artistRepetition: trackMetrics.artistRepetition,
+    energyProgression: trackMetrics.energyProgression,
+    clusterConsistency: trackMetrics.clusterConsistency,
   };
 }
 
@@ -122,6 +178,7 @@ export function parseHumanSaveabilityFromGenerateResponse(
   const firstTen = tracks.slice(0, 10).map((t) =>
     `${t.trackName ?? t.name} — ${t.artistName ?? t.artist}`,
   );
+  const trackMetrics = analyzeTrackMetrics(tracks);
 
   const trace = extractFinalPlaylistExecutionTrace(data);
   if (!trace) {
@@ -150,6 +207,11 @@ export function parseHumanSaveabilityFromGenerateResponse(
       executionPath: null,
       funnelCollapseStage: null,
       tracePresent: false,
+      intentCollapseLayer: null,
+      firstTwenty: trackMetrics.firstTwenty,
+      artistRepetition: trackMetrics.artistRepetition,
+      energyProgression: trackMetrics.energyProgression,
+      clusterConsistency: trackMetrics.clusterConsistency,
     };
   }
 

@@ -20,6 +20,36 @@ export type StageAttributionEntry = {
   diff: Record<string, unknown> | null;
 };
 
+export type EditorialStabiliserTrace = {
+  identityDriftScore: number;
+  repetitionRiskScore: number;
+  arcStabilityScore: number;
+  openingIntegrityScore: number;
+  openingSwapsPerformed: number;
+  arcSwapsPerformed: number;
+  repetitionDemotions: number;
+  embeddingStreakBreaks: number;
+  applied: boolean;
+};
+
+export type IntentCollapseLayerTrace = {
+  primaryMood: string;
+  editorialWorldTag: string;
+  energyRange: [number, number];
+  rhythmDensityCap: number;
+  allowedMicroClusters: string[];
+  collapseConfidenceScore: number;
+};
+
+export type EditorialLayerTrace = {
+  repetitionScore: number;
+  arcScore: number;
+  textureVarianceScore: number;
+  flowScore: number;
+  swapsPerformed: number;
+  monotonyFixesApplied: number;
+};
+
 export type PlaylistExecutionTrace = {
   requestId: string;
   prompt: string;
@@ -39,6 +69,9 @@ export type PlaylistExecutionTrace = {
   funnelCollapseStage: string | null;
   fastFallbackUsed: boolean;
   curatorScore: number | null;
+  editorialLayer: EditorialLayerTrace | null;
+  editorialStabiliser: EditorialStabiliserTrace | null;
+  intentCollapseLayer: IntentCollapseLayerTrace | null;
   trackCounts: {
     retrieved: number;
     after_world: number;
@@ -90,6 +123,94 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 function normalizeCuratorScore(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return value;
+}
+
+function normalizeIntentCollapseLayer(value: unknown): IntentCollapseLayerTrace | null {
+  const row = asRecord(value);
+  if (!row) return null;
+  const primaryMood = typeof row.primaryMood === "string" ? row.primaryMood : null;
+  const editorialWorldTag = typeof row.editorialWorldTag === "string" ? row.editorialWorldTag : null;
+  const rhythmDensityCap = typeof row.rhythmDensityCap === "number" ? row.rhythmDensityCap : null;
+  const collapseConfidenceScore = typeof row.collapseConfidenceScore === "number"
+    ? row.collapseConfidenceScore
+    : null;
+  const energyRange = Array.isArray(row.energyRange) && row.energyRange.length === 2
+    ? [Number(row.energyRange[0]), Number(row.energyRange[1])] as [number, number]
+    : null;
+  const allowedMicroClusters = Array.isArray(row.allowedMicroClusters)
+    ? row.allowedMicroClusters.map(String)
+    : null;
+  if (
+    !primaryMood ||
+    !editorialWorldTag ||
+    rhythmDensityCap == null ||
+    collapseConfidenceScore == null ||
+    !energyRange ||
+    !allowedMicroClusters
+  ) {
+    return null;
+  }
+  return {
+    primaryMood,
+    editorialWorldTag,
+    energyRange,
+    rhythmDensityCap,
+    allowedMicroClusters,
+    collapseConfidenceScore,
+  };
+}
+
+function normalizeEditorialStabiliser(value: unknown): EditorialStabiliserTrace | null {
+  const row = asRecord(value);
+  if (!row) return null;
+  const identityDriftScore = typeof row.identityDriftScore === "number" ? row.identityDriftScore : null;
+  const repetitionRiskScore = typeof row.repetitionRiskScore === "number" ? row.repetitionRiskScore : null;
+  const arcStabilityScore = typeof row.arcStabilityScore === "number" ? row.arcStabilityScore : null;
+  const openingIntegrityScore = typeof row.openingIntegrityScore === "number" ? row.openingIntegrityScore : null;
+  if (
+    identityDriftScore == null ||
+    repetitionRiskScore == null ||
+    arcStabilityScore == null ||
+    openingIntegrityScore == null
+  ) {
+    return null;
+  }
+  return {
+    identityDriftScore,
+    repetitionRiskScore,
+    arcStabilityScore,
+    openingIntegrityScore,
+    openingSwapsPerformed: typeof row.openingSwapsPerformed === "number" ? row.openingSwapsPerformed : 0,
+    arcSwapsPerformed: typeof row.arcSwapsPerformed === "number" ? row.arcSwapsPerformed : 0,
+    repetitionDemotions: typeof row.repetitionDemotions === "number" ? row.repetitionDemotions : 0,
+    embeddingStreakBreaks: typeof row.embeddingStreakBreaks === "number" ? row.embeddingStreakBreaks : 0,
+    applied: row.applied === true,
+  };
+}
+
+function normalizeEditorialLayer(value: unknown): EditorialLayerTrace | null {
+  const row = asRecord(value);
+  if (!row) return null;
+  const repetitionScore = typeof row.repetitionScore === "number" ? row.repetitionScore : null;
+  const arcScore = typeof row.arcScore === "number" ? row.arcScore : null;
+  const textureVarianceScore = typeof row.textureVarianceScore === "number" ? row.textureVarianceScore : null;
+  const flowScore = typeof row.flowScore === "number" ? row.flowScore : null;
+  if (
+    repetitionScore == null ||
+    arcScore == null ||
+    textureVarianceScore == null ||
+    flowScore == null
+  ) {
+    return null;
+  }
+  return {
+    repetitionScore,
+    arcScore,
+    textureVarianceScore,
+    flowScore,
+    swapsPerformed: typeof row.swapsPerformed === "number" ? row.swapsPerformed : 0,
+    monotonyFixesApplied: typeof row.monotonyFixesApplied === "number" ? row.monotonyFixesApplied : 0,
+  };
 }
 
 function mapFunnelStageToAttributionKey(stage: string | null): StageKey | null {
@@ -199,6 +320,9 @@ export function finalizeExecutionTrace(draft: PlaylistExecutionTraceDraft): Play
     funnelCollapseStage,
     fastFallbackUsed: draft.fastFallbackUsed === true,
     curatorScore: normalizeCuratorScore(draft.curatorScore),
+    editorialLayer: normalizeEditorialLayer(draft.editorialLayer),
+    editorialStabiliser: normalizeEditorialStabiliser(draft.editorialStabiliser),
+    intentCollapseLayer: normalizeIntentCollapseLayer(draft.intentCollapseLayer),
     trackCounts: {
       retrieved: draft.trackCounts?.retrieved ?? 0,
       after_world: draft.trackCounts?.after_world ?? 0,
@@ -331,12 +455,59 @@ export function buildFallbackExecutionTraceDraft(opts: {
   };
 }
 
+export function buildIntentCollapseFailureTraceDraft(opts: {
+  requestId: string;
+  prompt: string;
+  seed?: number | string | null;
+  intentCollapseLayer: IntentCollapseLayerTrace;
+  preFilterCount?: number;
+  postFilterCount?: number;
+}): PlaylistExecutionTraceDraft {
+  return {
+    requestId: opts.requestId,
+    prompt: opts.prompt,
+    seed: opts.seed ?? null,
+    executionPath: "partial_pipeline",
+    humanSaveable: false,
+    dominantCluster: opts.intentCollapseLayer.editorialWorldTag,
+    openingTenClusterTrace: [],
+    funnelCollapseStage: "intent_collapse_pre_sampler",
+    fastFallbackUsed: false,
+    curatorScore: null,
+    intentCollapseLayer: opts.intentCollapseLayer,
+    rejectionReasons: [
+      `insufficient_intent_pool:post_filter=${opts.postFilterCount ?? 0}`,
+    ],
+    trackCounts: {
+      retrieved: opts.preFilterCount ?? 0,
+      after_world: 0,
+      after_sampler: 0,
+      final: 0,
+    },
+    stageAttribution: {
+      retrieval: { status: "completed", detail: null, diff: null },
+      scene_world: { status: "skipped", detail: null, diff: null },
+      sampler: { status: "skipped", detail: "intent_collapse_insufficient_pool", diff: null },
+      interleaver: { status: "skipped", detail: null, diff: null },
+      editorial_audit: { status: "skipped", detail: null, diff: null },
+    },
+    debugFlags: {
+      gateExecuted: false,
+      gateBypassed: true,
+      timeoutOccurred: false,
+    },
+  };
+}
+
 export function buildGateFailureExecutionTraceDraft(opts: {
   requestId: string;
   prompt: string;
   seed?: number | string | null;
   gate: Record<string, unknown>;
   attribution?: Record<string, unknown> | null;
+  editorialLayer?: EditorialLayerTrace | null;
+  editorialStabiliser?: EditorialStabiliserTrace | null;
+  intentCollapseLayer?: IntentCollapseLayerTrace | null;
 }): PlaylistExecutionTraceDraft {
   const attribution = opts.attribution ?? asRecord(opts.gate.attribution);
   const funnel = asRecord(opts.gate.sceneClusterFunnel) ?? asRecord(attribution?.sceneClusterFunnel);
@@ -406,6 +577,9 @@ export function buildGateFailureExecutionTraceDraft(opts: {
     funnelCollapseStage,
     fastFallbackUsed: false,
     curatorScore: rawCuratorScore,
+    editorialLayer: opts.editorialLayer ?? null,
+    editorialStabiliser: opts.editorialStabiliser ?? null,
+    intentCollapseLayer: opts.intentCollapseLayer ?? null,
     trackCounts: {
       retrieved: Number(counts?.retrieval ?? 0),
       after_world: Number(counts?.world_layer ?? 0),
@@ -455,6 +629,9 @@ export function buildV3PipelineExecutionTraceDraft(opts: {
   openingTenDominantCluster: Record<string, unknown> | null;
   interleaverAudit?: Record<string, unknown> | null;
   dominantClusterLabel?: string | null;
+  editorialLayer?: EditorialLayerTrace | null;
+  editorialStabiliser?: EditorialStabiliserTrace | null;
+  intentCollapseLayer?: IntentCollapseLayerTrace | null;
   retrievedCount: number;
   finalTrackCount: number;
   partialPipeline?: boolean;
@@ -499,7 +676,29 @@ export function buildV3PipelineExecutionTraceDraft(opts: {
     };
   }
   if (opts.gateExecuted) {
-    stageAttribution.editorial_audit = { status: "completed", detail: null, diff: null };
+    stageAttribution.editorial_audit = {
+      status: "completed",
+      detail: opts.editorialLayer ? "human_saveability_polish_layer" : null,
+      diff: opts.editorialLayer || opts.editorialStabiliser
+        ? {
+            ...(opts.editorialLayer
+              ? {
+                  repetitionScore: opts.editorialLayer.repetitionScore,
+                  flowScore: opts.editorialLayer.flowScore,
+                  swapsPerformed: opts.editorialLayer.swapsPerformed,
+                  monotonyFixesApplied: opts.editorialLayer.monotonyFixesApplied,
+                }
+              : {}),
+            ...(opts.editorialStabiliser
+              ? {
+                  stabiliserApplied: opts.editorialStabiliser.applied,
+                  openingIntegrityScore: opts.editorialStabiliser.openingIntegrityScore,
+                  identityDriftScore: opts.editorialStabiliser.identityDriftScore,
+                }
+              : {}),
+          }
+        : null,
+    };
   }
 
   const funnelStageKey = mapFunnelStageToAttributionKey(funnelCollapseStage);
@@ -534,6 +733,9 @@ export function buildV3PipelineExecutionTraceDraft(opts: {
     funnelCollapseStage: opts.humanSaveable ? null : funnelCollapseStage,
     fastFallbackUsed: opts.fastFallback === true,
     curatorScore: normalizeCuratorScore(opts.humanSaveabilityGate.curatorScore),
+    editorialLayer: opts.editorialLayer ?? null,
+    editorialStabiliser: opts.editorialStabiliser ?? null,
+    intentCollapseLayer: opts.intentCollapseLayer ?? null,
     trackCounts: {
       retrieved: opts.retrievedCount,
       after_world: Number(counts?.world_layer ?? 0),

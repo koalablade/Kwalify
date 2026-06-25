@@ -1,0 +1,135 @@
+/**
+ * Unit tests for intent collapse pre-generation layer.
+ *
+ * Run: npm run test:intent-collapse-layer
+ */
+
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  collapseIntent,
+  filterCandidatesByIntentVector,
+  minimumIntentPoolSize,
+  selectEditorialWorld,
+  trackMatchesEditorialIntent,
+  trackMicroCluster,
+} from "../core/editorial/intent-collapse-layer";
+import type { LockedIntent } from "../core/v3/intent";
+import type { EmotionProfile } from "../lib/emotion";
+
+type TestTrack = {
+  trackId: string;
+  genreFamily: string;
+  energy: number;
+  valence: number;
+  danceability: number;
+  acousticness: number;
+  tempo: number;
+};
+
+const baseProfile: EmotionProfile = {
+  energy: 0.45,
+  valence: 0.42,
+  tension: 0.3,
+  nostalgia: 0.4,
+  calm: 0.55,
+  environment: null,
+  timeOfDay: null,
+  motionState: null,
+};
+
+const rainyWalkIntent: LockedIntent = {
+  genreFamilies: ["indie", "folk"],
+  primaryGenre: "indie",
+  primarySubgenre: null,
+  secondarySubgenre: null,
+  subgenreTerms: [],
+  eraRange: null,
+  mood: ["reflective"],
+  activity: "walk",
+  energy: "low",
+};
+
+function buildRainWalkTracks(count: number): TestTrack[] {
+  const tracks: TestTrack[] = [];
+  for (let i = 0; i < count; i++) {
+    tracks.push({
+      trackId: `t${i}`,
+      genreFamily: i % 3 === 0 ? "folk" : "indie",
+      energy: 0.38 + (i % 4) * 0.03,
+      valence: 0.36 + (i % 3) * 0.04,
+      danceability: 0.38,
+      acousticness: 0.58,
+      tempo: 102,
+    });
+  }
+  return tracks;
+}
+
+describe("intent collapse layer", () => {
+  it("collapses rainy walk prompt into a single editorial world", () => {
+    const collapsed = collapseIntent({
+      vibe: "rainy city walk reflective",
+      lockedIntent: rainyWalkIntent,
+      profile: baseProfile,
+      strictMode: true,
+    });
+    assert.equal(collapsed.intent.sceneType, "walk");
+    assert.ok(collapsed.intent.editorialWorldTag.includes("rain") || collapsed.intent.editorialWorldTag.includes("folk"));
+    assert.ok(collapsed.intent.allowedMicroClusters.length > 0);
+    assert.ok(collapsed.collapseConfidenceScore >= 0.5);
+  });
+
+  it("selects highest-cohesion world on ambiguity", () => {
+    const world = selectEditorialWorld({
+      vibe: "cozy sunday morning soft indie",
+      lockedIntent: { ...rainyWalkIntent, mood: ["comfort"], activity: null, energy: "low" },
+      profile: { ...baseProfile, valence: 0.58 },
+      primaryMood: "comfort",
+      sceneType: "sunday",
+      strictMode: true,
+    });
+    assert.ok(world.cohesionScore >= 0.86);
+    assert.equal(world.primaryFamilies.includes("indie"), true);
+  });
+
+  it("hard-filters incompatible candidates by intent vector", () => {
+    const collapsed = collapseIntent({
+      vibe: "rainy city walk reflective",
+      lockedIntent: rainyWalkIntent,
+      profile: baseProfile,
+      strictMode: true,
+    });
+    const compatible = buildRainWalkTracks(20);
+    const incompatible = buildRainWalkTracks(5).map((track, idx) => ({
+      ...track,
+      trackId: `x${idx}`,
+      genreFamily: "metal",
+      energy: 0.9,
+      valence: 0.8,
+      acousticness: 0.1,
+      danceability: 0.9,
+    }));
+    const filtered = filterCandidatesByIntentVector([...compatible, ...incompatible], collapsed.intent);
+    assert.equal(filtered.length, compatible.length);
+    assert.ok(filtered.every((track) => trackMatchesEditorialIntent(track, collapsed.intent)));
+  });
+
+  it("derives deterministic micro clusters", () => {
+    const micro = trackMicroCluster({
+      trackId: "a",
+      genreFamily: "indie",
+      energy: 0.4,
+      valence: 0.4,
+      danceability: 0.4,
+      acousticness: 0.62,
+      tempo: 100,
+    });
+    assert.equal(micro, "indie:acoustic");
+  });
+
+  it("defines strict minimum pool size before sampler", () => {
+    assert.equal(minimumIntentPoolSize(25, true), 50);
+    assert.ok(minimumIntentPoolSize(25, false) >= 18);
+  });
+});

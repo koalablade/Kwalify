@@ -107,6 +107,7 @@ function normalizedEntropy(labels: string[]): number {
   if (labels.length <= 1) return 0;
   const counts = new Map<string, number>();
   for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  if (counts.size <= 1) return 0;
   let h = 0;
   for (const c of counts.values()) {
     const p = c / labels.length;

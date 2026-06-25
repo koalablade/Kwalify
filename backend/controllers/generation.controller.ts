@@ -93,6 +93,7 @@ import {
   attachExecutionTrace,
   buildFallbackExecutionTraceDraft,
   buildGateFailureExecutionTraceDraft,
+  buildIntentCollapseFailureTraceDraft,
   buildUnknownExitTraceDraft,
   buildV3PipelineExecutionTraceDraft,
   extractPlaylistExecutionTrace,
@@ -144,6 +145,7 @@ import {
 } from "../lib/curator-identity";
 import { runRequestLayerGeneration, type RequestGenerationOrchestration } from "../lib/request-generation-orchestrator";
 import { HumanSaveabilityGateError } from "../core/human-saveability-gate";
+import { IntentCollapseInsufficientPoolError } from "../core/editorial/intent-collapse-layer";
 import {
   profileUserLibrary,
   estimatePromptUncertainty,
@@ -9427,6 +9429,38 @@ router.post("/generate", async (req, res): Promise<void> => {
                   prompt: generateVibe,
                   seed: generationSeed,
                   gate: gatePayload,
+                })),
+          },
+        );
+        return;
+      }
+      if (fatalErr instanceof IntentCollapseInsufficientPoolError) {
+        generateFail(
+          res,
+          422,
+          "INSUFFICIENT_INTENT_POOL",
+          fatalErr.message,
+          {
+            requestId,
+            prompt: generateVibe,
+            seed: generationSeed,
+            status: fatalErr.status,
+            intentCollapseLayer: fatalErr.diagnostics,
+            playlistExecutionTrace: fatalErr.playlistExecutionTrace
+              ?? finalizeExecutionTrace(buildIntentCollapseFailureTraceDraft({
+                  requestId,
+                  prompt: generateVibe,
+                  seed: generationSeed,
+                  intentCollapseLayer: {
+                    primaryMood: fatalErr.diagnostics.primaryMood,
+                    editorialWorldTag: fatalErr.diagnostics.editorialWorldTag,
+                    energyRange: fatalErr.diagnostics.energyRange,
+                    rhythmDensityCap: fatalErr.diagnostics.rhythmDensityCap,
+                    allowedMicroClusters: fatalErr.diagnostics.allowedMicroClusters,
+                    collapseConfidenceScore: fatalErr.diagnostics.collapseConfidenceScore,
+                  },
+                  preFilterCount: fatalErr.diagnostics.preFilterCount,
+                  postFilterCount: fatalErr.diagnostics.postFilterCount,
                 })),
           },
         );

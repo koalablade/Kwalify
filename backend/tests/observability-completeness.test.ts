@@ -7,6 +7,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { isHtmlResponseBody, EXECUTION_PATHS } from "../core/observability/execution-state";
+import { computeCuratorScore } from "../core/human-saveability-gate";
 import {
   buildGateFailureExecutionTraceDraft,
   finalizePlaylistExecutionTrace,
@@ -40,6 +41,17 @@ describe("observability completeness", () => {
       assert.equal(trace.executionPath, path);
       assert.ok(trace.rejectionReasons.length > 0);
     }
+  });
+
+  it("computeCuratorScore stays finite when all tracks share a texture bucket", () => {
+    const tracks = Array.from({ length: 10 }, (_, i) => ({
+      trackId: `t${i}`,
+      genreFamily: "indie",
+      energy: 0.5,
+      valence: 0.5,
+    }));
+    const breakdown = computeCuratorScore(tracks, null, true);
+    assert.ok(Number.isFinite(breakdown.curatorScore));
   });
 
   it("gate failure with non-finite curator score uses partial_pipeline attribution", () => {
