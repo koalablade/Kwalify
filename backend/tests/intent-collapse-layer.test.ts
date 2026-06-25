@@ -13,6 +13,7 @@ import {
   selectEditorialWorld,
   trackMatchesEditorialIntent,
   trackMicroCluster,
+  calibrateIntentVectorForRetrievalPool,
   validateDominantClusterAlignment,
 } from "../core/editorial/intent-collapse-layer";
 import type { LockedIntent } from "../core/v3/intent";
@@ -167,6 +168,28 @@ describe("intent collapse layer", () => {
       sceneArchetypeId: "indie_pop_sunshine_commute",
     });
     assert.equal(world.tag, "indie_pop_sunshine_commute");
+  });
+
+  it("calibrates micro-clusters from retrieval pool so family-matched tracks survive", () => {
+    const collapsed = collapseIntent({
+      vibe: "driving at sunset with open windows and golden light",
+      lockedIntent: rainyWalkIntent,
+      profile: baseProfile,
+      strictMode: true,
+      sceneArchetypeId: "sunset_indie_drive",
+    });
+    const pool = Array.from({ length: 40 }, (_, i) => ({
+      trackId: `s${i}`,
+      genreFamily: "indie",
+      energy: 0.74,
+      valence: 0.52,
+      danceability: 0.68,
+      acousticness: 0.22,
+      tempo: 128,
+    }));
+    const calibrated = calibrateIntentVectorForRetrievalPool(pool, collapsed.intent);
+    const filtered = filterCandidatesByIntentVector(pool, calibrated);
+    assert.ok(filtered.length >= 20);
   });
 
   it("aligns dominant cluster genres with editorial world families", () => {

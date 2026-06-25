@@ -47,6 +47,7 @@ import {
   buildSamplerIntentContext,
   collapseIntent,
   filterCandidatesByIntentVector,
+  calibrateIntentVectorForRetrievalPool,
   IntentCollapseInsufficientPoolError,
   minimumIntentPoolSize,
   reinforceOpeningEditorialWorldLock,
@@ -1046,7 +1047,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   }
   let retrievedTracks = activeRetrievalCloud.tracks.map((candidate) => candidate.track);
   const preIntentFilterCount = retrievedTracks.length;
-  retrievedTracks = filterCandidatesByIntentVector(retrievedTracks, editorialIntentVector);
+  const calibratedIntentVector = calibrateIntentVectorForRetrievalPool(
+    retrievedTracks,
+    editorialIntentVector,
+  );
+  retrievedTracks = filterCandidatesByIntentVector(retrievedTracks, calibratedIntentVector);
   const postIntentFilterCount = retrievedTracks.length;
   intentCollapseDiagnostics = buildIntentCollapseDiagnostics(
     editorialIntentVector,

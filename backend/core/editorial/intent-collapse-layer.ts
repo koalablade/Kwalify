@@ -831,6 +831,74 @@ export function filterCandidatesByIntentVector<T extends IntentCollapseTrack>(
   return tracks.filter((track) => trackMatchesEditorialIntent(track, intent));
 }
 
+/**
+ * Adapt editorial intent micro-clusters and energy band to the retrieved library
+ * so hard-filter does not zero a viable scene-coherent pool.
+ */
+export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTrack>(
+  tracks: T[],
+  intent: EditorialIntentVector,
+): EditorialIntentVector {
+  const world = EDITORIAL_WORLDS.find((row) => row.tag === intent.editorialWorldTag);
+  if (!world || tracks.length === 0) return intent;
+
+  const familyMatched = tracks.filter((track) => world.primaryFamilies.includes(trackFamily(track)));
+  if (familyMatched.length === 0) return intent;
+
+  const microCounts = new Map<string, number>();
+  const energies: number[] = [];
+  const valences: number[] = [];
+  for (const track of familyMatched) {
+    const micro = trackMicroCluster(track);
+    microCounts.set(micro, (microCounts.get(micro) ?? 0) + 1);
+    if (hasFeature(track.energy)) energies.push(feature(track.energy));
+    if (hasFeature(track.valence)) valences.push(valenceToSigned(feature(track.valence)));
+  }
+
+  const topMicros = [...microCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([micro]) => micro)
+    .filter((micro) => {
+      const family = micro.split(":")[0] ?? "";
+      return world.primaryFamilies.includes(family);
+    });
+  const allowedMicroClusters = [...new Set([...intent.allowedMicroClusters, ...topMicros])];
+
+  let energyRange = intent.energyRange;
+  if (energies.length >= 8) {
+    const sorted = [...energies].sort((a, b) => a - b);
+    const p10 = sorted[Math.floor(sorted.length * 0.10)] ?? sorted[0]!;
+    const p90 = sorted[Math.floor(sorted.length * 0.90)] ?? sorted[sorted.length - 1]!;
+    let lo = clamp01(Math.max(world.energyRange[0], p10 - 0.03));
+    let hi = clamp01(Math.min(world.energyRange[1], p90 + 0.03));
+    if (lo > hi || p10 > world.energyRange[1] || p90 < world.energyRange[0]) {
+      lo = clamp01(p10 - 0.04);
+      hi = clamp01(p90 + 0.04);
+    }
+    if (hi - lo < 0.14) {
+      const mid = (lo + hi) / 2;
+      lo = clamp01(mid - 0.07);
+      hi = clamp01(mid + 0.07);
+    }
+    energyRange = [lo, hi];
+  }
+
+  let valenceTarget = intent.valenceTarget;
+  if (valences.length >= 8) {
+    const sorted = [...valences].sort((a, b) => a - b);
+    const mid = sorted[Math.floor(sorted.length / 2)] ?? intent.valenceTarget;
+    valenceTarget = mid * 0.65 + intent.valenceTarget * 0.35;
+  }
+
+  return {
+    ...intent,
+    allowedMicroClusters,
+    energyRange,
+    valenceTarget,
+  };
+}
+
 export function minimumIntentPoolSize(targetCount: number, strictMode: boolean): number {
   const base = Math.max(10, targetCount);
   return strictMode ? Math.max(25, base * 2) : Math.max(18, Math.ceil(base * 1.5));
