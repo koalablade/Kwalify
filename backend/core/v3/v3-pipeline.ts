@@ -56,6 +56,7 @@ import {
   computeFirstTenClusterConsistency,
   computeSceneClusterMembershipScore,
   describeSceneClusterViolation,
+  openingSceneClusterThreshold,
   shouldRejectForSceneCluster,
 } from "../scene-cohesion-clusters";
 import { classifyTrack, type TrackGenreClassification } from "../../lib/genre-taxonomy";
@@ -639,6 +640,94 @@ function minimalSelectedTracks<T extends V3PipelineTrack>(
     diversity: null,
     selectedByV3: true,
   })) as Array<T & V3SelectionCandidate<T>>;
+}
+
+function openingClusterAudit<T extends V3PipelineTrack>(
+  tracks: Array<T & V3SelectionCandidate<T>>,
+  context: SceneWorldContext | null,
+): {
+  openingClusterPurity: number;
+  openingClusterViolations: Array<{ trackId: string; artist: string; rank: number }>;
+  openingRepairCount: number;
+  dominantClusterId: string | null;
+  dominantClusterLabel: string | null;
+} {
+  if (!context?.sceneClusters || tracks.length === 0) {
+    return {
+      openingClusterPurity: 0,
+      openingClusterViolations: [],
+      openingRepairCount: 0,
+      dominantClusterId: null,
+      dominantClusterLabel: null,
+    };
+  }
+  const opening = tracks.slice(0, 5);
+  const dominantClusterId = context.sceneClusters.dominantClusterId;
+  const dominantClusterLabel = context.sceneClusters.dominantCluster.label;
+  const violations = opening
+    .map((track, idx) => ({ track, rank: idx + 1 }))
+    .filter(({ track, rank }) => {
+      const sceneClusterId = context.sceneClusters!.trackToClusterId.get(track.trackId);
+      if (sceneClusterId !== dominantClusterId) return true;
+      return computeSceneClusterMembershipScore(track, context) < openingSceneClusterThreshold(rank - 1);
+    })
+    .map(({ track, rank }) => ({
+      trackId: track.trackId,
+      artist: track.artistName,
+      rank,
+    }));
+  const purity = opening.length > 0 ? (opening.length - violations.length) / opening.length : 0;
+  return {
+    openingClusterPurity: Math.round(purity * 1000) / 1000,
+    openingClusterViolations: violations,
+    openingRepairCount: 0,
+    dominantClusterId,
+    dominantClusterLabel,
+  };
+}
+
+function enforceStrictOpeningWorld<T extends V3PipelineTrack>(
+  tracks: Array<T & V3SelectionCandidate<T>>,
+  context: SceneWorldContext | null,
+): {
+  tracks: Array<T & V3SelectionCandidate<T>>;
+  openingRepairCount: number;
+  insufficientOpeningWorldReason: string | null;
+} {
+  if (!context?.sceneClusters || tracks.length === 0) {
+    return { tracks, openingRepairCount: 0, insufficientOpeningWorldReason: null };
+  }
+  const dominantClusterId = context.sceneClusters.dominantClusterId;
+  const openingEligible = tracks.filter((track) => {
+    const sceneClusterId = context.sceneClusters!.trackToClusterId.get(track.trackId);
+    return sceneClusterId === dominantClusterId;
+  });
+  if (openingEligible.length < 5) {
+    return {
+      tracks,
+      openingRepairCount: 0,
+      insufficientOpeningWorldReason: `strict opening world requires 5 dominant-cluster tracks, found ${openingEligible.length}`,
+    };
+  }
+  const bestOpening = [...openingEligible]
+    .sort((a, b) => {
+      const aScore = computeSceneClusterMembershipScore(a, context);
+      const bScore = computeSceneClusterMembershipScore(b, context);
+      return bScore - aScore || b.laneScore - a.laneScore;
+    })
+    .slice(0, 5);
+  const bestSet = new Set(bestOpening.map((track) => track.trackId));
+  const remainder = tracks.filter((track) => !bestSet.has(track.trackId));
+  const repaired = [...bestOpening, ...remainder].slice(0, tracks.length);
+  const repairCount = repaired
+    .slice(0, 5)
+    .filter((track, idx) => track.trackId !== tracks[idx]?.trackId)
+    .length;
+  return {
+    tracks: repaired,
+    openingRepairCount: repairCount,
+    insufficientOpeningWorldReason: null,
+  };
 }
 
 export async function runV3Pipeline<T extends V3PipelineTrack>(
@@ -1338,6 +1427,15 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   });
   recordTiming("interleaver", stageStartedAt);
   endInterleaverProfile?.();
+  const preInterleaverPreview = sampledResults
+    .flatMap((lane) => lane.tracks)
+    .sort((a, b) => b.laneScore - a.laneScore)
+    .slice(0, 5)
+    .map((track) => ({
+      ...track,
+      clusterId: track.clusterIds[0],
+    })) as Array<T & V3SelectionCandidate<T>>;
+  const preInterleaverOpeningAudit = openingClusterAudit(preInterleaverPreview, sceneWorldContext);
   forensicTrace.push(stageTrace(
     "interleaver input count",
     interleaverInputCount,
@@ -1352,6 +1450,25 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ...track,
     clusterId: track.clusterIds[0],
   })) as Array<T & V3SelectionCandidate<T>>;
+  let openingRepairCount = 0;
+  let insufficientOpeningWorldReason: string | null = null;
+  if (humanSaveStrictMode) {
+    const strictOpening = enforceStrictOpeningWorld(finalTracks, sceneWorldContext);
+    finalTracks = strictOpening.tracks;
+    openingRepairCount = strictOpening.openingRepairCount;
+    insufficientOpeningWorldReason = strictOpening.insufficientOpeningWorldReason;
+  }
+  const postInterleaverOpeningAudit = openingClusterAudit(finalTracks, sceneWorldContext);
+  const interleaverPurityDegraded =
+    postInterleaverOpeningAudit.openingClusterPurity < preInterleaverOpeningAudit.openingClusterPurity;
+  if (interleaverPurityDegraded) {
+    recordTraceFailure(opts.pipelineTrace, createFailureContext({
+      stage: "v3.interleaver.audit",
+      error: new Error("interleaver_cluster_purity_degraded"),
+      recoverable: true,
+      requestId: opts.requestId,
+    }));
+  }
   if (finalTracks.length === 0) {
     const cachedFinalTracks = getFallbackCache<Array<T & V3SelectionCandidate<T>>>(outputCacheKey);
     finalTracks = cachedFinalTracks ?? minimalSelectedTracks(tracks, targetCount);
@@ -1397,17 +1514,39 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     rejectionReasons: humanSaveGate.evaluation.rejectionReasons,
     offendingTracks: humanSaveGate.evaluation.offendingTracks,
     strictModeHumanSaveability: humanSaveGate.evaluation.strictModeHumanSaveability,
+    openingClusterPurity: postInterleaverOpeningAudit.openingClusterPurity,
+    openingClusterViolations: postInterleaverOpeningAudit.openingClusterViolations,
+    openingRepairCount,
+    dominantCluster: postInterleaverOpeningAudit.dominantClusterLabel,
+    interleaverAudit: {
+      preInterleaverOpeningClusterPurity: preInterleaverOpeningAudit.openingClusterPurity,
+      postInterleaverOpeningClusterPurity: postInterleaverOpeningAudit.openingClusterPurity,
+      degraded: interleaverPurityDegraded,
+      failureOrigin: interleaverPurityDegraded ? "after interleaving" : "before interleaving",
+      insufficientOpeningWorldReason,
+    },
     attribution: humanSaveGate.failureAttribution,
     retriesUsed: humanSaveGate.retriesUsed,
     maxRetries: 2,
     hardFailed: !humanSaveGate.passed,
   };
 
-  if (!humanSaveGate.passed) {
+  if (!humanSaveGate.passed || interleaverPurityDegraded || !!insufficientOpeningWorldReason) {
+    const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons];
+    if (insufficientOpeningWorldReason) rejectionReasons.push(insufficientOpeningWorldReason);
+    if (interleaverPurityDegraded) rejectionReasons.push("interleaver audit failed: opening cluster purity degraded");
     throw new HumanSaveabilityGateError(
-      humanSaveGate.evaluation,
+      {
+        ...humanSaveGate.evaluation,
+        rejectionReasons,
+      },
       humanSaveGate.retriesUsed,
-      humanSaveGate.failureAttribution as Record<string, unknown>,
+      {
+        ...humanSaveGate.failureAttribution,
+        interleaverAudit: humanSaveabilityDiagnostics.interleaverAudit,
+        dominantCluster: postInterleaverOpeningAudit.dominantClusterLabel,
+        opening5Violations: postInterleaverOpeningAudit.openingClusterViolations,
+      } as Record<string, unknown>,
     );
   }
 

@@ -43,6 +43,10 @@ type RunRow = {
   offendingTracks: Array<{ trackId: string; artist: string; reason: string }>;
   pipelineStageResponsible: string | null;
   suggestedFix: string | null;
+  dominantCluster: string | null;
+  opening5: string[];
+  openingViolatingTracks: Array<{ trackId: string; artist: string; rank: number }>;
+  openingFailureOrigin: "before interleaving" | "after interleaving" | null;
 };
 
 async function generateRun(
@@ -67,6 +71,10 @@ async function generateRun(
     offendingTracks: [],
     pipelineStageResponsible: null,
     suggestedFix: null,
+    dominantCluster: null,
+    opening5: [],
+    openingViolatingTracks: [],
+    openingFailureOrigin: null,
   };
 
   try {
@@ -116,6 +124,19 @@ async function generateRun(
         row.suggestedFix = offendingTrackAttribution.length > 0 && typeof offendingTrackAttribution[0]?.suggestedFix === "string"
           ? String(offendingTrackAttribution[0].suggestedFix)
           : null;
+        row.dominantCluster = typeof gate.dominantCluster === "string" ? gate.dominantCluster : null;
+        row.openingViolatingTracks = Array.isArray(gate.openingClusterViolations)
+          ? (gate.openingClusterViolations as Array<Record<string, unknown>>).map((t) => ({
+              trackId: String(t.trackId ?? ""),
+              artist: String(t.artist ?? "Unknown"),
+              rank: Number(t.rank ?? 0),
+            })).filter((t) => t.trackId.length > 0)
+          : [];
+        const interleaverAudit = (gate.interleaverAudit ?? {}) as Record<string, unknown>;
+        row.openingFailureOrigin =
+          interleaverAudit.failureOrigin === "after interleaving" || interleaverAudit.failureOrigin === "before interleaving"
+            ? interleaverAudit.failureOrigin
+            : null;
         row.error = null;
       }
       return row;
@@ -125,6 +146,7 @@ async function generateRun(
     row.firstTen = tracks.slice(0, 10).map((t) =>
       `${t.trackName ?? t.name} — ${t.artistName ?? t.artist}`,
     );
+    row.opening5 = row.firstTen.slice(0, 5);
     const diagnostics = (data.diagnostics ?? data.generationDiagnostics ?? {}) as Record<string, unknown>;
     const v3 = (diagnostics.v3Pipeline ?? {}) as Record<string, unknown>;
     const gate = (v3.humanSaveabilityGate ?? {}) as Record<string, unknown>;
@@ -151,6 +173,19 @@ async function generateRun(
     row.suggestedFix = offendingTrackAttribution.length > 0 && typeof offendingTrackAttribution[0]?.suggestedFix === "string"
       ? String(offendingTrackAttribution[0].suggestedFix)
       : null;
+    row.dominantCluster = typeof gate.dominantCluster === "string" ? gate.dominantCluster : null;
+    row.openingViolatingTracks = Array.isArray(gate.openingClusterViolations)
+      ? (gate.openingClusterViolations as Array<Record<string, unknown>>).map((t) => ({
+          trackId: String(t.trackId ?? ""),
+          artist: String(t.artist ?? "Unknown"),
+          rank: Number(t.rank ?? 0),
+        })).filter((t) => t.trackId.length > 0)
+      : [];
+    const interleaverAudit = (gate.interleaverAudit ?? {}) as Record<string, unknown>;
+    row.openingFailureOrigin =
+      interleaverAudit.failureOrigin === "after interleaving" || interleaverAudit.failureOrigin === "before interleaving"
+        ? interleaverAudit.failureOrigin
+        : null;
     row.ok = tracks.length > 0;
     return row;
   } catch (err) {
@@ -265,6 +300,10 @@ async function main(): Promise<void> {
       prompt: row.prompt,
       seed: row.seed,
       rejectionReason: row.rejectionReasons[0] ?? "unspecified",
+      dominantCluster: row.dominantCluster,
+      opening5: row.opening5,
+      openingViolatingTracks: row.openingViolatingTracks,
+      openingFailureOrigin: row.openingFailureOrigin,
       offendingTracks: row.offendingTracks,
       pipelineStageResponsible: row.pipelineStageResponsible ?? "unknown",
       suggestedFix: row.suggestedFix ?? "Tighten strict-mode scene filtering before sampler.",
