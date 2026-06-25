@@ -279,7 +279,11 @@ export function generateArchetypeCandidates(descriptor: SceneDescriptor): Playli
     ];
   }
 
-  if (descriptor.setting === "cozy home morning" || (descriptor.emotionalDirection === "comfort" && descriptor.timeOfDay === "morning")) {
+  if (
+    descriptor.setting === "cozy home morning" ||
+    (descriptor.emotionalDirection === "comfort" &&
+      (descriptor.timeOfDay === "morning" || descriptor.timeOfDay === "afternoon"))
+  ) {
     return [
       archetype({
         id: "soft_indie_morning",
@@ -445,6 +449,9 @@ export function selectPlaylistArchetype(
     if (/\b(?:indie|alternative)\b/.test(lower) && candidate.genreFamilies.includes("indie")) score += 0.10;
     if (/\b(?:hype|energy|boost)\b/.test(lower) && candidate.targetEnergy >= 0.60) score += 0.08;
     if (/\b(?:soft|cozy|calm)\b/.test(lower) && candidate.targetEnergy <= 0.50) score += 0.08;
+    if (/\b(?:soft|cozy)\b/.test(lower) && /\bsunday\b/.test(lower) && candidate.genreFamilies.includes("indie")) score += 0.16;
+    if (/\bsoft\b/.test(lower) && candidate.id === "soft_indie_morning") score += 0.18;
+    if (/\b(?:warmth|warm)\b/.test(lower) && candidate.genreFamilies.includes("folk")) score += 0.10;
     score += stableUnitHash(`${seed}:${candidate.id}`) * 0.04;
     return { candidate, score };
   });

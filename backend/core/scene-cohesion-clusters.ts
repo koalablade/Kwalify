@@ -370,11 +370,94 @@ export function buildSceneCohesionClusters(
   };
 }
 
+const MIN_ARCHETYPE_ALIGNED_CLUSTER_SIZE = 5;
+
+function clusterPrimaryFamilyMemberCount(
+  clusterId: string,
+  primaryFamilies: Set<string>,
+  trackById: Map<string, SceneCohesionTrack>,
+  trackToClusterId: Map<string, string>,
+): number {
+  let count = 0;
+  for (const [trackId, cid] of trackToClusterId) {
+    if (cid !== clusterId) continue;
+    const track = trackById.get(trackId);
+    if (track && primaryFamilies.has(familyOf(track))) count++;
+  }
+  return count;
+}
+
+function clusterAlignsWithArchetype(
+  cluster: SceneClusterSummary,
+  archetype: { genreFamilies: string[] },
+  trackById: Map<string, SceneCohesionTrack>,
+  trackToClusterId: Map<string, string>,
+  strictMode: boolean,
+): boolean {
+  const primaryFamilies = new Set(archetype.genreFamilies);
+  const genreOverlap = cluster.dominantGenres.some((genre) => primaryFamilies.has(genre));
+  if (!genreOverlap) return false;
+  if (!strictMode) return true;
+  const minMembers = Math.min(
+    MIN_ARCHETYPE_ALIGNED_CLUSTER_SIZE,
+    Math.max(3, Math.ceil(Math.sqrt(trackById.size))),
+  );
+  return clusterPrimaryFamilyMemberCount(cluster.id, primaryFamilies, trackById, trackToClusterId)
+    >= minMembers;
+}
+
+function pickDominantClusterId(
+  index: SceneCohesionClusterContext,
+  clusterWeight: Map<string, number>,
+  archetype: { genreFamilies: string[] },
+  trackById: Map<string, SceneCohesionTrack>,
+  strictMode: boolean,
+): string {
+  const aligned = [...index.clusters.values()].filter((cluster) =>
+    clusterAlignsWithArchetype(cluster, archetype, trackById, index.trackToClusterId, strictMode),
+  );
+  const primaryFamilies = new Set(archetype.genreFamilies);
+  const primaryAnchorGenre = archetype.genreFamilies[0] ?? "";
+  const genreOverlapFallback = [...index.clusters.values()]
+    .filter((cluster) => cluster.dominantGenres.some((genre) => primaryFamilies.has(genre)))
+    .sort((a, b) => {
+      const aAnchorGenre = a.dominantGenres.includes(primaryAnchorGenre) ? 1 : 0;
+      const bAnchorGenre = b.dominantGenres.includes(primaryAnchorGenre) ? 1 : 0;
+      if (bAnchorGenre !== aAnchorGenre) return bAnchorGenre - aAnchorGenre;
+      const aMembers = clusterPrimaryFamilyMemberCount(a.id, primaryFamilies, trackById, index.trackToClusterId);
+      const bMembers = clusterPrimaryFamilyMemberCount(b.id, primaryFamilies, trackById, index.trackToClusterId);
+      if (bMembers !== aMembers) return bMembers - aMembers;
+      return b.size - a.size;
+    });
+  const candidates = aligned.length > 0
+    ? aligned.sort((a, b) => {
+      const aAnchorGenre = a.dominantGenres.includes(primaryAnchorGenre) ? 1 : 0;
+      const bAnchorGenre = b.dominantGenres.includes(primaryAnchorGenre) ? 1 : 0;
+      if (bAnchorGenre !== aAnchorGenre) return bAnchorGenre - aAnchorGenre;
+      return b.size - a.size;
+    })
+    : (genreOverlapFallback.length > 0 ? genreOverlapFallback : [...index.clusters.values()]);
+
+  const weighted = [...clusterWeight.entries()]
+    .filter(([clusterId, weight]) => weight > 0 && candidates.some((cluster) => cluster.id === clusterId))
+    .sort((a, b) => {
+      const clusterA = index.clusters.get(a[0])!;
+      const clusterB = index.clusters.get(b[0])!;
+      const aAnchorGenre = clusterA.dominantGenres.includes(primaryAnchorGenre) ? 1 : 0;
+      const bAnchorGenre = clusterB.dominantGenres.includes(primaryAnchorGenre) ? 1 : 0;
+      if (bAnchorGenre !== aAnchorGenre) return bAnchorGenre - aAnchorGenre;
+      return b[1] - a[1];
+    });
+  if (weighted.length > 0) return weighted[0]![0];
+  return candidates.sort((a, b) => b.size - a.size)[0]!.id;
+}
+
 function selectDominantCluster(
   index: SceneCohesionClusterContext,
   anchors: WorldAnchorTrack[],
   archetype: { genreFamilies: string[] },
   trackById: Map<string, SceneCohesionTrack>,
+  strictMode = false,
 ): SceneCohesionClusterContext {
   const primaryFamilies = new Set(archetype.genreFamilies);
   const clusterWeight = new Map<string, number>();
@@ -387,11 +470,13 @@ function selectDominantCluster(
     const weight = anchor.anchorScore * (primaryAnchor ? 1 : 0.28);
     clusterWeight.set(clusterId, (clusterWeight.get(clusterId) ?? 0) + weight);
   }
-  if (clusterWeight.size === 0) {
-    const largest = [...index.clusters.values()].sort((a, b) => b.size - a.size)[0]!;
-    return { ...index, dominantClusterId: largest.id, dominantCluster: largest, clusterPurity: 0 };
-  }
-  const dominantClusterId = [...clusterWeight.entries()].sort((a, b) => b[1] - a[1])[0]![0];
+  const dominantClusterId = pickDominantClusterId(
+    index,
+    clusterWeight,
+    archetype,
+    trackById,
+    strictMode,
+  );
   const dominantCluster = index.clusters.get(dominantClusterId)!;
   const anchorInDominant = anchors.filter(
     (anchor) => index.trackToClusterId.get(anchor.trackId) === dominantClusterId,
@@ -411,7 +496,13 @@ export function enrichSceneWorldWithClusters(
   const built = buildSceneCohesionClusters(tracks, opts);
   if (!built) return { ...context, sceneClusters: null };
   const trackById = new Map(tracks.map((track) => [track.trackId, track]));
-  const sceneClusters = selectDominantCluster(built, context.anchors, context.archetype, trackById);
+  const sceneClusters = selectDominantCluster(
+    built,
+    context.anchors,
+    context.archetype,
+    trackById,
+    context.strictMode,
+  );
   return { ...context, sceneClusters };
 }
 
