@@ -9077,22 +9077,6 @@ router.post("/generate", async (req, res): Promise<void> => {
         elapsedMs: Date.now() - startMs,
         requestId,
       })) return;
-      if (sessionWasCancelled) {
-        generateFail(
-          res,
-          409,
-          "GENERATION_CANCELLED",
-          "This generation was superseded or cancelled. Try again if you need a new playlist.",
-          {
-            generationDiagnostics: {
-              recoveryTriggered: false,
-              fallbackLevel: "none",
-              sessionCancelled: true,
-            },
-          }
-        );
-        return;
-      }
       if (fatalErr instanceof HumanSaveabilityGateError) {
         generateFail(
           res,
@@ -9113,6 +9097,22 @@ router.post("/generate", async (req, res): Promise<void> => {
               hardFailed: true,
             },
           },
+        );
+        return;
+      }
+      if (sessionWasCancelled) {
+        generateFail(
+          res,
+          409,
+          "GENERATION_CANCELLED",
+          "This generation was superseded or cancelled. Try again if you need a new playlist.",
+          {
+            generationDiagnostics: {
+              recoveryTriggered: false,
+              fallbackLevel: "none",
+              sessionCancelled: true,
+            },
+          }
         );
         return;
       }
