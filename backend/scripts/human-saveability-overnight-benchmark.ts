@@ -262,13 +262,13 @@ async function main(): Promise<void> {
     runs: results,
   };
 
-  const failed = successful.filter((row) => !row.humanSaveable);
+  const failed = results.filter((row) => !row.humanSaveable);
   const stageCounts = new Map<string, number>();
   const artistCounts = new Map<string, number>();
   const genreCounts = new Map<string, number>();
   const suggestedFixCounts = new Map<string, number>();
   for (const row of failed) {
-    const stage = row.pipelineStageResponsible ?? "unknown";
+    const stage = row.pipelineStageResponsible ?? (row.ok ? "unknown" : "request");
     stageCounts.set(stage, (stageCounts.get(stage) ?? 0) + 1);
     if (row.suggestedFix) {
       suggestedFixCounts.set(row.suggestedFix, (suggestedFixCounts.get(row.suggestedFix) ?? 0) + 1);
@@ -299,13 +299,13 @@ async function main(): Promise<void> {
     failedPlaylists: failed.map((row) => ({
       prompt: row.prompt,
       seed: row.seed,
-      rejectionReason: row.rejectionReasons[0] ?? "unspecified",
+      rejectionReason: row.rejectionReasons[0] ?? row.error ?? "unspecified",
       dominantCluster: row.dominantCluster,
       opening5: row.opening5,
       openingViolatingTracks: row.openingViolatingTracks,
       openingFailureOrigin: row.openingFailureOrigin,
       offendingTracks: row.offendingTracks,
-      pipelineStageResponsible: row.pipelineStageResponsible ?? "unknown",
+      pipelineStageResponsible: row.pipelineStageResponsible ?? (row.ok ? "unknown" : "request"),
       suggestedFix: row.suggestedFix ?? "Tighten strict-mode scene filtering before sampler.",
     })),
     aggregates: {
