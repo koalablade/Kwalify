@@ -234,9 +234,13 @@ export async function runHumanSaveabilityGateWithRetries<T extends HumanSaveabil
     const interleaved = retrySampled.length > 0
       ? interleaveLanes(activeLanes, retrySampled, opts.targetCount, {
           cohesivePlaylist: opts.cohesivePlaylist || opts.strictHumanSave,
+          sceneWorld: opts.context,
+          strictOpeningCluster: opts.strictHumanSave,
         })
       : interleaveLanes(opts.lanes, opts.sampledResults, opts.targetCount, {
           cohesivePlaylist: opts.cohesivePlaylist || opts.strictHumanSave,
+          sceneWorld: opts.context,
+          strictOpeningCluster: opts.strictHumanSave,
         });
 
     tracks = finalize(interleaved.tracks as unknown as T[]);

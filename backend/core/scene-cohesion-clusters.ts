@@ -584,10 +584,56 @@ export function computeSceneClusterMembershipScore(
   return clamp01(audioFit * 0.22);
 }
 
+export const OPENING_TEN_DOMINANT_CLUSTER_MIN_PURITY = 0.9;
+
 export function openingSceneClusterThreshold(position: number): number {
   if (position < 5) return 0.85;
   if (position < 10) return 0.72;
   return 0.58;
+}
+
+export function trackInDominantSceneCluster(
+  track: SceneWorldTrack,
+  context: SceneWorldContext | null,
+): boolean {
+  if (!context?.sceneClusters) return true;
+  const dominantId = context.sceneClusters.dominantClusterId;
+  const clusterId = context.sceneClusters.trackToClusterId.get(track.trackId);
+  if (clusterId !== dominantId) return false;
+  return computeSceneClusterMembershipScore(track, context) >= openingSceneClusterThreshold(0);
+}
+
+export function openingDominantClusterPurity<T extends SceneWorldTrack>(
+  tracks: T[],
+  context: SceneWorldContext | null,
+  count = 10,
+): number {
+  if (!context?.sceneClusters || tracks.length === 0) return 0;
+  const opening = tracks.slice(0, Math.min(count, tracks.length));
+  const dominant = opening.filter((track) => trackInDominantSceneCluster(track, context)).length;
+  return dominant / opening.length;
+}
+
+export function repairOpeningTenDominantCluster<T extends SceneWorldTrack>(
+  tracks: T[],
+  context: SceneWorldContext,
+): { tracks: T[]; swapCount: number } {
+  const requiredDominant = Math.ceil(10 * OPENING_TEN_DOMINANT_CLUSTER_MIN_PURITY);
+  const result = [...tracks];
+  let swapCount = 0;
+  for (let position = 0; position < Math.min(10, result.length); position++) {
+    if (position >= requiredDominant) break;
+    const current = result[position]!;
+    if (trackInDominantSceneCluster(current, context)) continue;
+    const replacementIdx = result.findIndex(
+      (track, idx) => idx > position && trackInDominantSceneCluster(track, context),
+    );
+    if (replacementIdx < 0) break;
+    result[position] = result[replacementIdx]!;
+    result[replacementIdx] = current;
+    swapCount++;
+  }
+  return { tracks: result, swapCount };
 }
 
 export function trackBelongsToOpeningSceneCluster(

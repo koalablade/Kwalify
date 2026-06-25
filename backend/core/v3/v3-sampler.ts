@@ -139,6 +139,13 @@ export function selectFromClusters<T extends ScorerTrack>(
     );
   }
 
+  function candidateFitsDominantSceneCluster(decision: TrackDecision<T>): boolean {
+    if (!sceneWorldStrict || !opts.sceneWorld?.sceneClusters || selected.length >= 10) return true;
+    const dominantId = opts.sceneWorld.sceneClusters.dominantClusterId;
+    const clusterId = opts.sceneWorld.sceneClusters.trackToClusterId.get(decision.track.trackId);
+    return clusterId === dominantId;
+  }
+
   function candidateFitsSceneCluster(decision: TrackDecision<T>): boolean {
     if (!opts.sceneWorld?.active || !opts.sceneWorld.sceneClusters) return true;
     const track = {
@@ -637,6 +644,10 @@ export function selectFromClusters<T extends ScorerTrack>(
         recordRejection("sampler_scene_cluster_mismatch");
         continue;
       }
+      if (!candidateFitsDominantSceneCluster(item)) {
+        recordRejection("sampler_dominant_scene_cluster_mismatch");
+        continue;
+      }
       if (!candidateFitsOpeningAnchor(item)) {
         recordRejection("sampler_opening_anchor_mismatch");
         continue;
@@ -722,13 +733,15 @@ export function selectFromClusters<T extends ScorerTrack>(
     ? topWindow.filter((decision) => (trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster)).length
     : 0;
   const topDominantCap = Math.ceil(topWindow.length * 0.30);
-  const clusterDisciplinedCandidates = dominantCluster && topDominantCount > topDominantCap
-    ? [
-        ...topWindow.filter((decision) => !(trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster)),
-        ...topWindow.filter((decision) => (trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster)).slice(0, topDominantCap),
-        ...clusterBalancedCandidates.slice(topWindow.length),
-      ]
-    : clusterBalancedCandidates;
+  const clusterDisciplinedCandidates = sceneWorldStrict
+    ? rankedCandidates
+    : dominantCluster && topDominantCount > topDominantCap
+      ? [
+          ...topWindow.filter((decision) => !(trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster)),
+          ...topWindow.filter((decision) => (trackToClusterIds.get(decision.track.trackId) ?? []).includes(dominantCluster)).slice(0, topDominantCap),
+          ...clusterBalancedCandidates.slice(topWindow.length),
+        ]
+      : clusterBalancedCandidates;
   const secondaryClusterAllowed = true;
   const secondaryClusterReason = dominantShareInPool > 0.45
     ? "dominant_cluster_exceeded_45_percent_pool"
@@ -754,7 +767,14 @@ export function selectFromClusters<T extends ScorerTrack>(
     : softIntent
       ? Math.min(5, targetCount)
       : 0;
-  const openingPool = clusterDisciplinedCandidates.slice(0, Math.max(15, targetCount * 2));
+  const openingPool = sceneWorldStrict && opts.sceneWorld?.sceneClusters
+    ? clusterDisciplinedCandidates
+      .filter((decision) => {
+        const dominantId = opts.sceneWorld!.sceneClusters!.dominantClusterId;
+        return opts.sceneWorld!.sceneClusters!.trackToClusterId.get(decision.track.trackId) === dominantId;
+      })
+      .slice(0, Math.max(20, targetCount * 3))
+    : clusterDisciplinedCandidates.slice(0, Math.max(15, targetCount * 2));
   while (selected.length < openingAnchorSlots) {
     const pick = weightedPick(openingPool, "core");
     if (!pick) {

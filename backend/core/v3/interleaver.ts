@@ -9,6 +9,13 @@ import type { Lane } from "./lane-router";
 import type { ScorerTrack } from "./lane-scorer";
 import type { EraBucket } from "../../lib/intent-parser";
 import { getGenreFamily } from "./global-diversity-controller";
+import type { SceneWorldContext } from "../scene-world-layer";
+import {
+  OPENING_TEN_DOMINANT_CLUSTER_MIN_PURITY,
+  openingDominantClusterPurity,
+  repairOpeningTenDominantCluster,
+  trackInDominantSceneCluster,
+} from "../scene-cohesion-clusters";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +37,13 @@ export interface InterleavedResult<T extends ScorerTrack> {
     laneBoostEvents: Record<string, number>;
     finalLaneUsageRatios: Record<string, number>;
     entropyAtCompletion: number;
+    openingTenDominantCluster?: {
+      preEmotionalFlowPurity: number | null;
+      postRepairPurity: number | null;
+      postEmotionalFlowPurity: number | null;
+      repairSwapCount: number;
+      meetsTarget: boolean;
+    };
   };
 }
 
@@ -544,7 +558,11 @@ export function interleaveLanes<T extends ScorerTrack>(
   lanes: Lane[],
   sampledLanes: InterleavableLaneResult<T>[],
   targetCount: number,
-  opts: { cohesivePlaylist?: boolean } = {},
+  opts: {
+    cohesivePlaylist?: boolean;
+    sceneWorld?: SceneWorldContext | null;
+    strictOpeningCluster?: boolean;
+  } = {},
 ): InterleavedResult<T> {
   if (lanes.length === 0 || targetCount === 0) {
     return {
@@ -609,6 +627,9 @@ export function interleaveLanes<T extends ScorerTrack>(
   let round = 0;
   let stuckGuard = 0;
 
+  const openingDominantRequired = Math.ceil(10 * OPENING_TEN_DOMINANT_CLUSTER_MIN_PURITY);
+  const strictOpeningCluster = !!opts.strictOpeningCluster && !!opts.sceneWorld?.sceneClusters;
+
   while (result.length < targetCount && stuckGuard < targetCount * activeLaneIds.length * 3) {
     stuckGuard++;
 
@@ -635,10 +656,15 @@ export function interleaveLanes<T extends ScorerTrack>(
           })()
         : null;
 
-      const pickCandidate = (requireWorldMatch: boolean) => {
+      const requireDominantSceneCluster = strictOpeningCluster && result.length < openingDominantRequired;
+
+      const pickCandidate = (requireWorldMatch: boolean, requireDominantCluster: boolean) => {
         for (let q = 0; q < queue.length; q++) {
           const candidate = queue[q]!;
           if (usedIds.has(candidate.trackId)) continue;
+          if (requireDominantCluster && !trackInDominantSceneCluster(candidate, opts.sceneWorld ?? null)) {
+            continue;
+          }
           if (requireWorldMatch && dominantFamily) {
             const candidateFamily = getGenreFamily(candidate.genrePrimary);
             const previous = result[result.length - 1];
@@ -655,9 +681,12 @@ export function interleaveLanes<T extends ScorerTrack>(
         return null;
       };
 
-      picked = pickCandidate(!!dominantFamily && result.length < Math.min(14, targetCount));
+      picked = pickCandidate(!!dominantFamily && result.length < Math.min(14, targetCount), requireDominantSceneCluster);
+      if (!picked && requireDominantSceneCluster) {
+        picked = pickCandidate(false, true);
+      }
       if (!picked) {
-        picked = pickCandidate(false);
+        picked = pickCandidate(false, false);
       }
 
       if (!picked) {
@@ -695,7 +724,26 @@ export function interleaveLanes<T extends ScorerTrack>(
     finalLaneUsageRatios[id] = Math.round((count / total) * 1000) / 1000;
   }
 
-  const orderedTracks = orderTracksForEmotionalFlow(result);
+  const preEmotionalFlowPurity = strictOpeningCluster
+    ? openingDominantClusterPurity(result, opts.sceneWorld ?? null, 10)
+    : null;
+  const repaired = strictOpeningCluster && opts.sceneWorld?.sceneClusters
+    ? repairOpeningTenDominantCluster(result, opts.sceneWorld)
+    : { tracks: result, swapCount: 0 };
+  const mergedTracks = repaired.tracks;
+  const postRepairPurity = strictOpeningCluster
+    ? openingDominantClusterPurity(mergedTracks, opts.sceneWorld ?? null, 10)
+    : null;
+  const openingLocked = mergedTracks.slice(0, Math.min(10, mergedTracks.length));
+  const tailOrdered = mergedTracks.length > 10
+    ? orderTracksForEmotionalFlow(mergedTracks.slice(10) as Array<T & InterleavedTrack<T>>)
+    : [];
+  const orderedTracks = strictOpeningCluster
+    ? [...openingLocked, ...tailOrdered]
+    : orderTracksForEmotionalFlow(mergedTracks);
+  const postEmotionalFlowPurity = strictOpeningCluster
+    ? openingDominantClusterPurity(orderedTracks, opts.sceneWorld ?? null, 10)
+    : null;
   const genreEntropy = shannonEntropy(orderedTracks.map((t) => t.genrePrimary));
 
   return {
@@ -708,6 +756,15 @@ export function interleaveLanes<T extends ScorerTrack>(
       laneBoostEvents: {},
       finalLaneUsageRatios,
       entropyAtCompletion: Math.round(genreEntropy * 1000) / 1000,
+      openingTenDominantCluster: strictOpeningCluster
+        ? {
+            preEmotionalFlowPurity,
+            postRepairPurity,
+            postEmotionalFlowPurity,
+            repairSwapCount: repaired.swapCount,
+            meetsTarget: (postEmotionalFlowPurity ?? 0) >= OPENING_TEN_DOMINANT_CLUSTER_MIN_PURITY,
+          }
+        : undefined,
     },
   };
 }

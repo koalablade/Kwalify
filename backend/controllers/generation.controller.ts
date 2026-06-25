@@ -9094,6 +9094,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               strictModeHumanSaveability: fatalErr.evaluation.strictModeHumanSaveability,
               attribution: fatalErr.attribution,
               sceneClusterFunnel: fatalErr.attribution?.sceneClusterFunnel ?? null,
+              openingTenDominantCluster: fatalErr.attribution?.openingTenDominantCluster ?? null,
               retriesUsed: fatalErr.retriesUsed,
               maxRetries: 2,
               hardFailed: true,

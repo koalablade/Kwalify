@@ -58,8 +58,11 @@ import {
   computeSceneClusterMembershipScore,
   countTracksInDominantSceneCluster,
   describeSceneClusterViolation,
+  openingDominantClusterPurity,
   openingSceneClusterThreshold,
+  OPENING_TEN_DOMINANT_CLUSTER_MIN_PURITY,
   shouldRejectForSceneCluster,
+  trackInDominantSceneCluster,
   type SceneClusterFunnelStage,
 } from "../scene-cohesion-clusters";
 import { classifyTrack, type TrackGenreClassification } from "../../lib/genre-taxonomy";
@@ -684,6 +687,7 @@ function minimalSelectedTracks<T extends V3PipelineTrack>(
 function openingClusterAudit<T extends V3PipelineTrack>(
   tracks: Array<T & V3SelectionCandidate<T>>,
   context: SceneWorldContext | null,
+  openingCount = 5,
 ): {
   openingClusterPurity: number;
   openingClusterViolations: Array<{ trackId: string; artist: string; rank: number }>;
@@ -700,7 +704,7 @@ function openingClusterAudit<T extends V3PipelineTrack>(
       dominantClusterLabel: null,
     };
   }
-  const opening = tracks.slice(0, 5);
+  const opening = tracks.slice(0, openingCount);
   const dominantClusterId = context.sceneClusters.dominantClusterId;
   const dominantClusterLabel = context.sceneClusters.dominantCluster.label;
   const violations = opening
@@ -1500,7 +1504,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     type: "SYSTEM_FAILURE",
     requestId: opts.requestId,
     trace: opts.pipelineTrace,
-    run: () => interleaveLanes(lanes, sampledResults, targetCount, { cohesivePlaylist }),
+    run: () => interleaveLanes(lanes, sampledResults, targetCount, {
+      cohesivePlaylist: cohesivePlaylist || humanSaveStrictMode,
+      sceneWorld: sceneWorldContext,
+      strictOpeningCluster: humanSaveStrictMode,
+    }),
     recover: () => ({
       tracks: sampledResults.flatMap((lane) => lane.tracks).slice(0, targetCount),
       laneContributions: Object.fromEntries(sampledResults.map((lane) => [lane.laneId, lane.tracks.length])),
@@ -1519,12 +1527,13 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const preInterleaverPreview = sampledResults
     .flatMap((lane) => lane.tracks)
     .sort((a, b) => b.laneScore - a.laneScore)
-    .slice(0, 5)
+    .slice(0, 10)
     .map((track) => ({
       ...track,
       clusterId: track.clusterIds[0],
     })) as Array<T & V3SelectionCandidate<T>>;
-  const preInterleaverOpeningAudit = openingClusterAudit(preInterleaverPreview, sceneWorldContext);
+  const strictOpeningCount = humanSaveStrictMode ? 10 : 5;
+  const preInterleaverOpeningAudit = openingClusterAudit(preInterleaverPreview, sceneWorldContext, strictOpeningCount);
   forensicTrace.push(stageTrace(
     "interleaver input count",
     interleaverInputCount,
@@ -1547,7 +1556,38 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     openingRepairCount = strictOpening.openingRepairCount;
     insufficientOpeningWorldReason = strictOpening.insufficientOpeningWorldReason;
   }
-  const postInterleaverOpeningAudit = openingClusterAudit(finalTracks, sceneWorldContext);
+  const postInterleaverOpeningAudit = openingClusterAudit(finalTracks, sceneWorldContext, strictOpeningCount);
+  const openingTenTrace = humanSaveStrictMode && sceneWorldContext?.sceneClusters
+    ? finalTracks.slice(0, 10).map((track, idx) => {
+      const inPool = sampledResults
+        .flatMap((lane) => lane.tracks)
+        .some((candidate) => candidate.trackId === track.trackId);
+      const sourceLane = sampledResults.find((lane) =>
+        lane.tracks.some((candidate) => candidate.trackId === track.trackId),
+      )?.laneId ?? track.sourceLane ?? "unknown";
+      const dominantClusterId = sceneWorldContext.sceneClusters!.dominantClusterId;
+      const sceneClusterId = sceneWorldContext.sceneClusters!.trackToClusterId.get(track.trackId) ?? null;
+      return {
+        rank: idx + 1,
+        trackId: track.trackId,
+        artist: track.artistName,
+        sourceLane,
+        inOpeningCandidatePool: inPool,
+        inDominantSceneCluster: trackInDominantSceneCluster(track, sceneWorldContext),
+        sceneClusterId,
+        dominantClusterId,
+        clusterMembership: computeSceneClusterMembershipScore(track, sceneWorldContext),
+        selectionReason: inPool ? `sampler_lane:${sourceLane}` : "interleaver_lane_merge",
+      };
+    })
+    : [];
+  const openingTenDominantCluster = {
+    targetPurity: OPENING_TEN_DOMINANT_CLUSTER_MIN_PURITY,
+    preInterleaverSamplerPreviewPurity: openingDominantClusterPurity(preInterleaverPreview, sceneWorldContext, 10),
+    postInterleaverPurity: openingDominantClusterPurity(finalTracks, sceneWorldContext, 10),
+    interleaver: interleaved.interleaverDiagnostics.openingTenDominantCluster ?? null,
+    trace: openingTenTrace,
+  };
   const opening5PreInterleaver = sceneWorldContext?.sceneClusters
     ? preInterleaverPreview.filter(
       (track) => sceneWorldContext.sceneClusters!.trackToClusterId.get(track.trackId)
@@ -1640,6 +1680,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     maxRetries: 2,
     hardFailed: !humanSaveGate.passed,
     sceneClusterFunnel,
+    openingTenDominantCluster,
   };
 
   if (!humanSaveGate.passed || interleaverPurityDegraded || !!insufficientOpeningWorldReason) {
@@ -1658,6 +1699,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         dominantCluster: postInterleaverOpeningAudit.dominantClusterLabel,
         opening5Violations: postInterleaverOpeningAudit.openingClusterViolations,
         sceneClusterFunnel,
+        openingTenDominantCluster,
       } as Record<string, unknown>,
     );
   }
@@ -2269,6 +2311,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
 
     humanSaveabilityGate: humanSaveabilityDiagnostics,
     sceneClusterFunnel,
+    openingTenDominantCluster,
     sceneWorldProof,
   };
 

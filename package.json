@@ -61,6 +61,7 @@
     "audit:human-save": "npm run build && node backend/dist/scripts/human-save-audit.js",
     "benchmark:human-saveability-overnight": "npm run build && node backend/dist/scripts/human-saveability-overnight-benchmark.js",
     "investigate:dominant-cluster-funnel": "npm run build && node backend/dist/scripts/dominant-cluster-funnel-investigation.js",
+    "investigate:opening-ten-trace": "npm run build && node backend/dist/scripts/opening-ten-trace-investigation.js",
     "ci:scene-cohesion-human-save": "npm run build && node backend/dist/scripts/scene-cohesion-human-save-gate.js",
     "proof:scene-world": "npm run build && node backend/dist/scripts/scene-world-proof.js",
     "regression:human-save": "node scripts/human-save-regression.mjs",
