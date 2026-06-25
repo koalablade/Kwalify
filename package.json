@@ -69,6 +69,7 @@
     "benchmark:human-saveability-before-after": "npm run build && node backend/dist/scripts/human-saveability-before-after.js",
     "investigate:dominant-cluster-funnel": "npm run build && node backend/dist/scripts/dominant-cluster-funnel-investigation.js",
     "investigate:opening-ten-trace": "npm run build && node backend/dist/scripts/opening-ten-trace-investigation.js",
+    "investigate:intent-collapse-root-cause": "npm run build && node backend/dist/scripts/intent-collapse-root-cause-analysis.js",
     "trace:benchmark-attribution": "npm run build && node backend/dist/scripts/benchmark-attribution-trace.js",
     "ci:scene-cohesion-human-save": "npm run build && node backend/dist/scripts/scene-cohesion-human-save-gate.js",
     "proof:scene-world": "npm run build && node backend/dist/scripts/scene-world-proof.js",

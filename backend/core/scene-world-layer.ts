@@ -387,7 +387,7 @@ export function generateArchetypeCandidates(descriptor: SceneDescriptor): Playli
     ];
   }
 
-  if (descriptor.setting === "gym floor" || descriptor.energy === "positive uplift") {
+  if (descriptor.setting === "gym floor" || descriptor.activity === "workout") {
     return [
       archetype({
         id: "gym_confidence_boost",

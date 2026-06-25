@@ -860,6 +860,21 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const lockedIntent = opts.lockedIntent ?? unifiedIntentContext.lockedIntent;
   const unifiedIntentDiagnostics = unifiedIntentContext.diagnostics;
   const humanSaveStrictMode = strictModeHumanSaveability(vibe, lockedIntent);
+  const fallbackTriggered = isUnclearIntent(decomposed);
+  const healthState = getSystemHealthState();
+  const overloaded = healthState === "DEGRADED" || healthState === "CRITICAL";
+  if (overloaded) recordTraceFallback(opts.pipelineTrace, `system_health_${healthState.toLowerCase()}`);
+  const retrievalInputTracks = healthState === "CRITICAL"
+    ? tracks.slice(0, Math.max(targetCount, targetCount * 3))
+    : tracks;
+  const preRetrievalSceneWorld = buildSceneWorldContext({
+    vibe,
+    lockedIntent,
+    tracks: retrievalInputTracks.map((track) => toSceneWorldTrack(track, opts)),
+    seed: opts.seed != null ? String(opts.seed) : vibe,
+    playlistAdjacency: opts.playlistAdjacency,
+    likedAdjacency: opts.likedAdjacency,
+  });
   const collapsedIntent = collapseIntent({
     vibe,
     lockedIntent,
@@ -868,6 +883,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     strictMode: humanSaveStrictMode,
     libraryTracks: tracks.map((track) => toSceneWorldTrack(track, opts)),
     targetCount,
+    sceneArchetypeId: preRetrievalSceneWorld?.archetype?.id ?? null,
   });
   const editorialIntentVector: EditorialIntentVector = collapsedIntent.intent;
   const samplerIntentContext: SamplerIntentContext = buildSamplerIntentContext(editorialIntentVector);
@@ -884,21 +900,6 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     rhythmDensityCap: editorialIntentVector.rhythmDensityCap,
     allowedMicroClusters: editorialIntentVector.allowedMicroClusters,
     collapseConfidenceScore: collapsedIntent.collapseConfidenceScore,
-  });
-  const fallbackTriggered = isUnclearIntent(decomposed);
-  const healthState = getSystemHealthState();
-  const overloaded = healthState === "DEGRADED" || healthState === "CRITICAL";
-  if (overloaded) recordTraceFallback(opts.pipelineTrace, `system_health_${healthState.toLowerCase()}`);
-  const retrievalInputTracks = healthState === "CRITICAL"
-    ? tracks.slice(0, Math.max(targetCount, targetCount * 3))
-    : tracks;
-  const preRetrievalSceneWorld = buildSceneWorldContext({
-    vibe,
-    lockedIntent,
-    tracks: retrievalInputTracks.map((track) => toSceneWorldTrack(track, opts)),
-    seed: opts.seed != null ? String(opts.seed) : vibe,
-    playlistAdjacency: opts.playlistAdjacency,
-    likedAdjacency: opts.likedAdjacency,
   });
   const worldAlignment = validateEditorialSceneWorldAlignment(
     editorialIntentVector.editorialWorldTag,
@@ -929,6 +930,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const clusterAlignment = validateDominantClusterAlignment(
     editorialIntentVector.editorialWorldTag,
     preRetrievalSceneWorld?.sceneClusters?.dominantCluster.label,
+    preRetrievalSceneWorld?.sceneClusters?.dominantCluster.dominantGenres,
   );
   if (preRetrievalSceneWorld?.sceneClusters && !clusterAlignment.aligned) {
     const collapseTrace = finalizeExecutionTrace(

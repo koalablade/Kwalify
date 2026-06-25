@@ -577,6 +577,7 @@ export function selectEditorialWorld(opts: {
   strictMode?: boolean;
   libraryTracks?: IntentCollapseTrack[];
   targetCount?: number;
+  sceneArchetypeId?: string | null;
 }): EditorialWorldDefinition {
   const ranked = EDITORIAL_WORLDS.map((world) => ({
     world,
@@ -586,12 +587,21 @@ export function selectEditorialWorld(opts: {
     b.world.cohesionScore - a.world.cohesionScore,
   );
 
+  let candidatePool = ranked;
+  if (opts.sceneArchetypeId) {
+    const compatibleTags = new Set(editorialWorldTagsCompatibleWithArchetype(opts.sceneArchetypeId));
+    const preferredTag = ARCHETYPE_PREFERRED_WORLD[opts.sceneArchetypeId];
+    if (preferredTag) compatibleTags.add(preferredTag);
+    const compatible = ranked.filter((row) => compatibleTags.has(row.world.tag));
+    if (compatible.length > 0) candidatePool = compatible;
+  }
+
   if (!opts.libraryTracks?.length) {
-    return ranked[0]!.world;
+    return candidatePool[0]!.world;
   }
 
   const targetCount = opts.targetCount ?? 25;
-  const withLibrary = ranked.map((row) => {
+  const withLibrary = candidatePool.map((row) => {
     const fit = scoreWorldLibraryFit(row.world, opts.libraryTracks!, {
       lockedIntent: opts.lockedIntent,
       profile: opts.profile,
@@ -603,17 +613,73 @@ export function selectEditorialWorld(opts: {
     return { ...row, fit };
   });
 
+  const preferredTag = opts.sceneArchetypeId
+    ? ARCHETYPE_PREFERRED_WORLD[opts.sceneArchetypeId]
+    : null;
+  const preferredRow = preferredTag
+    ? withLibrary.find((row) => row.world.tag === preferredTag)
+    : null;
+
   const viable = withLibrary.filter((row) => row.fit.meetsMinimum);
-  if (viable.length === 0) {
-    return ranked[0]!.world;
+  if (viable.length > 0) {
+    if (preferredRow && viable.some((row) => row.world.tag === preferredRow.world.tag)) {
+      const preferredViable = viable.find((row) => row.world.tag === preferredRow.world.tag)!;
+      return preferredViable.world;
+    }
+    viable.sort((a, b) =>
+      b.fit.libraryScore - a.fit.libraryScore ||
+      b.world.cohesionScore - a.world.cohesionScore ||
+      b.semantic - a.semantic,
+    );
+    return viable[0]!.world;
   }
 
-  viable.sort((a, b) =>
-    b.world.cohesionScore - a.world.cohesionScore ||
+  if (preferredRow) {
+    return preferredRow.world;
+  }
+
+  withLibrary.sort((a, b) =>
     b.fit.libraryScore - a.fit.libraryScore ||
+    b.world.cohesionScore - a.world.cohesionScore ||
     b.semantic - a.semantic,
   );
-  return viable[0]!.world;
+  return withLibrary[0]!.world;
+}
+
+export function editorialWorldTagsCompatibleWithArchetype(archetypeId: string): string[] {
+  const tags: string[] = [];
+  for (const [worldTag, archetypes] of Object.entries(EDITORIAL_WORLD_ARCHETYPE_COMPAT)) {
+    if (archetypes.includes(archetypeId)) tags.push(worldTag);
+  }
+  return tags;
+}
+
+/** Preferred 1:1 editorial world when scene archetype is already locked. */
+const ARCHETYPE_PREFERRED_WORLD: Record<string, string> = {
+  indie_pop_sunshine_commute: "indie_pop_sunshine_commute",
+  upbeat_alt_morning_drive: "upbeat_pop_commute",
+  modern_feelgood_pop: "indie_pop_sunshine_commute",
+  indie_folk_rain_walk: "indie_folk_rain_walk",
+  mellow_alt_stroll: "indie_folk_rain_walk",
+  soft_indie_morning: "soft_indie_morning",
+  light_pop_sunday: "emotional_alt_pop",
+  late_night_indie: "late_night_indie_interior",
+  nocturnal_alt: "late_night_indie_interior",
+  ambient_focus_study: "focus_study",
+  sunset_indie_drive: "sunset_indie_drive",
+  gym_confidence_boost: "gym_boost",
+  balanced_scene_default: "indie_balanced_default",
+  indie_balanced_default: "indie_balanced_default",
+};
+
+export function isEditorialWorldCompatibleWithArchetype(
+  editorialWorldTag: string,
+  archetypeId: string | null | undefined,
+): boolean {
+  if (!archetypeId) return true;
+  const allowed = EDITORIAL_WORLD_ARCHETYPE_COMPAT[editorialWorldTag];
+  if (!allowed) return true;
+  return allowed.includes(archetypeId);
 }
 
 export function validateEditorialSceneWorldAlignment(
@@ -623,11 +689,7 @@ export function validateEditorialSceneWorldAlignment(
   if (!archetypeId) {
     return { aligned: true, reason: null };
   }
-  const allowed = EDITORIAL_WORLD_ARCHETYPE_COMPAT[editorialWorldTag];
-  if (!allowed) {
-    return { aligned: true, reason: null };
-  }
-  if (allowed.includes(archetypeId)) {
+  if (isEditorialWorldCompatibleWithArchetype(editorialWorldTag, archetypeId)) {
     return { aligned: true, reason: null };
   }
   return {
@@ -639,15 +701,25 @@ export function validateEditorialSceneWorldAlignment(
 export function validateDominantClusterAlignment(
   editorialWorldTag: string,
   dominantClusterLabel: string | null | undefined,
+  dominantGenres?: string[] | null,
 ): { aligned: boolean; reason: string | null } {
-  if (!dominantClusterLabel) {
+  if (!dominantClusterLabel && (!dominantGenres || dominantGenres.length === 0)) {
     return { aligned: true, reason: null };
   }
   const world = EDITORIAL_WORLDS.find((row) => row.tag === editorialWorldTag);
   if (!world) {
     return { aligned: true, reason: null };
   }
-  const lower = dominantClusterLabel.toLowerCase();
+  const genreFamilies = new Set(
+    (dominantGenres ?? [])
+      .map((genre) => getGenreFamily(genre))
+      .filter((family) => family !== "unknown"),
+  );
+  if (genreFamilies.size > 0) {
+    const genreHit = world.primaryFamilies.some((family) => genreFamilies.has(family));
+    if (genreHit) return { aligned: true, reason: null };
+  }
+  const lower = (dominantClusterLabel ?? "").toLowerCase();
   const familyHit = world.primaryFamilies.some((family) =>
     lower.includes(family.replace(/_/g, " ")) || lower.includes(family),
   );
@@ -656,7 +728,7 @@ export function validateDominantClusterAlignment(
   }
   return {
     aligned: false,
-    reason: `editorial_world:${editorialWorldTag} incompatible_with_dominant_cluster:${dominantClusterLabel}`,
+    reason: `editorial_world:${editorialWorldTag} incompatible_with_dominant_cluster:${dominantClusterLabel ?? dominantGenres?.join(",")}`,
   };
 }
 
@@ -668,6 +740,7 @@ export function collapseIntent(opts: {
   strictMode?: boolean;
   libraryTracks?: IntentCollapseTrack[];
   targetCount?: number;
+  sceneArchetypeId?: string | null;
 }): {
   intent: EditorialIntentVector;
   collapseConfidenceScore: number;
@@ -684,6 +757,7 @@ export function collapseIntent(opts: {
     strictMode: opts.strictMode,
     libraryTracks: opts.libraryTracks,
     targetCount: opts.targetCount,
+    sceneArchetypeId: opts.sceneArchetypeId,
   });
 
   const intent = buildProvisionalIntent(world, primaryMood, sceneType, opts);

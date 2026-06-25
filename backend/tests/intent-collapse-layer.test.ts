@@ -13,6 +13,7 @@ import {
   selectEditorialWorld,
   trackMatchesEditorialIntent,
   trackMicroCluster,
+  validateDominantClusterAlignment,
 } from "../core/editorial/intent-collapse-layer";
 import type { LockedIntent } from "../core/v3/intent";
 import type { EmotionProfile } from "../lib/emotion";
@@ -150,5 +151,30 @@ describe("intent collapse layer", () => {
     }));
     const filtered = filterCandidatesByIntentVector(compatible, collapsed.intent);
     assert.equal(filtered.length, compatible.length);
+  });
+
+  it("selects editorial world compatible with locked scene archetype", () => {
+    const library = buildRainWalkTracks(80);
+    const world = selectEditorialWorld({
+      vibe: "Feel-good summer morning music to hype yourself up for the day, getting ready, and commuting to work.",
+      lockedIntent: { ...rainyWalkIntent, mood: ["uplift"], activity: "commute", energy: "high", genreFamilies: [] },
+      profile: { ...baseProfile, valence: 0.68, energy: 0.62 },
+      primaryMood: "uplift",
+      sceneType: "commute",
+      strictMode: true,
+      libraryTracks: library,
+      targetCount: 25,
+      sceneArchetypeId: "indie_pop_sunshine_commute",
+    });
+    assert.equal(world.tag, "indie_pop_sunshine_commute");
+  });
+
+  it("aligns dominant cluster genres with editorial world families", () => {
+    const ok = validateDominantClusterAlignment(
+      "emotional_alt_pop",
+      "bon iver / wallows · soundtrack",
+      ["indie", "folk"],
+    );
+    assert.equal(ok.aligned, true);
   });
 });
