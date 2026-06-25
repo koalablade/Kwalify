@@ -34,7 +34,13 @@ import {
   auditEditorialPlaylist,
   scorePlaylistWorldMetrics,
 } from "../scene-world-editorial-audit";
-import { strictModeHumanSaveability, HumanSaveabilityGateError } from "../human-saveability-gate";
+import { strictModeHumanSaveability, HumanSaveabilityGateError, MAX_HUMAN_SAVE_RETRIES } from "../human-saveability-gate";
+import {
+  buildGateFailureExecutionTraceDraft,
+  buildV3PipelineExecutionTraceDraft,
+  finalizeExecutionTrace,
+  type PlaylistExecutionTrace,
+} from "../observability/playlist-execution-trace";
 import { runHumanSaveabilityGateWithRetries } from "../human-saveability-pipeline";
 import {
   buildSceneWorldProofReport,
@@ -1687,6 +1693,43 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons];
     if (insufficientOpeningWorldReason) rejectionReasons.push(insufficientOpeningWorldReason);
     if (interleaverPurityDegraded) rejectionReasons.push("interleaver audit failed: opening cluster purity degraded");
+    if (rejectionReasons.length === 0) {
+      if (humanSaveGate.retriesUsed >= MAX_HUMAN_SAVE_RETRIES) {
+        rejectionReasons.push(`human_saveability_retries_exhausted:${humanSaveGate.retriesUsed}`);
+      }
+      const collapseStage = sceneClusterFunnel?.earliestCollapseStage;
+      if (typeof collapseStage === "string" && collapseStage.length > 0) {
+        rejectionReasons.push(`pipeline_funnel_collapse:${collapseStage}`);
+      }
+      if (humanSaveGate.failureAttribution?.stageResponsible) {
+        rejectionReasons.push(`stage_attribution:${humanSaveGate.failureAttribution.stageResponsible}`);
+      }
+    }
+    const gateFailureTrace = finalizeExecutionTrace(
+      buildGateFailureExecutionTraceDraft({
+        requestId: opts.requestId ?? "unknown",
+        prompt: vibe,
+        seed: opts.seed ?? null,
+        gate: {
+          ...humanSaveGate.evaluation,
+          rejectionReasons,
+          curatorScore: humanSaveGate.evaluation.curatorScore,
+          breakdown: humanSaveGate.evaluation.breakdown,
+          dominantCluster: postInterleaverOpeningAudit.dominantClusterLabel,
+          interleaverAudit: humanSaveabilityDiagnostics.interleaverAudit,
+          sceneClusterFunnel,
+          openingTenDominantCluster,
+          attribution: {
+            ...humanSaveGate.failureAttribution,
+            interleaverAudit: humanSaveabilityDiagnostics.interleaverAudit,
+            dominantCluster: postInterleaverOpeningAudit.dominantClusterLabel,
+            sceneClusterFunnel,
+            openingTenDominantCluster,
+            playlistExecutionTrace: undefined,
+          },
+        },
+      }),
+    );
     throw new HumanSaveabilityGateError(
       {
         ...humanSaveGate.evaluation,
@@ -1701,6 +1744,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         sceneClusterFunnel,
         openingTenDominantCluster,
       } as Record<string, unknown>,
+      gateFailureTrace,
     );
   }
 
@@ -2313,6 +2357,25 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     sceneClusterFunnel,
     openingTenDominantCluster,
     sceneWorldProof,
+    playlistExecutionTrace: finalizeExecutionTrace(
+      buildV3PipelineExecutionTraceDraft({
+        requestId: opts.requestId ?? "unknown",
+        prompt: vibe,
+        seed: opts.seed ?? null,
+        humanSaveable: humanSaveGate.evaluation.humanSaveable,
+        gateExecuted: true,
+        gateBypassed: false,
+        humanSaveabilityGate: humanSaveabilityDiagnostics,
+        sceneClusterFunnel,
+        openingTenDominantCluster,
+        interleaverAudit: humanSaveabilityDiagnostics.interleaverAudit as Record<string, unknown> | undefined,
+        dominantClusterLabel: postInterleaverOpeningAudit.dominantClusterLabel,
+        retrievedCount: retrievedTracks.length,
+        finalTrackCount: finalTracks.length,
+        partialPipeline: false,
+        fastFallback: false,
+      }),
+    ),
   };
 
   return { finalTracks, diagnostics };

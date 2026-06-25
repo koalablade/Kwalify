@@ -88,6 +88,17 @@ import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
 import { createGenerateStageTimer } from "../lib/generate-stage-timer";
 import { buildFallbackPipelineResult, formatTracksForApi } from "../lib/generate-helpers";
+import { buildBypassedHumanSaveabilityGate } from "../lib/human-saveability-api-payload";
+import {
+  attachExecutionTrace,
+  buildFallbackExecutionTraceDraft,
+  buildGateFailureExecutionTraceDraft,
+  buildV3PipelineExecutionTraceDraft,
+  extractPlaylistExecutionTrace,
+  finalizeExecutionTrace,
+  type PlaylistExecutionTrace,
+  type PlaylistExecutionTraceDraft,
+} from "../core/observability/playlist-execution-trace";
 import { decodeIntent } from "../lib/intent-decoder";
 import { computeTemporalMemory } from "../lib/temporal-memory";
 import type { BuildPlaylistPipelineResult } from "../core/output";
@@ -305,16 +316,98 @@ function generateFail(
   status: number,
   code: string,
   error: string,
-  extra?: Record<string, unknown>
+  extra?: Record<string, unknown>,
+  traceDraft?: PlaylistExecutionTraceDraft,
 ): void {
   if (res.headersSent || res.writableEnded || res.destroyed) return;
-  res.status(status).json({
+  const existingTrace = extra ? extractPlaylistExecutionTrace(extra) : null;
+  const prebuiltTrace = extra?.playlistExecutionTrace as PlaylistExecutionTrace | undefined;
+  const gate = extra?.humanSaveabilityGate as Record<string, unknown> | undefined;
+  const resolvedTrace = prebuiltTrace
+    ?? existingTrace
+    ?? (traceDraft ? finalizeExecutionTrace(traceDraft) : null)
+    ?? (gate
+      ? finalizeExecutionTrace(buildGateFailureExecutionTraceDraft({
+          requestId: String(traceDraft?.requestId ?? extra?.requestId ?? "unknown"),
+          prompt: String(traceDraft?.prompt ?? extra?.prompt ?? ""),
+          seed: (traceDraft?.seed ?? extra?.seed ?? null) as number | string | null,
+          gate,
+        }))
+      : traceDraft
+        ? finalizeExecutionTrace(traceDraft)
+        : finalizeExecutionTrace({
+            requestId: String(extra?.requestId ?? "unknown"),
+            prompt: String(extra?.prompt ?? ""),
+            seed: (extra?.seed ?? null) as number | string | null,
+            executionPath: "partial_pipeline",
+            humanSaveable: false,
+            debugFlags: { gateExecuted: false, gateBypassed: true, timeoutOccurred: false },
+          }));
+  const payload: Record<string, unknown> = {
     success: false,
     code,
     error,
     tracks: [],
     spotifyUnavailable: true,
     ...extra,
+  };
+  if (resolvedTrace) {
+    payload.playlistExecutionTrace = resolvedTrace;
+  }
+  res.status(status).json(payload);
+}
+
+function resolveSuccessExecutionTrace(opts: {
+  requestId: string;
+  prompt: string;
+  seed: number | string | null | undefined;
+  humanSaveable: boolean;
+  finalTrackCount: number;
+  v3Diagnostics: Record<string, unknown> | null | undefined;
+  fastFallback: boolean;
+  timeoutFallback?: boolean;
+  fallbackDetail?: string | null;
+}): PlaylistExecutionTrace {
+  const fromV3 = opts.v3Diagnostics?.playlistExecutionTrace;
+  if (fromV3 && typeof fromV3 === "object") {
+    return finalizeExecutionTrace(fromV3 as PlaylistExecutionTraceDraft);
+  }
+  if (opts.fastFallback || opts.timeoutFallback) {
+    return finalizeExecutionTrace(buildFallbackExecutionTraceDraft({
+      requestId: opts.requestId,
+      prompt: opts.prompt,
+      seed: opts.seed ?? null,
+      executionPath: opts.timeoutFallback ? "timeout_fallback" : "fast_fallback",
+      failureDetail: opts.fallbackDetail,
+      finalTrackCount: opts.finalTrackCount,
+      timeoutOccurred: opts.timeoutFallback === true,
+    }));
+  }
+  const gate = opts.v3Diagnostics?.humanSaveabilityGate as Record<string, unknown> | undefined;
+  if (gate) {
+    return finalizeExecutionTrace(buildV3PipelineExecutionTraceDraft({
+      requestId: opts.requestId,
+      prompt: opts.prompt,
+      seed: opts.seed ?? null,
+      humanSaveable: opts.humanSaveable,
+      gateExecuted: true,
+      gateBypassed: gate.bypassed === true,
+      humanSaveabilityGate: gate,
+      sceneClusterFunnel: (opts.v3Diagnostics?.sceneClusterFunnel as Record<string, unknown> | null) ?? null,
+      openingTenDominantCluster: (opts.v3Diagnostics?.openingTenDominantCluster as Record<string, unknown> | null) ?? null,
+      retrievedCount: Number((opts.v3Diagnostics?.scoringPool as Record<string, unknown> | undefined)?.originalCount ?? 0),
+      finalTrackCount: opts.finalTrackCount,
+      fastFallback: opts.fastFallback,
+    }));
+  }
+  return finalizeExecutionTrace({
+    requestId: opts.requestId,
+    prompt: opts.prompt,
+    seed: opts.seed ?? null,
+    executionPath: opts.humanSaveable ? "full_pipeline" : "partial_pipeline",
+    humanSaveable: opts.humanSaveable,
+    trackCounts: { retrieved: 0, after_world: 0, after_sampler: 0, final: opts.finalTrackCount },
+    debugFlags: { gateExecuted: false, gateBypassed: true, timeoutOccurred: false },
   });
 }
 
@@ -380,7 +473,7 @@ function timeoutFallbackResponse(
         },
         "Generate timeout finalized response emitted"
       );
-      res.status(200).json({
+      res.status(200).json(attachExecutionTrace({
         success: true,
         playlistName: generatePlaylistName(vibe, emotionProfile),
         tracks,
@@ -402,7 +495,15 @@ function timeoutFallbackResponse(
         v3Diagnostics: (ctx?.v3Diagnostics as Record<string, unknown> | undefined) ?? { timeoutFinalized: true },
         fastFallback: false,
         mode,
-      });
+      }, buildFallbackExecutionTraceDraft({
+        requestId: opts.requestId,
+        prompt: vibe,
+        seed: (typeof ctx?.seed === "number" || typeof ctx?.seed === "string") ? ctx.seed : null,
+        executionPath: "timeout_fallback",
+        failureDetail: opts.failureReason,
+        finalTrackCount: tracks.length,
+        timeoutOccurred: true,
+      })));
       return true;
     }
   }
@@ -636,6 +737,12 @@ function timeoutFallbackResponse(
   const tracks = formatTracksForApi(timeoutFinalTracks.slice(0, length), emotionProfile);
   if (tracks.length === 0) return false;
 
+  const bypassGate = buildBypassedHumanSaveabilityGate({
+    reason: "fast_fallback",
+    stageResponsible: "request",
+    detail: opts.failureReason,
+  });
+
   req.log.warn(
     {
       requestId: opts.requestId,
@@ -648,7 +755,7 @@ function timeoutFallbackResponse(
     },
     "Generate timeout fallback response emitted"
   );
-  res.status(200).json({
+  res.status(200).json(attachExecutionTrace({
     success: true,
     playlistName: generatePlaylistName(vibe, emotionProfile),
     tracks,
@@ -669,10 +776,22 @@ function timeoutFallbackResponse(
       timeoutFallbackIntentOrdered: expectedFamilies.length > 0 || !!eraRange,
       productionTimeline: productionTimelineReport,
     },
-    v3Diagnostics: pipeline.scoringDiagnostics,
+    v3Diagnostics: {
+      ...(pipeline.scoringDiagnostics as Record<string, unknown> | undefined),
+      humanSaveabilityGate: bypassGate,
+    },
+    humanSaveabilityGate: bypassGate,
     fastFallback: true,
     mode,
-  });
+  }, buildFallbackExecutionTraceDraft({
+    requestId: opts.requestId,
+    prompt: vibe,
+    seed: (typeof ctx?.seed === "number" || typeof ctx?.seed === "string") ? ctx.seed : null,
+    executionPath: "timeout_fallback",
+    failureDetail: opts.failureReason,
+    finalTrackCount: tracks.length,
+    timeoutOccurred: true,
+  })));
   return true;
 }
 
@@ -3794,6 +3913,79 @@ function assertQualityConsistency(
   }
 }
 
+function compactSceneWorldLayerForApi(value: unknown): unknown {
+  const layer = value as Record<string, unknown> | null | undefined;
+  if (!layer || typeof layer !== "object") return null;
+  const archetype = layer["archetype"] as Record<string, unknown> | undefined;
+  const sceneClusters = layer["sceneClusters"] as Record<string, unknown> | undefined;
+  return {
+    active: layer["active"] ?? false,
+    strictMode: layer["strictMode"] ?? false,
+    descriptor: layer["descriptor"] ?? null,
+    archetype: archetype
+      ? {
+          id: archetype["id"],
+          label: archetype["label"],
+          genreFamilies: archetype["genreFamilies"],
+        }
+      : null,
+    sceneClusters: sceneClusters
+      ? {
+          dominantCluster: sceneClusters["dominantCluster"],
+          dominantClusterId: sceneClusters["dominantClusterId"],
+          clusterCount: sceneClusters["clusterCount"],
+          clusterPurity: sceneClusters["clusterPurity"],
+        }
+      : null,
+  };
+}
+
+function compactHumanSaveabilityGateForApi(value: unknown): unknown {
+  const gate = value as Record<string, unknown> | null | undefined;
+  if (!gate || typeof gate !== "object") return null;
+  const attribution = gate["attribution"] as Record<string, unknown> | undefined;
+  const openingTen = gate["openingTenDominantCluster"] as Record<string, unknown> | undefined;
+  return {
+    passed: gate["passed"],
+    humanSaveable: gate["humanSaveable"],
+    bypassed: gate["bypassed"],
+    bypassReason: gate["bypassReason"],
+    curatorScore: gate["curatorScore"],
+    breakdown: gate["breakdown"],
+    rejectionReasons: gate["rejectionReasons"],
+    offendingTracks: Array.isArray(gate["offendingTracks"])
+      ? (gate["offendingTracks"] as unknown[]).slice(0, 20)
+      : [],
+    strictModeHumanSaveability: gate["strictModeHumanSaveability"],
+    dominantCluster: gate["dominantCluster"] ?? attribution?.["dominantCluster"] ?? null,
+    openingClusterPurity: gate["openingClusterPurity"],
+    openingClusterViolations: gate["openingClusterViolations"],
+    openingRepairCount: gate["openingRepairCount"],
+    interleaverAudit: gate["interleaverAudit"] ?? attribution?.["interleaverAudit"] ?? null,
+    openingTenDominantCluster: openingTen
+      ? {
+          ...openingTen,
+          trace: Array.isArray(openingTen["trace"])
+            ? (openingTen["trace"] as unknown[]).slice(0, 10)
+            : [],
+        }
+      : null,
+    sceneClusterFunnel: gate["sceneClusterFunnel"] ?? null,
+    attribution: attribution
+      ? {
+          stageResponsible: attribution["stageResponsible"],
+          stageCounts: attribution["stageCounts"],
+          offendingTrackAttribution: Array.isArray(attribution["offendingTrackAttribution"])
+            ? (attribution["offendingTrackAttribution"] as unknown[]).slice(0, 10)
+            : [],
+        }
+      : null,
+    retriesUsed: gate["retriesUsed"],
+    maxRetries: gate["maxRetries"],
+    hardFailed: gate["hardFailed"],
+  };
+}
+
 function formatV3DiagnosticsForApi(
   rawV3: unknown,
   vibe: string
@@ -3906,6 +4098,18 @@ function formatV3DiagnosticsForApi(
       preInterleave:  preInterleave  ?? null,
       postInterleave: postInterleave ?? null,
     },
+    sceneWorldLayer: compactSceneWorldLayerForApi(v3["sceneWorldLayer"]),
+    humanSaveabilityGate: compactHumanSaveabilityGateForApi(v3["humanSaveabilityGate"]),
+    openingTenDominantCluster: v3["openingTenDominantCluster"] ?? null,
+    sceneClusterFunnel: v3["sceneClusterFunnel"] ?? null,
+    playlistExecutionTrace: (() => {
+      const trace = v3["playlistExecutionTrace"] as Record<string, unknown> | null | undefined;
+      if (!trace || typeof trace !== "object") return null;
+      return {
+        ...trace,
+        openingTenClusterTrace: sampleArray(trace["openingTenClusterTrace"], 10),
+      };
+    })(),
     genreConcentration:  postInterleave?.["genreConcentration"]  ?? null,
     explorationPressure: postInterleave?.["explorationPressure"] ?? null,
     dominantGenre:       postInterleave?.["dominantGenre"]       ?? null,
@@ -4343,6 +4547,8 @@ router.post("/generate", async (req, res): Promise<void> => {
   const startMs = Date.now();
   const productionTimeline = createProductionTimeline();
   let requestId = "";
+  let generationSeed: number | string | null = null;
+  let generateVibe = "";
   let sessionUserId = "";
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let hardTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -4467,6 +4673,10 @@ router.post("/generate", async (req, res): Promise<void> => {
     const familiarityOverride = (["safe", "balanced", "discovery"] as const).includes(familiarityRaw)
       ? familiarityRaw as FamiliarityMode
       : null;
+    generationSeed =
+      typeof rawBody.seed === "number" || typeof rawBody.seed === "string"
+        ? rawBody.seed
+        : null;
 
     const payload = {
       vibe: (typeof vibeRaw === "string" ? vibeRaw.trim() : String(vibeRaw).trim()) || "balanced",
@@ -4487,6 +4697,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     const { vibe, mode, length: requestedLength, referencePlaylist, varietyBoost, sceneId, noLibraryMode, familiarity } = parsed.data;
+    generateVibe = vibe;
     let length = requestedLength;
     const moodSceneId = sceneId?.trim() || null;
     const noLibraryParsedIntent = noLibraryMode ? buildCsspLockedIntent(vibe) : null;
@@ -5151,6 +5362,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       length,
       mode,
       vibe,
+      seed: generationSeed,
       maxPerArtist: artistDiversityCap(length, vibe),
       noLibrarySpotifyCandidateCount,
       noLibrarySpotifyVerifiedCount,
@@ -8605,6 +8817,15 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     await yieldToEventLoop();
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    const fallbackBypassGate = pipeline.scoringDiagnostics?.fastFallback
+      ? buildBypassedHumanSaveabilityGate({
+          reason: "fast_fallback",
+          stageResponsible: "request",
+          detail: fallbackReason
+            ? `${fallbackReason.stage}:${fallbackReason.elapsedMs}ms`
+            : "time_budget",
+        })
+      : null;
     const v3DiagnosticsWithIntentSurvival = {
       ...(v3Diagnostics ?? {}),
       intentSurvival: intentSurvivalDiagnostics,
@@ -8619,6 +8840,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       sceneLockStatus,
       sceneAliases,
       emotionalArc,
+      ...(fallbackBypassGate ? { humanSaveabilityGate: fallbackBypassGate } : {}),
     };
     const productionTimelineReport = buildProductionTimelineReport(productionTimeline, startMs, {
       failureReason: fallbackReason ? "time_budget_fast_fallback" : null,
@@ -8783,8 +9005,26 @@ router.post("/generate", async (req, res): Promise<void> => {
           repairOwner: "request-layer",
         },
         ...(pipeline.scoringDiagnostics?.fastFallback
-          ? { fastFallback: true }
+          ? {
+              fastFallback: true,
+              ...(fallbackBypassGate ? { humanSaveabilityGate: fallbackBypassGate } : {}),
+            }
           : {}),
+        playlistExecutionTrace: resolveSuccessExecutionTrace({
+          requestId,
+          prompt: vibe,
+          seed: generationSeed,
+          humanSaveable: (() => {
+            const gate = (fallbackBypassGate ?? v3DiagnosticsWithIntentSurvival?.humanSaveabilityGate) as Record<string, unknown> | undefined;
+            return gate?.humanSaveable === true || gate?.passed === true;
+          })(),
+          finalTrackCount: finalTracks.length,
+          v3Diagnostics: v3DiagnosticsWithIntentSurvival as Record<string, unknown>,
+          fastFallback: !!pipeline.scoringDiagnostics?.fastFallback,
+          fallbackDetail: fallbackReason
+            ? `${fallbackReason.stage}:${fallbackReason.elapsedMs}ms`
+            : null,
+        }),
       };
       endAuditResponseProfile();
       const endAuditJsonProfile = liveStageProfiler.start("controller.responseJson.auditSlim", `${finalApiTracks.length} tracks`);
@@ -8955,8 +9195,26 @@ router.post("/generate", async (req, res): Promise<void> => {
           }
         : null,
       v3Diagnostics: v3DiagnosticsWithIntentSurvival,
+      playlistExecutionTrace: resolveSuccessExecutionTrace({
+        requestId,
+        prompt: vibe,
+        seed: generationSeed,
+        humanSaveable: (() => {
+          const gate = (fallbackBypassGate ?? v3DiagnosticsWithIntentSurvival?.humanSaveabilityGate) as Record<string, unknown> | undefined;
+          return gate?.humanSaveable === true || gate?.passed === true;
+        })(),
+        finalTrackCount: finalTracks.length,
+        v3Diagnostics: v3DiagnosticsWithIntentSurvival as Record<string, unknown>,
+        fastFallback: !!pipeline.scoringDiagnostics?.fastFallback,
+        fallbackDetail: fallbackReason
+          ? `${fallbackReason.stage}:${fallbackReason.elapsedMs}ms`
+          : null,
+      }),
       ...(pipeline.scoringDiagnostics?.fastFallback
-        ? { fastFallback: true }
+        ? {
+            fastFallback: true,
+            ...(fallbackBypassGate ? { humanSaveabilityGate: fallbackBypassGate } : {}),
+          }
         : {}),
       ...(debugMode
         ? {
@@ -9078,27 +9336,45 @@ router.post("/generate", async (req, res): Promise<void> => {
         requestId,
       })) return;
       if (fatalErr instanceof HumanSaveabilityGateError) {
+        const gatePayload = {
+          passed: false,
+          humanSaveable: false,
+          curatorScore: fatalErr.evaluation.curatorScore,
+          breakdown: fatalErr.evaluation.breakdown,
+          rejectionReasons: fatalErr.evaluation.rejectionReasons,
+          offendingTracks: fatalErr.evaluation.offendingTracks,
+          strictModeHumanSaveability: fatalErr.evaluation.strictModeHumanSaveability,
+          dominantCluster: typeof fatalErr.attribution?.dominantCluster === "string"
+            ? fatalErr.attribution.dominantCluster
+            : null,
+          openingClusterViolations: Array.isArray(fatalErr.attribution?.opening5Violations)
+            ? fatalErr.attribution.opening5Violations
+            : [],
+          interleaverAudit: fatalErr.attribution?.interleaverAudit ?? null,
+          attribution: fatalErr.attribution,
+          sceneClusterFunnel: fatalErr.attribution?.sceneClusterFunnel ?? null,
+          openingTenDominantCluster: fatalErr.attribution?.openingTenDominantCluster ?? null,
+          retriesUsed: fatalErr.retriesUsed,
+          maxRetries: 2,
+          hardFailed: true,
+        };
         generateFail(
           res,
           422,
           "HUMAN_SAVEABILITY_GATE_FAILED",
           fatalErr.message,
           {
-            humanSaveabilityGate: {
-              passed: false,
-              humanSaveable: false,
-              curatorScore: fatalErr.evaluation.curatorScore,
-              breakdown: fatalErr.evaluation.breakdown,
-              rejectionReasons: fatalErr.evaluation.rejectionReasons,
-              offendingTracks: fatalErr.evaluation.offendingTracks,
-              strictModeHumanSaveability: fatalErr.evaluation.strictModeHumanSaveability,
-              attribution: fatalErr.attribution,
-              sceneClusterFunnel: fatalErr.attribution?.sceneClusterFunnel ?? null,
-              openingTenDominantCluster: fatalErr.attribution?.openingTenDominantCluster ?? null,
-              retriesUsed: fatalErr.retriesUsed,
-              maxRetries: 2,
-              hardFailed: true,
-            },
+            requestId,
+            prompt: generateVibe,
+            seed: generationSeed,
+            humanSaveabilityGate: gatePayload,
+            playlistExecutionTrace: fatalErr.playlistExecutionTrace
+              ?? finalizeExecutionTrace(buildGateFailureExecutionTraceDraft({
+                  requestId,
+                  prompt: generateVibe,
+                  seed: generationSeed,
+                  gate: gatePayload,
+                })),
           },
         );
         return;

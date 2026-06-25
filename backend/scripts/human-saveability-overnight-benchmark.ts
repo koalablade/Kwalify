@@ -11,6 +11,11 @@ import {
   EXPECTED_EVAL_TOKEN_LENGTH,
 } from "../lib/benchmark-env";
 import { normalizeEvalToken } from "../lib/eval-token-normalize";
+import {
+  parseHumanSaveabilityFromGenerateResponse,
+  primaryRejectionReasonFromParsed,
+  type ParsedHumanSaveabilityRun,
+} from "../lib/human-saveability-benchmark-parse";
 
 const SEEDS = [1, 2, 3, 4, 5];
 const REPORT_DIR = path.resolve(process.cwd(), "reports");
@@ -32,6 +37,9 @@ type RunRow = {
   promptId: string;
   prompt: string;
   seed: number;
+  httpStatus: number;
+  responseKind: ParsedHumanSaveabilityRun["responseKind"];
+  gateSource: string | null;
   ok: boolean;
   humanSaveable: boolean;
   curatorScore: number | null;
@@ -44,9 +52,18 @@ type RunRow = {
   pipelineStageResponsible: string | null;
   suggestedFix: string | null;
   dominantCluster: string | null;
+  archetypeLabel: string | null;
   opening5: string[];
   openingViolatingTracks: Array<{ trackId: string; artist: string; rank: number }>;
   openingFailureOrigin: "before interleaving" | "after interleaving" | null;
+  openingTenDominantCluster: Record<string, unknown> | null;
+  openingTenTrace: Array<Record<string, unknown>>;
+  parseWarnings: string[];
+  gateBypassed: boolean;
+  bypassReason: string | null;
+  executionPath: ParsedHumanSaveabilityRun["executionPath"];
+  funnelCollapseStage: string | null;
+  tracePresent: boolean;
 };
 
 async function generateRun(
@@ -60,6 +77,9 @@ async function generateRun(
     promptId: item.id,
     prompt: item.prompt,
     seed,
+    httpStatus: 0,
+    responseKind: "unparsed",
+    gateSource: null,
     ok: false,
     humanSaveable: false,
     curatorScore: null,
@@ -72,9 +92,18 @@ async function generateRun(
     pipelineStageResponsible: null,
     suggestedFix: null,
     dominantCluster: null,
+    archetypeLabel: null,
     opening5: [],
     openingViolatingTracks: [],
     openingFailureOrigin: null,
+    openingTenDominantCluster: null,
+    openingTenTrace: [],
+    parseWarnings: [],
+    gateBypassed: false,
+    bypassReason: null,
+    executionPath: null,
+    funnelCollapseStage: null,
+    tracePresent: false,
   };
 
   try {
@@ -92,106 +121,68 @@ async function generateRun(
         auditMode: true,
         spotifyUserId,
         requestId: `overnight-human-save-${item.id}-seed-${seed}`,
+        seed,
       }),
     });
+    row.httpStatus = res.status;
     const data = await res.json() as Record<string, unknown>;
+    const parsed = parseHumanSaveabilityFromGenerateResponse(res.status, data);
+
+    row.responseKind = parsed.responseKind;
+    row.gateSource = parsed.gateSource;
+    row.humanSaveable = parsed.humanSaveable;
+    row.curatorScore = parsed.curatorScore;
+    row.rejectionReasons = parsed.rejectionReasons;
+    row.retriesUsed = parsed.retriesUsed;
+    row.trackCount = parsed.trackCount;
+    row.firstTen = parsed.firstTen;
+    row.opening5 = parsed.firstTen.slice(0, 5);
+    row.offendingTracks = parsed.offendingTracks;
+    row.pipelineStageResponsible = parsed.pipelineStageResponsible;
+    row.suggestedFix = parsed.suggestedFix;
+    row.dominantCluster = parsed.dominantCluster;
+    row.archetypeLabel = typeof parsed.archetype?.label === "string" ? parsed.archetype.label : null;
+    row.openingViolatingTracks = parsed.openingClusterViolations;
+    row.openingFailureOrigin = parsed.openingFailureOrigin;
+    row.openingTenDominantCluster = parsed.openingTenDominantCluster;
+    row.openingTenTrace = parsed.openingTenTrace;
+    row.parseWarnings = parsed.parseWarnings;
+    row.gateBypassed = parsed.gateBypassed;
+    row.bypassReason = parsed.bypassReason;
+    row.executionPath = parsed.executionPath;
+    row.funnelCollapseStage = parsed.funnelCollapseStage;
+    row.tracePresent = parsed.tracePresent;
+
+    if (!parsed.tracePresent) {
+      row.ok = false;
+      row.error = "MISSING_PLAYLIST_EXECUTION_TRACE";
+      row.rejectionReasons = parsed.rejectionReasons;
+      return row;
+    }
+
     if (!res.ok) {
       row.error = String(data.message ?? data.error ?? data.code ?? res.status);
-      const gate = (data.humanSaveabilityGate ?? {}) as Record<string, unknown>;
-      if (Object.keys(gate).length > 0) {
-        row.ok = true;
-        row.humanSaveable = false;
-        row.curatorScore = typeof gate.curatorScore === "number" ? gate.curatorScore : null;
-        row.retriesUsed = typeof gate.retriesUsed === "number" ? gate.retriesUsed : null;
-        row.rejectionReasons = Array.isArray(gate.rejectionReasons)
-          ? gate.rejectionReasons.map(String)
-          : [row.error];
-        const offendingTracks = Array.isArray(gate.offendingTracks)
-          ? gate.offendingTracks as Array<Record<string, unknown>>
-          : [];
-        row.offendingTracks = offendingTracks.map((t) => ({
-          trackId: String(t.trackId ?? ""),
-          artist: String(t.artist ?? "Unknown"),
-          reason: String(t.reason ?? "unknown"),
-        })).filter((t) => t.trackId.length > 0);
-        const attribution = (gate.attribution ?? {}) as Record<string, unknown>;
-        row.pipelineStageResponsible = typeof attribution.stageResponsible === "string"
-          ? attribution.stageResponsible
-          : null;
-        const offendingTrackAttribution = Array.isArray(attribution.offendingTrackAttribution)
-          ? attribution.offendingTrackAttribution as Array<Record<string, unknown>>
-          : [];
-        row.suggestedFix = offendingTrackAttribution.length > 0 && typeof offendingTrackAttribution[0]?.suggestedFix === "string"
-          ? String(offendingTrackAttribution[0].suggestedFix)
-          : null;
-        row.dominantCluster = typeof gate.dominantCluster === "string" ? gate.dominantCluster : null;
-        row.openingViolatingTracks = Array.isArray(gate.openingClusterViolations)
-          ? (gate.openingClusterViolations as Array<Record<string, unknown>>).map((t) => ({
-              trackId: String(t.trackId ?? ""),
-              artist: String(t.artist ?? "Unknown"),
-              rank: Number(t.rank ?? 0),
-            })).filter((t) => t.trackId.length > 0)
-          : [];
-        const interleaverAudit = (gate.interleaverAudit ?? {}) as Record<string, unknown>;
-        row.openingFailureOrigin =
-          interleaverAudit.failureOrigin === "after interleaving" || interleaverAudit.failureOrigin === "before interleaving"
-            ? interleaverAudit.failureOrigin
-            : null;
-        row.error = null;
+      row.ok = res.status === 422 || parsed.humanSaveable === false;
+      if (row.ok) row.error = null;
+      if (row.rejectionReasons.length === 0 && row.error) {
+        row.rejectionReasons = [`http_error:${row.error}`];
       }
       return row;
     }
-    const tracks = Array.isArray(data.tracks) ? data.tracks as Array<Record<string, unknown>> : [];
-    row.trackCount = tracks.length;
-    row.firstTen = tracks.slice(0, 10).map((t) =>
-      `${t.trackName ?? t.name} — ${t.artistName ?? t.artist}`,
-    );
-    row.opening5 = row.firstTen.slice(0, 5);
-    const diagnostics = (data.diagnostics ?? data.generationDiagnostics ?? {}) as Record<string, unknown>;
-    const v3 = (diagnostics.v3Pipeline ?? {}) as Record<string, unknown>;
-    const gate = (v3.humanSaveabilityGate ?? {}) as Record<string, unknown>;
-    row.humanSaveable = gate.humanSaveable === true || gate.passed === true;
-    row.curatorScore = typeof gate.curatorScore === "number" ? gate.curatorScore : null;
-    row.retriesUsed = typeof gate.retriesUsed === "number" ? gate.retriesUsed : null;
-    row.rejectionReasons = Array.isArray(gate.rejectionReasons)
-      ? gate.rejectionReasons.map(String)
-      : [];
-    row.offendingTracks = Array.isArray(gate.offendingTracks)
-      ? (gate.offendingTracks as Array<Record<string, unknown>>).map((t) => ({
-          trackId: String(t.trackId ?? ""),
-          artist: String(t.artist ?? "Unknown"),
-          reason: String(t.reason ?? "unknown"),
-        })).filter((t) => t.trackId.length > 0)
-      : [];
-    const attribution = (gate.attribution ?? {}) as Record<string, unknown>;
-    row.pipelineStageResponsible = typeof attribution.stageResponsible === "string"
-      ? attribution.stageResponsible
-      : null;
-    const offendingTrackAttribution = Array.isArray(attribution.offendingTrackAttribution)
-      ? attribution.offendingTrackAttribution as Array<Record<string, unknown>>
-      : [];
-    row.suggestedFix = offendingTrackAttribution.length > 0 && typeof offendingTrackAttribution[0]?.suggestedFix === "string"
-      ? String(offendingTrackAttribution[0].suggestedFix)
-      : null;
-    row.dominantCluster = typeof gate.dominantCluster === "string" ? gate.dominantCluster : null;
-    row.openingViolatingTracks = Array.isArray(gate.openingClusterViolations)
-      ? (gate.openingClusterViolations as Array<Record<string, unknown>>).map((t) => ({
-          trackId: String(t.trackId ?? ""),
-          artist: String(t.artist ?? "Unknown"),
-          rank: Number(t.rank ?? 0),
-        })).filter((t) => t.trackId.length > 0)
-      : [];
-    const interleaverAudit = (gate.interleaverAudit ?? {}) as Record<string, unknown>;
-    row.openingFailureOrigin =
-      interleaverAudit.failureOrigin === "after interleaving" || interleaverAudit.failureOrigin === "before interleaving"
-        ? interleaverAudit.failureOrigin
-        : null;
-    row.ok = tracks.length > 0;
+
+    row.ok = true;
+    if (!row.humanSaveable && row.rejectionReasons.length === 0) {
+      row.rejectionReasons = ["benchmark_hard_failure:empty_rejection_reasons_after_trace"];
+    }
     return row;
   } catch (err) {
     row.error = err instanceof Error ? err.message : String(err);
     return row;
   }
+}
+
+function primaryRejectionReason(row: RunRow): string {
+  return primaryRejectionReasonFromParsed(row);
 }
 
 async function main(): Promise<void> {
@@ -209,8 +200,8 @@ async function main(): Promise<void> {
       results.push(row);
       process.stdout.write(
         row.ok
-          ? `  ${row.humanSaveable ? "PASS" : "FAIL"} curator=${row.curatorScore ?? "n/a"}\n`
-          : `  ERROR ${row.error}\n`,
+          ? `  ${row.httpStatus} ${row.humanSaveable ? "PASS" : "FAIL"} path=${row.executionPath ?? "none"} stage=${row.pipelineStageResponsible ?? "n/a"} bypass=${row.gateBypassed ? row.bypassReason : "no"} reasons=${row.rejectionReasons.slice(0, 2).join("; ") || "none"}\n`
+          : `  ERROR ${row.error ?? row.rejectionReasons[0] ?? "unknown"}\n`,
       );
       await new Promise((r) => setTimeout(r, 1500));
     }
@@ -220,10 +211,11 @@ async function main(): Promise<void> {
   const humanSaveable = successful.filter((r) => r.humanSaveable);
   const reasonCounts = new Map<string, number>();
   for (const row of successful.filter((r) => !r.humanSaveable)) {
-    for (const reason of row.rejectionReasons.length ? row.rejectionReasons : ["unspecified"]) {
-      reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
-    }
+    const reason = primaryRejectionReason(row);
+    reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
   }
+  const parseMissCount = results.filter((r) => !r.tracePresent).length;
+
   const byPrompt = new Map<string, { pass: number; total: number }>();
   for (const row of successful) {
     const cur = byPrompt.get(row.promptId) ?? { pass: 0, total: 0 };
@@ -248,6 +240,14 @@ async function main(): Promise<void> {
     humanSaveablePct: successful.length > 0
       ? Math.round((humanSaveable.length / successful.length) * 1000) / 1000
       : 0,
+    parseMissCount,
+    gateSourceCounts: Object.fromEntries(
+      [...results.reduce((map, row) => {
+        const key = row.executionPath ?? (row.tracePresent ? "trace" : "missing_trace");
+        map.set(key, (map.get(key) ?? 0) + 1);
+        return map;
+      }, new Map<string, number>())],
+    ),
     worstPrompts,
     topRejectionReasons: [...reasonCounts.entries()]
       .sort((a, b) => b[1] - a[1])
@@ -265,7 +265,6 @@ async function main(): Promise<void> {
   const failed = results.filter((row) => !row.humanSaveable);
   const stageCounts = new Map<string, number>();
   const artistCounts = new Map<string, number>();
-  const genreCounts = new Map<string, number>();
   const suggestedFixCounts = new Map<string, number>();
   for (const row of failed) {
     const stage = row.pipelineStageResponsible ?? (row.ok ? "unknown" : "request");
@@ -275,45 +274,42 @@ async function main(): Promise<void> {
     }
     for (const offender of row.offendingTracks) {
       artistCounts.set(offender.artist, (artistCounts.get(offender.artist) ?? 0) + 1);
-      const reason = offender.reason.toLowerCase();
-      if (reason.includes("electronic")) genreCounts.set("electronic", (genreCounts.get("electronic") ?? 0) + 1);
-      if (reason.includes("indie")) genreCounts.set("indie", (genreCounts.get("indie") ?? 0) + 1);
-      if (reason.includes("rock")) genreCounts.set("rock", (genreCounts.get("rock") ?? 0) + 1);
-      if (reason.includes("hip_hop")) genreCounts.set("hip_hop", (genreCounts.get("hip_hop") ?? 0) + 1);
-      if (reason.includes("folk")) genreCounts.set("folk", (genreCounts.get("folk") ?? 0) + 1);
     }
   }
-  const fixRanking = [...suggestedFixCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([fix, count], idx) => ({
-      rank: idx + 1,
-      fix,
-      estimatedFailuresEliminated: count,
-      estimatedPassRateIfApplied: Math.round(((successful.length - Math.max(0, failed.length - count)) / Math.max(1, successful.length)) * 1000) / 1000,
-    }));
   const rootCauseReport = {
     generatedAt: new Date().toISOString(),
     baseUrl: creds.baseUrl,
     totalRuns: results.length,
     failedRuns: failed.length,
+    parseMissCount,
     failedPlaylists: failed.map((row) => ({
       prompt: row.prompt,
       seed: row.seed,
-      rejectionReason: row.rejectionReasons[0] ?? row.error ?? "unspecified",
+      httpStatus: row.httpStatus,
+      responseKind: row.responseKind,
+      gateSource: row.gateSource,
+      rejectionReason: primaryRejectionReason(row),
+      rejectionReasons: row.rejectionReasons,
+      curatorScore: row.curatorScore,
       dominantCluster: row.dominantCluster,
+      archetypeLabel: row.archetypeLabel,
       opening5: row.opening5,
+      openingTenTrace: row.openingTenTrace,
+      openingTenDominantCluster: row.openingTenDominantCluster,
       openingViolatingTracks: row.openingViolatingTracks,
       openingFailureOrigin: row.openingFailureOrigin,
       offendingTracks: row.offendingTracks,
       pipelineStageResponsible: row.pipelineStageResponsible ?? (row.ok ? "unknown" : "request"),
-      suggestedFix: row.suggestedFix ?? "Tighten strict-mode scene filtering before sampler.",
+      suggestedFix: row.suggestedFix,
+      parseWarnings: row.parseWarnings,
     })),
     aggregates: {
       mostCommonOffendingArtists: [...artistCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([artist, count]) => ({ artist, count })),
-      mostCommonOffendingGenres: [...genreCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([genre, count]) => ({ genre, count })),
       mostCommonOffendingPipelineStage: [...stageCounts.entries()].sort((a, b) => b[1] - a[1]).map(([stage, count]) => ({ stage, count })),
     },
-    rankedFixesByImpact: fixRanking,
+    rankedFixesByImpact: [...suggestedFixCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([fix, count], idx) => ({ rank: idx + 1, fix, count })),
   };
 
   await mkdir(REPORT_DIR, { recursive: true });

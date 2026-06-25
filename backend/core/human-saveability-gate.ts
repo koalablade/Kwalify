@@ -15,17 +15,20 @@ import {
   computeFirstTenClusterConsistency,
   openingSceneClusterThreshold,
 } from "./scene-cohesion-clusters";
+import type { PlaylistExecutionTrace } from "./observability/playlist-execution-trace";
 
 export class HumanSaveabilityGateError extends Error {
   readonly code = "HUMAN_SAVEABILITY_GATE_FAILED";
   readonly evaluation: HumanSaveabilityEvaluation;
   readonly retriesUsed: number;
   readonly attribution: Record<string, unknown> | null;
+  readonly playlistExecutionTrace: PlaylistExecutionTrace | null;
 
   constructor(
     evaluation: HumanSaveabilityEvaluation,
     retriesUsed: number,
     attribution: Record<string, unknown> | null = null,
+    playlistExecutionTrace: PlaylistExecutionTrace | null = null,
   ) {
     const reasons = evaluation.rejectionReasons.slice(0, 3).join("; ") || "curator gate failed";
     super(`Human saveability gate failed after ${retriesUsed} retries: ${reasons}`);
@@ -33,6 +36,7 @@ export class HumanSaveabilityGateError extends Error {
     this.evaluation = evaluation;
     this.retriesUsed = retriesUsed;
     this.attribution = attribution;
+    this.playlistExecutionTrace = playlistExecutionTrace;
   }
 }
 
@@ -212,7 +216,9 @@ export function evaluateHumanSaveability(
   const clusterFloor = strict ? 0.78 : 0.68;
   const intentFloor = strict ? 0.72 : 0.62;
 
-  if (breakdown.curatorScore < MIN_CURATOR_SCORE) {
+  if (!Number.isFinite(breakdown.curatorScore)) {
+    rejectionReasons.push("curatorScore non-finite (evaluation signal incomplete)");
+  } else if (breakdown.curatorScore < MIN_CURATOR_SCORE) {
     rejectionReasons.push(`curatorScore ${breakdown.curatorScore.toFixed(3)} < ${MIN_CURATOR_SCORE}`);
   }
 
@@ -307,7 +313,21 @@ export function evaluateHumanSaveability(
   const humanSaveable =
     rejectionReasons.length === 0 &&
     dedupedOffenders.length === 0 &&
+    Number.isFinite(breakdown.curatorScore) &&
     breakdown.curatorScore >= MIN_CURATOR_SCORE;
+
+  if (!humanSaveable && rejectionReasons.length === 0) {
+    if (dedupedOffenders.length > 0) {
+      const first = dedupedOffenders[0]!;
+      rejectionReasons.push(`offending track rank ${first.rank}: ${first.reason} (${first.artist})`);
+    } else if (!Number.isFinite(breakdown.curatorScore)) {
+      rejectionReasons.push("curatorScore non-finite (evaluation signal incomplete)");
+    } else if (breakdown.curatorScore < MIN_CURATOR_SCORE) {
+      rejectionReasons.push(`curatorScore ${breakdown.curatorScore.toFixed(3)} < ${MIN_CURATOR_SCORE}`);
+    } else {
+      rejectionReasons.push("human saveability composite check failed without explicit curator rejection");
+    }
+  }
 
   return {
     humanSaveable,
@@ -334,4 +354,42 @@ export function firstTenClusterConsistencyForGate(
 ): number {
   if (!context?.sceneClusters) return 0;
   return computeFirstTenClusterConsistency(tracks, context);
+}
+
+/** Observability helper — normalize gate evaluation for execution trace (no threshold changes). */
+export function gateEvaluationForExecutionTrace(
+  evaluation: HumanSaveabilityEvaluation,
+): {
+  humanSaveable: boolean;
+  curatorScore: number | null;
+  rejectionReasons: string[];
+} {
+  const curatorScore = Number.isFinite(evaluation.curatorScore) ? evaluation.curatorScore : null;
+  const rejectionReasons = evaluation.rejectionReasons.filter((r) => r.length > 0 && r !== "unspecified");
+  if (rejectionReasons.length > 0) {
+    return { humanSaveable: evaluation.humanSaveable, curatorScore, rejectionReasons };
+  }
+  if (evaluation.humanSaveable) {
+    return { humanSaveable: true, curatorScore, rejectionReasons: ["human_saveable:passed"] };
+  }
+  if (evaluation.offendingTracks.length > 0) {
+    const first = evaluation.offendingTracks[0]!;
+    return {
+      humanSaveable: false,
+      curatorScore,
+      rejectionReasons: [`offending_track:${first.reason}`],
+    };
+  }
+  if (curatorScore == null) {
+    return {
+      humanSaveable: false,
+      curatorScore: null,
+      rejectionReasons: ["curator_score:unavailable"],
+    };
+  }
+  return {
+    humanSaveable: false,
+    curatorScore,
+    rejectionReasons: ["gate_evaluation:failed_without_explicit_reasons"],
+  };
 }
