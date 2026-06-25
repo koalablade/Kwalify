@@ -392,6 +392,10 @@ function feature(value: number | null | undefined, fallback = 0.5): number {
   return typeof value === "number" && Number.isFinite(value) ? clamp01(value) : fallback;
 }
 
+function hasFeature(value: number | null | undefined): boolean {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function valenceToSigned(valence: number): number {
   return clamp01(valence) * 2 - 1;
 }
@@ -713,19 +717,31 @@ export function trackMatchesEditorialIntent(
   const world = EDITORIAL_WORLDS.find((row) => row.tag === intent.editorialWorldTag);
   if (!world || !world.primaryFamilies.includes(family)) return false;
 
-  const energy = feature(track.energy);
-  if (energy < intent.energyRange[0] || energy > intent.energyRange[1]) return false;
+  // Missing audio features must not be imputed as 0.5 — that rejects entire libraries.
+  if (hasFeature(track.energy)) {
+    const energy = feature(track.energy);
+    if (energy < intent.energyRange[0] || energy > intent.energyRange[1]) return false;
+    if (intent.nostalgiaBias >= 0.55) {
+      const valence = hasFeature(track.valence)
+        ? valenceToSigned(feature(track.valence))
+        : null;
+      if (energy > 0.78 && valence != null && valence > 0.45) return false;
+      const year = track.releaseYear;
+      if (typeof year === "number" && year > 2022 && energy > 0.72) return false;
+    }
+  }
 
-  const valence = valenceToSigned(feature(track.valence));
-  if (Math.abs(valence - intent.valenceTarget) > 0.25) return false;
+  if (hasFeature(track.valence)) {
+    const valence = valenceToSigned(feature(track.valence));
+    if (Math.abs(valence - intent.valenceTarget) > 0.25) return false;
+  }
 
-  if (rhythmDensity(track) > intent.rhythmDensityCap + 0.04) return false;
-  if (sonicAggression(track) > intent.sonicAggressionCeiling + 0.04) return false;
+  if (hasFeature(track.danceability) || hasFeature(track.tempo)) {
+    if (rhythmDensity(track) > intent.rhythmDensityCap + 0.04) return false;
+  }
 
-  if (intent.nostalgiaBias >= 0.55) {
-    if (energy > 0.78 && valence > 0.45) return false;
-    const year = track.releaseYear;
-    if (typeof year === "number" && year > 2022 && energy > 0.72) return false;
+  if (hasFeature(track.energy) || hasFeature(track.acousticness) || hasFeature(track.danceability)) {
+    if (sonicAggression(track) > intent.sonicAggressionCeiling + 0.04) return false;
   }
 
   const micro = trackMicroCluster(track);

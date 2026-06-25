@@ -132,4 +132,23 @@ describe("intent collapse layer", () => {
     assert.equal(minimumIntentPoolSize(25, true), 50);
     assert.ok(minimumIntentPoolSize(25, false) >= 18);
   });
+
+  it("does not reject tracks with missing audio features when family and micro cluster match", () => {
+    const collapsed = collapseIntent({
+      vibe: "rainy city walk reflective",
+      lockedIntent: rainyWalkIntent,
+      profile: baseProfile,
+      strictMode: true,
+    });
+    const compatible = buildRainWalkTracks(10).map((track) => ({
+      ...track,
+      energy: null as unknown as number,
+      valence: null as unknown as number,
+      danceability: null as unknown as number,
+      acousticness: null as unknown as number,
+      tempo: null as unknown as number,
+    }));
+    const filtered = filterCandidatesByIntentVector(compatible, collapsed.intent);
+    assert.equal(filtered.length, compatible.length);
+  });
 });
