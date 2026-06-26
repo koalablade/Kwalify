@@ -66,6 +66,8 @@
     "test:editorial-stabiliser": "npm run build && node --test backend/dist/tests/editorial-stabiliser.test.js",
     "test:intent-collapse-layer": "npm run build && node --test backend/dist/tests/intent-collapse-layer.test.js",
     "test:editorial-roi": "npm run build && node --test backend/dist/tests/editorial-roi.test.js",
+    "fit:human-playlist-patterns": "npm run build && node backend/dist/scripts/fit-human-playlist-patterns.js",
+    "benchmark:pairwise-human": "npm run build && node backend/dist/scripts/pairwise-human-playlist-benchmark.js",
     "analyze:human-saveability-failures": "npm run build && node backend/dist/scripts/human-saveability-failure-analysis.js",
     "benchmark:human-saveability-before-after": "npm run build && node backend/dist/scripts/human-saveability-before-after.js",
     "investigate:dominant-cluster-funnel": "npm run build && node backend/dist/scripts/dominant-cluster-funnel-investigation.js",

@@ -19,6 +19,10 @@ import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforceme
 import { runV3Pipeline } from "./v3/v3-pipeline";
 import { evaluateWouldISave, wouldISaveCandidateScore } from "./editorial/would-i-save-evaluator";
 import {
+  selectBestCandidateByPairwiseTournament,
+  type PairwiseTournamentAudit,
+} from "./editorial/pairwise-playlist-judge";
+import {
   computeLibraryFingerprint,
   type LibraryFingerprint,
 } from "./editorial/library-fingerprint";
@@ -4929,7 +4933,24 @@ export async function buildPlaylistPipeline<T extends {
       break;
     }
   }
-  const selectedCandidate = [...candidateAttempts].sort((a, b) => b.total - a.total)[0] ?? candidateAttempts[0];
+  let pairwiseSelectionAudit: PairwiseTournamentAudit | null = null;
+  const selectedCandidate = (() => {
+    if (candidateAttempts.length <= 1) {
+      return candidateAttempts[0]!;
+    }
+    const pairwiseCandidates = candidateAttempts.map((attempt) => ({
+      label: attempt.label,
+      tracks: attempt.result.finalTracks,
+      wouldISave: attempt.wouldISave,
+      qualityOverall: attempt.quality.overall,
+      context: attempt.result.sceneWorldContext ?? null,
+      scalarTotal: attempt.total,
+    }));
+    const pairwise = selectBestCandidateByPairwiseTournament(pairwiseCandidates);
+    pairwiseSelectionAudit = pairwise.audit;
+    const winnerLabel = pairwise.winner.label;
+    return candidateAttempts.find((attempt) => attempt.label === winnerLabel) ?? candidateAttempts[0]!;
+  })();
   const v3CandidatePool = selectedCandidate.candidatePool;
   const v3 = selectedCandidate.result;
   const retrievalPoolDiagnostics = {
@@ -5023,6 +5044,8 @@ export async function buildPlaylistPipeline<T extends {
   }
   const controlledGenerationDiagnostics = {
     selectedCandidate: selectedCandidate.label,
+    candidateSelectionMethod: pairwiseSelectionAudit ? "pairwise_tournament" : "single_candidate",
+    pairwiseSelection: pairwiseSelectionAudit,
     selectedRelaxation: selectedCandidate.candidatePool.diagnostics["finalRelaxedConstraints"] ?? null,
     relaxationSteps: selectedCandidate.candidatePool.diagnostics["relaxationSteps"] ?? [],
     constraintFailures: selectedCandidate.candidatePool.diagnostics["constraintFailures"] ?? [],

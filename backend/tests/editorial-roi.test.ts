@@ -11,6 +11,7 @@ import {
   scoreAgainstHumanPlaylistPatterns,
 } from "../core/editorial/human-playlist-patterns";
 import { evaluateWouldISave } from "../core/editorial/would-i-save-evaluator";
+import { comparePlaylistsPairwise } from "../core/editorial/pairwise-playlist-judge";
 import {
   rankCandidatesByIntentVector,
   scoreEditorialIntentMatch,
@@ -109,5 +110,50 @@ describe("editorial ROI modules", () => {
     });
     assert.equal(evaluation.strictMode, true);
     assert.equal(evaluation.humanSaveable, false);
+  });
+
+  it("pairwise comparison prefers coherent playlist over genre salad", () => {
+    const coherentTracks = Array.from({ length: 20 }, (_, i) => ({
+      trackId: `c${i}`,
+      trackName: `Track ${i}`,
+      artistName: `Artist ${Math.floor(i / 5)}`,
+      genreFamily: "indie",
+      energy: 0.5 + (i / 20) * 0.15,
+      valence: 0.58,
+      danceability: 0.52,
+      acousticness: 0.42,
+      rediscoveryScore: i % 4 === 0 ? 0.65 : 0.35,
+    }));
+    const saladTracks = [
+      ...coherentTracks.slice(0, 8),
+      { trackId: "m1", trackName: "Metal", artistName: "SOAD", genreFamily: "metal", energy: 0.92, valence: 0.3, danceability: 0.4, acousticness: 0.1 },
+      { trackId: "c1", trackName: "Country", artistName: "Keith", genreFamily: "country", energy: 0.55, valence: 0.5, danceability: 0.5, acousticness: 0.5 },
+      ...coherentTracks.slice(8, 16),
+      { trackId: "h1", trackName: "Rap", artistName: "Drake", genreFamily: "hip_hop", energy: 0.7, valence: 0.6, danceability: 0.8, acousticness: 0.2 },
+    ];
+    const baseEval = {
+      strictMode: true,
+      humanPatternBreakdown: {},
+      gateRejectionReasons: [] as string[],
+    };
+    const result = comparePlaylistsPairwise(
+      {
+        label: "coherent",
+        tracks: coherentTracks,
+        wouldISave: { ...baseEval, wouldSaveScore: 0.82, humanPatternScore: 0.75, gateCuratorScore: 0.88, combinedScore: 0.82, humanSaveable: true },
+        qualityOverall: 0.72,
+        context: null,
+        scalarTotal: 0.8,
+      },
+      {
+        label: "salad",
+        tracks: saladTracks,
+        wouldISave: { ...baseEval, wouldSaveScore: 0.55, humanPatternScore: 0.42, gateCuratorScore: 0.62, combinedScore: 0.55, humanSaveable: false },
+        qualityOverall: 0.48,
+        context: null,
+        scalarTotal: 0.52,
+      },
+    );
+    assert.equal(result.winner, "a");
   });
 });

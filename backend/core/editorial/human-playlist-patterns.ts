@@ -1,7 +1,13 @@
 /**
- * Statistical patterns learned from human-curated playlists.
- * Defaults mirror aggregate distributions from large playlist corpora;
- * optional JSON corpus overrides via HUMAN_PLAYLIST_PATTERNS_PATH.
+ * Editorial pattern PRIORS — not learned from a corpus until fitted.
+ *
+ * `human-playlist-patterns.json` and DEFAULT_* values are hand-calibrated
+ * heuristics (better hardcoded rules). Replace by running corpus fitting:
+ *   npm run fit:human-playlist-patterns
+ * and pointing HUMAN_PLAYLIST_PATTERNS_PATH at the output.
+ *
+ * True learning requires thousands of real playlists + pairwise human judgement
+ * (see pairwise-playlist-judge.ts and scripts/pairwise-human-playlist-benchmark.ts).
  */
 
 import fs from "node:fs";
