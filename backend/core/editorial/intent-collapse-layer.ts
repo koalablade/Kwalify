@@ -32,7 +32,20 @@ export type EditorialIntentVector = {
   sceneType: SceneType;
   editorialWorldTag: string;
   allowedMicroClusters: string[];
+  /** Wider valence band when library-calibrated for filter survival. */
+  valenceMaxDeviation?: number;
 };
+
+export type IntentFilterRejectionReason =
+  | "genre_family_not_allowed"
+  | "energy_out_of_range"
+  | "valence_out_of_range"
+  | "nostalgia_energy_valence_conflict"
+  | "nostalgia_release_year_conflict"
+  | "rhythm_density_cap"
+  | "aggression_cap"
+  | "micro_cluster_not_allowed"
+  | "passed";
 
 export type IntentCollapseDiagnostics = {
   primaryMood: string;
@@ -43,6 +56,9 @@ export type IntentCollapseDiagnostics = {
   collapseConfidenceScore: number;
   preFilterCount: number;
   postFilterCount: number;
+  filterRejectionCounts?: Partial<Record<IntentFilterRejectionReason, number>>;
+  dominantFilterRejection?: IntentFilterRejectionReason | null;
+  valenceMaxDeviation?: number;
 };
 
 export type IntentCollapseTrack = {
@@ -470,6 +486,38 @@ function trackFamily(track: IntentCollapseTrack): string {
   return getGenreFamily(track.genreFamily ?? track.genrePrimary ?? "unknown");
 }
 
+export function enrichIntentCollapseTrack(
+  track: IntentCollapseTrack,
+  classification?: { genreFamily?: string | null; genrePrimary?: string | null } | null,
+): IntentCollapseTrack {
+  const genreFamily = classification?.genreFamily
+    ?? track.genreFamily
+    ?? (track.genrePrimary ? getGenreFamily(track.genrePrimary) : null);
+  const genrePrimary = classification?.genrePrimary ?? track.genrePrimary ?? null;
+  if (genreFamily === track.genreFamily && genrePrimary === track.genrePrimary) return track;
+  return { ...track, genreFamily, genrePrimary };
+}
+
+function dominantFilterRejectionReason(
+  counts: Record<IntentFilterRejectionReason, number>,
+): IntentFilterRejectionReason | null {
+  let best: IntentFilterRejectionReason | null = null;
+  let bestCount = 0;
+  for (const [reason, count] of Object.entries(counts) as Array<[IntentFilterRejectionReason, number]>) {
+    if (reason === "passed" || count <= bestCount) continue;
+    best = reason;
+    bestCount = count;
+  }
+  return best;
+}
+
+function countIntentFilterSurvivors<T extends IntentCollapseTrack>(
+  tracks: T[],
+  intent: EditorialIntentVector,
+): number {
+  return filterCandidatesByIntentVector(tracks, intent).length;
+}
+
 function buildProvisionalIntent(
   world: EditorialWorldDefinition,
   primaryMood: string,
@@ -634,15 +682,14 @@ export function selectEditorialWorld(opts: {
     return viable[0]!.world;
   }
 
-  if (preferredRow) {
-    return preferredRow.world;
-  }
-
   withLibrary.sort((a, b) =>
+    b.fit.candidateCount - a.fit.candidateCount ||
     b.fit.libraryScore - a.fit.libraryScore ||
     b.world.cohesionScore - a.world.cohesionScore ||
     b.semantic - a.semantic,
   );
+  const withCandidates = withLibrary.filter((row) => row.fit.candidateCount > 0);
+  if (withCandidates.length > 0) return withCandidates[0]!.world;
   return withLibrary[0]!.world;
 }
 
@@ -783,45 +830,74 @@ export function collapseIntent(opts: {
   return { intent, collapseConfidenceScore: clamp01(confidence), libraryFit };
 }
 
-export function trackMatchesEditorialIntent(
+export function diagnoseIntentFilterRejectionReason(
   track: IntentCollapseTrack,
   intent: EditorialIntentVector,
-): boolean {
+): IntentFilterRejectionReason {
   const family = trackFamily(track);
   const world = EDITORIAL_WORLDS.find((row) => row.tag === intent.editorialWorldTag);
-  if (!world || !world.primaryFamilies.includes(family)) return false;
+  if (!world || !world.primaryFamilies.includes(family)) return "genre_family_not_allowed";
 
-  // Missing audio features must not be imputed as 0.5 — that rejects entire libraries.
   if (hasFeature(track.energy)) {
     const energy = feature(track.energy);
-    if (energy < intent.energyRange[0] || energy > intent.energyRange[1]) return false;
+    if (energy < intent.energyRange[0] || energy > intent.energyRange[1]) return "energy_out_of_range";
     if (intent.nostalgiaBias >= 0.55) {
       const valence = hasFeature(track.valence)
         ? valenceToSigned(feature(track.valence))
         : null;
-      if (energy > 0.78 && valence != null && valence > 0.45) return false;
+      if (energy > 0.78 && valence != null && valence > 0.45) return "nostalgia_energy_valence_conflict";
       const year = track.releaseYear;
-      if (typeof year === "number" && year > 2022 && energy > 0.72) return false;
+      if (typeof year === "number" && year > 2022 && energy > 0.72) return "nostalgia_release_year_conflict";
     }
   }
 
+  const valenceSlack = intent.valenceMaxDeviation ?? 0.25;
   if (hasFeature(track.valence)) {
     const valence = valenceToSigned(feature(track.valence));
-    if (Math.abs(valence - intent.valenceTarget) > 0.25) return false;
+    if (Math.abs(valence - intent.valenceTarget) > valenceSlack) return "valence_out_of_range";
   }
 
   if (hasFeature(track.danceability) || hasFeature(track.tempo)) {
-    if (rhythmDensity(track) > intent.rhythmDensityCap + 0.04) return false;
+    if (rhythmDensity(track) > intent.rhythmDensityCap + 0.04) return "rhythm_density_cap";
   }
 
   if (hasFeature(track.energy) || hasFeature(track.acousticness) || hasFeature(track.danceability)) {
-    if (sonicAggression(track) > intent.sonicAggressionCeiling + 0.04) return false;
+    if (sonicAggression(track) > intent.sonicAggressionCeiling + 0.04) return "aggression_cap";
   }
 
   const micro = trackMicroCluster(track);
-  if (!intent.allowedMicroClusters.includes(micro)) return false;
+  if (!intent.allowedMicroClusters.includes(micro)) return "micro_cluster_not_allowed";
 
-  return true;
+  return "passed";
+}
+
+export function diagnoseIntentFilterRejectionCounts(
+  tracks: IntentCollapseTrack[],
+  intent: EditorialIntentVector,
+): Record<IntentFilterRejectionReason, number> {
+  const counts: Record<IntentFilterRejectionReason, number> = {
+    genre_family_not_allowed: 0,
+    energy_out_of_range: 0,
+    valence_out_of_range: 0,
+    nostalgia_energy_valence_conflict: 0,
+    nostalgia_release_year_conflict: 0,
+    rhythm_density_cap: 0,
+    aggression_cap: 0,
+    micro_cluster_not_allowed: 0,
+    passed: 0,
+  };
+  for (const track of tracks) {
+    const reason = diagnoseIntentFilterRejectionReason(track, intent);
+    counts[reason] += 1;
+  }
+  return counts;
+}
+
+export function trackMatchesEditorialIntent(
+  track: IntentCollapseTrack,
+  intent: EditorialIntentVector,
+): boolean {
+  return diagnoseIntentFilterRejectionReason(track, intent) === "passed";
 }
 
 export function filterCandidatesByIntentVector<T extends IntentCollapseTrack>(
@@ -838,6 +914,7 @@ export function filterCandidatesByIntentVector<T extends IntentCollapseTrack>(
 export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTrack>(
   tracks: T[],
   intent: EditorialIntentVector,
+  opts?: { targetCount?: number; strictMode?: boolean },
 ): EditorialIntentVector {
   const world = EDITORIAL_WORLDS.find((row) => row.tag === intent.editorialWorldTag);
   if (!world || tracks.length === 0) return intent;
@@ -863,6 +940,10 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
       const family = micro.split(":")[0] ?? "";
       return world.primaryFamilies.includes(family);
     });
+  const poolMicros = [...microCounts.keys()].filter((micro) => {
+    const family = micro.split(":")[0] ?? "";
+    return world.primaryFamilies.includes(family);
+  });
   const allowedMicroClusters = [...new Set([...intent.allowedMicroClusters, ...topMicros])];
 
   let energyRange = intent.energyRange;
@@ -891,12 +972,65 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
     valenceTarget = mid * 0.65 + intent.valenceTarget * 0.35;
   }
 
-  return {
+  let calibrated: EditorialIntentVector = {
     ...intent,
     allowedMicroClusters,
     energyRange,
     valenceTarget,
   };
+
+  const minSurvival = minimumIntentPoolSize(opts?.targetCount ?? 25, opts?.strictMode === true);
+  const maxRelaxPasses = 6;
+  for (let pass = 0; pass < maxRelaxPasses && countIntentFilterSurvivors(tracks, calibrated) < minSurvival; pass += 1) {
+    const counts = diagnoseIntentFilterRejectionCounts(tracks, calibrated);
+    const dominant = dominantFilterRejectionReason(counts);
+    if (!dominant) break;
+
+    switch (dominant) {
+      case "valence_out_of_range": {
+        const nextDeviation = (calibrated.valenceMaxDeviation ?? 0.25) + 0.1;
+        if (nextDeviation > 0.6) return calibrated;
+        calibrated = { ...calibrated, valenceMaxDeviation: nextDeviation };
+        break;
+      }
+      case "micro_cluster_not_allowed":
+        calibrated = {
+          ...calibrated,
+          allowedMicroClusters: [...new Set([...calibrated.allowedMicroClusters, ...poolMicros])],
+        };
+        break;
+      case "energy_out_of_range": {
+        if (energies.length < 4) return calibrated;
+        const sorted = [...energies].sort((a, b) => a - b);
+        const lo = clamp01(sorted[0]! - 0.05);
+        const hi = clamp01(sorted[sorted.length - 1]! + 0.05);
+        calibrated = {
+          ...calibrated,
+          energyRange: [
+            Math.min(lo, calibrated.energyRange[0]),
+            Math.max(hi, calibrated.energyRange[1]),
+          ],
+        };
+        break;
+      }
+      case "rhythm_density_cap":
+        calibrated = {
+          ...calibrated,
+          rhythmDensityCap: clamp01(calibrated.rhythmDensityCap + 0.08),
+        };
+        break;
+      case "aggression_cap":
+        calibrated = {
+          ...calibrated,
+          sonicAggressionCeiling: clamp01(calibrated.sonicAggressionCeiling + 0.08),
+        };
+        break;
+      default:
+        return calibrated;
+    }
+  }
+
+  return calibrated;
 }
 
 export function minimumIntentPoolSize(targetCount: number, strictMode: boolean): number {
@@ -909,7 +1043,11 @@ export function buildIntentCollapseDiagnostics(
   collapseConfidenceScore: number,
   preFilterCount: number,
   postFilterCount: number,
+  tracksForRejection?: IntentCollapseTrack[],
 ): IntentCollapseDiagnostics {
+  const rejectionCounts = tracksForRejection?.length
+    ? diagnoseIntentFilterRejectionCounts(tracksForRejection, intent)
+    : undefined;
   return {
     primaryMood: intent.primaryMood,
     editorialWorldTag: intent.editorialWorldTag,
@@ -919,6 +1057,11 @@ export function buildIntentCollapseDiagnostics(
     collapseConfidenceScore,
     preFilterCount,
     postFilterCount,
+    filterRejectionCounts: rejectionCounts,
+    dominantFilterRejection: rejectionCounts
+      ? dominantFilterRejectionReason(rejectionCounts)
+      : null,
+    valenceMaxDeviation: intent.valenceMaxDeviation,
   };
 }
 

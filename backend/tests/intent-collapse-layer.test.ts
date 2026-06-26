@@ -13,7 +13,9 @@ import {
   selectEditorialWorld,
   trackMatchesEditorialIntent,
   trackMicroCluster,
+  enrichIntentCollapseTrack,
   calibrateIntentVectorForRetrievalPool,
+  diagnoseIntentFilterRejectionCounts,
   validateDominantClusterAlignment,
 } from "../core/editorial/intent-collapse-layer";
 import type { LockedIntent } from "../core/v3/intent";
@@ -187,7 +189,7 @@ describe("intent collapse layer", () => {
       acousticness: 0.22,
       tempo: 128,
     }));
-    const calibrated = calibrateIntentVectorForRetrievalPool(pool, collapsed.intent);
+    const calibrated = calibrateIntentVectorForRetrievalPool(pool, collapsed.intent, { targetCount: 25, strictMode: true });
     const filtered = filterCandidatesByIntentVector(pool, calibrated);
     assert.ok(filtered.length >= 20);
   });
@@ -199,5 +201,44 @@ describe("intent collapse layer", () => {
       ["indie", "folk"],
     );
     assert.equal(ok.aligned, true);
+  });
+
+  it("enriches genre family from classification map when track metadata is sparse", () => {
+    const track = enrichIntentCollapseTrack(
+      { trackId: "a", genrePrimary: null, genreFamily: null },
+      { genreFamily: "indie", genrePrimary: "indie rock" },
+    );
+    assert.equal(track.genreFamily, "indie");
+    const collapsed = collapseIntent({
+      vibe: "rainy city walk reflective",
+      lockedIntent: rainyWalkIntent,
+      profile: baseProfile,
+      strictMode: true,
+    });
+    assert.equal(trackMatchesEditorialIntent(track, collapsed.intent), true);
+  });
+
+  it("relaxes dominant valence rejection until pool survives calibration", () => {
+    const collapsed = collapseIntent({
+      vibe: "Feel-good summer morning music to hype yourself up for the day",
+      lockedIntent: { ...rainyWalkIntent, mood: ["uplift"], activity: "commute", energy: "high", genreFamilies: [] },
+      profile: { ...baseProfile, valence: 0.68, energy: 0.62 },
+      strictMode: true,
+      sceneArchetypeId: "indie_pop_sunshine_commute",
+    });
+    const pool = Array.from({ length: 50 }, (_, i) => ({
+      trackId: `v${i}`,
+      genreFamily: "indie",
+      energy: 0.58,
+      valence: 0.72,
+      danceability: 0.55,
+      acousticness: 0.35,
+      tempo: 118,
+    }));
+    const calibrated = calibrateIntentVectorForRetrievalPool(pool, collapsed.intent, { targetCount: 25, strictMode: true });
+    const counts = diagnoseIntentFilterRejectionCounts(pool, calibrated);
+    const filtered = filterCandidatesByIntentVector(pool, calibrated);
+    assert.ok(filtered.length >= 18);
+    assert.ok((counts.passed ?? 0) >= 18);
   });
 });

@@ -48,6 +48,7 @@ import {
   collapseIntent,
   filterCandidatesByIntentVector,
   calibrateIntentVectorForRetrievalPool,
+  enrichIntentCollapseTrack,
   IntentCollapseInsufficientPoolError,
   minimumIntentPoolSize,
   reinforceOpeningEditorialWorldLock,
@@ -262,17 +263,24 @@ function toSceneWorldTrack<T extends V3PipelineTrack>(
     classificationByTrack?: (trackId: string) => TrackGenreClassification | undefined;
   },
 ) {
+  const classification = opts.classificationByTrack?.(track.trackId);
+  const collapsed = enrichIntentCollapseTrack(
+    {
+      trackId: track.trackId,
+      artistName: track.artistName,
+      genrePrimary: opts.genreByTrack?.(track.trackId) ?? track.genrePrimary ?? null,
+      genreFamily: track.genreFamily ?? classification?.genreFamily ?? null,
+      energy: track.energy,
+      valence: track.valence,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      tempo: track.tempo,
+      speechiness: track.speechiness,
+    },
+    classification,
+  );
   return {
-    trackId: track.trackId,
-    artistName: track.artistName,
-    genrePrimary: opts.genreByTrack?.(track.trackId) ?? null,
-    genreFamily: opts.classificationByTrack?.(track.trackId)?.genreFamily ?? null,
-    energy: track.energy,
-    valence: track.valence,
-    danceability: track.danceability,
-    acousticness: track.acousticness,
-    tempo: track.tempo,
-    speechiness: track.speechiness,
+    ...collapsed,
     albumName: (track as { albumName?: string | null }).albumName ?? null,
   };
 }
@@ -887,7 +895,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     sceneArchetypeId: preRetrievalSceneWorld?.archetype?.id ?? null,
   });
   const editorialIntentVector: EditorialIntentVector = collapsedIntent.intent;
-  const samplerIntentContext: SamplerIntentContext = buildSamplerIntentContext(editorialIntentVector);
+  let activeEditorialIntentVector: EditorialIntentVector = editorialIntentVector;
+  let samplerIntentContext: SamplerIntentContext = buildSamplerIntentContext(editorialIntentVector);
   let intentCollapseDiagnostics: IntentCollapseDiagnostics | null = buildIntentCollapseDiagnostics(
     editorialIntentVector,
     collapsedIntent.collapseConfidenceScore,
@@ -1047,17 +1056,27 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   }
   let retrievedTracks = activeRetrievalCloud.tracks.map((candidate) => candidate.track);
   const preIntentFilterCount = retrievedTracks.length;
-  const calibratedIntentVector = calibrateIntentVectorForRetrievalPool(
-    retrievedTracks,
-    editorialIntentVector,
+  const intentFilterTracks = retrievedTracks.map((track) =>
+    enrichIntentCollapseTrack(track, opts.classificationByTrack?.(track.trackId)),
   );
-  retrievedTracks = filterCandidatesByIntentVector(retrievedTracks, calibratedIntentVector);
-  const postIntentFilterCount = retrievedTracks.length;
-  intentCollapseDiagnostics = buildIntentCollapseDiagnostics(
+  const calibratedIntentVector = calibrateIntentVectorForRetrievalPool(
+    intentFilterTracks,
     editorialIntentVector,
+    { targetCount, strictMode: humanSaveStrictMode },
+  );
+  const postFilterTrackIds = new Set(
+    filterCandidatesByIntentVector(intentFilterTracks, calibratedIntentVector).map((track) => track.trackId),
+  );
+  retrievedTracks = retrievedTracks.filter((track) => postFilterTrackIds.has(track.trackId));
+  const postIntentFilterCount = retrievedTracks.length;
+  activeEditorialIntentVector = calibratedIntentVector;
+  samplerIntentContext = buildSamplerIntentContext(calibratedIntentVector);
+  intentCollapseDiagnostics = buildIntentCollapseDiagnostics(
+    calibratedIntentVector,
     collapsedIntent.collapseConfidenceScore,
     preIntentFilterCount,
     postIntentFilterCount,
+    intentFilterTracks,
   );
   forensicTrace.push(stageTrace(
     "intent collapse filter count",
@@ -1653,7 +1672,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
 
   const openingEditorialLock = reinforceOpeningEditorialWorldLock({
     sampledLanes: sampledResults,
-    intent: editorialIntentVector,
+    intent: activeEditorialIntentVector,
   });
   if (!openingEditorialLock.sufficient) {
     const collapseTrace = finalizeExecutionTrace(
@@ -1669,7 +1688,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     throw new IntentCollapseInsufficientPoolError(
       `insufficient_intent_pool:opening_eligible=${openingEditorialLock.openingEligibleCount}<10`,
       buildIntentCollapseDiagnostics(
-        editorialIntentVector,
+        activeEditorialIntentVector,
         collapsedIntent.collapseConfidenceScore,
         intentCollapseDiagnostics?.preFilterCount ?? 0,
         openingEditorialLock.openingEligibleCount,
