@@ -25,14 +25,14 @@ import { retrieveCandidatesByEmbedding } from "../core/v3/embedding-retrieval";
 import { strictModeHumanSaveability } from "../core/human-saveability-gate";
 import {
   collapseIntent,
-  filterCandidatesByIntentVector,
+  selectRankedCandidatesForSampler,
+  scoreEditorialIntentMatch,
   minimumIntentPoolSize,
   trackMicroCluster,
   validateDominantClusterAlignment,
   validateEditorialSceneWorldAlignment,
   calibrateIntentVectorForRetrievalPool,
   diagnoseIntentFilterRejectionReason,
-  trackMatchesEditorialIntent,
   type EditorialIntentVector,
   type IntentCollapseTrack,
 } from "../core/editorial/intent-collapse-layer";
@@ -408,19 +408,23 @@ function replayLocalFunnel(
     targetCount: TARGET_COUNT,
     strictMode,
   });
-  const postFilterTracks = filterCandidatesByIntentVector(retrievedTracks, calibrated);
+  const ranked = selectRankedCandidatesForSampler(retrievedTracks, calibrated, {
+    targetCount: TARGET_COUNT,
+    strictMode,
+  });
+  const postFilterTracks = ranked.selected;
   const postFilter = postFilterTracks.length;
   const removedTracks: TrackRemoval[] = [];
   for (const track of retrievedTracks) {
+    if (postFilterTracks.some((row) => row.trackId === track.trackId)) continue;
     const reason = diagnoseIntentFilterRejectionReason(track, calibrated);
-    if (reason === "passed") continue;
-    if (trackMatchesEditorialIntent(track, calibrated)) continue;
+    const score = scoreEditorialIntentMatch(track, calibrated);
     removedTracks.push({
       trackId: track.trackId,
       track: (track as { trackName?: string | null }).trackName ?? track.trackId,
       artist: track.artistName ?? "unknown",
       editorialWorldTag: intent.editorialWorldTag,
-      rejectionReason: reason,
+      rejectionReason: (score <= 0 ? reason : "ranked_below_floor") as typeof reason,
     });
   }
 

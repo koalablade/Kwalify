@@ -517,7 +517,7 @@ function dominantFilterRejectionReason(
 }
 
 const DEALBREAKER_AGGRESSION_MARGIN = 0.12;
-const OPENING_INTENT_SCORE_FLOOR = 0.42;
+const OPENING_INTENT_SCORE_FLOOR = 0.36;
 
 function countIntentFilterSurvivors<T extends IntentCollapseTrack>(
   tracks: T[],
@@ -746,7 +746,11 @@ export function scoreWorldLibraryFit(
     targetCount: opts.targetCount,
     strictMode: opts.strictMode,
   });
-  const matches = filterCandidatesByIntentVector(tracks, calibrated);
+  const ranked = selectRankedCandidatesForSampler(tracks, calibrated, {
+    targetCount: opts.targetCount,
+    strictMode: opts.strictMode === true,
+  });
+  const matches = ranked.selected;
   const minPool = minimumIntentPoolSize(opts.targetCount, opts.strictMode === true);
   const density = clusterDensityForMatches(matches);
   const libraryScore = clamp01((matches.length / minPool) * 0.65 + density * 0.35);

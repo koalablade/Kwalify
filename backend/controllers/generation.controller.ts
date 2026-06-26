@@ -145,6 +145,7 @@ import {
 } from "../lib/curator-identity";
 import { runRequestLayerGeneration, type RequestGenerationOrchestration } from "../lib/request-generation-orchestrator";
 import { HumanSaveabilityGateError, strictModeHumanSaveability } from "../core/human-saveability-gate";
+import { isSoftScenePrompt } from "../core/scene-world-layer";
 import { loadEditorialMemory, recordEditorialMemory } from "../core/editorial/editorial-memory";
 import { computeLibraryFingerprint } from "../core/editorial/library-fingerprint";
 import { IntentCollapseInsufficientPoolError } from "../core/editorial/intent-collapse-layer";
@@ -430,6 +431,25 @@ function resolveSuccessExecutionTrace(opts: {
   });
 }
 
+function shouldBlockStrictEditorialTimeoutFallback(ctx: Record<string, unknown> | undefined): boolean {
+  if (ctx?.strictModeHumanSaveability === true) return true;
+  const vibe = typeof ctx?.vibe === "string" ? ctx.vibe : "";
+  if (!vibe) return false;
+  const lockedIntent = ctx?.lockedIntent as LockedIntent | undefined;
+  if (lockedIntent) return strictModeHumanSaveability(vibe, lockedIntent);
+  return isSoftScenePrompt(vibe, {
+    genreFamilies: [],
+    primaryGenre: null,
+    primarySubgenre: null,
+    secondarySubgenre: null,
+    subgenreTerms: [],
+    eraRange: null,
+    mood: [],
+    activity: null,
+    energy: null,
+  });
+}
+
 function timeoutFallbackResponse(
   req: import("express").Request,
   res: import("express").Response,
@@ -444,7 +464,7 @@ function timeoutFallbackResponse(
 ): boolean {
   if (responseFinished(res)) return true;
   const ctx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
-  if (ctx?.strictModeHumanSaveability === true) {
+  if (shouldBlockStrictEditorialTimeoutFallback(ctx)) {
     return false;
   }
   const likedSongs = Array.isArray(ctx?.likedSongs) ? ctx.likedSongs : [];
@@ -6066,7 +6086,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Pre-V3 timing breakdown"
     );
     const pipelineReady = scoringInputSongs.length >= Math.max(8, Math.min(length, 20));
-    const useFastFallback = !devMode && budget.shouldFastFallback() && !pipelineReady;
+    const strictEditorialGeneration = strictModeHumanSaveability(vibe, lockedIntent);
+    const useFastFallback = !devMode && budget.shouldFastFallback() && !pipelineReady && !strictEditorialGeneration;
     const generationPolicy = resolveGenerationPolicy(
       profileUserLibrary(likedSongs, userGenreProfile.trackClassifications),
       estimatePromptUncertainty({

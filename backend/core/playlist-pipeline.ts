@@ -126,7 +126,7 @@ import {
 const V3_SAFETY_INPUT_MIN = 180;
 const V3_SAFETY_INPUT_PER_TRACK = 12;
 const V3_SAFETY_INPUT_MAX = 360;
-const MAX_EDITORIAL_CANDIDATE_ATTEMPTS = 4;
+const MAX_EDITORIAL_CANDIDATE_ATTEMPTS = 5;
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -4753,6 +4753,18 @@ export async function buildPlaylistPipeline<T extends {
             discovery: retrieval.discovery.slice(0, 30),
           }) as ScoredLibraryTrack<T>[],
           seedOffset: seedOffsetFromMemory(opts.editorialMemory ?? null, 31415),
+        },
+        {
+          label: "wide_lane_blend",
+          pool: flattenRetrievalPools({
+            core: retrieval.core.slice(0, 100),
+            anchor: retrieval.anchor,
+            adjacent: retrieval.adjacent.slice(0, 80),
+            bridge: retrieval.bridge.slice(0, 40),
+            energyArc: retrieval.energyArc,
+            discovery: retrieval.discovery.slice(0, 50),
+          }) as ScoredLibraryTrack<T>[],
+          seedOffset: seedOffsetFromMemory(opts.editorialMemory ?? null, 52849),
         },
       ];
   const executableCandidateInputs = candidateInputs.slice(
