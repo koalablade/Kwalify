@@ -30,6 +30,8 @@ import {
   trackMicroCluster,
   validateDominantClusterAlignment,
   validateEditorialSceneWorldAlignment,
+  calibrateIntentVectorForRetrievalPool,
+  diagnoseIntentFilterRejectionReason,
   trackMatchesEditorialIntent,
   type EditorialIntentVector,
   type IntentCollapseTrack,
@@ -402,14 +404,17 @@ function replayLocalFunnel(
     sceneWorld,
   );
   const preFilter = retrievedTracks.length;
-  const postFilterTracks = filterCandidatesByIntentVector(retrievedTracks, intent);
+  const calibrated = calibrateIntentVectorForRetrievalPool(retrievedTracks, intent, {
+    targetCount: TARGET_COUNT,
+    strictMode,
+  });
+  const postFilterTracks = filterCandidatesByIntentVector(retrievedTracks, calibrated);
   const postFilter = postFilterTracks.length;
-  const families = primaryFamiliesForWorld(intent.editorialWorldTag);
   const removedTracks: TrackRemoval[] = [];
   for (const track of retrievedTracks) {
-    const reason = diagnoseTrackRejection(track, intent, families);
-    if (reason === "passed" || reason === "missing_features_passed") continue;
-    if (trackMatchesEditorialIntent(track, intent)) continue;
+    const reason = diagnoseIntentFilterRejectionReason(track, calibrated);
+    if (reason === "passed") continue;
+    if (trackMatchesEditorialIntent(track, calibrated)) continue;
     removedTracks.push({
       trackId: track.trackId,
       track: (track as { trackName?: string | null }).trackName ?? track.trackId,

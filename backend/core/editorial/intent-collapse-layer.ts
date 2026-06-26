@@ -603,7 +603,11 @@ export function scoreWorldLibraryFit(
   meetsMinimum: boolean;
 } {
   const intent = buildProvisionalIntent(world, opts.primaryMood, opts.sceneType, opts);
-  const matches = filterCandidatesByIntentVector(tracks, intent);
+  const calibrated = calibrateIntentVectorForRetrievalPool(tracks, intent, {
+    targetCount: opts.targetCount,
+    strictMode: opts.strictMode,
+  });
+  const matches = filterCandidatesByIntentVector(tracks, calibrated);
   const minPool = minimumIntentPoolSize(opts.targetCount, opts.strictMode === true);
   const density = clusterDensityForMatches(matches);
   const libraryScore = clamp01((matches.length / minPool) * 0.65 + density * 0.35);
