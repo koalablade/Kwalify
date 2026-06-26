@@ -68,6 +68,8 @@ export type CuratorScoreBreakdown = {
 export type HumanSaveabilityEvaluation = {
   humanSaveable: boolean;
   curatorScore: number;
+  wouldSaveScore: number;
+  humanPatternScore: number;
   breakdown: CuratorScoreBreakdown;
   rejectionReasons: string[];
   offendingTracks: Array<{
@@ -79,6 +81,9 @@ export type HumanSaveabilityEvaluation = {
   }>;
   strictModeHumanSaveability: boolean;
 };
+
+const MIN_WOULD_SAVE_STRICT = 0.78;
+const MIN_WOULD_SAVE_RELAXED = 0.68;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -319,11 +324,22 @@ export function evaluateHumanSaveability(
   const uniqueOffenders = new Map(offendingTracks.map((row) => [row.trackId, row]));
   const dedupedOffenders = [...uniqueOffenders.values()];
 
-  const humanSaveable =
+  let humanSaveable =
     rejectionReasons.length === 0 &&
     dedupedOffenders.length === 0 &&
     Number.isFinite(breakdown.curatorScore) &&
     breakdown.curatorScore >= MIN_CURATOR_SCORE;
+
+  const wouldSaveScore = clamp01(
+    humanPatternScore * 0.42 +
+    breakdown.curatorScore * 0.48 +
+    (humanSaveable ? 0.04 : 0),
+  );
+  const minWouldSave = strict ? MIN_WOULD_SAVE_STRICT : MIN_WOULD_SAVE_RELAXED;
+  if (humanSaveable && wouldSaveScore < minWouldSave) {
+    humanSaveable = false;
+    rejectionReasons.push(`wouldSaveScore ${wouldSaveScore.toFixed(3)} < ${minWouldSave}`);
+  }
 
   if (!humanSaveable && rejectionReasons.length === 0) {
     if (dedupedOffenders.length > 0) {
@@ -341,6 +357,8 @@ export function evaluateHumanSaveability(
   return {
     humanSaveable,
     curatorScore: breakdown.curatorScore,
+    wouldSaveScore,
+    humanPatternScore,
     breakdown,
     rejectionReasons,
     offendingTracks: dedupedOffenders.slice(0, 20),

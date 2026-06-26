@@ -58,10 +58,7 @@ export function evaluateWouldISave(opts: {
 
   const combinedScore = Math.min(
     1,
-    humanPatterns.score * 0.42 +
-    gate.breakdown.curatorScore * 0.48 +
-    fingerprintBoost +
-    (gate.humanSaveable ? 0.04 : 0),
+    gate.wouldSaveScore + fingerprintBoost,
   );
 
   const minCombined = strict ? MIN_COMBINED_STRICT : MIN_COMBINED_RELAXED;

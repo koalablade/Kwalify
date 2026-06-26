@@ -4895,14 +4895,20 @@ export async function buildPlaylistPipeline<T extends {
     const wouldISave = evaluateWouldISave({
       prompt: opts.vibe,
       tracks: result.finalTracks,
-      context: null,
+      context: result.sceneWorldContext ?? null,
       lockedIntent: v3LockedIntent,
       libraryFingerprint,
     });
+    const gateDiagnostics = result.diagnostics.humanSaveabilityGate as {
+      humanSaveable?: boolean;
+      wouldSaveScore?: number;
+    } | undefined;
+    const gatePassedBonus = gateDiagnostics?.humanSaveable === true ? 0.06 : 0;
     const editorialTotal =
-      quality.overall * 0.28 +
-      wouldISaveCandidateScore(wouldISave, countRatio) * 0.52 +
-      Math.min(0.12, countRatio * 0.12) -
+      quality.overall * 0.26 +
+      wouldISaveCandidateScore(wouldISave, countRatio) * 0.54 +
+      Math.min(0.12, countRatio * 0.12) +
+      gatePassedBonus -
       starvationPenalty;
     const attempt = {
       label: candidate.label,
@@ -4914,16 +4920,10 @@ export async function buildPlaylistPipeline<T extends {
       total: editorialTotal,
     };
     candidateAttempts.push(attempt);
-    if (candidateAttempts.length === 1 && executableCandidateInputs.length > 1 && canShortCircuitCandidateAttempt(attempt)) {
-      candidateShortCircuitUsed = true;
-      break;
-    }
     if (
       candidateAttempts.length === 1 &&
       executableCandidateInputs.length > 1 &&
-      attempt.result.finalTracks.length >= Math.ceil(opts.playlistLength * 0.90) &&
-      attempt.quality.overall >= 0.45 &&
-      attempt.quality.promptAlignment >= 0.40
+      canShortCircuitCandidateAttempt(attempt)
     ) {
       candidateShortCircuitUsed = true;
       break;

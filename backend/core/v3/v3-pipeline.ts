@@ -187,6 +187,8 @@ export interface V3PipelineTrack extends RetrievalTrackLike {
 export interface V3PipelineResult<T extends V3PipelineTrack> {
   finalTracks: Array<V3MetadataTrack<T>>;
   diagnostics: Record<string, unknown>;
+  /** Internal — used by multi-candidate selection; not serialized to API payloads. */
+  sceneWorldContext?: SceneWorldContext | null;
 }
 
 type V3SelectionCandidate<T extends V3PipelineTrack> = T & V3TrackMetadata & {
@@ -1884,6 +1886,28 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     }));
   }
   if (finalTracks.length === 0) {
+    if (humanSaveStrictMode) {
+      const preFilterCountForError = intentCollapseDiagnostics?.preFilterCount ?? 0;
+      throw new IntentCollapseInsufficientPoolError(
+        "insufficient_intent_pool:sampler_returned_zero_strict",
+        intentCollapseDiagnostics ?? buildIntentCollapseDiagnostics(
+          activeEditorialIntentVector,
+          collapsedIntent.collapseConfidenceScore,
+          preFilterCountForError,
+          0,
+        ),
+        finalizeExecutionTrace(
+          buildIntentCollapseFailureTraceDraft({
+            requestId: opts.requestId ?? "unknown",
+            prompt: vibe,
+            seed: opts.seed ?? null,
+            intentCollapseLayer: intentCollapseTrace(),
+            preFilterCount: preFilterCountForError,
+            postFilterCount: 0,
+          }),
+        ),
+      );
+    }
     const cachedFinalTracks = getFallbackCache<Array<T & V3SelectionCandidate<T>>>(outputCacheKey);
     finalTracks = cachedFinalTracks ?? minimalSelectedTracks(tracks, targetCount);
     if (finalTracks.length > 0) recordTraceFallback(opts.pipelineTrace, cachedFinalTracks ? "v3.output_cache_fallback" : "v3.minimal_output_fallback");
@@ -1944,6 +1968,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     passed: humanSaveGate.passed,
     humanSaveable: humanSaveGate.evaluation.humanSaveable,
     curatorScore: humanSaveGate.evaluation.curatorScore,
+    wouldSaveScore: humanSaveGate.evaluation.wouldSaveScore,
+    humanPatternScore: humanSaveGate.evaluation.humanPatternScore,
     breakdown: humanSaveGate.evaluation.breakdown,
     rejectionReasons: humanSaveGate.evaluation.rejectionReasons,
     offendingTracks: humanSaveGate.evaluation.offendingTracks,
@@ -2712,5 +2738,5 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ),
   };
 
-  return { finalTracks, diagnostics };
+  return { finalTracks, diagnostics, sceneWorldContext };
 }
