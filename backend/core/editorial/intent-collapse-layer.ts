@@ -34,6 +34,8 @@ export type EditorialIntentVector = {
   allowedMicroClusters: string[];
   /** Wider valence band when library-calibrated for filter survival. */
   valenceMaxDeviation?: number;
+  /** Skip primary-family gate when retrieval pool is scene-coherent but genre-tagged broadly. */
+  relaxGenreFamilyFilter?: boolean;
 };
 
 export type IntentFilterRejectionReason =
@@ -59,6 +61,7 @@ export type IntentCollapseDiagnostics = {
   filterRejectionCounts?: Partial<Record<IntentFilterRejectionReason, number>>;
   dominantFilterRejection?: IntentFilterRejectionReason | null;
   valenceMaxDeviation?: number;
+  relaxGenreFamilyFilter?: boolean;
 };
 
 export type IntentCollapseTrack = {
@@ -840,7 +843,9 @@ export function diagnoseIntentFilterRejectionReason(
 ): IntentFilterRejectionReason {
   const family = trackFamily(track);
   const world = EDITORIAL_WORLDS.find((row) => row.tag === intent.editorialWorldTag);
-  if (!world || !world.primaryFamilies.includes(family)) return "genre_family_not_allowed";
+  if (!intent.relaxGenreFamilyFilter && (!world || !world.primaryFamilies.includes(family))) {
+    return "genre_family_not_allowed";
+  }
 
   if (hasFeature(track.energy)) {
     const energy = feature(track.energy);
@@ -924,12 +929,12 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
   if (!world || tracks.length === 0) return intent;
 
   const familyMatched = tracks.filter((track) => world.primaryFamilies.includes(trackFamily(track)));
-  if (familyMatched.length === 0) return intent;
+  const calibrationPool = familyMatched.length > 0 ? familyMatched : tracks;
 
   const microCounts = new Map<string, number>();
   const energies: number[] = [];
   const valences: number[] = [];
-  for (const track of familyMatched) {
+  for (const track of calibrationPool) {
     const micro = trackMicroCluster(track);
     microCounts.set(micro, (microCounts.get(micro) ?? 0) + 1);
     if (hasFeature(track.energy)) energies.push(feature(track.energy));
@@ -945,6 +950,7 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
       return world.primaryFamilies.includes(family);
     });
   const poolMicros = [...microCounts.keys()].filter((micro) => {
+    if (intent.relaxGenreFamilyFilter) return true;
     const family = micro.split(":")[0] ?? "";
     return world.primaryFamilies.includes(family);
   });
@@ -1029,6 +1035,34 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
           sonicAggressionCeiling: clamp01(calibrated.sonicAggressionCeiling + 0.08),
         };
         break;
+      case "genre_family_not_allowed": {
+        const allMicroCounts = new Map<string, number>();
+        const allEnergies: number[] = [];
+        for (const track of tracks) {
+          const micro = trackMicroCluster(track);
+          allMicroCounts.set(micro, (allMicroCounts.get(micro) ?? 0) + 1);
+          if (hasFeature(track.energy)) allEnergies.push(feature(track.energy));
+        }
+        const retrievalMicros = [...allMicroCounts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([micro]) => micro);
+        calibrated = {
+          ...calibrated,
+          relaxGenreFamilyFilter: true,
+          allowedMicroClusters: [...new Set([...calibrated.allowedMicroClusters, ...retrievalMicros])],
+        };
+        if (allEnergies.length >= 8) {
+          const sorted = [...allEnergies].sort((a, b) => a - b);
+          const p10 = sorted[Math.floor(sorted.length * 0.10)] ?? sorted[0]!;
+          const p90 = sorted[Math.floor(sorted.length * 0.90)] ?? sorted[sorted.length - 1]!;
+          calibrated = {
+            ...calibrated,
+            energyRange: [clamp01(p10 - 0.04), clamp01(p90 + 0.04)],
+          };
+        }
+        break;
+      }
       default:
         return calibrated;
     }
@@ -1066,6 +1100,7 @@ export function buildIntentCollapseDiagnostics(
       ? dominantFilterRejectionReason(rejectionCounts)
       : null,
     valenceMaxDeviation: intent.valenceMaxDeviation,
+    relaxGenreFamilyFilter: intent.relaxGenreFamilyFilter,
   };
 }
 
