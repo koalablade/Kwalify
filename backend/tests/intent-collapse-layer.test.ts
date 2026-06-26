@@ -11,6 +11,7 @@ import {
   filterCandidatesByIntentVector,
   minimumIntentPoolSize,
   selectEditorialWorld,
+  selectRankedCandidatesForSampler,
   trackMatchesEditorialIntent,
   trackMicroCluster,
   enrichIntentCollapseTrack,
@@ -242,7 +243,7 @@ describe("intent collapse layer", () => {
     assert.ok((counts.passed ?? 0) >= 18);
   });
 
-  it("relaxes genre-family gate when retrieval pool is scene-broad but micro-coherent", () => {
+  it("selects ranked candidates without widening genre-family gate", () => {
     const collapsed = collapseIntent({
       vibe: "Feel-good summer morning music to hype yourself up for the day, getting ready, and commuting to work.",
       lockedIntent: { ...rainyWalkIntent, mood: ["uplift"], activity: "commute", energy: "high", genreFamilies: [] },
@@ -271,8 +272,10 @@ describe("intent collapse layer", () => {
       })),
     ];
     const calibrated = calibrateIntentVectorForRetrievalPool(pool, collapsed.intent, { targetCount: 25, strictMode: true });
-    const filtered = filterCandidatesByIntentVector(pool, calibrated);
-    assert.equal(calibrated.relaxGenreFamilyFilter, true);
-    assert.ok(filtered.length >= 50);
+    const ranked = selectRankedCandidatesForSampler(pool, calibrated, { targetCount: 25, strictMode: true });
+    assert.equal(calibrated.relaxGenreFamilyFilter, undefined);
+    assert.ok(ranked.selected.length >= minimumIntentPoolSize(25, true));
+    const indieShare = ranked.selected.filter((track) => track.genreFamily === "indie").length / ranked.selected.length;
+    assert.ok(indieShare >= 0.35);
   });
 });

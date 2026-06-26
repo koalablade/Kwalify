@@ -15,6 +15,7 @@ import {
   computeFirstTenClusterConsistency,
   openingSceneClusterThreshold,
 } from "./scene-cohesion-clusters";
+import { scoreAgainstHumanPlaylistPatterns } from "./editorial/human-playlist-patterns";
 import type { PlaylistExecutionTrace } from "./observability/playlist-execution-trace";
 
 export class HumanSaveabilityGateError extends Error {
@@ -306,6 +307,13 @@ export function evaluateHumanSaveability(
         });
       }
     }
+  }
+
+  const humanPatternScore = scoreAgainstHumanPlaylistPatterns(tracks).score;
+  if (strict && humanPatternScore < 0.52) {
+    rejectionReasons.push(`human playlist pattern score ${humanPatternScore.toFixed(3)} < 0.52`);
+  } else if (!strict && humanPatternScore < 0.42) {
+    rejectionReasons.push(`human playlist pattern score ${humanPatternScore.toFixed(3)} < 0.42`);
   }
 
   const uniqueOffenders = new Map(offendingTracks.map((row) => [row.trackId, row]));

@@ -62,6 +62,8 @@ export type IntentCollapseDiagnostics = {
   dominantFilterRejection?: IntentFilterRejectionReason | null;
   valenceMaxDeviation?: number;
   relaxGenreFamilyFilter?: boolean;
+  rankedSelectionAvgScore?: number;
+  rankedSelectionFloor?: number;
 };
 
 export type IntentCollapseTrack = {
@@ -514,11 +516,145 @@ function dominantFilterRejectionReason(
   return best;
 }
 
+const DEALBREAKER_AGGRESSION_MARGIN = 0.12;
+const OPENING_INTENT_SCORE_FLOOR = 0.42;
+
 function countIntentFilterSurvivors<T extends IntentCollapseTrack>(
   tracks: T[],
   intent: EditorialIntentVector,
+  strictMode = false,
 ): number {
-  return filterCandidatesByIntentVector(tracks, intent).length;
+  return selectRankedCandidatesForSampler(tracks, intent, {
+    targetCount: 25,
+    strictMode,
+  }).selected.length;
+}
+
+export function scoreEditorialIntentMatch(
+  track: IntentCollapseTrack,
+  intent: EditorialIntentVector,
+): number {
+  const world = EDITORIAL_WORLDS.find((row) => row.tag === intent.editorialWorldTag);
+  const family = trackFamily(track);
+
+  if (
+    (hasFeature(track.energy) || hasFeature(track.acousticness) || hasFeature(track.danceability)) &&
+    sonicAggression(track) > intent.sonicAggressionCeiling + DEALBREAKER_AGGRESSION_MARGIN
+  ) {
+    return 0;
+  }
+
+  let score = 1;
+
+  if (world && !world.primaryFamilies.includes(family)) {
+    score *= 0.58;
+  }
+
+  if (hasFeature(track.energy)) {
+    const energy = feature(track.energy);
+    const [lo, hi] = intent.energyRange;
+    if (energy < lo) score *= clamp01(1 - (lo - energy) * 1.8);
+    else if (energy > hi) score *= clamp01(1 - (energy - hi) * 1.8);
+  }
+
+  const valenceSlack = intent.valenceMaxDeviation ?? 0.25;
+  if (hasFeature(track.valence)) {
+    const valence = valenceToSigned(feature(track.valence));
+    const delta = Math.abs(valence - intent.valenceTarget);
+    if (delta > valenceSlack) score *= clamp01(1 - (delta - valenceSlack) * 1.4);
+  }
+
+  const micro = trackMicroCluster(track);
+  if (!intent.allowedMicroClusters.includes(micro)) {
+    score *= 0.72;
+  }
+
+  if (hasFeature(track.danceability) || hasFeature(track.tempo)) {
+    const rd = rhythmDensity(track);
+    if (rd > intent.rhythmDensityCap + 0.04) {
+      score *= clamp01(1 - (rd - intent.rhythmDensityCap) * 1.2);
+    }
+  }
+
+  if (hasFeature(track.energy) || hasFeature(track.acousticness) || hasFeature(track.danceability)) {
+    const agg = sonicAggression(track);
+    if (agg > intent.sonicAggressionCeiling + 0.04) {
+      score *= clamp01(1 - (agg - intent.sonicAggressionCeiling) * 1.5);
+    }
+  }
+
+  const reason = diagnoseIntentFilterRejectionReason(track, intent);
+  if (reason === "nostalgia_energy_valence_conflict" || reason === "nostalgia_release_year_conflict") {
+    score *= 0.55;
+  }
+
+  return clamp01(score);
+}
+
+export function rankCandidatesByIntentVector<T extends IntentCollapseTrack>(
+  tracks: T[],
+  intent: EditorialIntentVector,
+  fingerprintBias?: Map<string, number>,
+): Array<{ track: T; score: number }> {
+  return tracks
+    .map((track) => {
+      let score = scoreEditorialIntentMatch(track, intent);
+      const bias = fingerprintBias?.get(track.trackId);
+      if (bias != null) score = clamp01(score * 0.85 + bias * 0.15);
+      return { track, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
+
+export type RankedCandidateSelection<T extends IntentCollapseTrack> = {
+  selected: T[];
+  scores: Map<string, number>;
+  avgScore: number;
+  minScoreUsed: number;
+  rankedTotal: number;
+};
+
+export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
+  tracks: T[],
+  intent: EditorialIntentVector,
+  opts: {
+    targetCount: number;
+    strictMode: boolean;
+    fingerprintBias?: Map<string, number>;
+  },
+): RankedCandidateSelection<T> {
+  const minPool = minimumIntentPoolSize(opts.targetCount, opts.strictMode);
+  const maxPool = Math.min(tracks.length, Math.max(minPool, Math.ceil(minPool * 1.15)));
+  const ranked = rankCandidatesByIntentVector(tracks, intent, opts.fingerprintBias);
+
+  let floor = opts.strictMode ? 0.28 : 0.22;
+  let viable = ranked.filter((row) => row.score >= floor);
+  while (viable.length < minPool && floor > 0.12) {
+    floor -= 0.04;
+    viable = ranked.filter((row) => row.score >= floor);
+  }
+
+  const chosen = viable.slice(0, maxPool);
+  const scores = new Map(chosen.map((row) => [row.track.trackId, row.score]));
+  const avgScore = chosen.length > 0
+    ? chosen.reduce((sum, row) => sum + row.score, 0) / chosen.length
+    : 0;
+
+  return {
+    selected: chosen.map((row) => row.track),
+    scores,
+    avgScore,
+    minScoreUsed: floor,
+    rankedTotal: ranked.length,
+  };
+}
+
+export function trackPassesOpeningIntentScore(
+  track: IntentCollapseTrack,
+  intent: EditorialIntentVector,
+): boolean {
+  return scoreEditorialIntentMatch(track, intent) >= OPENING_INTENT_SCORE_FLOOR;
 }
 
 function buildProvisionalIntent(
@@ -991,7 +1127,7 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
 
   const minSurvival = minimumIntentPoolSize(opts?.targetCount ?? 25, opts?.strictMode === true);
   const maxRelaxPasses = 6;
-  for (let pass = 0; pass < maxRelaxPasses && countIntentFilterSurvivors(tracks, calibrated) < minSurvival; pass += 1) {
+  for (let pass = 0; pass < maxRelaxPasses && countIntentFilterSurvivors(tracks, calibrated, opts?.strictMode === true) < minSurvival; pass += 1) {
     const counts = diagnoseIntentFilterRejectionCounts(tracks, calibrated);
     const dominant = dominantFilterRejectionReason(counts);
     if (!dominant) break;
@@ -1035,34 +1171,9 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
           sonicAggressionCeiling: clamp01(calibrated.sonicAggressionCeiling + 0.08),
         };
         break;
-      case "genre_family_not_allowed": {
-        const allMicroCounts = new Map<string, number>();
-        const allEnergies: number[] = [];
-        for (const track of tracks) {
-          const micro = trackMicroCluster(track);
-          allMicroCounts.set(micro, (allMicroCounts.get(micro) ?? 0) + 1);
-          if (hasFeature(track.energy)) allEnergies.push(feature(track.energy));
-        }
-        const retrievalMicros = [...allMicroCounts.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 10)
-          .map(([micro]) => micro);
-        calibrated = {
-          ...calibrated,
-          relaxGenreFamilyFilter: true,
-          allowedMicroClusters: [...new Set([...calibrated.allowedMicroClusters, ...retrievalMicros])],
-        };
-        if (allEnergies.length >= 8) {
-          const sorted = [...allEnergies].sort((a, b) => a - b);
-          const p10 = sorted[Math.floor(sorted.length * 0.10)] ?? sorted[0]!;
-          const p90 = sorted[Math.floor(sorted.length * 0.90)] ?? sorted[sorted.length - 1]!;
-          calibrated = {
-            ...calibrated,
-            energyRange: [clamp01(p10 - 0.04), clamp01(p90 + 0.04)],
-          };
-        }
-        break;
-      }
+      case "genre_family_not_allowed":
+        // Ranked selection handles genre-family mismatch via soft penalties — do not widen families.
+        return calibrated;
       default:
         return calibrated;
     }
@@ -1124,7 +1235,7 @@ export function reinforceOpeningEditorialWorldLock<T extends IntentCollapseTrack
   const openingSize = opts.openingSize ?? 10;
   const filteredLanes = opts.sampledLanes.map((lane) => ({
     laneId: lane.laneId,
-    tracks: lane.tracks.filter((track) => trackMatchesEditorialIntent(track, opts.intent)),
+    tracks: lane.tracks.filter((track) => trackPassesOpeningIntentScore(track, opts.intent)),
   }));
   const pooled = filteredLanes.flatMap((lane) => lane.tracks);
   const openingEligibleCount = pooled.length;

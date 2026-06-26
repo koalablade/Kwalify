@@ -17,6 +17,15 @@ import { expandCulturalReferences } from "../lib/cultural-reference-expansion";
 import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
 import { runV3Pipeline } from "./v3/v3-pipeline";
+import { evaluateWouldISave, wouldISaveCandidateScore } from "./editorial/would-i-save-evaluator";
+import {
+  computeLibraryFingerprint,
+  type LibraryFingerprint,
+} from "./editorial/library-fingerprint";
+import {
+  seedOffsetFromMemory,
+  type EditorialStructureMemory,
+} from "./editorial/editorial-memory";
 import type { SceneLockStatus } from "./scene-lock-mode";
 import {
   hardRejectOffWorldTracks,
@@ -117,6 +126,7 @@ import {
 const V3_SAFETY_INPUT_MIN = 180;
 const V3_SAFETY_INPUT_PER_TRACK = 12;
 const V3_SAFETY_INPUT_MAX = 360;
+const MAX_EDITORIAL_CANDIDATE_ATTEMPTS = 4;
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -208,6 +218,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
   shouldAbort?: () => boolean;
   /** Library + prompt uncertainty adaptation layer */
   generationPolicy?: GenerationPolicy;
+  editorialMemory?: EditorialStructureMemory | null;
+  libraryFingerprint?: LibraryFingerprint | null;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -4595,6 +4607,22 @@ export async function buildPlaylistPipeline<T extends {
     classMap,
     explicitPromptGenreFamilies,
   );
+  const libraryFingerprint = opts.libraryFingerprint ?? computeLibraryFingerprint(
+    opts.likedSongs.map((track) => ({
+      trackId: track.trackId,
+      trackName: track.trackName,
+      artistName: track.artistName,
+      albumName: track.albumName,
+      genreFamily: classMap.get(track.trackId)?.genreFamily ?? null,
+      energy: track.energy,
+      valence: track.valence,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      tempo: track.tempo,
+      rediscoveryScore: track.rediscoveryScore ?? null,
+    })),
+    classMap,
+  );
   let worldBoundaryDiagnostics: Record<string, unknown> = {
     active: worldBoundary.active,
     hardLock: worldBoundary.hardLock,
@@ -4712,10 +4740,25 @@ export async function buildPlaylistPipeline<T extends {
             energyArc: retrieval.energyArc,
             discovery: retrieval.discovery,
           }) as ScoredLibraryTrack<T>[],
-          seedOffset: 19937,
+          seedOffset: seedOffsetFromMemory(opts.editorialMemory ?? null, 19937),
+        },
+        {
+          label: "balanced_core_mix",
+          pool: flattenRetrievalPools({
+            core: retrieval.core,
+            anchor: retrieval.anchor.slice(0, 60),
+            adjacent: retrieval.adjacent.slice(0, 40),
+            bridge: [],
+            energyArc: retrieval.energyArc.slice(0, 40),
+            discovery: retrieval.discovery.slice(0, 30),
+          }) as ScoredLibraryTrack<T>[],
+          seedOffset: seedOffsetFromMemory(opts.editorialMemory ?? null, 31415),
         },
       ];
-  const executableCandidateInputs = candidateInputs.slice(0, 1);
+  const executableCandidateInputs = candidateInputs.slice(
+    0,
+    retrievalSafetyExpanded ? 1 : MAX_EDITORIAL_CANDIDATE_ATTEMPTS,
+  );
   const skippedCandidateAttemptCount = Math.max(0, candidateInputs.length - executableCandidateInputs.length);
   executionDepth =
     1 +
@@ -4727,11 +4770,13 @@ export async function buildPlaylistPipeline<T extends {
     candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
     result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
     quality: ReturnType<typeof evaluatePlaylistQuality>;
+    wouldISave: ReturnType<typeof evaluateWouldISave>;
     total: number;
   }> = [];
   const canShortCircuitCandidateAttempt = (attempt: {
     result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
     quality: ReturnType<typeof evaluatePlaylistQuality>;
+    wouldISave: ReturnType<typeof evaluateWouldISave>;
     total: number;
   }): boolean => {
     const fullEnough = attempt.result.finalTracks.length >= Math.ceil(opts.playlistLength * 0.90);
@@ -4739,31 +4784,12 @@ export async function buildPlaylistPipeline<T extends {
       attempt.quality.overall >= 0.58 &&
       attempt.quality.promptAlignment >= 0.54 &&
       attempt.quality.genericnessPenalty <= 0.38;
-    return fullEnough && qualityGoodEnough && attempt.total >= 0.70;
+    return fullEnough && qualityGoodEnough && attempt.wouldISave.humanSaveable && attempt.total >= 0.72;
   };
   let candidateShortCircuitUsed = false;
   let v3InvocationCount = 0;
   let candidatePoolBuildCount = 0;
-  let v3SingletonViolationBlocked = false;
   for (const candidate of executableCandidateInputs) {
-    if (v3InvocationCount >= 1) {
-      v3SingletonViolationBlocked = true;
-      opts.pipelineLog?.error(
-        {
-          requestId: opts.requestId,
-          stage: `pipeline.v3ScoringAndSampling.${candidate.label}`,
-          callStackTag: "playlist-pipeline.candidateAttempts",
-          v3InvocationCount,
-        },
-        "V3_SINGLETON_VIOLATION",
-      );
-      recordTraceFailure(pipelineTrace, createFailureContext({
-        stage: `pipeline.v3ScoringAndSampling.${candidate.label}`,
-        error: new Error("V3 singleton blocked additional candidate attempt"),
-        recoverable: true,
-      }));
-      break;
-    }
     await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
     if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
     const inputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
@@ -4830,6 +4856,8 @@ export async function buildPlaylistPipeline<T extends {
           diagnosticsMode:          opts.diagnosticsMode ?? "minimal",
           sceneWorldProof:          opts.sceneWorldProof ?? false,
           profileStage:            opts.profileStage,
+          editorialMemory:         opts.editorialMemory ?? null,
+          libraryFingerprint,
           dominantIntentGates: {
             dominantEmotionExplicit: dominantContract.dominantEmotionExplicit,
             allowContrastLanes: dominantContract.allowContrastLanes,
@@ -4852,13 +4880,26 @@ export async function buildPlaylistPipeline<T extends {
     );
     const countRatio = result.finalTracks.length / Math.max(1, opts.playlistLength);
     const starvationPenalty = Math.max(0, 1 - countRatio) * 0.35;
+    const wouldISave = evaluateWouldISave({
+      prompt: opts.vibe,
+      tracks: result.finalTracks,
+      context: null,
+      lockedIntent: v3LockedIntent,
+      libraryFingerprint,
+    });
+    const editorialTotal =
+      quality.overall * 0.28 +
+      wouldISaveCandidateScore(wouldISave, countRatio) * 0.52 +
+      Math.min(0.12, countRatio * 0.12) -
+      starvationPenalty;
     const attempt = {
       label: candidate.label,
       inputPool,
       candidatePool,
       result,
       quality,
-      total: quality.overall + Math.min(0.18, countRatio * 0.18) - starvationPenalty,
+      wouldISave,
+      total: editorialTotal,
     };
     candidateAttempts.push(attempt);
     if (candidateAttempts.length === 1 && executableCandidateInputs.length > 1 && canShortCircuitCandidateAttempt(attempt)) {
@@ -4978,6 +5019,8 @@ export async function buildPlaylistPipeline<T extends {
       selectedCount: candidate.result.finalTracks.length,
       total: round3(candidate.total),
       quality: candidate.quality,
+      wouldISaveScore: round3(candidate.wouldISave.combinedScore),
+      humanSaveable: candidate.wouldISave.humanSaveable,
       relaxationSteps: candidate.candidatePool.diagnostics["relaxationSteps"] ?? [],
       finalRelaxedConstraints: candidate.candidatePool.diagnostics["finalRelaxedConstraints"] ?? null,
     })),
@@ -5001,10 +5044,9 @@ export async function buildPlaylistPipeline<T extends {
       candidatePoolBuildCount,
       plannedCandidateAttemptCount: candidateInputs.length,
       skippedCandidateAttemptCount,
-      v3SingletonEnforced: true,
+      v3SingletonEnforced: false,
       candidateShortCircuitUsed,
       v3InvocationCount,
-      v3SingletonViolationBlocked,
       fallbackLevelUsed: effectiveFallbackLevelUsed,
       starvationTriggerReason,
       layeredSafetyPoolSize: layeredSafetyPool.length,

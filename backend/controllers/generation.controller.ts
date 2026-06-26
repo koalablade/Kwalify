@@ -144,7 +144,9 @@ import {
   type IdentitySessionMemory,
 } from "../lib/curator-identity";
 import { runRequestLayerGeneration, type RequestGenerationOrchestration } from "../lib/request-generation-orchestrator";
-import { HumanSaveabilityGateError } from "../core/human-saveability-gate";
+import { HumanSaveabilityGateError, strictModeHumanSaveability } from "../core/human-saveability-gate";
+import { loadEditorialMemory, recordEditorialMemory } from "../core/editorial/editorial-memory";
+import { computeLibraryFingerprint } from "../core/editorial/library-fingerprint";
 import { IntentCollapseInsufficientPoolError } from "../core/editorial/intent-collapse-layer";
 import {
   profileUserLibrary,
@@ -442,6 +444,9 @@ function timeoutFallbackResponse(
 ): boolean {
   if (responseFinished(res)) return true;
   const ctx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
+  if (ctx?.strictModeHumanSaveability === true) {
+    return false;
+  }
   const likedSongs = Array.isArray(ctx?.likedSongs) ? ctx.likedSongs : [];
   const scoringInputSongs = Array.isArray(ctx?.scoringInputSongs) ? ctx.scoringInputSongs : [];
   const emotionProfile = ctx?.emotionProfile as EmotionProfile | undefined;
@@ -5993,6 +5998,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       genCtx["v3FallbackIntent"] = v3FallbackIntent;
       genCtx["genreByTrack"] = genreByTrack;
       genCtx["lockedIntent"] = lockedIntent;
+      genCtx["strictModeHumanSaveability"] = strictModeHumanSaveability(vibe, lockedIntent);
       genCtx["constraintLayer"] = constraintLayer;
       genCtx["classMap"] = userGenreProfile.trackClassifications;
       genCtx["intentUnderstanding"] = intentUnderstandingDiagnostics;
@@ -6146,6 +6152,25 @@ router.post("/generate", async (req, res): Promise<void> => {
       executionHealth.retrievalPassCount += 1;
       markTimeline(productionTimeline, startMs, "v3_entry");
       startTimelineStage(productionTimeline, startMs, "v3_pipeline");
+      const editorialMemory = !devMode && !auditMode
+        ? await loadEditorialMemory(userId, vibe)
+        : null;
+      const libraryFingerprint = computeLibraryFingerprint(
+        likedSongs.map((track) => ({
+          trackId: track.trackId,
+          trackName: track.trackName,
+          artistName: track.artistName,
+          albumName: track.albumName,
+          genreFamily: userGenreProfile.trackClassifications.get(track.trackId)?.genreFamily ?? null,
+          energy: track.energy,
+          valence: track.valence,
+          danceability: track.danceability,
+          acousticness: track.acousticness,
+          tempo: track.tempo,
+          rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
+        })),
+        userGenreProfile.trackClassifications,
+      );
       pipeline = await runRequestLayerGeneration({
       pipelineLog: req.log,
       likedSongs: scoringInputSongs,
@@ -6218,6 +6243,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       profileStage: liveStageProfiler.start,
       shouldAbort: generationShouldAbort,
       generationPolicy,
+      editorialMemory,
+      libraryFingerprint,
       progress: (stage, detail) => {
         if (generationShouldAbort()) return;
         let phaseAccepted = true;
@@ -8784,6 +8811,20 @@ router.post("/generate", async (req, res): Promise<void> => {
       inferredScene: decomposedIntent.scene ?? decomposedIntent.culturalRefs[0] ?? null,
     });
     if (!devMode && !auditMode) {
+      const v3ForMemory = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+      const intentCollapseForMemory = v3ForMemory.intentCollapseDiagnostics as { editorialWorldTag?: string } | undefined;
+      const gateForMemory = (v3ForMemory.humanSaveabilityGate ?? {}) as Record<string, unknown>;
+      void recordEditorialMemory({
+        userId,
+        prompt: vibe,
+        editorialWorldTag: String(intentCollapseForMemory?.editorialWorldTag ?? decomposedIntent.scene ?? "indie_balanced_default"),
+        preferredArchetypeId: decomposedIntent.scene ?? sceneAliases[0] ?? null,
+        curatorScore: typeof gateForMemory.curatorScore === "number" ? gateForMemory.curatorScore : 0,
+        wouldSaveScore: typeof gateForMemory.wouldSaveScore === "number"
+          ? gateForMemory.wouldSaveScore
+          : (typeof gateForMemory.curatorScore === "number" ? gateForMemory.curatorScore : 0),
+        humanSaveable: gateForMemory.humanSaveable === true || gateForMemory.passed === true,
+      }).catch((err) => req.log.warn({ err }, "Failed to record editorial memory"));
       void recordPromptSceneMemory({
         userId,
         prompt: vibe,

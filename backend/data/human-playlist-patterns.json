@@ -1,0 +1,15 @@
+{
+  "artistSpacingP25": 2,
+  "artistSpacingP50": 4,
+  "artistSpacingP75": 8,
+  "maxSameArtistShare": 0.12,
+  "discoveryRatioP25": 0.10,
+  "discoveryRatioP50": 0.24,
+  "discoveryRatioP75": 0.38,
+  "energyArcRiseWeight": 0.30,
+  "energyArcFlatWeight": 0.20,
+  "energyArcWaveWeight": 0.34,
+  "energyArcCooldownWeight": 0.16,
+  "maxEnergyJumpP90": 0.20,
+  "transitionSmoothShare": 0.74
+}

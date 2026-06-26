@@ -46,7 +46,7 @@ import {
   buildIntentCollapseDiagnostics,
   buildSamplerIntentContext,
   collapseIntent,
-  filterCandidatesByIntentVector,
+  selectRankedCandidatesForSampler,
   calibrateIntentVectorForRetrievalPool,
   enrichIntentCollapseTrack,
   IntentCollapseInsufficientPoolError,
@@ -58,6 +58,16 @@ import {
   validateEditorialSceneWorldAlignment,
   validateDominantClusterAlignment,
 } from "../editorial/intent-collapse-layer";
+import {
+  applyEditorialMemoryToIntent,
+  resolveArchetypeFromMemory,
+  type EditorialStructureMemory,
+} from "../editorial/editorial-memory";
+import {
+  biasEnergyRangeForFingerprint,
+  buildFingerprintBiasMap,
+  type LibraryFingerprint,
+} from "../editorial/library-fingerprint";
 import { strictModeHumanSaveability, HumanSaveabilityGateError, MAX_HUMAN_SAVE_RETRIES } from "../human-saveability-gate";
 import {
   buildGateFailureExecutionTraceDraft,
@@ -840,6 +850,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     sceneWorldProof?: boolean;
     playlistAdjacency?: Array<{ trackIds: string[] }>;
     likedAdjacency?: Array<{ trackId: string; addedAt?: string | Date | null }>;
+    editorialMemory?: EditorialStructureMemory | null;
+    libraryFingerprint?: LibraryFingerprint | null;
   } = {},
 ): Promise<V3PipelineResult<T>> {
   const pipelineStartedAt = Date.now();
@@ -892,9 +904,24 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     strictMode: humanSaveStrictMode,
     libraryTracks: tracks.map((track) => toSceneWorldTrack(track, opts)),
     targetCount,
-    sceneArchetypeId: preRetrievalSceneWorld?.archetype?.id ?? null,
+    sceneArchetypeId: resolveArchetypeFromMemory(
+      preRetrievalSceneWorld?.archetype?.id ?? null,
+      opts.editorialMemory ?? null,
+    ),
   });
-  const editorialIntentVector: EditorialIntentVector = collapsedIntent.intent;
+  let editorialIntentVector: EditorialIntentVector = collapsedIntent.intent;
+  if (opts.editorialMemory) {
+    editorialIntentVector = applyEditorialMemoryToIntent(editorialIntentVector, opts.editorialMemory);
+  }
+  if (opts.libraryFingerprint) {
+    editorialIntentVector = {
+      ...editorialIntentVector,
+      energyRange: biasEnergyRangeForFingerprint(
+        editorialIntentVector.energyRange,
+        opts.libraryFingerprint,
+      ),
+    };
+  }
   let activeEditorialIntentVector: EditorialIntentVector = editorialIntentVector;
   let samplerIntentContext: SamplerIntentContext = buildSamplerIntentContext(editorialIntentVector);
   let intentCollapseDiagnostics: IntentCollapseDiagnostics | null = buildIntentCollapseDiagnostics(
@@ -1064,11 +1091,26 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     editorialIntentVector,
     { targetCount, strictMode: humanSaveStrictMode },
   );
-  const postFilterTrackIds = new Set(
-    filterCandidatesByIntentVector(intentFilterTracks, calibratedIntentVector).map((track) => track.trackId),
+  const fingerprintBias = opts.libraryFingerprint
+    ? buildFingerprintBiasMap(intentFilterTracks, opts.libraryFingerprint)
+    : undefined;
+  const rankedSelection = selectRankedCandidatesForSampler(
+    intentFilterTracks,
+    calibratedIntentVector,
+    {
+      targetCount,
+      strictMode: humanSaveStrictMode,
+      fingerprintBias,
+    },
   );
+  const selectedTrackIds = new Set(rankedSelection.selected.map((track) => track.trackId));
   retrievedTracks = retrievedTracks
-    .filter((track) => postFilterTrackIds.has(track.trackId))
+    .filter((track) => selectedTrackIds.has(track.trackId))
+    .sort((a, b) => {
+      const scoreA = rankedSelection.scores.get(a.trackId) ?? 0;
+      const scoreB = rankedSelection.scores.get(b.trackId) ?? 0;
+      return scoreB - scoreA;
+    })
     .map((track) => {
       const enriched = intentFilterTracks.find((row) => row.trackId === track.trackId);
       if (!enriched) return track;
@@ -1081,22 +1123,30 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const postIntentFilterCount = retrievedTracks.length;
   activeEditorialIntentVector = calibratedIntentVector;
   samplerIntentContext = buildSamplerIntentContext(calibratedIntentVector);
-  intentCollapseDiagnostics = buildIntentCollapseDiagnostics(
-    calibratedIntentVector,
-    collapsedIntent.collapseConfidenceScore,
-    preIntentFilterCount,
-    postIntentFilterCount,
-    intentFilterTracks,
-  );
+  intentCollapseDiagnostics = {
+    ...buildIntentCollapseDiagnostics(
+      calibratedIntentVector,
+      collapsedIntent.collapseConfidenceScore,
+      preIntentFilterCount,
+      postIntentFilterCount,
+      intentFilterTracks,
+    ),
+    rankedSelectionAvgScore: rankedSelection.avgScore,
+    rankedSelectionFloor: rankedSelection.minScoreUsed,
+  };
   forensicTrace.push(stageTrace(
-    "intent collapse filter count",
+    "intent collapse ranked selection",
     preIntentFilterCount,
     postIntentFilterCount,
     preIntentFilterCount > postIntentFilterCount
-      ? { intent_vector_hard_filter: preIntentFilterCount - postIntentFilterCount }
-      : {},
+      ? {
+        intent_vector_ranked_selection: preIntentFilterCount - postIntentFilterCount,
+        ranked_avg_score: rankedSelection.avgScore,
+        ranked_floor: rankedSelection.minScoreUsed,
+      }
+      : { ranked_avg_score: rankedSelection.avgScore },
     "backend/core/editorial/intent-collapse-layer.ts",
-    "filterCandidatesByIntentVector",
+    "selectRankedCandidatesForSampler",
   ));
   const minIntentPool = minimumIntentPoolSize(targetCount, humanSaveStrictMode);
   if (postIntentFilterCount < minIntentPool) {
