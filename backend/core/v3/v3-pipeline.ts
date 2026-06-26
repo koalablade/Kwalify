@@ -1067,7 +1067,17 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const postFilterTrackIds = new Set(
     filterCandidatesByIntentVector(intentFilterTracks, calibratedIntentVector).map((track) => track.trackId),
   );
-  retrievedTracks = retrievedTracks.filter((track) => postFilterTrackIds.has(track.trackId));
+  retrievedTracks = retrievedTracks
+    .filter((track) => postFilterTrackIds.has(track.trackId))
+    .map((track) => {
+      const enriched = intentFilterTracks.find((row) => row.trackId === track.trackId);
+      if (!enriched) return track;
+      return {
+        ...track,
+        genreFamily: enriched.genreFamily ?? track.genreFamily ?? null,
+        genrePrimary: enriched.genrePrimary ?? track.genrePrimary ?? null,
+      };
+    });
   const postIntentFilterCount = retrievedTracks.length;
   activeEditorialIntentVector = calibratedIntentVector;
   samplerIntentContext = buildSamplerIntentContext(calibratedIntentVector);
