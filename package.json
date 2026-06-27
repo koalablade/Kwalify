@@ -68,6 +68,7 @@
     "test:editorial-roi": "npm run build && node --test backend/dist/tests/editorial-roi.test.js",
     "test:playlist-local-search": "npm run build && node --test backend/dist/tests/playlist-local-search.test.js",
     "test:opening-curator": "npm run build && node --test backend/dist/tests/opening-curator.test.js",
+    "test:ending-curator": "npm run build && node --test backend/dist/tests/ending-curator.test.js",
     "fit:human-playlist-patterns": "npm run build && node backend/dist/scripts/fit-human-playlist-patterns.js",
     "fit:pairwise-preferences": "npm run build && node backend/dist/scripts/fit-pairwise-preferences.js",
     "corpus:bootstrap-references": "node scripts/bootstrap-playlist-corpus-from-references.mjs",

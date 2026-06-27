@@ -634,6 +634,7 @@ export function buildV3PipelineExecutionTraceDraft(opts: {
   intentCollapseLayer?: IntentCollapseLayerTrace | null;
   retrievedCount: number;
   finalTrackCount: number;
+  samplerOutputCount?: number;
   partialPipeline?: boolean;
   fastFallback?: boolean;
 }): PlaylistExecutionTraceDraft {
@@ -657,7 +658,7 @@ export function buildV3PipelineExecutionTraceDraft(opts: {
   if (Number(counts?.world_layer ?? 0) > 0) {
     stageAttribution.scene_world = { status: "completed", detail: null, diff: null };
   }
-  if (Number(counts?.sampler_pool ?? 0) > 0) {
+  if (Number(counts?.sampler_pool ?? 0) > 0 || (opts.samplerOutputCount ?? 0) > 0) {
     stageAttribution.sampler = { status: "completed", detail: null, diff: null };
   }
   if (counts?.opening5_post_interleaver != null || interleaverAudit) {
@@ -739,7 +740,7 @@ export function buildV3PipelineExecutionTraceDraft(opts: {
     trackCounts: {
       retrieved: opts.retrievedCount,
       after_world: Number(counts?.world_layer ?? 0),
-      after_sampler: Number(counts?.sampler_pool ?? 0),
+      after_sampler: Math.max(Number(counts?.sampler_pool ?? 0), opts.samplerOutputCount ?? 0),
       final: opts.finalTrackCount,
     },
     stageAttribution,

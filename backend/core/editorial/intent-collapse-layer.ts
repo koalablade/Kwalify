@@ -122,6 +122,11 @@ export const EDITORIAL_WORLD_ARCHETYPE_COMPAT: Record<string, string[]> = {
   festival_golden_hour: ["sunset_indie_drive", "upbeat_alt_morning_drive", "modern_feelgood_pop"],
   tumblr_indie_2012: ["soft_indie_morning", "indie_balanced_default", "balanced_scene_default"],
   bloghouse_2008: ["festival_electronic", "gym_confidence_boost", "night_drive_electronic"],
+  country_open_road: ["sunset_indie_drive", "balanced_scene_default", "indie_balanced_default"],
+  rock_anthem_drive: ["sunset_indie_drive", "gym_confidence_boost", "balanced_scene_default"],
+  hip_hop_session: ["gym_confidence_boost", "modern_hiphop_focus", "energetic_workout"],
+  rnb_soul_evening: ["late_night_rnb", "late_night_indie_interior", "light_pop_sunday"],
+  metal_intensity: ["gym_confidence_boost", "festival_electronic", "energetic_workout"],
 };
 
 const EDITORIAL_WORLDS: EditorialWorldDefinition[] = [
@@ -469,6 +474,81 @@ const EDITORIAL_WORLDS: EditorialWorldDefinition[] = [
     vocalPresenceTarget: 0.75,
     nostalgiaBias: 0.30,
     sonicAggressionCeiling: 0.50,
+  },
+  {
+    tag: "country_open_road",
+    cohesionScore: 0.93,
+    primaryFamilies: ["country"],
+    allowedMicroClusters: ["country:balanced", "country:acoustic", "country:rhythmic"],
+    moods: ["nostalgic", "uplift", "reflective"],
+    sceneTypes: ["drive"],
+    narrativeTags: ["country", "americana", "outlaw", "nashville", "honky", "western", "road", "truck"],
+    energyRange: [0.40, 0.68],
+    valenceTarget: 0.25,
+    rhythmDensityCap: 0.62,
+    vocalPresenceTarget: 0.85,
+    nostalgiaBias: 0.52,
+    sonicAggressionCeiling: 0.48,
+  },
+  {
+    tag: "rock_anthem_drive",
+    cohesionScore: 0.91,
+    primaryFamilies: ["rock"],
+    allowedMicroClusters: ["rock:balanced", "rock:rhythmic", "rock:dense"],
+    moods: ["energetic", "nostalgic", "uplift"],
+    sceneTypes: ["drive", "gym"],
+    narrativeTags: ["rock", "classic rock", "alternative", "grunge", "punk", "anthem", "guitar"],
+    energyRange: [0.52, 0.82],
+    valenceTarget: 0.30,
+    rhythmDensityCap: 0.72,
+    vocalPresenceTarget: 0.78,
+    nostalgiaBias: 0.48,
+    sonicAggressionCeiling: 0.68,
+  },
+  {
+    tag: "hip_hop_session",
+    cohesionScore: 0.90,
+    primaryFamilies: ["hip_hop"],
+    allowedMicroClusters: ["hip_hop:rhythmic", "hip_hop:balanced", "hip_hop:dense"],
+    moods: ["energetic", "balanced", "uplift"],
+    sceneTypes: ["gym", "commute"],
+    narrativeTags: ["hip hop", "hip-hop", "rap", "trap", "grime", "drill", "boom bap", "uk rap", "workout"],
+    energyRange: [0.55, 0.85],
+    valenceTarget: 0.35,
+    rhythmDensityCap: 0.80,
+    vocalPresenceTarget: 0.88,
+    nostalgiaBias: 0.30,
+    sonicAggressionCeiling: 0.72,
+  },
+  {
+    tag: "rnb_soul_evening",
+    cohesionScore: 0.92,
+    primaryFamilies: ["rnb", "soul"],
+    allowedMicroClusters: ["rnb:balanced", "rnb:rhythmic", "soul:balanced", "soul:rhythmic"],
+    moods: ["warm", "melancholic", "nocturnal"],
+    sceneTypes: ["night"],
+    narrativeTags: ["r&b", "rnb", "soul", "neo soul", "funk", "motown", "slow", "evening"],
+    energyRange: [0.28, 0.55],
+    valenceTarget: 0.10,
+    rhythmDensityCap: 0.58,
+    vocalPresenceTarget: 0.82,
+    nostalgiaBias: 0.50,
+    sonicAggressionCeiling: 0.38,
+  },
+  {
+    tag: "metal_intensity",
+    cohesionScore: 0.89,
+    primaryFamilies: ["metal"],
+    allowedMicroClusters: ["metal:dense", "metal:rhythmic", "rock:dense"],
+    moods: ["energetic", "intense"],
+    sceneTypes: ["gym"],
+    narrativeTags: ["metal", "metalcore", "thrash", "heavy", "workout", "aggressive"],
+    energyRange: [0.62, 0.92],
+    valenceTarget: 0.20,
+    rhythmDensityCap: 0.82,
+    vocalPresenceTarget: 0.72,
+    nostalgiaBias: 0.25,
+    sonicAggressionCeiling: 0.85,
   },
 ];
 
@@ -892,6 +972,18 @@ export function selectEditorialWorld(opts: {
   );
 
   let candidatePool = ranked;
+  const lockedFamilies = [...new Set(
+    opts.lockedIntent.genreFamilies
+      .map((genre) => getGenreFamily(genre))
+      .filter((family) => family !== "unknown"),
+  )];
+  if (lockedFamilies.length > 0) {
+    const genreMatched = ranked.filter((row) =>
+      row.world.primaryFamilies.some((family) => lockedFamilies.includes(family)),
+    );
+    if (genreMatched.length > 0) candidatePool = genreMatched;
+  }
+
   if (opts.sceneArchetypeId) {
     const preferredTag = ARCHETYPE_PREFERRED_WORLD[opts.sceneArchetypeId];
     if (preferredTag) {
@@ -1050,11 +1142,18 @@ export function realignEditorialIntentForDominantGenres(
 ): EditorialIntentVector | null {
   const world = selectEditorialWorldForDominantGenres(dominantGenres);
   if (!world) return null;
+  const energyRange: [number, number] = [
+    Math.max(intent.energyRange[0], world.energyRange[0]),
+    Math.min(intent.energyRange[1], world.energyRange[1]),
+  ];
   return {
     ...intent,
     editorialWorldTag: world.tag,
     allowedMicroClusters: [...new Set([...intent.allowedMicroClusters, ...world.allowedMicroClusters])],
     relaxGenreFamilyFilter: intent.relaxGenreFamilyFilter || dominantGenres.length > 0,
+    energyRange: energyRange[0] <= energyRange[1] ? energyRange : world.energyRange,
+    rhythmDensityCap: Math.max(intent.rhythmDensityCap, world.rhythmDensityCap),
+    sonicAggressionCeiling: Math.max(intent.sonicAggressionCeiling, world.sonicAggressionCeiling),
   };
 }
 

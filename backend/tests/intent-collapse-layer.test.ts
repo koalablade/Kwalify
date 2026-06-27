@@ -281,4 +281,15 @@ describe("intent collapse layer", () => {
     assert.ok(indieShare >= 0.35);
     assert.ok(ranked.selected.length <= 300);
   });
+
+  it("routes genre-locked prompts to matching editorial worlds", () => {
+    const world = selectEditorialWorld({
+      vibe: "classic country road trip singalong",
+      lockedIntent: { ...rainyWalkIntent, genreFamilies: ["country"], mood: ["nostalgic"], energy: "medium" },
+      profile: baseProfile,
+      primaryMood: "nostalgic",
+      sceneType: "drive",
+    });
+    assert.equal(world.tag, "country_open_road");
+  });
 });

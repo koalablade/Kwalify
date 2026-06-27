@@ -89,7 +89,7 @@ function cringeScore(tracks: PatternScoringTrack[]): number {
 function openingShapeScore(tracks: PatternScoringTrack[]): number {
   const opening = tracks.slice(0, 5);
   if (opening.length === 0) return 0;
-  return scoreAgainstHumanPlaylistPatterns(opening).score;
+  return humanPlausibilityScore(opening);
 }
 
 function middleShapeScore(tracks: PatternScoringTrack[]): number {
@@ -100,9 +100,9 @@ function middleShapeScore(tracks: PatternScoringTrack[]): number {
 }
 
 function endingShapeScore(tracks: PatternScoringTrack[]): number {
-  if (tracks.length < 8) return scoreAgainstHumanPlaylistPatterns(tracks).score;
+  if (tracks.length < 8) return humanPlausibilityScore(tracks);
   const tail = tracks.slice(-Math.min(8, Math.floor(tracks.length * 0.2)));
-  return scoreAgainstHumanPlaylistPatterns(tail).score;
+  return humanPlausibilityScore(tail);
 }
 
 function discoveryPacingScore(tracks: PatternScoringTrack[]): number {
@@ -181,8 +181,8 @@ export function comparePlaylistsPairwise(
     reasons.push(`${winner} has stronger opening-five editorial shape`);
   }
 
-  const aFull = scoreAgainstHumanPlaylistPatterns(a.tracks).score;
-  const bFull = scoreAgainstHumanPlaylistPatterns(b.tracks).score;
+  const aFull = humanPlausibilityScore(a.tracks);
+  const bFull = humanPlausibilityScore(b.tracks);
   const aMid = middleShapeScore(a.tracks);
   const bMid = middleShapeScore(b.tracks);
   vote(
@@ -202,8 +202,8 @@ export function comparePlaylistsPairwise(
   vote(
     "prompt_alignment",
     pickRelative(
-      a.qualityOverall * 0.6 + a.wouldISave.humanPatternScore * 0.4,
-      b.qualityOverall * 0.6 + b.wouldISave.humanPatternScore * 0.4,
+      a.qualityOverall * 0.45 + humanPlausibilityScore(a.tracks) * 0.55,
+      b.qualityOverall * 0.45 + humanPlausibilityScore(b.tracks) * 0.55,
       0.04,
     ),
   );

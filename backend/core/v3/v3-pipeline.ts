@@ -62,6 +62,7 @@ import {
 } from "../editorial/intent-collapse-layer";
 import { improvePlaylistByLocalSearch } from "../editorial/playlist-local-search";
 import { curatePlaylistOpening } from "../editorial/opening-curator";
+import { curatePlaylistEnding } from "../editorial/ending-curator";
 import {
   applyEditorialMemoryToIntent,
   resolveArchetypeFromMemory,
@@ -1341,6 +1342,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   }> = [];
 
   const sampledResults: SampledLaneResult<T>[] = [];
+  let samplerOutputCount = 0;
   const laneRetryArtifacts: Array<{
     lane: (typeof lanes)[number];
     clusteredPool: ClusteredPool<T>;
@@ -1703,6 +1705,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     recordTraceCount(opts.pipelineTrace, `v3.${lane.id}.sampled`, clusterResult.tracks.length);
     await yieldV3();
     sceneClusterFunnelCounts.sampler_pool += clusterResult.tracks.length;
+    samplerOutputCount += clusterResult.tracks.length;
     forensicTrace.push(stageTrace(
       `sampler input count:${lane.id}`,
       clusteredPool.scoredTracks.length,
@@ -1926,6 +1929,26 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       .map((track) => byId.get(track.trackId))
       .filter((track): track is (typeof finalTracks)[number] => !!track);
   }
+  const endingCurated = curatePlaylistEnding(
+    finalTracks.map((track) => ({
+      trackId: track.trackId,
+      artistName: track.artistName,
+      energy: track.energy,
+      valence: track.valence,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      popularity: (track as { popularity?: number | null }).popularity ?? null,
+      rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
+      releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
+      tempo: (track as { tempo?: number | null }).tempo ?? null,
+    })),
+  );
+  if (endingCurated.swaps > 0 && endingCurated.scoreAfter > endingCurated.scoreBefore + 0.004) {
+    const byId = new Map(finalTracks.map((track) => [track.trackId, track]));
+    finalTracks = endingCurated.tracks
+      .map((track) => byId.get(track.trackId))
+      .filter((track): track is (typeof finalTracks)[number] => !!track);
+  }
   let openingRepairCount = 0;
   let insufficientOpeningWorldReason: string | null = null;
   if (humanSaveStrictMode) {
@@ -1978,7 +2001,10 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         === sceneWorldContext.sceneClusters!.dominantClusterId,
     ).length
     : 0;
-  const sceneClusterFunnel = buildSceneClusterFunnelReport(sceneClusterFunnelCounts, {
+  const sceneClusterFunnel = buildSceneClusterFunnelReport({
+    ...sceneClusterFunnelCounts,
+    sampler_pool: Math.max(sceneClusterFunnelCounts.sampler_pool, samplerOutputCount),
+  }, {
     context: sceneWorldContext,
     preRetrievalContext: preRetrievalSceneWorld,
     postRetrievalRebuiltContext: postRetrievalRebuiltWorld,
@@ -2844,6 +2870,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         dominantClusterLabel: postInterleaverOpeningAudit.dominantClusterLabel,
         retrievedCount: retrievedTracks.length,
         finalTrackCount: finalTracks.length,
+        samplerOutputCount,
         partialPipeline: false,
         fastFallback: false,
       }),
