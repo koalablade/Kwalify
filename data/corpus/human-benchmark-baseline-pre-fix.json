@@ -1,0 +1,23 @@
+{
+  "label": "pre-b6f109b-live-evidence",
+  "description": "Documented baseline from live koalablade runs before editorial ROI + pairwise fixes",
+  "deployCommit": "pre-b6f109b",
+  "playlistLength": 25,
+  "metrics": {
+    "http422Rate": 0.8,
+    "samplerExecutedRate": 0,
+    "humanSaveableRate": null,
+    "timeoutFallbackRate": "high",
+    "notes": [
+      "80%+ 422 failures (insufficient_intent_pool, opening_eligible=0)",
+      "Sampler rarely/never ran (0/45)",
+      "Timeout fallback produced random liked songs",
+      "Gate passed incoherent playlists in some cases"
+    ]
+  },
+  "humanLikeness": {
+    "pairwiseWinRateVsReference": null,
+    "automatedProxyKwalifyWinRate": null,
+    "notes": "No blind human rating completed; internal gate pass rate was misleading north-star"
+  }
+}

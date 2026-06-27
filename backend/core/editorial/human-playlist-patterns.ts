@@ -76,6 +76,11 @@ export type HumanPlaylistFeatureSnapshot = {
   energySlope: number;
   avgEnergyJump: number;
   smoothTransitionShare: number;
+  popularityFrontShare: number;
+  popularityMidShare: number;
+  popularityTailShare: number;
+  decadeSpread: number;
+  tempoDrift: number;
 };
 
 export type PatternScoringTrack = {
@@ -87,6 +92,8 @@ export type PatternScoringTrack = {
   acousticness?: number | null;
   popularity?: number | null;
   rediscoveryScore?: number | null;
+  releaseYear?: number | null;
+  tempo?: number | null;
 };
 
 function clamp01(value: number): number {
@@ -113,6 +120,11 @@ export function computeHumanPlaylistFeatures(
       energySlope: 0,
       avgEnergyJump: 0,
       smoothTransitionShare: 0,
+      popularityFrontShare: 0,
+      popularityMidShare: 0,
+      popularityTailShare: 0,
+      decadeSpread: 0,
+      tempoDrift: 0,
     };
   }
 
@@ -176,6 +188,45 @@ export function computeHumanPlaylistFeatures(
     ? jumps.reduce((s, v) => s + v, 0) / jumps.length
     : 0;
 
+  const popularityValues = tracks.map((t) => {
+    if (typeof t.popularity === "number") return clamp01(t.popularity / 100);
+    if (typeof t.rediscoveryScore === "number") return clamp01(1 - t.rediscoveryScore);
+    return 0.5;
+  });
+  const third = Math.max(1, Math.floor(tracks.length / 3));
+  const front = popularityValues.slice(0, third);
+  const mid = popularityValues.slice(third, third * 2);
+  const tail = popularityValues.slice(third * 2);
+  const avgPop = (slice: number[]) =>
+    slice.length > 0 ? slice.reduce((s, v) => s + v, 0) / slice.length : 0.5;
+  const popularityFrontShare = avgPop(front);
+  const popularityMidShare = avgPop(mid);
+  const popularityTailShare = avgPop(tail);
+
+  const decades = tracks
+    .map((t) => (typeof t.releaseYear === "number" ? Math.floor(t.releaseYear / 10) * 10 : null))
+    .filter((d): d is number => d != null);
+  const uniqueDecades = new Set(decades);
+  const decadeSpread = decades.length > 0 ? uniqueDecades.size / Math.min(6, decades.length) : 0.5;
+
+  const tempos = tracks.map((t) => t.tempo).filter((v): v is number => typeof v === "number" && v > 0);
+  let tempoDrift = 0;
+  if (tempos.length >= 3) {
+    const tempoN = tempos.length;
+    let tSumX = 0;
+    let tSumY = 0;
+    let tSumXY = 0;
+    let tSumX2 = 0;
+    for (let i = 0; i < tempoN; i++) {
+      tSumX += i;
+      tSumY += tempos[i]!;
+      tSumXY += i * tempos[i]!;
+      tSumX2 += i * i;
+    }
+    const tDenom = tempoN * tSumX2 - tSumX * tSumX;
+    tempoDrift = tDenom !== 0 ? Math.abs((tempoN * tSumXY - tSumX * tSumY) / tDenom) / 120 : 0;
+  }
+
   return {
     artistSpacingMedian,
     maxArtistShare,
@@ -183,6 +234,11 @@ export function computeHumanPlaylistFeatures(
     energySlope,
     avgEnergyJump,
     smoothTransitionShare: jumps.length > 0 ? smoothTransitions / jumps.length : 1,
+    popularityFrontShare,
+    popularityMidShare,
+    popularityTailShare,
+    decadeSpread,
+    tempoDrift,
   };
 }
 
@@ -190,6 +246,55 @@ function bandScore(value: number, p25: number, p50: number, p75: number): number
   if (value >= p25 && value <= p75) return 1;
   const dist = value < p25 ? p25 - value : value - p75;
   return clamp01(1 - dist / Math.max(1, p75 - p25 + 0.01));
+}
+
+function curveScore(actual: number, target: number, tolerance = 0.12): number {
+  return clamp01(1 - Math.abs(actual - target) / tolerance);
+}
+
+/** Lightweight incremental shape check when building a playlist track-by-track. */
+export function incrementalPlaylistShapeMultiplier(
+  selected: PatternScoringTrack[],
+  candidate: PatternScoringTrack,
+  profile: HumanPlaylistPatternProfile = loadHumanPlaylistPatternProfile(),
+): number {
+  if (selected.length === 0) return 1;
+  const last = selected[selected.length - 1]!;
+  const artist = (candidate.artistName ?? "unknown").toLowerCase();
+  const lastArtist = (last.artistName ?? "unknown").toLowerCase();
+  let bonus = 1;
+
+  if (artist === lastArtist) bonus *= 0.55;
+
+  const positions = selected
+    .map((t, i) => ((t.artistName ?? "unknown").toLowerCase() === artist ? i : -1))
+    .filter((i) => i >= 0);
+  if (positions.length > 0) {
+    const spacing = selected.length - positions[positions.length - 1]!;
+    if (spacing < profile.artistSpacingP25) bonus *= 0.72;
+    else if (spacing >= profile.artistSpacingP50) bonus *= 1.06;
+  }
+
+  const jump = Math.abs((candidate.energy ?? 0.5) - (last.energy ?? 0.5));
+  if (jump > profile.maxEnergyJumpP90) bonus *= 0.78;
+  else if (jump <= profile.maxEnergyJumpP90 * 0.85) bonus *= 1.04;
+
+  const position = selected.length;
+  const totalEstimate = Math.max(position + 8, position * 1.2);
+  const progress = position / totalEstimate;
+  const pop = typeof candidate.popularity === "number"
+    ? clamp01(candidate.popularity / 100)
+    : typeof candidate.rediscoveryScore === "number"
+      ? clamp01(1 - candidate.rediscoveryScore)
+      : 0.5;
+  const targetPop = progress < 0.33
+    ? profile.popularityFrontLoad
+    : progress < 0.66
+      ? profile.popularityMidPeak
+      : profile.popularityDiscoveryTail;
+  bonus *= 0.85 + curveScore(pop, targetPop, 0.18) * 0.15;
+
+  return clamp01(bonus);
 }
 
 export function scoreAgainstHumanPlaylistPatterns(
@@ -233,15 +338,25 @@ export function scoreAgainstHumanPlaylistPatterns(
       features.smoothTransitionShare / Math.max(0.01, profile.transitionSmoothShare),
     ),
     energyJumps: clamp01(1 - Math.max(0, features.avgEnergyJump - profile.maxEnergyJumpP90) * 3),
+    popularityCurve: clamp01(
+      curveScore(features.popularityFrontShare, profile.popularityFrontLoad, 0.14) * 0.34 +
+      curveScore(features.popularityMidShare, profile.popularityMidPeak, 0.14) * 0.33 +
+      curveScore(features.popularityTailShare, profile.popularityDiscoveryTail, 0.14) * 0.33,
+    ),
+    decadeBalance: clamp01(features.decadeSpread >= 0.35 && features.decadeSpread <= 0.85 ? 1 : 0.62),
+    tempoDrift: clamp01(1 - Math.max(0, features.tempoDrift - 0.35) * 1.2),
   };
 
   const score = clamp01(
-    breakdown.artistSpacing * 0.22 +
-    breakdown.artistDiversity * 0.18 +
-    breakdown.discoveryRatio * 0.16 +
-    breakdown.energyArc * 0.18 +
-    breakdown.transitions * 0.16 +
-    breakdown.energyJumps * 0.10,
+    breakdown.artistSpacing * 0.18 +
+    breakdown.artistDiversity * 0.14 +
+    breakdown.discoveryRatio * 0.14 +
+    breakdown.energyArc * 0.14 +
+    breakdown.transitions * 0.12 +
+    breakdown.energyJumps * 0.08 +
+    breakdown.popularityCurve * 0.12 +
+    breakdown.decadeBalance * 0.04 +
+    breakdown.tempoDrift * 0.04,
   );
 
   return { score, features, breakdown };

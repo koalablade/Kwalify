@@ -1,0 +1,187 @@
+[
+  {
+    "id": "summer_morning",
+    "prompt": "Feel-good summer morning music to hype yourself up for the day, getting ready, and commuting to work.",
+    "referenceTracks": [
+      { "trackName": "Remember When", "artistName": "Wallows", "genreFamily": "indie", "energy": 0.62, "valence": 0.68, "danceability": 0.64, "acousticness": 0.28 },
+      { "trackName": "Are You Bored Yet?", "artistName": "Wallows", "genreFamily": "indie", "energy": 0.6, "valence": 0.66, "danceability": 0.62, "acousticness": 0.3 },
+      { "trackName": "Do I Wanna Know?", "artistName": "Arctic Monkeys", "genreFamily": "indie", "energy": 0.64, "valence": 0.62, "danceability": 0.58, "acousticness": 0.26 },
+      { "trackName": "Lightning Bolt", "artistName": "Jake Bugg", "genreFamily": "indie", "energy": 0.58, "valence": 0.64, "danceability": 0.6, "acousticness": 0.32 },
+      { "trackName": "Space Song", "artistName": "Beach House", "genreFamily": "indie", "energy": 0.52, "valence": 0.58, "danceability": 0.48, "acousticness": 0.42 },
+      { "trackName": "The Less I Know The Better", "artistName": "Tame Impala", "genreFamily": "indie", "energy": 0.58, "valence": 0.62, "danceability": 0.6, "acousticness": 0.3 },
+      { "trackName": "Can I Call You Tonight?", "artistName": "Dayglow", "genreFamily": "pop", "energy": 0.64, "valence": 0.7, "danceability": 0.66, "acousticness": 0.24 },
+      { "trackName": "Bags", "artistName": "Clairo", "genreFamily": "pop", "energy": 0.62, "valence": 0.68, "danceability": 0.64, "acousticness": 0.26 },
+      { "trackName": "Peach", "artistName": "Kevin Abstract", "genreFamily": "indie", "energy": 0.6, "valence": 0.65, "danceability": 0.58, "acousticness": 0.3 },
+      { "trackName": "Sunflower", "artistName": "Rex Orange County", "genreFamily": "indie", "energy": 0.63, "valence": 0.69, "danceability": 0.61, "acousticness": 0.27 }
+    ]
+  },
+  {
+    "id": "rainy_walk",
+    "prompt": "rainy city morning walk with reflective mood",
+    "referenceTracks": [
+      { "trackName": "Holocene", "artistName": "Bon Iver", "genreFamily": "folk", "energy": 0.4, "valence": 0.38, "danceability": 0.36, "acousticness": 0.58 },
+      { "trackName": "Motion Sickness", "artistName": "Phoebe Bridgers", "genreFamily": "indie", "energy": 0.44, "valence": 0.38, "danceability": 0.4, "acousticness": 0.52 },
+      { "trackName": "Bloodbuzz Ohio", "artistName": "The National", "genreFamily": "indie", "energy": 0.44, "valence": 0.36, "danceability": 0.4, "acousticness": 0.48 },
+      { "trackName": "White Winter Hymnal", "artistName": "Fleet Foxes", "genreFamily": "folk", "energy": 0.46, "valence": 0.42, "danceability": 0.42, "acousticness": 0.54 },
+      { "trackName": "Chicago", "artistName": "Sufjan Stevens", "genreFamily": "folk", "energy": 0.42, "valence": 0.4, "danceability": 0.38, "acousticness": 0.56 },
+      { "trackName": "Lyla", "artistName": "Big Red Machine", "genreFamily": "indie", "energy": 0.4, "valence": 0.36, "danceability": 0.38, "acousticness": 0.5 },
+      { "trackName": "Skinny Love", "artistName": "Bon Iver", "genreFamily": "folk", "energy": 0.38, "valence": 0.36, "danceability": 0.34, "acousticness": 0.6 },
+      { "trackName": "Garden Song", "artistName": "Phoebe Bridgers", "genreFamily": "indie", "energy": 0.42, "valence": 0.4, "danceability": 0.38, "acousticness": 0.54 },
+      { "trackName": "I Need My Girl", "artistName": "The National", "genreFamily": "indie", "energy": 0.42, "valence": 0.34, "danceability": 0.38, "acousticness": 0.5 },
+      { "trackName": "Helplessness Blues", "artistName": "Fleet Foxes", "genreFamily": "folk", "energy": 0.44, "valence": 0.4, "danceability": 0.4, "acousticness": 0.55 }
+    ]
+  },
+  {
+    "id": "cozy_sunday",
+    "prompt": "soft happy Sunday afternoon with light emotional warmth",
+    "referenceTracks": [
+      { "trackName": "1234", "artistName": "Feist", "genreFamily": "indie", "energy": 0.46, "valence": 0.6, "danceability": 0.44, "acousticness": 0.54 },
+      { "trackName": "Naked As We Came", "artistName": "Iron & Wine", "genreFamily": "folk", "energy": 0.42, "valence": 0.58, "danceability": 0.4, "acousticness": 0.62 },
+      { "trackName": "Chinese Translation", "artistName": "M. Ward", "genreFamily": "folk", "energy": 0.44, "valence": 0.58, "danceability": 0.42, "acousticness": 0.58 },
+      { "trackName": "Don't Know Why", "artistName": "Norah Jones", "genreFamily": "soul", "energy": 0.46, "valence": 0.62, "danceability": 0.44, "acousticness": 0.52 },
+      { "trackName": "Space Song", "artistName": "Beach House", "genreFamily": "indie", "energy": 0.48, "valence": 0.58, "danceability": 0.44, "acousticness": 0.48 },
+      { "trackName": "I Want You Around", "artistName": "Snoh Aalegra", "genreFamily": "soul", "energy": 0.48, "valence": 0.6, "danceability": 0.46, "acousticness": 0.46 },
+      { "trackName": "The Book Of Love", "artistName": "Peter Gabriel", "genreFamily": "pop", "energy": 0.4, "valence": 0.55, "danceability": 0.38, "acousticness": 0.6 },
+      { "trackName": "Such Great Heights", "artistName": "Iron & Wine", "genreFamily": "folk", "energy": 0.44, "valence": 0.57, "danceability": 0.41, "acousticness": 0.59 },
+      { "trackName": "My Moon My Man", "artistName": "Feist", "genreFamily": "indie", "energy": 0.45, "valence": 0.59, "danceability": 0.43, "acousticness": 0.55 },
+      { "trackName": "Sunrise", "artistName": "Norah Jones", "genreFamily": "soul", "energy": 0.45, "valence": 0.61, "danceability": 0.43, "acousticness": 0.53 }
+    ]
+  },
+  {
+    "id": "sunset_drive",
+    "prompt": "driving at sunset with open windows and golden light",
+    "referenceTracks": [
+      { "trackName": "Time (You and I)", "artistName": "Khruangbin", "genreFamily": "indie", "energy": 0.52, "valence": 0.54, "danceability": 0.5, "acousticness": 0.42 },
+      { "trackName": "Let It Happen", "artistName": "Tame Impala", "genreFamily": "indie", "energy": 0.56, "valence": 0.54, "danceability": 0.54, "acousticness": 0.32 },
+      { "trackName": "Apocalypse", "artistName": "Cigarettes After Sex", "genreFamily": "indie", "energy": 0.48, "valence": 0.5, "danceability": 0.46, "acousticness": 0.46 },
+      { "trackName": "Can I Call You Tonight?", "artistName": "Dayglow", "genreFamily": "indie", "energy": 0.54, "valence": 0.56, "danceability": 0.52, "acousticness": 0.34 },
+      { "trackName": "Chamber Of Reflection", "artistName": "Mac DeMarco", "genreFamily": "indie", "energy": 0.52, "valence": 0.54, "danceability": 0.5, "acousticness": 0.38 },
+      { "trackName": "Seasons (Waiting On You)", "artistName": "Future Islands", "genreFamily": "indie", "energy": 0.56, "valence": 0.52, "danceability": 0.54, "acousticness": 0.3 },
+      { "trackName": "Red Eyes", "artistName": "The War on Drugs", "genreFamily": "indie", "energy": 0.54, "valence": 0.52, "danceability": 0.5, "acousticness": 0.36 },
+      { "trackName": "Talking Backwards", "artistName": "Real Estate", "genreFamily": "indie", "energy": 0.5, "valence": 0.54, "danceability": 0.48, "acousticness": 0.4 },
+      { "trackName": "Not", "artistName": "Big Thief", "genreFamily": "indie", "energy": 0.48, "valence": 0.52, "danceability": 0.46, "acousticness": 0.44 },
+      { "trackName": "Maria", "artistName": "Khruangbin", "genreFamily": "indie", "energy": 0.5, "valence": 0.52, "danceability": 0.48, "acousticness": 0.44 }
+    ]
+  },
+  {
+    "id": "late_night",
+    "prompt": "late night feeling",
+    "referenceTracks": [
+      { "trackName": "Nightcall", "artistName": "Kavinsky", "genreFamily": "electronic", "energy": 0.55, "valence": 0.42, "danceability": 0.58, "acousticness": 0.2 },
+      { "trackName": "After Dark", "artistName": "Mr.Kitty", "genreFamily": "electronic", "energy": 0.52, "valence": 0.38, "danceability": 0.55, "acousticness": 0.22 },
+      { "trackName": "Ivy", "artistName": "Frank Ocean", "genreFamily": "soul", "energy": 0.48, "valence": 0.4, "danceability": 0.45, "acousticness": 0.35 },
+      { "trackName": "Apocalypse", "artistName": "Cigarettes After Sex", "genreFamily": "indie", "energy": 0.45, "valence": 0.42, "danceability": 0.4, "acousticness": 0.48 },
+      { "trackName": "The Night We Met", "artistName": "Lord Huron", "genreFamily": "indie", "energy": 0.42, "valence": 0.35, "danceability": 0.38, "acousticness": 0.5 }
+    ]
+  },
+  {
+    "id": "optimistic_commute",
+    "prompt": "optimistic commute to work with forward energy",
+    "referenceTracks": [
+      { "trackName": "Good as Hell", "artistName": "Lizzo", "genreFamily": "pop", "energy": 0.72, "valence": 0.78, "danceability": 0.75, "acousticness": 0.15 },
+      { "trackName": "Levitating", "artistName": "Dua Lipa", "genreFamily": "pop", "energy": 0.7, "valence": 0.75, "danceability": 0.78, "acousticness": 0.12 },
+      { "trackName": "Can I Call You Tonight?", "artistName": "Dayglow", "genreFamily": "indie", "energy": 0.65, "valence": 0.7, "danceability": 0.66, "acousticness": 0.24 },
+      { "trackName": "Are You Bored Yet?", "artistName": "Wallows", "genreFamily": "indie", "energy": 0.63, "valence": 0.68, "danceability": 0.64, "acousticness": 0.28 },
+      { "trackName": "Electric Feel", "artistName": "MGMT", "genreFamily": "indie", "energy": 0.68, "valence": 0.72, "danceability": 0.7, "acousticness": 0.18 }
+    ]
+  },
+  {
+    "id": "study_session",
+    "prompt": "music for thinking and study session focus",
+    "referenceTracks": [
+      { "trackName": "Weightless", "artistName": "Marconi Union", "genreFamily": "electronic", "energy": 0.25, "valence": 0.4, "danceability": 0.3, "acousticness": 0.45 },
+      { "trackName": "Intro", "artistName": "The xx", "genreFamily": "indie", "energy": 0.32, "valence": 0.38, "danceability": 0.35, "acousticness": 0.4 },
+      { "trackName": "Holocene", "artistName": "Bon Iver", "genreFamily": "folk", "energy": 0.35, "valence": 0.4, "danceability": 0.32, "acousticness": 0.55 },
+      { "trackName": "Avril 14th", "artistName": "Aphex Twin", "genreFamily": "electronic", "energy": 0.28, "valence": 0.45, "danceability": 0.28, "acousticness": 0.5 },
+      { "trackName": "Flim", "artistName": "Aphex Twin", "genreFamily": "electronic", "energy": 0.22, "valence": 0.42, "danceability": 0.25, "acousticness": 0.48 }
+    ]
+  },
+  {
+    "id": "gym_boost",
+    "prompt": "gym confidence boost high energy workout",
+    "referenceTracks": [
+      { "trackName": "Lose Yourself", "artistName": "Eminem", "genreFamily": "hip_hop", "energy": 0.85, "valence": 0.55, "danceability": 0.72, "acousticness": 0.1 },
+      { "trackName": "Stronger", "artistName": "Kanye West", "genreFamily": "hip_hop", "energy": 0.88, "valence": 0.6, "danceability": 0.75, "acousticness": 0.08 },
+      { "trackName": "Titanium", "artistName": "David Guetta", "genreFamily": "electronic", "energy": 0.82, "valence": 0.58, "danceability": 0.78, "acousticness": 0.05 },
+      { "trackName": "Can't Hold Us", "artistName": "Macklemore", "genreFamily": "hip_hop", "energy": 0.86, "valence": 0.72, "danceability": 0.76, "acousticness": 0.06 },
+      { "trackName": "Eye of the Tiger", "artistName": "Survivor", "genreFamily": "rock", "energy": 0.84, "valence": 0.65, "danceability": 0.55, "acousticness": 0.12 }
+    ]
+  },
+  {
+    "id": "coffee_shop",
+    "prompt": "lazy Saturday coffee shop reading with indie folk vibes",
+    "referenceTracks": [
+      { "trackName": "Banana Pancakes", "artistName": "Jack Johnson", "genreFamily": "folk", "energy": 0.42, "valence": 0.58, "danceability": 0.48, "acousticness": 0.65 },
+      { "trackName": "Ho Hey", "artistName": "The Lumineers", "genreFamily": "folk", "energy": 0.48, "valence": 0.55, "danceability": 0.45, "acousticness": 0.6 },
+      { "trackName": "Skinny Love", "artistName": "Bon Iver", "genreFamily": "folk", "energy": 0.38, "valence": 0.4, "danceability": 0.35, "acousticness": 0.62 },
+      { "trackName": "First Day of My Life", "artistName": "Bright Eyes", "genreFamily": "folk", "energy": 0.4, "valence": 0.52, "danceability": 0.38, "acousticness": 0.68 },
+      { "trackName": "Stubborn Love", "artistName": "The Lumineers", "genreFamily": "folk", "energy": 0.46, "valence": 0.54, "danceability": 0.44, "acousticness": 0.58 }
+    ]
+  },
+  {
+    "id": "road_trip",
+    "prompt": "windows-down road trip singalong energy",
+    "referenceTracks": [
+      { "trackName": "Mr. Brightside", "artistName": "The Killers", "genreFamily": "rock", "energy": 0.78, "valence": 0.65, "danceability": 0.52, "acousticness": 0.08 },
+      { "trackName": "Shut Up and Dance", "artistName": "WALK THE MOON", "genreFamily": "pop", "energy": 0.82, "valence": 0.78, "danceability": 0.72, "acousticness": 0.06 },
+      { "trackName": "Sweet Child O' Mine", "artistName": "Guns N' Roses", "genreFamily": "rock", "energy": 0.8, "valence": 0.62, "danceability": 0.48, "acousticness": 0.1 },
+      { "trackName": "Tongue Tied", "artistName": "Grouplove", "genreFamily": "indie", "energy": 0.76, "valence": 0.75, "danceability": 0.68, "acousticness": 0.12 },
+      { "trackName": "Pumped Up Kicks", "artistName": "Foster The People", "genreFamily": "indie", "energy": 0.72, "valence": 0.68, "danceability": 0.65, "acousticness": 0.15 }
+    ]
+  },
+  {
+    "id": "after_work",
+    "prompt": "after work decompression walk home calm but not sad",
+    "referenceTracks": [
+      { "trackName": "Holocene", "artistName": "Bon Iver", "genreFamily": "folk", "energy": 0.38, "valence": 0.45, "danceability": 0.35, "acousticness": 0.58 },
+      { "trackName": "Bloom", "artistName": "The Paper Kites", "genreFamily": "indie", "energy": 0.42, "valence": 0.5, "danceability": 0.4, "acousticness": 0.55 },
+      { "trackName": "Rivers and Roads", "artistName": "The Head and the Heart", "genreFamily": "folk", "energy": 0.44, "valence": 0.48, "danceability": 0.42, "acousticness": 0.52 },
+      { "trackName": "Stubborn Love", "artistName": "The Lumineers", "genreFamily": "folk", "energy": 0.45, "valence": 0.52, "danceability": 0.44, "acousticness": 0.56 },
+      { "trackName": "First", "artistName": "Cold War Kids", "genreFamily": "indie", "energy": 0.48, "valence": 0.5, "danceability": 0.46, "acousticness": 0.4 }
+    ]
+  },
+  {
+    "id": "party_pregame",
+    "prompt": "pregame playlist before going out with friends tonight",
+    "referenceTracks": [
+      { "trackName": "Yeah!", "artistName": "Usher", "genreFamily": "pop", "energy": 0.85, "valence": 0.75, "danceability": 0.82, "acousticness": 0.05 },
+      { "trackName": "Get Lucky", "artistName": "Daft Punk", "genreFamily": "electronic", "energy": 0.78, "valence": 0.72, "danceability": 0.8, "acousticness": 0.08 },
+      { "trackName": "Uptown Funk", "artistName": "Mark Ronson", "genreFamily": "pop", "energy": 0.82, "valence": 0.78, "danceability": 0.85, "acousticness": 0.06 },
+      { "trackName": "Turn Down for What", "artistName": "DJ Snake", "genreFamily": "electronic", "energy": 0.88, "valence": 0.65, "danceability": 0.88, "acousticness": 0.04 },
+      { "trackName": "I Gotta Feeling", "artistName": "Black Eyed Peas", "genreFamily": "pop", "energy": 0.8, "valence": 0.82, "danceability": 0.78, "acousticness": 0.05 }
+    ]
+  },
+  {
+    "id": "melancholy_rain",
+    "prompt": "melancholy rainy afternoon staring out the window",
+    "referenceTracks": [
+      { "trackName": "Motion Sickness", "artistName": "Phoebe Bridgers", "genreFamily": "indie", "energy": 0.4, "valence": 0.32, "danceability": 0.38, "acousticness": 0.52 },
+      { "trackName": "Skinny Love", "artistName": "Bon Iver", "genreFamily": "folk", "energy": 0.35, "valence": 0.3, "danceability": 0.32, "acousticness": 0.62 },
+      { "trackName": "The Night We Met", "artistName": "Lord Huron", "genreFamily": "indie", "energy": 0.38, "valence": 0.28, "danceability": 0.35, "acousticness": 0.48 },
+      { "trackName": "Fourth of July", "artistName": "Sufjan Stevens", "genreFamily": "folk", "energy": 0.32, "valence": 0.25, "danceability": 0.3, "acousticness": 0.58 },
+      { "trackName": "Funeral", "artistName": "Phoebe Bridgers", "genreFamily": "indie", "energy": 0.36, "valence": 0.28, "danceability": 0.34, "acousticness": 0.54 }
+    ]
+  },
+  {
+    "id": "focus_coding",
+    "prompt": "deep focus coding session late evening electronic ambient",
+    "referenceTracks": [
+      { "trackName": "Avril 14th", "artistName": "Aphex Twin", "genreFamily": "electronic", "energy": 0.28, "valence": 0.45, "danceability": 0.28, "acousticness": 0.5 },
+      { "trackName": "#3", "artistName": "Aphex Twin", "genreFamily": "electronic", "energy": 0.25, "valence": 0.42, "danceability": 0.25, "acousticness": 0.48 },
+      { "trackName": "Intro", "artistName": "The xx", "genreFamily": "indie", "energy": 0.3, "valence": 0.38, "danceability": 0.32, "acousticness": 0.42 },
+      { "trackName": "Teardrop", "artistName": "Massive Attack", "genreFamily": "electronic", "energy": 0.35, "valence": 0.4, "danceability": 0.38, "acousticness": 0.35 },
+      { "trackName": "Porcelain", "artistName": "Moby", "genreFamily": "electronic", "energy": 0.32, "valence": 0.42, "danceability": 0.36, "acousticness": 0.4 }
+    ]
+  },
+  {
+    "id": "morning_yoga",
+    "prompt": "gentle morning yoga stretch calm uplifting",
+    "referenceTracks": [
+      { "trackName": "Holocene", "artistName": "Bon Iver", "genreFamily": "folk", "energy": 0.35, "valence": 0.48, "danceability": 0.32, "acousticness": 0.58 },
+      { "trackName": "Bloom", "artistName": "The Paper Kites", "genreFamily": "indie", "energy": 0.38, "valence": 0.52, "danceability": 0.36, "acousticness": 0.55 },
+      { "trackName": "Banana Pancakes", "artistName": "Jack Johnson", "genreFamily": "folk", "energy": 0.4, "valence": 0.55, "danceability": 0.42, "acousticness": 0.65 },
+      { "trackName": "Sunset Lover", "artistName": "Petit Biscuit", "genreFamily": "electronic", "energy": 0.42, "valence": 0.58, "danceability": 0.45, "acousticness": 0.38 },
+      { "trackName": "Weightless", "artistName": "Marconi Union", "genreFamily": "electronic", "energy": 0.25, "valence": 0.45, "danceability": 0.3, "acousticness": 0.45 }
+    ]
+  }
+]

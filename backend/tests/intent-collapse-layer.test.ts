@@ -275,7 +275,10 @@ describe("intent collapse layer", () => {
     const ranked = selectRankedCandidatesForSampler(pool, calibrated, { targetCount: 25, strictMode: true });
     assert.equal(calibrated.relaxGenreFamilyFilter, undefined);
     assert.ok(ranked.selected.length >= minimumIntentPoolSize(25, true));
-    const indieShare = ranked.selected.filter((track) => track.genreFamily === "indie").length / ranked.selected.length;
+    const headSize = minimumIntentPoolSize(25, true);
+    const head = ranked.selected.slice(0, headSize);
+    const indieShare = head.filter((track) => track.genreFamily === "indie").length / head.length;
     assert.ok(indieShare >= 0.35);
+    assert.ok(ranked.selected.length <= 300);
   });
 });

@@ -46,6 +46,9 @@ function fitProfile(playlists: CorpusPlaylist[]): HumanPlaylistPatternProfile {
   const jumps: number[] = [];
   const smooth: number[] = [];
   const slopes: number[] = [];
+  const frontLoads: number[] = [];
+  const midPeaks: number[] = [];
+  const tailLoads: number[] = [];
 
   for (const playlist of playlists) {
     const f = computeHumanPlaylistFeatures(playlist.tracks);
@@ -55,6 +58,9 @@ function fitProfile(playlists: CorpusPlaylist[]): HumanPlaylistPatternProfile {
     jumps.push(f.avgEnergyJump);
     smooth.push(f.smoothTransitionShare);
     slopes.push(f.energySlope);
+    frontLoads.push(f.popularityFrontShare);
+    midPeaks.push(f.popularityMidShare);
+    tailLoads.push(f.popularityTailShare);
   }
 
   return {
@@ -63,6 +69,9 @@ function fitProfile(playlists: CorpusPlaylist[]): HumanPlaylistPatternProfile {
     artistSpacingP50: percentile(spacings, 0.5),
     artistSpacingP75: percentile(spacings, 0.75),
     maxSameArtistShare: percentile(maxShares, 0.9),
+    popularityFrontLoad: percentile(frontLoads, 0.5),
+    popularityMidPeak: percentile(midPeaks, 0.5),
+    popularityDiscoveryTail: percentile(tailLoads, 0.5),
     discoveryRatioP25: percentile(discoveries, 0.25),
     discoveryRatioP50: percentile(discoveries, 0.5),
     discoveryRatioP75: percentile(discoveries, 0.75),
@@ -80,9 +89,12 @@ function main(): void {
     process.exit(1);
   }
   const raw = JSON.parse(fs.readFileSync(inputPath, "utf8")) as CorpusPlaylist[];
-  if (!Array.isArray(raw) || raw.length < 10) {
-    console.error("Corpus must be an array of at least 10 playlists.");
+  if (!Array.isArray(raw) || raw.length < 3) {
+    console.error("Corpus must be an array of at least 3 playlists.");
     process.exit(1);
+  }
+  if (raw.length < 10) {
+    console.warn(`Warning: fitting from only ${raw.length} playlists — collect more for stable priors.`);
   }
   const profile = fitProfile(raw);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });

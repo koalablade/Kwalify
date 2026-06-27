@@ -23,7 +23,7 @@ import { buildLanes } from "./lane-router";
 import { generateAdaptiveLanes } from "./adaptive-lane-generator";
 import { scoreLane, type LaneScoredTrack } from "./lane-scorer";
 import { buildClusters, type ClusteredPool } from "./cluster-candidate-engine";
-import { selectFromClusters, type SampledLaneResult } from "./v3-sampler";
+import { selectFromClusters, type SampledLaneResult, type SamplerInterpretation } from "./v3-sampler";
 import {
   createDiversityWindow,
   updateDiversityWindow,
@@ -57,7 +57,10 @@ import {
   type SamplerIntentContext,
   validateEditorialSceneWorldAlignment,
   validateDominantClusterAlignment,
+  realignEditorialIntentWorldForArchetype,
+  realignEditorialIntentForDominantGenres,
 } from "../editorial/intent-collapse-layer";
+import { improvePlaylistByLocalSearch } from "../editorial/playlist-local-search";
 import {
   applyEditorialMemoryToIntent,
   resolveArchetypeFromMemory,
@@ -854,6 +857,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     likedAdjacency?: Array<{ trackId: string; addedAt?: string | Date | null }>;
     editorialMemory?: EditorialStructureMemory | null;
     libraryFingerprint?: LibraryFingerprint | null;
+    samplerInterpretation?: SamplerInterpretation;
   } = {},
 ): Promise<V3PipelineResult<T>> {
   const pipelineStartedAt = Date.now();
@@ -944,7 +948,22 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     editorialIntentVector.editorialWorldTag,
     preRetrievalSceneWorld?.archetype?.id,
   );
-  if (preRetrievalSceneWorld?.active && !worldAlignment.aligned) {
+  if (preRetrievalSceneWorld?.active && !worldAlignment.aligned && preRetrievalSceneWorld.archetype?.id) {
+    const realigned = realignEditorialIntentWorldForArchetype(
+      editorialIntentVector,
+      preRetrievalSceneWorld.archetype.id,
+    );
+    if (realigned) {
+      editorialIntentVector = realigned;
+      activeEditorialIntentVector = realigned;
+      samplerIntentContext = buildSamplerIntentContext(realigned);
+    }
+  }
+  const worldAlignmentAfterRealign = validateEditorialSceneWorldAlignment(
+    editorialIntentVector.editorialWorldTag,
+    preRetrievalSceneWorld?.archetype?.id,
+  );
+  if (preRetrievalSceneWorld?.active && !worldAlignmentAfterRealign.aligned) {
     const collapseTrace = finalizeExecutionTrace(
       buildIntentCollapseFailureTraceDraft({
         requestId: opts.requestId ?? "unknown",
@@ -972,6 +991,23 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     preRetrievalSceneWorld?.sceneClusters?.dominantCluster.dominantGenres,
   );
   if (preRetrievalSceneWorld?.sceneClusters && !clusterAlignment.aligned) {
+    const dominantGenres = preRetrievalSceneWorld.sceneClusters.dominantCluster.dominantGenres ?? [];
+    const clusterRealigned = realignEditorialIntentForDominantGenres(
+      editorialIntentVector,
+      dominantGenres,
+    );
+    if (clusterRealigned) {
+      editorialIntentVector = clusterRealigned;
+      activeEditorialIntentVector = clusterRealigned;
+      samplerIntentContext = buildSamplerIntentContext(clusterRealigned);
+    }
+  }
+  const clusterAlignmentAfterRealign = validateDominantClusterAlignment(
+    editorialIntentVector.editorialWorldTag,
+    preRetrievalSceneWorld?.sceneClusters?.dominantCluster.label,
+    preRetrievalSceneWorld?.sceneClusters?.dominantCluster.dominantGenres,
+  );
+  if (preRetrievalSceneWorld?.sceneClusters && !clusterAlignmentAfterRealign.aligned) {
     const collapseTrace = finalizeExecutionTrace(
       buildIntentCollapseFailureTraceDraft({
         requestId: opts.requestId ?? "unknown",
@@ -1641,6 +1677,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           sessionArtistMemory: opts.sessionArtistMemory,
           recentTrackPenalty: opts.trackReusePenalty,
           sceneWorld: sceneWorldContext,
+          interpretation: opts.samplerInterpretation,
         },
       ),
       recover: () => topNSelection(clusteredPool.scoredTracks, lane.id, laneTarget),
@@ -1649,13 +1686,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     endLaneSamplingProfile?.();
     recordTraceCount(opts.pipelineTrace, `v3.${lane.id}.sampled`, clusterResult.tracks.length);
     await yieldV3();
-    if (sceneWorldContext?.sceneClusters) {
-      const dominantId = sceneWorldContext.sceneClusters.dominantClusterId;
-      const samplerDominant = clusteredPool.scoredTracks.filter(
-        (decision) => sceneWorldContext.sceneClusters!.trackToClusterId.get(decision.track.trackId) === dominantId,
-      ).length;
-      sceneClusterFunnelCounts.sampler_pool = Math.max(sceneClusterFunnelCounts.sampler_pool, samplerDominant);
-    }
+    sceneClusterFunnelCounts.sampler_pool += clusterResult.tracks.length;
     forensicTrace.push(stageTrace(
       `sampler input count:${lane.id}`,
       clusteredPool.scoredTracks.length,
@@ -1736,7 +1767,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     sampledLanes: sampledResults,
     intent: activeEditorialIntentVector,
   });
-  if (!openingEditorialLock.sufficient) {
+  if (!openingEditorialLock.sufficient && openingEditorialLock.openingEligibleCount < 5) {
     const collapseTrace = finalizeExecutionTrace(
       buildIntentCollapseFailureTraceDraft({
         requestId: opts.requestId ?? "unknown",
@@ -1814,6 +1845,49 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ...track,
     clusterId: track.clusterIds[0],
   })) as Array<T & V3SelectionCandidate<T>>;
+  const localSearchPool = retrievedTracks.map((track) => ({
+    trackId: track.trackId,
+    artistName: track.artistName,
+    energy: track.energy,
+    valence: track.valence,
+    danceability: track.danceability,
+    acousticness: track.acousticness,
+    popularity: (track as { popularity?: number | null }).popularity ?? null,
+    rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
+    releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
+    tempo: (track as { tempo?: number | null }).tempo ?? null,
+  }));
+  const localSearch = improvePlaylistByLocalSearch(
+    finalTracks.map((track) => ({
+      trackId: track.trackId,
+      artistName: track.artistName,
+      energy: track.energy,
+      valence: track.valence,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      popularity: (track as { popularity?: number | null }).popularity ?? null,
+      rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
+      releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
+      tempo: (track as { tempo?: number | null }).tempo ?? null,
+    })),
+    localSearchPool,
+    { maxIterations: humanSaveStrictMode ? 56 : 40, seed: opts.requestId ?? vibe },
+  );
+  if (localSearch.scoreAfter > localSearch.scoreBefore + 0.003 && localSearch.moves.length > 0) {
+    const byId = new Map<string, (typeof finalTracks)[number]>();
+    for (const track of finalTracks) byId.set(track.trackId, track);
+    for (const track of retrievedTracks) {
+      if (!byId.has(track.trackId)) {
+        byId.set(track.trackId, {
+          ...track,
+          clusterId: (track as { clusterIds?: string[] }).clusterIds?.[0] ?? null,
+        } as (typeof finalTracks)[number]);
+      }
+    }
+    finalTracks = localSearch.tracks
+      .map((track) => byId.get(track.trackId))
+      .filter((track): track is (typeof finalTracks)[number] => !!track);
+  }
   let openingRepairCount = 0;
   let insufficientOpeningWorldReason: string | null = null;
   if (humanSaveStrictMode) {

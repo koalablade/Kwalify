@@ -117,6 +117,11 @@ export const EDITORIAL_WORLD_ARCHETYPE_COMPAT: Record<string, string[]> = {
   ambient_focus: ["ambient_focus_study"],
   modern_hiphop_focus: ["ambient_focus_study", "gym_confidence_boost"],
   indie_balanced_default: ["balanced_scene_default", "indie_balanced_default"],
+  late_night_city_rain: ["indie_folk_rain_walk", "late_night_indie_interior", "mellow_alt_stroll"],
+  sunday_vinyl_morning: ["soft_indie_morning", "light_pop_sunday"],
+  festival_golden_hour: ["sunset_indie_drive", "upbeat_alt_morning_drive", "modern_feelgood_pop"],
+  tumblr_indie_2012: ["soft_indie_morning", "indie_balanced_default", "balanced_scene_default"],
+  bloghouse_2008: ["festival_electronic", "gym_confidence_boost", "night_drive_electronic"],
 };
 
 const EDITORIAL_WORLDS: EditorialWorldDefinition[] = [
@@ -376,6 +381,81 @@ const EDITORIAL_WORLDS: EditorialWorldDefinition[] = [
     sonicAggressionCeiling: 0.38,
   },
   {
+    tag: "late_night_city_rain",
+    cohesionScore: 0.92,
+    primaryFamilies: ["indie", "electronic"],
+    allowedMicroClusters: ["indie:balanced", "indie:acoustic", "electronic:balanced"],
+    moods: ["melancholic", "nocturnal", "reflective"],
+    sceneTypes: ["walk", "night"],
+    narrativeTags: ["late night", "city", "rain", "rainy", "urban", "street", "3am"],
+    energyRange: [0.26, 0.52],
+    valenceTarget: -0.12,
+    rhythmDensityCap: 0.50,
+    vocalPresenceTarget: 0.76,
+    nostalgiaBias: 0.44,
+    sonicAggressionCeiling: 0.34,
+  },
+  {
+    tag: "sunday_vinyl_morning",
+    cohesionScore: 0.91,
+    primaryFamilies: ["indie", "folk", "soul"],
+    allowedMicroClusters: ["indie:acoustic", "folk:acoustic", "soul:balanced"],
+    moods: ["warm", "calm", "comfort"],
+    sceneTypes: ["sunday", "morning"],
+    narrativeTags: ["sunday", "vinyl", "morning", "coffee", "record", "warm", "cozy"],
+    energyRange: [0.32, 0.52],
+    valenceTarget: 0.22,
+    rhythmDensityCap: 0.48,
+    vocalPresenceTarget: 0.80,
+    nostalgiaBias: 0.48,
+    sonicAggressionCeiling: 0.30,
+  },
+  {
+    tag: "festival_golden_hour",
+    cohesionScore: 0.89,
+    primaryFamilies: ["indie", "rock", "electronic"],
+    allowedMicroClusters: ["indie:rhythmic", "rock:rhythmic", "electronic:rhythmic"],
+    moods: ["uplift", "nostalgic", "euphoric"],
+    sceneTypes: ["drive", "night"],
+    narrativeTags: ["festival", "golden hour", "sunset", "field", "summer", "outdoor"],
+    energyRange: [0.48, 0.74],
+    valenceTarget: 0.38,
+    rhythmDensityCap: 0.70,
+    vocalPresenceTarget: 0.74,
+    nostalgiaBias: 0.52,
+    sonicAggressionCeiling: 0.55,
+  },
+  {
+    tag: "tumblr_indie_2012",
+    cohesionScore: 0.90,
+    primaryFamilies: ["indie", "pop"],
+    allowedMicroClusters: ["indie:balanced", "indie:acoustic", "pop:balanced"],
+    moods: ["melancholic", "nostalgic", "warm"],
+    sceneTypes: ["unknown", "night"],
+    narrativeTags: ["tumblr", "2012", "indie", "bedroom", "nostalgic", "teen", "blog"],
+    energyRange: [0.34, 0.58],
+    valenceTarget: 0.08,
+    rhythmDensityCap: 0.58,
+    vocalPresenceTarget: 0.78,
+    nostalgiaBias: 0.62,
+    sonicAggressionCeiling: 0.40,
+  },
+  {
+    tag: "bloghouse_2008",
+    cohesionScore: 0.88,
+    primaryFamilies: ["electronic", "indie"],
+    allowedMicroClusters: ["electronic:rhythmic", "electronic:electronic", "indie:rhythmic"],
+    moods: ["energetic", "nostalgic"],
+    sceneTypes: ["night"],
+    narrativeTags: ["bloghouse", "2008", "electro", "indie dance", "warehouse", "rave", "blog", "party"],
+    energyRange: [0.52, 0.82],
+    valenceTarget: 0.28,
+    rhythmDensityCap: 0.78,
+    vocalPresenceTarget: 0.68,
+    nostalgiaBias: 0.58,
+    sonicAggressionCeiling: 0.68,
+  },
+  {
     tag: "indie_balanced_default",
     cohesionScore: 0.86,
     primaryFamilies: ["indie"],
@@ -625,7 +705,12 @@ export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
   },
 ): RankedCandidateSelection<T> {
   const minPool = minimumIntentPoolSize(opts.targetCount, opts.strictMode);
-  const maxPool = Math.min(tracks.length, Math.max(minPool, Math.ceil(minPool * 1.15)));
+  // Broad combinatorial pool for sampler — not "best N" truncation (cap 300).
+  const maxPool = Math.min(
+    tracks.length,
+    Math.max(minPool * 3, Math.ceil(opts.targetCount * 12)),
+    300,
+  );
   const ranked = rankCandidatesByIntentVector(tracks, intent, opts.fingerprintBias);
 
   let floor = opts.strictMode ? 0.28 : 0.22;
@@ -635,7 +720,17 @@ export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
     viable = ranked.filter((row) => row.score >= floor);
   }
 
-  const chosen = viable.slice(0, maxPool);
+  let chosen = viable.slice(0, maxPool);
+  if (chosen.length < minPool) {
+    const chosenIds = new Set(chosen.map((row) => row.track.trackId));
+    for (const row of ranked) {
+      if (chosen.length >= Math.min(minPool, maxPool)) break;
+      if (!chosenIds.has(row.track.trackId)) {
+        chosen.push(row);
+        chosenIds.add(row.track.trackId);
+      }
+    }
+  }
   const scores = new Map(chosen.map((row) => [row.track.trackId, row.score]));
   const avgScore = chosen.length > 0
     ? chosen.reduce((sum, row) => sum + row.score, 0) / chosen.length
@@ -784,8 +879,14 @@ export function selectEditorialWorld(opts: {
 
   let candidatePool = ranked;
   if (opts.sceneArchetypeId) {
-    const compatibleTags = new Set(editorialWorldTagsCompatibleWithArchetype(opts.sceneArchetypeId));
     const preferredTag = ARCHETYPE_PREFERRED_WORLD[opts.sceneArchetypeId];
+    if (preferredTag) {
+      const preferredWorld = EDITORIAL_WORLDS.find((row) => row.tag === preferredTag);
+      if (preferredWorld) {
+        return preferredWorld;
+      }
+    }
+    const compatibleTags = new Set(editorialWorldTagsCompatibleWithArchetype(opts.sceneArchetypeId));
     if (preferredTag) compatibleTags.add(preferredTag);
     const compatible = ranked.filter((row) => compatibleTags.has(row.world.tag));
     if (compatible.length > 0) candidatePool = compatible;
@@ -837,6 +938,16 @@ export function selectEditorialWorld(opts: {
   );
   const withCandidates = withLibrary.filter((row) => row.fit.candidateCount > 0);
   if (withCandidates.length > 0) return withCandidates[0]!.world;
+
+  if (opts.sceneArchetypeId) {
+    const preferredTag = ARCHETYPE_PREFERRED_WORLD[opts.sceneArchetypeId];
+    const preferredInPool = preferredTag
+      ? candidatePool.find((row) => row.world.tag === preferredTag)
+      : null;
+    if (preferredInPool) return preferredInPool.world;
+    if (candidatePool.length > 0) return candidatePool[0]!.world;
+  }
+
   return withLibrary[0]!.world;
 }
 
@@ -874,6 +985,63 @@ export function isEditorialWorldCompatibleWithArchetype(
   const allowed = EDITORIAL_WORLD_ARCHETYPE_COMPAT[editorialWorldTag];
   if (!allowed) return true;
   return allowed.includes(archetypeId);
+}
+
+export function realignEditorialIntentWorldForArchetype(
+  intent: EditorialIntentVector,
+  archetypeId: string,
+): EditorialIntentVector | null {
+  const preferredTag = ARCHETYPE_PREFERRED_WORLD[archetypeId];
+  if (!preferredTag) return null;
+  const world = EDITORIAL_WORLDS.find((row) => row.tag === preferredTag);
+  if (!world) return null;
+  const energyRange: [number, number] = [
+    Math.max(intent.energyRange[0], world.energyRange[0]),
+    Math.min(intent.energyRange[1], world.energyRange[1]),
+  ];
+  return {
+    ...intent,
+    editorialWorldTag: world.tag,
+    energyRange: energyRange[0] <= energyRange[1] ? energyRange : world.energyRange,
+    rhythmDensityCap: world.rhythmDensityCap,
+    vocalPresenceTarget: world.vocalPresenceTarget,
+    nostalgiaBias: clamp01(intent.nostalgiaBias * 0.5 + world.nostalgiaBias * 0.5),
+    sonicAggressionCeiling: world.sonicAggressionCeiling,
+    allowedMicroClusters: [...world.allowedMicroClusters],
+  };
+}
+
+export function selectEditorialWorldForDominantGenres(
+  dominantGenres: string[],
+): EditorialWorldDefinition | null {
+  const families = new Set(
+    dominantGenres.map((g) => getGenreFamily(g)).filter((f) => f !== "unknown"),
+  );
+  if (families.size === 0) return null;
+  let best: EditorialWorldDefinition | null = null;
+  let bestHits = 0;
+  for (const world of EDITORIAL_WORLDS) {
+    const hits = world.primaryFamilies.filter((f) => families.has(f)).length;
+    if (hits > bestHits) {
+      bestHits = hits;
+      best = world;
+    }
+  }
+  return bestHits > 0 ? best : null;
+}
+
+export function realignEditorialIntentForDominantGenres(
+  intent: EditorialIntentVector,
+  dominantGenres: string[],
+): EditorialIntentVector | null {
+  const world = selectEditorialWorldForDominantGenres(dominantGenres);
+  if (!world) return null;
+  return {
+    ...intent,
+    editorialWorldTag: world.tag,
+    allowedMicroClusters: [...new Set([...intent.allowedMicroClusters, ...world.allowedMicroClusters])],
+    relaxGenreFamilyFilter: intent.relaxGenreFamilyFilter || dominantGenres.length > 0,
+  };
 }
 
 export function validateEditorialSceneWorldAlignment(
@@ -1176,7 +1344,10 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
         };
         break;
       case "genre_family_not_allowed":
-        // Ranked selection handles genre-family mismatch via soft penalties — do not widen families.
+        if (countIntentFilterSurvivors(tracks, calibrated, opts?.strictMode === true) < minSurvival) {
+          calibrated = { ...calibrated, relaxGenreFamilyFilter: true };
+          break;
+        }
         return calibrated;
       default:
         return calibrated;

@@ -1,0 +1,5766 @@
+{
+  "generatedAt": "2026-06-26T23:21:20.372Z",
+  "uniquePromptCount": 429,
+  "sources": [
+    "benchmark-prompts",
+    "editorial-15",
+    "narrative-scene",
+    "stress-live",
+    "pairwise-corpus",
+    "golden-regression"
+  ],
+  "prompts": [
+    {
+      "id": "chill-acoustic",
+      "prompt": "acoustic chill Sunday",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "chill-chaotic",
+      "prompt": "chaotic chill evening somehow",
+      "category": "chill",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "chill-cozy-rain",
+      "prompt": "cozy rainy night chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scene",
+        "night",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "chill-evening",
+      "prompt": "chill evening",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "low_complexity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "chill-late-night",
+      "prompt": "late night calm warm playlist",
+      "category": "chill",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "strict",
+        "night",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "chill-sad-soft",
+      "prompt": "sad soft chill but not depressing",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "chill-sunset",
+      "prompt": "beach sunset chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scene",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "chill-warm",
+      "prompt": "warm chill music after work",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-007",
+      "prompt": "mardy rainy bus home",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "slang",
+        "transit",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-013",
+      "prompt": "city lights but not clubby",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-035",
+      "prompt": "brain fog morning reset",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-038",
+      "prompt": "film ending walking home alone",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "scene",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-047",
+      "prompt": "winter but no christmas obviously",
+      "category": "chill",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "negation",
+        "season",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-053",
+      "prompt": "after breakup cleaning flat",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "activity",
+        "emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-056",
+      "prompt": "train window grey morning",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "transit",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-059",
+      "prompt": "bike shed summer evening",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "environment",
+        "season",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-067",
+      "prompt": "rave comedown bus home",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "transit",
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-077",
+      "prompt": "neo soul cooking evening",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-083",
+      "prompt": "dream pop bedroom floor",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-091",
+      "prompt": "city pop midnight clean",
+      "category": "chill",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "time",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-111",
+      "prompt": "no sad no cheesy upbeat clean room",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "negation",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-112",
+      "prompt": "not christmas winter warmth",
+      "category": "chill",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "negation",
+        "season",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-118",
+      "prompt": "dark but safe",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "abstract",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-126",
+      "prompt": "playlist for a cancelled plan",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "social",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-127",
+      "prompt": "songs for waiting outside in cold",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "scene",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-007",
+      "prompt": "weekend reset warm chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "weekend_reset",
+        "warm_chill",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-019",
+      "prompt": "gaming lobby warm chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "gaming_lobby",
+        "warm_chill",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-031",
+      "prompt": "high energy reset warm chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "high_energy_reset",
+        "warm_chill",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-043",
+      "prompt": "pub night warm chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "pub_night",
+        "warm_chill",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-055",
+      "prompt": "study break warm chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "study_break",
+        "warm_chill",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-067",
+      "prompt": "late night warm chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "late_night",
+        "warm_chill",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-079",
+      "prompt": "winter non christmas warm chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "winter_non_christmas",
+        "warm_chill",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-091",
+      "prompt": "pre drinks warm chill",
+      "category": "chill",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "pre_drinks",
+        "warm_chill",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "contradictory-1",
+      "prompt": "sleepy gym workout",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "edge_case",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "contradictory-2",
+      "prompt": "sad party bangers",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "edge_case",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "contradictory-3",
+      "prompt": "chaotic deep focus no distractions",
+      "category": "contradictory",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "edge_case",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "contradictory-4",
+      "prompt": "aggressive chill evening",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "edge_case",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "contradictory-5",
+      "prompt": "silent club night",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "edge_case",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "contradictory-6",
+      "prompt": "happy funeral songs",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "edge_case",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "contradictory-7",
+      "prompt": "fast ambient study",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "edge_case",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "contradictory-8",
+      "prompt": "depressing summer party",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "edge_case",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-041",
+      "prompt": "nostalgic but futuristic",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "abstract",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-044",
+      "prompt": "peaceful panic",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-121",
+      "prompt": "fast but calm",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-122",
+      "prompt": "slow but hype",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-012",
+      "prompt": "garage afternoon contradictory stress",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "garage_afternoon",
+        "contradictory_stress",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-024",
+      "prompt": "after work contradictory stress",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "after_work",
+        "contradictory_stress",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-036",
+      "prompt": "long drive contradictory stress",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "long_drive",
+        "contradictory_stress",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-048",
+      "prompt": "Friday commute contradictory stress",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "Friday_commute",
+        "contradictory_stress",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-060",
+      "prompt": "calm dinner contradictory stress",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "calm_dinner",
+        "contradictory_stress",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-072",
+      "prompt": "city walk contradictory stress",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "city_walk",
+        "contradictory_stress",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-084",
+      "prompt": "old favourites contradictory stress",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "old_favourites",
+        "contradictory_stress",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-096",
+      "prompt": "mellow background contradictory stress",
+      "category": "contradictory",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "mellow_background",
+        "contradictory_stress",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "discovery-1",
+      "prompt": "discover new music",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "discovery",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "discovery-2",
+      "prompt": "songs I forgot I liked",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "discovery",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "discovery-3",
+      "prompt": "hidden gems from my library",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "discovery",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "discovery-4",
+      "prompt": "surprise me but keep it coherent",
+      "category": "discovery",
+      "mode": "chaotic",
+      "length": 30,
+      "tags": [
+        "discovery",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "discovery-5",
+      "prompt": "deep cuts for tonight",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "discovery",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "discovery-6",
+      "prompt": "rediscover old favourites",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "discovery",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "discovery-7",
+      "prompt": "new-to-me energy playlist",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "discovery",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "discovery-8",
+      "prompt": "balanced discovery mix",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "discovery",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-008",
+      "prompt": "city walk discovery mix",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "city_walk",
+        "discovery_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-020",
+      "prompt": "old favourites discovery mix",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "old_favourites",
+        "discovery_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-032",
+      "prompt": "mellow background discovery mix",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "mellow_background",
+        "discovery_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-044",
+      "prompt": "garage afternoon discovery mix",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "garage_afternoon",
+        "discovery_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-056",
+      "prompt": "after work discovery mix",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "after_work",
+        "discovery_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-068",
+      "prompt": "long drive discovery mix",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "long_drive",
+        "discovery_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-080",
+      "prompt": "Friday commute discovery mix",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "Friday_commute",
+        "discovery_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-092",
+      "prompt": "calm dinner discovery mix",
+      "category": "discovery",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "calm_dinner",
+        "discovery_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "drive-90s-neon",
+      "prompt": "90s neon night drive",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "era",
+        "night",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "drive-backroads",
+      "prompt": "country lane backroads drive speeding in a 90s car",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "scene",
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "drive-late-garage",
+      "prompt": "late night uk garage drive",
+      "category": "driving",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "genre",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "drive-melancholy",
+      "prompt": "sad night drive but not sleepy",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "drive-motorway",
+      "prompt": "motorway drive with momentum",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "drive-night",
+      "prompt": "driving at night",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "night",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "drive-rainy-highway",
+      "prompt": "rainy highway driving",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scene",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "drive-sunrise",
+      "prompt": "happy sunrise drive",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "valence",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-001",
+      "prompt": "90s neon nite driv tekk vibey but hard",
+      "category": "driving",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "slang",
+        "fragmented",
+        "typo",
+        "era",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-004",
+      "prompt": "late night motorway in the rain",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "environment",
+        "scene",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-010",
+      "prompt": "drivin home after shift half dead",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "typo",
+        "activity",
+        "fatigue",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-012",
+      "prompt": "rain windscreen no talking",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "fragmented",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-014",
+      "prompt": "old corsa night drive cheap speakers",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "scene",
+        "era",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-021",
+      "prompt": "motorway rain 2am no destination",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "fragmented",
+        "scene",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-057",
+      "prompt": "coach trip lads sleeping",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "social",
+        "transit",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-058",
+      "prompt": "passenger seat princess night",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "slang",
+        "social",
+        "driving",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-098",
+      "prompt": "🛣️🌧️ 2am drive",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "emoji",
+        "driving",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-106",
+      "prompt": "late nite rd trip",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "shorthand",
+        "typo",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-109",
+      "prompt": "sad-ish drive ish",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "shorthand",
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-129",
+      "prompt": "soundtrack to leaving town",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "driving",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-006",
+      "prompt": "solo work driving flow",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "solo_work",
+        "driving_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-018",
+      "prompt": "coding sprint driving flow",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "coding_sprint",
+        "driving_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-030",
+      "prompt": "low mood lift driving flow",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "low_mood_lift",
+        "driving_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-042",
+      "prompt": "bedroom nostalgia driving flow",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "bedroom_nostalgia",
+        "driving_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-054",
+      "prompt": "gym warm up driving flow",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "gym_warm_up",
+        "driving_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-066",
+      "prompt": "sunny morning driving flow",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "sunny_morning",
+        "driving_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-078",
+      "prompt": "summer garden driving flow",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "summer_garden",
+        "driving_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-090",
+      "prompt": "road trip driving flow",
+      "category": "driving",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "road_trip",
+        "driving_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "edge-1",
+      "prompt": "vibe",
+      "category": "edge_case",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "edge_case",
+        "vague",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "edge-2",
+      "prompt": "music",
+      "category": "edge_case",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "edge_case",
+        "vague",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "edge-3",
+      "prompt": "night",
+      "category": "edge_case",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "edge_case",
+        "vague",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "edge-4",
+      "prompt": "winter cozy not christmas",
+      "category": "edge_case",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "edge_case",
+        "vague",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "edge-6",
+      "prompt": "xmas party",
+      "category": "edge_case",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "edge_case",
+        "vague",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "edge-7",
+      "prompt": "zzzzzz obscure thing",
+      "category": "edge_case",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "edge_case",
+        "vague",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "edge-8",
+      "prompt": "americarna red-dirt cowboy county",
+      "category": "edge_case",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "edge_case",
+        "misspelling",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-048",
+      "prompt": "holiday but not festive",
+      "category": "edge_case",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "negation",
+        "edge_case",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "after_work",
+      "prompt": "after work decompression walk home calm but not sad",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "coffee_shop",
+      "prompt": "lazy Saturday coffee shop reading with indie folk vibes",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "cozy_sunday",
+      "prompt": "soft happy Sunday afternoon with light emotional warmth",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "focus_coding",
+      "prompt": "deep focus coding session late evening electronic ambient",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "gym_boost",
+      "prompt": "gym confidence boost high energy workout",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "late_night",
+      "prompt": "late night feeling",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "melancholy_rain",
+      "prompt": "melancholy rainy afternoon staring out the window",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "morning_yoga",
+      "prompt": "gentle morning yoga stretch calm uplifting",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "optimistic_commute",
+      "prompt": "optimistic commute to work with forward energy",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "party_pregame",
+      "prompt": "pregame playlist before going out with friends tonight",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "rainy_walk",
+      "prompt": "rainy city morning walk with reflective mood",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "road_trip",
+      "prompt": "windows-down road trip singalong energy",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "study_session",
+      "prompt": "music for thinking and study session focus",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "summer_morning",
+      "prompt": "Feel-good summer morning music to hype yourself up for the day, getting ready, and commuting to work.",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "human_saveability",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "sunset_drive",
+      "prompt": "driving at sunset with open windows and golden light",
+      "category": "editorial",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "editorial",
+        "editorial-15"
+      ],
+      "source": "editorial-15"
+    },
+    {
+      "id": "era-1",
+      "prompt": "60s road trip",
+      "category": "era_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "era",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "era-2",
+      "prompt": "70s rock evening",
+      "category": "era_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "era",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "era-3",
+      "prompt": "80s night drive",
+      "category": "era_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "era",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "era-4",
+      "prompt": "90s alternative rainy night",
+      "category": "era_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "era",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "era-5",
+      "prompt": "2000s pop punk party",
+      "category": "era_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "era",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "era-6",
+      "prompt": "2010s indie summer",
+      "category": "era_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "era",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "era-7",
+      "prompt": "newer favourites discovery",
+      "category": "era_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "era",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "era-8",
+      "prompt": "old school hip hop",
+      "category": "era_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "era",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-024",
+      "prompt": "naughties indie sleaze pres",
+      "category": "era_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "era",
+        "social",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "focus-ambient-morning",
+      "prompt": "calm ambient morning focus coding",
+      "category": "focus",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "genre",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "focus-chaotic-test",
+      "prompt": "chaotic focus but still no distractions",
+      "category": "focus",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "contradictory",
+        "chaotic",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "focus-coding",
+      "prompt": "calm coding focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "work",
+        "low_distraction",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "focus-deep-study",
+      "prompt": "deep focus study session no distractions",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "activity",
+        "low_distraction",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "focus-late-night",
+      "prompt": "late night focus no vocals",
+      "category": "focus",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "strict",
+        "night",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "focus-office-background",
+      "prompt": "office background focus steady",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "focus-rainy",
+      "prompt": "rainy focus music for reading",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scene",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "focus-soft-electronic",
+      "prompt": "soft electronic concentration",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-005",
+      "prompt": "lofi but not boring",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "shorthand",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-030",
+      "prompt": "coding at 3am slightly feral",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "slang",
+        "time",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-033",
+      "prompt": "focus pls no words no drama",
+      "category": "focus",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "shorthand",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-034",
+      "prompt": "calm but with pulse",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "abstract",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-060",
+      "prompt": "welding in garage focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "activity",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-061",
+      "prompt": "painting room late night",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "activity",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-069",
+      "prompt": "liquid dnb rainy focus",
+      "category": "focus",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-105",
+      "prompt": "😴 focus but awake",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "emoji",
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-110",
+      "prompt": "not boring not loud just locked in",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "negation",
+        "fragmented",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-115",
+      "prompt": "no guitar electronic focus",
+      "category": "focus",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "negation",
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-001",
+      "prompt": "rainy evening steady focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "rainy_evening",
+        "steady_focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-013",
+      "prompt": "quiet library steady focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "quiet_library",
+        "steady_focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-025",
+      "prompt": "midnight focus steady focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "midnight_focus",
+        "steady_focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-037",
+      "prompt": "small gathering steady focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "small_gathering",
+        "steady_focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-049",
+      "prompt": "Sunday clean up steady focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "Sunday_clean_up",
+        "steady_focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-061",
+      "prompt": "festival memory steady focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "festival_memory",
+        "steady_focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-073",
+      "prompt": "country roads steady focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "country_roads",
+        "steady_focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-085",
+      "prompt": "new discoveries steady focus",
+      "category": "focus",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "new_discoveries",
+        "steady_focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gaming-1",
+      "prompt": "gaming montage high energy",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "gaming",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gaming-2",
+      "prompt": "late night gaming focus",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "gaming",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gaming-3",
+      "prompt": "racing game playlist",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "gaming",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gaming-4",
+      "prompt": "open world exploration music",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "gaming",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gaming-5",
+      "prompt": "competitive gaming hype",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "gaming",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gaming-6",
+      "prompt": "cozy gaming evening",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "gaming",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gaming-7",
+      "prompt": "cyberpunk gaming night",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "gaming",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gaming-8",
+      "prompt": "boss fight music",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "gaming",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-093",
+      "prompt": "video game loading screen nostalgia",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "gaming",
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-094",
+      "prompt": "boss fight but emotional",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "gaming",
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-095",
+      "prompt": "cozy minecraft rain",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "gaming",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-096",
+      "prompt": "racing game night motorway",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "gaming",
+        "driving",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-097",
+      "prompt": "cyberpunk alley 3am",
+      "category": "gaming",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "gaming",
+        "environment",
+        "time",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-010",
+      "prompt": "bedroom nostalgia gaming energy",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "bedroom_nostalgia",
+        "gaming_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-022",
+      "prompt": "gym warm up gaming energy",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "gym_warm_up",
+        "gaming_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-034",
+      "prompt": "sunny morning gaming energy",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "sunny_morning",
+        "gaming_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-046",
+      "prompt": "summer garden gaming energy",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "summer_garden",
+        "gaming_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-058",
+      "prompt": "road trip gaming energy",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "road_trip",
+        "gaming_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-070",
+      "prompt": "solo work gaming energy",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "solo_work",
+        "gaming_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-082",
+      "prompt": "coding sprint gaming energy",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "coding_sprint",
+        "gaming_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-094",
+      "prompt": "low mood lift gaming energy",
+      "category": "gaming",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "low_mood_lift",
+        "gaming_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "genre-90s-rnb",
+      "prompt": "90s r&b slow jams late night",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "genre",
+        "era",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "genre-grunge",
+      "prompt": "90s grunge dark cloudy night",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "genre",
+        "era",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "genre-indie-rain",
+      "prompt": "indie rainy afternoon",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "genre-metal-gym",
+      "prompt": "metal gym workout",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "genre",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "genre-pop-party",
+      "prompt": "pop party classics",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "genre",
+        "party",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "genre-red-dirt",
+      "prompt": "american country cowboy red dirt",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "genre",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "genre-techno-drive",
+      "prompt": "90s neon techno night drive",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "genre",
+        "era",
+        "drive",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "genre-uk-garage",
+      "prompt": "late night uk garage",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "genre",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-003",
+      "prompt": "old school ravey stuff",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "slang",
+        "era",
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-022",
+      "prompt": "warehouse tekk sweat concrete",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "fragmented",
+        "genre",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-023",
+      "prompt": "rave but older not tiktok",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "era",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-025",
+      "prompt": "manchster rainy nite indie",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "typo",
+        "british",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-068",
+      "prompt": "jungle classics but not too mad",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-070",
+      "prompt": "speed garage night bus",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "transit",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-071",
+      "prompt": "grime walk through estate",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-072",
+      "prompt": "old skool dubstep dark room",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "era",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-073",
+      "prompt": "bloghouse messy indie dance",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "era",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-074",
+      "prompt": "madchester pub walk",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "era",
+        "british",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-075",
+      "prompt": "britpop sunny bus ride",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "era",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-076",
+      "prompt": "quiet storm rnb raining",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-078",
+      "prompt": "alt country petrol station",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-079",
+      "prompt": "red dirt truck stop rain",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-080",
+      "prompt": "county music cowboy sad",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "typo",
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-081",
+      "prompt": "americarna dusty road",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "typo",
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-082",
+      "prompt": "shoegazy rainy corridor",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "slang",
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-084",
+      "prompt": "post punk cold city",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-085",
+      "prompt": "goth but danceable",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-087",
+      "prompt": "rap but introspective night",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-088",
+      "prompt": "conscious rap rainy bus",
+      "category": "genre_specific",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "transit",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-101",
+      "prompt": "🌧️ window sad indie",
+      "category": "genre_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "emoji",
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "golden-1",
+      "prompt": "industrial techno warehouse rave",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-10",
+      "prompt": "melancholic indie night drive",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-11",
+      "prompt": "rainy night walk",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-12",
+      "prompt": "late night city pop",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-13",
+      "prompt": "underground hip hop",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-14",
+      "prompt": "conscious rap classics",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-15",
+      "prompt": "dark trap night drive",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-16",
+      "prompt": "deep focus coding",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-17",
+      "prompt": "sunset beach reggae",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-18",
+      "prompt": "sunday morning coffee",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-19",
+      "prompt": "late night studying",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-2",
+      "prompt": "hard techno gym",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-20",
+      "prompt": "road trip classics",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-3",
+      "prompt": "progressive trance journey",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-4",
+      "prompt": "90s trance drive",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-5",
+      "prompt": "liquid drum and bass",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-6",
+      "prompt": "dark jungle",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-7",
+      "prompt": "old school dubstep",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-8",
+      "prompt": "euphoric summer house",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "golden-9",
+      "prompt": "shoegaze dreamscape",
+      "category": "golden_regression",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "golden",
+        "regression",
+        "golden-regression"
+      ],
+      "source": "golden-regression"
+    },
+    {
+      "id": "gym-2000s-pop-punk",
+      "prompt": "2000s pop punk gym workout",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "era",
+        "genre",
+        "high_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gym-angry-rock",
+      "prompt": "angry rock workout no slow songs",
+      "category": "gym",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "strict",
+        "high_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gym-cardio-upbeat",
+      "prompt": "upbeat cardio running playlist",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "activity",
+        "movement",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gym-chaotic-pr",
+      "prompt": "chaotic gym personal record attempt",
+      "category": "gym",
+      "mode": "chaotic",
+      "length": 25,
+      "tags": [
+        "chaotic",
+        "edge_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gym-heavy-lifting",
+      "prompt": "heavy lifting gym pump aggressive",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "activity",
+        "high_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gym-morning-boost",
+      "prompt": "morning gym energy boost",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gym-rap-cardio",
+      "prompt": "rap cardio workout high tempo",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "genre",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "gym-short-pump",
+      "prompt": "quick pump workout",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "short",
+        "low_complexity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-017",
+      "prompt": "gym but anxious not angry",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-028",
+      "prompt": "football training cold floodlights",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "activity",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-029",
+      "prompt": "five a side changing room hype",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "activity",
+        "social",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-039",
+      "prompt": "villain arc gym no corny stuff",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "activity",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-086",
+      "prompt": "metal but not screamy gym",
+      "category": "gym",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "negation",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-089",
+      "prompt": "phonk gym but not meme",
+      "category": "gym",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-099",
+      "prompt": "🔥 gym rage",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "emoji",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-107",
+      "prompt": "gym rn hard no skips",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "shorthand",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-114",
+      "prompt": "no rap just heavy workout",
+      "category": "gym",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "negation",
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-004",
+      "prompt": "long drive gym momentum",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "long_drive",
+        "gym_momentum",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-016",
+      "prompt": "Friday commute gym momentum",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "Friday_commute",
+        "gym_momentum",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-028",
+      "prompt": "calm dinner gym momentum",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "calm_dinner",
+        "gym_momentum",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-040",
+      "prompt": "city walk gym momentum",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "city_walk",
+        "gym_momentum",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-052",
+      "prompt": "old favourites gym momentum",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "old_favourites",
+        "gym_momentum",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-064",
+      "prompt": "mellow background gym momentum",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "mellow_background",
+        "gym_momentum",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-076",
+      "prompt": "garage afternoon gym momentum",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "garage_afternoon",
+        "gym_momentum",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-088",
+      "prompt": "after work gym momentum",
+      "category": "gym",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "after_work",
+        "gym_momentum",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-002",
+      "prompt": "garage with mates fixing cars",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "social",
+        "activity",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-011",
+      "prompt": "sunday garage cold hands warm mates",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "fragmented",
+        "social",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-019",
+      "prompt": "sad but I need to move",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "abstract",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-020",
+      "prompt": "angry walk home in drizzle",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "activity",
+        "environment",
+        "emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-026",
+      "prompt": "brum underpass late bus",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "environment",
+        "transit",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-027",
+      "prompt": "london tube 11pm tired but wired",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "transit",
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-037",
+      "prompt": "main character but not cheesy",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-040",
+      "prompt": "soft apocalypse sunrise",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-050",
+      "prompt": "bonfire night walk home",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "event",
+        "scene",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-055",
+      "prompt": "airport 5am half asleep",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "transit",
+        "time",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-102",
+      "prompt": "🛠️ garage tunes",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "emoji",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mixed-1",
+      "prompt": "garage with friends Saturday night",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "mixed",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mixed-2",
+      "prompt": "bank holiday garage day with friends summer",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "mixed",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mixed-3",
+      "prompt": "music when you don't know what you feel",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "mixed",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mixed-4",
+      "prompt": "backroads drive with girlfriend in a 90s car",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "mixed",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mixed-5",
+      "prompt": "beer fixing cars chatting rubbish with mates",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "mixed",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mixed-6",
+      "prompt": "rainy gym but still energetic",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "mixed",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mixed-7",
+      "prompt": "focus playlist with a bit of bounce",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "mixed",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mixed-8",
+      "prompt": "night urban high energy garage with friends",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "mixed",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-011",
+      "prompt": "pub night mixed mood",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "pub_night",
+        "mixed_mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-023",
+      "prompt": "study break mixed mood",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "study_break",
+        "mixed_mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-035",
+      "prompt": "late night mixed mood",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "late_night",
+        "mixed_mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-047",
+      "prompt": "winter non christmas mixed mood",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "winter_non_christmas",
+        "mixed_mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-059",
+      "prompt": "pre drinks mixed mood",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "pre_drinks",
+        "mixed_mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-071",
+      "prompt": "weekend reset mixed mood",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "weekend_reset",
+        "mixed_mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-083",
+      "prompt": "gaming lobby mixed mood",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "gaming_lobby",
+        "mixed_mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-095",
+      "prompt": "high energy reset mixed mood",
+      "category": "mixed",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "high_energy_reset",
+        "mixed_mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-036",
+      "prompt": "new chapter not cringe",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-042",
+      "prompt": "happy but it hurts",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "abstract",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-043",
+      "prompt": "quiet rage",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-045",
+      "prompt": "romantic but doomed",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-046",
+      "prompt": "summer but lonely",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "season",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-052",
+      "prompt": "first date nerves warm pub",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "social",
+        "emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-103",
+      "prompt": "🌅 new start",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "emoji",
+        "abstract",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-113",
+      "prompt": "not gym but still pumped",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "negation",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-117",
+      "prompt": "energetic but emotionally ruined",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-119",
+      "prompt": "bright but anxious",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-120",
+      "prompt": "empty but hopeful",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "abstract",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-124",
+      "prompt": "alone in crowd",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "social",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-125",
+      "prompt": "music for pretending life is fine",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "abstract",
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mood-1",
+      "prompt": "happy sad driving night sunrise energy chill workout",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mood-2",
+      "prompt": "sad upbeat music",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mood-3",
+      "prompt": "melancholic but moving",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mood-4",
+      "prompt": "euphoric summer evening",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mood-5",
+      "prompt": "angry but controlled",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mood-6",
+      "prompt": "warm comfort songs",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mood-7",
+      "prompt": "lonely late night",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "mood-8",
+      "prompt": "confident getting ready",
+      "category": "mood_specific",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mood",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "narrative-1",
+      "prompt": "Tokyo at 3am after missing the last train",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "narrative-10",
+      "prompt": "stuff that makes me want to build something",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "narrative-2",
+      "prompt": "Rain on the motorway",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "narrative-3",
+      "prompt": "Fixing my Volvo in the garage at midnight",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "narrative-4",
+      "prompt": "Walking through empty city streets",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "narrative-5",
+      "prompt": "Urban nostalgia from a forgotten rave flyer in 1997",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "narrative-6",
+      "prompt": "I need music that feels like driving home at 2am after a great night out",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "narrative-7",
+      "prompt": "songs for fixing an old Volvo in the garage on a rainy day",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "narrative-8",
+      "prompt": "music that feels like summer is ending",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "narrative-9",
+      "prompt": "music for a road trip through Scotland",
+      "category": "narrative_scene",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "narrative",
+        "scene",
+        "narrative-scene"
+      ],
+      "source": "narrative-scene"
+    },
+    {
+      "id": "launch-calibration-015",
+      "prompt": "cleaning room finding old photos",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "activity",
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-116",
+      "prompt": "warm sad old songs not depressing",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "mixed_emotion",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-128",
+      "prompt": "music for walking past your old school",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "scene",
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "nostalgic-1",
+      "prompt": "nostalgic songs from school days",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "nostalgic-2",
+      "prompt": "2000s nostalgia bedroom playlist",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "nostalgic-3",
+      "prompt": "90s rainy night sad indie",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "nostalgic-4",
+      "prompt": "naughties Manchester bank holiday pub sesh",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "nostalgic-5",
+      "prompt": "childhood car radio nostalgia",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "nostalgic-6",
+      "prompt": "old favourites rediscovery",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "nostalgic-7",
+      "prompt": "throwback house party",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "nostalgic-8",
+      "prompt": "nostalgic late night drive",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "nostalgia",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-009",
+      "prompt": "country roads nostalgic mix",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "country_roads",
+        "nostalgic_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-021",
+      "prompt": "new discoveries nostalgic mix",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "new_discoveries",
+        "nostalgic_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-033",
+      "prompt": "rainy evening nostalgic mix",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "rainy_evening",
+        "nostalgic_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-045",
+      "prompt": "quiet library nostalgic mix",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "quiet_library",
+        "nostalgic_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-057",
+      "prompt": "midnight focus nostalgic mix",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "midnight_focus",
+        "nostalgic_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-069",
+      "prompt": "small gathering nostalgic mix",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "small_gathering",
+        "nostalgic_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-081",
+      "prompt": "Sunday clean up nostalgic mix",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "Sunday_clean_up",
+        "nostalgic_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-093",
+      "prompt": "festival memory nostalgic mix",
+      "category": "nostalgic",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "festival_memory",
+        "nostalgic_mix",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-006",
+      "prompt": "pub garden after work but still lively",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "social",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-008",
+      "prompt": "proper gassed pres before town",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "slang",
+        "social",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-009",
+      "prompt": "uni kitchen pres messy but happy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "social",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-018",
+      "prompt": "party but heartbroken",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-049",
+      "prompt": "xmas party actual christmas",
+      "category": "party",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "season",
+        "party",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-051",
+      "prompt": "freshers flu pre drinks",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "social",
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-062",
+      "prompt": "cooking for mates warm chaos",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "social",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-063",
+      "prompt": "bbq but cloudy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "social",
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-064",
+      "prompt": "garden beers not too rowdy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "british",
+        "social",
+        "negation",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-065",
+      "prompt": "club queue freezing",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "social",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-066",
+      "prompt": "afterparty kitchen sunrise",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "social",
+        "time",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-090",
+      "prompt": "hyperpop getting ready",
+      "category": "party",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-100",
+      "prompt": "💔 but dancing",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "emoji",
+        "contradictory",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-104",
+      "prompt": "😎 pres bangers",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "emoji",
+        "slang",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-123",
+      "prompt": "party for introverts",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "social",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "party-70s-disco",
+      "prompt": "70s disco party dancefloor",
+      "category": "party",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "era",
+        "genre",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "party-chaos",
+      "prompt": "party all night chaos",
+      "category": "party",
+      "mode": "chaotic",
+      "length": 35,
+      "tags": [
+        "chaotic",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "party-house",
+      "prompt": "house party with friends",
+      "category": "party",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "social",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "party-latin-summer",
+      "prompt": "latin summer beach party",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "genre",
+        "summer",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "party-pre-drinks",
+      "prompt": "pre drinks buzzing night out",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "social",
+        "night",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "party-sad-upbeat",
+      "prompt": "sad upbeat party songs",
+      "category": "party",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "mixed_emotion",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "party-simple",
+      "prompt": "party",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "low_complexity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "party-uk-freshers",
+      "prompt": "freshers pre drinks ukg grime buzzing night out",
+      "category": "party",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "genre",
+        "uk",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-005",
+      "prompt": "small gathering party energy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "small_gathering",
+        "party_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-017",
+      "prompt": "Sunday clean up party energy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "Sunday_clean_up",
+        "party_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-029",
+      "prompt": "festival memory party energy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "festival_memory",
+        "party_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-041",
+      "prompt": "country roads party energy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "country_roads",
+        "party_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-053",
+      "prompt": "new discoveries party energy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "new_discoveries",
+        "party_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-065",
+      "prompt": "rainy evening party energy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "rainy_evening",
+        "party_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-077",
+      "prompt": "quiet library party energy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "quiet_library",
+        "party_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-089",
+      "prompt": "midnight focus party energy",
+      "category": "party",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "midnight_focus",
+        "party_energy",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "stress-live-10",
+      "prompt": "sad songs that feel hopeful",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-11",
+      "prompt": "high energy chill playlist",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-12",
+      "prompt": "focus music that isn't ambient",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-13",
+      "prompt": "2000s Welsh pop punk workout",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-14",
+      "prompt": "female-fronted melodic hardcore from the 2000s",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-15",
+      "prompt": "early 2000s post-hardcore gym playlist",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-16",
+      "prompt": "2000s pop punk without Green Day",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-17",
+      "prompt": "metal workout without Metallica",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-18",
+      "prompt": "classic rock road trip without Queen",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-19",
+      "prompt": "90s grunge without Nirvana",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-2",
+      "prompt": "late 90s skate punk workout",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-20",
+      "prompt": "indie playlist without Arctic Monkeys",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-21",
+      "prompt": "music for restoring a Volvo 480 in a cold garage",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-22",
+      "prompt": "2000s pop punk gym workout with no pop music",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-23",
+      "prompt": "focus music with no vocals and no ambient",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-24",
+      "prompt": "angry rock workout with no metal",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-25",
+      "prompt": "upbeat gym playlist with no electronic music",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-26",
+      "prompt": "gym 2000s pop punk workout",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-27",
+      "prompt": "music for fixing a car alone in a garage",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-28",
+      "prompt": "songs that feel like winning after a long struggle",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-29",
+      "prompt": "stuff I'd have heard on Kerrang in the 2000s",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-3",
+      "prompt": "angry metal gym session with no screamo",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-30",
+      "prompt": "music for driving through rain at night",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-31",
+      "prompt": "2000s pop punk without Blink-182",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-32",
+      "prompt": "rock workout playlist from exactly 2004-2008",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-33",
+      "prompt": "angry workout playlist with no metal, rap or EDM",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-4",
+      "prompt": "high energy female-fronted rock workout",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-5",
+      "prompt": "2000s emo workout but not sad",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-6",
+      "prompt": "pop punk cardio playlist with no Blink-182",
+      "category": "stress_live",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-7",
+      "prompt": "relaxing workout music",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-8",
+      "prompt": "aggressive music for studying",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "stress-live-9",
+      "prompt": "happy breakup songs",
+      "category": "stress_live",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "stress",
+        "constraint",
+        "stress-live"
+      ],
+      "source": "stress-live"
+    },
+    {
+      "id": "launch-calibration-016",
+      "prompt": "study but not sleepy please",
+      "category": "study",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "contradictory",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-092",
+      "prompt": "anime ost study but cool",
+      "category": "study",
+      "mode": "strict",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "genre",
+        "activity",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-108",
+      "prompt": "study sesh lowkey",
+      "category": "study",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "shorthand",
+        "slang",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-003",
+      "prompt": "late night study session",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "late_night",
+        "study_session",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-015",
+      "prompt": "winter non christmas study session",
+      "category": "study",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "winter_non_christmas",
+        "study_session",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-027",
+      "prompt": "pre drinks study session",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "pre_drinks",
+        "study_session",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-039",
+      "prompt": "weekend reset study session",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "weekend_reset",
+        "study_session",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-051",
+      "prompt": "gaming lobby study session",
+      "category": "study",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "gaming_lobby",
+        "study_session",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-063",
+      "prompt": "high energy reset study session",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "high_energy_reset",
+        "study_session",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-075",
+      "prompt": "pub night study session",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "pub_night",
+        "study_session",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-087",
+      "prompt": "study break study session",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "study_break",
+        "study_session",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "study-1",
+      "prompt": "exam revision steady focus",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "study",
+        "focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "study-2",
+      "prompt": "library study session calm",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "study",
+        "focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "study-3",
+      "prompt": "homework background music no distractions",
+      "category": "study",
+      "mode": "strict",
+      "length": 25,
+      "tags": [
+        "study",
+        "strict",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "study-4",
+      "prompt": "study late night low energy",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "study",
+        "focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "study-5",
+      "prompt": "quiet morning revision",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "study",
+        "focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "study-6",
+      "prompt": "maths study playlist",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "study",
+        "focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "study-7",
+      "prompt": "reading notes for hours",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "study",
+        "focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "study-8",
+      "prompt": "deep work study flow",
+      "category": "study",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "study",
+        "focus",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-031",
+      "prompt": "spreadsheet grind tea gone cold",
+      "category": "work",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "work",
+        "fragmented",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-032",
+      "prompt": "emails but make it less dead",
+      "category": "work",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "work",
+        "slang",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "launch-calibration-054",
+      "prompt": "moving house boxes everywhere",
+      "category": "work",
+      "mode": "balanced",
+      "length": 30,
+      "tags": [
+        "launch_calibration",
+        "activity",
+        "environment",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-002",
+      "prompt": "sunny morning work flow",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "sunny_morning",
+        "work_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-014",
+      "prompt": "summer garden work flow",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "summer_garden",
+        "work_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-026",
+      "prompt": "road trip work flow",
+      "category": "work",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "road_trip",
+        "work_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-038",
+      "prompt": "solo work work flow",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "solo_work",
+        "work_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-050",
+      "prompt": "coding sprint work flow",
+      "category": "work",
+      "mode": "balanced",
+      "length": 35,
+      "tags": [
+        "scaling",
+        "coding_sprint",
+        "work_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-062",
+      "prompt": "low mood lift work flow",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "low_mood_lift",
+        "work_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-074",
+      "prompt": "bedroom nostalgia work flow",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "scaling",
+        "bedroom_nostalgia",
+        "work_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "scaling-086",
+      "prompt": "gym warm up work flow",
+      "category": "work",
+      "mode": "balanced",
+      "length": 20,
+      "tags": [
+        "scaling",
+        "gym_warm_up",
+        "work_flow",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "work-1",
+      "prompt": "work playlist productive but not distracting",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "work-2",
+      "prompt": "office focus with a bit of warmth",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "work-3",
+      "prompt": "morning work energy steady",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "work-4",
+      "prompt": "admin tasks background music",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "work-5",
+      "prompt": "creative work flow",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "work-6",
+      "prompt": "coding sprint music",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "work-7",
+      "prompt": "emails and planning calm focus",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    },
+    {
+      "id": "work-8",
+      "prompt": "work from home quiet momentum",
+      "category": "work",
+      "mode": "balanced",
+      "length": 25,
+      "tags": [
+        "work",
+        "benchmark-prompts"
+      ],
+      "source": "benchmark-prompts"
+    }
+  ]
+}

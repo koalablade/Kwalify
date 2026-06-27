@@ -1,0 +1,39 @@
+name: Live fault diagnosis 500
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fault-diagnosis-500:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
+      - run: npm ci && npm run build
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
+      - name: Verify eval token matches production
+        run: npm run verify:eval-token
+      - name: Live fault diagnosis 500
+        run: npm run benchmark:live-fault-500
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-fault-diagnosis-500-${{ github.run_id }}
+          path: |
+            reports/live-fault-diagnosis-500.json
+            reports/live-fault-diagnosis-500-summary.json
+            reports/live-fault-diagnosis-500-faults.md
+          if-no-files-found: warn

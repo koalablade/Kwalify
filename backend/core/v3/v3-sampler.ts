@@ -26,6 +26,7 @@ import {
   buildDiversityTraceComponents,
   type DiversityTraceComponents,
 } from "./diversity-pressure";
+import { incrementalPlaylistShapeMultiplier } from "../editorial/human-playlist-patterns";
 
 export interface SampledLaneResult<T extends ScorerTrack> {
   laneId: string;
@@ -73,6 +74,40 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
+/** Editorial interpretation — tunes core/variation/exploration mix per candidate playlist. */
+export type SamplerInterpretation =
+  | "editorial_safe"
+  | "high_discovery"
+  | "emotional_arc"
+  | "adventurous_transitions"
+  | "balanced_human";
+
+function bucketTargets(
+  targetCount: number,
+  softIntent: boolean,
+  sceneWorldStrict: boolean,
+  interpretation: SamplerInterpretation,
+): { core: number; variation: number; exploration: number } {
+  const presets: Record<SamplerInterpretation, [number, number, number]> = {
+    editorial_safe: [0.64, 0.28, 0.08],
+    high_discovery: [0.42, 0.28, 0.30],
+    emotional_arc: [0.50, 0.38, 0.12],
+    adventurous_transitions: [0.45, 0.22, 0.33],
+    balanced_human: [0.52, 0.28, 0.20],
+  };
+  let [coreRatio, variationRatio, explorationRatio] = presets[interpretation] ?? presets.balanced_human;
+  if (!softIntent) {
+    coreRatio = Math.max(coreRatio, 0.52);
+    explorationRatio = Math.min(explorationRatio, 0.15);
+  }
+  if (sceneWorldStrict) explorationRatio = 0;
+  let coreTarget = Math.ceil(targetCount * coreRatio);
+  let variationTarget = Math.floor(targetCount * variationRatio);
+  let explorationTarget = Math.max(0, targetCount - coreTarget - variationTarget);
+  coreTarget = Math.max(coreTarget, targetCount - variationTarget - explorationTarget);
+  return { core: coreTarget, variation: variationTarget, exploration: explorationTarget };
+}
+
 export function selectFromClusters<T extends ScorerTrack>(
   pool: ClusteredPool<T>,
   targetCount: number,
@@ -83,6 +118,7 @@ export function selectFromClusters<T extends ScorerTrack>(
     sessionArtistMemory?: SessionArtistMemory;
     recentTrackPenalty?: Map<string, number>;
     sceneWorld?: SceneWorldContext | null;
+    interpretation?: SamplerInterpretation;
   } = {},
 ): ClusterSelectionResult<T> {
   const { scoredTracks, trackToClusterIds, clusters } = pool;
@@ -447,11 +483,39 @@ export function selectFromClusters<T extends ScorerTrack>(
       ? (softIntent ? playlistCohesionMultiplier(decision) : 0.88 + playlistCohesionMultiplier(decision) * 0.12)
       : 1;
     const sonic = softIntent ? sonicWorldFit(decision) : 1;
+    const selectedPatternTracks = selected.map((track) => ({
+      trackId: track.trackId,
+      artistName: track.artistName,
+      energy: track.energy,
+      valence: track.valence,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      popularity: (track as { popularity?: number | null }).popularity ?? null,
+      rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
+      releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
+      tempo: (track as { tempo?: number | null }).tempo ?? null,
+    }));
+    const candidatePatternTrack = {
+      trackId: decision.track.trackId,
+      artistName: decision.track.artistName,
+      energy: decision.track.energy,
+      valence: decision.track.valence,
+      danceability: decision.track.danceability,
+      acousticness: decision.track.acousticness,
+      popularity: (decision.track as { popularity?: number | null }).popularity ?? null,
+      rediscoveryScore: (decision.track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
+      releaseYear: (decision.track as { releaseYear?: number | null }).releaseYear ?? null,
+      tempo: (decision.track as { tempo?: number | null }).tempo ?? null,
+    };
+    const playlistShape = selected.length > 0
+      ? incrementalPlaylistShapeMultiplier(selectedPatternTracks, candidatePatternTrack)
+      : 1;
     return clamp01(
       (decision.finalScore * (1 - bucketBlend) + explorationAdjustment * bucketBlend) *
       diversity.finalMultiplier *
       cohesion *
-      sonic,
+      sonic *
+      playlistShape,
     );
   }
 
@@ -749,13 +813,16 @@ export function selectFromClusters<T extends ScorerTrack>(
 
   const coreEnd = Math.max(1, Math.ceil(clusterDisciplinedCandidates.length * 0.35));
   const variationEnd = Math.max(coreEnd, Math.ceil(clusterDisciplinedCandidates.length * 0.75));
-  let coreTarget = Math.ceil(targetCount * (softIntent ? 0.64 : 0.52));
-  let variationTarget = Math.floor(targetCount * (softIntent ? 0.28 : 0.20));
-  let explorationTarget = Math.max(0, targetCount - coreTarget - variationTarget);
-  if (softIntent) {
-    explorationTarget = sceneWorldStrict ? 0 : Math.min(explorationTarget, Math.ceil(targetCount * 0.08));
-    coreTarget = Math.max(coreTarget, targetCount - variationTarget - explorationTarget);
-  }
+  const interpretation = opts.interpretation ?? "balanced_human";
+  const bucketSplit = bucketTargets(
+    targetCount,
+    softIntent,
+    sceneWorldStrict,
+    interpretation,
+  );
+  let coreTarget = bucketSplit.core;
+  let variationTarget = bucketSplit.variation;
+  let explorationTarget = bucketSplit.exploration;
   const selectionBuckets = [
     { name: "core", target: coreTarget, pool: clusterDisciplinedCandidates.slice(0, coreEnd) },
     { name: "variation", target: variationTarget, pool: clusterDisciplinedCandidates.slice(coreEnd, variationEnd) },

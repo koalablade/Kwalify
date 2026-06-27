@@ -1,0 +1,40 @@
+name: Collect playlist genome
+
+on:
+  workflow_dispatch:
+
+jobs:
+  collect-and-fit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Bootstrap reference corpus
+        run: npm run corpus:bootstrap-references
+      - name: Collect from Spotify (optional)
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        run: |
+          if [ -n "$SPOTIFY_CLIENT_ID" ] && [ -n "$SPOTIFY_CLIENT_SECRET" ]; then
+            node scripts/collect-playlist-genome.mjs --limit 200 --resume
+          else
+            echo "SPOTIFY_CLIENT_ID/SECRET not in GitHub secrets — skipping Spotify fetch."
+            echo "Add secrets to collect 500+ editorial playlists."
+          fi
+      - name: Fit playlist patterns and pairwise weights
+        run: npm run corpus:fit-all
+      - name: Upload corpus + fitted priors
+        uses: actions/upload-artifact@v4
+        with:
+          name: playlist-genome-${{ github.run_id }}
+          path: |
+            data/corpus/human-playlists.json
+            backend/data/human-playlist-patterns.json
+            backend/data/pairwise-preference-weights.json
+          if-no-files-found: warn

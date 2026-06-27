@@ -15,6 +15,7 @@ import {
   scoreAgainstHumanPlaylistPatterns,
   type PatternScoringTrack,
 } from "./human-playlist-patterns";
+import { humanPlausibilityScore } from "./playlist-local-search";
 import type { LibraryFingerprint } from "./library-fingerprint";
 
 export type WouldISaveEvaluation = {
@@ -43,6 +44,7 @@ export function evaluateWouldISave(opts: {
     opts.tracks,
     loadHumanPlaylistPatternProfile(),
   );
+  const plausibility = humanPlausibilityScore(opts.tracks);
 
   const gate = evaluateHumanSaveability(
     opts.prompt,
@@ -58,7 +60,11 @@ export function evaluateWouldISave(opts: {
 
   const combinedScore = Math.min(
     1,
-    gate.wouldSaveScore + fingerprintBoost,
+    plausibility * 0.42 +
+    humanPatterns.score * 0.22 +
+    gate.breakdown.curatorScore * 0.28 +
+    (gate.humanSaveable ? 0.04 : 0) +
+    fingerprintBoost,
   );
 
   const minCombined = strict ? MIN_COMBINED_STRICT : MIN_COMBINED_RELAXED;

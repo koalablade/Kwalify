@@ -161,7 +161,46 @@ Output:
   reports/live-playlist-benchmark/manual-run/live-benchmark-summary.md
 
 ================================================================================
-  OPTION D — QUICK LIVE CHECKS (5–15 min)
+  OPTION E — PAIRWISE HUMAN BENCHMARK (north-star: blind win rate)
+================================================================================
+
+Deploy must match target commit (e.g. b6f109b). Verify:
+
+  Invoke-RestMethod https://kwalify.net/api/readyz | Select-Object commit
+
+Generate Kwalify playlists + blind A/B pairs vs editorial reference:
+
+  $env:KWALIFY_BENCHMARK_BASE_URL = "https://kwalify.net"
+  $env:PLAYLIST_EVAL_TOKEN = "<token>"
+  $env:SMOKE_SPOTIFY_USER_ID = "koalablade"
+  npm run benchmark:pairwise-human-live
+
+Quick smoke (4 prompts):
+
+  npm run build
+  node scripts/run-pairwise-human-benchmark-live.mjs --limit 4
+
+Output:
+  reports/pairwise-human-benchmark-live.json   (full run + automated proxy)
+  reports/pairwise-human-benchmark-pairs.json  (blind sideA/sideB for raters)
+
+North-star metric:
+  Human blind win rate vs reference playlists — NOT humanSaveable: true in diagnostics.
+
+Blind rating session:
+  1. Open reports/pairwise-human-benchmark-pairs.json
+  2. For each pair, show raters sideA/sideB only (hide labels)
+  3. Ask: intentional? would save? better opening? replay next week? editorial feel?
+  4. Record A / B / tie per question
+  5. Map winning side back to human_reference vs kwalify_generated
+  6. Aggregate kwalify win rate — target > 50% vs editorial reference
+
+Note: automatedProxy in the live JSON is internal judge only — not ground truth.
+
+Seed prompts + reference tracks:
+  data/corpus/pairwise-benchmark-prompts.json
+
+================================================================================
 ================================================================================
 
 Coherence regression (2 prompts):

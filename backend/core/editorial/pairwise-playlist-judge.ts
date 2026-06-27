@@ -10,7 +10,9 @@ import {
   scoreAgainstHumanPlaylistPatterns,
   type PatternScoringTrack,
 } from "./human-playlist-patterns";
+import { humanPlausibilityScore } from "./playlist-local-search";
 import type { WouldISaveEvaluation } from "./would-i-save-evaluator";
+import { dimensionVoteWeight } from "./pairwise-preference-weights";
 
 export type PairwisePlaylistCandidate = {
   label: string;
@@ -21,7 +23,15 @@ export type PairwisePlaylistCandidate = {
   scalarTotal: number;
 };
 
-export type PairwiseDimension = "human_saveable" | "opening_intention" | "full_playlist_shape" | "cringe_resistance" | "prompt_alignment";
+export type PairwiseDimension =
+  | "human_saveable"
+  | "opening_intention"
+  | "full_playlist_shape"
+  | "cringe_resistance"
+  | "prompt_alignment"
+  | "transition_flow"
+  | "discovery_pacing"
+  | "ending_satisfaction";
 
 export type PairwiseComparisonResult = {
   winner: "a" | "b";
@@ -89,6 +99,29 @@ function middleShapeScore(tracks: PatternScoringTrack[]): number {
   return scoreAgainstHumanPlaylistPatterns(tracks.slice(midStart, midEnd)).score;
 }
 
+function endingShapeScore(tracks: PatternScoringTrack[]): number {
+  if (tracks.length < 8) return scoreAgainstHumanPlaylistPatterns(tracks).score;
+  const tail = tracks.slice(-Math.min(8, Math.floor(tracks.length * 0.2)));
+  return scoreAgainstHumanPlaylistPatterns(tail).score;
+}
+
+function discoveryPacingScore(tracks: PatternScoringTrack[]): number {
+  if (tracks.length < 6) return 0.5;
+  const features = computeHumanPlaylistFeatures(tracks);
+  const discoveryBand = features.discoveryRatio >= 0.22 && features.discoveryRatio <= 0.48 ? 1 : 0.55;
+  const spacing = features.artistSpacingMedian >= 4 ? 1 : 0.65;
+  return clamp01(discoveryBand * 0.6 + spacing * 0.4);
+}
+
+function transitionFlowScore(tracks: PatternScoringTrack[]): number {
+  return clamp01(cringeScore(tracks) * 0.55 + scoreAgainstHumanPlaylistPatterns(tracks).score * 0.45);
+}
+
+function playlistShapeSeedScore(candidate: PairwisePlaylistCandidate): number {
+  const tracks = candidate.tracks;
+  return humanPlausibilityScore(tracks);
+}
+
 function pickRelative(aScore: number, bScore: number, minDelta = 0.03): "a" | "b" | "tie" {
   if (Math.abs(aScore - bScore) < minDelta) return "tie";
   return aScore > bScore ? "a" : "b";
@@ -108,14 +141,18 @@ export function comparePlaylistsPairwise(
     full_playlist_shape: "tie",
     cringe_resistance: "tie",
     prompt_alignment: "tie",
+    transition_flow: "tie",
+    discovery_pacing: "tie",
+    ending_satisfaction: "tie",
   };
   let votesA = 0;
   let votesB = 0;
 
   const vote = (dim: PairwiseDimension, pick: "a" | "b" | "tie", reason?: string): void => {
     dimensions[dim] = pick;
-    if (pick === "a") votesA += 1;
-    else if (pick === "b") votesB += 1;
+    const weight = dimensionVoteWeight(dim);
+    if (pick === "a") votesA += weight;
+    else if (pick === "b") votesB += weight;
     if (reason && pick !== "tie") reasons.push(reason);
   };
 
@@ -168,12 +205,25 @@ export function comparePlaylistsPairwise(
     ),
   );
 
+  vote(
+    "transition_flow",
+    pickRelative(transitionFlowScore(a.tracks), transitionFlowScore(b.tracks), 0.035),
+  );
+  vote(
+    "discovery_pacing",
+    pickRelative(discoveryPacingScore(a.tracks), discoveryPacingScore(b.tracks), 0.035),
+  );
+  vote(
+    "ending_satisfaction",
+    pickRelative(endingShapeScore(a.tracks), endingShapeScore(b.tracks), 0.04),
+  );
+
   if (votesA === votesB) {
-    const scalarPick = a.scalarTotal >= b.scalarTotal ? "a" : "b";
+    const shapePick = playlistShapeSeedScore(a) >= playlistShapeSeedScore(b) ? "a" : "b";
     return {
-      winner: scalarPick,
+      winner: shapePick,
       confidence: 0.52,
-      reasons: [...reasons, "pairwise tie — scalar pre-score broke deadlock"],
+      reasons: [...reasons, "pairwise tie — playlist shape score broke deadlock"],
       dimensions,
       votesA,
       votesB,
@@ -192,6 +242,37 @@ export function comparePlaylistsPairwise(
     votesA,
     votesB,
   };
+}
+
+function interpretationBaseLabel(label: string): string {
+  return label.replace(/_v\d+$/, "").replace(/_s\d+$/, "");
+}
+
+/** Collapse many seed variants to one champion per editorial interpretation + wildcards. */
+function selectDiverseTournamentPool(
+  candidates: PairwisePlaylistCandidate[],
+  maxPool = 8,
+): PairwisePlaylistCandidate[] {
+  if (candidates.length <= maxPool) return candidates;
+
+  const byInterpretation = new Map<string, PairwisePlaylistCandidate>();
+  for (const candidate of candidates) {
+    const base = interpretationBaseLabel(candidate.label);
+    const existing = byInterpretation.get(base);
+    const score = playlistShapeSeedScore(candidate);
+    if (!existing || score > playlistShapeSeedScore(existing)) {
+      byInterpretation.set(base, candidate);
+    }
+  }
+
+  const interpretationWinners = [...byInterpretation.values()];
+  const winnerLabels = new Set(interpretationWinners.map((c) => c.label));
+  const wildcards = candidates
+    .filter((c) => !winnerLabels.has(c.label))
+    .sort((a, b) => playlistShapeSeedScore(b) - playlistShapeSeedScore(a))
+    .slice(0, Math.max(0, maxPool - interpretationWinners.length));
+
+  return [...interpretationWinners, ...wildcards].slice(0, maxPool);
 }
 
 export function selectBestCandidateByPairwiseTournament(
@@ -215,10 +296,9 @@ export function selectBestCandidateByPairwiseTournament(
   }
 
   const viable = candidates.filter((c) => c.tracks.length >= Math.max(8, Math.floor(c.tracks.length * 0.5)));
-  const pool = (viable.length >= 2 ? viable : candidates)
-    .slice()
-    .sort((x, y) => y.scalarTotal - x.scalarTotal)
-    .slice(0, 5);
+  const source = viable.length >= 2 ? viable : candidates;
+  const pool = selectDiverseTournamentPool(source, Math.min(8, source.length))
+    .sort((x, y) => playlistShapeSeedScore(y) - playlistShapeSeedScore(x));
 
   let champion = pool[0]!;
   const comparisons: PairwiseTournamentAudit["comparisons"] = [];

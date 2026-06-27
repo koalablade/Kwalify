@@ -17,6 +17,7 @@ import { expandCulturalReferences } from "../lib/cultural-reference-expansion";
 import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
 import { runV3Pipeline } from "./v3/v3-pipeline";
+import type { SamplerInterpretation } from "./v3/v3-sampler";
 import { evaluateWouldISave, wouldISaveCandidateScore } from "./editorial/would-i-save-evaluator";
 import {
   selectBestCandidateByPairwiseTournament,
@@ -130,7 +131,16 @@ import {
 const V3_SAFETY_INPUT_MIN = 180;
 const V3_SAFETY_INPUT_PER_TRACK = 12;
 const V3_SAFETY_INPUT_MAX = 360;
-const MAX_EDITORIAL_CANDIDATE_ATTEMPTS = 5;
+/** 5 editorial interpretations × 10 sampler seeds = up to 50 playlist candidates. */
+const EDITORIAL_INTERPRETATION_COUNT = 5;
+const SAMPLER_SEED_VARIANTS = Math.min(
+  10,
+  Math.max(1, Number.parseInt(process.env.EDITORIAL_SAMPLER_VARIANTS ?? "3", 10) || 3),
+);
+const MAX_CANDIDATE_PLAYLISTS = Math.min(
+  50,
+  Math.max(EDITORIAL_INTERPRETATION_COUNT, Number.parseInt(process.env.EDITORIAL_MAX_CANDIDATES ?? "50", 10) || 50),
+);
 
 export interface BuildPlaylistPipelineOpts<T extends {
   trackId: string;
@@ -4701,79 +4711,61 @@ export async function buildPlaylistPipeline<T extends {
     : baseV3SafetyInputCap;
   const capV3SafetyPool = (pool: ScoredLibraryTrack<T>[]): ScoredLibraryTrack<T>[] =>
     pool.length > v3SafetyInputCap ? pool.slice(0, v3SafetyInputCap) : pool;
-  const candidateInputs: Array<{ label: string; pool: ScoredLibraryTrack<T>[]; seedOffset: number }> = retrievalSafetyExpanded
+  const sharedRetrievalPool = capV3SafetyPool(
+    flattenRetrievalPools({
+      core: retrieval.core,
+      anchor: retrieval.anchor,
+      adjacent: retrieval.adjacent,
+      bridge: retrieval.bridge,
+      energyArc: retrieval.energyArc,
+      discovery: retrieval.discovery,
+    }) as ScoredLibraryTrack<T>[],
+  );
+  const editorialInterpretationTemplates: Array<{
+    baseLabel: string;
+    interpretation: SamplerInterpretation;
+  }> = [
+    { baseLabel: "editorial_safe", interpretation: "editorial_safe" },
+    { baseLabel: "high_discovery", interpretation: "high_discovery" },
+    { baseLabel: "emotional_arc", interpretation: "emotional_arc" },
+    { baseLabel: "adventurous_transitions", interpretation: "adventurous_transitions" },
+    { baseLabel: "balanced_human", interpretation: "balanced_human" },
+  ];
+  const interpretationSeedOffsets: Record<SamplerInterpretation, number> = {
+    editorial_safe: 0,
+    high_discovery: seedOffsetFromMemory(opts.editorialMemory ?? null, 19937),
+    emotional_arc: 9973,
+    adventurous_transitions: seedOffsetFromMemory(opts.editorialMemory ?? null, 52849),
+    balanced_human: seedOffsetFromMemory(opts.editorialMemory ?? null, 31415),
+  };
+  const candidateInputs: Array<{
+    label: string;
+    pool: ScoredLibraryTrack<T>[];
+    seedOffset: number;
+    interpretation?: SamplerInterpretation;
+  }> = retrievalSafetyExpanded
     ? [
         {
           label: "layered_safety_pool",
           pool: capV3SafetyPool(layeredSafetyPool.length > 0 ? layeredSafetyPool : contractGuardedScoredPool),
           seedOffset: 0,
+          interpretation: "balanced_human",
         },
       ]
-    : [
-        {
-          label: "strict_intent",
-          pool: flattenRetrievalPools({
-            core: retrieval.core,
-            anchor: retrieval.anchor,
-            adjacent: [],
-            bridge: [],
-            energyArc: retrieval.energyArc,
-            discovery: [],
-          }) as ScoredLibraryTrack<T>[],
-          seedOffset: 0,
-        },
-        {
-          label: "adjacent_bridge",
-          pool: flattenRetrievalPools({
-            core: retrieval.core.slice(0, 80),
-            anchor: retrieval.anchor.slice(0, 40),
-            adjacent: retrieval.adjacent,
-            bridge: retrieval.bridge,
-            energyArc: retrieval.energyArc,
-            discovery: [],
-          }) as ScoredLibraryTrack<T>[],
-          seedOffset: 9973,
-        },
-        {
-          label: "discovery_energy_arc",
-          pool: flattenRetrievalPools({
-            core: retrieval.core.slice(0, 80),
-            anchor: retrieval.anchor.slice(0, 40),
-            adjacent: retrieval.adjacent.slice(0, 60),
-            bridge: retrieval.bridge.slice(0, 60),
-            energyArc: retrieval.energyArc,
-            discovery: retrieval.discovery,
-          }) as ScoredLibraryTrack<T>[],
-          seedOffset: seedOffsetFromMemory(opts.editorialMemory ?? null, 19937),
-        },
-        {
-          label: "balanced_core_mix",
-          pool: flattenRetrievalPools({
-            core: retrieval.core,
-            anchor: retrieval.anchor.slice(0, 60),
-            adjacent: retrieval.adjacent.slice(0, 40),
-            bridge: [],
-            energyArc: retrieval.energyArc.slice(0, 40),
-            discovery: retrieval.discovery.slice(0, 30),
-          }) as ScoredLibraryTrack<T>[],
-          seedOffset: seedOffsetFromMemory(opts.editorialMemory ?? null, 31415),
-        },
-        {
-          label: "wide_lane_blend",
-          pool: flattenRetrievalPools({
-            core: retrieval.core.slice(0, 100),
-            anchor: retrieval.anchor,
-            adjacent: retrieval.adjacent.slice(0, 80),
-            bridge: retrieval.bridge.slice(0, 40),
-            energyArc: retrieval.energyArc,
-            discovery: retrieval.discovery.slice(0, 50),
-          }) as ScoredLibraryTrack<T>[],
-          seedOffset: seedOffsetFromMemory(opts.editorialMemory ?? null, 52849),
-        },
-      ];
+    : editorialInterpretationTemplates.flatMap(({ baseLabel, interpretation }) =>
+        Array.from({ length: SAMPLER_SEED_VARIANTS }, (_, seedVariant) => ({
+          label: `${baseLabel}_v${seedVariant}`,
+          interpretation,
+          pool: sharedRetrievalPool,
+          seedOffset:
+            interpretationSeedOffsets[interpretation] +
+            seedVariant * 7919 +
+            Math.floor(stableUnitHash(`${baseLabel}:${seedVariant}`) * 4096),
+        })),
+      ).slice(0, MAX_CANDIDATE_PLAYLISTS);
   const executableCandidateInputs = candidateInputs.slice(
     0,
-    retrievalSafetyExpanded ? 1 : MAX_EDITORIAL_CANDIDATE_ATTEMPTS,
+    retrievalSafetyExpanded ? 1 : MAX_CANDIDATE_PLAYLISTS,
   );
   const skippedCandidateAttemptCount = Math.max(0, candidateInputs.length - executableCandidateInputs.length);
   executionDepth =
@@ -4789,20 +4781,10 @@ export async function buildPlaylistPipeline<T extends {
     wouldISave: ReturnType<typeof evaluateWouldISave>;
     total: number;
   }> = [];
-  const canShortCircuitCandidateAttempt = (attempt: {
-    result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
-    quality: ReturnType<typeof evaluatePlaylistQuality>;
-    wouldISave: ReturnType<typeof evaluateWouldISave>;
-    total: number;
-  }): boolean => {
-    const fullEnough = attempt.result.finalTracks.length >= Math.ceil(opts.playlistLength * 0.90);
-    const qualityGoodEnough =
-      attempt.quality.overall >= 0.58 &&
-      attempt.quality.promptAlignment >= 0.54 &&
-      attempt.quality.genericnessPenalty <= 0.38;
-    return fullEnough && qualityGoodEnough && attempt.wouldISave.humanSaveable && attempt.total >= 0.72;
-  };
-  let candidateShortCircuitUsed = false;
+  const candidatePoolCache = new Map<
+    SamplerInterpretation,
+    ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>
+  >();
   let v3InvocationCount = 0;
   let candidatePoolBuildCount = 0;
   for (const candidate of executableCandidateInputs) {
@@ -4812,23 +4794,31 @@ export async function buildPlaylistPipeline<T extends {
     stageStartedAt = Date.now();
     const endCandidateGenerationProfile = opts.profileStage?.(`pipeline.candidateGeneration.${candidate.label}`, `${inputPool.length} input tracks`);
     let candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
-    try {
-      candidatePoolBuildCount += 1;
-      candidatePool = buildV3CandidatePool(
-        inputPool,
-        classMap,
-        opts.playlistLength,
-        v3LockedIntent,
-        {
-          minimumFillRatio: candidate.label === "strict_intent" ? 0.8 : 0.65,
-          singleWorldMode: worldBoundary.hardLock,
-          mode: opts.mode,
-        },
-        opts.pipelineLog,
-      );
-    } finally {
-      endCandidateGenerationProfile?.();
+    const interpretationKey = candidate.interpretation ?? "balanced_human";
+    const cachedPool = candidatePoolCache.get(interpretationKey);
+    if (cachedPool) {
+      candidatePool = cachedPool;
+    } else {
+      try {
+        candidatePoolBuildCount += 1;
+        candidatePool = buildV3CandidatePool(
+          inputPool,
+          classMap,
+          opts.playlistLength,
+          v3LockedIntent,
+          {
+            minimumFillRatio: interpretationKey === "editorial_safe" ? 0.8 : 0.65,
+            singleWorldMode: worldBoundary.hardLock,
+            mode: opts.mode,
+          },
+          opts.pipelineLog,
+        );
+        candidatePoolCache.set(interpretationKey, candidatePool);
+      } finally {
+        endCandidateGenerationProfile?.();
+      }
     }
+    if (cachedPool) endCandidateGenerationProfile?.();
     recordTiming("candidateGeneration", stageStartedAt);
     stageStartedAt = Date.now();
     const endV3Profile = opts.profileStage?.(`pipeline.v3ScoringAndSampling.${candidate.label}`, `${candidatePool.tracks.length} candidate tracks`);
@@ -4880,6 +4870,7 @@ export async function buildPlaylistPipeline<T extends {
             allowExplorationLanes: dominantContract.allowExplorationLanes,
             maxTasteWeight: dominantContract.maxTastePullWeight,
           },
+          samplerInterpretation: candidate.interpretation,
         }
       );
     } finally {
@@ -4909,9 +4900,10 @@ export async function buildPlaylistPipeline<T extends {
     } | undefined;
     const gatePassedBonus = gateDiagnostics?.humanSaveable === true ? 0.06 : 0;
     const editorialTotal =
-      quality.overall * 0.26 +
-      wouldISaveCandidateScore(wouldISave, countRatio) * 0.54 +
-      Math.min(0.12, countRatio * 0.12) +
+      quality.overall * 0.28 +
+      wouldISaveCandidateScore(wouldISave, countRatio) * 0.28 +
+      wouldISave.humanPatternScore * 0.28 +
+      Math.min(0.10, countRatio * 0.10) +
       gatePassedBonus -
       starvationPenalty;
     const attempt = {
@@ -4924,14 +4916,6 @@ export async function buildPlaylistPipeline<T extends {
       total: editorialTotal,
     };
     candidateAttempts.push(attempt);
-    if (
-      candidateAttempts.length === 1 &&
-      executableCandidateInputs.length > 1 &&
-      canShortCircuitCandidateAttempt(attempt)
-    ) {
-      candidateShortCircuitUsed = true;
-      break;
-    }
   }
   let pairwiseSelectionAudit: PairwiseTournamentAudit | null = null;
   const selectedCandidate = (() => {
@@ -5080,7 +5064,7 @@ export async function buildPlaylistPipeline<T extends {
       plannedCandidateAttemptCount: candidateInputs.length,
       skippedCandidateAttemptCount,
       v3SingletonEnforced: false,
-      candidateShortCircuitUsed,
+      candidateShortCircuitUsed: false,
       v3InvocationCount,
       fallbackLevelUsed: effectiveFallbackLevelUsed,
       starvationTriggerReason,
