@@ -72,7 +72,7 @@
     "corpus:bootstrap-references": "node scripts/bootstrap-playlist-corpus-from-references.mjs",
     "corpus:collect-genome": "node scripts/collect-playlist-genome.mjs --resume",
     "spotify:oauth-setup": "node scripts/spotify-oauth-setup.mjs",
-    "corpus:fit-all": "npm run corpus:bootstrap-references && npm run fit:human-playlist-patterns -- --in data/corpus/human-playlists.json --out backend/data/human-playlist-patterns.json && npm run fit:pairwise-preferences",
+    "corpus:fit-all": "node scripts/collect-playlist-genome.mjs --limit 80 --resume && npm run fit:human-playlist-patterns -- --in data/corpus/human-playlists.json --out backend/data/human-playlist-patterns.json && npm run fit:pairwise-preferences",
     "export:blind-pairwise": "npm run build && node scripts/export-blind-pairwise-pairs.mjs",
     "benchmark:pairwise-human": "npm run build && node backend/dist/scripts/pairwise-human-playlist-benchmark.js",
     "benchmark:pairwise-human-live": "npm run build && node scripts/run-pairwise-human-benchmark-live.mjs",

@@ -1,8 +1,8 @@
 {
-  "artistSpacingP25": 3,
-  "artistSpacingP50": 5,
-  "artistSpacingP75": 5,
-  "maxSameArtistShare": 0.4,
+  "artistSpacingP25": 2,
+  "artistSpacingP50": 4,
+  "artistSpacingP75": 10,
+  "maxSameArtistShare": 0.3,
   "popularityFrontLoad": 0.5,
   "popularityMidPeak": 0.5,
   "popularityDiscoveryTail": 0.5,
@@ -13,6 +13,6 @@
   "energyArcFlatWeight": 0.22,
   "energyArcWaveWeight": 0.32,
   "energyArcCooldownWeight": 0.18,
-  "maxEnergyJumpP90": 0.06,
+  "maxEnergyJumpP90": 0.035,
   "transitionSmoothShare": 1
 }
