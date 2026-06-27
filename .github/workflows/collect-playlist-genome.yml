@@ -14,8 +14,6 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci && npm run build
-      - name: Bootstrap reference corpus
-        run: npm run corpus:bootstrap-references
       - name: Collect from Spotify (optional)
         env:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
