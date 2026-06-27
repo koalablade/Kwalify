@@ -10,18 +10,31 @@
 import { readFile, writeFile, mkdir, access } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..");
 
 function loadEnvFile() {
-  try {
-    const raw = readFileSync(path.resolve(".env"), "utf8");
-    for (const line of raw.split("\n")) {
-      const m = line.match(/^([^#=]+)=(.*)$/);
-      if (m && !process.env[m[1].trim()]) {
-        process.env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, "");
+  const candidates = [
+    path.join(REPO_ROOT, ".env"),
+    path.resolve(process.cwd(), ".env"),
+  ];
+  for (const envPath of candidates) {
+    try {
+      const raw = readFileSync(envPath, "utf8");
+      for (const line of raw.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const m = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+        if (m && !process.env[m[1]]) {
+          process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
+        }
       }
+      return;
+    } catch {
+      // try next
     }
-  } catch {
-    // optional
   }
 }
 loadEnvFile();
@@ -59,20 +72,42 @@ const DEFAULT_SEEDS = [
   { id: "37i9dQZF1DX4UtSsGT1Sbe", name: "All Out 2010s" },
 ];
 
-async function getToken() {
+async function getAccessToken() {
+  const refresh = process.env.SPOTIFY_REFRESH_TOKEN;
   const id = process.env.SPOTIFY_CLIENT_ID;
   const secret = process.env.SPOTIFY_CLIENT_SECRET;
-  if (!id || !secret) throw new Error("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET required");
+  if (!id || !secret) throw new Error("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET required in .env");
+
+  const credentials = Buffer.from(`${id}:${secret}`).toString("base64");
+  const headers = {
+    Authorization: `Basic ${credentials}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+
+  if (refresh) {
+    const res = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refresh }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(`refresh_token failed: ${data.error_description ?? res.status}. Run npm run spotify:oauth-setup`);
+    }
+    return data.access_token;
+  }
+
   const res = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers,
     body: "grant_type=client_credentials",
   });
-  if (!res.ok) throw new Error(`token failed: ${res.status}`);
+  if (!res.ok) throw new Error(`client_credentials failed: ${res.status}`);
   const data = await res.json();
+  console.warn(
+    "Warning: no SPOTIFY_REFRESH_TOKEN — playlist tracks often return 401/403 in Development mode.",
+    "Run: npm run spotify:oauth-setup",
+  );
   return data.access_token;
 }
 
@@ -155,7 +190,7 @@ async function main() {
     }
   }
   const seenIds = new Set(existing.map((p) => p.id));
-  const token = await getToken();
+  const token = await getAccessToken();
 
   let collected = 0;
   for (const seed of seeds) {
