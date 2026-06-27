@@ -12,17 +12,27 @@ async function ping(base: string, token: string, header: string) {
     method: "POST",
     headers: { [header]: token },
   });
-  const data = await res.json() as Record<string, unknown>;
-  return { endpoint: "POST /api/eval/ping", header, status: res.status, ...data };
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text) as Record<string, unknown>;
+    return { endpoint: "POST /api/eval/ping", header, status: res.status, ...data };
+  } catch {
+    return {
+      endpoint: "POST /api/eval/ping",
+      header,
+      status: res.status,
+      parseError: true,
+      bodyPreview: text.slice(0, 120),
+    };
+  }
 }
 
-const SMOKE_PROMPTS = [
-  "Feel-good summer morning music to hype yourself up for the day",
-  "chill indie study focus",
-  "driving at sunset with open windows",
-  "soft happy Sunday afternoon",
-  "uk grime classics workout",
-];
+const SMOKE_PROMPT = "Feel-good summer morning music to hype yourself up for the day";
+const GENERATE_HEADER = "x-kwalify-evaluation-token";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function evalGenerateAccepted(status: number, trackCount: number): boolean {
   if (status === 403 || status === 401 || status === 400) return false;
@@ -52,16 +62,31 @@ async function generate(
       auditMode: true,
     }),
   });
-  const data = await res.json() as Record<string, unknown>;
-  return {
-    endpoint: "POST /api/generate",
-    header,
-    vibe,
-    status: res.status,
-    code: data["code"] ?? null,
-    trackCount: Array.isArray(data["tracks"]) ? data["tracks"].length : 0,
-    message: data["message"] ?? data["error"] ?? data["reason"] ?? null,
-  };
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text) as Record<string, unknown>;
+    return {
+      endpoint: "POST /api/generate",
+      header,
+      vibe,
+      status: res.status,
+      code: data["code"] ?? null,
+      trackCount: Array.isArray(data["tracks"]) ? data["tracks"].length : 0,
+      message: data["message"] ?? data["error"] ?? data["reason"] ?? null,
+    };
+  } catch {
+    return {
+      endpoint: "POST /api/generate",
+      header,
+      vibe,
+      status: res.status,
+      parseError: true,
+      bodyPreview: text.slice(0, 120),
+      trackCount: 0,
+      code: null,
+      message: null,
+    };
+  }
 }
 
 async function main(): Promise<void> {
@@ -81,17 +106,28 @@ async function main(): Promise<void> {
     ping(creds.baseUrl, token, "x-eval-token"),
     ping(creds.baseUrl, token, "x-kwalify-evaluation-token"),
   ]);
-  let gens: Awaited<ReturnType<typeof generate>>[] = [];
-  for (const vibe of SMOKE_PROMPTS) {
-    gens = await Promise.all([
-      generate(creds.baseUrl, token, creds.spotifyUserId, "x-kwalify-evaluation-token", vibe),
-      generate(creds.baseUrl, token, creds.spotifyUserId, "x-eval-token", vibe),
-    ]);
-    if (gens.some((row) => evalGenerateAccepted(row.status, row.trackCount))) break;
+
+  let gen = await generate(
+    creds.baseUrl,
+    token,
+    creds.spotifyUserId,
+    GENERATE_HEADER,
+    SMOKE_PROMPT,
+  );
+  if (!evalGenerateAccepted(gen.status, gen.trackCount) && gen.parseError) {
+    await sleep(5000);
+    gen = await generate(
+      creds.baseUrl,
+      token,
+      creds.spotifyUserId,
+      GENERATE_HEADER,
+      SMOKE_PROMPT,
+    );
   }
+  const gens = [gen];
 
   const pingOk = pings.some((row) => (row as Record<string, unknown>)["tokenAccepted"] === true);
-  const generateOk = gens.some((row) => evalGenerateAccepted(row.status, row.trackCount));
+  const generateOk = pingOk && evalGenerateAccepted(gen.status, gen.trackCount);
   const generateSuccess = gens.some((row) => row.status === 200 && row.trackCount > 0);
   const summary = {
     base: creds.baseUrl,
