@@ -16,6 +16,7 @@ import {
   openingSceneClusterThreshold,
 } from "./scene-cohesion-clusters";
 import { scoreAgainstHumanPlaylistPatterns } from "./editorial/human-playlist-patterns";
+import { humanPlausibilityScore } from "./editorial/playlist-local-search";
 import type { PlaylistExecutionTrace } from "./observability/playlist-execution-trace";
 
 export class HumanSaveabilityGateError extends Error {
@@ -315,6 +316,7 @@ export function evaluateHumanSaveability(
   }
 
   const humanPatternScore = scoreAgainstHumanPlaylistPatterns(tracks).score;
+  const plausibilityScore = humanPlausibilityScore(tracks);
   if (strict && humanPatternScore < 0.52) {
     rejectionReasons.push(`human playlist pattern score ${humanPatternScore.toFixed(3)} < 0.52`);
   } else if (!strict && humanPatternScore < 0.42) {
@@ -331,8 +333,9 @@ export function evaluateHumanSaveability(
     breakdown.curatorScore >= MIN_CURATOR_SCORE;
 
   const wouldSaveScore = clamp01(
-    humanPatternScore * 0.42 +
-    breakdown.curatorScore * 0.48 +
+    humanPatternScore * 0.32 +
+    plausibilityScore * 0.18 +
+    breakdown.curatorScore * 0.44 +
     (humanSaveable ? 0.04 : 0),
   );
   const minWouldSave = strict ? MIN_WOULD_SAVE_STRICT : MIN_WOULD_SAVE_RELAXED;

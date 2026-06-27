@@ -61,6 +61,7 @@ import {
   realignEditorialIntentForDominantGenres,
 } from "../editorial/intent-collapse-layer";
 import { improvePlaylistByLocalSearch } from "../editorial/playlist-local-search";
+import { curatePlaylistOpening } from "../editorial/opening-curator";
 import {
   applyEditorialMemoryToIntent,
   resolveArchetypeFromMemory,
@@ -964,6 +965,21 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     preRetrievalSceneWorld?.archetype?.id,
   );
   if (preRetrievalSceneWorld?.active && !worldAlignmentAfterRealign.aligned) {
+    const dominantGenres = preRetrievalSceneWorld.sceneClusters?.dominantCluster.dominantGenres ?? [];
+    const genreFallback = dominantGenres.length > 0
+      ? realignEditorialIntentForDominantGenres(editorialIntentVector, dominantGenres)
+      : null;
+    if (genreFallback) {
+      editorialIntentVector = genreFallback;
+      activeEditorialIntentVector = genreFallback;
+      samplerIntentContext = buildSamplerIntentContext(genreFallback);
+    }
+  }
+  const worldAlignmentFinal = validateEditorialSceneWorldAlignment(
+    editorialIntentVector.editorialWorldTag,
+    preRetrievalSceneWorld?.archetype?.id,
+  );
+  if (preRetrievalSceneWorld?.active && !worldAlignmentFinal.aligned) {
     const collapseTrace = finalizeExecutionTrace(
       buildIntentCollapseFailureTraceDraft({
         requestId: opts.requestId ?? "unknown",
@@ -975,7 +991,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       }),
     );
     throw new IntentCollapseInsufficientPoolError(
-      worldAlignment.reason ?? "world_identity_conflict",
+      worldAlignmentAfterRealign.reason ?? worldAlignment.reason ?? "world_identity_conflict",
       buildIntentCollapseDiagnostics(
         editorialIntentVector,
         collapsedIntent.collapseConfidenceScore,
@@ -1766,6 +1782,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const openingEditorialLock = reinforceOpeningEditorialWorldLock({
     sampledLanes: sampledResults,
     intent: activeEditorialIntentVector,
+    openingSize: humanSaveStrictMode ? 10 : 5,
   });
   if (!openingEditorialLock.sufficient && openingEditorialLock.openingEligibleCount < 5) {
     const collapseTrace = finalizeExecutionTrace(
@@ -1779,7 +1796,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       }),
     );
     throw new IntentCollapseInsufficientPoolError(
-      `insufficient_intent_pool:opening_eligible=${openingEditorialLock.openingEligibleCount}<10`,
+      `insufficient_intent_pool:opening_eligible=${openingEditorialLock.openingEligibleCount}<5`,
       buildIntentCollapseDiagnostics(
         activeEditorialIntentVector,
         collapsedIntent.collapseConfidenceScore,
@@ -1885,6 +1902,27 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       }
     }
     finalTracks = localSearch.tracks
+      .map((track) => byId.get(track.trackId))
+      .filter((track): track is (typeof finalTracks)[number] => !!track);
+  }
+  const openingCurated = curatePlaylistOpening(
+    finalTracks.map((track) => ({
+      trackId: track.trackId,
+      artistName: track.artistName,
+      energy: track.energy,
+      valence: track.valence,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      popularity: (track as { popularity?: number | null }).popularity ?? null,
+      rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
+      releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
+      tempo: (track as { tempo?: number | null }).tempo ?? null,
+    })),
+    humanSaveStrictMode ? 5 : 5,
+  );
+  if (openingCurated.swaps > 0 && openingCurated.scoreAfter > openingCurated.scoreBefore + 0.004) {
+    const byId = new Map(finalTracks.map((track) => [track.trackId, track]));
+    finalTracks = openingCurated.tracks
       .map((track) => byId.get(track.trackId))
       .filter((track): track is (typeof finalTracks)[number] => !!track);
   }

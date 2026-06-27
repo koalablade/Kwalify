@@ -45,6 +45,9 @@ export function evaluateWouldISave(opts: {
     loadHumanPlaylistPatternProfile(),
   );
   const plausibility = humanPlausibilityScore(opts.tracks);
+  const openingPlausibility = opts.tracks.length >= 5
+    ? humanPlausibilityScore(opts.tracks.slice(0, 5))
+    : plausibility;
 
   const gate = evaluateHumanSaveability(
     opts.prompt,
@@ -60,8 +63,9 @@ export function evaluateWouldISave(opts: {
 
   const combinedScore = Math.min(
     1,
-    plausibility * 0.42 +
-    humanPatterns.score * 0.22 +
+    plausibility * 0.38 +
+    openingPlausibility * 0.08 +
+    humanPatterns.score * 0.18 +
     gate.breakdown.curatorScore * 0.28 +
     (gate.humanSaveable ? 0.04 : 0) +
     fingerprintBoost,

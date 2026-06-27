@@ -165,7 +165,10 @@ export function comparePlaylistsPairwise(
         : `${b.label} passes human-save gate, ${a.label} does not`,
     );
   } else {
-    vote("human_saveable", "tie");
+    vote(
+      "human_saveable",
+      pickRelative(a.wouldISave.combinedScore, b.wouldISave.combinedScore, 0.025),
+    );
   }
 
   vote(

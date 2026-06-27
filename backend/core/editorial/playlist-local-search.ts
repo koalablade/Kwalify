@@ -31,8 +31,12 @@ function artistKey(track: PatternScoringTrack): string {
   return (track.artistName ?? "unknown").toLowerCase();
 }
 
-function playlistScore(tracks: PatternScoringTrack[]): number {
+function rawPatternScore(tracks: PatternScoringTrack[]): number {
   return scoreAgainstHumanPlaylistPatterns(tracks).score;
+}
+
+function playlistScore(tracks: PatternScoringTrack[]): number {
+  return humanPlausibilityScore(tracks);
 }
 
 function artistSpacingOk(tracks: PatternScoringTrack[], index: number, candidate: PatternScoringTrack): boolean {
@@ -98,6 +102,29 @@ export function improvePlaylistByLocalSearch<T extends PatternScoringTrack>(
         bestScore = swappedScore;
         bestNext = swapped;
         bestMove = { type: "adjacent_swap", detail: `${i}<->${i + 1}`, delta: swappedScore - score };
+      }
+    }
+
+    const openingCap = Math.min(5, current.length);
+    for (let i = 0; i < openingCap; i += 1) {
+      for (let j = i + 1; j < openingCap; j += 1) {
+        const swapped = swap(current, i, j);
+        const swappedScore = playlistScore(swapped);
+        if (swappedScore > bestScore + 0.005) {
+          bestScore = swappedScore;
+          bestNext = swapped;
+          bestMove = { type: "adjacent_swap", detail: `opening:${i}<->${j}`, delta: swappedScore - score };
+        }
+      }
+      for (let j = openingCap; j < Math.min(current.length, openingCap + 12); j += 1) {
+        if (artistKey(current[j]!) === artistKey(current[i]!)) continue;
+        const swapped = swap(current, i, j);
+        const swappedScore = playlistScore(swapped);
+        if (swappedScore > bestScore + 0.006) {
+          bestScore = swappedScore;
+          bestNext = swapped;
+          bestMove = { type: "adjacent_swap", detail: `opening_lift:${i}<->${j}`, delta: swappedScore - score };
+        }
       }
     }
 
@@ -181,8 +208,8 @@ export function improvePlaylistByLocalSearch<T extends PatternScoringTrack>(
 
 export function humanPlausibilityScore(tracks: PatternScoringTrack[]): number {
   if (tracks.length === 0) return 0;
-  const full = playlistScore(tracks);
-  const opening = tracks.length >= 5 ? playlistScore(tracks.slice(0, 5)) : full;
-  const ending = tracks.length >= 8 ? playlistScore(tracks.slice(-Math.min(8, tracks.length))) : full;
+  const full = rawPatternScore(tracks);
+  const opening = tracks.length >= 5 ? rawPatternScore(tracks.slice(0, 5)) : full;
+  const ending = tracks.length >= 8 ? rawPatternScore(tracks.slice(-Math.min(8, tracks.length))) : full;
   return clamp01(full * 0.5 + opening * 0.28 + ending * 0.22);
 }

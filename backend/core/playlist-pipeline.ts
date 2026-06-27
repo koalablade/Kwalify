@@ -19,6 +19,7 @@ import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforceme
 import { runV3Pipeline } from "./v3/v3-pipeline";
 import type { SamplerInterpretation } from "./v3/v3-sampler";
 import { evaluateWouldISave, wouldISaveCandidateScore } from "./editorial/would-i-save-evaluator";
+import { humanPlausibilityScore } from "./editorial/playlist-local-search";
 import {
   selectBestCandidateByPairwiseTournament,
   type PairwiseTournamentAudit,
@@ -4898,12 +4899,14 @@ export async function buildPlaylistPipeline<T extends {
       humanSaveable?: boolean;
       wouldSaveScore?: number;
     } | undefined;
-    const gatePassedBonus = gateDiagnostics?.humanSaveable === true ? 0.06 : 0;
+    const gatePassedBonus = gateDiagnostics?.humanSaveable === true ? 0.03 : 0;
+    const plausibility = humanPlausibilityScore(result.finalTracks);
     const editorialTotal =
-      quality.overall * 0.28 +
-      wouldISaveCandidateScore(wouldISave, countRatio) * 0.28 +
-      wouldISave.humanPatternScore * 0.28 +
-      Math.min(0.10, countRatio * 0.10) +
+      quality.overall * 0.22 +
+      wouldISaveCandidateScore(wouldISave, countRatio) * 0.24 +
+      wouldISave.humanPatternScore * 0.18 +
+      plausibility * 0.22 +
+      Math.min(0.08, countRatio * 0.08) +
       gatePassedBonus -
       starvationPenalty;
     const attempt = {

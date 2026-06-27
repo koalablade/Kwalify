@@ -627,7 +627,7 @@ export function scoreEditorialIntentMatch(
   let score = 1;
 
   if (world && !world.primaryFamilies.includes(family)) {
-    score *= 0.58;
+    score *= intent.relaxGenreFamilyFilter ? 0.82 : 0.58;
   }
 
   if (hasFeature(track.energy)) {
@@ -731,6 +731,19 @@ export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
       }
     }
   }
+  if (chosen.length < minPool && intent.relaxGenreFamilyFilter) {
+    const chosenIds = new Set(chosen.map((row) => row.track.trackId));
+    const world = EDITORIAL_WORLDS.find((row) => row.tag === intent.editorialWorldTag);
+    for (const row of ranked) {
+      if (chosen.length >= minPool) break;
+      if (chosenIds.has(row.track.trackId)) continue;
+      const family = trackFamily(row.track);
+      if (world?.primaryFamilies.includes(family) || row.score >= 0.14) {
+        chosen.push(row);
+        chosenIds.add(row.track.trackId);
+      }
+    }
+  }
   const scores = new Map(chosen.map((row) => [row.track.trackId, row.score]));
   const avgScore = chosen.length > 0
     ? chosen.reduce((sum, row) => sum + row.score, 0) / chosen.length
@@ -782,6 +795,7 @@ function buildProvisionalIntent(
     sceneType,
     editorialWorldTag: world.tag,
     allowedMicroClusters: [...world.allowedMicroClusters],
+    ...(opts.lockedIntent.genreFamilies.length > 0 ? { relaxGenreFamilyFilter: true as const } : {}),
   };
 }
 
