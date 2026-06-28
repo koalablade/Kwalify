@@ -25,6 +25,28 @@ describe("request stage timing", () => {
     assert.equal(report.slowestStage, "candidate_generation");
   });
 
+  it("maps production timeline v3 wall time to v3_pipeline stage", () => {
+    const timing = createRequestStageTiming(Date.now() - 60_000);
+    timing.mergeProductionTimeline({
+      v3_pipeline: 55_000,
+      candidate_fetch: 3_000,
+      prompt_understanding: 2_000,
+    });
+    timing.mergeV3TimingMs({
+      timingMs: {
+        laneGeneration: 8_000,
+        scoring: 12_000,
+        sampler: 5_000,
+        candidateGeneration: 120,
+      },
+    });
+    timing.setTotal(60_000);
+    const report = timing.report();
+    assert.equal(report.stages.v3_pipeline.ms, 55_000);
+    assert.equal(report.stages.candidate_generation.ms, 25_120);
+    assert.equal(report.stages.retrieval.ms, 3_000);
+  });
+
   it("formats markdown timing sections", () => {
     const timing = createRequestStageTiming();
     timing.add("retrieval", 40_000);

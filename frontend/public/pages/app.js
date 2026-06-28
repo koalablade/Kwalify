@@ -429,13 +429,17 @@ function navHtml(user) {
             <span>${isDark ? "Light mode" : "Dark mode"}</span>
           </button>
           <div class="profile-dropdown-divider"></div>
-          <button class="profile-dropdown-item profile-dropdown-danger" id="deleteAccountBtn" type="button">
-            <span>Delete my data</span>
-          </button>
           <button class="profile-dropdown-item profile-dropdown-logout" id="logoutBtn">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             <span>Log out</span>
           </button>
+          <div class="profile-dropdown-divider"></div>
+          <div class="profile-dropdown-danger-zone">
+            <span class="profile-dropdown-danger-label">Danger zone</span>
+            <button class="profile-dropdown-item profile-dropdown-danger" id="deleteAccountBtn" type="button">
+              <span>Delete my data</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -510,8 +514,8 @@ function renderLanding() {
       </div>
 
       ${landingNotice ? `<div class="alert ${landingNotice.kind === "error" ? "alert-error" : "alert-success"} landing-auth-alert">${esc(landingNotice.message)}</div>` : ""}
-      <p class="landing-beta-note">Spotify may limit logins during beta until our app is fully approved. If Connect fails, try again later or contact us via Feedback.</p>
       <a href="/api/auth/login" class="btn btn-green btn-lg hero-cta">${spi()} Get started — free</a>
+      <p class="landing-beta-note">Spotify may limit logins during beta until our app is fully approved. If Connect fails, try again later or contact us via Feedback.</p>
       <div class="hero-trust">
         <span>No credit card</span>
         <span class="hero-trust-sep">·</span>
@@ -604,16 +608,17 @@ function renderApp() {
   const ls = state.librarySummary;
   const total = ls?.trackCount ?? cs?.totalTracks ?? 0;
   const lastSynced = cs?.lastSyncedAt ? timeAgo(cs.lastSyncedAt) : null;
-  const modeCopy = {
-    strict: "Strict: closest match, least drift.",
-    balanced: "Balanced: best quality and variety.",
-    chaotic: "Chaotic: more surprise, still safety-checked.",
-  }[state.mode] || "Balanced: best quality and variety.";
-  const familiarityCopy = {
-    safe: "Safe: mostly tracks you already know.",
-    balanced: "Balanced: mix of comfort and discovery.",
-    discovery: "Discovery: more deep cuts and surprises.",
-  }[state.familiarity] || "Balanced: mix of comfort and discovery.";
+  const modeHelperLabel = {
+    strict: "Closest match",
+    balanced: "Balanced variety",
+    chaotic: "More surprise",
+  }[state.mode] || "Balanced variety";
+  const familiarityHelperLabel = {
+    safe: "Mostly known tracks",
+    balanced: "Mix of comfort and discovery",
+    discovery: "More deep cuts",
+  }[state.familiarity] || "Mix of comfort and discovery";
+  const modeHelperText = `Vibe: ${modeHelperLabel} · Familiarity: ${familiarityHelperLabel}`;
   const gate = generateGate();
 
   const errorHtml = state.error ? (() => {
@@ -700,7 +705,16 @@ function renderApp() {
     ${state.libraryChapters?.length ? `<section class="library-chapters" aria-label="Life chapters from your library">
       <h2 class="section-title">Life chapters</h2>
       <div class="library-chapters-row">
-        ${state.libraryChapters.slice(0, 4).map((ch) => `<button type="button" class="hero-chip library-chapter-chip" data-chapter-prompt="${esc(ch.label || ch.id)}">${esc(ch.label || ch.id)}</button>`).join("")}
+        ${[...state.libraryChapters]
+          .sort((a, b) => {
+            const yearFrom = (entry) => {
+              const match = String(entry.label || entry.id || "").match(/\d{4}/);
+              return match ? Number(match[0]) : 0;
+            };
+            return yearFrom(b) - yearFrom(a);
+          })
+          .slice(0, 4)
+          .map((ch) => `<button type="button" class="hero-chip library-chapter-chip" data-chapter-prompt="${esc(ch.label || ch.id)}">${esc(ch.label || ch.id)}</button>`).join("")}
       </div>
     </section>` : ""}
 
@@ -722,7 +736,7 @@ function renderApp() {
               placeholder="e.g. empty petrol station at 2am"
               maxlength="140"
               autocomplete="off"
-              rows="4"
+              rows="2"
             ></textarea>
             <div class="vibe-footer">
               <span class="vibe-hint">Enter ↵ to generate · Ctrl+K focus</span>
@@ -741,17 +755,22 @@ function renderApp() {
         </div>
         <div id="intentPreviewStrip" class="intent-preview-strip" hidden aria-live="polite"></div>
 
-        <div class="controls-row">
+        <div class="controls-stack">
+        <div class="controls-row controls-row--mode">
           <div class="mode-group">
             <button class="mode-btn ${state.mode === "strict"   ? "active" : ""}" data-mode="strict" title="Closest match, least drift" aria-pressed="${state.mode === "strict"}">Strict</button>
             <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced" title="Best quality and variety" aria-pressed="${state.mode === "balanced"}">Balanced</button>
             <button class="mode-btn ${state.mode === "chaotic"  ? "active" : ""}" data-mode="chaotic" title="More surprise, still safety-checked" aria-pressed="${state.mode === "chaotic"}">Chaotic</button>
           </div>
+        </div>
+        <div class="controls-row controls-row--length">
+          <span class="length-label">Playlist size</span>
           <div class="length-row">
             <svg class="length-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <input type="range" class="length-slider" id="lengthSlider" min="20" max="60" step="5" value="${state.length}">
             <span class="length-val" id="lengthLabel">${state.length} tracks</span>
           </div>
+        </div>
         </div>
         <div class="familiarity-row" aria-label="Familiarity vs discovery">
           <span class="familiarity-label">Familiarity</span>
@@ -761,7 +780,7 @@ function renderApp() {
             <button class="familiarity-btn ${state.familiarity === "discovery" ? "active" : ""}" data-familiarity="discovery" title="More deep cuts" aria-pressed="${state.familiarity === "discovery"}">Discovery</button>
           </div>
         </div>
-        <div class="mode-helper">${esc(modeCopy)} · ${esc(familiarityCopy)}</div>
+        <div class="mode-helper">${esc(modeHelperText)}</div>
 
         <div class="no-library-row">
           <label class="no-library-toggle" title="Use Spotify-wide search for clear genre prompts">

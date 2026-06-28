@@ -117,6 +117,7 @@ type PromptBenchmarkRow = {
     humanSaveRetries: number | null;
     coherenceRebuildIterations: number | null;
     goodPlaylistRefinement: GoodPlaylistRefinementReport | null;
+    timeoutFallbackSource: string | null;
   };
 };
 
@@ -136,6 +137,7 @@ type BenchmarkObservabilitySummary = {
   constraintsRelaxedCount: number;
   degradedDeliveryCount: number;
   refinement: RefinementObservabilityRollup;
+  timeoutFallbackSourceDistribution: Record<string, number>;
 };
 
 type BenchmarkReport = {
@@ -241,6 +243,11 @@ function buildObservabilitySummary(rows: PromptBenchmarkRow[]): BenchmarkObserva
   const refinement = rollupRefinementObservability(
     rows.map((row) => row.timing?.goodPlaylistRefinement ?? null),
   );
+  const timeoutFallbackSourceDistribution: Record<string, number> = {};
+  for (const row of rows) {
+    const source = row.timing?.timeoutFallbackSource ?? "none";
+    timeoutFallbackSourceDistribution[source] = (timeoutFallbackSourceDistribution[source] ?? 0) + 1;
+  }
   return {
     http422Count: rows.filter((row) => row.status === 422).length,
     zeroTrackCount: rows.filter((row) => row.generation.finalTrackCount === 0).length,
@@ -257,6 +264,7 @@ function buildObservabilitySummary(rows: PromptBenchmarkRow[]): BenchmarkObserva
     constraintsRelaxedCount: rows.filter((row) => row.observability.constraintsRelaxedUsed).length,
     degradedDeliveryCount: rows.filter((row) => row.observability.degradedDelivery).length,
     refinement,
+    timeoutFallbackSourceDistribution,
   };
 }
 
@@ -882,6 +890,7 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
         ? generationDiagnostics["rebuildIterations"] as number
         : null,
       goodPlaylistRefinement,
+      timeoutFallbackSource: stringValue(generationDiagnostics["timeoutFallbackSource"]),
     },
   };
 }
@@ -973,6 +982,7 @@ function markdownReport(report: BenchmarkReport): string {
     `Average believability improvement after refinement: ${report.observability.refinement.averageBelievabilityImprovement ?? "n/a"}`,
     `Average tracks changed by refinement: ${report.observability.refinement.averageTracksChangedByRefinement ?? "n/a"}`,
     `Final winner differs from initial: ${report.observability.refinement.finalWinnerDiffersRate ?? "n/a"}%`,
+    `Timeout fallback sources: ${JSON.stringify(report.observability.timeoutFallbackSourceDistribution)}`,
     "",
     "## Prompt Results",
     ...table(
@@ -1040,6 +1050,7 @@ function rankedFailureMarkdown(report: BenchmarkReport): string {
     `Average confidence improvement after refinement: ${report.observability.refinement.averageConfidenceImprovement ?? "n/a"}`,
     `Average tracks changed by refinement: ${report.observability.refinement.averageTracksChangedByRefinement ?? "n/a"}`,
     `Final winner differs from initial: ${report.observability.refinement.finalWinnerDiffersRate ?? "n/a"}%`,
+    `Timeout fallback sources: ${JSON.stringify(report.observability.timeoutFallbackSourceDistribution)}`,
     "",
     ...rankingBlock("Most Likely To Fail", report.rankings.mostLikelyToFail, "fail"),
     ...rankingBlock("Most Likely To Drift", report.rankings.mostLikelyToDrift, "drift"),

@@ -5,13 +5,14 @@
 export type RequestStageKey =
   | "retrieval"
   | "intent_expansion"
+  | "pre_v3_setup"
+  | "v3_pipeline"
   | "candidate_generation"
   | "beam_complete_search"
   | "tournament"
   | "refinement"
   | "diagnostics"
   | "serialization"
-  | "pre_v3_setup"
   | "total";
 
 export type RequestStageTimingEntry = {
@@ -33,13 +34,14 @@ export type RequestStageTimingReport = {
 const STAGE_KEYS: RequestStageKey[] = [
   "retrieval",
   "intent_expansion",
+  "pre_v3_setup",
+  "v3_pipeline",
   "candidate_generation",
   "beam_complete_search",
   "tournament",
   "refinement",
   "diagnostics",
   "serialization",
-  "pre_v3_setup",
   "total",
 ];
 
@@ -120,7 +122,7 @@ export function createRequestStageTiming(startedAt = Date.now()): {
       add("retrieval", retrievalMs);
       add("intent_expansion", intentMs);
       add("pre_v3_setup", preV3);
-      add("candidate_generation", stageDurationsMs["v3_pipeline"] ?? 0);
+      add("v3_pipeline", stageDurationsMs["v3_pipeline"] ?? 0);
     },
     report(): RequestStageTimingReport {
       const totalMs = Math.max(stages.total.ms, Date.now() - started);
