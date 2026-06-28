@@ -163,6 +163,7 @@ export async function runHumanSaveabilityGateWithRetries<T extends HumanSaveabil
   sessionArtistMemory?: unknown;
   recentTrackPenalty?: Map<string, number>;
   cohesivePlaylist: boolean;
+  shouldSkipMarginalImprovement?: () => boolean;
 }): Promise<HumanSaveabilityPipelineResult<T>> {
   const editorialRemoved: HumanSaveabilityPipelineResult<T>["editorialRemoved"] = [];
   let tracks = [...opts.initialTracks];
@@ -184,6 +185,7 @@ export async function runHumanSaveabilityGateWithRetries<T extends HumanSaveabil
   evaluation = evaluateHumanSaveability(opts.prompt, tracks, opts.context, opts.lockedIntent);
 
   while (!evaluation.humanSaveable && retriesUsed < MAX_HUMAN_SAVE_RETRIES) {
+    if (opts.shouldSkipMarginalImprovement?.()) break;
     retriesUsed += 1;
     const clusterFloor = retriesUsed >= 2 ? 0.82 : 0.74;
     const poolRatio = retriesUsed >= 2 ? 0.45 : 0.72;

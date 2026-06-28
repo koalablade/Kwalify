@@ -6,6 +6,11 @@ import {
   isCiEnvironment,
   resolveLiveBenchmarkCredentials,
 } from "../lib/benchmark-env";
+import {
+  rollupRefinementObservability,
+  type GoodPlaylistRefinementReport,
+  type RefinementObservabilityRollup,
+} from "../lib/good-playlist-refinement-telemetry";
 
 type PromptGroup = "Electronic" | "Alternative" | "Hip Hop" | "Lifestyle" | "Human";
 type BenchmarkMode = "strict" | "balanced" | "chaotic";
@@ -104,6 +109,15 @@ type PromptBenchmarkRow = {
   };
   /** Observational telemetry only — not used for scoring or pass/fail. */
   observability: PromptObservability;
+  timing?: {
+    requestStageTiming: Record<string, unknown> | null;
+    latencyBudgetExceeded: boolean;
+    latencyOptimizationSkipped: Record<string, unknown> | null;
+    v3TimingMs: Record<string, unknown> | null;
+    humanSaveRetries: number | null;
+    coherenceRebuildIterations: number | null;
+    goodPlaylistRefinement: GoodPlaylistRefinementReport | null;
+  };
 };
 
 type DeliveryTierDistribution = Record<DeliveryBucket, number>;
@@ -121,6 +135,7 @@ type BenchmarkObservabilitySummary = {
   constraintsRelaxedRate: number;
   constraintsRelaxedCount: number;
   degradedDeliveryCount: number;
+  refinement: RefinementObservabilityRollup;
 };
 
 type BenchmarkReport = {
@@ -223,6 +238,9 @@ function buildObservabilitySummary(rows: PromptBenchmarkRow[]): BenchmarkObserva
     ]),
   ) as DeliveryTierDistribution;
   const latencies = rows.map((row) => row.elapsedMs).sort((a, b) => a - b);
+  const refinement = rollupRefinementObservability(
+    rows.map((row) => row.timing?.goodPlaylistRefinement ?? null),
+  );
   return {
     http422Count: rows.filter((row) => row.status === 422).length,
     zeroTrackCount: rows.filter((row) => row.generation.finalTrackCount === 0).length,
@@ -238,6 +256,7 @@ function buildObservabilitySummary(rows: PromptBenchmarkRow[]): BenchmarkObserva
     constraintsRelaxedRate: Math.round((rows.filter((row) => row.observability.constraintsRelaxedUsed).length / total) * 1000) / 10,
     constraintsRelaxedCount: rows.filter((row) => row.observability.constraintsRelaxedUsed).length,
     degradedDeliveryCount: rows.filter((row) => row.observability.degradedDelivery).length,
+    refinement,
   };
 }
 
@@ -743,14 +762,14 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
   const requestFailure = result.error ? `request_failed:${result.error}` : null;
   const blockingFailureReasons = [
     requestFailure,
-    diagnosticsMissing ? "missing_intent_survival_diagnostics" : null,
-    emotionSurvivalPercent == null ? "missing_emotion_survival" : null,
-    subgenreSurvivalPercent == null ? "missing_subgenre_survival" : null,
     !successCriteria.length ? "requested_length_below_90_percent" : null,
     !successCriteria.genre ? "major_genre_leak" : null,
     !successCriteria.era ? "major_era_leak" : null,
   ].filter((item): item is string => !!item);
   const advisoryFailureReasons = [
+    diagnosticsMissing ? "missing_intent_survival_diagnostics" : null,
+    emotionSurvivalPercent == null ? "missing_emotion_survival" : null,
+    subgenreSurvivalPercent == null ? "missing_subgenre_survival" : null,
     !successCriteria.survival ? `survival_below_${survivalThreshold}_percent` : null,
     !successCriteria.confidence ? "confidence_below_70_percent" : null,
   ].filter((item): item is string => !!item);
@@ -785,6 +804,14 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
   );
   const humanSaveGate = record(v3Diagnostics["humanSaveabilityGate"]);
   const observability = extractObservability(v3Diagnostics, humanSaveGate);
+  const requestStageTiming = generationDiagnostics["requestStageTiming"];
+  const latencyOptimizationSkipped = generationDiagnostics["latencyOptimizationSkipped"];
+  const goodPlaylistRefinementRaw = generationDiagnostics["goodPlaylistRefinement"];
+  const goodPlaylistRefinement = goodPlaylistRefinementRaw && typeof goodPlaylistRefinementRaw === "object"
+    ? goodPlaylistRefinementRaw as GoodPlaylistRefinementReport
+    : null;
+  const timingMsBlock = record(generationDiagnostics["timingMs"]);
+  const v3TimingMs = (v3Diagnostics["timingMs"] ?? timingMsBlock["v3Pipeline"] ?? null) as Record<string, unknown> | null;
   return {
     input: {
       id: prompt.id,
@@ -841,6 +868,21 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
       genreLeak: clampScore(genreLeakRisk),
     },
     observability,
+    timing: {
+      requestStageTiming: requestStageTiming && typeof requestStageTiming === "object"
+        ? requestStageTiming as Record<string, unknown>
+        : null,
+      latencyBudgetExceeded: generationDiagnostics["latencyBudgetExceeded"] === true,
+      latencyOptimizationSkipped: latencyOptimizationSkipped && typeof latencyOptimizationSkipped === "object"
+        ? latencyOptimizationSkipped as Record<string, boolean>
+        : null,
+      v3TimingMs,
+      humanSaveRetries: typeof humanSaveGate["retriesUsed"] === "number" ? humanSaveGate["retriesUsed"] as number : null,
+      coherenceRebuildIterations: typeof generationDiagnostics["rebuildIterations"] === "number"
+        ? generationDiagnostics["rebuildIterations"] as number
+        : null,
+      goodPlaylistRefinement,
+    },
   };
 }
 
@@ -923,6 +965,15 @@ function markdownReport(report: BenchmarkReport): string {
     `Average survival: ${report.summary.averageSurvivalPercent}%`,
     `Average confidence: ${report.summary.averageConfidenceScore}%`,
     "",
+    "## Refinement observability (not scored)",
+    `Good playlist ready reach rate: ${report.observability.refinement.goodPlaylistReadyReachRate}%`,
+    `Median goodPlaylistReady time: ${report.observability.refinement.medianGoodPlaylistReadyElapsedMs != null ? `${report.observability.refinement.medianGoodPlaylistReadyElapsedMs}ms` : "n/a"}`,
+    `Genuinely usable at ready: ${report.observability.refinement.genuinelyUsableAtReadyRate ?? "n/a"}%`,
+    `Average confidence improvement after refinement: ${report.observability.refinement.averageConfidenceImprovement ?? "n/a"}`,
+    `Average believability improvement after refinement: ${report.observability.refinement.averageBelievabilityImprovement ?? "n/a"}`,
+    `Average tracks changed by refinement: ${report.observability.refinement.averageTracksChangedByRefinement ?? "n/a"}`,
+    `Final winner differs from initial: ${report.observability.refinement.finalWinnerDiffersRate ?? "n/a"}%`,
+    "",
     "## Prompt Results",
     ...table(
       ["Group", "Prompt", "Status", "Score", "Tracks", "Survival", "Confidence", "Blocking", "Advisory"],
@@ -981,6 +1032,14 @@ function rankedFailureMarkdown(report: BenchmarkReport): string {
     `Degraded delivery: ${report.observability.degradedDeliveryCount}`,
     `Constraints relaxed rate: ${report.observability.constraintsRelaxedRate}%`,
     `Delivery tiers: ideal=${report.observability.deliveryTierPercent.ideal}% degraded=${report.observability.deliveryTierPercent.degraded}% safe=${report.observability.deliveryTierPercent.safe}% emergency=${report.observability.deliveryTierPercent.emergency}% unknown=${report.observability.deliveryTierPercent.unknown}%`,
+    "",
+    "## Refinement observability (not scored)",
+    `Good playlist ready reach rate: ${report.observability.refinement.goodPlaylistReadyReachRate}%`,
+    `Median goodPlaylistReady time: ${report.observability.refinement.medianGoodPlaylistReadyElapsedMs != null ? `${report.observability.refinement.medianGoodPlaylistReadyElapsedMs}ms` : "n/a"}`,
+    `Genuinely usable at ready: ${report.observability.refinement.genuinelyUsableAtReadyRate ?? "n/a"}%`,
+    `Average confidence improvement after refinement: ${report.observability.refinement.averageConfidenceImprovement ?? "n/a"}`,
+    `Average tracks changed by refinement: ${report.observability.refinement.averageTracksChangedByRefinement ?? "n/a"}`,
+    `Final winner differs from initial: ${report.observability.refinement.finalWinnerDiffersRate ?? "n/a"}%`,
     "",
     ...rankingBlock("Most Likely To Fail", report.rankings.mostLikelyToFail, "fail"),
     ...rankingBlock("Most Likely To Drift", report.rankings.mostLikelyToDrift, "drift"),

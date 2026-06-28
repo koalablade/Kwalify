@@ -97,6 +97,7 @@ import {
   type PlaylistExecutionTrace,
 } from "../observability/playlist-execution-trace";
 import { runHumanSaveabilityGateWithRetries } from "../human-saveability-pipeline";
+import { isGenuinelyUsablePlaylist } from "../../lib/good-playlist-refinement-telemetry";
 import {
   buildSceneWorldProofReport,
   createSceneWorldProofAccumulator,
@@ -859,6 +860,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     pipelineTrace?: PipelineTrace;
     diagnosticsMode?: "minimal" | "full";
     profileStage?: (stage: string, detail?: string) => () => void;
+    shouldSkipMarginalImprovement?: () => boolean;
+    onGoodPlaylistReady?: (snapshot: {
+      tracks: import("../editorial/human-playlist-patterns").PatternScoringTrack[];
+      scoringContext: PlaylistCurationScoringContext;
+    }) => void;
     dominantIntentGates?: {
       dominantEmotionExplicit?: boolean;
       allowContrastLanes?: boolean;
@@ -882,6 +888,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     candidateGeneration: 0,
     sampler: 0,
     interleaver: 0,
+    intentExpansion: 0,
+    completeSearch: 0,
+    localSearch: 0,
+    tournament: 0,
+    humanSaveability: 0,
     total: 0,
   };
   const recordTiming = (key: keyof typeof timingMs, startedAt: number): void => {
@@ -919,6 +930,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     playlistAdjacency: opts.playlistAdjacency,
     likedAdjacency: opts.likedAdjacency,
   });
+  const intentExpansionStartedAt = Date.now();
   const collapsedIntent = collapseIntent({
     vibe,
     lockedIntent,
@@ -932,6 +944,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       opts.editorialMemory ?? null,
     ),
   });
+  recordTiming("intentExpansion", intentExpansionStartedAt);
   let editorialIntentVector: EditorialIntentVector = collapsedIntent.intent;
   if (opts.editorialMemory) {
     editorialIntentVector = applyEditorialMemoryToIntent(editorialIntentVector, opts.editorialMemory);
@@ -1944,6 +1957,15 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     libraryFingerprint: opts.libraryFingerprint ?? null,
     targetLength: finalTracks.length,
   };
+  if (finalTracks.length > 0 && isGenuinelyUsablePlaylist(finalTracks.length, targetCount)) {
+    opts.onGoodPlaylistReady?.({
+      tracks: finalTracks.map(toPatternTrack),
+      scoringContext: {
+        ...curationScoringContext,
+        targetLength: targetCount,
+      },
+    });
+  }
   const searchPool = (() => {
     const seen = new Set<string>();
     const out: Array<T & V3SelectionCandidate<T>> = [];
@@ -1954,15 +1976,32 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     }
     return out.map(toPatternTrack);
   })();
-  const completePlaylistSearch = searchOptimalCompletePlaylist({
-    seedPlaylist: finalTracks.map(toPatternTrack),
-    pool: searchPool,
-    targetLength: finalTracks.length,
-    beamWidth: humanSaveStrictMode ? 6 : 5,
-    maxPoolTracks: humanSaveStrictMode ? 112 : 96,
-    seed: `${opts.seed ?? vibe}:complete`,
-    scoringContext: curationScoringContext,
-  });
+  const completePlaylistSearch = (() => {
+    if (opts.shouldSkipMarginalImprovement?.()) {
+      return {
+        tracks: finalTracks.map(toPatternTrack),
+        selectedStrategy: "skipped_latency_budget" as const,
+        candidatesExplored: 0,
+        beamWidth: 0,
+        scoreBefore: 0,
+        scoreAfter: 0,
+        candidateScores: [] as number[],
+        constraintsRelaxed: [] as string[],
+      };
+    }
+    const completeSearchStartedAt = Date.now();
+    const result = searchOptimalCompletePlaylist({
+      seedPlaylist: finalTracks.map(toPatternTrack),
+      pool: searchPool,
+      targetLength: finalTracks.length,
+      beamWidth: humanSaveStrictMode ? 6 : 5,
+      maxPoolTracks: humanSaveStrictMode ? 112 : 96,
+      seed: `${opts.seed ?? vibe}:complete`,
+      scoringContext: curationScoringContext,
+    });
+    recordTiming("completeSearch", completeSearchStartedAt);
+    return result;
+  })();
   {
     const byId = new Map<string, (typeof finalTracks)[number]>();
     for (const track of finalTracks) byId.set(track.trackId, track);
@@ -1982,15 +2021,28 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     }
   }
   const localSearchPool = searchPool;
-  const localSearch = improvePlaylistByLocalSearch(
-    finalTracks.map(toPatternTrack),
-    localSearchPool,
-    {
-      maxIterations: humanSaveStrictMode ? 64 : 48,
-      seed: opts.requestId ?? vibe,
-      scoringContext: curationScoringContext,
-    },
-  );
+  const localSearch = (() => {
+    if (opts.shouldSkipMarginalImprovement?.()) {
+      return {
+        tracks: finalTracks.map(toPatternTrack),
+        moves: [],
+        scoreBefore: 0,
+        scoreAfter: 0,
+      };
+    }
+    const localSearchStartedAt = Date.now();
+    const result = improvePlaylistByLocalSearch(
+      finalTracks.map(toPatternTrack),
+      localSearchPool,
+      {
+        maxIterations: humanSaveStrictMode ? 64 : 48,
+        seed: opts.requestId ?? vibe,
+        scoringContext: curationScoringContext,
+      },
+    );
+    recordTiming("localSearch", localSearchStartedAt);
+    return result;
+  })();
   if (localSearch.moves.length > 0 && localSearch.scoreAfter >= localSearch.scoreBefore - 0.0005) {
     const byId = new Map<string, (typeof finalTracks)[number]>();
     for (const track of finalTracks) byId.set(track.trackId, track);
@@ -2002,9 +2054,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         } as (typeof finalTracks)[number]);
       }
     }
-    finalTracks = localSearch.tracks
+    const mapped = localSearch.tracks
       .map((track) => byId.get(track.trackId))
       .filter((track): track is (typeof finalTracks)[number] => !!track);
+    if (mapped.length >= Math.max(8, Math.floor(finalTracks.length * 0.75))) {
+      finalTracks = mapped;
+    }
   }
   const openingRepairCount = 0;
   const insufficientOpeningWorldReason: string | null = null;
@@ -2092,7 +2147,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     prePolishTracks.map(toPatternTrack),
     curationScoringContext,
   );
-  if (finalTracks.length > 0 && sceneWorldContext?.active && sceneWorldContext.sceneClusters) {
+  if (finalTracks.length > 0 && sceneWorldContext?.active && sceneWorldContext.sceneClusters && !opts.shouldSkipMarginalImprovement?.()) {
     const polish = applyHumanSaveabilityPolishLayer({
       tracks: finalTracks,
       context: sceneWorldContext,
@@ -2119,7 +2174,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     finalTracks.length > 0 &&
     sceneWorldContext?.active &&
     sceneWorldContext.sceneClusters &&
-    (humanSaveStrictMode || polishMutated)
+    (humanSaveStrictMode || polishMutated) &&
+    !opts.shouldSkipMarginalImprovement?.()
   ) {
     const stabiliser = applyHumanSaveabilityStabiliser({
       tracks: finalTracks,
@@ -2138,7 +2194,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     !!editorialStabiliserDiagnostics?.applied ||
     (editorialStabiliserDiagnostics?.openingSwapsPerformed ?? 0) > 0 ||
     (editorialStabiliserDiagnostics?.arcSwapsPerformed ?? 0) > 0;
-  if (editorialLayersMutated && finalTracks.length > 0) {
+  if (editorialLayersMutated && finalTracks.length > 0 && !opts.shouldSkipMarginalImprovement?.()) {
     const refinement = improvePlaylistByLocalSearch(
       finalTracks.map(toPatternTrack),
       localSearchPool,
@@ -2159,9 +2215,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           } as (typeof finalTracks)[number]);
         }
       }
-      finalTracks = refinement.tracks
+      const mapped = refinement.tracks
         .map((track) => byId.get(track.trackId))
         .filter((track): track is (typeof finalTracks)[number] => !!track);
+      if (mapped.length >= Math.max(8, Math.floor(finalTracks.length * 0.75))) {
+        finalTracks = mapped;
+      }
     }
   }
 
@@ -2175,6 +2234,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     removalReason: string;
   }> = [];
 
+  const humanSaveGateStartedAt = Date.now();
   const humanSaveGate = await runHumanSaveabilityGateWithRetries({
     prompt: vibe,
     lockedIntent,
@@ -2191,7 +2251,10 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     sessionArtistMemory: opts.sessionArtistMemory,
     recentTrackPenalty: opts.trackReusePenalty,
     cohesivePlaylist: cohesivePlaylist || humanSaveStrictMode,
+    shouldSkipMarginalImprovement: opts.shouldSkipMarginalImprovement,
   });
+  recordTiming("humanSaveability", humanSaveGateStartedAt);
+  recordTiming("tournament", humanSaveGateStartedAt);
   finalTracks = humanSaveGate.tracks as Array<T & V3SelectionCandidate<T>>;
   editorialRemoved = humanSaveGate.editorialRemoved;
 

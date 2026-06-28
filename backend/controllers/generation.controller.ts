@@ -70,6 +70,11 @@ import {
   MINIMAL_GENRE_STACK_THRESHOLD,
   resolveHybridPoolCap,
 } from "../lib/production-limits";
+import { createLatencyBudget } from "../lib/latency-budget";
+import { createRequestStageTiming, type RequestStageTimingReport } from "../lib/request-stage-timing";
+import { createGoodPlaylistRefinementTelemetry } from "../lib/good-playlist-refinement-telemetry";
+import type { GoodPlaylistRefinementTelemetry } from "../lib/good-playlist-refinement-telemetry";
+import type { LatencyBudget } from "../lib/latency-budget";
 import {
   acquireGenerateSession,
   endGenerateSession,
@@ -502,6 +507,43 @@ function withIntentSurvivalAuditPayload(
   });
 }
 
+function buildLatencyObservabilityFromCtx(
+  ctx: Record<string, unknown> | undefined,
+  tracks: Array<{
+    trackId: string;
+    artistName: string;
+    energy: number | null;
+    valence: number | null;
+    danceability?: number | null;
+    acousticness?: number | null;
+    score?: number;
+    laneScore?: number | null;
+  }>,
+  opts: {
+    elapsedMs: number;
+    latencyBudgetExceeded?: boolean;
+    requestStageTiming?: RequestStageTimingReport | null;
+  },
+): {
+  latencyBudgetExceeded: boolean;
+  requestStageTiming: RequestStageTimingReport | null;
+  latencyBudget: ReturnType<LatencyBudget["snapshot"]> | null;
+  goodPlaylistRefinement: ReturnType<GoodPlaylistRefinementTelemetry["finalize"]> | null;
+} {
+  const latencyBudget = ctx?.latencyBudget as LatencyBudget | undefined;
+  const refinementTelemetry = ctx?.refinementTelemetry as GoodPlaylistRefinementTelemetry | undefined;
+  const stageTiming = ctx?.requestStageTiming as ReturnType<typeof createRequestStageTiming> | undefined;
+  if (stageTiming) stageTiming.setTotal(opts.elapsedMs);
+  const deliveredDueToBudget = opts.latencyBudgetExceeded === true ||
+    latencyBudget?.shouldSkipMarginalImprovement() === true;
+  return {
+    latencyBudgetExceeded: deliveredDueToBudget,
+    requestStageTiming: opts.requestStageTiming ?? stageTiming?.report() ?? null,
+    latencyBudget: latencyBudget?.snapshot() ?? null,
+    goodPlaylistRefinement: refinementTelemetry?.finalize(tracks, null) ?? null,
+  };
+}
+
 function timeoutFallbackResponse(
   req: import("express").Request,
   res: import("express").Response,
@@ -512,6 +554,8 @@ function timeoutFallbackResponse(
     lastPhase?: string | null;
     lastStage?: string | null;
     stageProfile?: unknown;
+    latencyBudgetExceeded?: boolean;
+    requestStageTiming?: RequestStageTimingReport | null;
   },
 ): boolean {
   if (responseFinished(res)) return true;
@@ -557,6 +601,11 @@ function timeoutFallbackResponse(
   if (emotionProfile && finalizedTracks.length > 0 && length > 0) {
     const tracks = formatTracksForApi(finalizedTracks.slice(0, length), emotionProfile);
     if (tracks.length > 0) {
+      const latencyObs = buildLatencyObservabilityFromCtx(ctx, finalizedTracks, {
+        elapsedMs: opts.elapsedMs,
+        latencyBudgetExceeded: opts.latencyBudgetExceeded,
+        requestStageTiming: opts.requestStageTiming ?? null,
+      });
       req.log.warn(
         {
           requestId: opts.requestId,
@@ -585,6 +634,10 @@ function timeoutFallbackResponse(
           finalResponseCompletionAdded: tracks.length,
           timeoutFallbackSource: "finalized_tracks",
           productionTimeline: productionTimelineReport,
+          latencyBudgetExceeded: latencyObs.latencyBudgetExceeded,
+          requestStageTiming: latencyObs.requestStageTiming,
+          latencyBudget: latencyObs.latencyBudget,
+          goodPlaylistRefinement: latencyObs.goodPlaylistRefinement,
         },
         v3Diagnostics: (ctx?.v3Diagnostics as Record<string, unknown> | undefined) ?? { timeoutFinalized: true },
         fastFallback: false,
@@ -831,6 +884,12 @@ function timeoutFallbackResponse(
   const tracks = formatTracksForApi(timeoutFinalTracks.slice(0, length), emotionProfile);
   if (tracks.length === 0) return false;
 
+  const latencyObs = buildLatencyObservabilityFromCtx(ctx, timeoutFinalTracks, {
+    elapsedMs: opts.elapsedMs,
+    latencyBudgetExceeded: opts.latencyBudgetExceeded,
+    requestStageTiming: opts.requestStageTiming ?? null,
+  });
+
   const bypassGate = buildBypassedHumanSaveabilityGate({
     reason: "fast_fallback",
     stageResponsible: "request",
@@ -869,6 +928,10 @@ function timeoutFallbackResponse(
       timeoutFallbackSource: scoringInputSongs.length > 0 ? "scoring_input_plus_library" : "liked_songs",
       timeoutFallbackIntentOrdered: expectedFamilies.length > 0 || !!eraRange,
       productionTimeline: productionTimelineReport,
+      latencyBudgetExceeded: latencyObs.latencyBudgetExceeded,
+      requestStageTiming: latencyObs.requestStageTiming,
+      latencyBudget: latencyObs.latencyBudget,
+      goodPlaylistRefinement: latencyObs.goodPlaylistRefinement,
     },
     v3Diagnostics: {
       ...(pipeline.scoringDiagnostics as Record<string, unknown> | undefined),
@@ -4659,6 +4722,7 @@ router.post("/generate", async (req, res): Promise<void> => {
   let sessionUserId = "";
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let hardTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+  let latencyBudgetTimer: ReturnType<typeof setTimeout> | null = null;
   let clientDisconnected = false;
   let cleanupClientDisconnectListeners: (() => void) | null = null;
   let requestHardTimeoutMs = REQUEST_HARD_TIMEOUT_MS;
@@ -4850,10 +4914,35 @@ router.post("/generate", async (req, res): Promise<void> => {
     requestId = acquired;
     sessionUserId = generateSessionUserId;
     const liveStageProfiler = createLiveStageProfiler(startMs);
+    const latencyBudget = createLatencyBudget(startMs, requestHardTimeoutMs);
+    const requestStageTiming = createRequestStageTiming(startMs);
+    const refinementTelemetry = createGoodPlaylistRefinementTelemetry(startMs, length);
+    let latencyBudgetExceeded = false;
     const deadlineAt = startMs + requestHardTimeoutMs;
     const generationShouldAbort = (): boolean => {
       if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return true;
-      if (Date.now() >= deadlineAt - 2_000) return true;
+      if (latencyBudget.mustDeliverNow()) return true;
+      if (latencyBudget.isHardDeadlineApproaching()) return true;
+      return false;
+    };
+    const shouldSkipMarginalImprovement = (): boolean => latencyBudget.shouldSkipMarginalImprovement();
+    const emitLatencyBudgetFallback = (): boolean => {
+      if (responseFinished(res)) return true;
+      latencyBudget.markExceeded();
+      latencyBudgetExceeded = true;
+      requestStageTiming.setTotal(Date.now() - startMs);
+      const stageProfile = liveStageProfiler.snapshot();
+      const progressBeforeCancel = getGenerateProgress(generateSessionUserId);
+      if (timeoutFallbackResponse(req, res, {
+        failureReason: "latency_budget_exceeded",
+        elapsedMs: Date.now() - startMs,
+        requestId,
+        lastPhase: progressBeforeCancel?.phase ?? null,
+        lastStage: progressBeforeCancel?.stage ?? null,
+        stageProfile,
+        latencyBudgetExceeded: true,
+        requestStageTiming: requestStageTiming.report(),
+      })) return true;
       return false;
     };
     const markClientDisconnected = (): void => {
@@ -4873,6 +4962,18 @@ router.post("/generate", async (req, res): Promise<void> => {
       res.off("close", onResponseClose);
     };
     const timeoutAfterMs = Math.max(1, deadlineAt - Date.now());
+    const latencyBudgetAfterMs = Math.max(1, latencyBudget.hardDeadlineAt - Date.now());
+    latencyBudgetTimer = setTimeout(() => {
+      if (responseFinished(res)) return;
+      cancelGenerateSession(generateSessionUserId, requestId);
+      req.log.warn(
+        { userId, requestId, elapsedMs: Date.now() - startMs, code: "LATENCY_BUDGET" },
+        "Generate latency budget hard deadline — delivering best available playlist",
+      );
+      if (emitLatencyBudgetFallback()) return;
+      if (respondIfStale(res, generateSessionUserId, requestId)) return;
+    }, latencyBudgetAfterMs);
+    latencyBudgetTimer.unref?.();
     hardTimeoutTimer = setTimeout(() => {
       if (responseFinished(res)) return;
       const progressBeforeCancel = getGenerateProgress(generateSessionUserId);
@@ -5519,6 +5620,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       noLibraryRetrievalDiagnostics,
       noLibraryMode,
       productionTimeline,
+      requestStageTiming,
+      latencyBudget,
+      refinementTelemetry,
     };
 
     if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
@@ -6340,6 +6444,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       sceneWorldProof: sceneWorldProofRequested,
       profileStage: liveStageProfiler.start,
       shouldAbort: generationShouldAbort,
+      shouldSkipMarginalImprovement,
+      onGoodPlaylistReady: (snapshot) => {
+        latencyBudget.markGoodPlaylistReady();
+        refinementTelemetry.captureGoodPlaylistReady(snapshot.tracks, snapshot.scoringContext);
+      },
       generationPolicy,
       editorialMemory,
       libraryFingerprint,
@@ -6449,6 +6558,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       genCtx["v3Diagnostics"] = pipeline.scoringDiagnostics;
     };
     publishFinalTracksContext();
+    if (latencyBudget.mustDeliverNow() && finalTracks.length > 0 && emitLatencyBudgetFallback()) return;
     let finalValidation = validateLockedIntentOutput(
       finalTracks,
       lockedIntent,
@@ -6552,7 +6662,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       controlledRecoveryBlocked = true;
       controlledRecoveryReason = recoveryGuards.reason;
     }
-    if (needsFinalizeRecovery) {
+    if (needsFinalizeRecovery && !shouldSkipMarginalImprovement()) {
+      if (latencyBudget.mustDeliverNow() && finalTracks.length > 0 && emitLatencyBudgetFallback()) return;
       const underfillStartedAt = Date.now();
       const seenUnderfillCandidateIds = new Set<string>();
       const toUnderfillCandidate = <T extends {
@@ -7556,7 +7667,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     let swapRepairActions: CoherenceSwapRecord[] = [];
     let coherenceRebuildIterations = 0;
     let coherenceGateResult: CoherenceGateResult | null = null;
-    if (finalTracks.length >= 4) {
+    if (finalTracks.length >= 4 && !shouldSkipMarginalImprovement()) {
+      if (latencyBudget.mustDeliverNow() && finalTracks.length > 0 && emitLatencyBudgetFallback()) return;
       const enrichedFinal = finalTracks.map(enrichTrackForCoherence);
       const coherenceRepair = coherenceRepairSettingsFromPlan(compilePlan, sceneLockStatus.active);
       if (baseFinalizationCandidates.length > 0) {
@@ -7861,6 +7973,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       };
     };
     const skipNonEssentialDiagnostics = budget.remainingMs() < 8_000;
+    requestStageTiming.mergeV3TimingMs({ timingMs: pipelineTiming ?? undefined });
+    requestStageTiming.add("refinement", finalizationTimeMs + repairTimeMs);
+    requestStageTiming.mergeProductionTimeline(
+      buildProductionTimelineReport(productionTimeline, startMs).stageDurationsMs as Record<string, number>,
+    );
+    requestStageTiming.setTotal(Date.now() - startMs);
     const requestTimingMs = {
       total: Date.now() - startMs,
       preV3: preV3Timing,
@@ -7951,6 +8069,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         preScoringCandidateShape: preScoringCandidateShape.diagnostics,
       },
       stageProfile: liveStageProfiler.snapshot(),
+      latencyOptimizationSkipped: {
+        phase: latencyBudget.currentPhase(),
+        goodPlaylistReady: latencyBudget.goodPlaylistReady(),
+        marginalImprovementSkipped: latencyBudget.shouldSkipMarginalImprovement(),
+        finalizationRecovery: needsFinalizeRecovery && latencyBudget.shouldSkipMarginalImprovement(),
+        coherenceRebuild: latencyBudget.shouldSkipMarginalImprovement(),
+      },
       recoveryRelaxations,
       recoveryTriggered: fallbackLevel !== "none" || recoveryRelaxations.length > 0,
       fallbackLevel,
@@ -8680,6 +8805,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (generationCompletionBlocked(generateSessionUserId, requestId, finalTracks.length)) return;
 
     publishFinalTracksContext();
+    const endSerializationTiming = requestStageTiming.start("serialization");
     const endApiFormattingProfile = liveStageProfiler.start("controller.apiTrackFormatting", `${finalTracks.length} tracks`);
     let finalApiTracks = formatTracksForApi(finalTracks, emotionProfile);
     if (isGymWorkoutPrompt(vibe, lockedIntent) && !promptExplicitlyAllowsGymHipHop(vibe, lockedIntent, constraintLayer)) {
@@ -8830,6 +8956,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
     endApiFormattingProfile();
+    endSerializationTiming();
     const finalGenreDistribution = finalApiTracks.reduce<Record<string, number>>(
       (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
       {},
@@ -8904,6 +9031,23 @@ router.post("/generate", async (req, res): Promise<void> => {
       recoveryUsed: generationDiagnostics.recoveryTriggered,
       fallbackUsed: generationDiagnostics.fallbackTriggered,
     };
+    const goodPlaylistRefinement = refinementTelemetry.finalize(
+      finalTracks.map((track) => ({
+        trackId: track.trackId,
+        artistName: track.artistName,
+        energy: track.energy,
+        valence: track.valence,
+        danceability: track.danceability ?? null,
+        acousticness: track.acousticness ?? null,
+        popularity: track.popularity ?? null,
+        rediscoveryScore: track.rediscoveryScore ?? null,
+        releaseYear: track.releaseYear ?? null,
+        tempo: track.tempo ?? null,
+        laneScore: (track as { laneScore?: number }).laneScore,
+        score: track.score,
+      })),
+      playlistConfidence.score,
+    );
     recordUnknownTermEvents({
       userId,
       prompt: vibe,
@@ -8986,6 +9130,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       compatible: undefined,
       relaxed: strictGenreEvidenceRelaxed,
     };
+    const endDiagnosticsTiming = requestStageTiming.start("diagnostics");
     const endIntentSurvivalProfile = liveStageProfiler.start("controller.intentSurvivalDiagnostics", `${finalTracks.length} tracks`);
     const intentSurvivalDiagnostics = buildIntentSurvivalDiagnostics({
       prompt: vibe,
@@ -9008,6 +9153,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       intentUnderstanding: intentUnderstandingDiagnostics,
     });
     endIntentSurvivalProfile();
+    endDiagnosticsTiming();
     recordIntentSurvivalSample({
       overall: intentSurvivalDiagnostics.scores.overallIntentSurvival,
       emotion: intentSurvivalDiagnostics.scores.emotionSurvival,
@@ -9044,9 +9190,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     const productionTimelineReport = buildProductionTimelineReport(productionTimeline, startMs, {
       failureReason: fallbackReason ? "time_budget_fast_fallback" : null,
     });
+    const deliveredDueToLatencyBudget = latencyBudgetExceeded || latencyBudget.shouldSkipMarginalImprovement();
     const generationDiagnosticsWithTimeline = {
       ...generationDiagnostics,
       productionTimeline: productionTimelineReport,
+      requestStageTiming: (() => {
+        requestStageTiming.setTotal(Date.now() - startMs);
+        return requestStageTiming.report();
+      })(),
+      latencyBudget: latencyBudget.snapshot(),
+      latencyBudgetExceeded: deliveredDueToLatencyBudget,
+      goodPlaylistRefinement,
     };
     const generationTrust = buildGenerationTrustPayload({
       vibe,
@@ -9506,6 +9660,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       genStageTimer?.dispose();
       cleanupClientDisconnectListeners?.();
       if (hardTimeoutTimer) clearTimeout(hardTimeoutTimer);
+      if (latencyBudgetTimer) clearTimeout(latencyBudgetTimer);
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (sessionUserId && requestId) {
         endGenerateSession(sessionUserId, requestId);

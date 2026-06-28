@@ -2,6 +2,7 @@
  * Production caps — no full-library scoring, graph, or trace work.
  */
 
+import { LATENCY_HARD_DEADLINE_MS } from "./latency-budget";
 import type { VibeKind } from "./emotion";
 
 export const LARGE_LIBRARY_THRESHOLD = 3000;
@@ -20,8 +21,8 @@ export const MINIMAL_GENRE_STACK_THRESHOLD = 500;
 export const TRACE_SAMPLE_SIZE = 40;
 export const TRACE_MAX_TOTAL = 45;
 
-/** Hard server budget for /generate (ms). */
-export const REQUEST_HARD_TIMEOUT_MS = 70_000;
+/** Hard server budget for /generate (ms) — same source as latency-budget delivery deadline. */
+export const REQUEST_HARD_TIMEOUT_MS = LATENCY_HARD_DEADLINE_MS;
 /** Audit/benchmark runs use a longer budget aligned with the harness client timeout. */
 export const AUDIT_REQUEST_HARD_TIMEOUT_MS = 120_000;
 /** Switch to fast fallback if pipeline not done by this point (ms from request start). */

@@ -18,7 +18,8 @@ import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
 import { runV3Pipeline } from "./v3/v3-pipeline";
 import type { SamplerInterpretation } from "./v3/v3-sampler";
-import { evaluatePlaylistCurationBelievability } from "./editorial/would-i-save-evaluator";
+import { evaluatePlaylistCurationBelievability, type PlaylistCurationScoringContext } from "./editorial/would-i-save-evaluator";
+import type { PatternScoringTrack } from "./editorial/human-playlist-patterns";
 import {
   selectBestCandidateByPairwiseTournament,
   type PairwiseTournamentAudit,
@@ -231,6 +232,11 @@ export interface BuildPlaylistPipelineOpts<T extends {
   profileStage?: (stage: string, detail?: string) => () => void;
   progress?: (stage: "scoring" | "retrieval" | "lanes" | "sampling" | "fallback" | "coherence", detail: string) => void | Promise<void>;
   shouldAbort?: () => boolean;
+  shouldSkipMarginalImprovement?: () => boolean;
+  onGoodPlaylistReady?: (snapshot: {
+    tracks: PatternScoringTrack[];
+    scoringContext: PlaylistCurationScoringContext;
+  }) => void;
   /** Library + prompt uncertainty adaptation layer */
   generationPolicy?: GenerationPolicy;
   editorialMemory?: EditorialStructureMemory | null;
@@ -4952,6 +4958,8 @@ export async function buildPlaylistPipeline<T extends {
             maxTasteWeight: dominantContract.maxTastePullWeight,
           },
           samplerInterpretation: candidate.interpretation,
+          shouldSkipMarginalImprovement: opts.shouldSkipMarginalImprovement,
+          onGoodPlaylistReady: opts.onGoodPlaylistReady,
         }
       );
     } finally {
