@@ -74,6 +74,12 @@ import { createLatencyBudget } from "../lib/latency-budget";
 import { createRequestStageTiming, type RequestStageTimingReport } from "../lib/request-stage-timing";
 import { createGoodPlaylistRefinementTelemetry } from "../lib/good-playlist-refinement-telemetry";
 import type { GoodPlaylistRefinementTelemetry } from "../lib/good-playlist-refinement-telemetry";
+import {
+  persistGoodPlaylistDeliverySnapshot,
+  resolveTimeoutFallbackDeliverableTracks,
+  type GoodPlaylistDeliverableTrack,
+  type TimeoutFallbackSource,
+} from "../lib/good-playlist-delivery-snapshot";
 import type { LatencyBudget } from "../lib/latency-budget";
 import {
   acquireGenerateSession,
@@ -578,34 +584,23 @@ function timeoutFallbackResponse(
   const sceneLockStatus = ctx?.sceneLockStatus as import("../core/scene-lock-mode").SceneLockStatus | undefined;
   const sceneAliases = Array.isArray(ctx?.sceneAliases) ? ctx.sceneAliases as string[] : [];
   const mergedScenePrediction = ctx?.mergedScenePrediction as Record<string, number> | undefined;
-  const finalizedTracks = Array.isArray(ctx?.finalTracks)
-    ? ctx.finalTracks as Array<V3MetadataTrack<{
-      trackId: string;
-      trackName: string;
-      artistName: string;
-      albumName: string;
-      albumArt?: string | null;
-      durationMs?: number | null;
-      energy: number | null;
-      valence: number | null;
-      tempo?: number | null;
-      danceability?: number | null;
-      acousticness?: number | null;
-      score?: number;
-      rediscoveryScore?: number;
-      genrePrimary?: string | null;
-      genreFamily?: string | null;
-      genres?: string[] | null;
-    }>>
-    : [];
-  if (emotionProfile && finalizedTracks.length > 0 && length > 0) {
-    const tracks = formatTracksForApi(finalizedTracks.slice(0, length), emotionProfile);
+  const knownGood = resolveTimeoutFallbackDeliverableTracks(ctx);
+  const deliverableTracks = knownGood?.tracks ?? [];
+  if (emotionProfile && deliverableTracks.length > 0 && length > 0) {
+    const tracks = formatTracksForApi(deliverableTracks.slice(0, length), emotionProfile);
     if (tracks.length > 0) {
-      const latencyObs = buildLatencyObservabilityFromCtx(ctx, finalizedTracks, {
+      const latencyObs = buildLatencyObservabilityFromCtx(ctx, deliverableTracks, {
         elapsedMs: opts.elapsedMs,
         latencyBudgetExceeded: opts.latencyBudgetExceeded,
         requestStageTiming: opts.requestStageTiming ?? null,
       });
+      const snapshot = ctx?.goodPlaylistDeliverySnapshot as {
+        readyAtMs?: number;
+        elapsedMs?: number;
+        confidence?: number;
+        trackIds?: readonly string[];
+      } | undefined;
+      const timeoutFallbackSource: TimeoutFallbackSource = knownGood?.source ?? "generic_fallback";
       req.log.warn(
         {
           requestId: opts.requestId,
@@ -613,8 +608,9 @@ function timeoutFallbackResponse(
           trackCount: tracks.length,
           requestedLength: length,
           failureReason: opts.failureReason,
+          timeoutFallbackSource,
         },
-        "Generate timeout finalized response emitted"
+        "Generate timeout deliverable response emitted"
       );
       res.status(200).json(withIntentSurvivalAuditPayload(req, attachExecutionTrace({
         success: true,
@@ -632,7 +628,15 @@ function timeoutFallbackResponse(
           stageProfile: opts.stageProfile ?? null,
           finalResponseCompletionLockApplied: true,
           finalResponseCompletionAdded: tracks.length,
-          timeoutFallbackSource: "finalized_tracks",
+          timeoutFallbackSource,
+          goodPlaylistDeliverySnapshot: snapshot
+            ? {
+              readyAtMs: snapshot.readyAtMs ?? null,
+              elapsedMs: snapshot.elapsedMs ?? null,
+              confidence: snapshot.confidence ?? null,
+              trackCount: snapshot.trackIds?.length ?? null,
+            }
+            : null,
           productionTimeline: productionTimelineReport,
           latencyBudgetExceeded: latencyObs.latencyBudgetExceeded,
           requestStageTiming: latencyObs.requestStageTiming,
@@ -925,7 +929,7 @@ function timeoutFallbackResponse(
       finalResponseCompletionLockApplied: true,
       finalResponseCompletionAdded: tracks.length,
       timeoutFallbackHardFillAdded: Math.max(0, tracks.length - pipeline.finalTracks.length),
-      timeoutFallbackSource: scoringInputSongs.length > 0 ? "scoring_input_plus_library" : "liked_songs",
+      timeoutFallbackSource: "generic_fallback" as const,
       timeoutFallbackIntentOrdered: expectedFamilies.length > 0 || !!eraRange,
       productionTimeline: productionTimelineReport,
       latencyBudgetExceeded: latencyObs.latencyBudgetExceeded,
@@ -6448,6 +6452,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       onGoodPlaylistReady: (snapshot) => {
         latencyBudget.markGoodPlaylistReady();
         refinementTelemetry.captureGoodPlaylistReady(snapshot.tracks, snapshot.scoringContext);
+        const genCtx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
+        if (genCtx) {
+          persistGoodPlaylistDeliverySnapshot(genCtx, {
+            readyAtMs: Date.now(),
+            elapsedMs: Date.now() - startMs,
+            deliverableTracks: snapshot.deliverableTracks as GoodPlaylistDeliverableTrack[],
+            scoringContext: snapshot.scoringContext,
+            targetLength: length,
+          });
+        }
       },
       generationPolicy,
       editorialMemory,

@@ -863,6 +863,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     shouldSkipMarginalImprovement?: () => boolean;
     onGoodPlaylistReady?: (snapshot: {
       tracks: import("../editorial/human-playlist-patterns").PatternScoringTrack[];
+      deliverableTracks: T[];
       scoringContext: PlaylistCurationScoringContext;
     }) => void;
     dominantIntentGates?: {
@@ -1960,6 +1961,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   if (finalTracks.length > 0 && isGenuinelyUsablePlaylist(finalTracks.length, targetCount)) {
     opts.onGoodPlaylistReady?.({
       tracks: finalTracks.map(toPatternTrack),
+      deliverableTracks: finalTracks.map((track) => ({ ...track })),
       scoringContext: {
         ...curationScoringContext,
         targetLength: targetCount,

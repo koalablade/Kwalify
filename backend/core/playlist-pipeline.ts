@@ -235,6 +235,7 @@ export interface BuildPlaylistPipelineOpts<T extends {
   shouldSkipMarginalImprovement?: () => boolean;
   onGoodPlaylistReady?: (snapshot: {
     tracks: PatternScoringTrack[];
+    deliverableTracks: T[];
     scoringContext: PlaylistCurationScoringContext;
   }) => void;
   /** Library + prompt uncertainty adaptation layer */
