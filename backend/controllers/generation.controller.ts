@@ -76,6 +76,8 @@ import {
   setGeneratePhase,
   setGenerateStageDetail,
   isGenerateCancelled,
+  isGenerateSuperseded,
+  resolveAuditHardTimeoutMs,
   getPendingSpotifyPlaylistId,
   setPendingSpotifyPlaylistId,
   clearPendingSpotifyPlaylist,
@@ -174,6 +176,7 @@ import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify
 import { buildIntentSurvivalDiagnostics } from "../lib/intent-survival-diagnostics";
 import { buildGenerationTrustPayload } from "./generation-response";
 import { capAuditResponsePayload } from "../lib/audit-response-cap";
+import { attachIntentSurvivalToSuccessPayload } from "../lib/audit-intent-survival-payload";
 import {
   recordGenerationPhaseDuration,
   recordIntentSurvivalSample,
@@ -276,28 +279,43 @@ function staleGenerate(userId: string, requestId: string): boolean {
   return isGenerateCancelled(userId, requestId);
 }
 
-function responseFinished(res: import("express").Response): boolean {
-  return res.headersSent || res.writableEnded || res.destroyed;
-}
-
-async function yieldToEventLoop(): Promise<void> {
-  await new Promise<void>((resolve) => setImmediate(resolve));
-}
-
-function useMockSpotify(): boolean {
-  return getFeatures().devMode.useMockSpotify;
-}
-
-function currentGenerateUserId(req: import("express").Request): string | null {
-  return useMockSpotify() ? MOCK_SPOTIFY_USER_ID : req.session.spotifyUserId ?? null;
+function generationCompletionBlocked(
+  userId: string,
+  requestId: string,
+  deliverableTrackCount: number,
+): boolean {
+  if (isGenerateSuperseded(userId, requestId)) return true;
+  if (deliverableTrackCount > 0) return false;
+  return staleGenerate(userId, requestId);
 }
 
 /** Cancelled/superseded session — always send a response so the client does not hang. */
 function respondIfStale(
   res: import("express").Response,
   userId: string,
-  requestId: string
+  requestId: string,
+  opts?: { deliverableTrackCount?: number },
 ): boolean {
+  if (isGenerateSuperseded(userId, requestId)) {
+    if (!responseFinished(res)) {
+      res.status(409).json({
+        success: false,
+        code: "GENERATION_CANCELLED",
+        error:
+          "This generation was superseded or cancelled. Try again if you need a new playlist.",
+        tracks: [],
+        spotifyUnavailable: true,
+        generationDiagnostics: {
+          recoveryTriggered: false,
+          fallbackLevel: "none",
+          sessionCancelled: true,
+          superseded: true,
+        },
+      });
+    }
+    return true;
+  }
+  if ((opts?.deliverableTrackCount ?? 0) > 0) return false;
   if (!staleGenerate(userId, requestId)) return false;
   if (!responseFinished(res)) {
     res.status(409).json({
@@ -315,6 +333,22 @@ function respondIfStale(
     });
   }
   return true;
+}
+
+function responseFinished(res: import("express").Response): boolean {
+  return res.headersSent || res.writableEnded || res.destroyed;
+}
+
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise<void>((resolve) => setImmediate(resolve));
+}
+
+function useMockSpotify(): boolean {
+  return getFeatures().devMode.useMockSpotify;
+}
+
+function currentGenerateUserId(req: import("express").Request): string | null {
+  return useMockSpotify() ? MOCK_SPOTIFY_USER_ID : req.session.spotifyUserId ?? null;
 }
 
 /** Consistent /generate failure payload (API shape unchanged). */
@@ -450,6 +484,24 @@ function shouldBlockStrictEditorialTimeoutFallback(ctx: Record<string, unknown> 
   });
 }
 
+function withIntentSurvivalAuditPayload(
+  req: import("express").Request,
+  payload: Record<string, unknown>,
+  apiTracks: unknown[],
+  vibe: string,
+): Record<string, unknown> {
+  const ctx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
+  return attachIntentSurvivalToSuccessPayload({
+    payload,
+    ctx,
+    prompt: vibe,
+    apiTracks,
+    finalizationDiagnostics: payload["finalization"] as Record<string, unknown> | null | undefined,
+    strictGenreEvidence: payload["strictGenreEvidence"] as Record<string, unknown> | null | undefined,
+    strictEraEvidence: payload["strictEraEvidence"] as Record<string, unknown> | null | undefined,
+  });
+}
+
 function timeoutFallbackResponse(
   req: import("express").Request,
   res: import("express").Response,
@@ -515,7 +567,7 @@ function timeoutFallbackResponse(
         },
         "Generate timeout finalized response emitted"
       );
-      res.status(200).json(attachExecutionTrace({
+      res.status(200).json(withIntentSurvivalAuditPayload(req, attachExecutionTrace({
         success: true,
         playlistName: generatePlaylistName(vibe, emotionProfile),
         tracks,
@@ -545,7 +597,7 @@ function timeoutFallbackResponse(
         failureDetail: opts.failureReason,
         finalTrackCount: tracks.length,
         timeoutOccurred: true,
-      })));
+      })), tracks, vibe));
       return true;
     }
   }
@@ -797,7 +849,7 @@ function timeoutFallbackResponse(
     },
     "Generate timeout fallback response emitted"
   );
-  res.status(200).json(attachExecutionTrace({
+  res.status(200).json(withIntentSurvivalAuditPayload(req, attachExecutionTrace({
     success: true,
     playlistName: generatePlaylistName(vibe, emotionProfile),
     tracks,
@@ -833,7 +885,7 @@ function timeoutFallbackResponse(
     failureDetail: opts.failureReason,
     finalTrackCount: tracks.length,
     timeoutOccurred: true,
-  })));
+  })), tracks, vibe));
   return true;
 }
 
@@ -4153,6 +4205,7 @@ function formatV3DiagnosticsForApi(
     },
     sceneWorldLayer: compactSceneWorldLayerForApi(v3["sceneWorldLayer"]),
     deliveryTier: v3["deliveryTier"] ?? null,
+    intentSurvival: v3["intentSurvival"] ?? null,
     humanSaveabilityGate: compactHumanSaveabilityGateForApi(v3["humanSaveabilityGate"]),
     openingTenDominantCluster: v3["openingTenDominantCluster"] ?? null,
     sceneClusterFunnel: v3["sceneClusterFunnel"] ?? null,
@@ -4622,7 +4675,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     const auditTokenAuthorized = auditModeRequested && generationAuditTokenAuthorized(req);
     const auditMode = auditModeRequested && auditTokenAuthorized;
     const sideEffectPolicy = auditMode ? AUDIT_SIDE_EFFECT_POLICY : PRODUCTION_SIDE_EFFECT_POLICY;
-    requestHardTimeoutMs = REQUEST_HARD_TIMEOUT_MS;
+    requestHardTimeoutMs = auditMode
+      ? resolveAuditHardTimeoutMs(rawBody as Record<string, unknown>)
+      : REQUEST_HARD_TIMEOUT_MS;
     if (auditMode) beginSpotifyApiAudit();
     const auditUserIdRaw = typeof rawBody.spotifyUserId === "string"
       ? rawBody.spotifyUserId.trim()
@@ -4777,7 +4832,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     endTimelineStage(productionTimeline, startMs, "request_validation");
     markTimeline(productionTimeline, startMs, "queue_entered");
     startTimelineStage(productionTimeline, startMs, "session_acquire");
-    const acquired = acquireGenerateSession(generateSessionUserId);
+    const acquired = acquireGenerateSession(generateSessionUserId, {
+      hardTimeoutMs: requestHardTimeoutMs,
+    });
     if (!acquired) {
       req.log.info({ userId, code: "GENERATION_IN_PROGRESS" }, "Rejected duplicate generate");
       generateFail(
@@ -4796,10 +4853,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const deadlineAt = startMs + requestHardTimeoutMs;
     const generationShouldAbort = (): boolean => {
       if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return true;
-      if (Date.now() >= deadlineAt - 2_000) {
-        cancelGenerateSession(generateSessionUserId, requestId);
-        return true;
-      }
+      if (Date.now() >= deadlineAt - 2_000) return true;
       return false;
     };
     const markClientDisconnected = (): void => {
@@ -5362,7 +5416,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         executionHealth.hydrationCount = dbHydrationOccurred ? 1 : 0;
         executionHealth.finalisationCount += 1;
         const cachedExecutionHealth = finaliseExecutionHealth(executionHealth, Date.now() - startMs);
-        res.json(attachExecutionTrace({
+        res.json(withIntentSurvivalAuditPayload(req, attachExecutionTrace({
           success: true,
           cached: true,
           playlistId: cachedSavedPlaylistId,
@@ -5422,7 +5476,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
             debugFlags: { gateExecuted: true, gateBypassed: false, timeoutOccurred: false },
           };
-        })()));
+        })()), cachedApiTracks, cached.vibe ?? vibe));
         return;
       }
       if (cached && cacheInvalidReason) {
@@ -8207,7 +8261,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
     await yieldToEventLoop();
-    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (clientDisconnected || responseFinished(res)) return;
+    if (generationCompletionBlocked(generateSessionUserId, requestId, finalTracks.length)) return;
     if (isGymWorkoutPrompt(vibe, lockedIntent) && !promptExplicitlyAllowsGymHipHop(vibe, lockedIntent, constraintLayer)) {
       const originalGymTrackCount = finalTracks.length;
       const gymSafeTracks = finalTracks.filter((track) =>
@@ -8261,7 +8316,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         return;
     }
 
-    if (respondIfStale(res, generateSessionUserId, requestId)) return;
+    if (respondIfStale(res, generateSessionUserId, requestId, { deliverableTrackCount: finalTracks.length })) return;
 
     const playlistName = generatePlaylistName(vibe, emotionProfile);
     const antiBlandnessCandidatePool = [
@@ -8366,7 +8421,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let spotifyPartial = false;
     let spotifyTracksAdded: number | undefined;
 
-    if (sideEffectPolicy.allowSpotifyPlaylistCreate && !devMode && !staleGenerate(generateSessionUserId, requestId)) {
+    if (sideEffectPolicy.allowSpotifyPlaylistCreate && !devMode && !generationCompletionBlocked(generateSessionUserId, requestId, finalTracks.length)) {
       try {
         const freshTokens = await getValidAccessToken(
           req.session.spotifyTokens!,
@@ -8467,7 +8522,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Playlist saved to DB"
     );
     await yieldToEventLoop();
-    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (clientDisconnected || responseFinished(res)) return;
+    if (generationCompletionBlocked(generateSessionUserId, requestId, finalTracks.length)) return;
 
     if (sideEffectPolicy.allowHistoryWrites) {
     try {
@@ -8538,7 +8594,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? "Most cached likes look recently added. Run a full library sync from the app so older favourites are included."
         : null;
     await yieldToEventLoop();
-    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (clientDisconnected || responseFinished(res)) return;
+    if (generationCompletionBlocked(generateSessionUserId, requestId, finalTracks.length)) return;
 
     const v3Diagnostics = formatV3DiagnosticsForApi(
       pipeline.scoringDiagnostics?.v3Pipeline,
@@ -8605,7 +8662,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     setGeneratePhase(generateSessionUserId, requestId, "done");
-    if (respondIfStale(res, generateSessionUserId, requestId)) return;
+    if (respondIfStale(res, generateSessionUserId, requestId, { deliverableTrackCount: finalTracks.length })) return;
 
     req.log.info(
       {
@@ -8619,7 +8676,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Generation complete"
     );
     await yieldToEventLoop();
-    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (clientDisconnected || responseFinished(res)) return;
+    if (generationCompletionBlocked(generateSessionUserId, requestId, finalTracks.length)) return;
 
     publishFinalTracksContext();
     const endApiFormattingProfile = liveStageProfiler.start("controller.apiTrackFormatting", `${finalTracks.length} tracks`);
@@ -8956,7 +9014,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       subgenre: intentSurvivalDiagnostics.scores.subgenreSurvival,
     });
     await yieldToEventLoop();
-    if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
+    if (clientDisconnected || responseFinished(res)) return;
+    if (generationCompletionBlocked(generateSessionUserId, requestId, finalTracks.length)) return;
     const fallbackBypassGate = pipeline.scoringDiagnostics?.fastFallback
       ? buildBypassedHumanSaveabilityGate({
           reason: "fast_fallback",
@@ -9168,7 +9227,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       };
       endAuditResponseProfile();
       const endAuditJsonProfile = liveStageProfiler.start("controller.responseJson.auditSlim", `${finalApiTracks.length} tracks`);
-      res.json(capAuditResponsePayload(auditResponse));
+      res.json(capAuditResponsePayload(withIntentSurvivalAuditPayload(req, auditResponse, finalApiTracks, vibe)));
       endAuditJsonProfile();
       return;
     }

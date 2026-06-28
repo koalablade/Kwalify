@@ -631,6 +631,8 @@ async function postGenerate(config: BenchmarkConfig, prompt: BenchmarkPrompt): P
         length: prompt.requestedLength,
         auditMode: true,
         spotifyUserId: config.spotifyUserId,
+        evaluationTimeoutMs: config.timeoutMs,
+        benchmarkPromptId: prompt.id,
         varietyBoost: process.env["BENCHMARK_VARIETY_BOOST"] === "1",
       }),
       signal: controller.signal,

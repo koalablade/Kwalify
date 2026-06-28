@@ -2,7 +2,11 @@
  * Per-user generate session — single active request, phase tracking, Spotify idempotency.
  */
 
-import { REQUEST_FAST_FALLBACK_MS, REQUEST_HARD_TIMEOUT_MS } from "./production-limits";
+import {
+  AUDIT_REQUEST_HARD_TIMEOUT_MS,
+  REQUEST_FAST_FALLBACK_MS,
+  REQUEST_HARD_TIMEOUT_MS,
+} from "./production-limits";
 
 export type GeneratePhase =
   | "idle"
@@ -34,6 +38,7 @@ type SessionState = {
   requestId: string;
   startedAt: number;
   updatedAt: number;
+  hardTimeoutMs: number;
   phase: GeneratePhase;
   stage: GenerateStage;
   stageIndex: number;
@@ -73,7 +78,7 @@ const PHASE_STAGE: Record<GeneratePhase, { stage: GenerateStage; stageIndex: num
 
 function isActiveSession(s: SessionState): boolean {
   if (s.cancelled) return false;
-  if (Date.now() - s.startedAt >= REQUEST_HARD_TIMEOUT_MS) return false;
+  if (Date.now() - s.startedAt >= s.hardTimeoutMs) return false;
   return ACTIVE_PHASES.has(s.phase);
 }
 
@@ -96,7 +101,7 @@ function nextRequestId(userId: string): string {
  */
 export function acquireGenerateSession(
   userId: string,
-  opts?: { force?: boolean }
+  opts?: { force?: boolean; hardTimeoutMs?: number }
 ): string | null {
   const existing = sessions.get(userId);
   if (!opts?.force && existing && isActiveSession(existing)) {
@@ -105,10 +110,12 @@ export function acquireGenerateSession(
   if (existing) existing.cancelled = true;
 
   const requestId = nextRequestId(userId);
+  const hardTimeoutMs = opts?.hardTimeoutMs ?? REQUEST_HARD_TIMEOUT_MS;
   sessions.set(userId, {
     requestId,
     startedAt: Date.now(),
     updatedAt: Date.now(),
+    hardTimeoutMs,
     phase: "starting",
     ...PHASE_STAGE.starting,
     stageDetail: null,
@@ -162,6 +169,24 @@ export function setGenerateStageDetail(
 export function isGenerateCancelled(userId: string, requestId: string): boolean {
   const s = sessions.get(userId);
   return !s || s.requestId !== requestId || s.cancelled;
+}
+
+/** True when a newer generate request replaced this one (not a timeout/disconnect cancel). */
+export function isGenerateSuperseded(userId: string, requestId: string): boolean {
+  const s = sessions.get(userId);
+  return !!s && s.requestId !== requestId;
+}
+
+/** Same request cancelled by watchdog, client disconnect, or cooperative deadline — not superseded. */
+export function isGenerateTimeoutCancelled(userId: string, requestId: string): boolean {
+  const s = sessions.get(userId);
+  return !!s && s.requestId === requestId && s.cancelled;
+}
+
+export function resolveAuditHardTimeoutMs(rawBody: Record<string, unknown> | undefined): number {
+  const raw = rawBody?.["evaluationTimeoutMs"];
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return AUDIT_REQUEST_HARD_TIMEOUT_MS;
+  return Math.min(AUDIT_REQUEST_HARD_TIMEOUT_MS, Math.max(REQUEST_HARD_TIMEOUT_MS, Math.floor(raw)));
 }
 
 export function getGenerateProgress(userId: string): {
