@@ -26,9 +26,14 @@ jobs:
         run: npm run verify:eval-token
       - name: Live prompt reliability benchmark (~40m)
         run: |
-          OUT_DIR="reports/prompt-reliability/live-$(date -u +%Y%m%dT%H%MZ)"
+          DEPLOYED_SHA=$(curl -fsS https://kwalify.net/api/readyz | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{try{const j=JSON.parse(s);process.stdout.write(String(j.commit||'unknown'))}catch{process.stdout.write('unknown')}})")
+          SHORT_SHA=$(echo "$DEPLOYED_SHA" | cut -c1-12)
+          OUT_DIR="reports/prompt-reliability/post-deploy/${SHORT_SHA}"
+          echo "Deployed commit: $DEPLOYED_SHA"
+          echo "Output dir: $OUT_DIR"
           npm run benchmark:prompt-reliability -- \
             --out "$OUT_DIR" \
+            --baseline reports/prompt-reliability/post-deploy/84a9b93/prompt-reliability-report.json \
             --delay-ms 2000 \
             --timeout-ms 120000
           echo "OUT_DIR=$OUT_DIR" >> "$GITHUB_ENV"

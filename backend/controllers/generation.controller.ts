@@ -4025,6 +4025,17 @@ function compactHumanSaveabilityGateForApi(value: unknown): unknown {
     retriesUsed: gate["retriesUsed"],
     maxRetries: gate["maxRetries"],
     hardFailed: gate["hardFailed"],
+    deliveryTier: gate["deliveryTier"] ?? null,
+    degradedDelivery: gate["degradedDelivery"] ?? false,
+    completePlaylistSearch: (() => {
+      const search = gate["completePlaylistSearch"] as Record<string, unknown> | undefined;
+      if (!search || typeof search !== "object") return null;
+      return {
+        constraintsRelaxed: Array.isArray(search["constraintsRelaxed"])
+          ? search["constraintsRelaxed"].map(String)
+          : [],
+      };
+    })(),
   };
 }
 
@@ -4141,6 +4152,7 @@ function formatV3DiagnosticsForApi(
       postInterleave: postInterleave ?? null,
     },
     sceneWorldLayer: compactSceneWorldLayerForApi(v3["sceneWorldLayer"]),
+    deliveryTier: v3["deliveryTier"] ?? null,
     humanSaveabilityGate: compactHumanSaveabilityGateForApi(v3["humanSaveabilityGate"]),
     openingTenDominantCluster: v3["openingTenDominantCluster"] ?? null,
     sceneClusterFunnel: v3["sceneClusterFunnel"] ?? null,

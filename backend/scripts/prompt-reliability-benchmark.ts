@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   fetchDeployedCommit,
@@ -18,6 +18,16 @@ type BenchmarkPrompt = {
   requestedLength: number;
 };
 
+type DeliveryBucket = "ideal" | "degraded" | "safe" | "emergency" | "unknown";
+
+type PromptObservability = {
+  deliveryTier: string | null;
+  deliveryBucket: DeliveryBucket;
+  degradedDelivery: boolean;
+  constraintsRelaxed: string[];
+  constraintsRelaxedUsed: boolean;
+};
+
 type BenchmarkConfig = {
   baseUrl: string;
   outDir: string;
@@ -30,6 +40,7 @@ type BenchmarkConfig = {
   group: PromptGroup | null;
   dryRun: boolean;
   expectedDeploymentVersion: string | null;
+  baselineReportPath: string | null;
 };
 
 type PromptBenchmarkRow = {
@@ -91,6 +102,25 @@ type PromptBenchmarkRow = {
     underfill: number;
     genreLeak: number;
   };
+  /** Observational telemetry only — not used for scoring or pass/fail. */
+  observability: PromptObservability;
+};
+
+type DeliveryTierDistribution = Record<DeliveryBucket, number>;
+
+type BenchmarkObservabilitySummary = {
+  http422Count: number;
+  zeroTrackCount: number;
+  medianLatencyMs: number;
+  genreSpecificSuccessRate: number;
+  genreSpecificPromptCount: number;
+  genreSpecificSuccessCount: number;
+  deliveryTierDistribution: DeliveryTierDistribution;
+  deliveryTierPercent: DeliveryTierDistribution;
+  emergencyFillUsedCount: number;
+  constraintsRelaxedRate: number;
+  constraintsRelaxedCount: number;
+  degradedDeliveryCount: number;
 };
 
 type BenchmarkReport = {
@@ -117,6 +147,7 @@ type BenchmarkReport = {
     genreLeakCount: number;
     eraLeakCount: number;
   };
+  observability: BenchmarkObservabilitySummary;
   rankings: {
     mostLikelyToFail: PromptBenchmarkRow[];
     mostLikelyToDrift: PromptBenchmarkRow[];
@@ -125,6 +156,189 @@ type BenchmarkReport = {
   };
   prompts: PromptBenchmarkRow[];
 };
+
+type PostDeployDiff = {
+  generatedAt: string;
+  baseline: { commit: string | null; path: string };
+  current: { commit: string; path: string };
+  metrics: Record<string, {
+    baseline: number | null;
+    current: number;
+    delta: number | null;
+    improved: boolean | null;
+  }>;
+  interpretation: string[];
+};
+
+const GENRE_SPECIFIC_GROUP: PromptGroup = "Electronic";
+
+function deliveryBucketFromTier(tier: string | null): DeliveryBucket {
+  if (!tier) return "unknown";
+  if (tier === "ideal") return "ideal";
+  if (tier === "safe") return "safe";
+  if (tier === "emergency") return "emergency";
+  if (tier === "very_good" || tier === "good") return "degraded";
+  return "unknown";
+}
+
+function emptyDeliveryDistribution(): DeliveryTierDistribution {
+  return { ideal: 0, degraded: 0, safe: 0, emergency: 0, unknown: 0 };
+}
+
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+  return sorted[index] ?? 0;
+}
+
+function extractObservability(
+  v3Diagnostics: Record<string, unknown>,
+  humanSaveGate: Record<string, unknown>,
+): PromptObservability {
+  const search = record(humanSaveGate["completePlaylistSearch"]);
+  const constraintsRelaxed = arrayValue(search["constraintsRelaxed"]).map(String);
+  const deliveryTier =
+    stringValue(v3Diagnostics["deliveryTier"]) ??
+    stringValue(humanSaveGate["deliveryTier"]);
+  return {
+    deliveryTier,
+    deliveryBucket: deliveryBucketFromTier(deliveryTier),
+    degradedDelivery: boolValue(humanSaveGate["degradedDelivery"]),
+    constraintsRelaxed,
+    constraintsRelaxedUsed: constraintsRelaxed.length > 0,
+  };
+}
+
+function buildObservabilitySummary(rows: PromptBenchmarkRow[]): BenchmarkObservabilitySummary {
+  const genreSpecificRows = rows.filter((row) => row.input.group === GENRE_SPECIFIC_GROUP);
+  const deliveryTierDistribution = emptyDeliveryDistribution();
+  for (const row of rows) {
+    deliveryTierDistribution[row.observability.deliveryBucket] += 1;
+  }
+  const total = rows.length || 1;
+  const deliveryTierPercent = Object.fromEntries(
+    Object.entries(deliveryTierDistribution).map(([key, count]) => [
+      key,
+      Math.round((count / total) * 1000) / 10,
+    ]),
+  ) as DeliveryTierDistribution;
+  const latencies = rows.map((row) => row.elapsedMs).sort((a, b) => a - b);
+  return {
+    http422Count: rows.filter((row) => row.status === 422).length,
+    zeroTrackCount: rows.filter((row) => row.generation.finalTrackCount === 0).length,
+    medianLatencyMs: percentile(latencies, 50),
+    genreSpecificSuccessRate: genreSpecificRows.length
+      ? Math.round((genreSpecificRows.filter((row) => row.success).length / genreSpecificRows.length) * 1000) / 10
+      : 0,
+    genreSpecificPromptCount: genreSpecificRows.length,
+    genreSpecificSuccessCount: genreSpecificRows.filter((row) => row.success).length,
+    deliveryTierDistribution,
+    deliveryTierPercent,
+    emergencyFillUsedCount: rows.filter((row) => row.finalization.emergencyFillUsed).length,
+    constraintsRelaxedRate: Math.round((rows.filter((row) => row.observability.constraintsRelaxedUsed).length / total) * 1000) / 10,
+    constraintsRelaxedCount: rows.filter((row) => row.observability.constraintsRelaxedUsed).length,
+    degradedDeliveryCount: rows.filter((row) => row.observability.degradedDelivery).length,
+  };
+}
+
+async function buildPostDeployDiff(
+  baselinePath: string,
+  report: BenchmarkReport,
+  outDir: string,
+): Promise<PostDeployDiff> {
+  const baselineRaw = JSON.parse(await readFile(baselinePath, "utf8")) as BenchmarkReport;
+  const baselineObs = baselineRaw.observability ?? {
+    http422Count: baselineRaw.prompts.filter((row) => row.status === 422).length,
+    zeroTrackCount: baselineRaw.prompts.filter((row) => row.generation.finalTrackCount === 0).length,
+    medianLatencyMs: percentile(
+      baselineRaw.prompts.map((row) => row.elapsedMs).sort((a, b) => a - b),
+      50,
+    ),
+    genreSpecificSuccessRate: (() => {
+      const rows = baselineRaw.prompts.filter((row) => row.input.group === GENRE_SPECIFIC_GROUP);
+      return rows.length
+        ? Math.round((rows.filter((row) => row.success).length / rows.length) * 1000) / 10
+        : 0;
+    })(),
+    emergencyFillUsedCount: baselineRaw.prompts.filter((row) => row.finalization.emergencyFillUsed).length,
+    constraintsRelaxedRate: 0,
+    degradedDeliveryCount: 0,
+  };
+  const currentObs = report.observability;
+  const metric = (
+    baseline: number | null,
+    current: number,
+    higherIsBetter: boolean,
+  ) => ({
+    baseline,
+    current,
+    delta: baseline == null ? null : Math.round((current - baseline) * 10) / 10,
+    improved: baseline == null ? null : higherIsBetter ? current > baseline : current < baseline,
+  });
+  const metrics: PostDeployDiff["metrics"] = {
+    passRate: metric(baselineRaw.summary.successCount, report.summary.successCount, true),
+    promptReliabilityScore: metric(
+      baselineRaw.summary.promptReliabilityScore,
+      report.summary.promptReliabilityScore,
+      true,
+    ),
+    http422Rate: metric(baselineObs.http422Count, currentObs.http422Count, false),
+    zeroTrackCount: metric(baselineObs.zeroTrackCount, currentObs.zeroTrackCount, false),
+    underfilledCount: metric(baselineRaw.summary.underfilledCount, report.summary.underfilledCount, false),
+    averageConfidenceScore: metric(
+      baselineRaw.summary.averageConfidenceScore,
+      report.summary.averageConfidenceScore,
+      true,
+    ),
+    genreSpecificSuccessRate: metric(
+      baselineObs.genreSpecificSuccessRate,
+      currentObs.genreSpecificSuccessRate,
+      true,
+    ),
+    medianLatencyMs: metric(baselineObs.medianLatencyMs, currentObs.medianLatencyMs, false),
+    emergencyFillUsedCount: metric(
+      baselineObs.emergencyFillUsedCount,
+      currentObs.emergencyFillUsedCount,
+      false,
+    ),
+    degradedDeliveryCount: metric(
+      baselineObs.degradedDeliveryCount,
+      currentObs.degradedDeliveryCount,
+      false,
+    ),
+    constraintsRelaxedRate: metric(
+      baselineObs.constraintsRelaxedRate,
+      currentObs.constraintsRelaxedRate,
+      false,
+    ),
+  };
+  const interpretation: string[] = [];
+  if (metrics.passRate.current >= 20 && metrics.zeroTrackCount.current === 0) {
+    interpretation.push("Phase 1 release gate: pass rate and zero-track criteria met.");
+  } else {
+    interpretation.push("Phase 1 release gate: NOT met — investigate availability before quality.");
+  }
+  if (
+    metrics.passRate.improved &&
+    metrics.emergencyFillUsedCount.current > 5 &&
+    metrics.genreSpecificSuccessRate.current < 40
+  ) {
+    interpretation.push("Reliability may be masked by emergency fallback — retrieval still weak for genre-specific prompts.");
+  }
+  if (
+    metrics.averageConfidenceScore.delta != null &&
+    metrics.averageConfidenceScore.delta < -5
+  ) {
+    interpretation.push("Average confidence dropped materially — verify quality was not traded for availability.");
+  }
+  return {
+    generatedAt: new Date().toISOString(),
+    baseline: { commit: baselineRaw.commit ?? null, path: baselinePath },
+    current: { commit: report.commit, path: path.join(outDir, "prompt-reliability-report.json") },
+    metrics,
+    interpretation,
+  };
+}
 
 const DEFAULT_REQUESTED_LENGTH = 30;
 
@@ -172,6 +386,7 @@ function usage(): never {
     "  --limit N               Run only first N selected prompts",
     "  --group NAME            Run one group: Electronic, Alternative, Hip Hop, Lifestyle, Human",
     "  --expected-deployment-version SHA  Expected deployed git SHA (default local HEAD / PLAYLIST_EVAL_EXPECTED_VERSION)",
+    "  --baseline PATH         Baseline prompt-reliability-report.json for post-deploy diff",
     "  --dry-run               Write prompt list without calling /api/generate",
   ].join("\n"));
   process.exit(2);
@@ -222,6 +437,7 @@ function parseConfig(args: string[]): BenchmarkConfig {
     group: parseGroup(argValue(args, "--group")),
     dryRun,
     expectedDeploymentVersion: creds.expectedDeploymentVersion,
+    baselineReportPath: argValue(args, "--baseline"),
   };
 }
 
@@ -565,6 +781,8 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
     leakCount * 4 -
     recoveryCount * 2,
   );
+  const humanSaveGate = record(v3Diagnostics["humanSaveabilityGate"]);
+  const observability = extractObservability(v3Diagnostics, humanSaveGate);
   return {
     input: {
       id: prompt.id,
@@ -620,6 +838,7 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
       underfill: clampScore(underfillPenalty * 100),
       genreLeak: clampScore(genreLeakRisk),
     },
+    observability,
   };
 }
 
@@ -658,6 +877,7 @@ function buildReport(config: BenchmarkConfig, rows: PromptBenchmarkRow[], starte
       genreLeakCount: rows.filter((row) => row.quality.majorGenreLeak).length,
       eraLeakCount: rows.filter((row) => row.quality.majorEraLeak).length,
     },
+    observability: buildObservabilitySummary(rows),
     rankings: {
       mostLikelyToFail: sortedBy("fail"),
       mostLikelyToDrift: sortedBy("drift"),
@@ -750,6 +970,16 @@ function rankedFailureMarkdown(report: BenchmarkReport): string {
     `Genre leak prompts: ${report.summary.genreLeakCount}`,
     `Era leak prompts: ${report.summary.eraLeakCount}`,
     "",
+    "## Observability (not scored)",
+    `HTTP 422: ${report.observability.http422Count}`,
+    `Zero-track: ${report.observability.zeroTrackCount}`,
+    `Median latency: ${report.observability.medianLatencyMs}ms`,
+    `Genre-specific (Electronic) success: ${report.observability.genreSpecificSuccessCount}/${report.observability.genreSpecificPromptCount} (${report.observability.genreSpecificSuccessRate}%)`,
+    `Emergency fill used: ${report.observability.emergencyFillUsedCount}`,
+    `Degraded delivery: ${report.observability.degradedDeliveryCount}`,
+    `Constraints relaxed rate: ${report.observability.constraintsRelaxedRate}%`,
+    `Delivery tiers: ideal=${report.observability.deliveryTierPercent.ideal}% degraded=${report.observability.deliveryTierPercent.degraded}% safe=${report.observability.deliveryTierPercent.safe}% emergency=${report.observability.deliveryTierPercent.emergency}% unknown=${report.observability.deliveryTierPercent.unknown}%`,
+    "",
     ...rankingBlock("Most Likely To Fail", report.rankings.mostLikelyToFail, "fail"),
     ...rankingBlock("Most Likely To Drift", report.rankings.mostLikelyToDrift, "drift"),
     ...rankingBlock("Most Likely To Underfill", report.rankings.mostLikelyToUnderfill, "underfill"),
@@ -757,15 +987,58 @@ function rankedFailureMarkdown(report: BenchmarkReport): string {
   ].join("\n");
 }
 
-async function writeReports(config: BenchmarkConfig, report: BenchmarkReport): Promise<void> {
+async function writeReports(
+  config: BenchmarkConfig,
+  report: BenchmarkReport,
+  readyz: Record<string, unknown> | null,
+): Promise<void> {
   await mkdir(config.outDir, { recursive: true });
   await writeFile(path.join(config.outDir, "prompt-reliability-report.json"), JSON.stringify(report, null, 2));
   await writeFile(path.join(config.outDir, "prompt-reliability-report.md"), markdownReport(report));
   await writeFile(path.join(config.outDir, "prompt-reliability-ranked-failures.md"), rankedFailureMarkdown(report));
+  if (readyz) {
+    await writeFile(path.join(config.outDir, "readyz.json"), JSON.stringify(readyz, null, 2));
+  }
+  if (config.baselineReportPath) {
+    const diff = await buildPostDeployDiff(config.baselineReportPath, report, config.outDir);
+    await writeFile(path.join(config.outDir, "post-deploy-diff.json"), JSON.stringify(diff, null, 2));
+    await writeFile(
+      path.join(config.outDir, "post-deploy-diff.md"),
+      [
+        "# Post-deploy verification diff",
+        "",
+        `Baseline: ${diff.baseline.commit ?? "unknown"} (${diff.baseline.path})`,
+        `Current: ${diff.current.commit} (${diff.current.path})`,
+        "",
+        "| Metric | Baseline | Current | Delta | Improved |",
+        "| --- | ---: | ---: | ---: | --- |",
+        ...Object.entries(diff.metrics).map(([name, row]) =>
+          `| ${name} | ${row.baseline ?? "n/a"} | ${row.current} | ${row.delta ?? "n/a"} | ${row.improved == null ? "n/a" : row.improved ? "yes" : "no"} |`,
+        ),
+        "",
+        "## Interpretation",
+        ...diff.interpretation.map((line) => `- ${line}`),
+        "",
+      ].join("\n"),
+    );
+  }
 }
 
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchReadyz(config: BenchmarkConfig): Promise<Record<string, unknown>> {
+  const { response, data } = await fetchJsonWithTimeout(
+    `${config.baseUrl}/api/readyz`,
+    { method: "GET" },
+    Math.min(config.timeoutMs, 30_000),
+  );
+  return {
+    status: response.status,
+    ok: response.ok,
+    ...data,
+  };
 }
 
 async function main(): Promise<void> {
@@ -773,6 +1046,7 @@ async function main(): Promise<void> {
   const prompts = selectPrompts(config);
   const startedAt = Date.now();
   const rows: PromptBenchmarkRow[] = [];
+  let readyz: Record<string, unknown> | null = null;
   if (config.dryRun) {
     const dryRows = prompts.map((prompt): PromptBenchmarkRow => extractRow(prompt, {
       status: null,
@@ -786,10 +1060,13 @@ async function main(): Promise<void> {
       },
     }));
     const report = buildReport(config, dryRows, startedAt);
-    await writeReports(config, report);
+    await writeReports(config, report, null);
     process.stdout.write(`${JSON.stringify({ dryRun: true, outDir: config.outDir, prompts: prompts.length }, null, 2)}\n`);
     return;
   }
+  readyz = await fetchReadyz(config);
+  const deployedCommit = stringValue(readyz["commit"]) ?? stringValue(readyz["gitCommit"]) ?? "unknown";
+  console.error(`[prompt-reliability] readyz commit=${deployedCommit} status=${readyz["status"]}`);
   await preflightDeployment(config);
   for (let index = 0; index < prompts.length; index++) {
     const prompt = prompts[index]!;
@@ -801,7 +1078,8 @@ async function main(): Promise<void> {
     if (index < prompts.length - 1 && config.delayMs > 0) await sleep(config.delayMs);
   }
   const report = buildReport(config, rows, startedAt);
-  await writeReports(config, report);
+  report.commit = deployedCommit;
+  await writeReports(config, report, readyz);
   process.stdout.write(`${JSON.stringify({
     outDir: config.outDir,
     promptReliabilityScore: report.summary.promptReliabilityScore,
