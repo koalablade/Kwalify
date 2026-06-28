@@ -373,8 +373,8 @@ export function retrieveCandidatesByEmbedding<T extends RetrievalTrackLike>(
   unifiedIntent?: UnifiedIntent,
   opts: { maxTasteWeight?: number } = {},
 ): RetrievalCloud<T> {
-  const tasteWeight = Math.min(0.22, Math.max(0.06, opts.maxTasteWeight ?? 0.22));
-  const sceneWeight = 0.46;
+  const tasteWeight = Math.min(0.18, Math.max(0.06, opts.maxTasteWeight ?? 0.18));
+  const sceneWeight = 0.50;
   const moodWeight = 0.16;
   const energyWeight = 0.10;
   const driftWeight = 0.06;

@@ -297,24 +297,6 @@ export function evaluateHumanSaveability(
     }
   }
 
-  if (strict && context?.sceneClusters) {
-    const opening5 = tracks.slice(0, 5);
-    const dominantId = context.sceneClusters.dominantClusterId;
-    for (let i = 0; i < opening5.length; i++) {
-      const track = opening5[i]!;
-      const clusterId = context.sceneClusters.trackToClusterId.get(track.trackId);
-      if (clusterId !== dominantId) {
-        offendingTracks.push({
-          trackId: track.trackId,
-          title: track.trackName ?? track.trackId,
-          artist: track.artistName ?? "Unknown",
-          rank: i + 1,
-          reason: "opening 5 not in dominant micro-world",
-        });
-      }
-    }
-  }
-
   const humanPatternScore = scoreAgainstHumanPlaylistPatterns(tracks).score;
   const plausibilityScore = humanPlausibilityScore(tracks);
   if (strict && humanPatternScore < 0.52) {

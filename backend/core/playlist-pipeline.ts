@@ -81,6 +81,7 @@ import {
   scoreSemanticSceneMatch,
 } from "../lib/scene-semantic-retrieval";
 import { isRichMusicSemanticPrompt } from "../lib/scene-music-alignment";
+import { enrichTrackSemanticProfile } from "../lib/track-semantic-enrichment";
 import { trackMatchesConstraints } from "./v3/constraint-filter";
 import { getGenreFamily } from "./v3/global-diversity-controller";
 import type { V3MetadataTrack } from "../lib/v3-track-contract";
@@ -507,7 +508,7 @@ function structuredRetrievalScope<T extends IntentContractTrack>(
       relatedMinimum,
     };
   }
-  const depthMinimum = Math.max(12, Math.min(strictMinimum, relatedMinimum));
+  const depthMinimum = Math.max(8, Math.min(strictMinimum, relatedMinimum));
   if (relatedPool.length >= depthMinimum) {
     return {
       pool: relatedPool,
@@ -1420,6 +1421,29 @@ function promptOrderingBias<T extends IntentContractTrack>(
   return fitLift + activityLift + moodLift + identityTermScore(track, contract, classMap) * 1.50 + promptHash * 0.008;
 }
 
+function capArtistDiversityInRanking<T extends IntentContractTrack & { artistName?: string | null }>(
+  entries: Array<{ track: T; adjustedScore: number }>,
+  opts: { maxPerArtist?: number; headSize?: number } = {},
+): Array<{ track: T; adjustedScore: number }> {
+  const maxPerArtist = opts.maxPerArtist ?? 2;
+  const headSize = opts.headSize ?? 180;
+  const sorted = [...entries].sort((a, b) => b.adjustedScore - a.adjustedScore);
+  const picked: Array<{ track: T; adjustedScore: number }> = [];
+  const deferred: Array<{ track: T; adjustedScore: number }> = [];
+  const artistCounts = new Map<string, number>();
+  for (const entry of sorted) {
+    const artist = entry.track.artistName?.toLowerCase().trim();
+    const seen = artist ? artistCounts.get(artist) ?? 0 : 0;
+    if (artist && seen >= maxPerArtist && picked.length < headSize) {
+      deferred.push(entry);
+      continue;
+    }
+    if (artist) artistCounts.set(artist, seen + 1);
+    picked.push(entry);
+  }
+  return [...picked, ...deferred];
+}
+
 function earlyDiversityRank<T extends IntentContractTrack & { artistName?: string | null }>(
   entries: Array<{ track: T; adjustedScore: number }>,
   classMap: UserGenreProfile["trackClassifications"],
@@ -1437,8 +1461,8 @@ function earlyDiversityRank<T extends IntentContractTrack & { artistName?: strin
       const familySeen = family ? familyCounts.get(family) ?? 0 : 0;
       if (artist) artistCounts.set(artist, artistSeen + 1);
       if (family) familyCounts.set(family, familySeen + 1);
-      const artistSpacingPenalty = artistSeen * 0.11;
-      const familySpacingPenalty = explicitGenre ? 0 : familySeen * 0.012;
+      const artistSpacingPenalty = artistSeen * 0.15;
+      const familySpacingPenalty = explicitGenre ? familySeen * 0.008 : familySeen * 0.018;
       const rankPreservation = Math.max(0, 0.02 - index * 0.00002);
       return {
         ...entry,
@@ -1494,12 +1518,13 @@ function shapeBroadCandidatePool<T extends IntentContractTrack & { artistName?: 
   limit: number,
 ): T[] {
   if (tracks.length <= limit) return tracks;
+  const maxPerArtist = sceneConstraintActive(contract) ? 2 : 3;
   const artistCounts = new Map<string, number>();
   const buckets = new Map<string, T[]>();
   for (const track of tracks) {
     const artist = track.artistName?.toLowerCase().trim();
     const artistSeen = artist ? artistCounts.get(artist) ?? 0 : 0;
-    if (artist && artistSeen >= 3) continue;
+    if (artist && artistSeen >= maxPerArtist) continue;
     if (artist) artistCounts.set(artist, artistSeen + 1);
     const family = genreFamilyForTrack(track, classMap) ?? "unknown";
     const bucket = buckets.get(family) ?? [];
@@ -1871,28 +1896,39 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
   const musicConstraints = buildPromptMusicConstraints(contract.rawPrompt);
   const richMusicSemantic = isRichMusicSemanticPrompt(musicConstraints);
   const narrativeSemanticPrompt =
+    sceneConstraintActive(contract) ||
+    multiSignalSceneBlend(contract) ||
     promptSceneProfile.places.length > 0 ||
     promptSceneProfile.times.length > 0 ||
     promptSceneProfile.culturalTags.length > 0 ||
     promptSceneProfile.sceneConcepts.length > 0 ||
     promptSceneProfile.themes.length > 0 ||
-    promptSceneProfile.atmospheres.length > 0 ||
+    promptSceneProfile.atmospheres.length >= 2 ||
+    (promptSceneProfile.weather.length > 0 &&
+      (promptSceneProfile.times.length > 0 || promptSceneProfile.activities.length > 0)) ||
     (richMusicSemantic &&
       (musicConstraints.narrativeTags.length > 0 || musicConstraints.cinematicTags.length > 0));
   const dominantEmotion = detectDominantEmotion(contract.rawPrompt);
   const sceneStrength = culturalExpansion.culturalDominance;
-  const semanticMaxBoost = opts.semanticMaxBoost ?? (dominantEmotion.explicit ? 0.18 : richMusicSemantic ? 0.26 : 0.28);
+  const semanticMaxBoost = opts.semanticMaxBoost ?? (
+    dominantEmotion.explicit
+      ? 0.18
+      : narrativeSemanticPrompt
+        ? (richMusicSemantic ? 0.30 : 0.34)
+        : 0.28
+  );
   let semanticBoostApplied = 0;
   let semanticBoostTotal = 0;
   await yieldPipeline();
-  const contractRanked = earlyDiversityRank(
+  const contractRanked = capArtistDiversityInRanking(
+    earlyDiversityRank(
     shapedRankSource
     .map((track) => {
       const subgenreMatchWeight = contract.primarySubgenre
         ? primarySubgenreMatch(track)
-          ? 0.16
+          ? 0.20
           : structuredSubgenreMatch(track)
-            ? 0.09
+            ? 0.12
             : 0
         : 0;
       const sceneAliasBoost = opts.sceneAliases && opts.sceneAliases.length > 0
@@ -1946,21 +1982,31 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
         )
         : 0;
       let semanticSceneBoost = 0;
-      if (narrativeSemanticPrompt && opts.semanticProfiles) {
-        const trackProfile = opts.semanticProfiles.get(track.trackId);
-        if (trackProfile) {
-          semanticSceneBoost = scoreSemanticSceneMatch(promptSceneProfile, trackProfile, {
+      if (narrativeSemanticPrompt) {
+        const trackProfile = opts.semanticProfiles?.get(track.trackId) ?? enrichTrackSemanticProfile({
+          trackId: track.trackId,
+          trackName: track.trackName ?? "",
+          artistName: track.artistName ?? "",
+          energy: track.energy ?? null,
+          valence: track.valence ?? null,
+          danceability: track.danceability ?? null,
+          acousticness: track.acousticness ?? null,
+          tempo: track.tempo ?? null,
+          spotifyArtistGenres: (track as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+          albumGenres: (track as { albumGenres?: unknown }).albumGenres,
+          releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
+        });
+        semanticSceneBoost = scoreSemanticSceneMatch(promptSceneProfile, trackProfile, {
             artistName: track.artistName,
             trackName: track.trackName,
             artistGraph: opts.artistEcosystemGraph,
             maxBoost: semanticMaxBoost,
-            sceneId: culturalExpansion.sceneId,
-            musicConstraints,
-          }).boost;
-          if (semanticSceneBoost > 0) {
-            semanticBoostApplied += 1;
-            semanticBoostTotal += semanticSceneBoost;
-          }
+          sceneId: culturalExpansion.sceneId,
+          musicConstraints,
+        }).boost;
+        if (semanticSceneBoost > 0) {
+          semanticBoostApplied += 1;
+          semanticBoostTotal += semanticSceneBoost;
         }
       }
       const manifoldBoost = opts.tasteManifold
@@ -2002,6 +2048,8 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     }),
     classMap,
     contract,
+  ),
+    { maxPerArtist: contract.primarySubgenre ? 2 : 3, headSize: 200 },
   )
     .map(({ track }) => track as T);
   await yieldPipeline();
@@ -2046,11 +2094,11 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     contractEnergyMatch(track, contract.energyArc)
   );
   const anchor = contractRanked.filter((track) =>
-    (track.score ?? 0) >= 0.72 ||
-    (track.rediscoveryScore ?? 0) >= 0.68
+    (track.score ?? 0) >= 0.76 &&
+    (track.rediscoveryScore ?? 0.5) >= 0.35
   );
   const discovery = contractRanked.filter((track) =>
-    (track.rediscoveryScore ?? 0) <= 0.45 ||
+    (track.rediscoveryScore ?? 0) <= 0.55 ||
     (track as T & { explorationDistance?: number }).explorationDistance != null
   );
   const worldDiscoverySource = worldBoundary.active
@@ -2061,13 +2109,13 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     ))
     : discovery;
   const breadth = opts.retrievalBreadth ?? 1;
-  const escapeRatio = opts.escapeDiversityRatio ?? 0.12;
-  const coreLimit = Math.ceil((worldBoundary.hardLock ? 150 : 200) * breadth);
-  const anchorLimit = Math.ceil((worldBoundary.hardLock ? 80 : 110) * breadth);
-  const adjacentLimit = Math.ceil(130 * breadth);
-  const bridgeLimit = Math.ceil(110 * breadth);
-  const energyArcLimit = Math.ceil(110 * breadth);
-  const discoveryLimit = Math.ceil((worldBoundary.hardLock ? 60 : 110) * breadth * (1 + escapeRatio));
+  const escapeRatio = opts.escapeDiversityRatio ?? 0.18;
+  const coreLimit = Math.ceil((worldBoundary.hardLock ? 170 : 220) * breadth);
+  const anchorLimit = Math.ceil((worldBoundary.hardLock ? 55 : 75) * breadth);
+  const adjacentLimit = Math.ceil(140 * breadth);
+  const bridgeLimit = Math.ceil(120 * breadth);
+  const energyArcLimit = Math.ceil(120 * breadth);
+  const discoveryLimit = Math.ceil((worldBoundary.hardLock ? 80 : 140) * breadth * (1 + escapeRatio));
   return {
     core: takeUnique(coreSource, coreLimit),
     anchor: takeUnique(anchor, anchorLimit),
@@ -2121,7 +2169,7 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
       fallbackLevelUsed,
       familyFallbackEmpty,
       semanticRetrieval: {
-        active: narrativeSemanticPrompt && !!opts.semanticProfiles,
+        active: narrativeSemanticPrompt,
         promptSignature: promptSceneProfile.retrievalSignature,
         maxBoost: semanticMaxBoost,
         tracksBoosted: semanticBoostApplied,
@@ -2173,11 +2221,11 @@ function flattenRetrievalPools<T>(retrieval: RetrievalPools<T>): T[] {
   const out: T[] = [];
   for (const track of [
     ...retrieval.core,
-    ...retrieval.anchor,
+    ...retrieval.discovery,
     ...retrieval.adjacent,
     ...retrieval.bridge,
     ...retrieval.energyArc,
-    ...retrieval.discovery,
+    ...retrieval.anchor,
   ] as Array<T & { trackId?: string }>) {
     const id = track.trackId;
     if (id && seen.has(id)) continue;
@@ -3250,7 +3298,7 @@ function deCollapseCandidatePool<T extends {
   if (pool.length === 0) {
     return { tracks: pool, diagnostics: { applied: false, reason: "empty_pool" } };
   }
-  const maxClusterShare = 0.45;
+  const maxClusterShare = 0.38;
   const minEntropy = minClusterEntropyForKind(kind);
   const initialLabels = pool.map((track) => retrievalManifoldKey(track, classMap));
   const initialEntropy = normalizedLabelEntropy(initialLabels);

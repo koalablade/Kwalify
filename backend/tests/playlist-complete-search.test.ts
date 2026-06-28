@@ -85,4 +85,30 @@ describe("playlist complete search", () => {
     assert.ok(coherent >= messy);
     assert.ok(scorePlaylistForCuration(buildTracks(3)) >= scorePlaylistForCuration(buildTracks(4, true)));
   });
+
+  it("relaxes beam constraints instead of returning a short playlist when artist spacing stalls", () => {
+    const pool = Array.from({ length: 12 }, (_, i) => ({
+      trackId: `same_${i}`,
+      trackName: `Track ${i}`,
+      artistName: "Only Artist",
+      energy: 0.5,
+      valence: 0.5,
+      danceability: 0.5,
+      acousticness: 0.4,
+      popularity: 60,
+      releaseYear: 2018,
+      rediscoveryScore: 0.4,
+      laneScore: 0.8,
+    }));
+    const result = searchOptimalCompletePlaylist({
+      seedPlaylist: pool.slice(0, 10),
+      pool,
+      targetLength: 10,
+      beamWidth: 3,
+      seed: "artist-heavy",
+    });
+    assert.equal(result.tracks.length, 10);
+    assert.ok(result.constraintsRelaxed.length > 0);
+    assert.ok(result.constraintsRelaxed.some((label) => label.includes("artist_gap_0") || label.includes("shape_fit_off")));
+  });
 });

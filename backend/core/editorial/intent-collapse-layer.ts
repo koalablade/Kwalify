@@ -869,14 +869,30 @@ export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
 
   let floor = opts.strictMode ? 0.28 : 0.22;
   let viable = chosen.filter((row) => row.score >= floor);
-  while (viable.length < minPool && floor > 0.12) {
+  while (viable.length < minPool && floor > 0.08) {
     floor -= 0.04;
     viable = chosen.filter((row) => row.score >= floor);
   }
 
-  const output = viable.length >= minPool
-    ? viable.slice(0, targetSize)
-    : chosen.slice(0, Math.max(minPool, Math.min(targetSize, chosen.length)));
+  let outputRows = (viable.length >= minPool ? viable : chosen).slice(0, targetSize);
+  const outputIds = new Set(outputRows.map((row) => row.track.trackId));
+  for (const row of ranked) {
+    if (outputRows.length >= targetSize) break;
+    if (outputIds.has(row.track.trackId)) continue;
+    outputRows.push(row);
+    outputIds.add(row.track.trackId);
+  }
+  if (outputRows.length < minPool) {
+    const relaxedIntent: EditorialIntentVector = { ...intent, relaxGenreFamilyFilter: true };
+    for (const row of rankCandidatesByIntentVector(tracks, relaxedIntent, opts.fingerprintBias)) {
+      if (outputRows.length >= minPool) break;
+      if (outputIds.has(row.track.trackId)) continue;
+      outputRows.push(row);
+      outputIds.add(row.track.trackId);
+    }
+  }
+
+  const output = outputRows.slice(0, targetSize);
 
   const scores = new Map(output.map((row) => [row.track.trackId, row.score]));
   const avgScore = output.length > 0
@@ -890,6 +906,71 @@ export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
     minScoreUsed: floor,
     rankedTotal: ranked.length,
   };
+}
+
+/** Expand a thin sampler universe before hard-failing generation. */
+export function recoverSamplerUniverse<T extends IntentCollapseTrack>(
+  tracks: T[],
+  intent: EditorialIntentVector,
+  selection: RankedCandidateSelection<T>,
+  opts: {
+    targetCount: number;
+    strictMode: boolean;
+    fingerprintBias?: Map<string, number>;
+  },
+): RankedCandidateSelection<T> {
+  const minPool = minimumIntentPoolSize(opts.targetCount, opts.strictMode);
+  if (selection.selected.length >= minPool) return selection;
+
+  const relaxedSelection = selectRankedCandidatesForSampler(
+    tracks,
+    { ...intent, relaxGenreFamilyFilter: true },
+    opts,
+  );
+
+  const merged = new Map<string, { track: T; score: number }>();
+  for (const track of selection.selected) {
+    merged.set(track.trackId, { track, score: selection.scores.get(track.trackId) ?? 0 });
+  }
+  for (const track of relaxedSelection.selected) {
+    if (!merged.has(track.trackId)) {
+      merged.set(track.trackId, { track, score: relaxedSelection.scores.get(track.trackId) ?? 0 });
+    }
+  }
+  if (merged.size < minPool) {
+    const ranked = rankCandidatesByIntentVector(
+      tracks,
+      { ...intent, relaxGenreFamilyFilter: true },
+      opts.fingerprintBias,
+    );
+    const cap = Math.min(tracks.length, targetSamplerUniverseSize(opts.targetCount, opts.strictMode));
+    for (const row of ranked) {
+      if (merged.size >= cap) break;
+      if (merged.has(row.track.trackId)) continue;
+      merged.set(row.track.trackId, row);
+    }
+  }
+
+  const rows = [...merged.values()].sort((a, b) => b.score - a.score);
+  return {
+    selected: rows.map((row) => row.track),
+    scores: new Map(rows.map((row) => [row.track.trackId, row.score])),
+    avgScore: rows.length > 0 ? rows.reduce((sum, row) => sum + row.score, 0) / rows.length : 0,
+    minScoreUsed: relaxedSelection.minScoreUsed,
+    rankedTotal: Math.max(selection.rankedTotal, relaxedSelection.rankedTotal),
+  };
+}
+
+export function absoluteIntentPoolFloor(targetCount: number): number {
+  return Math.max(6, Math.min(10, Math.ceil(targetCount * 0.22)));
+}
+
+/** Minimum intent-pool size before HTTP 422 — enough to compose a degraded playlist. */
+export function intentPoolDeliveryFloor(targetCount: number): number {
+  return Math.max(
+    absoluteIntentPoolFloor(targetCount),
+    Math.ceil(targetCount * 0.72),
+  );
 }
 
 export function trackPassesOpeningIntentScore(
@@ -1465,7 +1546,7 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
   };
 
   const minSurvival = minimumIntentPoolSize(opts?.targetCount ?? 25, opts?.strictMode === true);
-  const maxRelaxPasses = 6;
+  const maxRelaxPasses = 9;
   for (let pass = 0; pass < maxRelaxPasses && countIntentFilterSurvivors(tracks, calibrated, opts?.strictMode === true) < minSurvival; pass += 1) {
     const counts = diagnoseIntentFilterRejectionCounts(tracks, calibrated);
     const dominant = dominantFilterRejectionReason(counts);
@@ -1474,7 +1555,7 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
     switch (dominant) {
       case "valence_out_of_range": {
         const nextDeviation = (calibrated.valenceMaxDeviation ?? 0.25) + 0.1;
-        if (nextDeviation > 0.6) return calibrated;
+        if (nextDeviation > 0.72) return calibrated;
         calibrated = { ...calibrated, valenceMaxDeviation: nextDeviation };
         break;
       }
@@ -1524,9 +1605,18 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
   return calibrated;
 }
 
+/** Editorial target for sampler universe depth — preference, not a hard fail threshold. */
 export function minimumIntentPoolSize(targetCount: number, strictMode: boolean): number {
   const base = Math.max(10, targetCount);
   return strictMode ? Math.max(20, Math.ceil(base * 1.6)) : Math.max(18, Math.ceil(base * 1.5));
+}
+
+export function isIntentPoolBelowPreferred(
+  poolSize: number,
+  targetCount: number,
+  strictMode: boolean,
+): boolean {
+  return poolSize < minimumIntentPoolSize(targetCount, strictMode);
 }
 
 export function buildIntentCollapseDiagnostics(
@@ -1565,6 +1655,24 @@ export function buildSamplerIntentContext(intent: EditorialIntentVector): Sample
   return { intentVector: intent };
 }
 
+/** Preferred opening ladder: aim for full size, degrade gracefully before failing the run. */
+export function openingPreferenceTargets(preferredOpeningSize: number): number[] {
+  const rungs = [10, 5, 3, 2, 1];
+  const targets = rungs.filter((run) => run <= preferredOpeningSize);
+  return targets.length > 0 ? targets : [1];
+}
+
+export function resolveEffectiveOpeningSize(
+  eligibleCount: number,
+  preferredOpeningSize: number,
+): number {
+  if (eligibleCount <= 0) return 0;
+  for (const target of openingPreferenceTargets(preferredOpeningSize)) {
+    if (eligibleCount >= target) return target;
+  }
+  return 1;
+}
+
 export function reinforceOpeningEditorialWorldLock<T extends IntentCollapseTrack>(opts: {
   sampledLanes: Array<{ laneId: string; tracks: T[] }>;
   intent: EditorialIntentVector;
@@ -1572,10 +1680,12 @@ export function reinforceOpeningEditorialWorldLock<T extends IntentCollapseTrack
 }): {
   sampledLanes: Array<{ laneId: string; tracks: T[] }>;
   openingEligibleCount: number;
+  preferredOpeningSize: number;
+  effectiveOpeningSize: number;
   sufficient: boolean;
+  relaxed: boolean;
 } {
-  const openingSize = opts.openingSize ?? 10;
-  const minOpeningTracks = 3;
+  const preferredOpeningSize = opts.openingSize ?? 5;
 
   const filterLanes = (floor: number) => opts.sampledLanes.map((lane) => ({
     laneId: lane.laneId,
@@ -1585,17 +1695,23 @@ export function reinforceOpeningEditorialWorldLock<T extends IntentCollapseTrack
   let floor = OPENING_INTENT_SCORE_FLOOR;
   let filteredLanes = filterLanes(floor);
   let pooled = filteredLanes.flatMap((lane) => lane.tracks);
-  while (pooled.length < minOpeningTracks && floor > 0.20) {
+  while (pooled.length < 1 && floor > 0.20) {
     floor -= 0.04;
     filteredLanes = filterLanes(floor);
     pooled = filteredLanes.flatMap((lane) => lane.tracks);
   }
 
   const openingEligibleCount = pooled.length;
-  const sufficient = openingEligibleCount >= openingSize;
+  const effectiveOpeningSize = resolveEffectiveOpeningSize(openingEligibleCount, preferredOpeningSize);
+  const sufficient = openingEligibleCount >= preferredOpeningSize;
+  const relaxed = effectiveOpeningSize > 0 && effectiveOpeningSize < preferredOpeningSize;
+
   return {
-    sampledLanes: openingEligibleCount >= minOpeningTracks ? filteredLanes : opts.sampledLanes,
+    sampledLanes: openingEligibleCount >= 1 ? filteredLanes : opts.sampledLanes,
     openingEligibleCount,
+    preferredOpeningSize,
+    effectiveOpeningSize,
     sufficient,
+    relaxed,
   };
 }

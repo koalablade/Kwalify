@@ -26,7 +26,7 @@ import { artistEcosystemBoost, type ArtistEcosystemGraph } from "./artist-ecosys
 
 const PROMPT_LEXICON: Array<{ dimension: keyof PromptSceneProfile; tag: string; pattern: RegExp }> = [
   { dimension: "places", tag: "city", pattern: /\b(tokyo|city|urban|street|downtown|metropolis)\b/i },
-  { dimension: "places", tag: "motorway", pattern: /\b(motorway|highway|road|drive|autobahn)\b/i },
+  { dimension: "places", tag: "motorway", pattern: /\b(motorway|highway|freeway|interstate|autobahn|motorway)\b/i },
   { dimension: "places", tag: "garage", pattern: /\b(garage|volvo|workshop|repair|fixing)\b/i },
   { dimension: "places", tag: "warehouse", pattern: /\b(warehouse|rave|bunker|club)\b/i },
   { dimension: "places", tag: "train", pattern: /\b(train|station|platform|last train)\b/i },
@@ -36,7 +36,8 @@ const PROMPT_LEXICON: Array<{ dimension: keyof PromptSceneProfile; tag: string; 
   { dimension: "activities", tag: "studying", pattern: /\b(stud(y|ying)|exam|revision|textbook|focus)\b/i },
   { dimension: "activities", tag: "repairing", pattern: /\b(fix|repair|garage|mechanic|volvo)\b/i },
   { dimension: "activities", tag: "walking", pattern: /\b(walk|stroll|empty streets)\b/i },
-  { dimension: "weather", tag: "rain", pattern: /\b(rain|rainy|wet|storm)\b/i },
+  { dimension: "activities", tag: "cleaning", pattern: /\b(clean|cleaning|tidy|chores|housework)\b/i },
+  { dimension: "weather", tag: "rain", pattern: /\b(rain|rainy|wet|storm|drizzle)\b/i },
   { dimension: "weather", tag: "fog", pattern: /\b(fog|mist|haze)\b/i },
   { dimension: "atmospheres", tag: "lonely", pattern: /\b(lonely|solitude|alone|empty|neon-lit loneliness)\b/i },
   { dimension: "atmospheres", tag: "reflective", pattern: /\b(reflect|thought|missed|bad breakup)\b/i },
@@ -44,6 +45,9 @@ const PROMPT_LEXICON: Array<{ dimension: keyof PromptSceneProfile; tag: string; 
   { dimension: "atmospheres", tag: "euphoric", pattern: /\b(euphor|party|club|anthem)\b/i },
   { dimension: "atmospheres", tag: "melancholy", pattern: /\b(sad|melanchol|somber|heartbreak)\b/i },
   { dimension: "atmospheres", tag: "cozy", pattern: /\b(cozy|study|reading|focus)\b/i },
+  { dimension: "atmospheres", tag: "warm", pattern: /\b(warm|golden hour|sun-drenched)\b/i },
+  { dimension: "atmospheres", tag: "dreamy", pattern: /\b(dreamy|dreamscape|hazy|ethereal)\b/i },
+  { dimension: "atmospheres", tag: "danceable", pattern: /\b(danceable|groovy|move|groove)\b/i },
   { dimension: "atmospheres", tag: "nocturnal", pattern: /\b(nocturnal|night|midnight)\b/i },
 ];
 
@@ -70,6 +74,8 @@ const PROMPT_CONCEPTS: Array<{ tag: string; pattern: RegExp }> = [
   { tag: "late-train-home", pattern: /\b(last train|missed the last train|platform)\b/i },
   { tag: "post-club", pattern: /\b(outside the club|cigarette|afterparty)\b/i },
   { tag: "road-trip", pattern: /\b(motorway|highway|road trip|driving home)\b/i },
+  { tag: "rainy-night-drive", pattern: /\b(rain|rainy).*(night|drive|motorway|highway)\b|\b(night|late.?night).*(rain|rainy|wet)\b/i },
+  { tag: "domestic-sunday", pattern: /\b(sunday|weekend morning|morning coffee)\b/i },
   { tag: "urban-nostalgia", pattern: /\b(nostalg|city|forgotten|1997)\b/i },
   { tag: "petrol-station", pattern: /\b(petrol|gas station|forecourt)\b/i },
 ];
@@ -172,8 +178,11 @@ export function buildPromptSceneProfile(prompt: string): PromptSceneProfile {
 
   if (merged.atmospheres.length === 0) {
     if (merged.activities.includes("studying")) merged.atmospheres.push("cozy");
+    if (merged.activities.includes("cleaning")) merged.atmospheres.push("cozy");
     if (merged.activities.includes("driving")) merged.atmospheres.push("reflective");
     if (merged.times.includes("night")) merged.atmospheres.push("nocturnal");
+    if (merged.weather.includes("rain")) merged.atmospheres.push("melancholy");
+    if (/\bwarm\b/i.test(prompt) && !/\bsad\b/i.test(prompt)) merged.atmospheres.push("warm");
     if (/\bsad\b|\bindie\b/i.test(prompt)) merged.atmospheres.push("melancholy");
   }
   merged.atmospheres = [...new Set(merged.atmospheres)];

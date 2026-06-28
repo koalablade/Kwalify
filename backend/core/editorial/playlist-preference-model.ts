@@ -282,7 +282,7 @@ export function scorePlaylistForCuration(tracks: PatternScoringTrack[]): number 
   const patterns = scoreAgainstHumanPlaylistPatterns(tracks);
   const plausibility = humanPlausibilityScore(tracks);
   const combinedScore = clamp01(plausibility * 0.48 + patterns.score * 0.52);
-  return playlistPreferenceUtility({
+  const utility = playlistPreferenceUtility({
     label: "curation",
     tracks,
     wouldISave: {
@@ -297,6 +297,8 @@ export function scorePlaylistForCuration(tracks: PatternScoringTrack[]): number 
     },
     context: null,
   });
+  const openingBonus = openingShapeScore(tracks);
+  return clamp01(utility * 0.85 + openingBonus * 0.15);
 }
 
 function pickRelative(aScore: number, bScore: number, minDelta = 0.03): "a" | "b" | "tie" {

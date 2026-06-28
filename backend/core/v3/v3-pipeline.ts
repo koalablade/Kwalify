@@ -32,7 +32,6 @@ import {
 import { interleaveLanes, type InterleavedResult } from "./interleaver";
 import {
   auditEditorialPlaylist,
-  enforceOpeningSceneCluster,
   scorePlaylistWorldMetrics,
 } from "../scene-world-editorial-audit";
 import {
@@ -52,8 +51,12 @@ import {
   enrichIntentCollapseTrack,
   IntentCollapseInsufficientPoolError,
   minimumIntentPoolSize,
+  intentPoolDeliveryFloor,
+  isIntentPoolBelowPreferred,
+  recoverSamplerUniverse,
   targetSamplerUniverseSize,
   reinforceOpeningEditorialWorldLock,
+  resolveEffectiveOpeningSize,
   type EditorialIntentVector,
   type IntentCollapseDiagnostics,
   type SamplerIntentContext,
@@ -78,7 +81,13 @@ import {
   buildFingerprintBiasMap,
   type LibraryFingerprint,
 } from "../editorial/library-fingerprint";
-import { strictModeHumanSaveability, HumanSaveabilityGateError, MAX_HUMAN_SAVE_RETRIES } from "../human-saveability-gate";
+import { strictModeHumanSaveability, HumanSaveabilityGateError } from "../human-saveability-gate";
+import { buildFastFallbackPlaylist } from "../../lib/fast-fallback-playlist";
+import {
+  minimumReturnableTrackCount,
+  resolveGenerationDeliveryTier,
+  type GenerationDeliveryTier,
+} from "../../lib/generation-delivery-tier";
 import {
   buildGateFailureExecutionTraceDraft,
   buildIntentCollapseFailureTraceDraft,
@@ -745,6 +754,47 @@ function minimalSelectedTracks<T extends V3PipelineTrack>(
   })) as Array<T & V3SelectionCandidate<T>>;
 }
 
+function toSafeFallbackCandidate<T extends V3PipelineTrack>(
+  track: T & Partial<V3SelectionCandidate<T>>,
+): T & V3SelectionCandidate<T> {
+  return {
+    ...track,
+    sourceLane: track.sourceLane ?? "safe_fallback",
+    laneScore: track.laneScore ?? 0.5,
+    genrePrimary: track.genrePrimary ?? track.genreFamily ?? "unknown",
+    laneEra: track.laneEra ?? ("any" as EraBucket),
+    clusterIds: track.clusterIds ?? ["safe:flat"],
+    clusterId: track.clusterId ?? track.clusterIds?.[0] ?? "safe:flat",
+    diversity: track.diversity ?? null,
+    selectedByV3: true,
+  } as T & V3SelectionCandidate<T>;
+}
+
+function assembleSafeV3Playlist<T extends V3PipelineTrack>(
+  source: Array<T & Partial<V3SelectionCandidate<T>>>,
+  profile: EmotionProfile,
+  targetCount: number,
+): Array<T & V3SelectionCandidate<T>> {
+  if (source.length === 0) return [];
+  const playlistLength = Math.min(targetCount, source.length);
+  const ordered = buildFastFallbackPlaylist({
+    tracks: source.map((track) => ({
+      trackId: track.trackId,
+      energy: track.energy,
+      valence: track.valence,
+      artistName: track.artistName,
+      score: track.laneScore ?? 0.5,
+    })),
+    emotionProfile: profile,
+    playlistLength,
+  });
+  const byId = new Map(source.map((track) => [track.trackId, track]));
+  return ordered
+    .map((track) => byId.get(track.trackId))
+    .filter((track): track is T & Partial<V3SelectionCandidate<T>> => !!track)
+    .map((track) => toSafeFallbackCandidate(track));
+}
+
 function openingClusterAudit<T extends V3PipelineTrack>(
   tracks: Array<T & V3SelectionCandidate<T>>,
   context: SceneWorldContext | null,
@@ -787,50 +837,6 @@ function openingClusterAudit<T extends V3PipelineTrack>(
     openingRepairCount: 0,
     dominantClusterId,
     dominantClusterLabel,
-  };
-}
-
-function enforceStrictOpeningWorld<T extends V3PipelineTrack>(
-  tracks: Array<T & V3SelectionCandidate<T>>,
-  context: SceneWorldContext | null,
-): {
-  tracks: Array<T & V3SelectionCandidate<T>>;
-  openingRepairCount: number;
-  insufficientOpeningWorldReason: string | null;
-} {
-  if (!context?.sceneClusters || tracks.length === 0) {
-    return { tracks, openingRepairCount: 0, insufficientOpeningWorldReason: null };
-  }
-  const dominantClusterId = context.sceneClusters.dominantClusterId;
-  const openingEligible = tracks.filter((track) => {
-    const sceneClusterId = context.sceneClusters!.trackToClusterId.get(track.trackId);
-    return sceneClusterId === dominantClusterId;
-  });
-  if (openingEligible.length < 3) {
-    return {
-      tracks,
-      openingRepairCount: 0,
-      insufficientOpeningWorldReason: `strict opening world requires 5 dominant-cluster tracks, found ${openingEligible.length}`,
-    };
-  }
-  const bestOpening = [...openingEligible]
-    .sort((a, b) => {
-      const aScore = computeSceneClusterMembershipScore(a, context);
-      const bScore = computeSceneClusterMembershipScore(b, context);
-      return bScore - aScore || b.laneScore - a.laneScore;
-    })
-    .slice(0, 5);
-  const bestSet = new Set(bestOpening.map((track) => track.trackId));
-  const remainder = tracks.filter((track) => !bestSet.has(track.trackId));
-  const repaired = [...bestOpening, ...remainder].slice(0, tracks.length);
-  const repairCount = repaired
-    .slice(0, 5)
-    .filter((track, idx) => track.trackId !== tracks[idx]?.trackId)
-    .length;
-  return {
-    tracks: repaired,
-    openingRepairCount: repairCount,
-    insufficientOpeningWorldReason: null,
   };
 }
 
@@ -894,6 +900,10 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const lockedIntent = opts.lockedIntent ?? unifiedIntentContext.lockedIntent;
   const unifiedIntentDiagnostics = unifiedIntentContext.diagnostics;
   const humanSaveStrictMode = strictModeHumanSaveability(vibe, lockedIntent);
+  let effectiveHumanSaveStrict = humanSaveStrictMode;
+  const noteReliabilityFallback = (name: string): void => {
+    recordTraceFallback(opts.pipelineTrace, name);
+  };
   const fallbackTriggered = isUnclearIntent(decomposed);
   const healthState = getSystemHealthState();
   const overloaded = healthState === "DEGRADED" || healthState === "CRITICAL";
@@ -986,26 +996,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     preRetrievalSceneWorld?.archetype?.id,
   );
   if (preRetrievalSceneWorld?.active && !worldAlignmentFinal.aligned) {
-    const collapseTrace = finalizeExecutionTrace(
-      buildIntentCollapseFailureTraceDraft({
-        requestId: opts.requestId ?? "unknown",
-        prompt: vibe,
-        seed: opts.seed ?? null,
-        intentCollapseLayer: intentCollapseTrace(),
-        preFilterCount: tracks.length,
-        postFilterCount: 0,
-      }),
-    );
-    throw new IntentCollapseInsufficientPoolError(
-      worldAlignmentAfterRealign.reason ?? worldAlignment.reason ?? "world_identity_conflict",
-      buildIntentCollapseDiagnostics(
-        editorialIntentVector,
-        collapsedIntent.collapseConfidenceScore,
-        tracks.length,
-        0,
-      ),
-      collapseTrace,
-    );
+    noteReliabilityFallback("world_alignment_degraded_continue");
+    effectiveHumanSaveStrict = false;
   }
   const clusterAlignment = validateDominantClusterAlignment(
     editorialIntentVector.editorialWorldTag,
@@ -1030,32 +1022,14 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     preRetrievalSceneWorld?.sceneClusters?.dominantCluster.dominantGenres,
   );
   if (preRetrievalSceneWorld?.sceneClusters && !clusterAlignmentAfterRealign.aligned) {
-    const collapseTrace = finalizeExecutionTrace(
-      buildIntentCollapseFailureTraceDraft({
-        requestId: opts.requestId ?? "unknown",
-        prompt: vibe,
-        seed: opts.seed ?? null,
-        intentCollapseLayer: intentCollapseTrace(),
-        preFilterCount: tracks.length,
-        postFilterCount: 0,
-      }),
-    );
-    throw new IntentCollapseInsufficientPoolError(
-      clusterAlignment.reason ?? "dominant_cluster_world_conflict",
-      buildIntentCollapseDiagnostics(
-        editorialIntentVector,
-        collapsedIntent.collapseConfidenceScore,
-        tracks.length,
-        0,
-      ),
-      collapseTrace,
-    );
+    noteReliabilityFallback("dominant_cluster_world_degraded_continue");
+    effectiveHumanSaveStrict = false;
   }
   const strictPrimaryFamilies = new Set(
     (preRetrievalSceneWorld?.archetype?.genreFamilies ?? lockedIntent.genreFamilies ?? [])
       .map((f) => f.toLowerCase()),
   );
-  const effectiveIntentGates = (preRetrievalSceneWorld?.strictMode || humanSaveStrictMode)
+  const effectiveIntentGates = (preRetrievalSceneWorld?.strictMode || effectiveHumanSaveStrict)
     ? {
         dominantEmotionExplicit: true,
         allowContrastLanes: false,
@@ -1127,13 +1101,14 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
 
   let retrievalDominantFilterApplied = false;
   let activeRetrievalCloud = retrievalCloud;
-  if (humanSaveStrictMode && preRetrievalSceneWorld?.sceneClusters) {
+  if (effectiveHumanSaveStrict && preRetrievalSceneWorld?.sceneClusters) {
     const dominantId = preRetrievalSceneWorld.sceneClusters.dominantClusterId;
-    const minDominantPool = Math.max(25, targetCount * 2);
+    const minIntentPoolEarly = minimumIntentPoolSize(targetCount, effectiveHumanSaveStrict);
+    const minDominantPool = Math.max(12, Math.ceil(targetCount * 1.1));
     const dominantOnly = activeRetrievalCloud.tracks.filter(
       (candidate) => preRetrievalSceneWorld.sceneClusters!.trackToClusterId.get(candidate.track.trackId) === dominantId,
     );
-    if (dominantOnly.length >= minDominantPool) {
+    if (dominantOnly.length >= minDominantPool && dominantOnly.length >= Math.floor(minIntentPoolEarly * 0.8)) {
       activeRetrievalCloud = { ...activeRetrievalCloud, tracks: dominantOnly };
       retrievalDominantFilterApplied = true;
     }
@@ -1149,20 +1124,33 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const calibratedIntentVector = calibrateIntentVectorForRetrievalPool(
     intentFilterTracks,
     editorialIntentVector,
-    { targetCount, strictMode: humanSaveStrictMode },
+    { targetCount, strictMode: effectiveHumanSaveStrict },
   );
   const fingerprintBias = opts.libraryFingerprint
     ? buildFingerprintBiasMap(intentFilterTracks, opts.libraryFingerprint)
     : undefined;
-  const rankedSelection = selectRankedCandidatesForSampler(
+  let rankedSelection = selectRankedCandidatesForSampler(
     intentFilterTracks,
     calibratedIntentVector,
     {
       targetCount,
-      strictMode: humanSaveStrictMode,
+      strictMode: effectiveHumanSaveStrict,
       fingerprintBias,
     },
   );
+  if (rankedSelection.selected.length < minimumIntentPoolSize(targetCount, effectiveHumanSaveStrict)) {
+    rankedSelection = recoverSamplerUniverse(
+      intentFilterTracks,
+      calibratedIntentVector,
+      rankedSelection,
+      {
+        targetCount,
+        strictMode: effectiveHumanSaveStrict,
+        fingerprintBias,
+      },
+    );
+    noteReliabilityFallback("intent_pool_recovery_expand");
+  }
   const selectedTrackIds = new Set(rankedSelection.selected.map((track) => track.trackId));
   retrievedTracks = retrievedTracks
     .filter((track) => selectedTrackIds.has(track.trackId))
@@ -1210,34 +1198,102 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     "backend/core/editorial/intent-collapse-layer.ts",
     "selectRankedCandidatesForSampler",
   ));
-  const minIntentPool = minimumIntentPoolSize(targetCount, humanSaveStrictMode);
-  const targetUniverse = targetSamplerUniverseSize(targetCount, humanSaveStrictMode);
-  if (postIntentFilterCount < minIntentPool) {
-    const collapseTrace = finalizeExecutionTrace(
-      buildIntentCollapseFailureTraceDraft({
-        requestId: opts.requestId ?? "unknown",
-        prompt: vibe,
-        seed: opts.seed ?? null,
-        intentCollapseLayer: intentCollapseTrace(),
-        preFilterCount: preIntentFilterCount,
-        postFilterCount: postIntentFilterCount,
-      }),
+  const preferredIntentPool = minimumIntentPoolSize(targetCount, effectiveHumanSaveStrict);
+  const targetUniverse = targetSamplerUniverseSize(targetCount, effectiveHumanSaveStrict);
+  const deliveryPoolFloor = intentPoolDeliveryFloor(targetCount);
+  if (retrievedTracks.length < preferredIntentPool && retrievalInputTracks.length > retrievedTracks.length) {
+    const backfillIds = new Set(retrievedTracks.map((track) => track.trackId));
+    const backfill = retrievalInputTracks
+      .filter((track) => !backfillIds.has(track.trackId))
+      .slice(0, Math.max(preferredIntentPool, deliveryPoolFloor) - retrievedTracks.length);
+    if (backfill.length > 0) {
+      retrievedTracks = [...retrievedTracks, ...backfill];
+      noteReliabilityFallback("intent_pool_retrieval_backfill");
+    }
+  }
+  let postIntentFilterCountFinal = retrievedTracks.length;
+  if (isIntentPoolBelowPreferred(postIntentFilterCountFinal, targetCount, effectiveHumanSaveStrict)) {
+    noteReliabilityFallback(
+      `intent_pool_below_preferred_${postIntentFilterCountFinal}_of_${preferredIntentPool}`,
     );
-    throw new IntentCollapseInsufficientPoolError(
-      `insufficient_intent_pool:${postIntentFilterCount}<${minIntentPool}`,
-      {
-        ...intentCollapseDiagnostics!,
-        targetUniverseSize: targetUniverse,
-        universeCoverage: postIntentFilterCount / Math.max(1, targetUniverse),
-      },
-      collapseTrace,
-    );
+  }
+  if (postIntentFilterCountFinal < deliveryPoolFloor) {
+    const salvageSource = intentFilterTracks.length > 0
+      ? intentFilterTracks
+      : retrievalInputTracks.map((track) =>
+        enrichIntentCollapseTrack(track, opts.classificationByTrack?.(track.trackId)),
+      );
+    if (salvageSource.length > 0) {
+      const emergencySelection = recoverSamplerUniverse(
+        salvageSource,
+        { ...calibratedIntentVector, relaxGenreFamilyFilter: true },
+        rankedSelection,
+        {
+          targetCount,
+          strictMode: false,
+          fingerprintBias,
+        },
+      );
+      const emergencyTracks = emergencySelection.selected.length > 0
+        ? emergencySelection.selected
+        : salvageSource.slice(0, Math.max(minimumReturnableTrackCount(targetCount), Math.min(targetCount, salvageSource.length)));
+      retrievedTracks = emergencyTracks.map((track) => {
+        const enriched = intentFilterTracks.find((row) => row.trackId === track.trackId);
+        return {
+          ...track,
+          genreFamily: enriched?.genreFamily ?? track.genreFamily ?? null,
+          genrePrimary: enriched?.genrePrimary ?? track.genrePrimary ?? null,
+        };
+      }) as T[];
+      postIntentFilterCountFinal = retrievedTracks.length;
+      noteReliabilityFallback(`intent_pool_emergency_continue_${postIntentFilterCountFinal}`);
+    } else if (tracks.length > 0) {
+      retrievedTracks = tracks.slice(0, Math.max(minimumReturnableTrackCount(targetCount), Math.min(targetCount * 2, tracks.length)));
+      postIntentFilterCountFinal = retrievedTracks.length;
+      noteReliabilityFallback(`intent_pool_library_emergency_${postIntentFilterCountFinal}`);
+    } else {
+      const collapseTrace = finalizeExecutionTrace(
+        buildIntentCollapseFailureTraceDraft({
+          requestId: opts.requestId ?? "unknown",
+          prompt: vibe,
+          seed: opts.seed ?? null,
+          intentCollapseLayer: intentCollapseTrace(),
+          preFilterCount: preIntentFilterCount,
+          postFilterCount: postIntentFilterCountFinal,
+        }),
+      );
+      throw new IntentCollapseInsufficientPoolError(
+        `insufficient_intent_pool:${postIntentFilterCountFinal}<${deliveryPoolFloor}`,
+        {
+          ...intentCollapseDiagnostics!,
+          targetUniverseSize: targetUniverse,
+          universeCoverage: postIntentFilterCountFinal / Math.max(1, targetUniverse),
+        },
+        collapseTrace,
+      );
+    }
   }
   activeRetrievalCloud = {
     ...activeRetrievalCloud,
-    tracks: activeRetrievalCloud.tracks.filter((candidate) =>
-      retrievedTracks.some((track) => track.trackId === candidate.track.trackId),
-    ),
+    tracks: (() => {
+      const cloudById = new Map(
+        activeRetrievalCloud.tracks.map((candidate) => [candidate.track.trackId, candidate]),
+      );
+      return retrievedTracks.map((track) =>
+        cloudById.get(track.trackId) ?? {
+          track,
+          embeddingAffinity: 0.35,
+          retrievalNeighborhood: "intent_backfill",
+          componentAffinities: {
+            scene: 0.4,
+            taste: 0.45,
+            mood: 0.4,
+            energy: 0.4,
+            drift: 0.35,
+          },
+        },
+      );
+    })(),
   };
   const retrievalByTrack = new Map(
     activeRetrievalCloud.tracks.map((candidate) => [candidate.track.trackId, candidate]),
@@ -1255,7 +1311,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     playlistAdjacency: opts.playlistAdjacency,
     likedAdjacency: opts.likedAdjacency,
   });
-  const worldLockedFromFullLibrary = humanSaveStrictMode && !!preRetrievalSceneWorld?.active;
+  const worldLockedFromFullLibrary = effectiveHumanSaveStrict && !!preRetrievalSceneWorld?.active;
   const sceneWorldContext = worldLockedFromFullLibrary
     ? preRetrievalSceneWorld
     : (postRetrievalRebuiltWorld ?? preRetrievalSceneWorld);
@@ -1794,34 +1850,22 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     });
   }
 
+  const preferredOpeningSize = humanSaveStrictMode ? 10 : 5;
   const openingEditorialLock = reinforceOpeningEditorialWorldLock({
     sampledLanes: sampledResults,
     intent: activeEditorialIntentVector,
-    openingSize: humanSaveStrictMode ? 10 : 5,
+    openingSize: preferredOpeningSize,
   });
-  if (!openingEditorialLock.sufficient && openingEditorialLock.openingEligibleCount < 3) {
-    const collapseTrace = finalizeExecutionTrace(
-      buildIntentCollapseFailureTraceDraft({
-        requestId: opts.requestId ?? "unknown",
-        prompt: vibe,
-        seed: opts.seed ?? null,
-        intentCollapseLayer: intentCollapseTrace(),
-        preFilterCount: intentCollapseDiagnostics?.preFilterCount ?? 0,
-        postFilterCount: openingEditorialLock.openingEligibleCount,
-      }),
+  if (openingEditorialLock.relaxed) {
+    noteReliabilityFallback(
+      `opening_editorial_lock_effective_${openingEditorialLock.effectiveOpeningSize}_of_${openingEditorialLock.preferredOpeningSize}`,
     );
-    throw new IntentCollapseInsufficientPoolError(
-      `insufficient_intent_pool:opening_eligible=${openingEditorialLock.openingEligibleCount}<5`,
-      buildIntentCollapseDiagnostics(
-        activeEditorialIntentVector,
-        collapsedIntent.collapseConfidenceScore,
-        intentCollapseDiagnostics?.preFilterCount ?? 0,
-        openingEditorialLock.openingEligibleCount,
-      ),
-      collapseTrace,
-    );
+  } else if (openingEditorialLock.effectiveOpeningSize === 0) {
+    noteReliabilityFallback("opening_editorial_lock_no_eligible_used_unfiltered_lanes");
   }
-  sampledResults.splice(0, sampledResults.length, ...openingEditorialLock.sampledLanes);
+  if (openingEditorialLock.openingEligibleCount >= 1) {
+    sampledResults.splice(0, sampledResults.length, ...openingEditorialLock.sampledLanes);
+  }
 
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
   const interleaverInputCount = sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0);
@@ -1836,7 +1880,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     run: () => interleaveLanes(lanes, sampledResults, targetCount, {
       cohesivePlaylist: cohesivePlaylist || humanSaveStrictMode,
       sceneWorld: sceneWorldContext,
-      strictOpeningCluster: humanSaveStrictMode,
+      strictOpeningCluster: false,
     }),
     recover: () => ({
       tracks: sampledResults.flatMap((lane) => lane.tracks).slice(0, targetCount),
@@ -1861,7 +1905,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       ...track,
       clusterId: track.clusterIds[0],
     })) as Array<T & V3SelectionCandidate<T>>;
-  const strictOpeningCount = humanSaveStrictMode ? 10 : 5;
+  const strictOpeningCount = openingEditorialLock.effectiveOpeningSize > 0
+    ? openingEditorialLock.effectiveOpeningSize
+    : preferredOpeningSize;
   const preInterleaverOpeningAudit = openingClusterAudit(preInterleaverPreview, sceneWorldContext, strictOpeningCount);
   forensicTrace.push(stageTrace(
     "interleaver input count",
@@ -1960,40 +2006,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       .map((track) => byId.get(track.trackId))
       .filter((track): track is (typeof finalTracks)[number] => !!track);
   }
-  if (humanSaveStrictMode && sceneWorldContext?.sceneClusters && finalTracks.length > 0) {
-    const openingRepair = enforceOpeningSceneCluster({
-      tracks: finalTracks as Parameters<typeof enforceOpeningSceneCluster>[0]["tracks"],
-      candidates: [
-        ...finalTracks,
-        ...retrievedTracks.map((track) => toSceneWorldTrack(track, opts)),
-      ] as Parameters<typeof enforceOpeningSceneCluster>[0]["candidates"],
-      context: sceneWorldContext,
-      openingSize: 5,
-      maxSwaps: 6,
-    });
-    if (openingRepair.swaps.length > 0) {
-      const byId = new Map(finalTracks.map((track) => [track.trackId, track]));
-      for (const track of retrievedTracks) {
-        if (!byId.has(track.trackId)) {
-          byId.set(track.trackId, {
-            ...track,
-            clusterId: (track as { clusterIds?: string[] }).clusterIds?.[0] ?? null,
-          } as (typeof finalTracks)[number]);
-        }
-      }
-      finalTracks = openingRepair.tracks
-        .map((track) => byId.get(track.trackId))
-        .filter((track): track is (typeof finalTracks)[number] => !!track);
-    }
-  }
-  let openingRepairCount = 0;
-  let insufficientOpeningWorldReason: string | null = null;
-  if (humanSaveStrictMode) {
-    const strictOpening = enforceStrictOpeningWorld(finalTracks, sceneWorldContext);
-    finalTracks = strictOpening.tracks;
-    openingRepairCount = strictOpening.openingRepairCount;
-    insufficientOpeningWorldReason = strictOpening.insufficientOpeningWorldReason;
-  }
+  const openingRepairCount = 0;
+  const insufficientOpeningWorldReason: string | null = null;
   const postInterleaverOpeningAudit = openingClusterAudit(finalTracks, sceneWorldContext, strictOpeningCount);
   const openingTenTrace = humanSaveStrictMode && sceneWorldContext?.sceneClusters
     ? finalTracks.slice(0, 10).map((track, idx) => {
@@ -2064,31 +2078,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     }));
   }
   if (finalTracks.length === 0) {
-    if (humanSaveStrictMode) {
-      const preFilterCountForError = intentCollapseDiagnostics?.preFilterCount ?? 0;
-      throw new IntentCollapseInsufficientPoolError(
-        "insufficient_intent_pool:sampler_returned_zero_strict",
-        intentCollapseDiagnostics ?? buildIntentCollapseDiagnostics(
-          activeEditorialIntentVector,
-          collapsedIntent.collapseConfidenceScore,
-          preFilterCountForError,
-          0,
-        ),
-        finalizeExecutionTrace(
-          buildIntentCollapseFailureTraceDraft({
-            requestId: opts.requestId ?? "unknown",
-            prompt: vibe,
-            seed: opts.seed ?? null,
-            intentCollapseLayer: intentCollapseTrace(),
-            preFilterCount: preFilterCountForError,
-            postFilterCount: 0,
-          }),
-        ),
-      );
-    }
     const cachedFinalTracks = getFallbackCache<Array<T & V3SelectionCandidate<T>>>(outputCacheKey);
     finalTracks = cachedFinalTracks ?? minimalSelectedTracks(tracks, targetCount);
-    if (finalTracks.length > 0) recordTraceFallback(opts.pipelineTrace, cachedFinalTracks ? "v3.output_cache_fallback" : "v3.minimal_output_fallback");
+    if (finalTracks.length > 0) {
+      noteReliabilityFallback(cachedFinalTracks ? "v3.output_cache_fallback" : "v3.minimal_output_fallback");
+    }
   }
   if (finalTracks.length > 0) setFallbackCache(outputCacheKey, finalTracks);
 
@@ -2201,7 +2195,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   finalTracks = humanSaveGate.tracks as Array<T & V3SelectionCandidate<T>>;
   editorialRemoved = humanSaveGate.editorialRemoved;
 
-  const humanSaveabilityDiagnostics = {
+  let humanSaveabilityDiagnostics: Record<string, unknown> = {
     passed: humanSaveGate.passed,
     humanSaveable: humanSaveGate.evaluation.humanSaveable,
     curatorScore: humanSaveGate.evaluation.curatorScore,
@@ -2232,6 +2226,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     retriesUsed: humanSaveGate.retriesUsed,
     maxRetries: 2,
     hardFailed: !humanSaveGate.passed,
+    degradedDelivery: false,
     sceneClusterFunnel,
     openingTenDominantCluster,
     editorialPolishLayer: editorialPolishDiagnostics,
@@ -2245,96 +2240,82 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       scoreBefore: completePlaylistSearch.scoreBefore,
       scoreAfter: completePlaylistSearch.scoreAfter,
       candidateScores: completePlaylistSearch.candidateScores,
+      constraintsRelaxed: completePlaylistSearch.constraintsRelaxed,
     },
     editorialStackSimplified: {
       openingEndingCuratorsRemoved: true,
+      openingValidatorsRemoved: true,
       stabiliserSkippedUnlessStrictOrPolishMutated: true,
     },
   };
 
-  if (!humanSaveGate.passed || !!insufficientOpeningWorldReason) {
-    const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons];
-    if (insufficientOpeningWorldReason) rejectionReasons.push(insufficientOpeningWorldReason);
-    if (interleaverStepPurityDegraded && !humanSaveGate.passed) {
-      rejectionReasons.push("interleaver audit failed: opening cluster purity degraded");
-    }
-    if (rejectionReasons.length === 0) {
-      if (humanSaveGate.retriesUsed >= MAX_HUMAN_SAVE_RETRIES) {
-        rejectionReasons.push(`human_saveability_retries_exhausted:${humanSaveGate.retriesUsed}`);
-      }
-      const collapseStage = sceneClusterFunnel?.earliestCollapseStage;
-      if (typeof collapseStage === "string" && collapseStage.length > 0) {
-        rejectionReasons.push(`pipeline_funnel_collapse:${collapseStage}`);
-      }
-      if (humanSaveGate.failureAttribution?.stageResponsible) {
-        rejectionReasons.push(`stage_attribution:${humanSaveGate.failureAttribution.stageResponsible}`);
-      }
-    }
-    const gateFailureTrace = finalizeExecutionTrace(
-      buildGateFailureExecutionTraceDraft({
-        requestId: opts.requestId ?? "unknown",
-        prompt: vibe,
-        seed: opts.seed ?? null,
-        editorialLayer: editorialPolishDiagnostics
-          ? {
-              repetitionScore: editorialPolishDiagnostics.repetitionScore,
-              arcScore: editorialPolishDiagnostics.arcScore,
-              textureVarianceScore: editorialPolishDiagnostics.textureVarianceScore,
-              flowScore: editorialPolishDiagnostics.flowScore,
-              swapsPerformed: editorialPolishDiagnostics.swapsPerformed,
-              monotonyFixesApplied: editorialPolishDiagnostics.monotonyFixesApplied,
-            }
-          : null,
-        editorialStabiliser: editorialStabiliserDiagnostics
-          ? {
-              identityDriftScore: editorialStabiliserDiagnostics.identityDriftScore,
-              repetitionRiskScore: editorialStabiliserDiagnostics.repetitionRiskScore,
-              arcStabilityScore: editorialStabiliserDiagnostics.arcStabilityScore,
-              openingIntegrityScore: editorialStabiliserDiagnostics.openingIntegrityScore,
-              openingSwapsPerformed: editorialStabiliserDiagnostics.openingSwapsPerformed,
-              arcSwapsPerformed: editorialStabiliserDiagnostics.arcSwapsPerformed,
-              repetitionDemotions: editorialStabiliserDiagnostics.repetitionDemotions,
-              embeddingStreakBreaks: editorialStabiliserDiagnostics.embeddingStreakBreaks,
-              applied: editorialStabiliserDiagnostics.applied,
-            }
-          : null,
-        intentCollapseLayer: intentCollapseTrace(),
-        gate: {
-          ...humanSaveGate.evaluation,
+  const minDeliverableTracks = Math.max(8, Math.floor(targetCount * 0.72));
+  const gateWouldHardFail = !humanSaveGate.passed;
+  if (gateWouldHardFail) {
+    if (finalTracks.length >= minDeliverableTracks) {
+      noteReliabilityFallback("human_save_gate_degraded_delivery");
+      humanSaveabilityDiagnostics = {
+        ...humanSaveabilityDiagnostics,
+        hardFailed: false,
+        degradedDelivery: true,
+      };
+    } else {
+      const safeSource = finalTracks.length > 0
+        ? finalTracks
+        : retrievedTracks.length > 0
+          ? retrievedTracks.map((track) => toSafeFallbackCandidate(track as T & Partial<V3SelectionCandidate<T>>))
+          : minimalSelectedTracks(tracks, targetCount);
+      const safePlaylist = assembleSafeV3Playlist(safeSource, profile, targetCount);
+      if (safePlaylist.length > 0) {
+        finalTracks = safePlaylist;
+        noteReliabilityFallback("human_save_gate_safe_playlist");
+        const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons];
+        if (insufficientOpeningWorldReason) rejectionReasons.push(insufficientOpeningWorldReason);
+        humanSaveabilityDiagnostics = {
+          ...humanSaveabilityDiagnostics,
+          hardFailed: false,
+          degradedDelivery: true,
           rejectionReasons,
-          curatorScore: humanSaveGate.evaluation.curatorScore,
-          breakdown: humanSaveGate.evaluation.breakdown,
-          dominantCluster: postInterleaverOpeningAudit.dominantClusterLabel,
-          interleaverAudit: humanSaveabilityDiagnostics.interleaverAudit,
-          sceneClusterFunnel,
-          openingTenDominantCluster,
-          attribution: {
-            ...humanSaveGate.failureAttribution,
-            interleaverAudit: humanSaveabilityDiagnostics.interleaverAudit,
-            dominantCluster: postInterleaverOpeningAudit.dominantClusterLabel,
-            sceneClusterFunnel,
-            openingTenDominantCluster,
-            playlistExecutionTrace: undefined,
-          },
-        },
-      }),
-    );
-    throw new HumanSaveabilityGateError(
-      {
-        ...humanSaveGate.evaluation,
-        rejectionReasons,
-      },
-      humanSaveGate.retriesUsed,
-      {
-        ...humanSaveGate.failureAttribution,
-        interleaverAudit: humanSaveabilityDiagnostics.interleaverAudit,
-        dominantCluster: postInterleaverOpeningAudit.dominantClusterLabel,
-        opening5Violations: postInterleaverOpeningAudit.openingClusterViolations,
-        sceneClusterFunnel,
-        openingTenDominantCluster,
-      } as Record<string, unknown>,
-      gateFailureTrace,
-    );
+        };
+      } else {
+        const emergencyPlaylist = assembleSafeV3Playlist(
+          minimalSelectedTracks(tracks, targetCount),
+          profile,
+          targetCount,
+        );
+        if (emergencyPlaylist.length > 0) {
+          finalTracks = emergencyPlaylist;
+          noteReliabilityFallback("human_save_gate_emergency_playlist");
+          humanSaveabilityDiagnostics = {
+            ...humanSaveabilityDiagnostics,
+            hardFailed: false,
+            degradedDelivery: true,
+            rejectionReasons: [...humanSaveGate.evaluation.rejectionReasons, "human_save_gate_emergency_assembly"],
+          };
+        } else {
+          const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons];
+          if (insufficientOpeningWorldReason) rejectionReasons.push(insufficientOpeningWorldReason);
+          const gateFailureTrace = finalizeExecutionTrace(
+            buildGateFailureExecutionTraceDraft({
+              requestId: opts.requestId ?? "unknown",
+              prompt: vibe,
+              seed: opts.seed ?? null,
+              intentCollapseLayer: intentCollapseTrace(),
+              gate: {
+                ...humanSaveGate.evaluation,
+                rejectionReasons,
+              },
+            }),
+          );
+          throw new HumanSaveabilityGateError(
+            { ...humanSaveGate.evaluation, rejectionReasons },
+            humanSaveGate.retriesUsed,
+            humanSaveGate.failureAttribution as Record<string, unknown>,
+            gateFailureTrace,
+          );
+        }
+      }
+    }
   }
 
   if (sceneWorldContext?.active && finalTracks.length > 0) {
@@ -2345,6 +2326,22 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       firstTenCohesion: humanSaveGate.sceneWorldMetrics?.firstTenCohesion ?? 0,
     };
   }
+
+  const deliveryTier: GenerationDeliveryTier = resolveGenerationDeliveryTier({
+    targetCount,
+    finalTrackCount: finalTracks.length,
+    gatePassed: humanSaveGate.passed,
+    degradationReasons: opts.pipelineTrace?.degradationReasons ?? [],
+    preferredIntentPoolMet: !isIntentPoolBelowPreferred(
+      postIntentFilterCountFinal,
+      targetCount,
+      effectiveHumanSaveStrict,
+    ),
+  });
+  humanSaveabilityDiagnostics = {
+    ...humanSaveabilityDiagnostics,
+    deliveryTier,
+  };
 
   const sceneWorldMetrics = humanSaveGate.sceneWorldMetrics
     ?? (sceneWorldContext?.active ? scorePlaylistWorldMetrics(finalTracks, sceneWorldContext) : null);
@@ -2729,6 +2726,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     },
     degraded: opts.pipelineTrace?.degraded ?? false,
     degradationReasons: opts.pipelineTrace?.degradationReasons ?? [],
+    deliveryTier,
     failureTrace: opts.pipelineTrace?.failures ?? [],
     recoveryEvents: opts.pipelineTrace?.recoveryEvents ?? [],
     systemHealth: healthState,

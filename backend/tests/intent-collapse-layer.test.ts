@@ -10,6 +10,9 @@ import {
   collapseIntent,
   filterCandidatesByIntentVector,
   minimumIntentPoolSize,
+  openingPreferenceTargets,
+  reinforceOpeningEditorialWorldLock,
+  resolveEffectiveOpeningSize,
   selectEditorialWorld,
   selectRankedCandidatesForSampler,
   targetSamplerUniverseSize,
@@ -19,6 +22,10 @@ import {
   calibrateIntentVectorForRetrievalPool,
   diagnoseIntentFilterRejectionCounts,
   validateDominantClusterAlignment,
+  recoverSamplerUniverse,
+  absoluteIntentPoolFloor,
+  intentPoolDeliveryFloor,
+  isIntentPoolBelowPreferred,
 } from "../core/editorial/intent-collapse-layer";
 import type { LockedIntent } from "../core/v3/intent";
 import type { EmotionProfile } from "../lib/emotion";
@@ -314,5 +321,79 @@ describe("intent collapse layer", () => {
       sceneType: "drive",
     });
     assert.equal(world.tag, "country_open_road");
+  });
+
+  it("recovers thin sampler pools via relaxed backfill", () => {
+    const pool = Array.from({ length: 80 }, (_, i) => ({
+      trackId: `t${i}`,
+      genreFamily: i < 12 ? "indie" : "rock",
+      energy: 0.55,
+      valence: 0.5,
+      danceability: 0.45,
+      acousticness: 0.4,
+      tempo: 105,
+    }));
+    const collapsed = collapseIntent({
+      vibe: "rainy city walk reflective",
+      lockedIntent: rainyWalkIntent,
+      profile: baseProfile,
+      strictMode: true,
+    });
+    const calibrated = calibrateIntentVectorForRetrievalPool(pool, collapsed.intent, { targetCount: 25, strictMode: true });
+    const ranked = selectRankedCandidatesForSampler(pool, calibrated, { targetCount: 25, strictMode: true });
+    const recovered = recoverSamplerUniverse(pool, calibrated, ranked, { targetCount: 25, strictMode: true });
+    assert.ok(recovered.selected.length >= minimumIntentPoolSize(25, true));
+  });
+
+  it("absolute intent pool floor stays below editorial minimum", () => {
+    assert.equal(absoluteIntentPoolFloor(30), 7);
+    assert.ok(absoluteIntentPoolFloor(30) < minimumIntentPoolSize(30, true));
+  });
+
+  it("intent pool delivery floor accepts thin-but-usable pools instead of hard 422 at preferred size", () => {
+    assert.equal(minimumIntentPoolSize(30, false), 45);
+    assert.equal(intentPoolDeliveryFloor(30), 22);
+    assert.ok(intentPoolDeliveryFloor(30) < minimumIntentPoolSize(30, false));
+    assert.equal(isIntentPoolBelowPreferred(38, 30, false), true);
+    assert.ok(38 >= intentPoolDeliveryFloor(30));
+    assert.equal(isIntentPoolBelowPreferred(44, 30, false), true);
+    assert.ok(44 >= intentPoolDeliveryFloor(30));
+  });
+
+  it("resolveEffectiveOpeningSize degrades 5→3→2→1 instead of failing", () => {
+    assert.deepEqual(openingPreferenceTargets(5), [5, 3, 2, 1]);
+    assert.deepEqual(openingPreferenceTargets(10), [10, 5, 3, 2, 1]);
+    assert.equal(resolveEffectiveOpeningSize(6, 5), 5);
+    assert.equal(resolveEffectiveOpeningSize(4, 5), 3);
+    assert.equal(resolveEffectiveOpeningSize(2, 5), 2);
+    assert.equal(resolveEffectiveOpeningSize(1, 5), 1);
+    assert.equal(resolveEffectiveOpeningSize(0, 5), 0);
+  });
+
+  it("reinforceOpeningEditorialWorldLock keeps best available openers without requiring five", () => {
+    const intent = collapseIntent({
+      vibe: "sunday morning coffee cozy",
+      lockedIntent: rainyWalkIntent,
+      profile: baseProfile,
+      strictMode: false,
+    }).intent;
+    const tracks = Array.from({ length: 8 }, (_, i) => ({
+      trackId: `t${i}`,
+      genreFamily: i < 4 ? "indie" : "electronic",
+      energy: 0.45,
+      valence: 0.42,
+      danceability: 0.5,
+      acousticness: 0.4,
+      tempo: 110,
+    }));
+    const lock = reinforceOpeningEditorialWorldLock({
+      sampledLanes: [{ laneId: "core", tracks }],
+      intent,
+      openingSize: 5,
+    });
+    assert.ok(lock.openingEligibleCount >= 1);
+    assert.equal(lock.effectiveOpeningSize, resolveEffectiveOpeningSize(lock.openingEligibleCount, 5));
+    assert.ok(lock.effectiveOpeningSize >= 1);
+    assert.equal(lock.sampledLanes[0]!.tracks.length, lock.openingEligibleCount);
   });
 });
