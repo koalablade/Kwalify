@@ -7,6 +7,11 @@ import {
   scoreAgainstHumanPlaylistPatterns,
   type PatternScoringTrack,
 } from "./human-playlist-patterns";
+import { scorePlaylistForCuration } from "./playlist-preference-model";
+import type { PlaylistCurationScoringContext } from "./would-i-save-evaluator";
+import { playlistBelievabilityScore } from "./would-i-save-evaluator";
+
+export { humanPlausibilityScore } from "./human-playlist-patterns";
 
 export type PlaylistSearchMove =
   | "adjacent_swap"
@@ -33,10 +38,6 @@ function artistKey(track: PatternScoringTrack): string {
 
 function rawPatternScore(tracks: PatternScoringTrack[]): number {
   return scoreAgainstHumanPlaylistPatterns(tracks).score;
-}
-
-function playlistScore(tracks: PatternScoringTrack[]): number {
-  return humanPlausibilityScore(tracks);
 }
 
 function artistSpacingOk(tracks: PatternScoringTrack[], index: number, candidate: PatternScoringTrack): boolean {
@@ -75,10 +76,23 @@ export function improvePlaylistByLocalSearch<T extends PatternScoringTrack>(
     maxIterations?: number;
     seed?: string;
     allowCharacterPick?: boolean;
+    scoringContext?: PlaylistCurationScoringContext | null;
   } = {},
 ): PlaylistSearchResult<T> {
   const maxIterations = opts.maxIterations ?? 48;
   const allowCharacter = opts.allowCharacterPick !== false;
+  const scoreCache = new Map<string, number>();
+  const playlistScore = (tracks: PatternScoringTrack[]): number => {
+    if (opts.scoringContext) {
+      const key = tracks.map((track) => track.trackId).join("|");
+      const cached = scoreCache.get(key);
+      if (cached !== undefined) return cached;
+      const score = playlistBelievabilityScore(tracks, opts.scoringContext);
+      scoreCache.set(key, score);
+      return score;
+    }
+    return scorePlaylistForCuration(tracks);
+  };
   const playlistIds = new Set(playlist.map((t) => t.trackId));
   const pool = alternatePool.filter((t) => t.trackId && !playlistIds.has(t.trackId));
 
@@ -206,10 +220,3 @@ export function improvePlaylistByLocalSearch<T extends PatternScoringTrack>(
   };
 }
 
-export function humanPlausibilityScore(tracks: PatternScoringTrack[]): number {
-  if (tracks.length === 0) return 0;
-  const full = rawPatternScore(tracks);
-  const opening = tracks.length >= 5 ? rawPatternScore(tracks.slice(0, 5)) : full;
-  const ending = tracks.length >= 8 ? rawPatternScore(tracks.slice(-Math.min(8, tracks.length))) : full;
-  return clamp01(full * 0.5 + opening * 0.28 + ending * 0.22);
-}

@@ -1,17 +1,20 @@
 /**
- * Editorial pattern PRIORS — not learned from a corpus until fitted.
+ * Editorial pattern priors — learned from public playlist corpus when fitted.
  *
- * `human-playlist-patterns.json` and DEFAULT_* values are hand-calibrated
- * heuristics (better hardcoded rules). Replace by running corpus fitting:
- *   npm run fit:human-playlist-patterns
- * and pointing HUMAN_PLAYLIST_PATTERNS_PATH at the output.
+ * Hand-tuned defaults apply until corpus fitting runs:
+ *   npm run fit:playlist-genome
  *
- * True learning requires thousands of real playlists + pairwise human judgement
- * (see pairwise-playlist-judge.ts and scripts/pairwise-human-playlist-benchmark.ts).
+ * Override fitted genome: PLAYLIST_GENOME_PATH
+ * Legacy override: HUMAN_PLAYLIST_PATTERNS_PATH
  */
 
 import fs from "node:fs";
 import bundledPatterns from "../../data/human-playlist-patterns.json";
+import {
+  loadPlaylistGenome,
+  scoreFeaturesAgainstGenome,
+  type PlaylistGenomeProfile,
+} from "./playlist-genome";
 
 export type HumanPlaylistPatternProfile = {
   artistSpacingP25: number;
@@ -62,11 +65,20 @@ export function loadHumanPlaylistPatternProfile(): HumanPlaylistPatternProfile {
       cachedProfile = { ...DEFAULT_HUMAN_PLAYLIST_PATTERNS, ...raw };
       return cachedProfile;
     } catch {
-      // fall through to defaults
+      // fall through to genome / defaults
     }
+  }
+  const genome = loadPlaylistGenome();
+  if (genome.corpusSize > 0) {
+    cachedProfile = { ...DEFAULT_HUMAN_PLAYLIST_PATTERNS, ...genome.patterns };
+    return cachedProfile;
   }
   cachedProfile = { ...DEFAULT_HUMAN_PLAYLIST_PATTERNS, ...bundledPatterns };
   return cachedProfile;
+}
+
+export function loadActivePlaylistGenome(): PlaylistGenomeProfile {
+  return loadPlaylistGenome();
 }
 
 export type HumanPlaylistFeatureSnapshot = {
@@ -306,6 +318,12 @@ export function scoreAgainstHumanPlaylistPatterns(
   breakdown: Record<string, number>;
 } {
   const features = computeHumanPlaylistFeatures(tracks);
+  const genome = loadPlaylistGenome();
+  if (genome.corpusSize > 0) {
+    const genomeScore = scoreFeaturesAgainstGenome(features, genome);
+    return { score: genomeScore.score, features, breakdown: genomeScore.breakdown };
+  }
+
   const breakdown = {
     artistSpacing: bandScore(
       features.artistSpacingMedian,
@@ -360,4 +378,15 @@ export function scoreAgainstHumanPlaylistPatterns(
   );
 
   return { score, features, breakdown };
+}
+
+export function humanPlausibilityScore(tracks: PatternScoringTrack[]): number {
+  if (tracks.length === 0) return 0;
+  const blend = loadPlaylistGenome().segmentBlend;
+  const full = scoreAgainstHumanPlaylistPatterns(tracks).score;
+  const opening = tracks.length >= 5 ? scoreAgainstHumanPlaylistPatterns(tracks.slice(0, 5)).score : full;
+  const ending = tracks.length >= 8
+    ? scoreAgainstHumanPlaylistPatterns(tracks.slice(-Math.min(8, tracks.length))).score
+    : full;
+  return clamp01(full * blend.full + opening * blend.opening + ending * blend.ending);
 }

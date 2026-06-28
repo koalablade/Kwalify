@@ -1,6 +1,6 @@
 {
   "artistSpacingP25": 2,
-  "artistSpacingP50": 4,
+  "artistSpacingP50": 3,
   "artistSpacingP75": 10,
   "maxSameArtistShare": 0.3,
   "popularityFrontLoad": 0.5,
@@ -9,10 +9,10 @@
   "discoveryRatioP25": 0,
   "discoveryRatioP50": 0,
   "discoveryRatioP75": 0,
-  "energyArcRiseWeight": 0.28,
-  "energyArcFlatWeight": 0.22,
-  "energyArcWaveWeight": 0.32,
-  "energyArcCooldownWeight": 0.18,
-  "maxEnergyJumpP90": 0.035,
+  "energyArcRiseWeight": 0,
+  "energyArcFlatWeight": 1,
+  "energyArcWaveWeight": 0,
+  "energyArcCooldownWeight": 0,
+  "maxEnergyJumpP90": 0,
   "transitionSmoothShare": 1
 }

@@ -103,8 +103,8 @@ Collect **5,000–20,000** real Spotify playlists here. This contributes more to
 
 1. Export playlists to \`data/corpus/human-playlists.json\` (array of \`{ tracks: [...] }\`)
 2. Validate: \`node scripts/scaffold-playlist-genome-dataset.mjs --validate\`
-3. Fit priors: \`npm run fit:human-playlist-patterns\`
-4. Point \`HUMAN_PLAYLIST_PATTERNS_PATH\` at fitted output for production
+3. Fit genome: \`npm run fit:playlist-genome\`
+4. Point \`PLAYLIST_GENOME_PATH\` at fitted output for production
 
 ## Playlist-level features to learn
 

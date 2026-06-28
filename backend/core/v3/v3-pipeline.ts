@@ -52,6 +52,7 @@ import {
   enrichIntentCollapseTrack,
   IntentCollapseInsufficientPoolError,
   minimumIntentPoolSize,
+  targetSamplerUniverseSize,
   reinforceOpeningEditorialWorldLock,
   type EditorialIntentVector,
   type IntentCollapseDiagnostics,
@@ -62,8 +63,11 @@ import {
   realignEditorialIntentForDominantGenres,
 } from "../editorial/intent-collapse-layer";
 import { improvePlaylistByLocalSearch } from "../editorial/playlist-local-search";
-import { curatePlaylistOpening } from "../editorial/opening-curator";
-import { curatePlaylistEnding } from "../editorial/ending-curator";
+import { searchOptimalCompletePlaylist } from "../editorial/playlist-complete-search";
+import {
+  playlistBelievabilityScore,
+  type PlaylistCurationScoringContext,
+} from "../editorial/would-i-save-evaluator";
 import {
   applyEditorialMemoryToIntent,
   resolveArchetypeFromMemory,
@@ -1189,6 +1193,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ),
     rankedSelectionAvgScore: rankedSelection.avgScore,
     rankedSelectionFloor: rankedSelection.minScoreUsed,
+    targetUniverseSize: targetSamplerUniverseSize(targetCount, humanSaveStrictMode),
+    universeCoverage: postIntentFilterCount / Math.max(1, targetSamplerUniverseSize(targetCount, humanSaveStrictMode)),
   };
   forensicTrace.push(stageTrace(
     "intent collapse ranked selection",
@@ -1205,6 +1211,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     "selectRankedCandidatesForSampler",
   ));
   const minIntentPool = minimumIntentPoolSize(targetCount, humanSaveStrictMode);
+  const targetUniverse = targetSamplerUniverseSize(targetCount, humanSaveStrictMode);
   if (postIntentFilterCount < minIntentPool) {
     const collapseTrace = finalizeExecutionTrace(
       buildIntentCollapseFailureTraceDraft({
@@ -1218,7 +1225,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     );
     throw new IntentCollapseInsufficientPoolError(
       `insufficient_intent_pool:${postIntentFilterCount}<${minIntentPool}`,
-      intentCollapseDiagnostics,
+      {
+        ...intentCollapseDiagnostics!,
+        targetUniverseSize: targetUniverse,
+        universeCoverage: postIntentFilterCount / Math.max(1, targetUniverse),
+      },
       collapseTrace,
     );
   }
@@ -1867,7 +1878,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     clusterId: track.clusterIds[0],
   })) as Array<T & V3SelectionCandidate<T>>;
   const postInterleaverOnlyAudit = openingClusterAudit(finalTracks, sceneWorldContext, strictOpeningCount);
-  const localSearchPool = retrievedTracks.map((track) => ({
+  const toPatternTrack = (track: T & V3SelectionCandidate<T>) => ({
     trackId: track.trackId,
     artistName: track.artistName,
     energy: track.energy,
@@ -1878,24 +1889,63 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
     releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
     tempo: (track as { tempo?: number | null }).tempo ?? null,
-  }));
+    laneScore: track.laneScore,
+  });
+  const curationScoringContext: PlaylistCurationScoringContext = {
+    prompt: vibe,
+    lockedIntent,
+    context: sceneWorldContext ?? null,
+    libraryFingerprint: opts.libraryFingerprint ?? null,
+    targetLength: finalTracks.length,
+  };
+  const searchPool = (() => {
+    const seen = new Set<string>();
+    const out: Array<T & V3SelectionCandidate<T>> = [];
+    for (const track of [...retrievedTracks, ...finalTracks]) {
+      if (seen.has(track.trackId)) continue;
+      seen.add(track.trackId);
+      out.push(track as T & V3SelectionCandidate<T>);
+    }
+    return out.map(toPatternTrack);
+  })();
+  const completePlaylistSearch = searchOptimalCompletePlaylist({
+    seedPlaylist: finalTracks.map(toPatternTrack),
+    pool: searchPool,
+    targetLength: finalTracks.length,
+    beamWidth: humanSaveStrictMode ? 6 : 5,
+    maxPoolTracks: humanSaveStrictMode ? 112 : 96,
+    seed: `${opts.seed ?? vibe}:complete`,
+    scoringContext: curationScoringContext,
+  });
+  {
+    const byId = new Map<string, (typeof finalTracks)[number]>();
+    for (const track of finalTracks) byId.set(track.trackId, track);
+    for (const track of retrievedTracks) {
+      if (!byId.has(track.trackId)) {
+        byId.set(track.trackId, {
+          ...track,
+          clusterId: (track as { clusterIds?: string[] }).clusterIds?.[0] ?? null,
+        } as (typeof finalTracks)[number]);
+      }
+    }
+    const searched = completePlaylistSearch.tracks
+      .map((track) => byId.get(track.trackId))
+      .filter((track): track is (typeof finalTracks)[number] => !!track);
+    if (searched.length >= Math.max(8, Math.floor(finalTracks.length * 0.75))) {
+      finalTracks = searched;
+    }
+  }
+  const localSearchPool = searchPool;
   const localSearch = improvePlaylistByLocalSearch(
-    finalTracks.map((track) => ({
-      trackId: track.trackId,
-      artistName: track.artistName,
-      energy: track.energy,
-      valence: track.valence,
-      danceability: track.danceability,
-      acousticness: track.acousticness,
-      popularity: (track as { popularity?: number | null }).popularity ?? null,
-      rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
-      releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
-      tempo: (track as { tempo?: number | null }).tempo ?? null,
-    })),
+    finalTracks.map(toPatternTrack),
     localSearchPool,
-    { maxIterations: humanSaveStrictMode ? 56 : 40, seed: opts.requestId ?? vibe },
+    {
+      maxIterations: humanSaveStrictMode ? 64 : 48,
+      seed: opts.requestId ?? vibe,
+      scoringContext: curationScoringContext,
+    },
   );
-  if (localSearch.scoreAfter > localSearch.scoreBefore + 0.003 && localSearch.moves.length > 0) {
+  if (localSearch.moves.length > 0 && localSearch.scoreAfter >= localSearch.scoreBefore - 0.0005) {
     const byId = new Map<string, (typeof finalTracks)[number]>();
     for (const track of finalTracks) byId.set(track.trackId, track);
     for (const track of retrievedTracks) {
@@ -1907,27 +1957,6 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       }
     }
     finalTracks = localSearch.tracks
-      .map((track) => byId.get(track.trackId))
-      .filter((track): track is (typeof finalTracks)[number] => !!track);
-  }
-  const openingCurated = curatePlaylistOpening(
-    finalTracks.map((track) => ({
-      trackId: track.trackId,
-      artistName: track.artistName,
-      energy: track.energy,
-      valence: track.valence,
-      danceability: track.danceability,
-      acousticness: track.acousticness,
-      popularity: (track as { popularity?: number | null }).popularity ?? null,
-      rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
-      releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
-      tempo: (track as { tempo?: number | null }).tempo ?? null,
-    })),
-    humanSaveStrictMode ? 5 : 5,
-  );
-  if (openingCurated.swaps > 0 && openingCurated.scoreAfter > openingCurated.scoreBefore + 0.004) {
-    const byId = new Map(finalTracks.map((track) => [track.trackId, track]));
-    finalTracks = openingCurated.tracks
       .map((track) => byId.get(track.trackId))
       .filter((track): track is (typeof finalTracks)[number] => !!track);
   }
@@ -1956,26 +1985,6 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         .map((track) => byId.get(track.trackId))
         .filter((track): track is (typeof finalTracks)[number] => !!track);
     }
-  }
-  const endingCurated = curatePlaylistEnding(
-    finalTracks.map((track) => ({
-      trackId: track.trackId,
-      artistName: track.artistName,
-      energy: track.energy,
-      valence: track.valence,
-      danceability: track.danceability,
-      acousticness: track.acousticness,
-      popularity: (track as { popularity?: number | null }).popularity ?? null,
-      rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
-      releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
-      tempo: (track as { tempo?: number | null }).tempo ?? null,
-    })),
-  );
-  if (endingCurated.swaps > 0 && endingCurated.scoreAfter > endingCurated.scoreBefore + 0.004) {
-    const byId = new Map(finalTracks.map((track) => [track.trackId, track]));
-    finalTracks = endingCurated.tracks
-      .map((track) => byId.get(track.trackId))
-      .filter((track): track is (typeof finalTracks)[number] => !!track);
   }
   let openingRepairCount = 0;
   let insufficientOpeningWorldReason: string | null = null;
@@ -2084,23 +2093,82 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   if (finalTracks.length > 0) setFallbackCache(outputCacheKey, finalTracks);
 
   let editorialPolishDiagnostics: EditorialLayerDiagnostics | null = null;
+  const prePolishTracks = finalTracks;
+  const prePolishBelievability = playlistBelievabilityScore(
+    prePolishTracks.map(toPatternTrack),
+    curationScoringContext,
+  );
   if (finalTracks.length > 0 && sceneWorldContext?.active && sceneWorldContext.sceneClusters) {
     const polish = applyHumanSaveabilityPolishLayer({
       tracks: finalTracks,
       context: sceneWorldContext,
     });
-    finalTracks = polish.tracks;
-    editorialPolishDiagnostics = polish.diagnostics;
+    const polishedBelievability = playlistBelievabilityScore(
+      polish.tracks.map(toPatternTrack),
+      curationScoringContext,
+    );
+    if (polishedBelievability >= prePolishBelievability - 0.002) {
+      finalTracks = polish.tracks;
+      editorialPolishDiagnostics = polish.diagnostics;
+    }
   }
 
   let editorialStabiliserDiagnostics: EditorialStabiliserDiagnostics | null = null;
-  if (finalTracks.length > 0 && sceneWorldContext?.active && sceneWorldContext.sceneClusters) {
+  const polishMutated = !!editorialPolishDiagnostics &&
+    (editorialPolishDiagnostics.swapsPerformed > 0 || editorialPolishDiagnostics.monotonyFixesApplied > 0);
+  const preStabiliserTracks = finalTracks;
+  const preStabiliserBelievability = playlistBelievabilityScore(
+    preStabiliserTracks.map(toPatternTrack),
+    curationScoringContext,
+  );
+  if (
+    finalTracks.length > 0 &&
+    sceneWorldContext?.active &&
+    sceneWorldContext.sceneClusters &&
+    (humanSaveStrictMode || polishMutated)
+  ) {
     const stabiliser = applyHumanSaveabilityStabiliser({
       tracks: finalTracks,
       context: sceneWorldContext,
     });
-    finalTracks = stabiliser.tracks;
-    editorialStabiliserDiagnostics = stabiliser.diagnostics;
+    const stabilisedBelievability = playlistBelievabilityScore(
+      stabiliser.tracks.map(toPatternTrack),
+      curationScoringContext,
+    );
+    if (stabilisedBelievability >= preStabiliserBelievability - 0.002) {
+      finalTracks = stabiliser.tracks;
+      editorialStabiliserDiagnostics = stabiliser.diagnostics;
+    }
+  }
+  const editorialLayersMutated = polishMutated ||
+    !!editorialStabiliserDiagnostics?.applied ||
+    (editorialStabiliserDiagnostics?.openingSwapsPerformed ?? 0) > 0 ||
+    (editorialStabiliserDiagnostics?.arcSwapsPerformed ?? 0) > 0;
+  if (editorialLayersMutated && finalTracks.length > 0) {
+    const refinement = improvePlaylistByLocalSearch(
+      finalTracks.map(toPatternTrack),
+      localSearchPool,
+      {
+        maxIterations: humanSaveStrictMode ? 24 : 16,
+        seed: `${opts.requestId ?? vibe}:refine`,
+        scoringContext: curationScoringContext,
+      },
+    );
+    if (refinement.moves.length > 0 && refinement.scoreAfter >= refinement.scoreBefore - 0.0005) {
+      const byId = new Map<string, (typeof finalTracks)[number]>();
+      for (const track of finalTracks) byId.set(track.trackId, track);
+      for (const track of retrievedTracks) {
+        if (!byId.has(track.trackId)) {
+          byId.set(track.trackId, {
+            ...track,
+            clusterId: (track as { clusterIds?: string[] }).clusterIds?.[0] ?? null,
+          } as (typeof finalTracks)[number]);
+        }
+      }
+      finalTracks = refinement.tracks
+        .map((track) => byId.get(track.trackId))
+        .filter((track): track is (typeof finalTracks)[number] => !!track);
+    }
   }
 
   let editorialAudit: ReturnType<typeof auditEditorialPlaylist<T>> | null = null;
@@ -2170,6 +2238,18 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     editorialStabiliserLayer: editorialStabiliserDiagnostics,
     intentCollapseLayer: intentCollapseDiagnostics,
     samplerIntentContext,
+    completePlaylistSearch: {
+      selectedStrategy: completePlaylistSearch.selectedStrategy,
+      candidatesExplored: completePlaylistSearch.candidatesExplored,
+      beamWidth: completePlaylistSearch.beamWidth,
+      scoreBefore: completePlaylistSearch.scoreBefore,
+      scoreAfter: completePlaylistSearch.scoreAfter,
+      candidateScores: completePlaylistSearch.candidateScores,
+    },
+    editorialStackSimplified: {
+      openingEndingCuratorsRemoved: true,
+      stabiliserSkippedUnlessStrictOrPolishMutated: true,
+    },
   };
 
   if (!humanSaveGate.passed || !!insufficientOpeningWorldReason) {

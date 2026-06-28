@@ -12,6 +12,7 @@ import {
   minimumIntentPoolSize,
   selectEditorialWorld,
   selectRankedCandidatesForSampler,
+  targetSamplerUniverseSize,
   trackMatchesEditorialIntent,
   trackMicroCluster,
   enrichIntentCollapseTrack,
@@ -279,7 +280,29 @@ describe("intent collapse layer", () => {
     const head = ranked.selected.slice(0, headSize);
     const indieShare = head.filter((track) => track.genreFamily === "indie").length / head.length;
     assert.ok(indieShare >= 0.35);
-    assert.ok(ranked.selected.length <= 300);
+    assert.ok(ranked.selected.length <= targetSamplerUniverseSize(25, true));
+  });
+
+  it("assembles a broad sampler universe when library depth allows", () => {
+    const pool = Array.from({ length: 500 }, (_, i) => ({
+      trackId: `t${i}`,
+      genreFamily: i % 3 === 0 ? "electronic" : "indie",
+      energy: 0.4 + (i % 9) * 0.05,
+      valence: 0.4 + (i % 7) * 0.06,
+      danceability: 0.5,
+      acousticness: 0.3,
+      tempo: 110 + (i % 20),
+    }));
+    const collapsed = collapseIntent({
+      vibe: "rainy city walk reflective",
+      lockedIntent: rainyWalkIntent,
+      profile: baseProfile,
+      strictMode: false,
+    });
+    const calibrated = calibrateIntentVectorForRetrievalPool(pool, collapsed.intent, { targetCount: 30, strictMode: false });
+    const ranked = selectRankedCandidatesForSampler(pool, calibrated, { targetCount: 30, strictMode: false });
+    assert.ok(ranked.selected.length >= 200);
+    assert.ok(ranked.selected.length <= 500);
   });
 
   it("routes genre-locked prompts to matching editorial worlds", () => {

@@ -1,32 +1,13 @@
 /**
  * Fit human playlist pattern priors from a corpus of real playlists.
  *
- * Input: JSON array of playlists, each { tracks: [...] } with artistName, energy,
- * valence, danceability, acousticness, rediscoveryScore/popularity.
- *
- * Output: fitted profile JSON (percentiles) — replaces hand-tuned priors when
- * HUMAN_PLAYLIST_PATTERNS_PATH points at the output file.
- *
- * Run: npm run fit:human-playlist-patterns -- --in data/corpus/human-playlists.json --out backend/data/human-playlist-patterns.json
+ * Prefer the full genome fitter:
+ *   npm run fit:playlist-genome
  */
 
 import fs from "node:fs";
 import path from "node:path";
-import {
-  computeHumanPlaylistFeatures,
-  DEFAULT_HUMAN_PLAYLIST_PATTERNS,
-  type HumanPlaylistPatternProfile,
-  type PatternScoringTrack,
-} from "../core/editorial/human-playlist-patterns";
-
-type CorpusPlaylist = { tracks: PatternScoringTrack[] };
-
-function percentile(values: number[], p: number): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const idx = Math.floor(sorted.length * p);
-  return sorted[Math.min(sorted.length - 1, idx)]!;
-}
+import { fitPlaylistGenomeFromCorpus, type CorpusPlaylist } from "../core/editorial/playlist-genome";
 
 function parseArgs(): { inputPath: string; outputPath: string } {
   const args = process.argv.slice(2);
@@ -39,70 +20,20 @@ function parseArgs(): { inputPath: string; outputPath: string } {
   return { inputPath, outputPath };
 }
 
-function fitProfile(playlists: CorpusPlaylist[]): HumanPlaylistPatternProfile {
-  const spacings: number[] = [];
-  const discoveries: number[] = [];
-  const maxShares: number[] = [];
-  const jumps: number[] = [];
-  const smooth: number[] = [];
-  const slopes: number[] = [];
-  const frontLoads: number[] = [];
-  const midPeaks: number[] = [];
-  const tailLoads: number[] = [];
-
-  for (const playlist of playlists) {
-    const f = computeHumanPlaylistFeatures(playlist.tracks);
-    spacings.push(f.artistSpacingMedian);
-    discoveries.push(f.discoveryRatio);
-    maxShares.push(f.maxArtistShare);
-    jumps.push(f.avgEnergyJump);
-    smooth.push(f.smoothTransitionShare);
-    slopes.push(f.energySlope);
-    frontLoads.push(f.popularityFrontShare);
-    midPeaks.push(f.popularityMidShare);
-    tailLoads.push(f.popularityTailShare);
-  }
-
-  return {
-    ...DEFAULT_HUMAN_PLAYLIST_PATTERNS,
-    artistSpacingP25: percentile(spacings, 0.25),
-    artistSpacingP50: percentile(spacings, 0.5),
-    artistSpacingP75: percentile(spacings, 0.75),
-    maxSameArtistShare: percentile(maxShares, 0.9),
-    popularityFrontLoad: percentile(frontLoads, 0.5),
-    popularityMidPeak: percentile(midPeaks, 0.5),
-    popularityDiscoveryTail: percentile(tailLoads, 0.5),
-    discoveryRatioP25: percentile(discoveries, 0.25),
-    discoveryRatioP50: percentile(discoveries, 0.5),
-    discoveryRatioP75: percentile(discoveries, 0.75),
-    maxEnergyJumpP90: percentile(jumps, 0.9),
-    transitionSmoothShare: percentile(smooth, 0.5),
-  };
-}
-
 function main(): void {
   const { inputPath, outputPath } = parseArgs();
   if (!fs.existsSync(inputPath)) {
     console.error(`Corpus not found: ${inputPath}`);
-    console.error("Provide a JSON array of { tracks: [...] } from real human playlists.");
-    console.error("Until then, human-playlist-patterns.json remains hand-tuned editorial priors.");
     process.exit(1);
   }
   const raw = JSON.parse(fs.readFileSync(inputPath, "utf8")) as CorpusPlaylist[];
-  if (!Array.isArray(raw) || raw.length < 3) {
-    console.error("Corpus must be an array of at least 3 playlists.");
-    process.exit(1);
-  }
-  if (raw.length < 10) {
-    console.warn(`Warning: fitting from only ${raw.length} playlists — collect more for stable priors.`);
-  }
-  const profile = fitProfile(raw);
+  const genome = fitPlaylistGenomeFromCorpus(raw);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, `${JSON.stringify(profile, null, 2)}\n`);
+  fs.writeFileSync(outputPath, `${JSON.stringify(genome.patterns, null, 2)}\n`);
   console.log(JSON.stringify({
-    fittedFrom: raw.length,
+    fittedFrom: genome.corpusSize,
     outputPath,
-    profile,
+    profile: genome.patterns,
   }, null, 2));
 }
 

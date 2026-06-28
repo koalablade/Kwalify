@@ -64,6 +64,8 @@ export type IntentCollapseDiagnostics = {
   relaxGenreFamilyFilter?: boolean;
   rankedSelectionAvgScore?: number;
   rankedSelectionFloor?: number;
+  targetUniverseSize?: number;
+  universeCoverage?: number;
 };
 
 export type IntentCollapseTrack = {
@@ -775,6 +777,13 @@ export type RankedCandidateSelection<T extends IntentCollapseTrack> = {
   rankedTotal: number;
 };
 
+export function targetSamplerUniverseSize(targetCount: number, strictMode: boolean): number {
+  const scaled = Math.ceil(targetCount * 12);
+  const floor = strictMode ? 220 : 200;
+  const ceiling = strictMode ? 420 : 500;
+  return Math.min(ceiling, Math.max(floor, scaled));
+}
+
 export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
   tracks: T[],
   intent: EditorialIntentVector,
@@ -785,34 +794,67 @@ export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
   },
 ): RankedCandidateSelection<T> {
   const minPool = minimumIntentPoolSize(opts.targetCount, opts.strictMode);
-  // Broad combinatorial pool for sampler — not "best N" truncation (cap 300).
-  const maxPool = Math.min(
-    tracks.length,
-    Math.max(minPool * 3, Math.ceil(opts.targetCount * 12)),
-    300,
-  );
+  const targetSize = Math.min(tracks.length, targetSamplerUniverseSize(opts.targetCount, opts.strictMode));
   const ranked = rankCandidatesByIntentVector(tracks, intent, opts.fingerprintBias);
 
-  let floor = opts.strictMode ? 0.28 : 0.22;
-  let viable = ranked.filter((row) => row.score >= floor);
-  while (viable.length < minPool && floor > 0.12) {
-    floor -= 0.04;
-    viable = ranked.filter((row) => row.score >= floor);
+  if (ranked.length === 0) {
+    return { selected: [], scores: new Map(), avgScore: 0, minScoreUsed: 0, rankedTotal: 0 };
   }
 
-  let chosen = viable.slice(0, maxPool);
-  if (chosen.length < minPool) {
-    const chosenIds = new Set(chosen.map((row) => row.track.trackId));
-    for (const row of ranked) {
-      if (chosen.length >= Math.min(minPool, maxPool)) break;
-      if (!chosenIds.has(row.track.trackId)) {
+  const byMicro = new Map<string, Array<{ track: T; score: number }>>();
+  for (const row of ranked) {
+    const micro = trackMicroCluster(row.track);
+    const list = byMicro.get(micro) ?? [];
+    list.push(row);
+    byMicro.set(micro, list);
+  }
+
+  const microOrder = [...byMicro.entries()]
+    .sort((a, b) => (b[1][0]?.score ?? 0) - (a[1][0]?.score ?? 0))
+    .map(([micro]) => micro);
+
+  const chosen: Array<{ track: T; score: number }> = [];
+  const chosenIds = new Set<string>();
+  const familyCounts = new Map<string, number>();
+  const maxPerFamily = Math.max(8, Math.ceil(targetSize * 0.22));
+  let cursor = 0;
+
+  while (chosen.length < targetSize && cursor < ranked.length) {
+    let added = false;
+    for (const micro of microOrder) {
+      const bucket = byMicro.get(micro) ?? [];
+      const row = bucket[cursor];
+      if (!row || chosenIds.has(row.track.trackId)) continue;
+      const family = trackFamily(row.track);
+      if ((familyCounts.get(family) ?? 0) >= maxPerFamily) continue;
+      chosen.push(row);
+      chosenIds.add(row.track.trackId);
+      familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1);
+      added = true;
+      if (chosen.length >= targetSize) break;
+    }
+    if (!added) {
+      for (const row of ranked) {
+        if (chosen.length >= targetSize) break;
+        if (chosenIds.has(row.track.trackId)) continue;
         chosen.push(row);
         chosenIds.add(row.track.trackId);
       }
+      break;
+    }
+    cursor += 1;
+  }
+
+  if (chosen.length < minPool) {
+    for (const row of ranked) {
+      if (chosen.length >= Math.min(targetSize, ranked.length)) break;
+      if (chosenIds.has(row.track.trackId)) continue;
+      chosen.push(row);
+      chosenIds.add(row.track.trackId);
     }
   }
+
   if (chosen.length < minPool && intent.relaxGenreFamilyFilter) {
-    const chosenIds = new Set(chosen.map((row) => row.track.trackId));
     const world = EDITORIAL_WORLDS.find((row) => row.tag === intent.editorialWorldTag);
     for (const row of ranked) {
       if (chosen.length >= minPool) break;
@@ -824,13 +866,25 @@ export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
       }
     }
   }
-  const scores = new Map(chosen.map((row) => [row.track.trackId, row.score]));
-  const avgScore = chosen.length > 0
-    ? chosen.reduce((sum, row) => sum + row.score, 0) / chosen.length
+
+  let floor = opts.strictMode ? 0.28 : 0.22;
+  let viable = chosen.filter((row) => row.score >= floor);
+  while (viable.length < minPool && floor > 0.12) {
+    floor -= 0.04;
+    viable = chosen.filter((row) => row.score >= floor);
+  }
+
+  const output = viable.length >= minPool
+    ? viable.slice(0, targetSize)
+    : chosen.slice(0, Math.max(minPool, Math.min(targetSize, chosen.length)));
+
+  const scores = new Map(output.map((row) => [row.track.trackId, row.score]));
+  const avgScore = output.length > 0
+    ? output.reduce((sum, row) => sum + row.score, 0) / output.length
     : 0;
 
   return {
-    selected: chosen.map((row) => row.track),
+    selected: output.map((row) => row.track),
     scores,
     avgScore,
     minScoreUsed: floor,

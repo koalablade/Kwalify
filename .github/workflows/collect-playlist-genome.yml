@@ -33,6 +33,7 @@ jobs:
           name: playlist-genome-${{ github.run_id }}
           path: |
             data/corpus/human-playlists.json
+            backend/data/playlist-preference-model.json
+            backend/data/playlist-genome.json
             backend/data/human-playlist-patterns.json
-            backend/data/pairwise-preference-weights.json
           if-no-files-found: warn

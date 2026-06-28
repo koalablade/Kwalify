@@ -1,0 +1,262 @@
+{
+  "version": 1,
+  "fittedAt": "2026-06-28T11:43:45.466Z",
+  "corpusSize": 84,
+  "trackCountMedian": 10,
+  "patterns": {
+    "artistSpacingP25": 2,
+    "artistSpacingP50": 3,
+    "artistSpacingP75": 10,
+    "maxSameArtistShare": 0.3,
+    "popularityFrontLoad": 0.5,
+    "popularityMidPeak": 0.5,
+    "popularityDiscoveryTail": 0.5,
+    "discoveryRatioP25": 0,
+    "discoveryRatioP50": 0,
+    "discoveryRatioP75": 0,
+    "energyArcRiseWeight": 0,
+    "energyArcFlatWeight": 1,
+    "energyArcWaveWeight": 0,
+    "energyArcCooldownWeight": 0,
+    "maxEnergyJumpP90": 0,
+    "transitionSmoothShare": 1
+  },
+  "distributions": {
+    "artistSpacingMedian": {
+      "p10": 1,
+      "p25": 2,
+      "p50": 3,
+      "p75": 10,
+      "p90": 10,
+      "mean": 5.107142857142857,
+      "stddev": 3.814189850766095
+    },
+    "maxArtistShare": {
+      "p10": 0.1,
+      "p25": 0.1,
+      "p50": 0.2,
+      "p75": 0.3,
+      "p90": 0.3,
+      "mean": 0.2023809523809523,
+      "stddev": 0.09633299201973292
+    },
+    "discoveryRatio": {
+      "p10": 0,
+      "p25": 0,
+      "p50": 0,
+      "p75": 0,
+      "p90": 0,
+      "mean": 0,
+      "stddev": 0
+    },
+    "energySlope": {
+      "p10": 0,
+      "p25": 0,
+      "p50": 0,
+      "p75": 0,
+      "p90": 0,
+      "mean": -0.000041125541125540634,
+      "stddev": 0.0004347453472155881
+    },
+    "avgEnergyJump": {
+      "p10": 0,
+      "p25": 0,
+      "p50": 0,
+      "p75": 0,
+      "p90": 0,
+      "mean": 0.0015079365079365085,
+      "stddev": 0.0069635037020054896
+    },
+    "smoothTransitionShare": {
+      "p10": 1,
+      "p25": 1,
+      "p50": 1,
+      "p75": 1,
+      "p90": 1,
+      "mean": 1,
+      "stddev": 0
+    },
+    "popularityFrontShare": {
+      "p10": 0.5,
+      "p25": 0.5,
+      "p50": 0.5,
+      "p75": 0.5,
+      "p90": 0.5,
+      "mean": 0.5,
+      "stddev": 0
+    },
+    "popularityMidShare": {
+      "p10": 0.5,
+      "p25": 0.5,
+      "p50": 0.5,
+      "p75": 0.5,
+      "p90": 0.5,
+      "mean": 0.5,
+      "stddev": 0
+    },
+    "popularityTailShare": {
+      "p10": 0.5,
+      "p25": 0.5,
+      "p50": 0.5,
+      "p75": 0.5,
+      "p90": 0.5,
+      "mean": 0.5,
+      "stddev": 0
+    },
+    "decadeSpread": {
+      "p10": 0.3333333333333333,
+      "p25": 0.3333333333333333,
+      "p50": 0.5,
+      "p75": 0.6666666666666666,
+      "p90": 0.8333333333333334,
+      "mean": 0.5198412698412698,
+      "stddev": 0.16943096857308879
+    },
+    "tempoDrift": {
+      "p10": 0,
+      "p25": 0,
+      "p50": 0,
+      "p75": 0,
+      "p90": 0,
+      "mean": 0,
+      "stddev": 0
+    }
+  },
+  "segmentDistributions": {
+    "opening": {
+      "artistSpacingMedian": {
+        "p10": 1,
+        "p25": 2,
+        "p50": 5,
+        "p75": 5,
+        "p90": 5,
+        "mean": 3.6785714285714284,
+        "stddev": 1.6630487943884882
+      },
+      "discoveryRatio": {
+        "p10": 0,
+        "p25": 0,
+        "p50": 0,
+        "p75": 0,
+        "p90": 0,
+        "mean": 0,
+        "stddev": 0
+      },
+      "avgEnergyJump": {
+        "p10": 0,
+        "p25": 0,
+        "p50": 0,
+        "p75": 0,
+        "p90": 0,
+        "mean": 0.001726190476190477,
+        "stddev": 0.00810988695604995
+      },
+      "smoothTransitionShare": {
+        "p10": 1,
+        "p25": 1,
+        "p50": 1,
+        "p75": 1,
+        "p90": 1,
+        "mean": 1,
+        "stddev": 0
+      },
+      "popularityShare": {
+        "p10": 0.5,
+        "p25": 0.5,
+        "p50": 0.5,
+        "p75": 0.5,
+        "p90": 0.5,
+        "mean": 0.5,
+        "stddev": 0
+      }
+    },
+    "ending": {
+      "artistSpacingMedian": {
+        "p10": 1,
+        "p25": 2,
+        "p50": 8,
+        "p75": 8,
+        "p90": 8,
+        "mean": 5.119047619047619,
+        "stddev": 3.0760393594018853
+      },
+      "discoveryRatio": {
+        "p10": 0,
+        "p25": 0,
+        "p50": 0,
+        "p75": 0,
+        "p90": 0,
+        "mean": 0,
+        "stddev": 0
+      },
+      "avgEnergyJump": {
+        "p10": 0,
+        "p25": 0,
+        "p50": 0,
+        "p75": 0,
+        "p90": 0,
+        "mean": 0.0014625850340136057,
+        "stddev": 0.006797702230245745
+      },
+      "smoothTransitionShare": {
+        "p10": 1,
+        "p25": 1,
+        "p50": 1,
+        "p75": 1,
+        "p90": 1,
+        "mean": 1,
+        "stddev": 0
+      },
+      "popularityShare": {
+        "p10": 0.5,
+        "p25": 0.5,
+        "p50": 0.5,
+        "p75": 0.5,
+        "p90": 0.5,
+        "mean": 0.5,
+        "stddev": 0
+      }
+    }
+  },
+  "segmentBlend": {
+    "full": 0.5,
+    "opening": 0.28,
+    "ending": 0.22
+  },
+  "energyArcMix": {
+    "rise": 0,
+    "flat": 1,
+    "wave": 0,
+    "cooldown": 0
+  },
+  "scoringWeights": {
+    "artistSpacing": 0.4325,
+    "artistDiversity": 0.10114583333333335,
+    "discoveryRatio": 0.09333333333333335,
+    "energyArc": 0.09333333333333335,
+    "transitions": 0.08,
+    "energyJumps": 0.053333333333333344,
+    "popularityCurve": 0.08,
+    "decadeBalance": 0.0396875,
+    "tempoDrift": 0.026666666666666672
+  },
+  "pairwiseThresholds": {
+    "maxArtistShareCringe": 0.3,
+    "maxEnergyJumpCringe": 0.22,
+    "minSmoothTransitionShare": 0.55,
+    "discoveryRatioLow": 0.22,
+    "discoveryRatioHigh": 0.48,
+    "artistSpacingGood": 3,
+    "hardEnergyJump": 0.28
+  },
+  "pairwiseWeights": {
+    "human_saveable": 0.87,
+    "opening_intention": 0.92,
+    "full_playlist_shape": 0.87,
+    "cringe_resistance": 0.85,
+    "prompt_alignment": 0.87,
+    "transition_flow": 0.85,
+    "discovery_pacing": 0.88,
+    "ending_satisfaction": 0.89
+  }
+}

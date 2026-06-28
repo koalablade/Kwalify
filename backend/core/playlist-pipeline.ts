@@ -18,8 +18,7 @@ import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
 import { runV3Pipeline } from "./v3/v3-pipeline";
 import type { SamplerInterpretation } from "./v3/v3-sampler";
-import { evaluateWouldISave, wouldISaveCandidateScore } from "./editorial/would-i-save-evaluator";
-import { humanPlausibilityScore } from "./editorial/playlist-local-search";
+import { evaluatePlaylistCurationBelievability } from "./editorial/would-i-save-evaluator";
 import {
   selectBestCandidateByPairwiseTournament,
   type PairwiseTournamentAudit,
@@ -129,9 +128,9 @@ import {
   withSessionDiversityPressure,
 } from "./v3/constraint-relaxation";
 
-const V3_SAFETY_INPUT_MIN = 180;
-const V3_SAFETY_INPUT_PER_TRACK = 12;
-const V3_SAFETY_INPUT_MAX = 360;
+const V3_SAFETY_INPUT_MIN = 200;
+const V3_SAFETY_INPUT_PER_TRACK = 16;
+const V3_SAFETY_INPUT_MAX = 500;
 /** 5 editorial interpretations × 10 sampler seeds = up to 50 playlist candidates. */
 const EDITORIAL_INTERPRETATION_COUNT = 5;
 const SAMPLER_SEED_VARIANTS = Math.min(
@@ -498,6 +497,18 @@ function structuredRetrievalScope<T extends IntentContractTrack>(
     };
   }
   if (relatedPool.length >= relatedMinimum) {
+    return {
+      pool: relatedPool,
+      mode: "related_subgenre",
+      primaryCount: primaryPool.length,
+      relatedCount: relatedPool.length,
+      familyCount: familyPool.length,
+      strictMinimum,
+      relatedMinimum,
+    };
+  }
+  const depthMinimum = Math.max(12, Math.min(strictMinimum, relatedMinimum));
+  if (relatedPool.length >= depthMinimum) {
     return {
       pool: relatedPool,
       mode: "related_subgenre",
@@ -1792,24 +1803,27 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
       })
     : [];
   const contractSafeTrackIds = new Set(contractSafeTracks.map((track) => track.trackId));
-  const expansionSource = familyExpansionTracks.length > 0
-    ? familyExpansionTracks
-    : adjacentExpansionTracks.length > 0 && !worldBoundary.hardLock
-      ? adjacentExpansionTracks
-      : worldBoundary.hardLock
-        ? contractSafeTracks
-        : tracks;
+  const genreLocked = contract.genreFamilies.length > 0 || contract.genres.length > 0;
   const fallbackLevelUsed = worldBoundary.hardLock
     ? (contractSafeTracks.length >= Math.min(MIN_BROAD_RETRIEVAL_POOL, Math.max(30, tracks.length)) ? "none" : "family")
     : contractSafeTracks.length >= Math.min(MIN_BROAD_RETRIEVAL_POOL, Math.max(30, tracks.length))
     ? "none"
     : familyExpansionTracks.length > 0
       ? "family"
-      : adjacentExpansionTracks.length > 0
+      : adjacentExpansionTracks.length > 0 && !genreLocked
         ? "adjacent"
-        : tracks.length > 0
-          ? "global"
-          : "none";
+        : genreLocked
+          ? "family"
+          : tracks.length > 0
+            ? "global"
+            : "none";
+  const expansionSource = familyExpansionTracks.length > 0
+    ? familyExpansionTracks
+    : adjacentExpansionTracks.length > 0 && !worldBoundary.hardLock && !genreLocked
+      ? adjacentExpansionTracks
+      : worldBoundary.hardLock || genreLocked
+        ? contractSafeTracks
+        : tracks;
   const contractRankSource = contractSafeTracks.length >= Math.min(MIN_BROAD_RETRIEVAL_POOL, Math.max(30, tracks.length))
     ? contractSafeTracks
     : [
@@ -2048,12 +2062,12 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     : discovery;
   const breadth = opts.retrievalBreadth ?? 1;
   const escapeRatio = opts.escapeDiversityRatio ?? 0.12;
-  const coreLimit = Math.ceil((worldBoundary.hardLock ? 120 : 160) * breadth);
-  const anchorLimit = Math.ceil((worldBoundary.hardLock ? 60 : 80) * breadth);
-  const adjacentLimit = Math.ceil(100 * breadth);
-  const bridgeLimit = Math.ceil(80 * breadth);
-  const energyArcLimit = Math.ceil(80 * breadth);
-  const discoveryLimit = Math.ceil((worldBoundary.hardLock ? 40 : 80) * breadth * (1 + escapeRatio));
+  const coreLimit = Math.ceil((worldBoundary.hardLock ? 150 : 200) * breadth);
+  const anchorLimit = Math.ceil((worldBoundary.hardLock ? 80 : 110) * breadth);
+  const adjacentLimit = Math.ceil(130 * breadth);
+  const bridgeLimit = Math.ceil(110 * breadth);
+  const energyArcLimit = Math.ceil(110 * breadth);
+  const discoveryLimit = Math.ceil((worldBoundary.hardLock ? 60 : 110) * breadth * (1 + escapeRatio));
   return {
     core: takeUnique(coreSource, coreLimit),
     anchor: takeUnique(anchor, anchorLimit),
@@ -3713,8 +3727,8 @@ function buildV3CandidatePool<T extends {
   const intentReadyCap = Math.min(
     rawIntentReady.length,
     broadSceneIntent
-      ? Math.max(260, playlistLength * 16)
-      : Math.max(420, playlistLength * 22),
+      ? Math.max(500, playlistLength * 16)
+      : Math.max(500, playlistLength * 22),
   );
   const intentReady = capV3IntentReadyPool(rawIntentReady, classMap, intentReadyCap);
   forensicPreV3Trace.push(preV3StageTrace(
@@ -3726,7 +3740,7 @@ function buildV3CandidatePool<T extends {
       lockedIntentRejectionReasonFor,
     ),
   ));
-  const baseWindow = Math.min(intentReady.length, Math.max(playlistLength * 8, 75));
+  const baseWindow = Math.min(intentReady.length, Math.max(playlistLength * 10, 120));
   let windowSize = baseWindow;
   let expansionIterations = 0;
   const maxWindowExpansionIterations = 6;
@@ -3742,7 +3756,7 @@ function buildV3CandidatePool<T extends {
   const initialTracks = intentReady.slice(0, windowSize);
   const expandedWindowSize = Math.min(
     intentReady.length,
-    Math.max(windowSize, Math.max(playlistLength * 12, 120))
+    Math.max(windowSize, Math.max(playlistLength * 16, 200))
   );
   const uncollapsed = uncollapseV11CandidatePool(
     initialTracks,
@@ -4143,11 +4157,11 @@ export async function buildPlaylistPipeline<T extends {
   const diversityKind = promptDiversityKind(intentContract, opts.vibe);
   const flattenedCandidates = flattenRetrievalPools(retrieval) as ScoredLibraryTrack<T>[];
   const deCollapsed = deCollapseCandidatePool(
-    flattenedCandidates.slice(0, Math.min(flattenedCandidates.length, Math.max(opts.playlistLength * 12, 120))),
+    flattenedCandidates.slice(0, Math.min(flattenedCandidates.length, Math.max(opts.playlistLength * 16, 200))),
     flattenedCandidates,
     classMap,
     diversityKind,
-    Math.max(opts.playlistLength * 10, 90),
+    Math.min(500, Math.max(200, opts.playlistLength * 14)),
   );
   const pooledCandidates = deCollapsed.tracks;
   recordTraceCount(pipelineTrace, "retrievalCandidates", pooledCandidates.length);
@@ -4707,11 +4721,27 @@ export async function buildPlaylistPipeline<T extends {
     V3_SAFETY_INPUT_MAX,
     Math.max(V3_SAFETY_INPUT_MIN, opts.playlistLength * V3_SAFETY_INPUT_PER_TRACK)
   );
-  const v3SafetyInputCap = activityKind
-    ? Math.min(baseV3SafetyInputCap, Math.max(150, opts.playlistLength * 6))
-    : baseV3SafetyInputCap;
+  const v3SafetyInputCap = baseV3SafetyInputCap;
   const capV3SafetyPool = (pool: ScoredLibraryTrack<T>[]): ScoredLibraryTrack<T>[] =>
     pool.length > v3SafetyInputCap ? pool.slice(0, v3SafetyInputCap) : pool;
+  const mergeV3UniverseInput = (
+    candidateTracks: Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
+    retrievalPool: ScoredLibraryTrack<T>[],
+  ): Array<T & { genrePrimary?: string; releaseYear?: number | null }> => {
+    const seen = new Set<string>();
+    const out: Array<T & { genrePrimary?: string; releaseYear?: number | null }> = [];
+    const push = (track: T & { genrePrimary?: string; releaseYear?: number | null }) => {
+      if (seen.has(track.trackId)) return;
+      seen.add(track.trackId);
+      out.push(track);
+    };
+    for (const track of candidateTracks) push(track);
+    for (const track of retrievalPool) {
+      if (out.length >= v3SafetyInputCap) break;
+      push(track as T & { genrePrimary?: string; releaseYear?: number | null });
+    }
+    return out;
+  };
   const sharedRetrievalPool = capV3SafetyPool(
     flattenRetrievalPools({
       core: retrieval.core,
@@ -4739,20 +4769,21 @@ export async function buildPlaylistPipeline<T extends {
     adventurous_transitions: seedOffsetFromMemory(opts.editorialMemory ?? null, 52849),
     balanced_human: seedOffsetFromMemory(opts.editorialMemory ?? null, 31415),
   };
+  const safetyRetrievalPool = capV3SafetyPool(
+    layeredSafetyPool.length > 0 ? layeredSafetyPool : contractGuardedScoredPool,
+  );
   const candidateInputs: Array<{
     label: string;
     pool: ScoredLibraryTrack<T>[];
     seedOffset: number;
     interpretation?: SamplerInterpretation;
   }> = retrievalSafetyExpanded
-    ? [
-        {
-          label: "layered_safety_pool",
-          pool: capV3SafetyPool(layeredSafetyPool.length > 0 ? layeredSafetyPool : contractGuardedScoredPool),
-          seedOffset: 0,
-          interpretation: "balanced_human",
-        },
-      ]
+    ? editorialInterpretationTemplates.map(({ baseLabel, interpretation }) => ({
+        label: `${baseLabel}_safety`,
+        interpretation,
+        pool: safetyRetrievalPool,
+        seedOffset: interpretationSeedOffsets[interpretation],
+      }))
     : editorialInterpretationTemplates.flatMap(({ baseLabel, interpretation }) =>
         Array.from({ length: SAMPLER_SEED_VARIANTS }, (_, seedVariant) => ({
           label: `${baseLabel}_v${seedVariant}`,
@@ -4766,7 +4797,7 @@ export async function buildPlaylistPipeline<T extends {
       ).slice(0, MAX_CANDIDATE_PLAYLISTS);
   const executableCandidateInputs = candidateInputs.slice(
     0,
-    retrievalSafetyExpanded ? 1 : MAX_CANDIDATE_PLAYLISTS,
+    retrievalSafetyExpanded ? EDITORIAL_INTERPRETATION_COUNT : MAX_CANDIDATE_PLAYLISTS,
   );
   const skippedCandidateAttemptCount = Math.max(0, candidateInputs.length - executableCandidateInputs.length);
   executionDepth =
@@ -4778,9 +4809,7 @@ export async function buildPlaylistPipeline<T extends {
     inputPool: Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
     candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
     result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
-    quality: ReturnType<typeof evaluatePlaylistQuality>;
-    wouldISave: ReturnType<typeof evaluateWouldISave>;
-    total: number;
+    curation: ReturnType<typeof evaluatePlaylistCurationBelievability>;
   }> = [];
   const candidatePoolCache = new Map<
     SamplerInterpretation,
@@ -4841,7 +4870,10 @@ export async function buildPlaylistPipeline<T extends {
     try {
       v3InvocationCount += 1;
       result = await runV3Pipeline(
-        candidatePool.tracks as unknown as T[],
+        mergeV3UniverseInput(
+          candidatePool.tracks as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
+          sharedRetrievalPool,
+        ) as unknown as T[],
         opts.vibe,
         opts.emotionProfile,
         opts.playlistLength,
@@ -4881,42 +4913,20 @@ export async function buildPlaylistPipeline<T extends {
     recordTraceCount(pipelineTrace, `v3.${candidate.label}.inputCandidates`, candidatePool.tracks.length);
     recordTraceCount(pipelineTrace, `v3.${candidate.label}.finalTracks`, result.finalTracks.length);
     if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
-    const quality = evaluatePlaylistQuality(
-      result.finalTracks as unknown as IntentContractTrack[],
-      intentContract,
-      classMap,
-    );
-    const countRatio = result.finalTracks.length / Math.max(1, opts.playlistLength);
-    const starvationPenalty = Math.max(0, 1 - countRatio) * 0.35;
-    const wouldISave = evaluateWouldISave({
+    const curation = evaluatePlaylistCurationBelievability({
       prompt: opts.vibe,
       tracks: result.finalTracks,
+      targetLength: opts.playlistLength,
       context: result.sceneWorldContext ?? null,
       lockedIntent: v3LockedIntent,
       libraryFingerprint,
     });
-    const gateDiagnostics = result.diagnostics.humanSaveabilityGate as {
-      humanSaveable?: boolean;
-      wouldSaveScore?: number;
-    } | undefined;
-    const gatePassedBonus = gateDiagnostics?.humanSaveable === true ? 0.03 : 0;
-    const plausibility = humanPlausibilityScore(result.finalTracks);
-    const editorialTotal =
-      quality.overall * 0.22 +
-      wouldISaveCandidateScore(wouldISave, countRatio) * 0.24 +
-      wouldISave.humanPatternScore * 0.18 +
-      plausibility * 0.22 +
-      Math.min(0.08, countRatio * 0.08) +
-      gatePassedBonus -
-      starvationPenalty;
     const attempt = {
       label: candidate.label,
       inputPool,
       candidatePool,
       result,
-      quality,
-      wouldISave,
-      total: editorialTotal,
+      curation,
     };
     candidateAttempts.push(attempt);
   }
@@ -4928,10 +4938,8 @@ export async function buildPlaylistPipeline<T extends {
     const pairwiseCandidates = candidateAttempts.map((attempt) => ({
       label: attempt.label,
       tracks: attempt.result.finalTracks,
-      wouldISave: attempt.wouldISave,
-      qualityOverall: attempt.quality.overall,
+      wouldISave: attempt.curation.wouldISave,
       context: attempt.result.sceneWorldContext ?? null,
-      scalarTotal: attempt.total,
     }));
     const pairwise = selectBestCandidateByPairwiseTournament(pairwiseCandidates);
     pairwiseSelectionAudit = pairwise.audit;
@@ -5039,10 +5047,10 @@ export async function buildPlaylistPipeline<T extends {
     candidateScores: candidateAttempts.map((candidate) => ({
       label: candidate.label,
       selectedCount: candidate.result.finalTracks.length,
-      total: round3(candidate.total),
-      quality: candidate.quality,
-      wouldISaveScore: round3(candidate.wouldISave.combinedScore),
-      humanSaveable: candidate.wouldISave.humanSaveable,
+      believabilityScore: round3(candidate.curation.believabilityScore),
+      plausibility: round3(candidate.curation.plausibility),
+      wouldISaveScore: round3(candidate.curation.wouldISave.combinedScore),
+      humanSaveable: candidate.curation.wouldISave.humanSaveable,
       relaxationSteps: candidate.candidatePool.diagnostics["relaxationSteps"] ?? [],
       finalRelaxedConstraints: candidate.candidatePool.diagnostics["finalRelaxedConstraints"] ?? null,
     })),

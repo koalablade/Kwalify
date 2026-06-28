@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "fittedAt": "2026-06-28T11:48:55.224Z",
+  "source": "bootstrap_corpus",
+  "labelCount": 0,
+  "pairCount": 252,
+  "blendWeight": 0.35,
+  "dimensionWeights": {
+    "human_saveable": 1.55,
+    "opening_intention": 0.92,
+    "full_playlist_shape": 0.87,
+    "cringe_resistance": 0.85,
+    "prompt_alignment": 1.55,
+    "transition_flow": 0.87,
+    "discovery_pacing": 0.88,
+    "ending_satisfaction": 0.88
+  },
+  "utilityWeights": {
+    "human_saveable": 0.44680851063829796,
+    "opening_intention": 0.04609929078014185,
+    "full_playlist_shape": 0.014184397163120569,
+    "cringe_resistance": 0,
+    "prompt_alignment": 0.44680851063829796,
+    "transition_flow": 0.012411347517730499,
+    "discovery_pacing": 0.01773049645390071,
+    "ending_satisfaction": 0.01595744680851064
+  }
+}
