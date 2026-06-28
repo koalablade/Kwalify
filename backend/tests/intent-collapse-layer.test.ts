@@ -134,7 +134,7 @@ describe("intent collapse layer", () => {
   });
 
   it("defines strict minimum pool size before sampler", () => {
-    assert.equal(minimumIntentPoolSize(25, true), 50);
+    assert.equal(minimumIntentPoolSize(25, true), 40);
     assert.ok(minimumIntentPoolSize(25, false) >= 18);
   });
 

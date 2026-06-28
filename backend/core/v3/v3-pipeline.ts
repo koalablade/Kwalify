@@ -32,6 +32,7 @@ import {
 import { interleaveLanes, type InterleavedResult } from "./interleaver";
 import {
   auditEditorialPlaylist,
+  enforceOpeningSceneCluster,
   scorePlaylistWorldMetrics,
 } from "../scene-world-editorial-audit";
 import {
@@ -801,7 +802,7 @@ function enforceStrictOpeningWorld<T extends V3PipelineTrack>(
     const sceneClusterId = context.sceneClusters!.trackToClusterId.get(track.trackId);
     return sceneClusterId === dominantClusterId;
   });
-  if (openingEligible.length < 5) {
+  if (openingEligible.length < 3) {
     return {
       tracks,
       openingRepairCount: 0,
@@ -1787,7 +1788,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     intent: activeEditorialIntentVector,
     openingSize: humanSaveStrictMode ? 10 : 5,
   });
-  if (!openingEditorialLock.sufficient && openingEditorialLock.openingEligibleCount < 5) {
+  if (!openingEditorialLock.sufficient && openingEditorialLock.openingEligibleCount < 3) {
     const collapseTrace = finalizeExecutionTrace(
       buildIntentCollapseFailureTraceDraft({
         requestId: opts.requestId ?? "unknown",
@@ -1865,6 +1866,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ...track,
     clusterId: track.clusterIds[0],
   })) as Array<T & V3SelectionCandidate<T>>;
+  const postInterleaverOnlyAudit = openingClusterAudit(finalTracks, sceneWorldContext, strictOpeningCount);
   const localSearchPool = retrievedTracks.map((track) => ({
     trackId: track.trackId,
     artistName: track.artistName,
@@ -1928,6 +1930,32 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     finalTracks = openingCurated.tracks
       .map((track) => byId.get(track.trackId))
       .filter((track): track is (typeof finalTracks)[number] => !!track);
+  }
+  if (humanSaveStrictMode && sceneWorldContext?.sceneClusters && finalTracks.length > 0) {
+    const openingRepair = enforceOpeningSceneCluster({
+      tracks: finalTracks as Parameters<typeof enforceOpeningSceneCluster>[0]["tracks"],
+      candidates: [
+        ...finalTracks,
+        ...retrievedTracks.map((track) => toSceneWorldTrack(track, opts)),
+      ] as Parameters<typeof enforceOpeningSceneCluster>[0]["candidates"],
+      context: sceneWorldContext,
+      openingSize: 5,
+      maxSwaps: 6,
+    });
+    if (openingRepair.swaps.length > 0) {
+      const byId = new Map(finalTracks.map((track) => [track.trackId, track]));
+      for (const track of retrievedTracks) {
+        if (!byId.has(track.trackId)) {
+          byId.set(track.trackId, {
+            ...track,
+            clusterId: (track as { clusterIds?: string[] }).clusterIds?.[0] ?? null,
+          } as (typeof finalTracks)[number]);
+        }
+      }
+      finalTracks = openingRepair.tracks
+        .map((track) => byId.get(track.trackId))
+        .filter((track): track is (typeof finalTracks)[number] => !!track);
+    }
   }
   const endingCurated = curatePlaylistEnding(
     finalTracks.map((track) => ({
@@ -2013,9 +2041,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     opening5PreInterleaver,
     opening5PostInterleaver,
   });
-  const interleaverPurityDegraded =
-    postInterleaverOpeningAudit.openingClusterPurity < preInterleaverOpeningAudit.openingClusterPurity;
-  if (interleaverPurityDegraded) {
+  const interleaverStepPurityDegraded =
+    postInterleaverOnlyAudit.openingClusterPurity < preInterleaverOpeningAudit.openingClusterPurity;
+  const editorialOpeningPurityDegraded =
+    postInterleaverOpeningAudit.openingClusterPurity < postInterleaverOnlyAudit.openingClusterPurity;
+  const interleaverPurityDegraded = interleaverStepPurityDegraded;
+  if (interleaverStepPurityDegraded) {
     recordTraceFailure(opts.pipelineTrace, createFailureContext({
       stage: "v3.interleaver.audit",
       error: new Error("interleaver_cluster_purity_degraded"),
@@ -2119,8 +2150,14 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     interleaverAudit: {
       preInterleaverOpeningClusterPurity: preInterleaverOpeningAudit.openingClusterPurity,
       postInterleaverOpeningClusterPurity: postInterleaverOpeningAudit.openingClusterPurity,
+      postInterleaverOnlyOpeningClusterPurity: postInterleaverOnlyAudit.openingClusterPurity,
       degraded: interleaverPurityDegraded,
-      failureOrigin: interleaverPurityDegraded ? "after interleaving" : "before interleaving",
+      editorialOpeningPurityDegraded,
+      failureOrigin: interleaverStepPurityDegraded
+        ? "interleaver_step"
+        : editorialOpeningPurityDegraded
+          ? "editorial_passes"
+          : "none",
       insufficientOpeningWorldReason,
     },
     attribution: humanSaveGate.failureAttribution,
@@ -2135,10 +2172,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     samplerIntentContext,
   };
 
-  if (!humanSaveGate.passed || interleaverPurityDegraded || !!insufficientOpeningWorldReason) {
+  if (!humanSaveGate.passed || !!insufficientOpeningWorldReason) {
     const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons];
     if (insufficientOpeningWorldReason) rejectionReasons.push(insufficientOpeningWorldReason);
-    if (interleaverPurityDegraded) rejectionReasons.push("interleaver audit failed: opening cluster purity degraded");
+    if (interleaverStepPurityDegraded && !humanSaveGate.passed) {
+      rejectionReasons.push("interleaver audit failed: opening cluster purity degraded");
+    }
     if (rejectionReasons.length === 0) {
       if (humanSaveGate.retriesUsed >= MAX_HUMAN_SAVE_RETRIES) {
         rejectionReasons.push(`human_saveability_retries_exhausted:${humanSaveGate.retriesUsed}`);

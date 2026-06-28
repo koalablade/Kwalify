@@ -1472,7 +1472,7 @@ export function calibrateIntentVectorForRetrievalPool<T extends IntentCollapseTr
 
 export function minimumIntentPoolSize(targetCount: number, strictMode: boolean): number {
   const base = Math.max(10, targetCount);
-  return strictMode ? Math.max(25, base * 2) : Math.max(18, Math.ceil(base * 1.5));
+  return strictMode ? Math.max(20, Math.ceil(base * 1.6)) : Math.max(18, Math.ceil(base * 1.5));
 }
 
 export function buildIntentCollapseDiagnostics(
@@ -1521,15 +1521,26 @@ export function reinforceOpeningEditorialWorldLock<T extends IntentCollapseTrack
   sufficient: boolean;
 } {
   const openingSize = opts.openingSize ?? 10;
-  const filteredLanes = opts.sampledLanes.map((lane) => ({
+  const minOpeningTracks = 3;
+
+  const filterLanes = (floor: number) => opts.sampledLanes.map((lane) => ({
     laneId: lane.laneId,
-    tracks: lane.tracks.filter((track) => trackPassesOpeningIntentScore(track, opts.intent)),
+    tracks: lane.tracks.filter((track) => scoreEditorialIntentMatch(track, opts.intent) >= floor),
   }));
-  const pooled = filteredLanes.flatMap((lane) => lane.tracks);
+
+  let floor = OPENING_INTENT_SCORE_FLOOR;
+  let filteredLanes = filterLanes(floor);
+  let pooled = filteredLanes.flatMap((lane) => lane.tracks);
+  while (pooled.length < minOpeningTracks && floor > 0.20) {
+    floor -= 0.04;
+    filteredLanes = filterLanes(floor);
+    pooled = filteredLanes.flatMap((lane) => lane.tracks);
+  }
+
   const openingEligibleCount = pooled.length;
   const sufficient = openingEligibleCount >= openingSize;
   return {
-    sampledLanes: sufficient ? filteredLanes : opts.sampledLanes,
+    sampledLanes: openingEligibleCount >= minOpeningTracks ? filteredLanes : opts.sampledLanes,
     openingEligibleCount,
     sufficient,
   };

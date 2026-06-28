@@ -99,7 +99,14 @@ function classifyFailure(row) {
     if (err.includes("insufficient_intent_pool") || err.includes("post_filter=0")) return "fault_intent_pool_collapse";
     if (err.includes("opening_eligible")) return "fault_opening_eligible_zero";
     if (err.includes("incompatible_with") || err.includes("archetype")) return "fault_archetype_mismatch";
-    if (err.includes("human_saveability") || err.includes("curator_score")) return "fault_gate_rejection";
+    if (
+      err.includes("human_saveability")
+      || err.includes("curator_score")
+      || err.includes("curatorscore")
+      || err.includes("wouldsavescore")
+      || err.includes("interleaver audit failed")
+      || row.executionPath === "gate_failure"
+    ) return "fault_gate_rejection";
     return "fault_422_other";
   }
   if (row.httpStatus === 409) return "fault_conflict";
@@ -252,7 +259,7 @@ function buildFaultMarkdown(payload) {
   return lines.join("\n");
 }
 
-async function generateOne(creds, token, cookie, planItem, length, timeoutMs) {
+async function generateOne(creds, token, cookie, planItem, length, timeoutMs, attempt = 1) {
   const useLiveAuth = !!cookie;
   const url = useLiveAuth ? `${creds.baseUrl}/api/generate` : `${creds.baseUrl}/api/generate?audit=1`;
   const headers = useLiveAuth
@@ -265,7 +272,7 @@ async function generateOne(creds, token, cookie, planItem, length, timeoutMs) {
       length,
       varietyBoost: true,
       seed: planItem.seed,
-      requestId: `fault500-${planItem.runId}`,
+      requestId: `fault500-${planItem.runId}${attempt > 1 ? `-r${attempt}` : ""}`,
     }
     : {
       vibe: planItem.prompt,
@@ -274,7 +281,7 @@ async function generateOne(creds, token, cookie, planItem, length, timeoutMs) {
       spotifyUserId: creds.spotifyUserId,
       seed: planItem.seed,
       auditMode: true,
-      requestId: `fault500-${planItem.runId}`,
+      requestId: `fault500-${planItem.runId}${attempt > 1 ? `-r${attempt}` : ""}`,
     };
 
   const controller = new AbortController();
@@ -282,8 +289,16 @@ async function generateOne(creds, token, cookie, planItem, length, timeoutMs) {
   try {
     const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: controller.signal });
     const data = await res.json();
+    if (res.status === 409 && attempt < 3) {
+      await sleep(3000 * attempt);
+      return generateOne(creds, token, cookie, planItem, length, timeoutMs, attempt + 1);
+    }
     return { httpStatus: res.status, data };
   } catch (err) {
+    if (attempt < 2) {
+      await sleep(2000);
+      return generateOne(creds, token, cookie, planItem, length, timeoutMs, attempt + 1);
+    }
     return { httpStatus: 0, data: { error: String(err) } };
   } finally {
     clearTimeout(timer);
@@ -349,6 +364,7 @@ async function main() {
     const length = config.lengthOverride ?? item.length;
     const t0 = Date.now();
     process.stderr.write(`[fault-500] ${runs.length + 1}/${config.target} ${item.runId}...\n`);
+    process.stdout.write(`[fault-500] ${runs.length + 1}/${config.target} ${item.runId}...\n`);
 
     const gen = await generateOne(creds, token, cookie, item, length, config.timeoutMs);
     const diag = extractDiagnostics(gen.data ?? {}, gen.httpStatus, length);
@@ -400,6 +416,11 @@ async function main() {
     process.stderr.write(
       `[fault-500] ${item.runId} → ${row.httpStatus} tracks=${row.trackCount} bucket=${row.failureBucket}\n`,
     );
+    if (runs.length % 10 === 0 || runs.length <= 3) {
+      process.stdout.write(
+        `[fault-500] progress ${runs.length}/${config.target} success=${payload.summary.successRate} collapse=${((payload.summary.failureBuckets?.fault_intent_pool_collapse ?? 0) / runs.length * 100).toFixed(1)}%\n`,
+      );
+    }
 
     if (runs.length < config.target) await sleep(config.delayMs);
   }
