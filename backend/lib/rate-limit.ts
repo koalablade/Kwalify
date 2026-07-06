@@ -1,44 +1,60 @@
-interface WindowState {
-  timestamps: number[];
+interface TokenBucketState {
+  tokens: number;
+  lastRefillMs: number;
 }
 
-const windows = new Map<string, WindowState>();
+const buckets = new Map<string, TokenBucketState>();
 
 setInterval(
   () => {
     const cutoff = Date.now() - 60_000 * 10;
-    for (const [key, state] of windows) {
-      if (state.timestamps.every((t) => t < cutoff)) {
-        windows.delete(key);
+    for (const [key, state] of buckets) {
+      if (state.lastRefillMs < cutoff) {
+        buckets.delete(key);
       }
     }
   },
   10 * 60 * 1000
 ).unref();
 
+/**
+ * Token-bucket rate limiter.
+ * Default generate policy: 10/min sustained with burst of 3.
+ */
 export function checkRateLimit(
   userId: string,
   maxRequests: number,
-  windowMs: number
+  windowMs: number,
+  opts?: { consume?: boolean; burst?: number }
 ): { allowed: boolean; remaining: number; resetInMs: number } {
+  const consume = opts?.consume !== false;
+  const burst = opts?.burst ?? Math.min(3, maxRequests);
+  const refillPerMs = maxRequests / windowMs;
+  const capacity = maxRequests;
   const now = Date.now();
-  const cutoff = now - windowMs;
 
-  let state = windows.get(userId);
+  let state = buckets.get(userId);
   if (!state) {
-    state = { timestamps: [] };
-    windows.set(userId, state);
+    state = { tokens: burst, lastRefillMs: now };
+    buckets.set(userId, state);
+  } else {
+    const elapsed = now - state.lastRefillMs;
+    state.tokens = Math.min(capacity, state.tokens + elapsed * refillPerMs);
+    state.lastRefillMs = now;
   }
 
-  state.timestamps = state.timestamps.filter((t) => t > cutoff);
-
-  if (state.timestamps.length >= maxRequests) {
-    const oldest = state.timestamps[0]!;
-    const resetInMs = oldest + windowMs - now;
+  if (state.tokens < 1) {
+    const resetInMs = Math.ceil((1 - state.tokens) / refillPerMs);
     return { allowed: false, remaining: 0, resetInMs };
   }
 
-  state.timestamps.push(now);
-  const remaining = maxRequests - state.timestamps.length;
-  return { allowed: true, remaining, resetInMs: 0 };
+  if (consume) {
+    state.tokens -= 1;
+  }
+
+  return {
+    allowed: true,
+    remaining: Math.max(0, Math.floor(state.tokens)),
+    resetInMs: 0,
+  };
 }

@@ -10,6 +10,12 @@ export const LARGE_LIBRARY_THRESHOLD = 3000;
 /** Max tracks classified when building genre profile (cache miss). */
 export const GENRE_PROFILE_MAX_TRACKS = 2200;
 
+/** Smaller genre-profile sample for large libraries under time pressure. */
+export const LARGE_LIBRARY_GENRE_PROFILE_MAX = 1200;
+
+/** Earlier fast-fallback deadline when library > LARGE_LIBRARY_THRESHOLD. */
+export const LARGE_LIBRARY_FAST_FALLBACK_MS = 55_000;
+
 export const HYBRID_POOL_SIMPLE = 800;
 export const HYBRID_POOL_STANDARD = 1000;
 export const HYBRID_POOL_COMPLEX = 1500;
@@ -27,6 +33,12 @@ export const REQUEST_HARD_TIMEOUT_MS = LATENCY_HARD_DEADLINE_MS;
 export const AUDIT_REQUEST_HARD_TIMEOUT_MS = 120_000;
 /** Switch to fast fallback if pipeline not done by this point (ms from request start). */
 export const REQUEST_FAST_FALLBACK_MS = 42_000;
+
+export function resolveFastFallbackMs(librarySize: number): number {
+  return librarySize > LARGE_LIBRARY_THRESHOLD
+    ? LARGE_LIBRARY_FAST_FALLBACK_MS
+    : REQUEST_FAST_FALLBACK_MS;
+}
 
 export const GENERATE_RESULT_CACHE_TTL_MS = 20 * 60 * 1000;
 export const GENRE_STACK_CACHE_TTL_MS = 60 * 60 * 1000;

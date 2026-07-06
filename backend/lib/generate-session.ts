@@ -53,6 +53,10 @@ const sessions = new Map<string, SessionState>();
 const MAX_SESSIONS = 500;
 let requestSequence = 0;
 
+setInterval(() => {
+  sweepExpiredGenerateSessions();
+}, 30_000).unref();
+
 const ACTIVE_PHASES = new Set<GeneratePhase>([
   "starting",
   "loading_library",
@@ -82,6 +86,35 @@ function isActiveSession(s: SessionState): boolean {
   return ACTIVE_PHASES.has(s.phase);
 }
 
+/** Drop timed-out or terminal sessions so locks cannot stick indefinitely. */
+export function sweepExpiredGenerateSessions(userId?: string): number {
+  let removed = 0;
+  const sweepOne = (id: string, s: SessionState) => {
+    if (!isActiveSession(s)) {
+      sessions.delete(id);
+      removed += 1;
+    }
+  };
+  if (userId) {
+    const s = sessions.get(userId);
+    if (s) sweepOne(userId, s);
+  } else {
+    for (const [id, s] of sessions) sweepOne(id, s);
+  }
+  return removed;
+}
+
+export function getActiveSessionRetryAfterMs(userId: string): number {
+  sweepExpiredGenerateSessions(userId);
+  const s = sessions.get(userId);
+  if (!s || !isActiveSession(s)) return 0;
+  return Math.max(0, s.startedAt + REQUEST_HARD_TIMEOUT_MS - Date.now());
+}
+
+export function forceEndGenerateSession(userId: string): boolean {
+  return sessions.delete(userId);
+}
+
 function evictIfNeeded(): void {
   for (const [userId, session] of sessions.entries()) {
     if (!isActiveSession(session)) sessions.delete(userId);
@@ -103,6 +136,7 @@ export function acquireGenerateSession(
   userId: string,
   opts?: { force?: boolean; hardTimeoutMs?: number }
 ): string | null {
+  sweepExpiredGenerateSessions(userId);
   const existing = sessions.get(userId);
   if (!opts?.force && existing && isActiveSession(existing)) {
     return null;
