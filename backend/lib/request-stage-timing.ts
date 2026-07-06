@@ -7,6 +7,16 @@ export type RequestStageKey =
   | "intent_expansion"
   | "pre_v3_setup"
   | "v3_pipeline"
+  /** Pre-V3 hybrid scoring inside buildPlaylistPipeline (not per-lane V3 scoring). */
+  | "pre_v3_hybrid_scoring"
+  /** buildV3CandidatePool per editorial interpretation (typically 0.1–4s). */
+  | "candidate_pool_build"
+  /**
+   * Cumulative runV3Pipeline() loop across editorial candidates (typically 10–80s).
+   * This is the dominant cost bucket — not candidate_pool_build.
+   */
+  | "v3_multi_candidate_loop"
+  /** Per-invocation lane + engine + cluster + sampler inside one runV3Pipeline(). */
   | "candidate_generation"
   | "beam_complete_search"
   | "tournament"
@@ -36,6 +46,9 @@ const STAGE_KEYS: RequestStageKey[] = [
   "intent_expansion",
   "pre_v3_setup",
   "v3_pipeline",
+  "pre_v3_hybrid_scoring",
+  "candidate_pool_build",
+  "v3_multi_candidate_loop",
   "candidate_generation",
   "beam_complete_search",
   "tournament",
@@ -56,6 +69,11 @@ export function createRequestStageTiming(startedAt = Date.now()): {
   add(stage: RequestStageKey, ms: number): void;
   start(stage: RequestStageKey): () => void;
   setTotal(ms: number): void;
+  /** Single runV3Pipeline() invocation breakdown (laneGeneration, scoring, sampler, …). */
+  mergeV3InvocationTimingMs(v3: Record<string, unknown> | null | undefined): void;
+  /** buildPlaylistPipeline timingMs (scoring, retrieval, candidateGeneration, v3ScoringAndSampling, …). */
+  mergePlaylistPipelineTimingMs(playlist: Record<string, unknown> | null | undefined): void;
+  /** @deprecated Use mergeV3InvocationTimingMs or mergePlaylistPipelineTimingMs — schemas differ. */
   mergeV3TimingMs(v3: Record<string, unknown> | null | undefined): void;
   mergeProductionTimeline(stageDurationsMs: Record<string, number> | undefined): void;
   report(): RequestStageTimingReport;
@@ -80,7 +98,7 @@ export function createRequestStageTiming(startedAt = Date.now()): {
       stages.total.ms = Math.max(stages.total.ms, Math.round(ms));
       stages.total.invocations = 1;
     },
-    mergeV3TimingMs(v3) {
+    mergeV3InvocationTimingMs(v3) {
       if (!v3 || typeof v3 !== "object") return;
       const raw = v3["timingMs"];
       if (!raw || typeof raw !== "object") return;
@@ -91,6 +109,19 @@ export function createRequestStageTiming(startedAt = Date.now()): {
       add("beam_complete_search", t["completeSearch"] ?? 0);
       add("tournament", t["tournament"] ?? 0);
       add("refinement", (t["interleaver"] ?? 0) + (t["localSearch"] ?? 0) + (t["humanSaveability"] ?? 0));
+    },
+    mergePlaylistPipelineTimingMs(playlist) {
+      if (!playlist || typeof playlist !== "object") return;
+      const raw = playlist["timingMs"] ?? playlist;
+      if (!raw || typeof raw !== "object") return;
+      const t = raw as Record<string, number>;
+      add("retrieval", t["retrieval"] ?? 0);
+      add("pre_v3_hybrid_scoring", t["scoring"] ?? 0);
+      add("candidate_pool_build", t["candidateGeneration"] ?? 0);
+      add("v3_multi_candidate_loop", t["v3ScoringAndSampling"] ?? 0);
+    },
+    mergeV3TimingMs(v3) {
+      this.mergeV3InvocationTimingMs(v3);
     },
     mergeProductionTimeline(stageDurationsMs) {
       if (!stageDurationsMs) return;

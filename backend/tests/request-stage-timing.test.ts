@@ -32,19 +32,32 @@ describe("request stage timing", () => {
       candidate_fetch: 3_000,
       prompt_understanding: 2_000,
     });
-    timing.mergeV3TimingMs({
-      timingMs: {
-        laneGeneration: 8_000,
-        scoring: 12_000,
-        sampler: 5_000,
-        candidateGeneration: 120,
-      },
+    timing.mergePlaylistPipelineTimingMs({
+      scoring: 12_000,
+      retrieval: 8_000,
+      candidateGeneration: 1_200,
+      v3ScoringAndSampling: 47_500,
     });
     timing.setTotal(60_000);
     const report = timing.report();
     assert.equal(report.stages.v3_pipeline.ms, 55_000);
-    assert.equal(report.stages.candidate_generation.ms, 25_120);
-    assert.equal(report.stages.retrieval.ms, 3_000);
+    assert.equal(report.stages.v3_multi_candidate_loop.ms, 47_500);
+    assert.equal(report.stages.candidate_pool_build.ms, 1_200);
+    assert.equal(report.stages.pre_v3_hybrid_scoring.ms, 12_000);
+    assert.notEqual(report.slowestStage, "candidate_pool_build");
+    assert.equal(report.stages.retrieval.ms, 3_000 + 8_000);
+  });
+
+  it("does not fold v3 multi-candidate loop into candidate_pool_build", () => {
+    const timing = createRequestStageTiming();
+    timing.mergePlaylistPipelineTimingMs({
+      candidateGeneration: 800,
+      v3ScoringAndSampling: 82_000,
+    });
+    timing.setTotal(83_000);
+    const report = timing.report();
+    assert.equal(report.slowestStage, "v3_multi_candidate_loop");
+    assert.equal(report.stages.candidate_pool_build.ms, 800);
   });
 
   it("formats markdown timing sections", () => {

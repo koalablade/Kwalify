@@ -69,6 +69,8 @@ import { buildGenreAudit, type GenreAudit } from "../lib/genre-audit";
 import { classifyTrack } from "../lib/genre-taxonomy";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
 import { logScoringStage } from "../lib/generate-stage-timer";
+import { isGenuinelyUsablePlaylist } from "../lib/good-playlist-refinement-telemetry";
+import { buildV3InvocationDecomposition } from "../lib/v3-invocation-decomposition";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
 import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
@@ -4872,6 +4874,18 @@ export async function buildPlaylistPipeline<T extends {
   >();
   let v3InvocationCount = 0;
   let candidatePoolBuildCount = 0;
+  const v3InvocationTimingsMs: Array<{
+    label: string;
+    ms: number;
+    poolSize: number;
+    inputPoolSize: number;
+    candidatePoolSize: number;
+    finalTrackCount: number;
+    laneCount: number;
+    believabilityScore: number;
+    genuinelyUsable: boolean;
+    humanSaveable: boolean;
+  }> = [];
   for (const candidate of executableCandidateInputs) {
     await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
     if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
@@ -4922,13 +4936,14 @@ export async function buildPlaylistPipeline<T extends {
       mode: opts.mode,
       noLibraryMode: opts.noLibraryMode,
     });
+    const v3InputTracks = mergeV3UniverseInput(
+      candidatePool.tracks as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
+      sharedRetrievalPool,
+    ) as unknown as T[];
     try {
       v3InvocationCount += 1;
       result = await runV3Pipeline(
-        mergeV3UniverseInput(
-          candidatePool.tracks as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
-          sharedRetrievalPool,
-        ) as unknown as T[],
+        v3InputTracks,
         opts.vibe,
         opts.emotionProfile,
         opts.playlistLength,
@@ -4966,6 +4981,7 @@ export async function buildPlaylistPipeline<T extends {
     } finally {
       endV3Profile?.();
     }
+    const invocationMs = Date.now() - stageStartedAt;
     recordTiming("v3ScoringAndSampling", stageStartedAt);
     recordTraceCount(pipelineTrace, `v3.${candidate.label}.inputCandidates`, candidatePool.tracks.length);
     recordTraceCount(pipelineTrace, `v3.${candidate.label}.finalTracks`, result.finalTracks.length);
@@ -4977,6 +4993,18 @@ export async function buildPlaylistPipeline<T extends {
       context: result.sceneWorldContext ?? null,
       lockedIntent: v3LockedIntent,
       libraryFingerprint,
+    });
+    v3InvocationTimingsMs.push({
+      label: candidate.label,
+      ms: invocationMs,
+      poolSize: v3InputTracks.length,
+      inputPoolSize: inputPool.length,
+      candidatePoolSize: candidatePool.tracks.length,
+      finalTrackCount: result.finalTracks.length,
+      believabilityScore: round3(curation.believabilityScore),
+      genuinelyUsable: isGenuinelyUsablePlaylist(result.finalTracks.length, opts.playlistLength),
+      humanSaveable: curation.wouldISave.humanSaveable,
+      laneCount: Array.isArray(result.diagnostics?.lanes) ? result.diagnostics.lanes.length : 0,
     });
     const attempt = {
       label: candidate.label,
@@ -5101,6 +5129,14 @@ export async function buildPlaylistPipeline<T extends {
     selectedRelaxation: selectedCandidate.candidatePool.diagnostics["finalRelaxedConstraints"] ?? null,
     relaxationSteps: selectedCandidate.candidatePool.diagnostics["relaxationSteps"] ?? [],
     constraintFailures: selectedCandidate.candidatePool.diagnostics["constraintFailures"] ?? [],
+    v3InvocationDecomposition: buildV3InvocationDecomposition({
+      invocations: v3InvocationTimingsMs,
+      plannedCandidateAttemptCount: candidateInputs.length,
+      executableCandidateAttemptCount: executableCandidateInputs.length,
+      retrievalSafetyExpanded,
+      totalMs: timingMs.v3ScoringAndSampling,
+      selectedWinnerLabel: selectedCandidate.label,
+    }),
     candidateScores: candidateAttempts.map((candidate) => ({
       label: candidate.label,
       selectedCount: candidate.result.finalTracks.length,

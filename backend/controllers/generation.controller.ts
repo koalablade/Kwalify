@@ -7987,7 +7987,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       };
     };
     const skipNonEssentialDiagnostics = budget.remainingMs() < 8_000;
-    requestStageTiming.mergeV3TimingMs({ timingMs: pipelineTiming ?? undefined });
+    requestStageTiming.mergePlaylistPipelineTimingMs(pipelineTiming ?? undefined);
     requestStageTiming.add("refinement", finalizationTimeMs + repairTimeMs);
     requestStageTiming.mergeProductionTimeline(
       buildProductionTimelineReport(productionTimeline, startMs).stageDurationsMs as Record<string, number>,
@@ -7998,9 +7998,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       preV3: preV3Timing,
       playlistPipeline: playlistPipelineTimeMs,
       retrieval: typeof pipelineTiming?.["retrieval"] === "number" ? pipelineTiming["retrieval"] : null,
-      candidateGeneration: typeof pipelineTiming?.["candidateGeneration"] === "number" ? pipelineTiming["candidateGeneration"] : null,
-      v3Scoring: typeof pipelineTiming?.["scoring"] === "number" ? pipelineTiming["scoring"] : null,
-      sampler: typeof pipelineTiming?.["sampler"] === "number" ? pipelineTiming["sampler"] : null,
+      /** buildV3CandidatePool — typically 0.1–4s; not the multi-candidate V3 loop. */
+      candidatePoolBuild: typeof pipelineTiming?.["candidateGeneration"] === "number" ? pipelineTiming["candidateGeneration"] : null,
+      /** Cumulative runV3Pipeline() across editorial candidates — dominant cost bucket. */
+      v3MultiCandidateLoop: typeof pipelineTiming?.["v3ScoringAndSampling"] === "number" ? pipelineTiming["v3ScoringAndSampling"] : null,
+      preV3HybridScoring: typeof pipelineTiming?.["scoring"] === "number" ? pipelineTiming["scoring"] : null,
       repair: repairTimeMs,
       finalization: finalizationTimeMs,
       v3Pipeline: pipelineTiming,
@@ -8009,9 +8011,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       preV3: preV3Timing.totalBeforeV3Ms,
       playlistPipeline: playlistPipelineTimeMs,
       retrieval: typeof pipelineTiming?.["retrieval"] === "number" ? pipelineTiming["retrieval"] as number : 0,
-      candidateGeneration: typeof pipelineTiming?.["candidateGeneration"] === "number" ? pipelineTiming["candidateGeneration"] as number : 0,
-      v3Scoring: typeof pipelineTiming?.["scoring"] === "number" ? pipelineTiming["scoring"] as number : 0,
-      sampler: typeof pipelineTiming?.["sampler"] === "number" ? pipelineTiming["sampler"] as number : 0,
+      candidatePoolBuild: typeof pipelineTiming?.["candidateGeneration"] === "number" ? pipelineTiming["candidateGeneration"] as number : 0,
+      v3MultiCandidateLoop: typeof pipelineTiming?.["v3ScoringAndSampling"] === "number" ? pipelineTiming["v3ScoringAndSampling"] as number : 0,
+      preV3HybridScoring: typeof pipelineTiming?.["scoring"] === "number" ? pipelineTiming["scoring"] as number : 0,
       repair: repairTimeMs,
       finalization: finalizationTimeMs,
     }).sort((a, b) => b[1] - a[1])[0] ?? null;
@@ -8058,15 +8060,26 @@ router.post("/generate", async (req, res): Promise<void> => {
           preV3: preV3Timing.totalBeforeV3Ms,
           playlistPipeline: playlistPipelineTimeMs,
           retrieval: typeof requestTimingMs.retrieval === "number" ? requestTimingMs.retrieval : 0,
-          candidateGeneration: typeof requestTimingMs.candidateGeneration === "number" ? requestTimingMs.candidateGeneration : 0,
-          v3Scoring: typeof requestTimingMs.v3Scoring === "number" ? requestTimingMs.v3Scoring : 0,
-          sampler: typeof requestTimingMs.sampler === "number" ? requestTimingMs.sampler : 0,
+          candidatePoolBuild: typeof requestTimingMs.candidatePoolBuild === "number" ? requestTimingMs.candidatePoolBuild : 0,
+          v3MultiCandidateLoop: typeof requestTimingMs.v3MultiCandidateLoop === "number" ? requestTimingMs.v3MultiCandidateLoop : 0,
+          preV3HybridScoring: typeof requestTimingMs.preV3HybridScoring === "number" ? requestTimingMs.preV3HybridScoring : 0,
           repair: repairTimeMs,
           finalization: finalizationTimeMs,
         })
           .filter(([, ms]) => ms >= 30_000)
           .map(([stage, ms]) => ({ stage, ms })),
       },
+      v3InvocationDecomposition: (() => {
+        const controlled = v3PipelineDiagnostics["controlledGeneration"] as Record<string, unknown> | undefined;
+        const decomp = controlled?.["v3InvocationDecomposition"];
+        return decomp && typeof decomp === "object" ? decomp : null;
+      })(),
+      v3PipelineTimingProfile: (() => {
+        const controlled = v3PipelineDiagnostics["controlledGeneration"] as Record<string, unknown> | undefined;
+        const decomp = controlled?.["v3InvocationDecomposition"] as Record<string, unknown> | undefined;
+        const profile = decomp?.["v3PipelineTimingProfile"];
+        return profile && typeof profile === "object" ? profile : null;
+      })(),
       performanceFastPath: {
         fastPathTriggered: !!preScoringCandidateShape.diagnostics["applied"] ||
           (((v3PipelineDiagnostics["controlledGeneration"] as Record<string, unknown> | undefined)?.["retrievalLatencyGuard"] as Record<string, unknown> | undefined)?.["fastPathTriggered"] === true),

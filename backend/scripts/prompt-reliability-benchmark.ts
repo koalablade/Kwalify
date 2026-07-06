@@ -11,6 +11,18 @@ import {
   type GoodPlaylistRefinementReport,
   type RefinementObservabilityRollup,
 } from "../lib/good-playlist-refinement-telemetry";
+import type { V3CostDriver } from "../lib/v3-invocation-decomposition";
+import {
+  formatV3InvocationBreakdownMarkdown,
+  formatCandidatePositionRollupMarkdown,
+  formatTournamentQualityMarkdown,
+  rollupCandidatePositionStats,
+  rollupTournamentQuality,
+  type CandidatePositionRollupRow,
+  type TournamentQualityRollup,
+  type V3InvocationPattern,
+  type V3PerCandidateProfile,
+} from "../lib/v3-invocation-decomposition";
 
 type PromptGroup = "Electronic" | "Alternative" | "Hip Hop" | "Lifestyle" | "Human";
 type BenchmarkMode = "strict" | "balanced" | "chaotic";
@@ -46,6 +58,58 @@ type BenchmarkConfig = {
   dryRun: boolean;
   expectedDeploymentVersion: string | null;
   baselineReportPath: string | null;
+};
+
+type PromptV3Decomposition = {
+  v3InvocationCount: number | null;
+  perCandidateV3Ms: number[] | null;
+  perCandidate: Array<{
+    candidateIndex: number;
+    label: string;
+    elapsedMs: number;
+    ms: number;
+    poolSize: number;
+    laneCount: number;
+    tracksProduced: number;
+    usable: boolean;
+    winner: boolean;
+    believabilityScore?: number;
+    genuinelyUsable?: boolean;
+    humanSaveable?: boolean;
+  }> | null;
+  selectedWinnerLabel: string | null;
+  invocationPattern: string | null;
+  candidateTournamentValue: {
+    winnerCandidateIndex: number | null;
+    candidate1WinsTournament: boolean | null;
+    firstUsableCandidateIndex: number | null;
+    firstUsableIsWinner: boolean | null;
+    tournamentWinnerDiffersFromFirstUsable: boolean | null;
+    believabilityGainCandidate1ToWinner: number | null;
+    believabilityGainFirstUsableToWinner: number | null;
+    invocationsAfterFirstUsable: number | null;
+    msAfterFirstUsable: number | null;
+  } | null;
+  plannedCandidateAttemptCount: number | null;
+  retrievalSafetyExpanded: boolean | null;
+  totalMs: number | null;
+  avgMsPerInvocation: number | null;
+  minMsPerInvocation: number | null;
+  maxMsPerInvocation: number | null;
+  medianMsPerInvocation: number | null;
+  costDriver: V3CostDriver | null;
+};
+
+type V3PipelineTimingProfileRow = {
+  v3PipelineTotalMs: number;
+  invocationCount: number;
+  candidateCount: number;
+  avgInvocationMs: number | null;
+  maxInvocationMs: number | null;
+  poolSize: number | null;
+  laneCount: number | null;
+  invocationPattern: string | null;
+  maxToMedianInvocationRatio: number | null;
 };
 
 type PromptBenchmarkRow = {
@@ -114,16 +178,29 @@ type PromptBenchmarkRow = {
     latencyBudgetExceeded: boolean;
     latencyOptimizationSkipped: Record<string, unknown> | null;
     v3TimingMs: Record<string, unknown> | null;
+    /** Authoritative playlist-pipeline timing (includes v3ScoringAndSampling). */
+    playlistPipelineTimingMs: Record<string, unknown> | null;
     humanSaveRetries: number | null;
     coherenceRebuildIterations: number | null;
     goodPlaylistRefinement: GoodPlaylistRefinementReport | null;
     timeoutFallbackSource: string | null;
+    v3Decomposition: PromptV3Decomposition | null;
+    v3PipelineTimingProfile: V3PipelineTimingProfileRow | null;
   };
 };
 
 type DeliveryTierDistribution = Record<DeliveryBucket, number>;
 
 type BenchmarkObservabilitySummary = {
+  /** P0 delivery KPIs — primary pass/fail for infrastructure reliability. */
+  delivery: {
+    clientAbortCount: number;
+    responsesWithBodyCount: number;
+    completedBefore90sCount: number;
+    completedBefore90sRate: number;
+    latencyBudgetExceededCount: number;
+    goodPlaylistSnapshotFallbackCount: number;
+  };
   http422Count: number;
   zeroTrackCount: number;
   medianLatencyMs: number;
@@ -138,6 +215,24 @@ type BenchmarkObservabilitySummary = {
   degradedDeliveryCount: number;
   refinement: RefinementObservabilityRollup;
   timeoutFallbackSourceDistribution: Record<string, number>;
+  /** Playlist-pipeline timing breakdown (generationDiagnostics.timingMs.v3Pipeline). */
+  pipelineTiming: {
+    promptsWithData: number;
+    medianV3MultiCandidateLoopMs: number | null;
+    medianCandidatePoolBuildMs: number | null;
+    maxV3MultiCandidateLoopMs: number | null;
+  };
+  v3Variance: {
+    promptsWithDecomposition: number;
+    medianInvocationCount: number | null;
+    medianAvgMsPerInvocation: number | null;
+    costDriverDistribution: Record<V3CostDriver | "none", number>;
+    medianMsAfterFirstUsable: number | null;
+    winnerDiffersFromFirstUsableRate: number;
+    invocationPatternDistribution: Record<V3InvocationPattern | "none", number>;
+    candidatePositionRollup: CandidatePositionRollupRow[];
+    tournamentQuality: TournamentQualityRollup;
+  };
 };
 
 type BenchmarkReport = {
@@ -226,6 +321,138 @@ function extractObservability(
   };
 }
 
+function extractPlaylistPipelineTimingMs(
+  generationDiagnostics: Record<string, unknown>,
+  v3Diagnostics: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const timingMsBlock = record(generationDiagnostics["timingMs"]);
+  const fromGeneration = timingMsBlock["v3Pipeline"];
+  if (fromGeneration && typeof fromGeneration === "object") {
+    return fromGeneration as Record<string, unknown>;
+  }
+  const fromV3 = v3Diagnostics["timingMs"];
+  if (fromV3 && typeof fromV3 === "object") {
+    return fromV3 as Record<string, unknown>;
+  }
+  return null;
+}
+
+function numberFromDecomposition(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function extractV3Decomposition(generationDiagnostics: Record<string, unknown>): PromptV3Decomposition | null {
+  const raw = generationDiagnostics["v3InvocationDecomposition"];
+  if (!raw || typeof raw !== "object") return null;
+  const decomp = raw as Record<string, unknown>;
+  const costDriver = decomp["costDriver"];
+  const perCandidateV3Ms = arrayValue(decomp["perCandidateV3Ms"] ?? decomp["perInvocationMs"])
+    .map((value) => (typeof value === "number" && Number.isFinite(value) ? value : null))
+    .filter((value): value is number => value != null);
+  const perCandidate = arrayValue(decomp["perCandidate"])
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .map((item) => ({
+      candidateIndex: numberFromDecomposition(item["candidateIndex"]) ?? 0,
+      label: String(item["label"] ?? ""),
+      elapsedMs: numberFromDecomposition(item["elapsedMs"] ?? item["ms"]) ?? 0,
+      ms: numberFromDecomposition(item["ms"]) ?? 0,
+      poolSize: numberFromDecomposition(item["poolSize"]) ?? 0,
+      laneCount: numberFromDecomposition(item["laneCount"]) ?? 0,
+      tracksProduced: numberFromDecomposition(item["tracksProduced"] ?? item["finalTrackCount"]) ?? 0,
+      usable: item["usable"] === true || item["genuinelyUsable"] === true,
+      winner: item["winner"] === true,
+      believabilityScore: numberFromDecomposition(item["believabilityScore"]) ?? undefined,
+      genuinelyUsable: item["genuinelyUsable"] === true ? true : item["genuinelyUsable"] === false ? false : undefined,
+      humanSaveable: item["humanSaveable"] === true ? true : item["humanSaveable"] === false ? false : undefined,
+    }))
+    .filter((item) => item.label.length > 0 && item.candidateIndex > 0);
+  const tournamentRaw = decomp["candidateTournamentValue"];
+  const tournament = tournamentRaw && typeof tournamentRaw === "object"
+    ? tournamentRaw as Record<string, unknown>
+    : null;
+  const v3InvocationCount = numberFromDecomposition(decomp["v3InvocationCount"] ?? decomp["invocationCount"]);
+  const profileRaw = decomp["v3PipelineTimingProfile"];
+  const profile = profileRaw && typeof profileRaw === "object" ? profileRaw as Record<string, unknown> : null;
+  const selectedWinnerLabel = tournament
+    ? String(tournament["selectedWinnerLabel"] ?? "") || null
+    : null;
+  return {
+    v3InvocationCount,
+    perCandidateV3Ms: perCandidateV3Ms.length > 0 ? perCandidateV3Ms : null,
+    perCandidate: perCandidate.length > 0 ? perCandidate : null,
+    selectedWinnerLabel,
+    invocationPattern: profile ? String(profile["invocationPattern"] ?? "") || null : null,
+    candidateTournamentValue: tournament
+      ? {
+          winnerCandidateIndex: numberFromDecomposition(tournament["winnerCandidateIndex"]),
+          candidate1WinsTournament: tournament["candidate1WinsTournament"] === true
+            ? true
+            : tournament["candidate1WinsTournament"] === false
+              ? false
+              : null,
+          firstUsableCandidateIndex: numberFromDecomposition(tournament["firstUsableCandidateIndex"]),
+          firstUsableIsWinner: tournament["firstUsableIsWinner"] === true
+            ? true
+            : tournament["firstUsableIsWinner"] === false
+              ? false
+              : null,
+          tournamentWinnerDiffersFromFirstUsable: tournament["tournamentWinnerDiffersFromFirstUsable"] === true
+            ? true
+            : tournament["tournamentWinnerDiffersFromFirstUsable"] === false
+              ? false
+              : null,
+          believabilityGainCandidate1ToWinner: numberFromDecomposition(tournament["believabilityGainCandidate1ToWinner"]),
+          believabilityGainFirstUsableToWinner: numberFromDecomposition(tournament["believabilityGainFirstUsableToWinner"]),
+          invocationsAfterFirstUsable: numberFromDecomposition(tournament["invocationsAfterFirstUsable"]),
+          msAfterFirstUsable: numberFromDecomposition(tournament["msAfterFirstUsable"]),
+        }
+      : null,
+    plannedCandidateAttemptCount: numberFromDecomposition(decomp["plannedCandidateAttemptCount"]),
+    retrievalSafetyExpanded: decomp["retrievalSafetyExpanded"] === true
+      ? true
+      : decomp["retrievalSafetyExpanded"] === false
+        ? false
+        : null,
+    totalMs: numberFromDecomposition(decomp["totalMs"]),
+    avgMsPerInvocation: numberFromDecomposition(decomp["avgMsPerInvocation"]),
+    minMsPerInvocation: numberFromDecomposition(decomp["minMsPerInvocation"]),
+    maxMsPerInvocation: numberFromDecomposition(decomp["maxMsPerInvocation"]),
+    medianMsPerInvocation: numberFromDecomposition(decomp["medianMsPerInvocation"]),
+    costDriver: costDriver === "invocation_count" ||
+      costDriver === "per_invocation_cost" ||
+      costDriver === "mixed" ||
+      costDriver === "unknown"
+      ? costDriver
+      : null,
+  };
+}
+
+function extractV3PipelineTimingProfile(
+  generationDiagnostics: Record<string, unknown>,
+): V3PipelineTimingProfileRow | null {
+  const fromTop = generationDiagnostics["v3PipelineTimingProfile"];
+  const profile = (fromTop && typeof fromTop === "object")
+    ? fromTop
+    : (() => {
+      const decomp = generationDiagnostics["v3InvocationDecomposition"];
+      if (!decomp || typeof decomp !== "object") return null;
+      return (decomp as Record<string, unknown>)["v3PipelineTimingProfile"] ?? null;
+    })();
+  if (!profile || typeof profile !== "object") return null;
+  const row = profile as Record<string, unknown>;
+  return {
+    v3PipelineTotalMs: numberFromDecomposition(row["v3PipelineTotalMs"]) ?? 0,
+    invocationCount: numberFromDecomposition(row["invocationCount"]) ?? 0,
+    candidateCount: numberFromDecomposition(row["candidateCount"]) ?? 0,
+    avgInvocationMs: numberFromDecomposition(row["avgInvocationMs"]),
+    maxInvocationMs: numberFromDecomposition(row["maxInvocationMs"]),
+    poolSize: numberFromDecomposition(row["poolSize"]),
+    laneCount: numberFromDecomposition(row["laneCount"]),
+    invocationPattern: String(row["invocationPattern"] ?? "") || null,
+    maxToMedianInvocationRatio: numberFromDecomposition(row["maxToMedianInvocationRatio"]),
+  };
+}
+
 function buildObservabilitySummary(rows: PromptBenchmarkRow[]): BenchmarkObservabilitySummary {
   const genreSpecificRows = rows.filter((row) => row.input.group === GENRE_SPECIFIC_GROUP);
   const deliveryTierDistribution = emptyDeliveryDistribution();
@@ -248,7 +475,87 @@ function buildObservabilitySummary(rows: PromptBenchmarkRow[]): BenchmarkObserva
     const source = row.timing?.timeoutFallbackSource ?? "none";
     timeoutFallbackSourceDistribution[source] = (timeoutFallbackSourceDistribution[source] ?? 0) + 1;
   }
+  const v3LoopMs = rows
+    .map((row) => {
+      const value = row.timing?.playlistPipelineTimingMs?.["v3ScoringAndSampling"];
+      return typeof value === "number" && Number.isFinite(value) ? value : null;
+    })
+    .filter((value): value is number => value !== null)
+    .sort((a, b) => a - b);
+  const poolBuildMs = rows
+    .map((row) => {
+      const value = row.timing?.playlistPipelineTimingMs?.["candidateGeneration"];
+      return typeof value === "number" && Number.isFinite(value) ? value : null;
+    })
+    .filter((value): value is number => value !== null)
+    .sort((a, b) => a - b);
+  const decompositionRows = rows
+    .map((row) => row.timing?.v3Decomposition)
+    .filter((value): value is PromptV3Decomposition => value != null && value.v3InvocationCount != null);
+  const invocationCounts = decompositionRows
+    .map((row) => row.v3InvocationCount)
+    .filter((value): value is number => value != null)
+    .sort((a, b) => a - b);
+  const avgPerInvocation = decompositionRows
+    .map((row) => row.avgMsPerInvocation)
+    .filter((value): value is number => value != null)
+    .sort((a, b) => a - b);
+  const costDriverDistribution: Record<V3CostDriver | "none", number> = {
+    invocation_count: 0,
+    per_invocation_cost: 0,
+    mixed: 0,
+    unknown: 0,
+    none: 0,
+  };
+  for (const row of rows) {
+    const driver = row.timing?.v3Decomposition?.costDriver ?? "none";
+    costDriverDistribution[driver] = (costDriverDistribution[driver] ?? 0) + 1;
+  }
+  const msAfterFirstUsable = decompositionRows
+    .map((row) => row.candidateTournamentValue?.msAfterFirstUsable)
+    .filter((value): value is number => value != null)
+    .sort((a, b) => a - b);
+  const winnerDiffersCount = decompositionRows.filter(
+    (row) => row.candidateTournamentValue?.tournamentWinnerDiffersFromFirstUsable === true,
+  ).length;
+  const clientAbortCount = rows.filter((row) => row.status === null).length;
+  const responsesWithBodyCount = rows.filter((row) => row.status !== null).length;
+  const completedBefore90sCount = rows.filter((row) => row.status !== null && row.elapsedMs < 90_000).length;
+  const latencyBudgetExceededCount = rows.filter((row) => row.timing?.latencyBudgetExceeded === true).length;
+  const goodPlaylistSnapshotFallbackCount = rows.filter(
+    (row) => row.timing?.timeoutFallbackSource === "good_playlist_snapshot",
+  ).length;
+  const invocationPatternDistribution: Record<V3InvocationPattern | "none", number> = {
+    multiplicative: 0,
+    pathological: 0,
+    mixed: 0,
+    unknown: 0,
+    none: 0,
+  };
+  for (const row of rows) {
+    const pattern = row.timing?.v3PipelineTimingProfile?.invocationPattern
+      ?? row.timing?.v3Decomposition?.invocationPattern
+      ?? "none";
+    if (
+      pattern === "multiplicative" ||
+      pattern === "pathological" ||
+      pattern === "mixed" ||
+      pattern === "unknown"
+    ) {
+      invocationPatternDistribution[pattern] += 1;
+    } else {
+      invocationPatternDistribution.none += 1;
+    }
+  }
   return {
+    delivery: {
+      clientAbortCount,
+      responsesWithBodyCount,
+      completedBefore90sCount,
+      completedBefore90sRate: Math.round((completedBefore90sCount / total) * 1000) / 10,
+      latencyBudgetExceededCount,
+      goodPlaylistSnapshotFallbackCount,
+    },
     http422Count: rows.filter((row) => row.status === 422).length,
     zeroTrackCount: rows.filter((row) => row.generation.finalTrackCount === 0).length,
     medianLatencyMs: percentile(latencies, 50),
@@ -265,6 +572,54 @@ function buildObservabilitySummary(rows: PromptBenchmarkRow[]): BenchmarkObserva
     degradedDeliveryCount: rows.filter((row) => row.observability.degradedDelivery).length,
     refinement,
     timeoutFallbackSourceDistribution,
+    pipelineTiming: {
+      promptsWithData: v3LoopMs.length,
+      medianV3MultiCandidateLoopMs: v3LoopMs.length ? percentile(v3LoopMs, 50) : null,
+      medianCandidatePoolBuildMs: poolBuildMs.length ? percentile(poolBuildMs, 50) : null,
+      maxV3MultiCandidateLoopMs: v3LoopMs.length ? v3LoopMs[v3LoopMs.length - 1] ?? null : null,
+    },
+    v3Variance: {
+      promptsWithDecomposition: decompositionRows.length,
+      medianInvocationCount: invocationCounts.length ? percentile(invocationCounts, 50) : null,
+      medianAvgMsPerInvocation: avgPerInvocation.length ? percentile(avgPerInvocation, 50) : null,
+      costDriverDistribution,
+      medianMsAfterFirstUsable: msAfterFirstUsable.length ? percentile(msAfterFirstUsable, 50) : null,
+      winnerDiffersFromFirstUsableRate: decompositionRows.length
+        ? Math.round((winnerDiffersCount / decompositionRows.length) * 1000) / 10
+        : 0,
+      invocationPatternDistribution,
+      candidatePositionRollup: rollupCandidatePositionStats(
+        rows
+          .map((row) => row.timing?.v3Decomposition?.perCandidate)
+          .filter((perCandidate): perCandidate is NonNullable<typeof perCandidate> => !!perCandidate?.length)
+          .map((perCandidate) => ({ perCandidate: perCandidate as V3PerCandidateProfile[] })),
+      ),
+      tournamentQuality: rollupTournamentQuality(
+        rows
+          .map((row) => {
+            const decomp = row.timing?.v3Decomposition;
+            if (!decomp?.candidateTournamentValue) return null;
+            const t = decomp.candidateTournamentValue;
+            return {
+              selectedWinnerLabel: decomp.selectedWinnerLabel,
+              winnerCandidateIndex: t.winnerCandidateIndex,
+              candidate1WinsTournament: t.candidate1WinsTournament === true,
+              firstUsableCandidateIndex: t.firstUsableCandidateIndex,
+              firstUsableCandidateLabel: null,
+              firstUsableIsWinner: t.firstUsableIsWinner === true,
+              tournamentWinnerDiffersFromFirstUsable: t.tournamentWinnerDiffersFromFirstUsable === true,
+              believabilityAtFirstUsable: null,
+              believabilityAtCandidate1: null,
+              believabilityAtWinner: null,
+              believabilityGainFirstUsableToWinner: t.believabilityGainFirstUsableToWinner,
+              believabilityGainCandidate1ToWinner: t.believabilityGainCandidate1ToWinner,
+              invocationsAfterFirstUsable: t.invocationsAfterFirstUsable ?? 0,
+              msAfterFirstUsable: t.msAfterFirstUsable ?? 0,
+            };
+          })
+          .filter((row): row is NonNullable<typeof row> => row != null && row.winnerCandidateIndex != null),
+      ),
+    },
   };
 }
 
@@ -819,7 +1174,10 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
     ? goodPlaylistRefinementRaw as GoodPlaylistRefinementReport
     : null;
   const timingMsBlock = record(generationDiagnostics["timingMs"]);
-  const v3TimingMs = (v3Diagnostics["timingMs"] ?? timingMsBlock["v3Pipeline"] ?? null) as Record<string, unknown> | null;
+  const playlistPipelineTimingMs = extractPlaylistPipelineTimingMs(generationDiagnostics, v3Diagnostics);
+  const v3TimingMs = playlistPipelineTimingMs;
+  const v3Decomposition = extractV3Decomposition(generationDiagnostics);
+  const v3PipelineTimingProfile = extractV3PipelineTimingProfile(generationDiagnostics);
   return {
     input: {
       id: prompt.id,
@@ -885,12 +1243,15 @@ function extractRow(prompt: BenchmarkPrompt, result: GeneratePostResult): Prompt
         ? latencyOptimizationSkipped as Record<string, boolean>
         : null,
       v3TimingMs,
+      playlistPipelineTimingMs,
       humanSaveRetries: typeof humanSaveGate["retriesUsed"] === "number" ? humanSaveGate["retriesUsed"] as number : null,
       coherenceRebuildIterations: typeof generationDiagnostics["rebuildIterations"] === "number"
         ? generationDiagnostics["rebuildIterations"] as number
         : null,
       goodPlaylistRefinement,
       timeoutFallbackSource: stringValue(generationDiagnostics["timeoutFallbackSource"]),
+      v3Decomposition,
+      v3PipelineTimingProfile,
     },
   };
 }
@@ -961,7 +1322,7 @@ function markdownReport(report: BenchmarkReport): string {
     row.blockingFailureReasons.join(", ") || "none",
     row.advisoryFailureReasons.join(", ") || "none",
   ]);
-  return [
+  const lines = [
     "# Prompt Reliability Benchmark",
     "",
     `Generated: ${report.generatedAt}`,
@@ -974,6 +1335,13 @@ function markdownReport(report: BenchmarkReport): string {
     `Average survival: ${report.summary.averageSurvivalPercent}%`,
     `Average confidence: ${report.summary.averageConfidenceScore}%`,
     "",
+    "## P0 Delivery (primary KPI)",
+    `Client aborts: ${report.observability.delivery.clientAbortCount}/${report.run.promptCount}`,
+    `Responses with body: ${report.observability.delivery.responsesWithBodyCount}/${report.run.promptCount}`,
+    `Completed before 90s: ${report.observability.delivery.completedBefore90sCount}/${report.run.promptCount} (${report.observability.delivery.completedBefore90sRate}%)`,
+    `Latency budget exceeded (server returned at budget): ${report.observability.delivery.latencyBudgetExceededCount}`,
+    `Timeout fallback used good_playlist_snapshot: ${report.observability.delivery.goodPlaylistSnapshotFallbackCount}`,
+    "",
     "## Refinement observability (not scored)",
     `Good playlist ready reach rate: ${report.observability.refinement.goodPlaylistReadyReachRate}%`,
     `Median goodPlaylistReady time: ${report.observability.refinement.medianGoodPlaylistReadyElapsedMs != null ? `${report.observability.refinement.medianGoodPlaylistReadyElapsedMs}ms` : "n/a"}`,
@@ -983,6 +1351,50 @@ function markdownReport(report: BenchmarkReport): string {
     `Average tracks changed by refinement: ${report.observability.refinement.averageTracksChangedByRefinement ?? "n/a"}`,
     `Final winner differs from initial: ${report.observability.refinement.finalWinnerDiffersRate ?? "n/a"}%`,
     `Timeout fallback sources: ${JSON.stringify(report.observability.timeoutFallbackSourceDistribution)}`,
+  ];
+  const pipelineTiming = report.observability.pipelineTiming;
+  if (pipelineTiming.promptsWithData > 0) {
+    lines.push(
+      "",
+      "## Pipeline timing (delivery profiling — not scored)",
+      `- Prompts with playlist timing: ${pipelineTiming.promptsWithData}/${report.run.promptCount}`,
+      `- Median v3 multi-candidate loop (v3ScoringAndSampling): ${pipelineTiming.medianV3MultiCandidateLoopMs ?? "n/a"}ms`,
+      `- Median candidate pool build (candidateGeneration): ${pipelineTiming.medianCandidatePoolBuildMs ?? "n/a"}ms`,
+      `- Max v3 multi-candidate loop: ${pipelineTiming.maxV3MultiCandidateLoopMs ?? "n/a"}ms`,
+      "- Note: candidateGeneration is pool build (~0.1–4s). v3ScoringAndSampling is the full runV3Pipeline() loop.",
+    );
+  }
+  const v3Variance = report.observability.v3Variance;
+  if (v3Variance.promptsWithDecomposition > 0) {
+    lines.push(
+      "",
+      "## V3 variance decomposition (count × cost per invocation)",
+      `- Prompts with decomposition: ${v3Variance.promptsWithDecomposition}/${report.run.promptCount}`,
+      `- Median invocation count: ${v3Variance.medianInvocationCount ?? "n/a"}`,
+      `- Median avg ms per invocation: ${v3Variance.medianAvgMsPerInvocation ?? "n/a"}ms`,
+      `- Cost driver distribution: ${JSON.stringify(v3Variance.costDriverDistribution)}`,
+      `- Median ms after first usable candidate: ${v3Variance.medianMsAfterFirstUsable ?? "n/a"}ms`,
+      `- Tournament winner differs from first usable: ${v3Variance.winnerDiffersFromFirstUsableRate}%`,
+      `- Invocation pattern distribution: ${JSON.stringify(v3Variance.invocationPatternDistribution)}`,
+      "",
+      "## Tournament quality (early-stop feasibility — not scored)",
+      `Candidate #1 wins tournament: **${v3Variance.tournamentQuality.candidate1WinsRate}%**`,
+      `First usable is winner: **${v3Variance.tournamentQuality.firstUsableIsWinnerRate}%**`,
+      `Winner differs from first usable: **${v3Variance.tournamentQuality.winnerDiffersFromFirstUsableRate}%**`,
+      "",
+      "### Candidate position rollup (median elapsed ms per candidate #)",
+      "",
+      "| # | prompts | median elapsed | max elapsed | usable % | winner % |",
+      "| ---: | ---: | ---: | ---: | ---: | ---: |",
+      ...v3Variance.candidatePositionRollup.map((row) =>
+        `| ${row.candidateIndex} | ${row.promptCount} | ${row.medianElapsedMs ?? "n/a"} | ${row.maxElapsedMs ?? "n/a"} | ${row.usableRate} | ${row.winnerRate} |`,
+      ),
+      "",
+      "- `multiplicative` = many similar ms (e.g. 15×5s). `pathological` = one invocation dominates (e.g. 1×82s).",
+      "- `msAfterFirstUsable` estimates latency spent after a deliverable playlist already existed.",
+    );
+  }
+  lines.push(
     "",
     "## Prompt Results",
     ...table(
@@ -996,7 +1408,8 @@ function markdownReport(report: BenchmarkReport): string {
     "- No major era leak",
     "- Survival and confidence warnings are advisory unless accompanied by underfill, request failure, or major leak",
     "",
-  ].join("\n");
+  );
+  return lines.join("\n");
 }
 
 function rankingBlock(title: string, rows: PromptBenchmarkRow[], key: keyof PromptBenchmarkRow["riskScores"]): string[] {
@@ -1022,7 +1435,7 @@ function rankingBlock(title: string, rows: PromptBenchmarkRow[], key: keyof Prom
 }
 
 function rankedFailureMarkdown(report: BenchmarkReport): string {
-  return [
+  const lines = [
     "# Prompt Reliability Ranked Failure Report",
     "",
     `Prompt Reliability Score: ${report.summary.promptReliabilityScore}/100`,
@@ -1032,6 +1445,11 @@ function rankedFailureMarkdown(report: BenchmarkReport): string {
     `Underfilled prompts: ${report.summary.underfilledCount}`,
     `Genre leak prompts: ${report.summary.genreLeakCount}`,
     `Era leak prompts: ${report.summary.eraLeakCount}`,
+    "",
+    "## P0 Delivery (primary KPI)",
+    `Client aborts: ${report.observability.delivery.clientAbortCount}/${report.run.promptCount}`,
+    `Completed before 90s: ${report.observability.delivery.completedBefore90sCount}/${report.run.promptCount} (${report.observability.delivery.completedBefore90sRate}%)`,
+    `good_playlist_snapshot fallbacks: ${report.observability.delivery.goodPlaylistSnapshotFallbackCount}`,
     "",
     "## Observability (not scored)",
     `HTTP 422: ${report.observability.http422Count}`,
@@ -1051,12 +1469,56 @@ function rankedFailureMarkdown(report: BenchmarkReport): string {
     `Average tracks changed by refinement: ${report.observability.refinement.averageTracksChangedByRefinement ?? "n/a"}`,
     `Final winner differs from initial: ${report.observability.refinement.finalWinnerDiffersRate ?? "n/a"}%`,
     `Timeout fallback sources: ${JSON.stringify(report.observability.timeoutFallbackSourceDistribution)}`,
+  ];
+  const pipelineTimingRanked = report.observability.pipelineTiming;
+  if (pipelineTimingRanked.promptsWithData > 0) {
+    lines.push(
+      "",
+      "## Pipeline timing (delivery profiling — not scored)",
+      `- Median v3 multi-candidate loop: ${pipelineTimingRanked.medianV3MultiCandidateLoopMs ?? "n/a"}ms`,
+      `- Median candidate pool build: ${pipelineTimingRanked.medianCandidatePoolBuildMs ?? "n/a"}ms`,
+      `- Max v3 multi-candidate loop: ${pipelineTimingRanked.maxV3MultiCandidateLoopMs ?? "n/a"}ms`,
+    );
+  }
+  lines.push(
     "",
     ...rankingBlock("Most Likely To Fail", report.rankings.mostLikelyToFail, "fail"),
     ...rankingBlock("Most Likely To Drift", report.rankings.mostLikelyToDrift, "drift"),
     ...rankingBlock("Most Likely To Underfill", report.rankings.mostLikelyToUnderfill, "underfill"),
     ...rankingBlock("Most Likely To Leak Genres", report.rankings.mostLikelyToLeakGenres, "genreLeak"),
-  ].join("\n");
+  );
+  return lines.join("\n");
+}
+
+function v3InvocationBreakdownMarkdown(report: BenchmarkReport): string {
+  const rows = [...report.prompts]
+    .filter((row) => (row.timing?.v3Decomposition?.perCandidate?.length ?? 0) > 0)
+    .sort((a, b) => (b.timing?.v3PipelineTimingProfile?.v3PipelineTotalMs ?? 0)
+      - (a.timing?.v3PipelineTimingProfile?.v3PipelineTotalMs ?? 0));
+  const lines = [
+    "# V3 Invocation Breakdown",
+    "",
+    "Per-candidate `pool | lanes | ms` — distinguishes multiplicative (15×5s) from pathological (1×82s).",
+    "",
+    `Commit: \`${report.commit}\``,
+    `Prompts with per-invocation data: ${rows.length}/${report.run.promptCount}`,
+    "",
+  ];
+  for (const row of rows) {
+    const decomp = row.timing?.v3Decomposition;
+    const profile = row.timing?.v3PipelineTimingProfile;
+    if (!decomp?.perCandidate?.length || !profile) continue;
+    lines.push(formatV3InvocationBreakdownMarkdown({
+      promptId: row.input.id,
+      prompt: row.input.prompt,
+      perCandidate: decomp.perCandidate as V3PerCandidateProfile[],
+      selectedWinnerLabel: decomp.selectedWinnerLabel,
+      invocationPattern: (profile.invocationPattern ?? decomp.invocationPattern ?? "unknown") as V3InvocationPattern,
+      v3PipelineTotalMs: profile.v3PipelineTotalMs,
+    }));
+    lines.push("");
+  }
+  return lines.join("\n");
 }
 
 async function writeReports(
@@ -1068,6 +1530,22 @@ async function writeReports(
   await writeFile(path.join(config.outDir, "prompt-reliability-report.json"), JSON.stringify(report, null, 2));
   await writeFile(path.join(config.outDir, "prompt-reliability-report.md"), markdownReport(report));
   await writeFile(path.join(config.outDir, "prompt-reliability-ranked-failures.md"), rankedFailureMarkdown(report));
+  await writeFile(path.join(config.outDir, "v3-invocation-breakdown.md"), v3InvocationBreakdownMarkdown(report));
+  if (report.observability.v3Variance.candidatePositionRollup.length > 0) {
+    await writeFile(
+      path.join(config.outDir, "v3-candidate-position-rollup.md"),
+      formatCandidatePositionRollupMarkdown(report.observability.v3Variance.candidatePositionRollup),
+    );
+  }
+  if (report.observability.v3Variance.tournamentQuality.promptsWithData > 0) {
+    await writeFile(
+      path.join(config.outDir, "v3-tournament-quality-rollup.md"),
+      formatTournamentQualityMarkdown(
+        report.observability.v3Variance.tournamentQuality,
+        report.observability.v3Variance.candidatePositionRollup,
+      ),
+    );
+  }
   if (readyz) {
     await writeFile(path.join(config.outDir, "readyz.json"), JSON.stringify(readyz, null, 2));
   }

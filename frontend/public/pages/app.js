@@ -434,12 +434,9 @@ function navHtml(user) {
             <span>Log out</span>
           </button>
           <div class="profile-dropdown-divider"></div>
-          <div class="profile-dropdown-danger-zone">
-            <span class="profile-dropdown-danger-label">Danger zone</span>
-            <button class="profile-dropdown-item profile-dropdown-danger" id="deleteAccountBtn" type="button">
-              <span>Delete my data</span>
-            </button>
-          </div>
+          <button class="profile-dropdown-item profile-dropdown-danger" id="deleteAccountBtn" type="button">
+            <span>Delete my data</span>
+          </button>
         </div>
       </div>
     </div>

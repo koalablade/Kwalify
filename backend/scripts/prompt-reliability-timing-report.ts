@@ -10,6 +10,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { formatRequestStageTimingMarkdown, type RequestStageTimingReport } from "../lib/request-stage-timing";
+import {
+  formatV3InvocationBreakdownMarkdown,
+  type V3InvocationPattern,
+  type V3PerCandidateProfile,
+} from "../lib/v3-invocation-decomposition";
 
 type TimingReport = RequestStageTimingReport;
 
@@ -23,6 +28,22 @@ type PromptRow = {
     latencyBudgetExceeded: boolean;
     latencyOptimizationSkipped: Record<string, boolean> | null;
     v3TimingMs: Record<string, number> | null;
+    playlistPipelineTimingMs: Record<string, number> | null;
+    v3PipelineTimingProfile?: {
+      v3PipelineTotalMs: number;
+      invocationPattern: string | null;
+    } | null;
+    v3Decomposition?: {
+      v3InvocationCount: number | null;
+      perCandidateV3Ms: number[] | null;
+      perCandidate: Array<{ label: string; ms: number; poolSize: number; laneCount: number }> | null;
+      selectedWinnerLabel: string | null;
+      invocationPattern: string | null;
+      avgMsPerInvocation: number | null;
+      minMsPerInvocation: number | null;
+      maxMsPerInvocation: number | null;
+      costDriver: string | null;
+    } | null;
     humanSaveRetries: number | null;
     coherenceRebuildIterations: number | null;
   };
@@ -85,11 +106,27 @@ async function main(): Promise<void> {
     "| --- | ---: | ---: | ---: |",
     ...aggregateStages.map((row) => `| ${row.stage} | ${row.avgMs} | ${row.prompts} | ${row.totalMs} |`),
     "",
-    "## Slowest prompts",
+    "## V3 per-invocation breakdown (slowest prompts)",
+    "",
+    "Read each table as: invocation N → pool | lanes | ms. Pattern tells you multiplicative vs pathological.",
     "",
   ];
 
   for (const row of slowest) {
+    const decomp = row.timing?.v3Decomposition;
+    const profile = row.timing?.v3PipelineTimingProfile;
+    if (decomp?.perCandidate?.length && profile) {
+      lines.push(formatV3InvocationBreakdownMarkdown({
+        promptId: row.input.id,
+        prompt: row.input.prompt,
+        perCandidate: decomp.perCandidate as V3PerCandidateProfile[],
+        selectedWinnerLabel: decomp.selectedWinnerLabel,
+        invocationPattern: (profile.invocationPattern ?? decomp.invocationPattern ?? "unknown") as V3InvocationPattern,
+        v3PipelineTotalMs: profile.v3PipelineTotalMs,
+      }));
+      lines.push("");
+      continue;
+    }
     const timing = row.timing?.requestStageTiming;
     if (timing) {
       lines.push(formatRequestStageTimingMarkdown(row.input.id, row.input.prompt, row.elapsedMs, timing, {
@@ -99,7 +136,7 @@ async function main(): Promise<void> {
           coherenceRebuild: row.timing?.coherenceRebuildIterations ?? 0,
         },
       }));
-      lines.push("");
+      lines.push("- **No per-invocation V3 breakdown in response**", "");
       continue;
     }
     lines.push(
@@ -108,16 +145,16 @@ async function main(): Promise<void> {
       `- Total: ${row.elapsedMs}ms`,
       `- Status: ${row.status ?? "client_abort"}`,
       `- Tracks: ${row.generation.finalTrackCount}`,
-      `- **No requestStageTiming in response** (run after latency instrumentation deploy)`,
+      `- **No timing in response**`,
       "",
     );
   }
 
   lines.push("## Findings checklist", "");
-  lines.push("- Stages consuming the most wall-clock time appear in aggregate table above.");
-  lines.push("- Per-prompt `retries` lines flag human-saveability retries and coherence rebuild loops.");
+  lines.push("- Per-invocation tables are the primary signal — not v3PipelineTotalMs alone.");
+  lines.push("- `multiplicative` ≈ 15×5s → fix candidate count / early exit.");
+  lines.push("- `pathological` ≈ 1×82s → profile one runV3Pipeline (lanes, pool, clustering).");
   lines.push("- `latencyBudgetExceeded: true` means the server returned the best playlist at the ~90s budget.");
-  lines.push("- Large `unaccountedMs` usually means work before stage hooks or client-side abort without a body.");
 
   await mkdir(path.dirname(outPath), { recursive: true });
   await writeFile(outPath, lines.join("\n"), "utf8");
