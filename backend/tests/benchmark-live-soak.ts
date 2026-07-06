@@ -33,6 +33,7 @@ import {
   requireSessionCookie,
   sleep,
   waitForGenerateSlot,
+  waitForIdleGenerate,
 } from "./benchmark-live-soak-client";
 import {
   computeBehaviouralProxies,
@@ -256,6 +257,18 @@ export async function runLiveSoakBenchmark(opts: {
     if (!sync.synced || sync.totalTracks < 15) {
       console.warn(
         "[live-soak] WARNING: library may be unsynced or small — expect LIBRARY_EMPTY / INSUFFICIENT_MATCHES"
+      );
+    }
+
+    console.log("[live-soak] waiting for idle generate slot (close kwalify.net tabs)...");
+    await waitForIdleGenerate(client, 120_000);
+    const slotStatus = await client.getGenerateStatus();
+    console.log(
+      `[live-soak] generate slot: active=${slotStatus.active} phase=${slotStatus.phase}`
+    );
+    if (slotStatus.active) {
+      throw new Error(
+        "Generate slot still active after cancel — close kwalify.net tabs and retry soak"
       );
     }
   }

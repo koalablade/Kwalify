@@ -2,6 +2,7 @@ import { analyzeMomentPipeline } from "../lib/moment-pipeline";
 import { scorePromptConfidence } from "../lib/prompt-confidence";
 import { detectMixedEmotions } from "../lib/multi-emotion";
 import { parseEmotionalDestination } from "../lib/emotion-destination";
+import { resolveContradiction } from "../core/scene-intelligence/contradiction-handler";
 import { GOLDEN_PROMPT_CASES } from "./golden-prompts.data";
 
 export function runGoldenPromptTests(): { passed: number; failed: number; failures: string[] } {
@@ -33,6 +34,16 @@ export function runGoldenPromptTests(): { passed: number; failed: number; failur
         `[tier] "${testCase.prompt}" expected ${testCase.expectedTier}, got ${confidence.tier}`
       );
       continue;
+    }
+
+    if (testCase.expectedContradiction) {
+      const contradiction = resolveContradiction(testCase.prompt, moment.profile);
+      if (!contradiction.active || contradiction.label !== testCase.expectedContradiction) {
+        failures.push(
+          `[contradiction] "${testCase.prompt}" expected ${testCase.expectedContradiction}, got ${contradiction.label ?? "none"}`
+        );
+        continue;
+      }
     }
 
     if (testCase.energyMin != null && energy < testCase.energyMin) {

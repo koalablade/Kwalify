@@ -80,6 +80,29 @@ export function createSoakClient(config: SoakClientConfig) {
       };
     },
 
+    async getGenerateStatus(): Promise<{
+      ok: boolean;
+      active: boolean;
+      phase: string;
+      latencyMs: number;
+    }> {
+      const start = Date.now();
+      const res = await client.get("/api/generate/status", { timeout: 10_000 });
+      const data = res.data as { active?: boolean; phase?: string };
+      return {
+        ok: res.status === 200,
+        active: !!data.active,
+        phase: data.phase ?? "unknown",
+        latencyMs: Date.now() - start,
+      };
+    },
+
+    async cancelGenerate(): Promise<{ ok: boolean; cleared: boolean }> {
+      const res = await client.post("/api/generate/cancel", {}, { timeout: 10_000 });
+      const data = res.data as { cleared?: boolean };
+      return { ok: res.status === 200, cleared: !!data.cleared };
+    },
+
     async generate(
       body: GenerateRequest,
       opts?: { timeoutMs?: number }
@@ -99,6 +122,10 @@ export function createSoakClient(config: SoakClientConfig) {
           { timeout: opts?.timeoutMs ?? config.generateTimeoutMs }
         );
         const payload = (res.data ?? {}) as Record<string, unknown>;
+        const retryHeader = res.headers?.["retry-after"];
+        if (retryHeader && payload.retry_after == null) {
+          payload.retry_after = Number(retryHeader);
+        }
         return {
           ok: res.status >= 200 && res.status < 300 && !payload.error,
           status: res.status,
@@ -123,6 +150,30 @@ export function createSoakClient(config: SoakClientConfig) {
   };
 }
 
+function retryAfterMs(res: LiveGenerateResponse, headers?: Record<string, unknown>): number {
+  const bodyRetry = (res.body?.retry_after as number) ?? 0;
+  if (bodyRetry > 0) return bodyRetry * 1000;
+  const headerRetry = Number(headers?.["retry-after"] ?? headers?.["Retry-After"] ?? 0);
+  if (headerRetry > 0) return headerRetry * 1000;
+  return 0;
+}
+
+export async function waitForIdleGenerate(
+  client: ReturnType<typeof createSoakClient>,
+  maxWaitMs: number
+): Promise<void> {
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    const status = await client.getGenerateStatus();
+    if (!status.active) return;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await sleep(Math.min(3_000, remaining));
+  }
+  await client.cancelGenerate();
+  await sleep(1_000);
+}
+
 export async function waitForGenerateSlot(
   client: ReturnType<typeof createSoakClient>,
   prompt: string,
@@ -139,7 +190,16 @@ export async function waitForGenerateSlot(
     if (res.status !== 409 && res.errorCode !== "GENERATION_IN_PROGRESS") {
       return res;
     }
-    await sleep(3_000);
+
+    const status = await client.getGenerateStatus();
+    if (!status.active) {
+      continue;
+    }
+
+    const waitMs = retryAfterMs(res) || 3_000;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await sleep(Math.min(waitMs, remaining));
   }
   return {
     ok: false,

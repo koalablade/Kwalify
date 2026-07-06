@@ -39,6 +39,8 @@ const state = {
 
   preview: null,
 
+  selectedSceneId: null,
+
   isRegenerate: false,
 
 };
@@ -239,9 +241,29 @@ function renderSuggestionChip(suggestion) {
 
   const text = typeof suggestion === "string" ? suggestion : suggestion?.text;
 
+  const sceneId = typeof suggestion === "object" ? suggestion?.previewSceneId : "";
+
   if (!text) return "";
 
-  return `<li><button type="button" class="suggestion-chip" data-suggestion="${escapeHtml(text)}">${escapeHtml(text)}</button></li>`;
+  const sceneAttr = sceneId ? ` data-scene-id="${escapeHtml(sceneId)}"` : "";
+
+  return `<li><button type="button" class="suggestion-chip" data-suggestion="${escapeHtml(text)}"${sceneAttr}>${escapeHtml(text)}</button></li>`;
+
+}
+
+
+
+function isPromptReadyForGenerate(preview, vibe, playlistUrl, selectedSceneId) {
+
+  if (String(playlistUrl || "").trim()) return true;
+
+  if (selectedSceneId) return true;
+
+  if (!preview?.requiresClarification) return true;
+
+  const words = String(vibe || "").trim().split(/\s+/).filter(Boolean);
+
+  return words.length >= 4;
 
 }
 
@@ -321,6 +343,24 @@ function renderConfidencePanel(preview) {
 
     : "";
 
+  const momentLine = preview.momentUnderstandingLine
+
+    ? `<p class="moment-understanding-line">${escapeHtml(preview.momentUnderstandingLine)}</p>`
+
+    : "";
+
+  const referenceNudge = preview.suggestReferencePlaylist
+
+    ? `<p class="sync-meta reference-nudge">Tip: paste a Spotify playlist link below to anchor the mood.</p>`
+
+    : "";
+
+  const clarificationBlock = preview.requiresClarification
+
+    ? `<p class="sync-meta clarification-required">Add more detail, pick a suggestion, or use a reference playlist before generating.</p>`
+
+    : "";
+
   const miniTracks =
 
     Array.isArray(preview.suggestedTracks) && preview.suggestedTracks.length
@@ -334,6 +374,12 @@ function renderConfidencePanel(preview) {
     <p class="confidence-title">${escapeHtml(confidenceLabel(tier))}</p>
 
     ${miniMoment}
+
+    ${momentLine}
+
+    ${referenceNudge}
+
+    ${clarificationBlock}
 
     ${miniTracks}
 
@@ -447,6 +493,32 @@ function canGenerate(sync) {
 
 
 
+async function waitForIdleGenerate(maxWaitMs = 120_000) {
+
+  const deadline = Date.now() + maxWaitMs;
+
+  while (Date.now() < deadline) {
+
+    const status = await api("/generate/status");
+
+    if (status.ok && !status.data?.active) return true;
+
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+
+  }
+
+  await api("/generate/cancel", { method: "POST", body: JSON.stringify({}) });
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const finalStatus = await api("/generate/status");
+
+  return finalStatus.ok && !finalStatus.data?.active;
+
+}
+
+
+
 function schedulePreview(vibe) {
 
   if (state.previewTimer) clearTimeout(state.previewTimer);
@@ -471,7 +543,11 @@ function schedulePreview(vibe) {
 
       method: "POST",
 
-      body: JSON.stringify({ vibe: trimmed, mini: true }),
+      body: JSON.stringify({
+        vibe: trimmed,
+        mini: true,
+        ...(state.selectedSceneId ? { sceneId: state.selectedSceneId } : {}),
+      }),
 
     });
 
@@ -484,6 +560,21 @@ function schedulePreview(vibe) {
     if (panel) {
 
       panel.outerHTML = renderConfidencePanel(state.preview);
+
+      wireSuggestionChips();
+
+    }
+
+    const generateButton = document.getElementById("generateButton");
+
+    if (generateButton) {
+
+      generateButton.disabled = !isPromptReadyForGenerate(
+        state.preview,
+        trimmed,
+        state.lastPlaylistUrl,
+        state.selectedSceneId
+      );
 
     }
 
@@ -500,6 +591,15 @@ function renderApp(message = "") {
   const sync = state.sync;
 
   const generateEnabled = canGenerate(sync);
+
+  const promptReady = isPromptReadyForGenerate(
+    state.preview,
+    state.lastVibe,
+    state.lastPlaylistUrl,
+    state.selectedSceneId
+  );
+
+  const submitEnabled = generateEnabled && promptReady;
 
 
 
@@ -521,7 +621,7 @@ function renderApp(message = "") {
 
       <input id="playlistUrl" name="playlistUrl" type="url" autocomplete="off" value="${escapeHtml(state.lastPlaylistUrl)}" ${generateEnabled ? "" : "disabled"}>
 
-      <button type="submit" id="generateButton" ${generateEnabled ? "" : "disabled"}>Generate</button>
+      <button type="submit" id="generateButton" ${submitEnabled ? "" : "disabled"}>Generate</button>
 
     </form>
 
@@ -543,11 +643,40 @@ function renderApp(message = "") {
 
 
 
+  const playlistInput = document.getElementById("playlistUrl");
+
+  if (playlistInput) {
+
+    playlistInput.addEventListener("input", (event) => {
+
+      state.lastPlaylistUrl = event.currentTarget.value;
+
+      const btn = document.getElementById("generateButton");
+
+      if (btn) {
+
+        btn.disabled = !isPromptReadyForGenerate(
+          state.preview,
+          state.lastVibe,
+          state.lastPlaylistUrl,
+          state.selectedSceneId
+        );
+
+      }
+
+    });
+
+  }
+
+
+
   const vibeInput = document.getElementById("vibeInput");
 
   if (vibeInput) {
 
     vibeInput.addEventListener("input", (event) => {
+
+      state.selectedSceneId = null;
 
       schedulePreview(event.currentTarget.value);
 
@@ -565,11 +694,21 @@ function renderApp(message = "") {
 
 
 
+  wireSuggestionChips();
+
+}
+
+
+
+function wireSuggestionChips() {
+
   document.querySelectorAll(".suggestion-chip").forEach((btn) => {
 
     btn.addEventListener("click", () => {
 
       const suggestion = btn.getAttribute("data-suggestion");
+
+      const sceneId = btn.getAttribute("data-scene-id");
 
       const input = document.getElementById("vibeInput");
 
@@ -578,6 +717,8 @@ function renderApp(message = "") {
         input.value = suggestion;
 
         state.lastVibe = suggestion;
+
+        state.selectedSceneId = sceneId || null;
 
         schedulePreview(suggestion);
 
@@ -675,6 +816,16 @@ async function generate(event) {
 
   }
 
+  const slotReady = await waitForIdleGenerate();
+
+  if (!slotReady) {
+
+    renderApp("A playlist is still generating in another tab. Close other Kwalify tabs and try again.");
+
+    return;
+
+  }
+
 
 
   const form = event.currentTarget;
@@ -684,6 +835,22 @@ async function generate(event) {
   const playlistUrl = String(new FormData(form).get("playlistUrl") || "").trim();
 
   if (!vibe) return;
+
+
+
+  if (
+    !isPromptReadyForGenerate(state.preview, vibe, playlistUrl, state.selectedSceneId)
+  ) {
+
+    renderApp(
+      state.preview?.requiresClarification
+        ? "Add more detail, pick a suggestion below, or paste a reference playlist."
+        : "This prompt needs more context before generating."
+    );
+
+    return;
+
+  }
 
 
 
@@ -704,6 +871,8 @@ async function generate(event) {
     length: 25,
 
     ...(playlistUrl ? { referencePlaylist: playlistUrl } : {}),
+
+    ...(state.selectedSceneId ? { sceneId: state.selectedSceneId } : {}),
 
     ...(state.isRegenerate ? { regenerate: true, varietyBoost: true } : {}),
 
@@ -741,10 +910,34 @@ async function generate(event) {
 
     }
 
+    if (response.data.code === "RATE_LIMITED" || response.data.code === "GENERATION_IN_PROGRESS") {
+      const retrySec = Number(response.data.retry_after) || 5;
+      renderApp(
+        (response.data.error || "Please wait a moment.") +
+          ` Retrying in ${retrySec}s…`
+      );
+      await new Promise((resolve) => setTimeout(resolve, retrySec * 1000));
+      state.isRegenerate = body.regenerate === true;
+      return generate(event);
+    }
+
 
 
     if (response.data.code === "INSUFFICIENT_MATCHES") {
       renderApp(response.data.error || "Not enough tracks matched.");
+      return;
+    }
+
+    if (response.data.code === "PROMPT_TOO_VAGUE") {
+      state.preview = {
+        ...state.preview,
+        promptConfidence: response.data.promptConfidence || state.preview?.promptConfidence,
+        requiresClarification: true,
+        suggestReferencePlaylist: response.data.suggestReferencePlaylist ?? true,
+        intentClarificationSuggestions: response.data.intentClarificationSuggestions,
+        intentClarificationGroups: response.data.intentClarificationGroups,
+      };
+      renderApp(response.data.error || response.data.message || "Add more detail before generating.");
       return;
     }
 
@@ -832,6 +1025,10 @@ function renderResult(result) {
 
   const uxView = resolveUx(result.response || {});
 
+  const momentLine = result.response?.momentUnderstandingLine
+    ? `<p class="moment-understanding-line">${escapeHtml(result.response.momentUnderstandingLine)}</p>`
+    : "";
+
   const output = buildOutput(result);
 
   state.lastOutput = output;
@@ -839,6 +1036,8 @@ function renderResult(result) {
   root.innerHTML = `<section>
 
     <h1>${escapeHtml(result.name)}</h1>
+
+    ${momentLine}
 
     ${renderEmotionalLayer(uxView, escapeHtml)}
 

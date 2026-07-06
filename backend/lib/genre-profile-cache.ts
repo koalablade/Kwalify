@@ -24,7 +24,8 @@ function profileCacheKey(userId: string, vibe?: string): string {
 export function getUserGenreProfileForGenerate(
   userId: string,
   tracks: Parameters<typeof buildUserGenreProfile>[0],
-  vibe?: string
+  vibe?: string,
+  opts?: { maxTracks?: number }
 ): { profile: UserGenreProfile; cacheHit: boolean } {
   const vibeKey = normalizePrompt(vibe ?? "");
   const key = profileCacheKey(userId, vibe);
@@ -34,12 +35,13 @@ export function getUserGenreProfileForGenerate(
     entry &&
     entry.trackCount === tracks.length &&
     entry.vibeKey === vibeKey &&
-    now - entry.builtAt < TTL_MS
+    now - entry.builtAt < TTL_MS &&
+    !opts?.maxTracks
   ) {
     return { profile: entry.profile, cacheHit: true };
   }
 
-  const profile = buildUserGenreProfile(tracks, vibe);
+  const profile = buildUserGenreProfile(tracks, vibe, opts);
   cache.set(key, { profile, trackCount: tracks.length, vibeKey, builtAt: now });
   evictOldestEntries(cache, 300, 40);
   return { profile, cacheHit: false };

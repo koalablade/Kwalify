@@ -46,6 +46,9 @@ import {
   REQUEST_HARD_TIMEOUT_MS,
   MINIMAL_GENRE_STACK_THRESHOLD,
   resolveHybridPoolCap,
+  LARGE_LIBRARY_THRESHOLD,
+  LARGE_LIBRARY_GENRE_PROFILE_MAX,
+  resolveFastFallbackMs,
 } from "../lib/production-limits";
 import {
   acquireGenerateSession,
@@ -57,12 +60,16 @@ import {
   clearPendingSpotifyPlaylist,
   getGenerateProgress,
   getGenerateStatus,
+  getActiveSessionRetryAfterMs,
+  forceEndGenerateSession,
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
 import { createGenerateStageTimer } from "../lib/generate-stage-timer";
 import {
   buildFallbackPipelineResult,
+  buildCachedGenerateResponse,
+  buildFastFallbackSceneContext,
   formatTracksForApi,
 } from "../lib/generate-helpers";
 import { decodeIntent } from "../lib/intent-decoder";
@@ -110,6 +117,13 @@ import { isLaunchMode } from "../lib/launch-mode";
 import { detectNarrativeDrift } from "../lib/narrative-drift-detector";
 import { validatePrimaryNarrativeForResponse } from "../lib/primary-narrative-schema";
 import { recordLaunchHealthEvent } from "../lib/launch-health-snapshot";
+import { evaluatePromptReadiness } from "../lib/prompt-readiness";
+import { buildMomentUnderstandingLine } from "../lib/moment-understanding-display";
+import {
+  getSceneFeedbackPenalty,
+  recordSceneFeedbackDown,
+} from "../lib/scene-feedback-memory";
+import { resolveContradiction } from "../core/scene-intelligence/contradiction-handler";
 
 const MIN_PLAYLIST_TRACKS = 15;
 
@@ -124,7 +138,7 @@ globalArchitectureState[generationControllerLock] = true;
 
 const router: IRouter = Router();
 
-const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
 const NEUTRAL_PROFILE: EmotionProfile = {
@@ -188,6 +202,16 @@ router.get("/generate/status", (req, res): void => {
   res.json(getGenerateStatus(req.session.spotifyUserId));
 });
 
+router.post("/generate/cancel", (req, res): void => {
+  if (!req.session.spotifyUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const userId = req.session.spotifyUserId;
+  const cleared = forceEndGenerateSession(userId);
+  res.json({ success: true, active: false, cleared });
+});
+
 router.post("/generate/preview", async (req, res): Promise<void> => {
   if (!getFeatures().spotify.enabled) {
     res.status(503).json({ error: "Spotify is not configured on this server." });
@@ -236,6 +260,43 @@ router.post("/generate/preview", async (req, res): Promise<void> => {
     energyBandFromProfile(momentPipeline.profile.energy)
   );
 
+  const intentClarificationSuggestions =
+    promptConfidence.tier === "low"
+      ? buildIntentClarificationSuggestions(
+          vibe,
+          promptConfidence.tier,
+          momentPipeline.canonicalScene
+        )
+      : [];
+  const contradiction = resolveContradiction(vibe, momentPipeline.profile);
+  const momentUnderstandingLine = buildMomentUnderstandingLine({
+    vibe,
+    dominantMomentLabel,
+    canonicalScene: momentPipeline.canonicalScene,
+    contradiction,
+    destParse,
+    intent: momentPipeline.intent,
+  });
+  const previewExtras = {
+    momentUnderstandingLine,
+    suggestReferencePlaylist: promptConfidence.tier === "low" && !moodSceneId,
+    requiresClarification:
+      promptConfidence.tier === "low" && !moodSceneId && vibe.trim().split(/\s+/).length < 4,
+    ...(intentClarificationSuggestions.length
+      ? {
+          intentClarificationSuggestions,
+          intentClarificationGroups: groupIntentSuggestions(intentClarificationSuggestions),
+        }
+      : {}),
+    canonicalScene: momentPipeline.canonicalScene
+      ? {
+          sceneId: momentPipeline.canonicalScene.sceneId,
+          confidence: momentPipeline.canonicalScene.confidence,
+          matchedAlias: momentPipeline.canonicalScene.matchedAlias,
+        }
+      : null,
+  };
+
   if (isMini) {
     const userId = req.session.spotifyUserId!;
     const likedRows = await db
@@ -261,46 +322,24 @@ router.post("/generate/preview", async (req, res): Promise<void> => {
       vibe,
       dominantMomentLabel,
       confidenceTier: promptConfidence.tier,
-      promptConfidence: { tier: promptConfidence.tier, score: promptConfidence.score },
+      promptConfidence: { tier: promptConfidence.tier, score: promptConfidence.score, hints: promptConfidence.hints },
       suggestedTracks,
       previewCacheHit: cacheHit,
+      ...previewExtras,
     });
     return;
   }
-
-  const intentClarificationSuggestions =
-    promptConfidence.tier === "low"
-      ? buildIntentClarificationSuggestions(
-          vibe,
-          promptConfidence.tier,
-          momentPipeline.canonicalScene
-        )
-      : [];
 
   res.json({
     vibe,
     promptConfidence,
     dominantMomentLabel,
-    ...(intentClarificationSuggestions.length
-      ? {
-          intentClarificationSuggestions,
-          intentClarificationGroups: groupIntentSuggestions(
-            intentClarificationSuggestions
-          ),
-        }
-      : {}),
-    canonicalScene: momentPipeline.canonicalScene
-      ? {
-          sceneId: momentPipeline.canonicalScene.sceneId,
-          confidence: momentPipeline.canonicalScene.confidence,
-          matchedAlias: momentPipeline.canonicalScene.matchedAlias,
-        }
-      : null,
     emotionProfile: {
       energy: momentPipeline.profile.energy,
       valence: momentPipeline.profile.valence,
     },
     intent: momentPipeline.intent.intent,
+    ...previewExtras,
   });
 });
 
@@ -342,20 +381,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
-    if (!rateCheck.allowed) {
-      const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
-      res.setHeader("Retry-After", String(retryAfterSec));
-      generateFail(
-        res,
-        429,
-        "RATE_LIMITED",
-        `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
-        { retry_after: retryAfterSec }
-      );
-      return;
-    }
-
     const rawBody = req.body ?? {};
     const vibeRaw = rawBody.vibe ?? "";
     const modeRaw = rawBody.mode ?? "balanced";
@@ -393,14 +418,115 @@ router.post("/generate", async (req, res): Promise<void> => {
     const moodSceneId = sceneId?.trim() || null;
     const regenerationSalt = varietyBoost ? String(Date.now()) : "0";
 
+    let earlyMomentPipeline: ReturnType<typeof analyzeMomentPipeline> | null = null;
+    let earlyEmotionProfile: EmotionProfile = { ...NEUTRAL_PROFILE };
+
+    if (!varietyBoost) {
+      try {
+        earlyMomentPipeline = analyzeMomentPipeline(vibe, { moodSceneId });
+        earlyEmotionProfile = earlyMomentPipeline.profile;
+        const penalty = getSceneFeedbackPenalty(
+          userId,
+          vibe,
+          earlyMomentPipeline.canonicalScene?.sceneId
+        );
+        if (earlyMomentPipeline.canonicalScene && penalty < 0) {
+          earlyMomentPipeline.canonicalScene.confidence = Math.max(
+            0,
+            earlyMomentPipeline.canonicalScene.confidence + penalty
+          );
+        }
+      } catch (emotionErr) {
+        req.log.warn({ err: emotionErr }, "Early emotion parse failed — cache key uses neutral profile");
+      }
+
+      const gateMixed = detectMixedEmotions(vibe);
+      const gateDest = parseEmotionalDestination(vibe);
+      const gateConfidence = scorePromptConfidence(vibe, earlyEmotionProfile, {
+        experienceSceneMatched: !!earlyMomentPipeline?.experienceScene,
+        hasJourneyDestination: !!gateDest.desired,
+        mixedEmotions: gateMixed,
+      });
+      const readiness = evaluatePromptReadiness({
+        vibe,
+        tier: gateConfidence.tier,
+        sceneId: moodSceneId,
+        referencePlaylist,
+      });
+      if (!readiness.ready) {
+        const suggestions = buildIntentClarificationSuggestions(
+          vibe,
+          gateConfidence.tier,
+          earlyMomentPipeline?.canonicalScene ?? null
+        );
+        generateFail(res, 400, readiness.code!, readiness.message!, {
+          promptConfidence: gateConfidence,
+          suggestReferencePlaylist: true,
+          ...(suggestions.length
+            ? {
+                intentClarificationSuggestions: suggestions,
+                intentClarificationGroups: groupIntentSuggestions(suggestions),
+              }
+            : {}),
+        });
+        return;
+      }
+
+      const earlyVibeKind = detectVibeKind(vibe, earlyEmotionProfile);
+      const earlyCacheKey = getGenerateCacheKey({
+        userId,
+        vibe,
+        vibeKind: earlyVibeKind,
+        mode,
+        length,
+        referencePlaylist: !!referencePlaylist,
+        varietyBoost: false,
+        regenerationSalt,
+      });
+      const cachedFast = getCachedGenerateResult(earlyCacheKey);
+      if (cachedFast) {
+        req.log.info(
+          {
+            userId,
+            elapsedMs: Date.now() - startMs,
+            cacheHit: true,
+            trackCount: cachedFast.finalTracks.length,
+          },
+          "Generation cache fast-path"
+        );
+        res.json(buildCachedGenerateResponse(cachedFast));
+        return;
+      }
+    }
+
+    const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS, {
+      burst: 3,
+    });
+    if (!rateCheck.allowed) {
+      const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
+      res.setHeader("Retry-After", String(retryAfterSec));
+      generateFail(
+        res,
+        429,
+        "RATE_LIMITED",
+        `Too many requests. Please wait ${retryAfterSec}s before generating again.`,
+        { retry_after: retryAfterSec }
+      );
+      return;
+    }
+
     const acquired = acquireGenerateSession(userId, { force: !!varietyBoost });
     if (!acquired) {
-      req.log.info({ userId, code: "GENERATION_IN_PROGRESS" }, "Rejected duplicate generate");
+      const retryAfterMs = getActiveSessionRetryAfterMs(userId);
+      const retryAfterSec = Math.max(1, Math.ceil(retryAfterMs / 1000));
+      res.setHeader("Retry-After", String(retryAfterSec));
+      req.log.info({ userId, code: "GENERATION_IN_PROGRESS", retryAfterSec }, "Rejected duplicate generate");
       generateFail(
         res,
         409,
         "GENERATION_IN_PROGRESS",
-        "A playlist is already being generated. Wait for it to finish or try again in a moment."
+        "A playlist is already being generated. Wait for it to finish or try again in a moment.",
+        { retry_after: retryAfterSec }
       );
       return;
     }
@@ -415,6 +541,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           requestId,
           ms: Date.now() - startMs,
           phase: progress?.phase ?? "unknown",
+          librarySize: (req as { _genCtx?: { likedSongs?: unknown[] } })._genCtx?.likedSongs
+            ?.length,
         },
         "Generate in progress"
       );
@@ -430,10 +558,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     let emotionProfile: EmotionProfile;
     let experienceScene: ReturnType<typeof analyzeVibeWithContext>["experienceScene"] = null;
     let sceneJourneyArc: ReturnType<typeof analyzeVibeWithContext>["journeyArc"] | null = null;
-    let momentPipeline: ReturnType<typeof analyzeMomentPipeline> | null = null;
-    try {
-      momentPipeline = analyzeMomentPipeline(vibe, { moodSceneId });
-      emotionProfile = momentPipeline.profile;
+    let momentPipeline: ReturnType<typeof analyzeMomentPipeline> | null = earlyMomentPipeline;
+    if (momentPipeline) {
+      emotionProfile = earlyEmotionProfile;
       experienceScene = momentPipeline.experienceScene;
       sceneJourneyArc = momentPipeline.journeyArc;
       req.log.info(
@@ -443,12 +570,41 @@ router.post("/generate", async (req, res): Promise<void> => {
           intent: momentPipeline.intent.intent,
           hasExperienceScene: !!experienceScene,
           journeyArc: sceneJourneyArc ?? null,
+          reusedEarlyParse: true,
         },
         "Emotion profile computed"
       );
-    } catch (emotionErr) {
-      req.log.error({ err: emotionErr }, "Emotion engine failed — using neutral fallback");
-      emotionProfile = { ...NEUTRAL_PROFILE };
+    } else {
+      try {
+        momentPipeline = analyzeMomentPipeline(vibe, { moodSceneId });
+        emotionProfile = momentPipeline.profile;
+        experienceScene = momentPipeline.experienceScene;
+        sceneJourneyArc = momentPipeline.journeyArc;
+        const penalty = getSceneFeedbackPenalty(
+          userId,
+          vibe,
+          momentPipeline.canonicalScene?.sceneId
+        );
+        if (momentPipeline.canonicalScene && penalty < 0) {
+          momentPipeline.canonicalScene.confidence = Math.max(
+            0,
+            momentPipeline.canonicalScene.confidence + penalty
+          );
+        }
+        req.log.info(
+          {
+            elapsedMs: Date.now() - startMs,
+            canonicalScene: momentPipeline.canonicalScene?.sceneId,
+            intent: momentPipeline.intent.intent,
+            hasExperienceScene: !!experienceScene,
+            journeyArc: sceneJourneyArc ?? null,
+          },
+          "Emotion profile computed"
+        );
+      } catch (emotionErr) {
+        req.log.error({ err: emotionErr }, "Emotion engine failed — using neutral fallback");
+        emotionProfile = { ...NEUTRAL_PROFILE };
+      }
     }
 
     let referenceFingerprint: ReferenceFingerprint | null = null;
@@ -486,7 +642,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     const vibeKind = detectVibeKind(vibe, emotionProfile);
-    const budget = createRequestBudget(startMs);
     const resultCacheKey = getGenerateCacheKey({
       userId,
       vibe,
@@ -497,38 +652,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       varietyBoost: !!varietyBoost,
       regenerationSalt,
     });
-
-    if (!varietyBoost) {
-      const cached = getCachedGenerateResult(resultCacheKey);
-      if (cached) {
-        if (respondIfStale(res, userId, requestId)) return;
-        setGeneratePhase(userId, requestId, "done");
-        req.log.info(
-          {
-            elapsedMs: Date.now() - startMs,
-            cacheHit: true,
-            trackCount: cached.finalTracks.length,
-          },
-          "Generation complete"
-        );
-        res.json({
-          success: true,
-          cached: true,
-          tracks: formatTracksForApi(cached.finalTracks, cached.emotionProfile),
-          playlistName: cached.playlistName,
-          name: cached.playlistName,
-          vibe: cached.vibe,
-          mode: cached.mode,
-          count: cached.finalTracks.length,
-          totalTracks: cached.finalTracks.length,
-          emotionProfile: cached.emotionProfile,
-          ...(cached.spotifyPlaylistUrl
-            ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
-            : { spotifyUnavailable: true as const }),
-        });
-        return;
-      }
-    }
 
     setGeneratePhase(userId, requestId, "loading_library");
     const likedRowsRaw = await db
@@ -563,6 +686,22 @@ router.post("/generate", async (req, res): Promise<void> => {
       maxPerArtist: mode === "strict" ? 2 : mode === "balanced" ? 3 : 5,
     };
 
+    const budget = createRequestBudget(
+      startMs,
+      REQUEST_HARD_TIMEOUT_MS,
+      resolveFastFallbackMs(likedSongs.length)
+    );
+    if (likedSongs.length > LARGE_LIBRARY_THRESHOLD) {
+      req.log.info(
+        {
+          librarySize: likedSongs.length,
+          fastFallbackMs: resolveFastFallbackMs(likedSongs.length),
+          remainingMs: budget.remainingMs(),
+        },
+        "Large library generate budget"
+      );
+    }
+
     res.setTimeout(REQUEST_HARD_TIMEOUT_MS + 2000, () => {
       if (res.headersSent || staleGenerate(userId, requestId)) return; // timeout handler — no second body
       const ctx = (req as { _genCtx?: {
@@ -572,6 +711,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         maxPerArtist?: number;
         vibe: string;
         mode: string;
+        fallbackSceneContext?: ReturnType<typeof buildFastFallbackSceneContext>;
       } })._genCtx;
       req.log.error({ userId, requestId, code: "TIMEOUT" }, "Generate hard timeout — emergency fallback");
       if (!ctx?.likedSongs?.length) {
@@ -591,6 +731,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistLength: ctx.length,
         maxPerArtist,
         librarySize: ctx.likedSongs.length,
+        sceneContext: ctx.fallbackSceneContext,
       });
       const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
       const timeoutFallbackExplanation = buildFallbackExplanation({ fastFallback: true });
@@ -659,6 +800,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     const humanIntent = momentPipeline?.intent ?? decodeIntent(vibe);
     const sonicProfile = momentPipeline?.sonicProfile ?? null;
     const scenePrototype = momentPipeline?.prototype ?? null;
+    const fallbackSceneContext = buildFastFallbackSceneContext({
+      vibe,
+      emotionProfile,
+      prototype: scenePrototype,
+      canonicalScene: momentPipeline?.canonicalScene ?? null,
+      humanIntent: humanIntent.intent,
+      vibeKind,
+      emotionalComplexity: mixedEmotions.length >= 2,
+    });
+    const genCtx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
+    if (genCtx) genCtx.fallbackSceneContext = fallbackSceneContext;
     const memoryWeight =
       momentPipeline?.canonicalScene && momentPipeline.canonicalScene.confidence >= 0.65
         ? 0.55
@@ -720,13 +872,24 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     setGeneratePhase(userId, requestId, "building_profile");
     let t0 = Date.now();
+    const genreProfileMaxTracks =
+      likedSongs.length > LARGE_LIBRARY_THRESHOLD
+        ? LARGE_LIBRARY_GENRE_PROFILE_MAX
+        : undefined;
     const { profile: userGenreProfile, cacheHit } = getUserGenreProfileForGenerate(
       userId,
       likedSongs,
-      vibe
+      vibe,
+      genreProfileMaxTracks ? { maxTracks: genreProfileMaxTracks } : undefined
     );
     req.log.info(
-      { elapsedMs: Date.now() - t0, trackCount: likedSongs.length, cacheHit },
+      {
+        elapsedMs: Date.now() - t0,
+        trackCount: likedSongs.length,
+        cacheHit,
+        genreProfileMaxTracks: genreProfileMaxTracks ?? "default",
+        remainingMs: budget.remainingMs(),
+      },
       "Genre profile built"
     );
 
@@ -749,30 +912,62 @@ router.post("/generate", async (req, res): Promise<void> => {
       : cloneMultiplier;
     const stackCacheKey = `${resultCacheKey}:${likedSongs.length}`;
 
-    stageTimer.start("Building genre stack", {
-      tracks: likedSongs.length,
-      minimal: likedSongs.length >= MINIMAL_GENRE_STACK_THRESHOLD,
-    });
+    let useFastFallback = budget.shouldFastFallback() || budget.isExpired();
+    if (useFastFallback) {
+      req.log.warn(
+        {
+          ms: Date.now() - startMs,
+          remainingMs: budget.remainingMs(),
+          librarySize: likedSongs.length,
+          phase: "building_profile",
+          code: "FAST_FALLBACK",
+        },
+        "Time budget — skipping genre stack"
+      );
+    }
+
     let genreStack = getCachedGenreStack(stackCacheKey);
-    if (!genreStack) {
-      genreStack = getCachedGenreStack(getWarmGenreStackCacheKey(userId, likedSongs.length));
-    }
-    const stackFromCache = !!genreStack;
-    if (!genreStack) {
-      genreStack = buildGenreIntelligenceStack({
-        librarySize: likedSongs.length,
-        tracks: likedSongs,
-        userProfile: userGenreProfile,
-        vibe,
-        recentPlaylistTrackIds: recentTrackLists,
+    let stackFromCache = !!genreStack;
+    if (!useFastFallback) {
+      stageTimer.start("Building genre stack", {
+        tracks: likedSongs.length,
+        minimal: likedSongs.length >= MINIMAL_GENRE_STACK_THRESHOLD,
       });
-      setCachedGenreStack(stackCacheKey, genreStack);
+      if (!genreStack) {
+        genreStack = getCachedGenreStack(getWarmGenreStackCacheKey(userId, likedSongs.length));
+      }
+      stackFromCache = !!genreStack;
+      if (!genreStack) {
+        if (budget.shouldFastFallback() || budget.isExpired()) {
+          useFastFallback = true;
+          req.log.warn(
+            {
+              ms: Date.now() - startMs,
+              librarySize: likedSongs.length,
+              phase: "building_profile",
+              code: "FAST_FALLBACK",
+            },
+            "Time budget before genre stack — fast fallback playlist"
+          );
+        } else {
+          genreStack = buildGenreIntelligenceStack({
+            librarySize: likedSongs.length,
+            tracks: likedSongs,
+            userProfile: userGenreProfile,
+            vibe,
+            recentPlaylistTrackIds: recentTrackLists,
+          });
+          setCachedGenreStack(stackCacheKey, genreStack);
+        }
+      }
+      if (genreStack) {
+        stageTimer.end("Genre stack built", {
+          stackFromCache,
+          microGenres: genreStack.stats.microGenreCount,
+          ontologyEdges: genreStack.stats.ontologyEdges,
+        });
+      }
     }
-    stageTimer.end("Genre stack built", {
-      stackFromCache,
-      microGenres: genreStack.stats.microGenreCount,
-      ontologyEdges: genreStack.stats.ontologyEdges,
-    });
 
     const maxPerArtist = mode === "strict" ? 2 : mode === "balanced" ? 3 : 5;
 
@@ -785,7 +980,14 @@ router.post("/generate", async (req, res): Promise<void> => {
       tracks: likedSongs.length,
       stackFromCache,
     });
-    const useFastFallback = budget.shouldFastFallback() || budget.isExpired();
+    useFastFallback = useFastFallback || budget.shouldFastFallback() || budget.isExpired();
+    if (!useFastFallback && !genreStack) {
+      useFastFallback = true;
+      req.log.warn(
+        { librarySize: likedSongs.length, phase: "scoring", code: "FAST_FALLBACK" },
+        "Genre stack unavailable — fast fallback playlist"
+      );
+    }
 
     let pipeline: ReturnType<typeof buildPlaylistPipeline>;
     let pipelineOpts: Parameters<typeof buildPlaylistPipeline>[0] | null = null;
@@ -800,6 +1002,16 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistLength: length,
         maxPerArtist,
         librarySize: likedSongs.length,
+        sceneContext: fallbackSceneContext,
+      });
+    } else if (!genreStack) {
+      pipeline = buildFallbackPipelineResult({
+        tracks: likedSongs,
+        emotionProfile,
+        playlistLength: length,
+        maxPerArtist,
+        librarySize: likedSongs.length,
+        sceneContext: fallbackSceneContext,
       });
     } else {
       pipelineOpts = {
@@ -969,6 +1181,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistLength: length,
         maxPerArtist,
         librarySize: likedSongs.length,
+        sceneContext: fallbackSceneContext,
       });
       if (rescue.finalTracks.length > 0) {
         pipeline = rescue;
@@ -1301,6 +1514,14 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     const responseUxSignals = launchMode ? toLaunchUxSignals(uxSignals) : uxSignals;
+    const momentUnderstandingLine = buildMomentUnderstandingLine({
+      vibe,
+      dominantMomentLabel: playlistWhy.dominantMomentLabel,
+      canonicalScene: momentPipeline?.canonicalScene ?? null,
+      contradiction: resolveContradiction(vibe, emotionProfile),
+      destParse,
+      intent: humanIntent,
+    });
 
     if (launchMode) {
       res.json({
@@ -1321,6 +1542,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         emotionalConsistencyLabel: emotionalConsistency.label,
         emotionalClarityScore: responseUxSignals.emotionalClarityScore,
         emotionalClarityLabel: responseUxSignals.emotionalClarityLabel,
+        momentUnderstandingLine,
       });
       return;
     }
@@ -1346,6 +1568,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       emotionProfile: { ...emotionProfile, journeyArc },
       experienceScene,
       momentUnderstanding,
+      momentUnderstandingLine,
       uxSignals: responseUxSignals,
       shareCard: responseUxSignals.shareCard,
       emotionalConsistencyScore: emotionalConsistency.score,
@@ -1369,11 +1592,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         : {
             scoringDiagnostics,
             genreAudit,
-            genreIntelligence: {
+        genreIntelligence: genreStack
+          ? {
               ontologyNodes: genreStack.stats.ontologyNodes,
               microGenres: genreStack.stats.microGenreCount,
               embeddingVersion: genreStack.stats.embeddingVersion,
-            },
+            }
+          : null,
           },
       explanation,
       promptConfidence,
@@ -1394,16 +1619,18 @@ router.post("/generate", async (req, res): Promise<void> => {
         userGenreVector: userGenreProfile.vector,
         dominantGenres: userGenreProfile.dominant,
         genreAudit,
-        genreIntelligence: {
-          ontologyNodes: genreStack.stats.ontologyNodes,
-          ontologyTargetMet: genreStack.stats.ontologyTargetMet,
-          ontologyEdges: genreStack.stats.ontologyEdges,
-          microGenres: genreStack.stats.microGenreCount,
-          topMicroLabels: genreStack.stats.topMicroLabels,
-          embeddingVersion: genreStack.stats.embeddingVersion,
-          vectorStoreSizes: genreStack.stats.vectorStoreSizes,
-          strengthenedEdges: genreStack.userLayer.strengthenedEdges.length,
-        },
+        genreIntelligence: genreStack
+          ? {
+              ontologyNodes: genreStack.stats.ontologyNodes,
+              ontologyTargetMet: genreStack.stats.ontologyTargetMet,
+              ontologyEdges: genreStack.stats.ontologyEdges,
+              microGenres: genreStack.stats.microGenreCount,
+              topMicroLabels: genreStack.stats.topMicroLabels,
+              embeddingVersion: genreStack.stats.embeddingVersion,
+              vectorStoreSizes: genreStack.stats.vectorStoreSizes,
+              strengthenedEdges: genreStack.userLayer.strengthenedEdges.length,
+            }
+          : null,
       },
       vibeKind,
       journeyArc,
@@ -1450,6 +1677,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         length: number;
         vibe: string;
         mode: string;
+        fallbackSceneContext?: ReturnType<typeof buildFastFallbackSceneContext>;
       } })._genCtx;
       if (timedOut && ctx?.likedSongs?.length) {
         const maxPerArtist =
@@ -1460,6 +1688,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           playlistLength: ctx.length,
           maxPerArtist,
           librarySize: ctx.likedSongs.length,
+          sceneContext: ctx.fallbackSceneContext,
         });
         const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
         const timeoutFallbackExplanation = buildFallbackExplanation({ fastFallback: true });
@@ -1598,6 +1827,9 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
     return;
   }
 
+  const sceneId =
+    typeof req.body?.sceneId === "string" ? req.body.sceneId.trim().slice(0, 120) : null;
+
   try {
     const owned = await db
       .select({ id: savedPlaylistsTable.id })
@@ -1619,9 +1851,19 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
           eq(playlistFeedbackTable.userId, userId)
         )
       );
-    await db.insert(playlistFeedbackTable).values({ playlistId, userId, vibe, reaction });
+    await db.insert(playlistFeedbackTable).values({
+      playlistId,
+      userId,
+      vibe,
+      reaction,
+      ...(sceneId ? { sceneId } : {}),
+    });
 
-    req.log.info({ userId, playlistId, reaction }, "Playlist feedback recorded");
+    if (reaction === "down") {
+      recordSceneFeedbackDown(userId, vibe, sceneId);
+    }
+
+    req.log.info({ userId, playlistId, reaction, sceneId }, "Playlist feedback recorded");
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "Error saving playlist feedback");

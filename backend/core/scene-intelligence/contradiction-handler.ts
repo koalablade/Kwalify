@@ -51,6 +51,60 @@ const CONTRADICTION_PATTERNS: {
     primary: { energy: 0.55, valence: 0.35 },
     secondary: { energy: 0.35, valence: 0.52 },
   },
+  {
+    re: /\b(sad|melanchol|heartbroken)\b.*\b(but|yet|and)\b.*\b(uplifting|upbeat|happy|bright)\b/i,
+    label: "sad_but_uplifting",
+    primary: { energy: 0.38, valence: 0.32 },
+    secondary: { energy: 0.58, valence: 0.62 },
+  },
+  {
+    re: /\b(tired|exhausted|drained)\b.*\b(but|yet|and)\b.*\b(energy|hype|pump|motivat)\b/i,
+    label: "tired_but_energised",
+    primary: { energy: 0.35, valence: 0.42 },
+    secondary: { energy: 0.68, valence: 0.62 },
+  },
+  {
+    re: /\b(chill|calm|relaxed)\b.*\b(but|yet|and)\b.*\b(sad|melanchol|emotional)\b/i,
+    label: "chill_but_emotional",
+    primary: { energy: 0.38, valence: 0.48 },
+    secondary: { energy: 0.32, valence: 0.35 },
+  },
+  {
+    re: /\b(happy|excited|hyped)\b.*\b(but|yet)\b.*\b(chill|calm|mellow)\b/i,
+    label: "happy_but_mellow",
+    primary: { energy: 0.62, valence: 0.68 },
+    secondary: { energy: 0.42, valence: 0.58 },
+  },
+  {
+    re: /\b(focused|productive|work)\b.*\b(but|yet)\b.*\b(calm|not stressed)\b/i,
+    label: "focus_but_calm",
+    primary: { energy: 0.48, valence: 0.52 },
+    secondary: { energy: 0.35, valence: 0.55 },
+  },
+  {
+    re: /\b(nostalgic|memories)\b.*\b(but|yet)\b.*\b(happy|warm|bittersweet)\b/i,
+    label: "nostalgic_bittersweet",
+    primary: { energy: 0.42, valence: 0.48 },
+    secondary: { energy: 0.5, valence: 0.62 },
+  },
+  {
+    re: /\b(anxious|nervous|stressed)\b.*\b(but|yet|and)\b.*\b(calm|peaceful|relaxed)\b/i,
+    label: "anxious_to_calm",
+    primary: { energy: 0.52, valence: 0.38 },
+    secondary: { energy: 0.32, valence: 0.55 },
+  },
+  {
+    re: /\b(angry|frustrated|mad)\b.*\b(but|yet)\b.*\b(controlled|cool|composed)\b/i,
+    label: "angry_but_controlled",
+    primary: { energy: 0.62, valence: 0.32 },
+    secondary: { energy: 0.45, valence: 0.42 },
+  },
+  {
+    re: /\b(sad|blue)\b.*\b(but|yet)\b.*\b(dancing|dance|moving)\b/i,
+    label: "sad_but_dancing",
+    primary: { energy: 0.4, valence: 0.35 },
+    secondary: { energy: 0.65, valence: 0.5 },
+  },
 ];
 
 export function resolveContradiction(vibe: string, profile: EmotionProfile): ContradictionProfile {

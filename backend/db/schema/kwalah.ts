@@ -89,6 +89,7 @@ export const playlistFeedbackTable = pgTable("playlist_feedback", {
   userId: text("user_id").notNull(),
   vibe: text("vibe").notNull(),
   reaction: text("reaction").notNull(),
+  sceneId: text("scene_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

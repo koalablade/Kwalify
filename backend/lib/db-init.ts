@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS "playlist_feedback" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IDX_playlist_feedback_pl_user"
   ON "playlist_feedback" ("playlist_id", "user_id");
+
+ALTER TABLE "playlist_feedback" ADD COLUMN IF NOT EXISTS "scene_id" text;
 `;
 
 export async function runDbInit(rawPool: pg.Pool): Promise<void> {

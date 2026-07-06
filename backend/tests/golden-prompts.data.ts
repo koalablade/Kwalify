@@ -7,6 +7,7 @@ export interface GoldenPromptCase {
   prompt: string;
   expectedSceneId?: string;
   expectedTier?: "low" | "medium" | "high";
+  expectedContradiction?: string;
   energyMin?: number;
   energyMax?: number;
 }
@@ -66,4 +67,9 @@ export const GOLDEN_PROMPT_CASES: GoldenPromptCase[] = [
   { prompt: "garden afternoon sunny chill", expectedSceneId: "garden_afternoon" },
   { prompt: "chill", expectedTier: "low" },
   { prompt: "good vibes", expectedTier: "low" },
+  { prompt: "sad", expectedTier: "low" },
+  { prompt: "vibes", expectedTier: "low" },
+  { prompt: "sad but hopeful", expectedContradiction: "sad_but_hopeful" },
+  { prompt: "chill but emotional", expectedContradiction: "chill_but_emotional" },
+  { prompt: "not sad uplifting morning", energyMin: 0.35 },
 ];

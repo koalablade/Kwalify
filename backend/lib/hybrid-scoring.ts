@@ -20,6 +20,7 @@ import {
   type SceneContext,
 } from "./scene-validation";
 import { applyHardFilters, type HardFilterContext } from "./hard-filters";
+import { parsePromptNegatives } from "./prompt-negatives";
 import { sonicFitBonus } from "./scene-sonic-profile";
 import type { SonicProfile } from "./scene-sonic-map";
 import {
@@ -168,6 +169,7 @@ export function buildHybridScoringContext(opts: {
       allowEnergyMismatch: opts.intent.scoringOverrides.allowEnergyMismatch,
       emotionalComplexity,
       vibeKind: opts.vibeKind,
+      promptNegatives: parsePromptNegatives(opts.vibe),
     },
   };
 }

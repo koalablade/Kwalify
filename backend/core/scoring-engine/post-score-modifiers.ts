@@ -25,6 +25,7 @@ import {
 import { applyVibeMatchGuards, modeScoreMultiplier } from "../../lib/vibe-match-guards";
 import { refineSongScore } from "../../lib/emotion";
 import { audioFeatureQualityMultiplier } from "../../lib/audio-feature-quality";
+import { parsePromptNegatives, promptNegativeTrackPenalty } from "../../lib/prompt-negatives";
 import type { ScoredLibraryTrack } from "./types";
 import type { HybridScoreResult } from "../../lib/hybrid-scoring";
 
@@ -114,6 +115,7 @@ export function applyPostScoreModifiers<T extends {
 
     score = refineSongScore(score, song, input.emotionProfile);
     score = applyVibeMatchGuards(score, song, input.emotionProfile, input.vibe);
+    score += promptNegativeTrackPenalty(song, parsePromptNegatives(input.vibe));
     score *= modeScoreMultiplier(input.mode);
     score *= audioFeatureQualityMultiplier(song);
 

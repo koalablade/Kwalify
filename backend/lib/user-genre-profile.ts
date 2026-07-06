@@ -40,12 +40,12 @@ export function buildUserGenreProfile(
     speechiness?: number | null;
     tempo?: number | null;
   }[],
-  vibe?: string
+  vibe?: string,
+  opts?: { maxTracks?: number }
 ): UserGenreProfile {
+  const cap = opts?.maxTracks ?? GENRE_PROFILE_MAX_TRACKS;
   const working =
-    tracks.length > GENRE_PROFILE_MAX_TRACKS
-      ? sampleTracksForProfile(tracks, GENRE_PROFILE_MAX_TRACKS)
-      : tracks;
+    tracks.length > cap ? sampleTracksForProfile(tracks, cap) : tracks;
   const { classifications, artistHistory, userVector } = detectLibraryGenres(working, vibe);
 
   const trackClassifications = new Map<string, TrackGenreClassification>();

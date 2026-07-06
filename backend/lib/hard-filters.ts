@@ -12,6 +12,8 @@ import {
   resolveSceneConflicts,
   trackViolatesSceneConflict,
 } from "../core/scene-intelligence/scene-conflict-rules";
+import type { PromptNegatives } from "./prompt-negatives";
+import { promptNegativeTrackPenalty } from "./prompt-negatives";
 
 export interface HardFilterContext {
   vibe: string;
@@ -23,6 +25,7 @@ export interface HardFilterContext {
   allowEnergyMismatch: number;
   emotionalComplexity: boolean;
   vibeKind: "sunny" | "late_night" | "neutral";
+  promptNegatives?: PromptNegatives;
 }
 
 export interface HardFilterResult {
@@ -39,6 +42,7 @@ interface TrackRow {
   valence: number | null;
   danceability: number | null;
   acousticness: number | null;
+  speechiness?: number | null;
 }
 
 export function applyHardFilters(track: TrackRow, ctx: HardFilterContext): HardFilterResult {
@@ -117,6 +121,22 @@ export function applyHardFilters(track: TrackRow, ctx: HardFilterContext): HardF
     !/\b(rain|melancholy|sad|heartbreak)\b/i.test(ctx.vibe)
   ) {
     return { pass: false, excludedBy: "invalid_pairing:heavy_melancholy_in_sun" };
+  }
+
+  if (ctx.promptNegatives) {
+    const neg = promptNegativeTrackPenalty(
+      {
+        energy: e,
+        valence: v,
+        danceability: d,
+        speechiness: track.speechiness ?? null,
+        acousticness: track.acousticness ?? null,
+      },
+      ctx.promptNegatives
+    );
+    if (neg <= -0.2) {
+      return { pass: false, excludedBy: "prompt_negative:user_exclusion" };
+    }
   }
 
   return { pass: true, excludedBy: null };

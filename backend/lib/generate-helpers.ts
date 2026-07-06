@@ -1,5 +1,12 @@
-import { buildFastFallbackPlaylist } from "./fast-fallback-playlist";
-import type { EmotionProfile } from "./emotion";
+import { buildFastFallbackPlaylist, type FastFallbackSceneContext } from "./fast-fallback-playlist";
+import type { EmotionProfile, VibeKind } from "./emotion";
+import type { ScenePrototype } from "./scene-prototypes";
+import type { CanonicalSceneResult } from "./scene-canonicalizer";
+import type { HumanIntent } from "./intent-decoder";
+import { resolveSceneContext } from "./scene-validation";
+import { buildSceneSeasonContext } from "./seasonal-logic";
+import { parsePromptNegatives } from "./prompt-negatives";
+import { resolveContradiction } from "../core/scene-intelligence/contradiction-handler";
 import { buildTrackWhyReasons } from "./track-why-copy";
 import {
   buildTrackMatchMetadata,
@@ -32,6 +39,40 @@ function fallbackScoringDebug(trackId: string): TrackScoringDebug {
   };
 }
 
+export function buildFastFallbackSceneContext(opts: {
+  vibe: string;
+  emotionProfile: EmotionProfile;
+  prototype: ScenePrototype | null;
+  canonicalScene: CanonicalSceneResult | null;
+  humanIntent: HumanIntent;
+  vibeKind: VibeKind;
+  emotionalComplexity?: boolean;
+}): FastFallbackSceneContext {
+  const promptNegatives = parsePromptNegatives(opts.vibe);
+  const sceneCtx = resolveSceneContext(opts.vibe, opts.canonicalScene, opts.emotionProfile);
+  const season = buildSceneSeasonContext(opts.vibe);
+  const contradiction = resolveContradiction(opts.vibe, opts.emotionProfile);
+
+  return {
+    vibe: opts.vibe,
+    emotionProfile: opts.emotionProfile,
+    prototype: opts.prototype,
+    promptNegatives,
+    hardFilterCtx: {
+      vibe: opts.vibe,
+      intent: opts.humanIntent,
+      sceneFamily: sceneCtx.primary,
+      season,
+      prototype: opts.prototype,
+      allowContrast: contradiction.active || season.allowContrast,
+      allowEnergyMismatch: 0.35,
+      emotionalComplexity: !!opts.emotionalComplexity,
+      vibeKind: opts.vibeKind,
+      promptNegatives,
+    },
+  };
+}
+
 export function buildFallbackPipelineResult<
   T extends {
     trackId: string;
@@ -54,12 +95,14 @@ export function buildFallbackPipelineResult<
   playlistLength: number;
   maxPerArtist: number;
   librarySize: number;
+  sceneContext?: FastFallbackSceneContext;
 }): BuildPlaylistPipelineResult<T> {
   const fb = buildFastFallbackPlaylist({
     tracks: opts.tracks,
     emotionProfile: opts.emotionProfile,
     playlistLength: opts.playlistLength,
     maxPerArtist: opts.maxPerArtist,
+    scene: opts.sceneContext,
   });
   const fbScored: ScoredLibraryTrack<T>[] = fb.map((t) => ({
     ...t,
@@ -154,4 +197,22 @@ export function formatTracksForApi(
       whyReasons: buildTrackWhyReasons(t, profile, i),
     };
     });
+}
+
+export function buildCachedGenerateResponse(cached: import("./generate-result-cache").CachedGeneratePayload) {
+  return {
+    success: true,
+    cached: true,
+    tracks: formatTracksForApi(cached.finalTracks, cached.emotionProfile),
+    playlistName: cached.playlistName,
+    name: cached.playlistName,
+    vibe: cached.vibe,
+    mode: cached.mode,
+    count: cached.finalTracks.length,
+    totalTracks: cached.finalTracks.length,
+    emotionProfile: cached.emotionProfile,
+    ...(cached.spotifyPlaylistUrl
+      ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
+      : { spotifyUnavailable: true as const }),
+  };
 }
