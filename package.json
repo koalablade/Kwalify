@@ -12,7 +12,8 @@
     "test:golden": "npm run build && node backend/dist/tests/golden-prompts.test.js",
     "test:perception": "npm run build && node backend/dist/tests/emotional-clarity.test.js",
     "test:ux-contract": "npm run build && node backend/dist/tests/ux-render-contract.test.js",
-    "test:ci": "npm run build && node backend/dist/tests/emotional-clarity.test.js && node backend/dist/tests/ux-render-contract.test.js && node backend/dist/tests/golden-prompts.test.js"
+    "test:ci": "npm run build && node backend/dist/tests/emotional-clarity.test.js && node backend/dist/tests/ux-render-contract.test.js && node backend/dist/tests/golden-prompts.test.js",
+    "test:benchmark-hrps": "npm run build && node backend/dist/tests/benchmark-human-retention.js"
   },
   "dependencies": {
     "@types/connect-pg-simple": "^7.0.3",

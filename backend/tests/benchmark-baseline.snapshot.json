@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-06T00:00:00.000Z",
+  "description": "Frozen baseline representing pre-narrative-layer generic outputs. Benchmark-only — not production data.",
+  "records": [
+    {
+      "prompt": "chill evening",
+      "primaryNarrative": {
+        "momentLabel": "chill vibes",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "late night overthinking",
+      "primaryNarrative": {
+        "momentLabel": "relaxing music",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "gym motivation",
+      "primaryNarrative": {
+        "momentLabel": "workout energy mix",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "focus deep work",
+      "primaryNarrative": {
+        "momentLabel": "focus playlist",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "breakup sadness",
+      "primaryNarrative": {
+        "momentLabel": "sad songs",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "getting ready to go out",
+      "primaryNarrative": {
+        "momentLabel": "party vibes",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "sunday reset cleaning",
+      "primaryNarrative": {
+        "momentLabel": "feel-good mix",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "road trip drive",
+      "primaryNarrative": {
+        "momentLabel": "driving music",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "happy summer energy",
+      "primaryNarrative": {
+        "momentLabel": "good vibes",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "anxious stress relief",
+      "primaryNarrative": {
+        "momentLabel": "calm playlist",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "nostalgic memories",
+      "primaryNarrative": {
+        "momentLabel": "throwback hits",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    },
+    {
+      "prompt": "emotional calm wind-down",
+      "primaryNarrative": {
+        "momentLabel": "relaxing music",
+        "summary": "Built for your moment with a balanced mood and energy throughout.",
+        "arcSummary": "Tracks are ordered to ease in, lift, and settle without jarring jumps."
+      },
+      "emotionalConsistencyScore": 52,
+      "syncQualityLabel": null,
+      "momentSignature": "baseline-generic-v0",
+      "trackCount": 20
+    }
+  ]
+}
