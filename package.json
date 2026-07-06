@@ -13,7 +13,10 @@
     "test:perception": "npm run build && node backend/dist/tests/emotional-clarity.test.js",
     "test:ux-contract": "npm run build && node backend/dist/tests/ux-render-contract.test.js",
     "test:ci": "npm run build && node backend/dist/tests/emotional-clarity.test.js && node backend/dist/tests/ux-render-contract.test.js && node backend/dist/tests/golden-prompts.test.js",
-    "test:benchmark-hrps": "npm run build && node backend/dist/tests/benchmark-human-retention.js"
+    "test:benchmark-hrps": "npm run build && node backend/dist/tests/benchmark-human-retention.js",
+    "test:benchmark-15min": "npm run build && node backend/dist/tests/benchmark-15min-soak.js",
+    "test:benchmark-live-soak": "npm run build && node backend/dist/tests/benchmark-live-soak.js",
+    "test:benchmark-live-soak:simulate": "npm run build && node backend/dist/tests/benchmark-live-soak.js --simulate"
   },
   "dependencies": {
     "@types/connect-pg-simple": "^7.0.3",

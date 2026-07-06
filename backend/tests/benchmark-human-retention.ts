@@ -33,6 +33,8 @@ export const BENCHMARK_PROMPTS = [
   "emotional calm wind-down",
 ] as const;
 
+export const EXPECTED_PROMPT_COUNT = BENCHMARK_PROMPTS.length;
+
 const BASELINE_SNAPSHOT_PATH = join(__dirname, "benchmark-baseline.snapshot.json");
 
 // ── Structured record (extracted fields only) ─────────────────────────────────
@@ -123,6 +125,45 @@ function loadBaselineSnapshot(): Record<string, BenchmarkRecord> {
   return map;
 }
 
+function validateBaselineRecord(record: BenchmarkRecord, prompt: string): void {
+  if (record.prompt !== prompt) {
+    throw new Error(
+      `[benchmark] baseline record prompt mismatch: expected "${prompt}", got "${record.prompt}"`
+    );
+  }
+  if (!record.primaryNarrative?.momentLabel?.trim()) {
+    throw new Error(`[benchmark] baseline missing momentLabel for "${prompt}"`);
+  }
+  if (typeof record.primaryNarrative.summary !== "string") {
+    throw new Error(`[benchmark] baseline missing summary for "${prompt}"`);
+  }
+  if (typeof record.primaryNarrative.arcSummary !== "string") {
+    throw new Error(`[benchmark] baseline missing arcSummary for "${prompt}"`);
+  }
+  if (!Number.isFinite(record.emotionalConsistencyScore)) {
+    throw new Error(`[benchmark] baseline missing emotionalConsistencyScore for "${prompt}"`);
+  }
+  if (!Number.isFinite(record.trackCount) || record.trackCount < 1) {
+    throw new Error(`[benchmark] baseline invalid trackCount for "${prompt}"`);
+  }
+}
+
+/** Synchronous load + validation — must pass before the prompt loop starts. */
+export function validateBaselineSnapshot(
+  baselines: Record<string, BenchmarkRecord>
+): void {
+  const missing = BENCHMARK_PROMPTS.filter((prompt) => !baselines[prompt]);
+  if (missing.length > 0) {
+    throw new Error(
+      `[benchmark] baseline snapshot missing ${missing.length} prompt(s): ${missing.join(", ")}`
+    );
+  }
+
+  for (const prompt of BENCHMARK_PROMPTS) {
+    validateBaselineRecord(baselines[prompt]!, prompt);
+  }
+}
+
 /** Optional: persist baseline snapshot for reproducible comparisons. */
 export function writeBaselineSnapshot(): void {
   const records = BENCHMARK_PROMPTS.map((prompt) => buildBaselineMock(prompt));
@@ -166,7 +207,7 @@ function energyVariance(tracks: Array<{ energy: number }>): number {
   return Math.sqrt(variance);
 }
 
-export function collectCurrentOutput(prompt: string): BenchmarkRecord {
+function collectCurrentOutputSync(prompt: string): BenchmarkRecord {
   const snapshot = buildPerceptionSnapshot(prompt);
   const pipeline = analyzeMomentPipeline(prompt);
   const tracks = syntheticTracks(PERCEPTION_FIXED_PHASES, pipeline.profile.energy);
@@ -188,6 +229,12 @@ export function collectCurrentOutput(prompt: string): BenchmarkRecord {
     momentSignature: snapshot.identitySignature,
     trackCount: tracks.length,
   };
+}
+
+/** Async wrapper — ensures each prompt is awaited sequentially in the runner. */
+export async function collectCurrentOutput(prompt: string): Promise<BenchmarkRecord> {
+  await Promise.resolve();
+  return collectCurrentOutputSync(prompt);
 }
 
 function collectStabilitySignatures(prompt: string): string[] {
@@ -378,6 +425,30 @@ function detectRegressions(
   return notes;
 }
 
+async function comparePrompt(
+  index: number,
+  prompt: string,
+  baseline: BenchmarkRecord
+): Promise<BenchmarkComparisonRow> {
+  console.log(
+    `[benchmark] executing prompt ${index + 1}/${EXPECTED_PROMPT_COUNT}: "${prompt}"`
+  );
+
+  const current = await collectCurrentOutput(prompt);
+  await Promise.resolve();
+
+  const oldScores = scoreRecord(prompt, baseline);
+  const newScores = scoreRecord(prompt, current);
+  const notes = detectRegressions(oldScores, newScores);
+
+  console.log(
+    `[benchmark] completed comparison ${index + 1}/${EXPECTED_PROMPT_COUNT}: ` +
+      `"${prompt}" — HRPS baseline=${oldScores.hrps.toFixed(1)} current=${newScores.hrps.toFixed(1)}`
+  );
+
+  return { prompt, old: oldScores, new: newScores, notes };
+}
+
 function pad(value: string, width: number): string {
   return value.length >= width ? value.slice(0, width) : value + " ".repeat(width - value.length);
 }
@@ -403,6 +474,7 @@ function formatTable(rows: BenchmarkComparisonRow[]): string {
 
 export interface BenchmarkReport {
   rows: BenchmarkComparisonRow[];
+  totalProcessedPrompts: number;
   summary: {
     avgHrpsImprovement: number;
     avgClarityImprovement: number;
@@ -413,18 +485,36 @@ export interface BenchmarkReport {
   };
 }
 
-export function runHumanRetentionBenchmark(): BenchmarkReport {
+export async function runHumanRetentionBenchmark(): Promise<BenchmarkReport> {
+  console.log(
+    `[benchmark] starting HRPS benchmark (${EXPECTED_PROMPT_COUNT} prompts, sequential)`
+  );
+
   const baselines = loadBaselineSnapshot();
+  validateBaselineSnapshot(baselines);
+  console.log(
+    `[benchmark] baseline snapshot loaded and validated (${EXPECTED_PROMPT_COUNT} records)`
+  );
+
   const rows: BenchmarkComparisonRow[] = [];
+  let totalProcessedPrompts = 0;
 
-  for (const prompt of BENCHMARK_PROMPTS) {
+  for (let index = 0; index < BENCHMARK_PROMPTS.length; index++) {
+    const prompt = BENCHMARK_PROMPTS[index]!;
     const baseline = baselines[prompt] ?? buildBaselineMock(prompt);
-    const current = collectCurrentOutput(prompt);
-    const oldScores = scoreRecord(prompt, baseline);
-    const newScores = scoreRecord(prompt, current);
-    const notes = detectRegressions(oldScores, newScores);
+    const row = await comparePrompt(index, prompt, baseline);
+    rows.push(row);
+    totalProcessedPrompts += 1;
+  }
 
-    rows.push({ prompt, old: oldScores, new: newScores, notes });
+  console.log(
+    `[benchmark] all comparisons complete (totalProcessedPrompts=${totalProcessedPrompts})`
+  );
+
+  if (totalProcessedPrompts !== EXPECTED_PROMPT_COUNT) {
+    throw new Error(
+      `[benchmark] assertion failed: totalProcessedPrompts=${totalProcessedPrompts}, expected ${EXPECTED_PROMPT_COUNT}`
+    );
   }
 
   const avg = (values: number[]) =>
@@ -447,6 +537,7 @@ export function runHumanRetentionBenchmark(): BenchmarkReport {
 
   return {
     rows,
+    totalProcessedPrompts,
     summary: {
       avgHrpsImprovement: roundScore(avgHrpsImprovement),
       avgClarityImprovement: roundScore(avgClarityImprovement),
@@ -462,6 +553,7 @@ export function printHumanRetentionBenchmark(report: BenchmarkReport): void {
   console.log("\n=== Kwalify Human Retention Proxy Benchmark ===\n");
   console.log(formatTable(report.rows));
   console.log("\n--- Summary ---\n");
+  console.log(`Total prompts processed:       ${report.totalProcessedPrompts} / ${EXPECTED_PROMPT_COUNT}`);
   console.log(`Average HRPS improvement:      ${report.summary.avgHrpsImprovement >= 0 ? "+" : ""}${report.summary.avgHrpsImprovement}`);
   console.log(`Average clarity improvement:   ${report.summary.avgClarityImprovement >= 0 ? "+" : ""}${report.summary.avgClarityImprovement}`);
   console.log(`Average coherence improvement: ${report.summary.avgCoherenceImprovement >= 0 ? "+" : ""}${report.summary.avgCoherenceImprovement}`);
@@ -473,17 +565,32 @@ export function printHumanRetentionBenchmark(report: BenchmarkReport): void {
   );
 }
 
-if (require.main === module) {
+async function main(): Promise<void> {
   const writeBaseline = process.argv.includes("--write-baseline");
   if (writeBaseline) {
     writeBaselineSnapshot();
-    console.log(`Baseline snapshot written to ${BASELINE_SNAPSHOT_PATH}`);
+    console.log(`[benchmark] baseline snapshot written to ${BASELINE_SNAPSHOT_PATH}`);
   }
 
-  const report = runHumanRetentionBenchmark();
+  const report = await runHumanRetentionBenchmark();
   printHumanRetentionBenchmark(report);
+
+  if (report.totalProcessedPrompts !== EXPECTED_PROMPT_COUNT) {
+    console.error(
+      `[benchmark] FATAL: totalProcessedPrompts=${report.totalProcessedPrompts}, expected ${EXPECTED_PROMPT_COUNT}`
+    );
+    process.exitCode = 1;
+    return;
+  }
 
   if (report.summary.regressionCount > 0) {
     process.exitCode = 1;
   }
+}
+
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    console.error("[benchmark] fatal error:", error);
+    process.exit(1);
+  });
 }
