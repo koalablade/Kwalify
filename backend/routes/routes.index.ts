@@ -5,6 +5,8 @@ import spotifyRouter from "./spotify";
 import generateRouter from "../controllers/generation.controller";
 import historyRouter from "./history";
 import libraryRouter from "./library";
+import debugRouter from "./debug";
+import internalRouter from "./internal";
 
 const router: IRouter = Router();
 const mountedRouteGroups = new Set<string>();
@@ -23,5 +25,7 @@ mountRouteGroup("spotify", spotifyRouter);
 mountRouteGroup("generate", generateRouter);
 mountRouteGroup("history", historyRouter);
 mountRouteGroup("library", libraryRouter);
+mountRouteGroup("debug", debugRouter);
+mountRouteGroup("internal", internalRouter);
 
 export default router;

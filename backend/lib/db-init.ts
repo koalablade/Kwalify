@@ -23,6 +23,29 @@ CREATE TABLE IF NOT EXISTS "liked_songs" (
   "created_at" timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "IDX_liked_songs_user" ON "liked_songs" ("spotify_user_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "IDX_liked_songs_user_track" ON "liked_songs" ("spotify_user_id", "track_id");
+
+CREATE TABLE IF NOT EXISTS "liked_songs_staging" (
+  "id" serial PRIMARY KEY,
+  "spotify_user_id" text NOT NULL,
+  "track_id" text NOT NULL,
+  "track_name" text NOT NULL,
+  "artist_name" text NOT NULL,
+  "album_name" text NOT NULL,
+  "album_art" text,
+  "duration_ms" integer NOT NULL,
+  "energy" real,
+  "valence" real,
+  "tempo" real,
+  "danceability" real,
+  "acousticness" real,
+  "instrumentalness" real,
+  "loudness" real,
+  "speechiness" real,
+  "added_at" timestamp,
+  "created_at" timestamp NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS "IDX_liked_songs_staging_user" ON "liked_songs_staging" ("spotify_user_id");
 
 CREATE TABLE IF NOT EXISTS "sync_status" (
   "id" serial PRIMARY KEY,
@@ -63,6 +86,8 @@ CREATE TABLE IF NOT EXISTS "saved_playlists" (
   "created_at" timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "IDX_saved_playlists_user" ON "saved_playlists" ("user_id");
+
+ALTER TABLE "sync_status" ADD COLUMN IF NOT EXISTS "sync_error" text;
 
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "spotify_url" text;
 ALTER TABLE "saved_playlists" ADD COLUMN IF NOT EXISTS "vibe" text;

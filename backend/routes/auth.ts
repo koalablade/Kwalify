@@ -4,7 +4,8 @@ import { getAuthUrl, exchangeCode, getSpotifyUser, getValidAccessToken } from ".
 import { getFeatures } from "../lib/env";
 import { db, syncStatusTable } from "../db";
 import { eq } from "drizzle-orm";
-import { runSync, activeSyncs } from "./spotify";
+import { runSync } from "./spotify";
+import { activeSyncs } from "../lib/active-syncs";
 import { logger } from "../lib/logger";
 import { getPublicBaseUrl } from "../lib/public-url";
 
@@ -131,7 +132,7 @@ router.get("/auth/callback", async (req, res): Promise<void> => {
           .values({ spotifyUserId: user.id, isSyncing: 1, totalTracks: 0 })
           .onConflictDoUpdate({
             target: syncStatusTable.spotifyUserId,
-            set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
+            set: { isSyncing: 1, syncProgress: 0, syncError: null, updatedAt: new Date() },
           });
         activeSyncs.add(user.id);
         runSync(user.id, tokens).catch((err) => {

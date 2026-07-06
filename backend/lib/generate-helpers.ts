@@ -1,6 +1,11 @@
 import { buildFastFallbackPlaylist } from "./fast-fallback-playlist";
 import type { EmotionProfile } from "./emotion";
 import { buildTrackWhyReasons } from "./track-why-copy";
+import {
+  buildTrackMatchMetadata,
+  trackMatchReasonLabel,
+} from "./track-match-metadata";
+import { trackRoleLabel, type TrackRole } from "./emotional-sequencing";
 import type { GenreAudit } from "./genre-audit";
 import type { BuildPlaylistPipelineResult } from "../core/playlist-pipeline";
 import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
@@ -112,12 +117,23 @@ export function formatTracksForApi(
     score?: number;
     rediscoveryScore?: number;
     narrativeRole?: string;
+    trackRole?: TrackRole;
+    emphasisAnchor?: boolean;
+    scoringDebug?: import("./hybrid-scoring").TrackScoringDebug | null;
   }>,
-  profile?: EmotionProfile | null
+  profile?: EmotionProfile | null,
+  opts?: { fastFallback?: boolean }
 ) {
   return (tracks ?? [])
     .filter((t) => t?.trackId && t?.trackName && t?.artistName)
-    .map((t, i) => ({
+    .map((t, i) => {
+      const match = buildTrackMatchMetadata({
+        score: t.score,
+        scoringDebug: t.scoringDebug,
+        fastFallback: opts?.fastFallback,
+        narrativeRole: t.narrativeRole,
+      });
+      return {
       id: t.trackId,
       name: t.trackName,
       artist: t.artistName,
@@ -130,6 +146,12 @@ export function formatTracksForApi(
       score: Math.round((t.score ?? 0.7) * 100) / 100,
       rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
       narrativeRole: t.narrativeRole,
+      trackRole: t.trackRole ?? null,
+      trackRoleLabel: t.trackRole ? trackRoleLabel(t.trackRole) : null,
+      matchStrength: match.matchStrength,
+      matchReason: match.reason,
+      matchReasonLabel: trackMatchReasonLabel(match.reason),
       whyReasons: buildTrackWhyReasons(t, profile, i),
-    }));
+    };
+    });
 }

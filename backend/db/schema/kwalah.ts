@@ -23,6 +23,28 @@ export const likedSongsTable = pgTable("liked_songs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/** Staging buffer for full sync — main table is replaced only after successful fetch. */
+export const likedSongsStagingTable = pgTable("liked_songs_staging", {
+  id: serial("id").primaryKey(),
+  spotifyUserId: text("spotify_user_id").notNull(),
+  trackId: text("track_id").notNull(),
+  trackName: text("track_name").notNull(),
+  artistName: text("artist_name").notNull(),
+  albumName: text("album_name").notNull(),
+  albumArt: text("album_art"),
+  durationMs: integer("duration_ms").notNull(),
+  energy: real("energy"),
+  valence: real("valence"),
+  tempo: real("tempo"),
+  danceability: real("danceability"),
+  acousticness: real("acousticness"),
+  instrumentalness: real("instrumentalness"),
+  loudness: real("loudness"),
+  speechiness: real("speechiness"),
+  addedAt: timestamp("added_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const playlistHistoryTable = pgTable("playlist_history", {
   id: serial("id").primaryKey(),
   spotifyUserId: text("spotify_user_id").notNull(),
@@ -45,6 +67,7 @@ export const syncStatusTable = pgTable("sync_status", {
   syncProgress: integer("sync_progress"),
   syncTotal: integer("sync_total"),
   lastSyncedAt: timestamp("last_synced_at"),
+  syncError: text("sync_error"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

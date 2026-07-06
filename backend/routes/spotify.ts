@@ -12,13 +12,21 @@ import {
 import { logger } from "../lib/logger";
 import {
   invalidateGenreProfileCache,
-  warmGenreProfileCache,
 } from "../lib/genre-profile-cache";
 import { getFeatures } from "../lib/env";
+import { activeSyncs } from "../lib/active-syncs";
+import { getLibrarySyncStatus } from "../lib/library-sync-status";
+import {
+  clearLikedSongsStaging,
+  commitFullSyncFromStaging,
+  insertLikedSongsStagingBatch,
+  type LikedSongInsert,
+} from "../lib/sync-staging";
+import { createSpotifyTokenHolder } from "../lib/spotify-token-holder";
+import { warmLibraryCachesAfterSync } from "../lib/warm-library-caches";
+import { SpotifySessionInvalidError } from "../lib/spotify";
 
 const router: IRouter = Router();
-
-export const activeSyncs = new Set<string>();
 
 router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   // Guard: Spotify must be configured for any sync-related endpoint to work.
@@ -32,25 +40,10 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   }
 
   const userId = req.session.spotifyUserId;
-  const [status] = await db
-    .select()
-    .from(syncStatusTable)
-    .where(eq(syncStatusTable.spotifyUserId, userId));
-
-  if (!status) {
-    res.json({
-      synced: false,
-      totalTracks: 0,
-      lastSyncedAt: null,
-      isSyncing: activeSyncs.has(userId),
-      syncProgress: null,
-      syncTotal: null,
-    });
-    return;
-  }
+  const sync = await getLibrarySyncStatus(userId);
 
   let suggestFullSync = false;
-  if (status.totalTracks >= 200) {
+  if (sync.totalTracks >= 200) {
     const recentCutoff = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000);
     const [totalRow] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -71,12 +64,8 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   }
 
   res.json({
-    synced: !!status.lastSyncedAt,
-    totalTracks: status.totalTracks,
-    lastSyncedAt: status.lastSyncedAt?.toISOString() ?? null,
-    isSyncing: activeSyncs.has(userId) || status.isSyncing === 1,
-    syncProgress: status.syncProgress ?? null,
-    syncTotal: status.syncTotal ?? null,
+    ...sync,
+    synced: sync.isSynced,
     suggestFullSync,
   });
 });
@@ -130,7 +119,7 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
     .values({ spotifyUserId: userId, isSyncing: 1, totalTracks: 0 })
     .onConflictDoUpdate({
       target: syncStatusTable.spotifyUserId,
-      set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
+      set: { isSyncing: 1, syncProgress: 0, syncError: null, updatedAt: new Date() },
     });
 
   res.json({
@@ -148,13 +137,12 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
 export async function runSync(
   userId: string,
   tokens: any,
-  opts?: { forceFull?: boolean }
+  opts?: { forceFull?: boolean; onTokensRefreshed?: (tokens: any) => void }
 ): Promise<void> {
   try {
-    const freshTokens = await getValidAccessToken(tokens);
-    const accessToken = freshTokens.accessToken;
+    const freshTokens = await getValidAccessToken(tokens, userId);
+    const tokenHolder = createSpotifyTokenHolder(freshTokens, opts?.onTokensRefreshed);
 
-    // Determine whether this is an incremental sync by checking lastSyncedAt
     const [existingStatus] = await db
       .select()
       .from(syncStatusTable)
@@ -168,7 +156,7 @@ export async function runSync(
     let grandTotal = 0;
 
     await fetchLikedSongs(
-      accessToken,
+      tokenHolder,
       async (tracks, total, offset) => {
         newTracks.push(...tracks);
         grandTotal = total;
@@ -183,7 +171,6 @@ export async function runSync(
           .set({
             syncProgress: progressCount,
             syncTotal: progressTotal ?? total,
-            // During incremental sync keep totalTracks as existing count until done
             totalTracks: isIncremental
               ? (existingStatus?.totalTracks ?? 0)
               : offset + tracks.length,
@@ -191,8 +178,8 @@ export async function runSync(
           })
           .where(eq(syncStatusTable.spotifyUserId, userId));
       },
-      // Pass the cutoff so fetchLikedSongs stops early on incremental runs
-      lastSyncedAt ?? undefined
+      lastSyncedAt ?? undefined,
+      userId
     );
 
     if (isIncremental) {
@@ -202,7 +189,6 @@ export async function runSync(
       );
     }
 
-    // Preserve audio features from DB before full sync wipe (Spotify often 403s bulk audio-features).
     const preservedFeatures = new Map<
       string,
       {
@@ -249,9 +235,10 @@ export async function runSync(
 
     const allFeatures =
       idsNeedingFeatures.length > 0
-        ? await fetchAudioFeatures(ccToken ?? accessToken, idsNeedingFeatures, {
-            fallbackToken: accessToken,
+        ? await fetchAudioFeatures(ccToken ?? tokenHolder.tokens.accessToken, idsNeedingFeatures, {
+            fallbackToken: tokenHolder.tokens.accessToken,
             userKey: userId,
+            tokenHolder,
           })
         : [];
     const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
@@ -272,38 +259,41 @@ export async function runSync(
       }
     }
 
+    const rows: LikedSongInsert[] = newTracks.map((track) => {
+      const features = featuresMap.get(track.id);
+      return {
+        spotifyUserId: userId,
+        trackId: track.id,
+        trackName: track.name,
+        artistName: track.artists[0]?.name ?? "Unknown",
+        albumName: track.album.name,
+        albumArt: track.album.images[0]?.url ?? null,
+        durationMs: track.duration_ms,
+        energy: features?.energy ?? null,
+        valence: features?.valence ?? null,
+        tempo: features?.tempo ?? null,
+        danceability: features?.danceability ?? null,
+        acousticness: features?.acousticness ?? null,
+        instrumentalness: features?.instrumentalness ?? null,
+        loudness: features?.loudness ?? null,
+        speechiness: features?.speechiness ?? null,
+        addedAt: track.addedAt ? new Date(track.addedAt) : new Date(),
+      };
+    });
+
     if (!isIncremental) {
-      // Full sync: wipe and re-insert everything
-      await db.delete(likedSongsTable).where(eq(likedSongsTable.spotifyUserId, userId));
-    }
-
-    if (newTracks.length > 0) {
+      await clearLikedSongsStaging(userId);
+      if (rows.length > 0) {
+        const batchSize = 200;
+        for (let i = 0; i < rows.length; i += batchSize) {
+          await insertLikedSongsStagingBatch(rows.slice(i, i + batchSize));
+        }
+      }
+      await commitFullSyncFromStaging(userId);
+    } else if (rows.length > 0) {
       const batchSize = 200;
-      for (let i = 0; i < newTracks.length; i += batchSize) {
-        const batch = newTracks.slice(i, i + batchSize);
-        const rows = batch.map((track) => {
-          const features = featuresMap.get(track.id);
-          return {
-            spotifyUserId: userId,
-            trackId: track.id,
-            trackName: track.name,
-            artistName: track.artists[0]?.name ?? "Unknown",
-            albumName: track.album.name,
-            albumArt: track.album.images[0]?.url ?? null,
-            durationMs: track.duration_ms,
-            energy: features?.energy ?? null,
-            valence: features?.valence ?? null,
-            tempo: features?.tempo ?? null,
-            danceability: features?.danceability ?? null,
-            acousticness: features?.acousticness ?? null,
-            instrumentalness: features?.instrumentalness ?? null,
-            loudness: features?.loudness ?? null,
-            speechiness: features?.speechiness ?? null,
-            addedAt: track.addedAt ? new Date(track.addedAt) : new Date(),
-          };
-        });
-
-        await db.insert(likedSongsTable).values(rows);
+      for (let i = 0; i < rows.length; i += batchSize) {
+        await db.insert(likedSongsTable).values(rows.slice(i, i + batchSize));
       }
     }
 
@@ -319,6 +309,7 @@ export async function runSync(
         lastSyncedAt: new Date(),
         syncProgress: newTracks.length,
         syncTotal: grandTotal,
+        syncError: null,
         updatedAt: new Date(),
       })
       .where(eq(syncStatusTable.spotifyUserId, userId));
@@ -329,7 +320,8 @@ export async function runSync(
       .select()
       .from(likedSongsTable)
       .where(eq(likedSongsTable.spotifyUserId, userId));
-    warmGenreProfileCache(
+
+    warmLibraryCachesAfterSync(
       userId,
       allRows.map((s) => ({
         trackId: s.trackId,
@@ -371,9 +363,16 @@ export async function runSync(
   } catch (err) {
     logger.error({ err, userId }, "Sync failed");
 
+    const message =
+      err instanceof SpotifySessionInvalidError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "Sync failed. Please try again.";
+
     await db
       .update(syncStatusTable)
-      .set({ isSyncing: 0, updatedAt: new Date() })
+      .set({ isSyncing: 0, syncError: message.slice(0, 500), updatedAt: new Date() })
       .where(eq(syncStatusTable.spotifyUserId, userId));
   } finally {
     activeSyncs.delete(userId);

@@ -1,8 +1,16 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 import { logger } from "./logger";
+import type { SpotifyTokenHolder } from "./spotify-token-holder";
 
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 const SPOTIFY_AUTH_BASE = "https://accounts.spotify.com";
+
+export class SpotifySessionInvalidError extends Error {
+  constructor(message = "Spotify session expired — please log in again.") {
+    super(message);
+    this.name = "SpotifySessionInvalidError";
+  }
+}
 
 export interface SpotifyTokens {
   accessToken: string;
@@ -55,7 +63,12 @@ export type SpotifyRequestOpts = {
   /** Per-user session throttle (Spotify user id). */
   userKey?: string;
   maxRetries?: number;
+  tokenHolder?: SpotifyTokenHolder;
 };
+
+function authHeader(token: string): { Authorization: string } {
+  return { Authorization: `Bearer ${token}` };
+}
 
 async function spotifyRequest<T = unknown>(
   config: AxiosRequestConfig,
@@ -66,11 +79,36 @@ async function spotifyRequest<T = unknown>(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     await awaitSpotifySlot(opts.userKey);
+    const bearer =
+      opts.tokenHolder?.tokens.accessToken ??
+      (typeof config.headers?.Authorization === "string"
+        ? config.headers.Authorization.replace(/^Bearer\s+/i, "")
+        : "");
+    if (bearer && config.headers) {
+      config.headers = { ...config.headers, ...authHeader(bearer) };
+    }
     try {
       return await axios.request<T>(config);
     } catch (err: any) {
       lastErr = err;
       const status = err?.response?.status;
+
+      if (status === 401 && opts.tokenHolder && !opts.tokenHolder.retried401) {
+        opts.tokenHolder.retried401 = true;
+        try {
+          const fresh = await refreshAccessToken(opts.tokenHolder.tokens.refreshToken);
+          opts.tokenHolder.tokens = fresh;
+          opts.tokenHolder.onRefreshed?.(fresh);
+          if (config.headers) {
+            config.headers = { ...config.headers, ...authHeader(fresh.accessToken) };
+          }
+          logger.warn({ userKey: opts.userKey }, "Spotify 401 — refreshed token, retrying once");
+          continue;
+        } catch (refreshErr) {
+          logger.error({ err: refreshErr, userKey: opts.userKey }, "Spotify token refresh failed");
+          throw new SpotifySessionInvalidError();
+        }
+      }
 
       if (status === 429) {
         const retryAfter = parseInt(err.response?.headers?.["retry-after"] ?? "2", 10);
@@ -248,22 +286,42 @@ export async function getSpotifyUser(accessToken: string): Promise<any> {
   return response.data;
 }
 
+export type SpotifyTokenSource = string | SpotifyTokenHolder;
+
+function tokenFrom(source: SpotifyTokenSource): string {
+  return typeof source === "string" ? source : source.tokens.accessToken;
+}
+
+function spotifyOpts(userKey: string | undefined, source?: SpotifyTokenSource): SpotifyRequestOpts {
+  if (source && typeof source !== "string") {
+    return {
+      userKey: userKey ?? source.tokens.refreshToken.slice(0, 16),
+      tokenHolder: source,
+    };
+  }
+  return { userKey };
+}
+
 export async function fetchLikedSongs(
-  accessToken: string,
+  tokenSource: SpotifyTokenSource,
   onBatch: (tracks: SpotifyTrack[], total: number, offset: number) => Promise<void>,
-  stopBefore?: Date
+  stopBefore?: Date,
+  userKey?: string
 ): Promise<void> {
   let offset = 0;
   const limit = 50;
   let total = 0;
 
   do {
-    const response = await spotifyRequest<any>({
-      method: "GET",
-      url: `${SPOTIFY_API_BASE}/me/tracks`,
-      headers: { Authorization: `Bearer ${accessToken}` },
-      params: { limit, offset, market: "from_token" },
-    });
+    const response = await spotifyRequest<any>(
+      {
+        method: "GET",
+        url: `${SPOTIFY_API_BASE}/me/tracks`,
+        headers: { Authorization: `Bearer ${tokenFrom(tokenSource)}` },
+        params: { limit, offset, market: "from_token" },
+      },
+      spotifyOpts(userKey, tokenSource)
+    );
 
     const data = response.data;
     total = data.total;
@@ -366,7 +424,7 @@ export async function fetchPlaylistTrackIds(
 export async function fetchAudioFeatures(
   accessToken: string,
   trackIds: string[],
-  opts?: { fallbackToken?: string; userKey?: string }
+  opts?: { fallbackToken?: string; userKey?: string; tokenHolder?: SpotifyTokenHolder }
 ): Promise<SpotifyAudioFeatures[]> {
   if (!trackIds.length) return [];
 
@@ -389,7 +447,7 @@ export async function fetchAudioFeatures(
           headers: { Authorization: `Bearer ${token}` },
           params: { ids: batch.join(",") },
         },
-        { userKey: opts?.userKey }
+        { userKey: opts?.userKey, tokenHolder: opts?.tokenHolder }
       );
 
       const features = response.data.audio_features?.filter(Boolean) ?? [];
@@ -440,8 +498,8 @@ export async function createSpotifyPlaylist(
   trackUris: string[],
   opts?: {
     existingPlaylistId?: string;
-    /** Called once playlist shell exists (before track add) — for retry idempotency */
     onPlaylistCreated?: (playlistId: string) => void;
+    tokenHolder?: SpotifyTokenHolder;
   }
 ): Promise<{
   id: string;
@@ -471,7 +529,7 @@ export async function createSpotifyPlaylist(
           "Content-Type": "application/json",
         },
       },
-      { userKey }
+      { userKey, tokenHolder: opts?.tokenHolder }
     );
 
     const playlist = playlistResponse.data;
@@ -517,7 +575,7 @@ export async function createSpotifyPlaylist(
             "Content-Type": "application/json",
           },
         },
-        { userKey }
+        { userKey, tokenHolder: opts?.tokenHolder }
       );
       tracksAdded += batch.length;
     }

@@ -85,6 +85,33 @@ import { GeneratePlaylistBody } from "../zod/api";
 import { checkRateLimit } from "../lib/rate-limit";
 import { getFeatures } from "../lib/env";
 import { publicUrl } from "../lib/public-url";
+import { getLibrarySyncStatus } from "../lib/library-sync-status";
+import { getWarmGenreStackCacheKey } from "../lib/warm-library-caches";
+import { createSpotifyTokenHolder } from "../lib/spotify-token-holder";
+import { buildFallbackExplanation, applyFallbackPlaylistTitle } from "../lib/fallback-explanation";
+import { buildPlaylistWhySummary, buildDominantMomentLabel, energyBandFromProfile } from "../lib/playlist-why-summary";
+import { buildMomentTruthSentence } from "../lib/moment-truth-sentence";
+import { pickPreviewMiniTracks } from "../lib/preview-mini";
+import { sequencePlaylistForGeneration } from "../lib/emotional-sequencing";
+import { buildIntentClarificationSuggestions, groupIntentSuggestions } from "../lib/intent-clarification-suggestions";
+import {
+  computeEmotionalConsistencyScore,
+  computeEmotionalConsistencyBreakdown,
+} from "../lib/emotional-consistency-score";
+import {
+  computeIdentitySignature,
+  computeSelectionSignature,
+  applyMomentSignatureDiversity,
+} from "../lib/moment-signature";
+import { buildPrimaryNarrative } from "../lib/primary-narrative";
+import { buildUxSignals, toLaunchUxSignals } from "../lib/ux-signals";
+import { buildDebugSignals } from "../lib/debug-signals";
+import { isLaunchMode } from "../lib/launch-mode";
+import { detectNarrativeDrift } from "../lib/narrative-drift-detector";
+import { validatePrimaryNarrativeForResponse } from "../lib/primary-narrative-schema";
+import { recordLaunchHealthEvent } from "../lib/launch-health-snapshot";
+
+const MIN_PLAYLIST_TRACKS = 15;
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
 const globalArchitectureState = globalThis as typeof globalThis & Record<string, unknown>;
@@ -161,6 +188,122 @@ router.get("/generate/status", (req, res): void => {
   res.json(getGenerateStatus(req.session.spotifyUserId));
 });
 
+router.post("/generate/preview", async (req, res): Promise<void> => {
+  if (!getFeatures().spotify.enabled) {
+    res.status(503).json({ error: "Spotify is not configured on this server." });
+    return;
+  }
+  if (!req.session.spotifyUserId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const vibeRaw = req.body?.vibe ?? "";
+  const vibe = (typeof vibeRaw === "string" ? vibeRaw.trim() : String(vibeRaw).trim());
+  if (!vibe) {
+    res.status(400).json({ error: "vibe is required" });
+    return;
+  }
+
+  const moodSceneRaw =
+    typeof req.body?.sceneId === "string"
+      ? req.body.sceneId.trim()
+      : typeof req.body?.filmScene === "string"
+        ? req.body.filmScene.trim()
+        : "";
+  const moodSceneId = moodSceneRaw || null;
+  const isMini = req.body?.mini === true || req.body?.mode === "mini";
+
+  const momentPipeline = analyzeMomentPipeline(vibe, { moodSceneId });
+  const mixedEmotions = detectMixedEmotions(vibe);
+  const destParse = parseEmotionalDestination(vibe);
+  const promptConfidence = scorePromptConfidence(vibe, momentPipeline.profile, {
+    experienceSceneMatched: !!momentPipeline.experienceScene,
+    hasJourneyDestination: !!destParse.desired,
+    mixedEmotions,
+  });
+
+  const dominantMomentLabel = buildDominantMomentLabel(
+    momentPipeline.canonicalScene?.sceneId
+      ? momentPipeline.canonicalScene.sceneId.replace(/_/g, " ")
+      : null,
+    mixedEmotions[0] ??
+      (momentPipeline.profile.valence >= 0.55
+        ? "positive"
+        : momentPipeline.profile.valence <= 0.45
+          ? "reflective"
+          : "balanced"),
+    energyBandFromProfile(momentPipeline.profile.energy)
+  );
+
+  if (isMini) {
+    const userId = req.session.spotifyUserId!;
+    const likedRows = await db
+      .select({
+        trackId: likedSongsTable.trackId,
+        trackName: likedSongsTable.trackName,
+        artistName: likedSongsTable.artistName,
+        energy: likedSongsTable.energy,
+        valence: likedSongsTable.valence,
+      })
+      .from(likedSongsTable)
+      .where(eq(likedSongsTable.spotifyUserId, userId))
+      .limit(300);
+
+    const { tracks: suggestedTracks, cacheHit } = pickPreviewMiniTracks({
+      userId,
+      tracks: likedRows,
+      profile: momentPipeline.profile,
+    });
+
+    res.json({
+      mini: true,
+      vibe,
+      dominantMomentLabel,
+      confidenceTier: promptConfidence.tier,
+      promptConfidence: { tier: promptConfidence.tier, score: promptConfidence.score },
+      suggestedTracks,
+      previewCacheHit: cacheHit,
+    });
+    return;
+  }
+
+  const intentClarificationSuggestions =
+    promptConfidence.tier === "low"
+      ? buildIntentClarificationSuggestions(
+          vibe,
+          promptConfidence.tier,
+          momentPipeline.canonicalScene
+        )
+      : [];
+
+  res.json({
+    vibe,
+    promptConfidence,
+    dominantMomentLabel,
+    ...(intentClarificationSuggestions.length
+      ? {
+          intentClarificationSuggestions,
+          intentClarificationGroups: groupIntentSuggestions(
+            intentClarificationSuggestions
+          ),
+        }
+      : {}),
+    canonicalScene: momentPipeline.canonicalScene
+      ? {
+          sceneId: momentPipeline.canonicalScene.sceneId,
+          confidence: momentPipeline.canonicalScene.confidence,
+          matchedAlias: momentPipeline.canonicalScene.matchedAlias,
+        }
+      : null,
+    emotionProfile: {
+      energy: momentPipeline.profile.energy,
+      valence: momentPipeline.profile.valence,
+    },
+    intent: momentPipeline.intent.intent,
+  });
+});
+
 router.post("/generate", async (req, res): Promise<void> => {
   const startMs = Date.now();
   let requestId = "";
@@ -188,6 +331,17 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const userId = req.session.spotifyUserId;
 
+    const librarySync = await getLibrarySyncStatus(userId);
+    if (!librarySync.isSynced) {
+      const message = librarySync.isSyncing
+        ? "Your Spotify library is still syncing. Please wait until sync completes."
+        : librarySync.syncError
+          ? `Library sync failed: ${librarySync.syncError}`
+          : "Your Spotify library is not ready yet. Please sync your liked songs first.";
+      generateFail(res, 400, "LIBRARY_NOT_READY", message, { sync: librarySync });
+      return;
+    }
+
     const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!rateCheck.allowed) {
       const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
@@ -211,7 +365,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const parsedLength =
       typeof lengthRaw === "string" ? parseInt(lengthRaw, 10) : Number(lengthRaw);
 
-    const varietyBoostRequested = rawBody.varietyBoost === true;
+    const varietyBoostRequested = rawBody.varietyBoost === true || rawBody.regenerate === true;
     const moodSceneRaw =
       typeof rawBody.sceneId === "string"
         ? rawBody.sceneId.trim()
@@ -237,6 +391,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const { vibe, mode, length, referencePlaylist, varietyBoost, sceneId } = parsed.data;
     const moodSceneId = sceneId?.trim() || null;
+    const regenerationSalt = varietyBoost ? String(Date.now()) : "0";
 
     const acquired = acquireGenerateSession(userId, { force: !!varietyBoost });
     if (!acquired) {
@@ -339,6 +494,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       mode,
       length,
       referencePlaylist: !!referencePlaylist,
+      varietyBoost: !!varietyBoost,
+      regenerationSalt,
     });
 
     if (!varietyBoost) {
@@ -395,17 +552,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
-    if (likedSongs.length < 12) {
-      setGeneratePhase(userId, requestId, "error");
-      generateFail(
-        res,
-        400,
-        "LIBRARY_TOO_SMALL",
-        "Library is too small to generate. Sync more liked songs from Spotify first."
-      );
-      return;
-    }
-
     (req as { _genCtx?: Record<string, unknown> })._genCtx = {
       requestId,
       userId,
@@ -447,18 +593,26 @@ router.post("/generate", async (req, res): Promise<void> => {
         librarySize: ctx.likedSongs.length,
       });
       const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
+      const timeoutFallbackExplanation = buildFallbackExplanation({ fastFallback: true });
+      const timeoutDisplayName = applyFallbackPlaylistTitle(
+        playlistName,
+        timeoutFallbackExplanation
+      );
       res.json({
         success: true,
         fastFallback: true,
         code: "TIMEOUT_FALLBACK",
-        playlistName,
-        name: playlistName,
+        playlistName: timeoutDisplayName,
+        name: timeoutDisplayName,
         vibe: ctx.vibe,
         mode: ctx.mode,
         count: pipeline.finalTracks.length,
         totalTracks: pipeline.finalTracks.length,
         spotifyUnavailable: true,
-        tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile),
+        fallbackExplanation: timeoutFallbackExplanation,
+        tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile, {
+          fastFallback: true,
+        }),
       });
     });
 
@@ -600,6 +754,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       minimal: likedSongs.length >= MINIMAL_GENRE_STACK_THRESHOLD,
     });
     let genreStack = getCachedGenreStack(stackCacheKey);
+    if (!genreStack) {
+      genreStack = getCachedGenreStack(getWarmGenreStackCacheKey(userId, likedSongs.length));
+    }
     const stackFromCache = !!genreStack;
     if (!genreStack) {
       genreStack = buildGenreIntelligenceStack({
@@ -631,6 +788,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const useFastFallback = budget.shouldFastFallback() || budget.isExpired();
 
     let pipeline: ReturnType<typeof buildPlaylistPipeline>;
+    let pipelineOpts: Parameters<typeof buildPlaylistPipeline>[0] | null = null;
     if (useFastFallback) {
       req.log.warn(
         { ms: Date.now() - startMs, remainingMs: budget.remainingMs(), code: "FAST_FALLBACK" },
@@ -644,7 +802,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         librarySize: likedSongs.length,
       });
     } else {
-      pipeline = buildPlaylistPipeline({
+      pipelineOpts = {
       pipelineLog: req.log,
       likedSongs,
       vibe,
@@ -696,7 +854,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         allowHoliday: allowHolidaySeason,
         suppressGenres: allowHolidaySeason ? [] : ["christmas"],
       },
-    });
+    };
+      pipeline = buildPlaylistPipeline(pipelineOpts);
     }
 
     type PlaylistTrack = (typeof likedSongs)[number] & {
@@ -706,9 +865,38 @@ router.post("/generate", async (req, res): Promise<void> => {
     };
     setGeneratePhase(userId, requestId, "composing");
     let finalTracks = pipeline.finalTracks as PlaylistTrack[];
+
+    if (
+      !useFastFallback &&
+      pipelineOpts &&
+      finalTracks.length < MIN_PLAYLIST_TRACKS
+    ) {
+      req.log.info(
+        { trackCount: finalTracks.length, code: "RELAXED_RETRY" },
+        "Short playlist — retrying with relaxed constraints"
+      );
+      const relaxedMode =
+        mode === "strict" ? ("balanced" as const) : ("chaotic" as const);
+      pipeline = buildPlaylistPipeline({
+        ...pipelineOpts,
+        mode: relaxedMode,
+        maxPerArtist: maxPerArtist + 2,
+        varietyPenaltyScale: recentTrackPenaltyScale * 0.5,
+        postScore: {
+          ...pipelineOpts.postScore,
+          memoryWeight: memoryWeight * 0.5,
+          promptConfidenceMultiplier: Math.max(
+            0.8,
+            promptConfidence.qualityBoost * 0.92
+          ),
+        },
+      });
+      finalTracks = pipeline.finalTracks as PlaylistTrack[];
+    }
+
     const sorted = pipeline.sorted;
-    const scoringDiagnostics = pipeline.scoringDiagnostics;
-    const genreAudit: GenreAudit = pipeline.genreAudit;
+    let scoringDiagnostics = pipeline.scoringDiagnostics;
+    let genreAudit: GenreAudit = pipeline.genreAudit;
     const { structured, afterDeadZone, afterSmoothing, afterArtistSep } = pipeline.composeMeta;
 
     const scoringPool = (pipeline.scoringDiagnostics.scoringPool ?? {}) as {
@@ -785,6 +973,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (rescue.finalTracks.length > 0) {
         pipeline = rescue;
         finalTracks = rescue.finalTracks as PlaylistTrack[];
+        scoringDiagnostics = rescue.scoringDiagnostics;
+        genreAudit = rescue.genreAudit;
       } else {
         setGeneratePhase(userId, requestId, "error");
         if (respondIfStale(res, userId, requestId)) return;
@@ -801,9 +991,71 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
+    if (finalTracks.length < MIN_PLAYLIST_TRACKS) {
+      setGeneratePhase(userId, requestId, "error");
+      if (respondIfStale(res, userId, requestId)) return;
+      const smallLibrary = likedSongs.length < MIN_PLAYLIST_TRACKS;
+      const fallbackExplanation = buildFallbackExplanation({
+        insufficientMatches: true,
+        featureCoverage: librarySync.featureCoverage,
+        fastFallback: !!scoringDiagnostics?.fastFallback,
+      });
+      generateFail(
+        res,
+        400,
+        "INSUFFICIENT_MATCHES",
+        smallLibrary
+          ? `Your library has only ${likedSongs.length} liked songs — we need at least ${MIN_PLAYLIST_TRACKS} to build a playlist.`
+          : "Not enough tracks matched this vibe. Try a broader description, Balanced mode, or regenerate.",
+        { fallbackExplanation, trackCount: finalTracks.length }
+      );
+      return;
+    }
+
     if (respondIfStale(res, userId, requestId)) return;
 
-    const playlistName = generatePlaylistName(vibe, emotionProfile);
+    const emotionalSequence = sequencePlaylistForGeneration(
+      finalTracks,
+      emotionProfile.energy
+    );
+
+    const prelimWhy = buildPlaylistWhySummary({
+      momentUnderstanding,
+      canonicalScene: momentPipeline?.canonicalScene ?? null,
+      emotionProfile,
+      intent: humanIntent,
+      promptConfidenceTier: promptConfidence.tier,
+      sequencePhases: emotionalSequence.phases,
+    });
+
+    const playlistWhy = prelimWhy;
+
+    const identitySignature = computeIdentitySignature({
+      momentLabel: playlistWhy.dominantMomentLabel,
+      sceneId: momentPipeline?.canonicalScene?.sceneId ?? null,
+      arcSummary: playlistWhy.structureExplanation ?? "",
+    });
+
+    const selectionSignature = computeSelectionSignature(
+      emotionalSequence.tracks.map((t) => t.trackId)
+    );
+
+    const diversified = applyMomentSignatureDiversity(
+      userId,
+      vibe,
+      selectionSignature,
+      emotionalSequence.tracks,
+      emotionalSequence.phases
+    );
+
+    finalTracks = diversified.tracks as PlaylistTrack[];
+
+    const preliminaryFallback = buildFallbackExplanation({
+      fastFallback: !!scoringDiagnostics?.fastFallback,
+      featureCoverage: librarySync.featureCoverage,
+    });
+    const basePlaylistName = generatePlaylistName(vibe, emotionProfile);
+    const playlistName = applyFallbackPlaylistTitle(basePlaylistName, preliminaryFallback);
 
     const trackObjects = finalTracks.map((t) => ({
       trackId: t.trackId,
@@ -830,10 +1082,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
           req.session.spotifyTokens = freshTokens;
         }
+        const tokenHolder = createSpotifyTokenHolder(freshTokens, (t) => {
+          req.session.spotifyTokens = t;
+        });
         const trackUris = finalTracks.map((t) => `spotify:track:${t.trackId}`);
         const pendingId = getPendingSpotifyPlaylistId(userId);
         const spotifyResult = await createSpotifyPlaylist(
-          freshTokens.accessToken,
+          tokenHolder.tokens.accessToken,
           userId,
           playlistName,
           trackUris,
@@ -841,6 +1096,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             existingPlaylistId: pendingId,
             onPlaylistCreated: (id) =>
               setPendingSpotifyPlaylistId(userId, requestId, id),
+            tokenHolder,
           }
         );
         clearPendingSpotifyPlaylist(userId, requestId);
@@ -870,6 +1126,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
 
+    const fallbackExplanation = buildFallbackExplanation({
+      fastFallback: !!scoringDiagnostics?.fastFallback,
+      spotifyPartial,
+      spotifyUnavailable: !spotifyPlaylistUrl,
+      featureCoverage: librarySync.featureCoverage,
+    });
+    const displayPlaylistName = applyFallbackPlaylistTitle(
+      basePlaylistName,
+      fallbackExplanation
+    );
+
     setGeneratePhase(userId, requestId, "saving");
     const tSave = Date.now();
     req.log.info("Saving playlist to database");
@@ -883,7 +1150,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       .insert(savedPlaylistsTable)
       .values({
         userId,
-        name: playlistName,
+        name: displayPlaylistName,
         emotionProfile: profilePayload as any,
         tracks: trackObjects as any,
         spotifyUrl: spotifyPlaylistUrl,
@@ -904,7 +1171,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         spotifyUserId: userId,
         playlistId: spotifyPlaylistUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
         playlistUrl: spotifyPlaylistUrl ?? publicUrl(`/p/${savedPlaylistId}`),
-        name: playlistName,
+        name: displayPlaylistName,
         vibe,
         mode,
         trackCount: finalTracks.length,
@@ -941,7 +1208,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (!varietyBoost) {
       setCachedGenerateResult(resultCacheKey, {
-        playlistName,
+        playlistName: displayPlaylistName,
         vibe,
         mode,
         finalTracks: finalTracks.map((t) => ({
@@ -957,6 +1224,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           score: Math.round(t.score * 100) / 100,
           rediscoveryScore: t.rediscoveryScore,
           narrativeRole: t.narrativeRole,
+          trackRole: (t as { trackRole?: string }).trackRole,
         })),
         emotionProfile: { ...emotionProfile, journeyArc },
         spotifyPlaylistUrl,
@@ -977,17 +1245,98 @@ router.post("/generate", async (req, res): Promise<void> => {
       "Generation complete"
     );
 
+    const apiTracks = formatTracksForApi(finalTracks, emotionProfile, {
+      fastFallback: !!scoringDiagnostics?.fastFallback,
+    });
+    const emotionalConsistency = computeEmotionalConsistencyScore({
+      tracks: apiTracks,
+      sceneConfidence: playlistWhy.sceneConfidence,
+      hasCanonicalScene: !!momentPipeline?.canonicalScene?.sceneId,
+    });
+    const narrativeDrift = detectNarrativeDrift({
+      userId,
+      sessionId: req.sessionID,
+      prompt: vibe,
+      current: buildPrimaryNarrative(playlistWhy),
+    });
+
+    const uxSignals = buildUxSignals({
+      playlistWhy,
+      emotionalConsistency,
+      signatureStable: !diversified.diversified,
+      syncQualityLabel: librarySync.syncQualityLabel,
+      syncQualityScore: librarySync.syncQualityScore,
+      previewTrackNames: apiTracks.map((t) => t.name),
+      narrativeDriftWarning: narrativeDrift.warning,
+    });
+
+    validatePrimaryNarrativeForResponse(uxSignals.primaryNarrative);
+
+    const launchMode = isLaunchMode();
+
+    recordLaunchHealthEvent({
+      launchMode,
+      emotionalConsistencyScore: emotionalConsistency.score,
+      hadDriftWarning: !!narrativeDrift.warning,
+    });
+    let debugSignals: ReturnType<typeof buildDebugSignals> | undefined;
+
+    if (!launchMode) {
+      const momentTruthSentence = buildMomentTruthSentence({
+        topSceneMatch: playlistWhy.topSceneMatch,
+        dominantEmotion: playlistWhy.dominantEmotion,
+        energyProfile: playlistWhy.energyProfile,
+        sequencePhases: emotionalSequence.phases,
+      });
+
+      debugSignals = buildDebugSignals({
+        fallbackExplanation: fallbackExplanation ?? null,
+        playlistWhy,
+        tracks: finalTracks,
+        momentTruthSentence,
+        identitySignature,
+        selectionSignature: diversified.selectionSignature,
+        signatureDiversified: diversified.diversified,
+      });
+    }
+
+    const responseUxSignals = launchMode ? toLaunchUxSignals(uxSignals) : uxSignals;
+
+    if (launchMode) {
+      res.json({
+        success: true,
+        playlistId: savedPlaylistId,
+        ...spotifyFields,
+        playlistName: displayPlaylistName,
+        name: displayPlaylistName,
+        vibe,
+        mode,
+        count: finalTracks.length,
+        totalTracks: finalTracks.length,
+        generationMs,
+        tracks: apiTracks,
+        uxSignals: responseUxSignals,
+        shareCard: responseUxSignals.shareCard,
+        emotionalConsistencyScore: emotionalConsistency.score,
+        emotionalConsistencyLabel: emotionalConsistency.label,
+        emotionalClarityScore: responseUxSignals.emotionalClarityScore,
+        emotionalClarityLabel: responseUxSignals.emotionalClarityLabel,
+      });
+      return;
+    }
+
     res.json({
       success: true,
       playlistId: savedPlaylistId,
       ...spotifyFields,
-      playlistName,
-      name: playlistName,
+      playlistName: displayPlaylistName,
+      name: displayPlaylistName,
       vibe,
       mode,
       count: finalTracks.length,
       totalTracks: finalTracks.length,
       generationMs,
+      debugSignals,
       stats: {
         trackCount: finalTracks.length,
         totalDurationMs,
@@ -997,6 +1346,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       emotionProfile: { ...emotionProfile, journeyArc },
       experienceScene,
       momentUnderstanding,
+      uxSignals: responseUxSignals,
+      shareCard: responseUxSignals.shareCard,
+      emotionalConsistencyScore: emotionalConsistency.score,
+      emotionalConsistencyLabel: emotionalConsistency.label,
+      emotionalClarityScore: uxSignals.emotionalClarityScore,
+      emotionalClarityLabel: uxSignals.emotionalClarityLabel,
       emotionalIntelligence: momentPipeline
         ? {
             pipeline: momentPipeline.pipelineSummary,
@@ -1064,7 +1419,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? "Could not read that reference playlist. If it is public, try the open.spotify.com link; if it is yours, log out and back in to refresh permissions. Generation used your text vibe only."
         : null,
       librarySyncHint,
-      tracks: formatTracksForApi(finalTracks, emotionProfile),
+      tracks: apiTracks,
+      ...(fallbackExplanation ? { fallbackExplanation } : {}),
       ...(pipeline.scoringDiagnostics?.fastFallback
         ? { fastFallback: true }
         : {}),
@@ -1106,18 +1462,26 @@ router.post("/generate", async (req, res): Promise<void> => {
           librarySize: ctx.likedSongs.length,
         });
         const playlistName = generatePlaylistName(ctx.vibe, ctx.emotionProfile);
+        const timeoutFallbackExplanation = buildFallbackExplanation({ fastFallback: true });
+        const timeoutDisplayName = applyFallbackPlaylistTitle(
+          playlistName,
+          timeoutFallbackExplanation
+        );
         res.json({
           success: true,
           fastFallback: true,
           code: "TIMEOUT_FALLBACK",
-          playlistName,
-          name: playlistName,
+          playlistName: timeoutDisplayName,
+          name: timeoutDisplayName,
           vibe: ctx.vibe,
           mode: ctx.mode,
           count: pipeline.finalTracks.length,
           totalTracks: pipeline.finalTracks.length,
           spotifyUnavailable: true,
-          tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile),
+          fallbackExplanation: timeoutFallbackExplanation,
+          tracks: formatTracksForApi(pipeline.finalTracks, ctx.emotionProfile, {
+            fastFallback: true,
+          }),
         });
       } else {
         res.status(timedOut ? 504 : 500).json({

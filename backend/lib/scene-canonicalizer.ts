@@ -5,6 +5,7 @@
 import { detectLayeredScene } from "./emotion-scene-layers";
 import { getPrototype, profileFromPrototype, type ScenePrototype } from "./scene-prototypes";
 import type { EmotionProfile } from "./emotion";
+import { EVERYDAY_CANONICAL_SCENES } from "./scene-canonicalizer-everyday";
 
 export interface CanonicalSceneResult {
   sceneId: string;
@@ -83,6 +84,8 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
     emotionalTone: "decompression",
     aliases: [
       "rainy train home",
+      "rainy train home after work",
+      "rainy train home after work tired",
       "late train home",
       "train home after work",
       "train window rain going home",
@@ -150,6 +153,7 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
       "afternoon drift warm haze",
     ],
   },
+  ...EVERYDAY_CANONICAL_SCENES,
 ];
 
 /** Explicit mood ids mapped to canonical scenes. */

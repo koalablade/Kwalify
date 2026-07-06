@@ -14,6 +14,7 @@ import {
   MINIMAL_GENRE_STACK_THRESHOLD,
   resolveHybridPoolCap,
 } from "../../lib/production-limits";
+import { audioFeatureQualityMultiplier } from "../../lib/audio-feature-quality";
 
 function seededJitter(trackId: string, seed: number): number {
   let h = seed;
@@ -94,7 +95,10 @@ export function capTracksForHybridScoring<T extends {
         const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
         return {
           t,
-          fit: quickEmotionFit(t, opts.emotionProfile) + seededJitter(t.trackId, seed) * 0.05 - recentPen,
+          fit:
+            quickEmotionFit(t, opts.emotionProfile) * audioFeatureQualityMultiplier(t) +
+            seededJitter(t.trackId, seed) * 0.05 -
+            recentPen,
         };
       })
       .sort((a, b) => b.fit - a.fit);
@@ -129,7 +133,7 @@ export function capTracksForHybridScoring<T extends {
     return {
       t,
       fit:
-        quickEmotionFit(t, opts.emotionProfile) +
+        quickEmotionFit(t, opts.emotionProfile) * audioFeatureQualityMultiplier(t) +
         seededJitter(t.trackId, seed) * 0.05 -
         recentPen +
         eraBoost,

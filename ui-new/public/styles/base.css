@@ -48,12 +48,19 @@ label {
 }
 
 input,
-button {
+button,
+textarea {
   background: #ffffff;
   border: 1px solid #d0d0d0;
   color: #000000;
   font: inherit;
   padding: 10px 12px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 72px;
+  width: 100%;
 }
 
 button {
@@ -72,3 +79,265 @@ pre {
 a {
   color: #000000;
 }
+
+.sync-panel {
+  border: 1px solid #d0d0d0;
+  margin-bottom: 20px;
+  padding: 16px;
+}
+
+.sync-panel--ready {
+  border-color: #9ccc9c;
+  background: #f6fff6;
+}
+
+.sync-panel--blocked {
+  border-color: #e0c080;
+  background: #fffaf0;
+}
+
+.sync-progress {
+  background: #eeeeee;
+  border-radius: 4px;
+  height: 10px;
+  margin: 12px 0 8px;
+  overflow: hidden;
+}
+
+.sync-progress-bar {
+  background: #1db954;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.sync-meta,
+.sync-hint {
+  color: #444444;
+  font-size: 14px;
+}
+
+.sync-quality {
+  color: #555555;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.fallback-explanation {
+  color: #555555;
+  font-size: 13px;
+  margin: 4px 0 12px;
+  max-width: 42rem;
+}
+
+.why-panel {
+  font-size: 13px;
+  margin: 0 0 16px;
+  max-width: 42rem;
+}
+
+.why-panel summary {
+  cursor: pointer;
+  color: #333333;
+  font-weight: 600;
+}
+
+.why-summary,
+.why-signals {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.why-signals {
+  color: #555555;
+}
+
+.why-summary-text {
+  font-size: 14px;
+  margin: 8px 0 4px;
+}
+
+.why-structure {
+  color: #555555;
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.suggestion-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.suggestion-chip {
+  background: #f5f5f5;
+  border: 1px solid #d0d0d0;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+  margin: 4px 0;
+  padding: 4px 10px;
+}
+
+.suggestion-category {
+  color: #666666;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.suggestion-group + .suggestion-group {
+  margin-top: 4px;
+}
+
+.why-moment-label {
+  font-size: 15px;
+  font-style: italic;
+  margin: 8px 0 6px;
+}
+
+.mini-track-hints {
+  color: #555555;
+  font-size: 13px;
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.ux-more-details {
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.ux-more-details summary {
+  cursor: pointer;
+  color: #555555;
+}
+
+.ux-priority-meta {
+  color: #555555;
+  font-size: 13px;
+  margin: 4px 0;
+}
+
+.primary-narrative {
+  margin: 12px 0 16px;
+  max-width: 42rem;
+  text-align: left;
+}
+
+.emotional-layer-clarity {
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.primary-narrative-headline {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0 0 10px;
+}
+
+.primary-narrative-summary {
+  color: #333333;
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0 0 6px;
+}
+
+.primary-narrative-arc {
+  color: #666666;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.badge-clarity {
+  background: #f0f4ff;
+  border-color: #c5d4f5;
+  color: #3d4f7a;
+}
+
+.ux-detail-sync {
+  color: #555555;
+  font-size: 13px;
+  margin: 4px 0;
+}
+
+.share-card-hint {
+  color: #444444;
+  font-size: 14px;
+  font-style: italic;
+  margin: 4px 0 10px;
+}
+
+.result-explanation {
+  margin-bottom: 12px;
+  max-width: 42rem;
+}
+
+.track-role {
+  color: #666666;
+  font-size: 11px;
+}
+
+.track-list {
+  font-size: 13px;
+  margin: 0 0 12px;
+  max-width: 42rem;
+  padding-left: 18px;
+}
+
+.track-line {
+  cursor: help;
+  margin: 2px 0;
+}
+
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn-secondary {
+  margin-top: 8px;
+}
+
+.confidence-panel {
+  border-left: 3px solid #c0c0c0;
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+}
+
+.confidence-panel--high { border-left-color: #1db954; }
+.confidence-panel--medium { border-left-color: #d4a017; }
+.confidence-panel--low { border-left-color: #c06060; }
+
+.confidence-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.confidence-hints {
+  font-size: 13px;
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.quality-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.quality-badge {
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.badge-ok { background: #eef9ee; border: 1px solid #9ccc9c; color: #1a5c1a; }
+.badge-warn { background: #fff8e8; border: 1px solid #e0c080; color: #6a4d00; }
+.badge-neutral { background: #f2f2f2; border: 1px solid #d0d0d0; color: #444; }
