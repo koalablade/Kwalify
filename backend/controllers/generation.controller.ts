@@ -96,11 +96,12 @@ import {
   getGenerateStatus,
   setGeneratePartialTracks,
   cancelGenerateSession,
+  getActiveSessionRetryAfterMs,
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { isShuttingDown } from "../lib/shutdown";
 import { createGenerateStageTimer } from "../lib/generate-stage-timer";
-import { buildFallbackPipelineResult, formatTracksForApi } from "../lib/generate-helpers";
+import { buildFallbackPipelineResult, buildCachedGenerateResponse, buildFastFallbackSceneContext, formatTracksForApi } from "../lib/generate-helpers";
 import { buildBypassedHumanSaveabilityGate } from "../lib/human-saveability-api-payload";
 import {
   attachExecutionTrace,
@@ -121,6 +122,17 @@ import type { BuildPlaylistPipelineResult } from "../core/output";
 import type { GenreAudit } from "../lib/genre-audit";
 import { summarizePipeline } from "../lib/scoring-explanation";
 import { scorePromptConfidence } from "../lib/prompt-confidence";
+import { evaluatePromptReadiness } from "../lib/prompt-readiness";
+import { buildMomentUnderstandingLine } from "../lib/moment-understanding-display";
+import { buildDominantMomentLabel, energyBandFromProfile } from "../lib/playlist-why-summary";
+import { resolveContradiction } from "../core/scene-intelligence/contradiction-handler";
+import {
+  buildIntentClarificationSuggestions,
+  groupIntentSuggestions,
+} from "../lib/intent-clarification-suggestions";
+import {
+  getSceneFeedbackPenalty,
+} from "../lib/scene-feedback-memory";
 import { buildGenerationExplanation } from "../lib/vibe-explanation";
 import { buildMomentUnderstanding } from "../lib/moment-understanding";
 import { detectMixedEmotions } from "../lib/multi-emotion";
@@ -4814,7 +4826,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       return;
     }
-    const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    const rateCheck = checkRateLimit(userId, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS, {
+      burst: 3,
+    });
     if (!rateCheck.allowed) {
       const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
       res.setHeader("Retry-After", String(retryAfterSec));
@@ -4897,6 +4911,88 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
+    let earlyMomentPipeline: ReturnType<typeof analyzeMomentPipeline> | null = null;
+    let earlyEmotionProfile: EmotionProfile = { ...NEUTRAL_PROFILE };
+    if (!varietyBoost && !auditMode && !noLibraryMode && !devMode) {
+      try {
+        earlyMomentPipeline = analyzeMomentPipeline(vibe, { moodSceneId });
+        earlyEmotionProfile = earlyMomentPipeline.profile;
+        const penalty = getSceneFeedbackPenalty(
+          userId,
+          vibe,
+          earlyMomentPipeline.canonicalScene?.sceneId,
+        );
+        if (earlyMomentPipeline.canonicalScene && penalty < 0) {
+          earlyMomentPipeline.canonicalScene.confidence = Math.max(
+            0,
+            earlyMomentPipeline.canonicalScene.confidence + penalty,
+          );
+        }
+      } catch (emotionErr) {
+        req.log.warn({ err: emotionErr }, "Early emotion parse failed — cache key uses neutral profile");
+      }
+
+      const gateMixed = detectMixedEmotions(vibe);
+      const gateDest = parseEmotionalDestination(vibe);
+      const gateConfidence = scorePromptConfidence(vibe, earlyEmotionProfile, {
+        experienceSceneMatched: !!earlyMomentPipeline?.experienceScene,
+        hasJourneyDestination: !!gateDest.desired,
+        mixedEmotions: gateMixed,
+      });
+      const readiness = evaluatePromptReadiness({
+        vibe,
+        tier: gateConfidence.tier,
+        sceneId: moodSceneId,
+        referencePlaylist,
+      });
+      if (!readiness.ready) {
+        const suggestions = buildIntentClarificationSuggestions(
+          vibe,
+          gateConfidence.tier,
+          earlyMomentPipeline?.canonicalScene ?? null,
+        );
+        generateFail(res, 400, readiness.code!, readiness.message!, {
+          promptConfidence: gateConfidence,
+          suggestReferencePlaylist: true,
+          ...(suggestions.length
+            ? {
+                intentClarificationSuggestions: suggestions,
+                intentClarificationGroups: groupIntentSuggestions(suggestions),
+              }
+            : {}),
+        });
+        return;
+      }
+
+      const earlyVibeKind = detectVibeKind(vibe, earlyEmotionProfile);
+      const earlyCacheKey = getGenerateCacheKey({
+        userId,
+        vibe,
+        vibeKind: earlyVibeKind,
+        mode,
+        length,
+        referencePlaylist: !!referencePlaylist,
+        referencePlaylistKey: referencePlaylist ?? null,
+        sceneId: moodSceneId,
+        noLibraryMode: !!noLibraryMode,
+        mockMode: devMode,
+      });
+      const cachedFast = getCachedGenerateResult(earlyCacheKey);
+      if (cachedFast) {
+        req.log.info(
+          {
+            userId,
+            elapsedMs: Date.now() - startMs,
+            cacheHit: true,
+            trackCount: cachedFast.finalTracks.length,
+          },
+          "Generation cache fast-path",
+        );
+        res.json(buildCachedGenerateResponse(cachedFast));
+        return;
+      }
+    }
+
     endTimelineStage(productionTimeline, startMs, "request_validation");
     markTimeline(productionTimeline, startMs, "queue_entered");
     startTimelineStage(productionTimeline, startMs, "session_acquire");
@@ -4904,12 +5000,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       hardTimeoutMs: requestHardTimeoutMs,
     });
     if (!acquired) {
-      req.log.info({ userId, code: "GENERATION_IN_PROGRESS" }, "Rejected duplicate generate");
+      const retryAfterMs = getActiveSessionRetryAfterMs(generateSessionUserId);
+      const retryAfterSec = Math.max(1, Math.ceil(retryAfterMs / 1000));
+      res.setHeader("Retry-After", String(retryAfterSec));
+      req.log.info({ userId, code: "GENERATION_IN_PROGRESS", retryAfterSec }, "Rejected duplicate generate");
       generateFail(
         res,
         409,
         "GENERATION_IN_PROGRESS",
-        "A playlist is already being generated. Wait for it to finish or try again in a moment."
+        "A playlist is already being generated. Wait for it to finish or try again in a moment.",
+        { retry_after: retryAfterSec },
       );
       return;
     }
@@ -5084,12 +5184,25 @@ router.post("/generate", async (req, res): Promise<void> => {
     let emotionProfile: EmotionProfile;
     let experienceScene: ReturnType<typeof analyzeVibeWithContext>["experienceScene"] = null;
     let sceneJourneyArc: ReturnType<typeof analyzeVibeWithContext>["journeyArc"] | null = null;
-    let momentPipeline: ReturnType<typeof analyzeMomentPipeline> | null = null;
+    let momentPipeline: ReturnType<typeof analyzeMomentPipeline> | null = earlyMomentPipeline;
     try {
-      momentPipeline = analyzeMomentPipeline(vibe, { moodSceneId });
+      if (!momentPipeline) {
+        momentPipeline = analyzeMomentPipeline(vibe, { moodSceneId });
+      }
       emotionProfile = momentPipeline.profile;
       experienceScene = momentPipeline.experienceScene;
       sceneJourneyArc = momentPipeline.journeyArc;
+      const penalty = getSceneFeedbackPenalty(
+        userId,
+        vibe,
+        momentPipeline.canonicalScene?.sceneId,
+      );
+      if (momentPipeline.canonicalScene && penalty < 0) {
+        momentPipeline.canonicalScene.confidence = Math.max(
+          0,
+          momentPipeline.canonicalScene.confidence + penalty,
+        );
+      }
       req.log.info(
         {
           elapsedMs: Date.now() - startMs,
@@ -5097,6 +5210,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           intent: momentPipeline.intent.intent,
           hasExperienceScene: !!experienceScene,
           journeyArc: sceneJourneyArc ?? null,
+          reusedEarlyParse: !!earlyMomentPipeline,
         },
         "Emotion profile computed"
       );
@@ -6337,6 +6451,17 @@ router.post("/generate", async (req, res): Promise<void> => {
             sceneAliases,
             scenePrediction: mergedScenePrediction,
           }
+          : undefined,
+        sceneContext: momentPipeline
+          ? buildFastFallbackSceneContext({
+            vibe,
+            emotionProfile,
+            prototype: momentPipeline.prototype,
+            canonicalScene: momentPipeline.canonicalScene,
+            humanIntent: momentPipeline.intent.intent,
+            vibeKind,
+            emotionalComplexity: mixedEmotions.length > 1,
+          })
           : undefined,
       }) as typeof pipeline;
       playlistPipelineTimeMs = Date.now() - playlistPipelineStartedAt;
@@ -8245,6 +8370,28 @@ router.post("/generate", async (req, res): Promise<void> => {
       archaeologyActive: !!archaeology,
     });
 
+    const momentUnderstandingLine = momentPipeline
+      ? buildMomentUnderstandingLine({
+        vibe,
+        dominantMomentLabel: buildDominantMomentLabel(
+          momentPipeline.canonicalScene?.sceneId
+            ? momentPipeline.canonicalScene.sceneId.replace(/_/g, " ")
+            : null,
+          mixedEmotions[0] ??
+            (emotionProfile.valence >= 0.55
+              ? "positive"
+              : emotionProfile.valence <= 0.45
+                ? "reflective"
+                : "balanced"),
+          energyBandFromProfile(emotionProfile.energy),
+        ),
+        canonicalScene: momentPipeline.canonicalScene,
+        contradiction: resolveContradiction(vibe, emotionProfile),
+        destParse,
+        intent: momentPipeline.intent,
+      })
+      : null;
+
     req.log.info(
       {
         poolAfterStructure: structured.length,
@@ -9466,6 +9613,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       emotionProfile: { ...emotionProfile, journeyArc },
       experienceScene,
       momentUnderstanding,
+      momentUnderstandingLine,
       emotionalIntelligence: momentPipeline
         ? {
             pipeline: momentPipeline.pipelineSummary,

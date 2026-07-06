@@ -188,6 +188,13 @@ export async function waitForGenerateSlot(
       varietyBoost: opts?.regenerate,
     });
     if (res.status !== 409 && res.errorCode !== "GENERATION_IN_PROGRESS") {
+      if (res.errorCode === "RATE_LIMITED") {
+        const waitMs = retryAfterMs(res) || 5_000;
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        await sleep(Math.min(waitMs + 250, remaining));
+        continue;
+      }
       return res;
     }
 

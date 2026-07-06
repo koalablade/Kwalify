@@ -142,6 +142,13 @@ function generateGate() {
   return { blocked: false, message: "" };
 }
 
+function isPromptReadyForGenerate(preview, vibe, selectedSceneId) {
+  if (selectedSceneId) return true;
+  if (!preview?.requiresClarification) return true;
+  const words = String(vibe || "").trim().split(/\s+/).filter(Boolean);
+  return words.length >= 4;
+}
+
 function scrubLandingQueryParams() {
   const params = new URLSearchParams(window.location.search);
   if (!params.has("error") && params.get("gallery") !== "login") return;
@@ -365,6 +372,8 @@ const state = {
   showDebug: false,
   showExplain: false,
   progressExpanded: false,
+  preview: null,
+  selectedSceneId: null,
 };
 
 function debugModeEnabled() {
@@ -790,7 +799,7 @@ function renderApp() {
         </div>
 
         ${gate.blocked ? `<p class="generate-gate-msg">${esc(gate.message)}</p>` : ""}
-        <button id="generateBtn" class="gen-btn ${state.generating ? "loading" : ""}" ${gate.blocked || state.generating ? "disabled" : ""}>
+        <button id="generateBtn" class="gen-btn ${state.generating ? "loading" : ""}" ${gate.blocked || state.generating || !isPromptReadyForGenerate(state.preview, document.getElementById("vibeInput")?.value?.trim(), state.selectedSceneId) ? "disabled" : ""}>
           ${state.generating
             ? `<span class="spinner spinner--sm"></span> Generating…`
             : `Generate playlist <span class="btn-arrow">→</span>`}
@@ -1167,18 +1176,31 @@ function buildIntentUnderstandingHtml(intent, coherence, opts = {}) {
 function updateIntentPreviewStrip(data) {
   const strip = document.getElementById("intentPreviewStrip");
   if (!strip) return;
+  const tier = data?.intentUnderstanding?.confidenceTier ?? data?.promptConfidence?.tier;
+  const wordCount = String(document.getElementById("vibeInput")?.value || "").trim().split(/\s+/).filter(Boolean).length;
+  state.preview = {
+    ...data,
+    requiresClarification: tier === "low" && wordCount < 4 && !state.selectedSceneId,
+    momentUnderstandingLine: data?.momentUnderstandingLine ?? null,
+  };
+  const momentLine = state.preview.momentUnderstandingLine
+    ? `<p class="moment-understanding-line">${esc(state.preview.momentUnderstandingLine)}</p>`
+    : "";
+  const clarification = state.preview.requiresClarification
+    ? `<p class="sync-meta clarification-required">Add more detail, pick a suggestion, or use at least four words before generating.</p>`
+    : "";
   const html = buildIntentUnderstandingHtml(
     data?.intentUnderstanding || null,
     null,
     { preview: true, alwaysShow: true, decomposed: data?.decomposedIntent || null },
   );
-  if (!html) {
+  if (!html && !momentLine && !clarification) {
     strip.hidden = true;
     strip.innerHTML = "";
     return;
   }
   strip.hidden = false;
-  strip.innerHTML = html;
+  strip.innerHTML = momentLine + clarification + html;
 }
 
 function resultHtml(result) {
@@ -1252,10 +1274,6 @@ function resultHtml(result) {
     result.generationTrust?.genreRelaxed || result.strictGenreEvidence?.relaxed ? "Genre widened to best available" : null,
     result.spotifyUnavailable ? "Review Copy Available" : result.spotifyPartial ? "Spotify Partially Saved" : null,
   ].filter(Boolean);
-  const trustChipsHtml = trustChips.length ? `
-      <div class="result-trust-chips">
-        ${trustChips.map((chip) => `<span>${esc(chip)}</span>`).join("")}
-      </div>` : "";
   const intentUnderstanding = result.intentUnderstanding
     || result.v3Diagnostics?.intentUnderstanding
     || null;
@@ -1347,6 +1365,7 @@ function resultHtml(result) {
         <span class="result-meta">${count} tracks · ${state.mode} mode</span>
       </div>
       <h2 class="result-title">${name}</h2>
+      ${result.momentUnderstandingLine ? `<p class="moment-understanding-line">${esc(result.momentUnderstandingLine)}</p>` : ""}
       <p class="result-insight">${result.noLibraryMode ? "Curated from Spotify-wide search to fit the moment. Less personalized than your liked songs." : "Curated from your liked songs to fit the moment."}</p>
       ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
       ${coherenceBadgeHtml}
@@ -2721,6 +2740,15 @@ async function generate() {
     showToast(gate.message, "error");
     return;
   }
+  if (!isPromptReadyForGenerate(state.preview, vibe, state.selectedSceneId)) {
+    showToast(
+      state.preview?.requiresClarification
+        ? "Add more detail, pick a suggestion below, or use at least four words."
+        : "This prompt needs more context before generating.",
+      "error",
+    );
+    return;
+  }
   const previousResult = state.lastResult;
   const samePromptRegenerate =
     !!previousResult &&
@@ -2754,13 +2782,25 @@ async function generate() {
         length: state.length,
         noLibraryMode: state.noLibraryMode,
         varietyBoost: samePromptRegenerate,
+        ...(state.selectedSceneId ? { sceneId: state.selectedSceneId } : {}),
       }),
     });
 
     if (r.status === 401) { window.location.href = "/api/auth/login"; return; }
 
     if (!r.ok) {
-      state.error = userFacingApiError(r, "Generation failed. Please try a broader prompt or Balanced mode.");
+      if (r.data?.code === "PROMPT_TOO_VAGUE") {
+        state.preview = {
+          ...state.preview,
+          requiresClarification: true,
+          promptConfidence: r.data.promptConfidence || state.preview?.promptConfidence,
+          intentClarificationSuggestions: r.data.intentClarificationSuggestions,
+          intentClarificationGroups: r.data.intentClarificationGroups,
+        };
+        state.error = r.data.message || userFacingApiError(r, "Add more detail before generating.");
+      } else {
+        state.error = userFacingApiError(r, "Generation failed. Please try a broader prompt or Balanced mode.");
+      }
       state.errorDetails = r.data || null;
       state.errorKind = "generation";
     } else {

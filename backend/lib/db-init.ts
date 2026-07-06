@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS "sync_status" (
   "updated_at" timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "IDX_sync_status_user" ON "sync_status" ("spotify_user_id");
+ALTER TABLE "sync_status" ADD COLUMN IF NOT EXISTS "sync_error" text;
 
 CREATE TABLE IF NOT EXISTS "playlist_history" (
   "id" serial PRIMARY KEY,
@@ -111,6 +112,7 @@ CREATE TABLE IF NOT EXISTS "playlist_feedback" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IDX_playlist_feedback_pl_user"
   ON "playlist_feedback" ("playlist_id", "user_id");
+ALTER TABLE "playlist_feedback" ADD COLUMN IF NOT EXISTS "scene_id" text;
 
 CREATE TABLE IF NOT EXISTS "user_feedback_memory" (
   "id" serial PRIMARY KEY,

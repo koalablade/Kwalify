@@ -8,6 +8,10 @@
   "scripts": {
     "build": "node scripts/prepare-dist.mjs && node node_modules/typescript/bin/tsc && node backend/dist/scripts/scene-cohesion-human-save-gate.js",
     "start": "node backend/dist/server.js",
+    "db:setup-local": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-postgres.ps1",
+    "db:setup-local-dev": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-dev.ps1",
+    "setup:local-domain": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-domain.ps1",
+    "start:local": "powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1",
     "typecheck": "tsc --noEmit",
     "smoke:static": "node scripts/smoke-static.mjs",
     "evaluation:playlists": "npm run build && node backend/dist/scripts/playlist-evaluation-harness.js",
@@ -133,6 +137,7 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",
+    "local-ssl-proxy": "^2.0.5",
     "typescript": "^5.9.3"
   },
   "overrides": {

@@ -18,6 +18,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { onTrackRemoved, onTrackSave, onTrackSkip, onTrackUndoFeedback, type FeedbackMemory, type FeedbackTrack } from "../lib/feedback-memory";
 import { markGenerateResultCacheStale } from "../lib/generate-result-cache";
+import { recordSceneFeedbackDown } from "../lib/scene-feedback-memory";
 
 const router: IRouter = Router();
 
@@ -300,6 +301,9 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
     return;
   }
 
+  const sceneId =
+    typeof req.body?.sceneId === "string" ? req.body.sceneId.trim().slice(0, 120) : null;
+
   try {
     const owned = await db
       .select({ id: savedPlaylistsTable.id, tracks: savedPlaylistsTable.tracks })
@@ -321,8 +325,15 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
           eq(playlistFeedbackTable.userId, userId)
         )
       );
-    await db.insert(playlistFeedbackTable).values({ playlistId, userId, vibe, reaction });
+    await db.insert(playlistFeedbackTable).values({
+      playlistId,
+      userId,
+      vibe,
+      reaction,
+      ...(sceneId ? { sceneId } : {}),
+    });
     if (reaction === "down") {
+      recordSceneFeedbackDown(userId, vibe, sceneId);
       for (const track of feedbackTracks(owned[0].tracks).slice(0, 50)) {
         await onTrackRemoved(userId, track, { mood: vibe });
       }

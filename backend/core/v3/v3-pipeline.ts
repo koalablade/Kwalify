@@ -781,10 +781,15 @@ function assembleSafeV3Playlist<T extends V3PipelineTrack>(
   const ordered = buildFastFallbackPlaylist({
     tracks: source.map((track) => ({
       trackId: track.trackId,
+      trackName: track.trackName ?? "Unknown",
+      artistName: track.artistName,
+      albumName: track.albumName ?? "",
       energy: track.energy,
       valence: track.valence,
-      artistName: track.artistName,
-      score: track.laneScore ?? 0.5,
+      danceability: track.danceability,
+      acousticness: track.acousticness,
+      speechiness: track.speechiness ?? null,
+      score: typeof track.laneScore === "number" ? track.laneScore : 0.5,
     })),
     emotionProfile: profile,
     playlistLength,

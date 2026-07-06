@@ -1,0 +1,26 @@
+# Local PostgreSQL for Kwalify development.
+# Start:  docker compose up -d
+# Stop:   docker compose down
+# Data persists in the kwalify_pg_data volume until you run: docker compose down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kwalify-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: kwalify
+      POSTGRES_PASSWORD: kwalify
+      POSTGRES_DB: kwalify
+    volumes:
+      - kwalify_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kwalify -d kwalify"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  kwalify_pg_data:

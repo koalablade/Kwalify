@@ -65,3 +65,5 @@ diversity-activation-audit.md
 # Local secrets (never commit)
 .env
 .env.local
+kwalify.net.pem
+kwalify.net-key.pem

@@ -85,13 +85,19 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   }
 
   if (!status) {
+    const [liveCountRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(likedSongsTable)
+      .where(eq(likedSongsTable.spotifyUserId, userId));
+    const liveTotalTracks = Number(liveCountRow?.count ?? 0);
     res.json({
       synced: false,
-      totalTracks: 0,
+      totalTracks: liveTotalTracks,
       lastSyncedAt: null,
       isSyncing: activeSyncs.has(userId),
       syncProgress: null,
       syncTotal: null,
+      suggestFullSync: liveTotalTracks > 0,
     });
     return;
   }

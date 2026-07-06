@@ -1,5 +1,12 @@
-import { buildFastFallbackPlaylist, FAST_SCAN_MAX } from "./fast-fallback-playlist";
-import type { EmotionProfile } from "./emotion";
+import { buildFastFallbackPlaylist, FAST_SCAN_MAX, type FastFallbackSceneContext } from "./fast-fallback-playlist";
+import type { EmotionProfile, VibeKind } from "./emotion";
+import type { ScenePrototype } from "./scene-prototypes";
+import type { CanonicalSceneResult } from "./scene-canonicalizer";
+import type { HumanIntent } from "./intent-decoder";
+import { resolveSceneContext } from "./scene-validation";
+import { buildSceneSeasonContext } from "./seasonal-logic";
+import { parsePromptNegatives } from "./prompt-negatives";
+import { resolveContradiction } from "../core/scene-intelligence/contradiction-handler";
 import { buildTrackWhyReasons } from "./track-why-copy";
 import type { GenreAudit } from "./genre-audit";
 import type { BuildPlaylistPipelineResult } from "../core/output";
@@ -28,6 +35,58 @@ function fallbackScoringDebug(trackId: string): TrackScoringDebug {
     genreLocked: false,
     excludedBy: null,
     finalScore: 0.72,
+  };
+}
+
+export function buildFastFallbackSceneContext(opts: {
+  vibe: string;
+  emotionProfile: EmotionProfile;
+  prototype: ScenePrototype | null;
+  canonicalScene: CanonicalSceneResult | null;
+  humanIntent: HumanIntent;
+  vibeKind: VibeKind;
+  emotionalComplexity?: boolean;
+}): FastFallbackSceneContext {
+  const promptNegatives = parsePromptNegatives(opts.vibe);
+  const sceneCtx = resolveSceneContext(opts.vibe, opts.canonicalScene, opts.emotionProfile);
+  const season = buildSceneSeasonContext(opts.vibe);
+  const contradiction = resolveContradiction(opts.vibe, opts.emotionProfile);
+
+  return {
+    vibe: opts.vibe,
+    emotionProfile: opts.emotionProfile,
+    prototype: opts.prototype,
+    promptNegatives,
+    hardFilterCtx: {
+      vibe: opts.vibe,
+      intent: opts.humanIntent,
+      sceneFamily: sceneCtx.primary,
+      season,
+      prototype: opts.prototype,
+      allowContrast: contradiction.active || season.allowContrast,
+      allowEnergyMismatch: 0.35,
+      emotionalComplexity: !!opts.emotionalComplexity,
+      vibeKind: opts.vibeKind,
+      promptNegatives,
+    },
+  };
+}
+
+export function buildCachedGenerateResponse(cached: import("./generate-result-cache").CachedGeneratePayload) {
+  return {
+    success: true,
+    cached: true,
+    tracks: formatTracksForApi(cached.finalTracks, cached.emotionProfile),
+    playlistName: cached.playlistName,
+    name: cached.playlistName,
+    vibe: cached.vibe,
+    mode: cached.mode,
+    count: cached.finalTracks.length,
+    totalTracks: cached.finalTracks.length,
+    emotionProfile: cached.emotionProfile,
+    ...(cached.spotifyPlaylistUrl
+      ? { spotifyPlaylistUrl: cached.spotifyPlaylistUrl }
+      : { spotifyUnavailable: true as const }),
   };
 }
 
@@ -68,6 +127,7 @@ export function buildFallbackPipelineResult<
     sceneAliases?: string[];
     scenePrediction?: Record<string, number>;
   };
+  sceneContext?: FastFallbackSceneContext;
 }): BuildPlaylistPipelineResult<T> {
   const world = resolveWorldBoundary({
     sceneLock: opts.worldFilter?.sceneLock ?? null,
@@ -95,6 +155,7 @@ export function buildFallbackPipelineResult<
     maxPerArtist: opts.maxPerArtist,
     recentTrackPenalty: opts.recentTrackPenalty,
     artistReusePenalty: opts.artistReusePenalty,
+    scene: opts.sceneContext,
   });
   const fbScored: Array<ScoredLibraryTrack<T> & V3TrackMetadata> = fb.map((t) => {
     const genre = opts.genreByTrack?.(t.trackId);

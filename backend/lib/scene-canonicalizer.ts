@@ -5,6 +5,8 @@
 import { detectLayeredScene } from "./emotion-scene-layers";
 import { getPrototype, profileFromPrototype, type ScenePrototype } from "./scene-prototypes";
 import type { EmotionProfile } from "./emotion";
+import { EVERYDAY_CANONICAL_SCENES } from "./scene-canonicalizer-everyday";
+import { VAGUE_CANONICAL_SCENES } from "./scene-canonicalizer-vague";
 
 export interface CanonicalSceneResult {
   sceneId: string;
@@ -240,6 +242,9 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
       "just driving",
     ],
   },
+
+  ...EVERYDAY_CANONICAL_SCENES,
+  ...VAGUE_CANONICAL_SCENES,
 ];
 
 /** Explicit mood ids mapped to canonical scenes. */

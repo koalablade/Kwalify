@@ -258,6 +258,11 @@ export async function runLiveSoakBenchmark(opts: {
       console.warn(
         "[live-soak] WARNING: library may be unsynced or small — expect LIBRARY_EMPTY / INSUFFICIENT_MATCHES"
       );
+      if (sync.totalTracks < 15) {
+        throw new Error(
+          `Library has ${sync.totalTracks} tracks (need ≥15). Log in at kwalify.net, run library sync, then retry soak.`
+        );
+      }
     }
 
     console.log("[live-soak] waiting for idle generate slot (close kwalify.net tabs)...");
