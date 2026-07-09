@@ -368,6 +368,9 @@ const state = {
   error: null,
   errorDetails: null,
   errorKind: null,
+  pendingFailureSessionId: null,
+  libraryInsufficient: null,
+  failurePrompt: null,
   profileOpen: false,
   showDebug: false,
   showExplain: false,
@@ -631,25 +634,43 @@ function renderApp() {
     const diagnostics = state.errorDetails?.generationDiagnostics || null;
     const suggestions = Array.isArray(state.errorDetails?.suggestions) ? state.errorDetails.suggestions : [];
     const isGenerationError = state.errorKind === "generation";
-    const title = isGenerationError ? "Couldn’t finish that exact set." : "Something needs attention.";
+    const isLibraryInsufficient = state.libraryInsufficient?.code === "LIBRARY_INSUFFICIENT_FOR_PROMPT";
+    const title = isLibraryInsufficient
+      ? "Your liked songs aren’t enough for this prompt"
+      : isGenerationError
+        ? "Couldn’t finish that exact set."
+        : "Something needs attention.";
     const fallbackSuggestion = state.errorKind === "status"
       ? "Your playlist may still be fine. Refresh if library counts look stale."
       : state.noLibraryMode
         ? "Try adding a clearer genre, or turn off No Library Mode for mood-only prompts."
         : "Try again in a moment.";
+    const limitingFactors = Array.isArray(state.libraryInsufficient?.limitingFactors)
+      ? state.libraryInsufficient.limitingFactors
+      : [];
     const diagHtml = diagnostics ? `
       <div class="error-diagnostics">
         <span>Library: ${Number(diagnostics.initialLibrarySize || 0).toLocaleString()}</span>
         <span>After filters: ${Number(diagnostics.candidatesAfterConstraints || 0).toLocaleString()}</span>
         <span>Final: ${Number(diagnostics.candidatesFinal || 0).toLocaleString()}</span>
       </div>` : "";
-    return `<div class="alert alert-error">
+    const libraryInsufficientActions = isLibraryInsufficient ? `
+        <div class="error-actions">
+          <button type="button" class="btn btn-sm btn-green" id="tryDiscoveryModeBtn">Try Discovery Mode</button>
+          <button type="button" class="btn btn-sm btn-ghost" id="refinePromptBtn">Refine your prompt</button>
+          <button type="button" class="btn btn-sm btn-ghost" id="dismissLibraryInsufficientBtn">Dismiss</button>
+        </div>
+        <small class="error-hint">Discovery Mode searches all of Spotify — not just your liked songs.</small>
+        ${limitingFactors.length ? `<small class="error-hint">Why: ${esc(limitingFactors.slice(0, 3).join(", ").replace(/_/g, " "))}</small>` : ""}
+      ` : "";
+    return `<div class="alert ${isLibraryInsufficient ? "alert-warn" : "alert-error"}">
         <strong>${esc(title)}</strong>
         <span>${esc(state.error)}</span>
-        ${state.errorDetails?.requestId ? `<small>Reference: ${esc(state.errorDetails.requestId)}</small>` : ""}
-        ${isGenerationError ? `<button type="button" class="btn btn-sm btn-green" id="retryGenerateBtn">Try again</button>` : ""}
+        ${state.errorDetails?.requestId || state.pendingFailureSessionId ? `<small>Reference: ${esc(state.errorDetails?.requestId || state.pendingFailureSessionId)}</small>` : ""}
+        ${libraryInsufficientActions}
+        ${!isLibraryInsufficient && isGenerationError ? `<button type="button" class="btn btn-sm btn-green" id="retryGenerateBtn">Try again</button>` : ""}
         ${diagHtml}
-        ${suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>${esc(fallbackSuggestion)}</small>`}
+        ${!isLibraryInsufficient && (suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>${esc(fallbackSuggestion)}</small>`)}
       </div>`;
   })() : "";
 
@@ -2375,6 +2396,26 @@ function wireAppEvents() {
     state.errorKind = null;
     generate();
   });
+  document.getElementById("tryDiscoveryModeBtn")?.addEventListener("click", () => {
+    state.error = null;
+    state.errorKind = null;
+    generate({ forceDiscoveryMode: true, keepFailureSession: true });
+  });
+  document.getElementById("refinePromptBtn")?.addEventListener("click", () => {
+    state.error = null;
+    state.errorKind = null;
+    state.libraryInsufficient = null;
+    const input = document.getElementById("vibeInput");
+    input?.focus();
+    input?.select();
+  });
+  document.getElementById("dismissLibraryInsufficientBtn")?.addEventListener("click", async () => {
+    await reportFailureOutcome("abandoned");
+    state.error = null;
+    state.errorDetails = null;
+    state.errorKind = null;
+    renderApp();
+  });
   document.getElementById("cancelGenerationBtn")?.addEventListener("click", cancelGeneration);
   document.getElementById("progressDetailsToggle")?.addEventListener("click", () => {
     state.progressExpanded = !state.progressExpanded;
@@ -2730,7 +2771,44 @@ function startGenerationStatusPolling() {
   generationStatusTimer = setTimeout(tick, 75);
 }
 
-async function generate() {
+async function reportFailureOutcome(outcome) {
+  const failureSessionId = state.pendingFailureSessionId;
+  if (!failureSessionId) return;
+  try {
+    await api("/generate/failure-outcome", {
+      method: "POST",
+      body: JSON.stringify({ failureSessionId, outcome }),
+    });
+  } catch {
+    // Outcome telemetry is best-effort.
+  }
+  if (outcome === "abandoned" || outcome === "discovery_rejected") {
+    state.pendingFailureSessionId = null;
+    state.libraryInsufficient = null;
+  }
+}
+
+function clearLibraryInsufficientState() {
+  state.pendingFailureSessionId = null;
+  state.libraryInsufficient = null;
+  state.failurePrompt = null;
+}
+
+function handleLibraryInsufficientResponse(data, prompt) {
+  state.error = data?.error || "Your liked songs can't confidently satisfy this request.";
+  state.errorDetails = data || null;
+  state.errorKind = "generation";
+  state.pendingFailureSessionId = data?.failureSessionId || data?.requestId || null;
+  state.failurePrompt = prompt || null;
+  state.libraryInsufficient = {
+    code: data?.code || data?.reason || "LIBRARY_INSUFFICIENT_FOR_PROMPT",
+    limitingFactors: data?.limitingFactors || data?.libraryCapability?.limitingFactors || [],
+    combinedConfidence: data?.combinedConfidence ?? null,
+    canUseDiscoveryMode: data?.canUseDiscoveryMode === true || data?.suggestDiscoveryMode === true,
+  };
+}
+
+async function generate(opts = {}) {
   const vibeInput = document.getElementById("vibeInput");
   const vibe = vibeInput?.value.trim();
   if (!vibe) { vibeInput?.focus(); return; }
@@ -2762,6 +2840,14 @@ async function generate() {
   state.error = null;
   state.errorDetails = null;
   state.errorKind = null;
+  state.libraryInsufficient = null;
+  if (
+    state.pendingFailureSessionId &&
+    state.failurePrompt &&
+    state.failurePrompt.trim().toLowerCase() !== vibe.toLowerCase()
+  ) {
+    void reportFailureOutcome("abandoned");
+  }
   state.showExplain = false;
   state.progressExpanded = false;
   renderApp();
@@ -2780,15 +2866,22 @@ async function generate() {
         mode: state.mode,
         familiarity: state.familiarity,
         length: state.length,
-        noLibraryMode: state.noLibraryMode,
+        noLibraryMode: opts.forceDiscoveryMode === true ? true : state.noLibraryMode,
         varietyBoost: samePromptRegenerate,
         ...(state.selectedSceneId ? { sceneId: state.selectedSceneId } : {}),
+        ...(state.pendingFailureSessionId ? { failureSessionId: state.pendingFailureSessionId } : {}),
       }),
     });
 
     if (r.status === 401) { window.location.href = "/api/auth/login"; return; }
 
-    if (!r.ok) {
+    const libraryInsufficient =
+      r.data?.code === "LIBRARY_INSUFFICIENT_FOR_PROMPT" ||
+      r.data?.reason === "LIBRARY_INSUFFICIENT_FOR_PROMPT";
+
+    if (libraryInsufficient) {
+      handleLibraryInsufficientResponse(r.data, savedVibe);
+    } else if (!r.ok) {
       if (r.data?.code === "PROMPT_TOO_VAGUE") {
         state.preview = {
           ...state.preview,
@@ -2803,7 +2896,10 @@ async function generate() {
       }
       state.errorDetails = r.data || null;
       state.errorKind = "generation";
+    } else if (r.data?.success === false) {
+      handleLibraryInsufficientResponse(r.data, savedVibe);
     } else {
+      clearLibraryInsufficientState();
       state.lastResult = { ...r.data, savedPlaylistId: r.data.playlistId, shareSlug: r.data.shareSlug };
       await loadPlaylists();
     }

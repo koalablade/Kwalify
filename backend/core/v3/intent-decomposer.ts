@@ -10,6 +10,8 @@
 
 import type { EmotionProfile } from "../../lib/emotion";
 import { parseUserIntent, type UserIntent, type EraBucket } from "../../lib/intent-parser";
+import { buildLockedIntent, type LockedIntent } from "./intent";
+import { expandAdjacentGenreFamilies } from "./constraint-relaxation";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -31,6 +33,28 @@ export interface ContextAnchors {
   motionLevel: number;
 }
 
+export interface ExplicitIntentAnchors {
+  genre: boolean;
+  era: boolean;
+  activityOrScene: boolean;
+  genreFamilies: string[];
+  activity: string | null;
+  eraLabel: string | null;
+}
+
+export interface IntentDecomposerDiagnostics {
+  isCompoundIntent: boolean;
+  explicitAnchors: ExplicitIntentAnchors;
+  influenceForceCount: number;
+  influenceUnclear: boolean;
+  fallbackSuppressed: boolean;
+  fallbackReason:
+    | "compound_anchors_preserve_genre"
+    | "unclear_intent_multi_lane_ensemble"
+    | "clear_influence_map"
+    | "nominal";
+}
+
 export interface DecomposedIntent {
   primary: string;
   secondaryIntents: string[];
@@ -39,6 +63,8 @@ export interface DecomposedIntent {
   contextAnchors: ContextAnchors;
   sceneInfluenceMap: SceneInfluenceMap;
   baseIntent: UserIntent;
+  /** Populated when compound anchors suppress generic unclear fallback. */
+  fallbackRouting?: IntentDecomposerDiagnostics;
 }
 
 // ── Influence force detection ──────────────────────────────────────────────
@@ -350,14 +376,138 @@ function extractMoodTags(baseIntent: UserIntent, influences: SceneInfluenceMap):
   ].filter((tag, idx, arr) => tag && arr.indexOf(tag) === idx).slice(0, 2);
 }
 
+const SCENE_ACTIVITY_PATTERN =
+  /\b(party|club|dance.?floor|festival|pregame|gym|workout|lift(?:ing)?|cardio|drive|driving|night.?drive|commute|study|focus|walk(?:ing)?|run(?:ning)?|beach|road.?trip)\b/i;
+
+/**
+ * Explicit compound anchors from LockedIntent + light scene cues.
+ * Used to suppress rock-biased generic fallback when genre+era+activity are present.
+ */
+export function extractExplicitIntentAnchors(
+  vibe: string,
+  lockedIntent?: LockedIntent | null,
+): ExplicitIntentAnchors {
+  const locked = lockedIntent ?? buildLockedIntent(vibe);
+  const genreFamilies = [...new Set(
+    (locked.genreFamilies ?? [])
+      .map((family) => family.toLowerCase().replace(/\s+/g, "_"))
+      .filter(Boolean),
+  )];
+  const genre = genreFamilies.length > 0 || !!locked.primaryGenre;
+  const era = !!locked.eraRange || (() => {
+    const baseEra = parseUserIntent(normalizeVibe(vibe), {
+      energy: 0.5,
+      valence: 0.5,
+      nostalgia: 0.2,
+      calm: 0.5,
+      tension: 0.3,
+      environment: null,
+      timeOfDay: null,
+      motionState: null,
+    }).era;
+    return baseEra !== "any";
+  })();
+  const activity = locked.activity ?? null;
+  const activityOrScene = !!activity || SCENE_ACTIVITY_PATTERN.test(vibe);
+  const eraLabel = locked.eraRange
+    ? `${locked.eraRange.start}-${locked.eraRange.end}`
+    : null;
+  return {
+    genre,
+    era,
+    activityOrScene,
+    genreFamilies,
+    activity,
+    eraLabel,
+  };
+}
+
+export function isCompoundIntentAnchors(anchors: ExplicitIntentAnchors): boolean {
+  return anchors.genre && anchors.era && anchors.activityOrScene;
+}
+
+/** Influence-map-only unclear check (legacy behaviour). */
+export function isInfluenceMapUnclear(intent: DecomposedIntent): boolean {
+  const forces = Object.keys(intent.sceneInfluenceMap);
+  const topWeight = Math.max(...Object.values(intent.sceneInfluenceMap), 0);
+  // A rich multi-force map (≥4 forces) signals a well-specified intent even when no single
+  // force dominates (e.g. "Indie Summertime Drive" spreads across driving/warmth/hopeful/etc).
+  // The topWeight < 0.35 guard was designed for single-force vibes; it must not penalise
+  // multi-dimensional prompts that have legitimately distributed influence.
+  if (forces.length >= 4) return false;
+  return forces.length < 2 || topWeight < 0.35;
+}
+
+export function buildIntentDecomposerDiagnostics(
+  intent: DecomposedIntent,
+  vibe: string,
+  lockedIntent?: LockedIntent | null,
+): IntentDecomposerDiagnostics {
+  const explicitAnchors = extractExplicitIntentAnchors(vibe, lockedIntent);
+  const isCompoundIntent = isCompoundIntentAnchors(explicitAnchors);
+  const influenceUnclear = isInfluenceMapUnclear(intent);
+  const influenceForceCount = Object.keys(intent.sceneInfluenceMap).length;
+  if (influenceUnclear && isCompoundIntent) {
+    return {
+      isCompoundIntent: true,
+      explicitAnchors,
+      influenceForceCount,
+      influenceUnclear: true,
+      fallbackSuppressed: true,
+      fallbackReason: "compound_anchors_preserve_genre",
+    };
+  }
+  if (influenceUnclear) {
+    return {
+      isCompoundIntent,
+      explicitAnchors,
+      influenceForceCount,
+      influenceUnclear: true,
+      fallbackSuppressed: false,
+      fallbackReason: "unclear_intent_multi_lane_ensemble",
+    };
+  }
+  return {
+    isCompoundIntent,
+    explicitAnchors,
+    influenceForceCount,
+    influenceUnclear: false,
+    fallbackSuppressed: false,
+    fallbackReason: isCompoundIntent ? "clear_influence_map" : "nominal",
+  };
+}
+
+/**
+ * True when generic fallback ensemble should run.
+ * Compound prompts with strong genre+era+activity/scene anchors suppress fallback
+ * even when the influence map is sparse (e.g. only `party`).
+ */
+export function shouldUseFallbackEnsemble(
+  intent: DecomposedIntent,
+  vibe: string,
+  lockedIntent?: LockedIntent | null,
+): boolean {
+  return !buildIntentDecomposerDiagnostics(intent, vibe, lockedIntent).fallbackSuppressed
+    && isInfluenceMapUnclear(intent);
+}
+
+/** Genre families to preserve when compound fallback is suppressed (seed + adjacent). */
+export function compoundPreservedGenreFamilies(
+  vibe: string,
+  lockedIntent?: LockedIntent | null,
+): string[] {
+  const anchors = extractExplicitIntentAnchors(vibe, lockedIntent);
+  if (anchors.genreFamilies.length === 0) return [];
+  return expandAdjacentGenreFamilies(anchors.genreFamilies);
+}
+
 // ── Main decomposer ────────────────────────────────────────────────────────
 
 export function decomposeIntent(vibe: string, profile: EmotionProfile): DecomposedIntent {
   const normalizedVibe = normalizeVibe(vibe);
   const baseIntent = parseUserIntent(normalizedVibe, profile);
   const sceneInfluenceMap = detectInfluenceForces(normalizedVibe);
-
-  return {
+  const intent: DecomposedIntent = {
     primary: extractPrimaryIntent(normalizedVibe),
     secondaryIntents: extractSecondaryIntents(sceneInfluenceMap),
     moodTags: extractMoodTags(baseIntent, sceneInfluenceMap),
@@ -370,16 +520,17 @@ export function decomposeIntent(vibe: string, profile: EmotionProfile): Decompos
     sceneInfluenceMap,
     baseIntent,
   };
+  intent.fallbackRouting = buildIntentDecomposerDiagnostics(intent, normalizedVibe);
+  return intent;
 }
 
-/** Returns true when the intent is ambiguous / under-specified */
+/**
+ * Returns true when the intent is ambiguous / under-specified for fallback routing.
+ * Prefer `shouldUseFallbackEnsemble(intent, vibe, lockedIntent)` when LockedIntent is available.
+ */
 export function isUnclearIntent(intent: DecomposedIntent): boolean {
-  const forces = Object.keys(intent.sceneInfluenceMap);
-  const topWeight = Math.max(...Object.values(intent.sceneInfluenceMap), 0);
-  // A rich multi-force map (≥4 forces) signals a well-specified intent even when no single
-  // force dominates (e.g. "Indie Summertime Drive" spreads across driving/warmth/hopeful/etc).
-  // The topWeight < 0.35 guard was designed for single-force vibes; it must not penalise
-  // multi-dimensional prompts that have legitimately distributed influence.
-  if (forces.length >= 4) return false;
-  return forces.length < 2 || topWeight < 0.35;
+  if (intent.fallbackRouting) {
+    return intent.fallbackRouting.influenceUnclear && !intent.fallbackRouting.fallbackSuppressed;
+  }
+  return isInfluenceMapUnclear(intent);
 }

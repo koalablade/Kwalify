@@ -28,14 +28,24 @@ function openingScore(tracks: PatternScoringTrack[]): number {
   return pattern * 0.55 + plausibility * 0.45;
 }
 
-function hookScore(track: PatternScoringTrack, position: number): number {
+export type OpeningCuratorOpts = {
+  openingSize?: number;
+  activityFitBoost?: (track: PatternScoringTrack, position: number) => number;
+};
+
+function hookScore(
+  track: PatternScoringTrack,
+  position: number,
+  activityFitBoost?: (track: PatternScoringTrack, position: number) => number,
+): number {
   const pop = typeof track.popularity === "number"
     ? Math.max(0, Math.min(1, track.popularity / 100))
     : typeof track.rediscoveryScore === "number"
       ? Math.max(0, Math.min(1, 1 - track.rediscoveryScore))
       : 0.5;
   const hookWeight = position <= 1 ? 0.35 : position <= 2 ? 0.2 : 0.05;
-  return pop * hookWeight;
+  const activity = activityFitBoost ? activityFitBoost(track, position) : 0;
+  return pop * hookWeight + activity;
 }
 
 function openingValid(opening: PatternScoringTrack[]): boolean {
@@ -49,8 +59,14 @@ function openingValid(opening: PatternScoringTrack[]): boolean {
  */
 export function curatePlaylistOpening<T extends PatternScoringTrack>(
   playlist: T[],
-  openingSize = 5,
+  openingSizeOrOpts: number | OpeningCuratorOpts = 5,
 ): OpeningCuratorResult<T> {
+  const opts = typeof openingSizeOrOpts === "number"
+    ? { openingSize: openingSizeOrOpts }
+    : openingSizeOrOpts;
+  const openingSize = opts.openingSize ?? 5;
+  const activityFitBoost = opts.activityFitBoost;
+
   if (playlist.length <= openingSize) {
     const score = openingScore(playlist);
     return { tracks: playlist.slice(), scoreBefore: score, scoreAfter: score, swaps: 0 };
@@ -72,8 +88,8 @@ export function curatePlaylistOpening<T extends PatternScoringTrack>(
         trial[i] = trial[j]!;
         trial[j] = tmp;
         if (!openingValid(trial.slice(0, size))) continue;
-        const before = openingScore(current) + hookScore(current[i]!, i);
-        const after = openingScore(trial) + hookScore(trial[i]!, i);
+        const before = openingScore(current) + hookScore(current[i]!, i, activityFitBoost);
+        const after = openingScore(trial) + hookScore(trial[i]!, i, activityFitBoost);
         if (after > before + 0.008) {
           current = trial;
           swaps += 1;

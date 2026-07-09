@@ -85,10 +85,48 @@ function segmentFitScore<T extends { energy?: number | null; valence?: number | 
   return score;
 }
 
+export type SegmentAssignmentOptions = {
+  /** Keep the first N tracks fixed; segment assignment applies only to the tail. */
+  preservePrefixCount?: number;
+};
+
+function tailSegmentPlan(plan: SegmentPlaylistPlan, tailCount: number): SegmentPlaylistPlan {
+  if (tailCount <= 0 || tailCount >= plan.totalTracks) return plan;
+  let remaining = tailCount;
+  const segments = plan.segments.map((target, index) => {
+    const isLast = index === plan.segments.length - 1;
+    const count = isLast
+      ? remaining
+      : Math.max(1, Math.round(tailCount * (target.trackCount / plan.totalTracks)));
+    remaining -= count;
+    return { ...target, trackCount: Math.max(0, count) };
+  });
+  return { ...plan, segments, totalTracks: tailCount };
+}
+
 export function assignTracksToSegments<T extends { trackId: string; energy?: number | null; valence?: number | null; genreFamily?: string | null }>(
   tracks: T[],
   plan: SegmentPlaylistPlan,
+  options?: SegmentAssignmentOptions,
 ): { ordered: T[]; assignments: SegmentAssignment<T>[] } {
+  const prefixCount = Math.max(0, Math.min(options?.preservePrefixCount ?? 0, tracks.length));
+  if (prefixCount > 0 && tracks.length > prefixCount) {
+    const prefix = tracks.slice(0, prefixCount);
+    const tail = tracks.slice(prefixCount);
+    const tailResult = assignTracksToSegments(tail, tailSegmentPlan(plan, tail.length));
+    return {
+      ordered: [...prefix, ...tailResult.ordered],
+      assignments: [
+        {
+          segmentId: "intro",
+          label: "curated_opening",
+          tracks: prefix,
+        },
+        ...tailResult.assignments,
+      ],
+    };
+  }
+
   const pool = [...tracks];
   const assignments: SegmentAssignment<T>[] = [];
   const ordered: T[] = [];

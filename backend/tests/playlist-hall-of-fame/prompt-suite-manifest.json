@@ -1,0 +1,51 @@
+{
+  "promptSuiteVersion": "1.0.0",
+  "datasetVersion": "1.0.0",
+  "splits": {
+    "training": {
+      "file": "entries.json",
+      "purpose": "Hall of Fame reference bar — inspect failures, but avoid tuning to perfection on these alone",
+      "tuningAllowed": true
+    },
+    "validation": {
+      "file": "validation-prompts.json",
+      "purpose": "Hidden holdout prompts — never optimize directly against these scores",
+      "tuningAllowed": false
+    },
+    "stress": {
+      "file": "stress-prompts.json",
+      "purpose": "Weird real-user phrasing — generalisation and robustness check",
+      "tuningAllowed": false
+    }
+  },
+  "libraryDependency": {
+    "hof_cozy_sunday": "low",
+    "hof_coffee_shop": "low",
+    "hof_late_night": "low",
+    "hof_summer_morning": "low",
+    "hof_study_session": "medium",
+    "hof_sunset_drive": "medium",
+    "hof_road_trip": "medium",
+    "hof_morning_yoga": "medium",
+    "hof_optimistic_commute": "medium",
+    "hof_focus_coding": "high",
+    "hof_gym_boost": "high",
+    "hof_party_pregame": "high",
+    "hof_melancholy_rain": "medium",
+    "hof_after_work": "medium",
+    "hof_rainy_walk": "medium",
+    "val_3am_cant_sleep": "low",
+    "val_sad_but_productive": "medium",
+    "val_dinner_party_background": "medium",
+    "val_post_breakup_not_crying": "medium",
+    "val_winter_walk_no_christmas": "low",
+    "val_focus_without_lyrics": "high",
+    "val_gym_but_not_edm": "high",
+    "stress_vague_vibes": "low",
+    "stress_contradiction_calm_hype": "medium",
+    "stress_niche_genre_combo": "high",
+    "stress_overlong_life_context": "medium",
+    "stress_misspelled_mood": "low",
+    "stress_no_music_words": "low"
+  }
+}

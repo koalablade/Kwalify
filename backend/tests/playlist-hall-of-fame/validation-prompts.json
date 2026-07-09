@@ -1,0 +1,79 @@
+[
+  {
+    "id": "val_3am_cant_sleep",
+    "prompt": "3am and I can't sleep but I don't want sad music",
+    "category": "easy_mood",
+    "expectedIntent": "quiet nocturnal calm without melancholy drift",
+    "difficulty": "medium",
+    "source": "validation_holdout",
+    "notes": "Hidden holdout — emotional constraint without explicit scene vocabulary.",
+    "qualityScore": 0.88,
+    "libraryDependency": "low"
+  },
+  {
+    "id": "val_sad_but_productive",
+    "prompt": "feeling a bit sad but still need to get work done",
+    "category": "functional",
+    "expectedIntent": "gentle focus with restrained sadness, not wallowing",
+    "difficulty": "hard",
+    "source": "validation_holdout",
+    "notes": "Mixed emotion + function — easy to over-index on sad or too upbeat.",
+    "qualityScore": 0.87,
+    "libraryDependency": "medium"
+  },
+  {
+    "id": "val_dinner_party_background",
+    "prompt": "background music for a small dinner party that won't overpower conversation",
+    "category": "functional",
+    "expectedIntent": "warm mid-energy social backdrop, vocal-light",
+    "difficulty": "medium",
+    "source": "validation_holdout",
+    "notes": "Social functional prompt — opening should not grab attention.",
+    "qualityScore": 0.86,
+    "libraryDependency": "medium"
+  },
+  {
+    "id": "val_post_breakup_not_crying",
+    "prompt": "post breakup healing walk — reflective but moving forward",
+    "category": "emotional_specific",
+    "expectedIntent": "bittersweet forward motion, not breakup wallowing",
+    "difficulty": "hard",
+    "source": "validation_holdout",
+    "notes": "Emotional nuance holdout — avoid breakup cliché openers.",
+    "qualityScore": 0.89,
+    "libraryDependency": "medium"
+  },
+  {
+    "id": "val_winter_walk_no_christmas",
+    "prompt": "cold winter evening walk without christmas music",
+    "category": "easy_mood",
+    "expectedIntent": "wintry introspection, explicit negative constraint respected",
+    "difficulty": "medium",
+    "source": "validation_holdout",
+    "notes": "Negative constraint test — christmas leakage is an immediate fail.",
+    "qualityScore": 0.88,
+    "libraryDependency": "low"
+  },
+  {
+    "id": "val_focus_without_lyrics",
+    "prompt": "deep work focus instrumental no lyrics no vocals",
+    "category": "hard_activity",
+    "expectedIntent": "instrumental focus, zero vocal distraction",
+    "difficulty": "hard",
+    "source": "validation_holdout",
+    "notes": "Hard activity holdout — vocal opener is trust-breaking.",
+    "qualityScore": 0.91,
+    "libraryDependency": "high"
+  },
+  {
+    "id": "val_gym_but_not_edm",
+    "prompt": "gym workout high energy but not EDM or techno",
+    "category": "hard_activity",
+    "expectedIntent": "workout drive without four-on-the-floor bait",
+    "difficulty": "hard",
+    "source": "validation_holdout",
+    "notes": "Genre exclusion + activity — tests constraint respect on first attempt.",
+    "qualityScore": 0.9,
+    "libraryDependency": "high"
+  }
+]

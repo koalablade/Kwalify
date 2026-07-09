@@ -67,11 +67,16 @@ import {
 } from "./semantic-scene-engine";
 import {
   buildTrackEmbedding,
-  buildQueryEmbedding,
+  buildIntentConditionedQueryEmbedding,
   buildUserTasteVector,
   cosineSimilarity,
   computeNoveltyScore,
 } from "../shared/embeddings/track-embeddings";
+import {
+  activityHybridMultiplier,
+  resolveActivityProfile,
+  type ActivityProfile,
+} from "./activity-profiles";
 
 const GENRE_FLOOR_STRONG = 0.15;
 
@@ -92,6 +97,12 @@ export interface TrackScoringDebug {
   genreLocked: boolean;
   excludedBy: string | null;
   finalScore: number;
+  embeddingSimilarity?: number;
+  hybridChannelEmbedding?: number;
+  hybridChannelUserTaste?: number;
+  hybridChannelNovelty?: number;
+  hybridChannelEmotion?: number;
+  hybridChannelScene?: number;
 }
 
 export interface HybridScoringContext {
@@ -120,6 +131,10 @@ export interface HybridScoringContext {
    * Intent always dominates — user history never influences the output.
    */
   noLibraryMode?: boolean;
+  /** Functional activity guardrails — focus, study, gym, party pregame */
+  activityProfile?: ActivityProfile | null;
+  /** Adaptive prompt-first weight shift from retrieval orchestrator (0–0.15) */
+  adaptivePromptWeightShift?: number;
 }
 
 export function buildHybridScoringContext(opts: {
@@ -138,6 +153,7 @@ export function buildHybridScoringContext(opts: {
   noLibraryMode?: boolean;
   /** Pre-resolved semantic scene — avoids duplicate resolveSemanticScene() call per generation */
   cachedSemanticResolution?: SemanticSceneResolution;
+  adaptivePromptWeightShift?: number;
 }): HybridScoringContext {
   let prototype = opts.prototype;
   if (!prototype && opts.vibeKind === "sunny") {
@@ -169,6 +185,9 @@ export function buildHybridScoringContext(opts: {
   }
 
   const semanticResolution = opts.cachedSemanticResolution ?? resolveSemanticScene(opts.vibe, opts.profile);
+  const activityProfile = resolveActivityProfile(opts.vibe, {
+    activity: opts.intent.intent === "focus" ? "focus" : null,
+  });
 
   return {
     vibe: opts.vibe,
@@ -189,6 +208,8 @@ export function buildHybridScoringContext(opts: {
     truthAnchors: opts.truthAnchors,
     semanticResolution,
     noLibraryMode: opts.noLibraryMode ?? false,
+    activityProfile,
+    adaptivePromptWeightShift: opts.adaptivePromptWeightShift ?? 0,
     hardFilter: {
       vibe: opts.vibe,
       intent: opts.intent.intent,
@@ -408,9 +429,8 @@ export function computeTriScores(
   // The query embedding is derived from the emotion profile + scene energy target.
   const trackEmbedding = buildTrackEmbedding(track);
   const sceneVector = ctx.semanticResolution.vector;
-  const queryEmbedding = buildQueryEmbedding(ctx.profile, {
+  const queryEmbedding = buildIntentConditionedQueryEmbedding(ctx.profile, sceneVector, {
     energyTarget: sceneVector?.energy.target,
-    // Acoustic scenes (country/folk) → high acousticness; electronic → low
     acousticnessHint: sceneVector
       ? (() => {
           const topGenre = sceneVector.genreEcosystem[0]?.genre ?? "";
@@ -421,7 +441,6 @@ export function computeTriScores(
           return undefined;
         })()
       : undefined,
-    // Instrumental scenes → high instrumentalness
     instrumentalnessHint: sceneVector?.aesthetics.some(
       (a) => a.includes("instrumental") || a.includes("ambient")
     )
@@ -430,9 +449,6 @@ export function computeTriScores(
   });
   const embeddingSimilarity = cosineSimilarity(trackEmbedding, queryEmbedding);
 
-  // ── V11: Novelty hint ────────────────────────────────────────────────────────
-  // noveltyScore from caller (noveltyByTrack) is already in [0, 1].
-  // When a user taste vector is supplied, override with computed audio novelty.
   const noveltyHint = userTasteVector
     ? computeNoveltyScore(trackEmbedding, userTasteVector)
     : Math.max(0.08, noveltyScore);
@@ -456,11 +472,11 @@ export function computeTriScores(
 export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): number {
   // ── V11: 5-channel soft scoring ─────────────────────────────────────────────
   //
-  //   embedding (60%): cosine(trackAudioVector, queryAudioVector) — PRIMARY signal
+  //   embedding (50%): cosine(trackAudioVector, queryAudioVector) — PRIMARY signal
   //   userTaste (15%): library genre affinity
   //   novelty   (10%): distance from user taste centroid
-  //   mood      (10%): energy/valence consistency
-  //   diversity  (5%): multi-scene genre affinity (soft diversity hint only)
+  //   mood      (15%): energy/valence consistency
+  //   diversity (10%): multi-scene genre affinity (soft diversity hint only)
   //
   // All channels are continuous [0, 1]. No binary gates. No track deletion.
   const diversityHint = computeMultiSceneEcosystemScore(
@@ -468,12 +484,24 @@ export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): numb
     ctx.semanticResolution.sceneVector
   );
 
-  const userTasteWeight = ctx.noLibraryMode
+  let userTasteWeight = ctx.noLibraryMode
     ? 0
     : (SCORING_WEIGHTS as Record<string, number>)["userTaste"]!;
-  const semanticWeight = ctx.noLibraryMode
+  let semanticWeight = ctx.noLibraryMode
     ? SCORING_WEIGHTS.semantic + (SCORING_WEIGHTS as Record<string, number>)["userTaste"]!
     : SCORING_WEIGHTS.semantic;
+
+  if (ctx.activityProfile) {
+    const promptBoost = 0.08;
+    userTasteWeight = Math.max(0, userTasteWeight - promptBoost);
+    semanticWeight += promptBoost;
+  }
+
+  if (ctx.adaptivePromptWeightShift && ctx.adaptivePromptWeightShift > 0) {
+    const shift = Math.min(0.15, ctx.adaptivePromptWeightShift);
+    userTasteWeight = Math.max(0, userTasteWeight - shift);
+    semanticWeight += shift;
+  }
 
   let final =
     tri.embeddingSimilarity * semanticWeight +
@@ -488,6 +516,41 @@ export function combineTriScore(tri: TriScores, ctx: HybridScoringContext): numb
   final *= softPenalty;
 
   return Math.max(0, Math.min(1.25, final));
+}
+
+export function hybridChannelContributions(tri: TriScores, ctx: HybridScoringContext): {
+  embedding: number;
+  userTaste: number;
+  novelty: number;
+  emotion: number;
+  scene: number;
+} {
+  const diversityHint = computeMultiSceneEcosystemScore(
+    tri.classification,
+    ctx.semanticResolution.sceneVector,
+  );
+  let userTasteWeight = ctx.noLibraryMode
+    ? 0
+    : (SCORING_WEIGHTS as Record<string, number>)["userTaste"]!;
+  let semanticWeight = ctx.noLibraryMode
+    ? SCORING_WEIGHTS.semantic + (SCORING_WEIGHTS as Record<string, number>)["userTaste"]!
+    : SCORING_WEIGHTS.semantic;
+  if (ctx.activityProfile) {
+    userTasteWeight = Math.max(0, userTasteWeight - 0.08);
+    semanticWeight += 0.08;
+  }
+  if (ctx.adaptivePromptWeightShift && ctx.adaptivePromptWeightShift > 0) {
+    const shift = Math.min(0.15, ctx.adaptivePromptWeightShift);
+    userTasteWeight = Math.max(0, userTasteWeight - shift);
+    semanticWeight += shift;
+  }
+  return {
+    embedding: tri.embeddingSimilarity * semanticWeight,
+    userTaste: tri.libraryFitScore * userTasteWeight,
+    novelty: tri.noveltyHint * (SCORING_WEIGHTS as Record<string, number>)["novelty"]!,
+    emotion: tri.emotionMatch * SCORING_WEIGHTS.emotion,
+    scene: diversityHint * SCORING_WEIGHTS.scene,
+  };
 }
 
 export interface HybridScoreResult<T> {
@@ -562,8 +625,25 @@ export function scoreLibraryHybrid<T extends {
       embeddingSimilarity: embeddingNorm[i] ?? p.tri.embeddingSimilarity,
     };
 
-    const finalScore = combineTriScore(tri, ctx);
+    let finalScore = combineTriScore(tri, ctx);
+    if (ctx.activityProfile) {
+      const c = tri.classification;
+      finalScore *= activityHybridMultiplier(
+        p.track,
+        {
+          genrePrimary: c.genrePrimary,
+          genreFamily: c.genreFamily,
+          primarySubgenre: c.primarySubgenre,
+          secondarySubgenre: c.secondarySubgenre,
+          subGenres: c.subGenres,
+        },
+        ctx.activityProfile,
+        ctx.vibe,
+      );
+      finalScore = Math.max(0, Math.min(1.25, finalScore));
+    }
     const c = tri.classification;
+    const channels = hybridChannelContributions(tri, ctx);
 
     return {
       track: p.track,
@@ -578,7 +658,7 @@ export function scoreLibraryHybrid<T extends {
         emotionMatch: round(tri.emotionMatch),
         genreMatch: round(tri.genreBalanceScore),
         memoryMatch: round(memoryByTrack(p.track.trackId)),
-        noveltyScore: round(noveltyByTrack(p.track.trackId)),
+        noveltyScore: round(tri.noveltyHint),
         seasonalMatch: round(tri.seasonalMatch),
         moodPurity: round(tri.moodPurity),
         genrePrimary: c.genrePrimary,
@@ -586,6 +666,12 @@ export function scoreLibraryHybrid<T extends {
         genreLocked: isGenreLocked(c),
         excludedBy: null,
         finalScore: round(finalScore),
+        embeddingSimilarity: round(tri.embeddingSimilarity),
+        hybridChannelEmbedding: round(channels.embedding),
+        hybridChannelUserTaste: round(channels.userTaste),
+        hybridChannelNovelty: round(channels.novelty),
+        hybridChannelEmotion: round(channels.emotion),
+        hybridChannelScene: round(channels.scene),
       },
     };
   });
@@ -637,8 +723,8 @@ export function buildScoringDiagnostics(
   }
 
   const scoringModel = ctx.noLibraryMode
-    ? "v11_embedding0.75_userTaste0.00_novelty0.10_emotion0.10_scene0.05"
-    : "v11_embedding0.60_userTaste0.15_novelty0.10_emotion0.10_scene0.05";
+    ? "v11_embedding0.75_userTaste0.00_novelty0.10_emotion0.15_scene0.10"
+    : "v11_embedding0.50_userTaste0.15_novelty0.10_emotion0.15_scene0.10";
 
   return {
     sceneFamily: ctx.scene.primary,

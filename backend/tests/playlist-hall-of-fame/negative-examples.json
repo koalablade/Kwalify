@@ -1,0 +1,86 @@
+[
+  {
+    "id": "neg_gym_too_slow",
+    "category": "gym",
+    "failureType": "too_slow",
+    "prompt": "gym confidence boost high energy workout",
+    "description": "Classic gym failure — ballads and slow rock kill momentum.",
+    "tracks": [
+      { "trackName": "Planet Caravan", "artistName": "Black Sabbath", "energy": 0.22, "valence": 0.35, "danceability": 0.28, "acousticness": 0.45 },
+      { "trackName": "Cool Cat", "artistName": "Queen", "energy": 0.38, "valence": 0.42, "danceability": 0.35, "acousticness": 0.4 },
+      { "trackName": "Skinny Love", "artistName": "Bon Iver", "energy": 0.35, "valence": 0.32, "danceability": 0.3, "acousticness": 0.62 },
+      { "trackName": "Holocene", "artistName": "Bon Iver", "energy": 0.38, "valence": 0.4, "danceability": 0.32, "acousticness": 0.58 },
+      { "trackName": "The Night We Met", "artistName": "Lord Huron", "energy": 0.4, "valence": 0.3, "danceability": 0.35, "acousticness": 0.5 }
+    ]
+  },
+  {
+    "id": "neg_gym_wrong_genre",
+    "category": "gym",
+    "failureType": "wrong_genre",
+    "prompt": "gym confidence boost high energy workout",
+    "description": "Acoustic folk on a workout prompt — obvious misfit.",
+    "tracks": [
+      { "trackName": "Banana Pancakes", "artistName": "Jack Johnson", "energy": 0.42, "valence": 0.58, "danceability": 0.48, "acousticness": 0.65 },
+      { "trackName": "Ho Hey", "artistName": "The Lumineers", "energy": 0.48, "valence": 0.55, "danceability": 0.45, "acousticness": 0.6 },
+      { "trackName": "First Day of My Life", "artistName": "Bright Eyes", "energy": 0.4, "valence": 0.52, "danceability": 0.38, "acousticness": 0.68 },
+      { "trackName": "Skinny Love", "artistName": "Bon Iver", "energy": 0.38, "valence": 0.4, "danceability": 0.35, "acousticness": 0.62 },
+      { "trackName": "Stubborn Love", "artistName": "The Lumineers", "energy": 0.46, "valence": 0.54, "danceability": 0.44, "acousticness": 0.58 }
+    ]
+  },
+  {
+    "id": "neg_focus_distracting_vocals",
+    "category": "focus",
+    "failureType": "distracting_vocals",
+    "prompt": "deep focus coding session late evening electronic ambient",
+    "description": "Hype vocals and party energy destroy focus identity.",
+    "tracks": [
+      { "trackName": "Sweet Female Attitude", "artistName": "Conducta", "energy": 0.78, "valence": 0.72, "danceability": 0.82, "acousticness": 0.05 },
+      { "trackName": "Gecko (Overdrive Mix)", "artistName": "Oliver Heldens", "energy": 0.82, "valence": 0.68, "danceability": 0.85, "acousticness": 0.04 },
+      { "trackName": "Turn Down for What", "artistName": "DJ Snake", "energy": 0.88, "valence": 0.65, "danceability": 0.88, "acousticness": 0.04 },
+      { "trackName": "Yeah!", "artistName": "Usher", "energy": 0.85, "valence": 0.75, "danceability": 0.82, "acousticness": 0.05 },
+      { "trackName": "Lose Yourself", "artistName": "Eminem", "energy": 0.85, "valence": 0.55, "danceability": 0.72, "acousticness": 0.1 }
+    ]
+  },
+  {
+    "id": "neg_focus_aggressive_energy",
+    "category": "focus",
+    "failureType": "aggressive_energy",
+    "prompt": "deep focus coding session late evening electronic ambient",
+    "description": "High-energy openers on a low-energy focus prompt.",
+    "tracks": [
+      { "trackName": "Mr. Brightside", "artistName": "The Killers", "energy": 0.78, "valence": 0.65, "danceability": 0.52, "acousticness": 0.08 },
+      { "trackName": "Shut Up and Dance", "artistName": "WALK THE MOON", "energy": 0.82, "valence": 0.78, "danceability": 0.72, "acousticness": 0.06 },
+      { "trackName": "Stronger", "artistName": "Kanye West", "energy": 0.88, "valence": 0.6, "danceability": 0.75, "acousticness": 0.08 },
+      { "trackName": "Titanium", "artistName": "David Guetta", "energy": 0.82, "valence": 0.58, "danceability": 0.78, "acousticness": 0.05 },
+      { "trackName": "Eye of the Tiger", "artistName": "Survivor", "energy": 0.84, "valence": 0.65, "danceability": 0.55, "acousticness": 0.12 }
+    ]
+  },
+  {
+    "id": "neg_party_niche_undanceable",
+    "category": "party",
+    "failureType": "niche_undanceable",
+    "prompt": "pregame playlist before going out with friends tonight",
+    "description": "Indie deep cuts and slow folk — nobody pregames to this.",
+    "tracks": [
+      { "trackName": "Motion Sickness", "artistName": "Phoebe Bridgers", "energy": 0.44, "valence": 0.38, "danceability": 0.4, "acousticness": 0.52 },
+      { "trackName": "Skinny Love", "artistName": "Bon Iver", "energy": 0.38, "valence": 0.36, "danceability": 0.34, "acousticness": 0.62 },
+      { "trackName": "Holocene", "artistName": "Bon Iver", "energy": 0.4, "valence": 0.38, "danceability": 0.36, "acousticness": 0.58 },
+      { "trackName": "The Night We Met", "artistName": "Lord Huron", "energy": 0.42, "valence": 0.35, "danceability": 0.38, "acousticness": 0.5 },
+      { "trackName": "Do I Wanna Know?", "artistName": "Arctic Monkeys", "energy": 0.64, "valence": 0.62, "danceability": 0.58, "acousticness": 0.26 }
+    ]
+  },
+  {
+    "id": "neg_party_low_energy",
+    "category": "party",
+    "failureType": "low_energy",
+    "prompt": "pregame playlist before going out with friends tonight",
+    "description": "Energy too low for a social pregame context.",
+    "tracks": [
+      { "trackName": "Apocalypse", "artistName": "Cigarettes After Sex", "energy": 0.45, "valence": 0.42, "danceability": 0.4, "acousticness": 0.48 },
+      { "trackName": "Space Song", "artistName": "Beach House", "energy": 0.48, "valence": 0.5, "danceability": 0.44, "acousticness": 0.48 },
+      { "trackName": "Intro", "artistName": "The xx", "energy": 0.32, "valence": 0.38, "danceability": 0.35, "acousticness": 0.4 },
+      { "trackName": "Avril 14th", "artistName": "Aphex Twin", "energy": 0.28, "valence": 0.45, "danceability": 0.28, "acousticness": 0.5 },
+      { "trackName": "Weightless", "artistName": "Marconi Union", "energy": 0.25, "valence": 0.4, "danceability": 0.3, "acousticness": 0.45 }
+    ]
+  }
+]

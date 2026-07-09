@@ -18,7 +18,10 @@
  */
 
 import type { EmotionProfile } from "../../lib/emotion";
-import { isUnclearIntent } from "./intent-decomposer";
+import {
+  buildIntentDecomposerDiagnostics,
+  shouldUseFallbackEnsemble,
+} from "./intent-decomposer";
 import { buildLanes } from "./lane-router";
 import { generateAdaptiveLanes } from "./adaptive-lane-generator";
 import { scoreLane, type LaneScoredTrack } from "./lane-scorer";
@@ -921,7 +924,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const noteReliabilityFallback = (name: string): void => {
     recordTraceFallback(opts.pipelineTrace, name);
   };
-  const fallbackTriggered = isUnclearIntent(decomposed);
+  const intentDecomposer = buildIntentDecomposerDiagnostics(decomposed, vibe, lockedIntent);
+  decomposed.fallbackRouting = intentDecomposer;
+  const fallbackTriggered = shouldUseFallbackEnsemble(decomposed, vibe, lockedIntent);
   const healthState = getSystemHealthState();
   const overloaded = healthState === "DEGRADED" || healthState === "CRITICAL";
   if (overloaded) recordTraceFallback(opts.pipelineTrace, `system_health_${healthState.toLowerCase()}`);
@@ -1344,8 +1349,18 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   let generatorDiagnostics: Record<string, unknown> = {};
   stageStartedAt = Date.now();
 
-  const endLaneGenerationProfile = opts.profileStage?.("v3.laneGeneration", fallbackTriggered ? "fallback ensemble" : "adaptive");
-  const laneGeneration = await safeStage({
+  const endLaneGenerationProfile = opts.profileStage?.(
+    "v3.laneGeneration",
+    fallbackTriggered
+      ? "fallback ensemble"
+      : intentDecomposer.fallbackSuppressed
+        ? "compound anchor lanes"
+        : "adaptive",
+  );
+  const laneGeneration = await safeStage<{
+    lanes: ReturnType<typeof buildLanes>;
+    diagnostics: Record<string, unknown>;
+  }>({
     stage: "v3.laneGeneration",
     type: "SYSTEM_FAILURE",
     requestId: opts.requestId,
@@ -1353,8 +1368,25 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     run: () => {
       if (fallbackTriggered || healthState === "CRITICAL") {
         return {
-          lanes: buildLanes(decomposed),
-          diagnostics: { mode: "fallback_ensemble", reason: fallbackTriggered ? "unclear_intent" : "critical_health" },
+          lanes: buildLanes(decomposed, { vibe, lockedIntent }),
+          diagnostics: {
+            mode: "fallback_ensemble",
+            reason: fallbackTriggered ? "unclear_intent" : "critical_health",
+            intentDecomposer,
+          },
+        };
+      }
+      // Compound genre+era+activity prompts: keep standard/adjacent genre lanes
+      // instead of rock-biased unclear fallback or sparse-force adaptive routing.
+      if (intentDecomposer.fallbackSuppressed) {
+        return {
+          lanes: buildLanes(decomposed, { vibe, lockedIntent }),
+          diagnostics: {
+            mode: "compound_anchor_lanes",
+            reason: intentDecomposer.fallbackReason,
+            intentDecomposer,
+            activeLaneTypes: ["core", "emotional", "motion", "contrast"],
+          },
         };
       }
       const genResult = generateAdaptiveLanes(decomposed, {
@@ -1367,13 +1399,18 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         diagnostics: {
           mode: "adaptive",
           activeLaneTypes: genResult.activeLaneTypes,
+          intentDecomposer,
           ...genResult.generatorDiagnostics,
         },
       };
     },
     recover: () => ({
-      lanes: buildLanes(decomposed),
-      diagnostics: { mode: "fallback_ensemble", reason: "lane_generation_failure" },
+      lanes: buildLanes(decomposed, { vibe, lockedIntent }),
+      diagnostics: {
+        mode: intentDecomposer.fallbackSuppressed ? "compound_anchor_lanes" : "fallback_ensemble",
+        reason: "lane_generation_failure",
+        intentDecomposer,
+      },
     }),
   });
   endLaneGenerationProfile?.();
@@ -2597,7 +2634,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         failureTrace: opts.pipelineTrace?.failures ?? [],
         recoveryEvents: opts.pipelineTrace?.recoveryEvents ?? [],
         systemHealth: healthState,
-        activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
+        activePath: fallbackTriggered
+          ? "fallback_ensemble"
+          : intentDecomposer.fallbackSuppressed
+            ? "compound_anchor_lanes"
+            : "adaptive",
         finalDistribution: {
           genres: genreDist,
           eras: eraDist,
@@ -2605,8 +2646,14 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         },
         fallback: {
           triggered: fallbackTriggered,
-          reason: fallbackTriggered ? "unclear_intent_multi_lane_ensemble" : "nominal",
+          reason: fallbackTriggered
+            ? "unclear_intent_multi_lane_ensemble"
+            : intentDecomposer.fallbackSuppressed
+              ? intentDecomposer.fallbackReason
+              : "nominal",
+          intentDecomposer,
         },
+        intentDecomposer,
         humanSaveabilityGate: humanSaveabilityDiagnostics,
         lanes: diagnosticLaneDetails.map((ld) => ({
           laneId: ld.laneId,
@@ -2708,7 +2755,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5),
       ),
-      activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
+      activePath: fallbackTriggered
+        ? "fallback_ensemble"
+        : intentDecomposer.fallbackSuppressed
+          ? "compound_anchor_lanes"
+          : "adaptive",
     },
     laneBreakdown: Object.fromEntries(
       diagnosticLaneDetails.map((ld) => [ld.laneId, Math.round((ld.selectedCount / totalLaneSelected) * 100)]),
@@ -2800,7 +2851,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     failureTrace: opts.pipelineTrace?.failures ?? [],
     recoveryEvents: opts.pipelineTrace?.recoveryEvents ?? [],
     systemHealth: healthState,
-    activePath: fallbackTriggered ? "fallback_ensemble" : "adaptive",
+    activePath: fallbackTriggered
+      ? "fallback_ensemble"
+      : intentDecomposer.fallbackSuppressed
+        ? "compound_anchor_lanes"
+        : "adaptive",
     qualityLock: {
       active: false,
       implemented: false,
@@ -2838,7 +2893,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       sceneInfluenceMap: Object.fromEntries(
         Object.entries(decomposed.sceneInfluenceMap).sort((a, b) => b[1] - a[1]),
       ),
+      intentDecomposer,
     },
+    intentDecomposer,
     adaptiveLaneGenerator: generatorDiagnostics,
     unifiedIntent: unifiedIntentDiagnostics,
     forensicPoolTrace: {
@@ -2912,7 +2969,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     laneContributions: finalLaneContributions,
     fallback: {
       triggered: fallbackTriggered,
-      reason: fallbackTriggered ? "unclear_intent_multi_lane_ensemble" : "nominal",
+      reason: fallbackTriggered
+        ? "unclear_intent_multi_lane_ensemble"
+        : intentDecomposer.fallbackSuppressed
+          ? intentDecomposer.fallbackReason
+          : "nominal",
+      intentDecomposer,
     },
 
     // Cluster layer

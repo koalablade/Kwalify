@@ -1,0 +1,293 @@
+[
+  {
+    "id": "oc2_easy_cozy_sunday_coffee",
+    "prompt": "cozy Sunday morning with coffee",
+    "category": "easy_mood",
+    "expectedBand": "pass",
+    "difficulty": "easy",
+    "referenceId": "cozy_sunday",
+    "expectedIntent": "warm, unhurried, gentle acoustic/indie morning feel"
+  },
+  {
+    "id": "oc2_easy_late_night_drive",
+    "prompt": "late night relaxing drive",
+    "category": "easy_mood",
+    "expectedBand": "pass",
+    "difficulty": "easy",
+    "referenceId": "late_night",
+    "expectedIntent": "nocturnal calm, forward motion without hype"
+  },
+  {
+    "id": "oc2_easy_rainy_reading",
+    "prompt": "rainy evening reading",
+    "category": "easy_mood",
+    "expectedBand": "pass",
+    "difficulty": "easy",
+    "referenceId": "coffee_shop",
+    "expectedIntent": "quiet indoor intimacy, soft indie/folk, low energy"
+  },
+  {
+    "id": "oc2_easy_quiet_evening",
+    "prompt": "quiet evening alone after a long week",
+    "category": "easy_mood",
+    "expectedBand": "pass",
+    "difficulty": "easy",
+    "referenceId": "after_work",
+    "expectedIntent": "decompression, calm not sad, solo wind-down"
+  },
+  {
+    "id": "oc2_easy_summer_garden",
+    "prompt": "summer afternoon in the garden",
+    "category": "easy_mood",
+    "expectedBand": "pass",
+    "difficulty": "easy",
+    "referenceId": "summer_morning",
+    "expectedIntent": "bright warm leisure, feel-good without party energy"
+  },
+  {
+    "id": "oc2_emo_difficult_day",
+    "prompt": "driving home after a difficult day",
+    "category": "emotional_specific",
+    "expectedBand": "mixed",
+    "difficulty": "medium",
+    "referenceId": "after_work",
+    "expectedIntent": "release and reset, not wallowing, driving-home pacing"
+  },
+  {
+    "id": "oc2_emo_missing_someone",
+    "prompt": "missing someone but trying to move on",
+    "category": "emotional_specific",
+    "expectedBand": "mixed",
+    "difficulty": "medium",
+    "referenceId": "melancholy_rain",
+    "expectedIntent": "bittersweet not devastating, forward emotional motion"
+  },
+  {
+    "id": "oc2_emo_nostalgic_memories",
+    "prompt": "nostalgic songs that remind me of old memories",
+    "category": "emotional_specific",
+    "expectedBand": "mixed",
+    "difficulty": "medium",
+    "referenceId": "melancholy_rain",
+    "expectedIntent": "warm nostalgia, memory-evoking, not generic sad playlist"
+  },
+  {
+    "id": "oc2_emo_2am_overthinking",
+    "prompt": "2am overthinking but calming down",
+    "category": "emotional_specific",
+    "expectedBand": "mixed",
+    "difficulty": "medium",
+    "referenceId": "late_night",
+    "expectedIntent": "late-night introspection settling into calm"
+  },
+  {
+    "id": "oc2_emo_feeling_lost",
+    "prompt": "feeling lost and needing a reset",
+    "category": "emotional_specific",
+    "expectedBand": "mixed",
+    "difficulty": "hard",
+    "referenceId": "after_work",
+    "expectedIntent": "grounding reset, hopeful arc, not aimless melancholy"
+  },
+  {
+    "id": "oc2_func_deep_focus_coding",
+    "prompt": "music for deep focus coding",
+    "category": "functional",
+    "expectedBand": "hard",
+    "difficulty": "hard",
+    "referenceId": "focus_coding",
+    "expectedIntent": "low-distraction electronic/ambient, no hype vocals"
+  },
+  {
+    "id": "oc2_func_study_no_distractions",
+    "prompt": "study session, no distractions",
+    "category": "functional",
+    "expectedBand": "hard",
+    "difficulty": "hard",
+    "referenceId": "study_session",
+    "expectedIntent": "steady low-energy focus, minimal vocal pull"
+  },
+  {
+    "id": "oc2_func_gym_motivation",
+    "prompt": "gym workout where I need motivation",
+    "category": "functional",
+    "expectedBand": "hard",
+    "difficulty": "hard",
+    "referenceId": "gym_boost",
+    "expectedIntent": "immediate drive energy, confidence, workout rhythm"
+  },
+  {
+    "id": "oc2_func_getting_ready",
+    "prompt": "getting ready before going out",
+    "category": "functional",
+    "expectedBand": "hard",
+    "difficulty": "hard",
+    "referenceId": "party_pregame",
+    "expectedIntent": "social confidence, recognisable fun energy building"
+  },
+  {
+    "id": "oc2_func_cleaning_productive",
+    "prompt": "cleaning the house and feeling productive",
+    "category": "functional",
+    "expectedBand": "hard",
+    "difficulty": "medium",
+    "referenceId": "optimistic_commute",
+    "expectedIntent": "upbeat momentum without chaos, task-friendly energy"
+  },
+  {
+    "id": "oc2_func_motorway_drive",
+    "prompt": "long motorway drive",
+    "category": "functional",
+    "expectedBand": "hard",
+    "difficulty": "medium",
+    "referenceId": "road_trip",
+    "expectedIntent": "sustained forward motion, singalong optional, no energy cliffs"
+  },
+  {
+    "id": "oc2_gravity_gym_indie_library",
+    "prompt": "make me a gym playlist",
+    "category": "library_gravity",
+    "expectedBand": "hard",
+    "difficulty": "hard",
+    "libraryProfile": {
+      "dominantGenres": ["indie", "alternative", "uk_garage"],
+      "notes": "Library bias fights gym identity"
+    },
+    "offlineSimulatedPlaylist": "neg_gym_wrong_genre",
+    "expectedIntent": "must not open with indie ballads despite library gravity"
+  },
+  {
+    "id": "oc2_gravity_meditation_energetic_library",
+    "prompt": "make me a peaceful meditation playlist",
+    "category": "library_gravity",
+    "expectedBand": "hard",
+    "difficulty": "hard",
+    "libraryProfile": {
+      "dominantGenres": ["electronic", "dance", "pop"],
+      "notes": "Energetic library bias"
+    },
+    "offlineSimulatedPlaylist": "neg_focus_distracting_vocals",
+    "expectedIntent": "calm/peaceful despite energetic library — or honest insufficient signal"
+  },
+  {
+    "id": "oc2_gravity_party_sad_library",
+    "prompt": "make me a party playlist",
+    "category": "library_gravity",
+    "expectedBand": "hard",
+    "difficulty": "hard",
+    "libraryProfile": {
+      "dominantGenres": ["indie", "folk", "singer_songwriter"],
+      "notes": "Sad/emotional library bias"
+    },
+    "offlineSimulatedPlaylist": "neg_party_niche_undanceable",
+    "expectedIntent": "social fun energy despite sad library favorites"
+  },
+  {
+    "id": "oc2_human_road_trip_friends",
+    "prompt": "playlist for a road trip with friends",
+    "category": "human_curator",
+    "expectedBand": "very_hard",
+    "difficulty": "hard",
+    "referenceId": "road_trip",
+    "expectedIntent": "communal singalong energy, shared adventure from track 1"
+  },
+  {
+    "id": "oc2_human_first_date",
+    "prompt": "playlist for a first date",
+    "category": "human_curator",
+    "expectedBand": "very_hard",
+    "difficulty": "hard",
+    "referenceId": "coffee_shop",
+    "expectedIntent": "warm approachable charm, not try-hard or awkward"
+  },
+  {
+    "id": "oc2_human_end_of_summer",
+    "prompt": "songs that feel like the end of summer",
+    "category": "human_curator",
+    "expectedBand": "very_hard",
+    "difficulty": "hard",
+    "referenceId": "summer_morning",
+    "expectedIntent": "bittersweet seasonal feeling, not generic pop summer"
+  },
+  {
+    "id": "oc2_human_sunset",
+    "prompt": "music for watching the sunset",
+    "category": "human_curator",
+    "expectedBand": "very_hard",
+    "difficulty": "medium",
+    "referenceId": "sunset_drive",
+    "expectedIntent": "golden-hour stillness with emotional pull"
+  },
+  {
+    "id": "oc2_human_rainy_london",
+    "prompt": "songs for a rainy night in London",
+    "category": "human_curator",
+    "expectedBand": "very_hard",
+    "difficulty": "hard",
+    "referenceId": "rainy_walk",
+    "expectedIntent": "place-specific mood, urban rain intimacy"
+  },
+  {
+    "id": "oc2_human_midnight_walk",
+    "prompt": "walking home alone at midnight",
+    "category": "human_curator",
+    "expectedBand": "very_hard",
+    "difficulty": "hard",
+    "referenceId": "late_night",
+    "expectedIntent": "solo nocturnal safety and feeling, not club energy"
+  },
+  {
+    "id": "oc2_adv_movie_feeling",
+    "prompt": "make me feel like I'm in a movie",
+    "category": "adversarial",
+    "expectedBand": "fail",
+    "difficulty": "hard",
+    "referenceId": null,
+    "expectedIntent": "cinematic sweep without becoming random cinematic clichés"
+  },
+  {
+    "id": "oc2_adv_main_character",
+    "prompt": "main character energy",
+    "category": "adversarial",
+    "expectedBand": "fail",
+    "difficulty": "hard",
+    "referenceId": null,
+    "expectedIntent": "confident self-narrative without meme-tier randomness"
+  },
+  {
+    "id": "oc2_adv_villain_arc",
+    "prompt": "villain arc",
+    "category": "adversarial",
+    "expectedBand": "fail",
+    "difficulty": "hard",
+    "referenceId": null,
+    "expectedIntent": "dark confidence without joke playlist energy"
+  },
+  {
+    "id": "oc2_adv_party_entrance",
+    "prompt": "walking into a party like I own the place",
+    "category": "adversarial",
+    "expectedBand": "fail",
+    "difficulty": "hard",
+    "referenceId": "party_pregame",
+    "expectedIntent": "peak social confidence opener, not underground deep cut"
+  },
+  {
+    "id": "oc2_adv_crying_rain_happy",
+    "prompt": "crying in the rain but secretly happy",
+    "category": "adversarial",
+    "expectedBand": "fail",
+    "difficulty": "hard",
+    "referenceId": "melancholy_rain",
+    "expectedIntent": "contradictory emotion handled with nuance"
+  },
+  {
+    "id": "oc2_adv_cyberpunk_nostalgia",
+    "prompt": "nostalgic futuristic cyberpunk evening",
+    "category": "adversarial",
+    "expectedBand": "fail",
+    "difficulty": "hard",
+    "referenceId": null,
+    "expectedIntent": "specific aesthetic fusion, not generic synthwave"
+  }
+]

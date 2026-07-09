@@ -30,6 +30,7 @@ import { enrichTrackSemanticProfile } from "../lib/track-semantic-enrichment";
 import { SEMANTIC_ENRICHMENT_VERSION } from "../lib/track-semantic-types";
 import { enrichLibrarySemanticProfiles } from "../lib/semantic-enrichment-pipeline";
 import { backfillAudioFeaturesForUser } from "../lib/audio-feature-backfill-job";
+import { inferMetadataAudioFeatures } from "../lib/metadata-audio-feature-inference";
 import { recordSyncFailure } from "../lib/ops-metrics";
 import { invalidateSemanticProfileCache } from "../lib/semantic-profile-store";
 import { getFeatures } from "../lib/env";
@@ -351,8 +352,8 @@ export async function runSync(
 
     const allFeatures =
       idsNeedingFeatures.length > 0
-        ? await fetchAudioFeatures(ccToken ?? accessToken, idsNeedingFeatures, {
-            fallbackToken: accessToken,
+        ? await fetchAudioFeatures(accessToken, idsNeedingFeatures, {
+            fallbackToken: ccToken,
             userKey: userId,
           })
         : [];
@@ -398,7 +399,20 @@ export async function runSync(
       }
       for (const track of newTracks) {
         const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
-        const features = featuresMap.get(track.id);
+        let features = featuresMap.get(track.id);
+        if (!features) {
+          features = inferMetadataAudioFeatures({
+            trackId: enriched.id,
+            trackName: enriched.name,
+            artistName: enriched.artists[0]?.name ?? "Unknown",
+            albumName: enriched.album.name,
+            spotifyArtistGenres: enriched.spotifyArtistGenres,
+            albumGenres: enriched.albumGenres,
+            popularity: enriched.popularity ?? null,
+            durationMs: enriched.duration_ms,
+          });
+          featuresMap.set(track.id, features);
+        }
         const artistIds = enriched.artists.map((artist) => artist.id).filter((id): id is string => !!id);
         const semanticInput = {
           trackId: enriched.id,

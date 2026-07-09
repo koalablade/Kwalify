@@ -1308,7 +1308,8 @@ interface RefineSongInput extends SongFeatures {
 export function refineSongScore(
   baseScore: number,
   song: RefineSongInput,
-  profile: EmotionProfile
+  profile: EmotionProfile,
+  opts?: { moodAdjustScale?: number },
 ): number {
   let s = baseScore;
   const e = song.energy ?? 0.5;
@@ -1352,7 +1353,9 @@ export function refineSongScore(
     if (v >= 0.65 && d >= 0.5) s += 0.03;
   }
 
-  return clamp(s);
+  const scale = opts?.moodAdjustScale ?? 1;
+  if (scale === 1) return clamp(s);
+  return clamp(baseScore + (s - baseScore) * scale);
 }
 
 /** Hard gate: sunny vibes should not surface clearly sad/low-valence tracks. */

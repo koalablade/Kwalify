@@ -101,6 +101,9 @@ export function computeRediscoveryScore(input: RediscoveryScoreInput): number {
   return Math.max(0, Math.min(1, score));
 }
 
+/** Max additive rediscovery boost on top of hybrid base (forensics: uncapped stack dominated gym repeats). */
+export const MAX_REDISCOVERY_SCORE_BOOST = 0.15;
+
 /** Additive boost blended with emotion fit — never overrides a bad match. */
 export function rediscoveryScoreBoost(
   rediscoveryScore: number,
@@ -114,5 +117,6 @@ export function rediscoveryScoreBoost(
         ? 0.55
         : 0.48;
 
-  return rediscoveryScore * emotionFit * modeWeight * 0.28;
+  const raw = rediscoveryScore * emotionFit * modeWeight * 0.28;
+  return Math.min(MAX_REDISCOVERY_SCORE_BOOST, raw);
 }

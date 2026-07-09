@@ -555,7 +555,19 @@ p { margin: 0; }
   line-height: 1.5;
 }
 .alert-error { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; }
+.alert-warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.22); color: #fcd34d; }
 .alert-success { background: rgba(29,185,84,0.08); border: 1px solid rgba(29,185,84,0.2); color: #6ee7b7; }
+.error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+.error-hint {
+  display: block;
+  margin-top: 6px;
+  opacity: 0.85;
+}
 .error-diagnostics {
   display: flex;
   flex-wrap: wrap;

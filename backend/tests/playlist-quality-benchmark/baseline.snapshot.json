@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-06T23:44:03.514Z",
+  "description": "Captured from offline run",
+  "metrics": {
+    "humanPreferenceWinRate": 0.5333333333333333,
+    "humanPreferenceTieRate": 0,
+    "openingPassRate": 1,
+    "activityAccuracy": 0,
+    "avgSaveLikelihood": 0.7656326555517998,
+    "firstAttemptSuccessRate": 1,
+    "negativeObviousFailureRate": 0,
+    "goldenPromptsPassed": 59,
+    "goldenPromptsFailed": 0,
+    "hrpsAvgImprovement": null,
+    "byCategory": {
+      "easy_mood": {
+        "count": 4,
+        "humanPreferenceWinRate": 0.75,
+        "openingPassRate": 1,
+        "firstAttemptSuccessRate": 1,
+        "avgSaveLikelihood": 0.7785628565369751,
+        "negativeFailureRate": 0
+      },
+      "functional": {
+        "count": 5,
+        "humanPreferenceWinRate": 0.2,
+        "openingPassRate": 1,
+        "firstAttemptSuccessRate": 1,
+        "avgSaveLikelihood": 0.7574336265237512,
+        "negativeFailureRate": 0
+      },
+      "hard_activity": {
+        "count": 3,
+        "humanPreferenceWinRate": 0.6666666666666666,
+        "openingPassRate": 1,
+        "firstAttemptSuccessRate": 1,
+        "avgSaveLikelihood": 0.7864335423744198,
+        "negativeFailureRate": 0
+      },
+      "emotional_specific": {
+        "count": 3,
+        "humanPreferenceWinRate": 0.6666666666666666,
+        "openingPassRate": 1,
+        "firstAttemptSuccessRate": 1,
+        "avgSaveLikelihood": 0.741256549129027,
+        "negativeFailureRate": 0
+      }
+    }
+  }
+}

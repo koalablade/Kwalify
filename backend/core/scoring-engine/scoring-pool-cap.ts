@@ -18,6 +18,8 @@ import {
 import {
   MINIMAL_GENRE_STACK_THRESHOLD,
   resolveHybridPoolCap,
+  LARGE_LIBRARY_THRESHOLD,
+  HYBRID_POOL_ABSOLUTE_MAX,
 } from "../../lib/production-limits";
 import type { SemanticSceneVector } from "../../lib/semantic-scene-engine";
 import {
@@ -259,7 +261,7 @@ export function capTracksForHybridScoring<T extends {
 } {
   const originalCount = tracks.length;
   const libSize = opts.librarySize ?? originalCount;
-  const max =
+  let max =
     opts.maxTracks ??
     resolveHybridPoolCap(libSize, {
       referencePlaylist: opts.referencePlaylist,
@@ -280,7 +282,12 @@ export function capTracksForHybridScoring<T extends {
   const adjacencyLevelUsed: 0 | 1 | 2 | 3 = 0;
   const explicitFamilies = explicitGenreFamilies(opts.vibe);
   const explicitEra = explicitEraRange(opts.vibe);
+  const compoundPrompt = explicitFamilies.size > 0 && !!explicitEra;
   const technoIdentityActive = hasTechnoIdentityPrompt(opts.vibe);
+
+  if (compoundPrompt && libSize > LARGE_LIBRARY_THRESHOLD) {
+    max = Math.min(HYBRID_POOL_ABSOLUTE_MAX, max + 200);
+  }
 
   if (workingTracks.length <= max) {
     return {
@@ -360,13 +367,25 @@ export function capTracksForHybridScoring<T extends {
       matchesExplicitFamily(opts.classifications.get(item.t.trackId), explicitFamilies)
     );
     const reserveTarget = explicitRanked.length > 0
-      ? Math.min(explicitRanked.length, Math.max(24, Math.floor(max * 0.35)))
+      ? Math.min(
+        explicitRanked.length,
+        Math.max(
+          explicitFamilies.size > 0 && explicitEra ? 56 : 24,
+          Math.floor(max * (explicitFamilies.size > 0 && explicitEra ? 0.40 : 0.35)),
+        ),
+      )
       : 0;
     const eraRanked = explicitEra
       ? ranked.filter((item) => matchesExplicitEra(item.t, explicitEra))
       : [];
     const eraReserveTarget = eraRanked.length > 0
-      ? Math.min(eraRanked.length, Math.max(12, Math.floor(max * 0.20)))
+      ? Math.min(
+        eraRanked.length,
+        Math.max(
+          explicitFamilies.size > 0 && explicitEra ? 48 : 12,
+          Math.floor(max * (explicitFamilies.size > 0 && explicitEra ? 0.35 : 0.20)),
+        ),
+      )
       : 0;
     const picked: T[] = [];
     const seen = new Set<string>();

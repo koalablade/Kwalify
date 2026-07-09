@@ -1,0 +1,2261 @@
+{
+  "metadata": {
+    "id": "opening-curator-v2-locked-benchmark-2026-07-07T00-25-35-789Z-c1b56c",
+    "name": "^opening^ curator^ v2^ locked^ benchmark^",
+    "gitCommit": "b83825bc4275645bfcdd77a6025901398e8bd318",
+    "gitBranch": "main",
+    "gitDirty": true,
+    "appVersion": "1.0.0",
+    "runAt": "2026-07-07T00:25:35.789Z",
+    "mode": "offline",
+    "configurationFlags": {},
+    "promptSuiteVersion": "1.0.0",
+    "datasetVersion": "1.0.0",
+    "suite": "all"
+  },
+  "suites": [
+    {
+      "suite": "training",
+      "tuningAllowed": true,
+      "metrics": {
+        "humanPreferenceWinRate": 0.5333333333333333,
+        "humanPreferenceTieRate": 0,
+        "openingPassRate": 1,
+        "activityAccuracy": 0,
+        "avgSaveLikelihood": 0.7656326555517998,
+        "firstAttemptSuccessRate": 1,
+        "regenerationRate": 0,
+        "abandonmentRate": 0,
+        "libraryInsufficientRate": 0,
+        "negativeObviousFailureRate": 0,
+        "goldenPromptsPassed": 59,
+        "goldenPromptsFailed": 0,
+        "hrpsAvgImprovement": null,
+        "avgReplayProxyScore": 0.8651333333333332,
+        "avgSkipRiskScore": 0.14400000000000002,
+        "avgSaveProxyScore": 0.7241333333333333,
+        "avgContinueListeningScore": 0.8917333333333334,
+        "byCategory": {
+          "easy_mood": {
+            "count": 4,
+            "humanPreferenceWinRate": 0.75,
+            "openingPassRate": 1,
+            "firstAttemptSuccessRate": 1,
+            "avgSaveLikelihood": 0.7785628565369751,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": 0.8440000000000001,
+            "avgSkipRiskScore": 0.2425,
+            "avgSaveProxyScore": 0.7262500000000001
+          },
+          "functional": {
+            "count": 5,
+            "humanPreferenceWinRate": 0.2,
+            "openingPassRate": 1,
+            "firstAttemptSuccessRate": 1,
+            "avgSaveLikelihood": 0.7574336265237512,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": 0.8936,
+            "avgSkipRiskScore": 0.044,
+            "avgSaveProxyScore": 0.7212000000000001
+          },
+          "hard_activity": {
+            "count": 3,
+            "humanPreferenceWinRate": 0.6666666666666666,
+            "openingPassRate": 1,
+            "firstAttemptSuccessRate": 1,
+            "avgSaveLikelihood": 0.7864335423744198,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": 0.8250000000000001,
+            "avgSkipRiskScore": 0.25,
+            "avgSaveProxyScore": 0.7326666666666667
+          },
+          "emotional_specific": {
+            "count": 3,
+            "humanPreferenceWinRate": 0.6666666666666666,
+            "openingPassRate": 1,
+            "firstAttemptSuccessRate": 1,
+            "avgSaveLikelihood": 0.741256549129027,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": 0.8860000000000001,
+            "avgSkipRiskScore": 0.07333333333333333,
+            "avgSaveProxyScore": 0.7176666666666667
+          }
+        },
+        "byLibraryDependency": {
+          "low": {
+            "count": 4,
+            "humanPreferenceWinRate": 0.75,
+            "openingPassRate": 1,
+            "firstAttemptSuccessRate": 1,
+            "avgSaveLikelihood": 0.7785628565369751,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": 0.8440000000000001,
+            "avgSkipRiskScore": 0.2425,
+            "avgSaveProxyScore": 0.7262500000000001
+          },
+          "medium": {
+            "count": 8,
+            "humanPreferenceWinRate": 0.375,
+            "openingPassRate": 1,
+            "firstAttemptSuccessRate": 1,
+            "avgSaveLikelihood": 0.7513672225007297,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": 0.89075,
+            "avgSkipRiskScore": 0.055,
+            "avgSaveProxyScore": 0.719875
+          },
+          "high": {
+            "count": 3,
+            "humanPreferenceWinRate": 0.6666666666666666,
+            "openingPassRate": 1,
+            "firstAttemptSuccessRate": 1,
+            "avgSaveLikelihood": 0.7864335423744198,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": 0.8250000000000001,
+            "avgSkipRiskScore": 0.25,
+            "avgSaveProxyScore": 0.7326666666666667
+          }
+        }
+      },
+      "comparison": {
+        "baselineDescription": "Captured from offline run",
+        "baselineGeneratedAt": "2026-07-06T23:44:03.514Z",
+        "deltas": {
+          "humanPreferenceWinRate": 0,
+          "openingPassRate": 0,
+          "firstAttemptSuccessRate": 0,
+          "avgSaveLikelihood": 0,
+          "negativeObviousFailureRate": 0
+        },
+        "improvements": [],
+        "regressions": [],
+        "hardActivityRegressed": false,
+        "regressionPassed": true,
+        "regressionFlags": []
+      },
+      "recommendation": "HOLD",
+      "results": [
+        {
+          "entryId": "hof_cozy_sunday",
+          "prompt": "soft happy Sunday afternoon with light emotional warmth",
+          "category": "easy_mood",
+          "difficulty": "easy",
+          "suite": "training",
+          "libraryDependency": "low",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 10,
+          "blindPairwise": {
+            "winner": "kwalify",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.286"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 7,
+            "humanWouldSave": 0.7604635210796531,
+            "kwalifyWouldSave": 0.7604635210796531
+          },
+          "openingFive": {
+            "score": 79,
+            "pass": true,
+            "identityImmediate": 0.83,
+            "continueListening": 0.76,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.7,
+            "weightedScore": 0.79,
+            "issues": [],
+            "openerText": "Feist — feist-1234-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_cozy_sunday",
+            "prompt": "soft happy Sunday afternoon with light emotional warmth",
+            "category": "easy_mood",
+            "difficulty": "easy",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7604635210796531,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.881,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.925,
+              "earlyEnergyMismatch": 0.014,
+              "genreShock": 0.24,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.93,
+              "openingIdentity": 0.925,
+              "consistency": 0.934,
+              "progression": 0.963,
+              "variety": 0.88,
+              "endingSatisfaction": 0.945
+            },
+            "saveProxy": {
+              "score": 0.737,
+              "intentMatch": 0.76,
+              "replayUsefulness": 0.933,
+              "playlistIdentity": 0.929,
+              "emotionalMemorability": 0.217
+            },
+            "replayProxyScore": 0.907,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.737,
+            "continueListeningScore": 0.93,
+            "trackCount": 10
+          }
+        },
+        {
+          "entryId": "hof_coffee_shop",
+          "prompt": "lazy Saturday coffee shop reading with indie folk vibes",
+          "category": "easy_mood",
+          "difficulty": "easy",
+          "suite": "training",
+          "libraryDependency": "low",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "human",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.290"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 8,
+            "humanWouldSave": 0.8044979899761483,
+            "kwalifyWouldSave": 0.8044979899761483
+          },
+          "openingFive": {
+            "score": 80,
+            "pass": true,
+            "identityImmediate": 0.8,
+            "continueListening": 0.8,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.7,
+            "weightedScore": 0.8,
+            "issues": [],
+            "openerText": "Jack Johnson — jack-johnson-banana-pancakes-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_coffee_shop",
+            "prompt": "lazy Saturday coffee shop reading with indie folk vibes",
+            "category": "easy_mood",
+            "difficulty": "easy",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.8044979899761483,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.949,
+              "firstTrackFit": 0.968,
+              "firstFiveCoherence": 0.893,
+              "earlyEnergyMismatch": 0.014,
+              "genreShock": 0,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0.22,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.887,
+              "openingIdentity": 0.893,
+              "consistency": 0.893,
+              "progression": 0.916,
+              "variety": 0.825,
+              "endingSatisfaction": 0.893
+            },
+            "saveProxy": {
+              "score": 0.745,
+              "intentMatch": 0.804,
+              "replayUsefulness": 0.889,
+              "playlistIdentity": 0.893,
+              "emotionalMemorability": 0.291
+            },
+            "replayProxyScore": 0.918,
+            "skipRiskScore": 0.22,
+            "saveProxyScore": 0.745,
+            "continueListeningScore": 0.887,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_late_night",
+          "prompt": "late night feeling",
+          "category": "easy_mood",
+          "difficulty": "easy",
+          "suite": "training",
+          "libraryDependency": "low",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "kwalify",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.288"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 9,
+            "humanWouldSave": 0.798063938265451,
+            "kwalifyWouldSave": 0.798063938265451
+          },
+          "openingFive": {
+            "score": 80,
+            "pass": true,
+            "identityImmediate": 0.79,
+            "continueListening": 0.8,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.72,
+            "weightedScore": 0.8,
+            "issues": [],
+            "openerText": "Kavinsky — kavinsky-nightcall-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_late_night",
+            "prompt": "late night feeling",
+            "category": "easy_mood",
+            "difficulty": "easy",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.798063938265451,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.886,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.882,
+              "earlyEnergyMismatch": 0.116,
+              "genreShock": 0,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.882,
+              "openingIdentity": 0.882,
+              "consistency": 0.882,
+              "progression": 0.851,
+              "variety": 0.92,
+              "endingSatisfaction": 0.882
+            },
+            "saveProxy": {
+              "score": 0.727,
+              "intentMatch": 0.798,
+              "replayUsefulness": 0.882,
+              "playlistIdentity": 0.882,
+              "emotionalMemorability": 0.235
+            },
+            "replayProxyScore": 0.895,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.727,
+            "continueListeningScore": 0.882,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_study_session",
+          "prompt": "music for thinking and study session focus",
+          "category": "functional",
+          "difficulty": "medium",
+          "suite": "training",
+          "libraryDependency": "medium",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "human",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.259"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 10,
+            "humanWouldSave": 0.703758768478882,
+            "kwalifyWouldSave": 0.703758768478882
+          },
+          "openingFive": {
+            "score": 75,
+            "pass": true,
+            "identityImmediate": 0.74,
+            "continueListening": 0.7,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.68,
+            "weightedScore": 0.75,
+            "issues": [],
+            "openerText": "Marconi Union — marconi-union-weightless-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_study_session",
+            "prompt": "music for thinking and study session focus",
+            "category": "functional",
+            "difficulty": "medium",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.703758768478882,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.843,
+              "firstTrackFit": 0.856,
+              "firstFiveCoherence": 0.822,
+              "earlyEnergyMismatch": 0.06,
+              "genreShock": 0.24,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0.22,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.823,
+              "openingIdentity": 0.822,
+              "consistency": 0.822,
+              "progression": 0.888,
+              "variety": 0.745,
+              "endingSatisfaction": 0.822
+            },
+            "saveProxy": {
+              "score": 0.666,
+              "intentMatch": 0.704,
+              "replayUsefulness": 0.823,
+              "playlistIdentity": 0.822,
+              "emotionalMemorability": 0.221
+            },
+            "replayProxyScore": 0.859,
+            "skipRiskScore": 0.22,
+            "saveProxyScore": 0.666,
+            "continueListeningScore": 0.823,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_sunset_drive",
+          "prompt": "driving at sunset with open windows and golden light",
+          "category": "functional",
+          "difficulty": "medium",
+          "suite": "training",
+          "libraryDependency": "medium",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 10,
+          "blindPairwise": {
+            "winner": "kwalify",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.302"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 11,
+            "humanWouldSave": 0.8321508445452037,
+            "kwalifyWouldSave": 0.8321508445452037
+          },
+          "openingFive": {
+            "score": 82,
+            "pass": true,
+            "identityImmediate": 0.84,
+            "continueListening": 0.83,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.72,
+            "weightedScore": 0.82,
+            "issues": [],
+            "openerText": "Khruangbin — khruangbin-time-(you-and-i)-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_sunset_drive",
+            "prompt": "driving at sunset with open windows and golden light",
+            "category": "functional",
+            "difficulty": "medium",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.8321508445452037,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.92,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.931,
+              "earlyEnergyMismatch": 0.007,
+              "genreShock": 0,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.906,
+              "openingIdentity": 0.931,
+              "consistency": 0.931,
+              "progression": 0.936,
+              "variety": 0.76,
+              "endingSatisfaction": 0.931
+            },
+            "saveProxy": {
+              "score": 0.757,
+              "intentMatch": 0.832,
+              "replayUsefulness": 0.915,
+              "playlistIdentity": 0.931,
+              "emotionalMemorability": 0.228
+            },
+            "replayProxyScore": 0.916,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.757,
+            "continueListeningScore": 0.906,
+            "trackCount": 10
+          }
+        },
+        {
+          "entryId": "hof_road_trip",
+          "prompt": "windows-down road trip singalong energy",
+          "category": "functional",
+          "difficulty": "medium",
+          "suite": "training",
+          "libraryDependency": "medium",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "human",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.278"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 12,
+            "humanWouldSave": 0.7433150820350278,
+            "kwalifyWouldSave": 0.7433150820350278
+          },
+          "openingFive": {
+            "score": 79,
+            "pass": true,
+            "identityImmediate": 0.82,
+            "continueListening": 0.74,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.71,
+            "weightedScore": 0.79,
+            "issues": [],
+            "openerText": "The Killers — the-killers-mr.-brightside-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_road_trip",
+            "prompt": "windows-down road trip singalong energy",
+            "category": "functional",
+            "difficulty": "medium",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7433150820350278,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.857,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.907,
+              "earlyEnergyMismatch": 0.007,
+              "genreShock": 0.36,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.907,
+              "openingIdentity": 0.907,
+              "consistency": 0.907,
+              "progression": 0.895,
+              "variety": 0.92,
+              "endingSatisfaction": 0.907
+            },
+            "saveProxy": {
+              "score": 0.725,
+              "intentMatch": 0.743,
+              "replayUsefulness": 0.907,
+              "playlistIdentity": 0.907,
+              "emotionalMemorability": 0.243
+            },
+            "replayProxyScore": 0.893,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.725,
+            "continueListeningScore": 0.907,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_focus_coding",
+          "prompt": "deep focus coding session late evening electronic ambient",
+          "category": "hard_activity",
+          "difficulty": "hard",
+          "suite": "training",
+          "libraryDependency": "high",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "human",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.268"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 13,
+            "humanWouldSave": 0.7497367023119168,
+            "kwalifyWouldSave": 0.7497367023119166
+          },
+          "openingFive": {
+            "score": 75,
+            "pass": true,
+            "identityImmediate": 0.73,
+            "continueListening": 0.75,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.65,
+            "weightedScore": 0.75,
+            "issues": [],
+            "openerText": "Aphex Twin — aphex-twin-avril-14th-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_focus_coding",
+            "prompt": "deep focus coding session late evening electronic ambient",
+            "category": "hard_activity",
+            "difficulty": "hard",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7497367023119166,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.895,
+              "firstTrackFit": 0.904,
+              "firstFiveCoherence": 0.812,
+              "earlyEnergyMismatch": 0.035,
+              "genreShock": 0,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0.75,
+              "firstThreeSkipRisk": 0.75,
+              "flags": [
+                "artist_repetition"
+              ]
+            },
+            "continueListening": {
+              "score": 0.815,
+              "openingIdentity": 0.812,
+              "consistency": 0.812,
+              "progression": 0.888,
+              "variety": 0.745,
+              "endingSatisfaction": 0.812
+            },
+            "saveProxy": {
+              "score": 0.676,
+              "intentMatch": 0.75,
+              "replayUsefulness": 0.814,
+              "playlistIdentity": 0.812,
+              "emotionalMemorability": 0.225
+            },
+            "replayProxyScore": 0.649,
+            "skipRiskScore": 0.75,
+            "saveProxyScore": 0.676,
+            "continueListeningScore": 0.815,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_gym_boost",
+          "prompt": "gym confidence boost high energy workout",
+          "category": "hard_activity",
+          "difficulty": "hard",
+          "suite": "training",
+          "libraryDependency": "high",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "kwalify",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.288"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 14,
+            "humanWouldSave": 0.7772788303331255,
+            "kwalifyWouldSave": 0.7772788303331258
+          },
+          "openingFive": {
+            "score": 80,
+            "pass": true,
+            "identityImmediate": 0.84,
+            "continueListening": 0.78,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.7,
+            "weightedScore": 0.8,
+            "issues": [],
+            "openerText": "Eminem — eminem-lose-yourself-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_gym_boost",
+            "prompt": "gym confidence boost high energy workout",
+            "category": "hard_activity",
+            "difficulty": "hard",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7772788303331258,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.896,
+              "firstTrackFit": 0.824,
+              "firstFiveCoherence": 0.93,
+              "earlyEnergyMismatch": 0,
+              "genreShock": 0.12,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.929,
+              "openingIdentity": 0.93,
+              "consistency": 0.93,
+              "progression": 0.935,
+              "variety": 0.92,
+              "endingSatisfaction": 0.93
+            },
+            "saveProxy": {
+              "score": 0.756,
+              "intentMatch": 0.777,
+              "replayUsefulness": 0.929,
+              "playlistIdentity": 0.93,
+              "emotionalMemorability": 0.288
+            },
+            "replayProxyScore": 0.914,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.756,
+            "continueListeningScore": 0.929,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_party_pregame",
+          "prompt": "pregame playlist before going out with friends tonight",
+          "category": "hard_activity",
+          "difficulty": "hard",
+          "suite": "training",
+          "libraryDependency": "high",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "kwalify",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.301"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 15,
+            "humanWouldSave": 0.8322850944782166,
+            "kwalifyWouldSave": 0.832285094478217
+          },
+          "openingFive": {
+            "score": 82,
+            "pass": true,
+            "identityImmediate": 0.84,
+            "continueListening": 0.83,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.73,
+            "weightedScore": 0.82,
+            "issues": [],
+            "openerText": "Usher — usher-yeah!-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_party_pregame",
+            "prompt": "pregame playlist before going out with friends tonight",
+            "category": "hard_activity",
+            "difficulty": "hard",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.832285094478217,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.886,
+              "firstTrackFit": 0.76,
+              "firstFiveCoherence": 0.933,
+              "earlyEnergyMismatch": 0.042,
+              "genreShock": 0,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.927,
+              "openingIdentity": 0.933,
+              "consistency": 0.933,
+              "progression": 0.913,
+              "variety": 0.92,
+              "endingSatisfaction": 0.933
+            },
+            "saveProxy": {
+              "score": 0.766,
+              "intentMatch": 0.832,
+              "replayUsefulness": 0.929,
+              "playlistIdentity": 0.933,
+              "emotionalMemorability": 0.252
+            },
+            "replayProxyScore": 0.912,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.766,
+            "continueListeningScore": 0.927,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_melancholy_rain",
+          "prompt": "melancholy rainy afternoon staring out the window",
+          "category": "emotional_specific",
+          "difficulty": "medium",
+          "suite": "training",
+          "libraryDependency": "medium",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "kwalify",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.269"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 16,
+            "humanWouldSave": 0.7221235242279945,
+            "kwalifyWouldSave": 0.7221235242279949
+          },
+          "openingFive": {
+            "score": 77,
+            "pass": true,
+            "identityImmediate": 0.79,
+            "continueListening": 0.72,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.68,
+            "weightedScore": 0.77,
+            "issues": [],
+            "openerText": "Phoebe Bridgers — phoebe-bridgers-motion-sickness-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_melancholy_rain",
+            "prompt": "melancholy rainy afternoon staring out the window",
+            "category": "emotional_specific",
+            "difficulty": "medium",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7221235242279949,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.82,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.877,
+              "earlyEnergyMismatch": 0.067,
+              "genreShock": 0.48,
+              "flags": [
+                "genre_shock_opening"
+              ]
+            },
+            "skipRisk": {
+              "score": 0.22,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.868,
+              "openingIdentity": 0.877,
+              "consistency": 0.877,
+              "progression": 0.903,
+              "variety": 0.785,
+              "endingSatisfaction": 0.877
+            },
+            "saveProxy": {
+              "score": 0.694,
+              "intentMatch": 0.722,
+              "replayUsefulness": 0.871,
+              "playlistIdentity": 0.877,
+              "emotionalMemorability": 0.203
+            },
+            "replayProxyScore": 0.867,
+            "skipRiskScore": 0.22,
+            "saveProxyScore": 0.694,
+            "continueListeningScore": 0.868,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_after_work",
+          "prompt": "after work decompression walk home calm but not sad",
+          "category": "emotional_specific",
+          "difficulty": "medium",
+          "suite": "training",
+          "libraryDependency": "medium",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "kwalify",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.276"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 17,
+            "humanWouldSave": 0.7387198240917654,
+            "kwalifyWouldSave": 0.7387198240917654
+          },
+          "openingFive": {
+            "score": 78,
+            "pass": true,
+            "identityImmediate": 0.81,
+            "continueListening": 0.74,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.71,
+            "weightedScore": 0.78,
+            "issues": [],
+            "openerText": "Bon Iver — bon-iver-holocene-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_after_work",
+            "prompt": "after work decompression walk home calm but not sad",
+            "category": "emotional_specific",
+            "difficulty": "medium",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7387198240917654,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.842,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.9,
+              "earlyEnergyMismatch": 0.095,
+              "genreShock": 0.36,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.902,
+              "openingIdentity": 0.9,
+              "consistency": 0.9,
+              "progression": 0.893,
+              "variety": 0.92,
+              "endingSatisfaction": 0.9
+            },
+            "saveProxy": {
+              "score": 0.721,
+              "intentMatch": 0.739,
+              "replayUsefulness": 0.901,
+              "playlistIdentity": 0.9,
+              "emotionalMemorability": 0.247
+            },
+            "replayProxyScore": 0.886,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.721,
+            "continueListeningScore": 0.902,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_rainy_walk",
+          "prompt": "rainy city morning walk with reflective mood",
+          "category": "emotional_specific",
+          "difficulty": "medium",
+          "suite": "training",
+          "libraryDependency": "medium",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 10,
+          "blindPairwise": {
+            "winner": "human",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.286"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 18,
+            "humanWouldSave": 0.7629262990673209,
+            "kwalifyWouldSave": 0.7629262990673209
+          },
+          "openingFive": {
+            "score": 80,
+            "pass": true,
+            "identityImmediate": 0.84,
+            "continueListening": 0.76,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.7,
+            "weightedScore": 0.8,
+            "issues": [],
+            "openerText": "Bon Iver — bon-iver-holocene-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_rainy_walk",
+            "prompt": "rainy city morning walk with reflective mood",
+            "category": "emotional_specific",
+            "difficulty": "medium",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7629262990673209,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.876,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.929,
+              "earlyEnergyMismatch": 0.056,
+              "genreShock": 0.24,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.925,
+              "openingIdentity": 0.929,
+              "consistency": 0.935,
+              "progression": 0.966,
+              "variety": 0.88,
+              "endingSatisfaction": 0.897
+            },
+            "saveProxy": {
+              "score": 0.738,
+              "intentMatch": 0.763,
+              "replayUsefulness": 0.93,
+              "playlistIdentity": 0.932,
+              "emotionalMemorability": 0.219
+            },
+            "replayProxyScore": 0.905,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.738,
+            "continueListeningScore": 0.925,
+            "trackCount": 10
+          }
+        },
+        {
+          "entryId": "hof_summer_morning",
+          "prompt": "Feel-good summer morning music to hype yourself up for the day, getting ready, and commuting to work.",
+          "category": "easy_mood",
+          "difficulty": "easy",
+          "suite": "training",
+          "libraryDependency": "low",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 10,
+          "blindPairwise": {
+            "winner": "kwalify",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.275"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 19,
+            "humanWouldSave": 0.7512259768266476,
+            "kwalifyWouldSave": 0.7512259768266476
+          },
+          "openingFive": {
+            "score": 75,
+            "pass": true,
+            "identityImmediate": 0.71,
+            "continueListening": 0.74,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.66,
+            "weightedScore": 0.75,
+            "issues": [],
+            "openerText": "Wallows — wallows-remember-when-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_summer_morning",
+            "prompt": "Feel-good summer morning music to hype yourself up for the day, getting ready, and commuting to work.",
+            "category": "easy_mood",
+            "difficulty": "easy",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7512259768266476,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.869,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.804,
+              "earlyEnergyMismatch": 0.049,
+              "genreShock": 0,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0.75,
+              "firstThreeSkipRisk": 0.75,
+              "flags": [
+                "artist_repetition"
+              ]
+            },
+            "continueListening": {
+              "score": 0.862,
+              "openingIdentity": 0.804,
+              "consistency": 0.869,
+              "progression": 0.938,
+              "variety": 0.92,
+              "endingSatisfaction": 0.81
+            },
+            "saveProxy": {
+              "score": 0.696,
+              "intentMatch": 0.751,
+              "replayUsefulness": 0.868,
+              "playlistIdentity": 0.833,
+              "emotionalMemorability": 0.227
+            },
+            "replayProxyScore": 0.656,
+            "skipRiskScore": 0.75,
+            "saveProxyScore": 0.696,
+            "continueListeningScore": 0.862,
+            "trackCount": 10
+          }
+        },
+        {
+          "entryId": "hof_morning_yoga",
+          "prompt": "gentle morning yoga stretch calm uplifting",
+          "category": "functional",
+          "difficulty": "medium",
+          "suite": "training",
+          "libraryDependency": "medium",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "human",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.278"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 20,
+            "humanWouldSave": 0.7428825871697797,
+            "kwalifyWouldSave": 0.7428825871697797
+          },
+          "openingFive": {
+            "score": 80,
+            "pass": true,
+            "identityImmediate": 0.82,
+            "continueListening": 0.74,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.77,
+            "weightedScore": 0.8,
+            "issues": [],
+            "openerText": "Bon Iver — bon-iver-holocene-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_morning_yoga",
+            "prompt": "gentle morning yoga stretch calm uplifting",
+            "category": "functional",
+            "difficulty": "medium",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7428825871697797,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.892,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.906,
+              "earlyEnergyMismatch": 0.018,
+              "genreShock": 0.12,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.901,
+              "openingIdentity": 0.906,
+              "consistency": 0.906,
+              "progression": 0.866,
+              "variety": 0.92,
+              "endingSatisfaction": 0.906
+            },
+            "saveProxy": {
+              "score": 0.728,
+              "intentMatch": 0.743,
+              "replayUsefulness": 0.903,
+              "playlistIdentity": 0.906,
+              "emotionalMemorability": 0.266
+            },
+            "replayProxyScore": 0.902,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.728,
+            "continueListeningScore": 0.901,
+            "trackCount": 5
+          }
+        },
+        {
+          "entryId": "hof_optimistic_commute",
+          "prompt": "optimistic commute to work with forward energy",
+          "category": "functional",
+          "difficulty": "medium",
+          "suite": "training",
+          "libraryDependency": "medium",
+          "generationSuccess": true,
+          "libraryInsufficient": false,
+          "trackCount": 5,
+          "blindPairwise": {
+            "winner": "human",
+            "confidence": 0.55,
+            "reasons": [
+              "blended preference score 0.284"
+            ],
+            "dimensions": {
+              "openingQuality": "tie",
+              "activityFit": "tie",
+              "emotionalFit": "tie",
+              "replayLikelihood": "tie",
+              "saveLikelihood": "tie"
+            },
+            "blindSeed": 21,
+            "humanWouldSave": 0.7650608503898634,
+            "kwalifyWouldSave": 0.7650608503898633
+          },
+          "openingFive": {
+            "score": 79,
+            "pass": true,
+            "identityImmediate": 0.82,
+            "continueListening": 0.77,
+            "firstTrackAppropriate": 0.85,
+            "sceneEstablished": 0.71,
+            "weightedScore": 0.79,
+            "issues": [],
+            "openerText": "Lizzo — lizzo-good-as-hell-perturb-0"
+          },
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "hof_optimistic_commute",
+            "prompt": "optimistic commute to work with forward energy",
+            "category": "functional",
+            "difficulty": "medium",
+            "outcome": "saved",
+            "attempts": 1,
+            "firstGenerationSuccess": true
+          },
+          "saveLikelihood": 0.7650608503898633,
+          "replaySimulation": {
+            "openingRetention": {
+              "score": 0.867,
+              "firstTrackFit": 0.843,
+              "firstFiveCoherence": 0.912,
+              "earlyEnergyMismatch": 0.077,
+              "genreShock": 0.24,
+              "flags": []
+            },
+            "skipRisk": {
+              "score": 0,
+              "firstThreeSkipRisk": 0,
+              "flags": []
+            },
+            "continueListening": {
+              "score": 0.912,
+              "openingIdentity": 0.912,
+              "consistency": 0.912,
+              "progression": 0.904,
+              "variety": 0.92,
+              "endingSatisfaction": 0.912
+            },
+            "saveProxy": {
+              "score": 0.73,
+              "intentMatch": 0.765,
+              "replayUsefulness": 0.912,
+              "playlistIdentity": 0.912,
+              "emotionalMemorability": 0.221
+            },
+            "replayProxyScore": 0.898,
+            "skipRiskScore": 0,
+            "saveProxyScore": 0.73,
+            "continueListeningScore": 0.912,
+            "trackCount": 5
+          }
+        }
+      ]
+    },
+    {
+      "suite": "validation",
+      "tuningAllowed": false,
+      "metrics": {
+        "humanPreferenceWinRate": null,
+        "humanPreferenceTieRate": null,
+        "openingPassRate": null,
+        "activityAccuracy": null,
+        "avgSaveLikelihood": null,
+        "firstAttemptSuccessRate": 0,
+        "regenerationRate": 0,
+        "abandonmentRate": 1,
+        "libraryInsufficientRate": 0,
+        "negativeObviousFailureRate": 0,
+        "goldenPromptsPassed": 59,
+        "goldenPromptsFailed": 0,
+        "hrpsAvgImprovement": null,
+        "avgReplayProxyScore": null,
+        "avgSkipRiskScore": null,
+        "avgSaveProxyScore": null,
+        "avgContinueListeningScore": null,
+        "byCategory": {
+          "easy_mood": {
+            "count": 2,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "functional": {
+            "count": 2,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "hard_activity": {
+            "count": 2,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "emotional_specific": {
+            "count": 1,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          }
+        },
+        "byLibraryDependency": {
+          "low": {
+            "count": 2,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "medium": {
+            "count": 3,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "high": {
+            "count": 2,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          }
+        }
+      },
+      "comparison": {
+        "baselineDescription": "Captured from offline run",
+        "baselineGeneratedAt": "2026-07-06T23:44:03.514Z",
+        "deltas": {
+          "humanPreferenceWinRate": null,
+          "openingPassRate": null,
+          "firstAttemptSuccessRate": -1,
+          "avgSaveLikelihood": null,
+          "negativeObviousFailureRate": 0
+        },
+        "improvements": [],
+        "regressions": [
+          {
+            "metric": "firstAttemptSuccessRate",
+            "label": "First attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "direction": "regressed"
+          },
+          {
+            "metric": "byCategory.easy_mood.firstAttemptSuccessRate",
+            "label": "chill/mood playlists first attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "category": "easy_mood",
+            "direction": "regressed"
+          },
+          {
+            "metric": "byCategory.functional.firstAttemptSuccessRate",
+            "label": "functional playlists first attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "category": "functional",
+            "direction": "regressed"
+          },
+          {
+            "metric": "byCategory.hard_activity.firstAttemptSuccessRate",
+            "label": "gym/activity prompts first attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "category": "hard_activity",
+            "direction": "regressed"
+          },
+          {
+            "metric": "byCategory.emotional_specific.firstAttemptSuccessRate",
+            "label": "emotional specificity prompts first attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "category": "emotional_specific",
+            "direction": "regressed"
+          },
+          {
+            "metric": "hard_activity",
+            "label": "Hard activity prompts",
+            "baseline": 1,
+            "current": null,
+            "delta": null,
+            "deltaPp": null,
+            "category": "hard_activity",
+            "direction": "regressed"
+          }
+        ],
+        "hardActivityRegressed": true,
+        "regressionPassed": false,
+        "regressionFlags": [
+          "First attempt success rate dropped -100.0pp (threshold -8.0pp)",
+          "Hard activity prompts regressed vs baseline"
+        ]
+      },
+      "recommendation": "REJECT",
+      "results": [
+        {
+          "entryId": "val_3am_cant_sleep",
+          "prompt": "3am and I can't sleep but I don't want sad music",
+          "category": "easy_mood",
+          "difficulty": "medium",
+          "suite": "validation",
+          "libraryDependency": "low",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "val_3am_cant_sleep",
+            "prompt": "3am and I can't sleep but I don't want sad music",
+            "category": "easy_mood",
+            "difficulty": "medium",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "val_sad_but_productive",
+          "prompt": "feeling a bit sad but still need to get work done",
+          "category": "functional",
+          "difficulty": "hard",
+          "suite": "validation",
+          "libraryDependency": "medium",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "val_sad_but_productive",
+            "prompt": "feeling a bit sad but still need to get work done",
+            "category": "functional",
+            "difficulty": "hard",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "val_dinner_party_background",
+          "prompt": "background music for a small dinner party that won't overpower conversation",
+          "category": "functional",
+          "difficulty": "medium",
+          "suite": "validation",
+          "libraryDependency": "medium",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "val_dinner_party_background",
+            "prompt": "background music for a small dinner party that won't overpower conversation",
+            "category": "functional",
+            "difficulty": "medium",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "val_post_breakup_not_crying",
+          "prompt": "post breakup healing walk — reflective but moving forward",
+          "category": "emotional_specific",
+          "difficulty": "hard",
+          "suite": "validation",
+          "libraryDependency": "medium",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "val_post_breakup_not_crying",
+            "prompt": "post breakup healing walk — reflective but moving forward",
+            "category": "emotional_specific",
+            "difficulty": "hard",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "val_winter_walk_no_christmas",
+          "prompt": "cold winter evening walk without christmas music",
+          "category": "easy_mood",
+          "difficulty": "medium",
+          "suite": "validation",
+          "libraryDependency": "low",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "val_winter_walk_no_christmas",
+            "prompt": "cold winter evening walk without christmas music",
+            "category": "easy_mood",
+            "difficulty": "medium",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "val_focus_without_lyrics",
+          "prompt": "deep work focus instrumental no lyrics no vocals",
+          "category": "hard_activity",
+          "difficulty": "hard",
+          "suite": "validation",
+          "libraryDependency": "high",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "val_focus_without_lyrics",
+            "prompt": "deep work focus instrumental no lyrics no vocals",
+            "category": "hard_activity",
+            "difficulty": "hard",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "val_gym_but_not_edm",
+          "prompt": "gym workout high energy but not EDM or techno",
+          "category": "hard_activity",
+          "difficulty": "hard",
+          "suite": "validation",
+          "libraryDependency": "high",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "val_gym_but_not_edm",
+            "prompt": "gym workout high energy but not EDM or techno",
+            "category": "hard_activity",
+            "difficulty": "hard",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        }
+      ]
+    },
+    {
+      "suite": "stress",
+      "tuningAllowed": false,
+      "metrics": {
+        "humanPreferenceWinRate": null,
+        "humanPreferenceTieRate": null,
+        "openingPassRate": null,
+        "activityAccuracy": null,
+        "avgSaveLikelihood": null,
+        "firstAttemptSuccessRate": 0,
+        "regenerationRate": 0,
+        "abandonmentRate": 1,
+        "libraryInsufficientRate": 0,
+        "negativeObviousFailureRate": 0,
+        "goldenPromptsPassed": 59,
+        "goldenPromptsFailed": 0,
+        "hrpsAvgImprovement": null,
+        "avgReplayProxyScore": null,
+        "avgSkipRiskScore": null,
+        "avgSaveProxyScore": null,
+        "avgContinueListeningScore": null,
+        "byCategory": {
+          "easy_mood": {
+            "count": 2,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "functional": {
+            "count": 2,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "hard_activity": {
+            "count": 1,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "emotional_specific": {
+            "count": 1,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          }
+        },
+        "byLibraryDependency": {
+          "low": {
+            "count": 2,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "medium": {
+            "count": 3,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          },
+          "high": {
+            "count": 1,
+            "humanPreferenceWinRate": null,
+            "openingPassRate": null,
+            "firstAttemptSuccessRate": 0,
+            "avgSaveLikelihood": null,
+            "negativeFailureRate": 0,
+            "avgReplayProxyScore": null,
+            "avgSkipRiskScore": null,
+            "avgSaveProxyScore": null
+          }
+        }
+      },
+      "comparison": {
+        "baselineDescription": "Captured from offline run",
+        "baselineGeneratedAt": "2026-07-06T23:44:03.514Z",
+        "deltas": {
+          "humanPreferenceWinRate": null,
+          "openingPassRate": null,
+          "firstAttemptSuccessRate": -1,
+          "avgSaveLikelihood": null,
+          "negativeObviousFailureRate": 0
+        },
+        "improvements": [],
+        "regressions": [
+          {
+            "metric": "firstAttemptSuccessRate",
+            "label": "First attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "direction": "regressed"
+          },
+          {
+            "metric": "byCategory.easy_mood.firstAttemptSuccessRate",
+            "label": "chill/mood playlists first attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "category": "easy_mood",
+            "direction": "regressed"
+          },
+          {
+            "metric": "byCategory.functional.firstAttemptSuccessRate",
+            "label": "functional playlists first attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "category": "functional",
+            "direction": "regressed"
+          },
+          {
+            "metric": "byCategory.hard_activity.firstAttemptSuccessRate",
+            "label": "gym/activity prompts first attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "category": "hard_activity",
+            "direction": "regressed"
+          },
+          {
+            "metric": "byCategory.emotional_specific.firstAttemptSuccessRate",
+            "label": "emotional specificity prompts first attempt success",
+            "baseline": 1,
+            "current": 0,
+            "delta": -1,
+            "deltaPp": -100,
+            "category": "emotional_specific",
+            "direction": "regressed"
+          },
+          {
+            "metric": "hard_activity",
+            "label": "Hard activity prompts",
+            "baseline": 1,
+            "current": null,
+            "delta": null,
+            "deltaPp": null,
+            "category": "hard_activity",
+            "direction": "regressed"
+          }
+        ],
+        "hardActivityRegressed": true,
+        "regressionPassed": false,
+        "regressionFlags": [
+          "First attempt success rate dropped -100.0pp (threshold -8.0pp)",
+          "Hard activity prompts regressed vs baseline"
+        ]
+      },
+      "recommendation": "REJECT",
+      "results": [
+        {
+          "entryId": "stress_vague_vibes",
+          "prompt": "just vibes",
+          "category": "easy_mood",
+          "difficulty": "hard",
+          "suite": "stress",
+          "libraryDependency": "low",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "stress_vague_vibes",
+            "prompt": "just vibes",
+            "category": "easy_mood",
+            "difficulty": "hard",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "stress_contradiction_calm_hype",
+          "prompt": "calm hype music for cleaning my room",
+          "category": "functional",
+          "difficulty": "hard",
+          "suite": "stress",
+          "libraryDependency": "medium",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "stress_contradiction_calm_hype",
+            "prompt": "calm hype music for cleaning my room",
+            "category": "functional",
+            "difficulty": "hard",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "stress_niche_genre_combo",
+          "prompt": "shoegaze footwork hybrid for late night coding",
+          "category": "hard_activity",
+          "difficulty": "hard",
+          "suite": "stress",
+          "libraryDependency": "high",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "stress_niche_genre_combo",
+            "prompt": "shoegaze footwork hybrid for late night coding",
+            "category": "hard_activity",
+            "difficulty": "hard",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "stress_overlong_life_context",
+          "prompt": "my girlfriend broke up with me last week and I'm moving apartments this weekend and I need something for the drive that isn't too sad but also isn't pretending everything is fine",
+          "category": "emotional_specific",
+          "difficulty": "hard",
+          "suite": "stress",
+          "libraryDependency": "medium",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "stress_overlong_life_context",
+            "prompt": "my girlfriend broke up with me last week and I'm moving apartments this weekend and I need something for the drive that isn't too sad but also isn't pretending everything is fine",
+            "category": "emotional_specific",
+            "difficulty": "hard",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "stress_misspelled_mood",
+          "prompt": "chiled out sunday moring coffe",
+          "category": "easy_mood",
+          "difficulty": "medium",
+          "suite": "stress",
+          "libraryDependency": "low",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "stress_misspelled_mood",
+            "prompt": "chiled out sunday moring coffe",
+            "category": "easy_mood",
+            "difficulty": "medium",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        },
+        {
+          "entryId": "stress_no_music_words",
+          "prompt": "Sunday reset, laundry, open windows, feeling like a new week",
+          "category": "functional",
+          "difficulty": "medium",
+          "suite": "stress",
+          "libraryDependency": "medium",
+          "generationSuccess": false,
+          "libraryInsufficient": false,
+          "trackCount": 0,
+          "blindPairwise": null,
+          "openingFive": null,
+          "negativeDetection": {
+            "detected": false,
+            "matchedExamples": [],
+            "failureTypes": [],
+            "similarityScore": 0
+          },
+          "firstAttempt": {
+            "promptId": "stress_no_music_words",
+            "prompt": "Sunday reset, laundry, open windows, feeling like a new week",
+            "category": "functional",
+            "difficulty": "medium",
+            "outcome": "abandoned",
+            "attempts": 1,
+            "firstGenerationSuccess": false
+          },
+          "saveLikelihood": null,
+          "replaySimulation": null
+        }
+      ]
+    }
+  ],
+  "overallRecommendation": "REJECT",
+  "reportMarkdown": "# ^opening^ curator^ v2^ locked^ benchmark^\n## Experiment metadata\n- ID: `opening-curator-v2-locked-benchmark-2026-07-07T00-25-35-789Z-c1b56c`\n- Date: 2026-07-07T00:25:35.789Z\n- Git: b83825bc4275645bfcdd77a6025901398e8bd318 (dirty)\n- Branch: main\n- Mode: offline\n- Prompt suite: 1.0.0\n- Dataset: 1.0.0\n- Evaluated suites: all\n## Baseline comparison\nBaseline captured: 2026-07-06T23:44:03.514Z\nBaseline note: Captured from offline run\n| Metric | Baseline | Current |\n|---|---:|---:|\n| Opening pass rate | 100% | 100% |\n| First attempt success | 100% | 100% |\n| Human preference | 53% | 53% |\n| Save likelihood | 0.77 | 0.77 |\n| Regeneration rate | n/a | 0% |\n| Abandonment rate | n/a | 0% |\n| Replay proxy score | n/a | 0.87 |\n| Skip risk score | n/a | 0.14 |\n| Save proxy score | n/a | 0.72 |\n### Behavioral proxy note\nReplay/skip/save proxies estimate real listening survival. They are **not** fed into generation.\n## Suite results\n### training suite\n- Recommendation: **HOLD**\n- Opening pass: 100%\n- First attempt success: 100%\n- Human preference win rate: 53%\n- Save likelihood: 0.77\n- Replay proxy: 0.87\n- Skip risk: 0.14 (lower is better)\n- Save proxy: 0.72\n### validation suite (holdout — do not tune against)\n- Recommendation: **REJECT**\n- Opening pass: n/a\n- First attempt success: 0%\n- Human preference win rate: n/a\n- Save likelihood: n/a\n- Replay proxy: n/a\n- Skip risk: n/a (lower is better)\n- Save proxy: n/a\nRegressed:\n- -100% first attempt success\n- -100% chill/mood playlists first attempt success\n- -100% functional playlists first attempt success\n- -100% gym/activity prompts first attempt success\n- -100% emotional specificity prompts first attempt success\n- Hard activity prompts\n### stress suite (holdout — do not tune against)\n- Recommendation: **REJECT**\n- Opening pass: n/a\n- First attempt success: 0%\n- Human preference win rate: n/a\n- Save likelihood: n/a\n- Replay proxy: n/a\n- Skip risk: n/a (lower is better)\n- Save proxy: n/a\nRegressed:\n- -100% first attempt success\n- -100% chill/mood playlists first attempt success\n- -100% functional playlists first attempt success\n- -100% gym/activity prompts first attempt success\n- -100% emotional specificity prompts first attempt success\n- Hard activity prompts\n## Quality benchmark metrics\n\n- Human preference win rate (Kwalify): 53.3%\n- Opening pass rate: 100.0%\n- First attempt success rate: 100.0%\n- Regeneration rate: 0.0%\n- Abandonment rate: 0.0%\n- Library insufficient rate: 0.0%\n- Activity accuracy (hard): 0.0%\n- Avg save likelihood: 0.77\n- Obvious negative failure rate: 0.0%\n- Golden prompts: 59 passed, 0 failed\n- HRPS avg improvement: n/a\n- Replay proxy score: 0.87\n- Skip risk score: 0.14 (lower is better)\n- Save proxy score: 0.72\n- Continue listening score: 0.89\n\n### By category\n**easy_mood** (4) — first-attempt 100.0%, opening 100.0%, preference 75.0%\n**functional** (5) — first-attempt 100.0%, opening 100.0%, preference 20.0%\n**hard_activity** (3) — first-attempt 100.0%, opening 100.0%, preference 66.7%\n**emotional_specific** (3) — first-attempt 100.0%, opening 100.0%, preference 66.7%\n\n### By library dependency\n**low** (4) — first-attempt 100.0%, opening 100.0%\n**medium** (8) — first-attempt 100.0%, opening 100.0%\n**high** (3) — first-attempt 100.0%, opening 100.0%\n## Recommendation\n**REJECT**\nRegression detected — do not ship until metrics recover.\n### Anti-overfitting note\nTraining (Hall of Fame) scores are for inspection only. Treat validation and stress holdouts as the generalisation check — never optimize directly against validation/stress prompts."
+}

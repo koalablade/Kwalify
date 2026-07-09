@@ -90,7 +90,12 @@ async function generate(
 }
 
 async function main(): Promise<void> {
-  const creds = await resolveVerifiedProductionCredentials({ strict: true });
+  const local = process.argv.includes("--local");
+  const creds = await resolveVerifiedProductionCredentials({
+    strict: true,
+    cli: local ? { baseUrl: "http://localhost:5000" } : undefined,
+    defaultBaseUrl: local ? "http://localhost:5000" : undefined,
+  });
   const token = normalizeEvalToken(creds.token);
   if (!token) {
     throw new Error("PLAYLIST_EVAL_TOKEN resolved empty after normalization.");

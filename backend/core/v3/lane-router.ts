@@ -15,10 +15,18 @@
  *   NOSTALGIA   — pre-2010 injection
  *   DISCOVERY   — novelty / freshness
  *   AMBIENT     — low-energy, calm
+ *
+ * Compound prompts with strong genre+era+activity anchors suppress the
+ * generic fallback ensemble even when the influence map is sparse.
  */
 
+import type { LockedIntent } from "./intent";
 import type { DecomposedIntent, SceneInfluenceMap } from "./intent-decomposer";
-import { isUnclearIntent } from "./intent-decomposer";
+import {
+  buildIntentDecomposerDiagnostics,
+  compoundPreservedGenreFamilies,
+  shouldUseFallbackEnsemble,
+} from "./intent-decomposer";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -44,6 +52,11 @@ export interface Lane {
   targetInfluences: string[];
   scoringBias: LaneScoringBias;
 }
+
+export type BuildLanesOptions = {
+  vibe?: string;
+  lockedIntent?: LockedIntent | null;
+};
 
 // ── Influence → genre mapping ──────────────────────────────────────────────
 
@@ -84,6 +97,20 @@ function genreBonusFromForces(
   return result;
 }
 
+function genreBonusFromFamilies(
+  families: string[],
+  seedBonus: number,
+  adjacentBonus: number,
+): Partial<Record<string, number>> {
+  if (families.length === 0) return {};
+  const seeds = new Set(families.slice(0, 4));
+  const result: Partial<Record<string, number>> = {};
+  for (const family of families) {
+    result[family] = Math.max(result[family] ?? 0, seeds.has(family) ? seedBonus : adjacentBonus);
+  }
+  return result;
+}
+
 function topForces(map: SceneInfluenceMap, n: number): string[] {
   return Object.entries(map)
     .sort((a, b) => b[1] - a[1])
@@ -96,26 +123,47 @@ const ERA_YEAR: Record<string, number> = {
   "00s": 2009, "10s": 2019, "20s": 2029, "any": 2099,
 };
 
+function mergeGenreBonus(
+  ...parts: Array<Partial<Record<string, number>>>
+): Partial<Record<string, number>> {
+  const result: Partial<Record<string, number>> = {};
+  for (const part of parts) {
+    for (const [genre, bonus] of Object.entries(part)) {
+      result[genre] = Math.max(result[genre] ?? 0, bonus ?? 0);
+    }
+  }
+  return result;
+}
+
 // ── Standard 4-lane builder ────────────────────────────────────────────────
 
-function buildStandardLanes(intent: DecomposedIntent): Lane[] {
+function buildStandardLanes(
+  intent: DecomposedIntent,
+  preservedFamilies: string[] = [],
+): Lane[] {
   const map = intent.sceneInfluenceMap;
   const all = topForces(map, 8);
   const motion = intent.contextAnchors.motionLevel;
+  const familyBonus = genreBonusFromFamilies(preservedFamilies, 0.22, 0.14);
 
   // CORE lane — top 3 forces, primary genre bias
   const coreForces = all.slice(0, 3);
-  const coreGenres = Object.keys(genreBonusFromForces(coreForces, 0.15));
+  const coreGenres = Object.keys(mergeGenreBonus(
+    genreBonusFromForces(coreForces, 0.15),
+    familyBonus,
+  ));
 
   const coreLane: Lane = {
     id: "lane_core",
     type: "core",
-    label: `Core: ${coreForces.join(" / ")}`,
+    label: preservedFamilies.length > 0
+      ? `Core: ${preservedFamilies.slice(0, 3).join(" / ")}`
+      : `Core: ${coreForces.join(" / ")}`,
     weight: 0.40,
     targetInfluences: coreForces,
     scoringBias: {
       weights: { ES: 0.27, SA: 0.32, EM: 0.20, Era: 0.12, Act: 0.07, Nov: 0.02 },
-      genreBonus: genreBonusFromForces(coreForces, 0.15),
+      genreBonus: mergeGenreBonus(genreBonusFromForces(coreForces, 0.15), familyBonus),
       ...(intent.contextAnchors.era !== "any"
         ? { eraBonus: { preferBefore: (ERA_YEAR[intent.contextAnchors.era] ?? 2029) + 5, bonus: 0.08 } }
         : {}),
@@ -139,13 +187,20 @@ function buildStandardLanes(intent: DecomposedIntent): Lane[] {
   const emotionalLane: Lane = {
     id: "lane_emotional",
     type: "emotional",
-    label: `Emotional: ${emForces.join(" / ")}`,
+    label: `Emotional: ${emForces.join(" / ") || "anchor"}`,
     weight: 0.25,
     targetInfluences: emForces,
     scoringBias: {
       weights: { ES: 0.15, SA: 0.20, EM: 0.35, Era: 0.18, Act: 0.07, Nov: 0.05 },
-      genreBonus: genreBonusFromForces(emForces, 0.12),
-      ...(hasNostalgia ? { eraBonus: { preferBefore: 2010, bonus: 0.12 } } : {}),
+      genreBonus: mergeGenreBonus(
+        genreBonusFromForces(emForces, 0.12),
+        genreBonusFromFamilies(preservedFamilies, 0.12, 0.08),
+      ),
+      ...(hasNostalgia && preservedFamilies.length === 0
+        ? { eraBonus: { preferBefore: 2010, bonus: 0.12 } }
+        : intent.contextAnchors.era !== "any"
+          ? { eraBonus: { preferBefore: (ERA_YEAR[intent.contextAnchors.era] ?? 2029) + 5, bonus: 0.10 } }
+          : {}),
     },
   };
 
@@ -167,27 +222,37 @@ function buildStandardLanes(intent: DecomposedIntent): Lane[] {
       targetInfluences: mvForces,
       scoringBias: {
         weights: { ES: 0.22, SA: 0.23, EM: 0.25, Era: 0.12, Act: 0.13, Nov: 0.05 },
-        genreBonus: genreBonusFromForces(mvForces, 0.10),
+        genreBonus: mergeGenreBonus(
+          genreBonusFromForces(mvForces, 0.10),
+          genreBonusFromFamilies(preservedFamilies, 0.16, 0.10),
+        ),
         energyTarget: { center: energyCenter, bandwidth: 0.28 },
       },
     });
   }
 
-  // CONTRAST lane — always present: genre distance + high novelty
+  // CONTRAST lane — always present: genre distance + novelty
+  // For compound anchors, keep contrast within adjacent families instead of indie/folk drift.
   const contrastLane: Lane = {
     id: "lane_contrast",
     type: "contrast",
-    label: "Contrast: genre distance + novelty",
+    label: preservedFamilies.length > 0
+      ? "Contrast: adjacent genre novelty"
+      : "Contrast: genre distance + novelty",
     weight: 0.15,
-    targetInfluences: ["acoustic", "cinematic", "calm", "introspective"],
+    targetInfluences: preservedFamilies.length > 0
+      ? ["rhythm", "party", "energy"]
+      : ["acoustic", "cinematic", "calm", "introspective"],
     scoringBias: {
       weights: { ES: 0.16, SA: 0.18, EM: 0.26, Era: 0.12, Act: 0.06, Nov: 0.22 },
-      genreBonus: {
-        indie: 0.08, folk: 0.08, singer_songwriter: 0.07,
-        acoustic: 0.09, alternative: 0.06,
-      },
+      genreBonus: preservedFamilies.length > 0
+        ? genreBonusFromFamilies(preservedFamilies, 0.10, 0.14)
+        : {
+          indie: 0.08, folk: 0.08, singer_songwriter: 0.07,
+          acoustic: 0.09, alternative: 0.06,
+        },
       noveltyMultiplier: 1.6,
-      coreGenrePenalty: coreGenres.slice(0, 2),
+      coreGenrePenalty: preservedFamilies.length > 0 ? [] : coreGenres.slice(0, 2),
     },
   };
   lanes.push(contrastLane);
@@ -260,9 +325,20 @@ function buildFallbackLanes(): Lane[] {
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-export function buildLanes(intent: DecomposedIntent): Lane[] {
-  if (isUnclearIntent(intent)) {
+export function buildLanes(
+  intent: DecomposedIntent,
+  opts: BuildLanesOptions = {},
+): Lane[] {
+  const vibe = opts.vibe ?? intent.primary;
+  const diagnostics = buildIntentDecomposerDiagnostics(intent, vibe, opts.lockedIntent);
+  intent.fallbackRouting = diagnostics;
+
+  if (shouldUseFallbackEnsemble(intent, vibe, opts.lockedIntent)) {
     return buildFallbackLanes();
   }
-  return buildStandardLanes(intent);
+
+  const preserved = diagnostics.fallbackSuppressed
+    ? compoundPreservedGenreFamilies(vibe, opts.lockedIntent)
+    : [];
+  return buildStandardLanes(intent, preserved);
 }

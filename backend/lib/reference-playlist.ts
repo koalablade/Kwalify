@@ -156,8 +156,14 @@ export async function loadReferenceFingerprint(
   }
   if (trackIds.length < 5) return null;
 
-  const ccToken = await getClientCredentialsToken();
-  const features = await fetchAudioFeatures(ccToken, trackIds);
+  let features: SpotifyAudioFeatures[];
+  try {
+    features = await fetchAudioFeatures(userAccessToken, trackIds, {
+      fallbackToken: await getClientCredentialsToken().catch(() => undefined),
+    });
+  } catch {
+    features = [];
+  }
   const fingerprint = buildFingerprint(features);
   if (!fingerprint) return null;
 

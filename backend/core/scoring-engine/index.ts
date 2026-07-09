@@ -10,7 +10,9 @@ export * from "./hybrid-core";
 
 export * from "./types";
 
-export { applyPostScoreModifiers, type PostScoreModifierInput } from "./post-score-modifiers";
+export { applyPostScoreModifiers, type PostScoreModifierInput, REFINE_AFTER_HYBRID_SCALE } from "./post-score-modifiers";
+export type { ScoreChannelBreakdown, ScoreChannelSummary } from "./score-breakdown";
+export { buildRecoveryScoreBreakdown, summarizeScoreChannels, roundBreakdown } from "./score-breakdown";
 
 export { applySunnyGateIfNeeded, sortByScore, applyGenrePoolBias } from "./pool-bias";
 
@@ -29,6 +31,14 @@ import {
 } from "./hybrid-core";
 
 import { applyPostScoreModifiers, type PostScoreModifierInput } from "./post-score-modifiers";
+import {
+  buildNoveltyDiagnostics,
+  type NoveltyPenaltyAuditEntry,
+} from "../../lib/cross-playlist-novelty";
+import {
+  buildContextualUniquenessDiagnostics,
+  type ContextualUniquenessDiagnosticEntry,
+} from "../../lib/contextual-uniqueness";
 
 import {
 
@@ -260,6 +270,9 @@ export interface RunScoringPipelineOpts<T extends {
    */
   noLibraryMode?: boolean;
 
+  /** Adaptive prompt-first weight shift from retrieval orchestrator */
+  adaptivePromptWeightShift?: number;
+
 }
 
 
@@ -474,6 +487,7 @@ export function runScoringPipeline<T extends {
     truthAnchors,
     noLibraryMode: opts.noLibraryMode,
     cachedSemanticResolution: earlySemanticResolution,
+    adaptivePromptWeightShift: opts.adaptivePromptWeightShift,
   });
   logScoringStage(log, "Hybrid scoring context built", t);
 
@@ -541,12 +555,41 @@ export function runScoringPipeline<T extends {
   logScoringStage(log, "Emotional leaps applied", t, { leaps: emotionalLeaps.length });
 
   t = Date.now();
+  const noveltyAuditOut: NoveltyPenaltyAuditEntry[] = [];
+  const contextualUniquenessAuditOut: ContextualUniquenessDiagnosticEntry[] = [];
   const scored = applyPostScoreModifiers({
     ...opts.postScore,
     hybridResults: leapedHybrid,
     mode: opts.mode,
+    noveltyAuditOut: opts.postScore.crossPlaylistNovelty?.enabled ? noveltyAuditOut : undefined,
+    contextualUniquenessAuditOut: opts.postScore.contextualUniqueness?.enabled
+      ? contextualUniquenessAuditOut
+      : undefined,
   });
   logScoringStage(log, "Post-score modifiers applied", t, { tracks: scored.length });
+
+  const noveltyDiagnostics = opts.postScore.crossPlaylistNovelty?.enabled
+    ? buildNoveltyDiagnostics(
+        scored.map((track) => {
+          const audit = noveltyAuditOut.find((row) => row.trackId === track.trackId);
+          const trackName = "trackName" in track && typeof track.trackName === "string" ? track.trackName : "";
+          return {
+            trackId: track.trackId,
+            artistName: track.artistName,
+            trackName,
+            scoreBefore: audit?.scoreBefore ?? (scoreBeforePost.get(track.trackId) ?? track.score),
+            scoreAfter: track.score,
+            penalty: audit?.noveltyPenalty ?? 0,
+            appearanceCount: audit?.trackFrequency ?? 0,
+          };
+        }),
+        opts.postScore.crossPlaylistNovelty,
+      )
+    : null;
+
+  const contextualUniquenessDiagnostics = opts.postScore.contextualUniqueness?.enabled
+    ? buildContextualUniquenessDiagnostics(contextualUniquenessAuditOut, opts.postScore.contextualUniqueness)
+    : null;
 
   const gravityWells = resolveGravityWells({
     vibe: opts.vibe,
@@ -743,6 +786,10 @@ export function runScoringPipeline<T extends {
         postScoreFiltered: postScoreFilteredCount,
         forbiddenRejectionCount: gateRejected.length,
       },
+      noveltyDiagnostics,
+      noveltyPenaltyAuditSample: noveltyAuditOut.slice(0, 20),
+      contextualUniquenessDiagnostics,
+      contextualUniquenessAuditSample: contextualUniquenessAuditOut.slice(0, 24),
     },
     hybridExcludedCount: hybridExcluded.length,
     coverageState,

@@ -113,6 +113,7 @@ export const EDITORIAL_WORLD_ARCHETYPE_COMPAT: Record<string, string[]> = {
   gym_boost: ["gym_confidence_boost"],
   energetic_workout: ["gym_confidence_boost"],
   festival_electronic: ["gym_confidence_boost"],
+  disco_party_nostalgia: ["gym_confidence_boost", "festival_electronic"],
   focus_study: ["ambient_focus_study"],
   coding_flow: ["ambient_focus_study"],
   deep_work: ["ambient_focus_study"],
@@ -266,6 +267,21 @@ const EDITORIAL_WORLDS: EditorialWorldDefinition[] = [
     vocalPresenceTarget: 0.65,
     nostalgiaBias: 0.20,
     sonicAggressionCeiling: 0.78,
+  },
+  {
+    tag: "disco_party_nostalgia",
+    cohesionScore: 0.91,
+    primaryFamilies: ["soul", "funk", "pop", "electronic"],
+    allowedMicroClusters: ["soul:rhythmic", "funk:rhythmic", "pop:rhythmic", "electronic:rhythmic"],
+    moods: ["energetic", "uplift", "nostalgic"],
+    sceneTypes: ["night"],
+    narrativeTags: ["disco", "70s", "seventies", "dancefloor", "party", "funk", "groove", "dance", "latin summer"],
+    energyRange: [0.55, 0.88],
+    valenceTarget: 0.55,
+    rhythmDensityCap: 0.84,
+    vocalPresenceTarget: 0.72,
+    nostalgiaBias: 0.62,
+    sonicAggressionCeiling: 0.55,
   },
   {
     tag: "focus_study",
@@ -1098,6 +1114,19 @@ export function selectEditorialWorld(opts: {
   targetCount?: number;
   sceneArchetypeId?: string | null;
 }): EditorialWorldDefinition {
+  const lower = opts.vibe.toLowerCase();
+  const eraStart = opts.lockedIntent.eraRange?.start ?? null;
+  const discoPartyCompound =
+    /\b(?:disco|funk|groove|dancefloor)\b/.test(lower) &&
+    (/\b(?:70s|70'?s|seventies|1970)\b/.test(lower) || (eraStart != null && eraStart <= 1982)) &&
+    (/\b(?:party|dancefloor|dancing|pregame)\b/.test(lower) ||
+      opts.lockedIntent.activity === "party" ||
+      opts.sceneType === "night");
+  if (discoPartyCompound) {
+    const discoWorld = EDITORIAL_WORLDS.find((row) => row.tag === "disco_party_nostalgia");
+    if (discoWorld) return discoWorld;
+  }
+
   const ranked = EDITORIAL_WORLDS.map((world) => ({
     world,
     semantic: semanticWorldScore(world, opts),

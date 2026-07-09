@@ -215,6 +215,32 @@ CREATE TABLE IF NOT EXISTS "trend_snapshots" (
   "trends" jsonb NOT NULL DEFAULT '[]'::jsonb,
   "fetched_at" timestamp NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS "playlist_failure_events" (
+  "id" serial PRIMARY KEY,
+  "session_id" text NOT NULL UNIQUE,
+  "user_id_hash" text,
+  "event_type" text NOT NULL,
+  "prompt_category" text NOT NULL,
+  "activity" text,
+  "scene_id" text,
+  "prompt_hash" text NOT NULL,
+  "capability_score" real,
+  "limiting_factors" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "retrieval_strategy" text,
+  "candidate_quality_score" real,
+  "combined_confidence" real,
+  "user_outcome" text,
+  "linked_session_id" text,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "outcome_recorded_at" timestamp
+);
+CREATE INDEX IF NOT EXISTS "IDX_playlist_failure_events_category_created"
+  ON "playlist_failure_events" ("prompt_category", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "IDX_playlist_failure_events_event_type"
+  ON "playlist_failure_events" ("event_type", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "IDX_playlist_failure_events_outcome"
+  ON "playlist_failure_events" ("user_outcome", "created_at" DESC);
 `;
 
 async function backfillShareSlugs(rawPool: pg.Pool): Promise<void> {

@@ -1,0 +1,167 @@
+[
+  {
+    "id": "hof_cozy_sunday",
+    "prompt": "soft happy Sunday afternoon with light emotional warmth",
+    "category": "easy_mood",
+    "expectedIntent": "warm, gentle uplift without intensity spikes",
+    "difficulty": "easy",
+    "source": "human_curated",
+    "notes": "Reference bar for low-stakes mood playlists — coherence matters more than surprise.",
+    "qualityScore": 0.91,
+    "referenceId": "cozy_sunday"
+  },
+  {
+    "id": "hof_coffee_shop",
+    "prompt": "lazy Saturday coffee shop reading with indie folk vibes",
+    "category": "easy_mood",
+    "expectedIntent": "acoustic-leaning indie folk, unhurried reading energy",
+    "difficulty": "easy",
+    "source": "human_curated",
+    "notes": "Should feel like a real café playlist, not algorithmic filler.",
+    "qualityScore": 0.9,
+    "referenceId": "coffee_shop"
+  },
+  {
+    "id": "hof_late_night",
+    "prompt": "late night feeling",
+    "category": "easy_mood",
+    "expectedIntent": "nocturnal, introspective, restrained energy",
+    "difficulty": "easy",
+    "source": "human_curated",
+    "notes": "Vague prompt — tests whether identity still emerges in opening five.",
+    "qualityScore": 0.88,
+    "referenceId": "late_night"
+  },
+  {
+    "id": "hof_study_session",
+    "prompt": "music for thinking and study session focus",
+    "category": "functional",
+    "expectedIntent": "low-distraction focus, steady energy, minimal vocals",
+    "difficulty": "medium",
+    "source": "human_curated",
+    "notes": "Functional but softer than coding — instrumental bias acceptable.",
+    "qualityScore": 0.89,
+    "referenceId": "study_session"
+  },
+  {
+    "id": "hof_sunset_drive",
+    "prompt": "driving at sunset with open windows and golden light",
+    "category": "functional",
+    "expectedIntent": "forward motion, golden-hour warmth, singalong optional",
+    "difficulty": "medium",
+    "source": "human_curated",
+    "notes": "Activity + scene blend — opening should feel like windows down.",
+    "qualityScore": 0.9,
+    "referenceId": "sunset_drive"
+  },
+  {
+    "id": "hof_road_trip",
+    "prompt": "windows-down road trip singalong energy",
+    "category": "functional",
+    "expectedIntent": "high singalong potential, communal drive energy",
+    "difficulty": "medium",
+    "source": "human_curated",
+    "notes": "Tests whether pacing supports sustained engagement.",
+    "qualityScore": 0.87,
+    "referenceId": "road_trip"
+  },
+  {
+    "id": "hof_focus_coding",
+    "prompt": "deep focus coding session late evening electronic ambient",
+    "category": "hard_activity",
+    "expectedIntent": "low-energy electronic/ambient, zero dance-floor bait",
+    "difficulty": "hard",
+    "source": "human_curated",
+    "notes": "Hard bar — UKG, grime, or hype openers are immediate failures.",
+    "qualityScore": 0.93,
+    "referenceId": "focus_coding"
+  },
+  {
+    "id": "hof_gym_boost",
+    "prompt": "gym confidence boost high energy workout",
+    "category": "hard_activity",
+    "expectedIntent": "high-energy drive tracks, workout-safe openers",
+    "difficulty": "hard",
+    "source": "human_curated",
+    "notes": "Slow rock or ballad openers fail blind listening instantly.",
+    "qualityScore": 0.92,
+    "referenceId": "gym_boost"
+  },
+  {
+    "id": "hof_party_pregame",
+    "prompt": "pregame playlist before going out with friends tonight",
+    "category": "hard_activity",
+    "expectedIntent": "mainstream danceable bangers, social confidence",
+    "difficulty": "hard",
+    "source": "human_curated",
+    "notes": "Indie deep cuts in the opener are a trust break.",
+    "qualityScore": 0.91,
+    "referenceId": "party_pregame"
+  },
+  {
+    "id": "hof_melancholy_rain",
+    "prompt": "melancholy rainy afternoon staring out the window",
+    "category": "emotional_specific",
+    "expectedIntent": "sad-but-beautiful, rainy introspection, no forced cheer",
+    "difficulty": "medium",
+    "source": "human_curated",
+    "notes": "Emotional specificity test — valence should stay restrained.",
+    "qualityScore": 0.9,
+    "referenceId": "melancholy_rain"
+  },
+  {
+    "id": "hof_after_work",
+    "prompt": "after work decompression walk home calm but not sad",
+    "category": "emotional_specific",
+    "expectedIntent": "decompression without melancholy drift",
+    "difficulty": "medium",
+    "source": "human_curated",
+    "notes": "Subtle emotional constraint — calm yes, sad no.",
+    "qualityScore": 0.88,
+    "referenceId": "after_work"
+  },
+  {
+    "id": "hof_rainy_walk",
+    "prompt": "rainy city morning walk with reflective mood",
+    "category": "emotional_specific",
+    "expectedIntent": "urban rain reflection, indie/folk intimacy",
+    "difficulty": "medium",
+    "source": "human_curated",
+    "notes": "Scene + emotion — opening should feel like wet pavement.",
+    "qualityScore": 0.89,
+    "referenceId": "rainy_walk"
+  },
+  {
+    "id": "hof_summer_morning",
+    "prompt": "Feel-good summer morning music to hype yourself up for the day, getting ready, and commuting to work.",
+    "category": "easy_mood",
+    "expectedIntent": "optimistic morning commute, feel-good indie-pop",
+    "difficulty": "easy",
+    "source": "human_curated",
+    "notes": "Long prompt with multiple activities — still needs a clear opener identity.",
+    "qualityScore": 0.9,
+    "referenceId": "summer_morning"
+  },
+  {
+    "id": "hof_morning_yoga",
+    "prompt": "gentle morning yoga stretch calm uplifting",
+    "category": "functional",
+    "expectedIntent": "calm uplift, body-aware pacing, no jarring drops",
+    "difficulty": "medium",
+    "source": "human_curated",
+    "notes": "Functional wellness — energy floor and ceiling both matter.",
+    "qualityScore": 0.87,
+    "referenceId": "morning_yoga"
+  },
+  {
+    "id": "hof_optimistic_commute",
+    "prompt": "optimistic commute to work with forward energy",
+    "category": "functional",
+    "expectedIntent": "forward momentum, bright valence, commute-safe",
+    "difficulty": "medium",
+    "source": "human_curated",
+    "notes": "Should feel save-worthy on first listen for commuters.",
+    "qualityScore": 0.86,
+    "referenceId": "optimistic_commute"
+  }
+]

@@ -65,9 +65,19 @@ import {
   type FreshnessStats,
   type PlaylistHistoryRow,
 } from "../lib/playlist-freshness";
+import type { CrossPlaylistNoveltyConfig } from "../lib/cross-playlist-novelty";
 import { buildGenreAudit, type GenreAudit } from "../lib/genre-audit";
 import { classifyTrack } from "../lib/genre-taxonomy";
+import {
+  compactStageSnapshot,
+  histogramFamiliesForTracks,
+} from "../lib/family-stage-funnel";
 import type { ScoredLibraryTrack } from "./scoring-engine/types";
+import { attachScoreAttribution } from "./scoring-engine/score-breakdown";
+import {
+  buildBlendedIntentPool,
+  isCompoundPromptIntent,
+} from "../lib/blended-intent-pool";
 import { logScoringStage } from "../lib/generate-stage-timer";
 import { isGenuinelyUsablePlaylist } from "../lib/good-playlist-refinement-telemetry";
 import { buildV3InvocationDecomposition } from "../lib/v3-invocation-decomposition";
@@ -200,6 +210,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
       albumAppearances: Map<string, number>;
       globalCloneMultiplier: number;
     };
+    crossPlaylistNovelty?: CrossPlaylistNoveltyConfig;
+    contextualUniqueness?: import("../lib/contextual-uniqueness").ContextualUniquenessConfig;
     vibe: string;
     curatorScoreByTrack?: Map<string, number>;
     sceneAliases?: string[];
@@ -228,6 +240,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
    */
   noLibraryMode?: boolean;
   requestId?: string;
+  /** Adaptive prompt-first weight shift from retrieval orchestrator */
+  adaptivePromptWeightShift?: number;
   pipelineTrace?: PipelineTrace;
   diagnosticsMode?: "minimal" | "full";
   sceneWorldProof?: boolean;
@@ -3647,6 +3661,8 @@ function buildV3CandidatePool<T extends {
     minimumFillRatio?: number;
     singleWorldMode?: boolean;
     mode?: "strict" | "balanced" | "chaotic";
+    vibe?: string;
+    emotionProfile?: EmotionProfile;
   } = {},
   logger?: import("pino").Logger,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
@@ -3714,6 +3730,13 @@ function buildV3CandidatePool<T extends {
     Math.ceil(playlistLength * (opts.minimumFillRatio ?? 0.8)),
     Math.min(12, playlistLength),
   );
+  const compoundGenreEraActivity =
+    lockedIntent.genreFamilies.length > 0 &&
+    !!lockedIntent.eraRange &&
+    !!lockedIntent.activity;
+  const effectiveMinimumCandidateCount = compoundGenreEraActivity
+    ? Math.max(8, Math.ceil(playlistLength * 0.55))
+    : minimumCandidateCount;
   forensicPreV3Trace.push(preV3StageTrace("initial scored track count", sorted.length, sorted.length));
   const genreReady = sorted.filter((track) => !!genreFamilyFor(track));
   forensicPreV3Trace.push(preV3StageTrace(
@@ -3730,16 +3753,16 @@ function buildV3CandidatePool<T extends {
     countPreV3Reasons(sorted, laneReadinessReasonFor),
   ));
   const intentLaneReady = sorted.filter(intentLaneReadyFor);
-  const eraReady = lockedIntent.eraRange
-    ? intentLaneReady.filter(eraSignalFor)
-    : intentLaneReady;
-  const eraReadyIds = new Set(eraReady.map((track) => track.trackId));
   forensicPreV3Trace.push(preV3StageTrace(
     "metadata completeness filter",
     sorted.length,
     intentLaneReady.length,
     countPreV3Reasons(sorted, intentLaneReadinessReasonFor),
   ));
+  const eraReady = lockedIntent.eraRange
+    ? intentLaneReady.filter(eraSignalFor)
+    : intentLaneReady;
+  const eraReadyIds = new Set(eraReady.map((track) => track.trackId));
   forensicPreV3Trace.push(preV3StageTrace(
     "era readiness filter",
     intentLaneReady.length,
@@ -3752,10 +3775,9 @@ function buildV3CandidatePool<T extends {
         })
       : {},
   ));
-  const strictEffectiveLaneReady = lockedIntent.eraRange ? eraReady : intentLaneReady;
   const relaxationAttempts = relaxationPlan.map((step) => {
     const relaxedIntent = relaxedIntentForProfile(lockedIntent, step.profile);
-    const sourcePool = step.profile.genre === "strict"
+    const sourcePool = step.profile.genre === "strict" && step.profile.era === "strict"
       ? intentLaneReady
       : step.profile.mood === "relaxed"
         ? laneReady
@@ -3775,11 +3797,44 @@ function buildV3CandidatePool<T extends {
       tracks,
     };
   });
-  const selectedRelaxation = relaxationAttempts.find((attempt) => attempt.candidateCount >= minimumCandidateCount)
+  const selectedRelaxation = relaxationAttempts.find((attempt) => attempt.candidateCount >= effectiveMinimumCandidateCount)
     ?? relaxationAttempts.find((attempt) => attempt.candidateCount > 0)
     ?? relaxationAttempts[0];
-  const effectiveLaneReady = selectedRelaxation?.step === "strict_constraints" ? strictEffectiveLaneReady : selectedRelaxation?.tracks ?? [];
-  const rawIntentReady = selectedRelaxation?.tracks ?? [];
+  let rawIntentReady = selectedRelaxation?.tracks ?? [];
+  let blendedRescueApplied = false;
+  if (
+    rawIntentReady.length < effectiveMinimumCandidateCount &&
+    sorted.length > 0 &&
+    isCompoundPromptIntent(lockedIntent) &&
+    opts.vibe &&
+    opts.emotionProfile
+  ) {
+    const blended = buildBlendedIntentPool({
+      tracks: sorted.map((track) => ({
+        ...track,
+        artistName: track.artistName ?? "Unknown",
+      })),
+      vibe: opts.vibe,
+      intent: lockedIntent,
+      emotionProfile: opts.emotionProfile,
+      classMap,
+      requestedLength: playlistLength,
+      mode: opts.mode,
+    });
+    const sortedById = new Map(sorted.map((track) => [track.trackId, track]));
+    const blendedReady = blended.tracks
+      .map((track) => sortedById.get(track.trackId))
+      .filter((track): track is T => !!track);
+    if (blendedReady.length > rawIntentReady.length) {
+      rawIntentReady = blendedReady;
+      blendedRescueApplied = true;
+      forensicPreV3Trace.push(preV3StageTrace(
+        "compound strict blended pool rescue",
+        sorted.length,
+        blendedReady.length,
+      ));
+    }
+  }
   const broadSceneIntent = !!lockedIntent.activity || !!lockedIntent.energy || lockedIntent.mood.length > 0;
   const intentReadyCap = Math.min(
     rawIntentReady.length,
@@ -3790,10 +3845,10 @@ function buildV3CandidatePool<T extends {
   const intentReady = capV3IntentReadyPool(rawIntentReady, classMap, intentReadyCap);
   forensicPreV3Trace.push(preV3StageTrace(
     "intent readiness filter",
-    selectedRelaxation?.step === "strict_constraints" ? effectiveLaneReady.length : sorted.length,
+    sorted.length,
     intentReady.length,
     countPreV3Reasons(
-      selectedRelaxation?.step === "strict_constraints" ? effectiveLaneReady : sorted,
+      sorted,
       lockedIntentRejectionReasonFor,
     ),
   ));
@@ -3831,6 +3886,15 @@ function buildV3CandidatePool<T extends {
   ));
   forensicPreV3Trace.push(preV3StageTrace("final candidate pool count", intentReady.length, tracks.length));
   const summary = preV3Summary(forensicPreV3Trace, tracks.length);
+  // Fill-floor used for starvation flag: compound prompts use effective floor;
+  // post-rescue/rawIntentReady must clear a stale shortfall from the selected ladder step.
+  const fillFloor = compoundGenreEraActivity ? effectiveMinimumCandidateCount : minimumCandidateCount;
+  const bestAvailablePoolCount = Math.max(
+    selectedRelaxation?.candidateCount ?? 0,
+    rawIntentReady.length,
+    intentReady.length,
+    tracks.length,
+  );
   logger?.info({
     initialScoredTracks: sorted.length,
     finalCandidatePool: tracks.length,
@@ -3858,10 +3922,13 @@ function buildV3CandidatePool<T extends {
         relaxedIntentChecks: relaxedIntentMatchCache.size,
       },
       relaxationSteps: relaxationAttempts
-        .filter((attempt) => attempt.step === selectedRelaxation?.step || attempt.candidateCount < minimumCandidateCount)
+        .filter((attempt) => attempt.step === selectedRelaxation?.step || attempt.candidateCount < fillFloor)
         .map((attempt) => attempt.step),
       finalRelaxedConstraints: selectedRelaxation?.profile ?? relaxationPlan[0]?.profile,
-      constraintFailures: selectedRelaxation && selectedRelaxation.candidateCount < minimumCandidateCount
+      blendedRescueApplied,
+      fillFloor,
+      bestAvailablePoolCount,
+      constraintFailures: bestAvailablePoolCount < fillFloor
         ? ["candidate_pool_below_minimum_after_relaxation"]
         : [],
       relaxationAttempts: relaxationAttempts.map((attempt) => ({
@@ -3988,6 +4055,7 @@ export async function buildPlaylistPipeline<T extends {
       varietyPenaltyScale: (opts.varietyPenaltyScale ?? 1) * (policy?.diversityPressure ?? 1),
       referencePlaylist: opts.referencePlaylist,
       noLibraryMode: opts.noLibraryMode,
+      adaptivePromptWeightShift: opts.adaptivePromptWeightShift,
       postScore: {
         ...opts.postScore,
         emotionProfile: opts.emotionProfile,
@@ -4372,8 +4440,67 @@ export async function buildPlaylistPipeline<T extends {
       return true;
     });
   }
-  let finalFallbackLevelUsed: "none" | "family" | "adjacent" | "global" = "none";
-  let starvationTriggerReason: string | null = null;
+  const compoundPromptDimensions =
+    (intentContract.genreFamilies.length > 0 ? 1 : 0) +
+    (intentContract.eraRange ? 1 : 0) +
+    (intentContract.activity ? 1 : 0) +
+    ((intentContract.mood?.length ?? 0) > 0 ? 1 : 0);
+  const compoundStrictStarvation =
+    compoundPromptDimensions >= 2 &&
+    intentContract.genreFamilies.length > 0 &&
+    contractGuardedScoredPool.length === 0 &&
+    (scoring.sorted as ScoredLibraryTrack<T>[]).length > 0;
+  let compoundStrictRelaxation: string | null = null;
+  if (compoundStrictStarvation) {
+    const baseLockedIntent = unifiedIntentContext.lockedIntent;
+    const relaxationPlan = buildConstraintRelaxationPlan(baseLockedIntent, "balanced");
+    const compoundFloor = Math.max(8, Math.ceil(opts.playlistLength * 0.45));
+    for (const step of relaxationPlan) {
+      const relaxedIntent = relaxedIntentForProfile(baseLockedIntent, step.profile);
+      const relaxedPool = (scoring.sorted as ScoredLibraryTrack<T>[]).filter((track) => {
+        if (contradictsExplicitGenreTruth(track, intentContract.genreFamilies)) return false;
+        if (intentContract.eraRange && trackHasKnownEraMismatch(track, intentContract.eraRange)) return false;
+        return trackMatchesLockedIntent(track, classMap, relaxedIntent);
+      });
+      if (relaxedPool.length >= compoundFloor) {
+        contractGuardedScoredPool = relaxedPool;
+        compoundStrictRelaxation = step.label;
+        break;
+      }
+    }
+    if (contractGuardedScoredPool.length === 0 && familyFallbackEvidencePool.length > 0) {
+      contractGuardedScoredPool = familyFallbackEvidencePool.slice(0, minSafePreRankingPool);
+      compoundStrictRelaxation = "family_fallback_evidence";
+    }
+    if (contractGuardedScoredPool.length === 0) {
+      const blended = buildBlendedIntentPool({
+        tracks: (scoring.sorted as ScoredLibraryTrack<T>[]).map((track) => ({
+          ...track,
+          artistName: track.artistName ?? "Unknown",
+        })),
+        vibe: opts.vibe,
+        intent: baseLockedIntent,
+        emotionProfile: opts.emotionProfile,
+        classMap,
+        requestedLength: opts.playlistLength,
+        mode: opts.mode,
+      });
+      const scoredById = new Map(
+        (scoring.sorted as ScoredLibraryTrack<T>[]).map((track) => [track.trackId, track]),
+      );
+      const blendedScored = blended.tracks
+        .map((track) => scoredById.get(track.trackId))
+        .filter((track): track is ScoredLibraryTrack<T> => !!track);
+      if (blendedScored.length > 0) {
+        contractGuardedScoredPool = blendedScored;
+        compoundStrictRelaxation = `blended_intent_pool:${blended.diagnostics.relaxationStep ?? "lanes"}`;
+      }
+    }
+  }
+  let finalFallbackLevelUsed: "none" | "family" | "adjacent" | "global" = compoundStrictRelaxation ? "adjacent" : "none";
+  let starvationTriggerReason: string | null = compoundStrictRelaxation
+    ? `compound_strict_relaxation:${compoundStrictRelaxation}`
+    : null;
   let emptyPoolDetectedAtStage: string | null = contractGuardedScoredPool.length === 0 ? "pre_scoring_candidate_pool" : null;
   let fallbackDepthReached = 0;
   const fallbackExpansionPath: string[] = [];
@@ -4909,6 +5036,8 @@ export async function buildPlaylistPipeline<T extends {
             minimumFillRatio: interpretationKey === "editorial_safe" ? 0.8 : 0.65,
             singleWorldMode: worldBoundary.hardLock,
             mode: opts.mode,
+            vibe: opts.vibe,
+            emotionProfile: opts.emotionProfile,
           },
           opts.pipelineLog,
         );
@@ -4940,10 +5069,13 @@ export async function buildPlaylistPipeline<T extends {
       candidatePool.tracks as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
       sharedRetrievalPool,
     ) as unknown as T[];
+    const v3Tracks = v3InputTracks.length > 0
+      ? v3InputTracks
+      : (capV3SafetyPool(contractGuardedScoredPool) as unknown as T[]);
     try {
       v3InvocationCount += 1;
       result = await runV3Pipeline(
-        v3InputTracks,
+        v3Tracks,
         opts.vibe,
         opts.emotionProfile,
         opts.playlistLength,
@@ -5768,11 +5900,51 @@ export async function buildPlaylistPipeline<T extends {
     stabilityDiagnostics: scoring.stabilityDiagnostics,
   });
   const controllerOwnedTiming = buildTimingMs();
+  const familyStageFunnel = {
+    scored: compactStageSnapshot(
+      histogramFamiliesForTracks(
+        scoring.sorted as Array<{ trackId: string }>,
+        classMap,
+        "scored",
+      ),
+    ),
+    contractGuarded: compactStageSnapshot(
+      histogramFamiliesForTracks(
+        contractGuardedScoredPool as Array<{ trackId: string }>,
+        classMap,
+        "contract_guarded",
+      ),
+    ),
+    v3Input: compactStageSnapshot(
+      histogramFamiliesForTracks(
+        v3CandidatePool.tracks as Array<{ trackId: string }>,
+        classMap,
+        "v3_input",
+      ),
+    ),
+    v3Selected: compactStageSnapshot(
+      histogramFamiliesForTracks(
+        v3.finalTracks as Array<{ trackId: string }>,
+        classMap,
+        "v3_selected",
+      ),
+    ),
+    final: compactStageSnapshot(
+      histogramFamiliesForTracks(
+        finalTracksList as Array<{ trackId: string }>,
+        classMap,
+        "pipeline_final",
+      ),
+    ),
+  };
+  const scoredAttributionById = new Map(scoring.sorted.map((track) => [track.trackId, track]));
+  finalTracksList = attachScoreAttribution(finalTracksList, scoredAttributionById);
   return {
     finalTracks: finalTracksList as V3MetadataTrack<T>[],
     sorted: scoring.sorted,
     scoringDiagnostics: {
       ...scoring.scoringDiagnostics,
+      familyStageFunnel,
       unifiedIntent: unifiedIntentDiagnostics,
       momentMemory: {
         recentStates: controllerOwnedMomentMemory.recentStates.length,

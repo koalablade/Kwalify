@@ -1,10 +1,12 @@
 import type { TrackScoringDebug } from "../../lib/hybrid-scoring";
+import type { ScoreChannelBreakdown } from "./score-breakdown";
 
 /** Track row with score fields used through the playlist pipeline */
 export type ScoredLibraryTrack<T extends { trackId: string }> = T & {
   score: number;
   rediscoveryScore: number;
   scoringDebug: TrackScoringDebug;
+  scoreBreakdown?: ScoreChannelBreakdown;
   gravityScore?: number;
   emotionalMass?: number;
   stickiness?: number;

@@ -22,6 +22,16 @@ import {
   applyFreshnessToScore,
   type FreshnessStats,
 } from "../../lib/playlist-freshness";
+import {
+  applyPrimaryPathNoveltyPenalty,
+  type CrossPlaylistNoveltyConfig,
+  type NoveltyPenaltyAuditEntry,
+} from "../../lib/cross-playlist-novelty";
+import {
+  applyContextualUniquenessPenalty,
+  type ContextualUniquenessConfig,
+  type ContextualUniquenessDiagnosticEntry,
+} from "../../lib/contextual-uniqueness";
 import { applyVibeMatchGuards, modeScoreMultiplier } from "../../lib/vibe-match-guards";
 import { refineSongScore } from "../../lib/emotion";
 import { trackHasEraEvidence } from "../../lib/era-evidence";
@@ -34,6 +44,10 @@ import type { UserTasteManifold } from "../../lib/user-taste-manifold";
 import { cultureRetrievalBoost } from "../../lib/scene-culture-graph";
 import { globalTasteRetrievalBoost, type GlobalTasteProfile } from "../../lib/global-taste-profile";
 import { trendRetrievalBoost } from "../../lib/trend-ingestion";
+import { type ScoreChannelBreakdown, roundBreakdown } from "./score-breakdown";
+
+/** Hybrid already scores emotion at 15% — scale post-pass refine to avoid triple-counting. */
+export const REFINE_AFTER_HYBRID_SCALE = 0.5;
 
 function metadataGenreMatch(genres: unknown, vibe: string): number {
   if (!Array.isArray(genres)) return 0;
@@ -97,6 +111,14 @@ export interface PostScoreModifierInput<T extends { trackId: string; artistName:
   /** Library-aware scaling from generation policy */
   discoveryBoostScale?: number;
   mainstreamSuppressionScale?: number;
+  /** Primary-path cross-playlist novelty (post-hybrid, pre-ranking). */
+  crossPlaylistNovelty?: CrossPlaylistNoveltyConfig;
+  /** Optional audit sink populated when crossPlaylistNovelty is enabled. */
+  noveltyAuditOut?: NoveltyPenaltyAuditEntry[];
+  /** Contextual uniqueness — penalise cross-context universal winners. */
+  contextualUniqueness?: ContextualUniquenessConfig;
+  /** Optional audit sink populated when contextualUniqueness is enabled. */
+  contextualUniquenessAuditOut?: ContextualUniquenessDiagnosticEntry[];
 }
 
 export function applyPostScoreModifiers<T extends {
@@ -121,6 +143,20 @@ export function applyPostScoreModifiers<T extends {
 
   return input.hybridResults.map(({ track: song, score: hybridBase, debug }) => {
     let score = hybridBase;
+    const breakdown: ScoreChannelBreakdown = {
+      hybridBase: roundBreakdown(hybridBase),
+      hybridEmbedding: debug.hybridChannelEmbedding ?? 0,
+      hybridUserTaste: debug.hybridChannelUserTaste ?? 0,
+      hybridNovelty: debug.hybridChannelNovelty ?? 0,
+      hybridEmotion: debug.hybridChannelEmotion ?? 0,
+      hybridScene: debug.hybridChannelScene ?? 0,
+      rediscoveryBoost: 0,
+      refineAdjust: 0,
+      freshnessMultiplier: 1,
+      noveltyPenalty: 0,
+      contextualPenalty: 0,
+      finalScore: hybridBase,
+    };
 
     if (input.referenceFingerprint) {
       score += referenceSimilarityBonus(
@@ -141,7 +177,8 @@ export function applyPostScoreModifiers<T extends {
     }
 
     const signal = input.librarySignals.tracks.get(song.trackId);
-    const emotionFit = score;
+    // Orthogonal emotion fit — not the embedding-heavy hybrid total.
+    const emotionFit = Math.max(0, Math.min(1, debug.emotionMatch ?? 0.5));
 
     const rediscoveryScore = signal
       ? computeRediscoveryScore({
@@ -152,13 +189,22 @@ export function applyPostScoreModifiers<T extends {
         })
       : 0.2;
 
-    score += rediscoveryScoreBoost(rediscoveryScore, emotionFit, input.rediscoveryMode) * 0.85;
+    const rediscoveryBoost = rediscoveryScoreBoost(rediscoveryScore, emotionFit, input.rediscoveryMode) * 0.85;
+    score += rediscoveryBoost;
+    breakdown.rediscoveryBoost = roundBreakdown(rediscoveryBoost);
     score += chapterTrackBoost(song.trackId, input.chapterMatch);
     if (input.archaeology) score += archaeologyRediscoveryBoost(input.archaeology.concept);
     score += rediscoveryJitter(song.trackId, input.startMs) * 0.001;
     score *= input.promptConfidenceMultiplier;
     score *= input.journeyArcMultiplier;
 
+    const beforeRefine = score;
+    score = refineSongScore(score, song, input.emotionProfile, {
+      moodAdjustScale: REFINE_AFTER_HYBRID_SCALE,
+    });
+    breakdown.refineAdjust = roundBreakdown(score - beforeRefine);
+
+    const scoreBeforeFreshness = score;
     score = applyFreshnessToScore(score, {
       trackId: song.trackId,
       artistName: song.artistName,
@@ -168,8 +214,56 @@ export function applyPostScoreModifiers<T extends {
       albumAppearances: input.freshness.albumAppearances,
       globalCloneMultiplier: input.freshness.globalCloneMultiplier,
     });
+    breakdown.freshnessMultiplier =
+      scoreBeforeFreshness > 0 ? roundBreakdown(score / scoreBeforeFreshness) : 1;
 
-    score = refineSongScore(score, song, input.emotionProfile);
+    const scoreBeforeNovelty = score;
+    const noveltyResult = applyPrimaryPathNoveltyPenalty(
+      score,
+      song.trackId,
+      song.artistName,
+      input.crossPlaylistNovelty,
+    );
+    score = noveltyResult.score;
+    breakdown.noveltyPenalty = roundBreakdown(noveltyResult.penalty);
+    if (input.crossPlaylistNovelty?.enabled && noveltyResult.penalty > 0 && input.noveltyAuditOut) {
+      const trackName = "trackName" in song && typeof song.trackName === "string" ? song.trackName : "";
+      input.noveltyAuditOut.push({
+        trackId: song.trackId,
+        artistName: song.artistName,
+        trackName,
+        trackFrequency: noveltyResult.appearanceCount,
+        previousPlaylistCount: input.crossPlaylistNovelty.previousPlaylistCount,
+        noveltyPenalty: noveltyResult.penalty,
+        scoreBefore: Math.round(scoreBeforeNovelty * 1000) / 1000,
+        scoreAfter: Math.round(score * 1000) / 1000,
+        scoringStage: "post_score_primary_path",
+      });
+    }
+
+    const contextualResult = applyContextualUniquenessPenalty(
+      score,
+      song.trackId,
+      song.artistName,
+      input.contextualUniqueness,
+    );
+    score = contextualResult.score;
+    breakdown.contextualPenalty = roundBreakdown(contextualResult.penalty);
+    if (
+      input.contextualUniqueness?.enabled
+      && input.contextualUniquenessAuditOut
+      && (contextualResult.penalty > 0 || contextualResult.contextSpread >= 2)
+    ) {
+      input.contextualUniquenessAuditOut.push({
+        track: song.trackId,
+        artist: song.artistName,
+        contextSpread: contextualResult.contextSpread,
+        contexts: contextualResult.contexts,
+        penaltyApplied: contextualResult.penalty,
+        bypassReason: contextualResult.bypassReason,
+      });
+    }
+
     score = applyVibeMatchGuards(score, song, input.emotionProfile, input.vibe);
     const enriched = song as typeof song & {
       spotifyArtistGenres?: unknown;
@@ -253,6 +347,9 @@ export function applyPostScoreModifiers<T extends {
     }
     score *= modeScoreMultiplier(input.mode);
 
-    return { ...song, score, rediscoveryScore, scoringDebug: debug };
+    breakdown.finalScore = roundBreakdown(score);
+    breakdown.attributionSource = "primary";
+
+    return { ...song, score, rediscoveryScore, scoringDebug: debug, scoreBreakdown: breakdown };
   });
 }

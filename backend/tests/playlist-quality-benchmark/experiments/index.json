@@ -1,0 +1,12 @@
+[
+  {
+    "id": "opening-curator-v2-locked-benchmark-2026-07-07T00-25-35-789Z-c1b56c",
+    "name": "^opening^ curator^ v2^ locked^ benchmark^",
+    "runAt": "2026-07-07T00:25:35.789Z",
+    "gitCommit": "b83825bc4275645bfcdd77a6025901398e8bd318",
+    "mode": "offline",
+    "overallRecommendation": "REJECT",
+    "promptSuiteVersion": "1.0.0",
+    "file": "opening-curator-v2-locked-benchmark-2026-07-07T00-25-35-789Z-c1b56c.json"
+  }
+]

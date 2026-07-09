@@ -1,0 +1,68 @@
+[
+  {
+    "id": "stress_vague_vibes",
+    "prompt": "just vibes",
+    "category": "easy_mood",
+    "expectedIntent": "coherent mood identity despite minimal prompt",
+    "difficulty": "hard",
+    "source": "stress_real_user",
+    "notes": "Extremely vague — system must still commit to an opener identity.",
+    "qualityScore": 0.75,
+    "libraryDependency": "low"
+  },
+  {
+    "id": "stress_contradiction_calm_hype",
+    "prompt": "calm hype music for cleaning my room",
+    "category": "functional",
+    "expectedIntent": "resolved contradiction — energetic but not chaotic",
+    "difficulty": "hard",
+    "source": "stress_real_user",
+    "notes": "Contradiction stress — should not pick one pole and ignore the other.",
+    "qualityScore": 0.78,
+    "libraryDependency": "medium"
+  },
+  {
+    "id": "stress_niche_genre_combo",
+    "prompt": "shoegaze footwork hybrid for late night coding",
+    "category": "hard_activity",
+    "expectedIntent": "niche genre respect with focus-safe energy",
+    "difficulty": "hard",
+    "source": "stress_real_user",
+    "notes": "Niche combo + activity — tests graceful interpretation not generic fallback.",
+    "qualityScore": 0.8,
+    "libraryDependency": "high"
+  },
+  {
+    "id": "stress_overlong_life_context",
+    "prompt": "my girlfriend broke up with me last week and I'm moving apartments this weekend and I need something for the drive that isn't too sad but also isn't pretending everything is fine",
+    "category": "emotional_specific",
+    "expectedIntent": "bittersweet drive energy from overlong emotional context",
+    "difficulty": "hard",
+    "source": "stress_real_user",
+    "notes": "Long real-user prompt — must extract intent without drowning in narrative.",
+    "qualityScore": 0.82,
+    "libraryDependency": "medium"
+  },
+  {
+    "id": "stress_misspelled_mood",
+    "prompt": "chiled out sunday moring coffe",
+    "category": "easy_mood",
+    "expectedIntent": "chill Sunday morning coffee despite typos",
+    "difficulty": "medium",
+    "source": "stress_real_user",
+    "notes": "Typo tolerance — scene should still land on first attempt.",
+    "qualityScore": 0.76,
+    "libraryDependency": "low"
+  },
+  {
+    "id": "stress_no_music_words",
+    "prompt": "Sunday reset, laundry, open windows, feeling like a new week",
+    "category": "functional",
+    "expectedIntent": "domestic reset energy without explicit music vocabulary",
+    "difficulty": "medium",
+    "source": "stress_real_user",
+    "notes": "No music words — tests scene inference from life context alone.",
+    "qualityScore": 0.79,
+    "libraryDependency": "medium"
+  }
+]

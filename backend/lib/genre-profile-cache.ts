@@ -15,7 +15,7 @@ type CacheEntry = {
 
 const cache = new Map<string, CacheEntry>();
 const TTL_MS = Number.parseInt(process.env["GENRE_PROFILE_CACHE_TTL_MS"] ?? String(6 * 60 * 60 * 1000), 10);
-const GENRE_PROFILE_CACHE_VERSION = "genre-profile-v3-country-evidence";
+const GENRE_PROFILE_CACHE_VERSION = "genre-profile-v4-disco-soul-artist-hints";
 
 function profileCacheKey(userId: string): string {
   return `${GENRE_PROFILE_CACHE_VERSION}:${userId}`;

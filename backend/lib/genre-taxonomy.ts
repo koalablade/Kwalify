@@ -136,7 +136,7 @@ const SPOTIFY_GENRE_ROOT_TERMS: Record<RootGenre, string[]> = {
   jazz: ["jazz", "bebop", "swing", "bossa nova"],
   pop: ["pop", "dance pop", "synthpop", "new wave pop"],
   folk: ["folk", "singer-songwriter", "singer songwriter"],
-  soul: ["soul", "funk", "motown"],
+  soul: ["soul", "funk", "motown", "disco", "boogie", "italo disco", "nu-disco", "nu disco"],
   metal: ["metal", "metalcore", "deathcore", "thrash"],
   classical: ["classical", "orchestral", "opera", "baroque"],
   christmas: ["christmas", "holiday"],
@@ -359,6 +359,8 @@ export function classifyTrack(
   // Record how many text hits existed before audio heuristics
   const textHitCount = hits.length;
 
+  applyAcousticTitleTaxonomyBridge(textBlob, hits);
+
   for (const hint of vibeGenreHints ?? []) {
     const t = TAXONOMY.find((x) => x.root === hint || x.subgenre === hint);
     if (t) hits.push({ taxon: t, score: 0.38, micro: null });
@@ -555,6 +557,25 @@ function applyAudioGenreHeuristics(
   if (hasE && hasA && e < 0.32 && a > 0.45) pushHit(hits, "jazz", "smooth_jazz", 0.22, null);
   if (hasInst && hasE && inst > 0.55 && e < 0.45) pushHit(hits, "electronic", "ambient", 0.25, null);
   if (hasE && hasV && e > 0.78 && v < 0.4) pushHit(hits, "metal", "metalcore", 0.28, null);
+}
+
+/**
+ * Acoustic/unplugged title cues should prefer folk/singer-songwriter over country
+ * when there is no explicit country identity in the title.
+ */
+function applyAcousticTitleTaxonomyBridge(
+  textBlob: string,
+  hits: { taxon: GenreTaxon; score: number; micro: string | null }[],
+): void {
+  const lower = textBlob.toLowerCase();
+  const hasAcousticTitle =
+    /\b(acoustic|unplugged|stripped|mtv\s+unplugged|acoustic\s+version|acoustic\s+session)\b/i.test(lower);
+  if (!hasAcousticTitle) return;
+  const hasExplicitCountry =
+    /\b(country\s+song|honky\s+tonk|nashville|red\s+dirt|bluegrass|americana|western\s+swing)\b/i.test(lower);
+  if (hasExplicitCountry) return;
+  pushHit(hits, "folk", "singer_songwriter", 0.55, "acoustic title bridge");
+  pushHit(hits, "folk", "indie_folk", 0.28, null);
 }
 
 function pushHit(

@@ -5,6 +5,7 @@ import {
   recoveryIntentPreCheck,
   type DominantIntentContract,
 } from "../core/dominant-intent-contract";
+import type { ValidCandidateSupply } from "../lib/library-valid-candidate-supply";
 
 export type RecoveryGuardResult = {
   proceed: boolean;
@@ -17,6 +18,22 @@ export type RecoveryGuardResult = {
 };
 
 export type RecoveryStage = "soft" | "relaxed_scene" | "deterministic" | "global" | "hardSafe";
+
+/** Recovery tiers — higher tiers only when lower tiers cannot fill the playlist. */
+export type RecoveryTierLevel = 0 | 1 | 2 | 3 | 4;
+
+export const RECOVERY_TIER_ORDER: RecoveryStage[] = [
+  "soft",
+  "relaxed_scene",
+  "deterministic",
+  "global",
+  "hardSafe",
+];
+
+export function recoveryTierForStage(stage: RecoveryStage): RecoveryTierLevel {
+  const index = RECOVERY_TIER_ORDER.indexOf(stage);
+  return (index >= 0 ? index : 0) as RecoveryTierLevel;
+}
 
 export function recoveryStageAllowed(
   guards: RecoveryGuardResult,
@@ -52,6 +69,7 @@ export function evaluateRecoveryGuards(
     underfillRatio: number;
     finalTracks: Array<{ genreFamily?: string | null; genrePrimary?: string | null }>;
     expectedFamilies: string[];
+    validCandidateSupply?: ValidCandidateSupply | null;
   },
 ): RecoveryGuardResult {
   const preCheck = recoveryIntentPreCheck(contract, {
@@ -63,14 +81,20 @@ export function evaluateRecoveryGuards(
 
   const relaxCaps = capArtistAlbumRelaxation(contract.mode);
   const tailGenreEvidence = minimumGenreEvidenceInTail(opts.finalTracks, opts.expectedFamilies);
+  const supply = opts.validCandidateSupply ?? null;
+  const severeUnderfill = opts.underfillRatio < 0.2;
+  const supplyCanFill = !!supply && supply.recoveryValidCount >= supply.minRequired;
+  const supplyOverride = severeUnderfill && supplyCanFill;
 
   return {
-    proceed: preCheck.allowed,
-    controlledFailure: preCheck.controlledFailureRecommended,
-    reason: preCheck.reason,
+    proceed: preCheck.allowed || supplyOverride,
+    controlledFailure: supplyOverride ? false : preCheck.controlledFailureRecommended,
+    reason: supplyOverride
+      ? null
+      : preCheck.reason,
     diversityPressureMultiplier: narrowSceneDiversityPressure(contract.scene),
-    artistRelaxAllowed: relaxCaps.allowArtistRelax,
-    albumRelaxAllowed: relaxCaps.allowAlbumRelax,
+    artistRelaxAllowed: relaxCaps.allowArtistRelax || supplyOverride,
+    albumRelaxAllowed: relaxCaps.allowAlbumRelax || supplyOverride,
     tailGenreEvidence,
   };
 }

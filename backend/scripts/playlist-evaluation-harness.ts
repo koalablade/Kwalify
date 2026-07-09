@@ -6,6 +6,11 @@ import { resolveLiveBenchmarkCredentials } from "../lib/benchmark-env";
 import { PLAYLIST_BENCHMARK_PROMPTS, type PlaylistBenchmarkPrompt } from "../lib/playlist-evaluation/benchmark-prompts";
 import { writeEvaluationReports, type EvaluationReportPayload } from "../lib/playlist-evaluation/report";
 import type { EvaluationTrack, GenerationEvaluationResult, PlaylistMetrics } from "../lib/playlist-evaluation/metrics";
+import {
+  buildPlaylistContextFingerprint,
+  winningTrackIds,
+  type PlaylistContextFingerprint,
+} from "../lib/contextual-uniqueness";
 
 type HarnessConfig = {
   baseUrl: string;
@@ -239,9 +244,11 @@ function localGitHead(): string | null {
 function versionsMatch(expected: string, actual: string): boolean {
   const cleanExpected = expected.trim();
   const cleanActual = actual.trim();
-  return cleanExpected.length > 0 &&
-    cleanActual.length > 0 &&
-    cleanActual !== "unknown" &&
+  if (!cleanExpected || !cleanActual) return false;
+  if (cleanActual === "unknown" && (cleanExpected === "unknown" || cleanExpected === "local-dev")) {
+    return true;
+  }
+  return cleanActual !== "unknown" &&
     (cleanExpected === cleanActual || cleanExpected.startsWith(cleanActual) || cleanActual.startsWith(cleanExpected));
 }
 
@@ -730,9 +737,11 @@ async function postGenerate(
   if (auditMode) {
     body.auditMode = true;
     if (config.spotifyUserId) body.spotifyUserId = config.spotifyUserId;
+    body.evaluationCategory = benchmark.category;
     if (runMemory && runMemory.previousTrackLists.length > 0) {
       body.evaluationSessionMemory = {
-        previousTrackIds: [...runMemory.previousTrackLists].reverse().slice(0, 20),
+        previousTrackIds: [...runMemory.previousTrackLists].reverse().slice(0, 50),
+        previousPlaylistContexts: [...runMemory.previousPlaylistContexts].reverse().slice(0, 50),
       };
     }
   }
@@ -791,6 +800,10 @@ async function postGenerate(
 
 type BenchmarkRunMemory = {
   previousTrackLists: string[][];
+  previousPlaylistContexts: Array<{
+    trackIds: string[];
+    context: PlaylistContextFingerprint;
+  }>;
 };
 
 function trackIdFromEvaluationTrack(track: EvaluationTrack): string | null {
@@ -798,11 +811,54 @@ function trackIdFromEvaluationTrack(track: EvaluationTrack): string | null {
   return typeof id === "string" && id.trim() ? id.trim() : null;
 }
 
+function contextFromEvaluationResult(
+  benchmark: PlaylistBenchmarkPrompt,
+  response: Record<string, unknown> | undefined,
+): PlaylistContextFingerprint {
+  const gd = response?.["generationDiagnostics"];
+  const diagnostics = gd && typeof gd === "object" ? gd as Record<string, unknown> : {};
+  const curator = diagnostics["curatorIdentity"];
+  const curatorObj = curator && typeof curator === "object" ? curator as Record<string, unknown> : {};
+  const identityType = typeof diagnostics["identityType"] === "string"
+    ? diagnostics["identityType"]
+    : typeof curatorObj["type"] === "string"
+      ? curatorObj["type"]
+      : "balanced_curator";
+  const expectedGenre = benchmark.expectedGenres?.[0] ?? "unknown";
+  const energy = benchmark.expectedEnergy === "high"
+    ? "high"
+    : benchmark.expectedEnergy === "low"
+      ? "low"
+      : null;
+  return buildPlaylistContextFingerprint({
+    category: benchmark.category,
+    curatorIdentityType: identityType,
+    primaryGenreFamily: expectedGenre,
+    activity: benchmark.category === "gym"
+      ? "gym"
+      : benchmark.category === "focus"
+        ? "focus"
+        : benchmark.category === "party"
+          ? "party"
+          : null,
+    energy,
+  });
+}
+
 function updateBenchmarkRunMemory(memory: BenchmarkRunMemory, result: GenerationEvaluationResult): void {
   const ids = result.tracks
     .map(trackIdFromEvaluationTrack)
     .filter((id): id is string => !!id);
-  if (ids.length > 0) memory.previousTrackLists.push(ids);
+  if (ids.length > 0) {
+    memory.previousTrackLists.push(ids);
+    const response = result.response && typeof result.response === "object"
+      ? result.response as Record<string, unknown>
+      : undefined;
+    memory.previousPlaylistContexts.push({
+      trackIds: winningTrackIds(ids),
+      context: contextFromEvaluationResult(result.benchmark, response),
+    });
+  }
 }
 
 async function main(): Promise<void> {
@@ -876,7 +932,7 @@ async function main(): Promise<void> {
     .map((prompt) => resultByPrompt.get(prompt.id))
     .filter((result): result is GenerationEvaluationResult => !!result);
   const completed = new Set(results.map((result) => result.benchmark.id));
-  const runMemory: BenchmarkRunMemory = { previousTrackLists: [] };
+  const runMemory: BenchmarkRunMemory = { previousTrackLists: [], previousPlaylistContexts: [] };
   for (const result of results) updateBenchmarkRunMemory(runMemory, result);
   const clusterEarlyExitSummaries: ClusterEarlyExitSummary[] = [];
   const skippedClusters = new Set<string>();

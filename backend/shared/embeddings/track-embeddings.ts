@@ -22,6 +22,7 @@
  */
 
 import type { EmotionProfile } from "../../lib/emotion";
+import type { SemanticSceneVector } from "../../lib/semantic-scene-engine";
 
 export type AudioVector = [number, number, number, number, number, number, number];
 
@@ -100,6 +101,73 @@ export function buildQueryEmbedding(
     0.95, // speechiness_inv: almost all playlist tracks are sung
     tempoNorm,
   ];
+}
+
+/** Scene-primary query blend — reduces cross-prompt embedding collapse from raw emotion alone. */
+const SCENE_QUERY_BLEND = 0.65;
+const EMOTION_QUERY_BLEND = 1 - SCENE_QUERY_BLEND;
+
+function sceneValenceHint(sceneVector: SemanticSceneVector): number {
+  const aesthetics = sceneVector.aesthetics.join(" ").toLowerCase();
+  if (aesthetics.includes("melanchol") || aesthetics.includes("dark")) return 0.32;
+  if (aesthetics.includes("uplift") || aesthetics.includes("bright")) return 0.68;
+  if (sceneVector.energy.target < 0.4) return 0.42;
+  if (sceneVector.energy.target > 0.72) return 0.58;
+  return 0.5;
+}
+
+/**
+ * Intent/scene-conditioned query embedding — scene targets dominate; emotion profile is a minority blend.
+ */
+export function buildIntentConditionedQueryEmbedding(
+  profile: EmotionProfile,
+  sceneVector: SemanticSceneVector | null | undefined,
+  opts: {
+    energyTarget?: number;
+    danceabilityHint?: number;
+    acousticnessHint?: number;
+    instrumentalnessHint?: number;
+    tempoHint?: number;
+  } = {},
+): AudioVector {
+  if (!sceneVector) {
+    return buildQueryEmbedding(profile, opts);
+  }
+
+  const sceneEnergy = opts.energyTarget ?? sceneVector.energy.target;
+  const sceneValence = sceneValenceHint(sceneVector);
+  const blendedProfile: EmotionProfile = {
+    ...profile,
+    energy: profile.energy * EMOTION_QUERY_BLEND + sceneEnergy * SCENE_QUERY_BLEND,
+    valence: profile.valence * EMOTION_QUERY_BLEND + sceneValence * SCENE_QUERY_BLEND,
+  };
+
+  const acousticGenres = ["country", "folk", "blues", "classical", "jazz"];
+  const electronicGenres = ["electronic"];
+  const topGenre = sceneVector.genreEcosystem[0]?.genre ?? "";
+  const acousticnessHint =
+    opts.acousticnessHint ??
+    (acousticGenres.includes(topGenre)
+      ? 0.7
+      : electronicGenres.includes(topGenre)
+        ? 0.1
+        : sceneEnergy < 0.42
+          ? 0.62
+          : undefined);
+
+  const instrumentalnessHint =
+    opts.instrumentalnessHint ??
+    (sceneVector.aesthetics.some((a) => a.includes("instrumental") || a.includes("ambient"))
+      ? 0.6
+      : undefined);
+
+  return buildQueryEmbedding(blendedProfile, {
+    energyTarget: sceneEnergy,
+    danceabilityHint: opts.danceabilityHint,
+    acousticnessHint,
+    instrumentalnessHint,
+    tempoHint: opts.tempoHint,
+  });
 }
 
 /**

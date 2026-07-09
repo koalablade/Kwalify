@@ -92,16 +92,31 @@ function arcAffinity(track: ArcAwareTrack, phase: string): number {
   return ARC_AFFINITY[phase]?.[bucket] ?? ARC_AFFINITY[phase]?.[bucket.replace(/-/g, " ")] ?? 0.35;
 }
 
+export type ArcOrderingOptions = {
+  /** Keep the first N tracks fixed; arc ordering applies only to the tail. */
+  preservePrefixCount?: number;
+};
+
+function splitPreservedPrefix<T>(tracks: T[], preservePrefixCount?: number): { prefix: T[]; tail: T[] } {
+  const count = Math.max(0, Math.min(preservePrefixCount ?? 0, tracks.length));
+  if (count <= 0) return { prefix: [], tail: tracks };
+  return { prefix: tracks.slice(0, count), tail: tracks.slice(count) };
+}
+
 /** Greedy arc-aware reorder — does not swap tracks out, only sequences. */
 export function orderTracksByEmotionalArc<T extends ArcAwareTrack>(
   tracks: T[],
   arc: EmotionalArc,
+  options?: ArcOrderingOptions,
 ): T[] {
   if (tracks.length <= 3) return tracks;
 
+  const { prefix, tail } = splitPreservedPrefix(tracks, options?.preservePrefixCount);
+  if (tail.length <= 3) return tracks;
+
   const phases = [arc.start, arc.peak, arc.resolution];
-  const segmentSize = Math.max(1, Math.floor(tracks.length / phases.length));
-  const remaining = [...tracks];
+  const segmentSize = Math.max(1, Math.floor(tail.length / phases.length));
+  const remaining = [...tail];
   const ordered: T[] = [];
 
   for (let phaseIndex = 0; phaseIndex < phases.length; phaseIndex++) {
@@ -123,17 +138,20 @@ export function orderTracksByEmotionalArc<T extends ArcAwareTrack>(
     }
   }
 
-  return ordered.length === tracks.length ? ordered : tracks;
+  const merged = [...prefix, ...ordered, ...remaining];
+  return merged.length === tracks.length ? merged : tracks;
 }
 
 /** Five-segment journey ordering (Q8 foundation). */
 export function orderTracksByPlaylistSegments<T extends ArcAwareTrack>(
   tracks: T[],
   arc: EmotionalArc,
+  options?: ArcOrderingOptions,
 ): T[] {
-  if (tracks.length <= 5) return orderTracksByEmotionalArc(tracks, arc);
+  const { prefix, tail } = splitPreservedPrefix(tracks, options?.preservePrefixCount);
+  if (tail.length <= 5) return orderTracksByEmotionalArc(tracks, arc, options);
   const segments = buildPlaylistSegments(arc);
-  const remaining = [...tracks];
+  const remaining = [...tail];
   const ordered: T[] = [];
 
   for (const segment of segments) {
@@ -148,7 +166,7 @@ export function orderTracksByPlaylistSegments<T extends ArcAwareTrack>(
             : arc.resolution;
     const take = segment.id === "cooldown"
       ? remaining.length
-      : Math.max(1, Math.round(tracks.length * segment.share));
+      : Math.max(1, Math.round(tail.length * segment.share));
     for (let i = 0; i < take && remaining.length > 0; i++) {
       let bestIdx = 0;
       let bestScore = -1;
@@ -166,5 +184,6 @@ export function orderTracksByPlaylistSegments<T extends ArcAwareTrack>(
   while (remaining.length > 0) {
     ordered.push(remaining.shift()!);
   }
-  return ordered.length === tracks.length ? ordered : tracks;
+  const merged = [...prefix, ...ordered];
+  return merged.length === tracks.length ? merged : tracks;
 }

@@ -12,6 +12,7 @@ import type { GenreAudit } from "./genre-audit";
 import type { BuildPlaylistPipelineResult } from "../core/output";
 import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
 import type { TrackScoringDebug } from "./hybrid-scoring";
+import { summarizeScoreChannels, buildRecoveryScoreBreakdown, resolveTrackScoreBreakdown } from "../core/scoring-engine/score-breakdown";
 import { createPipelineTrace } from "./pipeline-trace";
 import type { V3TrackMetadata } from "./v3-track-contract";
 import type { SceneLockStatus } from "../core/scene-lock-mode";
@@ -160,13 +161,15 @@ export function buildFallbackPipelineResult<
   const fbScored: Array<ScoredLibraryTrack<T> & V3TrackMetadata> = fb.map((t) => {
     const genre = opts.genreByTrack?.(t.trackId);
     const genrePrimary = t.genrePrimary ?? genre?.genrePrimary ?? undefined;
+    const score = 0.72;
     return {
       ...t,
       genrePrimary,
       genreFamily: t.genreFamily ?? genre?.genreFamily ?? genrePrimary,
       genres: t.genres ?? genre?.genres ?? (genrePrimary ? [genrePrimary] : []),
-      score: 0.72,
+      score,
       rediscoveryScore: 0.35,
+      scoreBreakdown: buildRecoveryScoreBreakdown(score, "fallback"),
       scoringDebug: {
         ...fallbackScoringDebug(t.trackId),
         genrePrimary: genrePrimary ?? "unknown",
@@ -246,8 +249,9 @@ export function formatTracksForApi(
     albumGenres?: unknown;
     score?: number;
     rediscoveryScore?: number;
-    narrativeRole?: string;
+    scoreBreakdown?: import("../core/scoring-engine/score-breakdown").ScoreChannelBreakdown;
     scoringDebug?: TrackScoringDebug;
+    narrativeRole?: string;
     genreFamily?: string | null;
     genres?: string[] | null;
   }>,
@@ -272,6 +276,7 @@ export function formatTracksForApi(
         : genrePrimary
           ? [genrePrimary]
           : [];
+      const breakdown = resolveTrackScoreBreakdown(t);
       return {
         id: t.trackId,
         name: t.trackName,
@@ -292,6 +297,21 @@ export function formatTracksForApi(
         albumGenres: Array.isArray(t.albumGenres) ? t.albumGenres : [],
         score: Math.round((t.score ?? 0.7) * 100) / 100,
         rediscoveryScore: Math.round((t.rediscoveryScore ?? 0) * 100) / 100,
+        scoreBreakdown: breakdown,
+        scoreChannels: summarizeScoreChannels(breakdown),
+        scoringDebug: t.scoringDebug
+          ? {
+              embeddingSimilarity: t.scoringDebug.embeddingSimilarity,
+              emotionMatch: t.scoringDebug.emotionMatch,
+              noveltyScore: t.scoringDebug.noveltyScore,
+              hybridChannelEmbedding: t.scoringDebug.hybridChannelEmbedding,
+              hybridChannelUserTaste: t.scoringDebug.hybridChannelUserTaste,
+              hybridChannelNovelty: t.scoringDebug.hybridChannelNovelty,
+              hybridChannelEmotion: t.scoringDebug.hybridChannelEmotion,
+              hybridChannelScene: t.scoringDebug.hybridChannelScene,
+              genrePrimary: t.scoringDebug.genrePrimary,
+            }
+          : undefined,
         narrativeRole: t.narrativeRole,
         genrePrimary,
         genreFamily,

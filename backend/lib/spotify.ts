@@ -347,11 +347,7 @@ export async function getValidAccessToken(
 
 /**
  * Obtains a short-lived Client Credentials access token.
- *
- * Audio features are not user-specific — they only need a valid app token,
- * not the user's OAuth token. Using a separate CC token gives the audio-features
- * call its own quota bucket so it doesn't exhaust the user token that is also
- * handling 189+ liked-songs pages in the same sync run.
+ * Used as a secondary token for /audio-features when user OAuth is unavailable.
  */
 export async function getClientCredentialsToken(): Promise<string> {
   const credentials = Buffer.from(
@@ -560,6 +556,10 @@ export async function fetchPlaylistTrackIds(
   return ids;
 }
 
+/**
+ * Fetch Spotify audio features for track IDs.
+ * Prefers the user's OAuth token — /audio-features is blocked for many app tokens (Nov 2024+).
+ */
 export async function fetchAudioFeatures(
   accessToken: string,
   trackIds: string[],
@@ -569,14 +569,16 @@ export async function fetchAudioFeatures(
 
   const results: SpotifyAudioFeatures[] = [];
   const batchSize = 100;
-  let token = accessToken;
-  let usedFallback = false;
+  let primaryToken = accessToken;
+  let secondaryToken = opts?.fallbackToken;
+  let usedSecondary = false;
   let stopped403 = false;
 
   for (let i = 0; i < trackIds.length; i += batchSize) {
     if (stopped403) break;
 
     const batch = trackIds.slice(i, i + batchSize);
+    let token = primaryToken;
 
     try {
       const response = await spotifyRequest<any>(
@@ -596,14 +598,15 @@ export async function fetchAudioFeatures(
 
       if (
         status === 403 &&
-        opts?.fallbackToken &&
-        !usedFallback &&
-        token !== opts.fallbackToken
+        secondaryToken &&
+        !usedSecondary &&
+        token !== secondaryToken
       ) {
-        usedFallback = true;
-        token = opts.fallbackToken;
+        usedSecondary = true;
+        primaryToken = secondaryToken;
+        secondaryToken = undefined;
         i -= batchSize;
-        logger.warn("Audio features 403 on app token — retrying with user token");
+        logger.warn("Audio features 403 on primary token — retrying with fallback token");
         continue;
       }
 
@@ -611,7 +614,7 @@ export async function fetchAudioFeatures(
         stopped403 = true;
         logger.warn(
           { batchStart: i, totalIds: trackIds.length, fetched: results.length },
-          "Audio features forbidden (403) — stopping further feature fetches (Spotify API restriction)"
+          "Audio features forbidden (403) — stopping Spotify feature fetches (API restriction)"
         );
         break;
       }

@@ -205,6 +205,31 @@ export const promptSceneMemoryTable = pgTable("prompt_scene_memory", {
   userPromptIndex: index("IDX_prompt_scene_memory_user_prompt").on(table.userId, table.promptHash),
 }));
 
+/** Playlist capability failures and outcomes — learn where liked-library mode falls short. */
+export const playlistFailureEventsTable = pgTable("playlist_failure_events", {
+  id: serial("id").primaryKey(),
+  sessionId: text("session_id").notNull().unique(),
+  userIdHash: text("user_id_hash"),
+  eventType: text("event_type").notNull(),
+  promptCategory: text("prompt_category").notNull(),
+  activity: text("activity"),
+  sceneId: text("scene_id"),
+  promptHash: text("prompt_hash").notNull(),
+  capabilityScore: real("capability_score"),
+  limitingFactors: jsonb("limiting_factors").notNull().default([]),
+  retrievalStrategy: text("retrieval_strategy"),
+  candidateQualityScore: real("candidate_quality_score"),
+  combinedConfidence: real("combined_confidence"),
+  userOutcome: text("user_outcome"),
+  linkedSessionId: text("linked_session_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  outcomeRecordedAt: timestamp("outcome_recorded_at"),
+}, (table) => ({
+  categoryCreatedIndex: index("IDX_playlist_failure_events_category_created").on(table.promptCategory, table.createdAt),
+  eventTypeIndex: index("IDX_playlist_failure_events_event_type").on(table.eventType, table.createdAt),
+  userOutcomeIndex: index("IDX_playlist_failure_events_outcome").on(table.userOutcome, table.createdAt),
+}));
+
 export const insertLikedSongSchema = createInsertSchema(likedSongsTable).omit({ id: true, createdAt: true });
 export const insertPlaylistHistorySchema = createInsertSchema(playlistHistoryTable).omit({ id: true, createdAt: true });
 export const insertSyncStatusSchema = createInsertSchema(syncStatusTable).omit({ id: true });

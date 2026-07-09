@@ -182,21 +182,30 @@ export function buildRecentTrackPoolPenalty(
     }
   }
   for (const [i, ids] of playlists.entries()) {
-    const recencyWeight = Math.pow(0.82, i) * scale;
+    const recencyWeight = Math.pow(0.78, i) * scale;
     for (const id of ids) {
       const appearances = trackCounts.get(id) ?? 0;
       const share = appearances / Math.max(1, playlists.length);
       const appearanceWeight = share >= 0.30
-        ? 0.78
+        ? 0.88
         : share >= 0.20
-          ? 0.52
+          ? 0.68
           : share >= 0.12
-            ? 0.34
-            : Math.min(0.28, 0.10 + appearances * 0.06);
+            ? 0.48
+            : appearances >= 2
+              ? 0.42
+              : Math.min(0.38, 0.14 + appearances * 0.12);
       map.set(id, (map.get(id) ?? 0) + recencyWeight * appearanceWeight);
     }
   }
   return map;
+}
+
+/** Apply cross-playlist cooldown at retrieval — prefer equally good but fresher tracks. */
+export function applyRetrievalTrackCooldown(baseScore: number, penalty: number | undefined): number {
+  if (!penalty || penalty <= 0) return baseScore;
+  const dampening = Math.min(0.72, penalty);
+  return baseScore * Math.max(0.28, 1 - dampening);
 }
 
 export function applyFreshnessToScore(
