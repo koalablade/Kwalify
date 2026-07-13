@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, real, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, real, boolean, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -228,6 +228,45 @@ export const playlistFailureEventsTable = pgTable("playlist_failure_events", {
   categoryCreatedIndex: index("IDX_playlist_failure_events_category_created").on(table.promptCategory, table.createdAt),
   eventTypeIndex: index("IDX_playlist_failure_events_event_type").on(table.eventType, table.createdAt),
   userOutcomeIndex: index("IDX_playlist_failure_events_outcome").on(table.userOutcome, table.createdAt),
+}));
+
+/**
+ * Human Expectation Layer instrumentation — one row per generation carrying the
+ * interpreted moment, contract, re-rank deltas and critic verdict. Designed so
+ * future learning (user_feedback) can be joined in without a schema redesign.
+ */
+export const generationSignalsTable = pgTable("generation_signals", {
+  id: serial("id").primaryKey(),
+  generationId: text("generation_id").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  prompt: text("prompt").notNull(),
+  promptHash: text("prompt_hash").notNull(),
+  userIdHash: text("user_id_hash"),
+  mode: text("mode"),
+  interpretedMoment: jsonb("interpreted_moment"),
+  expectationContract: jsonb("expectation_contract"),
+  groundedConfidence: real("grounded_confidence"),
+  novelPrompt: boolean("novel_prompt"),
+  candidateCount: integer("candidate_count"),
+  candidatePoolAdmissibleRate: real("candidate_pool_admissible_rate"),
+  rerankPromotions: integer("rerank_promotions"),
+  rerankDemotions: integer("rerank_demotions"),
+  avgFitBefore: real("avg_fit_before"),
+  avgFitAfter: real("avg_fit_after"),
+  criticScore: integer("critic_score"),
+  criticVerdict: text("critic_verdict"),
+  repairCount: integer("repair_count"),
+  failureModes: jsonb("failure_modes").notNull().default([]),
+  publishDecision: text("publish_decision"),
+  generationTimeMs: integer("generation_time_ms"),
+  pipelineVersion: text("pipeline_version"),
+  expectationVersion: text("expectation_version"),
+  shadowOrEnforce: text("shadow_or_enforce").notNull(),
+  userFeedback: jsonb("user_feedback"),
+}, (table) => ({
+  createdIndex: index("IDX_generation_signals_created").on(table.createdAt),
+  modeIndex: index("IDX_generation_signals_mode").on(table.shadowOrEnforce, table.createdAt),
+  promptHashIndex: index("IDX_generation_signals_prompt_hash").on(table.promptHash),
 }));
 
 export const insertLikedSongSchema = createInsertSchema(likedSongsTable).omit({ id: true, createdAt: true });

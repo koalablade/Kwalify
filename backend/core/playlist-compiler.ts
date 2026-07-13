@@ -154,7 +154,9 @@ export async function compilePlaylistContext(opts: {
 
   try {
     tasteGraphV2.collaborativeBoost = await collaborativeGenreBoost(opts.userId, tasteGraphV2.genreWeights);
-    void persistTasteGraphV2(opts.userId, tasteGraphV2).catch(() => undefined);
+    void persistTasteGraphV2(opts.userId, tasteGraphV2).catch((err) =>
+      logger.warn({ err }, "Background taste graph persistence failed"),
+    );
   } catch (err) {
     partialStages.push("taste_graph_persist_failed");
     logger.warn({ err }, "Taste graph collaborative boost failed — using memory graph only");

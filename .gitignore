@@ -65,5 +65,17 @@ diversity-activation-audit.md
 # Local secrets (never commit)
 .env
 .env.local
+.env.hel
+.env.*
+!.env.example
 kwalify.net.pem
 kwalify.net-key.pem
+
+# Scratch probes, logs, and non-committed experiment artifacts
+tmp-*.mjs
+*.log
+server-boot.log
+results-real/
+# Refit experiment scratch (regenerate via collect + fit scripts)
+backend/data/*.candidate.json
+data/corpus/*.candidate.json

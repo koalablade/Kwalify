@@ -43,7 +43,13 @@ These variables are used in the codebase but are **not** declared or validated i
 | Variable | Default | Used In | Description |
 |---|---|---|---|
 | `LOG_LEVEL` | `"info"` | `backend/lib/logger.ts` | Pino log level. Values: `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`, `"fatal"` |
-| `PLAYLIST_EVAL_TOKEN` | undefined | `backend/routes/eval.ts`, generation audit mode | Shared secret for eval/audit API. Must match on Render and GitHub Actions. |
+| `PLAYLIST_EVAL_TOKEN` | undefined | `backend/routes/eval.ts`, generation audit mode | Shared secret for eval/audit API. Rotate with `npm run rotate:eval-token`. Compared in constant time. |
+| `EVAL_ADMIN_ENABLED` | `false` (prod) | `backend/routes/eval-admin.ts` | Admin routes (`/api/eval/admin/*`) are disabled in production unless set to `"true"`. Non-production always enabled. Disabled routes return 404. |
+| `V3_PARALLEL_CANDIDATES` | disabled | `backend/lib/v3-worker-pool.ts` | `"true"`/`"1"` enables worker-thread parallelism for candidate generation. |
+| `V3_PARALLEL_WORKERS` | `min(cores-1, 8)` | `backend/lib/v3-worker-pool.ts` | Worker lanes per generation. Clamped to a hard ceiling of 8. Recommended beta value: `4`. |
+| `V3_PARALLEL_TASK_TIMEOUT_MS` | `45000` | `backend/lib/v3-worker-pool.ts` | Per-worker-task hard timeout; a timed-out task recomputes on the main thread. |
+| `GENERATE_CONCURRENCY_LIMIT` | `4` | `backend/lib/runtime-overload.ts` | Concurrent generations allowed. Recommended `2`–`3` on an 8-core beta host. |
+| `GENERATE_QUEUE_LIMIT` | `12` | `backend/lib/runtime-overload.ts` | Queued generations before requests are rejected with `SERVER_BUSY`. |
 | `SMOKE_SPOTIFY_USER_ID` | undefined | CI live coherence scripts | Spotify user ID for live regression (GitHub secret; optional locally). |
 | `KWALIFY_DETERMINISTIC` | undefined | `backend/core/debug/stability-config.ts` | Set to `"1"` to enable deterministic mode in the scoring engine. Used for testing reproducibility. |
 

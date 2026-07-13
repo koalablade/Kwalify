@@ -69,23 +69,45 @@ function asymmetricBand(center: number, base: number): Band {
  */
 function composeAffect(dims: MomentDimensions): { energy: number; valence: number; tension: number } {
   const s = dims.scores;
+
+  // "Anticipation" is excited buildup only when NOT coloured by anxiety/dread.
+  // Under fear / suspended waiting it is dread (low arousal), so it must not
+  // inflate energy — a hospital waiting room is tense stillness, not hype.
+  const anxious = (s["fear"] ?? 0) + (s["suspense"] ?? 0) + (s["restlessness"] ?? 0);
+  const excitedAnticipation = anxious > 0.2 ? 0 : (s["anticipation"] ?? 0);
+
   const positive =
-    (s["joy"] ?? 0) + (s["hope"] ?? 0) + (s["confidence"] ?? 0) + (s["romance"] ?? 0) + (s["gratitude"] ?? 0);
+    (s["joy"] ?? 0) + (s["hope"] ?? 0) + (s["confidence"] ?? 0) + (s["romance"] ?? 0) +
+    (s["gratitude"] ?? 0) + (s["connection"] ?? 0) + (s["renewal"] ?? 0);
   const heavy =
-    (s["sadness"] ?? 0) + (s["melancholy"] ?? 0) + (s["loneliness"] ?? 0) + (s["fear"] ?? 0) + (s["anger"] ?? 0);
+    (s["sadness"] ?? 0) + (s["melancholy"] ?? 0) + (s["loneliness"] ?? 0) + (s["fear"] ?? 0) +
+    (s["anger"] ?? 0) +
+    // Event outcomes carry emotion with no explicit emotion word.
+    (s["setback"] ?? 0) + (s["depletion"] ?? 0) + (s["grieving"] ?? 0) +
+    (s["suspense"] ?? 0) * 0.7 + (s["ending"] ?? 0) * 0.6;
   const activation =
-    (s["confidence"] ?? 0) + (s["anger"] ?? 0) + (s["anticipation"] ?? 0) +
+    (s["confidence"] ?? 0) + (s["anger"] ?? 0) + excitedAnticipation +
     (s["explosive"] ?? 0) + (s["celebration"] ?? 0) + (s["exercising"] ?? 0) + (s["running"] ?? 0);
   const stillness =
     (s["comfort"] ?? 0) + (s["acceptance"] ?? 0) + (s["relaxing"] ?? 0) + (s["intimate"] ?? 0) +
     (s["minimal"] ?? 0) + (s["calm"] ?? 0) +
     // Sleep / meditation are strong low-arousal signals (kept below the level
     // that would collapse the center to literally zero).
-    (s["sleeping"] ?? 0) * 1.1 + (s["meditating"] ?? 0) * 0.9 + (s["ambient_prod"] ?? 0) * 0.5;
+    (s["sleeping"] ?? 0) * 1.1 + (s["meditating"] ?? 0) * 0.9 + (s["ambient_prod"] ?? 0) * 0.5 +
+    // Nocturnal moments (3am, late night) skew introspective/low-energy; this
+    // is naturally offset by high-arousal activation (e.g. a night-out prompt).
+    (s["night"] ?? 0) * 0.5 +
+    // Low-arousal activities (reading, walking) are inherently unhurried.
+    (s["reading"] ?? 0) * 0.7 + (s["walking"] ?? 0) * 0.6 +
+    // Exhaustion is a flat, depleted low; anxious waiting is a held, still low.
+    (s["depletion"] ?? 0) * 1.0 + (s["suspense"] ?? 0) * 0.7;
 
   const valence = clamp01(0.5 + (positive - heavy) * 0.35);
   const energy = clamp01(0.5 + (activation - stillness) * 0.35);
-  const tension = clamp01((s["fear"] ?? 0) * 0.6 + (s["anger"] ?? 0) * 0.6 + (s["restlessness"] ?? 0) * 0.5);
+  const tension = clamp01(
+    (s["fear"] ?? 0) * 0.6 + (s["anger"] ?? 0) * 0.6 + (s["restlessness"] ?? 0) * 0.5 +
+      (s["suspense"] ?? 0) * 0.6,
+  );
   return { energy, valence, tension };
 }
 

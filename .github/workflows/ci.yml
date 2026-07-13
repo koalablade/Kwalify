@@ -41,6 +41,10 @@ jobs:
         run: npm run smoke:static
       - name: Build
         run: npm run build
+      - name: Pipeline authority guards
+        run: |
+          npm run guard:pipeline-authority
+          npm run test:pipeline-authority
       - name: Coherence fixtures
         run: |
           npm run coherence:intent
@@ -76,6 +80,8 @@ jobs:
         run: npm run ci:convergence-overlap -- --report reports/prompt-reliability/local/regression-report.json
       - name: Graceful shutdown smoke
         run: npm run smoke:shutdown
+      - name: Launch smoke suite (health / auth / generate / db / process safety)
+        run: node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js
       - name: Frontend module gate
         run: npm run ci:frontend-modules
       - name: Production validation dry-run

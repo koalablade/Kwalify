@@ -3,6 +3,7 @@
  */
 
 import { cosineSimilarity, EMBEDDING_DIM } from "./genre-embeddings";
+import { captureError } from "./error-tracking";
 
 export interface VectorRecord {
   id: string;
@@ -29,7 +30,11 @@ export class VectorStore {
 
   upsert(id: string, vector: number[], metadata?: Record<string, unknown>): void {
     this.records.set(id, { id, vector, metadata });
-    void this.hooks.onUpsert?.({ id, vector, metadata });
+    // Best-effort external persistence hook; a rejection must not surface as an
+    // unhandled rejection. Kept swallow-free by routing through the error tracker.
+    void this.hooks.onUpsert?.({ id, vector, metadata })?.catch((err: unknown) =>
+      captureError(err, { source: "VectorStore.onUpsert", id }),
+    );
   }
 
   get(id: string): VectorRecord | undefined {

@@ -326,5 +326,14 @@ export function formatTracksForApi(
         whyReasons: buildTrackWhyReasons(t, profile, i),
       };
     });
-  return formatted;
+  // Safety net: a user must never receive the same track twice. Even if an
+  // upstream fill/recovery path re-adds a track, de-duplicate by id here at the
+  // single response-formatting choke point (order preserved). An honestly shorter
+  // playlist always beats visible duplicates.
+  const seenApiIds = new Set<string>();
+  return formatted.filter((track) => {
+    if (seenApiIds.has(track.id)) return false;
+    seenApiIds.add(track.id);
+    return true;
+  });
 }

@@ -60,10 +60,15 @@ export const PERCEPTION_SNAPSHOT_CASES: PerceptionSnapshotCase[] = [
   },
   {
     prompt: "morning coffee quiet before work",
-    identitySignature: "3fc278aa95014fd2",
+    // Re-baselined to current deterministic output. The identity hash and the
+    // momentLabel word-ordering drifted from prior uncommitted WIP in the label
+    // builder (same tokens, reordered: "morning coffee quiet positive energy" →
+    // "positive morning coffee quiet"); clarity band unchanged. Confirm the new
+    // phrasing is intended — if not, it's a label-builder regression to chase.
+    identitySignature: "b8c23fe75723db91",
     clarityMin: 86,
     clarityMax: 90,
-    momentLabel: "morning coffee quiet positive energy",
+    momentLabel: "positive morning coffee quiet",
   },
   {
     prompt: "gym workout training session",

@@ -631,6 +631,20 @@ function renderApp() {
   const gate = generateGate();
 
   const errorHtml = state.error ? (() => {
+    // Server-busy / rate-limited: friendly, non-alarming, with a live countdown
+    // and an immediate retry. The prompt is preserved in the input either way.
+    if (state.errorKind === "busy") {
+      const left = Math.max(0, Number(state.busySecondsLeft ?? 0));
+      return `<div class="alert alert-warn">
+        <strong>Server is busy right now</strong>
+        <span>${esc(state.error)}</span>
+        <div class="error-actions">
+          <button type="button" class="btn btn-sm btn-green" id="busyRetryNowBtn">Retry now</button>
+          <span class="error-hint">Auto-retrying in <span id="busyCountdown">${left}</span>s…</span>
+        </div>
+        <small class="error-hint">Your prompt is saved — nothing was lost.</small>
+      </div>`;
+    }
     const diagnostics = state.errorDetails?.generationDiagnostics || null;
     const suggestions = Array.isArray(state.errorDetails?.suggestions) ? state.errorDetails.suggestions : [];
     const isGenerationError = state.errorKind === "generation";
@@ -2396,6 +2410,13 @@ function wireAppEvents() {
     state.errorKind = null;
     generate();
   });
+  document.getElementById("busyRetryNowBtn")?.addEventListener("click", () => {
+    clearBusyRetry();
+    state.error = null;
+    state.errorDetails = null;
+    state.errorKind = null;
+    generate();
+  });
   document.getElementById("tryDiscoveryModeBtn")?.addEventListener("click", () => {
     state.error = null;
     state.errorKind = null;
@@ -2808,11 +2829,43 @@ function handleLibraryInsufficientResponse(data, prompt) {
   };
 }
 
+let busyRetryTimer = null;
+
+function clearBusyRetry() {
+  if (busyRetryTimer) {
+    clearInterval(busyRetryTimer);
+    busyRetryTimer = null;
+  }
+  state.busySecondsLeft = null;
+}
+
+// Countdown then auto-retry a generation that was rejected because the server
+// was busy / rate-limited. The prompt stays in the input the whole time.
+function scheduleBusyRetry(seconds) {
+  clearBusyRetry();
+  state.busySecondsLeft = Math.max(1, Math.round(seconds));
+  busyRetryTimer = setInterval(() => {
+    state.busySecondsLeft = Math.max(0, (state.busySecondsLeft ?? 0) - 1);
+    const countdownEl = document.getElementById("busyCountdown");
+    if (countdownEl) countdownEl.textContent = String(state.busySecondsLeft);
+    if (state.busySecondsLeft <= 0) {
+      clearBusyRetry();
+      if (state.errorKind === "busy" && !state.generating) {
+        state.error = null;
+        state.errorKind = null;
+        state.errorDetails = null;
+        void generate();
+      }
+    }
+  }, 1000);
+}
+
 async function generate(opts = {}) {
   const vibeInput = document.getElementById("vibeInput");
   const vibe = vibeInput?.value.trim();
   if (!vibe) { vibeInput?.focus(); return; }
   if (state.generating) return;
+  clearBusyRetry();
   const gate = generateGate();
   if (gate.blocked) {
     showToast(gate.message, "error");
@@ -2879,8 +2932,20 @@ async function generate(opts = {}) {
       r.data?.code === "LIBRARY_INSUFFICIENT_FOR_PROMPT" ||
       r.data?.reason === "LIBRARY_INSUFFICIENT_FOR_PROMPT";
 
+    const isServerBusy = r.status === 503 && r.data?.code === "SERVER_BUSY";
+    const isRateLimited = r.status === 429 && r.data?.code === "RATE_LIMITED";
+
     if (libraryInsufficient) {
       handleLibraryInsufficientResponse(r.data, savedVibe);
+    } else if (isServerBusy || isRateLimited) {
+      const retryAfter = Number(r.data?.retryAfterSeconds ?? r.data?.retry_after ?? 10) || 10;
+      state.error = isRateLimited
+        ? "You've generated a lot in a short time. Auto-retrying shortly."
+        : "The server is finishing other playlists. Auto-retrying shortly.";
+      state.errorDetails = r.data || null;
+      state.errorKind = "busy";
+      state.busyRetryPrompt = savedVibe;
+      scheduleBusyRetry(retryAfter);
     } else if (!r.ok) {
       if (r.data?.code === "PROMPT_TOO_VAGUE") {
         state.preview = {

@@ -14,22 +14,10 @@ import { refreshLiveTrends } from "./lib/trend-ingestion-live";
 import { startFeedbackMemoryDecayJob } from "./lib/feedback-memory";
 import { startOpsMetricsMonitor } from "./lib/ops-metrics";
 import { setRuntimeFailed, setRuntimeInitializing, setRuntimeReady } from "./lib/runtime-readiness";
+import { installProcessSafetyHandlers } from "./lib/process-safety";
+import { logWorkerConfigAtBoot } from "./lib/worker-config";
 
 const BOOT_DB_TIMEOUT_MS = 15_000;
-let processSafetyHandlersInstalled = false;
-
-function installProcessSafetyHandlers(): void {
-  if (processSafetyHandlersInstalled) return;
-  processSafetyHandlersInstalled = true;
-  process.on("unhandledRejection", (reason) => {
-    logger.error({ err: reason }, "[process] Unhandled promise rejection — exiting");
-    process.exit(1);
-  });
-  process.on("uncaughtException", (err) => {
-    logger.fatal({ err }, "[process] Uncaught exception — exiting");
-    process.exit(1);
-  });
-}
 
 async function withBootTimeout<T>(
   promise: Promise<T>,
@@ -229,6 +217,8 @@ async function bootstrap(): Promise<void> {
             "[boot] Spotify credentials not configured — /auth, /spotify, and /generate return 503",
           );
         }
+
+        logWorkerConfigAtBoot();
 
         const shutdown = () => beginGracefulShutdown(logger, {
           cleanup: async () => {

@@ -18,6 +18,10 @@ import { composePlaylistFromPool } from "./playlist-composer";
 import { enforceFinalPlaylistGenres } from "./genre-intelligence/final-enforcement";
 import { runV3Pipeline } from "./v3/v3-pipeline";
 import type { SamplerInterpretation } from "./v3/v3-sampler";
+import { interpretMoment } from "./expectation/moment-space";
+import { deriveExpectationContract } from "./expectation/expectation-contract";
+import { rerankByExpectation } from "./expectation/expectation-rerank";
+import { humanExpectationMode, isHumanExpectationEnabled } from "./expectation/feature-flag";
 import { evaluatePlaylistCurationBelievability, type PlaylistCurationScoringContext } from "./editorial/would-i-save-evaluator";
 import type { PatternScoringTrack } from "./editorial/human-playlist-patterns";
 import {
@@ -81,6 +85,7 @@ import {
 import { logScoringStage } from "../lib/generate-stage-timer";
 import { isGenuinelyUsablePlaylist } from "../lib/good-playlist-refinement-telemetry";
 import { buildV3InvocationDecomposition } from "../lib/v3-invocation-decomposition";
+import { V3CandidatePool, v3ParallelCandidatesEnabled, type V3WorkerResult, type V3ParallelStats } from "../lib/v3-worker-pool";
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
 import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
@@ -4988,12 +4993,22 @@ export async function buildPlaylistPipeline<T extends {
     1 +
     (fallbackDepthReached > 0 ? 1 : 0) +
     (retrievalSafetyExpanded ? 1 : 0);
+  type PreparedCandidate = {
+    candidate: (typeof executableCandidateInputs)[number];
+    inputPool: Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
+    candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
+    v3Tracks: T[];
+    v3InputTracks: T[];
+    seed: number;
+  };
   const candidateAttempts: Array<{
     label: string;
     inputPool: Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
     candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
     result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
     curation: ReturnType<typeof evaluatePlaylistCurationBelievability>;
+    fromParallel: boolean;
+    prepared: PreparedCandidate;
   }> = [];
   const candidatePoolCache = new Map<
     SamplerInterpretation,
@@ -5013,6 +5028,47 @@ export async function buildPlaylistPipeline<T extends {
     genuinelyUsable: boolean;
     humanSaveable: boolean;
   }> = [];
+  const v3InternalStageTimingMs: Record<string, number> = {};
+  const accumulateV3InternalTiming = (diagnostics: unknown): void => {
+    const timing = (diagnostics as { timingMs?: Record<string, unknown> } | undefined)?.timingMs;
+    if (!timing || typeof timing !== "object") return;
+    for (const [key, value] of Object.entries(timing)) {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        v3InternalStageTimingMs[key] = (v3InternalStageTimingMs[key] ?? 0) + value;
+      }
+    }
+  };
+  // Loop-invariant dominant-intent gates — identical for every candidate (hoisted out
+  // of the per-candidate work so it is computed once, not once per invocation).
+  const dominantContract = buildDominantIntentContract({
+    prompt: opts.vibe,
+    intentContract: {
+      primarySubgenre: intentContract.primarySubgenre,
+      genreFamilies: intentContract.genreFamilies,
+      activity: intentContract.activity ?? null,
+      places: intentContract.places ?? [],
+      eraRange: intentContract.eraRange ?? null,
+      explicitDimensions: intentContract.explicitDimensions ?? [],
+    },
+    emotionProfile: opts.emotionProfile,
+    mode: opts.mode,
+    noLibraryMode: opts.noLibraryMode,
+  });
+  const dominantIntentGates = {
+    dominantEmotionExplicit: dominantContract.dominantEmotionExplicit,
+    allowContrastLanes: dominantContract.allowContrastLanes,
+    allowExplorationLanes: dominantContract.allowExplorationLanes,
+    maxTasteWeight: dominantContract.maxTastePullWeight,
+  };
+  const candidateSeed = (candidate: (typeof executableCandidateInputs)[number]): number =>
+    opts.postScore.startMs +
+    candidate.seedOffset +
+    Math.floor(stableUnitHash(opts.vibe) * 10_000) +
+    (opts.requestId ? Math.floor(stableUnitHash(opts.requestId) * 1_000) : 0);
+
+  // Phase A — prepare each candidate's pool and V3 input (cheap; pool build is cached per
+  // interpretation). This is deterministic and does not mutate shared state.
+  const prepared: PreparedCandidate[] = [];
   for (const candidate of executableCandidateInputs) {
     await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
     if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
@@ -5048,23 +5104,6 @@ export async function buildPlaylistPipeline<T extends {
     }
     if (cachedPool) endCandidateGenerationProfile?.();
     recordTiming("candidateGeneration", stageStartedAt);
-    stageStartedAt = Date.now();
-    const endV3Profile = opts.profileStage?.(`pipeline.v3ScoringAndSampling.${candidate.label}`, `${candidatePool.tracks.length} candidate tracks`);
-    let result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
-    const dominantContract = buildDominantIntentContract({
-      prompt: opts.vibe,
-      intentContract: {
-        primarySubgenre: intentContract.primarySubgenre,
-        genreFamilies: intentContract.genreFamilies,
-        activity: intentContract.activity ?? null,
-        places: intentContract.places ?? [],
-        eraRange: intentContract.eraRange ?? null,
-        explicitDimensions: intentContract.explicitDimensions ?? [],
-      },
-      emotionProfile: opts.emotionProfile,
-      mode: opts.mode,
-      noLibraryMode: opts.noLibraryMode,
-    });
     const v3InputTracks = mergeV3UniverseInput(
       candidatePool.tracks as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
       sharedRetrievalPool,
@@ -5072,52 +5111,146 @@ export async function buildPlaylistPipeline<T extends {
     const v3Tracks = v3InputTracks.length > 0
       ? v3InputTracks
       : (capV3SafetyPool(contractGuardedScoredPool) as unknown as T[]);
+    prepared.push({ candidate, inputPool, candidatePool, v3Tracks, v3InputTracks, seed: candidateSeed(candidate) });
+  }
+
+  // Run the full V3 pipeline for one candidate on THIS thread. Identical to the original
+  // sequential invocation; used for the flag-off path, worker failures, and winner re-run.
+  //
+  // `deterministicFullPolish` reproduces the exact conditions a worker used
+  // (shouldSkipMarginalImprovement disabled) so the authoritative winner re-run yields
+  // byte-identical tracks to the worker result that actually won the tournament. Without
+  // this, a late re-run could trip the latency budget and deliver a playlist that differs
+  // from the one that was selected — a silent quality/behaviour drift.
+  const invokeV3OnMainThread = (
+    p: PreparedCandidate,
+    opts2: { deterministicFullPolish?: boolean } = {},
+  ): Promise<Awaited<ReturnType<typeof runV3Pipeline<T>>>> =>
+    runV3Pipeline(
+      p.v3Tracks,
+      opts.vibe,
+      opts.emotionProfile,
+      opts.playlistLength,
+      {
+        genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
+        classificationByTrack: (trackId) => classMap.get(trackId),
+        noveltyByTrack:        opts.noveltyByTrack,
+        seed:                  p.seed,
+        lockedIntent:          v3LockedIntent,
+        unifiedIntentContext:   unifiedIntentContextWithMemory,
+        momentMemory:           preGenerationMomentMemory,
+        sessionArtistMemory:     effectiveSessionArtistMemory,
+        trackReusePenalty:       upstreamRecentTrackPenalty,
+        requestId:               opts.requestId,
+        pipelineTrace,
+        diagnosticsMode:          opts.diagnosticsMode ?? "minimal",
+        sceneWorldProof:          opts.sceneWorldProof ?? false,
+        profileStage:            opts.profileStage,
+        editorialMemory:         opts.editorialMemory ?? null,
+        libraryFingerprint,
+        dominantIntentGates,
+        samplerInterpretation: p.candidate.interpretation,
+        shouldSkipMarginalImprovement: opts2.deterministicFullPolish
+          ? () => false
+          : opts.shouldSkipMarginalImprovement,
+        onGoodPlaylistReady: opts.onGoodPlaylistReady,
+      }
+    );
+
+  // Phase B — obtain each candidate's V3 result. When V3_PARALLEL_CANDIDATES is enabled,
+  // run the independent invocations across worker threads; otherwise sequentially. Any
+  // worker failure yields null for that index and is recomputed on the main thread, so
+  // playlist output can never regress.
+  let parallelResults: Array<V3WorkerResult | null> | null = null;
+  let v3ParallelStats: (V3ParallelStats & { mainThreadFallbacks: number; winnerRecomputed: boolean }) | null = null;
+  if (v3ParallelCandidatesEnabled() && prepared.length > 1) {
+    const pool = new V3CandidatePool(prepared.length);
     try {
-      v3InvocationCount += 1;
-      result = await runV3Pipeline(
-        v3Tracks,
-        opts.vibe,
-        opts.emotionProfile,
-        opts.playlistLength,
-        {
-          genreByTrack:          (trackId) => classMap.get(trackId)?.genrePrimary ?? "unknown",
-          classificationByTrack: (trackId) => classMap.get(trackId),
-          noveltyByTrack:        opts.noveltyByTrack,
-          seed:                  opts.postScore.startMs +
-            candidate.seedOffset +
-            Math.floor(stableUnitHash(opts.vibe) * 10_000) +
-            (opts.requestId ? Math.floor(stableUnitHash(opts.requestId) * 1_000) : 0),
-          lockedIntent:          v3LockedIntent,
-          unifiedIntentContext:   unifiedIntentContextWithMemory,
-          momentMemory:           preGenerationMomentMemory,
-          sessionArtistMemory:     effectiveSessionArtistMemory,
-          trackReusePenalty:       upstreamRecentTrackPenalty,
-          requestId:               opts.requestId,
-          pipelineTrace,
-          diagnosticsMode:          opts.diagnosticsMode ?? "minimal",
-          sceneWorldProof:          opts.sceneWorldProof ?? false,
-          profileStage:            opts.profileStage,
-          editorialMemory:         opts.editorialMemory ?? null,
-          libraryFingerprint,
-          dominantIntentGates: {
-            dominantEmotionExplicit: dominantContract.dominantEmotionExplicit,
-            allowContrastLanes: dominantContract.allowContrastLanes,
-            allowExplorationLanes: dominantContract.allowExplorationLanes,
-            maxTasteWeight: dominantContract.maxTastePullWeight,
-          },
-          samplerInterpretation: candidate.interpretation,
-          shouldSkipMarginalImprovement: opts.shouldSkipMarginalImprovement,
-          onGoodPlaylistReady: opts.onGoodPlaylistReady,
-        }
-      );
+      const noveltyEntries = opts.noveltyByTrack
+        ? (() => {
+            const m = new Map<string, number>();
+            for (const p of prepared) {
+              for (const track of p.v3Tracks) {
+                if (!m.has(track.trackId)) m.set(track.trackId, opts.noveltyByTrack!(track.trackId));
+              }
+            }
+            return [...m.entries()];
+          })()
+        : null;
+      const workerContext = {
+        classMapEntries: [...classMap.entries()],
+        noveltyEntries,
+        vibe: opts.vibe,
+        profile: opts.emotionProfile,
+        targetCount: opts.playlistLength,
+        lockedIntent: v3LockedIntent,
+        unifiedIntentContext: unifiedIntentContextWithMemory,
+        momentMemory: preGenerationMomentMemory,
+        sessionArtistMemory: effectiveSessionArtistMemory,
+        trackReusePenalty: upstreamRecentTrackPenalty,
+        requestId: opts.requestId,
+        sceneWorldProof: opts.sceneWorldProof ?? false,
+        editorialMemory: opts.editorialMemory ?? null,
+        libraryFingerprint,
+        dominantIntentGates,
+        diagnosticsMode: opts.diagnosticsMode ?? "minimal",
+      };
+      const tasks = prepared.map((p) => ({
+        v3Tracks: p.v3Tracks,
+        seed: p.seed,
+        samplerInterpretation: p.candidate.interpretation,
+      }));
+      parallelResults = await pool.runBatch(workerContext, tasks);
+      v3ParallelStats = { ...pool.getStats(), mainThreadFallbacks: 0, winnerRecomputed: false };
+    } catch {
+      parallelResults = null;
+      v3ParallelStats = { ...pool.getStats(), mainThreadFallbacks: 0, winnerRecomputed: false };
     } finally {
-      endV3Profile?.();
+      // Await termination so no worker thread (or its inherited open handles: DB pools,
+      // loaders, timers from the imported pipeline graph) outlives the request. A leaked
+      // worker would keep the process alive and accumulate memory across generations.
+      await pool.terminate();
     }
+  }
+
+  // Phase C — assemble candidate attempts. Non-winning parallel results carry only the
+  // fields the tournament + diagnostics read (finalTracks, sceneWorldContext, timingMs);
+  // the eventual winner is re-run on the main thread below for the authoritative result.
+  for (let i = 0; i < prepared.length; i += 1) {
+    const p = prepared[i]!;
+    if (opts.shouldAbort?.()) abortPipeline(`sampling:${p.candidate.label}`);
+    stageStartedAt = Date.now();
+    let result: Awaited<ReturnType<typeof runV3Pipeline<T>>>;
+    let fromParallel = false;
+    const parallel = parallelResults?.[i];
+    if (parallel && parallel.ok) {
+      result = {
+        finalTracks: parallel.finalTracks,
+        sceneWorldContext: parallel.sceneWorldContext ?? null,
+        diagnostics: { timingMs: parallel.timingMs ?? {}, lanes: [] },
+      } as unknown as Awaited<ReturnType<typeof runV3Pipeline<T>>>;
+      fromParallel = true;
+    } else {
+      if (parallelResults !== null && v3ParallelStats) v3ParallelStats.mainThreadFallbacks += 1;
+      const endV3Profile = opts.profileStage?.(`pipeline.v3ScoringAndSampling.${p.candidate.label}`, `${p.candidatePool.tracks.length} candidate tracks`);
+      try {
+        // If a worker failed while other candidates succeeded, recompute under the same
+        // full-polish conditions the workers used, so every candidate in the tournament is
+        // judged identically (no mixed polish levels distorting selection).
+        result = await invokeV3OnMainThread(p, {
+          deterministicFullPolish: parallelResults !== null,
+        });
+      } finally {
+        endV3Profile?.();
+      }
+    }
+    v3InvocationCount += 1;
     const invocationMs = Date.now() - stageStartedAt;
     recordTiming("v3ScoringAndSampling", stageStartedAt);
-    recordTraceCount(pipelineTrace, `v3.${candidate.label}.inputCandidates`, candidatePool.tracks.length);
-    recordTraceCount(pipelineTrace, `v3.${candidate.label}.finalTracks`, result.finalTracks.length);
-    if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
+    accumulateV3InternalTiming(result.diagnostics);
+    recordTraceCount(pipelineTrace, `v3.${p.candidate.label}.inputCandidates`, p.candidatePool.tracks.length);
+    recordTraceCount(pipelineTrace, `v3.${p.candidate.label}.finalTracks`, result.finalTracks.length);
+    if (opts.shouldAbort?.()) abortPipeline(`sampling:${p.candidate.label}`);
     const curation = evaluatePlaylistCurationBelievability({
       prompt: opts.vibe,
       tracks: result.finalTracks,
@@ -5127,25 +5260,26 @@ export async function buildPlaylistPipeline<T extends {
       libraryFingerprint,
     });
     v3InvocationTimingsMs.push({
-      label: candidate.label,
+      label: p.candidate.label,
       ms: invocationMs,
-      poolSize: v3InputTracks.length,
-      inputPoolSize: inputPool.length,
-      candidatePoolSize: candidatePool.tracks.length,
+      poolSize: p.v3InputTracks.length,
+      inputPoolSize: p.inputPool.length,
+      candidatePoolSize: p.candidatePool.tracks.length,
       finalTrackCount: result.finalTracks.length,
       believabilityScore: round3(curation.believabilityScore),
       genuinelyUsable: isGenuinelyUsablePlaylist(result.finalTracks.length, opts.playlistLength),
       humanSaveable: curation.wouldISave.humanSaveable,
       laneCount: Array.isArray(result.diagnostics?.lanes) ? result.diagnostics.lanes.length : 0,
     });
-    const attempt = {
-      label: candidate.label,
-      inputPool,
-      candidatePool,
+    candidateAttempts.push({
+      label: p.candidate.label,
+      inputPool: p.inputPool,
+      candidatePool: p.candidatePool,
       result,
       curation,
-    };
-    candidateAttempts.push(attempt);
+      fromParallel,
+      prepared: p,
+    });
   }
   let pairwiseSelectionAudit: PairwiseTournamentAudit | null = null;
   const selectedCandidate = (() => {
@@ -5163,6 +5297,25 @@ export async function buildPlaylistPipeline<T extends {
     const winnerLabel = pairwise.winner.label;
     return candidateAttempts.find((attempt) => attempt.label === winnerLabel) ?? candidateAttempts[0]!;
   })();
+  // If the winner came from a worker (partial result), re-run it on the main thread to
+  // obtain the authoritative full result (diagnostics, traces, scene context) the rest of
+  // the pipeline consumes. Deterministic seed guarantees identical tracks to the worker.
+  if (selectedCandidate.fromParallel) {
+    if (v3ParallelStats) v3ParallelStats.winnerRecomputed = true;
+    const fullWinnerResult = await invokeV3OnMainThread(selectedCandidate.prepared, {
+      deterministicFullPolish: true,
+    });
+    accumulateV3InternalTiming(fullWinnerResult.diagnostics);
+    selectedCandidate.result = fullWinnerResult;
+    selectedCandidate.curation = evaluatePlaylistCurationBelievability({
+      prompt: opts.vibe,
+      tracks: fullWinnerResult.finalTracks,
+      targetLength: opts.playlistLength,
+      context: fullWinnerResult.sceneWorldContext ?? null,
+      lockedIntent: v3LockedIntent,
+      libraryFingerprint,
+    });
+  }
   const v3CandidatePool = selectedCandidate.candidatePool;
   const v3 = selectedCandidate.result;
   const retrievalPoolDiagnostics = {
@@ -5269,6 +5422,17 @@ export async function buildPlaylistPipeline<T extends {
       totalMs: timingMs.v3ScoringAndSampling,
       selectedWinnerLabel: selectedCandidate.label,
     }),
+    v3InternalStageTimingMs: {
+      ...v3InternalStageTimingMs,
+      note: "Summed across all candidate invocations; identifies the dominant sub-stage inside the multi-candidate loop.",
+    },
+    v3ParallelExecution: v3ParallelStats
+      ? {
+          enabled: true,
+          ...v3ParallelStats,
+          note: "Worker-thread parallelism telemetry (observability only). Any failure/timeout is recomputed on the main thread; winnerRecomputed reflects the authoritative winner re-run.",
+        }
+      : { enabled: false },
     candidateScores: candidateAttempts.map((candidate) => ({
       label: candidate.label,
       selectedCount: candidate.result.finalTracks.length,
@@ -5407,6 +5571,53 @@ export async function buildPlaylistPipeline<T extends {
       executed: true,
       applied: criticRepaired.diagnostics.afterQuality >= criticRepaired.diagnostics.beforeQuality,
     };
+  }
+
+  // Human Expectation Layer — contract-aware candidate re-rank (flag-gated,
+  // internally guarded, never throws). Connects the interpreted human moment to
+  // candidate selection: promotes tracks that fit the moment, demotes mood/
+  // energy inversions, and swaps in admissible alternatives from the pool.
+  // Shadow: compute + record diagnostics only. Enforce: apply the re-selection.
+  if (
+    isHumanExpectationEnabled() &&
+    finalTracksList.length > 0 &&
+    qualityRecoveryCandidatePool.length > finalTracksList.length
+  ) {
+    try {
+      const seed = {
+        energy: opts.emotionProfile.energy,
+        valence: opts.emotionProfile.valence,
+        tension: opts.emotionProfile.tension,
+        nostalgia: opts.emotionProfile.nostalgia,
+        calm: opts.emotionProfile.calm,
+      };
+      const interpretation = interpretMoment(opts.vibe, { seed });
+      const contract = deriveExpectationContract(interpretation, seed);
+      const reranked = rerankByExpectation(
+        finalTracksList,
+        qualityRecoveryCandidatePool as unknown as V3MetadataTrack<T>[],
+        contract,
+        {
+          playlistLength: opts.playlistLength,
+          maxPerArtist: opts.maxPerArtist,
+          mode: humanExpectationMode() === "enforce" ? "enforce" : "shadow",
+        },
+      );
+      if (reranked.diagnostics.applied) {
+        finalTracksList = reranked.tracks;
+      }
+      qualityRecoveryDiagnostics["expectationRerank"] = {
+        ...reranked.diagnostics,
+        world: interpretation.candidates[0]?.label ?? null,
+        atmosphere: contract.atmosphere,
+        avoid: contract.avoid,
+      };
+    } catch (err) {
+      qualityRecoveryDiagnostics["expectationRerank"] = {
+        executed: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   if (worldBoundary.active && qualityRecoveryCandidatePool.length >= Math.max(12, opts.playlistLength)) {

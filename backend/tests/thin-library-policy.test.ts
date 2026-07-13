@@ -6,7 +6,10 @@ import {
   applyThinLibraryDeliveryCap,
   effectiveFinalizeRequestedLength,
   evaluateThinLibraryPolicy,
+  isAmbientFocusThinLibraryPrompt,
   resolveThinLibraryMinBestAvailableCount,
+  shouldCompoundThinLibraryBypass,
+  shouldEarlyThinLibraryHardStop,
   shouldSkipThinLibraryRecoveryInflate,
   THIN_LIBRARY_INSUFFICIENT_THRESHOLD,
 } from "../lib/thin-library-policy";
@@ -83,6 +86,82 @@ function buildClassMap(tracks: Array<{ trackId: string; trackName: string; artis
   }
   return classMap;
 }
+
+test("ambient focus prompt with 1-2 matches publishes honest partial instead of insufficient", () => {
+  assert.ok(isAmbientFocusThinLibraryPrompt("focus ambient morning instrumental"));
+  const supply = {
+    requestedLength: 30,
+    strictSupply: 2,
+    adjacentSupply: 0,
+    intentPreservingSupply: 0,
+    relaxedSupply: 40,
+    excludedRelaxedSupply: 38,
+    recoverySupply: 0,
+    maxAchievable: 0,
+    maxAchievableReason: "explicit ambient intent prevents broad relaxed supply",
+    hasExplicitGenreIntent: true,
+    eraConstrained: false,
+  };
+  const policy = evaluateThinLibraryPolicy(supply, { vibe: "focus ambient morning" });
+  assert.equal(policy.action, "honest_partial");
+  assert.equal(policy.reason, "ambient_focus_thin_library_partial");
+  assert.equal(policy.targetLength, 2);
+});
+
+test("compound thin-library bypass does not require maxAchievable >= 3", () => {
+  const supply = {
+    requestedLength: 30,
+    strictSupply: 0,
+    adjacentSupply: 0,
+    intentPreservingSupply: 0,
+    relaxedSupply: 120,
+    excludedRelaxedSupply: 120,
+    recoverySupply: 80,
+    maxAchievable: 0,
+    maxAchievableReason: "explicit soul intent prevents broad relaxed supply",
+    hasExplicitGenreIntent: true,
+    eraConstrained: true,
+  };
+  assert.equal(shouldCompoundThinLibraryBypass(
+    supply,
+    {
+      genreFamilies: ["soul"],
+      primaryGenres: ["soul"],
+      eraRange: { start: 1970, end: 1982 },
+      activity: "party",
+      mood: ["party"],
+    },
+    14,
+    80,
+  ), true);
+});
+
+test("early thin-library hard stop only when supply is truly empty", () => {
+  const supply = {
+    requestedLength: 30,
+    strictSupply: 0,
+    adjacentSupply: 0,
+    intentPreservingSupply: 0,
+    relaxedSupply: 0,
+    excludedRelaxedSupply: 0,
+    recoverySupply: 0,
+    maxAchievable: 0,
+    maxAchievableReason: "none",
+    hasExplicitGenreIntent: true,
+    eraConstrained: false,
+  };
+  const policy = evaluateThinLibraryPolicy(supply);
+  assert.equal(shouldEarlyThinLibraryHardStop(policy, supply, {
+    compoundBypass: false,
+    strictValidCount: 0,
+    thinMinRequired: 14,
+  }), true);
+  assert.equal(shouldEarlyThinLibraryHardStop(policy, supply, {
+    compoundBypass: false,
+    strictValidCount: 20,
+    thinMinRequired: 14,
+  }), false);
+});
 
 test("Test 1 — explicit latin prompt with huge unrelated library → insufficient", () => {
   const unrelated = Array.from({ length: 120 }, (_, i) => popTrack(`pop-${i}`));

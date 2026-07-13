@@ -35,6 +35,7 @@ const ERA_PATTERNS: Array<{ start: number; end: number; pattern: RegExp; confide
 
 const GENRE_PATTERNS: Array<{ family: string; pattern: RegExp; confidence: number }> = [
   { family: "soul", pattern: /\b(?:disco|funk|boogie)\b/i, confidence: 0.88 },
+  { family: "latin", pattern: /\b(?:latin|reggaeton|salsa|cumbia|bachata|merengue|dembow|tropical)\b/i, confidence: 0.9 },
   { family: "rock", pattern: /\b(?:pop[\s-]?punk|punk|emo|skate[\s-]?punk)\b/i, confidence: 0.9 },
   { family: "pop", pattern: /\b(?:city\s*pop|j[\s-]?pop)\b/i, confidence: 0.86 },
   { family: "electronic", pattern: /\b(?:house|techno|garage|ukg|drum\s*(?:and|&)\s*bass)\b/i, confidence: 0.84 },
@@ -155,6 +156,7 @@ function genreEvidenceMatch(
     else if (text.includes(g.replace(/_/g, " ")) || text.includes(g.replace(/_/g, ""))) best = Math.max(best, 0.78);
     else if (g === "rock" && /\b(?:punk|emo|hardcore)\b/.test(text)) best = Math.max(best, 0.82);
     else if (g === "soul" && /\b(?:disco|funk)\b/.test(text)) best = Math.max(best, 0.85);
+    else if (g === "latin" && /\b(?:reggaeton|salsa|cumbia|bachata|merengue|tropical|dembow)\b/.test(text)) best = Math.max(best, 0.86);
     else if (g === "pop" && /\b(?:city\s*pop|jpop)\b/.test(text)) best = Math.max(best, 0.84);
   }
   return best;

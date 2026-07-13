@@ -1,5 +1,6 @@
-# Generate a new PLAYLIST_EVAL_TOKEN and sync to .env + GitHub.
-# Paste the printed value into Render, redeploy, then re-run: npm run verify:eval-token
+# Generate a strong PLAYLIST_EVAL_TOKEN (32 CSPRNG bytes = 64 hex chars) and sync
+# to .env + GitHub. Update the value in your host's environment, restart the
+# service, then re-run: npm run verify:eval-token
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -12,7 +13,8 @@ $token = -join ($bytes | ForEach-Object { '{0:x2}' -f $_ })
 & (Join-Path $root 'scripts/sync-eval-token.ps1') -Token $token
 
 Write-Host ''
-Write-Host '=== ACTION REQUIRED (Render) ==='
-Write-Host 'Set PLAYLIST_EVAL_TOKEN to this value, Save, then Manual Deploy:'
+Write-Host '=== ACTION REQUIRED ==='
+Write-Host 'Set PLAYLIST_EVAL_TOKEN to this value in the service environment'
+Write-Host '(e.g. /etc/kwalify/kwalify.env), then restart the service:'
 Write-Host $token
-Write-Host '================================'
+Write-Host '======================='

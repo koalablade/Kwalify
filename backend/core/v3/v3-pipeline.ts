@@ -639,7 +639,12 @@ async function safeStage<T>(opts: {
     const context: FailureContext = { ...first, type: opts.type };
     recordTraceFailure(opts.trace, context);
     recordTraceRecovery(opts.trace, opts.stage, "recovery_attempted");
-    recordSystemFailure(context);
+    // NB: do NOT record a *system-health* failure here. This is only a recovery
+    // *attempt*; if recover() succeeds the user is served normally. Recording it
+    // meant every recovered stage hiccup flipped system health to DEGRADED for a
+    // full 60s window (system-health.ts), which silently bypasses clustering
+    // lanes and the human-expectation hook. Only unrecovered failures (the
+    // recovery_failed branch below) should degrade system health.
     log.warn(
       { requestId: opts.requestId, stage: opts.stage, type: context.type, recoverable: true, err: context.error },
       "recovery_attempted",

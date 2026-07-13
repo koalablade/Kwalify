@@ -261,6 +261,7 @@ import { runExpectationShadow } from "../core/expectation/shadow";
 import { runPlaylistExpectation } from "../core/expectation/playlist-evaluation";
 import { humanExpectationMode } from "../core/expectation/feature-flag";
 import type { ExpectationTrack } from "../core/expectation/types";
+import { persistGenerationSignal } from "../lib/generation-signals";
 import { loadEditorialMemory, recordEditorialMemory } from "../core/editorial/editorial-memory";
 import { computeLibraryFingerprint } from "../core/editorial/library-fingerprint";
 import { IntentCollapseInsufficientPoolError } from "../core/editorial/intent-collapse-layer";
@@ -9729,6 +9730,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       poolCapped?: boolean;
     };
     const v3PipelineDiagnostics = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+    // Fold the contract-aware retrieval re-rank (computed inside the pipeline)
+    // into the unified humanExpectation diagnostics so the interpreted moment,
+    // its expectations, detected risks and the retrieval influence sit together.
+    if (humanExpectationDiagnostics) {
+      const qualityRecovery = v3PipelineDiagnostics["qualityRecovery"] as Record<string, unknown> | undefined;
+      const rerank = qualityRecovery?.["expectationRerank"];
+      if (rerank) {
+        humanExpectationDiagnostics = { ...humanExpectationDiagnostics, retrievalRerank: rerank };
+      }
+    }
     const v3GenerationDebug = (v3PipelineDiagnostics["generationDebug"] ?? {}) as Record<string, unknown>;
     const waterfallDiagnostics = (v3PipelineDiagnostics["waterfall"] ?? {}) as Record<string, unknown>;
     const removalReasonDiagnostics = Array.isArray(v3PipelineDiagnostics["removalReasons"])
@@ -10339,39 +10350,16 @@ router.post("/generate", async (req, res): Promise<void> => {
           finalResponseArtistCapBypassed += 1;
         }
       }
-      let finalResponseDuplicateFillAdded = 0;
-      if (completionWorking.length > 0 && completionWorking.length < length) {
-        const uniqueSource = completionWorking.slice();
-        let cursor = 0;
-        while (completionWorking.length < length && cursor < length * 2) {
-          const candidate = uniqueSource[cursor % uniqueSource.length];
-          cursor += 1;
-          if (!candidate) break;
-          const previousArtist = completionWorking[completionWorking.length - 1]?.artistName.toLowerCase().trim() ?? null;
-          const candidateArtist = candidate.artistName.toLowerCase().trim();
-          if (uniqueSource.length > 1 && previousArtist === candidateArtist) continue;
-          if ((finalResponseArtistCounts.get(candidateArtist) ?? 0) >= finalArtistCap) {
-            finalResponseArtistCapSkipped += 1;
-            continue;
-          }
-          completionWorking.push({ ...candidate });
-          finalResponseArtistCounts.set(candidateArtist, (finalResponseArtistCounts.get(candidateArtist) ?? 0) + 1);
-          finalResponseDuplicateFillAdded += 1;
-        }
-        cursor = 0;
-        while (completionWorking.length < length && cursor < length * 2) {
-          const candidate = uniqueSource[cursor % uniqueSource.length];
-          cursor += 1;
-          if (!candidate) break;
-          const previousArtist = completionWorking[completionWorking.length - 1]?.artistName.toLowerCase().trim() ?? null;
-          const candidateArtist = candidate.artistName.toLowerCase().trim();
-          if (uniqueSource.length > 1 && previousArtist === candidateArtist) continue;
-          completionWorking.push({ ...candidate });
-          finalResponseArtistCounts.set(candidateArtist, (finalResponseArtistCounts.get(candidateArtist) ?? 0) + 1);
-          finalResponseDuplicateFillAdded += 1;
-          finalResponseArtistCapBypassed += 1;
-        }
-      }
+      // Historically, when unique backfill above still could not reach the
+      // requested length, this padded the playlist by CLONING already-selected
+      // tracks — even bypassing the artist cap. In thin-supply cases that
+      // delivered literal duplicate track IDs to the user (e.g. the same song
+      // three times in a four-track playlist), which is trust-breaking. We now
+      // never clone: an honestly shorter playlist beats visible repeats. Genuine
+      // thin-library handling / honest-partial messaging owns the short case.
+      const finalResponseDuplicateFillAdded = 0;
+      const finalResponseDuplicateFillSuppressed =
+        completionWorking.length > 0 && completionWorking.length < length;
       if (finalResponseCompletionAdded > 0 || finalResponseDuplicateFillAdded > 0) {
         delivery.replaceTracks("final_response_completion", "emergency completion lock", completionWorking);
         delivery.truncateTracks("playlist_length", "slice to requested length", length);
@@ -10382,6 +10370,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             finalResponseCompletionLockApplied: true,
             finalResponseCompletionAdded,
             finalResponseDuplicateFillAdded,
+            finalResponseDuplicateFillSuppressed,
             finalResponseArtistCapSkipped,
             finalResponseArtistCapBypassed,
           },
@@ -12035,6 +12024,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         noLibraryMode: !!noLibraryMode,
         noLibrarySpotify: noLibrarySpotifyDiagnostics,
         playlistConfidence,
+        ...(humanExpectationDiagnostics ? { humanExpectation: humanExpectationDiagnostics } : {}),
         count: deliveredTracks.length,
         totalTracks: deliveredTracks.length,
         degraded: pipeline.pipelineTrace?.degraded ?? false,
@@ -12115,6 +12105,20 @@ router.post("/generate", async (req, res): Promise<void> => {
         generateSessionUserId,
         deliveredTracks.map((track) => normalizeSessionArtist(track.artistName ?? "")),
       );
+    }
+
+    // Human Expectation Layer — persist one generation signal for future
+    // learning (flag-gated, analytics-policy-gated, fire-and-forget).
+    if (sideEffectPolicy.allowAnalyticsWrites && humanExpectationMode() !== "off" && humanExpectationDiagnostics) {
+      void persistGenerationSignal({
+        generationId: requestId,
+        prompt: vibe,
+        userId,
+        mode: humanExpectationMode(),
+        humanExpectation: humanExpectationDiagnostics,
+        generationTimeMs: generationMs,
+        publishDecision: coherenceGateResult?.publish === false ? "degraded" : "published",
+      });
     }
 
     res.json({

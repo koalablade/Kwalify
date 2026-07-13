@@ -295,6 +295,67 @@ const edgeCase = [
   tags: ["edge_case", index === 7 ? "misspelling" : "vague"],
 }));
 
+/**
+ * Lived-experience prompts (Priority 4 evidence set).
+ *
+ * These are deliberately NOT keyword-forward. They describe a *situation* a human
+ * would instantly understand ("hospital waiting room", "walking home after a bad
+ * interview") but which the current lexical interpreter may only partially ground.
+ * They exist to *measure* interpretation quality (grounding, salience, contract
+ * direction) rather than to be answered well today — expansion of interpretation
+ * should be justified by failures observed here, never by guessing.
+ *
+ * `expectedEnergy` / `expectedValence` encode the emotional DIRECTION a human
+ * would expect (used only to score interpretation direction, not to gate output).
+ */
+const livedExperienceSeeds: Array<{
+  slug: string;
+  prompt: string;
+  category: PlaylistBenchmarkCategory;
+  expectedEnergy: NonNullable<PlaylistBenchmarkPrompt["expectedEnergy"]>;
+  expectedValence: NonNullable<PlaylistBenchmarkPrompt["expectedValence"]>;
+  note: string;
+}> = [
+  { slug: "failed-interview", prompt: "walking home after failing a job interview", category: "mixed", expectedEnergy: "low", expectedValence: "low", note: "deflation + resignation, not anger" },
+  { slug: "hospital-waiting-room", prompt: "sitting in a hospital waiting room", category: "chill", expectedEnergy: "low", expectedValence: "low", note: "suspended dread, numb stillness" },
+  { slug: "hospital-3am", prompt: "standing outside a hospital at 3am", category: "chill", expectedEnergy: "low", expectedValence: "low", note: "hollow nocturnal fear" },
+  { slug: "sunday-evening-anxiety", prompt: "sunday evening anxiety before the week starts", category: "mood_specific", expectedEnergy: "low", expectedValence: "low", note: "dread creeping in, low arousal" },
+  { slug: "first-apartment", prompt: "first night alone in my first apartment", category: "mood_specific", expectedEnergy: "medium", expectedValence: "medium", note: "bittersweet independence, tentative hope" },
+  { slug: "leaving-university", prompt: "the last day of leaving university for good", category: "nostalgic", expectedEnergy: "medium", expectedValence: "low", note: "ending + uncertain future, bittersweet" },
+  { slug: "bad-day-walk", prompt: "walking home slowly after a really bad day", category: "mixed", expectedEnergy: "low", expectedValence: "low", note: "heavy, defeated, unhurried" },
+  { slug: "visiting-grandparents", prompt: "visiting my grandparents on a slow afternoon", category: "chill", expectedEnergy: "low", expectedValence: "medium", note: "warm, gentle, familiar comfort" },
+  { slug: "empty-airport", prompt: "waiting alone in an empty airport at night", category: "mixed", expectedEnergy: "low", expectedValence: "low", note: "liminal, detached, in-between" },
+  { slug: "missed-train", prompt: "missed the last train home tonight", category: "mixed", expectedEnergy: "low", expectedValence: "low", note: "frustrated resignation, stranded" },
+  { slug: "rain-after-work", prompt: "rain on the window after a long work day", category: "chill", expectedEnergy: "low", expectedValence: "medium", note: "unwinding, quiet relief" },
+  { slug: "burnout", prompt: "completely burnt out at the end of the week", category: "chill", expectedEnergy: "low", expectedValence: "low", note: "exhausted, depleted, flat" },
+  { slug: "new-relationship", prompt: "the giddy start of a new relationship", category: "mood_specific", expectedEnergy: "medium", expectedValence: "high", note: "warm excitement, tender high" },
+  { slug: "old-friendship", prompt: "reconnecting with an old friend after years", category: "nostalgic", expectedEnergy: "medium", expectedValence: "high", note: "warm nostalgia, easy joy" },
+  { slug: "funeral-drive", prompt: "the quiet drive home from a funeral", category: "driving", expectedEnergy: "low", expectedValence: "low", note: "grief, numb, reflective" },
+  { slug: "petrol-station-night", prompt: "a late night petrol station stop on a long drive", category: "driving", expectedEnergy: "medium", expectedValence: "low", note: "lonely liminal roadside pause" },
+  { slug: "doctors-waiting", prompt: "nervously waiting for test results at the doctors", category: "mood_specific", expectedEnergy: "low", expectedValence: "low", note: "anxious suspension, tight chest" },
+  { slug: "graduation-day", prompt: "graduation day with mixed emotions", category: "mood_specific", expectedEnergy: "medium", expectedValence: "medium", note: "pride + loss, bittersweet peak" },
+  { slug: "moving-out-childhood", prompt: "moving out of my childhood home for the last time", category: "nostalgic", expectedEnergy: "low", expectedValence: "low", note: "closing a chapter, tender grief" },
+  { slug: "new-city-alone", prompt: "first week alone in a brand new city", category: "mixed", expectedEnergy: "medium", expectedValence: "medium", note: "daunting fresh start, cautious hope" },
+  { slug: "lonely-sunday", prompt: "a long empty sunday with nothing planned", category: "chill", expectedEnergy: "low", expectedValence: "low", note: "aimless low mood, quiet emptiness" },
+  { slug: "back-from-holiday", prompt: "back home the day after a holiday ends", category: "mood_specific", expectedEnergy: "low", expectedValence: "low", note: "post-holiday comedown, flat" },
+  { slug: "new-baby-night", prompt: "up at 4am holding my newborn", category: "chill", expectedEnergy: "low", expectedValence: "high", note: "exhausted tenderness, overwhelming love" },
+  { slug: "quit-job", prompt: "the day after I quit my job with no plan", category: "mixed", expectedEnergy: "medium", expectedValence: "medium", note: "terrifying freedom, nervous relief" },
+];
+
+const livedExperience: PlaylistBenchmarkPrompt[] = livedExperienceSeeds.map((seed) => ({
+  id: `lived-${seed.slug}`,
+  category: seed.category,
+  prompt: seed.prompt,
+  mode: "balanced",
+  length: 25,
+  expectedEnergy: seed.expectedEnergy,
+  expectedValence: seed.expectedValence,
+  tags: ["lived_experience", seed.note],
+}));
+
+/** Named export so interpretation-grounding tooling can target exactly this set. */
+export const LIVED_EXPERIENCE_PROMPTS: PlaylistBenchmarkPrompt[] = livedExperience;
+
 const launchCalibrationSeeds: Array<{
   prompt: string;
   category: PlaylistBenchmarkCategory;
@@ -535,6 +596,7 @@ export const PLAYLIST_BENCHMARK_PROMPTS: PlaylistBenchmarkPrompt[] = [
   ...contradictory,
   ...discovery,
   ...edgeCase,
+  ...livedExperience,
   ...scalingPrompts,
 ];
 

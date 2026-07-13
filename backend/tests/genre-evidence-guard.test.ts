@@ -392,12 +392,17 @@ test("shouldPreferHonestConstrainedPublish prefers verified floor over blind rec
   assert.equal(shouldPreferHonestConstrainedPublish({ verifiedCount: 2, partialVerificationPasses: true }), true);
 });
 
-test("shouldUseBlindConstrainedReplacement only when honest path is empty", () => {
+test("shouldUseBlindConstrainedReplacement only when honest path is empty and no verified tracks", () => {
+  assert.equal(shouldUseBlindConstrainedReplacement({
+    verifiedCount: 0,
+    honestConstrainedDelivered: 0,
+    recoveryPoolSize: 8,
+  }), true);
   assert.equal(shouldUseBlindConstrainedReplacement({
     verifiedCount: 2,
     honestConstrainedDelivered: 0,
     recoveryPoolSize: 8,
-  }), true);
+  }), false);
   assert.equal(shouldUseBlindConstrainedReplacement({
     verifiedCount: 11,
     honestConstrainedDelivered: 0,

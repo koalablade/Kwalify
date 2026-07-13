@@ -11,6 +11,16 @@ import {
   winningTrackIds,
   type PlaylistContextFingerprint,
 } from "../lib/contextual-uniqueness";
+import {
+  buildEvaluationSessionMemoryPayload,
+  jsonUtf8ByteLength,
+} from "../lib/evaluation-session-memory-payload";
+import {
+  analyzeArtistDominance,
+  countEmptyPlaylistFailures,
+  EMPTY_PLAYLIST_GATE_MAX,
+} from "../lib/artist-dominance-gates";
+import { analyzePipelineAuthorityGate, analyzePipelineQualityGate } from "../lib/pipeline-authority/harness-gates";
 
 type HarnessConfig = {
   baseUrl: string;
@@ -35,6 +45,7 @@ type HarnessConfig = {
   checkpointEvery: number;
   resume: boolean;
   fresh: boolean;
+  strictRc: boolean;
 };
 
 type EvaluationRunState = {
@@ -87,7 +98,7 @@ function usage(): never {
     "  --concurrency N             Low concurrency limit (default 1, max 3)",
     "  --delay-ms N                Delay between requests per worker (default 1200)",
     "  --limit N                   Run only first N prompts",
-    "  --benchmark-size N          Fixed run size: 10, 50, 100, or 250",
+    "  --benchmark-size N          Fixed run size: 10, 50, 100, 250, or 500",
     "  --category NAME             Run one benchmark category",
     "  --timeout-ms N              Per-request timeout (default 90000)",
     "  --max-http-retries N        Harness API retries for 429/5xx (default 3)",
@@ -96,6 +107,7 @@ function usage(): never {
     "  --checkpoint-every N        Write full report every N completed prompts (default 5)",
     "  --resume                    Resume from reports/playlist-evaluation/run-state.json",
     "  --fresh                     Ignore existing run state and start from scratch",
+    "  --strict-rc                 Fail benchmark on pipeline validation checkpoint violations",
     "  --dry-run                   Do not call API; emit prompt list only",
   ].join("\n"));
   process.exit(2);
@@ -130,8 +142,8 @@ function parseConfig(args: string[]): HarnessConfig {
   });
   const benchmarkSize = argValue(args, "--benchmark-size") ? parseIntArg(args, "--benchmark-size", 0) : null;
   const clusterFailFastArg = argValue(args, "--cluster-fail-fast");
-  if (benchmarkSize !== null && ![10, 50, 100, 250].includes(benchmarkSize)) {
-    throw new Error("--benchmark-size must be one of: 10, 50, 100, 250");
+  if (benchmarkSize !== null && ![10, 50, 100, 250, 500].includes(benchmarkSize)) {
+    throw new Error("--benchmark-size must be one of: 10, 50, 100, 250, 500");
   }
   const config: HarnessConfig = {
     baseUrl: creds.baseUrl,
@@ -160,6 +172,7 @@ function parseConfig(args: string[]): HarnessConfig {
     checkpointEvery: Math.max(1, parseIntArg(args, "--checkpoint-every", 5)),
     resume: args.includes("--resume"),
     fresh: args.includes("--fresh"),
+    strictRc: args.includes("--strict-rc"),
   };
   if (config.resume && config.fresh) {
     throw new Error("--resume and --fresh cannot be used together.");
@@ -191,7 +204,21 @@ function parseConfig(args: string[]): HarnessConfig {
 function selectPrompts(config: HarnessConfig): PlaylistBenchmarkPrompt[] {
   let prompts = PLAYLIST_BENCHMARK_PROMPTS;
   if (config.category) prompts = prompts.filter((prompt) => prompt.category === config.category);
-  if (config.benchmarkSize !== null) prompts = prompts.slice(0, config.benchmarkSize);
+  if (config.benchmarkSize !== null) {
+    if (config.benchmarkSize <= prompts.length) {
+      prompts = prompts.slice(0, config.benchmarkSize);
+    } else {
+      const selected: PlaylistBenchmarkPrompt[] = [];
+      for (let index = 0; index < config.benchmarkSize; index += 1) {
+        const source = prompts[index % prompts.length]!;
+        selected.push({
+          ...source,
+          id: `${source.id}__cycle-${Math.floor(index / prompts.length) + 1}`,
+        });
+      }
+      prompts = selected;
+    }
+  }
   if (config.limit !== null) prompts = prompts.slice(0, config.limit);
   if (prompts.length === 0) throw new Error("No benchmark prompts selected");
   return prompts;
@@ -647,6 +674,15 @@ async function preflight(config: HarnessConfig): Promise<Record<string, unknown>
     if (!response.ok || data["status"] !== "ready" || data["readiness"] !== "ready") {
       throw new Error(`GET /api/readyz returned ${response.status} ${String(data["status"] ?? "unknown")}/${String(data["readiness"] ?? "unknown")}`);
     }
+    if (config.strictRc) {
+      const pipelineAuthority = data["pipelineAuthority"] as Record<string, unknown> | undefined;
+      if (pipelineAuthority?.["enabled"] !== true) {
+        const commit = String(data["commit"] ?? "unknown");
+        throw new Error(
+          `Pipeline Authority verification aborted: running deployment (commit=${commit}) does not expose pipelineAuthority.enabled on /api/readyz. Rebuild and restart the API.`,
+        );
+      }
+    }
   } catch (err) {
     throw new Error(`Preflight failed: deployment is not ready. ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -738,13 +774,14 @@ async function postGenerate(
     body.auditMode = true;
     if (config.spotifyUserId) body.spotifyUserId = config.spotifyUserId;
     body.evaluationCategory = benchmark.category;
-    if (runMemory && runMemory.previousTrackLists.length > 0) {
-      body.evaluationSessionMemory = {
-        previousTrackIds: [...runMemory.previousTrackLists].reverse().slice(0, 50),
-        previousPlaylistContexts: [...runMemory.previousPlaylistContexts].reverse().slice(0, 50),
-      };
+    const evaluationSessionMemory = runMemory
+      ? buildEvaluationSessionMemoryPayload(runMemory, { baseBody: body })
+      : undefined;
+    if (evaluationSessionMemory) {
+      body.evaluationSessionMemory = evaluationSessionMemory;
     }
   }
+  const requestBodyBytes = jsonUtf8ByteLength(body);
   let httpRetries = 0;
   let attemptsMade = 0;
   let lastStatus: number | undefined;
@@ -772,7 +809,10 @@ async function postGenerate(
       ok: response.ok && data["success"] === true,
       status: response.status,
       error: response.ok ? undefined : String(data["message"] ?? data["error"] ?? response.statusText),
-      response: { ...data, harnessHttp: { retries: httpRetries, attempts: attemptsMade } },
+      response: {
+        ...data,
+        harnessHttp: { retries: httpRetries, attempts: attemptsMade, requestBodyBytes },
+      },
       tracks: tracksFromResponse(data),
       elapsedMs: Date.now() - started,
     };
@@ -1091,11 +1131,43 @@ async function main(): Promise<void> {
   const failed = results.filter((result) => !result.ok);
   const success = results.length - failed.length;
   const playlistMetrics = report.summary.playlists;
+  const emptyPlaylistFailures = countEmptyPlaylistFailures(results);
+  const artistDominance = analyzeArtistDominance(results);
+  const pipelineAuthorityGate = config.strictRc ? analyzePipelineAuthorityGate(results) : null;
+  const pipelineQualityGate = config.strictRc ? analyzePipelineQualityGate(results) : null;
+  const regressionGates = {
+    httpFailures: { value: failed.length, max: 0, pass: failed.length === 0 },
+    emptyPlaylists: { value: emptyPlaylistFailures, max: EMPTY_PLAYLIST_GATE_MAX, pass: emptyPlaylistFailures <= EMPTY_PLAYLIST_GATE_MAX },
+    artistDominance: { value: artistDominance.pass ? 1 : 0, max: 1, pass: artistDominance.pass },
+    ...(config.strictRc
+      ? {
+          pipelineAuthority: {
+            value: pipelineAuthorityGate?.failures ?? 0,
+            max: 0,
+            pass: pipelineAuthorityGate?.pass ?? false,
+          },
+          pipelineQuality: {
+            value: pipelineQualityGate?.failures ?? 0,
+            max: pipelineQualityGate?.failures ?? 0,
+            pass: true,
+            informational: true,
+          },
+        }
+      : {}),
+  };
+  const gatesPass = Object.values(regressionGates).every((gate) => gate.pass);
   const average = (values: number[]): number => values.length
     ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 1000) / 1000
     : 0;
   process.stdout.write(`${JSON.stringify({
-    pass: failed.length === 0,
+    pass: gatesPass,
+    gates: regressionGates,
+    artistDominance: {
+      pass: artistDominance.pass,
+      totals: artistDominance.totals,
+      gates: artistDominance.gates,
+    },
+    ...(config.strictRc ? { pipelineAuthority: pipelineAuthorityGate, pipelineQuality: pipelineQualityGate } : {}),
     outDir: config.outDir,
     prompts: prompts.length,
     succeeded: success,
@@ -1148,7 +1220,7 @@ async function main(): Promise<void> {
     worst: report.worstPlaylists.slice(0, 5).map((row) => ({ promptId: row.promptId, qualityScore: row.qualityScore, likelyCause: row.likelyCause })),
     best: report.bestPlaylists.slice(0, 5).map((row) => ({ promptId: row.promptId, qualityScore: row.qualityScore })),
   }, null, 2)}\n`);
-  if (failed.length > 0) process.exitCode = 1;
+  if (!gatesPass) process.exitCode = 1;
 }
 
 main().catch((err) => {

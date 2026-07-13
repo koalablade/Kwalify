@@ -121,18 +121,22 @@ interface Anchor {
 
 const ANCHORS: Anchor[] = [
   // emotional
-  { key: "joy", group: "emotional", terms: ["joy", "joyful", "happy", "elated", "delighted", "cheerful"] },
+  { key: "joy", group: "emotional", terms: ["joy", "joyful", "happy", "elated", "delighted", "cheerful", "giddy"] },
   { key: "hope", group: "emotional", terms: ["hope", "hopeful", "optimism", "looking forward", "promise"] },
   { key: "relief", group: "emotional", terms: ["relief", "relieved", "finally", "over", "made it", "exhale"] },
   { key: "melancholy", group: "emotional", terms: ["melancholy", "wistful", "blue", "somber", "downcast"] },
   { key: "sadness", group: "emotional", terms: ["sad", "sadness", "crying", "tears", "grief", "heartbreak", "heartbroken", "loss", "losing"] },
   { key: "anger", group: "emotional", terms: ["anger", "angry", "rage", "furious", "fed up", "resent"] },
   { key: "confidence", group: "emotional", terms: ["confident", "confidence", "powerful", "unstoppable", "bold", "swagger"] },
-  { key: "fear", group: "emotional", terms: ["fear", "afraid", "anxious", "anxiety", "nervous", "dread", "scared"] },
+  { key: "fear", group: "emotional", terms: ["fear", "afraid", "anxious", "anxiety", "nervous", "nervously", "worried", "dread", "scared"] },
   { key: "gratitude", group: "emotional", terms: ["grateful", "gratitude", "thankful", "blessed"] },
-  { key: "romance", group: "emotional", terms: ["romance", "romantic", "love", "in love", "falling in love", "crush", "intimate", "first date", "date night", "dinner date", "slow dance"] },
+  { key: "romance", group: "emotional", terms: ["romance", "romantic", "love", "in love", "falling in love", "crush", "intimate", "first date", "date night", "dinner date", "slow dance", "new relationship"] },
   { key: "comfort", group: "emotional", terms: ["comfort", "cozy", "cosy", "safe", "warm", "soothing", "calming"] },
-  { key: "anticipation", group: "emotional", terms: ["anticipation", "excited", "buildup", "waiting", "about to", "before"] },
+  // Excited buildup ONLY — deliberately excludes "waiting" (see `suspense`), so
+  // anxious waiting no longer reads as hype-energy. Gated further in composeAffect.
+  { key: "anticipation", group: "emotional", terms: ["excited", "buildup", "build up", "hyped", "can't wait", "buzzing", "about to"] },
+  // Suspended / anxious waiting — low arousal, high tension (dread, not hype).
+  { key: "suspense", group: "emotional", terms: ["waiting", "waiting room", "waiting for", "in limbo", "on edge", "any minute", "the wait", "results", "test results"] },
   { key: "loneliness", group: "emotional", terms: ["lonely", "loneliness", "alone", "isolated", "solitude", "empty"] },
   { key: "nostalgia", group: "emotional", terms: ["nostalgia", "nostalgic", "memory", "memories", "remember", "old days", "used to", "childhood", "throwback"] },
   { key: "wonder", group: "emotional", terms: ["wonder", "awe", "amazed", "breathtaking", "sublime", "marvel"] },
@@ -140,6 +144,15 @@ const ANCHORS: Anchor[] = [
   { key: "bittersweet", group: "emotional", terms: ["bittersweet", "happy but", "hurts", "mixed feelings", "smiling through"] },
   { key: "restlessness", group: "emotional", terms: ["restless", "can't sleep", "cant sleep", "wired", "uneasy"] },
   { key: "calm", group: "emotional", terms: ["calm", "calmness", "peaceful", "serene", "tranquil", "still", "mellow", "quiet mind"] },
+  // ── Event-outcome dimensions ────────────────────────────────────────────
+  // A situation carries emotion even with no explicit emotion word ("failed an
+  // interview", "burnt out", "reconnecting"). These are broad, reusable outcome
+  // families — NOT per-prompt rules — that let composeAffect infer valence.
+  { key: "setback", group: "emotional", terms: ["failing", "failed", "failure", "rejected", "rejection", "let down", "didn't get", "went wrong", "gone wrong", "defeat", "defeated", "missed"] },
+  { key: "depletion", group: "emotional", terms: ["burnt out", "burnout", "exhausted", "drained", "depleted", "worn out", "running on empty", "wiped out", "spent", "shattered", "knackered"] },
+  { key: "connection", group: "emotional", terms: ["reunion", "reunited", "reconnecting", "reconnect", "old friend", "old friends", "together again", "catching up", "long lost"] },
+  { key: "renewal", group: "emotional", terms: ["fresh start", "new start", "new beginning", "new chapter", "starting over", "clean slate", "first day", "brand new"] },
+  { key: "ending", group: "emotional", terms: ["for the last time", "last time", "for good", "one last time", "final goodbye", "the last day", "moving out", "leaving for good"] },
 
   // social
   { key: "alone", group: "social", terms: ["alone", "by myself", "solo", "just me", "on my own"] },
@@ -183,6 +196,8 @@ const ANCHORS: Anchor[] = [
   { key: "relaxing", group: "activity", terms: ["relaxing", "relax", "chill", "unwind", "lounging", "resting"] },
   { key: "sleeping", group: "activity", terms: ["sleep", "asleep", "falling asleep", "sleeping", "insomnia", "bedtime", "lullaby", "drift off", "drifting off", "nap"] },
   { key: "meditating", group: "activity", terms: ["meditation", "meditate", "meditating", "mindfulness", "breathe", "breathing", "yoga"] },
+  { key: "reading", group: "activity", terms: ["reading", "read", "book", "novel", "paperback", "journaling", "writing"] },
+  { key: "walking", group: "activity", terms: ["walking", "walk", "stroll", "strolling", "wander", "wandering", "pacing", "walking home"] },
   { key: "grieving", group: "activity", terms: ["grieving", "mourning", "funeral", "goodbye", "lost someone"] },
   { key: "recovering", group: "activity", terms: ["recovering", "recovery", "healing", "hungover", "burnout", "aftermath"] },
   { key: "celebrating", group: "activity", terms: ["celebrating", "toast", "cheers", "victory", "won", "winning"] },

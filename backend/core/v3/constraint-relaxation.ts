@@ -98,7 +98,7 @@ export function buildConstraintRelaxationPlan(
   mode: "strict" | "balanced" | "chaotic" = "balanced",
 ): ConstraintRelaxationStep[] {
   const stackedGenreEraActivity =
-    intent.genreFamilies.length > 0 &&
+    (intent.genreFamilies?.length ?? 0) > 0 &&
     !!intent.eraRange &&
     !!intent.activity;
   const partyLikeActivity =
@@ -154,9 +154,9 @@ export function relaxedIntentForProfile(intent: LockedIntent, profile: Constrain
     eraRange = null;
   }
 
-  let genreFamilies = intent.genreFamilies;
+  let genreFamilies = intent.genreFamilies ?? [];
   if (profile.genre === "adjacent") {
-    genreFamilies = expandAdjacentGenreFamilies(intent.genreFamilies);
+    genreFamilies = expandAdjacentGenreFamilies(genreFamilies);
   } else if (profile.genre === "relaxed" || profile.genre === "dropped") {
     genreFamilies = [];
   }

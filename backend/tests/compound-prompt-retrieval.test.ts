@@ -19,6 +19,55 @@ const emotionProfile = {
   motionState: null,
 };
 
+test("parseCompoundPromptConstraints detects latin summer party", () => {
+  const constraints = parseCompoundPromptConstraints(
+    "latin summer beach party reggaeton",
+    { activity: "party" },
+    emotionProfile,
+  );
+  assert.ok(constraints.genres.includes("latin"));
+  assert.ok(constraints.sceneTags.includes("party"));
+});
+
+test("scoreCompoundPromptFit rewards latin genre evidence", () => {
+  const constraints = parseCompoundPromptConstraints(
+    "latin summer beach party",
+    { activity: "party", primaryGenres: ["latin"] },
+    emotionProfile,
+  );
+  const classMap = new Map([
+    ["latin", { genrePrimary: "latin", genreFamily: "latin", primarySubgenre: "reggaeton", secondarySubgenre: null, subGenres: [] }],
+    ["pop", { genrePrimary: "pop", genreFamily: "pop", primarySubgenre: "dance_pop", secondarySubgenre: null, subGenres: [] }],
+  ]);
+  const latinTrack: RetrievalTrackInput = {
+    trackId: "latin",
+    trackName: "Baila Reggaeton",
+    artistName: "Latin Artist",
+    albumName: "Summer",
+    energy: 0.78,
+    valence: 0.72,
+    tempo: 102,
+    danceability: 0.82,
+    acousticness: 0.1,
+    instrumentalness: 0.01,
+    speechiness: 0.08,
+    popularity: 55,
+    releaseYear: 2019,
+  };
+  const popTrack: RetrievalTrackInput = {
+    ...latinTrack,
+    trackId: "pop",
+    trackName: "Generic Pop",
+    artistName: "Pop Artist",
+    releaseYear: 2019,
+    energy: 0.78,
+    danceability: 0.82,
+  };
+  const latinScore = scoreCompoundPromptFit(latinTrack, classMap.get("latin") ?? null, constraints, "latin summer beach party", emotionProfile);
+  const popScore = scoreCompoundPromptFit(popTrack, classMap.get("pop") ?? null, constraints, "latin summer beach party", emotionProfile);
+  assert.ok(latinScore > popScore);
+});
+
 test("parseCompoundPromptConstraints detects era + genre + activity", () => {
   const constraints = parseCompoundPromptConstraints(
     "70s disco party dancefloor",

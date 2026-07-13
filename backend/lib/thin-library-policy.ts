@@ -6,11 +6,19 @@
  * Normal: otherwise
  */
 
+import { isCompoundPromptIntent } from "./blended-intent-pool";
 import type { ThinLibraryDiagnostics, ThinLibraryIntentSupply, EraConstraintInput } from "./thin-library-intent-supply";
 export { hasEraConstraint, type EraConstraintInput } from "./thin-library-intent-supply";
 
 export const THIN_LIBRARY_INSUFFICIENT_THRESHOLD = 3;
 export const THIN_LIBRARY_PARTIAL_RATIO = 0.67;
+
+const AMBIENT_FOCUS_PROMPT =
+  /\b(?:ambient|focus|study|coding|concentration|instrumental|soft\s+electronic|deep\s+work|morning\s+focus)\b/i;
+
+export function isAmbientFocusThinLibraryPrompt(vibe: string): boolean {
+  return AMBIENT_FOCUS_PROMPT.test(vibe);
+}
 
 export type ThinLibraryPolicyAction = "normal" | "insufficient" | "honest_partial";
 
@@ -27,6 +35,7 @@ export type ThinLibraryPolicyResult = {
 
 export function evaluateThinLibraryPolicy(
   intentSupply: ThinLibraryIntentSupply,
+  opts?: { vibe?: string },
 ): ThinLibraryPolicyResult {
   const maxAchievable = intentSupply.maxAchievable;
   const requested = intentSupply.requestedLength;
@@ -43,6 +52,21 @@ export function evaluateThinLibraryPolicy(
   };
 
   if (maxAchievable < THIN_LIBRARY_INSUFFICIENT_THRESHOLD) {
+    const ambientAchievable = opts?.vibe && isAmbientFocusThinLibraryPrompt(opts.vibe)
+      ? Math.max(maxAchievable, intentSupply.strictSupply + intentSupply.adjacentSupply)
+      : maxAchievable;
+    if (opts?.vibe && isAmbientFocusThinLibraryPrompt(opts.vibe) && ambientAchievable >= 1) {
+      return {
+        action: "honest_partial",
+        maxAchievable: ambientAchievable,
+        requestedLength: requested,
+        targetLength: ambientAchievable,
+        partialRatio: ambientAchievable / Math.max(1, requested),
+        userMessage: buildThinLibraryHonestPartialMessage(ambientAchievable, requested),
+        reason: "ambient_focus_thin_library_partial",
+        diagnostics,
+      };
+    }
     return {
       action: "insufficient",
       maxAchievable,
@@ -135,4 +159,52 @@ export function applyThinLibraryDeliveryCap<T>(
     return { tracks, applied: false };
   }
   return { tracks: tracks.slice(0, policy.targetLength), applied: true };
+}
+
+type CompoundIntentShape = {
+  genreFamilies?: string[];
+  primaryGenres?: string[];
+  eraRange?: { start: number; end: number } | null;
+  eraStart?: number | null;
+  eraEnd?: number | null;
+  activity?: string | null;
+  mood?: string[];
+};
+
+export function shouldCompoundThinLibraryBypass(
+  intentSupply: ThinLibraryIntentSupply,
+  intent: CompoundIntentShape,
+  thinMinRequired: number,
+  relaxedValidCount?: number,
+): boolean {
+  if (!isCompoundPromptIntent(intent)) return false;
+  const compoundShape =
+    (intent.eraRange != null || intent.eraStart != null || intent.eraEnd != null)
+    || (
+      intentSupply.intentPreservingSupply > 0
+      && intentSupply.intentPreservingSupply < thinMinRequired
+    );
+  if (!compoundShape) return false;
+  return (
+    (typeof relaxedValidCount === "number" && relaxedValidCount >= thinMinRequired)
+    || intentSupply.relaxedSupply >= thinMinRequired
+    || intentSupply.intentPreservingSupply > 0
+  );
+}
+
+export function shouldEarlyThinLibraryHardStop(
+  policy: ThinLibraryPolicyResult,
+  intentSupply: ThinLibraryIntentSupply,
+  opts: {
+    compoundBypass: boolean;
+    strictValidCount?: number;
+    thinMinRequired: number;
+  },
+): boolean {
+  if (policy.action !== "insufficient") return false;
+  if (opts.compoundBypass) return false;
+  if ((opts.strictValidCount ?? 0) > 0) return false;
+  if (intentSupply.relaxedSupply >= opts.thinMinRequired) return false;
+  if (intentSupply.intentPreservingSupply > 0) return false;
+  return intentSupply.maxAchievable <= 0;
 }

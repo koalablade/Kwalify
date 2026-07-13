@@ -11,9 +11,70 @@ import { readFile, writeFile, mkdir, access } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
+const require = createRequire(import.meta.url);
+
+/**
+ * Metadata audio-feature inference (Spotify /audio-features is deprecated and
+ * /artists is 403 for client-credentials apps). We infer per-track features from
+ * the genre-bearing search QUERY plus track/artist/album text. This is the only
+ * way to get non-degenerate energy/valence/tempo for a client-credentials corpus.
+ * Requires `npm run build` so backend/dist exists.
+ */
+let inferMetadataAudioFeatures = null;
+try {
+  ({ inferMetadataAudioFeatures } = require(path.join(
+    REPO_ROOT,
+    "backend/dist/lib/metadata-audio-feature-inference.js",
+  )));
+} catch (err) {
+  console.warn(
+    `audio-feature inference unavailable (${err.message}); run 'npm run build' first. Collecting without inferred features.`,
+  );
+}
+
+/** Turn a search query into genre-ish hint tokens the classifier can key on. */
+function queryGenreHints(query) {
+  return String(query)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s&]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 2);
+}
+
+/** Enrich a raw track with inferred audio features, using the query as genre hint. */
+function enrichTrackWithFeatures(track, query) {
+  if (!inferMetadataAudioFeatures) return track;
+  try {
+    const f = inferMetadataAudioFeatures({
+      trackId: track.trackId,
+      trackName: track.trackName ?? "",
+      artistName: track.artistName ?? "",
+      // Append the query so applyTextModifiers picks up workout/sleep/acoustic/etc.
+      albumName: `${track.albumName ?? ""} ${query}`.trim(),
+      spotifyArtistGenres: queryGenreHints(query),
+      popularity: track.popularity,
+      durationMs: track.durationMs ?? null,
+    });
+    return {
+      ...track,
+      energy: f.energy,
+      valence: f.valence,
+      tempo: f.tempo,
+      danceability: f.danceability,
+      acousticness: f.acousticness,
+      instrumentalness: f.instrumentalness,
+      speechiness: f.speechiness,
+      loudness: f.loudness,
+      featureSource: "metadata_inference",
+    };
+  } catch {
+    return track;
+  }
+}
 
 function loadEnvFile() {
   const candidates = [
@@ -166,6 +227,8 @@ async function searchEditorialTracks(token, query, max = 30) {
         trackId: t.id,
         trackName: t.name ?? null,
         artistName: t.artists?.[0]?.name ?? null,
+        albumName: t.album?.name ?? null,
+        durationMs: typeof t.duration_ms === "number" ? t.duration_ms : null,
         popularity: t.popularity ?? null,
         releaseYear: t.album?.release_date ? Number.parseInt(String(t.album.release_date).slice(0, 4), 10) : null,
         rediscoveryScore: t.popularity != null ? Math.max(0, 1 - t.popularity / 100) : null,
@@ -191,8 +254,9 @@ async function collectFromSearchQueries(token, existing, seenIds, limit) {
     const id = `search:${query.replace(/\s+/g, "_").slice(0, 48)}`;
     if (seenIds.has(id)) continue;
     try {
-      const tracks = await searchEditorialTracks(token, query, 30);
-      if (tracks.length < 8) continue;
+      const rawTracks = await searchEditorialTracks(token, query, 30);
+      if (rawTracks.length < 8) continue;
+      const tracks = rawTracks.map((t) => enrichTrackWithFeatures(t, query));
       existing.push({
         id,
         source: "spotify_search_corpus",
@@ -262,16 +326,18 @@ function parseArgs() {
   const args = process.argv.slice(2);
   let limit = 100;
   let resume = false;
+  let out = OUT;
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === "--limit" && args[i + 1]) limit = Number.parseInt(args[++i], 10);
     if (args[i] === "--resume") resume = true;
+    if (args[i] === "--out" && args[i + 1]) out = path.resolve(args[++i]);
   }
-  return { limit, resume };
+  return { limit, resume, out };
 }
 
 async function main() {
-  const { limit, resume } = parseArgs();
-  await mkdir(path.dirname(OUT), { recursive: true });
+  const { limit, resume, out } = parseArgs();
+  await mkdir(path.dirname(out), { recursive: true });
   await mkdir(path.dirname(SEEDS), { recursive: true });
 
   let seeds = DEFAULT_SEEDS;
@@ -285,7 +351,7 @@ async function main() {
   let existing = [];
   if (resume) {
     try {
-      existing = JSON.parse(await readFile(OUT, "utf8"));
+      existing = JSON.parse(await readFile(out, "utf8"));
     } catch {
       existing = [];
     }
@@ -341,8 +407,8 @@ async function main() {
     collected += await collectFromSearchQueries(token, existing, seenIds, limit);
   }
 
-  await writeFile(OUT, JSON.stringify(existing, null, 2));
-  console.log(JSON.stringify({ output: OUT, total: existing.length, newThisRun: collected }, null, 2));
+  await writeFile(out, JSON.stringify(existing, null, 2));
+  console.log(JSON.stringify({ output: out, total: existing.length, newThisRun: collected }, null, 2));
 }
 
 main().catch((e) => {

@@ -1,11 +1,30 @@
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { UX_EMOTIONAL_RENDER_ORDER } from "../lib/ux-render-contract";
 
 const REQUIRED_ORDER = [...UX_EMOTIONAL_RENDER_ORDER];
 
+// This contract enforced consistency between the backend render order and a
+// former split frontend (`ui-new/public/pages/ux-view.js` + `ux-schema.js`).
+// That frontend was replaced by a single-file `frontend/public/pages/app.js`
+// which has no render-order split, so the contract no longer applies. Rather
+// than crash with ENOENT (dead test) or assert against files that don't exist,
+// we skip cleanly when the legacy frontend is absent.
+const LEGACY_FRONTEND_FILES = [
+  "ui-new/public/pages/ux-view.js",
+  "ui-new/public/pages/ux-schema.js",
+];
+
+function resolveSource(relativePath: string): string {
+  return join(__dirname, "../../../", relativePath);
+}
+
 function readSource(relativePath: string): string {
-  return readFileSync(join(__dirname, "../../../", relativePath), "utf8");
+  return readFileSync(resolveSource(relativePath), "utf8");
+}
+
+function legacyFrontendPresent(): boolean {
+  return LEGACY_FRONTEND_FILES.every((p) => existsSync(resolveSource(p)));
 }
 
 function parseRenderOrderFromSchema(source: string): string[] {
@@ -29,6 +48,11 @@ export function runUxRenderContractTests(): {
 } {
   const failures: string[] = [];
   let passed = 0;
+
+  if (!legacyFrontendPresent()) {
+    // Legacy split frontend retired — contract not applicable. Skip, don't fail.
+    return { passed: 0, failed: 0, failures: [] };
+  }
 
   const uxView = readSource("ui-new/public/pages/ux-view.js");
   const uxSchema = readSource("ui-new/public/pages/ux-schema.js");

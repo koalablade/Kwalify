@@ -17,6 +17,7 @@ import { refreshLiveTrends } from "../lib/trend-ingestion-live";
 import { getSessionSnapshotCacheStats } from "../core/cache/session-snapshot-cache";
 import { deploymentVersion } from "../lib/deployment-version";
 import { normalizeEvalToken } from "../lib/eval-token-normalize";
+import { expectedEvalToken, safeTokenEqual } from "../lib/eval-token";
 
 const router: IRouter = Router();
 
@@ -25,8 +26,23 @@ function requestHeader(req: Request, name: string): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+/**
+ * Admin routes expose taste graphs, culture matches, and DB aggregates. In
+ * production they are OFF by default and must be explicitly enabled with
+ * EVAL_ADMIN_ENABLED=true. When disabled we return 404 (not 403) so the routes
+ * are indistinguishable from non-existent paths to an unauthenticated probe.
+ */
+function adminRoutesEnabled(): boolean {
+  if ((process.env["NODE_ENV"] ?? "development") !== "production") return true;
+  return process.env["EVAL_ADMIN_ENABLED"] === "true";
+}
+
 function requireEvalToken(req: Request, res: Response): boolean {
-  const expected = normalizeEvalToken(process.env["PLAYLIST_EVAL_TOKEN"]);
+  if (!adminRoutesEnabled()) {
+    res.status(404).json({ error: "Not found" });
+    return false;
+  }
+  const expected = expectedEvalToken();
   if (!expected) {
     res.status(503).json({ error: "PLAYLIST_EVAL_TOKEN not configured" });
     return false;
@@ -35,7 +51,7 @@ function requireEvalToken(req: Request, res: Response): boolean {
     requestHeader(req, "x-kwalify-evaluation-token")
       ?? requestHeader(req, "x-eval-token"),
   );
-  if (token !== expected) {
+  if (!safeTokenEqual(token, expected)) {
     res.status(403).json({ error: "Invalid evaluation token" });
     return false;
   }

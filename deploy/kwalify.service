@@ -1,0 +1,55 @@
+# systemd service unit for Kwalify (self-hosted).
+#
+# Install:
+#   sudo cp deploy/kwalify.service /etc/systemd/system/kwalify.service
+#   sudo install -d -o kwalify -g kwalify /etc/kwalify
+#   sudo install -m 600 .env /etc/kwalify/kwalify.env
+#   sudo systemctl daemon-reload && sudo systemctl enable --now kwalify
+#
+# Assumes the repo is checked out at /opt/kwalify and already built
+# (`npm ci && npm run build`) as the `kwalify` user.
+
+[Unit]
+Description=Kwalify playlist API
+Documentation=https://github.com/your-org/kwalify/blob/main/docs/OPERATIONS.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kwalify
+Group=kwalify
+WorkingDirectory=/opt/kwalify
+
+# Environment: keep secrets out of the unit file (mode 600, owned by kwalify).
+EnvironmentFile=/etc/kwalify/kwalify.env
+Environment=NODE_ENV=production
+
+ExecStart=/usr/bin/node backend/dist/server.js
+
+# Graceful shutdown: the app drains in-flight generations within its 100s grace
+# window. TimeoutStopSec MUST stay above that (see docs/OPERATIONS.md §4).
+KillSignal=SIGTERM
+TimeoutStopSec=110
+
+# Automatic restart on crash, with backoff to avoid tight crash loops.
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+# Logs go to the journal (journalctl -u kwalify).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kwalify
+
+# Basic hardening.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Allow writing local DB backups if BACKUP_DIR is under these paths.
+ReadWritePaths=/var/backups/kwalify /var/log/kwalify
+
+[Install]
+WantedBy=multi-user.target

@@ -888,7 +888,8 @@ export function shouldUseBlindConstrainedReplacement(opts: {
   return (
     opts.honestConstrainedDelivered < 1 &&
     opts.recoveryPoolSize > 0 &&
-    opts.verifiedCount < floor
+    opts.verifiedCount < floor &&
+    opts.verifiedCount === 0
   );
 }
 

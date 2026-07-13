@@ -241,6 +241,42 @@ CREATE INDEX IF NOT EXISTS "IDX_playlist_failure_events_event_type"
   ON "playlist_failure_events" ("event_type", "created_at" DESC);
 CREATE INDEX IF NOT EXISTS "IDX_playlist_failure_events_outcome"
   ON "playlist_failure_events" ("user_outcome", "created_at" DESC);
+
+CREATE TABLE IF NOT EXISTS "generation_signals" (
+  "id" serial PRIMARY KEY,
+  "generation_id" text NOT NULL UNIQUE,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "prompt" text NOT NULL,
+  "prompt_hash" text NOT NULL,
+  "user_id_hash" text,
+  "mode" text,
+  "interpreted_moment" jsonb,
+  "expectation_contract" jsonb,
+  "grounded_confidence" real,
+  "novel_prompt" boolean,
+  "candidate_count" integer,
+  "candidate_pool_admissible_rate" real,
+  "rerank_promotions" integer,
+  "rerank_demotions" integer,
+  "avg_fit_before" real,
+  "avg_fit_after" real,
+  "critic_score" integer,
+  "critic_verdict" text,
+  "repair_count" integer,
+  "failure_modes" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "publish_decision" text,
+  "generation_time_ms" integer,
+  "pipeline_version" text,
+  "expectation_version" text,
+  "shadow_or_enforce" text NOT NULL,
+  "user_feedback" jsonb
+);
+CREATE INDEX IF NOT EXISTS "IDX_generation_signals_created"
+  ON "generation_signals" ("created_at" DESC);
+CREATE INDEX IF NOT EXISTS "IDX_generation_signals_mode"
+  ON "generation_signals" ("shadow_or_enforce", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "IDX_generation_signals_prompt_hash"
+  ON "generation_signals" ("prompt_hash");
 `;
 
 async function backfillShareSlugs(rawPool: pg.Pool): Promise<void> {
