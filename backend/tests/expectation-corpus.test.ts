@@ -102,3 +102,31 @@ test("reflective late-night moment is calmer than a triumphant one", () => {
   const gym = energyCenter("gym pr max effort heavy lifting session");
   assert.ok(hospital < gym, `hospital(${hospital.toFixed(2)}) should be calmer than gym(${gym.toFixed(2)})`);
 });
+
+// ---- Quiet-positive concepts (Phase 3, Priority 2) --------------------------
+// These lived-experience prompts previously fell to an "Open" reading with
+// neutral valence. They must now ground on a reusable emotional concept and
+// read positive-but-understated (valence up without high arousal).
+
+const valenceCenter = (vibe: string) => center(contractFor(vibe).sonicBands.valence);
+
+test("relief / pride / renewal ground and lift valence without becoming hype", () => {
+  const cases: Array<[string, string]> = [
+    ["I finally handed my notice in", "relief"],
+    ["I'm proud of myself but nobody else noticed", "pride"],
+    ["I've just moved into my first apartment", "renewal"],
+  ];
+  for (const [vibe, key] of cases) {
+    const interp = interpretMoment(vibe);
+    assert.ok(!interp.novelPrompt, `${vibe} should ground (not novel)`);
+    assert.ok((interp.dimensions.scores[key] ?? 0) > 0.12, `${vibe} should activate '${key}'`);
+    assert.ok(valenceCenter(vibe) >= 0.5, `${vibe} should read non-negative valence`);
+    assert.ok(energyCenter(vibe) < 0.72, `${vibe} should not read as high-arousal hype`);
+  }
+});
+
+test("'quietly optimistic' reads positive but low-arousal", () => {
+  const vibe = "I want to feel quietly optimistic";
+  assert.ok(valenceCenter(vibe) >= 0.5, "optimism should read positive valence");
+  assert.ok(energyCenter(vibe) < 0.6, "quiet optimism should not read energetic");
+});

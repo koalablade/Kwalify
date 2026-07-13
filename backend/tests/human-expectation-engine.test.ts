@@ -88,6 +88,20 @@ test("artist fatigue detected when one artist dominates", () => {
   assert.ok(findings.some((f) => f.mode === "ARTIST_FATIGUE"), "artist fatigue flagged");
 });
 
+test("near-duplicate detected for same recording under different ids/versions", () => {
+  const { interp, contract } = contractFor("rainy afternoon in a cozy coffee shop");
+  const tracks = [
+    track("d1", { trackName: "Holocene", artistName: "Bon Iver", energy: 0.3, valence: 0.4 }),
+    track("d2", { trackName: "Holocene - Remastered", artistName: "Bon Iver", energy: 0.3, valence: 0.4 }),
+    track("d3", { trackName: "Holocene (Live)", artistName: "Bon Iver", energy: 0.3, valence: 0.4 }),
+    track("u1", { trackName: "Skinny Love", artistName: "Bon Iver", energy: 0.35, valence: 0.4 }),
+  ];
+  const findings = detectFailureModes(tracks, contract, interp);
+  const nearDup = findings.find((f) => f.mode === "NEAR_DUPLICATE");
+  assert.ok(nearDup, "near-duplicate flagged");
+  assert.equal(nearDup!.trackIds.length, 2, "flags the two extra copies, keeps one");
+});
+
 test("critic: coherent calm playlist for sleep publishes with high fit", () => {
   const { interp, contract } = contractFor("ambient soundscape for falling asleep");
   const tracks = Array.from({ length: 12 }, (_, i) => calmTrack(`c${i}`, `Ambient ${i % 6}`));

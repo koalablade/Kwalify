@@ -356,6 +356,49 @@ const livedExperience: PlaylistBenchmarkPrompt[] = livedExperienceSeeds.map((see
 /** Named export so interpretation-grounding tooling can target exactly this set. */
 export const LIVED_EXPERIENCE_PROMPTS: PlaylistBenchmarkPrompt[] = livedExperience;
 
+/**
+ * Phase 3 hard human-language prompts (Priority 8 expansion).
+ *
+ * First-person, emotionally layered sentences of the kind a real person types
+ * — often containing a *tension* the interpreter must hold (hope WITHOUT denial,
+ * beautiful but NOT happy, proud but unseen). They stress the interpreter's
+ * ability to resolve competing emotional signals rather than pick one keyword.
+ * Direction (energy/valence) encodes what a human would expect to FEEL.
+ */
+const phase3HumanSeeds: Array<{
+  slug: string;
+  prompt: string;
+  category: PlaylistBenchmarkCategory;
+  expectedEnergy: NonNullable<PlaylistBenchmarkPrompt["expectedEnergy"]>;
+  expectedValence: NonNullable<PlaylistBenchmarkPrompt["expectedValence"]>;
+  note: string;
+}> = [
+  { slug: "handed-notice-in", prompt: "I finally handed my notice in", category: "mood_specific", expectedEnergy: "medium", expectedValence: "high", note: "relief + liberation, nervous forward momentum" },
+  { slug: "miss-someone-shouldnt", prompt: "I miss someone I shouldn't", category: "mood_specific", expectedEnergy: "low", expectedValence: "low", note: "guilty longing, restrained ache" },
+  { slug: "heavy-rain-after-midnight", prompt: "driving through heavy rain after midnight", category: "driving", expectedEnergy: "medium", expectedValence: "low", note: "tense introspection, focused solitude" },
+  { slug: "first-warm-evening", prompt: "the first warm evening after winter", category: "mood_specific", expectedEnergy: "medium", expectedValence: "high", note: "gentle renewal, thawing hope" },
+  { slug: "hope-without-pretending", prompt: "I need hope without pretending everything is okay", category: "mood_specific", expectedEnergy: "medium", expectedValence: "medium", note: "grounded hope, NOT false positivity" },
+  { slug: "cleaning-after-breakup", prompt: "music for cleaning the house after a breakup", category: "mixed", expectedEnergy: "medium", expectedValence: "medium", note: "cathartic movement, reclaiming space" },
+  { slug: "proud-but-unseen", prompt: "I'm proud of myself but nobody else noticed", category: "mood_specific", expectedEnergy: "medium", expectedValence: "medium", note: "quiet private pride, understated" },
+  { slug: "moved-first-apartment", prompt: "I've just moved into my first apartment", category: "mood_specific", expectedEnergy: "medium", expectedValence: "medium", note: "tentative independence, fresh start" },
+  { slug: "quietly-optimistic", prompt: "I want to feel quietly optimistic", category: "mood_specific", expectedEnergy: "low", expectedValence: "high", note: "calm, understated optimism, low arousal" },
+  { slug: "beautiful-not-happy", prompt: "I want something beautiful, not happy", category: "mood_specific", expectedEnergy: "low", expectedValence: "medium", note: "melancholic beauty, NOT cheerful" },
+];
+
+const phase3Human: PlaylistBenchmarkPrompt[] = phase3HumanSeeds.map((seed) => ({
+  id: `phase3-${seed.slug}`,
+  category: seed.category,
+  prompt: seed.prompt,
+  mode: "balanced",
+  length: 25,
+  expectedEnergy: seed.expectedEnergy,
+  expectedValence: seed.expectedValence,
+  tags: ["lived_experience", "phase3_human", seed.note],
+}));
+
+/** Named export so interpretation-grounding tooling can target exactly this set. */
+export const PHASE3_HUMAN_PROMPTS: PlaylistBenchmarkPrompt[] = phase3Human;
+
 const launchCalibrationSeeds: Array<{
   prompt: string;
   category: PlaylistBenchmarkCategory;
@@ -597,6 +640,7 @@ export const PLAYLIST_BENCHMARK_PROMPTS: PlaylistBenchmarkPrompt[] = [
   ...discovery,
   ...edgeCase,
   ...livedExperience,
+  ...phase3Human,
   ...scalingPrompts,
 ];
 

@@ -78,7 +78,11 @@ function composeAffect(dims: MomentDimensions): { energy: number; valence: numbe
 
   const positive =
     (s["joy"] ?? 0) + (s["hope"] ?? 0) + (s["confidence"] ?? 0) + (s["romance"] ?? 0) +
-    (s["gratitude"] ?? 0) + (s["connection"] ?? 0) + (s["renewal"] ?? 0);
+    (s["gratitude"] ?? 0) + (s["connection"] ?? 0) + (s["renewal"] ?? 0) +
+    // Quiet positives: relief (exhale after strain) and pride (private
+    // achievement) are genuinely positive but understated, so they lift valence
+    // without the arousal of joy/celebration.
+    (s["relief"] ?? 0) * 0.8 + (s["pride"] ?? 0) * 0.75;
   const heavy =
     (s["sadness"] ?? 0) + (s["melancholy"] ?? 0) + (s["loneliness"] ?? 0) + (s["fear"] ?? 0) +
     (s["anger"] ?? 0) +
@@ -100,7 +104,10 @@ function composeAffect(dims: MomentDimensions): { energy: number; valence: numbe
     // Low-arousal activities (reading, walking) are inherently unhurried.
     (s["reading"] ?? 0) * 0.7 + (s["walking"] ?? 0) * 0.6 +
     // Exhaustion is a flat, depleted low; anxious waiting is a held, still low.
-    (s["depletion"] ?? 0) * 1.0 + (s["suspense"] ?? 0) * 0.7;
+    (s["depletion"] ?? 0) * 1.0 + (s["suspense"] ?? 0) * 0.7 +
+    // Pride here is quiet/contained (unwitnessed achievement), not a fist-pump —
+    // keep its arousal low so valence rises but energy stays measured.
+    (s["pride"] ?? 0) * 0.4;
 
   const valence = clamp01(0.5 + (positive - heavy) * 0.35);
   const energy = clamp01(0.5 + (activation - stillness) * 0.35);

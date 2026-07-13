@@ -25,6 +25,7 @@ import { join } from "node:path";
 
 import {
   LIVED_EXPERIENCE_PROMPTS,
+  PHASE3_HUMAN_PROMPTS,
   PLAYLIST_BENCHMARK_PROMPTS,
   type PlaylistBenchmarkPrompt,
 } from "../lib/playlist-evaluation/benchmark-prompts";
@@ -247,20 +248,36 @@ function buildReport(title: string, rows: PromptRow[], topN: number): string {
 function main(): void {
   const args = process.argv.slice(2);
   const all = args.includes("--all");
+  const phase3 = args.includes("--phase3");
+  const hard = args.includes("--hard");
   const outIdx = args.indexOf("--out");
   const outDir = outIdx >= 0 && args[outIdx + 1] ? args[outIdx + 1]! : "reports/interpretation-grounding";
   const topIdx = args.indexOf("--top");
   const topN = topIdx >= 0 && args[topIdx + 1] ? Number.parseInt(args[topIdx + 1]!, 10) : 12;
 
-  const target = all ? PLAYLIST_BENCHMARK_PROMPTS : LIVED_EXPERIENCE_PROMPTS;
-  const title = all ? `full suite (${target.length} prompts)` : `lived-experience set (${target.length} prompts)`;
+  let target: PlaylistBenchmarkPrompt[];
+  let title: string;
+  if (all) {
+    target = PLAYLIST_BENCHMARK_PROMPTS;
+    title = `full suite (${target.length} prompts)`;
+  } else if (phase3) {
+    target = PHASE3_HUMAN_PROMPTS;
+    title = `phase-3 hard human-language set (${target.length} prompts)`;
+  } else if (hard) {
+    target = [...LIVED_EXPERIENCE_PROMPTS, ...PHASE3_HUMAN_PROMPTS];
+    title = `hard set: lived-experience + phase-3 (${target.length} prompts)`;
+  } else {
+    target = LIVED_EXPERIENCE_PROMPTS;
+    title = `lived-experience set (${target.length} prompts)`;
+  }
 
   const rows = target.map(analyse);
   const report = buildReport(title, rows, topN);
 
   mkdirSync(outDir, { recursive: true });
-  const reportPath = join(outDir, all ? "report-full.md" : "report-lived.md");
-  const jsonPath = join(outDir, all ? "results-full.json" : "results-lived.json");
+  const slug = all ? "full" : phase3 ? "phase3" : hard ? "hard" : "lived";
+  const reportPath = join(outDir, `report-${slug}.md`);
+  const jsonPath = join(outDir, `results-${slug}.json`);
   writeFileSync(reportPath, report, "utf8");
   writeFileSync(jsonPath, JSON.stringify(rows, null, 2), "utf8");
 

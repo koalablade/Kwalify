@@ -7,6 +7,7 @@
  */
 
 import { evaluateTrackAdmissibility, trackIsChristmas } from "./track-admissibility";
+import { nearDuplicateKey } from "../../lib/near-duplicate";
 import type {
   ExpectationContract,
   ExpectationTrack,
@@ -96,6 +97,28 @@ export function detectFailureModes(
         trackIds: ids.slice(cap),
       });
     }
+  }
+
+  // NEAR_DUPLICATE — the same recording under different ids/versions ("Song",
+  // "Song - Remaster", "Song (Live)"). Exact-id dedup misses these; to a human
+  // the playlist audibly repeats itself. Grouped by near-duplicate key.
+  const byNearKey = new Map<string, string[]>();
+  for (const t of tracks) {
+    const key = nearDuplicateKey({ name: t.trackName, artist: t.artistName });
+    if (!key) continue;
+    byNearKey.set(key, [...(byNearKey.get(key) ?? []), t.trackId]);
+  }
+  const nearDupIds: string[] = [];
+  for (const ids of byNearKey.values()) {
+    if (ids.length > 1) nearDupIds.push(...ids.slice(1));
+  }
+  if (nearDupIds.length > 0) {
+    findings.push({
+      mode: "NEAR_DUPLICATE",
+      severity: nearDupIds.length >= 2 ? "high" : "medium",
+      detail: `${nearDupIds.length} near-duplicate recording(s) (same song under a different id/version) — the playlist repeats itself.`,
+      trackIds: nearDupIds,
+    });
   }
 
   // IDENTITY_COLLAPSE — strong opening, then admissibility falls apart later.

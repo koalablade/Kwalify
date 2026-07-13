@@ -17,6 +17,7 @@ import { createPipelineTrace } from "./pipeline-trace";
 import type { V3TrackMetadata } from "./v3-track-contract";
 import type { SceneLockStatus } from "../core/scene-lock-mode";
 import { hardRejectOffWorldTracks, resolveWorldBoundary } from "../core/world-boundary";
+import { nearDuplicateKey } from "./near-duplicate";
 
 function fallbackScoringDebug(trackId: string): TrackScoringDebug {
   return {
@@ -326,14 +327,19 @@ export function formatTracksForApi(
         whyReasons: buildTrackWhyReasons(t, profile, i),
       };
     });
-  // Safety net: a user must never receive the same track twice. Even if an
-  // upstream fill/recovery path re-adds a track, de-duplicate by id here at the
-  // single response-formatting choke point (order preserved). An honestly shorter
-  // playlist always beats visible duplicates.
+  // Safety net: a user must never receive the same track twice, nor the same
+  // recording under a different Spotify id ("Song" vs "Song - Remaster" vs
+  // "Song (Live)"). De-duplicate by id AND by near-duplicate key here at the
+  // single response-formatting choke point (order preserved, first occurrence
+  // kept). An honestly shorter playlist always beats an audibly repetitive one.
   const seenApiIds = new Set<string>();
+  const seenNearDupKeys = new Set<string>();
   return formatted.filter((track) => {
     if (seenApiIds.has(track.id)) return false;
+    const nearKey = nearDuplicateKey({ name: track.name, artist: track.artist });
+    if (nearKey && seenNearDupKeys.has(nearKey)) return false;
     seenApiIds.add(track.id);
+    if (nearKey) seenNearDupKeys.add(nearKey);
     return true;
   });
 }

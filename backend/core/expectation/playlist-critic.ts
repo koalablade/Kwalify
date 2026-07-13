@@ -130,6 +130,8 @@ export function critiquePlaylist(
       recommendedChanges.push(`Swap the opening so the first tracks communicate the moment.`);
     } else if (f.mode === "IDENTITY_COLLAPSE") {
       recommendedChanges.push(`Rebuild the second half to hold the playlist identity.`);
+    } else if (f.mode === "NEAR_DUPLICATE") {
+      recommendedChanges.push(`Drop ${f.trackIds.length} near-duplicate recording(s) so the playlist stops repeating itself.`);
     }
   }
 

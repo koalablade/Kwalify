@@ -7,6 +7,7 @@
  * be applied. Never throws; a no-op when the flag is off.
  */
 
+import { assessConfidence } from "./confidence";
 import { deriveExpectationContract, type ContractEngineSeed } from "./expectation-contract";
 import { humanExpectationMode } from "./feature-flag";
 import { interpretMoment } from "./moment-space";
@@ -84,8 +85,9 @@ export function runPlaylistExpectation(
       }
     }
 
-    const openingWhy = p.tracks.slice(0, Math.min(5, p.tracks.length)).map((t) => {
-      const a = evaluateTrackAdmissibility(t, contract);
+    const admissibilities = p.tracks.map((t) => evaluateTrackAdmissibility(t, contract));
+    const openingWhy = p.tracks.slice(0, Math.min(5, p.tracks.length)).map((t, i) => {
+      const a = admissibilities[i]!;
       return {
         trackId: t.trackId,
         title: t.trackName ?? null,
@@ -94,6 +96,29 @@ export function runPlaylistExpectation(
         admissible: a.admissible,
         violations: a.violations,
       };
+    });
+
+    // Honest, calibrated confidence composed from the signals we already have.
+    // Diagnostics only (never gates output) — measurement first, per Phase 3.
+    const distinctArtists = new Set(
+      [...p.tracks, ...p.reservoir].map((t) => (t.artistName ?? "").trim().toLowerCase()).filter(Boolean),
+    ).size;
+    const poolSize = p.tracks.length + p.reservoir.length;
+    const avgCandidateFit =
+      admissibilities.length > 0
+        ? admissibilities.reduce((s, a) => s + a.score, 0) / admissibilities.length
+        : undefined;
+    const unresolvedHighRisks = critique.failureModes.filter((f) => f.severity === "high").length;
+    const confidence = assessConfidence({
+      peakSalience: interpretation.peakSalience,
+      novelPrompt: interpretation.novelPrompt,
+      candidatePoolSize: poolSize,
+      targetLength: p.targetLength,
+      poolDiversity: poolSize > 0 ? distinctArtists / poolSize : undefined,
+      avgCandidateFit,
+      criticFit: critique.overallFit,
+      repairApplied: applied,
+      unresolvedHighRisks,
     });
 
     const diagnostics = {
@@ -127,6 +152,15 @@ export function runPlaylistExpectation(
         count: f.trackIds.length,
       })),
       critique: compactCritique(critique),
+      confidence: {
+        overall: round(confidence.overall),
+        lowConfidence: confidence.lowConfidence,
+        weakestStage: confidence.weakestStage,
+        stages: Object.fromEntries(
+          Object.entries(confidence.stages).map(([k, v]) => [k, round(v)]),
+        ),
+        recommendedActions: confidence.recommendedActions,
+      },
       whyOpening: openingWhy,
       repair: repair
         ? { applied, removed: repair.removedIds.length, added: repair.addedIds.length, explanation: repair.explanation, iterations: repair.iterations }

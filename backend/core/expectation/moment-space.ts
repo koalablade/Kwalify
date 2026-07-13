@@ -122,7 +122,7 @@ interface Anchor {
 const ANCHORS: Anchor[] = [
   // emotional
   { key: "joy", group: "emotional", terms: ["joy", "joyful", "happy", "elated", "delighted", "cheerful", "giddy"] },
-  { key: "hope", group: "emotional", terms: ["hope", "hopeful", "optimism", "looking forward", "promise"] },
+  { key: "hope", group: "emotional", terms: ["hope", "hopeful", "optimism", "optimistic", "looking forward", "promise"] },
   { key: "relief", group: "emotional", terms: ["relief", "relieved", "finally", "over", "made it", "exhale"] },
   { key: "melancholy", group: "emotional", terms: ["melancholy", "wistful", "blue", "somber", "downcast"] },
   { key: "sadness", group: "emotional", terms: ["sad", "sadness", "crying", "tears", "grief", "heartbreak", "heartbroken", "loss", "losing"] },
@@ -141,6 +141,9 @@ const ANCHORS: Anchor[] = [
   { key: "nostalgia", group: "emotional", terms: ["nostalgia", "nostalgic", "memory", "memories", "remember", "old days", "used to", "childhood", "throwback"] },
   { key: "wonder", group: "emotional", terms: ["wonder", "awe", "amazed", "breathtaking", "sublime", "marvel"] },
   { key: "acceptance", group: "emotional", terms: ["acceptance", "letting go", "peace", "at peace", "closure", "moving on"] },
+  // Quiet, self-directed achievement — often unwitnessed ("proud but nobody
+  // noticed"). Reusable outcome family, not a per-prompt rule.
+  { key: "pride", group: "emotional", terms: ["proud", "pride", "accomplished", "accomplishment", "achievement", "achieved", "did it", "made it happen", "nailed it", "earned it", "handed my notice"] },
   { key: "bittersweet", group: "emotional", terms: ["bittersweet", "happy but", "hurts", "mixed feelings", "smiling through"] },
   { key: "restlessness", group: "emotional", terms: ["restless", "can't sleep", "cant sleep", "wired", "uneasy"] },
   { key: "calm", group: "emotional", terms: ["calm", "calmness", "peaceful", "serene", "tranquil", "still", "mellow", "quiet mind"] },
@@ -151,7 +154,7 @@ const ANCHORS: Anchor[] = [
   { key: "setback", group: "emotional", terms: ["failing", "failed", "failure", "rejected", "rejection", "let down", "didn't get", "went wrong", "gone wrong", "defeat", "defeated", "missed"] },
   { key: "depletion", group: "emotional", terms: ["burnt out", "burnout", "exhausted", "drained", "depleted", "worn out", "running on empty", "wiped out", "spent", "shattered", "knackered"] },
   { key: "connection", group: "emotional", terms: ["reunion", "reunited", "reconnecting", "reconnect", "old friend", "old friends", "together again", "catching up", "long lost"] },
-  { key: "renewal", group: "emotional", terms: ["fresh start", "new start", "new beginning", "new chapter", "starting over", "clean slate", "first day", "brand new"] },
+  { key: "renewal", group: "emotional", terms: ["fresh start", "new start", "new beginning", "new chapter", "starting over", "clean slate", "first day", "brand new", "first apartment", "new apartment", "first place", "new place", "new home", "moved in", "moving in", "moved into", "new city"] },
   { key: "ending", group: "emotional", terms: ["for the last time", "last time", "for good", "one last time", "final goodbye", "the last day", "moving out", "leaving for good"] },
 
   // social

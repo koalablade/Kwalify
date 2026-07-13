@@ -60,6 +60,25 @@ export type IntentCollapseDiagnostics = {
   postFilterCount: number;
   filterRejectionCounts?: Partial<Record<IntentFilterRejectionReason, number>>;
   dominantFilterRejection?: IntentFilterRejectionReason | null;
+  /**
+   * The chosen editorial world's aggression ceiling. Recall evidence: a low
+   * ceiling on a high-energy prompt is the primary reason aggressive tracks are
+   * hard-zeroed before lanes/clustering ever see them (see recall waterfall).
+   */
+  sonicAggressionCeiling?: number;
+  /**
+   * Fraction of the pre-filter pool discarded specifically by the aggression
+   * dealbreaker. High values on an energetic prompt = the #1 recall-loss signal.
+   */
+  aggressionCapLossRate?: number;
+  /** Absolute number of candidates whose dominant rejection was the aggression cap. */
+  aggressionRejectedCount?: number;
+  /** aggressionRejectedCount / preFilterCount, rounded — the headline recall-loss %. */
+  aggressionRejectedPercentage?: number;
+  /** none | low | moderate | high, bucketed from aggressionRejectedPercentage. */
+  aggressionLossSeverity?: "none" | "low" | "moderate" | "high";
+  /** true when the aggression cap was the single biggest reason candidates were lost. */
+  aggressionLossWasDominant?: boolean;
   valenceMaxDeviation?: number;
   relaxGenreFamilyFilter?: boolean;
   rankedSelectionAvgScore?: number;
@@ -719,7 +738,16 @@ export function scoreEditorialIntentMatch(
     (hasFeature(track.energy) || hasFeature(track.acousticness) || hasFeature(track.danceability)) &&
     sonicAggression(track) > intent.sonicAggressionCeiling + DEALBREAKER_AGGRESSION_MARGIN
   ) {
-    return 0;
+    // Keep a genuine hard-zero only for real human violations: an aggressive
+    // track in a calm/intimate moment (sleep, focus, late-night), or aggression
+    // so extreme it would betray any editorial world. For energetic worlds a
+    // track modestly over the ceiling is a recall win a curator would consider,
+    // so it is demoted by the graduated penalty below instead of being deleted.
+    const calmMoment = intent.sonicAggressionCeiling <= 0.4;
+    const extreme = sonicAggression(track) > intent.sonicAggressionCeiling + 0.3;
+    if (calmMoment || extreme) {
+      return 0;
+    }
   }
 
   let score = 1;
@@ -1116,6 +1144,32 @@ export function selectEditorialWorld(opts: {
 }): EditorialWorldDefinition {
   const lower = opts.vibe.toLowerCase();
   const eraStart = opts.lockedIntent.eraRange?.start ?? null;
+
+  // Human moment intent → expected energy → editorial world → library adaptation.
+  // When the prompt's energy is decisive (e.g. "peak gym session" or "falling
+  // asleep"), the world's energy alignment must lead selection so a library
+  // dominated by mellow tracks cannot drag an energetic prompt into a calm world
+  // (which then hard-filters every high-energy candidate before reranking).
+  const intentEnergyRange = energyRangeForIntent(opts.lockedIntent, opts.profile);
+  const intentEnergyCenter = (intentEnergyRange[0] + intentEnergyRange[1]) / 2;
+  const energyIntentStrength =
+    intentEnergyCenter >= 0.62 ? intentEnergyCenter - 0.62
+    : intentEnergyCenter <= 0.38 ? 0.38 - intentEnergyCenter
+    : 0;
+  const energyExplicit = energyIntentStrength > 0;
+  const worldEnergyAlignment = (world: EditorialWorldDefinition): number =>
+    1 - Math.abs((world.energyRange[0] + world.energyRange[1]) / 2 - intentEnergyCenter);
+  // Only let energy intent override library majority when a world is meaningfully
+  // better aligned; otherwise fall back to library fit so neutral prompts and
+  // ties are unaffected.
+  const preferByEnergy = (
+    a: EditorialWorldDefinition,
+    b: EditorialWorldDefinition,
+  ): number => {
+    if (!energyExplicit) return 0;
+    const diff = worldEnergyAlignment(b) - worldEnergyAlignment(a);
+    return Math.abs(diff) > 0.08 ? Math.sign(diff) : 0;
+  };
   const discoPartyCompound =
     /\b(?:disco|funk|groove|dancefloor)\b/.test(lower) &&
     (/\b(?:70s|70'?s|seventies|1970)\b/.test(lower) || (eraStart != null && eraStart <= 1982)) &&
@@ -1193,6 +1247,7 @@ export function selectEditorialWorld(opts: {
       return preferredViable.world;
     }
     viable.sort((a, b) =>
+      preferByEnergy(a.world, b.world) ||
       b.fit.libraryScore - a.fit.libraryScore ||
       b.world.cohesionScore - a.world.cohesionScore ||
       b.semantic - a.semantic,
@@ -1201,6 +1256,7 @@ export function selectEditorialWorld(opts: {
   }
 
   withLibrary.sort((a, b) =>
+    preferByEnergy(a.world, b.world) ||
     b.fit.candidateCount - a.fit.candidateCount ||
     b.fit.libraryScore - a.fit.libraryScore ||
     b.world.cohesionScore - a.world.cohesionScore ||
@@ -1658,6 +1714,26 @@ export function buildIntentCollapseDiagnostics(
   const rejectionCounts = tracksForRejection?.length
     ? diagnoseIntentFilterRejectionCounts(tracksForRejection, intent)
     : undefined;
+  const aggressionRejectedCount = rejectionCounts?.aggression_cap ?? undefined;
+  const aggressionCapLossRate =
+    rejectionCounts && preFilterCount > 0
+      ? (aggressionRejectedCount ?? 0) / preFilterCount
+      : undefined;
+  const aggressionRejectedPercentage =
+    aggressionCapLossRate != null ? Math.round(aggressionCapLossRate * 1000) / 1000 : undefined;
+  const aggressionLossSeverity: IntentCollapseDiagnostics["aggressionLossSeverity"] | undefined =
+    aggressionRejectedPercentage == null
+      ? undefined
+      : aggressionRejectedPercentage >= 0.25
+        ? "high"
+        : aggressionRejectedPercentage >= 0.1
+          ? "moderate"
+          : aggressionRejectedPercentage > 0
+            ? "low"
+            : "none";
+  const dominantRejection = rejectionCounts ? dominantFilterRejectionReason(rejectionCounts) : null;
+  const aggressionLossWasDominant =
+    dominantRejection === "aggression_cap" && (aggressionRejectedCount ?? 0) > 0;
   return {
     primaryMood: intent.primaryMood,
     editorialWorldTag: intent.editorialWorldTag,
@@ -1668,9 +1744,13 @@ export function buildIntentCollapseDiagnostics(
     preFilterCount,
     postFilterCount,
     filterRejectionCounts: rejectionCounts,
-    dominantFilterRejection: rejectionCounts
-      ? dominantFilterRejectionReason(rejectionCounts)
-      : null,
+    dominantFilterRejection: dominantRejection,
+    sonicAggressionCeiling: intent.sonicAggressionCeiling,
+    aggressionCapLossRate,
+    aggressionRejectedCount,
+    aggressionRejectedPercentage,
+    aggressionLossSeverity,
+    aggressionLossWasDominant,
     valenceMaxDeviation: intent.valenceMaxDeviation,
     relaxGenreFamilyFilter: intent.relaxGenreFamilyFilter,
   };
