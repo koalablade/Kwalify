@@ -139,7 +139,7 @@ const SPOTIFY_GENRE_ROOT_TERMS: Record<RootGenre, string[]> = {
   soul: ["soul", "funk", "motown", "disco", "boogie", "italo disco", "nu-disco", "nu disco"],
   metal: ["metal", "metalcore", "deathcore", "thrash"],
   classical: ["classical", "orchestral", "opera", "baroque"],
-  christmas: ["christmas", "holiday"],
+  christmas: ["christmas", "xmas", "christmas song", "christmas music"],
   indie: ["indie", "lo-fi", "bedroom pop", "alternative indie"],
   blues: ["blues"],
   rnb: ["r&b", "rnb", "neo soul"],

@@ -61,7 +61,8 @@ function isNoveltyOrComedy(track: ExpectationTrack): boolean {
 
 function isChristmas(track: ExpectationTrack): boolean {
   const blob = `${track.trackName ?? ""} ${track.genreFamily ?? ""} ${(track.genres ?? []).join(" ")}`.toLowerCase();
-  return /\b(christmas|xmas|santa|jingle|noel|sleigh|feliz navidad|silent night|holiday)\b/.test(blob);
+  // Bare "holiday" is too broad (UK vacation). Require festive Christmas cues.
+  return /\b(christmas|xmas|santa|jingle|noel|sleigh|feliz navidad|silent night|holiday song|holiday classic)\b/.test(blob);
 }
 
 /**

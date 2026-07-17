@@ -46,6 +46,7 @@ import { detectMusicChapters, matchChapterFromVibe } from "../lib/music-life-cha
 import { detectArchaeologyIntent } from "../lib/library-archaeology";
 import { computeSurpriseMix } from "../lib/human-surprise";
 import { analyzeMomentPipeline } from "../lib/moment-pipeline";
+import { resolveHumanScene } from "../lib/human-scene-knowledge";
 import { getUserGenreProfileForGenerate } from "../lib/genre-profile-cache";
 import { getCachedLikedSongs, setCachedLikedSongs } from "../lib/liked-songs-cache";
 import { loadLikedSongsBatched } from "../lib/load-liked-songs-batched";
@@ -1632,7 +1633,9 @@ function trackIsChristmasTrack(track: ConstraintTrack, classMap: Map<string, {
 }
 
 function hasExplicitHolidayIntent(vibe: string): boolean {
-  return /\b(?:christmas|xmas|holiday|festive)\b/i.test(vibe);
+  // Christmas/festive intent only — bare UK "holiday" (vacation) must not unlock Christmas tracks.
+  if (resolveHumanScene(vibe).suppressChristmas) return false;
+  return /\b(?:christmas|xmas|festive|noel|santa|holiday\s+song|holiday\s+classics|christmas\s+holiday|winter\s+holiday)\b/i.test(vibe);
 }
 
 function dominantGenreFamily(
@@ -7663,6 +7666,8 @@ router.post("/generate", async (req, res): Promise<void> => {
     const needsFinalizeRecovery =
       (delivery.tracks.length < effectiveDeliveryLength || duplicateIdentityCountBeforeFinalize > 0) &&
       !shouldSkipThinLibraryRecoveryInflate(thinLibraryPolicy, delivery.tracks.length);
+    const softElectronicAftermathRecovery =
+      resolveHumanScene(vibe).musicalBehaviour === "soft_electronic";
     const dominantContractForRecovery = buildDominantIntentContract({
       prompt: vibe,
       intentContract: {
@@ -7766,6 +7771,13 @@ router.post("/generate", async (req, res): Promise<void> => {
           return true;
         })
         .filter((track) => {
+          // Soft-electronic aftermath underfill must not re-flood peak rave/house
+          // from the full liked library just to hit length. Soft remnant neighbourhood
+          // (often indie-classified when Spotify genres are empty) is admissible.
+          if (softElectronicAftermathRecovery) {
+            if (typeof track.energy === "number" && track.energy > 0.66) return false;
+            return true;
+          }
           if (
             explicitGenreRecoveryLockActive &&
             !finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
@@ -11159,6 +11171,36 @@ router.post("/generate", async (req, res): Promise<void> => {
         };
       }
     }
+    // Human-scene hard prune: strip Christmas titles on vacation/aftermath prompts.
+    {
+      const prunedApiTracks = finalApiTracks.filter((track) => {
+        if (!allowHolidaySeason) {
+          const constraintTrack = delivery.tracks.find((row) => row.trackId === track.id);
+          if (constraintTrack && trackIsChristmasTrack(constraintTrack, userGenreProfile.trackClassifications)) {
+            return false;
+          }
+          const blob = `${track.name ?? ""} ${(track as { album?: string }).album ?? ""} ${(track.genres ?? []).join(" ")}`;
+          if (/\b(?:christmas|xmas|santa|noel|festive|mistletoe|jingle\s+bells|feliz\s+navidad)\b/i.test(blob)) {
+            return false;
+          }
+        }
+        return true;
+      });
+      if (prunedApiTracks.length < finalApiTracks.length && (prunedApiTracks.length >= 5 || !allowHolidaySeason)) {
+        const originalApiTrackCount = finalApiTracks.length;
+        const keptIds = new Set(prunedApiTracks.map((track) => track.id));
+        finalApiTracks = prunedApiTracks;
+        assignFT("api_prune", "human scene christmas prune", delivery.tracks.filter((track) => keptIds.has(track.trackId)));
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            humanSceneApiContaminationPruned: true,
+            humanSceneApiContaminationPrunedCount: originalApiTrackCount - finalApiTracks.length,
+          },
+        };
+      }
+    }
     if (finalApiTracks.length < length) {
       const apiRefillSeenIds = new Set(delivery.tracks.map((track) => track.trackId));
       const apiRefillSeenSignatures = new Set(
@@ -11911,7 +11953,77 @@ router.post("/generate", async (req, res): Promise<void> => {
         pipelineAuthorityValidation: terminalAuthorityValidation,
       },
     };
-    const deliveredTracks = [...delivery.tracks] as PlaylistTrack[];
+    let deliveredTracks = [...delivery.tracks] as PlaylistTrack[];
+    // Terminal human-scene safety net — filter the response payload only.
+    // Pipeline Authority is frozen here, so do not mutate delivery.tracks.
+    {
+      const humanSceneReading = resolveHumanScene(vibe);
+      const wantsLowEnergy =
+        lockedIntent.energy === "low" ||
+        humanSceneReading.phase === "aftermath" ||
+        humanSceneReading.phase === "recovery";
+      if (!allowHolidaySeason || wantsLowEnergy) {
+        let working = finalApiTracks.filter((track) => {
+          if (!allowHolidaySeason) {
+            const blob = `${track.name ?? ""} ${(track as { album?: string }).album ?? ""} ${(track.genres ?? []).join(" ")}`;
+            if (/\b(?:christmas|xmas|santa|noel|festive|mistletoe|jingle\s+bells|feliz\s+navidad)\b/i.test(blob)) {
+              return false;
+            }
+            const constraintTrack = deliveredTracks.find((row) => row.trackId === track.id);
+            if (constraintTrack && trackIsChristmasTrack(constraintTrack, userGenreProfile.trackClassifications)) {
+              return false;
+            }
+          }
+          return true;
+        });
+        if (wantsLowEnergy) {
+          const softElectronicAftermath = humanSceneReading.musicalBehaviour === "soft_electronic";
+          // Soft-electronic aftermath: never open the peak band (0.72+) just to hit
+          // a length target. Thin libraries underfill honestly; peak house/rave is a
+          // worse failure than a short soft remnant playlist.
+          if (softElectronicAftermath) {
+            const hardCap = 0.66;
+            const preferred = working
+              .filter((track) => typeof track.energy === "number" && track.energy <= hardCap)
+              .sort((a, b) => (a.energy ?? 1) - (b.energy ?? 1));
+            if (preferred.length > 0) {
+              working = preferred;
+            } else {
+              working = [...working]
+                .sort((a, b) => (a.energy ?? 1) - (b.energy ?? 1))
+                .slice(0, Math.min(12, working.length));
+            }
+          } else {
+            const ceilings = [0.52, 0.62, 0.72];
+            const minKeep = Math.min(8, working.length);
+            let selected = working;
+            for (const ceiling of ceilings) {
+              const filtered = working
+                .filter((track) => typeof track.energy === "number" && track.energy <= ceiling)
+                .sort((a, b) => (a.energy ?? 1) - (b.energy ?? 1));
+              if (filtered.length >= minKeep) {
+                selected = filtered;
+                break;
+              }
+              if (filtered.length > selected.length || selected === working) {
+                selected = filtered.length > 0 ? filtered : selected;
+              }
+            }
+            if (selected.length === 0) {
+              selected = [...working]
+                .sort((a, b) => (a.energy ?? 1) - (b.energy ?? 1))
+                .slice(0, Math.min(12, working.length));
+            }
+            working = selected;
+          }
+        }
+        if (working.length > 0) {
+          finalApiTracks = working;
+          const keptIds = new Set(working.map((track) => track.id));
+          deliveredTracks = deliveredTracks.filter((track) => keptIds.has(track.trackId));
+        }
+      }
+    }
     const generationAuditSnapshot = {
       prompt: vibe,
       mode,

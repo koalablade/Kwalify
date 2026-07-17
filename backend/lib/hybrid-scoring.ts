@@ -178,7 +178,9 @@ export function buildHybridScoringContext(opts: {
 
   const blueprintSeason = prototype?.blueprint?.season;
   let sceneSeasonMode: "winter_holiday" | "summer" | "neutral" = "neutral";
-  if (blueprintSeason === "winter_holiday" || /\b(christmas|xmas|holiday)\b/i.test(opts.vibe)) {
+  const christmasHolidayIntent =
+    /\b(?:christmas|xmas|festive|noel|santa|holiday\s+song|holiday\s+classics|christmas\s+holiday|winter\s+holiday)\b/i.test(opts.vibe);
+  if (blueprintSeason === "winter_holiday" || christmasHolidayIntent) {
     sceneSeasonMode = "winter_holiday";
   } else if (blueprintSeason === "summer" || opts.vibeKind === "sunny" || scene.primary === "sun_day") {
     sceneSeasonMode = "summer";

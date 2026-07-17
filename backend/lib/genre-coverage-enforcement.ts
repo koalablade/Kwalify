@@ -180,16 +180,22 @@ export function enforcePlaylistGenreBalance<T extends { trackId: string; score: 
   }
 
   if (!allowHoliday) {
-    tracks = tracks.filter((t) => {
+    const looksLikeChristmasTrack = (t: T): boolean => {
       const c = classificationOf(classifications, t.trackId);
-      if (c?.holidayBound) {
+      if (c?.holidayBound) return true;
+      const named = t as T & { trackName?: string | null; albumName?: string | null; name?: string | null };
+      const text = `${named.trackName ?? named.name ?? ""} ${named.albumName ?? ""}`.toLowerCase();
+      return /\b(?:christmas|xmas|santa|noel|festive|mistletoe|jingle\s+bells|silent\s+night|feliz\s+navidad|winter\s+wonderland)\b/i.test(text);
+    };
+    tracks = tracks.filter((t) => {
+      if (looksLikeChristmasTrack(t)) {
         adjustments.push({ genre: "christmas", action: "removed_holiday_from_non_seasonal", count: 1 });
         return false;
       }
       return true;
     });
     while (tracks.length < finalTracks.length && pool.length > 0) {
-      const fill = pool.find((p) => !used.has(p.trackId) && !classificationOf(classifications, p.trackId)?.holidayBound);
+      const fill = pool.find((p) => !used.has(p.trackId) && !looksLikeChristmasTrack(p));
       if (!fill) break;
       tracks.push(fill);
       used.add(fill.trackId);

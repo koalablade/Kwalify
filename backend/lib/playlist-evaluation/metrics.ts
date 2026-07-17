@@ -1063,8 +1063,8 @@ export function rawTrackIdentity(track: EvaluationTrack): { id: string; name: st
 
 export function containsChristmasLeak(result: GenerationEvaluationResult): boolean {
   const prompt = lower(result.benchmark.prompt);
-  const allowed = /\b(?:christmas|xmas|holiday|festive)\b/.test(prompt);
+  const allowed = /\b(?:christmas|xmas|festive|holiday\s+song|christmas\s+holiday|winter\s+holiday)\b/.test(prompt);
   if (allowed) return false;
-  return result.tracks.some((track) => /\b(?:christmas|xmas|santa|mistletoe|holiday)\b/i.test(`${trackName(track)} ${genreTerms(track).join(" ")}`));
+  return result.tracks.some((track) => /\b(?:christmas|xmas|santa|mistletoe|holiday song)\b/i.test(`${trackName(track)} ${genreTerms(track).join(" ")}`));
 }
 

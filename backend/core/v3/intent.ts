@@ -13,6 +13,7 @@ import {
   shouldSuppressGenreTerm,
   shouldSuppressSubgenre,
 } from "../../lib/semantic-collision-guards";
+import { resolveHumanScene } from "../../lib/human-scene-knowledge";
 
 export interface LockedIntent {
   genreFamilies: string[];
@@ -1425,6 +1426,7 @@ export function completeLockedIntent(
 
 export function buildLockedIntent(input: string): LockedIntent {
   const lower = normalizePromptFragments(input).toLowerCase();
+  const humanScene = resolveHumanScene(lower);
   const rawSubgenreIntent = parseSubgenreIntent(lower);
   const rawExcludedGenreFamilies = excludedGenreFamilies(lower);
   const subgenrePrimaryExcluded = !!rawSubgenreIntent.primaryGenre &&
@@ -1432,12 +1434,17 @@ export function buildLockedIntent(input: string): LockedIntent {
   const subgenrePrimarySuppressed = !!rawSubgenreIntent.primaryGenre &&
     shouldSuppressGenreFamily(lower, rawSubgenreIntent.primaryGenre);
   const humanHints = humanPhraseIntentHints(lower);
-  const rawGenreFamilies = uniqueGenreFamilies([
+  let rawGenreFamilies = uniqueGenreFamilies([
     ...(rawSubgenreIntent.primaryGenre && !subgenrePrimaryExcluded && !subgenrePrimarySuppressed
       ? [rawSubgenreIntent.primaryGenre]
       : []),
     ...parseGenreFamilies(lower),
   ]);
+
+  // UK "holiday"/vacation must never genre-lock Christmas.
+  if (humanScene.suppressChristmas) {
+    rawGenreFamilies = rawGenreFamilies.filter((family) => family !== "christmas");
+  }
 
   const excludedMoods = excludedMoodTags(lower);
   const rawMood = [
@@ -1449,12 +1456,15 @@ export function buildLockedIntent(input: string): LockedIntent {
     /\b(happy|upbeat|hype|energ|intense|pump|feel good|feel-good|optimistic|hopeful)\b/.test(lower) ? "energised" : null,
     ...expandedMoodTerms(lower),
     ...humanHints.moods,
+    humanScene.phase === "aftermath" || humanScene.phase === "recovery" ? "calm" : null,
+    humanScene.musicalBehaviour === "melancholic_ballad" ? "melancholic" : null,
+    humanScene.musicalBehaviour === "reflective_indie" || humanScene.musicalBehaviour === "nostalgic_warm" ? "nostalgic" : null,
   ]
     .filter((tag): tag is string => !!tag && !excludedMoods.has(tag))
     .filter((tag, index, tags) => tags.indexOf(tag) === index)
     .slice(0, 4);
 
-  const activity = expandedActivity(lower) ?? humanHints.activity ?? (
+  let activity = expandedActivity(lower) ?? humanHints.activity ?? (
     /\b(driv|road|cruise|highway)\b/.test(lower) ? "driving" :
       /\b(study|focus|coding|work|deep work)\b/.test(lower) ? "focus" :
         /\b(gym|workout|run|running)\b/.test(lower) ? "gym" :
@@ -1462,8 +1472,49 @@ export function buildLockedIntent(input: string): LockedIntent {
             /\b(party|club|dance|barbecue|bbq|cookout)\b/.test(lower) ? "party" :
               null
   );
+  // Aftermath / comedown is not a party peak even if "rave"/"club" appear.
+  if (humanScene.demotePartyActivity && activity === "party") {
+    activity = "relaxing";
+  }
 
-  const rawEnergy = parseEnergy(lower) ?? humanHints.energy;
+  // Prefer gym when both drive + gym are present (compound workout/commute prompts).
+  if (/\b(?:gym|workout)\b/.test(lower) && activity === "driving") {
+    activity = "gym";
+  }
+
+  let rawEnergy = parseEnergy(lower) ?? humanHints.energy;
+
+  // Scene energy may dampen (aftermath / recovery / explicit sense) but must not
+  // overwrite a lexical high with a vague atmospheric medium (e.g. summer evening,
+  // christmas party, driving cue after drive→driving normalisation).
+  const sceneForcesLow =
+    humanScene.energy === "low" &&
+    (humanScene.phase === "aftermath" ||
+      humanScene.phase === "recovery" ||
+      humanScene.demotePartyActivity ||
+      humanScene.senses.some((id) =>
+        id.endsWith(".comedown") ||
+        id.endsWith(".after") ||
+        id.includes("failed") ||
+        id.includes("waiting"),
+      ));
+  if (sceneForcesLow) {
+    rawEnergy = "low";
+  } else if (!rawEnergy && humanScene.energy === "high") {
+    rawEnergy = "high";
+  } else if (!rawEnergy && humanScene.energy === "medium" && humanScene.confidence >= 0.55) {
+    rawEnergy = "medium";
+  }
+
+  // Soft electronic aftermath keeps electronic family but not as party peak.
+  if (
+    humanScene.musicalBehaviour === "soft_electronic" &&
+    !rawGenreFamilies.includes("electronic") &&
+    /\b(?:rave|club|techno|house|electronic)\b/.test(lower)
+  ) {
+    rawGenreFamilies = uniqueGenreFamilies(["electronic", ...rawGenreFamilies]);
+  }
+
   const rawEraRange = parseEra(lower);
   const budgeted = applyInterpretationBudget(lower, {
     genreFamilies: rawGenreFamilies,
@@ -1472,6 +1523,17 @@ export function buildLockedIntent(input: string): LockedIntent {
     activity,
     energy: rawEnergy,
   });
+
+  // Aftermath / recovery energy is a safety constraint — never let the
+  // interpretation budget drop it in favour of activity/genre alone.
+  if (sceneForcesLow) {
+    budgeted.energy = "low";
+    if (!budgeted.budget.appliedDimensions.includes("energy")) {
+      budgeted.budget.appliedDimensions = [...budgeted.budget.appliedDimensions, "energy"];
+      budgeted.budget.droppedDimensions = budgeted.budget.droppedDimensions.filter((d) => d !== "energy");
+      budgeted.budget.inferredDimensionsUsed = dimensionNames(budgeted).length;
+    }
+  }
 
   return {
     genreFamilies: budgeted.genreFamilies,

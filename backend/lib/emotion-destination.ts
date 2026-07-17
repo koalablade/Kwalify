@@ -166,3 +166,91 @@ export function applyEmotionalDestination(
 export function detectJourneyArc(text: string, profile: EmotionProfile): JourneyArc {
   return parseEmotionalDestination(text).journeyArc;
 }
+
+// ─── Aftermath / comedown (compositional energy reader) ──────────────────────
+//
+// A human "aftermath" moment is the low-arousal trailing state that FOLLOWS an
+// intense or eventful experience: the comedown after a rave, the day after a
+// holiday ends, the drive home after a long shift. Lexically these prompts still
+// contain the energetic noun ("rave", "party", "holiday"), so the keyword bank
+// reads them as high energy — but a human hears them as *deflation*, not hype.
+//
+// This is intentionally compositional, not a keyword dump: it looks for a decline
+// CUE and then dampens whatever energy the rest of the prompt accumulated. It
+// only ever lowers energy (a cap toward a ceiling), never raises it, and it backs
+// off entirely when the prompt explicitly asks to stay up ("still lively",
+// "not sleepy", "second wind"), so genuine ambiguity is preserved.
+
+export type AftermathStrength = "none" | "soft" | "strong";
+
+/** Prompt explicitly wants to stay energetic despite the aftermath framing. */
+const STAY_UP_CUE =
+  /\bstill (?:lively|going|pumped|buzzing|energetic|hyped|up|awake)\b|\bbut (?:still )?(?:lively|energetic|pumped|hype|upbeat|going)\b|\bnot (?:sleepy|tired|slow|dead|boring)\b|\bsecond wind\b|\bkeep (?:it |)(?:up|going)\b/;
+
+/** Strong comedown: unambiguous low-arousal exhaustion / post-high crash. */
+const STRONG_AFTERMATH_CUE =
+  /\bcome ?down\b|\bcoming down\b|\bhang ?over\b|\bhung ?over\b|\bhalf dead\b|\bhalf-dead\b|\bdead on my feet\b|\brunning on empty\b|\bwiped out\b|\bcompletely drained\b/;
+
+/** Soft aftermath: the quiet "after" of an event or a long stretch. */
+const SOFT_AFTERMATH_CUE =
+  /\bthe day after\b|\bday after\b|\bmorning after\b|\bnight after\b|\bafter (?:a |the |my |)(?:long )?(?:work ?day|shift|day|week|night out|holiday|trip|festival|rave|party|gig|tour|weekend)\b|\bback (?:home )?from (?:a |the |my |)(?:holiday|trip|tour|vacation|festival)\b|\bholiday (?:ends?|is over|over)\b|\bwind(?:ing)? down\b|\bwinding down\b|\bcoming home from\b/;
+
+export function detectAftermath(text: string): AftermathStrength {
+  const lower = text.toLowerCase();
+  if (STAY_UP_CUE.test(lower)) return "none";
+  if (STRONG_AFTERMATH_CUE.test(lower)) return "strong";
+  if (SOFT_AFTERMATH_CUE.test(lower)) return "soft";
+  return "none";
+}
+
+/**
+ * Dampen energy for aftermath/comedown moments. Only lowers energy (cap toward a
+ * ceiling) and nudges calm up; never fabricates energy. Preserves ambiguity by
+ * doing nothing when there is no decline cue or the prompt asks to stay up.
+ */
+export function applyAftermath(text: string, profile: EmotionProfile): EmotionProfile {
+  const strength = detectAftermath(text);
+  if (strength === "none") return profile;
+
+  const energyCeiling = strength === "strong" ? 0.32 : 0.46;
+  const calmFloor = strength === "strong" ? 0.6 : 0.52;
+
+  const p = { ...profile };
+  p.energy = Math.min(p.energy, energyCeiling);
+  p.calm = Math.max(p.calm, calmFloor);
+  if (strength === "strong") p.tension = clamp(p.tension * 0.85);
+  return p;
+}
+
+// ─── Low-arousal negative states (setback / suspended dread) ─────────────────
+//
+// Two human moments the keyword bank reads as energetic because of an incidental
+// active verb ("walking", "waiting"): the *deflation* after a setback ("walking
+// home after failing a job interview") and *suspended dread* ("nervously waiting
+// for test results"). Both are low-arousal — heavy, slow, quiet — not hype. Like
+// the aftermath reader these only ever cap energy downward and back off when the
+// prompt explicitly wants to stay up.
+
+/** A defeat/rejection whose emotional temperature is deflation, not anger. */
+const SETBACK_CUE =
+  /\b(?:after )?fail(?:ed|ing)?\b|\bdidn'?t get\b|\bdid not get\b|\bgot rejected\b|\brejected\b|\bturned down\b|\bdidn'?t work out\b|\bbad news\b|\bmade redundant\b|\blaid off\b|\bgot dumped\b|\blost (?:the|my) (?:job|game|match|deal)\b/;
+
+/** Anxious suspension — the tense, held-breath wait, not a panic sprint. */
+const DREAD_WAIT_CUE =
+  /\bwaiting (?:for|on) (?:the |my |)(?:test |exam |)results?\b|\bwaiting room\b|\bnervously waiting\b|\bwaiting to hear\b|\bdreading\b/;
+
+export function applyLowArousalNegative(text: string, profile: EmotionProfile): EmotionProfile {
+  const lower = text.toLowerCase();
+  if (STAY_UP_CUE.test(lower)) return profile;
+
+  const setback = SETBACK_CUE.test(lower);
+  const dread = DREAD_WAIT_CUE.test(lower);
+  if (!setback && !dread) return profile;
+
+  const p = { ...profile };
+  p.energy = Math.min(p.energy, 0.38);
+  if (setback) p.valence = clamp(p.valence - 0.15);
+  if (dread) p.tension = clamp(p.tension + 0.1);
+  p.calm = Math.max(p.calm, 0.5);
+  return p;
+}

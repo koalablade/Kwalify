@@ -135,6 +135,13 @@ import type { EraBucket } from "../../lib/intent-parser";
 import type { V3MetadataTrack, V3TrackMetadata } from "../../lib/v3-track-contract";
 import { trackHasKnownEraMismatch } from "../../lib/era-evidence";
 import { normalizeLockedGenreFamily, type LockedIntent } from "./intent";
+import {
+  applySubSceneRetrievalTexture,
+  buildSubSceneRetrievalPlan,
+  mergeSubSceneIntoSamplerSelection,
+  preferSubSceneSoftUniverse,
+  selectSubSceneNeighbourhood,
+} from "./subscene-retrieval";
 import { computeSceneAlignmentScore, trackMatchesConstraints } from "./constraint-filter";
 import {
   getRelaxationLevel,
@@ -1150,27 +1157,65 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const intentFilterTracks = retrievedTracks.map((track) =>
     enrichIntentCollapseTrack(track, opts.classificationByTrack?.(track.trackId)),
   );
+  // Sub-scene neighbourhood must see the full library — soft remnant tracks often
+  // rank poorly on embedding affinity for peak-electronic prompts and never enter
+  // the affinity cloud, which is exactly the comedown failure mode.
+  const fullLibraryCollapseTracks = tracks.map((track) =>
+    enrichIntentCollapseTrack(track, opts.classificationByTrack?.(track.trackId)),
+  );
   const calibratedIntentVector = calibrateIntentVectorForRetrievalPool(
     intentFilterTracks,
     editorialIntentVector,
     { targetCount, strictMode: effectiveHumanSaveStrict },
   );
+  const subScenePlan = buildSubSceneRetrievalPlan({
+    vibe,
+    lockedIntent,
+    libraryTracks: fullLibraryCollapseTracks,
+    targetCount,
+  });
+  const subSceneIntentVector = applySubSceneRetrievalTexture(calibratedIntentVector, subScenePlan);
   const fingerprintBias = opts.libraryFingerprint
     ? buildFingerprintBiasMap(intentFilterTracks, opts.libraryFingerprint)
     : undefined;
   let rankedSelection = selectRankedCandidatesForSampler(
     intentFilterTracks,
-    calibratedIntentVector,
+    subSceneIntentVector,
     {
       targetCount,
       strictMode: effectiveHumanSaveStrict,
       fingerprintBias,
     },
   );
+  if (subScenePlan.kind !== "none") {
+    const neighbourhood = selectSubSceneNeighbourhood(
+      fullLibraryCollapseTracks,
+      subSceneIntentVector,
+      subScenePlan,
+    );
+    rankedSelection = mergeSubSceneIntoSamplerSelection(
+      rankedSelection,
+      neighbourhood,
+      subSceneIntentVector,
+      subScenePlan,
+    );
+    if (neighbourhood.length > 0) {
+      noteReliabilityFallback(`subscene_retrieval_${subScenePlan.kind}`);
+      const presentIds = new Set(retrievedTracks.map((track) => track.trackId));
+      const byLibraryId = new Map(tracks.map((track) => [track.trackId, track]));
+      for (const soft of neighbourhood) {
+        if (presentIds.has(soft.trackId)) continue;
+        const original = byLibraryId.get(soft.trackId);
+        if (!original) continue;
+        retrievedTracks.push(original);
+        presentIds.add(soft.trackId);
+      }
+    }
+  }
   if (rankedSelection.selected.length < minimumIntentPoolSize(targetCount, effectiveHumanSaveStrict)) {
     rankedSelection = recoverSamplerUniverse(
       intentFilterTracks,
-      calibratedIntentVector,
+      subSceneIntentVector,
       rankedSelection,
       {
         targetCount,
@@ -1179,6 +1224,10 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       },
     );
     noteReliabilityFallback("intent_pool_recovery_expand");
+  }
+  // Soft-universe preference must run after recovery so expand cannot re-flood peak.
+  if (subScenePlan.kind !== "none") {
+    rankedSelection = preferSubSceneSoftUniverse(rankedSelection, subScenePlan, targetCount);
   }
   const selectedTrackIds = new Set(rankedSelection.selected.map((track) => track.trackId));
   retrievedTracks = retrievedTracks
@@ -1197,12 +1246,23 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         genrePrimary: enriched.genrePrimary ?? track.genrePrimary ?? null,
       };
     });
+  if (subScenePlan.kind === "soft_electronic_aftermath") {
+    const energyHi = subScenePlan.energyHi ?? subSceneIntentVector.energyRange[1] ?? 0.62;
+    const softOnly = retrievedTracks.filter((track) => {
+      const energy = typeof track.energy === "number" ? track.energy : null;
+      return energy != null && energy <= energyHi;
+    });
+    // Force comedown lanes to compose from soft remnant only when supply exists.
+    if (softOnly.length >= 1) {
+      retrievedTracks = softOnly;
+    }
+  }
   const postIntentFilterCount = retrievedTracks.length;
-  activeEditorialIntentVector = calibratedIntentVector;
-  samplerIntentContext = buildSamplerIntentContext(calibratedIntentVector);
+  activeEditorialIntentVector = subSceneIntentVector;
+  samplerIntentContext = buildSamplerIntentContext(subSceneIntentVector);
   intentCollapseDiagnostics = {
     ...buildIntentCollapseDiagnostics(
-      calibratedIntentVector,
+      subSceneIntentVector,
       collapsedIntent.collapseConfidenceScore,
       preIntentFilterCount,
       postIntentFilterCount,
@@ -1232,12 +1292,29 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const deliveryPoolFloor = intentPoolDeliveryFloor(targetCount);
   if (retrievedTracks.length < preferredIntentPool && retrievalInputTracks.length > retrievedTracks.length) {
     const backfillIds = new Set(retrievedTracks.map((track) => track.trackId));
-    const backfill = retrievalInputTracks
+    const energyHi =
+      subScenePlan.kind === "soft_electronic_aftermath"
+        ? (subScenePlan.energyHi ?? subSceneIntentVector.energyRange[1] ?? 0.62)
+        : null;
+    const backfillSource =
+      energyHi == null
+        ? retrievalInputTracks
+        : // Soft aftermath: never backfill peak electronic just to hit pool floors.
+          [
+            ...retrievalInputTracks,
+            ...tracks,
+          ].filter((track) => {
+            const energy = typeof track.energy === "number" ? track.energy : null;
+            return energy != null && energy <= energyHi;
+          });
+    const backfill = backfillSource
       .filter((track) => !backfillIds.has(track.trackId))
       .slice(0, Math.max(preferredIntentPool, deliveryPoolFloor) - retrievedTracks.length);
     if (backfill.length > 0) {
       retrievedTracks = [...retrievedTracks, ...backfill];
-      noteReliabilityFallback("intent_pool_retrieval_backfill");
+      noteReliabilityFallback(
+        energyHi == null ? "intent_pool_retrieval_backfill" : "intent_pool_soft_remnant_backfill",
+      );
     }
   }
   let postIntentFilterCountFinal = retrievedTracks.length;
@@ -1247,15 +1324,28 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     );
   }
   if (postIntentFilterCountFinal < deliveryPoolFloor) {
-    const salvageSource = intentFilterTracks.length > 0
-      ? intentFilterTracks
-      : retrievalInputTracks.map((track) =>
-        enrichIntentCollapseTrack(track, opts.classificationByTrack?.(track.trackId)),
-      );
+    const softAftermath = subScenePlan.kind === "soft_electronic_aftermath";
+    const softEnergyHi = softAftermath
+      ? (subScenePlan.energyHi ?? subSceneIntentVector.energyRange[1] ?? 0.62)
+      : null;
+    const salvageSourceRaw = softAftermath
+      ? fullLibraryCollapseTracks
+      : intentFilterTracks.length > 0
+        ? intentFilterTracks
+        : retrievalInputTracks.map((track) =>
+          enrichIntentCollapseTrack(track, opts.classificationByTrack?.(track.trackId)),
+        );
+    const salvageSource =
+      softEnergyHi == null
+        ? salvageSourceRaw
+        : salvageSourceRaw.filter((track) => {
+          const energy = typeof track.energy === "number" ? track.energy : null;
+          return energy != null && energy <= softEnergyHi;
+        });
     if (salvageSource.length > 0) {
       const emergencySelection = recoverSamplerUniverse(
         salvageSource,
-        { ...calibratedIntentVector, relaxGenreFamilyFilter: true },
+        { ...subSceneIntentVector, relaxGenreFamilyFilter: true },
         rankedSelection,
         {
           targetCount,
@@ -1267,7 +1357,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         ? emergencySelection.selected
         : salvageSource.slice(0, Math.max(minimumReturnableTrackCount(targetCount), Math.min(targetCount, salvageSource.length)));
       retrievedTracks = emergencyTracks.map((track) => {
-        const enriched = intentFilterTracks.find((row) => row.trackId === track.trackId);
+        const enriched =
+          fullLibraryCollapseTracks.find((row) => row.trackId === track.trackId) ??
+          intentFilterTracks.find((row) => row.trackId === track.trackId);
         return {
           ...track,
           genreFamily: enriched?.genreFamily ?? track.genreFamily ?? null,
@@ -1276,10 +1368,43 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       }) as T[];
       postIntentFilterCountFinal = retrievedTracks.length;
       noteReliabilityFallback(`intent_pool_emergency_continue_${postIntentFilterCountFinal}`);
-    } else if (tracks.length > 0) {
+    } else if (tracks.length > 0 && !softAftermath) {
       retrievedTracks = tracks.slice(0, Math.max(minimumReturnableTrackCount(targetCount), Math.min(targetCount * 2, tracks.length)));
       postIntentFilterCountFinal = retrievedTracks.length;
       noteReliabilityFallback(`intent_pool_library_emergency_${postIntentFilterCountFinal}`);
+    } else if (softAftermath && softEnergyHi != null) {
+      const softLibrary = tracks.filter((track) => {
+        const energy = typeof track.energy === "number" ? track.energy : null;
+        return energy != null && energy <= softEnergyHi;
+      });
+      if (softLibrary.length > 0) {
+        retrievedTracks = softLibrary.slice(
+          0,
+          Math.max(minimumReturnableTrackCount(targetCount), Math.min(targetCount * 2, softLibrary.length)),
+        );
+        postIntentFilterCountFinal = retrievedTracks.length;
+        noteReliabilityFallback(`intent_pool_soft_library_emergency_${postIntentFilterCountFinal}`);
+      } else {
+        const collapseTrace = finalizeExecutionTrace(
+          buildIntentCollapseFailureTraceDraft({
+            requestId: opts.requestId ?? "unknown",
+            prompt: vibe,
+            seed: opts.seed ?? null,
+            intentCollapseLayer: intentCollapseTrace(),
+            preFilterCount: preIntentFilterCount,
+            postFilterCount: postIntentFilterCountFinal,
+          }),
+        );
+        throw new IntentCollapseInsufficientPoolError(
+          `insufficient_intent_pool:${postIntentFilterCountFinal}<${deliveryPoolFloor}`,
+          {
+            ...intentCollapseDiagnostics!,
+            targetUniverseSize: targetUniverse,
+            universeCoverage: postIntentFilterCountFinal / Math.max(1, targetUniverse),
+          },
+          collapseTrace,
+        );
+      }
     } else {
       const collapseTrace = finalizeExecutionTrace(
         buildIntentCollapseFailureTraceDraft({

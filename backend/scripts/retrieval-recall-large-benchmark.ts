@@ -1,12 +1,12 @@
 /**
  * Large offline retrieval-recall benchmark.
  *
- * Runs the FULL real benchmark prompt suite (PLAYLIST_BENCHMARK_PROMPTS, 48
+ * Runs the FULL real benchmark prompt suite (PLAYLIST_BENCHMARK_PROMPTS, 400+
  * prompts) through the faithful production interpretation path —
  * analyzeVibe() -> buildLockedIntent() -> collapseIntent() -> calibrate ->
  * selectRankedCandidatesForSampler -> diagnoseIntentFilterRejectionCounts —
  * against three library archetypes (mellow-heavy, balanced, energetic-heavy).
- * 48 prompts x 3 libraries = 144 evaluations.
+ * (Prompt count x 3 libraries = totalEvaluations, reported in the summary.)
  *
  * This is the offline equivalent of the live 30-prompt harness for the
  * retrieval-recall question: it measures whether the chosen editorial world's
@@ -27,6 +27,12 @@ import {
   type IntentCollapseTrack,
 } from "../core/editorial/intent-collapse-layer";
 import { buildLockedIntent } from "../core/v3/intent";
+import {
+  applySubSceneRetrievalTexture,
+  buildSubSceneRetrievalPlan,
+  mergeSubSceneIntoSamplerSelection,
+  selectSubSceneNeighbourhood,
+} from "../core/v3/subscene-retrieval";
 import { analyzeVibe } from "../lib/emotion";
 import { PLAYLIST_BENCHMARK_PROMPTS } from "../lib/playlist-evaluation/benchmark-prompts";
 
@@ -95,11 +101,20 @@ function evaluate(prompt: (typeof PLAYLIST_BENCHMARK_PROMPTS)[number], libraryNa
     targetCount: 25,
   });
   const calibrated = calibrateIntentVectorForRetrievalPool(library, collapsed.intent, { targetCount: 25 });
-  const ranked = selectRankedCandidatesForSampler(library, calibrated, { targetCount: 25, strictMode: false });
-  const rejections = diagnoseIntentFilterRejectionCounts(library, calibrated);
+  const subScenePlan = buildSubSceneRetrievalPlan({
+    vibe: prompt.prompt,
+    lockedIntent,
+    libraryTracks: library,
+    targetCount: 25,
+  });
+  const textured = applySubSceneRetrievalTexture(calibrated, subScenePlan);
+  const baseline = selectRankedCandidatesForSampler(library, textured, { targetCount: 25, strictMode: false });
+  const neighbourhood = selectSubSceneNeighbourhood(library, textured, subScenePlan);
+  const ranked = mergeSubSceneIntoSamplerSelection(baseline, neighbourhood, textured, subScenePlan);
+  const rejections = diagnoseIntentFilterRejectionCounts(library, textured);
   const survivors = ranked.selected as BenchTrack[];
 
-  const worldEnergyCenter = (calibrated.energyRange[0] + calibrated.energyRange[1]) / 2;
+  const worldEnergyCenter = (textured.energyRange[0] + textured.energyRange[1]) / 2;
   const bucket = targetBucket(prompt.expectedEnergy);
   const targetTotal = library.filter((t) => t.bucket === bucket).length;
   const targetSurvivors = survivors.filter((t) => t.bucket === bucket).length;
@@ -111,15 +126,16 @@ function evaluate(prompt: (typeof PLAYLIST_BENCHMARK_PROMPTS)[number], libraryNa
     library: libraryName,
     category: prompt.category,
     expectedEnergy: prompt.expectedEnergy ?? "medium",
-    world: calibrated.editorialWorldTag,
+    world: textured.editorialWorldTag,
     worldEnergyCenter: round(worldEnergyCenter, 2),
     worldEnergyMatch: worldEnergyMatches(worldEnergyCenter, prompt.expectedEnergy),
-    ceiling: round(calibrated.sonicAggressionCeiling, 2),
+    ceiling: round(textured.sonicAggressionCeiling, 2),
     poolSize: survivors.length,
     targetRecall: round(targetSurvivors / Math.max(1, targetTotal)),
     // For calm prompts this is leakage (should stay low); for high prompts it is recall.
     highEnergyShareOfPool: round(highSurvivors / Math.max(1, survivors.length)),
     aggressionRejectedPct: round((rejections.aggression_cap ?? 0) / library.length),
+    subSceneKind: subScenePlan.kind,
   };
 }
 
@@ -165,7 +181,7 @@ async function main(): Promise<void> {
   await mkdir(outDir, { recursive: true });
   await writeFile(path.join(outDir, "large-recall.json"), `${JSON.stringify({ summary, rows }, null, 2)}\n`);
 
-  console.log("=== Large Retrieval Recall Benchmark (48 prompts x 3 libraries) ===\n");
+  console.log(`=== Large Retrieval Recall Benchmark (${PLAYLIST_BENCHMARK_PROMPTS.length} prompts x 3 libraries) ===\n`);
   console.log("Overall world-energy match rate:", summary.overall.worldEnergyMatchRate);
   console.log("Overall avg target-energy recall:", summary.overall.avgTargetRecall);
   console.log("");

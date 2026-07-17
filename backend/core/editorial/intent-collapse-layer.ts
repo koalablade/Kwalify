@@ -9,6 +9,7 @@ import type { EmotionProfile } from "../../lib/emotion";
 import { getGenreFamily } from "../v3/global-diversity-controller";
 import type { LockedIntent } from "../v3/intent";
 import { extractSceneDescriptor } from "../scene-world-layer";
+import { resolveHumanScene } from "../../lib/human-scene-knowledge";
 
 export type SceneType =
   | "commute"
@@ -759,6 +760,10 @@ export function scoreEditorialIntentMatch(
   if (hasFeature(track.energy)) {
     const energy = feature(track.energy);
     const [lo, hi] = intent.energyRange;
+    // Only hard-reject peak tracks for clearly low aftermath bands.
+    if (hi <= 0.48 && energy > hi + 0.18) {
+      return 0;
+    }
     if (energy < lo) score *= clamp01(1 - (lo - energy) * 1.8);
     else if (energy > hi) score *= clamp01(1 - (energy - hi) * 1.8);
   }
@@ -1038,9 +1043,11 @@ function buildProvisionalIntent(
     Math.max(world.energyRange[0], promptEnergyRange[0]),
     Math.min(world.energyRange[1], promptEnergyRange[1]),
   ];
+  // When world and prompt bands don't overlap, trust the prompt/intent band —
+  // otherwise aftermath moments keep peak-world energy ceilings.
   const safeEnergyRange: [number, number] = energyRange[0] <= energyRange[1]
     ? energyRange
-    : world.energyRange;
+    : promptEnergyRange;
   return {
     primaryMood,
     energyRange: safeEnergyRange,
@@ -1179,6 +1186,15 @@ export function selectEditorialWorld(opts: {
   if (discoPartyCompound) {
     const discoWorld = EDITORIAL_WORLDS.find((row) => row.tag === "disco_party_nostalgia");
     if (discoWorld) return discoWorld;
+  }
+
+  // Soft-electronic aftermath (comedown / afterparty) is not a study session —
+  // prefer nocturnal electronic-capable interiors so mid-energy softest
+  // electronic remnants are not hard-zeroed by study aggression caps.
+  const humanScene = resolveHumanScene(opts.vibe);
+  if (humanScene.musicalBehaviour === "soft_electronic") {
+    const nightWorld = EDITORIAL_WORLDS.find((row) => row.tag === "late_night_indie_interior");
+    if (nightWorld) return nightWorld;
   }
 
   const ranked = EDITORIAL_WORLDS.map((world) => ({
@@ -1328,7 +1344,7 @@ export function realignEditorialIntentWorldForArchetype(
   return {
     ...intent,
     editorialWorldTag: world.tag,
-    energyRange: energyRange[0] <= energyRange[1] ? energyRange : world.energyRange,
+    energyRange: energyRange[0] <= energyRange[1] ? energyRange : intent.energyRange,
     rhythmDensityCap: world.rhythmDensityCap,
     vocalPresenceTarget: world.vocalPresenceTarget,
     nostalgiaBias: clamp01(intent.nostalgiaBias * 0.5 + world.nostalgiaBias * 0.5),
@@ -1371,7 +1387,7 @@ export function realignEditorialIntentForDominantGenres(
     editorialWorldTag: world.tag,
     allowedMicroClusters: [...new Set([...intent.allowedMicroClusters, ...world.allowedMicroClusters])],
     relaxGenreFamilyFilter: intent.relaxGenreFamilyFilter || dominantGenres.length > 0,
-    energyRange: energyRange[0] <= energyRange[1] ? energyRange : world.energyRange,
+    energyRange: energyRange[0] <= energyRange[1] ? energyRange : intent.energyRange,
     rhythmDensityCap: Math.max(intent.rhythmDensityCap, world.rhythmDensityCap),
     sonicAggressionCeiling: Math.max(intent.sonicAggressionCeiling, world.sonicAggressionCeiling),
   };

@@ -31,7 +31,7 @@ export function embarrassmentReason(
     return "wrong_era";
   }
   if (MEME_ARTIST_RE.test(text)) return "meme_association";
-  if (OBVIOUS_HOLIDAY_RE.test(text) && !/\b(?:christmas|xmas|holiday)\b/i.test(opts.vibe)) {
+  if (OBVIOUS_HOLIDAY_RE.test(text) && !/\b(?:christmas|xmas|festive|holiday\s+song|christmas\s+holiday|winter\s+holiday)\b/i.test(opts.vibe)) {
     return "seasonal_mismatch";
   }
   const freq = opts.frequencyPenalty?.get(track.trackId);

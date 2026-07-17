@@ -1671,10 +1671,12 @@ const SCENE_DETECTION_PATTERNS: {
       /\b(afterparty|after.?party|post.?club|4am.{0,20}(music|vibe|feeling|kitchen))\b/i,
       /\b(after the (club|rave|party)|club.{0,15}(ended|over|done|finished))\b/i,
       /\b(comedown.{0,15}(music|vibe|feeling)|post.?rave|rave.{0,10}after)\b/i,
+      /\b((?:rave|club|festival)\s+comedown|comedown\s+(?:after|from)\s+(?:the\s+|a\s+)?(?:rave|club|party))\b/i,
+      /\b(rave\s+comedown|comedown\s+bus|bus\s+home.{0,20}rave|rave.{0,20}bus\s+home)\b/i,
       /\b(5am.{0,20}(music|vibe|feeling)|dawn.{0,20}(music|vibe|after party))\b/i,
       /\b(kitchen.{0,15}(4am|afterparty|floor|chat)|floor.{0,15}(4am|afterparty))\b/i,
     ],
-    confidence: 0.90,
+    confidence: 0.96,
   },
 
   // ── Roots ─────────────────────────────────────────────────────────────────
@@ -1890,7 +1892,7 @@ const SCENE_CATEGORY_PRIORITY: Record<string, number> = {
   INDIE_BEDROOM_LOFI: 4,
   SPACE_COSMOS: 4,
   MORNING_RUN_SUNRISE: 4,
-  AFTERPARTY_COMEDOWN: 4,
+  AFTERPARTY_COMEDOWN: 2,
   // Energy / Motion (priority 5 — lowest tiebreaker)
   WORKOUT_INTENSITY: 5,
   PARTY_SOCIAL_NIGHT: 5,

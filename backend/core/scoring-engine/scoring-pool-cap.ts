@@ -47,7 +47,7 @@ const ROOT_GENRE_TERMS: Record<string, string[]> = {
   classical: ["classical"],
   soundtrack: ["soundtrack", "score", "ost"],
   world: ["world"],
-  christmas: ["christmas", "holiday"],
+  christmas: ["christmas", "xmas"],
 };
 
 const TECHNO_IDENTITY_PROMPT_RE = /\b(?:hard\s+techno|hardgroove|hard\s+groove|schranz|tekk|tekno|industrial\s+techno|warehouse\s+techno|rave\s+techno|hard\s+trance|techno|rave)\b/i;

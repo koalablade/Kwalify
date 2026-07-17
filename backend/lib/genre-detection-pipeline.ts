@@ -280,6 +280,6 @@ function extractVibeHints(vibe: string): string[] {
   if (/\b(pop|indie pop)\b/.test(lower)) hints.push("pop");
   if (/\b(soundtrack|cinematic|film score)\b/.test(lower)) hints.push("soundtrack");
   if (/\b(afrobeats|k-pop|world music)\b/.test(lower)) hints.push("world");
-  if (/\b(christmas|xmas|holiday)\b/.test(lower)) hints.push("christmas");
+  if (/\b(christmas|xmas|christmas holiday|holiday song|festive)\b/.test(lower)) hints.push("christmas");
   return hints;
 }

@@ -10,10 +10,16 @@ import { MASTER_TAG_KEYWORDS } from "./vibe-keywords-master-tags";
 import { MASTER_CULTURE_KEYWORDS } from "./vibe-keywords-master-culture";
 import { analyzeMomentPipeline } from "./moment-pipeline";
 import {
+  applyAftermath,
+  applyLowArousalNegative,
   applyEmotionalDestination,
   parseEmotionalDestination,
   type JourneyArc,
 } from "./emotion-destination";
+import {
+  applyHumanSceneToProfile,
+  resolveHumanScene,
+} from "./human-scene-knowledge";
 import { applyArchetypeNudge } from "./vibe-archetypes";
 import {
   detectLayeredScene,
@@ -945,6 +951,14 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
     weights: { energy: -0.2, valence: 0.25, tension: -0.3, nostalgia: 0.08, calm: 0.45 },
   },
   {
+    // Stillness cues. "quiet"/"gentle"/"soft" are among the most common ways a
+    // human signals low intensity, but were previously unweighted — so "quiet
+    // morning revision" inherited the morning energy boost with nothing pulling
+    // it back down. Modest weights so they calibrate rather than dominate.
+    terms: ["quiet", "silent", "silence", "hushed", "whisper", "gentle", "soft", "muted", "low key", "low-key", "lowkey", "understated"],
+    weights: { energy: -0.22, valence: 0.05, tension: -0.15, nostalgia: 0.05, calm: 0.3 },
+  },
+  {
     terms: ["cozy", "comfy", "comfort", "snug", "bundled up", "warm inside"],
     weights: { energy: -0.15, valence: 0.2, tension: -0.2, nostalgia: 0.15, calm: 0.38 },
     sceneHints: { environment: "indoor" },
@@ -1158,6 +1172,15 @@ export function analyzeVibe(vibe: string): EmotionProfile {
 
   withScene = applyArchetypeNudge(text, withScene);
   withScene = applyEmotionalDestination(text, withScene);
+  // Human scene knowledge (situations + disambiguation) before aftermath dampening.
+  const humanScene = resolveHumanScene(text);
+  withScene = applyHumanSceneToProfile(withScene, humanScene);
+  // Aftermath/comedown runs last so it dampens the *net* energy of an energetic
+  // moment framed as its quiet trailing state ("rave comedown", "day after the
+  // holiday ends") rather than an isolated keyword.
+  withScene = applyAftermath(text, withScene);
+  // Deflation after a setback / suspended dread read as low arousal, not hype.
+  withScene = applyLowArousalNegative(text, withScene);
   // Knowledge graph + canonical pipeline applied in moment-pipeline.ts
 
   return withScene;
