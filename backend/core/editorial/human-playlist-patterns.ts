@@ -106,6 +106,8 @@ export type PatternScoringTrack = {
   rediscoveryScore?: number | null;
   releaseYear?: number | null;
   tempo?: number | null;
+  genreFamily?: string | null;
+  genrePrimary?: string | null;
 };
 
 function clamp01(value: number): number {

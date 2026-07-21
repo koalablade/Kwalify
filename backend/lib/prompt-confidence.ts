@@ -34,6 +34,16 @@ export function scorePromptConfidence(
     hints.push("Add when, where, or what you're doing for a stronger playlist.");
   }
 
+  // Lifestyle / vibes language is still vague even with many words — do not inflate.
+  const lifestyleVague =
+    /\b(?:vibes?|something|idk|feel something|feel good|happy vibes|make me feel|playlist for|music for|songs that|whatever|not sure)\b/i.test(
+      lower,
+    );
+  if (lifestyleVague) {
+    score -= 0.22;
+    hints.push("Name a scene or mood so we stay in one musical world.");
+  }
+
   if (detectTimeOfDay(lower)) score += 0.1;
   if (detectEnvironment(lower)) score += 0.08;
   if (detectMotionState(lower)) score += 0.06;

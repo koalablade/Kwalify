@@ -3,10 +3,27 @@
  */
 
 import path from "node:path";
+import fs from "node:fs";
 import { readEvalToken } from "./benchmark-env";
 import { readLocalDotEnv } from "./benchmark-env-dotenv";
 
-const ROOT = path.resolve(__dirname, "..", "..", "..");
+const ROOT = (() => {
+  // Works for both source (backend/lib) and compiled (backend/dist/lib).
+  const candidates = [
+    path.resolve(__dirname, "..", ".."),
+    path.resolve(__dirname, "..", "..", ".."),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, "backend", "dist", "server.js"))) return candidate;
+    if (
+      fs.existsSync(path.join(candidate, "package.json")) &&
+      fs.existsSync(path.join(candidate, "backend"))
+    ) {
+      return candidate;
+    }
+  }
+  return path.resolve(__dirname, "..", "..");
+})();
 
 export async function healthOk(baseUrl: string): Promise<boolean> {
   try {

@@ -1,0 +1,211 @@
+/**
+ * Human Quality Gate — terminal save/replay honesty check.
+ *
+ * Aligns with docs/human-curation-alignment-v2.md:
+ * never force completion; prefer honest partial or refuse over padded trash.
+ */
+
+export type HumanQualityGateAction = "pass" | "honest_partial" | "refuse";
+
+export type HumanQualityGateInput = {
+  trackCount: number;
+  requestedLength: number;
+  wouldSpotifyMakeThis?: boolean | null;
+  dominantWorldDensity?: number | null;
+  retrievalEntropy?: number | null;
+  humanSavePassed?: boolean | null;
+  curatorScore?: number | null;
+  degradedDelivery?: boolean;
+  seasonalLeakage?: boolean;
+  holidayRequested?: boolean;
+  holidayNegated?: boolean;
+  uniqueArtistCount?: number | null;
+  /** 0–1 share of tracks by the single most common artist */
+  dominantArtistShare?: number | null;
+  promptLabel?: string | null;
+};
+
+export type HumanQualityGateResult = {
+  action: HumanQualityGateAction;
+  reasons: string[];
+  userMessage: string | null;
+  /** Suggested publish length when action is honest_partial */
+  salvageableCount: number;
+  wouldSaveConfidence: number;
+  replayConfidence: number;
+  worldCoherenceOk: boolean;
+  stubUnderfill: boolean;
+};
+
+export class HumanQualityGateError extends Error {
+  readonly result: HumanQualityGateResult;
+  readonly code = "HUMAN_QUALITY_GATE_REFUSED" as const;
+
+  constructor(result: HumanQualityGateResult, message?: string) {
+    super(message ?? result.userMessage ?? "Playlist refused by Human Quality Gate");
+    this.name = "HumanQualityGateError";
+    this.result = result;
+  }
+}
+
+const MIN_SALVAGEABLE = 6;
+
+export function buildHumanQualityRefuseMessage(
+  reasons: string[],
+  opts?: { trackCount?: number; requestedLength?: number; promptLabel?: string | null },
+): string {
+  const requested = opts?.requestedLength ?? 0;
+  const count = opts?.trackCount ?? 0;
+  if (reasons.includes("holiday_requested_empty_supply")) {
+    return (
+      "This library does not contain enough authentic Christmas / holiday tracks " +
+      "to build a playlist I'd be confident you'll enjoy. Filling with unrelated pop " +
+      "would dilute the experience — try Discovery Mode or a broader festive prompt."
+    );
+  }
+  if (reasons.includes("stub_underfill") || count < MIN_SALVAGEABLE) {
+    return (
+      `I only found ${count} strong match${count === 1 ? "" : "es"}` +
+      (requested > 0 ? ` for a ${requested}-track request` : "") +
+      ". Padding the rest would invent coherence that isn't there. " +
+      "Try Discovery Mode or broaden the prompt."
+    );
+  }
+  if (reasons.includes("world_incoherent") || reasons.includes("identity_drift")) {
+    return (
+      "I couldn't assemble a single musical world that feels intentionally curated for this prompt. " +
+      "Returning a mixed filler playlist would fail the save/replay test — try Discovery Mode or a clearer scene."
+    );
+  }
+  if (reasons.includes("seasonal_leakage")) {
+    return (
+      "Holiday / seasonal tracks leaked into a non-seasonal prompt. " +
+      "I won't publish that — try again without seasonal language, or request Christmas explicitly."
+    );
+  }
+  return (
+    "This playlist would not pass a human save/replay test in its current form. " +
+    "I'd rather explain the gap than ship something you wouldn't keep."
+  );
+}
+
+export function buildHumanQualityPartialMessage(
+  salvageableCount: number,
+  requestedLength: number,
+  reasons: string[],
+): string {
+  if (reasons.includes("world_incoherent") || reasons.includes("degraded_delivery")) {
+    return (
+      `I found about ${salvageableCount} tracks that belong together for this prompt ` +
+      `(requested ${requestedLength}). Publishing only those — filling further would dilute the identity.`
+    );
+  }
+  return (
+    `Your library supports about ${salvageableCount} of ${requestedLength} requested tracks ` +
+    `without inventing coherence. Publishing the strongest matches.`
+  );
+}
+
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, n));
+}
+
+export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQualityGateResult {
+  const requested = Math.max(1, input.requestedLength || 1);
+  const count = Math.max(0, input.trackCount);
+  const density = typeof input.dominantWorldDensity === "number" ? input.dominantWorldDensity : null;
+  const entropy = typeof input.retrievalEntropy === "number" ? input.retrievalEntropy : null;
+  const wouldSpotify =
+    typeof input.wouldSpotifyMakeThis === "boolean" ? input.wouldSpotifyMakeThis : null;
+  const curator =
+    typeof input.curatorScore === "number" ? input.curatorScore : null;
+  const artistShare =
+    typeof input.dominantArtistShare === "number" ? input.dominantArtistShare : null;
+
+  const reasons: string[] = [];
+  const stubUnderfill = count > 0 && count < MIN_SALVAGEABLE;
+  const empty = count === 0;
+  const weakWorld =
+    wouldSpotify === false ||
+    (density != null && density < 0.35) ||
+    (entropy != null && entropy > 0.82);
+  const worldCoherenceOk = !weakWorld;
+
+  if (empty) reasons.push("empty_playlist");
+  if (stubUnderfill) reasons.push("stub_underfill");
+  if (input.seasonalLeakage && !input.holidayRequested) reasons.push("seasonal_leakage");
+  if (input.holidayRequested && count < 3) reasons.push("holiday_requested_empty_supply");
+  if (weakWorld) reasons.push("world_incoherent");
+  if (input.degradedDelivery) reasons.push("degraded_delivery");
+  if (input.humanSavePassed === false) reasons.push("human_save_failed");
+  if (artistShare != null && artistShare >= 0.55 && count >= 8) reasons.push("artist_dominance");
+  if (density != null && density < 0.42 && count >= MIN_SALVAGEABLE) reasons.push("identity_drift");
+
+  // Salvageable means we can honestly publish what we have (including mid-stubs 3–5).
+  const salvageableCount = count >= 3 ? count : 0;
+
+  let wouldSaveConfidence = 0.55;
+  if (wouldSpotify === true) wouldSaveConfidence += 0.22;
+  if (wouldSpotify === false) wouldSaveConfidence -= 0.28;
+  if (density != null) wouldSaveConfidence += (density - 0.5) * 0.3;
+  if (curator != null) wouldSaveConfidence = wouldSaveConfidence * 0.6 + curator * 0.4;
+  if (stubUnderfill || empty) wouldSaveConfidence = Math.min(wouldSaveConfidence, 0.25);
+  if (input.degradedDelivery) wouldSaveConfidence -= 0.15;
+  wouldSaveConfidence = clamp01(wouldSaveConfidence);
+
+  let replayConfidence = wouldSaveConfidence;
+  if (artistShare != null && artistShare > 0.45) replayConfidence -= 0.12;
+  if (count >= Math.ceil(requested * 0.75) && worldCoherenceOk) replayConfidence += 0.08;
+  replayConfidence = clamp01(replayConfidence);
+
+  // Refuse only truly unsavable stubs (<3), empty, seasonal leak, or empty wanted-christmas.
+  if (
+    empty ||
+    count < 3 ||
+    reasons.includes("holiday_requested_empty_supply") ||
+    reasons.includes("seasonal_leakage")
+  ) {
+    const refuseReasons = reasons.length > 0 ? reasons : ["unsavable"];
+    return {
+      action: "refuse",
+      reasons: refuseReasons,
+      userMessage: buildHumanQualityRefuseMessage(refuseReasons, {
+        trackCount: count,
+        requestedLength: requested,
+        promptLabel: input.promptLabel,
+      }),
+      salvageableCount: 0,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
+  }
+
+  // Honest partial: under-request or mid-stub (3–5) or degraded — publish what belongs.
+  const underfilled = count < Math.ceil(requested * 0.75);
+  if (underfilled || stubUnderfill || input.degradedDelivery === true) {
+    const partialReasons = reasons.length > 0 ? reasons : ["honest_underfill"];
+    return {
+      action: "honest_partial",
+      reasons: partialReasons,
+      userMessage: buildHumanQualityPartialMessage(count, requested, partialReasons),
+      salvageableCount: count,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
+  }
+
+  return {
+    action: "pass",
+    reasons: weakWorld ? ["world_soft_warn"] : [],
+    userMessage: null,
+    salvageableCount: count,
+    wouldSaveConfidence,
+    replayConfidence,
+    worldCoherenceOk,
+    stubUnderfill: false,
+  };
+}

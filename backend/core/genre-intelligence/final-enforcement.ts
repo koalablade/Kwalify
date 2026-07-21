@@ -68,6 +68,8 @@ export interface FinalGenreEnforcementInput<T extends { trackId: string }> {
 
   sceneInfluenceRatio?: number;
   stabilityDiagnostics?: import("../debug/stability-metrics").StabilityDiagnostics;
+  /** When true, skip ecosystem injection that can break a locked musical world. */
+  hardWorldLock?: boolean;
 }
 
 
@@ -208,19 +210,15 @@ export function enforceFinalPlaylistGenres<T extends { trackId: string; score: n
 
 
 
-  const distinctPass = ensureMinDistinctGenres(
-
-    tracks,
-
-    input.sortedPool,
-
-    genreClassMap,
-
-    input.userGenreProfile.vector,
-
-    MIN_DISTINCT_GENRES_IN_PLAYLIST
-
-  );
+  const distinctPass = input.hardWorldLock
+    ? { tracks, enforced: [] as string[] }
+    : ensureMinDistinctGenres(
+      tracks,
+      input.sortedPool,
+      genreClassMap,
+      input.userGenreProfile.vector,
+      MIN_DISTINCT_GENRES_IN_PLAYLIST,
+    );
 
   tracks = distinctPass.tracks;
 
@@ -232,17 +230,14 @@ export function enforceFinalPlaylistGenres<T extends { trackId: string; score: n
 
 
 
-  const ecoPass = ensureEcosystemDiversity(
-
-    tracks,
-
-    input.sortedPool,
-
-    genreClassMap,
-
-    input.userGenreProfile.vector
-
-  );
+  const ecoPass = input.hardWorldLock
+    ? { tracks, enforced: [] as string[] }
+    : ensureEcosystemDiversity(
+      tracks,
+      input.sortedPool,
+      genreClassMap,
+      input.userGenreProfile.vector,
+    );
 
   tracks = ecoPass.tracks;
 
@@ -254,19 +249,15 @@ export function enforceFinalPlaylistGenres<T extends { trackId: string; score: n
 
 
 
-  const top3Floor = applyTopGenreDiversityFloor(
-
-    tracks,
-
-    input.sortedPool,
-
-    genreClassMap,
-
-    input.userGenreProfile.vector,
-
-    1
-
-  );
+  const top3Floor = input.hardWorldLock
+    ? { tracks, enforced: [] as string[] }
+    : applyTopGenreDiversityFloor(
+      tracks,
+      input.sortedPool,
+      genreClassMap,
+      input.userGenreProfile.vector,
+      1,
+    );
 
   tracks = top3Floor.tracks as T[];
 

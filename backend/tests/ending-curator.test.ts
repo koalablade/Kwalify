@@ -1,6 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { curatePlaylistEnding } from "../core/editorial/ending-curator";
+import {
+  curatePlaylistEnding,
+  resolveEndingCuratorMode,
+} from "../core/editorial/ending-curator";
 
 const tracks = [
   ...Array.from({ length: 14 }, (_, i) => ({
@@ -28,5 +31,16 @@ describe("ending curator", () => {
     const tail = result.tracks.slice(-3);
     const avgEnergy = tail.reduce((sum, t) => sum + (t.energy ?? 0.5), 0) / tail.length;
     assert.ok(avgEnergy <= 0.72);
+  });
+
+  it("resolves cooldown mode for soft scenes and prefers cooler tails", () => {
+    assert.equal(resolveEndingCuratorMode("lofi study beats"), "cooldown");
+    assert.equal(resolveEndingCuratorMode("quiet rage simmer"), "cooldown");
+    assert.equal(resolveEndingCuratorMode("boss fight final form"), "peak");
+    const soft = curatePlaylistEnding(tracks, { endingSize: 6, vibe: "goth darkwave night" });
+    assert.equal(soft.mode, "cooldown");
+    const tail = soft.tracks.slice(-3);
+    const avgEnergy = tail.reduce((sum, t) => sum + (t.energy ?? 0.5), 0) / tail.length;
+    assert.ok(avgEnergy <= 0.65);
   });
 });

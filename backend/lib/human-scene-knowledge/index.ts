@@ -18,4 +18,6 @@ export {
   listHumanSceneTransitions,
   humanSceneCount,
   applyHumanSceneToProfile,
+  promptSuppressesChristmas,
+  CHRISTMAS_NEGATION_RE,
 } from "./resolve";

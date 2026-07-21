@@ -230,16 +230,62 @@ export function buildPromptSceneProfile(prompt: string): PromptSceneProfile {
   };
 }
 
+/** Single-token title hits that routinely poison retrieval (Ruin / Slow / Goth / Bedroom). */
+const TITLE_BAIT_TOKENS = new Set([
+  "ruin", "ruins", "slow", "slower", "goth", "gothic", "bedroom", "home", "house",
+  "dark", "sad", "rage", "quiet", "soft", "hard", "light", "night", "day", "love",
+  "heart", "dream", "dreams", "fire", "blood", "shadow", "shadows", "ghost", "angel",
+  "devil", "heaven", "hell", "rain", "storm", "city", "road", "drive", "driving",
+  "party", "dance", "sleep", "alone", "lonely", "lost", "gone", "blue", "black",
+  "white", "red", "gold", "silver", "star", "moon", "sun", "sky", "sea", "ocean",
+  "war", "fight", "battle", "boss", "game", "play", "run", "escape", "free",
+]);
+
+function titleTokens(trackName: string): string[] {
+  return trackName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length >= 3);
+}
+
+/**
+ * Title overlap is evidence only when it is multi-token / non-bait.
+ * Bare "Slow", "Ruin", "Goth", "Bedroom" must not win a scene.
+ */
 function titleMatchBoost(promptProfile: PromptSceneProfile, trackName: string): number {
-  const title = trackName.toLowerCase();
+  const tokens = titleTokens(trackName);
+  if (tokens.length === 0) return 0;
+  const title = tokens.join(" ");
+  const hasNonBait = tokens.some((t) => !TITLE_BAIT_TOKENS.has(t));
+  const multiToken = tokens.length >= 2;
+
   let bonus = 0;
-  if (promptProfile.places.includes("garage") && title.includes("garage")) bonus += 0.05;
-  if (promptProfile.places.includes("motorway") && (title.includes("road") || title.includes("motorway"))) bonus += 0.05;
-  if (promptProfile.places.includes("city") && title.includes("city")) bonus += 0.04;
-  if (promptProfile.places.includes("train") && title.includes("train")) bonus += 0.05;
-  if (promptProfile.times.some((t) => t.includes("night")) && title.includes("midnight")) bonus += 0.03;
-  if (promptProfile.activities.includes("repairing") && title.includes("garage")) bonus += 0.04;
-  return Math.min(0.12, bonus);
+  const allow = (phrase: string, weight: number) => {
+    if (!title.includes(phrase)) return;
+    const phraseTokens = phrase.split(/\s+/).filter(Boolean);
+    const phraseIsBait = phraseTokens.every((t) => TITLE_BAIT_TOKENS.has(t));
+    if (phraseIsBait && !multiToken && !hasNonBait) return;
+    if (phraseIsBait && phraseTokens.length === 1) return;
+    bonus += weight;
+  };
+
+  if (promptProfile.places.includes("garage")) allow("garage", 0.04);
+  if (promptProfile.places.includes("motorway")) {
+    allow("motorway", 0.05);
+    allow("highway", 0.04);
+  }
+  if (promptProfile.places.includes("train")) {
+    allow("train", 0.04);
+    allow("platform", 0.04);
+  }
+  if (promptProfile.times.some((t) => t.includes("night"))) allow("midnight", 0.03);
+  if (promptProfile.activities.includes("repairing")) allow("garage", 0.03);
+  if (promptProfile.places.includes("warehouse")) allow("warehouse", 0.04);
+  if (promptProfile.sceneConcepts.includes("warehouse-rave")) allow("warehouse", 0.03);
+  if (promptProfile.sceneConcepts.includes("late-train-home")) allow("last train", 0.05);
+
+  return Math.min(0.08, bonus);
 }
 
 export function scoreSemanticSceneMatch(

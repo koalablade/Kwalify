@@ -28,6 +28,9 @@ type WorkerContext = {
   libraryFingerprint?: unknown;
   dominantIntentGates?: unknown;
   diagnosticsMode?: "minimal" | "full";
+  artistEcosystemGraph?: unknown;
+  hardWorldLock?: boolean;
+  worldVerifiedTrackIds?: string[];
 };
 
 type WorkerTask = {
@@ -67,7 +70,12 @@ async function runTask(task: WorkerTask): Promise<Record<string, unknown>> {
     libraryFingerprint: ctx.libraryFingerprint as never,
     dominantIntentGates: ctx.dominantIntentGates as never,
     samplerInterpretation: task.samplerInterpretation as never,
+    artistEcosystemGraph: (ctx.artistEcosystemGraph as never) ?? null,
     shouldSkipMarginalImprovement: () => false,
+    hardWorldLock: ctx.hardWorldLock,
+    worldVerifiedTrackIds: ctx.worldVerifiedTrackIds
+      ? new Set(ctx.worldVerifiedTrackIds)
+      : undefined,
   });
   return {
     ok: true,

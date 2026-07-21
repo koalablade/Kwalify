@@ -18,6 +18,12 @@ import {
   type CoherenceAuditTrack,
   type PlaylistCoherenceScore,
 } from "./playlist-coherence-audit";
+import {
+  estimateWorldMembership,
+  inferWorldIdentityIdsFromPrompt,
+  passesWorldIdentity,
+  worldIdentityProfilesForLock,
+} from "./editorial/world-identity-gate";
 
 export type WorldBoundary = {
   active: boolean;
@@ -28,6 +34,9 @@ export type WorldBoundary = {
   scenePrediction: Record<string, number>;
   reason: string | null;
   ukHipHopScene: UkHipHopScene | null;
+  /** Cultural lock anchors (goth_world, boss_fight, …) for identity gates. */
+  lockAnchors: string[];
+  prompt: string | null;
 };
 
 export type WorldBoundaryDiagnostics = {
@@ -82,6 +91,7 @@ export function resolveWorldBoundary(opts: {
   const ukHipHopScene = ukSceneFromLock(sceneLock) ?? (opts.prompt ? detectUkHipHopScene(opts.prompt) : null);
   const predictionEntries = Object.entries(scenePrediction).sort((a, b) => b[1] - a[1]);
   const dominantScene = predictionEntries[0]?.[0] ?? sceneAliases[0] ?? null;
+  const inferredWorldIds = inferWorldIdentityIdsFromPrompt(opts.prompt);
 
   if (sceneLock?.active) {
     const allowed = [...new Set([
@@ -101,7 +111,182 @@ export function resolveWorldBoundary(opts: {
       scenePrediction,
       reason: sceneLock.reason,
       ukHipHopScene,
+      lockAnchors: [...new Set([...sceneLock.anchors, ...inferredWorldIds])],
+      prompt: opts.prompt ?? null,
     };
+  }
+
+  // Prompt-inferred musical worlds (gym rock, pop punk, …) without cultural lock.
+  if (inferredWorldIds.length > 0) {
+    const profileFamilies: Record<string, { allowed: string[]; off: string[] }> = {
+      goth_world: {
+        allowed: ["rock", "indie", "electronic", "metal"],
+        off: ["reggae", "hip_hop", "country", "latin", "pop", "rnb", "soul", "blues"],
+      },
+      grunge_world: {
+        allowed: ["rock", "metal", "indie"],
+        off: ["pop", "reggae", "hip_hop", "country", "electronic", "latin", "rnb", "soul"],
+      },
+      pop_punk_world: {
+        allowed: ["rock", "indie", "pop"],
+        off: ["electronic", "hip_hop", "country", "latin", "reggae", "jazz", "classical", "soul"],
+      },
+      gym_rock_world: {
+        allowed: ["rock", "metal", "indie"],
+        off: ["electronic", "hip_hop", "country", "latin", "reggae", "rnb", "soul", "jazz", "classical"],
+      },
+      angry_rock_world: {
+        allowed: ["rock", "metal", "indie"],
+        off: ["pop", "electronic", "hip_hop", "country", "latin", "reggae", "rnb", "soul", "jazz"],
+      },
+      sleepy_gym_world: {
+        allowed: ["indie", "electronic", "pop", "rnb"],
+        off: ["metal", "country", "latin", "reggae", "classical"],
+      },
+      classic_rock_world: {
+        allowed: ["rock", "blues", "metal"],
+        off: ["pop", "hip_hop", "electronic", "country", "latin", "reggae", "rnb"],
+      },
+      lofi_world: {
+        allowed: ["indie", "electronic", "jazz", "hip_hop", "soul"],
+        off: ["metal", "rock", "country", "reggae", "latin", "pop"],
+      },
+      ambient_world: {
+        allowed: ["electronic", "classical", "jazz", "soundtrack", "indie"],
+        off: ["hip_hop", "metal", "rock", "pop", "reggae", "country", "latin", "rnb"],
+      },
+      boss_fight: {
+        allowed: ["electronic", "metal", "rock", "soundtrack", "indie"],
+        off: ["country", "folk", "reggae", "jazz", "classical", "rnb", "soul", "latin", "blues"],
+      },
+      quiet_rage: {
+        allowed: ["rock", "indie", "metal", "electronic"],
+        off: ["pop", "reggae", "country", "latin", "soul"],
+      },
+      rave_comedown: {
+        allowed: ["electronic", "indie", "soul", "jazz"],
+        off: ["metal", "country", "latin", "reggae", "pop", "hip_hop"],
+      },
+      neon_tek_drive: {
+        allowed: ["electronic", "indie", "rock"],
+        off: ["country", "folk", "reggae", "classical", "blues", "latin", "hip_hop", "rnb"],
+      },
+      melancholy_drive: {
+        allowed: ["indie", "electronic", "rock", "rnb", "soul"],
+        off: ["metal", "country", "reggae", "latin"],
+      },
+      disco_party_world: {
+        allowed: ["soul", "rnb", "pop", "electronic"],
+        off: ["metal", "rock", "hip_hop", "country", "folk", "reggae"],
+      },
+      rainy_drive_world: {
+        allowed: ["indie", "electronic", "rock", "rnb"],
+        off: ["metal", "country", "folk", "hip_hop", "latin"],
+      },
+      chill_rainy_world: {
+        allowed: ["indie", "folk", "electronic", "soul"],
+        off: ["metal", "hip_hop", "country", "latin", "reggae"],
+      },
+      focus_study_world: {
+        allowed: ["electronic", "classical", "jazz", "indie", "soundtrack"],
+        off: ["hip_hop", "metal", "rock", "pop", "reggae", "country", "latin", "rnb"],
+      },
+      sunday_chill_world: {
+        allowed: ["indie", "folk", "soul", "jazz", "electronic"],
+        off: ["metal", "hip_hop", "latin", "reggae"],
+      },
+      feel_good_world: {
+        allowed: ["pop", "indie", "soul", "electronic", "rnb"],
+        off: ["metal", "classical"],
+      },
+      soft_sad_world: {
+        allowed: ["indie", "folk", "soul"],
+        off: ["metal", "hip_hop", "electronic", "latin", "reggae"],
+      },
+      social_kitchen_world: {
+        allowed: ["soul", "pop", "indie", "electronic", "rnb"],
+        off: ["metal", "classical"],
+      },
+      coffee_soft_focus_world: {
+        allowed: ["indie", "folk", "jazz", "classical", "electronic"],
+        off: ["metal", "hip_hop", "latin", "reggae"],
+      },
+      evening_drive_world: {
+        allowed: ["indie", "electronic", "rock", "soul"],
+        off: ["metal", "country", "latin"],
+      },
+      upbeat_chore_world: {
+        allowed: ["pop", "indie", "electronic", "soul"],
+        off: ["metal", "classical", "country"],
+      },
+      gym_energy_world: {
+        allowed: ["hip_hop", "electronic", "pop", "indie"],
+        off: ["classical", "jazz", "country", "folk", "metal", "rock"],
+      },
+      indie_dream_world: {
+        allowed: ["indie", "electronic", "folk"],
+        off: ["metal", "hip_hop", "country", "latin", "reggae"],
+      },
+      nostalgia_warm_world: {
+        allowed: ["indie", "rock", "pop", "electronic"],
+        off: ["classical", "metal"],
+      },
+      party_prep_world: {
+        allowed: ["pop", "soul", "electronic", "rnb"],
+        off: ["metal", "folk", "country", "classical"],
+      },
+      rainy_reading_world: {
+        allowed: ["folk", "indie", "classical"],
+        off: ["metal", "hip_hop", "electronic", "latin", "reggae"],
+      },
+      beach_sunset_world: {
+        allowed: ["indie", "electronic", "pop", "folk"],
+        off: ["metal", "hip_hop", "country"],
+      },
+      summer_warm_world: {
+        allowed: ["pop", "indie", "electronic", "soul"],
+        off: ["metal", "classical", "country"],
+      },
+      acoustic_sunday_world: {
+        allowed: ["folk", "indie", "country"],
+        off: ["metal", "hip_hop", "electronic", "latin"],
+      },
+      late_night_calm_world: {
+        allowed: ["indie", "electronic", "folk", "soul"],
+        off: ["metal", "hip_hop", "country", "latin"],
+      },
+      rnb_night_world: {
+        allowed: ["rnb", "soul", "pop"],
+        off: ["metal", "rock", "country", "folk"],
+      },
+      britpop_world: {
+        allowed: ["indie", "rock"],
+        off: ["metal", "hip_hop", "country", "latin"],
+      },
+    };
+    const allowed = new Set<string>();
+    const off = new Set<string>();
+    for (const id of inferredWorldIds) {
+      const families = profileFamilies[id];
+      if (!families) continue;
+      for (const f of families.allowed) allowed.add(f);
+      for (const f of families.off) off.add(f);
+    }
+    for (const f of allowed) off.delete(f);
+    if (allowed.size > 0) {
+      return {
+        active: true,
+        hardLock: true,
+        dominantScene: inferredWorldIds[0] ?? dominantScene,
+        allowedGenreFamilies: [...allowed],
+        offSceneGenreFamilies: [...off],
+        scenePrediction,
+        reason: `world_purity_lock:${inferredWorldIds[0]}`,
+        ukHipHopScene,
+        lockAnchors: inferredWorldIds,
+        prompt: opts.prompt ?? null,
+      };
+    }
   }
 
   if (sceneAliases.length >= 2 && predictionEntries[0]?.[1] != null && predictionEntries[0][1] >= 0.22) {
@@ -121,6 +306,8 @@ export function resolveWorldBoundary(opts: {
       scenePrediction,
       reason: "scene_prediction_dominance",
       ukHipHopScene,
+      lockAnchors: inferredWorldIds,
+      prompt: opts.prompt ?? null,
     };
   }
 
@@ -133,6 +320,8 @@ export function resolveWorldBoundary(opts: {
     scenePrediction,
     reason: null,
     ukHipHopScene: ukHipHopScene?.active ? ukHipHopScene : null,
+    lockAnchors: [],
+    prompt: opts.prompt ?? null,
   };
 }
 
@@ -152,9 +341,17 @@ export function isTrackInWorld(
     genreFamily?: string | null;
     genrePrimary?: string | null;
     danceability?: number | null;
+    energy?: number | null;
+    valence?: number | null;
+    instrumentalness?: number | null;
+    popularity?: number | null;
     trackName?: string | null;
     artistName?: string | null;
     albumName?: string | null;
+    /** Serialized API / Spotify shapes sometimes use these aliases. */
+    name?: string | null;
+    artist?: string | null;
+    album?: string | null;
     spotifyArtistGenres?: unknown;
     albumGenres?: unknown;
     genres?: string[] | null;
@@ -164,17 +361,44 @@ export function isTrackInWorld(
 ): boolean {
   if (!world.active) return true;
 
-  const family = normalizeFamily(genreFamily ?? track.genreFamily ?? track.genrePrimary);
+  const normalized = {
+    ...track,
+    trackName: track.trackName ?? track.name ?? null,
+    artistName: track.artistName ?? track.artist ?? null,
+    albumName: track.albumName ?? track.album ?? null,
+  };
+
+  const family = normalizeFamily(genreFamily ?? normalized.genreFamily ?? normalized.genrePrimary);
   const ukScene = world.ukHipHopScene;
+  const profiles = worldIdentityProfilesForLock({
+    reason: world.reason,
+    anchors: world.lockAnchors,
+    prompt: world.prompt,
+  });
+
+  // World identity outranks family/energy: reject blankets + off-world artists first.
+  if (profiles.length > 0) {
+    const identityOk = passesWorldIdentity(
+      normalized,
+      profiles,
+      { hardLock: world.hardLock || profiles.length > 0 },
+    );
+    if (!identityOk) return false;
+    // Hard lock: positive world identity is the constraint — do not second-guess
+    // with coarse genre-family tags that mislabel goth/post-punk/indie overlap.
+    if (world.hardLock) return true;
+  }
 
   if (ukScene?.active && family === "hip_hop") {
-    if (!passesUkHipHopWorldGate(track, ukScene, { hardLock: world.hardLock })) return false;
+    if (!passesUkHipHopWorldGate(normalized, ukScene, { hardLock: world.hardLock })) return false;
   }
 
   if (!family) return !world.hardLock;
 
   if (world.offSceneGenreFamilies.includes(family)) return false;
-  if (world.allowedGenreFamilies.includes(family)) return true;
+  if (world.allowedGenreFamilies.includes(family)) {
+    return true;
+  }
 
   if (world.hardLock) {
     if (POP_CROSSOVER_FAMILIES.has(family)) return false;
@@ -193,6 +417,23 @@ export function scoreWorldCandidateFit(
   intent?: LockedIntent,
 ): WorldCandidateFit {
   const family = normalizeFamily(track.genreFamily ?? track.genrePrimary);
+  const identityProfiles = worldIdentityProfilesForLock({
+    reason: world.reason,
+    anchors: world.lockAnchors,
+    prompt: world.prompt,
+  });
+  const worldMembership = estimateWorldMembership(track, identityProfiles);
+
+  // World identity outranks energy: off-world tracks get zeroed before atmosphere.
+  if (world.active && identityProfiles.length > 0 && worldMembership <= 0) {
+    return {
+      sceneMatch: 0.02,
+      atmosphereMatch: 0.1,
+      worldDriftRisk: 0.98,
+      total: 0.02,
+    };
+  }
+
   let sceneMatch = 0.35;
   if (world.ukHipHopScene?.active) {
     const uk = ukHipHopEvidenceScore(track);
@@ -207,6 +448,9 @@ export function scoreWorldCandidateFit(
     sceneMatch = 0.4;
   } else {
     sceneMatch = 0.22;
+  }
+  if (identityProfiles.length > 0) {
+    sceneMatch = clamp01(sceneMatch * 0.45 + worldMembership * 0.55);
   }
 
   let atmosphereMatch = 0.55;
@@ -224,6 +468,10 @@ export function scoreWorldCandidateFit(
       atmosphereMatch = clamp01(1 - Math.abs(valence - 0.48) * 0.9 - Math.abs(dance - 0.45) * 0.7);
     }
   }
+  // Energy is supporting evidence only — never outweigh world membership.
+  const atmosphereWeight = identityProfiles.length > 0 ? 0.12 : 0.30;
+  const sceneWeight = identityProfiles.length > 0 ? 0.68 : 0.50;
+  const driftWeight = 1 - sceneWeight - atmosphereWeight;
 
   let worldDriftRisk = 0.2;
   if (family && world.offSceneGenreFamilies.includes(family)) worldDriftRisk = 0.95;
@@ -231,20 +479,38 @@ export function scoreWorldCandidateFit(
   else if (family && POP_CROSSOVER_FAMILIES.has(family) && !world.allowedGenreFamilies.includes(family)) {
     worldDriftRisk = 0.88;
   }
+  if (identityProfiles.length > 0 && worldMembership < 0.5) {
+    worldDriftRisk = Math.max(worldDriftRisk, 0.75);
+  }
 
-  const total = clamp01(sceneMatch * 0.50 + atmosphereMatch * 0.30 + (1 - worldDriftRisk) * 0.20);
+  const total = clamp01(
+    sceneMatch * sceneWeight + atmosphereMatch * atmosphereWeight + (1 - worldDriftRisk) * driftWeight,
+  );
   return { sceneMatch, atmosphereMatch, worldDriftRisk, total };
 }
 
 export function hardRejectOffWorldTracks<T extends {
-  trackId: string;
+  trackId?: string;
+  id?: string | number;
   genreFamily?: string | null;
   genrePrimary?: string | null;
   danceability?: number | null;
+  trackName?: string | null;
+  artistName?: string | null;
+  albumName?: string | null;
+  name?: string | null;
+  artist?: string | null;
+  album?: string | null;
+  energy?: number | null;
+  valence?: number | null;
+  popularity?: number | null;
+  spotifyArtistGenres?: unknown;
+  albumGenres?: unknown;
+  genres?: string[] | null;
 }>(
   tracks: T[],
   world: WorldBoundary,
-  classMap?: Map<string, { genreFamily?: string; genrePrimary?: string }>,
+  classMap?: Map<string, { genreFamily?: string; genrePrimary?: string; subGenres?: string[] }>,
 ): { kept: T[]; rejected: T[]; diagnostics: WorldBoundaryDiagnostics } {
   if (!world.active) {
     return {
@@ -268,8 +534,23 @@ export function hardRejectOffWorldTracks<T extends {
   let rejectedDrift = 0;
 
   for (const track of tracks) {
-    const family = trackGenreFamilyForBoundary(track, classMap);
-    if (!isTrackInWorld(track, world, family)) {
+    const trackId = String(track.trackId ?? track.id ?? "");
+    const family = trackGenreFamilyForBoundary(
+      { trackId, genreFamily: track.genreFamily, genrePrimary: track.genrePrimary },
+      classMap,
+    );
+    const classification = trackId ? classMap?.get(trackId) : undefined;
+    const enriched = {
+      ...track,
+      trackId,
+      trackName: track.trackName ?? track.name ?? null,
+      artistName: track.artistName ?? track.artist ?? null,
+      albumName: track.albumName ?? track.album ?? null,
+      genreFamily: family ?? track.genreFamily ?? classification?.genreFamily ?? null,
+      genrePrimary: track.genrePrimary ?? classification?.genrePrimary ?? null,
+      genres: track.genres ?? classification?.subGenres ?? null,
+    };
+    if (!isTrackInWorld(enriched, world, family)) {
       rejected.push(track);
       if (family && world.offSceneGenreFamilies.includes(family)) rejectedOffScene += 1;
       else rejectedDrift += 1;

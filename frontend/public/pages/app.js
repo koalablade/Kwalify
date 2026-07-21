@@ -1271,7 +1271,13 @@ function resultHtml(result) {
       : null;
   const fallbackNotice = degradedSpotifyNotice
     ? degradedSpotifyNotice
-    : result.degraded || (Array.isArray(result.degradationReasons) && result.degradationReasons.length > 0)
+    : (typeof result.supplyMessage === "string" && result.supplyMessage.trim()
+      ? result.supplyMessage.trim()
+      : null)
+    || (result.honestPartialPublished && count > 0 && count < Math.max(8, Math.floor(state.length * 0.45))
+      ? `Short on purpose — only ${count} tracks in your library truly fit this musical world. Sync more likes in this lane, or try Discovery Mode.`
+      : null)
+    || (result.degraded || (Array.isArray(result.degradationReasons) && result.degradationReasons.length > 0)
       ? "Built in degraded mode — some quality checks were relaxed to finish in time."
     : count > 0 && count < Math.max(8, Math.floor(state.length * 0.4))
       ? `Only ${count} strong tracks survived the safety checks. Try a broader prompt or Balanced mode for a fuller playlist.`
@@ -1279,7 +1285,7 @@ function resultHtml(result) {
     ? "Quick backup playlist built because the full generator was taking too long."
     : confidence.recoveryUsed
       ? "Best available playlist built after relaxing non-critical checks."
-      : null;
+      : null);
   const resultBadge = result.spotifyUnavailable
     ? "Review ready"
     : result.spotifyPartial || result.fastFallback || result.code === "TIMEOUT_FALLBACK"

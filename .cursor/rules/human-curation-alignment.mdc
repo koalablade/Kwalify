@@ -1,0 +1,43 @@
+---
+description: Human Curation Alignment v2 — optimise for save/replay/human belief, never for bench scores or energy targets
+alwaysApply: true
+---
+
+# Human Curation Alignment v2
+
+## North star
+
+Optimise only for playlists real people would **save**, **replay**, and believe were **human-curated**.
+
+Do **not** optimise for:
+
+- Benchmark pass rates, mean scores, or keep-rates as KPIs
+- Audio-feature targets (energy 0.72, danceability bands) as primary drivers
+- “Make this prompt pass” / forced completion / padding to requested length
+
+Benchmarks and probes are **diagnostic evidence**, not success criteria.
+
+## Before changing generation / retrieval / editorial code
+
+Ask:
+
+1. Would an experienced fan send this to a friend?
+2. Would a normal Spotify user press Save?
+3. Would they replay it next week?
+4. Could this pass as Spotify editorial?
+
+If the change improves a metric but weakens belonging, identity, or honesty — reject the change.
+
+## Hard rules
+
+- Prefer **belonging in one musical world** over feature proximity.
+- **Era / genre / scene integrity** are constraints, not soft hints.
+- **Seasonal negation** (`no christmas`, `non christmas`, `without christmas`) is a hard suppress.
+- **Never force completion** with unrelated filler. Prefer honest partial or refuse with a clear user message.
+- Stub playlists (far under request with broken identity) must not ship as success.
+- Audio features support curation; they do not define it.
+
+## Docs
+
+Full doctrine: `docs/human-curation-alignment-v2.md`  
+Gate: `backend/core/editorial/human-quality-gate.ts`

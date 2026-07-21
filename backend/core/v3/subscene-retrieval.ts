@@ -19,6 +19,7 @@ import { resolveHumanScene } from "../../lib/human-scene-knowledge";
 
 export type SubSceneRetrievalKind =
   | "soft_electronic_aftermath"
+  | "soft_focus_concentration"
   | "late_night_reflection"
   | "none";
 
@@ -64,6 +65,31 @@ export function detectSubSceneRetrievalKind(
   ) {
     return "soft_electronic_aftermath";
   }
+
+  // Real focus/coding refs sit ~0.22–0.35 energy. "Soft electronic concentration"
+  // and ambient coding must NOT open peak house just because electronic is locked.
+  // Coding sprint / work flow are focus scenes — never gym workout intensity.
+  if (
+    /\b(?:coding|productivity|design)\s+sprint\b/.test(lower) ||
+    /\b(?:work\s*flow|workflow)\b/.test(lower)
+  ) {
+    return "soft_focus_concentration";
+  }
+  const focusActivity =
+    lockedIntent.activity === "focus" ||
+    lockedIntent.activity === "study" ||
+    human.musicalBehaviour === "steady_focus" ||
+    human.musicalBehaviour === "gentle_ambient";
+  if (
+    focusActivity &&
+    lockedIntent.energy === "low" &&
+    /\b(?:ambient|soft\s+electronic|concentration|coding|no\s+vocals|instrumental|deep\s+focus|reading|work\s*flow|sprint)\b/.test(
+      lower,
+    )
+  ) {
+    return "soft_focus_concentration";
+  }
+
   if (
     /\b(?:late.?night|city lights|bus home)\b/.test(lower) &&
     lockedIntent.genreFamilies.includes("electronic") &&
@@ -103,8 +129,15 @@ export function buildSubSceneRetrievalPlan(opts: {
   // that floods festival energy into comedown neighbourhoods and later response
   // pruning underfills the playlist.
   const SOFT_REMNANT_CAP = 0.62;
+  // Human focus/coding refs average ~0.28 energy — never open into house.
+  const FOCUS_SOFT_CAP = 0.48;
   let energyHi: number | null = null;
-  if (softElectronic.length < Math.max(8, Math.ceil(opts.targetCount * 0.35)) && softestElectronic.length > 0) {
+  if (kind === "soft_focus_concentration") {
+    const softPool = opts.libraryTracks
+      .filter((t) => typeof t.energy === "number" && (t.energy as number) <= FOCUS_SOFT_CAP)
+      .sort((a, b) => (a.energy as number) - (b.energy as number));
+    energyHi = softPool.length > 0 ? FOCUS_SOFT_CAP : 0.42;
+  } else if (softElectronic.length < Math.max(8, Math.ceil(opts.targetCount * 0.35)) && softestElectronic.length > 0) {
     const remnantIdx = Math.min(
       softestElectronic.length - 1,
       Math.max(4, Math.ceil(opts.targetCount * 0.4)),
@@ -135,6 +168,17 @@ export function buildSubSceneRetrievalPlan(opts: {
     };
   }
 
+  if (kind === "soft_focus_concentration") {
+    return {
+      kind,
+      reason: "soft_focus_concentration_match_human_focus_refs",
+      rhythmDensityCap: 0.42,
+      sonicAggressionCeiling: 0.32,
+      energyHi,
+      reservedNeighbourhoodSeats: seats,
+    };
+  }
+
   return {
     kind,
     reason: "late_night_electronic_reflection",
@@ -148,6 +192,7 @@ export function buildSubSceneRetrievalPlan(opts: {
 /** Prefer night-interior electronic texture over study focus when comedown is active. */
 export function preferredSubSceneWorldTag(kind: SubSceneRetrievalKind): string | null {
   if (kind === "soft_electronic_aftermath") return "late_night_indie_interior";
+  if (kind === "soft_focus_concentration") return "focus_study";
   if (kind === "late_night_reflection") return "late_night_city_rain";
   return null;
 }
@@ -166,21 +211,38 @@ export function applySubSceneRetrievalTexture(
     next.sonicAggressionCeiling = Math.max(next.sonicAggressionCeiling, plan.sonicAggressionCeiling);
   }
   if (plan.energyHi != null) {
-    const lo = next.energyRange[0];
-    const hi = Math.max(next.energyRange[1], plan.energyHi);
-    next.energyRange = [lo, hi];
+    if (plan.kind === "soft_focus_concentration") {
+      // Match human focus refs (~0.22–0.35): clamp the upper band down, never raise into house.
+      const lo = Math.min(next.energyRange[0], 0.18);
+      next.energyRange = [lo, Math.min(next.energyRange[1], plan.energyHi)];
+    } else {
+      const lo = next.energyRange[0];
+      const hi = Math.max(next.energyRange[1], plan.energyHi);
+      next.energyRange = [lo, hi];
+    }
   }
 
-  // Ensure electronic textures remain admissible for comedown neighbourhoods.
   const micros = new Set(next.allowedMicroClusters);
-  for (const micro of [
-    "electronic:balanced",
-    "electronic:electronic",
-    "electronic:rhythmic",
-    "indie:electronic",
-    "indie:balanced",
-  ]) {
-    micros.add(micro);
+  if (plan.kind === "soft_focus_concentration") {
+    for (const micro of [
+      "indie:balanced",
+      "indie:acoustic",
+      "folk:balanced",
+      "electronic:balanced",
+      "classical:balanced",
+    ]) {
+      micros.add(micro);
+    }
+  } else {
+    for (const micro of [
+      "electronic:balanced",
+      "electronic:electronic",
+      "electronic:rhythmic",
+      "indie:electronic",
+      "indie:balanced",
+    ]) {
+      micros.add(micro);
+    }
   }
   next.allowedMicroClusters = [...micros];
   return next;
@@ -202,20 +264,48 @@ function isElectronicNeighbourhoodCandidate(track: IntentCollapseTrack, energyHi
   return inst >= 0.12 || energy <= 0.4 || (acoustic < 0.3 && dance >= 0.46);
 }
 
+/** Soft focus neighbourhood matching annotated study/coding refs (indie/folk/soft electronic). */
+function isFocusSoftNeighbourhoodCandidate(track: IntentCollapseTrack, energyHi: number): boolean {
+  const energy = feature(track.energy, 1);
+  if (energy < 0.05 || energy > energyHi) return false;
+  const family = trackFamily(track);
+  if (["indie", "folk", "classical", "jazz", "soundtrack"].includes(family)) return true;
+  if (family === "electronic") {
+    // Only soft electronic — reject house/garage pulse that ruined ambient focus benches.
+    const dance = feature(track.danceability, 0.5);
+    const acoustic = feature(track.acousticness, 0.5);
+    return dance <= 0.62 && acoustic >= 0.08;
+  }
+  const acoustic = feature(track.acousticness, 0.5);
+  const dance = feature(track.danceability, 0.5);
+  const inst = feature(track.instrumentalness, 0);
+  return acoustic >= 0.28 || inst >= 0.2 || (energy <= 0.4 && dance <= 0.58);
+}
+
 export function selectSubSceneNeighbourhood<T extends IntentCollapseTrack>(
   tracks: T[],
   intent: EditorialIntentVector,
   plan: SubSceneRetrievalPlan,
 ): T[] {
   if (plan.kind === "none" || plan.reservedNeighbourhoodSeats <= 0) return [];
-  const energyHi = plan.energyHi ?? Math.max(intent.energyRange[1], 0.58);
-  const pool = tracks.filter((t) => isElectronicNeighbourhoodCandidate(t, energyHi));
+  const energyHi =
+    plan.energyHi ??
+    (plan.kind === "soft_focus_concentration"
+      ? Math.min(intent.energyRange[1], 0.48)
+      : Math.max(intent.energyRange[1], 0.58));
+  const pool =
+    plan.kind === "soft_focus_concentration"
+      ? tracks.filter((t) => isFocusSoftNeighbourhoodCandidate(t, energyHi))
+      : tracks.filter((t) => isElectronicNeighbourhoodCandidate(t, energyHi));
   const ranked = rankCandidatesByIntentVector(pool, intent);
-  // Prefer true electronic family, then lower energy, then score.
-  // Soft remnant electronic must beat mid-energy indie that merely fits the world.
   const ordered = ranked
     .slice()
     .sort((a, b) => {
+      if (plan.kind === "soft_focus_concentration") {
+        const energyDelta = feature(a.track.energy, 1) - feature(b.track.energy, 1);
+        if (Math.abs(energyDelta) > 0.03) return energyDelta;
+        return b.score - a.score;
+      }
       const ae = trackFamily(a.track) === "electronic" ? 1 : 0;
       const be = trackFamily(b.track) === "electronic" ? 1 : 0;
       if (ae !== be) return be - ae;
@@ -293,18 +383,24 @@ export function preferSubSceneSoftUniverse<T extends IntentCollapseTrack>(
   plan: SubSceneRetrievalPlan,
   targetCount: number,
 ): RankedCandidateSelection<T> {
-  if (plan.kind !== "soft_electronic_aftermath") return selection;
+  if (plan.kind !== "soft_electronic_aftermath" && plan.kind !== "soft_focus_concentration") {
+    return selection;
+  }
   const energyHi = plan.energyHi ?? 0.62;
   const soft = selection.selected
     .filter((t) => feature(t.energy, 1) <= energyHi)
     .sort((a, b) => feature(a.energy, 1) - feature(b.energy, 1));
-  // Activate with modest soft supply — comedown libraries are often thin.
-  if (soft.length < 4) return selection;
+  // Soft focus: activate on any soft remnant — never keep a peak-house majority.
+  // Soft aftermath: activate with modest soft supply (comedown libraries are thin).
+  const minSoft = plan.kind === "soft_focus_concentration" ? 1 : 4;
+  if (soft.length < minSoft) return selection;
 
   const peakBudget =
-    soft.length >= Math.max(16, Math.ceil(targetCount * 0.9))
+    plan.kind === "soft_focus_concentration"
       ? 0
-      : Math.max(2, Math.ceil(targetCount * 0.12));
+      : soft.length >= Math.max(16, Math.ceil(targetCount * 0.9))
+        ? 0
+        : Math.max(2, Math.ceil(targetCount * 0.12));
   const peak = selection.selected
     .filter((t) => feature(t.energy, 1) > energyHi)
     .sort((a, b) => feature(a.energy, 1) - feature(b.energy, 1))

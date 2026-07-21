@@ -32,7 +32,7 @@ export type SessionArtistGravityOpts<T extends { artistName?: string | null; sco
 };
 
 const GENERIC_NON_ARTIST =
-  /\b(?:music|songs?|tracks?|playlist|mix|vibes?|hits|rock|pop|rap|jazz|country|electronic|metal|party|gym|focus|chill|study|workout|driving|sleep|rainy|morning|night|upbeat|calm|slow|fast|classic|nostalgic|energy|work|gaming|disco|soul|funk|punk|indie|alternative|ambient|house|techno|garage|dance|hip hop|hip-hop|r&b|blues|folk|reggae|latin|kpop|jpop|greatest|only|pure|just)\b/i;
+  /\b(?:music|songs?|tracks?|playlist|mix|vibes?|hits|rock|pop|rap|jazz|country|electronic|metal|party|gym|focus|chill|study|workout|driving|sleep|rainy|morning|night|upbeat|calm|slow|fast|classic|nostalgic|energy|work|gaming|disco|soul|funk|punk|indie|alternative|ambient|house|techno|garage|dance|hip hop|hip-hop|r&b|blues|folk|reggae|latin|kpop|jpop|greatest|only|pure|just|goth|gothic|grunge|lofi|lo-fi|darkwave|synthwave|retrowave|cyberpunk|tek|boss|rage|quiet|neon|christmas|xmas|festive)\b/i;
 
 function defaultScore(track: { score?: number }): number {
   return typeof track.score === "number" ? track.score : 0.5;

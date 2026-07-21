@@ -35,6 +35,7 @@ export function runCoherenceRebuildLoop<T extends CoherenceAuditTrack>(opts: {
   scenePrediction?: Record<string, number>;
   sceneLock?: SceneLockStatus | null;
   sceneAliases?: string[];
+  prompt?: string | null;
   playlistLength?: number;
   maxPerArtist?: number;
   maxIterations?: number;
@@ -46,6 +47,7 @@ export function runCoherenceRebuildLoop<T extends CoherenceAuditTrack>(opts: {
     sceneLock: opts.sceneLock ?? null,
     sceneAliases: opts.sceneAliases,
     scenePrediction: opts.scenePrediction,
+    prompt: opts.prompt ?? undefined,
   });
 
   let working = [...opts.tracks];

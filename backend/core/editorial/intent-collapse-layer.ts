@@ -150,6 +150,13 @@ export const EDITORIAL_WORLD_ARCHETYPE_COMPAT: Record<string, string[]> = {
   hip_hop_session: ["gym_confidence_boost", "modern_hiphop_focus", "energetic_workout"],
   rnb_soul_evening: ["late_night_rnb", "late_night_indie_interior", "light_pop_sunday"],
   metal_intensity: ["gym_confidence_boost", "festival_electronic", "energetic_workout"],
+  goth_darkwave_night: ["nocturnal_alt", "late_night_indie"],
+  grunge_90s_night: ["nocturnal_alt", "mellow_alt_stroll"],
+  lofi_study_loop: ["ambient_focus_study", "coding_flow"],
+  boss_fight_intensity: ["gym_confidence_boost"],
+  quiet_rage_simmer: ["nocturnal_alt"],
+  rave_comedown_afterglow: ["late_night_indie", "nocturnal_alt"],
+  sleepy_gym_chill: ["gym_confidence_boost"],
 };
 
 const EDITORIAL_WORLDS: EditorialWorldDefinition[] = [
@@ -588,6 +595,111 @@ const EDITORIAL_WORLDS: EditorialWorldDefinition[] = [
     nostalgiaBias: 0.25,
     sonicAggressionCeiling: 0.85,
   },
+  {
+    tag: "goth_darkwave_night",
+    cohesionScore: 0.93,
+    primaryFamilies: ["rock", "indie", "electronic"],
+    allowedMicroClusters: ["rock:balanced", "indie:balanced", "electronic:balanced", "rock:dense"],
+    moods: ["nocturnal", "melancholic", "intense"],
+    sceneTypes: ["night"],
+    narrativeTags: ["goth", "gothic", "darkwave", "post-punk", "industrial", "batcave", "coldwave"],
+    energyRange: [0.38, 0.68],
+    valenceTarget: -0.15,
+    rhythmDensityCap: 0.62,
+    vocalPresenceTarget: 0.72,
+    nostalgiaBias: 0.55,
+    sonicAggressionCeiling: 0.55,
+  },
+  {
+    tag: "boss_fight_intensity",
+    cohesionScore: 0.92,
+    primaryFamilies: ["electronic", "metal", "rock", "soundtrack"],
+    allowedMicroClusters: ["electronic:dense", "metal:dense", "rock:dense", "soundtrack:dense"],
+    moods: ["energetic", "intense"],
+    sceneTypes: ["gym"],
+    narrativeTags: ["boss", "fight", "battle", "combat", "epic", "game", "intensity"],
+    energyRange: [0.72, 0.95],
+    valenceTarget: 0.10,
+    rhythmDensityCap: 0.88,
+    vocalPresenceTarget: 0.55,
+    nostalgiaBias: 0.18,
+    sonicAggressionCeiling: 0.92,
+  },
+  {
+    tag: "lofi_study_loop",
+    cohesionScore: 0.94,
+    primaryFamilies: ["indie", "electronic", "jazz", "hip_hop"],
+    allowedMicroClusters: ["indie:balanced", "electronic:balanced", "jazz:balanced", "hip_hop:balanced"],
+    moods: ["calm", "focus", "reflective"],
+    sceneTypes: ["study"],
+    narrativeTags: ["lofi", "lo-fi", "chillhop", "study", "beats", "instrumental", "soft"],
+    energyRange: [0.18, 0.42],
+    valenceTarget: 0.05,
+    rhythmDensityCap: 0.48,
+    vocalPresenceTarget: 0.35,
+    nostalgiaBias: 0.35,
+    sonicAggressionCeiling: 0.28,
+  },
+  {
+    tag: "quiet_rage_simmer",
+    cohesionScore: 0.91,
+    primaryFamilies: ["rock", "indie", "metal"],
+    allowedMicroClusters: ["rock:balanced", "indie:balanced", "rock:dense", "metal:balanced"],
+    moods: ["intense", "melancholic", "nocturnal"],
+    sceneTypes: ["night"],
+    narrativeTags: ["quiet rage", "simmer", "repressed", "anger", "tension", "grit"],
+    energyRange: [0.42, 0.68],
+    valenceTarget: -0.20,
+    rhythmDensityCap: 0.58,
+    vocalPresenceTarget: 0.7,
+    nostalgiaBias: 0.35,
+    sonicAggressionCeiling: 0.62,
+  },
+  {
+    tag: "grunge_90s_night",
+    cohesionScore: 0.94,
+    primaryFamilies: ["rock"],
+    allowedMicroClusters: ["rock:balanced", "rock:dense", "rock:rhythmic", "indie:balanced"],
+    moods: ["melancholic", "intense", "nocturnal"],
+    sceneTypes: ["night"],
+    narrativeTags: ["grunge", "seattle", "90s", "alternative rock", "dark", "cloudy"],
+    energyRange: [0.42, 0.72],
+    valenceTarget: -0.22,
+    rhythmDensityCap: 0.62,
+    vocalPresenceTarget: 0.78,
+    nostalgiaBias: 0.62,
+    sonicAggressionCeiling: 0.62,
+  },
+  {
+    tag: "rave_comedown_afterglow",
+    cohesionScore: 0.92,
+    primaryFamilies: ["indie", "electronic"],
+    allowedMicroClusters: ["indie:balanced", "electronic:balanced", "indie:electronic", "electronic:rhythmic"],
+    moods: ["melancholic", "nocturnal", "calm"],
+    sceneTypes: ["night", "commute"],
+    narrativeTags: ["comedown", "afterparty", "rave", "bus", "soft", "remnant", "ambient"],
+    energyRange: [0.18, 0.48],
+    valenceTarget: -0.12,
+    rhythmDensityCap: 0.52,
+    vocalPresenceTarget: 0.55,
+    nostalgiaBias: 0.38,
+    sonicAggressionCeiling: 0.32,
+  },
+  {
+    tag: "sleepy_gym_chill",
+    cohesionScore: 0.90,
+    primaryFamilies: ["indie", "electronic", "hip_hop"],
+    allowedMicroClusters: ["indie:balanced", "electronic:balanced", "hip_hop:balanced", "indie:rhythmic"],
+    moods: ["calm", "energetic"],
+    sceneTypes: ["gym"],
+    narrativeTags: ["sleepy", "gym", "workout", "chill", "low energy", "warm up"],
+    energyRange: [0.32, 0.58],
+    valenceTarget: 0.08,
+    rhythmDensityCap: 0.58,
+    vocalPresenceTarget: 0.65,
+    nostalgiaBias: 0.28,
+    sonicAggressionCeiling: 0.42,
+  },
 ];
 
 export class IntentCollapseInsufficientPoolError extends Error {
@@ -716,6 +828,11 @@ function dominantFilterRejectionReason(
 
 const DEALBREAKER_AGGRESSION_MARGIN = 0.12;
 const OPENING_INTENT_SCORE_FLOOR = 0.36;
+/** Minimum editorial score for tracks already verified in-world under hard lock. */
+const HARD_LOCK_VERIFIED_INTENT_FLOOR = 0.42;
+
+/** Minimum tracks HQG will honestly publish under hard-lock thin supply. */
+export const HONEST_PARTIAL_MIN = 3;
 
 function countIntentFilterSurvivors<T extends IntentCollapseTrack>(
   tracks: T[],
@@ -806,10 +923,20 @@ export function rankCandidatesByIntentVector<T extends IntentCollapseTrack>(
   tracks: T[],
   intent: EditorialIntentVector,
   fingerprintBias?: Map<string, number>,
+  opts?: {
+    hardWorldLock?: boolean;
+    worldVerifiedIds?: Set<string>;
+  },
 ): Array<{ track: T; score: number }> {
   return tracks
     .map((track) => {
       let score = scoreEditorialIntentMatch(track, intent);
+      if (
+        opts?.hardWorldLock &&
+        opts.worldVerifiedIds?.has(track.trackId)
+      ) {
+        score = Math.max(score, HARD_LOCK_VERIFIED_INTENT_FLOOR);
+      }
       const bias = fingerprintBias?.get(track.trackId);
       if (bias != null) score = clamp01(score * 0.85 + bias * 0.15);
       return { track, score };
@@ -840,11 +967,16 @@ export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
     targetCount: number;
     strictMode: boolean;
     fingerprintBias?: Map<string, number>;
+    hardWorldLock?: boolean;
+    worldVerifiedIds?: Set<string>;
   },
 ): RankedCandidateSelection<T> {
   const minPool = minimumIntentPoolSize(opts.targetCount, opts.strictMode);
   const targetSize = Math.min(tracks.length, targetSamplerUniverseSize(opts.targetCount, opts.strictMode));
-  const ranked = rankCandidatesByIntentVector(tracks, intent, opts.fingerprintBias);
+  const ranked = rankCandidatesByIntentVector(tracks, intent, opts.fingerprintBias, {
+    hardWorldLock: opts.hardWorldLock,
+    worldVerifiedIds: opts.worldVerifiedIds,
+  });
 
   if (ranked.length === 0) {
     return { selected: [], scores: new Map(), avgScore: 0, minScoreUsed: 0, rankedTotal: 0 };
@@ -941,7 +1073,14 @@ export function selectRankedCandidatesForSampler<T extends IntentCollapseTrack>(
     }
   }
 
-  const output = outputRows.slice(0, targetSize);
+  let output = outputRows.slice(0, targetSize);
+
+  if (opts.hardWorldLock && opts.worldVerifiedIds && opts.worldVerifiedIds.size > 0) {
+    output = ensureHardLockVerifiedSamplerUniverse(output, tracks, opts.worldVerifiedIds, {
+      targetCount: opts.targetCount,
+      strictMode: opts.strictMode,
+    });
+  }
 
   const scores = new Map(output.map((row) => [row.track.trackId, row.score]));
   const avgScore = output.length > 0
@@ -966,6 +1105,8 @@ export function recoverSamplerUniverse<T extends IntentCollapseTrack>(
     targetCount: number;
     strictMode: boolean;
     fingerprintBias?: Map<string, number>;
+    hardWorldLock?: boolean;
+    worldVerifiedIds?: Set<string>;
   },
 ): RankedCandidateSelection<T> {
   const minPool = minimumIntentPoolSize(opts.targetCount, opts.strictMode);
@@ -1014,12 +1155,146 @@ export function absoluteIntentPoolFloor(targetCount: number): number {
   return Math.max(6, Math.min(10, Math.ceil(targetCount * 0.22)));
 }
 
+/** Hard-lock proceed target: honest partial when library supply is thin. */
+export function hardLockVerifiedProceedTarget(
+  targetCount: number,
+  verifiedInWorldDepth: number,
+): number | null {
+  if (verifiedInWorldDepth < HONEST_PARTIAL_MIN) return null;
+  return Math.min(absoluteIntentPoolFloor(targetCount), verifiedInWorldDepth);
+}
+
 /** Minimum intent-pool size before HTTP 422 — enough to compose a degraded playlist. */
-export function intentPoolDeliveryFloor(targetCount: number): number {
-  return Math.max(
-    absoluteIntentPoolFloor(targetCount),
-    Math.ceil(targetCount * 0.72),
+export function intentPoolDeliveryFloor(
+  targetCount: number,
+  opts?: { hardWorldLock?: boolean; verifiedInWorldDepth?: number },
+): number {
+  const absolute = absoluteIntentPoolFloor(targetCount);
+  const standard = Math.max(absolute, Math.ceil(targetCount * 0.72));
+  const verified = opts?.verifiedInWorldDepth ?? 0;
+  if (opts?.hardWorldLock) {
+    const thinTarget = hardLockVerifiedProceedTarget(targetCount, verified);
+    if (thinTarget != null) return thinTarget;
+    // Verified but below honest-partial min: floor at verified depth so we never
+    // open the off-world emergency pad path just to chase floor ~22.
+    if (verified > 0 && verified < HONEST_PARTIAL_MIN) return verified;
+  }
+  return standard;
+}
+
+/** Widen intent bands for prompt modifiers (e.g. danceable goth). */
+export function applyPromptIntentModifiers(
+  intent: EditorialIntentVector,
+  vibe: string,
+): EditorialIntentVector {
+  const lower = vibe.toLowerCase();
+  if (/\bdanceable\b/.test(lower) && intent.editorialWorldTag === "goth_darkwave_night") {
+    return {
+      ...intent,
+      rhythmDensityCap: Math.min(0.78, intent.rhythmDensityCap + 0.16),
+      energyRange: [intent.energyRange[0], Math.min(0.82, intent.energyRange[1] + 0.16)],
+      sonicAggressionCeiling: Math.min(0.68, intent.sonicAggressionCeiling + 0.12),
+      valenceMaxDeviation: Math.max(intent.valenceMaxDeviation ?? 0.25, 0.38),
+      allowedMicroClusters: [...new Set([
+        ...intent.allowedMicroClusters,
+        "rock:rhythmic",
+        "electronic:rhythmic",
+        "indie:rhythmic",
+      ])],
+    };
+  }
+  if (
+    /\bpost[-\s]?punk\b/i.test(lower) &&
+    (intent.editorialWorldTag === "goth_darkwave_night" || intent.editorialWorldTag === "late_night_indie_interior")
+  ) {
+    return {
+      ...intent,
+      relaxGenreFamilyFilter: true,
+      energyRange: [Math.max(0.32, intent.energyRange[0] - 0.06), Math.min(0.72, intent.energyRange[1] + 0.08)],
+      valenceMaxDeviation: Math.max(intent.valenceMaxDeviation ?? 0.25, 0.32),
+    };
+  }
+  if (intent.editorialWorldTag === "sleepy_gym_chill") {
+    return {
+      ...intent,
+      relaxGenreFamilyFilter: true,
+      energyRange: [0.28, Math.min(0.68, intent.energyRange[1] + 0.12)],
+      rhythmDensityCap: Math.min(0.68, intent.rhythmDensityCap + 0.1),
+      sonicAggressionCeiling: Math.min(0.42, intent.sonicAggressionCeiling + 0.1),
+    };
+  }
+  if (intent.editorialWorldTag === "rave_comedown_afterglow") {
+    return {
+      ...intent,
+      relaxGenreFamilyFilter: true,
+      energyRange: [0.14, Math.min(0.58, intent.energyRange[1] + 0.1)],
+      valenceMaxDeviation: Math.max(intent.valenceMaxDeviation ?? 0.25, 0.34),
+    };
+  }
+  if (/\bemotional\b/i.test(lower) && intent.editorialWorldTag === "boss_fight_intensity") {
+    return {
+      ...intent,
+      energyRange: [Math.max(0.42, intent.energyRange[0] - 0.22), intent.energyRange[1]],
+      valenceMaxDeviation: Math.max(intent.valenceMaxDeviation ?? 0.25, 0.42),
+      sonicAggressionCeiling: Math.min(0.88, intent.sonicAggressionCeiling + 0.06),
+      allowedMicroClusters: [...new Set([
+        ...intent.allowedMicroClusters,
+        "soundtrack:balanced",
+        "indie:balanced",
+        "electronic:balanced",
+      ])],
+    };
+  }
+  return intent;
+}
+
+/** Under hard lock, keep world-verified supply in the sampler universe. */
+export function ensureHardLockVerifiedSamplerUniverse<T extends IntentCollapseTrack>(
+  selected: Array<{ track: T; score: number }>,
+  universe: T[],
+  verifiedIds: Set<string>,
+  opts: { targetCount: number; strictMode: boolean },
+): Array<{ track: T; score: number }> {
+  const thinTarget = hardLockVerifiedProceedTarget(opts.targetCount, verifiedIds.size);
+  const salvageFloor = thinTarget ?? absoluteIntentPoolFloor(opts.targetCount);
+  const minRequired = Math.min(
+    minimumIntentPoolSize(opts.targetCount, opts.strictMode),
+    salvageFloor,
+    verifiedIds.size,
+    targetSamplerUniverseSize(opts.targetCount, opts.strictMode),
   );
+  if (selected.length >= minRequired) return selected;
+
+  const selectedIds = new Set(selected.map((row) => row.track.trackId));
+  const output = [...selected];
+  for (const track of universe) {
+    if (output.length >= minRequired) break;
+    if (!verifiedIds.has(track.trackId) || selectedIds.has(track.trackId)) continue;
+    output.push({ track, score: HARD_LOCK_VERIFIED_INTENT_FLOOR });
+    selectedIds.add(track.trackId);
+  }
+  return output;
+}
+
+/** Keep verified in-world supply in composed playlists when lanes/interleaver over-filter. */
+export function salvageHardLockVerifiedTracks<T extends { trackId: string }>(
+  composed: T[],
+  universe: T[],
+  verifiedIds: Set<string>,
+  targetCount: number,
+): T[] {
+  const thinTarget = hardLockVerifiedProceedTarget(targetCount, verifiedIds.size);
+  if (thinTarget == null) return composed;
+  if (composed.length >= thinTarget) return composed;
+  const seen = new Set(composed.map((track) => track.trackId));
+  const out = [...composed];
+  for (const track of universe) {
+    if (out.length >= thinTarget) break;
+    if (!verifiedIds.has(track.trackId) || seen.has(track.trackId)) continue;
+    out.push(track);
+    seen.add(track.trackId);
+  }
+  return out;
 }
 
 export function trackPassesOpeningIntentScore(
@@ -1186,6 +1461,27 @@ export function selectEditorialWorld(opts: {
   if (discoPartyCompound) {
     const discoWorld = EDITORIAL_WORLDS.find((row) => row.tag === "disco_party_nostalgia");
     if (discoWorld) return discoWorld;
+  }
+
+  // Strong musical worlds must win over library-majority soft worlds
+  // (Human Curator Reality Audit: goth→reggae, lofi→Journey, boss→Bon Iver).
+  const forcedWorldTag =
+    /\bgoth(?:ic)?\b|\bdarkwave\b|\bpost[-\s]?punk\b/i.test(lower) ? "goth_darkwave_night"
+    : /\blo-?fi\b|\bchillhop\b|\bstudy\s+beats?\b/i.test(lower) ? "lofi_study_loop"
+    : /\bboss\s+(?:fight|battle)\b|\bfinal\s+boss\b/i.test(lower) ? "boss_fight_intensity"
+    : /\bquiet\s+rage\b|\bsimmer(?:ing)?\s+(?:rage|anger)\b|\brepressed\s+(?:rage|anger)\b/i.test(lower)
+      ? "quiet_rage_simmer"
+    : /\bgrunge\b|\bseattle\s+(?:sound|grunge)\b/i.test(lower) ? "grunge_90s_night"
+    : /\b(?:rave|club)\s+comedown\b|\bpost[-\s]?rave\b|\bcomedown\b.*\b(?:bus|rave|club|after)\b/i.test(lower)
+      ? "rave_comedown_afterglow"
+    : /\bsleepy\s+gym\b|\bchill\s+(?:gym|workout)\b|\bgym\b.*\b(?:sleepy|chill|low\s+energy)\b/i.test(lower)
+      ? "sleepy_gym_chill"
+    : /\bneon\s+(?:drive|city|streets?|nights?|tek)|synthwave|retrowave|cyberpunk|hard\s+techno\b/i.test(lower)
+      ? "night_drive_electronic"
+    : null;
+  if (forcedWorldTag) {
+    const forced = EDITORIAL_WORLDS.find((row) => row.tag === forcedWorldTag);
+    if (forced) return forced;
   }
 
   // Soft-electronic aftermath (comedown / afterparty) is not a study session —
@@ -1802,6 +2098,8 @@ export function reinforceOpeningEditorialWorldLock<T extends IntentCollapseTrack
   sampledLanes: Array<{ laneId: string; tracks: T[] }>;
   intent: EditorialIntentVector;
   openingSize?: number;
+  hardWorldLock?: boolean;
+  worldVerifiedIds?: Set<string>;
 }): {
   sampledLanes: Array<{ laneId: string; tracks: T[] }>;
   openingEligibleCount: number;
@@ -1814,7 +2112,10 @@ export function reinforceOpeningEditorialWorldLock<T extends IntentCollapseTrack
 
   const filterLanes = (floor: number) => opts.sampledLanes.map((lane) => ({
     laneId: lane.laneId,
-    tracks: lane.tracks.filter((track) => scoreEditorialIntentMatch(track, opts.intent) >= floor),
+    tracks: lane.tracks.filter((track) =>
+      (opts.hardWorldLock && opts.worldVerifiedIds?.has(track.trackId)) ||
+      scoreEditorialIntentMatch(track, opts.intent) >= floor,
+    ),
   }));
 
   let floor = OPENING_INTENT_SCORE_FLOOR;

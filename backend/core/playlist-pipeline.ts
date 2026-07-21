@@ -46,6 +46,11 @@ import {
   isTrackInWorld,
   type WorldBoundary,
 } from "./world-boundary";
+import {
+  passesWorldIdentity,
+  worldIdentityProfilesForLock,
+} from "./editorial/world-identity-gate";
+import { HONEST_PARTIAL_MIN } from "./editorial/intent-collapse-layer";
 import { scorePlaylistCoherence } from "./playlist-coherence-audit";
 import type { GenerationPolicy } from "../lib/library-generation-policy";
 import type { EmotionProfile, VibeKind } from "../lib/emotion";
@@ -178,6 +183,11 @@ export interface BuildPlaylistPipelineOpts<T extends {
   artistIds?: unknown;
 }> {
   likedSongs: T[];
+  /**
+   * Full library for hard-lock world identity scan/seed. Scoring may use a
+   * hybrid-capped `likedSongs` subset; without this, Cure/Nirvana supply is invisible.
+   */
+  worldIdentityLibrary?: T[];
   vibe: string;
   mode: "strict" | "balanced" | "chaotic";
   playlistLength: number;
@@ -1706,6 +1716,8 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     semanticMaxBoost?: number;
     retrievalBreadth?: number;
     escapeDiversityRatio?: number;
+    /** Fill missing artist/title/genres from liked-song rows before world identity checks. */
+    enrichTrack?: (track: T) => T;
   } = {},
 ): Promise<RetrievalPools<T>> {
   const MIN_BROAD_RETRIEVAL_POOL = 120;
@@ -1716,11 +1728,23 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     scenePrediction: opts.scenePrediction,
     prompt: contract.rawPrompt,
   });
-  let contractSafeTracks = enforceIntentContract(tracks, contract, classMap);
+  const identityReadyTracks = opts.enrichTrack ? tracks.map((track) => opts.enrichTrack!(track)) : tracks;
+  let contractSafeTracks = enforceIntentContract(identityReadyTracks, contract, classMap);
   if (worldBoundary.active) {
-    const worldFiltered = hardRejectOffWorldTracks(contractSafeTracks, worldBoundary, classMap);
-    if (worldFiltered.kept.length >= Math.min(30, Math.max(12, Math.floor(tracks.length * 0.08)))) {
-      contractSafeTracks = worldFiltered.kept;
+    // Hard lock: filter the full scored/seeded pool, not only contract-safe rows.
+    // Intent contract (era/subgenre) often empties before world identity can keep
+    // Nirvana/Cure/etc. that the library actually has — then we refuse at 0.
+    const worldSource = worldBoundary.hardLock ? identityReadyTracks : contractSafeTracks;
+    const worldFiltered = hardRejectOffWorldTracks(worldSource, worldBoundary, classMap);
+    if (worldBoundary.hardLock) {
+      const inWorldIds = new Set(worldFiltered.kept.map((track) => track.trackId));
+      const contractInWorld = contractSafeTracks.filter((track) => inWorldIds.has(track.trackId));
+      // Prefer contract ∩ world when non-empty; otherwise honest in-world underfill.
+      contractSafeTracks = (contractInWorld.length > 0 ? contractInWorld : worldFiltered.kept) as typeof contractSafeTracks;
+    } else if (
+      worldFiltered.kept.length >= Math.min(30, Math.max(12, Math.floor(tracks.length * 0.08)))
+    ) {
+      contractSafeTracks = worldFiltered.kept as typeof contractSafeTracks;
     }
   }
   await yieldPipeline();
@@ -1895,14 +1919,25 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
   const sceneCompatibleRankSource = sceneActive
     ? contractRankSource.filter((track) => {
         if (worldBoundary.active) {
+          const enriched = opts.enrichTrack ? opts.enrichTrack(track) : track;
+          const classification = classMap.get(enriched.trackId);
           return isTrackInWorld(
             {
-              trackId: track.trackId,
-              genreFamily: genreFamilyForTrack(track, classMap),
-              genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? null,
+              trackId: enriched.trackId,
+              trackName: enriched.trackName ?? null,
+              artistName: enriched.artistName ?? null,
+              albumName: (enriched as T & { albumName?: string | null }).albumName ?? null,
+              genreFamily: genreFamilyForTrack(enriched, classMap),
+              genrePrimary: classification?.genrePrimary ?? null,
+              genres: classification?.subGenres ?? null,
+              energy: enriched.energy ?? null,
+              valence: enriched.valence ?? null,
+              danceability: enriched.danceability ?? null,
+              popularity: (enriched as T & { popularity?: number | null }).popularity ?? null,
+              spotifyArtistGenres: (enriched as T & { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
             },
             worldBoundary,
-            genreFamilyForTrack(track, classMap),
+            genreFamilyForTrack(enriched, classMap),
           );
         }
         return !sceneMismatchFor(track);
@@ -2130,30 +2165,49 @@ async function buildRetrievalPools<T extends ScoredLibraryTrack<IntentContractTr
     (track as T & { explorationDistance?: number }).explorationDistance != null
   );
   const worldDiscoverySource = worldBoundary.active
-    ? discovery.filter((track) => isTrackInWorld(
-      { trackId: track.trackId, genreFamily: genreFamilyForTrack(track, classMap) },
-      worldBoundary,
-      genreFamilyForTrack(track, classMap),
-    ))
+    ? discovery.filter((track) => {
+      const classification = classMap.get(track.trackId);
+      return isTrackInWorld(
+        {
+          trackId: track.trackId,
+          trackName: track.trackName ?? null,
+          artistName: track.artistName ?? null,
+          albumName: (track as T & { albumName?: string | null }).albumName ?? null,
+          genreFamily: genreFamilyForTrack(track, classMap),
+          genrePrimary: classification?.genrePrimary ?? null,
+          genres: classification?.subGenres ?? null,
+          energy: track.energy ?? null,
+          valence: track.valence ?? null,
+          danceability: track.danceability ?? null,
+          popularity: (track as T & { popularity?: number | null }).popularity ?? null,
+          spotifyArtistGenres: (track as T & { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+        },
+        worldBoundary,
+        genreFamilyForTrack(track, classMap),
+      );
+    })
     : discovery;
   const breadth = opts.retrievalBreadth ?? 1;
   const escapeRatio = opts.escapeDiversityRatio ?? 0.18;
-  const coreLimit = Math.ceil((worldBoundary.hardLock ? 170 : 220) * breadth);
-  const anchorLimit = Math.ceil((worldBoundary.hardLock ? 55 : 75) * breadth);
+  // Prefer depth inside the locked world over breadth into adjacent universes.
+  const coreLimit = Math.ceil((worldBoundary.hardLock ? 260 : 220) * breadth);
+  const anchorLimit = Math.ceil((worldBoundary.hardLock ? 80 : 75) * breadth);
   const adjacentLimit = Math.ceil(140 * breadth);
   const bridgeLimit = Math.ceil(120 * breadth);
   const energyArcLimit = Math.ceil(120 * breadth);
-  const discoveryLimit = Math.ceil((worldBoundary.hardLock ? 80 : 140) * breadth * (1 + escapeRatio));
+  const discoveryLimit = Math.ceil((worldBoundary.hardLock ? 120 : 140) * breadth * (1 + escapeRatio));
+  const discoveryPool = worldBoundary.active
+    ? (worldDiscoverySource.length > 0
+      ? worldDiscoverySource
+      : sceneCompatibleRankSource.slice().reverse())
+    : (worldDiscoverySource.length > 0 ? worldDiscoverySource : contractRanked.slice().reverse());
   return {
     core: takeUnique(coreSource, coreLimit),
     anchor: takeUnique(anchor, anchorLimit),
     adjacent: takeUnique(worldBoundary.hardLock ? [] : adjacent, adjacentLimit),
     bridge: takeUnique(worldBoundary.hardLock ? coreSource : [...adjacent, ...contractRanked], bridgeLimit),
     energyArc: takeUnique(energyArc, energyArcLimit),
-    discovery: takeUnique(
-      worldDiscoverySource.length > 0 ? worldDiscoverySource : contractRanked.slice().reverse(),
-      discoveryLimit,
-    ),
+    discovery: takeUnique(discoveryPool, discoveryLimit),
     diagnostics: {
       inputCount: tracks.length,
       shapedRankSourceCount: shapedRankSource.length,
@@ -4171,6 +4225,161 @@ export async function buildPlaylistPipeline<T extends {
     scenePrediction: opts.postScore.scenePrediction,
     prompt: opts.vibe,
   });
+  // Hard-lock identity must see the full library, not the hybrid scoring cap.
+  const worldScanLibrary =
+    opts.worldIdentityLibrary && opts.worldIdentityLibrary.length > 0
+      ? opts.worldIdentityLibrary
+      : opts.likedSongs;
+  const likedIdentityById = new Map(
+    worldScanLibrary.map((song) => [
+      song.trackId,
+      {
+        trackName: song.trackName ?? null,
+        artistName: song.artistName ?? null,
+        albumName: song.albumName ?? null,
+        spotifyArtistGenres: (song as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+      },
+    ]),
+  );
+  const enrichWorldIdentity = <TTrack extends {
+    trackId: string;
+    trackName?: string | null;
+    artistName?: string | null;
+    albumName?: string | null;
+    spotifyArtistGenres?: unknown;
+  }>(
+    track: TTrack,
+  ): TTrack & { spotifyArtistGenres?: unknown } => {
+    const liked = likedIdentityById.get(track.trackId);
+    if (!liked) return track;
+    const trackGenres = track.spotifyArtistGenres;
+    const hasTrackGenres = Array.isArray(trackGenres) && trackGenres.length > 0;
+    return {
+      ...track,
+      trackName: track.trackName?.trim() ? track.trackName : liked.trackName,
+      artistName: track.artistName?.trim() ? track.artistName : liked.artistName,
+      albumName: track.albumName?.trim() ? track.albumName : liked.albumName,
+      spotifyArtistGenres: hasTrackGenres ? trackGenres : liked.spotifyArtistGenres,
+    };
+  };
+
+  const worldVerifiedTrackIds = new Set<string>();
+  const worldIdentityProfiles = (): ReturnType<typeof worldIdentityProfilesForLock> =>
+    worldIdentityProfilesForLock({
+      reason: worldBoundary.reason,
+      anchors: worldBoundary.lockAnchors,
+      prompt: opts.vibe,
+    });
+  const scanWorldVerifiedFromLibrary = (): void => {
+    if (!worldBoundary.hardLock) return;
+    const profiles = worldIdentityProfiles();
+    if (profiles.length === 0) return;
+    for (const song of worldScanLibrary) {
+      const enriched = enrichWorldIdentity(song as T & { trackId: string });
+      const classification = classMap.get(song.trackId);
+      if (
+        passesWorldIdentity(
+          {
+            trackName: enriched.trackName ?? null,
+            artistName: enriched.artistName ?? null,
+            albumName: enriched.albumName ?? null,
+            genrePrimary: classification?.genrePrimary ?? null,
+            genreFamily: classification?.genreFamily ?? null,
+            genres: classification?.subGenres ?? null,
+            spotifyArtistGenres: (enriched as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+            albumGenres: (enriched as { albumGenres?: unknown }).albumGenres,
+            energy: song.energy ?? null,
+            valence: song.valence ?? null,
+            danceability: song.danceability ?? null,
+            instrumentalness: (song as T & { instrumentalness?: number | null }).instrumentalness ?? null,
+            popularity: (song as T & { popularity?: number | null }).popularity ?? null,
+          },
+          profiles,
+          { hardLock: true },
+        )
+      ) {
+        worldVerifiedTrackIds.add(song.trackId);
+      }
+    }
+  };
+  const mergeVerifiedPrimaryScoredPool = (
+    pool: ScoredLibraryTrack<T>[],
+    verified: T[],
+  ): ScoredLibraryTrack<T>[] => {
+    if (verified.length < HONEST_PARTIAL_MIN) return pool;
+    const seen = new Set<string>();
+    const out: ScoredLibraryTrack<T>[] = [];
+    for (const track of verified) {
+      if (seen.has(track.trackId)) continue;
+      seen.add(track.trackId);
+      out.push({
+        ...(track as ScoredLibraryTrack<T>),
+        score: (track as ScoredLibraryTrack<T>).score ?? 0.58,
+      });
+    }
+    for (const track of pool) {
+      if (seen.has(track.trackId)) continue;
+      seen.add(track.trackId);
+      out.push(track);
+    }
+    return out;
+  };
+
+  // Hard world lock: hybrid scoring caps often drop the actual in-world supply
+  // (Nirvana/Cure sitting outside the top-N vibe-ranked pool). Seed them back
+  // from the full liked library before retrieval so purity does not refuse at 0.
+  if (worldBoundary.active && worldBoundary.hardLock) {
+    scanWorldVerifiedFromLibrary();
+    const scoredIds = new Set(scoring.sorted.map((track) => track.trackId));
+    const seeded: ScoredLibraryTrack<T>[] = [];
+    for (const song of worldScanLibrary) {
+      if (!worldVerifiedTrackIds.has(song.trackId) || scoredIds.has(song.trackId)) continue;
+      const enriched = enrichWorldIdentity(song as T & { trackId: string });
+      const classification = classMap.get(song.trackId);
+      seeded.push({
+        ...(enriched as T),
+        score: 0.62,
+        rediscoveryScore: 0,
+        scoringDebug: {
+          trackId: song.trackId,
+          sceneScore: 0.62,
+          libraryFitScore: 0.55,
+          genreBalanceScore: 0.55,
+          sceneMatch: 0.7,
+          emotionMatch: 0.5,
+          genreMatch: 0.7,
+          memoryMatch: 0.5,
+          noveltyScore: 0,
+          seasonalMatch: 0.5,
+          moodPurity: 0.55,
+          genrePrimary: classification?.genrePrimary ?? "unknown",
+          genreConfidence: classification ? 0.6 : 0,
+          genreLocked: false,
+          excludedBy: null,
+          finalScore: 0.62,
+        },
+      } as ScoredLibraryTrack<T>);
+      scoredIds.add(song.trackId);
+    }
+    if (seeded.length > 0 || worldVerifiedTrackIds.size > 0) {
+      if (seeded.length > 0) {
+        scoring.sorted = [...seeded, ...scoring.sorted];
+        scoring.scored = [...seeded, ...scoring.scored];
+      }
+      opts.pipelineLog?.info(
+        {
+          hardLockWorld: worldBoundary.dominantScene ?? worldBoundary.reason,
+          seededInWorld: seeded.length,
+          verifiedInLibrary: worldVerifiedTrackIds.size,
+          worldScanLibrarySize: worldScanLibrary.length,
+          scoringInputSize: opts.likedSongs.length,
+          scoredPoolAfterSeed: scoring.sorted.length,
+        },
+        "Hard-lock in-world seed from full library",
+      );
+    }
+  }
+
   const endRetrievalProfile = opts.profileStage?.("pipeline.retrieval", `${scoring.sorted.length} scored tracks`);
   const semanticProfiles = buildSemanticProfileMap(
     opts.likedSongs.map((song) => {
@@ -4248,6 +4457,7 @@ export async function buildPlaylistPipeline<T extends {
         ...semanticRetrievalOpts,
         retrievalBreadth: policy?.retrievalBreadth,
         escapeDiversityRatio: policy?.escapeDiversityRatio,
+        enrichTrack: (track) => enrichWorldIdentity(track),
       },
     );
     if (opts.shouldAbort?.()) abortPipeline("retrieval");
@@ -4644,6 +4854,120 @@ export async function buildPlaylistPipeline<T extends {
       ? "pre_ranking_pool_empty"
       : "pre_ranking_pool_below_min_safe_pool";
   }
+
+  // Hard world lock: deepen inside the same world only — never adjacent/global fillers.
+  if (worldBoundary.active && worldBoundary.hardLock) {
+    const scoredById = new Map(
+      (scoring.sorted as ScoredLibraryTrack<T>[]).map((track) => [track.trackId, track]),
+    );
+    const inWorldDepth: ScoredLibraryTrack<T>[] = [];
+    const seenDepth = new Set<string>();
+    const consider = (track: ScoredLibraryTrack<T> | T) => {
+      if (seenDepth.has(track.trackId)) return;
+      const enriched = enrichWorldIdentity(track as T & { trackId: string });
+      const classification = classMap.get(track.trackId);
+      const family = genreFamilyForTrack(
+        {
+          trackId: track.trackId,
+          genrePrimary: classification?.genrePrimary ?? (track as T & { genrePrimary?: string | null }).genrePrimary ?? null,
+        },
+        classMap,
+      );
+      if (
+        !isTrackInWorld(
+          {
+            trackId: track.trackId,
+            trackName: enriched.trackName ?? null,
+            artistName: enriched.artistName ?? null,
+            albumName: enriched.albumName ?? null,
+            genreFamily: family,
+            genrePrimary: classification?.genrePrimary ?? (track as { genrePrimary?: string | null }).genrePrimary ?? null,
+            genres: classification?.subGenres ?? null,
+            energy: track.energy ?? null,
+            valence: track.valence ?? null,
+            danceability: track.danceability ?? null,
+            popularity: (track as T & { popularity?: number | null }).popularity ?? null,
+            spotifyArtistGenres: (enriched as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+          },
+          worldBoundary,
+          family,
+        )
+      ) {
+        return;
+      }
+      seenDepth.add(track.trackId);
+      worldVerifiedTrackIds.add(track.trackId);
+      const scored = scoredById.get(track.trackId);
+      if (scored) {
+        inWorldDepth.push(enrichWorldIdentity(scored));
+        return;
+      }
+      inWorldDepth.push({
+        ...(enriched as T),
+        score: (track as ScoredLibraryTrack<T>).score ?? 0.55,
+        rediscoveryScore: (track as ScoredLibraryTrack<T>).rediscoveryScore ?? 0,
+      } as ScoredLibraryTrack<T>);
+    };
+    for (const track of scoring.sorted as ScoredLibraryTrack<T>[]) consider(track);
+    for (const song of worldScanLibrary) consider(song as T);
+    scanWorldVerifiedFromLibrary();
+    const verifiedDepthLimit = Math.max(
+      minSafePreRankingPool,
+      opts.playlistLength * 4,
+      worldVerifiedTrackIds.size,
+    );
+    if (inWorldDepth.length > 0) {
+      contractGuardedScoredPool = appendUnique(
+        contractGuardedScoredPool,
+        inWorldDepth,
+        verifiedDepthLimit,
+      );
+      fallbackExpansionPath.push(`in_world_depth:${contractGuardedScoredPool.length}`);
+    }
+    const purifiedPreRank = hardRejectOffWorldTracks(
+      contractGuardedScoredPool.map((track) => enrichWorldIdentity(track)),
+      worldBoundary,
+      classMap,
+    );
+    contractGuardedScoredPool = purifiedPreRank.kept;
+  }
+
+  scanWorldVerifiedFromLibrary();
+  const buildWorldVerifiedV3Pool = (): T[] => {
+    if (!worldBoundary.hardLock || worldVerifiedTrackIds.size === 0) return [];
+    const verifiedById = new Map<string, T>();
+    for (const track of contractGuardedScoredPool) {
+      if (worldVerifiedTrackIds.has(track.trackId)) {
+        verifiedById.set(track.trackId, track as T);
+      }
+    }
+    for (const song of worldScanLibrary) {
+      if (!worldVerifiedTrackIds.has(song.trackId) || verifiedById.has(song.trackId)) continue;
+      verifiedById.set(song.trackId, enrichWorldIdentity(song as T));
+    }
+    const pool: T[] = [];
+    for (const trackId of worldVerifiedTrackIds) {
+      const track = verifiedById.get(trackId);
+      if (track) pool.push(track);
+    }
+    return pool;
+  };
+  let worldVerifiedV3Pool = buildWorldVerifiedV3Pool();
+  if (worldBoundary.hardLock && worldVerifiedV3Pool.length >= HONEST_PARTIAL_MIN) {
+    contractGuardedScoredPool = mergeVerifiedPrimaryScoredPool(
+      contractGuardedScoredPool,
+      worldVerifiedV3Pool,
+    );
+    opts.pipelineLog?.info(
+      {
+        verifiedInLibrary: worldVerifiedTrackIds.size,
+        verifiedV3PoolCount: worldVerifiedV3Pool.length,
+        contractPoolAfterVerifiedMerge: contractGuardedScoredPool.length,
+      },
+      "Hard-lock verified pool merged into pre-V3 scoring input",
+    );
+  }
+
   const originScoreBoost = (origin: "subgenre" | "family" | "text" | "fallback"): number => {
     switch (origin) {
       case "subgenre":
@@ -4845,6 +5169,8 @@ export async function buildPlaylistPipeline<T extends {
     active: worldBoundary.active,
     hardLock: worldBoundary.hardLock,
     dominantScene: worldBoundary.dominantScene,
+    verifiedInWorldCount: worldVerifiedTrackIds.size,
+    verifiedV3PoolCount: worldVerifiedV3Pool.length,
   };
   if (worldBoundary.active) {
     const enrichedForWorld = contractGuardedScoredPool.map((track) => ({
@@ -4854,18 +5180,29 @@ export async function buildPlaylistPipeline<T extends {
       tempo: track.tempo,
       danceability: track.danceability,
       acousticness: track.acousticness,
+      trackName: track.trackName ?? null,
       artistName: track.artistName,
+      albumName: (track as T & { albumName?: string | null }).albumName ?? null,
       genrePrimary: classMap.get(track.trackId)?.genrePrimary ?? null,
       genreFamily: trackGenreFamilyForBoundary(
         { trackId: track.trackId, genrePrimary: track.genrePrimary ?? null },
         classMap,
       ),
+      genres: classMap.get(track.trackId)?.subGenres ?? null,
+      spotifyArtistGenres: (track as T & { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+      popularity: (track as T & { popularity?: number | null }).popularity ?? null,
       score: track.score,
     }));
     const preFiltered = preCoherenceWorldFilter(enrichedForWorld, worldBoundary, v3LockedIntent);
     const preFilteredIds = new Set(preFiltered.map((t) => t.trackId));
     const beforeCount = contractGuardedScoredPool.length;
     contractGuardedScoredPool = contractGuardedScoredPool.filter((track) => preFilteredIds.has(track.trackId));
+    if (worldBoundary.hardLock && worldVerifiedV3Pool.length >= HONEST_PARTIAL_MIN) {
+      contractGuardedScoredPool = mergeVerifiedPrimaryScoredPool(
+        contractGuardedScoredPool,
+        worldVerifiedV3Pool,
+      );
+    }
     worldBoundaryDiagnostics = {
       ...worldBoundaryDiagnostics,
       preCoherenceFilter: {
@@ -4984,10 +5321,19 @@ export async function buildPlaylistPipeline<T extends {
             Math.floor(stableUnitHash(`${baseLabel}:${seedVariant}`) * 4096),
         })),
       ).slice(0, MAX_CANDIDATE_PLAYLISTS);
-  const executableCandidateInputs = candidateInputs.slice(
-    0,
-    retrievalSafetyExpanded ? EDITORIAL_INTERPRETATION_COUNT : MAX_CANDIDATE_PLAYLISTS,
-  );
+  const executableCandidateInputs = (() => {
+    const base = candidateInputs.slice(
+      0,
+      retrievalSafetyExpanded ? EDITORIAL_INTERPRETATION_COUNT : MAX_CANDIDATE_PLAYLISTS,
+    );
+    // Hard world lock with real in-library identity supply: one V3 pass is enough.
+    // Multi-candidate tournaments were burning the full audit budget (~4min) and
+    // returning empty 409s for rainy/cozy worlds that already had 50+ verified tracks.
+    if (worldBoundary.hardLock && worldVerifiedV3Pool.length >= HONEST_PARTIAL_MIN) {
+      return base.slice(0, 1);
+    }
+    return base;
+  })();
   const skippedCandidateAttemptCount = Math.max(0, candidateInputs.length - executableCandidateInputs.length);
   executionDepth =
     1 +
@@ -5066,13 +5412,21 @@ export async function buildPlaylistPipeline<T extends {
     Math.floor(stableUnitHash(opts.vibe) * 10_000) +
     (opts.requestId ? Math.floor(stableUnitHash(opts.requestId) * 1_000) : 0);
 
+  const hardLockVerifiedCandidatePool =
+    worldBoundary.hardLock && worldVerifiedV3Pool.length >= HONEST_PARTIAL_MIN
+      ? mergeVerifiedPrimaryScoredPool(
+          capV3SafetyPool(contractGuardedScoredPool),
+          worldVerifiedV3Pool,
+        )
+      : null;
   // Phase A — prepare each candidate's pool and V3 input (cheap; pool build is cached per
   // interpretation). This is deterministic and does not mutate shared state.
   const prepared: PreparedCandidate[] = [];
   for (const candidate of executableCandidateInputs) {
     await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
     if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
-    const inputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
+    const baseInputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
+    const inputPool = (hardLockVerifiedCandidatePool ?? baseInputPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
     stageStartedAt = Date.now();
     const endCandidateGenerationProfile = opts.profileStage?.(`pipeline.candidateGeneration.${candidate.label}`, `${inputPool.length} input tracks`);
     let candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
@@ -5108,9 +5462,24 @@ export async function buildPlaylistPipeline<T extends {
       candidatePool.tracks as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
       sharedRetrievalPool,
     ) as unknown as T[];
-    const v3Tracks = v3InputTracks.length > 0
+    let v3Tracks = v3InputTracks.length > 0
       ? v3InputTracks
       : (capV3SafetyPool(contractGuardedScoredPool) as unknown as T[]);
+    if (worldVerifiedV3Pool.length >= HONEST_PARTIAL_MIN) {
+      const seen = new Set<string>();
+      const merged: T[] = [];
+      for (const track of worldVerifiedV3Pool) {
+        if (seen.has(track.trackId)) continue;
+        seen.add(track.trackId);
+        merged.push(track);
+      }
+      for (const track of v3Tracks) {
+        if (seen.has(track.trackId)) continue;
+        seen.add(track.trackId);
+        merged.push(track);
+      }
+      v3Tracks = merged;
+    }
     prepared.push({ candidate, inputPool, candidatePool, v3Tracks, v3InputTracks, seed: candidateSeed(candidate) });
   }
 
@@ -5150,10 +5519,16 @@ export async function buildPlaylistPipeline<T extends {
         libraryFingerprint,
         dominantIntentGates,
         samplerInterpretation: p.candidate.interpretation,
+        artistEcosystemGraph,
         shouldSkipMarginalImprovement: opts2.deterministicFullPolish
           ? () => false
           : opts.shouldSkipMarginalImprovement,
         onGoodPlaylistReady: opts.onGoodPlaylistReady,
+        hardWorldLock: worldBoundary.hardLock,
+        worldVerifiedTrackIds: worldBoundary.hardLock ? worldVerifiedTrackIds : undefined,
+        worldVerifiedTracks: worldBoundary.hardLock && worldVerifiedV3Pool.length >= HONEST_PARTIAL_MIN
+          ? worldVerifiedV3Pool
+          : undefined,
       }
     );
 
@@ -5194,6 +5569,9 @@ export async function buildPlaylistPipeline<T extends {
         libraryFingerprint,
         dominantIntentGates,
         diagnosticsMode: opts.diagnosticsMode ?? "minimal",
+        artistEcosystemGraph,
+        hardWorldLock: worldBoundary.hardLock,
+        worldVerifiedTrackIds: worldBoundary.hardLock ? [...worldVerifiedTrackIds] : undefined,
       };
       const tasks = prepared.map((p) => ({
         v3Tracks: p.v3Tracks,
@@ -5527,7 +5905,7 @@ export async function buildPlaylistPipeline<T extends {
   // V3 output is the selected candidate list. Post-V3 recovery guards are bounded
   // to the existing candidate pool and never re-enter retrieval, scoring, or V3.
   let finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
-  const qualityRecoveryCandidatePool = selectedCandidate.inputPool.map((track) => ({
+  let qualityRecoveryCandidatePool = selectedCandidate.inputPool.map((track) => ({
     ...(track as unknown as V3MetadataTrack<T>),
     selectedByV3: (track as V3MetadataTrack<T>).selectedByV3 ?? false,
     sourceLane: (track as V3MetadataTrack<T>).sourceLane ?? "quality_recovery",
@@ -5536,6 +5914,20 @@ export async function buildPlaylistPipeline<T extends {
     clusterId: (track as V3MetadataTrack<T>).clusterId ?? genreFamilyForTrack(track, classMap),
     clusterIds: (track as V3MetadataTrack<T>).clusterIds ?? [genreFamilyForTrack(track, classMap)].filter((value): value is string => !!value),
   })) as ScoredLibraryTrack<V3MetadataTrack<T>>[];
+  if (worldBoundary.active) {
+    const purified = hardRejectOffWorldTracks(
+      qualityRecoveryCandidatePool.map((track) => enrichWorldIdentity(track)),
+      worldBoundary,
+      classMap,
+    );
+    qualityRecoveryCandidatePool = purified.kept as ScoredLibraryTrack<V3MetadataTrack<T>>[];
+    const finalPurified = hardRejectOffWorldTracks(
+      finalTracksList.map((track) => enrichWorldIdentity(track)),
+      worldBoundary,
+      classMap,
+    );
+    finalTracksList = finalPurified.kept as V3MetadataTrack<T>[];
+  }
   const qualityRecoveryDiagnostics: Record<string, unknown> = {
     candidatePoolSize: qualityRecoveryCandidatePool.length,
     qualityLock: { implemented: true, executed: false },
@@ -5680,6 +6072,19 @@ export async function buildPlaylistPipeline<T extends {
     }
   }
 
+  // Final world-purity strip after recovery/rerank — never reintroduce off-world fillers.
+  if (worldBoundary.active && finalTracksList.length > 0) {
+    const postRecoveryPurified = hardRejectOffWorldTracks(
+      finalTracksList.map((track) => enrichWorldIdentity(track)),
+      worldBoundary,
+      classMap,
+    );
+    if (postRecoveryPurified.rejected.length > 0) {
+      finalTracksList = postRecoveryPurified.kept as V3MetadataTrack<T>[];
+      qualityRecoveryDiagnostics["postRecoveryWorldPurity"] = postRecoveryPurified.diagnostics;
+    }
+  }
+
   const finalHardFilterTrace = {
     stage: "final hard-filter count",
     before: v3.finalTracks.length,
@@ -5758,6 +6163,7 @@ export async function buildPlaylistPipeline<T extends {
       genreForecast: scoring.genreForecast,
       sceneInfluenceRatio: scoring.sceneInfluenceRatio,
       stabilityDiagnostics: scoring.stabilityDiagnostics,
+      hardWorldLock: worldBoundary.hardLock,
     });
     const enforcedTracks = enforcedResolved.tracks.length > 0
       ? enforcedResolved.tracks
@@ -5965,6 +6371,7 @@ export async function buildPlaylistPipeline<T extends {
       genreForecast: scoring.genreForecast,
       sceneInfluenceRatio: scoring.sceneInfluenceRatio,
       stabilityDiagnostics: scoring.stabilityDiagnostics,
+      hardWorldLock: worldBoundary.hardLock,
     });
     if (enforcedFallback.tracks.length === 0) {
       const resolvedFallback = resolveFinalTracks(fallbackPool, "fallback_enforcement_empty") ??
@@ -6057,12 +6464,15 @@ export async function buildPlaylistPipeline<T extends {
       code: "CRITICAL_PIPELINE_BUG",
       message: "All fallback layers failed",
     });
-    const emergencyFallback = resolveFinalTracks(lastResortPool, "emergency_guard");
-    if (emergencyFallback) return emergencyFallback;
-    const emergencyScoredFallback = resolveFinalTracks(emergencyScoredPool, "emergency_scored_pool");
-    if (emergencyScoredFallback) return emergencyScoredFallback;
+    // Hard world lock: never emergency-pad from unfiltered pools (safety-blanket refill).
+    if (!worldBoundary.hardLock) {
+      const emergencyFallback = resolveFinalTracks(lastResortPool, "emergency_guard");
+      if (emergencyFallback) return emergencyFallback;
+      const emergencyScoredFallback = resolveFinalTracks(emergencyScoredPool, "emergency_scored_pool");
+      if (emergencyScoredFallback) return emergencyScoredFallback;
+    }
   }
-  if (finalTracksList.length < opts.playlistLength) {
+  if (finalTracksList.length < opts.playlistLength && !worldBoundary.hardLock) {
     const resolvedUnderfill = resolveFinalTracks(
       [
         ...(finalTracksList as unknown as ScoredLibraryTrack<T>[]),
@@ -6073,6 +6483,25 @@ export async function buildPlaylistPipeline<T extends {
     );
     if (resolvedUnderfill && resolvedUnderfill.finalTracks.length > finalTracksList.length) {
       return resolvedUnderfill;
+    }
+  }
+  // Hard world lock: deepen only with in-world candidates; never pad to length with off-world.
+  if (finalTracksList.length < opts.playlistLength && worldBoundary.hardLock) {
+    const inWorldFill = hardRejectOffWorldTracks(
+      orderFallbackPool([
+        ...(finalTracksList as unknown as ScoredLibraryTrack<T>[]),
+        ...lastResortPool,
+        ...emergencyScoredPool,
+      ]),
+      worldBoundary,
+      classMap,
+    ).kept;
+    if (inWorldFill.length > finalTracksList.length) {
+      finalTracksList = inWorldFill.slice(0, opts.playlistLength) as V3MetadataTrack<T>[];
+      qualityRecoveryDiagnostics["inWorldUnderfill"] = {
+        before: finalTracksList.length,
+        pool: inWorldFill.length,
+      };
     }
   }
 
@@ -6088,6 +6517,14 @@ export async function buildPlaylistPipeline<T extends {
     finalTracksList = finalAntiBlandness.tracks as T[];
   }
   finalTracksList = guardStructuralDiversity(finalTracksList);
+  // Absolute last purity strip — structural/anti-bland swaps must not reintroduce off-world.
+  if (worldBoundary.active && finalTracksList.length > 0) {
+    finalTracksList = hardRejectOffWorldTracks(
+      finalTracksList.map((track) => enrichWorldIdentity(track)),
+      worldBoundary,
+      classMap,
+    ).kept as V3MetadataTrack<T>[];
+  }
   qualityRecoveryDiagnostics["antiBlandness"] = {
     ...finalAntiBlandness.diagnostics,
     executed: true,

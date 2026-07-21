@@ -301,6 +301,14 @@ function humanPhraseIntentHints(input: string): HumanPhraseIntentHints {
 
 function expandedActivity(input: string): string | null {
   if (hasGarageToken(input) && !hasGarageMusicContext(input)) return "focus";
+  // Coding / productivity "sprint" and work flow are focus — never gym.
+  if (
+    /\b(?:coding|productivity|design|shipping)\s+sprint\b/i.test(input) ||
+    /\b(?:work\s*flow|workflow|deep\s+work)\b/i.test(input) ||
+    (/\bcoding\b/i.test(input) && !/\b(?:gym|workout|lifting|cardio)\b/i.test(input))
+  ) {
+    return "focus";
+  }
   const hit = Object.entries(EXPANDED_ACTIVITY_TERMS)
     .find(([, terms]) => termRegex(terms).test(input))?.[0] ?? null;
   if (hit === "workout") return "gym";

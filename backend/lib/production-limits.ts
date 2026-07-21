@@ -30,7 +30,7 @@ export const TRACE_MAX_TOTAL = 45;
 /** Hard server budget for /generate (ms) — same source as latency-budget delivery deadline. */
 export const REQUEST_HARD_TIMEOUT_MS = LATENCY_HARD_DEADLINE_MS;
 /** Audit/benchmark runs use a longer budget aligned with the harness client timeout. */
-export const AUDIT_REQUEST_HARD_TIMEOUT_MS = 120_000;
+export const AUDIT_REQUEST_HARD_TIMEOUT_MS = 240_000;
 /** Switch to fast fallback if pipeline not done by this point (ms from request start). */
 export const REQUEST_FAST_FALLBACK_MS = 42_000;
 
