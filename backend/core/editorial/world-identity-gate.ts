@@ -95,12 +95,12 @@ export const SAFETY_BLANKET_ARTISTS: SafetyBlanketArtist[] = [
   {
     id: "kasabian",
     pattern: /\bkasabian\b/i,
-    naturalWorlds: ["indie_dream_world", "nostalgia_warm_world", "grunge_world"],
+    naturalWorlds: ["britpop_world", "nostalgia_warm_world", "grunge_world"],
   },
   {
     id: "q_lazzarus",
     pattern: /\bq\s+lazzarus\b/i,
-    naturalWorlds: ["goth_world", "indie_dream_world"],
+    naturalWorlds: ["goth_world"],
   },
   {
     id: "glenn_frey",
@@ -156,6 +156,12 @@ const STRICT_WORLD_IDS = new Set([
   "late_night_calm_world",
   "rnb_night_world",
   "britpop_world",
+  "film_ending_world",
+  "dad_secret_world",
+  "older_sibling_world",
+  "latin_summer_rooftop_world",
+  "commute_world",
+  "first_date_world",
 ]);
 
 const GOTH_IDENTITY: WorldIdentityProfile = {
@@ -397,8 +403,8 @@ const FEEL_GOOD_IDENTITY: WorldIdentityProfile = {
     /\b(?:abba|bee\s+gees|chaka\s+khan|bruno\s+mars|dua\s+lipa|mark\s+ronson|calvin\s+harris|pharrell|justin\s+timberlake|kool\s+&\s+the\s+gang|daryl\s+hall|glass\s+animals|vampire\s+weekend)\b/i,
   ],
   rejectAny: [
-    /\b(?:death\s+metal|black\s+metal|hardcore|drill\b|phonk|hard\s+techno|doom|psychedelic|slowcore|sadcore)\b/i,
-    /\b(?:slipknot|cannibal|dmx\b|storm\s+queen|tame\s+impala|kasabian|q\s+lazzarus|glenn\s+frey)\b/i,
+    /\b(?:death\s+metal|black\s+metal|hardcore|drill\b|phonk|hard\s+techno|doom|psychedelic|slowcore|sadcore|punk|post[-\s]?punk|emo|grunge|metal|shoegaze|meme)\b/i,
+    /\b(?:slipknot|cannibal|dmx\b|storm\s+queen|tame\s+impala|kasabian|q\s+lazzarus|glenn\s+frey|iggy\s+pop|jack\s+stauber|panic\s+at|my\s+chemical|fall\s+out\s+boy|paramore)\b/i,
   ],
   energy: { min: 0.42 },
   valence: { min: 0.48 },
@@ -625,6 +631,85 @@ const BRITPOP_IDENTITY: WorldIdentityProfile = {
   valence: { min: 0.38 },
 };
 
+const FILM_ENDING_IDENTITY: WorldIdentityProfile = {
+  id: "film_ending_world",
+  requireAny: [
+    /\b(?:cinematic|orchestral|post[-\s]?rock|ambient\s+pop|chamber|score|soundtrack|art\s+rock|slowcore|shoegaze|neoclassical)\b/i,
+    /\b(?:sigur\s+ros|explosions\s+in\s+the\s+sky|godspeed|radiohead|moby|max\s+richter|olafur|james\s+blake|bon\s+iver|sufjan)\b/i,
+  ],
+  rejectAny: [
+    /\b(?:party|club|gym|trap\b|drill\b|brostep|hard\s+techno|pop\s*punk)\b/i,
+    /\b(?:kasabian|q\s+lazzarus|tame\s+impala|ac\/?dc|def\s+leppard|glenn\s+frey)\b/i,
+  ],
+  energy: { max: 0.72 },
+  valence: { max: 0.65 },
+};
+
+const DAD_SECRET_IDENTITY: WorldIdentityProfile = {
+  id: "dad_secret_world",
+  requireAny: [
+    /\b(?:classic\s+rock|soft\s+rock|yacht\s+rock|arena|heartland|dad\s+rock|album\s+rock|blue[-\s]?eyed\s+soul)\b/i,
+    /\b(?:billy\s+joel|fleetwood\s+mac|eagles|tom\s+petty|bruce\s+springsteen|hall\s+&\s+oates|phil\s+collins|steely\s+dan|boston|journey|foreigner|reo\s+speedwagon)\b/i,
+  ],
+  rejectAny: [
+    /\b(?:drill\b|phonk|hyperpop|trap\b|metalcore|screamo|emo)\b/i,
+    /\b(?:kasabian|q\s+lazzarus|tame\s+impala|jack\s+stauber)\b/i,
+  ],
+};
+
+const OLDER_SIBLING_IDENTITY: WorldIdentityProfile = {
+  id: "older_sibling_world",
+  requireAny: [
+    /\b(?:indie\s+rock|britpop|alt(?:ernative)?\s+rock|post[-\s]?punk\s+revival|garage\s+rock|new\s+wave)\b/i,
+    /\b(?:arctic\s+monkeys|the\s+strokes|franz\s+ferdinand|interpol|yeah\s+yeah\s+yeahs|the\s+killers|vampire\s+weekend|blur|pulp|suede|kasabian)\b/i,
+  ],
+  rejectAny: [
+    /\b(?:country|classical|christmas|drill\b|phonk)\b/i,
+    /\b(?:q\s+lazzarus|tame\s+impala|glenn\s+frey)\b/i,
+  ],
+};
+
+const LATIN_SUMMER_ROOFTOP_IDENTITY: WorldIdentityProfile = {
+  id: "latin_summer_rooftop_world",
+  requireAny: [
+    /\b(?:latin|reggaeton|salsa|bachata|cumbia|urbano|latin\s+pop|dembow|merengue)\b/i,
+    /\b(?:bad\s+bunny|j\s+balvin|shakira|maluma|ozuna|daddy\s+yankee|rosalia|anitta)\b/i,
+  ],
+  rejectAny: [
+    /\b(?:metal|country|bluegrass|christmas|goth|grunge)\b/i,
+    /\b(?:kasabian|tame\s+impala|q\s+lazzarus|blondie|fleetwood\s+mac|storm\s+queen)\b/i,
+  ],
+  energy: { min: 0.45 },
+  danceability: { min: 0.48 },
+};
+
+const COMMUTE_WORLD_IDENTITY: WorldIdentityProfile = {
+  id: "commute_world",
+  requireAny: [
+    /\b(?:pop|indie\s+pop|electropop|alt\s+pop|synth\s*pop|dance\s*pop)\b/i,
+    /\b(?:dua\s+lipa|taylor\s+swift|harry\s+styles|the\s+1975|chvrches|carly\s+rae|mark\s+ronson|calvin\s+harris)\b/i,
+  ],
+  rejectAny: [
+    /\b(?:doom|funeral|death\s+metal|slowcore|sadcore)\b/i,
+    /\b(?:kasabian|q\s+lazzarus|dmx\b|storm\s+queen)\b/i,
+  ],
+  energy: { min: 0.38, max: 0.78 },
+};
+
+const FIRST_DATE_IDENTITY: WorldIdentityProfile = {
+  id: "first_date_world",
+  requireAny: [
+    /\b(?:indie\s+pop|bedroom\s+pop|soul|r&b|rnb|soft\s+rock|dream\s+pop)\b/i,
+    /\b(?:clairo|mac\s+demarco|khruangbin|norah\s+jones|lianne\s+la\s+havas|daniel\s+caesar|phoebe)\b/i,
+  ],
+  rejectAny: [
+    /\b(?:metal|hardcore|drill\b|screamo|gym)\b/i,
+    /\b(?:kasabian|q\s+lazzarus|iggy\s+pop)\b/i,
+  ],
+  energy: { max: 0.68 },
+  valence: { min: 0.35 },
+};
+
 const COMEDOWN_IDENTITY: WorldIdentityProfile = {
   id: "rave_comedown",
   requireAny: [
@@ -675,6 +760,12 @@ const IDENTITY_BY_LOCK_ID: Record<string, WorldIdentityProfile> = {
   late_night_calm_world: LATE_NIGHT_CALM_IDENTITY,
   rnb_night_world: RNB_NIGHT_IDENTITY,
   britpop_world: BRITPOP_IDENTITY,
+  film_ending_world: FILM_ENDING_IDENTITY,
+  dad_secret_world: DAD_SECRET_IDENTITY,
+  older_sibling_world: OLDER_SIBLING_IDENTITY,
+  latin_summer_rooftop_world: LATIN_SUMMER_ROOFTOP_IDENTITY,
+  commute_world: COMMUTE_WORLD_IDENTITY,
+  first_date_world: FIRST_DATE_IDENTITY,
   melancholy_drive: {
     id: "melancholy_drive",
     requireAny: [
@@ -837,6 +928,24 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   if (/\bbritpop\b/i.test(p)) {
     ids.push("britpop_world");
   }
+  if (/\b(?:film ending|feels like a film ending|expensive and cinematic)\b/i.test(p)) {
+    ids.push("film_ending_world");
+  }
+  if (/\b(?:songs?\s+my\s+dad|dad would secretly)\b/i.test(p)) {
+    ids.push("dad_secret_world");
+  }
+  if (/\b(?:cool\s+older\s+sibling|older\s+sibling)\b/i.test(p)) {
+    ids.push("older_sibling_world");
+  }
+  if (/\blatin\s+summer\s+rooftop\b|\blatin.*rooftop\b/i.test(p)) {
+    ids.push("latin_summer_rooftop_world");
+  }
+  if (/\bcommute\b|\btrain delayed\b/i.test(p)) {
+    ids.push("commute_world");
+  }
+  if (/\bfirst\s+date\b/i.test(p)) {
+    ids.push("first_date_world");
+  }
 
   // Vague lifestyle prompts: commit one everyday world when no named lock fired.
   if (ids.length === 0) {
@@ -897,6 +1006,44 @@ export function stripRetrievalFillerTracks<T extends { artistName?: string | nul
     tracks: [...clean, ...filler.slice(0, need)],
     removed: removed.slice(need),
   };
+}
+
+/** Psych-indie / retrieval filler artists that must not anchor openers outside natural worlds. */
+const OPENER_FILLER_PATTERN =
+  /\b(?:kasabian|q\s+lazzarus|tame\s+impala|glenn\s+frey|arctic\s+monkeys|the\s+weeknd)\b/i;
+
+/**
+ * Demote opener-slot filler artists to the tail — prevents Kasabian → Q Lazzarus chains
+ * without stripping supply when the library is thin.
+ */
+export function demoteOpenerFillerTracks<T extends { artistName?: string | null; artist?: string | null }>(
+  tracks: T[],
+  activeWorldIds: string[],
+  openerSlots = 3,
+): { tracks: T[]; demoted: Array<{ artist: string; fromIndex: number; toIndex: number }> } {
+  if (tracks.length <= openerSlots || activeWorldIds.length === 0) {
+    return { tracks, demoted: [] };
+  }
+  const out = tracks.slice();
+  const demoted: Array<{ artist: string; fromIndex: number; toIndex: number }> = [];
+  let openerFillerCount = 0;
+
+  for (let i = 0; i < Math.min(openerSlots, out.length); i++) {
+    const artist = String(out[i]!.artistName ?? out[i]!.artist ?? "").trim();
+    if (!artist || !OPENER_FILLER_PATTERN.test(artist)) continue;
+    if (!isSafetyBlanketOutsideWorld(artist, activeWorldIds)) continue;
+    openerFillerCount += 1;
+    if (openerFillerCount >= 2 || i < 2) {
+      const [track] = out.splice(i, 1);
+      if (track) {
+        out.push(track);
+        demoted.push({ artist, fromIndex: i, toIndex: out.length - 1 });
+        i -= 1;
+      }
+    }
+  }
+
+  return { tracks: out, demoted };
 }
 
 export function worldIdentityProfilesForLock(opts: {

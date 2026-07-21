@@ -266,6 +266,7 @@ import {
   evaluateHumanQualityGate,
   HumanQualityGateError,
 } from "../core/editorial/human-quality-gate";
+import { scoreFeelGoodLanePurity } from "../core/editorial/world-coherence-score";
 import { isSoftScenePrompt } from "../core/scene-world-layer";
 import { runExpectationShadow } from "../core/expectation/shadow";
 import { runPlaylistExpectation } from "../core/expectation/playlist-evaluation";
@@ -429,6 +430,7 @@ import { hardRejectOffWorldTracks, isTrackInWorld, resolveWorldBoundary } from "
 import {
   inferWorldIdentityIdsFromPrompt,
   stripRetrievalFillerTracks,
+  demoteOpenerFillerTracks,
 } from "../core/editorial/world-identity-gate";
 import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
 import { buildPlaylistSegments, orderTracksByPlaylistSegments, type EmotionalArc } from "../core/emotional-arc-planner";
@@ -12150,6 +12152,16 @@ router.post("/generate", async (req, res): Promise<void> => {
         uniqueArtistCount: artistCounts.size,
         dominantArtistShare,
         promptLabel: vibe,
+        activeWorldId: inferWorldIdentityIdsFromPrompt(vibe)[0] ?? null,
+        feelGoodLanePurity: inferWorldIdentityIdsFromPrompt(vibe).includes("feel_good_world")
+          ? scoreFeelGoodLanePurity(
+              delivery.tracks.map((t) => ({
+                artistName: t.artistName,
+                genreFamily: t.genreFamily,
+                genrePrimary: t.genrePrimary,
+              })),
+            ).purity
+          : null,
       });
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],
@@ -13017,6 +13029,20 @@ router.post("/generate", async (req, res): Promise<void> => {
           },
         };
       }
+      const openerDemote = demoteOpenerFillerTracks(finalApiTracks, inferredWorldIds, 3);
+      if (openerDemote.demoted.length > 0) {
+        finalApiTracks = openerDemote.tracks;
+        const keptIds = new Set(finalApiTracks.map((track) => track.id));
+        deliveredTracks = deliveredTracks.filter((track) => keptIds.has(track.trackId));
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            openerFillerDemoted: openerDemote.demoted.length,
+            openerFillerDemotedArtists: openerDemote.demoted.slice(0, 8),
+          },
+        };
+      }
     }
     // Hard length invariant: never return more tracks than the user requested.
     // compilePlan may inflate `length` for internal pool/fill; response must still
@@ -13054,6 +13080,16 @@ router.post("/generate", async (req, res): Promise<void> => {
           }),
         degradedDelivery: finalization.diagnostics["degradedDelivery"] === true,
         promptLabel: vibe,
+        activeWorldId: inferredWorldIds[0] ?? null,
+        feelGoodLanePurity: inferredWorldIds.includes("feel_good_world")
+          ? scoreFeelGoodLanePurity(
+              finalApiTracks.map((track) => ({
+                artistName: track.artists?.[0]?.name ?? (track as { artistName?: string }).artistName,
+                genreFamily: (track as { genreFamily?: string }).genreFamily,
+                genrePrimary: (track as { genrePrimary?: string }).genrePrimary,
+              })),
+            ).purity
+          : null,
       });
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],

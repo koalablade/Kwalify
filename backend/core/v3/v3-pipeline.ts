@@ -35,6 +35,7 @@ import {
   computeDominantWorldDensity,
   computeWorldCoherenceScore,
   scoreDominantWorldDensity,
+  scoreFeelGoodLanePurity,
   scoreRetrievalEntropy,
 } from "../editorial/world-coherence-score";
 import {
@@ -42,6 +43,7 @@ import {
   HumanQualityGateError,
   type HumanQualityGateResult,
 } from "../editorial/human-quality-gate";
+import { inferWorldIdentityIdsFromPrompt } from "../editorial/world-identity-gate";
 import { promptSuppressesChristmas } from "../../lib/human-scene-knowledge";
 import { artistEcosystemBoost, type ArtistEcosystemGraph } from "../../lib/artist-ecosystem-graph";
 import {
@@ -2864,6 +2866,16 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const holidayRequested =
     !holidayNegated &&
     /\b(?:christmas|xmas|festive|noel|santa|holiday\s+song|holiday\s+classics)\b/i.test(vibe);
+  const inferredWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
+  const feelGoodLanePurity = inferredWorldIds.includes("feel_good_world")
+    ? scoreFeelGoodLanePurity(
+        finalTracks.map((t) => ({
+          artistName: t.artistName,
+          genreFamily: t.genreFamily,
+          genrePrimary: t.genrePrimary,
+        })),
+      ).purity
+    : null;
   const humanQualityGate: HumanQualityGateResult = evaluateHumanQualityGate({
     trackCount: finalTracks.length,
     requestedLength: targetCount,
@@ -2879,6 +2891,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     uniqueArtistCount: artistCountsForGate.size,
     dominantArtistShare,
     promptLabel: vibe,
+    activeWorldId: inferredWorldIds[0] ?? null,
+    feelGoodLanePurity,
   });
   if (humanQualityGate.action === "refuse") {
     throw new HumanQualityGateError(humanQualityGate);

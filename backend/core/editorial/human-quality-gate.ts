@@ -22,7 +22,10 @@ export type HumanQualityGateInput = {
   uniqueArtistCount?: number | null;
   /** 0–1 share of tracks by the single most common artist */
   dominantArtistShare?: number | null;
-  promptLabel?: string | null;
+  /** 0–1 share of tracks in feel-good lane (funk/disco/soul/pop). */
+  feelGoodLanePurity?: number | null;
+  /** Active world id for lane-specific gates. */
+  activeWorldId?: string | null;
 };
 
 export type HumanQualityGateResult = {
@@ -140,6 +143,14 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (input.humanSavePassed === false) reasons.push("human_save_failed");
   if (artistShare != null && artistShare >= 0.55 && count >= 8) reasons.push("artist_dominance");
   if (density != null && density < 0.42 && count >= MIN_SALVAGEABLE) reasons.push("identity_drift");
+  if (
+    input.activeWorldId === "feel_good_world" &&
+    typeof input.feelGoodLanePurity === "number" &&
+    input.feelGoodLanePurity < 0.6 &&
+    count >= MIN_SALVAGEABLE
+  ) {
+    reasons.push("feel_good_lane_mash");
+  }
 
   // Salvageable means we can honestly publish what we have (including mid-stubs 3–5).
   const salvageableCount = count >= 3 ? count : 0;
@@ -184,7 +195,9 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
 
   // Honest partial: under-request or mid-stub (3–5) or degraded — publish what belongs.
   const underfilled = count < Math.ceil(requested * 0.75);
-  if (underfilled || stubUnderfill || input.degradedDelivery === true) {
+  const laneMash =
+    reasons.includes("feel_good_lane_mash") && (input.feelGoodLanePurity ?? 1) < 0.55;
+  if (underfilled || stubUnderfill || input.degradedDelivery === true || laneMash) {
     const partialReasons = reasons.length > 0 ? reasons : ["honest_underfill"];
     return {
       action: "honest_partial",

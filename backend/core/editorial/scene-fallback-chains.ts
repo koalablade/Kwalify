@@ -49,6 +49,34 @@ export const SCENE_FALLBACK_CHAINS: SceneFallbackChain[] = [
     ],
   },
   {
+    id: "film_ending_cinematic",
+    promptPattern: /\b(?:film ending|feels like a film ending|expensive and cinematic|main character walking)\b/i,
+    primaryFamilies: ["indie", "rock", "electronic"],
+    primarySubgenres: ["post_rock", "dream_pop", "shoegaze", "ambient"],
+    steps: [
+      { id: "cinematic_core", subgenres: ["post_rock", "shoegaze", "dream_pop", "ambient"], families: ["indie", "rock", "electronic"] },
+      { id: "orchestral_neighbours", subgenres: ["neoclassical", "soundtrack", "chamber"], families: ["classical", "soundtrack", "indie"] },
+      { id: "slow_indie", subgenres: ["slowcore", "indie_general"], families: ["indie"], energyMin: 0.25 },
+    ],
+  },
+  {
+    id: "latin_summer_rooftop",
+    promptPattern: /\blatin\s+summer\s+rooftop\b|\blatin.*rooftop\b|\brooftop.*(?:latin|drinks)\b/i,
+    primaryFamilies: ["latin"],
+    primarySubgenres: ["reggaeton", "latin_pop", "salsa", "bachata", "cumbia"],
+    steps: [
+      { id: "latin_rooftop_core", subgenres: ["reggaeton", "latin_pop", "salsa", "bachata", "cumbia", "urbano"], families: ["latin"] },
+      { id: "caribbean_warm", subgenres: ["dancehall", "reggae", "afrobeats"], families: ["reggae", "world", "latin"] },
+      {
+        id: "warm_pop_neighbours",
+        subgenres: [],
+        families: ["pop", "rnb"],
+        energyMin: 0.5,
+        danceMin: 0.52,
+      },
+    ],
+  },
+  {
     id: "latin_summer_party",
     promptPattern: /\b(?:latin|reggaeton|salsa|bachata|cumbia|urbano|beach\s+party|summer\s+beach)\b/i,
     primaryFamilies: ["latin"],

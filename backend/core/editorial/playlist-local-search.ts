@@ -84,11 +84,14 @@ export function improvePlaylistByLocalSearch<T extends PatternScoringTrack>(
     scoringContext?: PlaylistCurationScoringContext | null;
     /** Prefer dominant-world density over scattered genre stacks when swapping. */
     preferWorldDensity?: boolean;
+    /** Reject off-world swap candidates when world lock is active. */
+    admitTrack?: (track: PatternScoringTrack) => boolean;
   } = {},
 ): PlaylistSearchResult<T> {
   const maxIterations = opts.maxIterations ?? 48;
   const allowCharacter = opts.allowCharacterPick !== false;
   const preferWorldDensity = opts.preferWorldDensity !== false;
+  const admitTrack = opts.admitTrack;
   const scoreCache = new Map<string, number>();
   const worldCoherenceBonus = (tracks: PatternScoringTrack[]): number => {
     if (!preferWorldDensity || tracks.length < 6) return 0;
@@ -174,6 +177,7 @@ export function improvePlaylistByLocalSearch<T extends PatternScoringTrack>(
 
     for (let i = 1; i < current.length - 1; i += 3) {
       for (const candidate of pool.slice(0, 40)) {
+        if (admitTrack && !admitTrack(candidate)) continue;
         if (!artistSpacingOk(current, i, candidate)) continue;
         const replaced = current.slice();
         replaced[i] = candidate as T;
@@ -189,6 +193,7 @@ export function improvePlaylistByLocalSearch<T extends PatternScoringTrack>(
     const tailStart = Math.floor(current.length * 0.65);
     for (let i = tailStart; i < current.length; i += 2) {
       for (const candidate of pool) {
+        if (admitTrack && !admitTrack(candidate)) continue;
         const pop = candidate.popularity ?? 50;
         const discovery = candidate.rediscoveryScore ?? (100 - pop) / 100;
         if (discovery < 0.45) continue;
@@ -207,6 +212,7 @@ export function improvePlaylistByLocalSearch<T extends PatternScoringTrack>(
     if (allowCharacter && !characterPickUsed && current.length >= 12) {
       const slot = Math.floor(current.length * 0.55);
       for (const candidate of pool.slice(0, 25)) {
+        if (admitTrack && !admitTrack(candidate)) continue;
         if (!artistSpacingOk(current, slot, candidate)) continue;
         const replaced = current.slice();
         replaced[slot] = candidate as T;

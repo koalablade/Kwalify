@@ -196,8 +196,8 @@ export function resolveWorldBoundary(opts: {
         off: ["metal", "hip_hop", "latin", "reggae"],
       },
       feel_good_world: {
-        allowed: ["pop", "indie", "soul", "electronic", "rnb"],
-        off: ["metal", "classical"],
+        allowed: ["pop", "soul", "rnb", "electronic"],
+        off: ["metal", "classical", "rock", "indie", "hip_hop"],
       },
       soft_sad_world: {
         allowed: ["indie", "folk", "soul"],
@@ -261,6 +261,30 @@ export function resolveWorldBoundary(opts: {
       },
       britpop_world: {
         allowed: ["indie", "rock"],
+        off: ["metal", "hip_hop", "country", "latin"],
+      },
+      film_ending_world: {
+        allowed: ["indie", "electronic", "rock", "classical", "soundtrack"],
+        off: ["hip_hop", "metal", "country", "latin", "reggae"],
+      },
+      dad_secret_world: {
+        allowed: ["rock", "pop", "soul", "rnb"],
+        off: ["metal", "hip_hop", "electronic", "latin", "reggae"],
+      },
+      older_sibling_world: {
+        allowed: ["indie", "rock", "electronic"],
+        off: ["metal", "country", "latin", "reggae", "classical"],
+      },
+      latin_summer_rooftop_world: {
+        allowed: ["latin", "pop", "rnb", "reggae"],
+        off: ["metal", "rock", "country", "classical", "indie"],
+      },
+      commute_world: {
+        allowed: ["pop", "indie", "electronic", "rnb"],
+        off: ["metal", "country", "classical", "latin"],
+      },
+      first_date_world: {
+        allowed: ["indie", "pop", "soul", "rnb"],
         off: ["metal", "hip_hop", "country", "latin"],
       },
     };

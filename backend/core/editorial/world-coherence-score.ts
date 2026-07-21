@@ -207,3 +207,29 @@ export function computeWorldCoherenceScore(opts: {
     reasons,
   };
 }
+
+const FEEL_GOOD_FAMILIES = new Set(["pop", "soul", "rnb", "electronic", "disco", "funk"]);
+
+/**
+ * Feel-good lane purity — reject panic-rock / meme mash on disco-party prompts.
+ * Returns 0–1 share of tracks in funk/disco/soul/pop-sunshine families.
+ */
+export function scoreFeelGoodLanePurity(
+  tracks: Array<{ genreFamily?: string | null; genrePrimary?: string | null; artistName?: string | null }>,
+): { purity: number; ok: boolean } {
+  if (tracks.length === 0) return { purity: 0, ok: false };
+  let hits = 0;
+  for (const track of tracks) {
+    const family = (track.genreFamily ?? track.genrePrimary ?? "").toLowerCase();
+    const artist = (track.artistName ?? "").toLowerCase();
+    if (FEEL_GOOD_FAMILIES.has(family)) {
+      hits += 1;
+      continue;
+    }
+    if (/\b(?:abba|bee\s+gees|chaka\s+khan|donna\s+summer|chic|kool|earth\s+wind|bruno\s+mars|dua\s+lipa|mark\s+ronson|pharrell)\b/i.test(artist)) {
+      hits += 1;
+    }
+  }
+  const purity = hits / tracks.length;
+  return { purity, ok: purity >= 0.6 };
+}

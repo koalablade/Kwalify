@@ -5,12 +5,16 @@ import {
   shouldSuppressVagueWiden,
 } from "../lib/vague-world-commit";
 import { evaluatePromptReadiness } from "../lib/prompt-readiness";
-import { inferWorldIdentityIdsFromPrompt, passesWorldIdentity, stripRetrievalFillerTracks, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
+import { inferWorldIdentityIdsFromPrompt, passesWorldIdentity, stripRetrievalFillerTracks, demoteOpenerFillerTracks, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
 
 test("vague lifestyle prompts auto-commit one everyday world", () => {
   const cases: Array<[string, string]> = [
     ["happy vibes only", "feel_good_world"],
-    ["idk just make me feel something", "indie_dream_world"],
+    ["idk just make me feel something", "nostalgia_warm_world"],
+    ["what would a cool older sibling put on", "older_sibling_world"],
+    ["playlist that feels like a film ending", "film_ending_world"],
+    ["songs my dad would secretly like", "dad_secret_world"],
+    ["latin summer rooftop drinks", "latin_summer_rooftop_world"],
     ["music for cooking dinner with friends", "social_kitchen_world"],
     ["something chill for Sunday morning", "sunday_chill_world"],
     ["need energy for the gym", "gym_energy_world"],
@@ -133,6 +137,20 @@ test("stripRetrievalFillerTracks removes opener fillers when supply exists", () 
   const out = stripRetrievalFillerTracks(tracks, ["feel_good_world"], { minKeep: 3 });
   assert.ok(!out.tracks.some((t) => /tame impala|kasabian/i.test(String(t.artist))));
   assert.ok(out.tracks.length >= 3);
+});
+
+test("demoteOpenerFillerTracks moves kasabian/q opener chain to tail", () => {
+  const tracks = [
+    { artist: "Kasabian" },
+    { artist: "Q Lazzarus" },
+    { artist: "Dua Lipa" },
+    { artist: "ABBA" },
+    { artist: "Donna Summer" },
+  ];
+  const out = demoteOpenerFillerTracks(tracks, ["feel_good_world"], 3);
+  const opener = out.tracks.slice(0, 2).map((t) => String(t.artist));
+  assert.ok(!/kasabian|q lazzarus/i.test(opener.join(" ")));
+  assert.ok(out.demoted.length >= 1);
 });
 
 test("coffee shop rejects psych filler and hip-hop", () => {

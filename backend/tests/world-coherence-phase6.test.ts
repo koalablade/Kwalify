@@ -128,6 +128,8 @@ describe("scene-fallback-chains", () => {
   it("resolves disco and latin chains from prompts", () => {
     assert.equal(resolveSceneFallbackChain("70s disco party dancefloor")?.id, "disco_dancefloor");
     assert.equal(resolveSceneFallbackChain("latin summer beach party")?.id, "latin_summer_party");
+    assert.equal(resolveSceneFallbackChain("latin summer rooftop drinks")?.id, "latin_summer_rooftop");
+    assert.equal(resolveSceneFallbackChain("playlist that feels like a film ending")?.id, "film_ending_cinematic");
     assert.equal(resolveSceneFallbackChain("uk garage 2-step")?.id, "uk_garage");
   });
 
