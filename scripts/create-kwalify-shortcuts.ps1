@@ -30,6 +30,10 @@ function New-Shortcut([string]$name, [string]$target, [string]$iconPath, [string
 $icon = Join-Path $Root "frontend\public\favicon.ico"
 New-Shortcut "Start Kwalify" $startBat $icon "Start Kwalify local server (https://kwalify.net)"
 New-Shortcut "Stop Kwalify" $stopBat $icon "Stop Kwalify API and HTTPS proxy"
+$adminBat = Join-Path $Root "start-kwalify-admin.bat"
+if (Test-Path -LiteralPath $adminBat) {
+  New-Shortcut "Start Kwalify (Admin)" $adminBat $icon "Start Kwalify as Administrator (port 443 HTTPS)"
+}
 
 Write-Host ""
 Write-Host "Shortcuts always point at:" -ForegroundColor Green

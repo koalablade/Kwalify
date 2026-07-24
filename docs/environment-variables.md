@@ -121,6 +121,8 @@ LOG_LEVEL=info
 PLAYLIST_EVAL_TOKEN=your-shared-eval-token
 ```
 
-## Replit Secrets
+## Production secrets (Render)
 
-When deployed on Replit, environment variables are set via the Secrets panel. The `DATABASE_URL` for the built-in Replit PostgreSQL database is provisioned automatically when the database is attached to the Repl.
+On Render, set environment variables in the service dashboard. Attach a PostgreSQL instance — `DATABASE_URL` is injected automatically.
+
+For local Windows hosting, use `start-kwalify.bat` and `.env` instead — see [deployment.md](./deployment.md).

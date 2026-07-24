@@ -43,6 +43,18 @@ Feedback and bugs: open an issue here.
 
 This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend).
 
+## Hosting model
+
+| Environment | How to run | Spotify OAuth |
+|-------------|------------|---------------|
+| **Local Windows (primary)** | `start-kwalify.bat` → `https://kwalify.net` | `https://kwalify.net/api/auth/callback` |
+| **Render (optional prod)** | `render.yaml` blueprint | Same redirect URI on public domain |
+| **Debug only** | `start-kwalify.bat local` → `http://localhost:5000` | Not supported (Spotify blocks localhost) |
+
+CI nightly eval workflows target production `https://kwalify.net` on Render when deployed. Local dev does not need Render.
+
+Optional: create an empty `.kwalify-autopull` file in the repo root to run `git pull` on every start.
+
 ### Local setup (Windows — recommended)
 
 1. Read **[FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt)**

@@ -1,6 +1,6 @@
 # Kwalify Documentation
 
-This directory contains the technical documentation for the Kwalify codebase, produced during a full application audit in June 2025.
+This directory contains technical documentation for the Kwalify codebase.
 
 ## Documents
 

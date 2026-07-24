@@ -68,9 +68,23 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
       "2am petrol station",
       "2 am petrol station",
       "petrol station at 2am",
+      "petrol station at 2am alone",
+      "empty petrol station 2am alone",
       "late petrol station",
       "petrol station 2am",
       "petrol station 2am empty forecourt",
+    ],
+  },
+  {
+    id: "petrol_2am_drive_home",
+    prototypeId: "PETROL_LIMINAL",
+    emotionalTone: "decompression",
+    aliases: [
+      "petrol station 2am driving home",
+      "petrol station 2 am driving home",
+      "gas station 2am driving home",
+      "petrol station driving home",
+      "service station driving home at 2",
     ],
   },
   {

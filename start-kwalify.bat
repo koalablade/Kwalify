@@ -70,6 +70,15 @@ $ErrorActionPreference = "Stop"
 Set-Location $Root
 
 $logPath = Join-Path $Root "kwalify-start.log"
+if (Test-Path -LiteralPath $logPath) {
+  $logSizeMb = (Get-Item -LiteralPath $logPath).Length / 1MB
+  if ($logSizeMb -gt 2) {
+    $rotated = "$logPath.old"
+    if (Test-Path -LiteralPath $rotated) { Remove-Item -LiteralPath $rotated -Force }
+    Move-Item -LiteralPath $logPath -Destination $rotated -Force
+    Write-Host "  Rotated kwalify-start.log (>2MB)"
+  }
+}
 $transcriptStarted = $false
 try {
   Start-Transcript -Path $logPath -Append | Out-Null
@@ -362,6 +371,19 @@ function Ensure-DesktopShortcuts {
   & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Root $Root
 }
 
+function Invoke-SmokeChecks {
+  if (-not (Test-Path (Join-Path $Root "backend\dist\server.js"))) { return }
+  Step "Quick smoke check"
+  npm run test:smoke 2>&1 | ForEach-Object {
+    if ($_ -match "fail|# fail") { Write-Host "  $_" -ForegroundColor Red }
+  }
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "  Smoke tests failed — fix before generating playlists." -ForegroundColor Yellow
+    Exit-Launcher 1 "Smoke tests failed (npm run test:smoke)."
+  }
+  Write-Host "  Smoke tests passed"
+}
+
 function Start-HttpsProxy([string]$proxy, [string]$cert, [string]$key, [int]$targetPort) {
   if (-not (Test-Port443Bindable)) {
     Exit-Launcher 1 "Port 443 is blocked. Right-click start-kwalify.bat and choose Run as administrator."
@@ -535,6 +557,8 @@ if ($Build -or -not (Test-Path $dist)) {
 } else {
   Write-Host "  OK (delete backend\dist or pass build to force)"
 }
+
+Invoke-SmokeChecks
 
 # --- 6. API ---
 Step "Starting server"

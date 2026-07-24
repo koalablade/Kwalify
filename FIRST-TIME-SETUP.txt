@@ -34,6 +34,7 @@ Run once:  create-kwalify-shortcuts.bat
 Adds to your Desktop:
   - Start Kwalify
   - Stop Kwalify
+  - Start Kwalify (Admin)  — use if HTTPS on port 443 fails
 
 The launcher also creates these automatically on first start if missing.
 

@@ -16,6 +16,8 @@ export const GOLDEN_PROMPT_CASES: GoldenPromptCase[] = [
   { prompt: "late night drive alone on the motorway reflective", expectedSceneId: "night_drive_alone_reflection" },
   { prompt: "late summer evening driving home from seeing old friends, want calm", expectedSceneId: "late_summer_friends_drive" },
   { prompt: "2am petrol station fluorescent lonely", expectedSceneId: "petrol_2am_liminal" },
+  { prompt: "empty petrol station 2am alone", expectedSceneId: "petrol_2am_liminal", energyMax: 0.35 },
+  { prompt: "petrol station 2am driving home", expectedSceneId: "petrol_2am_drive_home", energyMax: 0.45 },
   { prompt: "rainy train home after work tired", expectedSceneId: "rainy_train_home_decompress" },
   { prompt: "hangover sunday morning gentle recovery", expectedSceneId: "hangover_sunday" },
   { prompt: "cleaning the house upbeat reset", expectedSceneId: "cleaning_house" },
