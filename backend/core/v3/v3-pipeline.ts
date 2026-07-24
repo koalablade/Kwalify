@@ -1809,7 +1809,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         prototypeBoostByTrack: (trackId) => {
           const track = retrievedTracks.find((row) => row.trackId === trackId);
           const artistName = (track as { artistName?: string | null } | undefined)?.artistName ?? "";
-          const proto = prototypeCentreScoreBoost(artistName, genrePrototypeCentres);
+          const proto = prototypeCentreScoreBoost(artistName, genrePrototypeCentres, inferredWorldIds);
           const eco = Math.min(
             0.06,
             artistEcosystemBoost(artistName, opts.artistEcosystemGraph, genrePrototypeCentres.flatMap((c) => c.artists).slice(0, 8)),
@@ -2867,8 +2867,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     !holidayNegated &&
     /\b(?:christmas|xmas|festive|noel|santa|holiday\s+song|holiday\s+classics)\b/i.test(vibe);
   const inferredWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
-  const feelGoodLanePurity = inferredWorldIds.includes("feel_good_world")
-    ? scoreFeelGoodLanePurity(
+  const feelGoodLanePurity =
+    inferredWorldIds.includes("feel_good_world") || inferredWorldIds.includes("party_prep_world")
+      ? scoreFeelGoodLanePurity(
         finalTracks.map((t) => ({
           artistName: t.artistName,
           genreFamily: t.genreFamily,

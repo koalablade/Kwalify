@@ -6,6 +6,8 @@
  */
 import { GENRE_FAMILIES } from "../../lib/genre-taxonomy-data";
 import type { RootGenre } from "../../lib/genre-taxonomy";
+import { OPENER_FILLER_PATTERN } from "./opener-hygiene";
+import { isSafetyBlanketOutsideWorld } from "./world-identity-gate";
 
 export type GenrePrototypeCentre = {
   id: string;
@@ -128,8 +130,16 @@ export function scorePrototypeAffinity(
 export function prototypeCentreScoreBoost(
   artistName: string,
   centres: GenrePrototypeCentre[],
+  activeWorldIds: string[] = [],
 ): number {
   if (!artistName || centres.length === 0) return 0;
+  if (
+    activeWorldIds.length > 0 &&
+    OPENER_FILLER_PATTERN.test(artistName) &&
+    isSafetyBlanketOutsideWorld(artistName, activeWorldIds)
+  ) {
+    return 0;
+  }
   for (const centre of centres) {
     if (trackMatchesGenrePrototype(artistName, centre)) {
       return Math.min(0.08, 0.04 + 0.01 * Math.min(4, centre.artists.length / 4));

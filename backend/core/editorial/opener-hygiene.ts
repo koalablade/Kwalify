@@ -21,6 +21,7 @@ const ZERO_PSYCH_OPENER_WORLDS = new Set([
   "focus_study_world",
   "coffee_soft_focus_world",
   "feel_good_world",
+  "party_prep_world",
   "latin_summer_rooftop_world",
   "britpop_world",
   "grunge_world",
@@ -100,6 +101,19 @@ export function sanitizePsychIndieOpenerChain<T extends { artistName?: string | 
   }
 
   return { tracks: out, demoted };
+}
+
+/** Opening-lock IDs after psych-opener sanitize — avoids locking filler chains. */
+export function openingLockTrackIdsFromTracks<
+  T extends { trackId: string; artistName?: string | null; artist?: string | null },
+>(tracks: readonly T[], lockLen: number, maxPsychOpeners: number): string[] {
+  if (lockLen <= 0) return [];
+  const { tracks: sanitized } = sanitizePsychIndieOpenerChain(
+    [...tracks],
+    Math.min(3, lockLen),
+    maxPsychOpeners,
+  );
+  return sanitized.slice(0, lockLen).map((track) => track.trackId);
 }
 
 /** Count pattern-matching opener fillers (no world filter). */

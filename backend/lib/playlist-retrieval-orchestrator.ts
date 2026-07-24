@@ -24,6 +24,7 @@ import {
   type RetrievalStrategyId,
   type RetrievalTrackInput,
 } from "./candidate-retrieval-pipeline";
+import { inferWorldIdentityIdsFromPrompt } from "../core/editorial/world-identity-gate";
 import type { LibrarySignals } from "./library-signals";
 import {
   buildPromptSonicTarget,
@@ -866,6 +867,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
 
   const sufficiencyMin = functionalPrompt ? 42 : 30;
   const maxAttempts = validCandidateSupply.strictValidCount < minRequired ? 3 : 2;
+  const activeWorldIds = inferWorldIdentityIdsFromPrompt(opts.vibe);
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     retrievalAttempts += 1;
@@ -882,6 +884,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
       tracks: sourceTracks,
       sonicTasteProfile,
       recentTrackPenalty: opts.recentTrackPenalty,
+      activeWorldIds,
       retrievalOverrides: {
         strategyId: strategyPlan.strategy,
         libraryGravityWeight: profileOverride.libraryGravityWeight,
@@ -923,6 +926,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
         tracks: sourceTracks,
         sonicTasteProfile,
         recentTrackPenalty: opts.recentTrackPenalty,
+        activeWorldIds,
         retrievalOverrides: {
           strategyId: strategyPlan.strategy,
           libraryGravityWeight: profileOverride.libraryGravityWeight,

@@ -7,6 +7,12 @@ import {
 import { evaluatePromptReadiness } from "../lib/prompt-readiness";
 import { inferWorldIdentityIdsFromPrompt, passesWorldIdentity, stripRetrievalFillerTracks, demoteOpenerFillerTracks, sanitizePsychIndieOpenerChain, countPsychIndieOpenerFillers, maxPsychIndieOpenersForWorlds, OPENER_FILLER_PATTERN, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
 
+test("party prep vague prompts commit to party_prep_world", () => {
+  const c = resolveVagueWorldCommit("hype night out", { tier: "low", promptConfidenceScore: 0.3 });
+  assert.equal(c.action, "commit");
+  assert.equal(c.worldId, "party_prep_world");
+});
+
 test("vague lifestyle prompts auto-commit one everyday world", () => {
   const cases: Array<[string, string]> = [
     ["happy vibes only", "feel_good_world"],
@@ -182,6 +188,7 @@ test("sanitizePsychIndieOpenerChain removes all psych openers for film-ending wo
     { artist: "Q Lazzarus" },
     { artist: "Sigur Rós" },
     { artist: "Radiohead" },
+    { artist: "Bon Iver" },
   ];
   const out = sanitizePsychIndieOpenerChain(tracks, 3, 0);
   assert.equal(countPsychIndieOpenerFillers(out.tracks, 3, ["film_ending_world"]), 0);

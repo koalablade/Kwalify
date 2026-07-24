@@ -34,6 +34,8 @@ import {
   scoreCompoundPromptFit,
 } from "./compound-prompt-retrieval";
 import { applyRetrievalTrackCooldown } from "./playlist-freshness";
+import { OPENER_FILLER_PATTERN } from "../core/editorial/opener-hygiene";
+import { isSafetyBlanketOutsideWorld } from "../core/editorial/world-identity-gate";
 
 export type RetrievalSourceId =
   | "activity_match"
@@ -155,6 +157,8 @@ export type RetrieveScoringCandidatesOpts<T extends RetrievalTrackInput> = {
     exploratoryQuotaBoost?: number;
     sourceQuotas?: Record<RetrievalSourceId, number>;
   };
+  /** Committed world ids — penalize psych-indie opener fillers outside natural worlds. */
+  activeWorldIds?: string[];
 };
 
 const SCENE_PATTERNS: Array<{ tag: string; pattern: RegExp; weight: number }> = [
@@ -178,7 +182,9 @@ const GENRE_HINT_PATTERNS: Array<{ family: string; pattern: RegExp }> = [
   { family: "hip_hop", pattern: /\b(?:hip.?hop|rap|trap|drill)\b/i },
   { family: "indie", pattern: /\b(?:indie|alternative|alt)\b/i },
   { family: "folk", pattern: /\b(?:folk|acoustic|singer.?songwriter)\b/i },
-  { family: "rock", pattern: /\b(?:rock|punk|metal)\b/i },
+  { family: "rock", pattern: /\b(?:rock|grunge|punk|pop\s*punk|metal|hardcore)\b/i },
+  { family: "electronic", pattern: /\b(?:disco|funk|nu\s*disco)\b/i },
+  { family: "electronic", pattern: /\blo-?fi\b|\bchillhop\b|\bstudy\s+beats?\b/i },
   { family: "soul", pattern: /\b(?:soul|r&b|rnb|funk)\b/i },
   { family: "jazz", pattern: /\b(?:jazz|bossa|swing)\b/i },
 ];
@@ -279,6 +285,10 @@ export function buildPromptRetrievalProfile(
   const highConfidenceActivity = activity.confidence >= 0.85 && activity.activity !== null;
   const libraryGravityWeight = highConfidenceActivity ? 0.12 : activity.confidence >= 0.7 ? 0.28 : 0.48;
   const sourceQuotas = highConfidenceActivity ? { ...HIGH_CONFIDENCE_QUOTAS } : { ...BALANCED_QUOTAS };
+  if (genre.confidence >= 0.55 && genre.families.length > 0) {
+    sourceQuotas.genre_match = Math.min(0.34, sourceQuotas.genre_match + 0.08);
+    sourceQuotas.exploratory = Math.max(0.06, sourceQuotas.exploratory - 0.04);
+  }
 
   return {
     activity: activity.activity,
@@ -358,7 +368,16 @@ function scoreOpeningCandidate(
   classification: ActivityClassificationInput,
   retrievalProfile: RetrievalProfile,
   vibe: string,
+  activeWorldIds: string[] = [],
 ): number {
+  const artist = track.artistName ?? "";
+  if (
+    activeWorldIds.length > 0 &&
+    OPENER_FILLER_PATTERN.test(artist) &&
+    isSafetyBlanketOutsideWorld(artist, activeWorldIds)
+  ) {
+    return -1;
+  }
   if (retrievalProfile.activityProfile) {
     if (trackFailsActivityHardGate(track, classification, retrievalProfile.activityProfile, vibe)) return -1;
     return activityOpeningBoost(track, classification, retrievalProfile.activityProfile, vibe, 0);
@@ -702,7 +721,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   const openingRanked = eligible
     .map((track) => ({
       track,
-      score: scoreOpeningCandidate(track, classifyFor(track, opts.classMap), retrievalProfile, opts.vibe),
+      score: scoreOpeningCandidate(track, classifyFor(track, opts.classMap), retrievalProfile, opts.vibe, opts.activeWorldIds ?? []),
     }))
     .filter((row) => row.score >= 0)
     .sort((a, b) => b.score - a.score);

@@ -14,6 +14,7 @@ const ZERO_PSYCH_OPENER_WORLDS = new Set([
   "focus_study_world",
   "coffee_soft_focus_world",
   "feel_good_world",
+  "party_prep_world",
   "latin_summer_rooftop_world",
   "britpop_world",
   "grunge_world",

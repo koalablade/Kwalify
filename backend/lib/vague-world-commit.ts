@@ -133,7 +133,7 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     label: "pre-drinks / night-out hype",
     priority: 10,
     patterns: [
-      /\b(?:pre drinks|hype for a night out|night out starting|friday night kitchen dance)\b/i,
+      /\b(?:pre drinks|hype for a night out|hype night out|night out starting|friday night kitchen dance)\b/i,
     ],
   },
   {

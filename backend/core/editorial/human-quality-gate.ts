@@ -7,6 +7,9 @@
 
 import { isZeroPsychOpenerWorld } from "./opener-hygiene";
 
+/** Worlds where funk/disco/soul lane mash is a hard quality smell. */
+const LANE_PURITY_WORLD_IDS = new Set(["feel_good_world", "party_prep_world"]);
+
 export type HumanQualityGateAction = "pass" | "honest_partial" | "refuse";
 
 export type HumanQualityGateInput = {
@@ -155,7 +158,8 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (artistShare != null && artistShare >= 0.55 && count >= 8) reasons.push("artist_dominance");
   if (density != null && density < 0.42 && count >= MIN_SALVAGEABLE) reasons.push("identity_drift");
   if (
-    input.activeWorldId === "feel_good_world" &&
+    input.activeWorldId &&
+    LANE_PURITY_WORLD_IDS.has(input.activeWorldId) &&
     typeof input.feelGoodLanePurity === "number" &&
     input.feelGoodLanePurity < 0.6 &&
     count >= MIN_SALVAGEABLE

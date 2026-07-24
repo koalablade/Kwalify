@@ -922,7 +922,7 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   if (/\bbeach\s+sunset\b|\bsunset\b.*\b(?:beach|not too sleepy)\b/i.test(p)) {
     ids.push("beach_sunset_world");
   }
-  if (/\bpre\s+drinks?\b|\bhype\s+for\s+a\s+night\s+out\b|\bnight\s+out\s+starting\b/i.test(p)) {
+  if (/\bpre\s+drinks?\b|\bhype\s+(?:for\s+a\s+)?night\s+out\b|\bnight\s+out\s+starting\b/i.test(p)) {
     ids.push("party_prep_world");
   }
   if (/\bsongs?\s+that\s+feel\s+like\s+summer\b|\bsummer\s+vibes?\b/i.test(p)) {
@@ -1032,23 +1032,62 @@ export function demoteOpenerFillerTracks<T extends { artistName?: string | null;
   if (tracks.length <= openerSlots || activeWorldIds.length === 0) {
     return { tracks, demoted: [] };
   }
+  const maxOpeners = maxPsychIndieOpenersForWorlds(activeWorldIds);
   const out = tracks.slice();
   const demoted: Array<{ artist: string; fromIndex: number; toIndex: number }> = [];
-  let openerFillerCount = 0;
+  const limit = Math.min(openerSlots, out.length);
+  let demoteAttempts = 0;
+  const maxDemoteAttempts = out.length * openerSlots;
 
-  for (let i = 0; i < Math.min(openerSlots, out.length); i++) {
-    const artist = String(out[i]!.artistName ?? out[i]!.artist ?? "").trim();
-    if (!artist || !OPENER_FILLER_PATTERN.test(artist)) continue;
-    if (!isSafetyBlanketOutsideWorld(artist, activeWorldIds)) continue;
-    openerFillerCount += 1;
-    if (openerFillerCount >= 2 || i < 2) {
-      const [track] = out.splice(i, 1);
-      if (track) {
-        out.push(track);
-        demoted.push({ artist, fromIndex: i, toIndex: out.length - 1 });
-        i -= 1;
+  while (demoteAttempts < maxDemoteAttempts) {
+    let outsideFillerCount = 0;
+    for (let j = 0; j < limit; j++) {
+      const artist = String(out[j]!.artistName ?? out[j]!.artist ?? "").trim();
+      if (
+        artist &&
+        OPENER_FILLER_PATTERN.test(artist) &&
+        isSafetyBlanketOutsideWorld(artist, activeWorldIds)
+      ) {
+        outsideFillerCount += 1;
       }
     }
+    if (outsideFillerCount <= maxOpeners) break;
+
+    let demotedThisPass = false;
+    if (maxOpeners <= 0) {
+      for (let i = 0; i < limit; i++) {
+        const artist = String(out[i]!.artistName ?? out[i]!.artist ?? "").trim();
+        if (!artist || !OPENER_FILLER_PATTERN.test(artist)) continue;
+        if (!isSafetyBlanketOutsideWorld(artist, activeWorldIds)) continue;
+        const [track] = out.splice(i, 1);
+        if (track) {
+          out.push(track);
+          demoted.push({ artist, fromIndex: i, toIndex: out.length - 1 });
+        }
+        demoteAttempts += 1;
+        demotedThisPass = true;
+        break;
+      }
+    } else {
+      let allowed = 0;
+      for (let i = 0; i < limit; i++) {
+        const artist = String(out[i]!.artistName ?? out[i]!.artist ?? "").trim();
+        if (!artist || !OPENER_FILLER_PATTERN.test(artist)) continue;
+        if (!isSafetyBlanketOutsideWorld(artist, activeWorldIds)) continue;
+        allowed += 1;
+        if (allowed > maxOpeners) {
+          const [track] = out.splice(i, 1);
+          if (track) {
+            out.push(track);
+            demoted.push({ artist, fromIndex: i, toIndex: out.length - 1 });
+          }
+          demoteAttempts += 1;
+          demotedThisPass = true;
+          break;
+        }
+      }
+    }
+    if (!demotedThisPass) break;
   }
 
   return { tracks: out, demoted };

@@ -435,6 +435,7 @@ import {
   countPsychIndieOpenerFillers,
   maxPsychIndieOpenersForWorlds,
 } from "../core/editorial/world-identity-gate";
+import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
 import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
 import { buildPlaylistSegments, orderTracksByPlaylistSegments, type EmotionalArc } from "../core/emotional-arc-planner";
 import { buildIntentPipelineContext } from "../lib/intent-pipeline-orchestrator";
@@ -12201,8 +12202,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         dominantArtistShare,
         promptLabel: vibe,
         activeWorldId: inferWorldIdentityIdsFromPrompt(vibe)[0] ?? null,
-        feelGoodLanePurity: inferWorldIdentityIdsFromPrompt(vibe).includes("feel_good_world")
-          ? scoreFeelGoodLanePurity(
+        feelGoodLanePurity:
+          inferWorldIdentityIdsFromPrompt(vibe).includes("feel_good_world") ||
+          inferWorldIdentityIdsFromPrompt(vibe).includes("party_prep_world")
+            ? scoreFeelGoodLanePurity(
               delivery.tracks.map((t) => ({
                 artistName: t.artistName,
                 genreFamily: t.genreFamily,
@@ -12590,7 +12593,11 @@ router.post("/generate", async (req, res): Promise<void> => {
           const lockLen = openingLock.lockedTrackIds.length;
           openingLock = {
             ...openingLock,
-            lockedTrackIds: delivery.tracks.slice(0, lockLen).map((track) => track.trackId),
+            lockedTrackIds: openingLockTrackIdsFromTracks(
+              delivery.tracks,
+              lockLen,
+              maxPsychIndieOpenersForWorlds(inferWorldIdentityIdsFromPrompt(vibe)),
+            ),
           };
         }
         finalization = {
@@ -12630,7 +12637,11 @@ router.post("/generate", async (req, res): Promise<void> => {
           const lockLen = openingLock.lockedTrackIds.length;
           openingLock = {
             ...openingLock,
-            lockedTrackIds: delivery.tracks.slice(0, lockLen).map((track) => track.trackId),
+            lockedTrackIds: openingLockTrackIdsFromTracks(
+              delivery.tracks,
+              lockLen,
+              maxPsychIndieOpenersForWorlds(inferWorldIdentityIdsFromPrompt(vibe)),
+            ),
           };
         }
         finalization = {
@@ -12681,7 +12692,11 @@ router.post("/generate", async (req, res): Promise<void> => {
           const lockLen = openingLock.lockedTrackIds.length;
           openingLock = {
             ...openingLock,
-            lockedTrackIds: delivery.tracks.slice(0, lockLen).map((track) => track.trackId),
+            lockedTrackIds: openingLockTrackIdsFromTracks(
+              delivery.tracks,
+              lockLen,
+              maxPsychIndieOpenersForWorlds(inferWorldIdentityIdsFromPrompt(vibe)),
+            ),
           };
         }
         finalization = {
@@ -13095,8 +13110,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         degradedDelivery: finalization.diagnostics["degradedDelivery"] === true,
         promptLabel: vibe,
         activeWorldId: inferredWorldIds[0] ?? null,
-        feelGoodLanePurity: inferredWorldIds.includes("feel_good_world")
-          ? scoreFeelGoodLanePurity(
+        feelGoodLanePurity:
+          inferredWorldIds.includes("feel_good_world") || inferredWorldIds.includes("party_prep_world")
+            ? scoreFeelGoodLanePurity(
               finalApiTracks.map((track) => ({
                 artistName: track.artist ?? (track as { artistName?: string }).artistName,
                 genreFamily: (track as { genreFamily?: string }).genreFamily,
