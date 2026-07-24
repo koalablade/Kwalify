@@ -17,6 +17,7 @@
     "db:setup-local-dev": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-dev.ps1",
     "setup:local-domain": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-domain.ps1",
     "start:local": "powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1",
+    "start:kwalify": "powershell -ExecutionPolicy Bypass -File scripts/start-kwalify-local.ps1",
     "start:api": "powershell -ExecutionPolicy Bypass -File scripts/start-api.ps1",
     "start:api:build": "powershell -ExecutionPolicy Bypass -File scripts/start-api.ps1 -Build",
     "preflight:api": "powershell -ExecutionPolicy Bypass -File scripts/preflight-api.ps1",
