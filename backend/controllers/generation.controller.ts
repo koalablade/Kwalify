@@ -5,7 +5,7 @@
  *   - GET  /generate/status — return the current generation phase for the user
  * Dependencies: emotion engine, genre intelligence stack, playlist pipeline, Spotify API, drizzle-orm
  */
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "../db";
 import {
   likedSongsTable,
@@ -14,12 +14,7 @@ import {
 } from "../db";
 import {
   createSpotifyPlaylist,
-  enrichTrackMetadata,
-  fetchAlbumMetadata,
-  fetchArtistGenres,
-  fetchAudioFeatures,
   getValidAccessToken,
-  searchSpotifyTracks,
 } from "../lib/spotify";
 import {
   blendEmotionProfiles,
@@ -114,7 +109,6 @@ import { repairHumanTastePlaylist } from "../lib/human-taste-validator";
 import {
   assessRepairGenreEvidenceConfidence,
   assessConfidenceAwarePublication,
-  buildHonestConstrainedPlaylist,
   computeAdaptiveGenreEvidenceRequiredCount,
   computeAdaptivePartialPublishLimit,
   computePartialGenreVerificationScore,
@@ -124,7 +118,6 @@ import {
   publishConfidenceAwarePlaylist,
   publishHonestConstrainedPlaylist,
   publishVerifiedV3OutputPlaylist,
-  repairGenreAwarePlaylistFromV3,
   resolveGenreEvidencePublication,
   resolveEffectiveGenreVerifiedSupply,
   resolveGenreEvidenceVerifiedPrefix,
@@ -139,7 +132,6 @@ import {
 import { applyOpeningCuratorV2, OPENING_WINDOW_SIZE } from "../lib/opening-curator-v2";
 import {
   buildOpeningLockAuditDiagnostics,
-  createOpeningLock,
   enforceOpeningLock,
   mergeTracksWithOpeningLock,
   type OpeningLock,
@@ -151,7 +143,6 @@ import {
   activityTrustOutlierThreshold,
   filterTracksByActivityProfile,
   resolveActivityProfile,
-  scoreActivityCandidateFit,
   trackFailsActivityHardGate,
 } from "../lib/activity-profiles";
 import { orchestratePlaylistRetrieval } from "../lib/playlist-retrieval-orchestrator";
@@ -171,13 +162,11 @@ import {
   shouldCompoundThinLibraryBypass,
   shouldEarlyThinLibraryHardStop,
   shouldSkipThinLibraryRecoveryInflate,
-  THIN_LIBRARY_INSUFFICIENT_THRESHOLD,
   type ThinLibraryPolicyResult,
 } from "../lib/thin-library-policy";
 import {
   applyDeliveryPerPlaylistArtistCap,
   defaultPerPlaylistArtistCap,
-  enforcePerPlaylistArtistCap,
 } from "../lib/playlist-artist-cap";
 import {
   createPipelineAuthoritySession,
@@ -293,7 +282,6 @@ import {
   completeLockedIntent as completeCsspLockedIntent,
   GENRE_ALIASES,
 } from "../core/v3/intent";
-import { trackMatchesConstraints as trackMatchesV3Constraints } from "../core/v3/constraint-filter";
 import {
   EXPANDED_ACTIVITY_TERMS,
   EXPANDED_ERA_TERMS,
@@ -411,11 +399,8 @@ import {
 import type {
   ConstraintLayer,
   ConstraintTrack,
-  ExecutionHealthProfile,
   GenerateSessionSnapshot,
-  GenerationSideEffectPolicy,
   LockedIntent,
-  PreV3TimingBreakdown,
   ProductionTimeline,
   QualitySignalContext,
 } from "./generation/generation-types";
@@ -430,7 +415,7 @@ import {
 import { buildDominantIntentContract, shouldBlockHardSafeFinalization, detectDominantEmotion, trackMatchesDominantEmotion, capTastePullWeight, splitSceneContracts } from "../core/dominant-intent-contract";
 import { buildIntentUnderstandingDiagnostics } from "../lib/intent-understanding-diagnostics";
 import { recordUnknownTermEvents } from "../lib/unknown-term-harvest";
-import { repairPlaylistIfNeeded, scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
+import { scorePlaylistCoherence, type PlaylistCoherenceScore, type CoherenceSwapRecord } from "../core/playlist-coherence-audit";
 import { runCoherenceRebuildLoop } from "../core/rebuild-loop";
 import { hardRejectOffWorldTracks, isTrackInWorld, resolveWorldBoundary } from "../core/world-boundary";
 import {
@@ -445,8 +430,8 @@ import {
   type OpenerHygieneDiagnostics,
 } from "../core/editorial/world-identity-gate";
 import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
-import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
-import { buildPlaylistSegments, orderTracksByPlaylistSegments, type EmotionalArc } from "../core/emotional-arc-planner";
+import { shouldPublishPlaylist, type CoherenceGateResult } from "../core/coherence-gate";
+import { buildPlaylistSegments, orderTracksByPlaylistSegments } from "../core/emotional-arc-planner";
 import { buildIntentPipelineContext } from "../lib/intent-pipeline-orchestrator";
 import { compilePlaylistContext } from "../core/playlist-compiler";
 import { recordPromptSceneMemory } from "../lib/cross-session-memory";
@@ -470,7 +455,6 @@ import {
   getSessionSnapshot,
   mergeSessionSnapshot,
   getSessionSnapshotCacheStats,
-  type SessionSnapshot,
 } from "../core/cache/session-snapshot-cache";
 
 const generationControllerLock = "__kwalifyGenerationControllerRegistered";
@@ -1747,26 +1731,6 @@ function dominantGenreFamily(
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }
 
-const ERA_COMPATIBLE_FAMILIES: Array<{
-  start: number;
-  end: number;
-  families: string[];
-}> = [
-  { start: 1970, end: 1979, families: ["rock", "soul", "pop", "blues", "folk", "jazz", "country", "rnb"] },
-  { start: 1980, end: 1989, families: ["pop", "electronic", "rock", "soul", "rnb", "hip_hop", "country", "folk", "jazz", "blues"] },
-  { start: 1990, end: 1999, families: ["rock", "hip_hop", "electronic", "rnb", "pop", "indie", "country", "folk", "jazz", "blues", "soul"] },
-  { start: 2000, end: 2009, families: ["rock", "pop", "rnb", "hip_hop", "electronic", "indie", "country", "folk", "jazz", "blues", "soul", "latin"] },
-  { start: 2010, end: 2029, families: ["pop", "hip_hop", "electronic", "rnb", "indie", "rock", "country", "latin", "world"] },
-];
-
-function eraGenreCompatible(family: string, intent: LockedIntent): boolean {
-  if (intent.eraStart === null || intent.eraEnd === null || family === "unknown") return true;
-  const compatible = ERA_COMPATIBLE_FAMILIES.find((era) =>
-    intent.eraStart! <= era.end && intent.eraEnd! >= era.start
-  );
-  return !compatible || compatible.families.includes(family);
-}
-
 function bridgeFamiliesForTrack(track: ConstraintTrack, classMap: Map<string, {
   genrePrimary: string;
   genreFamily: string;
@@ -1804,40 +1768,6 @@ function isAmericanaCompatibleTrack(
   if (family === "country" || family === "folk" || family === "blues") return true;
   const bridgeFamilies = bridgeFamiliesForTrack(track, classMap);
   return family === "rock" && bridgeFamilies.includes("country");
-}
-
-function passesGenreGraphBoundary(
-  track: ConstraintTrack,
-  opts: {
-    lockedFamily: string | null;
-    constraints: ConstraintLayer;
-    lockedIntent: LockedIntent;
-    classMap: Map<string, {
-      genrePrimary: string;
-      genreFamily: string;
-      primarySubgenre: string;
-      secondarySubgenre: string | null;
-      subGenres: string[];
-    }>;
-    bridgeUsed: boolean;
-  }
-): { pass: boolean; bridge: boolean } {
-  const family = trackGenreFamily(track, opts.classMap);
-  if (!eraGenreCompatible(family, opts.lockedIntent)) return { pass: false, bridge: false };
-  if (!opts.lockedFamily || opts.constraints.hard.allowMultiGenre) return { pass: true, bridge: false };
-  if (family === opts.lockedFamily || family === "unknown") return { pass: true, bridge: false };
-  if (
-    opts.constraints.raw.americanaBridgePrompt &&
-    opts.lockedFamily === "country" &&
-    isAmericanaCompatibleTrack(track, opts.classMap)
-  ) {
-    return { pass: true, bridge: true };
-  }
-  const bridgeFamilies = bridgeFamiliesForTrack(track, opts.classMap);
-  const bridge = opts.constraints.hard.allowBridge &&
-    bridgeFamilies.includes(opts.lockedFamily) &&
-    bridgeFamilies.includes(family);
-  return { pass: bridge, bridge };
 }
 
 function trackMatchesHardConstraints(
@@ -3820,10 +3750,6 @@ function artistDiversityDiagnostics<T extends { artistName?: string | null }>(
   };
 }
 
-function evaluationSessionPreviousTrackIds(rawBody: Record<string, unknown>, auditMode: boolean): string[] {
-  return evaluationSessionTrackLists(rawBody, auditMode).flat();
-}
-
 function evaluationSessionTrackLists(rawBody: Record<string, unknown>, auditMode: boolean): string[][] {
   if (!auditMode) return [];
   const memory = rawBody["evaluationSessionMemory"];
@@ -3894,259 +3820,6 @@ function buildArtistReusePenalty(
     artist,
     Math.min(0.94, (0.26 + count * 0.20) * pressure),
   ]));
-}
-
-function shapePreScoringCandidatePool<T extends {
-  trackId: string;
-  trackName: string;
-  artistName: string;
-  albumName: string;
-  energy: number | null;
-  valence: number | null;
-  tempo?: number | null;
-  danceability?: number | null;
-  acousticness?: number | null;
-  loudness?: number | null;
-  speechiness?: number | null;
-  releaseYear?: number | null;
-  spotifyArtistGenres?: unknown;
-  albumGenres?: unknown;
-}>(
-  tracks: T[],
-  opts: {
-    vibe: string;
-    intent: LockedIntent;
-    constraints: ConstraintLayer;
-    classMap: Map<string, {
-      genrePrimary: string;
-      genreFamily: string;
-      primarySubgenre: string;
-      secondarySubgenre: string | null;
-      subGenres: string[];
-    }>;
-    sessionMemory: IdentitySessionMemory;
-    requestedLength: number;
-  }
-): { tracks: T[]; diagnostics: Record<string, number | boolean | string | null> } {
-  const activityProfile = resolveActivityProfile(opts.vibe, opts.intent);
-  const gymScene = isGymWorkoutPrompt(opts.vibe, opts.intent);
-  const focusScene = isFocusStudyPrompt(opts.vibe, opts.intent);
-  const sceneActive =
-    gymScene ||
-    isUpbeatSocialPrompt(opts.vibe, opts.intent) ||
-    isBroadDrivingPrompt(opts.vibe, opts.intent) ||
-    focusScene ||
-    isChillCalmPrompt(opts.vibe, opts.intent) ||
-    !!opts.intent.activity ||
-    opts.intent.mood.length > 0 ||
-    !!opts.intent.energyLevel;
-  const broadCap = sceneActive
-    ? Math.max(240, opts.requestedLength * 12)
-    : Math.max(900, opts.requestedLength * 35);
-  const hasExplicitConstraints = hasHardConstraints(opts.constraints) || hasExplicitGenreIntent(opts.intent, opts.constraints);
-  if (tracks.length <= broadCap && !sceneActive) {
-    return {
-      tracks,
-      diagnostics: {
-        applied: false,
-        inputCount: tracks.length,
-        outputCount: tracks.length,
-        cap: broadCap,
-        sceneActive,
-        hasExplicitConstraints,
-      },
-    };
-  }
-
-  const toConstraintTrack = (track: T): ConstraintTrack => ({ ...track, score: 0.5 } as ConstraintTrack);
-  const strictConstrained = hasExplicitConstraints
-    ? tracks.filter((track) =>
-        finalTrackIsSafe(toConstraintTrack(track), {
-          vibe: opts.vibe,
-          intent: opts.intent,
-          constraints: opts.constraints,
-          classMap: opts.classMap,
-        })
-      )
-    : [];
-  const hardConstrained = hasExplicitConstraints
-    ? tracks.filter((track) =>
-        finalTrackIsHardSafe(toConstraintTrack(track), {
-          vibe: opts.vibe,
-          intent: opts.intent,
-          constraints: opts.constraints,
-          classMap: opts.classMap,
-        })
-      )
-    : [];
-  const explicitGenreEraConstrained = hasExplicitConstraints
-    ? tracks.filter((track) => {
-        const candidate = toConstraintTrack(track);
-        return finalTrackMatchesExplicitGenre(candidate, opts.intent, opts.constraints, opts.classMap) &&
-          finalTrackMatchesExplicitEra(candidate, opts.intent);
-      })
-    : [];
-  const adjacentGenreEraConstrained = hasExplicitConstraints
-    ? tracks.filter((track) => {
-        const candidate = toConstraintTrack(track);
-        if (!finalTrackMatchesExplicitGenre(candidate, opts.intent, opts.constraints, opts.classMap)) return false;
-        if (!opts.intent.eraRange) return true;
-        const year = trackYearEstimate(candidate);
-        return year !== null && year >= opts.intent.eraRange.start - 10 && year <= opts.intent.eraRange.end + 10;
-      })
-    : [];
-  const genericGymFamilySafe = gymScene && !promptExplicitlyAllowsGymHipHop(opts.vibe, opts.intent, opts.constraints)
-    ? tracks.filter((track) => {
-        const family = trackGenreFamily(toConstraintTrack(track), opts.classMap);
-        return !["hip_hop", "country", "classical", "christmas"].includes(family);
-      })
-    : [];
-  const sceneCompatible = sceneActive
-    ? tracks.filter((track) => {
-        const candidate = toConstraintTrack(track);
-        if (opts.intent.activity || opts.intent.energyLevel) {
-          const activityMatch = activityEvidence(candidate, opts.intent);
-          if (activityMatch === false) return false;
-        }
-        if (opts.intent.mood.length > 0) {
-          const moodMatch = moodEvidence(candidate, opts.intent);
-          if (moodMatch === false) return false;
-        }
-        if (isGymWorkoutPrompt(opts.vibe, opts.intent) && !trackIsGymWorkoutSafe(candidate, opts)) return false;
-        if (isFocusStudyPrompt(opts.vibe, opts.intent) && !trackIsFocusStudySafe(candidate, opts.vibe, opts.intent)) return false;
-        if (isBroadDrivingPrompt(opts.vibe, opts.intent) && !trackIsBroadDrivingSafe(candidate)) return false;
-        if (isUpbeatSocialPrompt(opts.vibe, opts.intent) && !trackIsUpbeatSocialSafe(candidate, opts.classMap, opts.vibe, opts.intent)) return false;
-        if (isChillCalmPrompt(opts.vibe, opts.intent) && !trackIsChillCalmSafe(candidate, hasExplicitGenreIntent(opts.intent, opts.constraints), opts.classMap)) return false;
-        if (activityProfile && trackFailsActivityHardGate(
-          candidate,
-          opts.classMap.get(candidate.trackId) ?? null,
-          activityProfile,
-          opts.vibe,
-        )) return false;
-        return true;
-      })
-    : tracks;
-  const sceneCompatibleFloor = gymScene || focusScene
-    ? Math.min(90, Math.max(opts.requestedLength, Math.floor(tracks.length * 0.04)))
-    : Math.min(120, Math.max(40, Math.floor(tracks.length * 0.18)));
-  const constrainedFloor = Math.max(opts.requestedLength, Math.ceil(opts.requestedLength * 1.5));
-  const source = strictConstrained.length >= constrainedFloor
-    ? strictConstrained
-    : hardConstrained.length >= constrainedFloor
-      ? hardConstrained
-      : explicitGenreEraConstrained.length >= opts.requestedLength
-        ? explicitGenreEraConstrained
-        : adjacentGenreEraConstrained.length >= opts.requestedLength
-          ? adjacentGenreEraConstrained
-          : genericGymFamilySafe.length >= sceneCompatibleFloor
-            ? genericGymFamilySafe
-            : sceneActive && sceneCompatible.length >= sceneCompatibleFloor
-              ? sceneCompatible
-              : tracks;
-  const sourceMode = strictConstrained.length >= constrainedFloor
-    ? "strict_constraints"
-    : hardConstrained.length >= constrainedFloor
-      ? "hard_constraints"
-      : explicitGenreEraConstrained.length >= opts.requestedLength
-        ? "explicit_genre_era_constraints"
-        : adjacentGenreEraConstrained.length >= opts.requestedLength
-          ? "adjacent_era_genre_constraints"
-          : genericGymFamilySafe.length >= sceneCompatibleFloor
-            ? "generic_gym_family_safe"
-            : sceneActive && sceneCompatible.length >= sceneCompatibleFloor
-              ? "scene_compatible"
-              : "unfiltered";
-  let poolSource = source;
-  if (activityProfile) {
-    const classificationFor = (track: T) => opts.classMap.get(track.trackId) ?? null;
-    const gated = poolSource.filter((track) =>
-      !trackFailsActivityHardGate(
-        toConstraintTrack(track),
-        classificationFor(track),
-        activityProfile,
-        opts.vibe,
-      )
-    );
-    const gateFloor = Math.min(sceneCompatibleFloor, Math.max(opts.requestedLength * 2, Math.floor(poolSource.length * 0.35)));
-    if (gated.length >= gateFloor) {
-      poolSource = gated;
-    }
-    poolSource = poolSource.slice().sort((a, b) =>
-      scoreActivityCandidateFit(
-        toConstraintTrack(b),
-        classificationFor(b),
-        activityProfile,
-        opts.vibe,
-      ) - scoreActivityCandidateFit(
-        toConstraintTrack(a),
-        classificationFor(a),
-        activityProfile,
-        opts.vibe,
-      )
-    );
-  }
-  const artistCounts = new Map<string, number>();
-  const buckets = new Map<string, T[]>();
-  const recentArtistPenalty = opts.sessionMemory.artistFrequencyMap;
-  const penaltyBuckets = new Map<number, T[]>();
-  for (const track of poolSource) {
-    const artist = track.artistName.toLowerCase().trim();
-    const penalty = recentArtistPenalty[artist] ?? 0;
-    const bucket = penaltyBuckets.get(penalty) ?? [];
-    bucket.push(track);
-    penaltyBuckets.set(penalty, bucket);
-  }
-  const orderedByRecentExposure = [...penaltyBuckets.keys()]
-    .sort((a, b) => a - b)
-    .flatMap((penalty) => penaltyBuckets.get(penalty) ?? []);
-  for (const track of orderedByRecentExposure) {
-    const artist = track.artistName.toLowerCase().trim();
-    const artistSeen = artistCounts.get(artist) ?? 0;
-    if (artistSeen >= 3) continue;
-    artistCounts.set(artist, artistSeen + 1);
-    const family = trackGenreFamily(toConstraintTrack(track), opts.classMap);
-    const bucket = buckets.get(family) ?? [];
-    bucket.push(track);
-    buckets.set(family, bucket);
-  }
-
-  const out: T[] = [];
-  const seen = new Set<string>();
-  const orderedBuckets = [...buckets.values()].sort((a, b) => b.length - a.length);
-  let cursor = 0;
-  while (out.length < broadCap && orderedBuckets.some((bucket) => cursor < bucket.length)) {
-    for (const bucket of orderedBuckets) {
-      const track = bucket[cursor];
-      if (!track || seen.has(track.trackId)) continue;
-      seen.add(track.trackId);
-      out.push(track);
-      if (out.length >= broadCap) break;
-    }
-    cursor += 1;
-  }
-
-  return {
-    tracks: out.length > 0 ? out : tracks.slice(0, broadCap),
-    diagnostics: {
-      applied: true,
-      inputCount: tracks.length,
-      outputCount: out.length > 0 ? out.length : Math.min(tracks.length, broadCap),
-      cap: broadCap,
-      sceneActive,
-      hasExplicitConstraints,
-      constrainedFloor,
-      strictConstrainedCount: strictConstrained.length,
-      hardConstrainedCount: hardConstrained.length,
-      explicitGenreEraConstrainedCount: explicitGenreEraConstrained.length,
-      adjacentGenreEraConstrainedCount: adjacentGenreEraConstrained.length,
-      genericGymFamilySafeCount: genericGymFamilySafe.length,
-      sceneCompatibleCount: sceneCompatible.length,
-      sourceMode,
-      recentArtistsRemembered: Object.keys(recentArtistPenalty).length,
-      activityProfileId: activityProfile?.id ?? null,
-      activityGatedCount: activityProfile ? poolSource.length : null,
-    },
-  };
 }
 
 function average(values: number[]): number {
@@ -5216,56 +4889,6 @@ function hasFinalGenreEvidence(
   return expectedFamilies.some((family) =>
     (FINAL_GUARD_GENRE_TERMS[family] ?? []).some((term) => blob.includes(term))
   );
-}
-
-function explicitGenreFallbackFailure(opts: {
-  vibe: string;
-  requestedCount: number;
-  finalCount: number;
-  hasGenreAwarePool: boolean;
-  noLibraryMode?: boolean;
-}): { code: string; error: string; details: Record<string, unknown> } | null {
-  const expectedFamilies = buildCsspLockedIntent(opts.vibe).genreFamilies;
-  if (expectedFamilies.length === 0) return null;
-  if (opts.finalCount <= 0) {
-    return {
-      code: "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
-      error: opts.noLibraryMode
-        ? `I could not find enough verified ${expectedFamilies.join("/")} tracks from Spotify search to make this playlist without guessing.`
-        : `I could not find enough verified ${expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
-      details: {
-        expectedFamilies,
-        requestedCount: opts.requestedCount,
-        finalCount: opts.finalCount,
-        requiredCount: 1,
-        requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
-        fallbackBlocked: true,
-        noLibraryMode: !!opts.noLibraryMode,
-      },
-    };
-  }
-
-  const requiredCount = Math.min(
-    opts.finalCount,
-    Math.max(1, Math.ceil(opts.finalCount * STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO))
-  );
-  if (opts.hasGenreAwarePool && opts.finalCount >= requiredCount) return null;
-
-  return {
-    code: "INSUFFICIENT_VERIFIED_GENRE_EVIDENCE",
-    error: opts.noLibraryMode
-      ? `I could not find enough verified ${expectedFamilies.join("/")} tracks from Spotify search to make this playlist without guessing.`
-      : `I could not find enough verified ${expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
-    details: {
-      expectedFamilies,
-      requestedCount: opts.requestedCount,
-      finalCount: opts.finalCount,
-      requiredCount,
-      requiredRatio: STRICT_EXPLICIT_GENRE_EVIDENCE_RATIO,
-      fallbackBlocked: true,
-      noLibraryMode: !!opts.noLibraryMode,
-    },
-  };
 }
 
 router.get("/generate/status", (req, res): void => {
@@ -7068,11 +6691,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       dominantGenreFamily(likedSongs.map((track) => ({ ...track, score: 0.7 } as ConstraintTrack)), userGenreProfile.trackClassifications);
     endTimelineStage(productionTimeline, startMs, "intent_fallback_family");
     startTimelineStage(productionTimeline, startMs, "intent_v3_fallback");
-    const libraryGenreFamilies = [...new Set(
-      likedSongs
-        .map((song) => userGenreProfile.trackClassifications.get(song.trackId)?.genreFamily)
-        .filter((family): family is NonNullable<typeof family> => typeof family === "string" && family.length > 0),
-    )].map(String).slice(0, 8);
     const v3FallbackIntent = completeCsspLockedIntent(parsedCsspIntent, {
       genreFamilies: lockedIntent.genreFamilies.length > 0
         ? lockedIntent.genreFamilies
@@ -8303,7 +7921,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
       if (delivery.tracks.length < length && !controlledRecoveryBlocked) {
         activeUserRecoveryTier = 3;
-        const tier3TracksBefore = [...delivery.tracks];
         let tier3Working = [...delivery.tracks];
         const deterministicSeenIds = new Set(tier3Working.map((track) => track.trackId));
         const deterministicSeenSignatures = new Set(
@@ -8501,7 +8118,6 @@ router.post("/generate", async (req, res): Promise<void> => {
     const evidenceRelaxations: string[] = [];
     let strictGenreEvidenceRelaxed = false;
     let strictEraEvidenceRelaxed = false;
-    let hardValidationRelaxed = false;
     const baseFinalizationCandidates = clusterCuration.diagnostics.active && clusterCuration.diagnostics.selectedCluster
       ? clusterCuration.candidates
       : finalCandidatePool;
@@ -9947,14 +9563,12 @@ router.post("/generate", async (req, res): Promise<void> => {
           "Hard locked intent validation published valid prefix"
         );
       } else if (delivery.tracks.length >= minBestAvailableCount) {
-        hardValidationRelaxed = true;
         evidenceRelaxations.push("locked_intent_validation_relaxed_best_available");
         req.log.warn(
           { userId, vibe, finalValidation, hardValidationFailures, finalCount: delivery.tracks.length, minBestAvailableCount },
           "Hard locked intent validation relaxed to best available playlist"
         );
       } else if (delivery.tracks.length > 0) {
-        hardValidationRelaxed = true;
         evidenceRelaxations.push("locked_intent_validation_degraded_partial");
         finalization = {
           tracks: delivery.tracks as PlaylistTrack[],
@@ -10106,7 +9720,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             : lockedIntent.genreFamilies,
         );
         const tasteIdentityTermsPreArc = universalIdentityTerms(vibe, lockedIntent, constraintLayer);
-        const tasteMomentFitPreArc = (track: ConstraintTrack, index: number): number =>
+        const tasteMomentFitPreArc = (track: ConstraintTrack, _index: number): number =>
           intentCoherenceScore(
             track,
             {
@@ -11927,7 +11541,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       ];
       let apiRefillAdded = 0;
       let apiRefillArtistCapSkipped = 0;
-      const apiRefillTracksBefore = [...delivery.tracks];
       let apiRefillWorking = [...delivery.tracks];
       for (const source of apiRefillSources) {
         if (apiRefillWorking.length >= length) break;

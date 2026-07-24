@@ -159,7 +159,7 @@ export function defaultRetrievalCompletionDiagnostics(minViablePool: number): Re
 }
 
 async function timeboxRetrievalSource<T>(
-  source: string,
+  _source: string,
   promise: Promise<T>,
   timeoutMs: number,
   fallback: T,
