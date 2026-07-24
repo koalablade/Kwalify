@@ -176,6 +176,8 @@ export function scoreLane<T extends ScorerTrack>(
   opts: {
     genreByTrack?: (trackId: string) => string;
     noveltyByTrack?: (trackId: string) => number;
+    /** Soft editorial pull toward genre prototype centres (Donna Summer neighbourhood). */
+    prototypeBoostByTrack?: (trackId: string) => number;
   } = {}
 ): LaneScoredTrack<T>[] {
   const intentEmbedding: AudioVector = buildIntentEmbedding(intent.baseIntent);
@@ -225,23 +227,24 @@ export function scoreLane<T extends ScorerTrack>(
       }
 
       const acousticBonus = acousticContinuityBonus(track, intent);
+      const prototypeBoost = Math.max(0, Math.min(0.08, opts.prototypeBoostByTrack?.(track.trackId) ?? 0));
 
       const rawScore =
         w.ES  * ES  +
         w.SA  * SA  +
         w.EM  * EM  +
         w.Era * Era +
-        w.Act * Act +
+        w.Act * Act  +
         w.Nov * Nov;
 
       const laneScore = Math.max(0, Math.min(1.5,
-        rawScore + genreBonus + intentGenreModifier + coreGenrePenalty + eraBonus + energyBandBonus + acousticBonus
+        rawScore + genreBonus + intentGenreModifier + coreGenrePenalty + eraBonus + energyBandBonus + acousticBonus + prototypeBoost
       ));
 
       return {
         track,
         laneScore,
-        signals: { ES, SA, EM, Era, Act, Nov, genreBonus: genreBonus + intentGenreModifier, eraBonus, energyBandBonus: energyBandBonus + acousticBonus, coreGenrePenalty },
+        signals: { ES, SA, EM, Era, Act, Nov, genreBonus: genreBonus + intentGenreModifier, eraBonus, energyBandBonus: energyBandBonus + acousticBonus + prototypeBoost, coreGenrePenalty },
         era,
         genrePrimary: genre,
       };

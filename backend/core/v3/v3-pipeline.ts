@@ -28,6 +28,28 @@ import { scoreLane, type LaneScoredTrack } from "./lane-scorer";
 import { buildClusters, type ClusteredPool } from "./cluster-candidate-engine";
 import { selectFromClusters, type SampledLaneResult, type SamplerInterpretation } from "./v3-sampler";
 import {
+  resolveGenrePrototypeCentres,
+  resolvePrototypeCentresForPromptWorlds,
+  resolvePrototypeCentresForWorld,
+  prototypeCentreScoreBoost,
+} from "../editorial/genre-prototype-centres";
+import {
+  computeDominantWorldDensity,
+  computeWorldCoherenceScore,
+  scoreDominantWorldDensity,
+  scoreFeelGoodLanePurity,
+  scoreRetrievalEntropy,
+} from "../editorial/world-coherence-score";
+import {
+  evaluateHumanQualityGate,
+  HumanQualityGateError,
+  type HumanQualityGateResult,
+} from "../editorial/human-quality-gate";
+import { inferWorldIdentityIdsFromPrompt } from "../editorial/world-identity-gate";
+import { detectUkHipHopScene } from "../../lib/uk-hip-hop-scene";
+import { promptSuppressesChristmas } from "../../lib/human-scene-knowledge";
+import { artistEcosystemBoost, type ArtistEcosystemGraph } from "../../lib/artist-ecosystem-graph";
+import {
   createDiversityWindow,
   updateDiversityWindow,
   computeDiversityMetrics,
@@ -55,11 +77,15 @@ import {
   IntentCollapseInsufficientPoolError,
   minimumIntentPoolSize,
   intentPoolDeliveryFloor,
+  applyPromptIntentModifiers,
   isIntentPoolBelowPreferred,
   recoverSamplerUniverse,
   targetSamplerUniverseSize,
   reinforceOpeningEditorialWorldLock,
   resolveEffectiveOpeningSize,
+  absoluteIntentPoolFloor,
+  hardLockVerifiedProceedTarget,
+  salvageHardLockVerifiedTracks,
   type EditorialIntentVector,
   type IntentCollapseDiagnostics,
   type SamplerIntentContext,
@@ -898,6 +924,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     editorialMemory?: EditorialStructureMemory | null;
     libraryFingerprint?: LibraryFingerprint | null;
     samplerInterpretation?: SamplerInterpretation;
+    artistEcosystemGraph?: ArtistEcosystemGraph | null;
+    /** Hard world lock — verified in-world tracks bypass strict intent floors. */
+    hardWorldLock?: boolean;
+    worldVerifiedTrackIds?: Set<string>;
+    /** Full verified track rows when IDs outlive the scored candidate pool. */
+    worldVerifiedTracks?: T[];
   } = {},
 ): Promise<V3PipelineResult<T>> {
   const pipelineStartedAt = Date.now();
@@ -930,6 +962,20 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const unifiedIntentContext = opts.unifiedIntentContext;
   const decomposed = unifiedIntentContext.v3DecomposedIntent;
   const lockedIntent = opts.lockedIntent ?? unifiedIntentContext.lockedIntent;
+  const inferredWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
+  const ukScene = detectUkHipHopScene(vibe);
+  const worldPrototypeCentres = resolvePrototypeCentresForPromptWorlds(
+    inferredWorldIds,
+    ukScene?.active ? ukScene.id : null,
+  );
+  const genrePrototypeCentres = [
+    ...worldPrototypeCentres,
+    ...resolveGenrePrototypeCentres({
+      vibe,
+      primarySubgenre: lockedIntent.primarySubgenre ?? null,
+      genreFamilies: lockedIntent.genreFamilies,
+    }).filter((centre) => !worldPrototypeCentres.some((w) => w.id === centre.id)),
+  ].slice(0, 4);
   const unifiedIntentDiagnostics = unifiedIntentContext.diagnostics;
   const humanSaveStrictMode = strictModeHumanSaveability(vibe, lockedIntent);
   let effectiveHumanSaveStrict = humanSaveStrictMode;
@@ -968,7 +1014,10 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ),
   });
   recordTiming("intentExpansion", intentExpansionStartedAt);
-  let editorialIntentVector: EditorialIntentVector = collapsedIntent.intent;
+  let editorialIntentVector: EditorialIntentVector = applyPromptIntentModifiers(
+    collapsedIntent.intent,
+    vibe,
+  );
   if (opts.editorialMemory) {
     editorialIntentVector = applyEditorialMemoryToIntent(editorialIntentVector, opts.editorialMemory);
   }
@@ -1154,15 +1203,48 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   }
   let retrievedTracks = activeRetrievalCloud.tracks.map((candidate) => candidate.track);
   const preIntentFilterCount = retrievedTracks.length;
+  const hardLockVerifiedIds = opts.hardWorldLock ? opts.worldVerifiedTrackIds : undefined;
+  const verifiedTrackById = new Map<string, T>();
+  for (const track of tracks) verifiedTrackById.set(track.trackId, track);
+  if (opts.worldVerifiedTracks) {
+    for (const track of opts.worldVerifiedTracks) {
+      if (!verifiedTrackById.has(track.trackId)) verifiedTrackById.set(track.trackId, track);
+    }
+  }
+  if (hardLockVerifiedIds && hardLockVerifiedIds.size > 0) {
+    const presentIds = new Set(retrievedTracks.map((track) => track.trackId));
+    for (const track of tracks) {
+      if (!hardLockVerifiedIds.has(track.trackId) || presentIds.has(track.trackId)) continue;
+      const verified = verifiedTrackById.get(track.trackId) ?? track;
+      retrievedTracks.push(verified);
+      presentIds.add(track.trackId);
+    }
+    if (presentIds.size > preIntentFilterCount) {
+      noteReliabilityFallback(`hard_lock_verified_retrieval_merge_${presentIds.size}`);
+    }
+  }
   const intentFilterTracks = retrievedTracks.map((track) =>
     enrichIntentCollapseTrack(track, opts.classificationByTrack?.(track.trackId)),
   );
   // Sub-scene neighbourhood must see the full library — soft remnant tracks often
   // rank poorly on embedding affinity for peak-electronic prompts and never enter
   // the affinity cloud, which is exactly the comedown failure mode.
-  const fullLibraryCollapseTracks = tracks.map((track) =>
-    enrichIntentCollapseTrack(track, opts.classificationByTrack?.(track.trackId)),
-  );
+  const fullLibraryCollapseTracks = (() => {
+    const seen = new Set<string>();
+    const rows: T[] = [];
+    const push = (track: T) => {
+      if (seen.has(track.trackId)) return;
+      seen.add(track.trackId);
+      rows.push(track);
+    };
+    for (const track of tracks) push(track);
+    if (opts.worldVerifiedTracks) {
+      for (const track of opts.worldVerifiedTracks) push(track);
+    }
+    return rows.map((track) =>
+      enrichIntentCollapseTrack(track, opts.classificationByTrack?.(track.trackId)),
+    );
+  })();
   const calibratedIntentVector = calibrateIntentVectorForRetrievalPool(
     intentFilterTracks,
     editorialIntentVector,
@@ -1178,6 +1260,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const fingerprintBias = opts.libraryFingerprint
     ? buildFingerprintBiasMap(intentFilterTracks, opts.libraryFingerprint)
     : undefined;
+  const samplerHardLockOpts = opts.hardWorldLock
+    ? { hardWorldLock: true as const, worldVerifiedIds: hardLockVerifiedIds }
+    : {};
   let rankedSelection = selectRankedCandidatesForSampler(
     intentFilterTracks,
     subSceneIntentVector,
@@ -1185,6 +1270,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       targetCount,
       strictMode: effectiveHumanSaveStrict,
       fingerprintBias,
+      ...samplerHardLockOpts,
     },
   );
   if (subScenePlan.kind !== "none") {
@@ -1221,6 +1307,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         targetCount,
         strictMode: effectiveHumanSaveStrict,
         fingerprintBias,
+        ...samplerHardLockOpts,
       },
     );
     noteReliabilityFallback("intent_pool_recovery_expand");
@@ -1230,6 +1317,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     rankedSelection = preferSubSceneSoftUniverse(rankedSelection, subScenePlan, targetCount);
   }
   const selectedTrackIds = new Set(rankedSelection.selected.map((track) => track.trackId));
+  if (opts.hardWorldLock && hardLockVerifiedIds) {
+    for (const trackId of hardLockVerifiedIds) selectedTrackIds.add(trackId);
+  }
   retrievedTracks = retrievedTracks
     .filter((track) => selectedTrackIds.has(track.trackId))
     .sort((a, b) => {
@@ -1246,15 +1336,51 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         genrePrimary: enriched.genrePrimary ?? track.genrePrimary ?? null,
       };
     });
-  if (subScenePlan.kind === "soft_electronic_aftermath") {
+  if (opts.hardWorldLock && hardLockVerifiedIds && hardLockVerifiedIds.size > 0) {
+    const presentIds = new Set(retrievedTracks.map((track) => track.trackId));
+    for (const track of tracks) {
+      if (!hardLockVerifiedIds.has(track.trackId) || presentIds.has(track.trackId)) continue;
+      const verified = verifiedTrackById.get(track.trackId) ?? track;
+      retrievedTracks.push(verified);
+      presentIds.add(track.trackId);
+    }
+    noteReliabilityFallback(`hard_lock_verified_retrieval_union_${retrievedTracks.length}`);
+  }
+  if (subScenePlan.kind === "soft_electronic_aftermath" || subScenePlan.kind === "soft_focus_concentration") {
     const energyHi = subScenePlan.energyHi ?? subSceneIntentVector.energyRange[1] ?? 0.62;
     const softOnly = retrievedTracks.filter((track) => {
       const energy = typeof track.energy === "number" ? track.energy : null;
       return energy != null && energy <= energyHi;
     });
-    // Force comedown lanes to compose from soft remnant only when supply exists.
+    // Force comedown/focus lanes to compose from soft remnant only when supply exists.
     if (softOnly.length >= 1) {
       retrievedTracks = softOnly;
+    }
+  }
+  // Early retrieval density soft-rerank: when the first window spans too many
+  // unrelated worlds, prefer tracks from the emerging dominant family/ecosystem
+  // without hard-emptying the pool (Spotify editorial density, not diversity spam).
+  {
+    const entropy = scoreRetrievalEntropy(retrievedTracks, 20);
+    const density = computeDominantWorldDensity(retrievedTracks);
+    if (
+      entropy >= 0.68 &&
+      density.dominantFamily &&
+      density.dominantShare < 0.45 &&
+      lockedIntent.genreFamilies.length > 0
+    ) {
+      const preferred = new Set(
+        lockedIntent.genreFamilies.map((f) => f.toLowerCase()).concat(density.dominantFamily),
+      );
+      retrievedTracks = [...retrievedTracks].sort((a, b) => {
+        const af = (a.genreFamily ?? a.genrePrimary ?? "unknown").toLowerCase();
+        const bf = (b.genreFamily ?? b.genrePrimary ?? "unknown").toLowerCase();
+        const aOk = preferred.has(af) ? 1 : 0;
+        const bOk = preferred.has(bf) ? 1 : 0;
+        if (aOk !== bOk) return bOk - aOk;
+        return 0;
+      });
+      noteReliabilityFallback("retrieval_entropy_density_soft_rerank");
     }
   }
   const postIntentFilterCount = retrievedTracks.length;
@@ -1289,11 +1415,16 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   ));
   const preferredIntentPool = minimumIntentPoolSize(targetCount, effectiveHumanSaveStrict);
   const targetUniverse = targetSamplerUniverseSize(targetCount, effectiveHumanSaveStrict);
-  const deliveryPoolFloor = intentPoolDeliveryFloor(targetCount);
+  const verifiedInWorldDepth = hardLockVerifiedIds?.size ?? 0;
+  const deliveryPoolFloor = intentPoolDeliveryFloor(targetCount, {
+    hardWorldLock: opts.hardWorldLock,
+    verifiedInWorldDepth,
+  });
   if (retrievedTracks.length < preferredIntentPool && retrievalInputTracks.length > retrievedTracks.length) {
     const backfillIds = new Set(retrievedTracks.map((track) => track.trackId));
     const energyHi =
-      subScenePlan.kind === "soft_electronic_aftermath"
+      subScenePlan.kind === "soft_electronic_aftermath" ||
+      subScenePlan.kind === "soft_focus_concentration"
         ? (subScenePlan.energyHi ?? subSceneIntentVector.energyRange[1] ?? 0.62)
         : null;
     const backfillSource =
@@ -1318,13 +1449,69 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     }
   }
   let postIntentFilterCountFinal = retrievedTracks.length;
+  if (
+    opts.hardWorldLock &&
+    hardLockVerifiedIds &&
+    hardLockVerifiedIds.size > 0 &&
+    hardLockVerifiedIds.size < absoluteIntentPoolFloor(targetCount)
+  ) {
+    // Thin hard-lock worlds: never keep emergency/off-world survivors in the
+    // intent pool just because pool size already cleared a lowered floor.
+    const verifiedOnly = [...hardLockVerifiedIds]
+      .map((trackId) => verifiedTrackById.get(trackId) ?? retrievedTracks.find((track) => track.trackId === trackId))
+      .filter((track): track is T => !!track);
+    if (verifiedOnly.length > 0) {
+      retrievedTracks = verifiedOnly;
+      postIntentFilterCountFinal = retrievedTracks.length;
+      noteReliabilityFallback(`hard_lock_verified_only_thin_pool_${postIntentFilterCountFinal}`);
+    }
+  }
   if (isIntentPoolBelowPreferred(postIntentFilterCountFinal, targetCount, effectiveHumanSaveStrict)) {
     noteReliabilityFallback(
       `intent_pool_below_preferred_${postIntentFilterCountFinal}_of_${preferredIntentPool}`,
     );
   }
   if (postIntentFilterCountFinal < deliveryPoolFloor) {
-    const softAftermath = subScenePlan.kind === "soft_electronic_aftermath";
+    const verifiedProceedTarget = hardLockVerifiedProceedTarget(
+      targetCount,
+      hardLockVerifiedIds?.size ?? 0,
+    );
+    if (
+      opts.hardWorldLock &&
+      hardLockVerifiedIds &&
+      verifiedProceedTarget != null
+    ) {
+      retrievedTracks = [...hardLockVerifiedIds]
+        .map((trackId) => verifiedTrackById.get(trackId))
+        .filter((track): track is T => !!track);
+      if (retrievedTracks.length < verifiedProceedTarget) {
+        for (const row of fullLibraryCollapseTracks) {
+          if (retrievedTracks.length >= verifiedProceedTarget) break;
+          if (!hardLockVerifiedIds.has(row.trackId)) continue;
+          if (retrievedTracks.some((track) => track.trackId === row.trackId)) continue;
+          const original = verifiedTrackById.get(row.trackId) ?? (tracks.find((track) => track.trackId === row.trackId) as T | undefined);
+          if (!original) continue;
+          retrievedTracks.push(original);
+        }
+      }
+      postIntentFilterCountFinal = retrievedTracks.length;
+      noteReliabilityFallback(`hard_lock_verified_intent_pool_bypass_${postIntentFilterCountFinal}`);
+    } else if (
+      opts.hardWorldLock &&
+      hardLockVerifiedIds &&
+      hardLockVerifiedIds.size > 0
+    ) {
+      // Thin verified supply (< honest partial min): keep verified-only and never
+      // emergency-recover from the broader library (that path re-admits blankets).
+      retrievedTracks = [...hardLockVerifiedIds]
+        .map((trackId) => verifiedTrackById.get(trackId))
+        .filter((track): track is T => !!track);
+      postIntentFilterCountFinal = retrievedTracks.length;
+      noteReliabilityFallback(`hard_lock_verified_thin_stub_${postIntentFilterCountFinal}`);
+    } else {
+    const softAftermath =
+      subScenePlan.kind === "soft_electronic_aftermath" ||
+      subScenePlan.kind === "soft_focus_concentration";
     const softEnergyHi = softAftermath
       ? (subScenePlan.energyHi ?? subSceneIntentVector.energyRange[1] ?? 0.62)
       : null;
@@ -1351,6 +1538,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           targetCount,
           strictMode: false,
           fingerprintBias,
+          ...samplerHardLockOpts,
         },
       );
       const emergencyTracks = emergencySelection.selected.length > 0
@@ -1425,6 +1613,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         },
         collapseTrace,
       );
+    }
     }
   }
   activeRetrievalCloud = {
@@ -1629,6 +1818,16 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       run: () => scoreLane(retrievedTracks, lane, decomposed, {
         genreByTrack: opts.genreByTrack,
         noveltyByTrack: opts.noveltyByTrack,
+        prototypeBoostByTrack: (trackId) => {
+          const track = retrievedTracks.find((row) => row.trackId === trackId);
+          const artistName = (track as { artistName?: string | null } | undefined)?.artistName ?? "";
+          const proto = prototypeCentreScoreBoost(artistName, genrePrototypeCentres, inferredWorldIds);
+          const eco = Math.min(
+            0.06,
+            artistEcosystemBoost(artistName, opts.artistEcosystemGraph, genrePrototypeCentres.flatMap((c) => c.artists).slice(0, 8)),
+          );
+          return Math.min(0.1, proto + eco);
+        },
       }),
       recover: () => passThroughScored(retrievedTracks, lane.id),
     });
@@ -2041,6 +2240,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     sampledLanes: sampledResults,
     intent: activeEditorialIntentVector,
     openingSize: preferredOpeningSize,
+    hardWorldLock: opts.hardWorldLock,
+    worldVerifiedIds: hardLockVerifiedIds,
   });
   if (openingEditorialLock.relaxed) {
     noteReliabilityFallback(
@@ -2109,6 +2310,21 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ...track,
     clusterId: track.clusterIds[0],
   })) as Array<T & V3SelectionCandidate<T>>;
+  if (opts.hardWorldLock && hardLockVerifiedIds && hardLockVerifiedIds.size > 0) {
+    const salvaged = salvageHardLockVerifiedTracks(
+      finalTracks,
+      tracks,
+      hardLockVerifiedIds,
+      targetCount,
+    ) as Array<T & V3SelectionCandidate<T>>;
+    if (salvaged.length > finalTracks.length) {
+      finalTracks = salvaged.map((track) => ({
+        ...track,
+        clusterId: (track as { clusterIds?: string[] }).clusterIds?.[0] ?? track.clusterId ?? null,
+      })) as Array<T & V3SelectionCandidate<T>>;
+      noteReliabilityFallback(`hard_lock_verified_compose_salvage_${finalTracks.length}`);
+    }
+  }
   const postInterleaverOnlyAudit = openingClusterAudit(finalTracks, sceneWorldContext, strictOpeningCount);
   const toPatternTrack = (track: T & V3SelectionCandidate<T>) => ({
     trackId: track.trackId,
@@ -2121,6 +2337,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     rediscoveryScore: (track as { rediscoveryScore?: number | null }).rediscoveryScore ?? null,
     releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
     tempo: (track as { tempo?: number | null }).tempo ?? null,
+    genreFamily: track.genreFamily ?? null,
+    genrePrimary: track.genrePrimary ?? null,
     laneScore: track.laneScore,
   });
   const curationScoringContext: PlaylistCurationScoringContext = {
@@ -2212,6 +2430,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         maxIterations: humanSaveStrictMode ? 64 : 48,
         seed: opts.requestId ?? vibe,
         scoringContext: curationScoringContext,
+        preferWorldDensity: true,
       },
     );
     recordTiming("localSearch", localSearchStartedAt);
@@ -2430,6 +2649,14 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   recordTiming("humanSaveability", humanSaveGateStartedAt);
   recordTiming("tournament", humanSaveGateStartedAt);
   finalTracks = humanSaveGate.tracks as Array<T & V3SelectionCandidate<T>>;
+  if (opts.hardWorldLock && hardLockVerifiedIds && hardLockVerifiedIds.size > 0) {
+    finalTracks = salvageHardLockVerifiedTracks(
+      finalTracks,
+      tracks,
+      hardLockVerifiedIds,
+      targetCount,
+    ) as Array<T & V3SelectionCandidate<T>>;
+  }
   editorialRemoved = humanSaveGate.editorialRemoved;
 
   let humanSaveabilityDiagnostics: Record<string, unknown> = {
@@ -2486,72 +2713,53 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     },
   };
 
-  const minDeliverableTracks = Math.max(8, Math.floor(targetCount * 0.72));
+  const verifiedProceedTarget = hardLockVerifiedProceedTarget(
+    targetCount,
+    hardLockVerifiedIds?.size ?? 0,
+  );
+  const minDeliverableTracks = verifiedProceedTarget != null
+    ? verifiedProceedTarget
+    : Math.max(6, Math.floor(targetCount * 0.35));
   const gateWouldHardFail = !humanSaveGate.passed;
   if (gateWouldHardFail) {
+    if (opts.hardWorldLock && hardLockVerifiedIds && verifiedProceedTarget != null) {
+      finalTracks = salvageHardLockVerifiedTracks(
+        finalTracks,
+        tracks,
+        hardLockVerifiedIds,
+        targetCount,
+      ) as Array<T & V3SelectionCandidate<T>>;
+    }
+    // Human Curation Alignment v2: never pad a failed identity into a full-length
+    // "safe" playlist. Keep salvageable tracks for honest partial, or refuse.
     if (finalTracks.length >= minDeliverableTracks) {
-      noteReliabilityFallback("human_save_gate_degraded_delivery");
+      noteReliabilityFallback("human_save_gate_honest_partial_candidate");
       humanSaveabilityDiagnostics = {
         ...humanSaveabilityDiagnostics,
         hardFailed: false,
         degradedDelivery: true,
       };
     } else {
-      const safeSource = finalTracks.length > 0
-        ? finalTracks
-        : retrievedTracks.length > 0
-          ? retrievedTracks.map((track) => toSafeFallbackCandidate(track as T & Partial<V3SelectionCandidate<T>>))
-          : minimalSelectedTracks(tracks, targetCount);
-      const safePlaylist = assembleSafeV3Playlist(safeSource, profile, targetCount);
-      if (safePlaylist.length > 0) {
-        finalTracks = safePlaylist;
-        noteReliabilityFallback("human_save_gate_safe_playlist");
-        const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons];
-        if (insufficientOpeningWorldReason) rejectionReasons.push(insufficientOpeningWorldReason);
-        humanSaveabilityDiagnostics = {
-          ...humanSaveabilityDiagnostics,
-          hardFailed: false,
-          degradedDelivery: true,
-          rejectionReasons,
-        };
-      } else {
-        const emergencyPlaylist = assembleSafeV3Playlist(
-          minimalSelectedTracks(tracks, targetCount),
-          profile,
-          targetCount,
-        );
-        if (emergencyPlaylist.length > 0) {
-          finalTracks = emergencyPlaylist;
-          noteReliabilityFallback("human_save_gate_emergency_playlist");
-          humanSaveabilityDiagnostics = {
-            ...humanSaveabilityDiagnostics,
-            hardFailed: false,
-            degradedDelivery: true,
-            rejectionReasons: [...humanSaveGate.evaluation.rejectionReasons, "human_save_gate_emergency_assembly"],
-          };
-        } else {
-          const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons];
-          if (insufficientOpeningWorldReason) rejectionReasons.push(insufficientOpeningWorldReason);
-          const gateFailureTrace = finalizeExecutionTrace(
-            buildGateFailureExecutionTraceDraft({
-              requestId: opts.requestId ?? "unknown",
-              prompt: vibe,
-              seed: opts.seed ?? null,
-              intentCollapseLayer: intentCollapseTrace(),
-              gate: {
-                ...humanSaveGate.evaluation,
-                rejectionReasons,
-              },
-            }),
-          );
-          throw new HumanSaveabilityGateError(
-            { ...humanSaveGate.evaluation, rejectionReasons },
-            humanSaveGate.retriesUsed,
-            humanSaveGate.failureAttribution as Record<string, unknown>,
-            gateFailureTrace,
-          );
-        }
-      }
+      const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons, "human_quality_refuse_stub"];
+      if (insufficientOpeningWorldReason) rejectionReasons.push(insufficientOpeningWorldReason);
+      const gateFailureTrace = finalizeExecutionTrace(
+        buildGateFailureExecutionTraceDraft({
+          requestId: opts.requestId ?? "unknown",
+          prompt: vibe,
+          seed: opts.seed ?? null,
+          intentCollapseLayer: intentCollapseTrace(),
+          gate: {
+            ...humanSaveGate.evaluation,
+            rejectionReasons,
+          },
+        }),
+      );
+      throw new HumanSaveabilityGateError(
+        { ...humanSaveGate.evaluation, rejectionReasons },
+        humanSaveGate.retriesUsed,
+        humanSaveGate.failureAttribution as Record<string, unknown>,
+        gateFailureTrace,
+      );
     }
   }
 
@@ -2587,6 +2795,126 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       row.removalReason.includes("scene cluster") ||
       row.removalReason.includes("wrong scene cluster"),
     ).length;
+  }
+
+  const worldCoherence = computeWorldCoherenceScore({
+    tracks: finalTracks.map((track) => ({
+      artistName: track.artistName ?? null,
+      genreFamily: track.genreFamily ?? null,
+      genrePrimary: track.genrePrimary ?? null,
+    })),
+    worldConsistency: sceneWorldMetrics?.worldConsistency ?? null,
+    vibe,
+    primarySubgenre: lockedIntent.primarySubgenre ?? null,
+    genreFamilies: lockedIntent.genreFamilies,
+    prototypeCentres: genrePrototypeCentres,
+  });
+
+  // Soft repair: when the playlist would not read as a Spotify editorial list,
+  // run one denser local-search pass before freezing diagnostics.
+  let worldCoherenceRepairMoves = 0;
+  let worldCoherenceAfterRepair = worldCoherence;
+  if (
+    !worldCoherence.wouldSpotifyMakeThis &&
+    !opts.shouldSkipMarginalImprovement?.() &&
+    finalTracks.length >= 8
+  ) {
+    const repair = improvePlaylistByLocalSearch(
+      finalTracks.map(toPatternTrack),
+      localSearchPool,
+      {
+        maxIterations: humanSaveStrictMode ? 40 : 28,
+        seed: `${opts.requestId ?? vibe}:world-coherence-repair`,
+        scoringContext: curationScoringContext,
+        preferWorldDensity: true,
+      },
+    );
+    worldCoherenceRepairMoves = repair.moves.length;
+    if (repair.moves.length > 0 && repair.scoreAfter >= repair.scoreBefore - 0.0005) {
+      const byId = new Map<string, (typeof finalTracks)[number]>();
+      for (const track of finalTracks) byId.set(track.trackId, track);
+      for (const track of retrievedTracks) {
+        if (!byId.has(track.trackId)) {
+          byId.set(track.trackId, {
+            ...track,
+            clusterId: (track as { clusterIds?: string[] }).clusterIds?.[0] ?? null,
+          } as (typeof finalTracks)[number]);
+        }
+      }
+      const mapped = repair.tracks
+        .map((track) => byId.get(track.trackId))
+        .filter((track): track is (typeof finalTracks)[number] => !!track);
+      if (mapped.length >= Math.max(8, Math.floor(finalTracks.length * 0.75))) {
+        finalTracks = mapped;
+        worldCoherenceAfterRepair = computeWorldCoherenceScore({
+          tracks: finalTracks.map((track) => ({
+            artistName: track.artistName ?? null,
+            genreFamily: track.genreFamily ?? null,
+            genrePrimary: track.genrePrimary ?? null,
+          })),
+          worldConsistency: sceneWorldMetrics?.worldConsistency ?? null,
+          vibe,
+          primarySubgenre: lockedIntent.primarySubgenre ?? null,
+          genreFamilies: lockedIntent.genreFamilies,
+          prototypeCentres: genrePrototypeCentres,
+        });
+      }
+    }
+  }
+  const worldCoherenceFinal = worldCoherenceAfterRepair;
+
+  const artistCountsForGate = new Map<string, number>();
+  for (const track of finalTracks) {
+    const artist = (track.artistName ?? "").toLowerCase().trim();
+    if (!artist) continue;
+    artistCountsForGate.set(artist, (artistCountsForGate.get(artist) ?? 0) + 1);
+  }
+  let dominantArtistShare: number | null = null;
+  if (finalTracks.length > 0 && artistCountsForGate.size > 0) {
+    const maxArtist = Math.max(...artistCountsForGate.values());
+    dominantArtistShare = maxArtist / finalTracks.length;
+  }
+  const holidayNegated = promptSuppressesChristmas(vibe);
+  const holidayRequested =
+    !holidayNegated &&
+    /\b(?:christmas|xmas|festive|noel|santa|holiday\s+song|holiday\s+classics)\b/i.test(vibe);
+  const feelGoodLanePurity =
+    inferredWorldIds.includes("feel_good_world") || inferredWorldIds.includes("party_prep_world")
+      ? scoreFeelGoodLanePurity(
+        finalTracks.map((t) => ({
+          artistName: t.artistName,
+          genreFamily: t.genreFamily,
+          genrePrimary: t.genrePrimary,
+        })),
+      ).purity
+    : null;
+  const humanQualityGate: HumanQualityGateResult = evaluateHumanQualityGate({
+    trackCount: finalTracks.length,
+    requestedLength: targetCount,
+    wouldSpotifyMakeThis: worldCoherenceFinal.wouldSpotifyMakeThis,
+    dominantWorldDensity: worldCoherenceFinal.dominantWorldDensity,
+    retrievalEntropy: worldCoherenceFinal.retrievalEntropy,
+    humanSavePassed: humanSaveGate.passed,
+    curatorScore: humanSaveGate.evaluation.curatorScore ?? null,
+    degradedDelivery: humanSaveabilityDiagnostics.degradedDelivery === true,
+    seasonalLeakage: false,
+    holidayRequested,
+    holidayNegated,
+    uniqueArtistCount: artistCountsForGate.size,
+    dominantArtistShare,
+    promptLabel: vibe,
+    activeWorldId: inferredWorldIds[0] ?? null,
+    feelGoodLanePurity,
+  });
+  if (humanQualityGate.action === "refuse") {
+    throw new HumanQualityGateError(humanQualityGate);
+  }
+  if (
+    humanQualityGate.action === "honest_partial" &&
+    humanQualityGate.salvageableCount > 0 &&
+    finalTracks.length > humanQualityGate.salvageableCount
+  ) {
+    finalTracks = finalTracks.slice(0, humanQualityGate.salvageableCount);
   }
 
   let sceneWorldProof: SceneWorldProofReport | null = null;
@@ -2785,6 +3113,33 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         },
         intentDecomposer,
         humanSaveabilityGate: humanSaveabilityDiagnostics,
+        worldCoherence: {
+          score: worldCoherenceFinal.score,
+          wouldSpotifyMakeThis: worldCoherenceFinal.wouldSpotifyMakeThis,
+          dominantWorldDensity: worldCoherenceFinal.dominantWorldDensity,
+          worldConsistency: worldCoherenceFinal.worldConsistency,
+          prototypeAffinity: worldCoherenceFinal.prototypeAffinity,
+          retrievalEntropy: worldCoherenceFinal.retrievalEntropy,
+          dominantFamily: worldCoherenceFinal.density.dominantFamily,
+          dominantShare: worldCoherenceFinal.density.dominantShare,
+          familyCounts: worldCoherenceFinal.density.counts,
+          prototypeCentres: worldCoherenceFinal.prototypeCentres,
+          reasons: worldCoherenceFinal.reasons,
+          repairMoves: worldCoherenceRepairMoves,
+          repaired: worldCoherenceRepairMoves > 0,
+          scoreBeforeRepair: worldCoherence.score,
+          wouldSpotifyMakeThisBeforeRepair: worldCoherence.wouldSpotifyMakeThis,
+        },
+        humanQualityGate: {
+          action: humanQualityGate.action,
+          reasons: humanQualityGate.reasons,
+          userMessage: humanQualityGate.userMessage,
+          salvageableCount: humanQualityGate.salvageableCount,
+          wouldSaveConfidence: humanQualityGate.wouldSaveConfidence,
+          replayConfidence: humanQualityGate.replayConfidence,
+          worldCoherenceOk: humanQualityGate.worldCoherenceOk,
+          stubUnderfill: humanQualityGate.stubUnderfill,
+        },
         lanes: diagnosticLaneDetails.map((ld) => ({
           laneId: ld.laneId,
           type: ld.type,
@@ -3203,6 +3558,39 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       : { active: false },
 
     humanSaveabilityGate: humanSaveabilityDiagnostics,
+    worldCoherence: {
+      score: worldCoherenceFinal.score,
+      wouldSpotifyMakeThis: worldCoherenceFinal.wouldSpotifyMakeThis,
+      dominantWorldDensity: worldCoherenceFinal.dominantWorldDensity,
+      worldConsistency: worldCoherenceFinal.worldConsistency,
+      prototypeAffinity: worldCoherenceFinal.prototypeAffinity,
+      retrievalEntropy: worldCoherenceFinal.retrievalEntropy,
+      dominantFamily: worldCoherenceFinal.density.dominantFamily,
+      dominantShare: worldCoherenceFinal.density.dominantShare,
+      familyCounts: worldCoherenceFinal.density.counts,
+      prototypeCentres: worldCoherenceFinal.prototypeCentres,
+      reasons: worldCoherenceFinal.reasons,
+      repairMoves: worldCoherenceRepairMoves,
+      repaired: worldCoherenceRepairMoves > 0,
+      scoreBeforeRepair: worldCoherence.score,
+      wouldSpotifyMakeThisBeforeRepair: worldCoherence.wouldSpotifyMakeThis,
+    },
+    humanQualityGate: {
+      action: humanQualityGate.action,
+      reasons: humanQualityGate.reasons,
+      userMessage: humanQualityGate.userMessage,
+      salvageableCount: humanQualityGate.salvageableCount,
+      wouldSaveConfidence: humanQualityGate.wouldSaveConfidence,
+      replayConfidence: humanQualityGate.replayConfidence,
+      worldCoherenceOk: humanQualityGate.worldCoherenceOk,
+      stubUnderfill: humanQualityGate.stubUnderfill,
+    },
+    genrePrototypeCentres: genrePrototypeCentres.map((c) => ({
+      id: c.id,
+      family: c.family,
+      subgenre: c.subgenre,
+      artistCount: c.artists.length,
+    })),
     sceneClusterFunnel,
     openingTenDominantCluster,
     editorialPolishLayer: editorialPolishDiagnostics,

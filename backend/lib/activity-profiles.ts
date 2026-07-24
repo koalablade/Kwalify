@@ -140,7 +140,7 @@ function isCodingFocusPrompt(vibe: string, intent: ActivityIntentInput): boolean
 
 function isGymPrompt(vibe: string, intent: ActivityIntentInput): boolean {
   return intent.activity === "gym" ||
-    /\b(?:gym|workout|training|pump|cardio|run(?:ning)?|lifting|weights)\b/i.test(vibe);
+    /\b(?:gym|workout|training|pump|cardio|run(?:ning)?|lifting|weights|\blift\b)\b/i.test(vibe);
 }
 
 export function isPartyPregamePrompt(vibe: string, intent: ActivityIntentInput): boolean {

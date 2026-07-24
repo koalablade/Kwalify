@@ -14,6 +14,13 @@ import {
   type ActivityProfile,
   type ActivityTrackInput,
 } from "./activity-profiles";
+import { inferWorldIdentityIdsFromPrompt } from "../core/editorial/world-identity-gate";
+import {
+  detectUkHipHopScene,
+  ukHipHopRetrievalBoost,
+  ukHipHopSceneLockProfile,
+  type UkHipHopScene,
+} from "./uk-hip-hop-scene";
 import {
   buildPromptSonicTarget,
   buildSonicTasteProfile,
@@ -34,6 +41,8 @@ import {
   scoreCompoundPromptFit,
 } from "./compound-prompt-retrieval";
 import { applyRetrievalTrackCooldown } from "./playlist-freshness";
+import { OPENER_FILLER_PATTERN } from "../core/editorial/opener-hygiene";
+import { isSafetyBlanketOutsideWorld } from "../core/editorial/world-identity-gate";
 
 export type RetrievalSourceId =
   | "activity_match"
@@ -73,6 +82,8 @@ export type RetrievalProfile = {
   highConfidenceActivity: boolean;
   sourceQuotas: Record<RetrievalSourceId, number>;
   dominantLibraryFamilies: string[];
+  ukHipHopScene: UkHipHopScene | null;
+  committedWorldId: string | null;
 };
 
 export type RetrievalTrackInput = ActivityTrackInput & {
@@ -155,6 +166,8 @@ export type RetrieveScoringCandidatesOpts<T extends RetrievalTrackInput> = {
     exploratoryQuotaBoost?: number;
     sourceQuotas?: Record<RetrievalSourceId, number>;
   };
+  /** Committed world ids — penalize psych-indie opener fillers outside natural worlds. */
+  activeWorldIds?: string[];
 };
 
 const SCENE_PATTERNS: Array<{ tag: string; pattern: RegExp; weight: number }> = [
@@ -166,7 +179,7 @@ const SCENE_PATTERNS: Array<{ tag: string; pattern: RegExp; weight: number }> = 
   { tag: "summer", pattern: /\b(?:summer|end of summer|late summer)\b/i, weight: 0.76 },
   { tag: "party", pattern: /\b(?:party|pregame|going\s+out|club|dance)\b/i, weight: 0.8 },
   { tag: "focus", pattern: /\b(?:focus|coding|deep\s+work|study|concentrat)\b/i, weight: 0.8 },
-  { tag: "gym", pattern: /\b(?:gym|workout|training|cardio|lifting)\b/i, weight: 0.84 },
+  { tag: "gym", pattern: /\b(?:gym|workout|training|cardio|lifting|\blift\b)\b/i, weight: 0.84 },
   { tag: "cleaning", pattern: /\b(?:clean|cleaning|chores|tidy|housework)\b/i, weight: 0.72 },
   { tag: "cooking", pattern: /\b(?:cook|cooking|kitchen|meal\s+prep|dinner\s+prep)\b/i, weight: 0.7 },
   { tag: "chill", pattern: /\b(?:chill|relax|calm|cozy|soft)\b/i, weight: 0.68 },
@@ -178,10 +191,28 @@ const GENRE_HINT_PATTERNS: Array<{ family: string; pattern: RegExp }> = [
   { family: "hip_hop", pattern: /\b(?:hip.?hop|rap|trap|drill)\b/i },
   { family: "indie", pattern: /\b(?:indie|alternative|alt)\b/i },
   { family: "folk", pattern: /\b(?:folk|acoustic|singer.?songwriter)\b/i },
-  { family: "rock", pattern: /\b(?:rock|punk|metal)\b/i },
+  { family: "rock", pattern: /\b(?:rock|grunge|punk|pop\s*punk|metal|hardcore)\b/i },
+  { family: "electronic", pattern: /\b(?:disco|funk|nu\s*disco)\b/i },
+  { family: "electronic", pattern: /\blo-?fi\b|\bchillhop\b|\bstudy\s+beats?\b/i },
   { family: "soul", pattern: /\b(?:soul|r&b|rnb|funk)\b/i },
   { family: "jazz", pattern: /\b(?:jazz|bossa|swing)\b/i },
+  { family: "hip_hop", pattern: /\b(?:grime|ukg|uk\s+garage|uk\s+rap|uk\s+drill|road\s+rap)\b/i },
+  { family: "electronic", pattern: /\b(?:ukg|uk\s+garage|2-?step|speed\s+garage|bassline)\b/i },
 ];
+
+const COMMITTED_WORLD_RETRIEVAL_IDS = [
+  "upbeat_chore_world",
+  "feel_good_world",
+  "party_prep_world",
+  "gym_energy_world",
+] as const;
+
+const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
+  upbeat_chore_world: ["pop", "electronic", "disco", "funk", "hip_hop"],
+  feel_good_world: ["pop", "soul", "funk", "disco", "rnb"],
+  party_prep_world: ["pop", "electronic", "disco", "hip_hop", "soul"],
+  gym_energy_world: ["hip_hop", "electronic", "pop", "rock", "metal"],
+};
 
 const HIGH_CONFIDENCE_QUOTAS: Record<RetrievalSourceId, number> = {
   activity_match: 0.32,
@@ -276,9 +307,36 @@ export function buildPromptRetrievalProfile(
   const scene = detectSceneTags(vibe);
   const genre = detectGenreExpectations(vibe, intent);
   const activityProfile = resolveActivityProfile(vibe, intent);
-  const highConfidenceActivity = activity.confidence >= 0.85 && activity.activity !== null;
+  const ukHipHopScene = detectUkHipHopScene(vibe);
+  const committedWorldId =
+    inferWorldIdentityIdsFromPrompt(vibe).find((id) =>
+      (COMMITTED_WORLD_RETRIEVAL_IDS as readonly string[]).includes(id),
+    ) ?? null;
+  const highConfidenceActivity =
+    (activity.confidence >= 0.85 && activity.activity !== null) ||
+    (committedWorldId != null && activity.confidence >= 0.7);
   const libraryGravityWeight = highConfidenceActivity ? 0.12 : activity.confidence >= 0.7 ? 0.28 : 0.48;
   const sourceQuotas = highConfidenceActivity ? { ...HIGH_CONFIDENCE_QUOTAS } : { ...BALANCED_QUOTAS };
+  if (genre.confidence >= 0.55 && genre.families.length > 0) {
+    sourceQuotas.genre_match = Math.min(0.34, sourceQuotas.genre_match + 0.08);
+    sourceQuotas.exploratory = Math.max(0.06, sourceQuotas.exploratory - 0.04);
+  }
+  if (ukHipHopScene?.active) {
+    const ukProfile = ukHipHopSceneLockProfile(ukHipHopScene);
+    genre.families = [...ukProfile.allowedGenreFamilies];
+    genre.confidence = Math.max(genre.confidence, 0.88);
+    sourceQuotas.genre_match = Math.min(0.42, sourceQuotas.genre_match + 0.14);
+    sourceQuotas.exploratory = Math.max(0.04, sourceQuotas.exploratory - 0.08);
+    sourceQuotas.forgotten_favourites = Math.max(0.08, sourceQuotas.forgotten_favourites - 0.1);
+  } else if (committedWorldId) {
+    sourceQuotas.genre_match = Math.min(0.38, sourceQuotas.genre_match + 0.1);
+    sourceQuotas.forgotten_favourites = Math.max(0.1, sourceQuotas.forgotten_favourites - 0.08);
+    sourceQuotas.exploratory = Math.max(0.05, sourceQuotas.exploratory - 0.06);
+    if (genre.families.length === 0) {
+      for (const family of COMMITTED_WORLD_GENRE_FAMILIES[committedWorldId] ?? []) genre.families.push(family);
+      genre.confidence = Math.max(genre.confidence, 0.72);
+    }
+  }
 
   return {
     activity: activity.activity,
@@ -293,6 +351,8 @@ export function buildPromptRetrievalProfile(
     highConfidenceActivity,
     sourceQuotas,
     dominantLibraryFamilies,
+    ukHipHopScene,
+    committedWorldId,
   };
 }
 
@@ -358,7 +418,16 @@ function scoreOpeningCandidate(
   classification: ActivityClassificationInput,
   retrievalProfile: RetrievalProfile,
   vibe: string,
+  activeWorldIds: string[] = [],
 ): number {
+  const artist = track.artistName ?? "";
+  if (
+    activeWorldIds.length > 0 &&
+    OPENER_FILLER_PATTERN.test(artist) &&
+    isSafetyBlanketOutsideWorld(artist, activeWorldIds)
+  ) {
+    return -1;
+  }
   if (retrievalProfile.activityProfile) {
     if (trackFailsActivityHardGate(track, classification, retrievalProfile.activityProfile, vibe)) return -1;
     return activityOpeningBoost(track, classification, retrievalProfile.activityProfile, vibe, 0);
@@ -574,12 +643,16 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       ? scoreCompoundPromptFit(track, classification, compoundConstraints, opts.vibe, opts.emotionProfile)
       : 1;
     const sonicTieBreak = scoreSonicMatchCandidate(track, promptSonicTarget, sonicTasteProfile, activityFit);
-    return applyRetrievalScoreModifiers(baseScore, track, {
+    let score = applyRetrievalScoreModifiers(baseScore, track, {
       recentTrackPenalty: opts.recentTrackPenalty,
       sonicTieBreak,
       compoundFit,
       compoundActive,
     });
+    if (retrievalProfile.ukHipHopScene?.active) {
+      score += ukHipHopRetrievalBoost(track, retrievalProfile.ukHipHopScene);
+    }
+    return score;
   };
 
   const activityRanked = eligible
@@ -587,7 +660,11 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       let score = retrievalProfile.activityProfile
         ? scoreActivityCandidateFit(track, classifyFor(track, opts.classMap), retrievalProfile.activityProfile, opts.vibe)
         : quickEmotionFit(track, opts.emotionProfile);
-      if (retrievalProfile.activity === "party_pregame" && typeof track.popularity === "number") {
+      if (
+        retrievalProfile.activity === "party_pregame" &&
+        !retrievalProfile.ukHipHopScene?.active &&
+        typeof track.popularity === "number"
+      ) {
         score = score * 0.72 + Math.min(1, track.popularity / 100) * 0.28;
       }
       return { track, score: scoreModifiersFor(track, score) };
@@ -702,7 +779,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   const openingRanked = eligible
     .map((track) => ({
       track,
-      score: scoreOpeningCandidate(track, classifyFor(track, opts.classMap), retrievalProfile, opts.vibe),
+      score: scoreOpeningCandidate(track, classifyFor(track, opts.classMap), retrievalProfile, opts.vibe, opts.activeWorldIds ?? []),
     }))
     .filter((row) => row.score >= 0)
     .sort((a, b) => b.score - a.score);

@@ -81,6 +81,8 @@ test("selectRetrievalStrategy never auto-selects discovery mode", () => {
         sonic_match: 0,
       },
       dominantLibraryFamilies: [],
+      ukHipHopScene: null,
+      committedWorldId: null,
     },
     { functionalPrompt: true },
   );

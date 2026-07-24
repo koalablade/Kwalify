@@ -8,9 +8,11 @@ import { GENERATE_RESULT_CACHE_TTL_MS } from "./production-limits";
 import { evictOldestEntries } from "./cache-eviction";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
+export const GENERATE_RESULT_CACHE_VERSION = "v31" as const;
+
 export type CachedGeneratePayload = {
-  /** v30: curator identity bias, session reuse penalties, and simplified human coherence. */
-  cacheVersion: "v30";
+  /** v31: post-hygiene opener strip + sync on cache read/write. */
+  cacheVersion: typeof GENERATE_RESULT_CACHE_VERSION;
   status?: "fresh" | "stale";
   playlistName: string;
   vibe: string;

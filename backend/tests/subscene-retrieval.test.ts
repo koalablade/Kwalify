@@ -54,6 +54,59 @@ describe("subscene-retrieval", () => {
     assert.equal(detectSubSceneRetrievalKind("heavy lifting gym pump aggressive", locked), "none");
   });
 
+  it("detects soft focus concentration for ambient coding prompts", () => {
+    const locked = buildLockedIntent("calm ambient morning focus coding");
+    assert.equal(
+      detectSubSceneRetrievalKind("calm ambient morning focus coding", locked),
+      "soft_focus_concentration",
+    );
+  });
+
+  it("detects soft focus for soft electronic concentration", () => {
+    const locked = buildLockedIntent("soft electronic concentration");
+    assert.equal(
+      detectSubSceneRetrievalKind("soft electronic concentration", locked),
+      "soft_focus_concentration",
+    );
+  });
+
+  it("soft focus clamps energy and prefers soft indie over house", () => {
+    const library = [
+      track({ trackId: "house", energy: 0.72, genreFamily: "electronic", danceability: 0.78, acousticness: 0.05 }),
+      track({
+        trackId: "soft-indie",
+        energy: 0.3,
+        genreFamily: "indie",
+        danceability: 0.4,
+        acousticness: 0.55,
+        instrumentalness: 0.2,
+      }),
+      track({
+        trackId: "soft-elec",
+        energy: 0.34,
+        genreFamily: "electronic",
+        danceability: 0.45,
+        acousticness: 0.35,
+        instrumentalness: 0.5,
+      }),
+    ];
+    const locked = buildLockedIntent("soft electronic concentration");
+    const plan = buildSubSceneRetrievalPlan({
+      vibe: "soft electronic concentration",
+      lockedIntent: locked,
+      libraryTracks: library,
+      targetCount: 25,
+    });
+    assert.equal(plan.kind, "soft_focus_concentration");
+    assert.ok((plan.energyHi ?? 1) <= 0.48);
+    const textured = applySubSceneRetrievalTexture(baseIntent, plan);
+    assert.ok(textured.energyRange[1] <= 0.48);
+    const neighbourhood = selectSubSceneNeighbourhood(library, textured, plan);
+    assert.ok(neighbourhood.some((t) => t.trackId === "soft-indie"));
+    assert.ok(neighbourhood.some((t) => t.trackId === "soft-elec"));
+    assert.ok(!neighbourhood.some((t) => t.trackId === "house"));
+  });
+
   it("raises texture caps and injects soft-remnant electronic neighbourhood", () => {
     const library = [
       track({ trackId: "e1", energy: 0.58, genreFamily: "electronic", danceability: 0.66, acousticness: 0.1 }),
@@ -139,5 +192,29 @@ describe("subscene-retrieval", () => {
     });
     assert.equal(plan.kind, "soft_electronic_aftermath");
     assert.ok((plan.energyHi ?? 1) <= 0.62);
+  });
+
+  it("soft focus preferSubSceneSoftUniverse drops peak house seats", () => {
+    const library = [
+      track({ trackId: "soft", energy: 0.28, genreFamily: "indie", acousticness: 0.6 }),
+      track({ trackId: "house", energy: 0.78, genreFamily: "electronic", danceability: 0.8 }),
+    ];
+    const locked = buildLockedIntent("soft electronic concentration");
+    const plan = buildSubSceneRetrievalPlan({
+      vibe: "soft electronic concentration",
+      lockedIntent: locked,
+      libraryTracks: library,
+      targetCount: 25,
+    });
+    const selection = {
+      selected: library,
+      scores: new Map(library.map((t) => [t.trackId, 0.5])),
+      avgScore: 0.5,
+      minScoreUsed: 0.2,
+      rankedTotal: 2,
+    };
+    const preferred = preferSubSceneSoftUniverse(selection, plan, 25);
+    assert.ok(preferred.selected.every((t) => (t.energy as number) <= 0.48));
+    assert.ok(!preferred.selected.some((t) => t.trackId === "house"));
   });
 });

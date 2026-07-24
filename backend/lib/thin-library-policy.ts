@@ -161,6 +161,60 @@ export function applyThinLibraryDeliveryCap<T>(
   return { tracks: tracks.slice(0, policy.targetLength), applied: true };
 }
 
+/** Cap thin-library policy to verified in-world supply — never inflate from relaxed lanes. */
+export function constrainThinLibraryPolicyForWorldSupply(
+  policy: ThinLibraryPolicyResult,
+  opts: {
+    hardWorldLock: boolean;
+    worldVerifiedSupply: number;
+    requestedLength: number;
+  },
+): ThinLibraryPolicyResult {
+  if (!opts.hardWorldLock || opts.worldVerifiedSupply <= 0) return policy;
+  const partialThreshold = Math.ceil(opts.requestedLength * THIN_LIBRARY_PARTIAL_RATIO);
+  const worldCap = Math.min(opts.worldVerifiedSupply, opts.requestedLength);
+  if (worldCap >= partialThreshold && policy.maxAchievable >= partialThreshold) {
+    return policy;
+  }
+  const targetLength = Math.max(
+    THIN_LIBRARY_INSUFFICIENT_THRESHOLD,
+    Math.min(worldCap, policy.targetLength, policy.maxAchievable),
+  );
+  if (policy.action === "normal" && worldCap < partialThreshold) {
+    return {
+      action: "honest_partial",
+      maxAchievable: worldCap,
+      requestedLength: opts.requestedLength,
+      targetLength: worldCap,
+      partialRatio: worldCap / Math.max(1, opts.requestedLength),
+      userMessage: buildThinLibraryHonestPartialMessage(worldCap, opts.requestedLength),
+      reason: "world_verified_supply_below_partial_ratio",
+      diagnostics: {
+        ...policy.diagnostics,
+        worldVerifiedSupply: worldCap,
+        maxAchievableReason: "world_verified_supply_cap",
+      },
+    };
+  }
+  if (worldCap < policy.maxAchievable || worldCap < policy.targetLength) {
+    return {
+      ...policy,
+      action: policy.action === "insufficient" ? "insufficient" : "honest_partial",
+      maxAchievable: Math.min(policy.maxAchievable, worldCap),
+      targetLength: Math.min(policy.targetLength, worldCap),
+      partialRatio: Math.min(policy.targetLength, worldCap) / Math.max(1, opts.requestedLength),
+      userMessage:
+        policy.userMessage ?? buildThinLibraryHonestPartialMessage(Math.min(policy.targetLength, worldCap), opts.requestedLength),
+      reason: "world_verified_supply_cap",
+      diagnostics: {
+        ...policy.diagnostics,
+        worldVerifiedSupply: worldCap,
+      },
+    };
+  }
+  return policy;
+}
+
 type CompoundIntentShape = {
   genreFamilies?: string[];
   primaryGenres?: string[];

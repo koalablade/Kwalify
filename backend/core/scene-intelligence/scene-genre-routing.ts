@@ -67,7 +67,22 @@ const JAPANESE_CITY_POP_RE =
   /\b(japanese city pop|city pop|j-?pop.{0,20}(80s|retro)|japanese.{0,20}(80s|retro|funk)|plastic love|tatsuro|mariya takeuchi)\b/i;
 
 const NEON_STREETS_RE =
-  /\b(neon streets|neon lights.{0,20}(night|city)|late.?night.{0,20}(city|urban|streets)|cyberpunk|synthwave.{0,20}city)\b/i;
+  /\b(neon(?:\s+(?:streets|city|nite|night|lights|drive))?|neon lights.{0,20}(night|city)|late.?night.{0,20}(city|urban|streets)|cyberpunk|synthwave|retrowave|tekk?\b|tekno|hard\s+techno)\b/i;
+
+const BOSS_FIGHT_RE =
+  /\b(boss\s+fight|boss\s+battle|final\s+boss|gaming\s+boss)\b/i;
+
+const GOTH_WORLD_RE =
+  /\b(goth\b|gothic\b|darkwave|post[-\s]?punk)\b/i;
+
+const GRUNGE_WORLD_RE =
+  /\b(grunge|seattle\s+(?:sound|grunge))\b/i;
+
+const LOFI_WORLD_RE =
+  /\b(lo-?fi|lofi|chillhop|study\s+beats?)\b/i;
+
+const QUIET_RAGE_RE =
+  /\b(quiet\s+rage|simmer(?:ing)?\s+(?:rage|anger)|repressed\s+(?:rage|anger))\b/i;
 
 const COMING_HOME_RE =
   /\b(coming home|driving home|heading home|on my way home|back home|homecoming)\b/i;
@@ -238,17 +253,97 @@ export function resolveSceneGenreRouting(opts: {
     suppressed.push("country", "folk", "metal");
   }
 
-  // ── Neon Streets ──────────────────────────────────────────────────────────
+  // ── Neon / synthwave / tek drive (electronic world — not hip-hop radio) ───
   if (NEON_STREETS_RE.test(lower)) {
-    apply("electronic", 1.28);
-    apply("rnb", 1.18);
-    apply("hip_hop", 1.12);
-    apply("pop", 1.08);
-    apply("indie", 1.05);
-    apply("country", 0.25);
-    apply("folk", 0.28);
+    apply("electronic", 1.40);
+    apply("indie", 1.12);
+    apply("rock", 1.08);
+    apply("pop", 0.72);
+    apply("rnb", 0.42);
+    apply("hip_hop", 0.38);
+    apply("country", 0.18);
+    apply("folk", 0.20);
+    apply("classical", 0.28);
+    apply("reggae", 0.22);
+    apply("latin", 0.25);
+    suppressed.push("country", "folk", "classical", "hip_hop", "rnb", "reggae", "latin");
+  }
+
+  // ── Boss fight / combat energy ─────────────────────────────────────────────
+  if (BOSS_FIGHT_RE.test(lower)) {
+    apply("electronic", 1.35);
+    apply("metal", 1.32);
+    apply("rock", 1.22);
+    apply("soundtrack", 1.28);
+    apply("indie", 0.85);
+    apply("pop", 0.35);
+    apply("country", 0.12);
+    apply("folk", 0.15);
+    apply("reggae", 0.12);
+    apply("rnb", 0.22);
+    apply("soul", 0.25);
+    apply("jazz", 0.20);
     apply("classical", 0.35);
-    suppressed.push("country", "folk", "classical");
+    suppressed.push("country", "folk", "reggae", "rnb", "soul", "jazz", "pop");
+  }
+
+  // ── Goth / darkwave ────────────────────────────────────────────────────────
+  if (GOTH_WORLD_RE.test(lower)) {
+    apply("rock", 1.35);
+    apply("indie", 1.28);
+    apply("electronic", 1.22);
+    apply("metal", 1.10);
+    apply("pop", 0.40);
+    apply("hip_hop", 0.12);
+    apply("reggae", 0.08);
+    apply("country", 0.12);
+    apply("latin", 0.12);
+    apply("rnb", 0.22);
+    apply("soul", 0.25);
+    suppressed.push("hip_hop", "reggae", "country", "latin", "rnb", "soul", "pop");
+  }
+
+  // ── Grunge ─────────────────────────────────────────────────────────────────
+  if (GRUNGE_WORLD_RE.test(lower)) {
+    apply("rock", 1.42);
+    apply("metal", 1.18);
+    apply("indie", 1.12);
+    apply("pop", 0.28);
+    apply("electronic", 0.22);
+    apply("hip_hop", 0.12);
+    apply("reggae", 0.10);
+    apply("country", 0.15);
+    apply("rnb", 0.18);
+    suppressed.push("pop", "electronic", "hip_hop", "reggae", "country", "rnb");
+  }
+
+  // ── Lofi / chillhop study ──────────────────────────────────────────────────
+  if (LOFI_WORLD_RE.test(lower)) {
+    apply("indie", 1.30);
+    apply("electronic", 1.28);
+    apply("jazz", 1.18);
+    apply("hip_hop", 1.12);
+    apply("soul", 1.05);
+    apply("rock", 0.28);
+    apply("metal", 0.10);
+    apply("pop", 0.45);
+    apply("country", 0.15);
+    apply("reggae", 0.20);
+    suppressed.push("rock", "metal", "country", "reggae");
+  }
+
+  // ── Quiet rage (simmer, not party) ─────────────────────────────────────────
+  if (QUIET_RAGE_RE.test(lower)) {
+    apply("rock", 1.28);
+    apply("indie", 1.25);
+    apply("metal", 1.12);
+    apply("electronic", 0.85);
+    apply("pop", 0.35);
+    apply("hip_hop", 0.45);
+    apply("reggae", 0.15);
+    apply("country", 0.20);
+    apply("latin", 0.18);
+    suppressed.push("pop", "reggae", "country", "latin");
   }
 
   // ── Festival Sunset / Indie Electronic ────────────────────────────────────

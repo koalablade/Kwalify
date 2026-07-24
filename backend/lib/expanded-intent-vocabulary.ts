@@ -64,8 +64,8 @@ export const EXPANDED_MOOD_TERMS: Record<string, string[]> = {
 
 export const EXPANDED_ACTIVITY_TERMS: Record<string, string[]> = {
   driving: ["drive", "driving", "driv", "drivin", "road trip", "highway", "motorway", "freeway", "cruise", "night drive", "nite drive", "late night motorway", "motorway in the rain", "dirt road", "backroads", "car ride", "m25", "a road", "b road"],
-  workout: ["gym", "workout", "running", "run", "jogging", "lifting", "weights", "cardio", "sprint", "cycling", "boxing", "training", "five a side", "5 a side", "football training", "netball", "rugby training"],
-  focus: ["study", "studying", "focus", "coding", "deep work", "writing", "reading", "homework", "revision", "revising", "coursework", "concentration", "working in the garage", "garage day", "fixing my car", "fixing cars", "fixing my volvo", "working on cars", "working on my car", "working on motorcycles", "working on motorbikes", "welding", "workshop"],
+  workout: ["gym", "workout", "running", "run", "jogging", "lifting", "weights", "cardio", "sprinting", "sprint workout", "cycling", "boxing", "training", "five a side", "5 a side", "football training", "netball", "rugby training"],
+  focus: ["study", "studying", "focus", "coding", "coding sprint", "productivity sprint", "work flow", "workflow", "deep work", "writing", "reading", "homework", "revision", "revising", "coursework", "concentration", "working in the garage", "garage day", "fixing my car", "fixing cars", "fixing my volvo", "working on cars", "working on my car", "working on motorcycles", "working on motorbikes", "welding", "workshop"],
   party: ["party", "pregame", "pre game", "pres", "pre drinks", "pre-drinks", "sesh", "session", "club", "nightclub", "dancefloor", "festival", "rave", "house party", "celebration", "night out", "pub", "pub night", "beer garden"],
   sleep: ["sleep", "bedtime", "nap", "insomnia", "fall asleep", "wind down", "lullaby", "kip"],
   cleaning: ["cleaning", "clean room", "laundry", "washing", "chores", "tidying", "tidy", "reset day"],

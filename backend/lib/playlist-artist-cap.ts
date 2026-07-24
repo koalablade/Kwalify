@@ -7,9 +7,22 @@ export function hasExplicitArtistPlaylistRequest(vibe: string): boolean {
   return EXPLICIT_ARTIST_REQUEST.test(vibe);
 }
 
+/** Thin niche dancefloors concentrate on few artists — slightly loftier caps
+ *  prevent post-refill artist prune from collapsing 35→10 disco parties. */
+const NICHE_DANCEFLOOR_ARTIST_CAP =
+  /\b(?:disco|latin|reggaeton|salsa|bachata|uk\s*garage|ukg|french\s*house|synthwave|city\s*pop|liquid\s*(?:dnb|drum)|shoegaze|dream\s*pop)\b/i;
+
+export function isNicheDancefloorArtistCapPrompt(vibe: string): boolean {
+  return NICHE_DANCEFLOOR_ARTIST_CAP.test(vibe);
+}
+
 export function defaultPerPlaylistArtistCap(playlistSize: number, vibe: string): number {
   if (hasExplicitArtistPlaylistRequest(vibe)) return Number.MAX_SAFE_INTEGER;
-  return playlistSize >= 25 ? 4 : 3;
+  const base = playlistSize >= 30 ? 3 : 2;
+  if (isNicheDancefloorArtistCapPrompt(vibe) && playlistSize >= 20) {
+    return Math.max(base, Math.min(5, Math.ceil(playlistSize * 0.16)));
+  }
+  return base;
 }
 
 function artistIsCentral(
@@ -37,7 +50,7 @@ export function enforcePerPlaylistArtistCap<T extends { artistName?: string | nu
   const centralArtists = opts.promptCentralArtists ?? detectPromptCentralArtists(opts.vibe);
   const centralArtistCap = cap >= Number.MAX_SAFE_INTEGER / 2
     ? Number.MAX_SAFE_INTEGER
-    : Math.max(cap, Math.ceil(opts.playlistSize * 0.45));
+    : Math.max(cap, Math.ceil(opts.playlistSize * 0.22));
   const counts = new Map<string, number>();
   const out: T[] = [];
   let dropped = 0;

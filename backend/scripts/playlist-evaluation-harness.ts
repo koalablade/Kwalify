@@ -36,6 +36,7 @@ type HarnessConfig = {
   delayMs: number;
   limit: number | null;
   benchmarkSize: number | null;
+  stratified: boolean;
   category: string | null;
   requestTimeoutMs: number;
   dryRun: boolean;
@@ -99,6 +100,7 @@ function usage(): never {
     "  --delay-ms N                Delay between requests per worker (default 1200)",
     "  --limit N                   Run only first N prompts",
     "  --benchmark-size N          Fixed run size: 10, 50, 100, 250, or 500",
+    "  --stratified                Spread size across categories + difficulty (strict/chaotic/genre/edge)",
     "  --category NAME             Run one benchmark category",
     "  --timeout-ms N              Per-request timeout (default 90000)",
     "  --max-http-retries N        Harness API retries for 429/5xx (default 3)",
@@ -159,6 +161,7 @@ function parseConfig(args: string[]): HarnessConfig {
     delayMs: parseIntArg(args, "--delay-ms", 1200),
     limit: argValue(args, "--limit") ? parseIntArg(args, "--limit", 0) : null,
     benchmarkSize,
+    stratified: args.includes("--stratified"),
     category: argValue(args, "--category"),
     requestTimeoutMs: parseIntArg(args, "--timeout-ms", 90_000),
     dryRun,
@@ -201,11 +204,62 @@ function parseConfig(args: string[]): HarnessConfig {
   return config;
 }
 
+function promptDifficultyRank(prompt: PlaylistBenchmarkPrompt): number {
+  const tags = new Set(prompt.tags);
+  if (tags.has("edge_case") || tags.has("contradictory") || prompt.mode === "chaotic") return 0;
+  if (prompt.mode === "strict" || tags.has("genre") || tags.has("era") || tags.has("mixed_emotion")) return 1;
+  if (tags.has("scaling") || tags.has("scene")) return 2;
+  if (tags.has("low_complexity")) return 4;
+  return 3;
+}
+
+/** Round-robin across categories with harder prompts preferred within each bucket. */
+function selectStratifiedPrompts(
+  all: PlaylistBenchmarkPrompt[],
+  size: number,
+): PlaylistBenchmarkPrompt[] {
+  const byCategory = new Map<string, PlaylistBenchmarkPrompt[]>();
+  for (const prompt of all) {
+    const list = byCategory.get(prompt.category) ?? [];
+    list.push(prompt);
+    byCategory.set(prompt.category, list);
+  }
+  for (const list of byCategory.values()) {
+    list.sort((a, b) => promptDifficultyRank(a) - promptDifficultyRank(b) || a.id.localeCompare(b.id));
+  }
+  const categories = [...byCategory.keys()].sort();
+  const selected: PlaylistBenchmarkPrompt[] = [];
+  const seen = new Set<string>();
+  let round = 0;
+  while (selected.length < size && round < all.length) {
+    let addedThisRound = false;
+    for (const category of categories) {
+      if (selected.length >= size) break;
+      const candidate = byCategory.get(category)?.[round];
+      if (!candidate || seen.has(candidate.id)) continue;
+      seen.add(candidate.id);
+      selected.push(candidate);
+      addedThisRound = true;
+    }
+    if (!addedThisRound) break;
+    round += 1;
+  }
+  for (const prompt of all) {
+    if (selected.length >= size) break;
+    if (seen.has(prompt.id)) continue;
+    seen.add(prompt.id);
+    selected.push(prompt);
+  }
+  return selected.slice(0, size);
+}
+
 function selectPrompts(config: HarnessConfig): PlaylistBenchmarkPrompt[] {
   let prompts = PLAYLIST_BENCHMARK_PROMPTS;
   if (config.category) prompts = prompts.filter((prompt) => prompt.category === config.category);
   if (config.benchmarkSize !== null) {
-    if (config.benchmarkSize <= prompts.length) {
+    if (config.stratified) {
+      prompts = selectStratifiedPrompts(prompts, config.benchmarkSize);
+    } else if (config.benchmarkSize <= prompts.length) {
       prompts = prompts.slice(0, config.benchmarkSize);
     } else {
       const selected: PlaylistBenchmarkPrompt[] = [];

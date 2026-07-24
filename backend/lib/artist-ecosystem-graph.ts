@@ -35,7 +35,7 @@ const ECOSYSTEM_SEEDS: Array<{ id: string; label: string; artists: string[] }> =
   {
     id: "uk_garage_grime",
     label: "UK Garage / Grime",
-    artists: ["skepta", "wiley", "dizzee rascal", "kano", "stormzy", "jme", "ghetts", "d double e"],
+    artists: ["skepta", "wiley", "dizzee rascal", "kano", "stormzy", "jme", "ghetts", "d double e", "mj cole", "artful dodger", "so solid crew", "craig david"],
   },
   {
     id: "warehouse_techno",
@@ -51,6 +51,44 @@ const ECOSYSTEM_SEEDS: Array<{ id: string; label: string; artists: string[] }> =
     id: "shoegaze_dream",
     label: "Shoegaze / Dream Pop",
     artists: ["my bloody valentine", "slowdive", "ride", "cocteau twins", "beach house", "cigarettes after sex"],
+  },
+  {
+    id: "disco_studio54",
+    label: "Disco / Studio 54",
+    artists: [
+      "donna summer",
+      "bee gees",
+      "chic",
+      "nile rodgers",
+      "sister sledge",
+      "gloria gaynor",
+      "kc and the sunshine band",
+      "barry white",
+      "odyssey",
+      "boney m",
+      "earth wind & fire",
+      "heatwave",
+    ],
+  },
+  {
+    id: "california_soft_rock",
+    label: "California Soft Rock / Yacht",
+    artists: [
+      "fleetwood mac",
+      "eagles",
+      "america",
+      "steely dan",
+      "jackson browne",
+      "don henley",
+      "linda ronstadt",
+      "todd rundgren",
+      "hall & oates",
+    ],
+  },
+  {
+    id: "french_house",
+    label: "French House / Filter Disco",
+    artists: ["daft punk", "cassius", "modjo", "stardust", "alan braxe", "benjamin diamond", "justice", "breakbot"],
   },
 ];
 

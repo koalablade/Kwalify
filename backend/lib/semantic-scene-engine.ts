@@ -1487,6 +1487,7 @@ const SCENE_DETECTION_PATTERNS: {
       /\b(lifting.{0,15}(heavy|weights|hard)|weight.{0,15}(lifting|training))\b/i,
       /\b(workout.{0,20}(motivation|playlist|energy|mode)|training.{0,15}(hard|session|intense))\b/i,
       /\b(running.{0,15}(hard|fast|sprint|push)|sprinting|run.{0,15}(motivation|energy))\b/i,
+      // Explicit gym sprint — never match "coding sprint" / work flow here.
       /\b(fight mode|beast mode|full intensity|personal record|PR.{0,10}(lift|run|hit))\b/i,
       /\b(aggressive.{0,15}(training|workout|energy|music)|adrenaline.{0,15}(rush|pump|hit))\b/i,
       /\badrenaline\b/i,
@@ -1526,9 +1527,10 @@ const SCENE_DETECTION_PATTERNS: {
     id: "STUDY_DEEP_FOCUS",
     patterns: [
       /\b(study|studying|revision|revising|deep.?focus|focus.{0,15}(music|playlist|session))\b/i,
-      /\b(coding.{0,15}(music|playlist|session)|programming.{0,15}(music|flow|playlist))\b/i,
+      /\b(coding.{0,15}(music|playlist|session|sprint|flow)|programming.{0,15}(music|flow|playlist))\b/i,
+      /\b(?:coding\s+sprint|productivity\s+sprint|work\s*flow|workflow)\b/i,
       /\b(reading.{0,15}(music|playlist|session)|concentration|focused.{0,15}(work|session))\b/i,
-      /\b(pomodoro|flow.?state|in.?the.?zone|work.{0,15}(playlist|session|music))\b/i,
+      /\b(pomodoro|flow.?state|in.?the.?zone|work.{0,15}(playlist|session|music|flow))\b/i,
       /\b(library.{0,15}(session|music|vibe)|lo.?fi.{0,15}(study|focus|chill))\b/i,
     ],
     confidence: 0.88,
@@ -1926,13 +1928,14 @@ const BROAD_DEFAULT_SCENES: Array<{ id: string; baseWeight: number }> = [
  *   secondary/tertiary scenes get more influence — "more scenes, not fallback".
  */
 function buildSceneVector(
-  sortedMatches: Array<{ id: string; confidence: number }>
+  sortedMatches: Array<{ id: string; confidence: number }>,
+  opts?: { suppressEntropyExpansion?: boolean },
 ): Array<{ id: string; weight: number }> {
   const primaryConf = sortedMatches[0]?.confidence ?? 0;
-  const isWeakInput = primaryConf < 0.5;
+  const isWeakInput = !opts?.suppressEntropyExpansion && primaryConf < 0.5;
 
   // Take up to 5 matches, assigning raw weights
-  const top = sortedMatches.slice(0, 5);
+  const top = sortedMatches.slice(0, opts?.suppressEntropyExpansion ? 1 : 5);
   const rawEntries: Array<{ id: string; raw: number }> = top.map((m, i) => {
     // Entropy expansion: flatten distribution for weak inputs
     const base = isWeakInput
@@ -1971,8 +1974,21 @@ function buildSceneVector(
  */
 export function resolveSemanticScene(
   vibe: string,
-  profile: EmotionProfile
+  profile: EmotionProfile,
+  opts?: { commitSceneId?: string | null; singleWorldCommit?: boolean },
 ): SemanticSceneResolution {
+  // Vague everyday commit: one scene at weight 1 — never entropy-expand.
+  if (opts?.singleWorldCommit && opts.commitSceneId && SEMANTIC_SCENE_VECTORS[opts.commitSceneId]) {
+    const id = opts.commitSceneId;
+    return {
+      vector: SEMANTIC_SCENE_VECTORS[id] ?? null,
+      confidence: 0.82,
+      matchedId: id,
+      sceneVector: [{ id, weight: 1 }],
+      alternatives: [],
+    };
+  }
+
   // Collect all matches with their confidence scores
   const matches: { id: string; confidence: number }[] = [];
 

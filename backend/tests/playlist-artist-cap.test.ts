@@ -6,11 +6,17 @@ import {
   hasExplicitArtistPlaylistRequest,
 } from "../lib/playlist-artist-cap";
 
-test("defaultPerPlaylistArtistCap allows 3-4 tracks per artist", () => {
-  assert.equal(defaultPerPlaylistArtistCap(20, "gym pop punk"), 3);
-  assert.equal(defaultPerPlaylistArtistCap(30, "party disco"), 4);
+test("defaultPerPlaylistArtistCap allows 2-3 tracks per artist", () => {
+  assert.equal(defaultPerPlaylistArtistCap(20, "gym pop punk"), 2);
+  assert.equal(defaultPerPlaylistArtistCap(30, "party indie rock"), 3);
   assert.equal(defaultPerPlaylistArtistCap(30, "songs by paramore"), Number.MAX_SAFE_INTEGER);
   assert.ok(hasExplicitArtistPlaylistRequest("songs by paramore"));
+});
+
+test("defaultPerPlaylistArtistCap lofts niche dancefloor prompts modestly", () => {
+  assert.equal(defaultPerPlaylistArtistCap(30, "70s disco party dancefloor"), 5);
+  assert.equal(defaultPerPlaylistArtistCap(30, "latin summer beach party"), 5);
+  assert.ok(defaultPerPlaylistArtistCap(30, "70s disco party") > 3);
 });
 
 test("enforcePerPlaylistArtistCap trims repeats but keeps central prompt artists", () => {
@@ -29,17 +35,28 @@ test("enforcePerPlaylistArtistCap trims repeats but keeps central prompt artists
     vibe: "2000s pop punk gym",
     playlistSize: 20,
   });
-  assert.equal(capped.dropped, 3);
-  assert.equal(capped.tracks.length, 6);
-  assert.equal(capped.tracks.filter((t) => t.artistName === "Paramore").length, 3);
+  assert.equal(capped.dropped, 5);
+  assert.equal(capped.tracks.length, 4);
+  assert.equal(capped.tracks.filter((t) => t.artistName === "Paramore").length, 2);
 });
 
-test("enforcePerPlaylistArtistCap bypasses cap for central artist prompts", () => {
-  const tracks = Array.from({ length: 8 }, () => ({ artistName: "Paramore" }));
+test("enforcePerPlaylistArtistCap caps central artists near 22% not 45%", () => {
+  const tracks = Array.from({ length: 12 }, () => ({ artistName: "Paramore" }));
   const capped = enforcePerPlaylistArtistCap(tracks, {
-    vibe: "paramore greatest hits",
+    vibe: "paramore vibes night",
     playlistSize: 30,
     promptCentralArtists: new Set(["paramore"]),
+  });
+  assert.equal(capped.centralArtistCap, 7);
+  assert.equal(capped.tracks.length, 7);
+  assert.equal(capped.dropped, 5);
+});
+
+test("enforcePerPlaylistArtistCap bypasses cap for explicit artist playlist requests", () => {
+  const tracks = Array.from({ length: 8 }, () => ({ artistName: "Paramore" }));
+  const capped = enforcePerPlaylistArtistCap(tracks, {
+    vibe: "songs by paramore",
+    playlistSize: 30,
   });
   assert.equal(capped.dropped, 0);
   assert.equal(capped.tracks.length, 8);

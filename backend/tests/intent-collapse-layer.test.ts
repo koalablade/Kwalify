@@ -26,6 +26,9 @@ import {
   absoluteIntentPoolFloor,
   intentPoolDeliveryFloor,
   isIntentPoolBelowPreferred,
+  applyPromptIntentModifiers,
+  ensureHardLockVerifiedSamplerUniverse,
+  salvageHardLockVerifiedTracks,
 } from "../core/editorial/intent-collapse-layer";
 import type { LockedIntent } from "../core/v3/intent";
 import type { EmotionProfile } from "../lib/emotion";
@@ -358,6 +361,98 @@ describe("intent collapse layer", () => {
     assert.ok(38 >= intentPoolDeliveryFloor(30));
     assert.equal(isIntentPoolBelowPreferred(44, 30, false), true);
     assert.ok(44 >= intentPoolDeliveryFloor(30));
+  });
+
+  it("hard-lock delivery floor uses verified depth for honest partial when supply is thin", () => {
+    assert.equal(intentPoolDeliveryFloor(30), 22);
+    assert.equal(
+      intentPoolDeliveryFloor(30, { hardWorldLock: true, verifiedInWorldDepth: 12 }),
+      absoluteIntentPoolFloor(30),
+    );
+    assert.equal(
+      intentPoolDeliveryFloor(30, { hardWorldLock: true, verifiedInWorldDepth: 4 }),
+      4,
+    );
+    // Below honest-partial min: floor at verified depth (never chase standard ~22).
+    assert.equal(
+      intentPoolDeliveryFloor(30, { hardWorldLock: true, verifiedInWorldDepth: 2 }),
+      2,
+    );
+  });
+
+  it("hard-lock verified sampler universe keeps in-world supply when editorial scores are thin", () => {
+    const verified = new Set(["cure1", "cure2", "cure3", "cure4", "cure5", "cure6"]);
+    const tracks = [...verified].map((trackId) => ({
+      trackId,
+      genreFamily: "rock",
+      energy: 0.82,
+      valence: 0.35,
+      danceability: 0.55,
+      acousticness: 0.2,
+      tempo: 128,
+    }));
+    const intent = collapseIntent({
+      vibe: "goth but danceable late night drive",
+      lockedIntent: { ...rainyWalkIntent, genreFamilies: ["rock"] },
+      profile: baseProfile,
+      strictMode: false,
+    }).intent;
+    const calibrated = applyPromptIntentModifiers(intent, "goth but danceable late night drive");
+    const ranked = selectRankedCandidatesForSampler(tracks, calibrated, {
+      targetCount: 30,
+      strictMode: false,
+      hardWorldLock: true,
+      worldVerifiedIds: verified,
+    });
+    assert.ok(ranked.selected.length >= 6);
+  });
+
+  it("salvageHardLockVerifiedTracks fills composed playlist from verified universe", () => {
+    const verified = new Set(["a", "b", "c", "d", "e", "f", "g"]);
+    const universe = [...verified].map((trackId) => ({ trackId }));
+    const salvaged = salvageHardLockVerifiedTracks([{ trackId: "a" }], universe, verified, 25);
+    assert.equal(salvaged.length, 6);
+    assert.ok(salvaged.every((track) => verified.has(track.trackId)));
+  });
+
+  it("salvageHardLockVerifiedTracks publishes thin honest partials at 3-5 verified tracks", () => {
+    const verified = new Set(["a", "b", "c", "d"]);
+    const universe = [...verified].map((trackId) => ({ trackId }));
+    const salvaged = salvageHardLockVerifiedTracks([], universe, verified, 30);
+    assert.equal(salvaged.length, 4);
+  });
+
+  it("forced editorial worlds include grunge, rave comedown, and sleepy gym", () => {
+    assert.equal(
+      selectEditorialWorld({
+        vibe: "90s grunge dark cloudy night",
+        lockedIntent: rainyWalkIntent,
+        profile: baseProfile,
+        primaryMood: "melancholic",
+        sceneType: "night",
+      }).tag,
+      "grunge_90s_night",
+    );
+    assert.equal(
+      selectEditorialWorld({
+        vibe: "rave comedown bus home",
+        lockedIntent: rainyWalkIntent,
+        profile: baseProfile,
+        primaryMood: "calm",
+        sceneType: "night",
+      }).tag,
+      "rave_comedown_afterglow",
+    );
+    assert.equal(
+      selectEditorialWorld({
+        vibe: "sleepy gym workout chill energy",
+        lockedIntent: rainyWalkIntent,
+        profile: baseProfile,
+        primaryMood: "calm",
+        sceneType: "gym",
+      }).tag,
+      "sleepy_gym_chill",
+    );
   });
 
   it("resolveEffectiveOpeningSize degrades 5→3→2→1 instead of failing", () => {

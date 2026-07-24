@@ -270,9 +270,17 @@ function applySceneWeights(
     p.calm = clamp(p.calm - 0.04);
   }
   if (scene.timeOfDay === "morning") {
-    p.energy = clamp(p.energy + 0.08);
-    p.valence = clamp(p.valence + 0.06);
-    p.calm = clamp(p.calm + 0.04);
+    // Morning alone is bright; calm/focus mornings should not inherit gym-adjacent uplift.
+    const softMorning = p.calm >= 0.55 || p.energy <= 0.45;
+    if (softMorning) {
+      p.energy = clamp(p.energy - 0.04);
+      p.valence = clamp(p.valence + 0.04);
+      p.calm = clamp(p.calm + 0.08);
+    } else {
+      p.energy = clamp(p.energy + 0.08);
+      p.valence = clamp(p.valence + 0.06);
+      p.calm = clamp(p.calm + 0.04);
+    }
   }
   if (scene.timeOfDay === "evening") {
     p.nostalgia = clamp(p.nostalgia + 0.08);
@@ -528,6 +536,12 @@ const VIBE_KEYWORDS: VibeKeyword[] = [
   {
     terms: ["chill", "chilled", "chilling", "relaxed", "relaxing", "mellow", "laid back", "easy going", "low key"],
     weights: { energy: -0.25, valence: 0.15, tension: -0.25, nostalgia: 0.05, calm: 0.4 },
+  },
+  {
+    // "calm" was missing from the bank — "calm ambient morning focus coding" inherited
+    // morning/coding uplift with nothing pulling energy down (profile landed ~0.88).
+    terms: ["calm", "calmly", "calming", "stay calm"],
+    weights: { energy: -0.3, valence: 0.1, tension: -0.22, nostalgia: 0.05, calm: 0.42 },
   },
   {
     terms: ["party", "partying", "club", "clubbing", "dancing", "dance", "turn up", "hype", "rave", "festival"],
@@ -1181,9 +1195,30 @@ export function analyzeVibe(vibe: string): EmotionProfile {
   withScene = applyAftermath(text, withScene);
   // Deflation after a setback / suspended dread read as low arousal, not hype.
   withScene = applyLowArousalNegative(text, withScene);
+  // Soft focus / ambient concentration must match human coding refs (~0.22–0.35),
+  // not morning+coding keyword stack (~0.65–0.88).
+  withScene = applySoftFocusEnergyCap(text, withScene);
   // Knowledge graph + canonical pipeline applied in moment-pipeline.ts
 
   return withScene;
+}
+
+/** Cap arousal for ambient/coding/soft-electronic concentration prompts. */
+function applySoftFocusEnergyCap(text: string, profile: EmotionProfile): EmotionProfile {
+  const lower = text.toLowerCase();
+  if (/\b(?:gym|workout|party|rave|club|festival|lifting)\b/.test(lower)) return profile;
+  const softFocusCue =
+    /\b(?:ambient|soft\s+electronic|concentration|coding|deep\s+focus|instrumental|no\s+vocals|reading)\b/.test(
+      lower,
+    ) &&
+    (/\b(?:calm|focus|study|soft|quiet|gentle|chill|mellow)\b/.test(lower) || profile.calm >= 0.55);
+  if (!softFocusCue) return profile;
+  return {
+    ...profile,
+    energy: Math.min(profile.energy, 0.36),
+    calm: clamp(Math.max(profile.calm, 0.62)),
+    tension: Math.min(profile.tension, 0.28),
+  };
 }
 
 /** Full analysis including matched human experience (for API/debug). */

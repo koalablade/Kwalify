@@ -72,6 +72,8 @@ export type HumanTasteRepairOpts = {
   openingCuratorV2Applied?: boolean;
   /** When v2 ran, protect the full opening window from taste-repair swaps. */
   lockedOpeningWindowSize?: number;
+  /** Prompt used for scene-aware ending shape (cooldown vs peak). */
+  vibe?: string | null;
 };
 
 export type HumanTasteRepairResult = {
@@ -474,7 +476,10 @@ export function repairHumanTastePlaylist(opts: HumanTasteRepairOpts): HumanTaste
     openingCuratorSwaps = opening.swaps;
   }
 
-  const ending = curatePlaylistEnding(tracks, 6);
+  const ending = curatePlaylistEnding(tracks, {
+    endingSize: 6,
+    vibe: opts.vibe ?? null,
+  });
   tracks = ending.tracks;
 
   const validationBefore = validateHumanTastePlaylist({

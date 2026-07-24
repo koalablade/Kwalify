@@ -20,10 +20,14 @@ export interface ExplorationModeInput {
   mode: "strict" | "balanced" | "chaotic";
 }
 
-export function computeExplorationModeScore(input: ExplorationModeInput): number {
+export function computeExplorationModeScore(input: ExplorationModeInput & { suppressVagueWiden?: boolean }): number {
   let score = 0.2;
 
-  if (VAGUE_PROMPT_RE.test(input.vibe) || input.vibe.trim().split(/\s+/).length <= 4) {
+  // Vague lifestyle prompts used to RAISE surprise — that created multi-world mash.
+  // When a single everyday world is committed, keep exploration low.
+  if (input.suppressVagueWiden) {
+    score = 0.08;
+  } else if (VAGUE_PROMPT_RE.test(input.vibe) || input.vibe.trim().split(/\s+/).length <= 4) {
     score += 0.35;
   }
 

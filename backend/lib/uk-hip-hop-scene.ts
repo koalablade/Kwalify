@@ -13,10 +13,10 @@ export type UkHipHopScene = {
 };
 
 const UK_SCENE_PATTERNS: Array<{ pattern: RegExp; id: UkHipHopSceneId; allowsElectronic?: boolean }> = [
-  { pattern: /\buk\s+grime\b/i, id: "uk_grime" },
-  { pattern: /\bgrime\s+(?:classics|anthems|bangers|playlist|mix|set|workout|instrumental|walk|era)\b/i, id: "uk_grime" },
   { pattern: /\b(?:ukg|uk\s+garage)\b.*\b(?:grime|rap|drill)\b/i, id: "uk_garage_grime", allowsElectronic: true },
   { pattern: /\b(?:grime|rap|drill)\b.*\b(?:ukg|uk\s+garage)\b/i, id: "uk_garage_grime", allowsElectronic: true },
+  { pattern: /\buk\s+grime\b/i, id: "uk_grime" },
+  { pattern: /\bgrime\b/i, id: "uk_grime" },
   { pattern: /\buk\s+rap\b/i, id: "uk_rap" },
   { pattern: /\b(?:british|london|manchester|birmingham|scouse)\s+rap\b/i, id: "uk_rap" },
   { pattern: /\broad\s+rap\b/i, id: "uk_rap" },
@@ -177,7 +177,9 @@ export function passesUkHipHopWorldGate(
   const family = (track.genreFamily ?? track.genrePrimary ?? "").toLowerCase();
   if (family && family !== "hip_hop" && family !== "rap" && family !== "unknown") {
     if (scene.allowsElectronic && (family === "electronic" || family === "dance" || family === "house")) {
-      return true;
+      const uk = ukHipHopEvidenceScore(track);
+      if (uk >= 0.18) return true;
+      return !opts?.hardLock;
     }
     return false;
   }
@@ -218,6 +220,20 @@ export function ukHipHopSceneLockProfile(scene: UkHipHopScene): {
     : ["hip_hop"];
   return {
     allowedGenreFamilies: allowed,
-    offSceneGenreFamilies: ["pop", "rock", "country", "folk", "metal", "jazz", "classical", "rnb", "soul", "reggae", "latin", ...(scene.allowsElectronic ? [] : ["electronic"])],
+    offSceneGenreFamilies: [
+      "pop",
+      "rock",
+      "country",
+      "folk",
+      "metal",
+      "jazz",
+      "classical",
+      "rnb",
+      "soul",
+      "reggae",
+      "latin",
+      "indie",
+      ...(scene.allowsElectronic ? [] : ["electronic"]),
+    ],
   };
 }

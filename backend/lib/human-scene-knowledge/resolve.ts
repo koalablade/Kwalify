@@ -10,6 +10,14 @@ import type {
 
 const CONCEPT_BY_ID = new Map(HUMAN_SCENE_CONCEPTS.map((c) => [c.id, c]));
 
+/** Hard suppress: "no christmas", "non christmas", "without xmas", etc. */
+export const CHRISTMAS_NEGATION_RE =
+  /\b(?:not|no|non|without|never|zero)\s*[-\s]?(?:christmas|xmas|festive|holiday\s+songs?)\b|\banti[-\s]?christmas\b/i;
+
+export function promptSuppressesChristmas(text: string): boolean {
+  return CHRISTMAS_NEGATION_RE.test(text);
+}
+
 function resolveConceptId(id: string): HumanSceneConcept | null {
   const aliased = RELATION_ALIASES[id] ?? id;
   return CONCEPT_BY_ID.get(aliased) ?? null;
@@ -96,8 +104,10 @@ function aftermathBoost(text: string, concept: HumanSceneConcept, base: number):
 export function resolveHumanScene(text: string): HumanSceneReading {
   const senses = resolveSenses(text);
   const scored: Array<{ concept: HumanSceneConcept; score: number; matched: string[] }> = [];
+  const christmasNegated = promptSuppressesChristmas(text);
 
   for (const concept of HUMAN_SCENE_CONCEPTS) {
+    if (christmasNegated && concept.id === "christmas_holiday") continue;
     const { score, matched } = cueScore(text, concept);
     if (score <= 0) continue;
     scored.push({
@@ -109,8 +119,10 @@ export function resolveHumanScene(text: string): HumanSceneReading {
 
   // Sense-linked scenes get a strong boost even if phrase was short.
   for (const sceneId of senses.sceneIds) {
+    if (christmasNegated && sceneId === "christmas_holiday") continue;
     const concept = resolveConceptId(sceneId);
     if (!concept) continue;
+    if (christmasNegated && concept.id === "christmas_holiday") continue;
     const existing = scored.find((s) => s.concept.id === concept.id);
     if (existing) {
       existing.score += 50;
@@ -146,7 +158,7 @@ export function resolveHumanScene(text: string): HumanSceneReading {
   let energy = senses.forceEnergy ?? null;
   let demotePartyActivity = senses.demotePartyActivity;
   let musicalBehaviour = senses.musicalBehaviour ?? primary?.musicalBehaviour ?? null;
-  let suppressChristmas = senses.suppressChristmas;
+  let suppressChristmas = senses.suppressChristmas || christmasNegated;
 
   // Only inherit expectedEnergy from decisive phases — not soft atmosphere.
   if (!energy && primary && (primary.phase === "aftermath" || primary.phase === "recovery" || primary.expectedEnergy === "high")) {
@@ -155,6 +167,7 @@ export function resolveHumanScene(text: string): HumanSceneReading {
 
   // Vacation/after-holiday contexts never want Christmas genre lock.
   if (
+    christmasNegated ||
     primary?.id === "after_holiday" ||
     primary?.id === "holiday_vacation" ||
     senses.senseIds.some((id) => id.startsWith("holiday.") && id !== "holiday.christmas")

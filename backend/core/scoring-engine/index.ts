@@ -101,6 +101,10 @@ import {
   leapProbabilityFromExploration,
 } from "./soft-exploration";
 import {
+  resolveVagueWorldCommit,
+  shouldSuppressVagueWiden,
+} from "../../lib/vague-world-commit";
+import {
   applyEmotionalLeapsToHybridResults,
   tagMagicMomentCandidates,
 } from "./emotional-leap-engine";
@@ -337,8 +341,14 @@ export function runScoringPipeline<T extends {
   let t = Date.now();
   log?.info({ librarySize: opts.tracks.length }, "Scoring: capping candidate pool");
 
-  // Resolve semantic scene early so Phase 3 pre-filter can use it
-  const earlySemanticResolution = resolveSemanticScene(opts.vibe, opts.emotionProfile);
+  // Resolve semantic scene early so Phase 3 pre-filter can use it.
+  // Vague lifestyle prompts commit to ONE scene (no entropy mash).
+  const vagueCommit = resolveVagueWorldCommit(opts.vibe);
+  const suppressVagueWiden = shouldSuppressVagueWiden(vagueCommit);
+  const earlySemanticResolution = resolveSemanticScene(opts.vibe, opts.emotionProfile, {
+    singleWorldCommit: suppressVagueWiden,
+    commitSceneId: vagueCommit.sceneId,
+  });
 
   const poolCap = capTracksForHybridScoring(opts.tracks, {
     emotionProfile: opts.emotionProfile,
@@ -447,6 +457,7 @@ export function runScoringPipeline<T extends {
     recentPlaylistTrackIds: opts.recentPlaylistTrackIds,
     trackClassifications: classifications,
     mode: opts.mode,
+    suppressVagueWiden,
   });
 
   const surpriseBudget = surpriseBudgetFromExploration(explorationModeScore);

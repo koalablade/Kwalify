@@ -32,7 +32,7 @@ export type SessionArtistGravityOpts<T extends { artistName?: string | null; sco
 };
 
 const GENERIC_NON_ARTIST =
-  /\b(?:music|songs?|tracks?|playlist|mix|vibes?|hits|rock|pop|rap|jazz|country|electronic|metal|party|gym|focus|chill|study|workout|driving|sleep|rainy|morning|night|upbeat|calm|slow|fast|classic|nostalgic|energy|work|gaming|disco|soul|funk|punk|indie|alternative|ambient|house|techno|garage|dance|hip hop|hip-hop|r&b|blues|folk|reggae|latin|kpop|jpop|greatest|only|pure|just)\b/i;
+  /\b(?:music|songs?|tracks?|playlist|mix|vibes?|hits|rock|pop|rap|jazz|country|electronic|metal|party|gym|focus|chill|study|workout|driving|sleep|rainy|morning|night|upbeat|calm|slow|fast|classic|nostalgic|energy|work|gaming|disco|soul|funk|punk|indie|alternative|ambient|house|techno|garage|dance|hip hop|hip-hop|r&b|blues|folk|reggae|latin|kpop|jpop|greatest|only|pure|just|goth|gothic|grunge|lofi|lo-fi|darkwave|synthwave|retrowave|cyberpunk|tek|boss|rage|quiet|neon|christmas|xmas|festive)\b/i;
 
 function defaultScore(track: { score?: number }): number {
   return typeof track.score === "number" ? track.score : 0.5;
@@ -62,11 +62,21 @@ function positionSwapUrgency(index: number): number {
   return 0.4;
 }
 
-function artistFatigueTier(playlistCount: number, weightedCount: number): number {
-  if (playlistCount <= 0) return 0;
-  if (playlistCount === 1) return 0.1;
-  if (playlistCount === 2) return 0.18;
-  return Math.min(0.35, 0.22 + (playlistCount - 2) * 0.06 + weightedCount * 0.015);
+const RETRIEVAL_FILLER_PATTERN =
+  /\b(?:kasabian|tame\s+impala|q\s+lazzarus|glenn\s+frey|arctic\s+monkeys|the\s+weeknd)\b/i;
+
+function isRetrievalFillerArtist(artist: string): boolean {
+  return RETRIEVAL_FILLER_PATTERN.test(artist);
+}
+
+function artistFatigueTier(playlistCount: number, weightedCount: number, artist: string): number {
+  let tier = 0;
+  if (playlistCount <= 0) tier = 0;
+  else if (playlistCount === 1) tier = 0.1;
+  else if (playlistCount === 2) tier = 0.18;
+  else tier = Math.min(0.35, 0.22 + (playlistCount - 2) * 0.06 + weightedCount * 0.015);
+  if (isRetrievalFillerArtist(artist)) tier = Math.min(0.45, tier * 1.55 + 0.08);
+  return tier;
 }
 
 function maxQualityGap(playlistCount: number, hardSwap: boolean): number {
@@ -218,7 +228,7 @@ export function applySessionArtistGravity<T extends { artistName?: string | null
     if (playlistCount <= 0) continue;
 
     const weightedCount = history.artistWeightedCount.get(artist) ?? 0;
-    const fatigue = artistFatigueTier(playlistCount, weightedCount) * positionSwapUrgency(i);
+    const fatigue = artistFatigueTier(playlistCount, weightedCount, current.artistName ?? artist) * positionSwapUrgency(i);
     if (fatigue < 0.08) continue;
 
     tracksConsidered += 1;

@@ -4,6 +4,7 @@ import { classifyTrack } from "../lib/genre-taxonomy";
 import { estimateThinLibraryIntentSupply } from "../lib/thin-library-intent-supply";
 import {
   applyThinLibraryDeliveryCap,
+  constrainThinLibraryPolicyForWorldSupply,
   effectiveFinalizeRequestedLength,
   evaluateThinLibraryPolicy,
   isAmbientFocusThinLibraryPrompt,
@@ -327,4 +328,29 @@ test("honest partial caps delivery and recovery inflate", () => {
     assert.equal(capped.applied, true);
     assert.equal(capped.tracks.length, supply.maxAchievable);
   }
+});
+
+test("world verified supply caps thin-library policy on hard lock", () => {
+  const normal = evaluateThinLibraryPolicy({
+    requestedLength: 25,
+    strictSupply: 40,
+    adjacentSupply: 10,
+    intentPreservingSupply: 50,
+    relaxedSupply: 120,
+    excludedRelaxedSupply: 70,
+    recoverySupply: 80,
+    maxAchievable: 25,
+    maxAchievableReason: "intent_preserving_supply_adequate",
+    hasExplicitGenreIntent: false,
+    eraConstrained: false,
+  });
+  assert.equal(normal.action, "normal");
+  const capped = constrainThinLibraryPolicyForWorldSupply(normal, {
+    hardWorldLock: true,
+    worldVerifiedSupply: 11,
+    requestedLength: 25,
+  });
+  assert.equal(capped.action, "honest_partial");
+  assert.equal(capped.targetLength, 11);
+  assert.equal(capped.reason, "world_verified_supply_below_partial_ratio");
 });

@@ -53,10 +53,10 @@ export function buildAdaptiveMorphPlan(opts: {
     segmentEnergyNudge = -0.05;
     reasons.push("low_coherence_morph_safer");
   } else if (typeof coherence === "number" && coherence >= 0.78 && opts.mode !== "strict") {
-    lengthDelta = 5;
+    // Keep user-requested length; high coherence should improve selection, not inflate count.
     if (opts.familiarityMode === "safe") familiarityShift = "balanced";
     segmentEnergyNudge = 0.04;
-    reasons.push("high_coherence_morph_expand");
+    reasons.push("high_coherence_morph_quality");
   }
 
   if ((opts.crossSession?.generationCount ?? 0) >= 3 && opts.mode === "chaotic") {

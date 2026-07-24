@@ -29,10 +29,9 @@ export function buildAdaptivePlaylistProfile(opts: {
       length = Math.max(20, Math.min(60, length - 5));
       familiarityMode = familiarityMode === "discovery" ? "balanced" : familiarityMode;
       reasons.push("cross_session_low_coherence_shorter_safer");
-    } else if ((opts.crossSession.coherenceScore ?? 0) >= 0.75 && opts.mode !== "strict") {
-      length = Math.min(60, length + 5);
-      reasons.push("cross_session_high_coherence_expand");
     }
+    // Do not expand past the user-requested length — inflate was feeding HQG
+    // messages ("40-track request") and raising every delivery floor.
   }
 
   if (typeof opts.priorCoherence === "number" && opts.priorCoherence < 0.5) {

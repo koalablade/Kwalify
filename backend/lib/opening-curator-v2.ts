@@ -15,6 +15,7 @@ import {
 } from "./activity-profiles";
 import type { PatternScoringTrack } from "../core/editorial/human-playlist-patterns";
 import { createOpeningLock, type OpeningLock } from "./opening-lock";
+import { OPENER_FILLER_PATTERN, sanitizePsychIndieOpenerChain } from "../core/editorial/opener-hygiene";
 
 export const OPENING_WINDOW_SIZE = 5;
 
@@ -40,6 +41,8 @@ export type OpeningCuratorV2Opts<T extends OpeningCuratorV2Track> = {
   classifyForActivity?: (track: T) => ActivityClassificationInput;
   intentForActivity?: ActivityIntentInput;
   allowObscureOpeners?: boolean;
+  /** Max psych-indie retrieval fillers allowed in opener slots 1–3 (0 = none). */
+  maxPsychOpenersInOpening?: number;
 };
 
 export type OpeningCuratorV2Result<T extends OpeningCuratorV2Track> = {
@@ -124,6 +127,15 @@ function hardRejectReason<T extends OpeningCuratorV2Track>(
   opening: T[],
   opts: OpeningCuratorV2Opts<T>,
 ): string | null {
+  const maxPsych = opts.maxPsychOpenersInOpening ?? 1;
+  const artist = String(track.artistName ?? "");
+  if (position < 3 && OPENER_FILLER_PATTERN.test(artist)) {
+    const fillersBefore = opening
+      .slice(0, position)
+      .filter((t) => OPENER_FILLER_PATTERN.test(String(t.artistName ?? ""))).length;
+    if (maxPsych === 0 || fillersBefore >= maxPsych) return "retrieval_filler_opener";
+  }
+
   if (activityHardGate(track, opts.prompt, opts.intentForActivity, opts.classifyForActivity)) {
     return "activity_mismatch";
   }
@@ -298,11 +310,18 @@ export function applyOpeningCuratorV2<T extends OpeningCuratorV2Track>(
 
   const tail = tracks.filter((_, index) => !used.has(index));
   const reordered = [...opening, ...tail];
+  const maxPsych = curatorOpts.maxPsychOpenersInOpening ?? 1;
+  const openerSanitized = sanitizePsychIndieOpenerChain(reordered, 3, maxPsych);
+  const curatedTracks = openerSanitized.tracks;
 
-  const swaps = opening.filter((track, index) => originalOpeningIds[index] !== track.trackId).length;
-  const opener = opening[0];
-  const continuity = opening.length >= 3
-    ? (continuityScore(opening[1]!, opening.slice(0, 1), curatorOpts) + continuityScore(opening[2]!, opening.slice(0, 2), curatorOpts)) / 2
+  const swaps = curatedTracks
+    .slice(0, openingSize)
+    .filter((track, index) => originalOpeningIds[index] !== track.trackId).length;
+  const curatedOpening = curatedTracks.slice(0, openingSize);
+  const opener = curatedOpening[0];
+  const continuity = curatedOpening.length >= 3
+    ? (continuityScore(curatedOpening[1]!, curatedOpening.slice(0, 1), curatorOpts)
+      + continuityScore(curatedOpening[2]!, curatedOpening.slice(0, 2), curatorOpts)) / 2
     : 0;
 
   const openingReason = opts.lockedOpenerTrackId
@@ -312,7 +331,7 @@ export function applyOpeningCuratorV2<T extends OpeningCuratorV2Track>(
       : "partial_opening_window";
 
   return {
-    tracks: reordered,
+    tracks: curatedTracks,
     openingDecision: {
       openerTrackId: opener?.trackId ?? "",
       openingReason,
@@ -320,7 +339,7 @@ export function applyOpeningCuratorV2<T extends OpeningCuratorV2Track>(
       identityStrength: opener ? Math.round(identityScore(opener, curatorOpts) * 1000) / 1000 : 0,
       continuityScore: Math.round(continuity * 1000) / 1000,
     },
-    openingLock: createOpeningLock(reordered),
+    openingLock: createOpeningLock(curatedTracks),
     swaps,
   };
 }

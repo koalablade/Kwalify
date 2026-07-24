@@ -4,7 +4,7 @@
 
 import type { MusicSemanticProfile } from "./music-semantic-types";
 
-export const SEMANTIC_ENRICHMENT_VERSION = "semantic-v3";
+export const SEMANTIC_ENRICHMENT_VERSION = "semantic-v4-title-bait";
 
 export type SceneDimensionProfile = {
   places: string[];

@@ -139,6 +139,10 @@ export function acquireGenerateSession(
   sweepExpiredGenerateSessions(userId);
   const existing = sessions.get(userId);
   if (!opts?.force && existing && isActiveSession(existing)) {
+    // Let near-complete generations finish instead of superseding into 409 races.
+    if (existing.phase === "spotify" || existing.phase === "saving") {
+      return null;
+    }
     return null;
   }
   if (existing) existing.cancelled = true;

@@ -152,12 +152,35 @@ const GENRE_SCENE_HINTS: Record<string, string[]> = {
   reggae: ["beach", "hope", "sunset"],
 };
 
+/** Tags that must not be inferred from title alone (keyword/title bait). */
+const TITLE_ONLY_BAIT_TAGS = new Set([
+  "bedroom", "home", "city", "garage", "train", "night", "late-night",
+  "lonely", "melancholic", "reflective", "foreboding", "epic", "cozy",
+  "love", "regret", "loss", "hope", "escape", "freedom", "party",
+  "driving", "relaxing", "studying", "working", "travelling",
+  "neon", "urban", "nostalgic", "underground", "mystery", "industrial",
+  "futuristic", "cinematic",
+]);
+
 function matchLexicon(text: string, lexicon: LexiconEntry[]): string[] {
   const found = new Set<string>();
   for (const { tag, pattern } of lexicon) {
     if (pattern.test(text)) found.add(tag);
   }
   return [...found];
+}
+
+/** Prefer artist/album/genre evidence; keep title hits only when not bait-only. */
+function mergeLexiconEvidence(
+  strong: string[],
+  titleOnly: string[],
+): string[] {
+  const out = new Set(strong);
+  for (const tag of titleOnly) {
+    if (TITLE_ONLY_BAIT_TAGS.has(tag) && !out.has(tag)) continue;
+    out.add(tag);
+  }
+  return [...out];
 }
 
 function uniquePush(base: string[], extra: string[]): string[] {
@@ -218,24 +241,49 @@ export function enrichTrackSemanticProfile(track: EnrichmentTrackInput): TrackSe
     albumGenres: track.albumGenres,
   });
 
-  const corpus = [
-    track.trackName,
+  const strongCorpus = [
     track.artistName,
     track.albumName ?? "",
     genreMetadataText(track.spotifyArtistGenres),
     genreMetadataText(track.albumGenres),
   ].join(" ");
+  const titleCorpus = track.trackName;
+  const corpus = `${strongCorpus} ${titleCorpus}`;
 
-  const culturalTags = matchLexicon(corpus, CULTURAL_LEXICON);
+  const culturalTags = mergeLexiconEvidence(
+    matchLexicon(strongCorpus, CULTURAL_LEXICON),
+    matchLexicon(titleCorpus, CULTURAL_LEXICON),
+  );
   const scene: SceneDimensionProfile = {
-    places: matchLexicon(corpus, PLACE_LEXICON),
-    times: matchLexicon(corpus, TIME_LEXICON),
-    activities: matchLexicon(corpus, ACTIVITY_LEXICON),
-    weather: matchLexicon(corpus, WEATHER_LEXICON),
-    atmospheres: matchLexicon(corpus, ATMOSPHERE_LEXICON),
+    places: mergeLexiconEvidence(
+      matchLexicon(strongCorpus, PLACE_LEXICON),
+      matchLexicon(titleCorpus, PLACE_LEXICON),
+    ),
+    times: mergeLexiconEvidence(
+      matchLexicon(strongCorpus, TIME_LEXICON),
+      matchLexicon(titleCorpus, TIME_LEXICON),
+    ),
+    activities: mergeLexiconEvidence(
+      matchLexicon(strongCorpus, ACTIVITY_LEXICON),
+      matchLexicon(titleCorpus, ACTIVITY_LEXICON),
+    ),
+    weather: mergeLexiconEvidence(
+      matchLexicon(strongCorpus, WEATHER_LEXICON),
+      matchLexicon(titleCorpus, WEATHER_LEXICON),
+    ),
+    atmospheres: mergeLexiconEvidence(
+      matchLexicon(strongCorpus, ATMOSPHERE_LEXICON),
+      matchLexicon(titleCorpus, ATMOSPHERE_LEXICON),
+    ),
   };
-  const themes = matchLexicon(corpus, THEME_LEXICON);
-  const sceneConcepts = matchLexicon(corpus, SCENE_CONCEPT_LEXICON);
+  const themes = mergeLexiconEvidence(
+    matchLexicon(strongCorpus, THEME_LEXICON),
+    matchLexicon(titleCorpus, THEME_LEXICON),
+  );
+  const sceneConcepts = mergeLexiconEvidence(
+    matchLexicon(strongCorpus, SCENE_CONCEPT_LEXICON),
+    matchLexicon(titleCorpus, SCENE_CONCEPT_LEXICON),
+  );
   const eras = inferEra(track.releaseYear);
 
   const audioHints = inferFromAudio(
@@ -267,36 +315,56 @@ export function enrichTrackSemanticProfile(track: EnrichmentTrackInput): TrackSe
     }
   }
 
+  // Multi-token title phrases only — bare "Night" / "City" / "Home" are bait.
+  // Highway/rain lexical hits (title OR artist name) must not invent drive/weather
+  // scenes without real genre corroboration (Highwaymen / "Rainy Dayz" bait).
   const title = track.trackName.toLowerCase();
-  if (/\bgarage\b/.test(title)) {
+  const genreOnly = `${genreMetadataText(track.spotifyArtistGenres)} ${genreMetadataText(track.albumGenres)} ${classification.genreFamily} ${classification.genrePrimary}`.toLowerCase();
+  const hasDriveGenre =
+    /\b(?:indie|dream\s+pop|shoegaze|post[-\s]?rock|ambient|synth|electronic|alt(?:ernative)?)\b/i.test(genreOnly);
+  const hasRainMoodGenre =
+    /\b(?:indie|folk|ambient|dream|acoustic|singer|electronic|chill|downtempo|slowcore)\b/i.test(genreOnly);
+  // Strip lexicon bait that came from title/artist name alone (e.g. The Highwaymen).
+  if (!hasDriveGenre) {
+    scene.places = scene.places.filter((t) => t !== "motorway");
+    scene.activities = scene.activities.filter((t) => t !== "driving");
+    const dropConcepts = new Set(["road-trip", "night-driving"]);
+    for (let i = sceneConcepts.length - 1; i >= 0; i--) {
+      if (dropConcepts.has(sceneConcepts[i]!)) sceneConcepts.splice(i, 1);
+    }
+  }
+  if (!hasRainMoodGenre) {
+    scene.weather = scene.weather.filter((t) => t !== "rain");
+  }
+  if (/\b(?:in the |my |the )?garage\b/.test(title) && /\b(?:car|volvo|repair|fix|workshop)\b/.test(corpus)) {
     scene.places.push("garage");
     scene.activities.push("repairing");
   }
-  if (/\broad\b|\bmotorway\b|\bhighway\b/.test(title)) {
+  if (/\b(?:motorway|highway|autobahn|road\s+trip)\b/.test(title) && hasDriveGenre) {
     scene.places.push("motorway");
     scene.activities.push("driving");
     sceneConcepts.push("road-trip");
   }
-  if (/\bcity\b|\burban\b/.test(title)) {
+  if (/\b(?:midnight\s+city|neon\s+city|city\s+lights?)\b/.test(title)) {
     scene.places.push("city");
     culturalTags.push("urban");
   }
-  if (/\btrain\b|\bstation\b|\bplatform\b/.test(title)) {
+  if (/\b(?:last\s+train|train\s+station|platform\s+\d+)\b/.test(title)) {
     scene.places.push("train");
     sceneConcepts.push("late-train-home");
     themes.push("travel");
   }
-  if (/\bmidnight\b|\bnight\b/.test(title)) {
+  if (/\b(?:after\s+midnight|late\s+night|3\s?am|2\s?am)\b/.test(title)) {
     scene.times.push("night");
     culturalTags.push("late-night");
     themes.push("night");
   }
-  if (/\bwarehouse\b|\brave\b|\bclub\b/.test(title)) {
+  if (/\b(?:warehouse\s+rave|underground\s+(?:club|rave)|hard\s+techno)\b/.test(title)) {
     scene.places.push("warehouse");
     sceneConcepts.push("warehouse-rave");
     culturalTags.push("underground");
   }
-  if (/\brain\b|\bstorm\b/.test(title)) {
+  if (/\b(?:rainy|in the rain|rain\s+on|thunderstorm)\b/.test(title) && hasRainMoodGenre) {
     scene.weather.push("rain");
   }
 
