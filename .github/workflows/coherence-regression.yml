@@ -30,5 +30,3 @@ jobs:
           npm run coherence:taxonomy
           npm run coherence:semantic-collisions
           npm run coherence:electronic-subgenres
-      - name: Live coherence regression (PR only via CI workflow)
-        if: false
