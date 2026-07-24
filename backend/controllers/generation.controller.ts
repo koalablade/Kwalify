@@ -68,6 +68,7 @@ import {
   getGenerateCacheEntryStatus,
   getCachedGenerateResult,
   setCachedGenerateResult,
+  GENERATE_RESULT_CACHE_VERSION,
 } from "../lib/generate-result-cache";
 import { trackHasEraEvidence, trackHasKnownEraMismatch } from "../lib/era-evidence";
 import { createRequestBudget } from "../lib/request-budget";
@@ -429,8 +430,10 @@ import { runCoherenceRebuildLoop } from "../core/rebuild-loop";
 import { hardRejectOffWorldTracks, isTrackInWorld, resolveWorldBoundary } from "../core/world-boundary";
 import {
   inferWorldIdentityIdsFromPrompt,
-  stripRetrievalFillerTracks,
-  demoteOpenerFillerTracks,
+  applyFinalApiOpenerHygiene,
+  syncTracksToApiOrder,
+  countPsychIndieOpenerFillers,
+  maxPsychIndieOpenersForWorlds,
 } from "../core/editorial/world-identity-gate";
 import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
 import { buildPlaylistSegments, orderTracksByPlaylistSegments, type EmotionalArc } from "../core/emotional-arc-planner";
@@ -6290,7 +6293,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const currentTrackIds = new Set(likedSongs.map((track) => track.trackId));
       const cacheInvalidReason = !cached
         ? null
-        : cached.cacheVersion !== "v30"
+        : cached.cacheVersion !== GENERATE_RESULT_CACHE_VERSION
           ? "cache_version_mismatch"
           : !hasValidCachedIntent(cached, length)
             ? "invalid_cached_intent"
@@ -6305,7 +6308,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (cached && !cacheInvalidReason) {
         if (respondIfStale(res, generateSessionUserId, requestId)) return;
         setGeneratePhase(generateSessionUserId, requestId, "done");
-        const cachedApiTracks = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
+        const cachedApiTracksRaw = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
+        const cachedHygiene = applyFinalApiOpenerHygiene(
+          cachedApiTracksRaw,
+          inferWorldIdentityIdsFromPrompt(cached.vibe),
+          { minKeep: HONEST_PARTIAL_MIN },
+        );
+        const cachedApiTracks = cachedHygiene.tracks;
         const cachedFinalGenreDistribution = cachedApiTracks.reduce<Record<string, number>>(
           (acc, track) => incrementDistribution(acc, track.genrePrimary ?? track.genreFamily ?? track.genres?.[0]),
           {},
@@ -10090,6 +10099,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           scorePromptRelevance: (track, index) => tasteMomentFitPreArc(track as ConstraintTrack, index),
           classifyForActivity: (track) => userGenreProfile.trackClassifications.get(track.trackId) ?? {},
           intentForActivity: lockedIntent,
+          maxPsychOpenersInOpening: maxPsychIndieOpenersForWorlds(inferWorldIdentityIdsFromPrompt(vibe)),
         });
         assignFT("opening_curator", "pre-arc opening curator", openingCuratorPreArc.tracks as unknown as PlaylistTrack[]);
         preArcOpeningLock = openingCuratorPreArc.openingLock;
@@ -11216,6 +11226,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         scorePromptRelevance: (track, index) => tasteMomentFit(track as ConstraintTrack, index),
         classifyForActivity: (track) => userGenreProfile.trackClassifications.get(track.trackId) ?? {},
         intentForActivity: lockedIntent,
+        maxPsychOpenersInOpening: maxPsychIndieOpenersForWorlds(inferWorldIdentityIdsFromPrompt(vibe)),
       });
       assignFT("opening_curator_v2", "opening curator v2", openingCuratorV2.tracks as unknown as PlaylistTrack[]);
       curatedOpenerTrackId = openingCuratorV2.openingDecision.openerTrackId ?? curatedOpenerTrackId;
@@ -11328,7 +11339,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
-    const trackObjects = delivery.tracks.map((t) => ({
+    let trackObjects = delivery.tracks.map((t) => ({
       ...t,
       trackId: t.trackId,
       trackName: t.trackName,
@@ -11365,123 +11376,11 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGenerateStageDetail(generateSessionUserId, requestId, `Finalising ${delivery.tracks.length.toLocaleString()} tracks`);
     let spotifyPlaylistUrl: string | null = null;
     const tSpotify = Date.now();
-    req.log.info(
-      { trackCount: delivery.tracks.length, devMode },
-      devMode ? "Skipping Spotify playlist creation in dev mode" : "Creating Spotify playlist"
-    );
-
     let spotifyPartial = false;
     let spotifyTracksAdded: number | undefined;
     let spotifyCreateAttempted = false;
-
-    if (sideEffectPolicy.allowSpotifyPlaylistCreate && !devMode && !generationCompletionBlocked(generateSessionUserId, requestId, delivery.tracks.length)) {
-      spotifyCreateAttempted = true;
-      const attemptCreate = async (): Promise<{ url: string | null; partial: boolean; tracksAdded?: number }> => {
-        try {
-          const freshTokens = await getValidAccessToken(
-            req.session.spotifyTokens!,
-            userId
-          );
-          if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
-            req.session.spotifyTokens = freshTokens;
-          }
-          const trackUris = delivery.tracks.map((t) => `spotify:track:${t.trackId}`);
-          const pendingId = getPendingSpotifyPlaylistId(userId);
-          const spotifyResult = await createSpotifyPlaylist(
-            freshTokens.accessToken,
-            userId,
-            playlistName,
-            trackUris,
-            {
-              existingPlaylistId: pendingId,
-              onPlaylistCreated: (id) =>
-                setPendingSpotifyPlaylistId(generateSessionUserId, requestId, id),
-            }
-          );
-          const partial = !!spotifyResult.partial;
-          const tracksAdded = spotifyResult.tracksAdded;
-          if (partial && (tracksAdded ?? 0) === 0) {
-            req.log.warn(
-              {
-                elapsedMs: Date.now() - tSpotify,
-                playlistId: spotifyResult.id,
-                tracksRequested: delivery.tracks.length,
-                reused: !!pendingId,
-              },
-              "Spotify playlist shell created but no tracks were added"
-            );
-            return { url: null, partial, tracksAdded };
-          }
-          clearPendingSpotifyPlaylist(generateSessionUserId, requestId);
-          req.log.info(
-            {
-              elapsedMs: Date.now() - tSpotify,
-              partial,
-              tracksAdded,
-              tracksRequested: delivery.tracks.length,
-              reused: !!pendingId,
-            },
-            "Spotify playlist created"
-          );
-          return { url: spotifyResult.url, partial, tracksAdded };
-        } catch (spotifyErr: any) {
-          req.log.warn(
-            {
-              code: "SPOTIFY_CREATE_FAILED",
-              err: spotifyErr?.message,
-              status: spotifyErr?.response?.status,
-            },
-            "Spotify playlist creation failed — will retry once if needed"
-          );
-          return { url: null, partial: false };
-        }
-      };
-      let createOutcome = await attemptCreate();
-      if (!createOutcome.url) {
-        await new Promise((r) => setTimeout(r, 1200));
-        createOutcome = await attemptCreate();
-      }
-      spotifyPartial = createOutcome.partial;
-      spotifyTracksAdded = createOutcome.tracksAdded;
-      spotifyPlaylistUrl = createOutcome.url;
-    }
-
-    // Never claim success with tracks but nowhere to open them when create was required.
-    if (
-      spotifyCreateAttempted &&
-      !spotifyPlaylistUrl &&
-      delivery.tracks.length > 0 &&
-      sideEffectPolicy.allowSpotifyPlaylistCreate &&
-      !devMode
-    ) {
-      req.log.error(
-        { trackCount: delivery.tracks.length, vibe },
-        "Spotify playlist URL missing after create attempts — failing honestly"
-      );
-      if (!responseFinished(res)) {
-        return generateFail(
-          res,
-          502,
-          "SPOTIFY_PLAYLIST_CREATE_FAILED",
-          "Your playlist was curated but Spotify did not confirm the playlist link. Please try again in a moment.",
-          {
-            trackCount: delivery.tracks.length,
-            spotifyUnavailable: true,
-          },
-        );
-      }
-      return;
-    }
-    const resolvedSpotifyUrl = spotifyPlaylistUrl;
-
-
-    setGeneratePhase(generateSessionUserId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "saving" : "done");
-    setGenerateStageDetail(generateSessionUserId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist" : "Audit mode: skipping playlist writes");
-    const tSave = Date.now();
-    req.log.info(
-      { auditMode: sideEffectPolicy.mode === "audit" },
-      sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist to database" : "Skipping playlist database writes",
-    );
+    let resolvedSpotifyUrl: string | null = null;
+    let spotifyFields: Record<string, unknown> = { spotifyUnavailable: true as const };
 
     const profilePayload = {
       ...emotionProfile,
@@ -11490,85 +11389,234 @@ router.post("/generate", async (req, res): Promise<void> => {
     };
     let savedPlaylistId = 0;
     let savedShareSlug = "";
-    if (sideEffectPolicy.allowSavedPlaylistWrites) {
-    const shareSlug = generateShareSlug();
-    const insertResult = await db
-      .insert(savedPlaylistsTable)
-      .values({
-        userId,
-        name: playlistName,
-        emotionProfile: profilePayload as any,
-        tracks: trackObjects as any,
-        spotifyUrl: spotifyPlaylistUrl,
-        vibe,
-        mode,
-        shareSlug,
-      })
-      .returning({ id: savedPlaylistsTable.id, shareSlug: savedPlaylistsTable.shareSlug });
-      savedPlaylistId = insertResult[0]?.id ?? 0;
-      savedShareSlug = insertResult[0]?.shareSlug ?? "";
-    }
 
-    req.log.info(
-      { ms: Date.now() - tSave, userId, playlistId: savedPlaylistId, trackCount: delivery.tracks.length },
-      "Playlist saved to DB"
-    );
-    await yieldToEventLoop();
-    if (clientDisconnected || responseFinished(res)) return;
-    if (respondIfStale(res, generateSessionUserId, requestId, { deliverableTrackCount: delivery.tracks.length })) return;
+    const runPostHygieneSideEffects = async (): Promise<void> => {
+      trackObjects = syncTracksToApiOrder(deliveredTracks, finalApiTracks).map((t) => ({
+        ...t,
+        trackId: t.trackId,
+        trackName: t.trackName,
+        artistName: t.artistName,
+        albumName: t.albumName,
+        albumArt: t.albumArt ?? null,
+        durationMs: t.durationMs ?? null,
+        energy: t.energy ?? null,
+        valence: t.valence ?? null,
+        tempo: t.tempo ?? null,
+        danceability: t.danceability ?? null,
+        acousticness: t.acousticness ?? null,
+        instrumentalness: t.instrumentalness ?? null,
+        speechiness: t.speechiness ?? null,
+        releaseYear: t.releaseYear ?? null,
+        popularity: t.popularity ?? null,
+        spotifyArtistGenres: Array.isArray(t.spotifyArtistGenres) ? t.spotifyArtistGenres : [],
+        albumGenres: Array.isArray(t.albumGenres) ? t.albumGenres : [],
+        genrePrimary: t.genrePrimary ?? null,
+        genreFamily: t.genreFamily ?? t.genrePrimary ?? null,
+        genres: Array.isArray(t.genres) && t.genres.length > 0
+          ? t.genres
+          : t.genrePrimary
+            ? [t.genrePrimary]
+            : [],
+        laneId: t.laneId ?? t.sourceLane ?? null,
+        laneScore: t.laneScore ?? null,
+        laneEra: t.laneEra ?? null,
+        clusterId: t.clusterId ?? null,
+        clusterIds: t.clusterIds ?? [],
+      }));
 
-    if (sideEffectPolicy.allowHistoryWrites) {
-    try {
-      await db.insert(playlistHistoryTable).values({
-        spotifyUserId: userId,
-        playlistId: resolvedSpotifyUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
-        playlistUrl: resolvedSpotifyUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : ""),
-        name: playlistName,
-        vibe,
-        mode,
-        trackCount: delivery.tracks.length,
-        emotionProfile: { ...emotionProfile, journeyArc } as any,
-        trackIds: delivery.tracks.map((t) => t.trackId) as any,
-      });
-      if (!devMode && !noLibraryMode) {
-        sessionSnapshot = mergeSessionSnapshot<
-          typeof likedSongsTable.$inferSelect,
-          typeof playlistHistoryTable.$inferSelect,
-          FeedbackMemory
-        >(userId, sessionSnapshotId, {
-          likedSongs: likedRowsRaw,
-          recentPlaylists: [
-            {
-              id: 0,
-              spotifyUserId: userId,
-              playlistId: resolvedSpotifyUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
-              playlistUrl: resolvedSpotifyUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : ""),
-              name: playlistName,
-              vibe,
-              mode,
-              trackCount: delivery.tracks.length,
-              emotionProfile: { ...emotionProfile, journeyArc },
-              trackIds: delivery.tracks.map((t) => t.trackId),
-              createdAt: new Date(),
-            },
-            ...(sessionSnapshot?.recentPlaylists ?? []),
-          ].slice(0, 25),
-          feedbackMemory,
-        });
-      }
-    } catch (histErr) {
-      req.log.warn({ err: histErr }, "playlist_history insert failed");
-    }
-    }
+      req.log.info(
+        { trackCount: deliveredTracks.length, devMode },
+        devMode ? "Skipping Spotify playlist creation in dev mode" : "Creating Spotify playlist",
+      );
 
-    const spotifyFields = spotifyPlaylistUrl
-      ? {
-          spotifyPlaylistUrl,
-          ...(spotifyPartial
-            ? { spotifyPartial: true as const, spotifyTracksAdded: spotifyTracksAdded ?? 0 }
-            : {}),
+      if (sideEffectPolicy.allowSpotifyPlaylistCreate && !devMode && !generationCompletionBlocked(generateSessionUserId, requestId, deliveredTracks.length)) {
+        spotifyCreateAttempted = true;
+        const attemptCreate = async (): Promise<{ url: string | null; partial: boolean; tracksAdded?: number }> => {
+          try {
+            const freshTokens = await getValidAccessToken(
+              req.session.spotifyTokens!,
+              userId,
+            );
+            if (freshTokens.accessToken !== req.session.spotifyTokens!.accessToken) {
+              req.session.spotifyTokens = freshTokens;
+            }
+            const trackUris = deliveredTracks.map((t) => `spotify:track:${t.trackId}`);
+            const pendingId = getPendingSpotifyPlaylistId(userId);
+            const spotifyResult = await createSpotifyPlaylist(
+              freshTokens.accessToken,
+              userId,
+              playlistName,
+              trackUris,
+              {
+                existingPlaylistId: pendingId,
+                onPlaylistCreated: (id) =>
+                  setPendingSpotifyPlaylistId(generateSessionUserId, requestId, id),
+              },
+            );
+            const partial = !!spotifyResult.partial;
+            const tracksAdded = spotifyResult.tracksAdded;
+            if (partial && (tracksAdded ?? 0) === 0) {
+              req.log.warn(
+                {
+                  elapsedMs: Date.now() - tSpotify,
+                  playlistId: spotifyResult.id,
+                  tracksRequested: deliveredTracks.length,
+                  reused: !!pendingId,
+                },
+                "Spotify playlist shell created but no tracks were added",
+              );
+              return { url: null, partial, tracksAdded };
+            }
+            clearPendingSpotifyPlaylist(generateSessionUserId, requestId);
+            req.log.info(
+              {
+                elapsedMs: Date.now() - tSpotify,
+                partial,
+                tracksAdded,
+                tracksRequested: deliveredTracks.length,
+                reused: !!pendingId,
+              },
+              "Spotify playlist created",
+            );
+            return { url: spotifyResult.url, partial, tracksAdded };
+          } catch (spotifyErr: any) {
+            req.log.warn(
+              {
+                code: "SPOTIFY_CREATE_FAILED",
+                err: spotifyErr?.message,
+                status: spotifyErr?.response?.status,
+              },
+              "Spotify playlist creation failed — will retry once if needed",
+            );
+            return { url: null, partial: false };
+          }
+        };
+        let createOutcome = await attemptCreate();
+        if (!createOutcome.url) {
+          await new Promise((r) => setTimeout(r, 1200));
+          createOutcome = await attemptCreate();
         }
-      : { spotifyUnavailable: true as const };
+        spotifyPartial = createOutcome.partial;
+        spotifyTracksAdded = createOutcome.tracksAdded;
+        spotifyPlaylistUrl = createOutcome.url;
+      }
+
+      if (
+        spotifyCreateAttempted &&
+        !spotifyPlaylistUrl &&
+        deliveredTracks.length > 0 &&
+        sideEffectPolicy.allowSpotifyPlaylistCreate &&
+        !devMode
+      ) {
+        req.log.error(
+          { trackCount: deliveredTracks.length, vibe },
+          "Spotify playlist URL missing after create attempts — failing honestly",
+        );
+        if (!responseFinished(res)) {
+          generateFail(
+            res,
+            502,
+            "SPOTIFY_PLAYLIST_CREATE_FAILED",
+            "Your playlist was curated but Spotify did not confirm the playlist link. Please try again in a moment.",
+            {
+              trackCount: deliveredTracks.length,
+              spotifyUnavailable: true,
+            },
+          );
+        }
+        return;
+      }
+
+      resolvedSpotifyUrl = spotifyPlaylistUrl;
+      spotifyFields = spotifyPlaylistUrl
+        ? {
+            spotifyPlaylistUrl,
+            ...(spotifyPartial
+              ? { spotifyPartial: true as const, spotifyTracksAdded: spotifyTracksAdded ?? 0 }
+              : {}),
+          }
+        : { spotifyUnavailable: true as const };
+
+      setGeneratePhase(generateSessionUserId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "saving" : "done");
+      setGenerateStageDetail(
+        generateSessionUserId,
+        requestId,
+        sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist" : "Audit mode: skipping playlist writes",
+      );
+      const tSave = Date.now();
+      req.log.info(
+        { auditMode: sideEffectPolicy.mode === "audit" },
+        sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist to database" : "Skipping playlist database writes",
+      );
+
+      if (sideEffectPolicy.allowSavedPlaylistWrites) {
+        const shareSlug = generateShareSlug();
+        const insertResult = await db
+          .insert(savedPlaylistsTable)
+          .values({
+            userId,
+            name: playlistName,
+            emotionProfile: profilePayload as any,
+            tracks: trackObjects as any,
+            spotifyUrl: spotifyPlaylistUrl,
+            vibe,
+            mode,
+            shareSlug,
+          })
+          .returning({ id: savedPlaylistsTable.id, shareSlug: savedPlaylistsTable.shareSlug });
+        savedPlaylistId = insertResult[0]?.id ?? 0;
+        savedShareSlug = insertResult[0]?.shareSlug ?? "";
+      }
+
+      req.log.info(
+        { ms: Date.now() - tSave, userId, playlistId: savedPlaylistId, trackCount: deliveredTracks.length },
+        "Playlist saved to DB",
+      );
+
+      if (sideEffectPolicy.allowHistoryWrites) {
+        try {
+          await db.insert(playlistHistoryTable).values({
+            spotifyUserId: userId,
+            playlistId: resolvedSpotifyUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
+            playlistUrl: resolvedSpotifyUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : ""),
+            name: playlistName,
+            vibe,
+            mode,
+            trackCount: deliveredTracks.length,
+            emotionProfile: { ...emotionProfile, journeyArc } as any,
+            trackIds: deliveredTracks.map((t) => t.trackId) as any,
+          });
+          if (!devMode && !noLibraryMode) {
+            sessionSnapshot = mergeSessionSnapshot<
+              typeof likedSongsTable.$inferSelect,
+              typeof playlistHistoryTable.$inferSelect,
+              FeedbackMemory
+            >(userId, sessionSnapshotId, {
+              likedSongs: likedRowsRaw,
+              recentPlaylists: [
+                {
+                  id: 0,
+                  spotifyUserId: userId,
+                  playlistId: resolvedSpotifyUrl?.split("/").pop() ?? `kwalify-${savedPlaylistId}`,
+                  playlistUrl: resolvedSpotifyUrl ?? (savedShareSlug ? publicUrl(`/p/${savedShareSlug}`) : ""),
+                  name: playlistName,
+                  vibe,
+                  mode,
+                  trackCount: deliveredTracks.length,
+                  emotionProfile: { ...emotionProfile, journeyArc },
+                  trackIds: deliveredTracks.map((t) => t.trackId),
+                  createdAt: new Date(),
+                },
+                ...(sessionSnapshot?.recentPlaylists ?? []),
+              ].slice(0, 25),
+              feedbackMemory,
+            });
+          }
+        } catch (histErr) {
+          req.log.warn({ err: histErr }, "playlist_history insert failed");
+        }
+      }
+    };
 
     const totalDurationMs = delivery.tracks.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
     const artistCount = new Set(delivery.tracks.map((t) => t.artistName)).size;
@@ -12297,14 +12345,20 @@ router.post("/generate", async (req, res): Promise<void> => {
       })) return;
       setGeneratePhase(generateSessionUserId, requestId, "error");
       if (respondIfStale(res, generateSessionUserId, requestId)) return;
+      const emptyWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
+      const latinRooftopEmpty = emptyWorldIds.includes("latin_summer_rooftop_world");
       generateFail(
         res,
         422,
-        "EMPTY_PLAYLIST",
-        "Generation completed without deliverable tracks. Try Balanced mode or broaden the prompt.",
+        latinRooftopEmpty ? "LIBRARY_INSUFFICIENT_FOR_PROMPT" : "EMPTY_PLAYLIST",
+        latinRooftopEmpty
+          ? "This library does not contain enough Latin / reggaeton tracks to build a rooftop playlist I'd stand behind. " +
+            "Padding with unrelated filler would break the vibe — try Discovery Mode or a broader summer prompt."
+          : "Generation completed without deliverable tracks. Try Balanced mode or broaden the prompt.",
         {
           finalization: finalization.diagnostics,
           requestedLength: length,
+          activeWorldId: emptyWorldIds[0] ?? null,
         },
       );
       return;
@@ -12435,35 +12489,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       void refreshGlobalTasteProfile(userId).catch((err) =>
         req.log.warn({ err }, "Failed to refresh global taste profile"),
       );
-    }
-    if (sideEffectPolicy.allowSavedPlaylistWrites && savedPlaylistId > 0) {
-    try {
-      await db
-        .update(savedPlaylistsTable)
-        .set({
-          emotionProfile: {
-            ...(profilePayload as Record<string, unknown>),
-            generationSummary: {
-              confidence: playlistConfidence,
-              generationDiagnostics: {
-                initialLibrarySize: generationDiagnostics.initialLibrarySize,
-                candidatesSampled: generationDiagnostics.candidatesSampled,
-                candidatesFinal: generationDiagnostics.candidatesFinal,
-                largestDrop: generationDiagnostics.largestDrop,
-                recoveryRelaxations: generationDiagnostics.recoveryRelaxations,
-                recoveryTriggered: generationDiagnostics.recoveryTriggered,
-                fallbackLevel: generationDiagnostics.fallbackLevel,
-                sessionCancelled: generationDiagnostics.sessionCancelled,
-                fallbackTriggered: generationDiagnostics.fallbackTriggered,
-              },
-              artistDiversity,
-            },
-          } as any,
-        })
-        .where(eq(savedPlaylistsTable.id, savedPlaylistId));
-    } catch (err) {
-      req.log.warn({ err, savedPlaylistId }, "Failed to persist generation summary for gallery");
-    }
     }
     const v3DiagnosticPayload = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
     const compactScoringDiagnostics = compactScoringDiagnosticsForApi(scoringDiagnostics);
@@ -13012,34 +13037,18 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
     const inferredWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
-    if (inferredWorldIds.length > 0 && finalApiTracks.length > 0) {
-      const fillerStrip = stripRetrievalFillerTracks(finalApiTracks, inferredWorldIds, {
-        minKeep: Math.max(HONEST_PARTIAL_MIN, Math.min(length, finalApiTracks.length)),
+    {
+      const hygiene = applyFinalApiOpenerHygiene(finalApiTracks, inferredWorldIds, {
+        minKeep: HONEST_PARTIAL_MIN,
       });
-      if (fillerStrip.removed.length > 0) {
-        finalApiTracks = fillerStrip.tracks;
-        const keptIds = new Set(finalApiTracks.map((track) => track.id));
-        deliveredTracks = deliveredTracks.filter((track) => keptIds.has(track.trackId));
+      finalApiTracks = hygiene.tracks;
+      deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
+      if (Object.keys(hygiene.diagnostics).length > 0) {
         finalization = {
           tracks: delivery.tracks as PlaylistTrack[],
           diagnostics: {
             ...finalization.diagnostics,
-            retrievalFillerStripped: fillerStrip.removed.length,
-            retrievalFillerRemoved: fillerStrip.removed.slice(0, 12),
-          },
-        };
-      }
-      const openerDemote = demoteOpenerFillerTracks(finalApiTracks, inferredWorldIds, 3);
-      if (openerDemote.demoted.length > 0) {
-        finalApiTracks = openerDemote.tracks;
-        const keptIds = new Set(finalApiTracks.map((track) => track.id));
-        deliveredTracks = deliveredTracks.filter((track) => keptIds.has(track.trackId));
-        finalization = {
-          tracks: delivery.tracks as PlaylistTrack[],
-          diagnostics: {
-            ...finalization.diagnostics,
-            openerFillerDemoted: openerDemote.demoted.length,
-            openerFillerDemotedArtists: openerDemote.demoted.slice(0, 8),
+            ...hygiene.diagnostics,
           },
         };
       }
@@ -13049,13 +13058,10 @@ router.post("/generate", async (req, res): Promise<void> => {
     // honor requestedLength (overfill 18/25 in bench-25 felt un-curated vs Spotify).
     if (finalApiTracks.length > requestedLength) {
       finalApiTracks = finalApiTracks.slice(0, requestedLength);
-      const keptIds = new Set(finalApiTracks.map((track) => track.id));
-      deliveredTracks = deliveredTracks.filter((track) => keptIds.has(track.trackId));
+      deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
     }
-    // Keep deliveredTracks aligned with the response payload length.
     if (deliveredTracks.length > finalApiTracks.length) {
-      const keptIds = new Set(finalApiTracks.map((track) => track.id));
-      deliveredTracks = deliveredTracks.filter((track) => keptIds.has(track.trackId)).slice(0, finalApiTracks.length);
+      deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
     }
     // Late Human Quality Gate — after soft-focus / artist-cap prunes that can
     // collapse a healthy draft into an unsavable stub.
@@ -13063,11 +13069,19 @@ router.post("/generate", async (req, res): Promise<void> => {
     {
       const holidayNegated = promptSuppressesChristmas(vibe);
       const holidayRequested = allowHolidaySeason && !holidayNegated;
+      const psychIndieOpenerFillers = countPsychIndieOpenerFillers(
+        finalApiTracks.map((track) => ({
+          artistName: track.artist ?? (track as { artistName?: string }).artistName,
+        })),
+        3,
+        inferredWorldIds,
+      );
       const lateHqg = evaluateHumanQualityGate({
         trackCount: finalApiTracks.length,
         requestedLength: requestedLength,
         holidayRequested,
         holidayNegated,
+        psychIndieOpenerFillers,
         seasonalLeakage:
           !allowHolidaySeason &&
           finalApiTracks.some((track) => {
@@ -13084,7 +13098,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         feelGoodLanePurity: inferredWorldIds.includes("feel_good_world")
           ? scoreFeelGoodLanePurity(
               finalApiTracks.map((track) => ({
-                artistName: track.artists?.[0]?.name ?? (track as { artistName?: string }).artistName,
+                artistName: track.artist ?? (track as { artistName?: string }).artistName,
                 genreFamily: (track as { genreFamily?: string }).genreFamily,
                 genrePrimary: (track as { genrePrimary?: string }).genrePrimary,
               })),
@@ -13107,6 +13121,38 @@ router.post("/generate", async (req, res): Promise<void> => {
       };
       if (lateHqg.action === "refuse") {
         throw new HumanQualityGateError(lateHqg);
+      }
+    }
+    await runPostHygieneSideEffects();
+    if (clientDisconnected || responseFinished(res)) return;
+    if (respondIfStale(res, generateSessionUserId, requestId, { deliverableTrackCount: deliveredTracks.length })) return;
+    if (sideEffectPolicy.allowSavedPlaylistWrites && savedPlaylistId > 0) {
+      try {
+        await db
+          .update(savedPlaylistsTable)
+          .set({
+            emotionProfile: {
+              ...(profilePayload as Record<string, unknown>),
+              generationSummary: {
+                confidence: playlistConfidence,
+                generationDiagnostics: {
+                  initialLibrarySize: generationDiagnostics.initialLibrarySize,
+                  candidatesSampled: generationDiagnostics.candidatesSampled,
+                  candidatesFinal: generationDiagnostics.candidatesFinal,
+                  largestDrop: generationDiagnostics.largestDrop,
+                  recoveryRelaxations: generationDiagnostics.recoveryRelaxations,
+                  recoveryTriggered: generationDiagnostics.recoveryTriggered,
+                  fallbackLevel: generationDiagnostics.fallbackLevel,
+                  sessionCancelled: generationDiagnostics.sessionCancelled,
+                  fallbackTriggered: generationDiagnostics.fallbackTriggered,
+                },
+                artistDiversity,
+              },
+            } as any,
+          })
+          .where(eq(savedPlaylistsTable.id, savedPlaylistId));
+      } catch (err) {
+        req.log.warn({ err, savedPlaylistId }, "Failed to persist generation summary for gallery");
       }
     }
     const generationAuditSnapshot = {
@@ -13154,7 +13200,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (sideEffectPolicy.allowResultCacheWrites && !varietyBoost && !devMode) {
       setCachedGenerateResult(resultCacheKey, {
-        cacheVersion: "v30",
+        cacheVersion: GENERATE_RESULT_CACHE_VERSION,
         playlistName,
         vibe,
         mode,

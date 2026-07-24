@@ -52,6 +52,37 @@ export async function evalPingOk(baseUrl: string, token: string): Promise<{ ok: 
   }
 }
 
+export async function killLocalPort(port: number): Promise<void> {
+  if (process.platform === "win32") {
+    const { execSync } = await import("node:child_process");
+    try {
+      const out = execSync(`netstat -ano | findstr ":${port}"`, { encoding: "utf8" });
+      const pids = new Set(
+        out
+          .split(/\r?\n/)
+          .map((line) => line.trim().split(/\s+/).pop())
+          .filter((pid): pid is string => !!pid && /^\d+$/.test(pid)),
+      );
+      for (const pid of pids) {
+        try {
+          execSync(`taskkill /F /PID ${pid}`);
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch {
+      /* port free */
+    }
+    return;
+  }
+  try {
+    const { execSync } = await import("node:child_process");
+    execSync(`lsof -ti tcp:${port} | xargs kill -9`, { stdio: "ignore" });
+  } catch {
+    /* port free */
+  }
+}
+
 export async function spawnLocalServer(
   baseUrl: string,
   token: string,
@@ -68,8 +99,15 @@ export async function spawnLocalServer(
     return health && ping.ok;
   };
 
-  if (await healthAndPing(baseUrl)) {
+  const forceRestart = process.env.BENCHMARK_FORCE_RESTART === "1";
+
+  if (!forceRestart && await healthAndPing(baseUrl)) {
     return { shutdown: () => {}, baseUrl };
+  }
+
+  if (forceRestart) {
+    await killLocalPort(port);
+    await new Promise((r) => setTimeout(r, 1500));
   }
 
   const portsToTry = port === 5000 && parsed.hostname === "localhost" ? [5000, 5001] : [port];
@@ -77,7 +115,7 @@ export async function spawnLocalServer(
 
   for (const tryPort of portsToTry) {
     const origin = `${parsed.protocol}//${parsed.hostname}:${tryPort}`;
-    if (await healthAndPing(origin)) {
+    if (!forceRestart && await healthAndPing(origin)) {
       return { shutdown: () => {}, baseUrl: origin };
     }
 

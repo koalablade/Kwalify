@@ -7,6 +7,18 @@
  */
 
 import { resolveVagueWorldCommit } from "../../lib/vague-world-commit";
+import {
+  OPENER_FILLER_PATTERN,
+  maxPsychIndieOpenersForWorlds,
+  sanitizePsychIndieOpenerChain,
+  trackArtistName,
+} from "./opener-hygiene";
+
+export {
+  OPENER_FILLER_PATTERN,
+  maxPsychIndieOpenersForWorlds,
+  sanitizePsychIndieOpenerChain,
+} from "./opener-hygiene";
 
 export type WorldIdentityProfile = {
   id: string;
@@ -1008,10 +1020,6 @@ export function stripRetrievalFillerTracks<T extends { artistName?: string | nul
   };
 }
 
-/** Psych-indie / retrieval filler artists that must not anchor openers outside natural worlds. */
-const OPENER_FILLER_PATTERN =
-  /\b(?:kasabian|q\s+lazzarus|tame\s+impala|glenn\s+frey|arctic\s+monkeys|the\s+weeknd)\b/i;
-
 /**
  * Demote opener-slot filler artists to the tail — prevents Kasabian → Q Lazzarus chains
  * without stripping supply when the library is thin.
@@ -1044,6 +1052,84 @@ export function demoteOpenerFillerTracks<T extends { artistName?: string | null;
   }
 
   return { tracks: out, demoted };
+}
+
+/** Count psych-indie opener fillers in the first N slots (algorithm-smell chain detector). */
+export function countPsychIndieOpenerFillers<T extends { artistName?: string | null; artist?: string | null }>(
+  tracks: T[],
+  openerSlots = 3,
+  activeWorldIds?: string[],
+): number {
+  return tracks
+    .slice(0, openerSlots)
+    .filter((track) => {
+      const artist = trackArtistName(track);
+      if (!artist || !OPENER_FILLER_PATTERN.test(artist)) return false;
+      if (activeWorldIds && activeWorldIds.length > 0) {
+        return isSafetyBlanketOutsideWorld(artist, activeWorldIds);
+      }
+      return true;
+    }).length;
+}
+
+export type OpenerHygieneDiagnostics = {
+  retrievalFillerStripped?: number;
+  retrievalFillerRemoved?: Array<{ artist: string; reason: string }>;
+  openerFillerDemoted?: number;
+  openerFillerDemotedArtists?: string[];
+  psychIndieOpenerSanitized?: number;
+  psychIndieOpenerSanitizedArtists?: string[];
+  psychIndieOpenerMaxAllowed?: number;
+};
+
+/** Last-mile strip + demote + sanitize on the API payload track list. */
+export function applyFinalApiOpenerHygiene<T extends { artistName?: string | null; artist?: string | null }>(
+  tracks: T[],
+  inferredWorldIds: string[],
+  opts?: { minKeep?: number },
+): { tracks: T[]; diagnostics: OpenerHygieneDiagnostics } {
+  let out = tracks;
+  const diagnostics: OpenerHygieneDiagnostics = {};
+  const minKeep = opts?.minKeep ?? 3;
+
+  if (inferredWorldIds.length > 0 && out.length > 0) {
+    const fillerStrip = stripRetrievalFillerTracks(out, inferredWorldIds, { minKeep });
+    if (fillerStrip.removed.length > 0) {
+      out = fillerStrip.tracks;
+      diagnostics.retrievalFillerStripped = fillerStrip.removed.length;
+      diagnostics.retrievalFillerRemoved = fillerStrip.removed.slice(0, 12);
+    }
+    const openerDemote = demoteOpenerFillerTracks(out, inferredWorldIds, 3);
+    if (openerDemote.demoted.length > 0) {
+      out = openerDemote.tracks;
+      diagnostics.openerFillerDemoted = openerDemote.demoted.length;
+      diagnostics.openerFillerDemotedArtists = openerDemote.demoted.slice(0, 8).map((d) => d.artist);
+    }
+  }
+
+  if (out.length > 3) {
+    const maxPsychOpeners = maxPsychIndieOpenersForWorlds(inferredWorldIds);
+    diagnostics.psychIndieOpenerMaxAllowed = maxPsychOpeners;
+    const openerSanitize = sanitizePsychIndieOpenerChain(out, 3, maxPsychOpeners);
+    if (openerSanitize.demoted.length > 0) {
+      out = openerSanitize.tracks;
+      diagnostics.psychIndieOpenerSanitized = openerSanitize.demoted.length;
+      diagnostics.psychIndieOpenerSanitizedArtists = openerSanitize.demoted.slice(0, 8).map((d) => d.artist);
+    }
+  }
+
+  return { tracks: out, diagnostics };
+}
+
+/** Reorder delivery rows to match the sanitized API track order. */
+export function syncTracksToApiOrder<T extends { trackId: string }, U extends { id?: string }>(
+  deliveryTracks: T[],
+  apiTracks: U[],
+): T[] {
+  const byId = new Map(deliveryTracks.map((t) => [t.trackId, t]));
+  return apiTracks
+    .map((t) => (t.id ? byId.get(t.id) : undefined))
+    .filter((t): t is T => !!t);
 }
 
 export function worldIdentityProfilesForLock(opts: {

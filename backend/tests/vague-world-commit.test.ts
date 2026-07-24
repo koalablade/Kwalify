@@ -5,7 +5,7 @@ import {
   shouldSuppressVagueWiden,
 } from "../lib/vague-world-commit";
 import { evaluatePromptReadiness } from "../lib/prompt-readiness";
-import { inferWorldIdentityIdsFromPrompt, passesWorldIdentity, stripRetrievalFillerTracks, demoteOpenerFillerTracks, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
+import { inferWorldIdentityIdsFromPrompt, passesWorldIdentity, stripRetrievalFillerTracks, demoteOpenerFillerTracks, sanitizePsychIndieOpenerChain, countPsychIndieOpenerFillers, maxPsychIndieOpenersForWorlds, OPENER_FILLER_PATTERN, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
 
 test("vague lifestyle prompts auto-commit one everyday world", () => {
   const cases: Array<[string, string]> = [
@@ -151,6 +151,41 @@ test("demoteOpenerFillerTracks moves kasabian/q opener chain to tail", () => {
   const opener = out.tracks.slice(0, 2).map((t) => String(t.artist));
   assert.ok(!/kasabian|q lazzarus/i.test(opener.join(" ")));
   assert.ok(out.demoted.length >= 1);
+});
+
+test("stripRetrievalFillerTracks does not restore fillers when minKeep is honest floor", () => {
+  const tracks = Array.from({ length: 25 }, (_, i) => ({
+    artist: i < 3 ? ["Tame Impala", "Kasabian", "Q Lazzarus"][i]! : `Artist ${i}`,
+  }));
+  const out = stripRetrievalFillerTracks(tracks, ["dad_secret_world"], { minKeep: 3 });
+  assert.equal(out.tracks.length, 22);
+  assert.ok(!out.tracks.slice(0, 3).some((t) => /tame impala|kasabian|q lazzarus/i.test(String(t.artist))));
+});
+
+test("sanitizePsychIndieOpenerChain caps opener psych-indie fillers even in nostalgia world", () => {
+  const tracks = [
+    { artist: "Tame Impala" },
+    { artist: "Kasabian" },
+    { artist: "Q Lazzarus" },
+    { artist: "The Killers" },
+    { artist: "Franz Ferdinand" },
+  ];
+  const out = sanitizePsychIndieOpenerChain(tracks, 3, 1);
+  assert.equal(countPsychIndieOpenerFillers(out.tracks, 3), 1);
+  assert.ok(!/kasabian|q lazzarus/i.test(String(out.tracks[0]!.artist)));
+});
+
+test("sanitizePsychIndieOpenerChain removes all psych openers for film-ending world cap", () => {
+  const tracks = [
+    { artist: "Tame Impala" },
+    { artist: "Kasabian" },
+    { artist: "Q Lazzarus" },
+    { artist: "Sigur Rós" },
+    { artist: "Radiohead" },
+  ];
+  const out = sanitizePsychIndieOpenerChain(tracks, 3, 0);
+  assert.equal(countPsychIndieOpenerFillers(out.tracks, 3, ["film_ending_world"]), 0);
+  assert.ok(!OPENER_FILLER_PATTERN.test(String(out.tracks[0]!.artist)));
 });
 
 test("coffee shop rejects psych filler and hip-hop", () => {

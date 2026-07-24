@@ -5,6 +5,8 @@
  * never force completion; prefer honest partial or refuse over padded trash.
  */
 
+import { isZeroPsychOpenerWorld } from "./opener-hygiene";
+
 export type HumanQualityGateAction = "pass" | "honest_partial" | "refuse";
 
 export type HumanQualityGateInput = {
@@ -22,10 +24,13 @@ export type HumanQualityGateInput = {
   uniqueArtistCount?: number | null;
   /** 0–1 share of tracks by the single most common artist */
   dominantArtistShare?: number | null;
+  promptLabel?: string | null;
   /** 0–1 share of tracks in feel-good lane (funk/disco/soul/pop). */
   feelGoodLanePurity?: number | null;
   /** Active world id for lane-specific gates. */
   activeWorldId?: string | null;
+  /** Psych-indie opener fillers in slots 1–3 (Tame/Kasabian/Q chain smell). */
+  psychIndieOpenerFillers?: number | null;
 };
 
 export type HumanQualityGateResult = {
@@ -78,6 +83,12 @@ export function buildHumanQualityRefuseMessage(
     return (
       "I couldn't assemble a single musical world that feels intentionally curated for this prompt. " +
       "Returning a mixed filler playlist would fail the save/replay test — try Discovery Mode or a clearer scene."
+    );
+  }
+  if (reasons.includes("psych_indie_opener_chain")) {
+    return (
+      "The opening tracks looked like generic retrieval filler rather than intentional curation. " +
+      "I won't publish that chain — try again or broaden the prompt."
     );
   }
   if (reasons.includes("seasonal_leakage")) {
@@ -151,6 +162,16 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   ) {
     reasons.push("feel_good_lane_mash");
   }
+  if (typeof input.psychIndieOpenerFillers === "number" && input.psychIndieOpenerFillers >= 2) {
+    reasons.push("psych_indie_opener_chain");
+  } else if (
+    typeof input.psychIndieOpenerFillers === "number" &&
+    input.psychIndieOpenerFillers >= 1 &&
+    input.activeWorldId &&
+    isZeroPsychOpenerWorld(input.activeWorldId)
+  ) {
+    reasons.push("psych_indie_opener_chain");
+  }
 
   // Salvageable means we can honestly publish what we have (including mid-stubs 3–5).
   const salvageableCount = count >= 3 ? count : 0;
@@ -169,12 +190,15 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (count >= Math.ceil(requested * 0.75) && worldCoherenceOk) replayConfidence += 0.08;
   replayConfidence = clamp01(replayConfidence);
 
-  // Refuse only truly unsavable stubs (<3), empty, seasonal leak, or empty wanted-christmas.
+  // Refuse only truly unsavable stubs (<3), empty, seasonal leak, opener chain that survived sanitize, or empty wanted-christmas.
   if (
     empty ||
     count < 3 ||
     reasons.includes("holiday_requested_empty_supply") ||
-    reasons.includes("seasonal_leakage")
+    reasons.includes("seasonal_leakage") ||
+    (reasons.includes("psych_indie_opener_chain") &&
+      typeof input.psychIndieOpenerFillers === "number" &&
+      input.psychIndieOpenerFillers >= 2)
   ) {
     const refuseReasons = reasons.length > 0 ? reasons : ["unsavable"];
     return {
@@ -197,7 +221,8 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   const underfilled = count < Math.ceil(requested * 0.75);
   const laneMash =
     reasons.includes("feel_good_lane_mash") && (input.feelGoodLanePurity ?? 1) < 0.55;
-  if (underfilled || stubUnderfill || input.degradedDelivery === true || laneMash) {
+  const openerChain = reasons.includes("psych_indie_opener_chain");
+  if (underfilled || stubUnderfill || input.degradedDelivery === true || laneMash || openerChain) {
     const partialReasons = reasons.length > 0 ? reasons : ["honest_underfill"];
     return {
       action: "honest_partial",

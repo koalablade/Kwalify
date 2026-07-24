@@ -15,6 +15,7 @@ import {
 } from "./activity-profiles";
 import type { PatternScoringTrack } from "../core/editorial/human-playlist-patterns";
 import { createOpeningLock, type OpeningLock } from "./opening-lock";
+import { OPENER_FILLER_PATTERN } from "../core/editorial/opener-hygiene";
 
 export const OPENING_WINDOW_SIZE = 5;
 
@@ -40,6 +41,8 @@ export type OpeningCuratorV2Opts<T extends OpeningCuratorV2Track> = {
   classifyForActivity?: (track: T) => ActivityClassificationInput;
   intentForActivity?: ActivityIntentInput;
   allowObscureOpeners?: boolean;
+  /** Max psych-indie retrieval fillers allowed in opener slots 1–3 (0 = none). */
+  maxPsychOpenersInOpening?: number;
 };
 
 export type OpeningCuratorV2Result<T extends OpeningCuratorV2Track> = {
@@ -124,6 +127,15 @@ function hardRejectReason<T extends OpeningCuratorV2Track>(
   opening: T[],
   opts: OpeningCuratorV2Opts<T>,
 ): string | null {
+  const maxPsych = opts.maxPsychOpenersInOpening ?? 1;
+  const artist = String(track.artistName ?? "");
+  if (position < 3 && OPENER_FILLER_PATTERN.test(artist)) {
+    const fillersBefore = opening
+      .slice(0, position)
+      .filter((t) => OPENER_FILLER_PATTERN.test(String(t.artistName ?? ""))).length;
+    if (maxPsych === 0 || fillersBefore >= maxPsych) return "retrieval_filler_opener";
+  }
+
   if (activityHardGate(track, opts.prompt, opts.intentForActivity, opts.classifyForActivity)) {
     return "activity_mismatch";
   }

@@ -9,8 +9,15 @@ import { normalizeEvalToken } from "./eval-token-normalize";
 let cached: Record<string, string> | null = null;
 
 function projectRoot(): string {
-  // backend/dist/lib → repo root (three levels up from compiled output)
-  return path.resolve(__dirname, "..", "..", "..");
+  // backend/dist/lib (3 up) or backend/lib via tsx (2 up) — both should land on repo root.
+  const candidates = [
+    path.resolve(__dirname, "..", "..", ".."),
+    path.resolve(__dirname, "..", ".."),
+  ];
+  for (const dir of candidates) {
+    if (existsSync(path.join(dir, "package.json"))) return dir;
+  }
+  return candidates[0]!;
 }
 
 export function readLocalDotEnv(): Record<string, string> {

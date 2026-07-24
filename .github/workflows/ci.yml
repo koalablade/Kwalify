@@ -41,6 +41,8 @@ jobs:
         run: npm run smoke:static
       - name: Build
         run: npm run build
+      - name: Opener hygiene unit tests
+        run: npm run test:opener-hygiene
       - name: Pipeline authority guards
         run: |
           npm run guard:pipeline-authority

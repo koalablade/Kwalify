@@ -120,4 +120,32 @@ describe("opening curator v2", () => {
     assert.ok(before && after);
     assert.ok(before!.skipRiskScore >= 0.5);
   });
+
+  it("rejects retrieval filler openers when maxPsychOpenersInOpening is 0", () => {
+    const fillerTracks = [
+      { trackId: "tame", artistName: "Tame Impala", energy: 0.72, popularity: 78, danceability: 0.65, acousticness: 0.2, rediscoveryScore: 0.1 },
+      { trackId: "kasabian", artistName: "Kasabian", energy: 0.7, popularity: 75, danceability: 0.62, acousticness: 0.15, rediscoveryScore: 0.12 },
+      { trackId: "good1", artistName: "Interpol", energy: 0.68, popularity: 70, danceability: 0.58, acousticness: 0.25, rediscoveryScore: 0.2 },
+      { trackId: "good2", artistName: "The Killers", energy: 0.74, popularity: 72, danceability: 0.6, acousticness: 0.18, rediscoveryScore: 0.15 },
+      ...Array.from({ length: 8 }, (_, i) => ({
+        trackId: `tail-${i}`,
+        artistName: `Artist ${i}`,
+        energy: 0.65,
+        popularity: 60,
+        danceability: 0.55,
+        acousticness: 0.2,
+        rediscoveryScore: 0.25,
+      })),
+    ];
+    const result = applyOpeningCuratorV2({
+      prompt: "classic rock dad rock singalong",
+      tracks: fillerTracks,
+      scorePromptRelevance: (track) => (track.energy ?? 0.5) * 0.5 + 0.3,
+      maxPsychOpenersInOpening: 0,
+    });
+    const openerArtists = result.tracks.slice(0, 3).map((t) => t.artistName);
+    assert.ok(!openerArtists.some((a) => /tame impala|kasabian/i.test(String(a))));
+    assert.ok(result.openingDecision.rejectedOpeningCandidates.includes("tame"));
+    assert.ok(result.openingDecision.rejectedOpeningCandidates.includes("kasabian"));
+  });
 });

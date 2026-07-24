@@ -76,6 +76,17 @@ describe("human-quality-gate", () => {
     assert.equal(result.action, "pass");
   });
 
+  it("refuses when psych-indie opener chain survives sanitize", () => {
+    const result = evaluateHumanQualityGate({
+      trackCount: 25,
+      requestedLength: 25,
+      psychIndieOpenerFillers: 3,
+      dominantWorldDensity: 0.8,
+    });
+    assert.equal(result.action, "refuse");
+    assert.ok(result.reasons.includes("psych_indie_opener_chain"));
+  });
+
   it("throws HumanQualityGateError with result payload", () => {
     const result = evaluateHumanQualityGate({ trackCount: 1, requestedLength: 25 });
     const err = new HumanQualityGateError(result);
