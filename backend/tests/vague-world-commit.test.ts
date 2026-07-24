@@ -5,6 +5,7 @@ import {
   shouldSuppressVagueWiden,
 } from "../lib/vague-world-commit";
 import { evaluatePromptReadiness } from "../lib/prompt-readiness";
+import { resolveActivityProfile } from "../lib/activity-profiles";
 import { inferWorldIdentityIdsFromPrompt, passesWorldIdentity, stripRetrievalFillerTracks, demoteOpenerFillerTracks, sanitizePsychIndieOpenerChain, countPsychIndieOpenerFillers, maxPsychIndieOpenersForWorlds, OPENER_FILLER_PATTERN, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
 
 test("party prep vague prompts commit to party_prep_world", () => {
@@ -73,6 +74,11 @@ test("sunday chill rejects Storm Queen / DMX", () => {
     ),
     false,
   );
+});
+
+test("gym prompt matches lift without gym keyword", () => {
+  const profile = resolveActivityProfile("ex's birthday ignore them and lift", {});
+  assert.equal(profile?.id, "gym");
 });
 
 test("gym energy rejects Blondie / Storm Queen / classic rock", () => {

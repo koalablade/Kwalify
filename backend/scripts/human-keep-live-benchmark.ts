@@ -11,6 +11,7 @@
  * Usage:
  *   npm run benchmark:human-keep-live
  *   HUMAN_KEEP_LIMIT=20 npm run benchmark:human-keep-live
+ *   HUMAN_KEEP_IDS=h03,h65 npm run benchmark:human-keep-live
  *   HUMAN_KEEP_VARIETY=1 npm run benchmark:human-keep-live
  */
 import { mkdir, writeFile, appendFile } from "node:fs/promises";
@@ -83,7 +84,26 @@ async function main() {
   const limit = process.env.HUMAN_KEEP_LIMIT
     ? Number.parseInt(process.env.HUMAN_KEEP_LIMIT, 10)
     : HUMAN_100_PROMPTS.length;
-  const prompts = HUMAN_100_PROMPTS.slice(0, Math.max(1, Math.min(limit, HUMAN_100_PROMPTS.length)));
+  const idFilter = process.env.HUMAN_KEEP_IDS?.split(/[,\s]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const cohortFilter = process.env.HUMAN_KEEP_COHORT?.trim().toLowerCase();
+  let prompts: typeof HUMAN_100_PROMPTS;
+  if (cohortFilter === "guided" || cohortFilter === "vague") {
+    prompts = HUMAN_100_PROMPTS.filter((p) => p.cohort === cohortFilter);
+    if (idFilter?.length) {
+      prompts = prompts.filter((p) => idFilter.includes(p.id.toLowerCase()));
+    }
+  } else if (idFilter?.length) {
+    prompts = HUMAN_100_PROMPTS.filter((p) => idFilter.includes(p.id.toLowerCase()));
+  } else {
+    prompts = HUMAN_100_PROMPTS.slice(0, Math.max(1, Math.min(limit, HUMAN_100_PROMPTS.length)));
+  }
+  if (prompts.length === 0) {
+    throw new Error(
+      cohortFilter
+        ? `No prompts for cohort=${cohortFilter}${idFilter?.length ? ` ids=${process.env.HUMAN_KEEP_IDS}` : ""}`
+        : `HUMAN_KEEP_IDS matched no prompts: ${process.env.HUMAN_KEEP_IDS}`,
+    );
+  }
 
   const ready = await ensureEvalReady(creds.baseUrl, creds.token, spawnLocal, "benchmark:human-keep-live");
   const baseUrl = ready.baseUrl;
@@ -235,6 +255,7 @@ async function main() {
     userId: creds.spotifyUserId,
     promptCount: prompts.length,
     varietyBoost,
+    cohort: cohortFilter ?? "all",
     counts,
     keepableRate: +(keepable / results.length).toFixed(3),
     wouldSaveRate: +(counts.SAVE / results.length).toFixed(3),

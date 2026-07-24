@@ -43,6 +43,8 @@ jobs:
         run: npm run build
       - name: Opener hygiene unit tests
         run: npm run test:opener-hygiene
+      - name: Generate pipeline hygiene tests
+        run: npm run test:generate-pipeline-hygiene
       - name: Pipeline authority guards
         run: |
           npm run guard:pipeline-authority

@@ -897,7 +897,10 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   ) {
     ids.push("focus_study_world");
   }
-  if (/\bboss\s+(?:fight|battle)\b|\bfinal\s+boss\b/i.test(p)) ids.push("boss_fight");
+  if (/\bboss\s+(?:fight|battle)\b|\bfinal\s+boss\b/i.test(p)) {
+    // Too specific to curate honestly — route to gym energy instead of a fantasy OST world.
+    if (!ids.includes("gym_energy_world")) ids.push("gym_energy_world");
+  }
   if (/\bquiet\s+rage\b|\bsimmer(?:ing)?\s+(?:rage|anger)\b/i.test(p)) ids.push("quiet_rage");
   if (/\b(?:rave|club)\s+comedown\b|\bpost[-\s]?rave\b/i.test(p)) ids.push("rave_comedown");
   if (/\bsynthwave\b|\bretrowave\b|\bneon\s+(?:drive|tek|techno|city|nights?|streets?)\b|\b90s?\s+neon\b/i.test(p)) {
@@ -949,7 +952,9 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   if (/\b(?:cool\s+older\s+sibling|older\s+sibling)\b/i.test(p)) {
     ids.push("older_sibling_world");
   }
-  if (/\blatin\s+summer\s+rooftop\b|\blatin.*rooftop\b/i.test(p)) {
+  if (/\blatin\b/i.test(p) && /\b(?:summer|rooftop|drinks?)\b/i.test(p)) {
+    ids.push("latin_summer_rooftop_world");
+  } else if (/\blatin\s+summer\s+rooftop\b|\blatin.*rooftop\b/i.test(p)) {
     ids.push("latin_summer_rooftop_world");
   }
   if (/\bcommute\b|\btrain delayed\b/i.test(p)) {
@@ -957,6 +962,15 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   }
   if (/\bfirst\s+date\b/i.test(p)) {
     ids.push("first_date_world");
+  }
+  if (/\b(?:morning walk|upbeat stuff for a morning walk)\b/i.test(p)) {
+    ids.push("upbeat_chore_world");
+  }
+  if (/\b(?:got a promotion|let'?s go+)\b/i.test(p)) {
+    ids.push("feel_good_world");
+  }
+  if (/\b(?:ignore them and lift|ex'?s?\s+birthday)\b/i.test(p) && /\blift\b/i.test(p)) {
+    ids.push("gym_energy_world");
   }
 
   // Vague lifestyle prompts: commit one everyday world when no named lock fired.
@@ -966,6 +980,67 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   }
 
   return [...new Set(ids)];
+}
+
+/** Count library tracks that pass hard world-identity lock for this prompt. */
+export function countWorldVerifiedLibrarySupply(
+  tracks: Array<{
+    trackId: string;
+    trackName?: string | null;
+    artistName?: string | null;
+    albumName?: string | null;
+    energy?: number | null;
+    valence?: number | null;
+    danceability?: number | null;
+    instrumentalness?: number | null;
+    popularity?: number | null;
+    spotifyArtistGenres?: unknown;
+    albumGenres?: unknown;
+  }>,
+  prompt: string,
+  classMap: Map<string, {
+    genrePrimary?: string;
+    genreFamily?: string;
+    primarySubgenre?: string;
+    secondarySubgenre?: string | null;
+    subGenres?: string[];
+  }>,
+  opts?: { reason?: string | null; anchors?: string[] | null },
+): number {
+  const profiles = worldIdentityProfilesForLock({
+    prompt,
+    reason: opts?.reason ?? null,
+    anchors: opts?.anchors ?? null,
+  });
+  if (profiles.length === 0) return 0;
+  let count = 0;
+  for (const track of tracks) {
+    const classification = classMap.get(track.trackId);
+    if (
+      passesWorldIdentity(
+        {
+          trackName: track.trackName ?? null,
+          artistName: track.artistName ?? null,
+          albumName: track.albumName ?? null,
+          genrePrimary: classification?.genrePrimary ?? null,
+          genreFamily: classification?.genreFamily ?? null,
+          genres: classification?.subGenres ?? null,
+          spotifyArtistGenres: track.spotifyArtistGenres,
+          albumGenres: track.albumGenres,
+          energy: track.energy ?? null,
+          valence: track.valence ?? null,
+          danceability: track.danceability ?? null,
+          instrumentalness: track.instrumentalness ?? null,
+          popularity: track.popularity ?? null,
+        },
+        profiles,
+        { hardLock: true },
+      )
+    ) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 /**
@@ -1171,6 +1246,55 @@ export function syncTracksToApiOrder<T extends { trackId: string }, U extends { 
     .filter((t): t is T => !!t);
 }
 
+/** Apply opener hygiene to pipeline delivery tracks before terminal freeze. */
+export function applyPreFreezeOpenerHygieneToDelivery<
+  T extends { trackId: string; artistName?: string | null },
+>(tracks: readonly T[], inferredWorldIds: string[], opts?: { minKeep?: number }): {
+  tracks: T[];
+  diagnostics: OpenerHygieneDiagnostics;
+} {
+  const apiShape = tracks.map((track) => ({
+    artistName: track.artistName,
+    artist: track.artistName,
+    id: track.trackId,
+  }));
+  const hygiene = applyFinalApiOpenerHygiene(apiShape, inferredWorldIds, opts);
+  return {
+    tracks: syncTracksToApiOrder([...tracks], hygiene.tracks),
+    diagnostics: hygiene.diagnostics,
+  };
+}
+
+/** Structured opener-hygiene metrics for dashboards and integration tests. */
+export function buildOpenerHygieneMetrics(
+  diagnostics: OpenerHygieneDiagnostics,
+  opts?: {
+    preFreezeApplied?: boolean;
+    postFreezeApplied?: boolean;
+    pipelineOpenerIds?: string[];
+    apiOpenerIds?: string[];
+  },
+): Record<string, unknown> {
+  const pipelineOpeners = opts?.pipelineOpenerIds ?? [];
+  const apiOpeners = opts?.apiOpenerIds ?? [];
+  return {
+    preFreezeApplied: opts?.preFreezeApplied ?? false,
+    postFreezeApplied: opts?.postFreezeApplied ?? false,
+    retrievalFillerStripped: diagnostics.retrievalFillerStripped ?? 0,
+    openerFillerDemoted: diagnostics.openerFillerDemoted ?? 0,
+    psychIndieOpenerSanitized: diagnostics.psychIndieOpenerSanitized ?? 0,
+    psychIndieOpenerMaxAllowed: diagnostics.psychIndieOpenerMaxAllowed ?? null,
+    demotedArtists: [
+      ...(diagnostics.openerFillerDemotedArtists ?? []),
+      ...(diagnostics.psychIndieOpenerSanitizedArtists ?? []),
+    ].slice(0, 12),
+    openerOrderAligned:
+      pipelineOpeners.length > 0 && apiOpeners.length > 0
+        ? pipelineOpeners.slice(0, 3).join("|") === apiOpeners.slice(0, 3).join("|")
+        : null,
+  };
+}
+
 export function worldIdentityProfilesForLock(opts: {
   reason?: string | null;
   anchors?: string[] | null;
@@ -1178,10 +1302,13 @@ export function worldIdentityProfilesForLock(opts: {
 }): WorldIdentityProfile[] {
   const ids = new Set<string>(opts.anchors ?? []);
   const reason = opts.reason ?? "";
+  const ukSceneLock = reason.startsWith("uk_hip_hop_scene_lock:");
   const m = reason.match(/cultural_scene_lock:([a-z0-9_]+)/i);
   if (m?.[1]) ids.add(m[1]);
-  for (const inferred of inferWorldIdentityIdsFromPrompt(opts.prompt)) {
-    ids.add(inferred);
+  if (!ukSceneLock) {
+    for (const inferred of inferWorldIdentityIdsFromPrompt(opts.prompt)) {
+      ids.add(inferred);
+    }
   }
   if (ids.has("rainy_night_drive")) ids.add("rainy_drive_world");
   if (/\b(?:rave|club)\s+comedown\b|\bcomedown\b.*\b(?:rave|club|bus)\b|\bpost[-\s]?rave\b/i.test(opts.prompt ?? "")) {

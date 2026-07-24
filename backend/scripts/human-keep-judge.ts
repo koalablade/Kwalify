@@ -6,7 +6,7 @@ import {
   isSafetyBlanketOutsideWorld,
   countPsychIndieOpenerFillers,
 } from "../core/editorial/world-identity-gate";
-import { scoreFeelGoodLanePurity } from "../core/editorial/world-coherence-score";
+import { scoreCommittedWorldLanePurity, LANE_PURITY_WORLD_IDS } from "../core/editorial/world-coherence-score";
 
 export type TrackRow = {
   artist: string;
@@ -123,14 +123,27 @@ export function judgeHuman(opts: {
     };
   }
 
-  if (worldIds.includes("feel_good_world") || /\b(?:happy vibes|feel good)\b/i.test(prompt)) {
-    const lane = scoreFeelGoodLanePurity(
+  const committedWorldId = worldIds.find((id) => LANE_PURITY_WORLD_IDS.has(id)) ?? null;
+  if (committedWorldId) {
+    const lane = scoreCommittedWorldLanePurity(
+      committedWorldId,
       tracks.map((t) => ({ artistName: t.artist, genreFamily: t.genreFamily, genrePrimary: t.genrePrimary })),
+      { prompt },
     );
     if (!lane.ok && n >= 6) {
+      if (isHonestPartial) {
+        return {
+          verdict: "PARTIAL_OK",
+          why: `Honest partial — committed ${committedWorldId} lane only ${Math.round(lane.purity * 100)}% on-world`,
+          contaminants,
+          blankets,
+          uniqueArtists,
+          worldFeel: "mixed",
+        };
+      }
       return {
         verdict: "MAYBE",
-        why: `Feel-good lane mash — only ${Math.round(lane.purity * 100)}% funk/disco/soul/pop`,
+        why: `Committed-world lane mash (${committedWorldId}) — only ${Math.round(lane.purity * 100)}% on-lane`,
         contaminants,
         blankets,
         uniqueArtists,
@@ -187,6 +200,16 @@ export function judgeHuman(opts: {
     };
   }
   if (uniqueFamilies >= 3 && topFamShare < 0.5 && n >= 8) {
+    if (isHonestPartial) {
+      return {
+        verdict: "PARTIAL_OK",
+        why: `Honest partial — ${uniqueFamilies} genre families without one dominant world`,
+        contaminants,
+        blankets,
+        uniqueArtists,
+        worldFeel: "mixed",
+      };
+    }
     return {
       verdict: "MAYBE",
       why: `Genre mash — ${uniqueFamilies} families without a dominant world`,

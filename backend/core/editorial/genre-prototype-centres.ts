@@ -87,6 +87,15 @@ const WORLD_PROTOTYPE_HINTS: Record<string, string[]> = {
   latin_summer_rooftop_world: ["reggaeton", "latin_pop", "salsa", "bachata"],
   social_kitchen_world: ["funk", "nu_disco", "motown"],
   party_prep_world: ["disco", "nu_disco", "house"],
+  upbeat_chore_world: ["disco", "nu_disco", "electropop", "funk"],
+  grunge_world: ["grunge", "alternative_rock", "post_grunge"],
+  lofi_world: ["lo_fi", "chillhop", "jazz_rap"],
+  ambient_world: ["ambient", "idm", "downtempo"],
+  disco_party_world: ["disco", "funk", "nu_disco", "motown"],
+  pop_punk_world: ["pop_punk", "emo", "punk_rock"],
+  britpop_world: ["britpop", "madchester", "alternative_rock"],
+  uk_garage_grime: ["uk_garage", "grime", "uk_drill"],
+  uk_grime: ["grime", "uk_drill", "uk_garage"],
 };
 
 export function resolvePrototypeCentresForWorld(worldId: string): GenrePrototypeCentre[] {
@@ -95,6 +104,30 @@ export function resolvePrototypeCentresForWorld(worldId: string): GenrePrototype
   const centres = listGenrePrototypeCentres();
   const matched = centres.filter((c) => hints.includes(c.subgenre));
   return matched.slice(0, 4);
+}
+
+/** Merge UK scene prototype centres when garage/grime lock is active. */
+export function resolvePrototypeCentresForPromptWorlds(
+  worldIds: string[],
+  ukSceneId?: string | null,
+): GenrePrototypeCentre[] {
+  const seen = new Set<string>();
+  const out: GenrePrototypeCentre[] = [];
+  for (const id of worldIds) {
+    for (const centre of resolvePrototypeCentresForWorld(id)) {
+      if (seen.has(centre.id)) continue;
+      seen.add(centre.id);
+      out.push(centre);
+    }
+  }
+  if (ukSceneId) {
+    for (const centre of resolvePrototypeCentresForWorld(ukSceneId)) {
+      if (seen.has(centre.id)) continue;
+      seen.add(centre.id);
+      out.push(centre);
+    }
+  }
+  return out.slice(0, 6);
 }
 
 export function trackMatchesGenrePrototype(

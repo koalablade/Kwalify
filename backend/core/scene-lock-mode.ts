@@ -194,15 +194,10 @@ const CULTURAL_PROFILES: CulturalSceneProfile[] = [
     offSceneGenreFamilies: ["hip_hop", "metal", "rock", "pop", "reggae", "country", "latin", "rnb"],
   },
   {
-    anchors: [
-      /\bboss\s+fight\b/i,
-      /\bboss\s+battle\b/i,
-      /\bfinal\s+boss\b/i,
-      /\bgaming\s+boss\b/i,
-    ],
-    id: "boss_fight",
-    allowedGenreFamilies: ["electronic", "metal", "rock", "soundtrack", "indie"],
-    offSceneGenreFamilies: ["country", "folk", "reggae", "jazz", "classical", "rnb", "soul", "latin", "blues"],
+    anchors: [/\bbritpop\b/i, /\bmadchester\b/i, /\bsunny\s+afternoon\b.*\b(?:indie|rock)\b/i],
+    id: "britpop_world",
+    allowedGenreFamilies: ["indie", "rock"],
+    offSceneGenreFamilies: ["metal", "hip_hop", "country", "latin", "electronic", "soul", "rnb"],
   },
   {
     anchors: [

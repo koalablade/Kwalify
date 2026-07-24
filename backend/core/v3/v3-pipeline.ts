@@ -29,6 +29,8 @@ import { buildClusters, type ClusteredPool } from "./cluster-candidate-engine";
 import { selectFromClusters, type SampledLaneResult, type SamplerInterpretation } from "./v3-sampler";
 import {
   resolveGenrePrototypeCentres,
+  resolvePrototypeCentresForPromptWorlds,
+  resolvePrototypeCentresForWorld,
   prototypeCentreScoreBoost,
 } from "../editorial/genre-prototype-centres";
 import {
@@ -44,6 +46,7 @@ import {
   type HumanQualityGateResult,
 } from "../editorial/human-quality-gate";
 import { inferWorldIdentityIdsFromPrompt } from "../editorial/world-identity-gate";
+import { detectUkHipHopScene } from "../../lib/uk-hip-hop-scene";
 import { promptSuppressesChristmas } from "../../lib/human-scene-knowledge";
 import { artistEcosystemBoost, type ArtistEcosystemGraph } from "../../lib/artist-ecosystem-graph";
 import {
@@ -959,11 +962,20 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const unifiedIntentContext = opts.unifiedIntentContext;
   const decomposed = unifiedIntentContext.v3DecomposedIntent;
   const lockedIntent = opts.lockedIntent ?? unifiedIntentContext.lockedIntent;
-  const genrePrototypeCentres = resolveGenrePrototypeCentres({
-    vibe,
-    primarySubgenre: lockedIntent.primarySubgenre ?? null,
-    genreFamilies: lockedIntent.genreFamilies,
-  });
+  const inferredWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
+  const ukScene = detectUkHipHopScene(vibe);
+  const worldPrototypeCentres = resolvePrototypeCentresForPromptWorlds(
+    inferredWorldIds,
+    ukScene?.active ? ukScene.id : null,
+  );
+  const genrePrototypeCentres = [
+    ...worldPrototypeCentres,
+    ...resolveGenrePrototypeCentres({
+      vibe,
+      primarySubgenre: lockedIntent.primarySubgenre ?? null,
+      genreFamilies: lockedIntent.genreFamilies,
+    }).filter((centre) => !worldPrototypeCentres.some((w) => w.id === centre.id)),
+  ].slice(0, 4);
   const unifiedIntentDiagnostics = unifiedIntentContext.diagnostics;
   const humanSaveStrictMode = strictModeHumanSaveability(vibe, lockedIntent);
   let effectiveHumanSaveStrict = humanSaveStrictMode;
@@ -2866,7 +2878,6 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   const holidayRequested =
     !holidayNegated &&
     /\b(?:christmas|xmas|festive|noel|santa|holiday\s+song|holiday\s+classics)\b/i.test(vibe);
-  const inferredWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
   const feelGoodLanePurity =
     inferredWorldIds.includes("feel_good_world") || inferredWorldIds.includes("party_prep_world")
       ? scoreFeelGoodLanePurity(

@@ -62,6 +62,7 @@ export type ThinLibraryDiagnostics = {
   excludedRelaxedSupply: number;
   recoverySupply: number;
   maxAchievableReason: string;
+  worldVerifiedSupply?: number;
 };
 
 export type ThinLibraryIntentSupply = ThinLibraryDiagnostics & {

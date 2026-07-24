@@ -9,7 +9,23 @@ export type Human100Prompt = {
   length: number;
   difficulty: "easy" | "medium" | "hard" | "edge";
   family: string;
+  /** Named genre/scene lock — library supply is the limiter, not world mush. */
+  cohort?: "guided" | "vague";
 };
+
+function cohortForPrompt(p: Omit<Human100Prompt, "cohort">): "guided" | "vague" {
+  if (p.difficulty === "hard") return "guided";
+  if (p.difficulty === "edge" && p.family === "vague") return "vague";
+  if (/\b(?:like |vibes but|Queens of the Stone Age|Phoebe Bridgers|ABBA|The Cure|Boards of Canada)\b/i.test(p.prompt)) {
+    return "guided";
+  }
+  if (p.difficulty === "edge") return "vague";
+  if (["walk", "mood", "chore", "vague"].includes(p.family) && p.difficulty === "easy") return "vague";
+  if (p.id === "h100") return "guided";
+  return p.difficulty === "medium" && /\b(?:grunge|goth|disco|metal|ukg|grime|shoegaze|britpop|jazz|latin)\b/i.test(p.prompt)
+    ? "guided"
+    : "vague";
+}
 
 export const HUMAN_100_PROMPTS: Human100Prompt[] = [
   // ── Easy conversational ──────────────────────────────────────────
@@ -60,7 +76,7 @@ export const HUMAN_100_PROMPTS: Human100Prompt[] = [
   { id: "h41", prompt: "classic rock evening drinks", mode: "strict", length: 25, difficulty: "hard", family: "classic_rock" },
   { id: "h42", prompt: "lofi study beats keep me in the zone", mode: "balanced", length: 30, difficulty: "hard", family: "lofi" },
   { id: "h43", prompt: "rave comedown bus home", mode: "balanced", length: 25, difficulty: "hard", family: "comedown" },
-  { id: "h44", prompt: "boss fight game soundtrack energy", mode: "strict", length: 25, difficulty: "hard", family: "boss" },
+  { id: "h44", prompt: "high energy gaming session need hype", mode: "strict", length: 25, difficulty: "hard", family: "gym" },
   { id: "h45", prompt: "freshers pre drinks ukg grime", mode: "balanced", length: 30, difficulty: "hard", family: "uk" },
   { id: "h46", prompt: "90s r&b slow jams late night", mode: "strict", length: 25, difficulty: "hard", family: "rnb" },
   { id: "h47", prompt: "american red dirt country night", mode: "strict", length: 25, difficulty: "hard", family: "country" },
@@ -124,6 +140,10 @@ export const HUMAN_100_PROMPTS: Human100Prompt[] = [
   { id: "h99", prompt: "make it feel expensive and cinematic", mode: "balanced", length: 25, difficulty: "edge", family: "cinematic" },
   { id: "h100", prompt: "one world only — dreamy indie rain no random rock dad songs", mode: "strict", length: 25, difficulty: "hard", family: "indie" },
 ];
+
+for (const row of HUMAN_100_PROMPTS) {
+  row.cohort = cohortForPrompt(row);
+}
 
 if (HUMAN_100_PROMPTS.length !== 100) {
   throw new Error(`Expected 100 prompts, got ${HUMAN_100_PROMPTS.length}`);

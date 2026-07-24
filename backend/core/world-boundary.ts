@@ -102,6 +102,7 @@ export function resolveWorldBoundary(opts: {
       .map((f) => normalizeFamily(f))
       .filter((f): f is string => !!f && !allowed.includes(f));
 
+    const ukOnlyLock = ukHipHopScene?.active === true;
     return {
       active: true,
       hardLock: true,
@@ -111,7 +112,9 @@ export function resolveWorldBoundary(opts: {
       scenePrediction,
       reason: sceneLock.reason,
       ukHipHopScene,
-      lockAnchors: [...new Set([...sceneLock.anchors, ...inferredWorldIds])],
+      lockAnchors: ukOnlyLock
+        ? [ukHipHopScene.id]
+        : [...new Set([...sceneLock.anchors, ...inferredWorldIds])],
       prompt: opts.prompt ?? null,
     };
   }
@@ -154,10 +157,6 @@ export function resolveWorldBoundary(opts: {
       ambient_world: {
         allowed: ["electronic", "classical", "jazz", "soundtrack", "indie"],
         off: ["hip_hop", "metal", "rock", "pop", "reggae", "country", "latin", "rnb"],
-      },
-      boss_fight: {
-        allowed: ["electronic", "metal", "rock", "soundtrack", "indie"],
-        off: ["country", "folk", "reggae", "jazz", "classical", "rnb", "soul", "latin", "blues"],
       },
       quiet_rage: {
         allowed: ["rock", "indie", "metal", "electronic"],
@@ -408,12 +407,11 @@ export function isTrackInWorld(
       { hardLock: world.hardLock || profiles.length > 0 },
     );
     if (!identityOk) return false;
-    // Hard lock: positive world identity is the constraint — do not second-guess
-    // with coarse genre-family tags that mislabel goth/post-punk/indie overlap.
-    if (world.hardLock) return true;
+    // UK grime/UKG locks must still pass scene evidence — party_prep identity must not bypass.
+    if (world.hardLock && !ukScene?.active) return true;
   }
 
-  if (ukScene?.active && family === "hip_hop") {
+  if (ukScene?.active) {
     if (!passesUkHipHopWorldGate(normalized, ukScene, { hardLock: world.hardLock })) return false;
   }
 

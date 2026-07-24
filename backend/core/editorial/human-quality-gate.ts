@@ -6,9 +6,7 @@
  */
 
 import { isZeroPsychOpenerWorld } from "./opener-hygiene";
-
-/** Worlds where funk/disco/soul lane mash is a hard quality smell. */
-const LANE_PURITY_WORLD_IDS = new Set(["feel_good_world", "party_prep_world"]);
+import { LANE_PURITY_WORLD_IDS } from "./world-coherence-score";
 
 export type HumanQualityGateAction = "pass" | "honest_partial" | "refuse";
 
@@ -28,10 +26,16 @@ export type HumanQualityGateInput = {
   /** 0–1 share of tracks by the single most common artist */
   dominantArtistShare?: number | null;
   promptLabel?: string | null;
-  /** 0–1 share of tracks in feel-good lane (funk/disco/soul/pop). */
+  /** 0–1 share of tracks in committed-world lane (funk/disco/soul/pop etc.). */
   feelGoodLanePurity?: number | null;
+  /** Per-world lane purity pass (uses world-specific thresholds). */
+  committedWorldLaneOk?: boolean | null;
   /** Active world id for lane-specific gates. */
   activeWorldId?: string | null;
+  /** Genre-family dominance 0–1 for committed-world mash detection. */
+  dominantFamilyShare?: number | null;
+  /** Distinct genre families in the delivered list. */
+  uniqueGenreFamilies?: number | null;
   /** Psych-indie opener fillers in slots 1–3 (Tame/Kasabian/Q chain smell). */
   psychIndieOpenerFillers?: number | null;
 };
@@ -160,11 +164,20 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (
     input.activeWorldId &&
     LANE_PURITY_WORLD_IDS.has(input.activeWorldId) &&
-    typeof input.feelGoodLanePurity === "number" &&
-    input.feelGoodLanePurity < 0.6 &&
+    input.committedWorldLaneOk === false &&
     count >= MIN_SALVAGEABLE
   ) {
-    reasons.push("feel_good_lane_mash");
+    reasons.push("world_lane_mash");
+  }
+  if (
+    input.activeWorldId &&
+    typeof input.dominantFamilyShare === "number" &&
+    typeof input.uniqueGenreFamilies === "number" &&
+    input.uniqueGenreFamilies >= 3 &&
+    input.dominantFamilyShare < 0.5 &&
+    count >= MIN_SALVAGEABLE
+  ) {
+    reasons.push("world_lane_mash");
   }
   if (typeof input.psychIndieOpenerFillers === "number" && input.psychIndieOpenerFillers >= 2) {
     reasons.push("psych_indie_opener_chain");
@@ -224,7 +237,10 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   // Honest partial: under-request or mid-stub (3–5) or degraded — publish what belongs.
   const underfilled = count < Math.ceil(requested * 0.75);
   const laneMash =
-    reasons.includes("feel_good_lane_mash") && (input.feelGoodLanePurity ?? 1) < 0.55;
+    reasons.includes("world_lane_mash") &&
+    (input.committedWorldLaneOk === false ||
+      (input.dominantFamilyShare ?? 1) < 0.5 ||
+      ((input.uniqueGenreFamilies ?? 0) >= 3 && (input.dominantFamilyShare ?? 1) < 0.52));
   const openerChain = reasons.includes("psych_indie_opener_chain");
   if (underfilled || stubUnderfill || input.degradedDelivery === true || laneMash || openerChain) {
     const partialReasons = reasons.length > 0 ? reasons : ["honest_underfill"];

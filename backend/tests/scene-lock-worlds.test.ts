@@ -22,13 +22,13 @@ test("resolveSceneLock locks lofi away from arena rock/metal", () => {
   assert.ok(lock.offSceneGenreFamilies.includes("metal"));
 });
 
-test("resolveSceneLock locks boss fight to high-drive families", () => {
-  const lock = resolveSceneLock(emptyIntent, "final boss fight soundtrack energy");
+test("resolveSceneLock prioritises UK garage/grime over party pregame", () => {
+  const lock = resolveSceneLock(emptyIntent, "freshers pre drinks ukg grime");
   assert.equal(lock.active, true);
-  assert.ok(lock.anchors.includes("boss_fight"));
-  assert.ok(lock.allowedGenreFamilies.includes("metal") || lock.allowedGenreFamilies.includes("electronic"));
-  assert.ok(lock.offSceneGenreFamilies.includes("country"));
-  assert.ok(lock.offSceneGenreFamilies.includes("folk"));
+  assert.ok(lock.reason?.startsWith("uk_hip_hop_scene_lock:"));
+  assert.ok(lock.allowedGenreFamilies.includes("hip_hop"));
+  assert.ok(lock.offSceneGenreFamilies.includes("soul"));
+  assert.ok(lock.offSceneGenreFamilies.includes("indie"));
 });
 
 test("resolveSceneLock does not fire neon lock on bare neon alone", () => {

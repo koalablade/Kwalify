@@ -116,3 +116,39 @@ test("party pregame retrieval favours mainstream pop over indie", () => {
   assert.ok(opening.includes("pop1") || opening.includes("pop2"));
   assert.ok(result.tracks.every((t) => t.trackId !== "ukg1"));
 });
+
+test("ukg grime pregame retrieval biases UK garage over mainstream pop", () => {
+  const profile = buildPromptRetrievalProfile(
+    "freshers pre drinks ukg grime",
+    { activity: "party", mood: [], genreFamilies: [], primaryGenres: [] },
+    { energy: 0.82, valence: 0.72, tension: 0.2, nostalgia: 0.1, calm: 0.1, environment: null, timeOfDay: null, motionState: null },
+    ["pop", "indie"],
+  );
+  assert.ok(profile.ukHipHopScene?.active);
+  assert.ok(profile.genreExpectations.includes("hip_hop"));
+  assert.ok(profile.genreExpectations.includes("electronic"));
+  assert.ok(profile.sourceQuotas.genre_match >= 0.28);
+
+  const result = retrieveScoringCandidates({
+    tracks: library,
+    vibe: "freshers pre drinks ukg grime",
+    intent: { activity: "party", mood: [], genreFamilies: [], primaryGenres: [] },
+    emotionProfile: { energy: 0.82, valence: 0.72, tension: 0.2, nostalgia: 0.1, calm: 0.1, environment: null, timeOfDay: null, motionState: null },
+    classMap,
+    requestedLength: 20,
+    sceneActive: true,
+    debugRetrieval: true,
+  });
+  const opening = result.tracks.slice(0, 6).map((t) => t.trackId);
+  assert.ok(opening.includes("ukg1") || opening.includes("ukg2"));
+});
+
+test("grunge world retrieval profile commits genre families", () => {
+  const profile = buildPromptRetrievalProfile(
+    "90s grunge dark cloudy night",
+    { activity: null, mood: [], genreFamilies: [], primaryGenres: [] },
+    { energy: 0.55, valence: 0.35, tension: 0.5, nostalgia: 0.4, calm: 0.3, environment: null, timeOfDay: null, motionState: null },
+    ["indie", "pop"],
+  );
+  assert.ok(profile.genreExpectations.includes("rock"));
+});

@@ -210,6 +210,43 @@ export function computeWorldCoherenceScore(opts: {
 
 const FEEL_GOOD_FAMILIES = new Set(["pop", "soul", "rnb", "electronic", "disco", "funk"]);
 
+/** Worlds where lane purity (not opener hygiene) is a save/replay smell. */
+export const LANE_PURITY_WORLD_IDS = new Set([
+  "feel_good_world",
+  "party_prep_world",
+  "upbeat_chore_world",
+  "gym_energy_world",
+]);
+
+const LANE_PURITY_FAMILIES: Record<string, Set<string>> = {
+  feel_good_world: FEEL_GOOD_FAMILIES,
+  party_prep_world: new Set([...FEEL_GOOD_FAMILIES, "hip_hop"]),
+  upbeat_chore_world: new Set(["pop", "electronic", "disco", "funk", "soul", "hip_hop", "rnb"]),
+  gym_energy_world: new Set(["hip_hop", "electronic", "pop", "rnb"]),
+};
+
+/** Gym lane families — rock/metal only when the prompt asks for pump/punk/metal. */
+export function gymLaneFamiliesForPrompt(prompt: string | null | undefined): Set<string> {
+  const families = new Set(["hip_hop", "electronic", "pop", "rnb"]);
+  const p = prompt ?? "";
+  if (/\b(?:metal|heavy lifting|aggressive|pump|hardcore)\b/i.test(p)) {
+    families.add("metal");
+    families.add("rock");
+  }
+  if (/\b(?:pop\s*punk|punk|emo)\b/i.test(p)) families.add("rock");
+  return families;
+}
+
+const LANE_ARTIST_BOOST =
+  /\b(?:abba|bee\s+gees|chaka\s+khan|donna\s+summer|chic|kool|earth\s+wind|bruno\s+mars|dua\s+lipa|mark\s+ronson|pharrell|fred\s+again|calvin\s+harris|disclosure|poolside)\b/i;
+
+const LANE_OK_THRESHOLD: Record<string, number> = {
+  feel_good_world: 0.6,
+  party_prep_world: 0.58,
+  upbeat_chore_world: 0.55,
+  gym_energy_world: 0.52,
+};
+
 /**
  * Feel-good lane purity — reject panic-rock / meme mash on disco-party prompts.
  * Returns 0–1 share of tracks in funk/disco/soul/pop-sunshine families.
@@ -217,19 +254,58 @@ const FEEL_GOOD_FAMILIES = new Set(["pop", "soul", "rnb", "electronic", "disco",
 export function scoreFeelGoodLanePurity(
   tracks: Array<{ genreFamily?: string | null; genrePrimary?: string | null; artistName?: string | null }>,
 ): { purity: number; ok: boolean } {
-  if (tracks.length === 0) return { purity: 0, ok: false };
+  return scoreCommittedWorldLanePurity("feel_good_world", tracks);
+}
+
+/** Lane purity for committed everyday worlds — honest signal when library can't fill one lane. */
+export function scoreCommittedWorldLanePurity(
+  activeWorldId: string,
+  tracks: Array<{ genreFamily?: string | null; genrePrimary?: string | null; artistName?: string | null }>,
+  opts?: { prompt?: string | null },
+): { purity: number; ok: boolean } {
+  const families =
+    activeWorldId === "gym_energy_world"
+      ? gymLaneFamiliesForPrompt(opts?.prompt)
+      : LANE_PURITY_FAMILIES[activeWorldId];
+  const minOk = LANE_OK_THRESHOLD[activeWorldId] ?? 0.6;
+  if (!families || tracks.length === 0) {
+    return { purity: tracks.length === 0 ? 0 : 1, ok: tracks.length > 0 };
+  }
   let hits = 0;
   for (const track of tracks) {
     const family = (track.genreFamily ?? track.genrePrimary ?? "").toLowerCase();
     const artist = (track.artistName ?? "").toLowerCase();
-    if (FEEL_GOOD_FAMILIES.has(family)) {
+    if (families.has(family)) {
       hits += 1;
       continue;
     }
-    if (/\b(?:abba|bee\s+gees|chaka\s+khan|donna\s+summer|chic|kool|earth\s+wind|bruno\s+mars|dua\s+lipa|mark\s+ronson|pharrell)\b/i.test(artist)) {
-      hits += 1;
-    }
+    if (LANE_ARTIST_BOOST.test(artist)) hits += 1;
   }
   const purity = hits / tracks.length;
-  return { purity, ok: purity >= 0.6 };
+  return { purity, ok: purity >= minOk };
+}
+
+/** HQG inputs for committed everyday worlds — lane purity + genre dominance. */
+export function committedWorldQualitySignals(
+  activeWorldId: string | null | undefined,
+  tracks: Array<{ genreFamily?: string | null; genrePrimary?: string | null; artistName?: string | null }>,
+  opts?: { prompt?: string | null },
+): {
+  activeWorldId: string | null;
+  feelGoodLanePurity: number | null;
+  dominantFamilyShare: number | null;
+  uniqueGenreFamilies: number | null;
+} {
+  const worldId = activeWorldId ?? null;
+  const density = computeDominantWorldDensity(tracks);
+  const lanePurity =
+    worldId && LANE_PURITY_WORLD_IDS.has(worldId)
+      ? scoreCommittedWorldLanePurity(worldId, tracks, opts).purity
+      : null;
+  return {
+    activeWorldId: worldId,
+    feelGoodLanePurity: lanePurity,
+    dominantFamilyShare: density.dominantShare,
+    uniqueGenreFamilies: density.familyCount,
+  };
 }

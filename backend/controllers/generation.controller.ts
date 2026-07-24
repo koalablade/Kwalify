@@ -164,6 +164,7 @@ import {
 } from "../lib/library-valid-candidate-supply";
 import {
   applyThinLibraryDeliveryCap,
+  constrainThinLibraryPolicyForWorldSupply,
   effectiveFinalizeRequestedLength,
   evaluateThinLibraryPolicy,
   resolveThinLibraryMinBestAvailableCount,
@@ -267,7 +268,11 @@ import {
   evaluateHumanQualityGate,
   HumanQualityGateError,
 } from "../core/editorial/human-quality-gate";
-import { scoreFeelGoodLanePurity } from "../core/editorial/world-coherence-score";
+import {
+  committedWorldQualitySignals,
+  LANE_PURITY_WORLD_IDS,
+  scoreCommittedWorldLanePurity,
+} from "../core/editorial/world-coherence-score";
 import { isSoftScenePrompt } from "../core/scene-world-layer";
 import { runExpectationShadow } from "../core/expectation/shadow";
 import { runPlaylistExpectation } from "../core/expectation/playlist-evaluation";
@@ -434,6 +439,10 @@ import {
   syncTracksToApiOrder,
   countPsychIndieOpenerFillers,
   maxPsychIndieOpenersForWorlds,
+  applyPreFreezeOpenerHygieneToDelivery,
+  buildOpenerHygieneMetrics,
+  countWorldVerifiedLibrarySupply,
+  type OpenerHygieneDiagnostics,
 } from "../core/editorial/world-identity-gate";
 import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
 import { shouldPublishPlaylist, COHERENCE_PUBLISH_THRESHOLD, type CoherenceGateResult } from "../core/coherence-gate";
@@ -7938,6 +7947,22 @@ router.post("/generate", async (req, res): Promise<void> => {
         reason: "compound_blended_pool_supply_adequate",
       };
     }
+    if (deliveryWorldBoundary.hardLock) {
+      const worldVerifiedSupply = countWorldVerifiedLibrarySupply(
+        likedSongs,
+        vibe,
+        userGenreProfile.trackClassifications,
+        {
+          reason: deliveryWorldBoundary.reason,
+          anchors: deliveryWorldBoundary.lockAnchors,
+        },
+      );
+      thinLibraryPolicy = constrainThinLibraryPolicyForWorldSupply(thinLibraryPolicy, {
+        hardWorldLock: true,
+        worldVerifiedSupply,
+        requestedLength: length,
+      });
+    }
     const postV3Checkpoint = runDeliveryCheckpoint(pipelineAuthority, "post_v3", checkpointCtx());
     const effectiveDeliveryLength = effectiveFinalizeRequestedLength(length, thinLibraryPolicy);
     const needsFinalizeRecovery =
@@ -8001,7 +8026,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       controlledRecoveryBlocked = true;
       controlledRecoveryReason = recoveryGuards.reason;
     }
-    if (needsFinalizeRecovery && !shouldSkipMarginalImprovement()) {
+    if (needsFinalizeRecovery && !shouldSkipMarginalImprovement() && !deliveryWorldBoundary.hardLock) {
       if (latencyBudget.mustDeliverNow() && delivery.tracks.length > 0 && emitLatencyBudgetFallback()) return;
       const underfillStartedAt = Date.now();
       const seenUnderfillCandidateIds = new Set<string>();
@@ -12169,6 +12194,14 @@ router.post("/generate", async (req, res): Promise<void> => {
         delivery.tracks.length > 0 && artistCounts.size > 0
           ? Math.max(...artistCounts.values()) / delivery.tracks.length
           : null;
+      const terminalWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
+      const terminalActiveWorldId = terminalWorldIds[0] ?? null;
+      const terminalTrackSignals = delivery.tracks.map((t) => ({
+        artistName: t.artistName,
+        genreFamily: t.genreFamily,
+        genrePrimary: t.genrePrimary,
+      }));
+      const terminalWorldSignals = committedWorldQualitySignals(terminalActiveWorldId, terminalTrackSignals, { prompt: vibe });
       const terminalHqg = evaluateHumanQualityGate({
         trackCount: delivery.tracks.length,
         requestedLength: requestedLength,
@@ -12201,18 +12234,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         uniqueArtistCount: artistCounts.size,
         dominantArtistShare,
         promptLabel: vibe,
-        activeWorldId: inferWorldIdentityIdsFromPrompt(vibe)[0] ?? null,
-        feelGoodLanePurity:
-          inferWorldIdentityIdsFromPrompt(vibe).includes("feel_good_world") ||
-          inferWorldIdentityIdsFromPrompt(vibe).includes("party_prep_world")
-            ? scoreFeelGoodLanePurity(
-              delivery.tracks.map((t) => ({
-                artistName: t.artistName,
-                genreFamily: t.genreFamily,
-                genrePrimary: t.genrePrimary,
-              })),
-            ).purity
-          : null,
+        ...terminalWorldSignals,
+        committedWorldLaneOk:
+          terminalActiveWorldId && LANE_PURITY_WORLD_IDS.has(terminalActiveWorldId)
+            ? scoreCommittedWorldLanePurity(terminalActiveWorldId, terminalTrackSignals, { prompt: vibe }).ok
+            : null,
       });
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],
@@ -12864,6 +12890,35 @@ router.post("/generate", async (req, res): Promise<void> => {
       confidence: playlistConfidence,
       recoveryPoolSize: mergedConstrainedRecoveryPool.length,
     }));
+    let preFreezeOpenerDiagnostics: OpenerHygieneDiagnostics = {};
+    {
+      const preFreezeWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
+      const preFreezeHygiene = applyPreFreezeOpenerHygieneToDelivery(
+        delivery.tracks as PlaylistTrack[],
+        preFreezeWorldIds,
+        { minKeep: HONEST_PARTIAL_MIN },
+      );
+      preFreezeOpenerDiagnostics = preFreezeHygiene.diagnostics;
+      const preFreezeOrderChanged =
+        preFreezeHygiene.tracks.length !== delivery.tracks.length ||
+        preFreezeHygiene.tracks.some((track, index) => track.trackId !== delivery.tracks[index]?.trackId);
+      if (preFreezeOrderChanged || Object.keys(preFreezeHygiene.diagnostics).length > 0) {
+        assignFT(
+          "pre_freeze_opener_hygiene",
+          "pre-freeze opener hygiene",
+          preFreezeHygiene.tracks as PlaylistTrack[],
+        );
+        finalApiTracks = formatTracksForApi(delivery.tracks, emotionProfile);
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            ...preFreezeHygiene.diagnostics,
+            preFreezeOpenerHygiene: true,
+          },
+        };
+      }
+    }
     pipelineAuthority.freezeTerminal("terminal_delivery");
     const terminalAuthorityValidation = pipelineAuthority.runTerminalAuthorityValidation();
     pipelineAuthority.assertValidatorExecuted("pre_response");
@@ -13051,6 +13106,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         };
       }
     }
+    let postFreezeOpenerDiagnostics: OpenerHygieneDiagnostics = {};
     const inferredWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
     {
       const hygiene = applyFinalApiOpenerHygiene(finalApiTracks, inferredWorldIds, {
@@ -13058,6 +13114,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       });
       finalApiTracks = hygiene.tracks;
       deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
+      postFreezeOpenerDiagnostics = hygiene.diagnostics;
       if (Object.keys(hygiene.diagnostics).length > 0) {
         finalization = {
           tracks: delivery.tracks as PlaylistTrack[],
@@ -13091,6 +13148,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         3,
         inferredWorldIds,
       );
+      const lateActiveWorldId = inferredWorldIds[0] ?? null;
+      const lateTrackSignals = finalApiTracks.map((track) => ({
+        artistName: track.artist ?? (track as { artistName?: string }).artistName,
+        genreFamily: (track as { genreFamily?: string }).genreFamily,
+        genrePrimary: (track as { genrePrimary?: string }).genrePrimary,
+      }));
+      const lateWorldSignals = committedWorldQualitySignals(lateActiveWorldId, lateTrackSignals, { prompt: vibe });
       const lateHqg = evaluateHumanQualityGate({
         trackCount: finalApiTracks.length,
         requestedLength: requestedLength,
@@ -13109,17 +13173,11 @@ router.post("/generate", async (req, res): Promise<void> => {
           }),
         degradedDelivery: finalization.diagnostics["degradedDelivery"] === true,
         promptLabel: vibe,
-        activeWorldId: inferredWorldIds[0] ?? null,
-        feelGoodLanePurity:
-          inferredWorldIds.includes("feel_good_world") || inferredWorldIds.includes("party_prep_world")
-            ? scoreFeelGoodLanePurity(
-              finalApiTracks.map((track) => ({
-                artistName: track.artist ?? (track as { artistName?: string }).artistName,
-                genreFamily: (track as { genreFamily?: string }).genreFamily,
-                genrePrimary: (track as { genrePrimary?: string }).genrePrimary,
-              })),
-            ).purity
-          : null,
+        ...lateWorldSignals,
+        committedWorldLaneOk:
+          lateActiveWorldId && LANE_PURITY_WORLD_IDS.has(lateActiveWorldId)
+            ? scoreCommittedWorldLanePurity(lateActiveWorldId, lateTrackSignals, { prompt: vibe }).ok
+            : null,
       });
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],
@@ -13138,7 +13196,50 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (lateHqg.action === "refuse") {
         throw new HumanQualityGateError(lateHqg);
       }
+      if (
+        lateHqg.action === "honest_partial" &&
+        lateHqg.salvageableCount > 0 &&
+        finalApiTracks.length > lateHqg.salvageableCount &&
+        finalApiTracks.length < Math.ceil(requestedLength * 0.85)
+      ) {
+        finalApiTracks = finalApiTracks.slice(0, lateHqg.salvageableCount);
+        deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
+      }
     }
+    const productionHygieneDiagnostics = {
+      openerHygieneMetrics: buildOpenerHygieneMetrics(
+        {
+          ...preFreezeOpenerDiagnostics,
+          ...postFreezeOpenerDiagnostics,
+        },
+        {
+          preFreezeApplied: finalization.diagnostics["preFreezeOpenerHygiene"] === true,
+          postFreezeApplied: Object.keys(postFreezeOpenerDiagnostics).length > 0,
+          pipelineOpenerIds: delivery.tracks.slice(0, 3).map((track) => track.trackId),
+          apiOpenerIds: finalApiTracks.slice(0, 3).map((track) => track.id).filter(Boolean) as string[],
+        },
+      ),
+      committedWorldQuality: committedWorldQualitySignals(
+        inferredWorldIds[0] ?? null,
+        finalApiTracks.map((track) => ({
+          artistName: track.artist ?? (track as { artistName?: string }).artistName,
+          genreFamily: (track as { genreFamily?: string }).genreFamily,
+          genrePrimary: (track as { genrePrimary?: string }).genrePrimary,
+        })),
+        { prompt: vibe },
+      ),
+      pipelineFrozenAt: "terminal_delivery",
+      apiTrackCount: finalApiTracks.length,
+      pipelineTrackCount: delivery.tracks.length,
+    };
+    Object.assign(generationDiagnosticsWithTimeline, { productionHygiene: productionHygieneDiagnostics });
+    finalization = {
+      tracks: delivery.tracks as PlaylistTrack[],
+      diagnostics: {
+        ...finalization.diagnostics,
+        productionHygiene: productionHygieneDiagnostics,
+      },
+    };
     await runPostHygieneSideEffects();
     if (clientDisconnected || responseFinished(res)) return;
     if (respondIfStale(res, generateSessionUserId, requestId, { deliverableTrackCount: deliveredTracks.length })) return;
