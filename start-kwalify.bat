@@ -2,17 +2,21 @@
 title Kwalify
 cd /d "%~dp0"
 
-echo.
-echo   ==========================================
-echo    KWALIFY - double-click to start
-echo   ==========================================
-echo.
+set "ROOT=%~dp0"
+if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 
-set "MODE=local"
-if /I "%~1"=="domain" set "MODE=domain"
-if /I "%~2"=="domain" set "MODE=domain"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$banner = Join-Path '%ROOT%' 'scripts\kwalify-banner.txt';" ^
+  "$esc = [char]27; $purple = $esc + '[38;2;168;85;247m'; $dim = $esc + '[38;2;192;132;252m'; $reset = $esc + '[0m';" ^
+  "if (Test-Path -LiteralPath $banner) { Get-Content -LiteralPath $banner | ForEach-Object { Write-Host ($purple + $_ + $reset) }; Write-Host ($dim + '  local dev launcher' + $reset); Write-Host '' }"
+
+set "MODE=domain"
+if /I "%~1"=="local" set "MODE=local"
+if /I "%~2"=="local" set "MODE=local"
 if /I "%~1"=="build" set "BUILD=1"
 if /I "%~2"=="build" set "BUILD=1"
+if /I "%~1"=="pull" set "PULL=1"
+if /I "%~2"=="pull" set "PULL=1"
 
 set "KWLIFY_PS1=%TEMP%\kwalify-start-%RANDOM%.ps1"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
@@ -29,14 +33,18 @@ if errorlevel 1 (
 
 set "ARGS="
 if defined BUILD set "ARGS=-Build"
+if defined PULL set "ARGS=%ARGS% -Pull"
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%KWLIFY_PS1%" -Root "%CD%" -Mode "%MODE%" %ARGS%
+powershell -NoProfile -ExecutionPolicy Bypass -File "%KWLIFY_PS1%" -Root "%ROOT%" -Mode "%MODE%" %ARGS%
 set "ERR=%ERRORLEVEL%"
 del "%KWLIFY_PS1%" 2>nul
 
 if not "%ERR%"=="0" (
   echo.
-  echo  Could not start. Read the messages above.
+  echo  Could not start. See kwalify-start.log in the project folder.
+  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$help = Join-Path '%ROOT%' 'frontend\public\local-start-help.html';" ^
+    "if (Test-Path -LiteralPath $help) { Start-Process $help }"
   echo.
   pause
   exit /b %ERR%
@@ -53,12 +61,35 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$Root,
   [ValidateSet("local", "domain")]
-  [string]$Mode = "local",
-  [switch]$Build
+  [string]$Mode = "domain",
+  [switch]$Build,
+  [switch]$Pull
 )
 
 $ErrorActionPreference = "Stop"
 Set-Location $Root
+
+$logPath = Join-Path $Root "kwalify-start.log"
+$transcriptStarted = $false
+try {
+  Start-Transcript -Path $logPath -Append | Out-Null
+  $transcriptStarted = $true
+  Write-Host "---- $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') start-kwalify ----"
+} catch {
+  Write-Host "  (Could not write kwalify-start.log - continuing anyway)"
+}
+
+$launcherLock = Join-Path $env:TEMP "kwalify-launcher.lock"
+$lockStream = $null
+try {
+  $lockStream = [System.IO.File]::Open($launcherLock, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+} catch {
+  Write-Host ""
+  Write-Host "  Kwalify is already starting in another window." -ForegroundColor Yellow
+  Write-Host "  Wait for it to finish, or close the other launcher first."
+  Write-Host "  If stuck, delete: $launcherLock"
+  Exit-Launcher 1 "Another Kwalify launcher is already running."
+}
 
 function Step([string]$msg) {
   Write-Host ""
@@ -102,6 +133,27 @@ function Load-DotEnvFile([string]$path) {
   }
 }
 
+function Ensure-EnvFile([string]$path, [string]$examplePath) {
+  if (Test-Path -LiteralPath $path) { return }
+  if (Test-Path -LiteralPath $examplePath) {
+    Copy-Item -LiteralPath $examplePath -Destination $path
+    Write-Host "  Created .env from .env.example"
+    return
+  }
+  $template = @"
+DATABASE_URL=postgresql://kwalify:kwalify@localhost:5432/kwalify
+SESSION_SECRET=change-me-to-a-random-string-at-least-32-characters
+PORT=5000
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+SPOTIFY_REDIRECT_URI=https://kwalify.net/api/auth/callback
+NODE_ENV=development
+APP_URL=https://kwalify.net
+"@
+  Set-Content -LiteralPath $path -Value $template.TrimEnd() -Encoding UTF8
+  Write-Host "  Created .env with default local settings"
+}
+
 function Ensure-HostsEntry {
   $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
   $content = Get-Content $hostsPath -Raw -ErrorAction SilentlyContinue
@@ -130,20 +182,215 @@ function Ensure-LocalCerts {
   $key = Join-Path $Root "kwalify.net-key.pem"
   if ((Test-Path $cert) -and (Test-Path $key)) { return $true }
   Write-Host "  Creating local HTTPS certs (one-time)..." -ForegroundColor Yellow
+  $mkcert = Get-Command mkcert -ErrorAction SilentlyContinue
+  if (-not $mkcert) {
+    $wingetMkcert = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\FiloSottile.mkcert_Microsoft.Winget.Source_8wekyb3d8bbwe\mkcert.exe"
+    if (Test-Path $wingetMkcert) {
+      $mkcert = Get-Command $wingetMkcert
+    }
+  }
+  if (-not $mkcert) {
+    Write-Host "  mkcert not found - installing via winget..." -ForegroundColor Yellow
+    try {
+      winget install --id FiloSottile.mkcert -e --accept-source-agreements --accept-package-agreements | Out-Host
+    } catch {
+      Write-Host "  winget install failed: $($_.Exception.Message)"
+    }
+  }
   $setup = Join-Path $Root "scripts\setup-local-domain.ps1"
   if (-not (Test-Path $setup)) { return $false }
   & powershell -NoProfile -ExecutionPolicy Bypass -File $setup
   return ((Test-Path $cert) -and (Test-Path $key))
 }
 
-# --- 0. Node ---
+function Assert-ProjectRoot {
+  $marker = Join-Path $Root "package.json"
+  if (-not (Test-Path -LiteralPath $marker)) {
+    Write-Host "  This does not look like the Kwalify project folder (package.json missing)."
+    Write-Host "  Move start-kwalify.bat into your Kwalify repo root, or run it from there."
+    Write-Host "  Expected folder: $Root"
+    Exit-Launcher 1 "package.json missing - run start-kwalify.bat from the Kwalify project folder."
+  }
+}
+
+function Ensure-SessionSecret([string]$path) {
+  if (-not (Test-Path -LiteralPath $path)) { return }
+  $content = Get-Content -LiteralPath $path -Raw
+  if ($content -notmatch 'SESSION_SECRET=' -or $content -match 'change-me-to-a-random-string') {
+    $bytes = New-Object byte[] 32
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $secret = [Convert]::ToBase64String($bytes)
+    if ($content -match 'SESSION_SECRET=') {
+      $content = $content -replace 'SESSION_SECRET=.*', "SESSION_SECRET=$secret"
+    } else {
+      $content = "SESSION_SECRET=$secret`n" + $content
+    }
+    Set-Content -LiteralPath $path -Value $content.TrimEnd()
+    Write-Host "  Generated a random SESSION_SECRET in .env"
+  }
+}
+
+function Test-DatabaseReady([string]$databaseUrl) {
+  if (-not $databaseUrl) { return $false }
+  $psql = "C:\Program Files\PostgreSQL\18\bin\psql.exe"
+  if (-not (Test-Path $psql)) { return $true }
+  try {
+    $env:PGPASSWORD = "kwalify"
+    & $psql -U kwalify -h localhost -d kwalify -t -c "SELECT 1" 2>$null | Out-Null
+    return $LASTEXITCODE -eq 0
+  } catch {
+    return $false
+  } finally {
+    Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+  }
+}
+
+function Ensure-DatabaseReady {
+  $setup = Join-Path $Root "scripts\setup-local-dev.ps1"
+  if (-not (Test-Path $setup)) { return }
+  Write-Host "  Database not ready - running one-time setup (Admin prompt)..." -ForegroundColor Yellow
+  try {
+    Start-Process powershell -Verb RunAs -ArgumentList @(
+      "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $setup
+    ) -Wait
+  } catch {
+    Write-Host "  Database setup was cancelled or failed."
+    Write-Host "  Run as Admin: powershell -ExecutionPolicy Bypass -File .\scripts\setup-local-dev.ps1"
+    Exit-Launcher 1 "Database setup was cancelled or failed."
+  }
+}
+
+function Test-SiteReady([string]$url) {
+  try {
+    $rz = Invoke-RestMethod -Uri "$url/api/readyz" -TimeoutSec 4
+    return ($rz.status -eq "ready" -or $rz.readiness -eq "ready")
+  } catch {
+    return $false
+  }
+}
+
+function Stop-PortListeners([int]$port) {
+  if (-not (PortOpen $port)) { return }
+  Write-Host "  Stopping old process on port $port..."
+  Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+  Start-Sleep -Seconds 2
+}
+
+function Test-IsAdmin {
+  $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+  $p = New-Object Security.Principal.WindowsPrincipal $id
+  return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Test-Port443Bindable {
+  if (PortOpen 443) { return $true }
+  try {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 443)
+    $listener.Start()
+    $listener.Stop()
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+function Open-StartHelpPage([string]$Reason) {
+  $help = Join-Path $Root "frontend\public\local-start-help.html"
+  if (-not (Test-Path -LiteralPath $help)) { return }
+  $uri = "file:///$($help.Replace('\', '/'))"
+  if ($Reason) {
+    $encoded = [uri]::EscapeDataString($Reason)
+    $uri += "?reason=$encoded"
+  }
+  Start-Process $uri | Out-Null
+}
+
+function Exit-Launcher([int]$code, [string]$reason) {
+  if ($code -ne 0 -and $reason) {
+    Write-Host ""
+    Write-Host "  $reason" -ForegroundColor Red
+    Write-Host "  Details saved to: $logPath" -ForegroundColor DarkYellow
+    Open-StartHelpPage -Reason $reason
+  }
+  if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
+  exit $code
+}
+
+function Warn-NodeVersion {
+  try {
+    $version = (node -v).TrimStart("v")
+    $major = [int]($version.Split(".")[0])
+    if ($major -ne 20) {
+      Write-Host "  Warning: Node $version detected. Kwalify targets Node 20.x (LTS)." -ForegroundColor Yellow
+      Write-Host "  It may still work, but install Node 20 LTS if you hit odd errors."
+    }
+  } catch {}
+}
+
+function Invoke-OptionalGitPull {
+  $autoPullFile = Join-Path $Root ".kwalify-autopull"
+  if (-not $Pull -and -not (Test-Path -LiteralPath $autoPullFile)) { return }
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "  git not found - skipping pull"
+    return
+  }
+  Step "Updating code (git pull)"
+  Push-Location $Root
+  try {
+    $branch = (git rev-parse --abbrev-ref HEAD 2>$null)
+    if (-not $branch) {
+      Write-Host "  Not a git repo - skipping pull"
+      return
+    }
+    git pull --ff-only 2>&1 | ForEach-Object { Write-Host "  $_" }
+    if ($LASTEXITCODE -ne 0) {
+      Write-Host "  git pull failed (local changes or offline). Continuing with current code." -ForegroundColor Yellow
+    }
+  } finally {
+    Pop-Location
+  }
+}
+
+function Ensure-DesktopShortcuts {
+  $desktop = [Environment]::GetFolderPath("Desktop")
+  $startLnk = Join-Path $desktop "Start Kwalify.lnk"
+  if (Test-Path -LiteralPath $startLnk) { return }
+  $script = Join-Path $Root "scripts\create-kwalify-shortcuts.ps1"
+  if (-not (Test-Path -LiteralPath $script)) { return }
+  Write-Host "  Creating Desktop shortcuts (one time)..." -ForegroundColor DarkCyan
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Root $Root
+}
+
+function Start-HttpsProxy([string]$proxy, [string]$cert, [string]$key, [int]$targetPort) {
+  if (-not (Test-Port443Bindable)) {
+    Exit-Launcher 1 "Port 443 is blocked. Right-click start-kwalify.bat and choose Run as administrator."
+  }
+  & $proxy --source 443 --target $targetPort --cert $cert --key $key
+  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+    $msg = "HTTPS proxy failed on port 443."
+    if (-not (Test-IsAdmin)) { $msg += " Try Run as administrator." }
+    Exit-Launcher 1 $msg
+  }
+}
+
+# --- 0. Project + Node ---
+Assert-ProjectRoot
+Ensure-DesktopShortcuts
+Invoke-OptionalGitPull
+
 Step "Checking Node.js"
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   Write-Host "  Node.js not found. Install from https://nodejs.org (LTS), then run this bat again."
   Start-Process "https://nodejs.org" | Out-Null
-  exit 1
+  Exit-Launcher 1 "Node.js is not installed."
+}
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+  Write-Host "  npm not found. Reinstall Node.js from https://nodejs.org (LTS)."
+  Exit-Launcher 1 "npm is not installed."
 }
 Write-Host "  node $((node -v))"
+Warn-NodeVersion
 
 # --- 1. Postgres ---
 Step "Checking PostgreSQL"
@@ -154,7 +401,7 @@ if (-not $pg) {
   Write-Host "  2) Right-click this bat -> Run as administrator, OR run in Admin PowerShell:"
   Write-Host "       npm run db:setup-local-dev"
   Start-Process "https://www.postgresql.org/download/windows/" | Out-Null
-  exit 1
+  Exit-Launcher 1 "PostgreSQL is not installed."
 }
 if ($pg.Status -ne "Running") {
   Write-Host "  Starting $($pg.Name)..."
@@ -167,11 +414,8 @@ Write-Host "  $($pg.Name): running"
 Step "Checking .env"
 $envPath = Join-Path $Root ".env"
 $examplePath = Join-Path $Root ".env.example"
-if (-not (Test-Path $envPath)) {
-  if (-not (Test-Path $examplePath)) { throw ".env.example missing" }
-  Copy-Item $examplePath $envPath
-  Write-Host "  Created .env from template."
-}
+Ensure-EnvFile $envPath $examplePath
+Ensure-SessionSecret $envPath
 
 $port = 5000
 if ($Mode -eq "local") {
@@ -182,6 +426,8 @@ if ($Mode -eq "local") {
   $siteUrl = "http://localhost:5000"
   $redirectUri = "http://localhost:5000/api/auth/callback"
 } else {
+  Set-EnvFileLine $envPath "PORT" "5000"
+  Set-EnvFileLine $envPath "NODE_ENV" "development"
   Set-EnvFileLine $envPath "APP_URL" "https://kwalify.net"
   Set-EnvFileLine $envPath "SPOTIFY_REDIRECT_URI" "https://kwalify.net/api/auth/callback"
   $siteUrl = "https://kwalify.net"
@@ -203,37 +449,101 @@ if (-not $env:SPOTIFY_CLIENT_ID -or -not $env:SPOTIFY_CLIENT_SECRET) {
   Write-Host ""
   Start-Process "https://developer.spotify.com/dashboard" | Out-Null
   Start-Process notepad $envPath | Out-Null
-  exit 1
+  Exit-Launcher 1 "Add Spotify Client ID and Secret to .env, then run again."
 }
 
-# --- 3. Dependencies ---
+Load-DotEnvFile $envPath
+if (-not (Test-DatabaseReady $env:DATABASE_URL)) {
+  Step "Checking database"
+  Ensure-DatabaseReady
+  Load-DotEnvFile $envPath
+  if (-not (Test-DatabaseReady $env:DATABASE_URL)) {
+    Write-Host "  Database still not reachable."
+    Write-Host "  Run as Admin: powershell -ExecutionPolicy Bypass -File .\scripts\setup-local-dev.ps1"
+    Exit-Launcher 1 "Database is not reachable."
+  }
+  Write-Host "  Database: OK"
+}
+
+$port = if ($env:PORT) { [int]$env:PORT } else { 5000 }
+
+# --- Fast path: already running ---
+if ($Mode -eq "domain" -and (Test-SiteReady "http://127.0.0.1:$port")) {
+  Step "Kwalify already running"
+  Write-Host "  API is up on port $port"
+  if (Test-SiteReady "https://kwalify.net") {
+    Write-Host "  HTTPS proxy is up - opening site"
+    if ($lockStream) { $lockStream.Dispose(); $lockStream = $null }
+    Start-Process "https://kwalify.net" | Out-Null
+    Write-Host ""
+    Write-Host "  Leave the Kwalify API window open. Press Ctrl+C here only stops the proxy."
+    if (-not (PortOpen 443)) {
+      $proxy = Join-Path $Root "node_modules\.bin\local-ssl-proxy.cmd"
+      $cert = Join-Path $Root "kwalify.net.pem"
+      $key = Join-Path $Root "kwalify.net-key.pem"
+      if ((Test-Path $proxy) -and (Test-Path $cert) -and (Test-Path $key)) {
+        Start-HttpsProxy $proxy $cert $key $port
+      }
+    }
+    if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
+    exit 0
+  }
+  Write-Host "  Restarting HTTPS proxy..."
+}
+
+# --- 3. Domain prerequisites (Spotify requires kwalify.net) ---
+if ($Mode -eq "domain") {
+  Step "Checking kwalify.net local domain"
+  if (-not (Ensure-HostsEntry)) {
+    Write-Host "  Could not add kwalify.net to hosts."
+    Write-Host "  Run as Admin: powershell -ExecutionPolicy Bypass -File .\scripts\add-kwalify-hosts.ps1"
+    Exit-Launcher 1 "kwalify.net is not in the hosts file."
+  }
+  Write-Host "  hosts: kwalify.net -> 127.0.0.1"
+  if (-not (Ensure-LocalCerts)) {
+    Write-Host "  Could not create HTTPS certs."
+    Write-Host "  Install mkcert: winget install FiloSottile.mkcert"
+    Write-Host "  Then run: npm run setup:local-domain"
+    Exit-Launcher 1 "Local HTTPS certificates are missing."
+  }
+  Write-Host "  TLS certs: OK"
+  $proxy = Join-Path $Root "node_modules\.bin\local-ssl-proxy.cmd"
+  if (-not (Test-Path $proxy)) {
+    Write-Host "  local-ssl-proxy missing - will install dependencies next."
+  }
+  if (PortOpen 443) {
+    Stop-PortListeners 443
+  }
+  if (-not (Test-IsAdmin)) {
+    Write-Host "  Tip: if HTTPS fails below, right-click this bat -> Run as administrator" -ForegroundColor DarkYellow
+  }
+}
+
+# --- 4. Dependencies ---
 if (-not (Test-Path (Join-Path $Root "node_modules"))) {
   Step "Installing dependencies (first time only)"
   npm ci
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  if ($LASTEXITCODE -ne 0) { Exit-Launcher $LASTEXITCODE "npm ci failed." }
 }
 
-# --- 4. Build ---
+# --- 5. Build ---
 Step "Building"
 $dist = Join-Path $Root "backend\dist\server.js"
 if ($Build -or -not (Test-Path $dist)) {
   npm run build
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  if ($LASTEXITCODE -ne 0) { Exit-Launcher $LASTEXITCODE "npm run build failed." }
 } else {
   Write-Host "  OK (delete backend\dist or pass build to force)"
 }
 
-# --- 5. API ---
+# --- 6. API ---
 Step "Starting server"
 $localAppUrl = $siteUrl
 $localRedirect = $redirectUri
 $rootEsc = $Root.Replace("'", "''")
 
 if (PortOpen $port) {
-  Write-Host "  Stopping old server on port $port..."
-  Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
-  Start-Sleep -Seconds 2
+  Stop-PortListeners $port
 }
 
 $apiPs1 = Join-Path $env:TEMP "kwalify-api-$([Guid]::NewGuid().ToString('n')).ps1"
@@ -262,7 +572,7 @@ Write-Host ''
 npm start
 "@
 Set-Content -LiteralPath $apiPs1 -Value $apiBody -Encoding UTF8
-Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $apiPs1) -WorkingDirectory $Root | Out-Null
+Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $apiPs1) -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
 
 $deadline = (Get-Date).AddSeconds(120)
 $ready = $false
@@ -275,11 +585,19 @@ while ((Get-Date) -lt $deadline) {
 }
 if (-not $ready) {
   Write-Host "  Server did not start in time. Check the Kwalify API window for errors."
-  exit 1
+  Exit-Launcher 1 "API did not become ready within 120 seconds."
 }
 Write-Host "  Server ready."
 
-# --- 6. Open browser ---
+if ($Mode -eq "domain" -and -not (Test-SiteReady "https://kwalify.net")) {
+  $deadline = (Get-Date).AddSeconds(30)
+  while ((Get-Date) -lt $deadline) {
+    if (Test-SiteReady "https://kwalify.net") { break }
+    Start-Sleep -Seconds 2
+  }
+}
+
+# --- 7. Open browser + HTTPS proxy ---
 Step "Opening site"
 Write-Host "  $siteUrl"
 Write-Host ""
@@ -288,23 +606,20 @@ Write-Host "  (must be in your Spotify app Redirect URIs list)"
 Write-Host ""
 
 if ($Mode -eq "domain") {
-  if (-not (Ensure-HostsEntry)) {
-    Write-Host "  Could not add kwalify.net to hosts. Use local mode (default) instead."
-    exit 1
-  }
-  if (-not (Ensure-LocalCerts)) {
-    Write-Host "  Could not create HTTPS certs. Run: npm run setup:local-domain"
-    exit 1
-  }
   $proxy = Join-Path $Root "node_modules\.bin\local-ssl-proxy.cmd"
   $cert = Join-Path $Root "kwalify.net.pem"
   $key = Join-Path $Root "kwalify.net-key.pem"
   if (-not (Test-Path $proxy)) { throw "local-ssl-proxy missing - run npm ci" }
+  if ($lockStream) { $lockStream.Dispose(); $lockStream = $null }
   Start-Process $siteUrl | Out-Null
   Write-Host "  HTTPS proxy running here (Ctrl+C stops proxy only)."
-  & $proxy --source 443 --target $port --cert $cert --key $key
+  Write-Host "  To stop everything: double-click stop-kwalify.bat"
+  Start-HttpsProxy $proxy $cert $key $port
+  if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
   exit 0
 }
 
 Start-Process $siteUrl | Out-Null
+if ($lockStream) { $lockStream.Dispose() }
+if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
 :ENDSCRIPT

@@ -73,7 +73,25 @@ In production, allowed origins are built from:
 ### Session Cookie Domain
 If `APP_URL` is set and `NODE_ENV=production`, the session cookie `domain` is set to the hostname of `APP_URL`. This allows cookies to be shared across subdomains.
 
-## Example `.env` (Development)
+## Example `.env` (Local Windows — kwalify.net)
+
+Used by `start-kwalify.bat` (domain mode). Spotify login requires this URL, not localhost.
+
+```env
+DATABASE_URL=postgresql://kwalify:kwalify@localhost:5432/kwalify
+SESSION_SECRET=your-random-secret-here-at-least-32-chars
+PORT=5000
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
+SPOTIFY_REDIRECT_URI=https://kwalify.net/api/auth/callback
+NODE_ENV=development
+APP_URL=https://kwalify.net
+LOG_LEVEL=debug
+```
+
+Debug-only (no Spotify login): run `start-kwalify.bat local` — uses `http://localhost:5000`.
+
+## Example `.env` (Development — generic)
 
 ```env
 DATABASE_URL=postgresql://localhost:5432/kwalify
@@ -81,8 +99,9 @@ SESSION_SECRET=your-random-secret-here-at-least-32-chars
 PORT=5000
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-SPOTIFY_REDIRECT_URI=http://localhost:5000/api/auth/callback
+SPOTIFY_REDIRECT_URI=https://kwalify.net/api/auth/callback
 NODE_ENV=development
+APP_URL=https://kwalify.net
 LOG_LEVEL=debug
 ```
 

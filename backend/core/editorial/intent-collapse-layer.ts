@@ -752,9 +752,10 @@ function detectSceneType(vibe: string, lockedIntent: LockedIntent, profile: Emot
     return "study";
   }
   if (/\bcommute\b/.test(lower) || lockedIntent.activity === "commute") return "commute";
-  if (/\b(?:late.?night|midnight)\b/.test(lower) || profile.timeOfDay === "late_night") return "night";
+  if (/\b(?:driving home|drive home|going home)\b/.test(lower)) return "drive";
   if (/\b(?:walk|stroll)\b/.test(lower) || descriptor.setting.includes("walk")) return "walk";
   if (/\b(?:drive|driving|road)\b/.test(lower) || profile.motionState === "driving") return "drive";
+  if (/\b(?:late.?night|midnight|\b2\s*am\b|\b3\s*am\b)\b/.test(lower) || profile.timeOfDay === "late_night") return "night";
   if (/\b(?:morning|sunrise|getting ready)\b/.test(lower) || profile.timeOfDay === "morning") return "morning";
   if (/\bsunday\b/.test(lower)) return "sunday";
   return "unknown";

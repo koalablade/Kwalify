@@ -1,98 +1,120 @@
 # Deployment
 
-## Build & Run
+## Local development (Windows — recommended)
 
-### Development
+Double-click **`start-kwalify.bat`** in the repo root, or read **[FIRST-TIME-SETUP.txt](../FIRST-TIME-SETUP.txt)**.
+
+Spotify login requires **`https://kwalify.net`** locally (not `localhost`):
+
+1. `hosts` entry: `127.0.0.1 kwalify.net` (launcher prompts once)
+2. mkcert TLS certs (`npm run setup:local-domain` — launcher can auto-run)
+3. API on port **5000**, HTTPS proxy on port **443**
+4. Spotify redirect URI: `https://kwalify.net/api/auth/callback`
+
+Stop everything: **`stop-kwalify.bat`**
+
+Desktop shortcuts: **`create-kwalify-shortcuts.bat`** (once)
+
+Optional flags: `start-kwalify.bat pull` (git pull first), `start-kwalify.bat build` (force rebuild).
+
+Logs on failure: `kwalify-start.log` in the project root.
+
+---
+
+## Build & run (manual)
 
 ```bash
-npm run dev
-```
-Runs `ts-node` (or `tsx`) directly from source — no compile step. TypeScript errors are reported at runtime.
-
-### Production
-
-```bash
-npm run build && npm start
+npm ci
+npm run build
+npm start
 ```
 
-1. `npm run build` — runs `tsc` to compile `backend/` → `dist/`. Output is CommonJS.
-2. `npm start` — runs `node dist/server.js`.
+1. `npm run build` — compiles TypeScript to `backend/dist/` (see `scripts/prepare-dist.mjs`).
+2. `npm start` — runs `node backend/dist/server.js`.
 
-The workflow configured in this Replit is:
-```
-npm run build && npm start
-```
-on port `5000`.
+Node **20.x** is the supported engine (see `.nvmrc`). `npm run test:smoke` is a quick pre-flight (12 tests, no DB).
 
-## Static Files
+---
 
-The Express server serves `frontend/public/` as static files. No separate web server (nginx, etc.) is needed. All routes unknown to the static middleware fall through to the API router or return 404.
+## Static files
 
-SPA routing is handled by explicit `res.sendFile()` handlers in `app.ts` for:
+Express serves `frontend/public/` as static files. No separate frontend server is required.
+
+SPA routes in `backend/app.ts`:
+
 - `GET /` → `index.html`
 - `GET /gallery` → `gallery.html`
 - `GET /p/:id` → `playlist.html`
 
+---
+
 ## Prerequisites
 
-Before deployment:
-1. A PostgreSQL database must be accessible at `DATABASE_URL`.
-2. Spotify Developer App must be created at [developer.spotify.com](https://developer.spotify.com) with the correct `Redirect URI` added to the app's allowlist.
-3. All required environment variables must be set (see [Environment Variables](./environment-variables.md)).
+1. PostgreSQL at `DATABASE_URL`
+2. Spotify Developer app with redirect URI on the allowlist
+3. Environment variables — see [environment-variables.md](./environment-variables.md)
 
-## Replit Deployment
+---
 
-This project is designed to run on Replit.
+## Production (Render)
 
-1. Attach a Replit PostgreSQL database — `DATABASE_URL` is automatically set.
-2. Set secrets in the Replit Secrets panel:
-   - `SESSION_SECRET`
-   - `SPOTIFY_CLIENT_ID`
-   - `SPOTIFY_CLIENT_SECRET`
-   - `SPOTIFY_REDIRECT_URI` (must match the callback URL for your Repl's public domain)
-3. The `Start application` workflow runs `npm run build && npm start` on port 5000.
-4. Click "Deploy" in the Replit UI to publish to a `.replit.app` domain.
+The repo includes `render.yaml`. Typical settings:
 
-When deployed, the `SPOTIFY_REDIRECT_URI` must be set to `https://your-repl-name.replit.app/api/auth/callback` and this exact URI must be added to the Spotify app's redirect URI allowlist.
+| Setting | Value |
+|---------|--------|
+| **Build** | `npm ci && npm run build` |
+| **Start** | `npm start` |
+| **Health check** | `GET /api/readyz` |
 
-## Health Check
+Set `NODE_ENV=production`, `APP_URL`, `FRONTEND_URL`, database URL, and Spotify credentials in the Render dashboard.
 
-`GET /api/healthz` returns `{"status":"ok"}` with HTTP 200 only after a lightweight database check succeeds. `GET /api/readyz` returns dependency readiness details. Both endpoints are unauthenticated and are suitable for deploy checks/load balancers.
+Custom domain: [CUSTOM_DOMAIN.md](../CUSTOM_DOMAIN.md).
 
-## Schema Migrations
+---
 
-There are no migration files. The schema is applied via idempotent DDL in `backend/lib/db-init.ts`, which runs at every server startup via `runDbInit()` in the bootstrap sequence. This means:
-- Columns that have been added in code will be created on next deploy.
-- Columns that have been removed from code will remain in the database (no automatic drops).
-- Schema changes that require data migration (e.g., changing a column type) must be applied manually to the database before deploying the new code.
+## Health checks
 
-## Graceful Shutdown
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/healthz` | Lightweight DB ping |
+| `GET /api/readyz` | Full readiness (DB, Spotify config, pipeline) |
 
-The server listens for `SIGTERM` and:
-1. Stops accepting new connections.
-2. Waits up to 25 seconds for active requests to complete.
-3. Closes the `pg.Pool`.
-4. Exits with code 0.
+Both are unauthenticated.
 
-Replit's deployment infrastructure sends `SIGTERM` before stopping a container. Active long-running requests (library sync, generation) will be abandoned if they exceed the 25-second window.
+---
 
-## Production Considerations
+## Schema migrations
 
-| Concern | Current State | Notes |
-|---|---|---|
-| Rate limiting | In-memory per-process | Resets on restart; not shared across multiple instances |
-| Active syncs | In-memory `Set` | Resets on restart; user may sync again after restart |
-| Session store | PostgreSQL | Survives restarts |
-| Audio features | Preserved across full syncs | Protects against Spotify 403s on bulk requests |
-| HTTPS | Handled by Replit proxy | Do not terminate TLS in the app |
-| Logging | JSON (pino) | Structured logs; use `LOG_LEVEL=warn` in production for lower volume |
+No migration files. Schema is applied idempotently at startup via `backend/lib/db-init.ts`.
 
-## Environment Checklist for Deployment
+- New columns in code are created on next start
+- Removed columns are **not** dropped automatically
+- Data migrations must be run manually before deploying breaking schema changes
 
-- [ ] `DATABASE_URL` set and database reachable
-- [ ] `SESSION_SECRET` set (long random string, not committed to source control)
-- [ ] `PORT` set (Replit expects 5000)
-- [ ] `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI` set
-- [ ] `SPOTIFY_REDIRECT_URI` added to Spotify app's redirect URI allowlist
-- [ ] `NODE_ENV=production`
-- [ ] `APP_URL` set to the public domain (for CORS and cookie domain)
+---
+
+## Graceful shutdown
+
+On `SIGTERM` the server stops accepting connections, waits up to 25s for in-flight requests, closes the DB pool, then exits.
+
+---
+
+## Production notes
+
+| Concern | Notes |
+|---------|--------|
+| Rate limiting | In-memory per process |
+| Sessions | PostgreSQL-backed |
+| HTTPS | Terminated at Render / local mkcert proxy |
+| Logging | JSON via pino; `LOG_LEVEL=warn` in production |
+
+---
+
+## Deployment checklist
+
+- [ ] `DATABASE_URL` reachable
+- [ ] `SESSION_SECRET` set (32+ random chars)
+- [ ] `PORT` set (5000 locally; Render sets automatically)
+- [ ] Spotify credentials + redirect URI on allowlist
+- [ ] `NODE_ENV=production` (Render)
+- [ ] `APP_URL` matches public origin

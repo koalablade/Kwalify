@@ -41,17 +41,33 @@ Feedback and bugs: open an issue here.
 
 ## For developers
 
-This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend). Copy `.env.example` to `.env` for local setup.
+This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend).
 
-### Local setup
+### Local setup (Windows — recommended)
+
+1. Read **[FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt)**
+2. Double-click **`start-kwalify.bat`** (or Desktop shortcut via `create-kwalify-shortcuts.bat`)
+3. Open **https://kwalify.net** in your browser
+
+Stop: **`stop-kwalify.bat`**
+
+Spotify redirect URI (required): `https://kwalify.net/api/auth/callback`
+
+Optional: `start-kwalify.bat pull` to git pull before start; create `.kwalify-autopull` for always-on pulls.
+
+### Local setup (manual)
 
 ```bash
-npm install
+npm ci
 npm run build
 npm start
 ```
 
-Set `PORT` locally (e.g. `5000`). Render sets `PORT` in production.
+Use Node **20.x** (see `.nvmrc`). Quick check: `npm run test:smoke`
+
+For HTTPS + Spotify locally on Windows, prefer `start-kwalify.bat` over raw `npm start` — see [docs/deployment.md](./docs/deployment.md).
+
+Set `PORT` locally (default `5000`).
 
 ### Environment variables
 
@@ -89,6 +105,9 @@ Attach PostgreSQL and set the environment variables above.
 
 ### Further docs
 
+- [FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt) — Windows local hosting (start/stop bats)
+- [docs/deployment.md](./docs/deployment.md) — local + Render deploy
+- [docs/environment-variables.md](./docs/environment-variables.md) — full env reference
 - [Genre intelligence](./docs/GENRE_INTELLIGENCE_STACK.md) — technical genre stack overview
 - [Genre taxonomy](./docs/GENRE_TAXONOMY.md) — backend genre taxonomy notes
 - [Scoring hybrid](./docs/SCORING_HYBRID.md) — backend scoring notes

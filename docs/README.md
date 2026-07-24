@@ -13,7 +13,7 @@ This directory contains the technical documentation for the Kwalify codebase, pr
 | [api-endpoints.md](./api-endpoints.md) | Every endpoint: auth, path, request, response, error cases |
 | [playlist-generation-flow.md](./playlist-generation-flow.md) | Step-by-step pipeline from POST /api/generate to Spotify playlist |
 | [environment-variables.md](./environment-variables.md) | All env vars: required, optional, undocumented, example .env files |
-| [deployment.md](./deployment.md) | Build, run, Replit deploy, schema migration approach, checklist |
+| [deployment.md](./deployment.md) | Local Windows launcher, Render deploy, health checks, checklist |
 | [local-commands.md](./local-commands.md) | Terminal cheat sheet: dev, CI, benchmarks, deploy, token sync (use when IDE is down) |
 | [benchmark-environment.md](./benchmark-environment.md) | Benchmark secrets, GitHub Actions injection, env aliases, validation |
 | [audit-report.md](./audit-report.md) | Full audit findings: bugs, dead code, design observations, security, recommendations |
@@ -21,6 +21,10 @@ This directory contains the technical documentation for the Kwalify codebase, pr
 ## Quick Reference
 
 ### Start the app
+
+**Windows:** `start-kwalify.bat` (see [FIRST-TIME-SETUP.txt](../FIRST-TIME-SETUP.txt))
+
+**Manual:**
 ```bash
 npm run build && npm start
 ```

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kwalify — start help</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0f0a1a; --card: #1a1228; --text: #f3e8ff; --muted: #c4b5fd; --accent: #a855f7; --warn: #fbbf24; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; background: radial-gradient(circle at top, #2a1a45, var(--bg)); color: var(--text); min-height: 100vh; padding: 2rem; }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin: 0 0 .5rem; color: var(--accent); }
+    p.lead { color: var(--muted); margin-top: 0; }
+    .card { background: var(--card); border: 1px solid #3b2660; border-radius: 14px; padding: 1.25rem 1.5rem; margin: 1rem 0; }
+    h2 { font-size: 1rem; margin: 0 0 .75rem; }
+    ol, ul { margin: 0; padding-left: 1.2rem; }
+    li { margin: .45rem 0; line-height: 1.45; }
+    code { background: #120b1f; padding: .1rem .35rem; border-radius: 4px; }
+    .error { border-color: #7c3aed; background: #221033; }
+    #reason { color: var(--warn); font-weight: 600; }
+    a { color: #d8b4fe; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Kwalify could not start</h1>
+    <p class="lead">The launcher hit a problem. Try these steps in order.</p>
+
+    <div class="card error">
+      <h2>What happened</h2>
+      <p id="reason">The start script exited with an error. Check kwalify-start.log in the project folder.</p>
+    </div>
+
+    <div class="card">
+      <h2>Quick fixes</h2>
+      <ol>
+        <li>Double-click <code>stop-kwalify.bat</code>, then <code>start-kwalify.bat</code> again.</li>
+        <li>Right-click <code>start-kwalify.bat</code> → <strong>Run as administrator</strong> (needed for HTTPS on port 443).</li>
+        <li>Confirm Spotify redirect URI: <code>https://kwalify.net/api/auth/callback</code></li>
+        <li>Run once as Admin: <code>scripts\setup-local-dev.ps1</code> (database)</li>
+        <li>Run: <code>npm run setup:local-domain</code> (HTTPS certs)</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2>Health checks (after a successful start)</h2>
+      <ul>
+        <li><a href="https://kwalify.net/api/readyz">https://kwalify.net/api/readyz</a></li>
+        <li><a href="http://127.0.0.1:5000/api/readyz">http://127.0.0.1:5000/api/readyz</a></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Desktop shortcuts</h2>
+      <p>Run <code>create-kwalify-shortcuts.bat</code> once — adds <strong>Start Kwalify</strong> and <strong>Stop Kwalify</strong> to your Desktop.</p>
+    </div>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const reason = params.get("reason");
+    if (reason) document.getElementById("reason").textContent = reason;
+  </script>
+</body>
+</html>

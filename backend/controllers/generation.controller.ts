@@ -5940,7 +5940,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       // Only use cache entries generated after strict validation and scoped to the current candidate library.
       if (cached && !cacheInvalidReason) {
         if (respondIfStale(res, generateSessionUserId, requestId)) return;
-        setGeneratePhase(generateSessionUserId, requestId, "done");
+        setGeneratePhase(generateSessionUserId, requestId, "spotify");
+        setGenerateStageDetail(generateSessionUserId, requestId, "Returning cached playlist");
         const cachedApiTracksRaw = formatTracksForApi(cached.finalTracks, cached.emotionProfile);
         const cachedHygiene = applyFinalApiOpenerHygiene(
           cachedApiTracksRaw,
@@ -5985,6 +5986,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         executionHealth.hydrationCount = dbHydrationOccurred ? 1 : 0;
         executionHealth.finalisationCount += 1;
         const cachedExecutionHealth = finaliseExecutionHealth(executionHealth, Date.now() - startMs);
+        setGeneratePhase(generateSessionUserId, requestId, "done");
         res.json(withIntentSurvivalAuditPayload(req, attachExecutionTrace({
           success: true,
           cached: true,
@@ -11012,8 +11014,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       clusterIds: t.clusterIds ?? [],
     }));
 
-    setGeneratePhase(generateSessionUserId, requestId, "spotify");
-    setGenerateStageDetail(generateSessionUserId, requestId, `Finalising ${delivery.tracks.length.toLocaleString()} tracks`);
     let spotifyPlaylistUrl: string | null = null;
     const tSpotify = Date.now();
     let spotifyPartial = false;
@@ -11067,6 +11067,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       req.log.info(
         { trackCount: deliveredTracks.length, devMode },
         devMode ? "Skipping Spotify playlist creation in dev mode" : "Creating Spotify playlist",
+      );
+
+      setGeneratePhase(generateSessionUserId, requestId, "spotify");
+      setGenerateStageDetail(
+        generateSessionUserId,
+        requestId,
+        devMode
+          ? "Skipping Spotify in dev mode"
+          : `Saving ${deliveredTracks.length.toLocaleString()} tracks to Spotify`,
       );
 
       if (sideEffectPolicy.allowSpotifyPlaylistCreate && !devMode && !generationCompletionBlocked(generateSessionUserId, requestId, deliveredTracks.length)) {
@@ -11177,11 +11186,11 @@ router.post("/generate", async (req, res): Promise<void> => {
           }
         : { spotifyUnavailable: true as const };
 
-      setGeneratePhase(generateSessionUserId, requestId, sideEffectPolicy.allowSavedPlaylistWrites ? "saving" : "done");
+      setGeneratePhase(generateSessionUserId, requestId, "saving");
       setGenerateStageDetail(
         generateSessionUserId,
         requestId,
-        sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist" : "Audit mode: skipping playlist writes",
+        sideEffectPolicy.allowSavedPlaylistWrites ? "Saving playlist" : "Finishing up",
       );
       const tSave = Date.now();
       req.log.info(
@@ -11341,7 +11350,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       warnIfFieldDropped("clusterIds", delivery.tracks, cachedFinalTracks, "cache-write");
     }
 
-    setGeneratePhase(generateSessionUserId, requestId, "done");
+    setGenerateStageDetail(generateSessionUserId, requestId, "Running quality checks");
     if (respondIfStale(res, generateSessionUserId, requestId, { deliverableTrackCount: delivery.tracks.length })) return;
 
     req.log.info(
@@ -12853,6 +12862,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         productionHygiene: productionHygieneDiagnostics,
       },
     };
+    setGeneratePhase(generateSessionUserId, requestId, "spotify");
+    setGenerateStageDetail(
+      generateSessionUserId,
+      requestId,
+      `Finalising ${deliveredTracks.length.toLocaleString()} tracks`,
+    );
     await runPostHygieneSideEffects();
     if (clientDisconnected || responseFinished(res)) return;
     if (respondIfStale(res, generateSessionUserId, requestId, { deliverableTrackCount: deliveredTracks.length })) return;
@@ -13094,6 +13109,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       });
     }
 
+    setGeneratePhase(generateSessionUserId, requestId, "done");
     res.json({
       success: true,
       playlistId: savedPlaylistId,

@@ -1,4 +1,4 @@
-# Start Kwalify locally: PostgreSQL -> build -> API -> optional HTTPS proxy (kwalify.net).
+# Start Kwalify locally at https://kwalify.net (Spotify OAuth requires this domain).
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\start-kwalify-local.ps1
 #   powershell -ExecutionPolicy Bypass -File .\scripts\start-kwalify-local.ps1 -HttpOnly
@@ -46,13 +46,34 @@ Write-Host "  $($pgService.Name): Running"
 
 Write-Step "2/5 Environment (.env)"
 $envPath = Join-Path $root ".env"
-if (-not (Test-Path $envPath)) {
-  $example = Join-Path $root ".env.example"
-  if (-not (Test-Path $example)) {
-    throw ".env missing and no .env.example template found."
+$examplePath = Join-Path $root ".env.example"
+if (-not (Test-Path -LiteralPath $envPath)) {
+  if (Test-Path -LiteralPath $examplePath) {
+    Copy-Item -LiteralPath $examplePath -Destination $envPath
+    Write-Host "  Created .env from .env.example - add Spotify credentials before login works."
+  } else {
+    @"
+DATABASE_URL=postgresql://kwalify:kwalify@localhost:5432/kwalify
+SESSION_SECRET=change-me-to-a-random-string-at-least-32-characters
+PORT=5000
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+SPOTIFY_REDIRECT_URI=https://kwalify.net/api/auth/callback
+NODE_ENV=development
+APP_URL=https://kwalify.net
+"@ | Set-Content -LiteralPath $envPath -Encoding UTF8
+    Write-Host "  Created .env with default local settings - add Spotify credentials before login works."
   }
-  Copy-Item $example $envPath
-  Write-Host "  Created .env from .env.example - add Spotify credentials before login works."
+}
+if (-not $HttpOnly) {
+  $content = Get-Content $envPath -Raw
+  $content = $content -replace 'SPOTIFY_REDIRECT_URI=.*', 'SPOTIFY_REDIRECT_URI=https://kwalify.net/api/auth/callback'
+  if ($content -notmatch 'APP_URL=') {
+    $content += "`nAPP_URL=https://kwalify.net"
+  } else {
+    $content = $content -replace 'APP_URL=.*', 'APP_URL=https://kwalify.net'
+  }
+  Set-Content -Path $envPath -Value $content.TrimEnd()
 }
 . "$PSScriptRoot\load-dotenv.ps1" -Root $root
 $port = if ($env:PORT) { [int]$env:PORT } else { 5000 }
@@ -122,30 +143,37 @@ $key = Join-Path $root "kwalify.net-key.pem"
 $proxyCmd = Join-Path $root "node_modules\.bin\local-ssl-proxy.cmd"
 $openUrl = "http://localhost:$port"
 
-if ($useHttps -and (Test-Path $cert) -and (Test-Path $key) -and (Test-Path $proxyCmd)) {
-  Write-Step "5/5 HTTPS proxy (https://kwalify.net -> :$port)"
+if ($useHttps) {
+  if (-not ((Test-Path $cert) -and (Test-Path $key))) {
+    Write-Host "  Missing TLS certs. Run: npm run setup:local-domain"
+    exit 1
+  }
+  if (-not (Test-Path $proxyCmd)) {
+    Write-Host "  local-ssl-proxy missing. Run: npm ci"
+    exit 1
+  }
   $hosts = Get-Content "$env:SystemRoot\System32\drivers\etc\hosts" -Raw -ErrorAction SilentlyContinue
   if ($hosts -notmatch "kwalify\.net") {
-    Write-Host "  WARNING: kwalify.net not in hosts file."
+    Write-Host "  kwalify.net not in hosts file (required for Spotify login)."
     Write-Host "  Run as Admin: powershell -ExecutionPolicy Bypass -File .\scripts\add-kwalify-hosts.ps1"
-    Write-Host "  Falling back to http://localhost:$port"
-    $useHttps = $false
-  } elseif (Test-PortListening 443) {
-    Write-Host "  Port 443 already in use - skipping proxy (use http://localhost:$port or stop the other listener)."
-    $useHttps = $false
-  } else {
-    $openUrl = "https://kwalify.net"
-    Write-Host "  Starting SSL proxy in this window. Press Ctrl+C to stop proxy only."
-    Write-Host "  (API keeps running in the 'Kwalify API' window.)"
-    if (-not $NoBrowser) {
-      Start-Process $openUrl | Out-Null
-    }
-    & $proxyCmd --source 443 --target $port --cert $cert --key $key
-    exit 0
+    exit 1
   }
+  if (Test-PortListening 443) {
+    Write-Host "  Port 443 already in use - stop the other listener and retry."
+    exit 1
+  }
+  $openUrl = "https://kwalify.net"
+  Write-Step "5/5 HTTPS proxy (https://kwalify.net -> :$port)"
+  Write-Host "  Starting SSL proxy in this window. Press Ctrl+C to stop proxy only."
+  Write-Host "  (API keeps running in the 'Kwalify API' window.)"
+  if (-not $NoBrowser) {
+    Start-Process $openUrl | Out-Null
+  }
+  & $proxyCmd --source 443 --target $port --cert $cert --key $key
+  exit 0
 }
 
-Write-Step "5/5 Site URL"
+Write-Step "5/5 Site URL (HttpOnly debug mode)"
 Write-Host "  Open: $openUrl"
 Write-Host "  Health: http://127.0.0.1:$port/api/readyz"
 Write-Host "  Preflight: npm run preflight:api"

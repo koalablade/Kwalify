@@ -951,17 +951,21 @@ const GENERATION_PHASE_COPY = {
     "Applying quality checks…",
   ],
   "Finalizing playlist": [
-    "Polishing sequence…",
-    "Optimising listening flow…",
-    "Saving the playlist safely…",
+    "Saving your playlist to Spotify…",
+    "Locking in the final track order…",
+    "Almost done…",
   ],
 };
 const GENERATION_LONG_RUNNING_COPY = [
-  "Searching your library carefully…",
-  "Finding tracks that match the prompt…",
-  "Building the final playlist…",
-  "Applying quality checks…",
-  "Saving the strongest version…",
+  "Still curating — larger libraries take a moment.",
+  "Quality checks are running on your matches.",
+  "Building the strongest version of this playlist.",
+  "Saving when everything looks right.",
+];
+const GENERATION_PARTIAL_READY_COPY = [
+  "Tracks are locked in — saving to Spotify now.",
+  "Playlist is taking shape in Spotify — finishing the last steps.",
+  "Your matches are set — wrapping up the save.",
 ];
 
 function generationElapsedMs(progressState = state.generationProgress || {}) {
@@ -976,11 +980,33 @@ function generationElapsedMs(progressState = state.generationProgress || {}) {
 }
 
 function generationTimingMessage(progressState, elapsedMs) {
-  if (elapsedMs >= 30000) return "Still working. Larger libraries and precise prompts can take a little longer.";
+  if (progressState?.wrappingUp) return "Playlist is in Spotify — finishing the last step on this page.";
+  if (progressState?.partialTracks?.length && elapsedMs >= 20000) {
+    return "Tracks are ready — saving to Spotify and updating the app.";
+  }
+  if (elapsedMs >= 45000) return "Still working. Precise prompts and large libraries can take a little longer.";
+  if (elapsedMs >= 30000) return "Still working — quality checks are running.";
   if (progressState?.fallbackEligibleAt && Date.now() >= progressState.fallbackEligibleAt) {
     return "Quality checks are taking longer than usual.";
   }
   return "Working normally.";
+}
+
+function generationPreviewDetail(progressState, elapsedMs) {
+  const partialCount = progressState?.partialTracks?.length || 0;
+  if (partialCount > 0) {
+    if (progressState?.wrappingUp) {
+      return `${partialCount} tracks saved to Spotify — closing this screen`;
+    }
+    if (elapsedMs >= 15000) {
+      return `${partialCount} tracks locked in — saving to Spotify`;
+    }
+    return `${partialCount} tracks matched so far`;
+  }
+  const previewWaitingCopy = state.noLibraryMode
+    ? ["Searching Spotify-wide matches", "Checking genre evidence", "Checking era evidence", "Scoring likely fits"]
+    : ["Scanning your library", "Finding genre matches", "Scoring likely fits", "Building a shortlist"];
+  return previewWaitingCopy[Math.floor(elapsedMs / 3500) % previewWaitingCopy.length];
 }
 
 function generationProgressInfo() {
@@ -1004,14 +1030,25 @@ function generationProgressInfo() {
   if (state.generationProgress) state.generationProgress.displayIndex = displayIndex;
   const pct = Math.max(10, Math.min(96, Math.round(((displayIndex + 1) / count) * 100)));
   const displayTitle = state.noLibraryMode && displayIndex === 0 ? "Searching Spotify" : GENERATION_STAGES[displayIndex] || stageLabel;
+  const partialCount = state.generationProgress?.partialTracks?.length || 0;
   const subtexts = state.noLibraryMode && displayIndex === 0
     ? ["Searching Spotify-wide matches…", "Checking genre and era evidence…", "Building a fresh candidate pool…"]
     : GENERATION_PHASE_COPY[displayTitle] || GENERATION_PHASE_COPY[stageLabel] || GENERATION_PHASE_COPY["Initializing"];
-  const subIndex = Math.floor((Date.now() - startedAt) / 1800) % subtexts.length;
-  const longRunDetail = elapsedMs >= 30000
-    ? GENERATION_LONG_RUNNING_COPY[Math.floor(elapsedMs / 6000) % GENERATION_LONG_RUNNING_COPY.length]
+  const subIndex = Math.floor((Date.now() - startedAt) / 3200) % subtexts.length;
+  const longRunDetail = elapsedMs >= 45000 && partialCount === 0
+    ? GENERATION_LONG_RUNNING_COPY[Math.floor(elapsedMs / 8000) % GENERATION_LONG_RUNNING_COPY.length]
     : null;
-  const detail = longRunDetail || state.generationProgress?.stageDetail || subtexts[subIndex];
+  const partialReadyDetail = partialCount > 0 && displayIndex >= 3
+    ? GENERATION_PARTIAL_READY_COPY[Math.floor(elapsedMs / 6000) % GENERATION_PARTIAL_READY_COPY.length]
+    : null;
+  const wrappingDetail = state.generationProgress?.wrappingUp
+    ? "Playlist is in Spotify — finishing up on this page"
+    : null;
+  const detail = wrappingDetail
+    || state.generationProgress?.stageDetail
+    || partialReadyDetail
+    || longRunDetail
+    || subtexts[subIndex];
   return { title: displayTitle, serverTitle: stageLabel, sub: detail, pct, index: displayIndex, serverIndex: index, count };
 }
 
@@ -1021,19 +1058,13 @@ function generatingHtml() {
   const elapsedMs = generationElapsedMs(progressState);
   const elapsedText = `${Math.max(0, Math.round(elapsedMs / 1000))}s elapsed`;
   const timingText = generationTimingMessage(progressState, elapsedMs);
-  const previewWaitingCopy = [
-    "Scanning library evidence",
-    "Counting safe candidates",
-    "Scoring likely fits",
-    "Choosing a vibe cluster",
-  ];
-  const previewWaitingText = previewWaitingCopy[Math.floor(elapsedMs / 1000) % previewWaitingCopy.length];
+  const previewText = generationPreviewDetail(progressState, elapsedMs);
   const progressDetailsHtml = state.progressExpanded ? `
       <div class="generation-details-panel">
         <div><strong>Current work</strong><span id="generationDetailWork">${esc(progress.sub)}</span></div>
         <div><strong>Step</strong><span id="generationDetailPhase">${esc(progress.title)} · ${Math.min(progress.index + 1, progress.count)}/${progress.count}</span></div>
         <div><strong>Timing</strong><span id="generationDetailTiming">${esc(elapsedText)} · ${esc(timingText)}</span></div>
-        <div><strong>Preview</strong><span id="generationDetailPreview">${progressState.partialTracks?.length ? `${progressState.partialTracks.length} likely tracks ready` : previewWaitingText}</span></div>
+        <div><strong>Preview</strong><span id="generationDetailPreview">${esc(previewText)}</span></div>
       </div>` : "";
   const buildBarHtml = `
       <div class="dj-live-stage" aria-live="polite">
@@ -1101,13 +1132,7 @@ function refreshGenerationProgressDom() {
   const elapsedMs = generationElapsedMs(progressState);
   const elapsedText = `${Math.max(0, Math.round(elapsedMs / 1000))}s elapsed`;
   const timingText = generationTimingMessage(progressState, elapsedMs);
-  const previewWaitingCopy = state.noLibraryMode
-    ? ["Searching Spotify-wide matches", "Checking genre evidence", "Checking era evidence", "Scoring likely fits"]
-    : ["Scanning library evidence", "Counting safe candidates", "Scoring likely fits", "Choosing a vibe cluster"];
-  const previewWaitingText = previewWaitingCopy[Math.floor(elapsedMs / 1000) % previewWaitingCopy.length];
-  const previewText = progressState.partialTracks?.length
-    ? `${progressState.partialTracks.length} likely tracks ready`
-    : previewWaitingText;
+  const previewText = generationPreviewDetail(progressState, elapsedMs);
   const setText = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
@@ -2745,6 +2770,10 @@ function cancelGeneration() {
   state.error = null;
   state.errorDetails = null;
   state.errorKind = null;
+  stopGenerationStatusPolling();
+  state.generating = false;
+  state.generationProgress = null;
+  state.partialPreviewStartedAt = null;
   renderApp();
   activeGenerationAbort?.abort();
   api("/generate/cancel", {
@@ -2790,8 +2819,16 @@ function startGenerationStatusPolling() {
           displayIndex: typeof state.generationProgress?.displayIndex === "number" ? state.generationProgress.displayIndex : 0,
           fallbackEligibleAt: typeof r.data.fallbackEligibleAt === "number" ? r.data.fallbackEligibleAt : null,
           partialTracks: nextPartialTracks,
+          wrappingUp: false,
         };
         renderApp();
+      } else if (r.ok && !r.data?.active && state.generationProgress?.partialTracks?.length) {
+        state.generationProgress = {
+          ...state.generationProgress,
+          wrappingUp: true,
+          stageDetail: "Playlist is in Spotify — finishing up on this page",
+        };
+        refreshGenerationProgressDom();
       }
     } catch {
       // Progress is best-effort; the generate request still owns success/failure.
@@ -2982,6 +3019,9 @@ async function generate(opts = {}) {
     if (state.generationCancelRequested && e?.name === "AbortError") {
       state.error = null;
       state.errorKind = null;
+    } else if (state.generationCancelRequested) {
+      state.error = null;
+      state.errorKind = null;
     } else {
       state.error = e?.name === "AbortError"
         ? "Generation timed out. Please try again with a broader prompt."
@@ -2991,11 +3031,13 @@ async function generate(opts = {}) {
     state.errorDetails = null;
   } finally {
     if (activeGenerationAbort === generationAbort) activeGenerationAbort = null;
-    stopGenerationStatusPolling();
-    state.generating = false;
+    if (!state.generationCancelRequested) {
+      stopGenerationStatusPolling();
+      state.generating = false;
+      state.generationProgress = null;
+      state.partialPreviewStartedAt = null;
+    }
     state.generationCancelRequested = false;
-    state.generationProgress = null;
-    state.partialPreviewStartedAt = null;
     renderApp();
     const input = document.getElementById("vibeInput");
     if (input) {

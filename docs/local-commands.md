@@ -2,7 +2,9 @@
 
 Single reference for running Kwalify from a terminal when Cursor (or any IDE) is unavailable.
 
-**Project root:** `c:\Users\Kwalah\Downloads\Kwalify-main`
+**Project root:** the folder containing `start-kwalify.bat` and `package.json`
+
+**Windows (recommended):** double-click `start-kwalify.bat` — see [FIRST-TIME-SETUP.txt](../FIRST-TIME-SETUP.txt).
 
 **Shell note (PowerShell):** run commands one at a time, or use `;` instead of `&&`.
 
@@ -11,20 +13,15 @@ Single reference for running Kwalify from a terminal when Cursor (or any IDE) is
 ## First-time setup
 
 ```powershell
-cd c:\Users\Kwalah\Downloads\Kwalify-main
+cd path\to\Kwalify
+# Or just double-click start-kwalify.bat (handles npm ci, build, certs, hosts)
 npm ci
 npm run build
 ```
 
-Optional local env file (never commit `.env`):
+Optional: `create-kwalify-shortcuts.bat` for Desktop Start/Stop icons.
 
-```powershell
-# Copy template if present, then set values in .env
-# DATABASE_URL, SESSION_SECRET, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET,
-# SPOTIFY_REDIRECT_URI, PLAYLIST_EVAL_TOKEN, APP_URL
-```
-
-See [environment-variables.md](./environment-variables.md) for the full list.
+Copy `.env.example` to `.env` if the launcher has not created one yet.
 
 ---
 
@@ -32,6 +29,8 @@ See [environment-variables.md](./environment-variables.md) for the full list.
 
 | Task | Command |
 |------|---------|
+| **Start Kwalify (Windows)** | `start-kwalify.bat` |
+| **Stop Kwalify** | `stop-kwalify.bat` |
 | Typecheck | `npm run typecheck` |
 | Build | `npm run build` |
 | Start (after build) | `npm start` |
