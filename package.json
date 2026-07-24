@@ -166,7 +166,7 @@
     "@types/express-session": "^1.19.0",
     "@types/node": "^22.19.19",
     "@types/pg": "^8.20.0",
-    "axios": "^1.17.0",
+    "axios": "^1.18.1",
     "compression": "^1.8.1",
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.6",
