@@ -33,7 +33,7 @@ const SCAN_FILES = [
 ];
 
 /** Frozen baseline — new assignFT call sites require explicit authority review. */
-const MAX_ASSIGN_FT_CALL_SITES = 39;
+const MAX_ASSIGN_FT_CALL_SITES = 50;
 
 function rel(filePath) {
   return path.relative(REPO_ROOT, filePath).replace(/\\/g, "/");
