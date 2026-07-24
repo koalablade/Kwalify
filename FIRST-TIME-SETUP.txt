@@ -1,0 +1,34 @@
+KWALIFY - FIRST TIME SETUP (5 minutes)
+=====================================
+
+1) Install Node.js LTS
+   https://nodejs.org
+
+2) Install PostgreSQL 18
+   https://www.postgresql.org/download/windows/
+   Then open PowerShell AS ADMINISTRATOR in this folder and run:
+     npm run db:setup-local-dev
+
+3) Spotify Developer (required for login)
+   https://developer.spotify.com/dashboard
+   - Open your app -> Settings
+   - Redirect URIs -> Add EXACTLY:
+       http://localhost:5000/api/auth/callback
+   - Copy Client ID and Client Secret into .env in this folder
+
+4) Double-click start-kwalify.bat
+
+That's it. Use http://localhost:5000 in your browser (not kwalify.net).
+
+TROUBLESHOOTING
+---------------
+"Spotify can't connect" / kwalify.net refused:
+  - Close all Kwalify windows and run start-kwalify.bat again
+  - Make sure you use http://localhost:5000 (the bat opens this for you)
+  - Redirect URI in Spotify dashboard must match .env exactly
+
+Database errors:
+  - Run npm run db:setup-local-dev as Administrator
+
+Optional: use https://kwalify.net locally (advanced):
+  start-kwalify.bat domain
