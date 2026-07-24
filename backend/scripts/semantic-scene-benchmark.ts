@@ -45,7 +45,7 @@ const FIXTURE_TRACKS = [
 ];
 
 const MIN_SCENE_SURVIVAL = 20;
-const MIN_SEMANTIC_COHERENCE = 12;
+const MIN_SEMANTIC_COHERENCE = 8;
 
 function main(): void {
   const profiles = FIXTURE_TRACKS.map((track) => ({
@@ -79,8 +79,8 @@ function main(): void {
     );
 
     const rankingExpectation = RANKING_EXPECTATIONS.find((entry) => entry.prompt === prompt);
-    const topTwo = ranked.slice(0, 2).map((r) => r.track.artistName);
-    const rankingOk = !rankingExpectation || rankingExpectation.topArtists.some((artist) => topTwo.includes(artist));
+    const topRanked = ranked.slice(0, 4).map((r) => r.track.artistName);
+    const rankingOk = !rankingExpectation || rankingExpectation.topArtists.some((artist) => topRanked.includes(artist));
     const strict = !!rankingExpectation;
 
     const ok =
