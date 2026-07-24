@@ -97,6 +97,7 @@ import {
   getGenerateProgress,
   getGenerateStatus,
   setGeneratePartialTracks,
+  setGenerateLiveMeta,
   cancelGenerateSession,
   getActiveSessionRetryAfterMs,
 } from "../lib/generate-session";
@@ -4909,9 +4910,14 @@ router.post("/generate/cancel", (req, res): void => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
+  const body = (req.body ?? {}) as { requestId?: string };
   const status = getGenerateStatus(userId);
-  if (status.active && status.requestId) {
-    cancelGenerateSession(userId, status.requestId);
+  const requestId =
+    typeof body.requestId === "string" && body.requestId.trim()
+      ? body.requestId.trim()
+      : status.requestId;
+  if (status.active && requestId) {
+    cancelGenerateSession(userId, requestId);
   }
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.set("Pragma", "no-cache");
@@ -4919,7 +4925,7 @@ router.post("/generate/cancel", (req, res): void => {
   res.json({
     success: true,
     cancelled: status.active,
-    requestId: status.requestId,
+    requestId,
   });
 });
 
@@ -5987,6 +5993,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         executionHealth.finalisationCount += 1;
         const cachedExecutionHealth = finaliseExecutionHealth(executionHealth, Date.now() - startMs);
         setGeneratePhase(generateSessionUserId, requestId, "done");
+        setGenerateStageDetail(generateSessionUserId, requestId, "Loading playlist in app");
         res.json(withIntentSurvivalAuditPayload(req, attachExecutionTrace({
           success: true,
           cached: true,
@@ -10447,6 +10454,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       })
       : null;
 
+    if (momentUnderstandingLine || momentPipeline?.canonicalScene?.sceneId) {
+      setGenerateLiveMeta(generateSessionUserId, requestId, {
+        sceneLabel:
+          momentUnderstandingLine
+          ?? momentPipeline?.canonicalScene?.sceneId?.replace(/_/g, " ")
+          ?? null,
+      });
+    }
+
     req.log.info(
       {
         poolAfterStructure: structured.length,
@@ -10729,6 +10745,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const playlistName = playlistNamePrefix
       ? `${playlistNamePrefix} · ${playlistNameBase}`
       : playlistNameBase;
+    setGenerateLiveMeta(generateSessionUserId, requestId, { playlistName });
     const antiBlandnessCandidatePool = [
       ...finalCandidatePool,
       ...clusterCuration.candidates,
@@ -11148,6 +11165,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         spotifyPartial = createOutcome.partial;
         spotifyTracksAdded = createOutcome.tracksAdded;
         spotifyPlaylistUrl = createOutcome.url;
+        if (spotifyPlaylistUrl) {
+          setGenerateLiveMeta(generateSessionUserId, requestId, { spotifyPlaylistUrl });
+        }
       }
 
       if (
@@ -13110,6 +13130,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     setGeneratePhase(generateSessionUserId, requestId, "done");
+    setGenerateStageDetail(generateSessionUserId, requestId, "Loading playlist in app");
     res.json({
       success: true,
       playlistId: savedPlaylistId,

@@ -195,6 +195,7 @@ function applyPendingPrompt() {
 }
 let generationStatusTimer = null;
 let generationUiTimer = null;
+let generationStuckTimer = null;
 let activeGenerationAbort = null;
 let moodPreviewRequestId = 0;
 let moodPreviewAbort = null;
@@ -268,6 +269,125 @@ function timeAgo(iso) {
 
 function spi() {
   return spiBadge();
+}
+
+const RECENT_PROMPTS_KEY = "kwalify-recent-prompts";
+const PROMPT_STEER_CHIPS = [
+  { id: "more-energy", label: "More energy", promptSuffix: "more energy, keep the same world" },
+  { id: "slower", label: "Slower", promptSuffix: "slower and calmer" },
+  { id: "sadder", label: "Sadder", promptSuffix: "sadder, more isolated" },
+  { id: "less-sad", label: "Less sad", promptSuffix: "less sad, still same scene" },
+  { id: "new-mix", label: "New mix", action: "new-mix" },
+];
+
+function loadRecentPrompts() {
+  try {
+    const raw = localStorage.getItem(RECENT_PROMPTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((p) => typeof p === "string" && p.trim()).slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberRecentPrompt(prompt) {
+  const trimmed = String(prompt || "").trim();
+  if (!trimmed) return;
+  const next = [trimmed, ...loadRecentPrompts().filter((p) => p.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
+  state.recentPrompts = next;
+  try { localStorage.setItem(RECENT_PROMPTS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+}
+
+function updateGenerationLivePreview() {
+  const progress = state.generationProgress;
+  if (!state.generating || !progress) {
+    state.generationLivePreview = null;
+    return;
+  }
+  const tracks = Array.isArray(progress.partialTracks) ? progress.partialTracks : [];
+  if (!tracks.length) {
+    state.generationLivePreview = null;
+    return;
+  }
+  const target = state.length;
+  const phase = progress.phase;
+  const showEarly = tracks.length >= Math.min(target, Math.max(10, Math.floor(target * 0.4)))
+    || phase === "spotify"
+    || phase === "saving"
+    || phase === "done"
+    || progress.wrappingUp;
+  if (!showEarly) {
+    state.generationLivePreview = null;
+    return;
+  }
+  const vibe = document.getElementById("vibeInput")?.value?.trim() || "";
+  state.generationLivePreview = {
+    playlistName: progress.playlistName || "Your playlist",
+    tracks: tracks.map((t) => ({
+      trackName: t.trackName,
+      artistName: t.artistName,
+      albumArt: t.albumArt,
+      trackId: t.trackId,
+    })),
+    trackCount: tracks.length,
+    spotifyPlaylistUrl: progress.spotifyPlaylistUrl || null,
+    momentUnderstandingLine: progress.sceneLabel || null,
+    vibe,
+    _livePreview: true,
+    _targetCount: target,
+  };
+}
+
+function earlyResultHtml(preview) {
+  if (!preview?.tracks?.length) return "";
+  const count = preview.trackCount || preview.tracks.length;
+  const target = preview._targetCount || state.length;
+  return `
+  <section class="early-result-card" aria-live="polite">
+    <div class="early-result-head">
+      <span class="badge badge-green">Tracks ready</span>
+      <span class="early-result-meta">${count}${target > count ? ` of ~${target}` : ""} tracks · saving in background</span>
+      ${preview.spotifyPlaylistUrl ? `<a href="${esc(preview.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm">${spi()} Open in Spotify</a>` : ""}
+    </div>
+    ${preview.momentUnderstandingLine ? `<p class="moment-understanding-line">${esc(preview.momentUnderstandingLine)}</p>` : ""}
+    <div class="tracks-list tracks-list--compact early-tracks-list">
+      ${preview.tracks.slice(0, 12).map((t, i) => `
+        <div class="track-row track-row--compact">
+          <span class="track-num">${i + 1}</span>
+          <div class="track-art">${t.albumArt ? `<img src="${esc(t.albumArt)}" alt="" loading="lazy">` : ""}</div>
+          <div class="track-info">
+            <div class="track-name">${esc(t.trackName || "Unknown track")}</div>
+            <div class="track-artist">${esc(t.artistName || "Unknown artist")}</div>
+          </div>
+        </div>`).join("")}
+    </div>
+    ${count > 12 ? `<p class="early-result-more">+ ${count - 12} more on the way…</p>` : ""}
+  </section>`;
+}
+
+function promptSteerChipsHtml(baseVibe) {
+  const vibe = (baseVibe || "").trim();
+  if (!vibe || state.generating) return "";
+  return `
+    <div class="prompt-steer-row" aria-label="Steer this playlist">
+      <span class="prompt-steer-label">Steer it</span>
+      ${PROMPT_STEER_CHIPS.map((chip) => `
+        <button type="button" class="prompt-steer-chip" data-steer-id="${esc(chip.id)}" data-steer-action="${chip.action || ""}">
+          ${esc(chip.label)}
+        </button>`).join("")}
+    </div>`;
+}
+
+function recentPromptsHtml() {
+  const prompts = state.recentPrompts?.length ? state.recentPrompts : loadRecentPrompts();
+  if (!prompts.length) return "";
+  return `
+    <div class="recent-prompts-row" id="recentPromptsRow">
+      <span class="recent-prompts-label">Recent</span>
+      ${prompts.slice(0, 5).map((p) => `
+        <button type="button" class="recent-prompt-chip" data-recent-prompt="${esc(p)}">${esc(p.length > 42 ? `${p.slice(0, 39)}…` : p)}</button>
+      `).join("")}
+    </div>`;
 }
 
 // ── Reactive mood analyzer ────────────────────────────────────────────────────
@@ -362,7 +482,11 @@ const state = {
   noLibraryMode: false,
   generating: false,
   generationCancelRequested: false,
+  generationRunId: 0,
   generationProgress: null,
+  generationLivePreview: null,
+  requestedNewMix: false,
+  recentPrompts: [],
   partialPreviewStartedAt: null,
   lastResult: null,
   error: null,
@@ -795,6 +919,7 @@ function renderApp() {
           <span class="prompt-guide-example">e.g. garage with mates, upbeat 2000s, Saturday night</span>
         </div>
         <div id="intentPreviewStrip" class="intent-preview-strip" hidden aria-live="polite"></div>
+        ${recentPromptsHtml()}
 
         <div class="controls-stack">
         <div class="controls-row controls-row--mode">
@@ -845,7 +970,8 @@ function renderApp() {
     </div>
 
     <!-- Result -->
-    ${state.lastResult ? resultHtml(state.lastResult) : ""}
+    ${state.generating && state.generationLivePreview ? earlyResultHtml(state.generationLivePreview) : ""}
+    ${!state.generating && state.lastResult ? resultHtml(state.lastResult) : ""}
 
   </div>
 
@@ -980,11 +1106,25 @@ function generationElapsedMs(progressState = state.generationProgress || {}) {
 }
 
 function generationTimingMessage(progressState, elapsedMs) {
-  if (progressState?.wrappingUp) return "Playlist is in Spotify — finishing the last step on this page.";
-  if (progressState?.partialTracks?.length && elapsedMs >= 20000) {
-    return "Tracks are ready — saving to Spotify and updating the app.";
+  const phase = progressState?.phase;
+  if (progressState?.wrappingUp || phase === "done") {
+    return "Playlist saved — loading it here now.";
   }
-  if (elapsedMs >= 45000) return "Still working. Precise prompts and large libraries can take a little longer.";
+  if (phase === "spotify") {
+    return elapsedMs >= 45000
+      ? "Spotify save is taking a moment — still working."
+      : "Saving playlist to Spotify…";
+  }
+  if (phase === "saving") {
+    return "Saving to your Kwalify library…";
+  }
+  if (progressState?.partialTracks?.length && elapsedMs >= 20000) {
+    return "Tracks locked in — finishing the save.";
+  }
+  if (elapsedMs >= 75000) {
+    return "Still finishing — you can cancel if this feels stuck.";
+  }
+  if (elapsedMs >= 45000) return "Still working. Large libraries can take a little longer.";
   if (elapsedMs >= 30000) return "Still working — quality checks are running.";
   if (progressState?.fallbackEligibleAt && Date.now() >= progressState.fallbackEligibleAt) {
     return "Quality checks are taking longer than usual.";
@@ -994,12 +1134,16 @@ function generationTimingMessage(progressState, elapsedMs) {
 
 function generationPreviewDetail(progressState, elapsedMs) {
   const partialCount = progressState?.partialTracks?.length || 0;
+  const phase = progressState?.phase;
   if (partialCount > 0) {
-    if (progressState?.wrappingUp) {
-      return `${partialCount} tracks saved to Spotify — closing this screen`;
+    if (progressState?.wrappingUp || phase === "done") {
+      return `${partialCount} tracks ready — opening your playlist`;
+    }
+    if (phase === "spotify" || phase === "saving") {
+      return `${partialCount} tracks locked in — ${phase === "saving" ? "saving to Kwalify" : "saving to Spotify"}`;
     }
     if (elapsedMs >= 15000) {
-      return `${partialCount} tracks locked in — saving to Spotify`;
+      return `${partialCount} tracks matched — final checks running`;
     }
     return `${partialCount} tracks matched so far`;
   }
@@ -1028,7 +1172,9 @@ function generationProgressInfo() {
     : 0;
   const displayIndex = Math.max(index, previousDisplayIndex, state.generationProgress?.partialTracks?.length ? 3 : 0, localStep);
   if (state.generationProgress) state.generationProgress.displayIndex = displayIndex;
-  const pct = Math.max(10, Math.min(96, Math.round(((displayIndex + 1) / count) * 100)));
+  const pct = state.generationProgress?.wrappingUp || state.generationProgress?.phase === "done"
+    ? 98
+    : Math.max(10, Math.min(96, Math.round(((displayIndex + 1) / count) * 100)));
   const displayTitle = state.noLibraryMode && displayIndex === 0 ? "Searching Spotify" : GENERATION_STAGES[displayIndex] || stageLabel;
   const partialCount = state.generationProgress?.partialTracks?.length || 0;
   const subtexts = state.noLibraryMode && displayIndex === 0
@@ -1041,8 +1187,8 @@ function generationProgressInfo() {
   const partialReadyDetail = partialCount > 0 && displayIndex >= 3
     ? GENERATION_PARTIAL_READY_COPY[Math.floor(elapsedMs / 6000) % GENERATION_PARTIAL_READY_COPY.length]
     : null;
-  const wrappingDetail = state.generationProgress?.wrappingUp
-    ? "Playlist is in Spotify — finishing up on this page"
+  const wrappingDetail = state.generationProgress?.wrappingUp || state.generationProgress?.phase === "done"
+    ? "Loading your playlist here"
     : null;
   const detail = wrappingDetail
     || state.generationProgress?.stageDetail
@@ -1059,6 +1205,14 @@ function generatingHtml() {
   const elapsedText = `${Math.max(0, Math.round(elapsedMs / 1000))}s elapsed`;
   const timingText = generationTimingMessage(progressState, elapsedMs);
   const previewText = generationPreviewDetail(progressState, elapsedMs);
+  const showStuckHint = progressState?.stuckHint || elapsedMs >= 75000;
+  const spotifyEarlyUrl = progressState?.spotifyPlaylistUrl || null;
+  const spotifyEarlyHtml = spotifyEarlyUrl ? `
+      <a href="${esc(spotifyEarlyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm generation-spotify-early">${spi()} Open in Spotify</a>` : "";
+  const stuckHintHtml = showStuckHint ? `
+      <div class="generation-stuck-hint" id="generationStuckHint">
+        Taking longer than usual. <strong>Cancel</strong> stops this screen — your Spotify playlist may already exist.
+      </div>` : "";
   const progressDetailsHtml = state.progressExpanded ? `
       <div class="generation-details-panel">
         <div><strong>Current work</strong><span id="generationDetailWork">${esc(progress.sub)}</span></div>
@@ -1103,24 +1257,29 @@ function generatingHtml() {
     <span class="spinner spinner--purple"></span>
     <div class="generating-body">
       <div class="generating-head">
-        <div>
-          <div class="generating-title" id="generationTitle">${esc(progress.title)}</div>
-          <div class="generating-sub" id="generationSub">${esc(progress.sub)}</div>
+        <div class="generating-head-copy">
+          <div class="generating-title" id="generationTitle">${esc(progress.sub)}</div>
+          <div class="generating-sub" id="generationSub">${esc(timingText)}</div>
+          ${progressState?.sceneLabel ? `<div class="generating-scene">${esc(progressState.sceneLabel)}</div>` : ""}
         </div>
-        <button class="generation-cancel-btn" id="cancelGenerationBtn" type="button" ${state.generationCancelRequested ? "disabled" : ""}>
-          ${state.generationCancelRequested ? "Cancelling..." : "Cancel"}
-        </button>
+        <div class="generating-head-actions">
+          ${spotifyEarlyHtml}
+          <button class="generation-cancel-btn" id="cancelGenerationBtn" type="button" data-action="cancel-generation" ${state.generationCancelRequested ? "disabled" : ""}>
+            ${state.generationCancelRequested ? "Cancelling..." : "Cancel"}
+          </button>
+        </div>
       </div>
-      ${buildBarHtml}
+      ${state.progressExpanded ? buildBarHtml : ""}
+      ${stuckHintHtml}
       <button class="generation-details-toggle" id="progressDetailsToggle" type="button">
-        ${state.progressExpanded ? "Hide details" : "Show what is happening"}
+        ${state.progressExpanded ? "Hide details" : "More detail"}
       </button>
       ${progressDetailsHtml}
       ${debugModeEnabled() ? `<div class="generation-safety-chip">Excluded: Christmas / holiday tracks unless requested</div>` : ""}
       <div class="generating-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.pct}" aria-label="Playlist generation progress">
         <div class="generating-progress-fill" id="generationProgressFill" style="width:${progress.pct}%"></div>
       </div>
-      ${partialHtml}
+      ${state.generationLivePreview ? "" : partialHtml}
     </div>
   </div>`;
 }
@@ -1137,8 +1296,8 @@ function refreshGenerationProgressDom() {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
   };
-  setText("generationTitle", progress.title);
-  setText("generationSub", progress.sub);
+  setText("generationTitle", progress.sub);
+  setText("generationSub", timingText);
   setText("generationStageLabel", progress.title);
   setText("generationStageCount", `${Math.min(progress.index + 1, progress.count)} / ${progress.count}`);
   setText("generationDetailWork", progress.sub);
@@ -1316,12 +1475,28 @@ function resultHtml(result) {
       : null);
   const resultBadge = result.spotifyUnavailable
     ? "Review ready"
-    : result.spotifyPartial || result.fastFallback || result.code === "TIMEOUT_FALLBACK"
-      ? "Best available"
-      : "Ready";
-  const resultBadgeClass = result.spotifyUnavailable || result.spotifyPartial || result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+    : result.requestedNewMix
+      ? "New mix"
+      : result.cached
+        ? "Instant replay"
+        : result.spotifyPartial || result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+          ? "Best available"
+          : "Ready";
+  const resultBadgeClass = result.cached
+    ? "badge badge-amber"
+    : result.spotifyUnavailable || result.spotifyPartial || result.fastFallback || result.code === "TIMEOUT_FALLBACK"
     ? "badge badge-amber"
     : "badge badge-green";
+  const cacheNotice = result.cached
+    ? `<p class="result-insight result-insight--notice">Same prompt replayed from cache — tap <strong>New mix</strong> below for a different take.</p>`
+    : result.requestedNewMix
+      ? `<p class="result-insight result-insight--notice">Fresh mix requested — track order and picks were reshuffled.</p>`
+      : "";
+  const sceneLine = result.momentUnderstandingLine
+    || result.sceneLabel
+    || (result.scoringDiagnostics?.semanticResolution?.sceneId
+      ? result.scoringDiagnostics.semanticResolution.sceneId.replace(/_/g, " ")
+      : null);
   const confidenceHtml = confidencePercent !== null ? `
       <div class="result-confidence ${confidence.recoveryUsed || confidence.fallbackUsed ? "result-confidence--recovered" : ""}">
         <span>${esc(confidence.label || "Playlist confidence")}</span>
@@ -1435,7 +1610,9 @@ function resultHtml(result) {
         <span class="result-meta">${count} tracks · ${state.mode} mode</span>
       </div>
       <h2 class="result-title">${name}</h2>
-      ${result.momentUnderstandingLine ? `<p class="moment-understanding-line">${esc(result.momentUnderstandingLine)}</p>` : ""}
+      ${sceneLine ? `<p class="result-scene-line">Read as: <strong>${esc(sceneLine)}</strong></p>` : ""}
+      ${result.momentUnderstandingLine && result.momentUnderstandingLine !== sceneLine ? `<p class="moment-understanding-line">${esc(result.momentUnderstandingLine)}</p>` : ""}
+      ${cacheNotice}
       <p class="result-insight">${result.noLibraryMode ? "Curated from Spotify-wide search to fit the moment. Less personalized than your liked songs." : "Curated from your liked songs to fit the moment."}</p>
       ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
       ${coherenceBadgeHtml}
@@ -1460,6 +1637,7 @@ function resultHtml(result) {
         <button type="button" class="btn btn-ghost btn-sm" id="copyShareLinkBtn" data-share-slug="${esc(shareSlug)}">Copy link</button>
         ` : ""}
       </div>
+      ${promptSteerChipsHtml(result.vibe || result.prompt)}
       ${tabsHtml}
     </div>
   </div>
@@ -2402,6 +2580,46 @@ function wireAppEvents() {
         document.getElementById("vibeInput")?.focus();
         document.getElementById("vibeInput")?.select();
       }
+      if (e.key === "Escape" && state.generating && !state.generationCancelRequested) {
+        cancelGeneration();
+      }
+    });
+    root.addEventListener("click", (e) => {
+      if (e.target.closest("#cancelGenerationBtn, [data-action='cancel-generation']")) {
+        e.preventDefault();
+        cancelGeneration();
+        return;
+      }
+      const recentBtn = e.target.closest("[data-recent-prompt]");
+      if (recentBtn) {
+        const prompt = recentBtn.getAttribute("data-recent-prompt");
+        const input = document.getElementById("vibeInput");
+        if (input && prompt) {
+          input.value = prompt;
+          input.dispatchEvent(new Event("input"));
+          input.focus();
+        }
+        return;
+      }
+      const steerBtn = e.target.closest("[data-steer-id]");
+      if (steerBtn) {
+        const steerId = steerBtn.getAttribute("data-steer-id");
+        const chip = PROMPT_STEER_CHIPS.find((row) => row.id === steerId);
+        if (!chip) return;
+        const input = document.getElementById("vibeInput");
+        const base = state.lastResult?.vibe || input?.value?.trim() || "";
+        if (!base) return;
+        if (chip.action === "new-mix") {
+          if (input) input.value = base;
+          void generate({ forceNewMix: true });
+          return;
+        }
+        if (input) {
+          input.value = `${base} — ${chip.promptSuffix}`;
+          input.dispatchEvent(new Event("input"));
+          input.focus();
+        }
+      }
     });
     globalAppListenersWired = true;
   }
@@ -2472,7 +2690,6 @@ function wireAppEvents() {
     state.errorKind = null;
     renderApp();
   });
-  document.getElementById("cancelGenerationBtn")?.addEventListener("click", cancelGeneration);
   document.getElementById("progressDetailsToggle")?.addEventListener("click", () => {
     state.progressExpanded = !state.progressExpanded;
     renderApp();
@@ -2762,23 +2979,45 @@ function stopGenerationStatusPolling() {
     clearInterval(generationUiTimer);
     generationUiTimer = null;
   }
+  if (generationStuckTimer) {
+    clearInterval(generationStuckTimer);
+    generationStuckTimer = null;
+  }
+}
+
+function startGenerationStuckWatchdog(runId) {
+  if (generationStuckTimer) clearInterval(generationStuckTimer);
+  generationStuckTimer = setInterval(() => {
+    if (!state.generating || runId !== state.generationRunId) return;
+    const elapsedMs = generationElapsedMs(state.generationProgress || {});
+    if (elapsedMs < 70000) return;
+    if (state.generationProgress && !state.generationProgress.stuckHint) {
+      state.generationProgress.stuckHint = true;
+      refreshGenerationProgressDom();
+    }
+  }, 5000);
 }
 
 function cancelGeneration() {
   if (!state.generating || state.generationCancelRequested) return;
+  const requestId = state.generationProgress?.requestId || null;
   state.generationCancelRequested = true;
+  state.generationRunId += 1;
   state.error = null;
   state.errorDetails = null;
   state.errorKind = null;
   stopGenerationStatusPolling();
+  activeGenerationAbort?.abort();
   state.generating = false;
   state.generationProgress = null;
+  state.generationLivePreview = null;
   state.partialPreviewStartedAt = null;
+  showToast("Generation cancelled", "info");
   renderApp();
-  activeGenerationAbort?.abort();
   api("/generate/cancel", {
     method: "POST",
     timeoutMs: 8000,
+    body: JSON.stringify(requestId ? { requestId } : {}),
   }).catch(() => null);
 }
 
@@ -2818,17 +3057,42 @@ function startGenerationStatusPolling() {
           lastUpdatedAt: typeof r.data.lastUpdatedAt === "number" ? r.data.lastUpdatedAt : null,
           displayIndex: typeof state.generationProgress?.displayIndex === "number" ? state.generationProgress.displayIndex : 0,
           fallbackEligibleAt: typeof r.data.fallbackEligibleAt === "number" ? r.data.fallbackEligibleAt : null,
-          partialTracks: nextPartialTracks,
-          wrappingUp: false,
+          partialTracks: nextPartialTracks.length ? nextPartialTracks : (state.generationProgress?.partialTracks || []),
+          spotifyPlaylistUrl: r.data.spotifyPlaylistUrl || state.generationProgress?.spotifyPlaylistUrl || null,
+          sceneLabel: r.data.sceneLabel || state.generationProgress?.sceneLabel || null,
+          playlistName: r.data.playlistName || state.generationProgress?.playlistName || null,
+          wrappingUp: r.data.phase === "done",
+          stuckHint: state.generationProgress?.stuckHint || false,
         };
-        renderApp();
-      } else if (r.ok && !r.data?.active && state.generationProgress?.partialTracks?.length) {
-        state.generationProgress = {
-          ...state.generationProgress,
-          wrappingUp: true,
-          stageDetail: "Playlist is in Spotify — finishing up on this page",
-        };
-        refreshGenerationProgressDom();
+        const hadLivePreview = !!state.generationLivePreview;
+        updateGenerationLivePreview();
+        if (state.generationLivePreview && !hadLivePreview) {
+          renderApp();
+        } else if (r.data.phase === "done" || nextPartialTracks.length > 0 || r.data.spotifyPlaylistUrl) {
+          refreshGenerationProgressDom();
+        } else {
+          renderApp();
+        }
+      } else if (r.ok && state.generating) {
+        const partialTracks = state.generationProgress?.partialTracks?.length
+          ? state.generationProgress.partialTracks
+          : (Array.isArray(r.data?.partialTracks) ? r.data.partialTracks : []);
+        if (!r.data?.active && partialTracks.length > 0) {
+          state.generationProgress = {
+            ...(state.generationProgress || {}),
+            partialTracks,
+            spotifyPlaylistUrl: r.data.spotifyPlaylistUrl || state.generationProgress?.spotifyPlaylistUrl || null,
+            sceneLabel: r.data.sceneLabel || state.generationProgress?.sceneLabel || null,
+            playlistName: r.data.playlistName || state.generationProgress?.playlistName || null,
+            wrappingUp: true,
+            phase: "done",
+            stage: "Finalizing playlist",
+            stageDetail: "Loading your playlist here",
+            stuckHint: state.generationProgress?.stuckHint || false,
+          };
+          updateGenerationLivePreview();
+          renderApp();
+        }
       }
     } catch {
       // Progress is best-effort; the generate request still owns success/failure.
@@ -2931,9 +3195,14 @@ async function generate(opts = {}) {
   const samePromptRegenerate =
     !!previousResult &&
     String(previousResult.vibe || previousResult.prompt || "").trim().toLowerCase() === vibe.toLowerCase();
+  const varietyBoost = opts.forceNewMix === true || samePromptRegenerate;
 
   state.generating = true;
   state.generationCancelRequested = false;
+  state.generationLivePreview = null;
+  const runId = state.generationRunId + 1;
+  state.generationRunId = runId;
+  state.requestedNewMix = varietyBoost && samePromptRegenerate;
   state.partialPreviewStartedAt = null;
   state.generationProgress = { phase: "starting", stage: "Initializing", stageIndex: 0, stageCount: GENERATION_STAGES.length, stageDetail: null, requestId: null, startedAt: Date.now(), clientStartedAt: Date.now(), elapsedMs: 0, lastUpdatedAt: null, displayIndex: 0, fallbackEligibleAt: null, partialTracks: [] };
   state.lastResult = null;
@@ -2952,6 +3221,7 @@ async function generate(opts = {}) {
   state.progressExpanded = false;
   renderApp();
   startGenerationStatusPolling();
+  startGenerationStuckWatchdog(runId);
 
   const savedVibe = vibe;
   const generationAbort = new AbortController();
@@ -2967,7 +3237,7 @@ async function generate(opts = {}) {
         familiarity: state.familiarity,
         length: state.length,
         noLibraryMode: opts.forceDiscoveryMode === true ? true : state.noLibraryMode,
-        varietyBoost: samePromptRegenerate,
+        varietyBoost,
         ...(state.selectedSceneId ? { sceneId: state.selectedSceneId } : {}),
         ...(state.pendingFailureSessionId ? { failureSessionId: state.pendingFailureSessionId } : {}),
       }),
@@ -3010,9 +3280,17 @@ async function generate(opts = {}) {
       state.errorKind = "generation";
     } else if (r.data?.success === false) {
       handleLibraryInsufficientResponse(r.data, savedVibe);
-    } else {
+    } else if (runId === state.generationRunId && !state.generationCancelRequested) {
       clearLibraryInsufficientState();
-      state.lastResult = { ...r.data, savedPlaylistId: r.data.playlistId, shareSlug: r.data.shareSlug };
+      rememberRecentPrompt(savedVibe);
+      state.lastResult = {
+        ...r.data,
+        savedPlaylistId: r.data.playlistId,
+        shareSlug: r.data.shareSlug,
+        vibe: savedVibe,
+        requestedNewMix: state.requestedNewMix && !r.data.cached,
+        cached: !!r.data.cached,
+      };
       await loadPlaylists();
     }
   } catch (e) {
@@ -3031,13 +3309,15 @@ async function generate(opts = {}) {
     state.errorDetails = null;
   } finally {
     if (activeGenerationAbort === generationAbort) activeGenerationAbort = null;
-    if (!state.generationCancelRequested) {
-      stopGenerationStatusPolling();
+    stopGenerationStatusPolling();
+    if (runId === state.generationRunId) {
       state.generating = false;
       state.generationProgress = null;
+      state.generationLivePreview = null;
       state.partialPreviewStartedAt = null;
+      state.generationCancelRequested = false;
+      state.requestedNewMix = false;
     }
-    state.generationCancelRequested = false;
     renderApp();
     const input = document.getElementById("vibeInput");
     if (input) {
@@ -3073,6 +3353,7 @@ async function boot() {
   }
 
   state.user = meRes.data;
+  state.recentPrompts = loadRecentPrompts();
 
   const [csRes, lsRes, plRes, histRes, chRes] = await Promise.all([
     api("/spotify/cache-status").catch((err) => ({ ok: false, status: 0, data: { error: err.message } })),

@@ -58,14 +58,29 @@ What start does:
 If HTTPS fails: right-click start-kwalify.bat -> Run as administrator.
 
 
+WHAT START-KWALIFY.BAT DOES (AUTOMATIC)
+--------------------------------------
+
+Every time you open it (no flags needed):
+
+  1. git pull (checks for updates)
+  2. Stops any old Kwalify API / HTTPS proxy
+  3. Rebuilds if source code changed or pull brought new commits
+  4. Runs quick smoke tests
+  5. Starts fresh server and opens https://kwalify.net
+
+You do not need to run npm run build yourself.
+
+
 OPTIONAL FLAGS
 --------------
 
-  start-kwalify.bat pull       Git pull before starting
-  start-kwalify.bat build      Force rebuild
+  start-kwalify.bat build      Force rebuild even if nothing changed
+  start-kwalify.bat nopull     Skip git pull (offline / local-only work)
+  start-kwalify.bat quick      Skip restart if already running (advanced)
   start-kwalify.bat local      Debug mode (no Spotify login)
 
-Always auto-pull: create empty file  .kwalify-autopull  in project root
+To disable auto-pull permanently: create empty file  .kwalify-nopull  in project root
 
 
 TROUBLESHOOTING

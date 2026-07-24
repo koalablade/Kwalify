@@ -53,7 +53,7 @@ This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend).
 
 CI nightly eval workflows target production `https://kwalify.net` on Render when deployed. Local dev does not need Render.
 
-Optional: create an empty `.kwalify-autopull` file in the repo root to run `git pull` on every start.
+`start-kwalify.bat` auto-pulls, rebuilds when code changed, and restarts the API every time. Create `.kwalify-nopull` to skip git pull.
 
 ### Local setup (Windows — recommended)
 
@@ -65,7 +65,7 @@ Stop: **`stop-kwalify.bat`**
 
 Spotify redirect URI (required): `https://kwalify.net/api/auth/callback`
 
-Optional: `start-kwalify.bat pull` to git pull before start; create `.kwalify-autopull` for always-on pulls.
+Flags (optional): `build` force rebuild, `nopull` skip git pull, `quick` skip restart if already running.
 
 ### Local setup (manual)
 

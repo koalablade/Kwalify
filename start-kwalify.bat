@@ -15,8 +15,10 @@ if /I "%~1"=="local" set "MODE=local"
 if /I "%~2"=="local" set "MODE=local"
 if /I "%~1"=="build" set "BUILD=1"
 if /I "%~2"=="build" set "BUILD=1"
-if /I "%~1"=="pull" set "PULL=1"
-if /I "%~2"=="pull" set "PULL=1"
+if /I "%~1"=="nopull" set "NOPULL=1"
+if /I "%~2"=="nopull" set "NOPULL=1"
+if /I "%~1"=="quick" set "QUICK=1"
+if /I "%~2"=="quick" set "QUICK=1"
 
 set "KWLIFY_PS1=%TEMP%\kwalify-start-%RANDOM%.ps1"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
@@ -33,7 +35,8 @@ if errorlevel 1 (
 
 set "ARGS="
 if defined BUILD set "ARGS=-Build"
-if defined PULL set "ARGS=%ARGS% -Pull"
+if defined NOPULL set "ARGS=%ARGS% -NoPull"
+if defined QUICK set "ARGS=%ARGS% -Quick"
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%KWLIFY_PS1%" -Root "%ROOT%" -Mode "%MODE%" %ARGS%
 set "ERR=%ERRORLEVEL%"
@@ -63,10 +66,15 @@ param(
   [ValidateSet("local", "domain")]
   [string]$Mode = "domain",
   [switch]$Build,
-  [switch]$Pull
+  [switch]$NoPull,
+  [switch]$Quick
 )
 
 $ErrorActionPreference = "Stop"
+try {
+  [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+  $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+} catch {}
 Set-Location $Root
 
 $logPath = Join-Path $Root "kwalify-start.log"
@@ -337,25 +345,77 @@ function Warn-NodeVersion {
   } catch {}
 }
 
-function Invoke-OptionalGitPull {
-  $autoPullFile = Join-Path $Root ".kwalify-autopull"
-  if (-not $Pull -and -not (Test-Path -LiteralPath $autoPullFile)) { return }
+function Stop-ExistingKwalify {
+  $stopped = $false
+  if (PortOpen 5000) {
+    Write-Host "  Stopping old API on port 5000 (fresh start with latest code)..."
+    Stop-PortListeners 5000
+    $stopped = $true
+  }
+  if (PortOpen 443) {
+    Write-Host "  Stopping old HTTPS proxy on port 443..."
+    Stop-PortListeners 443
+    $stopped = $true
+  }
+  if ($stopped) { Start-Sleep -Seconds 1 }
+}
+
+function Test-BuildStale {
+  $dist = Join-Path $Root "backend\dist\server.js"
+  if (-not (Test-Path -LiteralPath $dist)) { return $true }
+  $distTime = (Get-Item -LiteralPath $dist).LastWriteTimeUtc
+  foreach ($marker in @("package.json", "package-lock.json")) {
+    $markerPath = Join-Path $Root $marker
+    if ((Test-Path -LiteralPath $markerPath) -and (Get-Item -LiteralPath $markerPath).LastWriteTimeUtc -gt $distTime) {
+      return $true
+    }
+  }
+  foreach ($srcRoot in @("backend", "frontend\public")) {
+    $fullRoot = Join-Path $Root $srcRoot
+    if (-not (Test-Path -LiteralPath $fullRoot)) { continue }
+    $newer = Get-ChildItem -Path $fullRoot -Recurse -File -ErrorAction SilentlyContinue |
+      Where-Object {
+        $_.FullName -notmatch '\\node_modules\\|\\dist\\|\\.git\\' -and
+        $_.Extension -match '^\.(ts|tsx|js|json|html|css)$' -and
+        $_.LastWriteTimeUtc -gt $distTime
+      } |
+      Select-Object -First 1
+    if ($newer) { return $true }
+  }
+  return $false
+}
+
+function Invoke-GitPull {
+  $skipFile = Join-Path $Root ".kwalify-nopull"
+  if ($NoPull -or (Test-Path -LiteralPath $skipFile)) {
+    Write-Host "  git pull skipped"
+    return $false
+  }
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "  git not found - skipping pull"
-    return
+    return $false
   }
-  Step "Updating code (git pull)"
+  Step "Checking for updates (git pull)"
   Push-Location $Root
   try {
     $branch = (git rev-parse --abbrev-ref HEAD 2>$null)
     if (-not $branch) {
       Write-Host "  Not a git repo - skipping pull"
-      return
+      return $false
     }
+    $before = (git rev-parse HEAD 2>$null)
     git pull --ff-only 2>&1 | ForEach-Object { Write-Host "  $_" }
     if ($LASTEXITCODE -ne 0) {
       Write-Host "  git pull failed (local changes or offline). Continuing with current code." -ForegroundColor Yellow
+      return $false
     }
+    $after = (git rev-parse HEAD 2>$null)
+    if ($before -and $after -and $before -ne $after) {
+      Write-Host "  Updated to latest code - will rebuild"
+      return $true
+    }
+    Write-Host "  Already up to date"
+    return $false
   } finally {
     Pop-Location
   }
@@ -374,11 +434,14 @@ function Ensure-DesktopShortcuts {
 function Invoke-SmokeChecks {
   if (-not (Test-Path (Join-Path $Root "backend\dist\server.js"))) { return }
   Step "Quick smoke check"
-  npm run test:smoke 2>&1 | ForEach-Object {
-    if ($_ -match "fail|# fail") { Write-Host "  $_" -ForegroundColor Red }
-  }
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host "  Smoke tests failed — fix before generating playlists." -ForegroundColor Yellow
+  $prevErr = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $output = & npm run test:smoke 2>&1
+  $exitCode = $LASTEXITCODE
+  $ErrorActionPreference = $prevErr
+  if ($exitCode -ne 0) {
+    Write-Host "  Smoke tests failed - fix before generating playlists." -ForegroundColor Yellow
+    $output | Select-Object -Last 20 | ForEach-Object { Write-Host "  $_" }
     Exit-Launcher 1 "Smoke tests failed (npm run test:smoke)."
   }
   Write-Host "  Smoke tests passed"
@@ -399,7 +462,10 @@ function Start-HttpsProxy([string]$proxy, [string]$cert, [string]$key, [int]$tar
 # --- 0. Project + Node ---
 Assert-ProjectRoot
 Ensure-DesktopShortcuts
-Invoke-OptionalGitPull
+$pullUpdated = Invoke-GitPull
+if (-not $Quick) {
+  Stop-ExistingKwalify
+}
 
 Step "Checking Node.js"
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -489,8 +555,8 @@ if (-not (Test-DatabaseReady $env:DATABASE_URL)) {
 
 $port = if ($env:PORT) { [int]$env:PORT } else { 5000 }
 
-# --- Fast path: already running ---
-if ($Mode -eq "domain" -and (Test-SiteReady "http://127.0.0.1:$port")) {
+# --- Fast path: already running (quick mode only) ---
+if ($Quick -and $Mode -eq "domain" -and (Test-SiteReady "http://127.0.0.1:$port")) {
   Step "Kwalify already running"
   Write-Host "  API is up on port $port"
   if (Test-SiteReady "https://kwalify.net") {
@@ -551,11 +617,22 @@ if (-not (Test-Path (Join-Path $Root "node_modules"))) {
 # --- 5. Build ---
 Step "Building"
 $dist = Join-Path $Root "backend\dist\server.js"
-if ($Build -or -not (Test-Path $dist)) {
+$buildStale = Test-BuildStale
+if ($Build -or $pullUpdated -or $buildStale -or -not (Test-Path -LiteralPath $dist)) {
+  if ($pullUpdated) {
+    Write-Host "  Rebuilding after git pull..."
+  } elseif ($buildStale) {
+    Write-Host "  Source code changed since last build - rebuilding..."
+  } elseif ($Build) {
+    Write-Host "  Forced rebuild (build flag)..."
+  } else {
+    Write-Host "  First build..."
+  }
   npm run build
   if ($LASTEXITCODE -ne 0) { Exit-Launcher $LASTEXITCODE "npm run build failed." }
+  Write-Host "  Build OK"
 } else {
-  Write-Host "  OK (delete backend\dist or pass build to force)"
+  Write-Host "  OK (already built - pass build to force)"
 }
 
 Invoke-SmokeChecks

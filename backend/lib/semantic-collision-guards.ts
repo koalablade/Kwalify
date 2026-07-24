@@ -235,6 +235,10 @@ export function shouldBlockSceneMatch(prompt: string, sceneId: string): boolean 
   if (sceneId === "PETROL_STATION_2AM" && /\b(?:ukg|uk\s+garage|grime|uk\s+rap|uk\s+drill)\b/i.test(prompt)) {
     return true;
   }
+  // Petrol stop + heading home = night cruise, not fluorescent liminal isolation.
+  if (sceneId === "PETROL_STATION_2AM" && /\b(?:driving home|drive home|heading home|on my way home|going home)\b/i.test(prompt)) {
+    return true;
+  }
   if (sceneId === "RAVE_90S_UK" && hasNatureJungleContext(prompt) && !hasJungleMusicContext(prompt)) {
     return true;
   }

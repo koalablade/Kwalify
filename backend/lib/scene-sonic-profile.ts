@@ -57,6 +57,16 @@ export const SONIC_BY_CANONICAL: Record<string, SonicProfile> = {
     speechinessCap: 0.42,
     traits: ["mid-slow tempo", "cinematic", "steady pulse"],
   },
+  petrol_2am_drive_home: {
+    tempoBias: 0.54,
+    energyTarget: 0.48,
+    valenceTarget: 0.52,
+    acousticBias: 0.28,
+    instrumentalBias: 0.25,
+    danceabilityCap: 0.68,
+    speechinessCap: 0.45,
+    traits: ["night cruise", "synth pulse", "steady drive", "cool not sad"],
+  },
   late_summer_friends_drive: {
     tempoBias: 0.58,
     energyTarget: 0.45,

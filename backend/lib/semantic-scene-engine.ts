@@ -1249,6 +1249,19 @@ const SCENE_DETECTION_PATTERNS: {
 
   // ── Night / Urban ────────────────────────────────────────────────────────
   {
+    id: "EMPTY_MOTORWAY_NIGHT",
+    patterns: [
+      /\b(petrol station|gas station|service station).{0,40}(driving home|drive home|heading home|on my way home)\b/i,
+      /\b(driving home|drive home|heading home).{0,40}(petrol|gas station|service station)\b/i,
+      /\b(petrol|gas station).{0,30}(2am|3am).{0,30}(driving home|drive home)\b/i,
+      /\b(empty motorway|empty highway|motorway at night|highway at night)\b/i,
+      /\b(motorway|highway).{0,25}(midnight|2am|late night|empty|alone|dark)\b/i,
+      /\b(night drive|driving at night|driving home.{0,20}night)\b/i,
+      /\b(night highway|highway.{0,20}night|driving.{0,20}(3am|midnight))\b/i,
+    ],
+    confidence: 0.96,
+  },
+  {
     id: "PETROL_STATION_2AM",
     patterns: [
       /\b(petrol station|gas station).{0,30}(2am|3am|late night|midnight|night)\b/i,
@@ -1256,16 +1269,6 @@ const SCENE_DETECTION_PATTERNS: {
       /\b(service station.{0,20}(midnight|night|late|2am)|late.{0,15}service station)\b/i,
     ],
     confidence: 0.95,
-  },
-  {
-    id: "EMPTY_MOTORWAY_NIGHT",
-    patterns: [
-      /\b(empty motorway|empty highway|motorway at night|highway at night)\b/i,
-      /\b(motorway|highway).{0,25}(midnight|2am|late night|empty|alone|dark)\b/i,
-      /\b(night drive|driving at night|driving home.{0,20}night)\b/i,
-      /\b(night highway|highway.{0,20}night|driving.{0,20}(3am|midnight))\b/i,
-    ],
-    confidence: 0.88,
   },
   {
     id: "LATE_NIGHT_DRIVE",

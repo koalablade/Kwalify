@@ -77,8 +77,8 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
   },
   {
     id: "petrol_2am_drive_home",
-    prototypeId: "PETROL_LIMINAL",
-    emotionalTone: "decompression",
+    prototypeId: "MOTORWAY_NIGHT",
+    emotionalTone: "night_cruise",
     aliases: [
       "petrol station 2am driving home",
       "petrol station 2 am driving home",

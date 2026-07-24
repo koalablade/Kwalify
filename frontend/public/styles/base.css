@@ -1569,6 +1569,110 @@ p { margin: 0; }
   opacity: 0.65;
   cursor: wait;
 }
+.generation-stuck-hint {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.08);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.generation-stuck-hint strong {
+  color: #fbbf24;
+  font-weight: 700;
+}
+.generating-head-copy { flex: 1; min-width: 0; }
+.generating-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.generating-scene {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.generation-spotify-early { white-space: nowrap; }
+.early-result-card {
+  margin: 18px 0 0;
+  padding: 16px;
+  border: 1px solid rgba(124, 58, 237, 0.22);
+  border-radius: 16px;
+  background: rgba(124, 58, 237, 0.06);
+}
+.early-result-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.early-result-meta { font-size: 13px; color: var(--muted); }
+.early-result-more { margin-top: 8px; font-size: 12px; color: var(--muted); }
+.tracks-list--compact .track-row--compact { padding: 8px 0; }
+.result-scene-line {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.prompt-steer-row,
+.recent-prompts-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.prompt-steer-label,
+.recent-prompts-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.prompt-steer-chip,
+.recent-prompt-chip {
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.prompt-steer-chip:hover,
+.recent-prompt-chip:hover {
+  border-color: rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.12);
+}
+@media (max-width: 720px) {
+  .generation-top-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: linear-gradient(180deg, rgba(10,10,15,0.98), rgba(10,10,15,0.92));
+    padding-bottom: 4px;
+  }
+  .generating-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .generating-head-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .generation-cancel-btn,
+  .generation-spotify-early {
+    flex: 1 1 auto;
+    text-align: center;
+    justify-content: center;
+  }
+}
 .dj-live-stage {
   margin-top: 13px;
   display: inline-flex;
