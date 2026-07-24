@@ -67,22 +67,30 @@ const FIXTURES: Fixture[] = [
 function main(): void {
   const results = FIXTURES.map((fixture) => {
     const ctx = buildIntentPipelineContext(fixture.prompt, fixture.mode);
-    const aliasHits = fixture.expectAliases.filter((alias) =>
-      ctx.sceneAliases.includes(alias),
+    const allowedFamilies = ctx.sceneLockStatus.allowedGenreFamilies ?? [];
+    const familyHits = fixture.expectAliases.filter((alias) =>
+      allowedFamilies.includes(alias),
     );
-    const aliasPass = aliasHits.length >= Math.min(2, fixture.expectAliases.length);
+    const aliasPass = familyHits.length >= Math.min(2, fixture.expectAliases.length);
     const lockPass = fixture.expectSceneLock == null || ctx.sceneLockStatus.active === fixture.expectSceneLock;
     const confidencePass = fixture.minConfidence == null || ctx.decomposedIntent.confidence >= fixture.minConfidence;
-    const predictionPass = Object.keys(ctx.scenePrediction).length > 0;
+    const predictionPass =
+      ctx.sceneModifier.sceneId != null
+      || ctx.decomposedIntent.scene != null
+      || (ctx.sceneLockStatus.active && (ctx.sceneLockStatus.anchors?.length ?? 0) > 0);
     const pass = aliasPass && lockPass && confidencePass && predictionPass;
     return {
       id: fixture.id,
       pass,
-      sceneAliases: ctx.sceneAliases,
+      sceneAliases: allowedFamilies,
       sceneLock: ctx.sceneLockStatus.active,
       confidence: ctx.decomposedIntent.confidence,
       familiarityMode: ctx.familiarityMode,
-      scenePrediction: ctx.scenePrediction,
+      scenePrediction: {
+        sceneId: ctx.sceneModifier.sceneId,
+        anchors: ctx.sceneLockStatus.anchors ?? [],
+        scene: ctx.decomposedIntent.scene,
+      },
       checks: { aliasPass, lockPass, confidencePass, predictionPass },
     };
   });
