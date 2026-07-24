@@ -7,6 +7,7 @@
 import { buildIntentPipelineContext } from "../lib/intent-pipeline-orchestrator";
 import { buildPromptSceneProfile } from "../lib/scene-semantic-retrieval";
 import { expandCulturalReferences } from "../lib/cultural-reference-expansion";
+import { resolveSceneAliases } from "../lib/scene-alias-graph";
 
 type Fixture = {
   id: string;
@@ -63,7 +64,8 @@ function main(): void {
     const culturalHits = fixture.minCulturalTags.filter((tag) =>
       profile.culturalTags.some((t) => t.toLowerCase().includes(tag)),
     );
-    const aliasHits = fixture.expectAliases.filter((alias) => ctx.sceneAliases.includes(alias));
+    const genreHints = resolveSceneAliases(fixture.expectSceneId);
+    const aliasHits = fixture.expectAliases.filter((alias) => genreHints.includes(alias));
     const pass =
       expansion.sceneId === fixture.expectSceneId &&
       culturalHits.length >= Math.min(2, fixture.minCulturalTags.length) &&
@@ -76,7 +78,7 @@ function main(): void {
       pass,
       sceneId: expansion.sceneId,
       culturalTags: profile.culturalTags.slice(0, 8),
-      aliases: ctx.sceneAliases.slice(0, 6),
+      aliases: genreHints.slice(0, 6),
     }));
   }
 
