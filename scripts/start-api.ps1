@@ -4,6 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$host.UI.RawUI.WindowTitle = "Kwalify API"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 . "$PSScriptRoot\load-dotenv.ps1" -Root $root
@@ -21,7 +22,8 @@ try {
 if (-not $env:GIT_COMMIT) { $env:GIT_COMMIT = "local-dev" }
 Write-Host ""
 Write-Host "Kwalify API starting on http://localhost:$port"
-Write-Host "  .env PLAYLIST_EVAL_TOKEN loaded (length $($env:PLAYLIST_EVAL_TOKEN.Length))"
+$tokenLen = if ($env:PLAYLIST_EVAL_TOKEN) { $env:PLAYLIST_EVAL_TOKEN.Length } else { 0 }
+Write-Host "  .env PLAYLIST_EVAL_TOKEN loaded (length $tokenLen)"
 Write-Host "  Leave this window open while benchmarking."
 Write-Host "  Verify in another terminal: npm run verify:eval-token:local"
 Write-Host ""

@@ -6,6 +6,7 @@
 
 param(
   [switch]$SkipBuild,
+  [switch]$Build,
   [switch]$HttpOnly,
   [switch]$NoBrowser
 )
@@ -56,21 +57,38 @@ if (-not (Test-Path $envPath)) {
 . "$PSScriptRoot\load-dotenv.ps1" -Root $root
 $port = if ($env:PORT) { [int]$env:PORT } else { 5000 }
 
+if (-not (Test-Path (Join-Path $root "node_modules"))) {
+  Write-Step "Dependencies (node_modules)"
+  Write-Host "  node_modules missing - running npm ci (first time only)..."
+  npm ci
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
 Write-Step "3/5 Build"
 if ($SkipBuild -and (Test-Path "backend\dist\server.js")) {
   Write-Host "  Skipped (-SkipBuild)"
-} elseif (-not (Test-Path "backend\dist\server.js")) {
-  Write-Host "  backend\dist\server.js missing - building..."
+} elseif ($Build -or -not (Test-Path "backend\dist\server.js")) {
+  if ($Build) {
+    Write-Host "  Rebuilding (build flag)..."
+  } else {
+    Write-Host "  backend\dist\server.js missing - building..."
+  }
   npm run build
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 } else {
-  Write-Host "  dist present (use -SkipBuild to skip rebuild; delete dist to force build)"
+  Write-Host "  dist present (pass build to force rebuild; nobuild to skip)"
 }
 
 Write-Step "4/5 API server (http://localhost:$port)"
 $apiStartedHere = $false
 if (Test-PortListening $port) {
   Write-Host "  Port $port already in use - assuming API is already running."
+  try {
+    $rz = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/readyz" -TimeoutSec 5
+    Write-Host "  readyz OK (commit $($rz.commit))"
+  } catch {
+    Write-Host "  WARNING: port $port is open but /api/readyz did not respond."
+  }
   $apiStartedHere = $false
 } else {
   Start-Process -FilePath "powershell.exe" -ArgumentList @(
@@ -131,8 +149,11 @@ Write-Step "5/5 Site URL"
 Write-Host "  Open: $openUrl"
 Write-Host "  Health: http://127.0.0.1:$port/api/readyz"
 Write-Host "  Preflight: npm run preflight:api"
+Write-Host ""
+Write-Host "  KEEP OPEN: 'Kwalify API' PowerShell window (API + frontend site)"
+Write-Host "  Close that window to stop the server."
 if ($apiStartedHere) {
-  Write-Host "  API logs: 'Kwalify API' command window"
+  Write-Host "  API was started in a new window titled 'Kwalify API'."
 }
 if (-not $NoBrowser) {
   Start-Process $openUrl | Out-Null
