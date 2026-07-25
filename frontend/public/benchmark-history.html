@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kwalify Benchmark — History</title>
+  <style>
+    :root { --bg: #0f0a1a; --card: #1a1228; --text: #f3e8ff; --muted: #c4b5fd; --accent: #a855f7; --ok: #4ade80; --bad: #f87171; --line: #3b2667; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 24px; max-width: 960px; }
+    h1 { color: var(--accent); margin: 0 0 4px; }
+    .sub { color: var(--muted); margin-bottom: 20px; font-size: 14px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; }
+    .ok { color: var(--ok); font-weight: 600; }
+    .bad { color: var(--bad); font-weight: 600; }
+    a { color: var(--accent); }
+    code { background: #12091f; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Benchmark History</h1>
+  <p class="sub">Last 20 runs from <code>reports/benchmark-history.json</code>. <a href="benchmark-status.html">Live</a> · <a href="benchmark-guide.html">Guide</a></p>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Run</th>
+          <th>Status</th>
+          <th>SAVE rate</th>
+          <th>SAVE</th>
+          <th>SKIP</th>
+          <th>Prompts</th>
+        </tr>
+      </thead>
+      <tbody id="history-body">
+        <tr><td colspan="7" class="sub">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const paths = [
+      '../../reports/benchmark-history.json',
+      '/reports/benchmark-history.json',
+      '../reports/benchmark-history.json',
+    ];
+
+    function fmtWhen(iso) {
+      if (!iso) return '—';
+      return new Date(iso).toLocaleString();
+    }
+
+    function fmtRate(r) {
+      if (r == null) return '—';
+      return Math.round(r * 1000) / 10 + '%';
+    }
+
+    function render(rows) {
+      const tbody = document.getElementById('history-body');
+      if (!rows || !rows.length) {
+        tbody.innerHTML = '<tr><td colspan="7">No runs yet. Complete a benchmark to populate history.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map((r, i) => {
+        const statusCls = r.exitCode === 0 ? 'ok' : 'bad';
+        const delta = i < rows.length - 1 && r.wouldSaveRate != null && rows[i + 1].wouldSaveRate != null
+          ? Math.round((r.wouldSaveRate - rows[i + 1].wouldSaveRate) * 1000) / 10
+          : null;
+        const deltaTxt = delta != null ? ' (' + (delta >= 0 ? '+' : '') + delta + '% vs prev)' : '';
+        return '<tr>' +
+          '<td>' + fmtWhen(r.finishedAt) + '</td>' +
+          '<td><code>' + (r.runId || '') + '</code><br><span style="color:var(--muted);font-size:12px">' + (r.label || '') + '</span></td>' +
+          '<td class="' + statusCls + '">' + (r.status || '') + '</td>' +
+          '<td class="ok">' + fmtRate(r.wouldSaveRate) + deltaTxt + '</td>' +
+          '<td>' + (r.SAVE ?? '—') + '</td>' +
+          '<td>' + (r.SKIP ?? '—') + '</td>' +
+          '<td>' + (r.promptCount ?? '—') + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    async function load() {
+      for (const p of paths) {
+        try {
+          const r = await fetch(p + '?t=' + Date.now());
+          if (r.ok) {
+            const data = await r.json();
+            render(Array.isArray(data) ? data : [data]);
+            return;
+          }
+        } catch (_) {}
+      }
+      document.getElementById('history-body').innerHTML =
+        '<tr><td colspan="7">Could not load benchmark-history.json. Run a benchmark first.</td></tr>';
+    }
+
+    load();
+    setInterval(load, 30000);
+  </script>
+</body>
+</html>

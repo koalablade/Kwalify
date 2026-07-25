@@ -99,3 +99,24 @@ Spotify login fails
 
 Health check:
   https://kwalify.net/api/readyz
+
+
+LOCAL BENCHMARKS
+---------------
+
+ONE FILE:  start-kwalify-benchmark.bat   (Desktop: Kwalify Benchmark)
+
+  1 Smoke test          - is API working? (~2 min)
+  2 View status         - SAVE/SKIP/underfill while running
+  3 Package results     - zip to Desktop for sharing
+  4-8 Easy/Medium/Hard/Edge/Quick - tiered human prompts
+  9 LARGE RUN (100)     - full benchmark (~4h, auto-resume + zip)
+  m More suites         - overnight, eval harness, etc.
+
+Large run from command line:
+  start-kwalify-benchmark.bat large
+
+Prereq: Start Kwalify first (or LARGE RUN starts API for you).
+Status file while running: reports\BENCHMARK-STATUS.txt
+
+Shortcuts: create-kwalify-shortcuts.bat  (Start + Stop + Benchmark)

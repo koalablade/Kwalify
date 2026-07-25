@@ -1,7 +1,4 @@
 @echo off
-title Kwalify Live Benchmark (resume)
+REM Redirect -> single benchmark launcher
 cd /d "%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\run-live-benchmark.ps1" -Suite 6h -Resume
-echo.
-echo Reports: reports\playlist-evaluation\live-6h\
-pause
+call "%~dp0start-kwalify-benchmark.bat" large resume %*

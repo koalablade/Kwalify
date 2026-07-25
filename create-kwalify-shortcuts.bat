@@ -16,6 +16,7 @@ if errorlevel 1 (
 echo.
 echo Desktop shortcuts created:
 echo   - Start Kwalify
+echo   - Run Benchmark   (menu: size + prompt picker)
 echo   - Stop Kwalify
 echo.
 pause

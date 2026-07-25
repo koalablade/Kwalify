@@ -1,5 +1,4 @@
 @echo off
-title Kwalify Benchmark Smoke Test
+REM Redirect -> single benchmark launcher
 cd /d "%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\run-live-benchmark.ps1" -Suite smoke
-pause
+call "%~dp0start-kwalify-benchmark.bat" smoke %*

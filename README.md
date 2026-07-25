@@ -67,6 +67,8 @@ Spotify redirect URI (required): `https://kwalify.net/api/auth/callback`
 
 Flags (optional): `build` force rebuild, `nopull` skip git pull, `quick` skip restart if already running.
 
+**Benchmarks:** one file `start-kwalify-benchmark.bat` (Desktop: **Kwalify Benchmark**) — menu covers smoke, tiers, large run, status, and zip. See [FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt).
+
 ### Local setup (manual)
 
 ```bash

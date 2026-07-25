@@ -77,6 +77,8 @@ tmp-*.mjs
 *.log
 server-boot.log
 results-real/
+docs/archive/cursor-context-week/**/*.jsonl
+docs/archive/cursor-context-week/**/subagents/
 # Refit experiment scratch (regenerate via collect + fit scripts)
 backend/data/*.candidate.json
 data/corpus/*.candidate.json

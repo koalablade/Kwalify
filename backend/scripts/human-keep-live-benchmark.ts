@@ -12,9 +12,11 @@
  *   npm run benchmark:human-keep-live
  *   HUMAN_KEEP_LIMIT=20 npm run benchmark:human-keep-live
  *   HUMAN_KEEP_IDS=h03,h65 npm run benchmark:human-keep-live
+ *   HUMAN_KEEP_DIFFICULTY=easy npm run benchmark:human-keep-live
+ *   HUMAN_KEEP_DIFFICULTY=hard,edge npm run benchmark:human-keep-live
  *   HUMAN_KEEP_VARIETY=1 npm run benchmark:human-keep-live
  */
-import { mkdir, writeFile, appendFile } from "node:fs/promises";
+import { mkdir, writeFile, appendFile, copyFile } from "node:fs/promises";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { resolveLiveBenchmarkCredentials } from "../lib/benchmark-env";
@@ -70,6 +72,92 @@ async function writeIndex(dir: string, title: string, entries: Array<{ file: str
   await writeFile(path.join(dir, "index.md"), lines.join("\n"));
 }
 
+async function writeLiveStatus(
+  outDir: string,
+  opts: {
+    runId: string;
+    completed: number;
+    total: number;
+    currentId: string | null;
+    currentPrompt: string | null;
+    counts: Record<string, number>;
+    results: ResultRow[];
+  },
+) {
+  const underfilled = opts.results.filter((r) => r.tracks.length > 0 && r.tracks.length < r.length * 0.9);
+  const fillRatios = opts.results
+    .filter((r) => r.length > 0)
+    .map((r) => r.tracks.length / r.length);
+  const avgFillRatio = fillRatios.length
+    ? +(fillRatios.reduce((a, b) => a + b, 0) / fillRatios.length).toFixed(3)
+    : 0;
+  const avgMs = opts.results.length
+    ? Math.round(opts.results.reduce((a, r) => a + r.ms, 0) / opts.results.length)
+    : 0;
+  const remaining = Math.max(0, opts.total - opts.completed);
+  const etaMinutes = remaining > 0 && avgMs > 0 ? Math.max(1, Math.round((remaining * avgMs) / 60000)) : 0;
+  const recentPrompts = opts.results.slice(-5).map((r) => ({
+    id: r.id,
+    prompt: r.prompt.slice(0, 72),
+    verdict: r.judgment.verdict,
+    tracks: r.tracks.length,
+    asked: r.length,
+    underfilled: r.tracks.length > 0 && r.tracks.length < r.length * 0.9,
+    ms: r.ms,
+  }));
+  const status = {
+    runId: opts.runId,
+    label: "human-keep-live",
+    status: opts.completed >= opts.total ? "completed" : "running",
+    updatedAt: new Date().toISOString(),
+    progress: {
+      completed: opts.completed,
+      total: opts.total,
+      percent: opts.total > 0 ? +((100 * opts.completed) / opts.total).toFixed(1) : 0,
+      currentId: opts.currentId,
+      currentPrompt: opts.currentPrompt,
+    },
+    counts: opts.counts,
+    underfilledCount: underfilled.length,
+    avgFillRatio,
+    wouldSaveSoFar: opts.counts.SAVE ?? 0,
+    keepableSoFar:
+      (opts.counts.SAVE ?? 0) +
+      (opts.counts.PARTIAL_OK ?? 0) +
+      (opts.counts.MAYBE ?? 0) +
+      (opts.counts.REFUSE_OK ?? 0),
+    wouldSaveRateSoFar: opts.completed > 0 ? +(((opts.counts.SAVE ?? 0) / opts.completed)).toFixed(3) : 0,
+    avgMs,
+    etaMinutes,
+    recentPrompts,
+  };
+  await writeFile(path.join(outDir, "status.json"), JSON.stringify(status, null, 2));
+  try {
+    await mkdir(path.join("reports"), { recursive: true });
+    await copyFile(path.join(outDir, "status.json"), path.join("reports", "benchmark-live.json"));
+  } catch {
+    /* ignore */
+  }
+  const lines = [
+    "HUMAN KEEP LIVE - LIVE STATUS",
+    `Updated: ${status.updatedAt}`,
+    `Progress: ${opts.completed}/${opts.total} (${status.progress.percent}%)`,
+    opts.currentId ? `Current: ${opts.currentId} - ${opts.currentPrompt}` : "",
+    "",
+    "VERDICTS SO FAR",
+    `  SAVE:        ${opts.counts.SAVE ?? 0}`,
+    `  PARTIAL_OK:  ${opts.counts.PARTIAL_OK ?? 0}`,
+    `  MAYBE:       ${opts.counts.MAYBE ?? 0}`,
+    `  SKIP:        ${opts.counts.SKIP ?? 0}`,
+    `  REFUSE_OK:   ${opts.counts.REFUSE_OK ?? 0}`,
+    `  EMPTY_BAD:   ${opts.counts.EMPTY_BAD ?? 0}`,
+    "",
+    `Underfilled (<90%): ${underfilled.length}`,
+    `Avg fill ratio:     ${avgFillRatio}`,
+  ].filter(Boolean);
+  await writeFile(path.join(outDir, "STATUS.txt"), lines.join("\n"));
+}
+
 async function main() {
   const creds = resolveLiveBenchmarkCredentials({
     strict: true,
@@ -86,6 +174,10 @@ async function main() {
     : HUMAN_100_PROMPTS.length;
   const idFilter = process.env.HUMAN_KEEP_IDS?.split(/[,\s]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
   const cohortFilter = process.env.HUMAN_KEEP_COHORT?.trim().toLowerCase();
+  const difficultyFilter = process.env.HUMAN_KEEP_DIFFICULTY
+    ?.split(/[,\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
   let prompts: typeof HUMAN_100_PROMPTS;
   if (cohortFilter === "guided" || cohortFilter === "vague") {
     prompts = HUMAN_100_PROMPTS.filter((p) => p.cohort === cohortFilter);
@@ -96,6 +188,12 @@ async function main() {
     prompts = HUMAN_100_PROMPTS.filter((p) => idFilter.includes(p.id.toLowerCase()));
   } else {
     prompts = HUMAN_100_PROMPTS.slice(0, Math.max(1, Math.min(limit, HUMAN_100_PROMPTS.length)));
+  }
+  if (difficultyFilter?.length) {
+    prompts = prompts.filter((p) => difficultyFilter.includes(p.difficulty));
+  }
+  if (!idFilter?.length && prompts.length > limit) {
+    prompts = prompts.slice(0, Math.max(1, limit));
   }
   if (prompts.length === 0) {
     throw new Error(
@@ -130,6 +228,15 @@ async function main() {
   const verdictIndex = new Map<SaveVerdict, Array<{ file: string; label: string }>>();
   const familyIndex = new Map<string, Array<{ file: string; label: string }>>();
   const difficultyIndex = new Map<string, Array<{ file: string; label: string }>>();
+
+  const tallyCounts = () => ({
+    SAVE: results.filter((r) => r.judgment.verdict === "SAVE").length,
+    PARTIAL_OK: results.filter((r) => r.judgment.verdict === "PARTIAL_OK").length,
+    MAYBE: results.filter((r) => r.judgment.verdict === "MAYBE").length,
+    SKIP: results.filter((r) => r.judgment.verdict === "SKIP").length,
+    REFUSE_OK: results.filter((r) => r.judgment.verdict === "REFUSE_OK").length,
+    EMPTY_BAD: results.filter((r) => r.judgment.verdict === "EMPTY_BAD").length,
+  });
 
   for (let i = 0; i < prompts.length; i++) {
     const fixture = prompts[i]!;
@@ -234,15 +341,32 @@ async function main() {
       `[${i + 1}/${prompts.length}] ${fixture.id} ${judgment.verdict.padEnd(9)} n=${String(tracks.length).padStart(2)}/${fixture.length} ` +
         `${fixture.difficulty}/${fixture.family} ${Math.round(row.ms / 1000)}s — ${fixture.prompt.slice(0, 44)}`,
     );
+
+    await writeLiveStatus(outDir, {
+      runId: id,
+      completed: i + 1,
+      total: prompts.length,
+      currentId: fixture.id,
+      currentPrompt: fixture.prompt,
+      counts: tallyCounts(),
+      results,
+    });
   }
 
-  const counts = {
-    SAVE: results.filter((r) => r.judgment.verdict === "SAVE").length,
-    PARTIAL_OK: results.filter((r) => r.judgment.verdict === "PARTIAL_OK").length,
-    MAYBE: results.filter((r) => r.judgment.verdict === "MAYBE").length,
-    SKIP: results.filter((r) => r.judgment.verdict === "SKIP").length,
-    REFUSE_OK: results.filter((r) => r.judgment.verdict === "REFUSE_OK").length,
-    EMPTY_BAD: results.filter((r) => r.judgment.verdict === "EMPTY_BAD").length,
+  const counts = tallyCounts();
+  const underfilledRows = results.filter((r) => r.tracks.length > 0 && r.tracks.length < r.length * 0.9);
+  const fillRatios = results.filter((r) => r.length > 0).map((r) => r.tracks.length / r.length);
+  const avgFillRatio = fillRatios.length
+    ? +(fillRatios.reduce((a, b) => a + b, 0) / fillRatios.length).toFixed(3)
+    : 0;
+  const avgUnderfillRatio = fillRatios.length
+    ? +(fillRatios.map((f) => Math.max(0, 1 - f)).reduce((a, b) => a + b, 0) / fillRatios.length).toFixed(3)
+    : 0;
+  const worldFeelCounts = {
+    one_world: results.filter((r) => r.judgment.worldFeel === "one_world").length,
+    mixed: results.filter((r) => r.judgment.worldFeel === "mixed").length,
+    broken: results.filter((r) => r.judgment.worldFeel === "broken").length,
+    empty: results.filter((r) => r.judgment.worldFeel === "empty").length,
   };
   const keepable = counts.SAVE + counts.PARTIAL_OK + counts.MAYBE + counts.REFUSE_OK;
   const summary = {
@@ -260,6 +384,10 @@ async function main() {
     keepableRate: +(keepable / results.length).toFixed(3),
     wouldSaveRate: +(counts.SAVE / results.length).toFixed(3),
     wouldSkipRate: +((counts.SKIP + counts.EMPTY_BAD) / results.length).toFixed(3),
+    underfilledCount: underfilledRows.length,
+    avgFillRatio,
+    avgUnderfillRatio,
+    worldFeelCounts,
     avgMs: Math.round(results.reduce((a, r) => a + r.ms, 0) / Math.max(1, results.length)),
     byDifficulty: Object.fromEntries(
       (["easy", "medium", "hard", "edge"] as const).map((d) => {
@@ -337,6 +465,9 @@ async function main() {
     `- **Skip:** ${counts.SKIP}/${prompts.length}`,
     `- **Honest refuse:** ${counts.REFUSE_OK}/${prompts.length}`,
     `- **Empty bad:** ${counts.EMPTY_BAD}/${prompts.length}`,
+    `- **Underfilled (<90%):** ${underfilledRows.length}/${prompts.length}`,
+    `- **Avg fill ratio:** ${avgFillRatio}`,
+    `- **One-world feel:** ${worldFeelCounts.one_world}/${prompts.length}`,
   ].filter(Boolean).join("\n");
 
   const summaryMd = [
@@ -360,10 +491,19 @@ async function main() {
 
   await writeFile(path.join(outDir, "README.md"), readme);
   await writeFile(path.join(outDir, "SUMMARY.md"), summaryMd);
+  await writeLiveStatus(outDir, {
+    runId: id,
+    completed: prompts.length,
+    total: prompts.length,
+    currentId: null,
+    currentPrompt: null,
+    counts,
+    results,
+  });
 
   console.log("\n=== HUMAN KEEP LIVE SUMMARY ===");
   console.log(JSON.stringify(counts));
-  console.log(`wouldSave=${summary.wouldSaveRate} keepable=${summary.keepableRate} skip=${summary.wouldSkipRate}`);
+  console.log(`wouldSave=${summary.wouldSaveRate} keepable=${summary.keepableRate} skip=${summary.wouldSkipRate} underfill=${summary.underfilledCount} fill=${summary.avgFillRatio}`);
   console.log(`Wrote ${outDir}`);
 
   ready.shutdown?.();

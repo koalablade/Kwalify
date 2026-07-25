@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kwalify Benchmark</title>
+  <link rel="icon" href="/public/favicon.ico" />
+  <style>
+    :root {
+      --bg: #0a0612;
+      --panel: #140d1f;
+      --card: #1a1228;
+      --card2: #12091f;
+      --text: #f3e8ff;
+      --muted: #a78bfa;
+      --dim: #6b5a8e;
+      --accent: #a855f7;
+      --accent2: #7c3aed;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      --bad: #f87171;
+      --line: #3b2667;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 20px 100px; }
+    header {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+      margin-bottom: 20px;
+    }
+    h1 { margin: 0; font-size: 1.5rem; color: var(--accent); }
+    .tagline { color: var(--dim); font-size: 14px; margin: 0; }
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+    .pill {
+      font-size: 12px; padding: 5px 12px; border-radius: 999px;
+      border: 1px solid var(--line); background: var(--card2);
+    }
+    .pill.ok { border-color: var(--ok); color: var(--ok); }
+    .pill.bad { border-color: var(--bad); color: var(--bad); }
+    .pill.run { border-color: var(--accent); color: var(--accent); animation: pulse 2s infinite; }
+    @keyframes pulse { 50% { opacity: 0.7; } }
+
+    .grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .card h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .btn {
+      background: var(--card2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 12px;
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn.primary { border-color: var(--ok); background: linear-gradient(135deg, #1a2e1a, var(--card2)); }
+    .btn.primary strong { color: var(--ok); }
+    .btn strong { display: block; font-size: 15px; margin-bottom: 2px; }
+    .btn span { font-size: 12px; color: var(--dim); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      background: var(--card2); border: 1px solid var(--line); border-radius: 999px;
+      padding: 6px 14px; font-size: 13px; cursor: pointer;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    .progress-bar { background: var(--card2); border-radius: 999px; height: 10px; overflow: hidden; margin: 10px 0; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 0.4s; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .metric { background: var(--card2); border-radius: 8px; padding: 10px; text-align: center; }
+    .metric .v { font-size: 20px; font-weight: 700; }
+    .metric .l { font-size: 11px; color: var(--dim); text-transform: uppercase; }
+    .save { color: var(--ok); }
+    .skip { color: var(--bad); }
+
+    .chat-log {
+      max-height: 220px; overflow-y: auto; margin-bottom: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .msg {
+      max-width: 92%; padding: 10px 14px; border-radius: 12px; font-size: 14px;
+      white-space: pre-wrap;
+    }
+    .msg.bot { background: var(--card2); border: 1px solid var(--line); align-self: flex-start; }
+    .msg.you { background: #2d1b4e; border: 1px solid var(--accent); align-self: flex-end; }
+    .msg.err { border-color: var(--bad); color: #fecaca; }
+    .msg strong { color: var(--accent); }
+
+    .chat-box {
+      display: flex; gap: 8px;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(10, 6, 18, 0.95); border-top: 1px solid var(--line);
+      padding: 12px 20px; backdrop-filter: blur(8px);
+    }
+    .chat-box .inner { max-width: 1100px; margin: 0 auto; width: 100%; display: flex; gap: 8px; }
+    .chat-box input {
+      flex: 1; background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 12px 16px; color: var(--text); font-size: 15px;
+    }
+    .chat-box input:focus { outline: none; border-color: var(--accent); }
+    .chat-box button {
+      background: var(--accent2); border: none; color: white;
+      border-radius: 12px; padding: 0 20px; font-weight: 600; cursor: pointer;
+    }
+    .chat-box button:hover { background: var(--accent); }
+
+    details.advanced { margin-top: 8px; }
+    details.advanced summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 8px 0; }
+    .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .links a {
+      color: var(--muted); font-size: 13px; text-decoration: none;
+      border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px;
+    }
+    .links a:hover { color: var(--accent); border-color: var(--accent); }
+
+    .log-tail {
+      font-family: ui-monospace, monospace; font-size: 11px; color: var(--dim);
+      max-height: 120px; overflow-y: auto; background: var(--card2);
+      border-radius: 8px; padding: 10px; white-space: pre-wrap;
+    }
+    .toast {
+      position: fixed; top: 16px; right: 16px; background: var(--card);
+      border: 1px solid var(--ok); color: var(--ok); padding: 12px 18px;
+      border-radius: 10px; display: none; z-index: 100;
+    }
+    .banner {
+      background: #3b1a1a; border: 1px solid var(--bad); color: #fecaca;
+      padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px;
+    }
+    .banner a { color: #fca5a5; }
+    .btn.busy { opacity: 0.6; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="banner" id="offline-banner" style="display:none">
+      <strong>Launcher not connected.</strong> Close this tab and double-click <strong>Run Benchmark</strong> on Desktop again.
+      Do not open this file directly from the folder.
+    </div>
+    <header>
+      <div>
+        <h1>Kwalify Benchmark</h1>
+        <p class="tagline">Buttons for the usual runs · chat for anything specific</p>
+      </div>
+      <div class="pills">
+        <span class="pill" id="pill-launcher">Launcher …</span>
+        <span class="pill" id="pill-api">API …</span>
+        <span class="pill" id="pill-run">Idle</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>Main actions</h2>
+          <div class="btn-grid" id="main-buttons"></div>
+        </div>
+
+        <div class="card" id="saved-card" style="display:none">
+          <h2>Your saved presets</h2>
+          <div class="chips" id="saved-chips"></div>
+        </div>
+
+        <div class="card">
+          <h2>Ask for anything</h2>
+          <div class="chat-log" id="chat-log">
+            <div class="msg bot">Examples: <strong>40 human go</strong> · <strong>30 mix</strong> · <strong>25 easy</strong> · <strong>h03,h12</strong> · <strong>repeat last</strong> · type <strong>help</strong></div>
+          </div>
+        </div>
+
+        <details class="advanced card">
+          <summary>Advanced / problem-finding suites</summary>
+          <div class="btn-grid" style="margin-top:12px">
+            <button class="btn" data-suite="smoke"><strong>Smoke</strong><span>API health</span></button>
+            <button class="btn" data-suite="eval-10"><strong>Eval 10</strong><span>golden sample</span></button>
+            <button class="btn" data-suite="eval-50"><strong>Eval 50</strong><span>golden medium</span></button>
+            <button class="btn" data-suite="reliability"><strong>Reliability</strong><span>golden CI set</span></button>
+            <button class="btn" data-suite="tier-hard"><strong>Hard tier</strong><span>difficulty probe</span></button>
+            <button class="btn" data-suite="mix-long"><strong>Full mix 100</strong><span>genre-lock stress</span></button>
+          </div>
+          <p style="font-size:13px;color:var(--dim);margin:12px 0 0">CLI still available: <code style="background:var(--card2);padding:2px 6px;border-radius:4px">start-kwalify-benchmark.bat menu</code></p>
+        </details>
+      </div>
+
+      <div>
+        <div class="card" id="live-card">
+          <h2>Live progress</h2>
+          <div id="live-idle" style="color:var(--dim);font-size:14px">No run in progress. Hit <strong style="color:var(--ok)">Go now</strong> or type in the chat.</div>
+          <div id="live-active" style="display:none">
+            <div id="live-label" style="font-weight:600;margin-bottom:4px"></div>
+            <div class="progress-bar"><div class="progress-fill" id="live-bar" style="width:0%"></div></div>
+            <div id="live-progress" style="font-size:14px"></div>
+            <div class="metrics">
+              <div class="metric"><div class="v save" id="m-save">—</div><div class="l">SAVE</div></div>
+              <div class="metric"><div class="v skip" id="m-skip">—</div><div class="l">SKIP</div></div>
+              <div class="metric"><div class="v" id="m-rate">—</div><div class="l">Save rate</div></div>
+            </div>
+            <div id="live-current" style="font-size:12px;color:var(--dim);margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Recent runs</h2>
+          <div id="history-list" style="font-size:13px;color:var(--dim)">No history yet.</div>
+        </div>
+
+        <div class="card">
+          <h2>Log tail</h2>
+          <div class="log-tail" id="log-tail">—</div>
+        </div>
+
+        <div class="links">
+          <a href="/public/benchmark-status.html" target="_blank">Full dashboard</a>
+          <a href="/public/benchmark-history.html" target="_blank">History</a>
+          <a href="/public/benchmark-guide.html" target="_blank">Guide</a>
+          <a href="#" id="open-reports">Reports folder</a>
+          <a href="#" id="clear-lock">Clear stuck lock</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-box">
+    <div class="inner">
+      <input id="chat-input" type="text" placeholder="e.g. 40 human go · 30 mix · repeat last · preview 50 easy" autocomplete="off" />
+      <button id="chat-send">Run</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    if (location.protocol === 'file:') {
+      document.addEventListener('DOMContentLoaded', () => {
+        const b = document.getElementById('offline-banner');
+        if (b) {
+          b.style.display = 'block';
+          b.innerHTML = '<strong>Wrong way to open this.</strong> Close this tab. Double-click <strong>Run Benchmark</strong> on your Desktop (keep that window open).';
+        }
+      });
+    }
+
+    const LAUNCHER_VERSION = '2';
+    let state = {};
+    let serverOk = false;
+    let busy = false;
+
+    function showOfflineBanner(reason) {
+      const b = document.getElementById('offline-banner');
+      b.style.display = 'block';
+      const here = location.href;
+      const wrongPage = !here.startsWith('http://127.0.0.1:5055');
+      b.innerHTML = reason || (
+        '<strong>Launcher not connected.</strong><br>' +
+        '1. Double-click <strong>Run Benchmark</strong> on Desktop<br>' +
+        '2. Keep the window titled <strong>Kwalify Launcher - KEEP THIS OPEN</strong> open (not the benchmark run window)<br>' +
+        '3. Use this page: <strong>http://127.0.0.1:5055/</strong>' +
+        (wrongPage ? `<br><span style="color:#fca5a5">You are on: ${here}</span>` : '')
+      );
+      const pill = document.getElementById('pill-launcher');
+      pill.textContent = 'Launcher down';
+      pill.className = 'pill bad';
+    }
+
+    function markConnected() {
+      serverOk = true;
+      document.getElementById('offline-banner').style.display = 'none';
+      const pill = document.getElementById('pill-launcher');
+      pill.textContent = 'Launcher up';
+      pill.className = 'pill ok';
+    }
+
+    async function checkPing() {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 4000);
+        const r = await fetch('/api/ping', { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!r.ok) throw new Error('ping failed');
+        const data = await r.json();
+        if (data.launcherVersion && data.launcherVersion !== LAUNCHER_VERSION) {
+          showOfflineBanner('<strong>Launcher out of date.</strong> Close the launcher window and double-click <strong>Run Benchmark</strong> again.');
+          serverOk = false;
+          return false;
+        }
+        markConnected();
+        return true;
+      } catch (_) {
+        serverOk = false;
+        showOfflineBanner();
+        return false;
+      }
+    }
+
+    function toast(msg, isErr) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.borderColor = isErr ? 'var(--bad)' : 'var(--ok)';
+      t.style.color = isErr ? 'var(--bad)' : 'var(--ok)';
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 4000);
+    }
+
+    function fmtRate(r) {
+      if (r == null) return '—';
+      return Math.round(r * 1000) / 10 + '%';
+    }
+
+    function addMsg(text, who = 'bot', isErr = false) {
+      const log = document.getElementById('chat-log');
+      const d = document.createElement('div');
+      d.className = 'msg ' + who + (isErr ? ' err' : '');
+      d.innerHTML = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      log.appendChild(d);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function api(path, opts = {}) {
+      const r = await fetch(API + path, {
+        headers: { 'Content-Type': 'application/json' },
+        ...opts,
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || ('HTTP ' + r.status));
+      }
+      return r.json();
+    }
+
+    async function runRequest(request, suite = '') {
+      if (!serverOk) {
+        toast('Launcher offline - double-click Run Benchmark on Desktop', true);
+        addMsg('Launcher not connected. Double-click **Run Benchmark** on Desktop and keep that window open.', 'bot', true);
+        return;
+      }
+      if (busy) return;
+      busy = true;
+      document.querySelectorAll('.btn').forEach((b) => b.classList.add('busy'));
+      document.getElementById('chat-send').disabled = true;
+      try {
+        const body = suite ? { suite } : { request };
+        const res = await api('/api/run', { method: 'POST', body: JSON.stringify(body) });
+        if (res.ok) {
+          toast(res.message || 'Started - check the PowerShell window');
+          addMsg('Started: ' + (res.preview?.label || suite || request), 'you');
+          setTimeout(poll, 1500);
+        } else {
+          const err = res.error || 'Could not start';
+          addMsg(err, 'bot', true);
+          toast(err, true);
+        }
+      } catch (e) {
+        addMsg('Error: ' + e.message, 'bot', true);
+        toast(e.message, true);
+      } finally {
+        busy = false;
+        document.querySelectorAll('.btn').forEach((b) => b.classList.remove('busy'));
+        document.getElementById('chat-send').disabled = false;
+      }
+    }
+
+    function renderButtons(buttons) {
+      const el = document.getElementById('main-buttons');
+      el.innerHTML = buttons.map((b) => {
+        const cls = 'btn' + (b.primary ? ' primary' : '');
+        let data = '';
+        if (b.action) data = `data-action="${b.action}"`;
+        else if (b.suite) data = `data-suite="${b.suite}"`;
+        else data = `data-req="${b.request || ''}"`;
+        return `<button class="${cls}" ${data}><strong>${b.label}</strong><span>${b.sub || ''}</span></button>`;
+      }).join('');
+      el.querySelectorAll('button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (btn.dataset.action === 'open-status') {
+            window.open('/public/benchmark-status.html', '_blank');
+            return;
+          }
+          if (btn.dataset.action === 'repeat') {
+            runRequest('', 'repeat');
+            return;
+          }
+          if (btn.dataset.suite) {
+            runRequest('', btn.dataset.suite);
+            return;
+          }
+          if (btn.dataset.req) runRequest(btn.dataset.req);
+        });
+      });
+      document.querySelectorAll('.advanced .btn[data-suite]').forEach((btn) => {
+        btn.addEventListener('click', () => runRequest('', btn.dataset.suite));
+      });
+      document.querySelectorAll('.advanced .btn[data-req]').forEach((btn) => {
+        btn.addEventListener('click', () => runRequest(btn.dataset.req));
+      });
+    }
+
+    function renderState(s) {
+      state = s;
+      markConnected();
+
+      const apiPill = document.getElementById('pill-api');
+      apiPill.textContent = s.apiUp ? 'Kwalify up' : 'Kwalify down';
+      apiPill.className = 'pill ' + (s.apiUp ? 'ok' : 'bad');
+
+      const runPill = document.getElementById('pill-run');
+      runPill.textContent = s.benchmarkRunning ? 'Running…' : 'Idle';
+      runPill.className = 'pill ' + (s.benchmarkRunning ? 'run' : '');
+
+      const live = s.live;
+      const idle = document.getElementById('live-idle');
+      const active = document.getElementById('live-active');
+      if (live && live.progress && live.progress.total > 0 && live.status !== 'completed') {
+        idle.style.display = 'none';
+        active.style.display = 'block';
+        const p = live.progress;
+        document.getElementById('live-label').textContent = 'Human keep live';
+        document.getElementById('live-bar').style.width = (p.percent || 0) + '%';
+        document.getElementById('live-progress').textContent = `${p.completed}/${p.total} prompts (${p.percent || 0}%)`;
+        const c = live.counts || {};
+        document.getElementById('m-save').textContent = c.SAVE ?? 0;
+        document.getElementById('m-skip').textContent = c.SKIP ?? 0;
+        document.getElementById('m-rate').textContent = fmtRate(live.wouldSaveRateSoFar);
+        document.getElementById('live-current').textContent = p.currentId
+          ? `Now: ${p.currentId} — ${(p.currentPrompt || '').slice(0, 60)}`
+          : (live.etaMinutes ? `~${live.etaMinutes} min left` : '');
+      } else if (s.benchmarkRunning) {
+        idle.style.display = 'none';
+        active.style.display = 'block';
+        document.getElementById('live-label').textContent = 'Starting…';
+      } else {
+        idle.style.display = 'block';
+        active.style.display = 'none';
+      }
+
+      if (s.stuckWarning) {
+        addMsg('⚠ Stuck? ' + s.stuckWarning, 'bot', true);
+      }
+
+      const hist = document.getElementById('history-list');
+      if (s.history && s.history.length) {
+        hist.innerHTML = s.history.map((h) =>
+          `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line)">
+            <span class="save">${fmtRate(h.wouldSaveRate)}</span> SAVE ${h.SAVE ?? '—'} · ${h.label || h.runId}<br>
+            <span style="font-size:11px">${new Date(h.finishedAt).toLocaleString()}</span>
+          </div>`
+        ).join('');
+      }
+
+      const saved = s.savedPresets;
+      const card = document.getElementById('saved-card');
+      const chips = document.getElementById('saved-chips');
+      if (saved && Object.keys(saved).length) {
+        card.style.display = 'block';
+        chips.innerHTML = Object.keys(saved).map((k) =>
+          `<button class="chip" data-req="run ${k} yes">${k}</button>`
+        ).join('');
+        chips.querySelectorAll('.chip').forEach((c) => {
+          c.addEventListener('click', () => runRequest(c.dataset.req));
+        });
+      }
+
+      document.getElementById('log-tail').textContent =
+        (s.logTail && s.logTail.length) ? s.logTail.join('\n') : '—';
+    }
+
+    async function poll() {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 12000);
+        const r = await fetch('/api/state', { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!r.ok) throw new Error('state failed');
+        renderState(await r.json());
+      } catch (_) {
+        // State can be slow - don't mark offline if ping still works
+        await checkPing();
+      }
+    }
+
+    async function sendChat() {
+      if (!serverOk) {
+        toast('Launcher offline - double-click Run Benchmark on Desktop', true);
+        addMsg('Launcher not connected. Double-click **Run Benchmark** on Desktop.', 'bot', true);
+        return;
+      }
+      const input = document.getElementById('chat-input');
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = '';
+      addMsg(msg, 'you');
+      document.getElementById('chat-send').disabled = true;
+      try {
+        const res = await api('/api/chat', {
+          method: 'POST',
+          body: JSON.stringify({ message: msg, forceRun: true }),
+        });
+        if (res.reply) addMsg(res.reply, 'bot', !res.ok);
+        if (res.error) toast(res.error, true);
+        if (res.run && res.run.ok) {
+          toast(res.run.message || 'Started');
+          setTimeout(poll, 1500);
+        } else if (res.suggestRun && !res.run) {
+          const go = document.createElement('button');
+          go.className = 'chip';
+          go.textContent = 'Run: ' + res.suggestRun;
+          go.onclick = () => runRequest(res.suggestRun);
+          document.getElementById('chat-log').appendChild(go);
+        }
+      } catch (e) {
+        addMsg('Error: ' + e.message, 'bot', true);
+        toast(e.message, true);
+      } finally {
+        document.getElementById('chat-send').disabled = false;
+      }
+    }
+
+    document.getElementById('chat-send').addEventListener('click', sendChat);
+    document.getElementById('chat-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendChat();
+    });
+    document.getElementById('open-reports').addEventListener('click', async (e) => {
+      e.preventDefault();
+      try { await api('/api/open-reports'); } catch (_) {}
+    });
+    document.getElementById('clear-lock').addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        const res = await api('/api/clear-lock', { method: 'POST', body: '{}' });
+        toast(res.cleared ? 'Lock cleared' : 'No lock to clear');
+        poll();
+      } catch (err) { toast(err.message, true); }
+    });
+
+    (async () => {
+      await checkPing();
+      try {
+        const btns = await api('/api/buttons');
+        renderButtons(btns.buttons || []);
+        markConnected();
+      } catch (_) {
+        await checkPing();
+      }
+      poll();
+      setInterval(checkPing, 6000);
+      setInterval(poll, 8000);
+    })();
+  </script>
+</body>
+</html>
