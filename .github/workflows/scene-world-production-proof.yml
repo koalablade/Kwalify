@@ -56,7 +56,7 @@ jobs:
           node scripts/live-e2e-phase-run.mjs
       - name: Aggregate production evidence report
         run: node scripts/production-evidence-report.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: production-evidence-${{ github.run_id }}
           path: |
