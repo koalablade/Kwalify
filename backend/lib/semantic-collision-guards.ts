@@ -44,7 +44,8 @@ export function hasMoodBluesContext(input: string): boolean {
 export function hasBluesMusicContext(input: string): boolean {
   return /\b(?:delta|chicago|electric|acoustic|texas|swamp|jump|soul)\s+blues\b/i.test(input) ||
     /\bblues\s+(?:rock|guitar|legends?|music|classics?|songs?|artists?)\b/i.test(input) ||
-    /\bblues\s+&\s+soul\b/i.test(input);
+    /\bblues\s+&\s+soul\b/i.test(input) ||
+    /\bbluesy(?:\s+rock)?\b/i.test(input);
 }
 
 export function hasNatureJungleContext(input: string): boolean {

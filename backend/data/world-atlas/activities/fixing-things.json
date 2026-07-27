@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Competence restored — something broken made whole by your hands.",
+  "energy_curve": "medium",
+  "emotional_arc": "problem identified, tools gathered → concentration, trial and error → it works — small victory",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "fixing_things",
+  "name": "Fixing things",
+  "human_meaning": "Competence restored — something broken made whole by your hands.",
+  "common_phrases": [
+    "fixing something",
+    "mending it myself",
+    "tinkering at home",
+    "repair job"
+  ],
+  "hidden_context": "Satisfying when the rest of life feels uncontrollable.",
+  "emotional_states": [
+    "focus",
+    "satisfaction",
+    "determination"
+  ],
+  "environments": [
+    "garage",
+    "shed",
+    "kitchen table"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "problem identified, tools gathered",
+  "during_state": "concentration, trial and error",
+  "after_state": "it works — small victory",
+  "musical_behaviours": [
+    "focuses",
+    "grounds",
+    "builds"
+  ],
+  "related_experiences": [
+    "diy",
+    "restoring_cars"
+  ],
+  "activity": [
+    "fixing",
+    "making"
+  ],
+  "environment": [
+    "garage",
+    "shed",
+    "kitchen table"
+  ]
+}

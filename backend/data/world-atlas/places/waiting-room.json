@@ -1,0 +1,62 @@
+{
+  "id": "waiting_room",
+  "domain": "places",
+  "name": "Waiting room",
+  "description": "Plastic chairs, muted TV, time that won't move.",
+  "human_meaning": "Limbo space — anticipation, uncertainty, and forced stillness before news arrives.",
+  "emotional_states": [
+    "anticipation",
+    "anxiety",
+    "boredom"
+  ],
+  "hidden_emotions": [
+    "dread",
+    "hope",
+    "restlessness"
+  ],
+  "environment": [
+    "waiting room",
+    "reception",
+    "lobby"
+  ],
+  "activity": [
+    "waiting",
+    "sitting"
+  ],
+  "social_context": [
+    "alone",
+    "strangers"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "arrival → wait → rehearse outcomes → called or released",
+  "musical_behaviours": [
+    "suspends",
+    "drifts",
+    "atmospheric"
+  ],
+  "related_experiences": [
+    "hospital_waiting_room",
+    "waiting_for_train",
+    "waiting"
+  ],
+  "common_phrases": [
+    "in the waiting room",
+    "sitting in reception",
+    "waiting to be called",
+    "doctor's waiting room",
+    "killing time in the lobby"
+  ],
+  "misleading_keywords": [
+    "waiting list",
+    "waiting game"
+  ],
+  "playlistIntents": [
+    "process",
+    "focus"
+  ],
+  "inferredQualities": [
+    "suspended time",
+    "uncertainty",
+    "anticipation"
+  ]
+}

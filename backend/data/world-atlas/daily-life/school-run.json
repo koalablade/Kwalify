@@ -1,0 +1,49 @@
+{
+  "id": "school_run",
+  "domain": "daily-life",
+  "name": "School run",
+  "description": "Early start, car or pavement choreography, backpacks and hurried goodbyes.",
+  "human_meaning": "Functional love — duty and care expressed through repetition and punctuality.",
+  "emotional_states": [
+    "Functional love — duty and care expressed through repetition and punctuality."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "car engine at dawn",
+    "school gate chatter",
+    "coffee in hand",
+    "wet pavements"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium",
+  "emotional_arc": "wake → rush → drop-off → brief solitude",
+  "musical_behaviours": [
+    "grounds",
+    "drives",
+    "quiet hope"
+  ],
+  "related_experiences": [
+    "sunday_morning"
+  ],
+  "common_phrases": [
+    "school run",
+    "dropping kids at school",
+    "morning school run",
+    "parent morning routine"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Don't forget the permission slip",
+    "Same route every morning",
+    "Brief chaos then quiet car"
+  ],
+  "nearbyConcepts": [
+    "parenting",
+    "routine",
+    "UK morning"
+  ]
+}

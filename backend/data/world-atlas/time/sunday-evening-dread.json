@@ -1,0 +1,46 @@
+{
+  "id": "sunday_evening_dread",
+  "domain": "time",
+  "name": "Sunday evening reflection",
+  "description": "Weekend dying, Monday looming — gentle melancholy of time passing.",
+  "human_meaning": "Weekend elegy — the quiet sadness of time passing and Monday approaching.",
+  "emotional_states": [
+    "melancholy",
+    "reflection",
+    "dread"
+  ],
+  "hidden_emotions": [
+    "time anxiety",
+    "reluctance"
+  ],
+  "time_context": [
+    "Sunday evening",
+    "end of weekend"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "lingering → fading → dread → acceptance",
+  "musical_behaviours": [
+    "aches",
+    "settles",
+    "breathes"
+  ],
+  "related_experiences": [
+    "sunday_morning",
+    "office_friday"
+  ],
+  "common_phrases": [
+    "sunday evening",
+    "sunday night",
+    "weekend is over",
+    "monday tomorrow",
+    "sunday scaries"
+  ],
+  "misleading_keywords": [
+    "sunday roast",
+    "sunday service"
+  ],
+  "playlistIntents": [
+    "reflect",
+    "process"
+  ]
+}

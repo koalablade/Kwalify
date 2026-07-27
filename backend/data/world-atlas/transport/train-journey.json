@@ -1,0 +1,51 @@
+{
+  "id": "train_journey",
+  "domain": "transport",
+  "name": "Train journey",
+  "description": "Rhythmic carriage sway, shared space with strangers, stations as punctuation marks.",
+  "human_meaning": "Between worlds — neither home nor destination, watching landscape slide past.",
+  "emotional_states": [
+    "Between worlds — neither home nor destination, watching landscape slide past."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "track rhythm",
+    "announcements",
+    "window reflection",
+    "station lights"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "low-medium",
+  "emotional_arc": "waiting → departure → passage → arrival",
+  "musical_behaviours": [
+    "floats",
+    "breathes",
+    "feels cinematic"
+  ],
+  "related_experiences": [
+    "coming_home",
+    "airport_arrivals"
+  ],
+  "common_phrases": [
+    "train journey",
+    "on the train",
+    "railway",
+    "commuter train",
+    "platform and carriage"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Watching fields or buildings pass",
+    "Brief eye contact with fellow passengers",
+    "Counting down to arrival"
+  ],
+  "nearbyConcepts": [
+    "travel",
+    "transition",
+    "observation"
+  ]
+}

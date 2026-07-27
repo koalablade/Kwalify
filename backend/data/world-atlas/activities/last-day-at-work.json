@@ -1,0 +1,54 @@
+{
+  "domain": "activities",
+  "description": "Closure and uncertainty — saying goodbye to a version of yourself.",
+  "energy_curve": "medium",
+  "emotional_arc": "counting down, mixed feelings → goodbyes, clearing desk, drinks → freedom and void",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "last_day_at_work",
+  "name": "Last day at work",
+  "human_meaning": "Closure and uncertainty — saying goodbye to a version of yourself.",
+  "common_phrases": [
+    "last day at work",
+    "final day at the office",
+    "leaving my job",
+    "last shift"
+  ],
+  "hidden_context": "Nostalgia for people more than the work.",
+  "emotional_states": [
+    "bittersweet",
+    "relief",
+    "nostalgia"
+  ],
+  "environments": [
+    "office",
+    "workplace"
+  ],
+  "social_context": [
+    "colleagues"
+  ],
+  "before_state": "counting down, mixed feelings",
+  "during_state": "goodbyes, clearing desk, drinks",
+  "after_state": "freedom and void",
+  "musical_behaviours": [
+    "nostalgic warmth",
+    "releases",
+    "lifts"
+  ],
+  "related_experiences": [
+    "new_chapter",
+    "promotion"
+  ],
+  "activity": [
+    "leaving",
+    "transitioning"
+  ],
+  "environment": [
+    "office",
+    "workplace"
+  ]
+}

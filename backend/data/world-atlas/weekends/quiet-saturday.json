@@ -1,0 +1,50 @@
+{
+  "id": "quiet_saturday",
+  "domain": "weekends",
+  "name": "Quiet Saturday",
+  "description": "Unstructured hours, optional errands, the luxury of not deciding immediately.",
+  "human_meaning": "Gentle autonomy — time belongs to you without the Sunday shadow of Monday.",
+  "emotional_states": [
+    "Gentle autonomy — time belongs to you without the Sunday shadow of Monday."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "unhurried breakfast",
+    "open window",
+    "muted traffic",
+    "optional coffee shop"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "low-medium",
+  "emotional_arc": "open morning → choice → ease → unhurried afternoon",
+  "musical_behaviours": [
+    "settles",
+    "breathes",
+    "nostalgic_warmth"
+  ],
+  "related_experiences": [
+    "sunday_morning",
+    "pub_garden"
+  ],
+  "common_phrases": [
+    "quiet saturday",
+    "saturday morning nothing planned",
+    "lazy saturday",
+    "no plans saturday"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Could go out or stay in",
+    "No clock today",
+    "The week can wait"
+  ],
+  "nearbyConcepts": [
+    "weekend",
+    "rest",
+    "autonomy"
+  ]
+}

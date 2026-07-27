@@ -1,0 +1,54 @@
+{
+  "id": "everyone_asleep",
+  "domain": "home",
+  "name": "Everyone else is asleep",
+  "description": "The rare solitude of a house full of people who are all sleeping.",
+  "human_meaning": "Borrowed solitude — the house is yours alone while everyone sleeps.",
+  "emotional_states": [
+    "peace",
+    "introspection",
+    "loneliness"
+  ],
+  "hidden_emotions": [
+    "private thoughts",
+    "freedom",
+    "isolation"
+  ],
+  "environment": [
+    "home",
+    "dark rooms"
+  ],
+  "activity": [
+    "wandering",
+    "thinking",
+    "reading"
+  ],
+  "time_context": [
+    "late night",
+    "early morning"
+  ],
+  "social_context": [
+    "alone in shared home"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "stillness → solitude → reflection → dawn",
+  "musical_behaviours": [
+    "whispers",
+    "breathes",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "late_night_kitchen",
+    "cant_sleep"
+  ],
+  "common_phrases": [
+    "everyone else is asleep",
+    "everyone sleeping",
+    "house to myself at night",
+    "only one awake"
+  ],
+  "misleading_keywords": [
+    "sleep",
+    "bedtime story"
+  ]
+}

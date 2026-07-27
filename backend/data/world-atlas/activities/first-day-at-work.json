@@ -1,0 +1,54 @@
+{
+  "domain": "activities",
+  "description": "Performance and panic — trying to look like you belong while feeling like an imposter.",
+  "energy_curve": "medium",
+  "emotional_arc": "sleepless night, outfit anxiety → smiling too much, remembering names → collapse or celebratory drink",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "first_day_at_work",
+  "name": "First day at work",
+  "human_meaning": "Performance and panic — trying to look like you belong while feeling like an imposter.",
+  "common_phrases": [
+    "first day at work",
+    "starting a new job",
+    "new job first day",
+    "first day on the job"
+  ],
+  "hidden_context": "Everything amplified — clothes, handshake, where to sit.",
+  "emotional_states": [
+    "anxiety",
+    "hope",
+    "anticipation"
+  ],
+  "environments": [
+    "office",
+    "workplace"
+  ],
+  "social_context": [
+    "new colleagues"
+  ],
+  "before_state": "sleepless night, outfit anxiety",
+  "during_state": "smiling too much, remembering names",
+  "after_state": "collapse or celebratory drink",
+  "musical_behaviours": [
+    "builds",
+    "grounds",
+    "lifts"
+  ],
+  "related_experiences": [
+    "first_job",
+    "new_chapter"
+  ],
+  "activity": [
+    "working",
+    "starting"
+  ],
+  "environment": [
+    "office",
+    "workplace"
+  ]
+}

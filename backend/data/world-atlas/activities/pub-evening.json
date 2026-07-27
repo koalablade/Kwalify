@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Third place ritual — not home, not work, belonging without effort.",
+  "energy_curve": "medium",
+  "emotional_arc": "work done, walking over → pint, conversation, laughter → walk home, warmth fading",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "pub_evening",
+  "name": "Evening at the pub",
+  "human_meaning": "Third place ritual — not home, not work, belonging without effort.",
+  "common_phrases": [
+    "evening at the pub",
+    "down the pub",
+    "pint after work",
+    "quiet pint"
+  ],
+  "hidden_context": "Regular seat, familiar faces, day's edge blunted.",
+  "emotional_states": [
+    "relaxation",
+    "belonging",
+    "contentment"
+  ],
+  "environments": [
+    "pub",
+    "bar"
+  ],
+  "social_context": [
+    "friends",
+    "locals"
+  ],
+  "before_state": "work done, walking over",
+  "during_state": "pint, conversation, laughter",
+  "after_state": "walk home, warmth fading",
+  "musical_behaviours": [
+    "warms",
+    "grounds",
+    "lifts gently"
+  ],
+  "related_experiences": [
+    "quiet_pub",
+    "office_friday"
+  ],
+  "activity": [
+    "socialising",
+    "drinking"
+  ],
+  "environment": [
+    "pub",
+    "bar"
+  ]
+}

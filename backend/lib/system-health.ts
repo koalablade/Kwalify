@@ -8,6 +8,8 @@ const log = moduleLogger("system-health");
 const WINDOW_MS = 60_000;
 const failures: Array<{ at: number; type: string; stage: string }> = [];
 let overloadUntil = 0;
+let overloadRecordedLoggedAt = 0;
+const OVERLOAD_RECORDED_LOG_MS = 60_000;
 
 function prune(): void {
   const cutoff = Date.now() - WINDOW_MS;
@@ -31,6 +33,9 @@ export function recordSystemFailure(ctx: FailureContext): void {
 
 export function recordSystemOverload(): void {
   overloadUntil = Date.now() + 30_000;
+  const now = Date.now();
+  if (now - overloadRecordedLoggedAt < OVERLOAD_RECORDED_LOG_MS) return;
+  overloadRecordedLoggedAt = now;
   log.warn({ healthState: getSystemHealthState() }, "system_overload_recorded");
 }
 

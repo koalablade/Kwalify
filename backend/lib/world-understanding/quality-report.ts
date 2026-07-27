@@ -19,8 +19,10 @@ import {
   UK_CONTEXT,
 } from "./universal-knowledge";
 import { getConceptGraphStats } from "./concept-graph";
+import { getAtlasEntryCount } from "./atlas-loader";
 import { PHRASES, SCENE_TEMPLATES } from "./knowledge";
 import { WORLD_EVAL_CASES } from "./evaluation-prompts";
+import { runSemanticMomentEval } from "./semantic-eval";
 
 export function getWorldKnowledgeStats() {
   const graph = getConceptGraphStats();
@@ -44,6 +46,7 @@ export function getWorldKnowledgeStats() {
     ukContext: UK_CONTEXT.length,
     conceptGraphNodes: graph.totalNodes,
     conceptGraphDomains: graph.domains.length,
+    worldAtlasEntries: getAtlasEntryCount(),
   };
 }
 
@@ -144,4 +147,9 @@ export function runMomentCoverageReport(sampleSize = WORLD_EVAL_CASES.length): {
     targetPct,
     gapToTargetPct: Math.round((targetPct - momentCoveragePct) * 10) / 10,
   };
+}
+
+/** Multi-dimensional semantic moment benchmark (alongside scene accuracy) */
+export function runSemanticMomentBenchmark(sampleSize = WORLD_EVAL_CASES.length) {
+  return runSemanticMomentEval(sampleSize);
 }

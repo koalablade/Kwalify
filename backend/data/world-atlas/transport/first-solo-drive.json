@@ -1,0 +1,48 @@
+{
+  "id": "first_solo_drive",
+  "domain": "transport",
+  "name": "First solo drive",
+  "description": "The milestone drive alone — nervous pride and new independence.",
+  "human_meaning": "Rite of passage independence — the first time the car is truly yours and the road is yours alone.",
+  "emotional_states": [
+    "nervous excitement",
+    "pride",
+    "freedom"
+  ],
+  "hidden_emotions": [
+    "growing up",
+    "milestone"
+  ],
+  "environment": [
+    "car",
+    "local roads"
+  ],
+  "activity": [
+    "driving alone"
+  ],
+  "social_context": [
+    "alone",
+    "first time"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "nerves → focus → pride → freedom",
+  "musical_behaviours": [
+    "drives forward",
+    "feels bright",
+    "builds confidence"
+  ],
+  "related_experiences": [
+    "road_trip",
+    "countryside_drive"
+  ],
+  "common_phrases": [
+    "first drive alone",
+    "first solo drive",
+    "passed my test",
+    "driving on my own for the first time"
+  ],
+  "misleading_keywords": [
+    "driving test",
+    "instructor"
+  ]
+}

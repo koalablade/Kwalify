@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Hands busy, mind quiet — colour as feeling without words.",
+  "energy_curve": "medium",
+  "emotional_arc": "setting up, choosing colours → time dissolves, critical voice fades → stepping back, surprise at what emerged",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "painting",
+  "name": "Painting",
+  "human_meaning": "Hands busy, mind quiet — colour as feeling without words.",
+  "common_phrases": [
+    "painting at home",
+    "lost in painting",
+    "art session",
+    "working on a painting"
+  ],
+  "hidden_context": "Messy, slow, deeply personal.",
+  "emotional_states": [
+    "focus",
+    "calm",
+    "expression"
+  ],
+  "environments": [
+    "studio",
+    "kitchen table",
+    "shed"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "setting up, choosing colours",
+  "during_state": "time dissolves, critical voice fades",
+  "after_state": "stepping back, surprise at what emerged",
+  "musical_behaviours": [
+    "drifts",
+    "focuses",
+    "inspires"
+  ],
+  "related_experiences": [
+    "diy",
+    "writing"
+  ],
+  "activity": [
+    "creating",
+    "painting"
+  ],
+  "environment": [
+    "studio",
+    "kitchen table",
+    "shed"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "id": "car_after_work_avoidance",
+  "domain": "transport",
+  "name": "Sitting in car after work",
+  "description": "Parked outside home, engine off, not ready to go inside yet.",
+  "human_meaning": "Private decompression in the car — delaying the threshold because you need a moment alone before re-entering life.",
+  "emotional_states": [
+    "decompression",
+    "avoidance",
+    "quiet reflection"
+  ],
+  "hidden_emotions": [
+    "exhaustion",
+    "need for solitude",
+    "processing"
+  ],
+  "sensory_details": [
+    "engine cooling",
+    "streetlight glow",
+    "quiet car interior",
+    "keys in hand"
+  ],
+  "environment": [
+    "car",
+    "driveway",
+    "street outside home"
+  ],
+  "activity": [
+    "sitting",
+    "delaying",
+    "decompressing"
+  ],
+  "time_context": [
+    "after work",
+    "early evening"
+  ],
+  "social_context": [
+    "alone",
+    "private"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "arrival → pause → reflection → eventual return",
+  "musical_behaviours": [
+    "settles",
+    "breathes",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "coming_home",
+    "driving_home_after_work",
+    "motorway_at_night"
+  ],
+  "common_phrases": [
+    "sitting in my car after work",
+    "don't want to go inside yet",
+    "not ready to go in",
+    "sat in the car outside",
+    "parked outside not going in",
+    "sitting in the car before going in"
+  ],
+  "misleading_keywords": [
+    "car wash",
+    "car park",
+    "racing",
+    "drive fast"
+  ],
+  "playlistIntents": [
+    "recover",
+    "process"
+  ],
+  "inferredQualities": [
+    "private decompression",
+    "transition",
+    "solitude",
+    "quiet reflection"
+  ]
+}

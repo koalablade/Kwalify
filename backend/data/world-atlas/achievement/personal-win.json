@@ -1,0 +1,54 @@
+{
+  "id": "personal_win",
+  "domain": "achievement",
+  "name": "Personal achievement",
+  "description": "Adrenaline settling, smile that won't quit, telling someone or sitting with it alone.",
+  "human_meaning": "Joy with undertow — relief that the effort meant something.",
+  "emotional_states": [
+    "Joy with undertow — relief that the effort meant something."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "phone buzzing",
+    "champagne or quiet room",
+    "shaking hands",
+    "sun on face"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium-high",
+  "emotional_arc": "tension → breakthrough → joy → reflection",
+  "musical_behaviours": [
+    "releases",
+    "quiet hope",
+    "feels cinematic"
+  ],
+  "related_experiences": [
+    "office_friday"
+  ],
+  "common_phrases": [
+    "finally achieved",
+    "achieved something",
+    "got the job",
+    "personal success",
+    "made it",
+    "graduation day"
+  ],
+  "misleading_keywords": [],
+  "playlistIntents": [
+    "celebrate"
+  ],
+  "typicalThoughts": [
+    "I actually did it",
+    "All that work paid off",
+    "What do I do with this feeling"
+  ],
+  "nearbyConcepts": [
+    "pride",
+    "milestone",
+    "release"
+  ]
+}

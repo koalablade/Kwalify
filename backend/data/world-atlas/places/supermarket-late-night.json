@@ -1,0 +1,52 @@
+{
+  "id": "supermarket_late_night",
+  "domain": "places",
+  "name": "Supermarket late at night",
+  "description": "Almost empty aisles, humming fridges, fellow insomniacs shopping.",
+  "human_meaning": "Insomniac community — the strange fellowship of people who can't sleep and need milk.",
+  "emotional_states": [
+    "loneliness",
+    "calm",
+    "strangeness"
+  ],
+  "hidden_emotions": [
+    "insomnia",
+    "displacement"
+  ],
+  "environment": [
+    "supermarket",
+    "fluorescent aisles"
+  ],
+  "activity": [
+    "shopping"
+  ],
+  "time_context": [
+    "late night",
+    "2am"
+  ],
+  "social_context": [
+    "strangers",
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "restlessness → wandering → purchase → return",
+  "musical_behaviours": [
+    "floats",
+    "feels nocturnal",
+    "simmers"
+  ],
+  "related_experiences": [
+    "late_night_kitchen",
+    "cant_sleep"
+  ],
+  "common_phrases": [
+    "supermarket at night",
+    "late night tesco",
+    "asda at 2am",
+    "empty supermarket"
+  ],
+  "misleading_keywords": [
+    "supermarket sweep",
+    "grocery delivery"
+  ]
+}

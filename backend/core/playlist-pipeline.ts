@@ -257,6 +257,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
   requestId?: string;
   /** Adaptive prompt-first weight shift from retrieval orchestrator */
   adaptivePromptWeightShift?: number;
+  /** Semantic moment fingerprint for additive dimension scoring */
+  semanticMomentFingerprint?: import("../lib/world-understanding/moment-representation").SemanticMomentFingerprint | null;
   pipelineTrace?: PipelineTrace;
   diagnosticsMode?: "minimal" | "full";
   sceneWorldProof?: boolean;
@@ -4115,6 +4117,7 @@ export async function buildPlaylistPipeline<T extends {
       referencePlaylist: opts.referencePlaylist,
       noLibraryMode: opts.noLibraryMode,
       adaptivePromptWeightShift: opts.adaptivePromptWeightShift,
+      semanticMomentFingerprint: opts.semanticMomentFingerprint,
       postScore: {
         ...opts.postScore,
         emotionProfile: opts.emotionProfile,

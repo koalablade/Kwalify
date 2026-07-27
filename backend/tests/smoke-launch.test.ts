@@ -22,6 +22,7 @@ import { initDb } from "../db";
 import { markBootComplete } from "../lib/boot-state";
 import { setRuntimeReady } from "../lib/runtime-readiness";
 import { createConcurrencyLimiter } from "../lib/concurrency-limiter";
+import { acquireGenerateSlot, releaseGenerateSlot } from "../lib/runtime-overload";
 import healthRouter from "../routes/health";
 import authRouter from "../routes/auth";
 import generateRouter from "../controllers/generation.controller";
@@ -84,6 +85,21 @@ function baseApp(): express.Express {
 
 // ── 1. Health endpoint ─────────────────────────────────────────────────────
 
+test("livez reports liveness 200 with no dependencies", async () => {
+  const app = express();
+  app.use("/", healthRouter);
+  const srv = await start(app);
+  try {
+    const res = await fetch(`${srv.url}/livez`);
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { status?: string };
+    assert.equal(body.status, "ok");
+    assert.equal(Object.keys(body).length, 1, "livez must stay ultra-light");
+  } finally {
+    await srv.close();
+  }
+});
+
 test("healthz reports liveness 200", async () => {
   const app = express();
   app.use("/", healthRouter);
@@ -111,6 +127,23 @@ test("readyz surfaces dependency checks and reports DB down when unreachable", a
     assert.equal(typeof body.checks!.spotifyConfigured, "boolean");
     assert.ok("pipelineAvailable" in body.checks!);
   } finally {
+    await srv.close();
+  }
+});
+
+test("readyz stays ready while generation slot is active (DB probe may lag)", async () => {
+  const release = await acquireGenerateSlot();
+  const app = express();
+  app.use("/", healthRouter);
+  const srv = await start(app);
+  try {
+    const res = await fetch(`${srv.url}/readyz`);
+    assert.equal(res.status, 200, "readyz must not fail during active generation");
+    const body = (await res.json()) as { checks?: Record<string, unknown> };
+    assert.equal(body.checks?.generationBusy, true);
+    assert.equal(body.checks?.databaseAvailable, true);
+  } finally {
+    release();
     await srv.close();
   }
 });

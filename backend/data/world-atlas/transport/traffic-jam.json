@@ -1,0 +1,47 @@
+{
+  "id": "traffic_jam",
+  "domain": "transport",
+  "name": "Stuck in traffic",
+  "description": "Not moving, engine idle, frustration building in confined space.",
+  "human_meaning": "Trapped frustration — wanting to be somewhere else while time leaks away in stillness.",
+  "emotional_states": [
+    "frustration",
+    "restlessness",
+    "boredom"
+  ],
+  "hidden_emotions": [
+    "impatience",
+    "powerlessness"
+  ],
+  "environment": [
+    "car",
+    "traffic",
+    "queue"
+  ],
+  "activity": [
+    "waiting",
+    "driving"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "expectation → stall → frustration → eventual release",
+  "musical_behaviours": [
+    "grinds",
+    "restless",
+    "simmers"
+  ],
+  "related_experiences": [
+    "driving_home_after_work",
+    "commute"
+  ],
+  "common_phrases": [
+    "stuck in traffic",
+    "traffic jam",
+    "not moving",
+    "gridlock",
+    "sitting in traffic"
+  ],
+  "misleading_keywords": [
+    "traffic news",
+    "rush hour report"
+  ]
+}

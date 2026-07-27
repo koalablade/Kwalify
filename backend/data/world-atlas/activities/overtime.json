@@ -1,0 +1,54 @@
+{
+  "domain": "activities",
+  "description": "Staying past the point of fairness — resentment and duty in tension.",
+  "energy_curve": "medium",
+  "emotional_arc": "hoping to leave on time → pushing through, empty building → late commute, too tired to enjoy evening",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "overtime",
+  "name": "Overtime",
+  "human_meaning": "Staying past the point of fairness — resentment and duty in tension.",
+  "common_phrases": [
+    "working overtime",
+    "staying late at work",
+    "late at the office",
+    "extra hours"
+  ],
+  "hidden_context": "Personal evening stolen; life on hold.",
+  "emotional_states": [
+    "resentment",
+    "determination",
+    "exhaustion"
+  ],
+  "environments": [
+    "office",
+    "workplace"
+  ],
+  "social_context": [
+    "alone",
+    "small team"
+  ],
+  "before_state": "hoping to leave on time",
+  "during_state": "pushing through, empty building",
+  "after_state": "late commute, too tired to enjoy evening",
+  "musical_behaviours": [
+    "builds",
+    "releases",
+    "settles"
+  ],
+  "related_experiences": [
+    "finishing_work",
+    "driving_home_after_work"
+  ],
+  "activity": [
+    "working"
+  ],
+  "environment": [
+    "office",
+    "workplace"
+  ]
+}

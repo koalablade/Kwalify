@@ -1,4 +1,5 @@
 # Auto-repair for local self-host: API crashes + Cloudflare tunnel drops.
+# Liveness uses /api/livez only — never restart on readyz degradation.
 param(
   [string]$Root = (Split-Path -Parent $PSScriptRoot),
   [int]$IntervalSeconds = 300,
@@ -10,9 +11,14 @@ $Root = (Resolve-Path $Root).Path
 $logPath = Join-Path $Root "kwalify-watchdog.log"
 $pidFile = Join-Path $Root "reports\.kwalify-watchdog.pid"
 $cooldownFile = Join-Path $Root "reports\.api-restart-cooldown"
+$graceFile = Join-Path $Root "reports\.api-restart-grace"
+$failuresFile = Join-Path $Root "reports\.watchdog-alive-failures"
 $tunnelScript = Join-Path $Root "scripts\run-cloudflare-tunnel.ps1"
 $apiRestartScript = Join-Path $Root "scripts\restart-api-selfhost.ps1"
+$healthLib = Join-Path $Root "scripts\kwalify-health-lib.ps1"
 $reportsDir = Join-Path $Root "reports"
+
+. $healthLib -Root $Root
 
 try { $Host.UI.RawUI.WindowTitle = "Kwalify Health Watch" } catch {}
 
@@ -35,9 +41,39 @@ function Get-AppUrl {
   return ($line.Line -replace '^\s*APP_URL=', '').Trim().TrimEnd('/')
 }
 
+function Get-PersistedAliveFailures {
+  if (-not (Test-Path -LiteralPath $failuresFile)) { return 0 }
+  try {
+    $raw = (Get-Content -LiteralPath $failuresFile -Raw).Trim()
+    $n = [int]$raw
+    if ($n -lt 0) { return 0 }
+    return $n
+  } catch { return 0 }
+}
+
+function Set-PersistedAliveFailures([int]$count) {
+  if ($count -le 0) {
+    if (Test-Path -LiteralPath $failuresFile) { Remove-Item -LiteralPath $failuresFile -Force -ErrorAction SilentlyContinue }
+    return
+  }
+  Set-Content -LiteralPath $failuresFile -Value $count -Encoding ASCII
+}
+
+function Test-InRestartGrace {
+  if (-not (Test-Path -LiteralPath $graceFile)) { return $false }
+  try {
+    $started = [datetime]::Parse((Get-Content -LiteralPath $graceFile -Raw).Trim())
+    return ((Get-Date) - $started).TotalMinutes -lt 5
+  } catch { return $false }
+}
+
+function Set-RestartGrace {
+  Set-Content -LiteralPath $graceFile -Value ((Get-Date).ToString("o")) -Encoding ASCII
+}
+
 function Test-ApiReady {
   try {
-    $rz = Invoke-RestMethod "http://127.0.0.1:5000/api/readyz" -TimeoutSec 4
+    $rz = Invoke-RestMethod "$script:KwalifyApiBase/api/readyz" -TimeoutSec 12
     return ($rz.status -eq "ready" -or $rz.readiness -eq "ready")
   } catch { return $false }
 }
@@ -60,15 +96,17 @@ function Test-TunnelRunning {
 }
 
 function Test-ApiRestartAllowed {
+  if (Test-InRestartGrace) { return $false }
   if (-not (Test-Path -LiteralPath $cooldownFile)) { return $true }
   try {
     $last = [datetime]::Parse((Get-Content -LiteralPath $cooldownFile -Raw).Trim())
-    return ((Get-Date) - $last).TotalMinutes -ge 10
+    return ((Get-Date) - $last).TotalMinutes -ge 15
   } catch { return $true }
 }
 
 function Set-ApiRestartCooldown {
   Set-Content -LiteralPath $cooldownFile -Value ((Get-Date).ToString("o")) -Encoding ASCII
+  Set-RestartGrace
 }
 
 function Restart-Tunnel {
@@ -80,11 +118,16 @@ function Restart-Tunnel {
 
 function Restart-Api {
   if (-not (Test-Path -LiteralPath $apiRestartScript)) { return $false }
+  if (-not (Assert-KwalifySafeToRestart -Reason "watchdog API restart")) {
+    Write-Log "API restart skipped — generation or benchmark active"
+    return $false
+  }
   Write-Log "Restarting API (restart-api-selfhost.ps1)..."
   & powershell -NoProfile -ExecutionPolicy Bypass -File $apiRestartScript -Root $Root
   Set-ApiRestartCooldown
+  Set-PersistedAliveFailures 0
   Start-Sleep -Seconds 3
-  return (Test-ApiReady)
+  return (Test-KwalifyApiAlive)
 }
 
 function Rotate-WatchdogLog {
@@ -99,40 +142,81 @@ function Rotate-WatchdogLog {
 }
 
 Rotate-WatchdogLog
-Write-Log "health watch started (PID $PID, interval=${IntervalSeconds}s)"
+Write-Log "health watch started (PID $PID, interval=${IntervalSeconds}s, liveness=/api/livez)"
+
+$consecutiveAliveFailures = Get-PersistedAliveFailures
+$failuresBeforeRestart = 5
 
 try {
   do {
     $appUrl = Get-AppUrl
-    $apiUp = Test-ApiReady
+    $apiAlive = Test-KwalifyApiAlive
+    $generationBusy = Test-KwalifyGenerationBusy
+    $apiReady = if ($apiAlive) { Test-ApiReady } else { $false }
     $tunnelUp = Test-TunnelRunning
-    $publicUp = if ($apiUp) { Test-PublicReady $appUrl } else { $false }
+    $publicUp = if ($apiAlive) { Test-PublicReady $appUrl } else { $false }
+    $inGrace = Test-InRestartGrace
 
-    if (-not $apiUp) {
-      if (Test-ApiRestartAllowed) {
-        if (Restart-Api) {
-          Write-Log "API restarted successfully"
-          $apiUp = $true
-          $tunnelUp = Test-TunnelRunning
-          $publicUp = if ($apiUp) { Test-PublicReady $appUrl } else { $false }
-        } else {
-          Write-Log "API restart attempted but still not ready"
-        }
-      } else {
-        Write-Log "API down - restart cooldown (max 1 restart per 10 min)"
+    if ($apiAlive) {
+      if ($consecutiveAliveFailures -gt 0) {
+        Write-Log "OK - API alive again (cleared $consecutiveAliveFailures persisted failure(s))"
       }
-    }
+      $consecutiveAliveFailures = 0
+      Set-PersistedAliveFailures 0
 
-    if ($apiUp -and -not $tunnelUp) {
-      Write-Log "Tunnel down - restarting..."
-      Restart-Tunnel | Out-Null
-      if (Test-PublicReady $appUrl) { Write-Log "Tunnel OK; public site up" }
-      else { Write-Log "Tunnel restarted; public site still not ready" }
-    } elseif ($apiUp -and $tunnelUp -and -not $publicUp) {
-      Write-Log "Public site down - restarting tunnel..."
-      Restart-Tunnel | Out-Null
-    } elseif ($apiUp -and $publicUp) {
-      Write-Log "OK - API, tunnel, and public site healthy"
+      if (-not $apiReady) {
+        if ($generationBusy) {
+          Write-Log "OK - API alive (generation busy; readyz degraded — not restarting)"
+        } else {
+          Write-Log "OK - API alive but readyz degraded (monitoring only; never restart on readyz)"
+        }
+      } elseif ($apiReady -and $tunnelUp -and $publicUp) {
+        Write-Log "OK - API, tunnel, and public site healthy"
+      } elseif ($apiReady -and -not $tunnelUp) {
+        Write-Log "API ready but tunnel down - restarting tunnel..."
+        Restart-Tunnel | Out-Null
+        if (Test-PublicReady $appUrl) { Write-Log "Tunnel OK; public site up" }
+        else { Write-Log "Tunnel restarted; public site still not ready" }
+      } elseif ($apiReady -and $tunnelUp -and -not $publicUp) {
+        Write-Log "Public site down - restarting tunnel..."
+        Restart-Tunnel | Out-Null
+      }
+    } else {
+      $consecutiveAliveFailures++
+      Set-PersistedAliveFailures $consecutiveAliveFailures
+
+      if ($inGrace) {
+        Write-Log "API livez failed during post-restart grace ($consecutiveAliveFailures/$failuresBeforeRestart) — not restarting yet"
+      } elseif ($generationBusy) {
+        Write-Log "API livez failed while generation/benchmark active ($consecutiveAliveFailures/$failuresBeforeRestart) — deferring restart"
+      } else {
+        Write-Log "API not responding to livez ($consecutiveAliveFailures/$failuresBeforeRestart)"
+      }
+
+      if ($consecutiveAliveFailures -ge $failuresBeforeRestart) {
+        if ($inGrace) {
+          Write-Log "Restart deferred — post-restart grace period (5 min)"
+        } elseif (Test-KwalifyGenerationBusy) {
+          Write-Log "API still not responding but generation active — deferring restart"
+        } elseif (Test-ApiRestartAllowed) {
+          if (Restart-Api) {
+            Write-Log "API restarted successfully"
+            $consecutiveAliveFailures = 0
+            Set-PersistedAliveFailures 0
+            $apiAlive = $true
+            $apiReady = Test-ApiReady
+            $tunnelUp = Test-TunnelRunning
+            $publicUp = if ($apiAlive) { Test-PublicReady $appUrl } else { $false }
+            if ($apiAlive -and $tunnelUp -and $publicUp) {
+              Write-Log "OK - API, tunnel, and public site healthy after restart"
+            }
+          } else {
+            Write-Log "API restart attempted but still not alive"
+          }
+        } else {
+          Write-Log "API down - restart cooldown or grace (max 1 restart per 15 min)"
+        }
+      }
     }
 
     if ($Once) { break }

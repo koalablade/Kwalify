@@ -1,0 +1,41 @@
+{
+  "id": "old_friends_reunion",
+  "domain": "relationships",
+  "name": "Meeting old friends again",
+  "description": "Years collapse — laughing about things only you remember.",
+  "human_meaning": "Time collapse — old friends make you feel like the person you used to be.",
+  "emotional_states": [
+    "joy",
+    "nostalgia",
+    "warmth"
+  ],
+  "hidden_emotions": [
+    "passage of time",
+    "gratitude"
+  ],
+  "social_context": [
+    "old friends",
+    "reunion"
+  ],
+  "energy_curve": "medium-high",
+  "emotional_arc": "anticipation → recognition → laughter → bittersweet",
+  "musical_behaviours": [
+    "feels warm",
+    "lifts",
+    "nostalgic warmth"
+  ],
+  "related_experiences": [
+    "childhood_summer_holidays",
+    "family_memories"
+  ],
+  "common_phrases": [
+    "seeing old friends",
+    "reunion with friends",
+    "haven't seen them in years",
+    "catching up with old mates"
+  ],
+  "misleading_keywords": [
+    "old",
+    "antique"
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "behaviours": [
+    {
+      "id": "comforts",
+      "label": "comforts",
+      "description": "Wraps the listener like a familiar blanket — warm, unhurried, emotionally safe.",
+      "energyRange": [0.15, 0.45],
+      "textures": ["warm", "soft", "acoustic", "gentle"],
+      "valenceBias": 0.1
+    },
+    {
+      "id": "settles",
+      "label": "settles",
+      "description": "Helps the body slow down — steady pulse, no surprises, breathing room.",
+      "energyRange": [0.1, 0.35],
+      "textures": ["steady", "ambient", "soft"],
+      "valenceBias": 0.05
+    },
+    {
+      "id": "breathes",
+      "label": "breathes",
+      "description": "Space between notes matters — airy, uncluttered, patient.",
+      "energyRange": [0.1, 0.4],
+      "textures": ["airy", "ambient", "sparse"],
+      "valenceBias": 0
+    },
+    {
+      "id": "floats",
+      "label": "floats",
+      "description": "Weightless motion — drifting, suspended, neither sad nor euphoric.",
+      "energyRange": [0.2, 0.5],
+      "textures": ["ethereal", "reverb", "soft electronic"],
+      "valenceBias": 0
+    },
+    {
+      "id": "grounds",
+      "label": "grounds",
+      "description": "Anchors you in the present — earthy bass, rooted rhythm, physical certainty.",
+      "energyRange": [0.25, 0.55],
+      "textures": ["earthy", "bass", "steady"],
+      "valenceBias": 0.05
+    },
+    {
+      "id": "slow_burn",
+      "label": "slow burn",
+      "description": "Builds gradually without rushing — tension accumulates then releases.",
+      "energyRange": [0.2, 0.65],
+      "textures": ["building", "layered", "cinematic"],
+      "valenceBias": 0
+    },
+    {
+      "id": "feels_cinematic",
+      "label": "feels cinematic",
+      "description": "Wide-screen emotional framing — strings, scope, narrative weight.",
+      "energyRange": [0.3, 0.7],
+      "textures": ["orchestral", "cinematic", "expansive"],
+      "valenceBias": 0
+    },
+    {
+      "id": "feels_intimate",
+      "label": "feels intimate",
+      "description": "Close-mic confessional — one voice, one room, private truth.",
+      "energyRange": [0.15, 0.45],
+      "textures": ["intimate", "acoustic", "close"],
+      "valenceBias": -0.05
+    },
+    {
+      "id": "drives",
+      "label": "drives",
+      "description": "Forward momentum — propulsive rhythm matching movement through space.",
+      "energyRange": [0.45, 0.85],
+      "textures": ["driving", "pulse", "rhythmic"],
+      "valenceBias": 0.1
+    },
+    {
+      "id": "releases",
+      "label": "releases",
+      "description": "Emotional catharsis — the sigh after holding it in too long.",
+      "energyRange": [0.25, 0.6],
+      "textures": ["expansive", "emotional", "swelling"],
+      "valenceBias": 0.15
+    },
+    {
+      "id": "nostalgic_warmth",
+      "label": "nostalgic warmth",
+      "description": "Memory-tinted comfort — golden-hour filter on the past.",
+      "energyRange": [0.2, 0.5],
+      "textures": ["warm", "nostalgic", "vinyl"],
+      "valenceBias": 0.1
+    },
+    {
+      "id": "quiet_hope",
+      "label": "quiet hope",
+      "description": "Optimism without shouting — a small light at the end of a long tunnel.",
+      "energyRange": [0.2, 0.5],
+      "textures": ["gentle", "uplifting", "soft"],
+      "valenceBias": 0.2
+    }
+  ]
+}

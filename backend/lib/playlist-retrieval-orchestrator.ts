@@ -107,7 +107,7 @@ export type OrchestratorDiagnostics = {
   combinedConfidence: number;
   humanOpener: HumanOpenerElection;
   librarySufficient: boolean;
-  integrityPolicy: "liked_library_only";
+  integrityPolicy: "liked_library_only" | "spotify_discovery";
   adaptivePromptWeightShift: number;
   retrievalDiagnostics?: RetrievalDiagnostics | Record<string, unknown>;
   blendedIntentPool?: BlendedPoolDiagnostics | null;
@@ -152,7 +152,8 @@ export type OrchestratePlaylistRetrievalResult<T extends RetrievalTrackInput> = 
 
 const FUNCTIONAL_ACTIVITIES = new Set(["focus_coding", "study", "gym", "party_pregame"]);
 const CAPABILITY_SAMPLE = 1800;
-const MIN_LIBRARY_TRACKS = 40;
+/** Minimum synced liked tracks for library-only generation (orchestrator hard gate). */
+export const MIN_LIBRARY_TRACKS = 40;
 
 function classifyFor<T extends RetrievalTrackInput>(
   track: T,
@@ -1016,7 +1017,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
       combinedConfidence,
       humanOpener,
       librarySufficient: true,
-      integrityPolicy: opts.noLibraryMode ? "liked_library_only" : "liked_library_only",
+      integrityPolicy: opts.noLibraryMode ? "spotify_discovery" : "liked_library_only",
       adaptivePromptWeightShift: strategyPlan.adaptivePromptWeightShift,
       retrievalDiagnostics: retrievalResult?.diagnostics,
     },

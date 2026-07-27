@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Past intrudes on present — sensory trigger, emotional flood.",
+  "energy_curve": "medium",
+  "emotional_arc": "smell, song, or photo trigger → time collapses, vivid recall → return to now, changed mood",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "memories_moment",
+  "name": "Lost in memories",
+  "human_meaning": "Past intrudes on present — sensory trigger, emotional flood.",
+  "common_phrases": [
+    "lost in memories",
+    "flooded with memories",
+    "remember when",
+    "can't stop thinking about the past"
+  ],
+  "hidden_context": "Not always sad — sometimes warm ache.",
+  "emotional_states": [
+    "nostalgia",
+    "longing",
+    "bittersweet"
+  ],
+  "environments": [
+    "anywhere",
+    "home",
+    "old places"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "smell, song, or photo trigger",
+  "during_state": "time collapses, vivid recall",
+  "after_state": "return to now, changed mood",
+  "musical_behaviours": [
+    "nostalgic warmth",
+    "aches gently",
+    "warms"
+  ],
+  "related_experiences": [
+    "childhood_summer_holidays",
+    "goodbye_neighbourhood"
+  ],
+  "activity": [
+    "remembering",
+    "reflecting"
+  ],
+  "environment": [
+    "anywhere",
+    "home",
+    "old places"
+  ]
+}

@@ -5,6 +5,12 @@ $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path $Root).Path
 Set-Location $Root
 
+. (Join-Path $Root "scripts\kwalify-health-lib.ps1") -Root $Root
+
+if (-not (Assert-KwalifySafeToRestart -Reason "API restart")) {
+  exit 2
+}
+
 function Load-DotEnv([string]$path) {
   foreach ($line in Get-Content -LiteralPath $path) {
     $t = $line.Trim()
@@ -29,21 +35,22 @@ $ErrorActionPreference = $prevErr
 if (-not $env:GIT_COMMIT) { $env:GIT_COMMIT = "local-dev" }
 
 $apiPs1 = Join-Path $env:TEMP "kwalify-api-restart.ps1"
-@'
-Set-Location "$using:Root"
-foreach ($line in Get-Content '.env') {
-  $t = $line.Trim()
-  if (-not $t -or $t.StartsWith('#')) { continue }
-  if ($t -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
-    $v = $Matches[2].Trim().Trim('"').Trim("'")
-    Set-Item "env:$($Matches[1])" $v
+# $using: only works inside Invoke-Command — embed $Root when writing the helper script.
+@"
+Set-Location '$Root'
+foreach (`$line in Get-Content '.env') {
+  `$t = `$line.Trim()
+  if (-not `$t -or `$t.StartsWith('#')) { continue }
+  if (`$t -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+    `$v = `$Matches[2].Trim().Trim('"').Trim("'")
+    Set-Item "env:`$(`$Matches[1])" `$v
   }
 }
-$env:NODE_ENV = 'production'
-$env:GIT_COMMIT = (git rev-parse HEAD 2>$null)
-if (-not $env:GIT_COMMIT) { $env:GIT_COMMIT = 'local-dev' }
+`$env:NODE_ENV = 'production'
+`$env:GIT_COMMIT = (git rev-parse HEAD 2>`$null)
+if (-not `$env:GIT_COMMIT) { `$env:GIT_COMMIT = 'local-dev' }
 npm start
-'@ | Set-Content -LiteralPath $apiPs1 -Encoding UTF8
+"@ | Set-Content -LiteralPath $apiPs1 -Encoding UTF8
 
 Start-Process powershell -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $apiPs1) `
   -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
@@ -51,13 +58,12 @@ Start-Process powershell -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypa
 $deadline = (Get-Date).AddSeconds(120)
 while ((Get-Date) -lt $deadline) {
   try {
-    $rz = Invoke-RestMethod "http://127.0.0.1:$port/api/readyz" -TimeoutSec 3
-    if ($rz.status -eq "ready" -or $rz.readiness -eq "ready") { break }
+    if (Test-KwalifyLive -TimeoutSec 3) { break }
   } catch {}
   Start-Sleep -Seconds 2
 }
 
-foreach ($route in @("/status", "/settings", "/api/readyz")) {
+foreach ($route in @("/status", "/settings", "/api/livez")) {
   try {
     $code = (Invoke-WebRequest "http://localhost:5000$route" -UseBasicParsing -TimeoutSec 5).StatusCode
     Write-Host "  $route -> HTTP $code"

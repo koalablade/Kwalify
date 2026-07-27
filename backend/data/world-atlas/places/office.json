@@ -1,0 +1,24 @@
+{
+  "id": "office",
+  "domain": "places",
+  "name": "The office",
+  "description": "Fluorescent hum, desk islands, the smell of coffee and printer toner.",
+  "human_meaning": "Professional theatre — performance, routine, and the slow drain of the working day.",
+  "emotional_states": ["focus", "stress", "routine"],
+  "hidden_emotions": ["trapped", "belonging", "competence"],
+  "environment": ["office", "desk", "workplace", "meeting room"],
+  "activity": ["working", "meeting"],
+  "social_context": ["colleagues"],
+  "energy_curve": "medium",
+  "emotional_arc": "arrival → routine → pressure → clock-watching",
+  "musical_behaviours": ["focuses", "grounds", "builds"],
+  "related_experiences": ["office_friday", "office_day", "work_from_home"],
+  "common_phrases": [
+    "in the office",
+    "at the office",
+    "office all day",
+    "back at my desk",
+    "day in the office"
+  ],
+  "misleading_keywords": ["office chair", "office supplies"]
+}

@@ -77,6 +77,11 @@ import {
   resolveActivityProfile,
   type ActivityProfile,
 } from "./activity-profiles";
+import type { SemanticMomentFingerprint } from "./world-understanding/moment-representation";
+import {
+  applyFingerprintScoringBoosts,
+  computeMomentFingerprintAffinity,
+} from "./world-understanding/semantic-moment-scoring";
 
 const GENRE_FLOOR_STRONG = 0.15;
 
@@ -135,6 +140,8 @@ export interface HybridScoringContext {
   activityProfile?: ActivityProfile | null;
   /** Adaptive prompt-first weight shift from retrieval orchestrator (0–0.15) */
   adaptivePromptWeightShift?: number;
+  /** Multi-dimensional semantic moment fingerprint for additive scoring */
+  semanticMomentFingerprint?: SemanticMomentFingerprint | null;
 }
 
 export function buildHybridScoringContext(opts: {
@@ -154,6 +161,7 @@ export function buildHybridScoringContext(opts: {
   /** Pre-resolved semantic scene — avoids duplicate resolveSemanticScene() call per generation */
   cachedSemanticResolution?: SemanticSceneResolution;
   adaptivePromptWeightShift?: number;
+  semanticMomentFingerprint?: SemanticMomentFingerprint | null;
 }): HybridScoringContext {
   let prototype = opts.prototype;
   if (!prototype && opts.vibeKind === "sunny") {
@@ -212,6 +220,7 @@ export function buildHybridScoringContext(opts: {
     noLibraryMode: opts.noLibraryMode ?? false,
     activityProfile,
     adaptivePromptWeightShift: opts.adaptivePromptWeightShift ?? 0,
+    semanticMomentFingerprint: opts.semanticMomentFingerprint ?? null,
     hardFilter: {
       vibe: opts.vibe,
       intent: opts.intent.intent,
@@ -420,6 +429,19 @@ export function computeTriScores(
     semanticEcosystemScore = genreBalance * 0.55 + sceneScore * 0.45;
     negativePenalty = 1.0;
   }
+
+  const fingerprintBreakdown = computeMomentFingerprintAffinity(
+    track,
+    classification,
+    ctx.semanticMomentFingerprint,
+  );
+  const fingerprintBoost = applyFingerprintScoringBoosts(
+    sceneScore,
+    semanticEcosystemScore,
+    fingerprintBreakdown,
+  );
+  sceneScore = fingerprintBoost.sceneScore;
+  semanticEcosystemScore = fingerprintBoost.semanticEcosystemScore;
 
   // ── Aesthetic score (instrumentation/signature fit) ────────────────────────
   const aestheticScore = blueprint?.instrumentationBias

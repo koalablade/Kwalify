@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Order imposed when the world sleeps — control when life feels chaotic.",
+  "energy_curve": "medium",
+  "emotional_arc": "can't settle, mind racing → wiping, folding, organising → tired, space calmer, maybe sleep",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "cleaning_at_night",
+  "name": "Cleaning at night",
+  "human_meaning": "Order imposed when the world sleeps — control when life feels chaotic.",
+  "common_phrases": [
+    "cleaning at night",
+    "late night cleaning",
+    "can't sleep so cleaning",
+    "3am tidying"
+  ],
+  "hidden_context": "Productive procrastination or genuine need for calm.",
+  "emotional_states": [
+    "restlessness",
+    "calm",
+    "control"
+  ],
+  "environments": [
+    "home",
+    "kitchen",
+    "bedroom"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "can't settle, mind racing",
+  "during_state": "wiping, folding, organising",
+  "after_state": "tired, space calmer, maybe sleep",
+  "musical_behaviours": [
+    "settles",
+    "grounds",
+    "rhythmic"
+  ],
+  "related_experiences": [
+    "reorganising_room",
+    "lying_awake"
+  ],
+  "activity": [
+    "cleaning",
+    "organising"
+  ],
+  "environment": [
+    "home",
+    "kitchen",
+    "bedroom"
+  ]
+}

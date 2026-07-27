@@ -1,0 +1,55 @@
+{
+  "id": "cant_sleep",
+  "domain": "british-life",
+  "name": "Can't sleep",
+  "description": "Mind racing while body lies still — the frustration of unwanted wakefulness.",
+  "human_meaning": "Unwanted wakefulness — the body still but the mind refusing to rest.",
+  "emotional_states": [
+    "anxiety",
+    "frustration",
+    "restlessness"
+  ],
+  "hidden_emotions": [
+    "overthinking",
+    "loneliness"
+  ],
+  "time_context": [
+    "late night",
+    "early morning",
+    "3am"
+  ],
+  "activity": [
+    "lying awake",
+    "tossing"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "tiredness → frustration → thoughts → eventual sleep or dawn",
+  "musical_behaviours": [
+    "whispers",
+    "breathes",
+    "floats"
+  ],
+  "related_experiences": [
+    "two_am_thoughts",
+    "late_night_kitchen"
+  ],
+  "common_phrases": [
+    "can't sleep",
+    "i can't sleep",
+    "lying awake",
+    "insomnia",
+    "wide awake at night"
+  ],
+  "misleading_keywords": [
+    "sleep",
+    "sleeping",
+    "sleep music"
+  ],
+  "playlistIntents": [
+    "relax",
+    "process"
+  ]
+}

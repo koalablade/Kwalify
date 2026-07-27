@@ -1,0 +1,51 @@
+{
+  "id": "conservatory",
+  "domain": "home",
+  "name": "Conservatory",
+  "description": "Enclosed but exposed to weather — rain audible, light filtered through glass panels.",
+  "human_meaning": "Domestic observation — part of the house but watching the world from a bubble.",
+  "emotional_states": [
+    "Domestic observation — part of the house but watching the world from a bubble."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "glass panels",
+    "rain on roof",
+    "diffused light",
+    "indoor plants"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "low",
+  "emotional_arc": "stillness → observation → memory → peace",
+  "musical_behaviours": [
+    "breathes",
+    "comforts",
+    "nostalgic_warmth"
+  ],
+  "related_experiences": [
+    "rain_on_windows",
+    "sunday_morning",
+    "tea_after_work"
+  ],
+  "common_phrases": [
+    "conservatory",
+    "sitting in the conservatory",
+    "glass room",
+    "sunroom"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Rain sounds closer here",
+    "Sunday afternoon nowhere to be",
+    "Grandparents' house feeling"
+  ],
+  "nearbyConcepts": [
+    "UK home",
+    "quiet afternoon",
+    "family memory"
+  ]
+}

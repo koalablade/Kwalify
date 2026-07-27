@@ -1,0 +1,23 @@
+{
+  "id": "garden",
+  "domain": "places",
+  "name": "The garden",
+  "description": "Outside but yours — birds, soil, the weather on your skin.",
+  "human_meaning": "Private outdoors — slow time, seasonal rhythm, and quiet accomplishment.",
+  "emotional_states": ["calm", "contentment", "patience"],
+  "hidden_emotions": ["grounding", "pride"],
+  "environment": ["garden", "backyard", "outdoors"],
+  "activity": ["gardening", "sitting"],
+  "social_context": ["alone", "family"],
+  "energy_curve": "low",
+  "emotional_arc": "step outside → potter → notice → ease",
+  "musical_behaviours": ["grounds", "comforts", "settles"],
+  "related_experiences": ["gardening", "lazy_sunday", "bank_holiday"],
+  "common_phrases": [
+    "in the garden",
+    "back garden",
+    "sitting in the garden",
+    "garden in summer"
+  ],
+  "misleading_keywords": ["garden centre", "garden party"]
+}

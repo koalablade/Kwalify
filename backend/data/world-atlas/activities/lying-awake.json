@@ -1,0 +1,54 @@
+{
+  "domain": "activities",
+  "description": "Darkness amplifies everything — tomorrow's worries tonight's soundtrack.",
+  "energy_curve": "medium",
+  "emotional_arc": "lights out, hope for sleep → tossing, calculating hours left → groggy morning or accidental sleep",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "lying_awake",
+  "name": "Lying awake",
+  "human_meaning": "Darkness amplifies everything — tomorrow's worries tonight's soundtrack.",
+  "common_phrases": [
+    "lying awake",
+    "can't sleep",
+    "wide awake at 3am",
+    "staring at the ceiling"
+  ],
+  "hidden_context": "Body exhausted, mind prosecuting the day.",
+  "emotional_states": [
+    "anxiety",
+    "restlessness",
+    "reflection"
+  ],
+  "environments": [
+    "bedroom",
+    "bed"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "lights out, hope for sleep",
+  "during_state": "tossing, calculating hours left",
+  "after_state": "groggy morning or accidental sleep",
+  "musical_behaviours": [
+    "whispers",
+    "drifts",
+    "intimate"
+  ],
+  "related_experiences": [
+    "cant_sleep",
+    "two_am_thoughts"
+  ],
+  "activity": [
+    "lying awake",
+    "resting"
+  ],
+  "environment": [
+    "bedroom",
+    "bed"
+  ]
+}

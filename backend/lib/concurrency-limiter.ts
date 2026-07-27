@@ -3,6 +3,17 @@ import { recordSystemOverload } from "./system-health";
 
 const log = moduleLogger("concurrency-limiter");
 
+const overloadLogThrottle = new Map<string, number>();
+const OVERLOAD_LOG_THROTTLE_MS = 60_000;
+
+function logOverloadThrottled(limiterName: string, payload: Record<string, unknown>, message: string): void {
+  const now = Date.now();
+  const last = overloadLogThrottle.get(limiterName) ?? 0;
+  if (now - last < OVERLOAD_LOG_THROTTLE_MS) return;
+  overloadLogThrottle.set(limiterName, now);
+  log.warn({ limiter: limiterName, ...payload }, message);
+}
+
 type Waiter = {
   resolve: (release: () => void) => void;
   reject: (err: Error) => void;
@@ -54,7 +65,7 @@ export function createConcurrencyLimiter(opts: {
     const snapshot = state();
     if (snapshot.queued < overloadQueueThreshold && snapshot.averageLatencyMs < overloadLatencyMs) return;
     recordSystemOverload();
-    log.warn({ limiter: opts.name, ...snapshot }, "system_overloaded");
+    logOverloadThrottled(opts.name, snapshot, "system_overloaded");
   };
 
   const makeRelease = (): (() => void) => {
@@ -82,7 +93,7 @@ export function createConcurrencyLimiter(opts: {
         const err = new Error(`${opts.name} queue is full`);
         (err as Error & { code?: string }).code = "QUEUE_FULL";
         recordSystemOverload();
-        log.warn({ limiter: opts.name, ...state() }, "system_overloaded");
+        logOverloadThrottled(opts.name, state(), "system_overloaded");
         throw err;
       }
       return new Promise<() => void>((resolve, reject) => {
@@ -93,7 +104,7 @@ export function createConcurrencyLimiter(opts: {
           const err = new Error(`${opts.name} queue wait timed out`);
           (err as Error & { code?: string }).code = "QUEUE_TIMEOUT";
           recordSystemOverload();
-          log.warn({ limiter: opts.name, ...state(), maxWaitMs }, "system_overloaded_queue_timeout");
+          logOverloadThrottled(opts.name, { ...state(), maxWaitMs }, "system_overloaded_queue_timeout");
           reject(err);
         }, maxWaitMs);
         waiter.timer.unref?.();

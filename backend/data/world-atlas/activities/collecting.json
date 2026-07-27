@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Order from chaos — each piece a small story.",
+  "energy_curve": "medium",
+  "emotional_arc": "browsing, trading, searching → cataloguing, arranging, admiring → one gap left or series complete",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "collecting",
+  "name": "Collecting",
+  "human_meaning": "Order from chaos — each piece a small story.",
+  "common_phrases": [
+    "sorting my collection",
+    "vinyl collecting",
+    "adding to the collection",
+    "organising collectibles"
+  ],
+  "hidden_context": "Hunting, completing, displaying identity.",
+  "emotional_states": [
+    "satisfaction",
+    "nostalgia",
+    "focus"
+  ],
+  "environments": [
+    "bedroom",
+    "shelves",
+    "home"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "browsing, trading, searching",
+  "during_state": "cataloguing, arranging, admiring",
+  "after_state": "one gap left or series complete",
+  "musical_behaviours": [
+    "nostalgic warmth",
+    "focuses",
+    "discovers"
+  ],
+  "related_experiences": [
+    "memories_moment",
+    "lazy_sunday"
+  ],
+  "activity": [
+    "collecting",
+    "organising"
+  ],
+  "environment": [
+    "bedroom",
+    "shelves",
+    "home"
+  ]
+}

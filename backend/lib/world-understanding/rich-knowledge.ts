@@ -44,6 +44,9 @@ export type UkCulturalEntry = {
 
 export type ConceptRelationship = {
   concept: string;
+  parents?: string[];
+  children?: string[];
+  related_scenes?: string[];
   environment?: string[];
   emotional_links: string[];
   sensory: string[];

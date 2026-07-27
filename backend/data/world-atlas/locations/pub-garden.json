@@ -1,0 +1,50 @@
+{
+  "id": "pub_garden",
+  "domain": "locations",
+  "name": "Pub garden",
+  "description": "Wooden tables, pint in hand, chatter overlapping, late afternoon stretching.",
+  "human_meaning": "Communal ease — belonging without formality, summer social warmth.",
+  "emotional_states": [
+    "Communal ease — belonging without formality, summer social warmth."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "clinking glasses",
+    "outdoor chatter",
+    "warm stone",
+    "cigarette smoke drifting"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium",
+  "emotional_arc": "arrival → social warmth → ease → lingering",
+  "musical_behaviours": [
+    "nostalgic_warmth",
+    "grounds",
+    "quiet hope"
+  ],
+  "related_experiences": [
+    "summer_evening",
+    "office_friday"
+  ],
+  "common_phrases": [
+    "pub garden",
+    "beer garden",
+    "sitting in the pub garden",
+    "outside the pub"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "One more before we go",
+    "Everyone's here tonight",
+    "Summer feels real here"
+  ],
+  "nearbyConcepts": [
+    "UK social",
+    "weekend",
+    "community"
+  ]
+}

@@ -42,9 +42,25 @@ function setHtml(el, html) {
     let serverOk = false;
     let busy = false;
     let pollTimer = null;
-    let pollMs = 12000;
+    let pollMs = 30000;
     let pollInFlight = false;
     let pingTimer = null;
+    let pollErrorStreak = 0;
+    const POLL_MS_MIN = 30000;
+    const POLL_MS_MAX = 120000;
+    let tabVisible = !document.hidden;
+
+    function onVisibilityChange() {
+      tabVisible = !document.hidden;
+      if (tabVisible) {
+        schedulePoll(pollMs);
+        poll();
+      } else if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     function showActivity(msg, isErr = false) {
       const el = document.getElementById('activity');
@@ -56,6 +72,7 @@ function setHtml(el, html) {
     function schedulePoll(ms) {
       pollMs = ms;
       if (pollTimer) clearInterval(pollTimer);
+      if (!tabVisible) return;
       pollTimer = setInterval(poll, pollMs);
     }
 
@@ -257,7 +274,7 @@ async function api(path, opts = {}) {
       runPill.className = 'pill ' + (running ? 'run' : '');
 
       if (running) schedulePoll(2000);
-      else if (pollMs < 12000) schedulePoll(12000);
+      else if (pollMs < 30000) schedulePoll(30000);
 
       if (s.lastSpawn && s.lastSpawn.startedAt) {
         const ls = s.lastSpawn;
@@ -397,7 +414,7 @@ async function api(path, opts = {}) {
     }
 
     async function poll() {
-      if (pollInFlight) return;
+      if (pollInFlight || !tabVisible) return;
       pollInFlight = true;
       try {
         const ctrl = new AbortController();
@@ -406,7 +423,14 @@ async function api(path, opts = {}) {
         clearTimeout(t);
         if (!r.ok) throw new Error('state failed');
         renderState(await r.json());
+        pollErrorStreak = 0;
+        if (pollMs > POLL_MS_MIN && !(state.benchmarkRunning || (state.live && state.live.status && state.live.status !== 'completed'))) {
+          schedulePoll(POLL_MS_MIN);
+        }
       } catch (_) {
+        pollErrorStreak += 1;
+        const backoff = Math.min(POLL_MS_MAX, POLL_MS_MIN * (2 ** Math.min(pollErrorStreak, 3)));
+        if (backoff > pollMs) schedulePoll(backoff);
         await checkPing();
       } finally {
         pollInFlight = false;

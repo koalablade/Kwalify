@@ -1,0 +1,43 @@
+{
+  "id": "fog_uncertainty",
+  "domain": "weather",
+  "name": "Fog and uncertainty",
+  "description": "Can't see ahead — world reduced to a few metres, decisions suspended.",
+  "human_meaning": "Visibility as metaphor — fog when you can't see where life is going.",
+  "emotional_states": [
+    "uncertainty",
+    "anxiety",
+    "suspension"
+  ],
+  "hidden_emotions": [
+    "lost",
+    "waiting for clarity"
+  ],
+  "weather_context": [
+    "fog",
+    "mist",
+    "low visibility"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "clarity → fog → disorientation → patience",
+  "musical_behaviours": [
+    "floats",
+    "simmers",
+    "feels cinematic"
+  ],
+  "related_experiences": [
+    "new_chapter",
+    "cant_sleep"
+  ],
+  "common_phrases": [
+    "fog",
+    "can't see ahead",
+    "misty morning",
+    "lost in fog",
+    "unclear path"
+  ],
+  "misleading_keywords": [
+    "fog machine",
+    "foggy memory"
+  ]
+}

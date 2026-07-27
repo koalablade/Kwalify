@@ -1,0 +1,54 @@
+{
+  "domain": "activities",
+  "description": "Rearranging furniture, rearranging self — fresh layout, fresh start feeling.",
+  "energy_curve": "medium",
+  "emotional_arc": "inspiration or restlessness → lifting, measuring, sweating → new perspective, takeaway reward",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "reorganising_room",
+  "name": "Reorganising room",
+  "human_meaning": "Rearranging furniture, rearranging self — fresh layout, fresh start feeling.",
+  "common_phrases": [
+    "reorganising my room",
+    "rearranging furniture",
+    "changing my room around",
+    "room makeover"
+  ],
+  "hidden_context": "Cheap therapy via feng shui.",
+  "emotional_states": [
+    "hope",
+    "focus",
+    "renewal"
+  ],
+  "environments": [
+    "bedroom",
+    "home"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "inspiration or restlessness",
+  "during_state": "lifting, measuring, sweating",
+  "after_state": "new perspective, takeaway reward",
+  "musical_behaviours": [
+    "lifts",
+    "builds",
+    "energises"
+  ],
+  "related_experiences": [
+    "moving_house",
+    "first_apartment"
+  ],
+  "activity": [
+    "organising",
+    "making"
+  ],
+  "environment": [
+    "bedroom",
+    "home"
+  ]
+}

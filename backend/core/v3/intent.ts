@@ -137,7 +137,7 @@ const SCENE_EMBEDDING_DIMS = 24;
 export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "country", terms: ["country", "americana", "alt-country", "alt country", "bluegrass", "western", "honky tonk", "outlaw", "outlaw country", "red dirt", "nashville", "country pop", "classic country"] },
   { family: "hip_hop", terms: ["hip hop", "hip-hop", "rap", "trap", "drill", "boom bap", "boom-bap", "old school rap", "g-funk", "melodic rap", "emo rap"] },
-  { family: "rock", terms: ["rock", "indie rock", "indie-rock", "alt rock", "alternative rock", "classic rock", "grunge", "punk", "punk rock", "hard rock", "post-rock", "post rock", "emo", "shoegaze"] },
+  { family: "rock", terms: ["rock", "indie rock", "indie-rock", "alt rock", "alternative rock", "classic rock", "grunge", "punk", "punk rock", "hard rock", "post-rock", "post rock", "emo", "shoegaze", "garage rock", "blues rock", "blues-rock", "bluesy rock", "bluesy"] },
   { family: "electronic", terms: ["electronic", "house", "house music", "techno", "hard techno", "hardgroove", "hard groove", "schranz", "tekk", "tekno", "industrial techno", "warehouse techno", "rave techno", "hard trance", "trance", "edm", "dnb", "drum and bass", "drum & bass", "rave", "dubstep", "ambient", "synthwave", "retrowave", "jungle"] },
   { family: "jazz", terms: ["jazz", "soul jazz", "lo-fi jazz", "lofi jazz", "bebop", "bossa nova", "swing", "smooth jazz", "vocal jazz", "latin jazz"] },
   { family: "pop", terms: ["pop", "dance pop", "dance-pop", "indie pop", "synthpop", "synth pop", "synth-pop", "k-pop", "kpop", "teen pop", "boy band", "girl group"] },
@@ -147,7 +147,7 @@ export const GENRE_ALIASES: Array<{ family: string; terms: string[] }> = [
   { family: "classical", terms: ["classical", "orchestral", "piano", "solo piano", "piano classical", "symphony", "concerto", "nocturne", "sonata", "opera", "chamber", "baroque"] },
   { family: "christmas", terms: ["christmas", "xmas", "christmas holiday", "holiday song", "holiday classics", "festive", "noel", "santa", "jingle bells", "winter wonderland"] },
   { family: "indie", terms: ["indie", "indie music", "lo-fi", "lofi", "chillhop", "bedroom pop", "alternative indie", "study beats"] },
-  { family: "blues", terms: ["blues", "delta blues", "chicago blues", "electric blues", "acoustic blues", "blues rock", "blues-rock"] },
+  { family: "blues", terms: ["blues", "bluesy", "delta blues", "chicago blues", "electric blues", "acoustic blues", "blues rock", "blues-rock", "bluesy rock"] },
   { family: "rnb", terms: ["r&b", "rnb", "classic r&b", "contemporary r&b", "alternative r&b", "alt rnb", "new jack swing"] },
   { family: "reggae", terms: ["reggae", "roots reggae", "dub", "dancehall", "rocksteady", "ragga"] },
   { family: "latin", terms: ["latin", "reggaeton", "salsa", "bachata", "merengue", "cumbia", "latin pop", "latin trap", "spanish pop"] },
@@ -557,6 +557,9 @@ function hasGaragePhysicalContext(input: string): boolean {
 function dedupeGenreFamilyCollisions(input: string, families: string[]): string[] {
   let out = [...families];
   if (/\b(dream pop|shoegaze|shoegazing|noise pop|jangle pop|slowcore)\b/i.test(input) && out.includes("rock") && out.includes("pop")) {
+    out = out.filter((family) => family !== "pop");
+  }
+  if (/\b(?:pop[\s-]?punk|pop_punk)\b/i.test(input) && out.includes("rock") && out.includes("pop")) {
     out = out.filter((family) => family !== "pop");
   }
   if (/\b(?:hyper\s*pop|hyperpop)\b/i.test(input) && out.includes("electronic") && out.includes("pop")) {

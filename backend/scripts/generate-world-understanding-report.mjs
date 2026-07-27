@@ -8,11 +8,13 @@ process.chdir(join(root, ".."));
 const { getWorldKnowledgeStats, runWorldUnderstandingQualitySample, runMomentCoverageReport } = await import(
   "../dist/lib/world-understanding/quality-report.js"
 );
+const { analyzeFailedPrompts } = await import("../dist/lib/world-understanding/benchmark-failures.js");
 const { interpretWorld } = await import("../dist/lib/world-understanding/index.js");
 const { WORLD_EVAL_CASES } = await import("../dist/lib/world-understanding/evaluation-prompts.js");
 
 const quality = runWorldUnderstandingQualitySample(WORLD_EVAL_CASES.length);
 const coverage = runMomentCoverageReport(WORLD_EVAL_CASES.length);
+const failures = analyzeFailedPrompts(100);
 
 const stats = getWorldKnowledgeStats();
 
@@ -95,14 +97,23 @@ Generated: ${new Date().toISOString().slice(0, 10)}
 
 ## Moment coverage (target: 95%)
 
-| Metric | Value |
-|--------|------:|
-| Prompts tested | ${coverage.tested} |
-| Moment coverage | ${coverage.momentCoveragePct}% |
-| Scene accuracy | ${coverage.sceneAccuracyPct}% |
-| Emotion accuracy | ${coverage.emotionAccuracyPct}% |
-| Music direction accuracy | ${coverage.musicDirectionAccuracyPct}% |
-| Gap to 95% target | ${coverage.gapToTargetPct}% |
+| Metric | Before | After |
+|--------|-------:|------:|
+| Moment coverage | 62.6% | ${coverage.momentCoveragePct}% |
+| Scene accuracy | 66.2% | ${coverage.sceneAccuracyPct}% |
+| Emotion accuracy | 85.1% | ${coverage.emotionAccuracyPct}% |
+| Music direction | 96.3% | ${coverage.musicDirectionAccuracyPct}% |
+| Gap to target | 32.4% | ${coverage.gapToTargetPct}% |
+
+### Failure groups (top 100 misses)
+
+| Group | Count |
+|-------|------:|
+| Wrong scene | ${failures.grouped.wrong_scene} |
+| Missing context | ${failures.grouped.missing_context} |
+| Abstract meaning | ${failures.grouped.abstract_meaning} |
+| Conflicting concepts | ${failures.grouped.conflicting_concepts} |
+| Emotion miss | ${failures.grouped.emotion_miss} |
 
 ## Testing
 
@@ -131,7 +142,11 @@ ${goldenResults
 
 - Concept graph has 730+ interconnected nodes across 11 domains with 1-hop propagation
 - Moment coverage is ~63% on 2000 human prompts — emotion and music direction are strong; scene accuracy is the bottleneck
-- Scene selection remains scored template matching, not reasoning over implied meaning
+- Scene intelligence uses weighted multi-dimension composition, not single-word scoring
+- Scene competition exposes top 5 candidates in debug
+- Intent contract and negation layers run before scene selection
+- Scene accuracy regressed slightly in this pass — compound scoring needs further tuning
+- Abstract prompts remain the largest failure bucket
 - Graph and library entries are partly template-expanded from seeds
 - Negation and complex syntax are not deeply handled
 - World understanding nudges EmotionProfile only; it does not yet drive authoritative intent contract
@@ -145,6 +160,8 @@ USER PROMPT
   → rich knowledge (situations, emotional states, sensory, UK cultural)
   → universal knowledge (11 language libraries)
   → concept graph (word → context → experience → emotion → music)
+  → intent contract + negation
+  → weighted scene composition + competition (top 5)
   → scene composition
   → music behaviour translation
   → EmotionProfile nudge (scoring unchanged)
@@ -154,4 +171,4 @@ USER PROMPT
 const outPath = join(root, "..", "docs", "world-understanding-report.md");
 writeFileSync(outPath, report, "utf8");
 console.log(`Wrote ${outPath}`);
-console.log(JSON.stringify({ stats, quality, coverage }, null, 2));
+console.log(JSON.stringify({ stats, quality, coverage, failures: failures.grouped }, null, 2));

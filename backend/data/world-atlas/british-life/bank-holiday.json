@@ -1,0 +1,41 @@
+{
+  "id": "bank_holiday",
+  "domain": "british-life",
+  "name": "Bank holiday",
+  "description": "Unexpected Monday off — BBQ weather hope, garden centres, traffic.",
+  "human_meaning": "Stolen time — the gift of a Monday that doesn't count.",
+  "emotional_states": [
+    "relief",
+    "anticipation",
+    "contentment"
+  ],
+  "hidden_emotions": [
+    "freedom",
+    "British ritual"
+  ],
+  "time_context": [
+    "bank holiday",
+    "long weekend"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "surprise → planning → enjoyment → regret on Tuesday",
+  "musical_behaviours": [
+    "lifts",
+    "feels warm",
+    "relaxes"
+  ],
+  "related_experiences": [
+    "pub_garden",
+    "barbecue"
+  ],
+  "common_phrases": [
+    "bank holiday",
+    "long weekend",
+    "monday off",
+    "bank holiday monday"
+  ],
+  "misleading_keywords": [
+    "bank",
+    "financial"
+  ]
+}

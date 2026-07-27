@@ -1,0 +1,52 @@
+{
+  "id": "moving_house",
+  "domain": "home",
+  "name": "Moving house",
+  "description": "Boxes everywhere, between homes, life in transit.",
+  "human_meaning": "Life in boxes — the disorienting in-between of leaving one life and starting another.",
+  "emotional_states": [
+    "stress",
+    "anticipation",
+    "nostalgia"
+  ],
+  "hidden_emotions": [
+    "grief for old home",
+    "hope for new"
+  ],
+  "environment": [
+    "half-empty rooms",
+    "boxes",
+    "van"
+  ],
+  "activity": [
+    "packing",
+    "moving"
+  ],
+  "energy_curve": "medium-high",
+  "emotional_arc": "nostalgia → chaos → exhaustion → new threshold",
+  "musical_behaviours": [
+    "builds",
+    "simmers",
+    "releases"
+  ],
+  "related_experiences": [
+    "first_apartment",
+    "goodbye_neighbourhood",
+    "moving_away"
+  ],
+  "common_phrases": [
+    "moving house",
+    "moving day",
+    "packing boxes",
+    "new house keys",
+    "moving out"
+  ],
+  "misleading_keywords": [
+    "moving image",
+    "film"
+  ],
+  "playlistIntents": [
+    "process",
+    "transition"
+  ]
+}

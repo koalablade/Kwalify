@@ -1,0 +1,57 @@
+{
+  "domain": "activities",
+  "description": "Domestic blur — pyjama professionalism, fridge proximity, no boundary.",
+  "energy_curve": "medium",
+  "emotional_arc": "rolling from bed to desk → blurred hours, snack breaks → nowhere to commute — work lingers",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "work_from_home",
+  "name": "Working from home",
+  "human_meaning": "Domestic blur — pyjama professionalism, fridge proximity, no boundary.",
+  "common_phrases": [
+    "working from home",
+    "wfh",
+    "home office day",
+    "remote work day"
+  ],
+  "hidden_context": "Liberation and cabin fever in the same room.",
+  "emotional_states": [
+    "focus",
+    "isolation",
+    "comfort"
+  ],
+  "environments": [
+    "home",
+    "kitchen table",
+    "spare room"
+  ],
+  "social_context": [
+    "alone",
+    "video calls"
+  ],
+  "before_state": "rolling from bed to desk",
+  "during_state": "blurred hours, snack breaks",
+  "after_state": "nowhere to commute — work lingers",
+  "musical_behaviours": [
+    "focuses",
+    "comforts",
+    "drifts"
+  ],
+  "related_experiences": [
+    "lazy_sunday",
+    "sitting_on_sofa"
+  ],
+  "activity": [
+    "working",
+    "resting"
+  ],
+  "environment": [
+    "home",
+    "kitchen table",
+    "spare room"
+  ]
+}

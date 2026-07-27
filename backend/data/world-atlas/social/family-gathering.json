@@ -1,0 +1,44 @@
+{
+  "id": "family_gathering",
+  "domain": "social",
+  "name": "Family gathering",
+  "description": "Loud table, old dynamics, love mixed with history.",
+  "human_meaning": "Complicated warmth — family as love wrapped in old patterns and shared history.",
+  "emotional_states": [
+    "warmth",
+    "nostalgia",
+    "tension"
+  ],
+  "hidden_emotions": [
+    "belonging",
+    "old wounds"
+  ],
+  "environment": [
+    "family home",
+    "dining table"
+  ],
+  "social_context": [
+    "family",
+    "relatives"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "arrival → warmth → tension → acceptance",
+  "musical_behaviours": [
+    "feels warm",
+    "comforts",
+    "nostalgic warmth"
+  ],
+  "related_experiences": [
+    "christmas_morning",
+    "family_memories"
+  ],
+  "common_phrases": [
+    "family gathering",
+    "family dinner",
+    "whole family together",
+    "seeing the family"
+  ],
+  "misleading_keywords": [
+    "work family"
+  ]
+}

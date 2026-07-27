@@ -1,0 +1,53 @@
+{
+  "domain": "activities",
+  "description": "Solo focus or solo loneliness — the office empty changes everything.",
+  "energy_curve": "medium",
+  "emotional_arc": "anticipation of quiet → deep work or distracted solitude → strange silence when you stop",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "working_alone",
+  "name": "Working alone",
+  "human_meaning": "Solo focus or solo loneliness — the office empty changes everything.",
+  "common_phrases": [
+    "working alone",
+    "only one in the office",
+    "solo at work",
+    "empty office"
+  ],
+  "hidden_context": "Freedom and isolation in equal measure.",
+  "emotional_states": [
+    "focus",
+    "loneliness",
+    "calm"
+  ],
+  "environments": [
+    "office",
+    "home desk"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "anticipation of quiet",
+  "during_state": "deep work or distracted solitude",
+  "after_state": "strange silence when you stop",
+  "musical_behaviours": [
+    "focuses",
+    "drifts",
+    "intimate"
+  ],
+  "related_experiences": [
+    "work_from_home",
+    "everyone_asleep"
+  ],
+  "activity": [
+    "working"
+  ],
+  "environment": [
+    "office",
+    "home desk"
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "id": "childhood_summer_holidays",
+  "domain": "childhood",
+  "name": "Childhood summer holidays",
+  "description": "Days without structure, sun on skin, bikes and estates, late bedtimes.",
+  "human_meaning": "Golden nostalgia — innocence remembered through an adult's longing.",
+  "emotional_states": [
+    "Golden nostalgia — innocence remembered through an adult's longing."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "warm tarmac",
+    "ice cream van",
+    "cricket on radio",
+    "long evenings"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium",
+  "emotional_arc": "freedom → adventure → friendship → fading light",
+  "musical_behaviours": [
+    "nostalgic_warmth",
+    "quiet hope",
+    "floats"
+  ],
+  "related_experiences": [
+    "summer_evening",
+    "goodbye_neighbourhood"
+  ],
+  "common_phrases": [
+    "childhood summers",
+    "summer holidays as a kid",
+    "school holidays",
+    "endless summer as a child",
+    "teenage years summer"
+  ],
+  "misleading_keywords": [],
+  "playlistIntents": [
+    "remember",
+    "nostalgia"
+  ],
+  "inferredQualities": [
+    "nostalgia",
+    "innocence",
+    "bittersweet",
+    "shared memories"
+  ],
+  "typicalThoughts": [
+    "Time moved differently then",
+    "That friend from those years",
+    "Nothing was urgent"
+  ],
+  "nearbyConcepts": [
+    "memory",
+    "youth",
+    "season"
+  ]
+}

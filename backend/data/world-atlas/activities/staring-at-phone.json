@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Screen glow in a dark room — connection and isolation same device.",
+  "energy_curve": "medium",
+  "emotional_arc": "notification hope → refresh, scroll, lock, unlock → same feeling, battery lower",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "staring_at_phone",
+  "name": "Staring at phone",
+  "human_meaning": "Screen glow in a dark room — connection and isolation same device.",
+  "common_phrases": [
+    "staring at my phone",
+    "glued to my phone",
+    "phone in hand",
+    "checking my phone again"
+  ],
+  "hidden_context": "Waiting for something that may not come.",
+  "emotional_states": [
+    "anticipation",
+    "boredom",
+    "loneliness"
+  ],
+  "environments": [
+    "bedroom",
+    "sofa",
+    "bus"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "notification hope",
+  "during_state": "refresh, scroll, lock, unlock",
+  "after_state": "same feeling, battery lower",
+  "musical_behaviours": [
+    "drifts",
+    "intimate",
+    "sparse"
+  ],
+  "related_experiences": [
+    "waiting_for_message",
+    "doom_scrolling"
+  ],
+  "activity": [
+    "phone use"
+  ],
+  "environment": [
+    "bedroom",
+    "sofa",
+    "bus"
+  ]
+}

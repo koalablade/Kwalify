@@ -1,0 +1,44 @@
+{
+  "id": "monday_morning",
+  "domain": "time",
+  "name": "Monday morning pressure",
+  "description": "Alarm, commute, week beginning — resistance and resignation.",
+  "human_meaning": "Weekly reset dread — the jolt from freedom back into obligation.",
+  "emotional_states": [
+    "dread",
+    "resignation",
+    "determination"
+  ],
+  "hidden_emotions": [
+    "anxiety",
+    "routine burden"
+  ],
+  "time_context": [
+    "Monday morning",
+    "start of week"
+  ],
+  "environment": [
+    "commute",
+    "office"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "alarm → resistance → momentum → settling",
+  "musical_behaviours": [
+    "drives forward",
+    "builds",
+    "grinds"
+  ],
+  "related_experiences": [
+    "office_friday",
+    "school_run"
+  ],
+  "common_phrases": [
+    "monday morning",
+    "start of the week",
+    "monday dread",
+    "back to work monday"
+  ],
+  "misleading_keywords": [
+    "monday motivation"
+  ]
+}

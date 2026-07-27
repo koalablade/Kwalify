@@ -14,11 +14,12 @@
 
 import { logger } from "./logger";
 import { captureError } from "./error-tracking";
+import { getGenerateOverloadState } from "./runtime-overload";
 
 let installed = false;
 
 const REJECTION_WINDOW_MS = 60_000;
-const REJECTION_EXIT_THRESHOLD = 10;
+const REJECTION_EXIT_THRESHOLD = Number.parseInt(process.env["PROCESS_REJECTION_EXIT_THRESHOLD"] ?? "15", 10);
 const rejectionTimestamps: number[] = [];
 
 export function handleUnhandledRejection(
@@ -33,8 +34,15 @@ export function handleUnhandledRejection(
   rejectionTimestamps.push(now);
 
   if (rejectionTimestamps.length >= REJECTION_EXIT_THRESHOLD) {
+    const generate = getGenerateOverloadState();
     logger.fatal(
-      { err: reason, count: rejectionTimestamps.length, windowMs: REJECTION_WINDOW_MS },
+      {
+        err: reason,
+        count: rejectionTimestamps.length,
+        windowMs: REJECTION_WINDOW_MS,
+        generateActive: generate.active,
+        generateQueued: generate.queued,
+      },
       "[process] Too many unhandled promise rejections — exiting",
     );
     exit(1);

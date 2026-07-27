@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Table as stage — love, tension, and tradition in one meal.",
+  "energy_curve": "medium",
+  "emotional_arc": "cooking, setting table, arriving → passing dishes, old stories → washing up, sofa collapse",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "family_dinner",
+  "name": "Family dinner",
+  "human_meaning": "Table as stage — love, tension, and tradition in one meal.",
+  "common_phrases": [
+    "family dinner",
+    "Sunday lunch with family",
+    "everyone round the table",
+    "family meal"
+  ],
+  "hidden_context": "Roles revert; you're always someone's child.",
+  "emotional_states": [
+    "warmth",
+    "nostalgia",
+    "mild tension"
+  ],
+  "environments": [
+    "dining room",
+    "kitchen",
+    "home"
+  ],
+  "social_context": [
+    "family"
+  ],
+  "before_state": "cooking, setting table, arriving",
+  "during_state": "passing dishes, old stories",
+  "after_state": "washing up, sofa collapse",
+  "musical_behaviours": [
+    "warms",
+    "comforts",
+    "nostalgic warmth"
+  ],
+  "related_experiences": [
+    "sunday_roast",
+    "family_gathering"
+  ],
+  "activity": [
+    "eating",
+    "socialising"
+  ],
+  "environment": [
+    "dining room",
+    "kitchen",
+    "home"
+  ]
+}

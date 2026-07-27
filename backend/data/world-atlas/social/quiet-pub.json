@@ -1,0 +1,53 @@
+{
+  "id": "quiet_pub",
+  "domain": "social",
+  "name": "Quiet pub",
+  "description": "Sunday pub, few people, warm wood, low conversation.",
+  "human_meaning": "Gentle social warmth — company without performance, pint without pressure.",
+  "emotional_states": [
+    "contentment",
+    "ease",
+    "warmth"
+  ],
+  "hidden_emotions": [
+    "belonging",
+    "routine comfort"
+  ],
+  "environment": [
+    "pub",
+    "bar"
+  ],
+  "activity": [
+    "drinking",
+    "talking"
+  ],
+  "social_context": [
+    "friends",
+    "regulars"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "arrival → settling → conversation → ease",
+  "musical_behaviours": [
+    "comforts",
+    "feels warm",
+    "grounds"
+  ],
+  "related_experiences": [
+    "pub_garden",
+    "pub_night"
+  ],
+  "common_phrases": [
+    "quiet pub",
+    "local pub",
+    "sunday pub",
+    "pint at the pub",
+    "pub lunch"
+  ],
+  "misleading_keywords": [
+    "pub quiz",
+    "pub crawl"
+  ],
+  "playlistIntents": [
+    "relax"
+  ]
+}

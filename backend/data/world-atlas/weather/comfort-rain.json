@@ -1,0 +1,46 @@
+{
+  "id": "comfort_rain",
+  "domain": "weather",
+  "name": "Comfort rain",
+  "description": "Rain as permission to stay in and feel cosy — not sad, just sheltered.",
+  "human_meaning": "Rain as blanket — weather that gives permission to nest and feel safe.",
+  "emotional_states": [
+    "coziness",
+    "calm",
+    "contentment"
+  ],
+  "hidden_emotions": [
+    "hibernation",
+    "permission to rest"
+  ],
+  "weather_context": [
+    "gentle rain",
+    "steady rain"
+  ],
+  "environment": [
+    "indoors",
+    "home"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "grey sky → nesting → warmth → contentment",
+  "musical_behaviours": [
+    "comforts",
+    "feels warm",
+    "breathes"
+  ],
+  "related_experiences": [
+    "rain_on_windows",
+    "rainy_day_indoors"
+  ],
+  "common_phrases": [
+    "cosy rain",
+    "rainy day cosy",
+    "love the rain from inside",
+    "rain making everything cosy"
+  ],
+  "misleading_keywords": [
+    "rain",
+    "raining",
+    "wet"
+  ]
+}

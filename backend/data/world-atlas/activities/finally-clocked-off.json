@@ -1,0 +1,68 @@
+{
+  "domain": "activities",
+  "description": "Release after obligation — the body knows before the mind catches up.",
+  "energy_curve": "medium",
+  "emotional_arc": "enduring the last hour → walking out, keys in hand, first breath of freedom → commute, decompression, home or pub",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "finally_clocked_off",
+  "name": "Finally clocked off",
+  "human_meaning": "Release after obligation — the body knows before the mind catches up.",
+  "common_phrases": [
+    "finally clocked off",
+    "clocked off at last",
+    "finally finished work",
+    "done with work finally",
+    "finally off work"
+  ],
+  "hidden_context": "Fatigue, transition, freedom — not celebration, just exhale.",
+  "emotional_states": [
+    "relief",
+    "exhaustion",
+    "freedom"
+  ],
+  "environments": [
+    "workplace",
+    "car park",
+    "street"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "enduring the last hour",
+  "during_state": "walking out, keys in hand, first breath of freedom",
+  "after_state": "commute, decompression, home or pub",
+  "musical_behaviours": [
+    "releases",
+    "settles",
+    "grounds"
+  ],
+  "related_experiences": [
+    "commute_home",
+    "car_after_work_avoidance",
+    "driving_home_after_work"
+  ],
+  "activity": [
+    "leaving work",
+    "decompressing"
+  ],
+  "playlistIntents": [
+    "recover",
+    "drive"
+  ],
+  "inferredQualities": [
+    "release",
+    "transition",
+    "fatigue",
+    "freedom"
+  ],
+  "environment": [
+    "workplace",
+    "car park",
+    "street"
+  ]
+}

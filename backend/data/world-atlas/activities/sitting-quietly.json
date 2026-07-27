@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Doing nothing on purpose — rare permission in a noisy life.",
+  "energy_curve": "medium",
+  "emotional_arc": "noise, busyness, overstimulation → breathing, noticing, not moving → slightly re-centred",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "sitting_quietly",
+  "name": "Sitting quietly",
+  "human_meaning": "Doing nothing on purpose — rare permission in a noisy life.",
+  "common_phrases": [
+    "sitting quietly",
+    "just sitting",
+    "sitting in silence",
+    "quiet moment alone"
+  ],
+  "hidden_context": "Not meditation, just stopping.",
+  "emotional_states": [
+    "peace",
+    "reflection",
+    "stillness"
+  ],
+  "environments": [
+    "home",
+    "garden",
+    "park bench"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "noise, busyness, overstimulation",
+  "during_state": "breathing, noticing, not moving",
+  "after_state": "slightly re-centred",
+  "musical_behaviours": [
+    "whispers",
+    "breathes",
+    "settles"
+  ],
+  "related_experiences": [
+    "staring_out_window",
+    "conservatory"
+  ],
+  "activity": [
+    "sitting",
+    "resting"
+  ],
+  "environment": [
+    "home",
+    "garden",
+    "park bench"
+  ]
+}

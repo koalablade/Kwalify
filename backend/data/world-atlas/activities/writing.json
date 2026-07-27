@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Thoughts made tangible — diary, song, or letter never sent.",
+  "energy_curve": "medium",
+  "emotional_arc": "blank page anxiety → flow or struggle, words emerging → lighter or more exposed",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "writing",
+  "name": "Writing",
+  "human_meaning": "Thoughts made tangible — diary, song, or letter never sent.",
+  "common_phrases": [
+    "writing in my journal",
+    "working on writing",
+    "late night writing",
+    "trying to write"
+  ],
+  "hidden_context": "Vulnerability on the page.",
+  "emotional_states": [
+    "reflection",
+    "expression",
+    "vulnerability"
+  ],
+  "environments": [
+    "desk",
+    "bedroom",
+    "cafe"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "blank page anxiety",
+  "during_state": "flow or struggle, words emerging",
+  "after_state": "lighter or more exposed",
+  "musical_behaviours": [
+    "whispers",
+    "focuses",
+    "inspires"
+  ],
+  "related_experiences": [
+    "two_am_thoughts",
+    "reading"
+  ],
+  "activity": [
+    "writing"
+  ],
+  "environment": [
+    "desk",
+    "bedroom",
+    "cafe"
+  ]
+}

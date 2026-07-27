@@ -1,0 +1,51 @@
+{
+  "id": "sunday_morning",
+  "domain": "times-of-day",
+  "name": "Sunday morning",
+  "description": "No alarm, soft light through curtains, house still and unhurried.",
+  "human_meaning": "Permission to exist without productivity — rest as a legitimate state.",
+  "emotional_states": [
+    "Permission to exist without productivity — rest as a legitimate state."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "soft light",
+    "quiet streets",
+    "coffee brewing",
+    "duvet warmth"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "low",
+  "emotional_arc": "sleep → waking → stillness → gentle readiness",
+  "musical_behaviours": [
+    "settles",
+    "comforts",
+    "breathes"
+  ],
+  "related_experiences": [
+    "tea_after_work",
+    "rain_on_windows",
+    "quiet_saturday"
+  ],
+  "common_phrases": [
+    "sunday morning",
+    "lazy sunday",
+    "sunday morning quiet",
+    "slow sunday"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Nothing urgent today",
+    "Coffee can wait",
+    "The week hasn't started yet"
+  ],
+  "nearbyConcepts": [
+    "rest",
+    "routine break",
+    "home"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "id": "new_chapter",
+  "domain": "life-events",
+  "name": "Starting a new chapter",
+  "description": "Life pivoting — old identity shed, new one not yet formed.",
+  "human_meaning": "Identity in flux — the terrifying freedom of becoming someone new.",
+  "emotional_states": [
+    "hope",
+    "anxiety",
+    "anticipation"
+  ],
+  "hidden_emotions": [
+    "uncertainty",
+    "reinvention"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "ending → limbo → possibility → first steps",
+  "musical_behaviours": [
+    "builds",
+    "anticipates",
+    "opens up"
+  ],
+  "related_experiences": [
+    "graduation",
+    "moving_away",
+    "fresh_start"
+  ],
+  "common_phrases": [
+    "new chapter",
+    "starting again",
+    "fresh start",
+    "life is changing",
+    "turning point",
+    "new beginning"
+  ],
+  "misleading_keywords": [
+    "book chapter"
+  ],
+  "playlistIntents": [
+    "transition",
+    "focus"
+  ]
+}

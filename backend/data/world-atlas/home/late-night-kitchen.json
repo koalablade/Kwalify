@@ -1,0 +1,57 @@
+{
+  "id": "late_night_kitchen",
+  "domain": "home",
+  "name": "Late night kitchen",
+  "description": "Everyone asleep, fridge light, quiet house — private nocturnal ritual.",
+  "human_meaning": "Nocturnal domestic solitude — the house asleep and you alone with your thoughts in the kitchen.",
+  "emotional_states": [
+    "introspection",
+    "loneliness",
+    "calm"
+  ],
+  "hidden_emotions": [
+    "insomnia",
+    "private thoughts",
+    "anxiety"
+  ],
+  "environment": [
+    "kitchen",
+    "dark house"
+  ],
+  "activity": [
+    "snacking",
+    "wandering",
+    "thinking"
+  ],
+  "time_context": [
+    "2am",
+    "late night",
+    "can't sleep"
+  ],
+  "social_context": [
+    "alone",
+    "everyone asleep"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "wakefulness → wandering → contemplation → return to bed",
+  "musical_behaviours": [
+    "breathes",
+    "feels intimate",
+    "whispers"
+  ],
+  "related_experiences": [
+    "everyone_asleep",
+    "cant_sleep"
+  ],
+  "common_phrases": [
+    "late night kitchen",
+    "everyone asleep",
+    "up at 2am",
+    "kitchen at night",
+    "can't sleep wandering"
+  ],
+  "misleading_keywords": [
+    "cooking",
+    "dinner party"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Brief escape from four walls — shop, air, normality.",
+  "energy_curve": "medium",
+  "emotional_arc": "cabin fever or need milk → quick errand, nod to neighbour → back inside, mission done",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "nipping_out",
+  "name": "Nipping out",
+  "human_meaning": "Brief escape from four walls — shop, air, normality.",
+  "common_phrases": [
+    "nipping out",
+    "just popping out",
+    "quick trip to the shops",
+    "pop out for a bit"
+  ],
+  "hidden_context": "British understatement for small liberation.",
+  "emotional_states": [
+    "relief",
+    "routine",
+    "mild freedom"
+  ],
+  "environments": [
+    "local shops",
+    "streets",
+    "corner shop"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "cabin fever or need milk",
+  "during_state": "quick errand, nod to neighbour",
+  "after_state": "back inside, mission done",
+  "musical_behaviours": [
+    "light",
+    "casual",
+    "grounds"
+  ],
+  "related_experiences": [
+    "commute",
+    "quiet_saturday"
+  ],
+  "activity": [
+    "errands",
+    "walking"
+  ],
+  "environment": [
+    "local shops",
+    "streets",
+    "corner shop"
+  ]
+}

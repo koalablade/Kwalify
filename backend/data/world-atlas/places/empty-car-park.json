@@ -1,0 +1,53 @@
+{
+  "id": "empty_car_park",
+  "domain": "places",
+  "name": "Empty car park",
+  "description": "Vast tarmac, few cars, echoing footsteps — urban emptiness.",
+  "human_meaning": "Urban void — the eerie openness of a space designed for crowds now empty.",
+  "emotional_states": [
+    "loneliness",
+    "freedom",
+    "unease"
+  ],
+  "hidden_emotions": [
+    "isolation",
+    "cinematic"
+  ],
+  "environment": [
+    "car park",
+    "tarmac",
+    "concrete"
+  ],
+  "activity": [
+    "walking",
+    "waiting"
+  ],
+  "time_context": [
+    "late night",
+    "early morning"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "arrival → emptiness → echo → departure",
+  "musical_behaviours": [
+    "feels cinematic",
+    "floats",
+    "breathes"
+  ],
+  "related_experiences": [
+    "car_after_work_avoidance",
+    "motorway_at_night"
+  ],
+  "common_phrases": [
+    "empty car park",
+    "car park at night",
+    "empty parking lot",
+    "alone in a car park"
+  ],
+  "misleading_keywords": [
+    "parking ticket",
+    "parking fine"
+  ]
+}

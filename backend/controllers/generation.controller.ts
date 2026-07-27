@@ -102,6 +102,7 @@ import {
   getActiveSessionRetryAfterMs,
 } from "../lib/generate-session";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
+import { getDiscoveryModeReadiness } from "../lib/discovery-mode";
 import { isShuttingDown } from "../lib/shutdown";
 import { createGenerateStageTimer } from "../lib/generate-stage-timer";
 import { buildFallbackPipelineResult, buildCachedGenerateResponse, buildFastFallbackSceneContext, formatTracksForApi } from "../lib/generate-helpers";
@@ -146,7 +147,10 @@ import {
   resolveActivityProfile,
   trackFailsActivityHardGate,
 } from "../lib/activity-profiles";
-import { orchestratePlaylistRetrieval } from "../lib/playlist-retrieval-orchestrator";
+import {
+  MIN_LIBRARY_TRACKS,
+  orchestratePlaylistRetrieval,
+} from "../lib/playlist-retrieval-orchestrator";
 import {
   estimateValidCandidateSupply,
   minRequiredValidCandidates,
@@ -5040,6 +5044,7 @@ router.get("/generate/preview", (req, res): void => {
         calm: profile.calm,
       },
       journeyArc: journeyArc ?? null,
+      discovery: getDiscoveryModeReadiness(vibe),
       intentUnderstanding: buildIntentUnderstandingDiagnostics({
         prompt: vibe,
         profile,
@@ -5263,13 +5268,17 @@ router.post("/generate", async (req, res): Promise<void> => {
     const noLibraryParsedIntent = noLibraryMode ? buildCsspLockedIntent(vibe) : null;
     const noLibraryExplicitFamilies = noLibraryParsedIntent?.genreFamilies ?? [];
     if (noLibraryMode && noLibraryExplicitFamilies.length === 0) {
+      const discoveryReadiness = getDiscoveryModeReadiness(vibe);
       generateFail(
         res,
         400,
         "NO_LIBRARY_REQUIRES_GENRE",
-        "No Library Mode needs a clear genre prompt so Spotify-wide search can stay on target. Try adding a genre like pop punk, country, UK garage, house, or indie rock.",
+        discoveryReadiness.hint
+          ?? "Discovery Mode needs a clear genre in your prompt so Spotify-wide search stays on target. Try adding a genre like pop punk, country, UK garage, blues rock, or indie rock.",
         {
-          hint: "Use normal mode for mood-only prompts, or keep No Library Mode on and add a genre.",
+          hint: discoveryReadiness.hint
+            ?? "Use library mode for mood-only prompts, or keep Discovery Mode on and add a genre.",
+          discovery: discoveryReadiness,
           noLibrarySpotify: {
             searched: false,
             fallbackUsed: false,
@@ -5711,8 +5720,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       canonicalHints: canonicalCrossGenreHints(vibe),
     });
 
-    setGeneratePhase(generateSessionUserId, requestId, "loading_library");
-    setGenerateStageDetail(generateSessionUserId, requestId, "Scanning your liked songs...");
+    setGeneratePhase(generateSessionUserId, requestId, noLibraryMode ? "spotify" : "loading_library");
+    setGenerateStageDetail(
+      generateSessionUserId,
+      requestId,
+      noLibraryMode ? "Searching Spotify catalogue…" : "Scanning your liked songs…",
+    );
     markTimeline(productionTimeline, startMs, "candidate_fetch_start");
     startTimelineStage(productionTimeline, startMs, "candidate_fetch");
     tStage = Date.now();
@@ -5770,14 +5783,18 @@ router.post("/generate", async (req, res): Promise<void> => {
         likedRowsRaw = hydration.snapshot.likedSongs;
         cachedLikedRows = hydration.dbReadOccurred ? null : likedRowsRaw;
       } else {
-        likedRowsRaw = cachedLikedRows ??
-          await loadLikedSongsBatched(userId);
+        // Discovery Mode: Spotify search is primary — defer heavy library hydration until fallback.
+        likedRowsRaw = cachedLikedRows ?? [];
       }
     } finally {
       endLikedSongsProfile();
     }
-    if (!devMode && noLibraryMode && !snapshotLikedRows && !cachedLikedRows) setCachedLikedSongs(userId, likedRowsRaw);
-    if (!snapshotLikedRows && !cachedLikedRows && !devMode && noLibraryMode) dbHydrationOccurred = true;
+    if (!devMode && noLibraryMode && likedRowsRaw.length > 0 && !snapshotLikedRows && !cachedLikedRows) {
+      setCachedLikedSongs(userId, likedRowsRaw);
+    }
+    if (!snapshotLikedRows && !cachedLikedRows && !devMode && noLibraryMode && likedRowsRaw.length > 0) {
+      dbHydrationOccurred = true;
+    }
     const likedSongsQueryMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "likedSongsQueryMs", likedSongsQueryMs);
     recordGenerationPhaseDuration("library_load", likedSongsQueryMs);
@@ -5797,7 +5814,7 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     let { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
     if (droppedTracks > 0) {
-      req.log.warn({ droppedTracks, userId }, "Dropped invalid liked-song rows");
+      req.log.info({ droppedTracks, userId }, "Dropped invalid liked-song rows");
     }
 
     let noLibrarySpotifyCandidateCount = 0;
@@ -5845,9 +5862,9 @@ router.post("/generate", async (req, res): Promise<void> => {
               requiredVerifiedCandidates,
               retrievalCompletion: noLibraryRetrievalDiagnostics,
             },
-            "No Library Mode using verified Spotify search candidates"
+            "Discovery Mode using verified Spotify search candidates"
           );
-        } else if (spotifyCandidates.length >= Math.min(20, length)) {
+        } else if (spotifyCandidates.length >= Math.min(length, Math.max(24, Math.ceil(length * 0.4)))) {
           likedSongs = spotifyCandidates;
           noLibrarySpotifyCandidateCount = spotifyCandidates.length;
           noLibrarySpotifyFallbackReason = "spotify_search_candidates_below_verified_threshold";
@@ -5860,7 +5877,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               requiredVerifiedCandidates,
               retrievalCompletion: noLibraryRetrievalDiagnostics,
             },
-            "No Library Mode using unverified Spotify search pool; final guard will enforce genre evidence"
+            "Discovery Mode using unverified Spotify search pool; final guard will enforce genre evidence"
           );
         } else {
           noLibrarySpotifyFallbackReason = "spotify_search_too_few_candidates";
@@ -5873,52 +5890,62 @@ router.post("/generate", async (req, res): Promise<void> => {
               requiredVerifiedCandidates,
               retrievalCompletion: noLibraryRetrievalDiagnostics,
             },
-            "No Library Mode Spotify search returned too few candidates"
+            "Discovery Mode Spotify search returned too few candidates"
           );
           if (spotifyCandidates.length > 0) {
             likedSongs = spotifyCandidates;
-          } else if (likedSongs.length > 0) {
-            noLibrarySpotifyFallbackReason = "spotify_search_empty_using_synced_library_fallback";
-            noLibraryRetrievalDiagnostics = {
-              ...(noLibraryRetrievalDiagnostics ?? defaultRetrievalCompletionDiagnostics(Math.min(120, Math.max(50, length * 2)))),
-              emptyPoolDetectedAtStage: noLibraryRetrievalDiagnostics?.emptyPoolDetectedAtStage ?? "spotify_search_final",
-              finalPoolSizeAtScoringEntry: likedSongs.length,
-              retrievalFatalEmptyPool: true,
-            };
           } else {
-            setGeneratePhase(generateSessionUserId, requestId, "error");
-            generateFail(
-              res,
-              409,
-              "NO_LIBRARY_SPOTIFY_POOL_EMPTY",
-              "No Library Mode could not find usable Spotify-wide candidates for this prompt. Try a broader genre phrase or turn off No Library Mode.",
-              {
-                noLibrarySpotify: {
-                  searched: true,
-                  fallbackUsed: false,
-                  fallbackReason: noLibrarySpotifyFallbackReason,
-                  candidateCount: noLibrarySpotifyCandidateCount,
-                  verifiedCount: noLibrarySpotifyVerifiedCount,
-                  expectedFamilies: noLibraryExplicitFamilies,
-                  retrievalCompletion: noLibraryRetrievalDiagnostics,
-                },
+            if (likedSongs.length === 0) {
+              const fallbackRows = getCachedLikedSongs(userId) ?? await loadLikedSongsBatched(userId);
+              if (fallbackRows.length > 0) {
+                setCachedLikedSongs(userId, fallbackRows);
+                likedRowsRaw = fallbackRows;
+                likedSongs = sanitizeLikedSongs(fallbackRows).valid;
               }
-            );
-            return;
+            }
+            if (likedSongs.length > 0) {
+              noLibrarySpotifyFallbackReason = "spotify_search_empty_using_synced_library_fallback";
+              noLibraryRetrievalDiagnostics = {
+                ...(noLibraryRetrievalDiagnostics ?? defaultRetrievalCompletionDiagnostics(Math.min(120, Math.max(50, length * 2)))),
+                emptyPoolDetectedAtStage: noLibraryRetrievalDiagnostics?.emptyPoolDetectedAtStage ?? "spotify_search_final",
+                finalPoolSizeAtScoringEntry: likedSongs.length,
+                retrievalFatalEmptyPool: true,
+              };
+            } else {
+              setGeneratePhase(generateSessionUserId, requestId, "error");
+              generateFail(
+                res,
+                409,
+                "NO_LIBRARY_SPOTIFY_POOL_EMPTY",
+                "Discovery Mode could not find enough Spotify-wide candidates for this prompt. Try a broader genre phrase or turn off Discovery Mode to use your liked songs.",
+                {
+                  noLibrarySpotify: {
+                    searched: true,
+                    fallbackUsed: false,
+                    fallbackReason: noLibrarySpotifyFallbackReason,
+                    candidateCount: noLibrarySpotifyCandidateCount,
+                    verifiedCount: noLibrarySpotifyVerifiedCount,
+                    expectedFamilies: noLibraryExplicitFamilies,
+                    retrievalCompletion: noLibraryRetrievalDiagnostics,
+                  },
+                }
+              );
+              return;
+            }
           }
         }
       } catch (searchErr: any) {
         noLibrarySpotifyFallbackReason = "spotify_search_failed";
         req.log.warn(
           { err: searchErr?.message, vibe, families: noLibraryExplicitFamilies },
-          "No Library Mode Spotify search failed"
+          "Discovery Mode Spotify search failed"
         );
         setGeneratePhase(generateSessionUserId, requestId, "error");
         generateFail(
           res,
           503,
           "NO_LIBRARY_SPOTIFY_SEARCH_FAILED",
-          "Spotify-wide search failed before No Library Mode could build a playlist. Please regenerate in a moment or turn off No Library Mode.",
+          "Spotify-wide search failed before Discovery Mode could build a playlist. Please retry in a moment or turn off Discovery Mode.",
           {
             noLibrarySpotify: {
               searched: true,
@@ -5951,8 +5978,8 @@ router.post("/generate", async (req, res): Promise<void> => {
           400,
           "LIBRARY_EMPTY_NO_LIBRARY_MODE",
           noLibraryExplicitFamilies.length > 0
-            ? "No Library Mode could not find usable Spotify-wide candidates for this prompt. Try a broader genre phrase or regenerate in a moment."
-            : "No Library Mode needs a clear genre prompt or a synced library fallback. Try a genre like country, rock, or UK garage."
+            ? "Discovery Mode could not find usable Spotify-wide candidates for this prompt. Try a broader genre phrase or retry in a moment."
+            : "Discovery Mode needs a clear genre in your prompt, or a synced library fallback. Try blues rock, country, indie rock, or UK garage.",
         );
       } else {
         generateFail(
@@ -5971,7 +5998,34 @@ router.post("/generate", async (req, res): Promise<void> => {
         res,
         400,
         "LIBRARY_TOO_SMALL",
-        "Library is too small to generate. Sync more liked songs from Spotify first."
+        "Library is too small to generate. Sync more liked songs from Spotify first, or turn on Discovery Mode with a genre in your prompt.",
+        {
+          suggestDiscoveryMode: true,
+          canUseDiscoveryMode: true,
+          limitingFactors: ["library_critically_small"],
+        },
+      );
+      return;
+    }
+
+    if (!noLibraryMode && likedSongs.length < MIN_LIBRARY_TRACKS) {
+      setGeneratePhase(generateSessionUserId, requestId, "error");
+      generateFail(
+        res,
+        200,
+        "LIBRARY_INSUFFICIENT_FOR_PROMPT",
+        `Your library has ${likedSongs.length.toLocaleString()} liked songs — library mode works best with ${MIN_LIBRARY_TRACKS}+. Turn on Discovery Mode to search all of Spotify, or sync more likes.`,
+        {
+          requestId,
+          failureSessionId: requestId,
+          reason: "LIBRARY_INSUFFICIENT_FOR_PROMPT",
+          canUseDiscoveryMode: true,
+          suggestDiscoveryMode: true,
+          suggestRefinePrompt: false,
+          limitingFactors: ["library_below_minimum_track_count"],
+          librarySize: likedSongs.length,
+          minLibraryTracks: MIN_LIBRARY_TRACKS,
+        },
       );
       return;
     }
@@ -7200,6 +7254,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       lastSuccessfulVibe: recentPlaylists[0]?.vibe ?? null,
       noLibraryMode: !!noLibraryMode,
       adaptivePromptWeightShift,
+      semanticMomentFingerprint: momentPipeline?.worldUnderstanding?.semanticMoment ?? null,
       memoryByTrack: (trackId) => {
         const signal = librarySignals.tracks.get(trackId);
         if (!signal) return 0.35;
@@ -7536,19 +7591,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       constraintLayer,
       userGenreProfile.trackClassifications
     );
-    if (!validationPassed(finalValidation)) {
-      req.log.warn(
-        { finalValidation, finalCount: delivery.tracks.length },
-        "Locked intent validation failed after hard filter"
-      );
-    }
     req.log.info(
       {
         lockedIntent,
         finalValidation,
+        finalCount: delivery.tracks.length,
         validationPassed: validationPassed(finalValidation),
       },
-      "Locked intent final validation"
+      validationPassed(finalValidation)
+        ? "Locked intent final validation"
+        : "Locked intent validation failed after hard filter"
     );
     setGenerateStageDetail(generateSessionUserId, requestId, "Validating V3-selected playlist");
     if (clientDisconnected || responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
@@ -8950,7 +9002,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           : `I could not find enough verified ${strictGenreEvidenceDiagnostics.expectedFamilies.join("/")} tracks in your synced library to make this playlist without guessing.`,
         {
           hint: noLibraryMode
-            ? "Try a broader genre phrase, turn off No Library Mode to use your saved tracks, or regenerate in a moment."
+            ? "Try a broader genre phrase, turn off Discovery Mode to use your saved tracks, or retry in a moment."
             : "Run a fresh Spotify library sync so artist genres are updated, or broaden the prompt.",
           strictGenreEvidence: {
             ...strictGenreEvidenceDiagnostics,

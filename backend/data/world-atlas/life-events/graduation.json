@@ -1,0 +1,42 @@
+{
+  "id": "graduation",
+  "domain": "life-events",
+  "name": "Graduation",
+  "description": "Cap thrown, chapter closed, terrifying freedom ahead.",
+  "human_meaning": "Bittersweet threshold — pride in what was achieved and terror of what comes next.",
+  "emotional_states": [
+    "pride",
+    "joy",
+    "anxiety"
+  ],
+  "hidden_emotions": [
+    "ending",
+    "uncertainty"
+  ],
+  "energy_curve": "high",
+  "emotional_arc": "ceremony → celebration → reality → uncertainty",
+  "musical_behaviours": [
+    "swells",
+    "lifts",
+    "feels triumphant"
+  ],
+  "related_experiences": [
+    "leaving_school",
+    "first_job",
+    "new_chapter"
+  ],
+  "common_phrases": [
+    "graduation",
+    "graduated",
+    "finished uni",
+    "leaving university",
+    "graduation day"
+  ],
+  "misleading_keywords": [
+    "graduate scheme"
+  ],
+  "playlistIntents": [
+    "celebrate",
+    "remember"
+  ]
+}

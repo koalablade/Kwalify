@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Alternate world with rules you understand — competence when life feels chaotic.",
+  "energy_curve": "medium",
+  "emotional_arc": "day done, headset on → flow state, hours disappear → eyes tired, slightly guilty or satisfied",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "gaming",
+  "name": "Gaming",
+  "human_meaning": "Alternate world with rules you understand — competence when life feels chaotic.",
+  "common_phrases": [
+    "gaming session",
+    "playing games all evening",
+    "lost in a game",
+    "online gaming night"
+  ],
+  "hidden_context": "Social or solo; achievement without consequence.",
+  "emotional_states": [
+    "focus",
+    "escape",
+    "competence"
+  ],
+  "environments": [
+    "bedroom",
+    "living room",
+    "desk"
+  ],
+  "social_context": [
+    "alone",
+    "online friends"
+  ],
+  "before_state": "day done, headset on",
+  "during_state": "flow state, hours disappear",
+  "after_state": "eyes tired, slightly guilty or satisfied",
+  "musical_behaviours": [
+    "drives",
+    "focuses",
+    "pulses"
+  ],
+  "related_experiences": [
+    "lazy_sunday",
+    "everyone_asleep"
+  ],
+  "activity": [
+    "gaming"
+  ],
+  "environment": [
+    "bedroom",
+    "living room",
+    "desk"
+  ]
+}

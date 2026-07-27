@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "The ritual of showing up — fluorescent hum, small talk, screen glow.",
+  "energy_curve": "medium",
+  "emotional_arc": "commute in, coffee run → meetings, emails, lunch at desk → commute out, mental residue",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "office_day",
+  "name": "Office day",
+  "human_meaning": "The ritual of showing up — fluorescent hum, small talk, screen glow.",
+  "common_phrases": [
+    "day in the office",
+    "office day",
+    "back in the office",
+    "at my desk all day"
+  ],
+  "hidden_context": "Ordinary rhythm that structures the week.",
+  "emotional_states": [
+    "routine",
+    "focus",
+    "mild stress"
+  ],
+  "environments": [
+    "office",
+    "desk",
+    "meeting room"
+  ],
+  "social_context": [
+    "colleagues"
+  ],
+  "before_state": "commute in, coffee run",
+  "during_state": "meetings, emails, lunch at desk",
+  "after_state": "commute out, mental residue",
+  "musical_behaviours": [
+    "focuses",
+    "grounds",
+    "settles"
+  ],
+  "related_experiences": [
+    "office_friday",
+    "commute"
+  ],
+  "activity": [
+    "working"
+  ],
+  "environment": [
+    "office",
+    "desk",
+    "meeting room"
+  ]
+}

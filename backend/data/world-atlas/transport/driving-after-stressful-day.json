@@ -1,0 +1,78 @@
+{
+  "id": "driving_after_stressful_day",
+  "domain": "transport",
+  "name": "Driving after a stressful day",
+  "description": "Behind the wheel after something difficult — motion as emotional processing.",
+  "human_meaning": "The car becomes a moving confessional after a day that broke you — nowhere to rush, just motion and thought.",
+  "emotional_states": [
+    "exhaustion",
+    "stress",
+    "reflection",
+    "relief"
+  ],
+  "hidden_emotions": [
+    "emotional overload",
+    "need to process",
+    "fragility"
+  ],
+  "sensory_details": [
+    "rain on windscreen",
+    "wipers rhythm",
+    "empty roads",
+    "dashboard glow"
+  ],
+  "environment": [
+    "car",
+    "road",
+    "night or rain"
+  ],
+  "activity": [
+    "driving",
+    "processing"
+  ],
+  "time_context": [
+    "after work",
+    "evening"
+  ],
+  "weather_context": [
+    "rain on windscreen",
+    "grey evening"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "overload → motion → processing → gradual calm",
+  "musical_behaviours": [
+    "breathes",
+    "feels cinematic",
+    "releases"
+  ],
+  "related_experiences": [
+    "motorway_at_night",
+    "rain_on_windows",
+    "coming_home"
+  ],
+  "common_phrases": [
+    "driving home after a horrible day",
+    "driving after a difficult day",
+    "bad day drive home",
+    "worst day driving",
+    "rain on the windscreen driving home",
+    "nowhere to rush to after a bad day"
+  ],
+  "misleading_keywords": [
+    "stressful traffic",
+    "road rage"
+  ],
+  "playlistIntents": [
+    "recover",
+    "process",
+    "cry"
+  ],
+  "inferredQualities": [
+    "emotional recovery",
+    "processing",
+    "solitude"
+  ]
+}

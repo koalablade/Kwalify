@@ -1,0 +1,51 @@
+{
+  "id": "hospital_waiting_room",
+  "domain": "places",
+  "name": "Hospital waiting room",
+  "description": "Plastic chairs, muted TV, time stretching — waiting for news.",
+  "human_meaning": "Suspended dread — time stops while you wait for news that will change everything.",
+  "emotional_states": [
+    "anxiety",
+    "fear",
+    "hope"
+  ],
+  "hidden_emotions": [
+    "powerlessness",
+    "love"
+  ],
+  "environment": [
+    "hospital",
+    "waiting room"
+  ],
+  "activity": [
+    "waiting"
+  ],
+  "social_context": [
+    "family",
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "arrival → waiting → fear → news",
+  "musical_behaviours": [
+    "holds space",
+    "breathes",
+    "simmers"
+  ],
+  "related_experiences": [
+    "grief_and_loss"
+  ],
+  "common_phrases": [
+    "hospital waiting room",
+    "waiting at the hospital",
+    "a and e waiting",
+    "waiting for news"
+  ],
+  "misleading_keywords": [
+    "hospital drama",
+    "medical show"
+  ],
+  "playlistIntents": [
+    "process",
+    "heal"
+  ]
+}

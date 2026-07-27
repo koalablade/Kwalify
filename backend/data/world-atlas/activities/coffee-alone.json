@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Morning solitude or afternoon escape — caffeine as companion.",
+  "energy_curve": "medium",
+  "emotional_arc": "waking, grinding beans, silence → steam, first sip, window gaze → day begins or brief reset achieved",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "coffee_alone",
+  "name": "Coffee alone",
+  "human_meaning": "Morning solitude or afternoon escape — caffeine as companion.",
+  "common_phrases": [
+    "coffee alone",
+    "sitting with a coffee",
+    "morning coffee by myself",
+    "quiet coffee"
+  ],
+  "hidden_context": "Brief ownership of time before the day claims you.",
+  "emotional_states": [
+    "calm",
+    "anticipation",
+    "solitude"
+  ],
+  "environments": [
+    "kitchen",
+    "cafe",
+    "home"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "waking, grinding beans, silence",
+  "during_state": "steam, first sip, window gaze",
+  "after_state": "day begins or brief reset achieved",
+  "musical_behaviours": [
+    "grounds",
+    "focuses",
+    "comforts"
+  ],
+  "related_experiences": [
+    "sunday_morning",
+    "lazy_sunday"
+  ],
+  "activity": [
+    "drinking coffee",
+    "resting"
+  ],
+  "environment": [
+    "kitchen",
+    "cafe",
+    "home"
+  ]
+}

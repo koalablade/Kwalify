@@ -1,0 +1,51 @@
+{
+  "id": "airport_arrivals",
+  "domain": "travel",
+  "name": "Airport arrivals",
+  "description": "Sliding doors, luggage wheels, scanning faces in the crowd.",
+  "human_meaning": "Suspended hope — reunion or return loaded with meaning before words are spoken.",
+  "emotional_states": [
+    "Suspended hope — reunion or return loaded with meaning before words are spoken."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "announcement echoes",
+    "automatic doors",
+    "perfume of travel",
+    "embrace"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium",
+  "emotional_arc": "waiting → recognition → embrace → transition",
+  "musical_behaviours": [
+    "feels cinematic",
+    "quiet hope",
+    "releases"
+  ],
+  "related_experiences": [
+    "coming_home",
+    "train_journey"
+  ],
+  "common_phrases": [
+    "airport arrivals",
+    "waiting at arrivals",
+    "picked up at the airport",
+    "arrivals hall",
+    "landing and reuniting"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Is that them",
+    "Trip is really over",
+    "Home or someone waiting"
+  ],
+  "nearbyConcepts": [
+    "reunion",
+    "travel end",
+    "emotional peak"
+  ]
+}

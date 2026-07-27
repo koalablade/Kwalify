@@ -1,0 +1,49 @@
+{
+  "id": "empty_house",
+  "domain": "home",
+  "name": "Empty house",
+  "description": "Home alone when usually it's full — strange quiet and freedom.",
+  "human_meaning": "Unfamiliar quiet — the house feels different when you're the only one in it.",
+  "emotional_states": [
+    "freedom",
+    "loneliness",
+    "calm"
+  ],
+  "hidden_emotions": [
+    "independence",
+    "slight unease"
+  ],
+  "environment": [
+    "home",
+    "empty rooms"
+  ],
+  "activity": [
+    "wandering",
+    "relaxing"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "arrival → quiet → freedom → contentment",
+  "musical_behaviours": [
+    "floats",
+    "settles",
+    "opens up"
+  ],
+  "related_experiences": [
+    "everyone_asleep",
+    "sitting_on_sofa"
+  ],
+  "common_phrases": [
+    "empty house",
+    "home alone",
+    "nobody home",
+    "house to myself",
+    "alone in the house"
+  ],
+  "misleading_keywords": [
+    "empty",
+    "vacant property"
+  ]
+}

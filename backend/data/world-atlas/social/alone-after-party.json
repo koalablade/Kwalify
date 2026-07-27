@@ -1,0 +1,58 @@
+{
+  "id": "alone_after_party",
+  "domain": "social",
+  "name": "Alone after everyone leaves",
+  "description": "The weird calm when the noise stops — empty cups, ringing ears.",
+  "human_meaning": "Social comedown solitude — the strange peace when the crowd dissolves and you're left with yourself.",
+  "emotional_states": [
+    "reflection",
+    "loneliness",
+    "peace"
+  ],
+  "hidden_emotions": [
+    "comedown",
+    "processing"
+  ],
+  "environment": [
+    "empty room",
+    "street at night"
+  ],
+  "activity": [
+    "cleaning up",
+    "walking home"
+  ],
+  "time_context": [
+    "late night",
+    "after midnight"
+  ],
+  "social_context": [
+    "alone after social"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "noise → silence → reflection → solitude",
+  "musical_behaviours": [
+    "breathes",
+    "settles",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "party_night",
+    "walking_home",
+    "taxi_ride"
+  ],
+  "common_phrases": [
+    "after everyone left",
+    "after the party",
+    "weird calm after party",
+    "alone after going out",
+    "quiet after the noise"
+  ],
+  "misleading_keywords": [
+    "party",
+    "political party"
+  ],
+  "playlistIntents": [
+    "reflect",
+    "process"
+  ]
+}

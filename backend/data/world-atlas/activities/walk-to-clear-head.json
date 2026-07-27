@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Movement as medicine — legs solve what sitting cannot.",
+  "energy_curve": "medium",
+  "emotional_arc": "spiralling or stuck → pace steady, breath deepening → lighter, or at least tired enough to stop",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "walk_to_clear_head",
+  "name": "Walk to clear head",
+  "human_meaning": "Movement as medicine — legs solve what sitting cannot.",
+  "common_phrases": [
+    "walk to clear my head",
+    "need a walk to think",
+    "clearing my head on a walk",
+    "went for a walk to clear my head"
+  ],
+  "hidden_context": "Not exercise — mental reset.",
+  "emotional_states": [
+    "reflection",
+    "calm",
+    "release"
+  ],
+  "environments": [
+    "park",
+    "streets",
+    "canal path"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "spiralling or stuck",
+  "during_state": "pace steady, breath deepening",
+  "after_state": "lighter, or at least tired enough to stop",
+  "musical_behaviours": [
+    "opens",
+    "grounds",
+    "transitions"
+  ],
+  "related_experiences": [
+    "walking_home",
+    "cycling_alone"
+  ],
+  "activity": [
+    "walking",
+    "thinking"
+  ],
+  "environment": [
+    "park",
+    "streets",
+    "canal path"
+  ]
+}

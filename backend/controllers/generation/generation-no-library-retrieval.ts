@@ -68,16 +68,69 @@ const NO_LIBRARY_GENRE_SEARCH_TERMS: Record<string, string[]> = {
     "zach bryan",
     "johnny cash",
   ],
-  hip_hop: ["genre:hip-hop", "hip hop", "rap", "trap", "drill"],
-  rock: ["genre:rock", "rock", "classic rock", "alternative rock", "indie rock"],
-  electronic: ["genre:electronic", "electronic", "house", "techno", "uk garage"],
+  hip_hop: ["genre:hip-hop", "hip hop", "rap", "trap", "drill", "boom bap", "uk rap", "grime"],
+  rock: ["genre:rock", "rock", "classic rock", "alternative rock", "indie rock", "blues rock", "garage rock", "bluesy rock", "post-punk", "shoegaze"],
+  blues: ["genre:blues", "blues", "blues rock", "electric blues", "blues guitar"],
+  electronic: ["genre:electronic", "electronic", "house", "techno", "uk garage", "2-step garage", "speed garage"],
   rnb: ["r&b", "rnb", "neo soul", "slow jams"],
-  pop: ["genre:pop", "pop", "dance pop"],
+  pop: ["genre:pop", "pop", "dance pop", "indie pop"],
   reggae: ["reggae", "dancehall", "dub"],
   jazz: ["jazz", "bebop", "swing"],
   latin: ["latin", "reggaeton", "salsa"],
   metal: ["metal", "metalcore", "thrash"],
+  folk: ["folk", "acoustic folk", "singer-songwriter", "americana folk"],
+  soul: ["soul", "funk", "motown", "neo soul"],
+  indie: ["indie", "indie rock", "bedroom pop", "lo-fi indie"],
+  world: ["afrobeats", "afrobeat", "amapiano", "world music"],
+  classical: ["classical", "piano classical", "orchestral"],
 };
+
+const DISCOVERY_ARTIST_SEEDS: Record<string, string[]> = {
+  country: ["johnny cash", "chris stapleton", "zach bryan"],
+  rock: ["arctic monkeys", "the strokes", "foo fighters"],
+  blues: ["bb king", "gary clark jr", "stevie ray vaughan"],
+  electronic: ["fred again", "disclosure", "four tet"],
+  hip_hop: ["kendrick lamar", "tyler the creator", "drake"],
+  pop: ["taylor swift", "dua lipa", "lorde"],
+  rnb: ["sza", "frank ocean", "usher"],
+  folk: ["phoebe bridgers", "fleet foxes", "bon iver"],
+  soul: ["marvin gaye", "al green", "d'angelo"],
+  indie: ["arctic monkeys", "the 1975", "clairo"],
+  metal: ["metallica", "slipknot", "parkway drive"],
+  jazz: ["miles davis", "john coltrane", "norah jones"],
+  latin: ["bad bunny", "rosalia", "shakira"],
+  reggae: ["bob marley", "damian marley", "sean paul"],
+  world: ["burna boy", "wizkid", "rema"],
+  classical: ["ludovico einaudi", "yo-yo ma", "max richter"],
+};
+
+const DISCOVERY_SUBGENRE_ARTIST_SEEDS: Record<string, string[]> = {
+  uk_garage: ["mj cole", "so solid crew", "dj luck"],
+  pop_punk: ["blink-182", "green day", "sum 41"],
+  shoegaze: ["my bloody valentine", "slowdive", "ride"],
+  liquid_dnb: ["calibre", "high contrast", "london elektricity"],
+  dnb: ["andy c", "netsky", "chase and status"],
+  afrobeats: ["burna boy", "wizkid", "rema"],
+  outlaw_country: ["willie nelson", "waylon jennings", "chris stapleton"],
+  emo: ["my chemical romance", "fall out boy", "dashboard confessional"],
+  post_punk: ["joy division", "talking heads", "interpol"],
+};
+
+export function noLibraryArtistSeedQueries(families: string[], subgenreTerms: string[] = []): string[] {
+  const seeds = new Set<string>();
+  for (const subgenre of subgenreTerms) {
+    const key = subgenre.replace(/\s+/g, "_").toLowerCase();
+    for (const artist of DISCOVERY_SUBGENRE_ARTIST_SEEDS[key] ?? []) {
+      seeds.add(artist);
+    }
+  }
+  for (const family of families) {
+    for (const artist of DISCOVERY_ARTIST_SEEDS[family] ?? []) {
+      seeds.add(artist);
+    }
+  }
+  return [...seeds].slice(0, 8);
+}
 
 export function noLibrarySearchQueries(vibe: string, families: string[], subgenreTerms: string[] = []): string[] {
   const cleanedVibe = vibe.trim();
@@ -93,7 +146,30 @@ export function noLibrarySearchQueries(vibe: string, families: string[], subgenr
   if (/\b(?:d\s*&\s*b|dnb|drum and bass|rollers?|liquid dnb|liquid drum and bass|jungle|old\s*skool jungle|old\s*school jungle|breakbeat hardcore)\b/.test(aliasSource)) {
     ["dnb rollers", "drum and bass rollers", "liquid drum and bass", "drum and bass", "jungle", "old school jungle", "jungle rollers", "breakbeat hardcore"].forEach((term) => controlledAliases.add(term));
   }
+  if (/\b(?:ukg|uk\s+garage|2-step|two\s+step|speed garage)\b/.test(aliasSource)) {
+    ["uk garage", "2-step garage", "speed garage", "ukg"].forEach((term) => controlledAliases.add(term));
+  }
+  if (/\b(?:pop[\s-]?punk|pop_punk)\b/.test(aliasSource)) {
+    ["pop punk", "punk rock", "pop punk playlist"].forEach((term) => controlledAliases.add(term));
+  }
+  if (/\b(?:shoegaze|shoegazing|dream pop)\b/.test(aliasSource)) {
+    ["shoegaze", "dream pop", "noise pop"].forEach((term) => controlledAliases.add(term));
+  }
+  if (/\b(?:afrobeats?|afropop|amapiano)\b/.test(aliasSource)) {
+    ["afrobeats", "afropop", "amapiano"].forEach((term) => controlledAliases.add(term));
+  }
+  if (/\bmadchester\b/.test(aliasSource)) {
+    ["madchester", "baggy", "stone roses", "happy mondays"].forEach((term) => controlledAliases.add(term));
+  }
   if (cleanedVibe) priorityQueries.add(cleanedVibe);
+  const lowerVibe = cleanedVibe.toLowerCase();
+  if (/\bbluesy?\s+rock\b/i.test(lowerVibe)) {
+    priorityQueries.add("blues rock");
+    priorityQueries.add("bluesy rock");
+  }
+  if (/\bgarage\s+rock\b/i.test(lowerVibe) || (/\bgarage\b/i.test(lowerVibe) && /\brock\b/i.test(lowerVibe))) {
+    priorityQueries.add("garage rock");
+  }
   for (const subgenre of [...subgenreTerms, ...controlledAliases]) {
     const term = subgenre.replace(/_/g, " ").trim();
     if (!term) continue;
@@ -104,6 +180,9 @@ export function noLibrarySearchQueries(vibe: string, families: string[], subgenr
     for (const era of eraTerms) {
       expandedQueries.add(`${era} ${term}`);
     }
+  }
+  for (const artist of noLibraryArtistSeedQueries(families, subgenreTerms)) {
+    priorityQueries.add(`artist:${artist}`);
   }
   for (const family of families) {
     for (const term of NO_LIBRARY_GENRE_SEARCH_TERMS[family] ?? [family.replace(/_/g, " ")]) {
@@ -116,7 +195,10 @@ export function noLibrarySearchQueries(vibe: string, families: string[], subgenr
       }
     }
   }
-  return [...priorityQueries, ...expandedQueries].slice(0, 24);
+  for (const artist of noLibraryArtistSeedQueries(families, subgenreTerms)) {
+    expandedQueries.add(`${artist} ${families[0]?.replace(/_/g, " ") ?? "music"}`);
+  }
+  return [...priorityQueries, ...expandedQueries].slice(0, 28);
 }
 
 export type RetrievalCompletionDiagnostics = {
@@ -282,10 +364,10 @@ export async function buildNoLibrarySpotifyCandidates(opts: {
     diagnostics.emptyPoolDetectedAtStage = diagnostics.emptyPoolDetectedAtStage ?? "spotify_search_family";
     diagnostics.fallbackDepthReached = Math.max(diagnostics.fallbackDepthReached ?? 0, 2);
     const broadQueries = [
-      ...opts.families.map((family) => family.replace(/_/g, " ")),
+      ...noLibraryArtistSeedQueries(opts.families, opts.subgenreTerms ?? []),
+      ...opts.families.flatMap((family) => NO_LIBRARY_GENRE_SEARCH_TERMS[family] ?? [family.replace(/_/g, " ")]),
       ...opts.families.map((family) => `popular ${family.replace(/_/g, " ")}`),
-      "popular music",
-    ];
+    ].filter((query, index, queries) => queries.indexOf(query) === index);
     const broadSearchResult = await timeboxRetrievalSource(
       "spotifyBroadSearch",
       searchSpotifyTracks(

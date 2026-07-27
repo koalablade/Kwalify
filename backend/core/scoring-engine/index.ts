@@ -278,6 +278,8 @@ export interface RunScoringPipelineOpts<T extends {
   /** Adaptive prompt-first weight shift from retrieval orchestrator */
   adaptivePromptWeightShift?: number;
 
+  /** Multi-dimensional semantic moment fingerprint — additive scoring weight */
+  semanticMomentFingerprint?: import("../../lib/world-understanding/moment-representation").SemanticMomentFingerprint | null;
 }
 
 
@@ -505,6 +507,7 @@ export function runScoringPipeline<T extends {
     noLibraryMode: opts.noLibraryMode,
     cachedSemanticResolution: earlySemanticResolution,
     adaptivePromptWeightShift: opts.adaptivePromptWeightShift,
+    semanticMomentFingerprint: opts.semanticMomentFingerprint,
   });
   logScoringStage(log, "Hybrid scoring context built", t);
 

@@ -101,7 +101,7 @@ function libraryGateState() {
 }
 
 function generateGate() {
-  if (state.noLibraryMode) return { blocked: false, message: "", showSync: false };
+  if (state.noLibraryMode) return { blocked: false, message: "", showSync: false, discoveryMode: true };
   const { syncing, total } = libraryGateState();
   const syncError = state.cacheStatus?.syncError;
   if (syncError) {
@@ -119,14 +119,55 @@ function generateGate() {
       showSync: true,
     };
   }
+  if (total > 0 && total < 40) {
+    return {
+      blocked: false,
+      message:
+        `Small library (${total} likes) — library playlists need ~40+ saved tracks. Turn on Discovery Mode for Spotify-wide search.`,
+      showSync: false,
+      thinLibrary: true,
+    };
+  }
   return { blocked: false, message: "", showSync: false };
 }
 
 function isPromptReadyForGenerate(preview, vibe, selectedSceneId) {
   if (selectedSceneId) return true;
+  if (state.noLibraryMode && !isDiscoveryGenreReady(vibe, preview)) return false;
   if (!preview?.requiresClarification) return true;
   const words = String(vibe || "").trim().split(/\s+/).filter(Boolean);
   return words.length >= 4;
+}
+
+const DISCOVERY_GENRE_FALLBACK_RE =
+  /\b(?:rock|pop|country|blues|bluesy|jazz|house|techno|metal|hip[\s-]?hop|rap|indie|folk|soul|r&b|rnb|garage|punk|dnb|drum\s+(?:and|&)\s+bass|uk\s+garage|electronic|reggae|latin|classical|americana|bluegrass|funk|disco|trap|grime|metalcore|emo|shoegaze|afrobeats?|amapiano|outlaw|post[\s-]?punk|pop[\s-]?punk|madchester|liquid\s+(?:dnb|drum))\b/i;
+
+function discoveryGateMessage(vibe, preview) {
+  if (preview?.discovery?.ready && preview.discovery.detectedLabel) {
+    return `Discovery Mode ready — detected ${preview.discovery.detectedLabel}.`;
+  }
+  return preview?.discovery?.hint
+    || "Discovery Mode needs a genre in your prompt — e.g. blues rock, UK garage, country.";
+}
+
+function discoveryToastMessage(vibe, preview) {
+  return preview?.discovery?.hint
+    || "Discovery Mode needs a clear genre in your prompt (e.g. blues rock, UK garage, country).";
+}
+
+function isDiscoveryGenreReady(vibe, preview) {
+  if (preview?.discovery?.ready === true) return true;
+  if (preview?.discovery?.ready === false) return false;
+  return DISCOVERY_GENRE_FALLBACK_RE.test(String(vibe || ""));
+}
+
+function isDiscoveryModeError(code) {
+  return [
+    "NO_LIBRARY_REQUIRES_GENRE",
+    "NO_LIBRARY_SPOTIFY_POOL_EMPTY",
+    "NO_LIBRARY_SPOTIFY_SEARCH_FAILED",
+    "LIBRARY_EMPTY_NO_LIBRARY_MODE",
+  ].includes(code);
 }
 
 function scrubLandingQueryParams() {
@@ -753,7 +794,8 @@ function renderApp() {
     }
     const diagnostics = state.errorDetails?.generationDiagnostics || null;
     const suggestions = Array.isArray(state.errorDetails?.suggestions) ? state.errorDetails.suggestions : [];
-    const isGenerationError = state.errorKind === "generation";
+    const isGenerationError = state.errorKind === "generation" || state.errorKind === "discovery";
+    const isDiscoveryError = state.errorKind === "discovery";
     const isLibraryInsufficient = state.libraryInsufficient?.code === "LIBRARY_INSUFFICIENT_FOR_PROMPT";
     const title = isLibraryInsufficient
       ? "Your liked songs aren’t enough for this prompt"
@@ -788,7 +830,9 @@ function renderApp() {
         <span>${esc(state.error)}</span>
         ${state.errorDetails?.requestId || state.pendingFailureSessionId ? `<small>Reference: ${esc(state.errorDetails?.requestId || state.pendingFailureSessionId)}</small>` : ""}
         ${libraryInsufficientActions}
-        ${!isLibraryInsufficient && isGenerationError ? `<button type="button" class="btn btn-sm btn-green" id="retryGenerateBtn">Try again</button>` : ""}
+        ${!isLibraryInsufficient && !isDiscoveryError && isGenerationError ? `<button type="button" class="btn btn-sm btn-green" id="retryGenerateBtn">Try again</button>` : ""}
+        ${isDiscoveryError && !state.noLibraryMode ? `<div class="error-actions"><button type="button" class="btn btn-sm btn-green" id="tryDiscoveryModeBtn">Try Discovery Mode</button></div>` : ""}
+        ${isDiscoveryError && state.noLibraryMode ? `<div class="error-actions"><button type="button" class="btn btn-sm btn-ghost" id="refinePromptBtn">Refine your prompt</button><button type="button" class="btn btn-sm btn-ghost" id="turnOffDiscoveryBtn">Use my library instead</button></div>` : ""}
         ${diagHtml}
         ${!isLibraryInsufficient && (suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>${esc(fallbackSuggestion)}</small>`)}
         ${intentClarificationChipsHtml()}
@@ -900,6 +944,12 @@ function renderApp() {
         ${recentPromptsHtml()}
 
         ${gate.blocked ? `<p class="generate-gate-msg">${esc(gate.message)}</p>` : ""}
+        ${!gate.blocked && state.noLibraryMode && !isDiscoveryGenreReady(state.draftVibe || document.getElementById("vibeInput")?.value, state.preview)
+          ? `<p class="generate-gate-msg">${esc(discoveryGateMessage(state.draftVibe || document.getElementById("vibeInput")?.value, state.preview))}</p>`
+          : ""}
+        ${!gate.blocked && state.noLibraryMode && isDiscoveryGenreReady(state.draftVibe || document.getElementById("vibeInput")?.value, state.preview) && state.preview?.discovery?.detectedLabel
+          ? `<p class="generate-gate-msg generate-gate-msg--ok">${esc(discoveryGateMessage(state.draftVibe || document.getElementById("vibeInput")?.value, state.preview))}</p>`
+          : ""}
         ${gate.blocked && gate.showSync && !state.cacheStatus?.isSyncing ? `<button type="button" class="btn btn-cream btn-sm" id="gateSyncBtn">Sync library now</button>` : ""}
         <button id="generateBtn" class="gen-btn gen-btn--cinematic ${state.generating ? "loading" : ""}" ${gate.blocked || state.generating || !isPromptReadyForGenerate(state.preview, document.getElementById("vibeInput")?.value?.trim(), state.selectedSceneId) ? "disabled" : ""}>
           ${state.generating
@@ -1671,9 +1721,102 @@ function buildWorldUnderstandingHtml(world) {
   const phrases = (world.matchedPhrases || []).slice(0, 4).map((p) => esc(p.phrase)).join(" · ") || "—";
   const fuzzy = (world.fuzzyExpansions || []).slice(0, 4).map((f) => esc(f.id)).join(" · ") || "—";
   const graph = (world.graphMatches || []).slice(0, 4).map((g) => esc(`${g.domain}:${g.id}`)).join(" · ") || "—";
+  const candidates = (world.sceneCandidates || []).slice(0, 5).map((c) =>
+    `${c.rank}. ${esc(c.label)} (${c.score})`
+  ).join("<br>") || "—";
+  const intentLine = world.intent ? `${esc(world.intent.kind)}${world.intent.trigger ? ` · "${esc(world.intent.trigger)}"` : ""}` : "—";
+
+  const momentInterp = world.momentInterpretation;
+  const dominantStory = momentInterp?.dominantStory
+    ? `<div class="intent-understanding-line"><strong>Dominant story:</strong> ${esc(momentInterp.dominantStory)}</div>`
+    : "";
+  const conceptPriority = (momentInterp?.primaryConcepts || []).slice(0, 5).map((c) =>
+    `${esc(c.label)} [phys ${c.physical.toFixed(1)}, emo ${c.emotional.toFixed(1)}, narr ${c.narrative.toFixed(1)}]`
+  ).join("<br>") || "—";
+  const lifeEvents = (momentInterp?.lifeEvents || []).map((e) => esc(`${e.category}: "${e.trigger}"`)).join(" · ") || "—";
+  const temporal = (momentInterp?.temporal || []).map((t) => esc(`${t.phase}: "${t.trigger}"`)).join(" · ") || "—";
+
+  const conf = world.sceneConfidence;
+  const positiveSignals = (conf?.positiveSignals || []).slice(0, 6).map((s) => `✓ ${esc(s)}`).join("<br>") || "—";
+  const rejected = (conf?.rejectedAlternatives || []).slice(0, 3).map((r) =>
+    `✗ ${esc(r.label)} (${r.score}, gap ${r.gap}): ${esc(r.reasons.join("; "))}`
+  ).join("<br>") || "—";
+  const narrativeNote = conf?.narrativeOverPhysical
+    ? '<div class="intent-understanding-line intent-understanding-muted"><strong>Ranking:</strong> narrative over physical cues</div>'
+    : "";
+
+  const hx = world.humanExperience;
+  const hxQualities = (hx?.inferredQualities || []).map(esc).join(" · ") || "—";
+  const hxMemories = (hx?.sharedMemories || []).slice(0, 4).map(esc).join(" · ") || "—";
+  const hxBehaviours = (hx?.musicalBehaviours || []).map(esc).join(" · ") || "—";
+  const hxIntent = hx?.playlistIntent ? esc(hx.playlistIntent) : "—";
+  const hxNarrative = hx?.narrative ? esc(hx.narrative) : "—";
+  const hxArc = world.emotionalArc?.summary
+    ? esc(world.emotionalArc.summary)
+    : (hx?.emotionalArcSummary ? esc(hx.emotionalArcSummary) : "—");
+  const atlasLines = (hx?.atlasConsultations || []).slice(0, 4).map((a) =>
+    `${esc(a.label)} (${a.matchScore.toFixed(2)}): ${esc(a.reason)}`
+  ).join("<br>") || "—";
+  const hxReasons = (hx?.interpretationReasons || []).slice(0, 4).map(esc).join(" · ") || "—";
+  const reasoning = world.experienceReasoning;
+  const reasoningChains = (reasoning?.hops || []).slice(0, 4).map(esc).join("<br>") || "—";
+  const altInterp = (reasoning?.alternativeInterpretations || []).slice(0, 3).map(esc).join(" · ") || "—";
+  const primaryConcepts = (reasoning?.prioritizedConcepts || []).filter((c) => c.role === "primary").slice(0, 5).map((c) =>
+    `${esc(c.label)} (${esc(c.category)}, ${c.score.toFixed(2)})`
+  ).join("<br>") || conceptPriority;
+  const ignoredConcepts = (reasoning?.prioritizedConcepts || []).filter((c) => c.role === "ignored").slice(0, 3).map((c) =>
+    esc(c.label)
+  ).join(" · ") || "—";
+  const fp = world.semanticFingerprint;
+  const fpLine = fp
+    ? `themes: ${esc((fp.themes || []).slice(0, 3).join(", "))} · narrative: ${esc(fp.narrativeFrame || "—")}`
+    : "—";
+  const sm = world.semanticMoment;
+  const smLine = sm
+    ? `scene compat: ${esc(sm.sceneOutput.label)} (${Math.round(sm.confidence * 100)}%)`
+    : "—";
+
+  const semDims = world.semanticDimensions;
+  const dimLine = (label, items) =>
+    items?.length
+      ? `<div class="intent-understanding-line intent-understanding-muted"><strong>${label}:</strong> ${items.map(esc).join(" · ")}</div>`
+      : "";
+  const semanticBlock = semDims ? `
+    <div class="intent-understanding-line"><strong>Semantic fingerprint</strong> (${Math.round((world.semanticMoment?.confidence ?? world.confidence ?? 0) * 100)}%)</div>
+    ${dimLine("Activity", semDims.activity)}
+    ${dimLine("Movement", semDims.movement)}
+    ${dimLine("Environment", semDims.environment)}
+    ${dimLine("Weather", semDims.weather)}
+    ${dimLine("Time", semDims.time)}
+    ${dimLine("Lighting", semDims.lighting)}
+    ${dimLine("Social", semDims.social)}
+    ${dimLine("Life event", semDims.lifeEvent)}
+    ${dimLine("Emotion", semDims.emotion)}
+    ${dimLine("Narrative", semDims.narrative)}
+    ${dimLine("Sensory", semDims.sensory)}
+    ${dimLine("Playlist direction", semDims.playlistDirection)}
+    ${world.semanticMoment?.emotionalGoal ? `<div class="intent-understanding-line"><strong>Emotional goal:</strong> ${esc(world.semanticMoment.emotionalGoal)}</div>` : ""}
+    ${world.semanticMoment?.relationshipChains?.length ? `<div class="intent-understanding-line intent-understanding-muted"><strong>World chains:</strong> ${world.semanticMoment.relationshipChains.slice(0, 3).map((c) => esc(c.chain.join(" → "))).join("<br>")}</div>` : ""}
+    ${world.trackScoringHook ? `<div class="intent-understanding-line intent-understanding-muted"><strong>Track scoring:</strong> ${esc(world.trackScoringHook)}</div>` : ""}
+  ` : "";
+
   return `<div class="intent-understanding-card intent-understanding-card--world">
     <div class="intent-understanding-title">World understanding</div>
     <div class="intent-understanding-line intent-understanding-muted"><strong>Input:</strong> ${esc(world.originalPrompt || "")}</div>
+    <div class="intent-understanding-line"><strong>Human experience:</strong> ${hxNarrative}</div>
+    <div class="intent-understanding-line"><strong>Inferred qualities:</strong> ${hxQualities}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Shared memories:</strong> ${hxMemories}</div>
+    <div class="intent-understanding-line"><strong>Playlist intent:</strong> ${hxIntent}</div>
+    <div class="intent-understanding-line"><strong>Musical behaviour:</strong> ${hxBehaviours}</div>
+    <div class="intent-understanding-line"><strong>Emotional arc:</strong> ${hxArc}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Experience fingerprint:</strong> ${fpLine}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Semantic moment:</strong> ${smLine}</div>
+    <div class="intent-understanding-line"><strong>Atlas consulted:</strong><br>${atlasLines}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Why:</strong> ${hxReasons}</div>
+    <div class="intent-understanding-line"><strong>Reasoning chain:</strong><br>${reasoningChains}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Alternatives:</strong> ${altInterp}</div>
+    <div class="intent-understanding-line"><strong>Primary concepts:</strong><br>${primaryConcepts}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Ignored (ambient):</strong> ${ignoredConcepts}</div>
     <div class="intent-understanding-line"><strong>Scene:</strong> ${esc(world.scene?.label || "—")}</div>
     <div class="intent-understanding-line intent-understanding-muted">${esc(world.scene?.humanSummary || "")}</div>
     <div class="intent-understanding-line"><strong>Environment:</strong><br>${list(world.understoodAs?.environment)}</div>
@@ -1694,6 +1837,16 @@ function buildWorldUnderstandingHtml(world) {
     <div class="intent-understanding-line intent-understanding-muted"><strong>Phrases:</strong> ${phrases}</div>
     <div class="intent-understanding-line intent-understanding-muted"><strong>Fuzzy:</strong> ${fuzzy}</div>
     <div class="intent-understanding-line intent-understanding-muted"><strong>Matched concepts:</strong> ${concepts}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Intent:</strong> ${intentLine}</div>
+    ${dominantStory}
+    <div class="intent-understanding-line"><strong>Primary concepts:</strong><br>${conceptPriority}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Life events:</strong> ${lifeEvents}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Temporal:</strong> ${temporal}</div>
+    ${narrativeNote}
+    ${semanticBlock}
+    <div class="intent-understanding-line"><strong>Scene candidates:</strong><br>${candidates}</div>
+    <div class="intent-understanding-line"><strong>Why this scene:</strong><br>${positiveSignals}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Rejected:</strong><br>${rejected}</div>
     <div class="intent-understanding-line intent-understanding-muted"><strong>Graph matches:</strong> ${graph}</div>
     <div class="intent-understanding-line intent-understanding-muted">${esc(world.humanNarrative || "")}</div>
   </div>`;
@@ -1751,6 +1904,7 @@ function updateIntentPreviewStrip(data) {
   const wordCount = String(document.getElementById("vibeInput")?.value || "").trim().split(/\s+/).filter(Boolean).length;
   state.preview = {
     ...data,
+    discovery: data?.discovery ?? null,
     requiresClarification: tier === "low" && wordCount < 4 && !state.selectedSceneId,
     momentUnderstandingLine: data?.momentUnderstandingLine ?? null,
   };
@@ -1759,7 +1913,11 @@ function updateIntentPreviewStrip(data) {
     : "";
   const clarification = state.preview.requiresClarification
     ? `<p class="sync-meta clarification-required">Add more detail, pick a suggestion, or use at least four words before generating.</p>`
-    : "";
+    : (state.noLibraryMode && state.preview.discovery && state.preview.discovery.ready === false
+      ? `<p class="sync-meta clarification-required">${esc(state.preview.discovery.hint || "Add a genre for Discovery Mode.")}</p>`
+      : (state.noLibraryMode && state.preview.discovery?.ready && state.preview.discovery.detectedLabel
+        ? `<p class="sync-meta discovery-detected">Detected genre: ${esc(state.preview.discovery.detectedLabel)}</p>`
+        : ""));
   const clarificationChips = intentClarificationChipsHtml();
   const html = debugModeEnabled()
     ? buildIntentUnderstandingHtml(
@@ -3152,9 +3310,18 @@ function wireAppEvents() {
     generate();
   });
   document.getElementById("tryDiscoveryModeBtn")?.addEventListener("click", () => {
+    state.noLibraryMode = true;
+    saveUserPref("discoveryMode", true);
     state.error = null;
     state.errorKind = null;
     generate({ forceDiscoveryMode: true, keepFailureSession: true });
+  });
+  document.getElementById("turnOffDiscoveryBtn")?.addEventListener("click", () => {
+    state.noLibraryMode = false;
+    saveUserPref("discoveryMode", false);
+    state.error = null;
+    state.errorKind = null;
+    renderApp();
   });
   document.getElementById("refinePromptBtn")?.addEventListener("click", () => {
     state.error = null;
@@ -3701,6 +3868,18 @@ async function generate(opts = {}) {
     showToast(gate.message, "error");
     return;
   }
+  if (gate.thinLibrary && !state.noLibraryMode) {
+    showToast(gate.message, "info");
+  }
+  const discoveryActive = opts.forceDiscoveryMode === true || state.noLibraryMode;
+  if (discoveryActive && !isDiscoveryGenreReady(vibe, state.preview)) {
+    showToast(discoveryToastMessage(vibe, state.preview), "error");
+    return;
+  }
+  if (opts.forceDiscoveryMode) {
+    state.noLibraryMode = true;
+    saveUserPref("discoveryMode", true);
+  }
   if (!isPromptReadyForGenerate(state.preview, vibe, state.selectedSceneId)) {
     showToast(
       state.preview?.requiresClarification
@@ -3798,11 +3977,16 @@ async function generate(opts = {}) {
           intentClarificationGroups: r.data.intentClarificationGroups,
         };
         state.error = r.data.message || userFacingApiError(r, "Add more detail before generating.");
+      } else if (isDiscoveryModeError(r.data?.code)) {
+        state.error = r.data?.error || r.data?.message || userFacingApiError(r, "Discovery Mode could not complete this prompt.");
+        state.errorDetails = r.data || null;
+        state.errorKind = "discovery";
+        if (r.data?.hint) state.errorDetails.hint = r.data.hint;
       } else {
         state.error = userFacingApiError(r, "Generation failed. Please try a broader prompt or Balanced mode.");
       }
-      state.errorDetails = r.data || null;
-      state.errorKind = "generation";
+      state.errorDetails = state.errorDetails || r.data || null;
+      state.errorKind = state.errorKind || "generation";
     } else if (r.data?.success === false) {
       handleLibraryInsufficientResponse(r.data, savedVibe);
     } else if (runId === state.generationRunId && !state.generationCancelRequested) {

@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Chosen family — laughter that resets the week.",
+  "energy_curve": "medium",
+  "emotional_arc": "looking forward, slight anxiety → stories, jokes, overlapping talk → full heart, tired voice",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "meeting_friends",
+  "name": "Meeting friends",
+  "human_meaning": "Chosen family — laughter that resets the week.",
+  "common_phrases": [
+    "meeting friends",
+    "catching up with mates",
+    "seeing the gang",
+    "friends reunion"
+  ],
+  "hidden_context": "Picking up where you left off, years or weeks ago.",
+  "emotional_states": [
+    "joy",
+    "belonging",
+    "warmth"
+  ],
+  "environments": [
+    "cafe",
+    "pub",
+    "park"
+  ],
+  "social_context": [
+    "friends"
+  ],
+  "before_state": "looking forward, slight anxiety",
+  "during_state": "stories, jokes, overlapping talk",
+  "after_state": "full heart, tired voice",
+  "musical_behaviours": [
+    "lifts",
+    "warms",
+    "feels communal"
+  ],
+  "related_experiences": [
+    "old_friends_reunion",
+    "quiet_pub"
+  ],
+  "activity": [
+    "socialising"
+  ],
+  "environment": [
+    "cafe",
+    "pub",
+    "park"
+  ]
+}

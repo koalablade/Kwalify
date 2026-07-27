@@ -85,8 +85,8 @@
     },
     {
       "id": "difficult_day_relief",
-      "triggers": ["difficult day", "hard day", "long day", "rough day at work"],
-      "concepts": { "emotion": ["exhaustion", "reflection", "relief"], "lifeContext": ["difficult_period"] },
+      "triggers": ["difficult day", "hard day", "long day", "rough day at work", "horrible day", "awful day", "bad day", "terrible day", "stressful day", "after a horrible", "after an awful"],
+      "concepts": { "emotion": ["exhaustion", "reflection", "relief"], "lifeContext": ["difficult_period", "transition"] },
       "sceneHint": "REFLECTIVE_AVOIDANCE_JOURNEY"
     },
     {

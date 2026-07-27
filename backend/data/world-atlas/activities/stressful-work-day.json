@@ -1,0 +1,59 @@
+{
+  "domain": "activities",
+  "description": "Survived something — the body carries tension home even when the mind tries to leave it.",
+  "energy_curve": "medium",
+  "emotional_arc": "mounting pressure, meetings, deadlines → white-knuckling through, counting hours → crash, silence, or angry drive home",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "stressful_work_day",
+  "name": "Stressful work day",
+  "human_meaning": "Survived something — the body carries tension home even when the mind tries to leave it.",
+  "common_phrases": [
+    "stressful day at work",
+    "awful day at work",
+    "rough day at the office",
+    "hard day at work"
+  ],
+  "hidden_context": "Need decompression before re-entering personal life.",
+  "emotional_states": [
+    "stress",
+    "exhaustion",
+    "frustration"
+  ],
+  "environments": [
+    "office",
+    "workplace",
+    "car"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "mounting pressure, meetings, deadlines",
+  "during_state": "white-knuckling through, counting hours",
+  "after_state": "crash, silence, or angry drive home",
+  "musical_behaviours": [
+    "releases",
+    "settles",
+    "grounds"
+  ],
+  "related_experiences": [
+    "driving_after_stressful_day",
+    "car_after_work_avoidance"
+  ],
+  "activity": [
+    "working",
+    "decompressing"
+  ],
+  "playlistIntents": [
+    "recover"
+  ],
+  "environment": [
+    "office",
+    "workplace",
+    "car"
+  ]
+}

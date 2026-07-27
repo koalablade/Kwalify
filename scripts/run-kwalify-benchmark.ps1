@@ -101,7 +101,9 @@ function Open-ReportsFolder {
   if (Test-Path -LiteralPath $reports) { Start-Process explorer.exe $reports | Out-Null }
 }
 
-function Exit-Benchmark([int]$code, [string]$reason) {
+function Exit-Benchmark([object]$code, [string]$reason) {
+  if ($code -is [System.Array]) { $code = [int]$code[$code.Count - 1] }
+  else { $code = [int]$code }
   if ($code -ne 0 -and $reason) {
     Write-Host ""; Write-ErrLine $reason
     Write-Host "  Full log: $logPath" -ForegroundColor DarkYellow

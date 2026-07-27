@@ -1,0 +1,57 @@
+{
+  "id": "road_trip",
+  "domain": "transport",
+  "name": "Road trip",
+  "description": "Long drive with purpose of journey itself — windows down, playlist on.",
+  "human_meaning": "Journey as destination — motion, freedom, and the open road as the whole point.",
+  "emotional_states": [
+    "freedom",
+    "anticipation",
+    "joy"
+  ],
+  "hidden_emotions": [
+    "escape",
+    "adventure"
+  ],
+  "environment": [
+    "open road",
+    "motorway",
+    "scenic route"
+  ],
+  "activity": [
+    "driving",
+    "travelling"
+  ],
+  "social_context": [
+    "friends",
+    "alone",
+    "partner"
+  ],
+  "energy_curve": "medium-high",
+  "emotional_arc": "departure → momentum → discovery → arrival",
+  "musical_behaviours": [
+    "drives forward",
+    "feels bright",
+    "builds"
+  ],
+  "related_experiences": [
+    "countryside_drive",
+    "coastal_drive",
+    "empty_motorway"
+  ],
+  "common_phrases": [
+    "road trip",
+    "long drive",
+    "driving somewhere far",
+    "hours on the road",
+    "windows down driving"
+  ],
+  "misleading_keywords": [
+    "commute",
+    "traffic"
+  ],
+  "playlistIntents": [
+    "drive",
+    "escape"
+  ]
+}

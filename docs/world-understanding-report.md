@@ -31,19 +31,19 @@ Generated: 2026-07-27
 | Metric | Value |
 |--------|------:|
 | Prompts tested | 2000 |
-| Moment coverage | 62.6% |
-| Scene accuracy | 66.2% |
-| Emotion accuracy | 85.1% |
-| Music direction accuracy | 96.3% |
-| Gap to 95% target | 32.4% |
+| Moment coverage | 62% |
+| Scene accuracy | 63.5% |
+| Emotion accuracy | 86.1% |
+| Music direction accuracy | 97.4% |
+| Gap to 95% target | 33% |
 
 ## Testing
 
 | Metric | Value |
 |--------|------:|
 | Prompts tested | 2000 |
-| Strong interpretations | 62.6% |
-| Weak interpretations | 13.2% |
+| Strong interpretations | 62% |
+| Weak interpretations | 13% |
 
 ### Category pass rates
 
@@ -51,30 +51,30 @@ Generated: 2026-07-27
 |----------|--------:|----------:|------------:|
 | Driving | 50 | 100% | 100% |
 | Weather | 50 | 100% | 100% |
-| Relationships | 50 | 64% | 80% |
+| Relationships | 50 | 60% | 80% |
 | Nostalgia | 50 | 60% | 100% |
 | Life changes | 50 | 60% | 100% |
 | UK everyday life | 100 | 80% | 90% |
-| Abstract feelings | 100 | 67% | 100% |
-| Places | 50 | 60% | 100% |
-| Activities | 50 | 100% | 100% |
-| Everyday language | 75 | 33% | 100% |
-| Music language | 75 | 57% | 96% |
-| Travel and movement | 75 | 95% | 100% |
-| Social moments | 75 | 64% | 77% |
+| Abstract feelings | 100 | 50% | 100% |
+| Places | 50 | 40% | 100% |
+| Activities | 50 | 80% | 100% |
+| Everyday language | 75 | 21% | 100% |
+| Music language | 75 | 67% | 96% |
+| Travel and movement | 75 | 73% | 100% |
+| Social moments | 75 | 49% | 77% |
 | Time atmosphere | 75 | 56% | 100% |
-| Sensory moments | 75 | 80% | 100% |
-| Short prompts | 100 | 70% | 80% |
-| Gym and fitness | 100 | 58% | 66% |
+| Sensory moments | 75 | 71% | 100% |
+| Short prompts | 100 | 70% | 90% |
+| Gym and fitness | 100 | 61% | 66% |
 | Gaming and focus | 50 | 80% | 80% |
-| Achievement | 50 | 40% | 40% |
-| Memory and neighbourhood | 100 | 60% | 100% |
-| Main character | 75 | 60% | 80% |
-| Motivation | 75 | 36% | 20% |
-| Work routine | 75 | 80% | 40% |
+| Achievement | 50 | 60% | 60% |
+| Memory and neighbourhood | 100 | 80% | 100% |
+| Main character | 75 | 80% | 80% |
+| Motivation | 75 | 40% | 20% |
+| Work routine | 75 | 20% | 40% |
 | Human moments | 75 | 40% | 40% |
 | UK extended | 100 | 60% | 100% |
-| Social extended | 100 | 65% | 100% |
+| Social extended | 100 | 80% | 100% |
 | Travel extended | 100 | 80% | 100% |
 
 ## Golden prompt probes
@@ -83,7 +83,7 @@ Generated: 2026-07-27
 - Scene: `REFLECTIVE_AVOIDANCE_JOURNEY`
 - Emotions: avoidance, reflection
 - Situations: —
-- Confidence: 0.97
+- Confidence: 0.98
 
 ### "That first night where your new place finally feels like home"
 - Scene: `LATE_NIGHT_SOLITARY_JOURNEY`
@@ -101,7 +101,7 @@ Generated: 2026-07-27
 - Scene: `SUMMER_TRANSITION`
 - Emotions: nostalgia, bittersweet
 - Situations: —
-- Confidence: 0.93
+- Confidence: 0.98
 
 ### "The feeling of driving nowhere because you need some space"
 - Scene: `LATE_NIGHT_SOLITARY_JOURNEY`

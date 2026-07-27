@@ -1,0 +1,44 @@
+{
+  "id": "falling_in_love",
+  "domain": "relationships",
+  "name": "Falling in love",
+  "description": "Everything feels heightened — colours brighter, songs meant for you.",
+  "human_meaning": "Emotional flooding — the world re-tuned to one person and everything feels possible.",
+  "emotional_states": [
+    "euphoria",
+    "tenderness",
+    "anticipation"
+  ],
+  "hidden_emotions": [
+    "vulnerability",
+    "fear of loss"
+  ],
+  "social_context": [
+    "partner",
+    "new love"
+  ],
+  "energy_curve": "high",
+  "emotional_arc": "noticing → longing → connection → flooding",
+  "musical_behaviours": [
+    "swells",
+    "feels bright",
+    "lifts"
+  ],
+  "related_experiences": [
+    "first_date",
+    "missing_someone"
+  ],
+  "common_phrases": [
+    "falling in love",
+    "in love",
+    "can't stop thinking about them",
+    "head over heels"
+  ],
+  "misleading_keywords": [
+    "love song",
+    "self love"
+  ],
+  "playlistIntents": [
+    "celebrate"
+  ]
+}

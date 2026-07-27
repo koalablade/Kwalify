@@ -12,6 +12,7 @@ export interface ConceptGraphApplication {
   humanMeanings: string[];
   experiences: string[];
   sceneHint?: string;
+  sceneHints: string[];
 }
 
 export function applyConceptGraph(
@@ -28,5 +29,6 @@ export function applyConceptGraph(
     humanMeanings: propagated.humanMeanings,
     experiences: propagated.experiences,
     sceneHint: propagated.sceneHints[0],
+    sceneHints: propagated.sceneHints,
   };
 }

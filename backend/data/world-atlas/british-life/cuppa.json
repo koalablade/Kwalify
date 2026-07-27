@@ -1,0 +1,49 @@
+{
+  "id": "cuppa",
+  "domain": "british-life",
+  "name": "Cuppa",
+  "description": "The universal British reset button — crisis or calm, put the kettle on.",
+  "human_meaning": "National comfort ritual — the kettle as answer to almost every emotional state.",
+  "emotional_states": [
+    "comfort",
+    "calm",
+    "grounding"
+  ],
+  "hidden_emotions": [
+    "routine safety",
+    "pause"
+  ],
+  "activity": [
+    "making tea"
+  ],
+  "environment": [
+    "kitchen",
+    "anywhere with a kettle"
+  ],
+  "social_context": [
+    "alone",
+    "offering to others"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "need → kettle → pour → sip → ease",
+  "musical_behaviours": [
+    "comforts",
+    "grounds",
+    "settles"
+  ],
+  "related_experiences": [
+    "tea_after_work"
+  ],
+  "common_phrases": [
+    "cuppa",
+    "cup of tea",
+    "put the kettle on",
+    "fancy a cuppa",
+    "brew"
+  ],
+  "misleading_keywords": [
+    "tea party",
+    "iced tea",
+    "green tea health"
+  ]
+}

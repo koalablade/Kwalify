@@ -1,0 +1,45 @@
+{
+  "id": "winter_evening_comfort",
+  "domain": "time",
+  "name": "Winter evening comfort",
+  "description": "Dark by four, lights on, warmth inside against cold outside.",
+  "human_meaning": "Seasonal nesting — winter evenings as invitation to warmth and introspection.",
+  "emotional_states": [
+    "coziness",
+    "calm",
+    "melancholy"
+  ],
+  "hidden_emotions": [
+    "hibernation",
+    "domestic warmth"
+  ],
+  "time_context": [
+    "winter evening",
+    "dark afternoon"
+  ],
+  "weather_context": [
+    "cold",
+    "dark"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "darkness → lighting → warmth → settling",
+  "musical_behaviours": [
+    "comforts",
+    "feels warm",
+    "settles"
+  ],
+  "related_experiences": [
+    "rainy_day_indoors",
+    "christmas_morning"
+  ],
+  "common_phrases": [
+    "winter evening",
+    "dark by four",
+    "cosy winter night",
+    "cold outside warm inside"
+  ],
+  "misleading_keywords": [
+    "winter olympics",
+    "winter sale"
+  ]
+}

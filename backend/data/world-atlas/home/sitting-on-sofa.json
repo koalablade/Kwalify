@@ -1,0 +1,58 @@
+{
+  "id": "sitting_on_sofa",
+  "domain": "home",
+  "name": "Sitting on the sofa",
+  "description": "Finally collapsed — remote nearby, nowhere to be.",
+  "human_meaning": "Domestic collapse — the body finally stops and the evening truly begins.",
+  "emotional_states": [
+    "relief",
+    "contentment",
+    "tiredness"
+  ],
+  "hidden_emotions": [
+    "decompression",
+    "permission to do nothing"
+  ],
+  "environment": [
+    "living room",
+    "sofa"
+  ],
+  "activity": [
+    "resting",
+    "relaxing"
+  ],
+  "time_context": [
+    "evening",
+    "weekend"
+  ],
+  "social_context": [
+    "alone",
+    "partner"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "arrival → collapse → stillness → ease",
+  "musical_behaviours": [
+    "comforts",
+    "settles",
+    "grounds"
+  ],
+  "related_experiences": [
+    "tea_after_work",
+    "coming_home",
+    "lazy_sunday"
+  ],
+  "common_phrases": [
+    "sitting on the sofa",
+    "collapsed on the couch",
+    "finally sitting down",
+    "on the sofa all evening"
+  ],
+  "misleading_keywords": [
+    "sofa shop",
+    "furniture"
+  ],
+  "playlistIntents": [
+    "relax",
+    "recover"
+  ]
+}

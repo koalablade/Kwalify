@@ -1,0 +1,71 @@
+{
+  "id": "motorway_at_night",
+  "domain": "transport",
+  "name": "Motorway at night",
+  "description": "Dark road lit by your own headlights and occasional passing cars, world reduced to lane and sky.",
+  "human_meaning": "Solitary night driving — enclosed motion where the world shrinks to headlights and honest thought.",
+  "emotional_states": [
+    "Solitary clarity — the night strips away distraction and leaves honest thought."
+  ],
+  "hidden_emotions": [
+    "processing",
+    "loneliness",
+    "clarity"
+  ],
+  "sensory_details": [
+    "headlights",
+    "rain on windscreen",
+    "dashboard glow",
+    "empty lanes"
+  ],
+  "environment": [
+    "motorway",
+    "car",
+    "night road"
+  ],
+  "activity": [
+    "driving",
+    "night travel"
+  ],
+  "time_context": [
+    "midnight",
+    "late night"
+  ],
+  "weather_context": [
+    "rain on windscreen",
+    "clear night"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "isolation → motion → reflection → calm",
+  "musical_behaviours": [
+    "floats",
+    "feels cinematic",
+    "slow burn"
+  ],
+  "related_experiences": [
+    "motorway",
+    "rain_on_windows",
+    "coming_home"
+  ],
+  "common_phrases": [
+    "motorway at night",
+    "motorway at midnight",
+    "empty motorway",
+    "driving at midnight",
+    "late night drive",
+    "night driving"
+  ],
+  "misleading_keywords": [
+    "motorway services",
+    "traffic jam"
+  ],
+  "nearbyConcepts": [
+    "night",
+    "solitude",
+    "rain",
+    "decompression"
+  ]
+}

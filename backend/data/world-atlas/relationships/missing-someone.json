@@ -1,0 +1,47 @@
+{
+  "id": "missing_someone",
+  "domain": "relationships",
+  "name": "Missing someone",
+  "description": "Absence as a physical feeling — their side of the bed, an unread message.",
+  "human_meaning": "Absence made physical — the space where someone should be feels louder than their presence ever did.",
+  "emotional_states": [
+    "longing",
+    "sadness",
+    "love"
+  ],
+  "hidden_emotions": [
+    "loneliness",
+    "ache"
+  ],
+  "social_context": [
+    "absent partner",
+    "long distance"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "absence → ache → memory → longing",
+  "musical_behaviours": [
+    "aches",
+    "breathes",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "long_distance",
+    "breakup",
+    "waiting_for_message"
+  ],
+  "common_phrases": [
+    "missing someone",
+    "miss them",
+    "wish they were here",
+    "miss you",
+    "apart from someone"
+  ],
+  "misleading_keywords": [
+    "missing person",
+    "lost"
+  ],
+  "playlistIntents": [
+    "cry",
+    "remember"
+  ]
+}

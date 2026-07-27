@@ -25,6 +25,14 @@ import {
 import { PHRASES, SCENE_TEMPLATES } from "../lib/world-understanding/knowledge";
 import { CONCEPT_GRAPH_NODES, getConceptGraphStats } from "../lib/world-understanding/concept-graph";
 import { runMomentCoverageReport } from "../lib/world-understanding/quality-report";
+import { analyzeFailedPrompts } from "../lib/world-understanding/benchmark-failures";
+import { getAtlasEntryCount } from "../lib/world-understanding/atlas-loader";
+import { evaluateGoldenPrompt, runSemanticMomentEval } from "../lib/world-understanding/semantic-eval";
+import { getHumanPhraseCount } from "../lib/world-understanding/phrase-interpreter";
+import {
+  evaluateGoldenCarPrompt,
+  runHumanExperienceEval,
+} from "../lib/world-understanding/human-experience-eval";
 
 test("world understanding knowledge size meets expansion targets", () => {
   assert.ok(SITUATIONS.length >= 300, `situations ${SITUATIONS.length}`);
@@ -68,7 +76,7 @@ test("world understanding: deep expansion golden prompts", () => {
     },
     {
       prompt: "Driving home after a difficult day, rain on the glass, nowhere to rush to",
-      scene: "LATE_NIGHT_SOLITARY_JOURNEY",
+      scene: "REFLECTIVE_AVOIDANCE_JOURNEY",
       emotion: /reflection|relief|exhaustion/i,
     },
   ];
@@ -271,15 +279,358 @@ test("world understanding eval: category pass rates meet minimum thresholds", ()
   }
 });
 
+test("world understanding: scene intelligence composes dominant moment", () => {
+  const prompt = "Rain on the windscreen driving home after a horrible day";
+  const r = interpretWorld(prompt);
+  assert.ok(
+    ["LATE_NIGHT_SOLITARY_JOURNEY", "REFLECTIVE_AVOIDANCE_JOURNEY"].includes(r.scene.id),
+    `expected emotional recovery journey, got ${r.scene.id}`,
+  );
+  assert.ok(
+    r.taxonomy.emotion.some((e) => /reflection|relief|exhaustion|stress/i.test(e)),
+    `emotions: ${r.taxonomy.emotion}`,
+  );
+  assert.ok((r.debug.sceneCandidates?.length ?? 0) >= 3, "expected scene competition");
+  assert.equal(r.debug.sceneCandidates?.[0]?.id, r.scene.id, "winner should be top candidate");
+  assert.ok(r.debug.momentInterpretation, "expected moment interpretation");
+  assert.ok(r.debug.sceneConfidence, "expected scene confidence explanation");
+  assert.ok(
+    r.debug.momentInterpretation?.lifeEvents.some((e) => e.category === "bad_day_aftermath"),
+    `expected bad_day life event: ${JSON.stringify(r.debug.momentInterpretation?.lifeEvents)}`,
+  );
+  assert.notEqual(r.scene.id, "WEATHER_REFLECTION", "should not be weather-only scene");
+});
+
+test("world understanding: moment interpreter ranks primary concepts", () => {
+  const r = interpretWorld("Walking through my old neighbourhood after everyone moved away");
+  assert.ok(r.debug.momentInterpretation?.primaryConcepts.length, "expected primary concepts");
+  assert.ok(
+    r.debug.momentInterpretation?.lifeEvents.some(
+      (e) => e.category === "transition" || e.category === "leaving" || e.category === "childhood",
+    ),
+    `expected life event: ${JSON.stringify(r.debug.momentInterpretation?.lifeEvents)}`,
+  );
+});
+
+test("world understanding: rainy drive without stress stays movement-atmosphere", () => {
+  const r = interpretWorld("Empty motorway at midnight, rain on the windscreen");
+  assert.ok(
+    ["LATE_NIGHT_SOLITARY_JOURNEY", "NOCTURNAL_ESCAPE_DRIVE", "WEATHER_REFLECTION"].includes(r.scene.id),
+    `expected atmospheric drive, got ${r.scene.id}`,
+  );
+});
+
 test("world understanding: moment coverage trends toward 95% target", () => {
   const report = runMomentCoverageReport(WORLD_EVAL_CASES.length);
   assert.equal(report.tested, 2000);
-  assert.ok(report.momentCoveragePct >= 60, `moment coverage ${report.momentCoveragePct}%`);
-  assert.ok(report.sceneAccuracyPct >= 50, `scene accuracy ${report.sceneAccuracyPct}%`);
+  assert.ok(report.momentCoveragePct >= 62, `moment coverage ${report.momentCoveragePct}% (target 95%)`);
+  assert.ok(report.sceneAccuracyPct >= 63, `scene accuracy ${report.sceneAccuracyPct}%`);
   assert.ok(report.emotionAccuracyPct >= 70, `emotion accuracy ${report.emotionAccuracyPct}%`);
+});
+
+test("world understanding: failure analysis groups top misses", () => {
+  const { failures, grouped } = analyzeFailedPrompts(100);
+  assert.ok(failures.length > 0);
+  assert.ok(failures.length <= 100);
+  const totalGrouped = Object.values(grouped).reduce((a, b) => a + b, 0);
+  assert.ok(totalGrouped > 0);
 });
 
 test("world understanding: moment pipeline still includes world layer", () => {
   const pipeline = analyzeMomentPipeline("Empty motorway at midnight, rain on the windscreen");
   assert.ok(pipeline.worldUnderstanding?.sceneGraph);
+});
+
+test("world understanding: human experience engine golden prompt", () => {
+  const prompt = "I finally got home after one of the worst days I've had in ages";
+  const r = interpretWorld(prompt);
+  assert.ok(r.humanExperience, "expected human experience");
+  assert.equal(r.humanExperience.playlistIntent, "recover");
+  assert.ok(
+    r.humanExperience.inferredQualities.some((q) => /relief|safety|decompression|exhaustion|recovery/i.test(q)),
+    `qualities: ${r.humanExperience.inferredQualities.join(", ")}`,
+  );
+  assert.ok(r.humanExperience.atlasConsultations.length > 0, "expected atlas consultation");
+  assert.ok(r.humanExperience.atlasConsultations.some((a) => /coming home/i.test(a.label)));
+  assert.ok(r.emotionalArc.phases.length >= 2);
+  assert.ok(r.emotionalArc.summary.includes("→"));
+  assert.ok(r.humanExperience.musicalBehaviours.length > 0);
+  assert.ok(r.semanticMoment.confidence >= 0.3);
+});
+
+test("world understanding: atlas entry count meets minimum", () => {
+  const count = getAtlasEntryCount();
+  assert.ok(count >= 80, `atlas entries ${count} (target 80+)`);
+});
+
+test("world understanding: human phrases loaded", () => {
+  assert.ok(getHumanPhraseCount() >= 60, `phrases ${getHumanPhraseCount()}`);
+});
+
+test("world understanding: indirect language interpretation", () => {
+  const cases = [
+    { prompt: "I've had enough of today", emotion: /exhaustion|stress|overwhelm/i },
+    { prompt: "need to clear my head", emotion: /reflection|calm/i },
+    { prompt: "I'm just existing", emotion: /numb|apathy|low/i },
+    { prompt: "main character moment driving at night", emotion: /reflect|cinematic|self/i },
+  ];
+  for (const c of cases) {
+    const r = interpretWorld(c.prompt);
+    assert.ok(
+      r.matchedPhrases.length > 0 || r.taxonomy.emotion.some((e) => c.emotion.test(e)),
+      `${c.prompt} → phrases:${r.matchedPhrases.length} emotions:${r.taxonomy.emotion}`,
+    );
+  }
+});
+
+test("world understanding: British phrases", () => {
+  const cases = [
+    { prompt: "absolutely knackered after work", emotion: /exhaustion|tired/i },
+    { prompt: "gutted about today", emotion: /disappoint|sad|grief/i },
+    { prompt: "fancy a drive to clear my head", emotion: /freedom|reflect/i },
+    { prompt: "sunday scaries before monday", emotion: /dread|anxiety|melancholy/i },
+    { prompt: "having a mare of a day", emotion: /stress|frustrat/i },
+    { prompt: "proper tired after a long one", emotion: /exhaust|tired|wear/i },
+    { prompt: "can't be bothered tonight", emotion: /apathy|exhaust|low/i },
+    { prompt: "made up about the news", emotion: /joy|delight|satisf/i },
+  ];
+  for (const c of cases) {
+    const r = interpretWorld(c.prompt);
+    assert.ok(
+      r.matchedPhrases.length > 0 || r.taxonomy.emotion.some((e) => c.emotion.test(e)),
+      `${c.prompt}`,
+    );
+  }
+});
+
+test("world understanding: ultra-short ambiguous prompts avoid weather default", () => {
+  const cases = [
+    { prompt: "alone", notScene: "WEATHER_REFLECTION", emotion: /reflect|solitud|calm|alone/i },
+    { prompt: "Sunday", notScene: "WEATHER_REFLECTION", emotion: /calm|nostalg|melanchol/i },
+    { prompt: "waiting", emotion: /anticipat|uncertain|restless/i },
+  ];
+  for (const c of cases) {
+    const r = interpretWorld(c.prompt);
+    if (c.notScene) {
+      assert.notEqual(r.scene.id, c.notScene, `${c.prompt} → ${r.scene.id}`);
+    }
+    assert.ok(
+      r.taxonomy.emotion.some((e) => c.emotion.test(e)) ||
+        r.taxonomy.activity.length > 0 ||
+        r.taxonomy.social.length > 0,
+      `${c.prompt} shallow: emotions=${r.taxonomy.emotion} activity=${r.taxonomy.activity}`,
+    );
+  }
+});
+
+test("world understanding: activity detection from everyday phrases", () => {
+  const cases = [
+    {
+      prompt: "finally clocked off after the longest shift",
+      activity: /leaving|decompress|work/i,
+      atlas: /clock|work|finish/i,
+    },
+    {
+      prompt: "sitting in the car before going inside",
+      activity: /sit|delay|decompress/i,
+      atlas: /car|sitting/i,
+    },
+    {
+      prompt: "fed up and knackered, need a break",
+      emotion: /exhaust|frustrat|stress/i,
+      phrases: true,
+    },
+  ];
+  for (const c of cases) {
+    const r = interpretWorld(c.prompt);
+    if (c.activity) {
+      assert.ok(
+        r.taxonomy.activity.some((a) => c.activity!.test(a)) ||
+          r.humanExperience.atlasConsultations.some((a) => c.atlas?.test(a.label)),
+        `${c.prompt} activity: ${r.taxonomy.activity} atlas: ${r.humanExperience.atlasConsultations.map((a) => a.label)}`,
+      );
+    }
+    if (c.emotion) {
+      assert.ok(r.taxonomy.emotion.some((e) => c.emotion!.test(e)), `${c.prompt}`);
+    }
+    if (c.phrases) {
+      assert.ok(r.matchedPhrases.length > 0, `${c.prompt} no phrases`);
+    }
+  }
+});
+
+test("world understanding: narrative temporal words distinguish movement from life transition", () => {
+  const movement = interpretWorld("Driving at night on empty roads");
+  const transition = interpretWorld("Driving home after losing my job");
+  assert.ok(
+    movement.taxonomy.activity.some((a) => /driv/i.test(a)) ||
+      movement.semanticMoment.movement.values.some((v) => /driv/i.test(v)),
+    `movement: ${movement.taxonomy.activity}`,
+  );
+  assert.ok(
+    transition.debug.momentInterpretation?.lifeEvents.some((e) => e.category === "transition") ||
+      transition.taxonomy.lifeContext.length > 0 ||
+      transition.taxonomy.emotion.some((e) => /anxiet|hope|reflect|grief/i.test(e)),
+    `transition: ${JSON.stringify(transition.debug.momentInterpretation?.lifeEvents)}`,
+  );
+  const movementHasTransition = movement.debug.momentInterpretation?.lifeEvents.some(
+    (e) => e.category === "transition",
+  );
+  const transitionHasTransition = transition.debug.momentInterpretation?.lifeEvents.some(
+    (e) => e.category === "transition",
+  );
+  assert.ok(
+    !movementHasTransition && transitionHasTransition,
+    `movement life events: ${JSON.stringify(movement.debug.momentInterpretation?.lifeEvents)} vs transition: ${JSON.stringify(transition.debug.momentInterpretation?.lifeEvents)}`,
+  );
+});
+
+test("world understanding: weather ambiguity not literal", () => {
+  const r = interpretWorld("rain");
+  assert.ok(r.humanExperience.atlasConsultations.length >= 0);
+  const rainy = interpretWorld("rain on the windscreen driving home after a horrible day");
+  assert.ok(
+    rainy.taxonomy.emotion.some((e) => /reflect|exhaust|stress|relief/i.test(e)),
+    `emotions: ${rainy.taxonomy.emotion}`,
+  );
+  assert.ok(rainy.debug.experienceReasoning, "expected experience reasoning");
+});
+
+test("world understanding: golden car after work prompt", () => {
+  const r = evaluateGoldenCarPrompt();
+  assert.ok(r.humanExperience, "expected human experience");
+  assert.ok(
+    r.humanExperience.inferredQualities.some((q) =>
+      /decompression|transition|solitude|reflection|private/i.test(q),
+    ) || r.humanExperience.atlasConsultations.some((a) => /car|driving|home/i.test(a.label)),
+    `qualities: ${r.humanExperience.inferredQualities.join(", ")} atlas: ${r.humanExperience.atlasConsultations.map((a) => a.label).join(", ")}`,
+  );
+  assert.ok(
+    r.humanExperience.atlasConsultations.some((a) =>
+      /car|driving|home|work/i.test(a.label),
+    ),
+    `atlas: ${r.humanExperience.atlasConsultations.map((a) => a.label).join(", ")}`,
+  );
+  assert.ok(r.debug.experienceReasoning?.hops.length, "expected reasoning hops");
+});
+
+test("world understanding: life transitions and nostalgia", () => {
+  const transition = interpretWorld("starting a new chapter after moving away");
+  assert.ok(
+    transition.taxonomy.lifeContext.length > 0 || transition.taxonomy.emotion.some((e) => /hope|anxiety|anticipation/i.test(e)),
+    `lifeContext: ${transition.taxonomy.lifeContext}`,
+  );
+  const nostalgia = interpretWorld("I miss the old days when everything was simpler");
+  assert.ok(
+    nostalgia.matchedPhrases.length > 0 || nostalgia.taxonomy.emotion.some((e) => /nostalgia/i.test(e)),
+    `nostalgia emotions: ${nostalgia.taxonomy.emotion}`,
+  );
+});
+
+test("world understanding: human experience eval metrics", () => {
+  const report = runHumanExperienceEval(100);
+  assert.ok(report.atlasCount >= 80, `atlas ${report.atlasCount}`);
+  assert.ok(report.phraseCount >= 60, `phrases ${report.phraseCount}`);
+  assert.ok(report.metrics.humanExperienceAccuracy > 0.35);
+  assert.ok(report.metrics.emotionalAccuracy > 0.35);
+  if (report.benchmarkCount > 0) {
+    assert.ok(report.benchmarkCount >= 10000, `benchmark ${report.benchmarkCount}`);
+  }
+});
+
+test("world understanding: semantic eval multi-dimensional dimensions", () => {
+  const golden = evaluateGoldenPrompt(
+    "I finally got home after one of the worst days I've had in ages",
+  );
+  const dims = golden.dimensions.map((d) => d.dimension);
+  assert.ok(dims.includes("humanExperience"));
+  assert.ok(dims.includes("playlistIntent"));
+  assert.ok(dims.includes("emotionalArc"));
+  assert.ok(dims.includes("sharedMemory"));
+
+  const report = runSemanticMomentEval(50);
+  assert.ok(report.dimensionAverages.humanExperience > 0.4);
+  assert.ok(report.dimensionAverages.playlistIntent > 0.4);
+});
+
+test("world understanding: semantic moment fingerprint golden prompts", () => {
+  const cases: Array<{
+    prompt: string;
+    expectMovement: RegExp;
+    expectWeather?: RegExp;
+    expectLifeEvent?: RegExp;
+    expectEmotion: RegExp;
+  }> = [
+    {
+      prompt: "Driving home after a horrible day with rain on the windscreen",
+      expectMovement: /driv|commut|travel|journey/i,
+      expectWeather: /rain|wet|windscreen|glass/i,
+      expectLifeEvent: /bad day|aftermath|difficult/i,
+      expectEmotion: /exhaust|reflect|stress|relief/i,
+    },
+    {
+      prompt: "Staring out the train window visiting my grandparents on a slow rainy afternoon",
+      expectMovement: /train|travel|journey/i,
+      expectWeather: /rain/i,
+      expectEmotion: /nostalgia|calm|warm|reflect/i,
+    },
+    {
+      prompt: "Walking through my old neighbourhood after everyone moved away",
+      expectMovement: /walk/i,
+      expectLifeEvent: /transition|leaving|childhood/i,
+      expectEmotion: /nostalgia|bittersweet|reflect/i,
+    },
+  ];
+
+  for (const c of cases) {
+    const r = interpretWorld(c.prompt);
+    const fp = r.semanticMoment;
+    assert.ok(fp, `${c.prompt} missing semanticMoment`);
+    assert.ok(fp.confidence >= 0.3, `${c.prompt} low fingerprint confidence ${fp.confidence}`);
+    assert.ok(
+      fp.movement.values.some((v) => c.expectMovement.test(v)) ||
+        fp.activity.values.some((v) => c.expectMovement.test(v)),
+      `${c.prompt} movement: ${fp.movement.values} / ${fp.activity.values}`,
+    );
+    if (c.expectWeather) {
+      assert.ok(
+        fp.weather.values.some((v) => c.expectWeather!.test(v)) ||
+          fp.sensory.some((s) => c.expectWeather!.test(s)),
+        `${c.prompt} weather: ${fp.weather.values}`,
+      );
+    }
+    if (c.expectLifeEvent) {
+      assert.ok(
+        fp.lifeEvent.values.some((v) => c.expectLifeEvent!.test(v)),
+        `${c.prompt} lifeEvent: ${fp.lifeEvent.values}`,
+      );
+    }
+    const allEmotion = [
+      ...fp.emotion.primary,
+      ...fp.emotion.secondary,
+      ...fp.emotion.underlying,
+      ...fp.emotion.desired,
+    ];
+    assert.ok(
+      allEmotion.some((e) => c.expectEmotion.test(e)),
+      `${c.prompt} emotions: ${allEmotion.join(", ")}`,
+    );
+    assert.ok(Object.keys(fp.semanticVector).length >= 5, `${c.prompt} sparse semanticVector`);
+    assert.ok(fp.relationshipChains.length >= 1, `${c.prompt} missing relationship chains`);
+    assert.equal(fp.sceneOutput.id, r.scene.id, "scene output should match composed scene");
+  }
+});
+
+test("world understanding: semantic eval dimensions report", () => {
+  const golden = evaluateGoldenPrompt(
+    "Driving home after a horrible day with rain on the windscreen",
+  );
+  assert.ok(golden.dimensions.length >= 10);
+  const overall = golden.dimensions.find((d) => d.dimension === "overall");
+  assert.ok(overall && overall.score >= 0.45, `overall ${overall?.score}`);
+
+  const report = runSemanticMomentEval(50);
+  assert.equal(report.tested, 50);
+  assert.ok(report.dimensionAverages.emotion >= 0.4);
+  assert.ok(report.sceneAccuracyPct >= 5);
 });

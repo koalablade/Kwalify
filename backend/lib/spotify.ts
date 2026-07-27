@@ -13,6 +13,9 @@ import { recordSpotifyApiRequest, spotifyEndpointLabel } from "./spotify-api-aud
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 const SPOTIFY_AUTH_BASE = "https://accounts.spotify.com";
 
+let audioFeatures403FallbackLogged = false;
+let audioFeatures403ForbiddenLogged = false;
+
 export interface SpotifyTokens {
   accessToken: string;
   refreshToken: string;
@@ -606,16 +609,22 @@ export async function fetchAudioFeatures(
         primaryToken = secondaryToken;
         secondaryToken = undefined;
         i -= batchSize;
-        logger.warn("Audio features 403 on primary token — retrying with fallback token");
+        if (!audioFeatures403FallbackLogged) {
+          audioFeatures403FallbackLogged = true;
+          logger.warn("Audio features 403 on primary token — retrying with fallback token");
+        }
         continue;
       }
 
       if (status === 403) {
         stopped403 = true;
-        logger.warn(
-          { batchStart: i, totalIds: trackIds.length, fetched: results.length },
-          "Audio features forbidden (403) — stopping Spotify feature fetches (API restriction)"
-        );
+        if (!audioFeatures403ForbiddenLogged) {
+          audioFeatures403ForbiddenLogged = true;
+          logger.warn(
+            { batchStart: i, totalIds: trackIds.length, fetched: results.length },
+            "Audio features forbidden (403) — stopping Spotify feature fetches (API restriction)"
+          );
+        }
         break;
       }
 

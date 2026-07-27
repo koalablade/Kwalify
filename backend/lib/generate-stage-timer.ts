@@ -18,18 +18,20 @@ export function createGenerateStageTimer(
 ): GenerateStageTimer {
   let current: { stage: string; t0: number; meta?: Record<string, unknown> } | null = null;
   let watchdog: ReturnType<typeof setInterval> | null = null;
+  let stuckWarnedForStage: string | null = null;
 
   const base = () => ({ requestId: ctx?.requestId, userId: ctx?.userId });
 
   const checkStuck = () => {
     if (!current) return;
     const ms = Date.now() - current.t0;
-    if (ms >= GENERATE_STAGE_STUCK_MS) {
-      log.warn(
-        { ...base(), stage: current.stage, ms, ...current.meta },
-        "Generation stuck in stage"
-      );
-    }
+    if (ms < GENERATE_STAGE_STUCK_MS) return;
+    if (stuckWarnedForStage === current.stage) return;
+    stuckWarnedForStage = current.stage;
+    log.warn(
+      { ...base(), stage: current.stage, ms, ...current.meta },
+      "Generation stuck in stage"
+    );
   };
 
   return {
@@ -40,6 +42,7 @@ export function createGenerateStageTimer(
           `${current.stage} complete`
         );
       }
+      stuckWarnedForStage = null;
       current = { stage, t0: Date.now(), meta };
       log.info({ ...base(), stage, ...meta }, stage);
       if (!watchdog) watchdog = setInterval(checkStuck, 3000);

@@ -1,0 +1,61 @@
+{
+  "id": "empty_motorway",
+  "domain": "transport",
+  "name": "Empty motorway",
+  "description": "Wide open road with almost no traffic — rare spaciousness.",
+  "human_meaning": "Open road freedom — the rare moment when the motorway belongs only to you.",
+  "emotional_states": [
+    "freedom",
+    "calm",
+    "clarity"
+  ],
+  "hidden_emotions": [
+    "escape",
+    "spaciousness"
+  ],
+  "sensory_details": [
+    "open lanes",
+    "horizon line",
+    "engine hum",
+    "passing signs"
+  ],
+  "environment": [
+    "motorway",
+    "open road"
+  ],
+  "activity": [
+    "driving",
+    "cruising"
+  ],
+  "time_context": [
+    "late night",
+    "early morning"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "confinement → openness → flow → ease",
+  "musical_behaviours": [
+    "floats",
+    "feels cinematic",
+    "drives forward"
+  ],
+  "related_experiences": [
+    "motorway_at_night",
+    "motorway",
+    "road_trip"
+  ],
+  "common_phrases": [
+    "empty motorway",
+    "open motorway",
+    "nobody on the road",
+    "clear motorway",
+    "motorway all to myself"
+  ],
+  "misleading_keywords": [
+    "traffic",
+    "jam",
+    "stuck"
+  ]
+}

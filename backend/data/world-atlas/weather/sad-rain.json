@@ -1,0 +1,45 @@
+{
+  "id": "sad_rain",
+  "domain": "weather",
+  "name": "Sad rain",
+  "description": "Rain matching inner weather — grey outside, grey inside.",
+  "human_meaning": "Weather as emotional mirror — rain that validates the sadness you're already feeling.",
+  "emotional_states": [
+    "sadness",
+    "melancholy",
+    "grief"
+  ],
+  "hidden_emotions": [
+    "permission to grieve",
+    "catharsis"
+  ],
+  "weather_context": [
+    "heavy rain",
+    "grey rain"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "grey → matching → release → acceptance",
+  "musical_behaviours": [
+    "aches",
+    "breathes",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "rain_on_windows",
+    "heartbreak"
+  ],
+  "common_phrases": [
+    "sad rain",
+    "rain matches my mood",
+    "crying weather",
+    "rainy day sadness"
+  ],
+  "misleading_keywords": [
+    "rain",
+    "raining"
+  ],
+  "playlistIntents": [
+    "cry",
+    "process"
+  ]
+}

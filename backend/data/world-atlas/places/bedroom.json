@@ -1,0 +1,52 @@
+{
+  "id": "bedroom",
+  "domain": "places",
+  "name": "In the bedroom",
+  "description": "Most private room — sanctuary, refuge, sometimes prison.",
+  "human_meaning": "Inner sanctum — safety, isolation, rest, and the room where overthinking lives.",
+  "emotional_states": [
+    "intimacy",
+    "safety",
+    "vulnerability"
+  ],
+  "hidden_emotions": [
+    "loneliness",
+    "rest",
+    "overthinking"
+  ],
+  "environment": [
+    "bedroom",
+    "bed"
+  ],
+  "activity": [
+    "resting",
+    "thinking",
+    "sleeping"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "entry → settling → intimacy → rest or rumination",
+  "musical_behaviours": [
+    "whispers",
+    "breathes",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "cant_sleep",
+    "lazy_sunday"
+  ],
+  "common_phrases": [
+    "in my bedroom",
+    "lying in bed",
+    "bedroom at night",
+    "curled up in bed",
+    "safe in my room",
+    "overthinking in bed"
+  ],
+  "misleading_keywords": [
+    "bedroom pop",
+    "furniture"
+  ]
+}

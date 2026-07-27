@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Horizontal surrender — the body has given up but the mind might still spin.",
+  "energy_curve": "medium",
+  "emotional_arc": "arriving home, dropping bag → staring at ceiling, phone nearby → maybe sleep, maybe rally",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "lying_on_sofa",
+  "name": "Lying on the sofa",
+  "human_meaning": "Horizontal surrender — the body has given up but the mind might still spin.",
+  "common_phrases": [
+    "lying on the sofa",
+    "sprawled on the couch",
+    "flat out on the sofa",
+    "lying on the couch"
+  ],
+  "hidden_context": "Too tired to do anything, too awake to sleep.",
+  "emotional_states": [
+    "exhaustion",
+    "contentment",
+    "numbness"
+  ],
+  "environments": [
+    "living room",
+    "sofa"
+  ],
+  "social_context": [
+    "alone",
+    "partner"
+  ],
+  "before_state": "arriving home, dropping bag",
+  "during_state": "staring at ceiling, phone nearby",
+  "after_state": "maybe sleep, maybe rally",
+  "musical_behaviours": [
+    "comforts",
+    "settles",
+    "drifts"
+  ],
+  "related_experiences": [
+    "sitting_on_sofa",
+    "lazy_sunday"
+  ],
+  "activity": [
+    "resting",
+    "relaxing"
+  ],
+  "environment": [
+    "living room",
+    "sofa"
+  ]
+}

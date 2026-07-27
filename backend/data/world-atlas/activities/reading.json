@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Elsewhere without leaving — paper quiet in a loud world.",
+  "energy_curve": "medium",
+  "emotional_arc": "choosing book, making tea → pages turning, world fading → one more chapter or lights out",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "reading",
+  "name": "Reading",
+  "human_meaning": "Elsewhere without leaving — paper quiet in a loud world.",
+  "common_phrases": [
+    "reading a book",
+    "curled up reading",
+    "lost in a book",
+    "reading before bed"
+  ],
+  "hidden_context": "Last private pleasure before sleep.",
+  "emotional_states": [
+    "calm",
+    "escape",
+    "focus"
+  ],
+  "environments": [
+    "bedroom",
+    "sofa",
+    "cafe"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "choosing book, making tea",
+  "during_state": "pages turning, world fading",
+  "after_state": "one more chapter or lights out",
+  "musical_behaviours": [
+    "whispers",
+    "drifts",
+    "comforts"
+  ],
+  "related_experiences": [
+    "lazy_sunday",
+    "rainy_day_indoors"
+  ],
+  "activity": [
+    "reading"
+  ],
+  "environment": [
+    "bedroom",
+    "sofa",
+    "cafe"
+  ]
+}

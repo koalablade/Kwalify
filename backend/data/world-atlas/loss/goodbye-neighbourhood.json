@@ -1,0 +1,67 @@
+{
+  "id": "goodbye_neighbourhood",
+  "domain": "loss",
+  "name": "Leaving the neighbourhood",
+  "description": "Familiar streets with unfamiliar occupancy, landmarks unchanged but context shifted.",
+  "human_meaning": "Nostalgic grief — mourning a community that existed in time, not just space.",
+  "emotional_states": [
+    "Nostalgic grief — mourning a community that existed in time, not just space."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "familiar corners",
+    "new shop fronts",
+    "empty park",
+    "changed front gardens"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "low",
+  "emotional_arc": "return → recognition → grief → acceptance",
+  "musical_behaviours": [
+    "nostalgic_warmth",
+    "feels intimate",
+    "breathes"
+  ],
+  "related_experiences": [
+    "childhood_summer_holidays",
+    "breakup"
+  ],
+  "common_phrases": [
+    "old neighbourhood",
+    "everyone moved away from the neighbourhood",
+    "walking through my old neighbourhood",
+    "neighbourhood changed",
+    "nobody lives here anymore",
+    "everyone left the neighbourhood"
+  ],
+  "misleading_keywords": [
+    "last summer",
+    "summer before",
+    "end of summer",
+    "summer ending"
+  ],
+  "playlistIntents": [
+    "remember",
+    "cry"
+  ],
+  "inferredQualities": [
+    "nostalgia",
+    "loss",
+    "bittersweet",
+    "transition"
+  ],
+  "typicalThoughts": [
+    "Remember when this was ours",
+    "Nothing is the same",
+    "Who am I here now"
+  ],
+  "nearbyConcepts": [
+    "memory",
+    "community loss",
+    "identity"
+  ]
+}

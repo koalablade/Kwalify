@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Stepping off the treadmill — permission granted, guilt optional.",
+  "energy_curve": "medium",
+  "emotional_arc": "overwhelm or monotony → tea, air, phone down → return with slightly more capacity",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "taking_a_break",
+  "name": "Taking a break",
+  "human_meaning": "Stepping off the treadmill — permission granted, guilt optional.",
+  "common_phrases": [
+    "taking a break",
+    "need a break",
+    "stepping away",
+    "five minute break"
+  ],
+  "hidden_context": "Micro-recovery before pushing on.",
+  "emotional_states": [
+    "relief",
+    "exhaustion",
+    "reset"
+  ],
+  "environments": [
+    "office kitchen",
+    "park bench",
+    "home"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "overwhelm or monotony",
+  "during_state": "tea, air, phone down",
+  "after_state": "return with slightly more capacity",
+  "musical_behaviours": [
+    "settles",
+    "comforts",
+    "lifts"
+  ],
+  "related_experiences": [
+    "making_tea",
+    "sitting_quietly"
+  ],
+  "activity": [
+    "resting",
+    "pausing"
+  ],
+  "environment": [
+    "office kitchen",
+    "park bench",
+    "home"
+  ]
+}

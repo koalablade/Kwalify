@@ -1,0 +1,53 @@
+{
+  "id": "motorway",
+  "domain": "transport",
+  "name": "Motorway driving",
+  "description": "Sustained forward motion at speed, lane discipline, distant horizon, engine hum as constant companion.",
+  "human_meaning": "A suspended state between departure and arrival — mind wanders while body stays on course.",
+  "emotional_states": [
+    "A suspended state between departure and arrival — mind wanders while body stays on course."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "engine hum",
+    "lane markings",
+    "passing headlights",
+    "wind against glass"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium",
+  "emotional_arc": "departure → motion → reflection → approach",
+  "musical_behaviours": [
+    "drives",
+    "floats",
+    "slow burn"
+  ],
+  "related_experiences": [
+    "motorway_at_night",
+    "coming_home",
+    "motorway_services"
+  ],
+  "common_phrases": [
+    "motorway",
+    "dual carriageway",
+    "a road",
+    "long drive",
+    "hours on the road"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "How much further",
+    "Thinking through the day while the miles pass",
+    "The road as temporary escape"
+  ],
+  "nearbyConcepts": [
+    "travel",
+    "solitude",
+    "transition",
+    "rain on glass"
+  ]
+}

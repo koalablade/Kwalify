@@ -1,0 +1,60 @@
+{
+  "id": "party_night",
+  "domain": "social",
+  "name": "Party night",
+  "description": "Bass, bodies, laughter — being part of something bigger than yourself.",
+  "human_meaning": "Collective euphoria — losing yourself in the crowd and the night.",
+  "emotional_states": [
+    "euphoria",
+    "joy",
+    "energy"
+  ],
+  "hidden_emotions": [
+    "belonging",
+    "escape"
+  ],
+  "environment": [
+    "party",
+    "club",
+    "house party"
+  ],
+  "activity": [
+    "dancing",
+    "drinking",
+    "socialising"
+  ],
+  "time_context": [
+    "night",
+    "weekend"
+  ],
+  "social_context": [
+    "crowd",
+    "friends"
+  ],
+  "energy_curve": "high",
+  "emotional_arc": "anticipation → peak → flow → comedown",
+  "musical_behaviours": [
+    "drives forward",
+    "lifts",
+    "pulses"
+  ],
+  "related_experiences": [
+    "alone_after_party",
+    "pub_night"
+  ],
+  "common_phrases": [
+    "party night",
+    "house party",
+    "night out",
+    "going out tonight",
+    "pre drinks"
+  ],
+  "misleading_keywords": [
+    "birthday party",
+    "tea party"
+  ],
+  "playlistIntents": [
+    "celebrate",
+    "drive"
+  ]
+}

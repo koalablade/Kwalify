@@ -1,0 +1,53 @@
+{
+  "id": "beach",
+  "domain": "places",
+  "name": "At the beach",
+  "description": "Sand, horizon, salt air — edge of land meeting infinite water.",
+  "human_meaning": "Horizon therapy — where land ends and problems feel proportionally smaller.",
+  "emotional_states": [
+    "peace",
+    "freedom",
+    "awe"
+  ],
+  "hidden_emotions": [
+    "perspective",
+    "childhood memory"
+  ],
+  "environment": [
+    "beach",
+    "sea",
+    "shore"
+  ],
+  "activity": [
+    "walking",
+    "sitting",
+    "swimming"
+  ],
+  "weather_context": [
+    "sun",
+    "wind",
+    "grey sea"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "approach → vista → breathing → peace",
+  "musical_behaviours": [
+    "opens up",
+    "floats",
+    "feels warm"
+  ],
+  "related_experiences": [
+    "coastal_drive",
+    "childhood_summer_holidays"
+  ],
+  "common_phrases": [
+    "at the beach",
+    "by the sea",
+    "seaside",
+    "on the beach",
+    "walk along the shore"
+  ],
+  "misleading_keywords": [
+    "beach boys",
+    "beach ball"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "id": "walking_home",
+  "domain": "transport",
+  "name": "Walking home",
+  "description": "Footsteps on familiar streets — body moving, mind catching up.",
+  "human_meaning": "Pedestrian processing — the walk home as time to digest what just happened.",
+  "emotional_states": [
+    "reflection",
+    "tiredness",
+    "calm"
+  ],
+  "hidden_emotions": [
+    "processing",
+    "solitude"
+  ],
+  "environment": [
+    "streets",
+    "pavement",
+    "neighbourhood"
+  ],
+  "activity": [
+    "walking"
+  ],
+  "time_context": [
+    "late night",
+    "evening"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "departure → motion → reflection → arrival",
+  "musical_behaviours": [
+    "breathes",
+    "feels intimate",
+    "paces gently"
+  ],
+  "related_experiences": [
+    "taxi_ride",
+    "alone_after_party",
+    "goodbye_neighbourhood"
+  ],
+  "common_phrases": [
+    "walking home",
+    "walk home",
+    "on my way home on foot",
+    "walking back alone",
+    "walk home after"
+  ],
+  "misleading_keywords": [
+    "walk",
+    "walking the dog"
+  ],
+  "playlistIntents": [
+    "process",
+    "reflect"
+  ]
+}

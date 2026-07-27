@@ -35,7 +35,16 @@ export interface WorldUnderstandingDebugView {
   humanMeanings: string[];
   graphExperiences: string[];
   graphMatches: Array<{ id: string; domain: string; cue: string }>;
+  intent: { kind: string; confidence: number; trigger?: string };
+  sceneCandidates: Array<{ rank: number; id: string; label: string; humanMoment: string; score: number }>;
   confidence: number;
+  momentInterpretation?: WorldUnderstandingResult["debug"]["momentInterpretation"];
+  sceneConfidence?: WorldUnderstandingResult["debug"]["sceneConfidence"];
+  humanExperience?: WorldUnderstandingResult["humanExperience"];
+  emotionalArc?: WorldUnderstandingResult["emotionalArc"];
+  semanticFingerprint?: WorldUnderstandingResult["debug"]["semanticFingerprint"];
+  semanticMoment?: WorldUnderstandingResult["semanticMoment"];
+  experienceReasoning?: WorldUnderstandingResult["debug"]["experienceReasoning"];
 }
 
 export function buildWorldUnderstandingDebug(
@@ -84,6 +93,21 @@ export function buildWorldUnderstandingDebug(
     humanMeanings: result.humanMeanings,
     graphExperiences: result.debug.graphExperiences ?? [],
     graphMatches: result.debug.graphMatches ?? [],
+    intent: result.debug.intent ?? { kind: "unknown", confidence: 0 },
+    sceneCandidates: (result.debug.sceneCandidates ?? []).map((c, i) => ({
+      rank: i + 1,
+      id: c.id,
+      label: c.label,
+      humanMoment: c.humanMoment,
+      score: c.score,
+    })),
     confidence: result.confidence,
+    momentInterpretation: result.debug.momentInterpretation,
+    sceneConfidence: result.debug.sceneConfidence,
+    humanExperience: result.humanExperience,
+    emotionalArc: result.emotionalArc,
+    semanticFingerprint: result.debug.semanticFingerprint,
+    semanticMoment: result.semanticMoment,
+    experienceReasoning: result.debug.experienceReasoning,
   };
 }

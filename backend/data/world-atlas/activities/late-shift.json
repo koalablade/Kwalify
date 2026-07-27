@@ -1,0 +1,57 @@
+{
+  "domain": "activities",
+  "description": "Working when the world sleeps — inverted rhythm, borrowed quiet.",
+  "energy_curve": "medium",
+  "emotional_arc": "focused through unnatural hours → walking out into wrong-feeling quiet → too tired to sleep or too wired to rest",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "late_shift",
+  "name": "Late shift",
+  "human_meaning": "Working when the world sleeps — inverted rhythm, borrowed quiet.",
+  "common_phrases": [
+    "late shift",
+    "working late",
+    "night shift ending",
+    "finishing a late shift"
+  ],
+  "hidden_context": "Disorientation crossing from work-night to personal-day.",
+  "emotional_states": [
+    "exhaustion",
+    "disorientation",
+    "quiet"
+  ],
+  "environments": [
+    "workplace",
+    "empty streets",
+    "night"
+  ],
+  "social_context": [
+    "alone",
+    "small team"
+  ],
+  "before_state": "focused through unnatural hours",
+  "during_state": "walking out into wrong-feeling quiet",
+  "after_state": "too tired to sleep or too wired to rest",
+  "musical_behaviours": [
+    "drifts",
+    "feels nocturnal",
+    "settles"
+  ],
+  "related_experiences": [
+    "two_am_thoughts",
+    "driving_home_after_work"
+  ],
+  "activity": [
+    "working",
+    "commuting"
+  ],
+  "environment": [
+    "workplace",
+    "empty streets",
+    "night"
+  ]
+}

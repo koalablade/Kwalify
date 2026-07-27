@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Important thing waiting — you're doing literally anything else.",
+  "energy_curve": "medium",
+  "emotional_arc": "knowing what needs doing → distractions multiply, time shrinks → panic or surrender",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "procrastinating",
+  "name": "Procrastinating",
+  "human_meaning": "Important thing waiting — you're doing literally anything else.",
+  "common_phrases": [
+    "procrastinating",
+    "putting it off",
+    "avoiding work",
+    "doing anything but"
+  ],
+  "hidden_context": "Fear dressed as laziness.",
+  "emotional_states": [
+    "anxiety",
+    "guilt",
+    "restlessness"
+  ],
+  "environments": [
+    "desk",
+    "sofa",
+    "bed"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "knowing what needs doing",
+  "during_state": "distractions multiply, time shrinks",
+  "after_state": "panic or surrender",
+  "musical_behaviours": [
+    "drifts",
+    "tense",
+    "lifts"
+  ],
+  "related_experiences": [
+    "doom_scrolling",
+    "gaming"
+  ],
+  "activity": [
+    "avoiding",
+    "resting"
+  ],
+  "environment": [
+    "desk",
+    "sofa",
+    "bed"
+  ]
+}

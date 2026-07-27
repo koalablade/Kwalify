@@ -225,6 +225,13 @@ export function analyzeMomentPipeline(
       environment: worldUnderstanding.taxonomy.environment.slice(0, 6),
       musicEnergy: worldUnderstanding.musicBehaviour.energy,
       preferredGenres: worldUnderstanding.musicBehaviour.preferredGenres.slice(0, 5),
+      semanticMoment: {
+        activity: worldUnderstanding.semanticMoment.activity.values.slice(0, 4),
+        movement: worldUnderstanding.semanticMoment.movement.values.slice(0, 4),
+        weather: worldUnderstanding.semanticMoment.weather.values.slice(0, 4),
+        emotionalGoal: worldUnderstanding.semanticMoment.emotionalGoal,
+        fingerprintConfidence: worldUnderstanding.semanticMoment.confidence,
+      },
     },
   };
 

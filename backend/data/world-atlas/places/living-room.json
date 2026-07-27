@@ -1,0 +1,23 @@
+{
+  "id": "living_room",
+  "domain": "places",
+  "name": "The living room",
+  "description": "Sofa, TV glow, the room where evenings happen.",
+  "human_meaning": "Domestic living — collapse, togetherness, or solitary screen time.",
+  "emotional_states": ["comfort", "relaxation", "contentment"],
+  "hidden_emotions": ["decompression", "togetherness"],
+  "environment": ["living room", "sofa", "home"],
+  "activity": ["resting", "relaxing", "watching"],
+  "social_context": ["alone", "family", "partner"],
+  "energy_curve": "low",
+  "emotional_arc": "enter → settle → evening unfolds",
+  "musical_behaviours": ["comforts", "settles", "warms"],
+  "related_experiences": ["sitting_on_sofa", "lying_on_sofa", "lazy_sunday"],
+  "common_phrases": [
+    "living room",
+    "in the living room",
+    "on the sofa all evening",
+    "curled up in the living room"
+  ],
+  "misleading_keywords": ["living room furniture"]
+}

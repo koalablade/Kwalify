@@ -29,6 +29,7 @@ export function matchFuzzyConcepts(text: string): {
   for (const expansion of FUZZY_EXPANSIONS) {
     for (const trigger of expansion.triggers) {
       if (!lower.includes(trigger.toLowerCase())) continue;
+      if (expansion.id === "motorway_rain_compound" && /\btrain\b|\brail\b/i.test(lower)) continue;
       expansions.push({
         id: expansion.id,
         matchedTrigger: trigger,

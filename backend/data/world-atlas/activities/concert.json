@@ -1,0 +1,57 @@
+{
+  "domain": "activities",
+  "description": "Collective euphoria — strangers united by volume and melody.",
+  "energy_curve": "medium",
+  "emotional_arc": "anticipation, travel, pre-drinks → bass in chest, singing along → deaf, happy, late journey home",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "concert",
+  "name": "Concert",
+  "human_meaning": "Collective euphoria — strangers united by volume and melody.",
+  "common_phrases": [
+    "at a concert",
+    "gig tonight",
+    "live music",
+    "moshpit energy"
+  ],
+  "hidden_context": "Ringing ears worth it.",
+  "emotional_states": [
+    "excitement",
+    "joy",
+    "connection"
+  ],
+  "environments": [
+    "venue",
+    "arena",
+    "festival field"
+  ],
+  "social_context": [
+    "friends",
+    "crowd"
+  ],
+  "before_state": "anticipation, travel, pre-drinks",
+  "during_state": "bass in chest, singing along",
+  "after_state": "deaf, happy, late journey home",
+  "musical_behaviours": [
+    "pulses",
+    "lifts",
+    "feels communal"
+  ],
+  "related_experiences": [
+    "festival",
+    "party_night"
+  ],
+  "activity": [
+    "listening",
+    "dancing"
+  ],
+  "environment": [
+    "venue",
+    "arena",
+    "festival field"
+  ]
+}

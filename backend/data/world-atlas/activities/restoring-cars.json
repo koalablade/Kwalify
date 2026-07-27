@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Patience and grease — past brought back to life bolt by bolt.",
+  "energy_curve": "medium",
+  "emotional_arc": "ordering parts, planning Saturday → hands dirty, radio on, progress slow → satisfaction or frustration, always return",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "restoring_cars",
+  "name": "Restoring cars",
+  "human_meaning": "Patience and grease — past brought back to life bolt by bolt.",
+  "common_phrases": [
+    "restoring a car",
+    "in the garage working on the car",
+    "weekend on the project car",
+    "classic car restoration"
+  ],
+  "hidden_context": "Identity tied to metal and memory.",
+  "emotional_states": [
+    "nostalgia",
+    "focus",
+    "pride"
+  ],
+  "environments": [
+    "garage",
+    "driveway"
+  ],
+  "social_context": [
+    "alone",
+    "with mate"
+  ],
+  "before_state": "ordering parts, planning Saturday",
+  "during_state": "hands dirty, radio on, progress slow",
+  "after_state": "satisfaction or frustration, always return",
+  "musical_behaviours": [
+    "grounds",
+    "nostalgic warmth",
+    "builds"
+  ],
+  "related_experiences": [
+    "fixing_things",
+    "diy"
+  ],
+  "activity": [
+    "restoring",
+    "working with hands"
+  ],
+  "environment": [
+    "garage",
+    "driveway"
+  ]
+}

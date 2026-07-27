@@ -1,0 +1,47 @@
+{
+  "id": "heartbreak",
+  "domain": "relationships",
+  "name": "Heartbreak",
+  "description": "The physical pain of loss — chest tight, world muted, everything reminds you.",
+  "human_meaning": "Grief for what was — the body remembering what the mind is trying to forget.",
+  "emotional_states": [
+    "grief",
+    "sadness",
+    "anger"
+  ],
+  "hidden_emotions": [
+    "betrayal",
+    "disbelief",
+    "loneliness"
+  ],
+  "social_context": [
+    "alone",
+    "post-relationship"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "shock → grief → anger → slow healing",
+  "musical_behaviours": [
+    "aches",
+    "releases",
+    "breathes"
+  ],
+  "related_experiences": [
+    "breakup",
+    "missing_someone"
+  ],
+  "common_phrases": [
+    "heartbreak",
+    "heart broken",
+    "broken heart",
+    "they broke my heart"
+  ],
+  "misleading_keywords": [
+    "heart",
+    "cardiac"
+  ],
+  "playlistIntents": [
+    "cry",
+    "heal",
+    "process"
+  ]
+}

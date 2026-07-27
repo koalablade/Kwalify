@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Time travel in thumbnails — who you were, who you miss.",
+  "energy_curve": "medium",
+  "emotional_arc": "idle moment, accidental trigger → swiping, remembering, maybe crying → text someone or close the app",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "browsing_old_photos",
+  "name": "Browsing old photos",
+  "human_meaning": "Time travel in thumbnails — who you were, who you miss.",
+  "common_phrases": [
+    "looking at old photos",
+    "browsing old pictures",
+    "going through photos",
+    "camera roll memories"
+  ],
+  "hidden_context": "Algorithm resurfacing exes and summers.",
+  "emotional_states": [
+    "nostalgia",
+    "bittersweet",
+    "longing"
+  ],
+  "environments": [
+    "sofa",
+    "bed",
+    "phone"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "idle moment, accidental trigger",
+  "during_state": "swiping, remembering, maybe crying",
+  "after_state": "text someone or close the app",
+  "musical_behaviours": [
+    "nostalgic warmth",
+    "aches gently",
+    "drifts"
+  ],
+  "related_experiences": [
+    "childhood_summer_holidays",
+    "missing_someone"
+  ],
+  "activity": [
+    "remembering",
+    "scrolling"
+  ],
+  "environment": [
+    "sofa",
+    "bed",
+    "phone"
+  ]
+}

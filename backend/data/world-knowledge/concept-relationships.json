@@ -1,131 +1,100 @@
 {
-  "version": 2,
+  "version": 3,
   "locale": "en-GB",
   "relationships": [
     {
       "concept": "rain",
-      "environment": [
-        "weather"
-      ],
-      "emotional_links": [
-        "reflection",
-        "comfort",
-        "nostalgia",
-        "calm"
-      ],
-      "sensory": [
-        "soft",
-        "muffled",
-        "enclosed",
-        "rain texture"
-      ],
-      "music": {
-        "genres": [
-          "ambient",
-          "dream pop",
-          "slow indie"
-        ],
-        "energy": "low-medium",
-        "texture": "warm"
-      }
+      "parents": ["weather"],
+      "children": ["rain on glass", "wet roads", "muffled sound"],
+      "related_scenes": ["LATE_NIGHT_SOLITARY_JOURNEY", "WEATHER_REFLECTION", "REFLECTIVE_AVOIDANCE_JOURNEY"],
+      "environment": ["weather"],
+      "emotional_links": ["reflection", "comfort", "nostalgia", "calm"],
+      "sensory": ["soft", "muffled", "enclosed", "rain texture"],
+      "music": { "genres": ["ambient", "dream pop", "slow indie"], "energy": "low-medium", "texture": "warm" }
+    },
+    {
+      "concept": "windscreen",
+      "parents": ["vehicle", "car"],
+      "children": ["rain on glass", "street reflections", "night driving"],
+      "related_scenes": ["LATE_NIGHT_SOLITARY_JOURNEY", "REFLECTIVE_AVOIDANCE_JOURNEY", "NOCTURNAL_ESCAPE_DRIVE"],
+      "environment": ["car"],
+      "emotional_links": ["solitude", "reflection", "escape", "calm"],
+      "sensory": ["rain drops", "reflections", "blurred lights", "enclosed space"],
+      "music": { "genres": ["ambient", "indie", "post-rock"], "energy": "low-medium", "texture": "atmospheric" }
     },
     {
       "concept": "motorway",
-      "environment": [
-        "road",
-        "car"
-      ],
-      "emotional_links": [
-        "solitude",
-        "reflection",
-        "freedom",
-        "loneliness"
-      ],
-      "sensory": [
-        "engine hum",
-        "motion",
-        "enclosed space"
-      ],
-      "music": {
-        "genres": [
-          "ambient",
-          "indie",
-          "post-rock"
-        ],
-        "energy": "low-medium",
-        "texture": "atmospheric"
-      }
+      "parents": ["road", "travel"],
+      "children": ["night drive", "empty road", "engine hum"],
+      "related_scenes": ["LATE_NIGHT_SOLITARY_JOURNEY", "REFLECTIVE_AVOIDANCE_JOURNEY", "COASTAL_OPEN_ROAD"],
+      "environment": ["road", "car"],
+      "emotional_links": ["solitude", "reflection", "freedom", "loneliness"],
+      "sensory": ["engine hum", "motion", "enclosed space"],
+      "music": { "genres": ["ambient", "indie", "post-rock"], "energy": "low-medium", "texture": "atmospheric" }
     },
     {
       "concept": "home",
-      "environment": [
-        "domestic"
-      ],
-      "emotional_links": [
-        "safety",
-        "nostalgia",
-        "privacy",
-        "acceptance"
-      ],
-      "sensory": [
-        "warm light",
-        "quiet"
-      ],
-      "music": {
-        "genres": [
-          "acoustic",
-          "indie",
-          "ambient"
-        ],
-        "energy": "low",
-        "texture": "cosy"
-      }
+      "parents": ["domestic"],
+      "children": ["arrival", "quiet house", "new chapter"],
+      "related_scenes": ["FRESH_START_ALONE", "DOMESTIC_QUIET", "QUIET_AFTERMATH", "INTROSPECTIVE_PRIVACY"],
+      "environment": ["domestic"],
+      "emotional_links": ["safety", "nostalgia", "privacy", "acceptance"],
+      "sensory": ["warm light", "quiet"],
+      "music": { "genres": ["acoustic", "indie", "ambient"], "energy": "low", "texture": "cosy" }
     },
     {
       "concept": "goodbye",
-      "social": [
-        "departure"
-      ],
-      "emotional_links": [
-        "grief",
-        "reflection",
-        "longing"
-      ],
-      "sensory": [
-        "cold air",
-        "distance"
-      ],
-      "music": {
-        "genres": [
-          "indie",
-          "singer-songwriter"
-        ],
-        "energy": "low",
-        "texture": "sparse emotional"
-      }
+      "parents": ["departure"],
+      "children": ["walking away", "last hug", "cold air"],
+      "related_scenes": ["DEPARTURE_WALK", "QUIET_AFTERMATH"],
+      "emotional_links": ["grief", "reflection", "longing"],
+      "sensory": ["cold air", "distance"],
+      "music": { "genres": ["indie", "singer-songwriter"], "energy": "low", "texture": "sparse emotional" }
     },
     {
       "concept": "summer ending",
-      "life_context": [
-        "transition"
-      ],
-      "emotional_links": [
-        "nostalgia",
-        "bittersweet",
-        "acceptance"
-      ],
-      "sensory": [
-        "golden light",
-        "fading warmth"
-      ],
-      "music": {
-        "genres": [
-          "indie",
-          "folk"
-        ],
-        "energy": "medium",
-        "texture": "wistful warm"
-      }
+      "parents": ["transition", "season"],
+      "children": ["last summer", "golden light", "friends moving away"],
+      "related_scenes": ["SUMMER_TRANSITION", "NOSTALGIC_RETURN"],
+      "emotional_links": ["nostalgia", "bittersweet", "acceptance"],
+      "sensory": ["golden light", "fading warmth"],
+      "music": { "genres": ["indie", "folk"], "energy": "medium", "texture": "wistful warm" }
+    },
+    {
+      "concept": "party",
+      "parents": ["social"],
+      "children": ["aftermath", "everyone left", "quiet house"],
+      "related_scenes": ["QUIET_AFTERMATH", "DEPARTURE_WALK"],
+      "emotional_links": ["reflection", "loneliness", "peace"],
+      "sensory": ["quiet aftermath"],
+      "music": { "genres": ["indie", "ambient"], "energy": "low", "texture": "intimate" }
+    },
+    {
+      "concept": "nostalgia",
+      "parents": ["memory"],
+      "children": ["old photos", "childhood", "teenage years"],
+      "related_scenes": ["NOSTALGIC_RETURN", "SUMMER_TRANSITION"],
+      "emotional_links": ["nostalgia", "bittersweet", "longing"],
+      "sensory": ["warm", "analog"],
+      "music": { "genres": ["indie", "folk"], "energy": "low-medium", "texture": "warm" }
+    },
+    {
+      "concept": "gym",
+      "parents": ["exercise"],
+      "children": ["workout", "training", "motivation"],
+      "related_scenes": ["FRESH_START_ALONE"],
+      "emotional_links": ["motivation", "confidence", "achievement"],
+      "sensory": ["driving beat"],
+      "music": { "genres": ["hip-hop", "electronic", "rock"], "energy": "high", "texture": "intense" }
+    },
+    {
+      "concept": "main character",
+      "parents": ["confidence"],
+      "children": ["cinematic", "montage", "movement"],
+      "related_scenes": ["COASTAL_OPEN_ROAD", "FRESH_START_ALONE"],
+      "emotional_links": ["confidence", "freedom", "joy"],
+      "sensory": ["open", "bright"],
+      "music": { "genres": ["indie rock", "pop"], "energy": "high", "texture": "cinematic" }
     }
   ]
 }

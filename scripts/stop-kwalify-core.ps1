@@ -4,6 +4,15 @@
 )
 
 $ErrorActionPreference = "SilentlyContinue"
+$Root = (Resolve-Path $Root).Path
+$healthLib = Join-Path $Root "scripts\kwalify-health-lib.ps1"
+if (Test-Path -LiteralPath $healthLib) {
+  . $healthLib -Root $Root
+  if (Test-KwalifyGenerationBusy) {
+    Write-Host "  Warning: playlist generation or benchmark is active." -ForegroundColor Yellow
+    Write-Host "  Stopping anyway (stop-kwalify was invoked explicitly)." -ForegroundColor Yellow
+  }
+}
 
 function Stop-Port([int]$port, [string]$label) {
   $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue

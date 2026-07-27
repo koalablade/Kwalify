@@ -1,21 +1,36 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { HealthCheckResponse } from "../zod/api";
 import { getRuntimeReadiness, isRuntimeReady } from "../lib/runtime-readiness";
 import { deploymentVersion } from "../lib/deployment-version";
 import { pipelineDeploymentFingerprint } from "../lib/pipeline-authority/deployment-fingerprint";
 import { isShuttingDown } from "../lib/shutdown";
 import { pool } from "../lib/pg-pool";
 import { getFeatures } from "../lib/env";
+import { getGenerateOverloadState } from "../lib/runtime-overload";
 
 const router: IRouter = Router();
 
+/** Ultra-light liveness — no DB, no Zod, no external I/O. Use for watchdogs. */
+function liveHandler(_req: Request, res: Response): void {
+  res.setHeader("Cache-Control", "no-store");
+  res.status(200).json({ status: "ok" });
+}
+
+router.get("/livez", liveHandler);
+
+/** Lightweight process health — in-memory only; safe under generation load. */
 router.get("/healthz", (_req, res) => {
   const startedAt = Date.now();
-  const data = HealthCheckResponse.parse({ status: "ok" });
-  res.json({
-    ...data,
+  const generate = getGenerateOverloadState();
+  res.setHeader("Cache-Control", "no-store");
+  res.status(200).json({
+    status: "ok",
     latencyMs: Date.now() - startedAt,
     readiness: getRuntimeReadiness().state,
+    generate: {
+      active: generate.active,
+      queued: generate.queued,
+      limit: generate.limit,
+    },
   });
 });
 
@@ -51,29 +66,43 @@ async function readinessHandler(_req: Request, res: Response): Promise<void> {
   const pipelineAuthority = pipelineDeploymentFingerprint();
 
   const runtimeReady = isRuntimeReady();
-  const databaseAvailable = runtimeReady ? await checkDatabase() : false;
+  const generate = getGenerateOverloadState();
+  const generationBusy = generate.active > 0 || generate.queued > 0;
+  const dbProbeTimeoutMs = generationBusy ? 5_000 : 2_000;
+  const databaseProbeOk = runtimeReady ? await checkDatabase(dbProbeTimeoutMs) : false;
+  // Active generation proves the DB is usable even if a concurrent probe times out.
+  const databaseAvailable = databaseProbeOk || generationBusy;
   const spotifyConfigured = checkSpotifyConfigured();
   const pipelineAvailable = runtimeReady && pipelineAuthority.pipelineAuthorityEnabled !== false;
   const poolWaitingCount = typeof pool.waitingCount === "number" ? pool.waitingCount : 0;
-  const poolSaturated = poolWaitingCount > 5;
+  const poolMax = Number.parseInt(process.env["DB_POOL_MAX"] ?? process.env["PG_POOL_MAX"] ?? "10", 10);
+  // During playlist generation the DB pool is legitimately busy — do not mark unhealthy.
+  const poolSaturated = poolWaitingCount > Math.max(poolMax + 2, 12) && !generationBusy;
 
-  // Spotify is required for generation but not for liveness; a missing Spotify
-  // config should surface loudly without necessarily failing readiness during a
-  // deploy. Database + runtime are the hard gates.
   const shuttingDown = isShuttingDown();
   const ready = runtimeReady && databaseAvailable && !poolSaturated && !shuttingDown;
 
   res.status(ready ? 200 : 503).json({
     status: ready ? "ready" : "not_ready",
-    reason: shuttingDown ? "shutting_down" : poolSaturated ? "db_pool_saturated" : undefined,
+    reason: shuttingDown
+      ? "shutting_down"
+      : poolSaturated
+        ? "db_pool_saturated"
+        : generationBusy && !databaseProbeOk
+          ? "generation_busy"
+          : undefined,
     readiness: readiness.state,
     shuttingDown: isShuttingDown(),
     checks: {
       databaseAvailable,
+      databaseProbeOk,
       spotifyConfigured,
       pipelineAvailable,
       poolSaturated,
       poolWaitingCount,
+      generationBusy,
+      generateActive: generate.active,
+      generateQueued: generate.queued,
     },
     uptimeMs: readiness.uptimeMs,
     readyAt: readiness.readyAt,

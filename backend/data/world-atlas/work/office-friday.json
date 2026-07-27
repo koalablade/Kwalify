@@ -1,0 +1,51 @@
+{
+  "id": "office_friday",
+  "domain": "work",
+  "name": "Friday at work",
+  "description": "Lighter mood in corridors, inbox slowing, coat already mentally on.",
+  "human_meaning": "Anticipatory release — freedom approaching like a tide.",
+  "emotional_states": [
+    "Anticipatory release — freedom approaching like a tide."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "keyboard slowing",
+    "office chatter lifting",
+    "5pm light",
+    "coat on chair"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium",
+  "emotional_arc": "obligation → anticipation → release → weekend threshold",
+  "musical_behaviours": [
+    "drives",
+    "quiet hope",
+    "releases"
+  ],
+  "related_experiences": [
+    "tea_after_work",
+    "pub_garden"
+  ],
+  "common_phrases": [
+    "friday at work",
+    "end of the week",
+    "last day of work",
+    "friday afternoon office",
+    "clock watching friday"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Almost the weekend",
+    "Can leave this at the desk",
+    "Plans tonight or nothing at all"
+  ],
+  "nearbyConcepts": [
+    "work week end",
+    "anticipation",
+    "UK office"
+  ]
+}

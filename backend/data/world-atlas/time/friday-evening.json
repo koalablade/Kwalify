@@ -1,0 +1,46 @@
+{
+  "id": "friday_evening",
+  "domain": "time",
+  "name": "Friday evening freedom",
+  "description": "Work done, weekend ahead — the exhale of the week.",
+  "human_meaning": "Weekly liberation — the exhale when obligation ends and possibility opens.",
+  "emotional_states": [
+    "relief",
+    "anticipation",
+    "joy"
+  ],
+  "hidden_emotions": [
+    "freedom",
+    "reward"
+  ],
+  "time_context": [
+    "Friday evening",
+    "end of week"
+  ],
+  "energy_curve": "medium-high",
+  "emotional_arc": "last hour → release → possibility → celebration",
+  "musical_behaviours": [
+    "lifts",
+    "releases",
+    "drives forward"
+  ],
+  "related_experiences": [
+    "office_friday",
+    "party_night",
+    "pub_night"
+  ],
+  "common_phrases": [
+    "friday evening",
+    "end of the week",
+    "friday night",
+    "finally friday",
+    "weekend starts"
+  ],
+  "misleading_keywords": [
+    "friday the 13th"
+  ],
+  "playlistIntents": [
+    "celebrate",
+    "relax"
+  ]
+}

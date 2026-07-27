@@ -1,0 +1,75 @@
+{
+  "id": "tea_after_work",
+  "domain": "daily-life",
+  "name": "Tea after work",
+  "description": "Work clothes still on, mug warming hands, first still moment of the evening.",
+  "human_meaning": "The first still moment after work — a small ritual that marks the day officially ending.",
+  "emotional_states": [
+    "Small ritual decompression — the day officially ending in a familiar gesture."
+  ],
+  "hidden_emotions": [
+    "decompression",
+    "exhaustion",
+    "routine comfort"
+  ],
+  "sensory_details": [
+    "tea steam",
+    "mug warmth",
+    "kitchen quiet",
+    "coat still on"
+  ],
+  "environment": [
+    "kitchen",
+    "home"
+  ],
+  "activity": [
+    "making tea",
+    "sitting down"
+  ],
+  "time_context": [
+    "early evening",
+    "after work"
+  ],
+  "weather_context": [],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "arrival → ritual → stillness → evening begins",
+  "musical_behaviours": [
+    "comforts",
+    "settles",
+    "grounds"
+  ],
+  "related_experiences": [
+    "coming_home",
+    "office_friday"
+  ],
+  "common_phrases": [
+    "tea after work",
+    "cup of tea after work",
+    "first cup of tea",
+    "sit down with tea",
+    "brew after work",
+    "cuppa after work"
+  ],
+  "misleading_keywords": [
+    "tea shop",
+    "afternoon tea",
+    "green tea"
+  ],
+  "playlistIntents": [
+    "relax",
+    "recover"
+  ],
+  "inferredQualities": [
+    "decompression",
+    "routine comfort",
+    "low stimulation"
+  ],
+  "nearbyConcepts": [
+    "UK routine",
+    "work transition",
+    "domestic calm"
+  ]
+}

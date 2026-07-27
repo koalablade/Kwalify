@@ -1,0 +1,66 @@
+{
+  "id": "rain_on_windows",
+  "domain": "weather",
+  "name": "Rain on windows",
+  "description": "Inside while weather presses against glass — safe enclosure with rhythmic percussion outside.",
+  "human_meaning": "Enclosed safety while weather presses against glass — melancholy feels permitted indoors.",
+  "emotional_states": [
+    "Melancholic comfort — sadness feels permitted when the world is grey and soft."
+  ],
+  "hidden_emotions": [
+    "melancholy",
+    "permission to feel sad",
+    "stillness"
+  ],
+  "sensory_details": [
+    "rain patter",
+    "grey light",
+    "condensation",
+    "muted street sounds"
+  ],
+  "environment": [
+    "indoors",
+    "by window"
+  ],
+  "activity": [
+    "watching",
+    "resting"
+  ],
+  "time_context": [],
+  "weather_context": [
+    "rain on glass",
+    "grey day"
+  ],
+  "social_context": [],
+  "energy_curve": "low",
+  "emotional_arc": "stillness → introspection → gentle melancholy → acceptance",
+  "musical_behaviours": [
+    "comforts",
+    "breathes",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "sunday_morning",
+    "coming_home",
+    "motorway_at_night"
+  ],
+  "common_phrases": [
+    "rain on the window",
+    "rain on windows",
+    "rain on the glass",
+    "rain on the windscreen",
+    "rain against the window",
+    "rain on glass while inside"
+  ],
+  "misleading_keywords": [
+    "rain",
+    "raining",
+    "wet",
+    "storm"
+  ],
+  "nearbyConcepts": [
+    "weather",
+    "indoor safety",
+    "reflection"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Patient work — dirt under nails, seasons as calendar.",
+  "energy_curve": "medium",
+  "emotional_arc": "checking weather, gathering tools → weeding, planting, aching back → tea, survey of progress",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "gardening",
+  "name": "Gardening",
+  "human_meaning": "Patient work — dirt under nails, seasons as calendar.",
+  "common_phrases": [
+    "in the garden",
+    "gardening all afternoon",
+    "pottering in the garden",
+    "weekend gardening"
+  ],
+  "hidden_context": "Meditation with secateurs.",
+  "emotional_states": [
+    "calm",
+    "satisfaction",
+    "patience"
+  ],
+  "environments": [
+    "garden",
+    "allotment",
+    "backyard"
+  ],
+  "social_context": [
+    "alone",
+    "partner"
+  ],
+  "before_state": "checking weather, gathering tools",
+  "during_state": "weeding, planting, aching back",
+  "after_state": "tea, survey of progress",
+  "musical_behaviours": [
+    "grounds",
+    "comforts",
+    "settles"
+  ],
+  "related_experiences": [
+    "lazy_sunday",
+    "bank_holiday"
+  ],
+  "activity": [
+    "gardening"
+  ],
+  "environment": [
+    "garden",
+    "allotment",
+    "backyard"
+  ]
+}

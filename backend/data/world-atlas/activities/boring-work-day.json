@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Time moves like treacle — mind elsewhere, body present, soul absent.",
+  "energy_curve": "medium",
+  "emotional_arc": "dreading repetition → autopilot, clock-watching → need stimulation or collapse",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "boring_work_day",
+  "name": "Boring work day",
+  "human_meaning": "Time moves like treacle — mind elsewhere, body present, soul absent.",
+  "common_phrases": [
+    "boring day at work",
+    "nothing happened at work",
+    "mind-numbing day",
+    "dull day in the office"
+  ],
+  "hidden_context": "Restless under-stimulation; fantasising about elsewhere.",
+  "emotional_states": [
+    "apathy",
+    "restlessness",
+    "numbness"
+  ],
+  "environments": [
+    "office",
+    "desk",
+    "meeting room"
+  ],
+  "social_context": [
+    "colleagues"
+  ],
+  "before_state": "dreading repetition",
+  "during_state": "autopilot, clock-watching",
+  "after_state": "need stimulation or collapse",
+  "musical_behaviours": [
+    "drifts",
+    "lifts",
+    "energises"
+  ],
+  "related_experiences": [
+    "office_friday",
+    "commute_home"
+  ],
+  "activity": [
+    "working"
+  ],
+  "environment": [
+    "office",
+    "desk",
+    "meeting room"
+  ]
+}

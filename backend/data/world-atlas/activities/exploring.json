@@ -1,0 +1,57 @@
+{
+  "domain": "activities",
+  "description": "Curiosity without agenda — new streets, same self.",
+  "energy_curve": "medium",
+  "emotional_arc": "boredom or need for novelty → turning corners, noticing details → stories to tell or quiet satisfaction",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "exploring",
+  "name": "Exploring",
+  "human_meaning": "Curiosity without agenda — new streets, same self.",
+  "common_phrases": [
+    "exploring the city",
+    "wandering around",
+    "discovering new places",
+    "getting lost on purpose"
+  ],
+  "hidden_context": "Tourist in your own life.",
+  "emotional_states": [
+    "curiosity",
+    "freedom",
+    "wonder"
+  ],
+  "environments": [
+    "city",
+    "streets",
+    "unknown neighbourhood"
+  ],
+  "social_context": [
+    "alone",
+    "with friend"
+  ],
+  "before_state": "boredom or need for novelty",
+  "during_state": "turning corners, noticing details",
+  "after_state": "stories to tell or quiet satisfaction",
+  "musical_behaviours": [
+    "opens",
+    "lifts",
+    "discovers"
+  ],
+  "related_experiences": [
+    "road_trip",
+    "walking_home"
+  ],
+  "activity": [
+    "walking",
+    "wandering"
+  ],
+  "environment": [
+    "city",
+    "streets",
+    "unknown neighbourhood"
+  ]
+}

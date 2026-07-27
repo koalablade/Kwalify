@@ -1,0 +1,51 @@
+{
+  "id": "first_apartment",
+  "domain": "home",
+  "name": "First apartment",
+  "description": "Empty rooms becoming yours, unfamiliar sounds at night, boxes still unpacked.",
+  "human_meaning": "Fragile independence — pride mixed with loneliness and quiet hope.",
+  "emotional_states": [
+    "Fragile independence — pride mixed with loneliness and quiet hope."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "new paint smell",
+    "unfamiliar street sounds",
+    "bare walls",
+    "first night silence"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "low-medium",
+  "emotional_arc": "uncertainty → settling → ownership → hope",
+  "musical_behaviours": [
+    "quiet hope",
+    "feels intimate",
+    "nostalgic_warmth"
+  ],
+  "related_experiences": [
+    "coming_home",
+    "conservatory"
+  ],
+  "common_phrases": [
+    "first apartment",
+    "new place finally feels like home",
+    "first night in my new place",
+    "new flat",
+    "moved into my own place"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "This is mine",
+    "It's still strange at night",
+    "Starting something new here"
+  ],
+  "nearbyConcepts": [
+    "fresh start",
+    "adulthood",
+    "independence"
+  ]
+}

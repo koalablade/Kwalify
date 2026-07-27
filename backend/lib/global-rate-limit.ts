@@ -59,11 +59,52 @@ function isStaticAsset(req: Request): boolean {
 function isExempt(req: Request): boolean {
   return isStaticAsset(req) ||
     req.path === "/healthz" ||
+    req.path === "/livez" ||
     req.path === "/readyz" ||
     req.path === "/api/healthz" ||
+    req.path === "/api/livez" ||
     req.path === "/api/readyz" ||
     req.path === "/api/health" ||
     req.path === "/api/eval/ping";
+}
+
+/** Scanner/bot paths (.env probes, CMS exploits) — reject quietly without warn spam. */
+function isProbePath(path: string): boolean {
+  const lower = path.toLowerCase();
+  if (lower.includes(".env") || lower.includes(".git") || lower.includes("phpinfo")) return true;
+  if (/^\/wp[-/]/.test(lower) || lower.startsWith("/wordpress")) return true;
+  if (lower.endsWith(".php") || lower.endsWith(".asp") || lower.endsWith(".aspx")) return true;
+  if (["/vercel.json", "/package.json", "/composer.json", "/web.config"].includes(lower)) return true;
+  return false;
+}
+
+const probeLogThrottle = new Map<string, number>();
+const PROBE_LOG_THROTTLE_MS = 60_000;
+
+function logRateLimitRejected(
+  req: Request,
+  key: string,
+  minuteCount: number,
+  burstCount: number,
+  retryAfterSeconds: number,
+): void {
+  const payload = {
+    requestId: req.id,
+    ip: key,
+    path: req.path,
+    minuteCount,
+    burstCount,
+    retryAfterSeconds,
+  };
+  if (isProbePath(req.path)) {
+    const now = Date.now();
+    const last = probeLogThrottle.get(key) ?? 0;
+    if (now - last < PROBE_LOG_THROTTLE_MS) return;
+    probeLogThrottle.set(key, now);
+    log.debug(payload, "global_rate_limit_probe_rejected");
+    return;
+  }
+  log.warn(payload, "global_rate_limit_rejected");
 }
 
 export function globalRateLimit(req: Request, res: Response, next: NextFunction): void {
@@ -87,16 +128,12 @@ export function globalRateLimit(req: Request, res: Response, next: NextFunction)
       : (state.burstTimestamps[0] ?? now) + GLOBAL_RATE_LIMIT_BURST_WINDOW_MS - now;
     const retryAfterSeconds = Math.max(1, Math.ceil(resetInMs / 1000));
     res.setHeader("Retry-After", String(retryAfterSeconds));
-    log.warn(
-      {
-        requestId: req.id,
-        ip: key,
-        path: req.path,
-        minuteCount: state.timestamps.length,
-        burstCount: state.burstTimestamps.length,
-        retryAfterSeconds,
-      },
-      "global_rate_limit_rejected",
+    logRateLimitRejected(
+      req,
+      key,
+      state.timestamps.length,
+      state.burstTimestamps.length,
+      retryAfterSeconds,
     );
     sendApiError(res, 429, "RATE_LIMITED", "Too many requests. Please retry shortly.", {
       requestId: String(req.id),

@@ -1,0 +1,50 @@
+{
+  "id": "motorway_services",
+  "domain": "transport",
+  "name": "Motorway services",
+  "description": "Artificial bright interior after hours of road, coffee cup in hand, legs stretching.",
+  "human_meaning": "Brief pause in a liminal nowhere — neither journey nor rest, just a checkpoint.",
+  "emotional_states": [
+    "Brief pause in a liminal nowhere — neither journey nor rest, just a checkpoint."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "coffee steam",
+    "automatic doors",
+    "car park lights",
+    "vending machines"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "low",
+  "emotional_arc": "fatigue → pause → brief reset → resume",
+  "musical_behaviours": [
+    "settles",
+    "breathes",
+    "grounds"
+  ],
+  "related_experiences": [
+    "motorway",
+    "motorway_at_night"
+  ],
+  "common_phrases": [
+    "motorway services",
+    "service station",
+    "stopping at services",
+    "petrol station break"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Need to stretch",
+    "Almost there but not quite",
+    "The fluorescent calm of a services building"
+  ],
+  "nearbyConcepts": [
+    "UK travel",
+    "pause",
+    "fatigue"
+  ]
+}

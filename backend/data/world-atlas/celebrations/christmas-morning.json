@@ -1,0 +1,50 @@
+{
+  "id": "christmas_morning",
+  "domain": "celebrations",
+  "name": "Christmas morning",
+  "description": "Early light, wrapped gifts, house different — festive and still.",
+  "human_meaning": "Childhood wonder echoing in adult life — generosity and anticipation braided.",
+  "emotional_states": [
+    "Childhood wonder echoing in adult life — generosity and anticipation braided."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "paper tearing",
+    "fairy lights",
+    "cooking smells",
+    "cold morning air at door"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium",
+  "emotional_arc": "anticipation → revelation → warmth → togetherness",
+  "musical_behaviours": [
+    "nostalgic_warmth",
+    "quiet hope",
+    "comforts"
+  ],
+  "related_experiences": [
+    "childhood_summer_holidays",
+    "conservatory"
+  ],
+  "common_phrases": [
+    "christmas morning",
+    "morning on christmas",
+    "waking up on christmas",
+    "christmas day morning"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Is everyone awake yet",
+    "Smell of cooking starting",
+    "This day is different from all others"
+  ],
+  "nearbyConcepts": [
+    "family",
+    "ritual",
+    "shared memory"
+  ]
+}

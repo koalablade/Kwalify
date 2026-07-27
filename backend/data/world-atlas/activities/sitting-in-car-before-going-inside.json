@@ -1,0 +1,66 @@
+{
+  "domain": "activities",
+  "description": "Threshold pause — not ready to cross from solitude back into responsibility.",
+  "energy_curve": "medium",
+  "emotional_arc": "drive home, work still on the mind → engine off, staring ahead, breathing → keys, door, re-entry",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "sitting_in_car_before_going_inside",
+  "name": "Sitting in car before going inside",
+  "human_meaning": "Threshold pause — not ready to cross from solitude back into responsibility.",
+  "common_phrases": [
+    "sitting in the car before going in",
+    "sitting in my car before going inside",
+    "parked outside not ready to go in",
+    "sat in the car before going in"
+  ],
+  "hidden_context": "Decompression ritual — the car as private room.",
+  "emotional_states": [
+    "decompression",
+    "avoidance",
+    "reflection"
+  ],
+  "environments": [
+    "car",
+    "driveway",
+    "street outside home"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "drive home, work still on the mind",
+  "during_state": "engine off, staring ahead, breathing",
+  "after_state": "keys, door, re-entry",
+  "musical_behaviours": [
+    "settles",
+    "breathes",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "car_after_work_avoidance",
+    "coming_home"
+  ],
+  "activity": [
+    "sitting",
+    "delaying",
+    "decompressing"
+  ],
+  "playlistIntents": [
+    "recover",
+    "process"
+  ],
+  "inferredQualities": [
+    "private decompression",
+    "transition",
+    "solitude"
+  ],
+  "environment": [
+    "car",
+    "driveway",
+    "street outside home"
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "id": "petrol_station_at_night",
+  "domain": "places",
+  "name": "Petrol station at night",
+  "description": "Fluorescent island on a dark road — coffee, crisps, brief human contact.",
+  "human_meaning": "Nocturnal limbo — fluorescent island on a dark road, transition between nowhere and somewhere.",
+  "emotional_states": [
+    "tiredness",
+    "alienation",
+    "calm"
+  ],
+  "hidden_emotions": [
+    "liminality",
+    "transit",
+    "solitude"
+  ],
+  "environment": [
+    "petrol station",
+    "forecourt"
+  ],
+  "activity": [
+    "fuelling",
+    "buying snacks"
+  ],
+  "time_context": [
+    "late night",
+    "motorway stop"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "dark road → fluorescent → brief pause → continuation",
+  "musical_behaviours": [
+    "feels nocturnal",
+    "floats",
+    "simmers"
+  ],
+  "related_experiences": [
+    "motorway_services",
+    "motorway_at_night"
+  ],
+  "common_phrases": [
+    "petrol station at night",
+    "service station late",
+    "filling up at night",
+    "forecourt at night",
+    "petrol station stop",
+    "late night services"
+  ],
+  "inferredQualities": [
+    "liminal space",
+    "nocturnal transit",
+    "solitude"
+  ],
+  "misleading_keywords": [
+    "petrol price",
+    "fuel economy"
+  ]
+}

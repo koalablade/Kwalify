@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "The kettle as punctuation — pause between states of being.",
+  "energy_curve": "medium",
+  "emotional_arc": "reaching breaking point or needing pause → kettle boil, mug warm, first sip → slightly more able to cope",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "making_tea",
+  "name": "Making tea",
+  "human_meaning": "The kettle as punctuation — pause between states of being.",
+  "common_phrases": [
+    "making tea",
+    "put the kettle on",
+    "brewing a cuppa",
+    "making a cup of tea"
+  ],
+  "hidden_context": "Comfort ritual whether alone or offering to someone.",
+  "emotional_states": [
+    "comfort",
+    "calm",
+    "grounding"
+  ],
+  "environments": [
+    "kitchen",
+    "home"
+  ],
+  "social_context": [
+    "alone",
+    "offering to others"
+  ],
+  "before_state": "reaching breaking point or needing pause",
+  "during_state": "kettle boil, mug warm, first sip",
+  "after_state": "slightly more able to cope",
+  "musical_behaviours": [
+    "comforts",
+    "grounds",
+    "settles"
+  ],
+  "related_experiences": [
+    "cuppa",
+    "tea_after_work"
+  ],
+  "activity": [
+    "making tea",
+    "ritual"
+  ],
+  "environment": [
+    "kitchen",
+    "home"
+  ]
+}

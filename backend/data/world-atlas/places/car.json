@@ -1,0 +1,66 @@
+{
+  "id": "car_interior",
+  "domain": "places",
+  "name": "In the car",
+  "description": "Enclosed bubble between worlds — engine hum, your rules.",
+  "human_meaning": "Private capsule — freedom, escape, reflection, and transition in one enclosed space.",
+  "emotional_states": [
+    "freedom",
+    "reflection",
+    "solitude"
+  ],
+  "hidden_emotions": [
+    "escape",
+    "decompression",
+    "transition"
+  ],
+  "environment": [
+    "car",
+    "vehicle",
+    "enclosed"
+  ],
+  "activity": [
+    "driving",
+    "sitting",
+    "thinking"
+  ],
+  "social_context": [
+    "alone",
+    "private"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "enter → motion or pause → reflection → arrival or return",
+  "musical_behaviours": [
+    "cruises",
+    "drifts",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "car_after_work_avoidance",
+    "driving_home_after_work",
+    "aimless_drive",
+    "motorway_at_night"
+  ],
+  "common_phrases": [
+    "in the car",
+    "sitting in my car",
+    "car at night",
+    "just me and the car",
+    "behind the wheel alone"
+  ],
+  "misleading_keywords": [
+    "car wash",
+    "car dealership",
+    "racing game"
+  ],
+  "playlistIntents": [
+    "drive",
+    "process"
+  ],
+  "inferredQualities": [
+    "private space",
+    "transition",
+    "freedom",
+    "reflection"
+  ]
+}

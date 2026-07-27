@@ -64,6 +64,23 @@ function Invoke-Native([scriptblock]$Command) {
   }
 }
 
+# Health probes during startup — avoid TerminatingError lines in Start-Transcript.
+function Invoke-QuietRest {
+  param(
+    [Parameter(Mandatory = $true)][string]$Uri,
+    [int]$TimeoutSec = 4
+  )
+  $prevErr = $ErrorActionPreference
+  $ErrorActionPreference = "SilentlyContinue"
+  try {
+    return Invoke-RestMethod -Uri $Uri -TimeoutSec $TimeoutSec -ErrorAction Stop
+  } catch {
+    return $null
+  } finally {
+    $ErrorActionPreference = $prevErr
+  }
+}
+
 function Start-HealthWatch {
   if ($NoWatch) {
     Write-Host "  Health watch skipped (-NoWatch)"
@@ -260,12 +277,9 @@ function Ensure-DatabaseReady {
 }
 
 function Test-SiteReady([string]$url) {
-  try {
-    $rz = Invoke-RestMethod -Uri "$url/api/readyz" -TimeoutSec 4
-    return ($rz.status -eq "ready" -or $rz.readiness -eq "ready")
-  } catch {
-    return $false
-  }
+  $rz = Invoke-QuietRest -Uri "$url/api/readyz" -TimeoutSec 4
+  if (-not $rz) { return $false }
+  return ($rz.status -eq "ready" -or $rz.readiness -eq "ready")
 }
 
 function Stop-PortListeners([int]$port) {
@@ -311,7 +325,7 @@ function Open-StartHelpPage([string]$Reason) {
     $uri += "?reason=" + [uri]::EscapeDataString($Reason)
   }
   try {
-    $rz = Invoke-RestMethod -Uri "$base/api/healthz" -TimeoutSec 3
+    $rz = Invoke-QuietRest -Uri "$base/api/healthz" -TimeoutSec 3
     if ($rz) {
       Start-Process $uri | Out-Null
       return
@@ -349,9 +363,33 @@ function Warn-NodeVersion {
 }
 
 function Stop-ExistingKwalify {
+  $healthLib = Join-Path $Root "scripts\kwalify-health-lib.ps1"
+  $generationBusy = $false
+  if ($Mode -eq "selfhost" -and (Test-Path -LiteralPath $healthLib)) {
+    . $healthLib -Root $Root
+    if (Test-KwalifyGenerationBusy) {
+      $generationBusy = $true
+      Write-Host "  Playlist generation or benchmark is active on port 5000." -ForegroundColor Yellow
+      Write-Host "  Waiting up to 90s before stopping API (or press Ctrl+C to abort)..." -ForegroundColor Yellow
+      $waitUntil = (Get-Date).AddSeconds(90)
+      while ((Get-Date) -lt $waitUntil) {
+        if (-not (Test-KwalifyGenerationBusy)) { break }
+        Start-Sleep -Seconds 5
+      }
+      if (Test-KwalifyGenerationBusy) {
+        Write-Host "  Generation still active — skipping API stop to avoid killing in-flight playlists." -ForegroundColor Yellow
+        Write-Host "  Use stop-kwalify.bat to force-stop, or wait for generation to finish." -ForegroundColor Yellow
+        return
+      }
+    }
+  }
   $stopped = $false
   if (PortOpen 5000) {
-    Write-Host "  Stopping old API on port 5000 (fresh start with latest code)..."
+    if ($generationBusy) {
+      Write-Host "  Generation finished — stopping API on port 5000..."
+    } else {
+      Write-Host "  Stopping old API on port 5000 (fresh start with latest code)..."
+    }
     Stop-PortListeners 5000
     $stopped = $true
   }
@@ -678,11 +716,24 @@ $localAppUrl = $siteUrl
 $localRedirect = $redirectUri
 $nodeEnv = if ($Mode -eq "selfhost") { "production" } else { "development" }
 $rootEsc = $Root.Replace("'", "''")
+$reuseRunningApi = $false
 
 if (PortOpen $port) {
-  Stop-PortListeners $port
+  $healthLib = Join-Path $Root "scripts\kwalify-health-lib.ps1"
+  if ($Mode -eq "selfhost" -and (Test-Path -LiteralPath $healthLib)) {
+    . $healthLib -Root $Root
+    if (Test-KwalifyGenerationBusy) {
+      Write-Host "  Generation active — reusing running API on port $port" -ForegroundColor Yellow
+      $reuseRunningApi = $true
+    } else {
+      Stop-PortListeners $port
+    }
+  } else {
+    Stop-PortListeners $port
+  }
 }
 
+if (-not $reuseRunningApi) {
 $apiPs1 = Join-Path $env:TEMP "kwalify-api-$([Guid]::NewGuid().ToString('n')).ps1"
 $apiBody = @"
 `$host.UI.RawUI.WindowTitle = 'Kwalify API'
@@ -717,14 +768,13 @@ npm start *>&1 | Tee-Object -FilePath `$logPath -Append
 "@
 Set-Content -LiteralPath $apiPs1 -Value $apiBody -Encoding UTF8
 Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $apiPs1) -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
+}
 
 $deadline = (Get-Date).AddSeconds(120)
 $ready = $false
 while ((Get-Date) -lt $deadline) {
-  try {
-    $rz = Invoke-RestMethod "http://localhost:$port/api/readyz" -TimeoutSec 3
-    if ($rz.status -eq "ready" -or $rz.readiness -eq "ready") { $ready = $true; break }
-  } catch {}
+  $rz = Invoke-QuietRest -Uri "http://localhost:$port/api/readyz" -TimeoutSec 3
+  if ($rz -and ($rz.status -eq "ready" -or $rz.readiness -eq "ready")) { $ready = $true; break }
   Start-Sleep -Seconds 2
 }
 if (-not $ready) {
@@ -774,10 +824,8 @@ if ($Mode -eq "selfhost") {
     $publicOk = $false
     $deadline = (Get-Date).AddSeconds(30)
     while ((Get-Date) -lt $deadline) {
-      try {
-        $pub = Invoke-RestMethod "$siteUrl/api/readyz" -TimeoutSec 8
-        if ($pub.status -eq "ready" -or $pub.readiness -eq "ready") { $publicOk = $true; break }
-      } catch {}
+      $pub = Invoke-QuietRest -Uri "$siteUrl/api/readyz" -TimeoutSec 8
+      if ($pub -and ($pub.status -eq "ready" -or $pub.readiness -eq "ready")) { $publicOk = $true; break }
       Start-Sleep -Seconds 2
     }
     if (-not $publicOk) {
@@ -787,10 +835,8 @@ if ($Mode -eq "selfhost") {
         & powershell -NoProfile -ExecutionPolicy Bypass -File $fixDns -Root $Root
       }
       Start-Sleep -Seconds 5
-      try {
-        $pub = Invoke-RestMethod "$siteUrl/api/readyz" -TimeoutSec 12
-        if ($pub.status -eq "ready" -or $pub.readiness -eq "ready") { $publicOk = $true }
-      } catch {}
+      $pub = Invoke-QuietRest -Uri "$siteUrl/api/readyz" -TimeoutSec 12
+      if ($pub -and ($pub.status -eq "ready" -or $pub.readiness -eq "ready")) { $publicOk = $true }
     }
     if ($publicOk) {
       Write-Host "  Public site ready: $siteUrl" -ForegroundColor Green

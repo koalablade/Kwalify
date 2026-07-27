@@ -1,0 +1,53 @@
+{
+  "id": "commute",
+  "domain": "british-life",
+  "name": "The daily commute",
+  "description": "Same train, same strangers, headphones in — British routine transit.",
+  "human_meaning": "Ritualised transit — the daily commute as liminal space between selves.",
+  "emotional_states": [
+    "resignation",
+    "reflection",
+    "routine"
+  ],
+  "hidden_emotions": [
+    "autopilot",
+    "private in public"
+  ],
+  "environment": [
+    "train",
+    "tube",
+    "bus"
+  ],
+  "activity": [
+    "commuting"
+  ],
+  "time_context": [
+    "morning",
+    "evening rush"
+  ],
+  "social_context": [
+    "strangers",
+    "crowd"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "departure → transit → arrival → switch",
+  "musical_behaviours": [
+    "floats",
+    "paces",
+    "settles"
+  ],
+  "related_experiences": [
+    "train_journey",
+    "office_friday"
+  ],
+  "common_phrases": [
+    "daily commute",
+    "morning commute",
+    "on the train to work",
+    "tube to work",
+    "bus commute"
+  ],
+  "misleading_keywords": [
+    "commute sentence"
+  ]
+}

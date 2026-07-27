@@ -1,0 +1,63 @@
+{
+  "id": "breakup",
+  "domain": "relationships",
+  "name": "Breakup aftermath",
+  "description": "Hollow routine, objects that remind, sleep disrupted, appetite strange.",
+  "human_meaning": "Grief without ceremony — private processing of a shared life dissolving.",
+  "emotional_states": [
+    "Grief without ceremony — private processing of a shared life dissolving."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "empty side of bed",
+    "unanswered messages",
+    "songs that hurt",
+    "quiet apartment"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "low",
+  "emotional_arc": "shock → ache → processing → gradual acceptance",
+  "musical_behaviours": [
+    "feels intimate",
+    "releases",
+    "breathes"
+  ],
+  "related_experiences": [
+    "goodbye_neighbourhood",
+    "coming_home"
+  ],
+  "common_phrases": [
+    "breakup",
+    "broke up",
+    "split up",
+    "ex",
+    "relationship ended",
+    "after we ended"
+  ],
+  "misleading_keywords": [],
+  "playlistIntents": [
+    "cry",
+    "remember",
+    "heal"
+  ],
+  "inferredQualities": [
+    "grief",
+    "loneliness",
+    "processing",
+    "emotional recovery"
+  ],
+  "typicalThoughts": [
+    "Still thinking about them",
+    "Places feel different now",
+    "Who am I without this"
+  ],
+  "nearbyConcepts": [
+    "loss",
+    "intimacy ended",
+    "self-redefinition"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "id": "summer_evening",
+  "domain": "times-of-day",
+  "name": "Summer evening",
+  "description": "Warm air lingering after sunset, light fading slowly, day reluctantly ending.",
+  "human_meaning": "Bittersweet openness — possibility and ending held in the same breath.",
+  "emotional_states": [
+    "Bittersweet openness — possibility and ending held in the same breath."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "warm breeze",
+    "golden light",
+    "distant voices",
+    "cicadas or birds settling"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium",
+  "emotional_arc": "warmth → openness → nostalgia → gentle close",
+  "musical_behaviours": [
+    "nostalgic_warmth",
+    "slow burn",
+    "quiet hope"
+  ],
+  "related_experiences": [
+    "pub_garden",
+    "childhood_summer_holidays"
+  ],
+  "common_phrases": [
+    "summer evening",
+    "warm evening",
+    "golden hour",
+    "late summer light",
+    "evening in summer"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "One more hour outside",
+    "Remembering summers past",
+    "The year still has time left"
+  ],
+  "nearbyConcepts": [
+    "season",
+    "memory",
+    "transition"
+  ]
+}

@@ -158,8 +158,10 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
     app.use((req, res, next) => {
       if (
         req.path === "/healthz" ||
+        req.path === "/livez" ||
         req.path === "/readyz" ||
         req.path === "/api/healthz" ||
+        req.path === "/api/livez" ||
         req.path === "/api/readyz" ||
         req.path === "/api/health" ||
         req.path === "/api/eval/ping"

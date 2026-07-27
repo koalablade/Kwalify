@@ -1,0 +1,51 @@
+{
+  "id": "coastal_drive",
+  "domain": "transport",
+  "name": "Coastal drive",
+  "description": "Sea visible from the road — salt air, horizon, open sky.",
+  "human_meaning": "Edge-of-land freedom — the coast road where sky meets sea and problems feel smaller.",
+  "emotional_states": [
+    "freedom",
+    "awe",
+    "calm"
+  ],
+  "hidden_emotions": [
+    "perspective",
+    "release"
+  ],
+  "environment": [
+    "coastal road",
+    "sea view",
+    "cliffs"
+  ],
+  "activity": [
+    "driving",
+    "sightseeing"
+  ],
+  "sensory_details": [
+    "salt air",
+    "open horizon",
+    "wind"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "approach → vista → openness → peace",
+  "musical_behaviours": [
+    "floats",
+    "feels cinematic",
+    "opens up"
+  ],
+  "related_experiences": [
+    "road_trip",
+    "beach"
+  ],
+  "common_phrases": [
+    "coastal drive",
+    "driving by the sea",
+    "coast road",
+    "sea view drive"
+  ],
+  "misleading_keywords": [
+    "beach day",
+    "swimming"
+  ]
+}

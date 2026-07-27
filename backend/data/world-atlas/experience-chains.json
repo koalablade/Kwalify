@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "chains": [
+    {
+      "id": "bad_day_recovery",
+      "before": [
+        "driving_after_stressful_day"
+      ],
+      "during": [
+        "car_after_work_avoidance",
+        "coming_home"
+      ],
+      "after": [
+        "tea_after_work",
+        "shower_after_long_day",
+        "bedroom"
+      ]
+    },
+    {
+      "id": "night_out_comedown",
+      "before": [
+        "party_night",
+        "pub_night"
+      ],
+      "during": [
+        "taxi_ride",
+        "walking_home"
+      ],
+      "after": [
+        "alone_after_party",
+        "cant_sleep"
+      ]
+    },
+    {
+      "id": "life_transition",
+      "before": [
+        "graduation",
+        "moving_away"
+      ],
+      "during": [
+        "new_chapter",
+        "first_apartment"
+      ],
+      "after": [
+        "fresh_start",
+        "lazy_sunday"
+      ]
+    },
+    {
+      "id": "relationship_end",
+      "before": [
+        "heartbreak",
+        "breakup"
+      ],
+      "during": [
+        "walking_home",
+        "rainy_windscreen_drive"
+      ],
+      "after": [
+        "grief_and_loss",
+        "starting_again"
+      ]
+    },
+    {
+      "id": "nostalgia_return",
+      "before": [
+        "childhood_summer_holidays"
+      ],
+      "during": [
+        "goodbye_neighbourhood"
+      ],
+      "after": [
+        "old_friends_reunion",
+        "family_memories"
+      ]
+    }
+  ]
+}

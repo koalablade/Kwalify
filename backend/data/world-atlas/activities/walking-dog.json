@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Forced rhythm — the dog doesn't care about your mood but helps anyway.",
+  "energy_curve": "medium",
+  "emotional_arc": "leash, coat, reluctance or habit → pace set by paws, noticing neighbours → dog satisfied, you slightly better",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "walking_dog",
+  "name": "Walking the dog",
+  "human_meaning": "Forced rhythm — the dog doesn't care about your mood but helps anyway.",
+  "common_phrases": [
+    "walking the dog",
+    "dog walk",
+    "out with the dog",
+    "morning dog walk"
+  ],
+  "hidden_context": "Routine anchor; conversation with a non-judgmental companion.",
+  "emotional_states": [
+    "calm",
+    "routine",
+    "mild joy"
+  ],
+  "environments": [
+    "park",
+    "streets",
+    "fields"
+  ],
+  "social_context": [
+    "alone with pet"
+  ],
+  "before_state": "leash, coat, reluctance or habit",
+  "during_state": "pace set by paws, noticing neighbours",
+  "after_state": "dog satisfied, you slightly better",
+  "musical_behaviours": [
+    "grounds",
+    "lifts gently",
+    "comforts"
+  ],
+  "related_experiences": [
+    "walking_home",
+    "quiet_saturday"
+  ],
+  "activity": [
+    "walking"
+  ],
+  "environment": [
+    "park",
+    "streets",
+    "fields"
+  ]
+}

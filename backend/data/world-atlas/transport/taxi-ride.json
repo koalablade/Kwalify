@@ -1,0 +1,52 @@
+{
+  "id": "taxi_ride",
+  "domain": "transport",
+  "name": "Taxi ride home",
+  "description": "Passenger in the back seat — someone else driving you through the night.",
+  "human_meaning": "Passive night transit — surrendering control and watching the city pass through a window.",
+  "emotional_states": [
+    "tiredness",
+    "reflection",
+    "relief"
+  ],
+  "hidden_emotions": [
+    "end of night",
+    "vulnerability"
+  ],
+  "environment": [
+    "taxi",
+    "city streets at night"
+  ],
+  "activity": [
+    "being driven"
+  ],
+  "time_context": [
+    "late night",
+    "after party"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "night out → surrender → transit → arrival",
+  "musical_behaviours": [
+    "floats",
+    "feels nocturnal",
+    "settles"
+  ],
+  "related_experiences": [
+    "walking_home",
+    "alone_after_party"
+  ],
+  "common_phrases": [
+    "taxi home",
+    "cab ride",
+    "in the back of a taxi",
+    "uber home",
+    "getting a taxi"
+  ],
+  "misleading_keywords": [
+    "taxi driver",
+    "fare"
+  ]
+}

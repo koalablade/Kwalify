@@ -1,0 +1,50 @@
+{
+  "id": "first_date",
+  "domain": "relationships",
+  "name": "First date",
+  "description": "Nervous anticipation — wanting to be liked, noticing everything.",
+  "human_meaning": "Vulnerable anticipation — the careful performance of being yourself while hoping they see the real you.",
+  "emotional_states": [
+    "nervousness",
+    "excitement",
+    "hope"
+  ],
+  "hidden_emotions": [
+    "vulnerability",
+    "self-consciousness"
+  ],
+  "environment": [
+    "restaurant",
+    "bar",
+    "cinema"
+  ],
+  "activity": [
+    "dating",
+    "talking"
+  ],
+  "social_context": [
+    "two people",
+    "new connection"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "anticipation → nerves → connection → possibility",
+  "musical_behaviours": [
+    "simmers",
+    "feels bright",
+    "anticipates"
+  ],
+  "related_experiences": [
+    "falling_in_love",
+    "waiting_for_message"
+  ],
+  "common_phrases": [
+    "first date",
+    "meeting someone new",
+    "nervous before a date",
+    "going on a date"
+  ],
+  "misleading_keywords": [
+    "date fruit",
+    "calendar date"
+  ]
+}

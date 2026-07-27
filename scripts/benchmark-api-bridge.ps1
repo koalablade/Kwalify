@@ -18,8 +18,7 @@ $Root = (Resolve-Path $Root).Path
 
 function Get-LastSpawnStatus {
   $path = Join-Path $Root "reports\benchmark-last-spawn.json"
-  if (-not (Test-Path -LiteralPath $path)) { return $null }
-  try { return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } catch { return $null }
+  return Read-JsonFileUtf8 $path
 }
 
 function ConvertTo-PlainData($Value) {

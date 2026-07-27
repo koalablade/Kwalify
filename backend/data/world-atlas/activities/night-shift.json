@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Living inverted — the city belongs to you and a handful of others.",
+  "energy_curve": "medium",
+  "emotional_arc": "sleeping through daylight → hyperfocus or slow drift → sunrise disorientation, blackout curtains",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "night_shift",
+  "name": "Night shift",
+  "human_meaning": "Living inverted — the city belongs to you and a handful of others.",
+  "common_phrases": [
+    "night shift",
+    "working nights",
+    "graveyard shift",
+    "on nights this week"
+  ],
+  "hidden_context": "Social life on hold; intimacy with fluorescent light and silence.",
+  "emotional_states": [
+    "isolation",
+    "focus",
+    "exhaustion"
+  ],
+  "environments": [
+    "workplace",
+    "night",
+    "empty roads"
+  ],
+  "social_context": [
+    "alone",
+    "night workers"
+  ],
+  "before_state": "sleeping through daylight",
+  "during_state": "hyperfocus or slow drift",
+  "after_state": "sunrise disorientation, blackout curtains",
+  "musical_behaviours": [
+    "feels nocturnal",
+    "drifts",
+    "intimate"
+  ],
+  "related_experiences": [
+    "motorway_at_night",
+    "two_am_thoughts"
+  ],
+  "activity": [
+    "working"
+  ],
+  "environment": [
+    "workplace",
+    "night",
+    "empty roads"
+  ]
+}

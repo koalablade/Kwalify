@@ -1,0 +1,58 @@
+{
+  "domain": "activities",
+  "description": "The moment the shift ends — mental unclenching as responsibility lifts.",
+  "energy_curve": "medium",
+  "emotional_arc": "counting down, checking the clock → packing up, saying goodbye, walking out → decompression begins, transition to personal life",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "finishing_work",
+  "name": "Finishing work",
+  "human_meaning": "The moment the shift ends — mental unclenching as responsibility lifts.",
+  "common_phrases": [
+    "finished work",
+    "done for the day",
+    "work is over",
+    "shift ended",
+    "clocked out"
+  ],
+  "hidden_context": "Relief mixed with leftover adrenaline; the commute home hasn't started yet.",
+  "emotional_states": [
+    "relief",
+    "fatigue",
+    "freedom"
+  ],
+  "environments": [
+    "office",
+    "workplace",
+    "street outside work"
+  ],
+  "social_context": [
+    "colleagues",
+    "alone"
+  ],
+  "before_state": "counting down, checking the clock",
+  "during_state": "packing up, saying goodbye, walking out",
+  "after_state": "decompression begins, transition to personal life",
+  "musical_behaviours": [
+    "releases",
+    "settles",
+    "lifts"
+  ],
+  "related_experiences": [
+    "commute_home",
+    "driving_home_after_work"
+  ],
+  "activity": [
+    "leaving work",
+    "transitioning"
+  ],
+  "environment": [
+    "office",
+    "workplace",
+    "street outside work"
+  ]
+}

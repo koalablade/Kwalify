@@ -1,0 +1,41 @@
+{
+  "id": "moving_away",
+  "domain": "life-events",
+  "name": "Moving away",
+  "description": "Leaving the place that made you — last looks, packed car.",
+  "human_meaning": "Geographic grief — leaving the place that holds your history.",
+  "emotional_states": [
+    "sadness",
+    "anticipation",
+    "nostalgia"
+  ],
+  "hidden_emotions": [
+    "grief",
+    "growing up"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "denial → packing → departure → new unknown",
+  "musical_behaviours": [
+    "aches",
+    "builds",
+    "feels cinematic"
+  ],
+  "related_experiences": [
+    "goodbye_neighbourhood",
+    "moving_house",
+    "new_chapter"
+  ],
+  "common_phrases": [
+    "moving away",
+    "leaving home",
+    "moving to a new city",
+    "leaving everything behind"
+  ],
+  "misleading_keywords": [
+    "moving image"
+  ],
+  "playlistIntents": [
+    "process",
+    "remember"
+  ]
+}

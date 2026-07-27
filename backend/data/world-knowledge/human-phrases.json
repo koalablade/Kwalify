@@ -1,0 +1,279 @@
+{
+  "version": 2,
+  "locale": "en-GB",
+  "phrases": [
+    {
+      "id": "had_enough",
+      "phrase": "i've had enough",
+      "notLiteral": "quantity or portion",
+      "meaning": { "emotion": ["exhaustion", "overwhelm", "stress"], "lifeContext": ["burnout", "need recovery"], "activity": ["resting"] },
+      "music": { "energy": 0.25, "textures": ["gentle", "releasing"] }
+    },
+    {
+      "id": "clear_my_head",
+      "phrase": "clear my head",
+      "notLiteral": "physical cleaning",
+      "meaning": { "emotion": ["reflection", "calm"], "activity": ["walking", "driving"], "lifeContext": ["mental reset"] },
+      "music": { "energy": 0.35, "textures": ["atmospheric", "open"] }
+    },
+    {
+      "id": "cant_sleep",
+      "phrase": "i can't sleep",
+      "notLiteral": "sleep playlist",
+      "meaning": { "emotion": ["anxiety", "restlessness"], "time": ["late_night", "2am"], "activity": ["lying awake"] },
+      "music": { "energy": 0.2, "textures": ["intimate", "quiet"] }
+    },
+    {
+      "id": "finally_free",
+      "phrase": "i'm finally free",
+      "notLiteral": "political freedom",
+      "meaning": { "emotion": ["relief", "joy", "freedom"], "lifeContext": ["achievement", "release"] },
+      "music": { "energy": 0.6, "textures": ["bright", "lifting"] }
+    },
+    {
+      "id": "just_existing",
+      "phrase": "i'm just existing",
+      "notLiteral": "philosophical debate",
+      "meaning": { "emotion": ["numbness", "low energy", "apathy"], "lifeContext": ["depression", "burnout"] },
+      "music": { "energy": 0.2, "textures": ["sparse", "ambient"] }
+    },
+    {
+      "id": "main_character",
+      "phrase": "main character moment",
+      "notLiteral": "film casting",
+      "meaning": { "emotion": ["self-reflection", "cinematic"], "lifeContext": ["identity"], "activity": ["walking", "driving"] },
+      "music": { "energy": 0.5, "textures": ["cinematic", "atmospheric"] }
+    },
+    {
+      "id": "miss_old_days",
+      "phrase": "i miss the old days",
+      "notLiteral": "calendar dates",
+      "meaning": { "emotion": ["nostalgia", "longing", "bittersweet"], "lifeContext": ["past identity", "childhood"] },
+      "music": { "energy": 0.3, "textures": ["warm", "wistful"] }
+    },
+    {
+      "id": "not_ready_inside",
+      "phrase": "don't want to go inside yet",
+      "notLiteral": "outdoor activity",
+      "meaning": { "emotion": ["decompression", "avoidance", "reflection"], "activity": ["sitting in car"], "environment": ["car", "driveway"] },
+      "music": { "energy": 0.25, "textures": ["intimate", "slow"] }
+    },
+    {
+      "id": "knackered",
+      "phrase": "knackered",
+      "notLiteral": "broken object",
+      "meaning": { "emotion": ["exhaustion", "tiredness"], "lifeContext": ["after work", "burnout"] },
+      "music": { "energy": 0.2, "textures": ["gentle", "recovering"] }
+    },
+    {
+      "id": "shattered",
+      "phrase": "shattered",
+      "notLiteral": "broken glass",
+      "meaning": { "emotion": ["exhaustion", "overwhelm"], "lifeContext": ["difficult day"] },
+      "music": { "energy": 0.2, "textures": ["soft", "recovering"] }
+    },
+    {
+      "id": "gutted",
+      "phrase": "gutted",
+      "notLiteral": "building renovation",
+      "meaning": { "emotion": ["disappointment", "sadness", "grief"] },
+      "music": { "energy": 0.25, "textures": ["aching", "sparse"] }
+    },
+    {
+      "id": "buzzing",
+      "phrase": "buzzing",
+      "notLiteral": "electrical buzzing",
+      "meaning": { "emotion": ["excitement", "energy", "joy"], "social": ["night out"] },
+      "music": { "energy": 0.75, "textures": ["bright", "pulsing"] }
+    },
+    {
+      "id": "proper_tired",
+      "phrase": "proper tired",
+      "notLiteral": "correct tiredness",
+      "meaning": { "emotion": ["exhaustion", "weariness"], "lifeContext": ["after work"] },
+      "music": { "energy": 0.2, "textures": ["gentle", "settling"] }
+    },
+    {
+      "id": "rough_day",
+      "phrase": "rough day",
+      "notLiteral": "surface texture",
+      "meaning": { "emotion": ["stress", "exhaustion", "frustration"], "lifeContext": ["bad day aftermath"] },
+      "music": { "energy": 0.3, "textures": ["releasing", "intimate"] }
+    },
+    {
+      "id": "doing_head_in",
+      "phrase": "doing my head in",
+      "notLiteral": "physical head injury",
+      "meaning": { "emotion": ["frustration", "stress", "anxiety"], "lifeContext": ["overwhelm"] },
+      "music": { "energy": 0.35, "textures": ["tense", "releasing"] }
+    },
+    {
+      "id": "cant_be_bothered",
+      "phrase": "can't be bothered",
+      "notLiteral": "lack of harassment",
+      "meaning": { "emotion": ["apathy", "low energy", "exhaustion"], "activity": ["resting"] },
+      "music": { "energy": 0.2, "textures": ["lazy", "ambient"] }
+    },
+    {
+      "id": "fancy_a_drive",
+      "phrase": "fancy a drive",
+      "notLiteral": "decorative drive",
+      "meaning": { "emotion": ["freedom", "escape"], "activity": ["driving"], "environment": ["road"] },
+      "music": { "energy": 0.5, "textures": ["open", "cruising"] }
+    },
+    {
+      "id": "popping_out",
+      "phrase": "popping out",
+      "notLiteral": "bubble popping",
+      "meaning": { "activity": ["errands", "quick trip"], "environment": ["local area"] },
+      "music": { "energy": 0.4, "textures": ["casual", "light"] }
+    },
+    {
+      "id": "bank_holiday_mood",
+      "phrase": "bank holiday",
+      "notLiteral": "financial institution",
+      "meaning": { "emotion": ["relief", "freedom"], "time": ["long weekend"], "lifeContext": ["British ritual"] },
+      "music": { "energy": 0.5, "textures": ["warm", "relaxed"] }
+    },
+    {
+      "id": "sunday_scaries",
+      "phrase": "sunday scaries",
+      "notLiteral": "horror genre",
+      "meaning": { "emotion": ["dread", "anxiety", "melancholy"], "time": ["sunday evening"], "lifeContext": ["work dread"] },
+      "music": { "energy": 0.3, "textures": ["melancholic", "settling"] }
+    },
+    {
+      "id": "need_space",
+      "phrase": "need some space",
+      "notLiteral": "outer space",
+      "meaning": { "emotion": ["overwhelm", "reflection"], "social": ["alone"], "lifeContext": ["relationship tension"] },
+      "music": { "energy": 0.3, "textures": ["spacious", "quiet"] }
+    },
+    {
+      "id": "life_changing",
+      "phrase": "life is changing",
+      "notLiteral": "weather change",
+      "meaning": { "emotion": ["anxiety", "hope", "anticipation"], "lifeContext": ["transition", "new chapter"] },
+      "music": { "energy": 0.45, "textures": ["building", "open"] }
+    },
+    {
+      "id": "cant_face_it",
+      "phrase": "can't face it",
+      "notLiteral": "physical facing",
+      "meaning": { "emotion": ["avoidance", "anxiety", "exhaustion"], "lifeContext": ["overwhelm"], "activity": ["delaying"] },
+      "music": { "energy": 0.25, "textures": ["tense", "intimate"] }
+    },
+    {
+      "id": "need_a_break",
+      "phrase": "need a break",
+      "notLiteral": "broken object",
+      "meaning": { "emotion": ["exhaustion", "overwhelm"], "lifeContext": ["burnout"], "activity": ["resting", "pausing"] },
+      "music": { "energy": 0.2, "textures": ["gentle", "recovering"] }
+    },
+    {
+      "id": "fed_up",
+      "phrase": "fed up",
+      "notLiteral": "eating",
+      "meaning": { "emotion": ["frustration", "exhaustion", "resentment"], "lifeContext": ["bad day aftermath"] },
+      "music": { "energy": 0.3, "textures": ["releasing", "tense"] }
+    },
+    {
+      "id": "long_one",
+      "phrase": "long one",
+      "notLiteral": "physical length",
+      "meaning": { "emotion": ["exhaustion", "relief"], "lifeContext": ["after work", "difficult day"] },
+      "music": { "energy": 0.25, "textures": ["settling", "recovering"] }
+    },
+    {
+      "id": "chilled_out",
+      "phrase": "chilled out",
+      "notLiteral": "temperature",
+      "meaning": { "emotion": ["calm", "contentment", "relaxation"], "activity": ["resting"] },
+      "music": { "energy": 0.3, "textures": ["warm", "easy"] }
+    },
+    {
+      "id": "having_a_mare",
+      "phrase": "having a mare",
+      "notLiteral": "horse",
+      "meaning": { "emotion": ["stress", "frustration", "chaos"], "lifeContext": ["bad day aftermath"] },
+      "music": { "energy": 0.35, "textures": ["tense", "releasing"] }
+    },
+    {
+      "id": "sorted",
+      "phrase": "sorted",
+      "notLiteral": "arranging",
+      "meaning": { "emotion": ["relief", "contentment", "confidence"], "lifeContext": ["resolution"] },
+      "music": { "energy": 0.5, "textures": ["bright", "settling"] }
+    },
+    {
+      "id": "made_up",
+      "phrase": "made up",
+      "notLiteral": "cosmetics",
+      "meaning": { "emotion": ["joy", "delight", "satisfaction"], "social": ["friends"] },
+      "music": { "energy": 0.6, "textures": ["bright", "warm"] }
+    },
+    {
+      "id": "lovely_evening",
+      "phrase": "lovely evening",
+      "notLiteral": "weather report",
+      "meaning": { "emotion": ["contentment", "warmth", "calm"], "time": ["evening"], "environment": ["home", "garden"] },
+      "music": { "energy": 0.4, "textures": ["warm", "gentle"] }
+    },
+    {
+      "id": "pop_out",
+      "phrase": "pop out",
+      "notLiteral": "bubble",
+      "meaning": { "activity": ["errands", "quick trip"], "environment": ["local area"] },
+      "music": { "energy": 0.4, "textures": ["casual", "light"] }
+    },
+    {
+      "id": "nipping_out",
+      "phrase": "nipping out",
+      "notLiteral": "biting",
+      "meaning": { "activity": ["errands", "walking"], "environment": ["streets", "local shops"] },
+      "music": { "energy": 0.4, "textures": ["casual", "light"] }
+    },
+    {
+      "id": "remember_when",
+      "phrase": "remember when",
+      "notLiteral": "calendar",
+      "meaning": { "emotion": ["nostalgia", "longing", "bittersweet"], "lifeContext": ["past identity", "memory"] },
+      "music": { "energy": 0.3, "textures": ["warm", "wistful"] }
+    },
+    {
+      "id": "used_to",
+      "phrase": "used to",
+      "notLiteral": "habit only",
+      "meaning": { "emotion": ["nostalgia", "longing"], "lifeContext": ["past identity", "change"] },
+      "music": { "energy": 0.3, "textures": ["wistful", "warm"] }
+    },
+    {
+      "id": "not_anymore",
+      "phrase": "not anymore",
+      "notLiteral": "negation only",
+      "meaning": { "emotion": ["loss", "acceptance", "bittersweet"], "lifeContext": ["transition", "ending"] },
+      "music": { "energy": 0.3, "textures": ["aching", "sparse"] }
+    },
+    {
+      "id": "finally",
+      "phrase": "finally",
+      "notLiteral": "time adverb only",
+      "meaning": { "emotion": ["relief", "release"], "lifeContext": ["transition", "achievement"] },
+      "music": { "energy": 0.45, "textures": ["lifting", "releasing"] }
+    },
+    {
+      "id": "clocked_off",
+      "phrase": "clocked off",
+      "notLiteral": "clock repair",
+      "meaning": { "emotion": ["relief", "exhaustion", "freedom"], "activity": ["leaving work"], "lifeContext": ["after work"] },
+      "music": { "energy": 0.35, "textures": ["releasing", "settling"] }
+    },
+    {
+      "id": "sitting_car_before_in",
+      "phrase": "sitting in the car before going in",
+      "notLiteral": "parking tutorial",
+      "meaning": { "emotion": ["decompression", "avoidance", "reflection"], "activity": ["sitting", "delaying"], "environment": ["car", "driveway"] },
+      "music": { "energy": 0.25, "textures": ["intimate", "slow"] }
+    }
+  ]
+}

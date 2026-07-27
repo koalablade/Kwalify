@@ -1,0 +1,43 @@
+{
+  "id": "sun_freedom",
+  "domain": "weather",
+  "name": "Sun and freedom",
+  "description": "First warm day — windows open, skin in sunlight, everything possible.",
+  "human_meaning": "Seasonal liberation — sun as permission to feel alive and unburdened.",
+  "emotional_states": [
+    "joy",
+    "freedom",
+    "energy"
+  ],
+  "hidden_emotions": [
+    "optimism",
+    "youth"
+  ],
+  "weather_context": [
+    "sunshine",
+    "warm day",
+    "blue sky"
+  ],
+  "energy_curve": "high",
+  "emotional_arc": "grey → warmth → opening → freedom",
+  "musical_behaviours": [
+    "lifts",
+    "feels bright",
+    "drives forward"
+  ],
+  "related_experiences": [
+    "summer_evening",
+    "pub_garden"
+  ],
+  "common_phrases": [
+    "sunny day",
+    "sun on my face",
+    "first warm day",
+    "sunshine freedom",
+    "blue sky day"
+  ],
+  "misleading_keywords": [
+    "sun",
+    "sunny"
+  ]
+}

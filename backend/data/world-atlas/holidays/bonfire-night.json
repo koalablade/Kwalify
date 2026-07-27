@@ -1,0 +1,49 @@
+{
+  "id": "bonfire_night",
+  "domain": "holidays",
+  "name": "Bonfire night",
+  "description": "Cold air, smoke and sparks, crowd huddled, sky erupting periodically.",
+  "human_meaning": "Communal spectacle — brief awe interrupting ordinary autumn evenings.",
+  "emotional_states": [
+    "Communal spectacle — brief awe interrupting ordinary autumn evenings."
+  ],
+  "hidden_emotions": [],
+  "sensory_details": [
+    "firework bursts",
+    "smoke",
+    "cold cheeks",
+    "crackling bonfire"
+  ],
+  "environment": [],
+  "activity": [],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [],
+  "energy_curve": "medium-high",
+  "emotional_arc": "anticipation → burst → awe → dispersal",
+  "musical_behaviours": [
+    "feels cinematic",
+    "slow burn",
+    "releases"
+  ],
+  "related_experiences": [
+    "childhood_summer_holidays"
+  ],
+  "common_phrases": [
+    "bonfire night",
+    "fireworks night",
+    "guy fawkes",
+    "november fireworks"
+  ],
+  "misleading_keywords": [],
+  "typicalThoughts": [
+    "Watch the sky",
+    "Remember doing this as a kid",
+    "Cold but worth staying out"
+  ],
+  "nearbyConcepts": [
+    "UK autumn",
+    "community",
+    "childhood memory"
+  ]
+}

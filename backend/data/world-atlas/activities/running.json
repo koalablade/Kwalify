@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Punishment or liberation — feet hitting pavement until thoughts quiet.",
+  "energy_curve": "medium",
+  "emotional_arc": "lacing up, dread or anticipation → breath, rhythm, endorphins → shower, accomplishment, calm",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "running",
+  "name": "Running",
+  "human_meaning": "Punishment or liberation — feet hitting pavement until thoughts quiet.",
+  "common_phrases": [
+    "going for a run",
+    "out running",
+    "morning run",
+    "run to clear my head"
+  ],
+  "hidden_context": "Body working so mind can rest.",
+  "emotional_states": [
+    "determination",
+    "release",
+    "focus"
+  ],
+  "environments": [
+    "park",
+    "canal",
+    "streets"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "lacing up, dread or anticipation",
+  "during_state": "breath, rhythm, endorphins",
+  "after_state": "shower, accomplishment, calm",
+  "musical_behaviours": [
+    "drives",
+    "pulses",
+    "releases"
+  ],
+  "related_experiences": [
+    "walk_to_clear_head",
+    "gym"
+  ],
+  "activity": [
+    "running",
+    "exercising"
+  ],
+  "environment": [
+    "park",
+    "canal",
+    "streets"
+  ]
+}

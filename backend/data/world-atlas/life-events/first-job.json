@@ -1,0 +1,45 @@
+{
+  "id": "first_job",
+  "domain": "life-events",
+  "name": "First day at a new job",
+  "description": "New badge, new desk, trying to remember everyone's name.",
+  "human_meaning": "Adult threshold — performing competence while feeling like an imposter.",
+  "emotional_states": [
+    "nervousness",
+    "hope",
+    "determination"
+  ],
+  "hidden_emotions": [
+    "imposter syndrome",
+    "ambition"
+  ],
+  "environment": [
+    "office",
+    "workplace"
+  ],
+  "activity": [
+    "starting work"
+  ],
+  "energy_curve": "medium-high",
+  "emotional_arc": "nerves → observation → small wins → belonging",
+  "musical_behaviours": [
+    "builds confidence",
+    "feels bright",
+    "drives forward"
+  ],
+  "related_experiences": [
+    "graduation",
+    "promotion",
+    "office_friday"
+  ],
+  "common_phrases": [
+    "first day at work",
+    "new job",
+    "starting a new job",
+    "first day at the office"
+  ],
+  "misleading_keywords": [
+    "job search",
+    "interview"
+  ]
+}

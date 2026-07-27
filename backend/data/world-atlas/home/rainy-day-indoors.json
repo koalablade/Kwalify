@@ -1,0 +1,51 @@
+{
+  "id": "rainy_day_indoors",
+  "domain": "home",
+  "name": "Rainy day indoors",
+  "description": "No reason to leave — blanket, hot drink, grey light through windows.",
+  "human_meaning": "Weather-given permission to stay in — the world outside can wait.",
+  "emotional_states": [
+    "coziness",
+    "calm",
+    "melancholy"
+  ],
+  "hidden_emotions": [
+    "hibernation",
+    "comfort"
+  ],
+  "environment": [
+    "home",
+    "indoors"
+  ],
+  "activity": [
+    "resting",
+    "reading",
+    "watching"
+  ],
+  "weather_context": [
+    "rain",
+    "grey day"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "grey morning → nesting → stillness → acceptance",
+  "musical_behaviours": [
+    "comforts",
+    "breathes",
+    "feels warm"
+  ],
+  "related_experiences": [
+    "rain_on_windows",
+    "lazy_sunday"
+  ],
+  "common_phrases": [
+    "rainy day indoors",
+    "staying in because of rain",
+    "cosy rainy day",
+    "not going out today rain"
+  ],
+  "misleading_keywords": [
+    "rain",
+    "raining",
+    "weather forecast"
+  ]
+}

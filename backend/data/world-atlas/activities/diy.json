@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Home as project — imperfection owned, not outsourced.",
+  "energy_curve": "medium",
+  "emotional_arc": "trip to hardware shop → measuring twice, drilling once → standing back, mostly pleased",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "diy",
+  "name": "DIY",
+  "human_meaning": "Home as project — imperfection owned, not outsourced.",
+  "common_phrases": [
+    "diy weekend",
+    "doing diy",
+    "home improvement project",
+    "flat pack furniture"
+  ],
+  "hidden_context": "YouTube tutorial open, arguments optional.",
+  "emotional_states": [
+    "determination",
+    "frustration",
+    "pride"
+  ],
+  "environments": [
+    "home",
+    "garage"
+  ],
+  "social_context": [
+    "alone",
+    "partner"
+  ],
+  "before_state": "trip to hardware shop",
+  "during_state": "measuring twice, drilling once",
+  "after_state": "standing back, mostly pleased",
+  "musical_behaviours": [
+    "builds",
+    "drives",
+    "grounds"
+  ],
+  "related_experiences": [
+    "fixing_things",
+    "moving_house"
+  ],
+  "activity": [
+    "building",
+    "making"
+  ],
+  "environment": [
+    "home",
+    "garage"
+  ]
+}

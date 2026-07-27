@@ -1,0 +1,41 @@
+{
+  "id": "summer_rain",
+  "domain": "weather",
+  "name": "Summer rain",
+  "description": "Warm rain after heat — petrichor, steam rising, sudden freshness.",
+  "human_meaning": "Relief rain — warm summer rain that breaks the heat and smells like earth.",
+  "emotional_states": [
+    "relief",
+    "joy",
+    "freshness"
+  ],
+  "hidden_emotions": [
+    "renewal",
+    "childhood memory"
+  ],
+  "weather_context": [
+    "warm rain",
+    "summer storm"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "heat → break → freshness → ease",
+  "musical_behaviours": [
+    "releases",
+    "feels bright",
+    "renews"
+  ],
+  "related_experiences": [
+    "summer_evening",
+    "childhood_summer_holidays"
+  ],
+  "common_phrases": [
+    "summer rain",
+    "warm rain",
+    "rain after hot day",
+    "summer storm"
+  ],
+  "misleading_keywords": [
+    "rain",
+    "raining"
+  ]
+}

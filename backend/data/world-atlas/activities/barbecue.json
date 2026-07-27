@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Smoke and summer — informal hosting, paper plates, real connection.",
+  "energy_curve": "medium",
+  "emotional_arc": "shopping, cleaning garden → smoke, music, kids running → full, sun-faded, clearing up tomorrow",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "barbecue",
+  "name": "Barbecue",
+  "human_meaning": "Smoke and summer — informal hosting, paper plates, real connection.",
+  "common_phrases": [
+    "back garden barbecue",
+    "bbq with friends",
+    "summer barbecue",
+    "charcoal and beers"
+  ],
+  "hidden_context": "Weather gamble, burnt sausages forgiven.",
+  "emotional_states": [
+    "joy",
+    "relaxation",
+    "togetherness"
+  ],
+  "environments": [
+    "garden",
+    "backyard"
+  ],
+  "social_context": [
+    "friends",
+    "family"
+  ],
+  "before_state": "shopping, cleaning garden",
+  "during_state": "smoke, music, kids running",
+  "after_state": "full, sun-faded, clearing up tomorrow",
+  "musical_behaviours": [
+    "lifts",
+    "warms",
+    "feels communal"
+  ],
+  "related_experiences": [
+    "summer_evening",
+    "family_gathering"
+  ],
+  "activity": [
+    "socialising",
+    "cooking"
+  ],
+  "environment": [
+    "garden",
+    "backyard"
+  ]
+}

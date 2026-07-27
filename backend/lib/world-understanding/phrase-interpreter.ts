@@ -1,4 +1,5 @@
 import { IDIOMS, PHRASES, SLANG } from "./knowledge";
+import humanPhrasesData from "../../data/world-knowledge/human-phrases.json";
 import type { PhraseMatch } from "./types";
 
 function normalize(text: string): string {
@@ -32,14 +33,52 @@ function normalizeMeaning(
   return out;
 }
 
+type PhraseSource = {
+  id: string;
+  phrase: string;
+  notLiteral?: string;
+  meaning?: Record<string, string[] | undefined>;
+  music?: PhraseMatch["music"];
+};
+
+const HUMAN_PHRASES: PhraseSource[] = (humanPhrasesData as { phrases: PhraseSource[] }).phrases ?? [];
+
+function toPhraseMatch(source: PhraseSource): PhraseMatch {
+  return {
+    id: source.id,
+    phrase: source.phrase,
+    notLiteral: source.notLiteral,
+    meaning: normalizeMeaning((source.meaning ?? {}) as Record<string, string[]>),
+    music: source.music,
+  };
+}
+
+export function getHumanPhraseCount(): number {
+  return HUMAN_PHRASES.length + PHRASES.length + IDIOMS.length + SLANG.length;
+}
+
 export function interpretPhrases(text: string): PhraseMatch[] {
   const lower = normalize(text);
   const matches: PhraseMatch[] = [];
+  const seen = new Set<string>();
+
+  function addMatch(match: PhraseMatch): void {
+    if (seen.has(match.id)) return;
+    seen.add(match.id);
+    matches.push(match);
+  }
+
+  // Human experience phrases first (highest priority)
+  for (const phrase of HUMAN_PHRASES) {
+    const needle = phrase.phrase.toLowerCase();
+    if (!lower.includes(needle)) continue;
+    addMatch(toPhraseMatch(phrase));
+  }
 
   for (const phrase of PHRASES) {
     const needle = phrase.phrase.toLowerCase();
     if (!lower.includes(needle)) continue;
-    matches.push({
+    addMatch({
       id: phrase.id,
       phrase: phrase.phrase,
       notLiteral: phrase.notLiteral,
@@ -60,7 +99,7 @@ export function interpretPhrases(text: string): PhraseMatch[] {
   for (const idiom of IDIOMS) {
     const needle = idiom.phrase.toLowerCase();
     if (!lower.includes(needle)) continue;
-    matches.push({
+    addMatch({
       id: `idiom_${idiom.phrase.replace(/\s+/g, "_")}`,
       phrase: idiom.phrase,
       notLiteral: idiom.notLiteral,
@@ -75,7 +114,7 @@ export function interpretPhrases(text: string): PhraseMatch[] {
   for (const entry of SLANG) {
     const re = new RegExp(`\\b${entry.term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
     if (!re.test(lower)) continue;
-    matches.push({
+    addMatch({
       id: `slang_${entry.term}`,
       phrase: entry.term,
       notLiteral: entry.notLiteral,

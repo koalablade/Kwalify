@@ -1,0 +1,54 @@
+{
+  "domain": "activities",
+  "description": "Ritual washing away the day — heat as emotional reset.",
+  "energy_curve": "medium",
+  "emotional_arc": "running water, lighting candle maybe → submerged, eyes closed, thoughts drifting → soft skin, softer mind, bed",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "having_a_bath",
+  "name": "Having a bath",
+  "human_meaning": "Ritual washing away the day — heat as emotional reset.",
+  "common_phrases": [
+    "having a bath",
+    "in the bath",
+    "long soak",
+    "hot bath after work"
+  ],
+  "hidden_context": "Rare stillness; phone left outside the door.",
+  "emotional_states": [
+    "calm",
+    "relief",
+    "self-care"
+  ],
+  "environments": [
+    "bathroom",
+    "home"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "running water, lighting candle maybe",
+  "during_state": "submerged, eyes closed, thoughts drifting",
+  "after_state": "soft skin, softer mind, bed",
+  "musical_behaviours": [
+    "whispers",
+    "comforts",
+    "settles"
+  ],
+  "related_experiences": [
+    "shower_after_long_day",
+    "lazy_sunday"
+  ],
+  "activity": [
+    "bathing",
+    "resting"
+  ],
+  "environment": [
+    "bathroom",
+    "home"
+  ]
+}

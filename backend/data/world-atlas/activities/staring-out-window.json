@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Mind elsewhere while body stays put — weather as mood mirror.",
+  "energy_curve": "medium",
+  "emotional_arc": "restlessness or overwhelm → unfocused gaze, thoughts drifting → return to task or deeper feeling",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "staring_out_window",
+  "name": "Staring out the window",
+  "human_meaning": "Mind elsewhere while body stays put — weather as mood mirror.",
+  "common_phrases": [
+    "staring out the window",
+    "looking out the window",
+    "gazing out the window",
+    "watching the rain from inside"
+  ],
+  "hidden_context": "Not sad necessarily — just processing.",
+  "emotional_states": [
+    "reflection",
+    "melancholy",
+    "calm"
+  ],
+  "environments": [
+    "home",
+    "train",
+    "office"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "restlessness or overwhelm",
+  "during_state": "unfocused gaze, thoughts drifting",
+  "after_state": "return to task or deeper feeling",
+  "musical_behaviours": [
+    "drifts",
+    "atmospheric",
+    "settles"
+  ],
+  "related_experiences": [
+    "rain_on_windows",
+    "train_journey"
+  ],
+  "activity": [
+    "sitting",
+    "reflecting"
+  ],
+  "environment": [
+    "home",
+    "train",
+    "office"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "domain": "activities",
+  "description": "Nourishment as care — for self or for people you love.",
+  "energy_curve": "medium",
+  "emotional_arc": "choosing recipe, gathering ingredients → chopping, stirring, tasting → sharing or eating alone with pride",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "cooking",
+  "name": "Cooking",
+  "human_meaning": "Nourishment as care — for self or for people you love.",
+  "common_phrases": [
+    "cooking dinner",
+    "in the kitchen cooking",
+    "making something from scratch",
+    "Sunday cooking"
+  ],
+  "hidden_context": "Chopping as therapy; smell as memory trigger.",
+  "emotional_states": [
+    "nurturing",
+    "focus",
+    "comfort"
+  ],
+  "environments": [
+    "kitchen",
+    "home"
+  ],
+  "social_context": [
+    "alone",
+    "family"
+  ],
+  "before_state": "choosing recipe, gathering ingredients",
+  "during_state": "chopping, stirring, tasting",
+  "after_state": "sharing or eating alone with pride",
+  "musical_behaviours": [
+    "comforts",
+    "warms",
+    "grounds"
+  ],
+  "related_experiences": [
+    "sunday_roast",
+    "late_night_kitchen"
+  ],
+  "activity": [
+    "cooking"
+  ],
+  "environment": [
+    "kitchen",
+    "home"
+  ]
+}

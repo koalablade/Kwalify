@@ -1,0 +1,55 @@
+{
+  "domain": "activities",
+  "description": "Streets belong to you — sodium light and empty pavements.",
+  "energy_curve": "medium",
+  "emotional_arc": "restlessness indoors → footsteps echo, shops closed → tired enough to sleep or more awake",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "night_walk",
+  "name": "Night walk",
+  "human_meaning": "Streets belong to you — sodium light and empty pavements.",
+  "common_phrases": [
+    "night walk",
+    "walking at night",
+    "late night walk",
+    "walk after dark"
+  ],
+  "hidden_context": "Safer feeling than it should; thoughts louder.",
+  "emotional_states": [
+    "reflection",
+    "freedom",
+    "melancholy"
+  ],
+  "environments": [
+    "streets",
+    "park",
+    "suburbs"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "restlessness indoors",
+  "during_state": "footsteps echo, shops closed",
+  "after_state": "tired enough to sleep or more awake",
+  "musical_behaviours": [
+    "feels nocturnal",
+    "drifts",
+    "atmospheric"
+  ],
+  "related_experiences": [
+    "two_am_thoughts",
+    "walking_home"
+  ],
+  "activity": [
+    "walking"
+  ],
+  "environment": [
+    "streets",
+    "park",
+    "suburbs"
+  ]
+}

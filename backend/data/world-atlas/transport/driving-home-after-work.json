@@ -1,0 +1,71 @@
+{
+  "id": "driving_home_after_work",
+  "domain": "transport",
+  "name": "Driving home after work",
+  "description": "The commute back — body still in work mode, mind beginning to detach.",
+  "human_meaning": "Transition journey from public endurance to private life — the drive as decompression corridor.",
+  "emotional_states": [
+    "exhaustion",
+    "relief",
+    "reflection"
+  ],
+  "hidden_emotions": [
+    "processing the day",
+    "anticipation of rest"
+  ],
+  "sensory_details": [
+    "indicator clicks",
+    "radio low",
+    "familiar route",
+    "traffic easing"
+  ],
+  "environment": [
+    "car",
+    "commute route",
+    "suburban roads"
+  ],
+  "activity": [
+    "driving",
+    "commuting"
+  ],
+  "time_context": [
+    "after work",
+    "rush hour",
+    "early evening"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "work mode → motion → unwinding → approaching home",
+  "musical_behaviours": [
+    "floats",
+    "settles",
+    "slow burn"
+  ],
+  "related_experiences": [
+    "car_after_work_avoidance",
+    "coming_home",
+    "driving_after_stressful_day"
+  ],
+  "common_phrases": [
+    "driving home after work",
+    "commute home",
+    "drive home from work",
+    "heading home after shift",
+    "on my way home from work"
+  ],
+  "misleading_keywords": [
+    "work",
+    "office"
+  ],
+  "playlistIntents": [
+    "recover",
+    "transition"
+  ],
+  "inferredQualities": [
+    "decompression",
+    "transition",
+    "routine"
+  ]
+}

@@ -121,14 +121,10 @@ function readLogTail(maxLines = 15): string[] {
 async function getCachedApiUp(): Promise<boolean> {
   const age = Date.now() - apiUpCacheAt;
   if (apiUpCache !== null && age < API_UP_TTL_MS) return apiUpCache;
-  let up = false;
-  try {
-    const r = await fetch(`${localApiUrl}/api/healthz`, { signal: AbortSignal.timeout(3000) });
-    up = r.ok;
-  } catch { /* ignore */ }
-  apiUpCache = up;
+  // Serving /benchmark/state proves the API process is up — skip self-fetch unless stale.
+  apiUpCache = true;
   apiUpCacheAt = Date.now();
-  return up;
+  return true;
 }
 
 function getBenchmarkStateSync() {

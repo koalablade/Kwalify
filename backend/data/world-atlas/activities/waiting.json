@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Suspended between — anticipation, uncertainty, time thickening.",
+  "energy_curve": "medium",
+  "emotional_arc": "appointment, message, or person expected → checking clock, rehearsing outcomes → relief or disappointment",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "waiting",
+  "name": "Waiting",
+  "human_meaning": "Suspended between — anticipation, uncertainty, time thickening.",
+  "common_phrases": [
+    "just waiting",
+    "waiting around",
+    "killing time waiting",
+    "nothing to do but wait"
+  ],
+  "hidden_context": "Not passive — emotionally loaded.",
+  "emotional_states": [
+    "anticipation",
+    "uncertainty",
+    "restlessness"
+  ],
+  "environments": [
+    "waiting room",
+    "station",
+    "phone in hand"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "appointment, message, or person expected",
+  "during_state": "checking clock, rehearsing outcomes",
+  "after_state": "relief or disappointment",
+  "musical_behaviours": [
+    "drifts",
+    "suspends",
+    "atmospheric"
+  ],
+  "related_experiences": [
+    "waiting_for_train",
+    "waiting_for_message",
+    "hospital_waiting_room"
+  ],
+  "activity": [
+    "waiting"
+  ],
+  "environment": [
+    "waiting room",
+    "station",
+    "phone in hand"
+  ]
+}

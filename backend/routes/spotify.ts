@@ -403,7 +403,9 @@ export async function runSync(
           { userKey: userId }
         );
       } catch (err: any) {
-        logger.warn({ err, status: err?.response?.status }, "Artist genre enrichment failed; continuing sync");
+        const status = err?.response?.status;
+        const level = status === 403 ? "info" : "warn";
+        logger[level]({ err, status }, "Artist genre enrichment failed; continuing sync");
       }
       try {
         albumMetadataMap = await fetchAlbumMetadata(
@@ -412,7 +414,9 @@ export async function runSync(
           { userKey: userId }
         );
       } catch (err: any) {
-        logger.warn({ err, status: err?.response?.status }, "Album metadata enrichment failed; continuing sync");
+        const status = err?.response?.status;
+        const level = status === 403 ? "info" : "warn";
+        logger[level]({ err, status }, "Album metadata enrichment failed; continuing sync");
       }
       for (const track of newTracks) {
         const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);

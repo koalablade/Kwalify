@@ -1,0 +1,62 @@
+{
+  "id": "shower_after_long_day",
+  "domain": "home",
+  "name": "Shower after a long day",
+  "description": "Hot water washing away the day — steam, solitude, reset.",
+  "human_meaning": "Physical reset ritual — washing away the day's residue in private warmth.",
+  "emotional_states": [
+    "relief",
+    "renewal",
+    "exhaustion"
+  ],
+  "hidden_emotions": [
+    "cleansing",
+    "transition from work to self"
+  ],
+  "sensory_details": [
+    "steam",
+    "hot water",
+    "soap",
+    "echo"
+  ],
+  "environment": [
+    "bathroom",
+    "shower"
+  ],
+  "activity": [
+    "showering",
+    "washing"
+  ],
+  "time_context": [
+    "after work",
+    "evening"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "exhaustion → warmth → cleansing → renewal",
+  "musical_behaviours": [
+    "releases",
+    "breathes",
+    "renews"
+  ],
+  "related_experiences": [
+    "coming_home",
+    "tea_after_work"
+  ],
+  "common_phrases": [
+    "shower after work",
+    "long shower after a day",
+    "washing the day off",
+    "hot shower tired"
+  ],
+  "misleading_keywords": [
+    "shower gel",
+    "bathroom renovation"
+  ],
+  "playlistIntents": [
+    "recover",
+    "heal"
+  ]
+}

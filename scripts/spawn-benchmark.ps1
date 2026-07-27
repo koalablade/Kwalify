@@ -35,7 +35,9 @@ try {
   else { throw "Nothing to run." }
 
   & $ps1 @params
-  $code = if ($null -ne $LASTEXITCODE) { $LASTEXITCODE } else { 0 }
+  $code = if ($null -eq $LASTEXITCODE) { 0 }
+    elseif ($LASTEXITCODE -is [System.Array]) { [int]$LASTEXITCODE[$LASTEXITCODE.Count - 1] }
+    else { [int]$LASTEXITCODE }
   Write-SpawnLog "DONE exit=$code"
   exit $code
 } catch {

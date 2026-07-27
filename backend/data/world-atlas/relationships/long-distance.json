@@ -1,0 +1,40 @@
+{
+  "id": "long_distance",
+  "domain": "relationships",
+  "name": "Long distance relationship",
+  "description": "Love across miles — video calls, countdowns, airport reunions.",
+  "human_meaning": "Love stretched across distance — intimacy maintained through screens and countdowns.",
+  "emotional_states": [
+    "longing",
+    "hope",
+    "loneliness"
+  ],
+  "hidden_emotions": [
+    "patience",
+    "doubt"
+  ],
+  "social_context": [
+    "distant partner"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "separation → longing → connection → countdown",
+  "musical_behaviours": [
+    "aches",
+    "anticipates",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "missing_someone",
+    "airport_arrivals"
+  ],
+  "common_phrases": [
+    "long distance",
+    "miles apart",
+    "long distance relationship",
+    "far from them"
+  ],
+  "misleading_keywords": [
+    "distance running",
+    "long drive"
+  ]
+}

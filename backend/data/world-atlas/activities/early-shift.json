@@ -1,0 +1,57 @@
+{
+  "domain": "activities",
+  "description": "Up before the world — coffee as lifeline, day already half gone by lunch.",
+  "energy_curve": "medium",
+  "emotional_arc": "alarm, darkness, reluctance → functional autopilot, first coffee sacred → afternoon crash or early evening peace",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "early_shift",
+  "name": "Early shift",
+  "human_meaning": "Up before the world — coffee as lifeline, day already half gone by lunch.",
+  "common_phrases": [
+    "early shift",
+    "starting early",
+    "up before dawn for work",
+    "early start at work"
+  ],
+  "hidden_context": "Borrowed morning quiet that nobody else shares.",
+  "emotional_states": [
+    "determination",
+    "tiredness",
+    "resolve"
+  ],
+  "environments": [
+    "workplace",
+    "dawn streets",
+    "kitchen"
+  ],
+  "social_context": [
+    "alone",
+    "early colleagues"
+  ],
+  "before_state": "alarm, darkness, reluctance",
+  "during_state": "functional autopilot, first coffee sacred",
+  "after_state": "afternoon crash or early evening peace",
+  "musical_behaviours": [
+    "builds gently",
+    "grounds",
+    "motivates softly"
+  ],
+  "related_experiences": [
+    "monday_morning",
+    "commute"
+  ],
+  "activity": [
+    "working",
+    "commuting"
+  ],
+  "environment": [
+    "workplace",
+    "dawn streets",
+    "kitchen"
+  ]
+}

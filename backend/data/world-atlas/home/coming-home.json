@@ -1,0 +1,79 @@
+{
+  "id": "coming_home",
+  "domain": "home",
+  "name": "Coming home",
+  "description": "Keys in the lock, familiar smells, shedding the outside world at the threshold.",
+  "human_meaning": "The threshold moment — shedding the outside world and reclaiming private safety after endurance.",
+  "emotional_states": [
+    "Relief and decompression — the private space reclaims you after public endurance."
+  ],
+  "hidden_emotions": [
+    "exhaustion",
+    "relief",
+    "decompression"
+  ],
+  "sensory_details": [
+    "door closing",
+    "familiar room temperature",
+    "shoes off",
+    "quiet after noise"
+  ],
+  "environment": [
+    "home",
+    "doorway",
+    "hallway"
+  ],
+  "activity": [
+    "arriving",
+    "unwinding"
+  ],
+  "time_context": [],
+  "weather_context": [],
+  "social_context": [
+    "alone",
+    "private"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "arrival → shedding → safety → rest",
+  "musical_behaviours": [
+    "comforts",
+    "settles",
+    "releases"
+  ],
+  "related_experiences": [
+    "tea_after_work",
+    "first_apartment",
+    "motorway_at_night"
+  ],
+  "common_phrases": [
+    "coming home",
+    "got home",
+    "finally got home",
+    "arrived home",
+    "back home",
+    "getting home",
+    "walked in the door"
+  ],
+  "misleading_keywords": [
+    "leaving home",
+    "away from home"
+  ],
+  "playlistIntents": [
+    "recover",
+    "relax",
+    "heal"
+  ],
+  "inferredQualities": [
+    "relief",
+    "safety",
+    "decompression",
+    "private space",
+    "low stimulation"
+  ],
+  "nearbyConcepts": [
+    "home",
+    "recovery",
+    "transition",
+    "exhaustion"
+  ]
+}

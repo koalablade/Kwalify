@@ -1,0 +1,52 @@
+{
+  "id": "two_am_thoughts",
+  "domain": "time",
+  "name": "2am private thoughts",
+  "description": "The hour when defences are down and truth arrives uninvited.",
+  "human_meaning": "Nocturnal honesty — the hour when thoughts you'd suppress in daylight arrive uninvited.",
+  "emotional_states": [
+    "introspection",
+    "anxiety",
+    "clarity"
+  ],
+  "hidden_emotions": [
+    "vulnerability",
+    "loneliness",
+    "truth"
+  ],
+  "time_context": [
+    "2am",
+    "late night",
+    "can't sleep"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "wakefulness → spiral → clarity → dawn hope",
+  "musical_behaviours": [
+    "whispers",
+    "breathes",
+    "feels intimate"
+  ],
+  "related_experiences": [
+    "cant_sleep",
+    "late_night_kitchen",
+    "everyone_asleep"
+  ],
+  "common_phrases": [
+    "2am thoughts",
+    "can't sleep thinking",
+    "up at 2am",
+    "middle of the night thoughts",
+    "insomnia thoughts"
+  ],
+  "misleading_keywords": [
+    "2am club",
+    "late night food delivery"
+  ],
+  "playlistIntents": [
+    "process",
+    "reflect"
+  ]
+}

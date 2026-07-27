@@ -1,0 +1,51 @@
+{
+  "id": "sunday_roast",
+  "domain": "british-life",
+  "name": "Sunday roast",
+  "description": "Yorkshire puddings, family table, the week's anchor meal.",
+  "human_meaning": "Weekly anchor ritual — Sunday roast as the fixed point in a moving week.",
+  "emotional_states": [
+    "warmth",
+    "contentment",
+    "nostalgia"
+  ],
+  "hidden_emotions": [
+    "family belonging",
+    "tradition"
+  ],
+  "environment": [
+    "dining table",
+    "home"
+  ],
+  "activity": [
+    "eating",
+    "cooking"
+  ],
+  "time_context": [
+    "Sunday afternoon"
+  ],
+  "social_context": [
+    "family"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "anticipation → gathering → fullness → ease",
+  "musical_behaviours": [
+    "comforts",
+    "feels warm",
+    "grounds"
+  ],
+  "related_experiences": [
+    "family_gathering",
+    "lazy_sunday"
+  ],
+  "common_phrases": [
+    "sunday roast",
+    "roast dinner",
+    "sunday dinner",
+    "yorkshire puddings"
+  ],
+  "misleading_keywords": [
+    "roast",
+    "roasting"
+  ]
+}

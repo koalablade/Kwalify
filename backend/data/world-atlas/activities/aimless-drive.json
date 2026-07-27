@@ -1,0 +1,59 @@
+{
+  "domain": "activities",
+  "description": "No destination — motion as thought, radio as companion.",
+  "energy_curve": "medium",
+  "emotional_arc": "need to leave the house → familiar roads, wrong turns okay → return or find somewhere to stop",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "aimless_drive",
+  "name": "Aimless drive",
+  "human_meaning": "No destination — motion as thought, radio as companion.",
+  "common_phrases": [
+    "aimless drive",
+    "driving nowhere",
+    "just driving around",
+    "drove around for ages"
+  ],
+  "hidden_context": "Avoidance or processing disguised as petrol use.",
+  "emotional_states": [
+    "reflection",
+    "freedom",
+    "restlessness"
+  ],
+  "environments": [
+    "car",
+    "roads",
+    "suburbs"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "need to leave the house",
+  "during_state": "familiar roads, wrong turns okay",
+  "after_state": "return or find somewhere to stop",
+  "musical_behaviours": [
+    "drifts",
+    "cruises",
+    "atmospheric"
+  ],
+  "related_experiences": [
+    "countryside_drive",
+    "coastal_drive"
+  ],
+  "activity": [
+    "driving"
+  ],
+  "playlistIntents": [
+    "drive",
+    "process"
+  ],
+  "environment": [
+    "car",
+    "roads",
+    "suburbs"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "id": "waiting_for_message",
+  "domain": "relationships",
+  "name": "Waiting for a message",
+  "description": "Phone in hand, checking, the agony of read receipts.",
+  "human_meaning": "Digital anticipation agony — the phone as oracle for whether they care.",
+  "emotional_states": [
+    "anxiety",
+    "hope",
+    "restlessness"
+  ],
+  "hidden_emotions": [
+    "insecurity",
+    "need for validation"
+  ],
+  "activity": [
+    "checking phone",
+    "waiting"
+  ],
+  "social_context": [
+    "crush",
+    "new relationship"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "send → wait → check → spiral or relief",
+  "musical_behaviours": [
+    "simmers",
+    "restless",
+    "anticipates"
+  ],
+  "related_experiences": [
+    "first_date",
+    "falling_in_love"
+  ],
+  "common_phrases": [
+    "waiting for a text",
+    "waiting for them to reply",
+    "checking my phone",
+    "left on read",
+    "will they message"
+  ],
+  "misleading_keywords": [
+    "message in a bottle",
+    "voicemail"
+  ]
+}

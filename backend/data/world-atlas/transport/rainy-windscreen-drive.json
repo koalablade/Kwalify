@@ -1,0 +1,70 @@
+{
+  "id": "rainy_windscreen_drive",
+  "domain": "transport",
+  "name": "Rainy windscreen drive",
+  "description": "Driving in rain with world reduced to glass and wipers — enclosed motion.",
+  "human_meaning": "Enclosed safety in motion — rain on glass creates a private bubble for reflection while moving.",
+  "emotional_states": [
+    "reflection",
+    "melancholy",
+    "calm"
+  ],
+  "hidden_emotions": [
+    "isolation",
+    "transition",
+    "processing"
+  ],
+  "sensory_details": [
+    "wiper rhythm",
+    "rain streaks",
+    "muted world",
+    "heated air"
+  ],
+  "environment": [
+    "car",
+    "rainy road"
+  ],
+  "activity": [
+    "driving"
+  ],
+  "weather_context": [
+    "rain on windscreen",
+    "wet roads"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "enclosure → motion → introspection → arrival",
+  "musical_behaviours": [
+    "breathes",
+    "feels cinematic",
+    "floats"
+  ],
+  "related_experiences": [
+    "motorway_at_night",
+    "driving_after_stressful_day",
+    "rain_on_windows"
+  ],
+  "common_phrases": [
+    "rain on the windscreen",
+    "driving in the rain",
+    "rain on glass driving",
+    "wipers and rain",
+    "rainy drive home"
+  ],
+  "misleading_keywords": [
+    "rain",
+    "raining",
+    "weather"
+  ],
+  "playlistIntents": [
+    "recover",
+    "reflect"
+  ],
+  "inferredQualities": [
+    "enclosed reflection",
+    "transition",
+    "melancholic comfort"
+  ]
+}

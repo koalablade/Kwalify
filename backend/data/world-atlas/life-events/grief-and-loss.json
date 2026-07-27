@@ -1,0 +1,45 @@
+{
+  "id": "grief_and_loss",
+  "domain": "life-events",
+  "name": "Grief and loss",
+  "description": "The world continues while yours has stopped — ordinary moments feel obscene.",
+  "human_meaning": "Grief's alien landscape — the world keeps moving while yours has stopped.",
+  "emotional_states": [
+    "grief",
+    "numbness",
+    "sadness"
+  ],
+  "hidden_emotions": [
+    "disbelief",
+    "anger",
+    "love"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "shock → numbness → waves → slow acceptance",
+  "musical_behaviours": [
+    "aches",
+    "breathes",
+    "holds space"
+  ],
+  "related_experiences": [
+    "goodbye_neighbourhood",
+    "heartbreak"
+  ],
+  "common_phrases": [
+    "grief",
+    "loss",
+    "someone died",
+    "passed away",
+    "mourning",
+    "funeral"
+  ],
+  "misleading_keywords": [
+    "lost keys",
+    "lost phone"
+  ],
+  "playlistIntents": [
+    "cry",
+    "heal",
+    "remember"
+  ]
+}

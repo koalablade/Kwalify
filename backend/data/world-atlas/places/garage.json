@@ -1,0 +1,65 @@
+{
+  "id": "garage",
+  "domain": "places",
+  "name": "In the garage",
+  "description": "Smell of oil and old wood — hands busy, mind quiet.",
+  "human_meaning": "Workshop sanctuary — nostalgia, restoration, solitude, and creativity under one roof.",
+  "emotional_states": [
+    "focus",
+    "nostalgia",
+    "solitude"
+  ],
+  "hidden_emotions": [
+    "pride",
+    "patience",
+    "escape"
+  ],
+  "environment": [
+    "garage",
+    "shed",
+    "workshop"
+  ],
+  "activity": [
+    "restoring",
+    "fixing",
+    "working with hands"
+  ],
+  "social_context": [
+    "alone",
+    "with mate"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "enter → focus → hands busy → quiet satisfaction",
+  "musical_behaviours": [
+    "grounds",
+    "nostalgic warmth",
+    "builds"
+  ],
+  "related_experiences": [
+    "restoring_cars",
+    "fixing_things",
+    "diy"
+  ],
+  "common_phrases": [
+    "in the garage",
+    "working in the garage",
+    "garage project",
+    "weekend in the garage",
+    "shed tinkering"
+  ],
+  "misleading_keywords": [
+    "garage band",
+    "garage sale",
+    "parking garage"
+  ],
+  "playlistIntents": [
+    "focus",
+    "process"
+  ],
+  "inferredQualities": [
+    "hands-on creativity",
+    "solitude",
+    "nostalgia",
+    "restoration"
+  ]
+}

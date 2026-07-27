@@ -1,0 +1,50 @@
+{
+  "id": "waiting_for_train",
+  "domain": "transport",
+  "name": "Waiting for the train",
+  "description": "Platform anticipation — alone with thoughts before departure.",
+  "human_meaning": "Limbo anticipation — suspended between where you were and where you're going.",
+  "emotional_states": [
+    "anticipation",
+    "restlessness",
+    "reflection"
+  ],
+  "hidden_emotions": [
+    "transition",
+    "uncertainty"
+  ],
+  "environment": [
+    "train platform",
+    "station"
+  ],
+  "activity": [
+    "waiting"
+  ],
+  "time_context": [
+    "commute",
+    "travel"
+  ],
+  "social_context": [
+    "alone",
+    "crowd"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "waiting → anticipation → boarding → departure",
+  "musical_behaviours": [
+    "simmers",
+    "builds",
+    "anticipates"
+  ],
+  "related_experiences": [
+    "train_journey"
+  ],
+  "common_phrases": [
+    "waiting for the train",
+    "on the platform",
+    "train delayed",
+    "waiting at the station"
+  ],
+  "misleading_keywords": [
+    "trainspotting"
+  ]
+}

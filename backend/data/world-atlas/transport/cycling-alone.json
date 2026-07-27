@@ -1,0 +1,48 @@
+{
+  "id": "cycling_alone",
+  "domain": "transport",
+  "name": "Cycling alone",
+  "description": "Pedalling through quiet streets or lanes — rhythmic solitude.",
+  "human_meaning": "Rhythmic solitude on two wheels — body working, mind freed by repetitive motion.",
+  "emotional_states": [
+    "calm",
+    "freedom",
+    "focus"
+  ],
+  "hidden_emotions": [
+    "meditation",
+    "independence"
+  ],
+  "environment": [
+    "cycle path",
+    "quiet roads",
+    "park"
+  ],
+  "activity": [
+    "cycling"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "energy_curve": "medium",
+  "emotional_arc": "push → rhythm → flow → ease",
+  "musical_behaviours": [
+    "drives forward",
+    "paces",
+    "feels light"
+  ],
+  "related_experiences": [
+    "countryside_drive",
+    "summer_evening"
+  ],
+  "common_phrases": [
+    "cycling alone",
+    "bike ride alone",
+    "cycling at night",
+    "solo bike ride"
+  ],
+  "misleading_keywords": [
+    "cycle race",
+    "tour de france"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "id": "promotion",
+  "domain": "life-events",
+  "name": "Promotion at work",
+  "description": "Recognition arrived — pride mixed with new pressure.",
+  "human_meaning": "Validated ambition — the moment effort becomes official recognition.",
+  "emotional_states": [
+    "pride",
+    "joy",
+    "pressure"
+  ],
+  "hidden_emotions": [
+    "imposter feelings",
+    "new responsibility"
+  ],
+  "environment": [
+    "office",
+    "work"
+  ],
+  "energy_curve": "high",
+  "emotional_arc": "news → disbelief → pride → new weight",
+  "musical_behaviours": [
+    "lifts",
+    "swells",
+    "feels triumphant"
+  ],
+  "related_experiences": [
+    "personal_win",
+    "first_job"
+  ],
+  "common_phrases": [
+    "got promoted",
+    "promotion",
+    "new role at work",
+    "they promoted me"
+  ],
+  "misleading_keywords": [
+    "promotional",
+    "advert"
+  ],
+  "playlistIntents": [
+    "celebrate"
+  ]
+}

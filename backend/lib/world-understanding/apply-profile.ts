@@ -65,5 +65,42 @@ export function applyWorldUnderstandingToProfile(
     next.motionState = "moving";
   }
 
+  const fp = world.semanticMoment;
+  if (fp && fp.confidence >= 0.3) {
+    if (!next.timeOfDay && fp.time.values.some((t) => /night|midnight|late/i.test(t))) {
+      next.timeOfDay = "night";
+    }
+    if (!next.environment && fp.environment.values.length > 0) {
+      const env = fp.environment.values[0].toLowerCase();
+      if (/car|motorway|drive|road/i.test(env)) next.environment = "car";
+      else if (/home|bedroom|flat|house/i.test(env)) next.environment = "home";
+      else if (/train|rail/i.test(env)) next.environment = "train";
+    }
+    next.energy = lerp(next.energy, fp.playlistBehaviour.energy);
+  }
+
+  const hx = world.humanExperience;
+  if (hx && hx.playlistIntentConfidence >= 0.5) {
+    const hxWeight = w * 0.45;
+    if (hx.playlistIntent === "recover" || hx.playlistIntent === "relax") {
+      next.calm = lerp(next.calm, 0.75);
+      next.tension = lerp(next.tension, 0.25);
+      next.energy = lerp(next.energy, Math.min(next.energy, 0.45));
+    }
+    if (hx.playlistIntent === "remember" || hx.playlistIntent === "nostalgia") {
+      next.nostalgia = lerp(next.nostalgia, 0.72);
+    }
+    if (hx.inferredQualities.some((q) => /relief|safety|decompression/i.test(q))) {
+      next.valence = lerp(next.valence, 0.58);
+      next.calm = lerp(next.calm, 0.7);
+    }
+    if (world.emotionalArc?.phases.length) {
+      const opening = world.emotionalArc.phases[0]?.emotion ?? "";
+      if (/exhaustion|grief|stress/i.test(opening)) {
+        next.energy = lerp(next.energy, 0.35);
+      }
+    }
+  }
+
   return next;
 }

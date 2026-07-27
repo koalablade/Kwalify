@@ -79,8 +79,8 @@ function Start-BenchmarkProcess {
     $err = "Could not start benchmark window."
     if (Test-Path -LiteralPath $statusPath) {
       try {
-        $st = Get-Content -LiteralPath $statusPath -Raw | ConvertFrom-Json
-        if ($st.error) { $err = [string]$st.error }
+        $st = Read-JsonFileUtf8 $statusPath
+        if ($st -and $st.error) { $err = [string]$st.error }
       } catch {}
     }
     throw $err
@@ -90,14 +90,14 @@ function Start-BenchmarkProcess {
 function Get-LauncherLiveState {
   $livePath = Join-Path $script:LauncherRoot "reports\benchmark-live.json"
   if (-not (Test-Path -LiteralPath $livePath)) { return $null }
-  try { return Get-Content -LiteralPath $livePath -Raw | ConvertFrom-Json } catch { return $null }
+  try { return Read-JsonFileUtf8 $livePath } catch { return $null }
 }
 
 function Get-LauncherHistoryPreview {
   $path = Join-Path $script:LauncherRoot "reports\benchmark-history.json"
   if (-not (Test-Path -LiteralPath $path)) { return @() }
   try {
-    $rows = @(Get-Content -LiteralPath $path -Raw | ConvertFrom-Json)
+    $rows = @(Read-JsonFileUtf8 $path)
     return @($rows | Select-Object -First 5)
   } catch { return @() }
 }
@@ -251,8 +251,8 @@ function Invoke-LauncherRun {
   $statusPath = Join-Path $script:LauncherRoot "reports\benchmark-last-spawn.json"
   if (Test-Path -LiteralPath $statusPath) {
     try {
-      $st = Get-Content -LiteralPath $statusPath -Raw | ConvertFrom-Json
-      if ($st.pid) { $spawnPid = [int]$st.pid }
+      $st = Read-JsonFileUtf8 $statusPath
+      if ($st -and $st.pid) { $spawnPid = [int]$st.pid }
     } catch {}
   }
 

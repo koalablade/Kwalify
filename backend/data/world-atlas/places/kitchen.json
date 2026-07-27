@@ -1,0 +1,23 @@
+{
+  "id": "kitchen",
+  "domain": "places",
+  "name": "The kitchen",
+  "description": "Heart of the home — kettle, chopping board, the room everyone passes through.",
+  "human_meaning": "Domestic centre — nourishment, ritual, and the unofficial family meeting point.",
+  "emotional_states": ["comfort", "warmth", "routine"],
+  "hidden_emotions": ["nurturing", "safety"],
+  "environment": ["kitchen", "home"],
+  "activity": ["cooking", "making tea"],
+  "social_context": ["family", "alone"],
+  "energy_curve": "medium",
+  "emotional_arc": "enter → ritual → warmth → satisfaction",
+  "musical_behaviours": ["comforts", "warms", "grounds"],
+  "related_experiences": ["cuppa", "late_night_kitchen", "cooking"],
+  "common_phrases": [
+    "in the kitchen",
+    "kitchen at night",
+    "standing in the kitchen",
+    "kitchen table"
+  ],
+  "misleading_keywords": ["kitchen sink drama"]
+}

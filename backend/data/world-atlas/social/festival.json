@@ -1,0 +1,55 @@
+{
+  "id": "festival",
+  "domain": "social",
+  "name": "Festival",
+  "description": "Fields, stages, temporary community — living in music for a weekend.",
+  "human_meaning": "Temporary utopia — a field where strangers become family for three days.",
+  "emotional_states": [
+    "euphoria",
+    "freedom",
+    "joy"
+  ],
+  "hidden_emotions": [
+    "belonging",
+    "escape from ordinary"
+  ],
+  "environment": [
+    "festival field",
+    "stage",
+    "camp"
+  ],
+  "activity": [
+    "dancing",
+    "camping",
+    "watching bands"
+  ],
+  "social_context": [
+    "crowd",
+    "friends"
+  ],
+  "energy_curve": "high",
+  "emotional_arc": "arrival → discovery → peak → sunset memory",
+  "musical_behaviours": [
+    "pulses",
+    "lifts",
+    "drives forward"
+  ],
+  "related_experiences": [
+    "concert",
+    "party_night"
+  ],
+  "common_phrases": [
+    "festival",
+    "music festival",
+    "at a festival",
+    "festival weekend"
+  ],
+  "misleading_keywords": [
+    "film festival",
+    "food festival"
+  ],
+  "playlistIntents": [
+    "celebrate",
+    "drive"
+  ]
+}

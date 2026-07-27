@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Seeing differently — framing moments before they pass.",
+  "energy_curve": "medium",
+  "emotional_arc": "checking light, charging battery → crouching, waiting, clicking → reviewing shots, small thrills",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "photography",
+  "name": "Photography",
+  "human_meaning": "Seeing differently — framing moments before they pass.",
+  "common_phrases": [
+    "out taking photos",
+    "photography walk",
+    "shooting on my camera",
+    "golden hour photos"
+  ],
+  "hidden_context": "Excuse to linger and notice.",
+  "emotional_states": [
+    "curiosity",
+    "focus",
+    "wonder"
+  ],
+  "environments": [
+    "streets",
+    "countryside",
+    "city"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "checking light, charging battery",
+  "during_state": "crouching, waiting, clicking",
+  "after_state": "reviewing shots, small thrills",
+  "musical_behaviours": [
+    "opens",
+    "atmospheric",
+    "discovers"
+  ],
+  "related_experiences": [
+    "exploring",
+    "summer_evening"
+  ],
+  "activity": [
+    "photographing",
+    "walking"
+  ],
+  "environment": [
+    "streets",
+    "countryside",
+    "city"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "id": "lazy_sunday",
+  "domain": "home",
+  "name": "Lazy Sunday",
+  "description": "No plans, nowhere to be — the luxury of unstructured time at home.",
+  "human_meaning": "Permission to do nothing — Sunday as sacred unstructured time.",
+  "emotional_states": [
+    "contentment",
+    "peace",
+    "ease"
+  ],
+  "hidden_emotions": [
+    "guilt-free rest",
+    "domestic comfort"
+  ],
+  "environment": [
+    "home",
+    "bed",
+    "living room"
+  ],
+  "activity": [
+    "resting",
+    "reading",
+    "nothing"
+  ],
+  "time_context": [
+    "Sunday morning",
+    "Sunday afternoon"
+  ],
+  "social_context": [
+    "alone",
+    "family"
+  ],
+  "energy_curve": "low",
+  "emotional_arc": "slow waking → ease → drift → gentle evening",
+  "musical_behaviours": [
+    "comforts",
+    "floats",
+    "settles"
+  ],
+  "related_experiences": [
+    "sunday_morning",
+    "sitting_on_sofa",
+    "rainy_day_indoors"
+  ],
+  "common_phrases": [
+    "lazy sunday",
+    "sunday morning in bed",
+    "nothing planned sunday",
+    "proper lazy day"
+  ],
+  "misleading_keywords": [
+    "sunday roast",
+    "church"
+  ],
+  "playlistIntents": [
+    "relax"
+  ]
+}

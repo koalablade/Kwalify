@@ -1,0 +1,60 @@
+{
+  "domain": "activities",
+  "description": "The liminal hour — neither worker nor fully self yet.",
+  "energy_curve": "medium",
+  "emotional_arc": "still in work mode → staring out window, headphones in → arrival, threshold crossing",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "commute_home",
+  "name": "Commute home",
+  "human_meaning": "The liminal hour — neither worker nor fully self yet.",
+  "common_phrases": [
+    "commute home",
+    "heading home from work",
+    "on the way home from work",
+    "journey home from work"
+  ],
+  "hidden_context": "Decompression corridor between roles.",
+  "emotional_states": [
+    "transition",
+    "exhaustion",
+    "anticipation"
+  ],
+  "environments": [
+    "train",
+    "bus",
+    "car",
+    "tube"
+  ],
+  "social_context": [
+    "strangers",
+    "alone in crowd"
+  ],
+  "before_state": "still in work mode",
+  "during_state": "staring out window, headphones in",
+  "after_state": "arrival, threshold crossing",
+  "musical_behaviours": [
+    "drifts",
+    "settles",
+    "transitions"
+  ],
+  "related_experiences": [
+    "train_journey",
+    "driving_home_after_work",
+    "waiting_for_train"
+  ],
+  "activity": [
+    "commuting",
+    "travelling"
+  ],
+  "environment": [
+    "train",
+    "bus",
+    "car",
+    "tube"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "id": "countryside_drive",
+  "domain": "transport",
+  "name": "Countryside drive",
+  "description": "Narrow lanes, hedgerows, villages passing — pastoral motion.",
+  "human_meaning": "Slow pastoral escape — leaving the city behind for green lanes and breathing space.",
+  "emotional_states": [
+    "calm",
+    "contentment",
+    "nostalgia"
+  ],
+  "hidden_emotions": [
+    "escape from urban",
+    "grounding"
+  ],
+  "environment": [
+    "country lanes",
+    "fields",
+    "villages"
+  ],
+  "activity": [
+    "driving",
+    "exploring"
+  ],
+  "energy_curve": "low-medium",
+  "emotional_arc": "urban tension → green space → ease",
+  "musical_behaviours": [
+    "floats",
+    "feels warm",
+    "settles"
+  ],
+  "related_experiences": [
+    "road_trip",
+    "coastal_drive"
+  ],
+  "common_phrases": [
+    "countryside drive",
+    "driving through the countryside",
+    "country lanes",
+    "driving through fields",
+    "rural drive"
+  ],
+  "misleading_keywords": [
+    "farm",
+    "tractor"
+  ]
+}

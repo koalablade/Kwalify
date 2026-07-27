@@ -1,0 +1,56 @@
+{
+  "domain": "activities",
+  "description": "Thumb on glass, mind in freefall — knowing you should stop, not stopping.",
+  "energy_curve": "medium",
+  "emotional_arc": "intending five minutes → bad news, comparison, hours gone → empty, wired, ashamed",
+  "misleading_keywords": [
+    "tutorial",
+    "how to",
+    "buy",
+    "shop"
+  ],
+  "id": "doom_scrolling",
+  "name": "Doom scrolling",
+  "human_meaning": "Thumb on glass, mind in freefall — knowing you should stop, not stopping.",
+  "common_phrases": [
+    "doom scrolling",
+    "scrolling endlessly",
+    "can't stop scrolling",
+    "lost in my phone"
+  ],
+  "hidden_context": "Anxiety dressed as information.",
+  "emotional_states": [
+    "anxiety",
+    "numbness",
+    "restlessness"
+  ],
+  "environments": [
+    "bed",
+    "sofa",
+    "toilet"
+  ],
+  "social_context": [
+    "alone"
+  ],
+  "before_state": "intending five minutes",
+  "during_state": "bad news, comparison, hours gone",
+  "after_state": "empty, wired, ashamed",
+  "musical_behaviours": [
+    "drifts",
+    "sparse",
+    "settles"
+  ],
+  "related_experiences": [
+    "lying_awake",
+    "procrastinating"
+  ],
+  "activity": [
+    "scrolling",
+    "phone use"
+  ],
+  "environment": [
+    "bed",
+    "sofa",
+    "toilet"
+  ]
+}
