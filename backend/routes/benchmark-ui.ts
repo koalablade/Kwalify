@@ -319,7 +319,7 @@ router.post("/benchmark/chat", requireBenchmarkAuth, async (req, res) => {
   res.json(data);
 });
 
-router.get("/benchmark/open-reports", (_req, res) => {
+router.get("/benchmark/open-reports", requireBenchmarkAuth, (_req, res) => {
   if (process.platform === "win32" && fs.existsSync(reportsDir)) {
     try {
       spawn("explorer.exe", [reportsDir], { detached: true, stdio: "ignore", windowsHide: true }).unref();

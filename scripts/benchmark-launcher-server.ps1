@@ -17,6 +17,10 @@ $benchmarkUrl = Get-BenchmarkWebUrl
 $localBenchmark = "http://127.0.0.1:5000/benchmark"
 $publicBenchmark = $benchmarkUrl
 
+function Get-RedirectTarget {
+  return $benchmarkUrl
+}
+
 Write-Host ""
 Write-Host "  Benchmark on the main site:" -ForegroundColor Yellow
 Write-Host "  $benchmarkUrl" -ForegroundColor Green

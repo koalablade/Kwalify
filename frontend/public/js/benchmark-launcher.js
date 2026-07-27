@@ -15,6 +15,17 @@ if (location.port === '5055') {
 const LAUNCHER_VERSION = '2';
 const onMainServer = true;
 const API = '/api/benchmark';
+
+function esc(s) {
+  if (s == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+function setHtml(el, html) {
+  if (el) el.innerHTML = html;
+}
     let state = {};
     let serverOk = false;
     let busy = false;
@@ -44,7 +55,7 @@ const API = '/api/benchmark';
       b.innerHTML = reason || (
         '<strong>Benchmark API not reachable.</strong><br>' +
         'Run <strong>start.bat</strong>, then open <strong>https://kwalify.net/benchmark</strong>.' +
-        (wrongPage ? `<br><span style="color:#fca5a5">You are on: ${here}</span>` : '')
+        (wrongPage ? `<br><span style="color:#fca5a5">You are on: ${esc(here)}</span>` : '')
       );
       const pill = document.getElementById('pill-bench-api');
       pill.textContent = 'API down';
@@ -99,7 +110,7 @@ const API = '/api/benchmark';
       const log = document.getElementById('chat-log');
       const d = document.createElement('div');
       d.className = 'msg ' + who + (isErr ? ' err' : '');
-      d.innerHTML = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      d.innerHTML = esc(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
       log.appendChild(d);
       log.scrollTop = log.scrollHeight;
     }
@@ -197,7 +208,7 @@ async function api(path, opts = {}) {
         if (b.action) data = `data-action="${b.action}"`;
         else if (b.suite) data = `data-suite="${b.suite}"`;
         else data = `data-req="${b.request || ''}"`;
-        return `<button class="${cls}" ${data}><strong>${b.label}</strong><span>${b.sub || ''}</span></button>`;
+        return `<button class="${cls}" ${data}><strong>${esc(b.label)}</strong><span>${esc(b.sub || '')}</span></button>`;
       }).join('');
       el.querySelectorAll('button').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -283,8 +294,8 @@ async function api(path, opts = {}) {
       if (s.history && s.history.length) {
         hist.innerHTML = s.history.map((h) =>
           `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line)">
-            <span class="save">${fmtRate(h.wouldSaveRate)}</span> SAVE ${h.SAVE ?? '—'} · ${h.label || h.runId}<br>
-            <span style="font-size:11px">${new Date(h.finishedAt).toLocaleString()}</span>
+            <span class="save">${fmtRate(h.wouldSaveRate)}</span> SAVE ${h.SAVE ?? '—'} · ${esc(h.label || h.runId)}<br>
+            <span style="font-size:11px">${esc(new Date(h.finishedAt).toLocaleString())}</span>
           </div>`
         ).join('');
       }
@@ -295,10 +306,10 @@ async function api(path, opts = {}) {
       if (saved && Object.keys(saved).length) {
         card.style.display = 'block';
         chips.innerHTML = Object.keys(saved).map((k) =>
-          `<button class="chip" data-req="run ${k} yes">${k}</button>`
+          `<button class="chip" data-preset="${esc(k)}">${esc(k)}</button>`
         ).join('');
         chips.querySelectorAll('.chip').forEach((c) => {
-          c.addEventListener('click', () => runRequest(c.dataset.req));
+          c.addEventListener('click', () => runRequest('run ' + c.dataset.preset + ' yes'));
         });
       }
 
@@ -359,9 +370,9 @@ async function api(path, opts = {}) {
         tbody.innerHTML = '<tr><td colspan="5" style="color:var(--dim)">No results yet</td></tr>';
       } else {
         tbody.innerHTML = recent.slice().reverse().map((r) =>
-          '<tr><td>' + r.id + '</td><td>' + (r.prompt || '') + '</td>' +
-          '<td class="verdict-' + r.verdict + '">' + r.verdict + '</td>' +
-          '<td>' + r.tracks + '/' + r.asked + (r.underfilled ? ' !' : '') + '</td>' +
+          '<tr><td>' + esc(r.id) + '</td><td>' + esc(r.prompt || '') + '</td>' +
+          '<td class="verdict-' + esc(r.verdict) + '">' + esc(r.verdict) + '</td>' +
+          '<td>' + esc(r.tracks) + '/' + esc(r.asked) + (r.underfilled ? ' !' : '') + '</td>' +
           '<td>' + (r.ms ? (r.ms / 1000).toFixed(1) + 's' : '—') + '</td></tr>'
         ).join('');
       }

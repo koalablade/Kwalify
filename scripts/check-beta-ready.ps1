@@ -57,7 +57,8 @@ $tunnelPid = Join-Path $Root "reports\.cloudflared.pid"
 $tunnelRunning = $false
 $pidVal = $null
 if (Test-Path $tunnelPid) {
-  $pidVal = Get-Content $tunnelPid -ErrorAction SilentlyContinue
+  $pidVal = (Get-Content $tunnelPid -ErrorAction SilentlyContinue | Select-Object -First 1)
+  if ($pidVal) { $pidVal = $pidVal.ToString().Trim() }
   $tunnelRunning = $pidVal -and (Get-Process -Id $pidVal -ErrorAction SilentlyContinue)
 }
 if (-not $tunnelRunning) {
@@ -78,20 +79,21 @@ Row "API server running (port 5000)" $apiUp $(if (-not $apiUp) { "Run: Start Kwa
 # Key frontend routes
 $statusRouteOk = $false
 $settingsRouteOk = $false
+$benchmarkRouteOk = $false
 if ($apiUp) {
   try {
-    $statusRouteOk = (Invoke-WebRequest "http://localhost:5000/status" -UseBasicParsing -TimeoutSec 3).StatusCode -eq 200
-  } catch {
-    try { $statusRouteOk = (Invoke-WebRequest "http://localhost:5000/status" -UseBasicParsing -MaximumRedirection 5 -TimeoutSec 5).StatusCode -eq 200 } catch {}
-  }
+    $statusRouteOk = (Invoke-WebRequest "http://127.0.0.1:5000/status" -UseBasicParsing -TimeoutSec 3).StatusCode -eq 200
+  } catch {}
   try {
-    $settingsRouteOk = (Invoke-WebRequest "http://localhost:5000/settings" -UseBasicParsing -TimeoutSec 3).StatusCode -eq 200
-  } catch {
-    try { $settingsRouteOk = (Invoke-WebRequest "http://localhost:5000/settings" -UseBasicParsing -MaximumRedirection 5 -TimeoutSec 5).StatusCode -eq 200 } catch {}
-  }
+    $settingsRouteOk = (Invoke-WebRequest "http://127.0.0.1:5000/settings" -UseBasicParsing -TimeoutSec 3).StatusCode -eq 200
+  } catch {}
+  try {
+    $benchmarkRouteOk = (Invoke-WebRequest "http://127.0.0.1:5000/benchmark" -UseBasicParsing -TimeoutSec 3).StatusCode -eq 200
+  } catch {}
 }
 Row "/status page route" $statusRouteOk $(if (-not $statusRouteOk) { "Stop then Start Kwalify to load latest build" } else { "OK" })
 Row "/settings page route" $settingsRouteOk $(if (-not $settingsRouteOk) { "Stop then Start Kwalify to load latest build" } else { "OK" })
+Row "/benchmark page route" $benchmarkRouteOk $(if (-not $benchmarkRouteOk) { "Stop then Start Kwalify to load latest build" } else { "OK" })
 
 # Public HTTPS
 $publicOk = $false
@@ -111,7 +113,7 @@ if ($appUrl) {
     $localHttpsOk = $publicOk
     if ($apiUp -and $publicOk) {
       try {
-        $local = Invoke-RestMethod "http://localhost:5000/api/readyz" -TimeoutSec 3
+        $local = Invoke-RestMethod "http://127.0.0.1:5000/api/readyz" -TimeoutSec 3
         if ($local.uptimeMs -and $pub.uptimeMs -and [math]::Abs($local.uptimeMs - $pub.uptimeMs) -gt 120000) {
           $publicOk = $false
           WarnRow "DNS routing" "kwalify.net points at a different server - run fix-cloudflare-dns.bat"
@@ -119,15 +121,17 @@ if ($appUrl) {
       } catch {}
     }
   } catch {}
-}
-if ($tunnelRunning -and $publicOk) {
-  Row "Public site reachable ($appUrl)" $true "friends can connect"
-} elseif ($tunnelRunning -and -not $publicOk) {
-  Row "Public site reachable ($appUrl)" $false "Tunnel running but site not responding - check reports\cloudflared.log"
-} elseif ($localHttpsOk) {
-  WarnRow "Public site ($appUrl)" "Works on THIS PC only (hosts file). Friends need Cloudflare tunnel running."
+  if ($tunnelRunning -and $publicOk) {
+    Row "Public site reachable ($appUrl)" $true "friends can connect"
+  } elseif ($tunnelRunning -and -not $publicOk) {
+    Row "Public site reachable ($appUrl)" $false "Tunnel running but site not responding - check reports\cloudflared.log"
+  } elseif ($localHttpsOk) {
+    WarnRow "Public site ($appUrl)" "Works on THIS PC only (hosts file). Friends need Cloudflare tunnel running."
+  } else {
+    Row "Public site reachable ($appUrl)" $false "Start Kwalify (API + tunnel)"
+  }
 } else {
-  Row "Public site reachable ($appUrl)" $false "Start Kwalify (API + tunnel)"
+  WarnRow "APP_URL not set" "Set APP_URL=https://kwalify.net in .env for public checks"
 }
 
 # Firewall
@@ -150,6 +154,8 @@ if ($backupTask) {
 Write-Host ""
 if ($fail -eq 0 -and $publicOk -and $tunnelRunning) {
   Write-Host "  READY FOR BETA - share $appUrl with your testers" -ForegroundColor Green
+} elseif ($fail -eq 0 -and $apiUp) {
+  Write-Host "  Local API ready - start tunnel for public beta at $appUrl" -ForegroundColor Yellow
 } elseif ($fail -eq 0 -and $localHttpsOk) {
   Write-Host "  OK on this PC - start tunnel so friends can reach $appUrl" -ForegroundColor Yellow
 } elseif ($fail -eq 0) {

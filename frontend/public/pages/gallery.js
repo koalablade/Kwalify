@@ -1,27 +1,11 @@
 // ── Kwalify · Gallery ─────────────────────────────────────────────────────────
-import { esc, fmtDate, initTheme, spiBadge, toggleTheme } from "../lib/shared.js";
+import { esc, fmtDate, initTheme, spiBadge, toggleTheme, apiJson, showToast } from "../lib/shared.js";
 
 // After Spotify login, app.js boot should redirect to sessionStorage.returnTo when set.
 const galleryDebug = new URLSearchParams(window.location.search).get("debug") === "1";
 
 initTheme();
 const root = document.getElementById("galleryRoot");
-
-async function api(path, opts = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? 20_000);
-  const { timeoutMs: _timeoutMs, ...fetchOpts } = opts;
-  try {
-    const r = await fetch(`/api${path}`, {
-      credentials: "include",
-      ...fetchOpts,
-      signal: controller.signal,
-    });
-    return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 
 function spi() {
   return spiBadge();
@@ -116,6 +100,9 @@ function wireNavEvents() {
         document.getElementById("galleryProfileDropdown")?.classList.remove("open");
       }
     });
+    root?.addEventListener("error", (e) => {
+      if (e.target?.classList?.contains("mosaic-img")) e.target.classList.add("is-broken");
+    }, true);
     galleryGlobalListenersWired = true;
   }
   document.getElementById("galleryThemeToggleBtn")?.addEventListener("click", onToggleThemeClick);
@@ -223,7 +210,7 @@ function mosaicHtml(arts) {
   }
   const cells = [...arts, ...arts, ...arts, ...arts].slice(0, 4);
   return `<div class="gallery-card-mosaic">
-    ${cells.map((a) => `<img class="mosaic-img" src="${esc(a)}" alt="" loading="lazy" onerror="this.style.display='none'">`).join("")}
+    ${cells.map((a) => `<img class="mosaic-img" src="${esc(a)}" alt="" loading="lazy">`).join("")}
   </div>`;
 }
 
@@ -376,7 +363,7 @@ async function deleteSelectedPlaylists() {
   deletingPlaylists = true;
   renderGallery();
   const results = await Promise.all(
-    ids.map((id) => api(`/playlists/${id}`, { method: "DELETE" }).catch((err) => ({
+    ids.map((id) => apiJson(`/playlists/${id}`, { method: "DELETE" }).catch((err) => ({
       ok: false,
       status: 0,
       data: { error: err.message },
@@ -463,7 +450,7 @@ async function boot() {
 
   root.innerHTML = navHtml() + `<div class="loading-shell"><div class="spinner"></div><span>Loading…</span></div>`;
 
-  const meRes = await api("/auth/me").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
+  const meRes = await apiJson("/auth/me").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (meRes.status === 401 || !meRes.ok) {
     if (meRes.status === 401) {
       try { sessionStorage.setItem("returnTo", "/gallery"); } catch { /* private mode */ }
@@ -475,7 +462,7 @@ async function boot() {
   }
   galleryUser = meRes.data;
 
-  const plRes = await api("/playlists?limit=100").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
+  const plRes = await apiJson("/playlists?limit=100").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (plRes.ok) {
     galleryLoadError = null;
     galleryPlaylists = plRes.data.playlists || [];

@@ -1,19 +1,10 @@
-import { esc, initTheme, showToast, toggleTheme } from "../lib/shared.js";
+import { esc, initTheme, showToast, toggleTheme, apiJson } from "../lib/shared.js";
 import { loadUserPrefs, saveUserPref } from "../lib/user-prefs.js";
 
 initTheme();
 const root = document.getElementById("settingsRoot");
 const prefs = loadUserPrefs();
 let settingsSyncing = false;
-
-async function api(path, opts = {}) {
-  const r = await fetch(`/api${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-    ...opts,
-  });
-  return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
-}
 
 function navHtml() {
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -156,19 +147,19 @@ function render(user, cacheStatus) {
   document.getElementById("settingsThemeBtn")?.addEventListener("click", () => toggleTheme());
 
   document.getElementById("settingsLogout")?.addEventListener("click", async () => {
-    await api("/auth/logout", { method: "POST" });
+    await apiJson("/auth/logout", { method: "POST" });
     window.location.href = "/";
   });
 
   document.getElementById("settingsDeleteAccount")?.addEventListener("click", async () => {
     if (!confirm("Delete all your Kwalify data? This cannot be undone.")) return;
-    const r = await api("/auth/account", { method: "DELETE" });
+    const r = await apiJson("/auth/account", { method: "DELETE" });
     if (r.ok) window.location.href = "/";
     else alert(r.data?.error || "Could not delete account.");
   });
 
   async function pollSyncStatus() {
-    const cs = await api("/spotify/cache-status").catch(() => ({ ok: false, data: null }));
+    const cs = await apiJson("/spotify/cache-status").catch(() => ({ ok: false, data: null }));
     if (cs.ok && cs.data?.isSyncing) {
       setTimeout(pollSyncStatus, 5000);
       return;
@@ -188,7 +179,7 @@ function render(user, cacheStatus) {
     deltaBtn?.setAttribute("disabled", "");
     fullBtn?.setAttribute("disabled", "");
     try {
-      const result = await api("/spotify/sync", {
+      const result = await apiJson("/spotify/sync", {
         method: "POST",
         body: JSON.stringify({ full }),
       });
@@ -211,10 +202,10 @@ function render(user, cacheStatus) {
 
 async function boot() {
   root.innerHTML = `${navHtml()}<div class="loading-shell"><div class="spinner"></div></div>`;
-  const me = await api("/auth/me");
+  const me = await apiJson("/auth/me");
   let cacheStatus = null;
   if (me.ok && me.data?.id) {
-    const cs = await api("/spotify/cache-status");
+    const cs = await apiJson("/spotify/cache-status");
     if (cs.ok) cacheStatus = cs.data;
   }
   render(me.ok ? me.data : null, cacheStatus);

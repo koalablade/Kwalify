@@ -1,5 +1,5 @@
 // ── Kwalify · Single app entry point ─────────────────────────────────────────
-import { esc, initTheme, fmtDateShort as fmtDate, spiBadge, toggleTheme } from "../lib/shared.js";
+import { esc, initTheme, fmtDateShort as fmtDate, spiBadge, toggleTheme, showToast, userFacingApiError } from "../lib/shared.js";
 import { loadUserPrefs, saveUserPref, markOnboardingDone } from "../lib/user-prefs.js";
 
 initTheme();
@@ -81,19 +81,6 @@ async function api(path, opts = {}) {
   }
 }
 
-function userFacingApiError(result, fallback = "Something went wrong. Please try again.") {
-  if (result?.status === 0) return "Network connection dropped. Please check your connection and try again.";
-  if (result?.status === 401) return "Spotify session expired. Please reconnect Spotify.";
-  if (result?.status === 504) return "Generation took too long. Try a slightly broader prompt, then generate again.";
-  if (result?.status === 503) return "Service is temporarily unavailable. Please try again in a moment.";
-  const raw = result?.data?.error || result?.data?.message || fallback;
-  const text = String(raw || fallback);
-  if (/[{}[\]]/.test(text) || /stack|trace|zod|payload|undefined|null/i.test(text)) {
-    return fallback;
-  }
-  return text;
-}
-
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform";
 
@@ -110,21 +97,6 @@ function siteFooterHtml({ showBeta = true } = {}) {
       <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">Feedback</a>
     </div>
   </footer>`;
-}
-
-function showToast(message, kind = "info") {
-  let el = document.getElementById("kwalifyToast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "kwalifyToast";
-    el.className = "kwalify-toast";
-    el.setAttribute("role", "status");
-    document.body.appendChild(el);
-  }
-  el.textContent = message;
-  el.className = `kwalify-toast kwalify-toast--${kind} kwalify-toast--show`;
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => el.classList.remove("kwalify-toast--show"), 4200);
 }
 
 function libraryGateState() {

@@ -4930,6 +4930,10 @@ router.post("/generate/cancel", (req, res): void => {
 });
 
 router.post("/generate/failure-outcome", async (req, res): Promise<void> => {
+  if (!req.session?.spotifyUserId) {
+    res.status(401).json({ success: false, error: "Authentication required." });
+    return;
+  }
   const body = req.body ?? {};
   const failureSessionId = typeof body.failureSessionId === "string" ? body.failureSessionId.trim() : "";
   const outcomeRaw = typeof body.outcome === "string" ? body.outcome.trim() : "";

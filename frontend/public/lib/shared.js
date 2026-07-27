@@ -18,6 +18,37 @@ export function esc(value) {
     .replace(/"/g, "&quot;");
 }
 
+export async function apiJson(path, options = {}) {
+  const controller = new AbortController();
+  const timeoutMs = options.timeoutMs ?? 20_000;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const { timeoutMs: _t, ...fetchOpts } = options;
+  try {
+    const res = await fetch(`/api${path}`, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      ...fetchOpts,
+      signal: controller.signal,
+    });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function userFacingApiError(result, fallback = "Something went wrong. Please try again.") {
+  if (result?.status === 0) return "Network connection dropped. Please check your connection and try again.";
+  if (result?.status === 401) return "Spotify session expired. Please reconnect Spotify.";
+  if (result?.status === 504) return "Generation took too long. Try a slightly broader prompt, then generate again.";
+  if (result?.status === 503) return "Service is temporarily unavailable. Please try again in a moment.";
+  const raw = result?.data?.error || result?.data?.message || fallback;
+  const text = String(raw || fallback);
+  if (/[{}[\]]/.test(text) || /stack|trace|zod|payload|undefined|null/i.test(text)) {
+    return fallback;
+  }
+  return text;
+}
+
 export async function api(path, options = {}) {
   const controller = new AbortController();
   const timeoutMs = options.timeoutMs ?? 30000;

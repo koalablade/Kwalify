@@ -93,6 +93,9 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
     if (secretLower.includes("change-me") || secretLower.includes("dev-secret")) {
       throw new Error("[env] SESSION_SECRET must not contain placeholder values in production");
     }
+    if (process.env["USE_MOCK_SPOTIFY"] === "true") {
+      throw new Error("[env] USE_MOCK_SPOTIFY must not be enabled in production");
+    }
   }
 
   const rawPort = requireEnv("PORT");

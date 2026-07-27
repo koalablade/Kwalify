@@ -1,33 +1,10 @@
 // ── Kwalify · Playlist share page ────────────────────────────────────────────
-import { esc, initTheme, showToast } from "../lib/shared.js";
+import { esc, initTheme, showToast, apiJson, fmtDate } from "../lib/shared.js";
 
 initTheme();
 const root = document.getElementById("playlistRoot");
 const match = window.location.pathname.match(/\/p\/([^/]+)/);
 const shareSlug = match ? decodeURIComponent(match[1]) : null;
-
-async function api(path, opts = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? 20_000);
-  const { timeoutMs: _timeoutMs, ...fetchOpts } = opts;
-  try {
-    const r = await fetch(`/api${path}`, {
-      credentials: "include",
-      headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-      ...fetchOpts,
-      signal: controller.signal,
-    });
-    return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function fmtDate(iso) {
-  try {
-    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  } catch { return ""; }
-}
 
 function setMetaContent(name, content, attr = "name") {
   if (!content) return;
@@ -217,7 +194,7 @@ function render(data) {
       if (!trackId || !reaction) return;
       btn.disabled = true;
       try {
-        const result = await api(`/share/${encodeURIComponent(shareSlug)}/track-react`, {
+        const result = await apiJson(`/share/${encodeURIComponent(shareSlug)}/track-react`, {
           method: "POST",
           body: JSON.stringify({ trackId, reaction }),
         });
@@ -256,7 +233,7 @@ async function boot() {
   root.innerHTML = navHtml() + `<div class="loading-shell"><div class="spinner"></div><span>Loading playlist…</span></div>`;
 
   try {
-    const result = await api(`/share/${encodeURIComponent(shareSlug)}`, { timeoutMs: 20_000 });
+    const result = await apiJson(`/share/${encodeURIComponent(shareSlug)}`, { timeoutMs: 20_000 });
     if (result.status === 404) { renderNotFound(); return; }
     if (!result.ok) { renderLoadError("The server could not load this playlist right now."); return; }
     render(result.data);

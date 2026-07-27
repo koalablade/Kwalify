@@ -28,7 +28,6 @@ function benchmarkTokenAuthorized(req: Request): boolean {
 export function isBenchmarkAccessAuthorized(req: Request): boolean {
   if (isLoopbackRequest(req)) return true;
   if (benchmarkTokenAuthorized(req)) return true;
-  if (req.session?.spotifyUserId) return true;
   return false;
 }
 

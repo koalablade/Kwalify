@@ -28,12 +28,6 @@
   <a class="skip-link" href="#appRoot">Skip to content</a>
   <main id="appRoot"></main>
   <script type="module" src="/pages/app.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/sw.js").catch(() => {});
-      });
-    }
-  </script>
+  <script src="/js/register-sw.js" defer></script>
 </body>
 </html>

@@ -55,10 +55,6 @@
       <p>Run <code>create-kwalify-shortcuts.bat</code> once — adds <strong>Start Kwalify</strong> and <strong>Stop Kwalify</strong> to your Desktop.</p>
     </div>
   </div>
-  <script>
-    const params = new URLSearchParams(location.search);
-    const reason = params.get("reason");
-    if (reason) document.getElementById("reason").textContent = reason;
-  </script>
+  <script src="/js/local-start-help.js" defer></script>
 </body>
 </html>

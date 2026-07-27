@@ -23,7 +23,7 @@ $required = @(
   "run-live-benchmark-resume.bat",
   "benchmark-package.bat",
   "benchmark-status.bat",
-  "create-kwalify-benchmark-shortcuts.bat",
+  "create-kwalify-shortcuts.bat",
   "scripts\stop-benchmark.ps1",
   "scripts\benchmark-launcher-server.ps1",
   "scripts\spawn-benchmark.ps1",

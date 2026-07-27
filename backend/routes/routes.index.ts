@@ -1,12 +1,10 @@
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
 import authRouter from "./auth";
 import spotifyRouter from "./spotify";
 import generateRouter from "../controllers/generation.controller";
 import playlistCrudRouter from "../controllers/playlist-crud.controller";
 import historyRouter from "./history";
 import libraryRouter from "./library";
-import evalRouter from "./eval";
 import benchmarkUiRouter from "./benchmark-ui";
 
 const router: IRouter = Router();
@@ -20,14 +18,12 @@ function mountRouteGroup(name: string, childRouter: IRouter): void {
   router.use(childRouter);
 }
 
-mountRouteGroup("health", healthRouter);
 mountRouteGroup("auth", authRouter);
 mountRouteGroup("spotify", spotifyRouter);
 mountRouteGroup("generate", generateRouter);
 mountRouteGroup("playlist-crud", playlistCrudRouter);
 mountRouteGroup("history", historyRouter);
 mountRouteGroup("library", libraryRouter);
-mountRouteGroup("eval", evalRouter);
 mountRouteGroup("benchmark", benchmarkUiRouter);
 
 export default router;

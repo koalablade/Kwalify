@@ -1,4 +1,4 @@
-import { esc, initTheme, toggleTheme } from "../lib/shared.js";
+import { esc, initTheme, toggleTheme, apiJson } from "../lib/shared.js";
 import { loadUserPrefs, saveUserPref } from "../lib/user-prefs.js";
 
 initTheme();
@@ -38,9 +38,8 @@ function navHtml() {
 
 async function fetchReady() {
   try {
-    const r = await fetch("/api/readyz", { cache: "no-store" });
-    const data = await r.json().catch(() => ({}));
-    return { httpOk: r.ok, data };
+    const result = await apiJson("/readyz", { timeoutMs: 5000 });
+    return { httpOk: result.ok, data: result.data };
   } catch (err) {
     return { httpOk: false, data: { error: err?.message || "Network error" } };
   }
