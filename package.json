@@ -15,6 +15,7 @@
     "test:website-routes": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-website-routes.ps1",
     "test:beta-ready": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-beta-ready.ps1",
     "maintenance:weekly": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/weekly-maintenance.ps1",
+    "maintain": "maintain.bat",
     "maintenance:verify-backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-backup.ps1",
     "maintenance:health-watch": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/watch-local-health.ps1",
     "test:human-curation": "npm run build && node --test backend/dist/tests/human-curation-alignment-v2.test.js",

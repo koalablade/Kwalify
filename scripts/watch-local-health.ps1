@@ -1,5 +1,4 @@
-# Lightweight watchdog for local self-host: API + Cloudflare tunnel + public URL.
-# Does NOT restart the API (avoids duplicate processes). Restarts tunnel when API is up but public is down.
+# Auto-repair for local self-host: API crashes + Cloudflare tunnel drops.
 param(
   [string]$Root = (Split-Path -Parent $PSScriptRoot),
   [int]$IntervalSeconds = 300,
@@ -9,7 +8,18 @@ param(
 $ErrorActionPreference = "Continue"
 $Root = (Resolve-Path $Root).Path
 $logPath = Join-Path $Root "kwalify-watchdog.log"
+$pidFile = Join-Path $Root "reports\.kwalify-watchdog.pid"
+$cooldownFile = Join-Path $Root "reports\.api-restart-cooldown"
 $tunnelScript = Join-Path $Root "scripts\run-cloudflare-tunnel.ps1"
+$apiRestartScript = Join-Path $Root "scripts\restart-api-selfhost.ps1"
+$reportsDir = Join-Path $Root "reports"
+
+try { $Host.UI.RawUI.WindowTitle = "Kwalify Health Watch" } catch {}
+
+if (-not (Test-Path -LiteralPath $reportsDir)) {
+  New-Item -ItemType Directory -Force -Path $reportsDir | Out-Null
+}
+Set-Content -LiteralPath $pidFile -Value $PID -Encoding ASCII
 
 function Write-Log([string]$msg) {
   $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $msg"
@@ -41,12 +51,40 @@ function Test-PublicReady([string]$url) {
 }
 
 function Test-TunnelRunning {
-  $pidFile = Join-Path $Root "reports\.cloudflared.pid"
-  if (Test-Path -LiteralPath $pidFile) {
-    $pidVal = (Get-Content $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+  $tunnelPidFile = Join-Path $Root "reports\.cloudflared.pid"
+  if (Test-Path -LiteralPath $tunnelPidFile) {
+    $pidVal = (Get-Content $tunnelPidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
     if ($pidVal -and (Get-Process -Id $pidVal -ErrorAction SilentlyContinue)) { return $true }
   }
   return [bool](Get-Process -Name cloudflared -ErrorAction SilentlyContinue | Select-Object -First 1)
+}
+
+function Test-ApiRestartAllowed {
+  if (-not (Test-Path -LiteralPath $cooldownFile)) { return $true }
+  try {
+    $last = [datetime]::Parse((Get-Content -LiteralPath $cooldownFile -Raw).Trim())
+    return ((Get-Date) - $last).TotalMinutes -ge 10
+  } catch { return $true }
+}
+
+function Set-ApiRestartCooldown {
+  Set-Content -LiteralPath $cooldownFile -Value ((Get-Date).ToString("o")) -Encoding ASCII
+}
+
+function Restart-Tunnel {
+  if (-not (Test-Path -LiteralPath $tunnelScript)) { return $false }
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $tunnelScript -Root $Root
+  Start-Sleep -Seconds 5
+  return $true
+}
+
+function Restart-Api {
+  if (-not (Test-Path -LiteralPath $apiRestartScript)) { return $false }
+  Write-Log "Restarting API (restart-api-selfhost.ps1)..."
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $apiRestartScript -Root $Root
+  Set-ApiRestartCooldown
+  Start-Sleep -Seconds 3
+  return (Test-ApiReady)
 }
 
 function Rotate-WatchdogLog {
@@ -61,34 +99,46 @@ function Rotate-WatchdogLog {
 }
 
 Rotate-WatchdogLog
-Write-Log "watchdog started (interval=${IntervalSeconds}s, once=$Once)"
+Write-Log "health watch started (PID $PID, interval=${IntervalSeconds}s)"
 
-do {
-  $appUrl = Get-AppUrl
-  $apiUp = Test-ApiReady
-  $tunnelUp = Test-TunnelRunning
-  $publicUp = if ($apiUp) { Test-PublicReady $appUrl } else { $false }
+try {
+  do {
+    $appUrl = Get-AppUrl
+    $apiUp = Test-ApiReady
+    $tunnelUp = Test-TunnelRunning
+    $publicUp = if ($apiUp) { Test-PublicReady $appUrl } else { $false }
 
-  if (-not $apiUp) {
-    Write-Log "API down — start Kwalify (start.bat). Watchdog will not auto-start API."
-  } elseif (-not $tunnelUp) {
-    Write-Log "API up, tunnel down — restarting tunnel..."
-    if (Test-Path -LiteralPath $tunnelScript) {
-      & powershell -NoProfile -ExecutionPolicy Bypass -File $tunnelScript -Root $Root
-      Start-Sleep -Seconds 5
-      $publicUp = Test-PublicReady $appUrl
-      if ($publicUp) { Write-Log "Tunnel restarted; public site OK" }
-      else { Write-Log "Tunnel restarted but public site still not ready" }
+    if (-not $apiUp) {
+      if (Test-ApiRestartAllowed) {
+        if (Restart-Api) {
+          Write-Log "API restarted successfully"
+          $apiUp = $true
+          $tunnelUp = Test-TunnelRunning
+          $publicUp = if ($apiUp) { Test-PublicReady $appUrl } else { $false }
+        } else {
+          Write-Log "API restart attempted but still not ready"
+        }
+      } else {
+        Write-Log "API down - restart cooldown (max 1 restart per 10 min)"
+      }
     }
-  } elseif (-not $publicUp) {
-    Write-Log "API + tunnel up but $appUrl not ready — trying tunnel restart..."
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $tunnelScript -Root $Root
-  } else {
-    Write-Log "OK — API, tunnel, and public site healthy"
-  }
 
-  if ($Once) { break }
-  Start-Sleep -Seconds $IntervalSeconds
-} while ($true)
+    if ($apiUp -and -not $tunnelUp) {
+      Write-Log "Tunnel down - restarting..."
+      Restart-Tunnel | Out-Null
+      if (Test-PublicReady $appUrl) { Write-Log "Tunnel OK; public site up" }
+      else { Write-Log "Tunnel restarted; public site still not ready" }
+    } elseif ($apiUp -and $tunnelUp -and -not $publicUp) {
+      Write-Log "Public site down - restarting tunnel..."
+      Restart-Tunnel | Out-Null
+    } elseif ($apiUp -and $publicUp) {
+      Write-Log "OK - API, tunnel, and public site healthy"
+    }
 
-Write-Log "watchdog stopped"
+    if ($Once) { break }
+    Start-Sleep -Seconds $IntervalSeconds
+  } while ($true)
+} finally {
+  Write-Log "health watch stopped"
+  if (Test-Path -LiteralPath $pidFile) { Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue }
+}

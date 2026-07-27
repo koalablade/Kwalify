@@ -5,7 +5,8 @@
   [string]$Mode = "domain",
   [switch]$Build,
   [switch]$NoPull,
-  [switch]$Quick
+  [switch]$Quick,
+  [switch]$NoWatch
 )
 
 $ErrorActionPreference = "Stop"
@@ -61,6 +62,37 @@ function Invoke-Native([scriptblock]$Command) {
   } finally {
     $ErrorActionPreference = $prevErr
   }
+}
+
+function Start-HealthWatch {
+  if ($NoWatch) {
+    Write-Host "  Health watch skipped (-NoWatch)"
+    return
+  }
+  if ($Mode -ne "selfhost") {
+    return
+  }
+  $watchScript = Join-Path $Root "scripts\watch-local-health.ps1"
+  $pidFile = Join-Path $Root "reports\.kwalify-watchdog.pid"
+  if (Test-Path -LiteralPath $pidFile) {
+    $existingPid = (Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ($existingPid -and (Get-Process -Id $existingPid -ErrorAction SilentlyContinue)) {
+      Write-Host "  Health watch already running (PID $existingPid)" -ForegroundColor DarkGray
+      return
+    }
+  }
+  if (-not (Test-Path -LiteralPath $watchScript)) {
+    Write-Host "  Health watch script missing — skipped" -ForegroundColor Yellow
+    return
+  }
+  $reportsDir = Join-Path $Root "reports"
+  if (-not (Test-Path -LiteralPath $reportsDir)) {
+    New-Item -ItemType Directory -Force -Path $reportsDir | Out-Null
+  }
+  $cmd = "& { `$Host.UI.RawUI.WindowTitle = 'Kwalify Health Watch'; & '$watchScript' -Root '$Root' }"
+  Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $cmd) `
+    -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
+  Write-Host "  Health watch started (auto-repairs API + tunnel)" -ForegroundColor Green
 }
 
 function PortOpen([int]$port) {
@@ -829,11 +861,14 @@ if ($Mode -eq "selfhost") {
   Write-Host "  Site:    $siteUrl"
   Write-Host "  Status:  $siteUrl/status"
   Write-Host "  Benchmark: $siteUrl/benchmark"
-  Write-Host "  Logs:    kwalify-api.log"
+  Write-Host "  Logs:    kwalify-api.log, kwalify-watchdog.log"
   Write-Host ""
   Write-Host "  KEEP OPEN: Kwalify API + Cloudflare Tunnel windows"
-  Write-Host "  Stop:      stop-kwalify.bat (or Desktop shortcut)"
+  Write-Host "  Health watch runs in background (auto-repair)"
+  Write-Host "  Stop:      stop-kwalify.bat"
+  Write-Host "  Weekly:    maintain.bat"
   Write-Host ""
+  Start-HealthWatch
   if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
   exit 0
 }

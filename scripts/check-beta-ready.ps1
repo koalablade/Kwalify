@@ -165,7 +165,7 @@ $weeklyTask = Get-ScheduledTask -TaskName "Kwalify-Weekly-Maintenance" -ErrorAct
 if ($weeklyTask) {
   Row "Weekly maintenance scheduled" $true "Sundays 10:00 AM"
 } else {
-  WarnRow "Weekly maintenance" "Run scripts\schedule-weekly-maintenance.ps1 once (Admin), or weekly-maintenance.bat"
+  WarnRow "Weekly maintenance" "Run maintain.bat weekly, or scripts\schedule-weekly-maintenance.ps1 once (Admin)"
 }
 
 # Spotify credentials in .env

@@ -21,11 +21,14 @@ if /I "%~1"=="nopull" set "NOPULL=1"
 if /I "%~2"=="nopull" set "NOPULL=1"
 if /I "%~1"=="quick" set "QUICK=1"
 if /I "%~2"=="quick" set "QUICK=1"
+if /I "%~1"=="nowatch" set "NOWATCH=1"
+if /I "%~2"=="nowatch" set "NOWATCH=1"
 
 set "ARGS="
 if defined BUILD set "ARGS=-Build"
 if defined NOPULL set "ARGS=%ARGS% -NoPull"
 if defined QUICK set "ARGS=%ARGS% -Quick"
+if defined NOWATCH set "ARGS=%ARGS% -NoWatch"
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\start-kwalify-core.ps1" -Root "%ROOT%" -Mode "%MODE%" %ARGS%
 set "ERR=%ERRORLEVEL%"

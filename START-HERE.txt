@@ -1,0 +1,29 @@
+KWALIFY — 3 FILES YOU NEED
+==========================
+
+  1. start.bat          START every day (site + tunnel + auto-repair)
+  2. stop-kwalify.bat   STOP everything when done
+  3. maintain.bat       RUN once a week (health + backups)
+
+That is the whole routine.
+
+FIRST TIME ONLY
+---------------
+  setup-self-host.bat          (once)
+  create-kwalify-shortcuts.bat (Desktop icons for the 3 files above)
+
+WHILE FRIENDS ARE TESTING
+-------------------------
+  Keep start.bat running. Health Watch starts automatically and fixes
+  tunnel/API drops. You do not need any other .bat files.
+
+LOGS IF SOMETHING BREAKS
+------------------------
+  kwalify-start.log
+  kwalify-api.log
+  kwalify-watchdog.log
+
+MORE DETAIL
+-----------
+  docs\LOCAL-MAINTENANCE.md
+  docs\BETA-TESTER-GUIDE.md      (send to friends)

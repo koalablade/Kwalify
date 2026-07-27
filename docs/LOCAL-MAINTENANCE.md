@@ -1,18 +1,26 @@
 # Local maintenance — Kwalify self-host (Windows)
 
-One-page guide for keeping **kwalify.net** running from your PC with minimal fuss.
+## The 3 files you need
+
+| File | When |
+|------|------|
+| **`start.bat`** | Every day — starts site, tunnel, and **Health Watch** (auto-repairs API + tunnel) |
+| **`stop-kwalify.bat`** | When done — stops everything |
+| **`maintain.bat`** | Once a week — readiness, backups, routes |
+
+Read **`START-HERE.txt`** at the project root.
 
 ---
 
-## Daily (30 seconds)
+## Daily (one double-click)
 
-| Do | How |
-|----|-----|
-| Start | Desktop **Start Kwalify** or `start.bat` |
-| Leave open | **Kwalify API** window + **Cloudflare Tunnel** window |
-| Stop when done | **Stop Kwalify** or `stop-kwalify.bat` |
+**`start.bat`** — that's it.
 
-**Optional while hosting friends:** run `start-health-watch.bat` — restarts the tunnel if it dies (does not touch the API).
+Health Watch runs minimized in the background. It will:
+- Restart the **API** if it crashes (max once per 10 minutes)
+- Restart the **Cloudflare tunnel** if friends can't reach the site
+
+To skip Health Watch: `start-kwalify.bat nowatch`
 
 ---
 
@@ -20,31 +28,21 @@ One-page guide for keeping **kwalify.net** running from your PC with minimal fus
 
 | Symptom | Fix |
 |---------|-----|
-| Site down for friends | `check-beta-ready.bat` → fix red items |
-| Tunnel error 1033 | `repair-tunnel.bat` or Stop → Start |
+| Site down for friends | `stop-kwalify.bat` then `start.bat` |
 | Start script errors | Read `kwalify-start.log` |
+| Auto-repair issues | Read `kwalify-watchdog.log` |
 | API errors | Read `kwalify-api.log` |
-| Skip git pull on start | Create empty file `.kwalify-nopull` in project root |
-| Force rebuild | `start-kwalify.bat build` |
+| Skip git pull on start | Create empty `.kwalify-nopull` in project root |
+
+You do **not** need `repair-tunnel.bat` or `start-health-watch.bat` unless debugging — `start.bat` handles both.
 
 ---
 
-## Weekly (5 minutes)
+## Weekly
 
-Run **`weekly-maintenance.bat`** (or `npm run maintenance:weekly`):
+**`maintain.bat`** (or `npm run maintenance:weekly`)
 
-1. Beta readiness checklist  
-2. Backup age + dump integrity  
-3. Route smoke (if API is up)  
-4. Saves report to `reports/maintenance-last-run.txt`
-
-**Automate (once, as Admin):**
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\schedule-weekly-maintenance.ps1
-```
-
-Runs every **Sunday 10:00 AM**.
+Automate (Admin once): `scripts\schedule-weekly-maintenance.ps1`
 
 ---
 
@@ -56,46 +54,17 @@ Runs every **Sunday 10:00 AM**.
 | Verify latest | `npm run maintenance:verify-backup` |
 | Auto daily 3 AM | `scripts\schedule-db-backup.ps1` (Admin, once) |
 
-Backups live in `backups\kwalify-YYYYMMDD-HHMMSS.dump`.  
-**Test a restore once** before you trust them (see [PRODUCTION-CHECKLIST.md](./PRODUCTION-CHECKLIST.md)).
-
 ---
 
 ## Beta testers
 
-1. Add their **Spotify email** in [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) → User Management  
-2. Send them [BETA-TESTER-GUIDE.md](./BETA-TESTER-GUIDE.md)  
-3. Keep Kwalify running while they test  
-
----
-
-## Desktop shortcuts
-
-Run once: `create-kwalify-shortcuts.bat`
-
-| Shortcut | Purpose |
-|----------|---------|
-| Start Kwalify | Daily start |
-| Stop Kwalify | Stop API + tunnel |
-| Check Beta Ready | Full checklist |
-| Open Status Page | Public status |
-| *(add manually)* | Pin `weekly-maintenance.bat` if you like |
-
----
-
-## Logs
-
-| File | What |
-|------|------|
-| `kwalify-start.log` | Launcher (rotates >2 MB) |
-| `kwalify-api.log` | API (rotates >10 MB) |
-| `kwalify-watchdog.log` | Health watch (if running) |
-| `reports\cloudflared.log` | Tunnel |
+1. Add Spotify email in [Developer Dashboard](https://developer.spotify.com/dashboard) → User Management  
+2. Send **`docs/BETA-TESTER-GUIDE.md`**  
+3. Keep **`start.bat`** running  
 
 ---
 
 ## More
 
-- [PRODUCTION-CHECKLIST.md](./PRODUCTION-CHECKLIST.md) — path from closed beta to public launch  
-- [OPERATIONS.md](./OPERATIONS.md) — hardware sizing, env vars  
-- [local-commands.md](./local-commands.md) — full command reference  
+- [PRODUCTION-CHECKLIST.md](./PRODUCTION-CHECKLIST.md)  
+- [local-commands.md](./local-commands.md)  

@@ -22,7 +22,10 @@ Start-Sleep -Seconds 2
 
 Load-DotEnv (Join-Path $Root ".env")
 $env:NODE_ENV = "production"
+$prevErr = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 $env:GIT_COMMIT = (git -C $Root rev-parse HEAD 2>$null)
+$ErrorActionPreference = $prevErr
 if (-not $env:GIT_COMMIT) { $env:GIT_COMMIT = "local-dev" }
 
 $apiPs1 = Join-Path $env:TEMP "kwalify-api-restart.ps1"

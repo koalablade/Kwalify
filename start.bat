@@ -45,11 +45,13 @@ exit /b 0
 echo.
 echo  START KWALIFY
 echo.
-echo    start.bat         Setup if needed, start server + tunnel, open site
-echo    start.bat setup   First-time setup only
-echo    start.bat local   Local dev on localhost (no tunnel)
-echo    stop-kwalify.bat  Stop everything
+echo    start.bat           Start everything (daily)
+echo    stop-kwalify.bat    Stop everything
+echo    maintain.bat        Weekly check
+echo    start.bat setup     First-time setup only
+echo    start.bat local     Local dev (no tunnel)
 echo.
+echo  See START-HERE.txt
 pause
 exit /b 0
 

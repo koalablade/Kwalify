@@ -43,13 +43,16 @@ DAILY USE
 ---------
 
 Solo dev (just you on this PC):
-  Start:  start.bat          (or start-kwalify.bat — same thing)
+  Start:  start.bat
   Stop:   stop-kwalify.bat
 
 Closed beta (friends over the internet from your PC):
   One-time:  setup-self-host.bat
-  Daily:     start.bat        (selfhost + Cloudflare tunnel)
+  Daily:     start.bat        (selfhost + tunnel + health watch)
+  Weekly:    maintain.bat
   Stop:      stop-kwalify.bat
+
+  See START-HERE.txt for the full 3-file routine.
 
   Recommended exposure: Cloudflare Tunnel (no router port forwarding).
   Public site: https://kwalify.net (when tunnel is up)

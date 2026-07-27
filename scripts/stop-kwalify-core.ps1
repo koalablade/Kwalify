@@ -46,6 +46,23 @@ Get-Process -Name cloudflared -ErrorAction SilentlyContinue | ForEach-Object {
   Write-Host "  cloudflared : stopped (PID $($_.Id))"
 }
 
+$watchPidFile = Join-Path $Root "reports\.kwalify-watchdog.pid"
+if (Test-Path -LiteralPath $watchPidFile) {
+  $watchPid = (Get-Content -LiteralPath $watchPidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+  if ($watchPid) {
+    Stop-Process -Id $watchPid -Force -ErrorAction SilentlyContinue
+    Write-Host "  Health watch : stopped (PID $watchPid)"
+  }
+  Remove-Item -LiteralPath $watchPidFile -Force -ErrorAction SilentlyContinue
+}
+
+Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
+  $_.MainWindowTitle -eq "Kwalify Health Watch"
+} | ForEach-Object {
+  Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+  Write-Host "  Health watch window : closed"
+}
+
 $lock = Join-Path $env:TEMP "kwalify-launcher.lock"
 if (Test-Path $lock) {
   Remove-Item $lock -Force

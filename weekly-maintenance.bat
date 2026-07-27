@@ -1,6 +1,3 @@
 @echo off
-title Kwalify Weekly Maintenance
-cd /d "%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\weekly-maintenance.ps1" -Root "%~dp0"
-echo.
-pause
+REM Use maintain.bat instead (one of the 3 main Kwalify files).
+call "%~dp0maintain.bat"
