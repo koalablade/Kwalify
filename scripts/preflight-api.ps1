@@ -25,7 +25,7 @@ try {
   $health = Invoke-RestMethod -Uri "$BaseUrl/api/healthz" -TimeoutSec 8
   Write-Host "  healthz: ok"
 } catch {
-  throw "API not reachable at $BaseUrl - start the server first (double-click start-api.bat)."
+  throw "API not reachable at $BaseUrl - start the server first (double-click start.bat or Desktop Start Kwalify)."
 }
 
 try {

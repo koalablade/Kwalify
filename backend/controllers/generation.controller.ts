@@ -229,7 +229,7 @@ import {
 } from "../lib/emotion";
 import { GeneratePlaylistBody } from "../zod/api";
 import { checkRateLimit } from "../lib/rate-limit";
-import { getFeatures } from "../lib/env";
+import { getEnv, getFeatures } from "../lib/env";
 import { publicUrl } from "../lib/public-url";
 import { generateShareSlug } from "../lib/share-slug";
 import { resolveSemanticScene } from "../lib/semantic-scene-engine";
@@ -380,7 +380,7 @@ import {
   finaliseExecutionHealth,
   recordExecutionStage,
 } from "./generation/generation-execution-health";
-import { generationAuditTokenAuthorized } from "./generation/generation-audit";
+import { generationAuditTokenAuthorized, privilegedDebugAllowed } from "./generation/generation-audit";
 import { runSessionHydrationSingleFlight } from "./generation/generation-session-hydration";
 import {
   buildPreV3PerformanceReport,
@@ -5061,11 +5061,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     const devMode = useMockSpotify();
     const rawBody = req.body ?? {};
     const debugPerformance =
-      req.query.debugPerformance === "true" ||
+      (req.query.debugPerformance === "true" ||
       req.query.debugPerformance === "1" ||
-      rawBody["debugPerformance"] === true;
+      rawBody["debugPerformance"] === true) && privilegedDebugAllowed(req);
     const auditModeRequested = rawBody.auditMode === true || req.query.audit === "1";
-    const sceneWorldProofRequested = rawBody.sceneWorldProof === true || req.query.sceneWorldProof === "1";
+    const sceneWorldProofRequested =
+      (rawBody.sceneWorldProof === true || req.query.sceneWorldProof === "1") && privilegedDebugAllowed(req);
     const auditTokenAuthorized = auditModeRequested && generationAuditTokenAuthorized(req);
     const auditMode = auditModeRequested && auditTokenAuthorized;
     const sideEffectPolicy = auditMode ? AUDIT_SIDE_EFFECT_POLICY : PRODUCTION_SIDE_EFFECT_POLICY;
@@ -5108,6 +5109,15 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (auditTokenAuthorized && auditUserIdRaw) {
       const allowedRaw = process.env["EVAL_ALLOWED_SPOTIFY_USER_IDS"]?.trim();
+      if (getEnv().NODE_ENV === "production" && !allowedRaw) {
+        generateFail(
+          res,
+          403,
+          "AUDIT_ALLOWLIST_REQUIRED",
+          "EVAL_ALLOWED_SPOTIFY_USER_IDS must be set in production when using PLAYLIST_EVAL_TOKEN.",
+        );
+        return;
+      }
       if (allowedRaw) {
         const allowedIds = allowedRaw.split(",").map((id) => id.trim()).filter(Boolean);
         if (allowedIds.length > 0 && !allowedIds.includes(auditUserIdRaw)) {
@@ -5638,7 +5648,8 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const vibeKind = detectVibeKind(vibe, emotionProfile);
     const budget = createRequestBudget(startMs);
-    const debugMode = req.query.debug === "1" || process.env["DEBUG"] === "true";
+    const debugMode =
+      (req.query.debug === "1" || process.env["DEBUG"] === "true") && privilegedDebugAllowed(req);
     const sessionSnapshotId = req.sessionID ?? requestId;
     let sessionSnapshot: GenerateSessionSnapshot | null = devMode
       ? null

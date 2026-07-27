@@ -138,8 +138,31 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
   };
 
   warnIfProductionEvalTokenMissing(_env.NODE_ENV);
+  warnProductionSecurityEnv(_env.NODE_ENV);
 
   return { env: _env, features: _features };
+}
+
+function warnProductionSecurityEnv(nodeEnv: string): void {
+  if (nodeEnv !== "production") return;
+  const evalToken = process.env["PLAYLIST_EVAL_TOKEN"]?.trim();
+  if (evalToken && !process.env["EVAL_ALLOWED_SPOTIFY_USER_IDS"]?.trim()) {
+    console.warn(
+      "[env] EVAL_ALLOWED_SPOTIFY_USER_IDS is not set — eval token audit mode will reject all spotifyUserId values in production.",
+    );
+  }
+  for (const [key, minLen] of [
+    ["OPS_METRICS_TOKEN", 16],
+    ["BENCHMARK_UI_TOKEN", 16],
+  ] as const) {
+    const val = process.env[key]?.trim();
+    if (val && val.length < minLen) {
+      console.warn(`[env] ${key} should be at least ${minLen} characters in production (got ${val.length}).`);
+    }
+  }
+  if (process.env["EVAL_ADMIN_ENABLED"] === "true" && process.env["EVAL_ADMIN_EXPOSE_USER_IDS"] !== "true") {
+    console.warn("[env] Eval admin is enabled — Spotify user IDs are redacted unless EVAL_ADMIN_EXPOSE_USER_IDS=true.");
+  }
 }
 
 /**

@@ -41,6 +41,8 @@ const router: IRouter = Router();
 export const activeSyncs = new Set<string>();
 const STALE_SYNC_MS = 45 * 60 * 1000;
 const FULL_SYNC_COOLDOWN_HOURS = 6;
+const SYNC_START_COOLDOWN_MS = 60_000;
+const syncStartCooldown = new Map<string, number>();
 
 router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   if (getFeatures().devMode.useMockSpotify) {
@@ -170,6 +172,15 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
 
   const userId = req.session.spotifyUserId;
 
+  const lastStart = syncStartCooldown.get(userId) ?? 0;
+  if (Date.now() - lastStart < SYNC_START_COOLDOWN_MS) {
+    res.status(429).json({
+      error: "Sync started recently. Please wait about a minute before starting another.",
+      started: false,
+    });
+    return;
+  }
+
   if (activeSyncs.has(userId)) {
     res.json({ message: "Sync already in progress", started: false });
     return;
@@ -211,6 +222,7 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
 
   try {
     activeSyncs.add(userId);
+    syncStartCooldown.set(userId, Date.now());
     await db
       .insert(syncStatusTable)
       .values({ spotifyUserId: userId, isSyncing: 1, totalTracks: 0 })

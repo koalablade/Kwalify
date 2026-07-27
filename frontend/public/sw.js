@@ -1,12 +1,13 @@
-const CACHE_NAME = "kwalify-static-v2";
+const CACHE_NAME = "kwalify-static-v3";
 const STATIC_ASSETS = [
-  "/",
   "/styles/base.css",
   "/favicon.svg",
   "/manifest.webmanifest",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",
   "/og-image.svg",
+  "/pages/app.js",
+  "/lib/shared.js",
 ];
 
 self.addEventListener("install", (event) => {
@@ -29,6 +30,11 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+function isHtmlNavigation(request) {
+  return request.mode === "navigate" ||
+    (request.method === "GET" && request.headers.get("accept")?.includes("text/html"));
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
@@ -40,6 +46,15 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/js/")
   ) {
     event.respondWith(fetch(request));
+    return;
+  }
+
+  if (isHtmlNavigation(request)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => response)
+        .catch(() => caches.match("/") || caches.match(request))
+    );
     return;
   }
 

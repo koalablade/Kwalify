@@ -98,11 +98,6 @@ function render({ httpOk, data }) {
       <button type="button" class="btn btn-green" id="refreshStatusBtn">Refresh</button>
       <a href="/" class="btn btn-ghost">Back to app</a>
     </div>
-
-    <details class="status-raw">
-      <summary>Technical details (/api/readyz)</summary>
-      <pre>${esc(JSON.stringify(data, null, 2))}</pre>
-    </details>
   </div>`;
 
   document.getElementById("refreshStatusBtn")?.addEventListener("click", () => boot(false));

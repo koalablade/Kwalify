@@ -53,6 +53,7 @@ $stopBenchBat = Join-Path $Root "stop-kwalify-benchmark.bat"
 $stopBat = Join-Path $Root "stop-kwalify.bat"
 $checkBat = Join-Path $Root "check-beta-ready.bat"
 $statusBat = Join-Path $Root "open-status-page.bat"
+$adminBat = Join-Path $Root "start-kwalify-admin.bat"
 
 if (-not (Test-Path -LiteralPath $startBat)) { throw "start.bat not found in $Root" }
 if (-not (Test-Path -LiteralPath $benchBat)) { throw "start-kwalify-benchmark.bat not found in $Root" }
@@ -66,6 +67,7 @@ if (-not (Test-Path -LiteralPath $reportsDir)) {
 
 Write-Host ""
 New-Shortcut "Start Kwalify" $startBat "Start Kwalify - setup, server, tunnel, open site" ""
+New-Shortcut "Start Kwalify (Admin)" $adminBat "Start Kwalify with administrator rights (HTTPS/tunnel setup)" ""
 New-Shortcut "Stop Kwalify" $stopBat "Stop the server and tunnel" ""
 New-Shortcut "Check Beta Ready" $checkBat "Run readiness checklist" ""
 New-Shortcut "Open Status Page" $statusBat "Open https://kwalify.net/status" ""
@@ -75,6 +77,7 @@ New-Shortcut "Stop Benchmark" $stopBenchBat "Stop benchmark launcher" ""
 Write-Host ""
 Write-Host "  Desktop:" -ForegroundColor Magenta
 Write-Host "    Start Kwalify   (start.bat - use this)"
+Write-Host "    Start Kwalify (Admin)"
 Write-Host "    Stop Kwalify"
 Write-Host "    Check Beta Ready"
 Write-Host "    Open Status Page"

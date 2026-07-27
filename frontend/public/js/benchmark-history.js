@@ -15,6 +15,13 @@
       return Math.round(r * 1000) / 10 + '%';
     }
 
+    function esc(s) {
+      if (s == null) return '';
+      const d = document.createElement('div');
+      d.textContent = String(s);
+      return d.innerHTML;
+    }
+
     function render(rows) {
       const tbody = document.getElementById('history-body');
       if (!rows || !rows.length) {
@@ -28,9 +35,9 @@
           : null;
         const deltaTxt = delta != null ? ' (' + (delta >= 0 ? '+' : '') + delta + '% vs prev)' : '';
         return '<tr>' +
-          '<td>' + fmtWhen(r.finishedAt) + '</td>' +
-          '<td><code>' + (r.runId || '') + '</code><br><span style="color:var(--muted);font-size:12px">' + (r.label || '') + '</span></td>' +
-          '<td class="' + statusCls + '">' + (r.status || '') + '</td>' +
+          '<td>' + esc(fmtWhen(r.finishedAt)) + '</td>' +
+          '<td><code>' + esc(r.runId || '') + '</code><br><span style="color:var(--muted);font-size:12px">' + esc(r.label || '') + '</span></td>' +
+          '<td class="' + statusCls + '">' + esc(r.status || '') + '</td>' +
           '<td class="ok">' + fmtRate(r.wouldSaveRate) + deltaTxt + '</td>' +
           '<td>' + (r.SAVE ?? '—') + '</td>' +
           '<td>' + (r.SKIP ?? '—') + '</td>' +

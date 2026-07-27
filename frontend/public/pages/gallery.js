@@ -12,7 +12,7 @@ function spi() {
 }
 
 function onToggleThemeClick() {
-  toggleTheme({ iconElementId: "themeIcon" });
+  toggleTheme({ iconElementId: "galleryThemeIcon" });
 }
 
 let galleryUser = null;
@@ -30,10 +30,6 @@ let galleryGlobalListenersWired = false;
 
 function getTheme() {
   return document.documentElement.getAttribute("data-theme") || "dark";
-}
-
-function onToggleThemeClick() {
-  toggleTheme({ iconElementId: "galleryThemeIcon" });
 }
 
 function navHtml() {
@@ -64,7 +60,8 @@ function navHtml() {
     <div class="nav-right">
       <a href="/" class="nav-link">← App</a>
       <div class="nav-profile-wrap" id="galleryProfileWrap">
-        <button class="nav-avatar-btn" id="galleryProfileBtn" title="Account">
+        <button class="nav-avatar-btn" id="galleryProfileBtn" type="button" title="Account"
+          aria-haspopup="menu" aria-expanded="${profileOpen ? "true" : "false"}" aria-label="Account menu">
           <div class="nav-avatar">${avatar}</div>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--muted-2)"><polyline points="6 9 12 15 18 9"/></svg>
         </button>

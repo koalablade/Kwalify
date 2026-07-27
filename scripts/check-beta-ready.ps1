@@ -45,8 +45,8 @@ Row "Self-host .env configured" $envOk "APP_URL=$appUrl"
 # Cloudflare
 $cfCert = Join-Path $env:USERPROFILE ".cloudflared\cert.pem"
 $tunnelYml = Join-Path $Root "deploy\cloudflared.yml"
-Row "Cloudflare account linked" (Test-Path -LiteralPath $cfCert) $(if (-not (Test-Path -LiteralPath $cfCert)) { "Run Finish Cloudflare Setup" } else { "cert.pem present" })
-Row "Cloudflare tunnel configured" (Test-Path $tunnelYml) $(if (-not (Test-Path $tunnelYml)) { "Run Finish Cloudflare Setup (step 4)" } else { "deploy\cloudflared.yml" })
+Row "Cloudflare account linked" (Test-Path -LiteralPath $cfCert) $(if (-not (Test-Path -LiteralPath $cfCert)) { "Run finish-cloudflare-setup.bat or see FIRST-TIME-SETUP.txt" } else { "cert.pem present" })
+Row "Cloudflare tunnel configured" (Test-Path $tunnelYml) $(if (-not (Test-Path $tunnelYml)) { "Run finish-cloudflare-setup.bat (tunnel step)" } else { "deploy\cloudflared.yml" })
 
 $cf = "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe"
 if (-not (Test-Path $cf)) { $cf = "$env:ProgramFiles\cloudflared\cloudflared.exe" }

@@ -504,9 +504,9 @@ function navHtml(user) {
   const isDark = getTheme() === "dark";
 
   return `
-  <nav class="nav">
+  <nav class="nav" aria-label="Main navigation">
     ${navLogoHtml()}
-    <div class="nav-right">
+    <div class="nav-right" id="navRight">
       <a href="/gallery" class="nav-link">Gallery <span class="nav-link-arrow">→</span></a>
       <a href="/settings" class="nav-link">Settings</a>
       <div class="nav-library-panel">
@@ -522,7 +522,8 @@ function navHtml(user) {
         </div>
       </div>
       <div class="nav-profile-wrap" id="profileWrap">
-        <button class="nav-avatar-btn" id="profileBtn" title="Account">
+        <button class="nav-avatar-btn" id="profileBtn" type="button" title="Account"
+          aria-haspopup="menu" aria-expanded="${state.profileOpen ? "true" : "false"}" aria-label="Account menu">
           <div class="nav-avatar">${avatar}</div>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--muted-2)"><polyline points="6 9 12 15 18 9"/></svg>
         </button>

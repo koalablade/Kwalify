@@ -1,4 +1,4 @@
-# Shared benchmark web URL helper (prefers kwalify.net when reachable).
+# Shared benchmark web URL helper (prefers local API when up, else kwalify.net).
 param(
   [string]$Root = (Split-Path -Parent $PSScriptRoot)
 )
@@ -9,18 +9,17 @@ $localApi = "http://127.0.0.1:5000"
 
 function Get-BenchmarkWebUrl {
   foreach ($candidate in @(
-    @{ Base = "https://kwalify.net"; Url = "https://kwalify.net/benchmark" },
-    @{ Base = $localApi; Url = "$localApi/benchmark" }
+    @{ Base = $localApi; Url = "$localApi/benchmark" },
+    @{ Base = "https://kwalify.net"; Url = "https://kwalify.net/benchmark" }
   )) {
     try {
       $ping = Invoke-RestMethod -Uri "$($candidate.Base)/api/benchmark/ping" -TimeoutSec 4
       if ($ping.ok) { return $candidate.Url }
     } catch {}
   }
-  return "https://kwalify.net/benchmark"
+  return "$localApi/benchmark"
 }
 
 function Get-BenchmarkStatusUrl {
-  $base = (Get-BenchmarkWebUrl) -replace '/benchmark$', ''
-  return "$base/benchmark#live-dashboard"
+  return (Get-BenchmarkWebUrl) + "#live-dashboard"
 }

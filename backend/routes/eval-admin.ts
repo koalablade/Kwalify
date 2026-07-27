@@ -21,6 +21,17 @@ import { expectedEvalToken, safeTokenEqual } from "../lib/eval-token";
 
 const router: IRouter = Router();
 
+function evalAdminExposeUserIds(): boolean {
+  return process.env["EVAL_ADMIN_EXPOSE_USER_IDS"] === "true";
+}
+
+function redactSpotifyUserId(id: string | null | undefined): string | null {
+  if (!id) return null;
+  if (evalAdminExposeUserIds()) return id;
+  if (id.length < 8) return "***";
+  return `${id.slice(0, 4)}…${id.slice(-4)}`;
+}
+
 function requestHeader(req: Request, name: string): string | undefined {
   const value = req.headers[name.toLowerCase()];
   return Array.isArray(value) ? value[0] : value;
@@ -98,7 +109,7 @@ router.get("/eval/admin/taste-graph/:userId", async (req, res) => {
     loadTasteGraphV2(userId),
     loadGlobalTasteProfile(userId),
   ]);
-  res.json({ commit: deploymentVersion(), userId, graph, globalTaste });
+  res.json({ commit: deploymentVersion(), userId: redactSpotifyUserId(userId), graph, globalTaste });
 });
 
 router.get("/eval/admin/culture-match", async (req, res) => {
@@ -125,12 +136,13 @@ router.get("/eval/admin/smoke-spotify-user-id", async (req, res) => {
      LIMIT 5`,
   );
   const candidates = result.rows.map((row) => ({
-    spotifyUserId: row.spotify_user_id,
+    spotifyUserId: redactSpotifyUserId(row.spotify_user_id),
     totalTracks: row.total_tracks ?? 0,
   }));
+  const topRow = result.rows[0];
   res.json({
     commit: deploymentVersion(),
-    recommended: candidates[0]?.spotifyUserId ?? null,
+    recommended: redactSpotifyUserId(topRow?.spotify_user_id ?? null),
     candidates,
     hint: "Set GitHub secret SMOKE_SPOTIFY_USER_ID to recommended (not your GitHub username).",
   });
