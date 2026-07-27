@@ -116,7 +116,9 @@ export function createConcurrencyLimiter(opts: {
       });
     },
     release() {
-      makeRelease()();
+      // Use the function returned from acquire() — this method is intentionally a no-op
+      // so mistaken releaseGenerateSlot() calls cannot corrupt the active count.
+      log.debug({ limiter: opts.name }, "concurrency_limiter_release_ignored");
     },
     state,
     recordLatency(latencyMs: number) {

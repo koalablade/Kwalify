@@ -99,6 +99,9 @@ if (-not (Select-String -Path $envPath -Pattern '^\s*V3_PARALLEL_WORKERS=' -Quie
 if (-not (Select-String -Path $envPath -Pattern '^\s*GENERATE_CONCURRENCY_LIMIT=' -Quiet)) {
   Set-EnvLine $envPath "GENERATE_CONCURRENCY_LIMIT" "2"
 }
+if (-not (Select-String -Path $envPath -Pattern '^\s*GENERATE_QUEUE_LIMIT=' -Quiet)) {
+  Set-EnvLine $envPath "GENERATE_QUEUE_LIMIT" "4"
+}
 
 # Optional error tracking (uncomment and set DSN from sentry.io)
 if (-not (Select-String -Path $envPath -Pattern '^\s*SENTRY_DSN=' -Quiet)) {

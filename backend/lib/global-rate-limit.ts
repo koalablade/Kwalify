@@ -87,6 +87,14 @@ function isGalleryPlaylistRead(req: Request): boolean {
   return req.method === "GET" && /^\/api\/playlists\/\d+$/.test(req.path);
 }
 
+/** Legitimate UI polling — exempt from burst (minute limit still applies). */
+function isBurstExempt(req: Request): boolean {
+  if (isGalleryPlaylistRead(req)) return true;
+  if (req.method === "GET" && req.path.startsWith("/api/generate/status")) return true;
+  if (req.method === "GET" && /^\/api\/benchmark\/(ping|state)$/.test(req.path)) return true;
+  return false;
+}
+
 function logRateLimitRejected(
   req: Request,
   key: string,
@@ -132,7 +140,7 @@ export function globalRateLimit(req: Request, res: Response, next: NextFunction)
 
   const minuteExceeded = state.timestamps.length >= GLOBAL_RATE_LIMIT_PER_MINUTE;
   const burstExceeded =
-    !isGalleryPlaylistRead(req) && state.burstTimestamps.length >= GLOBAL_RATE_LIMIT_BURST;
+    !isBurstExempt(req) && state.burstTimestamps.length >= GLOBAL_RATE_LIMIT_BURST;
   if (minuteExceeded || burstExceeded) {
     const resetInMs = minuteExceeded
       ? (state.timestamps[0] ?? now) + GLOBAL_RATE_LIMIT_WINDOW_MS - now
