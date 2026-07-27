@@ -11,10 +11,8 @@ const generateLimiter = createConcurrencyLimiter({
   queueLimitEnv: "GENERATE_QUEUE_LIMIT",
   defaultLimit: 4,
   defaultQueueLimit: 12,
-  // Operational override for heavy single-instance / audit deployments where a
-  // single generation legitimately exceeds the default 30s overload heuristic
-  // (which otherwise trips chronic system-health degradation + clustering bypass).
-  overloadLatencyMs: envIntOrUndefined("GENERATE_OVERLOAD_LATENCY_MS"),
+  // Playlist scoring routinely exceeds 30s; latency overload only applies when queued > 0.
+  overloadLatencyMs: envIntOrUndefined("GENERATE_OVERLOAD_LATENCY_MS") ?? 120_000,
   overloadQueueThreshold: envIntOrUndefined("GENERATE_OVERLOAD_QUEUE_THRESHOLD"),
 });
 
