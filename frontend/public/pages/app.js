@@ -3,6 +3,11 @@ import { esc, initTheme, fmtDateShort as fmtDate, spiBadge, toggleTheme, showToa
 import { loadUserPrefs, saveUserPref, markOnboardingDone } from "../lib/user-prefs.js";
 import { applyArtAccentToPoster } from "../lib/art-color.js";
 import { COPY, heroChipsHtml } from "../lib/copy.js";
+import {
+  renderMemoryCard,
+  buildHomeFeaturedPosterHtml,
+  buildLandingShowcaseHtml,
+} from "../lib/gallery-cards.js";
 
 initTheme();
 const root = document.getElementById("appRoot");
@@ -667,6 +672,8 @@ function renderLanding(notice) {
       <p class="landing-beta-note">Spotify may limit logins during beta. If Connect fails, <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">send feedback</a> with your Spotify email.</p>
     </section>
 
+    ${buildLandingShowcaseHtml({ escFn: esc })}
+
   </div>
   ${siteFooterHtml()}`;
   wireLandingEvents();
@@ -863,6 +870,8 @@ function renderApp() {
       <div class="vibe-col cinematic-entry">
         <p class="cinematic-eyebrow cinematic-eyebrow--app">${COPY.eyebrow}</p>
         <h1 class="cinematic-headline cinematic-headline--app">${COPY.headline}</h1>
+        <p class="cinematic-sub cinematic-sub--app">${COPY.subhead}</p>
+        <p class="cinematic-promise cinematic-promise--app">${COPY.landingPromise}</p>
 
         <div class="vibe-input-wrap">
           <div class="vibe-glow"></div>
@@ -942,11 +951,15 @@ function renderApp() {
 
     ${state.generating && state.generationLivePreview ? earlyResultHtml(state.generationLivePreview) : ""}
     ${!state.generating && state.lastResult ? resultHtml(state.lastResult) : ""}
+    ${!state.generating && !state.lastResult && state.playlists?.length ? buildHomeFeaturedPosterHtml(state.playlists[0], { escFn: esc, fmtDateFn: fmtDate, spiFn: spi }) : ""}
 
     ${state.user && !state.generating ? `
     <section class="activity-section" aria-label="Recent activity">
-      <h2 class="section-title section-title--subtle">${COPY.activity.title}</h2>
-      <div class="activity-feed">${buildActivityFeed()}</div>
+      <div class="activity-section-head">
+        <h2 class="section-title section-title--subtle">${COPY.activity.title}</h2>
+        ${state.playlists?.length ? `<a href="/gallery.html" class="section-action">${COPY.activity.viewDiary}</a>` : ""}
+      </div>
+      <div class="activity-feed activity-feed--grid">${buildActivityFeed()}</div>
     </section>` : ""}
 
   </div>
@@ -970,61 +983,18 @@ function renderApp() {
 }
 
 function buildActivityFeed() {
-  // Merge recent history + recent playlists into a single chronological feed
-  const items = [];
-
-  // History items (moments)
-  const histItems = state.history.slice(0, 5).map(h => ({
-    type: "moment",
-    label: h.vibe,
-    date: h.createdAt || h.timestamp || "",
-    extra: null,
-  }));
-
-  // Playlist items
-  const plItems = state.playlists.slice(0, 6).map(p => ({
-    type: "playlist",
-    label: p.name,
-    date: p.createdAt || "",
-    count: Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0),
-    spotifyUrl: p.spotifyUrl,
-    id: p.id,
-  }));
-
-  // Interleave both, sorted by date descending
-  const all = [...histItems, ...plItems]
-    .filter(i => i.date)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  if (all.length === 0) {
+  const plItems = state.playlists.slice(0, 6);
+  if (!plItems.length) {
     return `<p class="activity-empty">${COPY.activity.empty}</p>`;
   }
 
-  return all.slice(0, 10).map(item => {
-    if (item.type === "moment") {
-      return `
-      <div class="activity-item activity-item--clickable" data-activity-moment="${esc(item.label)}" role="button" tabindex="0">
-        <span class="activity-dot activity-dot--green"></span>
-        <div class="activity-body">
-          <div class="activity-label" style="font-style:italic">"${esc(item.label)}"</div>
-          <div class="activity-meta">Moment · ${fmtDate(item.date)}</div>
-        </div>
-      </div>`;
-    } else {
-      return `
-      <div class="activity-item">
-        <span class="activity-dot activity-dot--purple"></span>
-        <div class="activity-body">
-          <div class="activity-label">${esc(item.label)}</div>
-          <div class="activity-meta">${item.count} tracks · ${fmtDate(item.date)}</div>
-        </div>
-        <div class="activity-actions">
-          ${item.spotifyUrl ? `<a href="${esc(item.spotifyUrl)}" target="_blank" rel="noopener" class="phase-open">${spi()}</a>` : ""}
-          <button class="delete-btn" data-id="${item.id}" title="Delete">✕</button>
-        </div>
-      </div>`;
-    }
-  }).join("");
+  return `<div class="gallery-grid gallery-grid--home">${plItems.map((p) => renderMemoryCard(p, {
+    escFn: esc,
+    fmtDateFn: fmtDate,
+    spiFn: spi,
+    deleteMode: false,
+    selected: false,
+  })).join("")}</div>`;
 }
 
 const GENERATION_STAGES = COPY.generation.stages;
@@ -1346,6 +1316,9 @@ function humanizeJourneyStage(rawLabel, segmentId, index) {
 }
 
 function resolvePosterSceneLine(result) {
+  if (result.sceneId) {
+    return String(result.sceneId).replace(/_/g, " ");
+  }
   return result.momentUnderstandingLine
     || result.sceneLabel
     || (result.scoringDiagnostics?.semanticResolution?.sceneId

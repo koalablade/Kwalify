@@ -32,13 +32,14 @@ export const COPY = {
   gallery: {
     title: "Your life in music",
     sub: "A personal archive of the moments you've turned into soundtracks.",
-    chapterHint: "Each chapter is a moment you captured.",
+    chapterHint: "Grouped by season — Summer 2026, Winter 2026, and the chapters of your year.",
     empty: "No moments captured yet — describe your first.",
     noMatch: "No memories match that search.",
   },
   activity: {
     title: "Recent moments",
     empty: "Your story starts with one moment — create your first soundtrack.",
+    viewDiary: "View your diary →",
   },
   settings: {
     title: "Fine-tune your taste",

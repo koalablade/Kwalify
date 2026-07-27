@@ -104,6 +104,7 @@ import {
   resolveVagueWorldCommit,
   shouldSuppressVagueWiden,
 } from "../../lib/vague-world-commit";
+import { canonicalToSemanticSceneId } from "../../lib/scene-id-map";
 import {
   applyEmotionalLeapsToHybridResults,
   tagMagicMomentCandidates,
@@ -345,9 +346,14 @@ export function runScoringPipeline<T extends {
   // Vague lifestyle prompts commit to ONE scene (no entropy mash).
   const vagueCommit = resolveVagueWorldCommit(opts.vibe);
   const suppressVagueWiden = shouldSuppressVagueWiden(vagueCommit);
+  const busSemanticId =
+    opts.canonical && opts.canonical.confidence >= 0.62
+      ? canonicalToSemanticSceneId(opts.canonical.sceneId)
+      : null;
+  const commitSceneId = busSemanticId ?? vagueCommit.sceneId;
   const earlySemanticResolution = resolveSemanticScene(opts.vibe, opts.emotionProfile, {
-    singleWorldCommit: suppressVagueWiden,
-    commitSceneId: vagueCommit.sceneId,
+    singleWorldCommit: suppressVagueWiden || !!busSemanticId,
+    commitSceneId,
   });
 
   const poolCap = capTracksForHybridScoring(opts.tracks, {

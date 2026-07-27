@@ -57,6 +57,7 @@ export const GOLDEN_PROMPT_CASES: GoldenPromptCase[] = [
   { prompt: "monday motivation new week", expectedSceneId: "motivation_monday" },
   { prompt: "driving through hometown nostalgic", expectedSceneId: "nostalgic_hometown_drive" },
   { prompt: "rain on windscreen night drive", expectedSceneId: "rain_windscreen_night_drive" },
+  { prompt: "Empty motorway at midnight, rain on the windscreen", expectedSceneId: "rain_windscreen_night_drive" },
   { prompt: "10am petrol station quick stop", expectedSceneId: "petrol_10am_routine" },
   { prompt: "airport at sunrise hopeful departure", expectedSceneId: "airport_sunrise_transition" },
   { prompt: "hidden corners of your library", expectedSceneId: "library_archaeology" },

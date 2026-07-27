@@ -232,6 +232,14 @@ export function evaluateHarvestedAlias(term: string): HarvestAliasRejection {
 }
 
 export function shouldBlockSceneMatch(prompt: string, sceneId: string): boolean {
+  // Rain-on-glass night drives commit to LATE_NIGHT_DRIVE via scene bus — not bare motorway.
+  if (
+    sceneId === "EMPTY_MOTORWAY_NIGHT" &&
+    /\b(?:windscreen|windshield)\b/i.test(prompt) &&
+    /\brain/i.test(prompt)
+  ) {
+    return true;
+  }
   if (sceneId === "PETROL_STATION_2AM" && /\b(?:ukg|uk\s+garage|grime|uk\s+rap|uk\s+drill)\b/i.test(prompt)) {
     return true;
   }

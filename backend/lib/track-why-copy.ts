@@ -17,11 +17,21 @@ const HUMAN_REASONS = [
 export function buildTrackWhyReasons(
   track: TrackLike,
   profile?: EmotionProfile | null,
-  trackIndex = 0
+  trackIndex = 0,
+  sceneId?: string | null
 ): string[] {
   const reasons: string[] = [];
   const energy = track.energy ?? 0.5;
   const rediscovery = track.rediscoveryScore ?? 0;
+
+  if (sceneId === "rain_windscreen_night_drive") {
+    reasons.push("Fits the enclosed calm of rain on glass at night");
+    reasons.push("Spacious enough for a solo night drive");
+  } else if (sceneId === "night_drive_alone_reflection") {
+    reasons.push("Matches the introspective pull of a night road");
+  } else if (sceneId === "petrol_2am_liminal") {
+    reasons.push("Captures that fluorescent 2am stillness");
+  }
 
   if (rediscovery >= 0.45 || track.narrativeRole === "rediscovery") {
     reasons.push("A deep cut from your library that fits this moment");

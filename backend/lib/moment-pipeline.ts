@@ -17,8 +17,6 @@ import { parseEmotionalDestination, type JourneyArc } from "./emotion-destinatio
 import { detectEra, hasEraSignal, type EraContext } from "./era-detection";
 import { propagateGraph, type GraphApplyResult } from "./knowledge-graph";
 import {
-  resolveCanonicalSceneFull,
-  resolveMoodSceneById,
   canonicalToPrototype,
   profileFromCanonical,
   type CanonicalSceneResult,
@@ -41,6 +39,7 @@ import {
   getSceneJourneyArc,
 } from "./scene-intelligence";
 import { interpretSemantics, type SemanticInterpretation } from "./semantic-interpreter";
+import { resolveSceneBus } from "./scene-resolution-bus";
 
 export interface MomentPipelineResult {
   profile: EmotionProfile;
@@ -95,18 +94,8 @@ export function analyzeMomentPipeline(
   const intent = decodeIntent(vibe);
 
   // 2. Canonical scene — explicit mood id wins over vibe text
-  //    If semantic found a strong canonical suggestion and no alias matched, use semantic's suggestion
-  const moodCanonical = opts?.moodSceneId ? resolveMoodSceneById(opts.moodSceneId) : null;
-  let canonical = moodCanonical ?? resolveCanonicalSceneFull(text);
-
-  // If canonical is null or very weak AND semantic has high confidence + a canonical suggestion, use it
-  if ((!canonical || canonical.confidence < 0.55) && semantic.confidence > 0.35 && semantic.suggestedCanonical) {
-    const semanticCanonical = resolveMoodSceneById(semantic.suggestedCanonical)
-      ?? resolveCanonicalSceneFull(semantic.suggestedCanonical);
-    if (semanticCanonical) {
-      canonical = { ...semanticCanonical, confidence: Math.min(0.68, semantic.confidence) };
-    }
-  }
+  const resolvedBus = resolveSceneBus(vibe, { moodSceneId: opts?.moodSceneId });
+  let canonical = resolvedBus.canonical;
 
   const prototype = canonicalToPrototype(canonical);
 
@@ -190,6 +179,8 @@ export function analyzeMomentPipeline(
     intentConfidence: intent.confidence,
     canonicalScene: canonical?.sceneId ?? null,
     canonicalConfidence: canonical?.confidence ?? 0,
+    sceneBusSource: resolvedBus.source,
+    semanticSceneId: resolvedBus.semanticSceneId,
     prototype: prototype?.id ?? null,
     emotionTrajectory: physics.emotionTrajectory,
     emotionVector: physics.vector,

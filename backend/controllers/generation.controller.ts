@@ -233,6 +233,8 @@ import { getEnv, getFeatures } from "../lib/env";
 import { publicUrl } from "../lib/public-url";
 import { generateShareSlug } from "../lib/share-slug";
 import { resolveSemanticScene } from "../lib/semantic-scene-engine";
+import { resolveSceneBus, resolveSemanticFromBus } from "../lib/scene-resolution-bus";
+import { resolveVagueWorldCommit, shouldSuppressVagueWiden } from "../lib/vague-world-commit";
 import { detectEra } from "../lib/era-detection";
 import {
   MOCK_SPOTIFY_USER_ID,
@@ -4989,9 +4991,13 @@ router.get("/generate/preview", (req, res): void => {
   }
 
   try {
-    // Run scene detection + era detection synchronously (both are fast regex/rule-based)
+    const sceneBus = resolveSceneBus(vibe);
     const { profile, journeyArc } = analyzeVibeWithContext(vibe);
-    const sceneResolution = resolveSemanticScene(vibe, profile);
+    const vagueCommit = resolveVagueWorldCommit(vibe);
+    const sceneResolution = resolveSemanticFromBus(vibe, profile, sceneBus, {
+      singleWorldCommit: shouldSuppressVagueWiden(vagueCommit),
+      vagueCommitSceneId: vagueCommit.sceneId,
+    });
     const eraCtx = detectEra(vibe);
 
     // Build primary genre list from scene ecosystem (top 4 by weight)
@@ -5005,14 +5011,25 @@ router.get("/generate/preview", (req, res): void => {
     res.json({
       scene: sceneResolution.matchedId
         ? {
-            id: sceneResolution.matchedId,
-            label: sceneResolution.vector?.label ?? sceneResolution.matchedId,
-            confidence: sceneResolution.confidence,
+            id: sceneBus.sceneId ?? sceneResolution.matchedId,
+            semanticId: sceneResolution.matchedId,
+            label: sceneResolution.vector?.label ?? sceneBus.sceneId?.replace(/_/g, " ") ?? sceneResolution.matchedId,
+            confidence: sceneBus.confidence || sceneResolution.confidence,
             energy: sceneResolution.vector?.energy ?? null,
             aesthetics: sceneResolution.vector?.aesthetics?.slice(0, 4) ?? [],
             primaryGenres,
           }
-        : null,
+        : sceneBus.sceneId
+          ? {
+              id: sceneBus.sceneId,
+              semanticId: sceneBus.semanticSceneId,
+              label: sceneBus.sceneId.replace(/_/g, " "),
+              confidence: sceneBus.confidence,
+              energy: null,
+              aesthetics: [],
+              primaryGenres: [],
+            }
+          : null,
       alternatives: sceneResolution.alternatives,
       era: eraCtx.decade ? { decade: eraCtx.decade, confidence: eraCtx.eraConfidence } : null,
       emotion: {
@@ -11464,7 +11481,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         }>).map((row) => [row.trackId, row]),
       ),
     ));
-    let finalApiTracks = formatTracksForApi(delivery.tracks, emotionProfile);
+    let finalApiTracks = formatTracksForApi(
+      delivery.tracks,
+      emotionProfile,
+      momentPipeline?.canonicalScene?.sceneId ?? null,
+    );
     const apiPruneMinViable = minViableTracksAfterGenrePrune(length);
     if (isGymWorkoutPrompt(vibe, lockedIntent)) {
       const gymProfile = resolveActivityProfile(vibe, lockedIntent);
@@ -13263,6 +13284,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         generationMs,
       },
       emotionProfile: { ...emotionProfile, journeyArc },
+      sceneId: momentPipeline?.canonicalScene?.sceneId ?? null,
       experienceScene,
       momentUnderstanding,
       momentUnderstandingLine,

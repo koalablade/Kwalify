@@ -256,7 +256,8 @@ export function formatTracksForApi(
     genreFamily?: string | null;
     genres?: string[] | null;
   }>,
-  profile?: EmotionProfile | null
+  profile?: EmotionProfile | null,
+  sceneId?: string | null
 ) {
   const formatted = (tracks ?? [])
     .filter((t) => t?.trackId && t?.trackName && t?.artistName)
@@ -324,7 +325,7 @@ export function formatTracksForApi(
         clusterId: t.clusterId ?? t.clusterIds?.[0] ?? null,
         clusterIds: t.clusterIds ?? (t.clusterId ? [t.clusterId] : []),
         selectedByV3: t.selectedByV3 === true ? true : undefined,
-        whyReasons: buildTrackWhyReasons(t, profile, i),
+        whyReasons: buildTrackWhyReasons(t, profile, i, sceneId),
       };
     });
   // Safety net: a user must never receive the same track twice, nor the same

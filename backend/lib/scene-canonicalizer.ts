@@ -118,8 +118,13 @@ export const CANONICAL_SCENES: CanonicalEntry[] = [
       "rain on windscreen",
       "rain on windshield",
       "rain on the windscreen",
+      "rain on the windshield",
       "rainy night drive",
       "rain on windscreen at night",
+      "empty motorway at midnight",
+      "motorway at midnight rain",
+      "rain on the windscreen night drive",
+      "rain on windscreen night drive",
     ],
   },
   {
@@ -294,8 +299,41 @@ export function resolveMoodSceneById(moodSceneId: string): CanonicalSceneResult 
 /** @deprecated use resolveCanonicalSceneFull */
 export type CanonicalScene = CanonicalSceneResult;
 
+function detectCompoundCanonicalScene(text: string): CanonicalSceneResult | null {
+  const lower = text.toLowerCase().trim();
+  const hasWindscreen =
+    /\b(?:windscreen|windshield)\b/.test(lower) && /\brain/.test(lower);
+  const hasDriveContext =
+    /\b(?:drive|driving|motorway|highway|freeway|road|journey)\b/.test(lower);
+  const hasNightContext =
+    /\b(?:midnight|late\s+night|2\s*am|3\s*am|night)\b/.test(lower);
+
+  if (!hasWindscreen || (!hasDriveContext && !hasNightContext)) return null;
+
+  const layers = detectLayeredScene(text);
+  const entry = CANONICAL_SCENES.find((s) => s.id === "rain_windscreen_night_drive");
+  if (!entry) return null;
+
+  return {
+    sceneId: entry.id,
+    prototypeId: entry.prototypeId,
+    confidence: 0.95,
+    matchedVariants: ["compound:rain_windscreen_night_drive"],
+    matchedAlias: "rain on windscreen night drive",
+    inferredLayers: {
+      time: layers.timeOfDay,
+      motion: layers.motionState,
+      place: layers.environment,
+      emotionalTone: entry.emotionalTone,
+    },
+  };
+}
+
 export function resolveCanonicalSceneFull(text: string): CanonicalSceneResult | null {
   const lower = text.toLowerCase().trim();
+  const compound = detectCompoundCanonicalScene(text);
+  if (compound) return compound;
+
   const layers = detectLayeredScene(text);
   let best: CanonicalSceneResult | null = null;
 

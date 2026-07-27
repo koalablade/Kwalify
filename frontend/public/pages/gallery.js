@@ -1,6 +1,11 @@
 // ── Kwalify · Gallery ─────────────────────────────────────────────────────────
 import { esc, fmtDate, initTheme, spiBadge, toggleTheme, apiJson, showToast, confirmDialog, siteFooterHtml } from "../lib/shared.js";
 import { COPY } from "../lib/copy.js";
+import {
+  seasonalLifeChapterLabel,
+  chapterMomentSubcopy,
+  renderMemoryCard,
+} from "../lib/gallery-cards.js";
 
 // After Spotify login, app.js boot should redirect to sessionStorage.returnTo when set.
 const galleryDebug = new URLSearchParams(window.location.search).get("debug") === "1";
@@ -116,30 +121,6 @@ function wireNavEvents() {
   });
 }
 
-function moodEmoji(vibe, mode) {
-  const v = String(vibe || "").toLowerCase();
-  if (/rain|storm|wet/.test(v)) return "🌧";
-  if (/drive|road|motorway|highway|car/.test(v)) return "🚗";
-  if (/summer|sun|warm|beach/.test(v)) return "🌅";
-  if (/goodbye|heart|break|alone|miss/.test(v)) return "💔";
-  if (/child|nostalg|remember|memory|school/.test(v)) return "🎮";
-  if (/night|midnight|2am|late/.test(v)) return "🌙";
-  if (mode === "chaotic") return "✨";
-  if (mode === "strict") return "🎯";
-  return "🎵";
-}
-
-function moodLabel(vibe, mode) {
-  const v = String(vibe || "").toLowerCase();
-  if (/calm|peace|quiet|slow/.test(v)) return "Reflective";
-  if (/drive|road|freedom|open/.test(v)) return "Freedom";
-  if (/party|energy|upbeat|dance/.test(v)) return "Energetic";
-  if (/sad|melanch|rain/.test(v)) return "Melancholy";
-  if (mode === "chaotic") return "Adventurous";
-  if (mode === "strict") return "Focused";
-  return "Personal";
-}
-
 function getTags(p) {
   const ep = p.emotionProfile || {};
   const tags = [];
@@ -181,15 +162,29 @@ function generatorNote(p) {
   return bits.length ? bits.slice(0, 3).join(" · ") : "";
 }
 
-function getArts(p) {
-  const tracks = Array.isArray(p.tracks) ? p.tracks : [];
-  const arts = [];
-  for (const t of tracks) {
-    const art = t.albumArt || t.album_art;
-    if (art && !arts.includes(art)) arts.push(art);
-    if (arts.length >= 4) break;
+function galleryChapterLabel(iso) {
+  return seasonalLifeChapterLabel(iso);
+}
+
+function renderPlaylistCard(p) {
+  const tags = getTags(p);
+  const selected = selectedPlaylistIds.has(Number(p.id));
+  let card = renderMemoryCard(p, {
+    escFn: esc,
+    fmtDateFn: fmtDate,
+    spiFn: spi,
+    deleteMode,
+    selected,
+    showDebugNote: galleryDebug,
+    generatorNoteFn: galleryDebug ? generatorNote : null,
+  });
+  if (tags.length && !deleteMode) {
+    card = card.replace(
+      '<div class="memory-card-mood">',
+      `<div class="gallery-tags">${tags.map((t) => `<span class="gallery-tag">${esc(t)}</span>`).join("")}</div><div class="memory-card-mood">`,
+    );
   }
-  return arts;
+  return card;
 }
 
 function isToday(iso) {
@@ -221,6 +216,7 @@ function getVisiblePlaylists() {
   const filtered = galleryPlaylists.filter((p) => {
     if (galleryFilter === "today" && !isToday(p.createdAt)) return false;
     if (galleryFilter === "week" && !isThisWeek(p.createdAt)) return false;
+    if (galleryFilter === "season" && galleryChapterLabel(p.createdAt) !== seasonalLifeChapterLabel(new Date().toISOString())) return false;
     if (galleryFilter === "noSpotify" && p.spotifyUrl) return false;
     if (galleryFilter === "test" && !looksLikeTestPlaylist(p)) return false;
     return !q || playlistSearchText(p).includes(q);
@@ -232,22 +228,13 @@ function getVisiblePlaylists() {
   });
 }
 
-function mosaicHtml(arts) {
-  if (arts.length === 0) {
-    return `<div class="gallery-card-mosaic"><div class="mosaic-empty">🎵</div></div>`;
-  }
-  const cells = [...arts, ...arts, ...arts, ...arts].slice(0, 4);
-  return `<div class="gallery-card-mosaic">
-    ${cells.map((a) => `<img class="mosaic-img" src="${esc(a)}" alt="" loading="lazy">`).join("")}
-  </div>`;
-}
-
 function renderGalleryControls(visiblePlaylists) {
   if (!galleryPlaylists.length) return "";
   const filters = [
     ["all", "All"],
     ["today", "Today"],
     ["week", "This week"],
+    ["season", "This season"],
     ["noSpotify", "No Spotify"],
     ["test", "Test-looking"],
   ];
@@ -300,46 +287,6 @@ function renderGalleryActions(playlists) {
   </div>`;
 }
 
-function galleryChapterLabel(iso) {
-  if (!iso) return "Earlier";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Earlier";
-  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-}
-
-function renderPlaylistCard(p) {
-  const arts = getArts(p);
-  const tags = getTags(p);
-  const note = galleryDebug ? generatorNote(p) : "";
-  const count = Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0);
-  const selected = selectedPlaylistIds.has(Number(p.id));
-  const openHref = !deleteMode && p.shareSlug ? `/p/${encodeURIComponent(p.shareSlug)}` : null;
-  const cardClass = `gallery-card memory-card ${deleteMode ? "gallery-card--selectable" : ""} ${openHref ? "gallery-card--link" : ""} ${selected ? "selected" : ""}`.trim();
-  const cardAttrs = deleteMode
-    ? `data-select-playlist-id="${p.id}" role="button" tabindex="0"`
-    : "";
-  const inner = `
-    ${deleteMode ? `<div class="gallery-select-check">${selected ? "✓" : ""}</div>` : ""}
-    ${mosaicHtml(arts)}
-    <div class="gallery-card-body memory-card-body">
-      <div class="memory-card-emoji" aria-hidden="true">${moodEmoji(p.vibe, p.mode)}</div>
-      <div class="memory-card-title" title="${esc(p.vibe || p.name)}">${esc(p.vibe ? (p.vibe.length > 56 ? `${p.vibe.slice(0, 53)}…` : p.vibe) : p.name)}</div>
-      ${!p.vibe && p.name ? `<div class="gallery-card-name gallery-card-name--sub">${esc(p.name)}</div>` : ""}
-      <div class="memory-card-mood">${esc(moodLabel(p.vibe, p.mode))}</div>
-      ${tags.length ? `<div class="gallery-tags">${tags.map((t) => `<span class="gallery-tag">${esc(t)}</span>`).join("")}</div>` : ""}
-      ${note ? `<div class="gallery-generator-note">${esc(note)}</div>` : ""}
-      <div class="gallery-card-meta memory-card-meta">${count} songs · ${fmtDate(p.createdAt)}</div>
-      ${deleteMode ? "" : `<div class="gallery-card-actions">
-        ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm" onclick="event.stopPropagation()">${spi()} Spotify</a>` : ""}
-        ${openHref ? `<span class="btn btn-ghost btn-sm">Open</span>` : ""}
-      </div>`}
-    </div>`;
-  if (openHref && !deleteMode) {
-    return `<a class="${cardClass}" href="${esc(openHref)}">${inner}</a>`;
-  }
-  return `<div class="${cardClass}" ${cardAttrs}>${inner}</div>`;
-}
-
 function renderCards(playlists) {
   if (galleryLoadError) {
     return `<div class="empty-state"><h3>Could not load playlists</h3><p>${esc(galleryLoadError)}</p><button class="btn btn-green btn-sm" id="galleryRetryBtn">Retry</button></div>`;
@@ -350,7 +297,7 @@ function renderCards(playlists) {
       : `<div class="empty-state"><h3>No moments yet</h3><p>${COPY.gallery.empty}</p></div>`;
   }
 
-  const useChapters = !deleteMode && gallerySort === "newest" && playlists.length > 2;
+  const useChapters = !deleteMode && playlists.length > 1;
   if (useChapters) {
     const chapters = new Map();
     for (const p of playlists) {
@@ -360,10 +307,10 @@ function renderCards(playlists) {
     }
     return `<div class="gallery-chapters">
       ${[...chapters.entries()].map(([chapter, items]) => `
-        <section class="gallery-chapter" aria-label="${esc(chapter)}">
+        <section class="gallery-chapter gallery-chapter--season" aria-label="${esc(chapter)}">
           <header class="gallery-chapter-head">
             <h2 class="gallery-chapter-title">${esc(chapter)}</h2>
-            <p class="gallery-chapter-sub">${items.length === 1 ? "One moment" : `${items.length} moments`}</p>
+            <p class="gallery-chapter-sub">${esc(chapterMomentSubcopy(items.length, chapter))}</p>
           </header>
           <div class="gallery-grid">${items.map((p) => renderPlaylistCard(p)).join("")}</div>
         </section>
