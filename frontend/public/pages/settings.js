@@ -1,0 +1,188 @@
+import { esc, initTheme, toggleTheme } from "../lib/shared.js";
+import { loadUserPrefs, saveUserPref } from "../lib/user-prefs.js";
+
+initTheme();
+const root = document.getElementById("settingsRoot");
+const prefs = loadUserPrefs();
+
+async function api(path, opts = {}) {
+  const r = await fetch(`/api${path}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+  return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+}
+
+function navHtml() {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  return `
+  <nav class="nav">
+    <a href="/" class="nav-logo" style="text-decoration:none;color:inherit;">
+      <div class="nav-logo-mark">K</div><span>Kwalify</span>
+    </a>
+    <div class="nav-right">
+      <a href="/status" class="nav-link">Status</a>
+      <a href="/" class="nav-link">App</a>
+    </div>
+  </nav>`;
+}
+
+function render(user, cacheStatus) {
+  const syncing = cacheStatus?.isSyncing;
+  const total = cacheStatus?.totalTracks || 0;
+  const lastSynced = cacheStatus?.lastSyncedAt
+    ? new Date(cacheStatus.lastSyncedAt).toLocaleString()
+    : "Never";
+
+  root.innerHTML = `
+  ${navHtml()}
+  <div class="settings-page app-wrap">
+    <h1 class="vibe-heading">Settings</h1>
+    <p class="vibe-sub">Defaults for generation and your account.</p>
+
+    <section class="settings-section">
+      <h2 class="section-title">Generation defaults</h2>
+      <div class="settings-field">
+        <label>Vibe mode</label>
+        <div class="mode-group">
+          ${["strict", "balanced", "chaotic"].map((m) => `
+            <button type="button" class="mode-btn ${prefs.mode === m ? "active" : ""}" data-pref-mode="${m}">${m.charAt(0).toUpperCase() + m.slice(1)}</button>
+          `).join("")}
+        </div>
+      </div>
+      <div class="settings-field">
+        <label>Playlist size: <span id="settingsLengthVal">${prefs.length}</span> tracks</label>
+        <input type="range" id="settingsLength" min="20" max="60" step="5" value="${prefs.length}" class="length-slider">
+      </div>
+      <div class="settings-field">
+        <label>Familiarity (liked-songs mode)</label>
+        <div class="familiarity-group">
+          ${["safe", "balanced", "discovery"].map((f) => `
+            <button type="button" class="familiarity-btn ${prefs.familiarity === f ? "active" : ""}" data-pref-fam="${f}">${f.charAt(0).toUpperCase() + f.slice(1)}</button>
+          `).join("")}
+        </div>
+      </div>
+      <div class="settings-field">
+        <label class="no-library-toggle">
+          <div class="toggle-switch ${prefs.discoveryMode ? "on" : ""}" id="settingsDiscoveryToggle" role="switch" tabindex="0" aria-checked="${prefs.discoveryMode}"></div>
+          <div class="no-library-text">
+            <span class="no-library-label">Discovery Mode</span>
+            <span class="no-library-sub">Search all of Spotify for clear genre prompts (not your liked songs)</span>
+          </div>
+        </label>
+      </div>
+      <p class="settings-saved" id="settingsSavedMsg" hidden>Saved — applies on next generation.</p>
+    </section>
+
+    <section class="settings-section">
+      <h2 class="section-title">Library</h2>
+      ${user ? `
+        <p>${total ? `${total.toLocaleString()} tracks cached` : "Not synced yet"} · Last sync: ${esc(lastSynced)}</p>
+        <div class="settings-actions-row">
+          <button type="button" class="btn btn-ghost btn-sm" id="settingsDeltaSync" ${syncing ? "disabled" : ""}>Sync new likes</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="settingsFullSync" ${syncing ? "disabled" : ""}>Full sync</button>
+        </div>
+      ` : `<p><a href="/api/auth/login">Sign in with Spotify</a> to sync your library.</p>`}
+    </section>
+
+    <section class="settings-section">
+      <h2 class="section-title">Appearance</h2>
+      <button type="button" class="btn btn-ghost btn-sm" id="settingsThemeBtn">Toggle light / dark</button>
+    </section>
+
+    <section class="settings-section">
+      <h2 class="section-title">Server</h2>
+      <p><a href="/status">System status page</a> — check database, Spotify, and API health.</p>
+      <p class="vibe-sub">Logs: <code>kwalify-start.log</code>, <code>kwalify-api.log</code> in project folder.</p>
+    </section>
+
+    ${user ? `
+    <section class="settings-section settings-section--danger">
+      <h2 class="section-title">Account</h2>
+      <button type="button" class="btn btn-ghost btn-sm" id="settingsLogout">Log out</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="settingsDeleteAccount" style="color:var(--danger,#f87171)">Delete my data</button>
+    </section>` : ""}
+  </div>`;
+
+  const flash = () => {
+    const el = document.getElementById("settingsSavedMsg");
+    if (!el) return;
+    el.hidden = false;
+    setTimeout(() => { el.hidden = true; }, 2000);
+  };
+
+  document.querySelectorAll("[data-pref-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      prefs.mode = btn.dataset.prefMode;
+      saveUserPref("mode", prefs.mode);
+      document.querySelectorAll("[data-pref-mode]").forEach((b) => b.classList.toggle("active", b.dataset.prefMode === prefs.mode));
+      flash();
+    });
+  });
+
+  document.querySelectorAll("[data-pref-fam]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      prefs.familiarity = btn.dataset.prefFam;
+      saveUserPref("familiarity", prefs.familiarity);
+      document.querySelectorAll("[data-pref-fam]").forEach((b) => b.classList.toggle("active", b.dataset.prefFam === prefs.familiarity));
+      flash();
+    });
+  });
+
+  const len = document.getElementById("settingsLength");
+  len?.addEventListener("input", () => {
+    prefs.length = Number(len.value);
+    saveUserPref("length", prefs.length);
+    const lbl = document.getElementById("settingsLengthVal");
+    if (lbl) lbl.textContent = String(prefs.length);
+    flash();
+  });
+
+  const discToggle = document.getElementById("settingsDiscoveryToggle");
+  const toggleDisc = () => {
+    prefs.discoveryMode = !prefs.discoveryMode;
+    saveUserPref("discoveryMode", prefs.discoveryMode);
+    discToggle?.classList.toggle("on", prefs.discoveryMode);
+    discToggle?.setAttribute("aria-checked", String(prefs.discoveryMode));
+    flash();
+  };
+  discToggle?.addEventListener("click", toggleDisc);
+  discToggle?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleDisc(); }
+  });
+
+  document.getElementById("settingsThemeBtn")?.addEventListener("click", () => toggleTheme());
+
+  document.getElementById("settingsLogout")?.addEventListener("click", async () => {
+    await api("/auth/logout", { method: "POST" });
+    window.location.href = "/";
+  });
+
+  document.getElementById("settingsDeleteAccount")?.addEventListener("click", async () => {
+    if (!confirm("Delete all your Kwalify data? This cannot be undone.")) return;
+    const r = await api("/auth/account", { method: "DELETE" });
+    if (r.ok) window.location.href = "/";
+    else alert(r.data?.error || "Could not delete account.");
+  });
+
+  async function runSync(full) {
+    await api(`/spotify/sync${full ? "?full=1" : ""}`, { method: "POST" });
+    boot();
+  }
+  document.getElementById("settingsDeltaSync")?.addEventListener("click", () => runSync(false));
+  document.getElementById("settingsFullSync")?.addEventListener("click", () => runSync(true));
+}
+
+async function boot() {
+  root.innerHTML = `${navHtml()}<div class="loading-shell"><div class="spinner"></div></div>`;
+  const me = await api("/auth/me");
+  let cacheStatus = null;
+  if (me.ok && me.data?.id) {
+    const cs = await api("/spotify/cache-status");
+    if (cs.ok) cacheStatus = cs.data;
+  }
+  render(me.ok ? me.data : null, cacheStatus);
+}
+
+boot();

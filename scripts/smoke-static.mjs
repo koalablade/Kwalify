@@ -7,9 +7,14 @@ const checks = [
     message: "Production CORS must fail closed when APP_URL/FRONTEND_URL are missing.",
   },
   {
-    file: "backend/routes/health.ts",
-    includes: "router.get(\"/readyz\"",
-    message: "Readiness endpoint must exist.",
+    file: "backend/app.ts",
+    includes: 'app.get("/status"',
+    message: "Status page route must exist at /status.",
+  },
+  {
+    file: "backend/app.ts",
+    includes: 'app.get("/settings"',
+    message: "Settings page route must exist at /settings.",
   },
   {
     file: "backend/lib/db-init.ts",

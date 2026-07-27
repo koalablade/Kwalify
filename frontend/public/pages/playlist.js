@@ -175,16 +175,21 @@ function render(data) {
     const name = t.trackName || t.name || "Unknown";
     const artist = t.artistName || t.artist || "Unknown artist";
     const art = t.albumArt || t.album_art;
+    const trackId = t.trackId || t.id || "";
     const why = Array.isArray(t.whyReasons) && t.whyReasons.length
       ? ` title="Why this song: ${esc(t.whyReasons.slice(0, 3).join(", "))}"`
       : "";
     return `
-    <div class="track-row"${why}>
+    <div class="track-row share-track-row" data-track-id="${esc(trackId)}"${why}>
       <span class="track-num">${i + 1}</span>
       <div class="track-art">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
       <div class="track-info">
         <div class="track-name">${esc(name)}</div>
         <div class="track-artist">${esc(artist)}</div>
+      </div>
+      <div class="track-actions share-track-actions">
+        <button type="button" class="section-action share-react-btn" data-reaction="up" title="Good pick" aria-label="Thumbs up">♥</button>
+        <button type="button" class="section-action share-react-btn" data-reaction="down" title="Not for me" aria-label="Thumbs down">↓</button>
       </div>
     </div>`;
   }).join("");
@@ -215,7 +220,7 @@ function render(data) {
       ${typeof navigator.share === "function" ? `<button id="nativeShareBtn" class="btn btn-ghost btn-sm" type="button">Share…</button>` : ""}
       <a href="/" class="btn btn-outline btn-sm">Generate yours — free</a>
     </div>
-    <div class="playlist-vibe" style="margin-top:14px;">Want feedback controls and replacements? Sign in and generate your own version.</div>
+    <div class="playlist-vibe" style="margin-top:14px;">Rate tracks below — <a href="/api/auth/login">sign in</a> to save taste preferences and generate your own mixes.</div>
     <div class="tracks-list">${tracksHtml}</div>
   </div>
   <footer class="app-footer site-footer">
@@ -260,6 +265,26 @@ function render(data) {
         setTimeout(() => { btn.textContent = "Copy page link"; }, 2000);
       }
     }
+  });
+
+  document.querySelectorAll(".share-react-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const row = btn.closest(".share-track-row");
+      const trackId = row?.dataset?.trackId;
+      const reaction = btn.dataset.reaction;
+      if (!trackId || !reaction) return;
+      btn.disabled = true;
+      try {
+        await api(`/share/${encodeURIComponent(shareSlug)}/track-react`, {
+          method: "POST",
+          body: JSON.stringify({ trackId, reaction }),
+        });
+        row?.classList.add(reaction === "up" ? "share-track--up" : "share-track--down");
+        btn.textContent = reaction === "up" ? "✓" : "✓";
+      } catch {
+        btn.disabled = false;
+      }
+    });
   });
 
   document.getElementById("nativeShareBtn")?.addEventListener("click", async () => {

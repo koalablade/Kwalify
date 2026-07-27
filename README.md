@@ -48,6 +48,7 @@ This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend).
 | Environment | How to run | Spotify OAuth |
 |-------------|------------|---------------|
 | **Local Windows (primary)** | `start-kwalify.bat` → `https://kwalify.net` | `https://kwalify.net/api/auth/callback` |
+| **Self-hosted beta (your PC)** | `setup-self-host.ps1` then `start-kwalify-selfhost.bat` | Your public URL + `/api/auth/callback` |
 | **Render (optional prod)** | `render.yaml` blueprint | Same redirect URI on public domain |
 | **Debug only** | `start-kwalify.bat local` → `http://localhost:5000` | Not supported (Spotify blocks localhost) |
 

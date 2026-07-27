@@ -1,8 +1,10 @@
 // ── Kwalify · Single app entry point ─────────────────────────────────────────
 import { esc, initTheme, fmtDateShort as fmtDate, spiBadge, toggleTheme } from "../lib/shared.js";
+import { loadUserPrefs, saveUserPref, markOnboardingDone } from "../lib/user-prefs.js";
 
 initTheme();
 const root = document.getElementById("appRoot");
+const _savedPrefs = loadUserPrefs();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function trackGenreLabel(track) {
@@ -469,17 +471,10 @@ const state = {
   playlists: [],
   history: [],
   libraryChapters: [],
-  mode: "balanced",
-  familiarity: (() => {
-    try {
-      const saved = localStorage.getItem("kwalify-familiarity");
-      return saved === "safe" || saved === "discovery" ? saved : "balanced";
-    } catch {
-      return "balanced";
-    }
-  })(),
-  length: 40,
-  noLibraryMode: false,
+  mode: _savedPrefs.mode,
+  familiarity: _savedPrefs.familiarity,
+  length: _savedPrefs.length,
+  noLibraryMode: _savedPrefs.discoveryMode,
   generating: false,
   generationCancelRequested: false,
   generationRunId: 0,
@@ -498,6 +493,7 @@ const state = {
   profileOpen: false,
   showDebug: false,
   showExplain: false,
+  onboardingStep: 1,
   progressExpanded: false,
   preview: null,
   selectedSceneId: null,
@@ -539,6 +535,7 @@ function navHtml(user) {
     ${navLogoHtml()}
     <div class="nav-right">
       <a href="/gallery" class="nav-link">Gallery <span class="nav-link-arrow">→</span></a>
+      <a href="/settings" class="nav-link">Settings</a>
       <div class="nav-library-panel">
         <button class="nav-sync-chip" id="syncChip" type="button" title="Delta sync (new likes only)">
           <span class="sync-dot ${syncing ? "sync-dot--live" : ""}"></span>
@@ -560,6 +557,9 @@ function navHtml(user) {
           <div class="profile-dropdown-header">
             <span class="profile-dropdown-name">${esc(user?.displayName || "")}</span>
           </div>
+          <button class="profile-dropdown-item" id="settingsLinkBtn">
+            <span>⚙️</span><span>Settings</span>
+          </button>
           <button class="profile-dropdown-item" id="themeToggleBtn">
             <span id="themeIcon">${isDark ? "☀️" : "🌙"}</span>
             <span>${isDark ? "Light mode" : "Dark mode"}</span>
@@ -661,7 +661,7 @@ function renderLanding() {
     <section class="how-section">
       <div class="how-label">How it works</div>
       <h2 class="how-title">Three steps to your soundtrack</h2>
-      <p class="how-sub">Default mode uses only your Liked Songs. Optional No Library Mode can search Spotify broadly for clear genre prompts.</p>
+      <p class="how-sub">Default mode uses only your Liked Songs. Optional Discovery Mode can search Spotify broadly for clear genre prompts.</p>
       <div class="how-steps">
         <div class="how-step">
           <div class="how-step-num">Step 01</div>
@@ -703,7 +703,7 @@ function renderLanding() {
         <div class="feature-card">
           <div class="feature-icon">🔒</div>
           <h3>Your library first</h3>
-          <p>Default mode reads only your Liked Songs. Optional No Library Mode searches Spotify for genre-specific prompts.</p>
+          <p>Default mode reads only your Liked Songs. Optional Discovery Mode searches Spotify for genre-specific prompts.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🎯</div>
@@ -781,7 +781,7 @@ function renderApp() {
     const fallbackSuggestion = state.errorKind === "status"
       ? "Your playlist may still be fine. Refresh if library counts look stale."
       : state.noLibraryMode
-        ? "Try adding a clearer genre, or turn off No Library Mode for mood-only prompts."
+        ? "Try adding a clearer genre, or turn off Discovery Mode for mood-only prompts."
         : "Try again in a moment.";
     const limitingFactors = Array.isArray(state.libraryInsufficient?.limitingFactors)
       ? state.libraryInsufficient.limitingFactors
@@ -938,25 +938,28 @@ function renderApp() {
           </div>
         </div>
         </div>
-        <div class="familiarity-row" aria-label="Familiarity vs discovery">
+        <div class="familiarity-row ${state.noLibraryMode ? "familiarity-row--disabled" : ""}" aria-label="Familiarity vs discovery within your library">
           <span class="familiarity-label">Familiarity</span>
           <div class="familiarity-group">
-            <button class="familiarity-btn ${state.familiarity === "safe" ? "active" : ""}" data-familiarity="safe" title="Mostly known tracks" aria-pressed="${state.familiarity === "safe"}">Safe</button>
-            <button class="familiarity-btn ${state.familiarity === "balanced" ? "active" : ""}" data-familiarity="balanced" title="Comfort + discovery" aria-pressed="${state.familiarity === "balanced"}">Balanced</button>
-            <button class="familiarity-btn ${state.familiarity === "discovery" ? "active" : ""}" data-familiarity="discovery" title="More deep cuts" aria-pressed="${state.familiarity === "discovery"}">Discovery</button>
+            <button class="familiarity-btn ${state.familiarity === "safe" ? "active" : ""}" data-familiarity="safe" title="Mostly known tracks" aria-pressed="${state.familiarity === "safe"}" ${state.noLibraryMode ? "disabled" : ""}>Safe</button>
+            <button class="familiarity-btn ${state.familiarity === "balanced" ? "active" : ""}" data-familiarity="balanced" title="Comfort + discovery" aria-pressed="${state.familiarity === "balanced"}" ${state.noLibraryMode ? "disabled" : ""}>Balanced</button>
+            <button class="familiarity-btn ${state.familiarity === "discovery" ? "active" : ""}" data-familiarity="discovery" title="More deep cuts" aria-pressed="${state.familiarity === "discovery"}" ${state.noLibraryMode ? "disabled" : ""}>Discovery</button>
           </div>
+          ${state.noLibraryMode ? `<span class="familiarity-hint">Uses Spotify-wide search — familiarity applies to liked-songs mode only.</span>` : ""}
         </div>
         <div class="mode-helper">${esc(modeHelperText)}</div>
 
         <div class="no-library-row">
-          <label class="no-library-toggle" title="Use Spotify-wide search for clear genre prompts">
-            <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle" role="switch" tabindex="0" aria-checked="${state.noLibraryMode}" aria-label="No Library Mode"></div>
+          <label class="no-library-toggle" title="Search all of Spotify for clear genre prompts">
+            <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle" role="switch" tabindex="0" aria-checked="${state.noLibraryMode}" aria-label="Discovery Mode"></div>
             <div class="no-library-text">
-              <span class="no-library-label">No Library Mode</span>
-              <span class="no-library-sub">Searches Spotify broadly for clear genre prompts · less personalized than your liked songs</span>
+              <span class="no-library-label">Discovery Mode</span>
+              <span class="no-library-sub">Searches all of Spotify — include a genre (e.g. latin party, 90s garage). Less personalized than your liked songs.</span>
             </div>
           </label>
         </div>
+
+        <p class="generation-time-hint" id="generationTimeHint">Large libraries may take 30–60 seconds. Stay on this page — you'll see tracks appear as they're picked.</p>
 
         ${gate.blocked ? `<p class="generate-gate-msg">${esc(gate.message)}</p>` : ""}
         <button id="generateBtn" class="gen-btn ${state.generating ? "loading" : ""}" ${gate.blocked || state.generating || !isPromptReadyForGenerate(state.preview, document.getElementById("vibeInput")?.value?.trim(), state.selectedSceneId) ? "disabled" : ""}>
@@ -973,8 +976,15 @@ function renderApp() {
     ${state.generating && state.generationLivePreview ? earlyResultHtml(state.generationLivePreview) : ""}
     ${!state.generating && state.lastResult ? resultHtml(state.lastResult) : ""}
 
+    ${state.user && (state.history?.length || state.playlists?.length) ? `
+    <section class="activity-section" aria-label="Recent activity">
+      <h2 class="section-title">Recent activity</h2>
+      <div class="activity-feed">${buildActivityFeed()}</div>
+    </section>` : ""}
+
   </div>
 
+  ${onboardingOverlayHtml()}
   ${siteFooterHtml()}`;
 
   wireAppEvents();
@@ -1329,7 +1339,62 @@ function buildSegmentStripHtml(segmentDiagnostics) {
   const chips = segmentDiagnostics.map((seg) =>
     `<span class="segment-chip" title="${esc((seg.trackIds || []).length ? (seg.trackIds.length + " tracks") : "journey phase")}">${esc(seg.label || seg.segmentId)}</span>`,
   ).join("");
-  return `<div class="segment-strip" aria-label="Playlist journey segments">${chips}</div>`;
+  const energies = segmentDiagnostics.map((seg, i) => {
+    const e = typeof seg.energy === "number" ? seg.energy : (typeof seg.avgEnergy === "number" ? seg.avgEnergy : (i + 1) / segmentDiagnostics.length);
+    return Math.max(0.08, Math.min(1, e));
+  });
+  const arcBars = energies.map((h, i) =>
+    `<div class="arc-bar" style="height:${Math.round(h * 100)}%" title="${esc(segmentDiagnostics[i]?.label || `Phase ${i + 1}`)}"></div>`,
+  ).join("");
+  return `<div class="segment-strip-wrap" aria-label="Playlist journey">
+    <div class="playlist-arc" aria-hidden="true">${arcBars}</div>
+    <div class="segment-strip">${chips}</div>
+  </div>`;
+}
+
+function buildThinLibraryDetailHtml(result) {
+  const policy = result?.thinLibraryPolicy || result?.generationTrust?.thinLibraryPolicy;
+  if (!policy) return "";
+  const factors = []
+    .concat(policy.limitingFactors || [])
+    .concat(policy.genreConstraints || [])
+    .concat(policy.blockedGenres || [])
+    .filter(Boolean)
+    .map((f) => String(f).replace(/_/g, " "));
+  const unique = [...new Set(factors)].slice(0, 4);
+  if (!unique.length && !policy.maxAchievable) return "";
+  const achievable = policy.maxAchievable != null ? ` · ~${policy.maxAchievable} tracks achievable` : "";
+  return `<div class="thin-library-detail" role="note">
+    <strong>Why not a full playlist?</strong>
+    ${unique.length ? ` Limited by: ${unique.map(esc).join(", ")}.` : ""}
+    ${achievable}
+    ${policy.outcome ? ` (${esc(String(policy.outcome).replace(/_/g, " "))})` : ""}
+  </div>`;
+}
+
+function onboardingOverlayHtml() {
+  if (_savedPrefs.onboardingDone || !state.user) return "";
+  const step = state.onboardingStep || 1;
+  const steps = [
+    { title: "Connect Spotify", body: "You're in — Kwalify uses your liked songs as the source of truth." },
+    { title: "Sync your library", body: "Tap Sync new in the nav so Kwalify knows your tracks. First sync may take a minute." },
+    { title: "Describe a moment", body: "Try something specific: place + energy + era. e.g. late-night motorway drive, upbeat 2000s gym." },
+  ];
+  const cur = steps[step - 1] || steps[0];
+  return `
+  <div class="onboarding-overlay" id="onboardingOverlay" role="dialog" aria-modal="true" aria-label="Getting started">
+    <div class="onboarding-card">
+      <div class="onboarding-step">Step ${step} of 3</div>
+      <h2>${esc(cur.title)}</h2>
+      <p>${esc(cur.body)}</p>
+      <div class="onboarding-dots">${steps.map((_, i) => `<span class="onboarding-dot ${i + 1 === step ? "active" : ""}"></span>`).join("")}</div>
+      <div class="onboarding-actions">
+        ${step > 1 ? `<button type="button" class="btn btn-ghost btn-sm" id="onboardingBack">Back</button>` : ""}
+        <button type="button" class="btn btn-green btn-sm" id="onboardingNext">${step < 3 ? "Next" : "Got it"}</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="onboardingSkip">Skip</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function buildCoherenceBadgeHtml(coherence, sceneLockStatus, coherenceGate, swapRepairActions) {
@@ -1548,7 +1613,8 @@ function resultHtml(result) {
     alwaysShow: typeof (playlistCoherence?.overallScore ?? playlistCoherence?.overallCoherence) === "number",
   });
 
-  const hasExplain = debugModeEnabled() && !!(result.v3Diagnostics?.playlistExplanation);
+  const hasExplain = !!(result.v3Diagnostics?.playlistExplanation || result.playlistExplanation);
+  const playlistExplanation = result.v3Diagnostics?.playlistExplanation || result.playlistExplanation;
   const tabsHtml = hasExplain ? `
   <div class="result-view-tabs">
     <button class="result-tab-btn ${!state.showExplain ? "active" : ""}" id="tabPlaylist">
@@ -1560,7 +1626,7 @@ function resultHtml(result) {
   </div>` : "";
 
   const explainContent = (hasExplain && state.showExplain)
-    ? renderPlaylistExplanation(result.v3Diagnostics.playlistExplanation)
+    ? renderPlaylistExplanation(playlistExplanation)
     : "";
   const tracks = Array.isArray(result.tracks) ? result.tracks : [];
   const playlistId = result.savedPlaylistId || result.playlistId || "";
@@ -1615,6 +1681,7 @@ function resultHtml(result) {
       ${cacheNotice}
       <p class="result-insight">${result.noLibraryMode ? "Curated from Spotify-wide search to fit the moment. Less personalized than your liked songs." : "Curated from your liked songs to fit the moment."}</p>
       ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
+      ${buildThinLibraryDetailHtml(result)}
       ${coherenceBadgeHtml}
       ${trustChipsHtml}
       ${result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary ? `<p class="result-insight result-insight--trust">${esc(result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary)}</p>` : ""}
@@ -2270,7 +2337,7 @@ function buildDebugPanel(result) {
         <div class="dp-scene-meta">
           <span class="dp-badge" style="background:${confColor}20;color:${confColor};border-color:${confColor}40">${confPct}% confidence</span>
           <span class="dp-badge ${lockActive ? "dp-badge--green" : "dp-badge--muted"}">Ecosystem lock ${lockActive ? "active ✓" : "inactive"}</span>
-          ${dbg.noLibraryMode ? '<span class="dp-badge dp-badge--purple">No Library Mode</span>' : ""}
+          ${dbg.noLibraryMode ? '<span class="dp-badge dp-badge--purple">Discovery Mode</span>' : ""}
         </div>
       ` : `<div class="dp-none">No scene matched — using generic mood scoring</div>`}
     </div>`;
@@ -2617,7 +2684,7 @@ function wireAppEvents() {
         if (input) {
           input.value = `${base} — ${chip.promptSuffix}`;
           input.dispatchEvent(new Event("input"));
-          input.focus();
+          void generate({ keepFailureSession: true });
         }
       }
     });
@@ -2648,6 +2715,9 @@ function wireAppEvents() {
     } catch {
       showToast("Could not copy link.", "error");
     }
+  });
+  document.getElementById("settingsLinkBtn")?.addEventListener("click", () => {
+    window.location.href = "/settings";
   });
   document.getElementById("themeToggleBtn")?.addEventListener("click", onToggleThemeClick);
 
@@ -2698,12 +2768,14 @@ function wireAppEvents() {
   // No-library mode toggle
   document.getElementById("noLibraryToggle")?.addEventListener("click", () => {
     state.noLibraryMode = !state.noLibraryMode;
+    saveUserPref("discoveryMode", state.noLibraryMode);
     renderApp();
   });
   document.getElementById("noLibraryToggle")?.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
     state.noLibraryMode = !state.noLibraryMode;
+    saveUserPref("discoveryMode", state.noLibraryMode);
     renderApp();
   });
 
@@ -2736,12 +2808,14 @@ function wireAppEvents() {
 
   document.getElementById("lengthSlider")?.addEventListener("input", (e) => {
     state.length = Number(e.target.value);
+    saveUserPref("length", state.length);
     document.getElementById("lengthLabel").textContent = `${state.length} tracks`;
   });
 
   document.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.mode = btn.dataset.mode;
+      saveUserPref("mode", state.mode);
       document.querySelectorAll(".mode-btn").forEach((b) =>
         b.classList.toggle("active", b.dataset.mode === state.mode)
       );
@@ -2760,6 +2834,26 @@ function wireAppEvents() {
 
   document.querySelectorAll(".delete-btn[data-id]").forEach((btn) => {
     btn.addEventListener("click", () => deletePlaylist(Number(btn.dataset.id)));
+  });
+
+  document.getElementById("onboardingNext")?.addEventListener("click", () => {
+    if ((state.onboardingStep || 1) >= 3) {
+      markOnboardingDone();
+      _savedPrefs.onboardingDone = true;
+      renderApp();
+      return;
+    }
+    state.onboardingStep = (state.onboardingStep || 1) + 1;
+    renderApp();
+  });
+  document.getElementById("onboardingBack")?.addEventListener("click", () => {
+    state.onboardingStep = Math.max(1, (state.onboardingStep || 1) - 1);
+    renderApp();
+  });
+  document.getElementById("onboardingSkip")?.addEventListener("click", () => {
+    markOnboardingDone();
+    _savedPrefs.onboardingDone = true;
+    renderApp();
   });
 
   document.querySelectorAll(".feedback-track-btn[data-track-index]").forEach((btn) => {

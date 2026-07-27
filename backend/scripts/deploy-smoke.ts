@@ -158,7 +158,7 @@ async function checkCors(origin: string): Promise<SmokeResult> {
 }
 
 async function checkLaunchPages(origin: string): Promise<SmokeResult[]> {
-  const paths = ["/privacy", "/terms", "/favicon.svg", "/og-image.svg"];
+  const paths = ["/privacy", "/terms", "/status", "/settings", "/favicon.svg", "/og-image.svg"];
   const results: SmokeResult[] = [];
   for (const path of paths) {
     const response = await fetchWithTimeout(`${origin}${path}`);

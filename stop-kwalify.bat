@@ -70,6 +70,21 @@ Write-Host ""
 Stop-Port 5000 "API server"
 Stop-Port 443 "HTTPS proxy"
 
+$tunnelPid = Join-Path $Root "reports\.cloudflared.pid"
+if (Test-Path $tunnelPid) {
+  $pidVal = Get-Content $tunnelPid -ErrorAction SilentlyContinue
+  if ($pidVal) {
+    Stop-Process -Id $pidVal -Force -ErrorAction SilentlyContinue
+    Write-Host "  Cloudflare tunnel : stopped (PID $pidVal)"
+  }
+  Remove-Item $tunnelPid -Force -ErrorAction SilentlyContinue
+}
+
+Get-Process -Name cloudflared -ErrorAction SilentlyContinue | ForEach-Object {
+  Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+  Write-Host "  cloudflared : stopped (PID $($_.Id))"
+}
+
 $lock = Join-Path $env:TEMP "kwalify-launcher.lock"
 if (Test-Path $lock) {
   Remove-Item $lock -Force

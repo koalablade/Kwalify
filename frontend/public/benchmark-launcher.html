@@ -267,6 +267,7 @@
     }
 
     const LAUNCHER_VERSION = '2';
+    const API = '';
     let state = {};
     let serverOk = false;
     let busy = false;
@@ -385,9 +386,38 @@
       }
     }
 
+    function defaultButtons() {
+      return [
+        { id: 'go', label: 'Go now', sub: '50 human - ~2h', suite: 'go', primary: true },
+        { id: 'smoke', label: 'Quick check', sub: '1 prompt - ~2 min', suite: 'smoke' },
+        { id: 'small', label: 'Small', sub: '25 prompts - ~1h', suite: 'small' },
+        { id: 'medium', label: 'Medium', sub: '50 prompts - ~2h', suite: 'medium' },
+        { id: 'long', label: 'Long', sub: '100 prompts - ~4h', suite: 'long' },
+        { id: 'mix50', label: 'Full mix 50', sub: 'genre-lock included', suite: 'mix-medium' },
+        { id: 'easy25', label: 'Easy 25', sub: 'sanity check', request: '25 easy yes' },
+        { id: 'repeat', label: 'Repeat last', sub: 'same preset - fresh prompts', action: 'repeat' },
+        { id: 'package', label: 'Package zip', sub: 'latest to Desktop', suite: 'package' },
+        { id: 'status', label: 'Open live', sub: 'progress dashboard', action: 'open-status' },
+      ];
+    }
+
+    function bindAdvancedButtons() {
+      document.querySelectorAll('.advanced .btn[data-suite]').forEach((btn) => {
+        if (btn.dataset.bound) return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', () => runRequest('', btn.dataset.suite));
+      });
+      document.querySelectorAll('.advanced .btn[data-req]').forEach((btn) => {
+        if (btn.dataset.bound) return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', () => runRequest(btn.dataset.req));
+      });
+    }
+
     function renderButtons(buttons) {
+      const list = (buttons && buttons.length) ? buttons : defaultButtons();
       const el = document.getElementById('main-buttons');
-      el.innerHTML = buttons.map((b) => {
+      el.innerHTML = list.map((b) => {
         const cls = 'btn' + (b.primary ? ' primary' : '');
         let data = '';
         if (b.action) data = `data-action="${b.action}"`;
@@ -412,12 +442,7 @@
           if (btn.dataset.req) runRequest(btn.dataset.req);
         });
       });
-      document.querySelectorAll('.advanced .btn[data-suite]').forEach((btn) => {
-        btn.addEventListener('click', () => runRequest('', btn.dataset.suite));
-      });
-      document.querySelectorAll('.advanced .btn[data-req]').forEach((btn) => {
-        btn.addEventListener('click', () => runRequest(btn.dataset.req));
-      });
+      bindAdvancedButtons();
     }
 
     function renderState(s) {
@@ -559,11 +584,14 @@
 
     (async () => {
       await checkPing();
+      bindAdvancedButtons();
       try {
         const btns = await api('/api/buttons');
         renderButtons(btns.buttons || []);
         markConnected();
-      } catch (_) {
+      } catch (e) {
+        renderButtons(defaultButtons());
+        addMsg('Using offline button presets. Launcher API: ' + e.message, 'bot', true);
         await checkPing();
       }
       poll();

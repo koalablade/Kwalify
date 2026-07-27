@@ -42,8 +42,17 @@ The launcher also creates these automatically on first start if missing.
 DAILY USE
 ---------
 
-Start:  start-kwalify.bat   (or Desktop "Start Kwalify")
-Stop:   stop-kwalify.bat    (or Desktop "Stop Kwalify")
+Solo dev (just you on this PC):
+  Start:  start-kwalify.bat
+  Stop:   stop-kwalify.bat
+
+Closed beta (friends over the internet from your PC):
+  One-time:  setup-self-host.bat
+  Daily:     start-kwalify-selfhost.bat
+  Stop:      stop-kwalify.bat
+
+  Recommended exposure: Cloudflare Tunnel (no router port forwarding).
+  After setup, finish deploy\cloudflared.yml and add beta testers in Spotify Dashboard.
 
 What start does:
   - Purple kwalify.net banner
@@ -99,6 +108,10 @@ Spotify login fails
 
 Health check:
   https://kwalify.net/api/readyz
+  https://kwalify.net/status   (plain-English status page)
+
+API log file (searchable):
+  kwalify-api.log   (rotates at 10 MB -> kwalify-api.log.old)
 
 
 LOCAL BENCHMARKS

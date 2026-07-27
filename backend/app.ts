@@ -270,6 +270,8 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.get("/", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "index.html")));
   app.get("/p/:slug", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "playlist.html")));
   app.get("/gallery", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "gallery.html")));
+  app.get("/settings", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "settings.html")));
+  app.get("/status", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "status.html")));
   app.get("/privacy", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "privacy.html")));
   app.get("/terms", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "terms.html")));
 

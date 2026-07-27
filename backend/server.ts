@@ -15,6 +15,7 @@ import { startFeedbackMemoryDecayJob } from "./lib/feedback-memory";
 import { startOpsMetricsMonitor } from "./lib/ops-metrics";
 import { setRuntimeFailed, setRuntimeInitializing, setRuntimeReady } from "./lib/runtime-readiness";
 import { installProcessSafetyHandlers } from "./lib/process-safety";
+import { initSentryIfConfigured } from "./lib/sentry-bootstrap";
 import { logWorkerConfigAtBoot } from "./lib/worker-config";
 
 const BOOT_DB_TIMEOUT_MS = 15_000;
@@ -176,6 +177,8 @@ async function finishRuntimeInitialization(rawPool: pg.Pool, env: AppEnv): Promi
  *   7. background init    — schema + DB health; marks /readyz ready or failed
  */
 async function bootstrap(): Promise<void> {
+  await initSentryIfConfigured();
+
   // ── 1. Environment ──────────────────────────────────────────────────────────
   // validateEnv() returns {env, features} directly.
   // Bootstrap uses these values — never calls getEnv() / getFeatures(), which
@@ -201,11 +204,12 @@ async function bootstrap(): Promise<void> {
 
   // ── 6. Listen immediately for health/eval pings ────────────────────────────
   await new Promise<void>((resolve, reject) => {
-    const server = app.listen(env.PORT, () => {
+    const server = app.listen(env.PORT, env.BIND_HOST, () => {
         // Listener is open; readiness is finalized by background initialization.
         logger.info(
           {
             port: env.PORT,
+            bindHost: env.BIND_HOST,
             NODE_ENV: env.NODE_ENV,
             spotify: features.spotify.enabled ? "enabled" : "disabled",
           },

@@ -50,6 +50,9 @@ Thumbs.db
 # Agent / scratch artifacts
 .tmp-*
 kwalify-api-transcript.md
+kwalify-api.log
+kwalify-api.log.old
+backups/
 reports/
 
 # Local privacy-sensitive exports and temporary audits
@@ -71,6 +74,7 @@ diversity-activation-audit.md
 !.env.example
 kwalify.net.pem
 kwalify.net-key.pem
+deploy/cloudflared.yml
 
 # Scratch probes, logs, and non-committed experiment artifacts
 tmp-*.mjs

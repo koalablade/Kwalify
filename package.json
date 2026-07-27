@@ -165,6 +165,7 @@
     "report:prompt-reliability-trend": "npm run build && node backend/dist/scripts/prompt-reliability-trend.js"
   },
   "dependencies": {
+    "@sentry/node": "^9.47.1",
     "@types/compression": "^1.8.1",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cors": "^2.8.19",

@@ -18,6 +18,7 @@ export interface AppEnv {
   DATABASE_URL: string;
   SESSION_SECRET: string;
   PORT: number;
+  BIND_HOST: string;
   /** Canonical public origin, e.g. https://kwalify.net (no trailing slash) */
   APP_URL: string | undefined;
   FRONTEND_URL: string | undefined;
@@ -91,11 +92,13 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
 
   const APP_URL = normalizeOptionalUrlEnv("APP_URL");
   const FRONTEND_URL = normalizeOptionalUrlEnv("FRONTEND_URL");
+  const BIND_HOST = process.env["BIND_HOST"]?.trim() || "0.0.0.0";
 
   _env = {
     DATABASE_URL,
     SESSION_SECRET,
     PORT,
+    BIND_HOST,
     APP_URL,
     FRONTEND_URL,
     NODE_ENV: process.env["NODE_ENV"] ?? "development",

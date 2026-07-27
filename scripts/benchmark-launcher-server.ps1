@@ -162,9 +162,9 @@ try {
         $result = if ($body.suite -eq "repeat") {
           Invoke-LauncherRun -Suite "repeat"
         } elseif ($body.suite) {
-          Invoke-LauncherRun -Suite [string]$body.suite
+          Invoke-LauncherRun -Suite ([string]$body.suite)
         } else {
-          Invoke-LauncherRun -Request [string]$body.request
+          Invoke-LauncherRun -Request ([string]$body.request)
         }
         Send-JsonResponse $ctx $result $(if ($result.ok) { 200 } else { 409 })
         continue
@@ -174,7 +174,7 @@ try {
         $body = Read-RequestBody $ctx | ConvertFrom-Json
         $force = $false
         if ($body.PSObject.Properties.Name -contains "forceRun") { $force = [bool]$body.forceRun }
-        Send-JsonResponse $ctx (Invoke-LauncherChat -Message [string]$body.message -ForceRun:$force)
+        Send-JsonResponse $ctx (Invoke-LauncherChat -Message ([string]$body.message) -ForceRun:$force)
         continue
       }
 

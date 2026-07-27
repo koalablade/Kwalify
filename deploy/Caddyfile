@@ -1,0 +1,13 @@
+# Caddy reverse proxy for self-hosted Kwalify (auto HTTPS).
+# Requires: port 443 forwarded to this PC, DNS A record to your public IP.
+# Install: winget install CaddyServer.Caddy
+# Run from project root: caddy run --config deploy/Caddyfile
+
+{
+  email you@example.com
+}
+
+kwalify.yourdomain.com {
+  reverse_proxy 127.0.0.1:5000
+  encode gzip
+}

@@ -19,8 +19,40 @@ function Fail([string]$msg) {
   exit 1
 }
 
-if (-not (Get-Command pg_dump -ErrorAction SilentlyContinue)) {
-  Fail "pg_dump not found on PATH (install the PostgreSQL client tools)."
+function Find-PgDump {
+  $cmd = Get-Command pg_dump -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  $candidates = @(
+    "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe",
+    "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe",
+    "C:\Program Files\PostgreSQL\16\bin\pg_dump.exe"
+  )
+  foreach ($p in $candidates) {
+    if (Test-Path -LiteralPath $p) { return $p }
+  }
+  return $null
+}
+
+function Load-DotEnv([string]$path) {
+  if (-not (Test-Path -LiteralPath $path)) { return }
+  foreach ($line in Get-Content -LiteralPath $path) {
+    $t = $line.Trim()
+    if (-not $t -or $t.StartsWith("#")) { continue }
+    if ($t -notmatch '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') { continue }
+    $key = $Matches[1]
+    if ([Environment]::GetEnvironmentVariable($key)) { continue }
+    $v = $Matches[2].Trim().Trim('"').Trim("'")
+    Set-Item -Path "env:$key" -Value $v
+  }
+}
+
+$pgDump = Find-PgDump
+if (-not $pgDump) {
+  Fail "pg_dump not found (install PostgreSQL client tools)."
+}
+if (-not $env:DATABASE_URL) {
+  $root = Split-Path -Parent $PSScriptRoot
+  Load-DotEnv (Join-Path $root ".env")
 }
 if (-not $env:DATABASE_URL) { Fail "DATABASE_URL is not set." }
 
@@ -32,7 +64,7 @@ $outFile = Join-Path $backupDir "kwalify-$timestamp.dump"
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
 
 Write-Host "[backup-db] dumping to $outFile ..."
-& pg_dump --format=custom --no-owner --file=$outFile $env:DATABASE_URL
+& $pgDump --format=custom --no-owner --file=$outFile $env:DATABASE_URL
 if ($LASTEXITCODE -ne 0) {
   Remove-Item -Force $outFile -ErrorAction SilentlyContinue
   Fail "pg_dump failed (exit $LASTEXITCODE); partial file removed."

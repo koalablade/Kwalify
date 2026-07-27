@@ -13,6 +13,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 set "MODE=domain"
 if /I "%~1"=="local" set "MODE=local"
 if /I "%~2"=="local" set "MODE=local"
+if /I "%~1"=="selfhost" set "MODE=selfhost"
+if /I "%~2"=="selfhost" set "MODE=selfhost"
 if /I "%~1"=="build" set "BUILD=1"
 if /I "%~2"=="build" set "BUILD=1"
 if /I "%~1"=="nopull" set "NOPULL=1"
@@ -63,7 +65,7 @@ exit /b 0
 param(
   [Parameter(Mandatory = $true)]
   [string]$Root,
-  [ValidateSet("local", "domain")]
+  [ValidateSet("local", "domain", "selfhost")]
   [string]$Mode = "domain",
   [switch]$Build,
   [switch]$NoPull,
@@ -513,6 +515,27 @@ if ($Mode -eq "local") {
   Set-EnvFileLine $envPath "SPOTIFY_REDIRECT_URI" "http://localhost:5000/api/auth/callback"
   $siteUrl = "http://localhost:5000"
   $redirectUri = "http://localhost:5000/api/auth/callback"
+} elseif ($Mode -eq "selfhost") {
+  $removeHosts = Join-Path $Root "scripts\remove-kwalify-hosts.ps1"
+  if (Test-Path -LiteralPath $removeHosts) {
+    Step "Checking hosts file"
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $removeHosts -Quiet
+  }
+  Set-EnvFileLine $envPath "PORT" "5000"
+  Set-EnvFileLine $envPath "BIND_HOST" "0.0.0.0"
+  Set-EnvFileLine $envPath "KWALIFY_HOST_MODE" "selfhost"
+  Load-DotEnvFile $envPath
+  if (-not $env:APP_URL) {
+    Write-Host "  Self-host not configured. Run setup-self-host.bat first." -ForegroundColor Yellow
+    Exit-Launcher 1 "Run setup-self-host.bat to set your public URL."
+  }
+  if ($env:NODE_ENV -ne "production") {
+    Set-EnvFileLine $envPath "NODE_ENV" "production"
+  }
+  $siteUrl = $env:APP_URL.TrimEnd("/")
+  $redirectUri = if ($env:SPOTIFY_REDIRECT_URI) { $env:SPOTIFY_REDIRECT_URI } else { "$siteUrl/api/auth/callback" }
+  Set-EnvFileLine $envPath "SPOTIFY_REDIRECT_URI" $redirectUri
+  Set-EnvFileLine $envPath "FRONTEND_URL" $siteUrl
 } else {
   Set-EnvFileLine $envPath "PORT" "5000"
   Set-EnvFileLine $envPath "NODE_ENV" "development"
@@ -641,6 +664,7 @@ Invoke-SmokeChecks
 Step "Starting server"
 $localAppUrl = $siteUrl
 $localRedirect = $redirectUri
+$nodeEnv = if ($Mode -eq "selfhost") { "production" } else { "development" }
 $rootEsc = $Root.Replace("'", "''")
 
 if (PortOpen $port) {
@@ -661,7 +685,7 @@ foreach (`$line in Get-Content '.env') {
 }
 `$env:APP_URL = '$localAppUrl'
 `$env:SPOTIFY_REDIRECT_URI = '$localRedirect'
-`$env:NODE_ENV = 'development'
+`$env:NODE_ENV = '$nodeEnv'
 `$env:PORT = '$port'
 `$env:GIT_COMMIT = (git rev-parse HEAD 2>`$null)
 if (-not `$env:GIT_COMMIT) { `$env:GIT_COMMIT = 'local-dev' }
@@ -669,8 +693,15 @@ Write-Host ''
 Write-Host 'KWALIFY SERVER - keep this window OPEN' -ForegroundColor Green
 Write-Host 'Site:' '$localAppUrl'
 Write-Host 'Spotify callback:' '$localRedirect'
+Write-Host 'Log file:' (Join-Path '$rootEsc' 'kwalify-api.log')
 Write-Host ''
-npm start
+`$logPath = Join-Path '$rootEsc' 'kwalify-api.log'
+if ((Test-Path `$logPath) -and ((Get-Item `$logPath).Length / 1MB) -gt 10) {
+  `$rotated = "`$logPath.old"
+  if (Test-Path `$rotated) { Remove-Item `$rotated -Force }
+  Move-Item `$logPath `$rotated -Force
+}
+npm start *>&1 | Tee-Object -FilePath `$logPath -Append
 "@
 Set-Content -LiteralPath $apiPs1 -Value $apiBody -Encoding UTF8
 Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $apiPs1) -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
@@ -679,7 +710,7 @@ $deadline = (Get-Date).AddSeconds(120)
 $ready = $false
 while ((Get-Date) -lt $deadline) {
   try {
-    $rz = Invoke-RestMethod "http://127.0.0.1:$port/api/readyz" -TimeoutSec 3
+    $rz = Invoke-RestMethod "http://localhost:$port/api/readyz" -TimeoutSec 3
     if ($rz.status -eq "ready" -or $rz.readiness -eq "ready") { $ready = $true; break }
   } catch {}
   Start-Sleep -Seconds 2
@@ -689,6 +720,79 @@ if (-not $ready) {
   Exit-Launcher 1 "API did not become ready within 120 seconds."
 }
 Write-Host "  Server ready."
+
+$routeChecks = @("/status", "/settings")
+$routeFailed = @()
+foreach ($route in $routeChecks) {
+  try {
+    $code = (Invoke-WebRequest "http://localhost:$port$route" -UseBasicParsing -TimeoutSec 4).StatusCode
+    if ($code -ne 200) { $routeFailed += $route }
+  } catch {
+    $routeFailed += $route
+  }
+}
+if ($routeFailed.Count -gt 0) {
+  Write-Host "  Warning: routes missing ($($routeFailed -join ', ')) - rebuild may be stale." -ForegroundColor Yellow
+  Write-Host "  Run: stop-kwalify.bat then Start Kwalify again (or start-kwalify.bat build)" -ForegroundColor Yellow
+}
+
+if ($Mode -eq "selfhost") {
+  Load-DotEnvFile $envPath
+  $exposure = $env:KWALIFY_EXPOSURE
+  if (-not $exposure) { $exposure = "cloudflare" }
+  if ($exposure -eq "cloudflare") {
+    $tunnelScript = Join-Path $Root "scripts\run-cloudflare-tunnel.ps1"
+    $tunnelConfig = Join-Path $Root "deploy\cloudflared.yml"
+    if ((Test-Path $tunnelScript) -and (Test-Path $tunnelConfig)) {
+      Step "Starting Cloudflare tunnel"
+      & powershell -NoProfile -ExecutionPolicy Bypass -File $tunnelScript -Root $Root
+    } else {
+      $cfCert = Join-Path $env:USERPROFILE ".cloudflared\cert.pem"
+      if (Test-Path -LiteralPath $cfCert) {
+        Step "Finishing Cloudflare tunnel setup"
+        $ensure = Join-Path $Root "scripts\ensure-cloudflare-tunnel.ps1"
+        $hostName = ([Uri]$siteUrl).Host
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $ensure -Root $Root -Hostname $hostName
+        if (Test-Path -LiteralPath $tunnelConfig) {
+          & powershell -NoProfile -ExecutionPolicy Bypass -File $tunnelScript -Root $Root
+        }
+      }
+      if (-not (Test-Path -LiteralPath $tunnelConfig)) {
+        Write-Host ""
+        Write-Host "  CLOUDFLARE NOT FINISHED - friends cannot reach $siteUrl yet" -ForegroundColor Yellow
+        Write-Host "  Run: Finish Cloudflare Setup on Desktop" -ForegroundColor Yellow
+        Write-Host ""
+        $finishBat = Join-Path $Root "finish-cloudflare-login.bat"
+        if (Test-Path -LiteralPath $finishBat) {
+          $pick = Read-Host '  Open Cloudflare setup now? (Y/n)'
+          if ($pick -eq "" -or $pick -match '^[yY]') {
+            Start-Process -FilePath $finishBat -WorkingDirectory $Root
+            Write-Host "  After setup finishes, run Start Kwalify again." -ForegroundColor Cyan
+          }
+        }
+      }
+    }
+  }
+  elseif ($exposure -eq "caddy") {
+    Write-Host "  Caddy mode: run in another Admin window:" -ForegroundColor Cyan
+    Write-Host "    caddy run --config deploy\Caddyfile"
+  }
+  elseif ($exposure -eq "direct") {
+    if (PortOpen 443) { Stop-PortListeners 443 }
+    $proxy = Join-Path $Root "node_modules\.bin\local-ssl-proxy.cmd"
+    $cert = Join-Path $Root "kwalify.net.pem"
+    $key = Join-Path $Root "kwalify.net-key.pem"
+    if ((Test-Path $proxy) -and (Test-Path $cert) -and (Test-Path $key)) {
+      Step "Starting HTTPS proxy (direct)"
+      if ($lockStream) { $lockStream.Dispose(); $lockStream = $null }
+      Start-Process $siteUrl | Out-Null
+      Start-HttpsProxy $proxy $cert $key $port
+      if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
+      exit 0
+    }
+    Write-Host "  Direct HTTPS: missing certs - use mkcert for your domain or pick Cloudflare tunnel" -ForegroundColor Yellow
+  }
+}
 
 if ($Mode -eq "domain" -and -not (Test-SiteReady "https://kwalify.net")) {
   $deadline = (Get-Date).AddSeconds(30)
@@ -716,6 +820,17 @@ if ($Mode -eq "domain") {
   Write-Host "  HTTPS proxy running here (Ctrl+C stops proxy only)."
   Write-Host "  To stop everything: double-click stop-kwalify.bat"
   Start-HttpsProxy $proxy $cert $key $port
+  if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
+  exit 0
+}
+
+if ($Mode -eq "selfhost") {
+  if ($lockStream) { $lockStream.Dispose(); $lockStream = $null }
+  Start-Process $siteUrl | Out-Null
+  Write-Host "  Self-host running - API on 0.0.0.0:$port"
+  Write-Host "  Public URL: $siteUrl"
+  Write-Host "  Logs: kwalify-api.log"
+  Write-Host "  Stop: stop-kwalify.bat"
   if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
   exit 0
 }

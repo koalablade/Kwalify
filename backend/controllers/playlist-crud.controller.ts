@@ -276,6 +276,33 @@ router.get("/share/:slug", async (req, res): Promise<void> => {
   }
 });
 
+/** Anonymous thumbs on shared playlists (no taste memory — analytics only). */
+router.post("/share/:slug/track-react", async (req, res): Promise<void> => {
+  const slug = String(req.params.slug ?? "").trim();
+  const trackId = String(req.body?.trackId ?? "").trim();
+  const reaction = String(req.body?.reaction ?? "").trim();
+  if (!slug || !trackId || !["up", "down"].includes(reaction)) {
+    res.status(400).json({ error: "slug, trackId, and reaction (up|down) required." });
+    return;
+  }
+  try {
+    const rows = await db
+      .select({ id: savedPlaylistsTable.id })
+      .from(savedPlaylistsTable)
+      .where(eq(savedPlaylistsTable.shareSlug, slug))
+      .limit(1);
+    if (!rows[0]) {
+      res.status(404).json({ error: "Playlist not found." });
+      return;
+    }
+    req.log.info({ slug, playlistId: rows[0].id, trackId, reaction }, "Share page track reaction");
+    res.json({ success: true });
+  } catch (err: any) {
+    req.log.error({ err }, "Share track reaction failed");
+    res.status(500).json({ error: "Could not record reaction." });
+  }
+});
+
 router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
     res.status(401).json({ error: "Not authenticated" });
