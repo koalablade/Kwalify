@@ -3,6 +3,7 @@ export const COPY = {
   eyebrow: "Your music · your moments",
   headline: "What does this moment sound like?",
   subhead: "Describe a moment. Kwalify finds the soundtrack hidden inside your favourite songs.",
+  landingPromise: "Turn the moments of your life into soundtracks from the music you already love.",
   placeholder: "Driving home at 2am after a life-changing conversation…",
   cta: {
     create: "Create soundtrack",
@@ -17,10 +18,11 @@ export const COPY = {
     ready: (n) => `${n.toLocaleString()} songs in your history`,
   },
   generation: {
+    eyebrow: "Creating your soundtrack",
     stages: [
       "Searching your memories…",
-      "Finding songs that belong here…",
-      "Building the emotional journey…",
+      "Finding forgotten favourites…",
+      "Building the emotional arc…",
       "Creating your soundtrack…",
       "Almost there…",
     ],
@@ -28,8 +30,9 @@ export const COPY = {
     saving: "Saving your soundtrack…",
   },
   gallery: {
-    title: "Your soundtrack diary",
-    sub: "Moments you've captured — a personal archive of sound.",
+    title: "Your life in music",
+    sub: "A personal archive of the moments you've turned into soundtracks.",
+    chapterHint: "Each chapter is a moment you captured.",
     empty: "No moments captured yet — describe your first.",
     noMatch: "No memories match that search.",
   },

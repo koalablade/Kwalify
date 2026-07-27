@@ -60,13 +60,12 @@ function navHtml() {
       <div class="nav-logo-mark">K</div>
       <span>Kwalify</span>
     </a>
-    <div class="nav-right">
-      <a href="/" class="nav-link">← App</a>
-      <div class="nav-profile-wrap" id="galleryProfileWrap">
+    <div class="nav-toolbar">
+      <div class="nav-profile-wrap nav-profile-wrap--toolbar" id="galleryProfileWrap">
         <button class="nav-avatar-btn" id="galleryProfileBtn" type="button" title="Account"
           aria-haspopup="menu" aria-expanded="${profileOpen ? "true" : "false"}" aria-label="Account menu">
           <div class="nav-avatar">${avatar}</div>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--muted-2)"><polyline points="6 9 12 15 18 9"/></svg>
+          <svg class="nav-avatar-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="profile-dropdown ${profileOpen ? "open" : ""}" id="galleryProfileDropdown">
           <div class="profile-dropdown-header">
@@ -82,6 +81,9 @@ function navHtml() {
             <span>Log out</span>
           </button>
         </div>
+      </div>
+      <div class="nav-right">
+        <a href="/" class="nav-link">← App</a>
       </div>
     </div>
   </nav>`;
@@ -298,6 +300,46 @@ function renderGalleryActions(playlists) {
   </div>`;
 }
 
+function galleryChapterLabel(iso) {
+  if (!iso) return "Earlier";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "Earlier";
+  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+function renderPlaylistCard(p) {
+  const arts = getArts(p);
+  const tags = getTags(p);
+  const note = galleryDebug ? generatorNote(p) : "";
+  const count = Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0);
+  const selected = selectedPlaylistIds.has(Number(p.id));
+  const openHref = !deleteMode && p.shareSlug ? `/p/${encodeURIComponent(p.shareSlug)}` : null;
+  const cardClass = `gallery-card memory-card ${deleteMode ? "gallery-card--selectable" : ""} ${openHref ? "gallery-card--link" : ""} ${selected ? "selected" : ""}`.trim();
+  const cardAttrs = deleteMode
+    ? `data-select-playlist-id="${p.id}" role="button" tabindex="0"`
+    : "";
+  const inner = `
+    ${deleteMode ? `<div class="gallery-select-check">${selected ? "✓" : ""}</div>` : ""}
+    ${mosaicHtml(arts)}
+    <div class="gallery-card-body memory-card-body">
+      <div class="memory-card-emoji" aria-hidden="true">${moodEmoji(p.vibe, p.mode)}</div>
+      <div class="memory-card-title" title="${esc(p.vibe || p.name)}">${esc(p.vibe ? (p.vibe.length > 56 ? `${p.vibe.slice(0, 53)}…` : p.vibe) : p.name)}</div>
+      ${!p.vibe && p.name ? `<div class="gallery-card-name gallery-card-name--sub">${esc(p.name)}</div>` : ""}
+      <div class="memory-card-mood">${esc(moodLabel(p.vibe, p.mode))}</div>
+      ${tags.length ? `<div class="gallery-tags">${tags.map((t) => `<span class="gallery-tag">${esc(t)}</span>`).join("")}</div>` : ""}
+      ${note ? `<div class="gallery-generator-note">${esc(note)}</div>` : ""}
+      <div class="gallery-card-meta memory-card-meta">${count} songs · ${fmtDate(p.createdAt)}</div>
+      ${deleteMode ? "" : `<div class="gallery-card-actions">
+        ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm" onclick="event.stopPropagation()">${spi()} Spotify</a>` : ""}
+        ${openHref ? `<span class="btn btn-ghost btn-sm">Open</span>` : ""}
+      </div>`}
+    </div>`;
+  if (openHref && !deleteMode) {
+    return `<a class="${cardClass}" href="${esc(openHref)}">${inner}</a>`;
+  }
+  return `<div class="${cardClass}" ${cardAttrs}>${inner}</div>`;
+}
+
 function renderCards(playlists) {
   if (galleryLoadError) {
     return `<div class="empty-state"><h3>Could not load playlists</h3><p>${esc(galleryLoadError)}</p><button class="btn btn-green btn-sm" id="galleryRetryBtn">Retry</button></div>`;
@@ -308,42 +350,29 @@ function renderCards(playlists) {
       : `<div class="empty-state"><h3>No moments yet</h3><p>${COPY.gallery.empty}</p></div>`;
   }
 
+  const useChapters = !deleteMode && gallerySort === "newest" && playlists.length > 2;
+  if (useChapters) {
+    const chapters = new Map();
+    for (const p of playlists) {
+      const key = galleryChapterLabel(p.createdAt);
+      if (!chapters.has(key)) chapters.set(key, []);
+      chapters.get(key).push(p);
+    }
+    return `<div class="gallery-chapters">
+      ${[...chapters.entries()].map(([chapter, items]) => `
+        <section class="gallery-chapter" aria-label="${esc(chapter)}">
+          <header class="gallery-chapter-head">
+            <h2 class="gallery-chapter-title">${esc(chapter)}</h2>
+            <p class="gallery-chapter-sub">${items.length === 1 ? "One moment" : `${items.length} moments`}</p>
+          </header>
+          <div class="gallery-grid">${items.map((p) => renderPlaylistCard(p)).join("")}</div>
+        </section>
+      `).join("")}
+    </div>`;
+  }
+
   return `<div class="gallery-grid">
-    ${playlists.map((p) => {
-      const arts = getArts(p);
-      const tags = getTags(p);
-      const note = galleryDebug ? generatorNote(p) : "";
-      const count = Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0);
-      const selected = selectedPlaylistIds.has(Number(p.id));
-      const openHref = !deleteMode && p.shareSlug ? `/p/${encodeURIComponent(p.shareSlug)}` : null;
-      const cardClass = `gallery-card memory-card ${deleteMode ? "gallery-card--selectable" : ""} ${openHref ? "gallery-card--link" : ""} ${selected ? "selected" : ""}`.trim();
-      const cardAttrs = deleteMode
-        ? `data-select-playlist-id="${p.id}" role="button" tabindex="0"`
-        : "";
-      const inner = `
-        ${deleteMode ? `<div class="gallery-select-check">${selected ? "✓" : ""}</div>` : ""}
-        ${mosaicHtml(arts)}
-        <div class="gallery-card-body memory-card-body">
-          <div class="memory-card-emoji" aria-hidden="true">${moodEmoji(p.vibe, p.mode)}</div>
-          <div class="memory-card-title" title="${esc(p.vibe || p.name)}">${esc(p.vibe ? (p.vibe.length > 56 ? `${p.vibe.slice(0, 53)}…` : p.vibe) : p.name)}</div>
-          ${!p.vibe && p.name ? `<div class="gallery-card-name gallery-card-name--sub">${esc(p.name)}</div>` : ""}
-          <div class="memory-card-mood">${esc(moodLabel(p.vibe, p.mode))}</div>
-          ${tags.length ? `<div class="gallery-tags">${tags.map((t) => `<span class="gallery-tag">${esc(t)}</span>`).join("")}</div>` : ""}
-          ${note ? `<div class="gallery-generator-note">${esc(note)}</div>` : ""}
-          <div class="gallery-card-meta memory-card-meta">${count} songs · ${fmtDate(p.createdAt)}</div>
-          ${deleteMode ? "" : `<div class="gallery-card-actions">
-            ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm" onclick="event.stopPropagation()">${spi()} Spotify</a>` : ""}
-            ${openHref ? `<span class="btn btn-ghost btn-sm">Open</span>` : ""}
-          </div>`}
-        </div>`;
-      if (openHref && !deleteMode) {
-        return `<a class="${cardClass}" href="${esc(openHref)}">${inner}</a>`;
-      }
-      return `
-      <div class="${cardClass}" ${cardAttrs}>
-        ${inner}
-      </div>`;
-    }).join("")}
+    ${playlists.map((p) => renderPlaylistCard(p)).join("")}
   </div>`;
 }
 
@@ -355,6 +384,7 @@ function renderGallery() {
     <div class="gallery-header">
       <h1 class="gallery-title">${COPY.gallery.title}</h1>
       <p class="gallery-sub">${COPY.gallery.sub}</p>
+      <p class="gallery-chapter-hint">${COPY.gallery.chapterHint}</p>
     </div>
     ${galleryTotal > galleryPlaylists.length ? `<div class="alert alert-warn" style="margin-bottom:16px;">Showing ${galleryPlaylists.length} of ${galleryTotal} playlists</div>` : ""}
     ${renderGalleryControls(visiblePlaylists)}
@@ -474,7 +504,7 @@ async function loadMorePlaylists() {
 }
 
 async function boot() {
-  document.title = "Soundtrack diary — Kwalify";
+  document.title = "Your life in music — Kwalify";
 
   root.innerHTML = navHtml() + `<div class="loading-shell"><div class="spinner"></div><span>Loading…</span></div>`;
 
