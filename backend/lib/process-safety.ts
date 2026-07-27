@@ -35,6 +35,24 @@ export function handleUnhandledRejection(
 
   if (rejectionTimestamps.length >= REJECTION_EXIT_THRESHOLD) {
     const generate = getGenerateOverloadState();
+    const generationBusy = generate.active > 0 || generate.queued > 0;
+    const selfHost = process.env["KWALIFY_HOST_MODE"] === "selfhost";
+    // Under heavy playlist generation, best-effort background tasks may reject in bursts —
+    // never kill a self-host API mid-session while users are waiting on a playlist.
+    if (selfHost && generationBusy) {
+      logger.error(
+        {
+          err: reason,
+          count: rejectionTimestamps.length,
+          windowMs: REJECTION_WINDOW_MS,
+          generateActive: generate.active,
+          generateQueued: generate.queued,
+        },
+        "[process] Rejection burst during active generation on self-host — not exiting",
+      );
+      rejectionTimestamps.length = 0;
+      return;
+    }
     logger.fatal(
       {
         err: reason,

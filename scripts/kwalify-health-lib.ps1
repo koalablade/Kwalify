@@ -64,7 +64,9 @@ function Test-KwalifyGenerationBusy {
 function Test-KwalifyApiAlive {
   # livez is the liveness gate — never use readyz for restart decisions.
   if (Test-KwalifyLive -TimeoutSec 4) { return $true }
-  # Slow event loop: healthz may still answer when livez times out.
+  # Heavy generation can block the event loop briefly on a single self-host box.
+  if (Test-KwalifyLive -TimeoutSec 12) { return $true }
+  # Last resort: in-memory healthz (no DB).
   $hz = Get-KwalifyHealthz -TimeoutSec 10
   return ($hz -and $hz.status -eq "ok")
 }

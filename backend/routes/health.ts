@@ -75,7 +75,8 @@ async function readinessHandler(_req: Request, res: Response): Promise<void> {
   const spotifyConfigured = checkSpotifyConfigured();
   const pipelineAvailable = runtimeReady && pipelineAuthority.pipelineAuthorityEnabled !== false;
   const poolWaitingCount = typeof pool.waitingCount === "number" ? pool.waitingCount : 0;
-  const poolMax = Number.parseInt(process.env["DB_POOL_MAX"] ?? process.env["PG_POOL_MAX"] ?? "10", 10);
+  const defaultPoolMax = process.env["KWALIFY_HOST_MODE"] === "selfhost" ? "15" : "10";
+  const poolMax = Number.parseInt(process.env["DB_POOL_MAX"] ?? process.env["PG_POOL_MAX"] ?? defaultPoolMax, 10);
   // During playlist generation the DB pool is legitimately busy — do not mark unhealthy.
   const poolSaturated = poolWaitingCount > Math.max(poolMax + 2, 12) && !generationBusy;
 

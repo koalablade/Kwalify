@@ -22,7 +22,7 @@ import { initDb } from "../db";
 import { markBootComplete } from "../lib/boot-state";
 import { setRuntimeReady } from "../lib/runtime-readiness";
 import { createConcurrencyLimiter } from "../lib/concurrency-limiter";
-import { acquireGenerateSlot, releaseGenerateSlot } from "../lib/runtime-overload";
+import { acquireGenerateSlot, releaseGenerateSlot, resolveGenerateLimiterDefaults } from "../lib/runtime-overload";
 import healthRouter from "../routes/health";
 import authRouter from "../routes/auth";
 import generateRouter from "../controllers/generation.controller";
@@ -247,4 +247,21 @@ test("busy: concurrency limiter rejects once saturated (SERVER_BUSY trigger)", a
   const release = await limiter.acquire();
   await assert.rejects(() => limiter.acquire(), "saturated limiter must reject the overflow acquire");
   release();
+});
+
+test("selfhost lowers default generate concurrency when env unset", () => {
+  const prevHost = process.env.KWALIFY_HOST_MODE;
+  try {
+    process.env.KWALIFY_HOST_MODE = "selfhost";
+    const self = resolveGenerateLimiterDefaults();
+    assert.equal(self.defaultLimit, 2);
+    assert.equal(self.defaultQueueLimit, 4);
+    delete process.env.KWALIFY_HOST_MODE;
+    const cloud = resolveGenerateLimiterDefaults();
+    assert.equal(cloud.defaultLimit, 4);
+    assert.equal(cloud.defaultQueueLimit, 12);
+  } finally {
+    if (prevHost !== undefined) process.env.KWALIFY_HOST_MODE = prevHost;
+    else delete process.env.KWALIFY_HOST_MODE;
+  }
 });

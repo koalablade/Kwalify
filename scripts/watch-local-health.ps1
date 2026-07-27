@@ -189,15 +189,19 @@ try {
         Restart-Tunnel | Out-Null
       }
     } else {
-      $consecutiveAliveFailures++
-      Set-PersistedAliveFailures $consecutiveAliveFailures
-
-      if ($inGrace) {
-        Write-Log "API livez failed during post-restart grace ($consecutiveAliveFailures/$failuresBeforeRestart) — not restarting yet"
-      } elseif ($generationBusy) {
-        Write-Log "API livez failed while generation/benchmark active ($consecutiveAliveFailures/$failuresBeforeRestart) — deferring restart"
+      # Event loop can be briefly saturated during playlist scoring — never accumulate
+      # restart failures while generation is active (would restart right when the user finishes).
+      if ($generationBusy) {
+        Write-Log "API livez slow during generation — not counting toward restart threshold"
       } else {
-        Write-Log "API not responding to livez ($consecutiveAliveFailures/$failuresBeforeRestart)"
+        $consecutiveAliveFailures++
+        Set-PersistedAliveFailures $consecutiveAliveFailures
+
+        if ($inGrace) {
+          Write-Log "API livez failed during post-restart grace ($consecutiveAliveFailures/$failuresBeforeRestart) — not restarting yet"
+        } else {
+          Write-Log "API not responding to livez ($consecutiveAliveFailures/$failuresBeforeRestart)"
+        }
       }
 
       if ($consecutiveAliveFailures -ge $failuresBeforeRestart) {

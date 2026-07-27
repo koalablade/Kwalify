@@ -37,7 +37,12 @@ export function configuredWorkerCount(): number {
     return Math.min(envValue, MAX_SAFE_V3_WORKERS);
   }
   const cores = os.cpus()?.length ?? 4;
-  return Math.max(2, Math.min(MAX_SAFE_V3_WORKERS, cores - 1));
+  const computed = Math.max(2, Math.min(MAX_SAFE_V3_WORKERS, cores - 1));
+  // Self-host serves a handful of friends on one machine — cap parallel lanes by default.
+  if (process.env["KWALIFY_HOST_MODE"] === "selfhost") {
+    return Math.min(4, computed);
+  }
+  return computed;
 }
 
 /**

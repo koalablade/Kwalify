@@ -569,6 +569,12 @@ if ($Mode -eq "local") {
   Set-EnvFileLine $envPath "PORT" "5000"
   Set-EnvFileLine $envPath "BIND_HOST" "0.0.0.0"
   Set-EnvFileLine $envPath "KWALIFY_HOST_MODE" "selfhost"
+  if (-not (Select-String -Path $envPath -Pattern '^\s*GENERATE_CONCURRENCY_LIMIT\s*=' -Quiet)) {
+    Set-EnvFileLine $envPath "GENERATE_CONCURRENCY_LIMIT" "2"
+  }
+  if (-not (Select-String -Path $envPath -Pattern '^\s*GENERATE_QUEUE_LIMIT\s*=' -Quiet)) {
+    Set-EnvFileLine $envPath "GENERATE_QUEUE_LIMIT" "4"
+  }
   Load-DotEnvFile $envPath
   if (-not $env:APP_URL) {
     Set-EnvFileLine $envPath "APP_URL" "https://kwalify.net"
