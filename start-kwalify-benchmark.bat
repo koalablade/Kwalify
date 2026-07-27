@@ -8,8 +8,8 @@ if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$esc = [char]27; $purple = $esc + '[38;2;168;85;247m'; $dim = $esc + '[38;2;192;132;252m'; $reset = $esc + '[0m';" ^
   "Write-Host ''; Write-Host ($purple + '  KWALIFY BENCHMARK' + $reset);" ^
-  "Write-Host ($dim + '  Opens http://127.0.0.1:5000/benchmark on this PC' + $reset);" ^
-  "Write-Host ($dim + '  (https://kwalify.net/benchmark when tunnel is up)' + $reset);" ^
+  "Write-Host ($dim + '  Opens https://kwalify.net/benchmark on this PC' + $reset);" ^
+  "Write-Host ($dim + '  Fallback: http://127.0.0.1:5000/benchmark if tunnel is down' + $reset);" ^
   "Write-Host ($dim + '  Run start.bat first if the server is not up' + $reset); Write-Host ''"
 
 set "SUITE="
@@ -188,7 +188,7 @@ if "%PSARGS%"=="" (
     exit /b 1
   )
   echo.
-  echo  Benchmark opened on the main site (https://kwalify.net/benchmark).
+  echo  Benchmark opened: https://kwalify.net/benchmark
   echo.
   pause
   exit /b 0

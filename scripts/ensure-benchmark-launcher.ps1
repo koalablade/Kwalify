@@ -13,7 +13,10 @@ function Write-Info([string]$msg) {
   if (-not $Quiet) { Write-Host "  $msg" }
 }
 
-. (Join-Path $Root "scripts\load-dotenv.ps1") -Root $Root
+$dotenv = Join-Path $Root "scripts\load-dotenv.ps1"
+if (Test-Path -LiteralPath (Join-Path $Root ".env")) {
+  . $dotenv -Root $Root
+}
 
 $localApi = "http://127.0.0.1:5000"
 
@@ -38,7 +41,12 @@ function Get-BenchmarkWebUrl {
 }
 
 if (-not (Test-MainApiUp)) {
-  throw "Kwalify server is not running. Double-click start.bat first, then open: https://kwalify.net/benchmark"
+  Write-Host ""
+  Write-Host "  Kwalify server is not running." -ForegroundColor Red
+  Write-Host "  1. Double-click start.bat and wait for it to finish"
+  Write-Host "  2. Then run this again"
+  Write-Host ""
+  exit 1
 }
 
 $redirectScript = Join-Path $Root "scripts\ensure-benchmark-redirect.ps1"
