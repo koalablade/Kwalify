@@ -4,9 +4,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$Root = (Resolve-Path $Root).Path
 $config = Join-Path $Root "deploy\cloudflared.yml"
 $pidFile = Join-Path $Root "reports\.cloudflared.pid"
-$logFile = Join-Path $Root "reports\cloudflared.log"
+$helper = Join-Path $Root "scripts\start-cloudflare-tunnel.cmd"
 
 function Find-CloudflaredExe {
   $cmd = Get-Command cloudflared -ErrorAction SilentlyContinue
@@ -19,6 +20,19 @@ function Find-CloudflaredExe {
     if (Test-Path -LiteralPath $p) { return $p }
   }
   return $null
+}
+
+function Test-TunnelConnected([string]$cf) {
+  try {
+    $info = & $cf tunnel info kwalify 2>&1 | Out-String
+    return ($info -match "CONNECTOR ID")
+  } catch { return $false }
+}
+
+function Get-RunningTunnelProcess {
+  return Get-Process -Name cloudflared -ErrorAction SilentlyContinue |
+    Sort-Object StartTime -Descending |
+    Select-Object -First 1
 }
 
 if (-not (Test-Path -LiteralPath $config)) {
@@ -37,13 +51,13 @@ if (-not (Test-Path -LiteralPath $config)) {
     & powershell -NoProfile -ExecutionPolicy Bypass -File $ensure -Root $Root -Hostname $hostname
   }
   if (-not (Test-Path -LiteralPath $config)) {
-    throw "Missing deploy\cloudflared.yml - run finish-cloudflare-login.bat"
+    throw "Missing deploy\cloudflared.yml - run start.bat (setup runs automatically)"
   }
 }
 
 $cloudflared = Find-CloudflaredExe
 if (-not $cloudflared) {
-  throw "cloudflared not found. Run setup-self-host.bat"
+  throw "cloudflared not found. Run start.bat (installs automatically)"
 }
 
 $reports = Join-Path $Root "reports"
@@ -51,48 +65,63 @@ if (-not (Test-Path -LiteralPath $reports)) {
   New-Item -ItemType Directory -Force -Path $reports | Out-Null
 }
 
+# Already running?
+$existing = Get-RunningTunnelProcess
+if ($existing -and (Test-TunnelConnected $cloudflared)) {
+  Set-Content -LiteralPath $pidFile -Value $existing.Id -Encoding ASCII
+  Write-Host "  Cloudflare tunnel already running (PID $($existing.Id))" -ForegroundColor Green
+  return
+}
+
+# Stale pid file / dead process
 if (Test-Path -LiteralPath $pidFile) {
   $oldPid = Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue
-  if ($oldPid -and (Get-Process -Id $oldPid -ErrorAction SilentlyContinue)) {
-    Write-Host "  Cloudflare tunnel already running (PID $oldPid)"
-    return
-  }
-}
-
-# Clean stale pid file
-if (Test-Path -LiteralPath $pidFile) {
+  if ($oldPid) { Stop-Process -Id $oldPid -Force -ErrorAction SilentlyContinue }
   Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
 }
+Get-Process -Name cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 500
 
-# Start-Process -WindowStyle Minimized can exit immediately on some Windows setups.
-# cmd /c start keeps cloudflared alive in its own console window.
-$argLine = "tunnel --config `"$config`" run --logfile `"$logFile`" --loglevel info"
-$proc = Start-Process -FilePath "cmd.exe" -ArgumentList @(
-  "/c", "start", "`"Cloudflare Tunnel`"", "/MIN", "`"$cloudflared`"", $argLine
-) -WorkingDirectory $Root -WindowStyle Hidden -PassThru
+# Launch via .cmd helper (direct call - Start-Process quoting breaks paths with spaces).
+if (-not (Test-Path -LiteralPath $helper)) {
+  throw "Missing scripts\start-cloudflare-tunnel.cmd"
+}
 
-Start-Sleep -Seconds 3
-$tunnelProc = Get-Process -Name cloudflared -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending | Select-Object -First 1
+& $helper $cloudflared $config
+if ($LASTEXITCODE -ne 0) {
+  throw "Could not launch cloudflared (helper exit $LASTEXITCODE). Path: $cloudflared"
+}
+
+# Wait for process to appear (can take a few seconds on slow disks).
+$tunnelProc = $null
+for ($i = 0; $i -lt 15; $i++) {
+  Start-Sleep -Seconds 1
+  $tunnelProc = Get-RunningTunnelProcess
+  if ($tunnelProc) { break }
+}
+
 if (-not $tunnelProc) {
-  throw "cloudflared exited immediately. Run manually: cloudflared tunnel --config deploy\cloudflared.yml run"
+  throw @"
+cloudflared did not stay running.
+Try manually in a new window:
+  cd /d $Root
+  cloudflared tunnel --config deploy\cloudflared.yml run
+"@
 }
 
 Set-Content -LiteralPath $pidFile -Value $tunnelProc.Id -Encoding ASCII
 Write-Host "  Cloudflare tunnel started (PID $($tunnelProc.Id))" -ForegroundColor Green
-Write-Host "  Log: reports\cloudflared.log" -ForegroundColor DarkGray
 
-# Confirm connector registered with Cloudflare (avoids false "started" when process dies).
 $connected = $false
-for ($i = 0; $i -lt 10; $i++) {
-  try {
-    $info = & $cloudflared tunnel info kwalify 2>&1 | Out-String
-    if ($info -match "CONNECTOR ID") { $connected = $true; break }
-  } catch {}
+for ($i = 0; $i -lt 12; $i++) {
+  if (Test-TunnelConnected $cloudflared) { $connected = $true; break }
   Start-Sleep -Seconds 2
 }
-if (-not $connected) {
-  Write-Host "  Warning: tunnel process started but no active Cloudflare connection yet." -ForegroundColor Yellow
-  Write-Host "  Check reports\cloudflared.log or the Cloudflare Tunnel window." -ForegroundColor Yellow
+if ($connected) {
+  Write-Host "  Tunnel connected to Cloudflare" -ForegroundColor Green
+} else {
+  Write-Host "  Warning: tunnel process running but not connected yet." -ForegroundColor Yellow
+  Write-Host "  Check the 'Cloudflare Tunnel' window for errors." -ForegroundColor Yellow
 }
 
 # Best-effort: wait for public readyz if APP_URL is set
@@ -120,7 +149,6 @@ if ($appUrl) {
     Start-Sleep -Seconds 2
   }
   if (-not $matched) {
-    Write-Host "  Warning: public URL may still point at old DNS (not this PC)." -ForegroundColor Yellow
-    Write-Host "  Run fix-cloudflare-dns.bat if /status returns 404." -ForegroundColor Yellow
+    Write-Host "  Warning: public URL may still be propagating." -ForegroundColor Yellow
   }
 }
