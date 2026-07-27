@@ -45,8 +45,8 @@ Row "Self-host .env configured" $envOk "APP_URL=$appUrl"
 # Cloudflare
 $cfCert = Join-Path $env:USERPROFILE ".cloudflared\cert.pem"
 $tunnelYml = Join-Path $Root "deploy\cloudflared.yml"
-Row "Cloudflare account linked" (Test-Path -LiteralPath $cfCert) $(if (-not (Test-Path -LiteralPath $cfCert)) { "Run finish-cloudflare-setup.bat or see FIRST-TIME-SETUP.txt" } else { "cert.pem present" })
-Row "Cloudflare tunnel configured" (Test-Path $tunnelYml) $(if (-not (Test-Path $tunnelYml)) { "Run finish-cloudflare-setup.bat (tunnel step)" } else { "deploy\cloudflared.yml" })
+Row "Cloudflare account linked" (Test-Path -LiteralPath $cfCert) $(if (-not (Test-Path -LiteralPath $cfCert)) { "Run finish-cloudflare-login.bat or see FIRST-TIME-SETUP.txt" } else { "cert.pem present" })
+Row "Cloudflare tunnel configured" (Test-Path $tunnelYml) $(if (-not (Test-Path $tunnelYml)) { "Run finish-cloudflare-login.bat (tunnel step)" } else { "deploy\cloudflared.yml" })
 
 $cf = "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe"
 if (-not (Test-Path $cf)) { $cf = "$env:ProgramFiles\cloudflared\cloudflared.exe" }
@@ -158,7 +158,7 @@ if ($latestBackup) {
   $backupAgeH = ((Get-Date) - $latestBackup.LastWriteTime).TotalHours
   Row "Latest DB backup" ($backupAgeH -le 48) "$($latestBackup.Name) ($([math]::Round($backupAgeH, 1))h ago)"
 } else {
-  WarnRow "Latest DB backup" "None yet — run npm run backup:db"
+  WarnRow "Latest DB backup" "None yet - run npm run backup:db"
 }
 
 $weeklyTask = Get-ScheduledTask -TaskName "Kwalify-Weekly-Maintenance" -ErrorAction SilentlyContinue
@@ -166,6 +166,13 @@ if ($weeklyTask) {
   Row "Weekly maintenance scheduled" $true "Sundays 10:00 AM"
 } else {
   WarnRow "Weekly maintenance" "Run maintain.bat weekly, or scripts\schedule-weekly-maintenance.ps1 once (Admin)"
+}
+
+$uptimeTask = Get-ScheduledTask -TaskName "Kwalify-Uptime-Check" -ErrorAction SilentlyContinue
+if ($uptimeTask) {
+  Row "Local uptime checks scheduled" $true "every 5 min to reports\uptime-check.log"
+} else {
+  WarnRow "Local uptime checks" "Run scripts\schedule-uptime-check.ps1 once (Admin)"
 }
 
 # Spotify credentials in .env
@@ -181,7 +188,7 @@ $apiLog = Join-Path $Root "kwalify-api.log"
 if (Test-Path -LiteralPath $apiLog) {
   $logMb = [math]::Round((Get-Item $apiLog).Length / 1MB, 1)
   if ($logMb -gt 8) {
-    WarnRow "kwalify-api.log size" "${logMb} MB — rotates at 10 MB automatically"
+    WarnRow "kwalify-api.log size" "${logMb} MB - rotates at 10 MB automatically"
   }
 }
 

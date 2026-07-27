@@ -150,6 +150,20 @@ try {
   Write-Host "  Could not register backup task (try running setup-self-host.bat as Administrator)" -ForegroundColor Yellow
 }
 
+Write-Step "Uptime checks every 5 minutes (while PC is on)"
+try {
+  & (Join-Path $Root "scripts\schedule-uptime-check.ps1")
+} catch {
+  Write-Host "  Could not register uptime task (optional - run schedule-uptime-check.ps1 as Administrator)" -ForegroundColor Yellow
+}
+
+Write-Step "Disable PC sleep on AC power"
+try {
+  & (Join-Path $Root "scripts\disable-pc-sleep.ps1")
+} catch {
+  Write-Host "  Could not change power plan - run disable-pc-sleep-admin.bat as Administrator" -ForegroundColor Yellow
+}
+
 Write-Step "Weekly maintenance (Sundays 10:00 AM)"
 try {
   & (Join-Path $Root "scripts\schedule-weekly-maintenance.ps1")

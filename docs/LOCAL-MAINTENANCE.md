@@ -60,7 +60,7 @@ Automate (Admin once): `scripts\schedule-weekly-maintenance.ps1`
 
 1. Add Spotify email in [Developer Dashboard](https://developer.spotify.com/dashboard) → User Management  
 2. Send **`docs/BETA-TESTER-GUIDE.md`**  
-3. Log sessions in **`docs/beta-feedback-log.csv`**  
+3. Note issues in chat/DM with testers (or your own notes)  
 4. Keep **`start.bat`** running  
 
 ---

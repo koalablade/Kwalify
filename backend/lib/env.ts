@@ -11,6 +11,7 @@
 
 import { assertBootReady } from "./boot-state";
 import { warnIfProductionEvalTokenMissing } from "./benchmark-env";
+import { resolveEvalAllowedSpotifyUserIds } from "./eval-token";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,16 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
   const FRONTEND_URL = normalizeOptionalUrlEnv("FRONTEND_URL");
   const BIND_HOST = process.env["BIND_HOST"]?.trim() || "0.0.0.0";
 
+  if (NODE_ENV === "production") {
+    if (!APP_URL) {
+      throw new Error("[env] APP_URL is required in production (e.g. https://kwalify.net)");
+    }
+    const primaryOrigin = APP_URL.split(",")[0]?.trim();
+    if (!primaryOrigin?.startsWith("https://")) {
+      throw new Error("[env] APP_URL must use https:// in production");
+    }
+  }
+
   _env = {
     DATABASE_URL,
     SESSION_SECRET,
@@ -146,9 +157,9 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
 function warnProductionSecurityEnv(nodeEnv: string): void {
   if (nodeEnv !== "production") return;
   const evalToken = process.env["PLAYLIST_EVAL_TOKEN"]?.trim();
-  if (evalToken && !process.env["EVAL_ALLOWED_SPOTIFY_USER_IDS"]?.trim()) {
+  if (evalToken && !resolveEvalAllowedSpotifyUserIds()) {
     console.warn(
-      "[env] EVAL_ALLOWED_SPOTIFY_USER_IDS is not set — eval token audit mode will reject all spotifyUserId values in production.",
+      "[env] EVAL_ALLOWED_SPOTIFY_USER_IDS (or SMOKE_SPOTIFY_USER_ID) is not set — eval token audit mode will reject all spotifyUserId values in production.",
     );
   }
   for (const [key, minLen] of [

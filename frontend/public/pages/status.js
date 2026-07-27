@@ -1,9 +1,9 @@
-import { esc, initTheme, toggleTheme, apiJson } from "../lib/shared.js";
-import { loadUserPrefs, saveUserPref } from "../lib/user-prefs.js";
+import { esc, initTheme, apiJson, siteFooterHtml, FEEDBACK_FORM_URL } from "../lib/shared.js";
 
 initTheme();
 const root = document.getElementById("statusRoot");
 let statusRefreshTimer = null;
+const isLocalHost = location.hostname === "localhost" || location.hostname === "127.0.0.1";
 
 function clearStatusRefresh() {
   if (statusRefreshTimer) {
@@ -53,38 +53,41 @@ function render({ httpOk, data }) {
   const pipeline = checks.pipelineAvailable !== false;
   const uptime = data?.uptimeMs ? `${Math.round(data.uptimeMs / 1000)}s` : "—";
   const commit = (data?.commit || "unknown").slice(0, 8);
+  const downHelp = isLocalHost
+    ? "Start Kwalify from Desktop, or check kwalify-start.log / kwalify-api.log."
+    : "We're looking into it — try again in a few minutes or send feedback.";
 
   root.innerHTML = `
   ${navHtml()}
   <div class="status-page app-wrap">
     <h1 class="vibe-heading">System status</h1>
     <p class="vibe-sub">${ready
-    ? "Plain-English health for your Kwalify server. Refresh to update."
-    : "Plain-English health for your Kwalify server. Auto-refreshing every 10 seconds until ready."}</p>
+    ? "Plain-English health for Kwalify. Refresh to update."
+    : "Auto-refreshing every 10 seconds until ready."}</p>
 
     <div class="status-hero ${ready ? "status-hero--ok" : "status-hero--bad"}">
       <div class="status-hero-title">${ready ? "All systems ready" : "Not ready yet"}</div>
       <div class="status-hero-sub">${ready
     ? "You can log in, sync your library, and generate playlists."
-    : "Start Kwalify from Desktop, or check kwalify-start.log / kwalify-api.log."}</div>
+    : downHelp}</div>
     </div>
 
     <div class="status-grid">
       <div class="status-card">
         <div class="status-card-head">API server ${statusLabel(httpOk)}</div>
-        <p>Process is responding on this machine.</p>
+        <p>${httpOk ? "The app is responding." : "The app is not responding right now."}</p>
       </div>
       <div class="status-card">
         <div class="status-card-head">Database ${statusLabel(db)}</div>
-        <p>${db ? "PostgreSQL is reachable." : "PostgreSQL not reachable - check the service is running."}</p>
+        <p>${db ? "Database is reachable." : "Database is temporarily unavailable. Try again shortly."}</p>
       </div>
       <div class="status-card">
         <div class="status-card-head">Spotify login ${statusLabel(spotify)}</div>
-        <p>${spotify ? "Client ID and secret are configured." : "Missing SPOTIFY_CLIENT_ID / SECRET in .env."}</p>
+        <p>${spotify ? "Spotify login is configured." : "Spotify login is temporarily unavailable."}</p>
       </div>
       <div class="status-card">
         <div class="status-card-head">Playlist engine ${statusLabel(pipeline)}</div>
-        <p>${pipeline ? "Generation pipeline loaded." : "Pipeline not available - check API logs."}</p>
+        <p>${pipeline ? "Generation pipeline loaded." : "Generation pipeline is not ready yet."}</p>
       </div>
     </div>
 
@@ -97,8 +100,10 @@ function render({ httpOk, data }) {
     <div class="status-actions">
       <button type="button" class="btn btn-green" id="refreshStatusBtn">Refresh</button>
       <a href="/" class="btn btn-ghost">Back to app</a>
+      <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="btn btn-ghost">Feedback</a>
     </div>
-  </div>`;
+  </div>
+  ${siteFooterHtml()}`;
 
   document.getElementById("refreshStatusBtn")?.addEventListener("click", () => boot(false));
 }

@@ -1,5 +1,6 @@
 // ── Kwalify · Gallery ─────────────────────────────────────────────────────────
-import { esc, fmtDate, initTheme, spiBadge, toggleTheme, apiJson, showToast, confirmDialog } from "../lib/shared.js";
+import { esc, fmtDate, initTheme, spiBadge, toggleTheme, apiJson, showToast, confirmDialog, siteFooterHtml } from "../lib/shared.js";
+import { COPY } from "../lib/copy.js";
 
 // After Spotify login, app.js boot should redirect to sessionStorage.returnTo when set.
 const galleryDebug = new URLSearchParams(window.location.search).get("debug") === "1";
@@ -111,6 +112,30 @@ function wireNavEvents() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => null);
     window.location.href = "/";
   });
+}
+
+function moodEmoji(vibe, mode) {
+  const v = String(vibe || "").toLowerCase();
+  if (/rain|storm|wet/.test(v)) return "🌧";
+  if (/drive|road|motorway|highway|car/.test(v)) return "🚗";
+  if (/summer|sun|warm|beach/.test(v)) return "🌅";
+  if (/goodbye|heart|break|alone|miss/.test(v)) return "💔";
+  if (/child|nostalg|remember|memory|school/.test(v)) return "🎮";
+  if (/night|midnight|2am|late/.test(v)) return "🌙";
+  if (mode === "chaotic") return "✨";
+  if (mode === "strict") return "🎯";
+  return "🎵";
+}
+
+function moodLabel(vibe, mode) {
+  const v = String(vibe || "").toLowerCase();
+  if (/calm|peace|quiet|slow/.test(v)) return "Reflective";
+  if (/drive|road|freedom|open/.test(v)) return "Freedom";
+  if (/party|energy|upbeat|dance/.test(v)) return "Energetic";
+  if (/sad|melanch|rain/.test(v)) return "Melancholy";
+  if (mode === "chaotic") return "Adventurous";
+  if (mode === "strict") return "Focused";
+  return "Personal";
 }
 
 function getTags(p) {
@@ -279,8 +304,8 @@ function renderCards(playlists) {
   }
   if (!playlists.length) {
     return galleryPlaylists.length
-      ? `<div class="empty-state"><h3>No matches</h3><p>Try clearing the search or switching back to All.</p></div>`
-      : `<div class="empty-state"><h3>No playlists yet</h3><p>Generate your first vibe from the app to see it here.</p></div>`;
+      ? `<div class="empty-state"><h3>No matches</h3><p>${COPY.gallery.noMatch}</p></div>`
+      : `<div class="empty-state"><h3>No moments yet</h3><p>${COPY.gallery.empty}</p></div>`;
   }
 
   return `<div class="gallery-grid">
@@ -291,19 +316,21 @@ function renderCards(playlists) {
       const count = Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0);
       const selected = selectedPlaylistIds.has(Number(p.id));
       const openHref = !deleteMode && p.shareSlug ? `/p/${encodeURIComponent(p.shareSlug)}` : null;
-      const cardClass = `gallery-card ${deleteMode ? "gallery-card--selectable" : ""} ${openHref ? "gallery-card--link" : ""} ${selected ? "selected" : ""}`.trim();
+      const cardClass = `gallery-card memory-card ${deleteMode ? "gallery-card--selectable" : ""} ${openHref ? "gallery-card--link" : ""} ${selected ? "selected" : ""}`.trim();
       const cardAttrs = deleteMode
         ? `data-select-playlist-id="${p.id}" role="button" tabindex="0"`
         : "";
       const inner = `
         ${deleteMode ? `<div class="gallery-select-check">${selected ? "✓" : ""}</div>` : ""}
         ${mosaicHtml(arts)}
-        <div class="gallery-card-body">
-          <div class="gallery-card-name" title="${esc(p.name)}">${esc(p.name)}</div>
+        <div class="gallery-card-body memory-card-body">
+          <div class="memory-card-emoji" aria-hidden="true">${moodEmoji(p.vibe, p.mode)}</div>
+          <div class="memory-card-title" title="${esc(p.vibe || p.name)}">${esc(p.vibe ? (p.vibe.length > 56 ? `${p.vibe.slice(0, 53)}…` : p.vibe) : p.name)}</div>
+          ${!p.vibe && p.name ? `<div class="gallery-card-name gallery-card-name--sub">${esc(p.name)}</div>` : ""}
+          <div class="memory-card-mood">${esc(moodLabel(p.vibe, p.mode))}</div>
           ${tags.length ? `<div class="gallery-tags">${tags.map((t) => `<span class="gallery-tag">${esc(t)}</span>`).join("")}</div>` : ""}
-          ${p.vibe ? `<div class="gallery-card-quote">"${esc(p.vibe)}"</div>` : ""}
           ${note ? `<div class="gallery-generator-note">${esc(note)}</div>` : ""}
-          <div class="gallery-card-meta">${count} tracks · ${fmtDate(p.createdAt)}</div>
+          <div class="gallery-card-meta memory-card-meta">${count} songs · ${fmtDate(p.createdAt)}</div>
           ${deleteMode ? "" : `<div class="gallery-card-actions">
             ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm" onclick="event.stopPropagation()">${spi()} Spotify</a>` : ""}
             ${openHref ? `<span class="btn btn-ghost btn-sm">Open</span>` : ""}
@@ -326,8 +353,8 @@ function renderGallery() {
   ${navHtml()}
   <div class="gallery-wrap">
     <div class="gallery-header">
-      <h1 class="gallery-title">Your playlists</h1>
-      <p class="gallery-sub">Saved mixes from your liked songs. Use this page to revisit good results or clean up test runs.</p>
+      <h1 class="gallery-title">${COPY.gallery.title}</h1>
+      <p class="gallery-sub">${COPY.gallery.sub}</p>
     </div>
     ${galleryTotal > galleryPlaylists.length ? `<div class="alert alert-warn" style="margin-bottom:16px;">Showing ${galleryPlaylists.length} of ${galleryTotal} playlists</div>` : ""}
     ${renderGalleryControls(visiblePlaylists)}
@@ -336,15 +363,7 @@ function renderGallery() {
     ${galleryTotal > galleryPlaylists.length ? `<div style="text-align:center;margin:20px 0;"><button type="button" class="btn btn-ghost" id="galleryLoadMoreBtn" ${galleryLoadingMore ? "disabled" : ""}>${galleryLoadingMore ? "Loading…" : "Load more"}</button></div>` : ""}
   </div>
 
-  <footer class="app-footer site-footer">
-    <div class="footer-left"><span class="footer-brand">© ${new Date().getFullYear()} Kwalify</span></div>
-    <div class="footer-right">
-      <span class="badge badge-muted">Beta</span>
-      <a href="/privacy" class="footer-link">Privacy</a>
-      <a href="/terms" class="footer-link">Terms</a>
-      <a href="/" class="footer-link">Home</a>
-    </div>
-  </footer>
+  ${siteFooterHtml()}
   `;
 
   wireNavEvents();
@@ -455,7 +474,7 @@ async function loadMorePlaylists() {
 }
 
 async function boot() {
-  document.title = "Gallery — Kwalify";
+  document.title = "Soundtrack diary — Kwalify";
 
   root.innerHTML = navHtml() + `<div class="loading-shell"><div class="spinner"></div><span>Loading…</span></div>`;
 

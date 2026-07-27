@@ -40,7 +40,15 @@ export function userFacingApiError(result, fallback = "Something went wrong. Ple
   if (result?.status === 0) return "Network connection dropped. Please check your connection and try again.";
   if (result?.status === 401) return "Spotify session expired. Please reconnect Spotify.";
   if (result?.status === 504) return "Generation took too long. Try a slightly broader prompt, then generate again.";
-  if (result?.status === 503) return "Service is temporarily unavailable. Please try again in a moment.";
+  if (result?.status === 503) {
+    if (result?.data?.code === "QUEUE_TIMEOUT") {
+      return "The server queue was busy. Please wait a moment and try again.";
+    }
+    if (result?.data?.code === "SERVER_RESTARTING") {
+      return "Kwalify is restarting. Please try again in a moment.";
+    }
+    return "Service is temporarily unavailable. Please try again in a moment.";
+  }
   const raw = result?.data?.error || result?.data?.message || fallback;
   const text = String(raw || fallback);
   if (/[{}[\]]/.test(text) || /stack|trace|zod|payload|undefined|null/i.test(text)) {
@@ -140,6 +148,23 @@ export function showToast(message, kind = "info") {
   el.className = `kwalify-toast kwalify-toast--${kind} kwalify-toast--show`;
   clearTimeout(showToast._timer);
   showToast._timer = setTimeout(() => el.classList.remove("kwalify-toast--show"), 4200);
+}
+
+export const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform";
+
+export function siteFooterHtml({ showBeta = true } = {}) {
+  return `
+  <footer class="app-footer site-footer">
+    <div class="footer-left">
+      <span class="footer-brand">© ${new Date().getFullYear()} Kwalify</span>
+    </div>
+    <div class="footer-right">
+      ${showBeta ? '<span class="badge badge-muted">Beta</span>' : ""}
+      <a href="/privacy" class="footer-link">Privacy</a>
+      <a href="/terms" class="footer-link">Terms</a>
+      <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">Feedback</a>
+    </div>
+  </footer>`;
 }
 
 export function toggleTheme(opts = {}) {

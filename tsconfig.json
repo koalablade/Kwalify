@@ -16,5 +16,5 @@
     "useUnknownInCatchVariables": true
   },
   "include": ["backend/**/*.ts"],
-  "exclude": ["backend/src", "legacy", "artifacts", "frontend", "node_modules"]
+  "exclude": ["backend/src", "backend/scripts/archive", "legacy", "artifacts", "frontend", "node_modules"]
 }

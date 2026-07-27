@@ -381,6 +381,7 @@ import {
   recordExecutionStage,
 } from "./generation/generation-execution-health";
 import { generationAuditTokenAuthorized, privilegedDebugAllowed } from "./generation/generation-audit";
+import { parseEvalAllowedSpotifyUserIds } from "../lib/eval-token";
 import { runSessionHydrationSingleFlight } from "./generation/generation-session-hydration";
 import {
   buildPreV3PerformanceReport,
@@ -589,13 +590,14 @@ function generateFail(
       reason: code,
     }));
   }
+  const { spotifyUnavailable: spotifyFlag, ...restExtra } = extra ?? {};
   const payload: Record<string, unknown> = {
     success: false,
     code,
     error,
     tracks: [],
-    spotifyUnavailable: true,
-    ...extra,
+    ...restExtra,
+    ...(spotifyFlag === true || /^SPOTIFY_/i.test(code) ? { spotifyUnavailable: true } : {}),
     playlistExecutionTrace: resolvedTrace,
   };
   res.status(status).json(payload);
@@ -761,9 +763,6 @@ function timeoutFallbackResponse(
 ): boolean {
   if (responseFinished(res)) return true;
   const ctx = (req as { _genCtx?: Record<string, unknown> })._genCtx;
-  if (!opts.allowStrictOverride && shouldBlockStrictEditorialTimeoutFallback(ctx)) {
-    return false;
-  }
   const likedSongs = Array.isArray(ctx?.likedSongs) ? ctx.likedSongs : [];
   const scoringInputSongs = Array.isArray(ctx?.scoringInputSongs) ? ctx.scoringInputSongs : [];
   const emotionProfile = ctx?.emotionProfile as EmotionProfile | undefined;
@@ -846,6 +845,7 @@ function timeoutFallbackResponse(
             lockedIntent: fallbackIdentityIntent,
             identityFailures: identityVerdict.failures,
             limitingFactors: [`fallback_identity_failed:${opts.fallbackLevel ?? "timeout"}`],
+            noLibraryMode: ctx?.noLibraryMode === true,
           });
         }
         req.log.warn(
@@ -887,6 +887,9 @@ function timeoutFallbackResponse(
       );
       res.status(200).json(withIntentSurvivalAuditPayload(req, attachExecutionTrace({
         success: true,
+        code: "TIMEOUT_FALLBACK",
+        degraded: true,
+        userMessage: "We saved the best matches found so far; full curation ran out of time.",
         playlistName: generatePlaylistName(vibe, emotionProfile),
         tracks,
         generationDiagnostics: {
@@ -936,6 +939,10 @@ function timeoutFallbackResponse(
       })), tracks, vibe));
       return true;
     }
+  }
+  // Strict editorial prompts: deliver good-playlist snapshots above, but never generic library fillers.
+  if (!opts.allowStrictOverride && shouldBlockStrictEditorialTimeoutFallback(ctx)) {
+    return false;
   }
   const timeoutSource = (() => {
     if (scoringInputSongs.length === 0) return likedSongs;
@@ -1206,6 +1213,9 @@ function timeoutFallbackResponse(
   const resolvedFallbackLevel = opts.fallbackLevel ?? "timeout_fallback";
   res.status(200).json(withIntentSurvivalAuditPayload(req, attachExecutionTrace({
     success: true,
+    code: "TIMEOUT_FALLBACK",
+    degraded: true,
+    userMessage: "We saved the best matches found so far; full curation ran out of time.",
     playlistName: generatePlaylistName(vibe, emotionProfile),
     tracks,
     generationDiagnostics: {
@@ -5108,27 +5118,24 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     if (auditTokenAuthorized && auditUserIdRaw) {
-      const allowedRaw = process.env["EVAL_ALLOWED_SPOTIFY_USER_IDS"]?.trim();
-      if (getEnv().NODE_ENV === "production" && !allowedRaw) {
+      const allowedIds = parseEvalAllowedSpotifyUserIds();
+      if (getEnv().NODE_ENV === "production" && allowedIds.length === 0) {
         generateFail(
           res,
           403,
           "AUDIT_ALLOWLIST_REQUIRED",
-          "EVAL_ALLOWED_SPOTIFY_USER_IDS must be set in production when using PLAYLIST_EVAL_TOKEN.",
+          "EVAL_ALLOWED_SPOTIFY_USER_IDS (or SMOKE_SPOTIFY_USER_ID) must be set in production when using PLAYLIST_EVAL_TOKEN.",
         );
         return;
       }
-      if (allowedRaw) {
-        const allowedIds = allowedRaw.split(",").map((id) => id.trim()).filter(Boolean);
-        if (allowedIds.length > 0 && !allowedIds.includes(auditUserIdRaw)) {
-          generateFail(
-            res,
-            403,
-            "AUDIT_USER_NOT_ALLOWED",
-            "This spotifyUserId is not permitted for eval token access.",
-          );
-          return;
-        }
+      if (allowedIds.length > 0 && !allowedIds.includes(auditUserIdRaw)) {
+        generateFail(
+          res,
+          403,
+          "AUDIT_USER_NOT_ALLOWED",
+          "This spotifyUserId is not permitted for eval token access.",
+        );
+        return;
       }
     }
 
@@ -6829,6 +6836,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         libraryCapability: preScoringOrchestration.failure.libraryCapability,
         limitingFactors: preScoringOrchestration.failure.limitingFactors,
         genreLabel: lockedIntent.genreFamilies[0] ?? lockedIntent.primaryGenres[0] ?? null,
+        noLibraryMode: !!noLibraryMode,
       });
       generateFail(
         res,
@@ -6915,6 +6923,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             ...validCandidateSupply.limitingDimensions,
           ],
           genreLabel: lockedIntent.genreFamilies[0] ?? lockedIntent.primaryGenres[0] ?? null,
+          noLibraryMode: !!noLibraryMode,
         });
         generateFail(
           res,
@@ -12009,6 +12018,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           ...(validCandidateSupply?.limitingDimensions ?? []),
         ],
         genreLabel: lockedIntent.genreFamilies[0] ?? lockedIntent.primaryGenres[0] ?? null,
+        noLibraryMode: !!noLibraryMode,
       });
       generateFail(
         res,
@@ -13645,6 +13655,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             limitingFactors: [
               `post_filter_count:${fatalErr.diagnostics?.postFilterCount ?? 0}`,
             ],
+            noLibraryMode: collapseCtx?.noLibraryMode === true,
           })
           : undefined);
         generateFail(

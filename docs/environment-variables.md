@@ -55,7 +55,7 @@ These variables are used in the codebase but are **not** declared or validated i
 | `KWALIFY_CACHE_ENTRY_BUDGET` | `1200` | `backend/lib/cache-memory-budget.ts` | Total in-process cache entry budget shared across generate-result, genre-stack, and session-snapshot caches. |
 | `BENCHMARK_UI_TOKEN` | undefined | `backend/middleware/benchmark-auth.ts` | Shared secret for remote benchmark mutations. Send as `x-benchmark-ui-token` header when not on loopback. |
 | `OPS_METRICS_TOKEN` | undefined | `backend/lib/ops-metrics-auth.ts` | Required bearer token for `/api/ops/metrics` in production. |
-| `EVAL_ALLOWED_SPOTIFY_USER_IDS` | undefined | `backend/routes/eval.ts` | Comma-separated Spotify user IDs allowed to use eval token routes. |
+| `EVAL_ALLOWED_SPOTIFY_USER_IDS` | undefined (falls back to `SMOKE_SPOTIFY_USER_ID`) | `backend/lib/eval-token.ts`, generation audit mode | Comma-separated Spotify user IDs allowed to use eval token routes. |
 | `GLOBAL_RATE_LIMIT_PER_MINUTE` | `60` | `backend/lib/global-rate-limit.ts` | Per-client request cap per minute. Uses `CF-Connecting-IP` when behind Cloudflare. |
 | `GLOBAL_RATE_LIMIT_BURST` | `20` | `backend/lib/global-rate-limit.ts` | Short burst cap within `GLOBAL_RATE_LIMIT_BURST_WINDOW_MS`. |
 

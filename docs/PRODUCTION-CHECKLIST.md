@@ -9,12 +9,14 @@ Track progress from **closed beta on your PC** to **production**. Check items of
 - [x] Self-host stack: `start.bat`, tunnel, stop script  
 - [x] Health routes: `/api/healthz`, `/api/readyz`, `/status`  
 - [x] Daily DB backups + verification script  
-- [x] Beta readiness script (`check-beta-ready.bat`)  
-- [ ] **5–10 real testers** with feedback logged  
-- [ ] Each tester added to **Spotify User Management**  
-- [ ] One **phone test** per week after changes  
-- [ ] **Uptime monitor** on `https://kwalify.net/api/healthz` (UptimeRobot, etc.)  
-- [ ] **Restore test**: restore one backup to confirm dumps work  
+- [x] Beta readiness script (`production-ready.bat`)  
+- [x] **5 beta testers** on Spotify allowlist  
+- [ ] **Phone test** this week → `npm run maintenance:mark-phone-test` after mobile flow  
+- [x] **Uptime monitor** on `https://kwalify.net/api/readyz` (UptimeRobot)  
+- [x] **Restore test** verified (`reports\.backup-restore-verified`)  
+- [x] Health Watch auto-starts with `start.bat` (no separate bat needed)  
+- [x] Weekly maintenance scheduled (`maintain.bat` / Sundays 10 AM)  
+- [x] PC: no sleep on AC  
 
 ---
 
@@ -31,10 +33,10 @@ Until Spotify approves, you are in beta regardless of code quality.
 
 ## Phase 3 — Reliability on your PC
 
-- [ ] `start-health-watch.bat` while hosting sessions  
-- [ ] Weekly maintenance scheduled (`schedule-weekly-maintenance.ps1`)  
-- [ ] PC: no sleep on AC, UPS optional  
-- [ ] Document “site down” runbook for yourself ([LOCAL-MAINTENANCE.md](./LOCAL-MAINTENANCE.md))  
+- [x] Health Watch while hosting (`start.bat`)  
+- [x] Weekly maintenance scheduled  
+- [x] PC: no sleep on AC, UPS optional  
+- [x] "Site down" runbook: [LOCAL-MAINTENANCE.md](./LOCAL-MAINTENANCE.md)  
 
 ---
 
@@ -47,8 +49,8 @@ Pick one:
 | Option | Notes |
 |--------|--------|
 | VPS (Hetzner, DO, etc.) | Same Node + Postgres stack |
-| Render / Fly.io | Less ops; you have `render.yaml` history |
 | Dedicated mini-PC at home | Cheapest always-on; keep tunnel |
+| Managed cloud (Render, Fly.io) | Less ops; legacy `render.yaml` in repo |
 
 - [ ] Staging environment (even a second tunnel hostname)  
 - [ ] Migrate Postgres + `.env`  
@@ -59,10 +61,11 @@ Pick one:
 
 ## Phase 5 — Public launch polish
 
-- [ ] Sentry errors reviewed weekly  
-- [ ] Rate limits tuned (`GENERATE_CONCURRENCY_LIMIT` 2–3 on 8 cores)  
+- [ ] Sentry (`SENTRY_DSN` in `.env`) — errors now captured on 500s when enabled  
+- [x] Rate limits tuned (`GENERATE_CONCURRENCY_LIMIT=2` on 8 cores)  
 - [ ] Delete-account flow tested  
-- [ ] Feedback channel linked in app  
+- [x] Feedback channel linked in app  
+- [ ] Secrets backup marked → `npm run maintenance:mark-secrets`  
 - [ ] Cost estimate (hosting + Spotify API usage)  
 
 ---
@@ -81,9 +84,15 @@ Defer until you have scale or a second developer:
 
 ---
 
-## “Am I production ready?”
+## "Am I production ready?"
 
-All must be true:
+Run:
+
+```bat
+production-ready.bat
+```
+
+All automated checks green, plus:
 
 1. Spotify login works **without** manual allowlist  
 2. Site runs **24/7** without your laptop  
@@ -97,10 +106,12 @@ All must be true:
 
 ## Quick commands
 
-```powershell
-check-beta-ready.bat
-weekly-maintenance.bat
+```bat
+production-ready.bat
+maintain.bat
 npm run backup:db
 npm run maintenance:verify-backup
-start-health-watch.bat    # optional, while hosting
+npm run maintenance:test-restore
+npm run maintenance:mark-phone-test
+npm run maintenance:mark-secrets
 ```

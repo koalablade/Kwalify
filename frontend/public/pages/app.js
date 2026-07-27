@@ -1,6 +1,8 @@
 // ── Kwalify · Single app entry point ─────────────────────────────────────────
-import { esc, initTheme, fmtDateShort as fmtDate, spiBadge, toggleTheme, showToast, userFacingApiError, confirmDialog } from "../lib/shared.js";
+import { esc, initTheme, fmtDateShort as fmtDate, spiBadge, toggleTheme, showToast, userFacingApiError, confirmDialog, siteFooterHtml, FEEDBACK_FORM_URL } from "../lib/shared.js";
 import { loadUserPrefs, saveUserPref, markOnboardingDone } from "../lib/user-prefs.js";
+import { applyArtAccentToPoster } from "../lib/art-color.js";
+import { COPY, heroChipsHtml } from "../lib/copy.js";
 
 initTheme();
 const root = document.getElementById("appRoot");
@@ -82,22 +84,6 @@ async function api(path, opts = {}) {
 }
 
 const feedbackSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-const FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1rnIIbYPHB7qskyiHH1bvkFt8i2AGkWGeIZMrHFNi0P0/viewform";
-
-function siteFooterHtml({ showBeta = true } = {}) {
-  return `
-  <footer class="app-footer site-footer">
-    <div class="footer-left">
-      <span class="footer-brand">© ${new Date().getFullYear()} Kwalify</span>
-    </div>
-    <div class="footer-right">
-      ${showBeta ? '<span class="badge badge-muted">Beta</span>' : ""}
-      <a href="/privacy" class="footer-link">Privacy</a>
-      <a href="/terms" class="footer-link">Terms</a>
-      <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">Feedback</a>
-    </div>
-  </footer>`;
-}
 
 function libraryGateState() {
   const cs = state.cacheStatus;
@@ -109,11 +95,25 @@ function libraryGateState() {
 }
 
 function generateGate() {
-  if (state.noLibraryMode) return { blocked: false, message: "" };
+  if (state.noLibraryMode) return { blocked: false, message: "", showSync: false };
   const { syncing, total } = libraryGateState();
-  if (syncing) return { blocked: true, message: "Your liked songs are syncing — generate unlocks when ready." };
-  if (total === 0) return { blocked: true, message: "Sync your library first (nav → Sync new)." };
-  return { blocked: false, message: "" };
+  const syncError = state.cacheStatus?.syncError;
+  if (syncError) {
+    return {
+      blocked: true,
+      message: `Library sync failed: ${syncError}. Try syncing again or send feedback.`,
+      showSync: true,
+    };
+  }
+  if (syncing) return { blocked: true, message: "Your liked songs are syncing — generate unlocks when ready.", showSync: false };
+  if (total === 0) {
+    return {
+      blocked: true,
+      message: "Sync your liked songs first — open the ☰ menu → Sync new, or tap below.",
+      showSync: true,
+    };
+  }
+  return { blocked: false, message: "", showSync: false };
 }
 
 function isPromptReadyForGenerate(preview, vibe, selectedSceneId) {
@@ -160,8 +160,10 @@ function applyPendingPrompt() {
     const input = document.getElementById("vibeInput");
     if (!input) return;
     input.value = pending;
+    state.draftVibe = pending;
     const count = document.getElementById("charCount");
     if (count) count.textContent = String(pending.length);
+    input.dispatchEvent(new Event("input"));
     updateMoodPanel(pending);
   } catch {
     // ignore storage errors
@@ -174,6 +176,7 @@ let activeGenerationAbort = null;
 let moodPreviewRequestId = 0;
 let moodPreviewAbort = null;
 let globalAppListenersWired = false;
+let onboardingKeyHandler = null;
 
 function feedbackTrackPayload(track) {
   return {
@@ -343,8 +346,8 @@ function promptSteerChipsHtml(baseVibe) {
   const vibe = (baseVibe || "").trim();
   if (!vibe || state.generating) return "";
   return `
-    <div class="prompt-steer-row" aria-label="Steer this playlist">
-      <span class="prompt-steer-label">Steer it</span>
+    <div class="prompt-steer-row" aria-label="Shape this playlist">
+      <span class="prompt-steer-label">Shape it</span>
       ${PROMPT_STEER_CHIPS.map((chip) => `
         <button type="button" class="prompt-steer-chip" data-steer-id="${esc(chip.id)}" data-steer-action="${chip.action || ""}">
           ${esc(chip.label)}
@@ -467,6 +470,7 @@ const state = {
   showExplain: false,
   onboardingStep: 1,
   progressExpanded: false,
+  refineOpen: false,
   preview: null,
   selectedSceneId: null,
   draftVibe: "",
@@ -495,8 +499,8 @@ function navHtml(user) {
     ? Math.max(0, Math.min(100, Math.round((Number(cs.syncProgress) / Math.max(1, Number(cs.syncTotal))) * 100)))
     : null;
   const syncLabel = syncing
-    ? `Syncing${syncPct !== null ? ` ${syncPct}%` : "…"}`
-    : total > 0 ? `${total.toLocaleString()} tracks` : "Library";
+    ? (syncPct !== null ? `Rediscovering… ${syncPct}%` : COPY.sync.active)
+    : total > 0 ? COPY.sync.ready(total) : "Your library";
   const initials = (user?.displayName || "U").charAt(0).toUpperCase();
   const avatar = user?.avatarUrl
     ? `<img src="${esc(user.avatarUrl)}" alt="">`
@@ -508,7 +512,7 @@ function navHtml(user) {
     ${navLogoHtml()}
     <button type="button" class="nav-menu-toggle" id="navMenuToggle" aria-expanded="false" aria-controls="navRight" aria-label="Open menu">☰</button>
     <div class="nav-right nav-right--collapsed" id="navRight">
-      <a href="/gallery" class="nav-link">Gallery <span class="nav-link-arrow">→</span></a>
+      <a href="/gallery" class="nav-link">Diary <span class="nav-link-arrow">→</span></a>
       <a href="/settings" class="nav-link">Settings</a>
       <div class="nav-library-panel">
         <button class="nav-sync-chip" id="syncChip" type="button" title="Delta sync (new likes only)">
@@ -562,9 +566,10 @@ function authErrorMessage() {
   const error = new URLSearchParams(window.location.search).get("error");
   if (!error) return null;
   const messages = {
-    access_denied: "Spotify login was cancelled, or your account isn't on the Kwalify allowlist yet. Ask the app owner to add your Spotify email in the Spotify Developer Dashboard → User Management.",
+    access_denied: "Spotify login was cancelled, or your account isn't approved for this beta yet. Use the Feedback link (footer) with your Spotify email so we can add you.",
+    rate_limited: "Too many login attempts. Wait a minute, then try Connect Spotify again.",
     no_code: "Spotify did not finish login. Please try connecting again.",
-    session_failed: "Kwalify could not save your login session. Please try again.",
+    session_failed: "Login session couldn't be verified. Disable private browsing, allow cookies for this site, and try Connect Spotify again.",
     auth_failed: "Spotify login failed. Please try again in a moment.",
   };
   return messages[error] || "Spotify login could not be completed. Please try again.";
@@ -580,125 +585,80 @@ function landingNoticeMessage() {
 }
 
 function wireLandingEvents() {
+  const input = document.getElementById("landingVibeInput");
+  const goLogin = (prompt) => {
+    const text = (prompt || input?.value || "").trim();
+    if (text) {
+      try { localStorage.setItem("kwalify-pending-prompt", text); } catch { /* ignore */ }
+    }
+    window.location.href = "/api/auth/login";
+  };
+  document.getElementById("landingCreateBtn")?.addEventListener("click", () => goLogin());
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); goLogin(); }
+  });
   document.querySelectorAll("[data-hero-prompt]").forEach((chip) => {
     chip.addEventListener("click", () => {
       const prompt = chip.getAttribute("data-hero-prompt");
-      if (!prompt) return;
-      try { localStorage.setItem("kwalify-pending-prompt", prompt); } catch { /* ignore */ }
-      window.location.href = "/api/auth/login";
+      if (input && prompt) input.value = prompt;
+      goLogin(prompt);
     });
   });
   scrubLandingQueryParams();
 }
 
 function renderLanding(notice) {
-  document.title = "Kwalify — Moment-to-Music from your liked songs";
+  document.title = "Kwalify — Soundtracks from your favourite songs";
   const landingNotice = notice
     ? { kind: "error", message: notice }
     : (state.errorKind === "auth" && state.error
       ? { kind: "error", message: state.error }
       : landingNoticeMessage());
   root.innerHTML = `
-  <nav class="nav">
+  <nav class="nav nav--minimal">
     ${navLogoHtml()}
     <div class="nav-right">
-      <a href="/api/auth/login" class="btn btn-green btn-sm">${spi()} Connect Spotify</a>
+      <a href="/api/auth/login" class="btn btn-cream btn-sm">${spi()} ${COPY.cta.connect}</a>
     </div>
   </nav>
 
-  <div class="landing-page">
+  <div class="landing-page landing-page--cinematic">
 
-    <section class="hero">
-      <div class="hero-eyebrow">
-        <span class="hero-eyebrow-dot"></span>
-        Public beta · Playlists from your liked songs
-      </div>
-      <h1>What's the <em>moment</em>?</h1>
-      <p class="hero-sub">Describe a feeling and get a playlist from songs you already love — or use optional discovery mode for genre prompts.</p>
+    <section class="cinematic-hero">
+      <p class="cinematic-eyebrow">${COPY.eyebrow}</p>
+      <h1 class="cinematic-headline">${COPY.headline}</h1>
+      <p class="cinematic-sub">${COPY.subhead}</p>
 
-      <div class="hero-demo">
-        <div class="hero-demo-box">
-          <div class="hero-demo-placeholder">empty petrol station at 2am<span class="hero-demo-cursor"></span></div>
-        </div>
-        <div class="hero-chips">
-          <button type="button" class="hero-chip" data-hero-prompt="Driving somewhere you don't need to be">"Driving somewhere you don't need to be"</button>
-          <button type="button" class="hero-chip" data-hero-prompt="Late night thinking about everything">"Late night thinking about everything"</button>
-          <button type="button" class="hero-chip" data-hero-prompt="First warm day after winter">"First warm day after winter"</button>
-          <button type="button" class="hero-chip" data-hero-prompt="Walking home after a good night">"Walking home after a good night"</button>
-        </div>
-      </div>
-
-      ${landingNotice ? `<div class="alert ${landingNotice.kind === "error" ? "alert-error" : "alert-success"} landing-auth-alert">${esc(landingNotice.message)}</div>` : ""}
-      <a href="/api/auth/login" class="btn btn-green btn-lg hero-cta">${spi()} Get started — free</a>
-      <p class="landing-beta-note">Spotify may limit logins during beta until our app is fully approved. If Connect fails, try again later or contact us via Feedback.</p>
-      <div class="hero-trust">
-        <span>No credit card</span>
-        <span class="hero-trust-sep">·</span>
-        <span>Your library stays on our servers for sync</span>
-        <span class="hero-trust-sep">·</span>
-        <span>Shareable when you want</span>
-      </div>
-    </section>
-
-    <section class="how-section">
-      <div class="how-label">How it works</div>
-      <h2 class="how-title">Three steps to your soundtrack</h2>
-      <p class="how-sub">Default mode uses only your Liked Songs. Optional Discovery Mode can search Spotify broadly for clear genre prompts.</p>
-      <div class="how-steps">
-        <div class="how-step">
-          <div class="how-step-num">Step 01</div>
-          <div class="how-step-icon">🎵</div>
-          <h3>Connect Spotify</h3>
-          <p>We read your Liked Songs and sync metadata needed for playlist generation. We do not access your listening history or messages.</p>
-        </div>
-        <div class="how-step">
-          <div class="how-step-num">Step 02</div>
-          <div class="how-step-icon">💬</div>
-          <h3>Describe the moment</h3>
-          <p>One sentence. A time, a place, a feeling. As specific as you like.</p>
-        </div>
-        <div class="how-step">
-          <div class="how-step-num">Step 03</div>
-          <div class="how-step-icon">⚡</div>
-          <h3>Get the playlist</h3>
-          <p>A private playlist is built from your saved tracks with live progress while quality checks run.</p>
+      <div class="vibe-input-wrap vibe-input-wrap--hero">
+        <div class="vibe-glow"></div>
+        <div class="vibe-inner">
+          <textarea
+            id="landingVibeInput"
+            class="vibe-textarea vibe-textarea--hero"
+            placeholder="${esc(COPY.placeholder)}"
+            maxlength="140"
+            rows="3"
+            aria-label="Describe your moment"
+          ></textarea>
         </div>
       </div>
-    </section>
 
-    <section class="features-section">
-      <div style="text-align:center;margin-bottom:32px;">
-        <div class="how-label">Why Kwalify</div>
-        <h2 class="how-title">Not Discover Weekly</h2>
-      </div>
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">🧠</div>
-          <h3>Moment-aware scoring</h3>
-          <p>Parses your scene into emotion, time, energy, and motion — then scores every liked track against all of it.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🎲</div>
-          <h3>Strict · Balanced · Chaotic</h3>
-          <p>Choose how closely the playlist matches your vibe. Balanced ensures artist variety and tempo diversity.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🔒</div>
-          <h3>Your library first</h3>
-          <p>Default mode reads only your Liked Songs. Optional Discovery Mode searches Spotify for genre-specific prompts.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🎯</div>
-          <h3>One prompt, done</h3>
-          <p>Describe the moment, hit Generate, and get a shareable Spotify playlist without tuning settings.</p>
-        </div>
-      </div>
-    </section>
+      <button type="button" id="landingCreateBtn" class="btn btn-cream btn-lg cinematic-cta">${COPY.cta.create}</button>
 
-    <section class="cta-section">
-      <h2>Ready to hear it?</h2>
-      <p>Connect Spotify, describe your first moment, and watch Kwalify build from your saved tracks.</p>
-      <a href="/api/auth/login" class="btn btn-green btn-lg">${spi()} Connect with Spotify — free</a>
+      <div class="hero-chips hero-chips--landing">
+        <span class="hero-chips-label">Try</span>
+        ${heroChipsHtml({ escFn: esc })}
+      </div>
+
+      ${landingNotice ? `<div class="alert ${landingNotice.kind === "error" ? "alert-error" : landingNotice.kind === "info" ? "alert-warn" : "alert-success"} landing-auth-alert">${esc(landingNotice.message)}</div>` : ""}
+
+      <div class="landing-connect-block">
+        <a href="/api/auth/login" class="btn btn-ghost btn-sm landing-connect-link">${spi()} ${COPY.cta.connect}</a>
+        <p class="landing-connect-trust">${COPY.connectTrust}</p>
+        <p class="landing-connect-sub">${COPY.connectSub}</p>
+      </div>
+
+      <p class="landing-beta-note">Spotify may limit logins during beta. If Connect fails, <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener" class="footer-link">send feedback</a> with your Spotify email.</p>
     </section>
 
   </div>
@@ -870,14 +830,14 @@ function renderApp() {
 
   root.innerHTML = `
   ${navHtml(state.user)}
-  ${state.generating ? `<div class="generation-top-wrap">${generatingHtml()}</div>` : ""}
+  ${state.generating ? `<div class="generation-cinematic-wrap">${generatingHtml()}</div>` : ""}
 
-  <div class="app-wrap">
+  <div class="app-wrap ${state.generating ? "app-wrap--dimmed" : ""}">
 
     ${errorHtml}
 
-    ${state.libraryChapters?.length ? `<section class="library-chapters" aria-label="Life chapters from your library">
-      <h2 class="section-title">Life chapters</h2>
+    ${!state.generating && state.libraryChapters?.length ? `<section class="library-chapters" aria-label="Life chapters from your library">
+      <h2 class="section-title section-title--subtle">Life chapters</h2>
       <div class="library-chapters-row">
         ${[...state.libraryChapters]
           .sort((a, b) => {
@@ -894,12 +854,9 @@ function renderApp() {
 
     <div class="input-grid ${debugModeEnabled() ? "" : "input-grid--single"}">
 
-      <!-- Vibe input -->
-      <div class="vibe-col">
-        <div>
-          <h1 class="vibe-heading">What's the moment?</h1>
-          <p class="vibe-sub">Describe it and get a playlist from songs you already love.</p>
-        </div>
+      <div class="vibe-col cinematic-entry">
+        <p class="cinematic-eyebrow cinematic-eyebrow--app">${COPY.eyebrow}</p>
+        <h1 class="cinematic-headline cinematic-headline--app">${COPY.headline}</h1>
 
         <div class="vibe-input-wrap">
           <div class="vibe-glow"></div>
@@ -907,88 +864,82 @@ function renderApp() {
             <textarea
               id="vibeInput"
               class="vibe-textarea"
-              placeholder="e.g. empty petrol station at 2am"
+              placeholder="${esc(COPY.placeholder)}"
               maxlength="140"
               autocomplete="off"
-              rows="2"
+              rows="3"
               aria-label="Describe your moment"
             ></textarea>
             <div class="vibe-footer">
-              <span class="vibe-hint">Enter ↵ to generate · Ctrl+K focus</span>
+              <span class="vibe-hint">${typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches ? "Enter ↵ to create · Ctrl+K focus" : "Enter ↵ to create"}</span>
               <span class="vibe-count"><span id="charCount">0</span>/140</span>
             </div>
           </div>
         </div>
 
-        <div class="prompt-guide" aria-label="Prompt guidance">
-          <span class="prompt-guide-label">Better prompts:</span>
-          <span class="prompt-guide-chip">place</span>
-          <span class="prompt-guide-chip">energy</span>
-          <span class="prompt-guide-chip">era</span>
-          <span class="prompt-guide-chip">who it's for</span>
-          <span class="prompt-guide-example">e.g. garage with mates, upbeat 2000s, Saturday night</span>
+        <div class="hero-chips hero-chips--compact">
+          ${heroChipsHtml({ attr: "data-inspire-prompt", escFn: esc })}
         </div>
         <div id="intentPreviewStrip" class="intent-preview-strip" hidden aria-live="polite"></div>
         ${recentPromptsHtml()}
 
-        <div class="controls-stack">
-        <div class="controls-row controls-row--mode">
-          <div class="mode-group">
-            <button class="mode-btn ${state.mode === "strict"   ? "active" : ""}" data-mode="strict" title="Closest match, least drift" aria-pressed="${state.mode === "strict"}">Strict</button>
-            <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced" title="Best quality and variety" aria-pressed="${state.mode === "balanced"}">Balanced</button>
-            <button class="mode-btn ${state.mode === "chaotic"  ? "active" : ""}" data-mode="chaotic" title="More surprise, still safety-checked" aria-pressed="${state.mode === "chaotic"}">Chaotic</button>
-          </div>
-        </div>
-        <div class="controls-row controls-row--length">
-          <span class="length-label">Playlist size</span>
-          <div class="length-row">
-            <svg class="length-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <input type="range" class="length-slider" id="lengthSlider" min="20" max="60" step="5" value="${state.length}">
-            <span class="length-val" id="lengthLabel">${state.length} tracks</span>
-          </div>
-        </div>
-        </div>
-        <div class="familiarity-row ${state.noLibraryMode ? "familiarity-row--disabled" : ""}" aria-label="Familiarity vs discovery within your library">
-          <span class="familiarity-label">Familiarity</span>
-          <div class="familiarity-group">
-            <button class="familiarity-btn ${state.familiarity === "safe" ? "active" : ""}" data-familiarity="safe" title="Mostly known tracks" aria-pressed="${state.familiarity === "safe"}" ${state.noLibraryMode ? "disabled" : ""}>Safe</button>
-            <button class="familiarity-btn ${state.familiarity === "balanced" ? "active" : ""}" data-familiarity="balanced" title="Comfort + discovery" aria-pressed="${state.familiarity === "balanced"}" ${state.noLibraryMode ? "disabled" : ""}>Balanced</button>
-            <button class="familiarity-btn ${state.familiarity === "discovery" ? "active" : ""}" data-familiarity="discovery" title="More deep cuts" aria-pressed="${state.familiarity === "discovery"}" ${state.noLibraryMode ? "disabled" : ""}>Discovery</button>
-          </div>
-          ${state.noLibraryMode ? `<span class="familiarity-hint">Uses Spotify-wide search — familiarity applies to liked-songs mode only.</span>` : ""}
-        </div>
-        <div class="mode-helper">${esc(modeHelperText)}</div>
-
-        <div class="no-library-row">
-          <label class="no-library-toggle" title="Search all of Spotify for clear genre prompts">
-            <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle" role="switch" tabindex="0" aria-checked="${state.noLibraryMode}" aria-label="Discovery Mode"></div>
-            <div class="no-library-text">
-              <span class="no-library-label">Discovery Mode</span>
-              <span class="no-library-sub">Searches all of Spotify — include a genre (e.g. latin party, 90s garage). Less personalized than your liked songs.</span>
-            </div>
-          </label>
-        </div>
-
-        <p class="generation-time-hint" id="generationTimeHint">Large libraries may take 30–60 seconds. Stay on this page — you'll see tracks appear as they're picked.</p>
-
         ${gate.blocked ? `<p class="generate-gate-msg">${esc(gate.message)}</p>` : ""}
-        <button id="generateBtn" class="gen-btn ${state.generating ? "loading" : ""}" ${gate.blocked || state.generating || !isPromptReadyForGenerate(state.preview, document.getElementById("vibeInput")?.value?.trim(), state.selectedSceneId) ? "disabled" : ""}>
+        ${gate.blocked && gate.showSync && !state.cacheStatus?.isSyncing ? `<button type="button" class="btn btn-cream btn-sm" id="gateSyncBtn">Sync library now</button>` : ""}
+        <button id="generateBtn" class="gen-btn gen-btn--cinematic ${state.generating ? "loading" : ""}" ${gate.blocked || state.generating || !isPromptReadyForGenerate(state.preview, document.getElementById("vibeInput")?.value?.trim(), state.selectedSceneId) ? "disabled" : ""}>
           ${state.generating
-            ? `<span class="spinner spinner--sm"></span> Generating…`
-            : `Generate playlist <span class="btn-arrow">→</span>`}
+            ? `<span class="spinner spinner--sm"></span> Creating…`
+            : `${COPY.cta.create} <span class="btn-arrow">→</span>`}
         </button>
+
+        <details class="refine-panel" id="refinePanel"${state.refineOpen ? " open" : ""}>
+          <summary>Refine</summary>
+          <div class="refine-panel-body">
+            <div class="controls-row controls-row--mode">
+              <span class="refine-label">How closely it matches</span>
+              <div class="mode-group">
+                <button class="mode-btn ${state.mode === "strict"   ? "active" : ""}" data-mode="strict" title="Closest match, least drift" aria-pressed="${state.mode === "strict"}">Strict</button>
+                <button class="mode-btn ${state.mode === "balanced" ? "active" : ""}" data-mode="balanced" title="Best quality and variety" aria-pressed="${state.mode === "balanced"}">Balanced</button>
+                <button class="mode-btn ${state.mode === "chaotic"  ? "active" : ""}" data-mode="chaotic" title="More surprise, still safety-checked" aria-pressed="${state.mode === "chaotic"}">Chaotic</button>
+              </div>
+            </div>
+            <div class="controls-row controls-row--length">
+              <span class="length-label">Length</span>
+              <div class="length-row">
+                <input type="range" class="length-slider" id="lengthSlider" min="20" max="60" step="5" value="${state.length}">
+                <span class="length-val" id="lengthLabel">${state.length} songs</span>
+              </div>
+            </div>
+            <div class="familiarity-row ${state.noLibraryMode ? "familiarity-row--disabled" : ""}" aria-label="Familiarity">
+              <span class="familiarity-label">Familiarity</span>
+              <div class="familiarity-group">
+                <button class="familiarity-btn ${state.familiarity === "safe" ? "active" : ""}" data-familiarity="safe" aria-pressed="${state.familiarity === "safe"}" ${state.noLibraryMode ? "disabled" : ""}>Safe</button>
+                <button class="familiarity-btn ${state.familiarity === "balanced" ? "active" : ""}" data-familiarity="balanced" aria-pressed="${state.familiarity === "balanced"}" ${state.noLibraryMode ? "disabled" : ""}>Balanced</button>
+                <button class="familiarity-btn ${state.familiarity === "discovery" ? "active" : ""}" data-familiarity="discovery" aria-pressed="${state.familiarity === "discovery"}" ${state.noLibraryMode ? "disabled" : ""}>Deep cuts</button>
+              </div>
+            </div>
+            <div class="no-library-row">
+              <label class="no-library-toggle" title="Search all of Spotify for clear genre prompts">
+                <div class="toggle-switch ${state.noLibraryMode ? "on" : ""}" id="noLibraryToggle" role="switch" tabindex="0" aria-checked="${state.noLibraryMode}" aria-label="Discovery Mode"></div>
+                <div class="no-library-text">
+                  <span class="no-library-label">Discovery Mode</span>
+                  <span class="no-library-sub">Search Spotify broadly — include a genre in your prompt.</span>
+                </div>
+              </label>
+            </div>
+            <p class="mode-helper">${esc(modeHelperText)}</p>
+          </div>
+        </details>
       </div>
 
       ${debugMoodPanelHtml}
     </div>
 
-    <!-- Result -->
     ${state.generating && state.generationLivePreview ? earlyResultHtml(state.generationLivePreview) : ""}
     ${!state.generating && state.lastResult ? resultHtml(state.lastResult) : ""}
 
-    ${state.user && (state.history?.length || state.playlists?.length) ? `
+    ${state.user && !state.generating ? `
     <section class="activity-section" aria-label="Recent activity">
-      <h2 class="section-title">Recent activity</h2>
+      <h2 class="section-title section-title--subtle">${COPY.activity.title}</h2>
       <div class="activity-feed">${buildActivityFeed()}</div>
     </section>` : ""}
 
@@ -998,6 +949,10 @@ function renderApp() {
   ${siteFooterHtml()}`;
 
   wireAppEvents();
+
+  if (state.lastResult?.tracks) {
+    wireResultPosterArt(state.lastResult.tracks);
+  }
 
   const vibeInput = document.getElementById("vibeInput");
   if (vibeInput) {
@@ -1036,7 +991,7 @@ function buildActivityFeed() {
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   if (all.length === 0) {
-    return `<p class="activity-empty">No activity yet — generate your first playlist.</p>`;
+    return `<p class="activity-empty">${COPY.activity.empty}</p>`;
   }
 
   return all.slice(0, 10).map(item => {
@@ -1066,45 +1021,24 @@ function buildActivityFeed() {
   }).join("");
 }
 
-const GENERATION_STAGES = ["Initializing", "Retrieving candidates", "Ranking matches", "Diversity check", "Finalizing playlist"];
+const GENERATION_STAGES = COPY.generation.stages;
 const GENERATION_PHASES = ["starting", "loading_library", "building_profile", "scoring", "composing", "spotify", "saving"];
 const GENERATION_PHASE_COPY = {
-  "Initializing": [
-    "Starting the generator…",
-    "Reading the prompt…",
-    "Preparing the request…",
-  ],
-  "Retrieving candidates": [
-    "Searching your library…",
-    "Finding matching tracks…",
-    "Checking genre and era evidence…",
-  ],
-  "Ranking matches": [
-    "Ranking the strongest matches…",
-    "Comparing energy, era, and genre fit…",
-    "Filtering out obvious wrong turns…",
-  ],
-  "Diversity check": [
-    "Checking artist spread…",
-    "Smoothing the playlist flow…",
-    "Applying quality checks…",
-  ],
-  "Finalizing playlist": [
-    "Saving your playlist to Spotify…",
-    "Locking in the final track order…",
-    "Almost done…",
-  ],
+  [COPY.generation.stages[0]]: ["Waking up your musical memories…", "Reading what this moment means…"],
+  [COPY.generation.stages[1]]: ["Finding songs that belong here…", "Looking through your favourites…"],
+  [COPY.generation.stages[2]]: ["Shaping the emotional arc…", "Balancing familiar and forgotten…"],
+  [COPY.generation.stages[3]]: [COPY.generation.saving, "Locking in your soundtrack…"],
+  [COPY.generation.stages[4]]: ["Almost there…", "Opening your soundtrack…"],
 };
 const GENERATION_LONG_RUNNING_COPY = [
-  "Still curating — larger libraries take a moment.",
-  "Quality checks are running on your matches.",
-  "Building the strongest version of this playlist.",
-  "Saving when everything looks right.",
+  "Still searching your library — larger collections take a moment.",
+  "Finding the strongest connections in your music.",
+  "Building the truest version of this moment.",
 ];
 const GENERATION_PARTIAL_READY_COPY = [
-  "Tracks are locked in — saving to Spotify now.",
-  "Playlist is taking shape in Spotify — finishing the last steps.",
-  "Your matches are set — wrapping up the save.",
+  COPY.generation.partial,
+  "Your matches are set — finishing the save.",
+  "First glimpses are ready — saving to Spotify.",
 ];
 
 function generationElapsedMs(progressState = state.generationProgress || {}) {
@@ -1121,15 +1055,15 @@ function generationElapsedMs(progressState = state.generationProgress || {}) {
 function generationTimingMessage(progressState, elapsedMs) {
   const phase = progressState?.phase;
   if (progressState?.wrappingUp || phase === "done") {
-    return "Playlist saved — loading it here now.";
+    return "Your soundtrack is ready.";
   }
   if (phase === "spotify") {
     return elapsedMs >= 45000
-      ? "Spotify save is taking a moment — still working."
-      : "Saving playlist to Spotify…";
+      ? "Saving to Spotify is taking a moment — still working."
+      : COPY.generation.saving;
   }
   if (phase === "saving") {
-    return "Saving to your Kwalify library…";
+    return "Keeping a copy in your diary…";
   }
   if (progressState?.partialTracks?.length && elapsedMs >= 20000) {
     return "Tracks locked in — finishing the save.";
@@ -1161,8 +1095,8 @@ function generationPreviewDetail(progressState, elapsedMs) {
     return `${partialCount} tracks matched so far`;
   }
   const previewWaitingCopy = state.noLibraryMode
-    ? ["Searching Spotify-wide matches", "Checking genre evidence", "Checking era evidence", "Scoring likely fits"]
-    : ["Scanning your library", "Finding genre matches", "Scoring likely fits", "Building a shortlist"];
+    ? ["Searching across Spotify…", "Finding genre matches…", "Listening for the right era…"]
+    : [COPY.generation.stages[0], COPY.generation.stages[1], COPY.sync.finding, "Learning your musical history…"];
   return previewWaitingCopy[Math.floor(elapsedMs / 3500) % previewWaitingCopy.length];
 }
 
@@ -1188,11 +1122,13 @@ function generationProgressInfo() {
   const pct = state.generationProgress?.wrappingUp || state.generationProgress?.phase === "done"
     ? 98
     : Math.max(10, Math.min(96, Math.round(((displayIndex + 1) / count) * 100)));
-  const displayTitle = state.noLibraryMode && displayIndex === 0 ? "Searching Spotify" : GENERATION_STAGES[displayIndex] || stageLabel;
+  const displayTitle = state.noLibraryMode && displayIndex === 0
+    ? COPY.generation.stages[1]
+    : GENERATION_STAGES[Math.min(displayIndex, GENERATION_STAGES.length - 1)] || stageLabel;
   const partialCount = state.generationProgress?.partialTracks?.length || 0;
   const subtexts = state.noLibraryMode && displayIndex === 0
-    ? ["Searching Spotify-wide matches…", "Checking genre and era evidence…", "Building a fresh candidate pool…"]
-    : GENERATION_PHASE_COPY[displayTitle] || GENERATION_PHASE_COPY[stageLabel] || GENERATION_PHASE_COPY["Initializing"];
+    ? ["Searching across Spotify for this genre…", "Finding songs outside your library…"]
+    : GENERATION_PHASE_COPY[displayTitle] || GENERATION_PHASE_COPY[stageLabel] || [displayTitle, COPY.generation.stages[1]];
   const subIndex = Math.floor((Date.now() - startedAt) / 3200) % subtexts.length;
   const longRunDetail = elapsedMs >= 45000 && partialCount === 0
     ? GENERATION_LONG_RUNNING_COPY[Math.floor(elapsedMs / 8000) % GENERATION_LONG_RUNNING_COPY.length]
@@ -1251,7 +1187,7 @@ function generatingHtml() {
   const partialHtml = visiblePartialTracks.length ? `
       <div class="generating-partials">
         <div class="generating-partials-head">
-          Previewing ${visiblePartialTracks.length} likely track${visiblePartialTracks.length === 1 ? "" : "s"}
+          ${COPY.generation.partial}
           ${addingTracks ? `<span class="adding-tracks">adding tracks…</span>` : ""}
         </div>
         ${visiblePartialTracks.map((track, i) => `
@@ -1266,33 +1202,25 @@ function generatingHtml() {
         `).join("")}
       </div>` : "";
   return `
-  <div class="generating-card">
-    <span class="spinner spinner--purple"></span>
-    <div class="generating-body">
-      <div class="generating-head">
-        <div class="generating-head-copy">
-          <div class="generating-title" id="generationTitle">${esc(progress.sub)}</div>
-          <div class="generating-sub" id="generationSub">${esc(timingText)}</div>
-          ${progressState?.sceneLabel ? `<div class="generating-scene">${esc(progressState.sceneLabel)}</div>` : ""}
-        </div>
-        <div class="generating-head-actions">
-          ${spotifyEarlyHtml}
-          <button class="generation-cancel-btn" id="cancelGenerationBtn" type="button" data-action="cancel-generation" ${state.generationCancelRequested ? "disabled" : ""}>
-            ${state.generationCancelRequested ? "Cancelling..." : "Cancel"}
-          </button>
-        </div>
-      </div>
-      ${state.progressExpanded ? buildBarHtml : ""}
-      ${stuckHintHtml}
-      <button class="generation-details-toggle" id="progressDetailsToggle" type="button">
-        ${state.progressExpanded ? "Hide details" : "More detail"}
-      </button>
-      ${progressDetailsHtml}
-      ${debugModeEnabled() ? `<div class="generation-safety-chip">Excluded: Christmas / holiday tracks unless requested</div>` : ""}
-      <div class="generating-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.pct}" aria-label="Playlist generation progress">
+  <div class="generation-cinematic">
+    <div class="generation-cinematic-inner">
+      <p class="generation-story-eyebrow">Creating your soundtrack</p>
+      <h2 class="generation-story-line" id="generationTitle">${esc(progress.title)}</h2>
+      <p class="generation-story-detail" id="generationSub">${esc(progress.sub)}</p>
+      ${progressState?.sceneLabel ? `<p class="generation-story-scene">${esc(progressState.sceneLabel)}</p>` : ""}
+      <div class="generating-progress generating-progress--thin" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.pct}" aria-label="Creation progress">
         <div class="generating-progress-fill" id="generationProgressFill" style="width:${progress.pct}%"></div>
       </div>
-      ${state.generationLivePreview ? "" : partialHtml}
+      <div class="generation-cinematic-actions">
+        ${spotifyEarlyHtml}
+        <button class="generation-cancel-btn" id="cancelGenerationBtn" type="button" data-action="cancel-generation" ${state.generationCancelRequested ? "disabled" : ""}>
+          ${state.generationCancelRequested ? "Cancelling…" : "Cancel"}
+        </button>
+        ${debugModeEnabled() ? `<button class="generation-details-toggle" id="progressDetailsToggle" type="button">${state.progressExpanded ? "Hide details" : "Details"}</button>` : ""}
+      </div>
+      ${stuckHintHtml}
+      ${progressDetailsHtml}
+      ${partialHtml}
     </div>
   </div>`;
 }
@@ -1309,8 +1237,8 @@ function refreshGenerationProgressDom() {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
   };
-  setText("generationTitle", progress.sub);
-  setText("generationSub", timingText);
+  setText("generationTitle", progress.title);
+  setText("generationSub", progress.sub);
   setText("generationStageLabel", progress.title);
   setText("generationStageCount", `${Math.min(progress.index + 1, progress.count)} / ${progress.count}`);
   setText("generationDetailWork", progress.sub);
@@ -1355,6 +1283,139 @@ function buildSegmentStripHtml(segmentDiagnostics) {
   </div>`;
 }
 
+const JOURNEY_ACT_ROMAN = ["I", "II", "III", "IV", "V"];
+const JOURNEY_ACT_FALLBACK = [
+  { label: "Leaving", desc: "Songs that match the beginning of the moment." },
+  { label: "The Road", desc: "The emotional centre." },
+  { label: "Arrival", desc: "The feeling you end with." },
+];
+
+function resolvePosterSceneLine(result) {
+  return result.momentUnderstandingLine
+    || result.sceneLabel
+    || (result.scoringDiagnostics?.semanticResolution?.sceneId
+      ? result.scoringDiagnostics.semanticResolution.sceneId.replace(/_/g, " ")
+      : null);
+}
+
+function formatPosterTitle(result) {
+  const scene = resolvePosterSceneLine(result);
+  if (scene) {
+    const trimmed = String(scene).trim();
+    return trimmed.length <= 56 ? trimmed.toUpperCase() : trimmed;
+  }
+  return result.playlistName || result.name || "Your soundtrack";
+}
+
+function resultArtUrls(tracks) {
+  if (!Array.isArray(tracks)) return [];
+  return tracks
+    .map((t) => t.albumArt || t.album_art)
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+function humanizeTrustLabel(raw) {
+  const label = String(raw || "").trim();
+  if (!label) return "";
+  const exact = {
+    "Strong Prompt Match": "Built closely around your description",
+    "Good Prompt Match": "Matched well to what you described",
+    "Best Available Match": "The strongest matches we could find in your library",
+    "Prompt Matched": "Shaped around your moment",
+    "Built from Your Library": "Drawn from songs you already love",
+    "Built from Spotify Discovery": "Found across Spotify for this genre",
+    "Recovery Assisted": "We found extra connections in your library",
+    "Degraded Performance Mode": "Finished with a lighter pass to save time",
+    "Era widened to best available": "Pulled from the chapters of your music history",
+    "Genre widened to best available": "Reached deeper into your taste to fill the mood",
+    "Honest partial — in-world tracks only": "Kept honest — only songs that truly belong",
+    "Review Copy Available": "Ready to review here while Spotify catches up",
+    "Spotify Partially Saved": "Part of this mix is already on Spotify",
+    "Best Available — recovery blocked further widening": "Stayed true to your taste without stretching too far",
+  };
+  if (exact[label]) return exact[label];
+  if (/strong prompt/i.test(label)) return "Built closely around your description";
+  if (/good prompt/i.test(label)) return "Matched well to what you described";
+  if (/recovery/i.test(label)) return "We found extra connections in your library";
+  if (/era/i.test(label) && /widen/i.test(label)) return "Pulled from the chapters of your music history";
+  if (/genre/i.test(label) && /widen/i.test(label)) return "Reached deeper into your taste to fill the mood";
+  if (/library/i.test(label)) return "Drawn from songs you already love";
+  if (/discovery/i.test(label)) return "Found across Spotify for this genre";
+  return label.replace(/\b\w/g, (c) => c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
+}
+
+function buildJourneyActs(segmentDiagnostics, tracks) {
+  const trackCount = Array.isArray(tracks) ? tracks.length : 0;
+  if (Array.isArray(segmentDiagnostics) && segmentDiagnostics.length > 0) {
+    return segmentDiagnostics.slice(0, 5).map((seg, i) => ({
+      roman: JOURNEY_ACT_ROMAN[i] || String(i + 1),
+      label: seg.label || seg.segmentId || JOURNEY_ACT_FALLBACK[i]?.label || `Act ${i + 1}`,
+      desc: seg.description
+        || seg.summary
+        || JOURNEY_ACT_FALLBACK[i]?.desc
+        || JOURNEY_ACT_FALLBACK[Math.min(i, JOURNEY_ACT_FALLBACK.length - 1)]?.desc
+        || "Part of your soundtrack journey.",
+      trackCount: Array.isArray(seg.trackIds) ? seg.trackIds.length : null,
+    }));
+  }
+  if (trackCount < 3) {
+    return [{
+      roman: "I",
+      label: "The moment",
+      desc: "Every track chosen for this feeling.",
+      trackCount: trackCount || null,
+    }];
+  }
+  const third = Math.ceil(trackCount / 3);
+  return JOURNEY_ACT_FALLBACK.map((act, i) => ({
+    roman: JOURNEY_ACT_ROMAN[i],
+    label: act.label,
+    desc: act.desc,
+    trackCount: i < 2 ? third : trackCount - third * 2,
+  }));
+}
+
+function buildJourneyActsHtml(segmentDiagnostics, tracks) {
+  const acts = buildJourneyActs(segmentDiagnostics, tracks);
+  if (!acts.length) return "";
+  const cards = acts.map((act, i) => `
+    <article class="act-card" style="--act-i:${i}">
+      <div class="act-card-roman">ACT ${act.roman}</div>
+      <h3 class="act-card-title">${esc(act.label)}</h3>
+      <p class="act-card-desc">${esc(act.desc)}</p>
+      ${act.trackCount ? `<span class="act-card-meta">${act.trackCount} songs</span>` : ""}
+    </article>
+  `).join("");
+  return `<section class="journey-acts" aria-label="The journey">
+    <h2 class="journey-acts-heading">The journey</h2>
+    <div class="journey-acts-grid">${cards}</div>
+  </section>`;
+}
+
+function buildMemorySummaryHtml(result, trustLabels, extras = {}) {
+  const humanized = trustLabels.map(humanizeTrustLabel).filter(Boolean);
+  const unique = [...new Set(humanized)].slice(0, 6);
+  const whyLine = result.playlistWhy || result.generationTrust?.playlistWhy || "";
+  const survival = result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary || "";
+  const chipsHtml = unique.length
+    ? `<ul class="memory-summary-list">${unique.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`
+    : "";
+  const narrative = whyLine || survival;
+  if (!chipsHtml && !narrative && !extras.notices) return "";
+  return `<section class="memory-summary" aria-label="About this soundtrack">
+    ${narrative ? `<p class="memory-summary-lead">${esc(narrative)}</p>` : ""}
+    ${chipsHtml}
+    ${extras.notices || ""}
+  </section>`;
+}
+
+function wireResultPosterArt(tracks) {
+  const poster = document.getElementById("resultPoster");
+  if (!poster) return;
+  void applyArtAccentToPoster(poster, resultArtUrls(tracks));
+}
+
 function buildThinLibraryDetailHtml(result) {
   const policy = result?.thinLibraryPolicy || result?.generationTrust?.thinLibraryPolicy;
   if (!policy) return "";
@@ -1379,9 +1440,9 @@ function onboardingOverlayHtml() {
   if (_savedPrefs.onboardingDone || !state.user) return "";
   const step = state.onboardingStep || 1;
   const steps = [
-    { title: "Connect Spotify", body: "You're in — Kwalify uses your liked songs as the source of truth." },
-    { title: "Sync your library", body: "Tap Sync new in the nav so Kwalify knows your tracks. First sync may take a minute." },
-    { title: "Describe a moment", body: "Try something specific: place + energy + era. e.g. late-night motorway drive, upbeat 2000s gym." },
+    { title: "Connect your soundtrack", body: "You're in. Kwalify uses your liked songs — your taste stays yours." },
+    { title: "Rediscover your library", body: "Open ☰ → Sync new. First sync finds forgotten favourites in your history." },
+    { title: "Give a moment a soundtrack", body: "Be specific: place + feeling + era. e.g. late-night motorway drive, mellow 2010s." },
   ];
   const cur = steps[step - 1] || steps[0];
   return `
@@ -1393,7 +1454,7 @@ function onboardingOverlayHtml() {
       <div class="onboarding-dots">${steps.map((_, i) => `<span class="onboarding-dot ${i + 1 === step ? "active" : ""}"></span>`).join("")}</div>
       <div class="onboarding-actions">
         ${step > 1 ? `<button type="button" class="btn btn-ghost btn-sm" id="onboardingBack">Back</button>` : ""}
-        <button type="button" class="btn btn-green btn-sm" id="onboardingNext">${step < 3 ? "Next" : "Got it"}</button>
+        <button type="button" class="btn btn-cream btn-sm" id="onboardingNext">${step < 3 ? "Next" : "Got it"}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="onboardingSkip">Skip</button>
       </div>
     </div>
@@ -1493,7 +1554,8 @@ function updateIntentPreviewStrip(data) {
 
 function resultHtml(result) {
   const count = result.trackCount || (Array.isArray(result.tracks) ? result.tracks.length : 0);
-  const name = esc(result.playlistName || result.name || "Playlist created");
+  const playlistDisplayName = result.playlistName || result.name || "Playlist created";
+  const name = esc(playlistDisplayName);
 
   // ── Dynamic vibe tags from scoring response ────────────────────────────────
   const DOT_COLORS = ["vd-purple", "vd-indigo", "vd-blue", "vd-green", "vd-orange"];
@@ -1535,13 +1597,15 @@ function resultHtml(result) {
       : null)
     || (result.degraded || (Array.isArray(result.degradationReasons) && result.degradationReasons.length > 0)
       ? "Built in degraded mode — some quality checks were relaxed to finish in time."
-    : count > 0 && count < Math.max(8, Math.floor(state.length * 0.4))
+      : null)
+    || (count > 0 && count < Math.max(8, Math.floor(state.length * 0.4))
       ? `Only ${count} strong tracks survived the safety checks. Try a broader prompt or Balanced mode for a fuller playlist.`
-    : result.fastFallback || result.code === "TIMEOUT_FALLBACK"
-    ? "Quick backup playlist built because the full generator was taking too long."
-    : confidence.recoveryUsed
-      ? "Best available playlist built after relaxing non-critical checks."
-      : null);
+      : null)
+    || (result.fastFallback || result.code === "TIMEOUT_FALLBACK"
+      ? (result.userMessage || "Quick backup playlist built because the full generator was taking too long.")
+      : confidence.recoveryUsed
+        ? "Best available playlist built after relaxing non-critical checks."
+        : null);
   const resultBadge = result.spotifyUnavailable
     ? "Review ready"
     : result.requestedNewMix
@@ -1557,15 +1621,10 @@ function resultHtml(result) {
     ? "badge badge-amber"
     : "badge badge-green";
   const cacheNotice = result.cached
-    ? `<p class="result-insight result-insight--notice">Same prompt replayed from cache — tap <strong>New mix</strong> below for a different take.</p>`
+    ? `<p class="result-insight result-insight--notice">Same prompt replayed from cache — use <strong>New mix</strong> under Shape it for a different take.</p>`
     : result.requestedNewMix
       ? `<p class="result-insight result-insight--notice">Fresh mix requested — track order and picks were reshuffled.</p>`
       : "";
-  const sceneLine = result.momentUnderstandingLine
-    || result.sceneLabel
-    || (result.scoringDiagnostics?.semanticResolution?.sceneId
-      ? result.scoringDiagnostics.semanticResolution.sceneId.replace(/_/g, " ")
-      : null);
   const confidenceHtml = confidencePercent !== null ? `
       <div class="result-confidence ${confidence.recoveryUsed || confidence.fallbackUsed ? "result-confidence--recovered" : ""}">
         <span>${esc(confidence.label || "Playlist confidence")}</span>
@@ -1588,13 +1647,6 @@ function resultHtml(result) {
     result.humanQualityGate?.action === "honest_partial" ? "Honest partial — in-world tracks only" : null,
     result.spotifyUnavailable ? "Review Copy Available" : result.spotifyPartial ? "Spotify Partially Saved" : null,
   ].filter(Boolean);
-  const intentUnderstanding = result.intentUnderstanding
-    || result.v3Diagnostics?.intentUnderstanding
-    || null;
-  const decomposedIntent = result.decomposedIntent
-    || result.generationDiagnostics?.decomposedIntent
-    || result.v3Diagnostics?.decomposedIntent
-    || null;
   const playlistCoherence = result.playlistCoherence
     || result.coherenceScore
     || result.v3Diagnostics?.playlistCoherence
@@ -1602,7 +1654,7 @@ function resultHtml(result) {
   const segmentDiagnostics = result.segmentDiagnostics
     || result.generationDiagnostics?.segmentDiagnostics
     || [];
-  const segmentStripHtml = buildSegmentStripHtml(segmentDiagnostics);
+  const journeyActsHtml = buildJourneyActsHtml(segmentDiagnostics, result.tracks);
   const coherenceGate = result.coherenceGate || result.generationDiagnostics?.coherenceGate || null;
   const sceneLockStatus = result.sceneLockStatus || result.generationDiagnostics?.sceneLockStatus || null;
   const coherenceBadgeHtml = buildCoherenceBadgeHtml(
@@ -1611,32 +1663,45 @@ function resultHtml(result) {
     coherenceGate,
     result.swapRepairActions,
   );
-  const intentUnderstandingHtml = buildIntentUnderstandingHtml(intentUnderstanding, playlistCoherence, {
-    repairApplied: Array.isArray(result.swapRepairActions) && result.swapRepairActions.length > 0,
-    decomposed: decomposedIntent,
-    alwaysShow: typeof (playlistCoherence?.overallScore ?? playlistCoherence?.overallCoherence) === "number",
-  });
 
   const hasExplain = !!(result.v3Diagnostics?.playlistExplanation || result.playlistExplanation);
   const playlistExplanation = result.v3Diagnostics?.playlistExplanation || result.playlistExplanation;
-  const tabsHtml = hasExplain ? `
-  <div class="result-view-tabs">
-    <button class="result-tab-btn ${!state.showExplain ? "active" : ""}" id="tabPlaylist">
-      <i class="tab-icon">🎵</i>Playlist
-    </button>
-    <button class="result-tab-btn ${state.showExplain ? "active" : ""}" id="tabExplain">
-      <i class="tab-icon">🧠</i>Explain This Playlist
-    </button>
-  </div>` : "";
+  const explainSectionHtml = hasExplain ? renderPlaylistExplanation(playlistExplanation) : "";
 
-  const explainContent = (hasExplain && state.showExplain)
-    ? renderPlaylistExplanation(playlistExplanation)
-    : "";
   const tracks = Array.isArray(result.tracks) ? result.tracks : [];
   const playlistId = result.savedPlaylistId || result.playlistId || "";
   const shareSlug = result.shareSlug || "";
+  const posterTitle = esc(formatPosterTitle(result));
+  const rawPosterTitle = formatPosterTitle(result);
+  const posterSubtitle = result.noLibraryMode
+    ? "A soundtrack found across Spotify for this moment."
+    : "A soundtrack built from your own memories.";
+  const artUrls = resultArtUrls(tracks);
+  const backdropHtml = artUrls.length
+    ? `<div class="art-backdrop" aria-hidden="true">${artUrls.map((url) => `<img src="${esc(url)}" alt="" class="art-backdrop-img" loading="lazy">`).join("")}</div>`
+    : "";
+  const originalPrompt = result.vibe || result.prompt || "";
+  const promptEcho = originalPrompt
+    ? `<p class="result-poster-prompt">"${esc(originalPrompt)}"</p>`
+    : "";
+
+  const memoryNotices = [
+    cacheNotice,
+    fallbackNotice ? `<p class="memory-summary-notice">${esc(fallbackNotice)}</p>` : "",
+    buildThinLibraryDetailHtml(result),
+  ].filter(Boolean).join("");
+
+  const memorySummaryHtml = buildMemorySummaryHtml(result, trustChips, {
+    notices: memoryNotices || "",
+  });
+
   const tracksHtml = tracks.length ? `
-  <div class="tracks-list" id="resultTracksList">
+  <section class="track-reveal" aria-label="Tracks">
+    <div class="track-reveal-head">
+      <h2 class="track-reveal-title">The soundtrack</h2>
+      <span class="track-reveal-meta">${count} songs</span>
+    </div>
+    <div class="tracks-list tracks-list--reveal" id="resultTracksList">
     ${tracks.map((t, i) => {
       const title = t.trackName || t.name || "Unknown track";
       const artist = t.artistName || t.artist || "Unknown artist";
@@ -1649,9 +1714,9 @@ function resultHtml(result) {
         ? `<div class="track-why">${esc(whyReasons.slice(0, 2).join(" · "))}</div>`
         : "";
       return `
-      <div class="track-row" data-track-index="${i}"${why}>
+      <div class="track-row track-row--reveal" data-track-index="${i}" style="--track-i:${i}"${why}>
         <span class="track-num">${i + 1}</span>
-        <div class="track-art">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
+        <div class="track-art track-art--reveal">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
         <div class="track-info">
           <div class="track-name">${esc(title)}</div>
           <div class="track-artist">${esc(artist)}</div>
@@ -1667,87 +1732,148 @@ function resultHtml(result) {
         </div>
       </div>`;
     }).join("")}
-  </div>` : "";
-
-  return `
-  <div class="result-card">
-    <div class="result-art">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
     </div>
-    <div class="result-body">
-      <div class="result-top">
-        <span class="${resultBadgeClass}">${esc(resultBadge)}</span>
-        <span class="result-meta">${count} tracks · ${state.mode} mode</span>
-      </div>
-      <h2 class="result-title">${name}</h2>
-      ${sceneLine ? `<p class="result-scene-line">Read as: <strong>${esc(sceneLine)}</strong></p>` : ""}
-      ${result.momentUnderstandingLine && result.momentUnderstandingLine !== sceneLine ? `<p class="moment-understanding-line">${esc(result.momentUnderstandingLine)}</p>` : ""}
-      ${cacheNotice}
-      <p class="result-insight">${result.noLibraryMode ? "Curated from Spotify-wide search to fit the moment. Less personalized than your liked songs." : "Curated from your liked songs to fit the moment."}</p>
-      ${fallbackNotice ? `<p class="result-insight result-insight--notice">${esc(fallbackNotice)}</p>` : ""}
-      ${buildThinLibraryDetailHtml(result)}
+  </section>` : "";
+
+  const technicalMetaHtml = debugModeEnabled() ? `
+    <div class="result-technical-meta">
       ${coherenceBadgeHtml}
-      ${trustChipsHtml}
-      ${result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary ? `<p class="result-insight result-insight--trust">${esc(result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary)}</p>` : ""}
-      ${result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary ? `<p class="result-insight result-insight--muted">${esc(result.intentSurvivalSummary || result.generationTrust?.intentSurvivalSummary)}</p>` : ""}
-      ${result.playlistWhy || result.generationTrust?.playlistWhy ? `<p class="result-insight">${esc(result.playlistWhy || result.generationTrust?.playlistWhy)}</p>` : ""}
-      ${segmentStripHtml}
-      ${intentUnderstandingHtml}
       ${confidenceHtml}
-      <div class="result-vibes">
-        ${vibeDotsHtml}
-      </div>
       ${debugModeEnabled() ? `<div class="result-safety-row">
         <span>Safety filter active</span>
         <strong>Christmas / holiday tracks excluded unless requested</strong>
       </div>` : ""}
-      <div class="result-actions">
-        ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
-        ${shareSlug ? `
-        <a href="/p/${esc(shareSlug)}" class="btn btn-ghost btn-sm">Open share page</a>
-        <button type="button" class="btn btn-ghost btn-sm" id="copyShareLinkBtn" data-share-slug="${esc(shareSlug)}">Copy link</button>
-        ` : ""}
+    </div>` : "";
+
+  return `
+  <div class="result-reveal" id="resultReveal">
+    <header class="result-poster" id="resultPoster">
+      ${backdropHtml}
+      <div class="result-poster-overlay"></div>
+      <div class="result-poster-inner">
+        <p class="result-poster-eyebrow">Your soundtrack</p>
+        <h2 class="result-poster-title">${posterTitle}</h2>
+        ${promptEcho}
+        <p class="result-poster-subtitle">${esc(posterSubtitle)}</p>
+        <div class="result-poster-actions">
+          ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-lg result-poster-play">${spi()} Play on Spotify</a>` : ""}
+          ${shareSlug ? `
+          <a href="/p/${esc(shareSlug)}" class="btn btn-ghost btn-sm">Share</a>
+          <button type="button" class="btn btn-ghost btn-sm" id="copyShareLinkBtn" data-share-slug="${esc(shareSlug)}">Copy link</button>
+          ` : ""}
+        </div>
       </div>
-      ${promptSteerChipsHtml(result.vibe || result.prompt)}
-      ${tabsHtml}
-    </div>
+    </header>
+
+    ${journeyActsHtml}
+
+    ${memorySummaryHtml}
+
+    ${explainSectionHtml}
+
+    ${tracksHtml}
+
+    <footer class="result-controls">
+      <div class="result-controls-meta">
+        <span class="${resultBadgeClass}">${esc(resultBadge)}</span>
+        <span class="result-meta">${count} tracks · ${esc(state.mode)} mode</span>
+      </div>
+      ${playlistDisplayName !== rawPosterTitle ? `<p class="result-controls-name">${name}</p>` : ""}
+      <div class="result-vibes result-vibes--subtle">
+        ${vibeDotsHtml}
+      </div>
+      ${promptSteerChipsHtml(originalPrompt)}
+      ${technicalMetaHtml}
+    </footer>
   </div>
-  ${explainContent}
-  ${!state.showExplain ? tracksHtml : ""}
-  ${!state.showExplain ? debugHtml : ""}`;
+  ${debugHtml}`;
 }
 
-// ── Explain This Playlist ─────────────────────────────────────────────────────
-function renderPlaylistExplanation(expl) {
-  if (!expl) return `<div class="explain-card" style="text-align:center;color:var(--muted);padding:32px">No explanation data — regenerate with debug mode enabled.</div>`;
+// ── Why this playlist ─────────────────────────────────────────────────────────
+function emotionArcFromVector(evec) {
+  const labels = {
+    energy: "Energetic",
+    valence: "Uplifting",
+    calm: "Calm",
+    nostalgia: "Nostalgic",
+    tension: "Restless",
+  };
+  const ranked = ["energy", "calm", "nostalgia", "tension", "valence"]
+    .map((key) => [key, evec[key] ?? 0])
+    .sort((a, b) => b[1] - a[1]);
+  const top = ranked.filter(([, v]) => v >= 0.35).slice(0, 3).map(([k]) => labels[k] || k);
+  if (top.length >= 2) return top.join(" → ");
+  if (top.length === 1) return top[0];
+  return "";
+}
 
-  const intent   = expl.intentSummary    || {};
-  const laneList = expl.laneDetails      || [];
-  const clusters = expl.clusterMap       || {};
-  const div      = expl.diversityReport  || {};
-  const sel      = expl.selectionSummary || {};
+function builtAroundBullets(laneList, div) {
+  const bullets = [];
+  const laneSorted = [...(laneList || [])].sort((a, b) => (b.pctContribution || 0) - (a.pctContribution || 0));
+  const core = laneSorted.find((l) => /core/i.test(l.laneId || l.label || ""));
+  const discovery = laneSorted.find((l) => /discovery|rediscover/i.test(l.laneId || l.label || ""));
+  const emotional = laneSorted.find((l) => /emotional/i.test(l.laneId || l.label || ""));
+  if (core && (core.pctContribution || 0) >= 15) bullets.push("familiar favourites");
+  if (discovery && (discovery.pctContribution || 0) >= 8) bullets.push("forgotten tracks");
+  if (emotional && (emotional.pctContribution || 0) >= 10) bullets.push("songs tied to the feeling");
+  if (div?.dominantEra) bullets.push(`music from the ${String(div.dominantEra).replace(/_/g, " ")} era`);
+  else if (div?.dominantGenre) bullets.push(`${String(div.dominantGenre).replace(/_/g, " ")} you already love`);
+  return bullets.slice(0, 4);
+}
+
+function buildExplainEmotionalLead(expl) {
+  const intent = expl.intentSummary || {};
+  const laneList = expl.laneDetails || [];
+  const div = expl.diversityReport || {};
+  const evec = intent.emotionVector || {};
+  const arc = emotionArcFromVector(evec);
+  const bullets = builtAroundBullets(laneList, div);
+  const primary = intent.primaryIntent
+    ? String(intent.primaryIntent).replace(/_/g, " ")
+    : "";
+  return `
+    <div class="explain-emotional-lead">
+      <h3 class="explain-emotional-title">Why this playlist?</h3>
+      ${arc ? `<p class="explain-emotional-arc">This playlist moves from <strong>${esc(arc)}</strong></p>` : ""}
+      ${primary && !arc ? `<p class="explain-emotional-arc">Shaped around <strong>${esc(primary)}</strong></p>` : ""}
+      ${bullets.length ? `<div class="explain-built-around">
+        <span class="explain-built-label">Built around</span>
+        <ul class="explain-built-list">${bullets.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>
+      </div>` : ""}
+    </div>`;
+}
+
+function renderPlaylistExplanation(expl) {
+  if (!expl) {
+    return `<section class="result-why-section"><div class="explain-card explain-card--empty">No explanation data for this playlist yet.</div></section>`;
+  }
+
+  const intent = expl.intentSummary || {};
+  const laneList = expl.laneDetails || [];
+  const clusters = expl.clusterMap || {};
+  const div = expl.diversityReport || {};
+  const sel = expl.selectionSummary || {};
 
   const LANE_COLORS = { core:"#7c3aed", emotional:"#db2777", motion:"#0891b2", contrast:"#d97706", discovery:"#16a34a", fallback:"#6b7280", ambient:"#0e7490", high_energy:"#dc2626", low_energy:"#2563eb" };
   const laneColor = (id) => LANE_COLORS[id] || LANE_COLORS[id?.split("_")[0]] || "#6b7280";
 
-  // ── 1. Intent ──────────────────────────────────────────────────────────────
-  const evec     = intent.emotionVector || {};
-  const evecKeys = ["energy","valence","calm","nostalgia","tension"];
-  const evecColors = { energy:"#f59e0b", valence:"#1db954", calm:"#38bdf8", nostalgia:"#a78bfa", tension:"#f87171" };
-  const eraVec   = intent.eraVector || {};
-  const topEras  = Object.entries(eraVec).sort((a,b) => b[1]-a[1]).slice(0,4);
+  const evec = intent.emotionVector || {};
+  const evecKeys = ["energy", "valence", "calm", "nostalgia", "tension"];
+  const evecColors = { energy:"#f59e0b", valence:"#c4a574", calm:"#38bdf8", nostalgia:"#a78bfa", tension:"#f87171" };
+  const eraVec = intent.eraVector || {};
+  const topEras = Object.entries(eraVec).sort((a, b) => b[1] - a[1]).slice(0, 4);
   const sceneMap = intent.sceneInfluenceMap || {};
-  const topScenes = Object.entries(sceneMap).filter(([,v]) => v > 0.05).slice(0,3);
+  const topScenes = Object.entries(sceneMap).filter(([, v]) => v > 0.05).slice(0, 3);
 
   const intentHtml = `
   <div class="explain-card">
-    <div class="explain-card-title">🧠 Intent — What the system understood</div>
-    <div class="explain-intent-primary">${esc(String(intent.primaryIntent || "(missing intent)")).replace(/_/g," ")}</div>
-    ${(intent.secondaryIntents||[]).length ? `<div class="explain-secondary-tags">${(intent.secondaryIntents||[]).slice(0,6).map(s=>`<span class="explain-tag">${esc(String(s).replace(/_/g," "))}</span>`).join("")}</div>` : ""}
+    <div class="explain-card-title">What we understood</div>
+    <div class="explain-intent-primary">${esc(String(intent.primaryIntent || "(missing intent)")).replace(/_/g, " ")}</div>
+    ${(intent.secondaryIntents || []).length ? `<div class="explain-secondary-tags">${(intent.secondaryIntents || []).slice(0, 6).map((s) => `<span class="explain-tag">${esc(String(s).replace(/_/g, " "))}</span>`).join("")}</div>` : ""}
     <div class="explain-emotion-grid">
-      ${evecKeys.map(k => {
+      ${evecKeys.map((k) => {
         const v = evec[k] ?? 0;
-        const pct = Math.round(v*100);
+        const pct = Math.round(v * 100);
         const col = evecColors[k] || "#a78bfa";
         return `<div class="explain-emotion-item">
           <span class="explain-emotion-label">${k}</span>
@@ -1756,72 +1882,67 @@ function renderPlaylistExplanation(expl) {
         </div>`;
       }).join("")}
     </div>
-    ${topEras.length ? `<div style="margin-top:10px;font-size:0.7rem;color:var(--muted)">Era focus: ${topEras.map(([e,c])=>`<span style="color:var(--text)">${esc(e)}</span> (${c})`).join(", ")}</div>` : ""}
-    ${topScenes.length ? `<div style="margin-top:6px;font-size:0.7rem;color:var(--muted)">Scene signals: ${topScenes.map(([s,v])=>`<span style="color:#c4b5fd">${esc(s.replace(/_/g," "))}</span> ${Math.round(v*100)}%`).join(", ")}</div>` : ""}
-    <div style="margin-top:8px;font-size:0.66rem;color:var(--muted-2)">Routing: <span style="color:${intent.activePath==="adaptive"?"#4ade80":"#f59e0b"}">${esc(String(intent.activePath||"adaptive").replace(/_/g," "))}</span></div>
+    ${topEras.length ? `<div class="explain-card-note">Era focus: ${topEras.map(([e, c]) => `<span>${esc(e)}</span> (${c})`).join(", ")}</div>` : ""}
+    ${topScenes.length ? `<div class="explain-card-note">Scene signals: ${topScenes.map(([s, v]) => `<span>${esc(s.replace(/_/g, " "))}</span> ${Math.round(v * 100)}%`).join(", ")}</div>` : ""}
   </div>`;
 
-  // ── 2. Lane distribution ───────────────────────────────────────────────────
-  const laneSorted = [...laneList].sort((a,b) => b.pctContribution - a.pctContribution);
+  const laneSorted = [...laneList].sort((a, b) => b.pctContribution - a.pctContribution);
   const laneHtml = `
   <div class="explain-card">
-    <div class="explain-card-title">🎛️ Lane Distribution — How tracks were routed</div>
+    <div class="explain-card-title">How tracks were chosen</div>
     <div class="explain-lane-list">
-      ${laneSorted.map(l => {
+      ${laneSorted.map((l) => {
         const col = laneColor(l.laneId);
         const pct = l.pctContribution || 0;
         return `<div class="explain-lane-row">
-          <span class="explain-lane-label" title="${esc(l.laneId)}">${esc((l.label||l.laneId||"").replace(/_/g," "))}</span>
+          <span class="explain-lane-label" title="${esc(l.laneId)}">${esc((l.label || l.laneId || "").replace(/_/g, " "))}</span>
           <div class="explain-lane-bar-wrap"><div class="explain-lane-bar" style="width:${pct}%;background:${col}"></div></div>
           <span class="explain-lane-pct">${pct}%</span>
-          <span class="explain-lane-count">${l.selectedCount||0} / ${l.scoredCount||0}</span>
+          <span class="explain-lane-count">${l.selectedCount || 0} / ${l.scoredCount || 0}</span>
         </div>`;
       }).join("")}
     </div>
-    <div style="margin-top:8px;font-size:0.66rem;color:var(--muted-2)">Format: selected / scored candidates per lane</div>
   </div>`;
 
-  // ── 3. Cluster map ─────────────────────────────────────────────────────────
   const clusterEntries = Object.entries(clusters)
-    .filter(([,v]) => (v.trackCount || 0) > 0 || (v.weightContribution || 0) > 0)
-    .sort((a,b) => (b[1].weightContribution||0) - (a[1].weightContribution||0))
-    .slice(0,8);
+    .filter(([, v]) => (v.trackCount || 0) > 0 || (v.weightContribution || 0) > 0)
+    .sort((a, b) => (b[1].weightContribution || 0) - (a[1].weightContribution || 0))
+    .slice(0, 8);
 
   const clusterHtml = clusterEntries.length ? `
   <div class="explain-card">
-    <div class="explain-card-title">🧬 Cluster Map — Why tracks grouped together</div>
+    <div class="explain-card-title">Why tracks grouped together</div>
     <div class="explain-cluster-grid">
       ${clusterEntries.map(([cid, cv]) => {
-        const label = cid.replace(/^genre:|^era:|^energy:/,"").replace(/_/g," ");
-        const wpct  = Math.round((cv.weightContribution||0)*100);
+        const label = cid.replace(/^genre:|^era:|^energy:/, "").replace(/_/g, " ");
+        const wpct = Math.round((cv.weightContribution || 0) * 100);
         return `<div class="explain-cluster-row">
           <span class="explain-cluster-id">${esc(label)}</span>
-          <span class="explain-cluster-genres">${cv.genres && cv.genres.length ? cv.genres.slice(0,3).map(g=>esc(g.replace(/_/g," "))).join(", ") : cid.split(":")[0]}</span>
-          <span class="explain-cluster-tracks">${cv.trackCount||0} tracks</span>
+          <span class="explain-cluster-genres">${cv.genres && cv.genres.length ? cv.genres.slice(0, 3).map((g) => esc(g.replace(/_/g, " "))).join(", ") : cid.split(":")[0]}</span>
+          <span class="explain-cluster-tracks">${cv.trackCount || 0} tracks</span>
           <span class="explain-cluster-weight" title="cluster weight contribution">${wpct}%</span>
         </div>`;
       }).join("")}
     </div>
   </div>` : "";
 
-  // ── 4. Diversity layer ─────────────────────────────────────────────────────
   const entropyRows = [
-    { name:"Genre variety",  val: div.genreEntropy||0,  count: div.genreCount||0,  unit:"genres",  col:"#7c3aed" },
-    { name:"Artist spread",  val: div.artistEntropy||0, count: div.artistCount||0, unit:"artists", col:"#0891b2" },
-    { name:"Era spread",     val: div.eraEntropy||0,    count: div.eraCount||0,    unit:"eras",    col:"#d97706" },
-    { name:"Diversity pressure", val: div.diversityPressure||0, count: null, unit:null, col:"#f87171" },
+    { name: "Genre variety", val: div.genreEntropy || 0, count: div.genreCount || 0, unit: "genres", col: "#7c3aed" },
+    { name: "Artist spread", val: div.artistEntropy || 0, count: div.artistCount || 0, unit: "artists", col: "#0891b2" },
+    { name: "Era spread", val: div.eraEntropy || 0, count: div.eraCount || 0, unit: "eras", col: "#d97706" },
+    { name: "Diversity balance", val: div.diversityPressure || 0, count: null, unit: null, col: "#f87171" },
   ];
-  const entropyNote = (v) => v >= 0.75 ? "high — broad selection" : v >= 0.45 ? "moderate" : "low — intentionally concentrated";
+  const entropyNote = (v) => (v >= 0.75 ? "broad selection" : v >= 0.45 ? "balanced spread" : "intentionally focused");
 
   const diversityHtml = `
   <div class="explain-card">
-    <div class="explain-card-title">🌐 Diversity Layer — Spread enforcement</div>
+    <div class="explain-card-title">Variety across the mix</div>
     <div class="explain-entropy-list">
-      ${entropyRows.map(r => {
-        const pct = Math.round(r.val*100);
+      ${entropyRows.map((r) => {
+        const pct = Math.round(r.val * 100);
         return `<div class="explain-entropy-row">
           <div class="explain-entropy-header">
-            <span class="explain-entropy-name">${esc(r.name)}${r.count !== null ? ` <span style="color:var(--muted-2)">(${r.count} ${r.unit})</span>` : ""}</span>
+            <span class="explain-entropy-name">${esc(r.name)}${r.count !== null ? ` <span>(${r.count} ${r.unit})</span>` : ""}</span>
             <span class="explain-entropy-val">${pct}%</span>
           </div>
           <div class="explain-entropy-bar-wrap"><div class="explain-entropy-bar" style="width:${pct}%;background:${r.col}"></div></div>
@@ -1829,91 +1950,50 @@ function renderPlaylistExplanation(expl) {
         </div>`;
       }).join("")}
     </div>
-    ${div.dominantGenre ? `<div style="margin-top:8px;font-size:0.7rem;color:var(--muted)">Dominant genre: <strong style="color:var(--text)">${esc(div.dominantGenre.replace(/_/g," "))}</strong>${div.dominantEra?` · Era: <strong style="color:var(--text)">${esc(div.dominantEra)}</strong>`:""}</div>` : ""}
+    ${div.dominantGenre ? `<div class="explain-card-note">Dominant genre: <strong>${esc(div.dominantGenre.replace(/_/g, " "))}</strong>${div.dominantEra ? ` · Era: <strong>${esc(div.dominantEra)}</strong>` : ""}</div>` : ""}
   </div>`;
 
-  const quality = v3.playlistQuality || result.generationAuditSnapshot?.playlistQuality || {};
-  const repair = v3.explicitIntentRepair || result.generationAuditSnapshot?.explicitIntentRepair || {};
-  const cache = result.cacheDiagnostics || result.generationAuditSnapshot?.cacheDiagnostics || {};
-  const qPct = (value) => typeof value === "number" ? `${Math.round(value * 100)}%` : "—";
-  const qualityHtml = `
-  <div class="explain-card">
-    <div class="explain-card-title">✅ Playlist Quality Report</div>
-    <div class="dp-pool-grid">
-      <div class="dp-pool-stat"><div class="dp-pool-num">${qPct(quality.genrePurity)}</div><div class="dp-pool-lbl">Genre purity</div></div>
-      <div class="dp-pool-stat"><div class="dp-pool-num">${qPct(quality.promptAlignment)}</div><div class="dp-pool-lbl">Prompt fit</div></div>
-      <div class="dp-pool-stat"><div class="dp-pool-num">${repair.repairedCount ?? 0}</div><div class="dp-pool-lbl">Final repairs</div></div>
-    </div>
-    <div style="margin-top:8px;font-size:0.72rem;color:var(--muted)">
-      Cache: <strong style="color:var(--text)">${esc(cache.status || "fresh")}</strong>
-      ${repair.active ? ` · repair reasons: <strong style="color:var(--text)">${esc(Object.entries(repair.repairReasons || {}).map(([k,v]) => `${k}:${v}`).join(", ") || "intent")}</strong>` : ""}
-    </div>
-  </div>`;
-  const survival = result.intentSurvival || result.v3Diagnostics?.intentSurvival || result.generationAuditSnapshot?.intentSurvival || {};
-  const survivalScores = survival.scores || {};
-  const survivalLeaks = Array.isArray(survival.leakDetections) ? survival.leakDetections : [];
-  const survivalEmotion = survival.emotionSurvival || {};
-  const survivalConvergence = survival.convergence || {};
-  const survivalPct = (value) => typeof value === "number" ? `${Math.round(value)}%` : "—";
-  const survivalRisk = survivalConvergence.convergenceRisk || "—";
-  const survivalHtml = `
-  <div class="explain-card">
-    <div class="explain-card-title">🧭 Intent Survival</div>
-    <div class="dp-pool-grid">
-      <div class="dp-pool-stat"><div class="dp-pool-num">${survivalPct(survivalScores.overallIntentSurvival)}</div><div class="dp-pool-lbl">Overall</div></div>
-      <div class="dp-pool-stat"><div class="dp-pool-num">${survivalPct(survivalScores.emotionSurvival ?? survivalEmotion.survivalPercent)}</div><div class="dp-pool-lbl">Emotion</div></div>
-      <div class="dp-pool-stat"><div class="dp-pool-num">${survivalPct(survivalScores.subgenreSurvival)}</div><div class="dp-pool-lbl">Subgenre</div></div>
-    </div>
-    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-      <span class="dp-badge">Leaks: ${survivalLeaks.length}</span>
-      <span class="dp-badge">Convergence: ${esc(String(survivalRisk))}</span>
-      ${survivalEmotion.dominantEmotion ? `<span class="dp-badge">Emotion: ${esc(String(survivalEmotion.dominantEmotion))}</span>` : ""}
-    </div>
-    ${survivalLeaks.length ? `<div style="margin-top:8px;font-size:0.68rem;color:var(--muted)">Top leak: <strong style="color:var(--text)">${esc(String(survivalLeaks[0].functionName || survivalLeaks[0].reason || "intent leak"))}</strong></div>` : ""}
-    ${Array.isArray(survival.intentLossPipeline) && survival.intentLossPipeline.length ? `
-    <div style="margin-top:10px;font-size:0.68rem;color:var(--muted)">
-      ${survival.intentLossPipeline.map((stage) => `<div style="margin-top:4px"><strong style="color:var(--text)">${esc(stage.stage)}</strong>${stage.lostTerms?.length ? ` · lost: ${esc(stage.lostTerms.join(", "))}` : ""}</div>`).join("")}
-    </div>` : ""}
-  </div>`;
-
-  // ── 5. Selection summary ───────────────────────────────────────────────────
-  const selRate = sel.selectionRate ?? (sel.totalCandidates > 0 ? Math.round(sel.selected/sel.totalCandidates*100) : 0);
-  const rejReasons = (sel.topRejectionReasons||[]).map(r => r.replace(/_/g," "));
+  const selRate = sel.selectionRate ?? (sel.totalCandidates > 0 ? Math.round(sel.selected / sel.totalCandidates * 100) : 0);
+  const rejReasons = (sel.topRejectionReasons || []).map((r) => r.replace(/_/g, " "));
 
   const selHtml = `
   <div class="explain-card">
-    <div class="explain-card-title">🔥 Selection Summary — What got in, what didn't</div>
+    <div class="explain-card-title">What made the cut</div>
     <div class="explain-sel-stats">
       <div class="explain-sel-stat">
-        <div class="explain-sel-num">${sel.totalCandidates||0}</div>
-        <div class="explain-sel-lbl">Evaluated</div>
+        <div class="explain-sel-num">${sel.totalCandidates || 0}</div>
+        <div class="explain-sel-lbl">Considered</div>
       </div>
       <div class="explain-sel-stat">
-        <div class="explain-sel-num" style="color:#4ade80">${sel.selected||0}</div>
-        <div class="explain-sel-lbl">Selected</div>
+        <div class="explain-sel-num explain-sel-num--good">${sel.selected || 0}</div>
+        <div class="explain-sel-lbl">Chosen</div>
       </div>
       <div class="explain-sel-stat">
-        <div class="explain-sel-num" style="color:#f87171">${sel.rejected||0}</div>
-        <div class="explain-sel-lbl">Rejected</div>
+        <div class="explain-sel-num explain-sel-num--muted">${sel.rejected || 0}</div>
+        <div class="explain-sel-lbl">Passed over</div>
       </div>
     </div>
-    <div style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:4px">
-        <span style="color:var(--muted)">Selection rate</span>
-        <span style="color:${selRate>=50?"#4ade80":"#f59e0b"}">${selRate}%</span>
-      </div>
-      <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${selRate}%;background:${selRate>=50?"#1db954":"#f59e0b"};border-radius:3px;transition:width 0.6s"></div>
-      </div>
+    <div class="explain-sel-rate">
+      <span>Fit rate</span>
+      <span>${selRate}%</span>
+      <div class="explain-sel-rate-bar"><div style="width:${selRate}%"></div></div>
     </div>
     ${rejReasons.length ? `
-    <div style="font-size:0.7rem;color:var(--muted);margin-bottom:6px;font-weight:600">Top rejection reasons</div>
     <div class="explain-rejection-list">
-      ${rejReasons.map(r=>`<div class="explain-rejection-item"><span class="explain-rejection-dot"></span>${esc(r)}</div>`).join("")}
+      ${rejReasons.map((r) => `<div class="explain-rejection-item"><span class="explain-rejection-dot"></span>${esc(r)}</div>`).join("")}
     </div>` : ""}
   </div>`;
 
-  return `<div class="explain-panel">${intentHtml}${laneHtml}${clusterHtml}${diversityHtml}${selHtml}</div>`;
+  const emotionalLead = buildExplainEmotionalLead(expl);
+  const technicalHtml = `${intentHtml}${laneHtml}${clusterHtml}${diversityHtml}${selHtml}`;
+
+  return `<section class="result-why-section">
+    ${emotionalLead}
+    <details class="explain-technical-details">
+      <summary>See how we built this</summary>
+      <div class="explain-panel">${technicalHtml}</div>
+    </details>
+  </section>`;
 }
 
 // ── Admin Debug Panel ─────────────────────────────────────────────────────────
@@ -2644,15 +2724,18 @@ function updateMoodPanelFromServer(data) {
 // ── Event wiring ──────────────────────────────────────────────────────────────
 function trapOnboardingFocus() {
   const overlay = document.getElementById("onboardingOverlay");
+  if (onboardingKeyHandler) {
+    document.removeEventListener("keydown", onboardingKeyHandler);
+    onboardingKeyHandler = null;
+  }
   if (!overlay) return;
   const focusables = () =>
     [...overlay.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
       .filter((el) => !el.disabled);
-  const onKey = (e) => {
+  onboardingKeyHandler = (e) => {
     if (e.key === "Escape") {
       markOnboardingDone();
       _savedPrefs.onboardingDone = true;
-      document.removeEventListener("keydown", onKey);
       renderApp();
       return;
     }
@@ -2669,7 +2752,7 @@ function trapOnboardingFocus() {
       first.focus();
     }
   };
-  document.addEventListener("keydown", onKey);
+  document.addEventListener("keydown", onboardingKeyHandler);
   focusables()[0]?.focus();
 }
 
@@ -2819,6 +2902,15 @@ function wireAppEvents() {
   document.getElementById("syncChip")?.addEventListener("click", () => triggerSync(false));
   document.getElementById("deltaSyncBtn")?.addEventListener("click", () => triggerSync(false));
   document.getElementById("fullSyncBtn")?.addEventListener("click", () => triggerSync(true));
+  document.getElementById("gateSyncBtn")?.addEventListener("click", () => {
+    document.getElementById("navRight")?.classList.remove("nav-right--collapsed");
+    document.getElementById("navMenuToggle")?.setAttribute("aria-expanded", "true");
+    triggerSync(false);
+  });
+
+  document.getElementById("refinePanel")?.addEventListener("toggle", (e) => {
+    state.refineOpen = Boolean(e.currentTarget?.open);
+  });
 
   document.getElementById("generateBtn")?.addEventListener("click", generate);
   document.getElementById("retryGenerateBtn")?.addEventListener("click", () => {
@@ -2873,9 +2965,9 @@ function wireAppEvents() {
     renderApp();
   });
 
-  document.querySelectorAll(".library-chapter-chip").forEach((chip) => {
+  document.querySelectorAll(".library-chapter-chip, [data-inspire-prompt]").forEach((chip) => {
     chip.addEventListener("click", () => {
-      const prompt = chip.getAttribute("data-chapter-prompt");
+      const prompt = chip.getAttribute("data-chapter-prompt") || chip.getAttribute("data-inspire-prompt");
       const input = document.getElementById("vibeInput");
       if (input && prompt) {
         input.value = prompt;
@@ -2891,7 +2983,7 @@ function wireAppEvents() {
 
   vibeInput?.addEventListener("input", () => {
     const text = vibeInput.value;
-    charCount.textContent = text.length;
+    if (charCount) charCount.textContent = text.length;
     clearTimeout(interpretTimer);
     updateMoodPanel(text);
   });
@@ -2903,7 +2995,8 @@ function wireAppEvents() {
   document.getElementById("lengthSlider")?.addEventListener("input", (e) => {
     state.length = Number(e.target.value);
     saveUserPref("length", state.length);
-    document.getElementById("lengthLabel").textContent = `${state.length} tracks`;
+    const lengthLabel = document.getElementById("lengthLabel");
+    if (lengthLabel) lengthLabel.textContent = `${state.length} songs`;
   });
 
   document.querySelectorAll(".mode-btn").forEach((btn) => {
@@ -2928,6 +3021,14 @@ function wireAppEvents() {
 
   document.querySelectorAll(".delete-btn[data-id]").forEach((btn) => {
     btn.addEventListener("click", () => deletePlaylist(Number(btn.dataset.id)));
+  });
+
+  document.querySelectorAll(".activity-item--clickable[data-activity-moment]").forEach((el) => {
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      el.click();
+    });
   });
 
   document.getElementById("onboardingNext")?.addEventListener("click", () => {
@@ -3120,7 +3221,10 @@ async function pollStatus() {
   ]);
   if (csRes.ok) applyCacheStatus(csRes.data);
   if (lsRes.ok) state.librarySummary = lsRes.data;
-  if (!csRes.ok || !lsRes.ok) {
+  if (state.cacheStatus?.syncError) {
+    state.error = `Library sync failed: ${state.cacheStatus.syncError}`;
+    state.errorKind = "sync";
+  } else if (!csRes.ok || !lsRes.ok) {
     state.error = "Could not refresh library status. Please refresh if this persists.";
     state.errorKind = "status";
   } else if (state.errorKind === "status") {
@@ -3433,13 +3537,17 @@ async function generate(opts = {}) {
       }),
     });
 
-    if (r.status === 401) { window.location.href = "/api/auth/login"; return; }
+    if (r.status === 401) {
+      try { localStorage.setItem("kwalify-pending-prompt", savedVibe); } catch { /* ignore */ }
+      window.location.href = "/api/auth/login";
+      return;
+    }
 
     const libraryInsufficient =
       r.data?.code === "LIBRARY_INSUFFICIENT_FOR_PROMPT" ||
       r.data?.reason === "LIBRARY_INSUFFICIENT_FOR_PROMPT";
 
-    const isServerBusy = r.status === 503 && r.data?.code === "SERVER_BUSY";
+    const isServerBusy = r.status === 503 && (r.data?.code === "SERVER_BUSY" || r.data?.code === "QUEUE_TIMEOUT");
     const isRateLimited = r.status === 429 && r.data?.code === "RATE_LIMITED";
 
     if (libraryInsufficient) {
@@ -3448,7 +3556,9 @@ async function generate(opts = {}) {
       const retryAfter = Number(r.data?.retryAfterSeconds ?? r.data?.retry_after ?? 10) || 10;
       state.error = isRateLimited
         ? "You've generated a lot in a short time. Auto-retrying shortly."
-        : "The server is finishing other playlists. Auto-retrying shortly.";
+        : r.data?.code === "QUEUE_TIMEOUT"
+          ? "The server queue was busy. Auto-retrying shortly."
+          : "The server is finishing other playlists. Auto-retrying shortly.";
       state.errorDetails = r.data || null;
       state.errorKind = "busy";
       state.busyRetryPrompt = savedVibe;
@@ -3509,10 +3619,17 @@ async function generate(opts = {}) {
       state.requestedNewMix = false;
     }
     renderApp();
+    if (runId === state.generationRunId && state.lastResult) {
+      requestAnimationFrame(() => {
+        document.getElementById("resultReveal")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
     const input = document.getElementById("vibeInput");
     if (input) {
       input.value = savedVibe;
-      document.getElementById("charCount").textContent = savedVibe.length;
+      state.draftVibe = savedVibe;
+      const count = document.getElementById("charCount");
+      if (count) count.textContent = String(savedVibe.length);
       updateMoodPanel(savedVibe);
     }
   }

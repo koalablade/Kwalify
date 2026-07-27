@@ -31,6 +31,7 @@ $backupExit = $LASTEXITCODE
 Note ""
 
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\check-uptime.ps1") -Root $Root
+$uptimeExit = $LASTEXITCODE
 Note ""
 
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\check-windows-host.ps1") -Root $Root
@@ -64,7 +65,7 @@ foreach ($logName in @("kwalify-api.log", "kwalify-start.log", "kwalify-benchmar
 Note ""
 Note "  Tips:"
 Note "    - Add beta testers in Spotify Dashboard -> User Management"
-Note "    - Keep Start Kwalify running while friends test"
+Note "    - Keep start.bat running while friends test"
 Note "    - Docs: docs\LOCAL-MAINTENANCE.md"
 Note ""
 
@@ -72,7 +73,7 @@ Set-Content -LiteralPath $reportPath -Value ($lines -join "`r`n") -Encoding UTF8
 Write-Host "  Report saved: reports\maintenance-last-run.txt" -ForegroundColor DarkGray
 Write-Host ""
 
-if ($backupExit -ne 0) {
+if ($backupExit -ne 0 -or $uptimeExit -ne 0) {
   exit 1
 }
 exit 0

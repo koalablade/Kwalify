@@ -20,6 +20,8 @@ import { recordServerBusy } from "./lib/ops-metrics";
 import { globalRateLimit } from "./lib/global-rate-limit";
 import { requireReportsAccess } from "./middleware/benchmark-auth";
 import { sendApiError } from "./lib/api-error-envelope";
+import { captureError } from "./lib/error-tracking";
+import { isShuttingDown } from "./lib/shutdown";
 import "./lib/session";
 
 let appInstanceCreated = false;
@@ -194,11 +196,23 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
 
   app.use(async (req, res, next) => {
     if (req.method !== "POST" || req.path !== "/api/generate") return next();
+    if (isShuttingDown()) {
+      res.setHeader("Retry-After", "30");
+      res.status(503).json({
+        success: false,
+        code: "SERVER_RESTARTING",
+        error: "Kwalify is restarting. Please try again in a moment.",
+        requestId: req.id,
+        retryAfterSeconds: 30,
+      });
+      return;
+    }
     const startedAt = Date.now();
     let releaseSlot: (() => void) | null = null;
     try {
       releaseSlot = await acquireGenerateSlot();
-    } catch (_err) {
+    } catch (err) {
+      const queueCode = (err as Error & { code?: string })?.code;
       const overload = getGenerateOverloadState();
       recordServerBusy({
         active: overload.active,
@@ -207,17 +221,20 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
         queueLimit: overload.queueLimit,
         requestId: String(req.id),
       });
-      res.setHeader("Retry-After", "10");
+      const retryAfter = queueCode === "QUEUE_TIMEOUT" ? 15 : 10;
+      res.setHeader("Retry-After", String(retryAfter));
       res.status(503).json({
         success: false,
-        code: "SERVER_BUSY",
-        error: "Playlist generation is currently busy. Please retry shortly.",
+        code: queueCode === "QUEUE_TIMEOUT" ? "QUEUE_TIMEOUT" : "SERVER_BUSY",
+        error: queueCode === "QUEUE_TIMEOUT"
+          ? "Playlist generation queue was busy. Please retry in a moment."
+          : "Playlist generation is currently busy. Please retry shortly.",
         requestId: req.id,
         activeGenerateRequests: overload.active,
         queuedGenerateRequests: overload.queued,
         generateConcurrencyLimit: overload.limit,
         generateQueueLimit: overload.queueLimit,
-        retryAfterSeconds: 10,
+        retryAfterSeconds: retryAfter,
       });
       return;
     }
@@ -331,6 +348,15 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       { err, status, path: req.path, method: req.method, requestId: req.id },
       payloadTooLarge ? "API payload too large" : "Unhandled API route error",
     );
+    if (status >= 500) {
+      captureError(err, {
+        path: req.path,
+        method: req.method,
+        requestId: String(req.id),
+        status,
+        source: "apiErrorHandler",
+      });
+    }
     sendApiError(res, status, payloadTooLarge ? "PAYLOAD_TOO_LARGE" : status === 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR", payloadTooLarge ? "Request payload is too large." : status === 500 ? "Unexpected server error." : "Request failed.", {
       requestId: String(req.id),
     });

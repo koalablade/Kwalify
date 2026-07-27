@@ -1,5 +1,7 @@
 // ── Kwalify · Playlist share page ────────────────────────────────────────────
 import { esc, initTheme, showToast, apiJson, fmtDate } from "../lib/shared.js";
+import { COPY } from "../lib/copy.js";
+import { applyArtAccentToPoster } from "../lib/art-color.js";
 
 initTheme();
 const root = document.getElementById("playlistRoot");
@@ -51,7 +53,7 @@ function renderNotFound() {
   <div class="not-found">
     <h2>Playlist not found</h2>
     <p>This link may be outdated or the playlist was removed.</p>
-    <a href="/" class="btn btn-green" style="display:inline-flex;margin-top:20px;">Generate a new vibe</a>
+    <a href="/" class="btn btn-cream" style="display:inline-flex;margin-top:20px;">Create yours</a>
   </div>`;
 }
 
@@ -69,17 +71,19 @@ function renderLoadError(message = "Could not load this playlist. Please refresh
 }
 
 function render(data) {
+  const tracks = Array.isArray(data.tracks) ? data.tracks : [];
+  const count = data.trackCount || tracks.length;
   const title = `${data.name || "Playlist"} — Kwalify`;
   document.title = title;
   const shareUrl = `${window.location.origin}${window.location.pathname}`;
-  const firstArt = (Array.isArray(data.tracks) ? data.tracks[0] : null)?.albumArt
-    || (Array.isArray(data.tracks) ? data.tracks[0] : null)?.album_art
+  const firstArt = tracks[0]?.albumArt
+    || tracks[0]?.album_art
     || "https://kwalify.net/og-image.svg";
   const ogImage = String(firstArt).startsWith("http") ? firstArt : "https://kwalify.net/og-image.svg";
   setCanonicalUrl(shareUrl);
-  setMetaContent("description", data.vibe ? `${data.vibe} — ${data.trackCount || 0} tracks on Kwalify` : title);
-  setMetaContent("og:title", data.name || "Kwalify playlist", "property");
-  setMetaContent("og:description", data.vibe || "A moment-to-music playlist from liked songs on Spotify.", "property");
+  setMetaContent("description", data.vibe ? `${data.vibe} — ${count} tracks on Kwalify` : title);
+  setMetaContent("og:title", data.vibe ? `"${data.vibe}" — Kwalify` : (data.name || "Kwalify soundtrack"), "property");
+  setMetaContent("og:description", data.vibe ? `A soundtrack built from favourite songs — ${count} tracks` : COPY.subhead, "property");
   setMetaContent("og:url", shareUrl, "property");
   setMetaContent("og:image", ogImage, "property");
   setMetaContent("twitter:card", "summary_large_image");
@@ -87,8 +91,14 @@ function render(data) {
   setMetaContent("twitter:description", data.vibe || "A Kwalify playlist from Spotify liked songs.");
   setMetaContent("twitter:image", ogImage);
 
-  const tracks = Array.isArray(data.tracks) ? data.tracks : [];
-  const count = data.trackCount || tracks.length;
+  const artUrls = tracks.map((t) => t.albumArt || t.album_art).filter(Boolean).slice(0, 4);
+  const backdropHtml = artUrls.length
+    ? `<div class="art-backdrop" aria-hidden="true">${artUrls.map((url) => `<img src="${esc(url)}" alt="" class="art-backdrop-img" loading="lazy">`).join("")}</div>`
+    : "";
+  const storyLine = data.vibe || data.name || "A personal soundtrack";
+  const ownerLine = data.ownerDisplayName
+    ? `${esc(data.ownerDisplayName)} created a soundtrack for`
+    : "A soundtrack for";
 
   const tracksHtml = tracks.map((t, i) => {
     const name = t.trackName || t.name || "Unknown";
@@ -98,10 +108,10 @@ function render(data) {
     const why = Array.isArray(t.whyReasons) && t.whyReasons.length
       ? ` title="Why this song: ${esc(t.whyReasons.slice(0, 3).join(", "))}"`
       : "";
-    return `
-    <div class="track-row share-track-row" data-track-id="${esc(trackId)}"${why}>
-      <span class="track-num">${i + 1}</span>
-      <div class="track-art">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
+      return `
+      <div class="track-row track-row--reveal share-track-row" data-track-id="${esc(trackId)}" style="--track-i:${i}"${why}>
+        <span class="track-num">${i + 1}</span>
+        <div class="track-art track-art--reveal">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
       <div class="track-info">
         <div class="track-name">${esc(name)}</div>
         <div class="track-artist">${esc(artist)}</div>
@@ -126,21 +136,34 @@ function render(data) {
 
   root.innerHTML = `
   ${navHtml()}
-  <div class="playlist-page">
-    <h1 class="playlist-title">${esc(data.name || "Kwalify Playlist")}</h1>
-    ${data.vibe ? `<div class="playlist-vibe">"${esc(data.vibe)}"</div>` : ""}
-    <div class="playlist-meta">
-      ${count} tracks${data.mode ? ` · ${data.mode.charAt(0).toUpperCase() + data.mode.slice(1)}` : ""}${data.createdAt ? ` · ${fmtDate(data.createdAt)}` : ""}
+  <div class="playlist-page playlist-page--story">
+    <header class="share-poster result-poster" id="sharePoster">
+      ${backdropHtml}
+      <div class="result-poster-overlay"></div>
+      <div class="result-poster-inner">
+        <p class="result-poster-eyebrow">Shared soundtrack</p>
+        <p class="share-poster-owner">${ownerLine}</p>
+        <h1 class="result-poster-title share-poster-quote">"${esc(storyLine)}"</h1>
+        <p class="result-poster-subtitle">Built from favourite songs · ${count} tracks</p>
+        <div class="result-poster-actions playlist-actions">
+          ${data.spotifyUrl ? `<a href="${esc(data.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-lg">${spi()} Play on Spotify</a>` : ""}
+          ${typeof navigator.share === "function" ? `<button id="nativeShareBtn" class="btn btn-ghost btn-sm" type="button">Share…</button>` : ""}
+          <button id="copyShareUrlBtn" class="btn btn-ghost btn-sm">Copy link</button>
+          <a href="/api/auth/login" class="btn btn-cream btn-sm">Create yours</a>
+        </div>
+      </div>
+    </header>
+    <p class="share-rate-hint">Rate tracks below — <a href="/api/auth/login">sign in</a> to save taste preferences and build your own soundtracks.</p>
+    <section class="track-reveal share-track-reveal">
+      <div class="track-reveal-head">
+        <h2 class="track-reveal-title">The soundtrack</h2>
+        <span class="track-reveal-meta">${data.createdAt ? fmtDate(data.createdAt) : ""}</span>
+      </div>
+      <div class="tracks-list tracks-list--reveal">${tracksHtml}</div>
+    </section>
+    <div class="playlist-actions playlist-actions--footer">
+      <button id="copyBtn" class="btn btn-ghost btn-sm">Copy tracklist</button>
     </div>
-    <div class="playlist-actions">
-      ${data.spotifyUrl ? `<a href="${esc(data.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green">${spi()} Open in Spotify</a>` : ""}
-      <button id="copyBtn" class="btn btn-ghost">Copy tracklist</button>
-      <button id="copyShareUrlBtn" class="btn btn-ghost">Copy page link</button>
-      ${typeof navigator.share === "function" ? `<button id="nativeShareBtn" class="btn btn-ghost btn-sm" type="button">Share…</button>` : ""}
-      <a href="/" class="btn btn-outline btn-sm">Generate yours — free</a>
-    </div>
-    <div class="playlist-vibe" style="margin-top:14px;">Rate tracks below — <a href="/api/auth/login">sign in</a> to save taste preferences and generate your own mixes.</div>
-    <div class="tracks-list">${tracksHtml}</div>
   </div>
   <footer class="app-footer site-footer">
     <div class="footer-left"><span class="footer-brand">© ${new Date().getFullYear()} Kwalify</span></div>
@@ -150,6 +173,8 @@ function render(data) {
       <a href="/" class="footer-link">Home</a>
     </div>
   </footer>`;
+
+  void applyArtAccentToPoster(document.getElementById("sharePoster"), artUrls);
 
   document.getElementById("copyBtn")?.addEventListener("click", async () => {
     try {
@@ -175,13 +200,13 @@ function render(data) {
       const btn = document.getElementById("copyShareUrlBtn");
       if (btn) {
         btn.textContent = "Link copied!";
-        setTimeout(() => { btn.textContent = "Copy page link"; }, 2000);
+        setTimeout(() => { btn.textContent = "Copy link"; }, 2000);
       }
     } catch {
       const btn = document.getElementById("copyShareUrlBtn");
       if (btn) {
         btn.textContent = "Copy failed";
-        setTimeout(() => { btn.textContent = "Copy page link"; }, 2000);
+        setTimeout(() => { btn.textContent = "Copy link"; }, 2000);
       }
     }
   });

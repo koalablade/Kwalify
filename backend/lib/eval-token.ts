@@ -17,6 +17,19 @@ export function isEvalTokenConfigured(): boolean {
   return expectedEvalToken().length > 0;
 }
 
+/** Explicit allowlist, or SMOKE_SPOTIFY_USER_ID when unset (self-host / CI convenience). */
+export function resolveEvalAllowedSpotifyUserIds(): string | undefined {
+  const explicit = process.env["EVAL_ALLOWED_SPOTIFY_USER_IDS"]?.trim();
+  if (explicit) return explicit;
+  return process.env["SMOKE_SPOTIFY_USER_ID"]?.trim() || undefined;
+}
+
+export function parseEvalAllowedSpotifyUserIds(): string[] {
+  const raw = resolveEvalAllowedSpotifyUserIds();
+  if (!raw) return [];
+  return raw.split(",").map((id) => id.trim()).filter(Boolean);
+}
+
 /**
  * Constant-time token comparison. Both inputs are hashed to a fixed 32-byte
  * digest first, so differing lengths do not short-circuit the compare or leak

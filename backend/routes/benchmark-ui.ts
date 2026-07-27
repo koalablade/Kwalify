@@ -227,7 +227,7 @@ function invokeBenchmarkBridge(
   });
 }
 
-router.get("/benchmark/data/live", (req, res) => {
+router.get("/benchmark/data/live", requireBenchmarkAuth, (req, res) => {
   const live = readJsonFile<Record<string, unknown>>(path.join(reportsDir, "benchmark-live.json"));
   if (!live) {
     sendApiError(res, 404, "BENCHMARK_NO_DATA", "No live benchmark data yet.", { requestId: String(req.id) });
@@ -237,7 +237,7 @@ router.get("/benchmark/data/live", (req, res) => {
   res.json(live);
 });
 
-router.get("/benchmark/data/history", (_req, res) => {
+router.get("/benchmark/data/history", requireBenchmarkAuth, (_req, res) => {
   const history = readJsonFile<unknown[]>(path.join(reportsDir, "benchmark-history.json")) ?? [];
   res.setHeader("Cache-Control", "no-store");
   res.json(Array.isArray(history) ? history : []);
@@ -253,7 +253,7 @@ router.get("/benchmark/buttons", (_req, res) => {
   res.json({ buttons: BUTTONS });
 });
 
-router.get("/benchmark/state", async (_req, res) => {
+router.get("/benchmark/state", requireBenchmarkAuth, async (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({
     ...getBenchmarkStateSync(),

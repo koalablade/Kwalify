@@ -41,6 +41,11 @@ const router: IRouter = Router();
 
 export const activeSyncs = new Set<string>();
 const STALE_SYNC_MS = 45 * 60 * 1000;
+
+function formatSyncError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.slice(0, 500);
+}
 const FULL_SYNC_COOLDOWN_HOURS = 6;
 const SYNC_START_COOLDOWN_MS = 60_000;
 const syncStartCooldown = new Map<string, number>();
@@ -102,6 +107,7 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
       syncProgress: null,
       syncTotal: null,
       suggestFullSync: liveTotalTracks > 0,
+      syncError: null,
     });
     return;
   }
@@ -150,6 +156,7 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
     syncProgress: status.syncProgress ?? null,
     syncTotal: status.syncTotal ?? null,
     suggestFullSync,
+    syncError: status.syncError ?? null,
   });
 });
 
@@ -229,7 +236,7 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
       .values({ spotifyUserId: userId, isSyncing: 1, totalTracks: 0 })
       .onConflictDoUpdate({
         target: syncStatusTable.spotifyUserId,
-        set: { isSyncing: 1, syncProgress: 0, updatedAt: new Date() },
+        set: { isSyncing: 1, syncProgress: 0, syncError: null, updatedAt: new Date() },
       });
   } catch (err) {
     activeSyncs.delete(userId);
@@ -512,6 +519,7 @@ export async function runSync(
           lastSyncedAt: new Date(),
           syncProgress: newTracks.length,
           syncTotal: grandTotal,
+          syncError: null,
           updatedAt: new Date(),
         })
         .where(eq(syncStatusTable.spotifyUserId, userId));
@@ -613,7 +621,7 @@ export async function runSync(
 
     await db
       .update(syncStatusTable)
-      .set({ isSyncing: 0, updatedAt: new Date() })
+      .set({ isSyncing: 0, syncError: formatSyncError(err), updatedAt: new Date() })
       .where(eq(syncStatusTable.spotifyUserId, userId));
   } finally {
     activeSyncs.delete(userId);
@@ -657,6 +665,7 @@ router.get("/spotify/sync/stream", async (req, res): Promise<void> => {
       syncTotal: status?.syncTotal ?? null,
       totalTracks: status?.totalTracks ?? 0,
       lastSyncedAt: status?.lastSyncedAt?.toISOString() ?? null,
+      syncError: status?.syncError ?? null,
     };
     res.write(`event: sync\ndata: ${JSON.stringify(payload)}\n\n`);
     return payload.isSyncing;

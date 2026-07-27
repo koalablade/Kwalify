@@ -1,13 +1,14 @@
-import { esc, initTheme, showToast, toggleTheme, apiJson, confirmDialog } from "../lib/shared.js";
+import { esc, initTheme, showToast, toggleTheme, apiJson, confirmDialog, userFacingApiError, siteFooterHtml, FEEDBACK_FORM_URL } from "../lib/shared.js";
+import { COPY } from "../lib/copy.js";
 import { loadUserPrefs, saveUserPref } from "../lib/user-prefs.js";
 
 initTheme();
 const root = document.getElementById("settingsRoot");
 const prefs = loadUserPrefs();
 let settingsSyncing = false;
+const isLocalHost = location.hostname === "localhost" || location.hostname === "127.0.0.1";
 
 function navHtml() {
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   return `
   <nav class="nav">
     <a href="/" class="nav-logo" style="text-decoration:none;color:inherit;">
@@ -26,16 +27,16 @@ function render(user, cacheStatus) {
   const lastSynced = cacheStatus?.lastSyncedAt
     ? new Date(cacheStatus.lastSyncedAt).toLocaleString()
     : "Never";
+  const syncError = cacheStatus?.syncError;
 
   root.innerHTML = `
   ${navHtml()}
   <div class="settings-page app-wrap">
-    <h1 class="vibe-heading">Settings</h1>
-    <p class="vibe-sub">Defaults for generation and your account.</p>
+    <h1 class="vibe-heading cinematic-headline cinematic-headline--app">${COPY.settings.title}</h1>
+    <p class="vibe-sub">${COPY.settings.sub}</p>
 
     <section class="settings-section">
-      <h2 class="section-title">Generation defaults</h2>
-      <div class="settings-field">
+      <h2 class="section-title">How adventurous</h2>      <div class="settings-field">
         <label>Vibe mode</label>
         <div class="mode-group">
           ${["strict", "balanced", "chaotic"].map((m) => `
@@ -68,9 +69,10 @@ function render(user, cacheStatus) {
     </section>
 
     <section class="settings-section">
-      <h2 class="section-title">Library</h2>
+      <h2 class="section-title">Your library</h2>
       ${user ? `
-        <p>${total ? `${total.toLocaleString()} tracks cached` : "Not synced yet"} · Last sync: ${esc(lastSynced)}</p>
+        <p>${total ? `${total.toLocaleString()} songs in your history` : "Not synced yet"} · Last sync: ${esc(lastSynced)}</p>
+        ${syncError ? `<p class="alert alert-error">${esc(syncError)}</p>` : ""}
         <div class="settings-actions-row">
           <button type="button" class="btn btn-ghost btn-sm" id="settingsDeltaSync" ${syncing ? "disabled" : ""}>${settingsSyncing ? "Syncing…" : "Sync new likes"}</button>
           <button type="button" class="btn btn-ghost btn-sm" id="settingsFullSync" ${syncing ? "disabled" : ""}>${settingsSyncing ? "Syncing…" : "Full sync"}</button>
@@ -84,9 +86,9 @@ function render(user, cacheStatus) {
     </section>
 
     <section class="settings-section">
-      <h2 class="section-title">Server</h2>
-      <p><a href="/status">System status page</a> — check database, Spotify, and API health.</p>
-      <p class="vibe-sub">Logs: <code>kwalify-start.log</code>, <code>kwalify-api.log</code> in project folder.</p>
+      <h2 class="section-title">Help</h2>
+      <p><a href="/status">System status page</a>${isLocalHost ? "" : ` · <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noopener">Report a problem</a>`}</p>
+      ${isLocalHost ? `<p class="vibe-sub">Logs: <code>kwalify-start.log</code>, <code>kwalify-api.log</code> in project folder.</p>` : ""}
     </section>
 
     ${user ? `
@@ -95,7 +97,8 @@ function render(user, cacheStatus) {
       <button type="button" class="btn btn-ghost btn-sm" id="settingsLogout">Log out</button>
       <button type="button" class="btn btn-ghost btn-sm" id="settingsDeleteAccount" style="color:var(--danger,#f87171)">Delete my data</button>
     </section>` : ""}
-  </div>`;
+  </div>
+  ${siteFooterHtml()}`;
 
   const flash = () => {
     const el = document.getElementById("settingsSavedMsg");
@@ -159,9 +162,13 @@ function render(user, cacheStatus) {
 
   document.getElementById("settingsDeleteAccount")?.addEventListener("click", async () => {
     if (!(await confirmDialog("Delete all your Kwalify data? This cannot be undone.", { title: "Delete account data", confirmLabel: "Delete everything", danger: true }))) return;
-    const r = await apiJson("/auth/account", { method: "DELETE" });
-    if (r.ok) window.location.href = "/";
-    else showToast(r.data?.error || "Could not delete account.", "error");
+    try {
+      const r = await apiJson("/auth/account", { method: "DELETE" });
+      if (r.ok) window.location.href = "/";
+      else showToast(userFacingApiError(r, "Could not delete your data. Try again."), "error");
+    } catch {
+      showToast("Could not delete your data. Check your connection.", "error");
+    }
   });
 
   async function pollSyncStatus() {
@@ -178,12 +185,6 @@ function render(user, cacheStatus) {
     if (settingsSyncing) return;
     settingsSyncing = true;
     render(user, cacheStatus);
-    const deltaBtn = document.getElementById("settingsDeltaSync");
-    const fullBtn = document.getElementById("settingsFullSync");
-    if (deltaBtn) deltaBtn.textContent = "Syncing…";
-    if (fullBtn) fullBtn.textContent = "Syncing…";
-    deltaBtn?.setAttribute("disabled", "");
-    fullBtn?.setAttribute("disabled", "");
     try {
       const result = await apiJson("/spotify/sync", {
         method: "POST",
@@ -191,7 +192,7 @@ function render(user, cacheStatus) {
       });
       if (!result.ok) {
         settingsSyncing = false;
-        showToast(result.data?.error || result.data?.message || "Could not start sync. Please try again.", "error");
+        showToast(userFacingApiError(result, "Could not start sync. Please try again."), "error");
         boot();
         return;
       }
@@ -208,13 +209,18 @@ function render(user, cacheStatus) {
 
 async function boot() {
   root.innerHTML = `${navHtml()}<div class="loading-shell"><div class="spinner"></div></div>`;
-  const me = await apiJson("/auth/me");
-  let cacheStatus = null;
-  if (me.ok && me.data?.id) {
-    const cs = await apiJson("/spotify/cache-status");
-    if (cs.ok) cacheStatus = cs.data;
+  try {
+    const me = await apiJson("/auth/me");
+    let cacheStatus = null;
+    if (me.ok && me.data?.id) {
+      const cs = await apiJson("/spotify/cache-status");
+      if (cs.ok) cacheStatus = cs.data;
+    }
+    render(me.ok ? me.data : null, cacheStatus);
+  } catch {
+    root.innerHTML = `${navHtml()}<div class="loading-shell"><span>Could not reach Kwalify.</span><button type="button" id="settingsRetryBtn" class="btn btn-green btn-sm">Retry</button></div>${siteFooterHtml()}`;
+    document.getElementById("settingsRetryBtn")?.addEventListener("click", boot);
   }
-  render(me.ok ? me.data : null, cacheStatus);
 }
 
 boot();

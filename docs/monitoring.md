@@ -34,10 +34,12 @@ Env thresholds:
 
 **Uptime (free):** UptimeRobot or Better Stack → ping `https://kwalify.net/api/readyz` every 5 min; alert on non-200.
 
-**Logs:** Render log stream → filter `[ops-alert]` or `alertType`. Optional: Sentry via `SENTRY_DSN` (future — hook pino transport when added).
+**Logs (self-host):** `kwalify-api.log` in the project folder; search for `[ops-alert]` or `alertType`.
+
+**Sentry (optional):** Set `SENTRY_DSN` and `SENTRY_ENVIRONMENT=beta` in `.env`, restart API. API 500s and process crashes are forwarded automatically.
 
 **CI:** `.github/workflows/deploy-smoke.yml` runs deploy smoke every 6–12 hours and fails on health/readyz regression.
 
-## Render
+## Self-host spot checks
 
-After deploy, confirm `/api/readyz` commit SHA and spot-check `/api/ops/metrics` with eval token after a busy period.
+After `start.bat`, confirm `/api/readyz` on https://kwalify.net and spot-check `/api/ops/metrics` with eval token after a busy period.

@@ -25,7 +25,11 @@ export function buildFallbackUxPayload(opts: {
   limitingFactors?: string[];
   identityFailures?: string[];
   genreLabel?: string | null;
+  noLibraryMode?: boolean;
 }): FallbackUxPayload {
+  if (opts.noLibraryMode) {
+    return buildNoLibraryFallbackUx(opts);
+  }
   const genreHint = opts.genreLabel
     ?? (opts.lockedIntent.genreFamilies[0] ?? opts.lockedIntent.primaryGenre ?? null);
   const eraHint = opts.lockedIntent.eraRange
@@ -77,5 +81,44 @@ export function buildFallbackUxPayload(opts: {
       ...(opts.limitingFactors ?? []),
       ...(opts.identityFailures ?? []),
     ],
+  };
+}
+
+export function buildNoLibraryFallbackUx(opts: {
+  vibe: string;
+  lockedIntent: LockedIntent;
+  genreLabel?: string | null;
+}): FallbackUxPayload {
+  const genreHint = opts.genreLabel
+    ?? (opts.lockedIntent.genreFamilies[0] ?? opts.lockedIntent.primaryGenre ?? null);
+  const subject = genreHint || opts.vibe.trim() || "this prompt";
+  return {
+    message: `Spotify search did not find enough on-genre tracks for ${subject}. Try a broader genre, switch to Balanced mode, or turn off Discovery Mode to use your liked songs.`,
+    silentFallbackBlocked: true,
+    options: [
+      {
+        id: "broaden_prompt",
+        label: "Broaden the prompt",
+        description: "Add a wider era or drop one constraint (e.g. 90s party instead of 1994 garage).",
+      },
+      {
+        id: "library_closest",
+        label: "Use your liked songs instead",
+        description: "Turn off Discovery Mode and generate from your library.",
+      },
+      {
+        id: "discovery_blend",
+        label: "Try Balanced mode",
+        description: "Balanced mode is more forgiving when Spotify search supply is thin.",
+      },
+      {
+        id: "add_favourites",
+        label: "Like more on-theme tracks",
+        description: genreHint
+          ? `Like more ${genreHint} tracks on Spotify for better future playlists.`
+          : "Like more tracks that match this vibe on Spotify.",
+      },
+    ],
+    limitingFactors: ["spotify_search_supply"],
   };
 }

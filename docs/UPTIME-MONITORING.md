@@ -4,15 +4,17 @@ Your PC can go down without you noticing. Use a **free external** monitor.
 
 ## UptimeRobot (recommended, free)
 
+**Quick launcher:** double-click `open-uptime-setup.bat` (opens signup + your health URL).
+
 1. Sign up at [uptimerobot.com](https://uptimerobot.com)
 2. **Add Monitor**
    - Type: **HTTPS**
-   - URL: `https://kwalify.net/api/healthz`
+   - URL: `https://kwalify.net/api/readyz`
    - Interval: **5 minutes**
 3. **Alert contacts** — your email (and optional SMS)
 4. Save
 
-Optional second monitor: `https://kwalify.net/api/readyz` (stricter — includes DB)
+Optional second monitor: `https://kwalify.net/api/healthz` (process only — stays 200 if DB is down)
 
 ## After setup
 
@@ -23,6 +25,11 @@ powershell -ExecutionPolicy Bypass -File scripts\mark-external-uptime.ps1
 ```
 
 This marks the check green in `production-ready.bat` and `maintain.bat`.
+
+## Local checks (automatic)
+
+`setup-self-host.bat` registers **Kwalify-Uptime-Check** (every 5 min while your PC is on).
+Logs: `reports\uptime-check.log`. This does **not** replace UptimeRobot — you still need external alerts when the PC is off.
 
 ## What to do when alerted
 

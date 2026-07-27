@@ -1,0 +1,34 @@
+Subject: You're invited to try Kwalify (closed beta)
+
+Hi [Name],
+
+Thanks for helping test Kwalify — it builds Spotify playlists from your liked songs based on a vibe you describe.
+
+Site: https://kwalify.net
+
+Before you start
+- Your Spotify account email must be on the app allowlist (I've added you).
+- Use desktop or phone browser; Spotify app opens when the playlist is ready.
+
+Quick steps
+1. Open https://kwalify.net and click Connect Spotify
+2. Approve permissions, then tap Sync (first sync can take 1-5 minutes)
+3. Describe a moment, not just a genre — e.g. "late-night motorway drive, mellow 2010s"
+4. Generate — expect 30-90 seconds — then open the playlist in Spotify
+
+Please reply with
+- Did login and sync work?
+- How long did generation take?
+- Was the playlist good for your prompt?
+- Phone or desktop?
+- Any bugs or confusion?
+
+Tips
+- Be specific in prompts (place + energy + era)
+- If a button seems dead after an update, hard refresh (Ctrl+F5)
+- Privacy: https://kwalify.net/privacy — you can delete your account in Settings
+
+Thanks again,
+[Your name]
+
+Full guide (if helpful): docs/BETA-TESTER-GUIDE.md in the repo, or ask me for a copy.

@@ -12,7 +12,19 @@ Verify anytime: `npm run maintenance:verify-backup`
 
 ## One-time restore test (required for production)
 
-Use a **test database** so you never overwrite production data.
+**Automated (recommended):**
+
+```powershell
+npm run maintenance:test-restore
+```
+
+On success this auto-marks verified. Use `-NoMark` for a dry run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test-backup-restore.ps1 -NoMark
+```
+
+**Manual** — use a **test database** so you never overwrite production data.
 
 ### 1. Create test database
 

@@ -35,18 +35,18 @@ Path from **closed beta on your PC** to **reliable self-hosted production** at h
 | # | Task | How |
 |---|------|-----|
 | 1 | **Spotify Extended Quota** | [Spotify Dashboard](https://developer.spotify.com/dashboard) — apply after 10+ happy testers |
-| 2 | **Add testers to allowlist** | Dashboard → User Management → add email |
-| 3 | **External uptime monitor** | [UPTIME-MONITORING.md](./UPTIME-MONITORING.md) — then `scripts\mark-external-uptime.ps1` |
-| 4 | **Test backup restore once** | [BACKUP-RESTORE.md](./BACKUP-RESTORE.md) — then `scripts\mark-backup-restore-verified.ps1` |
-| 5 | **PC never sleeps on AC** | Windows Settings → Power → Sleep → Never (on power) |
-| 6 | **Track beta feedback** | Copy `beta-feedback-log.csv`, log each tester session |
+| 2 | **Add testers to allowlist** | Dashboard → User Management (5/5 done for closed beta) |
+| 3 | **External uptime monitor** | [UPTIME-MONITORING.md](./UPTIME-MONITORING.md) — `npm run maintenance:mark-uptime` |
+| 4 | **Test backup restore once** | `npm run maintenance:test-restore` (auto-marks verified) |
+| 5 | **PC never sleeps on AC** | `disable-pc-sleep-admin.bat` or Windows Settings |
+| 6 | **Phone test weekly** | Full flow on mobile → `npm run maintenance:mark-phone-test` |
 
 ### Recommended
 
 | # | Task | How |
 |---|------|-----|
-| 7 | **Sentry** (optional) | sentry.io free tier → `SENTRY_DSN` in `.env` |
-| 8 | **Secrets backup** | Save `.env` + Cloudflare creds in password manager |
+| 7 | **Sentry** (optional) | sentry.io free tier → `SENTRY_DSN` in `.env`, restart API |
+| 8 | **Secrets backup** | Save `.env` + Cloudflare creds → `npm run maintenance:mark-secrets` |
 | 9 | **Dedicated always-on PC** | Mini PC / old laptop instead of daily-driver PC |
 | 10 | **Phone test weekly** | Full flow on mobile after each deploy |
 

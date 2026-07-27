@@ -112,7 +112,7 @@ export function getActiveSessionRetryAfterMs(userId: string): number {
   sweepExpiredGenerateSessions(userId);
   const s = sessions.get(userId);
   if (!s || !isActiveSession(s)) return 0;
-  return Math.max(0, s.startedAt + REQUEST_HARD_TIMEOUT_MS - Date.now());
+  return Math.max(0, s.startedAt + s.hardTimeoutMs - Date.now());
 }
 
 export function forceEndGenerateSession(userId: string): boolean {
