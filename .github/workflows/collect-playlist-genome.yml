@@ -28,7 +28,7 @@ jobs:
       - name: Fit playlist patterns and pairwise weights
         run: npm run corpus:fit-all
       - name: Upload corpus + fitted priors
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playlist-genome-${{ github.run_id }}
           path: |

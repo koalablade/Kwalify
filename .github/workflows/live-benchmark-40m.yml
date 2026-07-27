@@ -39,7 +39,7 @@ jobs:
           echo "OUT_DIR=$OUT_DIR" >> "$GITHUB_ENV"
       - name: Upload benchmark reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: prompt-reliability-live-${{ github.run_id }}
           path: reports/prompt-reliability/
