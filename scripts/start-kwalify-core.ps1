@@ -51,6 +51,18 @@ function Step([string]$msg) {
   Write-Host ">> $msg" -ForegroundColor Cyan
 }
 
+# Native tools (git, npm) write progress to stderr; do not let that abort under Stop.
+function Invoke-Native([scriptblock]$Command) {
+  $prevErr = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & $Command
+    return $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $prevErr
+  }
+}
+
 function PortOpen([int]$port) {
   try {
     return $null -ne (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1)
@@ -363,8 +375,15 @@ function Invoke-GitPull {
       return $false
     }
     $before = (git rev-parse HEAD 2>$null)
-    git pull --ff-only 2>&1 | ForEach-Object { Write-Host "  $_" }
-    if ($LASTEXITCODE -ne 0) {
+    $prevErr = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $pullOutput = & git pull --ff-only 2>&1
+    $pullExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevErr
+    if ($pullOutput) {
+      $pullOutput | ForEach-Object { Write-Host "  $_" }
+    }
+    if ($pullExit -ne 0) {
       Write-Host "  git pull failed (local changes or offline). Continuing with current code." -ForegroundColor Yellow
       return $false
     }
@@ -596,8 +615,7 @@ if ($Mode -eq "domain") {
 # --- 4. Dependencies ---
 if (-not (Test-Path (Join-Path $Root "node_modules"))) {
   Step "Installing dependencies (first time only)"
-  npm ci
-  if ($LASTEXITCODE -ne 0) { Exit-Launcher $LASTEXITCODE "npm ci failed." }
+  if ((Invoke-Native { npm ci }) -ne 0) { Exit-Launcher $LASTEXITCODE "npm ci failed." }
 }
 
 # --- 5. Build ---
@@ -614,8 +632,7 @@ if ($Build -or $pullUpdated -or $buildStale -or -not (Test-Path -LiteralPath $di
   } else {
     Write-Host "  First build..."
   }
-  npm run build
-  if ($LASTEXITCODE -ne 0) { Exit-Launcher $LASTEXITCODE "npm run build failed." }
+  if ((Invoke-Native { npm run build }) -ne 0) { Exit-Launcher $LASTEXITCODE "npm run build failed." }
   Write-Host "  Build OK"
 } else {
   Write-Host "  OK (already built - pass build to force)"
