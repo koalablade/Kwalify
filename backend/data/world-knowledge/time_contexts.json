@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "concepts": [
+    { "id": "midnight", "label": "midnight", "synonyms": ["midnight", "after midnight", "12am", "witching hour", "dead of night"], "phase": "late_night" },
+    { "id": "late_night", "label": "late night", "synonyms": ["late night", "late at night", "small hours", "3am", "can't sleep", "insomnia"], "phase": "late_night" },
+    { "id": "night", "label": "night", "synonyms": ["night", "nighttime", "dark", "after dark", "evening turned to night"], "phase": "late_night" },
+    { "id": "dawn", "label": "dawn", "synonyms": ["dawn", "early morning", "first light", "sun coming up", "before sunrise"], "phase": "dawn" },
+    { "id": "morning", "label": "morning", "synonyms": ["morning", "am", "breakfast time", "commute hour"], "phase": "morning" },
+    { "id": "afternoon", "label": "afternoon", "synonyms": ["afternoon", "midday", "lunchtime"], "phase": "afternoon" },
+    { "id": "evening", "label": "evening", "synonyms": ["evening", "sunset", "golden hour", "summer evening", "dusk"], "phase": "evening" },
+    { "id": "sunday", "label": "sunday", "synonyms": ["sunday", "grey sunday", "lazy sunday", "weekend morning"], "phase": "morning" },
+    { "id": "bank_holiday", "label": "bank holiday", "synonyms": ["bank holiday", "long weekend", "day off"], "phase": "afternoon" }
+  ]
+}

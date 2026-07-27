@@ -18,6 +18,11 @@ import {
   EXPANDED_TIME_TERMS,
   termRegex,
 } from "./expanded-intent-vocabulary";
+import {
+  buildWorldUnderstandingDebug,
+  interpretWorld,
+  type WorldUnderstandingDebugView,
+} from "./world-understanding";
 
 export type RecognizedConcepts = {
   activity: string[];
@@ -39,6 +44,7 @@ export type IntentUnderstandingDiagnostics = {
   semanticSummary: string | null;
   primaryCluster: string | null;
   weakMatch: boolean;
+  worldUnderstanding?: WorldUnderstandingDebugView;
 };
 
 const STOPWORDS = new Set([
@@ -307,6 +313,7 @@ export function buildIntentUnderstandingDiagnostics(opts: {
   prompt: string;
   profile: EmotionProfile;
   lockedIntent?: LockedIntent;
+  includeWorldUnderstanding?: boolean;
 }): IntentUnderstandingDiagnostics {
   const prompt = opts.prompt.trim();
   const lockedIntent = opts.lockedIntent ?? buildLockedIntent(prompt);
@@ -342,5 +349,8 @@ export function buildIntentUnderstandingDiagnostics(opts: {
     semanticSummary: semantic.summary || null,
     primaryCluster: semantic.primaryCluster || null,
     weakMatch: semantic.confidence < 0.2,
+    ...(opts.includeWorldUnderstanding
+      ? { worldUnderstanding: buildWorldUnderstandingDebug(interpretWorld(prompt)) }
+      : {}),
   };
 }

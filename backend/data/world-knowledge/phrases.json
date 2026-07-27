@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "phrases": [
+    {
+      "id": "rough_night",
+      "phrase": "rough night",
+      "notLiteral": "bad weather night",
+      "meaning": { "emotions": ["exhaustion", "stress", "reflection"], "lifeContext": [], "activity": [] },
+      "music": { "energy": 0.25, "textures": ["intimate", "slow"], "genres": ["indie", "ambient"] }
+    },
+    {
+      "id": "long_way_home",
+      "phrase": "long way home",
+      "meaning": { "emotions": ["reflection", "longing"], "lifeContext": ["transition"], "activity": ["travelling", "driving"] },
+      "music": { "energy": 0.35, "textures": ["atmospheric", "gradual"], "genres": ["indie", "dream pop"] }
+    },
+    {
+      "id": "old_memories",
+      "phrase": "old memories",
+      "meaning": { "emotions": ["nostalgia", "reflection"], "lifeContext": ["childhood_memories"], "activity": [] },
+      "music": { "energy": 0.3, "textures": ["warm", "wistful"], "genres": ["indie", "acoustic"] }
+    },
+    {
+      "id": "back_home",
+      "phrase": "back home",
+      "meaning": { "emotions": ["peace", "contentment"], "lifeContext": [], "social": ["coming_home"], "environment": ["home"] },
+      "music": { "energy": 0.35, "textures": ["warm", "safe"], "genres": ["acoustic", "soft electronic"] }
+    },
+    {
+      "id": "windows_down",
+      "phrase": "windows down",
+      "meaning": { "emotions": ["freedom"], "activity": ["driving"], "environment": ["car"], "sensory": ["cold_air"] },
+      "music": { "energy": 0.55, "textures": ["bright", "open", "rhythmic"], "genres": ["indie pop", "rock"] }
+    },
+    {
+      "id": "staring_out_window",
+      "phrase": "staring out the window",
+      "meaning": { "emotions": ["reflection", "nostalgia", "loneliness"], "activity": ["waiting", "travelling"], "sensory": ["street_lights"] },
+      "music": { "energy": 0.3, "textures": ["atmospheric", "slow", "emotional"], "genres": ["ambient", "indie"] }
+    },
+    {
+      "id": "stay_here_forever",
+      "phrase": "could stay here forever",
+      "meaning": { "emotions": ["contentment", "peace"], "activity": [] },
+      "music": { "energy": 0.3, "textures": ["warm", "immersive"], "genres": ["dream pop", "ambient"] }
+    },
+    {
+      "id": "after_everyone_left",
+      "phrase": "after everyone left",
+      "meaning": { "emotions": ["reflection", "loneliness"], "social": ["leaving_party"], "activity": [] },
+      "music": { "energy": 0.25, "textures": ["minimal", "slow", "intimate"], "genres": ["ambient", "indie"] }
+    },
+    {
+      "id": "whole_world_quiet",
+      "phrase": "whole world feels quiet",
+      "meaning": { "emotions": ["peace", "reflection", "loneliness"], "activity": ["driving"], "time": ["late_night"] },
+      "music": { "energy": 0.3, "textures": ["ambient", "dreamy"], "genres": ["ambient", "dream pop", "post-rock"] }
+    },
+    {
+      "id": "couldnt_sleep_drive",
+      "phrase": "couldn't sleep so went for a drive",
+      "meaning": { "emotions": ["reflection", "anxiety"], "activity": ["driving", "sleeping"], "time": ["late_night"], "social": ["alone"] },
+      "music": { "energy": 0.35, "textures": ["nocturnal", "intimate"], "genres": ["indie", "ambient"] }
+    },
+    {
+      "id": "walking_home_goodbye",
+      "phrase": "walking home after saying goodbye",
+      "meaning": { "emotions": ["sadness", "reflection", "grief"], "activity": ["walking"], "lifeContext": ["loss"], "social": ["alone"] },
+      "music": { "energy": 0.28, "textures": ["sparse", "emotional"], "genres": ["indie", "singer-songwriter"] }
+    },
+    {
+      "id": "first_day_new_place",
+      "phrase": "first day in my new place",
+      "meaning": { "emotions": ["hope", "anticipation"], "lifeContext": ["moving_house", "fresh_start"], "social": ["alone"] },
+      "music": { "energy": 0.45, "textures": ["open", "gentle build"], "genres": ["indie", "soft electronic"] }
+    },
+    {
+      "id": "tea_and_rain",
+      "phrase": "tea and rain",
+      "meaning": { "emotions": ["peace", "contentment"], "weather": ["rain"], "environment": ["home"], "social": ["alone"] },
+      "music": { "energy": 0.25, "textures": ["cosy", "warm"], "genres": ["acoustic", "ambient"] }
+    },
+    {
+      "id": "grey_sunday",
+      "phrase": "grey sunday",
+      "meaning": { "emotions": ["reflection", "peace"], "weather": ["grey"], "time": ["sunday"], "social": ["alone"] },
+      "music": { "energy": 0.3, "textures": ["soft", "domestic"], "genres": ["indie", "folk"] }
+    },
+    {
+      "id": "night_bus_home",
+      "phrase": "night bus home",
+      "meaning": { "emotions": ["reflection", "exhaustion"], "activity": ["travelling", "waiting"], "time": ["late_night"], "environment": ["city"] },
+      "music": { "energy": 0.35, "textures": ["urban", "nocturnal"], "genres": ["indie", "electronic"] }
+    },
+    {
+      "id": "last_train",
+      "phrase": "last train",
+      "meaning": { "emotions": ["anticipation", "loneliness"], "activity": ["waiting", "travelling"], "time": ["late_night"], "environment": ["train"] },
+      "music": { "energy": 0.4, "textures": ["transit", "reflective"], "genres": ["indie", "electronic"] }
+    },
+    {
+      "id": "walking_back_from_pub",
+      "phrase": "walking back from the pub",
+      "meaning": { "emotions": ["contentment", "reflection"], "activity": ["walking"], "environment": ["city"], "time": ["late_night"], "social": ["with_friends"] },
+      "music": { "energy": 0.45, "textures": ["warm", "slightly loose"], "genres": ["indie", "britpop"] }
+    },
+    {
+      "id": "petrol_station_midnight",
+      "phrase": "petrol station at midnight",
+      "meaning": { "emotions": ["loneliness", "reflection"], "activity": ["driving", "waiting"], "time": ["midnight"], "environment": ["petrol_station"] },
+      "music": { "energy": 0.35, "textures": ["fluorescent", "nocturnal"], "genres": ["ambient", "indie electronic"] }
+    },
+    {
+      "id": "estate_lights",
+      "phrase": "estate lights",
+      "meaning": { "emotions": ["nostalgia", "reflection"], "environment": ["estate"], "sensory": ["street_lights"], "time": ["night"] },
+      "music": { "energy": 0.35, "textures": ["urban", "intimate"], "genres": ["grime-influenced indie", "electronic"] }
+    },
+    {
+      "id": "country_lanes",
+      "phrase": "country lanes",
+      "meaning": { "emotions": ["peace", "freedom"], "activity": ["driving"], "environment": ["countryside"], "weather": ["fog"] },
+      "music": { "energy": 0.4, "textures": ["open", "organic"], "genres": ["folk", "indie"] }
+    },
+    {
+      "id": "coastal_drive",
+      "phrase": "coastal drive",
+      "meaning": { "emotions": ["freedom", "hope"], "activity": ["driving"], "environment": ["beach"], "sensory": ["cold_air"] },
+      "music": { "energy": 0.5, "textures": ["expansive", "bright"], "genres": ["indie rock", "dream pop"] }
+    },
+    {
+      "id": "uni_halls",
+      "phrase": "uni halls",
+      "meaning": { "emotions": ["nostalgia", "anticipation"], "lifeContext": ["graduation"], "environment": ["uni_halls"], "social": ["with_friends"] },
+      "music": { "energy": 0.5, "textures": ["youthful", "messy"], "genres": ["indie", "electronic"] }
+    },
+    {
+      "id": "summer_evening",
+      "phrase": "summer evening",
+      "meaning": { "emotions": ["hope", "contentment"], "time": ["evening"], "weather": ["sun"], "social": ["with_friends"] },
+      "music": { "energy": 0.55, "textures": ["warm", "golden"], "genres": ["indie pop", "soul"] }
+    },
+    {
+      "id": "empty_motorway_midnight_rain",
+      "phrase": "empty motorway at midnight",
+      "meaning": { "emotions": ["reflection", "peace", "loneliness"], "activity": ["driving"], "environment": ["motorway", "car"], "time": ["midnight"], "weather": ["rain"], "sensory": ["windscreen", "engine_noise"] },
+      "music": { "energy": 0.35, "tempoBpm": [70, 110], "textures": ["ambient", "dreamy", "warm"], "genres": ["ambient", "dream pop", "indie", "soft electronic", "post-rock"] }
+    },
+    {
+      "id": "rain_on_windscreen",
+      "phrase": "rain on the windscreen",
+      "meaning": { "emotions": ["reflection", "peace"], "activity": ["driving"], "weather": ["rain"], "sensory": ["windscreen", "engine_noise"], "environment": ["car"] },
+      "music": { "energy": 0.35, "textures": ["immersive", "slow build"], "genres": ["ambient", "dream pop"] }
+    },
+    {
+      "id": "not_ready_to_go_home",
+      "phrase": "wasn't ready to go home",
+      "meaning": { "emotions": ["avoidance", "reflection"], "activity": ["driving", "travelling"], "lifeContext": ["transition", "needing_space"], "social": ["alone"] },
+      "music": { "energy": 0.35, "textures": ["warm", "atmospheric", "slow build"], "genres": ["indie", "ambient", "dream pop"] }
+    },
+    {
+      "id": "not_ready_to_go_back",
+      "phrase": "wasn't ready to go back yet",
+      "meaning": { "emotions": ["avoidance", "reflection"], "activity": ["driving", "travelling"], "lifeContext": ["transition", "needing_space"], "time": ["night"], "social": ["alone"] },
+      "music": { "energy": 0.35, "textures": ["introspective", "warm"], "genres": ["indie", "ambient"] }
+    },
+    {
+      "id": "house_went_quiet",
+      "phrase": "house went quiet",
+      "meaning": { "emotions": ["reflection", "loneliness", "peace"], "social": ["leaving_party"], "environment": ["home"], "sensory": ["quiet_aftermath"] },
+      "music": { "energy": 0.25, "textures": ["minimal", "intimate"], "genres": ["ambient", "indie"] }
+    },
+    {
+      "id": "everyone_left_quiet",
+      "phrase": "everyone left and the house went quiet",
+      "meaning": { "emotions": ["reflection", "loneliness", "nostalgia"], "social": ["leaving_party"], "environment": ["home"] },
+      "music": { "energy": 0.25, "textures": ["minimal", "slow"], "genres": ["ambient", "indie"] }
+    },
+    {
+      "id": "like_a_kid_again",
+      "phrase": "like a kid again",
+      "meaning": { "emotions": ["innocence", "joy", "nostalgia"], "lifeContext": ["childhood_memories"] },
+      "music": { "energy": 0.5, "textures": ["warm", "uplifting", "familiar"], "genres": ["indie pop", "acoustic"] }
+    },
+    {
+      "id": "difficult_day",
+      "phrase": "after a difficult day",
+      "meaning": { "emotions": ["exhaustion", "reflection", "relief"], "lifeContext": ["difficult_period"] },
+      "music": { "energy": 0.3, "textures": ["soft", "release"], "genres": ["indie", "ambient"] }
+    },
+    {
+      "id": "house_strange_after_everyone",
+      "phrase": "house felt strange after everyone went home",
+      "meaning": { "emotions": ["reflection", "loneliness"], "social": ["leaving_party"], "environment": ["home"] },
+      "music": { "energy": 0.25, "textures": ["minimal", "intimate"], "genres": ["ambient", "indie"] }
+    },
+    {
+      "id": "walked_until_felt_better",
+      "phrase": "walked around until i felt better",
+      "meaning": { "emotions": ["relief", "reflection"], "activity": ["walking"], "lifeContext": ["mental_reset"], "environment": ["city"] },
+      "music": { "energy": 0.35, "textures": ["steady", "emotional"], "genres": ["indie", "singer-songwriter"] }
+    },
+    {
+      "id": "lights_off_music",
+      "phrase": "kept the lights off and listened to music",
+      "meaning": { "emotions": ["introspection", "privacy", "peace"], "environment": ["home"], "social": ["alone"] },
+      "music": { "energy": 0.28, "textures": ["intimate", "immersive"], "genres": ["ambient", "indie"] }
+    },
+    {
+      "id": "last_day_of_summer",
+      "phrase": "last day of summer",
+      "meaning": { "emotions": ["nostalgia", "bittersweet"], "lifeContext": ["seasonal_transition"], "time": ["evening"], "weather": ["sun"] },
+      "music": { "energy": 0.4, "textures": ["warm", "wistful"], "genres": ["indie", "folk"] }
+    },
+    {
+      "id": "taking_long_way_back",
+      "phrase": "taking the long way back",
+      "meaning": { "emotions": ["reflection", "avoidance"], "activity": ["driving", "travelling"], "lifeContext": ["transition"], "social": ["alone"] },
+      "music": { "energy": 0.35, "textures": ["atmospheric"], "genres": ["indie", "dream pop"] }
+    },
+    {
+      "id": "time_alone_in_car",
+      "phrase": "time alone in the car",
+      "meaning": { "emotions": ["reflection", "privacy"], "activity": ["driving"], "environment": ["car"], "social": ["alone"] },
+      "music": { "energy": 0.35, "textures": ["enclosed", "warm"], "genres": ["ambient", "indie"] }
+    },
+    {
+      "id": "just_keep_driving",
+      "phrase": "just wanted to keep driving",
+      "meaning": { "emotions": ["reflection", "freedom", "avoidance"], "activity": ["driving"], "social": ["alone"] },
+      "music": { "energy": 0.4, "textures": ["motion", "nocturnal"], "genres": ["indie", "electronic"] }
+    },
+    {
+      "id": "uni_days",
+      "phrase": "uni days",
+      "meaning": { "emotions": ["nostalgia"], "lifeContext": ["graduation"], "environment": ["uni_halls"], "social": ["with_friends"] },
+      "music": { "energy": 0.5, "textures": ["youthful"], "genres": ["indie", "britpop"] }
+    }
+  ],
+  "idioms": [
+    { "phrase": "under the weather", "emotions": ["sadness", "exhaustion"], "notLiteral": "stormy weather" },
+    { "phrase": "on cloud nine", "emotions": ["hope", "contentment"], "notLiteral": "weather" },
+    { "phrase": "heart on sleeve", "emotions": ["sadness", "longing"], "notLiteral": "clothing" },
+    { "phrase": "hit the road", "activity": ["driving", "travelling"], "emotions": ["freedom"] },
+    { "phrase": "home is where the heart is", "emotions": ["nostalgia", "contentment"], "environment": ["home"] }
+  ],
+  "slang": [
+    { "term": "knackered", "emotions": ["exhaustion"] },
+    { "term": "gutted", "emotions": ["sadness", "grief"] },
+    { "term": "buzzing", "emotions": ["hope", "confidence"] },
+    { "term": "minging", "weather": ["grey", "rain"], "emotions": ["sadness"] },
+    { "term": "lush", "emotions": ["contentment"], "weather": ["sun"] },
+    { "term": "peak", "emotions": ["sadness", "anxiety"], "notLiteral": "mountain top" },
+    { "term": "dead", "intensifier": true, "example": "dead quiet" }
+  ]
+}

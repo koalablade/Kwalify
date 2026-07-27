@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "expansions": [
+    {
+      "id": "night_drive",
+      "triggers": ["couldn't sleep", "went for a drive", "night drive", "driving at night", "3am drive", "insomnia drive"],
+      "concepts": { "activity": ["driving", "sleeping"], "time": ["late_night"], "emotion": ["reflection"], "social": ["alone"] },
+      "sceneHint": "NOCTURNAL_ESCAPE_DRIVE"
+    },
+    {
+      "id": "insomnia_escape",
+      "triggers": ["couldn't sleep", "wide awake", "insomnia", "tossing and turning", "mind won't switch off"],
+      "concepts": { "activity": ["sleeping"], "time": ["late_night"], "emotion": ["anxiety", "reflection"] },
+      "sceneHint": "NOCTURNAL_ESCAPE_DRIVE"
+    },
+    {
+      "id": "goodbye_walk",
+      "triggers": ["saying goodbye", "after goodbye", "walked away", "left the party alone", "last hug"],
+      "concepts": { "activity": ["walking"], "emotion": ["sadness", "reflection", "grief"], "social": ["alone"] },
+      "sceneHint": "DEPARTURE_WALK"
+    },
+    {
+      "id": "new_chapter",
+      "triggers": ["new place", "first day", "fresh start", "new chapter", "starting over", "clean slate"],
+      "concepts": { "lifeContext": ["fresh_start", "moving_house"], "emotion": ["hope", "anticipation"] },
+      "sceneHint": "FRESH_START_ALONE"
+    },
+    {
+      "id": "quiet_world",
+      "triggers": ["world feels quiet", "everything is quiet", "dead quiet", "silence everywhere", "nobody around"],
+      "concepts": { "emotion": ["peace", "reflection", "loneliness"], "social": ["alone"] },
+      "sceneHint": "LATE_NIGHT_SOLITARY_JOURNEY"
+    },
+    {
+      "id": "motorway_rain_compound",
+      "triggers": ["motorway", "midnight", "rain", "windscreen", "empty road", "quiet drive"],
+      "concepts": { "activity": ["driving"], "environment": ["motorway", "car"], "weather": ["rain"], "time": ["midnight"], "emotion": ["reflection", "peace", "loneliness"] },
+      "sceneHint": "LATE_NIGHT_SOLITARY_JOURNEY"
+    },
+    {
+      "id": "nostalgia_memory",
+      "triggers": ["old photos", "used to be", "remember when", "back in the day", "school days"],
+      "concepts": { "emotion": ["nostalgia"], "lifeContext": ["childhood_memories", "old_friends"] },
+      "sceneHint": "NOSTALGIC_RETURN"
+    },
+    {
+      "id": "british_sunday",
+      "triggers": ["grey sunday", "sunday morning", "lazy sunday", "tea and rain", "nowhere to be"],
+      "concepts": { "time": ["sunday"], "weather": ["grey", "rain"], "emotion": ["peace"] },
+      "sceneHint": "UK_GREY_SUNDAY_INDOORS"
+    },
+    {
+      "id": "party_aftermath",
+      "triggers": ["after everyone left", "empty house", "party's over", "last one awake", "house went quiet", "everyone went home", "house felt strange"],
+      "concepts": { "social": ["leaving_party"], "emotion": ["reflection", "loneliness", "nostalgia"] },
+      "sceneHint": "QUIET_AFTERMATH"
+    },
+    {
+      "id": "avoidance_drive",
+      "triggers": [
+        "wasn't ready to go home",
+        "not ready to go back",
+        "long way home",
+        "long way back",
+        "taking the long way",
+        "drove around because",
+        "keep driving",
+        "time alone in the car",
+        "needed some time alone"
+      ],
+      "concepts": {
+        "activity": ["driving", "travelling"],
+        "emotion": ["avoidance", "reflection"],
+        "lifeContext": ["transition", "needing_space"],
+        "social": ["alone"]
+      },
+      "sceneHint": "REFLECTIVE_AVOIDANCE_JOURNEY"
+    },
+    {
+      "id": "kid_again",
+      "triggers": ["like a kid again", "felt like a child", "young again", "carefree again"],
+      "concepts": { "emotion": ["innocence", "joy", "nostalgia"], "lifeContext": ["childhood_memories"] },
+      "sceneHint": "NOSTALGIC_RETURN"
+    },
+    {
+      "id": "difficult_day_relief",
+      "triggers": ["difficult day", "hard day", "long day", "rough day at work"],
+      "concepts": { "emotion": ["exhaustion", "reflection", "relief"], "lifeContext": ["difficult_period"] },
+      "sceneHint": "REFLECTIVE_AVOIDANCE_JOURNEY"
+    },
+    {
+      "id": "mental_reset_walk",
+      "triggers": ["walked around until", "walked around town", "walked until i felt better", "cleared my head", "needed to walk"],
+      "concepts": { "activity": ["walking"], "emotion": ["relief", "reflection"], "lifeContext": ["mental_reset"] },
+      "sceneHint": "MENTAL_RESET_WALK"
+    },
+    {
+      "id": "introspective_privacy",
+      "triggers": ["kept the lights off", "lights off and listened", "in the dark listening", "nobody else around"],
+      "concepts": { "emotion": ["introspection", "privacy", "peace"], "social": ["alone"], "environment": ["home"] },
+      "sceneHint": "INTROSPECTIVE_PRIVACY"
+    },
+    {
+      "id": "summer_end",
+      "triggers": ["last day of summer", "end of summer", "summer is over", "final summer evening"],
+      "concepts": { "emotion": ["nostalgia", "bittersweet"], "lifeContext": ["seasonal_transition"], "time": ["evening"] },
+      "sceneHint": "SUMMER_TRANSITION"
+    },
+    {
+      "id": "abstract_metaphor",
+      "triggers": [
+        "world paused",
+        "heart full",
+        "floating between",
+        "city breathing",
+        "time moving like",
+        "like the world",
+        "between two versions"
+      ],
+      "concepts": { "emotion": ["reflection", "peace", "bittersweet", "longing"] },
+      "sceneHint": "NOSTALGIC_RETURN"
+    }
+  ],
+  "paraphraseClusters": [
+    {
+      "canonical": "rain night motorway",
+      "variants": [
+        "empty motorway at midnight, rain on the windscreen",
+        "that feeling driving home after midnight when it's raining and the whole world feels quiet",
+        "rain on the windscreen on an empty road at night",
+        "late night motorway in the rain",
+        "driving through rain on a dark motorway"
+      ],
+      "sceneId": "LATE_NIGHT_SOLITARY_JOURNEY"
+    },
+    {
+      "canonical": "reflective avoidance drive",
+      "variants": [
+        "i took the long way home tonight because i wasn't ready to go back yet",
+        "i drove around because i wasn't ready to go home",
+        "taking the long way back",
+        "needed some time alone in the car",
+        "just wanted to keep driving"
+      ],
+      "sceneId": "REFLECTIVE_AVOIDANCE_JOURNEY"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "concepts": [
+    { "id": "driving", "label": "driving", "synonyms": ["drive", "driving", "on the road", "behind the wheel", "motorway", "a road", "cruise", "night drive"], "motion": "moving", "energy": 0.45 },
+    { "id": "walking", "label": "walking", "synonyms": ["walk", "walking", "stroll", "wandering", "on foot", "pavement", "footpath"], "motion": "moving", "energy": 0.35 },
+    { "id": "cooking", "label": "cooking", "synonyms": ["cook", "cooking", "in the kitchen", "making dinner", "prep", "chopping"], "motion": "steady", "energy": 0.4 },
+    { "id": "cleaning", "label": "cleaning", "synonyms": ["clean", "cleaning", "tidying", "sorting", "declutter", "hoovering"], "motion": "steady", "energy": 0.35 },
+    { "id": "travelling", "label": "travelling", "synonyms": ["travel", "travelling", "journey", "commute", "on the way", "en route", "transit"], "motion": "moving", "energy": 0.45 },
+    { "id": "working", "label": "working", "synonyms": ["work", "working", "office", "desk", "deadline", "shift", "focus mode"], "motion": "steady", "energy": 0.5 },
+    { "id": "waiting", "label": "waiting", "synonyms": ["wait", "waiting", "queue", "platform", "delayed", "holding on"], "motion": "still", "energy": 0.3 },
+    { "id": "studying", "label": "studying", "synonyms": ["study", "studying", "revision", "library", "exam", "coursework"], "motion": "steady", "energy": 0.4 },
+    { "id": "dancing", "label": "dancing", "synonyms": ["dance", "dancing", "club", "floor", "rave", "groove"], "motion": "moving", "energy": 0.8 },
+    { "id": "running", "label": "running", "synonyms": ["run", "running", "jog", "sprint", "training"], "motion": "moving", "energy": 0.75 },
+    { "id": "sleeping", "label": "sleeping", "synonyms": ["sleep", "sleeping", "bed", "insomnia", "couldn't sleep", "wide awake at 3am"], "motion": "still", "energy": 0.1 },
+    { "id": "socialising", "label": "socialising", "synonyms": ["party", "pub", "mates", "friends over", "gathering", "night out"], "motion": "moving", "energy": 0.65 }
+  ]
+}

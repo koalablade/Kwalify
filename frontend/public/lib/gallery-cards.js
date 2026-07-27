@@ -95,6 +95,25 @@ export function renderMemoryCard(p, { escFn, fmtDateFn, spiFn, deleteMode = fals
   return `<div class="${cardClass}" ${cardAttrs}>${inner}</div>`;
 }
 
+export function renderResultMemoryCard(p, { escFn }) {
+  const arts = getPlaylistArts(p);
+  const art = arts[0] || "";
+  const label = p.vibe
+    ? (p.vibe.length > 42 ? `${p.vibe.slice(0, 39)}…` : p.vibe)
+    : (p.name || "A moment");
+  const openHref = p.shareSlug ? `/p/${encodeURIComponent(p.shareSlug)}` : null;
+  const inner = `
+    <div class="result-memory-card-art"${art ? ` style="background-image:url('${escFn(art)}')"` : ""}></div>
+    <div class="result-memory-card-body">
+      <div class="result-memory-card-title">${escFn(label)}</div>
+      <div class="result-memory-card-mood">${escFn(moodLabel(p.vibe, p.mode))}</div>
+    </div>`;
+  if (openHref) {
+    return `<a class="result-memory-card" href="${escFn(openHref)}">${inner}</a>`;
+  }
+  return `<div class="result-memory-card">${inner}</div>`;
+}
+
 export function buildHomeFeaturedPosterHtml(playlist, { escFn, fmtDateFn, spiFn }) {
   if (!playlist) return "";
   const arts = getPlaylistArts(playlist);

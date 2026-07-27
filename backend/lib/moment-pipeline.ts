@@ -40,6 +40,11 @@ import {
 } from "./scene-intelligence";
 import { interpretSemantics, type SemanticInterpretation } from "./semantic-interpreter";
 import { resolveSceneBus } from "./scene-resolution-bus";
+import {
+  applyWorldUnderstandingToProfile,
+  interpretWorld,
+  type WorldUnderstandingResult,
+} from "./world-understanding";
 
 export interface MomentPipelineResult {
   profile: EmotionProfile;
@@ -53,6 +58,7 @@ export interface MomentPipelineResult {
   graph: GraphApplyResult;
   eraContext: EraContext;
   semanticInterpretation: SemanticInterpretation;
+  worldUnderstanding: WorldUnderstandingResult;
   pipelineSummary: Record<string, unknown>;
 }
 
@@ -90,6 +96,9 @@ export function analyzeMomentPipeline(
   // 0. Semantic interpretation — handles ANY phrase including abstract/creative inputs
   const semantic = interpretSemantics(vibe);
 
+  // 0b. World understanding — human meaning layer (moments, not keywords)
+  const worldUnderstanding = interpretWorld(vibe);
+
   // 1. Intent (before everything else)
   const intent = decodeIntent(vibe);
 
@@ -102,6 +111,12 @@ export function analyzeMomentPipeline(
   // 3. Base profile — keyword layer only when canonical is weak (anti tag-soup)
   const keywordProfile = analyzeVibe(vibe);
   let profile = profileFromCanonical(canonical, keywordProfile);
+
+  // 3a. World understanding blend — nudges profile toward human scene meaning
+  if (worldUnderstanding.confidence >= 0.35) {
+    const worldWeight = canonical && canonical.confidence >= 0.72 ? 0.18 : 0.34;
+    profile = applyWorldUnderstandingToProfile(profile, worldUnderstanding, worldWeight);
+  }
 
   // 3b. Semantic blend — applies when canonical is weak or absent (handles ANY phrase)
   const canonicalIsWeak = !canonical || canonical.confidence < 0.62;
@@ -201,6 +216,16 @@ export function analyzeMomentPipeline(
       aestheticTags: semantic.aestheticTags.slice(0, 6),
       summary: semantic.summary,
     },
+    worldUnderstanding: {
+      sceneId: worldUnderstanding.scene.id,
+      sceneLabel: worldUnderstanding.scene.label,
+      humanSummary: worldUnderstanding.scene.humanSummary,
+      confidence: worldUnderstanding.confidence,
+      emotions: worldUnderstanding.taxonomy.emotion.slice(0, 6),
+      environment: worldUnderstanding.taxonomy.environment.slice(0, 6),
+      musicEnergy: worldUnderstanding.musicBehaviour.energy,
+      preferredGenres: worldUnderstanding.musicBehaviour.preferredGenres.slice(0, 5),
+    },
   };
 
   return {
@@ -215,6 +240,7 @@ export function analyzeMomentPipeline(
     graph,
     eraContext,
     semanticInterpretation: semantic,
+    worldUnderstanding,
     pipelineSummary,
   };
 }

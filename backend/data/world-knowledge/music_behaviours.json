@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "behaviours": {
+    "rainy_motorway_night": {
+      "energy": 0.35,
+      "tempoBpm": [70, 110],
+      "preferredGenres": ["ambient", "dream pop", "indie", "soft electronic", "post-rock"],
+      "avoidGenres": ["party", "aggressive", "hyperpop"],
+      "textures": ["warm", "ambient", "dreamy"],
+      "arrangement": ["slow opening", "gradual emotional build", "soft ending"],
+      "sequence": { "beginning": "quiet", "middle": "immersive", "ending": "hopeful" }
+    },
+    "quiet_aftermath": {
+      "energy": 0.25,
+      "tempoBpm": [60, 90],
+      "preferredGenres": ["ambient", "indie", "minimal electronic"],
+      "avoidGenres": ["dance", "party"],
+      "textures": ["minimal", "slow", "intimate"],
+      "arrangement": ["sparse start", "gentle swell", "fade"],
+      "sequence": { "beginning": "still", "middle": "reflective", "ending": "resolved" }
+    },
+    "fresh_start": {
+      "energy": 0.45,
+      "tempoBpm": [80, 115],
+      "preferredGenres": ["indie", "soft electronic", "acoustic"],
+      "avoidGenres": ["melancholic ballad", "dark ambient"],
+      "textures": ["open", "gentle build", "optimistic"],
+      "arrangement": ["curious opening", "warm middle", "forward motion"],
+      "sequence": { "beginning": "tentative", "middle": "opening up", "ending": "hopeful" }
+    },
+    "nostalgic_warm": {
+      "energy": 0.35,
+      "tempoBpm": [70, 100],
+      "preferredGenres": ["indie", "acoustic", "singer-songwriter"],
+      "avoidGenres": ["aggressive", "industrial"],
+      "textures": ["warm", "wistful", "analog"],
+      "arrangement": ["memory-like opening", "emotional centre", "gentle close"],
+      "sequence": { "beginning": "remembering", "middle": "bittersweet", "ending": "acceptance" }
+    },
+    "grey_sunday": {
+      "energy": 0.28,
+      "tempoBpm": [65, 95],
+      "preferredGenres": ["folk", "indie", "acoustic"],
+      "avoidGenres": ["high energy", "club"],
+      "textures": ["soft", "domestic", "cosy"],
+      "arrangement": ["unhurried", "steady", "warm"],
+      "sequence": { "beginning": "still", "middle": "comfortable", "ending": "peaceful" }
+    },
+    "departure_walk": {
+      "energy": 0.28,
+      "tempoBpm": [65, 95],
+      "preferredGenres": ["indie", "singer-songwriter", "ambient"],
+      "avoidGenres": ["party", "celebratory"],
+      "textures": ["sparse", "emotional", "cold air"],
+      "arrangement": ["footsteps pace", "emotional lift", "quiet end"],
+      "sequence": { "beginning": "heavy", "middle": "processing", "ending": "distance" }
+    },
+    "nocturnal_escape": {
+      "energy": 0.35,
+      "tempoBpm": [75, 105],
+      "preferredGenres": ["indie", "ambient", "electronic"],
+      "avoidGenres": ["daytime pop", "party"],
+      "textures": ["nocturnal", "intimate", "motion"],
+      "arrangement": ["restless start", "flow state", "dawn hint"],
+      "sequence": { "beginning": "restless", "middle": "flow", "ending": "calmer" }
+    },
+    "coastal_drive": {
+      "energy": 0.5,
+      "tempoBpm": [90, 125],
+      "preferredGenres": ["indie rock", "dream pop", "britpop"],
+      "avoidGenres": ["dark ambient", "funeral doom"],
+      "textures": ["expansive", "bright", "open"],
+      "arrangement": ["lift off", "wide middle", "satisfying close"],
+      "sequence": { "beginning": "anticipation", "middle": "expansive", "ending": "free" }
+    },
+    "default_reflective": {
+      "energy": 0.35,
+      "tempoBpm": [70, 105],
+      "preferredGenres": ["indie", "ambient", "electronic"],
+      "avoidGenres": ["party"],
+      "textures": ["atmospheric", "balanced"],
+      "arrangement": ["gentle opening", "emotional centre", "soft landing"],
+      "sequence": { "beginning": "settle", "middle": "immerse", "ending": "resolve" }
+    }
+  }
+}

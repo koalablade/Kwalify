@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "entries": [
+    {
+      "name": "grey Sunday",
+      "concepts": ["quiet", "slow", "comfort", "reflection", "domestic"],
+      "environment": ["home"],
+      "emotion": ["peace", "reflection"],
+      "music_direction": { "energy": "low-medium", "texture": "warm", "tempo": "slow-medium", "genres": ["folk", "acoustic", "dreamy"] }
+    },
+    {
+      "name": "night bus home",
+      "concepts": ["urban transit", "exhaustion", "end of night", "reflection"],
+      "activity": ["travelling", "waiting"],
+      "emotion": ["reflection", "exhaustion"],
+      "music_direction": { "energy": "low-medium", "texture": "nocturnal", "tempo": "medium", "genres": ["indie", "electronic"] }
+    },
+    {
+      "name": "petrol station at midnight",
+      "concepts": ["nocturnal pause", "solitude", "fluorescent liminality"],
+      "environment": ["petrol_station"],
+      "emotion": ["loneliness", "reflection"],
+      "music_direction": { "energy": "low-medium", "texture": "nocturnal", "tempo": "slow-medium", "genres": ["ambient", "indie electronic"] }
+    },
+    {
+      "name": "tea and rain",
+      "concepts": ["domestic comfort", "British quiet", "soft shelter"],
+      "emotion": ["peace", "contentment"],
+      "music_direction": { "energy": "low", "texture": "cosy", "tempo": "slow", "genres": ["acoustic", "ambient"] }
+    },
+    {
+      "name": "uni days",
+      "concepts": ["youth", "messy freedom", "shared memory"],
+      "lifeContext": ["graduation", "childhood_memories"],
+      "emotion": ["nostalgia"],
+      "music_direction": { "energy": "medium", "texture": "youthful", "tempo": "medium", "genres": ["indie", "britpop"] }
+    },
+    {
+      "name": "estate lights",
+      "concepts": ["urban night", "memory", "working class landscape"],
+      "environment": ["estate"],
+      "sensory": ["street_lights"],
+      "emotion": ["nostalgia", "reflection"],
+      "music_direction": { "energy": "low-medium", "texture": "urban intimate", "tempo": "medium", "genres": ["grime-influenced indie", "electronic"] }
+    },
+    {
+      "name": "country lanes",
+      "concepts": ["open escape", "rural calm", "slow movement"],
+      "environment": ["countryside"],
+      "emotion": ["peace", "freedom"],
+      "music_direction": { "energy": "medium", "texture": "organic", "tempo": "medium", "genres": ["folk", "indie"] }
+    },
+    {
+      "name": "coastal drive",
+      "concepts": ["expansive hope", "sea air", "forward motion"],
+      "environment": ["beach"],
+      "activity": ["driving"],
+      "emotion": ["freedom", "hope"],
+      "music_direction": { "energy": "medium", "texture": "bright open", "tempo": "medium-fast", "genres": ["indie rock", "dream pop"] }
+    }
+  ]
+}

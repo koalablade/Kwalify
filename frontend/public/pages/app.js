@@ -7,6 +7,7 @@ import {
   renderMemoryCard,
   buildHomeFeaturedPosterHtml,
   buildLandingShowcaseHtml,
+  renderResultMemoryCard,
 } from "../lib/gallery-cards.js";
 
 initTheme();
@@ -953,7 +954,7 @@ function renderApp() {
     ${!state.generating && state.lastResult ? resultHtml(state.lastResult) : ""}
     ${!state.generating && !state.lastResult && state.playlists?.length ? buildHomeFeaturedPosterHtml(state.playlists[0], { escFn: esc, fmtDateFn: fmtDate, spiFn: spi }) : ""}
 
-    ${state.user && !state.generating ? `
+    ${state.user && !state.generating && !state.lastResult ? `
     <section class="activity-section" aria-label="Recent activity">
       <div class="activity-section-head">
         <h2 class="section-title section-title--subtle">${COPY.activity.title}</h2>
@@ -970,7 +971,7 @@ function renderApp() {
   wireAppEvents();
 
   if (state.lastResult?.tracks) {
-    wireResultPosterArt(state.lastResult.tracks);
+    wireResultReveal(state.lastResult);
   }
 
   const vibeInput = document.getElementById("vibeInput");
@@ -1261,9 +1262,9 @@ function buildSegmentStripHtml(segmentDiagnostics) {
 
 const JOURNEY_ACT_ROMAN = ["I", "II", "III", "IV", "V"];
 const JOURNEY_ACT_FALLBACK = [
-  { label: "Leaving", desc: "The first miles. Quiet thoughts. The world getting smaller." },
-  { label: "The open road", desc: "Where the soundtrack opens up." },
-  { label: "Arrival", desc: "The feeling when you finally get there." },
+  { label: "Leaving", desc: "The first miles begin quietly." },
+  { label: "The open road", desc: "The world slows down around you." },
+  { label: "Arrival", desc: "The feeling you carry home." },
 ];
 
 const JOURNEY_STAGE_COPY = {
@@ -1362,32 +1363,14 @@ function buildResultNarrativeSubtitle(result, prompt) {
   return "A soundtrack built from your own memories.";
 }
 
-function buildFeelingSection(result, prompt) {
-  const chips = [];
-  const p = String(prompt || "").toLowerCase();
-  if (/rain|rainy|wet|storm/.test(p)) chips.push({ emoji: "🌧", label: "Rainy" });
-  if (/night|midnight|late|2am|3am/.test(p)) chips.push({ emoji: "🌙", label: "Late night" });
-  if (/drive|road|motorway|highway|journey|trip/.test(p)) chips.push({ emoji: "🚗", label: "Journey" });
-  if (/reflect|melanchol|quiet|alone|solit|thought/.test(p)) chips.push({ emoji: "💭", label: "Reflective" });
-  if (/summer|sun|warm|nostalg/.test(p)) chips.push({ emoji: "🌅", label: "Nostalgic" });
-  if (/party|dance|energy|upbeat/.test(p)) chips.push({ emoji: "✨", label: "Energetic" });
-  const ep = result.emotionProfile || result.generationDiagnostics?.emotionProfile || {};
-  if (chips.length < 2 && ep.environment && !chips.some((c) => c.label.toLowerCase() === String(ep.environment).toLowerCase())) {
-    chips.push({ emoji: "🎵", label: String(ep.environment).replace(/_/g, " ") });
-  }
-  if (!chips.length) return "";
-  return `<section class="result-feeling" aria-label="The feeling">
-    <h2 class="result-section-label">The feeling</h2>
-    <div class="result-feeling-chips">${chips.map((c) => `<span class="result-feeling-chip">${c.emoji} ${esc(c.label)}</span>`).join("")}</div>
-  </section>`;
-}
-
 function buildWhyItFitsHtml(result, trustLabels, playlistExplanation) {
   const bullets = [];
   const prompt = result.vibe || result.prompt || "";
   if (/drive|motorway|road|highway/i.test(prompt) && /rain|windscreen|windshield|wet/i.test(prompt)) {
-    bullets.push("Spacious tracks for an enclosed night drive");
-    bullets.push("Warm textures that fit rainy roads");
+    bullets.push("Slow textures match the feeling of the road");
+    bullets.push("Familiar songs create a sense of memory");
+    bullets.push("The energy builds naturally instead of rushing");
+    bullets.push("Warm darkness that fits rain against the glass");
   }
   const humanized = trustLabels
     .map(humanizeTrustLabel)
@@ -1414,28 +1397,10 @@ function buildWhyItFitsHtml(result, trustLabels, playlistExplanation) {
     bullets.unshift(narrative);
   }
   const unique = [...new Set(bullets)].slice(0, 4);
-  return `<section class="result-why-fits" aria-label="Why this fits">
-    <h2 class="result-section-label">Why this fits</h2>
+  return `<section class="result-story-section result-why-fits" aria-label="${esc(COPY.result.whyFits)}">
+    <h2 class="result-section-label">${COPY.result.whyFits}</h2>
     <ul class="result-why-list">${unique.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>
   </section>`;
-}
-
-function trackMomentBadge(track, index, total) {
-  const why = (Array.isArray(track.whyReasons) ? track.whyReasons : []).join(" ").toLowerCase();
-  if (/forgotten|rediscover|deep cut|rediscovery|buried/.test(why)) {
-    return { text: "Forgotten favourite", className: "track-moment-badge track-moment-badge--fav" };
-  }
-  const era = track.eraLabel || track.era || (why.match(/\b(19|20)\d{2}s?\b/) || [])[0];
-  if (era) {
-    return { text: `From your ${String(era).replace(/s$/, "")} era`, className: "track-moment-badge track-moment-badge--era" };
-  }
-  if (/scene|moment|perfect|anchor|opening/.test(why) || index === 0) {
-    return { text: "Perfect moment match", className: "track-moment-badge track-moment-badge--match" };
-  }
-  if (index === Math.floor(total / 2) && total > 8) {
-    return { text: "Centre of the journey", className: "track-moment-badge track-moment-badge--journey" };
-  }
-  return null;
 }
 
 function resultArtUrls(tracks) {
@@ -1444,6 +1409,47 @@ function resultArtUrls(tracks) {
     .map((t) => t.albumArt || t.album_art)
     .filter(Boolean)
     .slice(0, 4);
+}
+
+function buildArtBackdropHtml(artUrls) {
+  if (!artUrls.length) return "";
+  const url = artUrls[0];
+  return `<div class="art-backdrop" aria-hidden="true"><img src="${esc(url)}" alt="" class="art-backdrop-img" loading="eager"></div>`;
+}
+
+function buildMomentNarrative(result, prompt) {
+  const p = String(prompt || "").toLowerCase();
+  const understanding = String(result.momentUnderstandingLine || "").trim();
+  if (understanding && understanding.length > 48 && !TECHNICAL_TRUST_RE.test(understanding)) {
+    return understanding.charAt(0).toUpperCase() + understanding.slice(1) + (understanding.endsWith(".") ? "" : ".");
+  }
+  if (/drive|motorway|road|highway|journey/.test(p) && /rain|windscreen|windshield|wet|storm/.test(p)) {
+    return "Rain against the glass. Empty roads. The quiet feeling of driving somewhere without needing to arrive.";
+  }
+  if (/night|midnight|late|2am|3am/.test(p) && /alone|solit|quiet|reflect|thought/.test(p)) {
+    return "The hours when the world goes quiet, and the songs you carry start to mean more.";
+  }
+  if (/summer|sun|warm|windows down|nostalg/.test(p)) {
+    return "Warm air, open roads, and the kind of memory that only music can hold onto.";
+  }
+  if (/goodbye|breakup|miss|heart|alone/.test(p)) {
+    return "The space after something ends — where familiar songs become the only company you need.";
+  }
+  if (/party|dance|energy|upbeat|pregame/.test(p)) {
+    return "The charge before the night begins, and the songs that know exactly how that feels.";
+  }
+  if (result.noLibraryMode) {
+    return "A feeling described in words, answered in sound — found across Spotify for this moment.";
+  }
+  return "The feeling you described, held in songs from your own history — familiar, personal, and true to the moment.";
+}
+
+function buildMomentSection(result, prompt) {
+  const text = buildMomentNarrative(result, prompt);
+  return `<section class="result-story-section result-moment" aria-label="${esc(COPY.result.moment)}">
+    <h2 class="result-section-label">${COPY.result.moment}</h2>
+    <p class="result-moment-text">${esc(text)}</p>
+  </section>`;
 }
 
 function humanizeTrustLabel(raw) {
@@ -1505,16 +1511,50 @@ function buildJourneyActs(segmentDiagnostics, tracks) {
 function buildJourneyActsHtml(segmentDiagnostics, tracks) {
   const acts = buildJourneyActs(segmentDiagnostics, tracks);
   if (!acts.length) return "";
-  const items = acts.map((act, i) => `
-    <article class="journey-story-item" style="--journey-i:${i}">
-      <h3 class="journey-story-title">${esc(act.label)}</h3>
-      <div class="journey-story-lines">${act.lines.map((line) => `<p>${esc(line)}</p>`).join("")}</div>
-    </article>
-  `).join("");
-  return `<section class="journey-story" aria-label="The journey">
-    <h2 class="result-section-label">The journey</h2>
-    <div class="journey-story-list">${items}</div>
+  const items = acts.map((act, i) => {
+    const roman = JOURNEY_ACT_ROMAN[i] || String(i + 1);
+    const title = String(act.label).toUpperCase();
+    const desc = act.lines[0] || "";
+    return `
+    <article class="journey-timeline-item" style="--journey-i:${i}">
+      <div class="journey-timeline-act">ACT ${roman}</div>
+      <div class="journey-timeline-content">
+        <h3 class="journey-timeline-title">${esc(title)}</h3>
+        <p class="journey-timeline-desc">${esc(desc)}</p>
+      </div>
+    </article>`;
+  }).join("");
+  return `<section class="result-story-section journey-story" aria-label="${esc(COPY.result.journey)}">
+    <h2 class="result-section-label">${COPY.result.journey}</h2>
+    <div class="journey-timeline">${items}</div>
   </section>`;
+}
+
+function buildOtherMomentsHtml(result) {
+  const currentId = result.savedPlaylistId || result.playlistId || null;
+  const currentSlug = result.shareSlug || "";
+  const others = (state.playlists || [])
+    .filter((p) => {
+      if (currentId && String(p.id) === String(currentId)) return false;
+      if (currentSlug && p.shareSlug === currentSlug) return false;
+      return true;
+    })
+    .slice(0, 4);
+  if (!others.length) return "";
+  return `<section class="result-story-section result-other-moments" aria-label="${esc(COPY.result.otherMoments)}">
+    <h2 class="result-section-label">${COPY.result.otherMoments}</h2>
+    <div class="result-memory-row">${others.map((p) => renderResultMemoryCard(p, { escFn: esc })).join("")}</div>
+  </section>`;
+}
+
+function renderTechnicalBuiltAccordion(expl) {
+  if (!expl) return "";
+  const technicalHtml = buildTechnicalExplanationHtml(expl);
+  if (!technicalHtml.trim()) return "";
+  return `<details class="result-built-details">
+    <summary>${COPY.result.seeHowBuilt}</summary>
+    <div class="explain-panel explain-panel--built">${technicalHtml}</div>
+  </details>`;
 }
 
 function buildMemorySummaryHtml(result, trustLabels, extras = {}) {
@@ -1538,6 +1578,24 @@ function wireResultPosterArt(tracks) {
   const poster = document.getElementById("resultPoster");
   if (!poster) return;
   void applyArtAccentToPoster(poster, resultArtUrls(tracks));
+}
+
+function wireResultStorySections() {
+  const sections = document.querySelectorAll(".result-story-section");
+  if (!sections.length) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    sections.forEach((el) => el.classList.add("is-visible"));
+    return;
+  }
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+  sections.forEach((el) => observer.observe(el));
 }
 
 function buildThinLibraryDetailHtml(result) {
@@ -1601,6 +1659,26 @@ function buildCoherenceBadgeHtml(coherence, sceneLockStatus, coherenceGate, swap
   </div>`;
 }
 
+function buildWorldUnderstandingHtml(world) {
+  if (!world) return "";
+  const list = (items) => (items && items.length ? items.map((x) => `✓ ${esc(x)}`).join("<br>") : "—");
+  const musicGenres = (world.musicDirection?.preferredGenres || []).slice(0, 4).join(", ") || "—";
+  const textures = (world.musicDirection?.textures || []).slice(0, 4).join(", ") || "—";
+  const concepts = (world.matchedConcepts || []).slice(0, 10).map(esc).join(" · ") || "—";
+  return `<div class="intent-understanding-card intent-understanding-card--world">
+    <div class="intent-understanding-title">World understanding</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>User input:</strong> ${esc(world.originalPrompt || "")}</div>
+    <div class="intent-understanding-line"><strong>Scene:</strong> ${esc(world.scene?.label || "—")}</div>
+    <div class="intent-understanding-line intent-understanding-muted">${esc(world.scene?.humanSummary || "")}</div>
+    <div class="intent-understanding-line"><strong>Environment:</strong><br>${list(world.understoodAs?.environment)}</div>
+    <div class="intent-understanding-line"><strong>Emotion:</strong><br>${list(world.understoodAs?.emotion)}</div>
+    <div class="intent-understanding-line"><strong>Sensory:</strong><br>${list(world.understoodAs?.sensory)}</div>
+    <div class="intent-understanding-line"><strong>Life context:</strong><br>${list(world.understoodAs?.lifeContext)}</div>
+    <div class="intent-understanding-line"><strong>Music direction:</strong> ${esc(musicGenres)} · ${esc(textures)} · ${esc(world.musicDirection?.energyLabel || "")} (${Math.round((world.musicDirection?.energy || 0) * 100)}%)</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Matched concepts:</strong> ${concepts}</div>
+  </div>`;
+}
+
 function buildIntentUnderstandingHtml(intent, coherence, opts = {}) {
   const decomposed = opts.decomposed || null;
   if (!intent && !decomposed) return "";
@@ -1642,6 +1720,7 @@ function buildIntentUnderstandingHtml(intent, coherence, opts = {}) {
       : ""}
     ${conf !== null ? `<div class="intent-understanding-line intent-understanding-muted">Intent confidence: ${conf}%</div>` : ""}
     ${coherenceLine}
+    ${buildWorldUnderstandingHtml(intent?.worldUnderstanding)}
   </div>`;
 }
 
@@ -1790,6 +1869,7 @@ function resultHtml(result) {
 
   const hasExplain = !!(result.v3Diagnostics?.playlistExplanation || result.playlistExplanation);
   const playlistExplanation = result.v3Diagnostics?.playlistExplanation || result.playlistExplanation;
+  const seeHowBuiltHtml = hasExplain ? renderTechnicalBuiltAccordion(playlistExplanation) : "";
   const explainSectionHtml = debugModeEnabled() && hasExplain ? renderPlaylistExplanation(playlistExplanation) : "";
 
   const tracks = Array.isArray(result.tracks) ? result.tracks : [];
@@ -1797,20 +1877,17 @@ function resultHtml(result) {
   const shareSlug = result.shareSlug || "";
   const posterTitleLines = formatPosterTitleLines(result);
   const posterTitleHtml = posterTitleLines.map((line) => `<span class="result-poster-title-line">${esc(line)}</span>`).join("");
-  const rawPosterTitle = formatPosterTitle(result);
   const originalPrompt = result.vibe || result.prompt || "";
   const posterSubtitle = buildResultNarrativeSubtitle(result, originalPrompt);
-  const libraryMeta = result.noLibraryMode ? "From across Spotify" : "From your library";
   const artUrls = resultArtUrls(tracks);
-  const backdropHtml = artUrls.length
-    ? `<div class="art-backdrop art-backdrop--cinematic" aria-hidden="true"><img src="${esc(artUrls[0])}" alt="" class="art-backdrop-img art-backdrop-img--hero" loading="eager"></div>`
-    : "";
+  const backdropHtml = buildArtBackdropHtml(artUrls);
   const promptEcho = originalPrompt
     ? `<blockquote class="result-poster-prompt">"${esc(originalPrompt)}"</blockquote>`
     : "";
 
-  const feelingHtml = buildFeelingSection(result, originalPrompt);
+  const momentHtml = buildMomentSection(result, originalPrompt);
   const whyItFitsHtml = buildWhyItFitsHtml(result, trustChips, playlistExplanation);
+  const otherMomentsHtml = buildOtherMomentsHtml(result);
 
   const noticesHtml = [
     cacheNotice,
@@ -1819,26 +1896,22 @@ function resultHtml(result) {
   ].filter(Boolean).join("");
 
   const tracksHtml = tracks.length ? `
-  <section class="track-reveal track-reveal--credits" aria-label="Tracks">
+  <section class="result-story-section track-reveal track-reveal--credits" aria-label="${esc(COPY.result.soundtrack)}">
     <div class="track-reveal-head">
-      <h2 class="result-section-label">The soundtrack</h2>
-      <span class="track-reveal-meta">${count} songs</span>
+      <h2 class="result-section-label">${COPY.result.soundtrack}</h2>
+      <span class="track-reveal-meta">${COPY.result.songs(count)}</span>
     </div>
     <div class="tracks-list tracks-list--credits" id="resultTracksList">
     ${tracks.map((t, i) => {
       const title = t.trackName || t.name || "Unknown track";
       const artist = t.artistName || t.artist || "Unknown artist";
       const art = t.albumArt || t.album_art;
-      const badge = trackMomentBadge(t, i, tracks.length);
-      const badgeHtml = badge ? `<span class="${badge.className}">${esc(badge.text)}</span>` : "";
       return `
       <div class="track-row track-row--credits" data-track-index="${i}" style="--track-i:${i}">
-        <span class="track-num">${String(i + 1).padStart(2, "0")}</span>
         <div class="track-art track-art--credits">${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : ""}</div>
         <div class="track-info">
           <div class="track-name">${esc(title)}</div>
           <div class="track-artist">${esc(artist)}</div>
-          ${badgeHtml}
         </div>
         <div class="track-actions track-actions--credits">
           <button class="section-action feedback-track-btn" data-action="skip" data-track-index="${i}" data-playlist-id="${playlistId}" title="Skip this track" aria-label="Skip this track">⏭</button>
@@ -1871,44 +1944,50 @@ function resultHtml(result) {
     <header class="result-poster result-poster--album" id="resultPoster">
       ${backdropHtml}
       <div class="result-poster-overlay"></div>
-      <div class="result-poster-inner">
-        <p class="result-poster-eyebrow">Your soundtrack</p>
-        <h2 class="result-poster-title">${posterTitleHtml}</h2>
-        ${promptEcho}
-        <p class="result-poster-subtitle">${esc(posterSubtitle)}</p>
-        <div class="result-poster-actions">
-          ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-lg result-poster-play result-poster-play--pill">${spi()} Play on Spotify</a>` : ""}
-          ${shareSlug ? `
-          <div class="result-poster-secondary">
-            <a href="/p/${esc(shareSlug)}" class="btn btn-ghost btn-sm">Share</a>
-            <button type="button" class="btn btn-ghost btn-sm" id="copyShareLinkBtn" data-share-slug="${esc(shareSlug)}">Copy link</button>
-          </div>
-          ` : ""}
+      <div class="result-poster-stage">
+        <div class="result-poster-copy">
+          <p class="result-poster-eyebrow">${COPY.result.eyebrow}</p>
+          <h2 class="result-poster-title">${posterTitleHtml}</h2>
+          ${promptEcho}
+          <p class="result-poster-subtitle">${esc(posterSubtitle)}</p>
         </div>
-        <p class="result-poster-meta">${count} songs · ${esc(libraryMeta)}</p>
+        <div class="result-poster-actions">
+          ${result.spotifyPlaylistUrl ? `<a href="${esc(result.spotifyPlaylistUrl)}" target="_blank" rel="noopener" class="btn btn-spotify-hero result-poster-play">${COPY.result.openSpotify}</a>` : ""}
+          ${shareSlug ? `<a href="/p/${esc(shareSlug)}" class="btn btn-secondary-hero">${COPY.result.share}</a>` : ""}
+          ${shareSlug ? `<button type="button" class="btn btn-secondary-hero" id="copyShareLinkBtn" data-share-slug="${esc(shareSlug)}">${COPY.result.copyLink}</button>` : ""}
+        </div>
       </div>
     </header>
 
     ${noticesHtml ? `<div class="result-quiet-notices">${noticesHtml}</div>` : ""}
 
-    ${journeyActsHtml}
+    ${momentHtml}
 
-    ${feelingHtml}
+    ${journeyActsHtml}
 
     ${whyItFitsHtml}
 
     ${tracksHtml}
 
-    ${shapeHtml ? `
+    ${shapeHtml || seeHowBuiltHtml ? `
     <footer class="result-shape-footer">
+      ${shapeHtml ? `
       <details class="result-shape-panel">
-        <summary>Shape this soundtrack</summary>
+        <summary>${COPY.result.shape}</summary>
         <div class="result-shape-body">${shapeHtml}</div>
-      </details>
+      </details>` : ""}
+      ${seeHowBuiltHtml}
       ${technicalMetaHtml}
     </footer>` : technicalMetaHtml}
+
+    ${otherMomentsHtml}
   </div>
   ${debugHtml}${explainSectionHtml}`;
+}
+
+function wireResultReveal(result) {
+  if (result?.tracks) wireResultPosterArt(result.tracks);
+  wireResultStorySections();
 }
 
 // ── Why this playlist ─────────────────────────────────────────────────────────
@@ -1965,11 +2044,7 @@ function buildExplainEmotionalLead(expl) {
     </div>`;
 }
 
-function renderPlaylistExplanation(expl) {
-  if (!expl) {
-    return `<section class="result-why-section"><div class="explain-card explain-card--empty">No explanation data for this playlist yet.</div></section>`;
-  }
-
+function buildTechnicalExplanationHtml(expl) {
   const intent = expl.intentSummary || {};
   const laneList = expl.laneDetails || [];
   const clusters = expl.clusterMap || {};
@@ -2009,7 +2084,7 @@ function renderPlaylistExplanation(expl) {
   </div>`;
 
   const laneSorted = [...laneList].sort((a, b) => b.pctContribution - a.pctContribution);
-  const laneHtml = `
+  const laneHtml = laneSorted.length ? `
   <div class="explain-card">
     <div class="explain-card-title">How tracks were chosen</div>
     <div class="explain-lane-list">
@@ -2024,7 +2099,7 @@ function renderPlaylistExplanation(expl) {
         </div>`;
       }).join("")}
     </div>
-  </div>`;
+  </div>` : "";
 
   const clusterEntries = Object.entries(clusters)
     .filter(([, v]) => (v.trackCount || 0) > 0 || (v.weightContribution || 0) > 0)
@@ -2106,8 +2181,16 @@ function renderPlaylistExplanation(expl) {
     </div>` : ""}
   </div>`;
 
+  return `${intentHtml}${laneHtml}${clusterHtml}${diversityHtml}${selHtml}`;
+}
+
+function renderPlaylistExplanation(expl) {
+  if (!expl) {
+    return `<section class="result-why-section"><div class="explain-card explain-card--empty">No explanation data for this playlist yet.</div></section>`;
+  }
+
   const emotionalLead = buildExplainEmotionalLead(expl);
-  const technicalHtml = `${intentHtml}${laneHtml}${clusterHtml}${diversityHtml}${selHtml}`;
+  const technicalHtml = buildTechnicalExplanationHtml(expl);
 
   return `<section class="result-why-section">
     ${emotionalLead}

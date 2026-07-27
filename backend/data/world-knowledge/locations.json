@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "concepts": [
+    { "id": "motorway", "label": "motorway", "synonyms": ["motorway", "m25", "a road", "dual carriageway", "empty road", "highway"], "enclosed": false },
+    { "id": "car", "label": "car", "synonyms": ["car", "vehicle", "driver seat", "passenger seat", "dashboard", "windscreen"], "enclosed": true },
+    { "id": "bedroom", "label": "bedroom", "synonyms": ["bedroom", "bed", "room", "under the covers", "pillow"], "enclosed": true },
+    { "id": "city", "label": "city", "synonyms": ["city", "urban", "streets", "downtown", "town centre", "high street"], "enclosed": false },
+    { "id": "countryside", "label": "countryside", "synonyms": ["countryside", "country lanes", "fields", "rural", "village", "green belt"], "enclosed": false },
+    { "id": "beach", "label": "beach", "synonyms": ["beach", "coast", "seaside", "shore", "coastal drive", "promenade"], "enclosed": false },
+    { "id": "home", "label": "home", "synonyms": ["home", "back home", "my place", "flat", "house", "front door"], "enclosed": true },
+    { "id": "pub", "label": "pub", "synonyms": ["pub", "local", "bar", "after the pub", "last orders"], "enclosed": true },
+    { "id": "train", "label": "train", "synonyms": ["train", "platform", "last train", "tube", "underground", "railway"], "enclosed": true },
+    { "id": "estate", "label": "estate", "synonyms": ["estate", "council estate", "blocks", "estate lights", "tower block"], "enclosed": false },
+    { "id": "uni_halls", "label": "uni halls", "synonyms": ["uni halls", "halls", "university", "campus", "student flat", "freshers"], "enclosed": true },
+    { "id": "petrol_station", "label": "petrol station", "synonyms": ["petrol station", "service station", "forecourt", "garage at night"], "enclosed": false }
+  ]
+}

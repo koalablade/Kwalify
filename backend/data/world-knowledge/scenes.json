@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "scenes": [
+    {
+      "id": "REFLECTIVE_AVOIDANCE_JOURNEY",
+      "label": "Reflective avoidance journey",
+      "humanSummary": "Taking the long way — not ready to return yet, needing space to think while the road carries you.",
+      "requires": { "activity": ["driving", "travelling"], "emotion": ["avoidance", "reflection"] },
+      "boostWhen": { "time": ["night", "late_night"], "social": ["alone"], "lifeContext": ["transition"] },
+      "properties": {
+        "environment": ["night", "road", "car"],
+        "emotion": ["reflection", "avoidance", "processing"],
+        "musicBehaviourId": "rainy_motorway_night"
+      }
+    },
+    {
+      "id": "INTROSPECTIVE_PRIVACY",
+      "label": "Introspective privacy",
+      "humanSummary": "A private moment turned inward — lights low, world outside, thoughts taking centre stage.",
+      "requires": { "emotion": ["introspection", "privacy"] },
+      "boostWhen": { "environment": ["home", "bedroom"], "social": ["alone"] },
+      "properties": {
+        "environment": ["home"],
+        "emotion": ["introspection", "peace", "privacy"],
+        "musicBehaviourId": "quiet_aftermath"
+      }
+    },
+    {
+      "id": "MENTAL_RESET_WALK",
+      "label": "Mental reset walk",
+      "humanSummary": "Walking until the weight lifts — movement as emotional processing.",
+      "requires": { "activity": ["walking"] },
+      "boostWhen": { "emotion": ["relief", "reflection"], "environment": ["city"] },
+      "properties": {
+        "environment": ["city", "streets"],
+        "emotion": ["reflection", "relief"],
+        "musicBehaviourId": "departure_walk"
+      }
+    },
+    {
+      "id": "SUMMER_TRANSITION",
+      "label": "Summer transition",
+      "humanSummary": "The end of a season — nostalgia for what's passing, quiet awareness of change.",
+      "requires": { "emotion": ["nostalgia", "bittersweet"] },
+      "boostWhen": { "time": ["evening"], "weather": ["sun"], "lifeContext": ["childhood_memories"] },
+      "properties": {
+        "emotion": ["nostalgia", "bittersweet", "reflection"],
+        "musicBehaviourId": "nostalgic_warm"
+      }
+    },
+    {
+      "id": "LATE_NIGHT_SOLITARY_JOURNEY",
+      "label": "Late night solitary journey",
+      "humanSummary": "A solitary late-night journey through darkness — enclosed space, rain reflections, quiet thoughts, freedom mixed with loneliness.",
+      "requires": { "activity": ["driving"], "time": ["late_night", "midnight", "night"], "social": ["alone"] },
+      "boostWhen": { "weather": ["rain"], "environment": ["motorway", "car"], "sensory": ["windscreen"] },
+      "properties": {
+        "environment": ["night", "rain", "car", "motorway"],
+        "emotion": ["reflection", "peace", "loneliness"],
+        "musicBehaviourId": "rainy_motorway_night"
+      }
+    },
+    {
+      "id": "QUIET_AFTERMATH",
+      "label": "Quiet aftermath",
+      "humanSummary": "The room after everyone has gone — still air, leftover warmth, thoughts catching up.",
+      "requires": { "social": ["leaving_party"] },
+      "boostWhen": { "emotion": ["reflection", "loneliness"] },
+      "properties": {
+        "environment": ["home"],
+        "emotion": ["reflection", "loneliness", "peace"],
+        "musicBehaviourId": "quiet_aftermath"
+      }
+    },
+    {
+      "id": "FRESH_START_ALONE",
+      "label": "Fresh start alone",
+      "humanSummary": "Standing in a new space for the first time — boxes, possibility, nervous hope.",
+      "requires": { "lifeContext": ["moving_house", "fresh_start"] },
+      "boostWhen": { "emotion": ["hope", "anticipation"] },
+      "properties": {
+        "environment": ["home"],
+        "emotion": ["hope", "anticipation"],
+        "musicBehaviourId": "fresh_start"
+      }
+    },
+    {
+      "id": "NOSTALGIC_RETURN",
+      "label": "Nostalgic return",
+      "humanSummary": "Returning to somewhere that holds old versions of you — memory layered over the present.",
+      "requires": { "emotion": ["nostalgia"] },
+      "boostWhen": { "lifeContext": ["childhood_memories", "old_friends"], "environment": ["home", "uni_halls"] },
+      "properties": {
+        "emotion": ["nostalgia", "reflection", "bittersweet"],
+        "musicBehaviourId": "nostalgic_warm"
+      }
+    },
+    {
+      "id": "DOMESTIC_QUIET",
+      "label": "Domestic quiet",
+      "humanSummary": "An ordinary activity at home — cooking, cleaning, studying — with the world softened around the edges.",
+      "requires": { "activity": ["cooking", "cleaning", "studying", "working", "waiting"] },
+      "boostWhen": { "emotion": ["peace", "reflection"], "social": ["alone"], "environment": ["home", "bedroom"] },
+      "properties": {
+        "environment": ["home"],
+        "emotion": ["peace", "reflection"],
+        "musicBehaviourId": "grey_sunday"
+      }
+    },
+    {
+      "id": "WEATHER_REFLECTION",
+      "label": "Weather reflection",
+      "humanSummary": "Weather sets the emotional tone — rain, grey skies, or cold air shaping a quiet inward moment.",
+      "requires": { "weather": ["rain", "grey", "snow", "fog", "storm"] },
+      "boostWhen": { "emotion": ["reflection", "peace", "sadness"], "social": ["alone"] },
+      "properties": {
+        "environment": ["rain", "grey", "home"],
+        "emotion": ["reflection", "peace"],
+        "musicBehaviourId": "grey_sunday"
+      }
+    },
+    {
+      "id": "UK_GREY_SUNDAY_INDOORS",
+      "label": "Grey Sunday indoors",
+      "humanSummary": "A soft grey British Sunday — tea, rain on the window, nowhere urgent to be.",
+      "requires": { "time": ["sunday"], "weather": ["grey", "rain"] },
+      "boostWhen": { "social": ["alone"], "environment": ["home"] },
+      "properties": {
+        "environment": ["home"],
+        "emotion": ["peace", "reflection"],
+        "musicBehaviourId": "grey_sunday"
+      }
+    },
+    {
+      "id": "DEPARTURE_WALK",
+      "label": "Departure walk",
+      "humanSummary": "Walking away after goodbye — cold air, distance growing, processing what was said.",
+      "requires": { "activity": ["walking"] },
+      "boostWhen": { "emotion": ["sadness", "grief"], "social": ["alone"] },
+      "properties": {
+        "emotion": ["sadness", "reflection", "grief"],
+        "musicBehaviourId": "departure_walk"
+      }
+    },
+    {
+      "id": "NOCTURNAL_ESCAPE_DRIVE",
+      "label": "Nocturnal escape drive",
+      "humanSummary": "Couldn't sleep so you drove — insomnia, escape, headlights cutting through quiet streets.",
+      "requires": { "activity": ["driving", "sleeping"], "time": ["late_night"] },
+      "boostWhen": { "social": ["alone"], "emotion": ["anxiety", "reflection"] },
+      "properties": {
+        "environment": ["car", "city"],
+        "emotion": ["reflection", "anxiety", "freedom"],
+        "musicBehaviourId": "nocturnal_escape"
+      }
+    },
+    {
+      "id": "COASTAL_OPEN_ROAD",
+      "label": "Coastal open road",
+      "humanSummary": "Sea air through open windows — movement, light, the feeling of going somewhere better.",
+      "requires": { "environment": ["beach"], "activity": ["driving"] },
+      "boostWhen": { "emotion": ["freedom", "hope"], "weather": ["sun"] },
+      "properties": {
+        "environment": ["beach", "car"],
+        "emotion": ["freedom", "hope"],
+        "musicBehaviourId": "coastal_drive"
+      }
+    }
+  ]
+}

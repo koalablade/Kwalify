@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "concepts": [
+    { "id": "alone", "label": "alone", "synonyms": ["alone", "by myself", "on my own", "solitary", "nobody else", "just me"], "social": "alone" },
+    { "id": "with_friends", "label": "with friends", "synonyms": ["with friends", "mates", "the lads", "the girls", "crew", "squad"], "social": "friends" },
+    { "id": "first_date", "label": "first date", "synonyms": ["first date", "meeting someone", "nervous date", "new romance"], "social": "partner" },
+    { "id": "family_gathering", "label": "family gathering", "synonyms": ["family", "relatives", "christmas dinner", "sunday roast", "parents house"], "social": "family" },
+    { "id": "leaving_party", "label": "leaving party", "synonyms": ["leaving party", "after everyone left", "last to leave", "empty room", "lights still on"], "social": "alone" },
+    { "id": "coming_home", "label": "coming home", "synonyms": ["coming home", "back home", "walking in the door", "finally home"], "social": "alone" },
+    { "id": "breakup", "label": "breakup", "synonyms": ["breakup", "split up", "ex", "heartbreak", "it's over", "said goodbye"], "social": "alone" },
+    { "id": "reunion", "label": "reunion", "synonyms": ["reunion", "seeing old friends", "caught up", "haven't seen in years"], "social": "friends" }
+  ]
+}

@@ -5043,6 +5043,7 @@ router.get("/generate/preview", (req, res): void => {
       intentUnderstanding: buildIntentUnderstandingDiagnostics({
         prompt: vibe,
         profile,
+        includeWorldUnderstanding: req.query.debug === "1" || req.query.debug === "true",
       }),
       ...(() => {
         const previewMode = typeof req.query.mode === "string" &&
@@ -6733,6 +6734,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       prompt: vibe,
       profile: emotionProfile,
       lockedIntent: parsedCsspIntent,
+      includeWorldUnderstanding: debugMode,
     });
     mergedScenePrediction = mergeScenePredictions(
       intentUnderstandingDiagnostics.scenePrediction,

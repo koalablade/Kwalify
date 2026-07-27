@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "concepts": [
+    { "id": "nostalgia", "label": "nostalgia", "synonyms": ["nostalgic", "old memories", "remember when", "used to", "back then", "childhood", "school memories"], "valence": 0.55, "energy": 0.35, "weight": 1.0 },
+    { "id": "reflection", "label": "reflection", "synonyms": ["reflecting", "thinking", "processing", "in my head", "mind wandering", "quiet thoughts"], "valence": 0.5, "energy": 0.25, "weight": 1.0 },
+    { "id": "peace", "label": "peace", "synonyms": ["peaceful", "calm", "serene", "still", "quiet inside", "at ease", "content"], "valence": 0.7, "energy": 0.2, "weight": 1.0 },
+    { "id": "loneliness", "label": "loneliness", "synonyms": ["lonely", "alone with my thoughts", "solitary", "isolated", "on my own", "nobody around"], "valence": 0.35, "energy": 0.3, "weight": 1.0 },
+    { "id": "hope", "label": "hope", "synonyms": ["hopeful", "optimistic", "looking forward", "new beginning", "fresh start", "light at the end"], "valence": 0.75, "energy": 0.45, "weight": 1.0 },
+    { "id": "sadness", "label": "sadness", "synonyms": ["sad", "down", "low", "heavy heart", "melancholy", "blue", "gutted"], "valence": 0.25, "energy": 0.3, "weight": 1.0 },
+    { "id": "anxiety", "label": "anxiety", "synonyms": ["anxious", "nervous", "on edge", "worried", "stressed", "tense", "can't switch off"], "valence": 0.3, "energy": 0.55, "weight": 1.0 },
+    { "id": "freedom", "label": "freedom", "synonyms": ["free", "liberated", "open road", "no plans", "untethered", "windows down"], "valence": 0.7, "energy": 0.55, "weight": 1.0 },
+    { "id": "confidence", "label": "confidence", "synonyms": ["confident", "powerful", "unstoppable", "boss mode", "charged up"], "valence": 0.8, "energy": 0.75, "weight": 1.0 },
+    { "id": "exhaustion", "label": "exhaustion", "synonyms": ["exhausted", "wrecked", "knackered", "rough night", "burnt out", "running on empty"], "valence": 0.35, "energy": 0.15, "weight": 1.0 },
+    { "id": "longing", "label": "longing", "synonyms": ["missing", "yearning", "wish you were here", "far away", "distance"], "valence": 0.4, "energy": 0.35, "weight": 1.0 },
+    { "id": "bittersweet", "label": "bittersweet", "synonyms": ["bittersweet", "mixed feelings", "happy sad", "smiling through", "complicated"], "valence": 0.5, "energy": 0.4, "weight": 1.0 },
+    { "id": "contentment", "label": "contentment", "synonyms": ["content", "could stay here forever", "perfect moment", "just right", "cosy"], "valence": 0.8, "energy": 0.3, "weight": 1.0 },
+    { "id": "grief", "label": "grief", "synonyms": ["grieving", "mourning", "loss", "goodbye", "after they left", "empty chair"], "valence": 0.2, "energy": 0.25, "weight": 1.0 },
+    { "id": "anticipation", "label": "anticipation", "synonyms": ["anticipating", "waiting for", "almost there", "build up", "butterflies"], "valence": 0.6, "energy": 0.5, "weight": 1.0 },
+    { "id": "avoidance", "label": "avoidance", "synonyms": ["wasn't ready", "not ready to go", "delaying going home", "putting it off", "stalling"], "valence": 0.4, "energy": 0.35, "weight": 1.0 },
+    { "id": "restlessness", "label": "restlessness", "synonyms": ["restless", "couldn't settle", "on edge", "pacing", "wired"], "valence": 0.35, "energy": 0.55, "weight": 1.0 },
+    { "id": "introspection", "label": "introspection", "synonyms": ["introspective", "in my own head", "self reflection", "turned inward", "lights off and thinking"], "valence": 0.5, "energy": 0.25, "weight": 1.0 },
+    { "id": "innocence", "label": "innocence", "synonyms": ["like a kid again", "childlike", "young again", "carefree", "playful memory"], "valence": 0.75, "energy": 0.5, "weight": 1.0 },
+    { "id": "relief", "label": "relief", "synonyms": ["relief", "felt better", "weight lifted", "exhale", "finally calm"], "valence": 0.65, "energy": 0.35, "weight": 1.0 },
+    { "id": "privacy", "label": "privacy", "synonyms": ["private moment", "just me", "nobody watching", "kept the lights off", "my own space"], "valence": 0.6, "energy": 0.25, "weight": 1.0 },
+    { "id": "joy", "label": "joy", "synonyms": ["joyful", "happy", "light hearted", "grinning", "buzzing"], "valence": 0.85, "energy": 0.65, "weight": 1.0 }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "concepts": [
+    { "id": "new_job", "label": "new job", "synonyms": ["new job", "first day at work", "started work", "new office", "career change"], "arc": "fresh_start" },
+    { "id": "graduation", "label": "graduation", "synonyms": ["graduation", "graduated", "finished uni", "degree", "leaving uni"], "arc": "transition" },
+    { "id": "moving_house", "label": "moving house", "synonyms": ["moving house", "new place", "first flat", "first day in my new place", "boxes everywhere", "new chapter"], "arc": "fresh_start" },
+    { "id": "childhood_memories", "label": "childhood memories", "synonyms": ["childhood", "when i was young", "school days", "growing up", "old photos"], "arc": "nostalgia" },
+    { "id": "old_friends", "label": "old friends", "synonyms": ["old friends", "people i used to know", "lost touch", "back in the day"], "arc": "nostalgia" },
+    { "id": "loss", "label": "loss", "synonyms": ["loss", "passed away", "funeral", "grieving", "they're gone"], "arc": "grief" },
+    { "id": "promotion", "label": "promotion", "synonyms": ["promotion", "got the job", "pay rise", "made it"], "arc": "celebration" },
+    { "id": "fresh_start", "label": "fresh start", "synonyms": ["fresh start", "new beginning", "clean slate", "turning point", "starting over"], "arc": "fresh_start" },
+    { "id": "transition", "label": "transition", "synonyms": ["transition", "in between", "crossroads", "long way home", "not ready yet"], "arc": "transition" },
+    { "id": "needing_space", "label": "needing personal space", "synonyms": ["needed space", "personal space", "time to myself", "alone with my thoughts"], "arc": "transition" },
+    { "id": "difficult_period", "label": "difficult period", "synonyms": ["difficult day", "hard day", "rough patch", "tough week", "bad week"], "arc": "grief" },
+    { "id": "mental_reset", "label": "mental reset", "synonyms": ["felt better", "cleared my head", "reset", "walked it off"], "arc": "transition" },
+    { "id": "seasonal_transition", "label": "seasonal transition", "synonyms": ["last day of summer", "end of summer", "season changing", "summer ending"], "arc": "nostalgia" }
+  ]
+}

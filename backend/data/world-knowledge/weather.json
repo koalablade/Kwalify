@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "concepts": [
+    { "id": "rain", "label": "rain", "synonyms": ["rain", "raining", "rainy", "downpour", "drizzle", "wet", "rain on glass", "rain on the windscreen"], "mood": "reflective" },
+    { "id": "snow", "label": "snow", "synonyms": ["snow", "snowing", "snowy", "frost", "icy", "white out"], "mood": "quiet" },
+    { "id": "sun", "label": "sun", "synonyms": ["sun", "sunny", "sunshine", "bright", "golden hour", "sunset", "sunrise"], "mood": "warm" },
+    { "id": "grey", "label": "grey", "synonyms": ["grey", "overcast", "cloudy", "dull", "miserable weather", "grey sunday"], "mood": "melancholic" },
+    { "id": "storm", "label": "storm", "synonyms": ["storm", "thunder", "lightning", "wild weather", "howling wind"], "mood": "tense" },
+    { "id": "fog", "label": "fog", "synonyms": ["fog", "foggy", "mist", "haze", "low visibility"], "mood": "mysterious" },
+    { "id": "wind", "label": "wind", "synonyms": ["wind", "windy", "breeze", "gust", "cold air"], "mood": "restless" }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "entries": [
+    {
+      "name": "rain on windscreen",
+      "concepts": ["solitude", "reflection", "night journey", "enclosed space"],
+      "sensory": ["rain_texture", "windscreen", "enclosed_space"],
+      "music_direction": { "energy": "low-medium", "texture": "warm", "tempo": "slow-medium" }
+    },
+    {
+      "name": "street lights passing",
+      "concepts": ["nocturnal motion", "urban solitude"],
+      "sensory": ["street_lights", "engine_noise"],
+      "music_direction": { "energy": "low-medium", "texture": "atmospheric", "tempo": "slow-medium" }
+    },
+    {
+      "name": "quiet aftermath",
+      "concepts": ["post-social stillness", "intimate silence"],
+      "sensory": ["quiet_aftermath"],
+      "music_direction": { "energy": "low", "texture": "minimal", "tempo": "slow" }
+    },
+    {
+      "name": "warm domestic glow",
+      "concepts": ["shelter", "comfort", "privacy"],
+      "sensory": ["warm_lights"],
+      "music_direction": { "energy": "low", "texture": "cosy", "tempo": "slow" }
+    }
+  ]
+}

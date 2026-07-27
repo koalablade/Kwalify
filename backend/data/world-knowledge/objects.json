@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "concepts": [
+    { "id": "windscreen", "label": "windscreen", "synonyms": ["windscreen", "windshield", "glass", "rain on glass", "rain on the windscreen", "streaks on glass"], "sensory": "visual" },
+    { "id": "street_lights", "label": "street lights", "synonyms": ["street lights", "streetlights", "lampposts", "orange glow", "passing lights"], "sensory": "visual" },
+    { "id": "engine_noise", "label": "engine noise", "synonyms": ["engine", "engine hum", "road noise", "tyres on wet road"], "sensory": "audio" },
+    { "id": "coffee_smell", "label": "coffee smell", "synonyms": ["coffee", "espresso", "brew", "morning coffee", "café smell"], "sensory": "smell" },
+    { "id": "warm_lights", "label": "warm lights", "synonyms": ["warm lights", "lamplight", "fairy lights", "glow", "amber light"], "sensory": "visual" },
+    { "id": "cold_air", "label": "cold air", "synonyms": ["cold air", "chill", "crisp air", "breath visible", "winter air"], "sensory": "touch" },
+    { "id": "radio_low", "label": "radio low", "synonyms": ["radio low", "quiet music in the car", "background song", "faint melody"], "sensory": "audio" },
+    { "id": "wet_pavement", "label": "wet pavement", "synonyms": ["wet pavement", "puddles", "reflections on the ground", "shiny streets"], "sensory": "visual" },
+    { "id": "enclosed_space", "label": "enclosed space", "synonyms": ["enclosed", "inside the car", "cocoon", "bubble", "wrapped in the car"], "sensory": "touch" },
+    { "id": "quiet_aftermath", "label": "quiet aftermath", "synonyms": ["went quiet", "house went quiet", "silence after", "stillness"], "sensory": "audio" },
+    { "id": "rain_texture", "label": "rain texture", "synonyms": ["rain sounds", "rain on glass", "pattering rain", "rain drumming"], "sensory": "audio" }
+  ]
+}
