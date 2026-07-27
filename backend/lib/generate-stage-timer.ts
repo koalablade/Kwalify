@@ -5,6 +5,8 @@
 import type { Logger } from "pino";
 
 export const GENERATE_STAGE_STUCK_MS = 15_000;
+/** Pipeline scoring + compose routinely exceeds 15s on real libraries. */
+export const GENERATE_PIPELINE_STAGE_STUCK_MS = 60_000;
 
 export type GenerateStageTimer = {
   start: (stage: string, meta?: Record<string, unknown>) => void;
@@ -25,7 +27,11 @@ export function createGenerateStageTimer(
   const checkStuck = () => {
     if (!current) return;
     const ms = Date.now() - current.t0;
-    if (ms < GENERATE_STAGE_STUCK_MS) return;
+    const threshold =
+      typeof current.meta?.stuckAfterMs === "number" && current.meta.stuckAfterMs > 0
+        ? current.meta.stuckAfterMs
+        : GENERATE_STAGE_STUCK_MS;
+    if (ms < threshold) return;
     if (stuckWarnedForStage === current.stage) return;
     stuckWarnedForStage = current.stage;
     log.warn(

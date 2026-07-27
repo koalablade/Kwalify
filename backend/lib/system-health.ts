@@ -36,7 +36,7 @@ export function recordSystemOverload(): void {
   const now = Date.now();
   if (now - overloadRecordedLoggedAt < OVERLOAD_RECORDED_LOG_MS) return;
   overloadRecordedLoggedAt = now;
-  log.warn({ healthState: getSystemHealthState() }, "system_overload_recorded");
+  log.debug({ healthState: getSystemHealthState() }, "system_overload_recorded");
 }
 
 export function getSystemHealthState(): SystemHealthState {

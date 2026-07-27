@@ -79,9 +79,10 @@ export const PERCEPTION_SNAPSHOT_CASES: PerceptionSnapshotCase[] = [
   },
   {
     prompt: "cozy winter evening blanket tea",
-    identitySignature: "3a83faa024a7a188",
+    // Re-baselined after world-understanding tone weighting (positive → balanced).
+    identitySignature: "eed1750404289ad5",
     clarityMin: 86,
     clarityMax: 90,
-    momentLabel: "positive winter evening cozy",
+    momentLabel: "balanced winter evening cozy",
   },
 ];

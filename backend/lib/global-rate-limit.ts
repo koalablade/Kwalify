@@ -79,7 +79,13 @@ function isProbePath(path: string): boolean {
 }
 
 const probeLogThrottle = new Map<string, number>();
+const rateLimitLogThrottle = new Map<string, number>();
 const PROBE_LOG_THROTTLE_MS = 60_000;
+const RATE_LIMIT_LOG_THROTTLE_MS = 60_000;
+
+function isGalleryPlaylistRead(req: Request): boolean {
+  return req.method === "GET" && /^\/api\/playlists\/\d+$/.test(req.path);
+}
 
 function logRateLimitRejected(
   req: Request,
@@ -104,7 +110,11 @@ function logRateLimitRejected(
     log.debug(payload, "global_rate_limit_probe_rejected");
     return;
   }
-  log.warn(payload, "global_rate_limit_rejected");
+  const now = Date.now();
+  const last = rateLimitLogThrottle.get(key) ?? 0;
+  if (now - last < RATE_LIMIT_LOG_THROTTLE_MS) return;
+  rateLimitLogThrottle.set(key, now);
+  log.debug(payload, "global_rate_limit_rejected");
 }
 
 export function globalRateLimit(req: Request, res: Response, next: NextFunction): void {
@@ -121,7 +131,8 @@ export function globalRateLimit(req: Request, res: Response, next: NextFunction)
   windows.set(key, state);
 
   const minuteExceeded = state.timestamps.length >= GLOBAL_RATE_LIMIT_PER_MINUTE;
-  const burstExceeded = state.burstTimestamps.length >= GLOBAL_RATE_LIMIT_BURST;
+  const burstExceeded =
+    !isGalleryPlaylistRead(req) && state.burstTimestamps.length >= GLOBAL_RATE_LIMIT_BURST;
   if (minuteExceeded || burstExceeded) {
     const resetInMs = minuteExceeded
       ? (state.timestamps[0] ?? now) + GLOBAL_RATE_LIMIT_WINDOW_MS - now

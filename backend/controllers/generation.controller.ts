@@ -104,7 +104,7 @@ import {
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { getDiscoveryModeReadiness } from "../lib/discovery-mode";
 import { isShuttingDown } from "../lib/shutdown";
-import { createGenerateStageTimer } from "../lib/generate-stage-timer";
+import { createGenerateStageTimer, GENERATE_PIPELINE_STAGE_STUCK_MS } from "../lib/generate-stage-timer";
 import { buildFallbackPipelineResult, buildCachedGenerateResponse, buildFastFallbackSceneContext, formatTracksForApi } from "../lib/generate-helpers";
 import { attachScoreAttribution } from "../core/scoring-engine/score-breakdown";
 import { repairHumanTastePlaylist } from "../lib/human-taste-validator";
@@ -5814,7 +5814,12 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     let { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
     if (droppedTracks > 0) {
-      req.log.info({ droppedTracks, userId }, "Dropped invalid liked-song rows");
+      const logDropped = droppedTracks >= 10 || (likedRowsRaw.length > 0 && droppedTracks / likedRowsRaw.length >= 0.05);
+      (logDropped ? req.log.info : req.log.debug).call(
+        req.log,
+        { droppedTracks, userId, totalRows: likedRowsRaw.length },
+        "Dropped invalid liked-song rows"
+      );
     }
 
     let noLibrarySpotifyCandidateCount = 0;
@@ -7098,6 +7103,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     stageTimer.start("Running playlist pipeline (scoring + compose)", {
       tracks: scoringInputSongs.length,
       stackFromCache,
+      stuckAfterMs: GENERATE_PIPELINE_STAGE_STUCK_MS,
     });
     preV3Timing.totalBeforeV3Ms = Date.now() - startMs;
     const preV3PerformanceReport = debugPerformance ? buildPreV3PerformanceReport(preV3Timing) : null;
@@ -7591,14 +7597,15 @@ router.post("/generate", async (req, res): Promise<void> => {
       constraintLayer,
       userGenreProfile.trackClassifications
     );
-    req.log.info(
+    const intentValidationPassed = validationPassed(finalValidation);
+    req.log[intentValidationPassed ? "info" : "debug"](
       {
         lockedIntent,
         finalValidation,
         finalCount: delivery.tracks.length,
-        validationPassed: validationPassed(finalValidation),
+        validationPassed: intentValidationPassed,
       },
-      validationPassed(finalValidation)
+      intentValidationPassed
         ? "Locked intent final validation"
         : "Locked intent validation failed after hard filter"
     );

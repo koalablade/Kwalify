@@ -15,6 +15,14 @@ const SPOTIFY_AUTH_BASE = "https://accounts.spotify.com";
 
 let audioFeatures403FallbackLogged = false;
 let audioFeatures403ForbiddenLogged = false;
+let artistGenres403ForbiddenLogged = false;
+let albumMetadata403ForbiddenLogged = false;
+
+/** Never log raw axios errors — they include Authorization headers. */
+export function spotifyErrorFields(err: unknown): { status?: number; message?: string } {
+  const e = err as { response?: { status?: number }; message?: string };
+  return { status: e?.response?.status, message: e?.message };
+}
 
 export interface SpotifyTokens {
   accessToken: string;
@@ -63,21 +71,39 @@ export async function fetchArtistGenres(
 ): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
   const uniqueIds = [...new Set(artistIds.filter(Boolean))];
+  let stopped403 = false;
   for (let i = 0; i < uniqueIds.length; i += 50) {
+    if (stopped403) break;
     const batch = uniqueIds.slice(i, i + 50);
-    const response = await spotifyRequest<any>(
-      {
-        method: "GET",
-        url: `${SPOTIFY_API_BASE}/artists`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: { ids: batch.join(",") },
-      },
-      { userKey: opts?.userKey, maxRetries: opts?.maxRetries, requestTimeoutMs: opts?.requestTimeoutMs }
-    );
-    for (const artist of response.data.artists ?? []) {
-      if (artist?.id) out.set(artist.id, Array.isArray(artist.genres) ? artist.genres : []);
+    try {
+      const response = await spotifyRequest<any>(
+        {
+          method: "GET",
+          url: `${SPOTIFY_API_BASE}/artists`,
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { ids: batch.join(",") },
+        },
+        { userKey: opts?.userKey, maxRetries: opts?.maxRetries, requestTimeoutMs: opts?.requestTimeoutMs }
+      );
+      for (const artist of response.data.artists ?? []) {
+        if (artist?.id) out.set(artist.id, Array.isArray(artist.genres) ? artist.genres : []);
+      }
+    } catch (err: unknown) {
+      const status = spotifyErrorFields(err).status;
+      if (status === 403) {
+        stopped403 = true;
+        if (!artistGenres403ForbiddenLogged) {
+          artistGenres403ForbiddenLogged = true;
+          logger.warn(
+            { batchStart: i, totalIds: uniqueIds.length, fetched: out.size },
+            "Artist genres forbidden (403) — skipping Spotify artist genre fetches (API restriction)"
+          );
+        }
+        break;
+      }
+      throw err;
     }
-    if (i + 50 < uniqueIds.length) await new Promise((r) => setTimeout(r, 80));
+    if (i + 50 < uniqueIds.length && !stopped403) await new Promise((r) => setTimeout(r, 80));
   }
   return out;
 }
@@ -89,25 +115,43 @@ export async function fetchAlbumMetadata(
 ): Promise<Map<string, AlbumMetadata>> {
   const out = new Map<string, AlbumMetadata>();
   const uniqueIds = [...new Set(albumIds.filter(Boolean))];
+  let stopped403 = false;
   for (let i = 0; i < uniqueIds.length; i += 20) {
+    if (stopped403) break;
     const batch = uniqueIds.slice(i, i + 20);
-    const response = await spotifyRequest<any>(
-      {
-        method: "GET",
-        url: `${SPOTIFY_API_BASE}/albums`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: { ids: batch.join(","), market: "from_token" },
-      },
-      { userKey: opts?.userKey, maxRetries: opts?.maxRetries, requestTimeoutMs: opts?.requestTimeoutMs }
-    );
-    for (const album of response.data.albums ?? []) {
-      if (!album?.id) continue;
-      out.set(album.id, {
-        genres: Array.isArray(album.genres) ? album.genres : [],
-        releaseYear: releaseYearFromDate(album.release_date),
-      });
+    try {
+      const response = await spotifyRequest<any>(
+        {
+          method: "GET",
+          url: `${SPOTIFY_API_BASE}/albums`,
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { ids: batch.join(","), market: "from_token" },
+        },
+        { userKey: opts?.userKey, maxRetries: opts?.maxRetries, requestTimeoutMs: opts?.requestTimeoutMs }
+      );
+      for (const album of response.data.albums ?? []) {
+        if (!album?.id) continue;
+        out.set(album.id, {
+          genres: Array.isArray(album.genres) ? album.genres : [],
+          releaseYear: releaseYearFromDate(album.release_date),
+        });
+      }
+    } catch (err: unknown) {
+      const status = spotifyErrorFields(err).status;
+      if (status === 403) {
+        stopped403 = true;
+        if (!albumMetadata403ForbiddenLogged) {
+          albumMetadata403ForbiddenLogged = true;
+          logger.warn(
+            { batchStart: i, totalIds: uniqueIds.length, fetched: out.size },
+            "Album metadata forbidden (403) — skipping Spotify album fetches (API restriction)"
+          );
+        }
+        break;
+      }
+      throw err;
     }
-    if (i + 20 < uniqueIds.length) await new Promise((r) => setTimeout(r, 80));
+    if (i + 20 < uniqueIds.length && !stopped403) await new Promise((r) => setTimeout(r, 80));
   }
   return out;
 }
@@ -629,7 +673,7 @@ export async function fetchAudioFeatures(
       }
 
       logger.warn(
-        { err: err?.message, status, batchStart: i },
+        { ...spotifyErrorFields(err), batchStart: i },
         "Audio features fetch failed for batch — skipping batch"
       );
     }

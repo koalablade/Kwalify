@@ -145,6 +145,13 @@ Rotate-WatchdogLog
 Write-Log "health watch started (PID $PID, interval=${IntervalSeconds}s, liveness=/api/livez)"
 
 $consecutiveAliveFailures = Get-PersistedAliveFailures
+if (Test-KwalifyApiAlive) {
+  if ($consecutiveAliveFailures -gt 0) {
+    Write-Log "Cleared $consecutiveAliveFailures stale livez failure(s) on startup — API alive"
+  }
+  $consecutiveAliveFailures = 0
+  Set-PersistedAliveFailures 0
+}
 $failuresBeforeRestart = 5
 
 try {

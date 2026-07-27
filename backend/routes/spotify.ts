@@ -17,6 +17,7 @@ import {
   enrichTrackMetadata,
   getValidAccessToken,
   getClientCredentialsToken,
+  spotifyErrorFields,
   type SpotifyTrack,
 } from "../lib/spotify";
 import { logger } from "../lib/logger";
@@ -402,10 +403,10 @@ export async function runSync(
           newTracks.flatMap((track) => track.artists.map((artist) => artist.id).filter((id): id is string => !!id)),
           { userKey: userId }
         );
-      } catch (err: any) {
-        const status = err?.response?.status;
+      } catch (err: unknown) {
+        const status = spotifyErrorFields(err).status;
         const level = status === 403 ? "info" : "warn";
-        logger[level]({ err, status }, "Artist genre enrichment failed; continuing sync");
+        logger[level]({ ...spotifyErrorFields(err), status }, "Artist genre enrichment failed; continuing sync");
       }
       try {
         albumMetadataMap = await fetchAlbumMetadata(
@@ -413,10 +414,10 @@ export async function runSync(
           newTracks.map((track) => track.album.id).filter((id): id is string => !!id),
           { userKey: userId }
         );
-      } catch (err: any) {
-        const status = err?.response?.status;
+      } catch (err: unknown) {
+        const status = spotifyErrorFields(err).status;
         const level = status === 403 ? "info" : "warn";
-        logger[level]({ err, status }, "Album metadata enrichment failed; continuing sync");
+        logger[level]({ ...spotifyErrorFields(err), status }, "Album metadata enrichment failed; continuing sync");
       }
       for (const track of newTracks) {
         const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
@@ -621,7 +622,7 @@ export async function runSync(
     );
   } catch (err) {
     recordSyncFailure({ userId, phase: "sync_run", message: err instanceof Error ? err.message : String(err) });
-    logger.error({ err, userId }, "Sync failed");
+    logger.error({ ...spotifyErrorFields(err), userId }, "Sync failed");
 
     await db
       .update(syncStatusTable)

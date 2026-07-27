@@ -26,6 +26,17 @@ function Rotate-OversizedLauncherLog {
 
 Rotate-OversizedLauncherLog
 
+function Read-JsonFileUtf8([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path)) { return $null }
+  try {
+    $raw = [System.IO.File]::ReadAllText($Path).TrimStart([char]0xFEFF)
+    if (-not $raw) { return $null }
+    return $raw | ConvertFrom-Json
+  } catch {
+    return $null
+  }
+}
+
 function Clear-StaleBenchmarkLock {
   if (-not (Test-Path -LiteralPath $script:LauncherLock)) { return $false }
   try {

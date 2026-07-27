@@ -11,7 +11,7 @@ function logOverloadThrottled(limiterName: string, payload: Record<string, unkno
   const last = overloadLogThrottle.get(limiterName) ?? 0;
   if (now - last < OVERLOAD_LOG_THROTTLE_MS) return;
   overloadLogThrottle.set(limiterName, now);
-  log.warn({ limiter: limiterName, ...payload }, message);
+  log.debug({ limiter: limiterName, ...payload }, message);
 }
 
 type Waiter = {
@@ -63,7 +63,10 @@ export function createConcurrencyLimiter(opts: {
 
   const logOverloadIfNeeded = (): void => {
     const snapshot = state();
-    if (snapshot.queued < overloadQueueThreshold && snapshot.averageLatencyMs < overloadLatencyMs) return;
+    const queuePressure = snapshot.queued >= overloadQueueThreshold;
+    // Slow lone requests are normal for playlist generation — only treat latency as overload when the queue is backing up.
+    const latencyPressure = snapshot.queued > 0 && snapshot.averageLatencyMs >= overloadLatencyMs;
+    if (!queuePressure && !latencyPressure) return;
     recordSystemOverload();
     logOverloadThrottled(opts.name, snapshot, "system_overloaded");
   };

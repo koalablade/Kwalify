@@ -46,6 +46,7 @@ function setHtml(el, html) {
     let pollInFlight = false;
     let pingTimer = null;
     let pollErrorStreak = 0;
+    let lastStuckWarningShown = null;
     const POLL_MS_MIN = 30000;
     const POLL_MS_MAX = 120000;
     let tabVisible = !document.hidden;
@@ -316,7 +317,12 @@ async function api(path, opts = {}) {
       }
 
       if (s.stuckWarning) {
-        addMsg('⚠ Stuck? ' + s.stuckWarning, 'bot', true);
+        if (s.stuckWarning !== lastStuckWarningShown) {
+          lastStuckWarningShown = s.stuckWarning;
+          addMsg('⚠ Stuck? ' + s.stuckWarning, 'bot', true);
+        }
+      } else {
+        lastStuckWarningShown = null;
       }
 
       const hist = document.getElementById('history-list');
