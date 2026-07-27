@@ -518,7 +518,6 @@ if ($Mode -eq "local") {
 } elseif ($Mode -eq "selfhost") {
   $removeHosts = Join-Path $Root "scripts\remove-kwalify-hosts.ps1"
   if (Test-Path -LiteralPath $removeHosts) {
-    Step "Checking hosts file"
     & powershell -NoProfile -ExecutionPolicy Bypass -File $removeHosts -Quiet
   }
   Set-EnvFileLine $envPath "PORT" "5000"
@@ -526,8 +525,10 @@ if ($Mode -eq "local") {
   Set-EnvFileLine $envPath "KWALIFY_HOST_MODE" "selfhost"
   Load-DotEnvFile $envPath
   if (-not $env:APP_URL) {
-    Write-Host "  Self-host not configured. Run setup-self-host.bat first." -ForegroundColor Yellow
-    Exit-Launcher 1 "Run setup-self-host.bat to set your public URL."
+    Set-EnvFileLine $envPath "APP_URL" "https://kwalify.net"
+    Set-EnvFileLine $envPath "FRONTEND_URL" "https://kwalify.net"
+    Set-EnvFileLine $envPath "KWALIFY_EXPOSURE" "cloudflare"
+    Load-DotEnvFile $envPath
   }
   if ($env:NODE_ENV -ne "production") {
     Set-EnvFileLine $envPath "NODE_ENV" "production"
@@ -747,30 +748,45 @@ if ($Mode -eq "selfhost") {
       Step "Starting Cloudflare tunnel"
       & powershell -NoProfile -ExecutionPolicy Bypass -File $tunnelScript -Root $Root
     } else {
-      $cfCert = Join-Path $env:USERPROFILE ".cloudflared\cert.pem"
-      if (Test-Path -LiteralPath $cfCert) {
-        Step "Finishing Cloudflare tunnel setup"
-        $ensure = Join-Path $Root "scripts\ensure-cloudflare-tunnel.ps1"
-        $hostName = ([Uri]$siteUrl).Host
-        & powershell -NoProfile -ExecutionPolicy Bypass -File $ensure -Root $Root -Hostname $hostName
-        if (Test-Path -LiteralPath $tunnelConfig) {
-          & powershell -NoProfile -ExecutionPolicy Bypass -File $tunnelScript -Root $Root
-        }
+      Step "Finishing Cloudflare tunnel setup"
+      $ensure = Join-Path $Root "scripts\ensure-cloudflare-tunnel.ps1"
+      $hostName = ([Uri]$siteUrl).Host
+      & powershell -NoProfile -ExecutionPolicy Bypass -File $ensure -Root $Root -Hostname $hostName
+      if (Test-Path -LiteralPath $tunnelConfig) {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $tunnelScript -Root $Root
+      } else {
+        Exit-Launcher 1 "Cloudflare tunnel not configured. Run start.bat again and complete login."
       }
-      if (-not (Test-Path -LiteralPath $tunnelConfig)) {
-        Write-Host ""
-        Write-Host "  CLOUDFLARE NOT FINISHED - friends cannot reach $siteUrl yet" -ForegroundColor Yellow
-        Write-Host "  Run: Finish Cloudflare Setup on Desktop" -ForegroundColor Yellow
-        Write-Host ""
-        $finishBat = Join-Path $Root "finish-cloudflare-login.bat"
-        if (Test-Path -LiteralPath $finishBat) {
-          $pick = Read-Host '  Open Cloudflare setup now? (Y/n)'
-          if ($pick -eq "" -or $pick -match '^[yY]') {
-            Start-Process -FilePath $finishBat -WorkingDirectory $Root
-            Write-Host "  After setup finishes, run Start Kwalify again." -ForegroundColor Cyan
-          }
-        }
+    }
+
+    Step "Checking public site"
+    $publicOk = $false
+    $deadline = (Get-Date).AddSeconds(30)
+    while ((Get-Date) -lt $deadline) {
+      try {
+        $pub = Invoke-RestMethod "$siteUrl/api/readyz" -TimeoutSec 8
+        if ($pub.status -eq "ready" -or $pub.readiness -eq "ready") { $publicOk = $true; break }
+      } catch {}
+      Start-Sleep -Seconds 2
+    }
+    if (-not $publicOk) {
+      Write-Host "  Public site not reachable yet - fixing DNS..." -ForegroundColor Yellow
+      $fixDns = Join-Path $Root "scripts\fix-cloudflare-dns.ps1"
+      if (Test-Path -LiteralPath $fixDns) {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $fixDns -Root $Root
       }
+      Start-Sleep -Seconds 5
+      try {
+        $pub = Invoke-RestMethod "$siteUrl/api/readyz" -TimeoutSec 12
+        if ($pub.status -eq "ready" -or $pub.readiness -eq "ready") { $publicOk = $true }
+      } catch {}
+    }
+    if ($publicOk) {
+      Write-Host "  Public site ready: $siteUrl" -ForegroundColor Green
+    } else {
+      Write-Host "  Warning: $siteUrl not responding yet." -ForegroundColor Yellow
+      Write-Host "  Keep the Cloudflare Tunnel window open. Error 1033 = tunnel not connected." -ForegroundColor Yellow
+      Write-Host "  Local site still works: http://127.0.0.1:$port" -ForegroundColor DarkGray
     }
   }
   elseif ($exposure -eq "caddy") {
@@ -827,10 +843,17 @@ if ($Mode -eq "domain") {
 if ($Mode -eq "selfhost") {
   if ($lockStream) { $lockStream.Dispose(); $lockStream = $null }
   Start-Process $siteUrl | Out-Null
-  Write-Host "  Self-host running - API on 0.0.0.0:$port"
-  Write-Host "  Public URL: $siteUrl"
-  Write-Host "  Logs: kwalify-api.log"
-  Write-Host "  Stop: stop-kwalify.bat"
+  Write-Host ""
+  Write-Host "  ========================================" -ForegroundColor Green
+  Write-Host "  KWALIFY IS RUNNING" -ForegroundColor Green
+  Write-Host "  ========================================" -ForegroundColor Green
+  Write-Host "  Site:    $siteUrl"
+  Write-Host "  Status:  $siteUrl/status"
+  Write-Host "  Logs:    kwalify-api.log"
+  Write-Host ""
+  Write-Host "  KEEP OPEN: Kwalify API + Cloudflare Tunnel windows"
+  Write-Host "  Stop:      stop-kwalify.bat (or Desktop shortcut)"
+  Write-Host ""
   if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
   exit 0
 }

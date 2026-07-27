@@ -157,10 +157,6 @@ Start-Process "https://developer.spotify.com/dashboard" | Out-Null
 
 Write-Host ""
 Write-Host "  SETUP COMPLETE" -ForegroundColor Green
-if ($Exposure -eq "cloudflare" -and -not (Test-Path -LiteralPath (Join-Path $Root "deploy\cloudflared.yml"))) {
-  Write-Host "  ONE MORE STEP: finish-cloudflare-login.bat" -ForegroundColor Yellow
-}
-Write-Host "  Daily start: Start Kwalify (Beta) on Desktop"
-Write-Host "  Or run: start-kwalify-selfhost.bat"
+Write-Host "  Daily start: double-click start.bat (or Start Kwalify on Desktop)"
 Write-Host "  Status: $siteUrl/status"
 Write-Host ""

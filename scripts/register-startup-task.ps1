@@ -2,10 +2,9 @@
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $TaskName = "Kwalify-SelfHost-Start"
-$Launcher = Join-Path $Root "start-kwalify-selfhost.bat"
-
+$Launcher = Join-Path $Root "start.bat"
 if (-not (Test-Path $Launcher)) {
-  throw "Missing $Launcher"
+  $Launcher = Join-Path $Root "start-kwalify-selfhost.bat"
 }
 
 $action = New-ScheduledTaskAction -Execute $Launcher -WorkingDirectory $Root

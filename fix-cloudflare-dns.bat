@@ -1,12 +1,5 @@
 @echo off
-
-title Fix Cloudflare DNS for kwalify.net
-
+REM DNS fix is automatic when you run start.bat
 cd /d "%~dp0"
-
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\fix-cloudflare-dns.ps1"
-
-echo.
-
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\fix-cloudflare-dns.ps1" -Root "%~dp0"
 pause
-
