@@ -64,14 +64,36 @@ if (Test-Path -LiteralPath $pidFile) {
   Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
 }
 
-$proc = Start-Process -FilePath $cloudflared -ArgumentList @(
-  "tunnel", "--config", $config, "run",
-  "--logfile", $logFile, "--loglevel", "info"
-) -WorkingDirectory $Root -WindowStyle Minimized -PassThru
+# Start-Process -WindowStyle Minimized can exit immediately on some Windows setups.
+# cmd /c start keeps cloudflared alive in its own console window.
+$argLine = "tunnel --config `"$config`" run --logfile `"$logFile`" --loglevel info"
+$proc = Start-Process -FilePath "cmd.exe" -ArgumentList @(
+  "/c", "start", "`"Cloudflare Tunnel`"", "/MIN", "`"$cloudflared`"", $argLine
+) -WorkingDirectory $Root -WindowStyle Hidden -PassThru
 
-Set-Content -LiteralPath $pidFile -Value $proc.Id -Encoding ASCII
-Write-Host "  Cloudflare tunnel started (PID $($proc.Id))" -ForegroundColor Green
+Start-Sleep -Seconds 3
+$tunnelProc = Get-Process -Name cloudflared -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending | Select-Object -First 1
+if (-not $tunnelProc) {
+  throw "cloudflared exited immediately. Run manually: cloudflared tunnel --config deploy\cloudflared.yml run"
+}
+
+Set-Content -LiteralPath $pidFile -Value $tunnelProc.Id -Encoding ASCII
+Write-Host "  Cloudflare tunnel started (PID $($tunnelProc.Id))" -ForegroundColor Green
 Write-Host "  Log: reports\cloudflared.log" -ForegroundColor DarkGray
+
+# Confirm connector registered with Cloudflare (avoids false "started" when process dies).
+$connected = $false
+for ($i = 0; $i -lt 10; $i++) {
+  try {
+    $info = & $cloudflared tunnel info kwalify 2>&1 | Out-String
+    if ($info -match "CONNECTOR ID") { $connected = $true; break }
+  } catch {}
+  Start-Sleep -Seconds 2
+}
+if (-not $connected) {
+  Write-Host "  Warning: tunnel process started but no active Cloudflare connection yet." -ForegroundColor Yellow
+  Write-Host "  Check reports\cloudflared.log or the Cloudflare Tunnel window." -ForegroundColor Yellow
+}
 
 # Best-effort: wait for public readyz if APP_URL is set
 $appUrl = $null
