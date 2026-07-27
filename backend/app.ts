@@ -19,6 +19,7 @@ import { acquireGenerateSlot, getGenerateOverloadState, recordGenerateLatency } 
 import { recordServerBusy } from "./lib/ops-metrics";
 import { globalRateLimit } from "./lib/global-rate-limit";
 import { requireReportsAccess } from "./middleware/benchmark-auth";
+import { sendApiError } from "./lib/api-error-envelope";
 import "./lib/session";
 
 let appInstanceCreated = false;
@@ -330,11 +331,8 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       { err, status, path: req.path, method: req.method, requestId: req.id },
       payloadTooLarge ? "API payload too large" : "Unhandled API route error",
     );
-    res.status(status).json({
-      success: false,
-      code: payloadTooLarge ? "PAYLOAD_TOO_LARGE" : status === 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
-      error: payloadTooLarge ? "Request payload is too large." : status === 500 ? "Unexpected server error." : "Request failed.",
-      requestId: req.id,
+    sendApiError(res, status, payloadTooLarge ? "PAYLOAD_TOO_LARGE" : status === 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR", payloadTooLarge ? "Request payload is too large." : status === 500 ? "Unexpected server error." : "Request failed.", {
+      requestId: String(req.id),
     });
   };
   app.use(apiErrorHandler);

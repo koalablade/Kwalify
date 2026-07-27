@@ -6,10 +6,14 @@
  */
 
 import { moduleLogger } from "../../lib/logger";
+import { cacheMaxEntries } from "../../lib/cache-memory-budget";
 
 const DEFAULT_SESSION_SNAPSHOT_TTL_MS = 10 * 60 * 1000;
-const MAX_SESSION_SNAPSHOTS = 500;
 const log = moduleLogger("session-snapshot-cache");
+
+function maxSessionSnapshots(): number {
+  return cacheMaxEntries("sessionSnapshot", 500);
+}
 
 export type SessionSnapshotCacheStats = {
   hits: number;
@@ -63,7 +67,7 @@ function evictExpired(now = Date.now()): void {
 }
 
 function evictOldestIfNeeded(): void {
-  while (snapshots.size > MAX_SESSION_SNAPSHOTS) {
+  while (snapshots.size > maxSessionSnapshots()) {
     const oldestKey = snapshots.keys().next().value as string | undefined;
     if (!oldestKey) return;
     snapshots.delete(oldestKey);

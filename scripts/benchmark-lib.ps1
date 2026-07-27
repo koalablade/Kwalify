@@ -423,8 +423,9 @@ function Show-BenchmarkStatus {
     return
   }
   Write-Host "No benchmark run in progress."
-  Write-Host "  Web dashboard: http://127.0.0.1:5000/benchmark-status.html"
-  Write-Host "  Control panel: http://127.0.0.1:5000/benchmark"
+  . (Join-Path $script:BenchmarkRoot "scripts\benchmark-url.ps1") -Root $script:BenchmarkRoot
+  Write-Host "  Live dashboard: $(Get-BenchmarkStatusUrl)"
+  Write-Host "  Control panel: $(Get-BenchmarkWebUrl)"
 }
 
 function Get-StartKwalifyScript {

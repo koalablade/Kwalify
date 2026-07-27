@@ -18,6 +18,8 @@ if (Test-Path -LiteralPath (Join-Path $Root ".env")) {
   . $dotenv -Root $Root
 }
 
+. (Join-Path $Root "scripts\benchmark-url.ps1") -Root $Root
+
 $localApi = "http://127.0.0.1:5000"
 
 function Test-MainApiUp {
@@ -25,19 +27,6 @@ function Test-MainApiUp {
     $r = Invoke-WebRequest -Uri "$localApi/api/readyz" -UseBasicParsing -TimeoutSec 4
     return ($r.StatusCode -eq 200)
   } catch { return $false }
-}
-
-function Get-BenchmarkWebUrl {
-  foreach ($candidate in @(
-    @{ Base = "https://kwalify.net"; Url = "https://kwalify.net/benchmark" },
-    @{ Base = $localApi; Url = "$localApi/benchmark" }
-  )) {
-    try {
-      $ping = Invoke-RestMethod -Uri "$($candidate.Base)/api/benchmark/ping" -TimeoutSec 4
-      if ($ping.ok) { return $candidate.Url }
-    } catch {}
-  }
-  return "$localApi/benchmark"
 }
 
 if (-not (Test-MainApiUp)) {

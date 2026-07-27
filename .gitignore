@@ -77,6 +77,11 @@ kwalify.net.pem
 kwalify.net-key.pem
 deploy/cloudflared.yml
 
+# Local launcher markers and Windows shortcuts
+.kwalify-*
+*.lnk
+*.log.old
+
 # Scratch probes, logs, and non-committed experiment artifacts
 tmp-*.mjs
 *.log

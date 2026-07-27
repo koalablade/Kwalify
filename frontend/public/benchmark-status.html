@@ -2,80 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="robots" content="noindex" />
-  <meta name="theme-color" content="#0d0b1e" />
-  <title>Kwalify Benchmark — Live</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <style>
-    :root { --bg: #0f0a1a; --card: #1a1228; --card2: #12091f; --text: #f3e8ff; --muted: #c4b5fd; --accent: #a855f7; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --line: #3b2667; }
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 24px; line-height: 1.5; max-width: 960px; }
-    h1 { color: var(--accent); margin: 0 0 4px; }
-    .sub { color: var(--muted); margin-bottom: 20px; font-size: 14px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-    .pill { background: var(--card2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
-    .pill.running { border-color: var(--accent); color: var(--accent); }
-    .pill.done { border-color: var(--ok); color: var(--ok); }
-    .bar-wrap { background: var(--card2); border-radius: 999px; height: 14px; overflow: hidden; margin: 12px 0; }
-    .bar { height: 100%; background: linear-gradient(90deg, #7c3aed, var(--accent)); transition: width 0.4s ease; }
-    .metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-    .metric { background: var(--card2); padding: 12px; border-radius: 8px; }
-    .metric .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .metric .value { font-size: 24px; font-weight: 700; margin-top: 4px; }
-    .save { color: var(--ok); }
-    .skip { color: var(--bad); }
-    .warn { color: var(--warn); }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-    th { color: var(--muted); font-weight: 600; }
-    .verdict-SAVE { color: var(--ok); font-weight: 600; }
-    .verdict-SKIP, .verdict-EMPTY_BAD { color: var(--bad); font-weight: 600; }
-    .verdict-PARTIAL_OK, .verdict-MAYBE, .verdict-REFUSE_OK { color: var(--warn); }
-    .stale { color: var(--warn); font-size: 13px; }
-    a { color: var(--accent); }
-    code { background: var(--card2); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-  </style>
+  <meta http-equiv="refresh" content="0;url=/benchmark#live-dashboard" />
+  <title>Redirecting…</title>
+  <script>location.replace('/benchmark#live-dashboard');</script>
 </head>
 <body>
-  <h1>Benchmark Live</h1>
-  <p class="sub">Polls <code>reports/benchmark-live.json</code> every 10s. <a href="/benchmark">Run benchmark</a> · <a href="benchmark-history.html">History</a> · <a href="benchmark-guide.html">Guide</a></p>
-
-  <div class="card">
-    <div class="row">
-      <span class="pill" id="status-pill">waiting</span>
-      <span class="pill" id="run-id">—</span>
-      <span class="pill" id="updated">—</span>
-    </div>
-    <div class="bar-wrap"><div class="bar" id="progress-bar" style="width:0%"></div></div>
-    <p id="progress-text" style="margin:8px 0 4px;font-size:18px;font-weight:600">—</p>
-    <p id="current-prompt" class="sub" style="margin:0">Waiting for benchmark to start…</p>
-    <p id="eta" class="sub" style="margin:8px 0 0"></p>
-    <p id="stale-warn" class="stale" style="display:none;margin:8px 0 0">No file update in 2+ minutes — check kwalify-benchmark.log</p>
-  </div>
-
-  <div class="card">
-    <h2 style="margin:0 0 12px;font-size:1rem;color:var(--muted)">Scoreboard so far</h2>
-    <div class="metric-grid" id="metrics">
-      <div class="metric"><div class="label">SAVE</div><div class="value save" id="m-save">—</div></div>
-      <div class="metric"><div class="label">SKIP</div><div class="value skip" id="m-skip">—</div></div>
-      <div class="metric"><div class="label">PARTIAL_OK</div><div class="value" id="m-partial">—</div></div>
-      <div class="metric"><div class="label">Would-save rate</div><div class="value save" id="m-rate">—</div></div>
-      <div class="metric"><div class="label">Underfilled</div><div class="value warn" id="m-under">—</div></div>
-      <div class="metric"><div class="label">Avg gen (ms)</div><div class="value" id="m-ms">—</div></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2 style="margin:0 0 12px;font-size:1rem;color:var(--muted)">Recent prompts</h2>
-    <table>
-      <thead><tr><th>ID</th><th>Prompt</th><th>Verdict</th><th>Tracks</th><th>Time</th></tr></thead>
-      <tbody id="recent-body"><tr><td colspan="5" class="sub">No results yet</td></tr></tbody>
-    </table>
-  </div>
-
-  <script src="/js/benchmark-status.js"></script>
+  <p>Moved to <a href="/benchmark#live-dashboard">/benchmark</a> (live dashboard).</p>
 </body>
 </html>

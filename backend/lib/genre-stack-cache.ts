@@ -1,6 +1,7 @@
 import type { GenreIntelligenceStack } from "./genre-intelligence-stack";
 import { GENRE_STACK_CACHE_TTL_MS } from "./production-limits";
 import { evictOldestEntries } from "./cache-eviction";
+import { cacheEvictBatch, cacheMaxEntries } from "./cache-memory-budget";
 
 type Entry = { stack: GenreIntelligenceStack; builtAt: number };
 
@@ -18,5 +19,6 @@ export function getCachedGenreStack(key: string): GenreIntelligenceStack | null 
 
 export function setCachedGenreStack(key: string, stack: GenreIntelligenceStack): void {
   cache.set(key, { stack, builtAt: Date.now() });
-  evictOldestEntries(cache, 250, 35);
+  const max = cacheMaxEntries("genreStack", 250);
+  evictOldestEntries(cache, max, cacheEvictBatch(max));
 }

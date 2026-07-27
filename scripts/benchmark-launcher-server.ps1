@@ -12,19 +12,10 @@ Set-Location $Root
 
 $appUrl = $env:APP_URL
 if ($appUrl) { $appUrl = $appUrl.Trim().TrimEnd("/") } else { $appUrl = "https://kwalify.net" }
+. (Join-Path $Root "scripts\benchmark-url.ps1") -Root $Root
+$benchmarkUrl = Get-BenchmarkWebUrl
 $localBenchmark = "http://127.0.0.1:5000/benchmark"
-$publicBenchmark = "$appUrl/benchmark"
-
-function Get-RedirectTarget {
-  if ($appUrl -match '^https?://(127\.0\.0\.1|localhost)') { return $localBenchmark }
-  try {
-    $r = Invoke-WebRequest -Uri "$appUrl/api/readyz" -UseBasicParsing -TimeoutSec 4
-    if ($r.StatusCode -eq 200) { return $publicBenchmark }
-  } catch {}
-  return $localBenchmark
-}
-
-$benchmarkUrl = Get-RedirectTarget
+$publicBenchmark = $benchmarkUrl
 
 Write-Host ""
 Write-Host "  Benchmark on the main site:" -ForegroundColor Yellow

@@ -169,6 +169,24 @@
     }
     .banner a { color: #fca5a5; }
     .btn.busy { opacity: 0.6; pointer-events: none; }
+
+    .live-dashboard { margin-top: 8px; }
+    .live-dashboard h2.section-title { margin: 0 0 16px; font-size: 1.1rem; color: var(--accent); }
+    .live-dashboard .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .live-dashboard .bar-wrap { background: var(--card2); border-radius: 999px; height: 14px; overflow: hidden; margin: 12px 0; }
+    .live-dashboard .bar { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 0.4s ease; }
+    .live-dashboard .metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+    .live-dashboard .metric-box { background: var(--card2); padding: 12px; border-radius: 8px; text-align: center; }
+    .live-dashboard .metric-box .label { color: var(--dim); font-size: 11px; text-transform: uppercase; }
+    .live-dashboard .metric-box .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+    .live-dashboard .warn { color: var(--warn); }
+    .live-dashboard table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .live-dashboard th, .live-dashboard td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+    .live-dashboard th { color: var(--muted); font-weight: 600; }
+    .verdict-SAVE { color: var(--ok); font-weight: 600; }
+    .verdict-SKIP, .verdict-EMPTY_BAD { color: var(--bad); font-weight: 600; }
+    .verdict-PARTIAL_OK, .verdict-MAYBE, .verdict-REFUSE_OK { color: var(--warn); }
+    .stale-note { color: var(--warn); font-size: 13px; display: none; }
   </style>
 </head>
 <body>
@@ -255,7 +273,7 @@
         </div>
 
         <div class="links">
-          <a href="/benchmark-status.html" target="_blank">Full dashboard</a>
+          <a href="#live-dashboard">Live dashboard</a>
           <a href="/benchmark-history.html" target="_blank">History</a>
           <a href="/benchmark-guide.html" target="_blank">Guide</a>
           <a href="#" id="open-reports" title="Opens reports folder on the server PC (self-host only)">Reports folder (this PC)</a>
@@ -263,6 +281,44 @@
         </div>
       </div>
     </div>
+
+    <section class="live-dashboard" id="live-dashboard">
+      <h2 class="section-title">Live dashboard</h2>
+      <p style="color:var(--dim);font-size:14px;margin:-8px 0 16px">Full progress, scoreboard, and recent prompts — same view as the old status page.</p>
+
+      <div class="card">
+        <div class="row">
+          <span class="pill" id="dash-status-pill">waiting</span>
+          <span class="pill" id="dash-run-id">—</span>
+          <span class="pill" id="dash-updated">—</span>
+        </div>
+        <div class="bar-wrap"><div class="bar" id="dash-progress-bar" style="width:0%"></div></div>
+        <p id="dash-progress-text" style="margin:8px 0 4px;font-size:18px;font-weight:600">—</p>
+        <p id="dash-current-prompt" style="margin:0;color:var(--dim);font-size:14px">Waiting for benchmark to start…</p>
+        <p id="dash-eta" style="margin:8px 0 0;color:var(--dim);font-size:14px"></p>
+        <p id="dash-stale-warn" class="stale-note" style="margin:8px 0 0">No file update in 2+ minutes — check kwalify-benchmark.log</p>
+      </div>
+
+      <div class="card">
+        <h2>Scoreboard so far</h2>
+        <div class="metric-grid">
+          <div class="metric-box"><div class="label">SAVE</div><div class="value save" id="dash-m-save">—</div></div>
+          <div class="metric-box"><div class="label">SKIP</div><div class="value skip" id="dash-m-skip">—</div></div>
+          <div class="metric-box"><div class="label">PARTIAL_OK</div><div class="value" id="dash-m-partial">—</div></div>
+          <div class="metric-box"><div class="label">Would-save rate</div><div class="value save" id="dash-m-rate">—</div></div>
+          <div class="metric-box"><div class="label">Underfilled</div><div class="value warn" id="dash-m-under">—</div></div>
+          <div class="metric-box"><div class="label">Avg gen (ms)</div><div class="value" id="dash-m-ms">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Recent prompts</h2>
+        <table>
+          <thead><tr><th>ID</th><th>Prompt</th><th>Verdict</th><th>Tracks</th><th>Time</th></tr></thead>
+          <tbody id="dash-recent-body"><tr><td colspan="5" style="color:var(--dim)">No results yet</td></tr></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <div class="toast" id="toast"></div>

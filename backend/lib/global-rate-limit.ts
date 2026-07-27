@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { moduleLogger } from "./logger";
+import { sendApiError } from "./api-error-envelope";
 
 const log = moduleLogger("global-rate-limit");
 
@@ -30,7 +31,15 @@ setInterval(() => {
 }, 10 * 60_000).unref();
 
 function clientKey(req: Request): string {
-  return req.ip || req.socket.remoteAddress || "unknown";
+  const cfConnectingIp = req.headers["cf-connecting-ip"];
+  if (typeof cfConnectingIp === "string" && cfConnectingIp.trim()) {
+    return cfConnectingIp.trim();
+  }
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0]!.trim();
+  }
+  return req.socket?.remoteAddress || req.ip || "unknown";
 }
 
 function isStaticAsset(req: Request): boolean {
@@ -89,11 +98,8 @@ export function globalRateLimit(req: Request, res: Response, next: NextFunction)
       },
       "global_rate_limit_rejected",
     );
-    res.status(429).json({
-      success: false,
-      code: "RATE_LIMITED",
-      error: "Too many requests. Please retry shortly.",
-      requestId: req.id,
+    sendApiError(res, 429, "RATE_LIMITED", "Too many requests. Please retry shortly.", {
+      requestId: String(req.id),
       retryAfterSeconds,
     });
     return;

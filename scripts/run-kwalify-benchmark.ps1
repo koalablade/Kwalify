@@ -364,7 +364,8 @@ function Invoke-NpmScript {
   if ((Receive-Job $job) -and (Test-Path $stuckWarn)) {
     Write-Host ""
     Write-WarnLine (Get-Content $stuckWarn -Raw)
-    Write-Host "  Live web dashboard: http://127.0.0.1:5000/benchmark-status.html"
+    . (Join-Path $root "scripts\benchmark-url.ps1") -Root $root
+    Write-Host "  Live dashboard: $(Get-BenchmarkStatusUrl)"
   }
   Remove-Job $job -Force -ErrorAction SilentlyContinue
   Stop-BenchmarkStuckWatch

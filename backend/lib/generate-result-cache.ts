@@ -6,6 +6,7 @@ import type { EmotionProfile } from "./emotion";
 import { buildGenerateCacheKey } from "./generate-cache-key";
 import { GENERATE_RESULT_CACHE_TTL_MS } from "./production-limits";
 import { evictOldestEntries } from "./cache-eviction";
+import { cacheEvictBatch, cacheMaxEntries } from "./cache-memory-budget";
 import type { V3TrackMetadata } from "./v3-track-contract";
 
 export const GENERATE_RESULT_CACHE_VERSION = "v31" as const;
@@ -75,7 +76,8 @@ export function setCachedGenerateResult(
   payload: CachedGeneratePayload
 ): void {
   cache.set(key, { ...payload, status: "fresh" });
-  evictOldestEntries(cache, 400, 80);
+  const max = cacheMaxEntries("generateResult", 400);
+  evictOldestEntries(cache, max, cacheEvictBatch(max));
 }
 
 export function invalidateGenerateResultCache(_userId?: string, _contextHash?: string): void {

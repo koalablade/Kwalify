@@ -202,7 +202,7 @@ async function api(path, opts = {}) {
       el.querySelectorAll('button').forEach((btn) => {
         btn.addEventListener('click', () => {
           if (btn.dataset.action === 'open-status') {
-            window.open('/benchmark-status.html', '_blank');
+            document.getElementById('live-dashboard')?.scrollIntoView({ behavior: 'smooth' });
             return;
           }
           if (btn.dataset.action === 'repeat') {
@@ -305,6 +305,72 @@ async function api(path, opts = {}) {
       const logText = (s.logTail && s.logTail.length) ? s.logTail.join('\n') : '—';
       const logEl = document.getElementById('log-tail');
       if (logEl.textContent !== logText) logEl.textContent = logText;
+
+      if (live) renderLiveDashboard(live);
+    }
+
+    function pctDash(n) {
+      return n != null ? Math.round(n * 1000) / 10 + '%' : '—';
+    }
+
+    function fmtTimeDash(iso) {
+      if (!iso) return '—';
+      return new Date(iso).toLocaleTimeString();
+    }
+
+    function renderLiveDashboard(data) {
+      const prog = data.progress || {};
+      const counts = data.counts || {};
+      const pctDone = prog.percent ?? (prog.total ? (100 * prog.completed / prog.total) : 0);
+
+      const pill = document.getElementById('dash-status-pill');
+      if (!pill) return;
+      pill.textContent = data.status || 'waiting';
+      pill.className = 'pill ' + (data.status === 'completed' ? 'ok' : (data.status ? 'run' : ''));
+
+      document.getElementById('dash-run-id').textContent = data.runId || '—';
+      document.getElementById('dash-updated').textContent = data.updatedAt
+        ? 'Updated ' + fmtTimeDash(data.updatedAt)
+        : '—';
+      document.getElementById('dash-progress-bar').style.width = pctDone + '%';
+      document.getElementById('dash-progress-text').textContent =
+        (prog.completed ?? 0) + ' / ' + (prog.total ?? '?') + ' prompts (' + pctDone + '%)';
+
+      const cur = prog.currentId
+        ? (prog.currentId + ' - ' + (prog.currentPrompt || '').slice(0, 80))
+        : (data.status === 'completed' ? 'Run complete' : 'Waiting for benchmark to start…');
+      document.getElementById('dash-current-prompt').textContent = cur;
+
+      const eta = data.etaMinutes;
+      document.getElementById('dash-eta').textContent = eta
+        ? '~' + eta + ' min remaining (avg ' + (data.avgMs || '?') + ' ms/prompt)'
+        : '';
+
+      document.getElementById('dash-m-save').textContent = counts.SAVE ?? 0;
+      document.getElementById('dash-m-skip').textContent = counts.SKIP ?? 0;
+      document.getElementById('dash-m-partial').textContent = counts.PARTIAL_OK ?? 0;
+      document.getElementById('dash-m-rate').textContent = pctDash(data.wouldSaveRateSoFar);
+      document.getElementById('dash-m-under').textContent = data.underfilledCount ?? 0;
+      document.getElementById('dash-m-ms').textContent = data.avgMs ?? '—';
+
+      const recent = data.recentPrompts || [];
+      const tbody = document.getElementById('dash-recent-body');
+      if (!recent.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:var(--dim)">No results yet</td></tr>';
+      } else {
+        tbody.innerHTML = recent.slice().reverse().map((r) =>
+          '<tr><td>' + r.id + '</td><td>' + (r.prompt || '') + '</td>' +
+          '<td class="verdict-' + r.verdict + '">' + r.verdict + '</td>' +
+          '<td>' + r.tracks + '/' + r.asked + (r.underfilled ? ' !' : '') + '</td>' +
+          '<td>' + (r.ms ? (r.ms / 1000).toFixed(1) + 's' : '—') + '</td></tr>'
+        ).join('');
+      }
+
+      if (data.updatedAt) {
+        const ageMin = (Date.now() - new Date(data.updatedAt).getTime()) / 60000;
+        document.getElementById('dash-stale-warn').style.display =
+          data.status !== 'completed' && ageMin > 2 ? 'block' : 'none';
+      }
     }
 
     async function poll() {
@@ -396,4 +462,7 @@ async function api(path, opts = {}) {
       showActivity('Ready. Click a button or type below.');
       pingTimer = setInterval(checkPing, 30000);
       schedulePoll(12000);
+      if (location.hash === '#live-dashboard') {
+        document.getElementById('live-dashboard')?.scrollIntoView({ behavior: 'smooth' });
+      }
     })();

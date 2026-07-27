@@ -122,7 +122,7 @@
     <p class="sub">With <code>start.bat</code> running, open the benchmark page on <strong>this PC</strong> — buttons, chat, and live progress. Works even if the public tunnel is down.</p>
     <div class="btn-row">
       <a class="btn rec" href="/benchmark">Open benchmark</a>
-      <a class="btn" href="http://127.0.0.1:5000/benchmark">Local URL</a>
+      <a class="btn" href="https://kwalify.net/benchmark">Open control panel</a>
     </div>
   </div>
 
@@ -238,23 +238,8 @@
     <p>Eval harness, golden reliability, 6h soak, difficulty tiers, full-mix presets, overnight — not the default human-only flow.</p>
   </div>
 
-  <p class="foot">Open from <a href="/benchmark">/benchmark</a> or the CLI menu (<code>7</code> Guide). Desktop shortcut <strong>Run Benchmark</strong> opens <code>http://127.0.0.1:5000/benchmark</code> on this PC.</p>
+  <p class="foot">Open from <a href="/benchmark">/benchmark</a> or the CLI menu (<code>7</code> Guide). Desktop shortcut <strong>Run Benchmark</strong> opens <strong>https://kwalify.net/benchmark</strong> on this PC.</p>
   <div class="toast" id="toast">Copied!</div>
-  <script>
-    document.querySelectorAll('.btn[data-cmd]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const cmd = 'start-kwalify-benchmark.bat ' + btn.dataset.cmd;
-        try {
-          await navigator.clipboard.writeText(cmd);
-          const toast = document.getElementById('toast');
-          toast.style.display = 'block';
-          document.getElementById('cmd-hint').textContent = 'Copied: ' + cmd;
-          setTimeout(() => { toast.style.display = 'none'; }, 2000);
-        } catch (_) {
-          document.getElementById('cmd-hint').textContent = 'Run: ' + cmd;
-        }
-      });
-    });
-  </script>
+  <script src="/js/benchmark-guide.js"></script>
 </body>
 </html>
