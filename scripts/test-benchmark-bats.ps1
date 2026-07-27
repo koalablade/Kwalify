@@ -130,11 +130,13 @@ try {
   & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\stop-benchmark.ps1") -Root $Root | Out-Null
 } catch {}
 
-# --- 8. benchmark-launcher.html uses main-site API ---
+# --- 8. benchmark-launcher uses main-site API (external JS for CSP) ---
 $html = Get-Content -LiteralPath (Join-Path $Root "frontend\public\benchmark-launcher.html") -Raw
-if ($html -match "const API = '/api/benchmark'") { Pass "benchmark-launcher.html main-site API" } else { Fail "benchmark-launcher.html missing main-site API" }
-if ($html -match "showActivity") { Pass "benchmark-launcher.html activity panel" } else { Fail "benchmark-launcher.html missing activity feedback" }
-if ($html -match "127\.0\.0\.1:5000/benchmark") { Pass "benchmark-launcher.html redirects 5055" } else { Fail "benchmark-launcher.html missing 5055 redirect" }
+$js = Get-Content -LiteralPath (Join-Path $Root "frontend\public\js\benchmark-launcher.js") -Raw
+if ($html -match 'src="/js/benchmark-launcher\.js"') { Pass "benchmark-launcher.html external JS" } else { Fail "benchmark-launcher.html missing external JS" }
+if ($js -match "const API = '/api/benchmark'") { Pass "benchmark-launcher.js main-site API" } else { Fail "benchmark-launcher.js missing main-site API" }
+if ($js -match "showActivity") { Pass "benchmark-launcher.js activity panel" } else { Fail "benchmark-launcher.js missing activity feedback" }
+if ($js -match "kwalify\.net/benchmark") { Pass "benchmark-launcher.js kwalify.net URL" } else { Fail "benchmark-launcher.js missing kwalify.net URL" }
 
 Write-Host ""
 if ($failures.Count -eq 0) {

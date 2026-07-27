@@ -9,8 +9,11 @@ export function isLoopbackIp(ip: string | undefined): boolean {
 }
 
 export function isLoopbackRequest(req: Request): boolean {
-  const ip = req.ip || req.socket.remoteAddress || "";
-  return isLoopbackIp(ip);
+  const candidates = [
+    req.socket?.remoteAddress,
+    req.ip,
+  ].filter((ip): ip is string => typeof ip === "string" && ip.length > 0);
+  return candidates.some((ip) => isLoopbackIp(ip));
 }
 
 function benchmarkTokenAuthorized(req: Request): boolean {

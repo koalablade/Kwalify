@@ -1,4 +1,4 @@
-const CACHE_NAME = "kwalify-static-v1";
+const CACHE_NAME = "kwalify-static-v2";
 const STATIC_ASSETS = [
   "/",
   "/styles/base.css",
@@ -34,10 +34,12 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(request))
-    );
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/benchmark") ||
+    url.pathname.startsWith("/js/")
+  ) {
+    event.respondWith(fetch(request));
     return;
   }
 

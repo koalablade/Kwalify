@@ -16,7 +16,6 @@ function Write-Info([string]$msg) {
 . (Join-Path $Root "scripts\load-dotenv.ps1") -Root $Root
 
 $localApi = "http://127.0.0.1:5000"
-$localBenchmark = "$localApi/benchmark"
 
 function Test-MainApiUp {
   try {
@@ -25,8 +24,21 @@ function Test-MainApiUp {
   } catch { return $false }
 }
 
+function Get-BenchmarkWebUrl {
+  foreach ($candidate in @(
+    @{ Base = "https://kwalify.net"; Url = "https://kwalify.net/benchmark" },
+    @{ Base = $localApi; Url = "$localApi/benchmark" }
+  )) {
+    try {
+      $ping = Invoke-RestMethod -Uri "$($candidate.Base)/api/benchmark/ping" -TimeoutSec 4
+      if ($ping.ok) { return $candidate.Url }
+    } catch {}
+  }
+  return "$localApi/benchmark"
+}
+
 if (-not (Test-MainApiUp)) {
-  throw "Kwalify server is not running. Double-click start.bat first, then open: $localBenchmark"
+  throw "Kwalify server is not running. Double-click start.bat first, then open: https://kwalify.net/benchmark"
 }
 
 $redirectScript = Join-Path $Root "scripts\ensure-benchmark-redirect.ps1"
@@ -34,7 +46,8 @@ if (Test-Path -LiteralPath $redirectScript) {
   & powershell -NoProfile -ExecutionPolicy Bypass -File $redirectScript -Root $Root | Out-Null
 }
 
-Write-Info "Benchmark URL: $localBenchmark"
+$benchmarkUrl = Get-BenchmarkWebUrl
+Write-Info "Benchmark URL: $benchmarkUrl"
 if ($OpenBrowser) {
-  Start-Process $localBenchmark | Out-Null
+  Start-Process $benchmarkUrl | Out-Null
 }
