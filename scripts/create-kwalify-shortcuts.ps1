@@ -33,7 +33,7 @@ $removeNames = @(
   "Kwalify Benchmark", "Kwalify Large Benchmark", "Kwalify Benchmark Status",
   "Kwalify Benchmark Smoke", "Package Benchmark Results", "Run Kwalify Benchmark",
   "Benchmark Kwalify", "Kwalify benchmark", "Start Kwalify (Admin)",
-  "Quick Check", "Benchmark Results"
+  "Quick Check", "Benchmark Results", "Fix Cloudflare DNS"
 )
 
 Write-Host ""
