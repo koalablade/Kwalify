@@ -1664,18 +1664,38 @@ function buildWorldUnderstandingHtml(world) {
   const list = (items) => (items && items.length ? items.map((x) => `✓ ${esc(x)}`).join("<br>") : "—");
   const musicGenres = (world.musicDirection?.preferredGenres || []).slice(0, 4).join(", ") || "—";
   const textures = (world.musicDirection?.textures || []).slice(0, 4).join(", ") || "—";
-  const concepts = (world.matchedConcepts || []).slice(0, 10).map(esc).join(" · ") || "—";
+  const tempo = world.musicDirection?.tempoLabel || "—";
+  const progression = world.musicDirection?.progression || "—";
+  const situations = (world.situationMatches || []).slice(0, 6).map(esc).join(" · ") || "—";
+  const concepts = (world.matchedConcepts || []).slice(0, 12).map(esc).join(" · ") || "—";
+  const phrases = (world.matchedPhrases || []).slice(0, 4).map((p) => esc(p.phrase)).join(" · ") || "—";
+  const fuzzy = (world.fuzzyExpansions || []).slice(0, 4).map((f) => esc(f.id)).join(" · ") || "—";
+  const graph = (world.graphMatches || []).slice(0, 4).map((g) => esc(`${g.domain}:${g.id}`)).join(" · ") || "—";
   return `<div class="intent-understanding-card intent-understanding-card--world">
     <div class="intent-understanding-title">World understanding</div>
-    <div class="intent-understanding-line intent-understanding-muted"><strong>User input:</strong> ${esc(world.originalPrompt || "")}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Input:</strong> ${esc(world.originalPrompt || "")}</div>
     <div class="intent-understanding-line"><strong>Scene:</strong> ${esc(world.scene?.label || "—")}</div>
     <div class="intent-understanding-line intent-understanding-muted">${esc(world.scene?.humanSummary || "")}</div>
     <div class="intent-understanding-line"><strong>Environment:</strong><br>${list(world.understoodAs?.environment)}</div>
+    <div class="intent-understanding-line"><strong>Activity:</strong><br>${list(world.understoodAs?.activity)}</div>
+    <div class="intent-understanding-line"><strong>Social:</strong><br>${list(world.understoodAs?.social)}</div>
     <div class="intent-understanding-line"><strong>Emotion:</strong><br>${list(world.understoodAs?.emotion)}</div>
     <div class="intent-understanding-line"><strong>Sensory:</strong><br>${list(world.understoodAs?.sensory)}</div>
     <div class="intent-understanding-line"><strong>Life context:</strong><br>${list(world.understoodAs?.lifeContext)}</div>
-    <div class="intent-understanding-line"><strong>Music direction:</strong> ${esc(musicGenres)} · ${esc(textures)} · ${esc(world.musicDirection?.energyLabel || "")} (${Math.round((world.musicDirection?.energy || 0) * 100)}%)</div>
+    <div class="intent-understanding-line"><strong>Human meaning:</strong> ${esc((world.humanMeanings || []).join(" · ") || world.humanNarrative || "—")}</div>
+    <div class="intent-understanding-line"><strong>Music direction:</strong><br>
+      energy: ${esc(world.musicDirection?.energyLabel || "—")} (${Math.round((world.musicDirection?.energy || 0) * 100)}%)<br>
+      tempo: ${esc(tempo)}<br>
+      texture: ${esc(textures)}<br>
+      genres: ${esc(musicGenres)}<br>
+      progression: ${esc(progression)}
+    </div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Situations:</strong> ${situations}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Phrases:</strong> ${phrases}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Fuzzy:</strong> ${fuzzy}</div>
     <div class="intent-understanding-line intent-understanding-muted"><strong>Matched concepts:</strong> ${concepts}</div>
+    <div class="intent-understanding-line intent-understanding-muted"><strong>Graph matches:</strong> ${graph}</div>
+    <div class="intent-understanding-line intent-understanding-muted">${esc(world.humanNarrative || "")}</div>
   </div>`;
 }
 

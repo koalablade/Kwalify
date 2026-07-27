@@ -236,6 +236,36 @@
       "phrase": "uni days",
       "meaning": { "emotions": ["nostalgia"], "lifeContext": ["graduation"], "environment": ["uni_halls"], "social": ["with_friends"] },
       "music": { "energy": 0.5, "textures": ["youthful"], "genres": ["indie", "britpop"] }
+    },
+    {
+      "id": "sat_outside_not_ready",
+      "phrase": "wasn't ready to go in",
+      "meaning": { "emotions": ["avoidance", "reflection"], "environment": ["home"], "lifeContext": ["needing_space"], "social": ["alone"] },
+      "music": { "energy": 0.32, "textures": ["intimate", "still"], "genres": ["ambient", "indie"] }
+    },
+    {
+      "id": "new_place_feels_home",
+      "phrase": "finally feels like home",
+      "meaning": { "emotions": ["hope", "contentment"], "lifeContext": ["moving_house", "fresh_start"], "environment": ["home"] },
+      "music": { "energy": 0.42, "textures": ["warm", "settling"], "genres": ["indie", "acoustic"] }
+    },
+    {
+      "id": "last_summer_moved_away",
+      "phrase": "last summer before everyone moved away",
+      "meaning": { "emotions": ["nostalgia", "bittersweet"], "lifeContext": ["seasonal_transition", "old_friends"] },
+      "music": { "energy": 0.4, "textures": ["wistful", "golden"], "genres": ["indie", "folk"] }
+    },
+    {
+      "id": "driving_nowhere_space",
+      "phrase": "driving nowhere because you need some space",
+      "meaning": { "emotions": ["freedom", "reflection", "avoidance"], "activity": ["driving"], "social": ["alone"] },
+      "music": { "energy": 0.38, "textures": ["open", "nocturnal"], "genres": ["indie", "ambient"] }
+    },
+    {
+      "id": "old_photo_hours",
+      "phrase": "found an old photo and ended up listening to music for hours",
+      "meaning": { "emotions": ["nostalgia", "reflection"], "lifeContext": ["childhood_memories"], "activity": ["waiting"] },
+      "music": { "energy": 0.35, "textures": ["warm", "memory-like"], "genres": ["indie", "acoustic"] }
     }
   ],
   "idioms": [

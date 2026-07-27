@@ -1,0 +1,2423 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "places": [
+    {
+      "id": "place_0",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom at night",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_1",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home at night",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_2",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment at night",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_3",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night at night",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_4",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house at night",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_5",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom in the rain",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_6",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home in the rain",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_7",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment in the rain",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_8",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night in the rain",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_9",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house in the rain",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_10",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom on a sunday",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_11",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home on a sunday",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_12",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment on a sunday",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_13",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night on a sunday",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_14",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house on a sunday",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_15",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom after work",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_16",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home after work",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_17",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment after work",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_18",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night after work",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_19",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house after work",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_20",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom alone",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_21",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home alone",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_22",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment alone",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_23",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night alone",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_24",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house alone",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_25",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom in summer",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_26",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home in summer",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_27",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment in summer",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_28",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night in summer",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_29",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house in summer",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_30",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom in the city",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_31",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home in the city",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_32",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment in the city",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_33",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night in the city",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_34",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house in the city",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_35",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom late at night",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_36",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home late at night",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_37",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment late at night",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_38",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night late at night",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_39",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house late at night",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_40",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom early morning",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_41",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home early morning",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_42",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment early morning",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_43",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night early morning",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_44",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house early morning",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_45",
+      "name": "bedroom",
+      "family": "home",
+      "cues": [
+        "bedroom",
+        "bedroom after midnight",
+        "at the bedroom"
+      ],
+      "physical_description": "Private intimate personal space",
+      "emotional_meaning": [
+        "introspection",
+        "privacy",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_46",
+      "name": "childhood home",
+      "family": "home",
+      "cues": [
+        "childhood home",
+        "childhood home after midnight",
+        "at the childhood home"
+      ],
+      "physical_description": "Return to formative domestic memory",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_47",
+      "name": "first apartment",
+      "family": "home",
+      "cues": [
+        "first apartment",
+        "first apartment after midnight",
+        "at the first apartment"
+      ],
+      "physical_description": "Early independence and new identity",
+      "emotional_meaning": [
+        "hope",
+        "freedom"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_48",
+      "name": "kitchen at night",
+      "family": "home",
+      "cues": [
+        "kitchen at night",
+        "kitchen at night after midnight",
+        "at the kitchen at night"
+      ],
+      "physical_description": "Domestic quiet after the day",
+      "emotional_meaning": [
+        "peace",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_49",
+      "name": "empty house",
+      "family": "home",
+      "cues": [
+        "empty house",
+        "empty house after midnight",
+        "at the empty house"
+      ],
+      "physical_description": "Silence after people have gone",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_50",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets at night",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_51",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown at night",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_52",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway at night",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_53",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop at night",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_54",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets at night",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_55",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets in the rain",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_56",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown in the rain",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_57",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway in the rain",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_58",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop in the rain",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_59",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets in the rain",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_60",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets on a sunday",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_61",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown on a sunday",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_62",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway on a sunday",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_63",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop on a sunday",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_64",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets on a sunday",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_65",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets after work",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_66",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown after work",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_67",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway after work",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_68",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop after work",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_69",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets after work",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_70",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets alone",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_71",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown alone",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_72",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway alone",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_73",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop alone",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_74",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets alone",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_75",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets in summer",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_76",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown in summer",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_77",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway in summer",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_78",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop in summer",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_79",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets in summer",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_80",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets in the city",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_81",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown in the city",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_82",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway in the city",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_83",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop in the city",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_84",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets in the city",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_85",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets late at night",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_86",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown late at night",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_87",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway late at night",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_88",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop late at night",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_89",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets late at night",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_90",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets early morning",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_91",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown early morning",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_92",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway early morning",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_93",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop early morning",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_94",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets early morning",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_95",
+      "name": "city streets",
+      "family": "city",
+      "cues": [
+        "city streets",
+        "city streets after midnight",
+        "at the city streets"
+      ],
+      "physical_description": "Urban movement and anonymity",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_96",
+      "name": "downtown",
+      "family": "city",
+      "cues": [
+        "downtown",
+        "downtown after midnight",
+        "at the downtown"
+      ],
+      "physical_description": "Bright central energy",
+      "emotional_meaning": [
+        "anticipation",
+        "excitement"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_97",
+      "name": "alleyway",
+      "family": "city",
+      "cues": [
+        "alleyway",
+        "alleyway after midnight",
+        "at the alleyway"
+      ],
+      "physical_description": "Hidden urban intimacy",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_98",
+      "name": "rooftop",
+      "family": "city",
+      "cues": [
+        "rooftop",
+        "rooftop after midnight",
+        "at the rooftop"
+      ],
+      "physical_description": "Elevated perspective over the city",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_99",
+      "name": "neon streets",
+      "family": "city",
+      "cues": [
+        "neon streets",
+        "neon streets after midnight",
+        "at the neon streets"
+      ],
+      "physical_description": "Night city glow and motion",
+      "emotional_meaning": [
+        "cinematic",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_100",
+      "name": "motorway",
+      "family": "travel",
+      "cues": [
+        "motorway",
+        "motorway at night",
+        "at the motorway"
+      ],
+      "physical_description": "Long open road in motion",
+      "emotional_meaning": [
+        "freedom",
+        "reflection",
+        "solitude"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_101",
+      "name": "country road",
+      "family": "travel",
+      "cues": [
+        "country road",
+        "country road at night",
+        "at the country road"
+      ],
+      "physical_description": "Slow scenic movement",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_102",
+      "name": "train station",
+      "family": "travel",
+      "cues": [
+        "train station",
+        "train station at night",
+        "at the train station"
+      ],
+      "physical_description": "Liminal waiting and departure",
+      "emotional_meaning": [
+        "anticipation",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_103",
+      "name": "airport",
+      "family": "travel",
+      "cues": [
+        "airport",
+        "airport at night",
+        "at the airport"
+      ],
+      "physical_description": "Transition between worlds",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_104",
+      "name": "hotel room",
+      "family": "travel",
+      "cues": [
+        "hotel room",
+        "hotel room at night",
+        "at the hotel room"
+      ],
+      "physical_description": "Temporary anonymous shelter",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_105",
+      "name": "petrol station at midnight",
+      "family": "travel",
+      "cues": [
+        "petrol station at midnight",
+        "petrol station at midnight at night",
+        "at the petrol station at midnight"
+      ],
+      "physical_description": "Temporary stop on a night journey",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_106",
+      "name": "motorway",
+      "family": "travel",
+      "cues": [
+        "motorway",
+        "motorway in the rain",
+        "at the motorway"
+      ],
+      "physical_description": "Long open road in motion",
+      "emotional_meaning": [
+        "freedom",
+        "reflection",
+        "solitude"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_107",
+      "name": "country road",
+      "family": "travel",
+      "cues": [
+        "country road",
+        "country road in the rain",
+        "at the country road"
+      ],
+      "physical_description": "Slow scenic movement",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_108",
+      "name": "train station",
+      "family": "travel",
+      "cues": [
+        "train station",
+        "train station in the rain",
+        "at the train station"
+      ],
+      "physical_description": "Liminal waiting and departure",
+      "emotional_meaning": [
+        "anticipation",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_109",
+      "name": "airport",
+      "family": "travel",
+      "cues": [
+        "airport",
+        "airport in the rain",
+        "at the airport"
+      ],
+      "physical_description": "Transition between worlds",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_110",
+      "name": "hotel room",
+      "family": "travel",
+      "cues": [
+        "hotel room",
+        "hotel room in the rain",
+        "at the hotel room"
+      ],
+      "physical_description": "Temporary anonymous shelter",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_111",
+      "name": "petrol station at midnight",
+      "family": "travel",
+      "cues": [
+        "petrol station at midnight",
+        "petrol station at midnight in the rain",
+        "at the petrol station at midnight"
+      ],
+      "physical_description": "Temporary stop on a night journey",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_112",
+      "name": "motorway",
+      "family": "travel",
+      "cues": [
+        "motorway",
+        "motorway on a sunday",
+        "at the motorway"
+      ],
+      "physical_description": "Long open road in motion",
+      "emotional_meaning": [
+        "freedom",
+        "reflection",
+        "solitude"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_113",
+      "name": "country road",
+      "family": "travel",
+      "cues": [
+        "country road",
+        "country road on a sunday",
+        "at the country road"
+      ],
+      "physical_description": "Slow scenic movement",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_114",
+      "name": "train station",
+      "family": "travel",
+      "cues": [
+        "train station",
+        "train station on a sunday",
+        "at the train station"
+      ],
+      "physical_description": "Liminal waiting and departure",
+      "emotional_meaning": [
+        "anticipation",
+        "loneliness"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_115",
+      "name": "airport",
+      "family": "travel",
+      "cues": [
+        "airport",
+        "airport on a sunday",
+        "at the airport"
+      ],
+      "physical_description": "Transition between worlds",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety"
+      ],
+      "typical_music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "place_116",
+      "name": "hotel room",
+      "family": "travel",
+      "cues": [
+        "hotel room",
+        "hotel room on a sunday",
+        "at the hotel room"
+      ],
+      "physical_description": "Temporary anonymous shelter",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "place_117",
+      "name": "petrol station at midnight",
+      "family": "travel",
+      "cues": [
+        "petrol station at midnight",
+        "petrol station at midnight on a sunday",
+        "at the petrol station at midnight"
+      ],
+      "physical_description": "Temporary stop on a night journey",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom",
+        "reflection"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_118",
+      "name": "motorway",
+      "family": "travel",
+      "cues": [
+        "motorway",
+        "motorway after work",
+        "at the motorway"
+      ],
+      "physical_description": "Long open road in motion",
+      "emotional_meaning": [
+        "freedom",
+        "reflection",
+        "solitude"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "place_119",
+      "name": "country road",
+      "family": "travel",
+      "cues": [
+        "country road",
+        "country road after work",
+        "at the country road"
+      ],
+      "physical_description": "Slow scenic movement",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia"
+      ],
+      "typical_music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    }
+  ]
+}

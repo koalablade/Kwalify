@@ -1,0 +1,5606 @@
+{
+  "version": 2,
+  "locale": "en-GB",
+  "states": [
+    {
+      "id": "peaceful_loneliness_quiet",
+      "name": "quiet peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "quiet peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_quiet",
+      "name": "quiet bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "quiet bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_quiet",
+      "name": "quiet quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "quiet quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_quiet",
+      "name": "quiet emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "quiet emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_quiet",
+      "name": "quiet hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "quiet hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_quiet",
+      "name": "quiet feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "quiet feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_quiet",
+      "name": "quiet relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "quiet relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_quiet",
+      "name": "quiet missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "quiet missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_quiet",
+      "name": "quiet wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "quiet wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_quiet",
+      "name": "quiet acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "quiet acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_quiet",
+      "name": "quiet calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "quiet calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_quiet",
+      "name": "quiet processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "quiet processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_quiet",
+      "name": "quiet independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "quiet independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_quiet",
+      "name": "quiet social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "quiet social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_quiet",
+      "name": "quiet nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "quiet nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_deep",
+      "name": "deep peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "deep peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_deep",
+      "name": "deep bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "deep bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_deep",
+      "name": "deep quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "deep quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_deep",
+      "name": "deep emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "deep emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_deep",
+      "name": "deep hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "deep hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_deep",
+      "name": "deep feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "deep feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_deep",
+      "name": "deep relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "deep relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_deep",
+      "name": "deep missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "deep missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_deep",
+      "name": "deep wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "deep wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_deep",
+      "name": "deep acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "deep acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_deep",
+      "name": "deep calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "deep calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_deep",
+      "name": "deep processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "deep processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_deep",
+      "name": "deep independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "deep independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_deep",
+      "name": "deep social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "deep social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_deep",
+      "name": "deep nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "deep nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_gentle",
+      "name": "gentle peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "gentle peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_gentle",
+      "name": "gentle bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "gentle bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_gentle",
+      "name": "gentle quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "gentle quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_gentle",
+      "name": "gentle emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "gentle emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_gentle",
+      "name": "gentle hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "gentle hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_gentle",
+      "name": "gentle feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "gentle feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_gentle",
+      "name": "gentle relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "gentle relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_gentle",
+      "name": "gentle missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "gentle missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_gentle",
+      "name": "gentle wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "gentle wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_gentle",
+      "name": "gentle acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "gentle acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_gentle",
+      "name": "gentle calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "gentle calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_gentle",
+      "name": "gentle processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "gentle processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_gentle",
+      "name": "gentle independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "gentle independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_gentle",
+      "name": "gentle social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "gentle social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_gentle",
+      "name": "gentle nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "gentle nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_late_night",
+      "name": "late night peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "late night peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_late_night",
+      "name": "late night bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "late night bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_late_night",
+      "name": "late night quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "late night quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_late_night",
+      "name": "late night emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "late night emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_late_night",
+      "name": "late night hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "late night hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_late_night",
+      "name": "late night feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "late night feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_late_night",
+      "name": "late night relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "late night relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_late_night",
+      "name": "late night missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "late night missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_late_night",
+      "name": "late night wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "late night wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_late_night",
+      "name": "late night acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "late night acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_late_night",
+      "name": "late night calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "late night calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_late_night",
+      "name": "late night processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "late night processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_late_night",
+      "name": "late night independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "late night independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_late_night",
+      "name": "late night social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "late night social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_late_night",
+      "name": "late night nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "late night nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_sunday",
+      "name": "sunday peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "sunday peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_sunday",
+      "name": "sunday bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "sunday bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_sunday",
+      "name": "sunday quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "sunday quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_sunday",
+      "name": "sunday emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "sunday emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_sunday",
+      "name": "sunday hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "sunday hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_sunday",
+      "name": "sunday feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "sunday feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_sunday",
+      "name": "sunday relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "sunday relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_sunday",
+      "name": "sunday missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "sunday missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_sunday",
+      "name": "sunday wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "sunday wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_sunday",
+      "name": "sunday acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "sunday acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_sunday",
+      "name": "sunday calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "sunday calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_sunday",
+      "name": "sunday processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "sunday processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_sunday",
+      "name": "sunday independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "sunday independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_sunday",
+      "name": "sunday social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "sunday social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_sunday",
+      "name": "sunday nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "sunday nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_rainy",
+      "name": "rainy peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "rainy peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_rainy",
+      "name": "rainy bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "rainy bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_rainy",
+      "name": "rainy quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "rainy quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_rainy",
+      "name": "rainy emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "rainy emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_rainy",
+      "name": "rainy hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "rainy hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_rainy",
+      "name": "rainy feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "rainy feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_rainy",
+      "name": "rainy relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "rainy relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_rainy",
+      "name": "rainy missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "rainy missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_rainy",
+      "name": "rainy wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "rainy wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_rainy",
+      "name": "rainy acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "rainy acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_rainy",
+      "name": "rainy calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "rainy calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_rainy",
+      "name": "rainy processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "rainy processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_rainy",
+      "name": "rainy independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "rainy independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_rainy",
+      "name": "rainy social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "rainy social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_rainy",
+      "name": "rainy nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "rainy nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_summer",
+      "name": "summer peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "summer peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_summer",
+      "name": "summer bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "summer bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_summer",
+      "name": "summer quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "summer quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_summer",
+      "name": "summer emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "summer emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_summer",
+      "name": "summer hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "summer hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_summer",
+      "name": "summer feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "summer feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_summer",
+      "name": "summer relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "summer relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_summer",
+      "name": "summer missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "summer missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_summer",
+      "name": "summer wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "summer wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_summer",
+      "name": "summer acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "summer acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_summer",
+      "name": "summer calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "summer calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_summer",
+      "name": "summer processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "summer processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_summer",
+      "name": "summer independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "summer independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_summer",
+      "name": "summer social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "summer social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_summer",
+      "name": "summer nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "summer nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_urban",
+      "name": "urban peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "urban peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_urban",
+      "name": "urban bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "urban bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_urban",
+      "name": "urban quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "urban quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_urban",
+      "name": "urban emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "urban emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_urban",
+      "name": "urban hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "urban hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_urban",
+      "name": "urban feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "urban feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_urban",
+      "name": "urban relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "urban relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_urban",
+      "name": "urban missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "urban missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_urban",
+      "name": "urban wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "urban wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_urban",
+      "name": "urban acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "urban acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_urban",
+      "name": "urban calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "urban calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_urban",
+      "name": "urban processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "urban processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_urban",
+      "name": "urban independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "urban independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_urban",
+      "name": "urban social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "urban social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_urban",
+      "name": "urban nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "urban nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_domestic",
+      "name": "domestic peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "domestic peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_domestic",
+      "name": "domestic bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "domestic bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_domestic",
+      "name": "domestic quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "domestic quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_domestic",
+      "name": "domestic emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "domestic emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_domestic",
+      "name": "domestic hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "domestic hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_domestic",
+      "name": "domestic feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "domestic feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_domestic",
+      "name": "domestic relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "domestic relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_domestic",
+      "name": "domestic missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "domestic missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_domestic",
+      "name": "domestic wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "domestic wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_domestic",
+      "name": "domestic acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "domestic acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_domestic",
+      "name": "domestic calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "domestic calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_domestic",
+      "name": "domestic processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "domestic processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_domestic",
+      "name": "domestic independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "domestic independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_domestic",
+      "name": "domestic social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "domestic social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_domestic",
+      "name": "domestic nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "domestic nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_after_goodbye",
+      "name": "after goodbye peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "after goodbye peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_after_goodbye",
+      "name": "after goodbye bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "after goodbye bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_after_goodbye",
+      "name": "after goodbye quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "after goodbye quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_after_goodbye",
+      "name": "after goodbye emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "after goodbye emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_after_goodbye",
+      "name": "after goodbye hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "after goodbye hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_after_goodbye",
+      "name": "after goodbye feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "after goodbye feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_after_goodbye",
+      "name": "after goodbye relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "after goodbye relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_after_goodbye",
+      "name": "after goodbye missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "after goodbye missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_after_goodbye",
+      "name": "after goodbye wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "after goodbye wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_after_goodbye",
+      "name": "after goodbye acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "after goodbye acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_after_goodbye",
+      "name": "after goodbye calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "after goodbye calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_after_goodbye",
+      "name": "after goodbye processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "after goodbye processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_after_goodbye",
+      "name": "after goodbye independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "after goodbye independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_after_goodbye",
+      "name": "after goodbye social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "after goodbye social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_after_goodbye",
+      "name": "after goodbye nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "after goodbye nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_new_chapter",
+      "name": "new chapter peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "new chapter peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_new_chapter",
+      "name": "new chapter bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "new chapter bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_new_chapter",
+      "name": "new chapter quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "new chapter quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_new_chapter",
+      "name": "new chapter emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "new chapter emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_new_chapter",
+      "name": "new chapter hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "new chapter hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_new_chapter",
+      "name": "new chapter feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "new chapter feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_new_chapter",
+      "name": "new chapter relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "new chapter relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_new_chapter",
+      "name": "new chapter missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "new chapter missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_new_chapter",
+      "name": "new chapter wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "new chapter wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_new_chapter",
+      "name": "new chapter acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "new chapter acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_new_chapter",
+      "name": "new chapter calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "new chapter calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_new_chapter",
+      "name": "new chapter processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "new chapter processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_new_chapter",
+      "name": "new chapter independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "new chapter independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_new_chapter",
+      "name": "new chapter social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "new chapter social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_new_chapter",
+      "name": "new chapter nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "new chapter nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_on_the_road",
+      "name": "on the road peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "on the road peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_on_the_road",
+      "name": "on the road bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "on the road bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_on_the_road",
+      "name": "on the road quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "on the road quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_on_the_road",
+      "name": "on the road emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "on the road emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_on_the_road",
+      "name": "on the road hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "on the road hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_on_the_road",
+      "name": "on the road feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "on the road feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_on_the_road",
+      "name": "on the road relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "on the road relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_on_the_road",
+      "name": "on the road missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "on the road missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_on_the_road",
+      "name": "on the road wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "on the road wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_on_the_road",
+      "name": "on the road acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "on the road acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_on_the_road",
+      "name": "on the road calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "on the road calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_on_the_road",
+      "name": "on the road processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "on the road processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_on_the_road",
+      "name": "on the road independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "on the road independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_on_the_road",
+      "name": "on the road social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "on the road social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_on_the_road",
+      "name": "on the road nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "on the road nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_quiet",
+      "name": "quiet peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "quiet peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_quiet",
+      "name": "quiet bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "quiet bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_quiet",
+      "name": "quiet quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "quiet quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_quiet",
+      "name": "quiet emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "quiet emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_quiet",
+      "name": "quiet hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "quiet hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_but_free_quiet",
+      "name": "quiet feeling lost but free",
+      "description": "Disoriented yet unburdened",
+      "cues": [
+        "feeling lost but free",
+        "quiet feeling lost but free",
+        "feeling freedom",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "freedom",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.4,
+        "tempo": "slow-medium",
+        "texture": [
+          "expansive",
+          "drifting"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "relief_after_stress_quiet",
+      "name": "quiet relief after stress",
+      "description": "Weight lifting after difficulty",
+      "cues": [
+        "relief after stress",
+        "quiet relief after stress",
+        "feeling relief",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "relief",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "release",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "missing_the_past_quiet",
+      "name": "quiet missing the past",
+      "description": "Yearning for who you were or what you had",
+      "cues": [
+        "missing the past",
+        "quiet missing the past",
+        "feeling nostalgia",
+        "feeling longing"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "analog"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wanting_change_quiet",
+      "name": "quiet wanting change",
+      "description": "Ready for something different",
+      "cues": [
+        "wanting change",
+        "quiet wanting change",
+        "feeling hope",
+        "feeling anticipation"
+      ],
+      "related_emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.48,
+        "tempo": "medium",
+        "texture": [
+          "forward",
+          "bright"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_quiet",
+      "name": "quiet acceptance",
+      "description": "Making peace with how things are",
+      "cues": [
+        "acceptance",
+        "quiet acceptance",
+        "feeling peace",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "peace",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "resolved",
+          "gentle"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "calm_loneliness_quiet",
+      "name": "quiet calm loneliness",
+      "description": "Solitude that feels reflective not desperate",
+      "cues": [
+        "calm loneliness",
+        "quiet calm loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.32,
+        "tempo": "slow-medium",
+        "texture": [
+          "ambient",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "processing_grief_quiet",
+      "name": "quiet processing grief",
+      "description": "Working through loss quietly",
+      "cues": [
+        "processing grief",
+        "quiet processing grief",
+        "feeling grief",
+        "feeling reflection"
+      ],
+      "related_emotions": [
+        "grief",
+        "reflection"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.25,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "emotional"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "independence_quiet",
+      "name": "quiet independence",
+      "description": "Standing on your own in a new chapter",
+      "cues": [
+        "independence",
+        "quiet independence",
+        "feeling hope",
+        "feeling freedom"
+      ],
+      "related_emotions": [
+        "hope",
+        "freedom"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.5,
+        "tempo": "medium",
+        "texture": [
+          "open",
+          "confident"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "social_aftermath_quiet",
+      "name": "quiet social aftermath",
+      "description": "Quiet after company has gone",
+      "cues": [
+        "social aftermath",
+        "quiet social aftermath",
+        "feeling reflection",
+        "feeling loneliness"
+      ],
+      "related_emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.28,
+        "tempo": "slow",
+        "texture": [
+          "minimal",
+          "intimate"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "nocturnal_wandering_quiet",
+      "name": "quiet nocturnal wandering",
+      "description": "Moving through the night without destination",
+      "cues": [
+        "nocturnal wandering",
+        "quiet nocturnal wandering",
+        "feeling freedom",
+        "feeling nostalgia"
+      ],
+      "related_emotions": [
+        "freedom",
+        "nostalgia"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.38,
+        "tempo": "slow-medium",
+        "texture": [
+          "nocturnal",
+          "motion"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "peaceful_loneliness_deep",
+      "name": "deep peaceful loneliness",
+      "description": "Being alone but comfortable with the quiet",
+      "cues": [
+        "peaceful loneliness",
+        "deep peaceful loneliness",
+        "feeling loneliness",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "loneliness",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.3,
+        "tempo": "slow-medium",
+        "texture": [
+          "warm",
+          "soft"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_nostalgia_deep",
+      "name": "deep bittersweet nostalgia",
+      "description": "Warm memory mixed with sadness",
+      "cues": [
+        "bittersweet nostalgia",
+        "deep bittersweet nostalgia",
+        "feeling nostalgia",
+        "feeling bittersweet"
+      ],
+      "related_emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.35,
+        "tempo": "slow-medium",
+        "texture": [
+          "wistful",
+          "warm"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_deep",
+      "name": "deep quiet confidence",
+      "description": "Calm self-assurance without performance",
+      "cues": [
+        "quiet confidence",
+        "deep quiet confidence",
+        "feeling confidence",
+        "feeling peace"
+      ],
+      "related_emotions": [
+        "confidence",
+        "peace"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.45,
+        "tempo": "medium",
+        "texture": [
+          "steady",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_exhaustion_deep",
+      "name": "deep emotional exhaustion",
+      "description": "Drained after carrying too much",
+      "cues": [
+        "emotional exhaustion",
+        "deep emotional exhaustion",
+        "feeling exhaustion",
+        "feeling sadness"
+      ],
+      "related_emotions": [
+        "exhaustion",
+        "sadness"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.22,
+        "tempo": "slow",
+        "texture": [
+          "sparse",
+          "slow"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "hopeful_uncertainty_deep",
+      "name": "deep hopeful uncertainty",
+      "description": "Nervous optimism about what comes next",
+      "cues": [
+        "hopeful uncertainty",
+        "deep hopeful uncertainty",
+        "feeling hope",
+        "feeling anxiety"
+      ],
+      "related_emotions": [
+        "hope",
+        "anxiety"
+      ],
+      "related_situations": [],
+      "music": {
+        "energy": 0.42,
+        "tempo": "slow-medium",
+        "texture": [
+          "gentle build",
+          "open"
+        ],
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    }
+  ]
+}

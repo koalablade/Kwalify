@@ -1,0 +1,1958 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "uk-context",
+  "nodes": [
+    {
+      "id": "petrol_midnight",
+      "name": "petrol station at midnight",
+      "domain": "uk-context",
+      "aliases": [
+        "petrol station at midnight"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_uk",
+      "name": "last train home",
+      "domain": "uk-context",
+      "aliases": [
+        "last train home"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_afternoon_uk",
+      "name": "sunday afternoon",
+      "domain": "uk-context",
+      "aliases": [
+        "sunday afternoon"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "grey_monday",
+      "name": "grey monday morning",
+      "domain": "uk-context",
+      "aliases": [
+        "grey monday",
+        "monday morning"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "motorway_services",
+      "name": "motorway services",
+      "domain": "uk-context",
+      "aliases": [
+        "motorway services",
+        "service station"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "liminal",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sixth_form",
+      "name": "sixth form",
+      "domain": "uk-context",
+      "aliases": [
+        "sixth form",
+        "college days"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "youth"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "uni_halls",
+      "name": "uni halls",
+      "domain": "uk-context",
+      "aliases": [
+        "uni halls",
+        "university halls"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "bank_holiday",
+      "name": "bank holiday",
+      "domain": "uk-context",
+      "aliases": [
+        "bank holiday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "petrol_midnight",
+      "name": "petrol station at midnight",
+      "domain": "uk-context",
+      "aliases": [
+        "petrol station at midnight"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_uk_alone",
+      "name": "last train home",
+      "domain": "uk-context",
+      "aliases": [
+        "last train home",
+        "last train home alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_afternoon_uk_alone",
+      "name": "sunday afternoon",
+      "domain": "uk-context",
+      "aliases": [
+        "sunday afternoon",
+        "sunday afternoon alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "grey_monday_alone",
+      "name": "grey monday morning",
+      "domain": "uk-context",
+      "aliases": [
+        "grey monday",
+        "monday morning",
+        "grey monday morning alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "motorway_services_alone",
+      "name": "motorway services",
+      "domain": "uk-context",
+      "aliases": [
+        "motorway services",
+        "service station",
+        "motorway services alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "liminal",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sixth_form_alone",
+      "name": "sixth form",
+      "domain": "uk-context",
+      "aliases": [
+        "sixth form",
+        "college days",
+        "sixth form alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "youth"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "uni_halls_alone",
+      "name": "uni halls",
+      "domain": "uk-context",
+      "aliases": [
+        "uni halls",
+        "university halls",
+        "uni halls alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "bank_holiday_alone",
+      "name": "bank holiday",
+      "domain": "uk-context",
+      "aliases": [
+        "bank holiday",
+        "bank holiday alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "petrol_midnight_in_the_rain",
+      "name": "petrol station at midnight",
+      "domain": "uk-context",
+      "aliases": [
+        "petrol station at midnight",
+        "petrol station at midnight in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_uk_in_the_rain",
+      "name": "last train home",
+      "domain": "uk-context",
+      "aliases": [
+        "last train home",
+        "last train home in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_afternoon_uk_in_the_rain",
+      "name": "sunday afternoon",
+      "domain": "uk-context",
+      "aliases": [
+        "sunday afternoon",
+        "sunday afternoon in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "grey_monday_in_the_rain",
+      "name": "grey monday morning",
+      "domain": "uk-context",
+      "aliases": [
+        "grey monday",
+        "monday morning",
+        "grey monday morning in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "motorway_services_in_the_rain",
+      "name": "motorway services",
+      "domain": "uk-context",
+      "aliases": [
+        "motorway services",
+        "service station",
+        "motorway services in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "liminal",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sixth_form_in_the_rain",
+      "name": "sixth form",
+      "domain": "uk-context",
+      "aliases": [
+        "sixth form",
+        "college days",
+        "sixth form in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "youth"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "uni_halls_in_the_rain",
+      "name": "uni halls",
+      "domain": "uk-context",
+      "aliases": [
+        "uni halls",
+        "university halls",
+        "uni halls in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "bank_holiday_in_the_rain",
+      "name": "bank holiday",
+      "domain": "uk-context",
+      "aliases": [
+        "bank holiday",
+        "bank holiday in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "petrol_midnight_in_summer",
+      "name": "petrol station at midnight",
+      "domain": "uk-context",
+      "aliases": [
+        "petrol station at midnight",
+        "petrol station at midnight in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_uk_in_summer",
+      "name": "last train home",
+      "domain": "uk-context",
+      "aliases": [
+        "last train home",
+        "last train home in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_afternoon_uk_in_summer",
+      "name": "sunday afternoon",
+      "domain": "uk-context",
+      "aliases": [
+        "sunday afternoon",
+        "sunday afternoon in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "grey_monday_in_summer",
+      "name": "grey monday morning",
+      "domain": "uk-context",
+      "aliases": [
+        "grey monday",
+        "monday morning",
+        "grey monday morning in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "motorway_services_in_summer",
+      "name": "motorway services",
+      "domain": "uk-context",
+      "aliases": [
+        "motorway services",
+        "service station",
+        "motorway services in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "liminal",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sixth_form_in_summer",
+      "name": "sixth form",
+      "domain": "uk-context",
+      "aliases": [
+        "sixth form",
+        "college days",
+        "sixth form in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "youth"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "uni_halls_in_summer",
+      "name": "uni halls",
+      "domain": "uk-context",
+      "aliases": [
+        "uni halls",
+        "university halls",
+        "uni halls in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "bank_holiday_in_summer",
+      "name": "bank holiday",
+      "domain": "uk-context",
+      "aliases": [
+        "bank holiday",
+        "bank holiday in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "petrol_midnight_after_work",
+      "name": "petrol station at midnight",
+      "domain": "uk-context",
+      "aliases": [
+        "petrol station at midnight",
+        "petrol station at midnight after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_uk_after_work",
+      "name": "last train home",
+      "domain": "uk-context",
+      "aliases": [
+        "last train home",
+        "last train home after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_afternoon_uk_after_work",
+      "name": "sunday afternoon",
+      "domain": "uk-context",
+      "aliases": [
+        "sunday afternoon",
+        "sunday afternoon after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "grey_monday_after_work",
+      "name": "grey monday morning",
+      "domain": "uk-context",
+      "aliases": [
+        "grey monday",
+        "monday morning",
+        "grey monday morning after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "motorway_services_after_work",
+      "name": "motorway services",
+      "domain": "uk-context",
+      "aliases": [
+        "motorway services",
+        "service station",
+        "motorway services after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "liminal",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sixth_form_after_work",
+      "name": "sixth form",
+      "domain": "uk-context",
+      "aliases": [
+        "sixth form",
+        "college days",
+        "sixth form after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "youth"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "uni_halls_after_work",
+      "name": "uni halls",
+      "domain": "uk-context",
+      "aliases": [
+        "uni halls",
+        "university halls",
+        "uni halls after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "bank_holiday_after_work",
+      "name": "bank holiday",
+      "domain": "uk-context",
+      "aliases": [
+        "bank holiday",
+        "bank holiday after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "petrol_midnight_on_a_sunday",
+      "name": "petrol station at midnight",
+      "domain": "uk-context",
+      "aliases": [
+        "petrol station at midnight",
+        "petrol station at midnight on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_uk_on_a_sunday",
+      "name": "last train home",
+      "domain": "uk-context",
+      "aliases": [
+        "last train home",
+        "last train home on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_afternoon_uk_on_a_sunday",
+      "name": "sunday afternoon",
+      "domain": "uk-context",
+      "aliases": [
+        "sunday afternoon",
+        "sunday afternoon on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "grey_monday_on_a_sunday",
+      "name": "grey monday morning",
+      "domain": "uk-context",
+      "aliases": [
+        "grey monday",
+        "monday morning",
+        "grey monday morning on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "motorway_services_on_a_sunday",
+      "name": "motorway services",
+      "domain": "uk-context",
+      "aliases": [
+        "motorway services",
+        "service station",
+        "motorway services on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "liminal",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sixth_form_on_a_sunday",
+      "name": "sixth form",
+      "domain": "uk-context",
+      "aliases": [
+        "sixth form",
+        "college days",
+        "sixth form on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "youth"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "uni_halls_on_a_sunday",
+      "name": "uni halls",
+      "domain": "uk-context",
+      "aliases": [
+        "uni halls",
+        "university halls",
+        "uni halls on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "bank_holiday_on_a_sunday",
+      "name": "bank holiday",
+      "domain": "uk-context",
+      "aliases": [
+        "bank holiday",
+        "bank holiday on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "petrol_midnight_at_night",
+      "name": "petrol station at midnight",
+      "domain": "uk-context",
+      "aliases": [
+        "petrol station at midnight",
+        "petrol station at midnight at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_uk_at_night",
+      "name": "last train home",
+      "domain": "uk-context",
+      "aliases": [
+        "last train home",
+        "last train home at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_afternoon_uk_at_night",
+      "name": "sunday afternoon",
+      "domain": "uk-context",
+      "aliases": [
+        "sunday afternoon",
+        "sunday afternoon at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "grey_monday_at_night",
+      "name": "grey monday morning",
+      "domain": "uk-context",
+      "aliases": [
+        "grey monday",
+        "monday morning",
+        "grey monday morning at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "motorway_services_at_night",
+      "name": "motorway services",
+      "domain": "uk-context",
+      "aliases": [
+        "motorway services",
+        "service station",
+        "motorway services at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "liminal",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sixth_form_at_night",
+      "name": "sixth form",
+      "domain": "uk-context",
+      "aliases": [
+        "sixth form",
+        "college days",
+        "sixth form at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "youth"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "uni_halls_at_night",
+      "name": "uni halls",
+      "domain": "uk-context",
+      "aliases": [
+        "uni halls",
+        "university halls",
+        "uni halls at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "bank_holiday_at_night",
+      "name": "bank holiday",
+      "domain": "uk-context",
+      "aliases": [
+        "bank holiday",
+        "bank holiday at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "petrol_midnight_alone",
+      "name": "petrol station at midnight",
+      "domain": "uk-context",
+      "aliases": [
+        "petrol station at midnight",
+        "petrol station at midnight alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_uk_alone",
+      "name": "last train home",
+      "domain": "uk-context",
+      "aliases": [
+        "last train home",
+        "last train home alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_afternoon_uk_alone",
+      "name": "sunday afternoon",
+      "domain": "uk-context",
+      "aliases": [
+        "sunday afternoon",
+        "sunday afternoon alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "grey_monday_alone",
+      "name": "grey monday morning",
+      "domain": "uk-context",
+      "aliases": [
+        "grey monday",
+        "monday morning",
+        "grey monday morning alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "motorway_services_alone",
+      "name": "motorway services",
+      "domain": "uk-context",
+      "aliases": [
+        "motorway services",
+        "service station",
+        "motorway services alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "liminal",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sixth_form_alone",
+      "name": "sixth form",
+      "domain": "uk-context",
+      "aliases": [
+        "sixth form",
+        "college days",
+        "sixth form alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "youth"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "uni_halls_alone",
+      "name": "uni halls",
+      "domain": "uk-context",
+      "aliases": [
+        "uni halls",
+        "university halls",
+        "uni halls alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "bank_holiday_alone",
+      "name": "bank holiday",
+      "domain": "uk-context",
+      "aliases": [
+        "bank holiday",
+        "bank holiday alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    }
+  ]
+}

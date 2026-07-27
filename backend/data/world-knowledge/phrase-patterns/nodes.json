@@ -1,0 +1,3186 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "phrase-patterns",
+  "nodes": [
+    {
+      "id": "rainy_night_short",
+      "name": "rainy night",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "rainy night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "summer_memories",
+      "name": "summer memories",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "summer memories",
+        "summer memory"
+      ],
+      "phrases": [
+        "something like summer",
+        "feels like summer"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "gym_playlist",
+      "name": "gym playlist",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "gym playlist",
+        "workout music"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "confidence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "driving_home_short",
+      "name": "driving home",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "driving home",
+        "drive home"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_teenage_years",
+      "name": "old teenage years",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "teenage years",
+        "my teenage years",
+        "old teenage years"
+      ],
+      "phrases": [
+        "something like my old teenage years",
+        "my teenage years"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "innocence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "life_changing_long",
+      "name": "life is changing",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "life is changing",
+        "life keeps changing"
+      ],
+      "phrases": [
+        "when you realise life is changing",
+        "don't know where you're going"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_neighbourhood",
+      "name": "old neighbourhood",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "old neighbourhood",
+        "old neighborhood",
+        "my old street"
+      ],
+      "phrases": [
+        "walking through my old neighbourhood"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "miss_old_days",
+      "name": "miss the old days",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "miss the old days",
+        "I miss the old days",
+        "good old days"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_after_midnight",
+      "name": "city after midnight",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "city after midnight",
+        "walking through the city after midnight"
+      ],
+      "phrases": [
+        "music for walking through the city after midnight"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "long_day_rain",
+      "name": "long day in the rain",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "long day",
+        "after a long day"
+      ],
+      "phrases": [
+        "driving home after a long day while it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "finally_achieve",
+      "name": "finally achieve",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "finally achieve",
+        "achieved something"
+      ],
+      "phrases": [
+        "music for when you finally achieve something"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "need_motivation",
+      "name": "need motivation",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "need motivation",
+        "monday motivation"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "rainy_night_short",
+      "name": "rainy night",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "rainy night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "summer_memories_alone",
+      "name": "summer memories",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "summer memories",
+        "summer memory",
+        "summer memories alone"
+      ],
+      "phrases": [
+        "something like summer",
+        "feels like summer"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "gym_playlist_alone",
+      "name": "gym playlist",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "gym playlist",
+        "workout music",
+        "gym playlist alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "confidence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "driving_home_short_alone",
+      "name": "driving home",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "driving home",
+        "drive home",
+        "driving home alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_teenage_years_alone",
+      "name": "old teenage years",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "teenage years",
+        "my teenage years",
+        "old teenage years",
+        "old teenage years alone"
+      ],
+      "phrases": [
+        "something like my old teenage years",
+        "my teenage years"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "innocence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "life_changing_long_alone",
+      "name": "life is changing",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "life is changing",
+        "life keeps changing",
+        "life is changing alone"
+      ],
+      "phrases": [
+        "when you realise life is changing",
+        "don't know where you're going"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_neighbourhood_alone",
+      "name": "old neighbourhood",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "old neighbourhood",
+        "old neighborhood",
+        "my old street",
+        "old neighbourhood alone"
+      ],
+      "phrases": [
+        "walking through my old neighbourhood"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "miss_old_days_alone",
+      "name": "miss the old days",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "miss the old days",
+        "I miss the old days",
+        "good old days",
+        "miss the old days alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_after_midnight_alone",
+      "name": "city after midnight",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "city after midnight",
+        "walking through the city after midnight",
+        "city after midnight alone"
+      ],
+      "phrases": [
+        "music for walking through the city after midnight"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "long_day_rain_alone",
+      "name": "long day in the rain",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "long day",
+        "after a long day",
+        "long day in the rain alone"
+      ],
+      "phrases": [
+        "driving home after a long day while it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "finally_achieve_alone",
+      "name": "finally achieve",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "finally achieve",
+        "achieved something",
+        "finally achieve alone"
+      ],
+      "phrases": [
+        "music for when you finally achieve something"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "need_motivation_alone",
+      "name": "need motivation",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "need motivation",
+        "monday motivation",
+        "need motivation alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "rainy_night_short_in_the_rain",
+      "name": "rainy night",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "rainy night",
+        "rainy night in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "summer_memories_in_the_rain",
+      "name": "summer memories",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "summer memories",
+        "summer memory",
+        "summer memories in the rain"
+      ],
+      "phrases": [
+        "something like summer",
+        "feels like summer"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "gym_playlist_in_the_rain",
+      "name": "gym playlist",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "gym playlist",
+        "workout music",
+        "gym playlist in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "confidence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "driving_home_short_in_the_rain",
+      "name": "driving home",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "driving home",
+        "drive home",
+        "driving home in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_teenage_years_in_the_rain",
+      "name": "old teenage years",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "teenage years",
+        "my teenage years",
+        "old teenage years",
+        "old teenage years in the rain"
+      ],
+      "phrases": [
+        "something like my old teenage years",
+        "my teenage years"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "innocence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "life_changing_long_in_the_rain",
+      "name": "life is changing",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "life is changing",
+        "life keeps changing",
+        "life is changing in the rain"
+      ],
+      "phrases": [
+        "when you realise life is changing",
+        "don't know where you're going"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_neighbourhood_in_the_rain",
+      "name": "old neighbourhood",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "old neighbourhood",
+        "old neighborhood",
+        "my old street",
+        "old neighbourhood in the rain"
+      ],
+      "phrases": [
+        "walking through my old neighbourhood"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "miss_old_days_in_the_rain",
+      "name": "miss the old days",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "miss the old days",
+        "I miss the old days",
+        "good old days",
+        "miss the old days in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_after_midnight_in_the_rain",
+      "name": "city after midnight",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "city after midnight",
+        "walking through the city after midnight",
+        "city after midnight in the rain"
+      ],
+      "phrases": [
+        "music for walking through the city after midnight"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "long_day_rain_in_the_rain",
+      "name": "long day in the rain",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "long day",
+        "after a long day",
+        "long day in the rain in the rain"
+      ],
+      "phrases": [
+        "driving home after a long day while it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "finally_achieve_in_the_rain",
+      "name": "finally achieve",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "finally achieve",
+        "achieved something",
+        "finally achieve in the rain"
+      ],
+      "phrases": [
+        "music for when you finally achieve something"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "need_motivation_in_the_rain",
+      "name": "need motivation",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "need motivation",
+        "monday motivation",
+        "need motivation in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "rainy_night_short_in_summer",
+      "name": "rainy night",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "rainy night",
+        "rainy night in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "summer_memories_in_summer",
+      "name": "summer memories",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "summer memories",
+        "summer memory",
+        "summer memories in summer"
+      ],
+      "phrases": [
+        "something like summer",
+        "feels like summer"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "gym_playlist_in_summer",
+      "name": "gym playlist",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "gym playlist",
+        "workout music",
+        "gym playlist in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "confidence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "driving_home_short_in_summer",
+      "name": "driving home",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "driving home",
+        "drive home",
+        "driving home in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_teenage_years_in_summer",
+      "name": "old teenage years",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "teenage years",
+        "my teenage years",
+        "old teenage years",
+        "old teenage years in summer"
+      ],
+      "phrases": [
+        "something like my old teenage years",
+        "my teenage years"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "innocence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "life_changing_long_in_summer",
+      "name": "life is changing",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "life is changing",
+        "life keeps changing",
+        "life is changing in summer"
+      ],
+      "phrases": [
+        "when you realise life is changing",
+        "don't know where you're going"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_neighbourhood_in_summer",
+      "name": "old neighbourhood",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "old neighbourhood",
+        "old neighborhood",
+        "my old street",
+        "old neighbourhood in summer"
+      ],
+      "phrases": [
+        "walking through my old neighbourhood"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "miss_old_days_in_summer",
+      "name": "miss the old days",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "miss the old days",
+        "I miss the old days",
+        "good old days",
+        "miss the old days in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_after_midnight_in_summer",
+      "name": "city after midnight",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "city after midnight",
+        "walking through the city after midnight",
+        "city after midnight in summer"
+      ],
+      "phrases": [
+        "music for walking through the city after midnight"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "long_day_rain_in_summer",
+      "name": "long day in the rain",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "long day",
+        "after a long day",
+        "long day in the rain in summer"
+      ],
+      "phrases": [
+        "driving home after a long day while it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "finally_achieve_in_summer",
+      "name": "finally achieve",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "finally achieve",
+        "achieved something",
+        "finally achieve in summer"
+      ],
+      "phrases": [
+        "music for when you finally achieve something"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "need_motivation_in_summer",
+      "name": "need motivation",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "need motivation",
+        "monday motivation",
+        "need motivation in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "rainy_night_short_after_work",
+      "name": "rainy night",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "rainy night",
+        "rainy night after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "summer_memories_after_work",
+      "name": "summer memories",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "summer memories",
+        "summer memory",
+        "summer memories after work"
+      ],
+      "phrases": [
+        "something like summer",
+        "feels like summer"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "gym_playlist_after_work",
+      "name": "gym playlist",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "gym playlist",
+        "workout music",
+        "gym playlist after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "confidence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "driving_home_short_after_work",
+      "name": "driving home",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "driving home",
+        "drive home",
+        "driving home after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_teenage_years_after_work",
+      "name": "old teenage years",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "teenage years",
+        "my teenage years",
+        "old teenage years",
+        "old teenage years after work"
+      ],
+      "phrases": [
+        "something like my old teenage years",
+        "my teenage years"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "innocence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "life_changing_long_after_work",
+      "name": "life is changing",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "life is changing",
+        "life keeps changing",
+        "life is changing after work"
+      ],
+      "phrases": [
+        "when you realise life is changing",
+        "don't know where you're going"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_neighbourhood_after_work",
+      "name": "old neighbourhood",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "old neighbourhood",
+        "old neighborhood",
+        "my old street",
+        "old neighbourhood after work"
+      ],
+      "phrases": [
+        "walking through my old neighbourhood"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "miss_old_days_after_work",
+      "name": "miss the old days",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "miss the old days",
+        "I miss the old days",
+        "good old days",
+        "miss the old days after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_after_midnight_after_work",
+      "name": "city after midnight",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "city after midnight",
+        "walking through the city after midnight",
+        "city after midnight after work"
+      ],
+      "phrases": [
+        "music for walking through the city after midnight"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "long_day_rain_after_work",
+      "name": "long day in the rain",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "long day",
+        "after a long day",
+        "long day in the rain after work"
+      ],
+      "phrases": [
+        "driving home after a long day while it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "finally_achieve_after_work",
+      "name": "finally achieve",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "finally achieve",
+        "achieved something",
+        "finally achieve after work"
+      ],
+      "phrases": [
+        "music for when you finally achieve something"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "need_motivation_after_work",
+      "name": "need motivation",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "need motivation",
+        "monday motivation",
+        "need motivation after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "rainy_night_short_on_a_sunday",
+      "name": "rainy night",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "rainy night",
+        "rainy night on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "summer_memories_on_a_sunday",
+      "name": "summer memories",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "summer memories",
+        "summer memory",
+        "summer memories on a sunday"
+      ],
+      "phrases": [
+        "something like summer",
+        "feels like summer"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "gym_playlist_on_a_sunday",
+      "name": "gym playlist",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "gym playlist",
+        "workout music",
+        "gym playlist on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "confidence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "driving_home_short_on_a_sunday",
+      "name": "driving home",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "driving home",
+        "drive home",
+        "driving home on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_teenage_years_on_a_sunday",
+      "name": "old teenage years",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "teenage years",
+        "my teenage years",
+        "old teenage years",
+        "old teenage years on a sunday"
+      ],
+      "phrases": [
+        "something like my old teenage years",
+        "my teenage years"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "innocence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "life_changing_long_on_a_sunday",
+      "name": "life is changing",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "life is changing",
+        "life keeps changing",
+        "life is changing on a sunday"
+      ],
+      "phrases": [
+        "when you realise life is changing",
+        "don't know where you're going"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_neighbourhood_on_a_sunday",
+      "name": "old neighbourhood",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "old neighbourhood",
+        "old neighborhood",
+        "my old street",
+        "old neighbourhood on a sunday"
+      ],
+      "phrases": [
+        "walking through my old neighbourhood"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "miss_old_days_on_a_sunday",
+      "name": "miss the old days",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "miss the old days",
+        "I miss the old days",
+        "good old days",
+        "miss the old days on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_after_midnight_on_a_sunday",
+      "name": "city after midnight",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "city after midnight",
+        "walking through the city after midnight",
+        "city after midnight on a sunday"
+      ],
+      "phrases": [
+        "music for walking through the city after midnight"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "long_day_rain_on_a_sunday",
+      "name": "long day in the rain",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "long day",
+        "after a long day",
+        "long day in the rain on a sunday"
+      ],
+      "phrases": [
+        "driving home after a long day while it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "finally_achieve_on_a_sunday",
+      "name": "finally achieve",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "finally achieve",
+        "achieved something",
+        "finally achieve on a sunday"
+      ],
+      "phrases": [
+        "music for when you finally achieve something"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "need_motivation_on_a_sunday",
+      "name": "need motivation",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "need motivation",
+        "monday motivation",
+        "need motivation on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "rainy_night_short_at_night",
+      "name": "rainy night",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "rainy night",
+        "rainy night at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "summer_memories_at_night",
+      "name": "summer memories",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "summer memories",
+        "summer memory",
+        "summer memories at night"
+      ],
+      "phrases": [
+        "something like summer",
+        "feels like summer"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "gym_playlist_at_night",
+      "name": "gym playlist",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "gym playlist",
+        "workout music",
+        "gym playlist at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "confidence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "driving_home_short_at_night",
+      "name": "driving home",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "driving home",
+        "drive home",
+        "driving home at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_teenage_years_at_night",
+      "name": "old teenage years",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "teenage years",
+        "my teenage years",
+        "old teenage years",
+        "old teenage years at night"
+      ],
+      "phrases": [
+        "something like my old teenage years",
+        "my teenage years"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "innocence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "life_changing_long_at_night",
+      "name": "life is changing",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "life is changing",
+        "life keeps changing",
+        "life is changing at night"
+      ],
+      "phrases": [
+        "when you realise life is changing",
+        "don't know where you're going"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_neighbourhood_at_night",
+      "name": "old neighbourhood",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "old neighbourhood",
+        "old neighborhood",
+        "my old street",
+        "old neighbourhood at night"
+      ],
+      "phrases": [
+        "walking through my old neighbourhood"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "miss_old_days_at_night",
+      "name": "miss the old days",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "miss the old days",
+        "I miss the old days",
+        "good old days",
+        "miss the old days at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_after_midnight_at_night",
+      "name": "city after midnight",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "city after midnight",
+        "walking through the city after midnight",
+        "city after midnight at night"
+      ],
+      "phrases": [
+        "music for walking through the city after midnight"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "long_day_rain_at_night",
+      "name": "long day in the rain",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "long day",
+        "after a long day",
+        "long day in the rain at night"
+      ],
+      "phrases": [
+        "driving home after a long day while it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "finally_achieve_at_night",
+      "name": "finally achieve",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "finally achieve",
+        "achieved something",
+        "finally achieve at night"
+      ],
+      "phrases": [
+        "music for when you finally achieve something"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "need_motivation_at_night",
+      "name": "need motivation",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "need motivation",
+        "monday motivation",
+        "need motivation at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "rainy_night_short_alone",
+      "name": "rainy night",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "rainy night",
+        "rainy night alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "summer_memories_alone",
+      "name": "summer memories",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "summer memories",
+        "summer memory",
+        "summer memories alone"
+      ],
+      "phrases": [
+        "something like summer",
+        "feels like summer"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "gym_playlist_alone",
+      "name": "gym playlist",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "gym playlist",
+        "workout music",
+        "gym playlist alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "confidence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "driving_home_short_alone",
+      "name": "driving home",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "driving home",
+        "drive home",
+        "driving home alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_teenage_years_alone",
+      "name": "old teenage years",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "teenage years",
+        "my teenage years",
+        "old teenage years",
+        "old teenage years alone"
+      ],
+      "phrases": [
+        "something like my old teenage years",
+        "my teenage years"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "innocence"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "life_changing_long_alone",
+      "name": "life is changing",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "life is changing",
+        "life keeps changing",
+        "life is changing alone"
+      ],
+      "phrases": [
+        "when you realise life is changing",
+        "don't know where you're going"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "old_neighbourhood_alone",
+      "name": "old neighbourhood",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "old neighbourhood",
+        "old neighborhood",
+        "my old street",
+        "old neighbourhood alone"
+      ],
+      "phrases": [
+        "walking through my old neighbourhood"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "miss_old_days_alone",
+      "name": "miss the old days",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "miss the old days",
+        "I miss the old days",
+        "good old days",
+        "miss the old days alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_after_midnight_alone",
+      "name": "city after midnight",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "city after midnight",
+        "walking through the city after midnight",
+        "city after midnight alone"
+      ],
+      "phrases": [
+        "music for walking through the city after midnight"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "long_day_rain_alone",
+      "name": "long day in the rain",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "long day",
+        "after a long day",
+        "long day in the rain alone"
+      ],
+      "phrases": [
+        "driving home after a long day while it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "finally_achieve_alone",
+      "name": "finally achieve",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "finally achieve",
+        "achieved something",
+        "finally achieve alone"
+      ],
+      "phrases": [
+        "music for when you finally achieve something"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "need_motivation_alone",
+      "name": "need motivation",
+      "domain": "phrase-patterns",
+      "aliases": [
+        "need motivation",
+        "monday motivation",
+        "need motivation alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    }
+  ]
+}

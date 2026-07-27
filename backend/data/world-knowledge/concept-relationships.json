@@ -1,0 +1,131 @@
+{
+  "version": 2,
+  "locale": "en-GB",
+  "relationships": [
+    {
+      "concept": "rain",
+      "environment": [
+        "weather"
+      ],
+      "emotional_links": [
+        "reflection",
+        "comfort",
+        "nostalgia",
+        "calm"
+      ],
+      "sensory": [
+        "soft",
+        "muffled",
+        "enclosed",
+        "rain texture"
+      ],
+      "music": {
+        "genres": [
+          "ambient",
+          "dream pop",
+          "slow indie"
+        ],
+        "energy": "low-medium",
+        "texture": "warm"
+      }
+    },
+    {
+      "concept": "motorway",
+      "environment": [
+        "road",
+        "car"
+      ],
+      "emotional_links": [
+        "solitude",
+        "reflection",
+        "freedom",
+        "loneliness"
+      ],
+      "sensory": [
+        "engine hum",
+        "motion",
+        "enclosed space"
+      ],
+      "music": {
+        "genres": [
+          "ambient",
+          "indie",
+          "post-rock"
+        ],
+        "energy": "low-medium",
+        "texture": "atmospheric"
+      }
+    },
+    {
+      "concept": "home",
+      "environment": [
+        "domestic"
+      ],
+      "emotional_links": [
+        "safety",
+        "nostalgia",
+        "privacy",
+        "acceptance"
+      ],
+      "sensory": [
+        "warm light",
+        "quiet"
+      ],
+      "music": {
+        "genres": [
+          "acoustic",
+          "indie",
+          "ambient"
+        ],
+        "energy": "low",
+        "texture": "cosy"
+      }
+    },
+    {
+      "concept": "goodbye",
+      "social": [
+        "departure"
+      ],
+      "emotional_links": [
+        "grief",
+        "reflection",
+        "longing"
+      ],
+      "sensory": [
+        "cold air",
+        "distance"
+      ],
+      "music": {
+        "genres": [
+          "indie",
+          "singer-songwriter"
+        ],
+        "energy": "low",
+        "texture": "sparse emotional"
+      }
+    },
+    {
+      "concept": "summer ending",
+      "life_context": [
+        "transition"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "bittersweet",
+        "acceptance"
+      ],
+      "sensory": [
+        "golden light",
+        "fading warmth"
+      ],
+      "music": {
+        "genres": [
+          "indie",
+          "folk"
+        ],
+        "energy": "medium",
+        "texture": "wistful warm"
+      }
+    }
+  ]
+}

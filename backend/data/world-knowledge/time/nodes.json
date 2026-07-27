@@ -1,0 +1,1576 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "time",
+  "nodes": [
+    {
+      "id": "morning",
+      "name": "morning",
+      "domain": "time",
+      "aliases": [
+        "morning",
+        "early morning"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "fresh"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "afternoon",
+      "name": "afternoon",
+      "domain": "time",
+      "aliases": [
+        "afternoon",
+        "sunday afternoon"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "active",
+        "open"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "sunset",
+      "name": "sunset",
+      "domain": "time",
+      "aliases": [
+        "sunset",
+        "golden hour",
+        "dusk"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "bittersweet",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "evening",
+      "name": "evening",
+      "domain": "time",
+      "aliases": [
+        "evening",
+        "early evening"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "transition"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night",
+      "name": "night",
+      "domain": "time",
+      "aliases": [
+        "night",
+        "at night",
+        "rainy night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "midnight",
+      "name": "midnight",
+      "domain": "time",
+      "aliases": [
+        "midnight",
+        "after midnight"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "cinematic",
+        "lonely"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "two_am",
+      "name": "2am",
+      "domain": "time",
+      "aliases": [
+        "2am",
+        "2 am",
+        "two am"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "honesty",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE",
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "late_night",
+      "name": "late night",
+      "domain": "time",
+      "aliases": [
+        "late night",
+        "late one"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday",
+      "name": "sunday",
+      "domain": "time",
+      "aliases": [
+        "sunday",
+        "grey sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "monday_morning",
+      "name": "grey monday morning",
+      "domain": "time",
+      "aliases": [
+        "monday morning",
+        "grey monday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "morning",
+      "name": "morning",
+      "domain": "time",
+      "aliases": [
+        "morning",
+        "early morning"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "fresh"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "afternoon_alone",
+      "name": "afternoon",
+      "domain": "time",
+      "aliases": [
+        "afternoon",
+        "sunday afternoon",
+        "afternoon alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "active",
+        "open"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "sunset_alone",
+      "name": "sunset",
+      "domain": "time",
+      "aliases": [
+        "sunset",
+        "golden hour",
+        "dusk",
+        "sunset alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "bittersweet",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "evening_alone",
+      "name": "evening",
+      "domain": "time",
+      "aliases": [
+        "evening",
+        "early evening",
+        "evening alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "transition"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_alone",
+      "name": "night",
+      "domain": "time",
+      "aliases": [
+        "night",
+        "at night",
+        "rainy night",
+        "night alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "midnight_alone",
+      "name": "midnight",
+      "domain": "time",
+      "aliases": [
+        "midnight",
+        "after midnight",
+        "midnight alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "cinematic",
+        "lonely"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "two_am_alone",
+      "name": "2am",
+      "domain": "time",
+      "aliases": [
+        "2am",
+        "2 am",
+        "two am",
+        "2am alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "honesty",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE",
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "late_night_alone",
+      "name": "late night",
+      "domain": "time",
+      "aliases": [
+        "late night",
+        "late one",
+        "late night alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_alone",
+      "name": "sunday",
+      "domain": "time",
+      "aliases": [
+        "sunday",
+        "grey sunday",
+        "sunday alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "monday_morning_alone",
+      "name": "grey monday morning",
+      "domain": "time",
+      "aliases": [
+        "monday morning",
+        "grey monday",
+        "grey monday morning alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "morning_in_the_rain",
+      "name": "morning",
+      "domain": "time",
+      "aliases": [
+        "morning",
+        "early morning",
+        "morning in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "fresh"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "afternoon_in_the_rain",
+      "name": "afternoon",
+      "domain": "time",
+      "aliases": [
+        "afternoon",
+        "sunday afternoon",
+        "afternoon in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "active",
+        "open"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "sunset_in_the_rain",
+      "name": "sunset",
+      "domain": "time",
+      "aliases": [
+        "sunset",
+        "golden hour",
+        "dusk",
+        "sunset in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "bittersweet",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "evening_in_the_rain",
+      "name": "evening",
+      "domain": "time",
+      "aliases": [
+        "evening",
+        "early evening",
+        "evening in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "transition"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_in_the_rain",
+      "name": "night",
+      "domain": "time",
+      "aliases": [
+        "night",
+        "at night",
+        "rainy night",
+        "night in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "midnight_in_the_rain",
+      "name": "midnight",
+      "domain": "time",
+      "aliases": [
+        "midnight",
+        "after midnight",
+        "midnight in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "cinematic",
+        "lonely"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "two_am_in_the_rain",
+      "name": "2am",
+      "domain": "time",
+      "aliases": [
+        "2am",
+        "2 am",
+        "two am",
+        "2am in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "honesty",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE",
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "late_night_in_the_rain",
+      "name": "late night",
+      "domain": "time",
+      "aliases": [
+        "late night",
+        "late one",
+        "late night in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_in_the_rain",
+      "name": "sunday",
+      "domain": "time",
+      "aliases": [
+        "sunday",
+        "grey sunday",
+        "sunday in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "monday_morning_in_the_rain",
+      "name": "grey monday morning",
+      "domain": "time",
+      "aliases": [
+        "monday morning",
+        "grey monday",
+        "grey monday morning in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "morning_in_summer",
+      "name": "morning",
+      "domain": "time",
+      "aliases": [
+        "morning",
+        "early morning",
+        "morning in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "fresh"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "afternoon_in_summer",
+      "name": "afternoon",
+      "domain": "time",
+      "aliases": [
+        "afternoon",
+        "sunday afternoon",
+        "afternoon in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "active",
+        "open"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "sunset_in_summer",
+      "name": "sunset",
+      "domain": "time",
+      "aliases": [
+        "sunset",
+        "golden hour",
+        "dusk",
+        "sunset in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "bittersweet",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "evening_in_summer",
+      "name": "evening",
+      "domain": "time",
+      "aliases": [
+        "evening",
+        "early evening",
+        "evening in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "transition"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_in_summer",
+      "name": "night",
+      "domain": "time",
+      "aliases": [
+        "night",
+        "at night",
+        "rainy night",
+        "night in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "midnight_in_summer",
+      "name": "midnight",
+      "domain": "time",
+      "aliases": [
+        "midnight",
+        "after midnight",
+        "midnight in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "cinematic",
+        "lonely"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "two_am_in_summer",
+      "name": "2am",
+      "domain": "time",
+      "aliases": [
+        "2am",
+        "2 am",
+        "two am",
+        "2am in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "honesty",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE",
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "late_night_in_summer",
+      "name": "late night",
+      "domain": "time",
+      "aliases": [
+        "late night",
+        "late one",
+        "late night in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_in_summer",
+      "name": "sunday",
+      "domain": "time",
+      "aliases": [
+        "sunday",
+        "grey sunday",
+        "sunday in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "monday_morning_in_summer",
+      "name": "grey monday morning",
+      "domain": "time",
+      "aliases": [
+        "monday morning",
+        "grey monday",
+        "grey monday morning in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "morning_after_work",
+      "name": "morning",
+      "domain": "time",
+      "aliases": [
+        "morning",
+        "early morning",
+        "morning after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "fresh"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "afternoon_after_work",
+      "name": "afternoon",
+      "domain": "time",
+      "aliases": [
+        "afternoon",
+        "sunday afternoon",
+        "afternoon after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "active",
+        "open"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "sunset_after_work",
+      "name": "sunset",
+      "domain": "time",
+      "aliases": [
+        "sunset",
+        "golden hour",
+        "dusk",
+        "sunset after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "bittersweet",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "evening_after_work",
+      "name": "evening",
+      "domain": "time",
+      "aliases": [
+        "evening",
+        "early evening",
+        "evening after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "transition"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_after_work",
+      "name": "night",
+      "domain": "time",
+      "aliases": [
+        "night",
+        "at night",
+        "rainy night",
+        "night after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "midnight_after_work",
+      "name": "midnight",
+      "domain": "time",
+      "aliases": [
+        "midnight",
+        "after midnight",
+        "midnight after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "cinematic",
+        "lonely"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "two_am_after_work",
+      "name": "2am",
+      "domain": "time",
+      "aliases": [
+        "2am",
+        "2 am",
+        "two am",
+        "2am after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "honesty",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE",
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "late_night_after_work",
+      "name": "late night",
+      "domain": "time",
+      "aliases": [
+        "late night",
+        "late one",
+        "late night after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sunday_after_work",
+      "name": "sunday",
+      "domain": "time",
+      "aliases": [
+        "sunday",
+        "grey sunday",
+        "sunday after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "slow",
+        "comfort"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "monday_morning_after_work",
+      "name": "grey monday morning",
+      "domain": "time",
+      "aliases": [
+        "monday morning",
+        "grey monday",
+        "grey monday morning after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "routine",
+        "low energy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    }
+  ]
+}

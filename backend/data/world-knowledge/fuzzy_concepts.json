@@ -52,7 +52,7 @@
     },
     {
       "id": "party_aftermath",
-      "triggers": ["after everyone left", "empty house", "party's over", "last one awake", "house went quiet", "everyone went home", "house felt strange"],
+      "triggers": ["after everyone left", "empty house", "party's over", "last one awake", "house went quiet", "everyone went home", "house felt strange", "party finishes", "weird calm after", "after a party finishes", "calm after the party"],
       "concepts": { "social": ["leaving_party"], "emotion": ["reflection", "loneliness", "nostalgia"] },
       "sceneHint": "QUIET_AFTERMATH"
     },
@@ -103,9 +103,51 @@
     },
     {
       "id": "summer_end",
-      "triggers": ["last day of summer", "end of summer", "summer is over", "final summer evening"],
+      "triggers": ["last day of summer", "end of summer", "summer is over", "final summer evening", "feeling of summer ending", "summer ending"],
       "concepts": { "emotion": ["nostalgia", "bittersweet"], "lifeContext": ["seasonal_transition"], "time": ["evening"] },
       "sceneHint": "SUMMER_TRANSITION"
+    },
+    {
+      "id": "not_ready_to_go_in",
+      "triggers": ["wasn't ready to go in", "sat outside because", "sitting outside the house", "couldn't face going inside"],
+      "concepts": { "emotion": ["avoidance", "reflection"], "environment": ["home"], "lifeContext": ["needing_space"], "social": ["alone"] },
+      "sceneHint": "REFLECTIVE_AVOIDANCE_JOURNEY"
+    },
+    {
+      "id": "new_home_feels_mine",
+      "triggers": ["finally feels like home", "everything finally felt mine", "first morning where everything", "new place finally feels"],
+      "concepts": { "emotion": ["hope", "contentment", "independence"], "lifeContext": ["moving_house", "fresh_start"], "environment": ["home"] },
+      "sceneHint": "FRESH_START_ALONE"
+    },
+    {
+      "id": "last_summer_friends",
+      "triggers": ["last summer before everyone", "before everyone moved away", "last summer together", "end of summer with friends"],
+      "concepts": { "emotion": ["nostalgia", "bittersweet"], "lifeContext": ["seasonal_transition", "old_friends"] },
+      "sceneHint": "SUMMER_TRANSITION"
+    },
+    {
+      "id": "driving_for_space",
+      "triggers": ["driving nowhere", "need some space", "needed some space", "nowhere to rush to", "didn't want the night to finish"],
+      "concepts": { "emotion": ["freedom", "reflection", "nostalgia"], "activity": ["driving"], "social": ["alone"] },
+      "sceneHint": "REFLECTIVE_AVOIDANCE_JOURNEY"
+    },
+    {
+      "id": "old_photo_nostalgia",
+      "triggers": ["found an old photo", "old photo and ended up", "looking at old photos", "stumbled on an old picture"],
+      "concepts": { "emotion": ["nostalgia", "reflection"], "lifeContext": ["childhood_memories"], "activity": ["waiting"] },
+      "sceneHint": "NOSTALGIC_RETURN"
+    },
+    {
+      "id": "rain_windscreen_drive_home",
+      "triggers": ["rain hitting the windscreen", "rain on the glass while driving", "driving home after a difficult day", "rain on the glass, nowhere to rush"],
+      "concepts": { "activity": ["driving"], "weather": ["rain"], "emotion": ["reflection", "relief", "exhaustion"], "sensory": ["windscreen", "rain_texture"] },
+      "sceneHint": "LATE_NIGHT_SOLITARY_JOURNEY"
+    },
+    {
+      "id": "life_is_changing",
+      "triggers": ["life is changing", "realise your life is changing", "everything is changing", "my life is changing", "life keeps changing"],
+      "concepts": { "emotion": ["anticipation", "anxiety", "hope"], "lifeContext": ["fresh_start", "transition"] },
+      "sceneHint": "FRESH_START_ALONE"
     },
     {
       "id": "abstract_metaphor",

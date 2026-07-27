@@ -1,0 +1,2185 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "activities",
+  "nodes": [
+    {
+      "id": "driving",
+      "name": "driving",
+      "domain": "activities",
+      "aliases": [
+        "driving",
+        "drive",
+        "on the road"
+      ],
+      "phrases": [
+        "driving home",
+        "driving at night"
+      ],
+      "related_concepts": [
+        "car",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "commute",
+      "name": "commuting",
+      "domain": "activities",
+      "aliases": [
+        "commute",
+        "commuting",
+        "on the way to work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "train"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "road_trip",
+      "name": "road trip",
+      "domain": "activities",
+      "aliases": [
+        "road trip",
+        "long drive"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "walking_home",
+      "name": "walking home",
+      "domain": "activities",
+      "aliases": [
+        "walking home",
+        "walk home"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "clearing_head",
+      "name": "clearing your head",
+      "domain": "activities",
+      "aliases": [
+        "clear my head",
+        "clearing my head",
+        "clear your head"
+      ],
+      "phrases": [
+        "need to clear my head",
+        "I need to clear my head"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "cooking",
+      "name": "cooking",
+      "domain": "activities",
+      "aliases": [
+        "cooking",
+        "making dinner"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "cleaning",
+      "name": "cleaning",
+      "domain": "activities",
+      "aliases": [
+        "cleaning",
+        "tidying",
+        "decluttering"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "fresh start"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "exercise",
+      "name": "exercise",
+      "domain": "activities",
+      "aliases": [
+        "exercise",
+        "workout",
+        "training session"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "gym"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "achievement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "running",
+      "name": "running",
+      "domain": "activities",
+      "aliases": [
+        "running",
+        "go for a run",
+        "jogging"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "studying",
+      "name": "studying",
+      "domain": "activities",
+      "aliases": [
+        "studying",
+        "revision",
+        "coursework"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "gaming",
+      "name": "gaming",
+      "domain": "activities",
+      "aliases": [
+        "gaming",
+        "playing games"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "immersion"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "driving",
+      "name": "driving",
+      "domain": "activities",
+      "aliases": [
+        "driving",
+        "drive",
+        "on the road"
+      ],
+      "phrases": [
+        "driving home",
+        "driving at night"
+      ],
+      "related_concepts": [
+        "car",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "commute_alone",
+      "name": "commuting",
+      "domain": "activities",
+      "aliases": [
+        "commute",
+        "commuting",
+        "on the way to work",
+        "commuting alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "train"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "road_trip_alone",
+      "name": "road trip",
+      "domain": "activities",
+      "aliases": [
+        "road trip",
+        "long drive",
+        "road trip alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "walking_home_alone",
+      "name": "walking home",
+      "domain": "activities",
+      "aliases": [
+        "walking home",
+        "walk home",
+        "walking home alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "clearing_head_alone",
+      "name": "clearing your head",
+      "domain": "activities",
+      "aliases": [
+        "clear my head",
+        "clearing my head",
+        "clear your head",
+        "clearing your head alone"
+      ],
+      "phrases": [
+        "need to clear my head",
+        "I need to clear my head"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "cooking_alone",
+      "name": "cooking",
+      "domain": "activities",
+      "aliases": [
+        "cooking",
+        "making dinner",
+        "cooking alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "cleaning_alone",
+      "name": "cleaning",
+      "domain": "activities",
+      "aliases": [
+        "cleaning",
+        "tidying",
+        "decluttering",
+        "cleaning alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "fresh start"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "exercise_alone",
+      "name": "exercise",
+      "domain": "activities",
+      "aliases": [
+        "exercise",
+        "workout",
+        "training session",
+        "exercise alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "gym"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "achievement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "running_alone",
+      "name": "running",
+      "domain": "activities",
+      "aliases": [
+        "running",
+        "go for a run",
+        "jogging",
+        "running alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "studying_alone",
+      "name": "studying",
+      "domain": "activities",
+      "aliases": [
+        "studying",
+        "revision",
+        "coursework",
+        "studying alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "gaming_alone",
+      "name": "gaming",
+      "domain": "activities",
+      "aliases": [
+        "gaming",
+        "playing games",
+        "gaming alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "immersion"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "driving_in_the_rain",
+      "name": "driving",
+      "domain": "activities",
+      "aliases": [
+        "driving",
+        "drive",
+        "on the road",
+        "driving in the rain"
+      ],
+      "phrases": [
+        "driving home",
+        "driving at night"
+      ],
+      "related_concepts": [
+        "car",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "commute_in_the_rain",
+      "name": "commuting",
+      "domain": "activities",
+      "aliases": [
+        "commute",
+        "commuting",
+        "on the way to work",
+        "commuting in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "train"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "road_trip_in_the_rain",
+      "name": "road trip",
+      "domain": "activities",
+      "aliases": [
+        "road trip",
+        "long drive",
+        "road trip in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "walking_home_in_the_rain",
+      "name": "walking home",
+      "domain": "activities",
+      "aliases": [
+        "walking home",
+        "walk home",
+        "walking home in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "clearing_head_in_the_rain",
+      "name": "clearing your head",
+      "domain": "activities",
+      "aliases": [
+        "clear my head",
+        "clearing my head",
+        "clear your head",
+        "clearing your head in the rain"
+      ],
+      "phrases": [
+        "need to clear my head",
+        "I need to clear my head"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "cooking_in_the_rain",
+      "name": "cooking",
+      "domain": "activities",
+      "aliases": [
+        "cooking",
+        "making dinner",
+        "cooking in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "cleaning_in_the_rain",
+      "name": "cleaning",
+      "domain": "activities",
+      "aliases": [
+        "cleaning",
+        "tidying",
+        "decluttering",
+        "cleaning in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "fresh start"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "exercise_in_the_rain",
+      "name": "exercise",
+      "domain": "activities",
+      "aliases": [
+        "exercise",
+        "workout",
+        "training session",
+        "exercise in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "gym"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "achievement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "running_in_the_rain",
+      "name": "running",
+      "domain": "activities",
+      "aliases": [
+        "running",
+        "go for a run",
+        "jogging",
+        "running in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "studying_in_the_rain",
+      "name": "studying",
+      "domain": "activities",
+      "aliases": [
+        "studying",
+        "revision",
+        "coursework",
+        "studying in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "gaming_in_the_rain",
+      "name": "gaming",
+      "domain": "activities",
+      "aliases": [
+        "gaming",
+        "playing games",
+        "gaming in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "immersion"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "driving_in_summer",
+      "name": "driving",
+      "domain": "activities",
+      "aliases": [
+        "driving",
+        "drive",
+        "on the road",
+        "driving in summer"
+      ],
+      "phrases": [
+        "driving home",
+        "driving at night"
+      ],
+      "related_concepts": [
+        "car",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "commute_in_summer",
+      "name": "commuting",
+      "domain": "activities",
+      "aliases": [
+        "commute",
+        "commuting",
+        "on the way to work",
+        "commuting in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "train"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "road_trip_in_summer",
+      "name": "road trip",
+      "domain": "activities",
+      "aliases": [
+        "road trip",
+        "long drive",
+        "road trip in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "walking_home_in_summer",
+      "name": "walking home",
+      "domain": "activities",
+      "aliases": [
+        "walking home",
+        "walk home",
+        "walking home in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "clearing_head_in_summer",
+      "name": "clearing your head",
+      "domain": "activities",
+      "aliases": [
+        "clear my head",
+        "clearing my head",
+        "clear your head",
+        "clearing your head in summer"
+      ],
+      "phrases": [
+        "need to clear my head",
+        "I need to clear my head"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "cooking_in_summer",
+      "name": "cooking",
+      "domain": "activities",
+      "aliases": [
+        "cooking",
+        "making dinner",
+        "cooking in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "cleaning_in_summer",
+      "name": "cleaning",
+      "domain": "activities",
+      "aliases": [
+        "cleaning",
+        "tidying",
+        "decluttering",
+        "cleaning in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "fresh start"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "exercise_in_summer",
+      "name": "exercise",
+      "domain": "activities",
+      "aliases": [
+        "exercise",
+        "workout",
+        "training session",
+        "exercise in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "gym"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "achievement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "running_in_summer",
+      "name": "running",
+      "domain": "activities",
+      "aliases": [
+        "running",
+        "go for a run",
+        "jogging",
+        "running in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "studying_in_summer",
+      "name": "studying",
+      "domain": "activities",
+      "aliases": [
+        "studying",
+        "revision",
+        "coursework",
+        "studying in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "gaming_in_summer",
+      "name": "gaming",
+      "domain": "activities",
+      "aliases": [
+        "gaming",
+        "playing games",
+        "gaming in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "immersion"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "driving_after_work",
+      "name": "driving",
+      "domain": "activities",
+      "aliases": [
+        "driving",
+        "drive",
+        "on the road",
+        "driving after work"
+      ],
+      "phrases": [
+        "driving home",
+        "driving at night"
+      ],
+      "related_concepts": [
+        "car",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "commute_after_work",
+      "name": "commuting",
+      "domain": "activities",
+      "aliases": [
+        "commute",
+        "commuting",
+        "on the way to work",
+        "commuting after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "train"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "road_trip_after_work",
+      "name": "road trip",
+      "domain": "activities",
+      "aliases": [
+        "road trip",
+        "long drive",
+        "road trip after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "walking_home_after_work",
+      "name": "walking home",
+      "domain": "activities",
+      "aliases": [
+        "walking home",
+        "walk home",
+        "walking home after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "clearing_head_after_work",
+      "name": "clearing your head",
+      "domain": "activities",
+      "aliases": [
+        "clear my head",
+        "clearing my head",
+        "clear your head",
+        "clearing your head after work"
+      ],
+      "phrases": [
+        "need to clear my head",
+        "I need to clear my head"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "cooking_after_work",
+      "name": "cooking",
+      "domain": "activities",
+      "aliases": [
+        "cooking",
+        "making dinner",
+        "cooking after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "cleaning_after_work",
+      "name": "cleaning",
+      "domain": "activities",
+      "aliases": [
+        "cleaning",
+        "tidying",
+        "decluttering",
+        "cleaning after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "fresh start"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "exercise_after_work",
+      "name": "exercise",
+      "domain": "activities",
+      "aliases": [
+        "exercise",
+        "workout",
+        "training session",
+        "exercise after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "gym"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "achievement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "running_after_work",
+      "name": "running",
+      "domain": "activities",
+      "aliases": [
+        "running",
+        "go for a run",
+        "jogging",
+        "running after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "studying_after_work",
+      "name": "studying",
+      "domain": "activities",
+      "aliases": [
+        "studying",
+        "revision",
+        "coursework",
+        "studying after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "gaming_after_work",
+      "name": "gaming",
+      "domain": "activities",
+      "aliases": [
+        "gaming",
+        "playing games",
+        "gaming after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "immersion"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "driving_on_a_sunday",
+      "name": "driving",
+      "domain": "activities",
+      "aliases": [
+        "driving",
+        "drive",
+        "on the road",
+        "driving on a sunday"
+      ],
+      "phrases": [
+        "driving home",
+        "driving at night"
+      ],
+      "related_concepts": [
+        "car",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "commute_on_a_sunday",
+      "name": "commuting",
+      "domain": "activities",
+      "aliases": [
+        "commute",
+        "commuting",
+        "on the way to work",
+        "commuting on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "train"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "exhaustion",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "road_trip_on_a_sunday",
+      "name": "road trip",
+      "domain": "activities",
+      "aliases": [
+        "road trip",
+        "long drive",
+        "road trip on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "walking_home_on_a_sunday",
+      "name": "walking home",
+      "domain": "activities",
+      "aliases": [
+        "walking home",
+        "walk home",
+        "walking home on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "clearing_head_on_a_sunday",
+      "name": "clearing your head",
+      "domain": "activities",
+      "aliases": [
+        "clear my head",
+        "clearing my head",
+        "clear your head",
+        "clearing your head on a sunday"
+      ],
+      "phrases": [
+        "need to clear my head",
+        "I need to clear my head"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "cooking_on_a_sunday",
+      "name": "cooking",
+      "domain": "activities",
+      "aliases": [
+        "cooking",
+        "making dinner",
+        "cooking on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "cleaning_on_a_sunday",
+      "name": "cleaning",
+      "domain": "activities",
+      "aliases": [
+        "cleaning",
+        "tidying",
+        "decluttering",
+        "cleaning on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "fresh start"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "exercise_on_a_sunday",
+      "name": "exercise",
+      "domain": "activities",
+      "aliases": [
+        "exercise",
+        "workout",
+        "training session",
+        "exercise on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "gym"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "motivation",
+        "achievement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "running_on_a_sunday",
+      "name": "running",
+      "domain": "activities",
+      "aliases": [
+        "running",
+        "go for a run",
+        "jogging",
+        "running on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "studying_on_a_sunday",
+      "name": "studying",
+      "domain": "activities",
+      "aliases": [
+        "studying",
+        "revision",
+        "coursework",
+        "studying on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "gaming_on_a_sunday",
+      "name": "gaming",
+      "domain": "activities",
+      "aliases": [
+        "gaming",
+        "playing games",
+        "gaming on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "focus",
+        "immersion"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    }
+  ]
+}

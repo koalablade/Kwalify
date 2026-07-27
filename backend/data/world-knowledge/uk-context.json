@@ -1,0 +1,2289 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "entries": [
+    {
+      "id": "uk_0",
+      "name": "grey skies",
+      "category": "weather",
+      "cues": [
+        "grey skies",
+        "grey skies at night"
+      ],
+      "concepts": [
+        "weather",
+        "at night"
+      ],
+      "emotion": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_1",
+      "name": "rainy afternoon",
+      "category": "weather",
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon at night"
+      ],
+      "concepts": [
+        "weather",
+        "at night"
+      ],
+      "emotion": [
+        "shelter",
+        "inward",
+        "cosy"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_2",
+      "name": "motorway services",
+      "category": "place",
+      "cues": [
+        "motorway services",
+        "motorway services at night"
+      ],
+      "concepts": [
+        "place",
+        "at night"
+      ],
+      "emotion": [
+        "liminal",
+        "pause",
+        "journey"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_3",
+      "name": "seaside town",
+      "category": "place",
+      "cues": [
+        "seaside town",
+        "seaside town at night"
+      ],
+      "concepts": [
+        "place",
+        "at night"
+      ],
+      "emotion": [
+        "nostalgia",
+        "quiet",
+        "open air"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_4",
+      "name": "high street",
+      "category": "place",
+      "cues": [
+        "high street",
+        "high street at night"
+      ],
+      "concepts": [
+        "place",
+        "at night"
+      ],
+      "emotion": [
+        "everyday",
+        "community",
+        "familiar"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_5",
+      "name": "council estate",
+      "category": "place",
+      "cues": [
+        "council estate",
+        "council estate at night"
+      ],
+      "concepts": [
+        "place",
+        "at night"
+      ],
+      "emotion": [
+        "youth",
+        "nostalgia",
+        "community"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_6",
+      "name": "countryside lane",
+      "category": "place",
+      "cues": [
+        "countryside lane",
+        "countryside lane at night"
+      ],
+      "concepts": [
+        "place",
+        "at night"
+      ],
+      "emotion": [
+        "peace",
+        "freedom",
+        "rural"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_7",
+      "name": "first car",
+      "category": "life",
+      "cues": [
+        "first car",
+        "first car at night"
+      ],
+      "concepts": [
+        "life",
+        "at night"
+      ],
+      "emotion": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_8",
+      "name": "passing driving test",
+      "category": "life",
+      "cues": [
+        "passing driving test",
+        "passing driving test at night"
+      ],
+      "concepts": [
+        "life",
+        "at night"
+      ],
+      "emotion": [
+        "relief",
+        "pride",
+        "freedom"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_9",
+      "name": "sixth form",
+      "category": "life",
+      "cues": [
+        "sixth form",
+        "sixth form at night"
+      ],
+      "concepts": [
+        "life",
+        "at night"
+      ],
+      "emotion": [
+        "youth",
+        "anticipation",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_10",
+      "name": "university halls",
+      "category": "life",
+      "cues": [
+        "university halls",
+        "university halls at night"
+      ],
+      "concepts": [
+        "life",
+        "at night"
+      ],
+      "emotion": [
+        "freedom",
+        "loneliness",
+        "new chapter"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_11",
+      "name": "moving away",
+      "category": "life",
+      "cues": [
+        "moving away",
+        "moving away at night"
+      ],
+      "concepts": [
+        "life",
+        "at night"
+      ],
+      "emotion": [
+        "bittersweet",
+        "hope"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_12",
+      "name": "pub closing time",
+      "category": "culture",
+      "cues": [
+        "pub closing time",
+        "pub closing time at night"
+      ],
+      "concepts": [
+        "culture",
+        "at night"
+      ],
+      "emotion": [
+        "transition",
+        "night air"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_13",
+      "name": "last train",
+      "category": "culture",
+      "cues": [
+        "last train",
+        "last train at night"
+      ],
+      "concepts": [
+        "culture",
+        "at night"
+      ],
+      "emotion": [
+        "ending",
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_14",
+      "name": "bank holiday",
+      "category": "culture",
+      "cues": [
+        "bank holiday",
+        "bank holiday at night"
+      ],
+      "concepts": [
+        "culture",
+        "at night"
+      ],
+      "emotion": [
+        "slow",
+        "freedom",
+        "comfort"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_15",
+      "name": "summer evening",
+      "category": "culture",
+      "cues": [
+        "summer evening",
+        "summer evening at night"
+      ],
+      "concepts": [
+        "culture",
+        "at night"
+      ],
+      "emotion": [
+        "nostalgia",
+        "warmth",
+        "ease"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_16",
+      "name": "walking home alone",
+      "category": "culture",
+      "cues": [
+        "walking home alone",
+        "walking home alone at night"
+      ],
+      "concepts": [
+        "culture",
+        "at night"
+      ],
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_17",
+      "name": "grey skies",
+      "category": "weather",
+      "cues": [
+        "grey skies",
+        "grey skies in the rain"
+      ],
+      "concepts": [
+        "weather",
+        "in the rain"
+      ],
+      "emotion": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_18",
+      "name": "rainy afternoon",
+      "category": "weather",
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon in the rain"
+      ],
+      "concepts": [
+        "weather",
+        "in the rain"
+      ],
+      "emotion": [
+        "shelter",
+        "inward",
+        "cosy"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_19",
+      "name": "motorway services",
+      "category": "place",
+      "cues": [
+        "motorway services",
+        "motorway services in the rain"
+      ],
+      "concepts": [
+        "place",
+        "in the rain"
+      ],
+      "emotion": [
+        "liminal",
+        "pause",
+        "journey"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_20",
+      "name": "seaside town",
+      "category": "place",
+      "cues": [
+        "seaside town",
+        "seaside town in the rain"
+      ],
+      "concepts": [
+        "place",
+        "in the rain"
+      ],
+      "emotion": [
+        "nostalgia",
+        "quiet",
+        "open air"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_21",
+      "name": "high street",
+      "category": "place",
+      "cues": [
+        "high street",
+        "high street in the rain"
+      ],
+      "concepts": [
+        "place",
+        "in the rain"
+      ],
+      "emotion": [
+        "everyday",
+        "community",
+        "familiar"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_22",
+      "name": "council estate",
+      "category": "place",
+      "cues": [
+        "council estate",
+        "council estate in the rain"
+      ],
+      "concepts": [
+        "place",
+        "in the rain"
+      ],
+      "emotion": [
+        "youth",
+        "nostalgia",
+        "community"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_23",
+      "name": "countryside lane",
+      "category": "place",
+      "cues": [
+        "countryside lane",
+        "countryside lane in the rain"
+      ],
+      "concepts": [
+        "place",
+        "in the rain"
+      ],
+      "emotion": [
+        "peace",
+        "freedom",
+        "rural"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_24",
+      "name": "first car",
+      "category": "life",
+      "cues": [
+        "first car",
+        "first car in the rain"
+      ],
+      "concepts": [
+        "life",
+        "in the rain"
+      ],
+      "emotion": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_25",
+      "name": "passing driving test",
+      "category": "life",
+      "cues": [
+        "passing driving test",
+        "passing driving test in the rain"
+      ],
+      "concepts": [
+        "life",
+        "in the rain"
+      ],
+      "emotion": [
+        "relief",
+        "pride",
+        "freedom"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_26",
+      "name": "sixth form",
+      "category": "life",
+      "cues": [
+        "sixth form",
+        "sixth form in the rain"
+      ],
+      "concepts": [
+        "life",
+        "in the rain"
+      ],
+      "emotion": [
+        "youth",
+        "anticipation",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_27",
+      "name": "university halls",
+      "category": "life",
+      "cues": [
+        "university halls",
+        "university halls in the rain"
+      ],
+      "concepts": [
+        "life",
+        "in the rain"
+      ],
+      "emotion": [
+        "freedom",
+        "loneliness",
+        "new chapter"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_28",
+      "name": "moving away",
+      "category": "life",
+      "cues": [
+        "moving away",
+        "moving away in the rain"
+      ],
+      "concepts": [
+        "life",
+        "in the rain"
+      ],
+      "emotion": [
+        "bittersweet",
+        "hope"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_29",
+      "name": "pub closing time",
+      "category": "culture",
+      "cues": [
+        "pub closing time",
+        "pub closing time in the rain"
+      ],
+      "concepts": [
+        "culture",
+        "in the rain"
+      ],
+      "emotion": [
+        "transition",
+        "night air"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_30",
+      "name": "last train",
+      "category": "culture",
+      "cues": [
+        "last train",
+        "last train in the rain"
+      ],
+      "concepts": [
+        "culture",
+        "in the rain"
+      ],
+      "emotion": [
+        "ending",
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_31",
+      "name": "bank holiday",
+      "category": "culture",
+      "cues": [
+        "bank holiday",
+        "bank holiday in the rain"
+      ],
+      "concepts": [
+        "culture",
+        "in the rain"
+      ],
+      "emotion": [
+        "slow",
+        "freedom",
+        "comfort"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_32",
+      "name": "summer evening",
+      "category": "culture",
+      "cues": [
+        "summer evening",
+        "summer evening in the rain"
+      ],
+      "concepts": [
+        "culture",
+        "in the rain"
+      ],
+      "emotion": [
+        "nostalgia",
+        "warmth",
+        "ease"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_33",
+      "name": "walking home alone",
+      "category": "culture",
+      "cues": [
+        "walking home alone",
+        "walking home alone in the rain"
+      ],
+      "concepts": [
+        "culture",
+        "in the rain"
+      ],
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_34",
+      "name": "grey skies",
+      "category": "weather",
+      "cues": [
+        "grey skies",
+        "grey skies on a sunday"
+      ],
+      "concepts": [
+        "weather",
+        "on a sunday"
+      ],
+      "emotion": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_35",
+      "name": "rainy afternoon",
+      "category": "weather",
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon on a sunday"
+      ],
+      "concepts": [
+        "weather",
+        "on a sunday"
+      ],
+      "emotion": [
+        "shelter",
+        "inward",
+        "cosy"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_36",
+      "name": "motorway services",
+      "category": "place",
+      "cues": [
+        "motorway services",
+        "motorway services on a sunday"
+      ],
+      "concepts": [
+        "place",
+        "on a sunday"
+      ],
+      "emotion": [
+        "liminal",
+        "pause",
+        "journey"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_37",
+      "name": "seaside town",
+      "category": "place",
+      "cues": [
+        "seaside town",
+        "seaside town on a sunday"
+      ],
+      "concepts": [
+        "place",
+        "on a sunday"
+      ],
+      "emotion": [
+        "nostalgia",
+        "quiet",
+        "open air"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_38",
+      "name": "high street",
+      "category": "place",
+      "cues": [
+        "high street",
+        "high street on a sunday"
+      ],
+      "concepts": [
+        "place",
+        "on a sunday"
+      ],
+      "emotion": [
+        "everyday",
+        "community",
+        "familiar"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_39",
+      "name": "council estate",
+      "category": "place",
+      "cues": [
+        "council estate",
+        "council estate on a sunday"
+      ],
+      "concepts": [
+        "place",
+        "on a sunday"
+      ],
+      "emotion": [
+        "youth",
+        "nostalgia",
+        "community"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_40",
+      "name": "countryside lane",
+      "category": "place",
+      "cues": [
+        "countryside lane",
+        "countryside lane on a sunday"
+      ],
+      "concepts": [
+        "place",
+        "on a sunday"
+      ],
+      "emotion": [
+        "peace",
+        "freedom",
+        "rural"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_41",
+      "name": "first car",
+      "category": "life",
+      "cues": [
+        "first car",
+        "first car on a sunday"
+      ],
+      "concepts": [
+        "life",
+        "on a sunday"
+      ],
+      "emotion": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_42",
+      "name": "passing driving test",
+      "category": "life",
+      "cues": [
+        "passing driving test",
+        "passing driving test on a sunday"
+      ],
+      "concepts": [
+        "life",
+        "on a sunday"
+      ],
+      "emotion": [
+        "relief",
+        "pride",
+        "freedom"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_43",
+      "name": "sixth form",
+      "category": "life",
+      "cues": [
+        "sixth form",
+        "sixth form on a sunday"
+      ],
+      "concepts": [
+        "life",
+        "on a sunday"
+      ],
+      "emotion": [
+        "youth",
+        "anticipation",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_44",
+      "name": "university halls",
+      "category": "life",
+      "cues": [
+        "university halls",
+        "university halls on a sunday"
+      ],
+      "concepts": [
+        "life",
+        "on a sunday"
+      ],
+      "emotion": [
+        "freedom",
+        "loneliness",
+        "new chapter"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_45",
+      "name": "moving away",
+      "category": "life",
+      "cues": [
+        "moving away",
+        "moving away on a sunday"
+      ],
+      "concepts": [
+        "life",
+        "on a sunday"
+      ],
+      "emotion": [
+        "bittersweet",
+        "hope"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_46",
+      "name": "pub closing time",
+      "category": "culture",
+      "cues": [
+        "pub closing time",
+        "pub closing time on a sunday"
+      ],
+      "concepts": [
+        "culture",
+        "on a sunday"
+      ],
+      "emotion": [
+        "transition",
+        "night air"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_47",
+      "name": "last train",
+      "category": "culture",
+      "cues": [
+        "last train",
+        "last train on a sunday"
+      ],
+      "concepts": [
+        "culture",
+        "on a sunday"
+      ],
+      "emotion": [
+        "ending",
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_48",
+      "name": "bank holiday",
+      "category": "culture",
+      "cues": [
+        "bank holiday",
+        "bank holiday on a sunday"
+      ],
+      "concepts": [
+        "culture",
+        "on a sunday"
+      ],
+      "emotion": [
+        "slow",
+        "freedom",
+        "comfort"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_49",
+      "name": "summer evening",
+      "category": "culture",
+      "cues": [
+        "summer evening",
+        "summer evening on a sunday"
+      ],
+      "concepts": [
+        "culture",
+        "on a sunday"
+      ],
+      "emotion": [
+        "nostalgia",
+        "warmth",
+        "ease"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_50",
+      "name": "walking home alone",
+      "category": "culture",
+      "cues": [
+        "walking home alone",
+        "walking home alone on a sunday"
+      ],
+      "concepts": [
+        "culture",
+        "on a sunday"
+      ],
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_51",
+      "name": "grey skies",
+      "category": "weather",
+      "cues": [
+        "grey skies",
+        "grey skies after work"
+      ],
+      "concepts": [
+        "weather",
+        "after work"
+      ],
+      "emotion": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_52",
+      "name": "rainy afternoon",
+      "category": "weather",
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon after work"
+      ],
+      "concepts": [
+        "weather",
+        "after work"
+      ],
+      "emotion": [
+        "shelter",
+        "inward",
+        "cosy"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_53",
+      "name": "motorway services",
+      "category": "place",
+      "cues": [
+        "motorway services",
+        "motorway services after work"
+      ],
+      "concepts": [
+        "place",
+        "after work"
+      ],
+      "emotion": [
+        "liminal",
+        "pause",
+        "journey"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_54",
+      "name": "seaside town",
+      "category": "place",
+      "cues": [
+        "seaside town",
+        "seaside town after work"
+      ],
+      "concepts": [
+        "place",
+        "after work"
+      ],
+      "emotion": [
+        "nostalgia",
+        "quiet",
+        "open air"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_55",
+      "name": "high street",
+      "category": "place",
+      "cues": [
+        "high street",
+        "high street after work"
+      ],
+      "concepts": [
+        "place",
+        "after work"
+      ],
+      "emotion": [
+        "everyday",
+        "community",
+        "familiar"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_56",
+      "name": "council estate",
+      "category": "place",
+      "cues": [
+        "council estate",
+        "council estate after work"
+      ],
+      "concepts": [
+        "place",
+        "after work"
+      ],
+      "emotion": [
+        "youth",
+        "nostalgia",
+        "community"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_57",
+      "name": "countryside lane",
+      "category": "place",
+      "cues": [
+        "countryside lane",
+        "countryside lane after work"
+      ],
+      "concepts": [
+        "place",
+        "after work"
+      ],
+      "emotion": [
+        "peace",
+        "freedom",
+        "rural"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_58",
+      "name": "first car",
+      "category": "life",
+      "cues": [
+        "first car",
+        "first car after work"
+      ],
+      "concepts": [
+        "life",
+        "after work"
+      ],
+      "emotion": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_59",
+      "name": "passing driving test",
+      "category": "life",
+      "cues": [
+        "passing driving test",
+        "passing driving test after work"
+      ],
+      "concepts": [
+        "life",
+        "after work"
+      ],
+      "emotion": [
+        "relief",
+        "pride",
+        "freedom"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_60",
+      "name": "sixth form",
+      "category": "life",
+      "cues": [
+        "sixth form",
+        "sixth form after work"
+      ],
+      "concepts": [
+        "life",
+        "after work"
+      ],
+      "emotion": [
+        "youth",
+        "anticipation",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_61",
+      "name": "university halls",
+      "category": "life",
+      "cues": [
+        "university halls",
+        "university halls after work"
+      ],
+      "concepts": [
+        "life",
+        "after work"
+      ],
+      "emotion": [
+        "freedom",
+        "loneliness",
+        "new chapter"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_62",
+      "name": "moving away",
+      "category": "life",
+      "cues": [
+        "moving away",
+        "moving away after work"
+      ],
+      "concepts": [
+        "life",
+        "after work"
+      ],
+      "emotion": [
+        "bittersweet",
+        "hope"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_63",
+      "name": "pub closing time",
+      "category": "culture",
+      "cues": [
+        "pub closing time",
+        "pub closing time after work"
+      ],
+      "concepts": [
+        "culture",
+        "after work"
+      ],
+      "emotion": [
+        "transition",
+        "night air"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_64",
+      "name": "last train",
+      "category": "culture",
+      "cues": [
+        "last train",
+        "last train after work"
+      ],
+      "concepts": [
+        "culture",
+        "after work"
+      ],
+      "emotion": [
+        "ending",
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_65",
+      "name": "bank holiday",
+      "category": "culture",
+      "cues": [
+        "bank holiday",
+        "bank holiday after work"
+      ],
+      "concepts": [
+        "culture",
+        "after work"
+      ],
+      "emotion": [
+        "slow",
+        "freedom",
+        "comfort"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_66",
+      "name": "summer evening",
+      "category": "culture",
+      "cues": [
+        "summer evening",
+        "summer evening after work"
+      ],
+      "concepts": [
+        "culture",
+        "after work"
+      ],
+      "emotion": [
+        "nostalgia",
+        "warmth",
+        "ease"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_67",
+      "name": "walking home alone",
+      "category": "culture",
+      "cues": [
+        "walking home alone",
+        "walking home alone after work"
+      ],
+      "concepts": [
+        "culture",
+        "after work"
+      ],
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_68",
+      "name": "grey skies",
+      "category": "weather",
+      "cues": [
+        "grey skies",
+        "grey skies alone"
+      ],
+      "concepts": [
+        "weather",
+        "alone"
+      ],
+      "emotion": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_69",
+      "name": "rainy afternoon",
+      "category": "weather",
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon alone"
+      ],
+      "concepts": [
+        "weather",
+        "alone"
+      ],
+      "emotion": [
+        "shelter",
+        "inward",
+        "cosy"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_70",
+      "name": "motorway services",
+      "category": "place",
+      "cues": [
+        "motorway services",
+        "motorway services alone"
+      ],
+      "concepts": [
+        "place",
+        "alone"
+      ],
+      "emotion": [
+        "liminal",
+        "pause",
+        "journey"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_71",
+      "name": "seaside town",
+      "category": "place",
+      "cues": [
+        "seaside town",
+        "seaside town alone"
+      ],
+      "concepts": [
+        "place",
+        "alone"
+      ],
+      "emotion": [
+        "nostalgia",
+        "quiet",
+        "open air"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_72",
+      "name": "high street",
+      "category": "place",
+      "cues": [
+        "high street",
+        "high street alone"
+      ],
+      "concepts": [
+        "place",
+        "alone"
+      ],
+      "emotion": [
+        "everyday",
+        "community",
+        "familiar"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_73",
+      "name": "council estate",
+      "category": "place",
+      "cues": [
+        "council estate",
+        "council estate alone"
+      ],
+      "concepts": [
+        "place",
+        "alone"
+      ],
+      "emotion": [
+        "youth",
+        "nostalgia",
+        "community"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_74",
+      "name": "countryside lane",
+      "category": "place",
+      "cues": [
+        "countryside lane",
+        "countryside lane alone"
+      ],
+      "concepts": [
+        "place",
+        "alone"
+      ],
+      "emotion": [
+        "peace",
+        "freedom",
+        "rural"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_75",
+      "name": "first car",
+      "category": "life",
+      "cues": [
+        "first car",
+        "first car alone"
+      ],
+      "concepts": [
+        "life",
+        "alone"
+      ],
+      "emotion": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_76",
+      "name": "passing driving test",
+      "category": "life",
+      "cues": [
+        "passing driving test",
+        "passing driving test alone"
+      ],
+      "concepts": [
+        "life",
+        "alone"
+      ],
+      "emotion": [
+        "relief",
+        "pride",
+        "freedom"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_77",
+      "name": "sixth form",
+      "category": "life",
+      "cues": [
+        "sixth form",
+        "sixth form alone"
+      ],
+      "concepts": [
+        "life",
+        "alone"
+      ],
+      "emotion": [
+        "youth",
+        "anticipation",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_78",
+      "name": "university halls",
+      "category": "life",
+      "cues": [
+        "university halls",
+        "university halls alone"
+      ],
+      "concepts": [
+        "life",
+        "alone"
+      ],
+      "emotion": [
+        "freedom",
+        "loneliness",
+        "new chapter"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_79",
+      "name": "moving away",
+      "category": "life",
+      "cues": [
+        "moving away",
+        "moving away alone"
+      ],
+      "concepts": [
+        "life",
+        "alone"
+      ],
+      "emotion": [
+        "bittersweet",
+        "hope"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_80",
+      "name": "pub closing time",
+      "category": "culture",
+      "cues": [
+        "pub closing time",
+        "pub closing time alone"
+      ],
+      "concepts": [
+        "culture",
+        "alone"
+      ],
+      "emotion": [
+        "transition",
+        "night air"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_81",
+      "name": "last train",
+      "category": "culture",
+      "cues": [
+        "last train",
+        "last train alone"
+      ],
+      "concepts": [
+        "culture",
+        "alone"
+      ],
+      "emotion": [
+        "ending",
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_82",
+      "name": "bank holiday",
+      "category": "culture",
+      "cues": [
+        "bank holiday",
+        "bank holiday alone"
+      ],
+      "concepts": [
+        "culture",
+        "alone"
+      ],
+      "emotion": [
+        "slow",
+        "freedom",
+        "comfort"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_83",
+      "name": "summer evening",
+      "category": "culture",
+      "cues": [
+        "summer evening",
+        "summer evening alone"
+      ],
+      "concepts": [
+        "culture",
+        "alone"
+      ],
+      "emotion": [
+        "nostalgia",
+        "warmth",
+        "ease"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_84",
+      "name": "walking home alone",
+      "category": "culture",
+      "cues": [
+        "walking home alone",
+        "walking home alone alone"
+      ],
+      "concepts": [
+        "culture",
+        "alone"
+      ],
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_85",
+      "name": "grey skies",
+      "category": "weather",
+      "cues": [
+        "grey skies",
+        "grey skies in summer"
+      ],
+      "concepts": [
+        "weather",
+        "in summer"
+      ],
+      "emotion": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_86",
+      "name": "rainy afternoon",
+      "category": "weather",
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon in summer"
+      ],
+      "concepts": [
+        "weather",
+        "in summer"
+      ],
+      "emotion": [
+        "shelter",
+        "inward",
+        "cosy"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "uk_87",
+      "name": "motorway services",
+      "category": "place",
+      "cues": [
+        "motorway services",
+        "motorway services in summer"
+      ],
+      "concepts": [
+        "place",
+        "in summer"
+      ],
+      "emotion": [
+        "liminal",
+        "pause",
+        "journey"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_88",
+      "name": "seaside town",
+      "category": "place",
+      "cues": [
+        "seaside town",
+        "seaside town in summer"
+      ],
+      "concepts": [
+        "place",
+        "in summer"
+      ],
+      "emotion": [
+        "nostalgia",
+        "quiet",
+        "open air"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_89",
+      "name": "high street",
+      "category": "place",
+      "cues": [
+        "high street",
+        "high street in summer"
+      ],
+      "concepts": [
+        "place",
+        "in summer"
+      ],
+      "emotion": [
+        "everyday",
+        "community",
+        "familiar"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_90",
+      "name": "council estate",
+      "category": "place",
+      "cues": [
+        "council estate",
+        "council estate in summer"
+      ],
+      "concepts": [
+        "place",
+        "in summer"
+      ],
+      "emotion": [
+        "youth",
+        "nostalgia",
+        "community"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_91",
+      "name": "countryside lane",
+      "category": "place",
+      "cues": [
+        "countryside lane",
+        "countryside lane in summer"
+      ],
+      "concepts": [
+        "place",
+        "in summer"
+      ],
+      "emotion": [
+        "peace",
+        "freedom",
+        "rural"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_92",
+      "name": "first car",
+      "category": "life",
+      "cues": [
+        "first car",
+        "first car in summer"
+      ],
+      "concepts": [
+        "life",
+        "in summer"
+      ],
+      "emotion": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_93",
+      "name": "passing driving test",
+      "category": "life",
+      "cues": [
+        "passing driving test",
+        "passing driving test in summer"
+      ],
+      "concepts": [
+        "life",
+        "in summer"
+      ],
+      "emotion": [
+        "relief",
+        "pride",
+        "freedom"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_94",
+      "name": "sixth form",
+      "category": "life",
+      "cues": [
+        "sixth form",
+        "sixth form in summer"
+      ],
+      "concepts": [
+        "life",
+        "in summer"
+      ],
+      "emotion": [
+        "youth",
+        "anticipation",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_95",
+      "name": "university halls",
+      "category": "life",
+      "cues": [
+        "university halls",
+        "university halls in summer"
+      ],
+      "concepts": [
+        "life",
+        "in summer"
+      ],
+      "emotion": [
+        "freedom",
+        "loneliness",
+        "new chapter"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_96",
+      "name": "moving away",
+      "category": "life",
+      "cues": [
+        "moving away",
+        "moving away in summer"
+      ],
+      "concepts": [
+        "life",
+        "in summer"
+      ],
+      "emotion": [
+        "bittersweet",
+        "hope"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_97",
+      "name": "pub closing time",
+      "category": "culture",
+      "cues": [
+        "pub closing time",
+        "pub closing time in summer"
+      ],
+      "concepts": [
+        "culture",
+        "in summer"
+      ],
+      "emotion": [
+        "transition",
+        "night air"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "uk_98",
+      "name": "last train",
+      "category": "culture",
+      "cues": [
+        "last train",
+        "last train in summer"
+      ],
+      "concepts": [
+        "culture",
+        "in summer"
+      ],
+      "emotion": [
+        "ending",
+        "reflection",
+        "loneliness"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "uk_99",
+      "name": "bank holiday",
+      "category": "culture",
+      "cues": [
+        "bank holiday",
+        "bank holiday in summer"
+      ],
+      "concepts": [
+        "culture",
+        "in summer"
+      ],
+      "emotion": [
+        "slow",
+        "freedom",
+        "comfort"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    }
+  ]
+}

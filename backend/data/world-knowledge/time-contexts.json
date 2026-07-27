@@ -1,0 +1,1176 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "contexts": [
+    {
+      "id": "time_0",
+      "time": "morning",
+      "cues": [
+        "morning",
+        "morning in the city",
+        "in the morning"
+      ],
+      "meaning": "Fresh start and quiet possibility",
+      "emotions": [
+        "hopeful",
+        "quiet",
+        "fresh"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_1",
+      "time": "afternoon",
+      "cues": [
+        "afternoon",
+        "afternoon in the city",
+        "in the afternoon"
+      ],
+      "meaning": "Open active daylight hours",
+      "emotions": [
+        "active",
+        "open"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "time_2",
+      "time": "evening",
+      "cues": [
+        "evening",
+        "evening in the city",
+        "in the evening"
+      ],
+      "meaning": "Day closing into reflection",
+      "emotions": [
+        "reflection",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_3",
+      "time": "night",
+      "cues": [
+        "night",
+        "night in the city",
+        "in the night"
+      ],
+      "meaning": "Privacy freedom and introspection",
+      "emotions": [
+        "privacy",
+        "freedom",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_4",
+      "time": "midnight",
+      "cues": [
+        "midnight",
+        "midnight in the city",
+        "in the midnight"
+      ],
+      "meaning": "Cinematic lonely dreamlike hour",
+      "emotions": [
+        "cinematic",
+        "lonely",
+        "dreamlike"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_5",
+      "time": "2am",
+      "cues": [
+        "2am",
+        "2am in the city",
+        "in the 2am"
+      ],
+      "meaning": "Honest deep thoughts and nostalgia",
+      "emotions": [
+        "honest",
+        "nostalgia",
+        "deep thoughts"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_6",
+      "time": "sunday",
+      "cues": [
+        "sunday",
+        "sunday in the city",
+        "in the sunday"
+      ],
+      "meaning": "Slow reset and comfort",
+      "emotions": [
+        "slow",
+        "reset",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_7",
+      "time": "friday night",
+      "cues": [
+        "friday night",
+        "friday night in the city",
+        "in the friday night"
+      ],
+      "meaning": "Social energy and freedom",
+      "emotions": [
+        "energy",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "time_8",
+      "time": "dawn",
+      "cues": [
+        "dawn",
+        "dawn in the city",
+        "in the dawn"
+      ],
+      "meaning": "Fragile new beginning",
+      "emotions": [
+        "hope",
+        "peace"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_9",
+      "time": "golden hour",
+      "cues": [
+        "golden hour",
+        "golden hour in the city",
+        "in the golden hour"
+      ],
+      "meaning": "Warm transitional light",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_10",
+      "time": "morning",
+      "cues": [
+        "morning",
+        "morning driving home",
+        "in the morning"
+      ],
+      "meaning": "Fresh start and quiet possibility",
+      "emotions": [
+        "hopeful",
+        "quiet",
+        "fresh"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_11",
+      "time": "afternoon",
+      "cues": [
+        "afternoon",
+        "afternoon driving home",
+        "in the afternoon"
+      ],
+      "meaning": "Open active daylight hours",
+      "emotions": [
+        "active",
+        "open"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "time_12",
+      "time": "evening",
+      "cues": [
+        "evening",
+        "evening driving home",
+        "in the evening"
+      ],
+      "meaning": "Day closing into reflection",
+      "emotions": [
+        "reflection",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_13",
+      "time": "night",
+      "cues": [
+        "night",
+        "night driving home",
+        "in the night"
+      ],
+      "meaning": "Privacy freedom and introspection",
+      "emotions": [
+        "privacy",
+        "freedom",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_14",
+      "time": "midnight",
+      "cues": [
+        "midnight",
+        "midnight driving home",
+        "in the midnight"
+      ],
+      "meaning": "Cinematic lonely dreamlike hour",
+      "emotions": [
+        "cinematic",
+        "lonely",
+        "dreamlike"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_15",
+      "time": "2am",
+      "cues": [
+        "2am",
+        "2am driving home",
+        "in the 2am"
+      ],
+      "meaning": "Honest deep thoughts and nostalgia",
+      "emotions": [
+        "honest",
+        "nostalgia",
+        "deep thoughts"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_16",
+      "time": "sunday",
+      "cues": [
+        "sunday",
+        "sunday driving home",
+        "in the sunday"
+      ],
+      "meaning": "Slow reset and comfort",
+      "emotions": [
+        "slow",
+        "reset",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_17",
+      "time": "friday night",
+      "cues": [
+        "friday night",
+        "friday night driving home",
+        "in the friday night"
+      ],
+      "meaning": "Social energy and freedom",
+      "emotions": [
+        "energy",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "time_18",
+      "time": "dawn",
+      "cues": [
+        "dawn",
+        "dawn driving home",
+        "in the dawn"
+      ],
+      "meaning": "Fragile new beginning",
+      "emotions": [
+        "hope",
+        "peace"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_19",
+      "time": "golden hour",
+      "cues": [
+        "golden hour",
+        "golden hour driving home",
+        "in the golden hour"
+      ],
+      "meaning": "Warm transitional light",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_20",
+      "time": "morning",
+      "cues": [
+        "morning",
+        "morning alone",
+        "in the morning"
+      ],
+      "meaning": "Fresh start and quiet possibility",
+      "emotions": [
+        "hopeful",
+        "quiet",
+        "fresh"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_21",
+      "time": "afternoon",
+      "cues": [
+        "afternoon",
+        "afternoon alone",
+        "in the afternoon"
+      ],
+      "meaning": "Open active daylight hours",
+      "emotions": [
+        "active",
+        "open"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "time_22",
+      "time": "evening",
+      "cues": [
+        "evening",
+        "evening alone",
+        "in the evening"
+      ],
+      "meaning": "Day closing into reflection",
+      "emotions": [
+        "reflection",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_23",
+      "time": "night",
+      "cues": [
+        "night",
+        "night alone",
+        "in the night"
+      ],
+      "meaning": "Privacy freedom and introspection",
+      "emotions": [
+        "privacy",
+        "freedom",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_24",
+      "time": "midnight",
+      "cues": [
+        "midnight",
+        "midnight alone",
+        "in the midnight"
+      ],
+      "meaning": "Cinematic lonely dreamlike hour",
+      "emotions": [
+        "cinematic",
+        "lonely",
+        "dreamlike"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_25",
+      "time": "2am",
+      "cues": [
+        "2am",
+        "2am alone",
+        "in the 2am"
+      ],
+      "meaning": "Honest deep thoughts and nostalgia",
+      "emotions": [
+        "honest",
+        "nostalgia",
+        "deep thoughts"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_26",
+      "time": "sunday",
+      "cues": [
+        "sunday",
+        "sunday alone",
+        "in the sunday"
+      ],
+      "meaning": "Slow reset and comfort",
+      "emotions": [
+        "slow",
+        "reset",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_27",
+      "time": "friday night",
+      "cues": [
+        "friday night",
+        "friday night alone",
+        "in the friday night"
+      ],
+      "meaning": "Social energy and freedom",
+      "emotions": [
+        "energy",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "time_28",
+      "time": "dawn",
+      "cues": [
+        "dawn",
+        "dawn alone",
+        "in the dawn"
+      ],
+      "meaning": "Fragile new beginning",
+      "emotions": [
+        "hope",
+        "peace"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_29",
+      "time": "golden hour",
+      "cues": [
+        "golden hour",
+        "golden hour alone",
+        "in the golden hour"
+      ],
+      "meaning": "Warm transitional light",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_30",
+      "time": "morning",
+      "cues": [
+        "morning",
+        "morning after rain",
+        "in the morning"
+      ],
+      "meaning": "Fresh start and quiet possibility",
+      "emotions": [
+        "hopeful",
+        "quiet",
+        "fresh"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_31",
+      "time": "afternoon",
+      "cues": [
+        "afternoon",
+        "afternoon after rain",
+        "in the afternoon"
+      ],
+      "meaning": "Open active daylight hours",
+      "emotions": [
+        "active",
+        "open"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "time_32",
+      "time": "evening",
+      "cues": [
+        "evening",
+        "evening after rain",
+        "in the evening"
+      ],
+      "meaning": "Day closing into reflection",
+      "emotions": [
+        "reflection",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_33",
+      "time": "night",
+      "cues": [
+        "night",
+        "night after rain",
+        "in the night"
+      ],
+      "meaning": "Privacy freedom and introspection",
+      "emotions": [
+        "privacy",
+        "freedom",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_34",
+      "time": "midnight",
+      "cues": [
+        "midnight",
+        "midnight after rain",
+        "in the midnight"
+      ],
+      "meaning": "Cinematic lonely dreamlike hour",
+      "emotions": [
+        "cinematic",
+        "lonely",
+        "dreamlike"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_35",
+      "time": "2am",
+      "cues": [
+        "2am",
+        "2am after rain",
+        "in the 2am"
+      ],
+      "meaning": "Honest deep thoughts and nostalgia",
+      "emotions": [
+        "honest",
+        "nostalgia",
+        "deep thoughts"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_36",
+      "time": "sunday",
+      "cues": [
+        "sunday",
+        "sunday after rain",
+        "in the sunday"
+      ],
+      "meaning": "Slow reset and comfort",
+      "emotions": [
+        "slow",
+        "reset",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_37",
+      "time": "friday night",
+      "cues": [
+        "friday night",
+        "friday night after rain",
+        "in the friday night"
+      ],
+      "meaning": "Social energy and freedom",
+      "emotions": [
+        "energy",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "time_38",
+      "time": "dawn",
+      "cues": [
+        "dawn",
+        "dawn after rain",
+        "in the dawn"
+      ],
+      "meaning": "Fragile new beginning",
+      "emotions": [
+        "hope",
+        "peace"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_39",
+      "time": "golden hour",
+      "cues": [
+        "golden hour",
+        "golden hour after rain",
+        "in the golden hour"
+      ],
+      "meaning": "Warm transitional light",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_40",
+      "time": "morning",
+      "cues": [
+        "morning",
+        "morning in summer",
+        "in the morning"
+      ],
+      "meaning": "Fresh start and quiet possibility",
+      "emotions": [
+        "hopeful",
+        "quiet",
+        "fresh"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_41",
+      "time": "afternoon",
+      "cues": [
+        "afternoon",
+        "afternoon in summer",
+        "in the afternoon"
+      ],
+      "meaning": "Open active daylight hours",
+      "emotions": [
+        "active",
+        "open"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "time_42",
+      "time": "evening",
+      "cues": [
+        "evening",
+        "evening in summer",
+        "in the evening"
+      ],
+      "meaning": "Day closing into reflection",
+      "emotions": [
+        "reflection",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_43",
+      "time": "night",
+      "cues": [
+        "night",
+        "night in summer",
+        "in the night"
+      ],
+      "meaning": "Privacy freedom and introspection",
+      "emotions": [
+        "privacy",
+        "freedom",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_44",
+      "time": "midnight",
+      "cues": [
+        "midnight",
+        "midnight in summer",
+        "in the midnight"
+      ],
+      "meaning": "Cinematic lonely dreamlike hour",
+      "emotions": [
+        "cinematic",
+        "lonely",
+        "dreamlike"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_45",
+      "time": "2am",
+      "cues": [
+        "2am",
+        "2am in summer",
+        "in the 2am"
+      ],
+      "meaning": "Honest deep thoughts and nostalgia",
+      "emotions": [
+        "honest",
+        "nostalgia",
+        "deep thoughts"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_46",
+      "time": "sunday",
+      "cues": [
+        "sunday",
+        "sunday in summer",
+        "in the sunday"
+      ],
+      "meaning": "Slow reset and comfort",
+      "emotions": [
+        "slow",
+        "reset",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_47",
+      "time": "friday night",
+      "cues": [
+        "friday night",
+        "friday night in summer",
+        "in the friday night"
+      ],
+      "meaning": "Social energy and freedom",
+      "emotions": [
+        "energy",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "time_48",
+      "time": "dawn",
+      "cues": [
+        "dawn",
+        "dawn in summer",
+        "in the dawn"
+      ],
+      "meaning": "Fragile new beginning",
+      "emotions": [
+        "hope",
+        "peace"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_49",
+      "time": "golden hour",
+      "cues": [
+        "golden hour",
+        "golden hour in summer",
+        "in the golden hour"
+      ],
+      "meaning": "Warm transitional light",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_50",
+      "time": "morning",
+      "cues": [
+        "morning",
+        "morning in the city",
+        "in the morning"
+      ],
+      "meaning": "Fresh start and quiet possibility",
+      "emotions": [
+        "hopeful",
+        "quiet",
+        "fresh"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_51",
+      "time": "afternoon",
+      "cues": [
+        "afternoon",
+        "afternoon in the city",
+        "in the afternoon"
+      ],
+      "meaning": "Open active daylight hours",
+      "emotions": [
+        "active",
+        "open"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "time_52",
+      "time": "evening",
+      "cues": [
+        "evening",
+        "evening in the city",
+        "in the evening"
+      ],
+      "meaning": "Day closing into reflection",
+      "emotions": [
+        "reflection",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_53",
+      "time": "night",
+      "cues": [
+        "night",
+        "night in the city",
+        "in the night"
+      ],
+      "meaning": "Privacy freedom and introspection",
+      "emotions": [
+        "privacy",
+        "freedom",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "time_54",
+      "time": "midnight",
+      "cues": [
+        "midnight",
+        "midnight in the city",
+        "in the midnight"
+      ],
+      "meaning": "Cinematic lonely dreamlike hour",
+      "emotions": [
+        "cinematic",
+        "lonely",
+        "dreamlike"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_55",
+      "time": "2am",
+      "cues": [
+        "2am",
+        "2am in the city",
+        "in the 2am"
+      ],
+      "meaning": "Honest deep thoughts and nostalgia",
+      "emotions": [
+        "honest",
+        "nostalgia",
+        "deep thoughts"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_56",
+      "time": "sunday",
+      "cues": [
+        "sunday",
+        "sunday in the city",
+        "in the sunday"
+      ],
+      "meaning": "Slow reset and comfort",
+      "emotions": [
+        "slow",
+        "reset",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_57",
+      "time": "friday night",
+      "cues": [
+        "friday night",
+        "friday night in the city",
+        "in the friday night"
+      ],
+      "meaning": "Social energy and freedom",
+      "emotions": [
+        "energy",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "time_58",
+      "time": "dawn",
+      "cues": [
+        "dawn",
+        "dawn in the city",
+        "in the dawn"
+      ],
+      "meaning": "Fragile new beginning",
+      "emotions": [
+        "hope",
+        "peace"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "time_59",
+      "time": "golden hour",
+      "cues": [
+        "golden hour",
+        "golden hour in the city",
+        "in the golden hour"
+      ],
+      "meaning": "Warm transitional light",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    }
+  ]
+}

@@ -1,18 +1,2080 @@
 {
-  "version": 1,
+  "version": 2,
   "locale": "en-GB",
   "concepts": [
-    { "id": "driving", "label": "driving", "synonyms": ["drive", "driving", "on the road", "behind the wheel", "motorway", "a road", "cruise", "night drive"], "motion": "moving", "energy": 0.45 },
-    { "id": "walking", "label": "walking", "synonyms": ["walk", "walking", "stroll", "wandering", "on foot", "pavement", "footpath"], "motion": "moving", "energy": 0.35 },
-    { "id": "cooking", "label": "cooking", "synonyms": ["cook", "cooking", "in the kitchen", "making dinner", "prep", "chopping"], "motion": "steady", "energy": 0.4 },
-    { "id": "cleaning", "label": "cleaning", "synonyms": ["clean", "cleaning", "tidying", "sorting", "declutter", "hoovering"], "motion": "steady", "energy": 0.35 },
-    { "id": "travelling", "label": "travelling", "synonyms": ["travel", "travelling", "journey", "commute", "on the way", "en route", "transit"], "motion": "moving", "energy": 0.45 },
-    { "id": "working", "label": "working", "synonyms": ["work", "working", "office", "desk", "deadline", "shift", "focus mode"], "motion": "steady", "energy": 0.5 },
-    { "id": "waiting", "label": "waiting", "synonyms": ["wait", "waiting", "queue", "platform", "delayed", "holding on"], "motion": "still", "energy": 0.3 },
-    { "id": "studying", "label": "studying", "synonyms": ["study", "studying", "revision", "library", "exam", "coursework"], "motion": "steady", "energy": 0.4 },
-    { "id": "dancing", "label": "dancing", "synonyms": ["dance", "dancing", "club", "floor", "rave", "groove"], "motion": "moving", "energy": 0.8 },
-    { "id": "running", "label": "running", "synonyms": ["run", "running", "jog", "sprint", "training"], "motion": "moving", "energy": 0.75 },
-    { "id": "sleeping", "label": "sleeping", "synonyms": ["sleep", "sleeping", "bed", "insomnia", "couldn't sleep", "wide awake at 3am"], "motion": "still", "energy": 0.1 },
-    { "id": "socialising", "label": "socialising", "synonyms": ["party", "pub", "mates", "friends over", "gathering", "night out"], "motion": "moving", "energy": 0.65 }
+    {
+      "id": "driving",
+      "label": "driving",
+      "synonyms": [
+        "drive",
+        "driving",
+        "on the road",
+        "behind the wheel",
+        "motorway",
+        "a road",
+        "cruise",
+        "night drive"
+      ],
+      "motion": "moving",
+      "energy": 0.45
+    },
+    {
+      "id": "walking",
+      "label": "walking",
+      "synonyms": [
+        "walk",
+        "walking",
+        "stroll",
+        "wandering",
+        "on foot",
+        "pavement",
+        "footpath"
+      ],
+      "motion": "moving",
+      "energy": 0.35
+    },
+    {
+      "id": "cooking",
+      "label": "cooking",
+      "synonyms": [
+        "cook",
+        "cooking",
+        "in the kitchen",
+        "making dinner",
+        "prep",
+        "chopping"
+      ],
+      "motion": "steady",
+      "energy": 0.4
+    },
+    {
+      "id": "cleaning",
+      "label": "cleaning",
+      "synonyms": [
+        "clean",
+        "cleaning",
+        "tidying",
+        "sorting",
+        "declutter",
+        "hoovering"
+      ],
+      "motion": "steady",
+      "energy": 0.35
+    },
+    {
+      "id": "travelling",
+      "label": "travelling",
+      "synonyms": [
+        "travel",
+        "travelling",
+        "journey",
+        "commute",
+        "on the way",
+        "en route",
+        "transit"
+      ],
+      "motion": "moving",
+      "energy": 0.45
+    },
+    {
+      "id": "working",
+      "label": "working",
+      "synonyms": [
+        "work",
+        "working",
+        "office",
+        "desk",
+        "deadline",
+        "shift",
+        "focus mode"
+      ],
+      "motion": "steady",
+      "energy": 0.5
+    },
+    {
+      "id": "waiting",
+      "label": "waiting",
+      "synonyms": [
+        "wait",
+        "waiting",
+        "queue",
+        "platform",
+        "delayed",
+        "holding on"
+      ],
+      "motion": "still",
+      "energy": 0.3
+    },
+    {
+      "id": "studying",
+      "label": "studying",
+      "synonyms": [
+        "study",
+        "studying",
+        "revision",
+        "library",
+        "exam",
+        "coursework"
+      ],
+      "motion": "steady",
+      "energy": 0.4
+    },
+    {
+      "id": "dancing",
+      "label": "dancing",
+      "synonyms": [
+        "dance",
+        "dancing",
+        "club",
+        "floor",
+        "rave",
+        "groove"
+      ],
+      "motion": "moving",
+      "energy": 0.8
+    },
+    {
+      "id": "running",
+      "label": "running",
+      "synonyms": [
+        "run",
+        "running",
+        "jog",
+        "sprint",
+        "training"
+      ],
+      "motion": "moving",
+      "energy": 0.75
+    },
+    {
+      "id": "sleeping",
+      "label": "sleeping",
+      "synonyms": [
+        "sleep",
+        "sleeping",
+        "bed",
+        "insomnia",
+        "couldn't sleep",
+        "wide awake at 3am"
+      ],
+      "motion": "still",
+      "energy": 0.1
+    },
+    {
+      "id": "socialising",
+      "label": "socialising",
+      "synonyms": [
+        "party",
+        "pub",
+        "mates",
+        "friends over",
+        "gathering",
+        "night out"
+      ],
+      "motion": "moving",
+      "energy": 0.65
+    }
+  ],
+  "library": [
+    {
+      "id": "act_lib_0",
+      "activity": "road trip",
+      "cues": [
+        "road trip",
+        "road trip at night"
+      ],
+      "purpose": "Long journey for the sake of movement",
+      "emotion": [
+        "freedom",
+        "anticipation"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_1",
+      "activity": "commuting",
+      "cues": [
+        "commuting",
+        "commuting at night"
+      ],
+      "purpose": "Daily transition between worlds",
+      "emotion": [
+        "exhaustion",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_2",
+      "activity": "driving alone",
+      "cues": [
+        "driving alone",
+        "driving alone at night"
+      ],
+      "purpose": "Private mobile solitude",
+      "emotion": [
+        "reflection",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_3",
+      "activity": "driving at night",
+      "cues": [
+        "driving at night",
+        "driving at night at night"
+      ],
+      "purpose": "Nocturnal journey without destination",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_4",
+      "activity": "walking home",
+      "cues": [
+        "walking home",
+        "walking home at night"
+      ],
+      "purpose": "Return journey after social end",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_5",
+      "activity": "walking through a city",
+      "cues": [
+        "walking through a city",
+        "walking through a city at night"
+      ],
+      "purpose": "Urban wandering when quiet",
+      "emotion": [
+        "freedom",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_6",
+      "activity": "walking in nature",
+      "cues": [
+        "walking in nature",
+        "walking in nature at night"
+      ],
+      "purpose": "Grounding movement outdoors",
+      "emotion": [
+        "peace",
+        "relief"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_7",
+      "activity": "cooking",
+      "cues": [
+        "cooking",
+        "cooking at night"
+      ],
+      "purpose": "Domestic creative routine",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_8",
+      "activity": "cleaning",
+      "cues": [
+        "cleaning",
+        "cleaning at night"
+      ],
+      "purpose": "Resetting your physical space",
+      "emotion": [
+        "relief",
+        "reflection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_9",
+      "activity": "relaxing",
+      "cues": [
+        "relaxing",
+        "relaxing at night"
+      ],
+      "purpose": "Deliberate rest and unwind",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "still",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_10",
+      "activity": "drawing",
+      "cues": [
+        "drawing",
+        "drawing at night"
+      ],
+      "purpose": "Quiet creative focus",
+      "emotion": [
+        "introspection",
+        "peace"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_11",
+      "activity": "writing",
+      "cues": [
+        "writing",
+        "writing at night"
+      ],
+      "purpose": "Translating inner world to words",
+      "emotion": [
+        "reflection",
+        "introspection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_12",
+      "activity": "leaving a party",
+      "cues": [
+        "leaving a party",
+        "leaving a party at night"
+      ],
+      "purpose": "Transition from social high to quiet",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_13",
+      "activity": "running",
+      "cues": [
+        "running",
+        "running at night"
+      ],
+      "purpose": "Physical release and motion",
+      "emotion": [
+        "relief",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "act_lib_14",
+      "activity": "cycling",
+      "cues": [
+        "cycling",
+        "cycling at night"
+      ],
+      "purpose": "Rhythmic open-air movement",
+      "emotion": [
+        "freedom",
+        "joy"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_15",
+      "activity": "road trip",
+      "cues": [
+        "road trip",
+        "road trip in the rain"
+      ],
+      "purpose": "Long journey for the sake of movement",
+      "emotion": [
+        "freedom",
+        "anticipation"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_16",
+      "activity": "commuting",
+      "cues": [
+        "commuting",
+        "commuting in the rain"
+      ],
+      "purpose": "Daily transition between worlds",
+      "emotion": [
+        "exhaustion",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_17",
+      "activity": "driving alone",
+      "cues": [
+        "driving alone",
+        "driving alone in the rain"
+      ],
+      "purpose": "Private mobile solitude",
+      "emotion": [
+        "reflection",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_18",
+      "activity": "driving at night",
+      "cues": [
+        "driving at night",
+        "driving at night in the rain"
+      ],
+      "purpose": "Nocturnal journey without destination",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_19",
+      "activity": "walking home",
+      "cues": [
+        "walking home",
+        "walking home in the rain"
+      ],
+      "purpose": "Return journey after social end",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_20",
+      "activity": "walking through a city",
+      "cues": [
+        "walking through a city",
+        "walking through a city in the rain"
+      ],
+      "purpose": "Urban wandering when quiet",
+      "emotion": [
+        "freedom",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_21",
+      "activity": "walking in nature",
+      "cues": [
+        "walking in nature",
+        "walking in nature in the rain"
+      ],
+      "purpose": "Grounding movement outdoors",
+      "emotion": [
+        "peace",
+        "relief"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_22",
+      "activity": "cooking",
+      "cues": [
+        "cooking",
+        "cooking in the rain"
+      ],
+      "purpose": "Domestic creative routine",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_23",
+      "activity": "cleaning",
+      "cues": [
+        "cleaning",
+        "cleaning in the rain"
+      ],
+      "purpose": "Resetting your physical space",
+      "emotion": [
+        "relief",
+        "reflection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_24",
+      "activity": "relaxing",
+      "cues": [
+        "relaxing",
+        "relaxing in the rain"
+      ],
+      "purpose": "Deliberate rest and unwind",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "still",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_25",
+      "activity": "drawing",
+      "cues": [
+        "drawing",
+        "drawing in the rain"
+      ],
+      "purpose": "Quiet creative focus",
+      "emotion": [
+        "introspection",
+        "peace"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_26",
+      "activity": "writing",
+      "cues": [
+        "writing",
+        "writing in the rain"
+      ],
+      "purpose": "Translating inner world to words",
+      "emotion": [
+        "reflection",
+        "introspection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_27",
+      "activity": "leaving a party",
+      "cues": [
+        "leaving a party",
+        "leaving a party in the rain"
+      ],
+      "purpose": "Transition from social high to quiet",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_28",
+      "activity": "running",
+      "cues": [
+        "running",
+        "running in the rain"
+      ],
+      "purpose": "Physical release and motion",
+      "emotion": [
+        "relief",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "act_lib_29",
+      "activity": "cycling",
+      "cues": [
+        "cycling",
+        "cycling in the rain"
+      ],
+      "purpose": "Rhythmic open-air movement",
+      "emotion": [
+        "freedom",
+        "joy"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_30",
+      "activity": "road trip",
+      "cues": [
+        "road trip",
+        "road trip on a sunday"
+      ],
+      "purpose": "Long journey for the sake of movement",
+      "emotion": [
+        "freedom",
+        "anticipation"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_31",
+      "activity": "commuting",
+      "cues": [
+        "commuting",
+        "commuting on a sunday"
+      ],
+      "purpose": "Daily transition between worlds",
+      "emotion": [
+        "exhaustion",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_32",
+      "activity": "driving alone",
+      "cues": [
+        "driving alone",
+        "driving alone on a sunday"
+      ],
+      "purpose": "Private mobile solitude",
+      "emotion": [
+        "reflection",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_33",
+      "activity": "driving at night",
+      "cues": [
+        "driving at night",
+        "driving at night on a sunday"
+      ],
+      "purpose": "Nocturnal journey without destination",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_34",
+      "activity": "walking home",
+      "cues": [
+        "walking home",
+        "walking home on a sunday"
+      ],
+      "purpose": "Return journey after social end",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_35",
+      "activity": "walking through a city",
+      "cues": [
+        "walking through a city",
+        "walking through a city on a sunday"
+      ],
+      "purpose": "Urban wandering when quiet",
+      "emotion": [
+        "freedom",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_36",
+      "activity": "walking in nature",
+      "cues": [
+        "walking in nature",
+        "walking in nature on a sunday"
+      ],
+      "purpose": "Grounding movement outdoors",
+      "emotion": [
+        "peace",
+        "relief"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_37",
+      "activity": "cooking",
+      "cues": [
+        "cooking",
+        "cooking on a sunday"
+      ],
+      "purpose": "Domestic creative routine",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_38",
+      "activity": "cleaning",
+      "cues": [
+        "cleaning",
+        "cleaning on a sunday"
+      ],
+      "purpose": "Resetting your physical space",
+      "emotion": [
+        "relief",
+        "reflection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_39",
+      "activity": "relaxing",
+      "cues": [
+        "relaxing",
+        "relaxing on a sunday"
+      ],
+      "purpose": "Deliberate rest and unwind",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "still",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_40",
+      "activity": "drawing",
+      "cues": [
+        "drawing",
+        "drawing on a sunday"
+      ],
+      "purpose": "Quiet creative focus",
+      "emotion": [
+        "introspection",
+        "peace"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_41",
+      "activity": "writing",
+      "cues": [
+        "writing",
+        "writing on a sunday"
+      ],
+      "purpose": "Translating inner world to words",
+      "emotion": [
+        "reflection",
+        "introspection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_42",
+      "activity": "leaving a party",
+      "cues": [
+        "leaving a party",
+        "leaving a party on a sunday"
+      ],
+      "purpose": "Transition from social high to quiet",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_43",
+      "activity": "running",
+      "cues": [
+        "running",
+        "running on a sunday"
+      ],
+      "purpose": "Physical release and motion",
+      "emotion": [
+        "relief",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "act_lib_44",
+      "activity": "cycling",
+      "cues": [
+        "cycling",
+        "cycling on a sunday"
+      ],
+      "purpose": "Rhythmic open-air movement",
+      "emotion": [
+        "freedom",
+        "joy"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_45",
+      "activity": "road trip",
+      "cues": [
+        "road trip",
+        "road trip after work"
+      ],
+      "purpose": "Long journey for the sake of movement",
+      "emotion": [
+        "freedom",
+        "anticipation"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_46",
+      "activity": "commuting",
+      "cues": [
+        "commuting",
+        "commuting after work"
+      ],
+      "purpose": "Daily transition between worlds",
+      "emotion": [
+        "exhaustion",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_47",
+      "activity": "driving alone",
+      "cues": [
+        "driving alone",
+        "driving alone after work"
+      ],
+      "purpose": "Private mobile solitude",
+      "emotion": [
+        "reflection",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_48",
+      "activity": "driving at night",
+      "cues": [
+        "driving at night",
+        "driving at night after work"
+      ],
+      "purpose": "Nocturnal journey without destination",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_49",
+      "activity": "walking home",
+      "cues": [
+        "walking home",
+        "walking home after work"
+      ],
+      "purpose": "Return journey after social end",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_50",
+      "activity": "walking through a city",
+      "cues": [
+        "walking through a city",
+        "walking through a city after work"
+      ],
+      "purpose": "Urban wandering when quiet",
+      "emotion": [
+        "freedom",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_51",
+      "activity": "walking in nature",
+      "cues": [
+        "walking in nature",
+        "walking in nature after work"
+      ],
+      "purpose": "Grounding movement outdoors",
+      "emotion": [
+        "peace",
+        "relief"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_52",
+      "activity": "cooking",
+      "cues": [
+        "cooking",
+        "cooking after work"
+      ],
+      "purpose": "Domestic creative routine",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_53",
+      "activity": "cleaning",
+      "cues": [
+        "cleaning",
+        "cleaning after work"
+      ],
+      "purpose": "Resetting your physical space",
+      "emotion": [
+        "relief",
+        "reflection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_54",
+      "activity": "relaxing",
+      "cues": [
+        "relaxing",
+        "relaxing after work"
+      ],
+      "purpose": "Deliberate rest and unwind",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "still",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_55",
+      "activity": "drawing",
+      "cues": [
+        "drawing",
+        "drawing after work"
+      ],
+      "purpose": "Quiet creative focus",
+      "emotion": [
+        "introspection",
+        "peace"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_56",
+      "activity": "writing",
+      "cues": [
+        "writing",
+        "writing after work"
+      ],
+      "purpose": "Translating inner world to words",
+      "emotion": [
+        "reflection",
+        "introspection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_57",
+      "activity": "leaving a party",
+      "cues": [
+        "leaving a party",
+        "leaving a party after work"
+      ],
+      "purpose": "Transition from social high to quiet",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_58",
+      "activity": "running",
+      "cues": [
+        "running",
+        "running after work"
+      ],
+      "purpose": "Physical release and motion",
+      "emotion": [
+        "relief",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "act_lib_59",
+      "activity": "cycling",
+      "cues": [
+        "cycling",
+        "cycling after work"
+      ],
+      "purpose": "Rhythmic open-air movement",
+      "emotion": [
+        "freedom",
+        "joy"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_60",
+      "activity": "road trip",
+      "cues": [
+        "road trip",
+        "road trip alone"
+      ],
+      "purpose": "Long journey for the sake of movement",
+      "emotion": [
+        "freedom",
+        "anticipation"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_61",
+      "activity": "commuting",
+      "cues": [
+        "commuting",
+        "commuting alone"
+      ],
+      "purpose": "Daily transition between worlds",
+      "emotion": [
+        "exhaustion",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_62",
+      "activity": "driving alone",
+      "cues": [
+        "driving alone",
+        "driving alone alone"
+      ],
+      "purpose": "Private mobile solitude",
+      "emotion": [
+        "reflection",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_63",
+      "activity": "driving at night",
+      "cues": [
+        "driving at night",
+        "driving at night alone"
+      ],
+      "purpose": "Nocturnal journey without destination",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_64",
+      "activity": "walking home",
+      "cues": [
+        "walking home",
+        "walking home alone"
+      ],
+      "purpose": "Return journey after social end",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_65",
+      "activity": "walking through a city",
+      "cues": [
+        "walking through a city",
+        "walking through a city alone"
+      ],
+      "purpose": "Urban wandering when quiet",
+      "emotion": [
+        "freedom",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_66",
+      "activity": "walking in nature",
+      "cues": [
+        "walking in nature",
+        "walking in nature alone"
+      ],
+      "purpose": "Grounding movement outdoors",
+      "emotion": [
+        "peace",
+        "relief"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_67",
+      "activity": "cooking",
+      "cues": [
+        "cooking",
+        "cooking alone"
+      ],
+      "purpose": "Domestic creative routine",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_68",
+      "activity": "cleaning",
+      "cues": [
+        "cleaning",
+        "cleaning alone"
+      ],
+      "purpose": "Resetting your physical space",
+      "emotion": [
+        "relief",
+        "reflection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_69",
+      "activity": "relaxing",
+      "cues": [
+        "relaxing",
+        "relaxing alone"
+      ],
+      "purpose": "Deliberate rest and unwind",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "still",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_70",
+      "activity": "drawing",
+      "cues": [
+        "drawing",
+        "drawing alone"
+      ],
+      "purpose": "Quiet creative focus",
+      "emotion": [
+        "introspection",
+        "peace"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_71",
+      "activity": "writing",
+      "cues": [
+        "writing",
+        "writing alone"
+      ],
+      "purpose": "Translating inner world to words",
+      "emotion": [
+        "reflection",
+        "introspection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_72",
+      "activity": "leaving a party",
+      "cues": [
+        "leaving a party",
+        "leaving a party alone"
+      ],
+      "purpose": "Transition from social high to quiet",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_73",
+      "activity": "running",
+      "cues": [
+        "running",
+        "running alone"
+      ],
+      "purpose": "Physical release and motion",
+      "emotion": [
+        "relief",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "act_lib_74",
+      "activity": "cycling",
+      "cues": [
+        "cycling",
+        "cycling alone"
+      ],
+      "purpose": "Rhythmic open-air movement",
+      "emotion": [
+        "freedom",
+        "joy"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_75",
+      "activity": "road trip",
+      "cues": [
+        "road trip",
+        "road trip in summer"
+      ],
+      "purpose": "Long journey for the sake of movement",
+      "emotion": [
+        "freedom",
+        "anticipation"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_76",
+      "activity": "commuting",
+      "cues": [
+        "commuting",
+        "commuting in summer"
+      ],
+      "purpose": "Daily transition between worlds",
+      "emotion": [
+        "exhaustion",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_77",
+      "activity": "driving alone",
+      "cues": [
+        "driving alone",
+        "driving alone in summer"
+      ],
+      "purpose": "Private mobile solitude",
+      "emotion": [
+        "reflection",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_78",
+      "activity": "driving at night",
+      "cues": [
+        "driving at night",
+        "driving at night in summer"
+      ],
+      "purpose": "Nocturnal journey without destination",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_79",
+      "activity": "walking home",
+      "cues": [
+        "walking home",
+        "walking home in summer"
+      ],
+      "purpose": "Return journey after social end",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_80",
+      "activity": "walking through a city",
+      "cues": [
+        "walking through a city",
+        "walking through a city in summer"
+      ],
+      "purpose": "Urban wandering when quiet",
+      "emotion": [
+        "freedom",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_81",
+      "activity": "walking in nature",
+      "cues": [
+        "walking in nature",
+        "walking in nature in summer"
+      ],
+      "purpose": "Grounding movement outdoors",
+      "emotion": [
+        "peace",
+        "relief"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_82",
+      "activity": "cooking",
+      "cues": [
+        "cooking",
+        "cooking in summer"
+      ],
+      "purpose": "Domestic creative routine",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_83",
+      "activity": "cleaning",
+      "cues": [
+        "cleaning",
+        "cleaning in summer"
+      ],
+      "purpose": "Resetting your physical space",
+      "emotion": [
+        "relief",
+        "reflection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_84",
+      "activity": "relaxing",
+      "cues": [
+        "relaxing",
+        "relaxing in summer"
+      ],
+      "purpose": "Deliberate rest and unwind",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "still",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_85",
+      "activity": "drawing",
+      "cues": [
+        "drawing",
+        "drawing in summer"
+      ],
+      "purpose": "Quiet creative focus",
+      "emotion": [
+        "introspection",
+        "peace"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_86",
+      "activity": "writing",
+      "cues": [
+        "writing",
+        "writing in summer"
+      ],
+      "purpose": "Translating inner world to words",
+      "emotion": [
+        "reflection",
+        "introspection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_87",
+      "activity": "leaving a party",
+      "cues": [
+        "leaving a party",
+        "leaving a party in summer"
+      ],
+      "purpose": "Transition from social high to quiet",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_88",
+      "activity": "running",
+      "cues": [
+        "running",
+        "running in summer"
+      ],
+      "purpose": "Physical release and motion",
+      "emotion": [
+        "relief",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "act_lib_89",
+      "activity": "cycling",
+      "cues": [
+        "cycling",
+        "cycling in summer"
+      ],
+      "purpose": "Rhythmic open-air movement",
+      "emotion": [
+        "freedom",
+        "joy"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_90",
+      "activity": "road trip",
+      "cues": [
+        "road trip",
+        "road trip in the city"
+      ],
+      "purpose": "Long journey for the sake of movement",
+      "emotion": [
+        "freedom",
+        "anticipation"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "act_lib_91",
+      "activity": "commuting",
+      "cues": [
+        "commuting",
+        "commuting in the city"
+      ],
+      "purpose": "Daily transition between worlds",
+      "emotion": [
+        "exhaustion",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_92",
+      "activity": "driving alone",
+      "cues": [
+        "driving alone",
+        "driving alone in the city"
+      ],
+      "purpose": "Private mobile solitude",
+      "emotion": [
+        "reflection",
+        "freedom"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_93",
+      "activity": "driving at night",
+      "cues": [
+        "driving at night",
+        "driving at night in the city"
+      ],
+      "purpose": "Nocturnal journey without destination",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_94",
+      "activity": "walking home",
+      "cues": [
+        "walking home",
+        "walking home in the city"
+      ],
+      "purpose": "Return journey after social end",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_95",
+      "activity": "walking through a city",
+      "cues": [
+        "walking through a city",
+        "walking through a city in the city"
+      ],
+      "purpose": "Urban wandering when quiet",
+      "emotion": [
+        "freedom",
+        "reflection"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_96",
+      "activity": "walking in nature",
+      "cues": [
+        "walking in nature",
+        "walking in nature in the city"
+      ],
+      "purpose": "Grounding movement outdoors",
+      "emotion": [
+        "peace",
+        "relief"
+      ],
+      "energy_level": "moving",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_97",
+      "activity": "cooking",
+      "cues": [
+        "cooking",
+        "cooking in the city"
+      ],
+      "purpose": "Domestic creative routine",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "act_lib_98",
+      "activity": "cleaning",
+      "cues": [
+        "cleaning",
+        "cleaning in the city"
+      ],
+      "purpose": "Resetting your physical space",
+      "emotion": [
+        "relief",
+        "reflection"
+      ],
+      "energy_level": "steady",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "act_lib_99",
+      "activity": "relaxing",
+      "cues": [
+        "relaxing",
+        "relaxing in the city"
+      ],
+      "purpose": "Deliberate rest and unwind",
+      "emotion": [
+        "peace",
+        "contentment"
+      ],
+      "energy_level": "still",
+      "music_style": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    }
   ]
 }

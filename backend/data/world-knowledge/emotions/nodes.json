@@ -1,0 +1,2865 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "emotions",
+  "nodes": [
+    {
+      "id": "joy",
+      "name": "joy",
+      "domain": "emotions",
+      "aliases": [
+        "joy",
+        "joyful",
+        "happy"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "celebration"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "heartbreak",
+      "name": "heartbreak",
+      "domain": "emotions",
+      "aliases": [
+        "heartbreak",
+        "heartbroken",
+        "broken heart"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "grief",
+        "sadness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "homesick",
+      "name": "homesick",
+      "domain": "emotions",
+      "aliases": [
+        "homesick",
+        "missing home"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "longing",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet",
+      "name": "bittersweet",
+      "domain": "emotions",
+      "aliases": [
+        "bittersweet",
+        "happy but sad"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost",
+      "name": "lost",
+      "domain": "emotions",
+      "aliases": [
+        "lost",
+        "feeling lost",
+        "adrift"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "free",
+      "name": "free",
+      "domain": "emotions",
+      "aliases": [
+        "free",
+        "feeling free",
+        "liberated"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "empty_peaceful",
+      "name": "empty but peaceful",
+      "domain": "emotions",
+      "aliases": [
+        "empty but peaceful",
+        "peaceful emptiness"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "excited_nervous",
+      "name": "excited but nervous",
+      "domain": "emotions",
+      "aliases": [
+        "excited but nervous",
+        "nervous excitement"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "starting_again",
+      "name": "starting again",
+      "domain": "emotions",
+      "aliases": [
+        "starting again",
+        "begin again",
+        "new chapter"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "growing_up",
+      "name": "growing up",
+      "domain": "emotions",
+      "aliases": [
+        "growing up",
+        "getting older"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "feeling_alive",
+      "name": "feeling alive",
+      "domain": "emotions",
+      "aliases": [
+        "feeling alive",
+        "alive",
+        "electric"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence",
+      "name": "quiet confidence",
+      "domain": "emotions",
+      "aliases": [
+        "quiet confidence",
+        "calm confidence"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "acceptance",
+      "name": "acceptance",
+      "domain": "emotions",
+      "aliases": [
+        "acceptance",
+        "making peace"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "revenge_energy",
+      "name": "revenge",
+      "domain": "emotions",
+      "aliases": [
+        "revenge",
+        "prove them wrong"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "achievement",
+      "name": "achievement",
+      "domain": "emotions",
+      "aliases": [
+        "achievement",
+        "finally did it",
+        "accomplished"
+      ],
+      "phrases": [
+        "finally achieve something",
+        "when you finally achieve"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "joy",
+      "name": "joy",
+      "domain": "emotions",
+      "aliases": [
+        "joy",
+        "joyful",
+        "happy"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "celebration"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "heartbreak_alone",
+      "name": "heartbreak",
+      "domain": "emotions",
+      "aliases": [
+        "heartbreak",
+        "heartbroken",
+        "broken heart",
+        "heartbreak alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "grief",
+        "sadness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "homesick_alone",
+      "name": "homesick",
+      "domain": "emotions",
+      "aliases": [
+        "homesick",
+        "missing home",
+        "homesick alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "longing",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_alone",
+      "name": "bittersweet",
+      "domain": "emotions",
+      "aliases": [
+        "bittersweet",
+        "happy but sad",
+        "bittersweet alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_alone",
+      "name": "lost",
+      "domain": "emotions",
+      "aliases": [
+        "lost",
+        "feeling lost",
+        "adrift",
+        "lost alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "free_alone",
+      "name": "free",
+      "domain": "emotions",
+      "aliases": [
+        "free",
+        "feeling free",
+        "liberated",
+        "free alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "empty_peaceful_alone",
+      "name": "empty but peaceful",
+      "domain": "emotions",
+      "aliases": [
+        "empty but peaceful",
+        "peaceful emptiness",
+        "empty but peaceful alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "excited_nervous_alone",
+      "name": "excited but nervous",
+      "domain": "emotions",
+      "aliases": [
+        "excited but nervous",
+        "nervous excitement",
+        "excited but nervous alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "starting_again_alone",
+      "name": "starting again",
+      "domain": "emotions",
+      "aliases": [
+        "starting again",
+        "begin again",
+        "new chapter",
+        "starting again alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "growing_up_alone",
+      "name": "growing up",
+      "domain": "emotions",
+      "aliases": [
+        "growing up",
+        "getting older",
+        "growing up alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "feeling_alive_alone",
+      "name": "feeling alive",
+      "domain": "emotions",
+      "aliases": [
+        "feeling alive",
+        "alive",
+        "electric",
+        "feeling alive alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_alone",
+      "name": "quiet confidence",
+      "domain": "emotions",
+      "aliases": [
+        "quiet confidence",
+        "calm confidence",
+        "quiet confidence alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_alone",
+      "name": "acceptance",
+      "domain": "emotions",
+      "aliases": [
+        "acceptance",
+        "making peace",
+        "acceptance alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "revenge_energy_alone",
+      "name": "revenge",
+      "domain": "emotions",
+      "aliases": [
+        "revenge",
+        "prove them wrong",
+        "revenge alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "achievement_alone",
+      "name": "achievement",
+      "domain": "emotions",
+      "aliases": [
+        "achievement",
+        "finally did it",
+        "accomplished",
+        "achievement alone"
+      ],
+      "phrases": [
+        "finally achieve something",
+        "when you finally achieve"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "joy_in_the_rain",
+      "name": "joy",
+      "domain": "emotions",
+      "aliases": [
+        "joy",
+        "joyful",
+        "happy",
+        "joy in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "celebration"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "heartbreak_in_the_rain",
+      "name": "heartbreak",
+      "domain": "emotions",
+      "aliases": [
+        "heartbreak",
+        "heartbroken",
+        "broken heart",
+        "heartbreak in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "grief",
+        "sadness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "homesick_in_the_rain",
+      "name": "homesick",
+      "domain": "emotions",
+      "aliases": [
+        "homesick",
+        "missing home",
+        "homesick in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "longing",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_in_the_rain",
+      "name": "bittersweet",
+      "domain": "emotions",
+      "aliases": [
+        "bittersweet",
+        "happy but sad",
+        "bittersweet in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_in_the_rain",
+      "name": "lost",
+      "domain": "emotions",
+      "aliases": [
+        "lost",
+        "feeling lost",
+        "adrift",
+        "lost in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "free_in_the_rain",
+      "name": "free",
+      "domain": "emotions",
+      "aliases": [
+        "free",
+        "feeling free",
+        "liberated",
+        "free in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "empty_peaceful_in_the_rain",
+      "name": "empty but peaceful",
+      "domain": "emotions",
+      "aliases": [
+        "empty but peaceful",
+        "peaceful emptiness",
+        "empty but peaceful in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "excited_nervous_in_the_rain",
+      "name": "excited but nervous",
+      "domain": "emotions",
+      "aliases": [
+        "excited but nervous",
+        "nervous excitement",
+        "excited but nervous in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "starting_again_in_the_rain",
+      "name": "starting again",
+      "domain": "emotions",
+      "aliases": [
+        "starting again",
+        "begin again",
+        "new chapter",
+        "starting again in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "growing_up_in_the_rain",
+      "name": "growing up",
+      "domain": "emotions",
+      "aliases": [
+        "growing up",
+        "getting older",
+        "growing up in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "feeling_alive_in_the_rain",
+      "name": "feeling alive",
+      "domain": "emotions",
+      "aliases": [
+        "feeling alive",
+        "alive",
+        "electric",
+        "feeling alive in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_in_the_rain",
+      "name": "quiet confidence",
+      "domain": "emotions",
+      "aliases": [
+        "quiet confidence",
+        "calm confidence",
+        "quiet confidence in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_in_the_rain",
+      "name": "acceptance",
+      "domain": "emotions",
+      "aliases": [
+        "acceptance",
+        "making peace",
+        "acceptance in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "revenge_energy_in_the_rain",
+      "name": "revenge",
+      "domain": "emotions",
+      "aliases": [
+        "revenge",
+        "prove them wrong",
+        "revenge in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "achievement_in_the_rain",
+      "name": "achievement",
+      "domain": "emotions",
+      "aliases": [
+        "achievement",
+        "finally did it",
+        "accomplished",
+        "achievement in the rain"
+      ],
+      "phrases": [
+        "finally achieve something",
+        "when you finally achieve"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "joy_in_summer",
+      "name": "joy",
+      "domain": "emotions",
+      "aliases": [
+        "joy",
+        "joyful",
+        "happy",
+        "joy in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "celebration"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "heartbreak_in_summer",
+      "name": "heartbreak",
+      "domain": "emotions",
+      "aliases": [
+        "heartbreak",
+        "heartbroken",
+        "broken heart",
+        "heartbreak in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "grief",
+        "sadness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "homesick_in_summer",
+      "name": "homesick",
+      "domain": "emotions",
+      "aliases": [
+        "homesick",
+        "missing home",
+        "homesick in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "longing",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_in_summer",
+      "name": "bittersweet",
+      "domain": "emotions",
+      "aliases": [
+        "bittersweet",
+        "happy but sad",
+        "bittersweet in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_in_summer",
+      "name": "lost",
+      "domain": "emotions",
+      "aliases": [
+        "lost",
+        "feeling lost",
+        "adrift",
+        "lost in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "free_in_summer",
+      "name": "free",
+      "domain": "emotions",
+      "aliases": [
+        "free",
+        "feeling free",
+        "liberated",
+        "free in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "empty_peaceful_in_summer",
+      "name": "empty but peaceful",
+      "domain": "emotions",
+      "aliases": [
+        "empty but peaceful",
+        "peaceful emptiness",
+        "empty but peaceful in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "excited_nervous_in_summer",
+      "name": "excited but nervous",
+      "domain": "emotions",
+      "aliases": [
+        "excited but nervous",
+        "nervous excitement",
+        "excited but nervous in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "starting_again_in_summer",
+      "name": "starting again",
+      "domain": "emotions",
+      "aliases": [
+        "starting again",
+        "begin again",
+        "new chapter",
+        "starting again in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "growing_up_in_summer",
+      "name": "growing up",
+      "domain": "emotions",
+      "aliases": [
+        "growing up",
+        "getting older",
+        "growing up in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "feeling_alive_in_summer",
+      "name": "feeling alive",
+      "domain": "emotions",
+      "aliases": [
+        "feeling alive",
+        "alive",
+        "electric",
+        "feeling alive in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_in_summer",
+      "name": "quiet confidence",
+      "domain": "emotions",
+      "aliases": [
+        "quiet confidence",
+        "calm confidence",
+        "quiet confidence in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_in_summer",
+      "name": "acceptance",
+      "domain": "emotions",
+      "aliases": [
+        "acceptance",
+        "making peace",
+        "acceptance in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "revenge_energy_in_summer",
+      "name": "revenge",
+      "domain": "emotions",
+      "aliases": [
+        "revenge",
+        "prove them wrong",
+        "revenge in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "achievement_in_summer",
+      "name": "achievement",
+      "domain": "emotions",
+      "aliases": [
+        "achievement",
+        "finally did it",
+        "accomplished",
+        "achievement in summer"
+      ],
+      "phrases": [
+        "finally achieve something",
+        "when you finally achieve"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "joy_after_work",
+      "name": "joy",
+      "domain": "emotions",
+      "aliases": [
+        "joy",
+        "joyful",
+        "happy",
+        "joy after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "celebration"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "heartbreak_after_work",
+      "name": "heartbreak",
+      "domain": "emotions",
+      "aliases": [
+        "heartbreak",
+        "heartbroken",
+        "broken heart",
+        "heartbreak after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "grief",
+        "sadness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "homesick_after_work",
+      "name": "homesick",
+      "domain": "emotions",
+      "aliases": [
+        "homesick",
+        "missing home",
+        "homesick after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "longing",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_after_work",
+      "name": "bittersweet",
+      "domain": "emotions",
+      "aliases": [
+        "bittersweet",
+        "happy but sad",
+        "bittersweet after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_after_work",
+      "name": "lost",
+      "domain": "emotions",
+      "aliases": [
+        "lost",
+        "feeling lost",
+        "adrift",
+        "lost after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "free_after_work",
+      "name": "free",
+      "domain": "emotions",
+      "aliases": [
+        "free",
+        "feeling free",
+        "liberated",
+        "free after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "empty_peaceful_after_work",
+      "name": "empty but peaceful",
+      "domain": "emotions",
+      "aliases": [
+        "empty but peaceful",
+        "peaceful emptiness",
+        "empty but peaceful after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "excited_nervous_after_work",
+      "name": "excited but nervous",
+      "domain": "emotions",
+      "aliases": [
+        "excited but nervous",
+        "nervous excitement",
+        "excited but nervous after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "starting_again_after_work",
+      "name": "starting again",
+      "domain": "emotions",
+      "aliases": [
+        "starting again",
+        "begin again",
+        "new chapter",
+        "starting again after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "growing_up_after_work",
+      "name": "growing up",
+      "domain": "emotions",
+      "aliases": [
+        "growing up",
+        "getting older",
+        "growing up after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "feeling_alive_after_work",
+      "name": "feeling alive",
+      "domain": "emotions",
+      "aliases": [
+        "feeling alive",
+        "alive",
+        "electric",
+        "feeling alive after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_after_work",
+      "name": "quiet confidence",
+      "domain": "emotions",
+      "aliases": [
+        "quiet confidence",
+        "calm confidence",
+        "quiet confidence after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_after_work",
+      "name": "acceptance",
+      "domain": "emotions",
+      "aliases": [
+        "acceptance",
+        "making peace",
+        "acceptance after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "revenge_energy_after_work",
+      "name": "revenge",
+      "domain": "emotions",
+      "aliases": [
+        "revenge",
+        "prove them wrong",
+        "revenge after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "achievement_after_work",
+      "name": "achievement",
+      "domain": "emotions",
+      "aliases": [
+        "achievement",
+        "finally did it",
+        "accomplished",
+        "achievement after work"
+      ],
+      "phrases": [
+        "finally achieve something",
+        "when you finally achieve"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "joy_on_a_sunday",
+      "name": "joy",
+      "domain": "emotions",
+      "aliases": [
+        "joy",
+        "joyful",
+        "happy",
+        "joy on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "celebration"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "heartbreak_on_a_sunday",
+      "name": "heartbreak",
+      "domain": "emotions",
+      "aliases": [
+        "heartbreak",
+        "heartbroken",
+        "broken heart",
+        "heartbreak on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "grief",
+        "sadness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "homesick_on_a_sunday",
+      "name": "homesick",
+      "domain": "emotions",
+      "aliases": [
+        "homesick",
+        "missing home",
+        "homesick on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "longing",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "bittersweet_on_a_sunday",
+      "name": "bittersweet",
+      "domain": "emotions",
+      "aliases": [
+        "bittersweet",
+        "happy but sad",
+        "bittersweet on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "lost_on_a_sunday",
+      "name": "lost",
+      "domain": "emotions",
+      "aliases": [
+        "lost",
+        "feeling lost",
+        "adrift",
+        "lost on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "free_on_a_sunday",
+      "name": "free",
+      "domain": "emotions",
+      "aliases": [
+        "free",
+        "feeling free",
+        "liberated",
+        "free on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "empty_peaceful_on_a_sunday",
+      "name": "empty but peaceful",
+      "domain": "emotions",
+      "aliases": [
+        "empty but peaceful",
+        "peaceful emptiness",
+        "empty but peaceful on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "excited_nervous_on_a_sunday",
+      "name": "excited but nervous",
+      "domain": "emotions",
+      "aliases": [
+        "excited but nervous",
+        "nervous excitement",
+        "excited but nervous on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "starting_again_on_a_sunday",
+      "name": "starting again",
+      "domain": "emotions",
+      "aliases": [
+        "starting again",
+        "begin again",
+        "new chapter",
+        "starting again on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "hope",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "growing_up_on_a_sunday",
+      "name": "growing up",
+      "domain": "emotions",
+      "aliases": [
+        "growing up",
+        "getting older",
+        "growing up on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "feeling_alive_on_a_sunday",
+      "name": "feeling alive",
+      "domain": "emotions",
+      "aliases": [
+        "feeling alive",
+        "alive",
+        "electric",
+        "feeling alive on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "quiet_confidence_on_a_sunday",
+      "name": "quiet confidence",
+      "domain": "emotions",
+      "aliases": [
+        "quiet confidence",
+        "calm confidence",
+        "quiet confidence on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "acceptance_on_a_sunday",
+      "name": "acceptance",
+      "domain": "emotions",
+      "aliases": [
+        "acceptance",
+        "making peace",
+        "acceptance on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "relief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "revenge_energy_on_a_sunday",
+      "name": "revenge",
+      "domain": "emotions",
+      "aliases": [
+        "revenge",
+        "prove them wrong",
+        "revenge on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "achievement_on_a_sunday",
+      "name": "achievement",
+      "domain": "emotions",
+      "aliases": [
+        "achievement",
+        "finally did it",
+        "accomplished",
+        "achievement on a sunday"
+      ],
+      "phrases": [
+        "finally achieve something",
+        "when you finally achieve"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "relief",
+        "pride"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    }
+  ]
+}

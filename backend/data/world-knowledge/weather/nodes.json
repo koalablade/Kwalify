@@ -1,0 +1,1648 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "weather",
+  "nodes": [
+    {
+      "id": "rain",
+      "name": "rain",
+      "domain": "weather",
+      "aliases": [
+        "rain",
+        "rainy",
+        "raining",
+        "rainy night",
+        "rainy day"
+      ],
+      "phrases": [
+        "rainy night",
+        "when it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm",
+        "melancholy"
+      ],
+      "sensory": [
+        "soft",
+        "muffled"
+      ],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sun",
+      "name": "sun",
+      "domain": "weather",
+      "aliases": [
+        "sun",
+        "sunny",
+        "sunshine",
+        "warm sun"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "snow",
+      "name": "snow",
+      "domain": "weather",
+      "aliases": [
+        "snow",
+        "snowy",
+        "snowing"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia",
+        "magic"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "fog",
+      "name": "fog",
+      "domain": "weather",
+      "aliases": [
+        "fog",
+        "foggy",
+        "mist"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "uncertainty"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "storm",
+      "name": "storm",
+      "domain": "weather",
+      "aliases": [
+        "storm",
+        "stormy",
+        "thunder"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "tension",
+        "release"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "grey_skies",
+      "name": "grey skies",
+      "domain": "weather",
+      "aliases": [
+        "grey skies",
+        "overcast",
+        "grey day"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "melancholy",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rain",
+      "name": "rain",
+      "domain": "weather",
+      "aliases": [
+        "rain",
+        "rainy",
+        "raining",
+        "rainy night",
+        "rainy day"
+      ],
+      "phrases": [
+        "rainy night",
+        "when it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm",
+        "melancholy"
+      ],
+      "sensory": [
+        "soft",
+        "muffled"
+      ],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sun_alone",
+      "name": "sun",
+      "domain": "weather",
+      "aliases": [
+        "sun",
+        "sunny",
+        "sunshine",
+        "warm sun",
+        "sun alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "snow_alone",
+      "name": "snow",
+      "domain": "weather",
+      "aliases": [
+        "snow",
+        "snowy",
+        "snowing",
+        "snow alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia",
+        "magic"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "fog_alone",
+      "name": "fog",
+      "domain": "weather",
+      "aliases": [
+        "fog",
+        "foggy",
+        "mist",
+        "fog alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "uncertainty"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "storm_alone",
+      "name": "storm",
+      "domain": "weather",
+      "aliases": [
+        "storm",
+        "stormy",
+        "thunder",
+        "storm alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "tension",
+        "release"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "grey_skies_alone",
+      "name": "grey skies",
+      "domain": "weather",
+      "aliases": [
+        "grey skies",
+        "overcast",
+        "grey day",
+        "grey skies alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "melancholy",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rain_in_the_rain",
+      "name": "rain",
+      "domain": "weather",
+      "aliases": [
+        "rain",
+        "rainy",
+        "raining",
+        "rainy night",
+        "rainy day",
+        "rain in the rain"
+      ],
+      "phrases": [
+        "rainy night",
+        "when it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm",
+        "melancholy"
+      ],
+      "sensory": [
+        "soft",
+        "muffled"
+      ],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sun_in_the_rain",
+      "name": "sun",
+      "domain": "weather",
+      "aliases": [
+        "sun",
+        "sunny",
+        "sunshine",
+        "warm sun",
+        "sun in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "snow_in_the_rain",
+      "name": "snow",
+      "domain": "weather",
+      "aliases": [
+        "snow",
+        "snowy",
+        "snowing",
+        "snow in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia",
+        "magic"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "fog_in_the_rain",
+      "name": "fog",
+      "domain": "weather",
+      "aliases": [
+        "fog",
+        "foggy",
+        "mist",
+        "fog in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "uncertainty"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "storm_in_the_rain",
+      "name": "storm",
+      "domain": "weather",
+      "aliases": [
+        "storm",
+        "stormy",
+        "thunder",
+        "storm in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "tension",
+        "release"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "grey_skies_in_the_rain",
+      "name": "grey skies",
+      "domain": "weather",
+      "aliases": [
+        "grey skies",
+        "overcast",
+        "grey day",
+        "grey skies in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "melancholy",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rain_in_summer",
+      "name": "rain",
+      "domain": "weather",
+      "aliases": [
+        "rain",
+        "rainy",
+        "raining",
+        "rainy night",
+        "rainy day",
+        "rain in summer"
+      ],
+      "phrases": [
+        "rainy night",
+        "when it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm",
+        "melancholy"
+      ],
+      "sensory": [
+        "soft",
+        "muffled"
+      ],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sun_in_summer",
+      "name": "sun",
+      "domain": "weather",
+      "aliases": [
+        "sun",
+        "sunny",
+        "sunshine",
+        "warm sun",
+        "sun in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "snow_in_summer",
+      "name": "snow",
+      "domain": "weather",
+      "aliases": [
+        "snow",
+        "snowy",
+        "snowing",
+        "snow in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia",
+        "magic"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "fog_in_summer",
+      "name": "fog",
+      "domain": "weather",
+      "aliases": [
+        "fog",
+        "foggy",
+        "mist",
+        "fog in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "uncertainty"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "storm_in_summer",
+      "name": "storm",
+      "domain": "weather",
+      "aliases": [
+        "storm",
+        "stormy",
+        "thunder",
+        "storm in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "tension",
+        "release"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "grey_skies_in_summer",
+      "name": "grey skies",
+      "domain": "weather",
+      "aliases": [
+        "grey skies",
+        "overcast",
+        "grey day",
+        "grey skies in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "melancholy",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rain_after_work",
+      "name": "rain",
+      "domain": "weather",
+      "aliases": [
+        "rain",
+        "rainy",
+        "raining",
+        "rainy night",
+        "rainy day",
+        "rain after work"
+      ],
+      "phrases": [
+        "rainy night",
+        "when it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm",
+        "melancholy"
+      ],
+      "sensory": [
+        "soft",
+        "muffled"
+      ],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sun_after_work",
+      "name": "sun",
+      "domain": "weather",
+      "aliases": [
+        "sun",
+        "sunny",
+        "sunshine",
+        "warm sun",
+        "sun after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "snow_after_work",
+      "name": "snow",
+      "domain": "weather",
+      "aliases": [
+        "snow",
+        "snowy",
+        "snowing",
+        "snow after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia",
+        "magic"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "fog_after_work",
+      "name": "fog",
+      "domain": "weather",
+      "aliases": [
+        "fog",
+        "foggy",
+        "mist",
+        "fog after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "uncertainty"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "storm_after_work",
+      "name": "storm",
+      "domain": "weather",
+      "aliases": [
+        "storm",
+        "stormy",
+        "thunder",
+        "storm after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "tension",
+        "release"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "grey_skies_after_work",
+      "name": "grey skies",
+      "domain": "weather",
+      "aliases": [
+        "grey skies",
+        "overcast",
+        "grey day",
+        "grey skies after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "melancholy",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rain_on_a_sunday",
+      "name": "rain",
+      "domain": "weather",
+      "aliases": [
+        "rain",
+        "rainy",
+        "raining",
+        "rainy night",
+        "rainy day",
+        "rain on a sunday"
+      ],
+      "phrases": [
+        "rainy night",
+        "when it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm",
+        "melancholy"
+      ],
+      "sensory": [
+        "soft",
+        "muffled"
+      ],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sun_on_a_sunday",
+      "name": "sun",
+      "domain": "weather",
+      "aliases": [
+        "sun",
+        "sunny",
+        "sunshine",
+        "warm sun",
+        "sun on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "snow_on_a_sunday",
+      "name": "snow",
+      "domain": "weather",
+      "aliases": [
+        "snow",
+        "snowy",
+        "snowing",
+        "snow on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia",
+        "magic"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "fog_on_a_sunday",
+      "name": "fog",
+      "domain": "weather",
+      "aliases": [
+        "fog",
+        "foggy",
+        "mist",
+        "fog on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "uncertainty"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "storm_on_a_sunday",
+      "name": "storm",
+      "domain": "weather",
+      "aliases": [
+        "storm",
+        "stormy",
+        "thunder",
+        "storm on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "tension",
+        "release"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "grey_skies_on_a_sunday",
+      "name": "grey skies",
+      "domain": "weather",
+      "aliases": [
+        "grey skies",
+        "overcast",
+        "grey day",
+        "grey skies on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "melancholy",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rain_at_night",
+      "name": "rain",
+      "domain": "weather",
+      "aliases": [
+        "rain",
+        "rainy",
+        "raining",
+        "rainy night",
+        "rainy day",
+        "rain at night"
+      ],
+      "phrases": [
+        "rainy night",
+        "when it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm",
+        "melancholy"
+      ],
+      "sensory": [
+        "soft",
+        "muffled"
+      ],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sun_at_night",
+      "name": "sun",
+      "domain": "weather",
+      "aliases": [
+        "sun",
+        "sunny",
+        "sunshine",
+        "warm sun",
+        "sun at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "snow_at_night",
+      "name": "snow",
+      "domain": "weather",
+      "aliases": [
+        "snow",
+        "snowy",
+        "snowing",
+        "snow at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia",
+        "magic"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "fog_at_night",
+      "name": "fog",
+      "domain": "weather",
+      "aliases": [
+        "fog",
+        "foggy",
+        "mist",
+        "fog at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "uncertainty"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "storm_at_night",
+      "name": "storm",
+      "domain": "weather",
+      "aliases": [
+        "storm",
+        "stormy",
+        "thunder",
+        "storm at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "tension",
+        "release"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "grey_skies_at_night",
+      "name": "grey skies",
+      "domain": "weather",
+      "aliases": [
+        "grey skies",
+        "overcast",
+        "grey day",
+        "grey skies at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "melancholy",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rain_alone",
+      "name": "rain",
+      "domain": "weather",
+      "aliases": [
+        "rain",
+        "rainy",
+        "raining",
+        "rainy night",
+        "rainy day",
+        "rain alone"
+      ],
+      "phrases": [
+        "rainy night",
+        "when it rains"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "calm",
+        "melancholy"
+      ],
+      "sensory": [
+        "soft",
+        "muffled"
+      ],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "sun_alone",
+      "name": "sun",
+      "domain": "weather",
+      "aliases": [
+        "sun",
+        "sunny",
+        "sunshine",
+        "warm sun",
+        "sun alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "freedom",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "SUMMER_TRANSITION",
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "snow_alone",
+      "name": "snow",
+      "domain": "weather",
+      "aliases": [
+        "snow",
+        "snowy",
+        "snowing",
+        "snow alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "nostalgia",
+        "magic"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "fog_alone",
+      "name": "fog",
+      "domain": "weather",
+      "aliases": [
+        "fog",
+        "foggy",
+        "mist",
+        "fog alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "uncertainty"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "storm_alone",
+      "name": "storm",
+      "domain": "weather",
+      "aliases": [
+        "storm",
+        "stormy",
+        "thunder",
+        "storm alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "tension",
+        "release"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "grey_skies_alone",
+      "name": "grey skies",
+      "domain": "weather",
+      "aliases": [
+        "grey skies",
+        "overcast",
+        "grey day",
+        "grey skies alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "melancholy",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    }
+  ]
+}

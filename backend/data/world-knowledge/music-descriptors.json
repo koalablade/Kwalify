@@ -1,0 +1,1146 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "descriptors": [
+    {
+      "id": "music_desc_0",
+      "word": "chill",
+      "cues": [
+        "chill",
+        "chill vibes",
+        "something chill"
+      ],
+      "meanings": [
+        "relaxed",
+        "low energy",
+        "smooth"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_1",
+      "word": "sad",
+      "cues": [
+        "sad",
+        "sad vibes",
+        "something sad"
+      ],
+      "meanings": [
+        "heartbreak",
+        "nostalgia",
+        "peaceful sadness"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_2",
+      "word": "happy",
+      "cues": [
+        "happy",
+        "happy vibes",
+        "something happy"
+      ],
+      "meanings": [
+        "energetic",
+        "joyful",
+        "nostalgic happiness"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_3",
+      "word": "cinematic",
+      "cues": [
+        "cinematic",
+        "cinematic vibes",
+        "something cinematic"
+      ],
+      "meanings": [
+        "emotional build",
+        "atmosphere",
+        "storytelling"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_4",
+      "word": "dark",
+      "cues": [
+        "dark",
+        "dark vibes",
+        "something dark"
+      ],
+      "meanings": [
+        "minor",
+        "mysterious",
+        "intense"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_5",
+      "word": "dreamy",
+      "cues": [
+        "dreamy",
+        "dreamy vibes",
+        "something dreamy"
+      ],
+      "meanings": [
+        "washed textures",
+        "slow",
+        "floating"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_6",
+      "word": "ambient",
+      "cues": [
+        "ambient",
+        "ambient vibes",
+        "something ambient"
+      ],
+      "meanings": [
+        "atmospheric",
+        "spacious",
+        "calm"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_7",
+      "word": "upbeat",
+      "cues": [
+        "upbeat",
+        "upbeat vibes",
+        "something upbeat"
+      ],
+      "meanings": [
+        "energetic",
+        "bright",
+        "danceable"
+      ],
+      "music_translation": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "music_desc_8",
+      "word": "melancholy",
+      "cues": [
+        "melancholy",
+        "melancholy vibes",
+        "something melancholy"
+      ],
+      "meanings": [
+        "wistful",
+        "slow",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_9",
+      "word": "cosy",
+      "cues": [
+        "cosy",
+        "cosy vibes",
+        "something cosy"
+      ],
+      "meanings": [
+        "warm",
+        "intimate",
+        "soft"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_10",
+      "word": "epic",
+      "cues": [
+        "epic",
+        "epic vibes",
+        "something epic"
+      ],
+      "meanings": [
+        "building",
+        "dramatic",
+        "expansive"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_11",
+      "word": "raw",
+      "cues": [
+        "raw",
+        "raw vibes",
+        "something raw"
+      ],
+      "meanings": [
+        "honest",
+        "sparse",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_12",
+      "word": "chill",
+      "cues": [
+        "chill",
+        "chill music",
+        "something chill"
+      ],
+      "meanings": [
+        "relaxed",
+        "low energy",
+        "smooth"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_13",
+      "word": "sad",
+      "cues": [
+        "sad",
+        "sad music",
+        "something sad"
+      ],
+      "meanings": [
+        "heartbreak",
+        "nostalgia",
+        "peaceful sadness"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_14",
+      "word": "happy",
+      "cues": [
+        "happy",
+        "happy music",
+        "something happy"
+      ],
+      "meanings": [
+        "energetic",
+        "joyful",
+        "nostalgic happiness"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_15",
+      "word": "cinematic",
+      "cues": [
+        "cinematic",
+        "cinematic music",
+        "something cinematic"
+      ],
+      "meanings": [
+        "emotional build",
+        "atmosphere",
+        "storytelling"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_16",
+      "word": "dark",
+      "cues": [
+        "dark",
+        "dark music",
+        "something dark"
+      ],
+      "meanings": [
+        "minor",
+        "mysterious",
+        "intense"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_17",
+      "word": "dreamy",
+      "cues": [
+        "dreamy",
+        "dreamy music",
+        "something dreamy"
+      ],
+      "meanings": [
+        "washed textures",
+        "slow",
+        "floating"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_18",
+      "word": "ambient",
+      "cues": [
+        "ambient",
+        "ambient music",
+        "something ambient"
+      ],
+      "meanings": [
+        "atmospheric",
+        "spacious",
+        "calm"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_19",
+      "word": "upbeat",
+      "cues": [
+        "upbeat",
+        "upbeat music",
+        "something upbeat"
+      ],
+      "meanings": [
+        "energetic",
+        "bright",
+        "danceable"
+      ],
+      "music_translation": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "music_desc_20",
+      "word": "melancholy",
+      "cues": [
+        "melancholy",
+        "melancholy music",
+        "something melancholy"
+      ],
+      "meanings": [
+        "wistful",
+        "slow",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_21",
+      "word": "cosy",
+      "cues": [
+        "cosy",
+        "cosy music",
+        "something cosy"
+      ],
+      "meanings": [
+        "warm",
+        "intimate",
+        "soft"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_22",
+      "word": "epic",
+      "cues": [
+        "epic",
+        "epic music",
+        "something epic"
+      ],
+      "meanings": [
+        "building",
+        "dramatic",
+        "expansive"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_23",
+      "word": "raw",
+      "cues": [
+        "raw",
+        "raw music",
+        "something raw"
+      ],
+      "meanings": [
+        "honest",
+        "sparse",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_24",
+      "word": "chill",
+      "cues": [
+        "chill",
+        "chill songs",
+        "something chill"
+      ],
+      "meanings": [
+        "relaxed",
+        "low energy",
+        "smooth"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_25",
+      "word": "sad",
+      "cues": [
+        "sad",
+        "sad songs",
+        "something sad"
+      ],
+      "meanings": [
+        "heartbreak",
+        "nostalgia",
+        "peaceful sadness"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_26",
+      "word": "happy",
+      "cues": [
+        "happy",
+        "happy songs",
+        "something happy"
+      ],
+      "meanings": [
+        "energetic",
+        "joyful",
+        "nostalgic happiness"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_27",
+      "word": "cinematic",
+      "cues": [
+        "cinematic",
+        "cinematic songs",
+        "something cinematic"
+      ],
+      "meanings": [
+        "emotional build",
+        "atmosphere",
+        "storytelling"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_28",
+      "word": "dark",
+      "cues": [
+        "dark",
+        "dark songs",
+        "something dark"
+      ],
+      "meanings": [
+        "minor",
+        "mysterious",
+        "intense"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_29",
+      "word": "dreamy",
+      "cues": [
+        "dreamy",
+        "dreamy songs",
+        "something dreamy"
+      ],
+      "meanings": [
+        "washed textures",
+        "slow",
+        "floating"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_30",
+      "word": "ambient",
+      "cues": [
+        "ambient",
+        "ambient songs",
+        "something ambient"
+      ],
+      "meanings": [
+        "atmospheric",
+        "spacious",
+        "calm"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_31",
+      "word": "upbeat",
+      "cues": [
+        "upbeat",
+        "upbeat songs",
+        "something upbeat"
+      ],
+      "meanings": [
+        "energetic",
+        "bright",
+        "danceable"
+      ],
+      "music_translation": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "music_desc_32",
+      "word": "melancholy",
+      "cues": [
+        "melancholy",
+        "melancholy songs",
+        "something melancholy"
+      ],
+      "meanings": [
+        "wistful",
+        "slow",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_33",
+      "word": "cosy",
+      "cues": [
+        "cosy",
+        "cosy songs",
+        "something cosy"
+      ],
+      "meanings": [
+        "warm",
+        "intimate",
+        "soft"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_34",
+      "word": "epic",
+      "cues": [
+        "epic",
+        "epic songs",
+        "something epic"
+      ],
+      "meanings": [
+        "building",
+        "dramatic",
+        "expansive"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_35",
+      "word": "raw",
+      "cues": [
+        "raw",
+        "raw songs",
+        "something raw"
+      ],
+      "meanings": [
+        "honest",
+        "sparse",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_36",
+      "word": "chill",
+      "cues": [
+        "chill",
+        "chill playlist",
+        "something chill"
+      ],
+      "meanings": [
+        "relaxed",
+        "low energy",
+        "smooth"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_37",
+      "word": "sad",
+      "cues": [
+        "sad",
+        "sad playlist",
+        "something sad"
+      ],
+      "meanings": [
+        "heartbreak",
+        "nostalgia",
+        "peaceful sadness"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_38",
+      "word": "happy",
+      "cues": [
+        "happy",
+        "happy playlist",
+        "something happy"
+      ],
+      "meanings": [
+        "energetic",
+        "joyful",
+        "nostalgic happiness"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_39",
+      "word": "cinematic",
+      "cues": [
+        "cinematic",
+        "cinematic playlist",
+        "something cinematic"
+      ],
+      "meanings": [
+        "emotional build",
+        "atmosphere",
+        "storytelling"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_40",
+      "word": "dark",
+      "cues": [
+        "dark",
+        "dark playlist",
+        "something dark"
+      ],
+      "meanings": [
+        "minor",
+        "mysterious",
+        "intense"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_41",
+      "word": "dreamy",
+      "cues": [
+        "dreamy",
+        "dreamy playlist",
+        "something dreamy"
+      ],
+      "meanings": [
+        "washed textures",
+        "slow",
+        "floating"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_42",
+      "word": "ambient",
+      "cues": [
+        "ambient",
+        "ambient playlist",
+        "something ambient"
+      ],
+      "meanings": [
+        "atmospheric",
+        "spacious",
+        "calm"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_43",
+      "word": "upbeat",
+      "cues": [
+        "upbeat",
+        "upbeat playlist",
+        "something upbeat"
+      ],
+      "meanings": [
+        "energetic",
+        "bright",
+        "danceable"
+      ],
+      "music_translation": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "music_desc_44",
+      "word": "melancholy",
+      "cues": [
+        "melancholy",
+        "melancholy playlist",
+        "something melancholy"
+      ],
+      "meanings": [
+        "wistful",
+        "slow",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_45",
+      "word": "cosy",
+      "cues": [
+        "cosy",
+        "cosy playlist",
+        "something cosy"
+      ],
+      "meanings": [
+        "warm",
+        "intimate",
+        "soft"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_46",
+      "word": "epic",
+      "cues": [
+        "epic",
+        "epic playlist",
+        "something epic"
+      ],
+      "meanings": [
+        "building",
+        "dramatic",
+        "expansive"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_47",
+      "word": "raw",
+      "cues": [
+        "raw",
+        "raw playlist",
+        "something raw"
+      ],
+      "meanings": [
+        "honest",
+        "sparse",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_48",
+      "word": "chill",
+      "cues": [
+        "chill",
+        "chill sound",
+        "something chill"
+      ],
+      "meanings": [
+        "relaxed",
+        "low energy",
+        "smooth"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_49",
+      "word": "sad",
+      "cues": [
+        "sad",
+        "sad sound",
+        "something sad"
+      ],
+      "meanings": [
+        "heartbreak",
+        "nostalgia",
+        "peaceful sadness"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_50",
+      "word": "happy",
+      "cues": [
+        "happy",
+        "happy sound",
+        "something happy"
+      ],
+      "meanings": [
+        "energetic",
+        "joyful",
+        "nostalgic happiness"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_51",
+      "word": "cinematic",
+      "cues": [
+        "cinematic",
+        "cinematic sound",
+        "something cinematic"
+      ],
+      "meanings": [
+        "emotional build",
+        "atmosphere",
+        "storytelling"
+      ],
+      "music_translation": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "music_desc_52",
+      "word": "dark",
+      "cues": [
+        "dark",
+        "dark sound",
+        "something dark"
+      ],
+      "meanings": [
+        "minor",
+        "mysterious",
+        "intense"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_53",
+      "word": "dreamy",
+      "cues": [
+        "dreamy",
+        "dreamy sound",
+        "something dreamy"
+      ],
+      "meanings": [
+        "washed textures",
+        "slow",
+        "floating"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_54",
+      "word": "ambient",
+      "cues": [
+        "ambient",
+        "ambient sound",
+        "something ambient"
+      ],
+      "meanings": [
+        "atmospheric",
+        "spacious",
+        "calm"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_55",
+      "word": "upbeat",
+      "cues": [
+        "upbeat",
+        "upbeat sound",
+        "something upbeat"
+      ],
+      "meanings": [
+        "energetic",
+        "bright",
+        "danceable"
+      ],
+      "music_translation": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "music_desc_56",
+      "word": "melancholy",
+      "cues": [
+        "melancholy",
+        "melancholy sound",
+        "something melancholy"
+      ],
+      "meanings": [
+        "wistful",
+        "slow",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_57",
+      "word": "cosy",
+      "cues": [
+        "cosy",
+        "cosy sound",
+        "something cosy"
+      ],
+      "meanings": [
+        "warm",
+        "intimate",
+        "soft"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "music_desc_58",
+      "word": "epic",
+      "cues": [
+        "epic",
+        "epic sound",
+        "something epic"
+      ],
+      "meanings": [
+        "building",
+        "dramatic",
+        "expansive"
+      ],
+      "music_translation": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "music_desc_59",
+      "word": "raw",
+      "cues": [
+        "raw",
+        "raw sound",
+        "something raw"
+      ],
+      "meanings": [
+        "honest",
+        "sparse",
+        "emotional"
+      ],
+      "music_translation": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    }
+  ]
+}

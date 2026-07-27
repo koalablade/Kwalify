@@ -1,0 +1,1671 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "music-language",
+  "nodes": [
+    {
+      "id": "chill",
+      "name": "chill",
+      "domain": "music-language",
+      "aliases": [
+        "chill",
+        "chilled",
+        "chill vibes"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "dark",
+      "name": "dark",
+      "domain": "music-language",
+      "aliases": [
+        "dark",
+        "dark vibes"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "introspection",
+        "tension"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "mysterious minor",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "epic",
+      "name": "epic",
+      "domain": "music-language",
+      "aliases": [
+        "epic",
+        "cinematic epic"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "awe"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "large scale dramatic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "vibey",
+      "name": "vibey",
+      "domain": "music-language",
+      "aliases": [
+        "vibey",
+        "vibes",
+        "good vibes"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "groovy textural",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "nostalgic_music",
+      "name": "nostalgic",
+      "domain": "music-language",
+      "aliases": [
+        "nostalgic",
+        "nostalgia vibes"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm familiar",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_music",
+      "name": "emotional",
+      "domain": "music-language",
+      "aliases": [
+        "emotional",
+        "something emotional"
+      ],
+      "phrases": [
+        "something emotional",
+        "music that hits"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "main_character",
+      "name": "main character",
+      "domain": "music-language",
+      "aliases": [
+        "main character",
+        "main character music",
+        "protagonist energy"
+      ],
+      "phrases": [
+        "main character music",
+        "I want main character music"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "sad_music",
+      "name": "sad",
+      "domain": "music-language",
+      "aliases": [
+        "sad",
+        "sad songs",
+        "make me cry"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "grief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "happy_music",
+      "name": "happy",
+      "domain": "music-language",
+      "aliases": [
+        "happy",
+        "uplifting",
+        "feel good"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "chill",
+      "name": "chill",
+      "domain": "music-language",
+      "aliases": [
+        "chill",
+        "chilled",
+        "chill vibes"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "dark_alone",
+      "name": "dark",
+      "domain": "music-language",
+      "aliases": [
+        "dark",
+        "dark vibes",
+        "dark alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "introspection",
+        "tension"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "mysterious minor",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "epic_alone",
+      "name": "epic",
+      "domain": "music-language",
+      "aliases": [
+        "epic",
+        "cinematic epic",
+        "epic alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "awe"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "large scale dramatic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "vibey_alone",
+      "name": "vibey",
+      "domain": "music-language",
+      "aliases": [
+        "vibey",
+        "vibes",
+        "good vibes",
+        "vibey alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "groovy textural",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "nostalgic_music_alone",
+      "name": "nostalgic",
+      "domain": "music-language",
+      "aliases": [
+        "nostalgic",
+        "nostalgia vibes",
+        "nostalgic alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm familiar",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_music_alone",
+      "name": "emotional",
+      "domain": "music-language",
+      "aliases": [
+        "emotional",
+        "something emotional",
+        "emotional alone"
+      ],
+      "phrases": [
+        "something emotional",
+        "music that hits"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "main_character_alone",
+      "name": "main character",
+      "domain": "music-language",
+      "aliases": [
+        "main character",
+        "main character music",
+        "protagonist energy",
+        "main character alone"
+      ],
+      "phrases": [
+        "main character music",
+        "I want main character music"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "sad_music_alone",
+      "name": "sad",
+      "domain": "music-language",
+      "aliases": [
+        "sad",
+        "sad songs",
+        "make me cry",
+        "sad alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "grief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "happy_music_alone",
+      "name": "happy",
+      "domain": "music-language",
+      "aliases": [
+        "happy",
+        "uplifting",
+        "feel good",
+        "happy alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "chill_in_the_rain",
+      "name": "chill",
+      "domain": "music-language",
+      "aliases": [
+        "chill",
+        "chilled",
+        "chill vibes",
+        "chill in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "dark_in_the_rain",
+      "name": "dark",
+      "domain": "music-language",
+      "aliases": [
+        "dark",
+        "dark vibes",
+        "dark in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "introspection",
+        "tension"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "mysterious minor",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "epic_in_the_rain",
+      "name": "epic",
+      "domain": "music-language",
+      "aliases": [
+        "epic",
+        "cinematic epic",
+        "epic in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "awe"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "large scale dramatic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "vibey_in_the_rain",
+      "name": "vibey",
+      "domain": "music-language",
+      "aliases": [
+        "vibey",
+        "vibes",
+        "good vibes",
+        "vibey in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "groovy textural",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "nostalgic_music_in_the_rain",
+      "name": "nostalgic",
+      "domain": "music-language",
+      "aliases": [
+        "nostalgic",
+        "nostalgia vibes",
+        "nostalgic in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm familiar",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_music_in_the_rain",
+      "name": "emotional",
+      "domain": "music-language",
+      "aliases": [
+        "emotional",
+        "something emotional",
+        "emotional in the rain"
+      ],
+      "phrases": [
+        "something emotional",
+        "music that hits"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "main_character_in_the_rain",
+      "name": "main character",
+      "domain": "music-language",
+      "aliases": [
+        "main character",
+        "main character music",
+        "protagonist energy",
+        "main character in the rain"
+      ],
+      "phrases": [
+        "main character music",
+        "I want main character music"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "sad_music_in_the_rain",
+      "name": "sad",
+      "domain": "music-language",
+      "aliases": [
+        "sad",
+        "sad songs",
+        "make me cry",
+        "sad in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "grief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "happy_music_in_the_rain",
+      "name": "happy",
+      "domain": "music-language",
+      "aliases": [
+        "happy",
+        "uplifting",
+        "feel good",
+        "happy in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "chill_in_summer",
+      "name": "chill",
+      "domain": "music-language",
+      "aliases": [
+        "chill",
+        "chilled",
+        "chill vibes",
+        "chill in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "dark_in_summer",
+      "name": "dark",
+      "domain": "music-language",
+      "aliases": [
+        "dark",
+        "dark vibes",
+        "dark in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "introspection",
+        "tension"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "mysterious minor",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "epic_in_summer",
+      "name": "epic",
+      "domain": "music-language",
+      "aliases": [
+        "epic",
+        "cinematic epic",
+        "epic in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "awe"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "large scale dramatic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "vibey_in_summer",
+      "name": "vibey",
+      "domain": "music-language",
+      "aliases": [
+        "vibey",
+        "vibes",
+        "good vibes",
+        "vibey in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "groovy textural",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "nostalgic_music_in_summer",
+      "name": "nostalgic",
+      "domain": "music-language",
+      "aliases": [
+        "nostalgic",
+        "nostalgia vibes",
+        "nostalgic in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm familiar",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_music_in_summer",
+      "name": "emotional",
+      "domain": "music-language",
+      "aliases": [
+        "emotional",
+        "something emotional",
+        "emotional in summer"
+      ],
+      "phrases": [
+        "something emotional",
+        "music that hits"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "main_character_in_summer",
+      "name": "main character",
+      "domain": "music-language",
+      "aliases": [
+        "main character",
+        "main character music",
+        "protagonist energy",
+        "main character in summer"
+      ],
+      "phrases": [
+        "main character music",
+        "I want main character music"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "sad_music_in_summer",
+      "name": "sad",
+      "domain": "music-language",
+      "aliases": [
+        "sad",
+        "sad songs",
+        "make me cry",
+        "sad in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "grief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "happy_music_in_summer",
+      "name": "happy",
+      "domain": "music-language",
+      "aliases": [
+        "happy",
+        "uplifting",
+        "feel good",
+        "happy in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "chill_after_work",
+      "name": "chill",
+      "domain": "music-language",
+      "aliases": [
+        "chill",
+        "chilled",
+        "chill vibes",
+        "chill after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "dark_after_work",
+      "name": "dark",
+      "domain": "music-language",
+      "aliases": [
+        "dark",
+        "dark vibes",
+        "dark after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "introspection",
+        "tension"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "mysterious minor",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "epic_after_work",
+      "name": "epic",
+      "domain": "music-language",
+      "aliases": [
+        "epic",
+        "cinematic epic",
+        "epic after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "awe"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "large scale dramatic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "vibey_after_work",
+      "name": "vibey",
+      "domain": "music-language",
+      "aliases": [
+        "vibey",
+        "vibes",
+        "good vibes",
+        "vibey after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "groovy textural",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "nostalgic_music_after_work",
+      "name": "nostalgic",
+      "domain": "music-language",
+      "aliases": [
+        "nostalgic",
+        "nostalgia vibes",
+        "nostalgic after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm familiar",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_music_after_work",
+      "name": "emotional",
+      "domain": "music-language",
+      "aliases": [
+        "emotional",
+        "something emotional",
+        "emotional after work"
+      ],
+      "phrases": [
+        "something emotional",
+        "music that hits"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "main_character_after_work",
+      "name": "main character",
+      "domain": "music-language",
+      "aliases": [
+        "main character",
+        "main character music",
+        "protagonist energy",
+        "main character after work"
+      ],
+      "phrases": [
+        "main character music",
+        "I want main character music"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "sad_music_after_work",
+      "name": "sad",
+      "domain": "music-language",
+      "aliases": [
+        "sad",
+        "sad songs",
+        "make me cry",
+        "sad after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "grief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "happy_music_after_work",
+      "name": "happy",
+      "domain": "music-language",
+      "aliases": [
+        "happy",
+        "uplifting",
+        "feel good",
+        "happy after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "chill_on_a_sunday",
+      "name": "chill",
+      "domain": "music-language",
+      "aliases": [
+        "chill",
+        "chilled",
+        "chill vibes",
+        "chill on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "contentment"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "dark_on_a_sunday",
+      "name": "dark",
+      "domain": "music-language",
+      "aliases": [
+        "dark",
+        "dark vibes",
+        "dark on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "introspection",
+        "tension"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "mysterious minor",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "epic_on_a_sunday",
+      "name": "epic",
+      "domain": "music-language",
+      "aliases": [
+        "epic",
+        "cinematic epic",
+        "epic on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "awe"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "large scale dramatic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "vibey_on_a_sunday",
+      "name": "vibey",
+      "domain": "music-language",
+      "aliases": [
+        "vibey",
+        "vibes",
+        "good vibes",
+        "vibey on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "joy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "groovy textural",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "nostalgic_music_on_a_sunday",
+      "name": "nostalgic",
+      "domain": "music-language",
+      "aliases": [
+        "nostalgic",
+        "nostalgia vibes",
+        "nostalgic on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm familiar",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "emotional_music_on_a_sunday",
+      "name": "emotional",
+      "domain": "music-language",
+      "aliases": [
+        "emotional",
+        "something emotional",
+        "emotional on a sunday"
+      ],
+      "phrases": [
+        "something emotional",
+        "music that hits"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "WEATHER_REFLECTION",
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "main_character_on_a_sunday",
+      "name": "main character",
+      "domain": "music-language",
+      "aliases": [
+        "main character",
+        "main character music",
+        "protagonist energy",
+        "main character on a sunday"
+      ],
+      "phrases": [
+        "main character music",
+        "I want main character music"
+      ],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "confidence",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "sad_music_on_a_sunday",
+      "name": "sad",
+      "domain": "music-language",
+      "aliases": [
+        "sad",
+        "sad songs",
+        "make me cry",
+        "sad on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "grief"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "happy_music_on_a_sunday",
+      "name": "happy",
+      "domain": "music-language",
+      "aliases": [
+        "happy",
+        "uplifting",
+        "feel good",
+        "happy on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "hope"
+      ],
+      "sensory": [],
+      "scene_possibilities": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    }
+  ]
+}

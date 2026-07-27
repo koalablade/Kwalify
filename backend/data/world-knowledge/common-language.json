@@ -1,0 +1,2294 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "phrases": [
+    {
+      "id": "lang_0",
+      "phrase": "just chilling at night",
+      "cues": [
+        "just chilling",
+        "just chilling at night"
+      ],
+      "meaning": "Relaxed downtime without pressure",
+      "emotions": [
+        "peace",
+        "contentment"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_1",
+      "phrase": "taking it easy at night",
+      "cues": [
+        "taking it easy",
+        "taking it easy at night"
+      ],
+      "meaning": "Slowing down and letting stress fade",
+      "emotions": [
+        "relief",
+        "peace"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_2",
+      "phrase": "clearing my head at night",
+      "cues": [
+        "clearing my head",
+        "clearing my head at night"
+      ],
+      "meaning": "Taking time away from pressure to mentally reset",
+      "emotions": [
+        "relief",
+        "reflection",
+        "peace"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_3",
+      "phrase": "needed some space at night",
+      "cues": [
+        "needed some space",
+        "needed some space at night"
+      ],
+      "meaning": "Creating distance to process feelings",
+      "emotions": [
+        "reflection",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_4",
+      "phrase": "feeling lost at night",
+      "cues": [
+        "feeling lost",
+        "feeling lost at night"
+      ],
+      "meaning": "Uncertain about direction in life",
+      "emotions": [
+        "reflection",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_5",
+      "phrase": "feeling alive at night",
+      "cues": [
+        "feeling alive",
+        "feeling alive at night"
+      ],
+      "meaning": "Sudden sense of vitality and presence",
+      "emotions": [
+        "joy",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "lang_6",
+      "phrase": "in my feels at night",
+      "cues": [
+        "in my feels",
+        "in my feels at night"
+      ],
+      "meaning": "Deep emotional openness",
+      "emotions": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_7",
+      "phrase": "vibing at night",
+      "cues": [
+        "vibing",
+        "vibing at night"
+      ],
+      "meaning": "Casual positive mood without intensity",
+      "emotions": [
+        "contentment",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_8",
+      "phrase": "late one at night",
+      "cues": [
+        "late one",
+        "late one at night"
+      ],
+      "meaning": "Staying up deep into the night",
+      "emotions": [
+        "reflection",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_9",
+      "phrase": "long day at night",
+      "cues": [
+        "long day",
+        "long day at night"
+      ],
+      "meaning": "End-of-day fatigue needing unwind",
+      "emotions": [
+        "exhaustion",
+        "relief"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_10",
+      "phrase": "rough week at night",
+      "cues": [
+        "rough week",
+        "rough week at night"
+      ],
+      "meaning": "Accumulated stress from a hard period",
+      "emotions": [
+        "exhaustion",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_11",
+      "phrase": "fresh start at night",
+      "cues": [
+        "fresh start",
+        "fresh start at night"
+      ],
+      "meaning": "Beginning again with optimism",
+      "emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_12",
+      "phrase": "starting over at night",
+      "cues": [
+        "starting over",
+        "starting over at night"
+      ],
+      "meaning": "Rebuilding after change or loss",
+      "emotions": [
+        "hope",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_13",
+      "phrase": "old times at night",
+      "cues": [
+        "old times",
+        "old times at night"
+      ],
+      "meaning": "Remembering how things used to be",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_14",
+      "phrase": "good old days at night",
+      "cues": [
+        "good old days",
+        "good old days at night"
+      ],
+      "meaning": "Warm memory of a simpler past",
+      "emotions": [
+        "nostalgia",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_15",
+      "phrase": "throwback at night",
+      "cues": [
+        "throwback",
+        "throwback at night"
+      ],
+      "meaning": "Deliberately revisiting the past",
+      "emotions": [
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_16",
+      "phrase": "back then at night",
+      "cues": [
+        "back then",
+        "back then at night"
+      ],
+      "meaning": "Contrasting past self with now",
+      "emotions": [
+        "nostalgia",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_17",
+      "phrase": "can't sleep at night",
+      "cues": [
+        "can't sleep",
+        "can't sleep at night"
+      ],
+      "meaning": "Restless mind at night",
+      "emotions": [
+        "anxiety",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_18",
+      "phrase": "wide awake at night",
+      "cues": [
+        "wide awake",
+        "wide awake at night"
+      ],
+      "meaning": "Alert when the world is asleep",
+      "emotions": [
+        "restlessness",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_19",
+      "phrase": "lost in thought at night",
+      "cues": [
+        "lost in thought",
+        "lost in thought at night"
+      ],
+      "meaning": "Deep internal processing",
+      "emotions": [
+        "introspection",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_20",
+      "phrase": "daydreaming at night",
+      "cues": [
+        "daydreaming",
+        "daydreaming at night"
+      ],
+      "meaning": "Gentle mental wandering",
+      "emotions": [
+        "peace",
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_21",
+      "phrase": "life is changing at night",
+      "cues": [
+        "life is changing",
+        "life is changing at night"
+      ],
+      "meaning": "Awareness that nothing will stay the same",
+      "emotions": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_22",
+      "phrase": "weird calm at night",
+      "cues": [
+        "weird calm",
+        "weird calm at night"
+      ],
+      "meaning": "Unsettling quiet after intensity",
+      "emotions": [
+        "peace",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_23",
+      "phrase": "summer ending at night",
+      "cues": [
+        "summer ending",
+        "summer ending at night"
+      ],
+      "meaning": "Bittersweet close of a warm chapter",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_24",
+      "phrase": "everyone has gone home at night",
+      "cues": [
+        "everyone has gone home",
+        "everyone has gone home at night"
+      ],
+      "meaning": "City or house emptied of people",
+      "emotions": [
+        "loneliness",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_25",
+      "phrase": "soundtrack to a summer at night",
+      "cues": [
+        "soundtrack to a summer",
+        "soundtrack to a summer at night"
+      ],
+      "meaning": "Music that holds a season in memory",
+      "emotions": [
+        "nostalgia",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_26",
+      "phrase": "miss who I was at night",
+      "cues": [
+        "miss who I was",
+        "miss who I was at night"
+      ],
+      "meaning": "Grieving a past version of yourself",
+      "emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_27",
+      "phrase": "thinking about life at night",
+      "cues": [
+        "thinking about life",
+        "thinking about life at night"
+      ],
+      "meaning": "Big-picture existential reflection",
+      "emotions": [
+        "introspection",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_28",
+      "phrase": "realise your life is changing at night",
+      "cues": [
+        "realise your life is changing",
+        "realise your life is changing at night"
+      ],
+      "meaning": "Sudden awareness of personal transition",
+      "emotions": [
+        "anticipation",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_29",
+      "phrase": "party finishes at night",
+      "cues": [
+        "party finishes",
+        "party finishes at night"
+      ],
+      "meaning": "Strange calm after social energy fades",
+      "emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_30",
+      "phrase": "just chilling in the rain",
+      "cues": [
+        "just chilling",
+        "just chilling in the rain"
+      ],
+      "meaning": "Relaxed downtime without pressure",
+      "emotions": [
+        "peace",
+        "contentment"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_31",
+      "phrase": "taking it easy in the rain",
+      "cues": [
+        "taking it easy",
+        "taking it easy in the rain"
+      ],
+      "meaning": "Slowing down and letting stress fade",
+      "emotions": [
+        "relief",
+        "peace"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_32",
+      "phrase": "clearing my head in the rain",
+      "cues": [
+        "clearing my head",
+        "clearing my head in the rain"
+      ],
+      "meaning": "Taking time away from pressure to mentally reset",
+      "emotions": [
+        "relief",
+        "reflection",
+        "peace"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_33",
+      "phrase": "needed some space in the rain",
+      "cues": [
+        "needed some space",
+        "needed some space in the rain"
+      ],
+      "meaning": "Creating distance to process feelings",
+      "emotions": [
+        "reflection",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_34",
+      "phrase": "feeling lost in the rain",
+      "cues": [
+        "feeling lost",
+        "feeling lost in the rain"
+      ],
+      "meaning": "Uncertain about direction in life",
+      "emotions": [
+        "reflection",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_35",
+      "phrase": "feeling alive in the rain",
+      "cues": [
+        "feeling alive",
+        "feeling alive in the rain"
+      ],
+      "meaning": "Sudden sense of vitality and presence",
+      "emotions": [
+        "joy",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "lang_36",
+      "phrase": "in my feels in the rain",
+      "cues": [
+        "in my feels",
+        "in my feels in the rain"
+      ],
+      "meaning": "Deep emotional openness",
+      "emotions": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_37",
+      "phrase": "vibing in the rain",
+      "cues": [
+        "vibing",
+        "vibing in the rain"
+      ],
+      "meaning": "Casual positive mood without intensity",
+      "emotions": [
+        "contentment",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_38",
+      "phrase": "late one in the rain",
+      "cues": [
+        "late one",
+        "late one in the rain"
+      ],
+      "meaning": "Staying up deep into the night",
+      "emotions": [
+        "reflection",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_39",
+      "phrase": "long day in the rain",
+      "cues": [
+        "long day",
+        "long day in the rain"
+      ],
+      "meaning": "End-of-day fatigue needing unwind",
+      "emotions": [
+        "exhaustion",
+        "relief"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_40",
+      "phrase": "rough week in the rain",
+      "cues": [
+        "rough week",
+        "rough week in the rain"
+      ],
+      "meaning": "Accumulated stress from a hard period",
+      "emotions": [
+        "exhaustion",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_41",
+      "phrase": "fresh start in the rain",
+      "cues": [
+        "fresh start",
+        "fresh start in the rain"
+      ],
+      "meaning": "Beginning again with optimism",
+      "emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_42",
+      "phrase": "starting over in the rain",
+      "cues": [
+        "starting over",
+        "starting over in the rain"
+      ],
+      "meaning": "Rebuilding after change or loss",
+      "emotions": [
+        "hope",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_43",
+      "phrase": "old times in the rain",
+      "cues": [
+        "old times",
+        "old times in the rain"
+      ],
+      "meaning": "Remembering how things used to be",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_44",
+      "phrase": "good old days in the rain",
+      "cues": [
+        "good old days",
+        "good old days in the rain"
+      ],
+      "meaning": "Warm memory of a simpler past",
+      "emotions": [
+        "nostalgia",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_45",
+      "phrase": "throwback in the rain",
+      "cues": [
+        "throwback",
+        "throwback in the rain"
+      ],
+      "meaning": "Deliberately revisiting the past",
+      "emotions": [
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_46",
+      "phrase": "back then in the rain",
+      "cues": [
+        "back then",
+        "back then in the rain"
+      ],
+      "meaning": "Contrasting past self with now",
+      "emotions": [
+        "nostalgia",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_47",
+      "phrase": "can't sleep in the rain",
+      "cues": [
+        "can't sleep",
+        "can't sleep in the rain"
+      ],
+      "meaning": "Restless mind at night",
+      "emotions": [
+        "anxiety",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_48",
+      "phrase": "wide awake in the rain",
+      "cues": [
+        "wide awake",
+        "wide awake in the rain"
+      ],
+      "meaning": "Alert when the world is asleep",
+      "emotions": [
+        "restlessness",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_49",
+      "phrase": "lost in thought in the rain",
+      "cues": [
+        "lost in thought",
+        "lost in thought in the rain"
+      ],
+      "meaning": "Deep internal processing",
+      "emotions": [
+        "introspection",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_50",
+      "phrase": "daydreaming in the rain",
+      "cues": [
+        "daydreaming",
+        "daydreaming in the rain"
+      ],
+      "meaning": "Gentle mental wandering",
+      "emotions": [
+        "peace",
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_51",
+      "phrase": "life is changing in the rain",
+      "cues": [
+        "life is changing",
+        "life is changing in the rain"
+      ],
+      "meaning": "Awareness that nothing will stay the same",
+      "emotions": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_52",
+      "phrase": "weird calm in the rain",
+      "cues": [
+        "weird calm",
+        "weird calm in the rain"
+      ],
+      "meaning": "Unsettling quiet after intensity",
+      "emotions": [
+        "peace",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_53",
+      "phrase": "summer ending in the rain",
+      "cues": [
+        "summer ending",
+        "summer ending in the rain"
+      ],
+      "meaning": "Bittersweet close of a warm chapter",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_54",
+      "phrase": "everyone has gone home in the rain",
+      "cues": [
+        "everyone has gone home",
+        "everyone has gone home in the rain"
+      ],
+      "meaning": "City or house emptied of people",
+      "emotions": [
+        "loneliness",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_55",
+      "phrase": "soundtrack to a summer in the rain",
+      "cues": [
+        "soundtrack to a summer",
+        "soundtrack to a summer in the rain"
+      ],
+      "meaning": "Music that holds a season in memory",
+      "emotions": [
+        "nostalgia",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_56",
+      "phrase": "miss who I was in the rain",
+      "cues": [
+        "miss who I was",
+        "miss who I was in the rain"
+      ],
+      "meaning": "Grieving a past version of yourself",
+      "emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_57",
+      "phrase": "thinking about life in the rain",
+      "cues": [
+        "thinking about life",
+        "thinking about life in the rain"
+      ],
+      "meaning": "Big-picture existential reflection",
+      "emotions": [
+        "introspection",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_58",
+      "phrase": "realise your life is changing in the rain",
+      "cues": [
+        "realise your life is changing",
+        "realise your life is changing in the rain"
+      ],
+      "meaning": "Sudden awareness of personal transition",
+      "emotions": [
+        "anticipation",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_59",
+      "phrase": "party finishes in the rain",
+      "cues": [
+        "party finishes",
+        "party finishes in the rain"
+      ],
+      "meaning": "Strange calm after social energy fades",
+      "emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_60",
+      "phrase": "just chilling on a sunday",
+      "cues": [
+        "just chilling",
+        "just chilling on a sunday"
+      ],
+      "meaning": "Relaxed downtime without pressure",
+      "emotions": [
+        "peace",
+        "contentment"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_61",
+      "phrase": "taking it easy on a sunday",
+      "cues": [
+        "taking it easy",
+        "taking it easy on a sunday"
+      ],
+      "meaning": "Slowing down and letting stress fade",
+      "emotions": [
+        "relief",
+        "peace"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_62",
+      "phrase": "clearing my head on a sunday",
+      "cues": [
+        "clearing my head",
+        "clearing my head on a sunday"
+      ],
+      "meaning": "Taking time away from pressure to mentally reset",
+      "emotions": [
+        "relief",
+        "reflection",
+        "peace"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_63",
+      "phrase": "needed some space on a sunday",
+      "cues": [
+        "needed some space",
+        "needed some space on a sunday"
+      ],
+      "meaning": "Creating distance to process feelings",
+      "emotions": [
+        "reflection",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_64",
+      "phrase": "feeling lost on a sunday",
+      "cues": [
+        "feeling lost",
+        "feeling lost on a sunday"
+      ],
+      "meaning": "Uncertain about direction in life",
+      "emotions": [
+        "reflection",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_65",
+      "phrase": "feeling alive on a sunday",
+      "cues": [
+        "feeling alive",
+        "feeling alive on a sunday"
+      ],
+      "meaning": "Sudden sense of vitality and presence",
+      "emotions": [
+        "joy",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "lang_66",
+      "phrase": "in my feels on a sunday",
+      "cues": [
+        "in my feels",
+        "in my feels on a sunday"
+      ],
+      "meaning": "Deep emotional openness",
+      "emotions": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_67",
+      "phrase": "vibing on a sunday",
+      "cues": [
+        "vibing",
+        "vibing on a sunday"
+      ],
+      "meaning": "Casual positive mood without intensity",
+      "emotions": [
+        "contentment",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_68",
+      "phrase": "late one on a sunday",
+      "cues": [
+        "late one",
+        "late one on a sunday"
+      ],
+      "meaning": "Staying up deep into the night",
+      "emotions": [
+        "reflection",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_69",
+      "phrase": "long day on a sunday",
+      "cues": [
+        "long day",
+        "long day on a sunday"
+      ],
+      "meaning": "End-of-day fatigue needing unwind",
+      "emotions": [
+        "exhaustion",
+        "relief"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_70",
+      "phrase": "rough week on a sunday",
+      "cues": [
+        "rough week",
+        "rough week on a sunday"
+      ],
+      "meaning": "Accumulated stress from a hard period",
+      "emotions": [
+        "exhaustion",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_71",
+      "phrase": "fresh start on a sunday",
+      "cues": [
+        "fresh start",
+        "fresh start on a sunday"
+      ],
+      "meaning": "Beginning again with optimism",
+      "emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_72",
+      "phrase": "starting over on a sunday",
+      "cues": [
+        "starting over",
+        "starting over on a sunday"
+      ],
+      "meaning": "Rebuilding after change or loss",
+      "emotions": [
+        "hope",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_73",
+      "phrase": "old times on a sunday",
+      "cues": [
+        "old times",
+        "old times on a sunday"
+      ],
+      "meaning": "Remembering how things used to be",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_74",
+      "phrase": "good old days on a sunday",
+      "cues": [
+        "good old days",
+        "good old days on a sunday"
+      ],
+      "meaning": "Warm memory of a simpler past",
+      "emotions": [
+        "nostalgia",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_75",
+      "phrase": "throwback on a sunday",
+      "cues": [
+        "throwback",
+        "throwback on a sunday"
+      ],
+      "meaning": "Deliberately revisiting the past",
+      "emotions": [
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_76",
+      "phrase": "back then on a sunday",
+      "cues": [
+        "back then",
+        "back then on a sunday"
+      ],
+      "meaning": "Contrasting past self with now",
+      "emotions": [
+        "nostalgia",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_77",
+      "phrase": "can't sleep on a sunday",
+      "cues": [
+        "can't sleep",
+        "can't sleep on a sunday"
+      ],
+      "meaning": "Restless mind at night",
+      "emotions": [
+        "anxiety",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_78",
+      "phrase": "wide awake on a sunday",
+      "cues": [
+        "wide awake",
+        "wide awake on a sunday"
+      ],
+      "meaning": "Alert when the world is asleep",
+      "emotions": [
+        "restlessness",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_79",
+      "phrase": "lost in thought on a sunday",
+      "cues": [
+        "lost in thought",
+        "lost in thought on a sunday"
+      ],
+      "meaning": "Deep internal processing",
+      "emotions": [
+        "introspection",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_80",
+      "phrase": "daydreaming on a sunday",
+      "cues": [
+        "daydreaming",
+        "daydreaming on a sunday"
+      ],
+      "meaning": "Gentle mental wandering",
+      "emotions": [
+        "peace",
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_81",
+      "phrase": "life is changing on a sunday",
+      "cues": [
+        "life is changing",
+        "life is changing on a sunday"
+      ],
+      "meaning": "Awareness that nothing will stay the same",
+      "emotions": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_82",
+      "phrase": "weird calm on a sunday",
+      "cues": [
+        "weird calm",
+        "weird calm on a sunday"
+      ],
+      "meaning": "Unsettling quiet after intensity",
+      "emotions": [
+        "peace",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_83",
+      "phrase": "summer ending on a sunday",
+      "cues": [
+        "summer ending",
+        "summer ending on a sunday"
+      ],
+      "meaning": "Bittersweet close of a warm chapter",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_84",
+      "phrase": "everyone has gone home on a sunday",
+      "cues": [
+        "everyone has gone home",
+        "everyone has gone home on a sunday"
+      ],
+      "meaning": "City or house emptied of people",
+      "emotions": [
+        "loneliness",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_85",
+      "phrase": "soundtrack to a summer on a sunday",
+      "cues": [
+        "soundtrack to a summer",
+        "soundtrack to a summer on a sunday"
+      ],
+      "meaning": "Music that holds a season in memory",
+      "emotions": [
+        "nostalgia",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_86",
+      "phrase": "miss who I was on a sunday",
+      "cues": [
+        "miss who I was",
+        "miss who I was on a sunday"
+      ],
+      "meaning": "Grieving a past version of yourself",
+      "emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_87",
+      "phrase": "thinking about life on a sunday",
+      "cues": [
+        "thinking about life",
+        "thinking about life on a sunday"
+      ],
+      "meaning": "Big-picture existential reflection",
+      "emotions": [
+        "introspection",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_88",
+      "phrase": "realise your life is changing on a sunday",
+      "cues": [
+        "realise your life is changing",
+        "realise your life is changing on a sunday"
+      ],
+      "meaning": "Sudden awareness of personal transition",
+      "emotions": [
+        "anticipation",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_89",
+      "phrase": "party finishes on a sunday",
+      "cues": [
+        "party finishes",
+        "party finishes on a sunday"
+      ],
+      "meaning": "Strange calm after social energy fades",
+      "emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_90",
+      "phrase": "just chilling after work",
+      "cues": [
+        "just chilling",
+        "just chilling after work"
+      ],
+      "meaning": "Relaxed downtime without pressure",
+      "emotions": [
+        "peace",
+        "contentment"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_91",
+      "phrase": "taking it easy after work",
+      "cues": [
+        "taking it easy",
+        "taking it easy after work"
+      ],
+      "meaning": "Slowing down and letting stress fade",
+      "emotions": [
+        "relief",
+        "peace"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_92",
+      "phrase": "clearing my head after work",
+      "cues": [
+        "clearing my head",
+        "clearing my head after work"
+      ],
+      "meaning": "Taking time away from pressure to mentally reset",
+      "emotions": [
+        "relief",
+        "reflection",
+        "peace"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_93",
+      "phrase": "needed some space after work",
+      "cues": [
+        "needed some space",
+        "needed some space after work"
+      ],
+      "meaning": "Creating distance to process feelings",
+      "emotions": [
+        "reflection",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_94",
+      "phrase": "feeling lost after work",
+      "cues": [
+        "feeling lost",
+        "feeling lost after work"
+      ],
+      "meaning": "Uncertain about direction in life",
+      "emotions": [
+        "reflection",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_95",
+      "phrase": "feeling alive after work",
+      "cues": [
+        "feeling alive",
+        "feeling alive after work"
+      ],
+      "meaning": "Sudden sense of vitality and presence",
+      "emotions": [
+        "joy",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "lang_96",
+      "phrase": "in my feels after work",
+      "cues": [
+        "in my feels",
+        "in my feels after work"
+      ],
+      "meaning": "Deep emotional openness",
+      "emotions": [
+        "sadness",
+        "reflection",
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_97",
+      "phrase": "vibing after work",
+      "cues": [
+        "vibing",
+        "vibing after work"
+      ],
+      "meaning": "Casual positive mood without intensity",
+      "emotions": [
+        "contentment",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_98",
+      "phrase": "late one after work",
+      "cues": [
+        "late one",
+        "late one after work"
+      ],
+      "meaning": "Staying up deep into the night",
+      "emotions": [
+        "reflection",
+        "freedom"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_99",
+      "phrase": "long day after work",
+      "cues": [
+        "long day",
+        "long day after work"
+      ],
+      "meaning": "End-of-day fatigue needing unwind",
+      "emotions": [
+        "exhaustion",
+        "relief"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_100",
+      "phrase": "rough week after work",
+      "cues": [
+        "rough week",
+        "rough week after work"
+      ],
+      "meaning": "Accumulated stress from a hard period",
+      "emotions": [
+        "exhaustion",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_101",
+      "phrase": "fresh start after work",
+      "cues": [
+        "fresh start",
+        "fresh start after work"
+      ],
+      "meaning": "Beginning again with optimism",
+      "emotions": [
+        "hope",
+        "anticipation"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_102",
+      "phrase": "starting over after work",
+      "cues": [
+        "starting over",
+        "starting over after work"
+      ],
+      "meaning": "Rebuilding after change or loss",
+      "emotions": [
+        "hope",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_103",
+      "phrase": "old times after work",
+      "cues": [
+        "old times",
+        "old times after work"
+      ],
+      "meaning": "Remembering how things used to be",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_104",
+      "phrase": "good old days after work",
+      "cues": [
+        "good old days",
+        "good old days after work"
+      ],
+      "meaning": "Warm memory of a simpler past",
+      "emotions": [
+        "nostalgia",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_105",
+      "phrase": "throwback after work",
+      "cues": [
+        "throwback",
+        "throwback after work"
+      ],
+      "meaning": "Deliberately revisiting the past",
+      "emotions": [
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_106",
+      "phrase": "back then after work",
+      "cues": [
+        "back then",
+        "back then after work"
+      ],
+      "meaning": "Contrasting past self with now",
+      "emotions": [
+        "nostalgia",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_107",
+      "phrase": "can't sleep after work",
+      "cues": [
+        "can't sleep",
+        "can't sleep after work"
+      ],
+      "meaning": "Restless mind at night",
+      "emotions": [
+        "anxiety",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_108",
+      "phrase": "wide awake after work",
+      "cues": [
+        "wide awake",
+        "wide awake after work"
+      ],
+      "meaning": "Alert when the world is asleep",
+      "emotions": [
+        "restlessness",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_109",
+      "phrase": "lost in thought after work",
+      "cues": [
+        "lost in thought",
+        "lost in thought after work"
+      ],
+      "meaning": "Deep internal processing",
+      "emotions": [
+        "introspection",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_110",
+      "phrase": "daydreaming after work",
+      "cues": [
+        "daydreaming",
+        "daydreaming after work"
+      ],
+      "meaning": "Gentle mental wandering",
+      "emotions": [
+        "peace",
+        "nostalgia"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_111",
+      "phrase": "life is changing after work",
+      "cues": [
+        "life is changing",
+        "life is changing after work"
+      ],
+      "meaning": "Awareness that nothing will stay the same",
+      "emotions": [
+        "anticipation",
+        "anxiety",
+        "hope"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_112",
+      "phrase": "weird calm after work",
+      "cues": [
+        "weird calm",
+        "weird calm after work"
+      ],
+      "meaning": "Unsettling quiet after intensity",
+      "emotions": [
+        "peace",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_113",
+      "phrase": "summer ending after work",
+      "cues": [
+        "summer ending",
+        "summer ending after work"
+      ],
+      "meaning": "Bittersweet close of a warm chapter",
+      "emotions": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_114",
+      "phrase": "everyone has gone home after work",
+      "cues": [
+        "everyone has gone home",
+        "everyone has gone home after work"
+      ],
+      "meaning": "City or house emptied of people",
+      "emotions": [
+        "loneliness",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_115",
+      "phrase": "soundtrack to a summer after work",
+      "cues": [
+        "soundtrack to a summer",
+        "soundtrack to a summer after work"
+      ],
+      "meaning": "Music that holds a season in memory",
+      "emotions": [
+        "nostalgia",
+        "joy"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "lang_116",
+      "phrase": "miss who I was after work",
+      "cues": [
+        "miss who I was",
+        "miss who I was after work"
+      ],
+      "meaning": "Grieving a past version of yourself",
+      "emotions": [
+        "nostalgia",
+        "longing"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_117",
+      "phrase": "thinking about life after work",
+      "cues": [
+        "thinking about life",
+        "thinking about life after work"
+      ],
+      "meaning": "Big-picture existential reflection",
+      "emotions": [
+        "introspection",
+        "reflection"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "lang_118",
+      "phrase": "realise your life is changing after work",
+      "cues": [
+        "realise your life is changing",
+        "realise your life is changing after work"
+      ],
+      "meaning": "Sudden awareness of personal transition",
+      "emotions": [
+        "anticipation",
+        "anxiety"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "lang_119",
+      "phrase": "party finishes after work",
+      "cues": [
+        "party finishes",
+        "party finishes after work"
+      ],
+      "meaning": "Strange calm after social energy fades",
+      "emotions": [
+        "reflection",
+        "loneliness"
+      ],
+      "situations": [],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    }
+  ]
+}

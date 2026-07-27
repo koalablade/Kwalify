@@ -1,0 +1,2381 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "environments",
+  "nodes": [
+    {
+      "id": "bedroom",
+      "name": "bedroom",
+      "domain": "environments",
+      "aliases": [
+        "bedroom",
+        "my room",
+        "in bed"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "kitchen",
+      "name": "kitchen",
+      "domain": "environments",
+      "aliases": [
+        "kitchen",
+        "in the kitchen"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "cooking"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "childhood_home",
+      "name": "childhood home",
+      "domain": "environments",
+      "aliases": [
+        "childhood home",
+        "house I grew up in",
+        "old house"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city",
+      "name": "city",
+      "domain": "environments",
+      "aliases": [
+        "city",
+        "the city",
+        "downtown",
+        "urban"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "alley",
+      "name": "alley",
+      "domain": "environments",
+      "aliases": [
+        "alley",
+        "alleyway",
+        "back street"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rooftop",
+      "name": "rooftop",
+      "domain": "environments",
+      "aliases": [
+        "rooftop",
+        "on a roof"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "forest",
+      "name": "forest",
+      "domain": "environments",
+      "aliases": [
+        "forest",
+        "woods",
+        "trees"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "mystery"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "beach",
+      "name": "beach",
+      "domain": "environments",
+      "aliases": [
+        "beach",
+        "by the sea",
+        "shoreline"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "peace",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "mountains",
+      "name": "mountains",
+      "domain": "environments",
+      "aliases": [
+        "mountains",
+        "hills",
+        "peak"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "awe",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "car_interior",
+      "name": "car",
+      "domain": "environments",
+      "aliases": [
+        "car",
+        "in the car",
+        "behind the wheel"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "train",
+      "name": "train",
+      "domain": "environments",
+      "aliases": [
+        "train",
+        "on the train",
+        "railway"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anticipation",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "airport",
+      "name": "airport",
+      "domain": "environments",
+      "aliases": [
+        "airport",
+        "terminal",
+        "departure gate"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "transition"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "hotel_room",
+      "name": "hotel room",
+      "domain": "environments",
+      "aliases": [
+        "hotel room",
+        "hotel",
+        "motel"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "party_venue",
+      "name": "party",
+      "domain": "environments",
+      "aliases": [
+        "party",
+        "at a party",
+        "house party"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "pub",
+      "name": "pub",
+      "domain": "environments",
+      "aliases": [
+        "pub",
+        "the pub",
+        "bar"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "concert_venue",
+      "name": "concert",
+      "domain": "environments",
+      "aliases": [
+        "concert",
+        "gig",
+        "live show"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "bedroom",
+      "name": "bedroom",
+      "domain": "environments",
+      "aliases": [
+        "bedroom",
+        "my room",
+        "in bed"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "kitchen_alone",
+      "name": "kitchen",
+      "domain": "environments",
+      "aliases": [
+        "kitchen",
+        "in the kitchen",
+        "kitchen alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "cooking"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "childhood_home_alone",
+      "name": "childhood home",
+      "domain": "environments",
+      "aliases": [
+        "childhood home",
+        "house I grew up in",
+        "old house",
+        "childhood home alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_alone",
+      "name": "city",
+      "domain": "environments",
+      "aliases": [
+        "city",
+        "the city",
+        "downtown",
+        "urban",
+        "city alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "alley_alone",
+      "name": "alley",
+      "domain": "environments",
+      "aliases": [
+        "alley",
+        "alleyway",
+        "back street",
+        "alley alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rooftop_alone",
+      "name": "rooftop",
+      "domain": "environments",
+      "aliases": [
+        "rooftop",
+        "on a roof",
+        "rooftop alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "forest_alone",
+      "name": "forest",
+      "domain": "environments",
+      "aliases": [
+        "forest",
+        "woods",
+        "trees",
+        "forest alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "mystery"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "beach_alone",
+      "name": "beach",
+      "domain": "environments",
+      "aliases": [
+        "beach",
+        "by the sea",
+        "shoreline",
+        "beach alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "peace",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "mountains_alone",
+      "name": "mountains",
+      "domain": "environments",
+      "aliases": [
+        "mountains",
+        "hills",
+        "peak",
+        "mountains alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "awe",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "car_interior_alone",
+      "name": "car",
+      "domain": "environments",
+      "aliases": [
+        "car",
+        "in the car",
+        "behind the wheel",
+        "car alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "train_alone",
+      "name": "train",
+      "domain": "environments",
+      "aliases": [
+        "train",
+        "on the train",
+        "railway",
+        "train alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anticipation",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "airport_alone",
+      "name": "airport",
+      "domain": "environments",
+      "aliases": [
+        "airport",
+        "terminal",
+        "departure gate",
+        "airport alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "transition"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "hotel_room_alone",
+      "name": "hotel room",
+      "domain": "environments",
+      "aliases": [
+        "hotel room",
+        "hotel",
+        "motel",
+        "hotel room alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "party_venue_alone",
+      "name": "party",
+      "domain": "environments",
+      "aliases": [
+        "party",
+        "at a party",
+        "house party",
+        "party alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "pub_alone",
+      "name": "pub",
+      "domain": "environments",
+      "aliases": [
+        "pub",
+        "the pub",
+        "bar",
+        "pub alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "concert_venue_alone",
+      "name": "concert",
+      "domain": "environments",
+      "aliases": [
+        "concert",
+        "gig",
+        "live show",
+        "concert alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "bedroom_in_the_rain",
+      "name": "bedroom",
+      "domain": "environments",
+      "aliases": [
+        "bedroom",
+        "my room",
+        "in bed",
+        "bedroom in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "kitchen_in_the_rain",
+      "name": "kitchen",
+      "domain": "environments",
+      "aliases": [
+        "kitchen",
+        "in the kitchen",
+        "kitchen in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "cooking"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "childhood_home_in_the_rain",
+      "name": "childhood home",
+      "domain": "environments",
+      "aliases": [
+        "childhood home",
+        "house I grew up in",
+        "old house",
+        "childhood home in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_in_the_rain",
+      "name": "city",
+      "domain": "environments",
+      "aliases": [
+        "city",
+        "the city",
+        "downtown",
+        "urban",
+        "city in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "alley_in_the_rain",
+      "name": "alley",
+      "domain": "environments",
+      "aliases": [
+        "alley",
+        "alleyway",
+        "back street",
+        "alley in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rooftop_in_the_rain",
+      "name": "rooftop",
+      "domain": "environments",
+      "aliases": [
+        "rooftop",
+        "on a roof",
+        "rooftop in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "forest_in_the_rain",
+      "name": "forest",
+      "domain": "environments",
+      "aliases": [
+        "forest",
+        "woods",
+        "trees",
+        "forest in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "mystery"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "beach_in_the_rain",
+      "name": "beach",
+      "domain": "environments",
+      "aliases": [
+        "beach",
+        "by the sea",
+        "shoreline",
+        "beach in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "peace",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "mountains_in_the_rain",
+      "name": "mountains",
+      "domain": "environments",
+      "aliases": [
+        "mountains",
+        "hills",
+        "peak",
+        "mountains in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "awe",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "car_interior_in_the_rain",
+      "name": "car",
+      "domain": "environments",
+      "aliases": [
+        "car",
+        "in the car",
+        "behind the wheel",
+        "car in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "train_in_the_rain",
+      "name": "train",
+      "domain": "environments",
+      "aliases": [
+        "train",
+        "on the train",
+        "railway",
+        "train in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anticipation",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "airport_in_the_rain",
+      "name": "airport",
+      "domain": "environments",
+      "aliases": [
+        "airport",
+        "terminal",
+        "departure gate",
+        "airport in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "transition"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "hotel_room_in_the_rain",
+      "name": "hotel room",
+      "domain": "environments",
+      "aliases": [
+        "hotel room",
+        "hotel",
+        "motel",
+        "hotel room in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "party_venue_in_the_rain",
+      "name": "party",
+      "domain": "environments",
+      "aliases": [
+        "party",
+        "at a party",
+        "house party",
+        "party in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "pub_in_the_rain",
+      "name": "pub",
+      "domain": "environments",
+      "aliases": [
+        "pub",
+        "the pub",
+        "bar",
+        "pub in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "concert_venue_in_the_rain",
+      "name": "concert",
+      "domain": "environments",
+      "aliases": [
+        "concert",
+        "gig",
+        "live show",
+        "concert in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "bedroom_in_summer",
+      "name": "bedroom",
+      "domain": "environments",
+      "aliases": [
+        "bedroom",
+        "my room",
+        "in bed",
+        "bedroom in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "kitchen_in_summer",
+      "name": "kitchen",
+      "domain": "environments",
+      "aliases": [
+        "kitchen",
+        "in the kitchen",
+        "kitchen in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "cooking"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "childhood_home_in_summer",
+      "name": "childhood home",
+      "domain": "environments",
+      "aliases": [
+        "childhood home",
+        "house I grew up in",
+        "old house",
+        "childhood home in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_in_summer",
+      "name": "city",
+      "domain": "environments",
+      "aliases": [
+        "city",
+        "the city",
+        "downtown",
+        "urban",
+        "city in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "alley_in_summer",
+      "name": "alley",
+      "domain": "environments",
+      "aliases": [
+        "alley",
+        "alleyway",
+        "back street",
+        "alley in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rooftop_in_summer",
+      "name": "rooftop",
+      "domain": "environments",
+      "aliases": [
+        "rooftop",
+        "on a roof",
+        "rooftop in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "forest_in_summer",
+      "name": "forest",
+      "domain": "environments",
+      "aliases": [
+        "forest",
+        "woods",
+        "trees",
+        "forest in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "mystery"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "beach_in_summer",
+      "name": "beach",
+      "domain": "environments",
+      "aliases": [
+        "beach",
+        "by the sea",
+        "shoreline",
+        "beach in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "peace",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "mountains_in_summer",
+      "name": "mountains",
+      "domain": "environments",
+      "aliases": [
+        "mountains",
+        "hills",
+        "peak",
+        "mountains in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "awe",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "car_interior_in_summer",
+      "name": "car",
+      "domain": "environments",
+      "aliases": [
+        "car",
+        "in the car",
+        "behind the wheel",
+        "car in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "train_in_summer",
+      "name": "train",
+      "domain": "environments",
+      "aliases": [
+        "train",
+        "on the train",
+        "railway",
+        "train in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "anticipation",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "airport_in_summer",
+      "name": "airport",
+      "domain": "environments",
+      "aliases": [
+        "airport",
+        "terminal",
+        "departure gate",
+        "airport in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anticipation",
+        "anxiety",
+        "transition"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE",
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "hotel_room_in_summer",
+      "name": "hotel room",
+      "domain": "environments",
+      "aliases": [
+        "hotel room",
+        "hotel",
+        "motel",
+        "hotel room in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "party_venue_in_summer",
+      "name": "party",
+      "domain": "environments",
+      "aliases": [
+        "party",
+        "at a party",
+        "house party",
+        "party in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "pub_in_summer",
+      "name": "pub",
+      "domain": "environments",
+      "aliases": [
+        "pub",
+        "the pub",
+        "bar",
+        "pub in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "contentment",
+        "nostalgia"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "concert_venue_in_summer",
+      "name": "concert",
+      "domain": "environments",
+      "aliases": [
+        "concert",
+        "gig",
+        "live show",
+        "concert in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "joy",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic",
+        "genres": [
+          "indie rock",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "bedroom_after_work",
+      "name": "bedroom",
+      "domain": "environments",
+      "aliases": [
+        "bedroom",
+        "my room",
+        "in bed",
+        "bedroom after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "privacy",
+        "introspection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "kitchen_after_work",
+      "name": "kitchen",
+      "domain": "environments",
+      "aliases": [
+        "kitchen",
+        "in the kitchen",
+        "kitchen after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "cooking"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "comfort",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "childhood_home_after_work",
+      "name": "childhood home",
+      "domain": "environments",
+      "aliases": [
+        "childhood home",
+        "house I grew up in",
+        "old house",
+        "childhood home after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "city_after_work",
+      "name": "city",
+      "domain": "environments",
+      "aliases": [
+        "city",
+        "the city",
+        "downtown",
+        "urban",
+        "city after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "alley_after_work",
+      "name": "alley",
+      "domain": "environments",
+      "aliases": [
+        "alley",
+        "alleyway",
+        "back street",
+        "alley after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "mystery",
+        "introspection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "rooftop_after_work",
+      "name": "rooftop",
+      "domain": "environments",
+      "aliases": [
+        "rooftop",
+        "on a roof",
+        "rooftop after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "freedom",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "forest_after_work",
+      "name": "forest",
+      "domain": "environments",
+      "aliases": [
+        "forest",
+        "woods",
+        "trees",
+        "forest after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "peace",
+        "mystery"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "beach_after_work",
+      "name": "beach",
+      "domain": "environments",
+      "aliases": [
+        "beach",
+        "by the sea",
+        "shoreline",
+        "beach after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "nostalgia",
+        "peace",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "COASTAL_OPEN_ROAD",
+        "SUMMER_TRANSITION"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    }
+  ]
+}

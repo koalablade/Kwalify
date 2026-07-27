@@ -1,0 +1,3172 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "concepts",
+  "nodes": [
+    {
+      "id": "windscreen",
+      "name": "windscreen",
+      "domain": "concepts",
+      "aliases": [
+        "windscreen",
+        "windshield",
+        "car window",
+        "rain on glass",
+        "rain on the glass"
+      ],
+      "phrases": [
+        "rain on the windscreen",
+        "rain hitting the windscreen"
+      ],
+      "related_concepts": [
+        "driving",
+        "car",
+        "rain",
+        "night_drive"
+      ],
+      "contexts": [
+        "commute",
+        "road trip"
+      ],
+      "experience": "Private mobile solitude behind glass",
+      "emotional_meaning": [
+        "solitude",
+        "reflection",
+        "escape",
+        "calm"
+      ],
+      "sensory": [
+        "rain drops",
+        "reflections",
+        "blurred lights"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "neon_lights",
+      "name": "neon lights",
+      "domain": "concepts",
+      "aliases": [
+        "neon",
+        "neon glow",
+        "neon streets"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "city",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "Urban night energy",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "cinematic"
+      ],
+      "sensory": [
+        "glow",
+        "colour"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "street_lights",
+      "name": "street lights",
+      "domain": "concepts",
+      "aliases": [
+        "street lights",
+        "streetlights",
+        "passing lights"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "city",
+        "rain"
+      ],
+      "contexts": [],
+      "experience": "Rhythmic motion through urban night",
+      "emotional_meaning": [
+        "reflection",
+        "solitude"
+      ],
+      "sensory": [
+        "reflection",
+        "motion"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "coffee",
+      "name": "coffee",
+      "domain": "concepts",
+      "aliases": [
+        "coffee",
+        "morning coffee",
+        "espresso"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "morning",
+        "kitchen"
+      ],
+      "contexts": [],
+      "experience": "Domestic morning ritual",
+      "emotional_meaning": [
+        "comfort",
+        "anticipation",
+        "peace"
+      ],
+      "sensory": [
+        "warm smell"
+      ],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "empty_room",
+      "name": "empty room",
+      "domain": "concepts",
+      "aliases": [
+        "empty room",
+        "quiet room",
+        "room went quiet"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "party_aftermath"
+      ],
+      "contexts": [],
+      "experience": "Social energy has left the space",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "old_photos",
+      "name": "old photos",
+      "domain": "concepts",
+      "aliases": [
+        "old photo",
+        "old photos",
+        "photo album"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "nostalgia",
+        "childhood"
+      ],
+      "contexts": [],
+      "experience": "Confronting past identity",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "headphones",
+      "name": "headphones",
+      "domain": "concepts",
+      "aliases": [
+        "headphones",
+        "earphones",
+        "in my headphones"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "introspection",
+        "walking"
+      ],
+      "contexts": [],
+      "experience": "Private soundtrack bubble",
+      "emotional_meaning": [
+        "introspection",
+        "privacy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "gym",
+      "name": "gym",
+      "domain": "concepts",
+      "aliases": [
+        "gym",
+        "the gym",
+        "workout",
+        "training"
+      ],
+      "phrases": [
+        "gym playlist",
+        "gym music",
+        "workout playlist"
+      ],
+      "related_concepts": [
+        "exercise",
+        "motivation"
+      ],
+      "contexts": [],
+      "experience": "Physical push and focus",
+      "emotional_meaning": [
+        "motivation",
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "game_controller",
+      "name": "gaming",
+      "domain": "concepts",
+      "aliases": [
+        "gaming",
+        "video games",
+        "playing games"
+      ],
+      "phrases": [
+        "gaming playlist",
+        "music for gaming"
+      ],
+      "related_concepts": [
+        "focus",
+        "immersion"
+      ],
+      "contexts": [],
+      "experience": "Immersive focus world",
+      "emotional_meaning": [
+        "focus",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "windscreen",
+      "name": "windscreen",
+      "domain": "concepts",
+      "aliases": [
+        "windscreen",
+        "windshield",
+        "car window",
+        "rain on glass",
+        "rain on the glass"
+      ],
+      "phrases": [
+        "rain on the windscreen",
+        "rain hitting the windscreen"
+      ],
+      "related_concepts": [
+        "driving",
+        "car",
+        "rain",
+        "night_drive"
+      ],
+      "contexts": [
+        "commute",
+        "road trip"
+      ],
+      "experience": "Private mobile solitude behind glass",
+      "emotional_meaning": [
+        "solitude",
+        "reflection",
+        "escape",
+        "calm"
+      ],
+      "sensory": [
+        "rain drops",
+        "reflections",
+        "blurred lights"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "neon_lights_alone",
+      "name": "neon lights",
+      "domain": "concepts",
+      "aliases": [
+        "neon",
+        "neon glow",
+        "neon streets",
+        "neon lights alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "city",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "Urban night energy",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "cinematic"
+      ],
+      "sensory": [
+        "glow",
+        "colour"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "street_lights_alone",
+      "name": "street lights",
+      "domain": "concepts",
+      "aliases": [
+        "street lights",
+        "streetlights",
+        "passing lights",
+        "street lights alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "city",
+        "rain"
+      ],
+      "contexts": [],
+      "experience": "Rhythmic motion through urban night",
+      "emotional_meaning": [
+        "reflection",
+        "solitude"
+      ],
+      "sensory": [
+        "reflection",
+        "motion"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "coffee_alone",
+      "name": "coffee",
+      "domain": "concepts",
+      "aliases": [
+        "coffee",
+        "morning coffee",
+        "espresso",
+        "coffee alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "morning",
+        "kitchen"
+      ],
+      "contexts": [],
+      "experience": "Domestic morning ritual",
+      "emotional_meaning": [
+        "comfort",
+        "anticipation",
+        "peace"
+      ],
+      "sensory": [
+        "warm smell"
+      ],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "empty_room_alone",
+      "name": "empty room",
+      "domain": "concepts",
+      "aliases": [
+        "empty room",
+        "quiet room",
+        "room went quiet",
+        "empty room alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "party_aftermath"
+      ],
+      "contexts": [],
+      "experience": "Social energy has left the space",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "old_photos_alone",
+      "name": "old photos",
+      "domain": "concepts",
+      "aliases": [
+        "old photo",
+        "old photos",
+        "photo album",
+        "old photos alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "nostalgia",
+        "childhood"
+      ],
+      "contexts": [],
+      "experience": "Confronting past identity",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "headphones_alone",
+      "name": "headphones",
+      "domain": "concepts",
+      "aliases": [
+        "headphones",
+        "earphones",
+        "in my headphones",
+        "headphones alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "introspection",
+        "walking"
+      ],
+      "contexts": [],
+      "experience": "Private soundtrack bubble",
+      "emotional_meaning": [
+        "introspection",
+        "privacy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "gym_alone",
+      "name": "gym",
+      "domain": "concepts",
+      "aliases": [
+        "gym",
+        "the gym",
+        "workout",
+        "training",
+        "gym alone"
+      ],
+      "phrases": [
+        "gym playlist",
+        "gym music",
+        "workout playlist"
+      ],
+      "related_concepts": [
+        "exercise",
+        "motivation"
+      ],
+      "contexts": [],
+      "experience": "Physical push and focus",
+      "emotional_meaning": [
+        "motivation",
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "game_controller_alone",
+      "name": "gaming",
+      "domain": "concepts",
+      "aliases": [
+        "gaming",
+        "video games",
+        "playing games",
+        "gaming alone"
+      ],
+      "phrases": [
+        "gaming playlist",
+        "music for gaming"
+      ],
+      "related_concepts": [
+        "focus",
+        "immersion"
+      ],
+      "contexts": [],
+      "experience": "Immersive focus world",
+      "emotional_meaning": [
+        "focus",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "windscreen_in_the_rain",
+      "name": "windscreen",
+      "domain": "concepts",
+      "aliases": [
+        "windscreen",
+        "windshield",
+        "car window",
+        "rain on glass",
+        "rain on the glass",
+        "windscreen in the rain"
+      ],
+      "phrases": [
+        "rain on the windscreen",
+        "rain hitting the windscreen"
+      ],
+      "related_concepts": [
+        "driving",
+        "car",
+        "rain",
+        "night_drive"
+      ],
+      "contexts": [
+        "commute",
+        "road trip"
+      ],
+      "experience": "Private mobile solitude behind glass",
+      "emotional_meaning": [
+        "solitude",
+        "reflection",
+        "escape",
+        "calm"
+      ],
+      "sensory": [
+        "rain drops",
+        "reflections",
+        "blurred lights"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "neon_lights_in_the_rain",
+      "name": "neon lights",
+      "domain": "concepts",
+      "aliases": [
+        "neon",
+        "neon glow",
+        "neon streets",
+        "neon lights in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "city",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "Urban night energy",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "cinematic"
+      ],
+      "sensory": [
+        "glow",
+        "colour"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "street_lights_in_the_rain",
+      "name": "street lights",
+      "domain": "concepts",
+      "aliases": [
+        "street lights",
+        "streetlights",
+        "passing lights",
+        "street lights in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "city",
+        "rain"
+      ],
+      "contexts": [],
+      "experience": "Rhythmic motion through urban night",
+      "emotional_meaning": [
+        "reflection",
+        "solitude"
+      ],
+      "sensory": [
+        "reflection",
+        "motion"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "coffee_in_the_rain",
+      "name": "coffee",
+      "domain": "concepts",
+      "aliases": [
+        "coffee",
+        "morning coffee",
+        "espresso",
+        "coffee in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "morning",
+        "kitchen"
+      ],
+      "contexts": [],
+      "experience": "Domestic morning ritual",
+      "emotional_meaning": [
+        "comfort",
+        "anticipation",
+        "peace"
+      ],
+      "sensory": [
+        "warm smell"
+      ],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "empty_room_in_the_rain",
+      "name": "empty room",
+      "domain": "concepts",
+      "aliases": [
+        "empty room",
+        "quiet room",
+        "room went quiet",
+        "empty room in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "party_aftermath"
+      ],
+      "contexts": [],
+      "experience": "Social energy has left the space",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "old_photos_in_the_rain",
+      "name": "old photos",
+      "domain": "concepts",
+      "aliases": [
+        "old photo",
+        "old photos",
+        "photo album",
+        "old photos in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "nostalgia",
+        "childhood"
+      ],
+      "contexts": [],
+      "experience": "Confronting past identity",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "headphones_in_the_rain",
+      "name": "headphones",
+      "domain": "concepts",
+      "aliases": [
+        "headphones",
+        "earphones",
+        "in my headphones",
+        "headphones in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "introspection",
+        "walking"
+      ],
+      "contexts": [],
+      "experience": "Private soundtrack bubble",
+      "emotional_meaning": [
+        "introspection",
+        "privacy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "gym_in_the_rain",
+      "name": "gym",
+      "domain": "concepts",
+      "aliases": [
+        "gym",
+        "the gym",
+        "workout",
+        "training",
+        "gym in the rain"
+      ],
+      "phrases": [
+        "gym playlist",
+        "gym music",
+        "workout playlist"
+      ],
+      "related_concepts": [
+        "exercise",
+        "motivation"
+      ],
+      "contexts": [],
+      "experience": "Physical push and focus",
+      "emotional_meaning": [
+        "motivation",
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "game_controller_in_the_rain",
+      "name": "gaming",
+      "domain": "concepts",
+      "aliases": [
+        "gaming",
+        "video games",
+        "playing games",
+        "gaming in the rain"
+      ],
+      "phrases": [
+        "gaming playlist",
+        "music for gaming"
+      ],
+      "related_concepts": [
+        "focus",
+        "immersion"
+      ],
+      "contexts": [],
+      "experience": "Immersive focus world",
+      "emotional_meaning": [
+        "focus",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "windscreen_in_summer",
+      "name": "windscreen",
+      "domain": "concepts",
+      "aliases": [
+        "windscreen",
+        "windshield",
+        "car window",
+        "rain on glass",
+        "rain on the glass",
+        "windscreen in summer"
+      ],
+      "phrases": [
+        "rain on the windscreen",
+        "rain hitting the windscreen"
+      ],
+      "related_concepts": [
+        "driving",
+        "car",
+        "rain",
+        "night_drive"
+      ],
+      "contexts": [
+        "commute",
+        "road trip"
+      ],
+      "experience": "Private mobile solitude behind glass",
+      "emotional_meaning": [
+        "solitude",
+        "reflection",
+        "escape",
+        "calm"
+      ],
+      "sensory": [
+        "rain drops",
+        "reflections",
+        "blurred lights"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "neon_lights_in_summer",
+      "name": "neon lights",
+      "domain": "concepts",
+      "aliases": [
+        "neon",
+        "neon glow",
+        "neon streets",
+        "neon lights in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "city",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "Urban night energy",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "cinematic"
+      ],
+      "sensory": [
+        "glow",
+        "colour"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "street_lights_in_summer",
+      "name": "street lights",
+      "domain": "concepts",
+      "aliases": [
+        "street lights",
+        "streetlights",
+        "passing lights",
+        "street lights in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "city",
+        "rain"
+      ],
+      "contexts": [],
+      "experience": "Rhythmic motion through urban night",
+      "emotional_meaning": [
+        "reflection",
+        "solitude"
+      ],
+      "sensory": [
+        "reflection",
+        "motion"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "coffee_in_summer",
+      "name": "coffee",
+      "domain": "concepts",
+      "aliases": [
+        "coffee",
+        "morning coffee",
+        "espresso",
+        "coffee in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "morning",
+        "kitchen"
+      ],
+      "contexts": [],
+      "experience": "Domestic morning ritual",
+      "emotional_meaning": [
+        "comfort",
+        "anticipation",
+        "peace"
+      ],
+      "sensory": [
+        "warm smell"
+      ],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "empty_room_in_summer",
+      "name": "empty room",
+      "domain": "concepts",
+      "aliases": [
+        "empty room",
+        "quiet room",
+        "room went quiet",
+        "empty room in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "party_aftermath"
+      ],
+      "contexts": [],
+      "experience": "Social energy has left the space",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "old_photos_in_summer",
+      "name": "old photos",
+      "domain": "concepts",
+      "aliases": [
+        "old photo",
+        "old photos",
+        "photo album",
+        "old photos in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "nostalgia",
+        "childhood"
+      ],
+      "contexts": [],
+      "experience": "Confronting past identity",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "headphones_in_summer",
+      "name": "headphones",
+      "domain": "concepts",
+      "aliases": [
+        "headphones",
+        "earphones",
+        "in my headphones",
+        "headphones in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "introspection",
+        "walking"
+      ],
+      "contexts": [],
+      "experience": "Private soundtrack bubble",
+      "emotional_meaning": [
+        "introspection",
+        "privacy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "gym_in_summer",
+      "name": "gym",
+      "domain": "concepts",
+      "aliases": [
+        "gym",
+        "the gym",
+        "workout",
+        "training",
+        "gym in summer"
+      ],
+      "phrases": [
+        "gym playlist",
+        "gym music",
+        "workout playlist"
+      ],
+      "related_concepts": [
+        "exercise",
+        "motivation"
+      ],
+      "contexts": [],
+      "experience": "Physical push and focus",
+      "emotional_meaning": [
+        "motivation",
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "game_controller_in_summer",
+      "name": "gaming",
+      "domain": "concepts",
+      "aliases": [
+        "gaming",
+        "video games",
+        "playing games",
+        "gaming in summer"
+      ],
+      "phrases": [
+        "gaming playlist",
+        "music for gaming"
+      ],
+      "related_concepts": [
+        "focus",
+        "immersion"
+      ],
+      "contexts": [],
+      "experience": "Immersive focus world",
+      "emotional_meaning": [
+        "focus",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "windscreen_after_work",
+      "name": "windscreen",
+      "domain": "concepts",
+      "aliases": [
+        "windscreen",
+        "windshield",
+        "car window",
+        "rain on glass",
+        "rain on the glass",
+        "windscreen after work"
+      ],
+      "phrases": [
+        "rain on the windscreen",
+        "rain hitting the windscreen"
+      ],
+      "related_concepts": [
+        "driving",
+        "car",
+        "rain",
+        "night_drive"
+      ],
+      "contexts": [
+        "commute",
+        "road trip"
+      ],
+      "experience": "Private mobile solitude behind glass",
+      "emotional_meaning": [
+        "solitude",
+        "reflection",
+        "escape",
+        "calm"
+      ],
+      "sensory": [
+        "rain drops",
+        "reflections",
+        "blurred lights"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "neon_lights_after_work",
+      "name": "neon lights",
+      "domain": "concepts",
+      "aliases": [
+        "neon",
+        "neon glow",
+        "neon streets",
+        "neon lights after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "city",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "Urban night energy",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "cinematic"
+      ],
+      "sensory": [
+        "glow",
+        "colour"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "street_lights_after_work",
+      "name": "street lights",
+      "domain": "concepts",
+      "aliases": [
+        "street lights",
+        "streetlights",
+        "passing lights",
+        "street lights after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "city",
+        "rain"
+      ],
+      "contexts": [],
+      "experience": "Rhythmic motion through urban night",
+      "emotional_meaning": [
+        "reflection",
+        "solitude"
+      ],
+      "sensory": [
+        "reflection",
+        "motion"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "coffee_after_work",
+      "name": "coffee",
+      "domain": "concepts",
+      "aliases": [
+        "coffee",
+        "morning coffee",
+        "espresso",
+        "coffee after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "morning",
+        "kitchen"
+      ],
+      "contexts": [],
+      "experience": "Domestic morning ritual",
+      "emotional_meaning": [
+        "comfort",
+        "anticipation",
+        "peace"
+      ],
+      "sensory": [
+        "warm smell"
+      ],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "empty_room_after_work",
+      "name": "empty room",
+      "domain": "concepts",
+      "aliases": [
+        "empty room",
+        "quiet room",
+        "room went quiet",
+        "empty room after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "party_aftermath"
+      ],
+      "contexts": [],
+      "experience": "Social energy has left the space",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "old_photos_after_work",
+      "name": "old photos",
+      "domain": "concepts",
+      "aliases": [
+        "old photo",
+        "old photos",
+        "photo album",
+        "old photos after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "nostalgia",
+        "childhood"
+      ],
+      "contexts": [],
+      "experience": "Confronting past identity",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "headphones_after_work",
+      "name": "headphones",
+      "domain": "concepts",
+      "aliases": [
+        "headphones",
+        "earphones",
+        "in my headphones",
+        "headphones after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "introspection",
+        "walking"
+      ],
+      "contexts": [],
+      "experience": "Private soundtrack bubble",
+      "emotional_meaning": [
+        "introspection",
+        "privacy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "gym_after_work",
+      "name": "gym",
+      "domain": "concepts",
+      "aliases": [
+        "gym",
+        "the gym",
+        "workout",
+        "training",
+        "gym after work"
+      ],
+      "phrases": [
+        "gym playlist",
+        "gym music",
+        "workout playlist"
+      ],
+      "related_concepts": [
+        "exercise",
+        "motivation"
+      ],
+      "contexts": [],
+      "experience": "Physical push and focus",
+      "emotional_meaning": [
+        "motivation",
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "game_controller_after_work",
+      "name": "gaming",
+      "domain": "concepts",
+      "aliases": [
+        "gaming",
+        "video games",
+        "playing games",
+        "gaming after work"
+      ],
+      "phrases": [
+        "gaming playlist",
+        "music for gaming"
+      ],
+      "related_concepts": [
+        "focus",
+        "immersion"
+      ],
+      "contexts": [],
+      "experience": "Immersive focus world",
+      "emotional_meaning": [
+        "focus",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "windscreen_on_a_sunday",
+      "name": "windscreen",
+      "domain": "concepts",
+      "aliases": [
+        "windscreen",
+        "windshield",
+        "car window",
+        "rain on glass",
+        "rain on the glass",
+        "windscreen on a sunday"
+      ],
+      "phrases": [
+        "rain on the windscreen",
+        "rain hitting the windscreen"
+      ],
+      "related_concepts": [
+        "driving",
+        "car",
+        "rain",
+        "night_drive"
+      ],
+      "contexts": [
+        "commute",
+        "road trip"
+      ],
+      "experience": "Private mobile solitude behind glass",
+      "emotional_meaning": [
+        "solitude",
+        "reflection",
+        "escape",
+        "calm"
+      ],
+      "sensory": [
+        "rain drops",
+        "reflections",
+        "blurred lights"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "neon_lights_on_a_sunday",
+      "name": "neon lights",
+      "domain": "concepts",
+      "aliases": [
+        "neon",
+        "neon glow",
+        "neon streets",
+        "neon lights on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "city",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "Urban night energy",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "cinematic"
+      ],
+      "sensory": [
+        "glow",
+        "colour"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "street_lights_on_a_sunday",
+      "name": "street lights",
+      "domain": "concepts",
+      "aliases": [
+        "street lights",
+        "streetlights",
+        "passing lights",
+        "street lights on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "city",
+        "rain"
+      ],
+      "contexts": [],
+      "experience": "Rhythmic motion through urban night",
+      "emotional_meaning": [
+        "reflection",
+        "solitude"
+      ],
+      "sensory": [
+        "reflection",
+        "motion"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "coffee_on_a_sunday",
+      "name": "coffee",
+      "domain": "concepts",
+      "aliases": [
+        "coffee",
+        "morning coffee",
+        "espresso",
+        "coffee on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "morning",
+        "kitchen"
+      ],
+      "contexts": [],
+      "experience": "Domestic morning ritual",
+      "emotional_meaning": [
+        "comfort",
+        "anticipation",
+        "peace"
+      ],
+      "sensory": [
+        "warm smell"
+      ],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "empty_room_on_a_sunday",
+      "name": "empty room",
+      "domain": "concepts",
+      "aliases": [
+        "empty room",
+        "quiet room",
+        "room went quiet",
+        "empty room on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "party_aftermath"
+      ],
+      "contexts": [],
+      "experience": "Social energy has left the space",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "old_photos_on_a_sunday",
+      "name": "old photos",
+      "domain": "concepts",
+      "aliases": [
+        "old photo",
+        "old photos",
+        "photo album",
+        "old photos on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "nostalgia",
+        "childhood"
+      ],
+      "contexts": [],
+      "experience": "Confronting past identity",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "headphones_on_a_sunday",
+      "name": "headphones",
+      "domain": "concepts",
+      "aliases": [
+        "headphones",
+        "earphones",
+        "in my headphones",
+        "headphones on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "introspection",
+        "walking"
+      ],
+      "contexts": [],
+      "experience": "Private soundtrack bubble",
+      "emotional_meaning": [
+        "introspection",
+        "privacy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "gym_on_a_sunday",
+      "name": "gym",
+      "domain": "concepts",
+      "aliases": [
+        "gym",
+        "the gym",
+        "workout",
+        "training",
+        "gym on a sunday"
+      ],
+      "phrases": [
+        "gym playlist",
+        "gym music",
+        "workout playlist"
+      ],
+      "related_concepts": [
+        "exercise",
+        "motivation"
+      ],
+      "contexts": [],
+      "experience": "Physical push and focus",
+      "emotional_meaning": [
+        "motivation",
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "game_controller_on_a_sunday",
+      "name": "gaming",
+      "domain": "concepts",
+      "aliases": [
+        "gaming",
+        "video games",
+        "playing games",
+        "gaming on a sunday"
+      ],
+      "phrases": [
+        "gaming playlist",
+        "music for gaming"
+      ],
+      "related_concepts": [
+        "focus",
+        "immersion"
+      ],
+      "contexts": [],
+      "experience": "Immersive focus world",
+      "emotional_meaning": [
+        "focus",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "windscreen_at_night",
+      "name": "windscreen",
+      "domain": "concepts",
+      "aliases": [
+        "windscreen",
+        "windshield",
+        "car window",
+        "rain on glass",
+        "rain on the glass",
+        "windscreen at night"
+      ],
+      "phrases": [
+        "rain on the windscreen",
+        "rain hitting the windscreen"
+      ],
+      "related_concepts": [
+        "driving",
+        "car",
+        "rain",
+        "night_drive"
+      ],
+      "contexts": [
+        "commute",
+        "road trip"
+      ],
+      "experience": "Private mobile solitude behind glass",
+      "emotional_meaning": [
+        "solitude",
+        "reflection",
+        "escape",
+        "calm"
+      ],
+      "sensory": [
+        "rain drops",
+        "reflections",
+        "blurred lights"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "neon_lights_at_night",
+      "name": "neon lights",
+      "domain": "concepts",
+      "aliases": [
+        "neon",
+        "neon glow",
+        "neon streets",
+        "neon lights at night"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "city",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "Urban night energy",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "cinematic"
+      ],
+      "sensory": [
+        "glow",
+        "colour"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "street_lights_at_night",
+      "name": "street lights",
+      "domain": "concepts",
+      "aliases": [
+        "street lights",
+        "streetlights",
+        "passing lights",
+        "street lights at night"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "city",
+        "rain"
+      ],
+      "contexts": [],
+      "experience": "Rhythmic motion through urban night",
+      "emotional_meaning": [
+        "reflection",
+        "solitude"
+      ],
+      "sensory": [
+        "reflection",
+        "motion"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "coffee_at_night",
+      "name": "coffee",
+      "domain": "concepts",
+      "aliases": [
+        "coffee",
+        "morning coffee",
+        "espresso",
+        "coffee at night"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "morning",
+        "kitchen"
+      ],
+      "contexts": [],
+      "experience": "Domestic morning ritual",
+      "emotional_meaning": [
+        "comfort",
+        "anticipation",
+        "peace"
+      ],
+      "sensory": [
+        "warm smell"
+      ],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "empty_room_at_night",
+      "name": "empty room",
+      "domain": "concepts",
+      "aliases": [
+        "empty room",
+        "quiet room",
+        "room went quiet",
+        "empty room at night"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "party_aftermath"
+      ],
+      "contexts": [],
+      "experience": "Social energy has left the space",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "old_photos_at_night",
+      "name": "old photos",
+      "domain": "concepts",
+      "aliases": [
+        "old photo",
+        "old photos",
+        "photo album",
+        "old photos at night"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "nostalgia",
+        "childhood"
+      ],
+      "contexts": [],
+      "experience": "Confronting past identity",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "headphones_at_night",
+      "name": "headphones",
+      "domain": "concepts",
+      "aliases": [
+        "headphones",
+        "earphones",
+        "in my headphones",
+        "headphones at night"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "introspection",
+        "walking"
+      ],
+      "contexts": [],
+      "experience": "Private soundtrack bubble",
+      "emotional_meaning": [
+        "introspection",
+        "privacy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "gym_at_night",
+      "name": "gym",
+      "domain": "concepts",
+      "aliases": [
+        "gym",
+        "the gym",
+        "workout",
+        "training",
+        "gym at night"
+      ],
+      "phrases": [
+        "gym playlist",
+        "gym music",
+        "workout playlist"
+      ],
+      "related_concepts": [
+        "exercise",
+        "motivation"
+      ],
+      "contexts": [],
+      "experience": "Physical push and focus",
+      "emotional_meaning": [
+        "motivation",
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "game_controller_at_night",
+      "name": "gaming",
+      "domain": "concepts",
+      "aliases": [
+        "gaming",
+        "video games",
+        "playing games",
+        "gaming at night"
+      ],
+      "phrases": [
+        "gaming playlist",
+        "music for gaming"
+      ],
+      "related_concepts": [
+        "focus",
+        "immersion"
+      ],
+      "contexts": [],
+      "experience": "Immersive focus world",
+      "emotional_meaning": [
+        "focus",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "windscreen_alone",
+      "name": "windscreen",
+      "domain": "concepts",
+      "aliases": [
+        "windscreen",
+        "windshield",
+        "car window",
+        "rain on glass",
+        "rain on the glass",
+        "windscreen alone"
+      ],
+      "phrases": [
+        "rain on the windscreen",
+        "rain hitting the windscreen"
+      ],
+      "related_concepts": [
+        "driving",
+        "car",
+        "rain",
+        "night_drive"
+      ],
+      "contexts": [
+        "commute",
+        "road trip"
+      ],
+      "experience": "Private mobile solitude behind glass",
+      "emotional_meaning": [
+        "solitude",
+        "reflection",
+        "escape",
+        "calm"
+      ],
+      "sensory": [
+        "rain drops",
+        "reflections",
+        "blurred lights"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "neon_lights_alone",
+      "name": "neon lights",
+      "domain": "concepts",
+      "aliases": [
+        "neon",
+        "neon glow",
+        "neon streets",
+        "neon lights alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "city",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "Urban night energy",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "cinematic"
+      ],
+      "sensory": [
+        "glow",
+        "colour"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "street_lights_alone",
+      "name": "street lights",
+      "domain": "concepts",
+      "aliases": [
+        "street lights",
+        "streetlights",
+        "passing lights",
+        "street lights alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "city",
+        "rain"
+      ],
+      "contexts": [],
+      "experience": "Rhythmic motion through urban night",
+      "emotional_meaning": [
+        "reflection",
+        "solitude"
+      ],
+      "sensory": [
+        "reflection",
+        "motion"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "coffee_alone",
+      "name": "coffee",
+      "domain": "concepts",
+      "aliases": [
+        "coffee",
+        "morning coffee",
+        "espresso",
+        "coffee alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "morning",
+        "kitchen"
+      ],
+      "contexts": [],
+      "experience": "Domestic morning ritual",
+      "emotional_meaning": [
+        "comfort",
+        "anticipation",
+        "peace"
+      ],
+      "sensory": [
+        "warm smell"
+      ],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "empty_room_alone",
+      "name": "empty room",
+      "domain": "concepts",
+      "aliases": [
+        "empty room",
+        "quiet room",
+        "room went quiet",
+        "empty room alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "party_aftermath"
+      ],
+      "contexts": [],
+      "experience": "Social energy has left the space",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "old_photos_alone",
+      "name": "old photos",
+      "domain": "concepts",
+      "aliases": [
+        "old photo",
+        "old photos",
+        "photo album",
+        "old photos alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "nostalgia",
+        "childhood"
+      ],
+      "contexts": [],
+      "experience": "Confronting past identity",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "headphones_alone",
+      "name": "headphones",
+      "domain": "concepts",
+      "aliases": [
+        "headphones",
+        "earphones",
+        "in my headphones",
+        "headphones alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "introspection",
+        "walking"
+      ],
+      "contexts": [],
+      "experience": "Private soundtrack bubble",
+      "emotional_meaning": [
+        "introspection",
+        "privacy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "gym_alone",
+      "name": "gym",
+      "domain": "concepts",
+      "aliases": [
+        "gym",
+        "the gym",
+        "workout",
+        "training",
+        "gym alone"
+      ],
+      "phrases": [
+        "gym playlist",
+        "gym music",
+        "workout playlist"
+      ],
+      "related_concepts": [
+        "exercise",
+        "motivation"
+      ],
+      "contexts": [],
+      "experience": "Physical push and focus",
+      "emotional_meaning": [
+        "motivation",
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    },
+    {
+      "id": "game_controller_alone",
+      "name": "gaming",
+      "domain": "concepts",
+      "aliases": [
+        "gaming",
+        "video games",
+        "playing games",
+        "gaming alone"
+      ],
+      "phrases": [
+        "gaming playlist",
+        "music for gaming"
+      ],
+      "related_concepts": [
+        "focus",
+        "immersion"
+      ],
+      "contexts": [],
+      "experience": "Immersive focus world",
+      "emotional_meaning": [
+        "focus",
+        "excitement"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "windscreen_in_the_rain",
+      "name": "windscreen",
+      "domain": "concepts",
+      "aliases": [
+        "windscreen",
+        "windshield",
+        "car window",
+        "rain on glass",
+        "rain on the glass",
+        "windscreen in the rain"
+      ],
+      "phrases": [
+        "rain on the windscreen",
+        "rain hitting the windscreen"
+      ],
+      "related_concepts": [
+        "driving",
+        "car",
+        "rain",
+        "night_drive"
+      ],
+      "contexts": [
+        "commute",
+        "road trip"
+      ],
+      "experience": "Private mobile solitude behind glass",
+      "emotional_meaning": [
+        "solitude",
+        "reflection",
+        "escape",
+        "calm"
+      ],
+      "sensory": [
+        "rain drops",
+        "reflections",
+        "blurred lights"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY",
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "neon_lights_in_the_rain",
+      "name": "neon lights",
+      "domain": "concepts",
+      "aliases": [
+        "neon",
+        "neon glow",
+        "neon streets",
+        "neon lights in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "city",
+        "night"
+      ],
+      "contexts": [],
+      "experience": "Urban night energy",
+      "emotional_meaning": [
+        "freedom",
+        "loneliness",
+        "cinematic"
+      ],
+      "sensory": [
+        "glow",
+        "colour"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "street_lights_in_the_rain",
+      "name": "street lights",
+      "domain": "concepts",
+      "aliases": [
+        "street lights",
+        "streetlights",
+        "passing lights",
+        "street lights in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "city",
+        "rain"
+      ],
+      "contexts": [],
+      "experience": "Rhythmic motion through urban night",
+      "emotional_meaning": [
+        "reflection",
+        "solitude"
+      ],
+      "sensory": [
+        "reflection",
+        "motion"
+      ],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "coffee_in_the_rain",
+      "name": "coffee",
+      "domain": "concepts",
+      "aliases": [
+        "coffee",
+        "morning coffee",
+        "espresso",
+        "coffee in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "morning",
+        "kitchen"
+      ],
+      "contexts": [],
+      "experience": "Domestic morning ritual",
+      "emotional_meaning": [
+        "comfort",
+        "anticipation",
+        "peace"
+      ],
+      "sensory": [
+        "warm smell"
+      ],
+      "scene_possibilities": [
+        "DOMESTIC_QUIET",
+        "UK_GREY_SUNDAY_INDOORS"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "empty_room_in_the_rain",
+      "name": "empty room",
+      "domain": "concepts",
+      "aliases": [
+        "empty room",
+        "quiet room",
+        "room went quiet",
+        "empty room in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "home",
+        "party_aftermath"
+      ],
+      "contexts": [],
+      "experience": "Social energy has left the space",
+      "emotional_meaning": [
+        "loneliness",
+        "reflection",
+        "peace"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "QUIET_AFTERMATH"
+      ],
+      "music": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      }
+    },
+    {
+      "id": "old_photos_in_the_rain",
+      "name": "old photos",
+      "domain": "concepts",
+      "aliases": [
+        "old photo",
+        "old photos",
+        "photo album",
+        "old photos in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "nostalgia",
+        "childhood"
+      ],
+      "contexts": [],
+      "experience": "Confronting past identity",
+      "emotional_meaning": [
+        "nostalgia",
+        "longing",
+        "bittersweet"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOSTALGIC_RETURN"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "headphones_in_the_rain",
+      "name": "headphones",
+      "domain": "concepts",
+      "aliases": [
+        "headphones",
+        "earphones",
+        "in my headphones",
+        "headphones in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "introspection",
+        "walking"
+      ],
+      "contexts": [],
+      "experience": "Private soundtrack bubble",
+      "emotional_meaning": [
+        "introspection",
+        "privacy"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "INTROSPECTIVE_PRIVACY",
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "gym_in_the_rain",
+      "name": "gym",
+      "domain": "concepts",
+      "aliases": [
+        "gym",
+        "the gym",
+        "workout",
+        "training",
+        "gym in the rain"
+      ],
+      "phrases": [
+        "gym playlist",
+        "gym music",
+        "workout playlist"
+      ],
+      "related_concepts": [
+        "exercise",
+        "motivation"
+      ],
+      "contexts": [],
+      "experience": "Physical push and focus",
+      "emotional_meaning": [
+        "motivation",
+        "confidence",
+        "aggression"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "high",
+        "tempo": "fast",
+        "texture": "driving intense",
+        "genres": [
+          "rock",
+          "hip-hop",
+          "electronic"
+        ]
+      }
+    }
+  ]
+}

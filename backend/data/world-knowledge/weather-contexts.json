@@ -1,0 +1,1966 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "entries": [
+    {
+      "id": "weather_0",
+      "weather": "rain",
+      "cues": [
+        "rain",
+        "rain at night",
+        "in the rain"
+      ],
+      "visual_feeling": "Soft falling water creating enclosure",
+      "emotional_association": [
+        "comfort",
+        "sadness",
+        "reflection",
+        "isolation",
+        "cinematic",
+        "calm"
+      ],
+      "sensory": [
+        "rain texture",
+        "muffled",
+        "glass"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_1",
+      "weather": "heavy rain",
+      "cues": [
+        "heavy rain",
+        "heavy rain at night",
+        "in the heavy rain"
+      ],
+      "visual_feeling": "Intense weather pressing inward",
+      "emotional_association": [
+        "melancholy",
+        "dramatic",
+        "isolation"
+      ],
+      "sensory": [
+        "loud rain",
+        "enclosed"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_2",
+      "weather": "drizzle",
+      "cues": [
+        "drizzle",
+        "drizzle at night",
+        "in the drizzle"
+      ],
+      "visual_feeling": "Light persistent grey moisture",
+      "emotional_association": [
+        "gentle sadness",
+        "reflection"
+      ],
+      "sensory": [
+        "soft wet",
+        "grey"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_3",
+      "weather": "snow",
+      "cues": [
+        "snow",
+        "snow at night",
+        "in the snow"
+      ],
+      "visual_feeling": "Silent white stillness",
+      "emotional_association": [
+        "childhood",
+        "silence",
+        "magic",
+        "warmth"
+      ],
+      "sensory": [
+        "soft crunch",
+        "quiet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_4",
+      "weather": "summer heat",
+      "cues": [
+        "summer heat",
+        "summer heat at night",
+        "in the summer heat"
+      ],
+      "visual_feeling": "Warm air and open possibility",
+      "emotional_association": [
+        "freedom",
+        "adventure",
+        "youth",
+        "memories"
+      ],
+      "sensory": [
+        "warm breeze",
+        "golden"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_5",
+      "weather": "autumn",
+      "cues": [
+        "autumn",
+        "autumn at night",
+        "in the autumn"
+      ],
+      "visual_feeling": "Cool air and fading colour",
+      "emotional_association": [
+        "change",
+        "nostalgia",
+        "endings"
+      ],
+      "sensory": [
+        "crisp air",
+        "leaves"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_6",
+      "weather": "fog",
+      "cues": [
+        "fog",
+        "fog at night",
+        "in the fog"
+      ],
+      "visual_feeling": "Obscured visibility and uncertainty",
+      "emotional_association": [
+        "mystery",
+        "uncertainty",
+        "isolation"
+      ],
+      "sensory": [
+        "muted",
+        "soft edges"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_7",
+      "weather": "storm",
+      "cues": [
+        "storm",
+        "storm at night",
+        "in the storm"
+      ],
+      "visual_feeling": "Dramatic weather building tension",
+      "emotional_association": [
+        "tension",
+        "drama",
+        "release"
+      ],
+      "sensory": [
+        "thunder",
+        "wind"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_8",
+      "weather": "grey skies",
+      "cues": [
+        "grey skies",
+        "grey skies at night",
+        "in the grey skies"
+      ],
+      "visual_feeling": "Overcast flat light",
+      "emotional_association": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "sensory": [
+        "flat light",
+        "muted"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_9",
+      "weather": "sunset",
+      "cues": [
+        "sunset",
+        "sunset at night",
+        "in the sunset"
+      ],
+      "visual_feeling": "Day closing with warm colour",
+      "emotional_association": [
+        "bittersweet",
+        "transition",
+        "nostalgia"
+      ],
+      "sensory": [
+        "golden light",
+        "fading"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_10",
+      "weather": "rain",
+      "cues": [
+        "rain",
+        "rain in the rain",
+        "in the rain"
+      ],
+      "visual_feeling": "Soft falling water creating enclosure",
+      "emotional_association": [
+        "comfort",
+        "sadness",
+        "reflection",
+        "isolation",
+        "cinematic",
+        "calm"
+      ],
+      "sensory": [
+        "rain texture",
+        "muffled",
+        "glass"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_11",
+      "weather": "heavy rain",
+      "cues": [
+        "heavy rain",
+        "heavy rain in the rain",
+        "in the heavy rain"
+      ],
+      "visual_feeling": "Intense weather pressing inward",
+      "emotional_association": [
+        "melancholy",
+        "dramatic",
+        "isolation"
+      ],
+      "sensory": [
+        "loud rain",
+        "enclosed"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_12",
+      "weather": "drizzle",
+      "cues": [
+        "drizzle",
+        "drizzle in the rain",
+        "in the drizzle"
+      ],
+      "visual_feeling": "Light persistent grey moisture",
+      "emotional_association": [
+        "gentle sadness",
+        "reflection"
+      ],
+      "sensory": [
+        "soft wet",
+        "grey"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_13",
+      "weather": "snow",
+      "cues": [
+        "snow",
+        "snow in the rain",
+        "in the snow"
+      ],
+      "visual_feeling": "Silent white stillness",
+      "emotional_association": [
+        "childhood",
+        "silence",
+        "magic",
+        "warmth"
+      ],
+      "sensory": [
+        "soft crunch",
+        "quiet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_14",
+      "weather": "summer heat",
+      "cues": [
+        "summer heat",
+        "summer heat in the rain",
+        "in the summer heat"
+      ],
+      "visual_feeling": "Warm air and open possibility",
+      "emotional_association": [
+        "freedom",
+        "adventure",
+        "youth",
+        "memories"
+      ],
+      "sensory": [
+        "warm breeze",
+        "golden"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_15",
+      "weather": "autumn",
+      "cues": [
+        "autumn",
+        "autumn in the rain",
+        "in the autumn"
+      ],
+      "visual_feeling": "Cool air and fading colour",
+      "emotional_association": [
+        "change",
+        "nostalgia",
+        "endings"
+      ],
+      "sensory": [
+        "crisp air",
+        "leaves"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_16",
+      "weather": "fog",
+      "cues": [
+        "fog",
+        "fog in the rain",
+        "in the fog"
+      ],
+      "visual_feeling": "Obscured visibility and uncertainty",
+      "emotional_association": [
+        "mystery",
+        "uncertainty",
+        "isolation"
+      ],
+      "sensory": [
+        "muted",
+        "soft edges"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_17",
+      "weather": "storm",
+      "cues": [
+        "storm",
+        "storm in the rain",
+        "in the storm"
+      ],
+      "visual_feeling": "Dramatic weather building tension",
+      "emotional_association": [
+        "tension",
+        "drama",
+        "release"
+      ],
+      "sensory": [
+        "thunder",
+        "wind"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_18",
+      "weather": "grey skies",
+      "cues": [
+        "grey skies",
+        "grey skies in the rain",
+        "in the grey skies"
+      ],
+      "visual_feeling": "Overcast flat light",
+      "emotional_association": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "sensory": [
+        "flat light",
+        "muted"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_19",
+      "weather": "sunset",
+      "cues": [
+        "sunset",
+        "sunset in the rain",
+        "in the sunset"
+      ],
+      "visual_feeling": "Day closing with warm colour",
+      "emotional_association": [
+        "bittersweet",
+        "transition",
+        "nostalgia"
+      ],
+      "sensory": [
+        "golden light",
+        "fading"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_20",
+      "weather": "rain",
+      "cues": [
+        "rain",
+        "rain on a sunday",
+        "in the rain"
+      ],
+      "visual_feeling": "Soft falling water creating enclosure",
+      "emotional_association": [
+        "comfort",
+        "sadness",
+        "reflection",
+        "isolation",
+        "cinematic",
+        "calm"
+      ],
+      "sensory": [
+        "rain texture",
+        "muffled",
+        "glass"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_21",
+      "weather": "heavy rain",
+      "cues": [
+        "heavy rain",
+        "heavy rain on a sunday",
+        "in the heavy rain"
+      ],
+      "visual_feeling": "Intense weather pressing inward",
+      "emotional_association": [
+        "melancholy",
+        "dramatic",
+        "isolation"
+      ],
+      "sensory": [
+        "loud rain",
+        "enclosed"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_22",
+      "weather": "drizzle",
+      "cues": [
+        "drizzle",
+        "drizzle on a sunday",
+        "in the drizzle"
+      ],
+      "visual_feeling": "Light persistent grey moisture",
+      "emotional_association": [
+        "gentle sadness",
+        "reflection"
+      ],
+      "sensory": [
+        "soft wet",
+        "grey"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_23",
+      "weather": "snow",
+      "cues": [
+        "snow",
+        "snow on a sunday",
+        "in the snow"
+      ],
+      "visual_feeling": "Silent white stillness",
+      "emotional_association": [
+        "childhood",
+        "silence",
+        "magic",
+        "warmth"
+      ],
+      "sensory": [
+        "soft crunch",
+        "quiet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_24",
+      "weather": "summer heat",
+      "cues": [
+        "summer heat",
+        "summer heat on a sunday",
+        "in the summer heat"
+      ],
+      "visual_feeling": "Warm air and open possibility",
+      "emotional_association": [
+        "freedom",
+        "adventure",
+        "youth",
+        "memories"
+      ],
+      "sensory": [
+        "warm breeze",
+        "golden"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_25",
+      "weather": "autumn",
+      "cues": [
+        "autumn",
+        "autumn on a sunday",
+        "in the autumn"
+      ],
+      "visual_feeling": "Cool air and fading colour",
+      "emotional_association": [
+        "change",
+        "nostalgia",
+        "endings"
+      ],
+      "sensory": [
+        "crisp air",
+        "leaves"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_26",
+      "weather": "fog",
+      "cues": [
+        "fog",
+        "fog on a sunday",
+        "in the fog"
+      ],
+      "visual_feeling": "Obscured visibility and uncertainty",
+      "emotional_association": [
+        "mystery",
+        "uncertainty",
+        "isolation"
+      ],
+      "sensory": [
+        "muted",
+        "soft edges"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_27",
+      "weather": "storm",
+      "cues": [
+        "storm",
+        "storm on a sunday",
+        "in the storm"
+      ],
+      "visual_feeling": "Dramatic weather building tension",
+      "emotional_association": [
+        "tension",
+        "drama",
+        "release"
+      ],
+      "sensory": [
+        "thunder",
+        "wind"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_28",
+      "weather": "grey skies",
+      "cues": [
+        "grey skies",
+        "grey skies on a sunday",
+        "in the grey skies"
+      ],
+      "visual_feeling": "Overcast flat light",
+      "emotional_association": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "sensory": [
+        "flat light",
+        "muted"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_29",
+      "weather": "sunset",
+      "cues": [
+        "sunset",
+        "sunset on a sunday",
+        "in the sunset"
+      ],
+      "visual_feeling": "Day closing with warm colour",
+      "emotional_association": [
+        "bittersweet",
+        "transition",
+        "nostalgia"
+      ],
+      "sensory": [
+        "golden light",
+        "fading"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_30",
+      "weather": "rain",
+      "cues": [
+        "rain",
+        "rain after work",
+        "in the rain"
+      ],
+      "visual_feeling": "Soft falling water creating enclosure",
+      "emotional_association": [
+        "comfort",
+        "sadness",
+        "reflection",
+        "isolation",
+        "cinematic",
+        "calm"
+      ],
+      "sensory": [
+        "rain texture",
+        "muffled",
+        "glass"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_31",
+      "weather": "heavy rain",
+      "cues": [
+        "heavy rain",
+        "heavy rain after work",
+        "in the heavy rain"
+      ],
+      "visual_feeling": "Intense weather pressing inward",
+      "emotional_association": [
+        "melancholy",
+        "dramatic",
+        "isolation"
+      ],
+      "sensory": [
+        "loud rain",
+        "enclosed"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_32",
+      "weather": "drizzle",
+      "cues": [
+        "drizzle",
+        "drizzle after work",
+        "in the drizzle"
+      ],
+      "visual_feeling": "Light persistent grey moisture",
+      "emotional_association": [
+        "gentle sadness",
+        "reflection"
+      ],
+      "sensory": [
+        "soft wet",
+        "grey"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_33",
+      "weather": "snow",
+      "cues": [
+        "snow",
+        "snow after work",
+        "in the snow"
+      ],
+      "visual_feeling": "Silent white stillness",
+      "emotional_association": [
+        "childhood",
+        "silence",
+        "magic",
+        "warmth"
+      ],
+      "sensory": [
+        "soft crunch",
+        "quiet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_34",
+      "weather": "summer heat",
+      "cues": [
+        "summer heat",
+        "summer heat after work",
+        "in the summer heat"
+      ],
+      "visual_feeling": "Warm air and open possibility",
+      "emotional_association": [
+        "freedom",
+        "adventure",
+        "youth",
+        "memories"
+      ],
+      "sensory": [
+        "warm breeze",
+        "golden"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_35",
+      "weather": "autumn",
+      "cues": [
+        "autumn",
+        "autumn after work",
+        "in the autumn"
+      ],
+      "visual_feeling": "Cool air and fading colour",
+      "emotional_association": [
+        "change",
+        "nostalgia",
+        "endings"
+      ],
+      "sensory": [
+        "crisp air",
+        "leaves"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_36",
+      "weather": "fog",
+      "cues": [
+        "fog",
+        "fog after work",
+        "in the fog"
+      ],
+      "visual_feeling": "Obscured visibility and uncertainty",
+      "emotional_association": [
+        "mystery",
+        "uncertainty",
+        "isolation"
+      ],
+      "sensory": [
+        "muted",
+        "soft edges"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_37",
+      "weather": "storm",
+      "cues": [
+        "storm",
+        "storm after work",
+        "in the storm"
+      ],
+      "visual_feeling": "Dramatic weather building tension",
+      "emotional_association": [
+        "tension",
+        "drama",
+        "release"
+      ],
+      "sensory": [
+        "thunder",
+        "wind"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_38",
+      "weather": "grey skies",
+      "cues": [
+        "grey skies",
+        "grey skies after work",
+        "in the grey skies"
+      ],
+      "visual_feeling": "Overcast flat light",
+      "emotional_association": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "sensory": [
+        "flat light",
+        "muted"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_39",
+      "weather": "sunset",
+      "cues": [
+        "sunset",
+        "sunset after work",
+        "in the sunset"
+      ],
+      "visual_feeling": "Day closing with warm colour",
+      "emotional_association": [
+        "bittersweet",
+        "transition",
+        "nostalgia"
+      ],
+      "sensory": [
+        "golden light",
+        "fading"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_40",
+      "weather": "rain",
+      "cues": [
+        "rain",
+        "rain alone",
+        "in the rain"
+      ],
+      "visual_feeling": "Soft falling water creating enclosure",
+      "emotional_association": [
+        "comfort",
+        "sadness",
+        "reflection",
+        "isolation",
+        "cinematic",
+        "calm"
+      ],
+      "sensory": [
+        "rain texture",
+        "muffled",
+        "glass"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_41",
+      "weather": "heavy rain",
+      "cues": [
+        "heavy rain",
+        "heavy rain alone",
+        "in the heavy rain"
+      ],
+      "visual_feeling": "Intense weather pressing inward",
+      "emotional_association": [
+        "melancholy",
+        "dramatic",
+        "isolation"
+      ],
+      "sensory": [
+        "loud rain",
+        "enclosed"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_42",
+      "weather": "drizzle",
+      "cues": [
+        "drizzle",
+        "drizzle alone",
+        "in the drizzle"
+      ],
+      "visual_feeling": "Light persistent grey moisture",
+      "emotional_association": [
+        "gentle sadness",
+        "reflection"
+      ],
+      "sensory": [
+        "soft wet",
+        "grey"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_43",
+      "weather": "snow",
+      "cues": [
+        "snow",
+        "snow alone",
+        "in the snow"
+      ],
+      "visual_feeling": "Silent white stillness",
+      "emotional_association": [
+        "childhood",
+        "silence",
+        "magic",
+        "warmth"
+      ],
+      "sensory": [
+        "soft crunch",
+        "quiet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_44",
+      "weather": "summer heat",
+      "cues": [
+        "summer heat",
+        "summer heat alone",
+        "in the summer heat"
+      ],
+      "visual_feeling": "Warm air and open possibility",
+      "emotional_association": [
+        "freedom",
+        "adventure",
+        "youth",
+        "memories"
+      ],
+      "sensory": [
+        "warm breeze",
+        "golden"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_45",
+      "weather": "autumn",
+      "cues": [
+        "autumn",
+        "autumn alone",
+        "in the autumn"
+      ],
+      "visual_feeling": "Cool air and fading colour",
+      "emotional_association": [
+        "change",
+        "nostalgia",
+        "endings"
+      ],
+      "sensory": [
+        "crisp air",
+        "leaves"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_46",
+      "weather": "fog",
+      "cues": [
+        "fog",
+        "fog alone",
+        "in the fog"
+      ],
+      "visual_feeling": "Obscured visibility and uncertainty",
+      "emotional_association": [
+        "mystery",
+        "uncertainty",
+        "isolation"
+      ],
+      "sensory": [
+        "muted",
+        "soft edges"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_47",
+      "weather": "storm",
+      "cues": [
+        "storm",
+        "storm alone",
+        "in the storm"
+      ],
+      "visual_feeling": "Dramatic weather building tension",
+      "emotional_association": [
+        "tension",
+        "drama",
+        "release"
+      ],
+      "sensory": [
+        "thunder",
+        "wind"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_48",
+      "weather": "grey skies",
+      "cues": [
+        "grey skies",
+        "grey skies alone",
+        "in the grey skies"
+      ],
+      "visual_feeling": "Overcast flat light",
+      "emotional_association": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "sensory": [
+        "flat light",
+        "muted"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_49",
+      "weather": "sunset",
+      "cues": [
+        "sunset",
+        "sunset alone",
+        "in the sunset"
+      ],
+      "visual_feeling": "Day closing with warm colour",
+      "emotional_association": [
+        "bittersweet",
+        "transition",
+        "nostalgia"
+      ],
+      "sensory": [
+        "golden light",
+        "fading"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_50",
+      "weather": "rain",
+      "cues": [
+        "rain",
+        "rain in summer",
+        "in the rain"
+      ],
+      "visual_feeling": "Soft falling water creating enclosure",
+      "emotional_association": [
+        "comfort",
+        "sadness",
+        "reflection",
+        "isolation",
+        "cinematic",
+        "calm"
+      ],
+      "sensory": [
+        "rain texture",
+        "muffled",
+        "glass"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_51",
+      "weather": "heavy rain",
+      "cues": [
+        "heavy rain",
+        "heavy rain in summer",
+        "in the heavy rain"
+      ],
+      "visual_feeling": "Intense weather pressing inward",
+      "emotional_association": [
+        "melancholy",
+        "dramatic",
+        "isolation"
+      ],
+      "sensory": [
+        "loud rain",
+        "enclosed"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_52",
+      "weather": "drizzle",
+      "cues": [
+        "drizzle",
+        "drizzle in summer",
+        "in the drizzle"
+      ],
+      "visual_feeling": "Light persistent grey moisture",
+      "emotional_association": [
+        "gentle sadness",
+        "reflection"
+      ],
+      "sensory": [
+        "soft wet",
+        "grey"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_53",
+      "weather": "snow",
+      "cues": [
+        "snow",
+        "snow in summer",
+        "in the snow"
+      ],
+      "visual_feeling": "Silent white stillness",
+      "emotional_association": [
+        "childhood",
+        "silence",
+        "magic",
+        "warmth"
+      ],
+      "sensory": [
+        "soft crunch",
+        "quiet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_54",
+      "weather": "summer heat",
+      "cues": [
+        "summer heat",
+        "summer heat in summer",
+        "in the summer heat"
+      ],
+      "visual_feeling": "Warm air and open possibility",
+      "emotional_association": [
+        "freedom",
+        "adventure",
+        "youth",
+        "memories"
+      ],
+      "sensory": [
+        "warm breeze",
+        "golden"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_55",
+      "weather": "autumn",
+      "cues": [
+        "autumn",
+        "autumn in summer",
+        "in the autumn"
+      ],
+      "visual_feeling": "Cool air and fading colour",
+      "emotional_association": [
+        "change",
+        "nostalgia",
+        "endings"
+      ],
+      "sensory": [
+        "crisp air",
+        "leaves"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_56",
+      "weather": "fog",
+      "cues": [
+        "fog",
+        "fog in summer",
+        "in the fog"
+      ],
+      "visual_feeling": "Obscured visibility and uncertainty",
+      "emotional_association": [
+        "mystery",
+        "uncertainty",
+        "isolation"
+      ],
+      "sensory": [
+        "muted",
+        "soft edges"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_57",
+      "weather": "storm",
+      "cues": [
+        "storm",
+        "storm in summer",
+        "in the storm"
+      ],
+      "visual_feeling": "Dramatic weather building tension",
+      "emotional_association": [
+        "tension",
+        "drama",
+        "release"
+      ],
+      "sensory": [
+        "thunder",
+        "wind"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_58",
+      "weather": "grey skies",
+      "cues": [
+        "grey skies",
+        "grey skies in summer",
+        "in the grey skies"
+      ],
+      "visual_feeling": "Overcast flat light",
+      "emotional_association": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "sensory": [
+        "flat light",
+        "muted"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_59",
+      "weather": "sunset",
+      "cues": [
+        "sunset",
+        "sunset in summer",
+        "in the sunset"
+      ],
+      "visual_feeling": "Day closing with warm colour",
+      "emotional_association": [
+        "bittersweet",
+        "transition",
+        "nostalgia"
+      ],
+      "sensory": [
+        "golden light",
+        "fading"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_60",
+      "weather": "rain",
+      "cues": [
+        "rain",
+        "rain in the city",
+        "in the rain"
+      ],
+      "visual_feeling": "Soft falling water creating enclosure",
+      "emotional_association": [
+        "comfort",
+        "sadness",
+        "reflection",
+        "isolation",
+        "cinematic",
+        "calm"
+      ],
+      "sensory": [
+        "rain texture",
+        "muffled",
+        "glass"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_61",
+      "weather": "heavy rain",
+      "cues": [
+        "heavy rain",
+        "heavy rain in the city",
+        "in the heavy rain"
+      ],
+      "visual_feeling": "Intense weather pressing inward",
+      "emotional_association": [
+        "melancholy",
+        "dramatic",
+        "isolation"
+      ],
+      "sensory": [
+        "loud rain",
+        "enclosed"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_62",
+      "weather": "drizzle",
+      "cues": [
+        "drizzle",
+        "drizzle in the city",
+        "in the drizzle"
+      ],
+      "visual_feeling": "Light persistent grey moisture",
+      "emotional_association": [
+        "gentle sadness",
+        "reflection"
+      ],
+      "sensory": [
+        "soft wet",
+        "grey"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_63",
+      "weather": "snow",
+      "cues": [
+        "snow",
+        "snow in the city",
+        "in the snow"
+      ],
+      "visual_feeling": "Silent white stillness",
+      "emotional_association": [
+        "childhood",
+        "silence",
+        "magic",
+        "warmth"
+      ],
+      "sensory": [
+        "soft crunch",
+        "quiet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_64",
+      "weather": "summer heat",
+      "cues": [
+        "summer heat",
+        "summer heat in the city",
+        "in the summer heat"
+      ],
+      "visual_feeling": "Warm air and open possibility",
+      "emotional_association": [
+        "freedom",
+        "adventure",
+        "youth",
+        "memories"
+      ],
+      "sensory": [
+        "warm breeze",
+        "golden"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_65",
+      "weather": "autumn",
+      "cues": [
+        "autumn",
+        "autumn in the city",
+        "in the autumn"
+      ],
+      "visual_feeling": "Cool air and fading colour",
+      "emotional_association": [
+        "change",
+        "nostalgia",
+        "endings"
+      ],
+      "sensory": [
+        "crisp air",
+        "leaves"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_66",
+      "weather": "fog",
+      "cues": [
+        "fog",
+        "fog in the city",
+        "in the fog"
+      ],
+      "visual_feeling": "Obscured visibility and uncertainty",
+      "emotional_association": [
+        "mystery",
+        "uncertainty",
+        "isolation"
+      ],
+      "sensory": [
+        "muted",
+        "soft edges"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_67",
+      "weather": "storm",
+      "cues": [
+        "storm",
+        "storm in the city",
+        "in the storm"
+      ],
+      "visual_feeling": "Dramatic weather building tension",
+      "emotional_association": [
+        "tension",
+        "drama",
+        "release"
+      ],
+      "sensory": [
+        "thunder",
+        "wind"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_68",
+      "weather": "grey skies",
+      "cues": [
+        "grey skies",
+        "grey skies in the city",
+        "in the grey skies"
+      ],
+      "visual_feeling": "Overcast flat light",
+      "emotional_association": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "sensory": [
+        "flat light",
+        "muted"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_69",
+      "weather": "sunset",
+      "cues": [
+        "sunset",
+        "sunset in the city",
+        "in the sunset"
+      ],
+      "visual_feeling": "Day closing with warm colour",
+      "emotional_association": [
+        "bittersweet",
+        "transition",
+        "nostalgia"
+      ],
+      "sensory": [
+        "golden light",
+        "fading"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_70",
+      "weather": "rain",
+      "cues": [
+        "rain",
+        "rain late at night",
+        "in the rain"
+      ],
+      "visual_feeling": "Soft falling water creating enclosure",
+      "emotional_association": [
+        "comfort",
+        "sadness",
+        "reflection",
+        "isolation",
+        "cinematic",
+        "calm"
+      ],
+      "sensory": [
+        "rain texture",
+        "muffled",
+        "glass"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_71",
+      "weather": "heavy rain",
+      "cues": [
+        "heavy rain",
+        "heavy rain late at night",
+        "in the heavy rain"
+      ],
+      "visual_feeling": "Intense weather pressing inward",
+      "emotional_association": [
+        "melancholy",
+        "dramatic",
+        "isolation"
+      ],
+      "sensory": [
+        "loud rain",
+        "enclosed"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_72",
+      "weather": "drizzle",
+      "cues": [
+        "drizzle",
+        "drizzle late at night",
+        "in the drizzle"
+      ],
+      "visual_feeling": "Light persistent grey moisture",
+      "emotional_association": [
+        "gentle sadness",
+        "reflection"
+      ],
+      "sensory": [
+        "soft wet",
+        "grey"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_73",
+      "weather": "snow",
+      "cues": [
+        "snow",
+        "snow late at night",
+        "in the snow"
+      ],
+      "visual_feeling": "Silent white stillness",
+      "emotional_association": [
+        "childhood",
+        "silence",
+        "magic",
+        "warmth"
+      ],
+      "sensory": [
+        "soft crunch",
+        "quiet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_74",
+      "weather": "summer heat",
+      "cues": [
+        "summer heat",
+        "summer heat late at night",
+        "in the summer heat"
+      ],
+      "visual_feeling": "Warm air and open possibility",
+      "emotional_association": [
+        "freedom",
+        "adventure",
+        "youth",
+        "memories"
+      ],
+      "sensory": [
+        "warm breeze",
+        "golden"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_75",
+      "weather": "autumn",
+      "cues": [
+        "autumn",
+        "autumn late at night",
+        "in the autumn"
+      ],
+      "visual_feeling": "Cool air and fading colour",
+      "emotional_association": [
+        "change",
+        "nostalgia",
+        "endings"
+      ],
+      "sensory": [
+        "crisp air",
+        "leaves"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "weather_76",
+      "weather": "fog",
+      "cues": [
+        "fog",
+        "fog late at night",
+        "in the fog"
+      ],
+      "visual_feeling": "Obscured visibility and uncertainty",
+      "emotional_association": [
+        "mystery",
+        "uncertainty",
+        "isolation"
+      ],
+      "sensory": [
+        "muted",
+        "soft edges"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_77",
+      "weather": "storm",
+      "cues": [
+        "storm",
+        "storm late at night",
+        "in the storm"
+      ],
+      "visual_feeling": "Dramatic weather building tension",
+      "emotional_association": [
+        "tension",
+        "drama",
+        "release"
+      ],
+      "sensory": [
+        "thunder",
+        "wind"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "weather_78",
+      "weather": "grey skies",
+      "cues": [
+        "grey skies",
+        "grey skies late at night",
+        "in the grey skies"
+      ],
+      "visual_feeling": "Overcast flat light",
+      "emotional_association": [
+        "melancholy",
+        "slow",
+        "reflection"
+      ],
+      "sensory": [
+        "flat light",
+        "muted"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "weather_79",
+      "weather": "sunset",
+      "cues": [
+        "sunset",
+        "sunset late at night",
+        "in the sunset"
+      ],
+      "visual_feeling": "Day closing with warm colour",
+      "emotional_association": [
+        "bittersweet",
+        "transition",
+        "nostalgia"
+      ],
+      "sensory": [
+        "golden light",
+        "fading"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    }
+  ]
+}

@@ -1,0 +1,2708 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "entries": [
+    {
+      "id": "sense_lang_0",
+      "description": "golden light",
+      "sense": "visual",
+      "cues": [
+        "golden light",
+        "golden light at night"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_1",
+      "description": "neon glow",
+      "sense": "visual",
+      "cues": [
+        "neon glow",
+        "neon glow at night"
+      ],
+      "atmosphere": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "emotional_links": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_2",
+      "description": "streetlights reflecting",
+      "sense": "visual",
+      "cues": [
+        "streetlights reflecting",
+        "streetlights reflecting at night"
+      ],
+      "atmosphere": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "emotional_links": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_3",
+      "description": "empty roads",
+      "sense": "visual",
+      "cues": [
+        "empty roads",
+        "empty roads at night"
+      ],
+      "atmosphere": [
+        "solitude",
+        "freedom"
+      ],
+      "emotional_links": [
+        "solitude",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_4",
+      "description": "blurry lights",
+      "sense": "visual",
+      "cues": [
+        "blurry lights",
+        "blurry lights at night"
+      ],
+      "atmosphere": [
+        "dreamlike",
+        "motion"
+      ],
+      "emotional_links": [
+        "dreamlike",
+        "motion"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_5",
+      "description": "rain tapping",
+      "sense": "sound",
+      "cues": [
+        "rain tapping",
+        "rain tapping at night"
+      ],
+      "atmosphere": [
+        "calm",
+        "intimacy"
+      ],
+      "emotional_links": [
+        "calm",
+        "intimacy"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_6",
+      "description": "distant traffic",
+      "sense": "sound",
+      "cues": [
+        "distant traffic",
+        "distant traffic at night"
+      ],
+      "atmosphere": [
+        "urban",
+        "loneliness"
+      ],
+      "emotional_links": [
+        "urban",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_7",
+      "description": "quiet room",
+      "sense": "sound",
+      "cues": [
+        "quiet room",
+        "quiet room at night"
+      ],
+      "atmosphere": [
+        "peace",
+        "introspection"
+      ],
+      "emotional_links": [
+        "peace",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_8",
+      "description": "crowd noise",
+      "sense": "sound",
+      "cues": [
+        "crowd noise",
+        "crowd noise at night"
+      ],
+      "atmosphere": [
+        "energy",
+        "social"
+      ],
+      "emotional_links": [
+        "energy",
+        "social"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "sense_lang_9",
+      "description": "cold air",
+      "sense": "touch",
+      "cues": [
+        "cold air",
+        "cold air at night"
+      ],
+      "atmosphere": [
+        "clarity",
+        "transition"
+      ],
+      "emotional_links": [
+        "clarity",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_10",
+      "description": "warm blanket",
+      "sense": "touch",
+      "cues": [
+        "warm blanket",
+        "warm blanket at night"
+      ],
+      "atmosphere": [
+        "comfort",
+        "safety"
+      ],
+      "emotional_links": [
+        "comfort",
+        "safety"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_11",
+      "description": "summer breeze",
+      "sense": "touch",
+      "cues": [
+        "summer breeze",
+        "summer breeze at night"
+      ],
+      "atmosphere": [
+        "freedom",
+        "nostalgia"
+      ],
+      "emotional_links": [
+        "freedom",
+        "nostalgia"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "sense_lang_12",
+      "description": "coffee smell",
+      "sense": "smell",
+      "cues": [
+        "coffee smell",
+        "coffee smell at night"
+      ],
+      "atmosphere": [
+        "morning",
+        "comfort"
+      ],
+      "emotional_links": [
+        "morning",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_13",
+      "description": "rain smell",
+      "sense": "smell",
+      "cues": [
+        "rain smell",
+        "rain smell at night"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "calm"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "calm"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_14",
+      "description": "old books",
+      "sense": "smell",
+      "cues": [
+        "old books",
+        "old books at night"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "introspection"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_15",
+      "description": "city lights passing by",
+      "sense": "visual",
+      "cues": [
+        "city lights passing by",
+        "city lights passing by at night"
+      ],
+      "atmosphere": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "emotional_links": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_16",
+      "description": "golden light",
+      "sense": "visual",
+      "cues": [
+        "golden light",
+        "golden light in the rain"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_17",
+      "description": "neon glow",
+      "sense": "visual",
+      "cues": [
+        "neon glow",
+        "neon glow in the rain"
+      ],
+      "atmosphere": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "emotional_links": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_18",
+      "description": "streetlights reflecting",
+      "sense": "visual",
+      "cues": [
+        "streetlights reflecting",
+        "streetlights reflecting in the rain"
+      ],
+      "atmosphere": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "emotional_links": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_19",
+      "description": "empty roads",
+      "sense": "visual",
+      "cues": [
+        "empty roads",
+        "empty roads in the rain"
+      ],
+      "atmosphere": [
+        "solitude",
+        "freedom"
+      ],
+      "emotional_links": [
+        "solitude",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_20",
+      "description": "blurry lights",
+      "sense": "visual",
+      "cues": [
+        "blurry lights",
+        "blurry lights in the rain"
+      ],
+      "atmosphere": [
+        "dreamlike",
+        "motion"
+      ],
+      "emotional_links": [
+        "dreamlike",
+        "motion"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_21",
+      "description": "rain tapping",
+      "sense": "sound",
+      "cues": [
+        "rain tapping",
+        "rain tapping in the rain"
+      ],
+      "atmosphere": [
+        "calm",
+        "intimacy"
+      ],
+      "emotional_links": [
+        "calm",
+        "intimacy"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_22",
+      "description": "distant traffic",
+      "sense": "sound",
+      "cues": [
+        "distant traffic",
+        "distant traffic in the rain"
+      ],
+      "atmosphere": [
+        "urban",
+        "loneliness"
+      ],
+      "emotional_links": [
+        "urban",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_23",
+      "description": "quiet room",
+      "sense": "sound",
+      "cues": [
+        "quiet room",
+        "quiet room in the rain"
+      ],
+      "atmosphere": [
+        "peace",
+        "introspection"
+      ],
+      "emotional_links": [
+        "peace",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_24",
+      "description": "crowd noise",
+      "sense": "sound",
+      "cues": [
+        "crowd noise",
+        "crowd noise in the rain"
+      ],
+      "atmosphere": [
+        "energy",
+        "social"
+      ],
+      "emotional_links": [
+        "energy",
+        "social"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "sense_lang_25",
+      "description": "cold air",
+      "sense": "touch",
+      "cues": [
+        "cold air",
+        "cold air in the rain"
+      ],
+      "atmosphere": [
+        "clarity",
+        "transition"
+      ],
+      "emotional_links": [
+        "clarity",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_26",
+      "description": "warm blanket",
+      "sense": "touch",
+      "cues": [
+        "warm blanket",
+        "warm blanket in the rain"
+      ],
+      "atmosphere": [
+        "comfort",
+        "safety"
+      ],
+      "emotional_links": [
+        "comfort",
+        "safety"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_27",
+      "description": "summer breeze",
+      "sense": "touch",
+      "cues": [
+        "summer breeze",
+        "summer breeze in the rain"
+      ],
+      "atmosphere": [
+        "freedom",
+        "nostalgia"
+      ],
+      "emotional_links": [
+        "freedom",
+        "nostalgia"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "sense_lang_28",
+      "description": "coffee smell",
+      "sense": "smell",
+      "cues": [
+        "coffee smell",
+        "coffee smell in the rain"
+      ],
+      "atmosphere": [
+        "morning",
+        "comfort"
+      ],
+      "emotional_links": [
+        "morning",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_29",
+      "description": "rain smell",
+      "sense": "smell",
+      "cues": [
+        "rain smell",
+        "rain smell in the rain"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "calm"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "calm"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_30",
+      "description": "old books",
+      "sense": "smell",
+      "cues": [
+        "old books",
+        "old books in the rain"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "introspection"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_31",
+      "description": "city lights passing by",
+      "sense": "visual",
+      "cues": [
+        "city lights passing by",
+        "city lights passing by in the rain"
+      ],
+      "atmosphere": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "emotional_links": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_32",
+      "description": "golden light",
+      "sense": "visual",
+      "cues": [
+        "golden light",
+        "golden light on a sunday"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_33",
+      "description": "neon glow",
+      "sense": "visual",
+      "cues": [
+        "neon glow",
+        "neon glow on a sunday"
+      ],
+      "atmosphere": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "emotional_links": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_34",
+      "description": "streetlights reflecting",
+      "sense": "visual",
+      "cues": [
+        "streetlights reflecting",
+        "streetlights reflecting on a sunday"
+      ],
+      "atmosphere": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "emotional_links": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_35",
+      "description": "empty roads",
+      "sense": "visual",
+      "cues": [
+        "empty roads",
+        "empty roads on a sunday"
+      ],
+      "atmosphere": [
+        "solitude",
+        "freedom"
+      ],
+      "emotional_links": [
+        "solitude",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_36",
+      "description": "blurry lights",
+      "sense": "visual",
+      "cues": [
+        "blurry lights",
+        "blurry lights on a sunday"
+      ],
+      "atmosphere": [
+        "dreamlike",
+        "motion"
+      ],
+      "emotional_links": [
+        "dreamlike",
+        "motion"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_37",
+      "description": "rain tapping",
+      "sense": "sound",
+      "cues": [
+        "rain tapping",
+        "rain tapping on a sunday"
+      ],
+      "atmosphere": [
+        "calm",
+        "intimacy"
+      ],
+      "emotional_links": [
+        "calm",
+        "intimacy"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_38",
+      "description": "distant traffic",
+      "sense": "sound",
+      "cues": [
+        "distant traffic",
+        "distant traffic on a sunday"
+      ],
+      "atmosphere": [
+        "urban",
+        "loneliness"
+      ],
+      "emotional_links": [
+        "urban",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_39",
+      "description": "quiet room",
+      "sense": "sound",
+      "cues": [
+        "quiet room",
+        "quiet room on a sunday"
+      ],
+      "atmosphere": [
+        "peace",
+        "introspection"
+      ],
+      "emotional_links": [
+        "peace",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_40",
+      "description": "crowd noise",
+      "sense": "sound",
+      "cues": [
+        "crowd noise",
+        "crowd noise on a sunday"
+      ],
+      "atmosphere": [
+        "energy",
+        "social"
+      ],
+      "emotional_links": [
+        "energy",
+        "social"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "sense_lang_41",
+      "description": "cold air",
+      "sense": "touch",
+      "cues": [
+        "cold air",
+        "cold air on a sunday"
+      ],
+      "atmosphere": [
+        "clarity",
+        "transition"
+      ],
+      "emotional_links": [
+        "clarity",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_42",
+      "description": "warm blanket",
+      "sense": "touch",
+      "cues": [
+        "warm blanket",
+        "warm blanket on a sunday"
+      ],
+      "atmosphere": [
+        "comfort",
+        "safety"
+      ],
+      "emotional_links": [
+        "comfort",
+        "safety"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_43",
+      "description": "summer breeze",
+      "sense": "touch",
+      "cues": [
+        "summer breeze",
+        "summer breeze on a sunday"
+      ],
+      "atmosphere": [
+        "freedom",
+        "nostalgia"
+      ],
+      "emotional_links": [
+        "freedom",
+        "nostalgia"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "sense_lang_44",
+      "description": "coffee smell",
+      "sense": "smell",
+      "cues": [
+        "coffee smell",
+        "coffee smell on a sunday"
+      ],
+      "atmosphere": [
+        "morning",
+        "comfort"
+      ],
+      "emotional_links": [
+        "morning",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_45",
+      "description": "rain smell",
+      "sense": "smell",
+      "cues": [
+        "rain smell",
+        "rain smell on a sunday"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "calm"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "calm"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_46",
+      "description": "old books",
+      "sense": "smell",
+      "cues": [
+        "old books",
+        "old books on a sunday"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "introspection"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_47",
+      "description": "city lights passing by",
+      "sense": "visual",
+      "cues": [
+        "city lights passing by",
+        "city lights passing by on a sunday"
+      ],
+      "atmosphere": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "emotional_links": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_48",
+      "description": "golden light",
+      "sense": "visual",
+      "cues": [
+        "golden light",
+        "golden light after work"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_49",
+      "description": "neon glow",
+      "sense": "visual",
+      "cues": [
+        "neon glow",
+        "neon glow after work"
+      ],
+      "atmosphere": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "emotional_links": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_50",
+      "description": "streetlights reflecting",
+      "sense": "visual",
+      "cues": [
+        "streetlights reflecting",
+        "streetlights reflecting after work"
+      ],
+      "atmosphere": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "emotional_links": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_51",
+      "description": "empty roads",
+      "sense": "visual",
+      "cues": [
+        "empty roads",
+        "empty roads after work"
+      ],
+      "atmosphere": [
+        "solitude",
+        "freedom"
+      ],
+      "emotional_links": [
+        "solitude",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_52",
+      "description": "blurry lights",
+      "sense": "visual",
+      "cues": [
+        "blurry lights",
+        "blurry lights after work"
+      ],
+      "atmosphere": [
+        "dreamlike",
+        "motion"
+      ],
+      "emotional_links": [
+        "dreamlike",
+        "motion"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_53",
+      "description": "rain tapping",
+      "sense": "sound",
+      "cues": [
+        "rain tapping",
+        "rain tapping after work"
+      ],
+      "atmosphere": [
+        "calm",
+        "intimacy"
+      ],
+      "emotional_links": [
+        "calm",
+        "intimacy"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_54",
+      "description": "distant traffic",
+      "sense": "sound",
+      "cues": [
+        "distant traffic",
+        "distant traffic after work"
+      ],
+      "atmosphere": [
+        "urban",
+        "loneliness"
+      ],
+      "emotional_links": [
+        "urban",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_55",
+      "description": "quiet room",
+      "sense": "sound",
+      "cues": [
+        "quiet room",
+        "quiet room after work"
+      ],
+      "atmosphere": [
+        "peace",
+        "introspection"
+      ],
+      "emotional_links": [
+        "peace",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_56",
+      "description": "crowd noise",
+      "sense": "sound",
+      "cues": [
+        "crowd noise",
+        "crowd noise after work"
+      ],
+      "atmosphere": [
+        "energy",
+        "social"
+      ],
+      "emotional_links": [
+        "energy",
+        "social"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "sense_lang_57",
+      "description": "cold air",
+      "sense": "touch",
+      "cues": [
+        "cold air",
+        "cold air after work"
+      ],
+      "atmosphere": [
+        "clarity",
+        "transition"
+      ],
+      "emotional_links": [
+        "clarity",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_58",
+      "description": "warm blanket",
+      "sense": "touch",
+      "cues": [
+        "warm blanket",
+        "warm blanket after work"
+      ],
+      "atmosphere": [
+        "comfort",
+        "safety"
+      ],
+      "emotional_links": [
+        "comfort",
+        "safety"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_59",
+      "description": "summer breeze",
+      "sense": "touch",
+      "cues": [
+        "summer breeze",
+        "summer breeze after work"
+      ],
+      "atmosphere": [
+        "freedom",
+        "nostalgia"
+      ],
+      "emotional_links": [
+        "freedom",
+        "nostalgia"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "sense_lang_60",
+      "description": "coffee smell",
+      "sense": "smell",
+      "cues": [
+        "coffee smell",
+        "coffee smell after work"
+      ],
+      "atmosphere": [
+        "morning",
+        "comfort"
+      ],
+      "emotional_links": [
+        "morning",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_61",
+      "description": "rain smell",
+      "sense": "smell",
+      "cues": [
+        "rain smell",
+        "rain smell after work"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "calm"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "calm"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_62",
+      "description": "old books",
+      "sense": "smell",
+      "cues": [
+        "old books",
+        "old books after work"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "introspection"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_63",
+      "description": "city lights passing by",
+      "sense": "visual",
+      "cues": [
+        "city lights passing by",
+        "city lights passing by after work"
+      ],
+      "atmosphere": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "emotional_links": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_64",
+      "description": "golden light",
+      "sense": "visual",
+      "cues": [
+        "golden light",
+        "golden light alone"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_65",
+      "description": "neon glow",
+      "sense": "visual",
+      "cues": [
+        "neon glow",
+        "neon glow alone"
+      ],
+      "atmosphere": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "emotional_links": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_66",
+      "description": "streetlights reflecting",
+      "sense": "visual",
+      "cues": [
+        "streetlights reflecting",
+        "streetlights reflecting alone"
+      ],
+      "atmosphere": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "emotional_links": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_67",
+      "description": "empty roads",
+      "sense": "visual",
+      "cues": [
+        "empty roads",
+        "empty roads alone"
+      ],
+      "atmosphere": [
+        "solitude",
+        "freedom"
+      ],
+      "emotional_links": [
+        "solitude",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_68",
+      "description": "blurry lights",
+      "sense": "visual",
+      "cues": [
+        "blurry lights",
+        "blurry lights alone"
+      ],
+      "atmosphere": [
+        "dreamlike",
+        "motion"
+      ],
+      "emotional_links": [
+        "dreamlike",
+        "motion"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_69",
+      "description": "rain tapping",
+      "sense": "sound",
+      "cues": [
+        "rain tapping",
+        "rain tapping alone"
+      ],
+      "atmosphere": [
+        "calm",
+        "intimacy"
+      ],
+      "emotional_links": [
+        "calm",
+        "intimacy"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_70",
+      "description": "distant traffic",
+      "sense": "sound",
+      "cues": [
+        "distant traffic",
+        "distant traffic alone"
+      ],
+      "atmosphere": [
+        "urban",
+        "loneliness"
+      ],
+      "emotional_links": [
+        "urban",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_71",
+      "description": "quiet room",
+      "sense": "sound",
+      "cues": [
+        "quiet room",
+        "quiet room alone"
+      ],
+      "atmosphere": [
+        "peace",
+        "introspection"
+      ],
+      "emotional_links": [
+        "peace",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_72",
+      "description": "crowd noise",
+      "sense": "sound",
+      "cues": [
+        "crowd noise",
+        "crowd noise alone"
+      ],
+      "atmosphere": [
+        "energy",
+        "social"
+      ],
+      "emotional_links": [
+        "energy",
+        "social"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "sense_lang_73",
+      "description": "cold air",
+      "sense": "touch",
+      "cues": [
+        "cold air",
+        "cold air alone"
+      ],
+      "atmosphere": [
+        "clarity",
+        "transition"
+      ],
+      "emotional_links": [
+        "clarity",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_74",
+      "description": "warm blanket",
+      "sense": "touch",
+      "cues": [
+        "warm blanket",
+        "warm blanket alone"
+      ],
+      "atmosphere": [
+        "comfort",
+        "safety"
+      ],
+      "emotional_links": [
+        "comfort",
+        "safety"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_75",
+      "description": "summer breeze",
+      "sense": "touch",
+      "cues": [
+        "summer breeze",
+        "summer breeze alone"
+      ],
+      "atmosphere": [
+        "freedom",
+        "nostalgia"
+      ],
+      "emotional_links": [
+        "freedom",
+        "nostalgia"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "sense_lang_76",
+      "description": "coffee smell",
+      "sense": "smell",
+      "cues": [
+        "coffee smell",
+        "coffee smell alone"
+      ],
+      "atmosphere": [
+        "morning",
+        "comfort"
+      ],
+      "emotional_links": [
+        "morning",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_77",
+      "description": "rain smell",
+      "sense": "smell",
+      "cues": [
+        "rain smell",
+        "rain smell alone"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "calm"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "calm"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_78",
+      "description": "old books",
+      "sense": "smell",
+      "cues": [
+        "old books",
+        "old books alone"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "introspection"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_79",
+      "description": "city lights passing by",
+      "sense": "visual",
+      "cues": [
+        "city lights passing by",
+        "city lights passing by alone"
+      ],
+      "atmosphere": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "emotional_links": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_80",
+      "description": "golden light",
+      "sense": "visual",
+      "cues": [
+        "golden light",
+        "golden light in summer"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_81",
+      "description": "neon glow",
+      "sense": "visual",
+      "cues": [
+        "neon glow",
+        "neon glow in summer"
+      ],
+      "atmosphere": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "emotional_links": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_82",
+      "description": "streetlights reflecting",
+      "sense": "visual",
+      "cues": [
+        "streetlights reflecting",
+        "streetlights reflecting in summer"
+      ],
+      "atmosphere": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "emotional_links": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_83",
+      "description": "empty roads",
+      "sense": "visual",
+      "cues": [
+        "empty roads",
+        "empty roads in summer"
+      ],
+      "atmosphere": [
+        "solitude",
+        "freedom"
+      ],
+      "emotional_links": [
+        "solitude",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_84",
+      "description": "blurry lights",
+      "sense": "visual",
+      "cues": [
+        "blurry lights",
+        "blurry lights in summer"
+      ],
+      "atmosphere": [
+        "dreamlike",
+        "motion"
+      ],
+      "emotional_links": [
+        "dreamlike",
+        "motion"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_85",
+      "description": "rain tapping",
+      "sense": "sound",
+      "cues": [
+        "rain tapping",
+        "rain tapping in summer"
+      ],
+      "atmosphere": [
+        "calm",
+        "intimacy"
+      ],
+      "emotional_links": [
+        "calm",
+        "intimacy"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_86",
+      "description": "distant traffic",
+      "sense": "sound",
+      "cues": [
+        "distant traffic",
+        "distant traffic in summer"
+      ],
+      "atmosphere": [
+        "urban",
+        "loneliness"
+      ],
+      "emotional_links": [
+        "urban",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_87",
+      "description": "quiet room",
+      "sense": "sound",
+      "cues": [
+        "quiet room",
+        "quiet room in summer"
+      ],
+      "atmosphere": [
+        "peace",
+        "introspection"
+      ],
+      "emotional_links": [
+        "peace",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_88",
+      "description": "crowd noise",
+      "sense": "sound",
+      "cues": [
+        "crowd noise",
+        "crowd noise in summer"
+      ],
+      "atmosphere": [
+        "energy",
+        "social"
+      ],
+      "emotional_links": [
+        "energy",
+        "social"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "sense_lang_89",
+      "description": "cold air",
+      "sense": "touch",
+      "cues": [
+        "cold air",
+        "cold air in summer"
+      ],
+      "atmosphere": [
+        "clarity",
+        "transition"
+      ],
+      "emotional_links": [
+        "clarity",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_90",
+      "description": "warm blanket",
+      "sense": "touch",
+      "cues": [
+        "warm blanket",
+        "warm blanket in summer"
+      ],
+      "atmosphere": [
+        "comfort",
+        "safety"
+      ],
+      "emotional_links": [
+        "comfort",
+        "safety"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_91",
+      "description": "summer breeze",
+      "sense": "touch",
+      "cues": [
+        "summer breeze",
+        "summer breeze in summer"
+      ],
+      "atmosphere": [
+        "freedom",
+        "nostalgia"
+      ],
+      "emotional_links": [
+        "freedom",
+        "nostalgia"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "sense_lang_92",
+      "description": "coffee smell",
+      "sense": "smell",
+      "cues": [
+        "coffee smell",
+        "coffee smell in summer"
+      ],
+      "atmosphere": [
+        "morning",
+        "comfort"
+      ],
+      "emotional_links": [
+        "morning",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_93",
+      "description": "rain smell",
+      "sense": "smell",
+      "cues": [
+        "rain smell",
+        "rain smell in summer"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "calm"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "calm"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_94",
+      "description": "old books",
+      "sense": "smell",
+      "cues": [
+        "old books",
+        "old books in summer"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "introspection"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_95",
+      "description": "city lights passing by",
+      "sense": "visual",
+      "cues": [
+        "city lights passing by",
+        "city lights passing by in summer"
+      ],
+      "atmosphere": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "emotional_links": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_96",
+      "description": "golden light",
+      "sense": "visual",
+      "cues": [
+        "golden light",
+        "golden light in the city"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_97",
+      "description": "neon glow",
+      "sense": "visual",
+      "cues": [
+        "neon glow",
+        "neon glow in the city"
+      ],
+      "atmosphere": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "emotional_links": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_98",
+      "description": "streetlights reflecting",
+      "sense": "visual",
+      "cues": [
+        "streetlights reflecting",
+        "streetlights reflecting in the city"
+      ],
+      "atmosphere": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "emotional_links": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_99",
+      "description": "empty roads",
+      "sense": "visual",
+      "cues": [
+        "empty roads",
+        "empty roads in the city"
+      ],
+      "atmosphere": [
+        "solitude",
+        "freedom"
+      ],
+      "emotional_links": [
+        "solitude",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_100",
+      "description": "blurry lights",
+      "sense": "visual",
+      "cues": [
+        "blurry lights",
+        "blurry lights in the city"
+      ],
+      "atmosphere": [
+        "dreamlike",
+        "motion"
+      ],
+      "emotional_links": [
+        "dreamlike",
+        "motion"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_101",
+      "description": "rain tapping",
+      "sense": "sound",
+      "cues": [
+        "rain tapping",
+        "rain tapping in the city"
+      ],
+      "atmosphere": [
+        "calm",
+        "intimacy"
+      ],
+      "emotional_links": [
+        "calm",
+        "intimacy"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_102",
+      "description": "distant traffic",
+      "sense": "sound",
+      "cues": [
+        "distant traffic",
+        "distant traffic in the city"
+      ],
+      "atmosphere": [
+        "urban",
+        "loneliness"
+      ],
+      "emotional_links": [
+        "urban",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_103",
+      "description": "quiet room",
+      "sense": "sound",
+      "cues": [
+        "quiet room",
+        "quiet room in the city"
+      ],
+      "atmosphere": [
+        "peace",
+        "introspection"
+      ],
+      "emotional_links": [
+        "peace",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_104",
+      "description": "crowd noise",
+      "sense": "sound",
+      "cues": [
+        "crowd noise",
+        "crowd noise in the city"
+      ],
+      "atmosphere": [
+        "energy",
+        "social"
+      ],
+      "emotional_links": [
+        "energy",
+        "social"
+      ],
+      "music_direction": {
+        "energy": "medium-high",
+        "tempo": "medium-fast",
+        "texture": "bright energetic"
+      }
+    },
+    {
+      "id": "sense_lang_105",
+      "description": "cold air",
+      "sense": "touch",
+      "cues": [
+        "cold air",
+        "cold air in the city"
+      ],
+      "atmosphere": [
+        "clarity",
+        "transition"
+      ],
+      "emotional_links": [
+        "clarity",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_106",
+      "description": "warm blanket",
+      "sense": "touch",
+      "cues": [
+        "warm blanket",
+        "warm blanket in the city"
+      ],
+      "atmosphere": [
+        "comfort",
+        "safety"
+      ],
+      "emotional_links": [
+        "comfort",
+        "safety"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_107",
+      "description": "summer breeze",
+      "sense": "touch",
+      "cues": [
+        "summer breeze",
+        "summer breeze in the city"
+      ],
+      "atmosphere": [
+        "freedom",
+        "nostalgia"
+      ],
+      "emotional_links": [
+        "freedom",
+        "nostalgia"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "sense_lang_108",
+      "description": "coffee smell",
+      "sense": "smell",
+      "cues": [
+        "coffee smell",
+        "coffee smell in the city"
+      ],
+      "atmosphere": [
+        "morning",
+        "comfort"
+      ],
+      "emotional_links": [
+        "morning",
+        "comfort"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_109",
+      "description": "rain smell",
+      "sense": "smell",
+      "cues": [
+        "rain smell",
+        "rain smell in the city"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "calm"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "calm"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_110",
+      "description": "old books",
+      "sense": "smell",
+      "cues": [
+        "old books",
+        "old books in the city"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "introspection"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_111",
+      "description": "city lights passing by",
+      "sense": "visual",
+      "cues": [
+        "city lights passing by",
+        "city lights passing by in the city"
+      ],
+      "atmosphere": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "emotional_links": [
+        "motion",
+        "reflection",
+        "night"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_112",
+      "description": "golden light",
+      "sense": "visual",
+      "cues": [
+        "golden light",
+        "golden light late at night"
+      ],
+      "atmosphere": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "emotional_links": [
+        "nostalgia",
+        "warmth",
+        "transition"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_113",
+      "description": "neon glow",
+      "sense": "visual",
+      "cues": [
+        "neon glow",
+        "neon glow late at night"
+      ],
+      "atmosphere": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "emotional_links": [
+        "night",
+        "urban",
+        "cinematic"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_114",
+      "description": "streetlights reflecting",
+      "sense": "visual",
+      "cues": [
+        "streetlights reflecting",
+        "streetlights reflecting late at night"
+      ],
+      "atmosphere": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "emotional_links": [
+        "night",
+        "rain",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_115",
+      "description": "empty roads",
+      "sense": "visual",
+      "cues": [
+        "empty roads",
+        "empty roads late at night"
+      ],
+      "atmosphere": [
+        "solitude",
+        "freedom"
+      ],
+      "emotional_links": [
+        "solitude",
+        "freedom"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_116",
+      "description": "blurry lights",
+      "sense": "visual",
+      "cues": [
+        "blurry lights",
+        "blurry lights late at night"
+      ],
+      "atmosphere": [
+        "dreamlike",
+        "motion"
+      ],
+      "emotional_links": [
+        "dreamlike",
+        "motion"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_117",
+      "description": "rain tapping",
+      "sense": "sound",
+      "cues": [
+        "rain tapping",
+        "rain tapping late at night"
+      ],
+      "atmosphere": [
+        "calm",
+        "intimacy"
+      ],
+      "emotional_links": [
+        "calm",
+        "intimacy"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "sense_lang_118",
+      "description": "distant traffic",
+      "sense": "sound",
+      "cues": [
+        "distant traffic",
+        "distant traffic late at night"
+      ],
+      "atmosphere": [
+        "urban",
+        "loneliness"
+      ],
+      "emotional_links": [
+        "urban",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "sense_lang_119",
+      "description": "quiet room",
+      "sense": "sound",
+      "cues": [
+        "quiet room",
+        "quiet room late at night"
+      ],
+      "atmosphere": [
+        "peace",
+        "introspection"
+      ],
+      "emotional_links": [
+        "peace",
+        "introspection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    }
+  ]
+}

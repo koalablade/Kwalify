@@ -1,63 +1,1990 @@
 {
-  "version": 1,
+  "version": 2,
   "locale": "en-GB",
   "entries": [
     {
-      "name": "grey Sunday",
-      "concepts": ["quiet", "slow", "comfort", "reflection", "domestic"],
-      "environment": ["home"],
-      "emotion": ["peace", "reflection"],
-      "music_direction": { "energy": "low-medium", "texture": "warm", "tempo": "slow-medium", "genres": ["folk", "acoustic", "dreamy"] }
+      "name": "grey Sunday in the rain",
+      "concepts": [
+        "quiet",
+        "slow",
+        "comfort",
+        "reflection",
+        "domestic"
+      ],
+      "emotion": [
+        "peace"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "warm",
+        "tempo": "slow-medium",
+        "genres": [
+          "folk",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "grey Sunday",
+        "grey Sunday in the rain"
+      ]
     },
     {
-      "name": "night bus home",
-      "concepts": ["urban transit", "exhaustion", "end of night", "reflection"],
-      "activity": ["travelling", "waiting"],
-      "emotion": ["reflection", "exhaustion"],
-      "music_direction": { "energy": "low-medium", "texture": "nocturnal", "tempo": "medium", "genres": ["indie", "electronic"] }
+      "name": "rainy afternoon in the rain",
+      "concepts": [
+        "shelter",
+        "inward",
+        "soft"
+      ],
+      "emotion": [
+        "peace",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "cosy",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon in the rain"
+      ]
     },
     {
-      "name": "petrol station at midnight",
-      "concepts": ["nocturnal pause", "solitude", "fluorescent liminality"],
-      "environment": ["petrol_station"],
-      "emotion": ["loneliness", "reflection"],
-      "music_direction": { "energy": "low-medium", "texture": "nocturnal", "tempo": "slow-medium", "genres": ["ambient", "indie electronic"] }
+      "name": "cold morning in the rain",
+      "concepts": [
+        "crisp",
+        "fresh start",
+        "quiet"
+      ],
+      "emotion": [
+        "anticipation"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "clear",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "folk"
+        ]
+      },
+      "cues": [
+        "cold morning",
+        "cold morning in the rain"
+      ]
     },
     {
-      "name": "tea and rain",
-      "concepts": ["domestic comfort", "British quiet", "soft shelter"],
-      "emotion": ["peace", "contentment"],
-      "music_direction": { "energy": "low", "texture": "cosy", "tempo": "slow", "genres": ["acoustic", "ambient"] }
+      "name": "last train home in the rain",
+      "concepts": [
+        "ending",
+        "reflection",
+        "night",
+        "transition"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "emotional",
+        "tempo": "slow-medium",
+        "genres": [
+          "indie",
+          "electronic"
+        ]
+      },
+      "cues": [
+        "last train home",
+        "last train home in the rain"
+      ]
     },
     {
-      "name": "uni days",
-      "concepts": ["youth", "messy freedom", "shared memory"],
-      "lifeContext": ["graduation", "childhood_memories"],
-      "emotion": ["nostalgia"],
-      "music_direction": { "energy": "medium", "texture": "youthful", "tempo": "medium", "genres": ["indie", "britpop"] }
+      "name": "leaving the pub in the rain",
+      "concepts": [
+        "social end",
+        "night air",
+        "transition"
+      ],
+      "emotion": [
+        "contentment",
+        "reflection"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm loose",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "leaving the pub",
+        "leaving the pub in the rain"
+      ]
     },
     {
-      "name": "estate lights",
-      "concepts": ["urban night", "memory", "working class landscape"],
-      "environment": ["estate"],
-      "sensory": ["street_lights"],
-      "emotion": ["nostalgia", "reflection"],
-      "music_direction": { "energy": "low-medium", "texture": "urban intimate", "tempo": "medium", "genres": ["grime-influenced indie", "electronic"] }
+      "name": "first car in the rain",
+      "concepts": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "emotion": [
+        "joy",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "open",
+        "tempo": "medium",
+        "genres": [
+          "indie rock"
+        ]
+      },
+      "cues": [
+        "first car",
+        "first car in the rain"
+      ]
     },
     {
-      "name": "country lanes",
-      "concepts": ["open escape", "rural calm", "slow movement"],
-      "environment": ["countryside"],
-      "emotion": ["peace", "freedom"],
-      "music_direction": { "energy": "medium", "texture": "organic", "tempo": "medium", "genres": ["folk", "indie"] }
+      "name": "driving lessons in the rain",
+      "concepts": [
+        "nervous growth",
+        "learning",
+        "suburbia"
+      ],
+      "emotion": [
+        "anxiety",
+        "hope"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "tentative",
+        "tempo": "medium",
+        "genres": [
+          "indie pop"
+        ]
+      },
+      "cues": [
+        "driving lessons",
+        "driving lessons in the rain"
+      ]
     },
     {
-      "name": "coastal drive",
-      "concepts": ["expansive hope", "sea air", "forward motion"],
-      "environment": ["beach"],
-      "activity": ["driving"],
-      "emotion": ["freedom", "hope"],
-      "music_direction": { "energy": "medium", "texture": "bright open", "tempo": "medium-fast", "genres": ["indie rock", "dream pop"] }
+      "name": "school memories in the rain",
+      "concepts": [
+        "youth",
+        "past self",
+        "playground"
+      ],
+      "emotion": [
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "youthful",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "school memories",
+        "school memories in the rain"
+      ]
+    },
+    {
+      "name": "empty high street in the rain",
+      "concepts": [
+        "quiet town",
+        "after hours",
+        "stillness"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "sparse",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "indie"
+        ]
+      },
+      "cues": [
+        "empty high street",
+        "empty high street in the rain"
+      ]
+    },
+    {
+      "name": "sitting outside with friends in the rain",
+      "concepts": [
+        "summer evening",
+        "belonging",
+        "ease"
+      ],
+      "emotion": [
+        "contentment",
+        "joy"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm golden",
+        "tempo": "medium",
+        "genres": [
+          "indie pop",
+          "soul"
+        ]
+      },
+      "cues": [
+        "sitting outside with friends",
+        "sitting outside with friends in the rain"
+      ]
+    },
+    {
+      "name": "grey Sunday at night",
+      "concepts": [
+        "quiet",
+        "slow",
+        "comfort",
+        "reflection",
+        "domestic"
+      ],
+      "emotion": [
+        "peace"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "warm",
+        "tempo": "slow-medium",
+        "genres": [
+          "folk",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "grey Sunday",
+        "grey Sunday at night"
+      ]
+    },
+    {
+      "name": "rainy afternoon at night",
+      "concepts": [
+        "shelter",
+        "inward",
+        "soft"
+      ],
+      "emotion": [
+        "peace",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "cosy",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon at night"
+      ]
+    },
+    {
+      "name": "cold morning at night",
+      "concepts": [
+        "crisp",
+        "fresh start",
+        "quiet"
+      ],
+      "emotion": [
+        "anticipation"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "clear",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "folk"
+        ]
+      },
+      "cues": [
+        "cold morning",
+        "cold morning at night"
+      ]
+    },
+    {
+      "name": "last train home at night",
+      "concepts": [
+        "ending",
+        "reflection",
+        "night",
+        "transition"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "emotional",
+        "tempo": "slow-medium",
+        "genres": [
+          "indie",
+          "electronic"
+        ]
+      },
+      "cues": [
+        "last train home",
+        "last train home at night"
+      ]
+    },
+    {
+      "name": "leaving the pub at night",
+      "concepts": [
+        "social end",
+        "night air",
+        "transition"
+      ],
+      "emotion": [
+        "contentment",
+        "reflection"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm loose",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "leaving the pub",
+        "leaving the pub at night"
+      ]
+    },
+    {
+      "name": "first car at night",
+      "concepts": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "emotion": [
+        "joy",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "open",
+        "tempo": "medium",
+        "genres": [
+          "indie rock"
+        ]
+      },
+      "cues": [
+        "first car",
+        "first car at night"
+      ]
+    },
+    {
+      "name": "driving lessons at night",
+      "concepts": [
+        "nervous growth",
+        "learning",
+        "suburbia"
+      ],
+      "emotion": [
+        "anxiety",
+        "hope"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "tentative",
+        "tempo": "medium",
+        "genres": [
+          "indie pop"
+        ]
+      },
+      "cues": [
+        "driving lessons",
+        "driving lessons at night"
+      ]
+    },
+    {
+      "name": "school memories at night",
+      "concepts": [
+        "youth",
+        "past self",
+        "playground"
+      ],
+      "emotion": [
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "youthful",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "school memories",
+        "school memories at night"
+      ]
+    },
+    {
+      "name": "empty high street at night",
+      "concepts": [
+        "quiet town",
+        "after hours",
+        "stillness"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "sparse",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "indie"
+        ]
+      },
+      "cues": [
+        "empty high street",
+        "empty high street at night"
+      ]
+    },
+    {
+      "name": "sitting outside with friends at night",
+      "concepts": [
+        "summer evening",
+        "belonging",
+        "ease"
+      ],
+      "emotion": [
+        "contentment",
+        "joy"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm golden",
+        "tempo": "medium",
+        "genres": [
+          "indie pop",
+          "soul"
+        ]
+      },
+      "cues": [
+        "sitting outside with friends",
+        "sitting outside with friends at night"
+      ]
+    },
+    {
+      "name": "grey Sunday in summer",
+      "concepts": [
+        "quiet",
+        "slow",
+        "comfort",
+        "reflection",
+        "domestic"
+      ],
+      "emotion": [
+        "peace"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "warm",
+        "tempo": "slow-medium",
+        "genres": [
+          "folk",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "grey Sunday",
+        "grey Sunday in summer"
+      ]
+    },
+    {
+      "name": "rainy afternoon in summer",
+      "concepts": [
+        "shelter",
+        "inward",
+        "soft"
+      ],
+      "emotion": [
+        "peace",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "cosy",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon in summer"
+      ]
+    },
+    {
+      "name": "cold morning in summer",
+      "concepts": [
+        "crisp",
+        "fresh start",
+        "quiet"
+      ],
+      "emotion": [
+        "anticipation"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "clear",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "folk"
+        ]
+      },
+      "cues": [
+        "cold morning",
+        "cold morning in summer"
+      ]
+    },
+    {
+      "name": "last train home in summer",
+      "concepts": [
+        "ending",
+        "reflection",
+        "night",
+        "transition"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "emotional",
+        "tempo": "slow-medium",
+        "genres": [
+          "indie",
+          "electronic"
+        ]
+      },
+      "cues": [
+        "last train home",
+        "last train home in summer"
+      ]
+    },
+    {
+      "name": "leaving the pub in summer",
+      "concepts": [
+        "social end",
+        "night air",
+        "transition"
+      ],
+      "emotion": [
+        "contentment",
+        "reflection"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm loose",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "leaving the pub",
+        "leaving the pub in summer"
+      ]
+    },
+    {
+      "name": "first car in summer",
+      "concepts": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "emotion": [
+        "joy",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "open",
+        "tempo": "medium",
+        "genres": [
+          "indie rock"
+        ]
+      },
+      "cues": [
+        "first car",
+        "first car in summer"
+      ]
+    },
+    {
+      "name": "driving lessons in summer",
+      "concepts": [
+        "nervous growth",
+        "learning",
+        "suburbia"
+      ],
+      "emotion": [
+        "anxiety",
+        "hope"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "tentative",
+        "tempo": "medium",
+        "genres": [
+          "indie pop"
+        ]
+      },
+      "cues": [
+        "driving lessons",
+        "driving lessons in summer"
+      ]
+    },
+    {
+      "name": "school memories in summer",
+      "concepts": [
+        "youth",
+        "past self",
+        "playground"
+      ],
+      "emotion": [
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "youthful",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "school memories",
+        "school memories in summer"
+      ]
+    },
+    {
+      "name": "empty high street in summer",
+      "concepts": [
+        "quiet town",
+        "after hours",
+        "stillness"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "sparse",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "indie"
+        ]
+      },
+      "cues": [
+        "empty high street",
+        "empty high street in summer"
+      ]
+    },
+    {
+      "name": "sitting outside with friends in summer",
+      "concepts": [
+        "summer evening",
+        "belonging",
+        "ease"
+      ],
+      "emotion": [
+        "contentment",
+        "joy"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm golden",
+        "tempo": "medium",
+        "genres": [
+          "indie pop",
+          "soul"
+        ]
+      },
+      "cues": [
+        "sitting outside with friends",
+        "sitting outside with friends in summer"
+      ]
+    },
+    {
+      "name": "grey Sunday in winter",
+      "concepts": [
+        "quiet",
+        "slow",
+        "comfort",
+        "reflection",
+        "domestic"
+      ],
+      "emotion": [
+        "peace"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "warm",
+        "tempo": "slow-medium",
+        "genres": [
+          "folk",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "grey Sunday",
+        "grey Sunday in winter"
+      ]
+    },
+    {
+      "name": "rainy afternoon in winter",
+      "concepts": [
+        "shelter",
+        "inward",
+        "soft"
+      ],
+      "emotion": [
+        "peace",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "cosy",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon in winter"
+      ]
+    },
+    {
+      "name": "cold morning in winter",
+      "concepts": [
+        "crisp",
+        "fresh start",
+        "quiet"
+      ],
+      "emotion": [
+        "anticipation"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "clear",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "folk"
+        ]
+      },
+      "cues": [
+        "cold morning",
+        "cold morning in winter"
+      ]
+    },
+    {
+      "name": "last train home in winter",
+      "concepts": [
+        "ending",
+        "reflection",
+        "night",
+        "transition"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "emotional",
+        "tempo": "slow-medium",
+        "genres": [
+          "indie",
+          "electronic"
+        ]
+      },
+      "cues": [
+        "last train home",
+        "last train home in winter"
+      ]
+    },
+    {
+      "name": "leaving the pub in winter",
+      "concepts": [
+        "social end",
+        "night air",
+        "transition"
+      ],
+      "emotion": [
+        "contentment",
+        "reflection"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm loose",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "leaving the pub",
+        "leaving the pub in winter"
+      ]
+    },
+    {
+      "name": "first car in winter",
+      "concepts": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "emotion": [
+        "joy",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "open",
+        "tempo": "medium",
+        "genres": [
+          "indie rock"
+        ]
+      },
+      "cues": [
+        "first car",
+        "first car in winter"
+      ]
+    },
+    {
+      "name": "driving lessons in winter",
+      "concepts": [
+        "nervous growth",
+        "learning",
+        "suburbia"
+      ],
+      "emotion": [
+        "anxiety",
+        "hope"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "tentative",
+        "tempo": "medium",
+        "genres": [
+          "indie pop"
+        ]
+      },
+      "cues": [
+        "driving lessons",
+        "driving lessons in winter"
+      ]
+    },
+    {
+      "name": "school memories in winter",
+      "concepts": [
+        "youth",
+        "past self",
+        "playground"
+      ],
+      "emotion": [
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "youthful",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "school memories",
+        "school memories in winter"
+      ]
+    },
+    {
+      "name": "empty high street in winter",
+      "concepts": [
+        "quiet town",
+        "after hours",
+        "stillness"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "sparse",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "indie"
+        ]
+      },
+      "cues": [
+        "empty high street",
+        "empty high street in winter"
+      ]
+    },
+    {
+      "name": "sitting outside with friends in winter",
+      "concepts": [
+        "summer evening",
+        "belonging",
+        "ease"
+      ],
+      "emotion": [
+        "contentment",
+        "joy"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm golden",
+        "tempo": "medium",
+        "genres": [
+          "indie pop",
+          "soul"
+        ]
+      },
+      "cues": [
+        "sitting outside with friends",
+        "sitting outside with friends in winter"
+      ]
+    },
+    {
+      "name": "grey Sunday on a bank holiday",
+      "concepts": [
+        "quiet",
+        "slow",
+        "comfort",
+        "reflection",
+        "domestic"
+      ],
+      "emotion": [
+        "peace"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "warm",
+        "tempo": "slow-medium",
+        "genres": [
+          "folk",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "grey Sunday",
+        "grey Sunday on a bank holiday"
+      ]
+    },
+    {
+      "name": "rainy afternoon on a bank holiday",
+      "concepts": [
+        "shelter",
+        "inward",
+        "soft"
+      ],
+      "emotion": [
+        "peace",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "cosy",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon on a bank holiday"
+      ]
+    },
+    {
+      "name": "cold morning on a bank holiday",
+      "concepts": [
+        "crisp",
+        "fresh start",
+        "quiet"
+      ],
+      "emotion": [
+        "anticipation"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "clear",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "folk"
+        ]
+      },
+      "cues": [
+        "cold morning",
+        "cold morning on a bank holiday"
+      ]
+    },
+    {
+      "name": "last train home on a bank holiday",
+      "concepts": [
+        "ending",
+        "reflection",
+        "night",
+        "transition"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "emotional",
+        "tempo": "slow-medium",
+        "genres": [
+          "indie",
+          "electronic"
+        ]
+      },
+      "cues": [
+        "last train home",
+        "last train home on a bank holiday"
+      ]
+    },
+    {
+      "name": "leaving the pub on a bank holiday",
+      "concepts": [
+        "social end",
+        "night air",
+        "transition"
+      ],
+      "emotion": [
+        "contentment",
+        "reflection"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm loose",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "leaving the pub",
+        "leaving the pub on a bank holiday"
+      ]
+    },
+    {
+      "name": "first car on a bank holiday",
+      "concepts": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "emotion": [
+        "joy",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "open",
+        "tempo": "medium",
+        "genres": [
+          "indie rock"
+        ]
+      },
+      "cues": [
+        "first car",
+        "first car on a bank holiday"
+      ]
+    },
+    {
+      "name": "driving lessons on a bank holiday",
+      "concepts": [
+        "nervous growth",
+        "learning",
+        "suburbia"
+      ],
+      "emotion": [
+        "anxiety",
+        "hope"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "tentative",
+        "tempo": "medium",
+        "genres": [
+          "indie pop"
+        ]
+      },
+      "cues": [
+        "driving lessons",
+        "driving lessons on a bank holiday"
+      ]
+    },
+    {
+      "name": "school memories on a bank holiday",
+      "concepts": [
+        "youth",
+        "past self",
+        "playground"
+      ],
+      "emotion": [
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "youthful",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "school memories",
+        "school memories on a bank holiday"
+      ]
+    },
+    {
+      "name": "empty high street on a bank holiday",
+      "concepts": [
+        "quiet town",
+        "after hours",
+        "stillness"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "sparse",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "indie"
+        ]
+      },
+      "cues": [
+        "empty high street",
+        "empty high street on a bank holiday"
+      ]
+    },
+    {
+      "name": "sitting outside with friends on a bank holiday",
+      "concepts": [
+        "summer evening",
+        "belonging",
+        "ease"
+      ],
+      "emotion": [
+        "contentment",
+        "joy"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm golden",
+        "tempo": "medium",
+        "genres": [
+          "indie pop",
+          "soul"
+        ]
+      },
+      "cues": [
+        "sitting outside with friends",
+        "sitting outside with friends on a bank holiday"
+      ]
+    },
+    {
+      "name": "grey Sunday after uni",
+      "concepts": [
+        "quiet",
+        "slow",
+        "comfort",
+        "reflection",
+        "domestic"
+      ],
+      "emotion": [
+        "peace"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "warm",
+        "tempo": "slow-medium",
+        "genres": [
+          "folk",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "grey Sunday",
+        "grey Sunday after uni"
+      ]
+    },
+    {
+      "name": "rainy afternoon after uni",
+      "concepts": [
+        "shelter",
+        "inward",
+        "soft"
+      ],
+      "emotion": [
+        "peace",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "cosy",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon after uni"
+      ]
+    },
+    {
+      "name": "cold morning after uni",
+      "concepts": [
+        "crisp",
+        "fresh start",
+        "quiet"
+      ],
+      "emotion": [
+        "anticipation"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "clear",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "folk"
+        ]
+      },
+      "cues": [
+        "cold morning",
+        "cold morning after uni"
+      ]
+    },
+    {
+      "name": "last train home after uni",
+      "concepts": [
+        "ending",
+        "reflection",
+        "night",
+        "transition"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "emotional",
+        "tempo": "slow-medium",
+        "genres": [
+          "indie",
+          "electronic"
+        ]
+      },
+      "cues": [
+        "last train home",
+        "last train home after uni"
+      ]
+    },
+    {
+      "name": "leaving the pub after uni",
+      "concepts": [
+        "social end",
+        "night air",
+        "transition"
+      ],
+      "emotion": [
+        "contentment",
+        "reflection"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm loose",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "leaving the pub",
+        "leaving the pub after uni"
+      ]
+    },
+    {
+      "name": "first car after uni",
+      "concepts": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "emotion": [
+        "joy",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "open",
+        "tempo": "medium",
+        "genres": [
+          "indie rock"
+        ]
+      },
+      "cues": [
+        "first car",
+        "first car after uni"
+      ]
+    },
+    {
+      "name": "driving lessons after uni",
+      "concepts": [
+        "nervous growth",
+        "learning",
+        "suburbia"
+      ],
+      "emotion": [
+        "anxiety",
+        "hope"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "tentative",
+        "tempo": "medium",
+        "genres": [
+          "indie pop"
+        ]
+      },
+      "cues": [
+        "driving lessons",
+        "driving lessons after uni"
+      ]
+    },
+    {
+      "name": "school memories after uni",
+      "concepts": [
+        "youth",
+        "past self",
+        "playground"
+      ],
+      "emotion": [
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "youthful",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "school memories",
+        "school memories after uni"
+      ]
+    },
+    {
+      "name": "empty high street after uni",
+      "concepts": [
+        "quiet town",
+        "after hours",
+        "stillness"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "sparse",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "indie"
+        ]
+      },
+      "cues": [
+        "empty high street",
+        "empty high street after uni"
+      ]
+    },
+    {
+      "name": "sitting outside with friends after uni",
+      "concepts": [
+        "summer evening",
+        "belonging",
+        "ease"
+      ],
+      "emotion": [
+        "contentment",
+        "joy"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm golden",
+        "tempo": "medium",
+        "genres": [
+          "indie pop",
+          "soul"
+        ]
+      },
+      "cues": [
+        "sitting outside with friends",
+        "sitting outside with friends after uni"
+      ]
+    },
+    {
+      "name": "grey Sunday before work",
+      "concepts": [
+        "quiet",
+        "slow",
+        "comfort",
+        "reflection",
+        "domestic"
+      ],
+      "emotion": [
+        "peace"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "warm",
+        "tempo": "slow-medium",
+        "genres": [
+          "folk",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "grey Sunday",
+        "grey Sunday before work"
+      ]
+    },
+    {
+      "name": "rainy afternoon before work",
+      "concepts": [
+        "shelter",
+        "inward",
+        "soft"
+      ],
+      "emotion": [
+        "peace",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "cosy",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon before work"
+      ]
+    },
+    {
+      "name": "cold morning before work",
+      "concepts": [
+        "crisp",
+        "fresh start",
+        "quiet"
+      ],
+      "emotion": [
+        "anticipation"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "clear",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "folk"
+        ]
+      },
+      "cues": [
+        "cold morning",
+        "cold morning before work"
+      ]
+    },
+    {
+      "name": "last train home before work",
+      "concepts": [
+        "ending",
+        "reflection",
+        "night",
+        "transition"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "emotional",
+        "tempo": "slow-medium",
+        "genres": [
+          "indie",
+          "electronic"
+        ]
+      },
+      "cues": [
+        "last train home",
+        "last train home before work"
+      ]
+    },
+    {
+      "name": "leaving the pub before work",
+      "concepts": [
+        "social end",
+        "night air",
+        "transition"
+      ],
+      "emotion": [
+        "contentment",
+        "reflection"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm loose",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "leaving the pub",
+        "leaving the pub before work"
+      ]
+    },
+    {
+      "name": "first car before work",
+      "concepts": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "emotion": [
+        "joy",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "open",
+        "tempo": "medium",
+        "genres": [
+          "indie rock"
+        ]
+      },
+      "cues": [
+        "first car",
+        "first car before work"
+      ]
+    },
+    {
+      "name": "driving lessons before work",
+      "concepts": [
+        "nervous growth",
+        "learning",
+        "suburbia"
+      ],
+      "emotion": [
+        "anxiety",
+        "hope"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "tentative",
+        "tempo": "medium",
+        "genres": [
+          "indie pop"
+        ]
+      },
+      "cues": [
+        "driving lessons",
+        "driving lessons before work"
+      ]
+    },
+    {
+      "name": "school memories before work",
+      "concepts": [
+        "youth",
+        "past self",
+        "playground"
+      ],
+      "emotion": [
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "youthful",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "school memories",
+        "school memories before work"
+      ]
+    },
+    {
+      "name": "empty high street before work",
+      "concepts": [
+        "quiet town",
+        "after hours",
+        "stillness"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "sparse",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "indie"
+        ]
+      },
+      "cues": [
+        "empty high street",
+        "empty high street before work"
+      ]
+    },
+    {
+      "name": "sitting outside with friends before work",
+      "concepts": [
+        "summer evening",
+        "belonging",
+        "ease"
+      ],
+      "emotion": [
+        "contentment",
+        "joy"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm golden",
+        "tempo": "medium",
+        "genres": [
+          "indie pop",
+          "soul"
+        ]
+      },
+      "cues": [
+        "sitting outside with friends",
+        "sitting outside with friends before work"
+      ]
+    },
+    {
+      "name": "grey Sunday at the coast",
+      "concepts": [
+        "quiet",
+        "slow",
+        "comfort",
+        "reflection",
+        "domestic"
+      ],
+      "emotion": [
+        "peace"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "warm",
+        "tempo": "slow-medium",
+        "genres": [
+          "folk",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "grey Sunday",
+        "grey Sunday at the coast"
+      ]
+    },
+    {
+      "name": "rainy afternoon at the coast",
+      "concepts": [
+        "shelter",
+        "inward",
+        "soft"
+      ],
+      "emotion": [
+        "peace",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "cosy",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "acoustic"
+        ]
+      },
+      "cues": [
+        "rainy afternoon",
+        "rainy afternoon at the coast"
+      ]
+    },
+    {
+      "name": "cold morning at the coast",
+      "concepts": [
+        "crisp",
+        "fresh start",
+        "quiet"
+      ],
+      "emotion": [
+        "anticipation"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "clear",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "folk"
+        ]
+      },
+      "cues": [
+        "cold morning",
+        "cold morning at the coast"
+      ]
+    },
+    {
+      "name": "last train home at the coast",
+      "concepts": [
+        "ending",
+        "reflection",
+        "night",
+        "transition"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "texture": "emotional",
+        "tempo": "slow-medium",
+        "genres": [
+          "indie",
+          "electronic"
+        ]
+      },
+      "cues": [
+        "last train home",
+        "last train home at the coast"
+      ]
+    },
+    {
+      "name": "leaving the pub at the coast",
+      "concepts": [
+        "social end",
+        "night air",
+        "transition"
+      ],
+      "emotion": [
+        "contentment",
+        "reflection"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm loose",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "leaving the pub",
+        "leaving the pub at the coast"
+      ]
+    },
+    {
+      "name": "first car at the coast",
+      "concepts": [
+        "freedom",
+        "youth",
+        "independence"
+      ],
+      "emotion": [
+        "joy",
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "open",
+        "tempo": "medium",
+        "genres": [
+          "indie rock"
+        ]
+      },
+      "cues": [
+        "first car",
+        "first car at the coast"
+      ]
+    },
+    {
+      "name": "driving lessons at the coast",
+      "concepts": [
+        "nervous growth",
+        "learning",
+        "suburbia"
+      ],
+      "emotion": [
+        "anxiety",
+        "hope"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "tentative",
+        "tempo": "medium",
+        "genres": [
+          "indie pop"
+        ]
+      },
+      "cues": [
+        "driving lessons",
+        "driving lessons at the coast"
+      ]
+    },
+    {
+      "name": "school memories at the coast",
+      "concepts": [
+        "youth",
+        "past self",
+        "playground"
+      ],
+      "emotion": [
+        "nostalgia"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "youthful",
+        "tempo": "medium",
+        "genres": [
+          "indie",
+          "britpop"
+        ]
+      },
+      "cues": [
+        "school memories",
+        "school memories at the coast"
+      ]
+    },
+    {
+      "name": "empty high street at the coast",
+      "concepts": [
+        "quiet town",
+        "after hours",
+        "stillness"
+      ],
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music": {
+        "energy": "low",
+        "texture": "sparse",
+        "tempo": "slow",
+        "genres": [
+          "ambient",
+          "indie"
+        ]
+      },
+      "cues": [
+        "empty high street",
+        "empty high street at the coast"
+      ]
+    },
+    {
+      "name": "sitting outside with friends at the coast",
+      "concepts": [
+        "summer evening",
+        "belonging",
+        "ease"
+      ],
+      "emotion": [
+        "contentment",
+        "joy"
+      ],
+      "music": {
+        "energy": "medium",
+        "texture": "warm golden",
+        "tempo": "medium",
+        "genres": [
+          "indie pop",
+          "soul"
+        ]
+      },
+      "cues": [
+        "sitting outside with friends",
+        "sitting outside with friends at the coast"
+      ]
     }
   ]
 }

@@ -1,0 +1,1446 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "contexts": [
+    {
+      "id": "social_0",
+      "event": "first date",
+      "cues": [
+        "first date",
+        "first date at night"
+      ],
+      "meaning": "Nervous hopeful meeting",
+      "emotion": [
+        "anticipation",
+        "anxiety"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_1",
+      "event": "breakup",
+      "cues": [
+        "breakup",
+        "breakup at night"
+      ],
+      "meaning": "End of romantic connection",
+      "emotion": [
+        "grief",
+        "sadness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_2",
+      "event": "friendship",
+      "cues": [
+        "friendship",
+        "friendship at night"
+      ],
+      "meaning": "Warm platonic belonging",
+      "emotion": [
+        "joy",
+        "contentment"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_3",
+      "event": "reunion",
+      "cues": [
+        "reunion",
+        "reunion at night"
+      ],
+      "meaning": "Reconnecting after time apart",
+      "emotion": [
+        "nostalgia",
+        "joy"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_4",
+      "event": "leaving friends",
+      "cues": [
+        "leaving friends",
+        "leaving friends at night"
+      ],
+      "meaning": "Parting after shared time",
+      "emotion": [
+        "sadness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_5",
+      "event": "party ending",
+      "cues": [
+        "party ending",
+        "party ending at night"
+      ],
+      "meaning": "Quiet after social peak",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_6",
+      "event": "alone after people leave",
+      "cues": [
+        "alone after people leave",
+        "alone after people leave at night"
+      ],
+      "meaning": "Social aftermath solitude",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_7",
+      "event": "family memories",
+      "cues": [
+        "family memories",
+        "family memories at night"
+      ],
+      "meaning": "Warm complicated domestic past",
+      "emotion": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_8",
+      "event": "childhood friendships",
+      "cues": [
+        "childhood friendships",
+        "childhood friendships at night"
+      ],
+      "meaning": "Innocent formative bonds",
+      "emotion": [
+        "nostalgia",
+        "innocence"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_9",
+      "event": "meeting someone new",
+      "cues": [
+        "meeting someone new",
+        "meeting someone new at night"
+      ],
+      "meaning": "Early connection uncertainty",
+      "emotion": [
+        "anticipation",
+        "hope"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_10",
+      "event": "first date",
+      "cues": [
+        "first date",
+        "first date in the rain"
+      ],
+      "meaning": "Nervous hopeful meeting",
+      "emotion": [
+        "anticipation",
+        "anxiety"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_11",
+      "event": "breakup",
+      "cues": [
+        "breakup",
+        "breakup in the rain"
+      ],
+      "meaning": "End of romantic connection",
+      "emotion": [
+        "grief",
+        "sadness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_12",
+      "event": "friendship",
+      "cues": [
+        "friendship",
+        "friendship in the rain"
+      ],
+      "meaning": "Warm platonic belonging",
+      "emotion": [
+        "joy",
+        "contentment"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_13",
+      "event": "reunion",
+      "cues": [
+        "reunion",
+        "reunion in the rain"
+      ],
+      "meaning": "Reconnecting after time apart",
+      "emotion": [
+        "nostalgia",
+        "joy"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_14",
+      "event": "leaving friends",
+      "cues": [
+        "leaving friends",
+        "leaving friends in the rain"
+      ],
+      "meaning": "Parting after shared time",
+      "emotion": [
+        "sadness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_15",
+      "event": "party ending",
+      "cues": [
+        "party ending",
+        "party ending in the rain"
+      ],
+      "meaning": "Quiet after social peak",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_16",
+      "event": "alone after people leave",
+      "cues": [
+        "alone after people leave",
+        "alone after people leave in the rain"
+      ],
+      "meaning": "Social aftermath solitude",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_17",
+      "event": "family memories",
+      "cues": [
+        "family memories",
+        "family memories in the rain"
+      ],
+      "meaning": "Warm complicated domestic past",
+      "emotion": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_18",
+      "event": "childhood friendships",
+      "cues": [
+        "childhood friendships",
+        "childhood friendships in the rain"
+      ],
+      "meaning": "Innocent formative bonds",
+      "emotion": [
+        "nostalgia",
+        "innocence"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_19",
+      "event": "meeting someone new",
+      "cues": [
+        "meeting someone new",
+        "meeting someone new in the rain"
+      ],
+      "meaning": "Early connection uncertainty",
+      "emotion": [
+        "anticipation",
+        "hope"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_20",
+      "event": "first date",
+      "cues": [
+        "first date",
+        "first date on a sunday"
+      ],
+      "meaning": "Nervous hopeful meeting",
+      "emotion": [
+        "anticipation",
+        "anxiety"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_21",
+      "event": "breakup",
+      "cues": [
+        "breakup",
+        "breakup on a sunday"
+      ],
+      "meaning": "End of romantic connection",
+      "emotion": [
+        "grief",
+        "sadness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_22",
+      "event": "friendship",
+      "cues": [
+        "friendship",
+        "friendship on a sunday"
+      ],
+      "meaning": "Warm platonic belonging",
+      "emotion": [
+        "joy",
+        "contentment"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_23",
+      "event": "reunion",
+      "cues": [
+        "reunion",
+        "reunion on a sunday"
+      ],
+      "meaning": "Reconnecting after time apart",
+      "emotion": [
+        "nostalgia",
+        "joy"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_24",
+      "event": "leaving friends",
+      "cues": [
+        "leaving friends",
+        "leaving friends on a sunday"
+      ],
+      "meaning": "Parting after shared time",
+      "emotion": [
+        "sadness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_25",
+      "event": "party ending",
+      "cues": [
+        "party ending",
+        "party ending on a sunday"
+      ],
+      "meaning": "Quiet after social peak",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_26",
+      "event": "alone after people leave",
+      "cues": [
+        "alone after people leave",
+        "alone after people leave on a sunday"
+      ],
+      "meaning": "Social aftermath solitude",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_27",
+      "event": "family memories",
+      "cues": [
+        "family memories",
+        "family memories on a sunday"
+      ],
+      "meaning": "Warm complicated domestic past",
+      "emotion": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_28",
+      "event": "childhood friendships",
+      "cues": [
+        "childhood friendships",
+        "childhood friendships on a sunday"
+      ],
+      "meaning": "Innocent formative bonds",
+      "emotion": [
+        "nostalgia",
+        "innocence"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_29",
+      "event": "meeting someone new",
+      "cues": [
+        "meeting someone new",
+        "meeting someone new on a sunday"
+      ],
+      "meaning": "Early connection uncertainty",
+      "emotion": [
+        "anticipation",
+        "hope"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_30",
+      "event": "first date",
+      "cues": [
+        "first date",
+        "first date after work"
+      ],
+      "meaning": "Nervous hopeful meeting",
+      "emotion": [
+        "anticipation",
+        "anxiety"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_31",
+      "event": "breakup",
+      "cues": [
+        "breakup",
+        "breakup after work"
+      ],
+      "meaning": "End of romantic connection",
+      "emotion": [
+        "grief",
+        "sadness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_32",
+      "event": "friendship",
+      "cues": [
+        "friendship",
+        "friendship after work"
+      ],
+      "meaning": "Warm platonic belonging",
+      "emotion": [
+        "joy",
+        "contentment"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_33",
+      "event": "reunion",
+      "cues": [
+        "reunion",
+        "reunion after work"
+      ],
+      "meaning": "Reconnecting after time apart",
+      "emotion": [
+        "nostalgia",
+        "joy"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_34",
+      "event": "leaving friends",
+      "cues": [
+        "leaving friends",
+        "leaving friends after work"
+      ],
+      "meaning": "Parting after shared time",
+      "emotion": [
+        "sadness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_35",
+      "event": "party ending",
+      "cues": [
+        "party ending",
+        "party ending after work"
+      ],
+      "meaning": "Quiet after social peak",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_36",
+      "event": "alone after people leave",
+      "cues": [
+        "alone after people leave",
+        "alone after people leave after work"
+      ],
+      "meaning": "Social aftermath solitude",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_37",
+      "event": "family memories",
+      "cues": [
+        "family memories",
+        "family memories after work"
+      ],
+      "meaning": "Warm complicated domestic past",
+      "emotion": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_38",
+      "event": "childhood friendships",
+      "cues": [
+        "childhood friendships",
+        "childhood friendships after work"
+      ],
+      "meaning": "Innocent formative bonds",
+      "emotion": [
+        "nostalgia",
+        "innocence"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_39",
+      "event": "meeting someone new",
+      "cues": [
+        "meeting someone new",
+        "meeting someone new after work"
+      ],
+      "meaning": "Early connection uncertainty",
+      "emotion": [
+        "anticipation",
+        "hope"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_40",
+      "event": "first date",
+      "cues": [
+        "first date",
+        "first date alone"
+      ],
+      "meaning": "Nervous hopeful meeting",
+      "emotion": [
+        "anticipation",
+        "anxiety"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_41",
+      "event": "breakup",
+      "cues": [
+        "breakup",
+        "breakup alone"
+      ],
+      "meaning": "End of romantic connection",
+      "emotion": [
+        "grief",
+        "sadness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_42",
+      "event": "friendship",
+      "cues": [
+        "friendship",
+        "friendship alone"
+      ],
+      "meaning": "Warm platonic belonging",
+      "emotion": [
+        "joy",
+        "contentment"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_43",
+      "event": "reunion",
+      "cues": [
+        "reunion",
+        "reunion alone"
+      ],
+      "meaning": "Reconnecting after time apart",
+      "emotion": [
+        "nostalgia",
+        "joy"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_44",
+      "event": "leaving friends",
+      "cues": [
+        "leaving friends",
+        "leaving friends alone"
+      ],
+      "meaning": "Parting after shared time",
+      "emotion": [
+        "sadness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_45",
+      "event": "party ending",
+      "cues": [
+        "party ending",
+        "party ending alone"
+      ],
+      "meaning": "Quiet after social peak",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_46",
+      "event": "alone after people leave",
+      "cues": [
+        "alone after people leave",
+        "alone after people leave alone"
+      ],
+      "meaning": "Social aftermath solitude",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_47",
+      "event": "family memories",
+      "cues": [
+        "family memories",
+        "family memories alone"
+      ],
+      "meaning": "Warm complicated domestic past",
+      "emotion": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_48",
+      "event": "childhood friendships",
+      "cues": [
+        "childhood friendships",
+        "childhood friendships alone"
+      ],
+      "meaning": "Innocent formative bonds",
+      "emotion": [
+        "nostalgia",
+        "innocence"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_49",
+      "event": "meeting someone new",
+      "cues": [
+        "meeting someone new",
+        "meeting someone new alone"
+      ],
+      "meaning": "Early connection uncertainty",
+      "emotion": [
+        "anticipation",
+        "hope"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_50",
+      "event": "first date",
+      "cues": [
+        "first date",
+        "first date in summer"
+      ],
+      "meaning": "Nervous hopeful meeting",
+      "emotion": [
+        "anticipation",
+        "anxiety"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_51",
+      "event": "breakup",
+      "cues": [
+        "breakup",
+        "breakup in summer"
+      ],
+      "meaning": "End of romantic connection",
+      "emotion": [
+        "grief",
+        "sadness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_52",
+      "event": "friendship",
+      "cues": [
+        "friendship",
+        "friendship in summer"
+      ],
+      "meaning": "Warm platonic belonging",
+      "emotion": [
+        "joy",
+        "contentment"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_53",
+      "event": "reunion",
+      "cues": [
+        "reunion",
+        "reunion in summer"
+      ],
+      "meaning": "Reconnecting after time apart",
+      "emotion": [
+        "nostalgia",
+        "joy"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_54",
+      "event": "leaving friends",
+      "cues": [
+        "leaving friends",
+        "leaving friends in summer"
+      ],
+      "meaning": "Parting after shared time",
+      "emotion": [
+        "sadness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_55",
+      "event": "party ending",
+      "cues": [
+        "party ending",
+        "party ending in summer"
+      ],
+      "meaning": "Quiet after social peak",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_56",
+      "event": "alone after people leave",
+      "cues": [
+        "alone after people leave",
+        "alone after people leave in summer"
+      ],
+      "meaning": "Social aftermath solitude",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_57",
+      "event": "family memories",
+      "cues": [
+        "family memories",
+        "family memories in summer"
+      ],
+      "meaning": "Warm complicated domestic past",
+      "emotion": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_58",
+      "event": "childhood friendships",
+      "cues": [
+        "childhood friendships",
+        "childhood friendships in summer"
+      ],
+      "meaning": "Innocent formative bonds",
+      "emotion": [
+        "nostalgia",
+        "innocence"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_59",
+      "event": "meeting someone new",
+      "cues": [
+        "meeting someone new",
+        "meeting someone new in summer"
+      ],
+      "meaning": "Early connection uncertainty",
+      "emotion": [
+        "anticipation",
+        "hope"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_60",
+      "event": "first date",
+      "cues": [
+        "first date",
+        "first date in the city"
+      ],
+      "meaning": "Nervous hopeful meeting",
+      "emotion": [
+        "anticipation",
+        "anxiety"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_61",
+      "event": "breakup",
+      "cues": [
+        "breakup",
+        "breakup in the city"
+      ],
+      "meaning": "End of romantic connection",
+      "emotion": [
+        "grief",
+        "sadness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_62",
+      "event": "friendship",
+      "cues": [
+        "friendship",
+        "friendship in the city"
+      ],
+      "meaning": "Warm platonic belonging",
+      "emotion": [
+        "joy",
+        "contentment"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_63",
+      "event": "reunion",
+      "cues": [
+        "reunion",
+        "reunion in the city"
+      ],
+      "meaning": "Reconnecting after time apart",
+      "emotion": [
+        "nostalgia",
+        "joy"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_64",
+      "event": "leaving friends",
+      "cues": [
+        "leaving friends",
+        "leaving friends in the city"
+      ],
+      "meaning": "Parting after shared time",
+      "emotion": [
+        "sadness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_65",
+      "event": "party ending",
+      "cues": [
+        "party ending",
+        "party ending in the city"
+      ],
+      "meaning": "Quiet after social peak",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_66",
+      "event": "alone after people leave",
+      "cues": [
+        "alone after people leave",
+        "alone after people leave in the city"
+      ],
+      "meaning": "Social aftermath solitude",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_67",
+      "event": "family memories",
+      "cues": [
+        "family memories",
+        "family memories in the city"
+      ],
+      "meaning": "Warm complicated domestic past",
+      "emotion": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_68",
+      "event": "childhood friendships",
+      "cues": [
+        "childhood friendships",
+        "childhood friendships in the city"
+      ],
+      "meaning": "Innocent formative bonds",
+      "emotion": [
+        "nostalgia",
+        "innocence"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_69",
+      "event": "meeting someone new",
+      "cues": [
+        "meeting someone new",
+        "meeting someone new in the city"
+      ],
+      "meaning": "Early connection uncertainty",
+      "emotion": [
+        "anticipation",
+        "hope"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_70",
+      "event": "first date",
+      "cues": [
+        "first date",
+        "first date late at night"
+      ],
+      "meaning": "Nervous hopeful meeting",
+      "emotion": [
+        "anticipation",
+        "anxiety"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_71",
+      "event": "breakup",
+      "cues": [
+        "breakup",
+        "breakup late at night"
+      ],
+      "meaning": "End of romantic connection",
+      "emotion": [
+        "grief",
+        "sadness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_72",
+      "event": "friendship",
+      "cues": [
+        "friendship",
+        "friendship late at night"
+      ],
+      "meaning": "Warm platonic belonging",
+      "emotion": [
+        "joy",
+        "contentment"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_73",
+      "event": "reunion",
+      "cues": [
+        "reunion",
+        "reunion late at night"
+      ],
+      "meaning": "Reconnecting after time apart",
+      "emotion": [
+        "nostalgia",
+        "joy"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_74",
+      "event": "leaving friends",
+      "cues": [
+        "leaving friends",
+        "leaving friends late at night"
+      ],
+      "meaning": "Parting after shared time",
+      "emotion": [
+        "sadness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_75",
+      "event": "party ending",
+      "cues": [
+        "party ending",
+        "party ending late at night"
+      ],
+      "meaning": "Quiet after social peak",
+      "emotion": [
+        "reflection",
+        "loneliness"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_76",
+      "event": "alone after people leave",
+      "cues": [
+        "alone after people leave",
+        "alone after people leave late at night"
+      ],
+      "meaning": "Social aftermath solitude",
+      "emotion": [
+        "loneliness",
+        "reflection"
+      ],
+      "music_direction": {
+        "energy": "low",
+        "tempo": "slow",
+        "texture": "soft intimate"
+      }
+    },
+    {
+      "id": "social_77",
+      "event": "family memories",
+      "cues": [
+        "family memories",
+        "family memories late at night"
+      ],
+      "meaning": "Warm complicated domestic past",
+      "emotion": [
+        "nostalgia",
+        "bittersweet"
+      ],
+      "music_direction": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric"
+      }
+    },
+    {
+      "id": "social_78",
+      "event": "childhood friendships",
+      "cues": [
+        "childhood friendships",
+        "childhood friendships late at night"
+      ],
+      "meaning": "Innocent formative bonds",
+      "emotion": [
+        "nostalgia",
+        "innocence"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    },
+    {
+      "id": "social_79",
+      "event": "meeting someone new",
+      "cues": [
+        "meeting someone new",
+        "meeting someone new late at night"
+      ],
+      "meaning": "Early connection uncertainty",
+      "emotion": [
+        "anticipation",
+        "hope"
+      ],
+      "music_direction": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic"
+      }
+    }
+  ]
+}

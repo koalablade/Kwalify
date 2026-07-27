@@ -1,0 +1,1762 @@
+{
+  "version": 1,
+  "locale": "en-GB",
+  "domain": "travel",
+  "nodes": [
+    {
+      "id": "leaving",
+      "name": "leaving",
+      "domain": "travel",
+      "aliases": [
+        "leaving",
+        "saying goodbye",
+        "departure"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "arriving",
+      "name": "arriving",
+      "domain": "travel",
+      "aliases": [
+        "arriving",
+        "just arrived"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "long_way_home",
+      "name": "long way home",
+      "domain": "travel",
+      "aliases": [
+        "long way home",
+        "taking the long way"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "avoidance",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "getting_lost",
+      "name": "getting lost",
+      "domain": "travel",
+      "aliases": [
+        "getting lost",
+        "lost in the city"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anxiety",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wandering",
+      "name": "wandering",
+      "domain": "travel",
+      "aliases": [
+        "wandering",
+        "wandering around"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_drive",
+      "name": "night drive",
+      "domain": "travel",
+      "aliases": [
+        "night drive",
+        "driving at night"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "petrol_station_midnight",
+      "name": "petrol station at midnight",
+      "domain": "travel",
+      "aliases": [
+        "petrol station at midnight",
+        "service station at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train",
+      "name": "last train home",
+      "domain": "travel",
+      "aliases": [
+        "last train",
+        "last train home"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "leaving",
+      "name": "leaving",
+      "domain": "travel",
+      "aliases": [
+        "leaving",
+        "saying goodbye",
+        "departure"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "arriving_alone",
+      "name": "arriving",
+      "domain": "travel",
+      "aliases": [
+        "arriving",
+        "just arrived",
+        "arriving alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "long_way_home_alone",
+      "name": "long way home",
+      "domain": "travel",
+      "aliases": [
+        "long way home",
+        "taking the long way",
+        "long way home alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "avoidance",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "getting_lost_alone",
+      "name": "getting lost",
+      "domain": "travel",
+      "aliases": [
+        "getting lost",
+        "lost in the city",
+        "getting lost alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anxiety",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wandering_alone",
+      "name": "wandering",
+      "domain": "travel",
+      "aliases": [
+        "wandering",
+        "wandering around",
+        "wandering alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_drive_alone",
+      "name": "night drive",
+      "domain": "travel",
+      "aliases": [
+        "night drive",
+        "driving at night",
+        "night drive alone"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "petrol_station_midnight_alone",
+      "name": "petrol station at midnight",
+      "domain": "travel",
+      "aliases": [
+        "petrol station at midnight",
+        "service station at night",
+        "petrol station at midnight alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_alone",
+      "name": "last train home",
+      "domain": "travel",
+      "aliases": [
+        "last train",
+        "last train home",
+        "last train home alone"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "leaving_in_the_rain",
+      "name": "leaving",
+      "domain": "travel",
+      "aliases": [
+        "leaving",
+        "saying goodbye",
+        "departure",
+        "leaving in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "arriving_in_the_rain",
+      "name": "arriving",
+      "domain": "travel",
+      "aliases": [
+        "arriving",
+        "just arrived",
+        "arriving in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "long_way_home_in_the_rain",
+      "name": "long way home",
+      "domain": "travel",
+      "aliases": [
+        "long way home",
+        "taking the long way",
+        "long way home in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "avoidance",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "getting_lost_in_the_rain",
+      "name": "getting lost",
+      "domain": "travel",
+      "aliases": [
+        "getting lost",
+        "lost in the city",
+        "getting lost in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anxiety",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wandering_in_the_rain",
+      "name": "wandering",
+      "domain": "travel",
+      "aliases": [
+        "wandering",
+        "wandering around",
+        "wandering in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_drive_in_the_rain",
+      "name": "night drive",
+      "domain": "travel",
+      "aliases": [
+        "night drive",
+        "driving at night",
+        "night drive in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "petrol_station_midnight_in_the_rain",
+      "name": "petrol station at midnight",
+      "domain": "travel",
+      "aliases": [
+        "petrol station at midnight",
+        "service station at night",
+        "petrol station at midnight in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_in_the_rain",
+      "name": "last train home",
+      "domain": "travel",
+      "aliases": [
+        "last train",
+        "last train home",
+        "last train home in the rain"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "leaving_in_summer",
+      "name": "leaving",
+      "domain": "travel",
+      "aliases": [
+        "leaving",
+        "saying goodbye",
+        "departure",
+        "leaving in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "arriving_in_summer",
+      "name": "arriving",
+      "domain": "travel",
+      "aliases": [
+        "arriving",
+        "just arrived",
+        "arriving in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "long_way_home_in_summer",
+      "name": "long way home",
+      "domain": "travel",
+      "aliases": [
+        "long way home",
+        "taking the long way",
+        "long way home in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "avoidance",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "getting_lost_in_summer",
+      "name": "getting lost",
+      "domain": "travel",
+      "aliases": [
+        "getting lost",
+        "lost in the city",
+        "getting lost in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anxiety",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wandering_in_summer",
+      "name": "wandering",
+      "domain": "travel",
+      "aliases": [
+        "wandering",
+        "wandering around",
+        "wandering in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_drive_in_summer",
+      "name": "night drive",
+      "domain": "travel",
+      "aliases": [
+        "night drive",
+        "driving at night",
+        "night drive in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "petrol_station_midnight_in_summer",
+      "name": "petrol station at midnight",
+      "domain": "travel",
+      "aliases": [
+        "petrol station at midnight",
+        "service station at night",
+        "petrol station at midnight in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_in_summer",
+      "name": "last train home",
+      "domain": "travel",
+      "aliases": [
+        "last train",
+        "last train home",
+        "last train home in summer"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "leaving_after_work",
+      "name": "leaving",
+      "domain": "travel",
+      "aliases": [
+        "leaving",
+        "saying goodbye",
+        "departure",
+        "leaving after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "arriving_after_work",
+      "name": "arriving",
+      "domain": "travel",
+      "aliases": [
+        "arriving",
+        "just arrived",
+        "arriving after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "long_way_home_after_work",
+      "name": "long way home",
+      "domain": "travel",
+      "aliases": [
+        "long way home",
+        "taking the long way",
+        "long way home after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "avoidance",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "getting_lost_after_work",
+      "name": "getting lost",
+      "domain": "travel",
+      "aliases": [
+        "getting lost",
+        "lost in the city",
+        "getting lost after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anxiety",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wandering_after_work",
+      "name": "wandering",
+      "domain": "travel",
+      "aliases": [
+        "wandering",
+        "wandering around",
+        "wandering after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_drive_after_work",
+      "name": "night drive",
+      "domain": "travel",
+      "aliases": [
+        "night drive",
+        "driving at night",
+        "night drive after work"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "petrol_station_midnight_after_work",
+      "name": "petrol station at midnight",
+      "domain": "travel",
+      "aliases": [
+        "petrol station at midnight",
+        "service station at night",
+        "petrol station at midnight after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_after_work",
+      "name": "last train home",
+      "domain": "travel",
+      "aliases": [
+        "last train",
+        "last train home",
+        "last train home after work"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "leaving_on_a_sunday",
+      "name": "leaving",
+      "domain": "travel",
+      "aliases": [
+        "leaving",
+        "saying goodbye",
+        "departure",
+        "leaving on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "arriving_on_a_sunday",
+      "name": "arriving",
+      "domain": "travel",
+      "aliases": [
+        "arriving",
+        "just arrived",
+        "arriving on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "long_way_home_on_a_sunday",
+      "name": "long way home",
+      "domain": "travel",
+      "aliases": [
+        "long way home",
+        "taking the long way",
+        "long way home on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "avoidance",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "getting_lost_on_a_sunday",
+      "name": "getting lost",
+      "domain": "travel",
+      "aliases": [
+        "getting lost",
+        "lost in the city",
+        "getting lost on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anxiety",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wandering_on_a_sunday",
+      "name": "wandering",
+      "domain": "travel",
+      "aliases": [
+        "wandering",
+        "wandering around",
+        "wandering on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_drive_on_a_sunday",
+      "name": "night drive",
+      "domain": "travel",
+      "aliases": [
+        "night drive",
+        "driving at night",
+        "night drive on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "petrol_station_midnight_on_a_sunday",
+      "name": "petrol station at midnight",
+      "domain": "travel",
+      "aliases": [
+        "petrol station at midnight",
+        "service station at night",
+        "petrol station at midnight on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_on_a_sunday",
+      "name": "last train home",
+      "domain": "travel",
+      "aliases": [
+        "last train",
+        "last train home",
+        "last train home on a sunday"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "leaving_at_night",
+      "name": "leaving",
+      "domain": "travel",
+      "aliases": [
+        "leaving",
+        "saying goodbye",
+        "departure",
+        "leaving at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "sadness",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "DEPARTURE_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "arriving_at_night",
+      "name": "arriving",
+      "domain": "travel",
+      "aliases": [
+        "arriving",
+        "just arrived",
+        "arriving at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "relief",
+        "anticipation"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "FRESH_START_ALONE"
+      ],
+      "music": {
+        "energy": "medium",
+        "tempo": "medium",
+        "texture": "open melodic",
+        "genres": [
+          "indie",
+          "pop"
+        ]
+      }
+    },
+    {
+      "id": "long_way_home_at_night",
+      "name": "long way home",
+      "domain": "travel",
+      "aliases": [
+        "long way home",
+        "taking the long way",
+        "long way home at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "avoidance",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "REFLECTIVE_AVOIDANCE_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "getting_lost_at_night",
+      "name": "getting lost",
+      "domain": "travel",
+      "aliases": [
+        "getting lost",
+        "lost in the city",
+        "getting lost at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "anxiety",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "wandering_at_night",
+      "name": "wandering",
+      "domain": "travel",
+      "aliases": [
+        "wandering",
+        "wandering around",
+        "wandering at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "MENTAL_RESET_WALK"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "night_drive_at_night",
+      "name": "night drive",
+      "domain": "travel",
+      "aliases": [
+        "night drive",
+        "driving at night",
+        "night drive at night"
+      ],
+      "phrases": [],
+      "related_concepts": [
+        "driving",
+        "windscreen"
+      ],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "solitude",
+        "reflection"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "petrol_station_midnight_at_night",
+      "name": "petrol station at midnight",
+      "domain": "travel",
+      "aliases": [
+        "petrol station at midnight",
+        "service station at night",
+        "petrol station at midnight at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "loneliness",
+        "freedom"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "NOCTURNAL_ESCAPE_DRIVE"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    },
+    {
+      "id": "last_train_at_night",
+      "name": "last train home",
+      "domain": "travel",
+      "aliases": [
+        "last train",
+        "last train home",
+        "last train home at night"
+      ],
+      "phrases": [],
+      "related_concepts": [],
+      "contexts": [],
+      "experience": "",
+      "emotional_meaning": [
+        "reflection",
+        "loneliness"
+      ],
+      "sensory": [],
+      "scene_possibilities": [
+        "LATE_NIGHT_SOLITARY_JOURNEY"
+      ],
+      "music": {
+        "energy": "low-medium",
+        "tempo": "slow-medium",
+        "texture": "warm atmospheric",
+        "genres": [
+          "indie",
+          "ambient"
+        ]
+      }
+    }
+  ]
+}

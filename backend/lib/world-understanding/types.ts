@@ -75,11 +75,14 @@ export interface WorldUnderstandingResult {
   matchedPhrases: PhraseMatch[];
   fuzzyExpansions: FuzzyExpansion[];
   humanNarrative: string;
+  humanMeanings: string[];
   confidence: number;
   debug: {
     matchedConceptIds: Record<string, string[]>;
     paraphraseCluster?: string;
     matchedConcepts: string[];
+    graphExperiences?: string[];
+    graphMatches?: Array<{ id: string; domain: string; cue: string }>;
   };
 }
 
