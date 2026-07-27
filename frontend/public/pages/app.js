@@ -2647,12 +2647,15 @@ function wireAppEvents() {
     e.stopPropagation();
     state.profileOpen = !state.profileOpen;
     document.getElementById("profileDropdown")?.classList.toggle("open", state.profileOpen);
+    const btn = document.getElementById("profileBtn");
+    if (btn) btn.setAttribute("aria-expanded", state.profileOpen ? "true" : "false");
   });
   if (!globalAppListenersWired) {
     document.addEventListener("click", (e) => {
       if (!document.getElementById("profileWrap")?.contains(e.target)) {
         state.profileOpen = false;
         document.getElementById("profileDropdown")?.classList.remove("open");
+        document.getElementById("profileBtn")?.setAttribute("aria-expanded", "false");
       }
     });
     document.addEventListener("keydown", (e) => {

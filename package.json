@@ -22,7 +22,7 @@
     "db:setup-local": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-postgres.ps1",
     "db:setup-local-dev": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-dev.ps1",
     "setup:local-domain": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-domain.ps1",
-    "start:local": "powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1",
+    "start:local": "start-kwalify.bat",
     "start:kwalify": "start-kwalify.bat",
     "stop:kwalify": "stop-kwalify.bat",
     "shortcuts:kwalify": "create-kwalify-shortcuts.bat",

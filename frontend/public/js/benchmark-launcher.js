@@ -3,13 +3,25 @@
     const b = document.getElementById('offline-banner');
     if (b) {
       b.style.display = 'block';
-      b.innerHTML = '<strong>Wrong way to open this.</strong> Close this tab. Use <strong>https://kwalify.net/benchmark</strong> (with <strong>start.bat</strong> running).';
+      b.innerHTML = '<strong>Wrong way to open this.</strong> Close this tab. Use <strong>start.bat</strong>, then open <strong>/benchmark</strong> in your browser.';
     }
   });
 }
 
+const BENCHMARK_PATH = '/benchmark';
+function benchmarkWebUrl() {
+  if (location.protocol === 'file:') return 'https://kwalify.net/benchmark';
+  if (location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
+    return `${location.protocol}//${location.host}${BENCHMARK_PATH}`;
+  }
+  if (location.hostname.includes('kwalify.net')) {
+    return `${location.protocol}//${location.host}${BENCHMARK_PATH}`;
+  }
+  return 'https://kwalify.net/benchmark';
+}
+
 if (location.port === '5055') {
-  location.replace('https://kwalify.net/benchmark');
+  location.replace(benchmarkWebUrl());
 }
 
 const LAUNCHER_VERSION = '2';
@@ -54,7 +66,7 @@ function setHtml(el, html) {
       const wrongPage = location.protocol === 'file:' || location.port === '5055';
       b.innerHTML = reason || (
         '<strong>Benchmark API not reachable.</strong><br>' +
-        'Run <strong>start.bat</strong>, then open <strong>https://kwalify.net/benchmark</strong>.' +
+        `Run <strong>start.bat</strong>, then open <strong>${esc(benchmarkWebUrl())}</strong>.` +
         (wrongPage ? `<br><span style="color:#fca5a5">You are on: ${esc(here)}</span>` : '')
       );
       const pill = document.getElementById('pill-bench-api');
@@ -124,7 +136,7 @@ async function api(path, opts = {}) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     if (r.status === 403) {
-      throw new Error(data.error || 'Log in to Kwalify first, or open https://kwalify.net/benchmark from this PC.');
+      throw new Error(data.error || `Open ${benchmarkWebUrl()} from this PC (with start.bat running).`);
     }
     throw new Error(data.error || data.message || ('HTTP ' + r.status));
   }

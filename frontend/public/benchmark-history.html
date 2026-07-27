@@ -21,13 +21,21 @@
     .bad { color: var(--bad); font-weight: 600; }
     a { color: var(--accent); }
     code { background: #12091f; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .history-cards { display: none; }
+    .history-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    .history-card h3 { margin: 0 0 6px; font-size: 15px; }
+    .history-card .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+    @media (max-width: 720px) {
+      .history-table-wrap table { display: none; }
+      .history-cards { display: block; }
+    }
   </style>
 </head>
 <body>
   <h1>Benchmark History</h1>
   <p class="sub">Last 20 runs from <code>reports/benchmark-history.json</code>. <a href="/benchmark#live-dashboard">Live</a> · <a href="benchmark-guide.html">Guide</a></p>
 
-  <div class="card">
+  <div class="card history-table-wrap">
     <table>
       <thead>
         <tr>
@@ -45,6 +53,7 @@
       </tbody>
     </table>
   </div>
+  <div class="history-cards" id="history-cards"></div>
 
   <script src="/js/benchmark-history.js"></script>
   <script src="/js/register-sw.js" defer></script>

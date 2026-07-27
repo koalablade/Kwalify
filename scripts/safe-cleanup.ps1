@@ -2,7 +2,7 @@
 param([switch]$WhatIf)
 
 $ErrorActionPreference = "Stop"
-$Root = "C:\Users\Kwalah\Projects\Kwalify"
+$Root = Split-Path -Parent $PSScriptRoot
 $Archive = Join-Path $Root "docs\archive\cursor-context-week"
 $Cutoff = (Get-Date).AddDays(-7)
 $KeepProject = "c-Users-Kwalah-Projects-Kwalify"

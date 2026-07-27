@@ -14,7 +14,7 @@ import {
   playlistFeedbackTable,
   savedPlaylistsTable,
 } from "../db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { onTrackRemoved, onTrackSave, onTrackSkip, onTrackUndoFeedback, type FeedbackMemory, type FeedbackTrack } from "../lib/feedback-memory";
 import { markGenerateResultCacheStale } from "../lib/generate-result-cache";
@@ -226,14 +226,24 @@ router.get("/playlists", async (req, res): Promise<void> => {
   const limit = Number.isFinite(requestedLimit)
     ? Math.max(1, Math.min(100, requestedLimit))
     : 12;
+  const requestedOffset = Number.parseInt(String(req.query.offset ?? ""), 10);
+  const offset = Number.isFinite(requestedOffset) ? Math.max(0, requestedOffset) : 0;
 
   try {
-    const playlists = await db
-      .select()
-      .from(savedPlaylistsTable)
-      .where(eq(savedPlaylistsTable.userId, userId))
-      .orderBy(desc(savedPlaylistsTable.createdAt))
-      .limit(limit);
+    const [playlists, totalRow] = await Promise.all([
+      db
+        .select()
+        .from(savedPlaylistsTable)
+        .where(eq(savedPlaylistsTable.userId, userId))
+        .orderBy(desc(savedPlaylistsTable.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(savedPlaylistsTable)
+        .where(eq(savedPlaylistsTable.userId, userId)),
+    ]);
+    const total = Number(totalRow[0]?.count ?? playlists.length);
 
     res.json({
       playlists: playlists.map((p) => ({
@@ -247,6 +257,10 @@ router.get("/playlists", async (req, res): Promise<void> => {
         mode: p.mode ?? null,
         shareSlug: p.shareSlug ?? null,
       })),
+      total,
+      limit,
+      offset,
+      hasMore: offset + playlists.length < total,
     });
   } catch (err: any) {
     req.log.error({ err }, "Error fetching playlists");
@@ -256,7 +270,7 @@ router.get("/playlists", async (req, res): Promise<void> => {
 
 router.get("/share/:slug", async (req, res): Promise<void> => {
   const slug = String(req.params.slug ?? "").trim();
-  if (!slug || /^\d+$/.test(slug)) {
+  if (!slug || slug.length < 6 || /^\d+$/.test(slug)) {
     res.status(404).json({ error: "Playlist not found." });
     return;
   }

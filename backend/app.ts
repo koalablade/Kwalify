@@ -289,7 +289,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.get("/settings", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "settings.html")));
   app.get("/status", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "status.html")));
   app.get("/benchmark", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "benchmark-launcher.html")));
-  app.get("/benchmark-status.html", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "benchmark-status.html")));
+  app.get("/benchmark-status.html", (_req, res) => res.redirect(301, "/benchmark#live-dashboard"));
   app.get("/benchmark-history.html", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "benchmark-history.html")));
   app.get("/benchmark-guide.html", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "benchmark-guide.html")));
   app.get("/local-start-help.html", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "local-start-help.html")));

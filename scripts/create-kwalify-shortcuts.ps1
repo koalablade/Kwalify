@@ -67,7 +67,11 @@ if (-not (Test-Path -LiteralPath $reportsDir)) {
 
 Write-Host ""
 New-Shortcut "Start Kwalify" $startBat "Start Kwalify - setup, server, tunnel, open site" ""
-New-Shortcut "Start Kwalify (Admin)" $adminBat "Start Kwalify with administrator rights (HTTPS/tunnel setup)" ""
+if (Test-Path -LiteralPath $adminBat) {
+  New-Shortcut "Start Kwalify (Admin)" $adminBat "Start Kwalify with administrator rights (HTTPS/tunnel setup)" ""
+} else {
+  Write-Host "  skip: start-kwalify-admin.bat not found" -ForegroundColor Yellow
+}
 New-Shortcut "Stop Kwalify" $stopBat "Stop the server and tunnel" ""
 New-Shortcut "Check Beta Ready" $checkBat "Run readiness checklist" ""
 New-Shortcut "Open Status Page" $statusBat "Open https://kwalify.net/status" ""

@@ -27,6 +27,8 @@ let gallerySort = "newest";
 let restoreGallerySearchFocus = false;
 let galleryLoadError = null;
 let galleryGlobalListenersWired = false;
+let galleryTotal = 0;
+let galleryLoadingMore = false;
 
 function getTheme() {
   return document.documentElement.getAttribute("data-theme") || "dark";
@@ -89,12 +91,14 @@ function wireNavEvents() {
     e.stopPropagation();
     profileOpen = !profileOpen;
     document.getElementById("galleryProfileDropdown")?.classList.toggle("open", profileOpen);
+    document.getElementById("galleryProfileBtn")?.setAttribute("aria-expanded", profileOpen ? "true" : "false");
   });
   if (!galleryGlobalListenersWired) {
     document.addEventListener("click", (e) => {
       if (!document.getElementById("galleryProfileWrap")?.contains(e.target)) {
         profileOpen = false;
         document.getElementById("galleryProfileDropdown")?.classList.remove("open");
+        document.getElementById("galleryProfileBtn")?.setAttribute("aria-expanded", "false");
       }
     });
     root?.addEventListener("error", (e) => {
@@ -320,10 +324,11 @@ function renderGallery() {
       <h1 class="gallery-title">Your playlists</h1>
       <p class="gallery-sub">Saved mixes from your liked songs. Use this page to revisit good results or clean up test runs.</p>
     </div>
-    ${galleryPlaylists.length >= 100 ? `<div class="alert alert-warn" style="margin-bottom:16px;">Showing latest 100 playlists</div>` : ""}
+    ${galleryTotal > galleryPlaylists.length ? `<div class="alert alert-warn" style="margin-bottom:16px;">Showing ${galleryPlaylists.length} of ${galleryTotal} playlists</div>` : ""}
     ${renderGalleryControls(visiblePlaylists)}
     ${renderGalleryActions(visiblePlaylists)}
     ${renderCards(visiblePlaylists)}
+    ${galleryTotal > galleryPlaylists.length ? `<div style="text-align:center;margin:20px 0;"><button type="button" class="btn btn-ghost" id="galleryLoadMoreBtn" ${galleryLoadingMore ? "disabled" : ""}>${galleryLoadingMore ? "Loading…" : "Load more"}</button></div>` : ""}
   </div>
 
   <footer class="app-footer site-footer">
@@ -400,6 +405,7 @@ function wireGalleryEvents() {
   });
   document.getElementById("deleteSelectedPlaylistsBtn")?.addEventListener("click", deleteSelectedPlaylists);
   document.getElementById("galleryRetryBtn")?.addEventListener("click", boot);
+  document.getElementById("galleryLoadMoreBtn")?.addEventListener("click", loadMorePlaylists);
   document.querySelectorAll("[data-gallery-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
       galleryFilter = btn.dataset.galleryFilter || "all";
@@ -442,6 +448,22 @@ function wireGalleryEvents() {
   });
 }
 
+async function loadMorePlaylists() {
+  if (galleryLoadingMore || galleryPlaylists.length >= galleryTotal) return;
+  galleryLoadingMore = true;
+  renderGallery();
+  const plRes = await apiJson(`/playlists?limit=100&offset=${galleryPlaylists.length}`).catch(() => ({ ok: false, data: {} }));
+  galleryLoadingMore = false;
+  if (plRes.ok) {
+    const next = plRes.data.playlists || [];
+    galleryTotal = plRes.data.total ?? galleryTotal;
+    galleryPlaylists = galleryPlaylists.concat(next);
+  } else {
+    showToast("Could not load more playlists.", "error");
+  }
+  renderGallery();
+}
+
 async function boot() {
   document.title = "Gallery — Kwalify";
 
@@ -463,6 +485,7 @@ async function boot() {
   if (plRes.ok) {
     galleryLoadError = null;
     galleryPlaylists = plRes.data.playlists || [];
+    galleryTotal = plRes.data.total ?? galleryPlaylists.length;
   } else {
     galleryLoadError = plRes.data?.error || plRes.data?.message || "Refresh and try again.";
     galleryPlaylists = [];

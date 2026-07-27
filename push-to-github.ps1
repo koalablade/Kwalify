@@ -1,5 +1,8 @@
 # Publish Kwalify to GitHub (fixes Replit gitsafe errors).
 # Right-click -> Run with PowerShell
+param(
+  [switch]$AllowOriginReplace
+)
 
 $ErrorActionPreference = "Stop"
 $Gh = "C:\Program Files\GitHub CLI\gh.exe"
@@ -36,8 +39,16 @@ if (-not $user) {
 
 $url = "https://github.com/$user/kwalify.git"
 Write-Host "`nAccount: $user" -ForegroundColor Green
-& $Git remote remove origin 2>$null
-& $Git remote add origin $url
+$existingOrigin = & $Git remote get-url origin 2>$null
+if ($AllowOriginReplace) {
+  & $Git remote remove origin 2>$null
+  & $Git remote add origin $url
+} elseif (-not $existingOrigin) {
+  & $Git remote add origin $url
+} else {
+  Write-Host "Keeping existing origin: $existingOrigin" -ForegroundColor Yellow
+  Write-Host "Pass -AllowOriginReplace to replace with $url"
+}
 
 Write-Host "`n[2/2] Push to GitHub (LFS skip enabled)...`n" -ForegroundColor Yellow
 $created = & $Gh repo create kwalify --public --source=. --remote=origin 2>&1

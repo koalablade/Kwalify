@@ -83,6 +83,7 @@ deploy/cloudflared.yml
 *.log.old
 
 # Scratch probes, logs, and non-committed experiment artifacts
+.tools/
 tmp-*.mjs
 *.log
 server-boot.log

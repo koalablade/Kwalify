@@ -40,7 +40,8 @@ function Stop-BenchmarkLauncher {
     } catch {}
     Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
   }
-  # Port 5055 is a legacy redirect to /benchmark — leave it running.
+  # Legacy port 5055 redirect — stop when benchmark stack is torn down.
+  Stop-Port 5055 "Benchmark redirect"
 }
 
 function Stop-BenchmarkRunWindows {
