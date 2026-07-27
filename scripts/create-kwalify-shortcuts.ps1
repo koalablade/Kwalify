@@ -53,6 +53,9 @@ $stopBenchBat = Join-Path $Root "stop-kwalify-benchmark.bat"
 $stopBat = Join-Path $Root "stop-kwalify.bat"
 $checkBat = Join-Path $Root "check-beta-ready.bat"
 $statusBat = Join-Path $Root "open-status-page.bat"
+$weeklyBat = Join-Path $Root "weekly-maintenance.bat"
+$watchBat = Join-Path $Root "start-health-watch.bat"
+$repairTunnelBat = Join-Path $Root "repair-tunnel.bat"
 $adminBat = Join-Path $Root "start-kwalify-admin.bat"
 
 if (-not (Test-Path -LiteralPath $startBat)) { throw "start.bat not found in $Root" }
@@ -75,6 +78,15 @@ if (Test-Path -LiteralPath $adminBat) {
 New-Shortcut "Stop Kwalify" $stopBat "Stop the server and tunnel" ""
 New-Shortcut "Check Beta Ready" $checkBat "Run readiness checklist" ""
 New-Shortcut "Open Status Page" $statusBat "Open https://kwalify.net/status" ""
+if (Test-Path -LiteralPath $weeklyBat) {
+  New-Shortcut "Weekly Maintenance" $weeklyBat "Readiness + backup check" ""
+}
+if (Test-Path -LiteralPath $watchBat) {
+  New-Shortcut "Health Watch" $watchBat "Keep tunnel healthy while hosting" ""
+}
+if (Test-Path -LiteralPath $repairTunnelBat) {
+  New-Shortcut "Repair Tunnel" $repairTunnelBat "Restart Cloudflare tunnel" ""
+}
 New-Shortcut "Run Benchmark" $benchBat "Benchmark launcher" ""
 New-Shortcut "Stop Benchmark" $stopBenchBat "Stop benchmark launcher" ""
 
@@ -84,6 +96,9 @@ Write-Host "    Start Kwalify   (start.bat - use this)"
 Write-Host "    Start Kwalify (Admin)"
 Write-Host "    Stop Kwalify"
 Write-Host "    Check Beta Ready"
+Write-Host "    Weekly Maintenance"
+Write-Host "    Health Watch (optional while hosting)"
+Write-Host "    Repair Tunnel"
 Write-Host "    Open Status Page"
 Write-Host "    Run Benchmark"
 Write-Host "    Stop Benchmark"

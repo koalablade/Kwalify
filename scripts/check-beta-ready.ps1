@@ -148,7 +148,41 @@ $backupTask = Get-ScheduledTask -TaskName "Kwalify-Daily-DB-Backup" -ErrorAction
 if ($backupTask) {
   Row "Daily DB backup scheduled" $true "3:00 AM to backups\"
 } else {
-  WarnRow "Daily DB backup" "Run scripts\schedule-db-backup.ps1 once"
+  WarnRow "Daily DB backup" "Run scripts\schedule-db-backup.ps1 once (Admin)"
+}
+
+$backupDir = Join-Path $Root "backups"
+$latestBackup = Get-ChildItem -LiteralPath $backupDir -Filter "kwalify-*.dump" -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($latestBackup) {
+  $backupAgeH = ((Get-Date) - $latestBackup.LastWriteTime).TotalHours
+  Row "Latest DB backup" ($backupAgeH -le 48) "$($latestBackup.Name) ($([math]::Round($backupAgeH, 1))h ago)"
+} else {
+  WarnRow "Latest DB backup" "None yet — run npm run backup:db"
+}
+
+$weeklyTask = Get-ScheduledTask -TaskName "Kwalify-Weekly-Maintenance" -ErrorAction SilentlyContinue
+if ($weeklyTask) {
+  Row "Weekly maintenance scheduled" $true "Sundays 10:00 AM"
+} else {
+  WarnRow "Weekly maintenance" "Run scripts\schedule-weekly-maintenance.ps1 once (Admin), or weekly-maintenance.bat"
+}
+
+# Spotify credentials in .env
+$spotifyOk = $false
+if (Test-Path $envPath) {
+  $hasId = [bool](Select-String -Path $envPath -Pattern '^\s*SPOTIFY_CLIENT_ID=\S+' -Quiet)
+  $hasSecret = [bool](Select-String -Path $envPath -Pattern '^\s*SPOTIFY_CLIENT_SECRET=\S+' -Quiet)
+  $spotifyOk = $hasId -and $hasSecret
+}
+Row "Spotify app credentials in .env" $spotifyOk $(if (-not $spotifyOk) { "Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET" } else { "configured" })
+
+$apiLog = Join-Path $Root "kwalify-api.log"
+if (Test-Path -LiteralPath $apiLog) {
+  $logMb = [math]::Round((Get-Item $apiLog).Length / 1MB, 1)
+  if ($logMb -gt 8) {
+    WarnRow "kwalify-api.log size" "${logMb} MB — rotates at 10 MB automatically"
+  }
 }
 
 Write-Host ""

@@ -61,7 +61,7 @@ What start does:
   - Starts API on port 5000
   - Starts Cloudflare tunnel (selfhost mode)
   - Opens https://kwalify.net
-  - Starts legacy port 5055 redirect -> /benchmark (old bookmarks)
+  - Optional: start-health-watch.bat keeps tunnel healthy while you host
 
 If HTTPS fails: right-click start.bat -> Run as administrator.
 

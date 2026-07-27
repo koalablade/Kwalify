@@ -52,6 +52,8 @@ This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend).
 | **Render (optional prod)** | `render.yaml` blueprint | Same redirect URI on public domain |
 | **Debug only** | `start-kwalify.bat local` → `http://localhost:5000` | Not supported (Spotify blocks localhost) |
 
+**Local upkeep:** [docs/LOCAL-MAINTENANCE.md](docs/LOCAL-MAINTENANCE.md) · [docs/PRODUCTION-CHECKLIST.md](docs/PRODUCTION-CHECKLIST.md) · send testers [docs/BETA-TESTER-GUIDE.md](docs/BETA-TESTER-GUIDE.md)
+
 CI nightly eval workflows target production `https://kwalify.net` on Render when deployed. Local dev does not need Render.
 
 `start-kwalify.bat` auto-pulls, rebuilds when code changed, and restarts the API every time. Create `.kwalify-nopull` to skip git pull.

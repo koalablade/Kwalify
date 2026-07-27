@@ -277,5 +277,5 @@ Run `npm run` with no args to list all scripts. Common groups:
 - **Coherence:** `coherence:*`
 - **Benchmark:** `benchmark:smoke`, `benchmark:prompt-reliability`, `benchmark:pairwise-signatures`, `benchmark:semantic-scenes` (via package)
 - **Regression:** `regression:prompt-reliability`, `regression:playlists`, `regression:coherence-live`
-- **Smoke:** `smoke:deploy`, `smoke:static`, `smoke:shutdown`, `test:smoke`, `test:benchmark-bats`
+- **Ops:** `smoke:deploy`, `smoke:static`, `smoke:shutdown`, `test:smoke`, `test:benchmark-bats`, `maintenance:weekly`, `maintenance:verify-backup`
 - **Ops:** `validation:production`, `audit:*`, `quality:*`, `backfill:audio-features`

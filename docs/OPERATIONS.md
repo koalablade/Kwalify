@@ -8,7 +8,7 @@ Kwalify is a single Node.js process (Express API + static frontend) backed by
 PostgreSQL. There is no separate worker service — CPU-heavy playlist generation
 runs in short-lived worker threads inside the same process.
 
-**Quick reference:** [local-commands.md](./local-commands.md) (terminal cheat sheet) · Start: `start.bat` · Stop: `stop-kwalify.bat` · Benchmark: `/benchmark` · Smoke: `npm run test:smoke` · Legacy port 5055 redirect is optional (not auto-started).
+**Quick reference:** [local-commands.md](./local-commands.md) (terminal cheat sheet) · [LOCAL-MAINTENANCE.md](./LOCAL-MAINTENANCE.md) (daily/weekly upkeep) · Start: `start.bat` · Stop: `stop-kwalify.bat` · Benchmark: `/benchmark` · Smoke: `npm run test:smoke` · Legacy port 5055 redirect is optional (not auto-started).
 
 ---
 
