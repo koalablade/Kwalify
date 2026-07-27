@@ -24,7 +24,7 @@ if /I "%~2"=="quick" set "QUICK=1"
 
 set "KWLIFY_PS1=%TEMP%\kwalify-start-%RANDOM%.ps1"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$bat = Get-Content -LiteralPath '%~f0';" ^
+  "$bat = Get-Content -LiteralPath '%~f0' -Encoding UTF8;" ^
   "$s = [array]::IndexOf($bat, ':SCRIPT');" ^
   "$e = [array]::IndexOf($bat, ':ENDSCRIPT');" ^
   "if ($s -lt 0 -or $e -lt 0) { throw 'start-kwalify.bat is corrupt' };" ^
@@ -300,7 +300,7 @@ function Stop-PortListeners([int]$port) {
       Write-Host "  Stopping $($proc.ProcessName) on port $port (pid $procId)..."
       Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
     } else {
-      Write-Host "  Port $port held by $($proc.ProcessName) (pid $procId) — not stopping (not Kwalify)" -ForegroundColor Yellow
+      Write-Host "  Port $port held by $($proc.ProcessName) (pid $procId) - not stopping (not Kwalify)" -ForegroundColor Yellow
     }
   }
   Start-Sleep -Seconds 2
