@@ -148,10 +148,12 @@ function Complete-BenchmarkRun {
   param(
     [string]$RunId,
     [hashtable]$State,
-    [int]$ExitCode,
+    [object]$ExitCode,
     [hashtable]$Metrics = @{},
     [string[]]$ReportPaths = @()
   )
+  if ($ExitCode -is [System.Array]) { $ExitCode = [int]$ExitCode[$ExitCode.Count - 1] }
+  else { $ExitCode = [int]$ExitCode }
   $State.status = if ($ExitCode -eq 0) { "completed" } elseif ($ExitCode -eq 2) { "completed_with_warnings" } else { "failed" }
   $State.exitCode = $ExitCode
   $State.finishedAt = (Get-Date).ToUniversalTime().ToString("o")
@@ -420,7 +422,15 @@ function Show-BenchmarkStatus {
     }
     return
   }
-  Write-Host "No benchmark run in progress. Double-click Start Kwalify Benchmark."
+  Write-Host "No benchmark run in progress."
+  Write-Host "  Web dashboard: http://127.0.0.1:5000/benchmark-status.html"
+  Write-Host "  Control panel: http://127.0.0.1:5000/benchmark"
+}
+
+function Get-StartKwalifyScript {
+  $startBat = Join-Path $script:BenchmarkRoot "start.bat"
+  if (Test-Path -LiteralPath $startBat) { return $startBat }
+  return Join-Path $script:BenchmarkRoot "start-kwalify.bat"
 }
 
 function Test-ApiRunning([string]$Url = "http://127.0.0.1:5000") {
@@ -433,7 +443,7 @@ function Test-ApiRunning([string]$Url = "http://127.0.0.1:5000") {
 function Ensure-KwalifyRunning {
   param([string]$Url = "http://127.0.0.1:5000")
   if (Test-ApiRunning $Url) { return $true }
-  $startBat = Join-Path $script:BenchmarkRoot "start-kwalify.bat"
+  $startBat = Get-StartKwalifyScript
   if (-not (Test-Path -LiteralPath $startBat)) { return $false }
   Write-Host ""
   Write-Host "  Starting Kwalify automatically (wait ~60s)..." -ForegroundColor Yellow
@@ -446,7 +456,7 @@ function Ensure-KwalifyRunning {
     }
     Start-Sleep -Seconds 3
   }
-  Write-Host "  Kwalify did not start in time. Run 'Start Kwalify' on Desktop first." -ForegroundColor Red
+  Write-Host "  Kwalify did not start in time. Double-click start.bat on Desktop first." -ForegroundColor Red
   return $false
 }
 
@@ -457,6 +467,6 @@ function Ensure-ApiHint {
     return Ensure-KwalifyRunning $Url
   }
   Write-Host ""
-  Write-Host "  API not running. Double-click 'Start Kwalify' on Desktop first." -ForegroundColor Yellow
+  Write-Host "  API not running. Double-click start.bat on Desktop first." -ForegroundColor Yellow
   return $false
 }

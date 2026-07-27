@@ -182,7 +182,7 @@ p { margin: 0; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: env(safe-area-inset-top) max(24px, env(safe-area-inset-right)) 0 max(24px, env(safe-area-inset-left));
   height: 56px;
   background: var(--nav-bg);
   backdrop-filter: blur(16px);
@@ -770,7 +770,7 @@ p { margin: 0; }
 
 .kwalify-toast {
   position: fixed;
-  bottom: 24px;
+  bottom: max(24px, env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%) translateY(12px);
   opacity: 0;
@@ -2482,6 +2482,12 @@ p { margin: 0; }
   transition: transform 0.15s, border-color 0.15s;
 }
 .gallery-card:hover { transform: translateY(-2px); border-color: var(--border-2); }
+.gallery-card--link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
 .gallery-card--selectable {
   cursor: pointer;
   user-select: none;
@@ -2700,7 +2706,7 @@ p { margin: 0; }
   padding: 80px 24px;
   color: var(--muted);
 }
-.not-found h2 { font-size: 20px; color: #fff; margin-bottom: 10px; }
+.not-found h2 { font-size: 20px; color: var(--text); margin-bottom: 10px; }
 
 /* ── Admin Debug Panel ────────────────────────────────────────────────────── */
 .dp-toggle-row {

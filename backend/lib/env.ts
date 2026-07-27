@@ -83,6 +83,17 @@ function normalizeOptionalUrlEnv(key: "APP_URL" | "FRONTEND_URL"): string | unde
 export function validateEnv(): { env: AppEnv; features: AppFeatures } {
   const DATABASE_URL = requireEnv("DATABASE_URL");
   const SESSION_SECRET = requireEnv("SESSION_SECRET");
+  const NODE_ENV = process.env["NODE_ENV"] ?? "development";
+
+  if (NODE_ENV === "production") {
+    if (SESSION_SECRET.length < 32) {
+      throw new Error("[env] SESSION_SECRET must be at least 32 characters in production");
+    }
+    const secretLower = SESSION_SECRET.toLowerCase();
+    if (secretLower.includes("change-me") || secretLower.includes("dev-secret")) {
+      throw new Error("[env] SESSION_SECRET must not contain placeholder values in production");
+    }
+  }
 
   const rawPort = requireEnv("PORT");
   const PORT = Number(rawPort);
@@ -101,7 +112,7 @@ export function validateEnv(): { env: AppEnv; features: AppFeatures } {
     BIND_HOST,
     APP_URL,
     FRONTEND_URL,
-    NODE_ENV: process.env["NODE_ENV"] ?? "development",
+    NODE_ENV,
   };
 
   const spotifyMissing = (

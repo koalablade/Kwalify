@@ -15,7 +15,7 @@ Stop everything: **`stop-kwalify.bat`**
 
 Desktop shortcuts: **`create-kwalify-shortcuts.bat`** (once)
 
-Optional flags: `start-kwalify.bat pull` (git pull first), `start-kwalify.bat build` (force rebuild).
+Optional flags: `start-kwalify.bat build` (force rebuild), `start-kwalify.bat nopull` (skip git pull). Create `.kwalify-nopull` to disable auto-pull permanently.
 
 Logs on failure: `kwalify-start.log` in the project root.
 

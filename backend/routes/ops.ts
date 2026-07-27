@@ -1,12 +1,12 @@
 import { Router, type IRouter } from "express";
 import { getGenerateOverloadState } from "../lib/runtime-overload";
 import { attachGenerateQueueState, getOpsMetrics } from "../lib/ops-metrics";
-import { generationAuditTokenAuthorized } from "../controllers/generation/generation-audit";
+import { opsMetricsTokenAuthorized } from "../lib/ops-metrics-auth";
 
 const router: IRouter = Router();
 
 router.get("/ops/metrics", (req, res): void => {
-  if (!generationAuditTokenAuthorized(req) && process.env["NODE_ENV"] === "production") {
+  if (!opsMetricsTokenAuthorized(req)) {
     res.status(403).json({ error: "Not authorized" });
     return;
   }

@@ -17,10 +17,32 @@ import { captureError } from "./error-tracking";
 
 let installed = false;
 
-export function handleUnhandledRejection(reason: unknown): void {
+const REJECTION_WINDOW_MS = 60_000;
+const REJECTION_EXIT_THRESHOLD = 10;
+const rejectionTimestamps: number[] = [];
+
+export function handleUnhandledRejection(
+  reason: unknown,
+  exit: (code: number) => void = (code) => process.exit(code),
+): void {
   captureError(reason, { source: "unhandledRejection" });
+  const now = Date.now();
+  while (rejectionTimestamps.length > 0 && now - rejectionTimestamps[0]! >= REJECTION_WINDOW_MS) {
+    rejectionTimestamps.shift();
+  }
+  rejectionTimestamps.push(now);
+
+  if (rejectionTimestamps.length >= REJECTION_EXIT_THRESHOLD) {
+    logger.fatal(
+      { err: reason, count: rejectionTimestamps.length, windowMs: REJECTION_WINDOW_MS },
+      "[process] Too many unhandled promise rejections — exiting",
+    );
+    exit(1);
+    return;
+  }
+
   logger.error(
-    { err: reason },
+    { err: reason, recentRejections: rejectionTimestamps.length },
     "[process] Unhandled promise rejection — logged; process continues",
   );
 }

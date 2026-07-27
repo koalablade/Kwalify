@@ -27,13 +27,12 @@ function requestHeader(req: Request, name: string): string | undefined {
 }
 
 /**
- * Admin routes expose taste graphs, culture matches, and DB aggregates. In
- * production they are OFF by default and must be explicitly enabled with
- * EVAL_ADMIN_ENABLED=true. When disabled we return 404 (not 403) so the routes
- * are indistinguishable from non-existent paths to an unauthenticated probe.
+ * Admin routes expose taste graphs, culture matches, and DB aggregates. They are
+ * OFF by default and must be explicitly enabled with EVAL_ADMIN_ENABLED=true.
+ * When disabled we return 404 (not 403) so the routes are indistinguishable
+ * from non-existent paths to an unauthenticated probe.
  */
 function adminRoutesEnabled(): boolean {
-  if ((process.env["NODE_ENV"] ?? "development") !== "production") return true;
   return process.env["EVAL_ADMIN_ENABLED"] === "true";
 }
 

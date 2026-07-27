@@ -1,3 +1,4 @@
+# DEPRECATED: Use start.bat in the repo root instead.
 # Start Kwalify locally at https://kwalify.net (API on :5000, HTTPS proxy on :443).
 # Run scripts\add-kwalify-hosts.ps1 as Admin once first.
 

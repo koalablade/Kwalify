@@ -1,5 +1,5 @@
 // ── Kwalify · Playlist share page ────────────────────────────────────────────
-import { esc, initTheme } from "../lib/shared.js";
+import { esc, initTheme, showToast } from "../lib/shared.js";
 
 initTheme();
 const root = document.getElementById("playlistRoot");
@@ -21,64 +21,6 @@ async function api(path, opts = {}) {
   } finally {
     clearTimeout(timeout);
   }
-}
-
-const feedbackSessionId = `share_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-function feedbackTrackPayload(track) {
-  return {
-    trackId: track?.trackId || track?.id,
-    trackName: track?.trackName || track?.name || null,
-    artistName: track?.artistName || track?.artist || null,
-    albumName: track?.albumName || track?.album || null,
-    genrePrimary: track?.genrePrimary || null,
-    genreFamily: track?.genreFamily || null,
-    genres: Array.isArray(track?.genres) ? track.genres : null,
-    energy: typeof track?.energy === "number" ? track.energy : null,
-  };
-}
-
-async function sendFeedbackEvent(track, action, playlistId, context = {}) {
-  const payloadTrack = feedbackTrackPayload(track);
-  if (!payloadTrack.trackId) return;
-  await api("/feedback/track", {
-    method: "POST",
-    body: JSON.stringify({
-      trackId: payloadTrack.trackId,
-      action,
-      playlistId: String(playlistId || ""),
-      context,
-      track: payloadTrack,
-    }),
-  });
-}
-
-async function sendImplicitFeedback(track, playDuration, skipped, eventType = null) {
-  const payloadTrack = feedbackTrackPayload(track);
-  if (!payloadTrack.trackId) return;
-  await api("/feedback/implicit", {
-    method: "POST",
-    body: JSON.stringify({
-      ...payloadTrack,
-      playDuration,
-      skipped,
-      eventType,
-      sessionId: feedbackSessionId,
-    }),
-  });
-}
-
-async function replacePlaylistTrack(playlistId, track, context = {}) {
-  const payloadTrack = feedbackTrackPayload(track);
-  if (!playlistId || !payloadTrack.trackId) return null;
-  const result = await api(`/playlists/${playlistId}/replace-track`, {
-    method: "POST",
-    body: JSON.stringify({
-      trackId: payloadTrack.trackId,
-      vibe: context.vibe || "",
-    }),
-  });
-  return result.ok ? result.data.replacement : null;
 }
 
 function fmtDate(iso) {
@@ -275,13 +217,20 @@ function render(data) {
       if (!trackId || !reaction) return;
       btn.disabled = true;
       try {
-        await api(`/share/${encodeURIComponent(shareSlug)}/track-react`, {
+        const result = await api(`/share/${encodeURIComponent(shareSlug)}/track-react`, {
           method: "POST",
           body: JSON.stringify({ trackId, reaction }),
         });
+        if (!result.ok) {
+          showToast(result.data?.error || result.data?.message || "Could not save reaction. Try again.", "error");
+          btn.disabled = false;
+          return;
+        }
+        showToast("Thanks!", "success");
         row?.classList.add(reaction === "up" ? "share-track--up" : "share-track--down");
-        btn.textContent = reaction === "up" ? "✓" : "✓";
-      } catch {
+        btn.textContent = "✓";
+      } catch (err) {
+        showToast(err?.message || "Could not save reaction. Check your connection.", "error");
         btn.disabled = false;
       }
     });

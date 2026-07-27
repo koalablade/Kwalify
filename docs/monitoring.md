@@ -32,7 +32,7 @@ Env thresholds:
 
 ## Recommended external setup
 
-**Uptime (free):** UptimeRobot or Better Stack → ping `https://kwalify.net/api/healthz` every 5 min; alert on non-200.
+**Uptime (free):** UptimeRobot or Better Stack → ping `https://kwalify.net/api/readyz` every 5 min; alert on non-200.
 
 **Logs:** Render log stream → filter `[ops-alert]` or `alertType`. Optional: Sentry via `SENTRY_DSN` (future — hook pino transport when added).
 

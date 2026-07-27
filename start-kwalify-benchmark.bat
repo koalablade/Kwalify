@@ -8,8 +8,9 @@ if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$esc = [char]27; $purple = $esc + '[38;2;168;85;247m'; $dim = $esc + '[38;2;192;132;252m'; $reset = $esc + '[0m';" ^
   "Write-Host ''; Write-Host ($purple + '  KWALIFY BENCHMARK' + $reset);" ^
-  "Write-Host ($dim + '  Opens launcher UI - buttons + chat box' + $reset);" ^
-  "Write-Host ($dim + '  KEEP the launcher window open while you use it' + $reset); Write-Host ''"
+  "Write-Host ($dim + '  Opens http://127.0.0.1:5000/benchmark on this PC' + $reset);" ^
+  "Write-Host ($dim + '  (https://kwalify.net/benchmark when tunnel is up)' + $reset);" ^
+  "Write-Host ($dim + '  Run start.bat first if the server is not up' + $reset); Write-Host ''"
 
 set "SUITE="
 set "LIMIT=0"
@@ -179,8 +180,18 @@ goto parse
 
 :run
 if "%PSARGS%"=="" (
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\benchmark-launcher-server.ps1" -Root "%ROOT%"
-  exit /b %ERRORLEVEL%
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\ensure-benchmark-launcher.ps1" -Root "%ROOT%" -OpenBrowser
+  if errorlevel 1 (
+    echo.
+    echo  Could not open benchmark. Run start.bat first.
+    pause
+    exit /b 1
+  )
+  echo.
+  echo  Benchmark opened on the main site (https://kwalify.net/benchmark).
+  echo.
+  pause
+  exit /b 0
 )
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\run-kwalify-benchmark.ps1" %PSARGS%
 set "ERR=%ERRORLEVEL%"

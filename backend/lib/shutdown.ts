@@ -2,6 +2,7 @@ import type { Logger } from "pino";
 
 let _shuttingDown = false;
 let _graceStarted = false;
+let _exitScheduled = false;
 
 type ShutdownCleanup = () => void | Promise<void>;
 
@@ -20,6 +21,13 @@ export function isShuttingDown(): boolean {
   return _shuttingDown;
 }
 
+function scheduleShutdownExit(logger: Logger, code: number, message: string): void {
+  if (_exitScheduled) return;
+  _exitScheduled = true;
+  logger.warn(message);
+  process.exit(code);
+}
+
 /** SIGTERM — allow in-flight generates a full generation window to finish. */
 export function beginGracefulShutdown(
   logger: Logger,
@@ -32,8 +40,7 @@ export function beginGracefulShutdown(
   const cleanup = typeof opts === "number" ? undefined : opts.cleanup;
   logger.warn({ graceMs }, "SIGTERM — graceful shutdown started; new generates rejected");
   const timer = setTimeout(() => {
-    logger.warn("Grace period ended — exiting");
-    process.exit(0);
+    scheduleShutdownExit(logger, 0, "Grace period ended — exiting");
   }, graceMs);
   timer.unref?.();
 
@@ -41,11 +48,10 @@ export function beginGracefulShutdown(
   void Promise.resolve()
     .then(cleanup)
     .then(() => {
-      logger.warn("Graceful shutdown cleanup complete — exiting");
-      process.exit(0);
+      scheduleShutdownExit(logger, 0, "Graceful shutdown cleanup complete — exiting");
     })
     .catch((err) => {
       logger.error({ err }, "Graceful shutdown cleanup failed — exiting");
-      process.exit(1);
+      scheduleShutdownExit(logger, 1, "Graceful shutdown cleanup failed — exiting");
     });
 }

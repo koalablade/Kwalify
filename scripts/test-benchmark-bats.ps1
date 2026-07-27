@@ -88,60 +88,53 @@ if ($dry.ok -and $dry.dryRun) { Pass "Invoke-LauncherRun smoke dry-run" } else {
 $dryPkg = Invoke-LauncherRun -Suite "package" -DryRun
 if ($dryPkg.ok) { Pass "Invoke-LauncherRun package dry-run" } else { Fail "Invoke-LauncherRun package dry-run" }
 
-# --- 7. Launcher server lifecycle ---
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\stop-benchmark.ps1") -Root $Root | Out-Null
-Start-Sleep -Milliseconds 400
-$serverJob = Start-Job -ScriptBlock {
-  param($root)
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "scripts\benchmark-launcher-server.ps1") -Root $root -NoBrowser
-} -ArgumentList $Root
-Start-Sleep -Seconds 2
+# --- 7. Main-site benchmark API (port 5000) + legacy 5055 redirect ---
 try {
-  $ping = Invoke-RestMethod -Uri "http://127.0.0.1:5055/api/ping" -TimeoutSec 5
-  if ($ping.ok -and $ping.launcherVersion) { Pass "launcher /api/ping" } else { Fail "launcher /api/ping response" }
+  $ping = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/benchmark/ping" -TimeoutSec 5 -Headers @{ Host = "localhost" }
+  if ($ping.ok -and $ping.url -eq "/benchmark") { Pass "main /api/benchmark/ping" } else { Fail "main /api/benchmark/ping response" }
 
-  $buttons = Invoke-RestMethod -Uri "http://127.0.0.1:5055/api/buttons" -TimeoutSec 5
-  if ($buttons.buttons.Count -ge 5) { Pass "launcher /api/buttons ($($buttons.buttons.Count))" } else { Fail "launcher /api/buttons count" }
+  $buttons = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/benchmark/buttons" -TimeoutSec 5 -Headers @{ Host = "localhost" }
+  if ($buttons.buttons.Count -ge 5) { Pass "main /api/benchmark/buttons ($($buttons.buttons.Count))" } else { Fail "main /api/benchmark/buttons count" }
 
-  $runBody = @{ suite = "smoke" } | ConvertTo-Json
-  try {
-    $run = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5055/api/run" -Body $runBody -ContentType "application/json" -TimeoutSec 10
-    if ($run.ok) { Pass "launcher /api/run smoke spawn" } else { Fail "launcher /api/run: $($run.error)" }
-  } catch {
-    $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-    $errBody = $reader.ReadToEnd() | ConvertFrom-Json
-    if ($errBody.error -match "already running") {
-      Pass "launcher /api/run blocked while running (expected if prior run active)"
-    } else {
-      Fail "launcher /api/run: $($errBody.error)"
-    }
-  }
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  $state = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/benchmark/state" -TimeoutSec 10 -Headers @{ Host = "localhost" }
+  $ms = $sw.ElapsedMilliseconds
+  if ($null -ne $state.savedPresets -and $state.apiUrl -match "127\.0\.0\.1") {
+    if ($ms -lt 3000) { Pass "main /api/benchmark/state (${ms}ms)" } else { Fail "main /api/benchmark/state slow (${ms}ms)" }
+  } else { Fail "main /api/benchmark/state missing bridge fields" }
 
-  $spawnLog = Join-Path $Root "reports\benchmark-spawn.log"
-  if (Test-Path $spawnLog) {
-    $tail = Get-Content $spawnLog -Tail 3 -ErrorAction SilentlyContinue
-    if ($tail -match "UI-SPAWN smoke") { Pass "spawn log records UI-SPAWN smoke" } else { Fail "spawn log missing UI-SPAWN smoke" }
-  } else {
-    Fail "benchmark-spawn.log not created"
-  }
+  $preview = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/benchmark/chat" -Method POST -ContentType "application/json" -Body '{"message":"preview smoke"}' -TimeoutSec 90 -Headers @{ Host = "localhost" }
+  if ($preview.ok -and $preview.reply -match "preview") { Pass "main /api/benchmark/chat preview" } else { Fail "main /api/benchmark/chat preview" }
 } catch {
-  Fail "launcher server test: $($_.Exception.Message)"
-} finally {
-  Stop-Job $serverJob -ErrorAction SilentlyContinue
-  Remove-Job $serverJob -Force -ErrorAction SilentlyContinue
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\stop-benchmark.ps1") -Root $Root | Out-Null
-  Start-Sleep -Milliseconds 500
-  $stillUp = $false
-  try {
-    Invoke-RestMethod -Uri "http://127.0.0.1:5055/api/ping" -TimeoutSec 2 | Out-Null
-    $stillUp = $true
-  } catch {}
-  if (-not $stillUp) { Pass "stop-benchmark.ps1 stops launcher" } else { Fail "launcher still up after stop" }
+  Fail "main benchmark API (is start.bat running?): $($_.Exception.Message)"
 }
 
-# --- 8. benchmark-launcher.html has API constant ---
+$redirectJob = Start-Job -ScriptBlock {
+  param($root)
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "scripts\ensure-benchmark-redirect.ps1") -Root $root
+} -ArgumentList $Root
+$redirectOk = $false
+for ($i = 0; $i -lt 10; $i++) {
+  Start-Sleep -Seconds 1
+  try {
+    $resp = Invoke-WebRequest -Uri "http://127.0.0.1:5055/" -MaximumRedirection 0 -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+    if ($resp.StatusCode -eq 302 -and $resp.Headers.Location -match "/benchmark") { $redirectOk = $true; break }
+  } catch {
+    if ($_.Exception.Response.StatusCode.value__ -eq 302) { $redirectOk = $true; break }
+  }
+}
+if ($redirectOk) { Pass "legacy port 5055 redirects to /benchmark" } else { Fail "legacy port 5055 redirect" }
+try {
+  Stop-Job $redirectJob -ErrorAction SilentlyContinue
+  Remove-Job $redirectJob -Force -ErrorAction SilentlyContinue
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\stop-benchmark.ps1") -Root $Root | Out-Null
+} catch {}
+
+# --- 8. benchmark-launcher.html uses main-site API ---
 $html = Get-Content -LiteralPath (Join-Path $Root "frontend\public\benchmark-launcher.html") -Raw
-if ($html -match "const API = ''") { Pass "benchmark-launcher.html API constant" } else { Fail "benchmark-launcher.html missing API constant" }
+if ($html -match "const API = '/api/benchmark'") { Pass "benchmark-launcher.html main-site API" } else { Fail "benchmark-launcher.html missing main-site API" }
+if ($html -match "showActivity") { Pass "benchmark-launcher.html activity panel" } else { Fail "benchmark-launcher.html missing activity feedback" }
+if ($html -match "127\.0\.0\.1:5000/benchmark") { Pass "benchmark-launcher.html redirects 5055" } else { Fail "benchmark-launcher.html missing 5055 redirect" }
 
 Write-Host ""
 if ($failures.Count -eq 0) {

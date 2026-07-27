@@ -497,6 +497,7 @@ const state = {
   progressExpanded: false,
   preview: null,
   selectedSceneId: null,
+  draftVibe: "",
 };
 
 function debugModeEnabled() {
@@ -560,6 +561,9 @@ function navHtml(user) {
           <button class="profile-dropdown-item" id="settingsLinkBtn">
             <span>⚙️</span><span>Settings</span>
           </button>
+          <button class="profile-dropdown-item" id="profileSyncBtn">
+            <span>🔄</span><span>Sync library</span>
+          </button>
           <button class="profile-dropdown-item" id="themeToggleBtn">
             <span id="themeIcon">${isDark ? "☀️" : "🌙"}</span>
             <span>${isDark ? "Light mode" : "Dark mode"}</span>
@@ -613,9 +617,13 @@ function wireLandingEvents() {
   scrubLandingQueryParams();
 }
 
-function renderLanding() {
+function renderLanding(notice) {
   document.title = "Kwalify — Moment-to-Music from your liked songs";
-  const landingNotice = landingNoticeMessage();
+  const landingNotice = notice
+    ? { kind: "error", message: notice }
+    : (state.errorKind === "auth" && state.error
+      ? { kind: "error", message: state.error }
+      : landingNoticeMessage());
   root.innerHTML = `
   <nav class="nav">
     ${navLogoHtml()}
@@ -736,7 +744,33 @@ function moodLevelLabel(v) {
   return v > 70 ? "High" : v > 30 ? "Med" : "Low";
 }
 
+function intentClarificationChipsHtml() {
+  const suggestions = state.preview?.intentClarificationSuggestions
+    || state.errorDetails?.intentClarificationSuggestions;
+  const groups = state.preview?.intentClarificationGroups
+    || state.errorDetails?.intentClarificationGroups;
+  let items = [];
+  if (Array.isArray(suggestions) && suggestions.length) {
+    items = suggestions;
+  } else if (groups && typeof groups === "object") {
+    items = Object.values(groups).flat();
+  }
+  if (!items.length) return "";
+  const chips = items.map((s) => {
+    const text = s?.text || "";
+    if (!text) return "";
+    const sceneId = s?.previewSceneId || "";
+    return `<button type="button" class="recent-prompt-chip clarification-chip" data-clarification-prompt="${esc(text)}"${sceneId ? ` data-clarification-scene="${esc(sceneId)}"` : ""}>${esc(text.length > 42 ? `${text.slice(0, 39)}…` : text)}</button>`;
+  }).filter(Boolean).join("");
+  return chips
+    ? `<div class="recent-prompts-row clarification-chips-row"><span class="recent-prompts-label">Try one of these:</span>${chips}</div>`
+    : "";
+}
+
 function renderApp() {
+  const existingVibe = document.getElementById("vibeInput");
+  if (existingVibe) state.draftVibe = existingVibe.value;
+
   const cs = state.cacheStatus;
   const ls = state.librarySummary;
   const total = ls?.trackCount ?? cs?.totalTracks ?? 0;
@@ -809,6 +843,7 @@ function renderApp() {
         ${!isLibraryInsufficient && isGenerationError ? `<button type="button" class="btn btn-sm btn-green" id="retryGenerateBtn">Try again</button>` : ""}
         ${diagHtml}
         ${!isLibraryInsufficient && (suggestions.length ? `<small>${suggestions.map(esc).join(" · ")}</small>` : `<small>${esc(fallbackSuggestion)}</small>`)}
+        ${intentClarificationChipsHtml()}
       </div>`;
   })() : "";
 
@@ -902,6 +937,7 @@ function renderApp() {
               maxlength="140"
               autocomplete="off"
               rows="2"
+              aria-label="Describe your moment"
             ></textarea>
             <div class="vibe-footer">
               <span class="vibe-hint">Enter ↵ to generate · Ctrl+K focus</span>
@@ -988,6 +1024,14 @@ function renderApp() {
   ${siteFooterHtml()}`;
 
   wireAppEvents();
+
+  const vibeInput = document.getElementById("vibeInput");
+  if (vibeInput) {
+    vibeInput.value = state.draftVibe;
+    const count = document.getElementById("charCount");
+    if (count) count.textContent = String(state.draftVibe.length);
+    if (state.draftVibe) updateMoodPanel(state.draftVibe);
+  }
 }
 
 function buildActivityFeed() {
@@ -1018,28 +1062,13 @@ function buildActivityFeed() {
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   if (all.length === 0) {
-    // Default placeholders
-    return `
-    <div class="activity-item">
-      <span class="activity-dot activity-dot--green"></span>
-      <div class="activity-body">
-        <div class="activity-label" style="font-style:italic">"driving through empty city streets"</div>
-        <div class="activity-meta">Example · 2 days ago</div>
-      </div>
-    </div>
-    <div class="activity-item">
-      <span class="activity-dot activity-dot--purple"></span>
-      <div class="activity-body">
-        <div class="activity-label">Late Night Highway</div>
-        <div class="activity-meta">Example playlist · 4 days ago</div>
-      </div>
-    </div>`;
+    return `<p class="activity-empty">No activity yet — generate your first playlist.</p>`;
   }
 
   return all.slice(0, 10).map(item => {
     if (item.type === "moment") {
       return `
-      <div class="activity-item">
+      <div class="activity-item activity-item--clickable" data-activity-moment="${esc(item.label)}" role="button" tabindex="0">
         <span class="activity-dot activity-dot--green"></span>
         <div class="activity-body">
           <div class="activity-label" style="font-style:italic">"${esc(item.label)}"</div>
@@ -1473,18 +1502,19 @@ function updateIntentPreviewStrip(data) {
   const clarification = state.preview.requiresClarification
     ? `<p class="sync-meta clarification-required">Add more detail, pick a suggestion, or use at least four words before generating.</p>`
     : "";
+  const clarificationChips = intentClarificationChipsHtml();
   const html = buildIntentUnderstandingHtml(
     data?.intentUnderstanding || null,
     null,
     { preview: true, alwaysShow: true, decomposed: data?.decomposedIntent || null },
   );
-  if (!html && !momentLine && !clarification) {
+  if (!html && !momentLine && !clarification && !clarificationChips) {
     strip.hidden = true;
     strip.innerHTML = "";
     return;
   }
   strip.hidden = false;
-  strip.innerHTML = momentLine + clarification + html;
+  strip.innerHTML = momentLine + clarification + clarificationChips + html;
 }
 
 function resultHtml(result) {
@@ -2491,57 +2521,68 @@ function buildDebugPanel(result) {
 // ── Mood panel updater (reactive) ─────────────────────────────────────────────
 let _moodPreviewTimer = null;
 
+function clearIntentPreviewStrip() {
+  const strip = document.getElementById("intentPreviewStrip");
+  if (strip) {
+    strip.hidden = true;
+    strip.innerHTML = "";
+  }
+  state.preview = null;
+}
+
 function updateMoodPanel(text) {
   const statusEl = document.getElementById("moodStatus");
-  if (!statusEl) return;
 
   if (text.length <= 3) {
-    document.getElementById("moodGlow")?.classList.remove("active");
-    statusEl.textContent = "Awaiting input…";
-    MOOD_BAR_DEFS.forEach((b) => {
-      const el = document.getElementById(b.id);
-      const lb = document.getElementById(`${b.id}-label`);
-      if (el) el.style.width = "0%";
-      if (lb) lb.textContent = "—";
-    });
-    document.querySelectorAll(".mood-tag").forEach((t) => { t.style.opacity = "0.2"; });
-    const style = document.getElementById("moodStyleText");
-    if (style) { style.style.opacity = "0"; }
-    // Hide scene panel when input is cleared
-    const scenePanel = document.getElementById("moodScenePanel");
-    if (scenePanel) scenePanel.style.display = "none";
+    if (statusEl) {
+      document.getElementById("moodGlow")?.classList.remove("active");
+      statusEl.textContent = "Awaiting input…";
+      MOOD_BAR_DEFS.forEach((b) => {
+        const el = document.getElementById(b.id);
+        const lb = document.getElementById(`${b.id}-label`);
+        if (el) el.style.width = "0%";
+        if (lb) lb.textContent = "—";
+      });
+      document.querySelectorAll(".mood-tag").forEach((t) => { t.style.opacity = "0.2"; });
+      const style = document.getElementById("moodStyleText");
+      if (style) { style.style.opacity = "0"; }
+      const scenePanel = document.getElementById("moodScenePanel");
+      if (scenePanel) scenePanel.style.display = "none";
+    }
     clearTimeout(_moodPreviewTimer);
+    if (moodPreviewAbort) moodPreviewAbort.abort();
+    clearIntentPreviewStrip();
     return;
   }
 
-  document.getElementById("moodGlow")?.classList.add("active");
-  statusEl.textContent = "Reading the moment…";
+  if (statusEl) {
+    document.getElementById("moodGlow")?.classList.add("active");
+    statusEl.textContent = "Reading the moment…";
 
-  // Instant client-side mood bars (no network round-trip)
-  const mood = analyzeMoodFromText(text);
+    const mood = analyzeMoodFromText(text);
 
-  MOOD_BAR_DEFS.forEach((b) => {
-    const val = mood[b.key];
-    const el = document.getElementById(b.id);
-    const lb = document.getElementById(`${b.id}-label`);
-    if (el) el.style.width = val + "%";
-    if (lb) lb.textContent = moodLevelLabel(val);
-  });
+    MOOD_BAR_DEFS.forEach((b) => {
+      const val = mood[b.key];
+      const el = document.getElementById(b.id);
+      const lb = document.getElementById(`${b.id}-label`);
+      if (el) el.style.width = val + "%";
+      if (lb) lb.textContent = moodLevelLabel(val);
+    });
 
-  const tagsEl = document.getElementById("moodTags");
-  if (tagsEl) {
-    tagsEl.innerHTML = mood.tags.map((tag, i) =>
-      `<span class="mood-tag" style="opacity:1;transition:opacity 0.4s ${i * 0.07}s">${esc(tag)}</span>`
-    ).join("");
+    const tagsEl = document.getElementById("moodTags");
+    if (tagsEl) {
+      tagsEl.innerHTML = mood.tags.map((tag, i) =>
+        `<span class="mood-tag" style="opacity:1;transition:opacity 0.4s ${i * 0.07}s">${esc(tag)}</span>`
+      ).join("");
+    }
+
+    const styleEl = document.getElementById("moodStyleText");
+    if (styleEl) {
+      styleEl.textContent = mood.style;
+      styleEl.style.opacity = "1";
+    }
   }
 
-  const styleEl = document.getElementById("moodStyleText");
-  if (styleEl) {
-    styleEl.textContent = mood.style;
-    styleEl.style.opacity = "1";
-  }
-
-  // Debounced server-side scene detection (400ms after user stops typing)
   clearTimeout(_moodPreviewTimer);
   _moodPreviewTimer = setTimeout(() => fetchScenePreview(text), 400);
 }
@@ -2663,6 +2704,35 @@ function wireAppEvents() {
         const input = document.getElementById("vibeInput");
         if (input && prompt) {
           input.value = prompt;
+          state.draftVibe = prompt;
+          input.dispatchEvent(new Event("input"));
+          input.focus();
+        }
+        return;
+      }
+      const clarificationBtn = e.target.closest("[data-clarification-prompt]");
+      if (clarificationBtn) {
+        const prompt = clarificationBtn.getAttribute("data-clarification-prompt");
+        const sceneId = clarificationBtn.getAttribute("data-clarification-scene");
+        const input = document.getElementById("vibeInput");
+        if (input && prompt) {
+          input.value = prompt;
+          state.draftVibe = prompt;
+          if (sceneId) state.selectedSceneId = sceneId;
+          state.error = null;
+          state.errorKind = null;
+          input.dispatchEvent(new Event("input"));
+          input.focus();
+        }
+        return;
+      }
+      const momentBtn = e.target.closest("[data-activity-moment]");
+      if (momentBtn) {
+        const prompt = momentBtn.getAttribute("data-activity-moment");
+        const input = document.getElementById("vibeInput");
+        if (input && prompt) {
+          input.value = prompt;
+          state.draftVibe = prompt;
           input.dispatchEvent(new Event("input"));
           input.focus();
         }
@@ -2718,6 +2788,11 @@ function wireAppEvents() {
   });
   document.getElementById("settingsLinkBtn")?.addEventListener("click", () => {
     window.location.href = "/settings";
+  });
+  document.getElementById("profileSyncBtn")?.addEventListener("click", () => {
+    state.profileOpen = false;
+    renderApp();
+    triggerSync(false);
   });
   document.getElementById("themeToggleBtn")?.addEventListener("click", onToggleThemeClick);
 
@@ -3430,7 +3505,8 @@ async function boot() {
   try {
     meRes = await api("/auth/me");
   } catch (err) {
-    root.innerHTML = `<div class="loading-shell"><span>Could not reach Kwalify. Check your connection and refresh.</span></div>`;
+    root.innerHTML = `<div class="loading-shell"><span>Could not reach Kwalify. Check your connection and refresh.</span><button id="retryBootBtn" class="btn btn-green" style="display:inline-flex;margin-top:20px;">Retry</button></div>`;
+    document.getElementById("retryBootBtn")?.addEventListener("click", boot);
     return;
   }
 
@@ -3440,13 +3516,19 @@ async function boot() {
   }
 
   if (meRes.data?.reauthRequired) {
-    state.error = "Your Spotify session expired. Please reconnect to continue.";
-    state.errorKind = "auth";
-    renderLanding();
+    renderLanding("Your Spotify session expired. Please reconnect to continue.");
     return;
   }
 
   state.user = meRes.data;
+  try {
+    const returnTo = sessionStorage.getItem("returnTo");
+    if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
+      sessionStorage.removeItem("returnTo");
+      window.location.href = returnTo;
+      return;
+    }
+  } catch { /* private mode */ }
   state.recentPrompts = loadRecentPrompts();
 
   const [csRes, lsRes, plRes, histRes, chRes] = await Promise.all([
@@ -3471,6 +3553,7 @@ async function boot() {
   applyPendingPrompt();
 
   if (state.cacheStatus?.suggestFullSync && !state.cacheStatus?.isSyncing) {
+    showToast("Refreshing your library…");
     api("/spotify/sync", { method: "POST", body: JSON.stringify({ full: true }) }).catch(() => {});
   }
 

@@ -255,7 +255,8 @@ async function bootstrap(): Promise<void> {
     })
     .catch((err) => {
       setRuntimeFailed(err);
-      logger.error({ err }, "[boot] Runtime initialization failed");
+      logger.error({ err }, "[boot] Runtime initialization failed — process exiting");
+      setTimeout(() => process.exit(1), 250);
     });
 }
 

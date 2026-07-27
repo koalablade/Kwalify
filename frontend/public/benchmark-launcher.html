@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0d0b1e" />
   <title>Kwalify Benchmark</title>
-  <link rel="icon" href="/public/favicon.ico" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <style>
     :root {
       --bg: #0a0612;
@@ -31,7 +34,7 @@
       min-height: 100vh;
       line-height: 1.5;
     }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 20px 100px; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 20px 40px; }
     header {
       display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
       margin-bottom: 20px;
@@ -112,23 +115,25 @@
     .msg.err { border-color: var(--bad); color: #fecaca; }
     .msg strong { color: var(--accent); }
 
-    .chat-box {
-      display: flex; gap: 8px;
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: rgba(10, 6, 18, 0.95); border-top: 1px solid var(--line);
-      padding: 12px 20px; backdrop-filter: blur(8px);
+    .chat-inline {
+      display: flex; gap: 8px; margin-top: 12px;
     }
-    .chat-box .inner { max-width: 1100px; margin: 0 auto; width: 100%; display: flex; gap: 8px; }
-    .chat-box input {
-      flex: 1; background: var(--card); border: 1px solid var(--line);
+    .chat-inline input {
+      flex: 1; background: var(--card2); border: 1px solid var(--line);
       border-radius: 12px; padding: 12px 16px; color: var(--text); font-size: 15px;
     }
-    .chat-box input:focus { outline: none; border-color: var(--accent); }
-    .chat-box button {
+    .chat-inline input:focus { outline: none; border-color: var(--accent); }
+    .chat-inline button {
       background: var(--accent2); border: none; color: white;
       border-radius: 12px; padding: 0 20px; font-weight: 600; cursor: pointer;
+      white-space: nowrap;
     }
-    .chat-box button:hover { background: var(--accent); }
+    .chat-inline button:hover { background: var(--accent); }
+    .chat-inline button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .chat-box {
+      display: none;
+    }
 
     details.advanced { margin-top: 8px; }
     details.advanced summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 8px 0; }
@@ -147,8 +152,17 @@
     .toast {
       position: fixed; top: 16px; right: 16px; background: var(--card);
       border: 1px solid var(--ok); color: var(--ok); padding: 12px 18px;
-      border-radius: 10px; display: none; z-index: 100;
+      border-radius: 10px; display: none; z-index: 100; max-width: 420px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     }
+    .activity {
+      font-size: 13px; color: var(--muted); background: var(--card2);
+      border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+      margin-bottom: 16px; min-height: 44px;
+    }
+    .activity strong { color: var(--text); }
+    .activity.err { border-color: var(--bad); color: #fecaca; }
+    .activity.ok { border-color: var(--ok); }
     .banner {
       background: #3b1a1a; border: 1px solid var(--bad); color: #fecaca;
       padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px;
@@ -160,8 +174,7 @@
 <body>
   <div class="wrap">
     <div class="banner" id="offline-banner" style="display:none">
-      <strong>Launcher not connected.</strong> Close this tab and double-click <strong>Run Benchmark</strong> on Desktop again.
-      Do not open this file directly from the folder.
+      <strong>Benchmark API not connected.</strong> Open <strong>http://127.0.0.1:5000/benchmark</strong> or <strong>https://kwalify.net/benchmark</strong> after running <strong>start.bat</strong>.
     </div>
     <header>
       <div>
@@ -169,11 +182,13 @@
         <p class="tagline">Buttons for the usual runs · chat for anything specific</p>
       </div>
       <div class="pills">
-        <span class="pill" id="pill-launcher">Launcher …</span>
+        <span class="pill" id="pill-bench-api">API …</span>
         <span class="pill" id="pill-api">API …</span>
         <span class="pill" id="pill-run">Idle</span>
       </div>
     </header>
+
+    <div class="activity" id="activity">Connecting to benchmark API…</div>
 
     <div class="grid">
       <div>
@@ -191,6 +206,10 @@
           <h2>Ask for anything</h2>
           <div class="chat-log" id="chat-log">
             <div class="msg bot">Examples: <strong>40 human go</strong> · <strong>30 mix</strong> · <strong>25 easy</strong> · <strong>h03,h12</strong> · <strong>repeat last</strong> · type <strong>help</strong></div>
+          </div>
+          <div class="chat-inline">
+            <input id="chat-input" type="text" placeholder="e.g. 40 human go · 30 mix · repeat last" autocomplete="off" />
+            <button id="chat-send" type="button">Run</button>
           </div>
         </div>
 
@@ -236,20 +255,13 @@
         </div>
 
         <div class="links">
-          <a href="/public/benchmark-status.html" target="_blank">Full dashboard</a>
-          <a href="/public/benchmark-history.html" target="_blank">History</a>
-          <a href="/public/benchmark-guide.html" target="_blank">Guide</a>
-          <a href="#" id="open-reports">Reports folder</a>
+          <a href="/benchmark-status.html" target="_blank">Full dashboard</a>
+          <a href="/benchmark-history.html" target="_blank">History</a>
+          <a href="/benchmark-guide.html" target="_blank">Guide</a>
+          <a href="#" id="open-reports" title="Opens reports folder on the server PC (self-host only)">Reports folder (this PC)</a>
           <a href="#" id="clear-lock">Clear stuck lock</a>
         </div>
       </div>
-    </div>
-  </div>
-
-  <div class="chat-box">
-    <div class="inner">
-      <input id="chat-input" type="text" placeholder="e.g. 40 human go · 30 mix · repeat last · preview 50 easy" autocomplete="off" />
-      <button id="chat-send">Run</button>
     </div>
   </div>
 
@@ -261,39 +273,59 @@
         const b = document.getElementById('offline-banner');
         if (b) {
           b.style.display = 'block';
-          b.innerHTML = '<strong>Wrong way to open this.</strong> Close this tab. Double-click <strong>Run Benchmark</strong> on your Desktop (keep that window open).';
+          b.innerHTML = '<strong>Wrong way to open this.</strong> Close this tab. Use <strong>http://127.0.0.1:5000/benchmark</strong> or <strong>https://kwalify.net/benchmark</strong> (with <strong>start.bat</strong> running).';
         }
       });
     }
 
+    if (location.port === '5055') {
+      location.replace('http://127.0.0.1:5000/benchmark');
+    }
+
     const LAUNCHER_VERSION = '2';
-    const API = '';
+    const onMainServer = true;
+    const API = '/api/benchmark';
     let state = {};
     let serverOk = false;
     let busy = false;
+    let pollTimer = null;
+    let pollMs = 12000;
+    let pollInFlight = false;
+    let pingTimer = null;
+
+    function showActivity(msg, isErr = false) {
+      const el = document.getElementById('activity');
+      if (!el) return;
+      el.innerHTML = msg;
+      el.className = 'activity' + (isErr ? ' err' : ' ok');
+    }
+
+    function schedulePoll(ms) {
+      pollMs = ms;
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(poll, pollMs);
+    }
 
     function showOfflineBanner(reason) {
       const b = document.getElementById('offline-banner');
       b.style.display = 'block';
       const here = location.href;
-      const wrongPage = !here.startsWith('http://127.0.0.1:5055');
+      const wrongPage = location.protocol === 'file:' || location.port === '5055';
       b.innerHTML = reason || (
-        '<strong>Launcher not connected.</strong><br>' +
-        '1. Double-click <strong>Run Benchmark</strong> on Desktop<br>' +
-        '2. Keep the window titled <strong>Kwalify Launcher - KEEP THIS OPEN</strong> open (not the benchmark run window)<br>' +
-        '3. Use this page: <strong>http://127.0.0.1:5055/</strong>' +
+        '<strong>Benchmark API not reachable.</strong><br>' +
+        'Run <strong>start.bat</strong>, then open <strong>https://kwalify.net/benchmark</strong>.' +
         (wrongPage ? `<br><span style="color:#fca5a5">You are on: ${here}</span>` : '')
       );
-      const pill = document.getElementById('pill-launcher');
-      pill.textContent = 'Launcher down';
+      const pill = document.getElementById('pill-bench-api');
+      pill.textContent = 'API down';
       pill.className = 'pill bad';
     }
 
     function markConnected() {
       serverOk = true;
       document.getElementById('offline-banner').style.display = 'none';
-      const pill = document.getElementById('pill-launcher');
-      pill.textContent = 'Launcher up';
+      const pill = document.getElementById('pill-bench-api');
+      pill.textContent = 'API up';
       pill.className = 'pill ok';
     }
 
@@ -301,12 +333,12 @@
       try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 4000);
-        const r = await fetch('/api/ping', { signal: ctrl.signal });
+        const r = await fetch(API + '/ping', { signal: ctrl.signal });
         clearTimeout(t);
         if (!r.ok) throw new Error('ping failed');
         const data = await r.json();
         if (data.launcherVersion && data.launcherVersion !== LAUNCHER_VERSION) {
-          showOfflineBanner('<strong>Launcher out of date.</strong> Close the launcher window and double-click <strong>Run Benchmark</strong> again.');
+          showOfflineBanner('<strong>Benchmark API out of date.</strong> Hard-refresh this page (Ctrl+F5) or restart <strong>start.bat</strong>.');
           serverOk = false;
           return false;
         }
@@ -325,7 +357,7 @@
       t.style.borderColor = isErr ? 'var(--bad)' : 'var(--ok)';
       t.style.color = isErr ? 'var(--bad)' : 'var(--ok)';
       t.style.display = 'block';
-      setTimeout(() => { t.style.display = 'none'; }, 4000);
+      setTimeout(() => { t.style.display = 'none'; }, isErr ? 12000 : 6000);
     }
 
     function fmtRate(r) {
@@ -347,36 +379,44 @@
         headers: { 'Content-Type': 'application/json' },
         ...opts,
       });
+      const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.error || ('HTTP ' + r.status));
+        throw new Error(data.error || data.message || ('HTTP ' + r.status));
       }
-      return r.json();
+      return data;
     }
 
     async function runRequest(request, suite = '') {
-      if (!serverOk) {
-        toast('Launcher offline - double-click Run Benchmark on Desktop', true);
-        addMsg('Launcher not connected. Double-click **Run Benchmark** on Desktop and keep that window open.', 'bot', true);
+      const label = suite || request || 'benchmark';
+      if (busy) {
+        toast('Already starting a run — wait a moment', true);
         return;
       }
-      if (busy) return;
       busy = true;
+      showActivity('Sending <strong>' + label + '</strong> to the server…');
+      toast('Starting: ' + label);
       document.querySelectorAll('.btn').forEach((b) => b.classList.add('busy'));
       document.getElementById('chat-send').disabled = true;
       try {
         const body = suite ? { suite } : { request };
-        const res = await api('/api/run', { method: 'POST', body: JSON.stringify(body) });
+        const res = await api('/run', { method: 'POST', body: JSON.stringify(body) });
         if (res.ok) {
-          toast(res.message || 'Started - check the PowerShell window');
-          addMsg('Started: ' + (res.preview?.label || suite || request), 'you');
-          setTimeout(poll, 1500);
+          const msg = res.message || 'Benchmark started — look for the PowerShell window on your PC.';
+          showActivity(msg);
+          toast(msg);
+          addMsg('Started: **' + (res.preview?.label || label) + '**', 'you');
+          if (res.pid) addMsg('Process ID **' + res.pid + '** — window title: **Kwalify Benchmark RUN**', 'bot');
+          schedulePoll(2000);
+          setTimeout(poll, 800);
+          setTimeout(poll, 2500);
         } else {
           const err = res.error || 'Could not start';
+          showActivity('Failed: ' + err, true);
           addMsg(err, 'bot', true);
           toast(err, true);
         }
       } catch (e) {
+        showActivity('Error: ' + e.message, true);
         addMsg('Error: ' + e.message, 'bot', true);
         toast(e.message, true);
       } finally {
@@ -428,7 +468,7 @@
       el.querySelectorAll('button').forEach((btn) => {
         btn.addEventListener('click', () => {
           if (btn.dataset.action === 'open-status') {
-            window.open('/public/benchmark-status.html', '_blank');
+            window.open('/benchmark-status.html', '_blank');
             return;
           }
           if (btn.dataset.action === 'repeat') {
@@ -453,11 +493,29 @@
       apiPill.textContent = s.apiUp ? 'Kwalify up' : 'Kwalify down';
       apiPill.className = 'pill ' + (s.apiUp ? 'ok' : 'bad');
 
-      const runPill = document.getElementById('pill-run');
-      runPill.textContent = s.benchmarkRunning ? 'Running…' : 'Idle';
-      runPill.className = 'pill ' + (s.benchmarkRunning ? 'run' : '');
-
       const live = s.live;
+      const runPill = document.getElementById('pill-run');
+      const running = s.benchmarkRunning || (live && live.status && live.status !== 'completed');
+      runPill.textContent = running ? 'Running…' : 'Idle';
+      runPill.className = 'pill ' + (running ? 'run' : '');
+
+      if (running) schedulePoll(2000);
+      else if (pollMs < 12000) schedulePoll(12000);
+
+      if (s.lastSpawn && s.lastSpawn.startedAt) {
+        const ls = s.lastSpawn;
+        const when = new Date(ls.startedAt).toLocaleTimeString();
+        if (ls.ok === false && ls.error) {
+          showActivity('Last start failed at ' + when + ': ' + ls.error, true);
+        } else if (ls.pid) {
+          showActivity('Last started at ' + when + ' (PID ' + ls.pid + '). Look for <strong>Kwalify Benchmark RUN</strong> on your PC.');
+        }
+      } else if (running) {
+        showActivity('Benchmark is running. Live progress updates below.');
+      } else if (!busy) {
+        showActivity('Ready. Click a button or type below. A <strong>PowerShell window</strong> opens on this PC when a run starts.');
+      }
+
       const idle = document.getElementById('live-idle');
       const active = document.getElementById('live-active');
       if (live && live.progress && live.progress.total > 0 && live.status !== 'completed') {
@@ -510,46 +568,55 @@
         });
       }
 
-      document.getElementById('log-tail').textContent =
-        (s.logTail && s.logTail.length) ? s.logTail.join('\n') : '—';
+      const logText = (s.logTail && s.logTail.length) ? s.logTail.join('\n') : '—';
+      const logEl = document.getElementById('log-tail');
+      if (logEl.textContent !== logText) logEl.textContent = logText;
     }
 
     async function poll() {
+      if (pollInFlight) return;
+      pollInFlight = true;
       try {
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 12000);
-        const r = await fetch('/api/state', { signal: ctrl.signal });
+        const t = setTimeout(() => ctrl.abort(), 6000);
+        const r = await fetch(API + '/state', { signal: ctrl.signal, cache: 'no-store' });
         clearTimeout(t);
         if (!r.ok) throw new Error('state failed');
         renderState(await r.json());
       } catch (_) {
-        // State can be slow - don't mark offline if ping still works
         await checkPing();
+      } finally {
+        pollInFlight = false;
       }
     }
 
     async function sendChat() {
-      if (!serverOk) {
-        toast('Launcher offline - double-click Run Benchmark on Desktop', true);
-        addMsg('Launcher not connected. Double-click **Run Benchmark** on Desktop.', 'bot', true);
-        return;
-      }
       const input = document.getElementById('chat-input');
       const msg = input.value.trim();
-      if (!msg) return;
+      if (!msg) {
+        toast('Type something first — e.g. smoke or 40 human go', true);
+        return;
+      }
       input.value = '';
       addMsg(msg, 'you');
+      showActivity('Processing: <strong>' + msg + '</strong>…');
       document.getElementById('chat-send').disabled = true;
       try {
-        const res = await api('/api/chat', {
+        const res = await api('/chat', {
           method: 'POST',
           body: JSON.stringify({ message: msg, forceRun: true }),
         });
         if (res.reply) addMsg(res.reply, 'bot', !res.ok);
-        if (res.error) toast(res.error, true);
+        if (res.error) {
+          showActivity(res.error, true);
+          toast(res.error, true);
+        }
         if (res.run && res.run.ok) {
-          toast(res.run.message || 'Started');
-          setTimeout(poll, 1500);
+          const m = res.run.message || 'Benchmark started';
+          showActivity(m);
+          toast(m);
+          schedulePoll(2000);
+          setTimeout(poll, 800);
         } else if (res.suggestRun && !res.run) {
           const go = document.createElement('button');
           go.className = 'chip';
@@ -571,32 +638,30 @@
     });
     document.getElementById('open-reports').addEventListener('click', async (e) => {
       e.preventDefault();
-      try { await api('/api/open-reports'); } catch (_) {}
+      try {
+        const res = await api('/open-reports');
+        toast(res.message || ('Reports: ' + (res.path || 'reports folder')));
+      } catch (err) {
+        toast(err.message || 'Could not open reports folder', true);
+      }
     });
     document.getElementById('clear-lock').addEventListener('click', async (e) => {
       e.preventDefault();
       try {
-        const res = await api('/api/clear-lock', { method: 'POST', body: '{}' });
+        const res = await api('/clear-lock', { method: 'POST', body: '{}' });
         toast(res.cleared ? 'Lock cleared' : 'No lock to clear');
         poll();
       } catch (err) { toast(err.message, true); }
     });
 
     (async () => {
-      await checkPing();
+      renderButtons(defaultButtons());
       bindAdvancedButtons();
-      try {
-        const btns = await api('/api/buttons');
-        renderButtons(btns.buttons || []);
-        markConnected();
-      } catch (e) {
-        renderButtons(defaultButtons());
-        addMsg('Using offline button presets. Launcher API: ' + e.message, 'bot', true);
-        await checkPing();
-      }
-      poll();
-      setInterval(checkPing, 6000);
-      setInterval(poll, 8000);
+      showActivity('Connecting…');
+      await Promise.all([checkPing(), poll()]);
+      showActivity('Ready. Click a button or type below.');
+      pingTimer = setInterval(checkPing, 30000);
+      schedulePoll(12000);
     })();
   </script>
 </body>

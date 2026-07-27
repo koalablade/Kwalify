@@ -1,9 +1,10 @@
-import { esc, initTheme, toggleTheme } from "../lib/shared.js";
+import { esc, initTheme, showToast, toggleTheme } from "../lib/shared.js";
 import { loadUserPrefs, saveUserPref } from "../lib/user-prefs.js";
 
 initTheme();
 const root = document.getElementById("settingsRoot");
 const prefs = loadUserPrefs();
+let settingsSyncing = false;
 
 async function api(path, opts = {}) {
   const r = await fetch(`/api${path}`, {
@@ -29,7 +30,7 @@ function navHtml() {
 }
 
 function render(user, cacheStatus) {
-  const syncing = cacheStatus?.isSyncing;
+  const syncing = settingsSyncing || cacheStatus?.isSyncing;
   const total = cacheStatus?.totalTracks || 0;
   const lastSynced = cacheStatus?.lastSyncedAt
     ? new Date(cacheStatus.lastSyncedAt).toLocaleString()
@@ -80,8 +81,8 @@ function render(user, cacheStatus) {
       ${user ? `
         <p>${total ? `${total.toLocaleString()} tracks cached` : "Not synced yet"} · Last sync: ${esc(lastSynced)}</p>
         <div class="settings-actions-row">
-          <button type="button" class="btn btn-ghost btn-sm" id="settingsDeltaSync" ${syncing ? "disabled" : ""}>Sync new likes</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="settingsFullSync" ${syncing ? "disabled" : ""}>Full sync</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="settingsDeltaSync" ${syncing ? "disabled" : ""}>${settingsSyncing ? "Syncing…" : "Sync new likes"}</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="settingsFullSync" ${syncing ? "disabled" : ""}>${settingsSyncing ? "Syncing…" : "Full sync"}</button>
         </div>
       ` : `<p><a href="/api/auth/login">Sign in with Spotify</a> to sync your library.</p>`}
     </section>
@@ -166,9 +167,43 @@ function render(user, cacheStatus) {
     else alert(r.data?.error || "Could not delete account.");
   });
 
-  async function runSync(full) {
-    await api(`/spotify/sync${full ? "?full=1" : ""}`, { method: "POST" });
+  async function pollSyncStatus() {
+    const cs = await api("/spotify/cache-status").catch(() => ({ ok: false, data: null }));
+    if (cs.ok && cs.data?.isSyncing) {
+      setTimeout(pollSyncStatus, 5000);
+      return;
+    }
+    settingsSyncing = false;
     boot();
+  }
+
+  async function runSync(full) {
+    if (settingsSyncing) return;
+    settingsSyncing = true;
+    render(user, cacheStatus);
+    const deltaBtn = document.getElementById("settingsDeltaSync");
+    const fullBtn = document.getElementById("settingsFullSync");
+    if (deltaBtn) deltaBtn.textContent = "Syncing…";
+    if (fullBtn) fullBtn.textContent = "Syncing…";
+    deltaBtn?.setAttribute("disabled", "");
+    fullBtn?.setAttribute("disabled", "");
+    try {
+      const result = await api("/spotify/sync", {
+        method: "POST",
+        body: JSON.stringify({ full }),
+      });
+      if (!result.ok) {
+        settingsSyncing = false;
+        showToast(result.data?.error || result.data?.message || "Could not start sync. Please try again.", "error");
+        boot();
+        return;
+      }
+      void pollSyncStatus();
+    } catch (err) {
+      settingsSyncing = false;
+      showToast(err?.message || "Could not start sync. Check your connection.", "error");
+      boot();
+    }
   }
   document.getElementById("settingsDeltaSync")?.addEventListener("click", () => runSync(false));
   document.getElementById("settingsFullSync")?.addEventListener("click", () => runSync(true));

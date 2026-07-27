@@ -1,5 +1,5 @@
 $base = 'http://127.0.0.1:5000'
-$routes = @('/', '/status', '/settings', '/gallery', '/privacy', '/terms', '/api/healthz', '/api/readyz', '/manifest.webmanifest', '/sw.js', '/icons/icon-192.svg', '/icons/icon-512.svg', '/favicon.ico')
+$routes = @('/', '/status', '/settings', '/gallery', '/privacy', '/terms', '/api/healthz', '/api/readyz', '/manifest.webmanifest', '/icons/icon-192.svg', '/icons/icon-512.svg', '/favicon.ico', '/benchmark', '/local-start-help.html')
 Write-Host "LOCAL ROUTES ($base)"
 foreach ($r in $routes) {
   try {

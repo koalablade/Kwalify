@@ -40,8 +40,9 @@ try {
   exit $code
 } catch {
   Write-SpawnLog "ERROR $($_.Exception.Message)"
-  Write-Host "BENCHMARK FAILED TO START: $($_.Exception.Message)" -ForegroundColor Red
-  Write-Host "See reports\benchmark-spawn.log" -ForegroundColor Yellow
+  Write-Host "BENCHMARK FAILED: $($_.Exception.Message)" -ForegroundColor Red
+  Write-Host "See kwalify-benchmark.log and reports\benchmark-spawn.log" -ForegroundColor Yellow
+  Write-Host "If stuck, click Clear stuck lock on the benchmark page or run stop-kwalify-benchmark.bat" -ForegroundColor Yellow
   pause
   exit 1
 }

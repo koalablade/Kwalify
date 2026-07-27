@@ -9,7 +9,7 @@ $Root = (Resolve-Path $Root).Path
 
 $desktop = [Environment]::GetFolderPath("Desktop")
 $shell = New-Object -ComObject WScript.Shell
-$icon = Join-Path $Root "frontend\public\favicon.ico"
+$icon = Join-Path $Root "frontend\public\favicon.svg"
 
 function New-Shortcut([string]$name, [string]$target, [string]$comment, [string]$args = "") {
   $lnk = Join-Path $desktop "$name.lnk"

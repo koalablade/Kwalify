@@ -1,3 +1,4 @@
+# DEPRECATED: Use start.bat in the repo root instead.
 # Start Kwalify locally at https://kwalify.net (Spotify OAuth requires this domain).
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\start-kwalify-local.ps1

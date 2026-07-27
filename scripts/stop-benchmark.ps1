@@ -40,20 +40,26 @@ function Stop-BenchmarkLauncher {
     } catch {}
     Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
   }
-  Stop-Port 5055 "Benchmark launcher"
+  # Port 5055 is a legacy redirect to /benchmark — leave it running.
 }
 
 function Stop-BenchmarkRunWindows {
   $titles = @(
     "Kwalify Benchmark RUN",
-    "Kwalify Benchmark",
-    "Kwalify Launcher - KEEP THIS OPEN"
+    "Kwalify Benchmark"
   )
   Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
     $_.MainWindowTitle -in $titles
   } | ForEach-Object {
     Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
     Write-Host "  $($_.MainWindowTitle) : closed (PID $($_.Id))"
+  }
+
+  Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | Where-Object {
+    $_.CommandLine -match 'spawn-benchmark|run-kwalify-benchmark|benchmark:human-keep-live'
+  } | ForEach-Object {
+    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+    Write-Host "  benchmark process : stopped (PID $($_.ProcessId))"
   }
 }
 

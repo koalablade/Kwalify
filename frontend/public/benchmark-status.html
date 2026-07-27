@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0d0b1e" />
   <title>Kwalify Benchmark — Live</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <style>
     :root { --bg: #0f0a1a; --card: #1a1228; --card2: #12091f; --text: #f3e8ff; --muted: #c4b5fd; --accent: #a855f7; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --line: #3b2667; }
     * { box-sizing: border-box; }
@@ -73,12 +77,49 @@
   </div>
 
   <script>
-    const paths = [
-      '../../reports/benchmark-live.json',
+    const fallbackPaths = [
       '/reports/benchmark-live.json',
+      '../../reports/benchmark-live.json',
       '../reports/benchmark-live.json',
     ];
-    let lastUpdated = null;
+    let pollBusy = false;
+    let pollMs = 10000;
+
+    function schedulePoll(ms) {
+      pollMs = ms;
+      clearInterval(pollTimer);
+      pollTimer = setInterval(poll, pollMs);
+    }
+    let pollTimer = null;
+
+    async function poll() {
+      if (pollBusy) return;
+      pollBusy = true;
+      try {
+        const r = await fetch('/api/benchmark/data/live', { cache: 'no-store' });
+        if (r.ok) {
+          const data = await r.json();
+          render(data);
+          if (data.status && data.status !== 'completed') schedulePoll(5000);
+          else schedulePoll(10000);
+          return;
+        }
+        for (const p of fallbackPaths) {
+          try {
+            const fr = await fetch(p + '?t=' + Date.now(), { cache: 'no-store' });
+            if (fr.ok) {
+              render(await fr.json());
+              return;
+            }
+          } catch (_) {}
+        }
+      } finally {
+        pollBusy = false;
+      }
+    }
+
+    poll();
+    schedulePoll(10000);
 
     function pct(n) { return n != null ? Math.round(n * 1000) / 10 + '%' : '—'; }
     function fmtTime(iso) {
@@ -138,21 +179,6 @@
           data.status !== 'completed' && ageMin > 2 ? 'block' : 'none';
       }
     }
-
-    async function poll() {
-      for (const p of paths) {
-        try {
-          const r = await fetch(p + '?t=' + Date.now());
-          if (r.ok) {
-            render(await r.json());
-            return;
-          }
-        } catch (_) {}
-      }
-    }
-
-    poll();
-    setInterval(poll, 10000);
   </script>
 </body>
 </html>

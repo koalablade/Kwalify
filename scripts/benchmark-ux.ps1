@@ -305,10 +305,12 @@ function Finalize-BenchmarkUx {
   param(
     [string]$RunId,
     [hashtable]$State,
-    [int]$ExitCode,
+    [object]$ExitCode,
     [hashtable]$Metrics,
     [hashtable]$Choice = @{}
   )
+  if ($ExitCode -is [System.Array]) { $ExitCode = [int]$ExitCode[$ExitCode.Count - 1] }
+  else { $ExitCode = [int]$ExitCode }
   Stop-BenchmarkStuckWatch
   $prev = $null
   if (Test-Path -LiteralPath $script:HistoryPath) {

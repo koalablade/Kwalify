@@ -290,9 +290,19 @@ function Test-SiteReady([string]$url) {
 
 function Stop-PortListeners([int]$port) {
   if (-not (PortOpen $port)) { return }
-  Write-Host "  Stopping old process on port $port..."
-  Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+  $allowed = @("node", "local-ssl-proxy", "cloudflared", "powershell")
+  $pids = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique
+  foreach ($procId in $pids) {
+    $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+    if (-not $proc) { continue }
+    if ($allowed -contains $proc.ProcessName) {
+      Write-Host "  Stopping $($proc.ProcessName) on port $port (pid $procId)..."
+      Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+    } else {
+      Write-Host "  Port $port held by $($proc.ProcessName) (pid $procId) — not stopping (not Kwalify)" -ForegroundColor Yellow
+    }
+  }
   Start-Sleep -Seconds 2
 }
 
@@ -315,14 +325,25 @@ function Test-Port443Bindable {
 }
 
 function Open-StartHelpPage([string]$Reason) {
+  $base = "http://127.0.0.1:5000"
+  $uri = "$base/local-start-help.html"
+  if ($Reason) {
+    $uri += "?reason=" + [uri]::EscapeDataString($Reason)
+  }
+  try {
+    $rz = Invoke-RestMethod -Uri "$base/api/healthz" -TimeoutSec 3
+    if ($rz) {
+      Start-Process $uri | Out-Null
+      return
+    }
+  } catch {}
   $help = Join-Path $Root "frontend\public\local-start-help.html"
   if (-not (Test-Path -LiteralPath $help)) { return }
-  $uri = "file:///$($help.Replace('\', '/'))"
+  $fileUri = "file:///$($help.Replace('\', '/'))"
   if ($Reason) {
-    $encoded = [uri]::EscapeDataString($Reason)
-    $uri += "?reason=$encoded"
+    $fileUri += "?reason=" + [uri]::EscapeDataString($Reason)
   }
-  Start-Process $uri | Out-Null
+  Start-Process $fileUri | Out-Null
 }
 
 function Exit-Launcher([int]$code, [string]$reason) {
@@ -534,9 +555,14 @@ if ($Mode -eq "local") {
     Set-EnvFileLine $envPath "NODE_ENV" "production"
   }
   $siteUrl = $env:APP_URL.TrimEnd("/")
-  $redirectUri = if ($env:SPOTIFY_REDIRECT_URI) { $env:SPOTIFY_REDIRECT_URI } else { "$siteUrl/api/auth/callback" }
-  Set-EnvFileLine $envPath "SPOTIFY_REDIRECT_URI" $redirectUri
-  Set-EnvFileLine $envPath "FRONTEND_URL" $siteUrl
+  if (-not $env:SPOTIFY_REDIRECT_URI) {
+    Set-EnvFileLine $envPath "SPOTIFY_REDIRECT_URI" "$siteUrl/api/auth/callback"
+  }
+  if (-not $env:FRONTEND_URL) {
+    Set-EnvFileLine $envPath "FRONTEND_URL" $siteUrl
+  }
+  Load-DotEnvFile $envPath
+  $redirectUri = $env:SPOTIFY_REDIRECT_URI
 } else {
   Set-EnvFileLine $envPath "PORT" "5000"
   Set-EnvFileLine $envPath "NODE_ENV" "development"
@@ -849,11 +875,16 @@ if ($Mode -eq "selfhost") {
   Write-Host "  ========================================" -ForegroundColor Green
   Write-Host "  Site:    $siteUrl"
   Write-Host "  Status:  $siteUrl/status"
+  Write-Host "  Benchmark: $siteUrl/benchmark"
   Write-Host "  Logs:    kwalify-api.log"
   Write-Host ""
   Write-Host "  KEEP OPEN: Kwalify API + Cloudflare Tunnel windows"
   Write-Host "  Stop:      stop-kwalify.bat (or Desktop shortcut)"
   Write-Host ""
+  $benchRedirect = Join-Path $Root "scripts\ensure-benchmark-redirect.ps1"
+  if (Test-Path -LiteralPath $benchRedirect) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $benchRedirect -Root $Root | Out-Null
+  }
   if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
   exit 0
 }

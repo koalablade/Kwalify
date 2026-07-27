@@ -5102,6 +5102,22 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
+    if (auditTokenAuthorized && auditUserIdRaw) {
+      const allowedRaw = process.env["EVAL_ALLOWED_SPOTIFY_USER_IDS"]?.trim();
+      if (allowedRaw) {
+        const allowedIds = allowedRaw.split(",").map((id) => id.trim()).filter(Boolean);
+        if (allowedIds.length > 0 && !allowedIds.includes(auditUserIdRaw)) {
+          generateFail(
+            res,
+            403,
+            "AUDIT_USER_NOT_ALLOWED",
+            "This spotifyUserId is not permitted for eval token access.",
+          );
+          return;
+        }
+      }
+    }
+
     if (isShuttingDown()) {
       generateFail(
         res,

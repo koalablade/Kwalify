@@ -1,6 +1,9 @@
 // ── Kwalify · Gallery ─────────────────────────────────────────────────────────
 import { esc, fmtDate, initTheme, spiBadge, toggleTheme } from "../lib/shared.js";
 
+// After Spotify login, app.js boot should redirect to sessionStorage.returnTo when set.
+const galleryDebug = new URLSearchParams(window.location.search).get("debug") === "1";
+
 initTheme();
 const root = document.getElementById("galleryRoot");
 
@@ -296,11 +299,16 @@ function renderCards(playlists) {
     ${playlists.map((p) => {
       const arts = getArts(p);
       const tags = getTags(p);
-      const note = generatorNote(p);
+      const note = galleryDebug ? generatorNote(p) : "";
       const count = Array.isArray(p.tracks) ? p.tracks.length : (p.trackCount || 0);
       const selected = selectedPlaylistIds.has(Number(p.id));
+      const openHref = !deleteMode && p.shareSlug ? `/p/${encodeURIComponent(p.shareSlug)}` : null;
+      const cardClass = `gallery-card ${deleteMode ? "gallery-card--selectable" : ""} ${openHref ? "gallery-card--link" : ""} ${selected ? "selected" : ""}`.trim();
+      const cardAttrs = deleteMode
+        ? `data-select-playlist-id="${p.id}" role="button" tabindex="0"`
+        : (openHref ? `data-open-href="${esc(openHref)}" role="link" tabindex="0"` : "");
       return `
-      <div class="gallery-card ${deleteMode ? "gallery-card--selectable" : ""} ${selected ? "selected" : ""}" ${deleteMode ? `data-select-playlist-id="${p.id}" role="button" tabindex="0"` : ""}>
+      <div class="${cardClass}" ${cardAttrs}>
         ${deleteMode ? `<div class="gallery-select-check">${selected ? "✓" : ""}</div>` : ""}
         ${mosaicHtml(arts)}
         <div class="gallery-card-body">
@@ -311,7 +319,7 @@ function renderCards(playlists) {
           <div class="gallery-card-meta">${count} tracks · ${fmtDate(p.createdAt)}</div>
           ${deleteMode ? "" : `<div class="gallery-card-actions">
             ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm">${spi()} Spotify</a>` : ""}
-            ${p.shareSlug ? `<a href="/p/${esc(p.shareSlug)}" class="btn btn-ghost btn-sm">Share</a>` : ""}
+            ${openHref ? `<a href="${esc(openHref)}" class="btn btn-ghost btn-sm">Open</a>` : ""}
           </div>`}
         </div>
       </div>`;
@@ -328,6 +336,7 @@ function renderGallery() {
       <h1 class="gallery-title">Your playlists</h1>
       <p class="gallery-sub">Saved mixes from your liked songs. Use this page to revisit good results or clean up test runs.</p>
     </div>
+    ${galleryPlaylists.length >= 100 ? `<div class="alert alert-warn" style="margin-bottom:16px;">Showing latest 100 playlists</div>` : ""}
     ${renderGalleryControls(visiblePlaylists)}
     ${renderGalleryActions(visiblePlaylists)}
     ${renderCards(visiblePlaylists)}
@@ -432,6 +441,21 @@ function wireGalleryEvents() {
       }
     });
   });
+  document.querySelectorAll("[data-open-href]").forEach((card) => {
+    const href = card.dataset.openHref;
+    if (!href) return;
+    const open = () => { window.location.href = href; };
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("a, button")) return;
+      open();
+    });
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
+  });
 }
 
 async function boot() {
@@ -441,8 +465,12 @@ async function boot() {
 
   const meRes = await api("/auth/me").catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (meRes.status === 401 || !meRes.ok) {
-    if (meRes.status === 401) window.location.href = "/?gallery=login";
-    else root.innerHTML = navHtml() + `<div class="empty-state"><h3>Could not load gallery</h3><p>Check your connection and refresh.</p></div>`;
+    if (meRes.status === 401) {
+      try { sessionStorage.setItem("returnTo", "/gallery"); } catch { /* private mode */ }
+      window.location.href = "/?gallery=login";
+    } else {
+      root.innerHTML = navHtml() + `<div class="empty-state"><h3>Could not load gallery</h3><p>Check your connection and refresh.</p></div>`;
+    }
     return;
   }
   galleryUser = meRes.data;

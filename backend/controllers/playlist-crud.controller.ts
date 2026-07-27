@@ -19,6 +19,7 @@ import { z } from "zod";
 import { onTrackRemoved, onTrackSave, onTrackSkip, onTrackUndoFeedback, type FeedbackMemory, type FeedbackTrack } from "../lib/feedback-memory";
 import { markGenerateResultCacheStale } from "../lib/generate-result-cache";
 import { recordSceneFeedbackDown } from "../lib/scene-feedback-memory";
+import { checkRateLimit } from "../lib/rate-limit";
 
 const router: IRouter = Router();
 
@@ -283,6 +284,14 @@ router.post("/share/:slug/track-react", async (req, res): Promise<void> => {
   const reaction = String(req.body?.reaction ?? "").trim();
   if (!slug || !trackId || !["up", "down"].includes(reaction)) {
     res.status(400).json({ error: "slug, trackId, and reaction (up|down) required." });
+    return;
+  }
+  const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+  const rateCheck = checkRateLimit(`share-react:ip:${clientIp}`, 30, 60_000);
+  if (!rateCheck.allowed) {
+    const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
+    res.setHeader("Retry-After", String(retryAfterSec));
+    res.status(429).json({ error: "Too many reactions. Please try again later." });
     return;
   }
   try {

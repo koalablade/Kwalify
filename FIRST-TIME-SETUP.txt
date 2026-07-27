@@ -2,7 +2,7 @@ KWALIFY - FIRST TIME SETUP (Windows)
 =====================================
 
 Spotify login requires https://kwalify.net (not localhost).
-Double-click start-kwalify.bat — it handles almost everything automatically.
+Double-click start.bat — it handles almost everything automatically (same as start-kwalify.bat).
 
 
 ONE-TIME PREREQUISITES
@@ -43,28 +43,27 @@ DAILY USE
 ---------
 
 Solo dev (just you on this PC):
-  Start:  start-kwalify.bat
+  Start:  start.bat          (or start-kwalify.bat — same thing)
   Stop:   stop-kwalify.bat
 
 Closed beta (friends over the internet from your PC):
   One-time:  setup-self-host.bat
-  Daily:     start-kwalify-selfhost.bat
+  Daily:     start.bat        (selfhost + Cloudflare tunnel)
   Stop:      stop-kwalify.bat
 
   Recommended exposure: Cloudflare Tunnel (no router port forwarding).
-  After setup, finish deploy\cloudflared.yml and add beta testers in Spotify Dashboard.
+  Public site: https://kwalify.net (when tunnel is up)
+  Local site:  http://127.0.0.1:5000 (always works on this PC)
 
 What start does:
-  - Purple kwalify.net banner
   - Starts PostgreSQL if needed
-  - Ensures kwalify.net -> 127.0.0.1 (hosts, Admin prompt first time)
-  - Ensures TLS certs exist
   - Builds if needed
-  - Starts API (minimized window) on port 5000
-  - Starts HTTPS proxy on port 443
+  - Starts API on port 5000
+  - Starts Cloudflare tunnel (selfhost mode)
   - Opens https://kwalify.net
+  - Starts legacy port 5055 redirect -> /benchmark (old bookmarks)
 
-If HTTPS fails: right-click start-kwalify.bat -> Run as administrator.
+If HTTPS fails: right-click start.bat -> Run as administrator.
 
 
 WHAT START-KWALIFY.BAT DOES (AUTOMATIC)
@@ -115,21 +114,24 @@ API log file (searchable):
 
 
 LOCAL BENCHMARKS
----------------
+----------------
 
-ONE FILE:  start-kwalify-benchmark.bat   (Desktop: Kwalify Benchmark)
+Prereq: start.bat running on this PC.
 
-  1 Smoke test          - is API working? (~2 min)
-  2 View status         - SAVE/SKIP/underfill while running
-  3 Package results     - zip to Desktop for sharing
-  4-8 Easy/Medium/Hard/Edge/Quick - tiered human prompts
-  9 LARGE RUN (100)     - full benchmark (~4h, auto-resume + zip)
-  m More suites         - overnight, eval harness, etc.
+WEB (recommended):
+  http://127.0.0.1:5000/benchmark     control panel (buttons + chat)
+  https://kwalify.net/benchmark       same UI via tunnel (when up)
 
-Large run from command line:
-  start-kwalify-benchmark.bat large
+  Live dashboard:  /benchmark-status.html
+  Run history:     /benchmark-history.html
+  This guide:      /benchmark-guide.html
 
-Prereq: Start Kwalify first (or LARGE RUN starts API for you).
-Status file while running: reports\BENCHMARK-STATUS.txt
+CLI (power users):
+  start-kwalify-benchmark.bat         menu + natural-language commands
+  start-kwalify-benchmark.bat smoke   quick API check (~2 min)
+  start-kwalify-benchmark.bat large   100-prompt run (~4h)
+
+Desktop shortcut "Run Benchmark" opens the local control panel.
+Status in CLI prints a terminal summary; menu "status" also opens the web dashboard.
 
 Shortcuts: create-kwalify-shortcuts.bat  (Start + Stop + Benchmark)

@@ -71,31 +71,29 @@ function Show-ReportHints {
   }
 }
 
-function Open-BenchmarkGuide {
-  $html = Join-Path $root "frontend\public\benchmark-guide.html"
-  if (Test-Path -LiteralPath $html) {
-    Start-Process $html | Out-Null
-    return $true
+function Open-BenchmarkWebPage([string]$Page) {
+  $base = "http://127.0.0.1:5000"
+  if (-not (Test-ApiRunning $base)) {
+    Write-WarnLine "Kwalify is not running. Double-click start.bat first."
+    return $false
   }
-  return $false
+  Start-Process "$base/$Page" | Out-Null
+  return $true
+}
+
+function Open-BenchmarkGuide {
+  Open-BenchmarkWebPage "benchmark-guide.html"
+  return $true
 }
 
 function Open-BenchmarkHistory {
-  $html = Join-Path $root "frontend\public\benchmark-history.html"
-  if (Test-Path -LiteralPath $html) {
-    Start-Process $html | Out-Null
-    return $true
-  }
-  return $false
+  Open-BenchmarkWebPage "benchmark-history.html"
+  return $true
 }
 
 function Open-BenchmarkStatusPage {
-  $html = Join-Path $root "frontend\public\benchmark-status.html"
-  if (Test-Path -LiteralPath $html) {
-    Start-Process $html | Out-Null
-    return $true
-  }
-  return $false
+  Open-BenchmarkWebPage "benchmark-status.html"
+  return $true
 }
 
 function Open-ReportsFolder {
@@ -150,7 +148,7 @@ function Show-Help {
   Write-Host "FULL MIX (genre-lock prompts included)"
   Write-Host "  mix-small yes / mix-medium yes / mix-long yes"
   Write-Host ""
-  Write-Host "TOOLS:  smoke   status   package   history   menu"
+  Write-Host "TOOLS:  smoke   status (terminal + web dashboard)   package   history   menu"
   Write-Host "MORE:   eval, reliability, 6h, tiers (menu [m])"
   Write-Host ""
 }
@@ -321,7 +319,7 @@ function Ensure-Preflight([string]$url) {
   if ($SkipPreflight -or $DryRun) { return }
   Step "Preflight API + eval token"
   try {
-    & (Join-Path $PSScriptRoot "preflight-api.ps1") -BaseUrl $url
+    $null = & (Join-Path $PSScriptRoot "preflight-api.ps1") -BaseUrl $url
     Write-Ok "Preflight passed"
   } catch {
     if ($SpawnLocal -and -not $Production) { Write-WarnLine "Preflight skipped - will auto-start API"; return }
@@ -366,7 +364,7 @@ function Invoke-NpmScript {
   if ((Receive-Job $job) -and (Test-Path $stuckWarn)) {
     Write-Host ""
     Write-WarnLine (Get-Content $stuckWarn -Raw)
-    Write-Host "  Open benchmark-status.html to check progress"
+    Write-Host "  Live web dashboard: http://127.0.0.1:5000/benchmark-status.html"
   }
   Remove-Job $job -Force -ErrorAction SilentlyContinue
   Stop-BenchmarkStuckWatch
@@ -383,6 +381,12 @@ function Find-LatestReport([string]$pattern) {
     Sort-Object LastWriteTime -Descending | Select-Object -ExpandProperty FullName
 }
 
+function Get-ExitCode($value) {
+  if ($null -eq $value) { return 1 }
+  if ($value -is [System.Array]) { return [int]$value[$value.Count - 1] }
+  return [int]$value
+}
+
 function Run-Suite {
   param([string]$Id, [string]$Url, [string]$Commit, [string]$User, [string]$Token)
   $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -390,7 +394,13 @@ function Run-Suite {
   $outEval = "reports/playlist-evaluation/local-$stamp"
 
   switch ($Id) {
-    "status" { Show-BenchmarkStatus | Out-Null; return 0 }
+    "status" {
+      Show-BenchmarkStatus | Out-Null
+      Write-Host ""
+      Write-Host "  Opening live web dashboard..." -ForegroundColor Cyan
+      Open-BenchmarkStatusPage | Out-Null
+      return 0
+    }
     "package" {
       try {
         $zip = Package-BenchmarkRun
@@ -400,7 +410,7 @@ function Run-Suite {
       } catch { Write-ErrLine $_.Exception.Message; return 1 }
     }
     "smoke" {
-      Ensure-Preflight $Url
+      $null = Ensure-Preflight $Url
       if ($DryRun) { Write-Ok "Dry run smoke"; return 0 }
       $escapedUrl = $Url.Replace("'", "\'")
       $nodeLines = @(
@@ -634,7 +644,7 @@ $aliases = @{ "human-100"="human"; "human100"="human"; "live-6h"="6h"; "eval10"=
 if ($aliases.ContainsKey($Suite)) { $Suite = $aliases[$Suite] }
 
 if ($Suite -in @("status", "package")) {
-  Exit-Benchmark (Run-Suite -Id $Suite -Url "" -Commit $null -User "" -Token "") ""
+  Exit-Benchmark (Get-ExitCode (Run-Suite -Id $Suite -Url "" -Commit $null -User "" -Token "")) ""
 }
 
 $url = Get-ResolvedBaseUrl
@@ -714,7 +724,7 @@ if ($Suite -eq "human" -and -not $DryRun) {
   Open-BenchmarkStatusPage | Out-Null
 }
 
-$exitCode = Run-Suite -Id $Suite -Url $url -Commit $commit -User $user -Token $token
+$exitCode = Get-ExitCode (Run-Suite -Id $Suite -Url $url -Commit $commit -User $user -Token $token)
 $metrics = Collect-MetricsFromReports -ReportPaths $lastReportPaths
 Complete-BenchmarkRun -RunId $script:BenchmarkRunId -State $script:BenchmarkRunState -ExitCode $exitCode -Metrics $metrics -ReportPaths $lastReportPaths
 

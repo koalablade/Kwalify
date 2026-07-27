@@ -18,6 +18,7 @@ import { getRuntimeReadiness, isRuntimeReady } from "./lib/runtime-readiness";
 import { acquireGenerateSlot, getGenerateOverloadState, recordGenerateLatency } from "./lib/runtime-overload";
 import { recordServerBusy } from "./lib/ops-metrics";
 import { globalRateLimit } from "./lib/global-rate-limit";
+import { requireReportsAccess } from "./middleware/benchmark-auth";
 import "./lib/session";
 
 let appInstanceCreated = false;
@@ -162,7 +163,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       ) {
         return next();
       }
-      if (req.hostname === "localhost" || req.hostname === canonical.hostname) return next();
+      if (req.hostname === "localhost" || req.hostname === "127.0.0.1" || req.hostname === canonical.hostname) return next();
       return res.redirect(301, `${canonical.origin}${req.originalUrl}`);
     });
   }
@@ -266,12 +267,35 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
   app.use(express.urlencoded({ extended: true, limit: process.env["URLENCODED_BODY_LIMIT"] ?? "256kb" }));
 
   const frontendPublicDir = path.resolve(__dirname, "../../frontend/public");
+  const reportsDir = path.resolve(__dirname, "../../reports");
   app.use(express.static(frontendPublicDir));
+  app.use(
+    "/reports",
+    requireReportsAccess,
+    express.static(reportsDir, {
+      index: false,
+      dotfiles: "deny",
+      setHeaders(res, filePath) {
+        if (filePath.endsWith(".json")) {
+          res.setHeader("Cache-Control", "no-store");
+        }
+      },
+    }),
+  );
   app.get("/", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "index.html")));
   app.get("/p/:slug", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "playlist.html")));
   app.get("/gallery", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "gallery.html")));
   app.get("/settings", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "settings.html")));
   app.get("/status", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "status.html")));
+  app.get("/benchmark", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "benchmark-launcher.html")));
+  app.get("/benchmark-status.html", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "benchmark-status.html")));
+  app.get("/benchmark-history.html", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "benchmark-history.html")));
+  app.get("/benchmark-guide.html", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "benchmark-guide.html")));
+  app.get("/local-start-help.html", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "local-start-help.html")));
+  app.get("/favicon.ico", (_req, res) => res.redirect(301, "/favicon.svg"));
+  for (const legacy of ["benchmark-status.html", "benchmark-history.html", "benchmark-guide.html", "favicon.ico"]) {
+    app.get(`/public/${legacy}`, (_req, res) => res.redirect(301, `/${legacy}`));
+  }
   app.get("/privacy", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "privacy.html")));
   app.get("/terms", (_req, res) => res.sendFile(path.resolve(frontendPublicDir, "terms.html")));
 

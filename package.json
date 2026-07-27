@@ -10,6 +10,8 @@
     "start": "node backend/dist/server.js",
     "test": "npm run build && node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js backend/dist/tests/pipeline-authority.test.js backend/dist/tests/pipeline-authority-hardening.test.js backend/dist/tests/pipeline-authority-verification.test.js",
     "test:smoke": "npm run build && node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js",
+    "test:human-curation": "npm run build && node --test backend/dist/tests/human-curation-alignment-v2.test.js",
+    "test:unit": "npm run build && node --test backend/dist/tests/*.test.js",
     "backup:db": "bash scripts/backup-db.sh",
     "backup:db:win": "powershell -ExecutionPolicy Bypass -File scripts/backup-db.ps1",
     "validate:real-library": "npm run build && node backend/dist/scripts/real-library-validation.js",

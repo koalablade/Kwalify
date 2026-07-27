@@ -17,6 +17,11 @@ This directory contains technical documentation for the Kwalify codebase.
 | [local-commands.md](./local-commands.md) | Terminal cheat sheet: dev, CI, benchmarks, deploy, token sync (use when IDE is down) |
 | [benchmark-environment.md](./benchmark-environment.md) | Benchmark secrets, GitHub Actions injection, env aliases, validation |
 | [audit-report.md](./audit-report.md) | Full audit findings: bugs, dead code, design observations, security, recommendations |
+| [OPERATIONS.md](./OPERATIONS.md) | Runbook: deploy, rollback, incidents, on-call checklist |
+| [monitoring.md](./monitoring.md) | Ops metrics, log alerts, uptime checks (`/api/readyz`) |
+| [degraded-mode.md](./degraded-mode.md) | Degraded behaviour when DB, Spotify, or queue is under stress |
+| [latency-slos.md](./latency-slos.md) | Generation latency targets and queue limits |
+| [human-curation-alignment-v2.md](./human-curation-alignment-v2.md) | North-star doctrine: saveability, scene integrity, no filler |
 
 ## Quick Reference
 

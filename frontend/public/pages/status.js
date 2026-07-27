@@ -3,6 +3,21 @@ import { loadUserPrefs, saveUserPref } from "../lib/user-prefs.js";
 
 initTheme();
 const root = document.getElementById("statusRoot");
+let statusRefreshTimer = null;
+
+function clearStatusRefresh() {
+  if (statusRefreshTimer) {
+    clearTimeout(statusRefreshTimer);
+    statusRefreshTimer = null;
+  }
+}
+
+function scheduleStatusRefresh(ready) {
+  clearStatusRefresh();
+  if (!ready) {
+    statusRefreshTimer = setTimeout(() => boot(true), 10_000);
+  }
+}
 
 function statusLabel(ok, yes = "OK", no = "Problem") {
   return ok ? `<span class="status-pill status-pill--ok">${yes}</span>` : `<span class="status-pill status-pill--bad">${no}</span>`;
@@ -44,7 +59,9 @@ function render({ httpOk, data }) {
   ${navHtml()}
   <div class="status-page app-wrap">
     <h1 class="vibe-heading">System status</h1>
-    <p class="vibe-sub">Plain-English health for your Kwalify server. Refresh to update.</p>
+    <p class="vibe-sub">${ready
+    ? "Plain-English health for your Kwalify server. Refresh to update."
+    : "Plain-English health for your Kwalify server. Auto-refreshing every 10 seconds until ready."}</p>
 
     <div class="status-hero ${ready ? "status-hero--ok" : "status-hero--bad"}">
       <div class="status-hero-title">${ready ? "All systems ready" : "Not ready yet"}</div>
@@ -89,12 +106,17 @@ function render({ httpOk, data }) {
     </details>
   </div>`;
 
-  document.getElementById("refreshStatusBtn")?.addEventListener("click", boot);
+  document.getElementById("refreshStatusBtn")?.addEventListener("click", () => boot(false));
 }
 
-async function boot() {
-  root.innerHTML = `${navHtml()}<div class="loading-shell"><div class="spinner"></div><span>Checking status…</span></div>`;
-  render(await fetchReady());
+async function boot(silent = false) {
+  if (!silent) {
+    root.innerHTML = `${navHtml()}<div class="loading-shell"><div class="spinner"></div><span>Checking status…</span></div>`;
+  }
+  const payload = await fetchReady();
+  const ready = payload.data?.status === "ready" || payload.data?.readiness === "ready";
+  render(payload);
+  scheduleStatusRefresh(ready);
 }
 
 boot();

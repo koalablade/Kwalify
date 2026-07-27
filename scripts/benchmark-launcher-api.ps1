@@ -62,30 +62,28 @@ function Start-BenchmarkProcess {
     [switch]$RepeatLast
   )
 
-  $spawn = Join-Path $script:LauncherRoot "scripts\spawn-benchmark.ps1"
-  if (-not (Test-Path -LiteralPath $spawn)) {
-    throw "Missing spawn script: $spawn"
+  $windowScript = Join-Path $script:LauncherRoot "scripts\spawn-benchmark-window.ps1"
+  if (-not (Test-Path -LiteralPath $windowScript)) {
+    throw "Missing spawn script: $windowScript"
   }
 
-  $args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $spawn)
-  if ($RepeatLast) { $args += "-RepeatLast" }
-  elseif ($Suite) { $args += @("-Suite", $Suite) }
-  elseif ($Request) { $args += @("-Request", $Request) }
+  $spawnArgs = @()
+  if ($RepeatLast) { $spawnArgs += "-RepeatLast" }
+  elseif ($Suite) { $spawnArgs += @("-Suite", $Suite) }
+  elseif ($Request) { $spawnArgs += @("-Request", $Request) }
   else { throw "Nothing to run - no suite or request." }
 
-  $logDir = Join-Path $script:LauncherRoot "reports"
-  if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
-  $log = Join-Path $logDir "benchmark-spawn.log"
-  $label = if ($RepeatLast) { "repeat" } elseif ($Suite) { $Suite } else { $Request }
-  Add-Content -LiteralPath $log -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') UI-SPAWN $label" -Encoding UTF8
-
-  try {
-    $proc = Start-Process -FilePath "powershell.exe" -ArgumentList $args -WorkingDirectory $script:LauncherRoot -WindowStyle Normal -PassThru
-    if (-not $proc) { throw "Start-Process returned no process." }
-    Add-Content -LiteralPath $log -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') UI-SPAWN pid=$($proc.Id)" -Encoding UTF8
-  } catch {
-    Add-Content -LiteralPath $log -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') UI-SPAWN-FAIL $($_.Exception.Message)" -Encoding UTF8
-    throw
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $windowScript @spawnArgs | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    $statusPath = Join-Path $script:LauncherRoot "reports\benchmark-last-spawn.json"
+    $err = "Could not start benchmark window."
+    if (Test-Path -LiteralPath $statusPath) {
+      try {
+        $st = Get-Content -LiteralPath $statusPath -Raw | ConvertFrom-Json
+        if ($st.error) { $err = [string]$st.error }
+      } catch {}
+    }
+    throw $err
   }
 }
 
@@ -112,7 +110,23 @@ function Get-LauncherLogTail {
     if ($sizeMb -gt 5) {
       return @("(log is $([math]::Round($sizeMb))MB - tail skipped for speed)")
     }
-    return @(Get-Content -LiteralPath $script:LauncherLog -Tail $Lines -ErrorAction SilentlyContinue)
+    $fs = [System.IO.File]::Open(
+      $script:LauncherLog,
+      [System.IO.FileMode]::Open,
+      [System.IO.FileAccess]::Read,
+      [System.IO.FileShare]::ReadWrite
+    )
+    try {
+      $reader = New-Object System.IO.StreamReader($fs)
+      $all = [System.Collections.Generic.List[string]]::new()
+      while ($null -ne ($line = $reader.ReadLine())) {
+        $all.Add($line) | Out-Null
+      }
+      if ($all.Count -le $Lines) { return @($all) }
+      return @($all.GetRange($all.Count - $Lines, $Lines))
+    } finally {
+      $fs.Dispose()
+    }
   } catch { return @() }
 }
 
@@ -128,7 +142,7 @@ function Get-LauncherPing {
   return @{
     ok = $true
     launcherVersion = "2"
-    url = "http://127.0.0.1:5055/"
+    url = "/benchmark"
   }
 }
 
@@ -233,12 +247,22 @@ function Invoke-LauncherRun {
     $preview = @{ label = $target.Suite }
   }
 
+  $spawnPid = $null
+  $statusPath = Join-Path $script:LauncherRoot "reports\benchmark-last-spawn.json"
+  if (Test-Path -LiteralPath $statusPath) {
+    try {
+      $st = Get-Content -LiteralPath $statusPath -Raw | ConvertFrom-Json
+      if ($st.pid) { $spawnPid = [int]$st.pid }
+    } catch {}
+  }
+
   return @{
     ok = $true
     request = $Request
     suite = $Suite
     preview = $preview
-    message = "Benchmark started - a PowerShell window will show progress."
+    pid = $spawnPid
+    message = "Benchmark started - look for a PowerShell window titled Kwalify Benchmark RUN on your PC."
   }
 }
 

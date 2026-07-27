@@ -54,20 +54,25 @@ async function readinessHandler(_req: Request, res: Response): Promise<void> {
   const databaseAvailable = runtimeReady ? await checkDatabase() : false;
   const spotifyConfigured = checkSpotifyConfigured();
   const pipelineAvailable = runtimeReady && pipelineAuthority.pipelineAuthorityEnabled !== false;
+  const poolWaitingCount = typeof pool.waitingCount === "number" ? pool.waitingCount : 0;
+  const poolSaturated = poolWaitingCount > 5;
 
   // Spotify is required for generation but not for liveness; a missing Spotify
   // config should surface loudly without necessarily failing readiness during a
   // deploy. Database + runtime are the hard gates.
-  const ready = runtimeReady && databaseAvailable;
+  const ready = runtimeReady && databaseAvailable && !poolSaturated;
 
   res.status(ready ? 200 : 503).json({
     status: ready ? "ready" : "not_ready",
+    reason: poolSaturated ? "db_pool_saturated" : undefined,
     readiness: readiness.state,
     shuttingDown: isShuttingDown(),
     checks: {
       databaseAvailable,
       spotifyConfigured,
       pipelineAvailable,
+      poolSaturated,
+      poolWaitingCount,
     },
     uptimeMs: readiness.uptimeMs,
     readyAt: readiness.readyAt,

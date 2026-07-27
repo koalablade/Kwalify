@@ -47,8 +47,8 @@ This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend).
 
 | Environment | How to run | Spotify OAuth |
 |-------------|------------|---------------|
-| **Local Windows (primary)** | `start-kwalify.bat` → `https://kwalify.net` | `https://kwalify.net/api/auth/callback` |
-| **Self-hosted beta (your PC)** | `setup-self-host.ps1` then `start-kwalify-selfhost.bat` | Your public URL + `/api/auth/callback` |
+| **Local Windows (primary)** | `start.bat` → `https://kwalify.net` (+ `http://127.0.0.1:5000` on this PC) | `https://kwalify.net/api/auth/callback` |
+| **Self-hosted beta (your PC)** | `setup-self-host.bat` then `start.bat` | Your public URL + `/api/auth/callback` |
 | **Render (optional prod)** | `render.yaml` blueprint | Same redirect URI on public domain |
 | **Debug only** | `start-kwalify.bat local` → `http://localhost:5000` | Not supported (Spotify blocks localhost) |
 
@@ -59,8 +59,8 @@ CI nightly eval workflows target production `https://kwalify.net` on Render when
 ### Local setup (Windows — recommended)
 
 1. Read **[FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt)**
-2. Double-click **`start-kwalify.bat`** (or Desktop shortcut via `create-kwalify-shortcuts.bat`)
-3. Open **https://kwalify.net** in your browser
+2. Double-click **`start.bat`** (or Desktop shortcut via `create-kwalify-shortcuts.bat`)
+3. Open **https://kwalify.net** in your browser (or **http://127.0.0.1:5000** on this PC)
 
 Stop: **`stop-kwalify.bat`**
 
@@ -68,7 +68,7 @@ Spotify redirect URI (required): `https://kwalify.net/api/auth/callback`
 
 Flags (optional): `build` force rebuild, `nopull` skip git pull, `quick` skip restart if already running.
 
-**Benchmarks:** one file `start-kwalify-benchmark.bat` (Desktop: **Kwalify Benchmark**) — menu covers smoke, tiers, large run, status, and zip. See [FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt).
+**Benchmarks:** web control panel at **http://127.0.0.1:5000/benchmark** (or `start-kwalify-benchmark.bat` for CLI). See [FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt).
 
 ### Local setup (manual)
 
@@ -80,7 +80,7 @@ npm start
 
 Use Node **20.x** (see `.nvmrc`). Quick check: `npm run test:smoke`
 
-For HTTPS + Spotify locally on Windows, prefer `start-kwalify.bat` over raw `npm start` — see [docs/deployment.md](./docs/deployment.md).
+For HTTPS + Spotify locally on Windows, prefer **`start.bat`** over raw `npm start` — see [docs/deployment.md](./docs/deployment.md).
 
 Set `PORT` locally (default `5000`).
 
@@ -116,16 +116,15 @@ Use the same value for `SPOTIFY_REDIRECT_URI`. Custom domain setup: [CUSTOM_DOMA
 
 Attach PostgreSQL and set the environment variables above.
 
-**Health check:** `GET /api/healthz`
+**Health check:** `GET /api/readyz`
 
 ### Further docs
 
 - [FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt) — Windows local hosting (start/stop bats)
 - [docs/deployment.md](./docs/deployment.md) — local + Render deploy
 - [docs/environment-variables.md](./docs/environment-variables.md) — full env reference
-- [Genre intelligence](./docs/GENRE_INTELLIGENCE_STACK.md) — technical genre stack overview
-- [Genre taxonomy](./docs/GENRE_TAXONOMY.md) — backend genre taxonomy notes
-- [Scoring hybrid](./docs/SCORING_HYBRID.md) — backend scoring notes
+- [Playlist generation flow](./docs/playlist-generation-flow.md) — pipeline from prompt to playlist
+- [Semantic music intelligence](./docs/SEMANTIC_MUSIC_INTELLIGENCE.md) — scene, genre, and scoring stack
 
 ---
 

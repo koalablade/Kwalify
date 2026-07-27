@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0d0b1e" />
   <title>Kwalify Benchmark — History</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <style>
     :root { --bg: #0f0a1a; --card: #1a1228; --text: #f3e8ff; --muted: #c4b5fd; --accent: #a855f7; --ok: #4ade80; --bad: #f87171; --line: #3b2667; }
     body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 24px; max-width: 960px; }
@@ -44,8 +48,9 @@
 
   <script>
     const paths = [
-      '../../reports/benchmark-history.json',
+      '/api/benchmark/data/history',
       '/reports/benchmark-history.json',
+      '../../reports/benchmark-history.json',
       '../reports/benchmark-history.json',
     ];
 

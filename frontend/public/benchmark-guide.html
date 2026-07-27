@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0d0b1e" />
   <title>Kwalify Benchmark Guide</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <style>
     :root {
       --bg: #0f0a1a;
@@ -88,18 +92,18 @@
 </head>
 <body>
   <h1>Human Prompt Benchmark</h1>
-  <p class="sub">Foolproof flow — Desktop shortcuts or <code>start-kwalify-benchmark.bat</code></p>
+  <p class="sub">Foolproof flow — <code>start.bat</code> then <code>start-kwalify-benchmark.bat</code> or the web control panel</p>
 
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
       <strong>Start Kwalify</strong>
-      <p class="sub" style="margin:8px 0 0">Wait until the app is up</p>
+      <p class="sub" style="margin:8px 0 0">Double-click <code>start.bat</code></p>
     </div>
     <div class="step">
       <div class="step-num">2</div>
       <strong>Run Benchmark</strong>
-      <p class="sub" style="margin:8px 0 0">Pick size, then prompt set</p>
+      <p class="sub" style="margin:8px 0 0"><a href="/benchmark">Web control panel</a> or CLI menu</p>
     </div>
     <div class="step">
       <div class="step-num">3</div>
@@ -114,10 +118,11 @@
   </div>
 
   <div class="card">
-    <h2>Launcher (recommended)</h2>
-    <p class="sub">Double-click <strong>Run Benchmark</strong> on Desktop — opens a control panel with buttons + chat. No commands to remember.</p>
+    <h2>Web control panel (recommended)</h2>
+    <p class="sub">With <code>start.bat</code> running, open the benchmark page on <strong>this PC</strong> — buttons, chat, and live progress. Works even if the public tunnel is down.</p>
     <div class="btn-row">
-      <a class="btn rec" href="http://127.0.0.1:5055/" target="_blank">Open launcher</a>
+      <a class="btn rec" href="/benchmark">Open benchmark</a>
+      <a class="btn" href="http://127.0.0.1:5000/benchmark">Local URL</a>
     </div>
   </div>
 
@@ -233,7 +238,7 @@
     <p>Eval harness, golden reliability, 6h soak, difficulty tiers, full-mix presets, overnight — not the default human-only flow.</p>
   </div>
 
-  <p class="foot">Pin this page or open from the benchmark menu (<code>7</code> Guide). Desktop: Quick Check = smoke, Benchmark Results = reports folder.</p>
+  <p class="foot">Open from <a href="/benchmark">/benchmark</a> or the CLI menu (<code>7</code> Guide). Desktop shortcut <strong>Run Benchmark</strong> opens <code>http://127.0.0.1:5000/benchmark</code> on this PC.</p>
   <div class="toast" id="toast">Copied!</div>
   <script>
     document.querySelectorAll('.btn[data-cmd]').forEach((btn) => {

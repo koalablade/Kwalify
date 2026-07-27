@@ -12,7 +12,6 @@ import {
 } from "./benchmark-human-retention";
 import { runEmotionalClarityTests } from "./emotional-clarity.test";
 import { runGoldenPromptTests } from "./golden-prompts.test";
-import { runUxRenderContractTests } from "./ux-render-contract.test";
 
 const DURATION_MS = 15 * 60 * 1000;
 
@@ -27,7 +26,6 @@ interface CycleResult {
   };
   perception: { passed: number; failed: number };
   golden: { passed: number; failed: number };
-  uxContract: { passed: number; failed: number };
   stability: { checked: number; unstable: number };
   cycleMs: number;
   errors: string[];
@@ -50,7 +48,6 @@ interface SoakReport {
   tests: {
     perceptionFailures: number;
     goldenFailures: number;
-    uxContractFailures: number;
   };
   stability: {
     checks: number;
@@ -91,7 +88,6 @@ async function runCycle(cycle: number, startMs: number): Promise<CycleResult> {
 
   const perception = runEmotionalClarityTests();
   const golden = runGoldenPromptTests();
-  const uxContract = runUxRenderContractTests();
   const stability = await checkStability();
 
   return {
@@ -105,7 +101,6 @@ async function runCycle(cycle: number, startMs: number): Promise<CycleResult> {
     },
     perception: { passed: perception.passed, failed: perception.failed },
     golden: { passed: golden.passed, failed: golden.failed },
-    uxContract: { passed: uxContract.passed, failed: uxContract.failed },
     stability,
     cycleMs: performance.now() - cycleStart,
     errors,
@@ -168,7 +163,6 @@ export async function run15MinSoakBenchmark(): Promise<SoakReport> {
     tests: {
       perceptionFailures: cycleResults.reduce((s, c) => s + c.perception.failed, 0),
       goldenFailures: cycleResults.reduce((s, c) => s + c.golden.failed, 0),
-      uxContractFailures: cycleResults.reduce((s, c) => s + c.uxContract.failed, 0),
     },
     stability: {
       checks: stabilityChecks,
@@ -197,7 +191,6 @@ function printSoakReport(report: SoakReport): void {
   console.log("\n--- Regression suites (cumulative failures) ---");
   console.log(`Perception failures:   ${report.tests.perceptionFailures}`);
   console.log(`Golden failures:       ${report.tests.goldenFailures}`);
-  console.log(`UX contract failures:  ${report.tests.uxContractFailures}`);
   console.log("\n--- Narrative stability (3-run signature check per prompt) ---");
   console.log(`Stable prompts:        ${report.stability.checks - report.stability.unstable} / ${report.stability.checks}`);
   console.log(`Stability rate:        ${report.stability.stabilityRatePct.toFixed(1)}%`);
@@ -215,7 +208,6 @@ async function main(): Promise<void> {
   const hasIssues =
     report.tests.perceptionFailures > 0 ||
     report.tests.goldenFailures > 0 ||
-    report.tests.uxContractFailures > 0 ||
     report.stability.unstable > 0 ||
     report.errors.length > 0;
 

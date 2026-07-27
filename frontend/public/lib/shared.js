@@ -62,6 +62,21 @@ export function spi() {
   return spiBadge({ size: 16, fill: "currentColor", wrapClass: "" });
 }
 
+export function showToast(message, kind = "info") {
+  let el = document.getElementById("kwalifyToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "kwalifyToast";
+    el.className = "kwalify-toast";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.className = `kwalify-toast kwalify-toast--${kind} kwalify-toast--show`;
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => el.classList.remove("kwalify-toast--show"), 4200);
+}
+
 export function toggleTheme(opts = {}) {
   const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
   const next = current === "light" ? "dark" : "light";
